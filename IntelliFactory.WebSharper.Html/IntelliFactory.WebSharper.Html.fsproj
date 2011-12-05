@@ -1,0 +1,76 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <Name>IntelliFactory.WebSharper.Html</Name>
+    <RootNamespace>$(Name)</RootNamespace>
+    <AssemblyName>$(Name)</AssemblyName>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <Tailcalls>false</Tailcalls>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>bin\Debug\$(Name).XML</DocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>bin\Release\$(Name).XML</DocumentationFile>
+  </PropertyGroup>
+  <Import Project="..\build\IntelliFactory.WebSharper.targets" />
+  <ItemGroup>
+    <Compile Include="HtmlInterfaces.fs" />
+    <Compile Include="Text.fs" />
+    <Compile Include="Attribute.fs" />
+    <Compile Include="Element.fs" />
+    <Compile Include="Tag.fs" />
+    <Compile Include="Attr.fs" />
+    <Compile Include="Operators.fs" />
+    <Compile Include="Html.fs" />
+    <Compile Include="Events.fs" />
+    <Compile Include="Activator.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core" />
+    <Reference Include="System" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
+      <Name>IntelliFactory.WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Dom\IntelliFactory.WebSharper.Dom.fsproj">
+      <Name>IntelliFactory.WebSharper.Dom</Name>
+      <Project>{4382f3a7-126b-4bc6-988b-caa8c8a9b62f}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.JQuery\IntelliFactory.WebSharper.JQuery.fsproj">
+      <Name>IntelliFactory.WebSharper.JQuery</Name>
+      <Project>{730ae40a-001c-4137-972d-898dc7c2bf0a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
+      <Name>IntelliFactory.WebSharper</Name>
+      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

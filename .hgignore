@@ -1,0 +1,8 @@
+(bin|obj)/(Debug|Release)
+\.min\.js$
+\.suo$
+\.user$
+\~$
+^IntelliFactory.WebSharper.JQuery/.*\.js$
+^WebSharperTests/Scripts
+^build/vs11/packages

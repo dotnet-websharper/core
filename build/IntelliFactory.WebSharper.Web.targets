@@ -1,0 +1,79 @@
+<!--
+***********************************************************************************************
+IntelliFactory.WebSharper.Web.targets
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your projects from the command-line or the IDE.
+
+This file defines MSBuild targets used by IntelliFactory Platform for F# projects.
+
+This file is confidential and proprietary.
+
+Copyright (c) IntelliFactory, 2004-2011.
+
+All rights reserved.  Reproduction or use in whole or in part is
+prohibited without the written consent of the copyright holder.
+
+***********************************************************************************************
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <PropertyGroup>
+    <WEBSHARPER_HOME Condition="Exists('$(MSBuildProjectDirectory)\..\.build\lib\WebSharper.exe')">$(MSBuildProjectDirectory)\..\.build\lib</WEBSHARPER_HOME>
+    <WEBSHARPER_HOME Condition="Exists('$(MSBuildProjectDirectory)\..\WebSharper')">$(MSBuildProjectDirectory)\..\WebSharper\bin\$(Configuration)</WEBSHARPER_HOME>
+    <AssemblySearchPaths>
+      $(WEBSHARPER_HOME);
+      $(MSBuildProjectDirectory)\..\.build\lib;
+      $(AssemblySearchPaths);
+    </AssemblySearchPaths>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AllowedReferenceRelatedFileExtensions>
+      $(AllowedReferenceRelatedFileExtensions);
+      .dll.site
+    </AllowedReferenceRelatedFileExtensions>
+    <CleanDependsOn>$(CleanDependsOn);WebSharperWebClean</CleanDependsOn>
+    <PrepareForRunDependsOn>$(PrepareForRunDependsOn);WebSharperWebCompile</PrepareForRunDependsOn>
+    <WebSharperScriptsFolder Condition=" '$(WebSharperScriptsFolder)' == ''">$(MSBuildProjectDirectory)\Scripts</WebSharperScriptsFolder>
+    <WebSharperMarker>$(WebSharperScriptsFolder)\build.tmp</WebSharperMarker>
+  </PropertyGroup>
+
+  <Target Name="WebSharperDetermineBinaries">
+    <ItemGroup>
+      <WebSharperBinaries Include="$(OutputPath)\*.dll" />
+      <WebSharperBinaries Include="$(OutputPath)\*.js" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="WebSharperWebCompile"
+          Inputs="@(WebSharperBinaries)"
+          Outputs="$(WebSharperMarker)"
+          DependsOnTargets="WebSharperDetermineBinaries">
+    <MakeDir Directories="$(WebSharperScriptsFolder)" />
+    <PropertyGroup>
+      <WebSharperArgs>-unpack "$(WebSharperScriptsFolder)" @(WebSharperBinaries->'"%(FullPath)"',' ')</WebSharperArgs>
+    </PropertyGroup>
+    <Exec Command='"$(WEBSHARPER_HOME)\WebSharper.exe" $(WebSharperArgs)' />
+    <Touch Files="$(WebSharperMarker)" AlwaysCreate="true" />
+  </Target>
+
+  <Target Name="WebSharperWebClean">
+    <ItemGroup>
+      <WebSharperBinaries Include="$(OutputPath)\*.dll" />
+      <WebSharperBinaries Include="$(OutputPath)\*.js" />
+      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperScriptsFolder)\%(Filename).dll.js')" />
+      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperScriptsFolder)\%(Filename).dll.min.js')" />
+    </ItemGroup>
+    <Delete Files="@(WebSharperWebTargets)" />
+  </Target>
+
+  <ItemGroup Condition="Exists('$(WEBSHARPER_HOME)\LICENSE.rtf')">
+    <Reference Include="IntelliFactory.WebSharper.Collections" />
+    <Reference Include="IntelliFactory.WebSharper.Control" />
+    <Reference Include="IntelliFactory.WebSharper.Sitelets" />
+    <Reference Include="IntelliFactory.WebSharper.Web" />
+  </ItemGroup>
+
+</Project>

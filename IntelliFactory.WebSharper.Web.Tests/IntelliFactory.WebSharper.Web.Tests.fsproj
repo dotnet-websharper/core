@@ -1,0 +1,79 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{2605322f-851c-4c6a-a204-f4eee9e21252}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <Name>IntelliFactory.WebSharper.Web.Tests</Name>
+    <RootNamespace>$(Name)</RootNamespace>
+    <AssemblyName>$(Name)</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <Tailcalls>false</Tailcalls>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>bin\Debug\$(Name).XML</DocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>bin\Release\$(Name).XML</DocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Web" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Remoting.fs" />
+    <Compile Include="HelloWorld.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\IntelliFactory.Html\IntelliFactory.Html.fsproj">
+      <Name>IntelliFactory.Html</Name>
+      <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
+      <Name>IntelliFactory.WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Dom\IntelliFactory.WebSharper.Dom.fsproj">
+      <Name>IntelliFactory.WebSharper.Dom</Name>
+      <Project>{4382f3a7-126b-4bc6-988b-caa8c8a9b62f}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Html\IntelliFactory.WebSharper.Html.fsproj">
+      <Name>IntelliFactory.WebSharper.Html</Name>
+      <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Web\IntelliFactory.WebSharper.Web.fsproj">
+      <Name>IntelliFactory.WebSharper.Web</Name>
+      <Project>{fe6ba781-fdc9-4bb5-b38a-3bb9841ea836}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
+      <Name>IntelliFactory.WebSharper</Name>
+      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="..\build\IntelliFactory.WebSharper.targets" />
+</Project>

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+***********************************************************************************************
+IntelliFactory.WebSharper.InterfaceGenerator.targets
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your projects from the command-line or the IDE.
+
+This file defines the steps in the standard build process specific for IntelliFactory
+WebSharper InterfaceGenerator projects.
+
+Copyright (C) IntelliFactory. All rights reserved.
+***********************************************************************************************
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="IntelliFactory.WebSharper.targets" />
+
+  <PropertyGroup>
+    <CoreCompileDependsOn>WsIgPrepare;$(CoreCompileDependsOn);</CoreCompileDependsOn>
+    <WebSharperCompileDependsOn>WsIgCompile;$(WebSharperCompileDependsOn)</WebSharperCompileDependsOn>
+  </PropertyGroup>
+
+  <Target Name="WsIgPrepare" DependsOnTargets="WebSharperPrepare">
+    <PropertyGroup>
+      <Generator>$(OutputPath)Generator.exe</Generator>
+      <DebugType>none</DebugType>
+      <OutputType>exe</OutputType>
+    </PropertyGroup>
+    <ItemGroup>
+      <IntermediateAssembly Remove="@(IntermediateAssembly)" />
+      <IntermediateAssembly Include="$(Generator)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="WsIgCompile"
+          DependsOnTargets="WsIgPrepare"
+          Inputs="@(Compile);@(ReferencePath)"
+          Outputs="$(RawIntermediateAssembly)">
+    <ItemGroup>
+      <WsIgCscTool Include="$(SystemRoot)\Microsoft.NET\Framework\$(TargetFrameworkVersion)*\Csc.exe" />
+    </ItemGroup>
+    <PropertyGroup>
+      <WsIgCscToolPath>@(WsIgCscTool->'%(RootDir)%(Directory)')</WsIgCscToolPath>
+    </PropertyGroup>
+    <ItemGroup>
+      <WsIgReferences Include="@(ReferencePath)"
+        Condition="'%(ReferencePath.Filename)' != 'System'
+       and '%(ReferencePath.Filename)' != 'System.Core'
+       and '%(ReferencePath.Filename)' != 'mscorlib'
+       and '%(ReferencePath.Filename)' != 'System.Web'" />
+      <WsIgSelf
+        Include="@(ReferencePath)"
+        Condition="'%(ReferencePath.Filename)' == 'IntelliFactory.WebSharper.InterfaceGenerator'" />
+      <WsIgSources Include="$(OutputPath)\Generated.cs" />
+      <WsIgSources Include="@(None);@(Compile)" Condition="'%(Extension)' == '.cs'" />
+      <WsIgSources Include="$(MSBuildProjectDirectory)\..\.build\AutoAssemblyInfo.cs"
+                   Condition="Exists('$(MSBuildProjectDirectory)\..\.build\AutoAssemblyInfo.cs')" />
+      <WsIgConfig Include="$(WEBSHARPER_HOME)\Generator.*.config"/>
+      <WsIgConfig Include="$(MSBuildProjectDirectory)\..\if-ws-ig\Generator.*.config"/>
+    </ItemGroup>
+    <Copy SourceFiles="@(ReferencePath);@(WsIgSelf);@(WsIgConfig)"
+          DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    <Exec Command="Generator.exe &gt; Generated.cs" WorkingDirectory="$(OutputPath)" />
+    <Csc TargetType="Library"
+         References="@(WsIgReferences)"
+         OutputAssembly="$(RawIntermediateAssembly)"
+         Resources="@(EmbeddedResource)"
+         KeyFile="$(KeyOriginatorFile)"
+         ToolPath="$(WsIgCscToolPath)"
+         Sources="@(WsIgSources)"
+         DebugType="pdbonly" />
+  </Target>
+
+  <ItemGroup Condition="Exists('$(WEBSHARPER_HOME)\LICENSE.rtf')">
+    <Reference Include="IntelliFactory.WebSharper.InterfaceGenerator" />
+  </ItemGroup>
+
+</Project>

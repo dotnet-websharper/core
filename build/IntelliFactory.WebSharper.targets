@@ -1,0 +1,102 @@
+﻿<!--
+// $begin{copyright}
+// 
+// This file is part of WebSharper
+// 
+// Copyright (c) 2008-2011 IntelliFactory
+// 
+// GNU Affero General Public License Usage
+// WebSharper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU Affero General Public License, version 3, as published
+// by the Free Software Foundation.
+//
+// WebSharper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License
+// for more details at <http://www.gnu.org/licenses/>.
+//
+// If you are unsure which license is appropriate for your use, please contact
+// IntelliFactory at http://intellifactory.com/contact.
+//
+// $end{copyright}
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">  
+  <Import Project="IntelliFactory.FSharp.targets" />
+
+  <PropertyGroup>
+    <WEBSHARPER_HOME Condition="Exists('$(MSBuildProjectDirectory)\..\.build\lib\WebSharper.exe')">$(MSBuildProjectDirectory)\..\.build\lib</WEBSHARPER_HOME>
+    <WEBSHARPER_HOME Condition="Exists('$(MSBuildProjectDirectory)\..\WebSharper')">$(MSBuildProjectDirectory)\..\WebSharper\bin\$(Configuration)</WEBSHARPER_HOME>
+    <AssemblySearchPaths>
+      $(AssemblySearchPaths);
+      $(MSBuildProjectDirectory)\..\.build\lib;
+      $(WEBSHARPER_HOME)
+    </AssemblySearchPaths>
+    <CleanDependsOn>$(CleanDependsOn);WebSharperClean</CleanDependsOn>
+    <CompileDependsOn>$(CompileDependsOn);WebSharperCompile</CompileDependsOn>
+    <CoreCompileDependsOn>WebSharperPrepare;$(CoreCompileDependsOn)</CoreCompileDependsOn>
+    <WebSharperCompileDependsOn>WebSharperPrepare</WebSharperCompileDependsOn>
+  </PropertyGroup>
+
+  <Target Name="WebSharperPrepare">
+    <PropertyGroup>
+      <RawFolder>$(MSBuildProjectDirectory)\obj\$(Configuration)\Raw</RawFolder>
+      <RawIntermediateAssembly>$(RawFolder)\@(IntermediateAssembly->'%(Filename)%(Extension)')</RawIntermediateAssembly>
+      <ProcessedIntermediateAssembly>@(IntermediateAssembly->'%(FullPath)')</ProcessedIntermediateAssembly>
+    </PropertyGroup>
+    <MakeDir Directories="$(RawFolder)" />
+    <ItemGroup>
+      <IntermediateAssembly Remove="@(IntermediateAssembly)" />
+      <IntermediateAssembly Include="$(RawIntermediateAssembly)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="WebSharperCompile"
+          DependsOnTargets="$(WebSharperCompileDependsOn)"
+          Inputs="$(RawIntermediateAssembly)"
+          Outputs="$(ProcessedIntermediateAssembly)">
+    <PropertyGroup>
+      <WebSharperKey Condition="'$(KeyOriginatorFile)'==''"></WebSharperKey>
+      <WebSharperKey Condition="'$(KeyOriginatorFile)'!=''">-snk "$(KeyOriginatorFile)"</WebSharperKey>
+      <WebSharperRefs>@(ReferencePath->'-r "%(FullPath)"',' ')</WebSharperRefs>
+      <WebSharperArgs>$(WebSharperRefs) $(WebSharperKey) "$(RawIntermediateAssembly)" "$(ProcessedIntermediateAssembly)"</WebSharperArgs>
+    </PropertyGroup>
+    <Exec Command="&quot;$(WEBSHARPER_HOME)\WebSharper.exe&quot; $(WebSharperArgs)"
+          Condition="Exists('$(RawIntermediateAssembly)')"
+          />
+    <ItemGroup>
+      <IntermediateAssembly Remove="@(IntermediateAssembly)" />
+      <IntermediateAssembly Include="$(ProcessedIntermediateAssembly)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="WebSharperClean">
+    <ItemGroup>
+      <GeneratedFiles Include="$(OutputPath)\**\*.*"
+                      Exclude="$(OutputPath)\**\*.xml" />
+      <GeneratedFiles Include="obj\$(Configuration)\**\*.*"
+                      Exclude="obj\$(Configuration)\**\*.xml" />
+    </ItemGroup>
+    <Delete Files="@(GeneratedFiles)" />
+  </Target>
+
+  <ItemGroup Condition="Exists('$(WEBSHARPER_HOME)\LICENSE.rtf')">
+    <Reference Include="IntelliFactory.Formlet" />
+    <Reference Include="IntelliFactory.Html" />
+    <Reference Include="IntelliFactory.JavaScript" />
+    <Reference Include="IntelliFactory.Reactive" />
+    <Reference Include="IntelliFactory.WebSharper" />
+    <Reference Include="IntelliFactory.WebSharper.Collections" />
+    <Reference Include="IntelliFactory.WebSharper.Control" />
+    <Reference Include="IntelliFactory.WebSharper.Core" />
+    <Reference Include="IntelliFactory.WebSharper.Dom" />
+    <Reference Include="IntelliFactory.WebSharper.Ecma" />
+    <Reference Include="IntelliFactory.WebSharper.Formlet" />
+    <Reference Include="IntelliFactory.WebSharper.Html" />
+    <Reference Include="IntelliFactory.WebSharper.Html5" />
+    <Reference Include="IntelliFactory.WebSharper.JQuery" />
+    <Reference Include="IntelliFactory.WebSharper.Sitelets" />
+    <Reference Include="IntelliFactory.WebSharper.Testing" />
+    <Reference Include="IntelliFactory.WebSharper.Web" />
+  </ItemGroup>
+
+</Project>

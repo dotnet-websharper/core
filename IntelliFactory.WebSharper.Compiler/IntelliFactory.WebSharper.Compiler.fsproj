@@ -1,0 +1,89 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{bfb21b61-fda9-4814-a728-7d43038e0b57}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <Name>IntelliFactory.WebSharper.Compiler</Name>
+    <RootNamespace>$(Name)</RootNamespace>
+    <AssemblyName>$(Name)</AssemblyName>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>bin\Debug\$(Name).XML</DocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>bin\Release\$(Name).XML</DocumentationFile>
+  </PropertyGroup>
+  <Import Project="..\build\IntelliFactory.FSharp.targets" />
+  <ItemGroup>
+    <Compile Include="Compiler.fsi" />
+    <Compile Include="Compiler.fs" />
+    <Compile Include="Adapter.fsi" />
+    <Compile Include="Adapter.fs" />
+    <Compile Include="Locator.fsi" />
+    <Compile Include="Locator.fs" />
+    <Compile Include="Reflector.fsi" />
+    <Compile Include="Reflector.fs" />
+    <Compile Include="Resolver.fsi" />
+    <Compile Include="Resolver.fs" />
+    <Compile Include="Corrector.fsi" />
+    <Compile Include="Corrector.fs" />
+    <Compile Include="Inlining.fsi" />
+    <Compile Include="Inlining.fs" />
+    <Compile Include="Verifier.fsi" />
+    <Compile Include="Verifier.fs" />
+    <Compile Include="Validator.fsi" />
+    <Compile Include="Validator.fs" />
+    <Compile Include="Graphs.fsi" />
+    <Compile Include="Graphs.fs" />
+    <Compile Include="Analyzer.fsi" />
+    <Compile Include="Analyzer.fs" />
+    <Compile Include="Metadata.fsi" />
+    <Compile Include="Metadata.fs" />
+    <Compile Include="Translator.fsi" />
+    <Compile Include="Translator.fs" />
+    <Compile Include="Assembler.fsi" />
+    <Compile Include="Assembler.fs" />
+    <Compile Include="FrontEnd.fsi" />
+    <Compile Include="FrontEnd.fs" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="FSharp.Core" />
+    <Reference Include="Mono.Cecil" />
+    <Reference Include="Mono.Cecil.Mdb" />
+    <Reference Include="Mono.Cecil.Pdb" />
+    <Reference Include="Mono.Cecil.Rocks" />
+    <Reference Include="mscorlib" />
+    <Reference Include="System" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
+      <Name>IntelliFactory.JavaScript</Name>
+      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
+      <Name>IntelliFactory.WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+</Project>
