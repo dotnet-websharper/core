@@ -1,13 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{730ae40a-001c-4137-972d-898dc7c2bf0a}</ProjectGuid>
+    <ProjectGuid>{666977bf-e022-4c8f-b53d-5d294d41010f}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <Name>IntelliFactory.WebSharper.JQuery</Name>
+    <Name>IntelliFactory.WebSharper.Control</Name>
     <RootNamespace>$(Name)</RootNamespace>
     <AssemblyName>$(Name)</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
@@ -32,35 +32,29 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Release\$(Name).XML</DocumentationFile>
   </PropertyGroup>
-  <Import Project="..\build\IntelliFactory.WebSharper.InterfaceGenerator.targets" />
+  <Import Project="..\build\IntelliFactory.WebSharper.targets" />
   <ItemGroup>
-    <Compile Include="Definition.fs" />
-    <Compile Include="Main.fs" />
-    <None Include="Resources.cs" />
-    <None Include="Marker.cs" />
-    <EmbeddedResource Include="jquery-1.6.1.min.js" />
-    <EmbeddedResource Include="jquery-1.6.1.js" />
+    <Compile Include="Disposable.fs" />
+    <Compile Include="Observer.fs" />
+    <Compile Include="HotStream.fs" />
+    <Compile Include="IObserverProxy.fs" />
+    <Compile Include="IObservableProxy.fs" />
+    <Compile Include="Observable.fs" />
+    <Compile Include="ObservableModule.fs" />
+    <Compile Include="Event.fs" />
+    <Compile Include="FSharpEvent.fs" />
+    <Compile Include="EventModule.fs" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core" />
     <Reference Include="System" />
-    <Reference Include="mscorlib" />
-    <Reference Include="System.Web" />
+    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
       <Name>IntelliFactory.WebSharper.Core</Name>
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Dom\IntelliFactory.WebSharper.Dom.fsproj">
-      <Name>IntelliFactory.WebSharper.Dom</Name>
-      <Project>{4382f3a7-126b-4bc6-988b-caa8c8a9b62f}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.InterfaceGenerator\IntelliFactory.WebSharper.InterfaceGenerator.fsproj">
-      <Name>IntelliFactory.WebSharper.InterfaceGenerator</Name>
-      <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
@@ -69,13 +63,4 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-  <Target Name="BeforeBuild" Condition="!Exists('jquery-1.6.1.js')">
-    <MSBuild.ExtensionPack.Web.WebClient
-      TaskAction="DownloadFile"
-	    Url="http://code.jquery.com/jquery-1.6.1.js"
-	    FileName="jquery-1.6.1.js" />
-    <AjaxMin JsSourceFiles="jquery-1.6.1.js"
-	     JsSourceExtensionPattern="\.js$"
-	     JsTargetExtension=".min.js" />
-  </Target>
 </Project>

@@ -1,21 +1,24 @@
 <!--
-***********************************************************************************************
-IntelliFactory.WebSharper.Web.targets
-
-WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
-          created a backup copy.  Incorrect changes to this file will make it
-          impossible to load or build your projects from the command-line or the IDE.
-
-This file defines MSBuild targets used by IntelliFactory Platform for F# projects.
-
-This file is confidential and proprietary.
-
-Copyright (c) IntelliFactory, 2004-2011.
-
-All rights reserved.  Reproduction or use in whole or in part is
-prohibited without the written consent of the copyright holder.
-
-***********************************************************************************************
+// $begin{copyright}
+// 
+// This file is part of WebSharper
+// 
+// Copyright (c) 2008-2011 IntelliFactory
+// 
+// GNU Affero General Public License Usage
+// WebSharper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU Affero General Public License, version 3, as published
+// by the Free Software Foundation.
+//
+// WebSharper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License
+// for more details at <http://www.gnu.org/licenses/>.
+//
+// If you are unsure which license is appropriate for your use, please contact
+// IntelliFactory at http://intellifactory.com/contact.
+//
+// $end{copyright}
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
