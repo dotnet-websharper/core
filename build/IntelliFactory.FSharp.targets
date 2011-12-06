@@ -22,38 +22,34 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <FSharpImport>false</FSharpImport>
     <FSharpTargets1>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargets1>
     <FSharpTargets2>$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets</FSharpTargets2>
     <FSharpTargets3>$(MSBuildExtensionsPath32)\FSharp\1.0\Microsoft.FSharp.Targets</FSharpTargets3>
+    <AjaxMinTargets1>..\.build\lib\AjaxMin.tasks</AjaxMinTargets1>
+    <AjaxMinTargets2>$(MSBuildExtensionsPath32)\Microsoft\MicrosoftAjax\AjaxMin.tasks</AjaxMinTargets2>
   </PropertyGroup>
-  <Import Project="$(FSharpTargets1)" Condition="!$(FSharpImport) AND Exists('$(FSharpTargets1)')" />
-  <PropertyGroup Condition="!$(FSharpImport) AND Exists('$(FSharpTargets1)')">
-    <FSharpImport>true</FSharpImport>
-  </PropertyGroup>
-  <Import Project="$(FSharpTargets2)" Condition="!$(FSharpImport) AND Exists('$(FSharpTargets2)')" />
-  <PropertyGroup Condition="!$(FSharpImport) AND Exists('$(FSharpTargets2)')">
-    <FSharpImport>true</FSharpImport>
-  </PropertyGroup>
-  <Import Project="$(FSharpTargets3)" Condition="!$(FSharpImport) AND Exists('$(FSharpTargets3)')" />
-  <PropertyGroup Condition="!$(FSharpImport) AND Exists('$(FSharpTargets3)')">
-    <FSharpImport>true</FSharpImport>
-  </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\MicrosoftAjax\AjaxMin.tasks" />
+  <Import Project="$(FSharpTargets1)" Condition="Exists('$(FSharpTargets1)')" />
+  <Import Project="$(FSharpTargets2)" Condition="Exists('$(FSharpTargets2)') AND !Exists('$(FSharpTargets1)')" />
+  <Import Project="$(FSharpTargets3)" Condition="Exists('$(FSharpTargets3)') AND !Exists('$(FSharpTargets1)') AND !Exists('$(FSharpTargets2)')" />
+  <Import Project="$(AjaxMinTargets1)" Condition="Exists('$(AjaxMinTargets1)')" />
+  <Import Project="$(AjaxMinTargets2)" Condition="Exists('$(AjaxMinTargets2)') AND !Exists('$(AjaxMinTargets1)')" />
   <Import Project="$(MSBuildExtensionsPath32)\ExtensionPack\4.0\MSBuild.ExtensionPack.tasks" />
   <PropertyGroup>
-    <KeyOriginatorFile>$(MSBuildThisFileDirectory)\WebSharper.snk</KeyOriginatorFile>
+    <WebSharperKeyFile>$(MSBuildThisFileDirectory)\WebSharper.snk</WebSharperKeyFile>
+    <KeyOriginatorFile Condition="Exists('$(WebSharperKeyFile)')">$(WebSharperKeyFile)</KeyOriginatorFile>
     <AssemblySearchPaths>
       $(MSBuildThisFileDirectory)\vs11\packages\Mono.Cecil.0.9.5.2\lib\net35\.;
       $(MSBuildThisFileDirectory)\vs10\packages\Mono.Cecil.0.9.5.2\lib\net35\.;
       $(MSBuildProjectDirectory)\..\.build\lib;
       $(AssemblySearchPaths)
     </AssemblySearchPaths>
+    <AssemblyInfo1>..\.build\AutoAssemblyInfo.fs</AssemblyInfo1>
+    <AssemblyInfo2>$(MSBuildThisFileDirectory)\AssemblyInfo.fs</AssemblyInfo2>
   </PropertyGroup>
-  <ItemGroup Condition="Exists('..\.build\AutoAssemblyInfo.fs')">
-    <Compile Include="..\.build\AutoAssemblyInfo.fs" />
+  <ItemGroup Condition="Exists('$(AssemblyInfo1)')">
+    <Compile Include="$(AssemblyInfo1)" />
   </ItemGroup>
-  <ItemGroup Condition="!Exists('..\.build\AutoAssemblyInfo.fs')">
-    <Compile Include="$(MSBuildThisFileDirectory)\AssemblyInfo.fs" />
+  <ItemGroup Condition="Exists('$(AssemblyInfo2)') AND !Exists('$(AssemblyInfo1)')">
+    <Compile Include="$(AssemblyInfo2)" />
   </ItemGroup>
 </Project>
