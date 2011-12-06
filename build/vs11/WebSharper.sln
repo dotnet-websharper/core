@@ -12,6 +12,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{BC76F2F0
 		..\IntelliFactory.WebSharper.targets = ..\IntelliFactory.WebSharper.targets
 		..\LICENSE.txt = ..\LICENSE.txt
 		..\UpdateLicense.fsx = ..\UpdateLicense.fsx
+		..\WebSharper.snk = ..\WebSharper.snk
 	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.JavaScript.Test", "..\..\IntelliFactory.JavaScript.Tests\IntelliFactory.JavaScript.Test.fsproj", "{198AC342-E6F2-4612-813C-905B81E5471D}"

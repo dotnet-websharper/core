@@ -45,6 +45,7 @@
     <KeyOriginatorFile>$(MSBuildThisFileDirectory)\WebSharper.snk</KeyOriginatorFile>
     <AssemblySearchPaths>
       $(MSBuildThisFileDirectory)\vs11\packages\Mono.Cecil.0.9.5.2\lib\net35\.;
+      $(MSBuildThisFileDirectory)\vs10\packages\Mono.Cecil.0.9.5.2\lib\net35\.;
       $(AssemblySearchPaths)
     </AssemblySearchPaths>
   </PropertyGroup>
