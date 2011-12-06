@@ -1,0 +1,80 @@
+<!--
+// $begin{copyright}
+// 
+// This file is part of WebSharper
+// 
+// Copyright (c) 2008-2011 IntelliFactory
+// 
+// GNU Affero General Public License Usage
+// WebSharper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU Affero General Public License, version 3, as published
+// by the Free Software Foundation.
+//
+// WebSharper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License
+// for more details at <http://www.gnu.org/licenses/>.
+//
+// If you are unsure which license is appropriate for your use, please contact
+// IntelliFactory at http://intellifactory.com/contact.
+//
+// $end{copyright}
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <PropertyGroup>
+    <IvyDir>$(MSBuildProjectDirectory)\..\.build\lib</IvyDir>
+    <HasIvy Condition="Exists('$(IvyDir)\IntelliFactory.WebSharper.dll')">true</HasIvy>
+    <HasIvy Condition="!Exists('$(IvyDir)\IntelliFactory.WebSharper.dll')">false</HasIvy>
+  </PropertyGroup>
+
+  <Import Project="$(IvyDir)\IntelliFactory.WebSharper.targets" Condition="$(HasIvy)" />
+  <UsingTask AssemblyFile="$(IvyDir)\IntelliFactory.WebSharper.Sitelets.Build.dll"
+             TaskName="IntelliFactory.WebSharper.Sitelets.Build.BuildPageTemplates"
+             Condition="$(HasIvy)" />
+
+  <Import Project="$(WEBSHARPER_HOME)\IntelliFactory.WebSharper.targets" Condition="!$(HasIvy)" />
+  <UsingTask AssemblyFile="$(WEBSHARPER_HOME)\IntelliFactory.WebSharper.Sitelets.Build.dll"
+             TaskName="IntelliFactory.WebSharper.Sitelets.Build.BuildPageTemplates"
+             Condition="!$(HasIvy)" />
+
+  <PropertyGroup>
+    <BuildDependsOn>$(BuildDependsOn);SiteletsGenerate</BuildDependsOn>
+    <CleanDependsOn>$(CleanDependsOn);SiteletsClean</CleanDependsOn>
+    <CompileDependsOn>SiteletsPrepare;$(CompileDependsOn)</CompileDependsOn>
+  </PropertyGroup>
+
+  <Target Name="SiteletsPrepare">
+    <BuildPageTemplates Source="@(Compile)" Namespace="$(RootNamespace)">
+      <Output TaskParameter="Output" ItemName="Compile_" />
+    </BuildPageTemplates>
+    <ItemGroup>
+      <Compile Remove="@(Compile)" />
+      <Compile Include="@(Compile_)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="SiteletsGenerate" Condition="'$(WebSharperSiteletsOfflineDirectory)' != ''">
+    <PropertyGroup>
+      <Args>-source "."</Args>
+      <Args>$(Args) -mode "$(Configuration)"</Args>
+      <Args>$(Args) -source "$(WEBSHARPER_HOME)\."</Args>
+      <Args>$(Args) -out "$(WebSharperSiteletsOfflineDirectory)\."</Args>
+      <Args>$(Args) -site "$(TargetPath)"</Args>
+    </PropertyGroup>
+    <Exec Command='"$(WEBSHARPER_HOME)\wsol.exe" $(Args)' WorkingDirectory="$(OutDir)" />
+  </Target>
+
+  <Target Name="SiteletsClean">
+    <RemoveDir Directories="$(WebSharperSiteletsOfflineDirectory)" />
+  </Target>
+
+  <PropertyGroup Condition="'$(WebSharperSiteletsOfflineDirectory)' != ''">
+    <StartAction>Program</StartAction>
+    <StartWorkingDirectory>$(WebSharperSiteletsOfflineDirectory)</StartWorkingDirectory>
+    <StartArguments>
+      $(WebSharperSiteletsOfflineDirectory)
+    </StartArguments>
+    <StartProgram>$(windir)\explorer.exe</StartProgram>
+  </PropertyGroup>
+</Project>

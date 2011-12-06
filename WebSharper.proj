@@ -10,4 +10,3 @@
     <MSBuild Projects="@(Projects)" Targets="Clean" />  
   </Target>
 </Project>
-
