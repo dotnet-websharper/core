@@ -109,4 +109,9 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-</Project>
+  <Target Name="BeforeBuild" Inputs="Json.js" Outputs="Json.min.js">
+    <AjaxMin JsSourceFiles="Json.js"
+	    JsSourceExtensionPattern="\.js$"
+	    JsTargetExtension=".min.js" />
+  </Target>
+ </Project>
