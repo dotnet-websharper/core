@@ -85,4 +85,7 @@
     <artifact name="IntelliFactory.WebSharper.Sitelets" ext="targets" type="build" />
     <artifact name="IntelliFactory.WebSharper.Web" ext="targets" type="build" />
   </publications>
+  <dependencies>
+    <dependency org="mono-project.com" name="cecil" branch="net-2.0" rev="latest.integration" />
+  </dependencies>
 </ivy-module>

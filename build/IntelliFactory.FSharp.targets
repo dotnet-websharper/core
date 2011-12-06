@@ -46,10 +46,14 @@
     <AssemblySearchPaths>
       $(MSBuildThisFileDirectory)\vs11\packages\Mono.Cecil.0.9.5.2\lib\net35\.;
       $(MSBuildThisFileDirectory)\vs10\packages\Mono.Cecil.0.9.5.2\lib\net35\.;
+      $(MSBuildProjectDirectory)\..\.build\lib;
       $(AssemblySearchPaths)
     </AssemblySearchPaths>
   </PropertyGroup>
-  <ItemGroup>
+  <ItemGroup Condition="Exists('..\.build\AutoAssemblyInfo.fs')">
+    <Compile Include="..\.build\AutoAssemblyInfo.fs" />
+  </ItemGroup>
+  <ItemGroup Condition="!Exists('..\.build\AutoAssemblyInfo.fs')">
     <Compile Include="$(MSBuildThisFileDirectory)\AssemblyInfo.fs" />
   </ItemGroup>
 </Project>
