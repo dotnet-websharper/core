@@ -67,6 +67,14 @@
     <Folder Include="Properties\" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Collections\IntelliFactory.WebSharper.Collections.fsproj">
+      <Project>{4EF94364-B50F-4906-AB91-77BCA8413D60}</Project>
+      <Name>IntelliFactory.WebSharper.Collections</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Control\IntelliFactory.WebSharper.Control.fsproj">
+      <Project>{666977BF-E022-4C8F-B53D-5D294D41010F}</Project>
+      <Name>IntelliFactory.WebSharper.Control</Name>
+    </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper.Testing\IntelliFactory.WebSharper.Testing.fsproj">
       <Project>{A7F7A74B-D0EE-4918-8A54-280FC7D2A30C}</Project>
       <Name>IntelliFactory.WebSharper.Testing</Name>
@@ -79,7 +87,7 @@
       <Project>{2605322F-851C-4C6A-A204-F4EEE9E21252}</Project>
       <Name>IntelliFactory.WebSharper.Web.Tests</Name>
     </ProjectReference>
-    <ProjectReference Include="..\if-ws-web\IntelliFactory.WebSharper.Web.fsproj">
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Web\IntelliFactory.WebSharper.Web.fsproj">
       <Project>{FE6BA781-FDC9-4BB5-B38A-3BB9841EA836}</Project>
       <Name>IntelliFactory.WebSharper.Web</Name>
     </ProjectReference>

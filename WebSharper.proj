@@ -1,0 +1,13 @@
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Projects Include="*/*.fsproj" />
+    <Projects Include="*/*.csproj" />
+  </ItemGroup>
+  <Target Name="Build">
+    <MSBuild Projects="@(Projects)" />
+  </Target>
+  <Target Name="Clean">
+    <MSBuild Projects="@(Projects)" Targets="Clean" />  
+  </Target>
+</Project>
+
