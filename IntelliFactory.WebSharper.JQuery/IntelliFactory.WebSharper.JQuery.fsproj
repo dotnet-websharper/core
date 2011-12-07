@@ -12,6 +12,7 @@
     <AssemblyName>$(Name)</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <TargetFrameworkProfile />
+    <JQueryVersion>1.7.1</JQueryVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -38,8 +39,8 @@
     <Compile Include="Main.fs" />
     <None Include="Resources.cs" />
     <None Include="Marker.cs" />
-    <EmbeddedResource Include="jquery-1.6.1.min.js" />
-    <EmbeddedResource Include="jquery-1.6.1.js" />
+    <EmbeddedResource Include="jquery-$(JQueryVersion).min.js" />
+    <EmbeddedResource Include="jquery-$(JQueryVersion).js" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core" />
@@ -69,13 +70,13 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-  <Target Name="BeforeBuild" Condition="!Exists('jquery-1.6.1.js')">
+  <Target Name="BeforeBuild" Condition="!Exists('jquery-$(JQueryVersion).js')">
     <MSBuild.ExtensionPack.Web.WebClient
       TaskAction="DownloadFile"
-	    Url="http://code.jquery.com/jquery-1.6.1.js"
-	    FileName="jquery-1.6.1.js" />
-    <AjaxMin JsSourceFiles="jquery-1.6.1.js"
-	     JsSourceExtensionPattern="\.js$"
-	     JsTargetExtension=".min.js" />
+      Url="http://code.jquery.com/jquery-$(JQueryVersion).js"
+      FileName="jquery-$(JQueryVersion).js" />
+    <AjaxMin JsSourceFiles="jquery-$(JQueryVersion).js"
+      JsSourceExtensionPattern="\.js$"
+      JsTargetExtension=".min.js" />
   </Target>
 </Project>

@@ -20,6 +20,7 @@ module JQuery =
         |+> Protocol
                 [
                     "currentTarget" =? T<Element>
+                    "delegateTarget" => T<Element>
                     "data" =? T<obj>
                     "isDefaultPrevented" =?  T<unit->bool>
                     "isImmediatePropagationStopped" =? T<unit->bool>
@@ -202,6 +203,10 @@ module JQuery =
             "interval" =@ T<int>
         ]
 
+    let DeferredState =
+        Pattern.EnumStrings "DeferredState"
+            ["pending"; "resolved"; "rejected"]
+
     let Deferred, Promise =
         
         let promiseDeferredCallbacks =
@@ -228,12 +233,21 @@ module JQuery =
             let Deferred = Class "jQuery.Deferred"
             let mems : list<CodeModel.Member> =
                 [
-                    // It actually returns the same type. Not sure how to express it.
                     "resolve" => !+ T<obj> ^-> Deferred 
                     "resolveWith" => (T<obj>?context *+ T<obj>) ^-> Deferred
                     "reject" => !+ T<obj> ^-> Deferred 
                     "rejectWith" => (T<obj>?context *+ T<obj>) ^-> Deferred
                     "promise" => T<unit> ^-> PromiseClass
+                    "notify" => !+ T<obj> ^-> T<unit>
+                    "notifyWith" => T<obj> *+ T<obj> ^-> T<unit>
+                    "pipe" => !? T<obj->bool>?doneFilter
+                              * !? T<obj->bool>?failFilter
+                              * !? T<obj->bool>?progressFilter ^-> Deferred
+                    "progress" => (T<obj->unit> + T<(obj->unit)[]>) ^-> T<unit>
+                    "state" => DeferredState
+                    "then" => !? T<obj->bool>?doneFilter
+                              * !? T<obj->bool>?failFilter
+                              * !? T<obj->bool>?progressFilter ^-> Deferred
                 ]
             Deferred
             |+> [Constructor T<unit>]
@@ -693,6 +707,7 @@ module JQuery =
                 "removeClass" => T<string> ^-> JQ
 
                 "removeData" => !?T<string> ^-> JQ
+                "removeData" => T<string[]> ^-> JQ
 
                 "replaceAll" => !?T<string> ^-> JQ
 
@@ -737,6 +752,7 @@ module JQuery =
                 "slideUp" => IntString * T<string>?easing * !?UnitCallback ^-> JQ
 
                 "stop" => !?T<bool> * !?T<bool> ^-> JQ
+                "stop" => T<string> * !?T<bool> * !?T<bool> ^-> JQ
 
                 "submit" => !?EventHandler ^-> JQ
                 "submit" => StringMap?data * !?EventHandler ^-> JQ
@@ -782,6 +798,18 @@ module JQuery =
 
                 "wrapInner" => Content ^-> JQ
                 "wrapInner" => (T<unit> ^-> T<string>) ^-> JQ
+
+                "on" =>
+                    T<string>?events
+                    * !?T<string>?selector
+                    * !?T<obj>?data
+                    * T<obj->bool>?handler ^-> T<unit>
+
+                "off" =>
+                    T<string>?events
+                    * !?T<string>?selector
+                    * !?T<obj->bool>?handler ^-> T<unit>
+
             ]
         |+> [
                 "of" => T<string>?selector ^-> JQ
@@ -880,8 +908,10 @@ module JQuery =
 
                 "isWindow" => T<obj> ^-> T<bool>
                 |> WithComment "This is used in a number of places in jQuery to determine if we're operating against a browser window (such as the current window or an iframe)."
-                
+
                 "isArray" => T<obj->bool>
+
+                "isNumeric" => T<obj->bool>
 
                 "isEmptyObject" => T<obj> ^-> T<bool>
 
@@ -929,7 +959,8 @@ module JQuery =
                     T<Element> * !?T<string>?queueName *
                     !?(T<unit->unit> + T<(unit->unit)[]>)?callback ^-> T<int>
 
-                "removeData" => T<Element> * !?T<string>?name ^-> T<unit>
+                "removeData" =>
+                    T<Element> * !?T<string>?name ^-> T<unit>
 
                 // TODO!!!
                 // "support" =? Support
@@ -942,6 +973,30 @@ module JQuery =
                     Type.ArrayOf T<Element> ^-> Type.ArrayOf T<Element>
             ]
 
+    let Callbacks =
+        Class "jQuery.Callbacks"
+        |+> Protocol
+            [
+                "add" => T<(unit->unit)->unit>
+                "add" => T<(unit->unit)[]->unit>
+                "remove" => T<(unit->unit)->unit>
+                "remove" => T<(unit->unit)[]->unit>
+                "disable" => T<unit->unit>
+                "empty" => T<unit->unit>
+                "fire" => !+T<obj> ^-> T<unit>
+                "fired" => T<unit->bool>
+                "fireWith" => T<obj> *+ T<obj> ^-> T<unit>
+                "has" => T<obj->bool>
+                "lock" => T<unit->unit>
+                "locked" => T<unit->bool>
+            ]
+        |+> [
+                Constructor T<unit>
+                |> WithInline "jQuery.Callbacks()"
+                Constructor T<string>
+                |> WithInline "jQuery.Callbacks($0)"
+            ]
+
     let Assembly =
         Assembly [
             Namespace "IntelliFactory.WebSharper.JQuery" [
@@ -949,6 +1004,7 @@ module JQuery =
                  DataTypeClass
                  Promise
                  Deferred
+                 DeferredState
                  JqXHR
                  SupportClass
                  PositionClass
