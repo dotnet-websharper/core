@@ -19,7 +19,6 @@
 //
 // $end{copyright}
 
-
 namespace IntelliFactory.WebSharper.Html5
 
 open IntelliFactory.WebSharper.InterfaceGenerator
@@ -37,10 +36,9 @@ module Utils =
         |> List.toSeq
         |> Pattern.EnumInlines n
 
-
 module Canvas =
     open Utils
-    
+
     let GlobalCompositeOperation =
         let renamer n =
             match n with
@@ -653,7 +651,7 @@ module General =
 
     let WindowProxyType = Class "Window"
     let MessagePortType = Class "MessagePort"
-            
+
     let MessageEvent =
         Class "MessageEvent"
         // |=> Implements [T<Event>]
@@ -666,7 +664,7 @@ module General =
             "initMessageEvent" => T<string> * T<bool> * T<bool> * T<obj> * T<string> * T<string> * WindowProxyType * Type.ArrayOf(MessagePortType) ^-> T<unit>
         ]
 
-    let MessagePort = 
+    let MessagePort =
         MessagePortType
         |+> Protocol [
             "postMessage" => T<obj> * Type.ArrayOf(MessagePortType) ^-> T<unit>
@@ -792,52 +790,153 @@ module General =
             "onunload" =@ f
             "onvolumechange" =@ f
             "onwaiting" =@ f
-
         ]
+
+module TypedArrays =
+
+    let ArrayBuffer =
+        Class "ArrayBuffer"
+        |+> Protocol [ "length" =? T<uint64> ]
+        |+> [ Constructor T<uint64> ]
+
+    let private arrayBufferViewMembers =
+        [
+            "buffer" =? ArrayBuffer
+            "byteOffset" =? T<uint64>
+            "byteLength" =? T<uint64>
+        ]
+
+    let ArrayBufferView =
+        Interface "ArrayBufferView"
+        |+> [ yield! Seq.cast arrayBufferViewMembers ]
+
+    let private MakeTypedArray typedArray (elementType: Type.Type) =
+        let self = Type.New()
+        Class typedArray
+        |=> self
+        |=> Implements [ArrayBufferView]
+        |+> [
+                Constructor T<uint64>
+                Constructor (Type.ArrayOf self)
+                Constructor (Type.ArrayOf elementType)
+                Constructor (ArrayBuffer?buffer * !? T<uint64>?byteOffset * !? T<uint64>?length)
+                "BYTES_PER_ELEMENT" =? T<uint64>
+            ]
+        |+> Protocol [
+                "length" =? T<uint64>
+                "get" =>
+                    T<uint64>?offset ^-> elementType
+                    |> WithInline "$this[$offset]"
+                "set" =>
+                    T<uint64>?offset * elementType?value ^-> T<unit>
+                    |> WithInline "void($this[$offset]=$value)"
+                "set" => (Type.ArrayOf self)?array * !? T<uint64>?offset ^-> T<unit>
+                "set" => (Type.ArrayOf elementType)?array * !? T<uint64>?offset ^-> T<unit>
+                "subarray" => T<int64>?``begin`` * T<int64>?``end`` ^-> T<unit>
+            ]
+        |+> Protocol [yield! Seq.cast arrayBufferViewMembers]
+
+    let Int8Array = MakeTypedArray "Int8Array" T<sbyte>
+    let Uint8Array = MakeTypedArray "Uint8Array" T<byte>
+    let Uint8ClampedArray = MakeTypedArray "Uint8ClampedArray" T<byte>
+    let Int16Array = MakeTypedArray "Int16Array" T<int16>
+    let Uint16Array = MakeTypedArray "Uint16Array" T<uint16>
+    let Int32Array = MakeTypedArray "Int32Array" T<int16>
+    let Uint32Array = MakeTypedArray "Uint32Array" T<uint16>
+    let Float32Array = MakeTypedArray "Float32Array" T<float32>
+    let Float64Array = MakeTypedArray "Float64Array" T<double>
+
+module WebSockets =
+
+    let WebSocketReadyState =
+        Pattern.EnumInlines "WebSocketReadyState" [
+            "Connecting", "0"
+            "Open", "1"
+            "Closing", "2"
+            "Closed", "3"
+        ]
+
+    let WebSocket =
+        Class "WebSocket"
+        |+> Protocol
+            [
+                "readyState" =? WebSocketReadyState
+                "bufferedAmount" =? T<int>
+                "onopen" =@ T<unit->unit>
+                "onclose" =@ T<unit->unit>
+                "onerror" =@ T<unit->unit>
+                "extensions" =? T<string>
+                "protocol" =? T<string>
+                "close" => T<unit->unit>
+                "close" => T<int> ^-> T<unit>
+                "close" => T<int> * T<string> ^-> T<unit>
+                "onmessage" =@ (General.MessageEvent ^-> T<unit>)
+                "binaryType" =@ T<string>
+                "send" => T<string->unit>
+                "send" => TypedArrays.ArrayBuffer ^-> T<unit>
+                (* TODO: describe FILE Api: http://dev.w3.org/2006/webapi/FileAPI *)
+                // "send" => Blob ^-> T<unit>
+            ]
+        |+> [
+                Constructor T<string>
+                Constructor (T<string> * T<string[]>)
+            ]
 
 module Extension =
 
     let Assembly =
         Assembly [
             Namespace "IntelliFactory.WebSharper.Html5" [
-                 AudioVideoCommon.MediaError
-                 AudioVideoCommon.MutableTimedTrack
-                 AudioVideoCommon.TimeRanges
-                 AudioVideoCommon.TimedTrack
-                 AudioVideoCommon.TimedTrackCue
-                 AudioVideoCommon.TimedTrackCueList
-                 AudioVideoCommon.TrackType
-                 AppCache.ApplicationCache
-                 Canvas.CanvasGradient
-                 Canvas.CanvasPattern
-                 Canvas.CanvasPixelArray
-                 Canvas.CanvasRenderingContext2D
-                 Canvas.GlobalCompositeOperation
-                 Canvas.ImageData
-                 Canvas.LineCap
-                 Canvas.LineJoin
-                 Canvas.Repetition
-                 Canvas.TextAlign
-                 Canvas.TextBaseline
-                 Canvas.TextMetrics
-                 Elements.CanvasElement
-                 Elements.HTMLAudioElement
-                 Elements.HTMLVideoElement
-                 Elements.HTMLMediaElement
-                 Geolocation.Coordinates
-                 Geolocation.Geolocation
-                 Geolocation.NavigatorGeolocation
-                 Geolocation.Position
-                 Geolocation.PositionError
-                 Geolocation.PositionOptions
-                 LocalStorage.Storage                 
-                 General.BarProp
-                 General.History
-                 General.Location
-                 General.MessageEvent
-                 General.MessagePort
-                 General.UndoManager
-                 General.Window
+                AudioVideoCommon.MediaError
+                AudioVideoCommon.MutableTimedTrack
+                AudioVideoCommon.TimeRanges
+                AudioVideoCommon.TimedTrack
+                AudioVideoCommon.TimedTrackCue
+                AudioVideoCommon.TimedTrackCueList
+                AudioVideoCommon.TrackType
+                AppCache.ApplicationCache
+                Canvas.CanvasGradient
+                Canvas.CanvasPattern
+                Canvas.CanvasPixelArray
+                Canvas.CanvasRenderingContext2D
+                Canvas.GlobalCompositeOperation
+                Canvas.ImageData
+                Canvas.LineCap
+                Canvas.LineJoin
+                Canvas.Repetition
+                Canvas.TextAlign
+                Canvas.TextBaseline
+                Canvas.TextMetrics
+                Elements.CanvasElement
+                Elements.HTMLAudioElement
+                Elements.HTMLVideoElement
+                Elements.HTMLMediaElement
+                Geolocation.Coordinates
+                Geolocation.Geolocation
+                Geolocation.NavigatorGeolocation
+                Geolocation.Position
+                Geolocation.PositionError
+                Geolocation.PositionOptions
+                LocalStorage.Storage
+                General.BarProp
+                General.History
+                General.Location
+                General.MessageEvent
+                General.MessagePort
+                General.UndoManager
+                General.Window
+                TypedArrays.ArrayBuffer
+                TypedArrays.ArrayBufferView
+                TypedArrays.Float32Array
+                TypedArrays.Float64Array
+                TypedArrays.Int16Array
+                TypedArrays.Int32Array
+                TypedArrays.Int8Array
+                TypedArrays.Uint16Array
+                TypedArrays.Uint32Array
+                TypedArrays.Uint8Array
+                TypedArrays.Uint8ClampedArray
+                WebSockets.WebSocket
+                WebSockets.WebSocketReadyState
             ]
         ]
-
