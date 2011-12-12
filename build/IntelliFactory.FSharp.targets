@@ -27,13 +27,14 @@
     <FSharpTargets3>$(MSBuildExtensionsPath32)\FSharp\1.0\Microsoft.FSharp.Targets</FSharpTargets3>
     <AjaxMinTargets1>..\.build\lib\AjaxMin.tasks</AjaxMinTargets1>
     <AjaxMinTargets2>$(MSBuildExtensionsPath32)\Microsoft\MicrosoftAjax\AjaxMin.tasks</AjaxMinTargets2>
+    <ExtPackTargets>$(MSBuildExtensionsPath32)\ExtensionPack\4.0\MSBuild.ExtensionPack.tasks</ExtPackTargets>
   </PropertyGroup>
   <Import Project="$(FSharpTargets1)" Condition="Exists('$(FSharpTargets1)')" />
   <Import Project="$(FSharpTargets2)" Condition="Exists('$(FSharpTargets2)') AND !Exists('$(FSharpTargets1)')" />
   <Import Project="$(FSharpTargets3)" Condition="Exists('$(FSharpTargets3)') AND !Exists('$(FSharpTargets1)') AND !Exists('$(FSharpTargets2)')" />
   <Import Project="$(AjaxMinTargets1)" Condition="Exists('$(AjaxMinTargets1)')" />
   <Import Project="$(AjaxMinTargets2)" Condition="Exists('$(AjaxMinTargets2)') AND !Exists('$(AjaxMinTargets1)')" />
-  <Import Project="$(MSBuildExtensionsPath32)\ExtensionPack\4.0\MSBuild.ExtensionPack.tasks" />
+  <Import Project="$(ExtPackTargets)" Condition="Exists('$(ExtPackTargets)')" />
   <PropertyGroup>
     <WebSharperKeyFile>$(MSBuildThisFileDirectory)\WebSharper.snk</WebSharperKeyFile>
     <KeyOriginatorFile Condition="Exists('$(WebSharperKeyFile)')">$(WebSharperKeyFile)</KeyOriginatorFile>
