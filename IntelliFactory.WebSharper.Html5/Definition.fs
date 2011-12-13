@@ -816,6 +816,7 @@ module TypedArrays =
         |=> self
         |=> Implements [ArrayBufferView]
         |+> [
+                Constructor T<unit>
                 Constructor T<uint64>
                 Constructor (Type.ArrayOf self)
                 Constructor (Type.ArrayOf elementType)
