@@ -52,7 +52,7 @@ type Control() =
             H.ContentNode el
 
     abstract member Body : IntelliFactory.WebSharper.Html.IPagelet
-    default this.Body = IntelliFactory.WebSharper.JavaScript.ClientSide
+    default this.Body = Unchecked.defaultof<_>
 
     interface IntelliFactory.WebSharper.Html.Activator.IControl with
         member this.Body = this.Body

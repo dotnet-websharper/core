@@ -25,7 +25,7 @@ open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.Testing
 
 [<Inline "new Array(0)">]
-let private Empty<'T> : 'T [] = JavaScript.ClientSide
+let private Empty<'T> : 'T [] = X
 
 [<JavaScript>]
 let private bug431_f ((x, y) as t) =

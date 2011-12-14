@@ -25,7 +25,7 @@ module IntelliFactory.WebSharper.Testing.Pervasives
 
 open IntelliFactory.WebSharper
 
-let private X<'T> : 'T = JavaScript.ClientSide
+let private X<'T> : 'T = Unchecked.defaultof<_>
 
 [<Inline "test($name,$action)">]
 let private run (name: string) (action: unit -> unit) = ()
