@@ -29,8 +29,11 @@ module A = IntelliFactory.WebSharper.Core.Attributes
 type ClientSideCodeException() =
     inherit exn()
 
-/// Throws a ClientSideCode error.
-let ClientSide<'T> : 'T = raise (ClientSideCodeException())
+/// Constructs a null or default value for a client-side stub.
+let ClientSide<'T> : 'T =
+    let mutable count = 0
+    count <- count (* prevent inlining that crashes compilation *)
+    Unchecked.defaultof<'T>
 
 /// Constructs a JavaScript "undefined" value.
 [<A.Inline "undefined">]
