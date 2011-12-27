@@ -217,7 +217,7 @@ module Content =
             {resp with Status = status}
 
     /// Redirects to a given action.
-    let Redirect (action: 'Acton) =
+    let Redirect (action: 'Action) =
         CustomContent <| fun ctx ->
             {
                 Status = Http.Status.Custom 301 (Some "Moved Permanently")
@@ -225,7 +225,7 @@ module Content =
                 WriteBody = ignore
             }
 
-    /// Redirects to a given action.
+    /// Redirects to a given URL.
     let RedirectToUrl (url: string) =
         CustomContent <| fun ctx ->
             {
@@ -234,7 +234,7 @@ module Content =
                 WriteBody = ignore
             }
 
-    /// Constructs a 500 Server Error response.
+    /// Constructs a status code response.
     let private HttpStatusContent<'Action> status : Content<'Action> =
         CustomContent <| fun ctx ->
             {

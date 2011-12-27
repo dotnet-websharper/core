@@ -67,14 +67,14 @@ module Sitelet =
                 }
         }
 
-    /// Represents filter for protecting sitelets.
+    /// Represents filters for protecting sitelets.
     type Filter<'Action> =
         {
             VerifyUser : string -> bool;
             LoginRedirect : 'Action -> 'Action
         }
 
-    /// Constructs a protected sitlet given the filter specification.
+    /// Constructs a protected sitelet given the filter specification.
     let Protect (filter: Filter<'Action>) (site: Sitelet<'Action>)
         : Sitelet<'Action> =
         {
@@ -171,6 +171,3 @@ module Sitelet =
             Router = Router.Infer()
             Controller = { Handle = handle }
         }
-
-
-
