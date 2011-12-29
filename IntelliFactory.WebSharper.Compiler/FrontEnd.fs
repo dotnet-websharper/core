@@ -97,7 +97,7 @@ type Resolver(paths: Set<Path>) =
 
 /// Loads assemblies.
 [<Sealed>]
-type Loader(paths: Set<Path>) =
+type Loader(paths: Set<Path>, log: string -> unit) =
 
     let load (bytes: byte[]) (symbols: option<Symbols>) (paths: Set<Path>) =
         use str = new System.IO.MemoryStream(bytes)
@@ -121,8 +121,8 @@ type Loader(paths: Set<Path>) =
             Definition = def
         }
 
-    static member Create paths =
-        Loader paths
+    static member Create paths log =
+        Loader(paths, log)
 
     member this.LoadRaw bytes symbols =
         load bytes symbols paths
@@ -132,11 +132,21 @@ type Loader(paths: Set<Path>) =
         let p ext = System.IO.Path.ChangeExtension(path, ext)
         let ex x = System.IO.File.Exists(p x)
         let rd x = System.IO.File.ReadAllBytes(p x)
+        let symbolsPath =
+            if ex ".pdb" then Some (p ".pdb")
+            elif ex ".mdb" then Some (p ".mdb")
+            else None
         let symbols =
             if ex ".pdb" then Some (Pdb (rd ".pdb"))
             elif ex ".mdb" then Some (Mdb (rd ".mdb"))
             else None
-        load bytes symbols (Set.add path paths)
+        try
+            load bytes symbols (Set.add path paths)
+        with :? System.InvalidOperationException ->
+            if symbolsPath.IsSome then
+                "Failed to load symbols: " + symbolsPath.Value
+                |> log
+            load bytes None (Set.add path paths)
 
 type Options =
     {

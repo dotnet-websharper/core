@@ -57,7 +57,7 @@ type Assembly =
 type Loader =
 
     /// Creates a new loader. Accepts a set of search paths.
-    static member Create : Set<Path> -> Loader
+    static member Create : Set<Path> -> (string -> unit) -> Loader
 
     /// Loads an assembly from raw data.
     member LoadRaw : byte [] -> option<Symbols> -> Assembly

@@ -6,5 +6,6 @@
 ^IntelliFactory.WebSharper.JQuery/.*\.js$
 ^WebSharperTests/Scripts
 ^WebSharperTests/bin
+^\.build
 ^build/vs10/packages
 ^build/vs11/packages

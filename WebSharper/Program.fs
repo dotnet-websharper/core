@@ -43,7 +43,7 @@ let private compile (opts: Options.CompilationOptions) =
     paths
     |> Seq.iter Loader.AddSearchPath
     let k =
-        let aLoader = FE.Loader.Create(paths)
+        let aLoader = FE.Loader.Create paths stderr.WriteLine
         let assem = aLoader.LoadFile opts.Input
         let snk =
             opts.KeyPair
@@ -104,7 +104,7 @@ let private run (opts: Options.T) =
         let paths =
             Seq.map System.IO.Path.GetDirectoryName assemblies
             |> Set.ofSeq
-        let loader = FE.Loader.Create(paths)
+        let loader = FE.Loader.Create paths stderr.WriteLine
         for p in assemblies do
             let a = loader.LoadFile p
             match a.ReadableJavaScript with
