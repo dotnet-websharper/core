@@ -336,19 +336,20 @@ type Factory() =
     let delay f = fun x -> f () x
     let getS : System.Type -> S = memoFix delay getS
     let getD : System.Type -> D = memoFix delay getD
-    let sb = System.Text.StringBuilder 128
 
     member this.GetFormatFor (t: System.Type) : Format<obj> =
         let d = getD t
         let s = getS t
         {
             read = fun input ->
+                let sb = System.Text.StringBuilder 128
                 if input = null then None else
                     let parts = input.Split '/'
                     let e = (parts :> seq<string>).GetEnumerator()
                     let n () = if e.MoveNext() then Some e.Current else None
                     d n
             show = fun value ->
+                let sb = System.Text.StringBuilder 128
                 if s sb value then Some (sb.Flush()) else None
         }
 
