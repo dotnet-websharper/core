@@ -8,6 +8,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{BC76F2F0
 		..\AssemblyInfo.fs = ..\AssemblyInfo.fs
 		..\IntelliFactory.FSharp.targets = ..\IntelliFactory.FSharp.targets
 		..\IntelliFactory.WebSharper.InterfaceGenerator.targets = ..\IntelliFactory.WebSharper.InterfaceGenerator.targets
+		..\IntelliFactory.WebSharper.Sitelets.targets = ..\IntelliFactory.WebSharper.Sitelets.targets
 		..\IntelliFactory.WebSharper.Web.targets = ..\IntelliFactory.WebSharper.Web.targets
 		..\IntelliFactory.WebSharper.targets = ..\IntelliFactory.WebSharper.targets
 		..\LICENSE.txt = ..\LICENSE.txt
