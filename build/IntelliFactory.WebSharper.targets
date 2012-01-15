@@ -80,23 +80,57 @@
   </Target>
 
   <ItemGroup Condition="Exists('$(WEBSHARPER_HOME)\LICENSE.rtf')">
-    <Reference Include="IntelliFactory.Formlet" />
-    <Reference Include="IntelliFactory.Html" />
-    <Reference Include="IntelliFactory.JavaScript" />
-    <Reference Include="IntelliFactory.Reactive" />
-    <Reference Include="IntelliFactory.WebSharper" />
-    <Reference Include="IntelliFactory.WebSharper.Collections" />
-    <Reference Include="IntelliFactory.WebSharper.Control" />
-    <Reference Include="IntelliFactory.WebSharper.Core" />
-    <Reference Include="IntelliFactory.WebSharper.Dom" />
-    <Reference Include="IntelliFactory.WebSharper.Ecma" />
-    <Reference Include="IntelliFactory.WebSharper.Formlet" />
-    <Reference Include="IntelliFactory.WebSharper.Html" />
-    <Reference Include="IntelliFactory.WebSharper.Html5" />
-    <Reference Include="IntelliFactory.WebSharper.JQuery" />
-    <Reference Include="IntelliFactory.WebSharper.Sitelets" />
-    <Reference Include="IntelliFactory.WebSharper.Testing" />
-    <Reference Include="IntelliFactory.WebSharper.Web" />
+    <Reference Include="IntelliFactory.Formlet">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.Html">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.JavaScript">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.Reactive">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Collections">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Control">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Core">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Dom">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Ecma">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Formlet">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Html">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Html5">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.JQuery">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Sitelets">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Testing">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Web">
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>

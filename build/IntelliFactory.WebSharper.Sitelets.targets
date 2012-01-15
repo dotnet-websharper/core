@@ -58,11 +58,11 @@
     <PropertyGroup>
       <Args>-source "."</Args>
       <Args>$(Args) -mode "$(Configuration)"</Args>
-      <Args>$(Args) -source "$(WEBSHARPER_HOME)\."</Args>
+      <Args>$(Args) -source "$(MSBuildProjectDirectory)\$(OutDir)\."</Args>
       <Args>$(Args) -out "$(WebSharperSiteletsOfflineDirectory)\."</Args>
       <Args>$(Args) -site "$(TargetPath)"</Args>
     </PropertyGroup>
-    <Exec Command='"$(WEBSHARPER_HOME)\wsol.exe" $(Args)' WorkingDirectory="$(OutDir)" />
+    <Exec Command='"$(WEBSHARPER_HOME)\wsol.exe" $(Args)' WorkingDirectory='$(WEBSHARPER_HOME)' />
   </Target>
 
   <Target Name="SiteletsClean">
