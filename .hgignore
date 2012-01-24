@@ -4,6 +4,7 @@
 \.user$
 \~$
 ^IntelliFactory.WebSharper.JQuery/.*\.js$
+^Lib
 ^WebSharperTests/Scripts
 ^WebSharperTests/bin
 ^\.build

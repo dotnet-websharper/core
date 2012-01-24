@@ -39,9 +39,8 @@
     <WebSharperKeyFile>$(MSBuildThisFileDirectory)\WebSharper.snk</WebSharperKeyFile>
     <KeyOriginatorFile Condition="Exists('$(WebSharperKeyFile)')">$(WebSharperKeyFile)</KeyOriginatorFile>
     <AssemblySearchPaths>
-      $(MSBuildThisFileDirectory)\vs11\packages\Mono.Cecil.0.9.5.2\lib\net35\.;
-      $(MSBuildThisFileDirectory)\vs10\packages\Mono.Cecil.0.9.5.2\lib\net35\.;
       $(MSBuildProjectDirectory)\..\.build\lib;
+      $(MSBuildProjectDirectory)\..\Lib;
       $(AssemblySearchPaths)
     </AssemblySearchPaths>
     <AssemblyInfo1>..\.build\AutoAssemblyInfo.fs</AssemblyInfo1>
@@ -53,4 +52,24 @@
   <ItemGroup Condition="Exists('$(AssemblyInfo2)') AND !Exists('$(AssemblyInfo1)')">
     <Compile Include="$(AssemblyInfo2)" />
   </ItemGroup>
+  <PropertyGroup>
+    <LibDir>$(MSBuildThisFileDirectory)\..\Lib</LibDir>
+    <LibUrl>http://bitbucket.org/IntelliFactory/websharper/downloads</LibUrl>
+  </PropertyGroup>
+  <Target Name="DownloadDependencies" Condition="!Exists('$(LibDir)\build.tmp')">
+    <MakeDir Directories="$(LibDir)" />
+    <Touch AlwaysCreate="true" Files="$(LibDir)\build.tmp" />
+    <MSBuild.ExtensionPack.Web.WebClient
+	TaskAction="DownloadFile"
+	Url="$(LibUrl)/Mono.Cecil.dll"
+	FileName="$(LibDir)\Mono.Cecil.dll" />
+    <MSBuild.ExtensionPack.Web.WebClient
+	TaskAction="DownloadFile"
+	Url="$(LibUrl)/Mono.Cecil.Pdb.dll"
+	FileName="$(LibDir)\Mono.Cecil.Pdb.dll" />
+    <MSBuild.ExtensionPack.Web.WebClient
+	TaskAction="DownloadFile"
+	Url="$(LibUrl)/Mono.Cecil.Mdb.dll"
+	FileName="$(LibDir)\Mono.Cecil.Mdb.dll" />
+  </Target>
 </Project>

@@ -47,13 +47,11 @@
     <Content Include="WebSharper.exe.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Mono.Cecil" />
     <Reference Include="Mono.Cecil.Mdb" />
     <Reference Include="Mono.Cecil.Pdb" />
-    <Reference Include="Mono.Cecil.Rocks" />
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core" />
     <Reference Include="System" />
@@ -73,4 +71,5 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
+  <Target Name="BeforeBuild" DependsOnTargets="DownloadDependencies" />
 </Project>
