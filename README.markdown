@@ -39,12 +39,12 @@ WebSharper includes:
 Since January 2012, WebSharper source code is available under GNU
 Affero GPL, see LICENSE.txt in the source.  Alternative licensing
 schemes are available for users who find AGPL terms too restrictive,
-see the website (http://websharper.com) for details.
+see the [website][ws] for details.
 
 ## Installation
 
 The easiest way to obtain WebSharper is by using the binary installer
-(see http://websharper.com or the Downloads section of this project).
+(see [websharper.com][ws] or the Downloads section of this project).
 The installer adds templates to Visual Studio and makes it easy to get
 started.
 
@@ -52,9 +52,11 @@ started.
 
 Build requirements:
 
-  * F#
-  * MSBuild
-  * MSBuild Extension Pack: http://msbuildextensionpack.codeplex.com/
+* F#
+
+* MSBuild
+
+* [MSBuild Extension Pack](http://msbuildextensionpack.codeplex.com/)
 
 To compile, install the above requirements and run `MSBuild.exe` in
 the root directory of the checkout.  This will download and reference
@@ -66,36 +68,32 @@ to build WebSharper.
 
 ## Documentation
 
-Please refer to the WebSharper website (http://websharper.com/) for
-tutorials and samples.  The website also distributes a manual in PDF
-format (http://websharper.com/WebSharper.pdf).  There are plans to
-make the manual, tutorial and sample sources available as part of this
-repository in the future.
+Please refer to the WebSharper [website][ws] for tutorials and
+samples.  The website also distributes a
+[manual](http://websharper.com/WebSharper.pdf) in PDF format.  There
+are plans to make the manual, tutorial and sample sources available as
+part of this repository in the future.
 
 ## Extensions
 
-The WebSharper website (http://websharper.com/) provides several
-extensions that make third-party JavaScript frameworks available for
-easy use in WebSharper projects (see the Download section).  The
-source code of the extensions will be made available as well, as time
-permits.
+The WebSharper [website][ws] provides several extensions that make
+third-party JavaScript frameworks available for easy use in WebSharper
+projects (see the Download section).  The source code of the
+extensions will be made available as well, as time permits.
 
 ## Bugs
 
 The preferred way to report bug and request enhancements is through
-the built-in issue service:
-
-http://bitbucket.org/IntelliFactory/websharper/issues
+the built-in [issue
+service](http://bitbucket.org/IntelliFactory/websharper/issues).
 
 ## Contact
 
 WebSharper is being developed by IntelliFactory.  Please feel free to
-contact us at http://websharper.com/contact
+[contact us](http://websharper.com/contact).
 
-For public discussions we also recommend using FPish, the functional
-programming community site built with WebSharper:
-http://fpish.net/topics
+For public discussions we also recommend using
+[FPish](http://fpish.net/topics), the functional programming community
+site built with WebSharper.
 
-
-
-
+[ws]: http://websharper.com
