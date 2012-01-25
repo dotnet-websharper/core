@@ -21,17 +21,18 @@
 
 module IntelliFactory.WebSharper.Sitelets.UrlEncoding
 
-let isUnreserved c =
+let isUnreserved isLast c =
     match c with
-    | '-' | '_' | '.' -> true
+    | '-' | '_' -> true
+    | '.' -> not isLast
     | c when c >= 'A' && c <= 'Z' -> true
     | c when c >= 'a' && c <= 'z' -> true
     | c when c >= '0' && c <= '9' -> true
     | _ -> false
 
-let writeEscaped (w: System.Text.StringBuilder) c =
+let writeEscaped (w: System.Text.StringBuilder) isLast c =
     let k = int c
-    if isUnreserved c then w.Append c
+    if isUnreserved isLast c then w.Append c
     elif k < 256 then w.AppendFormat("~{0:x2}", k)
     else w.AppendFormat("~u{0:x4}", k)
     |> ignore
@@ -129,8 +130,10 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
     elif t = typeof<string> then
         fun w x ->
             if x <> null then
-                for c in string x do
-                    writeEscaped w c
+                let s = string x
+                s
+                |> Seq.iteri (fun i c ->
+                    writeEscaped w (i + 1 = s.Length) c)
                 true
             else false
     elif t = typeof<System.DateTime> then
