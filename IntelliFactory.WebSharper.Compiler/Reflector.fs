@@ -432,9 +432,22 @@ let Reflect (logger: Logger) (assembly: Mono.Cecil.AssemblyDefinition) =
             | true, f -> f attr (warn location)
             | _ -> None)
         |> Seq.toList)
-    let reflectMember inc loc dT m : option<Member<_>> =
+    let reflectMethod inc loc dT (m: Mono.Cecil.MethodDefinition) : option<Member<_>> =
         match getAnnotations loc dT m with
-        | [] | [Curry _] when not inc -> None
+        | [] | [Curry _] when not inc && not m.IsVirtual -> None
+        | a ->
+            Some {
+                AddressSlot = AddressSlot()
+                Annotations = a
+                Definition = m
+                Location = loc
+                MemberSlot = MemberSlot()
+            }
+    let reflectProperty inc loc dT (m: Mono.Cecil.PropertyDefinition) : option<Member<_>> =
+        let isVirt (m: Mono.Cecil.MethodDefinition) =
+            m <> null && m.IsVirtual
+        match getAnnotations loc dT m with
+        | [] | [Curry _] when not inc && not (isVirt m.GetMethod || isVirt m.SetMethod) -> None
         | a ->
             Some {
                 AddressSlot = AddressSlot()
@@ -462,7 +475,7 @@ let Reflect (logger: Logger) (assembly: Mono.Cecil.AssemblyDefinition) =
                         if (m.IsSetter || m.IsGetter)
                            && not t.Definition.IsInterface
                         then None
-                        else reflectMember inc (Locator.LocateMethod m) k m)
+                        else reflectMethod inc (Locator.LocateMethod m) k m)
                 |> Seq.toList
             Properties =
                 t.Definition.Properties
@@ -473,8 +486,8 @@ let Reflect (logger: Logger) (assembly: Mono.Cecil.AssemblyDefinition) =
                         let loc = Locator.LocateProperty p
                         let f = function
                             | null -> None
-                            | m -> reflectMember inc loc k m
-                        let self = reflectMember inc loc k p
+                            | m -> reflectMethod inc loc k m
+                        let self = reflectProperty inc loc k p
                         let getter = f p.GetMethod
                         let setter = f p.SetMethod
                         match self, getter, setter with

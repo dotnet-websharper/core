@@ -397,7 +397,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
             | Some (Constant _)
             | Some (Field _)
             | None ->
-                if pStub then Some StubMethod else None
+                if pStub || self.IsVirtual then Some StubMethod else None
         match annot with
         | Some (RemoteMethod _) ->
             match verifier.VerifyRemoteMethod t.Definition with
