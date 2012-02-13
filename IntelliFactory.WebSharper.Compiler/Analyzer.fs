@@ -32,7 +32,7 @@ type S<'T> = System.Collections.Generic.HashSet<'T>
 
 /// Finds all outgoing calls, field accesses and
 /// constructor expressions in the quotation.
-let GetCalls (expr: Q.Expression) =
+let getCalls (expr: Q.Expression) =
     let rec f ds expr =
         match expr with
         | Q.Call (m, xs) ->
@@ -42,14 +42,21 @@ let GetCalls (expr: Q.Expression) =
                 :: ds
             List.fold f ds xs
         | Q.CallModule (m, xs) ->
-            let ds = M.MethodNode m.Entity :: ds
+            let ds =
+                M.MethodNode m.Entity
+                :: M.TypeNode m.Entity.DeclaringType
+                :: ds
             List.fold f ds xs
         | Q.FieldGetStatic fld ->
             M.TypeNode fld.Entity.DeclaringType :: ds
         | Q.FieldSetStatic (fld, x) ->
             f (M.TypeNode fld.Entity.DeclaringType :: ds) x
         | Q.NewObject (ctor, xs) ->
-            List.fold f (M.ConstructorNode ctor.Entity :: ds) xs
+            let ds =
+                M.ConstructorNode ctor.Entity
+                :: M.TypeNode ctor.Entity.DeclaringType
+                :: ds
+            List.fold f ds xs
         | Q.NewRecord (t, xs) ->
             List.fold f (M.TypeNode t.DeclaringType :: ds) xs
         | Q.NewUnionCase (t, xs) ->
@@ -74,7 +81,7 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
             deps.Connect src (M.ResourceNode rT)
         match c.Kind with
         | V.JavaScriptConstructor e ->
-            List.iter (deps.Connect src) (GetCalls e)
+            List.iter (deps.Connect src) (getCalls e)
         | _ -> ()
     let visitMethod src (m: V.Method) =
         m.Requirements
@@ -85,9 +92,9 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
         | V.InlineMethod inl ->
             match inl.Quotation with
             | None -> ()
-            | Some e -> List.iter (deps.Connect src) (GetCalls e)
+            | Some e -> List.iter (deps.Connect src) (getCalls e)
         | V.JavaScriptMethod e ->
-            List.iter (deps.Connect src) (GetCalls e)
+            List.iter (deps.Connect src) (getCalls e)
         | V.RemoteMethod (_, ref) ->
             ref := Some (info.AddRemoteMethod m.Reference)
         | V.StubMethod -> ()
@@ -99,9 +106,9 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
         | V.InlineModuleProperty i ->
             match i.Quotation with
             | None -> ()
-            | Some e -> List.iter (deps.Connect src) (GetCalls e)
+            | Some e -> List.iter (deps.Connect src) (getCalls e)
         | V.JavaScriptModuleProperty e ->
-            List.iter (deps.Connect src) (GetCalls e)
+            List.iter (deps.Connect src) (getCalls e)
         | _ -> ()
     let rec visitType assem ctx (t: V.Type) =
         let self =
