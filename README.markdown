@@ -58,9 +58,16 @@ Build requirements:
 
 * [MSBuild Extension Pack](http://msbuildextensionpack.codeplex.com/)
 
+* [Microsoft Ajax Minifier](http://ajaxmin.codeplex.com)
+
 To compile, install the above requirements and run `MSBuild.exe` in
 the root directory of the checkout.  This will download and reference
 required Mono.Cecil libraries automatically.
+
+For example, using PowerShell:
+
+    set-alias msb C:\WINDOWS\Microsoft.NET\Framework\MSBuild.exe
+    msb /P:Platform=AnyCPU /Configuration:Release
 
 Solutions provided for Microsoft Visual Studio 2010 and 2011 under the
 `build` directory in the source, but these products are not required
