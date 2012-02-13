@@ -102,6 +102,8 @@ let Tests =
 
     Test "int" {
         int "3" =? 3
+        int "3.5" =? 3
+        int -3.5 =? - 3
     }
 
     Test "float" {

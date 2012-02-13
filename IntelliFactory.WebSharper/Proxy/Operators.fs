@@ -226,10 +226,10 @@ let Increment (x: ref<int>) = x := !x + 1
 [<Inline "Infinity">]
 let Infinity = Unchecked.defaultof<double>
 
-[<Inline "Number($x)">]
+[<Inline "($x << 0)">]
 let ToInt (x: 'T) = X<int>
 
-[<Inline "Number($x)">]
+[<Inline "($x << 0)">]
 let ToInt64 (x: 'T) = X<int64>
 
 [<Inline "Math.log($x)">]
