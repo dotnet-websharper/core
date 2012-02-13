@@ -32,10 +32,10 @@ type Location = Uri
 /// Provides a bijection between URL locations and abstract actions.
 type Router<'Action when 'Action : equality> =
     internal {
-        StaticRoutes    : IDictionary<string,'Action>
-        StaticLinks     : IDictionary<'Action,Location>
-        DynamicRoute    : Http.Request -> option<'Action>
-        DynamicLink     : 'Action -> option<Location>
+        StaticRoutes : IDictionary<string,'Action>
+        StaticLinks : IDictionary<'Action,Location>
+        DynamicRoute : Http.Request -> option<'Action>
+        DynamicLink : 'Action -> option<Location>
     }
 
     /// Tries to constructs a link to a given action. Fails with None
@@ -90,19 +90,22 @@ type Router<'Action when 'Action : equality> =
 module Router =
     module J = IntelliFactory.WebSharper.Core.Json
 
-    /// Creates a absolute or relative URI form a string.
-    let private MakeUri uri =
-        match Uri.TryCreate(uri, UriKind.Absolute) with
-        | true, uri -> uri
-        | _         -> Uri(uri, UriKind.Relative)
+    let private absoluteUriPattern =
+        System.Text.RegularExpressions.Regex(@"^\w+\:")
+
+    /// Creates an absolute or relative URI from a string.
+    let private makeUri uri =
+        if absoluteUriPattern.IsMatch(uri)
+        then Uri(uri)
+        else Uri(uri, UriKind.Relative)
 
     /// Constructs a custom new router with a given route and link functions.
     let New route link : Router<'Action> =
         {
-            StaticRoutes    = Dictionary()
-            StaticLinks     = Dictionary()
-            DynamicRoute    = route
-            DynamicLink     = link
+            StaticRoutes = Dictionary()
+            StaticLinks = Dictionary()
+            DynamicRoute = route
+            DynamicLink = link
         }
 
     /// Constructs a router from a finite table defining a
@@ -133,12 +136,12 @@ module Router =
                 |> invalidArg "mapping"
         let links = Dictionary()
         for KeyValue (k, v) in sl do
-            links.[k] <-MakeUri v
+            links.[k] <- makeUri v
         {
-            StaticRoutes    = sr
-            StaticLinks     = links
-            DynamicRoute    = fun _ -> None
-            DynamicLink     = fun _ -> None
+            StaticRoutes = sr
+            StaticLinks = links
+            DynamicRoute = fun _ -> None
+            DynamicLink = fun _ -> None
         }
 
     /// Infers the router by analyzing an algebraic action data type.
@@ -251,7 +254,7 @@ module Router =
 
     /// Modifies the router to use a constant URL.
     let At (url: string) (r: Router<'T>): Router<'T> =
-        New r.Route (fun _ -> MakeUri url |> Some)
+        New r.Route (fun _ -> makeUri url |> Some)
 
     let Empty<'Action when 'Action : equality> : Router<'Action> =
         New (fun _ -> None) (fun _ -> None)
