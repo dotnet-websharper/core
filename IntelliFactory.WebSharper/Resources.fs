@@ -1,3 +1,4 @@
+
 // $begin{copyright}
 // 
 // This file is part of WebSharper
@@ -35,3 +36,7 @@ type Runtime = R.Runtime
 
 /// Re-exports IResource.
 type IResource = R.IResource
+
+[<assembly: System.Web.UI.WebResource("Json.js", "text/javascript")>]
+[<assembly: System.Web.UI.WebResource("Json.min.js", "text/javascript")>]
+do ()
