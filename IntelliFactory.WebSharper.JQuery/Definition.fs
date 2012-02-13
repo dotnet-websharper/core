@@ -742,9 +742,11 @@ module JQuery =
                 "scroll" => !?EventHandler ^-> JQ
                 "scroll" => StringMap?data * !?EventHandler ^-> JQ
 
-                "scrollLeft" => !?T<int> ^-> JQ
+                "scrollLeft" => T<int> ^-> JQ
+                "scrollLeft" => T<unit->int>
 
-                "scrollTop" => !?T<int> ^-> JQ
+                "scrollTop" => T<int> ^-> JQ
+                "scrollTop" => T<unit->int>
 
                 "select" => !?EventHandler ^-> JQ
                 "select" => StringMap?data * !?EventHandler ^-> JQ
@@ -755,7 +757,6 @@ module JQuery =
 
                 "show" => !?IntString * !?(T<Element> -* T<unit> ^-> T<unit>)  ^-> JQ
                 "show" => IntString * T<string>?easing * !?(T<Element> -* T<unit> ^-> T<unit>)  ^-> JQ
-
 
                 "siblings" => !?T<string> ^-> JQ
 
