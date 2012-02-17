@@ -25,11 +25,6 @@ module internal Disposable =
     open System
     open IntelliFactory.WebSharper
 
-    type private Disposable = { Dispose : unit -> unit } with
-
-        interface IDisposable with
-            member this.Dispose() = X<unit>
-
-    [<Inline>]
     [<JavaScript>]
-    let Of dispose : IDisposable = upcast { Dispose = dispose }
+    let Of (dispose: unit -> unit) : IDisposable =
+        As<IDisposable> (New ["Dispose" => dispose])
