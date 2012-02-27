@@ -22,19 +22,17 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <FSharpTargets1>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargets1>
-    <FSharpTargets2>$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets</FSharpTargets2>
-    <FSharpTargets3>$(MSBuildExtensionsPath32)\FSharp\1.0\Microsoft.FSharp.Targets</FSharpTargets3>
-    <AjaxMinTargets1>..\.build\lib\AjaxMin.tasks</AjaxMinTargets1>
-    <AjaxMinTargets2>$(MSBuildExtensionsPath32)\Microsoft\MicrosoftAjax\AjaxMin.tasks</AjaxMinTargets2>
-    <ExtPackTargets>$(MSBuildExtensionsPath32)\ExtensionPack\4.0\MSBuild.ExtensionPack.tasks</ExtPackTargets>
+    <FSharpHome1>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0</FSharpHome1>
+    <FSharpHome2>$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\</FSharpHome2>
+    <FSharpHome3>$(MSBuildExtensionsPath32)\FSharp\1.0</FSharpHome3>
+    <FSharpHome Condition="Exists('$(FSharpHome1)') AND '$(FSharpHome)' == ''">$(FSharpHome1)</FSharpHome>
+    <FSharpHome Condition="Exists('$(FSharpHome2)') AND '$(FSharpHome)' == ''">$(FSharpHome2)</FSharpHome>
+    <FSharpHome Condition="Exists('$(FSharpHome3)') AND '$(FSharpHome)' == ''">$(FSharpHome3)</FSharpHome>
+    <FSharpTargets>$(FSharpHome)\Microsoft.FSharp.targets</FSharpTargets>
+    <AjaxMinTargets>$(MSBuildThisFileDirectory)\..\Lib\AjaxMin.tasks</AjaxMinTargets>
   </PropertyGroup>
-  <Import Project="$(FSharpTargets1)" Condition="Exists('$(FSharpTargets1)')" />
-  <Import Project="$(FSharpTargets2)" Condition="Exists('$(FSharpTargets2)') AND !Exists('$(FSharpTargets1)')" />
-  <Import Project="$(FSharpTargets3)" Condition="Exists('$(FSharpTargets3)') AND !Exists('$(FSharpTargets1)') AND !Exists('$(FSharpTargets2)')" />
-  <Import Project="$(AjaxMinTargets1)" Condition="Exists('$(AjaxMinTargets1)')" />
-  <Import Project="$(AjaxMinTargets2)" Condition="Exists('$(AjaxMinTargets2)') AND !Exists('$(AjaxMinTargets1)')" />
-  <Import Project="$(ExtPackTargets)" Condition="Exists('$(ExtPackTargets)')" />
+  <Import Project="$(FSharpTargets)" />
+  <Import Project="$(AjaxMinTargets)" Condition="Exists('$(AjaxMinTargets)')" />
   <PropertyGroup>
     <WebSharperKeyFile>$(MSBuildThisFileDirectory)\WebSharper.snk</WebSharperKeyFile>
     <KeyOriginatorFile Condition="Exists('$(WebSharperKeyFile)')">$(WebSharperKeyFile)</KeyOriginatorFile>
@@ -54,22 +52,5 @@
   </ItemGroup>
   <PropertyGroup>
     <LibDir>$(MSBuildThisFileDirectory)\..\Lib</LibDir>
-    <LibUrl>http://bitbucket.org/IntelliFactory/websharper/downloads</LibUrl>
   </PropertyGroup>
-  <Target Name="DownloadDependencies" Condition="!Exists('$(LibDir)\build.tmp')">
-    <MakeDir Directories="$(LibDir)" />
-    <Touch AlwaysCreate="true" Files="$(LibDir)\build.tmp" />
-    <MSBuild.ExtensionPack.Web.WebClient
-	TaskAction="DownloadFile"
-	Url="$(LibUrl)/Mono.Cecil.dll"
-	FileName="$(LibDir)\Mono.Cecil.dll" />
-    <MSBuild.ExtensionPack.Web.WebClient
-	TaskAction="DownloadFile"
-	Url="$(LibUrl)/Mono.Cecil.Pdb.dll"
-	FileName="$(LibDir)\Mono.Cecil.Pdb.dll" />
-    <MSBuild.ExtensionPack.Web.WebClient
-	TaskAction="DownloadFile"
-	Url="$(LibUrl)/Mono.Cecil.Mdb.dll"
-	FileName="$(LibDir)\Mono.Cecil.Mdb.dll" />
-  </Target>
 </Project>
