@@ -52,17 +52,13 @@ started.
 
 Build requirements:
 
+* Microsoft .NET Framework 4.0
+
 * F#
 
-* MSBuild
-
-* [MSBuild Extension Pack](http://msbuildextensionpack.codeplex.com/)
-
-* [Microsoft Ajax Minifier](http://ajaxmin.codeplex.com)
-
-To compile, install the above requirements and run `MSBuild.exe` in
-the root directory of the checkout.  This will download and reference
-required Mono.Cecil libraries automatically.
+To compile, run `MSBuild.exe` in the root directory of the checkout.
+This will download and reference required Mono.Cecil libraries and
+Microsoft Ajax Minifier tasks automatically.
 
 For example, using PowerShell:
 

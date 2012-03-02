@@ -5,7 +5,9 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.JavaScript",
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{BC76F2F0-F39D-425C-98E3-47636AAD023B}"
 	ProjectSection(SolutionItems) = preProject
+		..\..\WebSharper.proj = ..\..\WebSharper.proj
 		..\AssemblyInfo.fs = ..\AssemblyInfo.fs
+		..\Build.fsx = ..\Build.fsx
 		..\IntelliFactory.FSharp.targets = ..\IntelliFactory.FSharp.targets
 		..\IntelliFactory.WebSharper.InterfaceGenerator.targets = ..\IntelliFactory.WebSharper.InterfaceGenerator.targets
 		..\IntelliFactory.WebSharper.Sitelets.targets = ..\IntelliFactory.WebSharper.Sitelets.targets
