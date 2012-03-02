@@ -21,10 +21,10 @@
 
 namespace IntelliFactory.WebSharper
 
-type private D  = System.DateTime
-type private K  = System.DateTimeKind
+type private D = System.DateTime
+type private K = System.DateTimeKind
 type private TS = System.TimeSpan
-module J        = IntelliFactory.WebSharper.JavaScript
+module J = IntelliFactory.WebSharper.JavaScript
 
 [<Name "DateTime">]
 [<Proxy(typeof<System.DateTime>)>]
@@ -59,6 +59,11 @@ type private DateTimeProxy [<JavaScript>] (epoch: int, kind: K) =
     [<JavaScript>]
     new (y: int, mo: int, d: int, h: int, m: int, s: int, ms: int, k: K) =
         DateTimeProxy((DateTimeProxy.TimeAt y mo d h m s ms : int), k)
+
+    [<Name "toString">]
+    [<JavaScript>]
+    member this.Display() =
+        string (DateTimeProxy.DateByEpoch(epoch))
 
     [<Inline "new Date($y,$mo-1,$d,$h,$m,$s,$ms).getTime()">]
     static member TimeAt (y: int) (mo: int) (d: int)
