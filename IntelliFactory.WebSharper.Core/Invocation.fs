@@ -174,14 +174,4 @@ let Compile (info: System.Reflection.MethodInfo) : obj -> obj [] -> option<obj> 
             fun t args -> i.Func (t :: List.ofArray args)
     | _ ->
         let k = ts.Length
-        fun t xs ->
-            let args = t :: List.ofArray xs
-            if  args.Length = k &&
-                (args, ts)
-                ||> Seq.forall2 (fun x t ->
-                    x = null
-                    || t.IsAssignableFrom(x.GetType()))
-            then
-                Some (info.Invoke(t, xs))
-            else
-                None
+        fun t xs -> try Some (info.Invoke(t, xs)) with _ -> None
