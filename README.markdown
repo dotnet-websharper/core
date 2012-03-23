@@ -62,7 +62,7 @@ Microsoft Ajax Minifier tasks automatically.
 
 For example, using PowerShell:
 
-    set-alias msb C:\WINDOWS\Microsoft.NET\Framework\MSBuild.exe
+    set-alias msb C:\WINDOWS\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe
     msb /P:Platform=AnyCPU /Configuration:Release
 
 Solutions provided for Microsoft Visual Studio 2010 and 2011 under the
