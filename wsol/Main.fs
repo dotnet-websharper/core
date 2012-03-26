@@ -41,11 +41,17 @@ let guard action =
             exn.GetType().FullName, exn.Message)
         1
 
+
 [<EntryPoint>]
 let main args =
     try
         let options = Options.Parse args
+
         guard <| fun _ ->
+
+            // process extra.files
+            Extra.CopyFiles ()
+
             let assembly =
                 System.Reflection.Assembly.LoadFile(options.SourceAssembly.FullName)
 

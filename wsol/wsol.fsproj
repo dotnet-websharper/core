@@ -38,6 +38,8 @@
     <Compile Include="Loader.fs" />
     <Compile Include="Output.fs" />
     <Compile Include="Options.fs" />
+    <Compile Include="Extra.fsi" />
+    <Compile Include="Extra.fs" />
     <Compile Include="Main.fs" />
     <None Include="wsol.exe.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -67,4 +69,8 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
+  <Target Name="AfterBuild">
+    <Message Text="HEY, YO, AFTERBUILD" />
+    <Copy SourceFiles="E:\websharper\wsol\bin\Debug\wsol.exe" DestinationFolder="C:\Users\peter.kaufman\AppData\Roaming\IntelliFactory\WebSharper\2.4" />
+  </Target>
 </Project>
