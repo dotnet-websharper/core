@@ -62,6 +62,8 @@ let CopyFiles () =
     let name = cwd + "\\..\\..\\extra.files"
     let dest =  cwd + "\\..\\html\\"
     if System.IO.File.Exists name then
-        System.IO.File.ReadAllText name
+        System.IO.File.ReadAllLines name
+        |> Array.filter (fun l -> l.IndexOf("//") <> 0) // filter out comments first
+        |> String.concat "\n" // put the rest back together
         |> parse cwd
         |> List.iter (fun x -> (copy (dest + System.IO.Path.GetFileName (GetName x))) x)
