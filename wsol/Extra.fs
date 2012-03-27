@@ -26,7 +26,7 @@ let copy dest = function
 // gets the name of a t
 let GetName = function File s | Directory s -> s
 
-// parses extra.files into a list of paths
+// parses extra.config into a list of paths
 // format
 // <project-name> {
 // <file-pattern>*
