@@ -63,7 +63,7 @@ let CopyFiles () =
     let dest =  cwd + "\\..\\html\\"
     if System.IO.File.Exists name then
         System.IO.File.ReadAllLines name
-        |> Array.filter (fun l -> l.IndexOf("//") <> 0) // filter out comments first
+        |> Array.filter (fun l -> l.TrimStart([| '\t'; ' ' |]).IndexOf("//") <> 0) // filter out comments first
         |> String.concat "\n" // put the rest back together
         |> parse cwd
         |> List.iter (fun x -> (copy (dest + System.IO.Path.GetFileName (GetName x))) x)
