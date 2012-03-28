@@ -22,6 +22,7 @@
 namespace IntelliFactory.WebSharper.Sitelets
 
 open System
+module XT = IntelliFactory.Xml.Templating
 
 /// Represents server responses to actions. The Page response is special-cased
 /// for combinators to have access to it.
@@ -69,3 +70,25 @@ module Content =
 
     /// Constructs a 500 Server Error response.
     val ServerError<'T> : Content<'T>
+
+    module H = IntelliFactory.Html.Html
+
+    module Template =
+        type LoadFrequency =
+            | Once
+            | PerRequest
+
+    [<Sealed>]
+    type Template<'T> =
+        new : path: string -> Template<'T>
+        new : path: string * freq: Template.LoadFrequency -> Template<'T>
+
+        member With : hole: string * def: Func<'T,string> -> Template<'T>
+        member With : hole: string * def: Func<'T,#H.IElement<Control>> -> Template<'T>
+        member With : hole: string * def: Func<'T,#seq<#H.IElement<Control>>> -> Template<'T>
+
+    /// Applies a template to a user-specific content.
+    val WithTemplate<'Action,'T> :
+        template: Template<'T> ->
+        content: (Context<'Action> -> 'T) ->
+        Content<'Action>

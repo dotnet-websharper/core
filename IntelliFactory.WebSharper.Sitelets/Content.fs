@@ -27,6 +27,7 @@ type Content<'Action> =
 
 module Content =
     open System
+    open System.Collections.Generic
     open System.IO
     open System.Text.RegularExpressions
     open System.Web
@@ -36,13 +37,15 @@ module Content =
     module M = IntelliFactory.WebSharper.Core.Metadata
     module R = IntelliFactory.WebSharper.Core.Reflection
     module J = IntelliFactory.WebSharper.Core.Json
+    module XS = IntelliFactory.Xml.SimpleXml
+    module XT = IntelliFactory.Xml.Templating
 
-    let metaJson<'T> (context: Context<'T>) (controls: seq<Control>) =
+    let metaJson<'T> (jP: Core.Json.Provider) (controls: seq<Control>) =
         let encode (c: Control) =
-            let encoder = context.Json.GetEncoder(c.GetType())
+            let encoder = jP.GetEncoder(c.GetType())
             encoder.Encode c
         J.Encoded.Object [for c in controls -> (c.ID, encode c)]
-        |> context.Json.Pack
+        |> jP.Pack
         |> J.Stringify
 
     let escape (s: string) =
@@ -55,6 +58,56 @@ module Content =
                 | '\'' -> "&#39;"
                 | _ -> failwith "unreachable"))
 
+    type Env =
+        {
+            AppPath : string
+            Json : Core.Json.Provider
+            Meta : Core.Metadata.Info
+            ResourceContext : Core.Resources.Context
+        }
+
+        static member Create<'T>(ctx: Context<'T>) =
+            {
+                AppPath = ctx.ApplicationPath
+                Json = ctx.Json
+                Meta = ctx.Metadata
+                ResourceContext = ctx.ResourceContext
+            }
+
+    let writeResources (env: Env) (controls: seq<Control>) (tw: UI.HtmlTextWriter) =
+        // Resolve resources for the set of types and this assembly
+        let resources =
+            controls
+            |> Seq.map (fun x -> x.GetType())
+            |> Seq.distinct
+            |> Seq.map (fun t ->
+                M.Node.TypeNode (R.TypeDefinition.FromType t))
+            |> env.Meta.GetDependencies
+        // Meta tag encoding the client side controls
+        let mJson = metaJson env.Json controls
+        // Render meta
+        tw.WriteLine(
+            "<meta id='{0}' name='{0}' content='{1}' />",
+            IntelliFactory.WebSharper.Html.Activator.META_ID, 
+            escape mJson
+        )
+        // Render resources
+        for r in resources do
+            r.Render env.ResourceContext tw
+
+    let writeStartScript (tw: UI.HtmlTextWriter) =
+        tw.WriteLine @"<script type='text/javascript'>"
+        tw.WriteLine @"if (typeof IntelliFactory !=='undefined')"
+        tw.WriteLine @"  IntelliFactory.Runtime.Start();"
+        tw.WriteLine @"</script>"
+
+    let getResourcesAndScripts env controls =
+        use m = new StringWriter()
+        let tw = new UI.HtmlTextWriter(m, " ")
+        writeResources env controls tw
+        writeStartScript tw
+        m.ToString()
+
     let toCustomContent genPage context : Http.Response =
         let htmlPage = genPage context
         let writeBody (stream: Stream) =
@@ -63,33 +116,12 @@ module Content =
                 htmlPage.Body
                 |> Seq.collect (fun elem ->
                     elem.CollectAnnotations ())
-            // Resolve resources for the set of types and this assembly
-            let resources =
-                controls
-                |> Seq.map (fun x -> x.GetType())
-                |> Seq.distinct
-                |> Seq.map (fun t ->
-                    M.Node.TypeNode (R.TypeDefinition.FromType t))
-                |> context.Metadata.GetDependencies
-            // Meta tag encoding the client side controls
-            let mJson = metaJson context controls
             let renderHead (tw: UI.HtmlTextWriter) =
-                // Render meta
-                tw.WriteLine(
-                    "<meta id='{0}' name='{0}' content='{1}' />",
-                    IntelliFactory.WebSharper.Html.Activator.META_ID, 
-                    escape mJson
-                )
-                // Render resources
-                for r in resources do
-                    r.Render context.ResourceContext tw
+                writeResources (Env.Create context) controls tw
                 let writer = new IntelliFactory.Html.Html.Writer(tw)
                 for elem in htmlPage.Head do
                     writer.Write elem
-                tw.WriteLine @"<script type='text/javascript'>"
-                tw.WriteLine @"if (typeof IntelliFactory !=='undefined')"
-                tw.WriteLine @"  IntelliFactory.Runtime.Start();"
-                tw.WriteLine @"</script>"
+                writeStartScript tw
             let renderBody (tw: UI.HtmlTextWriter) =
                 let writer = new IntelliFactory.Html.Html.Writer(tw)
                 for elem in htmlPage.Body do
@@ -171,3 +203,121 @@ module Content =
 
     let ServerError<'T> : Content<'T> =
         httpStatusContent Http.Status.InternalServerError
+
+    type private E = IntelliFactory.Html.Html.IElement<Control>
+
+    type Hole<'T> =
+        | SH of ('T -> string)
+        | EH of ('T -> seq<E>)
+
+    type Wrapper<'T> =
+        {
+            extra : Dictionary<string, seq<XS.INode>>
+            value : 'T
+        }
+
+    module H = IntelliFactory.Html.Html
+
+    let rec toXml (e: H.Element<'T>) : XS.INode =
+        match e with
+        | H.TagContent x ->
+            let attrs = Dictionary()
+            for attr in x.Attributes do
+                attrs.[XS.Name.Create attr.Name] <- attr.Value
+            XS.ElementNode {
+                Name = XS.Name.Create x.Name
+                Children = Seq.toArray (Seq.map toXml x.Contents) :> seq<_>
+                Attributes = attrs
+            } :> _
+        | H.TextContent x -> XS.TextNode x :> _
+        | H.VerbatimContent x -> XS.CDataNode x :> _
+        | H.CommentContent x -> XS.TextNode "" :> _
+
+    module Template =
+        type LoadFrequency =
+            | Once
+            | PerRequest
+
+    [<Sealed>]
+    type Template<'T>(path: string, freq: Template.LoadFrequency, holes: Map<string,Hole<'T>>) =
+        let keySM = "scripts"
+        let makeTemplate () =
+            let mutable t = XT.Template<Wrapper<'T>>()
+            for (KeyValue (k, v)) in holes do
+                match v with
+                | SH f -> t <- t.With(k, fun x -> f x.value)
+                | EH f -> t <- t.With(k, fun x -> x.extra.[k])
+            t <- t.With(keySM, fun x -> x.extra.[keySM])
+            t
+        let template = lazy makeTemplate ()
+        let cache = Dictionary()
+
+        let load (path: string) =
+            match freq with
+            | Template.Once ->
+                match cache.TryGetValue(path) with
+                | true, r -> r
+                | _ ->
+                    let r = template.Value.Parse(path)
+                    cache.[path] <- r
+                    r
+            | Template.PerRequest ->
+                template.Value.Parse(path)
+
+        new (path) = Template(path, Template.Once, Map.empty)
+        new (path, freq) = Template(path, freq, Map.empty)
+
+        member this.With(name: string, f: Func<'T,string>) =
+            Template(path, freq, Map.add name (SH f.Invoke) holes)
+
+        member this.With(name: string, f: Func<'T,#E>) =
+            let h = EH (fun x -> Seq.singleton (f.Invoke(x) :> E))
+            Template(path, freq, Map.add name h holes)
+
+        member this.With(name: string, f: Func<'T,#seq<#E>>) =
+            let h = EH (fun x -> Seq.cast<E> (f.Invoke(x)))
+            Template(path, freq, Map.add name h holes)
+
+        member this.Compile() : Env -> 'T -> XS.Element =
+            fun env x ->
+                let tpl = load (path.Replace("~", env.AppPath))
+                let controls = Queue()
+                let extra = Dictionary()
+                for KeyValue (k, v) in holes do
+                    match v with
+                    | SH _ -> ()
+                    | EH es ->
+                        let nodes = Queue()
+                        for e in es x do
+                            let el = e.Element
+                            el.CollectAnnotations()
+                            |> List.iter controls.Enqueue
+                            nodes.Enqueue(toXml el)
+                        extra.[k] <- nodes.ToArray() :> seq<_>
+                extra.[keySM] <-
+                    getResourcesAndScripts env controls
+                    |> XS.CDataNode :> XS.INode
+                    |> Seq.singleton
+                tpl.Run {
+                    extra = extra
+                    value = x
+                }
+
+    let WithTemplate<'Action,'T>
+        (template: Template<'T>)
+        (content: Context<'Action> -> 'T) : Content<'Action> =
+        let t = template.Compile()
+        CustomContent (fun ctx ->
+            let xml = t (Env.Create ctx) (content ctx)
+            {
+                Status = Http.Status.Ok
+                Headers =
+                    [
+                        Http.Header.Custom "Content-Type"
+                            "text/html; charset=utf-8"
+                    ]
+                WriteBody = fun s ->
+                    use w = new System.IO.StreamWriter(s)
+                    w.WriteLine("<!DOCTYPE html>")
+                    XS.Node.RenderHtml w xml
+            })

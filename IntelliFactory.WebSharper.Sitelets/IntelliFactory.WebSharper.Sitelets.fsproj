@@ -57,6 +57,9 @@
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Web" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="IntelliFactory.Xml" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\IntelliFactory.Html\IntelliFactory.Html.fsproj">
