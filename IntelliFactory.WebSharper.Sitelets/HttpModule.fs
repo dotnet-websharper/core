@@ -2,7 +2,7 @@
 // 
 // This file is part of WebSharper
 // 
-// Copyright (c) 2008-2011 IntelliFactory
+// Copyright (c) 2008-2012 IntelliFactory
 // 
 // GNU Affero General Public License Usage
 // WebSharper is free software: you can redistribute it and/or modify it under
@@ -142,17 +142,15 @@ type HttpModule() =
                             }
 
                         // Handle action
-                        match site.Controller.Handle action |> Content.ToCustomContent with
-                        | CustomContent genResponse ->
-                            let response = genResponse context
-                            app.Context.Response.Status <- response.Status.ToString()
-                            for header in response.Headers do
-                                app.Context.Response.AddHeader(header.Name, header.Value)
+                        let response =
+                            (site.Controller.Handle action, context)
+                            ||> Content.ToResponse
+                        app.Context.Response.Status <- response.Status.ToString()
+                        for header in response.Headers do
+                            app.Context.Response.AddHeader(header.Name, header.Value)
 
-                            response.WriteBody app.Context.Response.OutputStream
-                            app.Response.End()
-                        | _ ->
-                            ()
+                        response.WriteBody app.Context.Response.OutputStream
+                        app.Response.End()
                     | None ->
                         ()
                 )
