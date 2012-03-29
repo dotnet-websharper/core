@@ -217,6 +217,7 @@ module Content =
         }
 
     module H = IntelliFactory.Html.Html
+    type HtmlElement = H.IElement<Control>
 
     let rec toXml (e: H.Element<'T>) : XS.INode =
         match e with

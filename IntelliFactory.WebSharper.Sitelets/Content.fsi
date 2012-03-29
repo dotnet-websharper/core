@@ -87,6 +87,9 @@ module Content =
             /// is useful for development.
             | PerRequest
 
+    /// A type of HTML elements.
+    type HtmlElement = H.IElement<Control>
+
     /// <summary>Defines a new page template.  Template files are parsed as XML
     /// and then analyzed for placeholders.  There are text placeholders
     /// <c>${foo}</c> that can appear inside text nodes and attributes, and
@@ -110,11 +113,11 @@ module Content =
 
         /// <summary>Adds an element-valued hole accessible in the
         /// template via the <c>data-hole="name"</c> attribute.</summary>
-        member With : hole: string * def: Func<'T,#H.IElement<Control>> -> Template<'T>
+        member With : hole: string * def: Func<'T,#HtmlElement> -> Template<'T>
 
         /// <summary>Adds an element-list-valued hole accessible in the
         /// template via the <c>data-hole="name"</c> attribute.</summary>
-        member With : hole: string * def: Func<'T,#seq<#H.IElement<Control>>> -> Template<'T>
+        member With : hole: string * def: Func<'T,#seq<#HtmlElement>> -> Template<'T>
 
     /// Applies a template to sitelet content.
     val WithTemplate<'Action,'T> :
