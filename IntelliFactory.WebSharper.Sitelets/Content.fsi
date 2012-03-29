@@ -73,21 +73,50 @@ module Content =
 
     module H = IntelliFactory.Html.Html
 
+    /// HTML template utilities.
     module Template =
+
+        /// Defines how frequently a template should be
+        /// loaded from disk.
         type LoadFrequency =
+
+            /// Loading happens once per application start.
             | Once
+
+            /// Loading happens once per every request, which
+            /// is useful for development.
             | PerRequest
 
+    /// <summary>Defines a new page template.  Template files are parsed as XML
+    /// and then analyzed for placeholders.  There are text placeholders
+    /// <c>${foo}</c> that can appear inside text nodes and attributes, and
+    /// node or node-list placeholders such as
+    /// <c>&lt;div data-hole="bar"&gt;</c>.  Node placeholders get replaced during
+    /// expansion. This mechanism allows to populate placeholders with example
+    /// content and validate templates as HTML5 during development.</summary>
     [<Sealed>]
     type Template<'T> =
+
+        /// Constructs a new template from an XML file at a given path.
         new : path: string -> Template<'T>
+
+        /// Constructs a new template from an XML file at a given path,
+        /// also specifying the load frequency (defaults to "once").
         new : path: string * freq: Template.LoadFrequency -> Template<'T>
 
+        /// <summary>Adds a text-valued hole accessible in the
+        /// template as <c>${name}</c>.</summary>
         member With : hole: string * def: Func<'T,string> -> Template<'T>
+
+        /// <summary>Adds an element-valued hole accessible in the
+        /// template via the <c>data-hole="name"</c> attribute.</summary>
         member With : hole: string * def: Func<'T,#H.IElement<Control>> -> Template<'T>
+
+        /// <summary>Adds an element-list-valued hole accessible in the
+        /// template via the <c>data-hole="name"</c> attribute.</summary>
         member With : hole: string * def: Func<'T,#seq<#H.IElement<Control>>> -> Template<'T>
 
-    /// Applies a template to a user-specific content.
+    /// Applies a template to sitelet content.
     val WithTemplate<'Action,'T> :
         template: Template<'T> ->
         content: (Context<'Action> -> 'T) ->
