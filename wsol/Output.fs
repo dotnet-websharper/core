@@ -256,58 +256,53 @@ let ResolveContent assFiles (mode: Mode)
             |> Array.filter (fun s -> s.Length > 0)
         parts.Length - 1
 
-    match C.ToCustomContent content with
-    | IntelliFactory.WebSharper.Sitelets.CustomContent genResp ->
-        let resContext = ResourceContext assFiles mode targetDir level
-        let response =
-            genResp {
-                Json = json
-                Link = fun _ -> ""
-                ApplicationPath =  ""
-                ResolveUrl = fun x -> x
-                Metadata = metaData
-                ResourceContext = resContext
-                Request = EmptyRequest locationString
-            }
+    let resContext = ResourceContext assFiles mode targetDir level
+    let genResp = C.ToResponse content
+    let response =
+        genResp {
+            Json = json
+            Link = fun _ -> ""
+            ApplicationPath =  ""
+            ResolveUrl = fun x -> x
+            Metadata = metaData
+            ResourceContext = resContext
+            Request = EmptyRequest locationString
+        }
 
-        let path =
-            let ext =
-                response.Headers
-                |> Seq.tryPick (fun header ->
-                    if header.Name.ToLower() = "content-type" then
-                        Some header.Value
-                    else
-                        None
-                )
-                |> Option.map (fun ct ->
-                    if ct.StartsWith "application/json" then
-                        ".json"
-                    elif ct.StartsWith "text/html" then
-                        ".html"
-                    elif ct.StartsWith "text/css" then
-                        ".css"
-                    elif ct.StartsWith "text/plain" then
-                        ".txt"
-                    elif ct.StartsWith "image/gif" then
-                        ".gif"
-                    elif ct.StartsWith "image/jpeg" then
-                        ".jpeg"
-                    elif ct.StartsWith "image/png" then
-                        ".png"
-                    elif ct.StartsWith "image/svg+xml" then
-                        ".xml"
-                    elif ct.StartsWith "image/tiff" then
-                        ".tiff"
-                    else
-                        ".html"
-                )
-            match ext with
-            | Some ext -> locationString + ext
-            | None -> locationString
-
-        genResp, resContext, path, RelPath level
-    | IntelliFactory.WebSharper.Sitelets.PageContent genPage ->
-        failwith ""
+    let path =
+        let ext =
+            response.Headers
+            |> Seq.tryPick (fun header ->
+                if header.Name.ToLower() = "content-type" then
+                    Some header.Value
+                else
+                    None
+            )
+            |> Option.map (fun ct ->
+                if ct.StartsWith "application/json" then
+                    ".json"
+                elif ct.StartsWith "text/html" then
+                    ".html"
+                elif ct.StartsWith "text/css" then
+                    ".css"
+                elif ct.StartsWith "text/plain" then
+                    ".txt"
+                elif ct.StartsWith "image/gif" then
+                    ".gif"
+                elif ct.StartsWith "image/jpeg" then
+                    ".jpeg"
+                elif ct.StartsWith "image/png" then
+                    ".png"
+                elif ct.StartsWith "image/svg+xml" then
+                    ".xml"
+                elif ct.StartsWith "image/tiff" then
+                    ".tiff"
+                else
+                    ".html")
+        match ext with
+        | Some ext -> locationString + ext
+        | None -> locationString
+    (genResp, resContext, path, RelPath level)
 
 type WriteSiteConfiguration<'Action when 'Action : equality> =
     {
