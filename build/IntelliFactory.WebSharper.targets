@@ -131,6 +131,9 @@
     <Reference Include="IntelliFactory.WebSharper.Web">
       <Private>False</Private>
     </Reference>
+    <Reference Include="IntelliFactory.Xml">
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>
