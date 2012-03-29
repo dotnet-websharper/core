@@ -88,5 +88,6 @@
   <dependencies>
     <dependency org="mono-project.com" name="cecil" branch="net-2.0" rev="latest.integration" />
     <dependency org="codeplex.com" name="ajaxmin" rev="latest.integration" />
+    <dependency name="if-xml" rev="latest.integration" />
   </dependencies>
 </ivy-module>
