@@ -57,7 +57,7 @@ let parse (path : string) (text : string) : List<t> =
     l
 
 // our entry point
-let CopyFiles () = 
+let CopyFiles (options: Options.T) = 
     let cwd = Directory.GetCurrentDirectory()
     let name = cwd + "\\..\\..\\extra.files"
     let dest =  cwd + "\\..\\html\\"

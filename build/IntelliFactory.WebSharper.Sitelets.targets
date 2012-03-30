@@ -58,6 +58,7 @@
     <PropertyGroup>
       <Args>-source "."</Args>
       <Args>$(Args) -mode "$(Configuration)"</Args>
+      <Args>$(Args) -project "$(MSBuildProjectDirectory)\."</Args>
       <Args>$(Args) -source "$(MSBuildProjectDirectory)\$(OutDir)\."</Args>
       <Args>$(Args) -out "$(WebSharperSiteletsOfflineDirectory)\."</Args>
       <Args>$(Args) -site "$(TargetPath)"</Args>

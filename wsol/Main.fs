@@ -50,7 +50,7 @@ let main args =
         guard <| fun _ ->
 
             // process extra.files
-            Extra.CopyFiles ()
+            Extra.CopyFiles options
 
             let assembly =
                 System.Reflection.Assembly.LoadFile(options.SourceAssembly.FullName)

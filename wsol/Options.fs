@@ -22,23 +22,27 @@
 /// Provides tools for creating the pages as physical files.
 module internal IntelliFactory.WebSharper.Sitelets.Offline.Options
 
+open System.IO
+
 exception BadOptions of string
 
 /// Represents command-line options.
 type T =
     {
-        SourceDirectories : list<System.IO.DirectoryInfo>
-        OutputDirectory : System.IO.DirectoryInfo
-        SourceAssembly : System.IO.FileInfo
+        SourceDirectories : list<DirectoryInfo>
+        OutputDirectory : DirectoryInfo
+        ProjectDirectory : DirectoryInfo
+        SourceAssembly : FileInfo
         Mode : Output.Mode
     }
 
 let Default =
-    let pwd =  System.Environment.CurrentDirectory
+    let pwd = System.Environment.CurrentDirectory
     {
         SourceDirectories = []
-        OutputDirectory = System.IO.DirectoryInfo pwd
-        SourceAssembly = System.IO.FileInfo "nofile"
+        OutputDirectory = DirectoryInfo pwd
+        SourceAssembly = FileInfo "nofile"
+        ProjectDirectory = DirectoryInfo pwd
         Mode = Output.Debug
     }
 
@@ -51,10 +55,11 @@ let Help =
         "Copyright (c) IntelliFactory. All Rights Reserved."
         ""
         "Usage: wsos.exe [OPTIONS] [INPUTS]"
-        "--mode         Either Debug or Release (defaults to Debug)."
-        "--source:<dir> Name of the source directory. Short form: -src."
-        "--out:<dir>    Name of the output directory. Short form: -o."
-        "--site:<dir>   Name of the assembly containing the web site. \
+        "--mode           Either Debug or Release (defaults to Debug)."
+        "--source:<dir>   Path to the source directory. Short form: -src."
+        "--out:<dir>      Path to the output directory. Short form: -o."
+        "--project:<dir>  Path to the project directory."
+        "--site:<dir>     Name of the assembly containing the web site. \
             Short form: -s."
     ]
     |> String.concat System.Environment.NewLine
@@ -88,17 +93,23 @@ let Parse (args: seq<string>) =
     let setOutputDirectory opts path =
         {
             opts with
-                OutputDirectory = System.IO.Directory.CreateDirectory path
+                OutputDirectory = Directory.CreateDirectory path
         }
 
+    let setProjectDirectory opts path =
+        let dir = DirectoryInfo path
+        if not dir.Exists then
+            raise <| BadOptions ("Could not find directory: " + path)
+        { opts with ProjectDirectory = dir }
+
     let setSourceDirectory opts path =
-        let dir = System.IO.DirectoryInfo path
+        let dir = DirectoryInfo path
         if not dir.Exists then
             raise <| BadOptions ("Could not find directory: " + path)
         { opts with SourceDirectories = dir :: opts.SourceDirectories}
 
     let setSourceAssembly opts path =
-        let file = System.IO.FileInfo path
+        let file = FileInfo path
         if not file.Exists then
             raise <| BadOptions ("Could not find file: " + path)
         { opts with SourceAssembly = file}
@@ -107,6 +118,8 @@ let Parse (args: seq<string>) =
         match xs with
             | [] ->
                 opts
+            | "-project" :: d :: xs ->
+                proc (setProjectDirectory opts (trim d)) xs
             | "-mode" :: f :: xs ->
                 proc (setMode opts (trim f)) xs
             | "-source" :: f :: xs ->
@@ -132,5 +145,4 @@ let Parse (args: seq<string>) =
         && opts.OutputDirectory.FullName <> ""
     then opts
     else raise (BadOptions "")
-
 
