@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -79,8 +79,8 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-  <Target Name="AfterBuild">
-    <Message Text="HEY, YO, AFTERBUILD" />
-    <Copy SourceFiles="E:\websharper\wsol\bin\Debug\wsol.exe" DestinationFolder="C:\Users\peter.kaufman\AppData\Roaming\IntelliFactory\WebSharper\2.4" />
+  <Target Name="AfterBuild" Condition=" '$(Configuration)' != 'Release' ">
+    <Copy SourceFiles="$(TargetPath)"
+	  DestinationFolder="$(WEBSHARPER_HOME)" />
   </Target>
 </Project>
