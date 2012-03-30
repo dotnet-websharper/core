@@ -50,7 +50,7 @@ let main args =
         guard <| fun _ ->
 
             // process extra.files
-            Extra.CopyFiles options.ProjectDirectory.FullName options.OutputDirectory.FullName //"E:\\ifp-hplogin\\HPLogin\\WebSharperMobileProject"
+            Extra.CopyFiles options.ProjectDirectory.FullName options.OutputDirectory.FullName
 
             let assembly =
                 System.Reflection.Assembly.LoadFile(options.SourceAssembly.FullName)
