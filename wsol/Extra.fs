@@ -43,23 +43,21 @@ let GetName t = match t with File s | Directory s -> s
 // param text : the text of the file
 let parse (path : string) (text : string) : List<t> =
     let mutable l = []
-    let matches = System.Text.RegularExpressions.Regex.Matches(text, "[^\s]+\s*{[^}]*}")
+    let matches = System.Text.RegularExpressions.Regex.Matches(text, "[^\s]+")
     for m in matches do
-        let cur = m.Value.Substring(m.Value.IndexOf(' ') + 1)
-        let sub_matches = System.Text.RegularExpressions.Regex.Matches(cur, "[^{}\s]+")
-        for m in sub_matches do
-            let s = path ++ m.Value
-            let t = 
-                if (s.Chars (s.Length - 1)) = '*' then
-                    Directory (s.Substring(0, s.Length - 1))
-                else
-                File s
-            l <- t :: l
+        let s = path ++ m.Value
+        let t = 
+            if (s.Chars (s.Length - 1)) = '*' then
+                Directory (s.Substring(0, s.Length - 1))
+            else
+            File s
+        l <- t :: l
     l
 
 // our entry point
 // dir is the directory of extra.files
 let CopyFiles dir dest = 
+    printf "%s\n" dir
     let extras = dir ++ "extra.files"
     if System.IO.File.Exists extras then
         printf "Copying files specified in %s\n" extras
