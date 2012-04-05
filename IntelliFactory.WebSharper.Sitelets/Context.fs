@@ -25,7 +25,7 @@ namespace IntelliFactory.WebSharper.Sitelets
 type Context<'Action> =
     {
 
-        /// Application path
+        /// Virtual application root path on the server.
         ApplicationPath : string
 
         /// Generates a (possibly relative) URL to a given action.

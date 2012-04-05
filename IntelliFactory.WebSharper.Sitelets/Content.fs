@@ -204,11 +204,13 @@ module Content =
     let ServerError<'T> : Content<'T> =
         httpStatusContent Http.Status.InternalServerError
 
-    type private E = IntelliFactory.Html.Html.IElement<Control>
+    module H = IntelliFactory.Html.Html
+    type HtmlElement = H.IElement<Control>
+    type HtmlNode = H.INode<Control>
 
     type Hole<'T> =
         | SH of ('T -> string)
-        | EH of ('T -> seq<E>)
+        | EH of ('T -> seq<HtmlElement>)
 
     type Wrapper<'T> =
         {
@@ -216,11 +218,8 @@ module Content =
             value : 'T
         }
 
-    module H = IntelliFactory.Html.Html
-    type HtmlElement = H.IElement<Control>
-
-    let rec toXml (e: H.Element<'T>) : XS.INode =
-        match e with
+    let rec toXml (node: HtmlElement) : XS.INode =
+        match node.Element with
         | H.TagContent x ->
             let attrs = Dictionary()
             for attr in x.Attributes do
@@ -240,9 +239,27 @@ module Content =
             | PerRequest
 
     [<Sealed>]
+    type CustomXml private () =
+        static let self = CustomXml()
+        static member Instance = self
+        interface XT.IXml<HtmlElement,HtmlElement> with
+            member this.Text x = H.TextContent x :> _
+            member this.CData x = H.VerbatimContent x :> _
+            member this.ElementNode x = x
+            member this.Element(name, attrs, children) =
+                let attributes =
+                    attrs
+                    |> Seq.map (fun (KeyValue (k, v)) ->
+                        H.NewAttribute k.Local v :> HtmlNode)
+                let children =
+                    children
+                    |> Seq.map (fun c -> c.Element :> HtmlNode)
+                H.NewElement name.Local (Seq.append attributes children) :> _
+
+    [<Sealed>]
     type Template<'T>(path: string, freq: Template.LoadFrequency, holes: Map<string,Hole<'T>>) =
         let keySM = "scripts"
-        let makeTemplate () =
+        let pageTemplate =
             let mutable t = XT.Template<Wrapper<'T>>()
             for (KeyValue (k, v)) in holes do
                 match v with
@@ -250,20 +267,27 @@ module Content =
                 | EH f -> t <- t.With(k, fun x -> x.extra.[k])
             t <- t.With(keySM, fun x -> x.extra.[keySM])
             t
-        let template = lazy makeTemplate ()
-        let cache = Dictionary()
-
-        let load (path: string) =
+        let basicTemplate =
+            let mutable t = XT.CustomTemplate<HtmlElement,HtmlElement,'T>(CustomXml.Instance)
+            for (KeyValue (k, v)) in holes do
+                match v with
+                | SH f -> t <- t.With(k, f)
+                | EH f -> t <- t.With(k, f)
+            t
+        let getBasicTemplate =
             match freq with
             | Template.Once ->
-                match cache.TryGetValue(path) with
-                | true, r -> r
-                | _ ->
-                    let r = template.Value.Parse(path)
-                    cache.[path] <- r
-                    r
+                let t = lazy basicTemplate.Parse(path)
+                fun () -> t.Value
             | Template.PerRequest ->
-                template.Value.Parse(path)
+                fun () -> basicTemplate.Parse(path)
+        let getPageTemplate =
+            match freq with
+            | Template.Once ->
+                let t = lazy pageTemplate.Parse(path)
+                fun () -> t.Value
+            | Template.PerRequest ->
+                fun () -> pageTemplate.Parse(path)
 
         new (path) = Template(path, Template.Once, Map.empty)
         new (path, freq) = Template(path, freq, Map.empty)
@@ -271,45 +295,59 @@ module Content =
         member this.With(name: string, f: Func<'T,string>) =
             Template(path, freq, Map.add name (SH f.Invoke) holes)
 
-        member this.With(name: string, f: Func<'T,#E>) =
-            let h = EH (fun x -> Seq.singleton (f.Invoke(x) :> E))
+        member this.With(name: string, f: Func<'T,#HtmlElement>) =
+            let h = EH (fun x -> Seq.singleton (f.Invoke(x) :> _))
             Template(path, freq, Map.add name h holes)
 
-        member this.With(name: string, f: Func<'T,#seq<#E>>) =
-            let h = EH (fun x -> Seq.cast<E> (f.Invoke(x)))
+        member this.With(name: string, f: Func<'T,#seq<#HtmlElement>>) =
+            let h = EH (fun x -> Seq.cast(f.Invoke(x)))
             Template(path, freq, Map.add name h holes)
 
-        member this.Compile() : Env -> 'T -> XS.Element =
-            fun env x ->
-                let tpl = load (path.Replace("~", env.AppPath))
-                let controls = Queue()
-                let extra = Dictionary()
-                for KeyValue (k, v) in holes do
-                    match v with
-                    | SH _ -> ()
-                    | EH es ->
-                        let nodes = Queue()
-                        for e in es x do
-                            let el = e.Element
-                            el.CollectAnnotations()
-                            |> List.iter controls.Enqueue
-                            nodes.Enqueue(toXml el)
-                        extra.[k] <- nodes.ToArray() :> seq<_>
-                extra.[keySM] <-
-                    getResourcesAndScripts env controls
-                    |> XS.CDataNode :> XS.INode
-                    |> Seq.singleton
-                tpl.Run {
-                    extra = extra
-                    value = x
-                }
+        member this.Compile() =
+            getBasicTemplate()
+            |> ignore
+            this
+
+        member this.Run(value: 'T) : HtmlNode =
+            getBasicTemplate().Run(value).Element :> HtmlNode
+
+        member this.CheckPageTemplate() =
+            ignore (getPageTemplate ())
+
+        member this.Run(env: Env, x: 'T) : XS.Element =
+            let tpl = getPageTemplate ()
+            let controls = Queue()
+            let extra = Dictionary()
+            for KeyValue (k, v) in holes do
+                match v with
+                | SH _ -> ()
+                | EH es ->
+                    let children = es x
+                    let childNodes =
+                        children
+                        |> Seq.map (fun e -> e.Element :> HtmlNode)
+                    let div = H.NewElement "div" childNodes
+                    div.CollectAnnotations()
+                    |> Seq.iter controls.Enqueue
+                    extra.[k] <-
+                        Seq.map toXml children
+                        |> Seq.toArray
+                        :> seq<_>
+            extra.[keySM] <-
+                getResourcesAndScripts env controls
+                |> XS.CDataNode :> XS.INode
+                |> Seq.singleton
+            tpl.Run {
+                extra = extra
+                value = x
+            }
 
     let WithTemplate<'Action,'T>
         (template: Template<'T>)
         (content: Context<'Action> -> 'T) : Content<'Action> =
-        let t = template.Compile()
+        template.CheckPageTemplate()
         CustomContent (fun ctx ->
-            let xml = t (Env.Create ctx) (content ctx)
+            let xml = template.Run(Env.Create ctx, content ctx)
             {
                 Status = Http.Status.Ok
                 Headers =

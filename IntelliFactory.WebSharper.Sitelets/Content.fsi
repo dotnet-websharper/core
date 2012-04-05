@@ -90,11 +90,15 @@ module Content =
     /// A type of HTML elements.
     type HtmlElement = H.IElement<Control>
 
+    /// A type of HTML nodes.
+    type HtmlNode = H.INode<Control>
+
     /// <summary>Defines a new page template.  Template files are parsed as XML
     /// and then analyzed for placeholders.  There are text placeholders
     /// <c>${foo}</c> that can appear inside text nodes and attributes, and
     /// node or node-list placeholders such as
-    /// <c>&lt;div data-hole="bar"&gt;</c>.  Node placeholders get replaced during
+    /// <c>&lt;div data-hole="bar"&gt;</c> or <c>&lt;div data-replace="bar"&gt;</c>.
+    /// Node placeholders get replaced during
     /// expansion. This mechanism allows to populate placeholders with example
     /// content and validate templates as HTML5 during development.</summary>
     [<Sealed>]
@@ -119,7 +123,16 @@ module Content =
         /// template via the <c>data-hole="name"</c> attribute.</summary>
         member With : hole: string * def: Func<'T,#seq<#HtmlElement>> -> Template<'T>
 
-    /// Applies a template to sitelet content.
+        /// Compiles the template as a simple template. Recommended to use before Run
+        /// for early detection of errors.
+        member Compile : unit -> Template<'T>
+
+        /// Expands the template as a simple element template.
+        member Run : value: 'T -> HtmlNode
+
+    /// Applies a template as a page template for sitelet content.
+    /// An extra placeholder called "scripts" is available with WebSharper-determined
+    /// dependencies.
     val WithTemplate<'Action,'T> :
         template: Template<'T> ->
         content: (Context<'Action> -> 'T) ->
