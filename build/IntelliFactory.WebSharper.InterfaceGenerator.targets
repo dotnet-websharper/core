@@ -79,7 +79,7 @@
          DebugType="pdbonly" />
   </Target>
 
-  <ItemGroup Condition="Exists('$(WEBSHARPER_HOME)\LICENSE.rtf')">
+  <ItemGroup Condition=" '$(WsBuild)' != 'self' ">
     <Reference Include="IntelliFactory.WebSharper.InterfaceGenerator" />
   </ItemGroup>
 

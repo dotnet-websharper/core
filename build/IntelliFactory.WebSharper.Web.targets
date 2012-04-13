@@ -23,12 +23,15 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <PropertyGroup>
-    <WEBSHARPER_HOME Condition="Exists('$(MSBuildProjectDirectory)\..\.build\lib\WebSharper.exe')">$(MSBuildProjectDirectory)\..\.build\lib</WEBSHARPER_HOME>
-    <WEBSHARPER_HOME Condition="Exists('$(MSBuildProjectDirectory)\..\WebSharper')">$(MSBuildProjectDirectory)\..\WebSharper\bin\$(Configuration)</WEBSHARPER_HOME>
+    <WsBuild>default</WsBuild>
+    <WsBuild Condition="Exists('$(MSBuildProjectDirectory)\..\WebSharper')">self</WsBuild>
+    <WsBuild Condition="Exists('$(MSBuildProjectDirectory)\..\.build\lib\WebSharper.exe')">internal</WsBuild>
+    <WEBSHARPER_HOME Condition="'$(WsBuild)' == 'internal'">$(MSBuildProjectDirectory)\..\.build\lib</WEBSHARPER_HOME>
+    <WEBSHARPER_HOME Condition="'$(WsBuild)' == 'self'">$(MSBuildProjectDirectory)\..\WebSharper\bin\$(Configuration)</WEBSHARPER_HOME>
     <AssemblySearchPaths>
-      $(WEBSHARPER_HOME);
-      $(MSBuildProjectDirectory)\..\.build\lib;
       $(AssemblySearchPaths);
+      $(MSBuildProjectDirectory)\..\.build\lib;
+      $(WEBSHARPER_HOME)
     </AssemblySearchPaths>
   </PropertyGroup>
 
@@ -72,7 +75,7 @@
     <Delete Files="@(WebSharperWebTargets)" />
   </Target>
 
-  <ItemGroup Condition="Exists('$(WEBSHARPER_HOME)\LICENSE.rtf')">
+  <ItemGroup Condition=" '$(WsBuild)' != 'self' ">
     <Reference Include="IntelliFactory.WebSharper.Collections" />
     <Reference Include="IntelliFactory.WebSharper.Control" />
     <Reference Include="IntelliFactory.WebSharper.Sitelets" />
