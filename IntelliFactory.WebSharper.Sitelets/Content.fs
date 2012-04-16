@@ -58,6 +58,14 @@ module Content =
                 | '\'' -> "&#39;"
                 | _ -> failwith "unreachable"))
 
+    /// Watches a file for changes.
+    let watchForChanges (path: string) (recompile: unit -> unit) =
+        let dir = Path.GetDirectoryName(path)
+        let file = Path.GetFileName(path)
+        let watcher = new FileSystemWatcher(dir, file, EnableRaisingEvents = true)
+        watcher.Changed.Add(fun _ -> recompile ())
+        watcher :> System.IDisposable
+
     type Env =
         {
             AppPath : string
@@ -236,6 +244,7 @@ module Content =
         type LoadFrequency =
             | Once
             | PerRequest
+            | WhenChanged
 
     [<Sealed>]
     type CustomXml private () =
@@ -272,22 +281,43 @@ module Content =
                 | SH f -> t <- t.With(k, f)
                 | EH f -> t <- t.With(k, f)
             t
-        let getBasicTemplate =
-            match freq with
-            | Template.Once ->
-                let t = lazy basicTemplate.Parse(path)
-                fun () -> t.Value
-            | Template.PerRequest ->
-                fun () -> basicTemplate.Parse(path)
-        let getPageTemplate =
-            match freq with
-            | Template.Once ->
-                let t = lazy pageTemplate.Parse(path)
-                fun () -> t.Value
-            | Template.PerRequest ->
-                fun () -> pageTemplate.Parse(path)
 
-        new (path) = Template(path, Template.Once, Map.empty)
+        let getTemplate (parse: string -> _) =
+            match freq with
+            | Template.Once ->
+                let t = lazy parse path
+                fun () -> t.Value
+            | Template.PerRequest ->
+                fun () -> parse path
+            | Template.WhenChanged ->
+                let cell = ref None
+                let read () =
+                    try Choice1Of2 (parse path)
+                    with e -> Choice2Of2 e
+                let load () =
+                    let v = read ()
+                    cell := Some v
+                    v
+                let reload () = lock cell (load >> ignore)
+                let unpack x =
+                    match x with
+                    | Choice1Of2 x -> x
+                    | Choice2Of2 (e: exn) -> raise e
+                fun () ->
+                    lock cell <| fun () ->
+                        match !cell with
+                        | Some x -> unpack x
+                        | None ->
+                            // NOTE: resource leak here, watcher
+                            // does not get disposed. Not a problem if
+                            // template object is static.
+                            let watcher = watchForChanges path reload
+                            unpack (load ())
+
+        let getBasicTemplate = getTemplate basicTemplate.Parse
+        let getPageTemplate = getTemplate pageTemplate.Parse
+
+        new (path) = Template(path, Template.WhenChanged, Map.empty)
         new (path, freq) = Template(path, freq, Map.empty)
 
         member this.With(name: string, f: Func<'T,string>) =

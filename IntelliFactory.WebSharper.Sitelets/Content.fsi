@@ -87,6 +87,11 @@ module Content =
             /// is useful for development.
             | PerRequest
 
+            /// Loading detects file changes and only happens
+            /// when necessary, using System.IO.FileSystemWatcher
+            /// to detect changes in the file system.
+            | WhenChanged
+
     /// A type of HTML elements.
     type HtmlElement = H.Element<Control>
 
@@ -95,8 +100,9 @@ module Content =
     /// <c>${foo}</c> that can appear inside text nodes and attributes, and
     /// node or node-list placeholders such as
     /// <c>&lt;div data-hole="bar"&gt;</c> or <c>&lt;div data-replace="bar"&gt;</c>.
-    /// Node placeholders get replaced during
-    /// expansion. This mechanism allows to populate placeholders with example
+    /// Node placeholder elements get completely replaced (data-replace),
+    /// or get their contents replaced (data-hole) during expansion.
+    /// This mechanism allows to populate placeholders with example
     /// content and validate templates as HTML5 during development.</summary>
     [<Sealed>]
     type Template<'T> =
@@ -105,7 +111,7 @@ module Content =
         new : path: string -> Template<'T>
 
         /// Constructs a new template from an XML file at a given path,
-        /// also specifying the load frequency (defaults to "once").
+        /// also specifying the load frequency (defaults to WhenChanged).
         new : path: string * freq: Template.LoadFrequency -> Template<'T>
 
         /// <summary>Adds a text-valued hole accessible in the
