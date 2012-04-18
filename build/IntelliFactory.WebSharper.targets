@@ -3,7 +3,7 @@
 // 
 // This file is part of WebSharper
 // 
-// Copyright (c) 2008-2011 IntelliFactory
+// Copyright (c) 2008-2012 IntelliFactory
 // 
 // GNU Affero General Public License Usage
 // WebSharper is free software: you can redistribute it and/or modify it under
@@ -21,19 +21,9 @@
 // $end{copyright}
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">  
-  <Import Project="IntelliFactory.FSharp.targets" />
+  <Import Project="IntelliFactory.WebSharper.FSharp.targets" />
 
   <PropertyGroup>
-    <WsBuild>default</WsBuild>
-    <WsBuild Condition="Exists('$(MSBuildProjectDirectory)\..\WebSharper')">self</WsBuild>
-    <WsBuild Condition="Exists('$(MSBuildProjectDirectory)\..\.build\lib\WebSharper.exe')">internal</WsBuild>
-    <WEBSHARPER_HOME Condition="'$(WsBuild)' == 'internal'">$(MSBuildProjectDirectory)\..\.build\lib</WEBSHARPER_HOME>
-    <WEBSHARPER_HOME Condition="'$(WsBuild)' == 'self'">$(MSBuildProjectDirectory)\..\WebSharper\bin\$(Configuration)</WEBSHARPER_HOME>
-    <AssemblySearchPaths>
-      $(AssemblySearchPaths);
-      $(MSBuildProjectDirectory)\..\.build\lib;
-      $(WEBSHARPER_HOME)
-    </AssemblySearchPaths>
     <CleanDependsOn>$(CleanDependsOn);WebSharperClean</CleanDependsOn>
     <CompileDependsOn>$(CompileDependsOn);WebSharperCompile</CompileDependsOn>
     <CoreCompileDependsOn>WebSharperPrepare;$(CoreCompileDependsOn)</CoreCompileDependsOn>
@@ -82,7 +72,7 @@
     <Delete Files="@(GeneratedFiles)" />
   </Target>
 
-  <ItemGroup Condition=" '$(WsBuild)' != 'self' ">
+  <ItemGroup Condition=" '$(BuildKind)' != 'self' ">
     <Reference Include="IntelliFactory.Formlet">
       <Private>False</Private>
     </Reference>

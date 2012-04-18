@@ -1,10 +1,10 @@
 <!--
 // $begin{copyright}
-// 
+//
 // This file is part of WebSharper
-// 
-// Copyright (c) 2008-2011 IntelliFactory
-// 
+//
+// Copyright (c) 2008-2012 IntelliFactory
+//
 // GNU Affero General Public License Usage
 // WebSharper is free software: you can redistribute it and/or modify it under
 // the terms of the GNU Affero General Public License, version 3, as published
@@ -21,25 +21,9 @@
 // $end{copyright}
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="IntelliFactory.WebSharper.CSharp.targets" />
 
   <PropertyGroup>
-    <WsBuild>default</WsBuild>
-    <WsBuild Condition="Exists('$(MSBuildProjectDirectory)\..\WebSharper')">self</WsBuild>
-    <WsBuild Condition="Exists('$(MSBuildProjectDirectory)\..\.build\lib\WebSharper.exe')">internal</WsBuild>
-    <WEBSHARPER_HOME Condition="'$(WsBuild)' == 'internal'">$(MSBuildProjectDirectory)\..\.build\lib</WEBSHARPER_HOME>
-    <WEBSHARPER_HOME Condition="'$(WsBuild)' == 'self'">$(MSBuildProjectDirectory)\..\WebSharper\bin\$(Configuration)</WEBSHARPER_HOME>
-    <AssemblySearchPaths>
-      $(AssemblySearchPaths);
-      $(MSBuildProjectDirectory)\..\.build\lib;
-      $(WEBSHARPER_HOME)
-    </AssemblySearchPaths>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <AllowedReferenceRelatedFileExtensions>
-      $(AllowedReferenceRelatedFileExtensions);
-      .dll.site
-    </AllowedReferenceRelatedFileExtensions>
     <CleanDependsOn>$(CleanDependsOn);WebSharperWebClean</CleanDependsOn>
     <PrepareForRunDependsOn>$(PrepareForRunDependsOn);WebSharperWebCompile</PrepareForRunDependsOn>
     <WebSharperScriptsFolder Condition=" '$(WebSharperScriptsFolder)' == ''">$(MSBuildProjectDirectory)\Scripts</WebSharperScriptsFolder>
@@ -75,7 +59,7 @@
     <Delete Files="@(WebSharperWebTargets)" />
   </Target>
 
-  <ItemGroup Condition=" '$(WsBuild)' != 'self' ">
+  <ItemGroup Condition=" '$(BuildKind)' != 'self' ">
     <Reference Include="IntelliFactory.WebSharper.Collections" />
     <Reference Include="IntelliFactory.WebSharper.Control" />
     <Reference Include="IntelliFactory.WebSharper.Sitelets" />

@@ -1,10 +1,10 @@
 <!--
 // $begin{copyright}
-// 
+//
 // This file is part of WebSharper
-// 
-// Copyright (c) 2008-2011 IntelliFactory
-// 
+//
+// Copyright (c) 2008-2012 IntelliFactory
+//
 // GNU Affero General Public License Usage
 // WebSharper is free software: you can redistribute it and/or modify it under
 // the terms of the GNU Affero General Public License, version 3, as published
@@ -52,13 +52,13 @@
     </PropertyGroup>
     <ItemGroup>
       <WsIgReferences Include="@(ReferencePath)"
-        Condition="'%(ReferencePath.Filename)' != 'System'
-       and '%(ReferencePath.Filename)' != 'System.Core'
-       and '%(ReferencePath.Filename)' != 'mscorlib'
-       and '%(ReferencePath.Filename)' != 'System.Web'" />
+                      Condition="'%(ReferencePath.Filename)' != 'System'
+                                 and '%(ReferencePath.Filename)' != 'System.Core'
+                                 and '%(ReferencePath.Filename)' != 'mscorlib'
+                                 and '%(ReferencePath.Filename)' != 'System.Web'" />
       <WsIgSelf
-        Include="@(ReferencePath)"
-        Condition="'%(ReferencePath.Filename)' == 'IntelliFactory.WebSharper.InterfaceGenerator'" />
+          Include="@(ReferencePath)"
+          Condition="'%(ReferencePath.Filename)' == 'IntelliFactory.WebSharper.InterfaceGenerator'" />
       <WsIgSources Include="$(OutputPath)\Generated.cs" />
       <WsIgSources Include="@(None);@(Compile)" Condition="'%(Extension)' == '.cs'" />
       <WsIgSources Include="$(MSBuildProjectDirectory)\..\.build\AutoAssemblyInfo.cs"
@@ -69,7 +69,7 @@
     <Copy SourceFiles="@(ReferencePath);@(WsIgSelf);@(WsIgConfig)"
           DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(WEBSHARPER_HOME)\WebSharper.exe.config"
-	  DestinationFiles="$(OutputPath)\Generator.exe.config" />
+          DestinationFiles="$(OutputPath)\Generator.exe.config" />
     <Exec Command="Generator.exe &gt; Generated.cs" WorkingDirectory="$(OutputPath)" />
     <Csc TargetType="Library"
          References="@(WsIgReferences)"
@@ -81,7 +81,7 @@
          DebugType="pdbonly" />
   </Target>
 
-  <ItemGroup Condition=" '$(WsBuild)' != 'self' ">
+  <ItemGroup Condition=" '$(BuildKind)' != 'self' ">
     <Reference Include="IntelliFactory.WebSharper.InterfaceGenerator" />
   </ItemGroup>
 

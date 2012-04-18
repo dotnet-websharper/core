@@ -79,8 +79,11 @@
     <artifact name="xhtml2fs" ext="exe.config" type="bin" />
     <artifact name="xhtml2fs" ext="pdb" type="debug" />
     <artifact name="xhtml2fs" ext="xml" type="doc" />
-    <artifact name="IntelliFactory.FSharp" ext="targets" type="build" />
+
     <artifact name="IntelliFactory.WebSharper" ext="targets" type="build" />
+    <artifact name="IntelliFactory.WebSharper.CSharp" ext="targets" type="build" />
+    <artifact name="IntelliFactory.WebSharper.Common" ext="targets" type="build" />
+    <artifact name="IntelliFactory.WebSharper.FSharp" ext="targets" type="build" />
     <artifact name="IntelliFactory.WebSharper.InterfaceGenerator" ext="targets" type="build" />
     <artifact name="IntelliFactory.WebSharper.Sitelets" ext="targets" type="build" />
     <artifact name="IntelliFactory.WebSharper.Web" ext="targets" type="build" />
