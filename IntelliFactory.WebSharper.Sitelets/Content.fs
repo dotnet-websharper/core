@@ -314,7 +314,7 @@ module Content =
                             let watcher = watchForChanges path reload
                             unpack (load ())
 
-        let getBasicTemplate = getTemplate basicTemplate.Parse
+        let getBasicTemplate = getTemplate basicTemplate.ParseFragmentFile
         let getPageTemplate = getTemplate pageTemplate.Parse
 
         new (path) = Template(path, Template.WhenChanged, Map.empty)
@@ -336,7 +336,7 @@ module Content =
             |> ignore
             this
 
-        member this.Run(value: 'T) : HtmlElement =
+        member this.Run(value: 'T) : seq<HtmlElement> =
             getBasicTemplate().Run(value)
 
         member this.CheckPageTemplate() =

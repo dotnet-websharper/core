@@ -130,8 +130,8 @@ module Content =
         /// for early detection of errors.
         member Compile : unit -> Template<'T>
 
-        /// Expands the template as a simple element template.
-        member Run : value: 'T -> HtmlElement
+        /// Expands the template on a given value.
+        member Run : value: 'T -> seq<HtmlElement>
 
     /// Applies a template as a page template for sitelet content.
     /// An extra placeholder called "scripts" is available with WebSharper-determined
