@@ -49,116 +49,119 @@ module internal SiteLoading =
             let actions = Seq.map snd pairs
             (Sitelet.Sum sitelets, Seq.concat actions)
 
-module private Site =
-    let internal Current =
-        SiteLoading.LoadFromAssemblies()
+module private WebUtils =
+
+    let currentSite =
+        lazy fst (SiteLoading.LoadFromAssemblies())
+
+    /// Converts ASP.NET requests to Sitelet requests.
+    let convertRequest (ctx: HttpContext) : Http.Request =
+        let METHOD = function
+            | "CONNECT" -> Http.Method.Connect
+            | "DELETE" -> Http.Method.Delete
+            | "GET" -> Http.Method.Get
+            | "HEAD" -> Http.Method.Head
+            | "OPTIONS" -> Http.Method.Options
+            | "POST" -> Http.Method.Post
+            | "PUT" -> Http.Method.Put
+            | "TRACE" -> Http.Method.Trace
+            | rest -> Http.Method.Custom rest
+        let req = ctx.Request
+        let resp = ctx.Response
+        let headers =
+            seq {
+                for key in req.Headers.AllKeys do
+                    yield Http.Header.Custom key req.Headers.[key]
+            }
+        // app.Context.Request.Cookies
+        let parameters =
+            seq {
+                for p in ctx.Request.Params.AllKeys do
+                    yield (p, req.[p])
+            }
+        {
+            Method = METHOD ctx.Request.HttpMethod
+            Uri = req.Url
+            Headers = headers
+            Body = resp.OutputStream
+            Post = new Http.ParameterCollection(req.Form)
+            Get  = new Http.ParameterCollection(req.QueryString)
+            Cookies = req.Cookies
+            ServerVariables = new Http.ParameterCollection(req.ServerVariables)
+            Files =
+                let fs = req.Files
+                seq {
+                    for k in fs.Keys do
+                        yield fs.[k]
+                }
+        }
+
+    /// Normalizes the application path.
+    let appPath (req: HttpRequest) =
+        if req.ApplicationPath = "/"
+        then ""
+        else req.ApplicationPath
+
+    /// Gets the sitelet for a given context.
+    let getSitelet (site: Sitelet<obj>) (ctx: HttpContext) =
+        let req = ctx.Request
+        let appPath = appPath ctx.Request
+        Sitelet.Shift appPath site
+
+    /// Constructs the sitelet context object.
+    let getContext (site: Sitelet<obj>) (req: HttpRequest) (request: Http.Request) : Context<obj> =
+        let appPath = appPath req
+        {
+            ApplicationPath = appPath
+            ResolveUrl = fun url ->
+                if url.StartsWith ("~") then
+                    appPath + url.Substring(1)
+                else
+                    url
+            Json = ResourceContext.SharedJson()
+            Link = fun action ->
+                match site.Router.Link action  with
+                | Some loc -> loc.ToString()
+                | None -> failwith "Failed to link to action"
+            Metadata = ResourceContext.MetaData()
+            ResourceContext = ResourceContext.ResourceContext appPath
+            Request = request
+        }
+
+    /// Writes a response.
+    let respond (site: Sitelet<obj>) (ctx: HttpContext) (req: Http.Request) (action: obj) =
+        // Create a context
+        let context = getContext site ctx.Request req
+        // Handle action
+        let response =
+            (site.Controller.Handle action, context)
+            ||> Content.ToResponse
+        let resp = ctx.Response
+        resp.Status <- response.Status.ToString()
+        for header in response.Headers do
+            resp.AddHeader(header.Name, header.Value)
+        response.WriteBody resp.OutputStream
+        resp.End()
+
+/// The ISS handler for WebSharper applications.
+[<Sealed>]
+type HttpHandler(request: Http.Request, action: obj) =
+    interface SessionState.IRequiresSessionState
+    interface IHttpHandler with
+        member this.IsReusable = false
+        member this.ProcessRequest(ctx) =
+            WebUtils.respond WebUtils.currentSite.Value ctx request action
 
 /// IIS module, processing the URLs and serving the pages.
 type HttpModule() =
-    let mutable dispose = ignore
-
     interface IHttpModule with
         member this.Init app =
-
-            // Load sitelet
-            let (site, actions) = Site.Current
-
-            /// Handler for processing begin requests and respond with a page if one exists with the current URL.
-            let beginhandler =
-                EventHandler(fun (x: obj) (e: EventArgs)->
-                    let app = (x :?> HttpApplication)
-
-                    let METHOD = function
-                        | "CONNECT" -> Http.Method.Connect
-                        | "DELETE" -> Http.Method.Delete
-                        | "GET" -> Http.Method.Get
-                        | "HEAD" -> Http.Method.Head
-                        | "OPTIONS" -> Http.Method.Options
-                        | "POST" -> Http.Method.Post
-                        | "PUT" -> Http.Method.Put
-                        | "TRACE" -> Http.Method.Trace
-                        | rest -> Http.Method.Custom rest
-
-                    // Construct the request
-                    let request : Http.Request=
-                        let headers =
-                            seq {
-                                for key in app.Context.Request.Headers.AllKeys do
-                                    yield Http.Header.Custom key app.Context.Request.Headers.[key]
-                            }
-
-                        // app.Context.Request.Cookies
-                        let parameters =
-                            seq {
-                                for p in app.Context.Request.Params.AllKeys do
-                                    yield (p, app.Context.Request.[p])
-                            }
-                        {
-                            Method  = METHOD app.Context.Request.HttpMethod
-                            Uri     = app.Context.Request.Url
-                            Headers = headers
-                            Body    = app.Context.Response.OutputStream
-                            Post    = new Http.ParameterCollection(app.Context.Request.Form)
-                            Get     = new Http.ParameterCollection(app.Context.Request.QueryString)
-                            Cookies = app.Context.Request.Cookies
-                            ServerVariables = new Http.ParameterCollection(app.Context.Request.ServerVariables)
-                            Files =
-                                let fs = app.Context.Request.Files
-                                seq {
-                                    for k in fs.Keys do
-                                        yield fs.[k]
-                                }
-                        }
-
-                    let appPath =
-                        if app.Context.Request.ApplicationPath = "/" then
-                            ""
-                        else
-                            app.Context.Request.ApplicationPath
-
-                    let site = Sitelet.Shift appPath site
-
-                    // Get the action
-                    match site.Router.Route request with
-                    | Some action ->
-                        // Create a context
-                        let context =
-                            {
-                                ApplicationPath = appPath
-                                ResolveUrl = fun url ->
-                                    if url.StartsWith ("~") then
-                                        appPath + url.Substring(1)
-                                    else
-                                        url
-                                Json = ResourceContext.SharedJson()
-                                Link = fun action ->
-                                    match site.Router.Link action  with
-                                    | Some loc -> loc.ToString()
-                                    | None -> failwith "Failed to link to action"
-
-                                Metadata = ResourceContext.MetaData()
-                                ResourceContext = ResourceContext.ResourceContext appPath
-                                Request = request
-                            }
-
-                        // Handle action
-                        let response =
-                            (site.Controller.Handle action, context)
-                            ||> Content.ToResponse
-                        app.Context.Response.Status <- response.Status.ToString()
-                        for header in response.Headers do
-                            app.Context.Response.AddHeader(header.Name, header.Value)
-
-                        response.WriteBody app.Context.Response.OutputStream
-                        app.Response.End()
-                    | None ->
-                        ()
-                )
-
-            let endhandler =
-                EventHandler(fun (x: obj) (e: EventArgs)-> () )
-            app.add_AuthorizeRequest beginhandler
-            app.add_EndRequest endhandler
-
-        /// Release the handlers
+            app.add_PostAuthorizeRequest(new EventHandler(fun x e ->
+                let app = (x :?> HttpApplication)
+                let ctx = app.Context
+                let sitelet = WebUtils.getSitelet WebUtils.currentSite.Value ctx
+                let request = WebUtils.convertRequest ctx
+                match sitelet.Router.Route(request) with
+                | None -> ()
+                | Some action -> ctx.RemapHandler(HttpHandler(request, action))))
         member this.Dispose() = ()
