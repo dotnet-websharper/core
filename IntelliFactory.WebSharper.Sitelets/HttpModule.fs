@@ -157,17 +157,22 @@ type HttpHandler(request: Http.Request, action: obj) =
 type HttpModule() =
     interface IHttpModule with
         member this.Init app =
-            app.add_PostAuthorizeRequest(new EventHandler(fun x e ->
-                let app = (x :?> HttpApplication)
-                let ctx = app.Context
-                let sitelet = WebUtils.getSitelet WebUtils.currentSite.Value ctx
-                let request = WebUtils.convertRequest ctx
-                if HttpRuntime.UsingIntegratedPipeline then
+            if HttpRuntime.UsingIntegratedPipeline then
+                app.add_PostAuthorizeRequest(new EventHandler(fun x e ->
+                    let app = (x :?> HttpApplication)
+                    let ctx = app.Context
+                    let sitelet = WebUtils.getSitelet WebUtils.currentSite.Value ctx
+                    let request = WebUtils.convertRequest ctx
                     match sitelet.Router.Route(request) with
                     | None -> ()
-                    | Some action -> ctx.RemapHandler(HttpHandler(request, action))
-                else
+                    | Some action -> ctx.RemapHandler(HttpHandler(request, action))))
+            else
+                app.add_PostMapRequestHandler(new EventHandler(fun x e ->
+                    let app = (x :?> HttpApplication)
+                    let ctx = app.Context
+                    let sitelet = WebUtils.getSitelet WebUtils.currentSite.Value ctx
+                    let request = WebUtils.convertRequest ctx
                     match sitelet.Router.Route(request) with
                     | None -> ()
-                    | Some action -> HttpHandler(request, action).ProcessRequest(ctx)))
+                    | Some action -> ctx.Handler <- HttpHandler(request, action)))
         member this.Dispose() = ()
