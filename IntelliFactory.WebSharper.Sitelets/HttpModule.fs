@@ -149,8 +149,9 @@ type HttpHandler(request: Http.Request, action: obj) =
     interface SessionState.IRequiresSessionState
     interface IHttpHandler with
         member this.IsReusable = false
-        member this.ProcessRequest(ctx) =
-            WebUtils.respond WebUtils.currentSite.Value ctx request action
+        member this.ProcessRequest(ctx) = this.ProcessRequest(ctx)
+    member this.ProcessRequest(ctx) =
+        WebUtils.respond WebUtils.currentSite.Value ctx request action
 
 /// IIS module, processing the URLs and serving the pages.
 type HttpModule() =
@@ -161,7 +162,12 @@ type HttpModule() =
                 let ctx = app.Context
                 let sitelet = WebUtils.getSitelet WebUtils.currentSite.Value ctx
                 let request = WebUtils.convertRequest ctx
-                match sitelet.Router.Route(request) with
-                | None -> ()
-                | Some action -> ctx.RemapHandler(HttpHandler(request, action))))
+                if HttpRuntime.UsingIntegratedPipeline then
+                    match sitelet.Router.Route(request) with
+                    | None -> ()
+                    | Some action -> ctx.RemapHandler(HttpHandler(request, action))
+                else
+                    match sitelet.Router.Route(request) with
+                    | None -> ()
+                    | Some action -> HttpHandler(request, action).ProcessRequest(ctx)))
         member this.Dispose() = ()
