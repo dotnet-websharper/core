@@ -2,7 +2,7 @@
 // 
 // This file is part of WebSharper
 // 
-// Copyright (c) 2008-2011 IntelliFactory
+// Copyright (c) 2008-2012 IntelliFactory
 // 
 // GNU Affero General Public License Usage
 // WebSharper is free software: you can redistribute it and/or modify it under
@@ -21,31 +21,57 @@
 
 namespace IntelliFactory.WebSharper.Web
 
+open System
+open System.IO
+open System.Web
 module R = IntelliFactory.WebSharper.Core.Remoting
+
+module private RpcUtil =
+    let server = R.Server.Create None Shared.Metadata
+
+[<Sealed>]
+type RpcHandler() =
+    interface SessionState.IRequiresSessionState
+    interface IHttpHandler with
+        member this.IsReusable = true
+        member this.ProcessRequest(ctx) = this.ProcessRequest(ctx)
+    member this.ProcessRequest(ctx: HttpContext) =
+        let req = ctx.Request
+        let resp = ctx.Response
+        let getHeader (x: string) =
+            match req.Headers.[x] with
+            | null -> None
+            | v -> Some v
+        let body =
+            use s = new StreamReader(req.InputStream)
+            s.ReadToEnd()
+        let response =
+            RpcUtil.server.HandleRequest {Headers = getHeader; Body = body}
+        resp.ContentType <- response.ContentType
+        resp.Write response.Content
+        resp.End()
 
 /// The WebSharper RPC HttpModule. Handles RPC requests.
 [<Sealed>]
 type RpcModule() =
-    let server = R.Server.Create None Shared.Metadata
-
-    interface System.Web.IHttpModule with
-
-        member this.Init(app: System.Web.HttpApplication) =
-            app.add_BeginRequest(System.EventHandler(fun obj args ->
-                let req = app.Request
-                let getHeader x =
-                    match req.Headers.Item(x: string) with
-                    | null  -> None
-                    | v     -> Some v
-                if R.IsRemotingRequest getHeader then
-                    let body =
-                        use s = new System.IO.StreamReader(req.InputStream)
-                        s.ReadToEnd()
-                    let response =
-                        server.HandleRequest {Headers = getHeader; Body = body}
-                    app.Response.ContentType <- response.ContentType
-                    app.Response.Write response.Content
-                    app.Response.End()))
-
+    interface IHttpModule with
+        member this.Init(app: HttpApplication) =
+            let handler =
+                new EventHandler(fun x e ->
+                    let app = (x :?> HttpApplication)
+                    let ctx = app.Context
+                    let req = app.Request
+                    let getHeader (x: string) =
+                        match req.Headers.[x] with
+                        | null -> None
+                        | v -> Some v
+                    if R.IsRemotingRequest getHeader then
+                        if HttpRuntime.UsingIntegratedPipeline then
+                            ctx.RemapHandler(RpcHandler())
+                        else
+                            ctx.Handler <- RpcHandler())
+            if HttpRuntime.UsingIntegratedPipeline then
+                app.add_PostAuthorizeRequest(handler)
+            else
+                app.add_PostMapRequestHandler(handler)
         member this.Dispose() = ()
-

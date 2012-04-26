@@ -29,6 +29,7 @@ open System.IO
 open System.Reflection
 open System.Web
 open System.Web.Hosting
+module R = IntelliFactory.WebSharper.Core.Remoting
 
 module internal SiteLoading =
 
@@ -155,24 +156,31 @@ type HttpHandler(request: Http.Request, action: obj) =
 
 /// IIS module, processing the URLs and serving the pages.
 type HttpModule() =
+    let isNotRemotingRequest (r: HttpRequest) =
+        let getHeader (x: string) =
+            match r.Headers.[x] with
+            | null -> None
+            | x -> Some x
+        not (R.IsRemotingRequest getHeader)
     interface IHttpModule with
         member this.Init app =
-            if HttpRuntime.UsingIntegratedPipeline then
-                app.add_PostAuthorizeRequest(new EventHandler(fun x e ->
+            let handler =
+                new EventHandler(fun x e ->
                     let app = (x :?> HttpApplication)
                     let ctx = app.Context
                     let sitelet = WebUtils.getSitelet WebUtils.currentSite.Value ctx
                     let request = WebUtils.convertRequest ctx
-                    match sitelet.Router.Route(request) with
-                    | None -> ()
-                    | Some action -> ctx.RemapHandler(HttpHandler(request, action))))
-            else
-                app.add_PostMapRequestHandler(new EventHandler(fun x e ->
-                    let app = (x :?> HttpApplication)
-                    let ctx = app.Context
-                    let sitelet = WebUtils.getSitelet WebUtils.currentSite.Value ctx
-                    let request = WebUtils.convertRequest ctx
-                    match sitelet.Router.Route(request) with
-                    | None -> ()
-                    | Some action -> ctx.Handler <- HttpHandler(request, action)))
+                    if isNotRemotingRequest ctx.Request then
+                        match sitelet.Router.Route(request) with
+                        | None -> ()
+                        | Some action ->
+                            let h = HttpHandler(request, action)
+                            if HttpRuntime.UsingIntegratedPipeline then
+                                ctx.RemapHandler(h)
+                            else
+                                ctx.Handler <- h)
+            if HttpRuntime.UsingIntegratedPipeline
+            then app.add_PostAuthorizeRequest(handler)
+            else app.add_PostMapRequestHandler(handler)
+
         member this.Dispose() = ()
