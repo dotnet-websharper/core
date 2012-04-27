@@ -80,7 +80,7 @@ module Canvas =
     let CanvasGradient =
         Class "CanvasGradient"
         |+> Protocol [
-            "addColorStop" => (T<float> * T<float>) ^-> T<unit>
+            "addColorStop" => (T<float> * T<string>) ^-> T<unit>
         ]
     
     let Repetition = 
