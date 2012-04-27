@@ -21,72 +21,79 @@
 
 module IntelliFactory.WebSharper.Sitelets.Offline.Main
 
-// Tries to load the site from the assembly
-let TryLoadSite (file: System.IO.FileInfo) =
-    try
-        let assembly = System.Reflection.Assembly.LoadFile(file.FullName)
-        let aT = typeof<IntelliFactory.WebSharper.Sitelets.WebsiteAttribute>
-        match System.Attribute.GetCustomAttribute(assembly, aT) with
-        | :? IntelliFactory.WebSharper.Sitelets.WebsiteAttribute as attr ->
-            attr.Run () |> Some
-        |_  -> None
-    with
-    | _ -> None
-
-let guard action =
-    try action () with exn ->
-        let temp = System.IO.Path.GetTempFileName()
-        System.IO.File.WriteAllText(temp, string exn)
-        stdout.WriteLine("[Error] {0}(1,1): {1}: {2}", temp,
-            exn.GetType().FullName, exn.Message)
-        1
-
+open System
+open System.Collections.Generic
+open System.IO
+open System.Reflection
+open IntelliFactory.WebSharper.Sitelets
 
 [<EntryPoint>]
-let main args =
+let Main args =
+
+    // Tries to load the site from the assembly
+    let loadSite (file: FileInfo) =
+        let assembly = Assembly.LoadFile(file.FullName)
+        let aT = typeof<WebsiteAttribute>
+        match Attribute.GetCustomAttribute(assembly, aT) with
+        | :? WebsiteAttribute as attr ->
+            attr.Run ()
+        |_  ->
+            failwithf "Failed to find WebSiteAttribute \
+                on the processed assembly: %s"
+                file.FullName
+
     try
         let options = Options.Parse args
 
-        guard <| fun _ ->
+        // process extra.files
+        Extra.CopyFiles
+            options.ProjectDirectory.FullName
+            options.OutputDirectory.FullName
 
-            // process extra.files
-            Extra.CopyFiles options.ProjectDirectory.FullName options.OutputDirectory.FullName
+        let assembly =
+            Assembly.LoadFile(options.SourceAssembly.FullName)
 
-            let assembly =
-                System.Reflection.Assembly.LoadFile(options.SourceAssembly.FullName)
+        let scriptDir =
+            Path.Combine(options.OutputDirectory.FullName, "Scripts")
+            |> Directory.CreateDirectory
 
-            let scriptDir =
-                System.IO.Path.Combine(options.OutputDirectory.FullName, "Scripts")
-                |> System.IO.Directory.CreateDirectory
+        // Add source directories to search path
+        for dir in options.SourceDirectories do
+            Loader.AddSearchPath dir.FullName
 
-            // Add source directories to search path
-            for dir in options.SourceDirectories do
-                Loader.AddSearchPath dir.FullName
+        // Load the sitelet
+        let (sitelet, actions) = loadSite options.SourceAssembly
 
-            // Load the sitelet
-            let (sitelet, actions) = (TryLoadSite options.SourceAssembly).Value
-            //Compute the available assembly files and embedded resources.
-            let assFiles =
-                let m =
-                    Output.ComputeResources options.Mode
-                        options.SourceDirectories
-                let d = System.Collections.Generic.Dictionary()
-                Map.iter (fun k v -> d.[k] <- v) m
-                d
-            // Write site content.
-            Output.WriteSite
-                {
-                    AssemblyFiles = assFiles
-                    Sitelet = sitelet
-                    Mode = options.Mode
-                    SrcDir = options.SourceDirectories
-                    TargetDir = options.OutputDirectory
-                    Actions = actions
-                }
-            // Write resources.
-            Output.OutputResources assFiles scriptDir
-            0
-    with Options.BadOptions message ->
+        // Compute the available assembly files and embedded resources.
+        let assFiles =
+            let m =
+                Output.ComputeResources options.Mode
+                    options.SourceDirectories
+            let d = Dictionary()
+            Map.iter (fun k v -> d.[k] <- v) m
+            d
+
+        // Write site content.
+        Output.WriteSite
+            {
+                AssemblyFiles = assFiles
+                Sitelet = sitelet
+                Mode = options.Mode
+                SrcDir = options.SourceDirectories
+                TargetDir = options.OutputDirectory
+                Actions = actions
+            }
+
+        // Write resources.
+        Output.OutputResources assFiles scriptDir
+        0
+    with
+    | Options.BadOptions message ->
         stderr.WriteLine message
         stderr.WriteLine Options.Help
         -1
+    | exn ->
+        let temp = Path.GetTempFileName()
+        File.WriteAllText(temp, string exn)
+        stdout.WriteLine("[Error] {0}(1,1): {1}", temp, string exn)
+        1
