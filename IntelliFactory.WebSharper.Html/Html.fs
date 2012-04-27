@@ -93,7 +93,7 @@ module internal Implementation =
 
             [<JavaScript>]
             member this.HasAttribute node name =
-                JQuery.Of(node).Attr(name) ==. null
+                JQuery.Of(node).Attr(name) !=. null
 
             [<JavaScript>]
             member this.GetAttribute node name =
