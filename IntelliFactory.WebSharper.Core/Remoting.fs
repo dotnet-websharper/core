@@ -2,7 +2,7 @@
 // 
 // This file is part of WebSharper
 // 
-// Copyright (c) 2008-2011 IntelliFactory
+// Copyright (c) 2008-2012 IntelliFactory
 // 
 // GNU Affero General Public License Usage
 // WebSharper is free software: you can redistribute it and/or modify it under
@@ -21,6 +21,10 @@
 
 module IntelliFactory.WebSharper.Core.Remoting
 
+open System
+open System.Collections.Generic
+open System.Reflection
+
 module A = IntelliFactory.WebSharper.Core.Attributes
 module I = IntelliFactory.WebSharper.Core.Invocation
 module J = IntelliFactory.WebSharper.Core.Json
@@ -29,37 +33,50 @@ module R = IntelliFactory.WebSharper.Core.Reflection
 
 type FST = Reflection.FSharpType
 type FSV = Reflection.FSharpValue
-type Dictionary<'T1,'T2> = System.Collections.Generic.Dictionary<'T1,'T2>
 type Headers = string -> option<string>
 
 type IAsyncAdapter =
-    abstract member RunSynchronously : obj -> obj
+    abstract member Box : obj -> Async<obj>
 
 exception InvalidAsyncException
 
+[<Sealed>]
 type AsyncAdapter<'T>() =
     interface IAsyncAdapter with
-        member this.RunSynchronously(a: obj) =
-            match a with
-            | :? Async<'T> as a -> box (Async.RunSynchronously a)
-            | _ -> raise InvalidAsyncException
+        member this.Box(x: obj) : Async<obj> =
+            match x with
+            | :? Async<'T> as a ->
+                async {
+                    let! x = a
+                    return box x
+                }
+            | _ ->
+                raise InvalidAsyncException
 
-let getResultEncoder (jP: J.Provider) (m: System.Reflection.MethodInfo) =
+let getResultEncoder (jP: J.Provider) (m: MethodInfo) =
     let t = m.ReturnType
     let tD = if t.IsGenericType then t.GetGenericTypeDefinition() else t
     if t.IsGenericType && tD = typedefof<Async<_>> then
         let eT = t.GetGenericArguments().[0]
         let aa =
             typedefof<AsyncAdapter<_>>.MakeGenericType(eT)
-            |> System.Activator.CreateInstance :?> IAsyncAdapter
+            |> Activator.CreateInstance :?> IAsyncAdapter
         let enc = jP.GetEncoder eT
-        fun (x: obj) -> jP.Pack (enc.Encode (aa.RunSynchronously x))
-    elif t = typeof<System.Void> || t = typeof<unit> then
+        fun (x: obj) ->
+            async {
+                let! x = aa.Box x
+                return jP.Pack (enc.Encode x)
+            }
+    elif t = typeof<Void> || t = typeof<unit> then
         let enc = jP.GetEncoder typeof<unit>
-        fun (x: obj) -> jP.Pack (enc.Encode null)
+        fun (x: obj) ->
+            jP.Pack (enc.Encode null)
+            |> async.Return
     else
         let enc = jP.GetEncoder t
-        fun (x: obj) -> jP.Pack (enc.Encode x)
+        fun (x: obj) ->
+            jP.Pack (enc.Encode x)
+            |> async.Return
 
 type Response =
     {
@@ -73,7 +90,7 @@ type Request =
         Headers : Headers
     }
 
-let getParameterDecoder (jP: J.Provider) (m: System.Reflection.MethodInfo) =
+let getParameterDecoder (jP: J.Provider) (m: MethodInfo) =
     let par = m.GetParameters()
     match par.Length with
     | 0 -> fun _ -> [||]
@@ -96,7 +113,7 @@ exception InvalidArgumentsException
 exception InvalidHandlerException
 
 type IHandlerFactory =
-    abstract member Create : System.Type -> option<obj>
+    abstract member Create : Type -> option<obj>
 
 let locker = obj ()
 
@@ -109,8 +126,7 @@ let mutable factory =
 let SetHandlerFactory rhf =
     lock locker (fun () -> factory <- rhf)
 
-let toConverter (mk: option<IHandlerFactory>) (jP: J.Provider)
-    (m: System.Reflection.MethodInfo) =
+let toConverter (mk: option<IHandlerFactory>) (jP: J.Provider) (m: MethodInfo) =
     let enc = getResultEncoder jP m
     let dec = getParameterDecoder jP m
     let run = I.Compile m
@@ -148,10 +164,13 @@ let handle getConverter req =
         let m = M.MethodHandle.Unpack m
         let args = J.Parse req.Body
         let conv = getConverter m
-        let r = J.Stringify (conv args)
-        {
-            ContentType = "application/json"
-            Content = r
+        async {
+            let! x = conv args
+            let r = J.Stringify x
+            return {
+                ContentType = "application/json"
+                Content = r
+            }
         }
 
 exception NoRemoteAttributeException
@@ -178,6 +197,6 @@ let makeHandler mk info =
     handle getConverter
 
 [<Sealed>]
-type Server(handle: Request -> Response) =
+type Server(handle: Request -> Async<Response>) =
     static member Create mk info = Server (makeHandler mk info)
     member this.HandleRequest(req: Request) = handle req

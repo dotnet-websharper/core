@@ -31,25 +31,42 @@ module private RpcUtil =
 
 [<Sealed>]
 type RpcHandler() =
-    interface SessionState.IRequiresSessionState
-    interface IHttpHandler with
-        member this.IsReusable = true
-        member this.ProcessRequest(ctx) = this.ProcessRequest(ctx)
-    member this.ProcessRequest(ctx: HttpContext) =
+    let work (ctx: HttpContext) =
         let req = ctx.Request
         let resp = ctx.Response
         let getHeader (x: string) =
             match req.Headers.[x] with
             | null -> None
             | v -> Some v
-        let body =
-            use s = new StreamReader(req.InputStream)
-            s.ReadToEnd()
-        let response =
-            RpcUtil.server.HandleRequest {Headers = getHeader; Body = body}
-        resp.ContentType <- response.ContentType
-        resp.Write response.Content
-        resp.End()
+        async {
+            let body =
+                use s = new StreamReader(req.InputStream)
+                s.ReadToEnd()
+            let! response =
+                RpcUtil.server.HandleRequest { Headers = getHeader; Body = body }
+            do
+                resp.ContentType <- response.ContentType
+                resp.Write response.Content
+            return
+                resp.End()
+        }
+
+    let (beginPR, endPR, cancelPR) = Async.AsBeginEnd(work)
+
+    interface SessionState.IRequiresSessionState
+
+    interface IHttpAsyncHandler with
+        member this.BeginProcessRequest(ctx, cb, d) = beginPR (ctx, cb, d)
+        member this.EndProcessRequest(res) = endPR res
+
+    interface IHttpHandler with
+        member this.IsReusable = true
+        member this.ProcessRequest(ctx) = this.ProcessRequest(ctx)
+
+    member this.ProcessRequest(ctx: HttpContext) =
+        work ctx
+        |> Async.RunSynchronously
+
 
 /// The WebSharper RPC HttpModule. Handles RPC requests.
 [<Sealed>]

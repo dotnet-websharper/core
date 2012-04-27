@@ -64,4 +64,4 @@ type Server =
     static member Create : option<IHandlerFactory> -> M.Info -> Server
 
     /// Handles a request.
-    member HandleRequest : Request -> Response
+    member HandleRequest : Request -> Async<Response>
