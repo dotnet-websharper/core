@@ -1,10 +1,10 @@
 
 // $begin{copyright}
-// 
+//
 // This file is part of WebSharper
-// 
-// Copyright (c) 2008-2011 IntelliFactory
-// 
+//
+// Copyright (c) 2008-2012 IntelliFactory
+//
 // GNU Affero General Public License Usage
 // WebSharper is free software: you can redistribute it and/or modify it under
 // the terms of the GNU Affero General Public License, version 3, as published

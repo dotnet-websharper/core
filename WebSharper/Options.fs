@@ -1,9 +1,9 @@
 // $begin{copyright}
-// 
+//
 // This file is part of WebSharper
-// 
-// Copyright (c) 2008-2011 IntelliFactory
-// 
+//
+// Copyright (c) 2008-2012 IntelliFactory
+//
 // GNU Affero General Public License Usage
 // WebSharper is free software: you can redistribute it and/or modify it under
 // the terms of the GNU Affero General Public License, version 3, as published
@@ -52,7 +52,7 @@ let private usage =
 Usage: WebSharper.exe [options] input.dll output.dll
 
 WebSharper (TM) Compiler V{0}
-Copyright (c) IntelliFactory, 2004-2011.
+Copyright (c) IntelliFactory, 2004-2012.
 
 Compiles F#-produced assemblies to JavaScript, adding the resulting
 code as an embedded resource to the assembly.", version.FileVersion)
