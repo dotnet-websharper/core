@@ -178,6 +178,7 @@ type TypeDefinition =
             TypeDefinition.CreateNested p t.Name
 
     static member Create aN ns n =
+        let ns = if ns = null then "" else ns
         let h = 1 ++ hash n ++ hash ns
         RootTD (aN, ns, n, h)
 
