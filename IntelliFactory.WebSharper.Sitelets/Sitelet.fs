@@ -25,17 +25,12 @@ open System
 open System.Collections.Generic
 open System.Web.UI
 
-/// Represents a self-contained website parameterized by the type of actions.
-/// A sitelet combines a router, which is used to match incoming requests to
-/// actions and actions to URLs, and a controller, which is used to handle
-/// the actions.
 type Sitelet<'T when 'T : equality> =
     {
         Router : Router<'T>
         Controller : Controller<'T>
     }
 
-    /// Combines two sitelets, with the leftmost taking precedence.
     static member ( <|> ) (s1: Sitelet<'Action>, s2: Sitelet<'Action>) =
         {
             Router = s1.Router <|> s2.Router
@@ -103,7 +98,7 @@ module Sitelet =
         }
 
     /// Maps over the sitelet action type. Requires a bijection.
-    let Map (f: 'T1 -> 'T2) (g: 'T2 -> 'T1) (s: Sitelet<'T1>) =
+    let Map (f: 'T1 -> 'T2) (g: 'T2 -> 'T1) (s: Sitelet<'T1>) : Sitelet<'T2> =
         {
             Router = Router.Map f g s.Router
             Controller =
@@ -161,7 +156,7 @@ module Sitelet =
         Map box unbox sitelet
 
     /// Reverses the Upcast operation on the sitelet.
-    let UnsafeDowncast<'T when 'T : equality> (sitelet: Sitelet<obj>) =
+    let UnsafeDowncast<'T when 'T : equality> (sitelet: Sitelet<obj>) : Sitelet<'T> =
         Map unbox box sitelet
 
     /// Constructs a sitelet with an inferred router and a given controller

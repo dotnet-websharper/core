@@ -55,6 +55,18 @@ module private WebUtils =
     let currentSite =
         lazy fst (SiteLoading.LoadFromAssemblies())
 
+    let getUri (req: HttpRequest) : Uri =
+        match req.ApplicationPath with
+        | "" | "/" -> req.Url
+        | _ ->
+            if req.Url.IsAbsoluteUri then
+                let uB = UriBuilder req.Url
+                if uB.Path.StartsWith(req.ApplicationPath) then
+                    uB.Path <- uB.Path.Substring(req.ApplicationPath.Length)
+                uB.Uri
+            else
+                req.Url
+
     /// Converts ASP.NET requests to Sitelet requests.
     let convertRequest (ctx: HttpContext) : Http.Request =
         let METHOD = function
@@ -82,7 +94,7 @@ module private WebUtils =
             }
         {
             Method = METHOD ctx.Request.HttpMethod
-            Uri = req.Url
+            Uri = getUri req
             Headers = headers
             Body = resp.OutputStream
             Post = new Http.ParameterCollection(req.Form)
@@ -97,32 +109,22 @@ module private WebUtils =
                 }
         }
 
-    /// Normalizes the application path.
-    let appPath (req: HttpRequest) =
-        if req.ApplicationPath = "/"
-        then ""
-        else req.ApplicationPath
-
-    /// Gets the sitelet for a given context.
-    let getSitelet (site: Sitelet<obj>) (ctx: HttpContext) =
-        let req = ctx.Request
-        let appPath = appPath ctx.Request
-        Sitelet.Shift appPath site
-
     /// Constructs the sitelet context object.
     let getContext (site: Sitelet<obj>) (req: HttpRequest) (request: Http.Request) : Context<obj> =
-        let appPath = appPath req
+        let appPath = req.ApplicationPath
         {
             ApplicationPath = appPath
             ResolveUrl = fun url ->
-                if url.StartsWith ("~") then
+                if url.StartsWith("~") then
                     appPath + url.Substring(1)
                 else
                     url
             Json = ResourceContext.SharedJson()
             Link = fun action ->
-                match site.Router.Link action  with
-                | Some loc -> loc.ToString()
+                match site.Router.Link action with
+                | Some loc ->
+                    if loc.IsAbsoluteUri then string loc else
+                        joinWithSlash appPath (string loc)
                 | None -> failwith "Failed to link to action"
             Metadata = ResourceContext.MetaData()
             ResourceContext = ResourceContext.ResourceContext appPath
@@ -168,7 +170,7 @@ type HttpModule() =
                 new EventHandler(fun x e ->
                     let app = (x :?> HttpApplication)
                     let ctx = app.Context
-                    let sitelet = WebUtils.getSitelet WebUtils.currentSite.Value ctx
+                    let sitelet = WebUtils.currentSite.Value
                     let request = WebUtils.convertRequest ctx
                     if isNotRemotingRequest ctx.Request then
                         match sitelet.Router.Route(request) with

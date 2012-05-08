@@ -37,6 +37,19 @@ module internal Extensions =
             message, sw.Elapsed.TotalSeconds)
         r
 
+    let joinWithSlash (a: string) (b: string) =
+        let startsWithSlash (s: string) =
+            s.Length > 0
+            && s.[0] = '/'
+
+        let endsWithSlash (s: string) =
+            s.Length > 0
+            && s.[s.Length - 1] = '/'
+        match endsWithSlash a, startsWithSlash b with
+        | true, true -> a + b.Substring(1)
+        | false, false -> a + "/" + b
+        | _ -> a + b
+
 module internal ResourceContext =
     open System
     open System.Collections.Generic
@@ -61,7 +74,7 @@ module internal ResourceContext =
 
     let ResourceContext (appPath: string) : Re.Context =
         let page = new UI.Page()
-        let isDebug = System.Web.HttpContext.Current.IsDebuggingEnabled
+        let isDebug = HttpContext.Current.IsDebuggingEnabled
         {
             DebuggingEnabled = isDebug
             GetSetting = fun (name: string) ->
@@ -70,9 +83,8 @@ module internal ResourceContext =
                 | x -> Some x
             GetAssemblyUrl = fun name ->
                 let suffix = if isDebug then ".dll.js" else ".dll.min.js"
-                String.Format("{0}/Scripts/{1}{2}",
-                    appPath, page.Server.UrlEncode name.Name, suffix)
-                |> page.ResolveUrl
+                String.Format("Scripts/{0}{1}", page.Server.UrlEncode name.Name, suffix)
+                |> joinWithSlash appPath
             GetWebResourceUrl = fun ty resource ->
                 page.ClientScript.GetWebResourceUrl(ty, resource)
         }
