@@ -221,6 +221,7 @@ module Content =
 
     type Wrapper<'T> =
         {
+            appPath : string
             extra : Dictionary<string, seq<XS.INode>>
             value : 'T
         }
@@ -239,6 +240,12 @@ module Content =
         | H.TextContent x -> XS.TextNode x :> _
         | H.VerbatimContent x -> XS.CDataNode x :> _
         | H.CommentContent x -> XS.TextNode "" :> _
+
+    [<Literal>]
+    let SCRIPTS = "SCRIPTS"
+
+    [<Literal>]
+    let ROOT = "ROOT"
 
     module Template =
         type LoadFrequency =
@@ -265,14 +272,20 @@ module Content =
 
     [<Sealed>]
     type Template<'T>(path: string, freq: Template.LoadFrequency, holes: Map<string,Hole<'T>>) =
-        let keySM = "scripts"
         let pageTemplate =
             let mutable t = XT.Template<Wrapper<'T>>()
             for (KeyValue (k, v)) in holes do
                 match v with
                 | SH f -> t <- t.With(k, fun x -> f x.value)
                 | EH f -> t <- t.With(k, fun x -> x.extra.[k])
-            t <- t.With(keySM, fun x -> x.extra.[keySM])
+            let appPath (x: Wrapper<_>) =
+                match x.appPath with
+                | "/" -> ""
+                | s -> s
+            t <- t.With(ROOT, appPath)
+            t <- t.With(ROOT.ToLower(), appPath)
+            t <- t.With(SCRIPTS, fun x -> x.extra.[SCRIPTS])
+            t <- t.With(SCRIPTS.ToLower(), fun x -> x.extra.[SCRIPTS])
             t
         let basicTemplate =
             let mutable t = XT.CustomTemplate<HtmlElement,HtmlElement,'T>(CustomXml.Instance)
@@ -358,11 +371,12 @@ module Content =
                         Seq.map toXml children
                         |> Seq.toArray
                         :> seq<_>
-            extra.[keySM] <-
+            extra.[SCRIPTS] <-
                 getResourcesAndScripts env controls
                 |> XS.CDataNode :> XS.INode
                 |> Seq.singleton
             tpl.Run {
+                appPath = env.AppPath
                 extra = extra
                 value = x
             }
