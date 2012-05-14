@@ -30,6 +30,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Release\$(Name).XML</DocumentationFile>
+    <OtherFlags>--standalone</OtherFlags>
   </PropertyGroup>
   <Import Project="..\build\IntelliFactory.FSharp.targets" />
   <ItemGroup>

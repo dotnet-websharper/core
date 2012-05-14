@@ -75,12 +75,12 @@ type BuildPageTemplates() =
                 this.Log.LogMessage("Conversion completed")
             true
         with
-            | :? XmlException as xmlex ->
-                this.Log.LogError(null, null, null, source, xmlex.LineNumber, xmlex.LinePosition, 0, 0, xmlex.Message, [||])
-                false
-            | e -> 
-                this.Log.LogError(null, null, null, source, 0, 0, 0, 0, e.Message, [||])
-                false
+        | :? XmlException as xmlex ->
+            this.Log.LogError(null, null, null, source, xmlex.LineNumber, xmlex.LinePosition, 0, 0, xmlex.Message, [||])
+            false
+        | e ->
+            this.Log.LogError(null, null, null, source, 0, 0, 0, 0, e.Message, [||])
+            false
 
     override this.Execute() =
         try
