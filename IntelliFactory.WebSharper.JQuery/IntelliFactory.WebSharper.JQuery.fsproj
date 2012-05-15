@@ -12,7 +12,7 @@
     <AssemblyName>$(Name)</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <TargetFrameworkProfile />
-    <JQueryVersion>1.7.1</JQueryVersion>
+    <JQueryVersion>1.7.2</JQueryVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>

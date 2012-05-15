@@ -2,8 +2,8 @@
 <html>
 <head>
     <title>WebSharper Test Suite</title>
-    <link rel="stylesheet" type="text/css" media="screen" href="http://github.com/jquery/qunit/raw/master/qunit/qunit.css" />
-    <script type="text/javascript" src="http://github.com/jquery/qunit/raw/master/qunit/qunit.js"></script>
+    <link rel="stylesheet" type="text/css" href="http://code.jquery.com/qunit/qunit-git.css" />
+    <script type="text/javascript" src="http://code.jquery.com/qunit/qunit-git.js"></script>
     <script type="text/javascript" src="/Scripts/Runtime.js"></script>
     <script type="text/javascript" src="/Scripts/IntelliFactory.WebSharper.dll.js"></script>
     <script type="text/javascript" src="/Scripts/IntelliFactory.WebSharper.Testing.dll.js"></script>
