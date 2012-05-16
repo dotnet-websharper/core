@@ -70,9 +70,4 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-  <Target Name="BeforeBuild" Condition="!Exists('jquery-$(JQueryVersion).min.js')">
-    <AjaxMin JsSourceFiles="jquery-$(JQueryVersion).js"
-      JsSourceExtensionPattern="\.js$"
-      JsTargetExtension=".min.js" />
-  </Target>
 </Project>
