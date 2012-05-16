@@ -71,17 +71,17 @@ type BaseResource(kind: Kind) =
                     name = spec
                     || name.StartsWith aName
                     && name.EndsWith spec
-                let embed =
-                    assem.GetManifestResourceNames()
-                    |> Seq.tryFind ok
                 let id  = self.FullName
                 let url =
-                    match embed with
-                    | Some e -> ctx.GetWebResourceUrl self e
-                    | _ ->
-                        match ctx.GetSetting id with
-                        | Some url -> url
-                        | None -> spec
+                    match ctx.GetSetting id with
+                    | Some url -> url
+                    | None ->
+                        let embed =
+                            assem.GetManifestResourceNames()
+                            |> Seq.tryFind ok
+                        match embed with
+                        | Some e -> ctx.GetWebResourceUrl self e
+                        | _ -> spec
                 if spec.EndsWith ".css" then link html url else script html url
             | Complex (b, xs) ->
                 let id = this.GetType().FullName
