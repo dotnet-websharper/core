@@ -558,7 +558,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
         let iRes = fn typeof<Res.IResource>
         let bRes = fn typeof<Res.BaseResource>
         let rec isRes (t: Mono.Cecil.TypeDefinition) =
-            t <> null && not t.IsAbstract && (
+            t <> null && (
                 t.BaseType <> null
                 && t.BaseType.FullName = bRes
                 ||
@@ -578,7 +578,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
             | Verifier.Incorrect msg -> error t.Location msg
         let pStub = isStub t.Annotations
         match t.Kind with
-        | Re.Class _ when isRes t.Definition ->
+        | Re.Class _ when isRes t.Definition && not t.Definition.IsAbstract ->
             Some {
                 Kind = Resource
                 Location = loc
