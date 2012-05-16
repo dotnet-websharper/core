@@ -210,9 +210,14 @@ let activate resource =
             |> System.Activator.CreateInstance
             |> unbox
         with e ->
-            trace.TraceData(System.Diagnostics.TraceEventType.Error, 0,
-                "Failed to load a user-defined resource type.", t, e)
-            reraise()
+            {
+                new R.IResource with
+                    member this.Render ctx writer =
+                        writer.Write("<-- ")
+                        writer.Write("Failed to load: {0}", t)
+                        writer.WriteLine(" -->")
+                        ()
+            }
 
 type Info =
     {

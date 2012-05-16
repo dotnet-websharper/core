@@ -558,7 +558,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
         let iRes = fn typeof<Res.IResource>
         let bRes = fn typeof<Res.BaseResource>
         let rec isRes (t: Mono.Cecil.TypeDefinition) =
-            t <> null && (
+            t <> null && not t.IsAbstract && (
                 t.BaseType <> null
                 && t.BaseType.FullName = bRes
                 ||
