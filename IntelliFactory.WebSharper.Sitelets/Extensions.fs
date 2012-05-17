@@ -41,7 +41,6 @@ module internal Extensions =
         let startsWithSlash (s: string) =
             s.Length > 0
             && s.[0] = '/'
-
         let endsWithSlash (s: string) =
             s.Length > 0
             && s.[s.Length - 1] = '/'

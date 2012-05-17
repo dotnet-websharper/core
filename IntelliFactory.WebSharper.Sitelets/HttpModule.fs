@@ -116,7 +116,7 @@ module private WebUtils =
             ApplicationPath = appPath
             ResolveUrl = fun url ->
                 if url.StartsWith("~") then
-                    appPath + url.Substring(1)
+                    joinWithSlash appPath (url.Substring(1))
                 else
                     url
             Json = ResourceContext.SharedJson()
