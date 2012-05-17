@@ -244,9 +244,6 @@ module Content =
     [<Literal>]
     let SCRIPTS = "SCRIPTS"
 
-    [<Literal>]
-    let ROOT = "ROOT"
-
     module Template =
         type LoadFrequency =
             | Once
@@ -270,6 +267,69 @@ module Content =
                         H.NewAttribute k.Local v :> H.INode<_>))
                 |> H.NewElement name.Local
 
+    /// Decides if an attribute should contain a URL by HTML rules.
+    let isUrlAttribute : XS.Element -> XS.Name -> bool =
+        let d =
+            Dictionary
+                (Map
+                    ([
+                        "a", "href"
+                        "applet", "codebase"
+                        "area", "href"
+                        "audio", "src"
+                        "base", "url"
+                        "blockquote", "cite"
+                        "body", "background"
+                        "button", "formaction"
+                        "command", "icon"
+                        "del", "cite"
+                        "embed", "src"
+                        "form", "action"
+                        "frame", "src"
+                        "head", "profile"
+                        "html", "manifest"
+                        "iframe", "src"
+                        "img", "src"
+                        "input", "src"
+                        "ins", "cite"
+                        "link", "href"
+                        "q", "cite"
+                        "script", "src"
+                        "source", "src"
+                        "video", "src"
+                    ]))
+        fun elem name ->
+            match d.TryGetValue(elem.Name.Local) with
+            | true, v -> v = name.Local
+            | _ -> false
+
+    /// Replaces `~` with `appPath` in URL positions.
+    let postProcess (appPath: string) (element: XS.Element) =
+        let rec n (node: XS.INode) : XS.INode =
+            match node.Node with
+            | XS.ElementNode x -> XS.ElementNode (e x) :> _
+            | _ -> node
+        and e (element: XS.Element) : XS.Element =
+            let attributes =
+                let key = Seq.tryFind (isUrlAttribute element) element.Attributes.Keys
+                match key with
+                | Some key ->
+                    let value = element.Attributes.[key]
+                    if value.StartsWith("~") then
+                        let d = Dictionary(element.Attributes)
+                        d.[key] <- joinWithSlash appPath (value.Substring(1))
+                        d :> IDictionary<_,_>
+                    else
+                        element.Attributes
+                | None ->
+                    element.Attributes
+            {
+                Attributes = attributes
+                Children = Seq.map n element.Children
+                Name = element.Name
+            }
+        e element
+
     [<Sealed>]
     type Template<'T>(path: string, freq: Template.LoadFrequency, holes: Map<string,Hole<'T>>) =
         let pageTemplate =
@@ -278,12 +338,6 @@ module Content =
                 match v with
                 | SH f -> t <- t.With(k, fun x -> f x.value)
                 | EH f -> t <- t.With(k, fun x -> x.extra.[k])
-            let appPath (x: Wrapper<_>) =
-                match x.appPath with
-                | "/" -> ""
-                | s -> s
-            t <- t.With(ROOT, appPath)
-            t <- t.With(ROOT.ToLower(), appPath)
             t <- t.With(SCRIPTS, fun x -> x.extra.[SCRIPTS])
             t <- t.With(SCRIPTS.ToLower(), fun x -> x.extra.[SCRIPTS])
             t
@@ -380,6 +434,7 @@ module Content =
                 extra = extra
                 value = x
             }
+            |> postProcess env.AppPath
 
     let WithTemplate<'Action,'T>
         (template: Template<'T>)
@@ -397,5 +452,6 @@ module Content =
                 WriteBody = fun s ->
                     use w = new System.IO.StreamWriter(s)
                     w.WriteLine("<!DOCTYPE html>")
+                    XS.Node.R
                     XS.Node.RenderHtml w xml
             })
