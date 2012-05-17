@@ -452,6 +452,5 @@ module Content =
                 WriteBody = fun s ->
                     use w = new System.IO.StreamWriter(s)
                     w.WriteLine("<!DOCTYPE html>")
-                    XS.Node.R
                     XS.Node.RenderHtml w xml
             })
