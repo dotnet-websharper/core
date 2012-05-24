@@ -101,6 +101,33 @@ let Trim (s: string) = X<string>
 [<Direct "$values.join($sep)">]
 let Join (sep: string) (values: string []) = X<string>
 
+[<Direct "$str.split($pat)">]
+let SplitWith (str: string) (pat: obj) = X<string[]>
+
+[<Inline "new RegExp($pat)">]
+let MakeRegexp (pat: string) = X<obj>
+
+[<Direct @"$s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')">]
+let RegexEscape (s: string) = X<string>
+
+[<JavaScript>]
+let Split (s: string) (pat: obj) (opts: System.StringSplitOptions) =
+    let res = SplitWith s pat
+    if opts ===. System.StringSplitOptions.RemoveEmptyEntries then
+        Array.filter (fun x -> x !==. "") res
+    else
+        res
+
+[<JavaScript>]
+let SplitChars (s: string) (sep: char[]) (opts: System.StringSplitOptions) =
+    let re = "[" + RegexEscape (new System.String(sep)) + "]"
+    Split s (MakeRegexp re) opts
+
+[<JavaScript>]
+let SplitStrings (s: string) (sep: string[]) (opts: System.StringSplitOptions) =
+    let re = String.concat "|" (Array.map RegexEscape sep)
+    Split s (MakeRegexp re) opts
+
 [<Proxy(typeof<string>)>]
 type private StringProxy =
 
@@ -233,6 +260,21 @@ type private StringProxy =
     [<JavaScript>]
     member this.Replace(subj: char, repl: char) =
         ReplaceChar (As this) subj repl
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Split([<System.ParamArray>] sep: char[]) =
+        SplitChars (As this) sep  System.StringSplitOptions.RemoveEmptyEntries
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Split(sep: char[], opts: System.StringSplitOptions) =
+        SplitChars (As this) sep opts
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Split(sep: string[], opts: System.StringSplitOptions) =
+        SplitStrings (As this) sep opts
 
     [<Inline>]
     [<JavaScript>]

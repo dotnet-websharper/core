@@ -84,6 +84,17 @@ let Tests =
         karina.Replace('a', 'A') =? "KArinA"
     }
 
+    Test "Split" {
+        let N = System.StringSplitOptions.None
+        let R = System.StringSplitOptions.RemoveEmptyEntries
+        "a b c".Split(' ') =? [| "a"; "b"; "c" |]
+        "a b,c".Split(' ', ',') =? [| "a"; "b"; "c" |]
+        "a,;b;c".Split([| ','; ';' |], N) =? [|"a"; ""; "b"; "c"|]
+        "a,;b;c".Split([| ','; ';' |], R) =? [|"a"; "b"; "c"|]
+        "a; b, ; c".Split([| ", "; "; " |], N) =? [| "a"; "b"; ""; "c" |]
+        "a; b, ; c".Split([| ", "; "; " |], R) =? [| "a"; "b"; "c" |]
+    }
+
     Test "StartsWith" {
         karina.StartsWith "Kar" =? true
         karina.StartsWith "KAR" =? false
