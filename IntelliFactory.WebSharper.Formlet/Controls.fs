@@ -107,6 +107,17 @@ module Controls =
             body, reset, state
 
     [<JavaScript>]
+    let private OnTextChange (f: unit -> unit) (control: Element) =
+        let value = ref control.Value
+        let up () =
+            if control.Value <> !value then
+                value := control.Value
+                f ()
+        Events.OnChange (fun _ -> up ()) control
+        Events.OnKeyUp (fun _ _ -> up ()) control
+        control.Dom?oninput <- up
+
+    [<JavaScript>]
     let private TextAreaControl (readOnly) (value: string) : Formlet<string> =
         InputControl value (fun state ->
             let input =
@@ -116,10 +127,7 @@ module Controls =
                     []
                 |> TextArea
             input
-            |>! Events.OnChange (fun _ ->
-                if not readOnly then
-                    state.Trigger (Success input.Value))
-            |>! Events.OnKeyUp (fun _ _ ->
+            |>! OnTextChange (fun _ ->
                 if not readOnly then
                     state.Trigger (Success input.Value)))
 
@@ -142,10 +150,7 @@ module Controls =
                 let ro = if readOnly then [Attr.ReadOnly "readonly"] else []
                 Input <| [Attr.Type typ; Attr.Class cls] @ ro
             input
-            |>! Events.OnChange (fun _ ->
-                if not readOnly then
-                    state.Trigger (Success input.Value))
-            |>! Events.OnKeyUp (fun _ _ ->
+            |>! OnTextChange (fun _ ->
                 if not readOnly then
                     state.Trigger (Success input.Value)))
 
@@ -180,13 +185,11 @@ module Controls =
             reset ()
             body, reset, state
 
-
     /// Creates a check box formlet with the initial state
     /// given by the provided value.
     [<JavaScript>]
     let Checkbox (def: bool) : Formlet<bool> =
         CheckboxControl false def
-
 
     /// Creates a read only check box formlet with the state
     /// given by the provided value.
@@ -214,7 +217,6 @@ module Controls =
     [<JavaScript>]
     let CheckboxGroup (values: List<string * 'T * bool>)  : Formlet<List<'T>> =
         CheckboxGroupControl false values
-
 
     [<JavaScript>]
     let private RadioButtonGroupControl (readOnly: bool) (def: option<int>) (values: list<string * 'T>) : Formlet<'T> =
@@ -304,7 +306,6 @@ module Controls =
     [<JavaScript>]
     let ReadOnlyRadioButtonGroup (def: option<int>) (values: list<string * 'T>) : Formlet<'T> =
         RadioButtonGroupControl true def values
-
 
     /// Creates a password control formlet with a default value.
     [<JavaScript>]
