@@ -106,8 +106,6 @@ module Controls =
                 state.Trigger (Success value)
             body, reset, state
 
-
-
     [<JavaScript>]
     let private TextAreaControl (readOnly) (value: string) : Formlet<string> =
         InputControl value (fun state ->
@@ -118,11 +116,12 @@ module Controls =
                     []
                 |> TextArea
             input
+            |>! Events.OnChange (fun _ ->
+                if not readOnly then
+                    state.Trigger (Success input.Value))
             |>! Events.OnKeyUp (fun _ _ ->
                 if not readOnly then
-                    state.Trigger (Success input.Value)
-            )
-        )
+                    state.Trigger (Success input.Value)))
 
     /// Given an initial value creates a text area formlet control.
     [<JavaScript>]
@@ -135,21 +134,20 @@ module Controls =
         TextAreaControl true value
 
     [<JavaScript>]
-    let private InputField (readOnly: bool) (typ: string) (cls: string) (value: string) : Formlet<string> =
+    let private InputField
+        (readOnly: bool) (typ: string)
+        (cls: string) (value: string) : Formlet<string> =
         InputControl value (fun state ->
             let input =
-                let ro =
-                    if readOnly then
-                        [Attr.ReadOnly "readonly"]
-                    else
-                        []
+                let ro = if readOnly then [Attr.ReadOnly "readonly"] else []
                 Input <| [Attr.Type typ; Attr.Class cls] @ ro
-            input |>! Events.OnKeyUp (fun _ _ ->
+            input
+            |>! Events.OnChange (fun _ ->
                 if not readOnly then
-                    state.Trigger (Success input.Value)
-            )
-        )
-
+                    state.Trigger (Success input.Value))
+            |>! Events.OnKeyUp (fun _ _ ->
+                if not readOnly then
+                    state.Trigger (Success input.Value)))
 
     [<JavaScript>]
     let private CheckboxControl (readOnly : bool) (def: bool) : Formlet<bool> =
