@@ -818,7 +818,7 @@ module TypedArrays =
         |+> [
                 Constructor T<unit>
                 Constructor T<uint64>
-                Constructor (Type.ArrayOf self)
+                Constructor self
                 Constructor (Type.ArrayOf elementType)
                 Constructor (ArrayBuffer?buffer * !? T<uint64>?byteOffset * !? T<uint64>?length)
                 "BYTES_PER_ELEMENT" =? T<uint64>
@@ -833,7 +833,7 @@ module TypedArrays =
                     |> WithInline "void($this[$offset]=$value)"
                 "set" => (Type.ArrayOf self)?array * !? T<uint64>?offset ^-> T<unit>
                 "set" => (Type.ArrayOf elementType)?array * !? T<uint64>?offset ^-> T<unit>
-                "subarray" => T<int64>?``begin`` * T<int64>?``end`` ^-> T<unit>
+                "subarray" => T<int64>?``begin`` * T<int64>?``end`` ^-> self
             ]
         |+> Protocol [yield! Seq.cast arrayBufferViewMembers]
 
