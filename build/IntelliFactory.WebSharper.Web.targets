@@ -26,14 +26,14 @@
   <PropertyGroup>
     <CleanDependsOn>$(CleanDependsOn);WebSharperWebClean</CleanDependsOn>
     <PrepareForRunDependsOn>$(PrepareForRunDependsOn);WebSharperWebCompile</PrepareForRunDependsOn>
-    <WebSharperScriptsFolder Condition=" '$(WebSharperScriptsFolder)' == ''">$(MSBuildProjectDirectory)\Scripts</WebSharperScriptsFolder>
+    <WebSharperScriptsFolder Condition=" '$(WebSharperScriptsFolder)' == ''">$(WebProjectOutputDir)\Scripts</WebSharperScriptsFolder>
     <WebSharperMarker>$(WebSharperScriptsFolder)\build.tmp</WebSharperMarker>
   </PropertyGroup>
 
   <Target Name="WebSharperDetermineBinaries">
     <ItemGroup>
-      <WebSharperBinaries Include="$(OutputPath)\*.dll" />
-      <WebSharperBinaries Include="$(OutputPath)\*.js" />
+      <WebSharperBinaries Include="$(WebProjectOutputDir)\$(OutputPath)*.dll" />
+      <WebSharperBinaries Include="$(WebProjectOutputDir)\$(OutputPath)*.js" />
     </ItemGroup>
   </Target>
 
