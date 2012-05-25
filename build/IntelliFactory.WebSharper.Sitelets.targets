@@ -23,27 +23,10 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="IntelliFactory.WebSharper.targets" />
 
-  <!-- BuildPageTemplates (deprecated) -->
-  <UsingTask AssemblyFile="$(MSBuildThisFileDirectory)\IntelliFactory.WebSharper.Sitelets.Build.dll"
-             TaskName="IntelliFactory.WebSharper.Sitelets.Build.BuildPageTemplates"
-             Condition="Exists('$(MSBuildThisFileDirectory)\IntelliFactory.WebSharper.Sitelets.Build.dll')" />
-
   <PropertyGroup>
     <BuildDependsOn>$(BuildDependsOn);SiteletsGenerate</BuildDependsOn>
     <CleanDependsOn>$(CleanDependsOn);SiteletsClean</CleanDependsOn>
-    <CompileDependsOn>SiteletsPrepare;$(CompileDependsOn)</CompileDependsOn>
   </PropertyGroup>
-
-  <Target Name="SiteletsPrepare"
-          Condition="Exists('$(MSBuildThisFileDirectory)\IntelliFactory.WebSharper.Sitelets.Build.dll')">
-    <BuildPageTemplates Source="@(Compile)" Namespace="$(RootNamespace)">
-      <Output TaskParameter="Output" ItemName="Compile_" />
-    </BuildPageTemplates>
-    <ItemGroup>
-      <Compile Remove="@(Compile)" />
-      <Compile Include="@(Compile_)" />
-    </ItemGroup>
-  </Target>
 
   <Target Name="SiteletsGenerate" Condition="'$(WebSharperSiteletsOfflineDirectory)' != ''">
     <PropertyGroup>
