@@ -8,15 +8,16 @@
     <FSharpHome Condition="Exists('$(FSharpHome3)') AND '$(FSharpHome)' == ''">$(FSharpHome3)</FSharpHome>
   </PropertyGroup>
   <ItemGroup>
-    <Projects Include="*/*.fsproj" />
-    <Projects Include="*/*.csproj" />
+    <Projects Include="*\*.fsproj" Exclude="WebSharper\WebSharper.fsproj" />
+    <Projects Include="*\*.csproj" />
   </ItemGroup>
   <Target Name="Build">
     <Exec Command='"$(FSharpHome)\Fsi.exe" --exec .\Build\Build.fsx'
           WorkingDirectory="$(MSBuildThisFileDirectory)" />
+    <MSBuild Projects="WebSharper\WebSharper.fsproj" />
     <MSBuild Projects="@(Projects)" />
   </Target>
   <Target Name="Clean">
-    <MSBuild Projects="@(Projects)" Targets="Clean" />  
+    <MSBuild Projects="@(Projects);WebSharper\WebSharper.fsproj" Targets="Clean" />
   </Target>
 </Project>

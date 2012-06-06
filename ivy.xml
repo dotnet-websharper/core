@@ -67,19 +67,12 @@
     <artifact name="IntelliFactory.WebSharper.Web" ext="dll" type="bin" />
     <artifact name="IntelliFactory.WebSharper.Web" ext="pdb" type="debug" />
     <artifact name="IntelliFactory.WebSharper.Web" ext="xml" type="doc" />
-    <artifact name="WebSharper" ext="exe" type="bin" />
-    <artifact name="WebSharper" ext="exe.config" type="bin" />
-    <artifact name="WebSharper" ext="pdb" type="debug" />
-    <artifact name="WebSharper" ext="xml" type="doc" />
-    <artifact name="wsol" ext="exe" type="bin" />
-    <artifact name="wsol" ext="exe.config" type="bin" />
-    <artifact name="wsol" ext="pdb" type="debug" />
-    <artifact name="wsol" ext="xml" type="doc" />
-    <artifact name="xhtml2fs" ext="exe" type="bin" />
-    <artifact name="xhtml2fs" ext="exe.config" type="bin" />
-    <artifact name="xhtml2fs" ext="pdb" type="debug" />
-    <artifact name="xhtml2fs" ext="xml" type="doc" />
-
+    <artifact name="WebSharper.v3.5" ext="exe" type="bin" />
+    <artifact name="WebSharper.v3.5" ext="exe.config" type="bin" />
+    <artifact name="WebSharper.v4.0" ext="exe" type="bin" />
+    <artifact name="WebSharper.v4.0" ext="exe.config" type="bin" />
+    <artifact name="WebSharper.v4.5" ext="exe" type="bin" />
+    <artifact name="WebSharper.v4.5" ext="exe.config" type="bin" />
     <artifact name="IntelliFactory.WebSharper" ext="targets" type="build" />
     <artifact name="IntelliFactory.WebSharper.CSharp" ext="targets" type="build" />
     <artifact name="IntelliFactory.WebSharper.Common" ext="targets" type="build" />

@@ -55,10 +55,5 @@
       <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\WebSharper\WebSharper.fsproj">
-      <Name>WebSharper</Name>
-      <Project>{df5f2614-44e8-4c7d-a6e2-019d220d38c9}</Project>
-      <Private>True</Private>
-    </ProjectReference>
   </ItemGroup>
 </Project>

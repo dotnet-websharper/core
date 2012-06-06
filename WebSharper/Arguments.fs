@@ -20,7 +20,7 @@
 // $end{copyright}
 
 /// Implements a monadic command-line option parser framework.
-module WebSharper.Arguments
+module internal IntelliFactory.WebSharper.Arguments
 
 type private Parse<'T> =
     | Parsed of 'T * list<string>

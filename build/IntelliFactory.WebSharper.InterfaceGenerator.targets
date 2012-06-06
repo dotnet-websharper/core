@@ -68,7 +68,7 @@
     </ItemGroup>
     <Copy SourceFiles="@(ReferencePath);@(WsIgSelf);@(WsIgConfig)"
           DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(WEBSHARPER_HOME)\WebSharper.exe.config"
+    <Copy SourceFiles="$(WEBSHARPER_HOME)\WebSharper.$(TargetFrameworkVersion).exe.config"
           DestinationFiles="$(OutputPath)\Generator.exe.config" />
     <Exec Command="Generator.exe &gt; Generated.cs" WorkingDirectory="$(OutputPath)" />
     <Csc TargetType="Library"

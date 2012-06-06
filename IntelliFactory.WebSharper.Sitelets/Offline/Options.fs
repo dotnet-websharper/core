@@ -54,7 +54,7 @@ let Help =
         "IntelliFactory WebSharper (TM) Compiler build " + v.FileVersion
         "Copyright (c) IntelliFactory. All Rights Reserved."
         ""
-        "Usage: wsos.exe [OPTIONS] [INPUTS]"
+        "Usage: WebSharper.exe sitelets [OPTIONS] [INPUTS]"
         "--mode           Either Debug or Release (defaults to Debug)."
         "--source:<dir>   Path to the source directory. Short form: -src."
         "--out:<dir>      Path to the output directory. Short form: -o."

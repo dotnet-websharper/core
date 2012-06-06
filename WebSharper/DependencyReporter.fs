@@ -20,7 +20,7 @@
 // $end{copyright}
 
 /// Prints resource dependency graphs in GML format.
-module internal WebSharper.DependencyReporter
+module internal IntelliFactory.WebSharper.DependencyReporter
 
 open System.IO
 open System.Collections.Generic

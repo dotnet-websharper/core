@@ -37,7 +37,7 @@
       <Args>$(Args) -out "$(WebSharperSiteletsOfflineDirectory)\."</Args>
       <Args>$(Args) -site "$(TargetPath)"</Args>
     </PropertyGroup>
-    <Exec Command='"$(WEBSHARPER_HOME)\wsol.exe" $(Args)' WorkingDirectory='$(WEBSHARPER_HOME)' />
+    <Exec Command='"$(WEBSHARPER_HOME)\WebSharper.$(TargetFrameworkVersion).exe" sitelets $(Args)' WorkingDirectory='$(WEBSHARPER_HOME)' />
   </Target>
 
   <Target Name="SiteletsClean">

@@ -20,14 +20,19 @@
 // $end{copyright}
 
 /// Provides page to url resolution
-module IntelliFactory.WebSharper.Sitelets.Offline.Output
+module internal IntelliFactory.WebSharper.Sitelets.Offline.Output
+
+open System
+open System.Collections.Generic
+open System.IO
+open System.Reflection
+open System.Text
+open System.Text.RegularExpressions
+open System.Web
 
 module C = IntelliFactory.WebSharper.Sitelets.Content
 module Http = IntelliFactory.WebSharper.Sitelets.Http
 module M = IntelliFactory.WebSharper.Core.Metadata
-
-type private Dictionary<'T1,'T2> =
-    System.Collections.Generic.Dictionary<'T1,'T2>
 
 type Mode =
     | Debug
@@ -35,15 +40,15 @@ type Mode =
 
 let private MinJsExtension = "min.js"
 
-let private AssemblyName (ass: System.Reflection.Assembly) =
+let private AssemblyName (ass: Assembly) =
     ass.GetName().Name
 
 // Remove WebResource annotating from CSS files.
 // E.g. <%= WebResource("ResourceName.png") %> => ResourceName
 let private ReplaceWebResources input  =
-    let r1 = new System.Text.RegularExpressions.Regex("<%=\s*WebResource\s*\(\s*\"")
+    let r1 = new Regex("<%=\s*WebResource\s*\(\s*\"")
     let s2 = r1.Replace(input, "")
-    let r2 = new System.Text.RegularExpressions.Regex("\"\s*\)\s*%>")
+    let r2 = new Regex("\"\s*\)\s*%>")
     r2.Replace(s2,"")
 
 let private NonMinifiedFileName (minFileName: string) =
@@ -78,13 +83,13 @@ type AssemblyResources =
     }
 
 /// Copies over the JS files.
-let ComputeResources (mode: Mode) (srcDirs: list<System.IO.DirectoryInfo>) =
+let ComputeResources (mode: Mode) (srcDirs: list<DirectoryInfo>) =
     // Assembly name and list of file pairs.
     let assFiles = new Dictionary<string, AssemblyResources>()
     for srcDir in srcDirs do
         let files = srcDir.GetFiles("*.dll")
         for file in files do
-            let ass = System.Reflection.Assembly.LoadFrom(file.FullName)
+            let ass = Assembly.LoadFrom(file.FullName)
             let assName = AssemblyName ass
             // <%= WebResource("ActionCheck.png") %>
             let names = ass.GetManifestResourceNames()
@@ -106,11 +111,10 @@ let ComputeResources (mode: Mode) (srcDirs: list<System.IO.DirectoryInfo>) =
         Map.add key assFiles.[key] map)
         Map.empty
 
-let OutputResources (assFiles: Dictionary<string, AssemblyResources>)
-    (targetDir: System.IO.DirectoryInfo) =
+let OutputResources (assFiles: Dictionary<string, AssemblyResources>) (targetDir: DirectoryInfo) =
     for assName in assFiles.Keys do
         let assRs = assFiles.[assName]
-        let ass = System.Reflection.Assembly.LoadFrom(assRs.Location)
+        let ass = Assembly.LoadFrom(assRs.Location)
         for name in assRs.Files do
             let endsWith = List.exists (fun s -> name.EndsWith s)
             use stream = ass.GetManifestResourceStream(name)
@@ -118,13 +122,13 @@ let OutputResources (assFiles: Dictionary<string, AssemblyResources>)
             // Create assembly folder if not already exists
             let namePath name =
                 let dirPath =
-                    System.IO.Path.Combine(targetDir.FullName,
+                    Path.Combine(targetDir.FullName,
                         AssemblyName ass)
-                if System.IO.Directory.Exists(dirPath) |> not then
+                if Directory.Exists(dirPath) |> not then
                     dirPath
-                    |> System.IO.Directory.CreateDirectory
+                    |> Directory.CreateDirectory
                     |> ignore
-                System.IO.Path.Combine(dirPath , name)
+                Path.Combine(dirPath , name)
 
             // Decide whether to include the file or not.
             let includeFile =
@@ -135,10 +139,7 @@ let OutputResources (assFiles: Dictionary<string, AssemblyResources>)
 
             if includeFile then
                 if endsWith [".js"; ".jpg"; ".gif"; ".jpeg"; ".png"] then
-                    use output =
-                        new System.IO.FileStream(namePath name,
-                            System.IO.FileMode.Create,
-                            System.IO.FileAccess.Write)
+                    use output = new FileStream(namePath name, FileMode.Create, FileAccess.Write)
                     let buffer : byte [] = Array.zeroCreate (32 * 1024)
                     let read = ref <| stream.Read(buffer, 0, buffer.Length)
                     while read.Value > 0 do
@@ -146,15 +147,12 @@ let OutputResources (assFiles: Dictionary<string, AssemblyResources>)
                         read := stream.Read(buffer, 0, buffer.Length)
                 elif endsWith [".css"] then
                     // Get CSS content.
-                    use sr = new System.IO.StreamReader(stream)
+                    use sr = new StreamReader(stream)
                     let content = sr.ReadToEnd()
 
                     // Create the output file
-                    use output =
-                        new System.IO.FileStream(namePath name,
-                            System.IO.FileMode.Create,
-                            System.IO.FileAccess.Write)
-                    let encoding = new System.Text.UTF8Encoding();
+                    use output = new FileStream(namePath name, FileMode.Create, FileAccess.Write)
+                    let encoding = Encoding.UTF8
 
                     // Get bytes from content with resolved WebResources
                     let bytes = encoding.GetBytes( ReplaceWebResources content)
@@ -165,7 +163,7 @@ let RelPath level =
     |> List.fold (+) ""
 
 let ResourceContext (assFiles: Dictionary<string, AssemblyResources>)
-    (mode: Mode) (targetDir: System.IO.DirectoryInfo) (level: int)
+    (mode: Mode) (targetDir: DirectoryInfo) (level: int)
     : IntelliFactory.WebSharper.Core.Resources.Context =
     let relPath = RelPath level
     {
@@ -189,14 +187,12 @@ let ResourceContext (assFiles: Dictionary<string, AssemblyResources>)
 //                    assFiles.[assName.Name].Files
 //                    |> List.exists (fun e -> e = wsFile)
 //                else false
-            let file =
-                System.String.Format("Scripts/{0}/{1}", assName.Name, wsFile)
-            System.String.Format("{0}{1}", relPath, file)
+            let file = String.Format("Scripts/{0}/{1}", assName.Name, wsFile)
+            String.Format("{0}{1}", relPath, file)
 
         GetWebResourceUrl = fun ty name ->
             ReferencedJSResources.Add(AssemblyName ty.Assembly, name)
-            System.String.Format("{0}Scripts/{1}/{2}", relPath,
-                AssemblyName ty.Assembly, name)
+            String.Format("{0}Scripts/{1}/{2}", relPath, AssemblyName ty.Assembly, name)
     }
 
 // Get unique file names
@@ -221,20 +217,20 @@ let private EmptyRequest (uri: string) :
     IntelliFactory.WebSharper.Sitelets.Http.Request =
     {
         Method = IntelliFactory.WebSharper.Sitelets.Http.Method.Get
-        Uri = System.Uri(uri, System.UriKind.Relative)
+        Uri = Uri(uri, UriKind.Relative)
         Headers = Seq.empty
         Post = Http.ParameterCollection(Seq.empty)
         Get = Http.ParameterCollection(Seq.empty)
-        Cookies = new System.Web.HttpCookieCollection()
+        Cookies = new HttpCookieCollection()
         ServerVariables = Http.ParameterCollection(Seq.empty)
-        Body = System.IO.Stream.Null
+        Body = Stream.Null
         Files = Seq.empty
     }
 
 // Write a content at the given url
 let ResolveContent assFiles (mode: Mode)
-    (targetDir: System.IO.DirectoryInfo) metaData
-    (lc: System.Uri * IntelliFactory.WebSharper.Sitelets.Content<'Action>) =
+    (targetDir: DirectoryInfo) metaData
+    (lc: Uri * IntelliFactory.WebSharper.Sitelets.Content<'Action>) =
 
     let json =
         IntelliFactory.WebSharper.Core.Json.Provider.CreateTyped metaData
@@ -250,7 +246,7 @@ let ResolveContent assFiles (mode: Mode)
 
     // Compute the level of nesting
     let level =
-        let ( ++ ) a b = System.IO.Path.Combine(a, b)
+        let ( ++ ) a b = Path.Combine(a, b)
         let parts =
             locationString.Split '/'
             |> Array.filter (fun s -> s.Length > 0)
@@ -309,8 +305,8 @@ type WriteSiteConfiguration<'Action when 'Action : equality> =
         AssemblyFiles : Dictionary<string, AssemblyResources>
         Sitelet : IntelliFactory.WebSharper.Sitelets.Sitelet<'Action>
         Mode : Mode
-        SrcDir : list<System.IO.DirectoryInfo>
-        TargetDir : System.IO.DirectoryInfo
+        SrcDir : list<DirectoryInfo>
+        TargetDir : DirectoryInfo
         Actions : list<'Action>
     }
 
@@ -322,8 +318,8 @@ let WriteSite (conf : WriteSiteConfiguration<'Action>) =
         let a =
             conf.SrcDir
             |> Seq.collect (fun x ->
-                let dlls = System.IO.Directory.GetFiles(x.FullName, "*.dll")
-                let exes = System.IO.Directory.GetFiles(x.FullName, "*.exe")
+                let dlls = Directory.GetFiles(x.FullName, "*.dll")
+                let exes = Directory.GetFiles(x.FullName, "*.exe")
                 Seq.append dlls exes
                 |> Seq.choose M.AssemblyInfo.Load)
         M.Info.Create a
@@ -378,10 +374,10 @@ let WriteSite (conf : WriteSiteConfiguration<'Action>) =
             }
 
         let fullPath = conf.TargetDir.FullName + path
-        let fileInfo = System.IO.FileInfo(fullPath)
+        let fileInfo = FileInfo(fullPath)
         if not fileInfo.Directory.Exists then
             fileInfo.Directory.Create()
         let response = genResp context
-        use stream = System.IO.File.Create(fullPath) :> System.IO.Stream
-        let sw = new System.IO.StringWriter()
+        use stream = File.Create(fullPath) :> Stream
+        let sw = new StringWriter()
         response.WriteBody stream

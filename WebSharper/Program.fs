@@ -20,25 +20,32 @@
 // $end{copyright}
 
 /// The main entry-point module of WebSharper.
-module WebSharper.Program
+module internal IntelliFactory.WebSharper.Program
+
+open System
+open System.IO
+open System.Diagnostics
+open System.Reflection
+open IntelliFactory.WebSharper.Core.Plugins
 
 module FE = IntelliFactory.WebSharper.Compiler.FrontEnd
+module Plugins = IntelliFactory.WebSharper.Core.Plugins.Configuration
 
 let private guard action =
     try action () with exn ->
-        let temp = System.IO.Path.GetTempFileName()
-        System.IO.File.WriteAllText(temp, string exn)
+        let temp = Path.GetTempFileName()
+        File.WriteAllText(temp, string exn)
         stdout.WriteLine("[Error] {0}(1,1): {1}: {2}", temp,
             exn.GetType().FullName, exn.Message)
         1
 
 let private compile (opts: Options.CompilationOptions) =
-    let sw = System.Diagnostics.Stopwatch()
+    let sw = Stopwatch()
     sw.Start()
     let paths =
         opts.Input :: opts.References
-        |> Seq.map (System.IO.Path.GetDirectoryName
-            >> System.IO.Path.GetFullPath)
+        |> Seq.map (Path.GetDirectoryName
+            >> Path.GetFullPath)
         |> Set.ofSeq
     paths
     |> Seq.iter Loader.AddSearchPath
@@ -48,8 +55,8 @@ let private compile (opts: Options.CompilationOptions) =
         let snk =
             opts.KeyPair
             |> Option.map (fun x ->
-                let bs = System.IO.File.ReadAllBytes x
-                System.Reflection.StrongNameKeyPair bs)
+                let bs = File.ReadAllBytes x
+                StrongNameKeyPair(bs))
         let refs = List.map aLoader.LoadFile opts.References
         let options : FE.Options =
             {
@@ -63,14 +70,14 @@ let private compile (opts: Options.CompilationOptions) =
             match opts.OutputJavaScript with
             | Some path ->
                 match assem.ReadableJavaScript with
-                | Some js -> System.IO.File.WriteAllText(path, js)
+                | Some js -> File.WriteAllText(path, js)
                 | None -> ()
             | None ->
                 ()
             match opts.OutputMinified with
             | Some path ->
                 match assem.CompressedJavaScript with
-                | Some js -> System.IO.File.WriteAllText(path, js)
+                | Some js -> File.WriteAllText(path, js)
                 | None -> ()
             | None ->
                 ()
@@ -81,7 +88,7 @@ let private compile (opts: Options.CompilationOptions) =
                     | :? Mono.Cecil.EmbeddedResource as r ->
                         if r.Name = k then
                             let data = r.GetResourceData()
-                            System.IO.File.WriteAllBytes(v, data)
+                            File.WriteAllBytes(v, data)
                     | _ ->
                         ()
             0
@@ -102,7 +109,7 @@ let private run (opts: Options.T) =
         compile opts
     | Options.Unpack (folder, assemblies) ->
         let paths =
-            Seq.map System.IO.Path.GetDirectoryName assemblies
+            Seq.map Path.GetDirectoryName assemblies
             |> Set.ofSeq
         let loader = FE.Loader.Create paths stderr.WriteLine
         for p in assemblies do
@@ -110,21 +117,39 @@ let private run (opts: Options.T) =
             match a.ReadableJavaScript with
             | Some js ->
                 let path =
-                    System.IO.Path.Combine(folder,
-                        System.IO.Path.GetFileName p + ".js")
-                System.IO.File.WriteAllText(path, js)
+                    Path.Combine(folder,
+                        Path.GetFileName p + ".js")
+                File.WriteAllText(path, js)
             | None -> ()
             match a.CompressedJavaScript with
             | Some js ->
                 let path =
-                    System.IO.Path.Combine(folder,
-                        System.IO.Path.GetFileName p + ".min.js")
-                System.IO.File.WriteAllText(path, js)
+                    Path.Combine(folder,
+                        Path.GetFileName p + ".min.js")
+                File.WriteAllText(path, js)
             | None -> ()
         0
     | Options.Dependencies path ->
         DependencyReporter.Run path
 
-guard (fun () -> Options.Run run)
-|> System.Environment.Exit
+let main () =
+    let args = Environment.GetCommandLineArgs()
+    let env =
+        {
+            new IEnvironment with
+                member this.AddAssemblySearchPath(p) =
+                    Loader.AddSearchPath(p)
+                member this.CommandLineArgs = args
+        }
+    let result =
+        Plugins.GetPlugins()
+        |> Seq.tryPick (fun p ->
+            match p.Run(env) with
+            | Success -> Some 0
+            | Error -> Some -1
+            | Pass -> None)
+    match result with
+    | None -> Options.Run(run)
+    | Some exitCode -> exitCode
 
+Environment.Exit(guard main)

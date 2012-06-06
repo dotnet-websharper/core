@@ -27,7 +27,7 @@
   <PropertyGroup>
     <BuildKind>default</BuildKind>
     <BuildKind Condition="Exists('$(MSBuildProjectDirectory)\..\WebSharper')">self</BuildKind>
-    <BuildKind Condition="Exists('$(MSBuildProjectDirectory)\..\.build\lib\WebSharper.exe')">internal</BuildKind>
+    <BuildKind Condition="Exists('$(MSBuildProjectDirectory)\..\.build\lib\IntelliFactory.WebSharper.dll')">internal</BuildKind>
   </PropertyGroup>
 
   <!-- KeyOriginatorFile -->

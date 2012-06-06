@@ -53,7 +53,7 @@
       <WebSharperRefs>@(ReferencePath->'-r "%(FullPath)"',' ')</WebSharperRefs>
       <WebSharperArgs>$(WebSharperRefs) $(WebSharperKey) "$(RawIntermediateAssembly)" "$(ProcessedIntermediateAssembly)"</WebSharperArgs>
     </PropertyGroup>
-    <Exec Command="&quot;$(WEBSHARPER_HOME)\WebSharper.exe&quot; $(WebSharperArgs)"
+    <Exec Command="&quot;$(WEBSHARPER_HOME)\WebSharper.$(TargetFrameworkVersion).exe&quot; $(WebSharperArgs)"
           Condition="Exists('$(RawIntermediateAssembly)')"
           />
     <ItemGroup>

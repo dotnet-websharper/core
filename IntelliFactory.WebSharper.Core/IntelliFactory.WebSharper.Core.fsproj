@@ -37,8 +37,10 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Web" />
+    <Reference Include="System.Xml" />
   </ItemGroup>
   <Import Project="..\build\IntelliFactory.FSharp.targets" />
   <ItemGroup>
@@ -61,6 +63,7 @@
     <Compile Include="Json.fs" />
     <Compile Include="Remoting.fsi" />
     <Compile Include="Remoting.fs" />
+    <Compile Include="Plugins.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">

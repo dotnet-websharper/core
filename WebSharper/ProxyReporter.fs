@@ -20,8 +20,8 @@
 // $end{copyright}
 
 /// Constructs proxy reports in XML format.
-module internal WebSharper.ProxyReporter
-//
+module internal IntelliFactory.WebSharper.ProxyReporter
+
 //open System.Collections.Generic
 //open System.IO
 //open System.Reflection

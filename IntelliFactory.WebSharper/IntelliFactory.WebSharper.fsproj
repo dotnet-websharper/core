@@ -103,15 +103,8 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\WebSharper\WebSharper.fsproj">
-      <Name>WebSharper</Name>
-      <Project>{df5f2614-44e8-4c7d-a6e2-019d220d38c9}</Project>
-      <Private>True</Private>
-    </ProjectReference>
   </ItemGroup>
   <Target Name="BeforeBuild" Inputs="Json.js" Outputs="Json.min.js">
-    <AjaxMin JsSourceFiles="Json.js"
-	    JsSourceExtensionPattern="\.js$"
-	    JsTargetExtension=".min.js" />
+    <AjaxMin JsSourceFiles="Json.js" JsSourceExtensionPattern="\.js$" JsTargetExtension=".min.js" />
   </Target>
- </Project>
+</Project>

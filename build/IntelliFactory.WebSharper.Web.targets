@@ -45,7 +45,7 @@
     <PropertyGroup>
       <WebSharperArgs>-unpack "$(WebSharperScriptsFolder)" @(WebSharperBinaries->'"%(FullPath)"',' ')</WebSharperArgs>
     </PropertyGroup>
-    <Exec Command='"$(WEBSHARPER_HOME)\WebSharper.exe" $(WebSharperArgs)' />
+    <Exec Command='"$(WEBSHARPER_HOME)\WebSharper.$(TargetFrameworkVersion).exe" $(WebSharperArgs)' />
     <Touch Files="$(WebSharperMarker)" AlwaysCreate="true" />
   </Target>
 
