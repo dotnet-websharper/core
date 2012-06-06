@@ -55,12 +55,6 @@
     <artifact name="IntelliFactory.WebSharper.Sitelets" ext="dll" type="bin" />
     <artifact name="IntelliFactory.WebSharper.Sitelets" ext="pdb" type="debug" />
     <artifact name="IntelliFactory.WebSharper.Sitelets" ext="xml" type="doc" />
-    <artifact name="IntelliFactory.WebSharper.Sitelets.Build" ext="dll" type="bin" />
-    <artifact name="IntelliFactory.WebSharper.Sitelets.Build" ext="pdb" type="debug" />
-    <artifact name="IntelliFactory.WebSharper.Sitelets.Build" ext="xml" type="doc" />
-    <artifact name="IntelliFactory.WebSharper.Sitelets.Templating" ext="dll" type="bin" />
-    <artifact name="IntelliFactory.WebSharper.Sitelets.Templating" ext="pdb" type="debug" />
-    <artifact name="IntelliFactory.WebSharper.Sitelets.Templating" ext="xml" type="doc" />
     <artifact name="IntelliFactory.WebSharper.Testing" ext="dll" type="bin" />
     <artifact name="IntelliFactory.WebSharper.Testing" ext="pdb" type="debug" />
     <artifact name="IntelliFactory.WebSharper.Testing" ext="xml" type="doc" />
