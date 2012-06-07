@@ -35,18 +35,21 @@ module Pervasives =
         { Namespaces = namespaces }
 
     /// Constructs a new namespace.
-    let Namespace name (members: list<Code.TypeDeclaration>) : Code.Namespace =
+    let Namespace name (members: list<Code.NamespaceEntity>) : Code.Namespace =
         let mutable classes = []
         let mutable interfaces = []
+        let mutable resources = []
         for m in members do
             match m with
             | :? Code.Class as x -> classes <- x :: classes
             | :? Code.Interface as x -> interfaces <- x :: interfaces
+            | :? Code.Resource as x -> resources <- x :: resources
             | _ -> ()
         {
             Name = name
             Classes = classes
             Interfaces = interfaces
+            Resources = resources
         }
 
     /// Constructs a new class.
@@ -74,6 +77,14 @@ module Pervasives =
     /// Constructs a new property with a getter and a setter.
     let Property name (ty: Type.IType) =
         Code.Property (name, ty.Type, HasGetter = true, HasSetter = true)
+
+    /// Constructs a new resource from a source path.
+    let Resource name path =
+        Code.Resource (name, [path])
+
+    /// Constructs a new resource from a base path and a list of subpaths.
+    let Resources name basePath paths =
+        Code.Resource (name, basePath :: paths)
 
     /// Makes a member static.
     let Static<'T when 'T :> Code.Member> (x: 'T) =
@@ -201,6 +212,12 @@ module Pervasives =
             Variable = Some ty.Type
             Arguments = []
         }
+
+    /// Adds a resource dependency.
+    let Requires (requires : Code.Resource list) (ty: #Code.NamespaceEntity) =
+        ty |> Code.Entity.Update (fun x ->
+            let ids = requires |> List.map (fun res -> res.Id)
+            x.DependsOn <- ids @ x.DependsOn)
 
     let private Fresh =
         let x = ref 0
