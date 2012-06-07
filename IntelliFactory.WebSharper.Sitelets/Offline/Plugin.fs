@@ -71,28 +71,14 @@ type Plugin() =
             // Load the sitelet
             let (sitelet, actions) = loadSite options.SourceAssembly
 
-            // Compute the available assembly files and embedded resources.
-            let assFiles =
-                let m =
-                    Output.ComputeResources options.Mode
-                        options.SourceDirectories
-                let d = Dictionary()
-                Map.iter (fun k v -> d.[k] <- v) m
-                d
-
             // Write site content.
-            Output.WriteSite
-                {
-                    AssemblyFiles = assFiles
-                    Sitelet = sitelet
-                    Mode = options.Mode
-                    SrcDir = options.SourceDirectories
-                    TargetDir = options.OutputDirectory
-                    Actions = actions
-                }
-
-            // Write resources.
-            Output.OutputResources assFiles scriptDir
+            Output.WriteSite {
+                Sitelet = sitelet
+                Mode = options.Mode
+                SourceDirs = options.SourceDirectories
+                TargetDir = options.OutputDirectory
+                Actions = actions
+            }
             Result.Success
         with
         | Options.BadOptions message ->

@@ -52,6 +52,7 @@
     <Compile Include="Website.fs" />
     <Compile Include="HttpModule.fs" />
     <Compile Include="UrlHelpers.fs" />
+    <Compile Include="Offline\Output.fsi" />
     <Compile Include="Offline\Output.fs" />
     <Compile Include="Offline\Options.fs" />
     <Compile Include="Offline\Extra.fsi" />

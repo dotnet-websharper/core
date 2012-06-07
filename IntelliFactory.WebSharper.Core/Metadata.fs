@@ -21,8 +21,13 @@
 
 module IntelliFactory.WebSharper.Core.Metadata
 
-type D<'T1,'T2> = System.Collections.Generic.Dictionary<'T1,'T2>
-type Q<'T> = System.Collections.Generic.Queue<'T>
+open System
+open System.Collections.Generic
+open System.IO
+open System.Reflection
+
+type D<'T1,'T2> = Dictionary<'T1,'T2>
+type Q<'T> = Queue<'T>
 
 module P = IntelliFactory.JavaScript.Packager
 module Re = IntelliFactory.WebSharper.Core.Reflection
@@ -157,14 +162,14 @@ type AssemblyInfo =
             else
                 None
 
-    static member Load(p: string) : option<AssemblyInfo> =
-        let fn = System.IO.Path.GetFileNameWithoutExtension p
+    static member Load(path: string) : option<AssemblyInfo> =
+        let name = AssemblyName.GetAssemblyName(path).Name
         let la =
-            System.AppDomain.CurrentDomain.GetAssemblies()
-            |> Seq.tryFind (fun a -> a.GetName().Name = fn)
+            AppDomain.CurrentDomain.GetAssemblies()
+            |> Seq.tryFind (fun a -> a.GetName().Name = name)
         match la with
         | Some a -> a
-        | None -> System.Reflection.Assembly.ReflectionOnlyLoadFrom p
+        | None -> Assembly.ReflectionOnlyLoadFrom(path)
         |> AssemblyInfo.LoadReflected
 
 and AssemblyInfoEncoding() =

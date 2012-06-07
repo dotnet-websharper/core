@@ -19,7 +19,6 @@
 //
 // $end{copyright}
 
-/// Provides page to url resolution
 module internal IntelliFactory.WebSharper.Sitelets.Offline.Output
 
 open System
@@ -29,242 +28,264 @@ open System.Reflection
 open System.Text
 open System.Text.RegularExpressions
 open System.Web
+open IntelliFactory.WebSharper.Sitelets
 
 module C = IntelliFactory.WebSharper.Sitelets.Content
 module Http = IntelliFactory.WebSharper.Sitelets.Http
+module J = IntelliFactory.WebSharper.Core.Json
 module M = IntelliFactory.WebSharper.Core.Metadata
+module Re = IntelliFactory.WebSharper.Core.Reflection
+module R = IntelliFactory.WebSharper.Core.Resources
+
+[<Literal>]
+let EMBEDDED_JS = "WebSharper.js"
+
+[<Literal>]
+let EMBEDDED_MINJS = "WebSharper.min.js"
 
 type Mode =
     | Debug
     | Release
 
-let private MinJsExtension = "min.js"
-
-let private AssemblyName (ass: Assembly) =
-    ass.GetName().Name
-
-// Remove WebResource annotating from CSS files.
-// E.g. <%= WebResource("ResourceName.png") %> => ResourceName
-let private ReplaceWebResources input  =
-    let r1 = new Regex("<%=\s*WebResource\s*\(\s*\"")
-    let s2 = r1.Replace(input, "")
-    let r2 = new Regex("\"\s*\)\s*%>")
-    r2.Replace(s2,"")
-
-let private NonMinifiedFileName (minFileName: string) =
-    minFileName.Substring(0, minFileName.Length - 7) + ".js"
-
-let private MinifiedFileName (name: string) =
-    name.Substring(0, name.Length - 2) + MinJsExtension
-
-let private AssemblyNameKey ass name =
-    AssemblyName ass + name
-
-// Type for keeping track of referenced resources.
-type ResourceDictionary() =
-    let dict = new Dictionary<string, unit>()
-    let keyName ass file = ass + "/" + file
-    member this.Add(ass: string, file: string) =
-        let key = keyName ass file
-        if not <| dict.ContainsKey(key) then
-            dict.[key] <- ()
-    member this.Exists(ass, file) =
-        dict.ContainsKey(keyName ass file)
-
-/// Keep track of the referenced resources
-let ReferencedJSResources =
-    new ResourceDictionary()
-
-// Represents a resource.
-type AssemblyResources =
+type Config =
     {
-        Location : string
-        Files : list<string>
+        Actions : list<obj>
+        Mode : Mode
+        Sitelet : Sitelet<obj>
+        SourceDirs : list<DirectoryInfo>
+        TargetDir : DirectoryInfo
     }
 
-/// Copies over the JS files.
-let ComputeResources (mode: Mode) (srcDirs: list<DirectoryInfo>) =
-    // Assembly name and list of file pairs.
-    let assFiles = new Dictionary<string, AssemblyResources>()
-    for srcDir in srcDirs do
-        let files = srcDir.GetFiles("*.dll")
-        for file in files do
-            let ass = Assembly.LoadFrom(file.FullName)
-            let assName = AssemblyName ass
-            // <%= WebResource("ActionCheck.png") %>
-            let names = ass.GetManifestResourceNames()
-            for name in names do
-                if assFiles.ContainsKey(assName) then
-                    assFiles.[assName] <-
-                        {
-                            assFiles.[assName] with
-                                Files = name :: assFiles.[assName].Files
-                        }
-                else
-                    assFiles.[assName] <-
-                        {
-                            Location = file.FullName
-                            Files = [name]
-                        }
-    assFiles.Keys
-    |> Seq.fold (fun map key ->
-        Map.add key assFiles.[key] map)
-        Map.empty
+/// Collects metadata from all assemblies in referenced folders.
+let getMetadata (conf: Config) =
+    conf.SourceDirs
+    |> Seq.collect (fun x ->
+        let dlls = Directory.GetFiles(x.FullName, "*.dll")
+        let exes = Directory.GetFiles(x.FullName, "*.exe")
+        Seq.append dlls exes)
+    |> Seq.distinctBy (fun assemblyFile ->
+        AssemblyName.GetAssemblyName(assemblyFile).Name)
+    |> Seq.choose (fun x ->
+        match M.AssemblyInfo.Load(x) with
+        | None -> None
+        | Some r -> Some r)
+    |> M.Info.Create
 
-let OutputResources (assFiles: Dictionary<string, AssemblyResources>) (targetDir: DirectoryInfo) =
-    for assName in assFiles.Keys do
-        let assRs = assFiles.[assName]
-        let ass = Assembly.LoadFrom(assRs.Location)
-        for name in assRs.Files do
-            let endsWith = List.exists (fun s -> name.EndsWith s)
-            use stream = ass.GetManifestResourceStream(name)
+/// Generates unique file names.
+[<Sealed>]
+type UniqueFileNameGenerator() =
+    let table = Dictionary<string,unit>()
 
-            // Create assembly folder if not already exists
-            let namePath name =
-                let dirPath =
-                    Path.Combine(targetDir.FullName,
-                        AssemblyName ass)
-                if Directory.Exists(dirPath) |> not then
-                    dirPath
-                    |> Directory.CreateDirectory
-                    |> ignore
-                Path.Combine(dirPath , name)
+    /// Generates a new filename with a given basis.
+    member this.Generate(name: string) =
+        let rec addName n =
+            let newName = name + string n
+            if table.ContainsKey(newName) then
+                addName (n + 1)
+            else
+                table.[newName] <- ()
+                newName
+        if table.ContainsKey(name) then
+            addName 1
+        else
+            table.[name] <- ()
+            name
 
-            // Decide whether to include the file or not.
-            let includeFile =
-                if endsWith [".js"] then
-                    ReferencedJSResources.Exists(assName, name)
-                else
-                    endsWith [".css"; ".jpg"; ".gif"; ".jpeg"; ".png"]
+/// Copies the contents of source stream to the target stream.
+let streamCopy (source: Stream) (target: Stream) =
+    let buf = Array.create 4096 0uy
+    let rec loop () =
+        match source.Read(buf, 0, buf.Length) with
+        | 0 -> ()
+        | k ->
+            target.Write(buf, 0, k)
+            loop ()
+    loop ()
 
-            if includeFile then
-                if endsWith [".js"; ".jpg"; ".gif"; ".jpeg"; ".png"] then
-                    use output = new FileStream(namePath name, FileMode.Create, FileAccess.Write)
-                    let buffer : byte [] = Array.zeroCreate (32 * 1024)
-                    let read = ref <| stream.Read(buffer, 0, buffer.Length)
-                    while read.Value > 0 do
-                        output.Write(buffer, 0, read.Value)
-                        read := stream.Read(buffer, 0, buffer.Length)
-                elif endsWith [".css"] then
-                    // Get CSS content.
-                    use sr = new StreamReader(stream)
-                    let content = sr.ReadToEnd()
+/// Represents embedded resources. Uses F# structural equality.
+type EmbeddedResource =
+    {
+        Name : string
+        Type : Type
+    }
 
-                    // Create the output file
-                    use output = new FileStream(namePath name, FileMode.Create, FileAccess.Write)
-                    let encoding = Encoding.UTF8
+    static member Create(name, ty) =
+        { Name = name; Type = ty }
 
-                    // Get bytes from content with resolved WebResources
-                    let bytes = encoding.GetBytes( ReplaceWebResources content)
-                    output.Write(bytes, 0, Array.length bytes)
+/// The mutable state of the processing.
+type State(conf: Config) =
+    let metadata = getMetadata conf
+    let json = J.Provider.CreateTyped(metadata)
+    let unique = UniqueFileNameGenerator()
+    let usedAssemblies = HashSet()
+    let usedResources = HashSet()
+    member this.Config = conf
+    member this.Json = json
+    member this.Metadata = metadata
+    member this.Unique = unique
+    member this.Assemblies = usedAssemblies :> seq<_>
+    member this.Resources = usedResources :> seq<_>
+    member this.UseAssembly(name) = usedAssemblies.Add(name) |> ignore
+    member this.UseResource(res) = usedResources.Add(res) |> ignore
 
-let RelPath level =
-    List.init level (fun _ -> "../")
-    |> List.fold (+) ""
+/// Utility: combines two paths with a slash or backslash.
+let ( ++ ) a b = Path.Combine(a, b)
 
-let ResourceContext (assFiles: Dictionary<string, AssemblyResources>)
-    (mode: Mode) (targetDir: DirectoryInfo) (level: int)
-    : IntelliFactory.WebSharper.Core.Resources.Context =
-    let relPath = RelPath level
+/// Gets the JavaScript filename of an assembly, for example `IntelliFactory.WebSharper.js`.
+let getAssemblyFileName (mode: Mode) (aN: Re.AssemblyName) =
+    match mode with
+    | Debug -> String.Format("{0}.js", aN.Name)
+    | Release -> String.Format("{0}.min.js", aN.Name)
+
+/// Gets the physical path to the assembly JavaScript.
+let getAssemblyJavaScriptPath (conf: Config) (aN: Re.AssemblyName) =
+    conf.TargetDir.FullName ++ "Scripts" ++ aN.Name ++ getAssemblyFileName conf.Mode aN
+
+/// Gets the physical path to the embedded resoure file.
+let getEmbeddedResourcePath (conf: Config) (res: EmbeddedResource) =
+    let x = res.Type.Assembly.GetName()
+    conf.TargetDir.FullName ++ "Scripts" ++ x.Name ++ res.Name
+
+// Remove WebResource annotating from CSS files.
+// E.g. <%= WebResource("ResourceName.png") %> => ResourceName.png
+let replaceWebResourceTags : string -> string =
+    let rx = Regex(@"<%=\s*WebResource\s*\(\s*\""|\""\s*\)\s*%>")
+    fun s -> rx.Replace(s, "")
+
+/// Opens a file for writing, taking care to create folders.
+let createFile (targetPath: string) =
+    let d = Path.GetDirectoryName(targetPath)
+    if not (Directory.Exists(d)) then
+        Directory.CreateDirectory(d)
+        |> ignore
+    File.Open(targetPath, FileMode.Create) :> Stream
+
+/// Writes an embedded resource to the target path.
+let writeEmbeddedResource (a: Assembly) (n: string) (targetPath: string) =
+    match Path.GetExtension(n) with
+    | ".css" ->
+        use r = new StreamReader(a.GetManifestResourceStream(n))
+        let text =
+            r.ReadToEnd()
+            |> replaceWebResourceTags
+        use w = new StreamWriter(createFile targetPath, Encoding.UTF8)
+        w.Write(text)
+    | _ ->
+        use s1 = a.GetManifestResourceStream(n)
+        use s2 = createFile targetPath
+        streamCopy s1 s2
+
+/// A tool for matching assembly names to currently loaded assemblies.
+[<Sealed>]
+type LoadedAssemblyResolver() =
+    let state = Dictionary()
+
+    /// Resolves a name to an assembly.
+    member this.Resolve(name: Re.AssemblyName) =
+        match state.TryGetValue(name.Name) with
+        | true, v -> v
+        | _ ->
+            let v =
+                AppDomain.CurrentDomain.GetAssemblies()
+                |> Seq.tryFind (fun a -> a.GetName().Name = name.Name)
+            match v with
+            | Some v ->
+                state.[name.Name] <- v
+                v
+            | None ->
+                failwithf "Assembly not currently loaded: %O" name
+
+/// Outputs all encessary resources. This is the last step of processing.
+let writeResources (st: State) =
+    let resolver = LoadedAssemblyResolver()
+    for aN in st.Assemblies do
+        let assembly = resolver.Resolve(aN)
+        let embeddedResourceName =
+            match st.Config.Mode with
+            | Debug -> EMBEDDED_JS
+            | Release -> EMBEDDED_MINJS
+        getAssemblyJavaScriptPath st.Config aN
+        |> writeEmbeddedResource assembly embeddedResourceName
+    for res in st.Resources do
+        getEmbeddedResourcePath st.Config res
+        |> writeEmbeddedResource res.Type.Assembly res.Name
+
+/// Generates a relative path prefix, such as "../../../" for level 3.
+let relPath level =
+    String.replicate level "../"
+
+/// Creates a context for resource HTML printing.
+let resourceContext (st: State) (level: int) : R.Context =
+    let relPath = relPath level
+    let scriptsFile folder file =
+        String.Format("{0}Scripts/{1}/{2}", relPath, folder, file)
     {
         DebuggingEnabled =
-            match mode with
+            match st.Config.Mode with
             | Debug -> true
             | _ -> false
 
         GetSetting = fun _ -> None
 
-        GetAssemblyUrl = fun assName ->
-            let wsFile =
-                match mode with
-                | Mode.Debug -> "WebSharper.js"
-                | Mode.Release -> "WebSharper." + MinJsExtension
-            // Mark this js resource as referenced.
-            ReferencedJSResources.Add(assName.Name, wsFile)
-            // Check if assembly/file exists
-//            let isExisting =
-//                if assFiles.ContainsKey assName.Name then
-//                    assFiles.[assName.Name].Files
-//                    |> List.exists (fun e -> e = wsFile)
-//                else false
-            let file = String.Format("Scripts/{0}/{1}", assName.Name, wsFile)
-            String.Format("{0}{1}", relPath, file)
+        GetAssemblyUrl = fun aN ->
+            st.UseAssembly(aN)
+            scriptsFile aN.Name (getAssemblyFileName st.Config.Mode aN)
 
         GetWebResourceUrl = fun ty name ->
-            ReferencedJSResources.Add(AssemblyName ty.Assembly, name)
-            String.Format("{0}Scripts/{1}/{2}", relPath, AssemblyName ty.Assembly, name)
+            st.UseResource(EmbeddedResource.Create(name, ty))
+            scriptsFile (ty.Assembly.GetName().Name) name
     }
 
-// Get unique file names
-let UniqueFileName =
-    // Keeps track of used file names
-    let FileNameTable = Dictionary<string,unit>()
-    fun (name:string) ->
-        let rec addName n =
-            let newName = name + string n
-            if FileNameTable.ContainsKey(newName) then
-                addName (n+1)
-            else
-                FileNameTable.[newName] <- ()
-                newName
-        if FileNameTable.ContainsKey(name) then
-            addName 1
-        else
-            FileNameTable.[name] <- ()
-            name
-
-let private EmptyRequest (uri: string) :
-    IntelliFactory.WebSharper.Sitelets.Http.Request =
+/// Creates a dummy request.
+let emptyRequest (uri: string) : Http.Request =
     {
-        Method = IntelliFactory.WebSharper.Sitelets.Http.Method.Get
+        Method = Http.Method.Get
         Uri = Uri(uri, UriKind.Relative)
         Headers = Seq.empty
         Post = Http.ParameterCollection(Seq.empty)
         Get = Http.ParameterCollection(Seq.empty)
-        Cookies = new HttpCookieCollection()
+        Cookies = HttpCookieCollection()
         ServerVariables = Http.ParameterCollection(Seq.empty)
         Body = Stream.Null
         Files = Seq.empty
     }
 
-// Write a content at the given url
-let ResolveContent assFiles (mode: Mode)
-    (targetDir: DirectoryInfo) metaData
-    (lc: Uri * IntelliFactory.WebSharper.Sitelets.Content<'Action>) =
+/// Represents an action that was partially resolved to some content.
+type ResolvedContent =
+    {
+        Path : string
+        RelativePath : string
+        ResourceContext : R.Context
+        Respond : Context<obj> -> Http.Response
+    }
 
-    let json =
-        IntelliFactory.WebSharper.Core.Json.Provider.CreateTyped metaData
-
-    let (loc, content) = lc
+/// Partially resolves the content.
+let resolveContent (st: State) (loc: Location) (content: Content<obj>) =
     let locationString =
         let locStr = loc.ToString()
         if locStr.EndsWith("/") then
             locStr + "index"
         else
             locStr
-        |> UniqueFileName
-
+        |> st.Unique.Generate
     // Compute the level of nesting
     let level =
-        let ( ++ ) a b = Path.Combine(a, b)
         let parts =
             locationString.Split '/'
             |> Array.filter (fun s -> s.Length > 0)
         parts.Length - 1
-
-    let resContext = ResourceContext assFiles mode targetDir level
+    let resContext = resourceContext st level
     let genResp = C.ToResponse content
     let response =
         genResp {
-            Json = json
+            Json = st.Json
             Link = fun _ -> ""
             ApplicationPath =  ""
             ResolveUrl = fun x -> x
-            Metadata = metaData
+            Metadata = st.Metadata
             ResourceContext = resContext
-            Request = EmptyRequest locationString
+            Request = emptyRequest locationString
         }
-
     let path =
         let ext =
             response.Headers
@@ -272,8 +293,7 @@ let ResolveContent assFiles (mode: Mode)
                 if header.Name.ToLower() = "content-type" then
                     Some header.Value
                 else
-                    None
-            )
+                    None)
             |> Option.map (fun ct ->
                 if ct.StartsWith "application/json" then
                     ".json"
@@ -298,86 +318,59 @@ let ResolveContent assFiles (mode: Mode)
         match ext with
         | Some ext -> locationString + ext
         | None -> locationString
-    (genResp, resContext, path, RelPath level)
-
-type WriteSiteConfiguration<'Action when 'Action : equality> =
     {
-        AssemblyFiles : Dictionary<string, AssemblyResources>
-        Sitelet : IntelliFactory.WebSharper.Sitelets.Sitelet<'Action>
-        Mode : Mode
-        SrcDir : list<DirectoryInfo>
-        TargetDir : DirectoryInfo
-        Actions : list<'Action>
+        Path = path
+        RelativePath = relPath level
+        ResourceContext = resContext
+        Respond = genResp
     }
 
-// let WriteSite (assFiles : IDictionary<string, AssemblyResources>)
-//   (mode: Mode) site (srcDirs: list<DirectoryInfo>)
-//   (targetDir: DirectoryInfo) (actions: seq<'Action>) =
-let WriteSite (conf : WriteSiteConfiguration<'Action>) =
-    let metaData =
-        let a =
-            conf.SrcDir
-            |> Seq.collect (fun x ->
-                let dlls = Directory.GetFiles(x.FullName, "*.dll")
-                let exes = Directory.GetFiles(x.FullName, "*.exe")
-                Seq.append dlls exes
-                |> Seq.choose M.AssemblyInfo.Load)
-        M.Info.Create a
+/// Trims the starting slashes from a path.
+let trimPath (path: string) =
+    path.TrimStart('/')
 
+let WriteSite (conf: Config) =
+    let st = State(conf)
     let table = Dictionary()
-
     let contents =
         conf.Actions
         |> List.ofSeq
         |> List.choose (fun action ->
-            // Try to link to action
-            match conf.Sitelet.Router.Link action with
-            | Some location  ->
-                let content = conf.Sitelet.Controller.Handle action
-                let (genResp, resContext, path, relPath) =
-                    ResolveContent conf.AssemblyFiles conf.Mode
-                        conf.TargetDir metaData (location, content)
-                table.Add(action, path)
-                (genResp, resContext, path, relPath)
-                |> Some
+            match conf.Sitelet.Router.Link(action) with
+            | Some location ->
+                let content = conf.Sitelet.Controller.Handle(action)
+                let rC = resolveContent st location content
+                table.[action] <- rC.Path
+                Some rC
             | None -> None)
-
-    let trimPath (path: string) =
-        if path.StartsWith "/" then path.Substring 1 else path
-
     // Write contents
-    for (genResp, resContext, path, relPath) in contents do
-        let json =
-            IntelliFactory.WebSharper.Core.Json.Provider.CreateTyped metaData
+    for rC in contents do
         // Define context
-        let context : IntelliFactory.WebSharper.Sitelets.Context<_> =
+        let context : Context<obj> =
             {
                 ApplicationPath = ""
                 ResolveUrl = fun x -> x
-                Json = json
+                Json = st.Json
                 Link = fun action ->
                     // First try to find from url table.
                     if table.ContainsKey(action) then
-                        relPath + (trimPath table.[action])
+                        rC.RelativePath + trimPath table.[action]
                     else
                         // Otherwise, link to the action using the router
                         match conf.Sitelet.Router.Link action with
                         | Some loc ->
-                            relPath + (trimPath <| loc.ToString())
+                            rC.RelativePath + trimPath (string loc)
                         | None ->
-                            let msg = "Failed to link to action from " + path
+                            let msg = "Failed to link to action from " + rC.Path
                             stdout.WriteLine("Warning: " + msg)
                             "#"
-                Metadata = metaData
-                ResourceContext = resContext
-                Request = EmptyRequest path
+                Metadata = st.Metadata
+                ResourceContext = rC.ResourceContext
+                Request = emptyRequest rC.Path
             }
-
-        let fullPath = conf.TargetDir.FullName + path
-        let fileInfo = FileInfo(fullPath)
-        if not fileInfo.Directory.Exists then
-            fileInfo.Directory.Create()
-        let response = genResp context
-        use stream = File.Create(fullPath) :> Stream
-        let sw = new StringWriter()
-        response.WriteBody stream
+        let fullPath = conf.TargetDir.FullName + rC.Path
+        let response = rC.Respond context
+        use stream = createFile fullPath
+        response.WriteBody(stream)
+    // Write resources determined to be necessary.
+    writeResources st
