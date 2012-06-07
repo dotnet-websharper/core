@@ -404,9 +404,10 @@ module Compiler =
     let private TranslateResource (ctx: Context) (r: Code.Resource) =
         let (ctx, ctd) = TranslateNamespaceEntity ctx r
         ctd.BaseTypes.Add(typeof<IntelliFactory.WebSharper.Core.Resources.BaseResource>)
-        let c = CodeConstructor()
+        let c = new CodeConstructor()
         for path in r.Paths do
             c.BaseConstructorArgs.Add(CodePrimitiveExpression(path)) |> ignore
+        c.Attributes <- MemberAttributes.Public
         ctd.Members.Add c |> ignore
         ctd
 
