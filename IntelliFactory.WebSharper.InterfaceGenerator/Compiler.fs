@@ -334,12 +334,22 @@ module Compiler =
             |> ctd.Members.Add
             |> ignore
 
-    let private TranslateTypeDeclaration (inter: bool) (ctx: Context) (d: Code.TypeDeclaration) =
+    let private TranslateNamespaceEntity (ctx: Context) (e: Code.NamespaceEntity) =
+        let ctd = CodeTypeDeclaration(GetSourceName e)
         let ctx = ctx.Indent
-        let ctd = 
-            CodeTypeDeclaration(GetSourceName d,
-                IsInterface = inter,
-                Attributes  = MakeAttributes d)
+        for r in e.DependsOn do
+            let t = TranslateType ctx (Type.DeclaredType r)
+            CodeAttributeDeclaration(
+                "IntelliFactory.WebSharper.Core.Attributes.RequireAttribute",
+                [| CodeAttributeArgument(CodeTypeOfExpression(t)) |])
+            |> ctd.CustomAttributes.Add
+            |> ignore
+        (ctx, ctd)
+
+    let private TranslateTypeDeclaration (inter: bool) (ctx: Context) (d: Code.TypeDeclaration) =
+        let (ctx, ctd) = TranslateNamespaceEntity ctx d
+        ctd.IsInterface <- inter
+        ctd.Attributes <- MakeAttributes d
         for g in d.Generics do
             CodeTypeParameter g
             |> ctd.TypeParameters.Add
@@ -391,6 +401,16 @@ module Compiler =
             |> ignore
         ctd
 
+    let private TranslateResource (ctx: Context) (r: Code.Resource) =
+        let (ctx, ctd) = TranslateNamespaceEntity ctx r
+        ctd.BaseTypes.Add(typeof<IntelliFactory.WebSharper.Core.Resources.BaseResource>)
+        let c = new CodeConstructor()
+        for path in r.Paths do
+            c.BaseConstructorArgs.Add(CodePrimitiveExpression(path)) |> ignore
+        c.Attributes <- MemberAttributes.Public
+        ctd.Members.Add c |> ignore
+        ctd
+
     let private CompileNamespace (ctx: Context) 
                                  (ccu: CodeCompileUnit)
                                  (ns: Code.Namespace) =
@@ -402,6 +422,10 @@ module Compiler =
             |> ignore
         for i in ns.Interfaces do
             TranslateInterface ctx.Indent i
+            |> cn.Types.Add
+            |> ignore
+        for r in ns.Resources do
+            TranslateResource ctx.Indent r
             |> cn.Types.Add
             |> ignore
 
@@ -419,11 +443,15 @@ module Compiler =
                 for ni in c.NestedInterfaces do
                     yield getInterface (prefix + n + "+") ni
             ]
+            let getResource (prefix: string) (r: Code.Resource) =
+                (prefix + GetSourceName r, r.Id)
             [ for ns in namespaces do
                 for i in ns.Interfaces do
                     yield getInterface (ns.Name + ".") i
                 for t in ns.Classes do
-                    yield! getClass (ns.Name + ".") t ]
+                    yield! getClass (ns.Name + ".") t
+                for r in ns.Resources do
+                    yield getResource (ns.Name + ".") r ]
         let ids = new Dictionary<Type.Id,string>()
         for (n, id) in getIds namespaces do
             ids.[id] <- n

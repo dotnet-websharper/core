@@ -64,17 +64,14 @@ module CodeModel =
                 clone
 
     and [<AbstractClass>] TypeDeclaration  =
-        inherit Entity
-        val mutable Id         : Type.Id
+        inherit NamespaceEntity
         val mutable Generics   : list<string>
         val mutable Methods    : list<Method>
         val mutable Properties : list<Property>
 
         internal new (name) =
-            let id = Type.Id ()
             {
-                inherit Entity(name, Type.DeclaredType id)
-                Id = id
+                inherit NamespaceEntity(name)
                 Generics = []
                 Methods = []
                 Properties = []
@@ -267,11 +264,35 @@ module CodeModel =
     and IInterfaceProperty =
         abstract member SetOn : Interface -> Interface
 
+    and [<AbstractClass>] NamespaceEntity =
+        inherit Entity
+        val mutable DependsOn : Type.Id list
+        val mutable Id         : Type.Id
+
+        internal new (name) =
+            let id = Type.Id ()
+            {
+                inherit Entity(name, Type.DeclaredType id)
+                DependsOn = []
+                Id = id
+            }
+
+    and Resource =
+        inherit NamespaceEntity
+        val mutable Paths : string list
+
+        internal new (name, paths) =
+            {
+                inherit NamespaceEntity(name)
+                Paths = paths
+            }
+
     type Namespace =
         {
             Name       : string
             Interfaces : list<Interface>
             Classes    : list<Class>
+            Resources  : list<Resource>
         }
 
     type Assembly =
