@@ -180,16 +180,16 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
     |> List.iter (fun node ->
         let res =
             deps.Walk node
-            |> Seq.collect (fun node ->
+            |> Seq.collect (fun requirement ->
                 let rest =
-                    match req.TryGetValue node with
+                    match req.TryGetValue(requirement) with
                     | false, _ -> []
                     | true, xs -> xs
-                match node with
+                match requirement with
                 | M.AssemblyNode (id, M.CompiledAssembly) ->
-                    M.AssemblyResource id :: rest
+                    rest @ [M.AssemblyResource id]
                 | M.ResourceNode id ->
-                    M.UserResource id :: rest
+                    rest @ [M.UserResource id]
                 | _ -> rest)
             |> Seq.distinct
             |> Seq.toList
