@@ -794,6 +794,8 @@ module JQuery =
                 "trigger" => T<string> * !?(Type.ArrayOf T<obj>) ^-> JQ
                 "triggerHandler" => T<string> * !?(Type.ArrayOf T<obj>) ^-> JQ
 
+                "unbind" => T<unit> ^-> JQ
+                "unbind" => Event ^-> JQ
                 "unbind" => T<string> * !?EventHandler ^-> JQ
                 "unbindFalse" => T<string>?event * StringMap?eventData ^-> JQ
                 |> WithComment "Attach a handler to an event for the elements."

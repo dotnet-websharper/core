@@ -266,7 +266,8 @@ module Module =
             Class "NodeList"
             |=> NodeList
             |+> Protocol [
-                    "item" => T<int> ^-> Node
+                    "item" => T<int>?index ^-> Node
+                    |> WithInline "$this[$index]"
                     "length" =% T<int>
                 ]
 
