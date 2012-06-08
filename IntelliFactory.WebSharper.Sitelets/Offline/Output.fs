@@ -193,7 +193,9 @@ type LoadedAssemblyResolver() =
                 state.[name.Name] <- v
                 v
             | None ->
-                failwithf "Assembly not currently loaded: %O" name
+                let v = Assembly.ReflectionOnlyLoad(name.FullName)
+                state.[name.Name] <- v
+                v
 
 /// Outputs all encessary resources. This is the last step of processing.
 let writeResources (st: State) =
