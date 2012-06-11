@@ -101,7 +101,7 @@ let uncurry curr q =
                     (app q x, v :: vars)
                 | _ ->
                     let vs = List.init k (fun _ -> C.Id())
-                    let xs = C.NewArray (List.map C.Var vs @ [!~ (C.String "uncurry")])
+                    let xs = C.NewArray (List.map C.Var vs)
                     (app q xs, List.rev vs @ vars))
                 (q, [])
                 curr
