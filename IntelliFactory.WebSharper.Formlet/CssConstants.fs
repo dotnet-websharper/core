@@ -22,6 +22,7 @@ namespace IntelliFactory.WebSharper.Formlet
 
 open IntelliFactory.WebSharper
 
+[<Require(typeof<Resources.SkinResource>)>]
 module CssConstants =
 
     [<Inline>]
