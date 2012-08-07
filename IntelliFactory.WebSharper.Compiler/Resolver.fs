@@ -34,6 +34,20 @@ type Definition =
         Name     : option<R.Name>
     }
 
+type Env =
+    {
+        Logger : Logger
+    }
+
+    member this.Warn x =
+        let k s =
+            this.Logger.Log {
+                Text = s
+                Location = { ReadableLocation = ""; SourceLocation = None }
+                Priority = Priority.Warning
+            }
+        Printf.ksprintf k x
+
 type M<'T>       = Map<string,'T>
 type ProtoMember = Definition * R.MemberSlot
 type D           = Definition
@@ -195,24 +209,27 @@ let recUnionCase (acc: Map<_,_>) (p: R.UnionCase) =
     let n   = name p.Name x.Name
     Map.add (gen n acc) (x, p.Member.MemberSlot) acc
 
-let recInstanceMethod (acc: Map<_,_>) (m: MethodMember) =
+let getNormalizedName (env: Env) (m: Mono.Cecil.MethodReference) =
+    if m.Name = "ToString"
+        then "toString"
+        else m.Name
+
+let recInstanceMethod env (acc: Map<_,_>) (m: MethodMember) =
     let def = m.Definition
     if not def.IsConstructor && not def.IsStatic then
         let x = { Address  = m.AddressSlot
                   Name     = annot m.Annotations
                   Location = m.Location }
-        let n = name def.Name x.Name
         let n =
             x.Name
-            |> name (if def.Overrides.Count > 0 then
-                        def.Overrides.[0].Name
-                     else
-                        def.Name)
+            |> name (if def.Overrides.Count = 1
+                        then getNormalizedName env def.Overrides.[0]
+                        else getNormalizedName env def)
         Map.add (gen n acc) (x, m.MemberSlot) acc
     else
         acc
 
-let rec recType ctx acc (t: R.Type) =
+let rec recType env ctx acc (t: R.Type) =
     let x     = { Address  = t.AddressSlot
                   Name     = annot t.Annotations
                   Location = t.Location }
@@ -226,10 +243,10 @@ let rec recType ctx acc (t: R.Type) =
     let ctx   = addr ctx t.Definition.Name x.Name
     let acc   = List.fold (recStaticProperty ctx) acc t.Properties
     let acc   = List.fold (recStaticMethod ctx) acc t.Methods
-    let acc   = List.fold (recType (Some ctx)) acc t.Nested
+    let acc   = List.fold (recType env (Some ctx)) acc t.Nested
     let proto = Map.empty
     let proto = List.fold recInstanceProperty proto t.Properties
-    let proto = List.fold recInstanceMethod proto t.Methods
+    let proto = List.fold (recInstanceMethod env) proto t.Methods
     let cs    = match t.Kind with R.Class x -> Some x | _ -> None
     let c y z = pack ctx (Class (x, cs, y, Map.empty, z)) :: acc
     match t.Kind with
@@ -255,8 +272,8 @@ let reduceBalanced f z input =
     | 0 -> z
     | _ -> reduce 0 (Array.length input)
 
-let recAssembly (assembly: R.Assembly) =
-    List.fold (recType None) [] assembly.Types
+let recAssembly env (assembly: R.Assembly) =
+    List.fold (recType env None) [] assembly.Types
     |> List.toArray
     |> reduceBalanced merge Map.empty
 
@@ -307,7 +324,8 @@ and buildBinding (m: Member) : option<P.Binding> =
             Some (P.Binding.Module (buildPackage m))
 
 let Resolve (logger: Logger) (assembly: R.Assembly) =
-    let pkg = recAssembly assembly
+    let env = { Logger = logger }
+    let pkg = recAssembly env assembly
     let vD ctx (d: Definition) =
         d.Address.Address <- ctx
         let fmt (a: obj) (b: obj) =

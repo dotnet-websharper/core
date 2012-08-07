@@ -21,15 +21,43 @@
 
 namespace IntelliFactory.WebSharper.Web.Tests
 
+open IntelliFactory.WebSharper
 module A = IntelliFactory.WebSharper.Core.Attributes
 module H = IntelliFactory.WebSharper.Html.Default
 module J = IntelliFactory.WebSharper.JavaScript
+
+
+[<Proxy(typeof<System.Text.StringBuilder>)>]
+type StringBuilder [<JavaScript>] () =
+    let mutable c = ""
+
+    [<JavaScript>]
+    member this.Append(s: string) =
+        c <- c + s
+        As<System.Text.StringBuilder> this
+
+    [<JavaScript>]
+    [<Name "toString">]
+    override this.ToString() = c
+
+module Client =
+    open IntelliFactory.WebSharper.Html
+
+    [<JavaScript>]
+    let test () =
+        let sb = StringBuilder()
+        sb.Append("foo")
+        |> ignore
+        sb.Append("bar")
+        |> ignore
+        JavaScript.Log(sb.ToString())
 
 type HelloWorld() =
     inherit IntelliFactory.WebSharper.Web.Control()
 
     [<A.JavaScript>]
     override this.Body =
+        Client.test()
         let o = obj ()
         J.Set o "a" 1
         J.Set o "b" 2
