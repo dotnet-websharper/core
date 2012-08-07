@@ -67,6 +67,10 @@
     <Folder Include="Properties\" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Collections.Tests\IntelliFactory.WebSharper.Collections.Tests.fsproj">
+      <Project>{BB4817E7-12A1-4622-B8CE-29CB3C406851}</Project>
+      <Name>IntelliFactory.WebSharper.Collections.Tests</Name>
+    </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper.Collections\IntelliFactory.WebSharper.Collections.fsproj">
       <Project>{4EF94364-B50F-4906-AB91-77BCA8413D60}</Project>
       <Name>IntelliFactory.WebSharper.Collections</Name>

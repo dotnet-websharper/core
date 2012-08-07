@@ -22,9 +22,11 @@
 namespace IntelliFactory.WebSharper.Collections
 
 open IntelliFactory.WebSharper
+open System.Collections.Generic
 module J = JavaScript
 
-type private KVP<'K,'V> = System.Collections.Generic.KeyValuePair<'K,'V>
+type private KVP<'K,'V> = KeyValuePair<'K,'V>
+type private D<'K,'V> = Dictionary<'K,'V>
 
 [<AutoOpen>]
 module private DictionaryUtil =
@@ -34,16 +36,16 @@ module private DictionaryUtil =
         failwith "The given key was not present in the dictionary."
 
     [<Inline "$c.Equals($x, $y)">]
-    let equals (c: System.Collections.Generic.IEqualityComparer<'T>) x y =
+    let equals (c: IEqualityComparer<'T>) x y =
         c.Equals(x, y)
 
     [<Inline "$c.GetHashCode($x)">]
-    let getHashCode (c: System.Collections.Generic.IEqualityComparer<'T>) x =
+    let getHashCode (c: IEqualityComparer<'T>) x =
         c.GetHashCode x
 
 /// Implements a proxy for the .NET dictionary.
 [<Name "Dictionary">]
-[<Proxy(typeof<System.Collections.Generic.Dictionary<_,_>>)>]
+[<Proxy(typeof<D<_,_>>)>]
 type internal Dictionary<'K,'V when 'K : equality>
 
     [<JavaScript>]
@@ -65,16 +67,22 @@ type internal Dictionary<'K,'V when 'K : equality>
         new () = new Dictionary<'K,'V>([||], (=), hash)
 
         [<JavaScript>]
-        new (comparer: System.Collections.Generic.IEqualityComparer<'K>) =
+        new (capacity: int) = new Dictionary<'K,'V>()
+
+        [<JavaScript>]
+        new (comparer: IEqualityComparer<'K>) =
             new Dictionary<'K,'V>([||], equals comparer, getHashCode comparer)
 
         [<JavaScript>]
-        new (dictionary: System.Collections.Generic.IDictionary<'K,'V>) =
+        new (capacity: int, comparer: IEqualityComparer<'K>) =
+            new Dictionary<'K,'V>(comparer)
+
+        [<JavaScript>]
+        new (dictionary: IDictionary<'K,'V>) =
             new Dictionary<'K,'V>(dictionary, (=), hash)
 
         [<JavaScript>]
-        new (dictionary: System.Collections.Generic.IDictionary<'K,'V>,
-             comparer: System.Collections.Generic.IEqualityComparer<'K>) =
+        new (dictionary: IDictionary<'K,'V>, comparer: IEqualityComparer<'K>) =
             new Dictionary<'K,'V>(
                 dictionary,
                 equals comparer,

@@ -34,7 +34,8 @@ let Tests =
 
     Test "New" {
         let x = Dictionary()
-        ()
+        let y = Dictionary(10)
+        Assert.True(true)
     }
 
     Test "Add" {
@@ -47,6 +48,7 @@ let Tests =
         let d = Dictionary()
         d.Add(1,"a")
         d.Clear()
+        d.Count =? 0
         Assert.Raises (fun () -> ignore (d.[1]))
     }
 

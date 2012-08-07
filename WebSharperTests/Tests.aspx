@@ -8,6 +8,8 @@
     <script type="text/javascript" src="/Scripts/IntelliFactory.WebSharper.dll.js"></script>
     <script type="text/javascript" src="/Scripts/IntelliFactory.WebSharper.Testing.dll.js"></script>
     <script type="text/javascript" src="/Scripts/IntelliFactory.WebSharper.Tests.dll.js"></script>
+    <script type="text/javascript" src="/Scripts/IntelliFactory.WebSharper.Collections.dll.js"></script>
+    <script type="text/javascript" src="/Scripts/IntelliFactory.WebSharper.Collections.Tests.dll.js"></script>
     <script type="text/javascript">
         IntelliFactory.Runtime.Start();
 </script>
