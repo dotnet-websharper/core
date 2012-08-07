@@ -63,6 +63,27 @@ module internal Bug367 =
     [<JavaScript>]
     let z = B.y
 
+module BugBB80 =
+
+    [<Sealed>]
+    type X [<JavaScript>] (k: ref<int>) =
+        interface System.IDisposable with
+            [<JavaScript>]
+            member this.Dispose() = incr k
+
+    [<JavaScript>]
+    let test () =
+        async {
+            let a = ref 0
+            do! async {
+                    use x = new X(a)
+                    return ()
+                }
+            return Test "Bug BB80" { !a =? 1 }
+        }
+        |> Async.Start
+
+
 [<JavaScript>]
 let Tests =
     Section "Regression"
@@ -118,3 +139,4 @@ let Tests =
         string 0 =? "0"
     }
 
+    do BugBB80.test()

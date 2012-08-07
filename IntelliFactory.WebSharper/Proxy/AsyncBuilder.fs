@@ -64,8 +64,8 @@ type private AsyncBuilderProxy [<Inline "null">]() =
 
     [<Inline>]
     [<JavaScript>]
-    member this.Using<'T when 'T :> System.IDisposable>
-                     (x: 'T, f: 'T -> Async<'T>) : Async<'T> =
+    member this.Using<'T, 'TResult when 'T :> System.IDisposable>
+                     (x: 'T, f: 'T -> Async<'TResult>) : Async<'TResult> =
         this.TryFinally(f x, fun () -> (x :> System.IDisposable).Dispose())
 
     [<Inline>]
