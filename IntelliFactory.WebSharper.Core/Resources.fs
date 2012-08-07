@@ -49,6 +49,7 @@ let link (html: System.Web.UI.HtmlTextWriter) (url: string) =
 let script (html: System.Web.UI.HtmlTextWriter) (url: string) =
     html.AddAttribute("src", url)
     html.AddAttribute("type", "text/javascript")
+    html.AddAttribute("charset", "UTF-8")
     html.RenderBeginTag "script"
     html.RenderEndTag()
 

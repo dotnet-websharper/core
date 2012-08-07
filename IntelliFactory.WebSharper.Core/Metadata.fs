@@ -201,6 +201,7 @@ type AssemblyResource(name: Re.AssemblyName) =
         member this.Render ctx html =
             html.AddAttribute("type", "text/javascript")
             html.AddAttribute("src", ctx.GetAssemblyUrl name)
+            html.AddAttribute("charset", "UTF-8")
             html.RenderBeginTag "script"
             html.RenderEndTag()
             html.WriteLine()

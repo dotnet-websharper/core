@@ -229,6 +229,15 @@ let Infinity = Unchecked.defaultof<double>
 [<Inline "($x << 0)">]
 let ToInt (x: 'T) = X<int>
 
+[<Inline "Number($x)">]
+let ToSingle (x: 'T) = X<'T>
+
+[<Inline "($x << 0)">]
+let ToInt32 (x: 'T) = X<int32>
+
+[<Inline "$x">]
+let ToEnum<'T> (x: 'T) = X<'T>
+
 [<Inline "($x << 0)">]
 let ToInt64 (x: 'T) = X<int64>
 
