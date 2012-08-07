@@ -609,10 +609,10 @@ module JQuery =
                 "index" => T<unit> ^-> T<int>
                 |> WithComment IndexCmt
 
-                "index" => T<string>?selector ^-> JQ
+                "index" => T<string>?selector ^-> T<int>
                 |> WithComment IndexCmt
 
-                "index" => T<Element>?element ^-> JQ
+                "index" => T<Element>?element ^-> T<int>
                 |> WithComment IndexCmt
 
                 "innerHeight" => T<unit> ^-> T<int>
