@@ -581,7 +581,7 @@ module JQuery =
                 |> WithComment "Reduce the set of matched elements to those that have a descendant that matches the selector or DOM element."
 
                 // HasClass
-                "hasClass" => T<string>?className ^-> JQ
+                "hasClass" => T<string>?className ^-> T<bool>
                 |> WithComment "Determine whether any of the matched elements are assigned the given class."
 
                 // Height
