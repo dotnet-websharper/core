@@ -37,27 +37,27 @@ module internal MapModule =
 
     [<Inline>]
     [<JavaScript>]
-    let private OfTree (t: T.Tree<_>) =
-        As<Map<'K,'V>> (new FSharpMap<'K,'V>(t))
+    let private OfTree (t: T.Tree<_>) : Map<'K,'V> =
+        As (new FSharpMap<'K,'V>(t))
 
     [<Inline>]
     [<JavaScript>]
-    let Add k v (m: Map<'K,'V>) = m.Add(k, v)
+    let Add k v (m: Map<'K,'V>) : Map<'K,'V> = m.Add(k, v)
 
     [<Inline>]
     [<JavaScript>]
-    let ContainsKey k (m: Map<'K,'V>) = m.ContainsKey k
+    let ContainsKey k (m: Map<'K,'V>) : bool = m.ContainsKey k
 
     [<Inline>]
     [<JavaScript>]
-    let Empty<'K,'V> = new Map<_,_>([||])
+    let Empty<'K,'V when 'K : comparison> : Map<'K,'V> = new Map<_,_>([||])
 
     [<JavaScript>]
-    let Exists (f: 'K -> 'V -> bool) (m: Map<'K,'V>) =
+    let Exists (f: 'K -> 'V -> bool) (m: Map<'K,'V>) : bool =
         m |> Seq.exists (fun kv -> f kv.Key kv.Value)
 
     [<JavaScript>]
-    let Filter (f: 'K -> 'V -> bool) (m: Map<'K,'V>) =
+    let Filter (f: 'K -> 'V -> bool) (m: Map<'K,'V>) : Map<'K,'V> =
         T.Ascend (ToTree m)
         |> Seq.filter (fun kv -> f kv.Key kv.Value)
         |> Seq.toArray
@@ -69,7 +69,7 @@ module internal MapModule =
     let Find (k: 'K) (m: Map<'K,'V>) : 'V = m.[k]
 
     [<JavaScript>]
-    let FindKey (f: 'K -> 'T -> bool) (m: Map<'K,'T>) =
+    let FindKey (f: 'K -> 'T -> bool) (m: Map<'K,'T>) : 'K =
         m 
         |> Seq.pick (fun kv -> 
             if f kv.Key kv.Value then Some kv.Key else None)
@@ -91,14 +91,14 @@ module internal MapModule =
 
     [<Inline>]
     [<JavaScript>]
-    let IsEmpty (m: Map<'K, 'V>) = m.IsEmpty
+    let IsEmpty (m: Map<'K, 'V>) : bool = m.IsEmpty
 
     [<JavaScript>]
-    let rec Iterate (f: 'K -> 'V -> unit) (m: Map<'K, 'V>) =
+    let rec Iterate (f: 'K -> 'V -> unit) (m: Map<'K, 'V>) : unit =
         m |> Seq.iter (fun kv -> f kv.Key kv.Value)
 
     [<JavaScript>]
-    let OfArray (a: ('K * 'V) []) =
+    let OfArray (a: ('K * 'V) []) : Map<'K,'V> =
         a
         |> Seq.map (fun (k, v) -> {Key = k; Value = v} : Pair<_,_>)
         |> T.OfSeq
@@ -106,7 +106,7 @@ module internal MapModule =
 
     [<Inline>]
     [<JavaScript>]
-    let OfList (kvs: list<'K * 'V>) = Map.ofSeq kvs
+    let OfList (kvs: list<'K * 'V>) : Map<'K,'V> = Map.ofSeq kvs
 
     [<Inline>]
     [<JavaScript>]
@@ -114,7 +114,7 @@ module internal MapModule =
         Map.ofArray (Seq.toArray s)
 
     [<JavaScript>]
-    let Partition (f: 'K -> 'V -> bool) (m: Map<'K,'V>) =
+    let Partition (f: 'K -> 'V -> bool) (m: Map<'K,'V>) : Map<'K,'V> * Map<'K,'V> =
         let (x, y) =
             Seq.toArray (T.Ascend (ToTree m))
             |> Array.partition (fun kv -> f kv.Key kv.Value)
@@ -130,30 +130,31 @@ module internal MapModule =
 
     [<Inline>]
     [<JavaScript>]
-    let ToArray (m: Map<'K, 'V>) = Seq.toArray (Map.toSeq m)
+    let ToArray (m: Map<'K, 'V>) : array<'K * 'V> = Seq.toArray (Map.toSeq m)
 
     [<Inline>]
     [<JavaScript>]
-    let ToList (m: Map<'K, 'V>) = Seq.toList (Map.toSeq m)
+    let ToList (m: Map<'K, 'V>) : list<'K * 'V> = Seq.toList (Map.toSeq m)
 
     [<JavaScript>]
-    let ToSeq (m: Map<'K, 'V>) =
+    let ToSeq (m: Map<'K, 'V>) : seq<'K * 'V> =
         T.Ascend (ToTree m)
         |> Seq.map (fun kv -> (kv.Key, kv.Value))
 
     [<JavaScript>]
-    let TryFind (k: 'K) (m: Map<'K, 'V>) = m.TryFind k
+    let TryFind (k: 'K) (m: Map<'K, 'V>) : option<'V> = m.TryFind k
 
     [<JavaScript>]
-    let TryFindKey f (m: Map<_,_>) =
-        m |> Seq.tryFind (fun kv -> f kv.Key kv.Value)
+    let TryFindKey (f: 'K -> 'V -> bool) (m: Map<'K,'V>) : option<'K> =
+        m |> Seq.tryPick (fun kv ->
+            if f kv.Key kv.Value then Some kv.Key else None)
 
     [<JavaScript>]
-    let rec TryPick (f: 'K -> 'V -> option<'T>) (m: Map<'K, 'V>) =
+    let rec TryPick (f: 'K -> 'V -> option<'T>) (m: Map<'K, 'V>) : option<'T> =
         m |> Seq.tryPick (fun kv -> f kv.Key kv.Value)
-
+         
     [<JavaScript>]
-    let rec Map (f: 'K -> 'V -> 'T) (m: Map<'K,'V>) =
+    let rec Map (f: 'K -> 'V -> 'T) (m: Map<'K,'V>) : Map<'K,'T> =
         T.Ascend (ToTree m)
         |> Seq.map (fun kv -> 
             {Key = kv.Key; Value = f kv.Key kv.Value} : Pair<_,_>)
