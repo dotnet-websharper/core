@@ -147,7 +147,7 @@ module Content =
             WriteBody = writeBody
         }
 
-    let ToResponse (c: Content<'T>) (ctx: Context<'T>) =
+    let ToResponse<'T> (c: Content<'T>) (ctx: Context<'T>) =
         match c with
         | CustomContent x -> x ctx
         | PageContent genPage -> toCustomContent genPage ctx
@@ -175,21 +175,33 @@ module Content =
         cont
         |> MapResponse (fun resp -> {resp with Status = status})
 
-    let Redirect<'T> (action: 'T) =
-        CustomContent <| fun ctx ->
-            {
-                Status = Http.Status.Custom 301 (Some "Moved Permanently")
-                Headers = [Http.Header.Custom "Location" (ctx.Link action)]
-                WriteBody = ignore
-            }
-
-    let RedirectToUrl (url: string) =
+    /// Emits a 301 Moved Permanently response to a given URL.
+    let RedirectToUrl<'T> (url: string) : Content<'T> =
         CustomContent <| fun ctx ->
             {
                 Status = Http.Status.Custom 301 (Some "Moved Permanently")
                 Headers = [Http.Header.Custom "Location" url]
                 WriteBody = ignore
             }
+
+    /// Emits a 301 Moved Permanently response to a given action.
+    let Redirect<'T> (action: 'T) =
+        CustomContent <| fun ctx ->
+            ToResponse (RedirectToUrl (ctx.Link action)) ctx
+
+    /// Emits a 307 Redirect Temporary response to a given url.
+    let RedirectTemporaryToUrl<'T> (url: string) : Content<'T> =
+        CustomContent <| fun ctx ->
+            {
+                Status = Http.Status.Custom 307 (Some "Temporary Redirect")
+                Headers = [Http.Header.Custom "Location" url]
+                WriteBody = ignore
+            }
+
+    /// Emits a 307 Redirect Temporary response to a given url.
+    let RedirectTemporary<'T> (action: 'T) : Content<'T> =
+        CustomContent <| fun ctx ->
+            ToResponse (RedirectTemporaryToUrl (ctx.Link action)) ctx
 
     /// Constructs a status code response.
     let httpStatusContent<'T> status : Content<'T> =
