@@ -59,7 +59,7 @@ type PluginElement() =
     [<ConfigurationProperty("implementation", IsRequired=true)>]
     member this.Implementation
         with get () = this.["implementation"] :?> string
-        and set x = this.["implementation"] <- x
+        and set (x: string) = this.["implementation"] <- x
 
 /// Used by the configuration infrastructure.
 [<Sealed>]

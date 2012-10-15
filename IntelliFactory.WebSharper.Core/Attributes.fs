@@ -46,7 +46,7 @@ type ConstantAttribute private () =
 /// Marks methods and constructors for inline compilation to JavaScript.
 /// Inline members work by expanding JavaScript code templates
 /// with placeholders of the form such as $0, $x, $this or $value.
-[<Sealed; U(T.Constructor|||T.Method)>]
+[<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
 type InlineAttribute() =
     inherit A()
 
@@ -54,7 +54,7 @@ type InlineAttribute() =
     new (template: string) = InlineAttribute()
 
 /// Similar to InlineAttribute, but does not inline the method invocation.
-[<Sealed; U(T.Constructor|||T.Method)>]
+[<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
 type DirectAttribute(template: string) =
     inherit A()
 
@@ -64,7 +64,7 @@ type JavaScriptAttribute =
 
 /// Annotates methods with custom compilation rules. The supplied type
 /// should implement Macros.IMacroDefinition and a default constructor.
-[<Sealed; U(T.Method)>]
+[<Sealed; U(T.Method|||T.Property)>]
 type MacroAttribute(def: System.Type) =
     inherit A()
 

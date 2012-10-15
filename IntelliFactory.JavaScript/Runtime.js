@@ -81,7 +81,9 @@ var IntelliFactory =
             function (ctor, fields) {
                 var r = new ctor();
                 for (var f in fields) {
-                    r[f] = fields[f];
+                    if (!(f in r)) {
+                        r[f] = fields[f];
+                    }
                 }
                 return r
             },
