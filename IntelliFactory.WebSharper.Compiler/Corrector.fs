@@ -122,7 +122,7 @@ let fixCtor (q: C.Expression) =
             let e = free.MinimumElement
             e.Name <- Some "r"
             e
-    let ret t = C.Call (C.Runtime, !~(C.String "New"), [C.Var t; C.Var self])
+    let ret t self = C.Call (C.Runtime, !~(C.String "New"), [C.Var t; self])
     match q with
     | C.Lambda (None, args, body) ->
         let this = C.Id ()
@@ -130,7 +130,7 @@ let fixCtor (q: C.Expression) =
             match body with
             | C.Sequential (obj, x) -> (obj, x)
             | obj -> (obj, !~C.Undefined)
-        let body = C.Let (self, inst, C.Sequential (rest, ret this))
+        let body = C.Let (self, ret this inst, C.Sequential (rest, C.Var self))
         C.Lambda (Some this, args, body)
     | _ -> q
 
