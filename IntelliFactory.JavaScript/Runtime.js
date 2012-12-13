@@ -128,9 +128,11 @@ var IntelliFactory =
                 }
                 if ("init" in this) {
                     run(this.init);
+                    this.init = [];
                 }
                 if ("load" in this) {
                     run(this.load);
+                    this.load = [];
                 }
             },
 
