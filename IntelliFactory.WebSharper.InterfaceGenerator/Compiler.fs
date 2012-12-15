@@ -75,19 +75,35 @@ module Compiler =
             | _ ->
                 if m.IsStatic then m.Name + "()" else "$this." + m.Name + "()"
 
+    let private validJsIdentRE =
+        Regex("^[a-zA-Z_$][0-9a-zA-Z_$]*$", RegexOptions.Compiled)
+    let private invalidCsIdentCharRE =
+        Regex(@"[^\p{Ll}\p{Lu}\p{Lt}\p{Lo}\p{Nd}\p{Nl}\p{Mn}\p{Mc}\p{Cf}\p{Pc}\p{Lm}]",
+            RegexOptions.Compiled)
+
     let private GetPropertyGetterInline (td: Code.TypeDeclaration) 
                                         (p: Code.Property) =
         if p.GetterInline.IsSome then p.GetterInline.Value else
             let pfx = if p.IsStatic then td.Name else "$this"
-            System.String.Format("{0}.{1}", pfx, p.Name)
+            let format =
+                if validJsIdentRE.IsMatch p.Name
+                then "{0}.{1}"
+                else "{0}['{1}']"
+            System.String.Format(format, pfx, p.Name)
 
     let private GetPropertySetterInline (td: Code.TypeDeclaration) 
                                         (p: Code.Property) =
         if p.SetterInline.IsSome then p.SetterInline.Value else
             let pfx = if p.IsStatic then td.Name else "$this"
-            System.String.Format("void ({0}.{1} = $value)", pfx, p.Name)
+            let format =
+                if validJsIdentRE.IsMatch p.Name
+                then "void ({0}.{1} = $value)"
+                else "void ({0}['{1}'] = $value)"
+            System.String.Format(format, pfx, p.Name)
 
     let private GetSourceName (entity: Code.Entity) =
+        let mangle name =
+            invalidCsIdentCharRE.Replace(name, "_")
         if entity.SourceName.IsSome then entity.SourceName.Value else
             let name = entity.Name
             let name =
@@ -100,6 +116,7 @@ module Compiler =
                 else
                     name
             name.Substring(0, 1).ToUpper() + name.Substring 1
+        |> mangle
 
     type private Context =
         {
@@ -111,6 +128,12 @@ module Compiler =
 
         member this.Indent =
             { this with Indentation = this.Indentation + 1 }
+
+    let private addDocComment (e: CodeModel.Entity) (ctm: CodeTypeMember) =
+        e.Comment |> Option.iter (fun comment ->
+            CodeCommentStatement(comment, true)
+            |> ctm.Comments.Add
+            |> ignore)
 
     /// Interprets a canonical type as a `CodeTypeReference`.
     let rec private TranslateType (ctx: Context)
@@ -244,6 +267,7 @@ module Compiler =
                         Name = GetSourceName x,
                         Attributes = MakeAttributes x
                     )
+                addDocComment x cmm
                 for g in x.Generics do
                     CodeTypeParameter g
                     |> cmm.TypeParameters.Add
@@ -276,6 +300,7 @@ module Compiler =
             match t with
             | Type.FunctionType f ->
                 let cc = CodeConstructor (Attributes = MakeAttributes x)
+                addDocComment x cc
                 let i = GetMethodBaseInline td t x
                 MakeInlineAttribute i
                 |> cc.CustomAttributes.Add
@@ -300,6 +325,7 @@ module Compiler =
                     Name = GetSourceName p,
                     Type = ty
                 )
+            addDocComment p cmp
             if p.HasGetter then
                 cmp.HasGet <- true
             if p.HasSetter then
@@ -313,6 +339,7 @@ module Compiler =
                     Attributes = MakeAttributes p,
                     Type = ty
                 )
+            addDocComment p cmp
             if p.HasGetter then
                 cmp.HasGet <- true
                 cmp.GetStatements.Add NotImplemented |> ignore
@@ -337,6 +364,7 @@ module Compiler =
     let private TranslateNamespaceEntity (ctx: Context) (e: Code.NamespaceEntity) =
         let ctd = CodeTypeDeclaration(GetSourceName e)
         let ctx = ctx.Indent
+        addDocComment e ctd
         for r in e.DependsOn do
             let t = TranslateType ctx (Type.DeclaredType r)
             CodeAttributeDeclaration(
