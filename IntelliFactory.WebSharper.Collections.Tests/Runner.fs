@@ -33,4 +33,5 @@ type Runner() =
         ignore Dictionary.Tests
         ignore Map.Tests
         ignore Set.Tests
+        ignore ResizeArray.Tests
         Div [] :> _
