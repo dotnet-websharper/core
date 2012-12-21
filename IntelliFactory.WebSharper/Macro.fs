@@ -78,6 +78,32 @@ let divisionMacro = macro <| fun tr q ->
     | _ ->
         tr q
 
+let arithMacro name def = macro <| fun tr q ->
+    match q with
+    | Q.Call (m, [x; y])
+    | Q.CallModule (m, [x; y]) ->
+        match m.Generics with
+        | t :: _ ->
+            if isScalar t
+                then def (tr x) (tr y)
+                else C.Call(tr x, C.Constant (C.String name), [tr y])
+        | _ -> def (tr x) (tr y)
+    | _ ->
+        tr q
+
+let addMacro = arithMacro "add" ( + )
+let subMacro = arithMacro "sub" ( - )
+
+[<Sealed>]
+type Add() =
+    interface M.IMacroDefinition with
+        member this.Macro = addMacro
+
+[<Sealed>]
+type Sub() =
+    interface M.IMacroDefinition with
+        member this.Macro = subMacro
+
 [<Sealed>]
 type Division() =
     interface M.IMacroDefinition with

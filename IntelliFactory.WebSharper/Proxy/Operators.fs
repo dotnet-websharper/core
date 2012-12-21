@@ -61,10 +61,10 @@ let ( ** ) (a: 'T1) (b: 'T2) = X<'T1>
 [<Inline "Math.pow($a, $p)">]
 let PowInteger (a: 'T, p: int) = X<'T>
 
-[<Inline "$a + $b">]
+[<Macro(typeof<M.Add>)>]
 let ( + ) (a: 'T1) (b: 'T2) = X<'T3>
 
-[<Inline "$a - $b">]
+[<Macro(typeof<M.Sub>)>]
 let ( - ) (a: 'T1) (b: 'T2) = X<'T3>
 
 [<Macro(typeof<M.Division>)>]

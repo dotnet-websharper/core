@@ -25,6 +25,16 @@ module private IntelliFactory.WebSharper.Macro
 module M = IntelliFactory.WebSharper.Core.Macros
 
 [<Sealed>]
+type Add =
+    new : unit -> Add
+    interface M.IMacroDefinition
+
+[<Sealed>]
+type Sub =
+    new : unit -> Sub
+    interface M.IMacroDefinition
+
+[<Sealed>]
 type Division =
     new : unit -> Division
     interface M.IMacroDefinition

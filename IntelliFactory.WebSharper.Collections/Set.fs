@@ -46,6 +46,14 @@ type private FSharpSet<'T when 'T : comparison>
         new (s: seq<'T>) = new FSharpSet<'T>(ofSeq s)
 
         [<JavaScript>]
+        member this.add(x: Set<'T>) =
+            Set.union (As this) x
+
+        [<JavaScript>]
+        member this.sub(x: Set<'T>) =
+            Set.difference (As this) x
+
+        [<JavaScript>]
         member this.Add x : Set<'T> =
             As (FSharpSet<'T>(T.Add x tree))
 
