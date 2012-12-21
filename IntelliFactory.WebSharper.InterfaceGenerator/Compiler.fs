@@ -398,6 +398,7 @@ module Compiler =
 
     let rec private TranslateClass (ctx: Context) (c: Code.Class) =
         let (ctx, ctd) = TranslateTypeDeclaration false ctx c
+        ctd.IsPartial <- true
         let bases =
             [ if c.BaseClass.IsSome then
                 yield c.BaseClass.Value
