@@ -22,8 +22,6 @@
 /// Adapts Mono.Cecil representations to QuotationReader representations.
 module internal IntelliFactory.WebSharper.Compiler.Adapter
 
-open Mono.Cecil
-
 module R  = IntelliFactory.WebSharper.Core.Reflection
 module QR = IntelliFactory.WebSharper.Core.Quotations
 

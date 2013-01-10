@@ -24,8 +24,8 @@ module internal IntelliFactory.WebSharper.Compiler.Resolver
 module P = IntelliFactory.JavaScript.Packager
 module R = IntelliFactory.WebSharper.Compiler.Reflector
 
-type MethodMember   = R.Member<Mono.Cecil.MethodDefinition>
-type PropertyMember = R.Member<Mono.Cecil.PropertyDefinition>
+type MethodMember   = R.Member<MethodDefinition>
+type PropertyMember = R.Member<PropertyDefinition>
 
 type Definition =
     {
@@ -120,9 +120,7 @@ let rec pack addr value =
     | P.Local (addr, name) -> pack addr (Package (name => value))
 
 let isStatic (p: R.Property) =
-    let def = p.Member.Definition
-    def.GetMethod <> null && def.GetMethod.IsStatic
-    || def.SetMethod <> null && def.SetMethod.IsStatic
+    p.Member.Definition.IsStatic
 
 let recStaticMethod ctx acc (m: MethodMember) =
     let def = m.Definition
@@ -179,7 +177,7 @@ let recInstanceProperty (acc: Map<_,_>) (p: R.Property) =
             | Some x ->
                 let nm = annot x.Annotations
                 let n =
-                    if x.Definition.Overrides.Count > 0 then
+                    if not x.Definition.Overrides.IsEmpty then
                         x.Definition.Overrides.[0].Name
                     else
                         name x.Definition.Name nm
@@ -209,7 +207,7 @@ let recUnionCase (acc: Map<_,_>) (p: R.UnionCase) =
     let n   = name p.Name x.Name
     Map.add (gen n acc) (x, p.Member.MemberSlot) acc
 
-let getNormalizedName (env: Env) (m: Mono.Cecil.MethodReference) =
+let getNormalizedName (env: Env) (m: MethodReference) =
     if m.Name = "ToString"
         then "toString"
         else m.Name
@@ -222,7 +220,7 @@ let recInstanceMethod env (acc: Map<_,_>) (m: MethodMember) =
                   Location = m.Location }
         let n =
             x.Name
-            |> name (if def.Overrides.Count = 1
+            |> name (if def.Overrides.Length = 1
                         then getNormalizedName env def.Overrides.[0]
                         else getNormalizedName env def)
         Map.add (gen n acc) (x, m.MemberSlot) acc

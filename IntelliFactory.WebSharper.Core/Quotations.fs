@@ -169,13 +169,13 @@ type Expression =
     | NewDelegate of R.Type * E
     | NewObject of Concrete<R.Constructor> * list<E>
     | NewRecord of R.Type * list<E>
-    | NewTuple of R.Type * list<E>
+    | NewTuple of list<E>
     | NewUnionCase of Concrete<R.UnionCase> * list<E>
     | PropertyGet of Concrete<R.Property> * list<E>
     | PropertySet of Concrete<R.Property> * list<E>
     | Quote of E
     | Sequential of E * E
-    | TupleGet of R.Type * int * E
+    | TupleGet of int * E
     | TryFinally of E * E
     | TryWith of E * Id * E * Id * E
     | TypeTest of R.Type * E
@@ -471,11 +471,11 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
             UnionCaseTest (Concrete (u, a), e)
         | 8 ->
             let t = ReadList1 readType input
-            NewTuple (t, ReadList E input)
+            NewTuple (ReadList E input)
         | 9 ->
             let k = ReadInt input
             let t = ReadList1 readType input
-            TupleGet (t, k, ReadList1 E input)
+            TupleGet (k, ReadList1 E input)
         | 11 -> readValue (Bool (ReadBool input)) input
         | 12 -> readValue (String (ReadString input)) input
         | 13 -> readValue (Single (ReadSingle input)) input
@@ -717,8 +717,8 @@ let Transform (!) (expr: E) : E =
         NewObject (x, !!xs)
     | NewRecord (x, xs) ->
         NewRecord (x, !!xs)
-    | NewTuple (x, xs) ->
-        NewTuple (x, !!xs)
+    | NewTuple xs ->
+        NewTuple !!xs
     | NewUnionCase (x, xs) ->
         NewUnionCase (x, !!xs)
     | PropertyGet (x, xs) ->
@@ -736,8 +736,8 @@ let Transform (!) (expr: E) : E =
         TryWith (x, v1, y1, v2, y2)
     | TryFinally (x, y) ->
         TryFinally (!x, !y)
-    | TupleGet (x, y, z) ->
-        TupleGet (x, y, !z)
+    | TupleGet (y, z) ->
+        TupleGet (y, !z)
     | TypeTest (x, y) ->
         TypeTest (x, !y)
     | UnionCaseTest (x, y) ->

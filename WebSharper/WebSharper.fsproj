@@ -63,6 +63,7 @@
     <None Include="WebSharper.v4.5.exe.config" />
     <None Include="WebSharper.v4.0.exe.config" />
     <None Include="WebSharper.v3.5.exe.config" />
+    <None Include="Test.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Configuration" />

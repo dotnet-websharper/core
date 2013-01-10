@@ -138,13 +138,13 @@ type Expression =
     | NewDelegate of R.Type * E
     | NewObject of Concrete<R.Constructor> * list<E>
     | NewRecord of R.Type * list<E>
-    | NewTuple of R.Type * list<E>
+    | NewTuple of list<E>
     | NewUnionCase of Concrete<R.UnionCase> * list<E>
     | PropertyGet of Concrete<R.Property> * list<E>
     | PropertySet of Concrete<R.Property> * list<E>
     | Quote of E
     | Sequential of E * E
-    | TupleGet of R.Type * int * E
+    | TupleGet of int * E
     | TryFinally of E * E
     | TryWith of E * Id * E * Id * E
     | TypeTest of R.Type * E

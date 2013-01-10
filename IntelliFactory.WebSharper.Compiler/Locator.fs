@@ -23,53 +23,39 @@ module IntelliFactory.WebSharper.Compiler.Locator
 
 module R = IntelliFactory.WebSharper.Core.Reflection
 
-let LocateAssembly (def: Mono.Cecil.AssemblyDefinition) : Location =
+let LocateAssembly (def: AssemblyDefinition) : Location =
     {
-        ReadableLocation = string def
+        ReadableLocation = def.FullName
         SourceLocation = None
     }
 
-let LocateMethod (def: Mono.Cecil.MethodDefinition) : Location =
+let LocateMethod (def: MethodDefinition) : Location =
     {
-        ReadableLocation = string def
-        SourceLocation =
-            if def.HasBody && def.Body.Instructions <> null then
-                def.Body.Instructions
-                |> Seq.tryPick (fun i ->
-                    let sP = i.SequencePoint
-                    if sP <> null then
-                        Some {
-                            File = sP.Document.Url
-                            Line = sP.StartLine - 1
-                            Column = sP.StartColumn
-                        }
-                    else
-                        None)
-            else
-                None
+        ReadableLocation = def.Name
+        SourceLocation = def.SourceLocation
     }
 
-let LocateProperty (def: Mono.Cecil.PropertyDefinition) : Location =
+let LocateProperty (def: PropertyDefinition) : Location =
     {
-        ReadableLocation = string def
+        ReadableLocation = def.Name
         SourceLocation =
-            let o x = Option.map x 
+            let o x = Option.map x
             match def.GetMethod with
-            | null ->
+            | None ->
                 match def.SetMethod with
-                | null -> None
-                | m -> (LocateMethod m).SourceLocation
-            | m -> (LocateMethod m).SourceLocation
+                | None -> None
+                | Some m -> (LocateMethod m).SourceLocation
+            | Some m -> (LocateMethod m).SourceLocation
     }
 
-let LocateType (def: Mono.Cecil.TypeDefinition) : Location =
+let LocateType (def: TypeDefinition) : Location =
     {
-        ReadableLocation = string def
+        ReadableLocation = def.Name
         SourceLocation = None
     }
 
 let LocateReflectedType (def: R.Type) : Location =
     {
-        ReadableLocation = string def
+        ReadableLocation = def.Name
         SourceLocation = None
     }

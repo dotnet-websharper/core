@@ -32,10 +32,10 @@ type Status =
 type State =
 
     /// Checks a Remote method declaration.
-    member VerifyRemoteMethod : Mono.Cecil.MethodDefinition -> Status
+    member VerifyRemoteMethod : MethodDefinition -> Status
 
     /// Checks a Web.Control declaration.
-    member VerifyWebControl : Mono.Cecil.TypeDefinition -> Status
+    member VerifyWebControl : TypeDefinition -> Status
 
 /// Creates a new object for verification.
 val Create : unit -> State

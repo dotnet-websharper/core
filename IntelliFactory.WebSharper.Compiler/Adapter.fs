@@ -23,53 +23,37 @@ module IntelliFactory.WebSharper.Compiler.Adapter
 
 module R = IntelliFactory.WebSharper.Core.Reflection
 
-open Mono.Cecil
-
-let rec AdaptTypeDefinition (tR: Mono.Cecil.TypeReference) =
+let rec AdaptTypeDefinition (tR: TypeReference) =
     match tR.DeclaringType with
-    | null ->
+    | None ->
         let assemblyName =
-            match tR.Scope.MetadataScopeType with
-            | MetadataScopeType.AssemblyNameReference ->
-                let anr = tR.Scope :?> AssemblyNameReference
-                anr.FullName
-            | _ ->
-                tR.Module.Assembly.FullName
+            tR.AssemblyName
             |> R.AssemblyName.Parse
         R.TypeDefinition.Create assemblyName tR.Namespace tR.Name
-    | dT ->
+    | Some dT ->
         R.TypeDefinition.CreateNested (AdaptTypeDefinition dT) tR.Name
 
 let AdaptType (t: TypeReference) =
     let rec (!) (p: TypeReference) =
-        if p.IsGenericParameter then
-            let p : GenericParameter = downcast p
-            let rec count z (tR: TypeReference) =
+        match p.Shape with
+        | TypeShape.GenericParameter (owner, position) ->
+            let rec count z (tR: option<TypeReference>) =
                 match tR with
-                | null -> z
-                | tR ->
-                    let j =
-                        if tR.HasGenericParameters
-                        then tR.GenericParameters.Count 
-                        else 0
+                | None -> z
+                | Some tR ->
+                    let j = tR.GenericArity
                     count (z + j) tR.DeclaringType
             let k =
-                match p.Owner with
-                | :? Mono.Cecil.MethodReference as mR ->
-                    count 0 mR.DeclaringType + p.Position
-                | :? Mono.Cecil.TypeReference as tR ->
-                    count 0 tR.DeclaringType + p.Position
-                | _ ->
-                    failwith "Problems with resolving generics."
+                match owner with
+                | OwnerMethod mR -> count 0 (Some mR.DeclaringType) + position
+                | OwnerType tR -> count 0 tR.DeclaringType + position
             R.Type.Generic k
-        elif p.IsArray then
-            let p : ArrayType = downcast p
-            R.Type.Array (!p.ElementType, p.Rank)
-        elif p.IsGenericInstance then
-            let p : GenericInstanceType = downcast p
+        | TypeShape.ArrayType (rank, elT) ->
+            R.Type.Array (!elT, rank)
+        | TypeShape.GenericInstanceType args ->
             let d = AdaptTypeDefinition p
-            R.Type.Concrete (d, [for x in p.GenericArguments -> !x])
-        else
+            R.Type.Concrete (d, [for x in args -> !x])
+        | TypeShape.OtherType ->
             let d = AdaptTypeDefinition p
             R.Type.Concrete (d, [])
     !t
@@ -86,9 +70,11 @@ let AdaptMethod (m: MethodReference) =
     R.Method.Create
         (AdaptTypeDefinition m.DeclaringType)
         m.Name
-        m.GenericParameters.Count
+        m.GenericArity
         (AdaptParameters m.Parameters)
-        (AdaptType m.ReturnType)
+        (match m.ReturnType with
+            | None -> R.Type.FromType typeof<System.Void>
+            | Some t -> AdaptType t)
 
 let AdaptProperty (p: PropertyReference) =
     R.Property.Create
