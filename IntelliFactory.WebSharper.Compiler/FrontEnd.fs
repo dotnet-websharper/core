@@ -354,8 +354,11 @@ type CompiledAssembly
 [<Sealed>]
 type Compiler(errorLimit: int, log: Message -> unit, ctx: Context) =
 
+    member this.Compile(quotation: Quotations.Expr, context: System.Reflection.Assembly) : option<CompiledAssembly> =
+        this.CompileAssembly(R.Dynamic.FromQuotation quotation context)
+
     member this.Compile(quotation: Quotations.Expr) : option<CompiledAssembly> =
-        this.CompileAssembly(R.Dynamic.FromQuotation(quotation))
+        this.Compile(quotation, System.Reflection.Assembly.GetCallingAssembly())
 
     member this.CompileAssembly(assembly: R.AssemblyDefinition) : option<CompiledAssembly> =
         let succ = ref true

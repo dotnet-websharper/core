@@ -132,6 +132,9 @@ type Compiler =
     /// Attempts to compile an expression potentially coming from a dynamic assembly.
     member Compile : quotation: Quotations.Expr -> option<CompiledAssembly>
 
+    /// Attempts to compile an expression potentially coming from a dynamic assembly.
+    member Compile : quotation: Quotations.Expr * context: System.Reflection.Assembly -> option<CompiledAssembly>
+
     /// Compiles an assembly and rewrites it on disk.
     member CompileAndModify : assembly: Assembly -> bool
 

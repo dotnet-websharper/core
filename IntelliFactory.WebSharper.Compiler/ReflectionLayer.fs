@@ -1054,14 +1054,15 @@ module Dynamic =
         override this.Namespace = t.Namespace
         override this.Shape = t.Shape
 
-    let FromQuotation (q: Quotations.Expr) : AssemblyDefinition =
+    let FromQuotation (q: Quotations.Expr) (ctx: System.Reflection.Assembly) : AssemblyDefinition =
         let q = QuotationUtils.ConvertQuotation(q)
         let t = MockTypeDefinition(q) :> TypeDefinition
         let n = System.Reflection.AssemblyName("WebSharper.EntryPoint")
+        let a = Reflection.AdaptAssembly(ctx)
         {
             new AssemblyDefinition() with
-                override this.CustomAttributes = []
-                override this.EmbeddedResources = Map.empty
+                override this.CustomAttributes = a.CustomAttributes
+                override this.EmbeddedResources = a.EmbeddedResources
                 override this.Name = n
-                override this.Types = Seq.singleton t
+                override this.Types = Seq.append (Seq.singleton t) a.Types
         }
