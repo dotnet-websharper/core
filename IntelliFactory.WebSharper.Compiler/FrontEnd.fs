@@ -216,12 +216,40 @@ type Options =
 
 type Context =
     {
+        Code : IDictionary<Re.AssemblyName, Assembly>
         Infos : list<M.AssemblyInfo>
         Metas : list<Metadata.T>
     }
 
+    member this.LookupAssemblyCode(debug: bool, name: Re.AssemblyName) =
+        match this.Code.TryGetValue(name) with
+        | true, a -> if debug then a.ReadableJavaScript else a.CompressedJavaScript
+        | _ -> None
+
+type ResourceContent =
+    {
+        Content : string
+        ContentType : string
+        Name : string
+    }
+
+type ResourceContext =
+    {
+        CreateUri : ResourceContent -> string
+        DebuggingEnabled : bool
+        GetSetting : string -> option<string>
+    }
+
 [<Sealed>]
-type CompiledAssembly(source: R.AssemblyDefinition, meta: Metadata.T, aInfo: M.AssemblyInfo, mInfo: M.Info, pkg: P.Module) =
+type CompiledAssembly
+    (
+        context: Context,
+        source: R.AssemblyDefinition,
+        meta: Metadata.T,
+        aInfo: M.AssemblyInfo,
+        mInfo: M.Info,
+        pkg: P.Module
+    ) =
 
     let getJS (pref: Pref) =
         use w = new StringWriter()
@@ -231,10 +259,11 @@ type CompiledAssembly(source: R.AssemblyDefinition, meta: Metadata.T, aInfo: M.A
     let compressedJS = lazy getJS Pref.Compact
     let readableJS = lazy getJS Pref.Readable
 
+    let nameOfSelf = Re.AssemblyName.Convert(source.Name)
+
     let deps =
         lazy
-        let name = Re.AssemblyName.Convert(source.Name)
-        let self = M.Node.AssemblyNode(name, M.AssemblyMode.CompiledAssembly)
+        let self = M.Node.AssemblyNode(nameOfSelf, M.AssemblyMode.CompiledAssembly)
         mInfo.GetDependencies([self])
 
     member this.AssemblyInfo = aInfo
@@ -245,6 +274,73 @@ type CompiledAssembly(source: R.AssemblyDefinition, meta: Metadata.T, aInfo: M.A
     member this.ReadableJavaScript = readableJS.Value
 
     member this.Dependencies = deps.Value
+
+    member this.RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter) =
+        let cache = Dictionary()
+        let createUri (content: ResourceContent) =
+            match cache.TryGetValue(content) with
+            | true, y -> y
+            | _ ->
+                let y = ctx.CreateUri(content)
+                cache.Add(content, y)
+                y
+        let readWebResource (ty: System.Type) (name: string) =
+            try
+                let content =
+                    let content =
+                        ty.Assembly.GetManifestResourceNames()
+                        |> Seq.tryFind (fun x -> x.Contains(name))
+                        |> Option.bind (fun name ->
+                            use s = ty.Assembly.GetManifestResourceStream(name)
+                            use r = new StreamReader(s)
+                            Some (r.ReadToEnd()))
+                    defaultArg content ""
+                let contentType =
+                    let cT =
+                        System.Reflection.CustomAttributeData.GetCustomAttributes(ty.Assembly)
+                        |> Seq.tryPick (fun attr ->
+                            if attr.Constructor.DeclaringType = typeof<System.Web.UI.WebResourceAttribute> then
+                                match [for a in attr.ConstructorArguments -> a.Value] with
+                                | [(:? string as n); (:? string as contentType)] ->
+                                    if n.Contains(name)
+                                        then Some contentType
+                                        else None
+                                | _ -> None
+                            else None)
+                    defaultArg cT "text/plain"
+                (content, contentType)
+            with e ->
+                ("", "text/plain")
+        let makeJsUri name js =
+            createUri {
+                Content = js
+                ContentType = "text/javascript"
+                Name =
+                    let ext = if ctx.DebuggingEnabled then ".dll.js" else ".dll.min.js"
+                    name + ext
+            }
+        let ctx : Res.Context =
+            {
+                DebuggingEnabled = ctx.DebuggingEnabled
+                GetAssemblyUrl = fun name ->
+                    if name = nameOfSelf then
+                        (if ctx.DebuggingEnabled then Pref.Readable else Pref.Compact)
+                        |> getJS
+                        |> makeJsUri name.Name
+                    else
+                        match context.LookupAssemblyCode(ctx.DebuggingEnabled, name) with
+                        | Some x -> makeJsUri name.Name x
+                        | None -> ""
+                GetSetting = ctx.GetSetting
+                GetWebResourceUrl = fun ty name ->
+                    let (c, cT) = readWebResource ty name
+                    createUri {
+                        Content = c
+                        ContentType = cT
+                        Name = name
+                    }
+            }
+        this.RenderDependencies(ctx, writer)
 
     member this.RenderDependencies(ctx, writer: HtmlTextWriter) =
         this.Dependencies
@@ -282,7 +378,7 @@ type Compiler(errorLimit: int, log: Message -> unit, ctx: Context) =
             Assembler.Assemble logger pool macros joined va
             if !succ then
                 let mInfo = M.Info.Create (rm :: ctx.Infos)
-                Some (CompiledAssembly(assembly, local, rm, mInfo, pkg.Value))
+                Some (CompiledAssembly(ctx, assembly, local, rm, mInfo, pkg.Value))
             else None
         with ErrorLimitExceeded -> None
 
@@ -301,7 +397,12 @@ let Prepare (options: Options) (log: Message -> unit) : Compiler =
         |> Seq.toList
     let cM = List.choose (fun a -> CecilTools.readCompiledMetadata a.Definition) refs
     let rM = List.choose (fun a -> CecilTools.readRuntimeMetadata a.Definition) refs
-    let ctx = { Metas = cM; Infos = rM  }
+    let code =
+        dict [|
+            for a in options.References do
+                yield (Re.AssemblyName.Parse(a.Definition.FullName), a)
+        |]
+    let ctx = { Metas = cM; Infos = rM; Code = code }
     Compiler(options.ErrorLimit, log, ctx)
 
 let Compile (options: Options) (log: Message -> unit) : Assembly -> bool =

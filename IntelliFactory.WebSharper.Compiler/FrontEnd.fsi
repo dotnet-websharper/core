@@ -23,7 +23,9 @@
 module IntelliFactory.WebSharper.Compiler.FrontEnd
 
 module M = IntelliFactory.WebSharper.Core.Metadata
+module R = IntelliFactory.WebSharper.Core.Resources
 open System.Reflection
+open System.Web.UI
 
 /// Represents file-system paths.
 type Path = string
@@ -80,9 +82,36 @@ type Options =
 /// that `Compile opts log a = (Prepare opts log).CompileAndModify(a)`.
 val Compile : Options -> log: (Message -> unit) -> (Assembly -> bool)
 
+/// Represents a resource content file.
+type ResourceContent =
+    {
+        Content : string
+        ContentType : string
+        Name : string
+    }
+
+/// A reduced resource context for simplified dependency rendering.
+type ResourceContext =
+    {
+        /// Allocates a new resource, returns a URI to it.
+        CreateUri : ResourceContent -> string
+
+        /// Whether to emit readable JavaScript.
+        DebuggingEnabled : bool
+
+        /// Reads environment settings.
+        GetSetting : string -> option<string>
+    }
+
 /// Represents a compiled assembly.
 [<Sealed>]
 type CompiledAssembly =
+
+    /// Renders the dependencies of the assembly.
+    member RenderDependencies : R.Context * HtmlTextWriter -> unit
+
+    /// Renders the dependencies of the assembly.
+    member RenderDependencies : ResourceContext * HtmlTextWriter -> unit
 
     /// The metadata info record for the individual assembly.
     member AssemblyInfo : M.AssemblyInfo
