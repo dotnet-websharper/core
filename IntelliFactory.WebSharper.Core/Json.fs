@@ -122,14 +122,13 @@ let readString (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
                             n - 48
                         | _ ->
                             raise ReadException
-                    let ( @ ) a b = a <<< 4 + b
-                    c (char (hex () @ hex () @ hex () @ hex ()))
+                    let inline ( * ) a b = (a <<< 4) + b
+                    c (char (hex () * hex () * hex () * hex ()))
                 | _ ->
                     raise ReadException
                 loop ()
             | x ->
                 let x = char x
-                //if System.Char.IsControl x then raise ReadException
                 c x
                 loop ()
         loop ()
