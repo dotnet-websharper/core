@@ -624,9 +624,9 @@ module Reflection =
                 typeof<bool>, fun x -> BoolArgument (unbox x)
                 typeof<float>, fun x -> FloatArgument (unbox x)
                 typeof<int>, fun x -> IntArgument (unbox x)
-                typeof<int[]>, fun x -> IntsArgument (unbox x)
+                typeof<int[]>, fun (x: obj) -> IntsArgument (Seq.toList (x :?> seq<int>))
                 typeof<string>, fun x -> StringArgument (unbox x)
-                typeof<string[]>, fun x -> StringsArgument (unbox x)
+                typeof<string[]>, fun (x: obj) -> StringsArgument (Seq.toList (x :?> seq<string>))
                 typeof<System.Type>, fun (x: obj) -> TypeArgument (convType (unbox x) :> TypeReference)
             |]
 
