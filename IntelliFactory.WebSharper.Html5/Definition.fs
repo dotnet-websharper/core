@@ -847,6 +847,112 @@ module TypedArrays =
     let Float32Array = MakeTypedArray "Float32Array" T<float32>
     let Float64Array = MakeTypedArray "Float64Array" T<double>
 
+module File =
+
+    let BlobPropertyBag =
+        Pattern.Config "BlobPropertyBag" {
+            Required = []
+            Optional =
+                [
+                    "type", T<string>
+                ]
+        }
+
+    let Blob =
+        let Blob = Type.New()
+        Class "Blob"
+        |=> Blob
+        |+> [
+                Constructor T<unit>
+                Constructor ((Type.ArrayOf TypedArrays.ArrayBuffer + Type.ArrayOf TypedArrays.ArrayBufferView + Blob + T<string>) * !?BlobPropertyBag)
+            ]
+        |+> Protocol [
+                "size" =? T<int>
+                "type" =? T<string>
+                "slice" => T<int>?start * T<int>?``end`` * T<string>?contentType ^-> Blob
+                "close" => T<unit> ^-> T<unit>
+            ]
+
+    let File =
+        Class "File"
+        |=> Inherits Blob
+        |+> Protocol [
+                "name" =? T<string>
+                "lastModifiedDate" =? T<Date>
+            ]
+
+    let ProgressEvent =
+        Class "ProgressEvent"
+        |=> Inherits T<Event>
+        |+> Protocol [
+                "lengthComputable" =? T<bool>
+                "loaded" =? T<int>
+                "total" =? T<int>
+            ]
+
+    let FileList =
+        let FileList = Type.New()
+        Class "FileList"
+        |=> FileList
+        |+> Protocol [
+                "item" => T<int> ^-> File
+                "length" =? T<int>
+            ]
+        |+> [
+                "ofElement" => T<Element>?input ^-> FileList
+                |> WithInline "$input.files"
+                "ofEvent" => ProgressEvent?event ^-> FileList
+                |> WithInline "$event.target.files"
+            ]
+
+    let FileReaderReadyState =
+        Pattern.EnumInlines "FileReaderReadyState" [
+            "Empty", "0"
+            "Loading", "1"
+            "Done", "2"
+        ]
+
+    let FileReader =
+        let EventListener = (ProgressEvent + T<unit>) ^-> T<unit>
+        Generic / fun t ->
+        Class "FileReader"
+        |=> Inherits T<EventTarget>
+        |+> Protocol [
+                "abort" => T<unit> ^-> T<unit>
+                "readyState" =? FileReaderReadyState
+                "result" =? t
+                "error" =? T<Error>
+                "onloadstart" =@ ProgressEvent ^-> T<unit>
+                "onprogress" =@ ProgressEvent ^-> T<unit>
+                "onload" =@ ProgressEvent ^-> T<unit>
+                "onabort" =@ ProgressEvent ^-> T<unit>
+                "onerror" =@ ProgressEvent ^-> T<unit>
+                "onloadend" =@ ProgressEvent ^-> T<unit>
+        ]
+
+    let TextFileReader =
+        Class "TextFileReader"
+        |=> Inherits (FileReader T<string>)
+        |+> [
+                Constructor T<unit>
+                |> WithInline "new FileReader()"
+            ]
+        |+> Protocol [
+                "readAsText" => Blob * !?T<string>?encoding ^-> T<unit>
+                "readAsDataUrl" => Blob ^-> T<unit>
+            ]
+
+    let BinaryFileReader =
+        Class "BinaryFileReader"
+        |=> Inherits (FileReader TypedArrays.ArrayBuffer)
+        |+> [
+                Constructor T<unit>
+                |> WithInline "new FileReader()"
+            ]
+        |+> Protocol [
+                "readAsArrayBuffer" => Blob ^-> T<unit>
+            ]
+
 module WebSockets =
 
     let WebSocketReadyState =
@@ -912,6 +1018,15 @@ module Extension =
                 Elements.HTMLAudioElement
                 Elements.HTMLVideoElement
                 Elements.HTMLMediaElement
+                File.BinaryFileReader
+                File.Blob
+                File.BlobPropertyBag
+                File.File
+                File.FileList
+                Generic - File.FileReader
+                File.FileReaderReadyState
+                File.ProgressEvent
+                File.TextFileReader
                 Geolocation.Coordinates
                 Geolocation.Geolocation
                 Geolocation.NavigatorGeolocation

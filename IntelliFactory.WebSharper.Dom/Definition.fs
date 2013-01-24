@@ -194,6 +194,9 @@ module Module =
         let EventTarget =
             let EventListener = (T<unit> + Event) ^-> T<unit>
             Class "EventTarget"
+            |+> [
+                    Constructor T<unit>
+                ]
             |+> Protocol [
                     "addEventListener" =>
                         T<string>?eventtype *
@@ -481,6 +484,9 @@ module Module =
         let Event =
             Class "Event"
             |=> Event
+            |+> [
+                    Constructor T<unit>
+                ]
             |+> Protocol [
                     "bubbles" =% T<bool>
                     "cancelable" =% T<bool>
