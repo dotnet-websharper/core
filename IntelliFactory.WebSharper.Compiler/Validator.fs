@@ -427,7 +427,16 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Name =
                     match kind with
                     | MethodKind.StubMethod ->
-                        fixStubName t.AddressSlot.Address t.Definition.Name
+                        let localName =
+                            t.Annotations
+                            |> List.tryPick (function
+                                | Reflector.Annotation.Name name ->
+                                    match name with
+                                    | Reflector.RelativeName name -> Some name
+                                    | Reflector.AbsoluteName addr -> Some addr.LocalName
+                                | _ -> None)
+                        let name = defaultArg localName t.Definition.Name
+                        fixStubName t.AddressSlot.Address name
                     | _ -> t.AddressSlot.Address
                 Kind = kind
                 Location = loc
