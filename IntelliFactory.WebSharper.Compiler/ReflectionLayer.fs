@@ -624,7 +624,11 @@ module Reflection =
                 typeof<bool>, fun x -> BoolArgument (unbox x)
                 typeof<float>, fun x -> FloatArgument (unbox x)
                 typeof<int>, fun x -> IntArgument (unbox x)
-                typeof<int[]>, fun (x: obj) -> IntsArgument (Seq.toList (x :?> seq<int>))
+                typeof<int[]>, fun (x: obj) ->
+                    x :?> seq<CustomAttributeTypedArgument>
+                    |> Seq.map (fun x -> x.Value :?> int)
+                    |> Seq.toList
+                    |> IntsArgument
                 typeof<string>, fun x -> StringArgument (unbox x)
                 typeof<string[]>, fun (x: obj) -> StringsArgument (Seq.toList (x :?> seq<string>))
                 typeof<System.Type>, fun (x: obj) -> TypeArgument (convType (unbox x) :> TypeReference)
@@ -978,7 +982,7 @@ module Dynamic =
         conv.ConvertType(typeof<Sample.Marker>.DeclaringType)
 
     [<Sealed>]
-    type MockMethodDefinition(m: MethodDefinition, q) =
+    type MockMethodDefinition(m: MethodDefinition, q, name) =
         inherit MethodDefinition()
 
         override this.CustomAttributes = m.CustomAttributes
@@ -993,17 +997,17 @@ module Dynamic =
 
         override this.DeclaringType = m.DeclaringType
         override this.GenericArity = m.GenericArity
-        override this.Name = m.Name
+        override this.Name = name
         override this.Parameters = m.Parameters
         override this.ReturnType = m.ReturnType
 
     [<Sealed>]
-    type MockPropertyDefinition(p: PropertyDefinition, q) =
+    type MockPropertyDefinition(p: PropertyDefinition, q, name) =
         inherit PropertyDefinition()
 
         let gm =
             match p.GetMethod with
-            | Some m -> Some (MockMethodDefinition(m, q) :> MethodDefinition)
+            | Some m -> Some (MockMethodDefinition(m, q, name) :> MethodDefinition)
             | None -> None
 
         override this.IsStatic = p.IsStatic
@@ -1012,12 +1016,12 @@ module Dynamic =
         override this.SetMethod = p.SetMethod
         override this.RawQuotation = Some q
         override this.DeclaringType = p.DeclaringType
-        override this.Name = p.Name
+        override this.Name = name
         override this.Parameters = p.Parameters
         override this.PropertyType = p.PropertyType
 
     [<Sealed>]
-    type MockTypeDefinition(q) =
+    type MockTypeDefinition(q, propName) =
         inherit TypeDefinition()
 
         let t = currentModule
@@ -1026,7 +1030,7 @@ module Dynamic =
             [|
                 for p in t.Properties do
                     if p.Name = "Example" then
-                        yield MockPropertyDefinition(p, q) :> PropertyDefinition
+                        yield MockPropertyDefinition(p, q, propName) :> PropertyDefinition
                     else
                         yield p
             |]
@@ -1054,9 +1058,9 @@ module Dynamic =
         override this.Namespace = t.Namespace
         override this.Shape = t.Shape
 
-    let FromQuotation (q: Quotations.Expr) (ctx: System.Reflection.Assembly) : AssemblyDefinition =
+    let FromQuotation (q: Quotations.Expr) (ctx: System.Reflection.Assembly) (name: string) : AssemblyDefinition =
         let q = QuotationUtils.ConvertQuotation(q)
-        let t = MockTypeDefinition(q) :> TypeDefinition
+        let t = MockTypeDefinition(q, name) :> TypeDefinition
         let n = System.Reflection.AssemblyName("WebSharper.EntryPoint")
         let a = Reflection.AdaptAssembly(ctx)
         {
