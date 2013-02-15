@@ -1,5 +1,5 @@
 <ivy-module version="2.0">
-  <info organisation="IntelliFactory" module="websharper-ide" revision="2.4" />
+  <info organisation="IntelliFactory" module="WebSharper" revision="2.4" />
   <publications>
     <artifact name="IntelliFactory.Formlet" ext="dll" type="bin" />
     <artifact name="IntelliFactory.Formlet" ext="pdb" type="debug" />
