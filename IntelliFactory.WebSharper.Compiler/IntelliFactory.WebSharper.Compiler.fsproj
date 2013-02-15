@@ -35,6 +35,7 @@
   <ItemGroup>
     <Compile Include="Compiler.fsi" />
     <Compile Include="Compiler.fs" />
+    <Compile Include="ReflectionLayer.fs" />
     <Compile Include="Adapter.fsi" />
     <Compile Include="Adapter.fs" />
     <Compile Include="Locator.fsi" />
@@ -65,12 +66,13 @@
     <Compile Include="FrontEnd.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="FSharp.Core" />
     <Reference Include="Mono.Cecil" />
     <Reference Include="Mono.Cecil.Mdb" />
     <Reference Include="Mono.Cecil.Pdb" />
+    <Reference Include="FSharp.Core" />
     <Reference Include="mscorlib" />
     <Reference Include="System" />
+    <Reference Include="System.Web" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">

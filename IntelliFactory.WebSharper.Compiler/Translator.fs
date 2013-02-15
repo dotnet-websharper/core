@@ -312,7 +312,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                     raise InvalidQuotation
             | _ ->
                 err "Failed to translate record creation" t.FullName
-        | Q.NewTuple (_, x) ->
+        | Q.NewTuple x ->
             C.NewArray (List.map (!) x)
         | Q.NewUnionCase (uc, args) ->
             match quotation with
@@ -394,7 +394,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
         | Q.TryWith (x, _, _, v, y) ->
             let v = !^v
             C.TryWith (!x, v, tExpr (Some v) y)
-        | Q.TupleGet (_, i, e) ->
+        | Q.TupleGet (i, e) ->
             C.FieldGet (!e, !~ (C.Integer (int64 i)))
         | Q.TypeTest (t, e) ->
             let typeof x = (!e).TypeOf &== str x

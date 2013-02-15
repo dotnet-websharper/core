@@ -71,7 +71,7 @@ type Kind =
     | Exception
     | Interface
     | Module
-    | Record of list<Member<Mono.Cecil.PropertyDefinition>>
+    | Record of list<Member<PropertyDefinition>>
     | Union of list<UnionCase>
 
 /// Represents members.
@@ -88,15 +88,15 @@ and Member<'T> =
 and UnionCase =
     {
         Name : string
-        Member : Member<Mono.Cecil.MethodDefinition>
+        Member : Member<MethodDefinition>
     }
 
 /// Represents properties.
 type Property =
     {
-        Member : Member<Mono.Cecil.PropertyDefinition>
-        Getter : option<Member<Mono.Cecil.MethodDefinition>>
-        Setter : option<Member<Mono.Cecil.MethodDefinition>>
+        Member : Member<PropertyDefinition>
+        Getter : option<Member<MethodDefinition>>
+        Setter : option<Member<MethodDefinition>>
     }
 
 /// Represents a reflected type.
@@ -104,10 +104,10 @@ type Type =
     {
         AddressSlot : AddressSlot
         Annotations : list<Annotation>
-        Definition : Mono.Cecil.TypeDefinition
+        Definition : TypeDefinition
         Kind : Kind
         Location : Location
-        Methods : list<Member<Mono.Cecil.MethodDefinition>>
+        Methods : list<Member<MethodDefinition>>
         Nested : list<Type>
         Properties : list<Property>
     }
@@ -122,7 +122,7 @@ type Assembly =
     }
 
 /// Reflects an assembly.
-val Reflect : Logger -> Mono.Cecil.AssemblyDefinition -> Assembly
+val Reflect : Logger -> AssemblyDefinition -> Assembly
 
 /// A utility class for pooling loaded macro definitions.
 [<Sealed>]

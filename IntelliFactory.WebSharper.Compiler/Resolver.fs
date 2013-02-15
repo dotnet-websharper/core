@@ -24,12 +24,13 @@ module internal IntelliFactory.WebSharper.Compiler.Resolver
 module P = IntelliFactory.JavaScript.Packager
 module R = IntelliFactory.WebSharper.Compiler.Reflector
 
-type MethodMember   = R.Member<Mono.Cecil.MethodDefinition>
-type PropertyMember = R.Member<Mono.Cecil.PropertyDefinition>
+type MethodMember   = R.Member<MethodDefinition>
+type PropertyMember = R.Member<PropertyDefinition>
 
 type Definition =
     {
-        Address  : R.AddressSlot
+        Address : R.AddressSlot
+        Annotations : list<R.Annotation>
         Location : Location
         Name     : option<R.Name>
     }
@@ -97,6 +98,9 @@ let rec merge a b =
 let annot annots =
     List.tryPick (function R.Name x -> Some x | _ -> None) annots
 
+let isStub annots =
+    List.exists (function R.Stub -> true | _ -> false) annots
+
 let addr ctx name annot =
     let ( / ) a b =
         match a with
@@ -120,16 +124,18 @@ let rec pack addr value =
     | P.Local (addr, name) -> pack addr (Package (name => value))
 
 let isStatic (p: R.Property) =
-    let def = p.Member.Definition
-    def.GetMethod <> null && def.GetMethod.IsStatic
-    || def.SetMethod <> null && def.SetMethod.IsStatic
+    p.Member.Definition.IsStatic
 
 let recStaticMethod ctx acc (m: MethodMember) =
     let def = m.Definition
     let a   = m.Annotations
-    let x   = { Address  = m.AddressSlot
-                Name     = annot a
-                Location = m.Location }
+    let x   =
+        {
+            Address  = m.AddressSlot
+            Annotations = m.Annotations
+            Name  = annot a
+            Location = m.Location
+        }
     let mem = Member (x, m.MemberSlot)
     if def.IsConstructor then
         pack (addr (Some ctx) "New" x.Name) mem :: acc
@@ -144,7 +150,8 @@ let recStaticProperty ctx acc (p: R.Property) =
         let a    = p.Member.Annotations
         let x    = { Address  = p.Member.AddressSlot
                      Name     = annot a
-                     Location = p.Member.Location }
+                     Location = p.Member.Location
+                     Annotations = a }
         let addr = addr (Some ctx) def.Name x.Name
         let add (x: option<MethodMember>) acc =
             match x with
@@ -155,9 +162,13 @@ let recStaticProperty ctx acc (p: R.Property) =
                     match addr with
                     | P.Global n     -> P.Global (p + n)
                     | P.Local (a, n) -> P.Local (a, p + n)
-                let y = { Address  = x.AddressSlot
-                          Name     = None
-                          Location = x.Location }
+                let y =
+                    {
+                        Address = x.AddressSlot
+                        Annotations = x.Annotations
+                        Name = None
+                        Location = x.Location
+                    }
                 pack a (Member (y, x.MemberSlot)) :: acc
         pack addr (Member (x, p.Member.MemberSlot)) :: acc
         |> add p.Getter
@@ -169,9 +180,13 @@ let recInstanceProperty (acc: Map<_,_>) (p: R.Property) =
     let def = p.Member.Definition
     if not (isStatic p) then
         let a = p.Member.Annotations
-        let x = { Address  = p.Member.AddressSlot
-                  Name     = annot a
-                  Location = p.Member.Location }
+        let x =
+            {
+                Annotations = p.Member.Annotations
+                Address = p.Member.AddressSlot
+                Name = annot a
+                Location = p.Member.Location
+            }
         let n = name def.Name x.Name
         let add (x: option<MethodMember>) (acc: Map<_,_>) =
             match x with
@@ -179,13 +194,17 @@ let recInstanceProperty (acc: Map<_,_>) (p: R.Property) =
             | Some x ->
                 let nm = annot x.Annotations
                 let n =
-                    if x.Definition.Overrides.Count > 0 then
+                    if not x.Definition.Overrides.IsEmpty then
                         x.Definition.Overrides.[0].Name
                     else
                         name x.Definition.Name nm
-                let y = { Address  = x.AddressSlot
-                          Location = x.Location
-                          Name     = nm }
+                let y =
+                    {
+                        Address  = x.AddressSlot
+                        Annotations  = x.Annotations
+                        Location = x.Location
+                        Name = nm
+                    }
                 Map.add (gen n acc) (y, x.MemberSlot) acc
         Map.add (gen n acc) (x, p.Member.MemberSlot) acc
         |> add p.Getter
@@ -195,21 +214,29 @@ let recInstanceProperty (acc: Map<_,_>) (p: R.Property) =
 
 let recRecordField (acc: Map<_,_>) (p: PropertyMember) =
     let def = p.Definition
-    let x   = { Address  = p.AddressSlot
-                Name     = annot p.Annotations
-                Location = p.Location }
+    let x =
+        {
+            Address = p.AddressSlot
+            Annotations = p.Annotations
+            Name = annot p.Annotations
+            Location = p.Location
+        }
     let n   = name def.Name x.Name
     Map.add (gen n acc) (x, p.MemberSlot) acc
 
 let recUnionCase (acc: Map<_,_>) (p: R.UnionCase) =
     let def = p.Member.Definition
-    let x   = { Address  = p.Member.AddressSlot
-                Name     = annot p.Member.Annotations
-                Location = p.Member.Location }
+    let x =
+        {
+            Address  = p.Member.AddressSlot
+            Annotations = p.Member.Annotations
+            Name = annot p.Member.Annotations
+            Location = p.Member.Location
+        }
     let n   = name p.Name x.Name
     Map.add (gen n acc) (x, p.Member.MemberSlot) acc
 
-let getNormalizedName (env: Env) (m: Mono.Cecil.MethodReference) =
+let getNormalizedName (env: Env) (m: MethodReference) =
     if m.Name = "ToString"
         then "toString"
         else m.Name
@@ -217,12 +244,16 @@ let getNormalizedName (env: Env) (m: Mono.Cecil.MethodReference) =
 let recInstanceMethod env (acc: Map<_,_>) (m: MethodMember) =
     let def = m.Definition
     if not def.IsConstructor && not def.IsStatic then
-        let x = { Address  = m.AddressSlot
-                  Name     = annot m.Annotations
-                  Location = m.Location }
+        let x =
+            {
+                Address = m.AddressSlot
+                Annotations = m.Annotations
+                Name = annot m.Annotations
+                Location = m.Location
+            }
         let n =
             x.Name
-            |> name (if def.Overrides.Count = 1
+            |> name (if def.Overrides.Length = 1
                         then getNormalizedName env def.Overrides.[0]
                         else getNormalizedName env def)
         Map.add (gen n acc) (x, m.MemberSlot) acc
@@ -230,9 +261,13 @@ let recInstanceMethod env (acc: Map<_,_>) (m: MethodMember) =
         acc
 
 let rec recType env ctx acc (t: R.Type) =
-    let x     = { Address  = t.AddressSlot
-                  Name     = annot t.Annotations
-                  Location = t.Location }
+    let x =
+        {
+            Address = t.AddressSlot
+            Annotations = t.Annotations
+            Name = annot t.Annotations
+            Location = t.Location
+        }
     let ctx   =
         match ctx, t.Definition.Namespace with
         | None, null -> None
@@ -330,21 +365,22 @@ let Resolve (logger: Logger) (assembly: R.Assembly) =
         d.Address.Address <- ctx
         let fmt (a: obj) (b: obj) =
             System.String.Format("Name conflict: renamed {0} to {1}.", a, b)
-        match d.Name with
-        | None -> ()
-        | Some (R.RelativeName name) ->
-            if name <> ctx.LocalName then
-                logger.Log {
-                    Text     = fmt name ctx.LocalName
-                    Location = d.Location
-                    Priority = Warning
-                }
-        | Some (R.AbsoluteName abs) ->
-            if abs <> ctx then
-                logger.Log {
-                    Text     = fmt abs ctx
-                    Location = d.Location
-                    Priority = Warning
-                }
+        if not (isStub d.Annotations) then
+            match d.Name with
+            | None -> ()
+            | Some (R.RelativeName name) ->
+                if name <> ctx.LocalName then
+                    logger.Log {
+                        Text     = fmt name ctx.LocalName
+                        Location = d.Location
+                        Priority = Warning
+                    }
+            | Some (R.AbsoluteName abs) ->
+                if abs <> ctx then
+                    logger.Log {
+                        Text     = fmt abs ctx
+                        Location = d.Location
+                        Priority = Warning
+                    }
     Map.iter (fun k v -> visit vD (P.Global k) v) pkg
     lazy P.Simplify (buildPackage pkg)

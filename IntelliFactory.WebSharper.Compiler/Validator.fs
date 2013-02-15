@@ -155,10 +155,6 @@ type Assembly =
 
 type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 
-type MethodDefinition = Mono.Cecil.MethodDefinition
-type PropertyDefinition = Mono.Cecil.PropertyDefinition
-type TypeDefinition = Mono.Cecil.TypeDefinition
-type TypeReference = Mono.Cecil.TypeReference
 type Pool = I.Pool
 
 let getCtorStatus this =
@@ -297,7 +293,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                     | _ -> None)
             match curr with
             | None ->
-                let k = self.Parameters.Count
+                let k = self.Parameters.Length
                 if k > 1 then [k] else []
             | Some x -> x
         let annot =
@@ -347,7 +343,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 | _ -> None)
         match curr with
         | None ->
-            let k = self.Parameters.Count
+            let k = self.Parameters.Length
             if self.IsStatic
                 then if k > 1 then [k] else []
                 else if k = 0 then [1; 1] else [1; k]
@@ -382,16 +378,21 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 let m = macros.Load d
                 Some (MacroMethod (d, m))
             | Some Remote ->
-                let rT = t.Definition.ReturnType
-                if rT = null
-                   || rT.FullName = "Sysem.Void"
-                   || rT.FullName = "Microsoft.FSharp.Core.Unit"
-                then RemoteMethod (RemoteSend, ref None)
-                elif rT.IsGenericInstance &&
-                     rT.Namespace = "Microsoft.FSharp.Control"
-                     && rT.Name = "FSharpAsync`1"
-                then RemoteMethod (RemoteAsync, ref None)
-                else RemoteMethod (RemoteSync, ref None)
+                let (|Void|_|) (t: TypeReference) =
+                    if  t.FullName = "Sysem.Void"
+                        || t.FullName = "Microsoft.FSharp.Core.Unit"
+                    then Some () else None
+                let (|Async|_|) (t: TypeReference) =
+                    match t.Shape with
+                    | TypeShape.GenericInstanceType [x] when
+                        t.Namespace = "Microsoft.FSharp.Control"
+                        && t.Name = "FSharpAsync`1" ->
+                        Some x
+                    | _ -> None
+                match t.Definition.ReturnType with
+                | None | Some Void -> RemoteMethod (RemoteSend, ref None)
+                | Some (Async _) -> RemoteMethod (RemoteAsync, ref None)
+                | Some _ -> RemoteMethod (RemoteSync, ref None)
                 |> Some
             | Some Stub -> Some StubMethod
             | Some (Constant _)
@@ -426,7 +427,16 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Name =
                     match kind with
                     | MethodKind.StubMethod ->
-                        fixStubName t.AddressSlot.Address t.Definition.Name
+                        let localName =
+                            t.Annotations
+                            |> List.tryPick (function
+                                | Reflector.Annotation.Name name ->
+                                    match name with
+                                    | Reflector.RelativeName name -> Some name
+                                    | Reflector.AbsoluteName addr -> Some addr.LocalName
+                                | _ -> None)
+                        let name = defaultArg localName t.Definition.Name
+                        fixStubName t.AddressSlot.Address name
                     | _ -> t.AddressSlot.Address
                 Kind = kind
                 Location = loc
@@ -470,10 +480,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
     let pPropFromKind iP (p: Re.Property) kind : option<Property> =
         let prop = p.Member
         let self = prop.Definition
-        let scope =
-            if self.GetMethod <> null && self.GetMethod.IsStatic
-               || self.SetMethod <> null && self.SetMethod.IsStatic then Static
-            else Instance
+        let scope = if self.IsStatic then Static else Instance
         kind
         |> Option.map (fun kind ->
             {
@@ -557,20 +564,18 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 t.Name)
         let iRes = fn typeof<Res.IResource>
         let bRes = fn typeof<Res.BaseResource>
-        let rec isRes (t: Mono.Cecil.TypeDefinition) =
-            t <> null && (
-                t.BaseType <> null
-                && t.BaseType.FullName = bRes
-                ||
-                t.Interfaces
-                |> Seq.exists (fun x -> x.FullName = iRes)
-                ||
-                t.BaseType <> null
-                && isRes (t.BaseType.Resolve())
-            )
+        let rec isRes (t: TypeDefinition) =
+            t.BaseType.IsSome
+            && t.BaseType.Value.FullName = bRes
+            ||
+            t.Interfaces
+            |> Seq.exists (fun x -> x.FullName = iRes)
+            ||
+            t.BaseType.IsSome
+            && isRes (t.BaseType.Value.Resolve())
         let rf = Adapter.AdaptTypeDefinition t.Definition
-        if t.Definition.BaseType <> null
-            && t.Definition.BaseType.FullName
+        if t.Definition.BaseType.IsSome
+            && t.Definition.BaseType.Value.FullName
                 = "IntelliFactory.WebSharper.Web.Control"
         then
             match verifier.VerifyWebControl t.Definition with
@@ -600,8 +605,8 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
             let ps = c (pProp pStub iP) t.Properties
             let bT =
                 match t.Definition.BaseType with
-                | null -> None
-                | bT -> Some (Adapter.AdaptType bT)
+                | None -> None
+                | Some bT -> Some (Adapter.AdaptType bT)
             Some {
                 Kind = Class (cSlot, bT, cs, ns)
                 Location = loc

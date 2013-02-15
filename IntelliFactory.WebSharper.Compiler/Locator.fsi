@@ -23,9 +23,9 @@ module internal IntelliFactory.WebSharper.Compiler.Locator
 
 module R = IntelliFactory.WebSharper.Core.Reflection
 
-val LocateAssembly : Mono.Cecil.AssemblyDefinition -> Location
-val LocateMethod : Mono.Cecil.MethodDefinition -> Location
-val LocateProperty : Mono.Cecil.PropertyDefinition -> Location
-val LocateType : Mono.Cecil.TypeDefinition -> Location
+val LocateAssembly : AssemblyDefinition -> Location
+val LocateMethod : MethodDefinition -> Location
+val LocateProperty : PropertyDefinition -> Location
+val LocateType : TypeDefinition -> Location
 val LocateReflectedType : R.Type -> Location
 

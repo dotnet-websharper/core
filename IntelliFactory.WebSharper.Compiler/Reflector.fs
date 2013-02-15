@@ -113,8 +113,18 @@ type Kind =
     | Exception
     | Interface
     | Module
-    | Record of list<Member<Mono.Cecil.PropertyDefinition>>
+    | Record of list<Member<PropertyDefinition>>
     | Union of list<UnionCase>
+
+    override this.ToString() =
+        match this with
+        | Class _ -> "Class"
+        | Enum -> "Enum"
+        | Exception -> "Exception"
+        | Interface -> "Interface"
+        | Module -> "Module"
+        | Record _ -> "Record"
+        | Union _ -> "Union"
 
 and Member<'T> =
     {
@@ -131,18 +141,18 @@ and Member<'T> =
 and UnionCase =
     {
         Name : string
-        Member : Member<Mono.Cecil.MethodDefinition>
+        Member : Member<MethodDefinition>
     }
 
     override this.ToString() =
         this.Name
 
-type Method = Member<Mono.Cecil.MethodDefinition>
-type Case = Member<Mono.Cecil.TypeDefinition>
+type Method = Member<MethodDefinition>
+type Case = Member<TypeDefinition>
 
 type Property =
     {
-        Member : Member<Mono.Cecil.PropertyDefinition>
+        Member : Member<PropertyDefinition>
         Getter : option<Method>
         Setter : option<Method>
     }
@@ -154,7 +164,7 @@ type Type =
     {
         AddressSlot : AddressSlot
         Annotations : list<Annotation>
-        Definition : Mono.Cecil.TypeDefinition
+        Definition : TypeDefinition
         Kind : Kind
         Location : Location
         Methods : list<Method>
@@ -178,13 +188,13 @@ type Assembly =
 
 type Definitions = Dictionary<Q.Definition,Q.Expression>
 
-let parseTypeReference (warn: string -> unit) (t: Mono.Cecil.TypeReference) =
+let parseTypeReference (warn: string -> unit) (t: TypeReference) =
     try Adapter.AdaptTypeDefinition t with :? R.InvalidTypeException ->
         warn ("Invalid type reference: " + string t)
         R.TypeDefinition.FromType typeof<unit>
 
 /// Identifies special F# type kinds by examining custom attributes.
-let getTypeKind (t: Mono.Cecil.TypeDefinition) =
+let getTypeKind (t: TypeDefinition) =
     if t.IsInterface then Some Interface
     elif t.IsEnum then Some Enum else
         let cma = typeof<CompilationMappingAttribute>.FullName
@@ -193,82 +203,101 @@ let getTypeKind (t: Mono.Cecil.TypeDefinition) =
             t.CustomAttributes
             |> Seq.tryPick (fun a ->
                 if a.AttributeType.FullName = cma then
-                    match unbox a.ConstructorArguments.[0].Value
-                          &&& SourceConstructFlags.KindMask with
-                    | SourceConstructFlags.Closure -> ! None
-                    | SourceConstructFlags.Exception -> ! ! Exception
-                    | SourceConstructFlags.Module -> ! ! Module
-                    | SourceConstructFlags.RecordType -> ! ! (Record [])
-                    | SourceConstructFlags.SumType -> ! ! (Union [])
-                    | o -> None
-                else
-                    None)
+                    match a.ConstructorArguments with
+                    | IntArgument x :: _ ->
+                        match enum x &&& SourceConstructFlags.KindMask with
+                        | SourceConstructFlags.Closure -> ! None
+                        | SourceConstructFlags.Exception -> ! ! Exception
+                        | SourceConstructFlags.Module -> ! ! Module
+                        | SourceConstructFlags.RecordType -> ! ! (Record [])
+                        | SourceConstructFlags.SumType -> ! ! (Union [])
+                        | o -> None
+                    | _ -> None
+                else None)
         defaultArg attr (Some (Class (ClassSlot())))
 
 /// Reads reflected definition data from an F# assembly.
-let getReflectedDefinitions (assembly: Mono.Cecil.AssemblyDefinition) =
-    let name = System.Reflection.AssemblyName assembly.FullName
+let getReflectedDefinitions (assembly: AssemblyDefinition) =
+    let name = assembly.Name
     let data =
-        assembly.MainModule.Resources
-        |> Seq.tryPick (fun x ->
-            if x.Name.ToUpper().StartsWith("REFLECTEDDEFINITIONS") then
-                match x.ResourceType with
-                | Mono.Cecil.ResourceType.Embedded ->
-                    let x = x :?> Mono.Cecil.EmbeddedResource
-                    use stream = x.GetResourceStream()
-                    let defs = Q.ReadStream name stream
-                    let d = Dictionary()
-                    defs
-                    |> List.iter (fun (k, v) -> d.[k] <- v)
-                    Some d
-                | _ -> None
+        assembly.EmbeddedResources
+        |> Seq.tryPick (fun (KeyValue (n, getStream)) ->
+            if n.ToUpper().StartsWith("REFLECTEDDEFINITIONS") then
+                use stream = getStream ()
+                let defs = Q.ReadStream name stream
+                let d = Dictionary()
+                defs
+                |> List.iter (fun (k, v) -> d.[k] <- v)
+                Some d
             else None)
     match data with
     | None -> Dictionary()
     | Some data -> data
 
-/// Maps Mono.Cecil representations to QR definitions. Requires the TypeKind
+/// Maps Mono.Cecil method representations to QR definitions.
+let getMethodQuotationReaderDefinition (mD: MethodDefinition) =
+    if mD.IsConstructor
+    then Q.ConstructorDefinition (Adapter.AdaptConstructor mD)
+    else Q.MethodDefinition (Adapter.AdaptMethod mD)
+
+/// Maps Mono.Cecil property representations to QR definitions. Requires the TypeKind
 /// of the declaring type so as not to compute it repeatedly.
-let getQuotationReaderDefinition (k: Kind) (mR: Mono.Cecil.MemberReference) =
-    match mR with
-    | :? Mono.Cecil.MethodDefinition as mD ->
-        if mD.IsConstructor
-        then Q.ConstructorDefinition (Adapter.AdaptConstructor mD)
-        else Q.MethodDefinition (Adapter.AdaptMethod mD)
-        |> Some
-    | :? Mono.Cecil.PropertyDefinition as pD ->
-        match k with
-        | Module -> Some (Q.PropertyDefinition (Adapter.AdaptProperty pD))
-        | _ -> None
+let getPropertyQuotationReaderDefinition (k: Kind) (pD: PropertyDefinition) =
+    match k with
+    | Module -> Some (Q.PropertyDefinition (Adapter.AdaptProperty pD))
     | _ -> None
 
-let (|UnionCaseMethod|_|) (m: Mono.Cecil.MethodDefinition) =
+type AnnotationTarget =
+    | AnnotatedProperty of Kind * PropertyDefinition
+    | AnnotatedMethod of MethodDefinition
+    | AnnotatedMember of list<CustomAttribute>
+
+    member this.CustomAttributes =
+        match this with
+        | AnnotatedProperty (_, p) -> p.CustomAttributes
+        | AnnotatedMethod m -> m.CustomAttributes
+        | AnnotatedMember xs -> xs
+
+    member this.RawQuotation =
+        match this with
+        | AnnotatedProperty (_, p) -> p.RawQuotation
+        | AnnotatedMethod m -> m.RawQuotation
+        | AnnotatedMember _ -> None
+
+let getQuotationReaderDefinition (aT: AnnotationTarget) =
+    match aT with
+    | AnnotatedProperty (k, p) -> getPropertyQuotationReaderDefinition k p
+    | AnnotatedMethod m -> Some (getMethodQuotationReaderDefinition m)
+    | _ -> None
+
+let (|UnionCaseMethod|_|) (m: MethodDefinition) =
     let fn = typeof<CompilationMappingAttribute>.FullName
-    if m.IsStatic && m.HasCustomAttributes then
+    if m.IsStatic && not m.CustomAttributes.IsEmpty then
         m.CustomAttributes
         |> Seq.tryPick (fun a ->
-            let xs = a.ConstructorArguments
-            if a.AttributeType.FullName = fn && xs.Count = 2 then
-                match downcast xs.[0].Value, downcast xs.[1].Value with
-                | SourceConstructFlags.UnionCase, (x : int) ->
-                    let name =
-                        if m.Name.StartsWith "New" then m.Name.Substring 3
-                        elif m.Name.StartsWith "get_" then m.Name.Substring 4
-                        else m.Name
-                    Some (name, x)
+            if a.AttributeType.FullName = fn then
+                match a.ConstructorArguments with
+                | [IntArgument uc; IntArgument x]
+                    when enum uc = SourceConstructFlags.UnionCase ->
+                        let name =
+                            if m.Name.StartsWith "New" then m.Name.Substring 3
+                            elif m.Name.StartsWith "get_" then m.Name.Substring 4
+                            else m.Name
+                        Some (name, x)
                 | _ -> None
             else None)
     else None
 
-let (|RecordField|_|) (p: Mono.Cecil.PropertyDefinition) =
+let (|RecordField|_|) (p: PropertyDefinition) =
     let fn = typeof<CompilationMappingAttribute>.FullName
-    if p.HasCustomAttributes then
+    if not p.CustomAttributes.IsEmpty then
         p.CustomAttributes
         |> Seq.tryPick (fun a ->
-            let xs = a.ConstructorArguments
-            if a.AttributeType.FullName = fn && xs.Count = 2 then
-                match downcast xs.[0].Value, downcast xs.[1].Value with
-                | SourceConstructFlags.Field, (x : int) -> Some x
+            if a.AttributeType.FullName = fn then
+                match a.ConstructorArguments with
+                | [IntArgument fld; IntArgument x]
+                    when enum fld = SourceConstructFlags.Field ->
+                        Some x
                 | _ -> None
             else None)
     else None
@@ -314,7 +343,7 @@ type Pool(logger: Logger) =
                 report "No IMacroDefinition implementation."
 
 let annotationsTable =
-    let d = Dictionary<string,Mono.Cecil.CustomAttribute->_>()
+    let d = Dictionary<string,CustomAttribute->_>()
     let add (t: System.Type) value =
         if t.DeclaringType = null then
             d.[t.FullName] <- value
@@ -323,31 +352,27 @@ let annotationsTable =
             let key = System.String.Format("{0}/{1}", ns, t.Name)
             d.[key] <- value
     add typeof<A.ConstantAttribute> (fun attr _ ->
-        match attr.ConstructorArguments.[0].Value with
-        | :? bool as x -> Some (Constant (Bool x))
-        | :? int as x -> Some (Constant (Int x))
-        | :? float as x -> Some (Constant (Double x))
-        | :? string as x -> Some (Constant (String x))
+        match attr.ConstructorArguments with
+        | [BoolArgument x] -> Some (Constant (Bool x))
+        | [IntArgument x] -> Some (Constant (Int x))
+        | [FloatArgument x] -> Some (Constant (Double x))
+        | [StringArgument x] -> Some (Constant (String x))
         | _ -> None)
     add typeof<A.DirectAttribute> (fun attr _ ->
-        match attr.ConstructorArguments.[0].Value with
-        | :? string as x -> Some (Direct x)
+        match attr.ConstructorArguments with
+        | [StringArgument x] -> Some (Direct x)
         | _ -> None)
     add typeof<A.InlineAttribute> (fun attr _ ->
-        match attr.ConstructorArguments.Count with
-        | 1 ->
-            match attr.ConstructorArguments.[0].Value with
-            | :? string as x -> Some (Inline (Some x))
-            | _ -> Some (Inline None)
+        match attr.ConstructorArguments with
+        | [StringArgument x] -> Some (Inline (Some x))
         | _ -> Some (Inline None))
     add typeof<A.MacroAttribute> (fun attr _ ->
-        match attr.ConstructorArguments.[0].Value with
-        | (:? Mono.Cecil.TypeReference as x) ->
-            Some (Macro (Adapter.AdaptType x))
+        match attr.ConstructorArguments with
+        | [TypeArgument x] -> Some (Macro (Adapter.AdaptType x))
         | _ -> None)
     add typeof<A.NameAttribute> (fun attr warn ->
-        match attr.ConstructorArguments.[0].Value with
-        | :? string as x ->
+        match attr.ConstructorArguments with
+        | [StringArgument x] ->
             if x.Contains "." then
                 let a = Array.toList (x.Split '.')
                 let n =
@@ -355,9 +380,8 @@ let annotationsTable =
                     ||> List.fold (fun a b -> P.Local (a, b))
                 Some (Name (AbsoluteName n))
             else Some (Name (RelativeName x))
-        | :? array<Mono.Cecil.CustomAttributeArgument> as x ->
-            let x = x |> Array.map (fun x -> x.Value :?> string)
-            match List.ofArray x with
+        | [StringsArgument x] ->
+            match x with
             | x :: xs ->
                 let n =
                     (P.Global x, xs)
@@ -368,72 +392,57 @@ let annotationsTable =
                 None
         | args -> None)
     add typeof<A.ProxyAttribute> (fun attr warn ->
-        match attr.ConstructorArguments.[0].Value with
-        | :? Mono.Cecil.TypeReference as x ->
+        match attr.ConstructorArguments with
+        | [TypeArgument x] ->
             let r = parseTypeReference warn x
             Some (Proxy r)
-        | :? string as x ->
+        | [StringArgument x] ->
             let r = R.TypeDefinition.Parse x
             Some (Proxy r)
         | _ -> None)
     add typeof<A.RemoteAttribute> (fun attr _ -> Some Remote)
     add typeof<A.RequireAttribute> (fun attr warn ->
-        match attr.ConstructorArguments.[0].Value with
-        | :? Mono.Cecil.TypeReference as x ->
+        match attr.ConstructorArguments with
+        | [TypeArgument x] ->
             Some (Require (parseTypeReference warn x))
         | _ -> None)
     add typeof<A.StubAttribute> (fun attr _ -> Some Stub)
     add typeof<CompilationMappingAttribute> (fun attr _ ->
-        let cA = attr.ConstructorArguments
-        if cA.Count = 2 then
-            match cA.[0].Value, cA.[1].Value with
-            | scf, (:? int as x) ->
-                if scf :?> int = int SourceConstructFlags.Field then
-                    Some (Field x)
-                else None
-            | _ -> None
-        else None)
+        match attr.ConstructorArguments with
+        | [IntArgument scf; IntArgument x] when enum scf = SourceConstructFlags.Field -> Some (Field x)
+        | _ -> None)
     add typeof<CompilationArgumentCountsAttribute> (fun attr _ ->
-        match attr.ConstructorArguments.[0].Value with
-        | :? array<Mono.Cecil.CustomAttributeArgument> as x ->
-            Curry [
-                for e in x do
-                    match e.Value with
-                    | :? int as x -> yield x
-                    | _ -> ()
-            ]
-            |> Some
+        match attr.ConstructorArguments with
+        | [IntsArgument xs] -> Some (Curry xs)
         | _ -> None)
     d
 
 /// Reflects an assembly.
-let Reflect (logger: Logger) (assembly: Mono.Cecil.AssemblyDefinition) =
+let Reflect (logger: Logger) (assembly: AssemblyDefinition) =
     let definitions =
         getReflectedDefinitions assembly
     let warn loc text =
         logger.Log { Text = text; Priority = Warning; Location = loc }
     /// Retrieves WebSharper annotations.  Requires the reflected definition
     /// table and the TypeKind of the declaring type, if any.
-    let getAnnotations location tD
-        (entity: Mono.Cecil.ICustomAttributeProvider) =
+    let getAnnotations location (tgt: AnnotationTarget) =
         let rD =
-            match tD, entity with
-            | Some tD, (:? Mono.Cecil.MemberReference as m) ->
-                getQuotationReaderDefinition tD m
+            match tgt.RawQuotation with
+            | None ->
+                getQuotationReaderDefinition tgt
                 |> Option.bind (fun x ->
                     match definitions.TryGetValue x with
                     | true, x -> Some (JavaScript x)
                     | _ -> None)
-            | _ -> None
+            | Some q -> Some (JavaScript q)
         Option.toList rD @
-        (entity.CustomAttributes
-        |> Seq.choose (fun attr ->
+        (tgt.CustomAttributes
+        |> List.choose (fun attr ->
             match annotationsTable.TryGetValue attr.AttributeType.FullName with
             | true, f -> f attr (warn location)
-            | _ -> None)
-        |> Seq.toList)
-    let reflectMethod inc loc dT (m: Mono.Cecil.MethodDefinition) : option<Member<_>> =
-        match getAnnotations loc dT m with
+            | _ -> None))
+    let reflectMethod inc loc (m: MethodDefinition) : option<Member<_>> =
+        match getAnnotations loc (AnnotatedMethod m) with
         | [] | [Curry _] when not inc && not m.IsVirtual -> None
         | a ->
             Some {
@@ -443,10 +452,10 @@ let Reflect (logger: Logger) (assembly: Mono.Cecil.AssemblyDefinition) =
                 Location = loc
                 MemberSlot = MemberSlot()
             }
-    let reflectProperty inc loc dT (m: Mono.Cecil.PropertyDefinition) : option<Member<_>> =
-        let isVirt (m: Mono.Cecil.MethodDefinition) =
-            m <> null && m.IsVirtual
-        match getAnnotations loc dT m with
+    let reflectProperty inc loc dT (m: PropertyDefinition) : option<Member<_>> =
+        let isVirt (m: option<MethodDefinition>) =
+            m.IsSome && m.Value.IsVirtual
+        match getAnnotations loc (AnnotatedProperty (dT, m)) with
         | [] | [Curry _] when not inc && not (isVirt m.GetMethod || isVirt m.SetMethod) -> None
         | a ->
             Some {
@@ -457,7 +466,7 @@ let Reflect (logger: Logger) (assembly: Mono.Cecil.AssemblyDefinition) =
                 MemberSlot = MemberSlot()
             }
     let withMethodsAndProperties t =
-        let k = Some t.Kind
+        let k = t.Kind
         let inc =
             match t.Kind with
             | Interface | Exception -> true
@@ -475,7 +484,7 @@ let Reflect (logger: Logger) (assembly: Mono.Cecil.AssemblyDefinition) =
                         if (m.IsSetter || m.IsGetter)
                            && not t.Definition.IsInterface
                         then None
-                        else reflectMethod inc (Locator.LocateMethod m) k m)
+                        else reflectMethod inc (Locator.LocateMethod m) m)
                 |> Seq.toList
             Properties =
                 t.Definition.Properties
@@ -485,8 +494,8 @@ let Reflect (logger: Logger) (assembly: Mono.Cecil.AssemblyDefinition) =
                     | p ->
                         let loc = Locator.LocateProperty p
                         let f = function
-                            | null -> None
-                            | m -> reflectMethod inc loc k m
+                            | None -> None
+                            | Some m -> reflectMethod inc loc m
                         let self = reflectProperty inc loc k p
                         let getter = f p.GetMethod
                         let setter = f p.SetMethod
@@ -532,7 +541,7 @@ let Reflect (logger: Logger) (assembly: Mono.Cecil.AssemblyDefinition) =
                     Member =
                         {
                             AddressSlot = AddressSlot()
-                            Annotations = getAnnotations loc (Some t.Kind) m
+                            Annotations = getAnnotations loc (AnnotatedMethod m)
                             Definition = m
                             Location = loc
                             MemberSlot = MemberSlot()
@@ -549,7 +558,7 @@ let Reflect (logger: Logger) (assembly: Mono.Cecil.AssemblyDefinition) =
                     let m : Member<_> =
                         {
                             AddressSlot = AddressSlot()
-                            Annotations = getAnnotations loc (Some t.Kind) p
+                            Annotations = getAnnotations loc (AnnotatedProperty (t.Kind, p))
                             Definition = p
                             Location = loc
                             MemberSlot = MemberSlot()
@@ -566,11 +575,11 @@ let Reflect (logger: Logger) (assembly: Mono.Cecil.AssemblyDefinition) =
             |> Seq.choose reflectType
             |> Seq.toList
         { t with Nested = n }
-    and reflectType (t: Mono.Cecil.TypeDefinition) =
+    and reflectType (t: TypeDefinition) =
         let loc = Locator.LocateType t
         getTypeKind t
         |> Option.bind (fun kind ->
-            let notes = getAnnotations loc None t
+            let notes = getAnnotations loc (AnnotatedMember t.CustomAttributes)
             let result =
                 {
                     AddressSlot = AddressSlot()
@@ -616,11 +625,10 @@ let Reflect (logger: Logger) (assembly: Mono.Cecil.AssemblyDefinition) =
     let loc = Locator.LocateAssembly assembly
     {
         Name = R.AssemblyName.Parse assembly.Name.FullName
-        Annotations = getAnnotations loc None assembly
+        Annotations = getAnnotations loc (AnnotatedMember assembly.CustomAttributes)
         Location = loc
         Types =
-            assembly.MainModule.Types
+            assembly.Types
             |> Seq.choose reflectType
             |> Seq.toList
     }
-

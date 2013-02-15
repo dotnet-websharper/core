@@ -63,8 +63,10 @@
     <None Include="WebSharper.v4.5.exe.config" />
     <None Include="WebSharper.v4.0.exe.config" />
     <None Include="WebSharper.v3.5.exe.config" />
+    <None Include="Test.fsx" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="System.Web" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Numerics" Condition=" '$(TargetFrameworkVersion)' != 'v3.5' " />
     <Reference Include="Mono.Cecil" />
