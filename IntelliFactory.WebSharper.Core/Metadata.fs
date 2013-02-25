@@ -158,7 +158,10 @@ type AssemblyInfo =
             let n = AssemblyInfo.EmbeddedResourceName
             if Array.exists ((=) n) (a.GetManifestResourceNames()) then
                 use s = a.GetManifestResourceStream n
-                Some (AssemblyInfo.FromStream s)
+                try
+                    Some (AssemblyInfo.FromStream s)
+                with _ ->
+                    failwithf "Failed to load metadata for: %s" a.FullName
             else
                 None
 

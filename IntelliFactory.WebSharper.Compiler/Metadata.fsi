@@ -90,6 +90,9 @@ type T =
     /// Maps a union case to its metadata.
     member UnionCase : R.UnionCase -> option<UnionCaseKind>
 
+    /// The empty metadata record.
+    static member Empty : T
+
 /// Parses metadata from an reflected assembly.
 val Parse : Logger -> Validator.Assembly -> T
 

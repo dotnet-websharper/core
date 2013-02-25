@@ -833,11 +833,8 @@ let ElaborateConstant c =
     | True -> S.Constant S.True
     | Undefined -> S.Var "undefined"
 
-let IsCaptured var expr =
-    let rec loop = function
-        | Lambda (_, _, _) as e -> (GetFreeIds e).Contains var
-        | e -> Fold (fun x e -> x || loop e) false e
-    loop expr
+let CapturesVariables expr =
+    not (GetFreeIds expr).IsEmpty
 
 type ExpressionMode =
     | Ignored
@@ -964,11 +961,11 @@ let ToProgram prefs expr =
         | FieldDelete _ | FieldSet _ ->
             S.Ignore (eE Ignored expr) :: acc
         | ForEachField (i, o, b) ->
-            if IsCaptured i b
+            if CapturesVariables b
             then S.Ignore (eE Ignored expr) :: acc
             else S.ForIn (eV i, eE Used o, eB Discard b) :: acc
         | ForIntegerRangeLoop (i, l, h, b) ->
-            if IsCaptured i b then
+            if CapturesVariables b then
                 S.Ignore (eE Ignored expr) :: acc
             else
                 let v = eV i
@@ -999,7 +996,10 @@ let ToProgram prefs expr =
             S.TryWith (eB mode block, eID var, eB mode guard, None) :: acc
         | Unary (UnaryOperator.``void``, x) ->
             S.Ignore (eE Ignored x) :: acc
-        | WhileLoop (c, b) -> S.While (eE Used c, eB Discard b) :: acc
+        | WhileLoop (c, b) ->
+            if CapturesVariables b
+                then S.Ignore (eE Ignored expr) :: acc
+                else S.While (eE Used c, eB Discard b) :: acc
         | _ ->
             match expr, mode with
             | Constant Undefined, _

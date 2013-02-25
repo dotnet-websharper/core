@@ -187,7 +187,10 @@ module CecilTools =
         |> Seq.tryPick (function
             | :? EmbeddedResource as r when r.Name = key ->
                 use s = r.GetResourceStream()
-                Some (M.AssemblyInfo.FromStream s)
+                try
+                    Some (M.AssemblyInfo.FromStream s)
+                with e ->
+                    failwithf "Failed to read assembly metadata for: %s" a.FullName
             | _ -> None)
 
     let readCompiledMetadata (a: AssemblyDefinition) =
@@ -195,9 +198,12 @@ module CecilTools =
         a.MainModule.Resources
         |> Seq.tryPick (function
             | :? EmbeddedResource as r when r.Name = key ->
-                use s = r.GetResourceStream()
-                Some (Metadata.Deserialize s)
-            | _ ->
+                try
+                    use s = r.GetResourceStream()
+                    Some (Metadata.Deserialize s)
+                with _ ->
+                    failwithf "Failed to deserialize metadata for: %s" a.FullName
+             | _ ->
                 None)
 
 type Options =

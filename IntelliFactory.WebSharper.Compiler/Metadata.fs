@@ -110,6 +110,16 @@ type T =
         c.WithDeclaringType (this.Proxy c.DeclaringType)
         |> Get this.unions
 
+    static member Empty : T =
+        {
+            constructors = Dictionary()
+            datatypes = Dictionary()
+            methods = Dictionary()
+            properties = Dictionary()
+            proxies = Dictionary()
+            unions = Dictionary()
+        }
+
 let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
 
     let t =

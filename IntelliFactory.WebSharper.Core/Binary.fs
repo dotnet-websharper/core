@@ -551,9 +551,9 @@ type InterningReader(input: System.IO.Stream, reader: System.IO.BinaryReader) =
 
     let cache =
         let d = Dictionary()
-        for i in 0us .. uint16 (reader.ReadInt32() - 1) do
+        for i in 0 .. reader.ReadInt32() - 1 do
             let s = reader.ReadString()
-            d.[i] <- s
+            d.[uint16 i] <- s
         d
 
     override this.ReadString() =
@@ -597,7 +597,7 @@ type Encoding(enc: Encoder) =
             use r = new InterningReader(stream, reader)
             enc.Decode r
         with e ->
-            let msg = System.String.Format("Failed to decode: {0}", enc.Type)
+            let msg = System.String.Format("Failed to decode type: {0}", enc.Type)
             raise (EncodingException(msg, e))
 
     member this.Encode(stream: System.IO.Stream)(value: obj) =
