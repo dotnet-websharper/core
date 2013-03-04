@@ -211,7 +211,6 @@ module JQuery =
     let BeforeCmt = " Insert content, specified by the parameter, before each element in the set of matched elements."
     let CssCmt = "Get the value of a style property for the first element in the set of matched elements."
     let DataCmt = "Store arbitrary data associated with the matched elements."
-    let DieCmt = "Remove all event handlers previously attached using .live() from the elements."
     let IndexCmt = "Search for a given element from among the matched elements."
     let FilterCmt = "Reduce the set of matched elements to those that match the selector or pass the function's test."
     let GetCmt = "Retrieve the DOM elements matched by the jQuery object."
@@ -239,8 +238,6 @@ module JQuery =
                 // It actually returns the same type. Not sure how to express it.
                 "done" => promiseDeferredCallbacks ^-> retType
                 "fail" => promiseDeferredCallbacks ^-> retType 
-                "isRejected" => (T<unit>) ^-> T<bool>
-                "isResolved" => (T<unit>) ^-> T<bool>
                 "then" => promiseDeferredCallbacks * promiseDeferredCallbacks ^-> retType
             ]
         let PromiseClass = Class "jQuery.Promise"
@@ -485,12 +482,6 @@ module JQuery =
                 "detach" => !?T<string>?selector ^-> JQ
                 |> WithComment "Remove the set of matched elements from the DOM."
 
-                // Die
-                "die" => T<unit> ^-> JQ
-                |> WithComment DieCmt
-                "die" => T<string> * !?EventHandler ^-> JQ
-                |> WithComment DieCmt
-
                 // Each
                 "each" => (T<Element> -* !?T<int> ^-> T<unit>)?handler ^-> JQ
                 |> WithComment "Iterate over a jQuery object, executing a function for each matched element."
@@ -638,10 +629,6 @@ module JQuery =
 
                 "length" =% T<int>
 
-                "live" => T<string> * EventHandler ^-> JQ
-
-                "live" => T<string> * T<obj> ^-> JQ
-
                 "load" => T<string>  * !?(T<string> + T<obj>) * !?(T<string> * T<string> * XmlHttpRequest ^-> T<unit>) ^-> JQ
 
                 "load" => EventHandler ^-> JQ
@@ -784,6 +771,7 @@ module JQuery =
 
                 "toArray" => T<unit> ^-> Type.ArrayOf T<Element>
 
+                /// TODO: review
                 "toggle" => !?T<int> * !?EventHandler ^-> JQ
                 "toggle" => T<int> * T<string>?easing * !?EventHandler ^-> JQ
                 "toggle" => T<bool>?showOrHide ^-> JQ
@@ -971,8 +959,6 @@ module JQuery =
                     !?(T<obj> * T<string> * XmlHttpRequest ^-> T<unit>)?success *
                     !?DataType?dataType ^->
                     JqXHR
-
-                "sub" => T<unit> ^-> JQ
 
                 "when" => !+ Deferred ^-> Deferred
 

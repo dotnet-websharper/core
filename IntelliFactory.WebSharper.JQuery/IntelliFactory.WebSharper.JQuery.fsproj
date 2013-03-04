@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -12,7 +12,6 @@
     <AssemblyName>$(Name)</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <TargetFrameworkProfile />
-    <JQueryVersion>1.7.2</JQueryVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -39,8 +38,6 @@
     <Compile Include="Main.fs" />
     <None Include="Resources.cs" />
     <None Include="Marker.cs" />
-    <EmbeddedResource Include="jquery-$(JQueryVersion).min.js" />
-    <EmbeddedResource Include="jquery-$(JQueryVersion).js" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core" />

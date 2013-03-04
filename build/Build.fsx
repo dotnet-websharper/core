@@ -38,9 +38,3 @@ downloadFile "Mono.Cecil.dll"
 downloadFile "Mono.Cecil.Mdb.dll"
 downloadFile "Mono.Cecil.Pdb.dll"
 downloadFile "IntelliFactory.Xml.dll"
-
-baseDir ++ "IntelliFactory.WebSharper.JQuery" ++ "jquery-1.7.2.js"
-|> download "http://code.jquery.com/jquery-1.7.2.js"
-
-baseDir ++ "IntelliFactory.WebSharper.JQuery" ++ "jquery-1.7.2.min.js"
-|> download "http://code.jquery.com/jquery-1.7.2.min.js"
