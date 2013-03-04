@@ -12,6 +12,7 @@
     <AssemblyName>$(Name)</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <TargetFrameworkProfile />
+    <JQueryVersion>1.9.1</JQueryVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -38,6 +39,8 @@
     <Compile Include="Main.fs" />
     <None Include="Resources.cs" />
     <None Include="Marker.cs" />
+    <EmbeddedResource Include="jquery-$(JQueryVersion).min.js" />
+    <EmbeddedResource Include="jquery-$(JQueryVersion).js" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core" />
