@@ -32,6 +32,9 @@
     <DocumentationFile>bin\Release\$(Name).XML</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="IntelliFactory.FastInvoke">
+      <HintPath>../Lib/IntelliFactory.FastInvoke.dll</HintPath>
+    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core">
       <Private>False</Private>
@@ -57,8 +60,6 @@
     <Compile Include="Macros.fsi" />
     <Compile Include="Macros.fs" />
     <Compile Include="Attributes.fs" />
-    <Compile Include="Invocation.fsi" />
-    <Compile Include="Invocation.fs" />
     <Compile Include="Json.fsi" />
     <Compile Include="Json.fs" />
     <Compile Include="Remoting.fsi" />

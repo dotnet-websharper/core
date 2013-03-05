@@ -26,7 +26,7 @@ open System.Collections.Generic
 open System.Reflection
 
 module A = IntelliFactory.WebSharper.Core.Attributes
-module I = IntelliFactory.WebSharper.Core.Invocation
+module FI = IntelliFactory.FastInvoke
 module J = IntelliFactory.WebSharper.Core.Json
 module M = IntelliFactory.WebSharper.Core.Metadata
 module R = IntelliFactory.WebSharper.Core.Reflection
@@ -109,7 +109,6 @@ let getParameterDecoder (jP: J.Provider) (m: MethodInfo) =
         let decoder = jP.GetDecoder tt
         fun v -> tR (decoder.Decode v)
 
-exception InvalidArgumentsException
 exception InvalidHandlerException
 
 type IHandlerFactory =
@@ -129,21 +128,22 @@ let SetHandlerFactory rhf =
 let toConverter (mk: option<IHandlerFactory>) (jP: J.Provider) (m: MethodInfo) =
     let enc = getResultEncoder jP m
     let dec = getParameterDecoder jP m
-    let run = I.Compile m
+    let run = FI.Compile m
     let factory = defaultArg mk factory
     if m.IsStatic then
         fun j ->
-            match run null (dec j) with
-            | Some v -> enc v
-            | None -> raise InvalidArgumentsException
+            run.InvokeN(dec j) |> enc
     else
         fun j ->
             let t = m.DeclaringType
             match factory.Create t with
             | Some inst ->
-                match run inst (dec j) with
-                | Some v -> enc v
-                | None -> raise InvalidArgumentsException
+                let args = dec j
+                let ps = Array.zeroCreate (args.Length + 1)
+                for i in 1 .. args.Length do
+                    ps.[i] <- args.[i - 1]
+                ps.[0] <- inst
+                run.InvokeN(ps) |> enc
             | None ->
                 raise InvalidHandlerException
 

@@ -31,18 +31,4 @@ let downloadFile (filename: string) =
     download url path
 
 makeDir libDir
-downloadFile "AjaxMin.dll"
-downloadFile "AjaxMin.tasks"
-downloadFile "AjaxMinTask.dll"
-downloadFile "Mono.Cecil.dll"
-downloadFile "Mono.Cecil.Mdb.dll"
-downloadFile "Mono.Cecil.Pdb.dll"
 downloadFile "IntelliFactory.Xml.dll"
-
-do
-    let v = "1.9.1"
-    baseDir ++ "IntelliFactory.WebSharper.JQuery" ++ sprintf "jquery-%s.js" v
-    |> download (sprintf "http://code.jquery.com/jquery-%s.js" v)
-
-    baseDir ++ "IntelliFactory.WebSharper.JQuery" ++ sprintf "jquery-%s.min.js" v
-    |> download (sprintf "http://code.jquery.com/jquery-%s.min.js" v)
