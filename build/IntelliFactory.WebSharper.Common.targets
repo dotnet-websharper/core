@@ -61,6 +61,7 @@
     <AssemblySearchPaths>
       $(MSBuildProjectDirectory)\..\.build\lib;
       $(MSBuildProjectDirectory)\..\Lib;
+      $(MSBuildProjectDirectory)\..\packages\Mono.Cecil.0.9.5.4\lib\net35;
       $(AssemblySearchPaths);
       $(WEBSHARPER_HOME)
     </AssemblySearchPaths>
