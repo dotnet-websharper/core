@@ -46,7 +46,7 @@
 
   <!-- AjaxMin -->
   <PropertyGroup>
-    <AjaxMinTargets>$(MSBuildThisFileDirectory)\..\Lib\AjaxMin.tasks</AjaxMinTargets>
+    <AjaxMinTargets>$(MSBuildThisFileDirectory)\..\packages\AjaxMin.4.84.4790.14417\tools\net40\AjaxMin.tasks</AjaxMinTargets>
   </PropertyGroup>
   <Import Project="$(AjaxMinTargets)" Condition="Exists('$(AjaxMinTargets)')" />
 
