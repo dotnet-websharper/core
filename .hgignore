@@ -11,4 +11,4 @@
 ^\.nuget
 ^build/vs10/packages
 ^build/vs11/packages
-^packages
+^packages/
