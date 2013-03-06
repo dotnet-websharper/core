@@ -33,7 +33,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="IntelliFactory.FastInvoke">
-      <HintPath>../packages/IntelliFactory.FastInvoke.0.0.2/lib/net20/IntelliFactory.FastInvoke.dll</HintPath>
+      <HintPath>../packages/IntelliFactory.FastInvoke.0.0.3/lib/net20/IntelliFactory.FastInvoke.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core">
