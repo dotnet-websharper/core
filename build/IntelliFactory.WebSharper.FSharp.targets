@@ -36,10 +36,7 @@
 
   <!-- AssemblyInfo.fs -->
   <ItemGroup>
-    <Compile Include="$(MSBuildProjectDirectory)\..\.build\AutoAssemblyInfo.fs"
-             Condition="'$(BuildKind)' == 'internal'"/>
-    <Compile Include="$(MSBuildThisFileDirectory)\AssemblyInfo.fs"
-             Condition="'$(BuildKind)' == 'self'"/>
+    <Compile Include="$(MSBuildProjectDirectory)\..\.build\AssemblyInfo.fs" />
   </ItemGroup>
 
   <Import Project="$(FSharpHome)\Microsoft.FSharp.targets" />

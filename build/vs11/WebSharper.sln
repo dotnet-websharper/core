@@ -5,8 +5,6 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.JavaScript",
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{BC76F2F0-F39D-425C-98E3-47636AAD023B}"
 	ProjectSection(SolutionItems) = preProject
-		..\AssemblyInfo.fs = ..\AssemblyInfo.fs
-		..\Build.fsx = ..\Build.fsx
 		..\IntelliFactory.FSharp.targets = ..\IntelliFactory.FSharp.targets
 		..\IntelliFactory.WebSharper.Common.targets = ..\IntelliFactory.WebSharper.Common.targets
 		..\IntelliFactory.WebSharper.CSharp.targets = ..\IntelliFactory.WebSharper.CSharp.targets
@@ -18,7 +16,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{BC76F2F0
 		..\..\ivy.xml = ..\..\ivy.xml
 		..\LICENSE.txt = ..\LICENSE.txt
 		..\UpdateLicense.fsx = ..\UpdateLicense.fsx
-		..\..\WebSharper.proj = ..\..\WebSharper.proj
 		..\WebSharper.snk = ..\WebSharper.snk
 	EndProjectSection
 EndProject
@@ -85,6 +82,14 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.WebSharper.Sitelets", "..\..\IntelliFactory.WebSharper.Sitelets\IntelliFactory.WebSharper.Sitelets.fsproj", "{D991329A-3AA3-4269-83AD-3597864855A0}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.WebSharper.Sitelets.Tests", "..\..\IntelliFactory.WebSharper.Sitelets.Tests\IntelliFactory.WebSharper.Sitelets.Tests.fsproj", "{BBA692B3-AB48-4F2E-8A33-260B0DD09A9B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{92726DCD-05D1-4C09-B630-3FDD5442D1CB}"
+	ProjectSection(SolutionItems) = preProject
+		..\..\Build.fsx = ..\..\Build.fsx
+		..\..\Config.xml = ..\..\Config.xml
+		..\..\WebSharper.nuspec.template = ..\..\WebSharper.nuspec.template
+		..\..\WebSharper.targets.template = ..\..\WebSharper.targets.template
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -2,7 +2,6 @@ open System
 open System.IO
 open System.Text
 
-
 /// Replaces the copyright notice in a given file.
 let replaceCopyright file (newCopyright: string []) =
     let lines = File.ReadLines file
