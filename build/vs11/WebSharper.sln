@@ -13,7 +13,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{BC76F2F0
 		..\IntelliFactory.WebSharper.Sitelets.targets = ..\IntelliFactory.WebSharper.Sitelets.targets
 		..\IntelliFactory.WebSharper.targets = ..\IntelliFactory.WebSharper.targets
 		..\IntelliFactory.WebSharper.Web.targets = ..\IntelliFactory.WebSharper.Web.targets
-		..\..\ivy.xml = ..\..\ivy.xml
 		..\LICENSE.txt = ..\LICENSE.txt
 		..\UpdateLicense.fsx = ..\UpdateLicense.fsx
 		..\WebSharper.snk = ..\WebSharper.snk
