@@ -25,6 +25,7 @@ module Config =
         v.Value
 
     let AssemblyVersion = Version(setting "AssemblyVersion")
+    let FileVersion = Version(setting "FileVersion")
     let PackageVersion = setting "PackageVersion"
 
 /// Infers the current Mercurial revision from the `.hg` folder.
@@ -44,11 +45,17 @@ module Tagging =
             let buildDir = baseDir +/ ".build"
             ensureDirectory buildDir
             let info = buildDir +/ "AssemblyInfo.fs"
+            let desc =
+                String.Format("This file is part of WebSharper. See \
+                    the source code at <http://bitbucket.org/IntelliFactory/websharper>. \
+                    Mercurial tag: {0}. Build date: {1}", tag, System.DateTimeOffset.UtcNow)
             AssemblyInfoFile.CreateFSharpAssemblyInfo info [
                 A.Company "IntelliFactory"
                 A.Copyright (String.Format("(c) {0} IntelliFactory", DateTime.Now.Year))
-                A.Description tag
+                A.FileVersion (string Config.FileVersion)
+                A.Description desc
                 A.Product "WebSharper"
+                A.Version (string Config.AssemblyVersion)
             ]
         )
 
