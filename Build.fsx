@@ -1,32 +1,20 @@
 #r @"packages/FAKE.1.74.127.0/tools/FakeLib.dll"
-#r "System.Xml"
-#r "System.Xml.Linq"
 
 open System
 open System.IO
 open System.Net
-open System.Xml
-open System.Xml.Linq
 open Fake
+
+module Config =
+    let AssemblyVersion = Version("2.5.0.0")
+    let FileVersion = Version("2.5.1.0")
+    let PackageVersion = "2.5.1-alpha"
+    let Repo = "http://bitbucket.org/IntelliFactory/websharper"
+    let Product = "WebSharper"
 
 let ( +/ ) a b = Path.Combine(a, b)
 let T n f = Target n f; n
 let baseDir = __SOURCE_DIRECTORY__
-
-module Config =
-
-    let private doc = XDocument.Load(baseDir +/ "Config.xml")
-
-    let private setting name =
-        let v =
-            let n = XName.Get(name)
-            doc.Descendants()
-            |> Seq.find (fun x -> x.Name = n)
-        v.Value
-
-    let AssemblyVersion = Version(setting "AssemblyVersion")
-    let FileVersion = Version(setting "FileVersion")
-    let PackageVersion = setting "PackageVersion"
 
 /// Infers the current Mercurial revision from the `.hg` folder.
 let InferTag () =
@@ -44,19 +32,19 @@ module Tagging =
             let tag = InferTag ()
             let buildDir = baseDir +/ ".build"
             ensureDirectory buildDir
-            let fsInfo = buildDir +/ "AssemblyInfo.fs"
+            let fsInfo = buildDir +/ "AutoAssemblyInfo.fs"
             let csInfo = buildDir +/ "AutoAssemblyInfo.cs"
             let desc =
                 String.Format("This file is part of WebSharper. See \
-                    the source code at <http://bitbucket.org/IntelliFactory/websharper>. \
-                    Mercurial tag: {0}. Build date: {1}", tag, System.DateTimeOffset.UtcNow)
+                    the source code at <{2}> \
+                    Mercurial tag: {0}. Build date: {1}", tag, DateTimeOffset.UtcNow, Config.Repo)
             let attrs =
                 [
                     A.Company "IntelliFactory"
                     A.Copyright (String.Format("(c) {0} IntelliFactory", DateTime.Now.Year))
                     A.FileVersion (string Config.FileVersion)
                     A.Description desc
-                    A.Product "WebSharper"
+                    A.Product (String.Format("{1} (tag: {0})", tag, Config.Product))
                     A.Version (string Config.AssemblyVersion)
                 ]
             AssemblyInfoFile.CreateFSharpAssemblyInfo fsInfo attrs

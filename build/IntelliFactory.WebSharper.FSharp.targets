@@ -36,7 +36,8 @@
 
   <!-- AssemblyInfo.fs -->
   <ItemGroup>
-    <Compile Include="$(MSBuildProjectDirectory)\..\.build\AssemblyInfo.fs" />
+    <Compile Include="$(MSBuildProjectDirectory)\..\.build\AutoAssemblyInfo.fs"
+             Condition="Exists('$(MSBuildProjectDirectory)\..\.build\AutoAssemblyInfo.fs')" />
   </ItemGroup>
 
   <Import Project="$(FSharpHome)\Microsoft.FSharp.targets" />
