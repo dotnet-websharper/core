@@ -52,7 +52,7 @@ let private usage =
 Usage: WebSharper.exe [options] input.dll output.dll
 
 WebSharper (TM) Compiler V{0}
-Copyright (c) IntelliFactory, 2004-2012.
+Copyright (c) IntelliFactory, 2004-2013.
 
 Compiles F#-produced assemblies to JavaScript, adding the resulting
 code as an embedded resource to the assembly.", version.FileVersion)

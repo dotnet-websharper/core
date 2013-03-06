@@ -150,7 +150,7 @@ let BuildProjects =
 let Clean =
     T "Clean" <| fun () ->
         MSBuildRelease "" "Clean" AllProjects |> ignore
-
+        DeleteDir (baseDir +/ ".build")
 Clean
     ==> DownloadDependencies
     ==> PrepareAssemblyInfo
