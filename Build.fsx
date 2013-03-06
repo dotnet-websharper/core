@@ -44,19 +44,23 @@ module Tagging =
             let tag = InferTag ()
             let buildDir = baseDir +/ ".build"
             ensureDirectory buildDir
-            let info = buildDir +/ "AssemblyInfo.fs"
+            let fsInfo = buildDir +/ "AssemblyInfo.fs"
+            let csInfo = buildDir +/ "AutoAssemblyInfo.cs"
             let desc =
                 String.Format("This file is part of WebSharper. See \
                     the source code at <http://bitbucket.org/IntelliFactory/websharper>. \
                     Mercurial tag: {0}. Build date: {1}", tag, System.DateTimeOffset.UtcNow)
-            AssemblyInfoFile.CreateFSharpAssemblyInfo info [
-                A.Company "IntelliFactory"
-                A.Copyright (String.Format("(c) {0} IntelliFactory", DateTime.Now.Year))
-                A.FileVersion (string Config.FileVersion)
-                A.Description desc
-                A.Product "WebSharper"
-                A.Version (string Config.AssemblyVersion)
-            ]
+            let attrs =
+                [
+                    A.Company "IntelliFactory"
+                    A.Copyright (String.Format("(c) {0} IntelliFactory", DateTime.Now.Year))
+                    A.FileVersion (string Config.FileVersion)
+                    A.Description desc
+                    A.Product "WebSharper"
+                    A.Version (string Config.AssemblyVersion)
+                ]
+            AssemblyInfoFile.CreateFSharpAssemblyInfo fsInfo attrs
+            AssemblyInfoFile.CreateCSharpAssemblyInfo csInfo attrs
         )
 
 let AllProjects =
@@ -167,3 +171,4 @@ Clean
     ==> BuildNuGet
 
 RunTargetOrDefault BuildNuGet
+
