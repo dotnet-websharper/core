@@ -36,7 +36,7 @@
       <HintPath>../packages/IntelliFactory.FastInvoke.0.0.3/lib/net20/IntelliFactory.FastInvoke.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core">
+    <Reference Include="FSharp.Core, Version=2.3.0.0">
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />

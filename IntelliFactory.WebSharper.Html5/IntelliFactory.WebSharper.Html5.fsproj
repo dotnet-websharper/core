@@ -38,7 +38,7 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core" />
+    <Reference Include="FSharp.Core, Version=2.3.0.0" />
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>

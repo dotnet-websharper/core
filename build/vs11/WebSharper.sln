@@ -82,10 +82,13 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.WebSharper.S
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.WebSharper.Sitelets.Tests", "..\..\IntelliFactory.WebSharper.Sitelets.Tests\IntelliFactory.WebSharper.Sitelets.Tests.fsproj", "{BBA692B3-AB48-4F2E-8A33-260B0DD09A9B}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{92726DCD-05D1-4C09-B630-3FDD5442D1CB}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root", "Root", "{4A2E3AC5-FBD2-4691-93FE-BC5A642E8B4D}"
 	ProjectSection(SolutionItems) = preProject
 		..\..\Build.fsx = ..\..\Build.fsx
-		..\..\Config.xml = ..\..\Config.xml
+		..\..\Build.proj = ..\..\Build.proj
+		..\..\LICENSE.txt = ..\..\LICENSE.txt
+		..\..\packages.config = ..\..\packages.config
+		..\..\README.markdown = ..\..\README.markdown
 		..\..\WebSharper.nuspec.template = ..\..\WebSharper.nuspec.template
 		..\..\WebSharper.targets.template = ..\..\WebSharper.targets.template
 	EndProjectSection

@@ -39,7 +39,7 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="FSharp.Core" />
+    <Reference Include="FSharp.Core, Version=2.3.0.0" />
     <Reference Include="mscorlib" />
     <Reference Include="System" />
   </ItemGroup>

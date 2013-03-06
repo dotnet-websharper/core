@@ -43,7 +43,7 @@
     <EmbeddedResource Include="..\packages\jQuery.$(JQueryVersion)\Content\Scripts\jquery-$(JQueryVersion).js" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="FSharp.Core" />
+    <Reference Include="FSharp.Core, Version=2.3.0.0" />
     <Reference Include="System" />
     <Reference Include="mscorlib" />
     <Reference Include="System.Web" />

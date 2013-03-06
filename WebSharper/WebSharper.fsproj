@@ -73,7 +73,7 @@
     <Reference Include="Mono.Cecil.Mdb" />
     <Reference Include="Mono.Cecil.Pdb" />
     <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core">
+    <Reference Include="FSharp.Core, Version=2.3.0.0">
       <Private>true</Private>
     </Reference>
     <Reference Include="System" />
