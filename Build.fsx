@@ -7,8 +7,8 @@ open Fake
 
 module Config =
     let AssemblyVersion = Version("2.5.0.0")
-    let FileVersion = Version("2.5.1.0")
-    let PackageVersion = "2.5.1-alpha"
+    let FileVersion = Version("2.5.2.0")
+    let PackageVersion = "2.5.2-alpha"
     let Repo = "http://bitbucket.org/IntelliFactory/websharper"
     let Product = "WebSharper"
 
