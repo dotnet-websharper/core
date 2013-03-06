@@ -143,20 +143,20 @@ let BuildNuGet =
                 WorkingDir = bDir
             })
 
-//let BuildProjects =
-//    T "BuildProjects" <| fun () ->
-//        MSBuildRelease "" "Build" AllProjects |> ignore
-//
-//let Clean =
-//    T "Clean" <| fun () ->
-//        MSBuildRelease "" "Clean" AllProjects |> ignore
+let BuildProjects =
+    T "BuildProjects" <| fun () ->
+        MSBuildRelease "" "Build" AllProjects |> ignore
 
-//Clean
-//    ==> DownloadDependencies
-//    ==> PrepareAssemblyInfo
-//    ==> BuildCompiler
-//    ==> BuildProjects
-PrepareTargets
+let Clean =
+    T "Clean" <| fun () ->
+        MSBuildRelease "" "Clean" AllProjects |> ignore
+
+Clean
+    ==> DownloadDependencies
+    ==> PrepareAssemblyInfo
+    ==> BuildCompiler
+    ==> BuildProjects
+    ==> PrepareTargets
     ==> BuildNuGet
 
 RunTargetOrDefault BuildNuGet
