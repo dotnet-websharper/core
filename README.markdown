@@ -48,6 +48,14 @@ The easiest way to obtain WebSharper is by using the binary installer
 The installer adds templates to Visual Studio and makes it easy to get
 started.
 
+Alternatively, you can try getting the cutting-edge alpha release - we
+are currently in the process of testing it and preparing matching
+extensions before making it official.  The binaries are available on
+NuGet under the `2.5.*-alpha` version.  There is also a sample
+[AppHarbor](http://appharbor.com) application you can clone to quickly
+get started:
+[websharper-bootstrap-site](http://bitbucket.org/IntelliFactory/websharper-boostrap-site).
+
 ## Building
 
 Build requirements:
