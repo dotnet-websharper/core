@@ -54,7 +54,7 @@ extensions before making it official.  The binaries are available on
 NuGet under the `2.5.*-alpha` version.  There is also a sample
 [AppHarbor](http://appharbor.com) application you can clone to quickly
 get started:
-[websharper-bootstrap-site](http://bitbucket.org/IntelliFactory/websharper-boostrap-site).
+[websharper-bootstrap-site](http://bitbucket.org/IntelliFactory/websharper-bootstrap-site).
 
 ## Building
 
