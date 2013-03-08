@@ -56,6 +56,11 @@ NuGet under the `2.5.*-alpha` version.  There is also a sample
 get started:
 [websharper-bootstrap-site](http://bitbucket.org/IntelliFactory/websharper-bootstrap-site).
 
+To obtain the source code, please use our [Bitbucket
+repository](http://bitbucket.org/IntelliFactory/websharper).  If you
+prefer `git`, a GitHub clone of the repository is also
+[available](http://github.com/intellifactory/websharper).
+
 ## Building
 
 Build requirements:
