@@ -74,7 +74,8 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-  <Target Name="BeforeBuildX" Inputs="Json.js" Outputs="Json.min.js">
+  <Import Project="../build/WebSharper.targets" />
+  <Target Name="BeforeBuild" Inputs="Json.js" Outputs="Json.min.js">
     <AjaxMin JsSourceFiles="Json.js" JsSourceExtensionPattern="\.js$" JsTargetExtension=".min.js" />
   </Target>
   <Target Name="BeforeClean">
@@ -83,5 +84,4 @@
     </ItemGroup>
     <Delete Files="@(GeneratedJavaScript)" />
   </Target>
-  <Import Project="../build/WebSharper.targets" />
 </Project>
