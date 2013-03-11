@@ -69,6 +69,7 @@
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
       <HintPath>$(SolutionDir)/packages/$(FSharpPackage)/lib/net40/FSharp.Core.dll</HintPath>
+      <SpecificVersion>true</SpecificVersion>
     </Reference>
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
@@ -77,6 +78,7 @@
     <Reference Include="FSharp.Core, Version=2.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
       <HintPath>$(SolutionDir)/packages/$(FSharpPackage)/lib/net20/FSharp.Core.dll</HintPath>
+      <SpecificVersion>true</SpecificVersion>
     </Reference>
   </ItemGroup>
   <ItemGroup>
