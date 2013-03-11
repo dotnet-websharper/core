@@ -14,12 +14,12 @@
              Properties="DownloadNuGetExe=true;ProjectDir=$(Root);SolutionDir=$(Root)" />
   </Target>
   <Target Name="Build" DependsOnTargets="Boot">
-    <Exec Command='"$(FAKE)" Build.fsx'
+    <Exec Command='"$(FAKE)" Build/Build.fsx'
           WorkingDirectory="$(MSBuildThisFileDirectory)"
           LogStandardErrorAsError="True" />
   </Target>
   <Target Name="Clean">
-    <Exec Command='"$(FAKE)" Build.fsx Clean'
+    <Exec Command='"$(FAKE)" Build/Build.fsx Clean'
           WorkingDirectory="$(MSBuildThisFileDirectory)"
           LogStandardErrorAsError="True" />
   </Target>

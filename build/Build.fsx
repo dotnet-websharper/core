@@ -1,4 +1,4 @@
-#r @"packages/FAKE.1.74.127.0/tools/FakeLib.dll"
+#r @"../packages/FAKE.1.74.127.0/tools/FakeLib.dll"
 
 open System
 open System.IO
@@ -14,7 +14,7 @@ module Config =
 
 let ( +/ ) a b = Path.Combine(a, b)
 let T n f = Target n f; n
-let baseDir = __SOURCE_DIRECTORY__
+let baseDir = Path.GetDirectoryName(__SOURCE_DIRECTORY__)
 
 /// Infers the current Mercurial revision from the `.hg` folder.
 let InferTag () =
