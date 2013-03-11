@@ -20,8 +20,7 @@
 //
 // $end{copyright}
 -->
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">  
-  <Import Project="IntelliFactory.WebSharper.FSharp.targets" Condition=" '$(BuildKind)' != 'self' "/>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <PropertyGroup>
     <CleanDependsOn>$(CleanDependsOn);WebSharperClean</CleanDependsOn>
@@ -32,8 +31,8 @@
 
   <Target Name="WebSharperPrepare">
     <PropertyGroup>
-      <RawFolder>$(MSBuildProjectDirectory)\obj\$(Configuration)\Raw</RawFolder>
-      <RawIntermediateAssembly>$(RawFolder)\@(IntermediateAssembly->'%(Filename)%(Extension)')</RawIntermediateAssembly>
+      <RawFolder>$(MSBuildProjectDirectory)/obj/$(Configuration)/Raw</RawFolder>
+      <RawIntermediateAssembly>$(RawFolder)/@(IntermediateAssembly->'%(Filename)%(Extension)')</RawIntermediateAssembly>
       <ProcessedIntermediateAssembly>@(IntermediateAssembly->'%(FullPath)')</ProcessedIntermediateAssembly>
     </PropertyGroup>
     <MakeDir Directories="$(RawFolder)" />
@@ -53,9 +52,8 @@
       <WebSharperRefs>@(ReferencePath->'-r "%(FullPath)"',' ')</WebSharperRefs>
       <WebSharperArgs>$(WebSharperRefs) $(WebSharperKey) "$(RawIntermediateAssembly)" "$(ProcessedIntermediateAssembly)"</WebSharperArgs>
     </PropertyGroup>
-    <Exec Command="&quot;$(WEBSHARPER_HOME)\WebSharper.exe&quot; $(WebSharperArgs)"
-          Condition="Exists('$(RawIntermediateAssembly)')"
-          />
+    <Exec Command="&quot;$(WEBSHARPER_HOME)/WebSharper.exe&quot; $(WebSharperArgs)"
+          Condition="Exists('$(RawIntermediateAssembly)')" />
     <ItemGroup>
       <IntermediateAssembly Remove="@(IntermediateAssembly)" />
       <IntermediateAssembly Include="$(ProcessedIntermediateAssembly)" />
@@ -64,10 +62,10 @@
 
   <Target Name="WebSharperClean">
     <ItemGroup>
-      <GeneratedFiles Include="$(OutputPath)\**\*.*"
-                      Exclude="$(OutputPath)\**\*.xml" />
-      <GeneratedFiles Include="obj\$(Configuration)\**\*.*"
-                      Exclude="obj\$(Configuration)\**\*.xml" />
+      <GeneratedFiles Include="$(OutputPath)/**/*.*"
+                      Exclude="$(OutputPath)/**/*.xml" />
+      <GeneratedFiles Include="obj/$(Configuration)/**/*.*"
+                      Exclude="obj/$(Configuration)/**/*.xml" />
     </ItemGroup>
     <Delete Files="@(GeneratedFiles)" />
   </Target>

@@ -1,39 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper</Name>
-    <RootNamespace>$(Name)</RootNamespace>
-    <AssemblyName>$(Name)</AssemblyName>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
-    <TargetFrameworkProfile />
-    <WebSharperDisabled Condition="'$(WebSharperDisabled)'==''">true</WebSharperDisabled>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>true</Optimize>
-    <Tailcalls>false</Tailcalls>
-    <OutputPath>bin\Debug</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\$(Name).xml</DocumentationFile>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <Tailcalls>true</Tailcalls>
-    <OutputPath>bin\Release</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\$(Name).xml</DocumentationFile>
-  </PropertyGroup>
-  <Import Project="..\build\IntelliFactory.WebSharper.targets" />
   <ItemGroup>
     <Compile Include="JavaScript.fs" />
     <EmbeddedResource Include="Json.js" />
@@ -49,62 +22,66 @@
     <Compile Include="Enumerator.fs" />
     <Compile Include="Enumerable.fs" />
     <Compile Include="Resources.fs" />
-    <Compile Include="Proxy\Array.fs" />
-    <Compile Include="Proxy\ArrayModule.fs" />
-    <Compile Include="Proxy\Async.fs" />
-    <Compile Include="Proxy\AsyncBuilder.fs" />
-    <Compile Include="Proxy\Char.fs" />
-    <Compile Include="Proxy\Choice.fs" />
-    <Compile Include="Proxy\CommonExtensions.fs" />
-    <Compile Include="Proxy\DateTime.fs" />
-    <Compile Include="Proxy\Double.fs" />
-    <Compile Include="Proxy\Exception.fs" />
-    <Compile Include="Proxy\ExtraTopLevelOperators.fs" />
-    <Compile Include="Proxy\IDisposable.fs" />
-    <Compile Include="Proxy\IEnumerable.fs" />
-    <Compile Include="Proxy\IEnumerator.fs" />
-    <Compile Include="Proxy\Int32.fs" />
-    <Compile Include="Proxy\IntrinsicFunctions.fs" />
-    <Compile Include="Proxy\IntrinsicOperators.fs" />
-    <Compile Include="Proxy\KeyValuePair.fs" />
-    <Compile Include="Proxy\LanguagePrimitives.fs" />
-    <Compile Include="Proxy\Lazy.fs" />
-    <Compile Include="Proxy\LazyExtensions.fs" />
-    <Compile Include="Proxy\List.fs" />
-    <Compile Include="Proxy\ListModule.fs" />
-    <Compile Include="Proxy\Math.fs" />
-    <Compile Include="Proxy\Object.fs" />
-    <Compile Include="Proxy\Operators.fs" />
-    <Compile Include="Proxy\Option.fs" />
-    <Compile Include="Proxy\OptionModule.fs" />
-    <Compile Include="Proxy\Queue.fs" />
-    <Compile Include="Proxy\Ref.fs" />
-    <Compile Include="Proxy\RuntimeHelpers.fs" />
-    <Compile Include="Proxy\SeqModule.fs" />
-    <Compile Include="Proxy\Stack.fs" />
-    <Compile Include="Proxy\String.fs" />
-    <Compile Include="Proxy\TimeSpan.fs" />
-    <Compile Include="Proxy\Unchecked.fs" />
+    <Compile Include="Proxy/Array.fs" />
+    <Compile Include="Proxy/ArrayModule.fs" />
+    <Compile Include="Proxy/Async.fs" />
+    <Compile Include="Proxy/AsyncBuilder.fs" />
+    <Compile Include="Proxy/Char.fs" />
+    <Compile Include="Proxy/Choice.fs" />
+    <Compile Include="Proxy/CommonExtensions.fs" />
+    <Compile Include="Proxy/DateTime.fs" />
+    <Compile Include="Proxy/Double.fs" />
+    <Compile Include="Proxy/Exception.fs" />
+    <Compile Include="Proxy/ExtraTopLevelOperators.fs" />
+    <Compile Include="Proxy/IDisposable.fs" />
+    <Compile Include="Proxy/IEnumerable.fs" />
+    <Compile Include="Proxy/IEnumerator.fs" />
+    <Compile Include="Proxy/Int32.fs" />
+    <Compile Include="Proxy/IntrinsicFunctions.fs" />
+    <Compile Include="Proxy/IntrinsicOperators.fs" />
+    <Compile Include="Proxy/KeyValuePair.fs" />
+    <Compile Include="Proxy/LanguagePrimitives.fs" />
+    <Compile Include="Proxy/Lazy.fs" />
+    <Compile Include="Proxy/LazyExtensions.fs" />
+    <Compile Include="Proxy/List.fs" />
+    <Compile Include="Proxy/ListModule.fs" />
+    <Compile Include="Proxy/Math.fs" />
+    <Compile Include="Proxy/Object.fs" />
+    <Compile Include="Proxy/Operators.fs" />
+    <Compile Include="Proxy/Option.fs" />
+    <Compile Include="Proxy/OptionModule.fs" />
+    <Compile Include="Proxy/Queue.fs" />
+    <Compile Include="Proxy/Ref.fs" />
+    <Compile Include="Proxy/RuntimeHelpers.fs" />
+    <Compile Include="Proxy/SeqModule.fs" />
+    <Compile Include="Proxy/Stack.fs" />
+    <Compile Include="Proxy/String.fs" />
+    <Compile Include="Proxy/TimeSpan.fs" />
+    <Compile Include="Proxy/Unchecked.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="FSharp.Core, Version=2.3.0.0" />
-    <Reference Include="System" />
-    <Reference Include="mscorlib" />
     <Reference Include="System.Web" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
+    <ProjectReference Include="../IntelliFactory.JavaScript/IntelliFactory.JavaScript.fsproj">
       <Name>IntelliFactory.JavaScript</Name>
       <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
+    <ProjectReference Include="../IntelliFactory.WebSharper.Core/IntelliFactory.WebSharper.Core.fsproj">
       <Name>IntelliFactory.WebSharper.Core</Name>
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-  <Target Name="BeforeBuild" Inputs="Json.js" Outputs="Json.min.js">
+  <Target Name="BeforeBuildX" Inputs="Json.js" Outputs="Json.min.js">
     <AjaxMin JsSourceFiles="Json.js" JsSourceExtensionPattern="\.js$" JsTargetExtension=".min.js" />
   </Target>
+  <Target Name="BeforeClean">
+    <ItemGroup>
+      <GeneratedJavaScript Include="Json.min.js" />
+    </ItemGroup>
+    <Delete Files="@(GeneratedJavaScript)" />
+  </Target>
+  <Import Project="../build/WebSharper.targets" />
 </Project>

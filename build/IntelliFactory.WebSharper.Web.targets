@@ -21,7 +21,10 @@
 // $end{copyright}
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="IntelliFactory.WebSharper.CSharp.targets" />
+
+  <PropertyGroup Condition=" '$(WEBSHARPER_HOME)' != '' ">
+    <AssemblySearchPaths>$(AssemblySearchPaths);$(WEBSHARPER_HOME)</AssemblySearchPaths>
+  </PropertyGroup>
 
   <PropertyGroup>
     <CleanDependsOn>$(CleanDependsOn);WebSharperWebClean</CleanDependsOn>
@@ -45,7 +48,7 @@
     <PropertyGroup>
       <WebSharperArgs>-unpack "$(WebSharperScriptsFolder)" @(WebSharperBinaries->'"%(FullPath)"',' ')</WebSharperArgs>
     </PropertyGroup>
-    <Exec Command='"$(WEBSHARPER_HOME)\WebSharper.$(TargetFrameworkVersion).exe" $(WebSharperArgs)' />
+    <Exec Command='"$(WEBSHARPER_HOME)\WebSharper.exe" $(WebSharperArgs)' />
     <Touch Files="$(WebSharperMarker)" AlwaysCreate="true" />
   </Target>
 

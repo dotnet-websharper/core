@@ -1,39 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.JavaScript</Name>
-    <RootNamespace>$(Name)</RootNamespace>
-    <AssemblyName>$(Name)</AssemblyName>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
-    <TargetFrameworkProfile />
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <Tailcalls>false</Tailcalls>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\$(Name).xml</DocumentationFile>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <Tailcalls>true</Tailcalls>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\$(Name).xml</DocumentationFile>
-    <OtherFlags />
-  </PropertyGroup>
-  <Import Project="..\build\IntelliFactory.FSharp.targets" />
   <ItemGroup>
     <Compile Include="Extensions.fs" />
     <Compile Include="Preferences.fs" />
@@ -56,14 +29,16 @@
     <Compile Include="Annotations.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=2.3.0.0" />
-    <Reference Include="System" />
     <Reference Include="System.Web" />
   </ItemGroup>
+  <Import Project="..\build\FSharp.targets" />
   <Target Name="BeforeBuild" Inputs="Runtime.js" Outputs="Runtime.min.js">
-    <AjaxMin JsSourceFiles="Runtime.js"
-	     JsSourceExtensionPattern="\.js$"
-	     JsTargetExtension=".min.js" />
+    <AjaxMin JsSourceFiles="Runtime.js" JsSourceExtensionPattern="\.js$" JsTargetExtension=".min.js" />
+  </Target>
+  <Target Name="BeforeClean">
+    <ItemGroup>
+      <GeneratedJavaScript Include="Runtime.min.js" />
+    </ItemGroup>
+    <Delete Files="@(GeneratedJavaScript)" />
   </Target>
 </Project>

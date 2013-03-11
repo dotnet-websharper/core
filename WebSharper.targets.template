@@ -5,7 +5,12 @@
     <PackagesFolder Condition=" !Exists('$(PackagesFolder)') ">$(MSBuildProjectDirectory)\..\packages</PackagesFolder>
     <PackagesFolder Condition=" !Exists('$(PackagesFolder)') ">$(MSBuildProjectDirectory)\..\..\packages</PackagesFolder>
     <PackagesFolder Condition=" !Exists('$(PackagesFolder)') ">$(MSBuildProjectDirectory)\..\..\..\packages</PackagesFolder>
-    <WebSharperHome>$(PackagesFolder)\WebSharper.$(WebSharperVersion)\tools</WebSharperHome>
+    <WebSharperHome Condition=" '$(TargetFrameworkVersion)' == 'v2.0' ">$(PackagesFolder)\WebSharper.$(WebSharperVersion)\tools\net20</WebSharperHome>
+    <WebSharperHome Condition=" '$(TargetFrameworkVersion)' == 'v3.0' ">$(PackagesFolder)\WebSharper.$(WebSharperVersion)\tools\net20</WebSharperHome>
+    <WebSharperHome Condition=" '$(TargetFrameworkVersion)' == 'v3.5' ">$(PackagesFolder)\WebSharper.$(WebSharperVersion)\tools\net20</WebSharperHome>
+    <WebSharperHome Condition=" '$(TargetFrameworkVersion)' == 'v4.0' ">$(PackagesFolder)\WebSharper.$(WebSharperVersion)\tools\net40</WebSharperHome>
+    <WebSharperHome Condition=" '$(TargetFrameworkVersion)' == 'v4.5' ">$(PackagesFolder)\WebSharper.$(WebSharperVersion)\tools\net40</WebSharperHome>
+    <WebSharperHome Condition=" '$(TargetFrameworkVersion)' == '' ">$(PackagesFolder)\WebSharper.$(WebSharperVersion)\tools\net40</WebSharperHome>
     <WEBSHARPER_HOME Condition=" Exists('$(WebSharperHome)')">$(WebSharperHome)</WEBSHARPER_HOME>
   </PropertyGroup>
 </Project>

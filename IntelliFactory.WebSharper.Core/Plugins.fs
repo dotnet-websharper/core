@@ -97,8 +97,8 @@ type PluginsSection() =
 /// Uses application configuration to get the plugins.
 module Configuration =
 
-    let private tryLoadPlugin (el: PluginElement) =
-        match Type.GetType(el.Implementation) with
+    let private tryLoadPlugin (fullName: string) =
+        match Type.GetType(fullName) with
         | null -> None
         | t ->
             let instance =
@@ -109,12 +109,21 @@ module Configuration =
                 | :? IPlugin as self -> Some self
                 | _ -> None)
 
+    let private getKnownPlugins () =
+        [
+            "IntelliFactory.WebSharper.Sitelets.Plugin, \
+                IntelliFactory.WebSharper.Sitelets"
+        ]
+        |> Seq.choose tryLoadPlugin
+
     /// Loads configured plugins.
     let GetPlugins () =
         let key = "IntelliFactory.WebSharper.Plugins"
         match ConfigurationManager.GetSection(key) with
         | :? PluginsSection as s ->
             s.Plugins.Elements
+            |> Seq.map (fun e -> e.Implementation)
             |> Seq.choose tryLoadPlugin
+            |> Seq.append (getKnownPlugins ())
         | _ ->
             Seq.empty

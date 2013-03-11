@@ -1,0 +1,109 @@
+<!--
+// $begin{copyright}
+//
+// This file is part of WebSharper
+//
+// Copyright (c) 2008-2013 IntelliFactory
+//
+// GNU Affero General Public License Usage
+// WebSharper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU Affero General Public License, version 3, as published
+// by the Free Software Foundation.
+//
+// WebSharper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License
+// for more details at <http://www.gnu.org/licenses/>.
+//
+// If you are unsure which license is appropriate for your use, please contact
+// IntelliFactory at http://intellifactory.com/contact.
+//
+// $end{copyright}
+-->
+
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <AjaxMinPackage>AjaxMin.4.84.4790.14417</AjaxMinPackage>
+    <FastInvokePackage>IntelliFactory.FastInvoke.0.0.3</FastInvokePackage>
+    <FSharpPackage>FSharp.Core.3.0.0.2</FSharpPackage>
+    <MonoCecilPackage>Mono.Cecil.0.9.5.4</MonoCecilPackage>
+  </PropertyGroup>
+  <PropertyGroup>
+    <FSharpHome1>$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0</FSharpHome1>
+    <FSharpHome2>$(MSBuildExtensionsPath32)/../Microsoft F#/v4.0/</FSharpHome2>
+    <FSharpHome3>$(MSBuildExtensionsPath32)/FSharp/1.0</FSharpHome3>
+    <FSharpHome Condition="Exists('$(FSharpHome1)') AND '$(FSharpHome)' == ''">$(FSharpHome1)</FSharpHome>
+    <FSharpHome Condition="Exists('$(FSharpHome2)') AND '$(FSharpHome)' == ''">$(FSharpHome2)</FSharpHome>
+    <FSharpHome Condition="Exists('$(FSharpHome3)') AND '$(FSharpHome)' == ''">$(FSharpHome3)</FSharpHome>
+    <TargetFrameworkVersion Condition=" '$(Framework)' == '' ">v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion Condition=" '$(Framework)' == 'v4.0' ">v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion Condition=" '$(Framework)' == 'v3.5' ">v3.5</TargetFrameworkVersion>
+    <Configuration Condition=" '$(Configuration)' == '' ">Release-$(TargetFrameworkVersion)</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <V4 Condition=" '$(TargetFrameworkVersion)' == 'v4.0' ">True</V4>
+    <V4 Condition=" '$(TargetFrameworkVersion)' != 'v4.0' ">False</V4>
+    <KeyOriginatorFile Condition="Exists('$(INTELLIFACTORY)/keys/IntelliFactory.snk')">$(INTELLIFACTORY)/keys/IntelliFactory.snk</KeyOriginatorFile>
+    <SolutionDir>$(MSBuildThisFileDirectory)/..</SolutionDir>
+    <OutputPath>bin/$(Configuration)/</OutputPath>
+    <DocumentationFile>$(OutputPath)/$(Name).xml</DocumentationFile>
+    <RootNamespace>$(Name)</RootNamespace>
+    <AssemblyName>$(Name)</AssemblyName>
+    <AjaxMinTargets>$(MSBuildThisFileDirectory)/../packages/$(AjaxMinPackage)/tools/net40/AjaxMin.tasks</AjaxMinTargets>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug-$(TargetFrameworkVersion)|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <Tailcalls>false</Tailcalls>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release-$(TargetFrameworkVersion)|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup Condition="$(V4)">
+    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>True</Private>
+      <HintPath>$(SolutionDir)/packages/$(FSharpPackage)/lib/net40/FSharp.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
+  <ItemGroup Condition="!$(V4)">
+    <Reference Include="FSharp.Core, Version=2.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>True</Private>
+      <HintPath>$(SolutionDir)/packages/$(FSharpPackage)/lib/net20/FSharp.Core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="System" />
+    <Compile Include="$(MSBuildThisFileDirectory)/../.build/AutoAssemblyInfo.fs" />
+  </ItemGroup>
+  <Import Project="$(AjaxMinTargets)" Condition="Exists('$(AjaxMinTargets)')" />
+  <Import Project="$(FSharpHome)/Microsoft.FSharp.targets"/>
+  <PropertyGroup Condition="!$(V4)">
+    <AssemblySearchPaths>
+      $(SolutionDir)/packages/$(AjaxMinPackage)/lib/net35;
+      $(SolutionDir)/packages/$(FastInvokePackage)/lib/net20;
+      $(SolutionDir)/packages/$(FSharpPackage)/lib/net20;
+      $(SolutionDir)/packages/$(MonoCecilPackage)/lib/net35;
+      ../Lib;
+      $(AssemblySearchPaths);
+    </AssemblySearchPaths>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(V4)">
+    <AssemblySearchPaths>
+      $(SolutionDir)/packages/$(AjaxMinPackage)/lib/net40;
+      $(SolutionDir)/packages/$(FastInvokePackage)/lib/net40;
+      $(SolutionDir)/packages/$(FSharpPackage)/lib/net40;
+      $(SolutionDir)/packages/$(MonoCecilPackage)/lib/net40;
+      ../Lib;
+      $(AssemblySearchPaths);
+    </AssemblySearchPaths>
+  </PropertyGroup>
+</Project>

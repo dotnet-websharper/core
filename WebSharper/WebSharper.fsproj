@@ -1,58 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCpu</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{df5f2614-44e8-4c7d-a6e2-019d220d38c9}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <Name>WebSharper</Name>
-    <RootNamespace>$(Name)</RootNamespace>
-    <AssemblyName>$(Name)</AssemblyName>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
-    <TargetFrameworkProfile />
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCpu' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <Tailcalls>false</Tailcalls>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
-    <PlatformTarget>AnyCpu</PlatformTarget>
-    <DocumentationFile>$(OutputPath)$(Name).xml</DocumentationFile>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCpu' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <Tailcalls>true</Tailcalls>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
-    <PlatformTarget>AnyCpu</PlatformTarget>
-    <DocumentationFile>$(OutputPath)$(Name).xml</DocumentationFile>
-    <OtherFlags>
-    </OtherFlags>
-  </PropertyGroup>
-  <Import Project="..\build\IntelliFactory.FSharp.targets" />
-  <Target Name="AfterBuild">
-    <Copy SourceFiles="bin\$(Configuration)\WebSharper.exe" DestinationFiles="bin\$(Configuration)\WebSharper.v4.5.exe" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="bin\$(Configuration)\WebSharper.exe" DestinationFiles="bin\$(Configuration)\WebSharper.v4.0.exe" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="bin\$(Configuration)\WebSharper.exe" DestinationFiles="bin\$(Configuration)\WebSharper.v3.5.exe" SkipUnchangedFiles="true" />
-    <ItemGroup>
-      <ConfigFiles Include="*.exe.config" />
-    </ItemGroup>
-    <Copy SourceFiles="@(ConfigFiles)" DestinationFolder="bin\$(Configuration)" SkipUnchangedFiles="true" />
-  </Target>
-  <Target Name="AfterClean">
-    <ItemGroup>
-      <GeneratedFiles Include="bin\**\*.*" />
-      <GeneratedFiles Include="obj\**\*.*" />
-    </ItemGroup>
-    <Delete Files="@(GeneratedFiles)" />
-  </Target>
+  <Import Project="..\build\FSharp.targets" />
   <ItemGroup>
     <Compile Include="Loader.fs" />
     <Compile Include="Arguments.fs" />
@@ -60,23 +15,14 @@
     <Compile Include="DependencyReporter.fs" />
     <Compile Include="ProxyReporter.fs" />
     <Compile Include="Program.fs" />
-    <None Include="WebSharper.v4.5.exe.config" />
-    <None Include="WebSharper.v4.0.exe.config" />
-    <None Include="WebSharper.v3.5.exe.config" />
-    <None Include="Test.fsx" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="System.Web" />
-    <Reference Include="System.Configuration" />
-    <Reference Include="System.Numerics" Condition=" '$(TargetFrameworkVersion)' != 'v3.5' " />
     <Reference Include="Mono.Cecil" />
     <Reference Include="Mono.Cecil.Mdb" />
     <Reference Include="Mono.Cecil.Pdb" />
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=2.3.0.0">
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="System" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Web" />
     <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
       <Name>IntelliFactory.JavaScript</Name>
       <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
@@ -92,6 +38,5 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <Reference Include="System.Xml" />
   </ItemGroup>
 </Project>
