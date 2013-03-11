@@ -62,7 +62,8 @@
       $(MSBuildProjectDirectory)\..\.build\lib;
       $(MSBuildProjectDirectory)\..\Lib;
       $(MSBuildProjectDirectory)\..\packages\Mono.Cecil.0.9.5.4\lib\net35;
-      $(MSBuildProjectDirectory)\..\packages\FSharp.Core.3.0.0.2\lib\net20;      
+      $(MSBuildProjectDirectory)\..\packages\FSharp.Core.3.0.0.2\lib\net20;
+      $(MSBuildProjectDirectory)\..\packages\FSharp.Core.3.0.0.2\lib\net40;
       $(AssemblySearchPaths);
       $(WEBSHARPER_HOME)
     </AssemblySearchPaths>
