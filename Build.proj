@@ -11,14 +11,14 @@
     <MakeDir Directories="$(Root)/.nuget" />
     <MSBuild Projects="$(Root)/Build/NuGet.targets"
              Targets="RestorePackages"
-             Properties="DownloadNuGetExe=true;ProjectDir=$(Root);SolutionDir=$(Root)" />
+             Properties="DownloadNuGetExe=true;ProjectDir=$(Root);SolutionDir=$(Root);RequireRestoreConsent=false" />
   </Target>
   <Target Name="Build" DependsOnTargets="Boot">
     <Exec Command='"$(FAKE)" Build/Build.fsx'
           WorkingDirectory="$(MSBuildThisFileDirectory)"
           LogStandardErrorAsError="True" />
   </Target>
-  <Target Name="Clean">
+  <Target Name="Clean" DependsOnTargets="Boot">
     <Exec Command='"$(FAKE)" Build/Build.fsx Clean'
           WorkingDirectory="$(MSBuildThisFileDirectory)"
           LogStandardErrorAsError="True" />
