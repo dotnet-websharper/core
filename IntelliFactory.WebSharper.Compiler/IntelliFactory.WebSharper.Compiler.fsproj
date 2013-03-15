@@ -46,7 +46,6 @@
     <Reference Include="Mono.Cecil.Mdb" />
     <Reference Include="Mono.Cecil.Pdb" />
     <Reference Include="System.Web" />
-    <!--<Reference Include="System.Windows.Forms" />-->
     <Reference Include="System.Xml" />
     <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
       <Name>IntelliFactory.JavaScript</Name>

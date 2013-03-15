@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -16,6 +16,10 @@
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <UseIISExpress>false</UseIISExpress>
     <TargetFrameworkProfile />
+    <IISExpressSSLPort />
+    <IISExpressAnonymousAuthentication />
+    <IISExpressWindowsAuthentication />
+    <IISExpressUseClassicPipelineMode />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -57,7 +61,9 @@
     <Content Include="Global.asax" />
     <Content Include="WebTests.aspx" />
     <Content Include="Tests.aspx" />
-    <Content Include="Web.config" />
+    <Content Include="Web.config">
+      <SubType>Designer</SubType>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />
@@ -107,7 +113,7 @@
   <PropertyGroup>
     <WEBSHARPER_HOME>..\WebSharper\bin\Release-$(TargetFrameworkVersion)\</WEBSHARPER_HOME>
     <BuildKind>self</BuildKind>
-  </PropertyGroup>    
+  </PropertyGroup>
   <Import Project="..\build\IntelliFactory.WebSharper.Web.targets" />
   <Target Name="AfterBuild">
     <ItemGroup>

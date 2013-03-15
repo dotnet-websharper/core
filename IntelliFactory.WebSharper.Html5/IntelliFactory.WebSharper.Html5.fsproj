@@ -6,8 +6,9 @@
     <ProjectGuid>{f2c14b18-8bdb-4449-b816-366ea900e75a}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.Html5</Name>
+    <WebSharperProject>InterfaceGenerator</WebSharperProject>
   </PropertyGroup>
-  <Import Project="..\build\IG.targets" />
+  <Import Project="..\build\WebSharper.targets" />
   <ItemGroup>
     <Compile Include="Definition.fs" />
     <Compile Include="Main.fs" />

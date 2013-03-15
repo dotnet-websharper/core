@@ -6,8 +6,9 @@
     <ProjectGuid>{3bee2a9e-c5c9-4bd5-847d-f0f88f02a438}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.Ecma</Name>
+    <WebSharperProject>InterfaceGenerator</WebSharperProject>
   </PropertyGroup>
-  <Import Project="../build/IG.targets" />
+  <Import Project="../build/WebSharper.targets" />
   <ItemGroup>
     <Compile Include="Definition.fs" />
     <Compile Include="Main.fs" />

@@ -26,47 +26,5 @@
     <AssemblySearchPaths>$(AssemblySearchPaths);$(WEBSHARPER_HOME)</AssemblySearchPaths>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <CleanDependsOn>$(CleanDependsOn);WebSharperWebClean</CleanDependsOn>
-    <PrepareForRunDependsOn>$(PrepareForRunDependsOn);WebSharperWebCompile</PrepareForRunDependsOn>
-    <WebSharperScriptsFolder Condition=" '$(WebSharperScriptsFolder)' == ''">$(WebProjectOutputDir)\Scripts</WebSharperScriptsFolder>
-    <WebSharperMarker>$(WebSharperScriptsFolder)\build.tmp</WebSharperMarker>
-  </PropertyGroup>
-
-  <Target Name="WebSharperDetermineBinaries">
-    <ItemGroup>
-      <WebSharperBinaries Include="$(WebProjectOutputDir)\$(OutputPath)*.dll" />
-      <WebSharperBinaries Include="$(WebProjectOutputDir)\$(OutputPath)*.js" />
-    </ItemGroup>
-  </Target>
-
-  <Target Name="WebSharperWebCompile"
-          Inputs="@(WebSharperBinaries)"
-          Outputs="$(WebSharperMarker)"
-          DependsOnTargets="WebSharperDetermineBinaries">
-    <MakeDir Directories="$(WebSharperScriptsFolder)" />
-    <PropertyGroup>
-      <WebSharperArgs>-unpack "$(WebSharperScriptsFolder)" @(WebSharperBinaries->'"%(FullPath)"',' ')</WebSharperArgs>
-    </PropertyGroup>
-    <Exec Command='"$(WEBSHARPER_HOME)\WebSharper.exe" $(WebSharperArgs)' />
-    <Touch Files="$(WebSharperMarker)" AlwaysCreate="true" />
-  </Target>
-
-  <Target Name="WebSharperWebClean">
-    <ItemGroup>
-      <WebSharperBinaries Include="$(OutputPath)\*.dll" />
-      <WebSharperBinaries Include="$(OutputPath)\*.js" />
-      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperScriptsFolder)\%(Filename).dll.js')" />
-      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperScriptsFolder)\%(Filename).dll.min.js')" />
-    </ItemGroup>
-    <Delete Files="@(WebSharperWebTargets)" />
-  </Target>
-
-  <ItemGroup Condition=" '$(BuildKind)' != 'self' ">
-    <Reference Include="IntelliFactory.WebSharper.Collections" />
-    <Reference Include="IntelliFactory.WebSharper.Control" />
-    <Reference Include="IntelliFactory.WebSharper.Sitelets" />
-    <Reference Include="IntelliFactory.WebSharper.Web" />
-  </ItemGroup>
 
 </Project>

@@ -21,13 +21,12 @@
 // $end{copyright}
 -->
 
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003"
-	 ToolsVersion="4.0">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <Import Project="$(MSBuildThisFileDirectory)/FSharp.targets" />
   <PropertyGroup>
-    <WEBSHARPER_HOME>$(SolutionDir)/WebSharper/$(OutputPath)</WEBSHARPER_HOME>
-    <BuildKind>self</BuildKind>
+    <WebSharperHome>$(Root)/WebSharper/bin/Release-$(TargetFrameworkVersion)</WebSharperHome>
+    <WebSharperIncludes>false</WebSharperIncludes>
   </PropertyGroup>
-  <Import Project="$(MSBuildThisFileDirectory)/IntelliFactory.WebSharper.targets" />
+  <Import Project="$(MSBuildThisFileDirectory)/DeployedTargets/WebSharper.targets" />
 </Project>
 
