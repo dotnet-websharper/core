@@ -1,5 +1,5 @@
 #r "packages/FAKE.1.74.131.0/tools/FakeLib.dll"
-#r "packages/IntelliFactory.Build.0.0.3/lib/net40/IntelliFactory.Build.dll"
+#r "packages/IntelliFactory.Build.0.0.5/lib/net40/IntelliFactory.Build.dll"
 
 open Fake
 open System
@@ -60,10 +60,11 @@ let MainSolution =
         B.Project.FSharp "IntelliFactory.WebSharper.Sitelets" Frameworks
         B.Project.FSharp "IntelliFactory.WebSharper.Sitelets.Tests" Frameworks
         B.Project.FSharp "Website" [B.Net40]
-        /// TODO: C# project support in B.Project.*
-        (fun s ->
-            let p = B.Project.FSharp "Web" [B.Net40] s
-            { p with ProjectPath = RootDir +/ "Web" +/ "Web.csproj" })
+        fun s ->
+            let p = B.Project.CSharp "Web" [B.Net40] s
+            match B.GetOutDir() with
+            | Some outDir -> { p with Properties = Map ["OutDir", outDir] }
+            | None -> p
     ]
 
 let BuildMain = T "BuildMain" MainSolution.Build

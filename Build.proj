@@ -16,9 +16,9 @@
   <MSBuild Projects="$(Root)/Build/NuGet.targets" Properties="DownloadNuGetExe=true;ProjectDir=$(Root);SolutionDir=$(Root)" Targets="RestorePackages" />
  </Target>
  <Target Name="Build" DependsOnTargets="Boot">
-  <Exec Command="&quot;$(FSharpHome)/Fsi.exe&quot; --exec Build.fsx" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
+  <Exec Command="&quot;$(FSharpHome)/Fsi.exe&quot; --exec Build.fsx OutDir &quot;$(OutDir)&quot;" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
  </Target>
  <Target Name="Clean">
-  <Exec Command="&quot;$(FSharpHome)/Fsi.exe&quot; --exec Build.fsx Clean" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
+  <Exec Command="&quot;$(FSharpHome)/Fsi.exe&quot; --exec Build.fsx OutDir &quot;$(OutDir)&quot; Clean" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
  </Target>
 </Project>
