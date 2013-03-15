@@ -22,7 +22,7 @@
 [<IntelliFactory.WebSharper.Core.Attributes.Name "Util">]
 [<IntelliFactory.WebSharper.Core.Attributes.Proxy
     "Microsoft.FSharp.Control.CommonExtensions, \
-     FSharp.Core, Version=2.0.0.0, Culture=neutral, \
+     FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private IntelliFactory.WebSharper.CommonExtensionsProxy
 

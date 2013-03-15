@@ -45,6 +45,11 @@
     <Reference Include="System.Configuration" />
     <Reference Include="System.Web.Services" />
     <Reference Include="System.EnterpriseServices" />
+    <Reference Include="FSharp.Core, Version=4.3.0.0">
+      <SpecificVersion>true</SpecificVersion>
+      <Private>True</Private>
+      <HintPath>../packages/FSharp.Core.3.0.0.2/lib/net40/FSharp.Core.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Content Include="Main.html" />

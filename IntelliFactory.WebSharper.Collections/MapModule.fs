@@ -25,7 +25,7 @@ open IntelliFactory.WebSharper
 
 /// Implements a proxy for the F# Map module.
 [<Proxy "Microsoft.FSharp.Collections.MapModule, \
-    FSharp.Core, Version=2.0.0.0, Culture=neutral, \
+    FSharp.Core, Culture=neutral, \
     PublicKeyToken=b03f5f7f11d50a3a">]
 module internal MapModule =
     module T = BalancedTree
