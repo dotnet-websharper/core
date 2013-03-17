@@ -32,5 +32,6 @@
   <ItemGroup>
     <Compile Include="Main.fs" />
   </ItemGroup>
-  <Import Project="WebSharper.targets" />
+  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" />
+  <Import Project="WebSharper.targets" Condition="Exists('WebSharper.targets')" />
 </Project>

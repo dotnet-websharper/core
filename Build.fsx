@@ -13,6 +13,23 @@ module VST = IntelliFactory.Build.VSTemplates
 module VX = IntelliFactory.Build.VsixExtensions
 module X = IntelliFactory.Build.XmlGenerator
 
+//let Install () =
+//    let arch =
+//        VST.Archive.FromFile VST.ProjectTemplateKind (__SOURCE_DIRECTORY__ + "/.build/Library.zip")
+//    arch.Install {
+//        Category = ["WSTEST"]
+//        VisualStudio = VST.VisualStudio2012
+//    }
+//
+//let Uninstall () =
+//    let arch =
+//        VST.Archive.FromFile VST.ProjectTemplateKind (__SOURCE_DIRECTORY__ + "/.build/Library.zip")
+//    arch.Uninstall {
+//        Category = ["WSTEST"]
+//        VisualStudio = VST.VisualStudio2012
+//    }
+
+
 let ( +/ ) a b = Path.Combine(a, b)
 let RootDir = __SOURCE_DIRECTORY__
 let PackagesDir = RootDir +/ "packages"
@@ -111,38 +128,40 @@ let BuildWebSharperTargetsXml () =
     let e n = X.Element.Create(n, ns)
     let ( -- ) (a: X.Element) (b: string) = X.Element.WithText b a
     e "Project" - [
-        yield e "WebSharperVersion" -- Config.Version
-        let variants =
-            [
-                "$(MSBuildProjectDirectory)/../packages"
-                "$(MSBuildProjectDirectory)/../../packages"
-                "$(MSBuildProjectDirectory)/../../../packages"
-            ]
-        for variant in variants do
-            yield
-                e "PackagesFolder"
-                    + [
-                        "Condition",
-                            sprintf " '$(PackagesFolder)' == '' AND Exists('%s')" variant
-                    ]
-                -- variant
-        let homeVariants =
-            [
-                "v2.0", "net35"
-                "v3.0", "net35"
-                "v3.5", "net35"
-                "v4.0", "net40"
-                "v4.5", "net40"
-            ]
-        for (tfv, home) in homeVariants do
-            yield
-                e "WebSharperHome"
-                    + [
-                        "Condition",
-                            sprintf " '$(TargetFrameworkVersion)' == '%s' " tfv
-                    ]
-                    -- sprintf "$(PackagesFolder)/WebSharper.$(WebSharperVersion)/tools/%s" home
-        yield e "Import" -- "$(WebSharperHome)/WebSharper.targets"
+        e "PropertyGroup" - [
+            yield e "WebSharperVersion" -- Config.Version
+            let variants =
+                [
+                    "$(MSBuildProjectDirectory)/../packages"
+                    "$(MSBuildProjectDirectory)/../../packages"
+                    "$(MSBuildProjectDirectory)/../../../packages"
+                ]
+            for variant in variants do
+                yield
+                    e "PackagesFolder"
+                        + [
+                            "Condition",
+                                sprintf " '$(PackagesFolder)' == '' AND Exists('%s')" variant
+                        ]
+                    -- variant
+            let homeVariants =
+                [
+                    "v2.0", "net35"
+                    "v3.0", "net35"
+                    "v3.5", "net35"
+                    "v4.0", "net40"
+                    "v4.5", "net40"
+                ]
+            for (tfv, home) in homeVariants do
+                yield
+                    e "WebSharperHome"
+                        + [
+                            "Condition",
+                                sprintf " '$(TargetFrameworkVersion)' == '%s' " tfv
+                        ]
+                        -- sprintf "$(PackagesFolder)/WebSharper.$(WebSharperVersion)/tools/%s" home
+        ]
+        e "Import" + ["Project", "$(WebSharperHome)/WebSharper.targets"]
     ]
 
 let BuildNuSpecXml () =
@@ -245,11 +264,11 @@ module Templates =
     let VsixFileName = sprintf "%s-%s.vsix" Config.PackageId Config.Version
     let VsixFile = DotBuildDir +/ VsixFileName
 
-    let Category = [sprintf "%s %s" Config.PackageId Config.Version]
+    let Category = [sprintf "%s-%s" Config.PackageId Config.Version]
     let Guid = Guid("371cf828-9e17-41cb-b014-496f3e9e7171")
 
     let Identity =
-        VP.Identity.Create Config.PackageId Guid
+        VP.Identity.Create (sprintf "%s-%s" Config.PackageId Config.Version) Guid
 
     let NuGetPackages =
         lazy
@@ -278,13 +297,11 @@ module Templates =
                 VST.Project.FromFile (dir +/ "Library.fsproj") [
                     VST.NestedProjectItem main
                 ]
-            p.TargetFileName <- Some "Library"
             p.ReplaceParameters <- true
             p
         let projectTemplate =
             let t = VST.ProjectTemplate.Create meta project
             t.NuGetPackages <- Some NuGetPackages.Value
-            t.Version <- Config.Version
             t
         projectTemplate
 
