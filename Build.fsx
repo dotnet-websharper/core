@@ -300,7 +300,7 @@ module Templates =
             id.Version <- Config.AssemblyFileVersion
             id.Products <-
                 [
-                    VX.VSProduct.Create "[10.0-11.0]" [VX.Premium; VX.Pro; VX.Ultimate]
+                    VX.VSProduct.Create "11.0" [VX.Premium; VX.Pro; VX.Ultimate]
                     |> VX.VS
                 ]
             id
