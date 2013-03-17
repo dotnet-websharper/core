@@ -7,15 +7,6 @@
     <OutputType>Exe</OutputType>
     <Name>WebSharper</Name>
   </PropertyGroup>
-  <Import Project="..\build\FSharp.targets" />
-  <ItemGroup>
-    <Compile Include="Loader.fs" />
-    <Compile Include="Arguments.fs" />
-    <Compile Include="Options.fs" />
-    <Compile Include="DependencyReporter.fs" />
-    <Compile Include="ProxyReporter.fs" />
-    <Compile Include="Program.fs" />
-  </ItemGroup>
   <ItemGroup>
     <Reference Include="Mono.Cecil" />
     <Reference Include="Mono.Cecil.Mdb" />
@@ -23,6 +14,9 @@
     <Reference Include="System.Configuration" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Web" />
+  </ItemGroup>
+  <Import Project="..\build\FSharp.targets" />
+  <ItemGroup>
     <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
       <Name>IntelliFactory.JavaScript</Name>
       <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
@@ -38,5 +32,13 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Loader.fs" />
+    <Compile Include="Arguments.fs" />
+    <Compile Include="Options.fs" />
+    <Compile Include="DependencyReporter.fs" />
+    <Compile Include="ProxyReporter.fs" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
 </Project>

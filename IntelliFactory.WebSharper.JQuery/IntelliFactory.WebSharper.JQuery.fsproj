@@ -7,8 +7,9 @@
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.JQuery</Name>
     <JQueryVersion>1.9.1</JQueryVersion>
+    <WebSharperProject>InterfaceGenerator</WebSharperProject>
   </PropertyGroup>
-  <Import Project="../build/IG.targets" />
+  <Import Project="../build/WebSharper.targets" />
   <ItemGroup>
     <Compile Include="Definition.fs" />
     <Compile Include="Main.fs" />

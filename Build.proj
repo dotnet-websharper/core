@@ -1,26 +1,24 @@
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <!-- Bootstraps the build by downloading NuGet.exe and packages -->
-  <PropertyGroup>
-    <Root>$(MSBuildThisFileDirectory)</Root>
-    <SolutionDir>$(Root)</SolutionDir>
-    <FAKEVersion>1.74.127.0</FAKEVersion>
-    <FAKE>packages/FAKE.$(FAKEVersion)/tools/Fake.exe</FAKE>
-  </PropertyGroup>
-  <Import Project="$(Root)/Build/NuGet.targets" />
-  <Target Name="Boot">
-    <MakeDir Directories="$(Root)/.nuget" />
-    <MSBuild Projects="$(Root)/Build/NuGet.targets"
-             Targets="RestorePackages"
-             Properties="DownloadNuGetExe=true;ProjectDir=$(Root);SolutionDir=$(Root);RequireRestoreConsent=false" />
-  </Target>
-  <Target Name="Build" DependsOnTargets="Boot">
-    <Exec Command='"$(FAKE)" Build/Build.fsx'
-          WorkingDirectory="$(MSBuildThisFileDirectory)"
-          LogStandardErrorAsError="True" />
-  </Target>
-  <Target Name="Clean" DependsOnTargets="Boot">
-    <Exec Command='"$(FAKE)" Build/Build.fsx Clean'
-          WorkingDirectory="$(MSBuildThisFileDirectory)"
-          LogStandardErrorAsError="True" />
-  </Target>
+ <PropertyGroup>
+  <Root>$(MSBuildThisFileDirectory)</Root>
+  <SolutionDir>$(Root)</SolutionDir>
+ </PropertyGroup>
+ <PropertyGroup>
+  <FSharpHome1>$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0</FSharpHome1>
+  <FSharpHome2>$(MSBuildExtensionsPath32)/../Microsoft F#/v4.0</FSharpHome2>
+  <FSharpHome3>$(MSBuildExtensionsPath32)/FSharp/1.0</FSharpHome3>
+  <FSharpHome Condition="Exists('$(FSharpHome1)') AND '$(FSharpHome)' == ''">$(FSharpHome1)</FSharpHome>
+  <FSharpHome Condition="Exists('$(FSharpHome2)') AND '$(FSharpHome)' == ''">$(FSharpHome2)</FSharpHome>
+  <FSharpHome Condition="Exists('$(FSharpHome3)') AND '$(FSharpHome)' == ''">$(FSharpHome3)</FSharpHome>
+ </PropertyGroup>
+ <Target Name="Boot">
+  <MakeDir Directories="$(Root)/.nuget" />
+  <MSBuild Projects="$(Root)/Build/NuGet.targets" Properties="DownloadNuGetExe=true;ProjectDir=$(Root);SolutionDir=$(Root)" Targets="RestorePackages" />
+ </Target>
+ <Target Name="Build" DependsOnTargets="Boot">
+  <Exec Command="&quot;$(FSharpHome)/Fsi.exe&quot; --exec Build.fsx OutDir &quot;$(OutDir).&quot;" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
+ </Target>
+ <Target Name="Clean">
+  <Exec Command="&quot;$(FSharpHome)/Fsi.exe&quot; --exec Build.fsx OutDir &quot;$(OutDir).&quot; Clean" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
+ </Target>
 </Project>
