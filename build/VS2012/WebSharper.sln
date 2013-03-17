@@ -81,8 +81,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root", "Root", "{4A2E3AC5-F
 		..\..\LICENSE.txt = ..\..\LICENSE.txt
 		..\..\packages.config = ..\..\packages.config
 		..\..\README.markdown = ..\..\README.markdown
-		..\..\WebSharper.nuspec.template = ..\..\WebSharper.nuspec.template
-		..\..\WebSharper.targets.template = ..\..\WebSharper.targets.template
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DeployedTargets", "DeployedTargets", "{2C2DCBE5-3162-481D-9E41-698ABE486C5D}"
