@@ -126,4 +126,4 @@ module Configuration =
             |> Seq.choose tryLoadPlugin
             |> Seq.append (getKnownPlugins ())
         | _ ->
-            Seq.empty
+            getKnownPlugins ()

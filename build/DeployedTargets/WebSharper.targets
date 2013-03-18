@@ -38,6 +38,8 @@
     <InterfaceGenerator Condition=" '$(WebSharperProject)' != 'InterfaceGenerator' ">false</InterfaceGenerator>
     <SiteWebSharperProject Condition=" '$(WebSharperProject)' == 'Site' ">true</SiteWebSharperProject>
     <SiteWebSharperProject Condition=" '$(WebSharperProject)' != 'Site' ">false</SiteWebSharperProject>
+    <HtmlWebSharperProject Condition=" '$(WebSharperProject)' == 'Html' ">true</HtmlWebSharperProject>
+    <HtmlWebSharperProject Condition=" '$(WebSharperProject)' != 'Html' ">false</HtmlWebSharperProject>
   </PropertyGroup>
 
   <!-- Default WebSharper Projects -->
@@ -92,60 +94,68 @@
 
   <!-- Common Includes -->
 
+  <PropertyGroup Condition=" $(SiteWebSharperProject) ">
+    <WSPrivateRefs>true</WSPrivateRefs>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" !$(SiteWebSharperProject) ">
+    <WSPrivateRefs>false</WSPrivateRefs>
+  </PropertyGroup>
+
   <ItemGroup Condition=" $(WebSharperIncludes) ">
     <Reference Include="IntelliFactory.Formlet">
-      <Private>False</Private>
+      <Private>$(WSPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.Html">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.JavaScript">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.Reactive">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Collections">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Control">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Core">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Dom">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Ecma">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Formlet">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Html">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Html5">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.JQuery">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Sitelets">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Testing">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Web">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
     <Reference Include="IntelliFactory.Xml">
-      <Private>False</Private>
+      <Private>$(WsPrivateRefs)</Private>
     </Reference>
   </ItemGroup>
 
@@ -247,10 +257,47 @@
   </Target>
 
   <ItemGroup Condition=" $(WebSharperIncludes) AND $(SiteWebSharperProject) ">
-    <Reference Include="IntelliFactory.WebSharper.Collections" />
-    <Reference Include="IntelliFactory.WebSharper.Control" />
-    <Reference Include="IntelliFactory.WebSharper.Sitelets" />
-    <Reference Include="IntelliFactory.WebSharper.Web" />
+    <Reference Include="IntelliFactory.WebSharper.Collections">
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Control">
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Sitelets">
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="IntelliFactory.WebSharper.Web">
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
+
+  <!-- Html Generation Projects -->
+
+  <PropertyGroup Condition=" $(HtmlWebSharperProject) AND '$(WebSharperHtmlDirectory)' != '' ">
+    <BuildDependsOn>$(BuildDependsOn);WebSharperHtmlGenerate</BuildDependsOn>
+    <CleanDependsOn>$(CleanDependsOn);WebSharperHtmlClean</CleanDependsOn>
+    <StartAction>Program</StartAction>
+    <StartWorkingDirectory>$(WebSharperHtmlDirectory)</StartWorkingDirectory>
+    <StartArguments>
+      $(WebSharperHtmlDirectory)
+    </StartArguments>
+    <StartProgram>$(windir)\explorer.exe</StartProgram>
+  </PropertyGroup>
+
+  <Target Name="WebSharperHtmlGenerate">
+    <PropertyGroup>
+      <Args>-source "."</Args>
+      <Args>$(Args) -mode "$(Configuration)"</Args>
+      <Args>$(Args) -project "$(MSBuildProjectDirectory)\."</Args>
+      <Args>$(Args) -source "$(MSBuildProjectDirectory)\$(OutDir)\."</Args>
+      <Args>$(Args) -out "$(WebSharperHtmlDirectory)\."</Args>
+      <Args>$(Args) -site "$(TargetPath)"</Args>
+    </PropertyGroup>
+    <Exec Command='"$(WebSharperHome)\WebSharper.exe" sitelets $(Args)' WorkingDirectory='$(WebSharperHome)' />
+  </Target>
+
+  <Target Name="WebSharperHtmlClean">
+    <RemoveDir Directories="$(WebSharperHtmlDirectory)" />
+  </Target>
 
 </Project>

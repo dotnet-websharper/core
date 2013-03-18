@@ -115,6 +115,7 @@ module Sitelet =
                                     Metadata = ctx.Metadata
                                     ResourceContext = ctx.ResourceContext
                                     Request = ctx.Request
+                                    RootFolder = ctx.RootFolder
                                 }
                                 |> genResp
                         | Content.PageContent genPage ->
@@ -127,6 +128,7 @@ module Sitelet =
                                     Metadata = ctx.Metadata
                                     ResourceContext = ctx.ResourceContext
                                     Request = ctx.Request
+                                    RootFolder = ctx.RootFolder
                                 }
                                 |> genPage
                 }

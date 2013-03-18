@@ -127,11 +127,11 @@ module Content =
         member With : hole: string * def: Func<'T,#seq<HtmlElement>> -> Template<'T>
 
         /// Compiles the template as a simple template. Recommended to use before Run
-        /// for early detection of errors.
-        member Compile : unit -> Template<'T>
+        /// for early detection of errors. Optionally pass the root folder.
+        member Compile : ?root: string -> Template<'T>
 
-        /// Expands the template on a given value.
-        member Run : value: 'T -> seq<HtmlElement>
+        /// Expands the template on a given value. Optionally pass the root folder.
+        member Run : value: 'T * ?root: string -> seq<HtmlElement>
 
     /// Applies a template as a page template for sitelet content.
     /// An extra placeholder called "scripts" is available with WebSharper-determined

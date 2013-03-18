@@ -173,6 +173,7 @@ let BuildNuSpecXml () =
         ]
         e "files" - [
             e "file" + ["src", "WebSharper.targets"; "target", "content"]
+            e "file" + ["src", "Web.config.transform"; "target", "content"]
             e "file" + ["src", @"root\net35\*.*"; "target", @"tools\net35"]
             e "file" + ["src", @"root\net40\*.*"; "target", @"tools\net40"]
         ]
@@ -183,6 +184,29 @@ let BuildWebSharperTargets =
         ensureDirectory DotBuildDir
         let targets = DotBuildDir +/ "WebSharper.targets"
         X.WriteFile targets (BuildWebSharperTargetsXml ())
+
+let BuildWebConfigTransformXml () =
+    let e n = X.Element.Create n
+    e "configuration" - [
+        e "system.webServer" - [
+            e "modules" - [
+                e "add" + [
+                    "name", "WebSharper.RemotingModule"
+                    "type", "IntelliFactory.WebSharper.Web.RpcModule, IntelliFactory.WebSharper.Web"
+                ]
+                e "add" + [
+                    "name", "WebSharper.Sitelets"
+                    "type", "IntelliFactory.WebSharper.Sitelets.HttpModule, IntelliFactory.WebSharper.Sitelets"
+                ]
+            ]
+        ]
+    ]
+
+let BuildWebConfigTransform =
+    T "BuildWebConfigTransform" <| fun () ->
+        ensureDirectory DotBuildDir
+        let t = DotBuildDir +/ "Web.config.transform"
+        X.WriteFile t (BuildWebConfigTransformXml ())
 
 let NuGetPackageFile =
     DotBuildDir +/ sprintf "%s.%s.nupkg" Config.PackageId Config.Version
@@ -268,14 +292,14 @@ module Templates =
             NG.Package.FromFile NuGetPackageFile
         ]
 
-    let WebSharperLibrary =
+    let Library =
         lazy
         let dir = RootDir +/ "templates" +/ "library"
         let meta =
             let m =
                 VST.TemplateData.Create
                     VST.FSharp
-                    (sprintf "WebSharper %s Library" Config.Version)
+                    "Library"
                     "An F# library capable of containing JavaScript-compiled code"
                     Config.Icon
             m.DefaultName <- Some "Library"
@@ -297,6 +321,135 @@ module Templates =
             t
         projectTemplate
 
+    let Extension =
+        lazy
+        let dir = RootDir +/ "templates" +/ "extension"
+        let meta =
+            let m =
+                VST.TemplateData.Create
+                    VST.FSharp
+                    "Extension"
+                    "Creates a new WebSharper binding to existing JavaScript code using \
+                        the WebSharper Interface Generator tool"
+                    Config.Icon
+            m.DefaultName <- Some "Extension"
+            m
+        let main =
+            let i = VST.ProjectItem.FromTextFile (dir +/ "Main.fs")
+            i.ReplaceParameters <- true
+            i
+        let project =
+            let p =
+                VST.Project.FromFile (dir +/ "Extension.fsproj") [
+                    VST.NestedProjectItem main
+                ]
+            p.ReplaceParameters <- true
+            p
+        let projectTemplate =
+            let t = VST.ProjectTemplate.Create meta project
+            t.NuGetPackages <- Some NuGetPackages.Value
+            t
+        projectTemplate
+
+    let SiteletsWebsite =
+        lazy
+        let dir = RootDir +/ "templates" +/ "sitelets-website"
+        let meta =
+            let m =
+                VST.TemplateData.Create
+                    VST.FSharp
+                    "Sitelet Website Definition"
+                    "A WebSharper library with scaffolding to define a website using \
+                     WebSharper sitelets. The website can be hosted inside a web server or \
+                     generated to produce static HTML, CSS and JavaScript"
+                    Config.Icon
+            m.DefaultName <- Some "Website"
+            m
+        let main =
+            let i = VST.ProjectItem.FromTextFile (dir +/ "Main.fs")
+            i.ReplaceParameters <- true
+            i
+        let project =
+            let p =
+                VST.Project.FromFile (dir +/ "Website.fsproj") [
+                    VST.NestedProjectItem main
+                ]
+            p.ReplaceParameters <- true
+            p
+        let projectTemplate =
+            let t = VST.ProjectTemplate.Create meta project
+            t.NuGetPackages <- Some NuGetPackages.Value
+            t
+        projectTemplate
+
+    let SiteletsHtml =
+        lazy
+        let dir = RootDir +/ "templates" +/ "sitelets-html"
+        let meta =
+            let m =
+                VST.TemplateData.Create
+                    VST.FSharp
+                    "Sitelet Html Generator"
+                    "Generates static HTML, CSS, and JavaScript from a sitelet website definition."
+                    Config.Icon
+            m.DefaultName <- Some "HtmlSite"
+            m
+        let file repl name =
+            let i = VST.ProjectItem.FromTextFile (dir +/ name)
+            i.ReplaceParameters <- repl
+            VST.NestedProjectItem i
+        let project =
+            let p =
+                VST.Project.FromFile (dir +/ "HtmlSite.fsproj") [
+                    file true "Main.fs"
+                    file false "extra.files"
+                    file false "Main.html"
+                ]
+            p.ReplaceParameters <- true
+            p
+        let projectTemplate =
+            let t = VST.ProjectTemplate.Create meta project
+            t.NuGetPackages <- Some NuGetPackages.Value
+            t
+        projectTemplate
+
+    let SiteletsHost =
+        lazy
+        let dir = RootDir +/ "templates" +/ "sitelets-host"
+        let meta =
+            let m =
+                VST.TemplateData.Create
+                    VST.FSharp
+                    "Sitelet Host Website"
+                    "A C#-based web project for hosting WebSharper sitelets in a web server."
+                    Config.Icon
+            m.DefaultName <- Some "Web"
+            m
+        let file name =
+            let i = VST.ProjectItem.FromTextFile (dir +/ name)
+            i.ReplaceParameters <- true
+            VST.NestedProjectItem i
+
+        let folder name xs =
+            let f = VST.Folder.Create name xs
+            VST.NestedFolder f
+        let project =
+            let p =
+                VST.Project.FromFile (dir +/ "Web.csproj") [
+                    folder "Properties" [
+                        file "AssemblyInfo.cs"
+                    ]
+                    file "Main.html"
+                    file "Web.config"
+                ]
+            p.ReplaceParameters <- true
+            p
+        let projectTemplate =
+            let t = VST.ProjectTemplate.Create meta project
+            t.NuGetPackages <- Some NuGetPackages.Value
+            t
+        projectTemplate
+
     let WebSharperExtension =
         lazy
         let id =
@@ -309,13 +462,21 @@ module Templates =
             id.Version <- Config.AssemblyFileVersion
             id.Products <-
                 [
+                    VX.VSProduct.Create "10.0" [VX.Premium; VX.Pro; VX.Ultimate]
+                    |> VX.VS
                     VX.VSProduct.Create "11.0" [VX.Premium; VX.Pro; VX.Ultimate]
                     |> VX.VS
                 ]
             id
         let vsix =
+            let proj (x: Lazy<_>) =
+                VX.VsixContent.ProjectTemplate Category x.Value
             VX.Vsix.Create id [
-                VX.VsixContent.ProjectTemplate Category WebSharperLibrary.Value
+                proj Library
+                proj Extension
+                proj SiteletsWebsite
+                proj SiteletsHost
+                proj SiteletsHtml
             ]
         VX.VsixFile.Create VsixFileName vsix
 
@@ -363,6 +524,7 @@ PrepareTools
     ==> BuildCompiler
     ==> BuildMain
     ==> BuildWebSharperTargets
+    ==> BuildWebConfigTransform
     ==> BuildNuGet
     ==> Templates.BuildExtension
     ==> BuildZipPackage

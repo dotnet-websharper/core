@@ -262,7 +262,7 @@ type ResolvedContent =
     }
 
 /// Partially resolves the content.
-let resolveContent (st: State) (loc: Location) (content: Content<obj>) =
+let resolveContent (rootFolder: string) (st: State) (loc: Location) (content: Content<obj>) =
     let locationString =
         let locStr = loc.ToString()
         if locStr.EndsWith("/") then
@@ -287,6 +287,7 @@ let resolveContent (st: State) (loc: Location) (content: Content<obj>) =
             Metadata = st.Metadata
             ResourceContext = resContext
             Request = emptyRequest locationString
+            RootFolder = rootFolder
         }
     let path =
         let ext =
@@ -334,6 +335,7 @@ let trimPath (path: string) =
 let WriteSite (conf: Config) =
     let st = State(conf)
     let table = Dictionary()
+    let rootFolder = conf.TargetDir.FullName
     let contents =
         conf.Actions
         |> List.ofSeq
@@ -341,7 +343,7 @@ let WriteSite (conf: Config) =
             match conf.Sitelet.Router.Link(action) with
             | Some location ->
                 let content = conf.Sitelet.Controller.Handle(action)
-                let rC = resolveContent st location content
+                let rC = resolveContent rootFolder st location content
                 table.[action] <- rC.Path
                 Some rC
             | None -> None)
@@ -369,6 +371,7 @@ let WriteSite (conf: Config) =
                 Metadata = st.Metadata
                 ResourceContext = rC.ResourceContext
                 Request = emptyRequest rC.Path
+                RootFolder = rootFolder
             }
         let fullPath = conf.TargetDir.FullName + rC.Path
         let response = rC.Respond context

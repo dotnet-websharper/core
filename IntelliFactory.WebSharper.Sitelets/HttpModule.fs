@@ -129,6 +129,7 @@ module private WebUtils =
             Metadata = ResourceContext.MetaData()
             ResourceContext = ResourceContext.ResourceContext appPath
             Request = request
+            RootFolder = HttpContext.Current.Server.MapPath("~")
         }
 
     /// Writes a response.

@@ -45,5 +45,8 @@ type Context<'Action> =
 
         /// HTTP Request object
         Request : Http.Request
+
+        /// The full path to the root application folder.
+        RootFolder : string
     }
 

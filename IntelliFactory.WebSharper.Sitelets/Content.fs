@@ -343,7 +343,14 @@ module Content =
         e element
 
     [<Sealed>]
-    type Template<'T>(path: string, freq: Template.LoadFrequency, holes: Map<string,Hole<'T>>) =
+    type Template<'T>(pathSpec: string, freq: Template.LoadFrequency, holes: Map<string,Hole<'T>>) =
+
+        let path (root: string) =
+            if pathSpec.StartsWith("~/") then
+                Path.Combine(root, pathSpec.Substring(2))
+            else
+                pathSpec
+
         let pageTemplate =
             let mutable t = XT.Template<Wrapper<'T>>()
             for (KeyValue (k, v)) in holes do
@@ -353,6 +360,7 @@ module Content =
             t <- t.With(SCRIPTS, fun x -> x.extra.[SCRIPTS])
             t <- t.With(SCRIPTS.ToLower(), fun x -> x.extra.[SCRIPTS])
             t
+
         let basicTemplate =
             let mutable t = XT.CustomTemplate<HtmlElement,HtmlElement,'T>(CustomXml.Instance)
             for (KeyValue (k, v)) in holes do
@@ -361,7 +369,18 @@ module Content =
                 | EH f -> t <- t.With(k, f)
             t
 
-        let getTemplate (parse: string -> _) =
+        static let memoize f =
+            let d = Dictionary()
+            fun x ->
+                match d.TryGetValue(x) with
+                | true, y -> y
+                | _ ->
+                    let y = f x
+                    d.[x] <- y
+                    y
+
+        let getTemplate (root: string) (parse: string -> _) =
+            let path = path root
             match freq with
             | Template.Once ->
                 let t = lazy parse path
@@ -393,36 +412,39 @@ module Content =
                             let watcher = watchForChanges path reload
                             unpack (load ())
 
-        let getBasicTemplate = getTemplate basicTemplate.ParseFragmentFile
-        let getPageTemplate = getTemplate pageTemplate.Parse
+        let getBasicTemplate =
+            memoize (fun (root: string) -> getTemplate root basicTemplate.ParseFragmentFile ())
+
+        let getPageTemplate =
+            memoize (fun (root: string) -> getTemplate root pageTemplate.Parse ())
 
         new (path) = Template(path, Template.WhenChanged, Map.empty)
         new (path, freq) = Template(path, freq, Map.empty)
 
         member this.With(name: string, f: Func<'T,string>) =
-            Template(path, freq, Map.add name (SH f.Invoke) holes)
+            Template(pathSpec, freq, Map.add name (SH f.Invoke) holes)
 
         member this.With(name: string, f: Func<'T,HtmlElement>) =
             let h = EH (fun x -> Seq.singleton (f.Invoke(x)))
-            Template(path, freq, Map.add name h holes)
+            Template(pathSpec, freq, Map.add name h holes)
 
         member this.With(name: string, f: Func<'T,#seq<HtmlElement>>) =
             let h = EH (fun x -> Seq.cast(f.Invoke(x)))
-            Template(path, freq, Map.add name h holes)
+            Template(pathSpec, freq, Map.add name h holes)
 
-        member this.Compile() =
-            getBasicTemplate()
+        member this.Compile(root) =
+            getBasicTemplate (defaultArg root ".")
             |> ignore
             this
 
-        member this.Run(value: 'T) : seq<HtmlElement> =
-            getBasicTemplate().Run(value)
+        member this.Run(value: 'T, ?root: string) : seq<HtmlElement> =
+            getBasicTemplate(defaultArg root ".").Run(value)
 
-        member this.CheckPageTemplate() =
-            ignore (getPageTemplate ())
+        member this.CheckPageTemplate(root: string) =
+            ignore (getPageTemplate root)
 
-        member this.Run(env: Env, x: 'T) : XS.Element =
-            let tpl = getPageTemplate ()
+        member this.Run(env: Env, x: 'T, ?root: string) : XS.Element =
+            let tpl = getPageTemplate (defaultArg root ".")
             let controls = Queue()
             let extra = Dictionary()
             for KeyValue (k, v) in holes do
@@ -451,9 +473,9 @@ module Content =
     let WithTemplate<'Action,'T>
         (template: Template<'T>)
         (content: Context<'Action> -> 'T) : Content<'Action> =
-        template.CheckPageTemplate()
         CustomContent (fun ctx ->
-            let xml = template.Run(Env.Create ctx, content ctx)
+            template.CheckPageTemplate(ctx.RootFolder)
+            let xml = template.Run(Env.Create ctx, content ctx, ctx.RootFolder)
             {
                 Status = Http.Status.Ok
                 Headers =
