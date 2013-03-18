@@ -5,7 +5,7 @@
 \~$
 ^IntelliFactory.WebSharper.JQuery/.*\.js$
 ^Lib
-^Web/(bin|Scripts)
+^Web/(bin|downloads|Scripts)
 ^WebSharperTests/(bin|Scripts)
 ^\.build
 ^\.nuget

@@ -6,29 +6,13 @@ open System
 open System.IO
 open System.Net
 open Fake
+open Ionic.Zip
 module B = IntelliFactory.Build.CommonBuildSetup
 module NG = IntelliFactory.Build.NuGet
 module VP = IntelliFactory.Build.VsixPackages
 module VST = IntelliFactory.Build.VSTemplates
 module VX = IntelliFactory.Build.VsixExtensions
 module X = IntelliFactory.Build.XmlGenerator
-
-//let Install () =
-//    let arch =
-//        VST.Archive.FromFile VST.ProjectTemplateKind (__SOURCE_DIRECTORY__ + "/.build/Library.zip")
-//    arch.Install {
-//        Category = ["WSTEST"]
-//        VisualStudio = VST.VisualStudio2012
-//    }
-//
-//let Uninstall () =
-//    let arch =
-//        VST.Archive.FromFile VST.ProjectTemplateKind (__SOURCE_DIRECTORY__ + "/.build/Library.zip")
-//    arch.Uninstall {
-//        Category = ["WSTEST"]
-//        VisualStudio = VST.VisualStudio2012
-//    }
-
 
 let ( +/ ) a b = Path.Combine(a, b)
 let RootDir = __SOURCE_DIRECTORY__
@@ -331,13 +315,49 @@ module Templates =
         T "BuildExtension" <| fun () ->
             WebSharperExtension.Value.WriteToDirectory DotBuildDir
 
+let BuildConfigFile =
+    T "BuildConfigFile" <| fun () ->
+        let content =
+            use w = new StringWriter()
+            w.WriteLine("module Website.Config")
+            let var (name: string) (value: string) : unit =
+                fprintfn w @"let %s = @""%s""" name (value.Replace(@"""", @""""""))
+            IntelliFactory.Build.Mercurial.InferTag RootDir
+            |> Option.iter (var "Tag")
+            var "PackageId" Config.PackageId
+            var "Version" Config.Version
+            var "AssemblyVersion" (string Config.AssemblyVersion)
+            var "AssemblyFileVersion" (string Config.AssemblyFileVersion)
+            var "Description" Config.Description
+            var "Website" Config.Website
+            w.ToString()
+            |> IntelliFactory.Build.FileSystem.TextContent
+        content.WriteFile(DotBuildDir +/ "Config.fs")
+
+let ZipPackageFile =
+    RootDir +/ "Website" +/ "downloads" +/ sprintf "%s-%s.zip" Config.PackageId Config.Version
+
+let BuildZipPackage =
+    T "BuildZipPackage" <| fun () ->
+        ensureDirectory (Path.GetDirectoryName ZipPackageFile)
+        let zip = new ZipFile()
+        let addFile path =
+            zip.AddEntry(Path.GetFileName path, File.ReadAllBytes path)
+            |> ignore
+        addFile NuGetPackageFile
+        addFile (RootDir +/ "LICENSE.txt")
+        addFile Templates.VsixFile
+        zip.Save ZipPackageFile
+
 PrepareTools
+    ==> BuildConfigFile
     ==> DownloadDependencies
     ==> BuildCompiler
     ==> BuildMain
     ==> BuildWebSharperTargets
     ==> BuildNuGet
     ==> Templates.BuildExtension
+    ==> BuildZipPackage
     ==> Build
 
 PrepareTools
