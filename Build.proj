@@ -9,9 +9,9 @@
   <MSBuild Projects="$(Root)/Build/NuGet.targets" Properties="DownloadNuGetExe=true;ProjectDir=$(Root);SolutionDir=$(Root)" Targets="RestorePackages" />
  </Target>
  <Target Name="Build" DependsOnTargets="Boot">
-  <Exec Command="&quot;$(FAKE)&quot; Build.fsx Build OutDir=&quot;$(OutDir).&quot;" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
+  <Exec Command="&quot;$(FAKE)&quot; Build.fsx Build WebOutDir=&quot;$(OutDir).&quot;" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
  </Target>
  <Target Name="Clean">
-  <Exec Command="&quot;$(FAKE)&quot; Build.fsx Clean OutDir=&quot;$(OutDir).&quot;" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
+  <Exec Command="&quot;$(FAKE)&quot; Build.fsx Clean WebOutDir=&quot;$(OutDir).&quot;" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
  </Target>
 </Project>
