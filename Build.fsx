@@ -77,6 +77,13 @@ let MainSolution =
         B.Project.FSharp "IntelliFactory.WebSharper.Html5.Tests" Frameworks
         B.Project.FSharp "IntelliFactory.WebSharper.Sitelets" Frameworks
         B.Project.FSharp "IntelliFactory.WebSharper.Sitelets.Tests" Frameworks
+    ]
+
+let BuildMain = T "BuildMain" MainSolution.Build
+let CleanMain = T "CleanMain" MainSolution.Clean
+
+let SiteSolution =
+    B.Solution.Standard __SOURCE_DIRECTORY__ Metadata [
         B.Project.FSharp "Website" [B.Net40]
         fun s ->
             let p = B.Project.CSharp "Web" [B.Net40] s
@@ -85,8 +92,8 @@ let MainSolution =
             | None -> p
     ]
 
-let BuildMain = T "BuildMain" MainSolution.Build
-let CleanMain = T "CleanMain" MainSolution.Clean
+let BuildSite = T "BuildSite" SiteSolution.Build
+let CleanSite = T "CleanSite" SiteSolution.Clean
 
 let PrepareTools =
     T "PrepareTools" <| fun () ->
@@ -359,9 +366,11 @@ PrepareTools
     ==> BuildNuGet
     ==> Templates.BuildExtension
     ==> BuildZipPackage
+    ==> BuildSite
     ==> Build
 
 PrepareTools
+    ==> CleanSite
     ==> CleanMain
     ==> CleanCompiler
     ==> CleanTools
