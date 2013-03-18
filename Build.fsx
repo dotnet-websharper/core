@@ -187,7 +187,8 @@ let BuildNuGet =
         X.WriteFile nuSpec (BuildNuSpecXml ())
         for f in [B.Net35; B.Net40] do
             let rDir = DotBuildDir +/ "root" +/ f.GetNuGetLiteral()
-            Directory.Delete(rDir, true)
+            if Directory.Exists rDir then
+                Directory.Delete(rDir, true)
             ensureDirectory rDir
             let config = "Release-" + f.GetMSBuildLiteral()
             let prefix = RootDir +/ "*" +/ "bin" +/ config
