@@ -88,8 +88,8 @@ let SiteSolution =
         fun s ->
             let p = B.Project.CSharp "Web" [B.Net40] s
             match environVarOrNone "WebOutDir" with
+            | None | Some "" | Some null | Some "." -> p
             | Some outDir -> { p with Properties = Map ["OutDir", outDir] }
-            | None -> p
     ]
 
 let BuildSite = T "BuildSite" SiteSolution.Build
