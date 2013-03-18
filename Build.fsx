@@ -80,7 +80,7 @@ let MainSolution =
         B.Project.FSharp "Website" [B.Net40]
         fun s ->
             let p = B.Project.CSharp "Web" [B.Net40] s
-            match B.GetOutDir() with
+            match environVarOrNone "OutDir" with
             | Some outDir -> { p with Properties = Map ["OutDir", outDir] }
             | None -> p
     ]
