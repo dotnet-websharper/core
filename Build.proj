@@ -2,23 +2,16 @@
  <PropertyGroup>
   <Root>$(MSBuildThisFileDirectory)</Root>
   <SolutionDir>$(Root)</SolutionDir>
- </PropertyGroup>
- <PropertyGroup>
-  <FSharpHome1>$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0</FSharpHome1>
-  <FSharpHome2>$(MSBuildExtensionsPath32)/../Microsoft F#/v4.0</FSharpHome2>
-  <FSharpHome3>$(MSBuildExtensionsPath32)/FSharp/1.0</FSharpHome3>
-  <FSharpHome Condition="Exists('$(FSharpHome1)') AND '$(FSharpHome)' == ''">$(FSharpHome1)</FSharpHome>
-  <FSharpHome Condition="Exists('$(FSharpHome2)') AND '$(FSharpHome)' == ''">$(FSharpHome2)</FSharpHome>
-  <FSharpHome Condition="Exists('$(FSharpHome3)') AND '$(FSharpHome)' == ''">$(FSharpHome3)</FSharpHome>
+  <FAKE>$(Root)/packages/FAKE.2.1.158-alpha/tools/FAKE.exe</FAKE>
  </PropertyGroup>
  <Target Name="Boot">
   <MakeDir Directories="$(Root)/.nuget" />
   <MSBuild Projects="$(Root)/Build/NuGet.targets" Properties="DownloadNuGetExe=true;ProjectDir=$(Root);SolutionDir=$(Root)" Targets="RestorePackages" />
  </Target>
  <Target Name="Build" DependsOnTargets="Boot">
-  <Exec Command="&quot;$(FSharpHome)/Fsi.exe&quot; --exec Build.fsx OutDir &quot;$(OutDir).&quot;" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
+  <Exec Command="&quot;$(FAKE)&quot; Build.fsx Build OutDir &quot;$(OutDir).&quot;" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
  </Target>
  <Target Name="Clean">
-  <Exec Command="&quot;$(FSharpHome)/Fsi.exe&quot; --exec Build.fsx OutDir &quot;$(OutDir).&quot; Clean" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
+  <Exec Command="&quot;$(FAKE)&quot; Build.fsx Clean OutDir &quot;$(OutDir).&quot;" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
  </Target>
 </Project>

@@ -1,4 +1,4 @@
-#r "packages/FAKE.1.74.131.0/tools/FakeLib.dll"
+#r "packages/FAKE.2.1.158-alpha/tools/FakeLib.dll"
 #r "packages/IntelliFactory.Build.0.0.6/lib/net40/IntelliFactory.Build.dll"
 #r "packages/DotNetZip.1.9.1.8/lib/net20/Ionic.Zip.dll"
 
@@ -335,7 +335,7 @@ let BuildConfigFile =
         content.WriteFile(DotBuildDir +/ "Config.fs")
 
 let ZipPackageFile =
-    RootDir +/ "Website" +/ "downloads" +/ sprintf "%s-%s.zip" Config.PackageId Config.Version
+    RootDir +/ "Web" +/ "downloads" +/ sprintf "%s-%s.zip" Config.PackageId Config.Version
 
 let BuildZipPackage =
     T "BuildZipPackage" <| fun () ->
@@ -366,7 +366,4 @@ PrepareTools
     ==> CleanTools
     ==> Clean
 
-match Environment.GetCommandLineArgs() with
-| xs when xs.[xs.Length - 1] = Clean -> RunTargetOrDefault Clean
-| _ -> RunTargetOrDefault Build
-
+RunTargetOrDefault "Build"
