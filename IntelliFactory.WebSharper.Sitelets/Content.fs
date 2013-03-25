@@ -413,10 +413,10 @@ module Content =
                             unpack (load ())
 
         let getBasicTemplate =
-            memoize (fun (root: string) -> getTemplate root basicTemplate.ParseFragmentFile ())
+            memoize (fun (root: string) -> getTemplate root basicTemplate.ParseFragmentFile)
 
         let getPageTemplate =
-            memoize (fun (root: string) -> getTemplate root pageTemplate.Parse ())
+            memoize (fun (root: string) -> getTemplate root pageTemplate.Parse)
 
         new (path) = Template(path, Template.WhenChanged, Map.empty)
         new (path, freq) = Template(path, freq, Map.empty)
@@ -438,13 +438,14 @@ module Content =
             this
 
         member this.Run(value: 'T, ?root: string) : seq<HtmlElement> =
-            getBasicTemplate(defaultArg root ".").Run(value)
+            let t = getBasicTemplate (defaultArg root ".")
+            t().Run(value)
 
         member this.CheckPageTemplate(root: string) =
-            ignore (getPageTemplate root)
+            ignore (getPageTemplate root ())
 
         member this.Run(env: Env, x: 'T, ?root: string) : XS.Element =
-            let tpl = getPageTemplate (defaultArg root ".")
+            let tpl = getPageTemplate (defaultArg root ".") ()
             let controls = Queue()
             let extra = Dictionary()
             for KeyValue (k, v) in holes do

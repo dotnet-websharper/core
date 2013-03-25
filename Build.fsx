@@ -28,8 +28,8 @@ module Config =
     let PackageId = "WebSharper"
     let Tags = ["Web"; "JavaScript"; "F#"]
     let AssemblyVersion = Version "2.5.0.0"
-    let AssemblyFileVersion = Version "2.5.4.0"
-    let Version = "2.5.4-alpha"
+    let AssemblyFileVersion = Version "2.5.5.0"
+    let Version = "2.5.5-alpha"
     let Website = "http://bitbucket.org/IntelliFactory/websharper"
 
 let Metadata =
