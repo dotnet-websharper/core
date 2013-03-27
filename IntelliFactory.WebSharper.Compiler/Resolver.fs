@@ -362,10 +362,20 @@ let Resolve (logger: Logger) (assembly: R.Assembly) =
     let env = { Logger = logger }
     let pkg = recAssembly env assembly
     let vD ctx (d: Definition) =
-        d.Address.Address <- ctx
-        let fmt (a: obj) (b: obj) =
-            System.String.Format("Name conflict: renamed {0} to {1}.", a, b)
-        if not (isStub d.Annotations) then
+        if isStub d.Annotations then
+            let addr =
+                d.Annotations
+                |> List.tryPick (function
+                    | R.Annotation.Name (R.AbsoluteName addr) -> Some addr
+                    | _ -> None)
+            d.Address.Address <-
+                match addr with
+                | None -> ctx
+                | Some addr -> addr
+        else
+            d.Address.Address <- ctx
+            let fmt (a: obj) (b: obj) =
+                System.String.Format("Name conflict: renamed {0} to {1}.", a, b)
             match d.Name with
             | None -> ()
             | Some (R.RelativeName name) ->
