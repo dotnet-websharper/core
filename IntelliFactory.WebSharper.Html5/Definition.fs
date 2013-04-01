@@ -843,7 +843,7 @@ module TypedArrays =
     let Int16Array = MakeTypedArray "Int16Array" T<int16>
     let Uint16Array = MakeTypedArray "Uint16Array" T<uint16>
     let Int32Array = MakeTypedArray "Int32Array" T<int32>
-    let Uint32Array = MakeTypedArray "Uint32Array" T<uint16>
+    let Uint32Array = MakeTypedArray "Uint32Array" T<uint32>
     let Float32Array = MakeTypedArray "Float32Array" T<float32>
     let Float64Array = MakeTypedArray "Float64Array" T<double>
 
