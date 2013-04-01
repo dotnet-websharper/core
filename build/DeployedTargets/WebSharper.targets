@@ -44,7 +44,7 @@
 
   <!-- Default WebSharper Projects -->
 
-  <PropertyGroup Condition=" $(DefaultWebSharperProject) OR $(InterfaceGenerator) ">
+  <PropertyGroup Condition=" $(DefaultWebSharperProject) OR $(InterfaceGenerator) OR $(HtmlWebSharperProject) ">
     <CleanDependsOn>$(CleanDependsOn);WebSharperClean</CleanDependsOn>
     <CompileDependsOn>$(CompileDependsOn);WebSharperCompile</CompileDependsOn>
     <CoreCompileDependsOn>WebSharperPrepare;$(CoreCompileDependsOn)</CoreCompileDependsOn>
