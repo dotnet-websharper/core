@@ -31,14 +31,5 @@
   <ItemGroup>
     <Reference Include="System.Web" />
   </ItemGroup>
-  <Import Project="..\build\FSharp.targets" />
-  <Target Name="BeforeBuild" Inputs="Runtime.js" Outputs="Runtime.min.js">
-    <AjaxMin JsSourceFiles="Runtime.js" JsSourceExtensionPattern="\.js$" JsTargetExtension=".min.js" />
-  </Target>
-  <Target Name="BeforeClean">
-    <ItemGroup>
-      <GeneratedJavaScript Include="Runtime.min.js" />
-    </ItemGroup>
-    <Delete Files="@(GeneratedJavaScript)" />
-  </Target>
+  <Import Project="../build/FSharp.targets" />
 </Project>

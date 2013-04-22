@@ -23,21 +23,15 @@
 
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <PropertyGroup>
-    <FSharpHome1>$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0</FSharpHome1>
-    <FSharpHome2>$(MSBuildExtensionsPath32)/../Microsoft F#/v4.0</FSharpHome2>
-    <FSharpHome3>$(MSBuildExtensionsPath32)/FSharp/1.0</FSharpHome3>
-    <FSharpHome Condition="Exists('$(FSharpHome1)') AND '$(FSharpHome)' == ''">$(FSharpHome1)</FSharpHome>
-    <FSharpHome Condition="Exists('$(FSharpHome2)') AND '$(FSharpHome)' == ''">$(FSharpHome2)</FSharpHome>
-    <FSharpHome Condition="Exists('$(FSharpHome3)') AND '$(FSharpHome)' == ''">$(FSharpHome3)</FSharpHome>
     <Root>$(MSBuildThisFileDirectory)/..</Root>
     <Key1>$(INTELLIFACTORY)/keys/IntelliFactory.snk</Key1>
     <Key2>$(Root)/Build/WebSharper.snk</Key2>
     <KeyOriginatorFile Condition=" '$(KeyOriginatorFile)' == '' AND Exists('$(Key1)')">$(Key1)</KeyOriginatorFile>
     <KeyOriginatorFile Condition=" '$(KeyOriginatorFile)' == '' AND Exists('$(Key2)')">$(Key2)</KeyOriginatorFile>
   </PropertyGroup>
-  <PropertyGroup>
-    <AjaxMinTargets>$(MSBuildThisFileDirectory)/../packages/tools/AjaxMin.tasks</AjaxMinTargets>
-  </PropertyGroup>
-  <Import Project="$(AjaxMinTargets)" />
-  <Import Condition=" '$(WebSharperProject)' != 'Site' " Project="$(Root)/.build/FSharp.targets"/>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="System" />
+  </ItemGroup>
+  <Import Condition=" '$(WebSharperProject)' != 'Site' " Project="$(Root)/.build/FSharp.targets" />
 </Project>

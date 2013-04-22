@@ -38,9 +38,6 @@
     <Reference Include="System.Web" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
-    <Reference Include="IntelliFactory.Xml">
-      <HintPath>../Lib/IntelliFactory.Xml.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\IntelliFactory.Html\IntelliFactory.Html.fsproj">

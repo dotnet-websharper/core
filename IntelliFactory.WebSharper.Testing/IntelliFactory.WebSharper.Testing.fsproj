@@ -7,11 +7,15 @@
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.Testing</Name>
   </PropertyGroup>
-  <Import Project="..\build\WebSharper.targets" />
+  <Import Project="../build/WebSharper.targets" />
   <ItemGroup>
     <Compile Include="Pervasives.fs" />
     <Compile Include="Random.fs" />
     <Compile Include="Assert.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">

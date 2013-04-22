@@ -27,6 +27,5 @@
     <WebSharperHome>$(Root)/WebSharper/bin/Release-$(TargetFrameworkVersion)</WebSharperHome>
     <WebSharperIncludes>false</WebSharperIncludes>
   </PropertyGroup>
-  <Import Project="$(MSBuildThisFileDirectory)/DeployedTargets/WebSharper.targets" />
+  <Import Project="$(Root)/build/DeployedTargets/WebSharper.targets" />
 </Project>
-

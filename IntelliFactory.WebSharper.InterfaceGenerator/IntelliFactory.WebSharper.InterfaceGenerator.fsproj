@@ -16,7 +16,11 @@
     <Compile Include="CodeDom.fs" />
     <Compile Include="Compiler.fs" />
   </ItemGroup>
-  <Import Project="../build/FSharp.targets" />
+  <Import Project="../build/WebSharper.targets" />
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="System" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
       <Name>IntelliFactory.JavaScript</Name>

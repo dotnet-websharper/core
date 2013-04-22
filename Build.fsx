@@ -1,14 +1,34 @@
-#r "packages/FAKE.2.1.158-alpha/tools/FakeLib.dll"
-#r "packages/IntelliFactory.Build.0.0.6/lib/net40/IntelliFactory.Build.dll"
-#r "packages/DotNetZip.1.9.1.8/lib/net20/Ionic.Zip.dll"
+#if BOOT
 
+open Fake
+module FB = Fake.Boot
+FB.Prepare {
+    FB.Config.Default __SOURCE_DIRECTORY__ with
+        NuGetDependencies =
+            let ( ! ) x = FB.NuGetDependency.Create x
+            [
+                { !"jQuery" with Version = FB.SemanticVersion "1.9.1" }
+                !"DotNetZip"
+                !"IntelliFactory.Build"
+                !"IntelliFactory.FastInvoke"
+                !"IntelliFactory.Xml"
+                !"Mono.Cecil"
+                !"YUICompressor.NET"
+            ]
+}
+
+#else
+#load ".build/boot.fsx"
 open System
 open System.IO
 open System.Net
+open System.Text
 open Fake
 open Ionic.Zip
+
 module B = IntelliFactory.Build.CommonBuildSetup
-module NG = IntelliFactory.Build.NuGet
+module F = IntelliFactory.Build.FileSystem
+module NG = IntelliFactory.Build.NuGetUtils
 module VP = IntelliFactory.Build.VsixPackages
 module VST = IntelliFactory.Build.VSTemplates
 module VX = IntelliFactory.Build.VsixExtensions
@@ -16,103 +36,192 @@ module X = IntelliFactory.Build.XmlGenerator
 
 let ( +/ ) a b = Path.Combine(a, b)
 let RootDir = __SOURCE_DIRECTORY__
+let T x f = Target x f; x
+let DotBuildDir = RootDir +/ ".build"
 let PackagesDir = RootDir +/ "packages"
 let ToolsDir = PackagesDir +/ "tools"
-let T x f = Target x f; x
 
 module Config =
+
+    let PackageId = "WebSharper"
+    let AssemblyVersion = Version "2.5"
+    let VersionSuffix = "alpha"
+    let NuGetVersion = NG.ComputeVersion PackageId (global.NuGet.SemanticVersion(AssemblyVersion, VersionSuffix))
+    let FileVersion = NuGetVersion.Version
+
     let Company = "IntelliFactory"
     let Description = "F#-to-JavaScript compiler and web application framework"
-    let Icon = VST.Icon.FromFile (RootDir +/ "WebSharper.png")
     let LicenseUrl = "http://websharper.com/licensing"
-    let PackageId = "WebSharper"
     let Tags = ["Web"; "JavaScript"; "F#"]
-    let AssemblyVersion = Version "2.5.0.0"
-    let AssemblyFileVersion = Version "2.5.6.0"
-    let Version = "2.5.6-alpha"
     let Website = "http://bitbucket.org/IntelliFactory/websharper"
+    let Icon = VST.Icon.FromFile (RootDir +/ "WebSharper.png")
 
 let Metadata =
     let m = B.Metadata.Create()
-    m.Author <- Some Config.Company
     m.AssemblyVersion <- Some Config.AssemblyVersion
-    m.FileVersion <- Some Config.AssemblyFileVersion
+    m.Author <- Some Config.Company
     m.Description <- Some Config.Description
+    m.FileVersion <- Some Config.FileVersion
     m.Product <- Some Config.PackageId
+    m.VersionSuffix <- Some Config.VersionSuffix
     m.Website <- Some Config.Website
     m
 
-let Frameworks = [B.Net35; B.Net40]
+[<AutoOpen>]
+module Extensions =
 
-let CompilerSolution =
-    B.Solution.Standard __SOURCE_DIRECTORY__ Metadata [
-        B.Project.FSharp "IntelliFactory.JavaScript" Frameworks
-        B.Project.FSharp "IntelliFactory.JavaScript.Tests" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Core" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Compiler" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.InterfaceGenerator" Frameworks
-        B.Project.FSharp "WebSharper" Frameworks
+    type B.BuildConfiguration with
+        static member Release(v: B.FrameworkVersion)(deps: list<string>) : B.BuildConfiguration =
+            {
+                ConfigurationName = "Release"
+                Debug = false
+                FrameworkVersion = v
+                NuGetDependencies =
+                    new global.NuGet.PackageDependencySet(
+                        v.ToFrameworkName(),
+                        [for d in deps -> global.NuGet.PackageDependency(d)]
+                    )
+            }
+
+    type B.Solution with
+
+        static member Standard(rootDir: string)(m: B.Metadata)(ps: list<string -> B.Project>) : B.Solution =
+            {
+                Metadata = m
+                Projects = [for p in ps -> p rootDir]
+                RootDirectory = rootDir
+            }
+
+        member this.BuildSync(?opts: B.MSBuildOptions) =
+            this.MSBuild(?options=opts)
+            |> Async.RunSynchronously
+
+        member this.CleanSync(?opts: B.MSBuildOptions) =
+            let opts : B.MSBuildOptions =
+                match opts with
+                | Some opts ->
+                    { opts with Targets = ["Clean"] }
+                | None ->
+                    {
+                        BuildConfiguration = None
+                        Properties = Map.empty
+                        Targets = ["Clean"]
+                    }
+            this.MSBuild opts
+            |> Async.RunSynchronously
+
+    type B.Project with
+
+        static member FSharp(name: string)(configs: list<B.BuildConfiguration>)(rootDir: string) : B.Project =
+            {
+                Name = name
+                MSBuildProjectFilePath = Some (rootDir +/ name +/ (name + ".fsproj"))
+                BuildConfigurations = configs
+            }
+
+        static member CSharp(name: string)(configs: list<B.BuildConfiguration>)(rootDir: string) : B.Project =
+            {
+                Name = name
+                MSBuildProjectFilePath = Some (rootDir +/ name +/ (name + ".csproj"))
+                BuildConfigurations = configs
+            }
+
+let RawJavaScriptFiles =
+    [
+        RootDir +/ "IntelliFactory.JavaScript" +/ "Runtime.js"
+        RootDir +/ "IntelliFactory.WebSharper" +/ "Json.js"
     ]
+
+let CompressJavaScript = T "CompressJavaScript" <| fun () ->
+    let jc = Yahoo.Yui.Compressor.JavaScriptCompressor()
+    for i in RawJavaScriptFiles do
+        let cj =
+            File.ReadAllText(i)
+            |> jc.Compress
+        let p = Path.ChangeExtension(i, ".min.js")
+        F.TextContent(cj).WriteFile(p)
+
+let CleanCompressedJavaScript = T "CleanCompressedJavaScript" <| fun () ->
+    for i in RawJavaScriptFiles do
+        let p = Path.ChangeExtension(i, ".min.js")
+        File.Delete p
+
+let Deps =
+    [
+        "IntelliFactory.FastInvoke"
+        "IntelliFactory.Xml"
+        "Mono.Cecil"
+    ]
+
+let C35 = B.BuildConfiguration.Release B.Net35 Deps
+let C40 = B.BuildConfiguration.Release B.Net40 Deps
+
+let Configs = [C35; C40]
+
+let CompilerSolution : B.Solution =
+    B.Solution.Standard RootDir Metadata [
+        B.Project.FSharp "IntelliFactory.JavaScript" Configs
+        B.Project.FSharp "IntelliFactory.JavaScript.Tests" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Core" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Compiler" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.InterfaceGenerator" Configs
+        B.Project.FSharp "WebSharper" Configs
+    ]
+
+let BuildCompiler = T "BuildCompiler" CompilerSolution.BuildSync
+let CleanCompiler = T "CleanCompiler" CompilerSolution.CleanSync
 
 let MainSolution =
-    B.Solution.Standard __SOURCE_DIRECTORY__ Metadata [
-        B.Project.FSharp "IntelliFactory.WebSharper" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Dom" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.JQuery" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Collections" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Collections.Tests" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Control" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Ecma" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Testing" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Tests" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Web" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Web.Tests" Frameworks
-        B.Project.FSharp "IntelliFactory.Reactive" Frameworks
-        B.Project.FSharp "IntelliFactory.Formlet" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Formlet" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Formlet.Tests" Frameworks
-        B.Project.FSharp "IntelliFactory.Html" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Html" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Html5" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Html5.Tests" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Sitelets" Frameworks
-        B.Project.FSharp "IntelliFactory.WebSharper.Sitelets.Tests" Frameworks
+    B.Solution.Standard RootDir Metadata [
+        B.Project.FSharp "IntelliFactory.WebSharper" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Dom" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.JQuery" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Collections" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Collections.Tests" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Control" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Ecma" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Testing" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Tests" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Web" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Web.Tests" Configs
+        B.Project.FSharp "IntelliFactory.Reactive" Configs
+        B.Project.FSharp "IntelliFactory.Formlet" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Formlet" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Formlet.Tests" Configs
+        B.Project.FSharp "IntelliFactory.Html" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Html" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Html5" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Html5.Tests" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Sitelets" Configs
+        B.Project.FSharp "IntelliFactory.WebSharper.Sitelets.Tests" Configs
     ]
 
-let BuildMain = T "BuildMain" MainSolution.Build
-let CleanMain = T "CleanMain" MainSolution.Clean
+let BuildMain = T "BuildMain" MainSolution.BuildSync
+let CleanMain = T "CleanMain" MainSolution.CleanSync
+
+let SiteOptions =
+    match environVarOrNone "WebOutDir" with
+    | None | Some "" | Some null | Some "." -> None
+    | Some d ->
+        let opts : B.MSBuildOptions =
+            {
+                BuildConfiguration = None
+                Properties = Map ["OutDir", d]
+                Targets = ["Build"]
+            }
+        Some opts
 
 let SiteSolution =
     B.Solution.Standard __SOURCE_DIRECTORY__ Metadata [
-        B.Project.FSharp "Website" [B.Net40]
-        fun s ->
-            let p = B.Project.CSharp "Web" [B.Net40] s
-            match environVarOrNone "WebOutDir" with
-            | None | Some "" | Some null | Some "." -> p
-            | Some outDir -> { p with Properties = Map ["OutDir", outDir] }
+        B.Project.FSharp "Website" [C40]
+        B.Project.CSharp "Web" [C40]
     ]
 
-let BuildSite = T "BuildSite" SiteSolution.Build
-let CleanSite = T "CleanSite" SiteSolution.Clean
-
-let PrepareTools =
-    T "PrepareTools" <| fun () ->
-        Fake.FileSystemHelper.ensureDirectory ToolsDir
-        !+ (PackagesDir +/ "AjaxMin*" +/ "tools" +/ "net40" +/ "*.*")
-        |> Scan
-        |> Copy ToolsDir
-
-let CleanTools =
-    T "CleanTools" <| fun () ->
-        Directory.Delete(ToolsDir, true)
-
-let BuildCompiler = T "BuildCompiler" CompilerSolution.Build
-let CleanCompiler = T "CleanCompiler" CompilerSolution.Clean
+let BuildSite = T "BuildSite" (fun () -> SiteSolution.BuildSync(?opts=SiteOptions))
+let CleanSite = T "CleanSite" (fun () -> SiteSolution.CleanSync(?opts=SiteOptions))
 
 let Build = T "Build" ignore
 let Clean = T "Clean" ignore
-
-let DotBuildDir = RootDir +/ ".build"
 
 let BuildWebSharperTargetsXml () =
     let ns = "http://schemas.microsoft.com/developer/msbuild/2003"
@@ -120,7 +229,7 @@ let BuildWebSharperTargetsXml () =
     let ( -- ) (a: X.Element) (b: string) = X.Element.WithText b a
     e "Project" - [
         e "PropertyGroup" - [
-            yield e "WebSharperVersion" -- Config.Version
+            yield e "WebSharperVersion" -- string Config.NuGetVersion
             let variants =
                 [
                     "$(MSBuildProjectDirectory)/../packages"
@@ -155,30 +264,6 @@ let BuildWebSharperTargetsXml () =
         e "Import" + ["Project", "$(WebSharperHome)/WebSharper.targets"]
     ]
 
-let BuildNuSpecXml () =
-    let e n = X.Element.Create n
-    let ( -- ) (a: X.Element) (b: string) = X.Element.WithText b a
-    e "package" - [
-        e "metadata" - [
-            e "id" -- Config.PackageId
-            e "version" -- Config.Version
-            e "authors"-- Config.Company
-            e "owners"-- Config.Company
-            e "licenseUrl" -- Config.LicenseUrl
-            e "projectUrl"-- Config.Website
-            e "requireLicenseAcceptance" -- "false"
-            e "description" -- Config.Description
-            e "copyright" -- sprintf "Copyright (c) %O %s" DateTime.Now.Year Config.Company
-            e "tags" -- String.concat " " Config.Tags
-        ]
-        e "files" - [
-            e "file" + ["src", "WebSharper.targets"; "target", "content"]
-            e "file" + ["src", "Web.config.transform"; "target", "content"]
-            e "file" + ["src", @"root\net35\*.*"; "target", @"tools\net35"]
-            e "file" + ["src", @"root\net40\*.*"; "target", @"tools\net40"]
-        ]
-    ]
-
 let BuildWebSharperTargets =
     T "BuildWebSharperTargets" <| fun () ->
         ensureDirectory DotBuildDir
@@ -208,25 +293,58 @@ let BuildWebConfigTransform =
         let t = DotBuildDir +/ "Web.config.transform"
         X.WriteFile t (BuildWebConfigTransformXml ())
 
-let NuGetPackageFile =
-    DotBuildDir +/ sprintf "%s.%s.nupkg" Config.PackageId Config.Version
 
-let BuildNuGet =
-    T "BuildNuGet" <| fun () ->
-        ensureDirectory DotBuildDir
-        let nuSpec = DotBuildDir +/ "WebSharper.nuspec"
-        X.WriteFile nuSpec (BuildNuSpecXml ())
-        for f in [B.Net35; B.Net40] do
-            let rDir = DotBuildDir +/ "root" +/ f.GetNuGetLiteral()
-            if Directory.Exists rDir then
-                Directory.Delete(rDir, true)
-            ensureDirectory rDir
-            let config = "Release-" + f.GetMSBuildLiteral()
+let NuGetPackageFile =
+    DotBuildDir +/ sprintf "%s.%O.nupkg" Config.PackageId Config.NuGetVersion
+
+//let BuildNuSpecXml () =
+//    let e n = X.Element.Create n
+//    let ( -- ) (a: X.Element) (b: string) = X.Element.WithText b a
+//    e "package" - [
+//        e "metadata" - [
+//            e "id" -- Config.PackageId
+//            e "version" -- Config.Version
+//            e "authors"-- Config.Company
+//            e "owners"-- Config.Company
+//            e "licenseUrl" -- Config.LicenseUrl
+//            e "projectUrl"-- Config.Website
+//            e "requireLicenseAcceptance" -- "false"
+//            e "description" -- Config.Description
+//            e "copyright" -- sprintf "Copyright (c) %O %s" DateTime.Now.Year Config.Company
+//            e "tags" -- String.concat " " Config.Tags
+//        ]
+//        e "files" - [
+//            e "file" + ["src", "WebSharper.targets"; "target", "content"]
+//            e "file" + ["src", "Web.config.transform"; "target", "content"]
+//            e "file" + ["src", @"root\net35\*.*"; "target", @"tools\net35"]
+//            e "file" + ["src", @"root\net40\*.*"; "target", @"tools\net40"]
+//        ]
+//    ]
+
+/// TODO: helpers for buliding packages from a solution spec.
+let BuildNuGet = T "BuildNuGet" <| fun () ->
+    let content =
+        use out = new MemoryStream()
+        let builder = new NuGet.PackageBuilder()
+        builder.Id <- Config.PackageId
+        builder.Version <- Config.NuGetVersion
+        builder.Authors.Add(Config.Company) |> ignore
+        builder.Owners.Add(Config.Company) |> ignore
+        builder.LicenseUrl <- Uri(Config.LicenseUrl)
+        builder.ProjectUrl <- Uri(Config.Website)
+        builder.Copyright <- String.Format("Copyright (c) {0} {1}", DateTime.Now.Year, Config.Company)
+        builder.Description <- Config.Description
+        Config.Tags
+        |> Seq.iter (builder.Tags.Add >> ignore)
+
+        for c in Configs do
+            let config = "Release-" + c.FrameworkVersion.GetMSBuildLiteral()
             let prefix = RootDir +/ "*" +/ "bin" +/ config
             (!+ (prefix +/ "*.dll")
                 ++ (prefix +/ "*.xml")
                 ++ (prefix +/ "*.exe")
-                ++ (prefix +/ "*.exe.config"))
+                ++ (prefix +/ "*.exe.config")
+                ++ (RootDir +/ "build" +/ "DeployedTargets" +/ "WebSharper.targets"))
             |> Scan
             |> Seq.filter (fun x ->
                 [
@@ -242,49 +360,36 @@ let BuildNuGet =
                     "tests.exe"
                 ]
                 |> List.forall (fun n -> not (x.ToLower().EndsWith n)))
-            |> Seq.distinct
-            |> Copy rDir
-            do
-                !! (RootDir +/ "build" +/ "DeployedTargets" +/ "*.targets")
-                |> Copy rDir
-        let nuGetExe = RootDir +/ ".nuget" +/ "NuGet.exe"
-        nuSpec
-        |> NuGetPack (fun p ->
-            { p with
-                OutputPath = DotBuildDir
-                ToolPath = nuGetExe
-                Version = Config.Version
-                WorkingDir = DotBuildDir
-            })
-
-let DownloadDependencies =
-    T "DownloadDependencies" <| fun () ->
-        let libDir = RootDir +/ "Lib"
-        ensureDirectory libDir
-        let baseUrl =
-            "http://bitbucket.org/IntelliFactory/websharper/downloads/"
-        let download url path =
-            if not (fileExists path) then
-                tracefn "Downloading: %s" url
-                use client = new WebClient()
-                client.DownloadFile(url, path)
-                |> ignore
-        let downloadFile (filename: string) =
-            let url = baseUrl + filename
-            let path = RootDir +/ "Lib" +/ filename
-            download url path
-        downloadFile "IntelliFactory.Xml.dll"
+            |> Seq.map (fun file ->
+                let ppf = global.NuGet.PhysicalPackageFile()
+                ppf.SourcePath <- file
+                ppf.TargetPath <- "tools" +/ c.FrameworkVersion.GetNuGetLiteral() +/ Path.GetFileName(file)
+                ppf)
+            |> Seq.distinctBy (fun file -> file.TargetPath)
+            |> Seq.iter builder.Files.Add
+        builder.Files.Add
+            (
+                let ppf = global.NuGet.PhysicalPackageFile()
+                ppf.SourcePath <- RootDir +/ ".build" +/ "WebSharper.targets"
+                ppf.TargetPath <- "content" +/ "WebSharper.targets"
+                ppf
+            )
+        builder.Save(out)
+        F.Binary.FromBytes (out.ToArray())
+        |> F.BinaryContent
+    content.WriteFile(NuGetPackageFile)
+    tracefn "Written %s" NuGetPackageFile
 
 module Templates =
 
-    let VsixFileName = sprintf "%s-%s.vsix" Config.PackageId Config.Version
+    let VsixFileName = sprintf "%s-%O.vsix" Config.PackageId Config.NuGetVersion
     let VsixFile = DotBuildDir +/ VsixFileName
 
-    let Category = [sprintf "%s-%s" Config.PackageId Config.Version]
+    let Category = [sprintf "%s-%O" Config.PackageId Config.AssemblyVersion]
     let Guid = Guid("371cf828-9e17-41cb-b014-496f3e9e7171")
 
     let Identity =
-        VP.Identity.Create (sprintf "%s-%s" Config.PackageId Config.Version) Guid
+        VP.Identity.Create (sprintf "%s-%O" Config.PackageId Config.AssemblyVersion) Guid
 
     let NuGetPackages =
         lazy
@@ -459,7 +564,7 @@ module Templates =
                     Identity
                     Config.PackageId
                     Config.Description
-            id.Version <- Config.AssemblyFileVersion
+            id.Version <- Config.FileVersion
             id.Products <-
                 [
                     VX.VSProduct.Create "10.0" [VX.Premium; VX.Pro; VX.Ultimate]
@@ -494,9 +599,9 @@ let BuildConfigFile =
             IntelliFactory.Build.Mercurial.InferTag RootDir
             |> Option.iter (var "Tag")
             var "PackageId" Config.PackageId
-            var "Version" Config.Version
+            var "Version" (string Config.NuGetVersion)
             var "AssemblyVersion" (string Config.AssemblyVersion)
-            var "AssemblyFileVersion" (string Config.AssemblyFileVersion)
+            var "AssemblyFileVersion" (string Config.FileVersion)
             var "Description" Config.Description
             var "Website" Config.Website
             w.ToString()
@@ -504,7 +609,7 @@ let BuildConfigFile =
         content.WriteFile(DotBuildDir +/ "Config.fs")
 
 let ZipPackageFile =
-    RootDir +/ "Web" +/ "downloads" +/ sprintf "%s-%s.zip" Config.PackageId Config.Version
+    RootDir +/ "Web" +/ "downloads" +/ sprintf "%s-%O.zip" Config.PackageId Config.NuGetVersion
 
 let BuildZipPackage =
     T "BuildZipPackage" <| fun () ->
@@ -518,9 +623,8 @@ let BuildZipPackage =
         addFile Templates.VsixFile
         zip.Save ZipPackageFile
 
-PrepareTools
+CompressJavaScript
     ==> BuildConfigFile
-    ==> DownloadDependencies
     ==> BuildCompiler
     ==> BuildMain
     ==> BuildWebSharperTargets
@@ -531,11 +635,12 @@ PrepareTools
     ==> BuildSite
     ==> Build
 
-PrepareTools
+CleanCompressedJavaScript
     ==> CleanSite
     ==> CleanMain
     ==> CleanCompiler
-    ==> CleanTools
     ==> Clean
 
-RunTargetOrDefault "Build"
+RunTargetOrDefault Build
+
+#endif

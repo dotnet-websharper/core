@@ -8,6 +8,8 @@
     <Name>IntelliFactory.WebSharper.Web.Tests</Name>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="System" />
     <Reference Include="System.Web" />
   </ItemGroup>
   <ItemGroup>
@@ -46,5 +48,5 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-  <Import Project="..\build\WebSharper.targets" />
+  <Import Project="../build/WebSharper.targets" />
 </Project>

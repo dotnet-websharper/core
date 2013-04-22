@@ -42,9 +42,8 @@
     <Compile Include="FrontEnd.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Mono.Cecil" />
-    <Reference Include="Mono.Cecil.Mdb" />
-    <Reference Include="Mono.Cecil.Pdb" />
+    <Reference Include="mscorlib" />
+    <Reference Include="System" />
     <Reference Include="System.Web" />
     <Reference Include="System.Xml" />
     <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
