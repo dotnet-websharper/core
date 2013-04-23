@@ -293,33 +293,8 @@ let BuildWebConfigTransform =
         let t = DotBuildDir +/ "Web.config.transform"
         X.WriteFile t (BuildWebConfigTransformXml ())
 
-
 let NuGetPackageFile =
     DotBuildDir +/ sprintf "%s.%O.nupkg" Config.PackageId Config.NuGetVersion
-
-//let BuildNuSpecXml () =
-//    let e n = X.Element.Create n
-//    let ( -- ) (a: X.Element) (b: string) = X.Element.WithText b a
-//    e "package" - [
-//        e "metadata" - [
-//            e "id" -- Config.PackageId
-//            e "version" -- Config.Version
-//            e "authors"-- Config.Company
-//            e "owners"-- Config.Company
-//            e "licenseUrl" -- Config.LicenseUrl
-//            e "projectUrl"-- Config.Website
-//            e "requireLicenseAcceptance" -- "false"
-//            e "description" -- Config.Description
-//            e "copyright" -- sprintf "Copyright (c) %O %s" DateTime.Now.Year Config.Company
-//            e "tags" -- String.concat " " Config.Tags
-//        ]
-//        e "files" - [
-//            e "file" + ["src", "WebSharper.targets"; "target", "content"]
-//            e "file" + ["src", "Web.config.transform"; "target", "content"]
-//            e "file" + ["src", @"root\net35\*.*"; "target", @"tools\net35"]
-//            e "file" + ["src", @"root\net40\*.*"; "target", @"tools\net40"]
-//        ]
-//    ]
 
 /// TODO: helpers for buliding packages from a solution spec.
 let BuildNuGet = T "BuildNuGet" <| fun () ->
@@ -367,13 +342,14 @@ let BuildNuGet = T "BuildNuGet" <| fun () ->
                 ppf)
             |> Seq.distinctBy (fun file -> file.TargetPath)
             |> Seq.iter builder.Files.Add
-        builder.Files.Add
-            (
-                let ppf = global.NuGet.PhysicalPackageFile()
-                ppf.SourcePath <- RootDir +/ ".build" +/ "WebSharper.targets"
-                ppf.TargetPath <- "content" +/ "WebSharper.targets"
-                ppf
-            )
+        for cf in [ DotBuildDir +/ "Web.config.transform"; DotBuildDir +/ "WebSharper.targets" ] do
+            builder.Files.Add
+                (
+                    let ppf = global.NuGet.PhysicalPackageFile()
+                    ppf.SourcePath <- cf
+                    ppf.TargetPath <- "content" +/ Path.GetFileName(cf)
+                    ppf
+                )
         builder.Save(out)
         F.Binary.FromBytes (out.ToArray())
         |> F.BinaryContent
