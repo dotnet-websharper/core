@@ -24,7 +24,6 @@
 
   <PropertyGroup>
     <WebSharperHome Condition=" '$(WebSharperHome)' == '' ">$(MSBuildThisFileDirectory)</WebSharperHome>
-    <AssemblySearchPaths>$(AssemblySearchPaths);$(WebSharperHome)</AssemblySearchPaths>
     <WebSharperIncludes Condition=" '$(WebSharperIncludes)' == 'false' ">false</WebSharperIncludes>
     <WebSharperIncludes Condition=" '$(WebSharperIncludes)' != 'false' ">true</WebSharperIncludes>
   </PropertyGroup>
@@ -105,57 +104,75 @@
   <ItemGroup Condition=" $(WebSharperIncludes) ">
     <Reference Include="IntelliFactory.Formlet">
       <Private>$(WSPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.Formlet.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.Html">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.Html.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.JavaScript">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.JavaScript.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.Reactive">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.Reactive.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Collections">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Collections.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Control">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Control.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Core">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Core.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Dom">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Dom.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Ecma">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Ecma.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Formlet">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Formlet.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Html">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Html.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Html5">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Html5.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.JQuery">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.JQuery.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Sitelets">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Sitelets.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Testing">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Testing.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Web">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Web.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.Xml">
       <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.Xml.dll</HintPath>
     </Reference>
   </ItemGroup>
 
@@ -217,7 +234,9 @@
   </Target>
 
   <ItemGroup Condition=" $(WebSharperIncludes) AND $(InterfaceGenerator) ">
-    <Reference Include="IntelliFactory.WebSharper.InterfaceGenerator" />
+    <Reference Include="IntelliFactory.WebSharper.InterfaceGenerator">
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.InterfaceGenerator.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <!-- Site WebSharper Projects -->
@@ -259,15 +278,19 @@
   <ItemGroup Condition=" $(WebSharperIncludes) AND $(SiteWebSharperProject) ">
     <Reference Include="IntelliFactory.WebSharper.Collections">
       <Private>true</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Collections.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Control">
       <Private>true</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Control.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Sitelets">
       <Private>true</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Sitelets.dll</HintPath>
     </Reference>
     <Reference Include="IntelliFactory.WebSharper.Web">
       <Private>true</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Web.dll</HintPath>
     </Reference>
   </ItemGroup>
 

@@ -223,75 +223,107 @@ let CleanSite = T "CleanSite" (fun () -> SiteSolution.CleanSync(?opts=SiteOption
 let Build = T "Build" ignore
 let Clean = T "Clean" ignore
 
-let BuildWebSharperTargetsXml () =
-    let ns = "http://schemas.microsoft.com/developer/msbuild/2003"
-    let e n = X.Element.Create(n, ns)
-    let ( -- ) (a: X.Element) (b: string) = X.Element.WithText b a
-    e "Project" - [
-        e "PropertyGroup" - [
-            yield e "WebSharperVersion" -- string Config.NuGetVersion
-            let variants =
-                [
-                    "$(MSBuildProjectDirectory)/../packages"
-                    "$(MSBuildProjectDirectory)/../../packages"
-                    "$(MSBuildProjectDirectory)/../../../packages"
-                ]
-            for variant in variants do
-                yield
-                    e "PackagesFolder"
-                        + [
-                            "Condition",
-                                sprintf " '$(PackagesFolder)' == '' AND Exists('%s')" variant
-                        ]
-                    -- variant
-            let homeVariants =
-                [
-                    "v2.0", "net35"
-                    "v3.0", "net35"
-                    "v3.5", "net35"
-                    "v4.0", "net40"
-                    "v4.5", "net40"
-                ]
-            for (tfv, home) in homeVariants do
-                yield
-                    e "WebSharperHome"
-                        + [
-                            "Condition",
-                                sprintf " '$(TargetFrameworkVersion)' == '%s' " tfv
-                        ]
-                        -- sprintf "$(PackagesFolder)/WebSharper.$(WebSharperVersion)/tools/%s" home
+[<Sealed>]
+type NuGetPackagedFile(path: string, content: F.Content) =
+    let temp = Path.GetTempPath() +/ Guid.NewGuid().ToString()
+
+    member this.Add(builder: global.NuGet.PackageBuilder) =
+        content.WriteFile(temp)
+        let ppf = global.NuGet.PhysicalPackageFile()
+        ppf.SourcePath <- temp
+        ppf.TargetPath <- path
+        builder.Files.Add(ppf)
+
+    member this.Dispose() =
+        if File.Exists(temp) then
+            File.Delete(temp)
+
+    interface IDisposable with
+        member this.Dispose() =
+            this.Dispose()
+
+let BuildContentWebSharperTargets () =
+    let xml =
+        let ns = "http://schemas.microsoft.com/developer/msbuild/2003"
+        let e n = X.Element.Create(n, ns)
+        let ( -- ) (a: X.Element) (b: string) = X.Element.WithText b a
+        e "Project" - [
+            e "PropertyGroup" - [
+                yield e "WebSharperVersion" -- string Config.NuGetVersion
+                let variants =
+                    [
+                        "$(MSBuildProjectDirectory)/../packages"
+                        "$(MSBuildProjectDirectory)/../../packages"
+                        "$(MSBuildProjectDirectory)/../../../packages"
+                    ]
+                for variant in variants do
+                    yield
+                        e "PackagesFolder"
+                            + [
+                                "Condition",
+                                    sprintf " '$(PackagesFolder)' == '' AND Exists('%s')" variant
+                            ]
+                        -- variant
+                let homeVariants =
+                    [
+                        "v2.0", "net35"
+                        "v3.0", "net35"
+                        "v3.5", "net35"
+                        "v4.0", "net40"
+                        "v4.5", "net40"
+                    ]
+                for (tfv, home) in homeVariants do
+                    yield
+                        e "WebSharperHome"
+                            + [
+                                "Condition",
+                                    sprintf " '$(TargetFrameworkVersion)' == '%s' " tfv
+                            ]
+                            -- sprintf "$(PackagesFolder)/WebSharper.$(WebSharperVersion)/tools/%s" home
+            ]
+            e "Import" + ["Project", "$(WebSharperHome)/WebSharper.targets"]
         ]
-        e "Import" + ["Project", "$(WebSharperHome)/WebSharper.targets"]
-    ]
+        |> X.Write
+        |> F.TextContent
+    new NuGetPackagedFile("content/WebSharper.targets", xml)
 
-let BuildWebSharperTargets =
-    T "BuildWebSharperTargets" <| fun () ->
-        ensureDirectory DotBuildDir
-        let targets = DotBuildDir +/ "WebSharper.targets"
-        X.WriteFile targets (BuildWebSharperTargetsXml ())
-
-let BuildWebConfigTransformXml () =
-    let e n = X.Element.Create n
-    e "configuration" - [
-        e "system.webServer" - [
-            e "modules" - [
-                e "add" + [
-                    "name", "WebSharper.RemotingModule"
-                    "type", "IntelliFactory.WebSharper.Web.RpcModule, IntelliFactory.WebSharper.Web"
-                ]
-                e "add" + [
-                    "name", "WebSharper.Sitelets"
-                    "type", "IntelliFactory.WebSharper.Sitelets.HttpModule, IntelliFactory.WebSharper.Sitelets"
+let BuildContentWebConfigTransform () =
+    let xml =
+        let e n = X.Element.Create n
+        e "configuration" - [
+            e "system.webServer" - [
+                e "modules" - [
+                    e "add" + [
+                        "name", "WebSharper.RemotingModule"
+                        "type", "IntelliFactory.WebSharper.Web.RpcModule, IntelliFactory.WebSharper.Web"
+                    ]
+                    e "add" + [
+                        "name", "WebSharper.Sitelets"
+                        "type", "IntelliFactory.WebSharper.Sitelets.HttpModule, IntelliFactory.WebSharper.Sitelets"
+                    ]
                 ]
             ]
         ]
-    ]
+        |> X.Write
+        |> F.TextContent
+    new NuGetPackagedFile("content/Web.config.transform", xml)
 
-let BuildWebConfigTransform =
-    T "BuildWebConfigTransform" <| fun () ->
-        ensureDirectory DotBuildDir
-        let t = DotBuildDir +/ "Web.config.transform"
-        X.WriteFile t (BuildWebConfigTransformXml ())
+let BuildMSBuildWebSharperTargets (f: B.FrameworkVersion) =
+    let f = f.GetNuGetLiteral()
+    let xml =
+        let ns = "http://schemas.microsoft.com/developer/msbuild/2003"
+        let e n = X.Element.Create(n, ns)
+        let ( -- ) (a: X.Element) (b: string) = X.Element.WithText b a
+        e "Project" - [
+            e "PropertyGroup" - [
+                e "WebSharperHome" --
+                    String.Format("$(MSBuildThisFileDirectory)/../../tools/{0}", f)
+            ]
+            e "Import" + [ "Project", "$(WebSharperHome)/WebSharper.targets" ]
+        ]
+        |> X.Write
+        |> F.TextContent
+    new NuGetPackagedFile(String.Format("msbuild/{0}/WebSharper.targets", f), xml)
 
 let NuGetPackageFile =
     DotBuildDir +/ sprintf "%s.%O.nupkg" Config.PackageId Config.NuGetVersion
@@ -342,15 +374,20 @@ let BuildNuGet = T "BuildNuGet" <| fun () ->
                 ppf)
             |> Seq.distinctBy (fun file -> file.TargetPath)
             |> Seq.iter builder.Files.Add
-        for cf in [ DotBuildDir +/ "Web.config.transform"; DotBuildDir +/ "WebSharper.targets" ] do
-            builder.Files.Add
-                (
-                    let ppf = global.NuGet.PhysicalPackageFile()
-                    ppf.SourcePath <- cf
-                    ppf.TargetPath <- "content" +/ Path.GetFileName(cf)
-                    ppf
-                )
-        builder.Save(out)
+        let extras =
+            [
+                yield BuildContentWebConfigTransform ()
+                yield BuildContentWebSharperTargets ()
+                for c in Configs do
+                    yield BuildMSBuildWebSharperTargets c.FrameworkVersion
+            ]
+        try
+            for f in extras do
+                f.Add(builder)
+            builder.Save(out)
+        finally
+            for f in extras do
+                f.Dispose()
         F.Binary.FromBytes (out.ToArray())
         |> F.BinaryContent
     content.WriteFile(NuGetPackageFile)
@@ -603,8 +640,6 @@ CompressJavaScript
     ==> BuildConfigFile
     ==> BuildCompiler
     ==> BuildMain
-    ==> BuildWebSharperTargets
-    ==> BuildWebConfigTransform
     ==> BuildNuGet
     ==> Templates.BuildExtension
     ==> BuildZipPackage
