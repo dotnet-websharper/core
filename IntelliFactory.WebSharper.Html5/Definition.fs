@@ -939,7 +939,7 @@ module File =
             ]
         |+> Protocol [
                 "readAsText" => Blob * !?T<string>?encoding ^-> T<unit>
-                "readAsDataUrl" => Blob ^-> T<unit>
+                "readAsDataURL" => Blob ^-> T<unit>
             ]
 
     let BinaryFileReader =
