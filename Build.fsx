@@ -719,6 +719,7 @@ module Ivy =
 
     let Build = T "Ivy.Build" ignore
 
+    BuildMain ==> Publish
     GenerateXml ==> PrepareFiles ==> Publish ==> Build
 
 CompressJavaScript
