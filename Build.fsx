@@ -652,6 +652,10 @@ CleanCompressedJavaScript
     ==> CleanCompiler
     ==> Clean
 
+let Prepare =
+    T "Prepare" <| fun () ->
+        B.Prepare (printfn "%s") RootDir
+
 RunTargetOrDefault Build
 
 #endif

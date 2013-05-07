@@ -2,16 +2,40 @@
  <PropertyGroup>
   <Root>$(MSBuildThisFileDirectory)</Root>
   <SolutionDir>$(Root)</SolutionDir>
-  <FAKE>$(Root)/packages/FAKE.2.1.158-alpha/tools/FAKE.exe</FAKE>
+  <FAKE>$(Root)/packages/FAKE.2.1.174-alpha/tools/FAKE.exe</FAKE>
+  <FakeTemp>$(Root)/.build/FAKE.tmp</FakeTemp>
  </PropertyGroup>
- <Target Name="Boot">
+ <Target Name="InstallNuGet">
   <MakeDir Directories="$(Root)/.nuget" />
-  <MSBuild Projects="$(Root)/Build/NuGet.targets" Properties="DownloadNuGetExe=true;ProjectDir=$(Root);SolutionDir=$(Root)" Targets="RestorePackages" />
+  <MSBuild Projects="$(Root)/Build/NuGet.targets"
+           Properties="DownloadNuGetExe=true;ProjectDir=$(Root);SolutionDir=$(Root)"
+           Targets="RestorePackages" />
  </Target>
- <Target Name="Build" DependsOnTargets="Boot">
-  <Exec Command="&quot;$(FAKE)&quot; Build.fsx Build WebOutDir=&quot;$(OutDir).&quot;" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
+ <Target Name="InstallFake"
+         DependsOnTargets="InstallNuGet"
+         Condition="!Exists('$(FakeTemp)')">
+   <MakeDir Directories=".build" />
+   <Exec Command='"$(Root)/.nuget/nuget.exe" install FAKE -Pre -out .build'
+         WorkingDirectory="$(Root)"
+         LogStandardErrorAsError="true"/>
+   <ItemGroup>
+     <FAKEExe Include="$(Root)/.build/FAKE*/tools/FAKE.exe" />
+   </ItemGroup>
+   <Copy SourceFiles="@(FAKEExe)" DestinationFiles="$(FakeTemp)" />
  </Target>
- <Target Name="Clean">
-  <Exec Command="&quot;$(FAKE)&quot; Build.fsx Clean WebOutDir=&quot;$(OutDir).&quot;" WorkingDirectory="$(Root)" LogStandardErrorAsError="true" />
+ <Target Name="LocateFake" DependsOnTargets="InstallFake">
+   <ItemGroup>
+     <FAKE Include="$(Root)/.build/FAKE*/tools/FAKE.exe" />
+   </ItemGroup>
+ </Target>
+ <Target Name="Build" DependsOnTargets="LocateFake">
+  <Exec Command="&quot;@(FAKE)&quot; boot auto"
+        WorkingDirectory="$(Root)"
+        LogStandardErrorAsError="true" />
+ </Target>
+ <Target Name="Clean" DependsOnTargets="LocateFake">
+  <Exec Command="&quot;$(FAKE)&quot; Clean"
+        WorkingDirectory="$(Root)"
+        LogStandardErrorAsError="true" />
  </Target>
 </Project>
