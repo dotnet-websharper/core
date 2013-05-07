@@ -7,7 +7,7 @@
   <Target Name="InstallNuGet">
     <MakeDir Directories="$(Root)/.nuget" />
     <MSBuild Projects="$(Root)/Build/NuGet.targets"
-             Properties="DownloadNuGetExe=true;ProjectDir=$(Root);SolutionDir=$(Root)"
+             Properties="RequireRestoreConsent=false;DownloadNuGetExe=true;ProjectDir=$(Root);SolutionDir=$(Root)"
              Targets="RestorePackages" />
   </Target>
   <Target Name="InstallFake"
