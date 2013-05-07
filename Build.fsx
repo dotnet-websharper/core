@@ -47,7 +47,13 @@ module Config =
     let AssemblyVersion = Version "2.5"
     let VersionSuffix = "alpha"
     let NuGetVersion = NG.ComputeVersion PackageId (global.NuGet.SemanticVersion(AssemblyVersion, VersionSuffix))
-    let FileVersion = NuGetVersion.Version
+
+    let FileVersion =
+        let v = NuGetVersion.Version
+        let bn = environVarOrNone "BUILD_NUMBER"
+        match bn with
+        | None -> v
+        | Some bn -> Version(v.Major, v.Minor, v.Build, int bn)
 
     let Company = "IntelliFactory"
     let Description = "F#-to-JavaScript compiler and web application framework"
@@ -328,6 +334,31 @@ let BuildMSBuildWebSharperTargets (f: B.FrameworkVersion) =
 let NuGetPackageFile =
     DotBuildDir +/ sprintf "%s.%O.nupkg" Config.PackageId Config.NuGetVersion
 
+let ComputePublishedFiles (c: B.BuildConfiguration) =
+    let config = "Release-" + c.FrameworkVersion.GetMSBuildLiteral()
+    let prefix = RootDir +/ "*" +/ "bin" +/ config
+    (!+ (prefix +/ "*.dll")
+        ++ (prefix +/ "*.xml")
+        ++ (prefix +/ "*.exe")
+        ++ (prefix +/ "*.exe.config")
+        ++ (RootDir +/ "build" +/ "DeployedTargets" +/ "WebSharper.targets"))
+    |> Scan
+    |> Seq.filter (fun x ->
+        [
+            "generator.exe"
+            "generator.exe.config"
+            "mscorlib.dll"
+            "system.dll"
+            "system.core.dll"
+            "system.numerics.dll"
+            "system.web.dll"
+            "tests.dll"
+            "tests.xml"
+            "tests.exe"
+        ]
+        |> List.forall (fun n -> not (x.ToLower().EndsWith n)))
+    |> Seq.distinctBy Path.GetFileName
+
 /// TODO: helpers for buliding packages from a solution spec.
 let BuildNuGet = T "BuildNuGet" <| fun () ->
     let content =
@@ -343,30 +374,8 @@ let BuildNuGet = T "BuildNuGet" <| fun () ->
         builder.Description <- Config.Description
         Config.Tags
         |> Seq.iter (builder.Tags.Add >> ignore)
-
         for c in Configs do
-            let config = "Release-" + c.FrameworkVersion.GetMSBuildLiteral()
-            let prefix = RootDir +/ "*" +/ "bin" +/ config
-            (!+ (prefix +/ "*.dll")
-                ++ (prefix +/ "*.xml")
-                ++ (prefix +/ "*.exe")
-                ++ (prefix +/ "*.exe.config")
-                ++ (RootDir +/ "build" +/ "DeployedTargets" +/ "WebSharper.targets"))
-            |> Scan
-            |> Seq.filter (fun x ->
-                [
-                    "generator.exe"
-                    "generator.exe.config"
-                    "mscorlib.dll"
-                    "system.dll"
-                    "system.core.dll"
-                    "system.numerics.dll"
-                    "system.web.dll"
-                    "tests.dll"
-                    "tests.xml"
-                    "tests.exe"
-                ]
-                |> List.forall (fun n -> not (x.ToLower().EndsWith n)))
+            ComputePublishedFiles c
             |> Seq.map (fun file ->
                 let ppf = global.NuGet.PhysicalPackageFile()
                 ppf.SourcePath <- file
@@ -636,6 +645,82 @@ let BuildZipPackage =
         addFile Templates.VsixFile
         zip.Save ZipPackageFile
 
+module Ivy =
+
+    type Publication =
+        {
+            File: FileInfo
+        }
+
+    let ListPublications () =
+        [
+            for file in ComputePublishedFiles C40 do
+                match Path.GetFileName file with
+                | "FSharp.Core.dll"
+                | "Mono.Cecil.dll"
+                | "Mono.Cecil.Mdb.dll"
+                | "Mono.Cecil.Pdb.dll"
+                | "Mono.Cecil.Rocks.dll"
+                | "Website.dll"
+                | "Website.xml" -> ()
+                | _ ->
+                    yield { File = FileInfo file }
+            for t in Directory.EnumerateFiles(RootDir +/ "Build" +/ "OldTargets") do
+                yield { File = FileInfo t }
+        ]
+
+    let GenerateXml =
+        T "Ivy.GenerateXml" <| fun () ->
+            let c =
+                let e n = X.Element.Create n
+                e "ivy-module" + ["version", "2.0"] - [
+                    e "info" + [
+                        "organisation", Config.Company
+                        "module", Config.PackageId
+                        "revision", sprintf "%i.%i" Config.AssemblyVersion.Major Config.AssemblyVersion.Minor
+                    ]
+                    e "publications" - [
+                        for { File = file } in ListPublications () ->
+                            e "artifact" + [
+                                "name", Path.GetFileNameWithoutExtension file.FullName
+                                "ext", Path.GetExtension(file.FullName).Substring(1)
+                            ]
+                    ]
+                ]
+                |> X.Write
+                |> F.TextContent
+            c.WriteFile(RootDir +/ "ivy.xml")
+
+    let PrepareFiles =
+        T "Ivy.PrepareFiles" <| fun () ->
+            let ivyDir = DotBuildDir +/ "ivy"
+            ensureDirectory ivyDir
+            ListPublications()
+            |> Seq.iter (fun f ->
+                let c = F.Content.ReadBinaryFile f.File.FullName
+                let o = ivyDir +/ f.File.Name
+                c.WriteFile o)
+
+    let Publish =
+        T "Ivy.Publish" <| fun () ->
+            match environVarOrNone "BUILD_NUMBER" with
+            | None -> tracefn "No BUILD_NUMBER - skipping"
+            | Some _ ->
+                let ant = environVar "INTELLIFACTORY" +/ "software" +/ "apache-ant-1.8.2" +/ "bin" +/ "ant.bat"
+                let ok =
+                    shellExec {
+                        Args = []
+                        CommandLine = sprintf "-Dpubrevision=%O" Config.FileVersion
+                        Program = ant
+                        WorkingDirectory = RootDir
+                    }
+                if ok <> 0 then
+                    failwithf "Invalid return code: %i" ok
+
+    let Build = T "Ivy.Build" ignore
+
+    GenerateXml ==> PrepareFiles ==> Publish ==> Build
+
 CompressJavaScript
     ==> BuildConfigFile
     ==> BuildCompiler
@@ -644,6 +729,7 @@ CompressJavaScript
     ==> Templates.BuildExtension
     ==> BuildZipPackage
     ==> BuildSite
+    ==> Ivy.Build
     ==> Build
 
 CleanCompressedJavaScript
