@@ -94,6 +94,18 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web", "..\..\Web\Web.csproj
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Website", "..\..\Website\Website.fsproj", "{8BE86673-A0C0-4285-88BA-913B4FEDA447}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OldTargets", "OldTargets", "{8993FBA7-34A9-4995-BADE-DFC86CAACAED}"
+	ProjectSection(SolutionItems) = preProject
+		..\OldTargets\IntelliFactory.FSharp.targets = ..\OldTargets\IntelliFactory.FSharp.targets
+		..\OldTargets\IntelliFactory.WebSharper.Common.targets = ..\OldTargets\IntelliFactory.WebSharper.Common.targets
+		..\OldTargets\IntelliFactory.WebSharper.CSharp.targets = ..\OldTargets\IntelliFactory.WebSharper.CSharp.targets
+		..\OldTargets\IntelliFactory.WebSharper.FSharp.targets = ..\OldTargets\IntelliFactory.WebSharper.FSharp.targets
+		..\OldTargets\IntelliFactory.WebSharper.InterfaceGenerator.targets = ..\OldTargets\IntelliFactory.WebSharper.InterfaceGenerator.targets
+		..\OldTargets\IntelliFactory.WebSharper.Sitelets.targets = ..\OldTargets\IntelliFactory.WebSharper.Sitelets.targets
+		..\OldTargets\IntelliFactory.WebSharper.targets = ..\OldTargets\IntelliFactory.WebSharper.targets
+		..\OldTargets\IntelliFactory.WebSharper.Web.targets = ..\OldTargets\IntelliFactory.WebSharper.Web.targets
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -232,6 +244,7 @@ Global
 		{2605322F-851C-4C6A-A204-F4EEE9E21252} = {62289C2F-10B7-4258-A9EB-EEFD367BD78F}
 		{891CB1BD-128A-4455-8F02-A726B0B2EACF} = {62289C2F-10B7-4258-A9EB-EEFD367BD78F}
 		{2C2DCBE5-3162-481D-9E41-698ABE486C5D} = {BC76F2F0-F39D-425C-98E3-47636AAD023B}
+		{8993FBA7-34A9-4995-BADE-DFC86CAACAED} = {BC76F2F0-F39D-425C-98E3-47636AAD023B}
 		{730AE40A-001C-4137-972D-898DC7C2BF0A} = {FAD631BE-550D-41C5-B171-B50763938117}
 		{4382F3A7-126B-4BC6-988B-CAA8C8A9B62F} = {FAD631BE-550D-41C5-B171-B50763938117}
 		{4EF94364-B50F-4906-AB91-77BCA8413D60} = {FAD631BE-550D-41C5-B171-B50763938117}

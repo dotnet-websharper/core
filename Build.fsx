@@ -657,10 +657,6 @@ module Ivy =
             for file in ComputePublishedFiles C40 do
                 match Path.GetFileName file with
                 | "FSharp.Core.dll"
-                | "Mono.Cecil.dll"
-                | "Mono.Cecil.Mdb.dll"
-                | "Mono.Cecil.Pdb.dll"
-                | "Mono.Cecil.Rocks.dll"
                 | "Website.dll"
                 | "Website.xml" -> ()
                 | _ ->

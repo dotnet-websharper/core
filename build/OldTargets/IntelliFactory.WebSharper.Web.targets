@@ -24,5 +24,9 @@
   <PropertyGroup>
     <WebSharperProject>Site</WebSharperProject>
   </PropertyGroup>
-  <Import Project="IntelliFactory.WebSharper.CSharp.targets" />
+  <ItemGroup>
+    <Compile Include="$(MSBuildProjectDirectory)\..\.build\AutoAssemblyInfo.cs" />
+  </ItemGroup>
+  <Import Project="IntelliFactory.WebSharper.Common.targets" />
+  <Import Project="WebSharper.targets" />
 </Project>
