@@ -20,6 +20,10 @@
   <artifact name="IntelliFactory.WebSharper" ext="xml" />
   <artifact name="IntelliFactory.Xml" ext="dll" />
   <artifact name="IntelliFactory.Xml" ext="xml" />
+  <artifact name="Mono.Cecil" ext="dll" />
+  <artifact name="Mono.Cecil.Mdb" ext="dll" />
+  <artifact name="Mono.Cecil.Pdb" ext="dll" />
+  <artifact name="Mono.Cecil.Rocks" ext="dll" />
   <artifact name="IntelliFactory.Html" ext="dll" />
   <artifact name="IntelliFactory.Html" ext="xml" />
   <artifact name="IntelliFactory.WebSharper.Dom" ext="dll" />

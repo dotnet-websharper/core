@@ -715,8 +715,7 @@ module Ivy =
 
     let Build = T "Ivy.Build" ignore
 
-    BuildMain ==> Publish
-    GenerateXml ==> PrepareFiles ==> Publish ==> Build
+    BuildMain ==> GenerateXml ==> PrepareFiles ==> Publish ==> Build
 
 CompressJavaScript
     ==> BuildConfigFile
