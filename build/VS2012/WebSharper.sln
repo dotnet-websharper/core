@@ -5,6 +5,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.JavaScript",
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{BC76F2F0-F39D-425C-98E3-47636AAD023B}"
 	ProjectSection(SolutionItems) = preProject
+		..\Build.xml = ..\Build.xml
 		..\FSharp.targets = ..\FSharp.targets
 		..\LICENSE.txt = ..\LICENSE.txt
 		..\UpdateLicense.fsx = ..\UpdateLicense.fsx
@@ -77,7 +78,6 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root", "Root", "{4A2E3AC5-FBD2-4691-93FE-BC5A642E8B4D}"
 	ProjectSection(SolutionItems) = preProject
 		..\..\Build.fsx = ..\..\Build.fsx
-		..\..\Build.xml = ..\..\Build.xml
 		..\..\LICENSE.txt = ..\..\LICENSE.txt
 		..\..\packages.config = ..\..\packages.config
 		..\..\README.markdown = ..\..\README.markdown
