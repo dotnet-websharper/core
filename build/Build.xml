@@ -1,7 +1,7 @@
 <project xmlns:ivy="antlib:org.apache.ivy.ant" default="build">
   <property environment="env" />
   <property name="pubrevision" value="2.5" />
-  <property name="resolver" value="default" />
+  <property name="env.resolver" value="default" />
   <property file="${env.INTELLIFACTORY}/conf/ant.properties" />
   <target name="load.ivy.settings">
     <ivy:settings file="${env.INTELLIFACTORY}/conf/ivy-settings.xml" />
@@ -9,9 +9,9 @@
   <target name="build" depends="load.ivy.settings">
     <ivy:resolve file="ivy.xml" />
     <ivy:publish update="true"
-                 resolver="${resolver}"
+                 resolver="${env.resolver}"
                  pubbranch="default"
                  pubrevision="${pubrevision}"
-                 artifactspattern=".build/ivy/[artifact].[ext]" />
+                 artifactspattern="../.build/ivy/[artifact].[ext]" />
   </target>
 </project>

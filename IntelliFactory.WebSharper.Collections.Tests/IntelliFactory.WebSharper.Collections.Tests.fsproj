@@ -23,42 +23,34 @@
     <ProjectReference Include="..\IntelliFactory.Html\IntelliFactory.Html.fsproj">
       <Name>IntelliFactory.Html</Name>
       <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
-      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper.Collections\IntelliFactory.WebSharper.Collections.fsproj">
       <Name>IntelliFactory.WebSharper.Collections</Name>
       <Project>{4ef94364-b50f-4906-ab91-77bca8413d60}</Project>
-      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
       <Name>IntelliFactory.WebSharper.Core</Name>
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper.Dom\IntelliFactory.WebSharper.Dom.fsproj">
       <Name>IntelliFactory.WebSharper.Dom</Name>
       <Project>{4382f3a7-126b-4bc6-988b-caa8c8a9b62f}</Project>
-      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper.Html\IntelliFactory.WebSharper.Html.fsproj">
       <Name>IntelliFactory.WebSharper.Html</Name>
       <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
-      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper.Testing\IntelliFactory.WebSharper.Testing.fsproj">
       <Name>IntelliFactory.WebSharper.Testing</Name>
       <Project>{a7f7a74b-d0ee-4918-8a54-280fc7d2a30c}</Project>
-      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper.Web\IntelliFactory.WebSharper.Web.fsproj">
       <Name>IntelliFactory.WebSharper.Web</Name>
       <Project>{fe6ba781-fdc9-4bb5-b38a-3bb9841ea836}</Project>
-      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
       <Name>IntelliFactory.WebSharper</Name>
       <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
-      <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
 </Project>

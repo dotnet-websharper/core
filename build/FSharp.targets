@@ -33,5 +33,13 @@
     <Reference Include="mscorlib" />
     <Reference Include="System" />
   </ItemGroup>
-  <Import Condition=" '$(WebSharperProject)' != 'Site' " Project="$(Root)/.build/FSharp.targets" />
+  <Import Condition=" '$(WebSharperProject)' != 'Site' " Project="$(Root)/.build/$(Stage)/FSharp.targets" />
+  <ItemDefinitionGroup Condition=" '$(PrivateRefs)' == '' ">
+    <Reference>
+      <Private>False</Private>
+    </Reference>
+    <ProjectReference>
+      <Private>False</Private>
+    </ProjectReference>
+  </ItemDefinitionGroup>
 </Project>

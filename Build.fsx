@@ -91,12 +91,10 @@ module Extensions =
 
     type B.Solution with
 
-        static member Standard(rootDir: string)(m: B.Metadata)(ps: list<string -> B.Project>) : B.Solution =
-            {
-                Metadata = m
-                Projects = [for p in ps -> p rootDir]
-                RootDirectory = rootDir
-            }
+        static member Standard(rootDir: string, m: B.Metadata, ?prefix: string) =
+            fun (ps: list<string -> B.Project>) ->
+                let ps = [for p in ps -> p rootDir]
+                B.Solution(rootDir, Metadata = m, Projects = ps, Prefix = prefix)
 
         member this.BuildSync(?opts: B.MSBuildOptions) =
             this.MSBuild(?options=opts)
@@ -165,7 +163,7 @@ let C40 = B.BuildConfiguration.Release B.Net40 Deps
 let Configs = [C35; C40]
 
 let CompilerSolution : B.Solution =
-    B.Solution.Standard RootDir Metadata [
+    B.Solution.Standard(RootDir, Metadata, prefix="compiler") [
         B.Project.FSharp "IntelliFactory.JavaScript" Configs
         B.Project.FSharp "IntelliFactory.JavaScript.Tests" Configs
         B.Project.FSharp "IntelliFactory.WebSharper.Core" Configs
@@ -178,7 +176,7 @@ let BuildCompiler = T "BuildCompiler" CompilerSolution.BuildSync
 let CleanCompiler = T "CleanCompiler" CompilerSolution.CleanSync
 
 let MainSolution =
-    B.Solution.Standard RootDir Metadata [
+    B.Solution.Standard(RootDir, Metadata) [
         B.Project.FSharp "IntelliFactory.WebSharper" Configs
         B.Project.FSharp "IntelliFactory.WebSharper.Dom" Configs
         B.Project.FSharp "IntelliFactory.WebSharper.JQuery" Configs
@@ -218,7 +216,7 @@ let SiteOptions =
         Some opts
 
 let SiteSolution =
-    B.Solution.Standard __SOURCE_DIRECTORY__ Metadata [
+    B.Solution.Standard(RootDir, Metadata, prefix="site") [
         B.Project.FSharp "Website" [C40]
         B.Project.CSharp "Web" [C40]
     ]
@@ -685,7 +683,7 @@ module Ivy =
                 ]
                 |> X.Write
                 |> F.TextContent
-            c.WriteFile(RootDir +/ "ivy.xml")
+            c.WriteFile(DotBuildDir +/ "ivy.xml")
 
     let PrepareFiles =
         T "Ivy.PrepareFiles" <| fun () ->
@@ -699,6 +697,9 @@ module Ivy =
 
     let Publish =
         T "Ivy.Publish" <| fun () ->
+            let src = RootDir +/ "build" +/ "Build.xml"
+            let tgt = DotBuildDir +/ "Build.xml"
+            F.Content.ReadTextFile(src).WriteFile(tgt)
             match environVarOrNone "BUILD_NUMBER" with
             | None -> tracefn "No BUILD_NUMBER - skipping"
             | Some _ ->
@@ -708,7 +709,7 @@ module Ivy =
                         Args = []
                         CommandLine = sprintf "-Dpubrevision=%O" Config.FileVersion
                         Program = ant
-                        WorkingDirectory = RootDir
+                        WorkingDirectory = DotBuildDir
                     }
                 if ok <> 0 then
                     failwithf "Invalid return code: %i" ok

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProductVersion>8.0.30703</ProductVersion>
@@ -6,6 +6,7 @@
     <ProjectGuid>{198ac342-e6f2-4612-813c-905b81e5471d}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <Name>IntelliFactory.JavaScript.Tests</Name>
+    <Stage>compiler</Stage>
   </PropertyGroup>
   <Import Project="../build/FSharp.targets" />
   <ItemGroup>
@@ -23,7 +24,7 @@
     <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
       <Name>IntelliFactory.JavaScript</Name>
       <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
-      <Private>True</Private>
+      <Private>true</Private>
     </ProjectReference>
   </ItemGroup>
   <Target Name="AfterBuild">

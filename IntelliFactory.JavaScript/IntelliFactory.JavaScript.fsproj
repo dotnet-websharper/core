@@ -6,6 +6,7 @@
     <ProjectGuid>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.JavaScript</Name>
+    <Stage>compiler</Stage>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Extensions.fs" />
