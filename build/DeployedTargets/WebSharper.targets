@@ -94,11 +94,8 @@
   <!-- Common Includes -->
 
   <PropertyGroup Condition=" $(SiteWebSharperProject) ">
-    <WSPrivateRefs>true</WSPrivateRefs>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" !$(SiteWebSharperProject) ">
     <WSPrivateRefs>false</WSPrivateRefs>
+    <WSPrivateRefs Condition="$(SiteWebSharperProject) OR $(InterfaceGenerator)">true</WSPrivateRefs>
   </PropertyGroup>
 
   <ItemGroup Condition=" $(WebSharperIncludes) ">
@@ -206,25 +203,19 @@
       <WsIgCscToolPath>@(WsIgCscTool->'%(RootDir)%(Directory)')</WsIgCscToolPath>
     </PropertyGroup>
     <ItemGroup>
-      <WsIgReferences Include="@(ReferencePath)"
-                      Condition="'%(ReferencePath.Filename)' != 'System'
-                                 and '%(ReferencePath.Filename)' != 'System.Core'
-                                 and '%(ReferencePath.Filename)' != 'mscorlib'
-                                 and '%(ReferencePath.Filename)' != 'System.Web'" />
-      <WsIgSelf
-          Include="@(ReferencePath)"
-          Condition="'%(ReferencePath.Filename)' == 'IntelliFactory.WebSharper.InterfaceGenerator'" />
       <WsIgSources Include="$(OutputPath)\Generated.cs" />
       <WsIgSources Include="@(None);@(Compile)" Condition="'%(Extension)' == '.cs'" />
       <WsIgSources Include="$(MSBuildProjectDirectory)\..\.build\AutoAssemblyInfo.cs"
                    Condition="Exists('$(MSBuildProjectDirectory)\..\.build\AutoAssemblyInfo.cs')" />
     </ItemGroup>
-    <Copy SourceFiles="@(ReferencePath);@(WsIgSelf)"
+    <Copy SourceFiles="@(ReferenceCopyLocalPaths)"
           DestinationFolder="$(OutputPath)"
           SkipUnchangedFiles="true" />
     <Exec Command="Generator.exe &gt; Generated.cs" WorkingDirectory="$(OutputPath)" />
     <Csc TargetType="Library"
-         References="@(WsIgReferences)"
+         NoConfig="true"
+         NoStandardLib="true"
+         References="@(ReferencePath)"
          OutputAssembly="$(RawIntermediateAssembly)"
          Resources="@(EmbeddedResource)"
          KeyFile="$(KeyOriginatorFile)"
