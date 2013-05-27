@@ -238,7 +238,7 @@ let ToInt32 (x: 'T) = X<int32>
 [<Inline "$x">]
 let ToEnum<'T> (x: 'T) = X<'T>
 
-[<Inline "($x << 0)">]
+[<Inline "Math.floor($x)">]
 let ToInt64 (x: 'T) = X<int64>
 
 [<Inline "Math.log($x)">]
