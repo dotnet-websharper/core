@@ -93,7 +93,7 @@
 
   <!-- Common Includes -->
 
-  <PropertyGroup Condition=" $(SiteWebSharperProject) ">
+  <PropertyGroup>
     <WSPrivateRefs>false</WSPrivateRefs>
     <WSPrivateRefs Condition="$(SiteWebSharperProject) OR $(InterfaceGenerator)">true</WSPrivateRefs>
   </PropertyGroup>
