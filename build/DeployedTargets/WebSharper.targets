@@ -287,13 +287,13 @@
 
   <!-- Html Generation Projects -->
 
-  <PropertyGroup Condition=" $(HtmlWebSharperProject) AND '$(WebSharperHtmlDirectory)' != '' ">
+  <PropertyGroup Condition=" $(HtmlWebSharperProject) AND '$(WebSharperSiteletsOfflineDirectory)' != '' ">
     <BuildDependsOn>$(BuildDependsOn);WebSharperHtmlGenerate</BuildDependsOn>
     <CleanDependsOn>$(CleanDependsOn);WebSharperHtmlClean</CleanDependsOn>
     <StartAction>Program</StartAction>
-    <StartWorkingDirectory>$(WebSharperHtmlDirectory)</StartWorkingDirectory>
+    <StartWorkingDirectory>$(WebSharperSiteletsOfflineDirectory)</StartWorkingDirectory>
     <StartArguments>
-      $(WebSharperHtmlDirectory)
+      $(WebSharperSiteletsOfflineDirectory)
     </StartArguments>
     <StartProgram>$(windir)\explorer.exe</StartProgram>
   </PropertyGroup>
@@ -304,14 +304,14 @@
       <Args>$(Args) -mode "$(Configuration)"</Args>
       <Args>$(Args) -project "$(MSBuildProjectDirectory)\."</Args>
       <Args>$(Args) -source "$(MSBuildProjectDirectory)\$(OutDir)\."</Args>
-      <Args>$(Args) -out "$(WebSharperHtmlDirectory)\."</Args>
+      <Args>$(Args) -out "$(WebSharperSiteletsOfflineDirectory)\."</Args>
       <Args>$(Args) -site "$(TargetPath)"</Args>
     </PropertyGroup>
     <Exec Command='"$(WebSharperHome)\WebSharper.exe" sitelets $(Args)' WorkingDirectory='$(WebSharperHome)' />
   </Target>
 
   <Target Name="WebSharperHtmlClean">
-    <RemoveDir Directories="$(WebSharperHtmlDirectory)" />
+    <RemoveDir Directories="$(WebSharperSiteletsOfflineDirectory)" />
   </Target>
 
 </Project>
