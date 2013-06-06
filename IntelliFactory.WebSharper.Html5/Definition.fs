@@ -804,16 +804,14 @@ module TypedArrays =
             ]
         |+> [ Constructor T<uint64> ]
 
-    let private arrayBufferViewMembers =
-        [
-            "buffer" =? ArrayBuffer
-            "byteOffset" =? T<uint64>
-            "byteLength" =? T<uint64>
-        ]
-
     let ArrayBufferView =
         Class "ArrayBufferView"
-        |+> [ yield! Seq.cast arrayBufferViewMembers ]
+        |+> Protocol
+            [
+                "buffer" =? ArrayBuffer
+                "byteOffset" =? T<uint64>
+                "byteLength" =? T<uint64>
+            ]
 
     let private MakeTypedArray typedArray (elementType: Type.Type) =
         let self = Type.New()
