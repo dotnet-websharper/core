@@ -34,6 +34,7 @@
     <Reference Include="System" />
   </ItemGroup>
   <Import Condition=" '$(WebSharperProject)' != 'Site' " Project="$(Root)/.build/$(Stage)/FSharp.targets" />
+  <Import Condition=" '$(WebSharperProject)' == 'Site' " Project="$(Root)/.build/$(Stage)/Common.targets" />
   <ItemDefinitionGroup Condition=" ('$(PrivateRefs)' == '') AND ('$(WebSharperProject)' != 'InterfaceGenerator') ">
     <Reference>
       <Private>False</Private>
