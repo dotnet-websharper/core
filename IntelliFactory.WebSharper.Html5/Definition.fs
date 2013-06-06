@@ -534,21 +534,20 @@ module AppCache =
         ]
 
 module WebWorkers =
-    
+
     let WorkerNavigator = Class "WorkerNavigator"
     let MessagePortArray = Class "MessagePortArray"
 
-    
-    let WorkerUtils =     
-        Interface "WorkerUtils"
+    let WorkerUtils =
+        Class "WorkerUtils"
         |+> [
             "importScripts" => (!+ T<string>) ^-> T<unit>
             "navigator" =? WorkerNavigator
         ]
 
-    let WorkerLocation = 
-        Interface "WorkerLocation"
-    
+    let WorkerLocation =
+        Class "WorkerLocation"
+
     let WorkerGlobalScope = 
         let WorkerGlobalScope = Class "WorkerGlobalScope"
         WorkerGlobalScope
@@ -807,14 +806,14 @@ module TypedArrays =
         ]
 
     let ArrayBufferView =
-        Interface "ArrayBufferView"
+        Class "ArrayBufferView"
         |+> [ yield! Seq.cast arrayBufferViewMembers ]
 
     let private MakeTypedArray typedArray (elementType: Type.Type) =
         let self = Type.New()
         Class typedArray
         |=> self
-        |=> Implements [ArrayBufferView]
+        |=> Inherits ArrayBufferView
         |+> [
                 Constructor T<unit>
                 Constructor T<uint64>
@@ -835,7 +834,6 @@ module TypedArrays =
                 "set" => (Type.ArrayOf elementType)?array * !? T<uint64>?offset ^-> T<unit>
                 "subarray" => T<int64>?``begin`` * T<int64>?``end`` ^-> self
             ]
-        |+> Protocol [yield! Seq.cast arrayBufferViewMembers]
 
     let Int8Array = MakeTypedArray "Int8Array" T<sbyte>
     let Uint8Array = MakeTypedArray "Uint8Array" T<byte>
