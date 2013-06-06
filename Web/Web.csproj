@@ -21,6 +21,7 @@
     <OutputPath>bin\</OutputPath>
     <Stage>site</Stage>
     <Name>Web</Name>
+    <PrivateRefs>False</PrivateRefs>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release-v4.0|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
