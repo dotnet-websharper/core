@@ -794,8 +794,14 @@ module General =
 module TypedArrays =
 
     let ArrayBuffer =
+        let ArrayBuffer = Type.New()
         Class "ArrayBuffer"
-        |+> Protocol [ "length" =? T<uint64> ]
+        |=> ArrayBuffer
+        |+> Protocol [
+                "length" =? T<uint64>
+                /// Warning: although part of the spec, may not work in IE10 as of 6/6/2013.
+                "slice" => T<uint64> * T<uint64> ^-> ArrayBuffer
+            ]
         |+> [ Constructor T<uint64> ]
 
     let private arrayBufferViewMembers =
