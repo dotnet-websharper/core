@@ -793,24 +793,59 @@ module General =
 
 module TypedArrays =
 
+
     let ArrayBuffer =
         let ArrayBuffer = Type.New()
         Class "ArrayBuffer"
         |=> ArrayBuffer
         |+> Protocol [
-                "byteLength" =? T<uint64>
+                "byteLength" =? T<int>
                 /// Warning: although part of the spec, may not work in IE10 as of 6/6/2013.
-                "slice" => T<uint64> * T<uint64> ^-> ArrayBuffer
+                "slice" => T<int> * T<int> ^-> ArrayBuffer
             ]
-        |+> [ Constructor T<uint64> ]
+        |+> [ Constructor T<int> ]
+
+    module DataView =
+
+        let private Getter<'T> name =
+            name => T<int>?byteOffset * !? T<bool>?littleEndian ^-> T<'T>
+
+        let private Setter<'T> name =
+            name => T<int>?byteOffset * T<'T>?value * !? T<bool>?littleEndian ^-> T<unit>
+
+        let Class =
+            Class "DataView"
+            |+> [
+                    Constructor ArrayBuffer
+                    Constructor (ArrayBuffer * T<int>?byteOffset)
+                    Constructor (ArrayBuffer * T<int>?byteOffset * T<int>?byteLength)
+                ]
+            |+> Protocol [
+                    "getInt8" => T<int>?byteOffset ^-> T<sbyte>
+                    "getUint8" => T<int>?byteOffset ^-> T<byte>
+                    Getter<int16> "getInt16"
+                    Getter<uint16> "getUint16"
+                    Getter<int32> "getInt32"
+                    Getter<uint32> "getUint32"
+                    Getter<float32> "getFloat32"
+                    Getter<double> "getFloat64"
+                    "setInt8" => T<int>?byteOffset * T<sbyte>?value ^-> T<unit>
+                    "setUint8" => T<int>?byteOffset * T<byte>?value ^-> T<unit>
+                    Setter<int16> "setInt16"
+                    Setter<uint16> "setUint16"
+                    Setter<int32> "setInt32"
+                    Setter<uint32> "setUint32"
+                    Setter<float32> "setFloat32"
+                    Setter<double> "setFloat64"
+                ]
 
     let ArrayBufferView =
         Class "ArrayBufferView"
         |+> Protocol
             [
                 "buffer" =? ArrayBuffer
-                "byteOffset" =? T<uint64>
-                "byteLength" =? T<uint64>
+                "byteOffset" =? T<int>
+                "byteLength" =? T<int>
             ]
 
     let private MakeTypedArray typedArray (elementType: Type.Type) =
@@ -820,23 +855,23 @@ module TypedArrays =
         |=> Inherits ArrayBufferView
         |+> [
                 Constructor T<unit>
-                Constructor T<uint64>
+                Constructor T<int>
                 Constructor self
                 Constructor (Type.ArrayOf elementType)
-                Constructor (ArrayBuffer?buffer * !? T<uint64>?byteOffset * !? T<uint64>?length)
-                "BYTES_PER_ELEMENT" =? T<uint64>
+                Constructor (ArrayBuffer?buffer * !? T<int>?byteOffset * !? T<int>?length)
+                "BYTES_PER_ELEMENT" =? T<int>
             ]
         |+> Protocol [
-                "length" =? T<uint64>
+                "length" =? T<int>
                 "get" =>
-                    T<uint64>?offset ^-> elementType
+                    T<int>?offset ^-> elementType
                     |> WithInline "$this[$offset]"
                 "set" =>
-                    T<uint64>?offset * elementType?value ^-> T<unit>
+                    T<int>?offset * elementType?value ^-> T<unit>
                     |> WithInline "void($this[$offset]=$value)"
-                "set" => (Type.ArrayOf self)?array * !? T<uint64>?offset ^-> T<unit>
-                "set" => (Type.ArrayOf elementType)?array * !? T<uint64>?offset ^-> T<unit>
-                "subarray" => T<int64>?``begin`` * T<int64>?``end`` ^-> self
+                "set" => self?array * !? T<int>?offset ^-> T<unit>
+                "set" => (Type.ArrayOf elementType)?array * !? T<int>?offset ^-> T<unit>
+                "subarray" => T<int64>?``begin`` * T<int>?``end`` ^-> self
             ]
 
     let Int8Array = MakeTypedArray "Int8Array" T<sbyte>
@@ -1043,6 +1078,7 @@ module Extension =
                 General.MessagePort
                 General.UndoManager
                 General.Window
+                TypedArrays.DataView.Class
                 TypedArrays.ArrayBuffer
                 TypedArrays.ArrayBufferView
                 TypedArrays.Float32Array
