@@ -53,11 +53,17 @@ module Content =
     /// Transforms any content to 'CustomContent'.
     val SetStatus<'T> : status: Http.Status -> Content<'T> -> Content<'T>
 
-    /// Redirects to a given action.
+    /// Redirects permanently (301 Moved Permanently) to a given action.
     val Redirect<'T> : action: 'T -> Content<'T>
 
-    /// Redirects to a given URL.
+    /// Redirects permanently (301 Moved Permanently) to a given URL.
     val RedirectToUrl : url: string -> Content<'T>
+
+    /// Redirects temporarily (307 Redirect Temporary) to a given action.
+    val RedirectTemporary<'T> : action: 'T -> Content<'T>
+
+    /// Redirects temporarily (307 Redirect Temporary) to a given URL.
+    val RedirectTemporaryToUrl : url: string -> Content<'T>
 
     /// Constructs a 401 Unauthorized response.
     val Unauthorized<'T> : Content<'T>
