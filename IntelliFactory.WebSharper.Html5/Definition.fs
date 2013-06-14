@@ -470,7 +470,7 @@ module Geolocation =
 
     let PositionError = 
         Class "PositionError"
-        |+> [
+        |+> Protocol [
             "UNKNOWN_ERROR" =? T<int>
             "PERMISSION_DENIED" =? T<int>
             "POSITION_UNAVAILABLE" =? T<int>
