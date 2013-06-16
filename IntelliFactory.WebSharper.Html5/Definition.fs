@@ -499,9 +499,13 @@ module LocalStorage =
         let Storage = Class "Storage"
         Storage
         |+> Protocol [
-            // FIXME Add indexed access.
+            "clear" => T<unit> ^-> T<unit>
             "getItem" => T<string> ^-> T<string>
-            "setItem" => T<string> * T<obj> ^-> T<unit>
+            "item" => T<string> ^-> T<string> |> WithInline "$this[$1]"
+            "key" => T<int> ^-> T<string>
+            "length" =? T<int>
+            "removeItem" => T<string> ^-> T<unit>
+            "setItem" => T<string> * T<string> ^-> T<unit>
         ]
 
 module AppCache =
