@@ -532,6 +532,16 @@ module WebStorage =
                 "removeItem" => T<string> ^-> T<unit>
                 "setItem" => T<string> * T<string> ^-> T<unit>
             ]
+            
+    let StorageEvent =
+        Class "StorageEvent"
+        |+> Protocol [
+                "key" =? T<string>
+                "newValue" =? T<string>
+                "oldValue" =? T<string>
+                "storageArea" =? Storage
+                "url" =? T<string>
+            ]            
 
 module AppCache =
     let ApplicationCache =
@@ -811,7 +821,7 @@ module General =
             "onselect" =@ f
             "onshow" =@ f
             "onstalled" =@ f
-            "onstorage" =@ f
+            "onstorage" =@ WebStorage.StorageEvent ^-> T<unit>
             "onsubmit" =@ f
             "onsuspend" =@ f
             "ontimeupdate" =@ f
@@ -1123,6 +1133,7 @@ module Extension =
                 WebSockets.WebSocketReadyState
                 WebStorage.LocalStorage
                 WebStorage.SessionStorage
-                WebStorage.Storage                
+                WebStorage.Storage      
+                WebStorage.StorageEvent                
             ]
         ]
