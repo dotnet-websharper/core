@@ -55,7 +55,7 @@ let Help =
         "Copyright (c) IntelliFactory. All Rights Reserved."
         ""
         "Usage: WebSharper.exe sitelets [OPTIONS] [INPUTS]"
-        "--mode           Either Debug or Release (defaults to Debug)."
+        "--mode           Either Debug([-].*)? or Release([-].*)? (defaults to Debug)."
         "--source:<dir>   Path to the source directory. Short form: -src."
         "--out:<dir>      Path to the output directory. Short form: -o."
         "--project:<dir>  Path to the project directory."
@@ -78,12 +78,11 @@ let Parse (args: seq<string>) =
     let setMode opts (mode: string) =
         let m = mode.Trim().ToLower()
         let oMode =
-            match m with
-            | "debug" ->
+            if m.StartsWith "debug" then
                 Output.Debug
-            | "release" ->
+            elif m.StartsWith "release" then
                 Output.Release
-            | _         ->
+            else
                 BadOptions ("Invalid mode option: " + mode +
                     ". User either debug or release.")
                 |> raise
