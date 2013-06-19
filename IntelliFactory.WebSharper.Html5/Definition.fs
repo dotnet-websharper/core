@@ -502,7 +502,7 @@ module WebStorage =
                 "length" =? T<int>
                 "key" => T<int -> string>
                 "getItem" => T<string->string>
-                "setItem" => T<string * string -> unit>
+                "setItem" => T<string>?key * T<string>?value ^-> T<unit>
                 "removeItem" => T<string -> unit>
                 "clear" => T<unit->unit>
             ]
