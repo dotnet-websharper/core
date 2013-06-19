@@ -494,15 +494,54 @@ module Geolocation =
         Class "NavigatorGeolocation" 
         |+> Protocol ["geolocation" =? Geolocation]
 
-module LocalStorage =
+module WebStorage =
     let Storage =
-        let Storage = Class "Storage"
-        Storage
+        Interface "Storage"
+        |+> [
+                "clear"      => T<unit>
+                "getItem"    => T<string>
+                "item"       => T<string>
+                "key"        => T<string>
+                "length"     =? T<int>
+                "removeItem" => T<unit>
+                "setItem"    => T<unit>            
+            ]
+
+    let LocalStorage =
+        Class "LocalStorage"
+        |=> Implements [Storage]
         |+> Protocol [
-            // FIXME Add indexed access.
-            "getItem" => T<string> ^-> T<string>
-            "setItem" => T<string> * T<obj> ^-> T<unit>
-        ]
+                "clear" => T<unit> ^-> T<unit>
+                "getItem" => T<string> ^-> T<string>
+                "item" => T<string> ^-> T<string> |> WithInline "$this[$1]"
+                "key" => T<int> ^-> T<string>
+                "length" =? T<int>
+                "removeItem" => T<string> ^-> T<unit>
+                "setItem" => T<string> * T<string> ^-> T<unit>
+            ]
+
+    let SessionStorage =
+        Class "SessionStorage"
+        |=> Implements [Storage]
+        |+> Protocol [
+                "clear" => T<unit> ^-> T<unit>
+                "getItem" => T<string> ^-> T<string>
+                "item" => T<string> ^-> T<string> |> WithInline "$this[$1]"
+                "key" => T<int> ^-> T<string>
+                "length" =? T<int>
+                "removeItem" => T<string> ^-> T<unit>
+                "setItem" => T<string> * T<string> ^-> T<unit>
+            ]
+            
+    let StorageEvent =
+        Class "StorageEvent"
+        |+> Protocol [
+                "key" =? T<string>
+                "newValue" =? T<string>
+                "oldValue" =? T<string>
+                "storageArea" =? Storage
+                "url" =? T<string>
+            ]            
 
 module AppCache =
     let ApplicationCache =
@@ -704,7 +743,8 @@ module General =
                 
             "navigator" =? Geolocation.NavigatorGeolocation
             "applicationCache" =? AppCache.ApplicationCache
-            "localStorage" =? LocalStorage.Storage
+            "localStorage" =? WebStorage.LocalStorage
+            "sessionStorage" =? WebStorage.SessionStorage
             "alert" => T<string> ^-> T<unit>
             "confirm" => T<string> ^-> T<bool>
             "prompt" => T<string> ^-> T<string>
@@ -781,7 +821,7 @@ module General =
             "onselect" =@ f
             "onshow" =@ f
             "onstalled" =@ f
-            "onstorage" =@ f
+            "onstorage" =@ WebStorage.StorageEvent ^-> T<unit>
             "onsubmit" =@ f
             "onsuspend" =@ f
             "ontimeupdate" =@ f
@@ -1070,7 +1110,6 @@ module Extension =
                 Geolocation.Position
                 Geolocation.PositionError
                 Geolocation.PositionOptions
-                LocalStorage.Storage
                 General.BarProp
                 General.History
                 General.Location
@@ -1092,5 +1131,9 @@ module Extension =
                 TypedArrays.Uint8ClampedArray
                 WebSockets.WebSocket
                 WebSockets.WebSocketReadyState
+                WebStorage.LocalStorage
+                WebStorage.SessionStorage
+                WebStorage.Storage      
+                WebStorage.StorageEvent                
             ]
         ]

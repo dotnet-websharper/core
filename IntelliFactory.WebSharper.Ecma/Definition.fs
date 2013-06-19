@@ -39,18 +39,18 @@ module Ecma =
         let N = T<int> + T<float>
         Class "Global"
         |+> [
-                "NaN" =? T<double>
-                "Infinity" =? T<double>
-                "undefined" =? T<obj>
-                "eval" => T<string->obj>
-                "parseInt" => T<string> * !?T<int>?radix ^-> T<int>
-                "parseFloat" => T<string->double>
-                "isNaN" => N ^-> T<bool>
-                "isFinite" => N ^-> T<bool>
-                "decodeURI" => T<string->string>
-                "decodeURIComponent" => T<string->string>
-                "encodeURI" => T<string->string>
-                "encodeURIComponent" => T<string->string>
+                "NaN" =? T<double> |> WithGetterInline "$global.NaN"
+                "Infinity" =? T<double> |> WithGetterInline "$global.Infinity"
+                "undefined" =? T<obj> |> WithGetterInline "$global.undefined"
+                "eval" => T<string->obj> |> WithInline "$global.eval($0)"
+                "parseInt" => T<string> * !?T<int>?radix ^-> T<int> |> WithInline "$global.parseInt($0, $1)"
+                "parseFloat" => T<string->double> |> WithInline "$global.parseFloat($0)"
+                "isNaN" => T<obj> ^-> T<bool> |> WithInline "$global.isNaN($0)"
+                "isFinite" => N ^-> T<bool> |> WithInline "$global.isFinite($0)"
+                "decodeURI" => T<string->string> |> WithInline "$global.decodeURI($0)"
+                "decodeURIComponent" => T<string->string> |> WithInline "$global.decodeURIComponent($0)"
+                "encodeURI" => T<string->string> |> WithInline "$global.encodeURI($0)"
+                "encodeURIComponent" => T<string->string> |> WithInline "$global.encodeURIComponent($0)"
             ]
 
     let EcmaObject =
