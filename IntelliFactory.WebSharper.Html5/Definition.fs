@@ -495,44 +495,18 @@ module Geolocation =
         |+> Protocol ["geolocation" =? Geolocation]
 
 module WebStorage =
+
     let Storage =
-        Interface "Storage"
-        |+> [
-                "clear"      => T<unit>
-                "getItem"    => T<string>
-                "item"       => T<string>
-                "key"        => T<string>
-                "length"     =? T<int>
-                "removeItem" => T<unit>
-                "setItem"    => T<unit>            
+        Class "Storage"
+        |+> Protocol [
+                "length" =? T<int>
+                "key" => T<int -> string>
+                "getItem" => T<string->string>
+                "setItem" => T<string * string -> unit>
+                "removeItem" => T<string -> unit>
+                "clear" => T<unit->unit>
             ]
 
-    let LocalStorage =
-        Class "LocalStorage"
-        |=> Implements [Storage]
-        |+> Protocol [
-                "clear" => T<unit> ^-> T<unit>
-                "getItem" => T<string> ^-> T<string>
-                "item" => T<string> ^-> T<string> |> WithInline "$this[$1]"
-                "key" => T<int> ^-> T<string>
-                "length" =? T<int>
-                "removeItem" => T<string> ^-> T<unit>
-                "setItem" => T<string> * T<string> ^-> T<unit>
-            ]
-
-    let SessionStorage =
-        Class "SessionStorage"
-        |=> Implements [Storage]
-        |+> Protocol [
-                "clear" => T<unit> ^-> T<unit>
-                "getItem" => T<string> ^-> T<string>
-                "item" => T<string> ^-> T<string> |> WithInline "$this[$1]"
-                "key" => T<int> ^-> T<string>
-                "length" =? T<int>
-                "removeItem" => T<string> ^-> T<unit>
-                "setItem" => T<string> * T<string> ^-> T<unit>
-            ]
-            
     let StorageEvent =
         Class "StorageEvent"
         |+> Protocol [
@@ -541,7 +515,7 @@ module WebStorage =
                 "oldValue" =? T<string>
                 "storageArea" =? Storage
                 "url" =? T<string>
-            ]            
+            ]
 
 module AppCache =
     let ApplicationCache =
@@ -740,11 +714,11 @@ module General =
             "open" => (T<string> * T<string>) ^->  WindowProxyType
             "open" => (T<string>) ^->  WindowProxyType
             "open" => (T<unit>) ^->  WindowProxyType
-                
+
             "navigator" =? Geolocation.NavigatorGeolocation
             "applicationCache" =? AppCache.ApplicationCache
-            "localStorage" =? WebStorage.LocalStorage
-            "sessionStorage" =? WebStorage.SessionStorage
+            "localStorage" =? WebStorage.Storage
+            "sessionStorage" =? WebStorage.Storage
             "alert" => T<string> ^-> T<unit>
             "confirm" => T<string> ^-> T<bool>
             "prompt" => T<string> ^-> T<string>
@@ -1131,9 +1105,7 @@ module Extension =
                 TypedArrays.Uint8ClampedArray
                 WebSockets.WebSocket
                 WebSockets.WebSocketReadyState
-                WebStorage.LocalStorage
-                WebStorage.SessionStorage
-                WebStorage.Storage      
-                WebStorage.StorageEvent                
+                WebStorage.Storage
+                WebStorage.StorageEvent
             ]
         ]
