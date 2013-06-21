@@ -353,6 +353,8 @@ let ComputePublishedFiles (c: B.BuildConfiguration) =
             "tests.dll"
             "tests.xml"
             "tests.exe"
+            "website.dll"
+            "website.xml"
         ]
         |> List.forall (fun n -> not (x.ToLower().EndsWith n)))
     |> Seq.distinctBy Path.GetFileName
@@ -654,11 +656,8 @@ module Ivy =
         [
             for file in ComputePublishedFiles C40 do
                 match Path.GetFileName file with
-                | "FSharp.Core.dll"
-                | "Website.dll"
-                | "Website.xml" -> ()
-                | _ ->
-                    yield { File = FileInfo file }
+                | "FSharp.Core.dll" -> ()
+                | _ -> yield { File = FileInfo file }
             for t in Directory.EnumerateFiles(RootDir +/ "Build" +/ "OldTargets") do
                 yield { File = FileInfo t }
         ]
