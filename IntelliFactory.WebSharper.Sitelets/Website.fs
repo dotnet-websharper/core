@@ -23,10 +23,14 @@ namespace IntelliFactory.WebSharper.Sitelets
 
 open System
 open System.Reflection
+open System.Web
 
 type IWebsite<'Action when 'Action : equality> =
-    abstract member Sitelet : Sitelet<'Action>
-    abstract member Actions : list<'Action>
+    abstract Actions : list<'Action>
+    abstract Sitelet : Sitelet<'Action>
+
+type IHostedWebsite<'Action when 'Action : equality> =
+    abstract Build : HttpApplication -> IWebsite<'Action>
 
 module internal Specialization =
     open System
@@ -35,13 +39,13 @@ module internal Specialization =
     type IGeneric<'T1,'T2> =
 
         /// Runs the computation. Note the generic 'T3 argument.
-        abstract member Run<'T3 when 'T3 : equality> :  'T1 -> 'T2
+        abstract member Run<'T3 when 'T3 : equality> : 'T1 -> 'T2
 
     /// Specializes the generic algorithm.
-    let Specialize<'T1,'T2> (algorithm: IGeneric<'T1,'T2>) : Type -> _ -> _ =
-        let aT  = typeof<IGeneric<'T1,'T2>>
+    let Specialize<'T1,'T2> (algorithm: IGeneric<'T1,'T2>) : Type -> 'T1 -> 'T2 =
+        let aT = typeof<IGeneric<'T1,'T2>>
         let def = aT.GetMethod("Run").GetGenericMethodDefinition()
-        let dT  = typeof<Converter<'T1,'T2>>
+        let dT = typeof<Converter<'T1,'T2>>
         fun t ->
             let m = def.MakeGenericMethod [| t |]
             let f = Delegate.CreateDelegate(dT, algorithm, m)
@@ -52,15 +56,19 @@ module private Utils =
 
     let GetSitelet : Type -> _ -> _ =
         S.Specialize {
-            new S.IGeneric<obj,Sitelet<obj> * list<obj>> with
-                member this.Run<'T when 'T : equality> website =
-                    let website = website :?> IWebsite<'T>
-                    Sitelet.Upcast website.Sitelet, (List.map box website.Actions)
+            new S.IGeneric<obj * option<HttpApplication>,Sitelet<obj> * list<obj>> with
+                member this.Run<'T when 'T : equality>((website, app)) =
+                    let website =
+                        match app, website with
+                        | Some app, (:? IHostedWebsite<'T> as mk) -> mk.Build(app)
+                        | _, (:? IWebsite<'T> as website) -> website
+                        | _ -> failwith "Invalid type: IWebsite not implemented."
+                    (Sitelet.Upcast website.Sitelet, List.map box website.Actions)
         }
 
 [<AttributeUsage(AttributeTargets.Assembly)>]
 type WebsiteAttribute(ty: System.Type) =
-    inherit System.Attribute()
+    inherit Attribute()
 
     let innerType =
         ty.GetInterfaces()
@@ -73,17 +81,20 @@ type WebsiteAttribute(ty: System.Type) =
 
     let website =
         try
-            System.Activator.CreateInstance ty
+            Activator.CreateInstance(ty)
         with
-            | :? System.MissingMethodException ->
+            | :? MissingMethodException ->
                 // TODO : Log, i.e. Log.At(ty).Warning("Hello..")
                 failwith "Cannot create new instance"
-            | :? System.InvalidCastException ->
+            | :? InvalidCastException ->
                 failwith "Type is not implementing IWebsite"
 
-    member this.Run () =
+    member this.Run() =
         match innerType with
-        | Some t ->
-            Utils.GetSitelet t website
-        | _ ->
-            failwith "TODO"
+        | Some t -> Utils.GetSitelet t (website, None)
+        | _ -> failwith "TODO"
+
+    member this.Run(app: HttpApplication) =
+        match innerType with
+        | Some t -> Utils.GetSitelet t (website, Some app)
+        | _ -> failwith "TODO"

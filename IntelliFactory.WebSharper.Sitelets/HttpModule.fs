@@ -28,6 +28,7 @@ open System.Diagnostics
 open System.IO
 open System.Reflection
 open System.Web
+open System.Web.Compilation
 open System.Web.Hosting
 module R = IntelliFactory.WebSharper.Core.Remoting
 
@@ -35,16 +36,16 @@ module internal SiteLoading =
 
     let TryLoadSite (assembly: Assembly) =
         let aT = typeof<WebsiteAttribute>
-        match System.Attribute.GetCustomAttribute(assembly, aT) with
+        match Attribute.GetCustomAttribute(assembly, aT) with
         | :? WebsiteAttribute as attr ->
             attr.Run () |> Some
         |_ -> None
 
-    let LoadFromAssemblies () =
+    let LoadFromAssemblies (app: HttpApplication) =
         Timed "Initialized sitelets" <| fun () ->
             let assemblies =
-                System.Web.Compilation.BuildManager.GetReferencedAssemblies()
-                |> Seq.cast<System.Reflection.Assembly>
+                BuildManager.GetReferencedAssemblies()
+                |> Seq.cast<Assembly>
             let pairs = Seq.choose TryLoadSite assemblies
             let sitelets = Seq.map fst pairs
             let actions = Seq.map snd pairs
@@ -52,8 +53,8 @@ module internal SiteLoading =
 
 module private WebUtils =
 
-    let currentSite =
-        lazy fst (SiteLoading.LoadFromAssemblies())
+//    let currentSite =
+//        lazy fst (SiteLoading.LoadFromAssemblies())
 
     let getUri (req: HttpRequest) : Uri =
         match req.ApplicationPath with
@@ -149,15 +150,16 @@ module private WebUtils =
 
 /// The ISS handler for WebSharper applications.
 [<Sealed>]
-type HttpHandler(request: Http.Request, action: obj) =
+type HttpHandler(request: Http.Request, action: obj, site: Sitelet<obj>) =
     interface SessionState.IRequiresSessionState
     interface IHttpHandler with
         member this.IsReusable = false
         member this.ProcessRequest(ctx) = this.ProcessRequest(ctx)
     member this.ProcessRequest(ctx) =
-        WebUtils.respond WebUtils.currentSite.Value ctx request action
+        WebUtils.respond site ctx request action
 
 /// IIS module, processing the URLs and serving the pages.
+[<Sealed>]
 type HttpModule() =
     let isNotRemotingRequest (r: HttpRequest) =
         let getHeader (x: string) =
@@ -167,17 +169,17 @@ type HttpModule() =
         not (R.IsRemotingRequest getHeader)
     interface IHttpModule with
         member this.Init app =
+            let (site, actions) = SiteLoading.LoadFromAssemblies(app)
             let handler =
                 new EventHandler(fun x e ->
                     let app = (x :?> HttpApplication)
                     let ctx = app.Context
-                    let sitelet = WebUtils.currentSite.Value
                     let request = WebUtils.convertRequest ctx
                     if isNotRemotingRequest ctx.Request then
-                        match sitelet.Router.Route(request) with
+                        match site.Router.Route(request) with
                         | None -> ()
                         | Some action ->
-                            let h = HttpHandler(request, action)
+                            let h = HttpHandler(request, action, site)
                             if HttpRuntime.UsingIntegratedPipeline then
                                 ctx.RemapHandler(h)
                             else
