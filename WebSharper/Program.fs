@@ -132,24 +132,28 @@ let private run (opts: Options.T) =
     | Options.Dependencies path ->
         DependencyReporter.Run path
 
-let main () =
-    let args = Environment.GetCommandLineArgs()
-    let env =
-        {
-            new IEnvironment with
-                member this.AddAssemblySearchPath(p) =
-                    Loader.AddSearchPath(p)
-                member this.CommandLineArgs = args
-        }
-    let result =
-        Plugins.GetPlugins()
-        |> Seq.tryPick (fun p ->
-            match p.Run(env) with
-            | Success -> Some 0
-            | Error -> Some -1
-            | Pass -> None)
-    match result with
-    | None -> Options.Run(run)
-    | Some exitCode -> exitCode
-
-Environment.Exit(guard main)
+[<EntryPoint>]
+let Start args =
+    let fullArgs =
+        [|
+            yield Assembly.GetExecutingAssembly().Location
+            yield! args
+        |]
+    let main () =
+        let env =
+            {
+                new IEnvironment with
+                    member this.AddAssemblySearchPath(p) = Loader.AddSearchPath(p)
+                    member this.CommandLineArgs = fullArgs
+            }
+        let result =
+            Plugins.GetPlugins()
+            |> Seq.tryPick (fun p ->
+                match p.Run(env) with
+                | Success -> Some 0
+                | Error -> Some -1
+                | Pass -> None)
+        match result with
+        | None -> Options.Run run (Array.toList args)
+        | Some exitCode -> exitCode
+    guard main

@@ -221,19 +221,15 @@ let Help (usage: string) p =
 
 let Parse p inputs =
     match p.parse inputs with
-    | Parsed (r, [])    -> Choice1Of2 r
+    | Parsed (r, []) -> Choice1Of2 r
     | Parsed (_, x::xs) -> Choice2Of2 ("Unexpected input: " + x)
-    | Failed r          -> Choice2Of2 r
+    | Failed r -> Choice2Of2 r
 
-let Run usage p main =
+let Run inputs usage p main =
     let scanner x =
         match x with
         | "-help" | "--help" | "/?" | "/h" | "/help" -> (true, true)
         | _ -> (false, true)
-    let inputs =
-        System.Environment.GetCommandLineArgs()
-        |> Seq.skip 1
-        |> Seq.toList
     match (Free (Scan scanner)).parse inputs with
     | Parsed (_, _) ->
         stderr.WriteLine(Help usage p)

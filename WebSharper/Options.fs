@@ -22,20 +22,24 @@
 /// Provides command-line option parsing for WebSharper.
 module internal IntelliFactory.WebSharper.Options
 
+open System
+open System.Diagnostics
+open System.IO
+open System.Security
 module A = Arguments
 type private Path = string
 
 type CompilationOptions =
     {
-        ErrorLimit          : int
-        Extraction          : list<Path * string * Path>
-        Input               : Path
-        KeyPair             : option<Path>
-        References          : list<Path>
-        Output              : Path
-        OutputJavaScript    : option<Path>
-        OutputMinified      : option<Path>
-        TailCalls           : bool
+        ErrorLimit : int
+        Extraction : list<Path * string * Path>
+        Input : Path
+        KeyPair : option<Path>
+        References : list<Path>
+        Output : Path
+        OutputJavaScript : option<Path>
+        OutputMinified : option<Path>
+        TailCalls : bool
     }
 
 type T =
@@ -45,10 +49,10 @@ type T =
 
 let private version =
     typeof<T>.Assembly.Location
-    |> System.Diagnostics.FileVersionInfo.GetVersionInfo
+    |> FileVersionInfo.GetVersionInfo
 
 let private usage =
-    System.String.Format("\
+    String.Format("\
 Usage: WebSharper.exe [options] input.dll output.dll
 
 WebSharper (TM) Compiler V{0}
@@ -59,7 +63,8 @@ code as an embedded resource to the assembly.", version.FileVersion)
 
 let private file =
     let ok x =
-        if not (System.IO.File.Exists x)
+        let info = FileInfo x
+        if not info.Exists
         then Some ("File does not exist: " + x)
         else None
     A.Filter ok A.String
@@ -123,18 +128,19 @@ let private spec =
             let! output = A.String
             return
                 Compile {
-                    ErrorLimit          = errors
-                    Extraction          = extract
-                    Input               = input
-                    KeyPair             = snk
-                    References          = Seq.toList (Seq.distinct refs)
-                    Output              = output
-                    OutputJavaScript    = js
-                    OutputMinified      = jsmin
-                    TailCalls           = tramp
+                    ErrorLimit = errors
+                    Extraction = extract
+                    Input = input
+                    KeyPair = snk
+                    References = Seq.toList (Seq.distinct refs)
+                    Output = output
+                    OutputJavaScript = js
+                    OutputMinified = jsmin
+                    TailCalls = tramp
                 }
         | None, Some u ->
             return Unpack u
     }
 
-let Run main = A.Run usage spec main
+let Run main args =
+    A.Run args usage spec main
