@@ -25,11 +25,12 @@ namespace IntelliFactory.WebSharper.InterfaceGenerator
 
 [<AutoOpen>]
 module Pervasives =
+    open System
     module Code = CodeModel
     module R = IntelliFactory.WebSharper.Core.Reflection
 
     type private T = Type.Type
-    
+
     /// Constructs a new assembly.
     let Assembly namespaces : Code.Assembly =
         { Namespaces = namespaces }
@@ -73,7 +74,7 @@ module Pervasives =
     /// Constructs a new property setter.
     let Setter name (ty: Type.IType) =
         Code.Property (name, ty.Type, HasSetter = true)
-    
+
     /// Constructs a new property with a getter and a setter.
     let Property name (ty: Type.IType) =
         Code.Property (name, ty.Type, HasGetter = true, HasSetter = true)
@@ -244,7 +245,7 @@ module Pervasives =
         member this.Type1() = 
             let f = this.Type 1
             fun a -> f [a]
-            
+
         member this.Type2 () =
             let f = this.Type 2
             fun a b -> f [a; b]
@@ -257,9 +258,8 @@ module Pervasives =
             let f = this.Type 4
             fun a b c d -> f [a; b; c; d]
 
-        member this.TypeDeclaration (arity: int)
-                                    (make: list<T> -> #Code.TypeDeclaration) =
-            let prefix = System.String.Format("T{0:x}", Fresh ())
+        member this.TypeDeclaration (arity: int) (make: list<T> -> #Code.TypeDeclaration) =
+            let prefix = String.Format("T{0:x}", Fresh ())
             let generics = [for n in 1 .. arity -> prefix + "_" + string n]
             let types = [for g in generics -> Type.GenericType g]
             let id = (make types).Id

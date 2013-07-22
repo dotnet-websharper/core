@@ -21,14 +21,18 @@
 
 namespace IntelliFactory.WebSharper.InterfaceGenerator
 
+open System
+open System.CodeDom
+open System.IO
+open Microsoft.CSharp
+
 module internal Util =
-    open System
 
     /// Quotes a string, returning a string literal.
     let Quote (text: string) =
-        use writer = new System.IO.StringWriter()
-        use provider = new Microsoft.CSharp.CSharpCodeProvider()
-        let expr = new System.CodeDom.CodePrimitiveExpression(text)
+        use writer = new StringWriter()
+        use provider = new CSharpCodeProvider()
+        let expr = new CodePrimitiveExpression(text)
         provider.GenerateCodeFromExpression(expr, writer, null)
         writer.ToString()
 

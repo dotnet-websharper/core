@@ -89,7 +89,7 @@ type BaseResource(kind: Kind) =
                 let b = defaultArg (ctx.GetSetting id) b
                 let h = html
                 for x in xs do
-                    let url = b + x
+                    let url = b.TrimEnd [| '/' |] + "/" + x.TrimStart [| '/' |]
                     if url.EndsWith ".css" then link h url else script h url
 
 [<Sealed>]

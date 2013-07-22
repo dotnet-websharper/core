@@ -26,6 +26,7 @@ open System
 open System.IO
 open System.Diagnostics
 open System.Reflection
+open IntelliFactory.WebSharper.Core
 open IntelliFactory.WebSharper.Core.Plugins
 
 module FE = IntelliFactory.WebSharper.Compiler.FrontEnd
@@ -47,61 +48,62 @@ let private compile (opts: Options.CompilationOptions) =
         |> Seq.map (Path.GetDirectoryName
             >> Path.GetFullPath)
         |> Set.ofSeq
-    paths
-    |> Seq.iter Loader.AddSearchPath
-    let k =
-        let aLoader = FE.Loader.Create paths stderr.WriteLine
-        let assem = aLoader.LoadFile opts.Input
-        let snk =
-            opts.KeyPair
-            |> Option.map (fun x ->
-                let bs = File.ReadAllBytes x
-                StrongNameKeyPair(bs))
-        let refs = List.map aLoader.LoadFile opts.References
-        let options : FE.Options =
-            {
-                ErrorLimit = opts.ErrorLimit
-                KeyPair = snk
-                References = refs
-            }
-        let result = FE.Compile options stderr.WriteLine assem
-        if result then
-            assem.Write snk opts.Output
-            match opts.OutputJavaScript with
-            | Some path ->
-                match assem.ReadableJavaScript with
-                | Some js -> File.WriteAllText(path, js)
-                | None -> ()
-            | None ->
-                ()
-            match opts.OutputMinified with
-            | Some path ->
-                match assem.CompressedJavaScript with
-                | Some js -> File.WriteAllText(path, js)
-                | None -> ()
-            | None ->
-                ()
-            for (assem, k, v) in opts.Extraction do
-                let a = Mono.Cecil.AssemblyDefinition.ReadAssembly assem
-                for r in a.MainModule.Resources do
-                    match r with
-                    | :? Mono.Cecil.EmbeddedResource as r ->
-                        if r.Name = k then
-                            let data = r.GetResourceData()
-                            File.WriteAllBytes(v, data)
-                    | _ ->
-                        ()
-            0
+
+    let aR = AssemblyResolver.SearchDomain() + AssemblyResolver.SearchPaths(paths)
+    aR.With() <| fun () ->
+        let k =
+            let aLoader = FE.Loader.Create paths stderr.WriteLine
+            let assem = aLoader.LoadFile opts.Input
+            let snk =
+                opts.KeyPair
+                |> Option.map (fun x ->
+                    let bs = File.ReadAllBytes x
+                    StrongNameKeyPair(bs))
+            let refs = List.map aLoader.LoadFile opts.References
+            let options : FE.Options =
+                {
+                    ErrorLimit = opts.ErrorLimit
+                    KeyPair = snk
+                    References = refs
+                }
+            let result = FE.Compile options stderr.WriteLine assem
+            if result then
+                assem.Write snk opts.Output
+                match opts.OutputJavaScript with
+                | Some path ->
+                    match assem.ReadableJavaScript with
+                    | Some js -> File.WriteAllText(path, js)
+                    | None -> ()
+                | None ->
+                    ()
+                match opts.OutputMinified with
+                | Some path ->
+                    match assem.CompressedJavaScript with
+                    | Some js -> File.WriteAllText(path, js)
+                    | None -> ()
+                | None ->
+                    ()
+                for (assem, k, v) in opts.Extraction do
+                    let a = Mono.Cecil.AssemblyDefinition.ReadAssembly assem
+                    for r in a.MainModule.Resources do
+                        match r with
+                        | :? Mono.Cecil.EmbeddedResource as r ->
+                            if r.Name = k then
+                                let data = r.GetResourceData()
+                                File.WriteAllBytes(v, data)
+                        | _ ->
+                            ()
+                0
+            else
+                1
+        sw.Stop()
+        if k = 0 then
+            stdout.WriteLine("Compilation succeeded in {0} seconds.",
+                sw.Elapsed.TotalSeconds)
         else
-            1
-    sw.Stop()
-    if k = 0 then
-        stdout.WriteLine("Compilation succeeded in {0} seconds.",
-            sw.Elapsed.TotalSeconds)
-    else
-        stderr.WriteLine("Compilation failed in {0} seconds.",
-            sw.Elapsed.TotalSeconds)
-    k
+            stderr.WriteLine("Compilation failed in {0} seconds.",
+                sw.Elapsed.TotalSeconds)
+        k
 
 let private run (opts: Options.T) =
     match opts with
@@ -139,21 +141,18 @@ let Start args =
             yield Assembly.GetExecutingAssembly().Location
             yield! args
         |]
-    let main () =
+    let plugins () =
         let env =
             {
                 new IEnvironment with
-                    member this.AddAssemblySearchPath(p) = Loader.AddSearchPath(p)
                     member this.CommandLineArgs = fullArgs
             }
-        let result =
-            Plugins.GetPlugins()
-            |> Seq.tryPick (fun p ->
-                match p.Run(env) with
-                | Success -> Some 0
-                | Error -> Some -1
-                | Pass -> None)
-        match result with
-        | None -> Options.Run run (Array.toList args)
-        | Some exitCode -> exitCode
+        Plugins.GetPlugins()
+        |> Seq.tryPick (fun p ->
+            match p.Run(env) with
+            | Success -> Some 0
+            | Error -> Some -1
+            | Pass -> None)
+    let main () =
+        Options.Run plugins run (Array.toList args)
     guard main

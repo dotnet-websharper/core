@@ -25,6 +25,7 @@ open System
 open System.Collections.Generic
 open System.IO
 open System.Reflection
+open IntelliFactory.WebSharper.Core
 open IntelliFactory.WebSharper.Core.Plugins
 open IntelliFactory.WebSharper.Sitelets.Offline
 
@@ -64,22 +65,27 @@ type Plugin() =
                 Path.Combine(options.OutputDirectory.FullName, "Scripts")
                 |> Directory.CreateDirectory
 
-            // Add source directories to search path
-            for dir in options.SourceDirectories do
-                env.AddAssemblySearchPath(dir.FullName)
+            let aR =
+                AssemblyResolver.SearchDomain() +
+                (
+                    options.SourceDirectories
+                    |> Seq.map (fun dir -> dir.FullName)
+                    |> AssemblyResolver.SearchPaths
+                )
 
-            // Load the sitelet
-            let (sitelet, actions) = loadSite options.SourceAssembly
+            aR.With() <| fun () ->
+                // Load the sitelet
+                let (sitelet, actions) = loadSite options.SourceAssembly
 
-            // Write site content.
-            Output.WriteSite {
-                Sitelet = sitelet
-                Mode = options.Mode
-                SourceDirs = options.SourceDirectories
-                TargetDir = options.OutputDirectory
-                Actions = actions
-            }
-            Result.Success
+                // Write site content.
+                Output.WriteSite {
+                    Sitelet = sitelet
+                    Mode = options.Mode
+                    SourceDirs = options.SourceDirectories
+                    TargetDir = options.OutputDirectory
+                    Actions = actions
+                }
+                Result.Success
         with
         | Options.BadOptions message ->
             stderr.WriteLine message

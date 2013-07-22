@@ -31,25 +31,25 @@ module CodeModel =
 
     /// Represents the access restriction modifier.
     type AccessModifier =
-        | Public    = 0uy
-        | Private   = 2uy
+        | Public = 0uy
+        | Private = 2uy
         | Protected = 3uy
-        | Internal  = 4uy
+        | Internal = 4uy
 
     and [<AbstractClass>] Entity =
-        val mutable Name           : string
-        val mutable SourceName     : option<string>
-        val mutable Type           : T
+        val mutable Name : string
+        val mutable SourceName : option<string>
+        val mutable Type : T
         val mutable AccessModifier : AccessModifier
-        val mutable Comment        : option<string>
+        val mutable Comment : option<string>
 
         internal new (name, t) =
             {
-                Name           = name
-                SourceName     = None
-                Type           = t
+                Name = name
+                SourceName = None
+                Type = t
                 AccessModifier = AccessModifier.Public
-                Comment        = None
+                Comment = None
             }
 
         member internal this.Clone() = (this.MemberwiseClone()) :?> Entity
@@ -63,10 +63,10 @@ module CodeModel =
                 f clone
                 clone
 
-    and [<AbstractClass>] TypeDeclaration  =
+    and [<AbstractClass>] TypeDeclaration =
         inherit NamespaceEntity
-        val mutable Generics   : list<string>
-        val mutable Methods    : list<Method>
+        val mutable Generics : list<string>
+        val mutable Methods : list<Method>
         val mutable Properties : list<Property>
 
         internal new (name) =
@@ -138,20 +138,20 @@ module CodeModel =
 
     and Class =
         inherit TypeDeclaration
-        val mutable BaseClass             : option<T>
+        val mutable BaseClass : option<T>
         val mutable ImplementedInterfaces : list<T>
-        val mutable Constructors          : list<Constructor>
-        val mutable NestedClasses         : list<Class>
-        val mutable NestedInterfaces      : list<Interface>
+        val mutable Constructors : list<Constructor>
+        val mutable NestedClasses : list<Class>
+        val mutable NestedInterfaces : list<Interface>
 
         internal new (name) =
             {
                 inherit TypeDeclaration(name)
-                BaseClass               = None
-                ImplementedInterfaces   = []
-                Constructors            = []
-                NestedClasses           = []
-                NestedInterfaces        = []
+                BaseClass = None
+                ImplementedInterfaces = []
+                Constructors = []
+                NestedClasses = []
+                NestedInterfaces = []
             }
 
         /// Applies updates.
@@ -226,8 +226,8 @@ module CodeModel =
 
     and Property =
         inherit Member
-        val mutable HasGetter    : bool
-        val mutable HasSetter    : bool
+        val mutable HasGetter : bool
+        val mutable HasSetter : bool
         val mutable GetterInline : option<string>
         val mutable SetterInline : option<string>
 
@@ -236,8 +236,8 @@ module CodeModel =
                 inherit Member(name, t)
                 GetterInline = None
                 SetterInline = None
-                HasGetter    = false
-                HasSetter    = false
+                HasGetter = false
+                HasSetter = false
             }
 
         member private this.Add<'T when 'T :> TypeDeclaration> (x: 'T) =
@@ -267,7 +267,7 @@ module CodeModel =
     and [<AbstractClass>] NamespaceEntity =
         inherit Entity
         val mutable DependsOn : Type.Id list
-        val mutable Id         : Type.Id
+        val mutable Id : Type.Id
 
         internal new (name) =
             let id = Type.Id ()
@@ -280,19 +280,25 @@ module CodeModel =
     and Resource =
         inherit NamespaceEntity
         val mutable Paths : string list
+        val mutable IsAssemblyWide : bool
 
         internal new (name, paths) =
             {
                 inherit NamespaceEntity(name)
                 Paths = paths
+                IsAssemblyWide = false
             }
+
+        member r.AssemblyWide() =
+            r
+            |> Entity.Update(fun r -> r.IsAssemblyWide <- true)
 
     type Namespace =
         {
-            Name       : string
+            Name : string
             Interfaces : list<Interface>
-            Classes    : list<Class>
-            Resources  : list<Resource>
+            Classes : list<Class>
+            Resources : list<Resource>
         }
 
     type Assembly =

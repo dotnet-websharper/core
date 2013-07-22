@@ -1040,7 +1040,7 @@ module WebSockets =
                 Constructor (T<string> * T<string[]>)
             ]
 
-module Extension =
+module Definition =
 
     let Assembly =
         Assembly [
@@ -1109,3 +1109,9 @@ module Extension =
                 WebStorage.StorageEvent
             ]
         ]
+
+module Main =
+
+    [<EntryPoint>]
+    let Start args =
+        Compiler.Create().Start(args, Definition.Assembly)

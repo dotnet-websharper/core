@@ -19,12 +19,12 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.JQueryExtension
+namespace IntelliFactory.WebSharper.JQuery
 
 open IntelliFactory.WebSharper.Dom
+open IntelliFactory.WebSharper.InterfaceGenerator
 
-module JQuery =
-    open IntelliFactory.WebSharper.InterfaceGenerator
+module Definition =
 
     let JQ = Type.New()
 
@@ -41,7 +41,8 @@ module JQuery =
         |+> Protocol
                 [
                     "currentTarget" =? T<Element>
-                    "delegateTarget" => T<Element>
+                    "absurd" => T<Node> ^-> T<unit>
+                    "delegateTarget" =? T<Element>
                     "data" =? T<obj>
                     "isDefaultPrevented" => T<unit->bool>
                     "isImmediatePropagationStopped" => T<unit->bool>
@@ -89,8 +90,6 @@ module JQuery =
         Class "Support"
         |=> Support
         |+> Protocol props
-
-
 
     /// Ajax configuration
     let AjaxConfig = Type.New()
@@ -200,7 +199,6 @@ module JQuery =
             T<Element>  -*
             Event?event
         ) ^-> T<unit>
-
 
     let AddCmt = "Add elements to the set of matched elements."
     let AddClassCmt = "Adds the specified class(es) to each of the set of matched elements."
@@ -1024,5 +1022,14 @@ module JQuery =
                  JQueryClass
                  FX
             ]
+            Namespace "IntelliFactory.WebSharper.JQuery.Resources" [
+                Resources "JQuery" "http://code.jquery.com" ["jquery-1.10.2.min.js"]
+                |> fun r -> r.AssemblyWide()
+            ]
         ]
 
+module Main =
+
+    [<EntryPoint>]
+    let Start args =
+        Compiler.Create().Start(args, Definition.Assembly)

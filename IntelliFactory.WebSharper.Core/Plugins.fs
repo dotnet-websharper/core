@@ -34,9 +34,6 @@ type Result =
 /// Provides environment facilities for the execution of plugins.
 type IEnvironment =
 
-    /// Allows adding a folder to search for assemblies during loading.
-    abstract member AddAssemblySearchPath : directory: string -> unit
-
     /// The command-line arguments.
     abstract member CommandLineArgs : string []
 
