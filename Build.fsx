@@ -3,6 +3,7 @@
 open System
 open System.Diagnostics
 open System.IO
+open IntelliFactory.Core
 open IntelliFactory.Build
 
 module Config =
@@ -14,29 +15,44 @@ module Config =
     let Tags = ["Web"; "JavaScript"; "F#"]
     let Website = "http://bitbucket.org/IntelliFactory/websharper"
 
+[<AutoOpen>]
+module Extensions =
+
+    type IParametric<'T> with
+
+        member x.DefaultRefs(r: ReferenceBuilder) =
+            [
+                r.NuGet("Mono.Cecil").Version("0.9.5.4-security").Reference()
+                r.NuGet("IntelliFactory.Core").Reference()
+                r.NuGet("IntelliFactory.Xml").Reference()
+                r.Assembly("System.Configuration")
+                r.Assembly("System.Xml")
+                r.Assembly("System.Xml.Linq")
+                r.Assembly("System.Web")
+            ]
+
+        member x.WithDefaultRefs() =
+            x.References x.DefaultRefs
+
+        member x.ClearRefs() =
+            let r = BuildTool().Reference
+            FSharpConfig.References.Custom (x.DefaultRefs r) x
+
 let bt =
     BuildTool()
         .PackageId(Config.PackageId, Config.PackageVerion)
         .WithCommandLineArgs()
         .Configure(fun bt ->
-            let bt = bt.WithFramework(bt.Framework.Net40)
             let outDir = BuildConfig.OutputDir.Find bt
             bt
             |> BuildConfig.RootDir.Custom __SOURCE_DIRECTORY__
             |> WebSharperConfig.WebSharperHome.Custom (Some outDir)
-            |> LogConfig.Current.Custom(LogConfig().Verbose().ToConsole()))
-
-let packageDeps =
-    let r = bt.Reference
-    [
-        r.NuGet("Mono.Cecil").Version("0.9.5.4-security").Reference()
-        r.NuGet("IntelliFactory.FastInvoke").Reference()
-        r.NuGet("IntelliFactory.Xml").Reference()
-    ]
+            |> Logs.Config.Custom(Logs.Default.Verbose().ToConsole()))
+        .WithDefaultRefs()
 
 let beforeBuild () =
     let rs =
-        bt.ResolveReferences bt.Framework.Net40 [
+        bt.ResolveReferences bt.Framework.Net45 [
             bt.Reference.NuGet("YUICompressor.NET").Version("2.2.1.0").Reference()
         ]
     bt.FSharp.ExecuteScript("compress.fsx", rs)
@@ -45,10 +61,6 @@ beforeBuild ()
 
 let ifJavaScript =
     bt.FSharp.Library("IntelliFactory.JavaScript")
-        .References(fun r ->
-            [
-                r.Assembly "System.Web"
-            ])
         .SourcesFromProject()
         .Embed(["Runtime.js"; "Runtime.min.js"])
 
@@ -56,12 +68,8 @@ let wsCore =
     bt.FSharp.Library("IntelliFactory.WebSharper.Core")
         .References(fun r ->
             [
-                r.Assembly("System.Configuration")
-                r.Assembly("System.Web")
-                r.Assembly("System.Xml")
                 r.Project(ifJavaScript)
             ])
-        .References(fun _ -> packageDeps)
         .SourcesFromProject()
 
 let wsCompiler =
@@ -71,15 +79,7 @@ let wsCompiler =
                 r.Project(ifJavaScript)
                 r.Project(wsCore)
             ])
-        .References(fun _ -> packageDeps)
         .SourcesFromProject()
-
-[<AutoOpen>]
-module Extensions =
-
-    type IParametric<'T> with
-        member x.ClearRefs() =
-            FSharpConfig.References.Custom [] x
 
 let ws =
     bt.FSharp.ConsoleExecutable("WebSharper")
@@ -106,8 +106,6 @@ let wsInterfaceGenerator =
     bt.FSharp.Library("IntelliFactory.WebSharper.InterfaceGenerator")
         .References(fun r ->
             [
-                r.Assembly("System.Xml")
-                r.Assembly("System.Xml.Linq")
                 r.Project(wsCore)
                 r.Project(ifWS)
             ])
@@ -333,9 +331,6 @@ let wsSitelets =
         .SourcesFromProject()
         .References(fun r ->
             [
-                r.Assembly("System.Web")
-                r.Assembly("System.Xml")
-                r.Assembly("System.Xml.Linq")
                 r.Project(ifJavaScript)
                 r.Project(ifWS)
                 r.Project(wsCore)
@@ -343,16 +338,12 @@ let wsSitelets =
                 r.Project(ifHtml)
                 r.Project(wsWeb)
             ])
-        .References(fun _ -> packageDeps)
 
 let wsSiteletsTests =
     bt.WebSharper.Library("IntelliFactory.WebSharper.Sitelets.Tests").ClearRefs()
         .SourcesFromProject()
         .References(fun r ->
             [
-                r.Assembly("System.Web")
-                r.Assembly("System.Xml")
-                r.Assembly("System.Xml.Linq")
                 r.Project(ifJavaScript)
                 r.Project(ifWS)
                 r.Project(wsCore)
@@ -412,34 +403,6 @@ let website =
                 r.Project(wsTesting)
             ])
 
-type ToolsProject =
-    | ToolProject
-
-    interface INuGetExportingProject with
-
-        member x.NuGetFiles =
-            let rs = bt.ResolveReferences bt.Framework.Net40 packageDeps
-            let refs =
-                rs.References
-                |> Seq.filter (fun r ->
-                    not r.IsFrameworkReference || Path.GetFileName r.Path = "FSharp.Core")
-                |> Seq.map (fun r -> r.Path)
-            seq {
-                let sources =
-                    [
-                        Directory.EnumerateFiles("build/net40", "*.dll")
-                        Directory.EnumerateFiles("build/net40", "*.exe")
-                    ]
-                    |> Seq.concat
-                    |> Seq.filter (fun f ->
-                        match Path.GetFileNameWithoutExtension(f).ToLower() with
-                        | "website" -> false
-                        | p when p.EndsWith("tests") || p.EndsWith(".generator") -> false
-                        | _ -> true)
-                for f in Seq.append sources refs do
-                    yield NuGetFile.Local(f, "/tools/net40/" + Path.GetFileName f)
-            }
-
 bt.Solution [
     ifJavaScript
     wsCore
@@ -496,6 +459,6 @@ bt.Solution [
         .Add(wsFormlet)
         .Add(wsHtml5)
         .Add(wsSitelets)
-        .AddNuGetExportingProject(ToolProject)
+
 ]
 |> bt.Dispatch

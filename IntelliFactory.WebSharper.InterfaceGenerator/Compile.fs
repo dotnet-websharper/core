@@ -124,6 +124,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition) =
     let fscore = aR.Resolve(typedefof<list<_>>.Assembly.FullName)
     let ws = aR.Resolve(typedefof<IntelliFactory.WebSharper.Pervasives.Func<_,_>>.Assembly.FullName)
     let wsCore = aR.Resolve(typeof<IntelliFactory.WebSharper.Core.Attributes.InlineAttribute>.Assembly.FullName)
+    let sysWeb = aR.Resolve(typeof<System.Web.UI.WebResourceAttribute>.Assembly.FullName)
     let main = out.MainModule
 
     let func =
@@ -143,6 +144,10 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition) =
     let stringType = fromSystem "String"
     let systemType = fromSystem "Type"
     let voidType = fromSystem "Void"
+
+    let webResource =
+        sysWeb.MainModule.GetType("System.Web.UI", "WebResourceAttribute")
+        |> main.Import
 
     let baseResourceType =
         let coreResources =
@@ -241,6 +246,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition) =
     member b.String = stringType
     member b.SystemType = systemType
     member b.Void = voidType
+    member b.WebResource = webResource
 
 [<Sealed>]
 type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: GenericParameter [], genericsByName: Map<string,GenericParameter>) =
@@ -343,6 +349,8 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
             m.Parameters.Count = List.length names
             && (m.Parameters, names) ||> Seq.forall2 (fun p n -> p.ParameterType.Name = n))
 
+    let webResourceConstructor = findTypedConstructor tB.WebResource [tB.String.Name; tB.String.Name]
+
     let paramArrayConstructor = findDefaultConstructor tB.ParamArray
     let notImplementedConstructor = findDefaultConstructor tB.NotImplemented
     let baseResourceCtor1 = findTypedConstructor tB.BaseResource [tB.String.Name]
@@ -372,6 +380,12 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
         let p = ParameterDefinition("ps", ParameterAttributes.None, t)
         p.CustomAttributes.Add(CustomAttribute paramArrayConstructor)
         p
+
+    member c.BuildWebResourceAttribute(a: string, b: string) =
+        let attr = CustomAttribute(webResourceConstructor)
+        attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, a))
+        attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, b))
+        attr
 
     member c.BaseResourceConstructor1 = baseResourceCtor1
     member c.BaseResourceConstructorN = baseResourceCtorN
@@ -896,14 +910,25 @@ type Compiler() =
             (fun _ _ c -> mC.Class c)
             (fun _ _ i -> mC.Interface i)
             (fun _ r -> mC.Resource r)
-        (def, comments)
+        (def, comments, mB)
+
+    let addResourceExports (mB: MemberBuilder) (def: AssemblyDefinition) =
+        let addResource name mime =
+            def.CustomAttributes.Add(mB.BuildWebResourceAttribute(name, mime))
+        for r in def.MainModule.Resources do
+            if r.IsPublic then
+                match r.Name.ToLower() with
+                | x when x.EndsWith(".js") -> addResource r.Name "text/javascript"
+                | x when x.EndsWith(".css") -> addResource r.Name "text/css"
+                | _ -> ()
 
     member c.Compile(options, assembly) =
         let resolver = createAssemblyResolver options
-        let (def, comments) = buildAssembly resolver options assembly
+        let (def, comments, mB) = buildAssembly resolver options assembly
         for f in options.EmbeddedResources do
             EmbeddedResource(Path.GetFileName f, ManifestResourceAttributes.Public, File.ReadAllBytes f)
             |> def.MainModule.Resources.Add
+        addResourceExports mB def
         let doc = XmlDocGenerator(def, comments)
         let r = CompiledAssembly(def, doc, options)
         match options.OutputPath with

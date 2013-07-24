@@ -6,7 +6,7 @@
     <OutputPath>bin</OutputPath>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
   </PropertyGroup>
-  <Import Project="../build/net40/$(Name).proj" />
+  <Import Project="../build/net45/$(Name).proj" />
   <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
   <ItemGroup>
     <Compile Include="Util.fs" />

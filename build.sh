@@ -6,5 +6,5 @@ export EnableNuGetPackageRestore=true
 export FSharpHome
 export MonoHome
 export NuGetHome
-mono $NuGetHome/NuGet.exe install IntelliFactory.Build -pre -ExcludeVersion -o packages
+mono $NuGetHome/NuGet.exe install IntelliFactory.Build -pre -ExcludeVersion -o tools/packages
 mono $FSharpHome/fsi.exe --exec build.fsx %*

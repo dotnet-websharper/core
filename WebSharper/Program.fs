@@ -26,21 +26,28 @@ open System
 open System.IO
 open System.Diagnostics
 open System.Reflection
+open IntelliFactory.Core
 open IntelliFactory.WebSharper.Core
 open IntelliFactory.WebSharper.Core.Plugins
 
 module FE = IntelliFactory.WebSharper.Compiler.FrontEnd
 module Plugins = IntelliFactory.WebSharper.Core.Plugins.Configuration
 
-let private guard action =
+let writeTextFile (output, text) =
+    Content.Text(text).WriteFile(output)
+
+let writeBinaryFile (output, bytes) =
+    Binary.FromBytes(bytes).WriteFile(output)
+
+let guard action =
     try action () with exn ->
         let temp = Path.GetTempFileName()
-        File.WriteAllText(temp, string exn)
+        writeTextFile (temp, string exn)
         stdout.WriteLine("[Error] {0}(1,1): {1}: {2}", temp,
             exn.GetType().FullName, exn.Message)
         1
 
-let private compile (opts: Options.CompilationOptions) =
+let compile (opts: Options.CompilationOptions) =
     let sw = Stopwatch()
     sw.Start()
     let paths =
@@ -72,14 +79,14 @@ let private compile (opts: Options.CompilationOptions) =
                 match opts.OutputJavaScript with
                 | Some path ->
                     match assem.ReadableJavaScript with
-                    | Some js -> File.WriteAllText(path, js)
+                    | Some js -> writeTextFile (path, js)
                     | None -> ()
                 | None ->
                     ()
                 match opts.OutputMinified with
                 | Some path ->
                     match assem.CompressedJavaScript with
-                    | Some js -> File.WriteAllText(path, js)
+                    | Some js -> writeTextFile (path, js)
                     | None -> ()
                 | None ->
                     ()
@@ -90,7 +97,7 @@ let private compile (opts: Options.CompilationOptions) =
                         | :? Mono.Cecil.EmbeddedResource as r ->
                             if r.Name = k then
                                 let data = r.GetResourceData()
-                                File.WriteAllBytes(v, data)
+                                writeBinaryFile (v, data)
                         | _ ->
                             ()
                 0
@@ -105,7 +112,7 @@ let private compile (opts: Options.CompilationOptions) =
                 sw.Elapsed.TotalSeconds)
         k
 
-let private run (opts: Options.T) =
+let run (opts: Options.T) =
     match opts with
     | Options.Compile opts ->
         compile opts
@@ -121,14 +128,14 @@ let private run (opts: Options.T) =
                 let path =
                     Path.Combine(folder,
                         Path.GetFileName p + ".js")
-                File.WriteAllText(path, js)
+                writeTextFile (path, js)
             | None -> ()
             match a.CompressedJavaScript with
             | Some js ->
                 let path =
                     Path.Combine(folder,
                         Path.GetFileName p + ".min.js")
-                File.WriteAllText(path, js)
+                writeTextFile (path, js)
             | None -> ()
         0
     | Options.Dependencies path ->

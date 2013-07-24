@@ -2,6 +2,7 @@
 #load "build/compress.includes.fsx"
 
 open System.IO
+open IntelliFactory.Core
 open IntelliFactory.Build
 
 let RootDir = __SOURCE_DIRECTORY__
@@ -22,6 +23,6 @@ let CompressJavaScript () =
             File.ReadAllText(i)
             |> jc.Compress
         let p = Path.ChangeExtension(i, ".min.js")
-        FileSystem.TextContent(cj).WriteFile(p)
+        FileSystem.Content.Text(cj).WriteFile(p)
 
 do CompressJavaScript ()
