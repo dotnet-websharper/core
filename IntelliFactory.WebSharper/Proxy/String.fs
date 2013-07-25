@@ -50,7 +50,10 @@ let LastIndexOf (s: string) (c: char) (i: int) = X<int>
 
 [<JavaScript>]
 let PadLeftWith (s: string) (n: int) (c: char) =
-    System.String(Array.create (n - s.Length) c) + s
+    if s.Length < n then
+        System.String(Array.create (n - s.Length) c) + s
+    else
+        s
 
 [<JavaScript>]
 let PadLeft (s: string) (n: int) =
@@ -58,7 +61,10 @@ let PadLeft (s: string) (n: int) =
 
 [<JavaScript>]
 let PadRightWith (s: string) (n: int) (c: char) =
-    s + System.String(Array.create (n - s.Length) c)
+    if s.Length < n then
+        s + System.String(Array.create (n - s.Length) c)
+    else
+        s
 
 [<JavaScript>]
 let PadRight (s: string) (n: int) =
