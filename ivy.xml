@@ -1,3 +1,8 @@
 <ivy-module version="2.0">
- <info organisation="IntelliFactory" module="WebSharper" revision="2.5" />
+  <info organisation="IntelliFactory" module="WebSharper" revision="1.0" />
+  <dependencies>
+    <dependency name="cecil" rev="latest.integration" />
+    <dependency name="core" rev="latest.integration" />
+    <dependency name="if-xml" rev="latest.integration" />
+  </dependencies>
 </ivy-module>
