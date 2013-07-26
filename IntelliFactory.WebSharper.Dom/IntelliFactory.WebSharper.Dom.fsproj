@@ -12,14 +12,4 @@
   <ItemGroup>
     <Compile Include="Definition.fs" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
-      <Name>IntelliFactory.WebSharper.Core</Name>
-      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.InterfaceGenerator\IntelliFactory.WebSharper.InterfaceGenerator.fsproj">
-      <Name>IntelliFactory.WebSharper.InterfaceGenerator</Name>
-      <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
-    </ProjectReference>
-  </ItemGroup>
 </Project>

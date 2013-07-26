@@ -25,6 +25,8 @@ open System
 open System.Collections.Generic
 open System.IO
 open System.Reflection
+
+open IntelliFactory.Core
 open IntelliFactory.WebSharper.Core
 open IntelliFactory.WebSharper.Core.Plugins
 open IntelliFactory.WebSharper.Sitelets.Offline
@@ -66,14 +68,11 @@ type Plugin() =
                 |> Directory.CreateDirectory
 
             let aR =
-                AssemblyResolver.SearchDomain() +
-                (
-                    options.SourceDirectories
-                    |> Seq.map (fun dir -> dir.FullName)
-                    |> AssemblyResolver.SearchPaths
-                )
+                options.SourceDirectories
+                |> Seq.map (fun dir -> dir.FullName)
+                |> AssemblyResolver.Create().SearchDirectories
 
-            aR.With() <| fun () ->
+            aR.Wrap <| fun () ->
                 // Load the sitelet
                 let (sitelet, actions) = loadSite options.SourceAssembly
 

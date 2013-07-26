@@ -22,10 +22,11 @@
 /// Exposes the compiler front-end for programmatic use.
 module IntelliFactory.WebSharper.Compiler.FrontEnd
 
-module M = IntelliFactory.WebSharper.Core.Metadata
-module R = IntelliFactory.WebSharper.Core.Resources
 open System.Reflection
 open System.Web.UI
+open IntelliFactory.Core
+module M = IntelliFactory.WebSharper.Core.Metadata
+module R = IntelliFactory.WebSharper.Core.Resources
 
 /// Represents file-system paths.
 type Path = string
@@ -58,8 +59,8 @@ type Assembly =
 [<Sealed>]
 type Loader =
 
-    /// Creates a new loader. Accepts a set of search paths.
-    static member Create : searchPaths: Set<Path> -> log: (string -> unit) -> Loader
+    /// Creates a new loader. Accepts an assembly resolver.
+    static member Create : resolver: AssemblyResolver -> log: (string -> unit) -> Loader
 
     /// Loads an assembly from raw data.
     member LoadRaw : byte [] -> option<Symbols> -> Assembly

@@ -38,6 +38,9 @@ module Extensions =
             let r = BuildTool().Reference
             FSharpConfig.References.Custom (x.DefaultRefs r) x
 
+let root = __SOURCE_DIRECTORY__
+let compiler = Path.Combine(root, "build", "compiler")
+
 let bt =
     BuildTool()
         .PackageId(Config.PackageId, Config.PackageVerion)
@@ -45,10 +48,14 @@ let bt =
         .Configure(fun bt ->
             let outDir = BuildConfig.OutputDir.Find bt
             bt
-            |> BuildConfig.RootDir.Custom __SOURCE_DIRECTORY__
-            |> WebSharperConfig.WebSharperHome.Custom (Some outDir)
+            |> BuildConfig.RootDir.Custom root
+            |> WebSharperConfig.WebSharperHome.Custom (Some compiler)
             |> Logs.Config.Custom(Logs.Default.Verbose().ToConsole()))
         .WithDefaultRefs()
+
+let cbt =
+    bt
+    |> BuildConfig.OutputDir.Custom compiler
 
 let beforeBuild () =
     let rs =
@@ -60,12 +67,12 @@ let beforeBuild () =
 beforeBuild ()
 
 let ifJavaScript =
-    bt.FSharp.Library("IntelliFactory.JavaScript")
+    cbt.FSharp.Library("IntelliFactory.JavaScript")
         .SourcesFromProject()
         .Embed(["Runtime.js"; "Runtime.min.js"])
 
 let wsCore =
-    bt.FSharp.Library("IntelliFactory.WebSharper.Core")
+    cbt.FSharp.Library("IntelliFactory.WebSharper.Core")
         .References(fun r ->
             [
                 r.Project(ifJavaScript)
@@ -73,7 +80,7 @@ let wsCore =
         .SourcesFromProject()
 
 let wsCompiler =
-    bt.FSharp.Library("IntelliFactory.WebSharper.Compiler")
+    cbt.FSharp.Library("IntelliFactory.WebSharper.Compiler")
         .References(fun r ->
             [
                 r.Project(ifJavaScript)
@@ -82,7 +89,7 @@ let wsCompiler =
         .SourcesFromProject()
 
 let ws =
-    bt.FSharp.ConsoleExecutable("WebSharper")
+    cbt.FSharp.ConsoleExecutable("WebSharper")
         .References(fun r ->
             [
                 r.Project(ifJavaScript)
@@ -116,6 +123,7 @@ let wsDom =
         .Modules(["Definition"])
         .References(fun r ->
             [
+                r.Project(ifWS)
                 r.Project(wsCore)
                 r.Project(wsInterfaceGenerator)
             ])
@@ -403,6 +411,41 @@ let website =
                 r.Project(wsTesting)
             ])
 
+let exports : list<INuGetExportingProject> =
+    [
+        ifWS
+        wsInterfaceGenerator
+        wsDom
+        wsJQuery
+        wsCollections
+        wsControl
+        wsEcma
+        wsTesting
+        ifHtml
+        wsHtml
+        wsWeb
+        ifReactive
+        ifFormlet
+        wsFormlet
+        wsHtml5
+        wsSitelets
+    ]
+
+let exportingProject =
+    {
+        new INuGetExportingProject with
+            member p.NuGetFiles =
+                seq {
+                    for p in exports do
+                        for f in p.NuGetFiles do
+                            yield {
+                                new INuGetFile with
+                                    member x.Read() = f.Read()
+                                    member x.TargetPath = "/tools/net45/" + Path.GetFileName f.TargetPath
+                            }
+                }
+    }
+
 bt.Solution [
     ifJavaScript
     wsCore
@@ -439,26 +482,8 @@ bt.Solution [
                     ProjectUrl = Some Config.Website
                     LicenseUrl = Some Config.LicenseUrl
             })
-        .Add(ifJavaScript)
-        .Add(wsCore)
-        .Add(wsCompiler)
-        .Add(ws)
-        .Add(ifWS)
-        .Add(wsInterfaceGenerator)
-        .Add(wsDom)
-        .Add(wsJQuery)
-        .Add(wsCollections)
-        .Add(wsControl)
-        .Add(wsEcma)
-        .Add(wsTesting)
-        .Add(ifHtml)
-        .Add(wsHtml)
-        .Add(wsWeb)
-        .Add(ifReactive)
-        .Add(ifFormlet)
-        .Add(wsFormlet)
-        .Add(wsHtml5)
-        .Add(wsSitelets)
+        .AddNuGetExportingProject(ws)
+        .AddNuGetExportingProject(exportingProject)
 
 ]
 |> bt.Dispatch

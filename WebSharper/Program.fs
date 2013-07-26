@@ -47,19 +47,20 @@ let guard action =
             exn.GetType().FullName, exn.Message)
         1
 
+let pathToSelf = Assembly.GetExecutingAssembly().Location
+let baseDir = Path.GetDirectoryName pathToSelf
+
 let compile (opts: Options.CompilationOptions) =
     let sw = Stopwatch()
     sw.Start()
-    let paths =
+    let refPaths =
         opts.Input :: opts.References
-        |> Seq.map (Path.GetDirectoryName
-            >> Path.GetFullPath)
+        |> Seq.map Path.GetFullPath
         |> Set.ofSeq
-
-    let aR = AssemblyResolver.SearchDomain() + AssemblyResolver.SearchPaths(paths)
-    aR.With() <| fun () ->
+    let aR = AssemblyResolver.Create().SearchDirectories([baseDir]).SearchPaths(refPaths)
+    aR.Wrap <| fun () ->
         let k =
-            let aLoader = FE.Loader.Create paths stderr.WriteLine
+            let aLoader = FE.Loader.Create aR stderr.WriteLine
             let assem = aLoader.LoadFile opts.Input
             let snk =
                 opts.KeyPair
@@ -117,10 +118,8 @@ let run (opts: Options.T) =
     | Options.Compile opts ->
         compile opts
     | Options.Unpack (folder, assemblies) ->
-        let paths =
-            Seq.map Path.GetDirectoryName assemblies
-            |> Set.ofSeq
-        let loader = FE.Loader.Create paths stderr.WriteLine
+        let aR = AssemblyResolver.Create().SearchPaths(assemblies)
+        let loader = FE.Loader.Create aR stderr.WriteLine
         for p in assemblies do
             let a = loader.LoadFile p
             match a.ReadableJavaScript with
@@ -145,7 +144,7 @@ let run (opts: Options.T) =
 let Start args =
     let fullArgs =
         [|
-            yield Assembly.GetExecutingAssembly().Location
+            yield pathToSelf
             yield! args
         |]
     let plugins () =

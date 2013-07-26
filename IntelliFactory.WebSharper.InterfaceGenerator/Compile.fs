@@ -31,6 +31,7 @@ open System.Xml
 open System.Xml.Linq
 open Mono.Cecil
 open Mono.Cecil.Cil
+open IntelliFactory.Core
 open IntelliFactory.WebSharper.Core
 
 module Code = IntelliFactory.WebSharper.InterfaceGenerator.CodeModel
@@ -744,7 +745,7 @@ type CompilerOptions =
         EmbeddedResources : seq<string>
         Kind : CompilationKind
         OutputPath : option<string>
-        SearchDirectories : seq<string>
+        ReferencePaths : seq<string>
         StrongNameKeyPair : option<StrongNameKeyPair>
     }
 
@@ -756,7 +757,7 @@ type CompilerOptions =
             EmbeddedResources = Seq.empty
             Kind = LibraryKind
             OutputPath = None
-            SearchDirectories = Seq.empty
+            ReferencePaths = Seq.empty
             StrongNameKeyPair = None
         }
 
@@ -780,12 +781,8 @@ type CompilerOptions =
             | S "-doc:" doc ->
                 { opts with DocPath = Some doc }
             | S "-r:" ref ->
-                let d = Path.GetFullPath (Path.GetDirectoryName ref)
-                if Seq.exists ((=) d) opts.SearchDirectories then
-                    opts
-                else
-                    let dirs = Seq.toArray (Seq.append [d] opts.SearchDirectories)
-                    { opts with SearchDirectories = dirs :> seq<_> }
+                let rps = Seq.toArray (Seq.append opts.ReferencePaths [ref])
+                { opts with ReferencePaths = rps :> seq<_> }
             | "-console" ->
                 { opts with Kind = CompilationKind.Console }
             | "-library" ->
@@ -824,22 +821,47 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
         def.Name.Name + ".dll"
 
 [<Sealed>]
+type Resolver(aR: AssemblyResolver) =
+    let def = DefaultAssemblyResolver()
+
+    let resolve (ref: string) (par: option<ReaderParameters>) =
+        let n = AssemblyName(ref)
+        match aR.ResolvePath n with
+        | Some x ->
+            try
+                if x = null || not (FileInfo(x).Exists) then
+                    failwithf "Invalid file resolution: %s" (string x)
+            with :? ArgumentException ->
+                failwithf "Invalid file resolution: [%s]" (string x)
+            match par with
+            | None -> AssemblyDefinition.ReadAssembly(x)
+            | Some par -> AssemblyDefinition.ReadAssembly(x, par)
+        | None -> def.Resolve(ref)
+
+    interface IAssemblyResolver with
+
+        member x.Resolve(name) =
+            resolve name None
+
+        member x.Resolve(name: string, par) =
+            resolve name (Some par)
+
+        member x.Resolve(ref: AssemblyNameReference, par: ReaderParameters) =
+            let ref = ref.FullName
+            resolve ref (Some par)
+
+        member x.Resolve(ref: AssemblyNameReference) =
+            let ref = ref.FullName
+            resolve ref None
+
+[<Sealed>]
 type Compiler() =
 
     let iG = InlineGenerator()
 
-    let createAssemblyResolver opts =
-        let r = DefaultAssemblyResolver()
-        for dir in opts.SearchDirectories do
-            r.AddSearchDirectory(dir)
-        let addByType (t: Type) =
-            let d = Path.GetDirectoryName t.Assembly.Location
-            r.AddSearchDirectory(d)
-        addByType typeof<int>
-        addByType typedefof<list<_>>
-        addByType typedefof<IntelliFactory.WebSharper.Pervasives.Func<_,_>>
-        addByType typeof<IntelliFactory.WebSharper.Core.Attributes.InlineAttribute>
-        r :> IAssemblyResolver
+    let createAssemblyResolvers (opts: CompilerOptions) =
+        let aR = AssemblyResolver.Create().SearchPaths(opts.ReferencePaths)
+        (aR, Resolver(aR) :> IAssemblyResolver)
 
     let getAccessAttributes (nested: bool) (t: Code.NamespaceEntity) =
         match t.AccessModifier, nested with
@@ -922,8 +944,7 @@ type Compiler() =
                 | x when x.EndsWith(".css") -> addResource r.Name "text/css"
                 | _ -> ()
 
-    member c.Compile(options, assembly) =
-        let resolver = createAssemblyResolver options
+    member c.Compile(resolver, options, assembly) =
         let (def, comments, mB) = buildAssembly resolver options assembly
         for f in options.EmbeddedResources do
             EmbeddedResource(Path.GetFileName f, ManifestResourceAttributes.Public, File.ReadAllBytes f)
@@ -939,15 +960,15 @@ type Compiler() =
         | Some docPath -> doc.Generate docPath
         r
 
+    member c.Compile(options, assembly) =
+        let (aR, resolver) = createAssemblyResolvers options
+        c.Compile(resolver, options, assembly)
+
     member c.Start(args, assembly) =
         let opts = CompilerOptions.Parse(args)
-        let searchDirs =
-            opts.SearchDirectories
-        let aR =
-            AssemblyResolver.SearchDomain()
-            + AssemblyResolver.SearchPaths opts.SearchDirectories
-        aR.With() <| fun () ->
-            c.Compile(opts, assembly)
+        let (aR, resolver) = createAssemblyResolvers opts
+        aR.Wrap <| fun () ->
+            c.Compile(resolver, opts, assembly)
             |> ignore
         0
 

@@ -40,7 +40,7 @@ type CompilerOptions =
         EmbeddedResources : seq<string>
         Kind : CompilationKind
         OutputPath : option<string>
-        SearchDirectories : seq<string>
+        ReferencePaths : seq<string>
         StrongNameKeyPair : option<StrongNameKeyPair>
     }
 

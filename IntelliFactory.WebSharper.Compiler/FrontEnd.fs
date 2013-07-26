@@ -27,6 +27,7 @@ open System.IO
 open System.Reflection
 open System.Web.UI
 open Mono.Cecil
+open IntelliFactory.Core
 module M = IntelliFactory.WebSharper.Core.Metadata
 module P = IntelliFactory.JavaScript.Packager
 module R = IntelliFactory.WebSharper.Compiler.ReflectionLayer
@@ -96,17 +97,41 @@ type Assembly =
         readResource EMBEDDED_MINJS this.Definition
 
 [<Sealed>]
-type Resolver(paths: Set<Path>) =
-    inherit DefaultAssemblyResolver()
-    do for p in paths do base.AddSearchDirectory p
+type Resolver(aR: AssemblyResolver) =
+    let def = DefaultAssemblyResolver()
+
+    let resolve (ref: string) (par: option<ReaderParameters>) =
+        let n = AssemblyName(ref)
+        match aR.ResolvePath n with
+        | Some x ->
+            match par with
+            | None -> AssemblyDefinition.ReadAssembly(x)
+            | Some par -> AssemblyDefinition.ReadAssembly(x, par)
+        | None -> def.Resolve(ref)
+
+    interface IAssemblyResolver with
+
+        member x.Resolve(name) =
+            resolve name None
+
+        member x.Resolve(name: string, par) =
+            resolve name (Some par)
+
+        member x.Resolve(ref: AssemblyNameReference, par: ReaderParameters) =
+            let ref = ref.FullName
+            resolve ref (Some par)
+
+        member x.Resolve(ref: AssemblyNameReference) =
+            let ref = ref.FullName
+            resolve ref None
 
 [<Sealed>]
-type Loader(paths: Set<Path>, log: string -> unit) =
+type Loader(aR: AssemblyResolver, log: string -> unit) =
 
-    let load (bytes: byte[]) (symbols: option<Symbols>) (paths: Set<Path>) =
+    let load (bytes: byte[]) (symbols: option<Symbols>) (aR: AssemblyResolver) =
         use str = new MemoryStream(bytes)
         let par = ReaderParameters()
-        par.AssemblyResolver <- Resolver paths
+        par.AssemblyResolver <- Resolver aR
         par.ReadingMode <- ReadingMode.Deferred
         match symbols with
         | Some (Pdb bytes) ->
@@ -124,11 +149,11 @@ type Loader(paths: Set<Path>, log: string -> unit) =
             Definition = def
         }
 
-    static member Create(paths)(log) =
-        Loader(paths, log)
+    static member Create(res: AssemblyResolver)(log) =
+        Loader(res, log)
 
     member this.LoadRaw(bytes)(symbols) =
-        load bytes symbols paths
+        load bytes symbols aR
 
     member this.LoadFile(path: Path) =
         let bytes = File.ReadAllBytes path
@@ -143,13 +168,14 @@ type Loader(paths: Set<Path>, log: string -> unit) =
             if ex ".pdb" then Some (Pdb (rd ".pdb"))
             elif ex ".mdb" then Some (Mdb (rd ".mdb"))
             else None
+        let aR = aR.SearchPaths [path]
         try
-            load bytes symbols (Set.add path paths)
+            load bytes symbols aR
         with :? InvalidOperationException ->
             if symbolsPath.IsSome then
                 "Failed to load symbols: " + symbolsPath.Value
                 |> log
-            load bytes None (Set.add path paths)
+            load bytes None aR
 
 module CecilTools =
 
