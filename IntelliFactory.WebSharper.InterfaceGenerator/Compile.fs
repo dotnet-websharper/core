@@ -496,7 +496,7 @@ type MemberConverter
                 iG.GetPropertySetterInline(td, p)
                 |> inlineAttribute
                 |> mD.CustomAttributes.Add
-            mD.Parameters.Add(ParameterDefinition ty)
+            mD.Parameters.Add(ParameterDefinition("value", ParameterAttributes.None, ty))
             if not dT.IsInterface then
                 mB.AddBody mD
             dT.Methods.Add mD
@@ -871,7 +871,9 @@ type Compiler() =
             TypeAttributes.NestedFamily
         | Code.AccessModifier.Internal, true ->
             TypeAttributes.NestedFamORAssem
-        | Code.AccessModifier.Public, _ ->
+        | Code.AccessModifier.Public, true ->
+            TypeAttributes.NestedPublic
+        | Code.AccessModifier.Public, false ->
             TypeAttributes.Public
         | _ , _ ->
             TypeAttributes.NotPublic
@@ -879,35 +881,48 @@ type Compiler() =
     let getId (d: Code.NamespaceEntity) =
         d.Id
 
-    let visit withClass visitInterface visitResource (assembly: Code.Assembly) =
-        let rec visitClass (ns: string) (nested: bool) (c: Code.Class) =
-            withClass ns nested c
+    let visit visitClass visitInterface visitResource visitNestedClass visitNestedInterface (assembly: Code.Assembly) =
+        let rec onClass (ctx: Choice<string,Code.Class>) (c: Code.Class) =
+            match ctx with
+            | Choice1Of2 ns -> visitClass ns c
+            | Choice2Of2 parent -> visitNestedClass parent c
             for nC in c.NestedClasses do
-                visitClass ns true nC
+                onClass (Choice2Of2 c) nC
             for nI in c.NestedInterfaces do
-                visitInterface ns true nI
+                visitNestedInterface c nI
         for ns in assembly.Namespaces do
             for c in ns.Classes do
-                visitClass ns.Name false c
+                onClass (Choice1Of2 ns.Name) c
             for i in ns.Interfaces do
-                visitInterface ns.Name false i
+                visitInterface ns.Name i
             for r in ns.Resources do
                 visitResource ns.Name r
 
     let buildInitialTypes assembly (def: AssemblyDefinition) =
         let types : Types = Dictionary()
-        let build attrs ns nested (x: Code.NamespaceEntity) =
-            let attrs = attrs||| getAccessAttributes nested x
+        let build attrs ns (x: Code.NamespaceEntity) =
+            let nested = false
+            let attrs = attrs ||| getAccessAttributes nested x
             let tD = TypeDefinition(ns, iG.GetSourceName x, attrs)
             types.[getId x] <- tD
             def.MainModule.Types.Add(tD)
-        let buildClass ns nested (c: Code.Class) =
-            build TypeAttributes.Class ns nested c
-        let buildInterface ns nested (i: Code.Interface) =
-            build TypeAttributes.Interface ns nested i
-        let buildResource (ns: string) (r: Code.Resource) =
-            build TypeAttributes.Class ns false r
-        visit buildClass buildInterface buildResource assembly
+        let buildNested attrs (parent: Code.NamespaceEntity) (x: Code.NamespaceEntity) =
+            match types.TryGetValue parent.Id with
+            | true, parent ->
+                let nested = true
+                let attrs = attrs ||| getAccessAttributes nested x
+                let tD = TypeDefinition(null, iG.GetSourceName x, attrs)
+                tD.DeclaringType <- parent
+                types.[getId x] <- tD
+                parent.NestedTypes.Add tD
+            | _ -> ()
+        assembly
+        |> visit
+            (build TypeAttributes.Class)
+            (build TypeAttributes.Interface)
+            (build TypeAttributes.Class)
+            (buildNested TypeAttributes.Class)
+            (buildNested TypeAttributes.Interface)
         types
 
     let buildAssembly resolver options (assembly: Code.Assembly) =
@@ -929,9 +944,11 @@ type Compiler() =
         let mC = MemberConverter(tB, mB, tC, types, iG, def, comments)
         assembly
         |> visit
-            (fun _ _ c -> mC.Class c)
-            (fun _ _ i -> mC.Interface i)
+            (fun _ c -> mC.Class c)
+            (fun _ i -> mC.Interface i)
             (fun _ r -> mC.Resource r)
+            (fun _ c -> mC.Class c)
+            (fun _ i -> mC.Interface i)
         (def, comments, mB)
 
     let addResourceExports (mB: MemberBuilder) (def: AssemblyDefinition) =

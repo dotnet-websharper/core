@@ -409,6 +409,7 @@ let website =
                 r.Project(wsControl)
                 r.Project(wsJQuery)
                 r.Project(wsTesting)
+                r.Project(wsTests)
             ])
 
 let exports : list<INuGetExportingProject> =
@@ -473,6 +474,39 @@ bt.Solution [
     wsSitelets
     wsSiteletsTests
     website
+
+    bt.WebSharper.HostWebsite("Web")
+        .References(fun r ->
+            let projs : list<IReferenceProject> =
+                [
+                    ifJavaScript
+                    wsCore
+                    ifWS
+                    wsDom
+                    wsJQuery
+                    wsCollections
+                    wsControl
+                    wsEcma
+                    wsTesting
+                    wsTests
+                    ifHtml
+                    wsHtml
+                    wsWeb
+                    // wsWebTests
+                    ifReactive
+                    ifFormlet
+                    wsFormlet
+                    // wsFormletTests
+                    wsHtml5
+                    wsHtml5Tests
+                    wsSitelets
+                    // wsSiteletsTests
+                    website
+                ]
+            [
+                for p in projs do
+                    yield r.Project p
+            ])
 
     bt.NuGet.CreatePackage()
         .Configure(fun x ->

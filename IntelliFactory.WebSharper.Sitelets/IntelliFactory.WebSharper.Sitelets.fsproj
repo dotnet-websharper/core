@@ -6,6 +6,7 @@
     <ProjectGuid>{d991329a-3aa3-4269-83ad-3597864855a0}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.Sitelets</Name>
+    <OutputPath>bin</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Extensions.fs" />
