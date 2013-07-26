@@ -767,10 +767,72 @@ let rec eta expr =
     | Lambda (t, v, x) -> Lambda (t, v, eta x)
     | _ -> Transform eta expr
 
+let inlineLetExprs expr =
+
+    let findCount m k =
+        defaultArg (Map.tryFind k m) 0
+
+    let sumCounts a b =
+        (a, b)
+        ||> Map.fold (fun a k v ->
+            Map.add k (findCount a k + v) a)
+
+    let isPure e =
+        match e with
+        | Lambda _
+        | Constant _
+        | Global _
+        | Var _ -> true
+        | _ -> false
+ 
+    let isTiny e =
+        match e with
+        | Constant _
+        | Global _
+        | Var _ -> true
+        | _ -> false
+
+    /// Computes the optimized expression and its free variable counts.
+    let rec t (expr: Expression) : Expression * Map<Id,int> =
+        match expr with
+        | Let (var, value, body) ->
+            let (body2, bc) = t body
+            let (value2, vc) = t value
+            let counts = Map.remove var (sumCounts bc vc)
+            match findCount bc var with
+            | 0 ->
+                if isPure value
+                    then (body2, bc)
+                    else (Sequential (value2, body2), counts)
+            | k when k = 1 && isPure value || isTiny value ->
+                let result = Substitute (fun x -> if x = var then Some value else None) body
+                (result, counts)
+            | _ ->
+                (Let (var, value2, body2), counts)
+        | Lambda (this, vars, body) ->
+            let (body2, bc) = t body
+            (Lambda (this, vars, body2),
+                (bc, Option.toList this @ vars)
+                ||> List.fold (fun counts x -> Map.remove x counts))
+        | Var id ->
+            (expr, Map [id, 1])
+        | _ ->
+            let r = ref Map.empty
+            let expr2 =
+                expr
+                |> Transform (fun e1 ->
+                    let (e2, counts) = t e1
+                    r := sumCounts !r counts
+                    e2)
+            (expr2, !r)
+
+    fst (t expr)
+
 let Optimize expr =
     AlphaNormalize expr
     |> Uncurry
     |> RemoveLoops
+    |> inlineLetExprs
     |> removeRedexes
     |> unalias
     |> eta
