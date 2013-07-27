@@ -281,6 +281,7 @@ let wsFormlet =
                 r.Project(ifFormlet)
                 r.Project(ifReactive)
             ])
+        .Embed(["styles/Formlet.css"; "images/ActionAdd.png"; "images/ActionCheck.png"; "images/ActionDelete.png"; "images/ErrorIcon.png"; "images/InfoIcon.png" ])
 
 let wsFormletTests =
     bt.WebSharper.Library("IntelliFactory.WebSharper.Formlet.Tests").ClearRefs()
