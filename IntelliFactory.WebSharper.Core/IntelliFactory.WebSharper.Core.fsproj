@@ -6,7 +6,7 @@
     <ProjectGuid>{52741881-8d64-4639-8b5c-19c060958c35}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.Core</Name>
-    <Stage>compiler</Stage>
+    <OutputPath>bin</OutputPath>
   </PropertyGroup>
   <Import Project="../build/compiler/$(Name).proj" />
   <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />

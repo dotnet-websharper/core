@@ -31,3 +31,4 @@
 ^build/.*includes.fsx
 ^build/.*Config.fs
 ^build/compiler/
+^build/.*nupkg$

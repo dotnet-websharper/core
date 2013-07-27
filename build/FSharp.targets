@@ -22,6 +22,9 @@
 -->
 
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <OutputPath>bin</OutputPath>
+  </PropertyGroup>
   <Import Project="../build/net45/$(Name).proj" />
   <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
   <Target Name="Build" />
