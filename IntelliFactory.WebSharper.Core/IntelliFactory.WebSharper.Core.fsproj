@@ -8,7 +8,10 @@
     <Name>IntelliFactory.WebSharper.Core</Name>
     <Stage>compiler</Stage>
   </PropertyGroup>
-  <Import Project="../build/FSharp.targets" />
+  <Import Project="../build/compiler/$(Name).proj" />
+  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
+  <Target Name="Build" />
+  <Target Name="Clean" />
   <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
@@ -35,11 +38,5 @@
     <Compile Include="Remoting.fsi" />
     <Compile Include="Remoting.fs" />
     <Compile Include="Plugins.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
-      <Name>IntelliFactory.JavaScript</Name>
-      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
-    </ProjectReference>
   </ItemGroup>
 </Project>
