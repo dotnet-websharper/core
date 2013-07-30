@@ -339,7 +339,7 @@ let KeyValuePattern (kvp: System.Collections.Generic.KeyValuePair<_,_>) =
 
 [<IntelliFactory.WebSharper.Core.Attributes.Name "OperatorIntrinsics">]
 [<IntelliFactory.WebSharper.Core.Attributes.Proxy
-    "Microsoft.FSharp.Core.Operators.OperatorIntrinsics, \
+    "Microsoft.FSharp.Core.Operators+OperatorIntrinsics, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
 module OperatorIntrinsicsProxy =
