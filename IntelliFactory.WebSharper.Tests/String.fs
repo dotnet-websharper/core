@@ -169,3 +169,8 @@ let Tests =
         String.replicate 3 "abc" =? "abcabcabc"
     }
 
+    Test "GetStringSlice" {
+        karina.[.. 2] =? "Kar"
+        karina.[4 ..] =? "na" 
+        karina.[2 .. 4] =? "rin" 
+    }

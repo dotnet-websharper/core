@@ -551,3 +551,10 @@ let Tests =
         let (arr1, arr2, arr3) = ([| "a" |], [| 1 |], [| (1, 2) |])
         Array.zip3 arr1 arr2 arr3 =? [| ("a", 1, (1, 2)) |]
     }
+
+    Test "GetArraySlice" {
+        let arr = [| 0; 1; 2; 3; 4; 5 |]
+        arr.[.. 2] =? [| 0; 1; 2 |]
+        arr.[4 ..] =? [| 4 ; 5 |] 
+        arr.[2 .. 4] =? [| 2; 3; 4 |]
+    }
