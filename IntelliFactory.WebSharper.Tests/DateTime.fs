@@ -109,9 +109,9 @@ let Tests =
         d.AddMilliseconds 123. =? DateTime(2010, 4, 8, 15, 05, 39, 123)
     }
 
-    Test "AddTicks" {
-        d.AddTicks 1230000L =? DateTime(2010, 4, 8, 15, 05, 39, 123)
-    }
+//    Test "AddTicks" {
+//        d.AddTicks 1230000L =? DateTime(2010, 4, 8, 15, 05, 39, 123)
+//    }
 
     Test "Date" {
         d.Date =? DateTime(2010, 4, 8)
@@ -121,24 +121,24 @@ let Tests =
         d.TimeOfDay =? TimeSpan(15, 5, 39)
     }
 
-    Test "Kind" {
-        DateTime.Now.Kind =? DateTimeKind.Local
-        DateTime.UtcNow.Kind =? DateTimeKind.Utc
-        d.Kind =? DateTimeKind.Unspecified
-    }
+//    Test "Kind" {
+//        DateTime.Now.Kind =? DateTimeKind.Local
+//        DateTime.UtcNow.Kind =? DateTimeKind.Utc
+//        d.Kind =? DateTimeKind.Unspecified
+//    }
 
-    Test "SpecifyKind" {
-        DateTime.SpecifyKind(d, DateTimeKind.Utc).Kind =? DateTimeKind.Utc
-        DateTime.SpecifyKind(d, DateTimeKind.Local).Kind =? DateTimeKind.Local
-    }
+//    Test "SpecifyKind" {
+//        DateTime.SpecifyKind(d, DateTimeKind.Utc).Kind =? DateTimeKind.Utc
+//        DateTime.SpecifyKind(d, DateTimeKind.Local).Kind =? DateTimeKind.Local
+//    }
 
-    Test "ToLocalTime" {
-        DateTime.UtcNow.ToLocalTime() =? DateTime.Now
-    }
-
-    Test "ToUtcTime" {
-        DateTime.Now.ToUniversalTime() =? DateTime.UtcNow
-    }
+//    Test "ToLocalTime" {
+//        DateTime.UtcNow.ToLocalTime() =? DateTime.Now
+//    }
+//
+//    Test "ToUtcTime" {
+//        DateTime.Now.ToUniversalTime() =? DateTime.UtcNow
+//    }
 
     Test "Comparison" {
         let d1 = DateTime(2010, 4, 8, 15, 5, 39)
@@ -157,13 +157,13 @@ let Tests =
         d.GetHashCode() <>? d2.GetHashCode()
     }
 
-    Test "Now" {
-        DateTime.Now.Kind =? DateTimeKind.Local
-    }
-
-    Test "UtcNow" {
-        DateTime.UtcNow.Kind =? DateTimeKind.Utc
-    }
+//    Test "Now" {
+//        DateTime.Now.Kind =? DateTimeKind.Local
+//    }
+//
+//    Test "UtcNow" {
+//        DateTime.UtcNow.Kind =? DateTimeKind.Utc
+//    }
 
     Test "Today" {
         DateTime.Today =? DateTime.Now.Date

@@ -418,6 +418,25 @@ module Templates =
         VST.NuGetPackages.Create Identity [
             NG.Package.FromFile NuGetPackageFile
         ]
+let exports : list<INuGetExportingProject> =
+    [
+        ifWS
+        wsInterfaceGenerator
+        wsDom
+        wsJQuery
+        wsCollections
+        wsEcma
+        wsControl
+        wsTesting
+        ifHtml
+        wsHtml
+        wsWeb
+        ifReactive
+        ifFormlet
+        wsFormlet
+        wsHtml5
+        wsSitelets
+    ]
 
     let Library =
         lazy
@@ -477,6 +496,33 @@ module Templates =
             t.NuGetPackages <- Some NuGetPackages.Value
             t
         projectTemplate
+bt.Solution [
+    ifJavaScript
+    wsCore
+    wsCompiler
+    ws
+    ifWS
+    wsInterfaceGenerator
+    wsDom
+    wsJQuery
+    wsCollections
+    wsEcma
+    wsControl
+    wsTesting
+    wsTests
+    ifHtml
+    wsHtml
+    wsWeb
+    wsWebTests
+    ifReactive
+    ifFormlet
+    wsFormlet
+    wsFormletTests
+    wsHtml5
+    wsHtml5Tests
+    wsSitelets
+    wsSiteletsTests
+    website
 
     let SiteletsWebsite =
         lazy

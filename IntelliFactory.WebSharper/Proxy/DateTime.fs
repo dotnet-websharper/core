@@ -51,12 +51,12 @@ type private DateTimeProxy = //[<JavaScript>] (epoch: float) =
 //    [<Name "toString">]
 //    [<Inline "new Date($0.epoch).toString()">]
 //    member this.Display() = X<string>
-
-    [<Inline "new Date().getTime()">]
-    static member Now = X<D>
-
-    [<Inline "new Date().getTime()">]
-    static member UtcNow = X<D>
+  
+    static member Now
+        with [<Inline "new Date().getTime()">] get() = X<D>
+    
+    static member UtcNow
+        with [<Inline "new Date().getTime()">] get() = X<D>
 
     [<JavaScript>]
     static member Today : D = D.Now.Date
@@ -72,29 +72,29 @@ type private DateTimeProxy = //[<JavaScript>] (epoch: float) =
     member this.TimeOfDay =
         TS(0, this.Hour, this.Minute, this.Second, this.Millisecond)
 
-    [<Inline "Date($0.epoch).getFullYear()">]
-    member this.Year = X<int>
+    member this.Year
+        with [<Inline "Date($0.epoch).getFullYear()">] get() = X<int>
 
-    [<Inline "Date($0.epoch).getMonth()+1">]
-    member this.Month = X<int>
+    member this.Month 
+        with [<Inline "Date($0.epoch).getMonth()+1">] get() = X<int>
 
-    [<Inline "Date($0.epoch).getDate()">]
-    member this.Day = X<int>
+    member this.Day 
+        with [<Inline "Date($0.epoch).getDate()">] get() = X<int>
 
-    [<Inline "Date($0.epoch).getHours()">]
-    member this.Hour = X<int>
+    member this.Hour 
+        with [<Inline "Date($0.epoch).getHours()">] get() = X<int>
+                                                        
+    member this.Minute 
+        with [<Inline "Date($0.epoch).getMinutes()">] get() = X<int>
+    
+    member this.Second 
+        with [<Inline "Date($0.epoch).getSeconds()">] get() = X<int>
 
-    [<Inline "Date($0.epoch).getMinutes()">]
-    member this.Minute = X<int>
-
-    [<Inline "Date($0.epoch).getSeconds()">]
-    member this.Second = X<int>
-
-    [<Inline "Date($0.epoch).getMilliseconds()">]
-    member this.Millisecond = X<int>
-
-    [<Inline "Date($0.epoch).getDay()">]
-    member this.DayOfWeek = X<System.DayOfWeek>
+    member this.Millisecond 
+        with [<Inline "Date($0.epoch).getMilliseconds()">] get() = X<int>
+    
+    member this.DayOfWeek 
+        with [<Inline "Date($0.epoch).getDay()">] get() = X<System.DayOfWeek>
 
     [<Inline "$this + $t">]
     member this.Add(t: System.TimeSpan) = X<D>
