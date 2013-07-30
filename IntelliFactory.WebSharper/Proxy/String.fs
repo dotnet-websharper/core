@@ -48,23 +48,15 @@ let IsNullOrEmpty (x: string) = X<bool>
 [<Direct "$s.lastIndexOf(String.fromCharCode($c),$i)">]
 let LastIndexOf (s: string) (c: char) (i: int) = X<int>
 
-[<JavaScript>]
-let PadLeftWith (s: string) (n: int) (c: char) =
-    if s.Length < n then
-        System.String(Array.create (n - s.Length) c) + s
-    else
-        s
+[<Inline "Array($n-$s.length+1).join(String.fromCharCode($c))+$s">]
+let PadLeftWith (s: string) (n: int) (c: char) = X<string>
 
 [<JavaScript>]
 let PadLeft (s: string) (n: int) =
     PadLeftWith s n ' '
 
-[<JavaScript>]
-let PadRightWith (s: string) (n: int) (c: char) =
-    if s.Length < n then
-        s + System.String(Array.create (n - s.Length) c)
-    else
-        s
+[<Inline "$s+Array($n-$s.length+1).join(String.fromCharCode($c))">]
+let PadRightWith (s: string) (n: int) (c: char) = X<string>
 
 [<JavaScript>]
 let PadRight (s: string) (n: int) =
@@ -88,7 +80,7 @@ let Replace (subject: string) (search: string) (replace: string) =
 let ReplaceChar (s: string) (oldC: char) (newC: char) =
     Replace s (string oldC) (string newC)
 
-[<Direct "$s.substring($ix,$ix+$ct)">]
+[<Direct "$s.substr($ix,$ct)">]
 let Substring (s: string) (ix: int) (ct: int) = X<string>
 
 [<Direct "$t.substring(0,$s.length) == $s">]
@@ -159,8 +151,13 @@ type private StringProxy =
     member this.CompareTo(s: string) =
         Unchecked.compare (this :> obj) (s :> obj)
 
-    [<Inline "''.concat.apply('',$strings)">]
-    static member Concat(strings: string array) = X<string>
+    [<Inline>]
+    [<JavaScript>]
+    static member Concat(strings: string seq) =
+        Join "" (Array.ofSeq strings)
+
+    [<Inline "$strings.join('')">]
+    static member Concat([<System.ParamArray>] strings: string[]) = X<string>
 
     [<Inline "$this.indexOf($s) != -1">]
     member this.Contains(s: string) = X<bool>
@@ -206,7 +203,12 @@ type private StringProxy =
 
     [<Inline>]
     [<JavaScript>]
-    static member Join(sep: string, values: string array) =
+    static member Join(sep: string, values: string seq) =
+        Join sep (Array.ofSeq values)
+
+    [<Inline>]
+    [<JavaScript>]
+    static member Join(sep: string, [<System.ParamArray>] values: string[]) =
         Join sep values
 
     [<Inline "$this.lastIndexOf($s)">]

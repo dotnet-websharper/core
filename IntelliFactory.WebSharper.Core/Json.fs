@@ -401,8 +401,7 @@ let add<'T> (e: 'T -> Encoded) (d: Value -> 'T) (dict: Dictionary<_,_>) =
 let epoch = System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
 
 let toEpoch (date: System.DateTime) : double =
-    double (date.ToUniversalTime() - epoch).Ticks /
-        double System.TimeSpan.TicksPerMillisecond
+    (date.ToUniversalTime() - epoch).TotalMilliseconds
 
 let fromEpoch (offset: double) =
     epoch + System.TimeSpan.FromMilliseconds offset
@@ -442,26 +441,16 @@ let serializers =
         | _ -> raise DecoderException
     add EncodedString decString d
     let encDateTime (d: System.DateTime) =
-        let (?) a b = P.Local (a, b)
-        let addr = P.Global("IntelliFactory")?WebSharper?DateTime
-        let fields =
-            [
-                "epoch", EncodedNumber (string (toEpoch d))
-                "kind", EncodedNumber (string (int d.Kind))
-            ]
-        EncodedInstance (addr, fields)
+        //let (?) a b = P.Local (a, b)
+        //let addr = P.Global("IntelliFactory")?WebSharper?DateTime
+        //let fields = [ "epoch", EncodedNumber (string (toEpoch d)) ]
+        //EncodedInstance (addr, fields)
+        EncodedNumber (string (toEpoch d))
     let decDateTime =
         function
-        | Object ["epoch", Number e; "kind", Number k]
-        | Object ["kind", Number k; "epoch", Number e] ->
-            match System.Double.TryParse e, System.Int32.TryParse k with
-            | (true, e), (true, k) ->
-                match k with
-                | 0 | 1 | 2 ->
-                    let k = box k :?> System.DateTimeKind
-                    System.DateTime.SpecifyKind(fromEpoch e, k)
-                | _ ->
-                    raise DecoderException
+        | Number e ->
+            match System.Double.TryParse e with
+            | (true, e) -> fromEpoch e
             | _ ->
                 raise DecoderException
         | _ ->
