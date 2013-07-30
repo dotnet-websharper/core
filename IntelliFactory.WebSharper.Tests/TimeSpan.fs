@@ -38,8 +38,8 @@ let Tests =
         abs (a - b) < 0.0001 =? true
 
     Test "Construction" {
-        let s = TimeSpan(123L)
-        s.Ticks =? 123L
+//        let s = TimeSpan(123L)
+//        s.Ticks =? 123L
         let s = TimeSpan(10, 11, 12)
         s.Hours =? 10
         s.Minutes =? 11
@@ -58,24 +58,24 @@ let Tests =
     }
 
     Test "Add" {
-        let s1 = TimeSpan(120000L)
-        let s2 = TimeSpan(800000L)
-        s1.Add(s2).Ticks =? 920000L
+        let s1 = TimeSpan.FromMilliseconds(1.2)
+        let s2 = TimeSpan.FromMilliseconds(8.)
+        s1.Add(s2).TotalMilliseconds =? 9.2
     }
 
     Test "Subtract" {
-        let s1 = TimeSpan(400000L)
-        let s2 = TimeSpan(320000L)
-        s1.Subtract(s2).Ticks =? 80000L
+        let s1 = TimeSpan.FromMilliseconds(4.)
+        let s2 = TimeSpan.FromMilliseconds(3.2)
+        s1.Subtract(s2).TotalMilliseconds =? 0.8
     }
 
     Test "Negate" {
-        let s1 = TimeSpan(1000L)
-        s1.Negate().Ticks =? -1000L
+        let s1 = TimeSpan.FromMilliseconds(1.)
+        s1.Negate().TotalMilliseconds =? -1.
     }
 
     Test "Duration" {
-        s.Negate().Duration().Ticks =? s.Ticks
+        s.Negate().Duration().TotalMilliseconds =? s.TotalMilliseconds
     }
 
     Test "Hours" {
@@ -94,9 +94,9 @@ let Tests =
         s.Milliseconds =? 545
     }
 
-    Test "Ticks" {
-        s.Ticks =? 634063327325450000L
-    }
+//    Test "Ticks" {
+//        s.Ticks =? 634063327325450000L
+//    }
 
     Test "TotalDays" {
         s.TotalDays =?~ 733869.5918

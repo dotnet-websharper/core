@@ -148,15 +148,6 @@ let wsCollections =
                 r.Project(wsCore)
             ])
 
-let wsControl =
-    bt.WebSharper.Library("IntelliFactory.WebSharper.Control").ClearRefs()
-        .SourcesFromProject()
-        .References(fun r ->
-            [
-                r.Project(ifWS)
-                r.Project(wsCore)
-            ])
-
 let wsEcma =
     bt.WebSharper.Extension("IntelliFactory.WebSharper.Ecma").ClearRefs()
         .Modules(["Definition"])
@@ -165,6 +156,16 @@ let wsEcma =
                 r.Project(ifWS)
                 r.Project(wsCore)
                 r.Project(wsInterfaceGenerator)
+            ])
+
+let wsControl =
+    bt.WebSharper.Library("IntelliFactory.WebSharper.Control").ClearRefs()
+        .SourcesFromProject()
+        .References(fun r ->
+            [
+                r.Project(ifWS)
+                r.Project(wsCore)  
+                r.Project(wsEcma)
             ])
 
 let wsTesting =
@@ -420,8 +421,8 @@ let exports : list<INuGetExportingProject> =
         wsDom
         wsJQuery
         wsCollections
-        wsControl
         wsEcma
+        wsControl
         wsTesting
         ifHtml
         wsHtml
@@ -458,8 +459,8 @@ bt.Solution [
     wsDom
     wsJQuery
     wsCollections
-    wsControl
     wsEcma
+    wsControl
     wsTesting
     wsTests
     ifHtml
@@ -486,8 +487,8 @@ bt.Solution [
                     wsDom
                     wsJQuery
                     wsCollections
-                    wsControl
                     wsEcma
+                    wsControl
                     wsTesting
                     wsTests
                     ifHtml
