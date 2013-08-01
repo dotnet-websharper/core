@@ -1,18 +1,18 @@
 #if BOOT
-
 open Fake
 module FB = Fake.Boot
 FB.Prepare {
     FB.Config.Default __SOURCE_DIRECTORY__ with
         NuGetDependencies =
             let ( ! ) x = FB.NuGetDependency.Create x
+            let d x y = { !x with Version = FB.SemanticVersion y }
             [
-                { !"jQuery" with Version = FB.SemanticVersion "1.9.1" }
+                d "jQuery" "1.9.1"
                 !"DotNetZip"
-                !"IntelliFactory.Build"
-                !"IntelliFactory.FastInvoke"
-                !"IntelliFactory.Xml"
-                !"Mono.Cecil"
+                d "IntelliFactory.Build" "0.1.15"
+                d "IntelliFactory.FastInvoke" "0.0.6"
+                d "IntelliFactory.Xml" "0.5.0"
+                d "Mono.Cecil" "0.9.5.4"
                 !"YUICompressor.NET"
             ]
 }
@@ -418,25 +418,6 @@ module Templates =
         VST.NuGetPackages.Create Identity [
             NG.Package.FromFile NuGetPackageFile
         ]
-let exports : list<INuGetExportingProject> =
-    [
-        ifWS
-        wsInterfaceGenerator
-        wsDom
-        wsJQuery
-        wsCollections
-        wsEcma
-        wsControl
-        wsTesting
-        ifHtml
-        wsHtml
-        wsWeb
-        ifReactive
-        ifFormlet
-        wsFormlet
-        wsHtml5
-        wsSitelets
-    ]
 
     let Library =
         lazy
@@ -496,33 +477,6 @@ let exports : list<INuGetExportingProject> =
             t.NuGetPackages <- Some NuGetPackages.Value
             t
         projectTemplate
-bt.Solution [
-    ifJavaScript
-    wsCore
-    wsCompiler
-    ws
-    ifWS
-    wsInterfaceGenerator
-    wsDom
-    wsJQuery
-    wsCollections
-    wsEcma
-    wsControl
-    wsTesting
-    wsTests
-    ifHtml
-    wsHtml
-    wsWeb
-    wsWebTests
-    ifReactive
-    ifFormlet
-    wsFormlet
-    wsFormletTests
-    wsHtml5
-    wsHtml5Tests
-    wsSitelets
-    wsSiteletsTests
-    website
 
     let SiteletsWebsite =
         lazy
