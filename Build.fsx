@@ -478,6 +478,7 @@ bt.Solution [
     website
 
     bt.WebSharper.HostWebsite("Web")
+        .ClearRefs()
         .References(fun r ->
             let projs : list<IReferenceProject> =
                 [
