@@ -48,6 +48,7 @@
     <Compile Include="Proxy/Math.fs" />
     <Compile Include="Proxy/Object.fs" />
     <Compile Include="Proxy/Operators.fs" />
+    <Compile Include="Proxy/OperatorIntrinsics.fs" />
     <Compile Include="Proxy/Option.fs" />
     <Compile Include="Proxy/OptionModule.fs" />
     <Compile Include="Proxy/Queue.fs" />

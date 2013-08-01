@@ -24,18 +24,9 @@ namespace IntelliFactory.WebSharper
 type private D = System.DateTime
 type private K = System.DateTimeKind
 type private TS = System.TimeSpan
-module J = IntelliFactory.WebSharper.JavaScript
 
-module private DateTimeHelpers =
-    [<Inline "new Date($y,$mo-1,$d,$h,$m,$s,$ms).getTime()">]
-    let dateToEpoch (y: int) (mo: int) (d: int) (h: int) (m: int) (s: int) (ms: int) = X<float>
-
-    [<Inline "new Date().getTime()">]
-    let nowEpoch() = X<float> 
-       
-[<Name "DateTime">]
 [<Proxy(typeof<System.DateTime>)>]
-type private DateTimeProxy = //[<JavaScript>] (epoch: float) =
+type private DateTimeProxy =
     [<Inline "0">]
     new () = {}
 
@@ -48,53 +39,56 @@ type private DateTimeProxy = //[<JavaScript>] (epoch: float) =
     [<Inline "new Date($y,$mo-1,$d,$h,$m,$s,$ms).getTime()">]
     new (y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) = {}
 
-//    [<Name "toString">]
-//    [<Inline "new Date($0.epoch).toString()">]
-//    member this.Display() = X<string>
-  
     static member Now
         with [<Inline "new Date().getTime()">] get() = X<D>
     
     static member UtcNow
         with [<Inline "new Date().getTime()">] get() = X<D>
-
-    [<JavaScript>]
-    static member Today : D = D.Now.Date
-
+    
     [<Inline "1">]
     member this.Kind = X<System.DateTimeKind>
 
-    [<JavaScript>]
-    member this.Date : D =
-        As (DateTimeProxy(this.Year, this.Month, this.Day, 0, 0, 0))
+//    [<Inline "new Date()">]
+//    static member EcmaNow() = X<obj>
 
-    [<JavaScript>]
-    member this.TimeOfDay =
-        TS(0, this.Hour, this.Minute, this.Second, this.Millisecond)
+//    [<Inline "new Date($this)">]
+//    member this.ToEcma() = X<obj>
+
+    static member Today
+        with [<Direct "var d = new Date(); return new Date(d.getFullYear(),d.getMonth(),d.getDate())">] get() =
+            X<D>
+
+    member this.Date 
+        with [<Direct "var d = new Date($this); return new Date(d.getFullYear(),d.getMonth(),d.getDate())">] get() =
+            X<D>
+
+    member this.TimeOfDay 
+        with [<Direct "var d = new Date($this); return new Date(0,0,0,d.getHours(),d.getMinutes(),d.getSeconds(),d.getMilliseconds())">] get() =
+            X<D>
 
     member this.Year
-        with [<Inline "Date($0.epoch).getFullYear()">] get() = X<int>
+        with [<Inline "new Date($this).getFullYear()">] get() = X<int>
 
     member this.Month 
-        with [<Inline "Date($0.epoch).getMonth()+1">] get() = X<int>
+        with [<Inline "new Date($this).getMonth()+1">] get() = X<int>
 
     member this.Day 
-        with [<Inline "Date($0.epoch).getDate()">] get() = X<int>
+        with [<Inline "new Date($this).getDate()">] get() = X<int>
 
     member this.Hour 
-        with [<Inline "Date($0.epoch).getHours()">] get() = X<int>
-                                                        
+        with [<Inline "new Date($this).getHours()">] get() = X<int>
+                                                  
     member this.Minute 
-        with [<Inline "Date($0.epoch).getMinutes()">] get() = X<int>
+        with [<Inline "new Date($this).getMinutes()">] get() = X<int>
     
     member this.Second 
-        with [<Inline "Date($0.epoch).getSeconds()">] get() = X<int>
+        with [<Inline "new Date($this).getSeconds()">] get() = X<int>
 
     member this.Millisecond 
-        with [<Inline "Date($0.epoch).getMilliseconds()">] get() = X<int>
+        with [<Inline "new Date($this).getMilliseconds()">] get() = X<int>
     
     member this.DayOfWeek 
-        with [<Inline "Date($0.epoch).getDay()">] get() = X<System.DayOfWeek>
+        with [<Inline "new Date($this).getDay()">] get() = X<System.DayOfWeek>
 
     [<Inline "$this + $t">]
     member this.Add(t: System.TimeSpan) = X<D>
@@ -102,42 +96,44 @@ type private DateTimeProxy = //[<JavaScript>] (epoch: float) =
     [<Inline "$this - $t">]
     member this.Subtract(t: System.TimeSpan) = X<D>
 
-    [<JavaScript>]
+    [<Inline; JavaScript>]
     member this.AddYears(years: int) : D =
-        As (DateTimeProxy(this.Year + years,
-                          this.Month,
-                          this.Day,
-                          this.Hour,
-                          this.Minute,
-                          this.Second,
-                          this.Millisecond))
+        let d = this.ToEcma()
+        As (DateTimeProxy(d?getFullYear() + years,
+                          d?getMonth()+1,
+                          d?getDate(),
+                          d?getHours(),
+                          d?getMinutes(),
+                          d?getSeconds(),
+                          d?getMilliseconds()))
 
-    [<JavaScript>]
+    [<Inline; JavaScript>]
     member this.AddMonths(months: int) : D =
-        As (DateTimeProxy(this.Year,
-                          this.Month + months,
-                          this.Day,
-                          this.Hour,
-                          this.Minute,
-                          this.Second,
-                          this.Millisecond))
+        let d = this.ToEcma()
+        As (DateTimeProxy(d?getFullYear(),
+                          d?getMonth()+1 + months,
+                          d?getDate(),
+                          d?getHours(),
+                          d?getMinutes(),
+                          d?getSeconds(),
+                          d?getMilliseconds()))
 
-    [<JavaScript>]
+    [<Inline; JavaScript>]
     member this.AddDays(days: float) : D =
         this.Add(TS.FromDays days)
 
-    [<JavaScript>]
+    [<Inline; JavaScript>]
     member this.AddHours(hours: float) : D =
         this.Add(TS.FromHours hours)
 
-    [<JavaScript>]
+    [<Inline; JavaScript>]
     member this.AddMinutes(minutes: float) : D =
         this.Add (TS.FromMinutes minutes)
 
-    [<JavaScript>]
+    [<Inline; JavaScript>]
     member this.AddSeconds(seconds: float) : D =
         this.Add (TS.FromSeconds seconds)
 
-    [<JavaScript>]
+    [<Inline; JavaScript>]
     member this.AddMilliseconds(msec: float) : D =
         this.Add (TS.FromMilliseconds msec)
