@@ -26,10 +26,10 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private IntelliFactory.WebSharper.OperatorIntrinsicsProxy 
 
-[<Direct "$s.slice($st,$e)">]
+[<Inline "$s.slice($st,$e)">]
 let Slice (s: 'T) (st: int) (e: int) = X<'T>
 
-[<Direct "$s.slice($st)">]
+[<Inline "$s.slice($st)">]
 let SliceStart (s: 'T) (st: int) = X<'T>
 
 [<JavaScript>]

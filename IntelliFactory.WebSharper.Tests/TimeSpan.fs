@@ -64,9 +64,9 @@ let Tests =
     }
 
     Test "Subtract" {
-        let s1 = TimeSpan.FromMilliseconds(4.)
-        let s2 = TimeSpan.FromMilliseconds(3.2)
-        s1.Subtract(s2).TotalMilliseconds =? 0.8
+        let s1 = TimeSpan.FromMilliseconds(40.)
+        let s2 = TimeSpan.FromMilliseconds(32.)
+        s1.Subtract(s2).TotalMilliseconds =? 8.
     }
 
     Test "Negate" {
