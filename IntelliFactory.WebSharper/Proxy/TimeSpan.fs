@@ -24,6 +24,9 @@ namespace IntelliFactory.WebSharper
 [<Proxy(typeof<System.TimeSpan>)>]
 type private TimeSpanProxy =
 
+    [<Inline "0">]
+    new () = {}
+
     [<Inline "(($h * 60 + $m) * 60 + $s) * 1E3">]
     new (h: int, m: int, s: int) = {}
 
