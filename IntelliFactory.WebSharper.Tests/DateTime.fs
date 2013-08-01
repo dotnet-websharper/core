@@ -34,7 +34,7 @@ let Tests =
 
     Section "DateTime"
 
-    let ( =?~ ) (a: float) (b: float) = abs (a - b) < 0.0001 =? true
+    let ( =?~ ) (a: obj) (b: obj) = abs (As<float> a - As<float> b) < 0.0001 =? true
 
     let d = DateTime(2010, 4, 8, 15, 5, 39)
 
@@ -82,11 +82,11 @@ let Tests =
     }
 
     Test "AddYears" {
-        d.AddYears 24 =? DateTime(2034, 4, 8, 15, 5, 39)
+        d.AddYears 24 =?~ DateTime(2034, 4, 8, 15, 5, 39)
     }
 
     Test "AddMonths" {
-        d.AddMonths 9 =? DateTime(2011, 1, 8, 15, 5, 39)
+        d.AddMonths 9 =?~ DateTime(2011, 1, 8, 15, 5, 39)
     }
 
     Test "AddDays" {
@@ -114,11 +114,11 @@ let Tests =
 //    }
 
     Test "Date" {
-        d.Date =? DateTime(2010, 4, 8)
+        d.Date =?~ DateTime(2010, 4, 8)
     }
 
     Test "TimeOfDay" {
-        d.TimeOfDay =? TimeSpan(15, 5, 39)
+        d.TimeOfDay =?~ TimeSpan(15, 5, 39)
     }
 
 //    Test "Kind" {
@@ -166,5 +166,5 @@ let Tests =
 //    }
 
     Test "Today" {
-        DateTime.Today =? DateTime.Now.Date
+        DateTime.Today =?~ DateTime.Now.Date
     }

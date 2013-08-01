@@ -25,6 +25,76 @@ type private D = System.DateTime
 type private K = System.DateTimeKind
 type private TS = System.TimeSpan
 
+[<AbstractClass>]
+type E =
+    [<Inline "new Date($d)">]
+    static member FromDateTime(d: D) = X<E>
+    
+    [<Inline "new Date($y,$mo,$d)">]
+    static member Create3(y: int, mo: int, d: int) = X<E>
+
+    [<Inline "new Date($y,$mo,$d,$h,$m,$s)">]
+    static member Create6(y: int, mo: int, d: int, h: int, m: int, s: int) = X<E>
+
+    [<Inline "new Date($y,$mo,$d,$h,$m,$s,$ms)">]
+    static member Create7(y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) = X<E>
+
+    [<Stub>] abstract member getTime         : unit -> D
+    [<Stub>] abstract member getFullYear     : unit -> int
+    [<Stub>] abstract member getMonth        : unit -> int
+    [<Stub>] abstract member getDate         : unit -> int
+    [<Stub>] abstract member getHours        : unit -> int
+    [<Stub>] abstract member getMinutes      : unit -> int
+    [<Stub>] abstract member getSeconds      : unit -> int
+    [<Stub>] abstract member getMilliseconds : unit -> int
+
+module DateTimeHelpers =
+    [<JavaScript>]
+    let DatePortion d =
+        let e = E.FromDateTime(d)
+        E.Create3(       
+            e.getFullYear(),
+            e.getMonth(),
+            e.getDate()
+        ).getTime()        
+
+    [<JavaScript>]
+    let TimePortion d =
+        let e = E.FromDateTime(d)
+        TS(
+            0,
+            e.getHours(), 
+            e.getMinutes(), 
+            e.getSeconds(), 
+            e.getMilliseconds()
+        )        
+
+    [<JavaScript>]
+    let AddYears(d, years) : D =
+        let e = E.FromDateTime(d)
+        E.Create7(   
+            e.getFullYear() + years,
+            e.getMonth(),
+            e.getDate(),
+            e.getHours(),
+            e.getMinutes(),
+            e.getSeconds(),
+            e.getMilliseconds()
+        ).getTime()
+
+    [<JavaScript>]
+    let AddMonths(d, months: int) : D =
+        let e = E.FromDateTime(d)
+        E.Create7(   
+            e.getFullYear(),
+            e.getMonth() + months,
+            e.getDate(),
+            e.getHours(),
+            e.getMinutes(),
+            e.getSeconds(),
+            e.getMilliseconds()
+        ).getTime()    
+             
 [<Proxy(typeof<System.DateTime>)>]
 type private DateTimeProxy =
     [<Inline "0">]
@@ -48,23 +118,14 @@ type private DateTimeProxy =
     [<Inline "1">]
     member this.Kind = X<System.DateTimeKind>
 
-//    [<Inline "new Date()">]
-//    static member EcmaNow() = X<obj>
-
-//    [<Inline "new Date($this)">]
-//    member this.ToEcma() = X<obj>
+    member this.Date 
+        with [<Inline; JavaScript>] get() : D =  DateTimeHelpers.DatePortion(As this)
 
     static member Today
-        with [<Direct "var d = new Date(); return new Date(d.getFullYear(),d.getMonth(),d.getDate())">] get() =
-            X<D>
-
-    member this.Date 
-        with [<Direct "var d = new Date($this); return new Date(d.getFullYear(),d.getMonth(),d.getDate())">] get() =
-            X<D>
+        with [<Inline; JavaScript>] get() = DateTimeProxy.Now.Date  
 
     member this.TimeOfDay 
-        with [<Direct "var d = new Date($this); return new Date(0,0,0,d.getHours(),d.getMinutes(),d.getSeconds(),d.getMilliseconds())">] get() =
-            X<D>
+        with [<Inline; JavaScript>] get() = DateTimeHelpers.TimePortion(As this)
 
     member this.Year
         with [<Inline "new Date($this).getFullYear()">] get() = X<int>
@@ -97,26 +158,10 @@ type private DateTimeProxy =
     member this.Subtract(t: System.TimeSpan) = X<D>
 
     [<Inline; JavaScript>]
-    member this.AddYears(years: int) : D =
-        let d = this.ToEcma()
-        As (DateTimeProxy(d?getFullYear() + years,
-                          d?getMonth()+1,
-                          d?getDate(),
-                          d?getHours(),
-                          d?getMinutes(),
-                          d?getSeconds(),
-                          d?getMilliseconds()))
+    member this.AddYears(years: int) : D = DateTimeHelpers.AddYears(As this, years)
 
     [<Inline; JavaScript>]
-    member this.AddMonths(months: int) : D =
-        let d = this.ToEcma()
-        As (DateTimeProxy(d?getFullYear(),
-                          d?getMonth()+1 + months,
-                          d?getDate(),
-                          d?getHours(),
-                          d?getMinutes(),
-                          d?getSeconds(),
-                          d?getMilliseconds()))
+    member this.AddMonths(months: int) : D = DateTimeHelpers.AddMonths(As this, months)
 
     [<Inline; JavaScript>]
     member this.AddDays(days: float) : D =
