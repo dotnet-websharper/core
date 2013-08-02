@@ -400,11 +400,20 @@ let add<'T> (e: 'T -> Encoded) (d: Value -> 'T) (dict: Dictionary<_,_>) =
 
 let epoch = System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
 
-let toEpoch (date: System.DateTime) : double =
-    (date.ToUniversalTime() - epoch).TotalMilliseconds
+let tryParseSingle x= 
+    System.Single.TryParse(x, 
+        System.Globalization.NumberStyles.Float, 
+        System.Globalization.NumberFormatInfo.InvariantInfo)
 
-let fromEpoch (offset: double) =
-    epoch + System.TimeSpan.FromMilliseconds offset
+let tryParseDouble x = 
+    System.Double.TryParse(x, 
+        System.Globalization.NumberStyles.Float, 
+        System.Globalization.NumberFormatInfo.InvariantInfo)
+
+let tryParseDecimal x = 
+    System.Decimal.TryParse(x, 
+        System.Globalization.NumberStyles.Float, 
+        System.Globalization.NumberFormatInfo.InvariantInfo)
 
 let serializers =
     let d = Dictionary()
@@ -416,9 +425,9 @@ let serializers =
     addNumeric System.UInt16.TryParse d
     addNumeric System.UInt32.TryParse d
     addNumeric System.UInt64.TryParse d
-    addNumeric System.Single.TryParse d
-    addNumeric System.Double.TryParse d
-    addNumeric System.Decimal.TryParse d
+    addNumeric tryParseSingle d
+    addNumeric tryParseDouble d
+    addNumeric tryParseDecimal d
     let encBool = function
         | true -> EncodedTrue
         | false -> EncodedFalse
@@ -441,30 +450,22 @@ let serializers =
         | _ -> raise DecoderException
     add EncodedString decString d
     let encDateTime (d: System.DateTime) =
-        //let (?) a b = P.Local (a, b)
-        //let addr = P.Global("IntelliFactory")?WebSharper?DateTime
-        //let fields = [ "epoch", EncodedNumber (string (toEpoch d)) ]
-        //EncodedInstance (addr, fields)
-        EncodedNumber (string (toEpoch d))
-    let decDateTime =
-        function
-        | Number e ->
-            match System.Double.TryParse e with
-            | (true, e) -> fromEpoch e
-            | _ ->
-                raise DecoderException
-        | _ ->
-            raise DecoderException
+        EncodedNumber (string (d.ToUniversalTime() - epoch).TotalMilliseconds)
+    let decDateTime = function
+        | Number x ->
+            match tryParseDouble x with
+            | true, x -> epoch + System.TimeSpan.FromMilliseconds x
+            | _ -> raise DecoderException
+        | _ -> raise DecoderException
     add encDateTime decDateTime d
     let encTimeSpan (t: System.TimeSpan) =
         EncodedNumber (string t.TotalMilliseconds)
     let decTimeSpan = function
         | Number x ->
-            match System.Double.TryParse x with
+            match tryParseDouble x with
             | true, x -> System.TimeSpan.FromMilliseconds x
             | _ -> raise DecoderException
-        | _ ->
-            raise DecoderException
+        | _ -> raise DecoderException
     add encTimeSpan decTimeSpan d
     d
 

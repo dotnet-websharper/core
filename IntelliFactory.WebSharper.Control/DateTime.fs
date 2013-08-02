@@ -29,5 +29,5 @@ type System.DateTime with
     member this.ToEcma() = X<EcmaScript.Date>
 
 type EcmaScript.Date with
-    [<Direct "$this.getTime()">]
+    [<Inline "$this.getTime()">]
     member this.ToDateTime() = X<System.DateTime>
