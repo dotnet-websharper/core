@@ -74,19 +74,27 @@ let Tests =
     Test "Add" {
         d.Add(TimeSpan(3, 4, 15)) =?
             DateTime(2010, 4, 8, 18, 9, 54)
+        d + TimeSpan(3, 4, 15) =?
+            DateTime(2010, 4, 8, 18, 9, 54)
     }
 
     Test "Subtract" {
         d.Subtract(TimeSpan(3, 4, 15)) =?
             DateTime(2010, 4, 8, 12, 1, 24)
+        d.Subtract(DateTime(2010, 4, 8, 12, 1, 24)) =?
+            TimeSpan(3, 4, 15)
+        d - TimeSpan(3, 4, 15) =?
+            DateTime(2010, 4, 8, 12, 1, 24)
+        d - DateTime(2010, 4, 8, 12, 1, 24) =?
+            TimeSpan(3, 4, 15)
     }
 
     Test "AddYears" {
-        d.AddYears 24 =?~ DateTime(2034, 4, 8, 15, 5, 39)
+        d.AddYears 24 =? DateTime(2034, 4, 8, 15, 5, 39)
     }
 
     Test "AddMonths" {
-        d.AddMonths 9 =?~ DateTime(2011, 1, 8, 15, 5, 39)
+        d.AddMonths 9 =? DateTime(2011, 1, 8, 15, 5, 39)
     }
 
     Test "AddDays" {
@@ -146,6 +154,8 @@ let Tests =
         compare d d1 =? 0
         compare d d2 =? -1
         compare d2 d =? 1
+        d1 < d2 =? true
+        d <= d1 =? true
     }
 
     Test "Equality" {
@@ -166,5 +176,5 @@ let Tests =
 //    }
 
     Test "Today" {
-        DateTime.Today =?~ DateTime.Now.Date
+        DateTime.Today =? DateTime.Now.Date
     }
