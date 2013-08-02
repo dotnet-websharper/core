@@ -77,6 +77,9 @@ type private TimeSpanProxy =
     member this.TotalMilliseconds
         with [<Inline "$this">] get () = X<float>
 
+    member this.Ticks
+        with [<Inline "$this * 1E4">] get() = X<int64>
+
     [<Inline "-$this">]
     member this.Negate() = X<System.TimeSpan>
 
@@ -105,6 +108,9 @@ type private TimeSpanProxy =
 
     [<Inline "$msec">]
     static member FromMilliseconds(msec: float) = X<System.TimeSpan>
+
+    [<Inline "$ticks / 1E4">]
+    static member FromTicks(ticks: int64) = X<System.TimeSpan>
 
     static member Zero
         with [<Inline "0">] get () = X<System.TimeSpan>

@@ -34,33 +34,40 @@ let macro x : M.Macro =
         Requirements = []
     }
 
-let isIntegral (t: R.Type) =
-    match t with
-    | R.Type.Concrete (d, _) ->
-        match d.FullName with
-        | "System.Decimal"
-        | "System.Byte"
-        | "System.SByte"
-        | "System.Int16"
-        | "System.Int32"
-        | "System.Int64"
-        | "System.UInt16"
-        | "System.UInt32"
-        | "System.UInt64" -> true
-        | _               -> false
-    | _ ->
-        false
+let smallIntegralTypes =
+    Set [
+        "System.Byte"
+        "System.SByte"
+        "System.Int16"
+        "System.Int32"
+        "System.UInt16"
+        "System.UInt32"
+    ]
 
-let isScalar (t: R.Type) =
-    isIntegral t ||
+let bigIntegralTypes =
+    Set [
+        "System.Decimal"
+        "System.Int64"
+        "System.UInt64" 
+    ]
+
+let integralTypes = smallIntegralTypes + bigIntegralTypes
+
+let scalarTypes =
+    integralTypes
+    + Set [
+        "System.Char"
+        "System.Double"
+        "System.Single"
+        "System.String" 
+        "System.TimeSpan"
+        "System.DateTime"
+    ]
+
+let isIn (s: string Set) (t: R.Type) = 
     match t with
     | R.Type.Concrete (d, _) ->
-        match d.FullName with
-        | "System.Char"
-        | "System.Double"
-        | "System.Single"
-        | "System.String" -> true
-        | _               -> false
+        s.Contains d.FullName
     | _ ->
         false
 
@@ -69,10 +76,14 @@ let divisionMacro = macro <| fun tr q ->
     | Q.Call (m, [x; y])
     | Q.CallModule (m, [x; y]) ->
         match m.Generics with
-        | t :: _ -> if isIntegral t
+        | t :: _ -> if isIn smallIntegralTypes t
                     then C.Binary (tr x / tr y,
                                    C.BinaryOperator.``>>``,
                                    !~ (C.Integer 0L))
+                    elif isIn bigIntegralTypes t
+                    then C.Call ((C.Global ["Math"]), 
+                                 !~ (C.String "floor"),
+                                 [tr x / tr y])
                     else tr x / tr y
         | _      -> tr x / tr y
     | _ ->
@@ -84,7 +95,7 @@ let arithMacro name def = macro <| fun tr q ->
     | Q.CallModule (m, [x; y]) ->
         match m.Generics with
         | t :: _ ->
-            if isScalar t
+            if isIn scalarTypes t
                 then def (tr x) (tr y)
                 else C.Call(tr x, C.Constant (C.String name), [tr y])
         | _ -> def (tr x) (tr y)
@@ -146,7 +157,7 @@ let comparisonMacro cmp = macro <| fun tr q ->
     | Q.CallModule (m, [x; y]) ->
         match m.Generics with
         | t :: _ ->
-            if isScalar t then
+            if isIn scalarTypes t then
                 C.Binary (tr x, toBinaryOperator cmp, tr y)
             else
                 makeComparison cmp (tr x) (tr y)
@@ -176,7 +187,7 @@ let charMacro = macro <| fun tr q ->
     | Q.CallModule (m, [x]) ->
         match m.Generics with
         | t :: _ ->
-            if isIntegral t then tr x else
+            if isIn integralTypes t then tr x else
                 match t with
                 | R.Type.Concrete (d, _) ->
                     match d.FullName with

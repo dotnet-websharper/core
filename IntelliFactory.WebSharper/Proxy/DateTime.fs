@@ -47,6 +47,7 @@ type E =
     [<Stub>] abstract member getMinutes      : unit -> int
     [<Stub>] abstract member getSeconds      : unit -> int
     [<Stub>] abstract member getMilliseconds : unit -> int
+    [<Stub>] abstract member getDay          : unit -> int
 
 module DateTimeHelpers =
     [<JavaScript>]
@@ -119,7 +120,7 @@ type private DateTimeProxy =
     member this.Kind = X<System.DateTimeKind>
 
     member this.Date 
-        with [<Inline; JavaScript>] get() : D =  DateTimeHelpers.DatePortion(As this)
+        with [<Inline; JavaScript>] get() : D = DateTimeHelpers.DatePortion(As this)
 
     static member Today
         with [<Inline; JavaScript>] get() = DateTimeProxy.Now.Date  
@@ -127,35 +128,65 @@ type private DateTimeProxy =
     member this.TimeOfDay 
         with [<Inline; JavaScript>] get() = DateTimeHelpers.TimePortion(As this)
 
+//    member this.Year
+//        with [<Inline "new Date($this).getFullYear()">] get() = X<int>
+//
+//    member this.Month 
+//        with [<Inline "new Date($this).getMonth()+1">] get() = X<int>
+//
+//    member this.Day 
+//        with [<Inline "new Date($this).getDate()">] get() = X<int>
+//
+//    member this.Hour 
+//        with [<Inline "new Date($this).getHours()">] get() = X<int>
+//                                                  
+//    member this.Minute 
+//        with [<Inline "new Date($this).getMinutes()">] get() = X<int>
+//    
+//    member this.Second 
+//        with [<Inline "new Date($this).getSeconds()">] get() = X<int>
+//
+//    member this.Millisecond 
+//        with [<Inline "new Date($this).getMilliseconds()">] get() = X<int>
+//    
+//    member this.DayOfWeek 
+//        with [<Inline "new Date($this).getDay()">] get() = X<System.DayOfWeek>
+
     member this.Year
-        with [<Inline "new Date($this).getFullYear()">] get() = X<int>
+        with [<Inline; JavaScript>] get() = E.FromDateTime(As this).getFullYear()
 
     member this.Month 
-        with [<Inline "new Date($this).getMonth()+1">] get() = X<int>
+        with [<Inline; JavaScript>] get() = E.FromDateTime(As this).getMonth() + 1
 
     member this.Day 
-        with [<Inline "new Date($this).getDate()">] get() = X<int>
+        with [<Inline; JavaScript>] get() = E.FromDateTime(As this).getDate()
 
     member this.Hour 
-        with [<Inline "new Date($this).getHours()">] get() = X<int>
+        with [<Inline; JavaScript>] get() = E.FromDateTime(As this).getHours()
                                                   
     member this.Minute 
-        with [<Inline "new Date($this).getMinutes()">] get() = X<int>
+        with [<Inline; JavaScript>] get() = E.FromDateTime(As this).getMinutes()
     
     member this.Second 
-        with [<Inline "new Date($this).getSeconds()">] get() = X<int>
+        with [<Inline; JavaScript>] get() = E.FromDateTime(As this).getSeconds()
 
     member this.Millisecond 
-        with [<Inline "new Date($this).getMilliseconds()">] get() = X<int>
+        with [<Inline; JavaScript>] get() = E.FromDateTime(As this).getMilliseconds()
     
     member this.DayOfWeek 
-        with [<Inline "new Date($this).getDay()">] get() = X<System.DayOfWeek>
+        with [<Inline; JavaScript>] get() = As<System.DayOfWeek>(E.FromDateTime(As this).getDay())
+
+    member this.Ticks
+        with [<Inline "$this * 1E4">] get() = X<int64>
 
     [<Inline "$this + $t">]
-    member this.Add(t: System.TimeSpan) = X<D>
-
+    member this.Add(t: TS) = X<D>
+                            
     [<Inline "$this - $t">]
-    member this.Subtract(t: System.TimeSpan) = X<D>
+    member this.Subtract(t: TS) = X<D>
+
+    [<Inline "$this - $d">]
+    member this.Subtract(d: D) = X<TS>
 
     [<Inline; JavaScript>]
     member this.AddYears(years: int) : D = DateTimeHelpers.AddYears(As this, years)
@@ -182,3 +213,7 @@ type private DateTimeProxy =
     [<Inline; JavaScript>]
     member this.AddMilliseconds(msec: float) : D =
         this.Add (TS.FromMilliseconds msec)
+
+    [<Inline; JavaScript>]
+    member this.AddTicks(ticks: int64) : D =
+        this.Add (TS.FromTicks ticks)
