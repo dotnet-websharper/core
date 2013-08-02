@@ -398,8 +398,6 @@ let add<'T> (e: 'T -> Encoded) (d: Value -> 'T) (dict: Dictionary<_,_>) =
         | x -> box (d x)
     dict.[typeof<'T>] <- simple enc dec
 
-let epoch = System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
-
 let tryParseSingle x= 
     System.Single.TryParse(x, 
         System.Globalization.NumberStyles.Float, 
@@ -449,6 +447,7 @@ let serializers =
         | String x -> x
         | _ -> raise DecoderException
     add EncodedString decString d
+    let epoch = System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
     let encDateTime (d: System.DateTime) =
         EncodedNumber (string (d.ToUniversalTime() - epoch).TotalMilliseconds)
     let decDateTime = function
