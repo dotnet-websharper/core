@@ -45,6 +45,10 @@ type ResizeArrayProxy<'T> [<JavaScript>] (arr: 'T []) =
         new ResizeArrayProxy<'T>(Seq.toArray el)
 
     [<JavaScript>]
+    member this.GetEnumerator() =
+        (As<seq<obj>> arr).GetEnumerator()
+
+    [<JavaScript>]
     member this.Add(x: 'T) : unit =
         push arr x
 

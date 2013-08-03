@@ -52,6 +52,12 @@ let Tests =
         a.ToArray() =? [| 1; 2; 3 |]
     }
 
+    Test "ResizeArray.seq" {
+        let l = [2;3]
+        let a = ResizeArray(l)
+        Seq.forall2 (=) a l =? true
+    }
+
     Test "ResizeArray.Clear" {
         let a = ResizeArray([1;2;3])
         a.Clear()
