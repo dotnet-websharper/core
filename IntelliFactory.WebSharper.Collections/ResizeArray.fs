@@ -87,8 +87,9 @@ type ResizeArrayProxy<'T> [<JavaScript>] (arr: 'T []) =
     member this.InsertRange(index: int, items: seq<'T>) : unit =
         splice arr index 0 (Seq.toArray items) |> ignore
 
-    [<JavaScript>]
-    member this.Item with get (x: int) : 'T = arr.[x]
+    member this.Item
+        with [<JavaScript>] get (x: int) : 'T = arr.[x]
+        and [<JavaScript>] set (x: int) (v: 'T) = arr.[x] <- v
 
     [<JavaScript>]
     member this.RemoveAt(x: int) : unit =
