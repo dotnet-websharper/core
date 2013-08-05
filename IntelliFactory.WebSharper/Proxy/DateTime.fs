@@ -26,7 +26,7 @@ type private K = System.DateTimeKind
 type private TS = System.TimeSpan
 
 [<AbstractClass>]
-type E =
+type private E =
     [<Inline "new Date($d)">]
     static member FromDateTime(d: D) = X<E>
     
@@ -49,7 +49,7 @@ type E =
     [<Stub>] abstract member getMilliseconds : unit -> int
     [<Stub>] abstract member getDay          : unit -> int
 
-module DateTimeHelpers =
+module private DateTimeHelpers =
     [<JavaScript>]
     let DatePortion d =
         let e = E.FromDateTime(d)

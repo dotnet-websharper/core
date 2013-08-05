@@ -19,87 +19,90 @@
 //
 // $end{copyright}
 
-[<AutoOpen>]
-module IntelliFactory.WebSharper.EcmaExtensions
+namespace IntelliFactory.WebSharper.EcmaScript
 
-open IntelliFactory.WebSharper
+module Extensions =
+    open IntelliFactory.WebSharper
 
-type EcmaScript.Array with 
-    [<Inline "$0">] 
-    member this.ToDotNet<'T>() = X<'T[]>
-type System.Array with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Array>   
+    type EcmaScript.Array with 
+        [<Inline "$0">] 
+        member this.ToDotNet<'T>() = X<'T[]>
+    type System.Array with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Array>   
 
-type EcmaScript.Boolean with
-    [<Inline "$0">]
-    member this.ToDotNet() = X<bool>
-type System.Boolean with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Boolean>   
+    type EcmaScript.Boolean with
+        [<Inline "$0">]
+        member this.ToDotNet() = X<bool>
+    type System.Boolean with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Boolean>   
 
-type EcmaScript.Date with
-    [<Inline "$0.getTime()">]
-    member this.ToDotNet() = X<System.DateTime>
-type System.DateTime with
-    [<Inline "new Date($0)">]
-    member this.ToEcma() = X<EcmaScript.Date>
+    type EcmaScript.Date with
+        [<Inline "$0.getTime()">]
+        member this.ToDotNet() = X<System.DateTime>
+    type System.DateTime with
+        [<Inline "new Date($0)">]
+        member this.ToEcma() = X<EcmaScript.Date>
 
-type EcmaScript.Error with
-    [<Inline "$0">]
-    member this.ToDotNet() = X<System.Exception>
-type System.Exception with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Error>
+    type EcmaScript.Error with
+        [<Inline "$0">]
+        member this.ToDotNet() = X<System.Exception>
+    type System.Exception with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Error>
 
-type EcmaScript.Function with
-    [<Inline "$0">]
-    member this.ToDotNet<'T, 'R>() = X<'T -> 'R>
+    type EcmaScript.Function with
+        [<Inline "$0">]
+        member this.ToDotNet<'T, 'R>() = X<'T -> 'R>
 
-type EcmaScript.Number with
-    [<Inline "$0">]
-    member this.ToDotNet<'T when 'T: struct>() = X<'T>
-type System.Byte    with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Number>
-type System.SByte   with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Number>
-type System.Int16   with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Number>
-type System.Int32   with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Number>
-type System.Int64   with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Number>
-type System.UInt16  with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Number>
-type System.UInt32  with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Number>
-type System.UInt64  with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Number>
-type System.Single  with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Number>
-type System.Double  with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Number>
-type System.Decimal with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Number>
+    type EcmaScript.Number with
+        [<Inline "$0">]
+        member this.ToDotNet<'T when 'T: struct>() = X<'T>
+    type System.Byte    with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Number>
+    type System.SByte   with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Number>
+    type System.Int16   with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Number>
+    type System.Int32   with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Number>
+    type System.Int64   with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Number>
+    type System.UInt16  with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Number>
+    type System.UInt32  with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Number>
+    type System.UInt64  with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Number>
+    type System.Single  with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Number>
+    type System.Double  with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Number>
+    type System.Decimal with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Number>
 
-type System.Object with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.Object>
+    type System.Object with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Object>
 
-type EcmaScript.String with
-    [<Inline "$0">]
-    member this.ToDotNet() = X<string>
-type System.String with
-    [<Inline "$0">]
-    member this.ToEcma() = X<EcmaScript.String>
+    type EcmaScript.String with
+        [<Inline "$0">]
+        member this.ToDotNet() = X<string>
+    type System.String with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.String>
+
+[<assembly: AutoOpen "IntelliFactory.WebSharper.EcmaScript.Extensions">]
+()
