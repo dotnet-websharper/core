@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProductVersion>8.0.30703</ProductVersion>
@@ -38,6 +38,11 @@
     <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
       <Name>IntelliFactory.WebSharper.Core</Name>
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Ecma\IntelliFactory.WebSharper.Ecma.fsproj">
+      <Name>IntelliFactory.WebSharper.Ecma</Name>
+      <Project>{3bee2a9e-c5c9-4bd5-847d-f0f88f02a438}</Project>
+      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper.Testing\IntelliFactory.WebSharper.Testing.fsproj">
       <Name>IntelliFactory.WebSharper.Testing</Name>

@@ -185,6 +185,7 @@ let wsTests =
                 r.Project(ifWS)
                 r.Project(wsCore)
                 r.Project(wsCollections)
+                r.Project(wsEcma)
                 r.Project(wsControl)
                 r.Project(wsTesting)
             ])
