@@ -42,30 +42,24 @@ let private schedule (ms: Milliseconds) (action: unit -> unit) =
 [<Inline "setTimeout($action, 0)">]
 let private spark (action: unit -> unit) = JavaScript.ClientSide<unit>
 
-[<Inline "new Date().getTime()">]
-let private getTime() = JavaScript.ClientSide<int>
-
 type private Scheduler [<JavaScript>]() =
-    let MAX_TIME        = 40
     let mutable idle    = true
     let robin           = Queue<unit->unit>()
 
     [<JavaScript>]
     let rec tick () =
-        let t = getTime()
+        let t = System.DateTime.Now
         let mutable loop = true
         while loop do
-            let tm = getTime() - t
-            if tm > MAX_TIME then
-                spark tick
+            match robin.Count with
+            | 0 ->
+                idle <- true
                 loop <- false
-            else
-                match robin.Count with
-                | 0 ->
-                    idle <- true
+            | _ ->
+                robin.Dequeue()()
+                if System.DateTime.Now - t > System.TimeSpan.FromMilliseconds 40. then
+                    spark tick
                     loop <- false
-                | _ ->
-                    robin.Dequeue()()
 
     [<JavaScript>]
     member this.Fork(action: unit -> unit) =
