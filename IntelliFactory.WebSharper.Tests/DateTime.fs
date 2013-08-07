@@ -178,3 +178,7 @@ let Tests =
     Test "Today" {
         DateTime.Today =? DateTime.Now.Date
     }
+
+    Test "Ecma Date" {
+        d.ToEcma().ToDotNet() =?~ d
+    }
