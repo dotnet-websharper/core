@@ -111,10 +111,10 @@ type private DateTimeProxy =
     new (y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) = {}
 
     static member Now
-        with [<Inline "new Date().getTime()">] get() = X<D>
+        with [<Inline "Date.now()">] get() = X<D>
     
     static member UtcNow
-        with [<Inline "new Date().getTime()">] get() = X<D>
+        with [<Inline "Date.now()">] get() = X<D>
     
     [<Inline "1">]
     member this.Kind = X<System.DateTimeKind>
@@ -127,30 +127,6 @@ type private DateTimeProxy =
 
     member this.TimeOfDay 
         with [<Inline; JavaScript>] get() = DateTimeHelpers.TimePortion(As this)
-
-//    member this.Year
-//        with [<Inline "new Date($this).getFullYear()">] get() = X<int>
-//
-//    member this.Month 
-//        with [<Inline "new Date($this).getMonth()+1">] get() = X<int>
-//
-//    member this.Day 
-//        with [<Inline "new Date($this).getDate()">] get() = X<int>
-//
-//    member this.Hour 
-//        with [<Inline "new Date($this).getHours()">] get() = X<int>
-//                                                  
-//    member this.Minute 
-//        with [<Inline "new Date($this).getMinutes()">] get() = X<int>
-//    
-//    member this.Second 
-//        with [<Inline "new Date($this).getSeconds()">] get() = X<int>
-//
-//    member this.Millisecond 
-//        with [<Inline "new Date($this).getMilliseconds()">] get() = X<int>
-//    
-//    member this.DayOfWeek 
-//        with [<Inline "new Date($this).getDay()">] get() = X<System.DayOfWeek>
 
     member this.Year
         with [<Inline; JavaScript>] get() = E.FromDateTime(As this).getFullYear()
