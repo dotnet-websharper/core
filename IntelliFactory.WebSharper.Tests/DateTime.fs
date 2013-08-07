@@ -39,10 +39,6 @@ let Tests =
     let d = DateTime(2010, 4, 8, 15, 5, 39)
 
 
-    Test "Ecma Date" {
-        d.ToEcma().ToDotNet() =?~ d
-    }
-
     Test "Year" {
         d.Year =? 2010
     }
