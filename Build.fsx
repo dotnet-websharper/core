@@ -77,7 +77,7 @@ let Metadata =
 module Extensions =
 
     type B.BuildConfiguration with
-        static member Release(v: B.FrameworkVersion)(deps: list<string>) : B.BuildConfiguration =
+        static member Release(v: B.FrameworkVersion)(deps: list<string * string>) : B.BuildConfiguration =
             {
                 ConfigurationName = "Release"
                 Debug = false
@@ -85,7 +85,11 @@ module Extensions =
                 NuGetDependencies =
                     new global.NuGet.PackageDependencySet(
                         v.ToFrameworkName(),
-                        [for d in deps -> global.NuGet.PackageDependency(d)]
+                        [
+                            for (d, v) in deps do
+                                let s = global.NuGet.VersionSpec(global.NuGet.SemanticVersion.Parse v)
+                                yield global.NuGet.PackageDependency(d, s)
+                        ]
                     )
             }
 
@@ -152,9 +156,9 @@ let CleanCompressedJavaScript = T "CleanCompressedJavaScript" <| fun () ->
 
 let Deps =
     [
-        "IntelliFactory.FastInvoke"
-        "IntelliFactory.Xml"
-        "Mono.Cecil"
+        "IntelliFactory.FastInvoke", "0.0.6"
+        "IntelliFactory.Xml", "0.5.0"
+        "Mono.Cecil", "0.9.5.4"
     ]
 
 let C35 = B.BuildConfiguration.Release B.Net35 Deps
