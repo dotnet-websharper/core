@@ -22,10 +22,11 @@
 /// Exposes the compiler front-end for programmatic use.
 module IntelliFactory.WebSharper.Compiler.FrontEnd
 
-module M = IntelliFactory.WebSharper.Core.Metadata
-module R = IntelliFactory.WebSharper.Core.Resources
 open System.Reflection
 open System.Web.UI
+open IntelliFactory.Core
+module M = IntelliFactory.WebSharper.Core.Metadata
+module R = IntelliFactory.WebSharper.Core.Resources
 
 /// Represents file-system paths.
 type Path = string
@@ -93,14 +94,14 @@ type ResourceContent =
 /// A reduced resource context for simplified dependency rendering.
 type ResourceContext =
     {
-        /// Allocates a new resource, returns a URI to it.
-        CreateUri : ResourceContent -> string
-
         /// Whether to emit readable JavaScript.
         DebuggingEnabled : bool
 
         /// Reads environment settings.
         GetSetting : string -> option<string>
+
+        /// Decides how to render a resource.
+        RenderResource : ResourceContent -> R.Rendering
     }
 
 /// Represents a compiled assembly.

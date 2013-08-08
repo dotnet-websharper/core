@@ -21,8 +21,8 @@
 
 module IntelliFactory.WebSharper.Json
 
-module A  = IntelliFactory.WebSharper.Core.Attributes
-module J  = IntelliFactory.WebSharper.JavaScript
+module A = IntelliFactory.WebSharper.Core.Attributes
+module J = IntelliFactory.WebSharper.JavaScript
 module Js = IntelliFactory.WebSharper.Core.Json
 module Re = IntelliFactory.WebSharper.Core.Resources
 
@@ -30,14 +30,9 @@ type Resource() =
     interface Re.IResource with
         member this.Render ctx html =
             html.WriteLine "<!--[if lte IE 7.0]>"
-            html.AddAttribute("type", "text/javascript")
-            let url =
-                if ctx.DebuggingEnabled then "Json.js" else "Json.min.js"
-                |> ctx.GetWebResourceUrl typeof<Resource>
-            html.AddAttribute("src", url)
-            html.RenderBeginTag "script"
-            html.RenderEndTag()
-            html.WriteLine()
+            let name = if ctx.DebuggingEnabled then "Json.js" else "Json.min.js"
+            let ren = ctx.GetWebResourceRendering typeof<Resource> name
+            ren.Emit(html, Re.Js)
             html.WriteLine "<![endif]-->"
 
 [<A.Inline "$obj[$field]">]
