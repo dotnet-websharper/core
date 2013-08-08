@@ -21,6 +21,8 @@
 
 namespace IntelliFactory.WebSharper
 
+open System.Collections.Generic
+
 open IntelliFactory.WebSharper
 module C = IntelliFactory.WebSharper.Concurrency
 
@@ -66,10 +68,19 @@ type private AsyncBuilderProxy [<Inline "null">]() =
     [<JavaScript>]
     member this.Using<'T, 'TResult when 'T :> System.IDisposable>
                      (x: 'T, f: 'T -> Async<'TResult>) : Async<'TResult> =
-        this.TryFinally(f x, fun () -> (x :> System.IDisposable).Dispose())
+        As (C.Using x (As f))
 
     [<Inline>]
     [<JavaScript>]
     member this.Zero() : Async<unit> =
         this.Return()
 
+    [<Inline>]
+    [<JavaScript>]
+    member this.While(g: unit -> bool, b:Async<unit>) : Async<unit> = 
+        As (C.While g (As b))
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.For(s: seq<'T>, b: 'T -> Async<unit>) : Async<unit> =
+        As (C.For s (As b))

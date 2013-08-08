@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Array.fs" />
+    <Compile Include="Async.fs" />
     <Compile Include="Basis.fs" />
     <Compile Include="Char.fs" />
     <Compile Include="DateTime.fs" />

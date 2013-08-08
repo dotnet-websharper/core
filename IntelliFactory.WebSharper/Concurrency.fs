@@ -161,3 +161,23 @@ let StartChild (C r : Concurrent<'T>) =
             | None      -> queue.Enqueue k
         k (Ok (C r2)))
 
+[<JavaScript>]
+let Using (x: 'T) f =
+    TryFinally (f x) (fun () -> (x :> System.IDisposable).Dispose())
+
+[<JavaScript>]
+let rec While g c = 
+    if g() then 
+        Bind c (fun () -> While g c) 
+    else
+        Return ()
+
+[<JavaScript>]
+let rec For (s: seq<'T>) b =
+    let ie = s.GetEnumerator()
+    While (fun () -> ie.MoveNext())
+        (Delay (fun () -> b ie.Current))
+//    // if IEnumerable would always have IDisposable
+//    Using (s.GetEnumerator()) (fun ie ->
+//        While (fun () -> ie.MoveNext())
+//            (Delay (fun () -> b ie.Current)))
