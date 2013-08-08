@@ -267,9 +267,9 @@ type ResourceContent =
 
 type ResourceContext =
     {
-        CreateUri : ResourceContent -> string
         DebuggingEnabled : bool
         GetSetting : string -> option<string>
+        RenderResource : ResourceContent -> Res.Rendering
     }
 
 [<Sealed>]
@@ -309,11 +309,11 @@ type CompiledAssembly
 
     member this.RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter) =
         let cache = Dictionary()
-        let createUri (content: ResourceContent) =
+        let getRendering (content: ResourceContent) =
             match cache.TryGetValue(content) with
             | true, y -> y
             | _ ->
-                let y = ctx.CreateUri(content)
+                let y = ctx.RenderResource(content)
                 cache.Add(content, y)
                 y
         let readWebResource (ty: System.Type) (name: string) =
@@ -344,7 +344,7 @@ type CompiledAssembly
             with e ->
                 ("", "text/plain")
         let makeJsUri name js =
-            createUri {
+            getRendering {
                 Content = js
                 ContentType = "text/javascript"
                 Name =
@@ -354,7 +354,7 @@ type CompiledAssembly
         let ctx : Res.Context =
             {
                 DebuggingEnabled = ctx.DebuggingEnabled
-                GetAssemblyUrl = fun name ->
+                GetAssemblyRendering = fun name ->
                     if name = nameOfSelf then
                         (if ctx.DebuggingEnabled then Pref.Readable else Pref.Compact)
                         |> getJS
@@ -362,11 +362,11 @@ type CompiledAssembly
                     else
                         match context.LookupAssemblyCode(ctx.DebuggingEnabled, name) with
                         | Some x -> makeJsUri name.Name x
-                        | None -> ""
+                        | None -> Res.Skip
                 GetSetting = ctx.GetSetting
-                GetWebResourceUrl = fun ty name ->
+                GetWebResourceRendering = fun ty name ->
                     let (c, cT) = readWebResource ty name
-                    createUri {
+                    getRendering {
                         Content = c
                         ContentType = cT
                         Name = name

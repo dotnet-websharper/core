@@ -206,15 +206,12 @@ let add (k: 'K) (v: 'V) (d: D<'K,'V>) =
 
 type Type = Re.TypeDefinition
 
+[<Sealed>]
 type AssemblyResource(name: Re.AssemblyName) =
     interface R.IResource with
         member this.Render ctx html =
-            html.AddAttribute("type", "text/javascript")
-            html.AddAttribute("src", ctx.GetAssemblyUrl name)
-            html.AddAttribute("charset", "UTF-8")
-            html.RenderBeginTag "script"
-            html.RenderEndTag()
-            html.WriteLine()
+            let r = ctx.GetAssemblyRendering name
+            r.Emit(html, R.Js)
 
 let activate resource =
     match resource with

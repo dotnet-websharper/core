@@ -80,10 +80,13 @@ module internal ResourceContext =
                 match ConfigurationManager.AppSettings.[name] with
                 | null -> None
                 | x -> Some x
-            GetAssemblyUrl = fun name ->
+            GetAssemblyRendering = fun name ->
                 let suffix = if isDebug then ".dll.js" else ".dll.min.js"
-                String.Format("Scripts/{0}{1}", page.Server.UrlEncode name.Name, suffix)
-                |> joinWithSlash appPath
-            GetWebResourceUrl = fun ty resource ->
-                page.ClientScript.GetWebResourceUrl(ty, resource)
+                let url =
+                    String.Format("Scripts/{0}{1}", page.Server.UrlEncode name.Name, suffix)
+                    |> joinWithSlash appPath
+                Re.RenderLink url
+            GetWebResourceRendering = fun ty resource ->
+                let url = page.ClientScript.GetWebResourceUrl(ty, resource)
+                Re.RenderLink url
         }

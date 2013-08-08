@@ -94,14 +94,14 @@ type ResourceContent =
 /// A reduced resource context for simplified dependency rendering.
 type ResourceContext =
     {
-        /// Allocates a new resource, returns a URI to it.
-        CreateUri : ResourceContent -> string
-
         /// Whether to emit readable JavaScript.
         DebuggingEnabled : bool
 
         /// Reads environment settings.
         GetSetting : string -> option<string>
+
+        /// Decides how to render a resource.
+        RenderResource : ResourceContent -> R.Rendering
     }
 
 /// Represents a compiled assembly.

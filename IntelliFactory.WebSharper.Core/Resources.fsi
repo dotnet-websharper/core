@@ -22,6 +22,23 @@
 /// Manages resources, such as dependent JavaScript and CSS files.
 module IntelliFactory.WebSharper.Core.Resources
 
+open System
+open System.Web
+open System.Web.UI
+module R = IntelliFactory.WebSharper.Core.Reflection
+
+type MediaType =
+    | Css
+    | Js
+
+/// Defines how to render a resource.
+type Rendering =
+    | RenderInline of string
+    | RenderLink of string
+    | Skip
+
+    member Emit : HtmlTextWriter * MediaType -> unit
+
 /// Defines the context in which resources can be rendered.
 type Context =
     {
@@ -30,22 +47,23 @@ type Context =
 
         /// Constructs URLs to JavaScript-compiled assemblies.
         /// Assembly names are short, such as FSharp.Core.
-        GetAssemblyUrl : Reflection.AssemblyName -> string
+        GetAssemblyRendering : R.AssemblyName -> Rendering
 
         /// Provides a configuration settings collection.
         GetSetting : string -> option<string>
 
         /// Constructs URLs to point to embedded resources.
-        GetWebResourceUrl : System.Type -> string -> string
+        GetWebResourceRendering : Type -> string -> Rendering
     }
 
 /// An interface for resource-defining types.
 type IResource =
 
     /// Renders the resource to a given TextWriter.
-    abstract member Render : Context -> System.Web.UI.HtmlTextWriter -> unit
+    abstract member Render : Context -> HtmlTextWriter -> unit
 
 /// A helper base class for resource-defining types.
+[<AbstractClass>]
 type BaseResource =
 
     /// References an embedded resource from he current assembly.
@@ -61,7 +79,7 @@ type BaseResource =
     /// setting matching the full name of the declaring type.
     /// CSS resources are distinguished from JavaScript resources
     /// by checking for the .css syntax.
-    new : string * string * [<System.ParamArray>] xs: string [] -> BaseResource
+    new : string * string * [<ParamArray>] xs: string [] -> BaseResource
 
     interface IResource
 

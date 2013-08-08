@@ -214,7 +214,8 @@ let relPath level =
 let resourceContext (st: State) (level: int) : R.Context =
     let relPath = relPath level
     let scriptsFile folder file =
-        String.Format("{0}Scripts/{1}/{2}", relPath, folder, file)
+        let url = String.Format("{0}Scripts/{1}/{2}", relPath, folder, file)
+        R.RenderLink url
     {
         DebuggingEnabled =
             match st.Config.Mode with
@@ -223,11 +224,11 @@ let resourceContext (st: State) (level: int) : R.Context =
 
         GetSetting = fun _ -> None
 
-        GetAssemblyUrl = fun aN ->
+        GetAssemblyRendering = fun aN ->
             st.UseAssembly(aN)
             scriptsFile aN.Name (getAssemblyFileName st.Config.Mode aN)
 
-        GetWebResourceUrl = fun ty name ->
+        GetWebResourceRendering = fun ty name ->
             st.UseResource(EmbeddedResource.Create(name, ty))
             scriptsFile (ty.Assembly.GetName().Name) name
     }
