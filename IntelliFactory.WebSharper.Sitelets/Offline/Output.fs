@@ -28,6 +28,7 @@ open System.Reflection
 open System.Text
 open System.Text.RegularExpressions
 open System.Web
+open Mono.Cecil
 open IntelliFactory.Core
 open IntelliFactory.WebSharper.Sitelets
 
@@ -66,10 +67,7 @@ let getMetadata (conf: Config) =
         Seq.append dlls exes)
     |> Seq.distinctBy (fun assemblyFile ->
         AssemblyName.GetAssemblyName(assemblyFile).Name)
-    |> Seq.choose (fun x ->
-        match M.AssemblyInfo.Load(x) with
-        | None -> None
-        | Some r -> Some r)
+    |> Seq.choose (fun x -> M.AssemblyInfo.Load x)
     |> M.Info.Create
 
 /// Generates unique file names.
@@ -163,37 +161,50 @@ let createFile (targetPath: string) =
     File.Open(targetPath, FileMode.Create) :> Stream
 
 /// Writes an embedded resource to the target path.
-let writeEmbeddedResource (a: Assembly) (n: string) (targetPath: string) =
-    match Path.GetExtension(n) with
-    | ".css" ->
-        use r = new StreamReader(a.GetManifestResourceStream(n))
-        let text =
-            r.ReadToEnd()
-            |> replaceWebResourceTags
-        use w = new StreamWriter(createFile targetPath, Encoding.UTF8)
-        w.Write(text)
-    | _ ->
-        use s1 = a.GetManifestResourceStream(n)
-        use s2 = createFile targetPath
-        streamCopy s1 s2
+let writeEmbeddedResource (assemblyPath: string) (n: string) (targetPath: string) =
+    let aD = AssemblyDefinition.ReadAssembly(assemblyPath)
+    let stream =
+        aD.MainModule.Resources
+        |> Seq.tryPick (fun r ->
+            match r with
+            | :? Mono.Cecil.EmbeddedResource as r ->
+                if r.Name = n then Some (r.GetResourceStream()) else None
+            | _ -> None)
+    match stream with
+    | None -> failwithf "No resource %s in %s at %s" n aD.FullName assemblyPath
+    | Some s ->
+        use s = s
+        match Path.GetExtension(n) with
+        | ".css" ->
+            use r = new StreamReader(s)
+            let text =
+                r.ReadToEnd()
+                |> replaceWebResourceTags
+            use w = new StreamWriter(createFile targetPath, Encoding.UTF8)
+            w.Write(text)
+        | _ ->
+            use s2 = createFile targetPath
+            streamCopy s s2
 
 /// Outputs all required resources. This is the last step of processing.
 let writeResources (aR: AssemblyResolver) (st: State) =
     for aN in st.Assemblies do
-        let assembly = aR.Resolve(AssemblyName aN.FullName)
-        match assembly with
-        | Some assembly ->
+        let assemblyPath = aR.ResolvePath(AssemblyName aN.FullName)
+        match assemblyPath with
+        | Some aP ->
             let embeddedResourceName =
                 match st.Config.Mode with
                 | Debug -> EMBEDDED_JS
                 | Release -> EMBEDDED_MINJS
             let p = getAssemblyJavaScriptPath st.Config aN
-            writeEmbeddedResource assembly embeddedResourceName p
+            writeEmbeddedResource aP embeddedResourceName p
         | None ->
             stderr.WriteLine("Could not resolve: {0}", aN)
     for res in st.Resources do
-        getEmbeddedResourcePath st.Config res
-        |> writeEmbeddedResource res.Type.Assembly res.Name
+        let erp = getEmbeddedResourcePath st.Config res
+        match aR.ResolvePath(AssemblyName res.Type.Assembly.FullName) with
+        | Some aP -> writeEmbeddedResource aP res.Name erp
+        | None -> stderr.WriteLine("Could not resolve {0}", res.Type.Assembly.FullName)
 
 /// Generates a relative path prefix, such as "../../../" for level 3.
 let relPath level =
@@ -360,8 +371,5 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
         let response = rC.Respond context
         use stream = createFile fullPath
         response.WriteBody(stream)
-    stdout.WriteLine("Used assemblies: ")
-    for a in st.Assemblies do
-        stdout.WriteLine("    + {0}", a)
     // Write resources determined to be necessary.
     writeResources aR st
