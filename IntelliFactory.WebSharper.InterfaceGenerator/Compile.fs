@@ -740,6 +740,7 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
 type CompilerOptions =
     {
         AssemblyName : string
+        AssemblyResolver : option<AssemblyResolver>
         AssemblyVersion : Version
         DocPath : option<string>
         EmbeddedResources : seq<string>
@@ -752,6 +753,7 @@ type CompilerOptions =
     static member Default name =
         {
             AssemblyName = name
+            AssemblyResolver = None
             AssemblyVersion = Version(0, 0)
             DocPath = None
             EmbeddedResources = Seq.empty
@@ -860,7 +862,11 @@ type Compiler() =
     let iG = InlineGenerator()
 
     let createAssemblyResolvers (opts: CompilerOptions) =
-        let aR = AssemblyResolver.Create().SearchPaths(opts.ReferencePaths)
+        let aR =
+            match opts.AssemblyResolver with
+            | Some aR -> aR
+            | None -> AssemblyResolver.Create()
+        let aR = aR.SearchPaths(opts.ReferencePaths)
         (aR, Resolver(aR) :> IAssemblyResolver)
 
     let getAccessAttributes (nested: bool) (t: Code.NamespaceEntity) =

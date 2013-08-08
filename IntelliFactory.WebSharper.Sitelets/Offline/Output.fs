@@ -28,6 +28,7 @@ open System.Reflection
 open System.Text
 open System.Text.RegularExpressions
 open System.Web
+open IntelliFactory.Core
 open IntelliFactory.WebSharper.Sitelets
 
 module C = IntelliFactory.WebSharper.Sitelets.Content
@@ -113,11 +114,12 @@ type EmbeddedResource =
         { Name = name; Type = ty }
 
 /// The mutable state of the processing.
+[<Sealed>]
 type State(conf: Config) =
     let metadata = getMetadata conf
     let json = J.Provider.CreateTyped(metadata)
     let unique = UniqueFileNameGenerator()
-    let usedAssemblies = HashSet()
+    let usedAssemblies = HashSet<Re.AssemblyName>()
     let usedResources = HashSet()
     member this.Config = conf
     member this.Json = json
@@ -175,39 +177,20 @@ let writeEmbeddedResource (a: Assembly) (n: string) (targetPath: string) =
         use s2 = createFile targetPath
         streamCopy s1 s2
 
-/// A tool for matching assembly names to currently loaded assemblies.
-[<Sealed>]
-type LoadedAssemblyResolver() =
-    let state = Dictionary()
-
-    /// Resolves a name to an assembly.
-    member this.Resolve(name: Re.AssemblyName) =
-        match state.TryGetValue(name.Name) with
-        | true, v -> v
-        | _ ->
-            let v =
-                AppDomain.CurrentDomain.GetAssemblies()
-                |> Seq.tryFind (fun a -> a.GetName().Name = name.Name)
-            match v with
-            | Some v ->
-                state.[name.Name] <- v
-                v
-            | None ->
-                let v = Assembly.ReflectionOnlyLoad(name.FullName)
-                state.[name.Name] <- v
-                v
-
-/// Outputs all encessary resources. This is the last step of processing.
-let writeResources (st: State) =
-    let resolver = LoadedAssemblyResolver()
+/// Outputs all required resources. This is the last step of processing.
+let writeResources (aR: AssemblyResolver) (st: State) =
     for aN in st.Assemblies do
-        let assembly = resolver.Resolve(aN)
-        let embeddedResourceName =
-            match st.Config.Mode with
-            | Debug -> EMBEDDED_JS
-            | Release -> EMBEDDED_MINJS
-        getAssemblyJavaScriptPath st.Config aN
-        |> writeEmbeddedResource assembly embeddedResourceName
+        let assembly = aR.Resolve(AssemblyName aN.FullName)
+        match assembly with
+        | Some assembly ->
+            let embeddedResourceName =
+                match st.Config.Mode with
+                | Debug -> EMBEDDED_JS
+                | Release -> EMBEDDED_MINJS
+            let p = getAssemblyJavaScriptPath st.Config aN
+            writeEmbeddedResource assembly embeddedResourceName p
+        | None ->
+            stderr.WriteLine("Could not resolve: {0}", aN)
     for res in st.Resources do
         getEmbeddedResourcePath st.Config res
         |> writeEmbeddedResource res.Type.Assembly res.Name
@@ -332,7 +315,7 @@ let resolveContent (rootFolder: string) (st: State) (loc: Location) (content: Co
 let trimPath (path: string) =
     path.TrimStart('/')
 
-let WriteSite (conf: Config) =
+let WriteSite (aR: AssemblyResolver) (conf: Config) =
     let st = State(conf)
     let table = Dictionary()
     let rootFolder = conf.TargetDir.FullName
@@ -377,5 +360,8 @@ let WriteSite (conf: Config) =
         let response = rC.Respond context
         use stream = createFile fullPath
         response.WriteBody(stream)
+    stdout.WriteLine("Used assemblies: ")
+    for a in st.Assemblies do
+        stdout.WriteLine("    + {0}", a)
     // Write resources determined to be necessary.
-    writeResources st
+    writeResources aR st

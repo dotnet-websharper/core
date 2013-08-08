@@ -24,6 +24,7 @@ namespace IntelliFactory.WebSharper.Core.Plugins
 open System
 open System.Configuration
 open System.Collections.Generic
+open IntelliFactory.Core
 
 /// Classifies results of plugin execution.
 type Result =
@@ -34,14 +35,17 @@ type Result =
 /// Provides environment facilities for the execution of plugins.
 type IEnvironment =
 
+    /// Assembly resolver utility.
+    abstract AssemblyResolver : AssemblyResolver
+
     /// The command-line arguments.
-    abstract member CommandLineArgs : string []
+    abstract CommandLineArgs : string []
 
 /// An interface to implement by plugins.
 type IPlugin =
 
     /// Called once for every plugin per execution of WebSharper.
-    abstract member Run : IEnvironment -> Result
+    abstract Run : IEnvironment -> Result
 
 /// Used by the configuration infrastructure.
 [<Sealed>]

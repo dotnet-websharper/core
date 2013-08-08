@@ -25,6 +25,7 @@ namespace IntelliFactory.WebSharper.InterfaceGenerator
 open System
 open System.IO
 open System.Reflection
+open IntelliFactory.Core
 
 [<Sealed>]
 type CompilationKind =
@@ -35,6 +36,7 @@ type CompilationKind =
 type CompilerOptions =
     {
         AssemblyName : string
+        AssemblyResolver : option<AssemblyResolver>
         AssemblyVersion : Version
         DocPath : option<string>
         EmbeddedResources : seq<string>

@@ -50,14 +50,14 @@ let guard action =
 let pathToSelf = Assembly.GetExecutingAssembly().Location
 let baseDir = Path.GetDirectoryName pathToSelf
 
-let compile (opts: Options.CompilationOptions) =
+let compile (aR: AssemblyResolver) (opts: Options.CompilationOptions) =
     let sw = Stopwatch()
     sw.Start()
     let refPaths =
         opts.Input :: opts.References
         |> Seq.map Path.GetFullPath
         |> Set.ofSeq
-    let aR = AssemblyResolver.Create().SearchDirectories([baseDir]).SearchPaths(refPaths)
+    let aR = aR.SearchPaths(refPaths)
     aR.Wrap <| fun () ->
         let k =
             let aLoader = FE.Loader.Create aR stderr.WriteLine
@@ -113,12 +113,12 @@ let compile (opts: Options.CompilationOptions) =
                 sw.Elapsed.TotalSeconds)
         k
 
-let run (opts: Options.T) =
+let run (aR: AssemblyResolver) (opts: Options.T) =
     match opts with
     | Options.Compile opts ->
-        compile opts
+        compile aR opts
     | Options.Unpack (folder, assemblies) ->
-        let aR = AssemblyResolver.Create().SearchPaths(assemblies)
+        let aR = aR.SearchPaths(assemblies)
         let loader = FE.Loader.Create aR stderr.WriteLine
         for p in assemblies do
             let a = loader.LoadFile p
@@ -147,11 +147,16 @@ let Start args =
             yield pathToSelf
             yield! args
         |]
+    let aR =
+        AssemblyResolver.Create()
+            .WithBaseDirectory(baseDir)
+            .SearchDirectories([baseDir])
     let plugins () =
         let env =
             {
                 new IEnvironment with
-                    member this.CommandLineArgs = fullArgs
+                    member e.AssemblyResolver = aR
+                    member e.CommandLineArgs = fullArgs
             }
         Plugins.GetPlugins()
         |> Seq.tryPick (fun p ->
@@ -160,5 +165,5 @@ let Start args =
             | Error -> Some -1
             | Pass -> None)
     let main () =
-        Options.Run plugins run (Array.toList args)
+        Options.Run plugins (run aR) (Array.toList args)
     guard main
