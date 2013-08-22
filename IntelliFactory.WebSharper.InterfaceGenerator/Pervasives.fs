@@ -31,6 +31,18 @@ module Pervasives =
 
     type private T = Type.Type
 
+    type IExtension =
+        abstract Assembly : Code.Assembly
+
+    [<Sealed>]
+    [<AttributeUsage(AttributeTargets.Assembly)>]
+    type ExtensionAttribute(t: Type) =
+        inherit Attribute()
+
+        member attr.GetAssembly() =
+            let e = Activator.CreateInstance(t) :?> IExtension
+            e.Assembly
+
     /// Constructs a new assembly.
     let Assembly namespaces : Code.Assembly =
         { Namespaces = namespaces }

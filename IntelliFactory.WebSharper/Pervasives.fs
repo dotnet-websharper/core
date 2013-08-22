@@ -111,38 +111,6 @@ let ( &. ) x y = binary x y
 [<Inline "$x ^ $y">]
 let ( ^. ) x y = binary x y
 
-/// A helper delegate class.
-type Func<'T1,'T2> =
-    delegate of 'T1 -> 'T2
-
-/// A helper delegate class.
-type Func<'T1,'T2,'T3> =
-    delegate of 'T1 * 'T2 -> 'T3
-
-/// A helper delegate class.
-type Func<'T1,'T2,'T3,'T4> =
-    delegate of 'T1 * 'T2 * 'T3 -> 'T4
-
-/// A helper delegate class.
-type Func<'T1,'T2,'T3,'T4,'T5> =
-    delegate of 'T1 * 'T2 * 'T3 * 'T4 -> 'T5
-
-/// A helper delegate class.
-type Func<'T1,'T2,'T3,'T4,'T5,'T6> =
-    delegate of 'T1 * 'T2 * 'T3 * 'T4 * 'T5 -> 'T6
-
-/// A helper delegate class.
-type Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7> =
-    delegate of 'T1 * 'T2 * 'T3 * 'T4 * 'T5 * 'T6 -> 'T7
-
-/// A helper delegate class.
-type Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8> =
-    delegate of 'T1 * 'T2 * 'T3 * 'T4 * 'T5 * 'T6 * 'T7 -> 'T8
-
-/// A helper delegate class.
-type Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9> =
-    delegate of 'T1 * 'T2 * 'T3 * 'T4 * 'T5 * 'T6 * 'T7 * 'T8 -> 'T9
-
 [<Inline "$obj[$field]">]
 let ( ? ) (obj: obj) (field: string) = J.ClientSide<'T>
 
@@ -171,3 +139,15 @@ let SetRpcHandlerFactory (factory: IRpcHandlerFactory) =
 /// Constructs an proxy to a remote object instance.
 [<Inline "null">]
 let Remote<'T> = JavaScript.ClientSide<'T>
+
+module F = IntelliFactory.WebSharper.Core.Functions
+
+type Func<'T1,'T2> = F.Func<'T1,'T2>
+type Func<'T1,'T2,'T3> = F.Func<'T1,'T2,'T3>
+type Func<'T1,'T2,'T3,'T4> = F.Func<'T1,'T2,'T3,'T4>
+type Func<'T1,'T2,'T3,'T4,'T5> = F.Func<'T1,'T2,'T3,'T4,'T5>
+type Func<'T1,'T2,'T3,'T4,'T5,'T6> = F.Func<'T1,'T2,'T3,'T4,'T5,'T6>
+type Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7> = F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7>
+type Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8> = F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8>
+type Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9> = F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9>
+

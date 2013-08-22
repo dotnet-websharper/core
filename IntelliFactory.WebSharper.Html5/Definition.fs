@@ -1110,8 +1110,10 @@ module Definition =
             ]
         ]
 
-module Main =
+[<Sealed>]
+type Html5Extension() =
+    interface IExtension with
+        member x.Assembly = Definition.Assembly
 
-    [<EntryPoint>]
-    let Start args =
-        Compiler.Create().Start(args, Definition.Assembly)
+[<assembly: Extension(typeof<Html5Extension>)>]
+do ()

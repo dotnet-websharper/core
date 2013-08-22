@@ -140,6 +140,8 @@ let run (aR: AssemblyResolver) (opts: Options.T) =
     | Options.Dependencies path ->
         DependencyReporter.Run path
 
+type private EA = InterfaceGenerator.Pervasives.ExtensionAttribute
+
 [<EntryPoint>]
 let Start args =
     let fullArgs =
@@ -152,18 +154,48 @@ let Start args =
             .WithBaseDirectory(baseDir)
             .SearchDirectories([baseDir])
     let plugins () =
-        let env =
-            {
-                new IEnvironment with
-                    member e.AssemblyResolver = aR
-                    member e.CommandLineArgs = fullArgs
-            }
-        Plugins.GetPlugins()
-        |> Seq.tryPick (fun p ->
-            match p.Run(env) with
-            | Success -> Some 0
-            | Error -> Some -1
-            | Pass -> None)
+        match List.ofArray args with
+        | "ig" :: path :: args ->
+            let searchPaths =
+                let (|S|_|) (a: string) (b: string) =
+                    if b.StartsWith a then Some (b.Substring a.Length) else None
+                let rec loop acc args =
+                    match args with
+                    | S "-r:" assem :: rest -> loop (assem :: acc) rest
+                    | "-r" :: assem :: rest -> loop (assem :: acc) rest
+                    | _ :: rest -> loop acc rest
+                    | [] | [_] -> acc
+                loop [path] args
+            let aR = aR.SearchPaths searchPaths
+            aR.Wrap <| fun () ->
+                let assem = aR.Resolve(AssemblyName.GetAssemblyName path)
+                let ad =
+                    match assem with
+                    | None -> failwithf "Could not resolve: %s" path
+                    | Some assem ->
+                        match Attribute.GetCustomAttribute(assem, typeof<EA>) with
+                        | :? EA as attr ->
+                            attr.GetAssembly()
+                        | _ ->
+                            failwith "Failed to load assembly definition - \
+                                is the assembly properly marked with \
+                                ExtensionAttribute?"
+                let c = InterfaceGenerator.Compiler.Create()
+                c.Start(args, ad, aR)
+                |> Some
+        | _ ->
+            let env =
+                {
+                    new IEnvironment with
+                        member e.AssemblyResolver = aR
+                        member e.CommandLineArgs = fullArgs
+                }
+            Plugins.GetPlugins()
+            |> Seq.tryPick (fun p ->
+                match p.Run(env) with
+                | Success -> Some 0
+                | Error -> Some -1
+                | Pass -> None)
     let main () =
         Options.Run plugins (run aR) (Array.toList args)
     guard main

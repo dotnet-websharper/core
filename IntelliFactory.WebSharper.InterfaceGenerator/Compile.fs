@@ -123,7 +123,6 @@ type InlineGenerator() =
 type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition) =
     let mscorlib = aR.Resolve(typeof<int>.Assembly.FullName)
     let fscore = aR.Resolve(typedefof<list<_>>.Assembly.FullName)
-    let ws = aR.Resolve(typedefof<IntelliFactory.WebSharper.Pervasives.Func<_,_>>.Assembly.FullName)
     let wsCore = aR.Resolve(typeof<IntelliFactory.WebSharper.Core.Attributes.InlineAttribute>.Assembly.FullName)
     let sysWeb = aR.Resolve(typeof<System.Web.UI.WebResourceAttribute>.Assembly.FullName)
     let main = out.MainModule
@@ -132,8 +131,8 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition) =
         fscore.MainModule.GetType(typedefof<_->_>.FullName)
         |> main.Import
 
-    let pervasives =
-        ws.MainModule.GetType("IntelliFactory.WebSharper", "Pervasives")
+    let functions =
+        wsCore.MainModule.GetType("IntelliFactory.WebSharper.Core", "Functions")
 
     let fromSystem (name: string) =
         mscorlib.MainModule.GetType("System", name)
@@ -232,7 +231,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition) =
     member b.WebSharperFunc ts ret =
         let n = Seq.length ts + 1
         let t =
-            pervasives.NestedTypes
+            functions.NestedTypes
             |> Seq.find (fun t -> t.Name.StartsWith("Func") && t.GenericParameters.Count = n)
             |> main.Import
         b.GenericInstanceType(t, Seq.append ts [ret])
@@ -932,6 +931,8 @@ type Compiler() =
         types
 
     let buildAssembly resolver options (assembly: Code.Assembly) =
+        if box assembly = null then
+            failwithf "buildAssembly: assembly cannot be null"
         let aND = AssemblyNameDefinition(options.AssemblyName, options.AssemblyVersion)
         let mp = ModuleParameters()
         mp.Kind <-
@@ -987,8 +988,12 @@ type Compiler() =
         let (aR, resolver) = createAssemblyResolvers options
         c.Compile(resolver, options, assembly)
 
-    member c.Start(args, assembly) =
-        let opts = CompilerOptions.Parse(args)
+    member c.Start(args, assembly, ?resolver: AssemblyResolver) =
+        let opts =
+            let opts = CompilerOptions.Parse args
+            match resolver with
+            | None -> opts
+            | Some r -> { opts with AssemblyResolver = Some r }
         let (aR, resolver) = createAssemblyResolvers opts
         aR.Wrap <| fun () ->
             c.Compile(resolver, opts, assembly)

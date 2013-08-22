@@ -922,8 +922,10 @@ module Definition =
             ]
         ]
 
-module Main =
+[<Sealed>]
+type DomExtension() =
+    interface IExtension with
+        member x.Assembly = Definition.Assembly
 
-    [<EntryPoint>]
-    let Start args =
-        Compiler.Create().Start(args, Definition.Assembly)
+[<assembly: Extension(typeof<DomExtension>)>]
+do ()

@@ -59,5 +59,5 @@ type CompiledAssembly =
 [<Sealed>]
 type Compiler =
     member Compile : options: CompilerOptions * assembly: CodeModel.Assembly -> CompiledAssembly
-    member Start : args: seq<string> * assembly: CodeModel.Assembly -> int
+    member Start : args: seq<string> * assembly: CodeModel.Assembly * ?resolver: AssemblyResolver -> int
     static member Create : unit -> Compiler

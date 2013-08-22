@@ -44,7 +44,6 @@ let compiler = Path.Combine(root, "build", "compiler")
 let bt =
     BuildTool()
         .PackageId(Config.PackageId, Config.PackageVerion)
-        .WithCommandLineArgs()
         .Configure(fun bt ->
             let outDir = BuildConfig.OutputDir.Find bt
             bt
@@ -88,13 +87,22 @@ let wsCompiler =
             ])
         .SourcesFromProject()
 
+let wsInterfaceGenerator =
+    cbt.FSharp.Library("IntelliFactory.WebSharper.InterfaceGenerator")
+        .References(fun r ->
+            [
+                r.Project(wsCore)
+            ])
+        .SourcesFromProject()
+
 let ws =
     cbt.FSharp.ConsoleExecutable("WebSharper")
         .References(fun r ->
             [
-                r.Project(ifJavaScript)
-                r.Project(wsCore)
-                r.Project(wsCompiler)
+                r.Project ifJavaScript
+                r.Project wsCore
+                r.Project wsCompiler
+                r.Project wsInterfaceGenerator
             ])
         .SourcesFromProject()
 
@@ -108,15 +116,6 @@ let ifWS =
             ])
         .SourcesFromProject()
         .Embed(["Json.js"; "Json.min.js"])
-
-let wsInterfaceGenerator =
-    bt.FSharp.Library("IntelliFactory.WebSharper.InterfaceGenerator")
-        .References(fun r ->
-            [
-                r.Project(wsCore)
-                r.Project(ifWS)
-            ])
-        .SourcesFromProject()
 
 let wsDom =
     bt.WebSharper.Extension("IntelliFactory.WebSharper.Dom").ClearRefs()
@@ -418,7 +417,6 @@ let website =
 let exports : list<INuGetExportingProject> =
     [
         ifWS
-        wsInterfaceGenerator
         wsDom
         wsJQuery
         wsCollections
@@ -454,9 +452,9 @@ bt.Solution [
     ifJavaScript
     wsCore
     wsCompiler
+    wsInterfaceGenerator
     ws
     ifWS
-    wsInterfaceGenerator
     wsDom
     wsJQuery
     wsCollections

@@ -38,5 +38,6 @@
     <Compile Include="Remoting.fsi" />
     <Compile Include="Remoting.fs" />
     <Compile Include="Plugins.fs" />
+    <Compile Include="Functions.fs" />
   </ItemGroup>
 </Project>
