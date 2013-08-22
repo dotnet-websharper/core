@@ -29,7 +29,7 @@ exception BadOptions of string
 /// Represents command-line options.
 type T =
     {
-        SourceDirectories : list<DirectoryInfo>
+        ReferenceFiles : list<FileInfo>
         OutputDirectory : DirectoryInfo
         ProjectDirectory : DirectoryInfo
         SourceAssembly : FileInfo
@@ -39,7 +39,7 @@ type T =
 let Default =
     let pwd = System.Environment.CurrentDirectory
     {
-        SourceDirectories = []
+        ReferenceFiles = []
         OutputDirectory = DirectoryInfo pwd
         SourceAssembly = FileInfo "nofile"
         ProjectDirectory = DirectoryInfo pwd
@@ -55,12 +55,11 @@ let Help =
         "Copyright (c) IntelliFactory. All Rights Reserved."
         ""
         "Usage: WebSharper.exe sitelets [OPTIONS] [INPUTS]"
-        "--mode           Either Debug([-].*)? or Release([-].*)? (defaults to Debug)."
-        "--source:<dir>   Path to the source directory. Short form: -src."
-        "--out:<dir>      Path to the output directory. Short form: -o."
-        "--project:<dir>  Path to the project directory."
-        "--site:<dir>     Name of the assembly containing the web site. \
-            Short form: -s."
+        "-mode <mode>    Either Debug([-].*)? or Release([-].*)? (defaults to Debug)."
+        "-ref <file>     Path to a reference assembly."
+        "-out <dir>      Path to the output directory. Short form: -o."
+        "-project <dir>  Path to the project directory."
+        "-site <file>    Path to the assembly containing the web site."
     ]
     |> String.concat System.Environment.NewLine
 
@@ -101,11 +100,11 @@ let Parse (args: seq<string>) =
             raise <| BadOptions ("Could not find directory: " + path)
         { opts with ProjectDirectory = dir }
 
-    let setSourceDirectory opts path =
-        let dir = DirectoryInfo path
-        if not dir.Exists then
-            raise <| BadOptions ("Could not find directory: " + path)
-        { opts with SourceDirectories = dir :: opts.SourceDirectories}
+    let addReferenceFile opts path =
+        let f = FileInfo path
+        if not f.Exists then
+            raise <| BadOptions ("Could not find file: " + f.FullName)
+        { opts with ReferenceFiles = f :: opts.ReferenceFiles }
 
     let setSourceAssembly opts path =
         let file = FileInfo path
@@ -121,8 +120,8 @@ let Parse (args: seq<string>) =
                 proc (setProjectDirectory opts (trim d)) xs
             | "-mode" :: f :: xs ->
                 proc (setMode opts (trim f)) xs
-            | "-source" :: f :: xs ->
-                proc (setSourceDirectory opts (trim f)) xs
+            | "-ref" :: f :: xs ->
+                proc (addReferenceFile opts (trim f)) xs
             | "-out" :: f :: xs ->
                 proc (setOutputDirectory opts (trim f)) xs
             | "-site" ::f :: xs ->

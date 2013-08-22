@@ -52,22 +52,19 @@ type Mode =
 type Config =
     {
         Actions : list<obj>
+        MainAssembly : FileInfo
         Mode : Mode
+        ReferenceFiles : list<FileInfo>
         Sitelet : Sitelet<obj>
-        SourceDirs : list<DirectoryInfo>
         TargetDir : DirectoryInfo
     }
 
 /// Collects metadata from all assemblies in referenced folders.
-let getMetadata (conf: Config) =
-    conf.SourceDirs
-    |> Seq.collect (fun x ->
-        let dlls = Directory.GetFiles(x.FullName, "*.dll")
-        let exes = Directory.GetFiles(x.FullName, "*.exe")
-        Seq.append dlls exes)
+let getMetadata conf =
+    Seq.append [conf.MainAssembly] conf.ReferenceFiles
     |> Seq.distinctBy (fun assemblyFile ->
-        AssemblyName.GetAssemblyName(assemblyFile).Name)
-    |> Seq.choose (fun x -> M.AssemblyInfo.Load x)
+        AssemblyName.GetAssemblyName(assemblyFile.FullName).Name)
+    |> Seq.choose (fun x -> M.AssemblyInfo.Load x.FullName)
     |> M.Info.Create
 
 /// Generates unique file names.
@@ -125,8 +122,8 @@ type State(conf: Config) =
     member this.Unique = unique
     member this.Assemblies = usedAssemblies :> seq<_>
     member this.Resources = usedResources :> seq<_>
-    member this.UseAssembly(name) = usedAssemblies.Add(name) |> ignore
-    member this.UseResource(res) = usedResources.Add(res) |> ignore
+    member this.UseAssembly(name: Re.AssemblyName) = usedAssemblies.Add(name) |> ignore
+    member this.UseResource(res: EmbeddedResource) = usedResources.Add(res) |> ignore
 
 /// Utility: combines two paths with a slash or backslash.
 let ( ++ ) a b = Path.Combine(a, b)

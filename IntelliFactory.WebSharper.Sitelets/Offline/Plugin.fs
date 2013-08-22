@@ -57,8 +57,9 @@ type Plugin() =
                 Path.GetDirectoryName typeof<Plugin>.Assembly.Location
 
             let aR =
-                options.SourceDirectories
-                |> Seq.map (fun dir -> dir.FullName)
+                let aR = aR.SearchPaths [for r in options.ReferenceFiles -> r.FullName]
+                options.ReferenceFiles
+                |> Seq.map (fun f -> Path.GetDirectoryName f.FullName)
                 |> Seq.append [options.SourceAssembly.DirectoryName]
                 |> aR.SearchDirectories
 
@@ -86,8 +87,9 @@ type Plugin() =
                 // Write site content.
                 Output.WriteSite aR {
                     Sitelet = sitelet
+                    MainAssembly = options.SourceAssembly
                     Mode = options.Mode
-                    SourceDirs = options.SourceDirectories
+                    ReferenceFiles = options.ReferenceFiles
                     TargetDir = options.OutputDirectory
                     Actions = actions
                 }

@@ -36,9 +36,10 @@ type Mode =
 type Config =
     {
         Actions : list<obj>
+        MainAssembly : FileInfo
         Mode : Mode
+        ReferenceFiles : list<FileInfo>
         Sitelet : Sitelet<obj>
-        SourceDirs : list<DirectoryInfo>
         TargetDir : DirectoryInfo
     }
 
