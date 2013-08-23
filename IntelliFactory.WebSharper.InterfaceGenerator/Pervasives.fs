@@ -229,7 +229,13 @@ module Pervasives =
     /// Adds a resource dependency.
     let Requires (requires : Code.Resource list) (ty: #Code.NamespaceEntity) =
         ty |> Code.Entity.Update (fun x ->
-            let ids = requires |> List.map (fun res -> res.Id)
+            let ids = requires |> List.map (fun res -> Code.LocalDependency res.Id)
+            x.DependsOn <- ids @ x.DependsOn)
+
+    /// Adds an externally defined resource dependency.
+    let RequiresExternal (requires: Type.Type list) (ty: #Code.NamespaceEntity) =
+        ty |> Code.Entity.Update (fun x ->
+            let ids = requires |> List.map (fun res -> Code.ExternalDependency res)
             x.DependsOn <- ids @ x.DependsOn)
 
     let private Fresh =

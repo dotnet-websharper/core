@@ -266,7 +266,7 @@ module CodeModel =
 
     and [<AbstractClass>] NamespaceEntity =
         inherit Entity
-        val mutable DependsOn : Type.Id list
+        val mutable DependsOn : list<Dependency>
         val mutable Id : Type.Id
 
         internal new (name) =
@@ -276,6 +276,10 @@ module CodeModel =
                 DependsOn = []
                 Id = id
             }
+
+    and Dependency =
+        | ExternalDependency of Type.Type
+        | LocalDependency of Type.Id
 
     and Resource =
         inherit NamespaceEntity

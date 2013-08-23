@@ -560,9 +560,14 @@ type MemberConverter
 
     member private d.AddDependencies(ent: CodeModel.NamespaceEntity, prov: ICustomAttributeProvider) =
         for d in ent.DependsOn do
-            match types.TryGetValue(d) with
-            | true, t -> prov.CustomAttributes.Add(requireAttribute t)
-            | _ -> ()
+            match d with
+            | Code.LocalDependency d ->
+                match types.TryGetValue(d) with
+                | true, t -> prov.CustomAttributes.Add(requireAttribute t)
+                | _ -> ()
+            | Code.ExternalDependency ty ->
+                let t = tC.TypeReference ty
+                prov.CustomAttributes.Add(requireAttribute t)
 
     member c.Class(x: Code.Class) =
         genericType x (fun c tD -> c.Class(x, tD))
