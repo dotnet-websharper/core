@@ -32,3 +32,4 @@
 ^build/.*Config.fs
 ^build/compiler/
 ^build/.*nupkg$
+__

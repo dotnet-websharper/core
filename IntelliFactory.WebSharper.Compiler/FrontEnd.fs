@@ -33,6 +33,7 @@ module P = IntelliFactory.JavaScript.Packager
 module R = IntelliFactory.WebSharper.Compiler.ReflectionLayer
 module Re = IntelliFactory.WebSharper.Core.Reflection
 module Res = IntelliFactory.WebSharper.Core.Resources
+module TSE = IntelliFactory.WebSharper.TypeScriptExporter
 module W = IntelliFactory.JavaScript.Writer
 type Path = string
 type Pref = IntelliFactory.JavaScript.Preferences
@@ -45,6 +46,9 @@ let EMBEDDED_JS = "WebSharper.js"
 
 [<Literal>]
 let EMBEDDED_MINJS = "WebSharper.min.js"
+
+[<Literal>]
+let EMBEDDED_DTS = "WebSharper.d.ts"
 
 let readResource name (def: AssemblyDefinition) =
     def.MainModule.Resources
@@ -95,6 +99,9 @@ type Assembly =
 
     member this.CompressedJavaScript =
         readResource EMBEDDED_MINJS this.Definition
+
+    member this.TypeScriptDeclarations =
+        readResource EMBEDDED_DTS this.Definition
 
 [<Sealed>]
 type Resolver(aR: AssemblyResolver) =
@@ -178,8 +185,14 @@ type Loader(aR: AssemblyResolver, log: string -> unit) =
             load bytes None aR
 
 module CecilTools =
+    open System.Text
 
-    let writeCompiledMetadata (a: AssemblyDefinition) (rm: M.AssemblyInfo) (meta: Metadata.T) (pkg: P.Module) =
+    let writeCompiledMetadata
+            (a: AssemblyDefinition)
+            (rm: M.AssemblyInfo)
+            (meta: Metadata.T)
+            (pkg: P.Module)
+            (typeScript: string) =
         let pub = ManifestResourceAttributes.Public
         let dep =
             use s = new MemoryStream(8 * 1024)
@@ -206,6 +219,12 @@ module CecilTools =
             |> a.MainModule.Resources.Add
             EmbeddedResource(EMBEDDED_JS, pub, js Pref.Readable)
             |> a.MainModule.Resources.Add
+        EmbeddedResource
+            (
+                EMBEDDED_DTS, pub,
+                UTF8Encoding(false, true).GetBytes(typeScript)
+            )
+        |> a.MainModule.Resources.Add
 
     let readRuntimeMetadata (a: AssemblyDefinition) =
         let key = M.AssemblyInfo.EmbeddedResourceName
@@ -280,7 +299,8 @@ type CompiledAssembly
         meta: Metadata.T,
         aInfo: M.AssemblyInfo,
         mInfo: M.Info,
-        pkg: P.Module
+        pkg: P.Module,
+        typeScript: string
     ) =
 
     let getJS (pref: Pref) =
@@ -304,6 +324,7 @@ type CompiledAssembly
     member this.Metadata = meta
     member this.Package = pkg
     member this.ReadableJavaScript = readableJS.Value
+    member this.TypeScriptDeclarations = typeScript
 
     member this.Dependencies = deps.Value
 
@@ -413,7 +434,9 @@ type Compiler(errorLimit: int, log: Message -> unit, ctx: Context) =
             Assembler.Assemble logger pool macros joined va
             if !succ then
                 let mInfo = M.Info.Create (rm :: ctx.Infos)
-                Some (CompiledAssembly(ctx, assembly, local, rm, mInfo, pkg.Value))
+                let pkg = pkg.Value
+                let tsDecls = TSE.ExportDeclarations joined va
+                Some (CompiledAssembly(ctx, assembly, local, rm, mInfo, pkg, tsDecls))
             else None
         with ErrorLimitExceeded -> None
 
@@ -422,7 +445,7 @@ type Compiler(errorLimit: int, log: Message -> unit, ctx: Context) =
         | None -> false
         | Some a ->
             CecilTools.writeCompiledMetadata assembly.Definition
-                a.AssemblyInfo a.Metadata a.Package
+                a.AssemblyInfo a.Metadata a.Package a.TypeScriptDeclarations
             true
 
 let Prepare (options: Options) (log: Message -> unit) : Compiler =

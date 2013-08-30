@@ -39,6 +39,7 @@ type CompilationOptions =
         Output : Path
         OutputJavaScript : option<Path>
         OutputMinified : option<Path>
+        OutputTypeScript : option<Path>
         TailCalls : bool
     }
 
@@ -112,6 +113,11 @@ let spec =
                 "The path for the generated minified JavaScript."
                 A.String
             |> A.Optional
+        let! dts =
+            A.Keyword "-dts"
+                "The path for the generated TypeScript declarations."
+                A.String
+            |> A.Optional
         let! extract =
             A.Keyword "-extract"
                 "Extracts a DLL resource of the given name to the target path."
@@ -147,6 +153,7 @@ let spec =
                     Output = output
                     OutputJavaScript = js
                     OutputMinified = jsmin
+                    OutputTypeScript = dts
                     TailCalls = tramp
                 }
         | None, Some u ->

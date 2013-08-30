@@ -72,6 +72,7 @@ type MethodKind =
 type Method =
     {
         Currying : list<int>
+        Definition : MethodDefinition
         Kind : MethodKind
         Location : Location
         Name : Name

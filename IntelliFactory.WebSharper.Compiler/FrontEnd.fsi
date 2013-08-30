@@ -55,6 +55,9 @@ type Assembly =
     /// Returns the associated symbols, if any.
     member Symbols : option<Symbols>
 
+    /// The TypeScript `.d.ts` declarations for the JavaScript.
+    member TypeScriptDeclarations : option<string>
+
 /// Loads assemblies.
 [<Sealed>]
 type Loader =
@@ -125,6 +128,9 @@ type CompiledAssembly =
 
     /// The readable JS source for the assembly.
     member ReadableJavaScript : string
+
+    /// The TypeScript `.d.ts` declarations for the JavaScript.
+    member TypeScriptDeclarations : string
 
 /// Represents the compiler front-end object.
 [<Sealed>]

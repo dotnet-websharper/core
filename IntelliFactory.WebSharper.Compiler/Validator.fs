@@ -76,6 +76,7 @@ type MethodKind =
 type Method =
     {
         Currying : list<int>
+        Definition : MethodDefinition
         Kind : MethodKind
         Location : Location
         Name : Name
@@ -424,6 +425,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
             let a = t.Annotations
             {
                 Currying = curr
+                Definition = self
                 Name =
                     match kind with
                     | MethodKind.StubMethod ->
