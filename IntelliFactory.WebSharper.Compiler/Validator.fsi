@@ -120,6 +120,7 @@ and Type =
         Properties : list<Property>
         Proxy : option<R.TypeDefinition>
         Reference : R.TypeDefinition
+        ReflectorType : Re.Type
         Requirements : list<Requirement>
         Status : Status
     }

@@ -249,6 +249,16 @@ module Cecil =
     and [<Sealed>] TRef(tR: Mono.Cecil.TypeReference) =
         inherit TypeReference()
 
+        let ga =
+            if tR.IsGenericInstance then
+                let git = tR :?> Mono.Cecil.GenericInstanceType
+                if git.HasGenericArguments
+                    then git.GenericArguments.Count
+                    else 0
+            elif tR.HasGenericParameters then
+                tR.GenericParameters.Count
+            else 0
+
         override this.AssemblyName = Converter.GetAssemblyName(tR)
         override this.Resolve() = Converter.TDef(tR.Resolve())
         override this.FullName = tR.FullName
@@ -262,10 +272,7 @@ module Cecil =
             | null -> None
             | dT -> Some (Converter.TRef(dT))
 
-        override this.GenericArity =
-            if tR.HasGenericParameters
-                then tR.GenericParameters.Count
-                else 0
+        override this.GenericArity = ga
 
     and [<Sealed>] TDef(tD: Mono.Cecil.TypeDefinition) =
         inherit TypeDefinition()

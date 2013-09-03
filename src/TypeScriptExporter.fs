@@ -23,51 +23,130 @@ namespace IntelliFactory.WebSharper
 
 module internal TypeScriptExporter =
     open System
+    open System.Collections.Generic
     open System.IO
+    open System.Text.RegularExpressions
     open IntelliFactory.WebSharper.Compiler
     module CM = Metadata
     module T = TypeScriptGenerator
     module P = IntelliFactory.JavaScript.Packager
+    module Re = Reflector
     module V = Validator
 
     type Context =
         {
-            CM : Metadata.T
             Builder : T.AddressBuilder
+            CM : Metadata.T
+            GenericDeclaration : option<T.Declaration>
+            GenericSignature : option<T.Signature>
+            GetContractImplementation : Context -> TypeReference -> T.Contract
         }
 
-    let emptyDefs =
-        T.Definitions.Merge []
+        static member Create(cm, impl) =
+            {
+                Builder = T.AddressBuilder.Create()
+                CM = cm
+                GenericDeclaration = None
+                GenericSignature = None
+                GetContractImplementation = impl
+            }
+
+    let emptyDefs = T.Definitions.Merge []
+    let pat = Regex(@"[^\w$]")
+
+    let cleanName (s: string) =
+        pat.Replace(s, "_")
 
     let rec convertAddress ctx (addr: P.Address) =
         match addr with
-        | P.Global x -> ctx.Builder.Root(x)
+        | P.Global x -> ctx.Builder.Root(cleanName x)
         | P.Local (x, y) ->
             let x = convertAddress ctx x
-            ctx.Builder.Nested(x, y)
+            ctx.Builder.Nested(x, cleanName y)
 
-    let rec getContract ctx (tR: TypeReference) =
+    let getContract ctx tR =
+        ctx.GetContractImplementation ctx tR
+
+    type FType =
+        {
+            FArgs : list<TypeReference>
+            FRet : TypeReference
+        }
+
+    let (|UnitType|_|) (tR: TypeReference) =
+        if tR.Namespace = "Microsoft.FSharp.Core" && tR.Name = "Unit"
+            then Some () else None
+
+    let (|TupleType|_|) (tR: TypeReference) =
+        match tR.Namespace, tR.Name with
+        | "System", n when n.StartsWith("Tuple") ->
+            let ps =
+                match tR.Shape with
+                | TypeShape.GenericInstanceType args -> args
+                | _ -> []
+            Some ps
+        | _ -> None
+
+    let (|FuncType|_|) ts (tR: TypeReference) =
+        match tR.Namespace, tR.Name, ts with
+        | "Microsoft.FSharp.Core", "FSharpFunc`2", [d; r] ->
+            let fType args r = { FArgs = args; FRet = r }
+            match d with
+            | UnitType -> fType [] r
+            | TupleType ts -> fType ts r
+            | _ -> fType [d] r
+            |> Some
+        | _ -> None
+
+    let getFuncContract ctx fT =
+        let call =
+            fT.FArgs
+            |> Seq.mapi (fun i t ->
+                ("x" + string i, getContract ctx t))
+            |> Seq.fold (fun (s: T.Signature) (n, t) ->
+                s.WithArgument(n, t))
+                (T.Signature.Create [])
+            |> fun s -> s.WithReturn(getContract ctx fT.FRet)
+            |> T.Member.Call
+        T.Interface.Create [call]
+        |> T.Contract.Anonymous
+
+    let makeGenerics prefix count =
+        [ for i in 1 .. count -> prefix + string i ]
+
+    let getNamedContract ctx (tR: TypeReference) ts =
+        match ctx.CM.DataType(Adapter.AdaptTypeDefinition(tR)) with
+        | Some (CM.DataTypeKind.Class addr)
+        | Some (CM.DataTypeKind.Exception addr)
+        | Some (CM.DataTypeKind.Record (addr, _)) ->
+            let addr = convertAddress ctx addr
+            let decl = T.Declaration.Create(addr, makeGenerics "T" tR.GenericArity)
+            T.Contract.Named(decl, ts)
+        | Some (CM.DataTypeKind.Object fields) -> T.Contract.Any
+        | None -> T.Contract.Any
+
+    let rec getContractImpl ctx (tR: TypeReference) =
+        let inline getContract ctx tR = getContractImpl ctx tR
         match tR.Shape with
         | TypeShape.ArrayType (1, r) ->
-            getContract ctx r
+            getContractImpl ctx r
             |> T.Contract.Array
         | TypeShape.ArrayType _ ->
             T.Contract.Any
         | TypeShape.GenericInstanceType ts ->
-            match ctx.CM.DataType(Adapter.AdaptTypeDefinition(tR)) with
-            | Some (CM.DataTypeKind.Class addr)
-            | Some (CM.DataTypeKind.Exception addr) ->
-                let gs =
-                    if tR.HasGenericParameters
-                    then [for i in 1 .. tR.GenericArity -> "T" + string i]
-                    else []
-                let a = convertAddress ctx addr
-                let decl = T.Declaration.Create(a, gs)
-                T.Contract.Named(decl, [for t in ts -> getContract ctx t])
+            match tR with
+            | FuncType ts fT ->
+                getFuncContract ctx fT
             | _ ->
-                T.Contract.Any
-        | TypeShape.GenericParameter (_, _) ->
-            T.Contract.Any
+                getNamedContract ctx tR [for t in ts -> getContract ctx t]
+        | TypeShape.GenericParameter (OwnerMethod _, pos) ->
+            match ctx.GenericSignature with
+            | None -> T.Contract.Any
+            | Some m -> T.Contract.Generic(m, pos)
+        | TypeShape.GenericParameter (OwnerType _, pos) ->
+            match ctx.GenericDeclaration with
+            | None -> T.Contract.Any
+            | Some d -> T.Contract.Generic(d, pos)
         | TypeShape.OtherType ->
             if tR.IsPrimitive then
                 if tR.Name = "Boolean" then
@@ -79,57 +158,119 @@ module internal TypeScriptExporter =
                 | "System.String" -> T.Contract.String
                 | "System.Void"
                 | "Microsoft.FSharp.Core.Unit" -> T.Contract.Void
-                | _ -> T.Contract.Any
+                | _ -> getNamedContract ctx tR []
 
-    let exportMethod ctx (m: Validator.Method) =
+    let getSignature ctx (m: MethodReference) =
+        let s = T.Signature.Create(makeGenerics "M" m.GenericArity)
+        let ctx = { ctx with GenericSignature = Some s }
+        let s =
+            (s, m.Parameters)
+            ||> Seq.fold (fun s p -> s.WithArgument(p.Name, getContract ctx p.ParameterType))
+        match m.ReturnType with
+        | None -> s
+        | Some rT -> s.WithReturn(getContract ctx rT)
+
+    let convMethod ctx (m: V.Method) =
         match m.Kind with
-        | V.MethodKind.InlineMethod _
-        | V.MethodKind.MacroMethod _
-        | V.MethodKind.RemoteMethod _ -> None
-        | V.MethodKind.JavaScriptMethod _ ->
-            let addr = convertAddress ctx m.Slot.Address.Address
-            let mutable s = T.Signature.Create()
-            for p in m.Definition.Parameters do
-                s <- s.WithArgument(p.Name, getContract ctx p.ParameterType)
-            match m.Definition.ReturnType with
-            | None -> ()
-            | Some rT ->
-                s <- s.WithReturn(getContract ctx rT)
-            let contract =
-                T.Interface.Create [
-                    T.Member.Call(s)
-                ]
-            T.Definitions.Var(addr, T.Contract.Anonymous contract)
-            |> Some
-        | V.MethodKind.StubMethod _ ->
-            None
+        | V.JavaScriptMethod _ ->
+            Some (getSignature ctx m.Definition)
+        | _ -> None
 
-    let rec exportType ctx (t: Validator.Type) : seq<T.Definitions> =
-        match t.Kind with
-        | V.TypeKind.Class _
-        | V.TypeKind.Exception _
-        | V.TypeKind.Interface _ ->
-            Seq.empty
-        | V.TypeKind.Module nestedTypes ->
-            seq  {
+    let exportStaticMethod ctx (m: V.Method) =
+        let addr = convertAddress ctx m.Name
+        match convMethod ctx m with
+        | None -> []
+        | Some s ->
+            let c =
+                [T.Member.Call s]
+                |> T.Interface.Create
+                |> T.Contract.Anonymous
+            [T.Definitions.Var(addr, c)]
+
+    let exportStaticMethods ctx (t: V.Type) =
+        seq {
+            for m in t.Methods do
+                match m.Scope with
+                | MemberScope.Static ->
+                    yield! exportStaticMethod ctx m
+                | MemberScope.Instance -> ()
+        }
+
+    let exportStaticProperties ctx (t: V.Type) =
+        seq {
+            for p in t.Properties do
+                match p.Scope with
+                | MemberScope.Static ->
+                    match p.Kind with
+                    | V.BasicProperty (m1, m2) ->
+                        let p m =
+                            match m with
+                            | None -> []
+                            | Some m -> exportStaticMethod ctx m
+                        yield! p m1
+                        yield! p m2
+                    | _ -> ()
+                | _ -> ()
+        }
+
+    let exportNamedContract ctx (t: V.Type) =
+        let addr = convertAddress ctx t.Name
+        let decl = T.Declaration.Create(addr, makeGenerics "T" t.ReflectorType.Definition.GenericArity)
+        let ctx = { ctx with GenericDeclaration = Some decl }
+        let emitMethod m =
+            match m with
+            | None -> []
+            | Some m ->
+                match convMethod ctx m with
+                | None -> []
+                | Some s -> [T.Member.Method(m.Name.LocalName, s)]
+        let iF =
+            [
+                for m in t.Methods do
+                    match m.Scope with
+                    | MemberScope.Instance ->
+                        yield! emitMethod (Some m)
+                    | MemberScope.Static -> ()
+                for p in t.Properties do
+                    match p.Scope with
+                    | MemberScope.Instance ->
+                        match p.Kind with
+                        | V.PropertyKind.BasicProperty (gM, sM) ->
+                            yield! emitMethod gM
+                            yield! emitMethod sM
+                        | _ -> ()
+                    | _ -> ()
+            ]
+            |> T.Interface.Create
+        T.Definitions.Define(decl, iF)
+
+    let rec exportType ctx (t: V.Type) =
+        seq {
+            yield! exportStaticMethods ctx t
+            yield! exportStaticProperties ctx t
+            match t.Kind with
+            | V.TypeKind.Class (slot, baseType, ctorList, nestedTypes) ->
+                match t.Status with
+                | V.Status.Compiled ->
+                    for t in nestedTypes do
+                        yield! exportType ctx t
+                    yield exportNamedContract ctx t
+                | V.Status.Ignored -> ()
+            | V.TypeKind.Exception _
+            | V.TypeKind.Interface _ ->
+                ()
+            | V.TypeKind.Module nestedTypes ->
                 for t in nestedTypes do
                     yield! exportType ctx t
-                for m in t.Methods do
-                    match exportMethod ctx m with
-                    | None -> ()
-                    | Some r -> yield r
-            }
-        | V.TypeKind.Record _
-        | V.TypeKind.Resource _
-        | V.TypeKind.Union _ ->
-            Seq.empty
+            | V.TypeKind.Record _ ->
+                yield exportNamedContract ctx t
+            | V.TypeKind.Resource _ -> ()
+            | V.TypeKind.Union _ ->
+                yield exportNamedContract ctx t
+        }
 
-    let ExportDeclarations cm (v: Validator.Assembly) =
-        let ctx =
-            {
-                Builder = T.AddressBuilder.Create()
-                CM = cm
-            }
+    let ExportDeclarations (cm: CM.T) (v: V.Assembly) =
+        let ctx = Context.Create(cm, getContractImpl)
         let defs =
             seq {
                 for t in v.Types do

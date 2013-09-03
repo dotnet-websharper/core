@@ -127,6 +127,7 @@ and Type =
         Properties : list<Property>
         Proxy : option<R.TypeDefinition>
         Reference : R.TypeDefinition
+        ReflectorType : Re.Type
         Requirements : list<Requirement>
         Status : Status
     }
@@ -594,6 +595,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = []
                 Proxy = None
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status = Ignored
             }
@@ -617,6 +619,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = ps
                 Proxy = getProxy t.Annotations
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status =
                     let comp =
@@ -650,6 +653,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = ps
                 Proxy = getProxy t.Annotations
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status =
                     let comp =
@@ -680,6 +684,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = ps
                 Proxy = getProxy t.Annotations
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status = Ignored
             }
@@ -695,6 +700,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = ps
                 Proxy = getProxy t.Annotations
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status =
                     let comp =
@@ -720,6 +726,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = ps
                 Proxy = getProxy t.Annotations
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status =
                     let comp =
@@ -740,6 +747,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = ps
                 Proxy = getProxy t.Annotations
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status =
                     let comp =

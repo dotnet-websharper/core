@@ -25,6 +25,7 @@ module internal TypeScriptGenerator =
     open System
     open System.Collections.Generic
     open System.IO
+    open System.Text.RegularExpressions
     open System.Threading
     module MC = MutableCollections
     module Q = QualifiedNames
@@ -37,6 +38,9 @@ module internal TypeScriptGenerator =
 
     let freshTVar () =
         TVar(Interlocked.Increment(&tVarCounter))
+
+    let idPattern =
+        Regex(@"^([\w$])+$")
 
     type Address =
         | Address of Q.Name
@@ -67,7 +71,12 @@ module internal TypeScriptGenerator =
             Address (ab.QBuilder.Root(ab.QBuilder.Id(n)))
 
         static member Create() =
-            { QBuilder = Q.Builder.Create() }
+            let cfg =
+                {
+                    Q.Config.Default with
+                        IsValidId = idPattern.IsMatch
+                }
+            { QBuilder = Q.Builder.Create(cfg) }
 
     type Generic =
         {
@@ -662,10 +671,10 @@ module internal TypeScriptGenerator =
         writeLine pc "}"
 
     and writeModuleBody pc data sc =
-        for (n, d) in queryDefinitions data sc do
-            writeDefinition pc d n
         for ss in queryModules data sc do
             writeModule pc data ss
+        for (n, d) in queryDefinitions data sc do
+            writeDefinition pc d n
 
     let writeDefs opts pc data defs =
         let exp = opts.ExportDeclarations
