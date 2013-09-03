@@ -24,7 +24,7 @@ module IntelliFactory.WebSharper.Compiler.FrontEnd
 
 open System.Reflection
 open System.Web.UI
-open IntelliFactory.Core
+// open IntelliFactory.Core
 module M = IntelliFactory.WebSharper.Core.Metadata
 module R = IntelliFactory.WebSharper.Core.Resources
 
