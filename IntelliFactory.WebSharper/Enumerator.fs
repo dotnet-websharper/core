@@ -26,30 +26,18 @@ module J            = IntelliFactory.WebSharper.JavaScript
 type private IE<'T> = System.Collections.Generic.IEnumerator<'T>
 
 /// Represents an unfolding enumerator.
-type T<'S,'T> =
-    {
-        [<Name "s">] mutable State   : 'S
-        [<Name "c">] mutable Current : 'T
-    }
-
-    interface System.Collections.IEnumerator with
-        member this.Current    = X
-        member this.MoveNext() = X
-        member this.Reset()    = X
-
-    interface IE<'T> with
-        member this.Current = X
-
-    interface System.IDisposable with
-        member this.Dispose() = X
+[<Name "T">]
+[<JavaScript>]
+type T<'S,'T>(s: 'S, c: 'T, n: T<'S,'T> -> bool) =
+    member this.MoveNext() = n this
+    member this.State with [<Inline>] get() = s and [<Inline>] set (v: 'S) = this?s <- v
+    member this.Current with get() = c and [<Inline>] set (v: 'T) = this?c <- v
 
 /// Constructs a new `IEnumerator` by unfolding a function.
+[<Inline>]
 [<JavaScript>]
 let New<'S,'T> (state: 'S) (next: T<'S,'T> -> bool) =
-    let r = { State = state; Current = Unchecked.defaultof<_> }
-    (?<-) r "get_Current" (fun () -> r.Current)
-    (?<-) r "MoveNext" (fun () -> next r)
-    r :> IE<'T>
+    As<IE<'T>> (new T<'S,'T>(state, As null, next)) 
 
 [<Inline "$x.GetEnumerator()">]
 let getEnumerator (x: obj) : IE<'T> = X
