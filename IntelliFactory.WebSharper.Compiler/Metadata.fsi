@@ -46,8 +46,8 @@ type ConstructorKind =
 type DataTypeKind =
     | Class of P.Address
     | Exception of P.Address
-    | Object of list<Field*Field>
-    | Record of P.Address * list<Field*Field>
+    | Object of list<string * string>
+    | Record of P.Address * list<string * string>
 
 /// Represents method metadata.
 type MethodKind =

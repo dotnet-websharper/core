@@ -94,11 +94,19 @@ type PropertyKind =
     | JavaScriptModuleProperty of Q.Expression
     | StubProperty
 
+type RecordProperty =
+    {
+        JavaScriptName : string
+        OriginalName : string
+        PropertyType : TypeReference
+    }
+
 type Property =
     {
         Kind : PropertyKind
         Location : Location
         Name : Name
+        PropertyType : TypeReference
         Reference : R.Property
         Scope : MemberScope
         Slot : Re.MemberSlot
@@ -109,7 +117,7 @@ and TypeKind =
     | Exception
     | Interface
     | Module of list<Type>
-    | Record of list<RecordField*RecordField>
+    | Record of list<RecordProperty>
     | Resource
     | Union of list<UnionCase>
 
@@ -490,6 +498,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Name = p.Member.AddressSlot.Address
                 Kind = kind
                 Location = p.Member.Location
+                PropertyType = p.Member.Definition.PropertyType
                 Reference = Adapter.AdaptProperty prop.Definition
                 Scope = scope
                 Slot = p.Member.MemberSlot
@@ -534,6 +543,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Name = p.Member.AddressSlot.Address
                 Kind = kind
                 Location = loc
+                PropertyType = p.Member.Definition.PropertyType
                 Reference = Adapter.AdaptProperty self
                 Scope = Static
                 Slot = p.Member.MemberSlot
@@ -715,7 +725,11 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 |> List.map (fun f ->
                     let oN = f.Definition.Name
                     let cN = f.AddressSlot.Address.LocalName
-                    (oN, cN))
+                    {
+                        OriginalName = oN
+                        JavaScriptName = cN
+                        PropertyType = f.Definition.PropertyType
+                    })
             let ms = c (pMethod pStub iP) t.Methods
             let ps = c (pProp pStub iP) t.Properties
             Some {
