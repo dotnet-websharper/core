@@ -267,15 +267,14 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
             | Re.Stub -> Some Stub
             | _ -> None
         match List.choose parse annotations with
+        | [] -> None
+        | [a] -> Some a
         | [Inline null; JavaScript x]
         | [JavaScript x; Inline null] ->
             Some (InlineJavaScript x)
-        | Inline null :: xs ->
-            warn loc "An InlineAttribute with no arguments can only \
-                be used as a modifier of JavaScriptAttribute."
-            None
-        | [] -> None
-        | [a] -> Some a
+        | [a; JavaScript _]
+        | [JavaScript _; a] ->
+            Some a
         | a :: _ ->
             warn loc "Ignoring incompatible attributes."
             Some a

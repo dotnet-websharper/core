@@ -31,25 +31,24 @@ type SP = Syntax.PostfixOperator
 type SU = Syntax.UnaryOperator
 
 [<Sealed>]
-type Id(id: int, ?name: string) =
+type Id(id: int, name: string option, mut: bool) =
     static let root = obj ()
     static let mutable n = 0
-    static let next () = lock root (fun () -> let k = n in n <- k + 1; k)
+    static let next() = lock root (fun () -> let k = n in n <- k + 1; k)
     let mutable name = name
 
-    new (name: option<string>) =
-        match name with
-        | None -> new Id()
-        | Some n -> new Id(n)
-
-    new () = new Id(next ())
-    new n = new Id(next (), n)
+    new () = new Id(next(), None, false)
+    new (nameOpt) = new Id(next(), nameOpt, false)    
+    new (name) = new Id(next(), Some name, false)    
+    new (name, mut) = new Id(next(), Some name, mut)
 
     member this.Id = id
 
     member this.Name
         with get () = name
         and set x = name <- x
+
+    member this.Mutable = mut
 
     override this.GetHashCode() = id
 
@@ -154,6 +153,7 @@ and Expression =
     | TryWith of E * Id * E
     | Unary of UnaryOperator * E
     | Var of Id
+    | VarSet of Id * E
     | WhileLoop of E * E
 
     static member ( + ) (a, b) = Binary (a, B.``+``, b)
@@ -242,6 +242,7 @@ let Transform (!) expr =
         TryWith (x, v, y)
     | TryFinally (x, y) -> TryFinally (!x, !y)
     | Unary (o, x) -> Unary (o, !x)
+    | VarSet (v, x) -> VarSet(v, !x)
     | WhileLoop (x, y) -> WhileLoop (!x, !y)
     | _ ->  expr
 
@@ -795,7 +796,7 @@ let inlineLetExprs expr =
     /// Computes the optimized expression and its free variable counts.
     let rec t (expr: Expression) : Expression * Map<Id,int> =
         match expr with
-        | Let (var, value, body) ->
+        | Let (var, value, body) when not var.Mutable ->
             let (body2, bc) = t body
             let (value2, vc) = t value
             let counts = Map.remove var (sumCounts bc vc)
@@ -804,9 +805,18 @@ let inlineLetExprs expr =
                 if isPure value
                     then (body2, bc)
                     else (Sequential (value2, body2), counts)
-            | k when k = 1 && isPure value || isTiny value ->
-                let result = Substitute (fun x -> if x = var then Some value else None) body
-                (result, counts)
+            | k when k = 1 ->
+                if isPure value || isTiny value then
+                    let result = Substitute (fun x -> if x = var then Some value else None) body
+                    (result, counts)
+                else 
+                match body2 with 
+                | Application(f, Var v :: argt) when var = v ->
+                    Application(f, value2 :: argt) |> removeRedexes, counts
+                | Call(o, m, Var v :: argt) when var = v ->
+                    Call(o, m, value2 :: argt) |> removeRedexes, counts
+                | _ ->
+                    (Let (var, value2, body2), counts)
             | _ ->
                 (Let (var, value2, body2), counts)
         | Lambda (this, vars, body) ->
@@ -816,7 +826,7 @@ let inlineLetExprs expr =
                 ||> List.fold (fun counts x -> Map.remove x counts))
         | Var id ->
             (expr, Map [id, 1])
-        | _ ->
+        | _ -> 
             let r = ref Map.empty
             let expr2 =
                 expr
@@ -832,8 +842,8 @@ let Optimize expr =
     AlphaNormalize expr
     |> Uncurry
     |> RemoveLoops
-    |> inlineLetExprs
     |> removeRedexes
+    |> inlineLetExprs
     |> unalias
     |> eta
 
@@ -997,6 +1007,8 @@ let ToProgram prefs expr =
             S.Unary (ElaborateUnaryOperator o, !x)
         | Var v ->
             !^v
+        | VarSet (var, value) ->
+            !^var ^= !value
         | WhileLoop (c, b) ->
             let c = Lambda (None, [], c)
             let b = Lambda (None, [], b.Void)
