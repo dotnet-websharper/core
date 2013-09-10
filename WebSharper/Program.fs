@@ -82,15 +82,19 @@ let compile (aR: AssemblyResolver) (opts: Options.CompilationOptions) =
                     match assem.ReadableJavaScript with
                     | Some js -> writeTextFile (path, js)
                     | None -> ()
-                | None ->
-                    ()
+                | None -> ()
                 match opts.OutputMinified with
                 | Some path ->
                     match assem.CompressedJavaScript with
                     | Some js -> writeTextFile (path, js)
                     | None -> ()
-                | None ->
-                    ()
+                | None -> ()
+                match opts.OutputTypeScript with
+                | Some path ->
+                    match assem.TypeScriptDeclarations with
+                    | Some dts -> writeTextFile (path, dts)
+                    | None -> ()
+                | None -> ()
                 for (assem, k, v) in opts.Extraction do
                     let a = Mono.Cecil.AssemblyDefinition.ReadAssembly assem
                     for r in a.MainModule.Resources do
@@ -122,20 +126,17 @@ let run (aR: AssemblyResolver) (opts: Options.T) =
         let loader = FE.Loader.Create aR stderr.WriteLine
         for p in assemblies do
             let a = loader.LoadFile p
-            match a.ReadableJavaScript with
-            | Some js ->
-                let path =
-                    Path.Combine(folder,
-                        Path.GetFileName p + ".js")
-                writeTextFile (path, js)
-            | None -> ()
-            match a.CompressedJavaScript with
-            | Some js ->
-                let path =
-                    Path.Combine(folder,
-                        Path.GetFileName p + ".min.js")
-                writeTextFile (path, js)
-            | None -> ()
+            let emit text ext =
+                match text with
+                | Some text ->
+                    let path =
+                        Path.Combine(folder,
+                            Path.GetFileName p + ext)
+                    writeTextFile (path, text)
+                | None -> ()
+            emit a.ReadableJavaScript ".js"
+            emit a.CompressedJavaScript ".min.js"
+            emit a.TypeScriptDeclarations ".d.ts"
         0
     | Options.Dependencies path ->
         DependencyReporter.Run path
@@ -183,6 +184,20 @@ let Start args =
                 let c = InterfaceGenerator.Compiler.Create()
                 c.Start(args, ad, aR)
                 |> Some
+        | "bundle" :: out :: paths ->
+            let bundle =
+                FE.Bundle.Create().WithDefaultReferences()
+                |> (fun b ->
+                    (b, paths)
+                    ||> Seq.fold (fun b p -> b.WithAssembly(p)))
+                |> (fun b -> b.WithTransitiveReferences())
+            let write (c: FE.Content) (ext: string) =
+                c.WriteFile(out + ext)
+            write bundle.CSS ".css"
+            write bundle.JavaScript ".js"
+            write bundle.MinifiedJavaScript ".min.js"
+            write bundle.TypeScript ".d.ts"
+            Some 0
         | _ ->
             let env =
                 {

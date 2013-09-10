@@ -22,7 +22,9 @@
 /// Exposes the compiler front-end for programmatic use.
 module IntelliFactory.WebSharper.Compiler.FrontEnd
 
+open System.IO
 open System.Reflection
+open System.Text
 open System.Web.UI
 open IntelliFactory.Core
 module M = IntelliFactory.WebSharper.Core.Metadata
@@ -54,6 +56,9 @@ type Assembly =
 
     /// Returns the associated symbols, if any.
     member Symbols : option<Symbols>
+
+    /// The TypeScript `.d.ts` declarations for the JavaScript.
+    member TypeScriptDeclarations : option<string>
 
 /// Loads assemblies.
 [<Sealed>]
@@ -126,6 +131,9 @@ type CompiledAssembly =
     /// The readable JS source for the assembly.
     member ReadableJavaScript : string
 
+    /// The TypeScript `.d.ts` declarations for the JavaScript.
+    member TypeScriptDeclarations : string
+
 /// Represents the compiler front-end object.
 [<Sealed>]
 type Compiler =
@@ -141,3 +149,23 @@ type Compiler =
 
 /// Prepares a compiler.
 val Prepare : Options -> log: (Message -> unit) -> Compiler
+
+/// See `Bundle`.
+[<Sealed>]
+type Content =
+    member WriteFile : name: string * ?encoding: Encoding -> unit
+    member Write : TextWriter -> unit
+    member Text : string
+
+/// Experimental API for bundling WebSharper file sets into application packages.
+[<Sealed>]
+type Bundle =
+    member CSS : Content
+    member JavaScript : Content
+    member MinifiedJavaScript : Content
+    member TypeScript : Content
+    member WithAssembly : assemblyFile: string -> Bundle
+    member WithDefaultReferences : unit -> Bundle
+    member WithTransitiveReferences : unit -> Bundle
+    static member Empty : Bundle
+    static member Create : unit -> Bundle

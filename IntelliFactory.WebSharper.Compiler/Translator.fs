@@ -419,7 +419,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                     typeof "string"
                 | _ ->
                     match meta.DataType t with
-                    | None | Some (M.Object _) ->
+                    | None | Some (M.Object _) | Some (M.Interface _) ->
                         err "Failed to compile a type test: " t.FullName
                     | Some (M.Class fn)
                     | Some (M.Record (fn, _))

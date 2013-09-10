@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -19,14 +19,12 @@
 //
 // $end{copyright}
 
-module private IntelliFactory.WebSharper.Ref
+namespace IntelliFactory.WebSharper
 
-[<Name "IntelliFactory.WebSharper.ref">]
-[<Proxy(typeof<ref<_>>)>]
-type private RefProxy<'T> =
+/// Exports the typed interface of a WebSharper assembly into
+/// TypeScript 0.9.1 declarations (`.d.ts` format).
+module internal TypeScriptExporter =
+    open IntelliFactory.WebSharper.Compiler
 
-    member this.Value
-        with    [<Inline "$this.contents">]
-                get () = X<'T>
-        and     [<Inline "void ($this.contents = $x)">]
-                set (x: 'T) = X<unit>
+    /// Computes the declarations in TypeScript `.d.ts` format.
+    val ExportDeclarations : Metadata.T -> Validator.Assembly -> string

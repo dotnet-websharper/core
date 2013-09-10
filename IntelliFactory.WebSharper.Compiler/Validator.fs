@@ -76,6 +76,7 @@ type MethodKind =
 type Method =
     {
         Currying : list<int>
+        Definition : MethodDefinition
         Kind : MethodKind
         Location : Location
         Name : Name
@@ -93,11 +94,19 @@ type PropertyKind =
     | JavaScriptModuleProperty of Q.Expression
     | StubProperty
 
+type RecordProperty =
+    {
+        JavaScriptName : string
+        OriginalName : string
+        PropertyType : TypeReference
+    }
+
 type Property =
     {
         Kind : PropertyKind
         Location : Location
         Name : Name
+        PropertyType : TypeReference
         Reference : R.Property
         Scope : MemberScope
         Slot : Re.MemberSlot
@@ -108,7 +117,7 @@ and TypeKind =
     | Exception
     | Interface
     | Module of list<Type>
-    | Record of list<RecordField*RecordField>
+    | Record of list<RecordProperty>
     | Resource
     | Union of list<UnionCase>
 
@@ -126,6 +135,7 @@ and Type =
         Properties : list<Property>
         Proxy : option<R.TypeDefinition>
         Reference : R.TypeDefinition
+        ReflectorType : Re.Type
         Requirements : list<Requirement>
         Status : Status
     }
@@ -423,6 +433,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
             let a = t.Annotations
             {
                 Currying = curr
+                Definition = self
                 Name =
                     match kind with
                     | MethodKind.StubMethod ->
@@ -486,6 +497,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Name = p.Member.AddressSlot.Address
                 Kind = kind
                 Location = p.Member.Location
+                PropertyType = p.Member.Definition.PropertyType
                 Reference = Adapter.AdaptProperty prop.Definition
                 Scope = scope
                 Slot = p.Member.MemberSlot
@@ -530,6 +542,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Name = p.Member.AddressSlot.Address
                 Kind = kind
                 Location = loc
+                PropertyType = p.Member.Definition.PropertyType
                 Reference = Adapter.AdaptProperty self
                 Scope = Static
                 Slot = p.Member.MemberSlot
@@ -591,6 +604,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = []
                 Proxy = None
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status = Ignored
             }
@@ -614,6 +628,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = ps
                 Proxy = getProxy t.Annotations
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status =
                     let comp =
@@ -647,6 +662,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = ps
                 Proxy = getProxy t.Annotations
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status =
                     let comp =
@@ -677,6 +693,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = ps
                 Proxy = getProxy t.Annotations
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status = Ignored
             }
@@ -692,6 +709,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = ps
                 Proxy = getProxy t.Annotations
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status =
                     let comp =
@@ -706,7 +724,11 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 |> List.map (fun f ->
                     let oN = f.Definition.Name
                     let cN = f.AddressSlot.Address.LocalName
-                    (oN, cN))
+                    {
+                        OriginalName = oN
+                        JavaScriptName = cN
+                        PropertyType = f.Definition.PropertyType
+                    })
             let ms = c (pMethod pStub iP) t.Methods
             let ps = c (pProp pStub iP) t.Properties
             Some {
@@ -717,6 +739,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = ps
                 Proxy = getProxy t.Annotations
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status =
                     let comp =
@@ -737,6 +760,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Properties = ps
                 Proxy = getProxy t.Annotations
                 Reference = rf
+                ReflectorType = t
                 Requirements = getRequirements loc Static t.Annotations
                 Status =
                     let comp =
@@ -744,6 +768,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                         || Seq.exists isCompiledProperty ps
                     if comp then Compiled else Ignored
             }
+
     let reqs = getRequirements assembly.Location Static assembly.Annotations
     let types =
         assembly.Types

@@ -44,8 +44,9 @@ type ConstructorKind =
 type DataTypeKind =
     | Class of P.Address
     | Exception of P.Address
-    | Object of list<Field*Field>
-    | Record of P.Address * list<Field*Field>
+    | Interface of P.Address
+    | Object of list<string * string>
+    | Record of P.Address * list<string * string>
 
 type MethodKind =
     | BasicInstanceMethod of Name
@@ -208,12 +209,13 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
         | V.Class (_, bT, ctors, nested) ->
             match ty.Status with
             | V.Compiled -> t.datatypes.[self] <- Class ty.Name
-            | V.Ignored  -> ()
+            | V.Ignored  -> t.datatypes.[self] <- Interface ty.Name
             List.iter ParseConstructor ctors
             List.iter ParseMethod ty.Methods
             List.iter ParseProperty ty.Properties
             List.iter ParseType nested
         | V.Interface ->
+            t.datatypes.[self] <- Interface ty.Name
             List.iter ParseMethod ty.Methods
             List.iter ParseProperty ty.Properties
         | V.Exception ->
@@ -227,14 +229,14 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
         | V.Record fields ->
             t.datatypes.[self] <-
                 match ty.Status with
-                | V.Compiled -> Record (ty.Name, fields)
-                | V.Ignored  -> Object fields
+                | V.Compiled -> Record (ty.Name, [for f in fields -> (f.OriginalName, f.JavaScriptName)])
+                | V.Ignored  -> Object [for f in fields -> (f.OriginalName, f.JavaScriptName)]
             List.iter ParseMethod ty.Methods
             List.iter ParseProperty ty.Properties
         | V.Union cases ->
             match ty.Status with
             | V.Compiled -> t.datatypes.[self] <- Class ty.Name
-            | V.Ignored -> ()
+            | V.Ignored -> t.datatypes.[self] <- Interface ty.Name
             cases
             |> List.iteri (fun i c ->
                 t.unions.[c.Reference] <-

@@ -260,6 +260,11 @@ let recInstanceMethod env (acc: Map<_,_>) (m: MethodMember) =
     else
         acc
 
+let cleanTypeName (s: string) =
+    match s.LastIndexOf('`') with
+    | -1 -> s
+    | k -> s.Substring(0, k)
+
 let rec recType env ctx acc (t: R.Type) =
     let x =
         {
@@ -275,7 +280,7 @@ let rec recType env ctx acc (t: R.Type) =
                         |> Array.reduce (fun x y -> P.Local (x, y.LocalName))
                         |> Some
         | _          -> ctx
-    let ctx   = addr ctx t.Definition.Name x.Name
+    let ctx   = addr ctx (cleanTypeName t.Definition.Name) x.Name
     let acc   = List.fold (recStaticProperty ctx) acc t.Properties
     let acc   = List.fold (recStaticMethod ctx) acc t.Methods
     let acc   = List.fold (recType env (Some ctx)) acc t.Nested

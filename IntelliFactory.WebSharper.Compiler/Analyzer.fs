@@ -150,7 +150,7 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
             List.iter (visitProperty assem) t.Properties
             List.iter (visitType assem self) nested
         | V.Record fields ->
-            info.AddRecord t.Reference fields
+            info.AddRecord t.Reference [for f in fields -> (f.OriginalName, f.JavaScriptName)]
             List.iter (visitMethod self) t.Methods
             List.iter (visitProperty self) t.Properties
         | V.Union cases ->
