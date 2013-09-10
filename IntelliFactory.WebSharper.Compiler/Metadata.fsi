@@ -46,6 +46,7 @@ type ConstructorKind =
 type DataTypeKind =
     | Class of P.Address
     | Exception of P.Address
+    | Interface of P.Address
     | Object of list<string * string>
     | Record of P.Address * list<string * string>
 

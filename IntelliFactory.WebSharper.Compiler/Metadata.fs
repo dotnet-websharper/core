@@ -44,6 +44,7 @@ type ConstructorKind =
 type DataTypeKind =
     | Class of P.Address
     | Exception of P.Address
+    | Interface of P.Address
     | Object of list<string * string>
     | Record of P.Address * list<string * string>
 
@@ -208,12 +209,13 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
         | V.Class (_, bT, ctors, nested) ->
             match ty.Status with
             | V.Compiled -> t.datatypes.[self] <- Class ty.Name
-            | V.Ignored  -> ()
+            | V.Ignored  -> t.datatypes.[self] <- Interface ty.Name
             List.iter ParseConstructor ctors
             List.iter ParseMethod ty.Methods
             List.iter ParseProperty ty.Properties
             List.iter ParseType nested
         | V.Interface ->
+            t.datatypes.[self] <- Interface ty.Name
             List.iter ParseMethod ty.Methods
             List.iter ParseProperty ty.Properties
         | V.Exception ->
@@ -234,7 +236,7 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
         | V.Union cases ->
             match ty.Status with
             | V.Compiled -> t.datatypes.[self] <- Class ty.Name
-            | V.Ignored -> ()
+            | V.Ignored -> t.datatypes.[self] <- Interface ty.Name
             cases
             |> List.iteri (fun i c ->
                 t.unions.[c.Reference] <-

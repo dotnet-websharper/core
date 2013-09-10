@@ -39,12 +39,13 @@ type IControl =
 let private Activate =
     H.OnLoad (fun () ->
         let doc = Dom.Document.Current
-        let meta = doc.GetElementById META_ID
-        let text = meta.GetAttribute "content"
-        let obj = Json.Activate (Json.Parse text)
-        J.GetFields obj
-        |> Array.iter (fun (k, v) ->
-            let p : IPagelet = (As<IControl> v).Body
-            let old = doc.GetElementById k
-            ignore (old.ParentNode.ReplaceChild(p.Body, old))
-            p.Render()))
+        let meta = doc.GetElementById(META_ID)
+        if (As meta) then
+            let text = meta.GetAttribute("content")
+            let obj = Json.Activate (Json.Parse text)
+            J.GetFields obj
+            |> Array.iter (fun (k, v) ->
+                let p : IPagelet = (As<IControl> v).Body
+                let old = doc.GetElementById k
+                ignore (old.ParentNode.ReplaceChild(p.Body, old))
+                p.Render()))

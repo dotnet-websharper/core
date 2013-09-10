@@ -159,6 +159,7 @@ module internal TypeScriptExporter =
         match ctx.CM.DataType(Adapter.AdaptTypeDefinition(tR)) with
         | Some (CM.DataTypeKind.Class addr)
         | Some (CM.DataTypeKind.Exception addr)
+        | Some (CM.DataTypeKind.Interface addr)
         | Some (CM.DataTypeKind.Record (addr, _)) ->
             let addr = convertAddress ctx addr
             let decl = T.Declaration.Create(addr, makeGenerics "T" tR.GenericArity)
@@ -311,28 +312,28 @@ module internal TypeScriptExporter =
 
     let rec exportType ctx (t: V.Type) =
         seq {
-            yield! exportStaticMethods ctx t
-            yield! exportStaticProperties ctx t
             match t.Kind with
-            | V.TypeKind.Class (slot, baseType, ctorList, nestedTypes) ->
-                match t.Status with
-                | V.Status.Compiled ->
-                    for t in nestedTypes do
-                        yield! exportType ctx t
-                    yield exportNamedContract ctx t false []
-                | V.Status.Ignored -> ()
-            | V.TypeKind.Exception ->
-                yield exportNamedContract ctx t false []
-            | V.TypeKind.Interface ->
-                yield exportNamedContract ctx t true []
-            | V.TypeKind.Module nestedTypes ->
-                for t in nestedTypes do
+            | V.TypeKind.Class (_, _, _, nT)
+            | V.TypeKind.Module nT ->
+                for t in nT do
                     yield! exportType ctx t
-            | V.TypeKind.Record props ->
-                yield exportNamedContract ctx t false props
-            | V.TypeKind.Resource _ -> ()
-            | V.TypeKind.Union _ ->
-                yield exportNamedContract ctx t false []
+            | _ -> ()
+            if t.ReflectorType.Definition.IsPublic || t.Proxy.IsSome then
+                yield! exportStaticMethods ctx t
+                yield! exportStaticProperties ctx t
+                match t.Kind with
+                | V.TypeKind.Class (slot, baseType, ctorList, _) ->
+                    yield exportNamedContract ctx t false []
+                | V.TypeKind.Exception ->
+                    yield exportNamedContract ctx t false []
+                | V.TypeKind.Interface ->
+                    yield exportNamedContract ctx t true []
+                | V.TypeKind.Module _ -> ()
+                | V.TypeKind.Record props ->
+                    yield exportNamedContract ctx t false props
+                | V.TypeKind.Resource _ -> ()
+                | V.TypeKind.Union _ ->
+                    yield exportNamedContract ctx t false []
         }
 
     let ExportDeclarations (cm: CM.T) (v: V.Assembly) =

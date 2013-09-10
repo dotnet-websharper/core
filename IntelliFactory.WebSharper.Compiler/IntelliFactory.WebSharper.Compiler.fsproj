@@ -65,6 +65,12 @@
     <Compile Include="../src/TypeScriptExporter.fs">
       <Link>TypeScriptExporter.fs</Link>
     </Compile>
+    <Compile Include="../src/Algorithms.fsi">
+      <Link>Algorithms.fs</Link>
+    </Compile>
+    <Compile Include="../src/Algorithms.fs">
+      <Link>Algorithms.fs</Link>
+    </Compile>
     <Compile Include="FrontEnd.fsi" />
     <Compile Include="FrontEnd.fs" />
   </ItemGroup>

@@ -25,9 +25,11 @@ open System
 open System.Collections.Generic
 open System.IO
 open System.Reflection
+open System.Text
 open System.Web.UI
 open Mono.Cecil
 open IntelliFactory.Core
+open IntelliFactory.WebSharper
 module M = IntelliFactory.WebSharper.Core.Metadata
 module P = IntelliFactory.JavaScript.Packager
 module R = IntelliFactory.WebSharper.Compiler.ReflectionLayer
@@ -251,19 +253,18 @@ module CecilTools =
              | _ ->
                 None)
 
-type Options =
-    {
-        ErrorLimit : int
-        KeyPair : option<StrongNameKeyPair>
-        References : list<Assembly>
-    }
+[<Sealed>]
+type Content(t: Lazy<string>) =
+    static let utf8 = UTF8Encoding(false, true) :> Encoding
 
-    static member Default =
-        {
-            ErrorLimit = 20
-            KeyPair = None
-            References = []
-        }
+    member c.Write(output: TextWriter) =
+        output.Write(t.Value)
+
+    member c.WriteFile(fileName: string, ?encoding: Encoding) =
+        let enc = defaultArg encoding utf8
+        File.WriteAllText(fileName, t.Value, enc)
+
+    member c.Text = t.Value
 
 type Context =
     {
@@ -272,10 +273,70 @@ type Context =
         Metas : list<Metadata.T>
     }
 
+    member this.LookupAssembly(name: Re.AssemblyName) =
+        match this.Code.TryGetValue(name) with
+        | true, a -> Some a
+        | _ -> None
+
     member this.LookupAssemblyCode(debug: bool, name: Re.AssemblyName) =
         match this.Code.TryGetValue(name) with
         | true, a -> if debug then a.ReadableJavaScript else a.CompressedJavaScript
         | _ -> None
+
+    static member Get(assemblies: list<Assembly>) =
+        let assemblies =
+            assemblies
+            |> Seq.distinctBy (fun a -> a.Definition.Name.Name)
+            |> Seq.toList
+        let cM = List.choose (fun a -> CecilTools.readCompiledMetadata a.Definition) assemblies
+        let rM = List.choose (fun a -> CecilTools.readRuntimeMetadata a.Definition) assemblies
+        let code =
+            dict [|
+                for a in assemblies do
+                    yield (Re.AssemblyName.Parse(a.Definition.FullName), a)
+            |]
+        { Metas = cM; Infos = rM; Code = code }
+
+let getDependencyNodeForAssembly (a: Assembly) : M.Node =
+    let name = Re.AssemblyName.Parse(a.Definition.FullName)
+    M.Node.AssemblyNode(name, M.AssemblyMode.CompiledAssembly)
+
+let readWebResource (ty: Type) (name: string) =
+    try
+        let content =
+            let content =
+                ty.Assembly.GetManifestResourceNames()
+                |> Seq.tryFind (fun x -> x.Contains(name))
+                |> Option.bind (fun name ->
+                    use s = ty.Assembly.GetManifestResourceStream(name)
+                    use r = new StreamReader(s)
+                    Some (r.ReadToEnd()))
+            defaultArg content ""
+        let contentType =
+            let cT =
+                CustomAttributeData.GetCustomAttributes(ty.Assembly)
+                |> Seq.tryPick (fun attr ->
+                    if attr.Constructor.DeclaringType = typeof<WebResourceAttribute> then
+                        match [for a in attr.ConstructorArguments -> a.Value] with
+                        | [(:? string as n); (:? string as contentType)] ->
+                            if n.Contains(name)
+                                then Some contentType
+                                else None
+                        | _ -> None
+                    else None)
+            defaultArg cT "text/plain"
+        (content, contentType)
+    with e ->
+        ("", "text/plain")
+
+let writeStartCode (withScript: bool) (writer: TextWriter) =
+    writer.WriteLine()
+    if withScript then
+        writer.WriteLine("<script type='text/javascript'>")
+    writer.WriteLine @"if (typeof IntelliFactory !=='undefined')"
+    writer.WriteLine @"  IntelliFactory.Runtime.Start();"
+    if withScript then
+        writer.WriteLine("</script>")
 
 type ResourceContent =
     {
@@ -290,6 +351,140 @@ type ResourceContext =
         GetSetting : string -> option<string>
         RenderResource : ResourceContent -> Res.Rendering
     }
+
+type BundleMode =
+    | CSS = 0
+    | JavaScript = 1
+    | MinifiedJavaScript = 2
+    | TypeScript = 3
+
+[<Sealed>]
+type Bundle(resolver: AssemblyResolver, set: list<Assembly>) =
+    let logger = Logger.Create ignore 1000
+    let loader = Loader.Create resolver ignore
+
+    let context = lazy Context.Get(set)
+
+    let deps =
+        lazy
+        let context = context.Value
+        let mInfo = M.Info.Create context.Infos
+        mInfo.GetDependencies [for a in set -> getDependencyNodeForAssembly a]
+
+    let render (mode: BundleMode) (writer: TextWriter) =
+        let debug =
+            match mode with
+            | BundleMode.MinifiedJavaScript -> false
+            | _ -> true
+        let context = context.Value
+        let renderAssembly (a: Assembly) =
+            match mode with
+            | BundleMode.JavaScript -> a.ReadableJavaScript
+            | BundleMode.MinifiedJavaScript -> a.CompressedJavaScript
+            | BundleMode.TypeScript -> a.TypeScriptDeclarations
+            | _ -> None
+            |> Option.iter (fun t -> writer.WriteLine(t))
+        let renderWebResource (name: string) (cType: string) (c: string) =
+            match cType.ToLower(), mode with
+            | "text/javascript", BundleMode.JavaScript
+            | "text/javascript", BundleMode.MinifiedJavaScript ->
+                writer.WriteLine(c)
+            | "text/css", BundleMode.CSS ->
+                writer.WriteLine(c)
+            | _ -> ()
+        let ctx : Res.Context =
+            {
+                DebuggingEnabled = debug
+                GetAssemblyRendering = fun name ->
+                    context.LookupAssembly(name)
+                    |> Option.iter renderAssembly
+                    Res.Skip
+                GetSetting = fun name -> None
+                GetWebResourceRendering = fun ty name ->
+                    let (c, cT) = readWebResource ty name
+                    renderWebResource name cT c
+                    Res.Skip
+            }
+        use htmlWriter = new HtmlTextWriter(TextWriter.Null)
+        for d in deps.Value do
+            d.Render ctx htmlWriter
+        match mode with
+        | BundleMode.JavaScript | BundleMode.MinifiedJavaScript ->
+            writeStartCode false writer
+        | _ -> ()
+
+    let content mode =
+        let t =
+            lazy
+            use w = new StringWriter()
+            render mode w
+            w.ToString()
+        Content(t)
+
+    let css = content BundleMode.CSS
+    let javaScript = content BundleMode.JavaScript
+    let minifedJavaScript = content BundleMode.MinifiedJavaScript
+    let typeScript = content BundleMode.TypeScript
+
+    member b.CSS = css
+    member b.JavaScript = javaScript
+    member b.MinifiedJavaScript = minifedJavaScript
+    member b.TypeScript = typeScript
+
+    member b.WithAssembly(assemblyFile) =
+        let assem = loader.LoadFile(assemblyFile)
+        let dir = Path.GetDirectoryName(assemblyFile)
+        let resolver = resolver.SearchDirectories([dir])
+        Bundle(resolver, assem :: set)
+
+    member b.WithDefaultReferences() =
+        let wsHome = Path.GetDirectoryName(typeof<Bundle>.Assembly.Location)
+        [|
+            "IntelliFactory.WebSharper.Collections"
+            "IntelliFactory.WebSharper.Control"
+        |]
+        |> Seq.map (fun n -> Path.Combine(wsHome, n + ".dll"))
+        |> Seq.fold (fun (b: Bundle) x -> b.WithAssembly(x)) b
+
+    member b.WithTransitiveReferences() =
+        let comparer =
+            HashIdentity.FromFunctions<Assembly>
+                (fun a -> hash a.Definition.FullName)
+                (fun a b -> a.Definition.FullName = b.Definition.FullName)
+        let pred (a: Assembly) =
+            a.Definition.MainModule.AssemblyReferences
+            |> Seq.choose (fun r ->
+                let n = AssemblyName(r.FullName)
+                match resolver.ResolvePath(n) with
+                | None -> None
+                | Some path ->
+                    loader.LoadFile(path)
+                    |> Some)
+        let completeSet =
+            Algorithms.TopSort.Do(set, pred, comparer)
+            |> Seq.toList
+        Bundle(resolver, completeSet)
+
+    static member Empty =
+        let resolver = AssemblyResolver.Create()
+        Bundle(resolver, [])
+
+    static member Create() =
+        Bundle.Empty.WithDefaultReferences()
+
+type Options =
+    {
+        ErrorLimit : int
+        KeyPair : option<StrongNameKeyPair>
+        References : list<Assembly>
+    }
+
+    static member Default =
+        {
+            ErrorLimit = 20
+            KeyPair = None
+            References = []
+        }
 
 [<Sealed>]
 type CompiledAssembly
@@ -337,33 +532,6 @@ type CompiledAssembly
                 let y = ctx.RenderResource(content)
                 cache.Add(content, y)
                 y
-        let readWebResource (ty: System.Type) (name: string) =
-            try
-                let content =
-                    let content =
-                        ty.Assembly.GetManifestResourceNames()
-                        |> Seq.tryFind (fun x -> x.Contains(name))
-                        |> Option.bind (fun name ->
-                            use s = ty.Assembly.GetManifestResourceStream(name)
-                            use r = new StreamReader(s)
-                            Some (r.ReadToEnd()))
-                    defaultArg content ""
-                let contentType =
-                    let cT =
-                        System.Reflection.CustomAttributeData.GetCustomAttributes(ty.Assembly)
-                        |> Seq.tryPick (fun attr ->
-                            if attr.Constructor.DeclaringType = typeof<System.Web.UI.WebResourceAttribute> then
-                                match [for a in attr.ConstructorArguments -> a.Value] with
-                                | [(:? string as n); (:? string as contentType)] ->
-                                    if n.Contains(name)
-                                        then Some contentType
-                                        else None
-                                | _ -> None
-                            else None)
-                    defaultArg cT "text/plain"
-                (content, contentType)
-            with e ->
-                ("", "text/plain")
         let makeJsUri name js =
             getRendering {
                 Content = js
@@ -396,13 +564,9 @@ type CompiledAssembly
         this.RenderDependencies(ctx, writer)
 
     member this.RenderDependencies(ctx, writer: HtmlTextWriter) =
-        this.Dependencies
-        |> Seq.iter (fun r -> r.Render ctx writer)
-        writer.WriteLine()
-        writer.WriteLine("<script type='text/javascript'>")
-        writer.WriteLine @"if (typeof IntelliFactory !=='undefined')"
-        writer.WriteLine @"  IntelliFactory.Runtime.Start();"
-        writer.WriteLine("</script>")
+        for d in this.Dependencies do
+            d.Render ctx writer
+        writeStartCode true writer
 
 [<Sealed>]
 type Compiler(errorLimit: int, log: Message -> unit, ctx: Context) =
@@ -449,18 +613,7 @@ type Compiler(errorLimit: int, log: Message -> unit, ctx: Context) =
             true
 
 let Prepare (options: Options) (log: Message -> unit) : Compiler =
-    let refs =
-        options.References
-        |> Seq.distinctBy (fun a -> a.Definition.Name.Name)
-        |> Seq.toList
-    let cM = List.choose (fun a -> CecilTools.readCompiledMetadata a.Definition) refs
-    let rM = List.choose (fun a -> CecilTools.readRuntimeMetadata a.Definition) refs
-    let code =
-        dict [|
-            for a in options.References do
-                yield (Re.AssemblyName.Parse(a.Definition.FullName), a)
-        |]
-    let ctx = { Metas = cM; Infos = rM; Code = code }
+    let ctx = Context.Get(options.References)
     Compiler(options.ErrorLimit, log, ctx)
 
 let Compile (options: Options) (log: Message -> unit) : Assembly -> bool =

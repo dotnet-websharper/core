@@ -119,6 +119,7 @@ and [<AbstractClass>] TypeDefinition() =
     abstract IsClass : bool
     abstract IsInterface : bool
     abstract IsEnum : bool
+    abstract IsPublic : bool
     abstract IsSerializable : bool
     abstract IsValueType : bool
     abstract Methods : seq<MethodDefinition>
@@ -290,6 +291,7 @@ module Cecil =
         override this.IsInterface = tD.IsInterface
         override this.IsEnum = tD.IsEnum
         override this.IsSerializable = tD.IsSerializable
+        override this.IsPublic = tD.IsPublic || tD.IsNestedPublic
         override this.IsValueType = tD.IsValueType
 
         override this.CustomAttributes = Converter.GetCustomAttributes(tD)
@@ -924,6 +926,7 @@ module Reflection =
         override this.IsEnum = t.IsEnum
         override this.IsInterface = t.IsInterface
         override this.IsPrimitive = t.IsPrimitive
+        override this.IsPublic = t.IsNestedPublic || t.IsPublic
         override this.IsSerializable = t.IsSerializable
         override this.IsValueType = t.IsValueType
 
@@ -1064,6 +1067,7 @@ module Dynamic =
         override this.Name = t.Name
         override this.Namespace = t.Namespace
         override this.Shape = t.Shape
+        override this.IsPublic = t.IsPublic
 
     let FromQuotation (q: Quotations.Expr) (ctx: System.Reflection.Assembly) (name: string) : AssemblyDefinition =
         let q = QuotationUtils.ConvertQuotation(q)

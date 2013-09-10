@@ -286,18 +286,23 @@ module internal QualifiedNames  =
             if j < 0 || n.Builder <> nm.NMBuilder then None else
                 Some nm.NMValues.[j]
 
+    let zero = Builder.Create()
+
     [<Sealed>]
     type NameMap =
 
         static member Empty() =
             {
-                NMBuilder = Builder.Create()
+                NMBuilder = zero
                 NMCodes = Array.empty
                 NMValues = Array.empty
             }
 
         static member Merge(ms: seq<NameMap<'T>>) =
-            let ms = Seq.toArray ms
+            let ms =
+                ms
+                |> Seq.filter (fun f -> f.NMCodes.Length > 0)
+                |> Seq.toArray
             match ms.Length with
             | 0 -> NameMap.Empty()
             | 1 -> ms.[0]
@@ -359,7 +364,7 @@ module internal QualifiedNames  =
             let elements = Seq.toArray elements
             if elements.Length = 0 then
                 {
-                    IVBuilder = Builder.Create()
+                    IVBuilder = zero
                     IVCodes = Array.empty
                 }
             else

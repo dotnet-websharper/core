@@ -184,6 +184,20 @@ let Start args =
                 let c = InterfaceGenerator.Compiler.Create()
                 c.Start(args, ad, aR)
                 |> Some
+        | "bundle" :: out :: paths ->
+            let bundle =
+                FE.Bundle.Create().WithDefaultReferences()
+                |> (fun b ->
+                    (b, paths)
+                    ||> Seq.fold (fun b p -> b.WithAssembly(p)))
+                |> (fun b -> b.WithTransitiveReferences())
+            let write (c: FE.Content) (ext: string) =
+                c.WriteFile(out + ext)
+            write bundle.CSS ".css"
+            write bundle.JavaScript ".js"
+            write bundle.MinifiedJavaScript ".min.js"
+            write bundle.TypeScript ".d.ts"
+            Some 0
         | _ ->
             let env =
                 {

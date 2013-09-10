@@ -343,29 +343,36 @@ module internal TypeScriptGenerator =
 
     type AliasTable =
         {
-            RootNames : HashSet<string>
             ModuleAliases : Dictionary<Q.Name,Q.Id>
             TypeAliases : Dictionary<Q.Name,Q.Id>
+            UsedNames : HashSet<Q.Id>
         }
 
-        static member Create(rootNames: seq<string>) =
+        member at.UseName(id) =
+            at.UsedNames.Add(id) |> ignore
+
+        static member Create(usedNames: seq<Q.Id>) =
             {
-                RootNames = HashSet(rootNames)
                 ModuleAliases = Dictionary()
                 TypeAliases = Dictionary()
+                UsedNames = HashSet(usedNames)
             }
+
+    type AliasContext =
+        | ACGlobal
+        | ACInRootModule of Q.Id * AliasTable
 
     type PrintContext =
         {
-            AliasTable : AliasTable
+            AliasContext : AliasContext
             Builder : Q.Builder
             IndentedWriter : IndentedWriter
             Scope : Scope
         }
 
-        static member Create(w, builder, rootNames) =
+        static member Create(w, builder) =
             {
-                AliasTable = AliasTable.Create(rootNames)
+                AliasContext = ACGlobal
                 Builder = builder
                 IndentedWriter = IndentedWriter.Create(w)
                 Scope = globalScope
@@ -407,8 +414,12 @@ module internal TypeScriptGenerator =
             if ok name then name else loop (n + 1)
         loop 0
 
-    let alias pc (Address qn as addr) =
-        let tab = pc.AliasTable
+    let rec qNameRoot n =
+        match n with
+        | Q.Root x -> x
+        | Q.Nested (x, _) -> qNameRoot x
+
+    let aliasInTable (tab: AliasTable) (Address qn as addr) =
         let qb = qn.Builder
         match qn with
         | Q.Nested (ns, name) ->
@@ -416,7 +427,9 @@ module internal TypeScriptGenerator =
                 cached tab.ModuleAliases ns <| fun ns ->
                     let moduleName =
                         "_" + ns.Id.Text
-                        |> pickName (fun n -> tab.RootNames.Add(n))
+                        |> pickName (fun n ->
+                            let id = qb.Id(n)
+                            tab.UsedNames.Add(id))
                     qb.Id(moduleName)
             qb.Root(shortModuleName).[name]
             |> Address
@@ -425,13 +438,20 @@ module internal TypeScriptGenerator =
                 cached tab.TypeAliases qn <| fun qn ->
                     let typeName =
                         "_" + name.Text
-                        |> pickName (fun n -> tab.RootNames.Add(n))
+                        |> pickName (fun n ->
+                            let id = qb.Id(n)
+                            tab.UsedNames.Add(id))
                     qb.Id(typeName)
             qb.Root(shortName)
             |> Address
 
-    let writeAliases pc =
-        let tab = pc.AliasTable
+    let alias pc (Address qn as addr) =
+        match pc.AliasContext with
+        | ACInRootModule (rM, tab) ->
+            aliasInTable tab addr
+        | ACGlobal -> addr
+
+    let writeAliasesTable pc tab =
         writeLine pc ""
         for KeyValue (k, v) in tab.ModuleAliases do
             write pc "import "
@@ -602,7 +622,6 @@ module internal TypeScriptGenerator =
             DefinitionMap : MC.MultiDictionary<Location, Q.Name * Definition>
             ModuleMap : MC.DictionarySet<Location, Q.Name>
             mutable NameBuilder : Q.Builder
-            RootNames : HashSet<string>
         }
 
         static member private Create() =
@@ -610,17 +629,15 @@ module internal TypeScriptGenerator =
                 DefinitionMap = MC.MultiDictionary()
                 ModuleMap = MC.DictionarySet()
                 NameBuilder = Q.Builder.Create()
-                RootNames = HashSet()
             }
 
         static member Build(Defs defs) =
-            let ({DefinitionMap = dm; ModuleMap = mm; RootNames = rn} as data) = Data.Create()
+            let ({ DefinitionMap = dm; ModuleMap = mm } as data) = Data.Create()
             let visitedModules = HashSet<Q.Name>()
             let rec visitModule name =
                 if visitedModules.Add(name) then
                     match name with
                     | Q.Root n ->
-                        rn.Add(n.Text) |> ignore
                         mm.Add(AtGlobalModule, name)
                     | Q.Nested(parent, _) ->
                         visitModule parent
@@ -629,7 +646,6 @@ module internal TypeScriptGenerator =
                 data.NameBuilder <- name.Builder
                 match name with
                 | Q.Root n ->
-                    rn.Add(n.Text) |> ignore
                     dm.Add(AtGlobalModule, (name, def))
                 | Q.Nested (p, n) ->
                     visitModule p
@@ -667,7 +683,25 @@ module internal TypeScriptGenerator =
         write pc "module "
         write pc (local addr)
         writeLine pc " {"
-        indent pc { writeModuleBody pc data (AtModule addr) }
+        match addr with
+        | Q.Root name ->
+            let usedNames =
+                seq {
+                    yield name
+                    let sc = AtModule addr
+                    for ss in queryModules data sc do
+                        yield ss.Id
+                    for (n, d) in queryDefinitions data sc do
+                        yield n.Id
+                }
+            let tab = AliasTable.Create(usedNames)
+            let pc = { pc with AliasContext = ACInRootModule (name, tab) }
+            indent pc {
+                writeModuleBody pc data (AtModule addr)
+                writeAliasesTable pc tab
+            }
+        | _ ->
+            indent pc { writeModuleBody pc data (AtModule addr) }
         writeLine pc "}"
 
     and writeModuleBody pc data sc =
@@ -691,9 +725,8 @@ module internal TypeScriptGenerator =
 
     let writeDefinitions opts defs w =
         let data = Data.Build(defs)
-        let pc = PrintContext.Create(w, data.NameBuilder, data.RootNames)
+        let pc = PrintContext.Create(w, data.NameBuilder)
         writeDefs opts pc data defs
-        writeAliases pc
 
     type Definitions with
 

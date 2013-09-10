@@ -769,6 +769,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                         || Seq.exists isCompiledProperty ps
                     if comp then Compiled else Ignored
             }
+
     let reqs = getRequirements assembly.Location Static assembly.Annotations
     let types =
         assembly.Types
