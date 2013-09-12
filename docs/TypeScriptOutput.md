@@ -12,5 +12,5 @@ To get started with TypeScript output, check out the sample project:
 
 ## Known issues ##
 
-* #150
-* #151
+* Issue #150
+* Issue #151
