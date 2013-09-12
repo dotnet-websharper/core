@@ -65,21 +65,16 @@ prefer `git`, a GitHub clone of the repository is also
 
 Build requirements:
 
-* Microsoft .NET Framework 4.0
+* Microsoft .NET Framework 4.5
 
-* F#
+* F# 3.0
 
-To compile, run `MSBuild.exe` in the root directory of the checkout.
-This will download and reference required Mono.Cecil libraries and
-Microsoft Ajax Minifier tasks automatically.
+To compile, run `build.cmd` in the root directory of the checkout.
+Upon a successful build, you obtain a NuGet package and a Visual Studio
+Installer (vsix) package under the `build` directory.
 
-For example, using PowerShell:
-
-    set-alias msb C:\WINDOWS\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe
-    msb /P:Platform=AnyCPU /Configuration:Release
-
-Solutions provided for Microsoft Visual Studio 2010 and 2011 under the
-`build` directory in the source, but these products are not required
+A solution is provided for Microsoft Visual Studio 2012 under the
+`build\VS2012` directory in the source, but this product is not required
 to build WebSharper.
 
 ## Documentation
