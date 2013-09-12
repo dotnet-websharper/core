@@ -7,6 +7,7 @@
 
 \.user$
 
+\.vsix$
 \~$
 ^IntelliFactory.WebSharper.JQuery/.*\.js$
 

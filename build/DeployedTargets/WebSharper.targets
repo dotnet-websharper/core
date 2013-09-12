@@ -95,7 +95,7 @@
 
   <PropertyGroup>
     <WSPrivateRefs>false</WSPrivateRefs>
-    <WSPrivateRefs Condition="$(SiteWebSharperProject) OR $(InterfaceGenerator)">true</WSPrivateRefs>
+    <WSPrivateRefs Condition="$(SiteWebSharperProject)">true</WSPrivateRefs>
   </PropertyGroup>
 
   <ItemGroup Condition=" $(WebSharperIncludes) ">
@@ -182,9 +182,9 @@
 
   <Target Name="InterfaceGeneratorPrepare" DependsOnTargets="WebSharperPrepare">
     <PropertyGroup>
-      <Generator>$(OutputPath)Generator.exe</Generator>
+      <Generator>$(OutputPath)/$(Name).Generator.dll</Generator>
       <DebugType>none</DebugType>
-      <OutputType>exe</OutputType>
+      <OutputType>library</OutputType>
     </PropertyGroup>
     <ItemGroup>
       <IntermediateAssembly Remove="@(IntermediateAssembly)" />
@@ -196,37 +196,29 @@
           DependsOnTargets="InterfaceGeneratorPrepare"
           Inputs="@(Compile);@(ReferencePath)"
           Outputs="$(RawIntermediateAssembly)">
-    <ItemGroup>
-      <WsIgCscTool Include="$(SystemRoot)\Microsoft.NET\Framework\$(TargetFrameworkVersion)*\Csc.exe" />
-    </ItemGroup>
     <PropertyGroup>
-      <WsIgCscToolPath>@(WsIgCscTool->'%(RootDir)%(Directory)')</WsIgCscToolPath>
+      <Cmd>"$(WebSharperHome)\WebSharper.exe" ig</Cmd>
+      <Cmd>$(Cmd) "$(Generator)"</Cmd>
+      <Cmd>$(Cmd) "-n:$(Name)"</Cmd>
+      <Cmd Condition=" '$(Version)' != '' ">$(Cmd) "-v:$(Version)"</Cmd>
+      <Cmd Condition=" '$(Version)' == '' ">$(Cmd) "-v:1.0"</Cmd>
+      <Cmd>$(Cmd) @(ReferencePath->'"-r:%(FullPath)"',' ')</Cmd>
+      <Cmd>$(Cmd) "-o:$(RawIntermediateAssembly)"</Cmd>
+      <Cmd>$(Cmd) @(EmbeddedResource->'"-embed:%(FullPath)"',' ')</Cmd>
+      <Cmd Condition=" '$(DocumentationFile)' != '' ">$(Cmd) "-doc:$(DocumentationFile)"</Cmd>
+      <Cmd Condition=" '$(KeyOriginatorFile)' != '' ">$(Cmd) "-snk:$(KeyOriginatorFile)"</Cmd>
     </PropertyGroup>
-    <ItemGroup>
-      <WsIgSources Include="$(OutputPath)\Generated.cs" />
-      <WsIgSources Include="@(None);@(Compile)" Condition="'%(Extension)' == '.cs'" />
-      <WsIgSources Include="$(MSBuildProjectDirectory)\..\.build\AutoAssemblyInfo.cs"
-                   Condition="Exists('$(MSBuildProjectDirectory)\..\.build\AutoAssemblyInfo.cs')" />
-    </ItemGroup>
-    <Copy SourceFiles="@(ReferenceCopyLocalPaths)"
-          DestinationFolder="$(OutputPath)"
-          SkipUnchangedFiles="true" />
-    <Exec Command="Generator.exe &gt; Generated.cs" WorkingDirectory="$(OutputPath)" />
-    <Csc TargetType="Library"
-         NoConfig="true"
-         NoStandardLib="true"
-         References="@(ReferencePath)"
-         OutputAssembly="$(RawIntermediateAssembly)"
-         Resources="@(EmbeddedResource)"
-         KeyFile="$(KeyOriginatorFile)"
-         ToolPath="$(WsIgCscToolPath)"
-         Sources="@(WsIgSources)"
-         DebugType="pdbonly" />
+    <Exec Command="$(Cmd)" />
   </Target>
 
   <ItemGroup Condition=" $(WebSharperIncludes) AND $(InterfaceGenerator) ">
+    <Reference Include="IntelliFactory.Core">
+      <HintPath>$(WebSharperHome)/IntelliFactory.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="IntelliFactory.WebSharper.InterfaceGenerator">
       <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.InterfaceGenerator.dll</HintPath>
+      <Private>false</Private>
     </Reference>
   </ItemGroup>
 
@@ -300,10 +292,9 @@
 
   <Target Name="WebSharperHtmlGenerate">
     <PropertyGroup>
-      <Args>-source "."</Args>
       <Args>$(Args) -mode "$(Configuration)"</Args>
       <Args>$(Args) -project "$(MSBuildProjectDirectory)\."</Args>
-      <Args>$(Args) -source "$(MSBuildProjectDirectory)\$(OutDir)\."</Args>
+      <Args>$(Args) @(ReferencePath->'-ref "%(FullPath)"',' ')</Args>
       <Args>$(Args) -out "$(WebSharperHtmlDirectory)\."</Args>
       <Args>$(Args) -site "$(TargetPath)"</Args>
     </PropertyGroup>
