@@ -12,5 +12,5 @@ To get started with TypeScript output, check out the sample project:
 
 ## Known issues ##
 
-* Issue #150
-* Issue #151
+* Issue [#150](https://bitbucket.org/IntelliFactory/websharper/issue/150/)
+* Issue [#151](https://bitbucket.org/IntelliFactory/websharper/issue/151/)
