@@ -21,6 +21,7 @@
 
 module private IntelliFactory.WebSharper.Ref
 
+[<Name "IntelliFactory.WebSharper.ref">]
 [<Proxy(typeof<ref<_>>)>]
 type private RefProxy<'T> =
 

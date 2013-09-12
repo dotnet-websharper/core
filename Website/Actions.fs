@@ -3,4 +3,5 @@ module Website.Actions
 
 type Action =
     | Home
+    | Tests
 

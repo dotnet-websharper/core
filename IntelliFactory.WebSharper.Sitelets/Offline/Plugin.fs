@@ -25,6 +25,9 @@ open System
 open System.Collections.Generic
 open System.IO
 open System.Reflection
+
+open IntelliFactory.Core
+open IntelliFactory.WebSharper.Core
 open IntelliFactory.WebSharper.Core.Plugins
 open IntelliFactory.WebSharper.Sitelets.Offline
 
@@ -33,19 +36,8 @@ open IntelliFactory.WebSharper.Sitelets.Offline
 [<Sealed>]
 type Plugin() =
 
-    // Tries to load the site from the assembly
-    static let loadSite (file: FileInfo) =
-        let assembly = Assembly.LoadFile(file.FullName)
-        let aT = typeof<WebsiteAttribute>
-        match Attribute.GetCustomAttribute(assembly, aT) with
-        | :? WebsiteAttribute as attr ->
-            attr.Run ()
-        |_  ->
-            failwithf "Failed to find WebSiteAttribute \
-                on the processed assembly: %s"
-                file.FullName
-
-    static let run (env: IEnvironment) =
+    let run (env: IEnvironment) =
+        let aR = env.AssemblyResolver
         let args =
             Array.sub env.CommandLineArgs 2
                 (env.CommandLineArgs.Length - 2)
@@ -57,29 +49,51 @@ type Plugin() =
                 options.ProjectDirectory.FullName
                 options.OutputDirectory.FullName
 
-            let assembly =
-                Assembly.LoadFile(options.SourceAssembly.FullName)
-
             let scriptDir =
                 Path.Combine(options.OutputDirectory.FullName, "Scripts")
                 |> Directory.CreateDirectory
 
-            // Add source directories to search path
-            for dir in options.SourceDirectories do
-                env.AddAssemblySearchPath(dir.FullName)
+            let baseDir =
+                Path.GetDirectoryName typeof<Plugin>.Assembly.Location
 
-            // Load the sitelet
-            let (sitelet, actions) = loadSite options.SourceAssembly
+            let aR =
+                let aR = aR.SearchPaths [for r in options.ReferenceFiles -> r.FullName]
+                options.ReferenceFiles
+                |> Seq.map (fun f -> Path.GetDirectoryName f.FullName)
+                |> Seq.append [options.SourceAssembly.DirectoryName]
+                |> aR.SearchDirectories
 
-            // Write site content.
-            Output.WriteSite {
-                Sitelet = sitelet
-                Mode = options.Mode
-                SourceDirs = options.SourceDirectories
-                TargetDir = options.OutputDirectory
-                Actions = actions
-            }
-            Result.Success
+            aR.Wrap <| fun () ->
+
+                // Load the sitelet
+                let loadSite (file: FileInfo) =
+                    let assemblyName = AssemblyName.GetAssemblyName(file.FullName)
+                    let assembly = aR.Resolve assemblyName
+                    match assembly with
+                    | None ->
+                        failwithf "Failed to load %s" file.FullName
+                    | Some assembly ->
+                        let aT = typeof<WebsiteAttribute>
+                        match Attribute.GetCustomAttribute(assembly, aT) with
+                        | :? WebsiteAttribute as attr ->
+                            attr.Run ()
+                        |_  ->
+                            failwithf "Failed to find WebSiteAttribute \
+                                on the processed assembly: %s"
+                                file.FullName
+
+                let (sitelet, actions) = loadSite options.SourceAssembly
+
+                // Write site content.
+                Output.WriteSite aR {
+                    Sitelet = sitelet
+                    MainAssembly = options.SourceAssembly
+                    Mode = options.Mode
+                    ReferenceFiles = options.ReferenceFiles
+                    TargetDir = options.OutputDirectory
+                    Actions = actions
+                }
+                Result.Success
         with
         | Options.BadOptions message ->
             stderr.WriteLine message
@@ -92,6 +106,7 @@ type Plugin() =
             Result.Error
 
     interface IPlugin with
+
         member this.Run(env) =
             if env.CommandLineArgs.Length > 2
                 && env.CommandLineArgs.[1] = "sitelets" then

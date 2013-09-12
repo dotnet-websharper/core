@@ -1,35 +1,22 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <ProductVersion>8.0.30703</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</ProjectGuid>
-    <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.InterfaceGenerator</Name>
-    <Stage>compiler</Stage>
+    <OutputPath>bin</OutputPath>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
   </PropertyGroup>
+  <Import Project="../build/compiler/$(Name).proj" />
+  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="Type.fs" />
     <Compile Include="CodeModel.fs" />
     <Compile Include="Pervasives.fs" />
     <Compile Include="Pattern.fs" />
-    <Compile Include="CodeDom.fs" />
-    <Compile Include="Compiler.fs" />
+    <Compile Include="Compile.fsi" />
+    <Compile Include="Compile.fs" />
   </ItemGroup>
-  <Import Project="../build/WebSharper.targets" />
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="System" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
-      <Name>IntelliFactory.JavaScript</Name>
-      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
-      <Name>IntelliFactory.WebSharper.Core</Name>
-      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-    </ProjectReference>
-  </ItemGroup>
+  <Target Name="Build" />
+  <Target Name="Clean" />
 </Project>

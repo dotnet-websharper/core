@@ -128,12 +128,14 @@ type Kind =
 
 and Member<'T> =
     {
-        AddressSlot : AddressSlot
         Annotations : list<Annotation>
         Definition : 'T
         Location : Location
         MemberSlot : MemberSlot
     }
+
+    member m.AddressSlot =
+        m.MemberSlot.Address
 
     override this.ToString() =
         this.Definition.ToString()
@@ -446,7 +448,6 @@ let Reflect (logger: Logger) (assembly: AssemblyDefinition) =
         | [] | [Curry _] when not inc && not m.IsVirtual -> None
         | a ->
             Some {
-                AddressSlot = AddressSlot()
                 Annotations = a
                 Definition = m
                 Location = loc
@@ -459,7 +460,6 @@ let Reflect (logger: Logger) (assembly: AssemblyDefinition) =
         | [] | [Curry _] when not inc && not (isVirt m.GetMethod || isVirt m.SetMethod) -> None
         | a ->
             Some {
-                AddressSlot = AddressSlot()
                 Annotations = a
                 Definition = m
                 Location = loc
@@ -504,7 +504,6 @@ let Reflect (logger: Logger) (assembly: AssemblyDefinition) =
                         | _ ->
                             let self =
                                 defaultArg self {
-                                    AddressSlot = AddressSlot()
                                     Annotations = []
                                     Location = loc
                                     Definition = p
@@ -540,7 +539,6 @@ let Reflect (logger: Logger) (assembly: AssemblyDefinition) =
                     Name = n
                     Member =
                         {
-                            AddressSlot = AddressSlot()
                             Annotations = getAnnotations loc (AnnotatedMethod m)
                             Definition = m
                             Location = loc
@@ -557,7 +555,6 @@ let Reflect (logger: Logger) (assembly: AssemblyDefinition) =
                     let loc = Locator.LocateProperty p
                     let m : Member<_> =
                         {
-                            AddressSlot = AddressSlot()
                             Annotations = getAnnotations loc (AnnotatedProperty (t.Kind, p))
                             Definition = p
                             Location = loc

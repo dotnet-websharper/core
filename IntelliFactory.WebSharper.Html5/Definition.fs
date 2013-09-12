@@ -1040,7 +1040,7 @@ module WebSockets =
                 Constructor (T<string> * T<string[]>)
             ]
 
-module Extension =
+module Definition =
 
     let Assembly =
         Assembly [
@@ -1109,3 +1109,11 @@ module Extension =
                 WebStorage.StorageEvent
             ]
         ]
+
+[<Sealed>]
+type Html5Extension() =
+    interface IExtension with
+        member x.Assembly = Definition.Assembly
+
+[<assembly: Extension(typeof<Html5Extension>)>]
+do ()

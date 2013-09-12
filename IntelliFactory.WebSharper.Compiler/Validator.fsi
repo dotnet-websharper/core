@@ -72,6 +72,7 @@ type MethodKind =
 type Method =
     {
         Currying : list<int>
+        Definition : MethodDefinition
         Kind : MethodKind
         Location : Location
         Name : Name
@@ -89,11 +90,19 @@ type PropertyKind =
     | JavaScriptModuleProperty of Q.Expression
     | StubProperty
 
+type RecordProperty =
+    {
+        JavaScriptName : string
+        OriginalName : string
+        PropertyType : TypeReference
+    }
+
 type Property =
     {
         Kind : PropertyKind
         Location : Location
         Name : Name
+        PropertyType : TypeReference
         Reference : R.Property
         Scope : MemberScope
         Slot : Re.MemberSlot
@@ -104,7 +113,7 @@ and TypeKind =
     | Exception
     | Interface
     | Module of list<Type>
-    | Record of list<RecordField*RecordField>
+    | Record of list<RecordProperty>
     | Resource
     | Union of list<UnionCase>
 
@@ -119,6 +128,7 @@ and Type =
         Properties : list<Property>
         Proxy : option<R.TypeDefinition>
         Reference : R.TypeDefinition
+        ReflectorType : Re.Type
         Requirements : list<Requirement>
         Status : Status
     }

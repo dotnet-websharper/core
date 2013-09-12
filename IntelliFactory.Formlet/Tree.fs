@@ -32,7 +32,6 @@ module Tree =
         | Leaf of 'T
         | Fork of Tree<'T> * Tree<'T>
 
-
         [<ReflectedDefinition>]
         member this.Sequence =
             match this with

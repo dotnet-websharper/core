@@ -87,6 +87,12 @@ type Id =
     /// Constructs a new identifier with a given readable name hint.
     new : string -> Id
 
+    /// Constructs a new identifier with an optional given readable name hint.
+    new : string option -> Id
+
+    /// Constructs a new identifier with a given readable name hint, can be set to mutable.
+    new : string * bool -> Id
+
     /// Returns the readable name hint of the identifier, if provided.
     member Name : option<string> with get, set
 
@@ -133,6 +139,7 @@ and Expression =
     | TryWith of E * Id * E
     | Unary of UnaryOperator * E
     | Var of Id
+    | VarSet of Id * E
     | WhileLoop of E * E
 
     static member ( + ) : E * E -> E

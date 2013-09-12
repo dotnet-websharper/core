@@ -161,7 +161,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
             match d.TryGetValue x with
             | true, y -> y
             | _ ->
-                let y = C.Id x.Name
+                let y = C.Id (x.Name, x.Mutable) 
                 d.[x] <- y
                 y
 
@@ -245,15 +245,12 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
             | _ ->
                 f
         | Q.Let (var, value, body) ->
-            if var.Mutable then
-                C.Let (!^var, C.NewArray [!value], !body)
+            if var.Mutable then    
+                C.Sequential(C.VarSet (!^var, !value), !body)
             else
                 C.Let (!^var, !value, !body)
         | Q.LetRecursive (vs, b) ->
-            let f (var: Q.Id, value) =
-                (!^var, if var.Mutable
-                        then C.NewArray [!value]
-                        else !value)
+            let f (var: Q.Id, value) = !^var, !value
             C.LetRecursive (List.map f vs, !b)
         | Q.NewArray (_, x) ->
             C.NewArray (List.map (!) x)
@@ -422,7 +419,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                     typeof "string"
                 | _ ->
                     match meta.DataType t with
-                    | None | Some (M.Object _) ->
+                    | None | Some (M.Object _) | Some (M.Interface _) ->
                         err "Failed to compile a type test: " t.FullName
                     | Some (M.Class fn)
                     | Some (M.Record (fn, _))
@@ -471,12 +468,8 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
             | Q.UInt32 x -> i (int64 x)
             | Q.Int64 x -> i (int64 x)
             | Q.UInt64 x -> i (int64 x)
-        | Q.Var x ->
-            if x.Mutable
-            then C.FieldGet (C.Var !^x, i 0)
-            else C.Var !^x
-        | Q.VarSet (x, y) ->
-            C.FieldSet (C.Var !^x, i 0, !y)
+        | Q.Var x -> C.Var !^x
+        | Q.VarSet (x, y) -> C.VarSet (!^x, !y)
         | Q.WhileLoop (x, y) ->
             C.WhileLoop (!x, !y)
 

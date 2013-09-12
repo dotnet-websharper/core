@@ -25,6 +25,7 @@ open System
 open System.Collections.Generic
 open System.IO
 open System.Reflection
+open Mono.Cecil
 
 type D<'T1,'T2> = Dictionary<'T1,'T2>
 type Q<'T> = Queue<'T>
@@ -166,14 +167,20 @@ type AssemblyInfo =
                 None
 
     static member Load(path: string) : option<AssemblyInfo> =
-        let name = AssemblyName.GetAssemblyName(path).Name
-        let la =
-            AppDomain.CurrentDomain.GetAssemblies()
-            |> Seq.tryFind (fun a -> a.GetName().Name = name)
-        match la with
-        | Some a -> a
-        | None -> Assembly.ReflectionOnlyLoadFrom(path)
-        |> AssemblyInfo.LoadReflected
+        let aD = AssemblyDefinition.ReadAssembly(path)
+        if aD.FullName.StartsWith "System" then None else
+            aD.MainModule.Resources
+            |> Seq.tryPick (fun r ->
+                match r with
+                | :? EmbeddedResource as r ->
+                    if r.Name = AssemblyInfo.EmbeddedResourceName then
+                        use s = r.GetResourceStream()
+                        try
+                            Some (AssemblyInfo.FromStream s)
+                        with _ ->
+                            failwithf "Failed to load metadata for: %s" aD.FullName
+                    else None
+                | _ -> None)
 
 and AssemblyInfoEncoding() =
 

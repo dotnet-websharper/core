@@ -19,12 +19,13 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.EcmaExtension
+namespace IntelliFactory.WebSharper.Ecma
+
+open IntelliFactory.WebSharper.InterfaceGenerator
 
 /// Defines the bindings to ECMA-262 5th edition JavaScript functions
 /// and objects.
-module Ecma =
-    open IntelliFactory.WebSharper.InterfaceGenerator
+module Definition =
     module P = Pattern
 
     let EcmaRegExpT = Type.New()
@@ -371,6 +372,14 @@ module Ecma =
                 EcmaDate
                 EcmaRegExp
                 EcmaError
-                EcmaJSON  
+                EcmaJSON
             ]
         ]
+
+[<Sealed>]
+type EcmaExtension() =
+    interface IExtension with
+        member x.Assembly = Definition.Assembly
+
+[<assembly: Extension(typeof<EcmaExtension>)>]
+do ()

@@ -140,3 +140,9 @@ let Tests =
     }
 
     do BugBB80.test()
+
+    Test "Mutable" {
+        let mutable a = 2
+        a <- 4
+        a =? 4
+    }

@@ -21,10 +21,13 @@
 
 namespace IntelliFactory.WebSharper
 
+open System.Collections.Generic
+
 [<Proxy(typeof<seq<_>>)>]
+[<Name "IntelliFactory.WebSharper.seq">]
 type private IEnumerableProxy<'T> =
 
     [<Inline>]
     [<JavaScript>]
-    member this.GetEnumerator() : System.Collections.Generic.IEnumerator<'T> =
+    member this.GetEnumerator() : IEnumerator<'T> =
         Enumerator.Get this

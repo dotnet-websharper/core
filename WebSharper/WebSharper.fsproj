@@ -1,41 +1,17 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <ProductVersion>8.0.30703</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{df5f2614-44e8-4c7d-a6e2-019d220d38c9}</ProjectGuid>
-    <OutputType>Exe</OutputType>
     <Name>WebSharper</Name>
-    <PrivateRefs>True</PrivateRefs>
-    <Stage>compiler</Stage>
+    <OutputPath>bin</OutputPath>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
+  <Import Project="../build/compiler/$(Name).proj" />
+  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
+  <Target Name="Build" />
+  <Target Name="Clean" />
   <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="System" />
-    <Reference Include="System.Configuration" />
-    <Reference Include="System.Xml" />
-    <Reference Include="System.Web" />
-  </ItemGroup>
-  <Import Project="../build/FSharp.targets" />
-  <ItemGroup>
-    <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
-      <Name>IntelliFactory.JavaScript</Name>
-      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
-      <Private>true</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Compiler\IntelliFactory.WebSharper.Compiler.fsproj">
-      <Name>IntelliFactory.WebSharper.Compiler</Name>
-      <Project>{bfb21b61-fda9-4814-a728-7d43038e0b57}</Project>
-      <Private>true</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
-      <Name>IntelliFactory.WebSharper.Core</Name>
-      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-      <Private>true</Private>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Loader.fs" />
     <Compile Include="Arguments.fs" />
     <Compile Include="Options.fs" />
     <Compile Include="DependencyReporter.fs" />

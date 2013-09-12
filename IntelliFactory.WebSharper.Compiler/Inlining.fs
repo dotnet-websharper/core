@@ -156,7 +156,7 @@ let parseIndirectTransformer kind args core =
             d.["$0"] <- self
             v.Enqueue self
         | Static -> ()
-        let f i x =
+        let f i (x: string) =
             let k =
                 match kind with
                 | Instance -> i + 1

@@ -21,6 +21,8 @@
 
 namespace IntelliFactory.WebSharper.InterfaceGenerator
 
+open System
+
 /// Implements common code generation patterns in binding code.
 module Pattern =
     type private T = Type.Type
@@ -65,8 +67,8 @@ module Pattern =
             let ss =
                 properties.Required
                 |> Seq.mapi (fun i (n, _) ->
-                    System.String.Format("{0}:${1}", Util.Quote n, i))
-            System.String.Format("{{{0}}}", String.concat "," ss)
+                    String.Format("{0}:${1}", Util.Quote n, i))
+            String.Format("{{{0}}}", String.concat "," ss)
         Class name
         |+> Protocol
             [ for (n, t) in properties.Required do

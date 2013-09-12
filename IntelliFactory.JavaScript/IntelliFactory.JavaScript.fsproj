@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProductVersion>8.0.30703</ProductVersion>
@@ -6,8 +6,12 @@
     <ProjectGuid>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.JavaScript</Name>
-    <Stage>compiler</Stage>
+    <OutputPath>bin</OutputPath>
   </PropertyGroup>
+  <Import Project="../build/compiler/$(Name).proj" />
+  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
+  <Target Name="Build" />
+  <Target Name="Clean" />
   <ItemGroup>
     <Compile Include="Extensions.fs" />
     <Compile Include="Preferences.fs" />
@@ -28,9 +32,9 @@
     <Compile Include="Packager.fsi" />
     <Compile Include="Packager.fs" />
     <Compile Include="Annotations.fs" />
+    <None Include="Test.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Web" />
   </ItemGroup>
-  <Import Project="../build/FSharp.targets" />
 </Project>

@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -19,8 +19,12 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.EcmaExtension
+namespace IntelliFactory.WebSharper
 
-module Main =
-    open IntelliFactory.WebSharper.InterfaceGenerator
-    do Compiler.Compile stdout Ecma.Assembly
+/// Exports the typed interface of a WebSharper assembly into
+/// TypeScript 0.9.1 declarations (`.d.ts` format).
+module internal TypeScriptExporter =
+    open IntelliFactory.WebSharper.Compiler
+
+    /// Computes the declarations in TypeScript `.d.ts` format.
+    val ExportDeclarations : Metadata.T -> Validator.Assembly -> string

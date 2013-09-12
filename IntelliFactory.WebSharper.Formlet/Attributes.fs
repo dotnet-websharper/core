@@ -28,8 +28,6 @@ open System.Web.UI
 [<assembly: WebResource("ActionAdd.png", "image/png")>]
 [<assembly: WebResource("ActionCheck.png", "image/png")>]
 [<assembly: WebResource("ActionDelete.png", "image/png")>]
-[<assembly: WebResource("Button100x25.png", "image/png")>]
-[<assembly: WebResource("ButtonDisabled100x25.png", "image/png")>]
 [<assembly: WebResource("ErrorIcon.png", "image/png")>]
 [<assembly: WebResource("InfoIcon.png", "image/png")>]
 [<assembly: WebResource("Formlet.css", "text/css", PerformSubstitution = true)>]
