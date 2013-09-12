@@ -34,6 +34,9 @@ WebSharper includes:
 * Resource dependency management for CSS, image and other supporting
   files.
 
+* [TypeScript](http://typescriptlang.org) definition file output for
+  consuming WebSharper-generated code from TypeScript ([more details](docs/TypeScriptOutput.md))
+
 ## Copying
 
 Since January 2012, WebSharper source code is available under GNU
