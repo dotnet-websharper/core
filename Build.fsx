@@ -25,9 +25,9 @@ module Extensions =
 
         member x.DefaultRefs(r: ReferenceBuilder) =
             [
-                r.NuGet("Mono.Cecil").Reference()
-                r.NuGet("IntelliFactory.Core").Reference()
-                r.NuGet("IntelliFactory.Xml").Reference()
+                r.NuGet("Mono.Cecil.Security").Version("0.9.28-alpha").Reference()
+                r.NuGet("IntelliFactory.Core").Version("0.2.22-alpha").Reference()
+                r.NuGet("IntelliFactory.Xml").Version("0.5.0").Reference()
                 r.Assembly("System.Configuration")
                 r.Assembly("System.Xml")
                 r.Assembly("System.Xml.Linq")
