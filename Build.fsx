@@ -1,4 +1,5 @@
 #load "tools/includes.fsx"
+#load "src/VisualStudio.fsx"
 
 open System
 open System.Diagnostics
@@ -8,6 +9,8 @@ open IntelliFactory.Build
 
 module Config =
     let PackageId = "WebSharper"
+    let NumericVersion = Version("2.5.0.0")
+    let VersionSuffix = Some "security"
     let PackageVerion = "2.5-security"
     let Company = "IntelliFactory"
     let Description = "F#-to-JavaScript compiler and web application framework"
@@ -433,11 +436,35 @@ let exports : list<INuGetExportingProject> =
         wsSitelets
     ]
 
-let exportingProject =
+module VSI = IntelliFactory.WebSharper.VisualStudioIntegration
+
+let configureVSI (nuPkg: NuGetPackageBuilder) : VSI.Config =
+    let root = __SOURCE_DIRECTORY__
+    let nupkgPath = nuPkg.GetComputedFileName()
+    let vsixPath = Path.ChangeExtension(nupkgPath, ".vsix")
     {
+        NuPkgPath = nupkgPath
+        RootPath = root
+        VsixPath = vsixPath
+    }
+
+let nuPkg =
+    let nuPkg =
+        bt.NuGet.CreatePackage()
+            .Configure(fun x ->
+                {
+                    x with
+                        Description = Config.Description
+                        ProjectUrl = Some Config.Website
+                        LicenseUrl = Some Config.LicenseUrl
+                })
+            .AddNuGetExportingProject(ws)
+    nuPkg.AddNuGetExportingProject {
         new INuGetExportingProject with
             member p.NuGetFiles =
                 seq {
+                    let cfg = configureVSI nuPkg
+                    yield! VSI.BuildContents cfg
                     for p in exports do
                         for f in p.NuGetFiles do
                             yield {
@@ -510,16 +537,12 @@ bt.Solution [
                     yield r.Project p
             ])
 
-    bt.NuGet.CreatePackage()
-        .Configure(fun x ->
-            {
-                x with
-                    Description = Config.Description
-                    ProjectUrl = Some Config.Website
-                    LicenseUrl = Some Config.LicenseUrl
-            })
-        .AddNuGetExportingProject(ws)
-        .AddNuGetExportingProject(exportingProject)
-
+    nuPkg
 ]
 |> bt.Dispatch
+
+let buildVsix () =
+    configureVSI nuPkg
+    |> VSI.BuildVsixFile
+
+buildVsix ()
