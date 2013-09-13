@@ -6,6 +6,7 @@
     <ProjectGuid>{2d30fa07-e6be-45ac-90da-c2ca8309e137}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.Reactive</Name>
+    <OutputPath>bin</OutputPath>
   </PropertyGroup>
   <Import Project="../build/net45/$(Name).proj" />
   <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />

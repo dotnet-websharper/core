@@ -12,7 +12,7 @@
   <Target Name="Build" />
   <Target Name="Clean" />
   <ItemGroup>
-    <Compile Include="../.build/Config.fs" />
+    <Compile Include="../build/Config.fs" />
     <Compile Include="Dependencies.fs" />
     <Compile Include="Actions.fs" />
     <Compile Include="Client.fs" />

@@ -6,6 +6,7 @@
     <ProjectGuid>{a7f7a74b-d0ee-4918-8a54-280fc7d2a30c}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.Testing</Name>
+    <OutputPath>bin</OutputPath>
   </PropertyGroup>
   <Import Project="../build/net45/$(Name).proj" />
   <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />

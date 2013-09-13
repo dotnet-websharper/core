@@ -500,6 +500,55 @@ bt.Solution [
     wsHtml5Tests
     wsSitelets
     wsSiteletsTests
+
+    nuPkg
+]
+|> bt.Dispatch
+
+let buildWebsiteFiles () =
+    let rootDir = __SOURCE_DIRECTORY__
+    let ver = nuPkg.GetComputedVersion()
+    let content =
+        use w = new StringWriter()
+        w.WriteLine("module Website.Config")
+        let var (name: string) (value: string) : unit =
+            fprintfn w @"let %s = @""%s""" name (value.Replace(@"""", @""""""))
+        IntelliFactory.Build.Mercurial.InferTag rootDir
+        |> Option.iter (var "Tag")
+        var "PackageId" Config.PackageId
+        var "Version" ver
+        var "Description" Config.Description
+        var "Website" Config.Website
+        w.ToString()
+    File.WriteAllText(Path.Combine(rootDir, "build", "Config.fs"), content)
+    let ( +/ ) a b = Path.Combine(a, b)
+    let zipPackageFile =
+        rootDir +/ "Web" +/ "downloads" +/ sprintf "%s-%O.zip" Config.PackageId ver
+    use memory = new System.IO.MemoryStream()
+    do
+        use archive = new System.IO.Compression.ZipArchive(memory, System.IO.Compression.ZipArchiveMode.Create)
+        let addFile path =
+            let entry = archive.CreateEntry(Path.GetFileName(path))
+            use s = entry.Open()
+            use i = File.OpenRead(path)
+            i.CopyTo(s)
+        addFile (nuPkg.GetComputedFileName())
+        addFile (rootDir +/ "LICENSE.txt")
+        addFile (configureVSI nuPkg).VsixPath
+    let f = FileInfo(zipPackageFile)
+    let d = f.Directory
+    if not d.Exists then
+        d.Create()
+    File.WriteAllBytes(zipPackageFile, memory.ToArray())
+
+let buildVsix () =
+    configureVSI nuPkg
+    |> VSI.BuildVsixFile
+
+buildVsix ()
+buildWebsiteFiles ()
+
+bt.Solution [
     website
 
     bt.WebSharper.HostWebsite("Web")
@@ -535,13 +584,6 @@ bt.Solution [
                 for p in projs do
                     yield r.Project p
             ])
-
-    nuPkg
 ]
 |> bt.Dispatch
 
-let buildVsix () =
-    configureVSI nuPkg
-    |> VSI.BuildVsixFile
-
-buildVsix ()
