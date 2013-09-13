@@ -1,8 +1,7 @@
-| [production downloads](http://websharper.com)
-| [pre-release downloads](http://websharper.apphb.com)
-| [issues](http://bitbucket.org/IntelliFactory/websharper/issues)
-| [forum](http://fpish.net)
-|
+[production downloads](http://websharper.com) |
+[pre-release downloads](http://websharper.apphb.com) |
+[issues](http://bitbucket.org/IntelliFactory/websharper/issues)
+[forum](http://fpish.net)
 
 # WebSharper
 
