@@ -191,6 +191,7 @@ module VisualStudioIntegration =
                 VX.VSEdition.Premium
                 VX.VSEdition.Pro
                 VX.VSEdition.Ultimate
+                VX.VSEdition.VWDExpress
             ]
         let products =
             [
