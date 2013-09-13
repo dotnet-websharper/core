@@ -1,3 +1,8 @@
+[production downloads](http://websharper.com) |
+[pre-release downloads](http://websharper.apphb.com) |
+[issues](http://bitbucket.org/IntelliFactory/websharper/issues) |
+[forum](http://fpish.net)
+
 # WebSharper
 
 WebSharper is an F#-based web programming platform. It lets you
