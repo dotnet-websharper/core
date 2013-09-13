@@ -28,21 +28,21 @@ Note: this is a draft document for the upcoming 2.5 release.
 
 Issues fixed:
 
-* #28
-* #87
-* #90
-* #101
-* #107
-* #109
-* #110
-* #111
-* #112
-* #114
-* #117
-* #117
-* #123
-* #125
-* #126
+* Issue #28
+* Issue #87
+* Issue #90
+* Issue #101
+* Issue #107
+* Issue #109
+* Issue #110
+* Issue #111
+* Issue #112
+* Issue #114
+* Issue #117
+* Issue #117
+* Issue #123
+* Issue #125
+* Issue #126
 
 ## Breaking changes
 
