@@ -59,12 +59,18 @@ module internal TypeScriptExporter =
     let cleanName (s: string) =
         pat.Replace(s, "_")
 
-    let rec convertAddress ctx (addr: P.Address) =
-        match addr with
-        | P.Global x -> ctx.Builder.Root(cleanName x)
-        | P.Local (x, y) ->
-            let x = convertAddress ctx x
-            ctx.Builder.Nested(x, cleanName y)
+    let convertAddress ctx mem addr =
+        let rec convertAddress ctx addr =
+            match addr with
+            | P.Global x -> ctx.Builder.Root(cleanName x)
+            | P.Local (x, y) ->
+                let x = convertAddress ctx x
+                ctx.Builder.Nested(x, cleanName y)
+        try
+            convertAddress ctx addr
+        with
+        | QualifiedNames.InvalidIdentifier id ->
+            failwithf "Invalid identifier: %s in the compiled name for %s" id mem
 
     let getContract ctx tR =
         ctx.GetContractImplementation ctx tR
@@ -161,7 +167,7 @@ module internal TypeScriptExporter =
         | Some (CM.DataTypeKind.Exception addr)
         | Some (CM.DataTypeKind.Interface addr)
         | Some (CM.DataTypeKind.Record (addr, _)) ->
-            let addr = convertAddress ctx addr
+            let addr = convertAddress ctx tR.FullName addr
             let decl = T.Declaration.Create(addr, makeGenerics "T" tR.GenericArity)
             T.Contract.Named(decl, ts)
         | Some (CM.DataTypeKind.Object fields) -> T.Contract.Any
@@ -231,7 +237,7 @@ module internal TypeScriptExporter =
             None
 
     let exportStaticMethod ctx (m: V.Method) =
-        let addr = convertAddress ctx m.Name
+        let addr = convertAddress ctx (string m.Reference) m.Name
         match convMethod ctx false m with
         | None -> []
         | Some s ->
@@ -264,7 +270,7 @@ module internal TypeScriptExporter =
                         yield! p m1
                         yield! p m2
                     | V.JavaScriptModuleProperty _ ->
-                        let addr = convertAddress ctx p.Slot.Address.Address
+                        let addr = convertAddress ctx (string p.Reference) p.Slot.Address.Address
                         let s =
                             T.Signature.Create().WithReturn(getContract ctx p.PropertyType)
                         let con =
@@ -276,7 +282,7 @@ module internal TypeScriptExporter =
         }
 
     let exportNamedContract ctx (t: V.Type) isIF (recordProps: list<V.RecordProperty>) =
-        let addr = convertAddress ctx t.Name
+        let addr = convertAddress ctx (string t.Reference.FullName) t.Name
         let decl = T.Declaration.Create(addr, makeGenerics "T" t.ReflectorType.Definition.GenericArity)
         let ctx = { ctx with GenericDeclaration = Some decl }
         let emitMethod m =
