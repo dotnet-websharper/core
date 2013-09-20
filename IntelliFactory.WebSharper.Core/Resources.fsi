@@ -37,13 +37,16 @@ type Rendering =
     | RenderLink of string
     | Skip
 
-    member Emit : HtmlTextWriter * MediaType -> unit
+    member Emit : HtmlTextWriter * MediaType * ?defaultToHttp: bool -> unit
 
 /// Defines the context in which resources can be rendered.
 type Context =
     {
         /// A flag indicating if debugging is enabled or not.
         DebuggingEnabled : bool
+
+        /// Transform foreign links to starting with `//` to `http://`.
+        DefaultToHttp : bool
 
         /// Constructs URLs to JavaScript-compiled assemblies.
         /// Assembly names are short, such as FSharp.Core.

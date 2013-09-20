@@ -52,6 +52,7 @@ type ScriptManager() =
         {
             DebuggingEnabled =
                 this.Context.IsDebuggingEnabled
+            DefaultToHttp = false
             GetSetting = fun key ->
                 match Conf.AppSettings.[key] with
                 | null -> None

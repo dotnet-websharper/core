@@ -54,6 +54,7 @@ type Config =
         Actions : list<obj>
         MainAssembly : FileInfo
         Mode : Mode
+        ProjectDir : DirectoryInfo
         ReferenceFiles : list<FileInfo>
         Sitelet : Sitelet<obj>
         TargetDir : DirectoryInfo
@@ -219,6 +220,8 @@ let resourceContext (st: State) (level: int) : R.Context =
             | Debug -> true
             | _ -> false
 
+        DefaultToHttp = true
+
         GetSetting = fun _ -> None
 
         GetAssemblyRendering = fun aN ->
@@ -254,7 +257,7 @@ type ResolvedContent =
     }
 
 /// Partially resolves the content.
-let resolveContent (rootFolder: string) (st: State) (loc: Location) (content: Content<obj>) =
+let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc: Location) (content: Content<obj>) =
     let locationString =
         let locStr = loc.ToString()
         if locStr.EndsWith("/") then
@@ -274,12 +277,12 @@ let resolveContent (rootFolder: string) (st: State) (loc: Location) (content: Co
         genResp {
             Json = st.Json
             Link = fun _ -> ""
-            ApplicationPath =  ""
+            ApplicationPath = "."
             ResolveUrl = fun x -> x
             Metadata = st.Metadata
             ResourceContext = resContext
             Request = emptyRequest locationString
-            RootFolder = rootFolder
+            RootFolder = projectFolder
         }
     let path =
         let ext =
@@ -327,6 +330,7 @@ let trimPath (path: string) =
 let WriteSite (aR: AssemblyResolver) (conf: Config) =
     let st = State(conf)
     let table = Dictionary()
+    let projectFolder = conf.ProjectDir.FullName
     let rootFolder = conf.TargetDir.FullName
     let contents =
         conf.Actions
@@ -335,7 +339,7 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
             match conf.Sitelet.Router.Link(action) with
             | Some location ->
                 let content = conf.Sitelet.Controller.Handle(action)
-                let rC = resolveContent rootFolder st location content
+                let rC = resolveContent projectFolder rootFolder st location content
                 table.[action] <- rC.Path
                 Some rC
             | None -> None)
@@ -344,7 +348,7 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
         // Define context
         let context : Context<obj> =
             {
-                ApplicationPath = ""
+                ApplicationPath = "."
                 ResolveUrl = fun x -> x
                 Json = st.Json
                 Link = fun action ->
@@ -363,7 +367,7 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                 Metadata = st.Metadata
                 ResourceContext = rC.ResourceContext
                 Request = emptyRequest rC.Path
-                RootFolder = rootFolder
+                RootFolder = projectFolder
             }
         let fullPath = conf.TargetDir.FullName + rC.Path
         let response = rC.Respond context

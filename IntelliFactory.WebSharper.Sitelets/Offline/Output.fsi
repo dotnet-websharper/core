@@ -38,6 +38,7 @@ type Config =
         Actions : list<obj>
         MainAssembly : FileInfo
         Mode : Mode
+        ProjectDir : DirectoryInfo
         ReferenceFiles : list<FileInfo>
         Sitelet : Sitelet<obj>
         TargetDir : DirectoryInfo

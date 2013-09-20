@@ -76,6 +76,7 @@ module internal ResourceContext =
         let isDebug = HttpContext.Current.IsDebuggingEnabled
         {
             DebuggingEnabled = isDebug
+            DefaultToHttp = false
             GetSetting = fun (name: string) ->
                 match ConfigurationManager.AppSettings.[name] with
                 | null -> None

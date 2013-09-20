@@ -102,6 +102,9 @@ type ResourceContext =
         /// Whether to emit readable JavaScript.
         DebuggingEnabled : bool
 
+        /// Wheter to switch `//` links to `http://` links.
+        DefaultToHttp : bool
+
         /// Reads environment settings.
         GetSetting : string -> option<string>
 

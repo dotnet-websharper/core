@@ -348,6 +348,7 @@ type ResourceContent =
 type ResourceContext =
     {
         DebuggingEnabled : bool
+        DefaultToHttp : bool
         GetSetting : string -> option<string>
         RenderResource : ResourceContent -> Res.Rendering
     }
@@ -395,6 +396,7 @@ type Bundle(resolver: AssemblyResolver, set: list<Assembly>) =
         let ctx : Res.Context =
             {
                 DebuggingEnabled = debug
+                DefaultToHttp = false // TODO make configurable
                 GetAssemblyRendering = fun name ->
                     context.LookupAssembly(name)
                     |> Option.iter renderAssembly
@@ -543,6 +545,7 @@ type CompiledAssembly
         let ctx : Res.Context =
             {
                 DebuggingEnabled = ctx.DebuggingEnabled
+                DefaultToHttp = ctx.DefaultToHttp
                 GetAssemblyRendering = fun name ->
                     if name = nameOfSelf then
                         (if ctx.DebuggingEnabled then Pref.Readable else Pref.Compact)

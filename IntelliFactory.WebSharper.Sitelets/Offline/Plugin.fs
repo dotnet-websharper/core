@@ -89,6 +89,7 @@ type Plugin() =
                     Sitelet = sitelet
                     MainAssembly = options.SourceAssembly
                     Mode = options.Mode
+                    ProjectDir = options.ProjectDirectory
                     ReferenceFiles = options.ReferenceFiles
                     TargetDir = options.OutputDirectory
                     Actions = actions

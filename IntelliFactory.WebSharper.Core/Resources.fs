@@ -25,17 +25,35 @@ open System
 open System.IO
 open System.Web
 open System.Web.UI
-
 module R = IntelliFactory.WebSharper.Core.Reflection
+
+type Rendering =
+    | RenderInline of string
+    | RenderLink of string
+    | Skip
+
+type Context =
+    {
+        DebuggingEnabled : bool
+        DefaultToHttp : bool
+        GetAssemblyRendering : R.AssemblyName -> Rendering
+        GetSetting : string -> option<string>
+        GetWebResourceRendering : Type -> string -> Rendering
+    }
 
 type MediaType =
     | Css
     | Js
 
-let link (html: HtmlTextWriter) (url: string) =
+let cleanLink dHttp (url: string) =
+    if dHttp && url.StartsWith("//")
+        then "http:" + url
+        else url
+
+let link dHttp (html: HtmlTextWriter) (url: string) =
     html.AddAttribute("type", "text/css")
     html.AddAttribute("rel", "stylesheet")
-    html.AddAttribute("href", url)
+    html.AddAttribute("href", cleanLink dHttp url)
     html.RenderBeginTag "link"
     html.RenderEndTag()
     html.WriteLine()
@@ -47,8 +65,8 @@ let inlineStyle (html: HtmlTextWriter) (text: string) =
     html.RenderEndTag()
     html.WriteLine()
 
-let script (html: HtmlTextWriter) (url: string) =
-    html.AddAttribute("src", url)
+let script dHttp (html: HtmlTextWriter) (url: string) =
+    html.AddAttribute("src", cleanLink dHttp url)
     html.AddAttribute("type", "text/javascript")
     html.AddAttribute("charset", "UTF-8")
     html.RenderBeginTag "script"
@@ -61,12 +79,9 @@ let inlineScript (html: HtmlTextWriter) (text: string) =
     html.Write(text)
     html.RenderEndTag()
 
-type Rendering =
-    | RenderInline of string
-    | RenderLink of string
-    | Skip
-
-    member r.Emit(html: HtmlTextWriter, mt) =
+type Rendering with
+    member r.Emit(html: HtmlTextWriter, mt, ?defaultToHttp) =
+        let dHttp = defaultArg defaultToHttp false
         match r with
         | Rendering.RenderInline text ->
             match mt with
@@ -74,20 +89,12 @@ type Rendering =
             | Js -> inlineScript html text
         | Rendering.RenderLink url ->
             match mt with
-            | Css -> link html url
-            | Js -> script html url
+            | Css -> link dHttp html url
+            | Js -> script dHttp html url
         | Rendering.Skip -> ()
 
-type Context =
-    {
-        DebuggingEnabled : bool
-        GetAssemblyRendering : R.AssemblyName -> Rendering
-        GetSetting : string -> option<string>
-        GetWebResourceRendering : Type -> string -> Rendering
-    }
-
-let emit html (r: Rendering) mt =
-    r.Emit(html, mt)
+let emit dHttp html (r: Rendering) mt =
+    r.Emit(html, mt, dHttp)
 
 type IResource =
     abstract Render : Context -> HtmlTextWriter -> unit
@@ -112,6 +119,7 @@ type BaseResource(kind: Kind) =
 
     interface IResource with
         member this.Render ctx html =
+            let dHttp = ctx.DefaultToHttp
             match kind with
             | Basic spec ->
                 let self = this.GetType()
@@ -120,20 +128,20 @@ type BaseResource(kind: Kind) =
                 let id = self.FullName
                 let mt = if spec.EndsWith ".css" then Css else Js
                 match ctx.GetSetting id with
-                | Some url -> emit html (RenderLink url) mt
+                | Some url -> emit dHttp html (RenderLink url) mt
                 | None ->
                     match tryFindWebResource self spec with
                     | Some e ->
-                        emit html (ctx.GetWebResourceRendering self e) mt
+                        emit dHttp html (ctx.GetWebResourceRendering self e) mt
                     | None ->
-                        emit html (RenderLink spec) mt
+                        emit dHttp html (RenderLink spec) mt
             | Complex (b, xs) ->
                 let id = this.GetType().FullName
                 let b = defaultArg (ctx.GetSetting id) b
                 let h = html
                 for x in xs do
                     let url = b.TrimEnd [| '/' |] + "/" + x.TrimStart [| '/' |]
-                    if url.EndsWith ".css" then link h url else script h url
+                    if url.EndsWith ".css" then link dHttp h url else script dHttp h url
 
 [<Sealed>]
 type Runtime() =
@@ -142,4 +150,4 @@ type Runtime() =
             let name = if ctx.DebuggingEnabled then "Runtime.js" else "Runtime.min.js"
             let t = typeof<IntelliFactory.JavaScript.Core.Id>
             let ren = ctx.GetWebResourceRendering t name
-            emit html ren Js
+            emit ctx.DefaultToHttp html ren Js
