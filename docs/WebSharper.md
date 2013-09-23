@@ -1,24 +1,30 @@
 # WebSharper
 
-<ul>
- <li>Installation</li>
- <li>
-   <div>User Manual</div>
-   <ul>
-     <li>
-       <div>JavaScript Applications and Libraries</div>
-     </li>
-     <li>
-       <div>HTML Applications</div>
-     </li>
-     <li>
-       <div>Client-Server Applications</div>
-     </li>
-     <li>
-       <div>Mobile Applications</div>
-     </li>
-   </ul>
- </li>
- <li>Licensing</li>
- <li>Contact</li>
-</ul>
+* Installation
+* Developing Applications
+    * Getting Started
+    * [Creating JavaScript Applications and Libraries](Libraries.md)
+        * [Binding to Existing JavaScript Code](Bindings.md)
+        * [Using the Interface Generator](InterfaceGenerator.md)
+        * [Porting .NET Code to JavaScript with Proxies](Proxies.md)
+        * [Generating TypeScript Definitions](TypeScriptOutput.md)
+    * HTML Applications
+    * Client-Server Applications
+      * [Calling Remote Procedures](Remoting.md)
+      * [Using Pagelets](Pagelets.md)
+    * [Mobile Applications](Mobile.md)
+* Deploying Code
+    * Generating JavaScript Bundles
+    * Generating Standalone HTML Applications
+    * Deploying to IIS
+* Reference
+    * Attributes
+    * Known Extensions
+* Developing WebSharper
+    * Building from Source
+    * Roadmap
+    * Release Notes
+        * [2.5](ReleaseNotes-2.5.md)
+* Licensing
+* Contact
+ 
