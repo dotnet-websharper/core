@@ -21,7 +21,10 @@
     * Deploying to IIS
 * Reference
     * Attributes
-    * Known Extensions
+    * Core Extensions
+        * [jQuery](jQuery.md)
+        * [DOM](DOM.md)
+        * [ECMA-262](ECMA-262.md)
 * Developing WebSharper
     * Building from Source
     * Roadmap
