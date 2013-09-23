@@ -136,6 +136,12 @@ module CodeModel =
         static member ( |=> ) (this: Interface, x: IInterfaceProperty) =
             x.SetOn this
 
+        interface IResourceDependable<Interface> with
+            member this.AddRequires res =
+                this |> Entity.Update (fun x ->
+                    this.DependsOn <- res @ this.DependsOn)
+            member this.GetRequires() = this.DependsOn
+
     and Class =
         inherit TypeDeclaration
         val mutable BaseClass : option<T>
@@ -162,6 +168,12 @@ module CodeModel =
         /// Sets a property.
         static member ( |=> ) (this: Class, x: IClassProperty) =
             x.SetOn this
+
+        interface IResourceDependable<Class> with
+            member this.AddRequires res =
+                this |> Entity.Update (fun x ->
+                    this.DependsOn <- res @ this.DependsOn)
+            member this.GetRequires() = this.DependsOn
 
     and [<AbstractClass>] Member =
         inherit Entity
@@ -264,6 +276,13 @@ module CodeModel =
     and IInterfaceProperty =
         abstract member SetOn : Interface -> Interface
 
+    and IResourceDependable =
+        abstract member GetRequires : unit -> list<Dependency>
+
+    and IResourceDependable<'T> =
+        inherit IResourceDependable
+        abstract member AddRequires : list<Dependency> -> 'T
+
     and [<AbstractClass>] NamespaceEntity =
         inherit Entity
         val mutable DependsOn : list<Dependency>
@@ -297,6 +316,12 @@ module CodeModel =
             r
             |> Entity.Update(fun r -> r.IsAssemblyWide <- true)
 
+        interface IResourceDependable<Resource> with
+            member this.AddRequires res =
+                this |> Entity.Update (fun x ->
+                    this.DependsOn <- res @ this.DependsOn)
+            member this.GetRequires() = this.DependsOn
+
     type Namespace =
         {
             Name : string
@@ -308,4 +333,10 @@ module CodeModel =
     type Assembly =
         {
             Namespaces : list<Namespace>
+            DependsOn : list<Dependency>
         }
+
+        interface IResourceDependable<Assembly> with
+            member this.AddRequires res =
+                { this with DependsOn = res @ this.DependsOn }
+            member this.GetRequires() = this.DependsOn

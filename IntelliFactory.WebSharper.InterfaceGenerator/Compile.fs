@@ -551,15 +551,16 @@ type MemberConverter
             |> mD.CustomAttributes.Add
         dT.Methods.Add mD
 
-    member private c.AddTypeMembers(x: Code.TypeDeclaration, tD: TypeDefinition) =
+    member private c.AddTypeMembers<'T when 'T :> Code.TypeDeclaration and 'T :> Code.IResourceDependable<'T>>
+            (x: 'T, tD: TypeDefinition) =
         for m in x.Methods do
             c.AddMethod(tD, x, m)
         for p in x.Properties do
             addProperty tD x p
         c.AddDependencies(x, tD)
 
-    member private d.AddDependencies(ent: CodeModel.NamespaceEntity, prov: ICustomAttributeProvider) =
-        for d in ent.DependsOn do
+    member d.AddDependencies(ent: Code.IResourceDependable, prov: ICustomAttributeProvider) =
+        for d in ent.GetRequires() do
             match d with
             | Code.LocalDependency d ->
                 match types.TryGetValue(d) with
@@ -961,6 +962,7 @@ type Compiler() =
             (fun _ r -> mC.Resource r)
             (fun _ c -> mC.Class c)
             (fun _ i -> mC.Interface i)
+        mC.AddDependencies(assembly, def)
         (def, comments, mB)
 
     let addResourceExports (mB: MemberBuilder) (def: AssemblyDefinition) =

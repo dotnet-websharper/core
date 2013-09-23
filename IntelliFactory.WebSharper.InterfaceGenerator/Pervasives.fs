@@ -45,7 +45,10 @@ module Pervasives =
 
     /// Constructs a new assembly.
     let Assembly namespaces : Code.Assembly =
-        { Namespaces = namespaces }
+        {
+            Namespaces = namespaces
+            DependsOn = []
+        }
 
     /// Constructs a new namespace.
     let Namespace name (members: list<Code.NamespaceEntity>) : Code.Namespace =
@@ -227,16 +230,12 @@ module Pervasives =
         }
 
     /// Adds a resource dependency.
-    let Requires (requires : Code.Resource list) (ty: #Code.NamespaceEntity) =
-        ty |> Code.Entity.Update (fun x ->
-            let ids = requires |> List.map (fun res -> Code.LocalDependency res.Id)
-            x.DependsOn <- ids @ x.DependsOn)
+    let Requires<'T when 'T :> Code.IResourceDependable<'T>> (requires : Code.Resource list) (ty: 'T) =
+        ty.AddRequires (requires |> List.map (fun res -> Code.LocalDependency res.Id))
 
     /// Adds an externally defined resource dependency.
-    let RequiresExternal (requires: Type.Type list) (ty: #Code.NamespaceEntity) =
-        ty |> Code.Entity.Update (fun x ->
-            let ids = requires |> List.map (fun res -> Code.ExternalDependency res)
-            x.DependsOn <- ids @ x.DependsOn)
+    let RequiresExternal<'T when 'T :> Code.IResourceDependable<'T>> (requires: Type.Type list) (ty: 'T) =
+        ty.AddRequires (requires |> List.map (fun res -> Code.ExternalDependency res))
 
     let private Fresh =
         let x = ref 0
