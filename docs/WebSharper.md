@@ -9,9 +9,10 @@
         * [Porting .NET Code to JavaScript with Proxies](Proxies.md)
         * [Generating TypeScript Definitions](TypeScriptOutput.md)
     * HTML Applications
+        * [Using Sitelets](Sitelets.md)
     * Client-Server Applications
-      * [Calling Remote Procedures](Remoting.md)
-      * [Using Pagelets](Pagelets.md)
+        * [Calling Remote Procedures](Remoting.md)
+        * [Using Pagelets](Pagelets.md)
     * [Mobile Applications](Mobile.md)
 * Deploying Code
     * Generating JavaScript Bundles
