@@ -1,8 +1,9 @@
 TypeScript Output
 =================
 
-Latest WebSharper includes an experimental feature of producing [TypeScript](http://www.typescriptlang.org/)
-definition files corresponding to the JavaScript definitions produced by WebSharper.
+Latest WebSharper includes an experimental feature of producing
+[TypeScript](http://www.typescriptlang.org/) definition files
+corresponding to the JavaScript definitions produced by WebSharper.
 
 ## Examples ##
 

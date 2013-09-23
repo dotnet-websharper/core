@@ -73,4 +73,3 @@ should be updated to use the new API available in the
 
 As the internal metadata format has been amended, all WebSharper code
 needs to be recompiled using the latest compiler.
-
