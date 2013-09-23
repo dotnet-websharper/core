@@ -690,8 +690,9 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
     let methodId (m: MethodDefinition) =
         String.Format
             (
-                "M:{0}({1})", 
+                "M:{0}.{1}({2})", 
                 typeRefId m.DeclaringType,
+                m.Name,
                 seq {
                     for p in m.Parameters ->
                         typeRefId p.ParameterType
