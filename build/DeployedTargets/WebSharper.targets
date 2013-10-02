@@ -23,7 +23,7 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <PropertyGroup>
-    <WebSharperHome Condition=" '$(WebSharperHome)' == '' ">$(MSBuildThisFileDirectory)</WebSharperHome>
+    <WebSharperHome Condition=" '$(WebSharperHome)' == '' ">$(MSBuildThisFileDirectory)/../tools/net45</WebSharperHome>
     <WebSharperIncludes Condition=" '$(WebSharperIncludes)' == 'false' ">false</WebSharperIncludes>
     <WebSharperIncludes Condition=" '$(WebSharperIncludes)' != 'false' ">true</WebSharperIncludes>
   </PropertyGroup>
@@ -95,7 +95,7 @@
 
   <PropertyGroup>
     <WSPrivateRefs>false</WSPrivateRefs>
-    <WSPrivateRefs Condition="$(SiteWebSharperProject)">true</WSPrivateRefs>
+    <WSPrivateRefs Condition="$(SiteWebSharperProject) OR Exists('$(MSBuildProjectDirectory)\Web.config')">true</WSPrivateRefs>
   </PropertyGroup>
 
   <ItemGroup Condition=" $(WebSharperIncludes) ">
