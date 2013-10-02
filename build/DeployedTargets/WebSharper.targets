@@ -171,6 +171,10 @@
       <Private>$(WsPrivateRefs)</Private>
       <HintPath>$(WebSharperHome)/IntelliFactory.Xml.dll</HintPath>
     </Reference>
+    <Reference Include="IntelliFactory.Core">
+      <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.Core.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <!-- Interface Generator WebSharper Projects -->
@@ -212,10 +216,6 @@
   </Target>
 
   <ItemGroup Condition=" $(WebSharperIncludes) AND $(InterfaceGenerator) ">
-    <Reference Include="IntelliFactory.Core">
-      <HintPath>$(WebSharperHome)/IntelliFactory.Core.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
     <Reference Include="IntelliFactory.WebSharper.InterfaceGenerator">
       <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.InterfaceGenerator.dll</HintPath>
       <Private>false</Private>
