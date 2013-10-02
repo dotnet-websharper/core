@@ -61,6 +61,7 @@ module internal ResourceContext =
     module M = IntelliFactory.WebSharper.Core.Metadata
     module R = IntelliFactory.WebSharper.Core.Remoting
     module Re = IntelliFactory.WebSharper.Core.Resources
+    module P = IntelliFactory.WebSharper.PathConventions
 
     let ServerRootPath =
         HostingEnvironment.MapPath "~/bin"
@@ -74,6 +75,7 @@ module internal ResourceContext =
     let ResourceContext (appPath: string) : Re.Context =
         let page = new UI.Page()
         let isDebug = HttpContext.Current.IsDebuggingEnabled
+        let pu = P.PathUtility.VirtualPaths(appPath)
         {
             DebuggingEnabled = isDebug
             DefaultToHttp = false
@@ -82,12 +84,16 @@ module internal ResourceContext =
                 | null -> None
                 | x -> Some x
             GetAssemblyRendering = fun name ->
-                let suffix = if isDebug then ".dll.js" else ".dll.min.js"
-                let url =
-                    String.Format("Scripts/{0}{1}", page.Server.UrlEncode name.Name, suffix)
-                    |> joinWithSlash appPath
+                let aid = P.AssemblyId.Create(name.FullName)
+                let url = if isDebug then pu.JavaScriptPath(aid) else pu.MinifiedJavaScriptPath(aid)
                 Re.RenderLink url
             GetWebResourceRendering = fun ty resource ->
-                let url = page.ClientScript.GetWebResourceUrl(ty, resource)
-                Re.RenderLink url
+                let id = P.AssemblyId.Create(ty)
+                let kind =
+                    if resource.EndsWith(".js") || resource.EndsWith(".ts")
+                        then P.ResourceKind.Script
+                        else P.ResourceKind.Content
+                P.EmbeddedResource.Create(kind, id, resource)
+                |> pu.EmbeddedPath
+                |> Re.RenderLink
         }

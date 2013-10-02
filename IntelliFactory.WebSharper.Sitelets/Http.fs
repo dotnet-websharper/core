@@ -21,13 +21,14 @@
 
 namespace IntelliFactory.WebSharper.Sitelets
 
-open System.Collections.Generic
-open System.Web
-open System.Web.UI
-open System.Collections.Specialized
-
 /// Defines HTTP-related functionality.
 module Http =
+    open System
+    open System.Collections.Generic
+    open System.Collections.Specialized
+    open System.IO
+    open System.Web
+    open System.Web.UI
 
     /// Represents HTTP methods.
     /// See: http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html.
@@ -44,56 +45,62 @@ module Http =
 
     /// Represents the HTTP version for responses and requests.
     type Version =
-        private {Version : float}
+        private {
+            Version : float
+        }
 
         /// Constructs a new custom version.
         static member Custom x = { Version = x }
 
-        /// Constructs a default version (1.1).
-        static member Default = Version.Custom 1.1
+    [<AutoOpen>]
+    module private VersionUtils =
+        let defaultVersion = Version.Custom 1.1
 
-    /// Represents HTTP headers. May later add active patterns and constructors
+    type Version with
+
+        /// The default version (1.1).
+        static member Default = defaultVersion
+
+    /// Represents HTTP headers.
+    /// May later add active patterns and constructors
     /// for common headers.
     type Header =
-        private
-            {
-                mutable name : string
-                mutable value : string
-            }
-        member this.Name
-            with get () = this.name
-            and set n   = this.value <- n
+        private {
+            mutable name : string
+            mutable value : string
+        }
 
-        member this.Value
-            with get () = this.value
-            and set v   = this.value <- v
+        member h.Name
+            with get () = h.name
+            and set n  = h.value <- n
+
+        member h.Value
+            with get () = h.value
+            and set v  = h.value <- v
 
         static member Custom n v =
-            {name = n; value = v}
+            { name = n; value = v }
 
     /// Represents parameter collections.
+    [<Sealed>]
     type ParameterCollection(nameValues: NameValueCollection) =
 
         /// Creates a new parameter collection from s sequence of name and value pairs.
-        new (nvs: seq<string * string>) =
-            let nv = new NameValueCollection()
+        new (nvs) =
+            let nv = NameValueCollection()
             nvs
-            |> Seq.iter (fun (n,v) ->
-                nv.Add(n,v)
-            )
+            |> Seq.iter (fun (n, v) -> nv.Add(n,v))
             ParameterCollection(nv)
 
         /// Get the entry with the specified key.
         // If the no entry is found the value none is returned.
-        member this.Item (name:string) =
-            if nameValues.[name] = null then
-                None
-            else
+        member pc.Item(name:string) =
+            if nameValues.[name] = null then None else
                 Some nameValues.[name]
 
         /// Transforms the parameter list into a list of
         /// name and value pairs.
-        member this.ToList () =
+        member pc.ToList() =
             seq {
                 for k in nameValues.Keys do
                    yield (k, nameValues.[k])
@@ -103,43 +110,72 @@ module Http =
     /// Represents HTTP requests.
     type Request =
         {
-            Method  : Method
-            Uri     : System.Uri
+            Method : Method
+            Uri : System.Uri
             Headers : seq<Header>
-            Post    : ParameterCollection
-            Get     : ParameterCollection
+            Post : ParameterCollection
+            Get : ParameterCollection
             Cookies : HttpCookieCollection
             ServerVariables : ParameterCollection
-            Body    : System.IO.Stream
-            Files   : seq<System.Web.HttpPostedFile>
+            Body : Stream
+            Files : seq<HttpPostedFile>
         }
 
     /// Represents the status of HTTP responses.
     /// TODO
     type Status =
-        private
-            {
-                Message : string;
-                Code    : int
-            }
-        static member Ok = {Message = "OK"; Code = 200}
-        static member NotFound = {Message = "Not Found"; Code = 404}
-        static member Unauthorized = {Message = "Unauthorized "; Code = 401}
-        static member Forbidden = {Message = "Forbidden  "; Code = 403}
-        static member InternalServerError = {Message = "Internal Error"; Code = 500}
-        static member Custom (n: int) (s: option<string>) =
+        private {
+            SCode : int
+            SMessage : string
+        }
+
+        override st.ToString() =
+            String.Format("{0} {1}", st.SCode, st.SMessage)
+
+    [<AutoOpen>]
+    module private StatusUtils =
+
+        let def code message =
+            { SMessage = message; SCode = code }
+
+        let forbidden = def 403 "Forbidden"
+        let internalServerError = def 500 "Internal Error"
+        let notFound = def 404 "Not Found"
+        let ok = def 200 "Ok"
+        let unauthorized = def 401 "Unauthorized"
+
+    type Status with
+
+        /// The integer status code, such as 200.
+        member st.Code = st.SCode
+
+        /// 403 Forbidden.
+        static member Forbidden = forbidden
+
+        /// 500 Internal Error.
+        static member InternalServerError = internalServerError
+
+        /// 404 Not Found.
+        static member NotFound = notFound
+
+        /// 200 Ok.
+        static member Ok = ok
+
+        /// 401 Unauthorized.
+        static member Unauthorized = notFound
+
+        /// Custom status with an integer code and optional message.
+        static member Custom n s =
             let m =
                 match s with
-                | Some s    -> s
-                | None      -> ""
-            {Message = m; Code = n}
-        override this.ToString() =
-            this.Code.ToString() + " " + this.Message
+                | Some s -> s
+                | None -> ""
+            def n m
 
     //// Represents HTTP responses.
     type Response =
         {
-            Status      : Status
-            Headers     : seq<Header>
-            WriteBody   : System.IO.Stream -> unit
+            Status : Status
+            Headers : seq<Header>
+            WriteBody : Stream -> unit
         }

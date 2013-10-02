@@ -227,15 +227,19 @@
   <PropertyGroup Condition=" $(SiteWebSharperProject) ">
     <CleanDependsOn>$(CleanDependsOn);WebSharperWebClean</CleanDependsOn>
     <PrepareForRunDependsOn>$(PrepareForRunDependsOn);WebSharperWebCompile</PrepareForRunDependsOn>
-    <WebSharperScriptsFolder Condition=" '$(WebSharperScriptsFolder)' == ''">$(WebProjectOutputDir)\Scripts</WebSharperScriptsFolder>
-    <WebSharperMarker>$(WebSharperScriptsFolder)\build.tmp</WebSharperMarker>
+    <WebSharperOutputRootFolder Condition=" '$(WebSharperOutputRootFolder)' == ''">$(WebProjectOutputDir)</WebSharperOutputRootFolder>
+    <WebSharperMarker>$(WebSharperOutputRootFolder)\Scripts\WebSharper\build.tmp</WebSharperMarker>
   </PropertyGroup>
 
   <Target Name="WebSharperWebCompile" Inputs="@(WebSharperBinaries)" Outputs="$(WebSharperMarker)"
           DependsOnTargets="WebSharperDetermineBinaries">
-    <MakeDir Directories="$(WebSharperScriptsFolder)" />
+    <MakeDir Directories="$(WebSharperOutputRootFolder)" />
+    <MakeDir Directories="$(WebSharperOutputRootFolder)\Content" />
+    <MakeDir Directories="$(WebSharperOutputRootFolder)\Content\WebSharper" />
+    <MakeDir Directories="$(WebSharperOutputRootFolder)\Scripts" />
+    <MakeDir Directories="$(WebSharperOutputRootFolder)\Scripts\WebSharper" />
     <PropertyGroup>
-      <WebSharperArgs>-unpack "$(WebSharperScriptsFolder)" @(WebSharperBinaries->'"%(FullPath)"',' ')</WebSharperArgs>
+      <WebSharperArgs>-unpack "$(WebSharperOutputRootFolder)" @(WebSharperBinaries->'"%(FullPath)"',' ')</WebSharperArgs>
     </PropertyGroup>
     <Exec Command='"$(WebSharperHome)\WebSharper.exe" $(WebSharperArgs)' />
     <Touch Files="$(WebSharperMarker)" AlwaysCreate="true" />
@@ -245,8 +249,8 @@
     <ItemGroup>
       <WebSharperBinaries Include="$(OutputPath)\*.dll" />
       <WebSharperBinaries Include="$(OutputPath)\*.js" />
-      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperScriptsFolder)\%(Filename).dll.js')" />
-      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperScriptsFolder)\%(Filename).dll.min.js')" />
+      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperOutputRootFolder)\Scripts\WebSharper\**\*.*')" />
+      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperOutputRootFolder)\Content\WebSharper\**\*.*')" />
     </ItemGroup>
     <Delete Files="@(WebSharperWebTargets)" />
   </Target>

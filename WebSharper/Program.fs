@@ -121,22 +121,29 @@ let run (aR: AssemblyResolver) (opts: Options.T) =
     match opts with
     | Options.Compile opts ->
         compile aR opts
-    | Options.Unpack (folder, assemblies) ->
+    | Options.Unpack (rootDirectory, assemblies) ->
+        let pc = PathConventions.PathUtility.FileSystem(rootDirectory)
         let aR = aR.SearchPaths(assemblies)
         let loader = FE.Loader.Create aR stderr.WriteLine
+        let emit text path =
+            match text with
+            | Some text -> writeTextFile (path, text)
+            | None -> ()
+        let script = PathConventions.ResourceKind.Script
+        let content = PathConventions.ResourceKind.Content
         for p in assemblies do
             let a = loader.LoadFile p
-            let emit text ext =
-                match text with
-                | Some text ->
-                    let path =
-                        Path.Combine(folder,
-                            Path.GetFileName p + ext)
-                    writeTextFile (path, text)
-                | None -> ()
-            emit a.ReadableJavaScript ".js"
-            emit a.CompressedJavaScript ".min.js"
-            emit a.TypeScriptDeclarations ".d.ts"
+            let aid = PathConventions.AssemblyId.Create(a.FullName)
+            emit a.ReadableJavaScript (pc.JavaScriptPath aid)
+            emit a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
+            emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
+            let write k fn c =
+                let p = pc.EmbeddedPath(PathConventions.EmbeddedResource.Create(k, aid, fn))
+                writeTextFile (p, c)
+            for r in a.GetScripts() do
+                write script r.FileName r.Content
+            for r in a.GetContents() do
+                write content r.FileName r.Content
         0
     | Options.Dependencies path ->
         DependencyReporter.Run path

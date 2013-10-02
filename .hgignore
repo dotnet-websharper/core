@@ -1,7 +1,5 @@
 (bin|obj)/(Debug|Release)
-
-\.min
-\.js$
+\.min\.js$
 
 \.suo$
 
@@ -13,7 +11,10 @@
 
 ^Lib
 
-^Web/(bin|downloads|Scripts)
+Scripts/WebSharper
+Content/WebSharper
+content/WebSharper
+^Web/(bin|downloads)
 
 ^WebSharperTests/(bin|Scripts)
 

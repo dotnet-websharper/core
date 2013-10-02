@@ -38,9 +38,31 @@ type Symbols =
     | Mdb of byte []
     | Pdb of byte []
 
+/// Represents embedded resource files.
+[<Sealed>]
+type EmbeddedFile =
+
+    /// Reads the content.
+    member Content : string
+
+    /// The mime content type.
+    member ContentType : string
+
+    /// The file name.
+    member FileName : string
+
+    /// True for Script resources.
+    member IsScript : bool
+
 /// Represents assemblies.
 [<Sealed>]
 type Assembly =
+
+    /// Loads embedded non-script resources.
+    member GetContents : unit -> seq<EmbeddedFile>
+
+    /// Loads embedded script resources.
+    member GetScripts : unit -> seq<EmbeddedFile>
 
     /// Returns the raw assembly data.
     member RawBytes : option<StrongNameKeyPair> -> byte []
@@ -53,6 +75,9 @@ type Assembly =
 
     /// Reads the embedded JavaScript.
     member ReadableJavaScript : option<string>
+
+    /// The full name of the assembly.
+    member FullName : string
 
     /// Returns the associated symbols, if any.
     member Symbols : option<Symbols>

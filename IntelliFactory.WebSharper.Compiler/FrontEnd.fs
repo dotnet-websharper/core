@@ -64,11 +64,76 @@ type Symbols =
     | Mdb of byte []
     | Pdb of byte []
 
+type AssemblyContent =
+    {
+        ACContent : string
+        ACFileName : string
+    }
+
+    member ac.FileName = ac.ACFileName
+    member ac.Content = ac.ACContent
+
+    static member Create(name, content) =
+        {
+            ACContent = content
+            ACFileName = name
+        }
+
+let (|StringArg|_|) (attr: CustomAttributeArgument) =
+    if attr.Type.FullName = "System.String" then
+        Some (attr.Value :?> string)
+    else
+        None
+
+type EmbeddedFile =
+    {
+        ResContent : string
+        ResContentType : string
+        ResName : string
+    }
+
+    member ri.Content = ri.ResContent
+    member ri.ContentType = ri.ResContentType
+    member ri.FileName = ri.ResName
+
+    member ri.IsScript =
+        match ri.ResContentType with
+        | "text/javascript" -> true
+        | _ -> false
+
+let parseWebResources (def: AssemblyDefinition) =
+    def.CustomAttributes
+    |> Seq.choose (fun attr ->
+        let wra = "System.Web.UI.WebResourceAttribute"
+        if attr.AttributeType.FullName = wra then
+            match Seq.toList attr.ConstructorArguments with
+            | [StringArg resourceName; StringArg contentType] ->
+                readResource resourceName def
+                |> Option.map (fun c ->
+                    {
+                        ResContent = c
+                        ResContentType = contentType
+                        ResName = resourceName
+                    })
+            | _ -> None
+        else None)
+
 type Assembly =
     {
         Debug : option<Symbols>
         Definition : AssemblyDefinition
     }
+
+    member this.FullName =
+        this.Definition.FullName
+
+    member this.GetScripts() =
+        parseWebResources this.Definition
+        |> Seq.filter (fun r -> r.IsScript)
+
+    member this.GetContents() =
+        parseWebResources this.Definition
+        |> Seq.filter (fun r -> not r.IsScript)
 
     member this.OutputParameters(keyPair) =
         let par = WriterParameters()
