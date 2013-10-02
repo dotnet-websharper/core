@@ -12,6 +12,8 @@
   <Target Name="Build" />
   <Target Name="Clean" />
   <ItemGroup>
+    <Compile Include="../src/PathConventions.fsi" />
+    <Compile Include="../src/PathConventions.fs" />
     <Compile Include="Arguments.fs" />
     <Compile Include="Options.fs" />
     <Compile Include="DependencyReporter.fs" />
