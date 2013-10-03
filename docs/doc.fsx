@@ -3,7 +3,7 @@ open System.IO
 open System.Text.RegularExpressions
 
 let linkPattern =
-    Regex(@"\(([^.]+)[.]md\)")
+    Regex(@"\((\w+)[.]md\)", RegexOptions.Multiline)
 
 type Link =
     {
@@ -35,16 +35,35 @@ let tocLinks =
 
 let d = DirectoryInfo(__SOURCE_DIRECTORY__)
 
-let orphans =
+type Problem =
+    | Missing of Link
+    | Orphan of Link
+
+    override p.ToString() =
+        match p with
+        | Missing k -> "missing : " + string k
+        | Orphan k -> "orphan  : " + string k
+
+let doesExist name =
+    let p = Path.Combine(__SOURCE_DIRECTORY__, name + ".md")
+    File.Exists(p)
+
+let problems =
     [|
         for file in d.EnumerateFiles("*.md") do
             let links = getLinks file
             yield!
                 links
-                |> Seq.filter (fun link ->
-                    not <| tocLinks.Contains(link.Target) )
+                |> Seq.choose (fun link ->
+                    if not (doesExist link.Target) then
+                        Some (Missing link)
+                    elif not (tocLinks.Contains(link.Target)) then
+                        Some (Orphan link)
+                    else
+                        None)
     |]
 
-if orphans.Length > 0 then
-    printfn "Orphan pages:"
-    Seq.iter (printfn "  %O") orphans
+if problems.Length > 0 then
+    printfn "Problems:"
+    Seq.iter (printfn "  %O") problems
+
