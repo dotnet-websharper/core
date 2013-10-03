@@ -21,6 +21,8 @@
     * [Deploying to IIS](IIS.md)
     * [Deploying with Web API](http://github.com/intellifactory/websharper.webapi)
 * Reference
+    * Standard Libraries
+        * [Asynchronous Workflows](Async.md)
     * Attributes
     * Core Extensions
         * [jQuery](jQuery.md)
