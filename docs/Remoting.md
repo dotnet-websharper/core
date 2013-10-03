@@ -1,6 +1,6 @@
 # Communicating With the Server
 
-`WebSharper` supports remote procedure calls from the client
+WebSharper supports remote procedure calls from the client
 (JavaScript environment) to the server (ASP.NET or other hosting
 environment). Remoting is designed to be safe and efficient while
 requiring as little boilerplate code as possible.
@@ -9,7 +9,6 @@ Here is a simple example of a client-side and a server-side function
 pair that communicate with RPC:
 
 ```fsharp
-
 module Server =
     
     [<Rpc>]
@@ -27,6 +26,7 @@ module Client =
             return callback blogs
         }
         |> Async.Start
+```
 
 The conceptual model assumed by WebSharper is this: the client always
 has the control, and calls the server when necessary.
@@ -102,7 +102,6 @@ nested JavaScript callbacks.
 For example:
 
 ```fsharp
-
 [<Remote>]
 let Increment(x: int) =
     async {
@@ -118,6 +117,7 @@ let Foo (callback: int -> unit) =
         return callback z
     }
     |> Async.Start
+```
 
 With these definitions, a call to `Foo f` proceeds as follows:
 
@@ -233,13 +233,11 @@ method arguments. The server responds with a JSON reply.
 The URL to which the requets are sent can be customized by subclassing
 from the `RpcAttribute`.
 
+--------
 
-## Hosting in Other Containers
+See also:
 
-While `WebSharper` does not yet ship any ready-made components for
-hosting RPC in non-IIS containers, it provides all the required tools
-to build one.  An example for an alternative container would be a
-`FastCGI` .NET program that can be deployed to Apache. Please refer to
-the `IntelliFactory.WebSharper.Remoting` assembly and its API
-documentation.
+* [Manual TOC](WebSharper.md)
+* [Hosting in IIS](IIS.md)
+
 
