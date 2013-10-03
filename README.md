@@ -1,15 +1,14 @@
 # WebSharper
 
-WebSharper is an [F#][fsharp]-based web programming platform.
-WebSharper can compile F# code to JavaScript wit seamless interop, and
-more.
+WebSharper is an [F#][fsharp]-based web programming platform including
+a compiler from F# code to JavaScript.
 
 * [Manual][manual]
 * [Downloads][downloads]
 * [License][license]
 * [Git sources at GitHub][gh]
 * [Mercurial sources at Bitbucket][bb]
-* [Issue tracker][issuese]
+* [Issue tracker][issues]
 
 [bb]: http://bitbucket.org/IntelliFactory/websharper
 [downloads]: http://bitbucket.org/IntelliFactory/websharper/downloads
