@@ -47,7 +47,9 @@ module RouterUtil =
 
     /// Creates an absolute or relative URI from a string.
     let makeUri uri =
-        Uri(uri, UriKind.RelativeOrAbsolute)
+        let mutable res = null
+        if Uri.TryCreate(uri, UriKind.Relative, &res) then res else
+            Uri(uri, UriKind.Absolute)
 
     let isAbsoluteUri uri =
         (makeUri uri).IsAbsoluteUri

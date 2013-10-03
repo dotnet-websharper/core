@@ -20,6 +20,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../src/PathConventions.fsi" />
+    <Compile Include="../src/PathConventions.fs" />
     <Compile Include="Reflection.fsi" />
     <Compile Include="Reflection.fs" />
     <Compile Include="Quotations.fsi" />

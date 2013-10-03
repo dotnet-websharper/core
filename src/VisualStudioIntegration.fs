@@ -220,70 +220,9 @@ module VisualStudioIntegration =
         let ext = getWebSharperExtension com
         ext.WriteToDirectory(Path.GetDirectoryName(cfg.VsixPath))
 
-    let buildContentWebSharperTargets cfg =
-        let com = Common.Create(cfg)
-        let xml =
-            let ns = "http://schemas.microsoft.com/developer/msbuild/2003"
-            let e n = X.XmlElement.Create(n, ns)
-            e "Project" -< [
-                e "PropertyGroup" -< [
-                    yield e "WebSharperVersion" -- com.VersionInfo.FullVersion
-                    let variants =
-                        [
-                            "$(MSBuildProjectDirectory)/../packages"
-                            "$(MSBuildProjectDirectory)/../../packages"
-                            "$(MSBuildProjectDirectory)/../../../packages"
-                        ]
-                    for variant in variants do
-                        yield
-                            e "PackagesFolder"
-                                + [
-                                    "Condition",
-                                        sprintf " '$(PackagesFolder)' == '' AND Exists('%s')" variant
-                                ]
-                            -- variant
-                    yield
-                        e "WebSharperHome"
-                            -- "$(PackagesFolder)/WebSharper.$(WebSharperVersion)/tools/net45"
-                ]
-                e "Import" + ["Project", "$(WebSharperHome)/WebSharper.targets"]
-            ]
-        let bytes = Content.FromText(xml.Write()).GetBytes()
-        {
-            new IntelliFactory.Build.INuGetFile with
-                member f.Read() = new MemoryStream(bytes) :> Stream
-                member f.TargetPath = "content/WebSharper.targets"
-        }
-
-    let buildContentWebConfigTransform (cfg: Config) =
-        let xml =
-            let e (n: string) = X.XmlElement.Create(n)
-            e "configuration" - [
-                e "system.webServer" - [
-                    e "modules" - [
-                        e "add" + [
-                            "name", "WebSharper.RemotingModule"
-                            "type", "IntelliFactory.WebSharper.Web.RpcModule, IntelliFactory.WebSharper.Web"
-                        ]
-                        e "add" + [
-                            "name", "WebSharper.Sitelets"
-                            "type", "IntelliFactory.WebSharper.Sitelets.HttpModule, IntelliFactory.WebSharper.Sitelets"
-                        ]
-                    ]
-                ]
-            ]
-        let bytes = Content.FromText(xml.Write()).GetBytes()
-        {
-            new IntelliFactory.Build.INuGetFile with
-                member f.Read() = new MemoryStream(bytes) :> Stream
-                member f.TargetPath = "content/Web.config.transform"
-        }
-
     let BuildContents cfg =
         seq {
-            yield buildContentWebSharperTargets cfg
-            yield buildContentWebConfigTransform cfg
             let sourcePath = cfg.RootPath +/ "build" +/ "DeployedTargets" +/ "WebSharper.targets"
-            let targetPath = "tools/net45/WebSharper.targets"
+            let targetPath = "build/WebSharper.targets"
             yield IntelliFactory.Build.NuGetFile.Local(sourcePath, targetPath)
         }
