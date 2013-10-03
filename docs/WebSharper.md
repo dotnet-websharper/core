@@ -1,6 +1,6 @@
 # WebSharper
 
-* Installation
+* [Installation](Install.md)
 * Developing Applications
     * Getting Started
     * [Creating JavaScript Applications and Libraries](Libraries.md)
