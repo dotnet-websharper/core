@@ -2,7 +2,7 @@
 
 * [Installation](Install.md)
 * Developing Applications
-    * Getting Started
+    * [Getting Started](GettingStarted.md)
     * [Creating JavaScript Applications and Libraries](Libraries.md)
         * [Binding to Existing JavaScript Code](Bindings.md)
         * [Using the Interface Generator](InterfaceGenerator.md)
