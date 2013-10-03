@@ -57,7 +57,7 @@ let problems =
                 |> Seq.choose (fun link ->
                     if not (doesExist link.Target) then
                         Some (Missing link)
-                    elif not (tocLinks.Contains(link.Target)) then
+                    elif not (tocLinks.Contains(link.Target)) && link.Target <> "WebSharper" then
                         Some (Orphan link)
                     else
                         None)

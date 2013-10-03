@@ -9,6 +9,7 @@
         * [Porting .NET Code to JavaScript with Proxies](Proxies.md)
         * [Generating TypeScript Definitions](TypeScriptOutput.md)
     * HTML Applications
+        * [HTML Combinators](HtmlCombinators.md)
         * [Using Formlets](Formlets.md)
         * [Using Sitelets](Sitelets.md)
     * Client-Server Applications
@@ -16,10 +17,10 @@
         * [Using Pagelets](Pagelets.md)
     * [Mobile Applications](Mobile.md)
 * Deploying Code
-    * Generating JavaScript Bundles
-    * Generating Standalone HTML Applications
     * [Deploying to IIS](IIS.md)
     * [Deploying with Web API](http://github.com/intellifactory/websharper.webapi)
+    * Generating Standalone HTML Applications
+    * [Bundling Code](Bundling.md)
 * Reference
     * Standard Libraries
         * [Asynchronous Workflows](Async.md)
