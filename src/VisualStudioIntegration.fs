@@ -136,10 +136,16 @@ module VisualStudioIntegration =
                 WebSharper sitelets. The website can be hosted inside a web server or \
                 generated to produce static HTML, CSS and JavaScript"
             |> makeTemplateMetadata com "Sitelet Website Definition" "Website"
-        let main = VST.ProjectItem.FromTextFile(dir +/ "Main.fs").ReplaceParameters()
+        let file name =
+            let i = VST.ProjectItem.FromTextFile(dir +/ name).ReplaceParameters()
+            VST.FolderElement.Nested(i)
         let project =
             VST.Project.FromFile(dir +/ "Website.fsproj",
-                [VST.FolderElement.Nested(main)])
+                [
+                    file "Remoting.fs"
+                    file "Client.fs"
+                    file "Main.fs"
+                ])
                 .ReplaceParameters()
         makeProjectTemplate com meta project
 
