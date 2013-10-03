@@ -31,12 +31,13 @@
   <!-- Determine Project Kind -->
 
   <PropertyGroup>
+    <WebSharperProject Condition=" ('$(WebSharperProject)' == '') AND Exists('$(MSBuildProjectDirectory)/Web.config') ">Site</WebSharperProject>
     <DefaultWebSharperProject Condition=" '$(WebSharperProject)' == '' ">true</DefaultWebSharperProject>
     <DefaultWebSharperProject Condition=" '$(WebSharperProject)' != '' ">false</DefaultWebSharperProject>
     <InterfaceGenerator Condition=" '$(WebSharperProject)' == 'InterfaceGenerator' ">true</InterfaceGenerator>
     <InterfaceGenerator Condition=" '$(WebSharperProject)' != 'InterfaceGenerator' ">false</InterfaceGenerator>
-    <SiteWebSharperProject Condition=" '$(WebSharperProject)' == 'Site' ">true</SiteWebSharperProject>
     <SiteWebSharperProject Condition=" '$(WebSharperProject)' != 'Site' ">false</SiteWebSharperProject>
+    <SiteWebSharperProject Condition=" '$(WebSharperProject)' == 'Site' ">true</SiteWebSharperProject>
     <HtmlWebSharperProject Condition=" '$(WebSharperProject)' == 'Html' ">true</HtmlWebSharperProject>
     <HtmlWebSharperProject Condition=" '$(WebSharperProject)' != 'Html' ">false</HtmlWebSharperProject>
   </PropertyGroup>
@@ -95,7 +96,7 @@
 
   <PropertyGroup>
     <WSPrivateRefs>false</WSPrivateRefs>
-    <WSPrivateRefs Condition="$(SiteWebSharperProject) OR Exists('$(MSBuildProjectDirectory)\Web.config')">true</WSPrivateRefs>
+    <WSPrivateRefs Condition="$(SiteWebSharperProject)">true</WSPrivateRefs>
   </PropertyGroup>
 
   <ItemGroup Condition=" $(WebSharperIncludes) ">

@@ -12,11 +12,10 @@
 // implied.  See the License for the specific language governing
 // permissions and limitations under the License.
 
-
 namespace IntelliFactory.WebSharper
 
 /// Makes resource path and naming conventions explicit to avoid code duplication.
-module internal PathConventions =
+module PathConventions =
     open System
     open System.Reflection
 
