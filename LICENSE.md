@@ -7,11 +7,12 @@ source WebSharper applications royalty-free, without requiring a
 license.  However, for closed source use, you must acquire a developer
 and/or support license.
 
-Please [contact][contacts] IntelliFactory for licensing and support options at
-{licensing|sales @ intellifactory.com}.
+Please [contact][contacts] IntelliFactory for [licensing][licensing] and
+support options at `{licensing|sales @ intellifactory.com}`.
 
 [agpl]: http://www.gnu.org/licenses/agpl-3.0.html
 [contacts]: http://websharper.com/contact
+[licensing]: http://websharper.com/licensing
 
 ## GNU AFFERO GENERAL PUBLIC LICENSE
 
