@@ -23,7 +23,7 @@ templates to make it easy to create new projects with starter code.
 Once the project is created, you can upgrade WebSharper using NuGet
 package manager, as you would with any other package.
 
-Next steps -- [getting started][GettingStarted.md]
+Next steps -- [getting started](GettingStarted.md)
 
 [downloads]: http://bitbucket.org/IntelliFactory/websharper/downloads
 [fsharp]: http://www.microsoft.com/web/gallery/install.aspx?appid=FSharpVWD11
