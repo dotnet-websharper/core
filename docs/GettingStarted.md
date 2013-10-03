@@ -56,8 +56,8 @@ As you are starting out, you may just consider this boilerplate and
 focus on programming the client-side logic. For diving deeper,
 reference documentation is available by topic:
 
-* [HtmlCombinators](HtmlCombinators.md)
-* [HtmlTemplates](HtmlTemplates.md)
+* [HTML Combinators](HtmlCombinators.md)
+* [HTML Templates](HtmlTemplates.md)
 * [Sitelets](Sitelets.md)
 * [Hosting in IIS](HostingInIIS.md)
 
