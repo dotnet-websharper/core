@@ -649,7 +649,7 @@ under the licenses from the list below, provided that:
 
 * You obey the AGPLv3 terms for the Software and the Derivative Work,
   except for the separate parts of the Derivative Work ("Additions")
-  which constitute independent work and are not dervied from the
+  which constitute independent work and are not derived from the
   Software.
 
 * All Additions are distributed subject to one of the licenses listed
