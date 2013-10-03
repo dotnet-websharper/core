@@ -533,7 +533,7 @@ let buildWebsiteFiles () =
             use i = File.OpenRead(path)
             i.CopyTo(s)
         addFile (nuPkg.GetComputedFileName())
-        addFile (rootDir +/ "LICENSE.txt")
+        addFile (rootDir +/ "LICENSE.md")
         addFile (configureVSI nuPkg).VsixPath
     let f = FileInfo(zipPackageFile)
     let d = f.Directory
