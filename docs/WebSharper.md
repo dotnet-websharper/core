@@ -18,7 +18,7 @@
 * Deploying Code
     * Generating JavaScript Bundles
     * Generating Standalone HTML Applications
-    * Deploying to IIS
+    * [Deploying to IIS](IIS.md)
     * [Deploying with Web API](http://github.com/intellifactory/websharper.webapi)
 * Reference
     * Attributes
