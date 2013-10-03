@@ -2,7 +2,7 @@
 
 * [Installation](Install.md)
 * Developing Applications
-    * Getting Started
+    * [Getting Started](GettingStarted.md)
     * [Creating JavaScript Applications and Libraries](Libraries.md)
         * [Binding to Existing JavaScript Code](Bindings.md)
         * [Using the Interface Generator](InterfaceGenerator.md)
@@ -18,7 +18,7 @@
 * Deploying Code
     * Generating JavaScript Bundles
     * Generating Standalone HTML Applications
-    * Deploying to IIS
+    * [Deploying to IIS](IIS.md)
     * [Deploying with Web API](http://github.com/intellifactory/websharper.webapi)
 * Reference
     * Attributes

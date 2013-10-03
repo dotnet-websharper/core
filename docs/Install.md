@@ -31,4 +31,3 @@ Next steps: [Getting Started](GettingStarted.md)
 [vs]: http://www.microsoft.com/visualstudio/eng/downloads
 [vsx]: http://www.microsoft.com/visualstudio/eng/downloads#d-2012-express
 [ws]: http://bitbucket.org/IntelliFactory/websharper
-

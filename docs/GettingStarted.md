@@ -54,10 +54,15 @@ assembly attribute.
 
 As you are starting out, you may just consider this boilerplate and
 focus on programming the client-side logic. For diving deeper,
-reference documentation is available by topic:
+reference documentation is available by topic in the manual.
 
-* [HtmlCombinators](HtmlCombinators.md)
-* [HtmlTemplates](HtmlTemplates.md)
+---------
+
+See also:
+
+* [Manual TOC](WebSharper.md)
+* [Remoting](Remoting.md)
+* [Formlets](Formlets.md)
 * [Sitelets](Sitelets.md)
-* [Hosting in IIS](HostingInIIS.md)
+
 
