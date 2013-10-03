@@ -54,6 +54,15 @@ assembly attribute.
 
 As you are starting out, you may just consider this boilerplate and
 focus on programming the client-side logic. For diving deeper,
-reference documentation is available by topic in the
-[WebSharper.md](manual).
+reference documentation is available by topic in the manual.
+
+---------
+
+See also:
+
+* [Manual TOC](WebSharper.md)
+* [Remoting](Remoting.md)
+* [Formlets](Formlets.md)
+* [Sitelets](Sitelets.md)
+
 
