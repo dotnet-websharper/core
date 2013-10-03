@@ -9,9 +9,16 @@ a compiler from F# code to JavaScript.
 * [Git sources at GitHub][gh]
 * [Mercurial sources at Bitbucket][bb]
 * [Issue tracker][issues]
+* Community
+  * [Forums at FPish][fpish] - an FP discussion site built with WebSharper
+  * [#websharper on freenode][chat]
+  * [Contact IntelliFactory][contact]
 
+[chat]: http://webchat.freenode.net/?channels=#websharper
+[contact]: http://websharper.com/contact
 [bb]: http://bitbucket.org/IntelliFactory/websharper
 [downloads]: http://bitbucket.org/IntelliFactory/websharper/downloads
+[fpish]: http://fpish.net
 [fsharp]: http://fsharp.org
 [gh]: http://github.com/intellifactory/websharper
 [issues]: http://bitbucket.org/IntelliFactory/websharper/issues
