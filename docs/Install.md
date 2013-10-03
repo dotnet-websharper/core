@@ -3,8 +3,8 @@
 Developing with WebSharper currently requires:
 
 * [Visaul Studio Express 2012 for Web][vsx] with [F# tools][fsharp] or
-  [Visual Studio 2012][vs] - either of these options installs [F#
-  3.0][fsharp] automatically.
+  [Visual Studio 2012][vs] - either of these options installs F#
+  3.0 automatically.
 
 * [NuGet 2.7][nuget]
 
