@@ -19,6 +19,7 @@
     * Generating JavaScript Bundles
     * Generating Standalone HTML Applications
     * Deploying to IIS
+    * [Deploying with Web API](http://github.com/intellifactory/websharper.webapi)
 * Reference
     * Attributes
     * Core Extensions
