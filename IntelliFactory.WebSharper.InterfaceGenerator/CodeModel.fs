@@ -139,7 +139,7 @@ module CodeModel =
         interface IResourceDependable<Interface> with
             member this.AddRequires res =
                 this |> Entity.Update (fun x ->
-                    this.DependsOn <- res @ this.DependsOn)
+                    x.DependsOn <- res @ x.DependsOn)
             member this.GetRequires() = this.DependsOn
 
     and Class =
@@ -172,7 +172,7 @@ module CodeModel =
         interface IResourceDependable<Class> with
             member this.AddRequires res =
                 this |> Entity.Update (fun x ->
-                    this.DependsOn <- res @ this.DependsOn)
+                    x.DependsOn <- res @ x.DependsOn)
             member this.GetRequires() = this.DependsOn
 
     and [<AbstractClass>] Member =
@@ -319,7 +319,7 @@ module CodeModel =
         interface IResourceDependable<Resource> with
             member this.AddRequires res =
                 this |> Entity.Update (fun x ->
-                    this.DependsOn <- res @ this.DependsOn)
+                    x.DependsOn <- res @ x.DependsOn)
             member this.GetRequires() = this.DependsOn
 
     type Namespace =
