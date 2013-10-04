@@ -30,6 +30,8 @@
     <WarningLevel>3</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Remoting.fs" />
+    <Compile Include="Client.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>

@@ -1,12 +1,18 @@
 # WebSharper Licensing
 
-WebSharper is licensed under [GNU Affer General Public License v3.0
-(AGPLv3)][agpl] with an open-source exception (see below).
+For open source use, WebSharper is licensed under [GNU Affero General
+Public License v3.0 (AGPLv3)][agpl] with open-source exceptions for most
+OSS license types (see below). This enables you to develop open
+source WebSharper applications royalty-free, without requiring a
+license.  However, for closed source use, you must acquire a developer
+license.
 
-Please [contact][contacts] IntelliFactory for other licensing options.
+Please [contact][contacts] IntelliFactory for [licensing][licensing] and
+support options at `{licensing|sales @ intellifactory.com}`.
 
 [agpl]: http://www.gnu.org/licenses/agpl-3.0.html
 [contacts]: http://websharper.com/contact
+[licensing]: http://websharper.com/licensing
 
 ## GNU AFFERO GENERAL PUBLIC LICENSE
 
@@ -643,7 +649,7 @@ under the licenses from the list below, provided that:
 
 * You obey the AGPLv3 terms for the Software and the Derivative Work,
   except for the separate parts of the Derivative Work ("Additions")
-  which constitute independent work and are not dervied from the
+  which constitute independent work and are not derived from the
   Software.
 
 * All Additions are distributed subject to one of the licenses listed
