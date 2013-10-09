@@ -120,12 +120,12 @@ module Pervasives =
         }
 
     /// Adds nested classes and interfaces.
-    let Nested (cs: list<Code.TypeDeclaration>) =
+    let Nested (cs: list<#Code.TypeDeclaration>) =
         { new Code.IClassProperty with
             member this.SetOn x = 
                 let x = x.Clone() :?> Code.Class
                 for decl in cs do
-                    match decl with
+                    match decl :> Code.TypeDeclaration with
                     | :? Code.Class as c ->
                         x.NestedClasses <- c :: x.NestedClasses
                     | :? Code.Interface as i ->
