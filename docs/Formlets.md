@@ -119,7 +119,7 @@ input when constructing an additional (dependent) text-box.
 
 ![Dependent Formlet](dep-form.png)
 
-### Ehancing Formlets
+### Enhancing Formlets
 
 The `Enhance` module provides a set of predefined functions for
 enhancing formlets with additional properties.
