@@ -7,17 +7,11 @@ After completing the [installation](Install.md), open Visual Studio
 and create a new project ("Website"):
 
     File > New Project > Templates > Visual F# >
-    WebSharper > Sitelet Website Definition
+    WebSharper > Sitelet Website
 
 This project defines a simple website, with both server and
-client-side components.  To try it out, host it in an ASP.NET project:
-
-    File > New Project > Templates > Visual F# >
-    WebSharper > Sitelet Host Website
-
-Add this project to your solution, calling it "Web".  Add a reference
-from "Web" to "Website".  Run "Web" (F5) - you should now see the code
-in action.
+client-side components.  To try it out, simply "Run" (F5) - you should
+now see the code in action.
 
 Let us look at what the code does.
 
@@ -64,5 +58,3 @@ See also:
 * [Remoting](Remoting.md)
 * [Formlets](Formlets.md)
 * [Sitelets](Sitelets.md)
-
-
