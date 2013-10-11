@@ -77,5 +77,11 @@ type Website() =
         member this.Sitelet = Site.Main
         member this.Actions = [Home; About]
 
+type Global() =
+    inherit System.Web.HttpApplication()
+
+    member g.Application_Start(sender: obj, args: System.EventArgs) =
+        ()
+
 [<assembly: Website(typeof<Website>)>]
 do ()
