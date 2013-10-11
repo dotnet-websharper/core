@@ -31,20 +31,40 @@
   <!-- Determine Project Kind -->
 
   <PropertyGroup>
-    <WebSharperProject Condition=" ('$(WebSharperProject)' == '') AND Exists('$(MSBuildProjectDirectory)/Web.config') ">Site</WebSharperProject>
-    <DefaultWebSharperProject Condition=" '$(WebSharperProject)' == '' ">true</DefaultWebSharperProject>
-    <DefaultWebSharperProject Condition=" '$(WebSharperProject)' != '' ">false</DefaultWebSharperProject>
-    <InterfaceGenerator Condition=" '$(WebSharperProject)' == 'InterfaceGenerator' ">true</InterfaceGenerator>
-    <InterfaceGenerator Condition=" '$(WebSharperProject)' != 'InterfaceGenerator' ">false</InterfaceGenerator>
-    <SiteWebSharperProject Condition=" '$(WebSharperProject)' != 'Site' ">false</SiteWebSharperProject>
-    <SiteWebSharperProject Condition=" '$(WebSharperProject)' == 'Site' ">true</SiteWebSharperProject>
-    <HtmlWebSharperProject Condition=" '$(WebSharperProject)' == 'Html' ">true</HtmlWebSharperProject>
-    <HtmlWebSharperProject Condition=" '$(WebSharperProject)' != 'Html' ">false</HtmlWebSharperProject>
+    <CompileWebSharper>true</CompileWebSharper>
+    <InterfaceGenerator>false</InterfaceGenerator>
+    <SiteWebSharperProject>false</SiteWebSharperProject>
+    <HtmlWebSharperProject>false</HtmlWebSharperProject>
   </PropertyGroup>
+
+  <Choose>
+    <When Condition="'$(WebSharperProject)' == 'Library'" />
+    <When Condition="'$(WebSharperProject)' == 'InterfaceGenerator'">
+      <PropertyGroup>
+        <InterfaceGenerator>true</InterfaceGenerator>
+      </PropertyGroup>
+    </When>
+    <When Condition="'$(WebSharperProject)' == 'Site'">
+      <PropertyGroup>
+        <SiteWebSharperProject>true</SiteWebSharperProject>
+      </PropertyGroup>
+    </When>
+    <When Condition="'$(WebSharperProject)' == 'Html'">
+      <PropertyGroup>
+        <HtmlWebSharperProject>true</HtmlWebSharperProject>
+      </PropertyGroup>
+    </When>
+    <When Condition="Exists('$(MSBuildProjectDirectory)/Web.config')">
+      <PropertyGroup>
+        <CompileWebSharper>false</CompileWebSharper>
+        <SiteWebSharperProject>true</SiteWebSharperProject>
+      </PropertyGroup>
+    </When>
+  </Choose>
 
   <!-- Default WebSharper Projects -->
 
-  <PropertyGroup Condition=" $(DefaultWebSharperProject) OR $(InterfaceGenerator) OR $(HtmlWebSharperProject) ">
+  <PropertyGroup Condition="$(CompileWebSharper)">
     <CleanDependsOn>$(CleanDependsOn);WebSharperClean</CleanDependsOn>
     <CompileDependsOn>$(CompileDependsOn);WebSharperCompile</CompileDependsOn>
     <CoreCompileDependsOn>WebSharperPrepare;$(CoreCompileDependsOn)</CoreCompileDependsOn>
