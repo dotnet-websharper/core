@@ -13,14 +13,6 @@ version of the NuGet Package Manager. Please go to "Tools > Extensions
 and Updates" and make sure that the latest version is installed (at
 least NuGet 2.7).
 
-If you attempt to install WebSharper before NuGet Package Manager extension
-is installed, you will get an error similar to the following:
-
-    Beginning to install extension to Microsoft Visual Studio Professional 2013 RC...
-    Install Error : Microsoft.VisualStudio.ExtensionManager.MissingReferencesException:
-    This extension cannot be installed because the following references are missing:
-        - NuGet Package Manager
-
 When your environment is ready, obtain and install the [WebSharper
 Visual Studio extension][downloads] by downloading and clicking on the
 relevant `.vsix` file.
