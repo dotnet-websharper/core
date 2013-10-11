@@ -14,13 +14,13 @@ for collecting user data.  Among other things this involves:
 Formlets address all of the above tasks.  The advantages of using
 formlets for web-form construction are:
 
-## Type Safety
+### Type Safety
 
 Every `Formlet<'T>` collects data of type `'T`, preventing typing
 errors.  The data type is not limited to primitive values, and often
 includes convenient to consume records and unions.
 
-## Composabilty
+### Composabilty
 
 Complex formlets are built from simple components.  In basic
 composition, two formlets `Formlet<'T1>` and a `Formlet<'T2>` can be
@@ -28,17 +28,17 @@ combined into a `Formlet<'T3>` using a function `'T1->'T2->'T3`.
 Additional formlet composition methods allow to express wizard-like
 workflows.
 
-## Reusability
+### Reusability
 
 Once defined, a formlet may be reused as a component of many other
 formlets and pages.
 
-## Validation
+### Validation
 
 Formlets are aware of the need to validate the collected data and
 provide interactive feedback to the user.
 
-## Declarative Style
+### Declarative Style
 
 Formlets are defined in a declarative way, meaning that you only need
 to specify the descriptive parts of your form applications, i.e. which
@@ -53,7 +53,7 @@ The Formlets library contains a set of components for creating
 primitive form controls, composing formlets, adding validation, and
 enhancing formlets in various ways.
 
-## Primitive Formlet Controls
+### Primitive Formlet Controls
 
 In the `Control` module you find a set of predefined formlets
 corresponding to some basic web form components such as input text
@@ -68,12 +68,12 @@ the default value to a `Formlet<string>`.
         |> Controls.Select 0 
     let buttoForm = Controls.Button "Click"
 
-## Formlet Composition
+### Formlet Composition
 
 The most important property of formlets is the ability to build
 complex formlets by composing simpler ones.
 
-## Static Composition
+### Static Composition
 
 The `Formlet.Yield` and `Formlet.Apply` (or `<*>`) functions provide
 the default way to combine formlets.  `Formlet.Yield` accepts a
@@ -101,7 +101,7 @@ component formlet values.  The result looks like this:
 Formlets are closed under composition. This means that
 `ComposedFormlet` may itself be composed with other formlets.
 
-## Dynamic Composition
+### Dynamic Composition
 
 Dynamic/Dependent formlets are formlets that depend on the values
 produced by some other formlet.  You can specify such dependencies
@@ -119,7 +119,7 @@ input when constructing an additional (dependent) text-box.
 
 ![Dependent Formlet](dep-form.png)
 
-## Ehancing Formlets
+### Enhancing Formlets
 
 The `Enhance` module provides a set of predefined functions for
 enhancing formlets with additional properties.
@@ -160,7 +160,7 @@ reset buttons:
 
 Note that the order in which the functions are applied is important.
 
-## Adding Validation
+### Adding Validation
 
 By adding validation you restrict the admissible formlet values by
 putting the formlet into a failing state whenever the current value is
@@ -180,7 +180,7 @@ not empty:
 
 ![Validation Formlet](validation-form.png)
 
-## Layout
+### Layout
 
 Each formlet carries a layout-manager responsible for rendering the
 visual components produced when running the formlet.  You can use the
@@ -198,7 +198,7 @@ Instead of using the `Formlet.WithLayout` the above layouts may be
 applied directly via the functions `Formlet.Vertical`,
 `Formlet.Horizontal` and `Formlet.Flowlet`.
 
-## Displaying Formlets
+### Displaying Formlets
 
 Since formlets implement the `IPagelet` interface, they may be
 directly embedded inside HTML combinators:
