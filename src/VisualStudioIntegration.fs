@@ -169,6 +169,29 @@ module VisualStudioIntegration =
                 .ReplaceParameters()
         makeProjectTemplate com meta project
 
+    let getSiteletsHostTemplate com =
+        let dir = com.Config.RootPath +/ "templates" +/ "sitelets-host"
+        let meta =
+            "A C#-based web project for hosting WebSharper sitelets in a web server."
+            |> makeTemplateMetadata com "Sitelet Host Website" "Web"
+        let file name =
+            VST.ProjectItem.FromTextFile(dir +/ name).ReplaceParameters()
+            |> VST.FolderElement.Nested
+        let folder name xs =
+            let f = VST.Folder.Create(name, xs)
+            VST.FolderElement.Folder(f)
+        let project =
+            VST.Project.FromFile(dir +/ "Web.csproj",
+                [
+                    folder "Properties" [
+                        file "AssemblyInfo.cs"
+                    ]
+                    file "Main.html"
+                    file "Web.config"
+                ])
+                .ReplaceParameters()
+        makeProjectTemplate com meta project
+
     let getWebSharperExtension com =
         let desc = getExtensionDecription ()
         let editions =
@@ -196,6 +219,7 @@ module VisualStudioIntegration =
                     proj (getExtensionTempalte com)
                     proj (getSiteletsWebsiteTemplate com)
                     proj (getSiteletsHtmlTemplate com)
+                    proj (getSiteletsHostTemplate com)
                 ])
         VX.VsixFile.Create(Path.GetFileName(com.Config.VsixPath), vsix)
 
