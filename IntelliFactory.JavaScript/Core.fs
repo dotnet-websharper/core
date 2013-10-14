@@ -762,6 +762,21 @@ let unalias expr =
             Transform (norm env) expr
     norm Map.empty expr
 
+let rec simpleObjExprs expr =
+    match expr with
+    | Sequential(VarSet (returnVal, NewObject objFields), Sequential(propSetters, Var v)) when v = returnVal ->
+        let rec getSetters acc e =
+            match e with
+            | Constant Null -> Some acc
+            | Sequential(more, Unary(UnaryOperator.``void``, FieldSet (Var v, Constant (String field), value)))
+            | Sequential(more, FieldSet (Var v, Constant (String field), value)) ->
+                getSetters ((field, value) :: acc) more
+            | _ -> None
+        match getSetters [] propSetters with
+        | Some s -> NewObject (objFields @ s)
+        | _ -> Transform simpleObjExprs expr   
+    | _ -> Transform simpleObjExprs expr
+
 let rec eta expr =
     match expr with
     | Lambda (None, [x], Application (Var f, [Var y])) when x = y -> Var f
@@ -842,6 +857,7 @@ let Optimize expr =
     AlphaNormalize expr
     |> Uncurry
     |> RemoveLoops
+    |> simpleObjExprs
     |> removeRedexes
     |> inlineLetExprs
     |> unalias
