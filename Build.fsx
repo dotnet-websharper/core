@@ -464,6 +464,11 @@ let nuPkg =
                 seq {
                     let cfg = configureVSI nuPkg
                     yield! VSI.BuildContents cfg
+                    yield {
+                        new INuGetFile with
+                            member x.Read() = File.OpenRead(typedefof<list<_>>.Assembly.Location) :> _
+                            member x.TargetPath = "/tools/net45/FSharp.Core.dll"
+                    }
                     for p in exports do
                         for f in p.NuGetFiles do
                             yield {

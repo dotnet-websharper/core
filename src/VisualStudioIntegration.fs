@@ -132,10 +132,8 @@ module VisualStudioIntegration =
     let getSiteletsWebsiteTemplate com =
         let dir = com.Config.RootPath +/ "templates" +/ "sitelets-website"
         let meta =
-            "A WebSharper library with scaffolding to define a website using \
-                WebSharper sitelets. The website can be hosted inside a web server or \
-                generated to produce static HTML, CSS and JavaScript"
-            |> makeTemplateMetadata com "Sitelet Website Definition" "Website"
+            "A starter WebSharper website using WebSharper Sitelets"
+            |> makeTemplateMetadata com "Sitelet Website" "Website"
         let file name =
             let i = VST.ProjectItem.FromTextFile(dir +/ name).ReplaceParameters()
             VST.FolderElement.Nested(i)
@@ -145,6 +143,9 @@ module VisualStudioIntegration =
                     file "Remoting.fs"
                     file "Client.fs"
                     file "Main.fs"
+                    file "Web.config"
+                    file "Global.asax"
+                    file "Main.html"
                 ])
                 .ReplaceParameters()
         makeProjectTemplate com meta project
@@ -152,14 +153,15 @@ module VisualStudioIntegration =
     let getSiteletsHtmlTemplate com =
         let dir = com.Config.RootPath +/ "templates" +/ "sitelets-html"
         let meta =
-            "Generates static HTML, CSS, and JavaScript from a sitelet website definition."
-            |> makeTemplateMetadata com "Sitelet Html Generator" "HtmlSite"
+            "A starter static HTML application using WebSharper Sitelets"
+            |> makeTemplateMetadata com "Sitelet Html App" "HtmlApp"
         let file repl name =
             let i = VST.ProjectItem.FromTextFile(dir +/ name).ReplaceParameters()
             VST.FolderElement.Nested(i)
         let project =
             VST.Project.FromFile(dir +/ "HtmlSite.fsproj",
                 [
+                    file true "Client.fs"
                     file true "Main.fs"
                     file false "extra.files"
                     file false "Main.html"
@@ -201,7 +203,7 @@ module VisualStudioIntegration =
             ]
         let products =
             [
-                for v in ["10.0"; "11.0"] do
+                for v in ["10.0"; "11.0"; "12.0"] do
                     yield VX.VSProduct.Create(v, editions).AsSupportedProduct()
             ]
         let identifier =
@@ -216,8 +218,8 @@ module VisualStudioIntegration =
                     proj (getLibraryTemplate com)
                     proj (getExtensionTempalte com)
                     proj (getSiteletsWebsiteTemplate com)
-                    proj (getSiteletsHostTemplate com)
                     proj (getSiteletsHtmlTemplate com)
+                    proj (getSiteletsHostTemplate com)
                 ])
         VX.VsixFile.Create(Path.GetFileName(com.Config.VsixPath), vsix)
 

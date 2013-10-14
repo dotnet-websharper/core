@@ -451,20 +451,20 @@ module Extensions =
             E?Vsix + [A?Version "1.0.0"] -< [
                 yield this.Vsix_Identifier.ToXml()
                 yield
-                    if Seq.isEmpty (this.GetPackages()) then
+//                    if Seq.isEmpty (this.GetPackages()) then
                         E?References
-                    else
-                        E?References - [
-                            E?Reference
-                                + [
-                                    A?Id "NuPackToolsVsix.Microsoft.67e54e40-0ae3-42c5-a949-fddf5739e7a5"
-                                    A?MinVersion "1.7.30402.9028"
-                                ]
-                                - [
-                                    E?Name -- "NuGet Package Manager"
-                                    E?MoreInfoUrl -- "http://docs.nuget.org/"
-                                ]
-                        ]
+//                    else
+//                        E?References - [
+//                            E?Reference
+//                                + [
+//                                    A?Id "NuPackToolsVsix.Microsoft.67e54e40-0ae3-42c5-a949-fddf5739e7a5"
+//                                    A?MinVersion "1.7.30402.9028"
+//                                ]
+//                                - [
+//                                    E?Name -- "NuGet Package Manager"
+//                                    E?MoreInfoUrl -- "http://docs.nuget.org/"
+//                                ]
+//                        ]
                 yield E?Content -< [for x in this.GetContentsAndPackages() -> x.ToXml()]
             ]
 
