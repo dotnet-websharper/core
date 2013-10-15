@@ -21,9 +21,11 @@
 
 namespace IntelliFactory.WebSharper.Control
 
+open System
+open IntelliFactory.WebSharper
+
+[<JavaScript>]
 module internal Observer =
-    open System
-    open IntelliFactory.WebSharper
 
     type Message<'T> =
         | Message of 'T
@@ -32,28 +34,26 @@ module internal Observer =
 
     type private Observer<'T> =
         {
-            OnNext      : 'T -> unit
-            OnError     : exn -> unit
-            OnCompleted : unit -> unit
+            onNext : 'T -> unit
+            onError : exn -> unit
+            onCompleted : unit -> unit
         }
 
         interface IObserver<'T> with
-            member this.OnNext x        = X<unit>
-            member this.OnError e       = X<unit>
-            member this.OnCompleted()   = X<unit>
+            member __.OnNext x = __.onNext x
+            member __.OnError e = __.onError e
+            member __.OnCompleted() = __.onCompleted ()
 
-    [<JavaScript>]
     let Of f : IObserver<_> =
         upcast {
-            OnNext      = fun x -> f x
-            OnError     = fun x -> raise x
-            OnCompleted = fun () -> ()
+            onNext = fun x -> f x
+            onError = fun x -> raise x
+            onCompleted = fun () -> ()
         }
 
-    [<JavaScript>]
-    let New (f,e,c) : IObserver<_> =
+    let New (f, e, c) : IObserver<_> =
         upcast {
-            OnNext      = f
-            OnError     = e
-            OnCompleted = c
+            onNext = f
+            onError = e
+            onCompleted = c
         }
