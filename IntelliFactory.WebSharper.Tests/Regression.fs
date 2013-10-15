@@ -148,7 +148,7 @@ let Tests =
         a =? 4
     }
 
-    Test "Bug #173" {
+    Test "Bug #172" {
         let k = ref 0
         do
             let x = Event<int>()
