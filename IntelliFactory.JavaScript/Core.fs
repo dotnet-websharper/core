@@ -770,7 +770,7 @@ let rec simpleObjExprs expr =
             | Constant Null -> Some acc
             | Sequential(more, Unary(UnaryOperator.``void``, FieldSet (Var v, Constant (String field), value)))
             | Sequential(more, FieldSet (Var v, Constant (String field), value)) ->
-                getSetters ((field, value) :: acc) more
+                getSetters ((field, Transform simpleObjExprs value) :: acc) more
             | _ -> None
         match getSetters [] propSetters with
         | Some s -> NewObject (objFields @ s)
