@@ -57,8 +57,9 @@ let Never<'T> () : IObservable<'T> =
         Disposable.Of ignore
     )
 
+
 [<JavaScript>]
-let Map  (f: 'T -> 'U) (io: IObservable<'T>) : IObservable<'U> =
+let Map (f: 'T -> 'U) (io: IObservable<'T>) : IObservable<'U> =
     New <| fun o1 ->
         let on v = o1.OnNext (f v)
         io.Subscribe <| Observer.New(on, o1.OnError, o1.OnCompleted)

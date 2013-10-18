@@ -178,18 +178,6 @@ let wsTesting =
                 r.Project(wsCore)
             ])
 
-let wsTests =
-    bt.WebSharper.Library("IntelliFactory.WebSharper.Tests").ClearRefs()
-        .SourcesFromProject()
-        .References(fun r ->
-            [
-                r.Project(ifWS)
-                r.Project(wsCore)
-                r.Project(wsCollections)
-                r.Project(wsEcma)
-                r.Project(wsControl)
-                r.Project(wsTesting)
-            ])
 
 let ifHtml =
     bt.WebSharper.Library("IntelliFactory.Html").ClearRefs()
@@ -249,6 +237,20 @@ let ifReactive =
                 r.Project(ifHtml)
                 r.Project(wsCollections)
                 r.Project(wsControl)
+            ])
+
+let wsTests =
+    bt.WebSharper.Library("IntelliFactory.WebSharper.Tests").ClearRefs()
+        .SourcesFromProject()
+        .References(fun r ->
+            [
+                r.Project(ifWS)
+                r.Project(wsCore)
+                r.Project(wsCollections)
+                r.Project(wsEcma)
+                r.Project(wsControl)
+                r.Project(wsTesting)
+                r.Project(ifReactive)
             ])
 
 let ifFormlet =
@@ -492,7 +494,6 @@ bt.Solution [
     wsEcma
     wsControl
     wsTesting
-    wsTests
     ifHtml
     wsHtml
     wsWeb
@@ -500,10 +501,11 @@ bt.Solution [
     ifReactive
     ifFormlet
     wsFormlet
-    wsFormletTests
     wsHtml5
-    wsHtml5Tests
     wsSitelets
+    wsTests
+    wsFormletTests
+    wsHtml5Tests
     wsSiteletsTests
 
     nuPkg

@@ -162,7 +162,7 @@ module Http =
         static member Ok = ok
 
         /// 401 Unauthorized.
-        static member Unauthorized = notFound
+        static member Unauthorized = unauthorized
 
         /// Custom status with an integer code and optional message.
         static member Custom n s =
