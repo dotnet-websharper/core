@@ -21,15 +21,17 @@
 
 namespace IntelliFactory.WebSharper.EcmaScript
 
+module F = IntelliFactory.WebSharper.Core.Functions
+
 module Extensions =
     open IntelliFactory.WebSharper
 
-    type EcmaScript.Array with 
+    type EcmaScript.Array<'T> with 
         [<Inline "$0">] 
-        member this.ToDotNet<'T>() = X<'T[]>
-    type System.Array with
+        member this.ToDotNet() = X<'T[]>
+    type 'T ``[]`` with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Array>   
+        member this.ToEcma() = X<EcmaScript.Array<'T>>   
 
     type EcmaScript.Boolean with
         [<Inline "$0">]
@@ -55,6 +57,41 @@ module Extensions =
     type EcmaScript.Function with
         [<Inline "$0">]
         member this.ToDotNet<'T, 'R>() = X<'T -> 'R>
+        member this.ToWSFunc<'T1, 'T2>() = X<F.Func<'T1,'T2>>
+        member this.ToWSFunc<'T1,'T2,'T3>() = X<F.Func<'T1,'T2,'T3>>
+        member this.ToWSFunc<'T1,'T2,'T3,'T4>() = X<F.Func<'T1,'T2,'T3,'T4>>
+        member this.ToWSFunc<'T1,'T2,'T3,'T4,'T5>() = X<F.Func<'T1,'T2,'T3,'T4,'T5>>
+        member this.ToWSFunc<'T1,'T2,'T3,'T4,'T5,'T6>() = X<F.Func<'T1,'T2,'T3,'T4,'T5,'T6>>
+        member this.ToWSFunc<'T1,'T2,'T3,'T4,'T5,'T6,'T7>() = X<F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7>>
+        member this.ToWSFunc<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8>() = X<F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8>>
+        member this.ToWSFunc<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9>() = X<F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9>>
+    type FSharpFunc<'T, 'R> with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Function>
+    type F.Func<'T1,'T2> with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Function>
+    type F.Func<'T1,'T2,'T3> with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Function>
+    type F.Func<'T1,'T2,'T3,'T4> with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Function>
+    type F.Func<'T1,'T2,'T3,'T4,'T5> with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Function>
+    type F.Func<'T1,'T2,'T3,'T4,'T5,'T6> with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Function>
+    type F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7> with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Function>
+    type F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8> with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Function>
+    type F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9> with
+        [<Inline "$0">]
+        member this.ToEcma() = X<EcmaScript.Function>
 
     type EcmaScript.Number with
         [<Inline "$0">]
