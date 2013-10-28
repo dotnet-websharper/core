@@ -31,6 +31,7 @@
   <!-- Determine Project Kind -->
 
   <PropertyGroup>
+    <Bundling>false</Bundling>
     <CompileWebSharper>true</CompileWebSharper>
     <InterfaceGenerator>false</InterfaceGenerator>
     <SiteWebSharperProject>false</SiteWebSharperProject>
@@ -39,6 +40,11 @@
 
   <Choose>
     <When Condition="'$(WebSharperProject)' == 'Library'" />
+    <When Condition="'$(WebSharperProject)' == 'Bundle'">
+      <PropertyGroup>
+        <Bundling>true</Bundling>
+      </PropertyGroup>
+    </When>
     <When Condition="'$(WebSharperProject)' == 'InterfaceGenerator'">
       <PropertyGroup>
         <InterfaceGenerator>true</InterfaceGenerator>
@@ -330,4 +336,20 @@
     <RemoveDir Directories="$(WebSharperHtmlDirectory)" />
   </Target>
 
+  <!-- Bundle Projects -->
+
+  <PropertyGroup Condition="$(Bundling)">
+    <BuildDependsOn>$(BuildDependsOn);WebSharperBundle</BuildDependsOn>
+  </PropertyGroup>
+
+  <Target Name="WebSharperBundle" Inputs="$(TargetPath)" Outputs="Content/$(Name).js">
+    <PropertyGroup>
+      <Args>$(Args) "Content/$(Name)"</Args>
+      <Args>$(Args) @(ReferencePath->'"%(FullPath)"',' ')</Args>
+      <Args>$(Args) "$(TargetPath)"</Args>
+    </PropertyGroup>
+    <MakeDir Directories='Content' />
+    <Exec Command='"$(WebSharperHome)\WebSharper.exe" bundle $(Args)'
+          WorkingDirectory='$(MSBuildProjectDirectory)' />
+  </Target>
 </Project>

@@ -150,6 +150,26 @@ module VisualStudioIntegration =
                 .ReplaceParameters()
         makeProjectTemplate com meta project
 
+    let getBundleSiteTemplate com =
+        let dir = com.Config.RootPath +/ "templates" +/ "bundle-website"
+        let meta =
+            "A starter WebSharper client-side website"
+            |> makeTemplateMetadata com "Bundle Website" "Bundle"
+        let file name =
+            let i = VST.ProjectItem.FromTextFile(dir +/ name).ReplaceParameters()
+            VST.FolderElement.Nested(i)
+        let project =
+            VST.Project.FromFile(dir +/ "BundleWebsite.fsproj",
+                [
+                    file "Client.fs"
+                    file "Main.fs"
+                    file "Web.config"
+                    file "Global.asax"
+                    file "index.html"
+                ])
+                .ReplaceParameters()
+        makeProjectTemplate com meta project
+
     let getSiteletsHtmlTemplate com =
         let dir = com.Config.RootPath +/ "templates" +/ "sitelets-html"
         let meta =
@@ -217,6 +237,7 @@ module VisualStudioIntegration =
                 [
                     proj (getLibraryTemplate com)
                     proj (getExtensionTempalte com)
+                    proj (getBundleSiteTemplate com)
                     proj (getSiteletsWebsiteTemplate com)
                     proj (getSiteletsHtmlTemplate com)
                     proj (getSiteletsHostTemplate com)
