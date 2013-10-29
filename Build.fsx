@@ -50,9 +50,11 @@ let bt =
             let outDir = BuildConfig.OutputDir.Find bt
             bt
             |> BuildConfig.RootDir.Custom root
+            |> FSharpConfig.OtherFlags.Custom ["--optimize+"]
             |> WebSharperConfig.WebSharperHome.Custom (Some compiler)
             |> Logs.Config.Custom(Logs.Default.Verbose().ToConsole()))
         .WithDefaultRefs()
+
 
 let cbt =
     bt

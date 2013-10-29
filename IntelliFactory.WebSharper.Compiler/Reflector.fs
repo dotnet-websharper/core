@@ -197,7 +197,8 @@ let parseTypeReference (warn: string -> unit) (t: TypeReference) =
 
 /// Identifies special F# type kinds by examining custom attributes.
 let getTypeKind (t: TypeDefinition) =
-    if t.IsInterface then Some Interface
+    if t.Name.Contains("@") then None // hack for closure types
+    elif t.IsInterface then Some Interface
     elif t.IsEnum then Some Enum else
         let cma = typeof<CompilationMappingAttribute>.FullName
         let (!) x = Some x

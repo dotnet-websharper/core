@@ -163,7 +163,7 @@ type Assembly =
         Types : list<Type>
     }
 
-type HashSet<'T> = System.Collections.Generic.HashSet<'T>
+//type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 
 type Pool = I.Pool
 
@@ -242,6 +242,37 @@ type Annotation =
     | JavaScript of Q.Expression
     | Remote
     | Stub
+
+let fullName (t: System.Type) =
+    System.String.Format("{0}/{1}",
+        t.DeclaringType.FullName,
+        t.Name)
+
+let iResourceFullName = fullName typeof<Res.IResource>
+let baseResourceFullName = fullName typeof<Res.BaseResource>
+
+let isIResource (t: TypeDefinition) =
+    t.Interfaces
+    |> Seq.exists (fun x -> x.FullName = iResourceFullName)
+
+let rec isResource (t: TypeDefinition) =
+    isIResource t ||
+    match t.BaseType with
+    | None -> false
+    | Some bT ->
+        bT.FullName = baseResourceFullName
+        || isResource (bT.Resolve())
+
+let isWebControl (t: TypeDefinition) =
+    match t.BaseType with
+    | Some bT when bT.FullName = "IntelliFactory.WebSharper.Web.Control" -> true
+    | _ -> false
+
+let verifyWebControl logger (verifier: Verifier.State) (t: Re.Type) =
+    match verifier.VerifyWebControl t.Definition with
+    | Verifier.Correct -> ()
+    | Verifier.Incorrect msg ->
+        error logger t.Location msg
 
 let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
     (assembly: Re.Assembly) : Assembly =
@@ -568,76 +599,58 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
         }
 
     let rec pType (iP: Pool) (t: Re.Type) : option<Type> =
-        let c = List.choose
+        let inline c f x = List.choose f x
         let loc = t.Location
-        let fn (t: System.Type) =
-            System.String.Format("{0}/{1}",
-                t.DeclaringType.FullName,
-                t.Name)
-        let iRes = fn typeof<Res.IResource>
-        let bRes = fn typeof<Res.BaseResource>
-        let rec isRes (t: TypeDefinition) =
-            t.BaseType.IsSome
-            && t.BaseType.Value.FullName = bRes
-            ||
-            t.Interfaces
-            |> Seq.exists (fun x -> x.FullName = iRes)
-            ||
-            t.BaseType.IsSome
-            && isRes (t.BaseType.Value.Resolve())
         let rf = Adapter.AdaptTypeDefinition t.Definition
-        if t.Definition.BaseType.IsSome
-            && t.Definition.BaseType.Value.FullName
-                = "IntelliFactory.WebSharper.Web.Control"
-        then
-            match verifier.VerifyWebControl t.Definition with
-            | Verifier.Correct -> ()
-            | Verifier.Incorrect msg -> error t.Location msg
         let pStub = isStub t.Annotations
         match t.Kind with
-        | Re.Class _ when isRes t.Definition && not t.Definition.IsAbstract ->
-            Some {
-                Kind = Resource
-                Location = loc
-                Methods = []
-                Name = t.AddressSlot.Address
-                Properties = []
-                Proxy = None
-                Reference = rf
-                ReflectorType = t
-                Requirements = getRequirements loc Static t.Annotations
-                Status = Ignored
-            }
         | Re.Class cSlot ->
-            let (ctors, mtods) =
-                t.Methods
-                |> List.partition (fun x -> x.Definition.IsConstructor)
-            let cs = c (pCtor pStub t iP) ctors
-            let ms = c (pMethod pStub iP) mtods
-            let ns = c (pType iP) t.Nested
-            let ps = c (pProp pStub iP) t.Properties
-            let bT =
-                match t.Definition.BaseType with
-                | None -> None
-                | Some bT -> Some (Adapter.AdaptType bT)
-            Some {
-                Kind = Class (cSlot, bT, cs, ns)
-                Location = loc
-                Methods = ms
-                Name = t.AddressSlot.Address
-                Properties = ps
-                Proxy = getProxy t.Annotations
-                Reference = rf
-                ReflectorType = t
-                Requirements = getRequirements loc Static t.Annotations
-                Status =
-                    let comp =
-                        Seq.exists isCompiledConstructor cs
-                        || Seq.exists isCompiledMethod ms
-                        || Seq.exists isCompiledProperty ps
-                        || Seq.exists isCompiledType ns
-                    if comp then Compiled else Ignored
-            }
+            let d = t.Definition
+            if isWebControl t.Definition then
+                verifyWebControl logger verifier t
+            if not d.IsAbstract && isResource d then
+                Some {
+                    Kind = Resource
+                    Location = loc
+                    Methods = []
+                    Name = t.AddressSlot.Address
+                    Properties = []
+                    Proxy = None
+                    Reference = rf
+                    ReflectorType = t
+                    Requirements = getRequirements loc Static t.Annotations
+                    Status = Ignored
+                }
+            else
+                let (ctors, mtods) =
+                    t.Methods
+                    |> List.partition (fun x -> x.Definition.IsConstructor)
+                let cs = c (pCtor pStub t iP) ctors
+                let ms = c (pMethod pStub iP) mtods
+                let ns = c (pType iP) t.Nested
+                let ps = c (pProp pStub iP) t.Properties
+                let bT =
+                    match d.BaseType with
+                    | None -> None
+                    | Some bT -> Some (Adapter.AdaptType bT)
+                Some {
+                    Kind = Class (cSlot, bT, cs, ns)
+                    Location = loc
+                    Methods = ms
+                    Name = t.AddressSlot.Address
+                    Properties = ps
+                    Proxy = getProxy t.Annotations
+                    Reference = rf
+                    ReflectorType = t
+                    Requirements = getRequirements loc Static t.Annotations
+                    Status =
+                        let comp =
+                            Seq.exists isCompiledConstructor cs
+                            || Seq.exists isCompiledMethod ms
+                            || Seq.exists isCompiledProperty ps
+                            || Seq.exists isCompiledType ns
+                        if comp then Compiled else Ignored
+                }
         | Re.Enum ->
             match t.Annotations with
             | [] -> ()
