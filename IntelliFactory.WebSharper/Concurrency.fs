@@ -117,7 +117,9 @@ let StartWithContinuations (c: C<'T>) (s: 'T -> unit) (f: exn -> unit) =
                                   | No exn -> f exn))
 
 [<JavaScript>]
-let Start (c: C<unit>) = StartWithContinuations c ignore raise
+let Start (c: C<unit>) =
+    StartWithContinuations c ignore (fun exn ->
+        JavaScript.Log ("WebSharper: Uncaught asynchronous exception", exn))
 
 [<JavaScript>]
 let AwaitEvent (e: IEvent<'T>) =
