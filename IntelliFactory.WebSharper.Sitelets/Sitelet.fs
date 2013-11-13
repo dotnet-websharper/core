@@ -85,7 +85,7 @@ module Sitelet =
                             else
                                 Content.Redirect (prot.LoginRedirect action)
                         | None ->
-                            Content.Redirect (prot.LoginRedirect action)
+                             Content.Redirect (prot.LoginRedirect action)
                 }
         }
 
@@ -118,8 +118,34 @@ module Sitelet =
                                     RootFolder = ctx.RootFolder
                                 }
                                 |> genResp
+                        | Content.CustomContentAsync genResp ->
+                            CustomContentAsync <| fun ctx ->
+                                {
+                                    ResolveUrl = ctx.ResolveUrl
+                                    ApplicationPath = ctx.ApplicationPath
+                                    Link = fun a -> ctx.Link (f a)
+                                    Json = ctx.Json
+                                    Metadata = ctx.Metadata
+                                    ResourceContext = ctx.ResourceContext
+                                    Request = ctx.Request
+                                    RootFolder = ctx.RootFolder
+                                }
+                                |> genResp
                         | Content.PageContent genPage ->
                             PageContent <| fun ctx ->
+                                {
+                                    ResolveUrl = ctx.ResolveUrl
+                                    ApplicationPath = ctx.ApplicationPath
+                                    Json = ctx.Json
+                                    Link = fun a -> ctx.Link (f a)
+                                    Metadata = ctx.Metadata
+                                    ResourceContext = ctx.ResourceContext
+                                    Request = ctx.Request
+                                    RootFolder = ctx.RootFolder
+                                }
+                                |> genPage
+                        | Content.PageContentAsync genPage ->
+                            PageContentAsync <| fun ctx ->
                                 {
                                     ResolveUrl = ctx.ResolveUrl
                                     ApplicationPath = ctx.ApplicationPath

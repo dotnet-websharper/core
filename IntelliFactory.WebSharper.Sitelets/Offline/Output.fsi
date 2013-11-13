@@ -41,4 +41,4 @@ type Config =
     }
 
 /// Writes a site given the configuration options.
-val WriteSite : config: Config -> unit
+val WriteSite : config: Config -> Async<unit>

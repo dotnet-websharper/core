@@ -258,7 +258,7 @@ type ResolvedContent =
         Path : string
         RelativePath : string
         ResourceContext : R.Context
-        Respond : Context<obj> -> Http.Response
+        Respond : Context<obj> -> Async<Http.Response>
     }
 
 /// Partially resolves the content.
@@ -278,7 +278,8 @@ let resolveContent (rootFolder: string) (st: State) (loc: Location) (content: Co
         parts.Length - 1
     let resContext = resourceContext st level
     let genResp = C.ToResponse content
-    let response =
+    async {
+    let! response =
         genResp {
             Json = st.Json
             Link = fun _ -> ""
@@ -321,11 +322,12 @@ let resolveContent (rootFolder: string) (st: State) (loc: Location) (content: Co
         match ext with
         | Some ext -> locationString + ext
         | None -> locationString
-    {
+    return {
         Path = path
         RelativePath = relPath level
         ResourceContext = resContext
         Respond = genResp
+    }
     }
 
 /// Trims the starting slashes from a path.
@@ -339,16 +341,23 @@ let WriteSite (conf: Config) =
     let contents =
         conf.Actions
         |> List.ofSeq
-        |> List.choose (fun action ->
+        |> List.map (fun action ->
+            async {
             match conf.Sitelet.Router.Link(action) with
             | Some location ->
-                let content = conf.Sitelet.Controller.Handle(action)
-                let rC = resolveContent rootFolder st location content
+                let content = conf.Sitelet.Controller.Handle(action)                
+                let! rC = resolveContent rootFolder st location content
                 table.[action] <- rC.Path
-                Some rC
-            | None -> None)
+                return Some rC
+            | None -> return None
+            })
+        |> Async.Parallel //TODO: Check it's okay to parallelise this
+            
     // Write contents
-    for rC in contents do
+    async {
+    let! results = contents
+    let results = results |> Array.choose id
+    for rC in results do
         // Define context
         let context : Context<obj> =
             {
@@ -374,8 +383,10 @@ let WriteSite (conf: Config) =
                 RootFolder = rootFolder
             }
         let fullPath = conf.TargetDir.FullName + rC.Path
-        let response = rC.Respond context
+        let! response = rC.Respond context
         use stream = createFile fullPath
         response.WriteBody(stream)
+        
     // Write resources determined to be necessary.
     writeResources st
+    }
