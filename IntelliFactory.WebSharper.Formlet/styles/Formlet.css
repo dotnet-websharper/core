@@ -203,25 +203,25 @@
 
 .formlet .validIcon
 {
-	background-image : url(<%= WebResource("ActionCheck.png") %>);
+	background-image : url("ActionCheck.png");
 }
 
 .formlet .errorIcon
 {
-	background-image : url(<%= WebResource("ErrorIcon.png") %>);
+	background-image : url("ErrorIcon.png");
 }
 
 .formlet .removeIcon
 {
-	background-image : url(<%= WebResource("ActionDelete.png") %>);
+	background-image : url("ActionDelete.png");
 }
 
 .formlet .addIcon
 {
-	background-image : url(<%= WebResource("ActionAdd.png") %>);
+	background-image : url("ActionAdd.png");
 }
 
 .formlet .infoIcon
 {
-	background-image :url(<%= WebResource("InfoIcon.png") %>);
+	background-image :url("InfoIcon.png");
 }

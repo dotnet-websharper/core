@@ -144,12 +144,6 @@ let getEmbeddedResourcePath (conf: Config) (res: EmbeddedResource) =
     let x = res.Type.Assembly.GetName()
     conf.TargetDir.FullName ++ "Scripts" ++ x.Name ++ res.Name
 
-// Remove WebResource annotating from CSS files.
-// E.g. <%= WebResource("ResourceName.png") %> => ResourceName.png
-let replaceWebResourceTags : string -> string =
-    let rx = Regex(@"<%=\s*WebResource\s*\(\s*\""|\""\s*\)\s*%>")
-    fun s -> rx.Replace(s, "")
-
 /// Opens a file for writing, taking care to create folders.
 let createFile (targetPath: string) =
     let d = Path.GetDirectoryName(targetPath)
@@ -175,9 +169,7 @@ let writeEmbeddedResource (assemblyPath: string) (n: string) (targetPath: string
         match Path.GetExtension(n) with
         | ".css" ->
             use r = new StreamReader(s)
-            let text =
-                r.ReadToEnd()
-                |> replaceWebResourceTags
+            let text = r.ReadToEnd()
             use w = new StreamWriter(createFile targetPath, Encoding.UTF8)
             w.Write(text)
         | _ ->
