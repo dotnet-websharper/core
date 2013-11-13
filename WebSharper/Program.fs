@@ -137,13 +137,16 @@ let run (aR: AssemblyResolver) (opts: Options.T) =
             emit a.ReadableJavaScript (pc.JavaScriptPath aid)
             emit a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
             emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
-            let write k fn c =
+            let writeText k fn c =
                 let p = pc.EmbeddedPath(PathConventions.EmbeddedResource.Create(k, aid, fn))
                 writeTextFile (p, c)
+            let writeBinary k fn c =
+                let p = pc.EmbeddedPath(PathConventions.EmbeddedResource.Create(k, aid, fn))
+                writeBinaryFile (p, c)
             for r in a.GetScripts() do
-                write script r.FileName r.Content
+                writeText script r.FileName r.Content
             for r in a.GetContents() do
-                write content r.FileName r.Content
+                writeBinary content r.FileName (r.GetContentData())
         0
     | Options.Dependencies path ->
         DependencyReporter.Run path

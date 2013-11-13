@@ -52,12 +52,25 @@ let EMBEDDED_MINJS = "WebSharper.min.js"
 [<Literal>]
 let EMBEDDED_DTS = "WebSharper.d.ts"
 
+let readStream (s: Stream) =
+    use m = new MemoryStream()
+    s.CopyTo(m)
+    m.ToArray()
+
 let readResource name (def: AssemblyDefinition) =
     def.MainModule.Resources
     |> Seq.tryPick (function
         | :? EmbeddedResource as r when r.Name = name ->
-            use r = new StreamReader(r.GetResourceStream())
-            Some (r.ReadToEnd())
+            use reader = new StreamReader(r.GetResourceStream())
+            reader.ReadToEnd() |> Some
+        | _ -> None)
+
+let readResourceBytes name (def: AssemblyDefinition) =
+    def.MainModule.Resources
+    |> Seq.tryPick (function
+        | :? EmbeddedResource as r when r.Name = name ->
+            use r = r.GetResourceStream()
+            Some (readStream r)
         | _ -> None)
 
 type Symbols =
@@ -87,12 +100,23 @@ let (|StringArg|_|) (attr: CustomAttributeArgument) =
 
 type EmbeddedFile =
     {
-        ResContent : string
+        mutable ResContent : string
+        ResContentBytes : byte []
         ResContentType : string
         ResName : string
     }
 
-    member ri.Content = ri.ResContent
+    member ri.GetContentData() =
+        Array.copy ri.ResContentBytes
+
+    member ri.Content =
+        match ri.ResContent with
+        | null ->
+            let s = UTF8Encoding(false, true).GetString(ri.ResContentBytes)
+            ri.ResContent <- s
+            s
+        | s -> s
+
     member ri.ContentType = ri.ResContentType
     member ri.FileName = ri.ResName
 
@@ -108,10 +132,11 @@ let parseWebResources (def: AssemblyDefinition) =
         if attr.AttributeType.FullName = wra then
             match Seq.toList attr.ConstructorArguments with
             | [StringArg resourceName; StringArg contentType] ->
-                readResource resourceName def
+                readResourceBytes resourceName def
                 |> Option.map (fun c ->
                     {
-                        ResContent = c
+                        ResContent = null
+                        ResContentBytes = c
                         ResContentType = contentType
                         ResName = resourceName
                     })

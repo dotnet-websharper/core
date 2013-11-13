@@ -43,6 +43,9 @@ type Symbols =
 type EmbeddedFile =
 
     /// Reads the content.
+    member GetContentData : unit -> byte []
+
+    /// Reads the content.
     member Content : string
 
     /// The mime content type.
