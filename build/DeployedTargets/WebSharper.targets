@@ -23,7 +23,7 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <PropertyGroup>
-    <WebSharperHome Condition=" '$(WebSharperHome)' == '' ">$(MSBuildThisFileDirectory)</WebSharperHome>
+    <WebSharperHome Condition=" '$(WebSharperHome)' == '' ">$(MSBuildThisFileDirectory)/../tools/net45</WebSharperHome>
     <WebSharperIncludes Condition=" '$(WebSharperIncludes)' == 'false' ">false</WebSharperIncludes>
     <WebSharperIncludes Condition=" '$(WebSharperIncludes)' != 'false' ">true</WebSharperIncludes>
   </PropertyGroup>
@@ -31,19 +31,46 @@
   <!-- Determine Project Kind -->
 
   <PropertyGroup>
-    <DefaultWebSharperProject Condition=" '$(WebSharperProject)' == '' ">true</DefaultWebSharperProject>
-    <DefaultWebSharperProject Condition=" '$(WebSharperProject)' != '' ">false</DefaultWebSharperProject>
-    <InterfaceGenerator Condition=" '$(WebSharperProject)' == 'InterfaceGenerator' ">true</InterfaceGenerator>
-    <InterfaceGenerator Condition=" '$(WebSharperProject)' != 'InterfaceGenerator' ">false</InterfaceGenerator>
-    <SiteWebSharperProject Condition=" '$(WebSharperProject)' == 'Site' ">true</SiteWebSharperProject>
-    <SiteWebSharperProject Condition=" '$(WebSharperProject)' != 'Site' ">false</SiteWebSharperProject>
-    <HtmlWebSharperProject Condition=" '$(WebSharperProject)' == 'Html' ">true</HtmlWebSharperProject>
-    <HtmlWebSharperProject Condition=" '$(WebSharperProject)' != 'Html' ">false</HtmlWebSharperProject>
+    <Bundling>false</Bundling>
+    <CompileWebSharper>true</CompileWebSharper>
+    <InterfaceGenerator>false</InterfaceGenerator>
+    <SiteWebSharperProject>false</SiteWebSharperProject>
+    <HtmlWebSharperProject>false</HtmlWebSharperProject>
   </PropertyGroup>
+
+  <Choose>
+    <When Condition="'$(WebSharperProject)' == 'Library'" />
+    <When Condition="'$(WebSharperProject)' == 'Bundle'">
+      <PropertyGroup>
+        <Bundling>true</Bundling>
+      </PropertyGroup>
+    </When>
+    <When Condition="'$(WebSharperProject)' == 'InterfaceGenerator'">
+      <PropertyGroup>
+        <InterfaceGenerator>true</InterfaceGenerator>
+      </PropertyGroup>
+    </When>
+    <When Condition="'$(WebSharperProject)' == 'Site'">
+      <PropertyGroup>
+        <SiteWebSharperProject>true</SiteWebSharperProject>
+      </PropertyGroup>
+    </When>
+    <When Condition="'$(WebSharperProject)' == 'Html'">
+      <PropertyGroup>
+        <HtmlWebSharperProject>true</HtmlWebSharperProject>
+      </PropertyGroup>
+    </When>
+    <When Condition="Exists('$(MSBuildProjectDirectory)/Web.config')">
+      <PropertyGroup>
+        <CompileWebSharper>false</CompileWebSharper>
+        <SiteWebSharperProject>true</SiteWebSharperProject>
+      </PropertyGroup>
+    </When>
+  </Choose>
 
   <!-- Default WebSharper Projects -->
 
-  <PropertyGroup Condition=" $(DefaultWebSharperProject) OR $(InterfaceGenerator) OR $(HtmlWebSharperProject) ">
+  <PropertyGroup Condition="$(CompileWebSharper)">
     <CleanDependsOn>$(CleanDependsOn);WebSharperClean</CleanDependsOn>
     <CompileDependsOn>$(CompileDependsOn);WebSharperCompile</CompileDependsOn>
     <CoreCompileDependsOn>WebSharperPrepare;$(CoreCompileDependsOn)</CoreCompileDependsOn>
@@ -95,7 +122,7 @@
 
   <PropertyGroup>
     <WSPrivateRefs>false</WSPrivateRefs>
-    <WSPrivateRefs Condition="$(SiteWebSharperProject) OR $(InterfaceGenerator)">true</WSPrivateRefs>
+    <WSPrivateRefs Condition="$(SiteWebSharperProject)">true</WSPrivateRefs>
   </PropertyGroup>
 
   <ItemGroup Condition=" $(WebSharperIncludes) ">
@@ -171,6 +198,10 @@
       <Private>$(WsPrivateRefs)</Private>
       <HintPath>$(WebSharperHome)/IntelliFactory.Xml.dll</HintPath>
     </Reference>
+    <Reference Include="IntelliFactory.Core">
+      <Private>$(WsPrivateRefs)</Private>
+      <HintPath>$(WebSharperHome)/IntelliFactory.Core.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <!-- Interface Generator WebSharper Projects -->
@@ -182,9 +213,9 @@
 
   <Target Name="InterfaceGeneratorPrepare" DependsOnTargets="WebSharperPrepare">
     <PropertyGroup>
-      <Generator>$(OutputPath)Generator.exe</Generator>
+      <Generator>$(OutputPath)/$(Name).Generator.dll</Generator>
       <DebugType>none</DebugType>
-      <OutputType>exe</OutputType>
+      <OutputType>library</OutputType>
     </PropertyGroup>
     <ItemGroup>
       <IntermediateAssembly Remove="@(IntermediateAssembly)" />
@@ -196,37 +227,25 @@
           DependsOnTargets="InterfaceGeneratorPrepare"
           Inputs="@(Compile);@(ReferencePath)"
           Outputs="$(RawIntermediateAssembly)">
-    <ItemGroup>
-      <WsIgCscTool Include="$(SystemRoot)\Microsoft.NET\Framework\$(TargetFrameworkVersion)*\Csc.exe" />
-    </ItemGroup>
     <PropertyGroup>
-      <WsIgCscToolPath>@(WsIgCscTool->'%(RootDir)%(Directory)')</WsIgCscToolPath>
+      <Cmd>"$(WebSharperHome)\WebSharper.exe" ig</Cmd>
+      <Cmd>$(Cmd) "$(Generator)"</Cmd>
+      <Cmd>$(Cmd) "-n:$(Name)"</Cmd>
+      <Cmd Condition=" '$(Version)' != '' ">$(Cmd) "-v:$(Version)"</Cmd>
+      <Cmd Condition=" '$(Version)' == '' ">$(Cmd) "-v:1.0"</Cmd>
+      <Cmd>$(Cmd) @(ReferencePath->'"-r:%(FullPath)"',' ')</Cmd>
+      <Cmd>$(Cmd) "-o:$(RawIntermediateAssembly)"</Cmd>
+      <Cmd>$(Cmd) @(EmbeddedResource->'"-embed:%(FullPath)"',' ')</Cmd>
+      <Cmd Condition=" '$(DocumentationFile)' != '' ">$(Cmd) "-doc:$(DocumentationFile)"</Cmd>
+      <Cmd Condition=" '$(KeyOriginatorFile)' != '' ">$(Cmd) "-snk:$(KeyOriginatorFile)"</Cmd>
     </PropertyGroup>
-    <ItemGroup>
-      <WsIgSources Include="$(OutputPath)\Generated.cs" />
-      <WsIgSources Include="@(None);@(Compile)" Condition="'%(Extension)' == '.cs'" />
-      <WsIgSources Include="$(MSBuildProjectDirectory)\..\.build\AutoAssemblyInfo.cs"
-                   Condition="Exists('$(MSBuildProjectDirectory)\..\.build\AutoAssemblyInfo.cs')" />
-    </ItemGroup>
-    <Copy SourceFiles="@(ReferenceCopyLocalPaths)"
-          DestinationFolder="$(OutputPath)"
-          SkipUnchangedFiles="true" />
-    <Exec Command="Generator.exe &gt; Generated.cs" WorkingDirectory="$(OutputPath)" />
-    <Csc TargetType="Library"
-         NoConfig="true"
-         NoStandardLib="true"
-         References="@(ReferencePath)"
-         OutputAssembly="$(RawIntermediateAssembly)"
-         Resources="@(EmbeddedResource)"
-         KeyFile="$(KeyOriginatorFile)"
-         ToolPath="$(WsIgCscToolPath)"
-         Sources="@(WsIgSources)"
-         DebugType="pdbonly" />
+    <Exec Command="$(Cmd)" />
   </Target>
 
   <ItemGroup Condition=" $(WebSharperIncludes) AND $(InterfaceGenerator) ">
     <Reference Include="IntelliFactory.WebSharper.InterfaceGenerator">
       <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.InterfaceGenerator.dll</HintPath>
+      <Private>false</Private>
     </Reference>
   </ItemGroup>
 
@@ -235,15 +254,19 @@
   <PropertyGroup Condition=" $(SiteWebSharperProject) ">
     <CleanDependsOn>$(CleanDependsOn);WebSharperWebClean</CleanDependsOn>
     <PrepareForRunDependsOn>$(PrepareForRunDependsOn);WebSharperWebCompile</PrepareForRunDependsOn>
-    <WebSharperScriptsFolder Condition=" '$(WebSharperScriptsFolder)' == ''">$(WebProjectOutputDir)\Scripts</WebSharperScriptsFolder>
-    <WebSharperMarker>$(WebSharperScriptsFolder)\build.tmp</WebSharperMarker>
+    <WebSharperOutputRootFolder Condition=" '$(WebSharperOutputRootFolder)' == ''">$(WebProjectOutputDir)</WebSharperOutputRootFolder>
+    <WebSharperMarker>$(WebSharperOutputRootFolder)\Scripts\WebSharper\build.tmp</WebSharperMarker>
   </PropertyGroup>
 
   <Target Name="WebSharperWebCompile" Inputs="@(WebSharperBinaries)" Outputs="$(WebSharperMarker)"
           DependsOnTargets="WebSharperDetermineBinaries">
-    <MakeDir Directories="$(WebSharperScriptsFolder)" />
+    <MakeDir Directories="$(WebSharperOutputRootFolder)" />
+    <MakeDir Directories="$(WebSharperOutputRootFolder)\Content" />
+    <MakeDir Directories="$(WebSharperOutputRootFolder)\Content\WebSharper" />
+    <MakeDir Directories="$(WebSharperOutputRootFolder)\Scripts" />
+    <MakeDir Directories="$(WebSharperOutputRootFolder)\Scripts\WebSharper" />
     <PropertyGroup>
-      <WebSharperArgs>-unpack "$(WebSharperScriptsFolder)" @(WebSharperBinaries->'"%(FullPath)"',' ')</WebSharperArgs>
+      <WebSharperArgs>-unpack "$(WebSharperOutputRootFolder)" @(WebSharperBinaries->'"%(FullPath)"',' ')</WebSharperArgs>
     </PropertyGroup>
     <Exec Command='"$(WebSharperHome)\WebSharper.exe" $(WebSharperArgs)' />
     <Touch Files="$(WebSharperMarker)" AlwaysCreate="true" />
@@ -253,8 +276,8 @@
     <ItemGroup>
       <WebSharperBinaries Include="$(OutputPath)\*.dll" />
       <WebSharperBinaries Include="$(OutputPath)\*.js" />
-      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperScriptsFolder)\%(Filename).dll.js')" />
-      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperScriptsFolder)\%(Filename).dll.min.js')" />
+      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperOutputRootFolder)\Scripts\WebSharper\**\*.*')" />
+      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperOutputRootFolder)\Content\WebSharper\**\*.*')" />
     </ItemGroup>
     <Delete Files="@(WebSharperWebTargets)" />
   </Target>
@@ -300,10 +323,9 @@
 
   <Target Name="WebSharperHtmlGenerate">
     <PropertyGroup>
-      <Args>-source "."</Args>
       <Args>$(Args) -mode "$(Configuration)"</Args>
       <Args>$(Args) -project "$(MSBuildProjectDirectory)\."</Args>
-      <Args>$(Args) -source "$(MSBuildProjectDirectory)\$(OutDir)\."</Args>
+      <Args>$(Args) @(ReferencePath->'-ref "%(FullPath)"',' ')</Args>
       <Args>$(Args) -out "$(WebSharperHtmlDirectory)\."</Args>
       <Args>$(Args) -site "$(TargetPath)"</Args>
     </PropertyGroup>
@@ -314,4 +336,20 @@
     <RemoveDir Directories="$(WebSharperHtmlDirectory)" />
   </Target>
 
+  <!-- Bundle Projects -->
+
+  <PropertyGroup Condition="$(Bundling)">
+    <BuildDependsOn>$(BuildDependsOn);WebSharperBundle</BuildDependsOn>
+  </PropertyGroup>
+
+  <Target Name="WebSharperBundle" Inputs="$(TargetPath)" Outputs="Content/$(Name).js">
+    <PropertyGroup>
+      <Args>$(Args) "Content/$(Name)"</Args>
+      <Args>$(Args) @(ReferencePath->'"%(FullPath)"',' ')</Args>
+      <Args>$(Args) "$(TargetPath)"</Args>
+    </PropertyGroup>
+    <MakeDir Directories='Content' />
+    <Exec Command='"$(WebSharperHome)\WebSharper.exe" bundle $(Args)'
+          WorkingDirectory='$(MSBuildProjectDirectory)' />
+  </Target>
 </Project>

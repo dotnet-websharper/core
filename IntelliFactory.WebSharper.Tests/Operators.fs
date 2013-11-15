@@ -71,6 +71,7 @@ let Tests =
 
     Test "|>" {
         (1, 2) |> add =? 3
+        0 |> add1 |> twice |> add1 =? 3   
     }
 
     Test "<|" {

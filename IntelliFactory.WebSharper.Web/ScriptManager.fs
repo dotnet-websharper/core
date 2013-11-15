@@ -52,19 +52,23 @@ type ScriptManager() =
         {
             DebuggingEnabled =
                 this.Context.IsDebuggingEnabled
+            DefaultToHttp = false
             GetSetting = fun key ->
                 match Conf.AppSettings.[key] with
                 | null -> None
                 | x -> Some x
-            GetAssemblyUrl = fun name ->
+            GetAssemblyRendering = fun name ->
                 let ext =
                     if System.Web.HttpContext.Current.IsDebuggingEnabled
                     then ".dll.js"
                     else ".dll.min.js"
-                System.String.Format("~/Scripts/{0}{1}", name.Name, ext)
-                |> this.ResolveUrl
-            GetWebResourceUrl = fun t name ->
-                this.Page.ClientScript.GetWebResourceUrl(t, name)
+                let url =
+                    System.String.Format("~/Scripts/{0}{1}", name.Name, ext)
+                    |> this.ResolveUrl
+                Re.RenderLink url
+            GetWebResourceRendering = fun t name ->
+                let url = this.Page.ClientScript.GetWebResourceUrl(t, name)
+                Re.RenderLink url
         }
 
     /// Registers a pagelet with the manager.

@@ -35,6 +35,8 @@ module Content =
     open System.Web
     open IntelliFactory.WebSharper
 
+    type private Func<'A,'B> = System.Func<'A,'B>
+
     module Activator = IntelliFactory.WebSharper.Html.Activator
     module M = IntelliFactory.WebSharper.Core.Metadata
     module R = IntelliFactory.WebSharper.Core.Reflection

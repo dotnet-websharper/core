@@ -6,8 +6,12 @@
     <ProjectGuid>{7e70b9e1-7e68-4df9-a3b8-74378e31be08}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.Formlet</Name>
+    <OutputPath>bin</OutputPath>
   </PropertyGroup>
-  <Import Project="../build/WebSharper.targets" />
+  <Import Project="../build/net45/$(Name).proj" />
+  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
+  <Target Name="Build" />
+  <Target Name="Clean" />
   <ItemGroup>
     <Compile Include="Tree.fs" />
     <Compile Include="Layout.fs" />
@@ -15,30 +19,5 @@
     <Compile Include="Form.fs" />
     <Compile Include="Formlet.fs" />
     <Compile Include="Validator.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="System.Xml" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\IntelliFactory.Reactive\IntelliFactory.Reactive.fsproj">
-      <Name>IntelliFactory.Reactive</Name>
-      <Project>{2d30fa07-e6be-45ac-90da-c2ca8309e137}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Collections\IntelliFactory.WebSharper.Collections.fsproj">
-      <Name>IntelliFactory.WebSharper.Collections</Name>
-      <Project>{4ef94364-b50f-4906-ab91-77bca8413d60}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Control\IntelliFactory.WebSharper.Control.fsproj">
-      <Name>IntelliFactory.WebSharper.Control</Name>
-      <Project>{666977bf-e022-4c8f-b53d-5d294d41010f}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
-      <Name>IntelliFactory.WebSharper.Core</Name>
-      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
-      <Name>IntelliFactory.WebSharper</Name>
-      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
-    </ProjectReference>
   </ItemGroup>
 </Project>

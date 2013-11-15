@@ -8,6 +8,16 @@ type Action =
     | Home
     | About
 
+module Controls =
+
+    [<Sealed>]
+    type EntryPoint() =
+        inherit Web.Control()
+
+        [<JavaScript>]
+        override __.Body =
+            Client.Main() :> _
+
 module Skin =
     open System.Web
 
@@ -44,6 +54,7 @@ module Site =
         Skin.WithTemplate "HomePage" <| fun ctx ->
             [
                 Div [Text "HOME"]
+                Div [new Controls.EntryPoint()]
                 Links ctx
             ]
 
@@ -65,6 +76,12 @@ type Website() =
     interface IWebsite<Action> with
         member this.Sitelet = Site.Main
         member this.Actions = [Home; About]
+
+type Global() =
+    inherit System.Web.HttpApplication()
+
+    member g.Application_Start(sender: obj, args: System.EventArgs) =
+        ()
 
 [<assembly: Website(typeof<Website>)>]
 do ()

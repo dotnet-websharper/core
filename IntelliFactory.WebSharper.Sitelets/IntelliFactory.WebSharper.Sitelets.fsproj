@@ -6,8 +6,8 @@
     <ProjectGuid>{d991329a-3aa3-4269-83ad-3597864855a0}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.Sitelets</Name>
+    <OutputPath>bin</OutputPath>
   </PropertyGroup>
-  <Import Project="../build/FSharp.targets" />
   <ItemGroup>
     <Compile Include="Extensions.fs" />
     <Compile Include="UrlEncoding.fsi" />
@@ -33,32 +33,8 @@
     <Compile Include="Offline\Extra.fs" />
     <Compile Include="Offline\Plugin.fs" />
   </ItemGroup>
-  <ItemGroup>
-    <Reference Include="System.Configuration" />
-    <Reference Include="System.Web" />
-    <Reference Include="System.Xml" />
-    <Reference Include="System.Xml.Linq" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\IntelliFactory.Html\IntelliFactory.Html.fsproj">
-      <Name>IntelliFactory.Html</Name>
-      <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
-      <Name>IntelliFactory.JavaScript</Name>
-      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
-      <Name>IntelliFactory.WebSharper.Core</Name>
-      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Html\IntelliFactory.WebSharper.Html.fsproj">
-      <Name>IntelliFactory.WebSharper.Html</Name>
-      <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Web\IntelliFactory.WebSharper.Web.fsproj">
-      <Name>IntelliFactory.WebSharper.Web</Name>
-      <Project>{fe6ba781-fdc9-4bb5-b38a-3bb9841ea836}</Project>
-    </ProjectReference>
-  </ItemGroup>
+  <Import Project="../build/net45/$(Name).proj" />
+  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
+  <Target Name="Build" />
+  <Target Name="Clean" />
 </Project>

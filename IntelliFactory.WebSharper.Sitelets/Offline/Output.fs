@@ -28,6 +28,8 @@ open System.Reflection
 open System.Text
 open System.Text.RegularExpressions
 open System.Web
+open Mono.Cecil
+open IntelliFactory.Core
 open IntelliFactory.WebSharper.Sitelets
 
 module C = IntelliFactory.WebSharper.Sitelets.Content
@@ -50,25 +52,20 @@ type Mode =
 type Config =
     {
         Actions : list<obj>
+        MainAssembly : FileInfo
         Mode : Mode
+        ProjectDir : DirectoryInfo
+        ReferenceFiles : list<FileInfo>
         Sitelet : Sitelet<obj>
-        SourceDirs : list<DirectoryInfo>
         TargetDir : DirectoryInfo
     }
 
 /// Collects metadata from all assemblies in referenced folders.
-let getMetadata (conf: Config) =
-    conf.SourceDirs
-    |> Seq.collect (fun x ->
-        let dlls = Directory.GetFiles(x.FullName, "*.dll")
-        let exes = Directory.GetFiles(x.FullName, "*.exe")
-        Seq.append dlls exes)
+let getMetadata conf =
+    Seq.append [conf.MainAssembly] conf.ReferenceFiles
     |> Seq.distinctBy (fun assemblyFile ->
-        AssemblyName.GetAssemblyName(assemblyFile).Name)
-    |> Seq.choose (fun x ->
-        match M.AssemblyInfo.Load(x) with
-        | None -> None
-        | Some r -> Some r)
+        AssemblyName.GetAssemblyName(assemblyFile.FullName).Name)
+    |> Seq.choose (fun x -> M.AssemblyInfo.Load x.FullName)
     |> M.Info.Create
 
 /// Generates unique file names.
@@ -113,11 +110,12 @@ type EmbeddedResource =
         { Name = name; Type = ty }
 
 /// The mutable state of the processing.
+[<Sealed>]
 type State(conf: Config) =
     let metadata = getMetadata conf
     let json = J.Provider.CreateTyped(metadata)
     let unique = UniqueFileNameGenerator()
-    let usedAssemblies = HashSet()
+    let usedAssemblies = HashSet<Re.AssemblyName>()
     let usedResources = HashSet()
     member this.Config = conf
     member this.Json = json
@@ -125,8 +123,8 @@ type State(conf: Config) =
     member this.Unique = unique
     member this.Assemblies = usedAssemblies :> seq<_>
     member this.Resources = usedResources :> seq<_>
-    member this.UseAssembly(name) = usedAssemblies.Add(name) |> ignore
-    member this.UseResource(res) = usedResources.Add(res) |> ignore
+    member this.UseAssembly(name: Re.AssemblyName) = usedAssemblies.Add(name) |> ignore
+    member this.UseResource(res: EmbeddedResource) = usedResources.Add(res) |> ignore
 
 /// Utility: combines two paths with a slash or backslash.
 let ( ++ ) a b = Path.Combine(a, b)
@@ -146,12 +144,6 @@ let getEmbeddedResourcePath (conf: Config) (res: EmbeddedResource) =
     let x = res.Type.Assembly.GetName()
     conf.TargetDir.FullName ++ "Scripts" ++ x.Name ++ res.Name
 
-// Remove WebResource annotating from CSS files.
-// E.g. <%= WebResource("ResourceName.png") %> => ResourceName.png
-let replaceWebResourceTags : string -> string =
-    let rx = Regex(@"<%=\s*WebResource\s*\(\s*\""|\""\s*\)\s*%>")
-    fun s -> rx.Replace(s, "")
-
 /// Opens a file for writing, taking care to create folders.
 let createFile (targetPath: string) =
     let d = Path.GetDirectoryName(targetPath)
@@ -161,56 +153,48 @@ let createFile (targetPath: string) =
     File.Open(targetPath, FileMode.Create) :> Stream
 
 /// Writes an embedded resource to the target path.
-let writeEmbeddedResource (a: Assembly) (n: string) (targetPath: string) =
-    match Path.GetExtension(n) with
-    | ".css" ->
-        use r = new StreamReader(a.GetManifestResourceStream(n))
-        let text =
-            r.ReadToEnd()
-            |> replaceWebResourceTags
-        use w = new StreamWriter(createFile targetPath, Encoding.UTF8)
-        w.Write(text)
-    | _ ->
-        use s1 = a.GetManifestResourceStream(n)
-        use s2 = createFile targetPath
-        streamCopy s1 s2
-
-/// A tool for matching assembly names to currently loaded assemblies.
-[<Sealed>]
-type LoadedAssemblyResolver() =
-    let state = Dictionary()
-
-    /// Resolves a name to an assembly.
-    member this.Resolve(name: Re.AssemblyName) =
-        match state.TryGetValue(name.Name) with
-        | true, v -> v
+let writeEmbeddedResource (assemblyPath: string) (n: string) (targetPath: string) =
+    let aD = AssemblyDefinition.ReadAssembly(assemblyPath)
+    let stream =
+        aD.MainModule.Resources
+        |> Seq.tryPick (fun r ->
+            match r with
+            | :? Mono.Cecil.EmbeddedResource as r ->
+                if r.Name = n then Some (r.GetResourceStream()) else None
+            | _ -> None)
+    match stream with
+    | None -> failwithf "No resource %s in %s at %s" n aD.FullName assemblyPath
+    | Some s ->
+        use s = s
+        match Path.GetExtension(n) with
+        | ".css" ->
+            use r = new StreamReader(s)
+            let text = r.ReadToEnd()
+            use w = new StreamWriter(createFile targetPath, Encoding.UTF8)
+            w.Write(text)
         | _ ->
-            let v =
-                AppDomain.CurrentDomain.GetAssemblies()
-                |> Seq.tryFind (fun a -> a.GetName().Name = name.Name)
-            match v with
-            | Some v ->
-                state.[name.Name] <- v
-                v
-            | None ->
-                let v = Assembly.ReflectionOnlyLoad(name.FullName)
-                state.[name.Name] <- v
-                v
+            use s2 = createFile targetPath
+            streamCopy s s2
 
-/// Outputs all encessary resources. This is the last step of processing.
-let writeResources (st: State) =
-    let resolver = LoadedAssemblyResolver()
+/// Outputs all required resources. This is the last step of processing.
+let writeResources (aR: AssemblyResolver) (st: State) =
     for aN in st.Assemblies do
-        let assembly = resolver.Resolve(aN)
-        let embeddedResourceName =
-            match st.Config.Mode with
-            | Debug -> EMBEDDED_JS
-            | Release -> EMBEDDED_MINJS
-        getAssemblyJavaScriptPath st.Config aN
-        |> writeEmbeddedResource assembly embeddedResourceName
+        let assemblyPath = aR.ResolvePath(AssemblyName aN.FullName)
+        match assemblyPath with
+        | Some aP ->
+            let embeddedResourceName =
+                match st.Config.Mode with
+                | Debug -> EMBEDDED_JS
+                | Release -> EMBEDDED_MINJS
+            let p = getAssemblyJavaScriptPath st.Config aN
+            writeEmbeddedResource aP embeddedResourceName p
+        | None ->
+            stderr.WriteLine("Could not resolve: {0}", aN)
     for res in st.Resources do
-        getEmbeddedResourcePath st.Config res
-        |> writeEmbeddedResource res.Type.Assembly res.Name
+        let erp = getEmbeddedResourcePath st.Config res
+        match aR.ResolvePath(AssemblyName res.Type.Assembly.FullName) with
+        | Some aP -> writeEmbeddedResource aP res.Name erp
+        | None -> stderr.WriteLine("Could not resolve {0}", res.Type.Assembly.FullName)
 
 /// Generates a relative path prefix, such as "../../../" for level 3.
 let relPath level =
@@ -220,20 +204,23 @@ let relPath level =
 let resourceContext (st: State) (level: int) : R.Context =
     let relPath = relPath level
     let scriptsFile folder file =
-        String.Format("{0}Scripts/{1}/{2}", relPath, folder, file)
+        let url = String.Format("{0}Scripts/{1}/{2}", relPath, folder, file)
+        R.RenderLink url
     {
         DebuggingEnabled =
             match st.Config.Mode with
             | Debug -> true
             | _ -> false
 
+        DefaultToHttp = true
+
         GetSetting = fun _ -> None
 
-        GetAssemblyUrl = fun aN ->
+        GetAssemblyRendering = fun aN ->
             st.UseAssembly(aN)
             scriptsFile aN.Name (getAssemblyFileName st.Config.Mode aN)
 
-        GetWebResourceUrl = fun ty name ->
+        GetWebResourceRendering = fun ty name ->
             st.UseResource(EmbeddedResource.Create(name, ty))
             scriptsFile (ty.Assembly.GetName().Name) name
     }
@@ -262,7 +249,7 @@ type ResolvedContent =
     }
 
 /// Partially resolves the content.
-let resolveContent (rootFolder: string) (st: State) (loc: Location) (content: Content<obj>) =
+let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc: Location) (content: Content<obj>) =
     let locationString =
         let locStr = loc.ToString()
         if locStr.EndsWith("/") then
@@ -283,12 +270,12 @@ let resolveContent (rootFolder: string) (st: State) (loc: Location) (content: Co
         genResp {
             Json = st.Json
             Link = fun _ -> ""
-            ApplicationPath =  ""
+            ApplicationPath = "."
             ResolveUrl = fun x -> x
             Metadata = st.Metadata
             ResourceContext = resContext
             Request = emptyRequest locationString
-            RootFolder = rootFolder
+            RootFolder = projectFolder
         }
     let path =
         let ext =
@@ -334,9 +321,10 @@ let resolveContent (rootFolder: string) (st: State) (loc: Location) (content: Co
 let trimPath (path: string) =
     path.TrimStart('/')
 
-let WriteSite (conf: Config) =
+let WriteSite (aR: AssemblyResolver) (conf: Config) =
     let st = State(conf)
     let table = Dictionary()
+    let projectFolder = conf.ProjectDir.FullName
     let rootFolder = conf.TargetDir.FullName
     let contents =
         conf.Actions
@@ -346,7 +334,7 @@ let WriteSite (conf: Config) =
             match conf.Sitelet.Router.Link(action) with
             | Some location ->
                 let content = conf.Sitelet.Controller.Handle(action)                
-                let! rC = resolveContent rootFolder st location content
+                let! rC = resolveContent projectFolder rootFolder st location content
                 table.[action] <- rC.Path
                 return Some rC
             | None -> return None
@@ -361,7 +349,7 @@ let WriteSite (conf: Config) =
         // Define context
         let context : Context<obj> =
             {
-                ApplicationPath = ""
+                ApplicationPath = "."
                 ResolveUrl = fun x -> x
                 Json = st.Json
                 Link = fun action ->
@@ -380,7 +368,7 @@ let WriteSite (conf: Config) =
                 Metadata = st.Metadata
                 ResourceContext = rC.ResourceContext
                 Request = emptyRequest rC.Path
-                RootFolder = rootFolder
+                RootFolder = projectFolder
             }
         let fullPath = conf.TargetDir.FullName + rC.Path
         let! response = rC.Respond context
@@ -388,5 +376,5 @@ let WriteSite (conf: Config) =
         response.WriteBody(stream)
         
     // Write resources determined to be necessary.
-    writeResources st
+    writeResources aR st
     }

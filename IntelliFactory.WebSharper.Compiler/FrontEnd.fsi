@@ -22,10 +22,13 @@
 /// Exposes the compiler front-end for programmatic use.
 module IntelliFactory.WebSharper.Compiler.FrontEnd
 
+open System.IO
+open System.Reflection
+open System.Text
+open System.Web.UI
+open IntelliFactory.Core
 module M = IntelliFactory.WebSharper.Core.Metadata
 module R = IntelliFactory.WebSharper.Core.Resources
-open System.Reflection
-open System.Web.UI
 
 /// Represents file-system paths.
 type Path = string
@@ -35,9 +38,34 @@ type Symbols =
     | Mdb of byte []
     | Pdb of byte []
 
+/// Represents embedded resource files.
+[<Sealed>]
+type EmbeddedFile =
+
+    /// Reads the content.
+    member GetContentData : unit -> byte []
+
+    /// Reads the content.
+    member Content : string
+
+    /// The mime content type.
+    member ContentType : string
+
+    /// The file name.
+    member FileName : string
+
+    /// True for Script resources.
+    member IsScript : bool
+
 /// Represents assemblies.
 [<Sealed>]
 type Assembly =
+
+    /// Loads embedded non-script resources.
+    member GetContents : unit -> seq<EmbeddedFile>
+
+    /// Loads embedded script resources.
+    member GetScripts : unit -> seq<EmbeddedFile>
 
     /// Returns the raw assembly data.
     member RawBytes : option<StrongNameKeyPair> -> byte []
@@ -51,15 +79,21 @@ type Assembly =
     /// Reads the embedded JavaScript.
     member ReadableJavaScript : option<string>
 
+    /// The full name of the assembly.
+    member FullName : string
+
     /// Returns the associated symbols, if any.
     member Symbols : option<Symbols>
+
+    /// The TypeScript `.d.ts` declarations for the JavaScript.
+    member TypeScriptDeclarations : option<string>
 
 /// Loads assemblies.
 [<Sealed>]
 type Loader =
 
-    /// Creates a new loader. Accepts a set of search paths.
-    static member Create : searchPaths: Set<Path> -> log: (string -> unit) -> Loader
+    /// Creates a new loader. Accepts an assembly resolver.
+    static member Create : resolver: AssemblyResolver -> log: (string -> unit) -> Loader
 
     /// Loads an assembly from raw data.
     member LoadRaw : byte [] -> option<Symbols> -> Assembly
@@ -93,14 +127,17 @@ type ResourceContent =
 /// A reduced resource context for simplified dependency rendering.
 type ResourceContext =
     {
-        /// Allocates a new resource, returns a URI to it.
-        CreateUri : ResourceContent -> string
-
         /// Whether to emit readable JavaScript.
         DebuggingEnabled : bool
 
+        /// Wheter to switch `//` links to `http://` links.
+        DefaultToHttp : bool
+
         /// Reads environment settings.
         GetSetting : string -> option<string>
+
+        /// Decides how to render a resource.
+        RenderResource : ResourceContent -> R.Rendering
     }
 
 /// Represents a compiled assembly.
@@ -125,6 +162,9 @@ type CompiledAssembly =
     /// The readable JS source for the assembly.
     member ReadableJavaScript : string
 
+    /// The TypeScript `.d.ts` declarations for the JavaScript.
+    member TypeScriptDeclarations : string
+
 /// Represents the compiler front-end object.
 [<Sealed>]
 type Compiler =
@@ -140,3 +180,23 @@ type Compiler =
 
 /// Prepares a compiler.
 val Prepare : Options -> log: (Message -> unit) -> Compiler
+
+/// See `Bundle`.
+[<Sealed>]
+type Content =
+    member WriteFile : name: string * ?encoding: Encoding -> unit
+    member Write : TextWriter -> unit
+    member Text : string
+
+/// Experimental API for bundling WebSharper file sets into application packages.
+[<Sealed>]
+type Bundle =
+    member CSS : Content
+    member JavaScript : Content
+    member MinifiedJavaScript : Content
+    member TypeScript : Content
+    member WithAssembly : assemblyFile: string -> Bundle
+    member WithDefaultReferences : unit -> Bundle
+    member WithTransitiveReferences : unit -> Bundle
+    static member Empty : Bundle
+    static member Create : unit -> Bundle

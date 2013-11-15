@@ -28,6 +28,15 @@ module J = IntelliFactory.WebSharper.JavaScript
 type T = { K : int }
 
 [<JavaScript>]
+type O [<Inline "{}">] () = 
+    member this.P1 
+        with [<Inline "$this.p1">] get() = X<int>
+        and  [<Inline "void($this.p1 = $v)">] set v = ()
+    member this.P2 
+        with [<Inline "$this.p2">] get() = X<int>
+        and  [<Inline "void($this.p2 = $v)">] set v = ()
+
+[<JavaScript>]
 let Tests =
     Section "Object"
 
@@ -60,3 +69,8 @@ let Tests =
         J.TypeOf (obj().GetHashCode()) =? J.Kind.Number
     }
 
+    Test "Construction with properties" {
+        let o = O(P1 = 1, P2 = 2)
+        o.P1 =? 1
+        o.P2 =? 2
+    }

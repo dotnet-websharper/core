@@ -19,12 +19,13 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.EcmaExtension
+namespace IntelliFactory.WebSharper.Ecma
+
+open IntelliFactory.WebSharper.InterfaceGenerator
 
 /// Defines the bindings to ECMA-262 5th edition JavaScript functions
 /// and objects.
-module Ecma =
-    open IntelliFactory.WebSharper.InterfaceGenerator
+module Definition =
     module P = Pattern
 
     let EcmaRegExpT = Type.New()
@@ -101,42 +102,44 @@ module Ecma =
 
     /// The Array object is used to store multiple values in a single variable.
     let EcmaArray =
+        Generic / fun (a: Type.Type) ->
         let WithCallback r x =
-            let t = T<obj> * T<int> * EcmaArrayT
+            let t = a * T<int> * EcmaArrayT.[a]
             ((t ^-> r) ^-> x) + ((T<obj> -* t ^-> r) * T<obj> ^-> x)
         let Reduce =
-            let cb =
-                T<obj>?previousValue * T<obj>?currentValue *
-                T<int>?index * EcmaArrayT ^-> T<obj>
-            cb * !?T<obj>?initialValue ^-> T<obj>
+            (a?previousValue * a?currentValue * T<int>?index * EcmaArrayT.[a] ^-> a) ^-> a        
+        let ReduceG b =
+            (b?previousValue * a?currentValue * T<int>?index * EcmaArrayT.[a] ^-> b) * b?initialValue ^-> b
         Class "Array"
         |=> Inherits EcmaObject
-        |=> EcmaArrayT
+        |=> EcmaArrayT.[a]
         |+> Protocol [
-                "concat" => !+ T<obj> ^-> EcmaArrayT
+                "concat" => !+ a ^-> EcmaArrayT.[a]
                 "join" => T<string->string>
-                "pop" => T<unit->obj>
-                "push" => !+ T<obj> ^-> T<int>
-                "reverse" => T<unit> ^-> EcmaArrayT
-                "shift" => T<unit->obj>
-                "slice" => T<int>?startPos * !?T<int>?endPos ^-> EcmaArrayT
-                "sort" => T<obj * obj -> int> + T<unit> ^-> EcmaArrayT
-                "splice" => T<int>?start * T<int>?delete *+ T<obj> ^-> EcmaArrayT
-                "unshift" => !+ T<obj> ^-> T<int>
-                "indexOf" => T<obj> * !?T<int>?fromIndex ^-> T<int>
-                "lastIndexOf" => T<obj> * !?T<int>?fromIndex ^-> T<int>
+                "pop" => T<unit> ^-> a
+                "push" => !+ a ^-> T<int>
+                "reverse" => T<unit> ^-> EcmaArrayT.[a]
+                "shift" => T<unit> ^-> a
+                "slice" => T<int>?startPos * !?T<int>?endPos ^-> EcmaArrayT.[a]
+                "sort" => (a * a ^-> T<int>) + T<unit> ^-> EcmaArrayT.[a]
+                "splice" => T<int>?start * T<int>?delete *+ a ^-> EcmaArrayT.[a]
+                "unshift" => !+ a ^-> T<int>
+                "indexOf" => a * !?T<int>?fromIndex ^-> T<int>
+                "lastIndexOf" => a * !?T<int>?fromIndex ^-> T<int>
                 "every" => WithCallback T<bool> T<bool>
                 "some" => WithCallback T<bool> T<bool>
                 "forEach" => WithCallback T<unit> T<unit>
-                "map" => WithCallback T<obj> EcmaArrayT
-                "filter" => WithCallback T<bool> EcmaArrayT
+                Generic - fun b -> "map" => WithCallback b EcmaArrayT.[b]
+                "filter" => WithCallback T<bool> EcmaArrayT.[a]
                 "reduce" => Reduce
+                Generic - fun b -> "reduce" => ReduceG b
                 "reduceRight" => Reduce
+                Generic - fun b -> "reduceRight" => ReduceG b
                 "length" =@ T<int>
             ]
         |+> [
                 Constructor (T<int>)
-                Constructor (!+ T<obj>)
+                Constructor (!+ a)
                 "isArray" => T<obj->bool>
             ]
 
@@ -363,7 +366,7 @@ module Ecma =
                 EcmaGlobal
                 EcmaObject
                 EcmaFunction
-                EcmaArray
+                Generic - EcmaArray
                 EcmaString
                 EcmaBoolean
                 EcmaNumber
@@ -371,6 +374,14 @@ module Ecma =
                 EcmaDate
                 EcmaRegExp
                 EcmaError
-                EcmaJSON  
+                EcmaJSON
             ]
         ]
+
+[<Sealed>]
+type EcmaExtension() =
+    interface IExtension with
+        member x.Assembly = Definition.Assembly
+
+[<assembly: Extension(typeof<EcmaExtension>)>]
+do ()

@@ -77,12 +77,13 @@ type Kind =
 /// Represents members.
 and Member<'T> =
     {
-        AddressSlot : AddressSlot
         Annotations : list<Annotation>
         Definition : 'T
         Location : Location
         MemberSlot : MemberSlot
     }
+
+    member AddressSlot : AddressSlot
 
 /// Represents union cases.
 and UnionCase =

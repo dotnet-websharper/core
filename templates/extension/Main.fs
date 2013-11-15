@@ -45,7 +45,13 @@ module Definition =
             ]
         ]
 
-module Main =
-    open IntelliFactory.WebSharper.InterfaceGenerator
+open IntelliFactory.WebSharper.InterfaceGenerator
 
-    do Compiler.Compile stdout Definition.Assembly
+[<Sealed>]
+type Extension() =
+    interface IExtension with
+        member ext.Assembly =
+            Definition.Assembly
+
+[<assembly: Extension(typeof<Extension>)>]
+do ()

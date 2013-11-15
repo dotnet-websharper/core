@@ -1004,6 +1004,594 @@ module File =
                 "readAsArrayBuffer" => Blob ^-> T<unit>
             ]
 
+module WebGL =
+
+    let RenderingContext = Type.New()
+    let ContextAttributes = Type.New()
+    let Object = Type.New()
+    let Buffer = Type.New()
+    let Framebuffer = Type.New()
+    let Program = Type.New()
+    let Renderbuffer = Type.New()
+    let Shader = Type.New()
+    let Texture = Type.New()
+    let UniformLocation = Type.New()
+    let ActiveInfo = Type.New()
+    let Enum = Type.New()
+    let DataView = Type.New()
+
+    let EnumClass =
+        Class "Enum"
+        |=> Enum
+
+    let DataViewClass =
+        Class "DataView"
+        |=> DataView
+        |=> Inherits TypedArrays.ArrayBufferView
+        |+> [
+                Constructor (TypedArrays.ArrayBuffer * T<int> * T<int>)
+                Constructor (TypedArrays.ArrayBuffer * T<int>)
+                Constructor TypedArrays.ArrayBuffer
+            ]
+        |+> Protocol
+            [
+                "buffer" =? TypedArrays.ArrayBuffer
+                "byteOffset" =? T<uint64>
+                "byteLength" =? T<uint64>
+                "getInt8" => T<int> ^-> T<int>
+                "getUint8" => T<int> ^-> T<int>
+                "getInt16" => T<int> * T<bool> ^-> T<int>
+                "getInt16" => T<int> ^-> T<int>
+                "getUint16" => T<int> * T<bool> ^-> T<int>
+                "getUint16" => T<int> ^-> T<int>
+                "getInt32" => T<int> * T<bool> ^-> T<int>
+                "getInt32" => T<int> ^-> T<int>
+                "getUint32" => T<int> * T<bool> ^-> T<int>
+                "getUint32" => T<int> ^-> T<int>
+                "getFloat32" => T<int> * T<bool> ^-> T<int>
+                "getFloat32" => T<int> ^-> T<int>
+                "getFloat64" => T<int> * T<bool> ^-> T<int>
+                "getFloat64" => T<int> ^-> T<int>
+                "setInt8" => T<int> * T<int> ^-> T<int>
+                "setUint8" => T<int> * T<int> ^-> T<int>
+                "setInt16" => T<int> * T<int> * T<bool> ^-> T<int>
+                "setInt16" => T<int> * T<int> ^-> T<int>
+                "setUint16" => T<int> * T<int> * T<bool> ^-> T<int>
+                "setUint16" => T<int> * T<int> ^-> T<int>
+                "setInt32" => T<int> * T<int> * T<bool> ^-> T<int>
+                "setInt32" => T<int> * T<int> ^-> T<int>
+                "setUint32" => T<int> * T<int> * T<bool> ^-> T<int>
+                "setUint32" => T<int> * T<int> ^-> T<int>
+                "setFloat32" => T<int> * T<int> * T<bool> ^-> T<int>
+                "setFloat32" => T<int> * T<int> ^-> T<int>
+                "setFloat64" => T<int> * T<float> * T<bool> ^-> T<int>
+                "setFloat64" => T<int> * T<float> ^-> T<int>
+            ]
+
+    let RenderingContextClass =
+        Class "WebGLRenderingContext"
+        |=> RenderingContext
+        |+> Protocol
+            [
+                // GLEnum constants
+                "DEPTH_BUFFER_BIT" =? T<int>
+                "STENCIL_BUFFER_BIT" =? T<int>
+                "COLOR_BUFFER_BIT" =? T<int>
+                "POINTS" =? Enum
+                "LINES" =? Enum
+                "LINE_LOOP" =? Enum
+                "LINE_STRIP" =? Enum
+                "TRIANGLES" =? Enum
+                "TRIANGLE_STRIP" =? Enum
+                "TRIANGLE_FAN" =? Enum
+                "ZERO" =? Enum
+                "ONE" =? Enum
+                "SRC_COLOR" =? Enum
+                "ONE_MINUS_SRC_COLOR" =? Enum
+                "SRC_ALPHA" =? Enum
+                "ONE_MINUS_SRC_ALPHA" =? Enum
+                "DST_ALPHA" =? Enum
+                "ONE_MINUS_DST_ALPHA" =? Enum
+                "DST_COLOR" =? Enum
+                "ONE_MINUS_DST_COLOR" =? Enum
+                "SRC_ALPHA_SATURATE" =? Enum
+                "FUNC_ADD" =? Enum
+                "BLEND_EQUATION" =? Enum
+                "BLEND_EQUATION_RGB" =? Enum
+                "BLEND_EQUATION_ALPHA" =? Enum
+                "FUNC_SUBSTRACT" =? Enum
+                "FUNC_REVERSE_SUBSTRACT" =? Enum
+                "BLEND_DST_RGB" =? Enum
+                "BLEND_SRC_RGB" =? Enum
+                "BLEND_DST_ALPHA" =? Enum
+                "BLEND_SRC_ALPHA" =? Enum
+                "CONSTANT_COLOR" =? Enum
+                "ONE_MINUS_CONSTANT_COLOR" =? Enum
+                "CONSTANT_ALPHA" =? Enum
+                "ONE_MINUS_CONSTANT_ALPHA" =? Enum
+                "BLEND_COLOR" =? Enum
+                "ARRAY_BUFFER" =? Enum
+                "ELEMENT_ARRAY_BUFFER" =? Enum
+                "ARRAY_BUFFER_BINDING" =? Enum
+                "ELEMENT_ARRAY_BUFFER_BINDING" =? Enum
+                "STREAM_DRAW" =? Enum
+                "STATIC_DRAW" =? Enum
+                "DYNAMIC_DRAW" =? Enum
+                "BUFFER_SIZE" =? Enum
+                "BUFFER_USAGE" =? Enum
+                "CURRENT_VERTEX_ATTRIB" =? Enum
+                "FRONT" =? Enum
+                "BACK" =? Enum
+                "FRONT_AND_BACK" =? Enum
+                "CULL_FACE" =? Enum
+                "BLEND" =? Enum
+                "DITHER" =? Enum
+                "STENCIL_TEST" =? Enum
+                "DEPTH_TEST" =? Enum
+                "SCISSOR_TEST" =? Enum
+                "POLYGON_OFFSET_FILL" =? Enum
+                "SAMPLE_ALPHA_TO_COVERAGE" =? Enum
+                "SAMPLE_COVERAGE" =? Enum
+                "NO_ERROR" =? Enum
+                "INVALID_ENUM" =? Enum
+                "INVALID_VALUE" =? Enum
+                "INVALID_OPERATION" =? Enum
+                "OUT_OF_MEMORY" =? Enum
+                "CW" =? Enum
+                "CCW" =? Enum
+                "LINE_WIDTH" =? Enum
+                "ALIASED_POINT_SIZE_RANGE" =? Enum
+                "ALIASED_LINE_WIDTH_RANGE" =? Enum
+                "CULL_FACE_MODE" =? Enum
+                "FRONT_FACE" =? Enum
+                "DEPTH_RANGE" =? Enum
+                "DEPTH_WRITEMASK" =? Enum
+                "DEPTH_CLEAR_VALUE" =? Enum
+                "DEPTH_FUNC" =? Enum
+                "STENCIL_CLEAR_VALUE" =? Enum
+                "STENCIL_FUNC" =? Enum
+                "STENCIL_FAIL" =? Enum
+                "STENCIL_PASS_DEPTH_FAIL" =? Enum
+                "STENCIL_PASS_DEPTH_PASS" =? Enum
+                "STENCIL_REF" =? Enum
+                "STENCIL_VALUE_MASK" =? Enum
+                "STENCIL_WRITEMASK" =? Enum
+                "STENCIL_BACK_FUNC" =? Enum
+                "STENCIL_BACK_FAIL" =? Enum
+                "STENCIL_BACK_PASS_DEPTH_FAIL" =? Enum
+                "STENCIL_BACK_PASS_DEPTH_PASS" =? Enum
+                "STENCIL_BACK_REF" =? Enum
+                "STENCIL_BACK_VALUE_MASK" =? Enum
+                "STENCIL_BACK_WRITEMASK" =? Enum
+                "VIEWPORT" =? Enum
+                "SCISSOR_BOX" =? Enum
+                "COLOR_CLEAR_VALUE" =? Enum
+                "COLOR_WRITEMASK" =? Enum
+                "UNPACK_ALIGNMENT" =? Enum
+                "PACK_ALIGNMENT" =? Enum
+                "MAX_TEXTURE_SIZE" =? Enum
+                "MAX_VIEWPORT_DIMS" =? Enum
+                "SUBPIXEL_BITS" =? Enum
+                "RED_BITS" =? Enum
+                "GREEN_BITS" =? Enum
+                "BLUE_BITS" =? Enum
+                "ALPHA_BITS" =? Enum
+                "DEPTH_BITS" =? Enum
+                "STENCIL_BITS" =? Enum
+                "POLYGON_OFFSET_UNITS" =? Enum
+                "POLYGON_OFFSET_FACTOR" =? Enum
+                "TEXTURE_BINDING_2D" =? Enum
+                "SAMPLE_BUFFERS" =? Enum
+                "SAMPLES" =? Enum
+                "SAMPLE_COVERAGE_VALUE" =? Enum
+                "SAMPLE_COVERAGE_INVERT" =? Enum
+                "NUM_COMPRESSED_TEXTURE_FORMATS" =? Enum
+                "COMPRESSED_TEXTURE_FORMATS" =? Enum
+                "DONT_CARE" =? Enum
+                "FASTEST" =? Enum
+                "NICEST" =? Enum
+                "GENERATE_MIPMAP_HINT" =? Enum
+                "BYTE" =? Enum
+                "UNSIGNED_BYTE" =? Enum
+                "SHORT" =? Enum
+                "UNSIGNED_SHORT" =? Enum
+                "INT" =? Enum
+                "UNSIGNED_INT" =? Enum
+                "FLOAT" =? Enum
+                "DEPTH_COMPONENT" =? Enum
+                "ALPHA" =? Enum
+                "RGB" =? Enum
+                "RGBA" =? Enum
+                "LUMINANCE" =? Enum
+                "LUMINANCE_ALPHA" =? Enum
+                "UNSIGNED_SHORT_4_4_4_4" =? Enum
+                "UNSIGNED_SHORT_5_5_5_1" =? Enum
+                "UNSIGNED_SHORT_5_6_5" =? Enum
+                "FRAGMENT_SHADER" =? Enum
+                "VERTEX_SHADER" =? Enum
+                "MAX_VERTEX_ATTRIBS" =? Enum
+                "MAX_VERTEX_UNIFORM_VECTORS" =? Enum
+                "MAX_VARYING_VECTORS" =? Enum
+                "MAX_COMBINED_TEXTURE_IMAGE_UNITS" =? Enum
+                "MAX_VERTEX_TEXTURE_IMAGE_UNITS" =? Enum
+                "MAX_TEXTURE_IMAGE_UNITS" =? Enum
+                "MAX_FRAGMENT_UNIFORM_VECTORS" =? Enum
+                "SHADER_TYPE" =? Enum
+                "DELETE_STATUS" =? Enum
+                "LINK_STATUS" =? Enum
+                "VALIDATE_STATUS" =? Enum
+                "ATTACHED_SHADERS" =? Enum
+                "ACTIVE_UNIFORMS" =? Enum
+                "ACTIVE_ATTRIBUTES" =? Enum
+                "SHADING_LANGUAGE_VERSION" =? Enum
+                "CURRENT_PROGRAM" =? Enum
+                "NEVER" =? Enum
+                "LESS" =? Enum
+                "EQUAL" =? Enum
+                "LEQUAL" =? Enum
+                "GREATER" =? Enum
+                "NOTEQUAL" =? Enum
+                "GEQUAL" =? Enum
+                "ALWAYS" =? Enum
+                "KEEP" =? Enum
+                "REPLACE" =? Enum
+                "INCR" =? Enum
+                "DECR" =? Enum
+                "INVERT" =? Enum
+                "INCR_WRAP" =? Enum
+                "DECR_WRAP" =? Enum
+                "VENDOR" =? Enum
+                "RENDERER" =? Enum
+                "VERSION" =? Enum
+                "NEAREST" =? Enum
+                "LINEAR" =? Enum
+                "NEAREST_MIPMAP_NEAREST" =? Enum
+                "LINEAR_MIPMAP_NEAREST" =? Enum
+                "NEAREST_MIPMAP_LINEAR" =? Enum
+                "LINEAR_MIPMAP_LINEAR" =? Enum
+                "TEXTURE_MAG_FILTER" =? Enum
+                "TEXTURE_MIN_FILTER" =? Enum
+                "TEXTURE_WRAP_S" =? Enum
+                "TEXTURE_WRAP_T" =? Enum
+                "TEXTURE_2D" =? Enum
+                "TEXTURE" =? Enum
+                "TEXTURE_CUBE_MAP" =? Enum
+                "TEXTURE_BINDING_CUBE_MAP" =? Enum
+                "TEXTURE_CUBE_MAP_POSITIVE_X" =? Enum
+                "TEXTURE_CUBE_MAP_NEGATIVE_X" =? Enum
+                "TEXTURE_CUBE_MAP_POSITIVE_Y" =? Enum
+                "TEXTURE_CUBE_MAP_NEGATIVE_Y" =? Enum
+                "TEXTURE_CUBE_MAP_POSITIVE_Z" =? Enum
+                "TEXTURE_CUBE_MAP_NEGATIVE_Z" =? Enum
+                "MAX_CUBE_MAP_TEXTURE_SIZE" =? Enum
+                "TEXTURE0" =? Enum
+                "TEXTURE1" =? Enum
+                "TEXTURE2" =? Enum
+                "TEXTURE3" =? Enum
+                "TEXTURE4" =? Enum
+                "TEXTURE5" =? Enum
+                "TEXTURE6" =? Enum
+                "TEXTURE7" =? Enum
+                "TEXTURE8" =? Enum
+                "TEXTURE9" =? Enum
+                "TEXTURE10" =? Enum
+                "TEXTURE11" =? Enum
+                "TEXTURE12" =? Enum
+                "TEXTURE13" =? Enum
+                "TEXTURE14" =? Enum
+                "TEXTURE15" =? Enum
+                "TEXTURE16" =? Enum
+                "TEXTURE17" =? Enum
+                "TEXTURE18" =? Enum
+                "TEXTURE19" =? Enum
+                "TEXTURE20" =? Enum
+                "TEXTURE21" =? Enum
+                "TEXTURE22" =? Enum
+                "TEXTURE23" =? Enum
+                "TEXTURE24" =? Enum
+                "TEXTURE25" =? Enum
+                "TEXTURE26" =? Enum
+                "TEXTURE27" =? Enum
+                "TEXTURE28" =? Enum
+                "TEXTURE29" =? Enum
+                "TEXTURE30" =? Enum
+                "TEXTURE31" =? Enum
+                "ACTIVE_TEXTURE" =? Enum
+                "REPEAT" =? Enum
+                "CLAMP_TO_EDGE" =? Enum
+                "MIRRORED_REPEAT" =? Enum
+                "FLOAT_VEC2" =? Enum
+                "FLOAT_VEC3" =? Enum
+                "FLOAT_VEC4" =? Enum
+                "INT_VEC2" =? Enum
+                "INT_VEC3" =? Enum
+                "INT_VEC4" =? Enum
+                "BOOL" =? Enum
+                "BOOL_VEC2" =? Enum
+                "BOOL_VEC3" =? Enum
+                "BOOL_VEC4" =? Enum
+                "FLOAT_MAT2" =? Enum
+                "FLOAT_MAT3" =? Enum
+                "FLOAT_MAT4" =? Enum
+                "SAMPLER_2D" =? Enum
+                "SAMPLER_CUBE" =? Enum
+                "VERTEX_ATTRIB_ARRAY_ENABLED" =? Enum
+                "VERTEX_ATTRIB_ARRAY_SIZE" =? Enum
+                "VERTEX_ATTRIB_ARRAY_STRIDE" =? Enum
+                "VERTEX_ATTRIB_ARRAY_TYPE" =? Enum
+                "VERTEX_ATTRIB_ARRAY_NORMALIZED" =? Enum
+                "VERTEX_ATTRIB_ARRAY_POINTER" =? Enum
+                "VERTEX_ATTRIB_ARRAY_BUFFER_BINDING" =? Enum
+                "COMPILE_STATUS" =? Enum
+                "LOW_FLOAT" =? Enum
+                "MEDIUM_FLOAT" =? Enum
+                "HIGH_FLOAT" =? Enum
+                "LOW_INT" =? Enum
+                "MEDIUM_INT" =? Enum
+                "HIGH_INT" =? Enum
+                "FRAMEBUFFER" =? Enum
+                "RENDERBUFFER" =? Enum
+                "RGBA4" =? Enum
+                "RGB5_A1" =? Enum
+                "RGB565" =? Enum
+                "DEPTH_COMPONENT16" =? Enum
+                "STENCIL_INDEX" =? Enum
+                "STENCIL_INDEX8" =? Enum
+                "DEPTH_STENCIL" =? Enum
+                "RENDERBUFFER_WIDTH" =? Enum
+                "RENDERBUFFER_HEIGHT" =? Enum
+                "RENDERBUFFER_INTERNAL_FORMAT" =? Enum
+                "RENDERBUFFER_RED_SIZE" =? Enum
+                "RENDERBUFFER_GREEN_SIZE" =? Enum
+                "RENDERBUFFER_BLUE_SIZE" =? Enum
+                "RENDERBUFFER_ALPHA_SIZE" =? Enum
+                "RENDERBUFFER_DEPTH_SIZE" =? Enum
+                "RENDERBUFFER_STENCIL_SIZE" =? Enum
+                "FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE" =? Enum
+                "FRAMEBUFFER_ATTACHMENT_OBJECT_NAME" =? Enum
+                "FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL" =? Enum
+                "FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE" =? Enum
+                "COLOR_ATTACHMENT0" =? Enum
+                "DEPTH_ATTACHMENT" =? Enum
+                "STENCIL_ATTACHMENT" =? Enum
+                "DEPTH_STENCIL_ATTACHMENT" =? Enum
+                "NONE" =? Enum
+                "FRAMEBUFFER_COMPLETE" =? Enum
+                "FRAMEBUFFER_INCOMPLETE_ATTACHMENT" =? Enum
+                "FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT" =? Enum
+                "FRAMEBUFFER_INCOMPLETE_DIMENSIONS" =? Enum
+                "FRAMEBUFFER_UNSUPPORTED" =? Enum
+                "FRAMEBUFFER_BINDING" =? Enum
+                "RENDERBUFFER_BINDING" =? Enum
+                "MAX_RENDERBUFFER_SIZE" =? Enum
+                "INVALID_FRAMEBUFFER_OPERATION" =? Enum
+
+                // WebGL-specific GLEnums
+                "UNPACK_FLIP_Y_WEBGL" =? Enum
+                "UNPACK_PREMATURELY_ALPHA_WEBGL" =? Enum
+                "CONTEXT_LOST_WEBGL" =? Enum
+                "UNPACK_COLORSPACE_CONVERSION_WEBGL" =? Enum
+                "BROWSER_DEFAULT_WEBGL" =? Enum
+
+                "canvas" =? T<Element>
+                "drawingBufferWidth" =? T<int>
+                "drawingBufferHeight" =? T<int>
+
+                "getContextAttributes" => T<unit> ^-> ContextAttributes
+                "isContextLost" => T<unit> ^-> T<bool>
+                "getSupportedExtensions" => T<unit> ^-> (Type.ArrayOf T<string>)
+                "getExtension" => T<string>?name ^-> T<obj>
+                "activeTexture" => Enum?texture ^-> T<unit>
+                "attachShader" => Program?program * Shader?shader ^-> T<unit>
+                "bindAttribLocation" => Program?program * T<int>?index * T<string>?name ^-> T<unit>
+                "bindBuffer" => Enum?target * Buffer?buffer ^-> T<unit>
+                "bindFramebuffer" => Enum?target * Framebuffer?framebuffer ^-> T<unit>
+                "bindRenderbuffer" => Enum?target * Renderbuffer?renderbuffer ^-> T<unit>
+                "bindTexture" => Enum?target * Texture?texture ^-> T<unit>
+                "blendColor" => T<float>?red * T<float>?green * T<float>?blue * T<float>?alpha ^-> T<unit>
+                "blendEquation" => Enum?mode ^-> T<unit>
+                "blendEquationSeparate" => Enum?modeRGB * Enum?modeAlpha ^-> T<unit>
+                "blendFunc" => Enum?sfactor * Enum?dfactor ^-> T<unit>
+                "blendFuncSeparate" => Enum?srcRGB * Enum?dstRGB * Enum?srcAlpha * Enum?dstAlpha ^-> T<unit>
+                "bufferData" => Enum?target * T<int>?size * Enum?usage ^-> T<unit>
+                "bufferData" => Enum?target * TypedArrays.ArrayBufferView?data * Enum?usage ^-> T<unit>
+                "bufferData" => Enum?target * TypedArrays.ArrayBuffer?data * Enum?usage ^-> T<unit>
+                "bufferSubData" => Enum?target * T<int>?offset * TypedArrays.ArrayBufferView?data ^-> T<unit>
+                "bufferSubData" => Enum?target * T<int>?offset * TypedArrays.ArrayBuffer?data ^-> T<unit>
+                "checkFramebufferStatus" => Enum?target ^-> Enum
+                "clear" => T<int>?mask ^-> T<unit>
+                "clearColor" => T<float>?red * T<float>?green * T<float>?blue * T<float>?alpha ^-> T<unit>
+                "clearDepth" => T<float>?depth ^-> T<unit>
+                "clearStencil" => T<int>?s ^-> T<unit>
+                "colorMask" => T<bool>?red * T<bool>?green * T<bool>?blue * T<bool>?alpha ^-> T<unit>
+                "compileShader" => Shader?shader ^-> T<unit>
+                "copyTexImage2D" => Enum?target * T<int>?level * Enum?internalformat * T<int>?x * T<int>?y * T<int>?width * T<int>?height * T<int>?border ^-> T<unit>
+                "copyTexSubImage2D" => Enum?target * T<int>?level * T<int>?xoffset * T<int>?yoffset * T<int>?x * T<int>?y * T<int>?width * T<int>?height ^-> T<unit>
+                "createBuffer" => T<unit> ^-> Buffer
+                "createFramebuffer" => T<unit> ^-> Framebuffer
+                "createProgram" => T<unit> ^-> Program
+                "createRenderbuffer" => T<unit> ^-> Renderbuffer
+                "createShader" => Enum?typ ^-> Shader
+                "createTexture" => T<unit> ^-> Texture
+                "cullFace" => Enum?mode ^-> T<unit>
+                "deleteBuffer" => Buffer?buffer ^-> T<unit>
+                "deleteFramebuffer" => Framebuffer?framebuffer ^-> T<unit>
+                "deleteProgram" => Program?program ^-> T<unit>
+                "deleteRenderbuffer" => Renderbuffer?renderbuffer ^-> T<unit>
+                "deleteShader" => Shader?shader ^-> T<unit>
+                "deleteTexture" => Texture?texture ^-> T<unit>
+                "depthFunc" => Enum?func ^-> T<unit>
+                "depthMask" => T<bool>?flag ^-> T<unit>
+                "depthRange" => T<float>?zNear * T<float>?zFar ^-> T<unit>
+                "detachShader" => Program?program * Shader?shader ^-> T<unit>
+                "disable" => Enum?cap ^-> T<unit>
+                "disableVertexAttribArray" => T<int>?index ^-> T<unit>
+                "drawArrays" => Enum?mode * T<int>?first * T<int>?count ^-> T<unit>
+                "drawElements" => Enum?mode * T<int>?count * Enum?typ * T<int>?offset ^-> T<unit>
+                "enable" => Enum?cap ^-> T<unit>
+                "enableVertexAttribArray" => T<int>?index ^-> T<unit>
+                "finish" => T<unit> ^-> T<unit>
+                "flush" => T<unit> ^-> T<unit>
+                "framebufferRenderbuffer" => Enum?target * Enum?attachment * Enum?renderbuffertarget * Renderbuffer?renderbuffer ^-> T<unit>
+                "framebufferTexture2D" => Enum?target * Enum?attachment * Enum?textarget * Texture?texture * T<int>?level ^-> T<unit>
+                "frontFace" => Enum?mode ^-> T<unit>
+                "generateMipmap" => Enum?target ^-> T<unit>
+                "getActiveAttrib" => Program?program * T<int>?index ^-> ActiveInfo
+                "getActiveUniform" => Program?program * T<int>?index ^-> ActiveInfo
+                "getAttachedShaders" => Program?program ^-> (Type.ArrayOf Shader)
+                "getAttribLocation" => Program?program * T<string>?name ^-> T<int>
+                "getParameter" => Enum?pname ^-> T<obj>
+                "getBufferParameter" => Enum?target * Enum?pname ^-> T<obj>
+                "getError" => T<unit> ^-> Enum
+                "getFramebufferAttachmentParameter" => Enum?target * Enum?attachment * Enum?pname ^-> T<obj>
+                "getProgramParameter" => Program?program * Enum?pname ^-> T<obj>
+                "getProgramInfoLog" => Program?program ^-> T<string>
+                "getRenderbufferParameter" => Enum?target * Enum?pname ^-> T<obj>
+                "getShaderParameter" => Shader?shader * Enum?pname ^-> T<obj>
+                "getShaderInfoLog" => Shader?shader ^-> T<string>
+                "getShaderSource" => Shader?shader ^-> T<string>
+                "getTexParameter" => Enum?target * Enum?pname ^-> T<obj>
+                "getUniform" => Program?program * UniformLocation?location ^-> T<obj>
+                "getUniformLocation" => Program?program * T<string>?name ^-> UniformLocation
+                "getVertexAttrib" => T<int>?index * Enum?pname ^-> T<obj>
+                "getVertexAttribOffset" => T<int>?index * Enum?pname ^-> T<int>
+                "hint" => Enum?target * Enum?mode ^-> T<unit>
+                "isBuffer" => Buffer?buffer ^-> T<bool>
+                "isEnabled" => Enum?cap ^-> T<bool>
+                "isFramebuffer" => Framebuffer?framebuffer ^-> T<bool>
+                "isProgram" => Program?program ^-> T<bool>
+                "isRenderbuffer" => Renderbuffer?renderbuffer ^-> T<bool>
+                "isShader" => Shader?shader ^-> T<bool>
+                "isTexture" => Texture?texture ^-> T<bool>
+                "lineWidth" => T<float>?width ^-> T<unit>
+                "linkProgram" => Program?program ^-> T<unit>
+                "pixelStorei" => Enum?pname * T<int>?param ^-> T<unit>
+                "polygonOffset" => T<float>?factor * T<float>?units ^-> T<unit>
+                "readPixels" => T<int>?x * T<int>?y * T<int>?width * T<int>?height * Enum?format * Enum?typ * TypedArrays.ArrayBufferView?pixels ^-> T<unit>
+                "renderbufferStorage" => Enum?target * Enum?internalformat * T<int>?width * T<int>?height ^-> T<unit>
+                "sampleCoverage" => T<float>?value * T<bool>?invert ^-> T<unit>
+                "scissor" => T<int>?x * T<int>?y * T<int>?width * T<int>?height ^-> T<unit>
+                "shaderSource" => Shader?shader * T<string>?source ^-> T<unit>
+                "stencilFunc" => Enum?func * T<int>?ref * T<int>?mask ^-> T<unit>
+                "stencilFuncSeparate" => Enum?face * Enum?func * T<int>?ref * T<int>?mask ^-> T<unit>
+                "stencilMask" => T<int>?mask ^-> T<unit>
+                "stencilMaskSeparate" => Enum?face * T<int>?mask ^-> T<unit>
+                "stencilOp" => Enum?fail * Enum?zfail * Enum?zpass ^-> T<unit>
+                "stencilOpSeparate" => Enum?face * Enum?fail * Enum?zfail * Enum?zpass ^-> T<unit>
+                "texImage2D" => Enum?target * T<int>?level * Enum?internalformat * T<int>?width * T<int>?height * T<int>?border * Enum?format * Enum?typ * TypedArrays.ArrayBufferView?pixels ^-> T<unit>
+                "texImage2D" => Enum?target * T<int>?level * Enum?internalformat * Enum?format * Enum?typ * Canvas.ImageData?pixels ^-> T<unit>
+                "texImage2D" => Enum?target * T<int>?level * Enum?internalformat * Enum?format * Enum?typ * T<Element>?image ^-> T<unit>
+                "texParameterf" => Enum?target * Enum?pname * T<float>?param ^-> T<unit>
+                "texParameteri" => Enum?target * Enum?pname * T<int>?param ^-> T<unit>
+                "texParameteri" => Enum?target * Enum?pname * Enum?param ^-> T<unit>
+                "texSubImage2D" => Enum?target * T<int>?level * T<int>?xoffset * T<int>?yoffset * T<int>?width * T<int>?height * Enum?format * Enum?typ * TypedArrays.ArrayBufferView?pixels ^-> T<unit>
+                "texSubImage2D" => Enum?target * T<int>?level * T<int>?xoffset * T<int>?yoffset * Enum?format * Enum?typ * Canvas.ImageData?pixels ^-> T<unit>
+                "texSubImage2D" => Enum?target * T<int>?level * T<int>?xoffset * T<int>?yoffset * Enum?format * Enum?typ * T<Element>?image ^-> T<unit>
+                "uniform1f" => UniformLocation?location * T<float>?x ^-> T<unit>
+                "uniform1fv" => UniformLocation?location * TypedArrays.Float32Array?v ^-> T<unit>
+                "uniform1fv" => UniformLocation?location * (Type.ArrayOf T<float>)?v ^-> T<unit>
+                "uniform1i" => UniformLocation?location * T<int>?x ^-> T<unit>
+                "uniform1iv" => UniformLocation?location * TypedArrays.Int32Array?v ^-> T<unit>
+                "uniform1iv" => UniformLocation?location * (Type.ArrayOf T<int>)?v ^-> T<unit>
+                "uniform2f" => UniformLocation?location * T<float>?x * T<float>?y ^-> T<unit>
+                "uniform2fv" => UniformLocation?location * TypedArrays.Float32Array?v ^-> T<unit>
+                "uniform2fv" => UniformLocation?location * (Type.ArrayOf T<float>)?v ^-> T<unit>
+                "uniform2i" => UniformLocation?location * T<int>?x * T<int>?y ^-> T<unit>
+                "uniform2iv" => UniformLocation?location * TypedArrays.Int32Array?v ^-> T<unit>
+                "uniform2iv" => UniformLocation?location * (Type.ArrayOf T<int>)?v ^-> T<unit>
+                "uniform3f" => UniformLocation?location * T<float>?x * T<float>?y * T<float>?z ^-> T<unit>
+                "uniform3fv" => UniformLocation?location * TypedArrays.Float32Array?v ^-> T<unit>
+                "uniform3fv" => UniformLocation?location * (Type.ArrayOf T<float>)?v ^-> T<unit>
+                "uniform3i" => UniformLocation?location * T<int>?x * T<int>?y * T<int>?z ^-> T<unit>
+                "uniform3iv" => UniformLocation?location * TypedArrays.Int32Array?v ^-> T<unit>
+                "uniform3iv" => UniformLocation?location * (Type.ArrayOf T<int>)?v ^-> T<unit>
+                "uniform4f" => UniformLocation?location * T<float>?x * T<float>?y * T<float>?z * T<float>?w ^-> T<unit>
+                "uniform4fv" => UniformLocation?location * TypedArrays.Float32Array?v ^-> T<unit>
+                "uniform4fv" => UniformLocation?location * (Type.ArrayOf T<float>)?v ^-> T<unit>
+                "uniform4i" => UniformLocation?location * T<int>?x * T<int>?y * T<int>?z * T<int>?w ^-> T<unit>
+                "uniform4iv" => UniformLocation?location * TypedArrays.Int32Array?v ^-> T<unit>
+                "uniform4iv" => UniformLocation?location * (Type.ArrayOf T<int>)?v ^-> T<unit>
+                "uniformMatrix2fv" => UniformLocation?location * T<bool>?transpose * TypedArrays.Float32Array?value ^-> T<unit>
+                "uniformMatrix2fv" => UniformLocation?location * T<bool>?transpose * (Type.ArrayOf T<float>)?value ^-> T<unit>
+                "uniformMatrix3fv" => UniformLocation?location * T<bool>?transpose * TypedArrays.Float32Array?value ^-> T<unit>
+                "uniformMatrix3fv" => UniformLocation?location * T<bool>?transpose * (Type.ArrayOf T<float>)?value ^-> T<unit>
+                "uniformMatrix4fv" => UniformLocation?location * T<bool>?transpose * TypedArrays.Float32Array?value ^-> T<unit>
+                "uniformMatrix4fv" => UniformLocation?location * T<bool>?transpose * (Type.ArrayOf T<float>)?value ^-> T<unit>
+                "useProgram" => Program?program ^-> T<unit>
+                "validateProgram" => Program?program ^-> T<unit>
+                "vertexAttrib1f" => T<int>?indx * T<float>?x ^-> T<unit>
+                "vertexAttrib1fv" => T<int>?indx * TypedArrays.Float32Array?values ^-> T<unit>
+                "vertexAttrib1fv" => T<int>?indx * (Type.ArrayOf T<float>)?values ^-> T<unit>
+                "vertexAttrib2f" => T<int>?indx * T<float>?x * T<float>?y ^-> T<unit>
+                "vertexAttrib2fv" => T<int>?indx * TypedArrays.Float32Array?values ^-> T<unit>
+                "vertexAttrib2fv" => T<int>?indx * (Type.ArrayOf T<float>)?values ^-> T<unit>
+                "vertexAttrib3f" => T<int>?indx * T<float>?x * T<float>?y * T<float>?z ^-> T<unit>
+                "vertexAttrib3fv" => T<int>?indx * TypedArrays.Float32Array?values ^-> T<unit>
+                "vertexAttrib3fv" => T<int>?indx * (Type.ArrayOf T<float>)?values ^-> T<unit>
+                "vertexAttrib4f" => T<int>?indx * T<float>?x * T<float>?y * T<float>?z * T<float>?w ^-> T<unit>
+                "vertexAttrib4fv" => T<int>?indx * TypedArrays.Float32Array?values ^-> T<unit>
+                "vertexAttrib4fv" => T<int>?indx * (Type.ArrayOf T<float>)?values ^-> T<unit>
+                "vertexAttribPointer" => T<int>?indx * T<int>?size * Enum?typ * T<bool>?normalized * T<int>?stride * T<int>?offset ^-> T<unit>
+                "viewport" => T<int>?x * T<int>?y * T<int>?width * T<int>?height ^-> T<unit>
+            ]
+
+    let ContextAttributesClass =
+        Pattern.Config "WebGLContextAttributes" {
+            Required = []
+            Optional =
+                [
+                    "alpha", T<bool>
+                    "depth", T<bool>
+                    "stencil", T<bool>
+                    "antialias", T<bool>
+                    "premultipliedAlpha", T<bool>
+                    "preserveDrawingBuffer", T<bool>
+                ]
+        }
+        |=> ContextAttributes
+
+    let ObjectClass =
+        Interface "WebGLObject"
+        |=> Object
+
+    let BufferClass =
+        Interface "WebGLBuffer"
+        |=> Buffer
+
+    let FramebufferClass =
+        Interface "WebGLFramebuffer"
+        |=> Framebuffer
+
+    let ProgramClass =
+        Interface "WebGLProgram"
+        |=> Program
+
+    let RenderbufferClass =
+        Interface "WebGLRenderbuffer"
+        |=> Renderbuffer
+
+    let ShaderClass =
+        Interface "WebGLShader"
+        |=> Shader
+
+    let TextureClass =
+        Interface "WebGLTexture"
+        |=> Texture
+
+    let UniformLocationClass =
+        Interface "WebGLUniformLocation"
+        |=> UniformLocation
+
+    let ActiveInfoClass =
+        Class "WebGLActiveInfo"
+        |=> ActiveInfo
+        |+> Protocol
+            [
+                "size" =? T<int>
+                "type" =? Enum
+                "name" =? T<string>
+            ]
+
 module WebSockets =
 
     let WebSocketReadyState =
@@ -1040,7 +1628,7 @@ module WebSockets =
                 Constructor (T<string> * T<string[]>)
             ]
 
-module Extension =
+module Definition =
 
     let Assembly =
         Assembly [
@@ -1108,4 +1696,27 @@ module Extension =
                 WebStorage.Storage
                 WebStorage.StorageEvent
             ]
+            Namespace "IntelliFactory.WebSharper.Html5.WebGL" [
+                WebGL.RenderingContextClass
+                WebGL.ContextAttributesClass
+                WebGL.ObjectClass
+                WebGL.BufferClass
+                WebGL.FramebufferClass
+                WebGL.ProgramClass
+                WebGL.RenderbufferClass
+                WebGL.ShaderClass
+                WebGL.TextureClass
+                WebGL.UniformLocationClass
+                WebGL.ActiveInfoClass
+                WebGL.EnumClass
+                WebGL.DataViewClass
+            ]
         ]
+
+[<Sealed>]
+type Html5Extension() =
+    interface IExtension with
+        member x.Assembly = Definition.Assembly
+
+[<assembly: Extension(typeof<Html5Extension>)>]
+do ()

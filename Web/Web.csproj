@@ -9,21 +9,18 @@
     <ProjectTypeGuids>{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}</ProjectTypeGuids>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
+    <Name>Web</Name>
     <RootNamespace>Web</RootNamespace>
     <AssemblyName>Web</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-    <WebSharperProject>Site</WebSharperProject>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <UseIISExpress>true</UseIISExpress>
     <IISExpressSSLPort />
     <IISExpressAnonymousAuthentication />
     <IISExpressWindowsAuthentication />
     <IISExpressUseClassicPipelineMode />
     <OutputPath>bin\</OutputPath>
-    <Stage>site</Stage>
-    <Name>Web</Name>
-    <PrivateRefs>False</PrivateRefs>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release-v4.0|AnyCPU' ">
+  <PropertyGroup>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <DefineConstants>TRACE</DefineConstants>
@@ -31,32 +28,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Web.DynamicData" />
-    <Reference Include="System.Web.Entity" />
-    <Reference Include="System.Web.ApplicationServices" />
-    <Reference Include="System.ComponentModel.DataAnnotations" />
-    <Reference Include="System" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="System.Web.Extensions" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Web" />
-    <Reference Include="System.Xml" />
-    <Reference Include="System.Configuration" />
-    <Reference Include="System.Web.Services" />
-    <Reference Include="System.EnterpriseServices" />
-    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>true</Private>
-      <HintPath>$(MSBuildThisFileDirectory)/../packages/FSharp.Core.3.0.0.2/lib/net40/FSharp.Core.dll</HintPath>
-      <SpecificVersion>true</SpecificVersion>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
     <Content Include="content\*.*" />
     <Content Include="downloads\*.*" />
+    <Content Include="Front.html" />
     <Content Include="Scripts\*.*" />
     <Content Include="Main.html" />
     <Content Include="Web.config" />
@@ -71,97 +45,6 @@
     <None Include="Web.Release.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\IntelliFactory.Formlet\IntelliFactory.Formlet.fsproj">
-      <Project>{7e70b9e1-7e68-4df9-a3b8-74378e31be08}</Project>
-      <Name>IntelliFactory.Formlet</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.Html\IntelliFactory.Html.fsproj">
-      <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
-      <Name>IntelliFactory.Html</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
-      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
-      <Name>IntelliFactory.JavaScript</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.Reactive\IntelliFactory.Reactive.fsproj">
-      <Project>{2d30fa07-e6be-45ac-90da-c2ca8309e137}</Project>
-      <Name>IntelliFactory.Reactive</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Collections\IntelliFactory.WebSharper.Collections.fsproj">
-      <Project>{4ef94364-b50f-4906-ab91-77bca8413d60}</Project>
-      <Name>IntelliFactory.WebSharper.Collections</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Control\IntelliFactory.WebSharper.Control.fsproj">
-      <Project>{666977bf-e022-4c8f-b53d-5d294d41010f}</Project>
-      <Name>IntelliFactory.WebSharper.Control</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
-      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-      <Name>IntelliFactory.WebSharper.Core</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Dom\IntelliFactory.WebSharper.Dom.fsproj">
-      <Project>{4382f3a7-126b-4bc6-988b-caa8c8a9b62f}</Project>
-      <Name>IntelliFactory.WebSharper.Dom</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Ecma\IntelliFactory.WebSharper.Ecma.fsproj">
-      <Project>{3bee2a9e-c5c9-4bd5-847d-f0f88f02a438}</Project>
-      <Name>IntelliFactory.WebSharper.Ecma</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Formlet\IntelliFactory.WebSharper.Formlet.fsproj">
-      <Project>{9a0df78f-a51e-4056-b180-4a77afb82897}</Project>
-      <Name>IntelliFactory.WebSharper.Formlet</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Html5\IntelliFactory.WebSharper.Html5.fsproj">
-      <Project>{f2c14b18-8bdb-4449-b816-366ea900e75a}</Project>
-      <Name>IntelliFactory.WebSharper.Html5</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Html\IntelliFactory.WebSharper.Html.fsproj">
-      <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
-      <Name>IntelliFactory.WebSharper.Html</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.JQuery\IntelliFactory.WebSharper.JQuery.fsproj">
-      <Project>{730ae40a-001c-4137-972d-898dc7c2bf0a}</Project>
-      <Name>IntelliFactory.WebSharper.JQuery</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Sitelets\IntelliFactory.WebSharper.Sitelets.fsproj">
-      <Project>{d991329a-3aa3-4269-83ad-3597864855a0}</Project>
-      <Name>IntelliFactory.WebSharper.Sitelets</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Testing\IntelliFactory.WebSharper.Testing.fsproj">
-      <Project>{a7f7a74b-d0ee-4918-8a54-280fc7d2a30c}</Project>
-      <Name>IntelliFactory.WebSharper.Testing</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Web\IntelliFactory.WebSharper.Web.fsproj">
-      <Project>{fe6ba781-fdc9-4bb5-b38a-3bb9841ea836}</Project>
-      <Name>IntelliFactory.WebSharper.Web</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
-      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
-      <Name>IntelliFactory.WebSharper</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\Website\Website.fsproj">
-      <Project>{8be86673-a0c0-4285-88ba-913b4feda447}</Project>
-      <Name>Website</Name>
-      <Private>True</Private>
-    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
@@ -188,5 +71,4 @@
       </FlavorProperties>
     </VisualStudio>
   </ProjectExtensions>
-  <Import Project="..\build\WebSharper.targets" />
 </Project>

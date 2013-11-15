@@ -26,6 +26,7 @@ namespace IntelliFactory.WebSharper.InterfaceGenerator
 /// The meta-objects are defined with overloaded operators and
 /// helper types to support an F#-embedded DSL.
 module Type =
+    open System
     module R = IntelliFactory.WebSharper.Core.Reflection
 
     /// Represents type identifiers that are used to match types to classes.
@@ -44,8 +45,8 @@ module Type =
         | TupleType of list<Type>
         | UnionType of Type * Type
 
-        member this.Item 
-            with get ([<System.ParamArray>] x : IType []) =
+        member this.Item
+            with get ([<ParamArray>] x : IType []) =
                 SpecializedType (this, [for t in x -> t.Type])
 
         /// `T?x` constructs a `Parameter` named "x" of type `T`.
@@ -290,8 +291,8 @@ module Type =
                 SystemType t
         let normArgs args =
             match args with
-            | [(_, Unit)]  -> []
-            | _            -> args
+            | [(_, Unit)] -> []
+            | _ -> args
         let rec norm = function
             | ArrayType (rank, t) ->
                 List.map (fun x -> ArrayType (rank, x)) (norm t)

@@ -6,6 +6,7 @@
     <ProjectGuid>{2605322f-851c-4c6a-a204-f4eee9e21252}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.Web.Tests</Name>
+    <OutputPath>bin</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

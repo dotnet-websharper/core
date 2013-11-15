@@ -42,30 +42,24 @@ let private schedule (ms: Milliseconds) (action: unit -> unit) =
 [<Inline "setTimeout($action, 0)">]
 let private spark (action: unit -> unit) = JavaScript.ClientSide<unit>
 
-[<Inline "new Date().getTime()">]
-let private getTime() = JavaScript.ClientSide<int>
-
 type private Scheduler [<JavaScript>]() =
-    let MAX_TIME        = 40
     let mutable idle    = true
     let robin           = Queue<unit->unit>()
 
     [<JavaScript>]
     let rec tick () =
-        let t = getTime()
+        let t = System.DateTime.Now
         let mutable loop = true
         while loop do
-            let tm = getTime() - t
-            if tm > MAX_TIME then
-                spark tick
+            match robin.Count with
+            | 0 ->
+                idle <- true
                 loop <- false
-            else
-                match robin.Count with
-                | 0 ->
-                    idle <- true
+            | _ ->
+                robin.Dequeue()()
+                if System.DateTime.Now - t > System.TimeSpan.FromMilliseconds 40. then
+                    spark tick
                     loop <- false
-                | _ ->
-                    robin.Dequeue()()
 
     [<JavaScript>]
     member this.Fork(action: unit -> unit) =
@@ -123,7 +117,9 @@ let StartWithContinuations (c: C<'T>) (s: 'T -> unit) (f: exn -> unit) =
                                   | No exn -> f exn))
 
 [<JavaScript>]
-let Start (c: C<unit>) = StartWithContinuations c ignore raise
+let Start (c: C<unit>) =
+    StartWithContinuations c ignore (fun exn ->
+        JavaScript.Log ("WebSharper: Uncaught asynchronous exception", exn))
 
 [<JavaScript>]
 let AwaitEvent (e: IEvent<'T>) =
@@ -167,3 +163,23 @@ let StartChild (C r : Concurrent<'T>) =
             | None      -> queue.Enqueue k
         k (Ok (C r2)))
 
+[<JavaScript>]
+let Using (x: 'T) f =
+    TryFinally (f x) (fun () -> (x :> System.IDisposable).Dispose())
+
+[<JavaScript>]
+let rec While g c = 
+    if g() then 
+        Bind c (fun () -> While g c) 
+    else
+        Return ()
+
+[<JavaScript>]
+let rec For (s: seq<'T>) b =
+    let ie = s.GetEnumerator()
+    While (fun () -> ie.MoveNext())
+        (Delay (fun () -> b ie.Current))
+//    // if IEnumerable would always have IDisposable
+//    Using (s.GetEnumerator()) (fun ie ->
+//        While (fun () -> ie.MoveNext())
+//            (Delay (fun () -> b ie.Current)))

@@ -24,8 +24,8 @@ namespace IntelliFactory.WebSharper
 [<Proxy(typeof<System.TimeSpan>)>]
 type private TimeSpanProxy =
 
-    [<Inline "$ticks / 10000">]
-    new (ticks: int64) = {}
+    [<Inline "0">]
+    new () = {}
 
     [<Inline "(($h * 60 + $m) * 60 + $s) * 1E3">]
     new (h: int, m: int, s: int) = {}
@@ -77,11 +77,11 @@ type private TimeSpanProxy =
     member this.TotalMilliseconds
         with [<Inline "$this">] get () = X<float>
 
+    member this.Ticks
+        with [<Inline "$this * 1E4">] get() = X<int64>
+
     [<Inline "-$this">]
     member this.Negate() = X<System.TimeSpan>
-
-    member this.Ticks
-        with [<Inline "10000 * $this">] get () = X<int64>
 
     [<Inline "Math.abs($this)">]
     member this.Duration() = X<System.TimeSpan>
@@ -94,23 +94,23 @@ type private TimeSpanProxy =
     [<Inline "$t1 == $t2">]
     static member Equals(t1: System.TimeSpan, t2: System.TimeSpan) = X<bool>
 
-    [<Inline "$ticks / 10000">]
-    static member FromTicks(ticks: int64) = X<System.TimeSpan>
-
-    [<Inline "$days * 24 * 60 * 60 * 1000">]
+    [<Inline "$days * 864E5">]
     static member FromDays(days: float) = X<System.TimeSpan>
 
-    [<Inline "$hours * 60 * 60 * 1000">]
+    [<Inline "$hours * 36E5">]
     static member FromHours(hours: float) = X<System.TimeSpan>
 
-    [<Inline "$min * 60 * 1000">]
+    [<Inline "$min * 6E4">]
     static member FromMinutes(min: float) = X<System.TimeSpan>
 
-    [<Inline "$sec * 1000">]
+    [<Inline "$sec * 1E3">]
     static member FromSeconds(sec: float) = X<System.TimeSpan>
 
     [<Inline "$msec">]
     static member FromMilliseconds(msec: float) = X<System.TimeSpan>
+
+    [<Inline "$ticks / 1E4">]
+    static member FromTicks(ticks: int64) = X<System.TimeSpan>
 
     static member Zero
         with [<Inline "0">] get () = X<System.TimeSpan>

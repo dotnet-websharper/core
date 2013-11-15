@@ -22,20 +22,25 @@
 /// Provides command-line option parsing for WebSharper.
 module internal IntelliFactory.WebSharper.Options
 
-module A = Arguments
-type private Path = string
+open System
+open System.Diagnostics
+open System.IO
+open System.Security
+module A = IntelliFactory.WebSharper.Arguments
+type Path = string
 
 type CompilationOptions =
     {
-        ErrorLimit          : int
-        Extraction          : list<Path * string * Path>
-        Input               : Path
-        KeyPair             : option<Path>
-        References          : list<Path>
-        Output              : Path
-        OutputJavaScript    : option<Path>
-        OutputMinified      : option<Path>
-        TailCalls           : bool
+        ErrorLimit : int
+        Extraction : list<Path * string * Path>
+        Input : Path
+        KeyPair : option<Path>
+        References : list<Path>
+        Output : Path
+        OutputJavaScript : option<Path>
+        OutputMinified : option<Path>
+        OutputTypeScript : option<Path>
+        TailCalls : bool
     }
 
 type T =
@@ -43,28 +48,40 @@ type T =
     | Dependencies of Path
     | Unpack of Path * list<Path>
 
-let private version =
-    typeof<T>.Assembly.Location
-    |> System.Diagnostics.FileVersionInfo.GetVersionInfo
+let version =
+    try
+        let vn =
+            typeof<T>.Assembly.Location
+            |> FileVersionInfo.GetVersionInfo
+        Version vn.FileVersion
+    with _ ->
+        Version "2.5.0.0"
 
-let private usage =
-    System.String.Format("\
+let usage =
+    String.Format("\
 Usage: WebSharper.exe [options] input.dll output.dll
 
 WebSharper (TM) Compiler V{0}
 Copyright (c) IntelliFactory, 2004-2013.
 
 Compiles F#-produced assemblies to JavaScript, adding the resulting
-code as an embedded resource to the assembly.", version.FileVersion)
+code as an embedded resource to the assembly.", version)
 
-let private file =
+let file =
     let ok x =
-        if not (System.IO.File.Exists x)
-        then Some ("File does not exist: " + x)
-        else None
+        let info =
+            try Choice1Of2 (FileInfo x)
+            with :? ArgumentException as e -> Choice2Of2 (string e)
+        match info with
+        | Choice1Of2 info ->
+            if not info.Exists
+            then Some (String.Format("File does not exist: [{0}]", x))
+            else None
+        | Choice2Of2 _ ->
+            Some (String.Format("File does not exist: [{0}]", x))
     A.Filter ok A.String
 
-let private spec =
+let spec =
     A.Do {
         let! refs =
             A.Keyword "-r"
@@ -96,6 +113,11 @@ let private spec =
                 "The path for the generated minified JavaScript."
                 A.String
             |> A.Optional
+        let! dts =
+            A.Keyword "-dts"
+                "The path for the generated TypeScript declarations."
+                A.String
+            |> A.Optional
         let! extract =
             A.Keyword "-extract"
                 "Extracts a DLL resource of the given name to the target path."
@@ -123,18 +145,20 @@ let private spec =
             let! output = A.String
             return
                 Compile {
-                    ErrorLimit          = errors
-                    Extraction          = extract
-                    Input               = input
-                    KeyPair             = snk
-                    References          = Seq.toList (Seq.distinct refs)
-                    Output              = output
-                    OutputJavaScript    = js
-                    OutputMinified      = jsmin
-                    TailCalls           = tramp
+                    ErrorLimit = errors
+                    Extraction = extract
+                    Input = input
+                    KeyPair = snk
+                    References = Seq.toList (Seq.distinct refs)
+                    Output = output
+                    OutputJavaScript = js
+                    OutputMinified = jsmin
+                    OutputTypeScript = dts
+                    TailCalls = tramp
                 }
         | None, Some u ->
             return Unpack u
     }
 
-let Run main = A.Run usage spec main
+let Run plugins main args =
+    A.Run plugins args usage spec main

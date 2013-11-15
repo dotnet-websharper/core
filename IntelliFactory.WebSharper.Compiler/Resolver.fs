@@ -260,6 +260,11 @@ let recInstanceMethod env (acc: Map<_,_>) (m: MethodMember) =
     else
         acc
 
+let cleanTypeName (s: string) =
+    match s.LastIndexOf('`') with
+    | -1 -> s
+    | k -> s.Substring(0, k)
+
 let rec recType env ctx acc (t: R.Type) =
     let x =
         {
@@ -270,19 +275,20 @@ let rec recType env ctx acc (t: R.Type) =
         }
     let ctx   =
         match ctx, t.Definition.Namespace with
-        | None, null -> None
-        | None, ns   -> Array.map P.Global (ns.Split '.')
-                        |> Array.reduce (fun x y -> P.Local (x, y.LocalName))
-                        |> Some
-        | _          -> ctx
-    let ctx   = addr ctx t.Definition.Name x.Name
-    let acc   = List.fold (recStaticProperty ctx) acc t.Properties
-    let acc   = List.fold (recStaticMethod ctx) acc t.Methods
-    let acc   = List.fold (recType env (Some ctx)) acc t.Nested
+        | None, null | None, "" -> None
+        | None, ns ->
+            Array.map P.Global (ns.Split '.')
+            |> Array.reduce (fun x y -> P.Local (x, y.LocalName))
+            |> Some
+        | _ -> ctx
+    let ctx = addr ctx (cleanTypeName t.Definition.Name) x.Name
+    let acc = List.fold (recStaticProperty ctx) acc t.Properties
+    let acc = List.fold (recStaticMethod ctx) acc t.Methods
+    let acc = List.fold (recType env (Some ctx)) acc t.Nested
     let proto = Map.empty
     let proto = List.fold recInstanceProperty proto t.Properties
     let proto = List.fold (recInstanceMethod env) proto t.Methods
-    let cs    = match t.Kind with R.Class x -> Some x | _ -> None
+    let cs = match t.Kind with R.Class x -> Some x | _ -> None
     let c y z = pack ctx (Class (x, cs, y, Map.empty, z)) :: acc
     match t.Kind with
     | R.Enum ->

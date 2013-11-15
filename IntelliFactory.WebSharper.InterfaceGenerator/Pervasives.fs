@@ -25,14 +25,30 @@ namespace IntelliFactory.WebSharper.InterfaceGenerator
 
 [<AutoOpen>]
 module Pervasives =
+    open System
     module Code = CodeModel
     module R = IntelliFactory.WebSharper.Core.Reflection
 
     type private T = Type.Type
-    
+
+    type IExtension =
+        abstract Assembly : Code.Assembly
+
+    [<Sealed>]
+    [<AttributeUsage(AttributeTargets.Assembly)>]
+    type ExtensionAttribute(t: Type) =
+        inherit Attribute()
+
+        member attr.GetAssembly() =
+            let e = Activator.CreateInstance(t) :?> IExtension
+            e.Assembly
+
     /// Constructs a new assembly.
     let Assembly namespaces : Code.Assembly =
-        { Namespaces = namespaces }
+        {
+            Namespaces = namespaces
+            DependsOn = []
+        }
 
     /// Constructs a new namespace.
     let Namespace name (members: list<Code.NamespaceEntity>) : Code.Namespace =
@@ -73,7 +89,7 @@ module Pervasives =
     /// Constructs a new property setter.
     let Setter name (ty: Type.IType) =
         Code.Property (name, ty.Type, HasSetter = true)
-    
+
     /// Constructs a new property with a getter and a setter.
     let Property name (ty: Type.IType) =
         Code.Property (name, ty.Type, HasGetter = true, HasSetter = true)
@@ -103,12 +119,18 @@ module Pervasives =
                 x
         }
 
-    /// Sets the base class.
-    let Nested (cs: list<Code.Class>) =
+    /// Adds nested classes and interfaces.
+    let Nested (cs: list<#Code.TypeDeclaration>) =
         { new Code.IClassProperty with
             member this.SetOn x = 
                 let x = x.Clone() :?> Code.Class
-                x.NestedClasses <- cs @ x.NestedClasses 
+                for decl in cs do
+                    match decl :> Code.TypeDeclaration with
+                    | :? Code.Class as c ->
+                        x.NestedClasses <- c :: x.NestedClasses
+                    | :? Code.Interface as i ->
+                        x.NestedInterfaces <- i :: x.NestedInterfaces
+                    | _ -> ()
                 x
         }
 
@@ -214,10 +236,12 @@ module Pervasives =
         }
 
     /// Adds a resource dependency.
-    let Requires (requires : Code.Resource list) (ty: #Code.NamespaceEntity) =
-        ty |> Code.Entity.Update (fun x ->
-            let ids = requires |> List.map (fun res -> res.Id)
-            x.DependsOn <- ids @ x.DependsOn)
+    let Requires<'T when 'T :> Code.IResourceDependable<'T>> (requires : Code.Resource list) (ty: 'T) =
+        ty.AddRequires (requires |> List.map (fun res -> Code.LocalDependency res.Id))
+
+    /// Adds an externally defined resource dependency.
+    let RequiresExternal<'T when 'T :> Code.IResourceDependable<'T>> (requires: Type.Type list) (ty: 'T) =
+        ty.AddRequires (requires |> List.map (fun res -> Code.ExternalDependency res))
 
     let private Fresh =
         let x = ref 0
@@ -244,7 +268,7 @@ module Pervasives =
         member this.Type1() = 
             let f = this.Type 1
             fun a -> f [a]
-            
+
         member this.Type2 () =
             let f = this.Type 2
             fun a b -> f [a; b]
@@ -257,9 +281,8 @@ module Pervasives =
             let f = this.Type 4
             fun a b c d -> f [a; b; c; d]
 
-        member this.TypeDeclaration (arity: int)
-                                    (make: list<T> -> #Code.TypeDeclaration) =
-            let prefix = System.String.Format("T{0:x}", Fresh ())
+        member this.TypeDeclaration (arity: int) (make: list<T> -> #Code.TypeDeclaration) =
+            let prefix = String.Format("T{0:x}", Fresh ())
             let generics = [for n in 1 .. arity -> prefix + "_" + string n]
             let types = [for g in generics -> Type.GenericType g]
             let id = (make types).Id

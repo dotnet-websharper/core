@@ -22,7 +22,9 @@
 /// Implements offline sitelet HTML generation.
 module internal IntelliFactory.WebSharper.Sitelets.Offline.Output
 
+open System
 open System.IO
+open IntelliFactory.Core
 open IntelliFactory.WebSharper.Sitelets
 
 /// The output mode, Debug or Release.
@@ -34,11 +36,13 @@ type Mode =
 type Config =
     {
         Actions : list<obj>
+        MainAssembly : FileInfo
         Mode : Mode
+        ProjectDir : DirectoryInfo
+        ReferenceFiles : list<FileInfo>
         Sitelet : Sitelet<obj>
-        SourceDirs : list<DirectoryInfo>
         TargetDir : DirectoryInfo
     }
 
 /// Writes a site given the configuration options.
-val WriteSite : config: Config -> Async<unit>
+val WriteSite : AssemblyResolver -> config: Config -> Async<unit>

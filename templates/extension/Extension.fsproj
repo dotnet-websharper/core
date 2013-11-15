@@ -6,6 +6,9 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>$guid1$</ProjectGuid>
     <WebSharperProject>InterfaceGenerator</WebSharperProject>
+    <Name>$safeprojectname$</Name>
+    <RootNamespace>$(Name)</RootNamespace>
+    <AssemblyName>$(Name)</AssemblyName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebugSymbols>true</DebugSymbols>
@@ -24,10 +27,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <Name>$safeprojectname$</Name>
-    <RootNamespace>$(Name)</RootNamespace>
-    <AssemblyName>$(Name)</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <WarningLevel>3</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
@@ -39,10 +39,9 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>true</Private>
+      <Private>false</Private>
       <SpecificVersion>true</SpecificVersion>
     </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" />
-  <Import Project="WebSharper.targets" Condition="Exists('WebSharper.targets')" />
 </Project>

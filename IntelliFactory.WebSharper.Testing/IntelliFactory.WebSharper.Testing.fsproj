@@ -6,8 +6,12 @@
     <ProjectGuid>{a7f7a74b-d0ee-4918-8a54-280fc7d2a30c}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.Testing</Name>
+    <OutputPath>bin</OutputPath>
   </PropertyGroup>
-  <Import Project="../build/WebSharper.targets" />
+  <Import Project="../build/net45/$(Name).proj" />
+  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
+  <Target Name="Build" />
+  <Target Name="Clean" />
   <ItemGroup>
     <Compile Include="Pervasives.fs" />
     <Compile Include="Random.fs" />
@@ -16,15 +20,5 @@
   <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
-      <Name>IntelliFactory.WebSharper.Core</Name>
-      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
-      <Name>IntelliFactory.WebSharper</Name>
-      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
-    </ProjectReference>
   </ItemGroup>
 </Project>
