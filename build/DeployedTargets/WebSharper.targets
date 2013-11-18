@@ -289,25 +289,6 @@
     </ItemGroup>
   </Target>
 
-  <ItemGroup Condition=" $(WebSharperIncludes) AND $(SiteWebSharperProject) ">
-    <Reference Include="IntelliFactory.WebSharper.Collections">
-      <Private>true</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Collections.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Control">
-      <Private>true</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Control.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Sitelets">
-      <Private>true</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Sitelets.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Web">
-      <Private>true</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Web.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
   <!-- Html Generation Projects -->
 
   <PropertyGroup Condition=" $(HtmlWebSharperProject) AND '$(WebSharperHtmlDirectory)' != '' ">
