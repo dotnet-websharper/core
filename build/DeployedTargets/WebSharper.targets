@@ -221,6 +221,12 @@
       <IntermediateAssembly Remove="@(IntermediateAssembly)" />
       <IntermediateAssembly Include="$(Generator)" />
     </ItemGroup>
+    <ItemGroup Condition=" $(WebSharperIncludes) ">
+      <Reference Include="IntelliFactory.WebSharper.InterfaceGenerator">
+        <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.InterfaceGenerator.dll</HintPath>
+        <Private>false</Private>
+      </Reference>
+    </ItemGroup>
   </Target>
 
   <Target Name="InterfaceGeneratorCompile"
@@ -241,13 +247,6 @@
     </PropertyGroup>
     <Exec Command="$(Cmd)" />
   </Target>
-
-  <ItemGroup Condition=" $(WebSharperIncludes) AND $(InterfaceGenerator) ">
-    <Reference Include="IntelliFactory.WebSharper.InterfaceGenerator">
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.InterfaceGenerator.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-  </ItemGroup>
 
   <!-- Site WebSharper Projects -->
 
