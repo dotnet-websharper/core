@@ -63,7 +63,7 @@ type ScriptManager() =
                     then ".dll.js"
                     else ".dll.min.js"
                 let url =
-                    System.String.Format("~/Scripts/{0}{1}", name.Name, ext)
+                    System.String.Format("~/Scripts/WebSharper/{0}{1}", name.Name, ext)
                     |> this.ResolveUrl
                 Re.RenderLink url
             GetWebResourceRendering = fun t name ->
