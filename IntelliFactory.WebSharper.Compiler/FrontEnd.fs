@@ -32,6 +32,7 @@ open IntelliFactory.Core
 open IntelliFactory.WebSharper
 module M = IntelliFactory.WebSharper.Core.Metadata
 module P = IntelliFactory.JavaScript.Packager
+module PC = IntelliFactory.WebSharper.PathConventions
 module R = IntelliFactory.WebSharper.Compiler.ReflectionLayer
 module Re = IntelliFactory.WebSharper.Core.Reflection
 module Res = IntelliFactory.WebSharper.Core.Resources
@@ -616,6 +617,7 @@ type CompiledAssembly
     member this.Dependencies = deps.Value
 
     member this.RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter) =
+        let pU = PC.PathUtility.VirtualPaths("/")
         let cache = Dictionary()
         let getRendering (content: ResourceContent) =
             match cache.TryGetValue(content) with
@@ -624,13 +626,15 @@ type CompiledAssembly
                 let y = ctx.RenderResource(content)
                 cache.Add(content, y)
                 y
-        let makeJsUri name js =
+        let makeJsUri (name: PC.AssemblyId) js =
             getRendering {
                 Content = js
                 ContentType = "text/javascript"
                 Name =
-                    let ext = if ctx.DebuggingEnabled then ".dll.js" else ".dll.min.js"
-                    name + ext
+                    if ctx.DebuggingEnabled then
+                        pU.JavaScriptPath(name)
+                    else
+                        pU.MinifiedJavaScriptPath(name)
             }
         let ctx : Res.Context =
             {
@@ -640,10 +644,10 @@ type CompiledAssembly
                     if name = nameOfSelf then
                         (if ctx.DebuggingEnabled then Pref.Readable else Pref.Compact)
                         |> getJS
-                        |> makeJsUri name.Name
+                        |> makeJsUri (PC.AssemblyId.Create name.FullName)
                     else
                         match context.LookupAssemblyCode(ctx.DebuggingEnabled, name) with
-                        | Some x -> makeJsUri name.Name x
+                        | Some x -> makeJsUri (PC.AssemblyId.Create name.FullName) x
                         | None -> Res.Skip
                 GetSetting = ctx.GetSetting
                 GetWebResourceRendering = fun ty name ->

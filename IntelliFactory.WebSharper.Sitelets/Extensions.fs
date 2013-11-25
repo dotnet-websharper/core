@@ -63,9 +63,6 @@ module internal ResourceContext =
     module Re = IntelliFactory.WebSharper.Core.Resources
     module P = IntelliFactory.WebSharper.PathConventions
 
-    let ServerRootPath =
-        HostingEnvironment.MapPath "~/bin"
-
     let MetaData () : M.Info =
         IntelliFactory.WebSharper.Web.Shared.Metadata
 

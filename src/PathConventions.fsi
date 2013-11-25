@@ -62,11 +62,20 @@ module PathConventions =
         /// Path or URL to the `.js` JavaScript file corresponding to an assembly.
         member JavaScriptPath : AssemblyId -> string
 
+        /// Filename for the `.js` JavaScript file corresponding to an assembly.
+        member JavaScriptFileName : AssemblyId -> string
+
         /// Path or URL to the `.min.js` JavaScript file corresponding to an assembly.
         member MinifiedJavaScriptPath : AssemblyId -> string
 
+        /// Filename for the `.min.js` JavaScript file corresponding to an assembly.
+        member MinifiedJavaScriptFileName : AssemblyId -> string
+
         /// Path or URL to the `.d.ts` TypeScript file corresponding to an assembly.
         member TypeScriptDefinitionsPath : AssemblyId -> string
+
+        /// Filename for the `.d.ts` TypeScript file corresponding to an assembly.
+        member TypeScriptDefinitionsFileName : AssemblyId -> string
 
         /// Constructs a utiltiy object based on the physical path to the
         /// web root folder, which can be obtained by `Server.MapPath("~")`.

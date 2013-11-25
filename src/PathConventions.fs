@@ -64,14 +64,23 @@ module PathConventions =
         let content = root ++  "Content" ++ "WebSharper"
         let scripts = root ++ "Scripts" ++ "WebSharper"
 
+        member p.JavaScriptFileName(a) =
+            a.ShortName + ".js"
+
+        member p.MinifiedJavaScriptFileName(a) =
+            a.ShortName + ".min.js"
+
+        member p.TypeScriptDefinitionsFileName(a) =
+            a.ShortName + ".d.ts"
+
         member p.JavaScriptPath(a) =
-            scripts ++ (a.ShortName + ".js")
+            scripts ++ p.JavaScriptFileName(a)
 
         member p.MinifiedJavaScriptPath(a) =
-            scripts ++ (a.ShortName + ".min.js")
+            scripts ++ p.MinifiedJavaScriptFileName(a)
 
         member p.TypeScriptDefinitionsPath(a) =
-            scripts ++ (a.ShortName + ".d.ts")
+            scripts ++ p.TypeScriptDefinitionsFileName(a)
 
         member p.EmbeddedPath(r) =
             match r.Kind with
