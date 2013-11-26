@@ -53,7 +53,7 @@ reference documentation is available by topic in the manual.
 ## Main Template
 
 The `Main.html` file provides the overall template (see
-[Templates](Templates.md for more info) that is by default applied to
+[Templates](Templates.md) for more info) that is by default applied to
 every page of your website.  You can edit the HTML to adjust the
 overall layout and look-and-feel.
 
