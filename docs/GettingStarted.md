@@ -9,9 +9,13 @@ and create a new project ("Website"):
     File > New Project > Templates > Visual F# >
     WebSharper > Sitelet Website
 
+![New Project Screenshot](images/GettingStarted-1.png)
+
 This project defines a simple website, with both server and
 client-side components.  To try it out, simply "Run" (F5) - you should
-now see the code in action.
+now see the code in action:
+
+![Sample App Screenshot](images/GettingStarted-2.png)
 
 Let us look at what the code does.
 
