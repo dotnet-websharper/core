@@ -50,6 +50,14 @@ As you are starting out, you may just consider this boilerplate and
 focus on programming the client-side logic. For diving deeper,
 reference documentation is available by topic in the manual.
 
+## Main Template
+
+The `Main.html` file provides the overall template (see
+[Templates](Templates.md for more info) that is by default applied to
+every page of your website.  You can edit the HTML to adjust the
+overall layout and look-and-feel.
+
+
 ---------
 
 See also:
