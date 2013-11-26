@@ -26,7 +26,9 @@ Cons:
 * Your app has no access to native APIs that have not yet made it into
   the HTML5 standard
 
-**TODO:** mention some extensions to use
+### Mobile app frameworks
+
+Fully typed extensions are available for two popular JavaScript frameworks for mobile development: [JQuery Mobile][jqm] and [Sencha Touch][stouch]. They provide customizable and themeable UI elements to use in your HTML5 app designed for mobile touchscreens.
 
 ## WebSharper.Mobile
 
@@ -72,3 +74,5 @@ addition, it has the following advantages:
 
 [wsm]: http://github.com/intellifactory/websharper.mobile
 [wsm-manual]: http://github.com/intellifactory/websharper.mobile/blob/master/docs/WebSharperMobile.md
+[jqm]: http://jquerymobile.com/
+[stouch]: http://www.sencha.com/products/touch/
