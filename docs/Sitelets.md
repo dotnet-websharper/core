@@ -29,32 +29,34 @@ You will benefit from using sitelets by:
 
 Below is a minimal example of a complete site serving one HTML page:
 
-    namespace SampleWebsite
+```fsharp
+namespace SampleWebsite
     
-    open IntelliFactory.WebSharper.Sitelets
+open IntelliFactory.WebSharper.Sitelets
     
-    module SampleSite =
-        open IntelliFactory.WebSharper
-        open IntelliFactory.Html
+module SampleSite =
+    open IntelliFactory.WebSharper
+    open IntelliFactory.Html
     
-        type Action = | Index
+    type Action = | Index
     
-        let Index : Content<Action> =
-            PageContent <| fun context ->
-                {Page.Default with 
-                    Title = Some "Index"
-                    Body = 
-                        let time = System.DateTime.Now.ToString()
-                        [H1 [Text <| "Current time: " + time]]}
+    let Index : Content<Action> =
+        PageContent <| fun context ->
+            {Page.Default with 
+                Title = Some "Index"
+                Body = 
+                    let time = System.DateTime.Now.ToString()
+                    [H1 [Text <| "Current time: " + time]]}
     
-        type MySampleWebsite() =
-            interface IWebsite<Action> with
-                member this.Sitelet = 
-                    Sitelet.Content "/index" Action.Index Index
-                member this.Actions = []
+    type MySampleWebsite() =
+        interface IWebsite<Action> with
+            member this.Sitelet = 
+                Sitelet.Content "/index" Action.Index Index
+            member this.Actions = []
     
-    [<assembly: WebsiteAttribute(typeof<SampleSite.MySampleWebsite>)>]
-    do ()
+[<assembly: WebsiteAttribute(typeof<SampleSite.MySampleWebsite>)>]
+do ()
+```
 
 First, a custom action type is defined. It is used for linking URLs to
 content within your sitelet. Here, you only need one action
@@ -94,25 +96,27 @@ The router component of a sitelet can be constructed in a variety of
 ways.  The following example shows how you can create a complete
 customized router of type `Action`.
 
-    type Action = | Page1 | Page2
+```fsharp
+type Action = | Page1 | Page2
     
-    let MyRouter : Router<Action> =
-        let route (req: Http.Request) =
-            if req.Uri.LocalPath = "/page1" then
-                Some Page1
-            elif req.Uri.LocalPath = "/page2" then
-                Some Page2
-            else
-                None
-        let link action =
-            match action with
-            | Action.Page1 -> 
-                System.Uri("/page2", System.UriKind.Relative)
-                |> Some 
-            | Action.Page2 -> 
-                System.Uri("/page1", System.UriKind.Relative)
-                |> Some
-        Router.New route link
+let MyRouter : Router<Action> =
+    let route (req: Http.Request) =
+        if req.Uri.LocalPath = "/page1" then
+            Some Page1
+        elif req.Uri.LocalPath = "/page2" then
+            Some Page2
+        else
+            None
+    let link action =
+        match action with
+        | Action.Page1 -> 
+            System.Uri("/page2", System.UriKind.Relative)
+            |> Some 
+        | Action.Page2 -> 
+            System.Uri("/page1", System.UriKind.Relative)
+            |> Some
+    Router.New route link
+```
 
 Specifying routers manually gives you full control of how to parse
 incoming requests and to map actions to corresponding URLs.  It is
@@ -123,18 +127,22 @@ in turn routed back to the same action.
 Constructing routers manually is only required for very special cases.
 The above router can for example be generated using `Router.Table`:
 
-    let MyRouter : Router<Action> =
-        [
-            Action.Page1, "/page1"
-            Action.Page2, "/page2" 
-        ]
-        |> Router.Table
+```fsharp
+let MyRouter : Router<Action> =
+    [
+        Action.Page1, "/page1"
+        Action.Page2, "/page2" 
+    ]
+    |> Router.Table
+```
 
 Even simpler, the routing table can be inferred automatically for
 basic F# types, including tuples, records and unions:
 
-    let MyRouter : Router<Action> =
-        Router.Infer ()
+```fsharp
+let MyRouter : Router<Action> =
+    Router.Infer ()
+```
 
 ### Controllers
 
@@ -143,22 +151,26 @@ passed on to the controller. The job of the controller is to map
 actions to content. Here is an example of a controller handling
 actions of the `Action` type defined above.
 
-    let MyController : Controller<Action> =
-        {
-            Handle = fun action ->
-                match action with
-                | Action.Page1  -> MyContent.Page1
-                | Action.Page2  -> MyContent.Page2
-        }
+```fsharp
+let MyController : Controller<Action> =
+    {
+        Handle = fun action ->
+            match action with
+            | Action.Page1  -> MyContent.Page1
+            | Action.Page2  -> MyContent.Page2
+    }
+```
 
 Finally, the router and the controller components are combined into a
 sitelet:
 
-    let MySitelet : Sitelet<Action> =
-        {
-            Router = MyRouter
-            Controller = MyController
-        }
+```fsharp
+let MySitelet : Sitelet<Action> =
+    {
+        Router = MyRouter
+        Controller = MyController
+    }
+```
     
 ## Content
 
@@ -166,26 +178,30 @@ Content is conceptually a function from a context to an HTTP response.
 For convenience it differentiates between custom content and ones
 producing HTML pages:
 
-    type Content<'Action> =
-        | CustomContent of (Context<'Action> -> Http.Response)
-        | PageContent   of (Context<'Action> -> Page)
+```fsharp
+type Content<'Action> =
+    | CustomContent of (Context<'Action> -> Http.Response)
+    | PageContent   of (Context<'Action> -> Page)
+```    
 
 Values of type `Context` contain runtime information of how to resolve
 links to actions and resources.
 
 The example below defines a page content with a link to another page
 
-    let Page1 : Content<Action> =
-      PageContent <| fun context ->
-        {Page.Default with 
-          Title = Some "Title of Page 1"
-          Body = 
-            [
-              H1 [Text "Page 1"]
-              A [HRef (context.Link Action.Page2)] -< [Text "Page 2"]
-              A [HRef (context.ResolveUrl "~/Page3.html")] -< [Text "Page 3"]
-            ]
-        }
+```fsharp
+let Page1 : Content<Action> =
+  PageContent <| fun context ->
+    {Page.Default with 
+      Title = Some "Title of Page 1"
+      Body = 
+        [
+          H1 [Text "Page 1"]
+          A [HRef (context.Link Action.Page2)] -< [Text "Page 2"]
+          A [HRef (context.ResolveUrl "~/Page3.html")] -< [Text "Page 3"]
+        ]
+    }
+```
 
 Note how `context.Link` is used in order to resolve the URL to the
 `Page2` action.  Action URLs are always constructed relative to the
@@ -199,15 +215,17 @@ content type and encoding, you can customize the meta information that
 drives the HTTP headers of the response.  Below is an example of
 defining JSON data.
 
-    let JsonData : Content<Action> =
-        CustomContent <| fun context ->
-            {
-                Status = Http.Status.Ok
-                Headers = [Http.Header.Custom "Content-Type" "application/json"]
-                WriteBody = fun stream ->
-                use tw = new System.IO.StreamWriter(stream)
-                tw.WriteLine "{X: 10, Y: 20}"
-            }
+```fsharp
+let JsonData : Content<Action> =
+    CustomContent <| fun context ->
+        {
+            Status = Http.Status.Ok
+            Headers = [Http.Header.Custom "Content-Type" "application/json"]
+            WriteBody = fun stream ->
+            use tw = new System.IO.StreamWriter(stream)
+            tw.WriteLine "{X: 10, Y: 20}"
+        }
+```        
 
 ## Sitelet Combinators
 
@@ -219,7 +237,9 @@ simply links a path with an action, and a controller that will always
 respond with the given content. Here is an example of constructing a
 complete sitelet serving one page:
 
-    let IndexSitelet = Sitelet.Content "/index" Action.Index Index
+```fsharp
+let IndexSitelet = Sitelet.Content "/index" Action.Index Index
+```
 
 The `<|>` operator combines two sitelets into one. The resulting
 sitelet will try to map an incoming request using the router of the
@@ -228,29 +248,33 @@ forwarded to the second sitelet.  Here is an example of composing
 three sitelets, using this operator and using the `Sitelet.Sum`
 combinator:
 
-    let Site = 
-        Sitelet.Content "/index" Action.Index Index
-        <|>
-        Sitelet.Content "/page1" Action.Page1 Page1
-        <|>
-        Sitelet.Content "/page2" Action.Page2 Page2
+```fsharp
+let Site = 
+    Sitelet.Content "/index" Action.Index Index
+    <|>
+    Sitelet.Content "/page1" Action.Page1 Page1
+    <|>
+    Sitelet.Content "/page2" Action.Page2 Page2
 
-    let Site =
-        Sitelet.Sum [
-            Sitelet.Content "/index" Action.Index Index
-            Sitelet.Content "/page1" Action.Page1 Page1
-            Sitelet.Content "/page2" Action.Page2 Page2
-        ]
+let Site =
+    Sitelet.Sum [
+        Sitelet.Content "/index" Action.Index Index
+        Sitelet.Content "/page1" Action.Page1 Page1
+        Sitelet.Content "/page2" Action.Page2 Page2
+    ]
+```
 
 The `Sitelet.Shift` operator is used to shift the URL of a sitelet by
 adding a prefix:
 
-    let Pages =
-        Sitelet.Sum [
-            Sitelet.Content "/page1" Action.Page1 Page1
-            Sitelet.Content "/page2" Action.Page2 Page2
-        ]
-        |> Sitelet.Shift "/pages"
+```fsharp
+let Pages =
+    Sitelet.Sum [
+        Sitelet.Content "/page1" Action.Page1 Page1
+        Sitelet.Content "/page2" Action.Page2 Page2
+    ]
+    |> Sitelet.Shift "/pages"
+```    
 
 In this way, the URL of the `Page1` action will be inferred to
 __/pages/page1__.
@@ -262,24 +286,26 @@ JavaScript and runs on the client) in sitelet content is
 straightforward. They can be directly embedded within server-side
 HTML:
 
-    module Client =
-        open IntelliFactory.WebSharper.Html
+```fsharp
+module Client =
+    open IntelliFactory.WebSharper.Html
     
-        type MyControl() =
-            inherit IntelliFactory.WebSharper.Web.Control ()
-            [<JavaScript>]
-            override this.Body =
-                I [Text "Client control"] :> IPagelet
+    type MyControl() =
+        inherit IntelliFactory.WebSharper.Web.Control ()
+        [<JavaScript>]
+        override this.Body =
+            I [Text "Client control"] :> IPagelet
     
-    let Page : Content<Action> =
-        PageContent <| fun context ->
-            {Page.Default with 
-                Title = Some "Index"
-                Body = 
-                    [
-                        Div [ new Client.MyControl ()]
-                    ]
-            }
+let Page : Content<Action> =
+    PageContent <| fun context ->
+        {Page.Default with 
+            Title = Some "Index"
+            Body = 
+                [
+                    Div [ new Client.MyControl ()]
+                ]
+        }
+```        
 
 Here, `MyControl` inherits from
 `IntelliFactory.WebSharper.Web.Control` and overrides the `Body`
@@ -307,15 +333,19 @@ In addition to the functions above a combinator `Protect` is provided
 in order create protected content, i.e.  content only available for
 authenticated users:
 
-    Protect : Filter<'Action> -> Sitelet<'Action> -> Sitelet<'Action>
+```fsharp
+Protect : Filter<'Action> -> Sitelet<'Action> -> Sitelet<'Action>
+```
 
 where the type `Filter` is defined as:
 
-    type Filter<'Action> =
-        {
-            VerifyUser : string -> bool; 
-            LoginRedirect : 'Action -> 'Action
-        }
+```fsharp
+type Filter<'Action> =
+    {
+        VerifyUser : string -> bool; 
+        LoginRedirect : 'Action -> 'Action
+    }
+```    
 
 Given a filter value and a sitelet, `Protect` returns a new sitelet
 that requires a logged in user that passes the `VerifyUser` predicate,
@@ -326,19 +356,21 @@ specified by the `LoginRedirect` function specified by the filter.
 Below is an example of creating a protected sitelet containing two
 pages:
 
-    let protected =
-        let filter : Sitelet.Filter<Action> =
-            {
-                VerifyUser = fun _ -> true
-                LoginRedirect = fun _ -> Action.Login
-            }
-        Sitelet.Protect filter (
-            [
-                Sitelet.Content "/p1" Action.P1 P1
-                Sitelet.Content "/p2" Action.P2 P2
-            ]
-            |> Sitelet.Folder "protected"
-        )             
+```fsharp
+let protected =
+    let filter : Sitelet.Filter<Action> =
+        {
+            VerifyUser = fun _ -> true
+            LoginRedirect = fun _ -> Action.Login
+        }
+    Sitelet.Protect filter (
+        [
+            Sitelet.Content "/p1" Action.P1 P1
+            Sitelet.Content "/p2" Action.P2 P2
+        ]
+        |> Sitelet.Folder "protected"
+    )
+```    
 
 ## Handling HTTP Parameters
 
@@ -355,29 +387,31 @@ POST requests. The function `Router.FromPostParameter` and `Router.At`
 are utilized for constructing a router mapping POST requests to the
 url `/post`:
 
-    let MyRouter =
-        [
-            Router.Table [
-                Action.Index , "/index"
-            ]
-            Router.FromPostParameter ParamName
-            |> Router.At "/post"
-            |> Router.TryMap 
-                (Action.Post >> Some) 
-                (function | Post x -> Some x | _ -> None)
+```fsharp
+let MyRouter =
+    [
+        Router.Table [
+            Action.Index , "/index"
         ]
-        |> Router.Sum
+        Router.FromPostParameter ParamName
+        |> Router.At "/post"
+        |> Router.TryMap 
+            (Action.Post >> Some) 
+            (function | Post x -> Some x | _ -> None)
+    ]
+    |> Router.Sum
 
-    let Handle action =
-        match action with
-        | Action.Index -> Pages.Index
-        | Action.Post value -> Pages.Post value
+let Handle action =
+    match action with
+    | Action.Index -> Pages.Index
+    | Action.Post value -> Pages.Post value
 
-    let MySitelet =
-        {
-            Router = MyRouter
-            Controller = { Handle = Handle}
-        }
+let MySitelet =
+    {
+        Router = MyRouter
+        Controller = { Handle = Handle }
+    }
+```    
 
 The function `Router.TryMap` is used for mapping the string router to
 one of type `Action`:
@@ -385,11 +419,13 @@ one of type `Action`:
 Alternatively, the parameteres can be obtained at the content
 generation phase, via the `Context` object:
 
-    let Index =
-        Content.PageContent <| fun context ->
-            let param = 
-                match context.Request.Post.["post"] with
-                | Some n    -> n
-                | None      -> "No Param" 
-            {Page.Default with Body = [Text param}
+```fsharp
+let Index =
+    Content.PageContent <| fun context ->
+        let param = 
+            match context.Request.Post.["post"] with
+            | Some n    -> n
+            | None      -> "No Param" 
+        {Page.Default with Body = [Text param}
+```        
 
