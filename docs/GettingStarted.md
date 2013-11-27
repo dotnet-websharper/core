@@ -3,8 +3,8 @@
 This article will walk you through getting a "hello world" WebSharper
 example up and running.
 
-After completing the [installation](Install.md), open Visual Studio
-and create a new project ("Website"):
+After completing the installation, open Visual Studio and create a new
+project ("Website"):
 
     File > New Project > Templates > Visual F# >
     WebSharper > Sitelet Website
@@ -27,12 +27,11 @@ this module to JavaScript and run it in the browser.
 
 The `Main` method is what is invoked as the client-side point. It
 generates some DOM elements dynamically and these get inserted in the
-page (see [HTML Combinators](HtmlCombinators.md)).
+page.
 
 The `Start` method is used in the handler for a button click. It sends
 some client-side data to the server for processing and returns it back
-asynchronously. See [Asynchronous Workflows](Async.md) and
-[Remoting](Remoting.md) for more detail.
+asynchronously.
 
 ## Remoting Module
 
@@ -40,8 +39,7 @@ This module (`Remoting.fs`) defines the `Process` function that is
 executed on the server but is also available on the client. Execution
 happens by serializing arguments and return value and passing them
 over HTTP.  Not all types are supported, WebSharper will warn you
-about potential problems at compile time.  Details are in
-[Remoting](Remoting.md).
+about potential problems at compile time.
 
 ## Main Module
 
@@ -56,17 +54,6 @@ reference documentation is available by topic in the manual.
 
 ## Main Template
 
-The `Main.html` file provides the overall template (see
-[Templates](Templates.md) for more info) that is by default applied to
-every page of your website.  You can edit the HTML to adjust the
-overall layout and look-and-feel.
-
-
----------
-
-See also:
-
-* [Manual TOC](WebSharper.md)
-* [Remoting](Remoting.md)
-* [Formlets](Formlets.md)
-* [Sitelets](Sitelets.md)
+The `Main.html` file provides the overall template that is by default
+applied to every page of your website.  You can edit the HTML to
+adjust the overall layout and look-and-feel.
