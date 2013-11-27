@@ -9,8 +9,8 @@ open IntelliFactory.Build
 module Config =
     let PackageId = "WebSharper"
     let NumericVersion = Version("2.5.0.0")
-    let VersionSuffix = Some "alpha"
-    let PackageVerion = "2.5-alpha"
+    let VersionSuffix = None
+    let PackageVerion = "2.5"
     let Company = "IntelliFactory"
     let Description = "F#-to-JavaScript compiler and web application framework"
     let LicenseUrl = "http://websharper.com/licensing"
