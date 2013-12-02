@@ -718,9 +718,9 @@ module Definition =
                 "replaceAll" => !?T<string> ^-> JQ
 
                 "replaceWith" => Content ^-> JQ
-                "replaceWith" => (JQ -* T<unit> ^-> T<string>) ^-> JQ
-                "replaceWith" => (JQ -* T<unit> ^-> JQ) ^-> JQ
-                "replaceWith" => (JQ -* T<unit> ^-> T<Element>) ^-> JQ
+                "replaceWith" => (T<Element> -* T<unit> ^-> T<string>) ^-> JQ
+                "replaceWith" => (T<Element> -* T<unit> ^-> JQ) ^-> JQ
+                "replaceWith" => (T<Element> -* T<unit> ^-> T<Element>) ^-> JQ
 
                 "resize" => !?EventHandler ^-> JQ
                 "resize" => StringMap?data * !?EventHandler ^-> JQ
