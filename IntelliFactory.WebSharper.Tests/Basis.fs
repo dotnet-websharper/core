@@ -275,6 +275,17 @@ let Tests =
         {X=1}?Y =? 1
     }
 
+    Test "JavaScript object" {
+        let o = New [ "a", box "1"; "b", box 2 ]
+        (o?a = "1" && o?b = 2) =? true
+        let o2 = [ "a", 1; "b", 2 ] |> List.map (fun (n, v) -> n, box (v + 1)) |> New
+        (o2?a = 2 && o2?b = 3) =? true
+        let o3 = New [| "a", box "1"; "b", box 2 |]
+        (o3?a = "1" && o3?b = 2) =? true
+        let o4 = New (seq { yield "a", box "1"; yield "b", box 2; })
+        (o4?a = "1" && o4?b = 2) =? true
+    }
+
 
 //module CoreTests =
 //    open IntelliFactory.WebSharper

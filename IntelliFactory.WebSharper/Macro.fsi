@@ -49,6 +49,11 @@ type String =
     new : unit -> String
     interface M.IMacroDefinition
 
+[<Sealed>]
+type New =
+    new : unit -> New
+    interface M.IMacroDefinition
+
 [<AbstractClass>]
 type CMP =
     interface M.IMacroDefinition

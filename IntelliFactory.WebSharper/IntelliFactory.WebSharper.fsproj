@@ -16,10 +16,10 @@
     <Compile Include="Json.fs" />
     <Compile Include="Remoting.fsi" />
     <Compile Include="Remoting.fs" />
-    <Compile Include="Pervasives.fs" />
-    <Compile Include="Concurrency.fs" />
     <Compile Include="Macro.fsi" />
     <Compile Include="Macro.fs" />
+    <Compile Include="Pervasives.fs" />
+    <Compile Include="Concurrency.fs" />
     <Compile Include="Enumerator.fs" />
     <Compile Include="Enumerable.fs" />
     <Compile Include="Resources.fs" />

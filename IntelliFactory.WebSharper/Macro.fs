@@ -87,7 +87,7 @@ let divisionMacro = macro <| fun tr q ->
                     else tr x / tr y
         | _      -> tr x / tr y
     | _ ->
-        tr q
+        failwith "divisionMacro error"
 
 let arithMacro name def = macro <| fun tr q ->
     match q with
@@ -100,7 +100,7 @@ let arithMacro name def = macro <| fun tr q ->
                 else C.Call(tr x, C.Constant (C.String name), [tr y])
         | _ -> def (tr x) (tr y)
     | _ ->
-        tr q
+        failwith "arithMacro error"
 
 let addMacro = arithMacro "add" ( + )
 let subMacro = arithMacro "sub" ( - )
@@ -162,9 +162,9 @@ let comparisonMacro cmp = macro <| fun tr q ->
             else
                 makeComparison cmp (tr x) (tr y)
         | _ ->
-            tr q
+            failwith "comparisonMacro error"
     | _ ->
-        tr q
+        failwith "comparisonMacro error"
 
 [<AbstractClass>]
 type CMP(c: Comparison) =
@@ -194,13 +194,13 @@ let charMacro = macro <| fun tr q ->
                     | "System.String" -> call (tr x) "charCodeAt" [i 0]
                     | "System.Double"
                     | "System.Single" -> tr x
-                    | _               -> tr q
+                    | _               -> failwith "charMacro error"
                 | _ ->
-                    tr q
+                    failwith "charMacro error"
         | _ ->
-            tr q
+            failwith "charMacro error"
     | _ ->
-        tr q
+        failwith "charMacro error"
 
 [<Sealed>]
 type Char() =
@@ -217,11 +217,45 @@ let stringMacro = macro <| fun tr q ->
             | "System.Char" -> call (C.Global ["String"]) "fromCharCode" [tr x]
             | _             -> call (C.Global []) "String" [tr x]
         | _ ->
-            tr q
+            failwith "comparisonMacro error"
     | _ ->
-        tr q
+        failwith "comparisonMacro error"
 
 [<Sealed>]
 type String() =
     interface M.IMacroDefinition with
         member this.Macro = stringMacro
+
+let getFieldsList q =
+    let rec getFieldsListTC l q =
+        match q with
+        | Q.NewUnionCase (_, [Q.NewTuple [Q.Value (Q.String n); v]; t]) ->
+            getFieldsListTC ((n, v) :: l) t         
+        | Q.NewUnionCase (_, []) -> Some (l |> List.rev) 
+        | Q.NewArray (_,  l) ->
+            l |> List.map (
+                function 
+                | Q.NewTuple [Q.Value (Q.String n); v] -> n, v 
+                | _ -> failwith "Wrong type of array passed to New"
+            ) |> Some
+        | _ -> None
+    getFieldsListTC [] q
+
+let newMacro = macro <| fun tr q ->
+    match q with
+    | Q.Call (_, [Q.Coerce (_, x)])
+    | Q.CallModule (_, [Q.Coerce (_, x)])
+    | Q.Call (_, [x])
+    | Q.CallModule (_, [x]) ->
+        match getFieldsList x with
+        | Some xl ->
+            C.NewObject (xl |> List.map (fun (n, v) -> n, tr v))
+        | _ ->
+            call (C.Global ["IntelliFactory"; "WebSharper"; "Pervasives"]) "NewFromList" [tr x]
+    | _ ->
+        failwith "newMacro error"
+
+[<Sealed>]
+type New() =
+    interface M.IMacroDefinition with
+        member this.Macro = newMacro
