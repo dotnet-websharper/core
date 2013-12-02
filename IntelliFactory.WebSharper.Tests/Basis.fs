@@ -282,6 +282,8 @@ let Tests =
         (o2?a = 2 && o2?b = 3) =? true
         let o3 = New [| "a", box "1"; "b", box 2 |]
         (o3?a = "1" && o3?b = 2) =? true
+        let o4 = New (seq { yield "a", box "1"; yield "b", box 2; })
+        (o4?a = "1" && o4?b = 2) =? true
     }
 
 
