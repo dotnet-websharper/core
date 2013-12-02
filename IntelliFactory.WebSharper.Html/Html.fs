@@ -65,7 +65,7 @@ module internal Implementation =
 
             [<JavaScript>]
             member this.Clear node =
-                JQuery.Of(node).Children().Detach().Ignore
+                JQuery.Of(node).Contents().Detach().Ignore
 
             [<JavaScript>]
             member this.GetHtml node =

@@ -430,7 +430,7 @@ module Definition =
                 |> WithComment "Get the first ancestor element that matches the selector, beginning at the current element and progressing up through the DOM tree."
 
                 // Contents
-                "contents" => T<unit> ^-> T<unit>
+                "contents" => T<unit> ^-> JQ
                 |> WithComment "Get the children of each element in the set of matched elements, including text nodes."
 
                 // Context (Tested)
