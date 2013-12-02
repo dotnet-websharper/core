@@ -225,3 +225,29 @@ let stringMacro = macro <| fun tr q ->
 type String() =
     interface M.IMacroDefinition with
         member this.Macro = stringMacro
+
+let getFieldsList q =
+    let rec getFieldsListTC l q =
+        match q with
+        | Q.NewUnionCase (_, [Q.NewTuple [Q.Value (Q.String n); v]; t]) ->
+            getFieldsListTC ((n, v) :: l) t         
+        | Q.NewUnionCase (_, []) -> Some l
+        | _ -> None
+    getFieldsListTC [] q |> Option.map List.rev
+
+let newMacro = macro <| fun tr q ->
+    match q with
+    | Q.Call (_, [Q.Coerce (_, x)])
+    | Q.CallModule (_, [Q.Coerce (_, x)]) ->
+        match getFieldsList x with
+        | Some xl ->
+            C.NewObject (xl |> List.map (fun (n, v) -> n, tr v))
+        | _ ->
+            call (C.Global ["IntelliFactory"; "WebSharper"; "Pervasives"]) "NewFromList" [tr x]
+    | _ ->
+        tr q
+
+[<Sealed>]
+type New() =
+    interface M.IMacroDefinition with
+        member this.Macro = newMacro
