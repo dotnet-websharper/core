@@ -231,9 +231,15 @@ let getFieldsList q =
         match q with
         | Q.NewUnionCase (_, [Q.NewTuple [Q.Value (Q.String n); v]; t]) ->
             getFieldsListTC ((n, v) :: l) t         
-        | Q.NewUnionCase (_, []) -> Some l
+        | Q.NewUnionCase (_, []) -> Some (l |> List.rev) 
+        | Q.NewArray (_,  l) ->
+            l |> List.map (
+                function 
+                | Q.NewTuple [Q.Value (Q.String n); v] -> n, v 
+                | _ -> failwith "Wrong type of array passed to New"
+            ) |> Some
         | _ -> None
-    getFieldsListTC [] q |> Option.map List.rev
+    getFieldsListTC [] q
 
 let newMacro = macro <| fun tr q ->
     match q with

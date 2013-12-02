@@ -280,6 +280,8 @@ let Tests =
         (o?a = "1" && o?b = 2) =? true
         let o2 = [ "a", 1; "b", 2 ] |> List.map (fun (n, v) -> n, box (v + 1)) |> New
         (o2?a = 2 && o2?b = 3) =? true
+        let o3 = New [| "a", box "1"; "b", box 2 |]
+        (o3?a = "1" && o3?b = 2) =? true
     }
 
 
