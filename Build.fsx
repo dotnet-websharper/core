@@ -255,6 +255,20 @@ let wsTests =
                 r.Project(ifReactive)
             ])
 
+let wsCollectionsTests =
+    bt.WebSharper.Library("IntelliFactory.WebSharper.Collections.Tests").ClearRefs()
+        .SourcesFromProject()
+        .References(fun r ->
+            [
+                r.Project(ifWS)
+                r.Project(wsCore)
+                r.Project(wsCollections)
+                r.Project(wsEcma)
+                r.Project(wsControl)
+                r.Project(wsTesting)
+                r.Project(ifReactive)
+            ])
+
 let ifFormlet =
     bt.WebSharper.Library("IntelliFactory.Formlet").ClearRefs()
         .SourcesFromProject()
@@ -418,6 +432,7 @@ let website =
                 r.Project(wsJQuery)
                 r.Project(wsTesting)
                 r.Project(wsTests)
+                r.Project(wsCollectionsTests)
             ])
 
 let exports : list<INuGetExportingProject> =
@@ -506,6 +521,7 @@ bt.Solution [
     wsHtml5
     wsSitelets
     wsTests
+    wsCollectionsTests
     wsFormletTests
     wsHtml5Tests
     wsSiteletsTests
@@ -575,6 +591,7 @@ bt.Solution [
                     wsControl
                     wsTesting
                     wsTests
+                    wsCollectionsTests
                     ifHtml
                     wsHtml
                     wsWeb

@@ -36,8 +36,4 @@
     <Compile Include="String.fs" />
     <Compile Include="TimeSpan.fs" />
   </ItemGroup>
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="System" />
-  </ItemGroup>
 </Project>
