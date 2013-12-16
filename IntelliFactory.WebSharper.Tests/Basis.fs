@@ -277,13 +277,21 @@ let Tests =
 
     Test "JavaScript object" {
         let o = New [ "a", box "1"; "b", box 2 ]
-        (o?a = "1" && o?b = 2) =? true
+        (o?a = "1" && o?b = 2) |? "List of tuples"
         let o2 = [ "a", 1; "b", 2 ] |> List.map (fun (n, v) -> n, box (v + 1)) |> New
-        (o2?a = 2 && o2?b = 3) =? true
+        (o2?a = 2 && o2?b = 3) |? "Mapped list of tuples"
         let o3 = New [| "a", box "1"; "b", box 2 |]
-        (o3?a = "1" && o3?b = 2) =? true
+        (o3?a = "1" && o3?b = 2) |? "Array of tuples"
         let o4 = New (seq { yield "a", box "1"; yield "b", box 2; })
-        (o4?a = "1" && o4?b = 2) =? true
+        (o4?a = "1" && o4?b = 2) |? "Sequence of tuples"
+        let o5 = New [ "a" => "1"; "b" => 2 ]
+        (o5?a = "1" && o5?b = 2) |? "List of (=>) calls"
+        let o6 = [ "a", 1; "b", 2 ] |> List.map (fun (n, v) -> n, box (v + 1)) |> New
+        (o6?a = 2 && o6?b = 3) |? "Mapped list of (=>) calls"
+        let o7 = New [| "a" => "1"; "b" => 2 |]
+        (o7?a = "1" && o7?b = 2) |? "Array of (=>) calls"
+        let o8 = New (seq { yield "a" => "1"; yield "b" => 2; })
+        (o8?a = "1" && o8?b = 2) |? "Sequence of (=>) calls"
     }
 
 

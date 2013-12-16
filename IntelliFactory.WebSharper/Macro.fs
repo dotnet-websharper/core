@@ -227,15 +227,23 @@ type String() =
         member this.Macro = stringMacro
 
 let getFieldsList q =
+    let ``is (=>)`` (m: R.Method) =
+        m.DeclaringType.FullName = "IntelliFactory.WebSharper.Pervasives"
+        && m.Name = "op_EqualsGreater"
     let rec getFieldsListTC l q =
         match q with
         | Q.NewUnionCase (_, [Q.NewTuple [Q.Value (Q.String n); v]; t]) ->
+            getFieldsListTC ((n, v) :: l) t         
+        | Q.NewUnionCase (_, [Q.CallModule (m, [Q.Value (Q.String n); v]); t])
+            when m.Entity |> ``is (=>)`` ->
             getFieldsListTC ((n, v) :: l) t         
         | Q.NewUnionCase (_, []) -> Some (l |> List.rev) 
         | Q.NewArray (_,  l) ->
             l |> List.map (
                 function 
                 | Q.NewTuple [Q.Value (Q.String n); v] -> n, v 
+                | Q.CallModule (m, [Q.Value (Q.String n); v])
+                    when m.Entity |> ``is (=>)`` -> n, v
                 | _ -> failwith "Wrong type of array passed to New"
             ) |> Some
         | _ -> None
