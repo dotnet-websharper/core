@@ -18,5 +18,6 @@ type Tests() =
 
     [<JavaScript>]
     override this.Body =
+        do IntelliFactory.WebSharper.Collections.Tests.Dictionary.Tests
         do IntelliFactory.WebSharper.Tests.Regression.Tests
         Span [] :> _
