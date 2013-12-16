@@ -348,6 +348,9 @@ module CecilTools =
 type Content(t: Lazy<string>) =
     static let utf8 = UTF8Encoding(false, true) :> Encoding
 
+    member c.Map(f) =
+        Content(lazy f t.Value)
+
     member c.Write(output: TextWriter) =
         output.Write(t.Value)
 
@@ -446,9 +449,17 @@ type ResourceContext =
 
 type BundleMode =
     | CSS = 0
-    | JavaScript = 1
-    | MinifiedJavaScript = 2
-    | TypeScript = 3
+    | HtmlHeaders = 1
+    | JavaScript = 2
+    | MinifiedJavaScript = 3
+    | TypeScript = 4
+
+module JS = IntelliFactory.JavaScript.Syntax
+
+let docWrite w =
+    let str x = JS.Constant (JS.String x)
+    JS.Application (JS.Binary (JS.Var "document", JS.BinaryOperator.``.``, str "write"), [str w])
+    |> W.ExpressionToString IntelliFactory.JavaScript.Preferences.Compact
 
 [<Sealed>]
 type Bundle(resolver: AssemblyResolver, set: list<Assembly>) =
@@ -463,7 +474,23 @@ type Bundle(resolver: AssemblyResolver, set: list<Assembly>) =
         let mInfo = M.Info.Create context.Infos
         mInfo.GetDependencies [for a in set -> getDependencyNodeForAssembly a]
 
+    let htmlHeadersContext : Res.Context =
+        {
+            DebuggingEnabled = false
+            DefaultToHttp = false
+            GetSetting = fun _ -> None
+            GetAssemblyRendering = fun _ -> Res.Skip
+            GetWebResourceRendering = fun _ _-> Res.Skip
+        }
+
+    let renderHtmlHeaders (hw: HtmlTextWriter) (res: Res.IResource) =
+        res.Render htmlHeadersContext hw
+
     let render (mode: BundleMode) (writer: TextWriter) =
+        use htmlHeadersWriter =
+            match mode with
+            | BundleMode.HtmlHeaders -> new HtmlTextWriter(writer)
+            | _ -> new HtmlTextWriter(TextWriter.Null)
         let debug =
             match mode with
             | BundleMode.MinifiedJavaScript -> false
@@ -500,7 +527,10 @@ type Bundle(resolver: AssemblyResolver, set: list<Assembly>) =
             }
         use htmlWriter = new HtmlTextWriter(TextWriter.Null)
         for d in deps.Value do
-            d.Render ctx htmlWriter
+            match mode with
+            | BundleMode.HtmlHeaders -> renderHtmlHeaders htmlHeadersWriter d
+            | _ ->
+                d.Render ctx htmlWriter
         match mode with
         | BundleMode.JavaScript | BundleMode.MinifiedJavaScript ->
             writeStartCode false writer
@@ -515,12 +545,16 @@ type Bundle(resolver: AssemblyResolver, set: list<Assembly>) =
         Content(t)
 
     let css = content BundleMode.CSS
+    let htmlHeaders = content BundleMode.HtmlHeaders
+    let javaScriptHeaders = htmlHeaders.Map(docWrite)
     let javaScript = content BundleMode.JavaScript
     let minifedJavaScript = content BundleMode.MinifiedJavaScript
     let typeScript = content BundleMode.TypeScript
 
     member b.CSS = css
+    member b.HtmlHeaders = htmlHeaders
     member b.JavaScript = javaScript
+    member b.JavaScriptHeaders = javaScriptHeaders
     member b.MinifiedJavaScript = minifedJavaScript
     member b.TypeScript = typeScript
 

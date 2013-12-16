@@ -192,7 +192,9 @@ type Content =
 [<Sealed>]
 type Bundle =
     member CSS : Content
+    member HtmlHeaders : Content
     member JavaScript : Content
+    member JavaScriptHeaders : Content
     member MinifiedJavaScript : Content
     member TypeScript : Content
     member WithAssembly : assemblyFile: string -> Bundle
