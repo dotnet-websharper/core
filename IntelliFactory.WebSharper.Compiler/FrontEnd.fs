@@ -148,6 +148,7 @@ type Assembly =
     {
         Debug : option<Symbols>
         Definition : AssemblyDefinition
+        FullLoadPath : option<string>
     }
 
     member this.FullName =
@@ -228,7 +229,7 @@ type Resolver(aR: AssemblyResolver) =
 [<Sealed>]
 type Loader(aR: AssemblyResolver, log: string -> unit) =
 
-    let load (bytes: byte[]) (symbols: option<Symbols>) (aR: AssemblyResolver) =
+    let load flp (bytes: byte[]) (symbols: option<Symbols>) (aR: AssemblyResolver) =
         use str = new MemoryStream(bytes)
         let par = ReaderParameters()
         par.AssemblyResolver <- Resolver aR
@@ -247,13 +248,14 @@ type Loader(aR: AssemblyResolver, log: string -> unit) =
         {
             Debug = symbols
             Definition = def
+            FullLoadPath = flp
         }
 
     static member Create(res: AssemblyResolver)(log) =
         Loader(res, log)
 
     member this.LoadRaw(bytes)(symbols) =
-        load bytes symbols aR
+        load None bytes symbols aR
 
     member this.LoadFile(path: Path) =
         let bytes = File.ReadAllBytes path
@@ -269,13 +271,14 @@ type Loader(aR: AssemblyResolver, log: string -> unit) =
             elif ex ".mdb" then Some (Mdb (rd ".mdb"))
             else None
         let aR = aR.SearchPaths [path]
+        let fP = Some (Path.GetFullPath path)
         try
-            load bytes symbols aR
+            load fP bytes symbols aR
         with :? InvalidOperationException ->
             if symbolsPath.IsSome then
                 "Failed to load symbols: " + symbolsPath.Value
                 |> log
-            load bytes None aR
+            load fP bytes None aR
 
 module CecilTools =
     open System.Text
@@ -462,14 +465,22 @@ let docWrite w =
     |> W.ExpressionToString IntelliFactory.JavaScript.Preferences.Compact
 
 [<Sealed>]
-type Bundle(resolver: AssemblyResolver, set: list<Assembly>) =
+type Bundle(set: list<Assembly>) =
     let logger = Logger.Create ignore 1000
+    let resolver =
+        let r = AssemblyResolver.Create()
+        set
+        |> Seq.choose (fun a -> Option.map Path.GetDirectoryName a.FullLoadPath)
+        |> Seq.distinct
+        |> r.SearchDirectories
+
     let loader = Loader.Create resolver ignore
 
     let context = lazy Context.Get(set)
 
     let deps =
         lazy
+        resolver.Wrap <| fun () ->
         let context = context.Value
         let mInfo = M.Info.Create context.Infos
         mInfo.GetDependencies [for a in set -> getDependencyNodeForAssembly a]
@@ -487,6 +498,7 @@ type Bundle(resolver: AssemblyResolver, set: list<Assembly>) =
         res.Render htmlHeadersContext hw
 
     let render (mode: BundleMode) (writer: TextWriter) =
+        resolver.Wrap <| fun () ->
         use htmlHeadersWriter =
             match mode with
             | BundleMode.HtmlHeaders -> new HtmlTextWriter(writer)
@@ -560,9 +572,7 @@ type Bundle(resolver: AssemblyResolver, set: list<Assembly>) =
 
     member b.WithAssembly(assemblyFile) =
         let assem = loader.LoadFile(assemblyFile)
-        let dir = Path.GetDirectoryName(assemblyFile)
-        let resolver = resolver.SearchDirectories([dir])
-        Bundle(resolver, assem :: set)
+        Bundle(assem :: set)
 
     member b.WithDefaultReferences() =
         let wsHome = Path.GetDirectoryName(typeof<Bundle>.Assembly.Location)
@@ -590,14 +600,10 @@ type Bundle(resolver: AssemblyResolver, set: list<Assembly>) =
         let completeSet =
             Algorithms.TopSort.Do(set, pred, comparer)
             |> Seq.toList
-        Bundle(resolver, completeSet)
+        Bundle(completeSet)
 
-    static member Empty =
-        let resolver = AssemblyResolver.Create()
-        Bundle(resolver, [])
-
-    static member Create() =
-        Bundle.Empty.WithDefaultReferences()
+    static member Empty = Bundle([])
+    static member Create() = Bundle.Empty.WithDefaultReferences()
 
 type Options =
     {
