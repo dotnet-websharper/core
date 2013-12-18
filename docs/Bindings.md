@@ -29,41 +29,41 @@ For example, assume a JavaScript file with the following declarations:
     }
 
     function Counter() {
-      this.value = 0;
-      this.next = function () {
-        this.value ++;
-        return this.value;
-      };
+        this.value = 0;
+        this.next = function () {
+            this.value ++;
+            return this.value;
+        };
     }
 
 The corresponding F# module with stubs might look like this:
 
-	module Counter =
+    module Counter =
 
-	  [<Name "counter">]
-	  [<Stub>]
-	  let makeCounter () : (unit -> int) = X<_>
+        [<Name "counter">]
+        [<Stub>]
+        let makeCounter () : (unit -> int) = X<_>
 
-	  [<Stub>]
-	  type Counter() =
+        [<Stub>]
+        type Counter() =
 
-		[<DefaultValue>]
-		val mutable value: int
+            [<DefaultValue>]
+            val mutable value: int
 
-		[<Name "next">]
-		[<Stub>]
-		member this.Next() : int = 0
+            [<Name "next">]
+            [<Stub>]
+            member this.Next() : int = 0
 
 Given the stub definitions, the following F# code:
 
-	open Counter
-	let c = new Counter()
-	c.Next()
+    open Counter
+    let c = new Counter()
+    c.Next()
 
 Will translate to the equivalent of:
 
-	var c = new Counter()
-	c.next()
+    var c = new Counter()
+    c.next()
 
 Things to note:
 
