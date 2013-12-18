@@ -101,6 +101,7 @@ let (|StringArg|_|) (attr: CustomAttributeArgument) =
 
 type EmbeddedFile =
     {
+        ResAssembly : string
         mutable ResContent : string
         ResContentBytes : byte []
         ResContentType : string
@@ -113,9 +114,13 @@ type EmbeddedFile =
     member ri.Content =
         match ri.ResContent with
         | null ->
-            let s = UTF8Encoding(false, true).GetString(ri.ResContentBytes)
-            ri.ResContent <- s
-            s
+            try
+                let s = UTF8Encoding(false, true).GetString(ri.ResContentBytes)
+                ri.ResContent <- s
+                s
+            with e ->
+                failwithf "Encoding problem in resource [%s] in assembly [%s]: %O"
+                    ri.ResAssembly ri.ResName e
         | s -> s
 
     member ri.ContentType = ri.ResContentType
@@ -136,6 +141,7 @@ let parseWebResources (def: AssemblyDefinition) =
                 readResourceBytes resourceName def
                 |> Option.map (fun c ->
                     {
+                        ResAssembly = string def.FullName
                         ResContent = null
                         ResContentBytes = c
                         ResContentType = contentType
