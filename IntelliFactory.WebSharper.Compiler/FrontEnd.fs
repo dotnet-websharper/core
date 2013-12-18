@@ -131,24 +131,33 @@ type EmbeddedFile =
         | "text/javascript" -> true
         | _ -> false
 
+let isWebSharperAssembly (a: AssemblyDefinition) =
+    let key = EMBEDDED_METADATA
+    a.MainModule.Resources
+    |> Seq.exists (function
+        | :? EmbeddedResource as r when r.Name = key -> true
+        | _ -> false)
+
 let parseWebResources (def: AssemblyDefinition) =
-    def.CustomAttributes
-    |> Seq.choose (fun attr ->
-        let wra = "System.Web.UI.WebResourceAttribute"
-        if attr.AttributeType.FullName = wra then
-            match Seq.toList attr.ConstructorArguments with
-            | [StringArg resourceName; StringArg contentType] ->
-                readResourceBytes resourceName def
-                |> Option.map (fun c ->
-                    {
-                        ResAssembly = string def.FullName
-                        ResContent = null
-                        ResContentBytes = c
-                        ResContentType = contentType
-                        ResName = resourceName
-                    })
-            | _ -> None
-        else None)
+    if isWebSharperAssembly def then
+        def.CustomAttributes
+        |> Seq.choose (fun attr ->
+            let wra = "System.Web.UI.WebResourceAttribute"
+            if attr.AttributeType.FullName = wra then
+                match Seq.toList attr.ConstructorArguments with
+                | [StringArg resourceName; StringArg contentType] ->
+                    readResourceBytes resourceName def
+                    |> Option.map (fun c ->
+                        {
+                            ResAssembly = string def.FullName
+                            ResContent = null
+                            ResContentBytes = c
+                            ResContentType = contentType
+                            ResName = resourceName
+                        })
+                | _ -> None
+            else None)
+    else Seq.empty
 
 type Assembly =
     {
