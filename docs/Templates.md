@@ -1,6 +1,6 @@
 # HTML Templates
 
-Default [Sitelet](Sitelets.md) projects will contain a `Main.html`
+Default sitelet projects will contain a `Main.html`
 file similar to the following:
 
 ```html
@@ -55,8 +55,7 @@ module Skin =
 ```
 
 With these definitions in place, you can easily define convenience
-functions for building `Content` objects required by
-[Sitelets](Sitelets.md):
+functions for building `Content` objects required by sitelets:
 
 ```fsharp
 let WithTemplate title body : Content<Action> =
