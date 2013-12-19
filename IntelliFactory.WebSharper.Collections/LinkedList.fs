@@ -21,15 +21,17 @@
 
 module private IntelliFactory.WebSharper.Collections.LinkedList
 
+open System.Collections
 open System.Collections.Generic
 
 open IntelliFactory.WebSharper
 
 type LL<'T> = LinkedList<'T>
 type LLN<'T> = LinkedListNode<'T>
+type LLE<'T> = LinkedList<'T>.Enumerator
 
 [<Proxy(typeof<LLN<_>>)>]
-type LinkedListNodeProxy<'T> =
+type NodeProxy<'T> =
     member this.Previous with [<Inline "$this.p">] get () = X<LLN<'T>>
     member this.Next     with [<Inline "$this.n">] get () = X<LLN<'T>>
     member this.Value    with [<Inline "$this.v">] get () = X<'T>
@@ -43,109 +45,136 @@ let setPrev (node: LLN<'T>) (p: LLN<'T>) = ()
 [<Inline "$node.n = $n" >]
 let setNext (node: LLN<'T>) (n: LLN<'T>) = ()
 
-[<JavaScript>]
+
+[<Proxy(typeof<LLE<_>>)>]
+type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
+    let mutable c = l
+
+    [<JavaScript>]
+    member this.Current = c.Value
+
+    [<JavaScript>]
+    member this.MoveNext() =
+        c <- c.Next
+        c <> null
+
+    [<JavaScript>]
+    member this.Dispose() = ()
+
 [<Proxy(typeof<LL<_>>)>]
-type LinkedListProxy<'T>(coll: 'T seq) =
-    [<Name "c">] 
-    let mutable count = 0
-    [<Name "f">] 
-    let mutable first = null
-    [<Name "l">] 
-    let mutable last = null
+type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
+    let mutable c = 0
+    let mutable n = null
+    let mutable p = null
 
     do  let ie = coll.GetEnumerator()
         if ie.MoveNext() then
-            first <- newNode null null ie.Current
-            last <- first
-            count <- 1
+            n <- newNode null null ie.Current
+            p <- n
+            c <- 1
         while ie.MoveNext() do
-            let node = newNode last null ie.Current
-            setNext last node
-            last <- node
-            count <- count + 1
+            let node = newNode p null ie.Current
+            setNext p node
+            p <- node
+            c <- c + 1
             
-    new () = LinkedListProxy(Seq.empty)          
+    [<JavaScript>]
+    new () = ListProxy(Seq.empty)          
 
     [<Inline>]
-    member this.Count = count
+    [<JavaScript>]
+    member this.Count = c
 
     [<Inline>]
-    member this.First = first
+    [<JavaScript>]
+    member this.First = n
 
     [<Inline>]
-    member this.Last = last
+    [<JavaScript>]
+    member this.Last = p
 
+    [<JavaScript>]
     member this.AddAfter(after: LLN<'T>, value) =
         let before = after.Next
         let node = newNode after before value
-        if after.Next = null then last <- node
+        if after.Next = null then p <- node
         setNext after node
         if before <> null then setPrev before node
-        count <- count + 1
+        c <- c + 1
         node
 
+    [<JavaScript>]
     member this.AddBefore(before: LLN<'T>, value) =
         let after = before.Previous
         let node = newNode after before value
-        if before.Previous = null then first <- node 
+        if before.Previous = null then n <- node 
         setPrev before node
         if after <> null then setNext after node
-        count <- count + 1
+        c <- c + 1
         node
 
+    [<JavaScript>]
     member this.AddFirst(value) =
-        if count = 0 then
+        if c = 0 then
             let node = newNode null null value
-            first <- node
-            last <- first 
-            count <- 1
+            n <- node
+            p <- n 
+            c <- 1
             node
-        else this.AddBefore(first, value)
+        else this.AddBefore(n, value)
 
+    [<JavaScript>]
     member this.AddLast(value) =
-        if count = 0 then
+        if c = 0 then
             let node = newNode null null value
-            first <- node
-            last <- first 
-            count <- 1
+            n <- node
+            p <- n 
+            c <- 1
             node
-        else this.AddAfter(last, value)
+        else this.AddAfter(p, value)
 
+    [<JavaScript>]
     member this.Clear() =
-        count <- 0
-        first <- null
-        last <- null
+        c <- 0
+        n <- null
+        p <- null
 
+    [<JavaScript>]
     member this.Contains(value) =
         let mutable found = false
-        let mutable node = first
+        let mutable node = n
         while node <> null && not found do
             if node.Value ==. value then found <- true 
             else node <- node.Next
         found
             
+    [<JavaScript>]
     member this.Find(value: 'T) =
-        let mutable node = first
+        let mutable node = n
         while node <> null && node.Value !=. value do
             node <- node.Next
         if node ==. value then node else null
 
+    [<JavaScript>]
     member this.FindLast(value: 'T) = 
-        let mutable node = last
+        let mutable node = p
         while node <> null && node.Value !=. value do
             node <- node.Previous
         if node ==. value then node else null
+                
+    [<JavaScript>]
+    member this.GetEnumerator(): LinkedList<'T>.Enumerator =
+        As (EnumeratorProxy(As this))
 
-    member this.GetEnumerator(): IEnumerator<'T> =
-        (first |> Seq.unfold (function null -> None | s -> Some (s.Value, s.Next))).GetEnumerator()
-            
+    [<JavaScript>]
     member this.Remove(node: LLN<'T>) =
         let before = node.Previous
         let after = node.Next
-        if before = null then first <- after else setNext before after
-        if after = null then last <- before else setPrev after before
-        count <- count - 1
+        if before = null then n <- after else setNext before after
+        if after = null then p <- before else setPrev after before
+        c <- c - 1
         
+    [<JavaScript>]
     member this.Remove(value) = 
         let node = this.Find(value)
         if node = null then false
@@ -153,7 +182,9 @@ type LinkedListProxy<'T>(coll: 'T seq) =
             this.Remove(node)
             true
 
-    member this.RemoveFirst() = this.Remove(first)
+    [<JavaScript>]
+    member this.RemoveFirst() = this.Remove(n)
 
-    member this.RemoveLast() = this.Remove(last)
+    [<JavaScript>]
+    member this.RemoveLast() = this.Remove(p)
                

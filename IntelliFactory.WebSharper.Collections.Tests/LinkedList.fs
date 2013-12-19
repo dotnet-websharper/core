@@ -31,7 +31,6 @@ let Tests =
     Section "LinkedList"
 
     Test "Construction" {
-        LL(seq { 1 .. 3 }) |> JavaScript.Log
         LL<int>().Count =? 0 
         LL(seq { 1 .. 3 }) |> Array.ofSeq =? [| 1; 2; 3 |]
     }
@@ -46,4 +45,5 @@ let Tests =
         Array.ofSeq l =? [| 3; 4; 5 |]
         l.AddAfter(n, 6) |> ignore
         Array.ofSeq l =? [| 3; 4; 5; 6 |]
+        l |> Seq.sum =? 18
     }
