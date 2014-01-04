@@ -134,12 +134,32 @@ module Content =
         /// template via the <c>data-hole="name"</c> attribute.</summary>
         member With : hole: string * def: Func<'T,#seq<HtmlElement>> -> Template<'T>
 
+        /// <summary>Adds a text-valued hole accessible in the
+        /// template as <c>${name}</c>.</summary>
+        member With : hole: string * def: Func<'T,Async<string>> -> Template<'T>
+
+        /// <summary>Adds an element-valued hole accessible in the
+        /// template via the <c>data-hole="name"</c> attribute.</summary>
+        member With : hole: string * def: Func<'T,Async<HtmlElement>> -> Template<'T>
+
+        /// <summary>Adds an element-list-valued hole accessible in the
+        /// template via the <c>data-hole="name"</c> attribute.</summary>
+        member With : hole: string * def: Func<'T,Async<#seq<HtmlElement>>> -> Template<'T>
+
         /// Compiles the template as a simple template. Recommended to use before Run
         /// for early detection of errors. Optionally pass the root folder.
         member Compile : ?root: string -> Template<'T>
 
         /// Expands the template on a given value. Optionally pass the root folder.
         member Run : value: 'T * ?root: string -> seq<HtmlElement>
+
+    /// Asynchronously applies a template as a page template for sitelet content.
+    /// An extra placeholder called "scripts" is available with WebSharper-determined
+    /// dependencies.
+    val WithTemplateAsync<'Action,'T> :
+        template: Template<'T> ->
+        content: (Context<'Action> -> Async<'T>) ->
+        Content<'Action>
 
     /// Applies a template as a page template for sitelet content.
     /// An extra placeholder called "scripts" is available with WebSharper-determined

@@ -248,8 +248,8 @@ module Content =
     type HtmlElement = H.Element<Control>
 
     type Hole<'T> =
-        | SH of ('T -> string)
-        | EH of ('T -> seq<HtmlElement>)
+        | SH of ('T -> Async<string>)
+        | EH of ('T -> Async<seq<HtmlElement>>)
 
     type Wrapper<'T> =
         {
@@ -442,14 +442,33 @@ module Content =
         new (path, freq) = Template(path, freq, Map.empty)
 
         member this.With(name: string, f: Func<'T,string>) =
-            Template(pathSpec, freq, Map.add name (SH f.Invoke) holes)
+            Template(pathSpec, freq, Map.add name (SH (async.Return << f.Invoke)) holes)
 
         member this.With(name: string, f: Func<'T,HtmlElement>) =
-            let h = EH (fun x -> Seq.singleton (f.Invoke(x)))
+            let h = EH (fun x -> async.Return <| Seq.singleton (f.Invoke(x)))
             Template(pathSpec, freq, Map.add name h holes)
 
         member this.With(name: string, f: Func<'T,#seq<HtmlElement>>) =
-            let h = EH (fun x -> Seq.cast(f.Invoke(x)))
+            let h = EH (fun x -> async.Return <| Seq.cast(f.Invoke(x)))
+            Template(pathSpec, freq, Map.add name h holes)
+
+        member this.With(name: string, f: Func<'T,Async<string>>) =
+            Template(pathSpec, freq, Map.add name (SH f.Invoke) holes)
+
+        member this.With(name: string, f: Func<'T,Async<HtmlElement>>) =
+            let h = EH (fun x ->
+              async {
+              let! result = f.Invoke(x)
+              return Seq.singleton (result)
+              })
+            Template(pathSpec, freq, Map.add name h holes)
+
+        member this.With(name: string, f: Func<'T,Async<#seq<HtmlElement>>>) =
+            let h = EH (fun x ->
+              async {
+              let! result = f.Invoke(x)
+              return Seq.cast(result)
+              })
             Template(pathSpec, freq, Map.add name h holes)
 
         member this.Compile(root) =
@@ -464,15 +483,17 @@ module Content =
         member this.CheckPageTemplate(root: string) =
             ignore (getPageTemplate root ())
 
-        member this.Run(env: Env, x: 'T, ?root: string) : XS.Element =
+        member this.Run(env: Env, x: Async<'T>, ?root: string) : Async<XS.Element> =
             let tpl = getPageTemplate (defaultArg root ".") ()
             let controls = Queue()
             let extra = Dictionary()
+            async {
+            let! x = x
             for KeyValue (k, v) in holes do
                 match v with
                 | SH _ -> ()
                 | EH es ->
-                    let children = es x
+                    let! children = es x
                     let div = H.NewElement "div" children
                     div.CollectAnnotations()
                     |> Seq.iter controls.Enqueue
@@ -484,20 +505,22 @@ module Content =
                 getResourcesAndScripts env controls
                 |> XS.CDataNode :> XS.INode
                 |> Seq.singleton
-            tpl.Run {
+            return tpl.Run {
                 appPath = env.AppPath
                 extra = extra
                 value = x
             }
             |> postProcess env.AppPath
+            }
 
-    let WithTemplate<'Action,'T>
+    let WithTemplateAsync<'Action,'T>
         (template: Template<'T>)
-        (content: Context<'Action> -> 'T) : Content<'Action> =
-        CustomContent (fun ctx ->
+        (content: Context<'Action> -> Async<'T>) : Content<'Action> =
+        CustomContentAsync (fun ctx ->
+            async {
             template.CheckPageTemplate(ctx.RootFolder)
-            let xml = template.Run(Env.Create ctx, content ctx, ctx.RootFolder)
-            {
+            let! xml = template.Run(Env.Create ctx, content ctx, ctx.RootFolder)
+            return {
                 Status = Http.Status.Ok
                 Headers =
                     [
@@ -508,4 +531,9 @@ module Content =
                     use w = new System.IO.StreamWriter(s)
                     w.WriteLine("<!DOCTYPE html>")
                     XS.Node.RenderHtml w xml
-            })
+            }})
+
+    let WithTemplate<'Action,'T>
+        (template: Template<'T>)
+        (content: Context<'Action> -> 'T) : Content<'Action> =
+        WithTemplateAsync template (fun ctx -> async.Return (content ctx))
