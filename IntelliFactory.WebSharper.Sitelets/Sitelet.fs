@@ -78,14 +78,23 @@ module Sitelet =
                 {
                     Handle = fun action ->
                         let prot = filter
-                        match UserSession.GetLoggedInUser () with
-                        | Some user ->
-                            if prot.VerifyUser user then
-                                site.Controller.Handle action
-                            else
-                                Content.Redirect (prot.LoginRedirect action)
-                        | None ->
-                             Content.Redirect (prot.LoginRedirect action)
+
+                        let failure = Content.Redirect (prot.LoginRedirect action)
+
+                        try
+                          match UserSession.GetLoggedInUser () with
+                          | Some user ->
+                              if prot.VerifyUser user then
+                                  site.Controller.Handle action
+                              else
+                                  failure
+                          | None ->
+                               failure
+                        with :? NullReferenceException ->
+                          // If server crashes or is restarted and doesn't have a hardcoded machine
+                          // key then GetLoggedInUser() throws an exception. Log out in this case.
+                          UserSession.Logout()
+                          failure
                 }
         }
 
