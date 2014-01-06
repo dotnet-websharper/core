@@ -132,11 +132,15 @@ type EmbeddedFile =
         | _ -> false
 
 let isWebSharperAssembly (a: AssemblyDefinition) =
-    let key = EMBEDDED_METADATA
-    a.MainModule.Resources
-    |> Seq.exists (function
-        | :? EmbeddedResource as r when r.Name = key -> true
-        | _ -> false)
+    match a.Name.Name with
+    | "IntelliFactory.JavaScript" -> true
+    | n when n.Contains("WebSharper") -> true
+    | _ ->
+        let key = EMBEDDED_METADATA
+        a.MainModule.Resources
+        |> Seq.exists (function
+            | :? EmbeddedResource as r when r.Name = key -> true
+            | _ -> false)
 
 let parseWebResources (def: AssemblyDefinition) =
     if isWebSharperAssembly def then
