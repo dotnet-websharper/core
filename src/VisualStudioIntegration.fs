@@ -146,6 +146,7 @@ module VisualStudioIntegration =
                     file "Web.config"
                     file "Global.asax"
                     file "Main.html"
+                    file "Setup.fsx"
                 ])
                 .ReplaceParameters()
         makeProjectTemplate com meta project
