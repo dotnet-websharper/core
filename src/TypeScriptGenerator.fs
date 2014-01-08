@@ -574,7 +574,8 @@ module internal TypeScriptGenerator =
         writeContract pc s.Return
 
     and writeArgument pc arg =
-        write pc arg.ArgumentName
+        let n = IntelliFactory.JavaScript.Identifier.MakeValid arg.ArgumentName
+        write pc n
         write pc ": "
         writeContract pc arg.ArgumentContract
 
