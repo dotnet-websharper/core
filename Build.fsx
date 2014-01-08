@@ -90,6 +90,7 @@ let wsCompiler =
                 r.Project(wsCore)
             ])
         .SourcesFromProject()
+        .Embed(["DomFix.d.ts"])
 
 let wsInterfaceGenerator =
     cbt.FSharp.Library("IntelliFactory.WebSharper.InterfaceGenerator")

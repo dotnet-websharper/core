@@ -417,17 +417,17 @@ let getDependencyNodeForAssembly (a: Assembly) : M.Node =
     let name = Re.AssemblyName.Parse(a.Definition.FullName)
     M.Node.AssemblyNode(name, M.AssemblyMode.CompiledAssembly)
 
+let readResourceFromAssembly (ty: Type) (name: string) =
+    ty.Assembly.GetManifestResourceNames()
+    |> Seq.tryFind (fun x -> x.Contains(name))
+    |> Option.bind (fun name ->
+        use s = ty.Assembly.GetManifestResourceStream(name)
+        use r = new StreamReader(s)
+        Some (r.ReadToEnd()))
+
 let readWebResource (ty: Type) (name: string) =
     try
-        let content =
-            let content =
-                ty.Assembly.GetManifestResourceNames()
-                |> Seq.tryFind (fun x -> x.Contains(name))
-                |> Option.bind (fun name ->
-                    use s = ty.Assembly.GetManifestResourceStream(name)
-                    use r = new StreamReader(s)
-                    Some (r.ReadToEnd()))
-            defaultArg content ""
+        let content = defaultArg (readResourceFromAssembly ty name) ""
         let contentType =
             let cT =
                 CustomAttributeData.GetCustomAttributes(ty.Assembly)
@@ -567,20 +567,26 @@ type Bundle(set: list<Assembly>) =
             writeStartCode false writer
         | _ -> ()
 
-    let content mode =
+    static let domFix =
+        readResourceFromAssembly typeof<Bundle> "DomFix.d.ts"
+
+    let content (prefix: option<string>) mode =
         let t =
             lazy
             use w = new StringWriter()
+            match prefix with
+            | None -> ()
+            | Some prefix -> w.WriteLine(prefix)
             render mode w
             w.ToString()
         Content(t)
 
-    let css = content BundleMode.CSS
-    let htmlHeaders = content BundleMode.HtmlHeaders
+    let css = content None BundleMode.CSS
+    let htmlHeaders = content None BundleMode.HtmlHeaders
     let javaScriptHeaders = htmlHeaders.Map(docWrite)
-    let javaScript = content BundleMode.JavaScript
-    let minifedJavaScript = content BundleMode.MinifiedJavaScript
-    let typeScript = content BundleMode.TypeScript
+    let javaScript = content None BundleMode.JavaScript
+    let minifedJavaScript = content None BundleMode.MinifiedJavaScript
+    let typeScript = content (Some domFix.Value) BundleMode.TypeScript
 
     member b.CSS = css
     member b.HtmlHeaders = htmlHeaders
