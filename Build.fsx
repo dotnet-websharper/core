@@ -9,8 +9,8 @@ open IntelliFactory.Build
 module Config =
     let PackageId = "WebSharper"
     let NumericVersion = Version("2.5.0.0")
-    let VersionSuffix = Some "alpha"
-    let PackageVerion = "2.5-alpha"
+    let VersionSuffix = None
+    let PackageVerion = "2.5"
     let Company = "IntelliFactory"
     let Description = "F#-to-JavaScript compiler and web application framework"
     let LicenseUrl = "http://websharper.com/licensing"
@@ -90,6 +90,7 @@ let wsCompiler =
                 r.Project(wsCore)
             ])
         .SourcesFromProject()
+        .Embed(["DomFix.d.ts"])
 
 let wsInterfaceGenerator =
     cbt.FSharp.Library("IntelliFactory.WebSharper.InterfaceGenerator")
@@ -243,6 +244,20 @@ let ifReactive =
 
 let wsTests =
     bt.WebSharper.Library("IntelliFactory.WebSharper.Tests").ClearRefs()
+        .SourcesFromProject()
+        .References(fun r ->
+            [
+                r.Project(ifWS)
+                r.Project(wsCore)
+                r.Project(wsCollections)
+                r.Project(wsEcma)
+                r.Project(wsControl)
+                r.Project(wsTesting)
+                r.Project(ifReactive)
+            ])
+
+let wsCollectionsTests =
+    bt.WebSharper.Library("IntelliFactory.WebSharper.Collections.Tests").ClearRefs()
         .SourcesFromProject()
         .References(fun r ->
             [
@@ -418,6 +433,7 @@ let website =
                 r.Project(wsJQuery)
                 r.Project(wsTesting)
                 r.Project(wsTests)
+                r.Project(wsCollectionsTests)
             ])
 
 let exports : list<INuGetExportingProject> =
@@ -506,6 +522,7 @@ bt.Solution [
     wsHtml5
     wsSitelets
     wsTests
+    wsCollectionsTests
     wsFormletTests
     wsHtml5Tests
     wsSiteletsTests
@@ -575,6 +592,7 @@ bt.Solution [
                     wsControl
                     wsTesting
                     wsTests
+                    wsCollectionsTests
                     ifHtml
                     wsHtml
                     wsWeb

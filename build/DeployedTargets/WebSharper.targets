@@ -221,6 +221,12 @@
       <IntermediateAssembly Remove="@(IntermediateAssembly)" />
       <IntermediateAssembly Include="$(Generator)" />
     </ItemGroup>
+    <ItemGroup Condition=" $(WebSharperIncludes) ">
+      <Reference Include="IntelliFactory.WebSharper.InterfaceGenerator">
+        <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.InterfaceGenerator.dll</HintPath>
+        <Private>false</Private>
+      </Reference>
+    </ItemGroup>
   </Target>
 
   <Target Name="InterfaceGeneratorCompile"
@@ -241,13 +247,6 @@
     </PropertyGroup>
     <Exec Command="$(Cmd)" />
   </Target>
-
-  <ItemGroup Condition=" $(WebSharperIncludes) AND $(InterfaceGenerator) ">
-    <Reference Include="IntelliFactory.WebSharper.InterfaceGenerator">
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.InterfaceGenerator.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-  </ItemGroup>
 
   <!-- Site WebSharper Projects -->
 
@@ -288,25 +287,6 @@
       <WebSharperBinaries Include="$(WebProjectOutputDir)\$(OutputPath)*.js" />
     </ItemGroup>
   </Target>
-
-  <ItemGroup Condition=" $(WebSharperIncludes) AND $(SiteWebSharperProject) ">
-    <Reference Include="IntelliFactory.WebSharper.Collections">
-      <Private>true</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Collections.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Control">
-      <Private>true</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Control.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Sitelets">
-      <Private>true</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Sitelets.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Web">
-      <Private>true</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Web.dll</HintPath>
-    </Reference>
-  </ItemGroup>
 
   <!-- Html Generation Projects -->
 

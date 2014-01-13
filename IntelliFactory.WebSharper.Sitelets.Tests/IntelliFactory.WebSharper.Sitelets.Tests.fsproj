@@ -7,45 +7,11 @@
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.Sitelets.Tests</Name>
   </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="System.Web" />
-  </ItemGroup>
+  <Import Project="../build/net45/$(Name).proj" />
+  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
+  <Target Name="Build" />
+  <Target Name="Clean" />
   <ItemGroup>
     <Compile Include="SampleSite.fs" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\IntelliFactory.Html\IntelliFactory.Html.fsproj">
-      <Name>IntelliFactory.Html</Name>
-      <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
-      <Name>IntelliFactory.WebSharper.Core</Name>
-      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Dom\IntelliFactory.WebSharper.Dom.fsproj">
-      <Name>IntelliFactory.WebSharper.Dom</Name>
-      <Project>{4382f3a7-126b-4bc6-988b-caa8c8a9b62f}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Html\IntelliFactory.WebSharper.Html.fsproj">
-      <Name>IntelliFactory.WebSharper.Html</Name>
-      <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Sitelets\IntelliFactory.WebSharper.Sitelets.fsproj">
-      <Name>IntelliFactory.WebSharper.Sitelets</Name>
-      <Project>{d991329a-3aa3-4269-83ad-3597864855a0}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Testing\IntelliFactory.WebSharper.Testing.fsproj">
-      <Name>IntelliFactory.WebSharper.Testing</Name>
-      <Project>{a7f7a74b-d0ee-4918-8a54-280fc7d2a30c}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Web\IntelliFactory.WebSharper.Web.fsproj">
-      <Name>IntelliFactory.WebSharper.Web</Name>
-      <Project>{fe6ba781-fdc9-4bb5-b38a-3bb9841ea836}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
-      <Name>IntelliFactory.WebSharper</Name>
-      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
-    </ProjectReference>
-  </ItemGroup>
-  <Import Project="..\build\WebSharper.targets" />
 </Project>

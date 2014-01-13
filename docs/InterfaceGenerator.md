@@ -26,56 +26,55 @@ please check out the
 [open-source code]("http://bitbucket.org/IntelliFactory/) by
 IntelliFactory.
 
-	module WebSharperExtension.Definition
+    module WebSharperExtension.Definition
+	
 	open IntelliFactory.WebSharper.InterfaceGenerator
-
+	
 	let I1 =
-	  Interface "I1"
-	  |+> [
-		"test1" => T<string> ^-> T<string>
-		"radius1" =@ T<float>
-	  ]
+        Interface "I1"
+        |+> [
+            "test1" => T<string> ^-> T<string>
+            "radius1" =@ T<float>
+      ]
 
 	let I2 =
-	  Generic / fun t1 t2 ->
-		Interface "I2"
-		|+> [
-		Generic - fun m1 -> "foo" => m1 * t1 ^-> t2
-	  ]
+        Generic / fun t1 t2 ->
+            Interface "I2"
+            |+> [
+                Generic - fun m1 -> "foo" => m1 * t1 ^-> t2
+            ]
 
-	let C1 =
-	  let C1T = Type.New ()
-	  Class "C1"
-	  |=> C1T
-	  |+> Protocol [
-			"foo" =% T<int>
-		  ]
-	  |+> [
+    let C1 =
+        let C1T = Type.New ()
+        Class "C1"
+        |=> C1T
+        |+> Protocol [
+            "foo" =% T<int>
+        ]
+        |+> [
+            Constructor (T<unit> + T<int>)
 
-		Constructor (T<unit> + T<int>)
+            "mem" =>
+                (T<unit> + T<int> ^-> T<unit>)
 
-		"mem" =>
-		  (T<unit> + T<int> ^-> T<unit>)
+            "test2" =>
+                (C1T -* T<int> ^-> T<unit>) * T<string> ^-> T<string>
 
-		"test2" =>
-		  (C1T -* T<int> ^-> T<unit>) * T<string> ^-> T<string>
+            "radius2" =@ T<float>
+            |> WithSourceName "R2"
 
-		"radius2" =@ T<float>
-		|> WithSourceName "R2"
+            "length" =% T<int>
+            |> WithSourceName "L2"
+        ]
 
-		"length" =% T<int>
-		|> WithSourceName "L2"
-
-	  ]
-
-	let Assembly =
-	  Assembly [
-		Namespace "MyNamespace" [
-		  I1
-		  Generic - I2
-		  C1
-		]
-	  ]
+    let Assembly =
+        Assembly [
+            Namespace "MyNamespace" [
+                I1
+                Generic - I2
+                C1
+            ]
+        ]
 
 ## Constructing Types
 
@@ -90,36 +89,36 @@ types.
 Existing system and user-defined types can be defined by using the `T`
 combinator with a generic parameter:
 
-	let types : list<Type.IType> =
-	  [
-		T<int>
-		T<list<string>>
-		T<MyType>
-	  ]
+    let types : list<Type.IType> =
+        [
+            T<int>
+            T<list<string>>
+            T<MyType>
+        ]
 
 ### Type Combinators
 
 Simpler types can be comined to form more complex types, including
 arrays, tuples, function types, and generic instantiations.
 
-	[
-	  Type.ArrayOf T<int>
-	  T<int> * T<float> * T<string>
-	  Type.Tuple [T<int> * T<float>; T<string>]
-	  T<int> ^-> T<unit>
-	  T<System.Collections.Generic.Dictionary<_,_>>.[T<int>,T<string>]
-	]
+    [
+        Type.ArrayOf T<int>
+        T<int> * T<float> * T<string>
+        Type.Tuple [T<int> * T<float>; T<string>]
+        T<int> ^-> T<unit>
+        T<System.Collections.Generic.Dictionary<_,_>>.[T<int>,T<string>]
+    ]
 
 In addition, delegate types can be formed.  WebSharper treats delegate
 types specially: their are compiled to JavaScript functions accepting
 the first argument through the implicit `this` parameter. For example
 when this can be helpful, consider following JavaScript function:
 
-	function iterate(callback, array) {
-	  for (var i = 0; i < array.length; i++) {
-		callback.call(array[i], i);
-	  }
-	}
+    function iterate(callback, array) {
+        for (var i = 0; i < array.length; i++) {
+            callback.call(array[i], i);
+        }
+    }
 
 To bind this function to WebSharper one needs to provide a type for
 the `callback` parameter, which is a function called with an element
@@ -127,8 +126,8 @@ of the array passed through the `this` implicit parameter and the
 array index passed through the first parameter.  This can be achieved
 thus:
 
-	let callbackType = T<obj> -* T<int> ^-> T<unit>
-	let iterateType  = callbackType * Type.ArrayOf T<obj> ^-> T<unit>
+    let callbackType = T<obj> -* T<int> ^-> T<unit>
+    let iterateType  = callbackType * Type.ArrayOf T<obj> ^-> T<unit>
 
 
 The type of the callback is then compiled to a delegate type in F#,
@@ -144,12 +143,12 @@ as it often is, for example, with mutually recursive classes, new type
 values can be constructed and used before being associated with a
 particular class or interface definition:
 
-	let Widget   = Type.New()
-	let Callback = Widget ^-> T<unit>
+    let Widget   = Type.New()
+    let Callback = Widget ^-> T<unit>
 
-	let WidgetClass =
-	  Class "Widget"
-	  |=> Widget
+    let WidgetClass =
+        Class "Widget"
+        |=> Widget
 
 The last line associates the `Widget` type with the `WidgetClass`
 definition.
@@ -165,12 +164,12 @@ Method representations are constructed using the `Method` (short form:
 `=>`) combinator that takes the name of the method and the
 corresponding functional type.  Some examples:
 
-	let methods =
-	  [
-		Method "dispose" T<unit -> unit>
-		Method "increment" (T<int> ^-> T<int>)
-		"add" => T<int> * T<int> ^-> T<int>
-	  ]
+    let methods =
+        [
+            Method "dispose" T<unit -> unit>
+            Method "increment" (T<int> ^-> T<int>)
+            "add" => T<int> * T<int> ^-> T<int>
+        ]
 
 Void return types and empty parameter lists are indicated by the
 `unit` type, multiple parameters are indicated by tuple types.  It is
@@ -185,12 +184,12 @@ Static and Instance Modifiers.
 By default, method parameters get autogenerated names.  You can
 customize parameter names as follows:
 
-let methods =
-  [
-    Method "dispose" (T<unit>?object ^-> T<unit>)
-    Method "increment" (T<int>?value ^-> T<int>)
-    "add" => T<int>?x * T<int>?y ^-> T<int>
-  ]
+    let methods =
+        [
+            Method "dispose" (T<unit>?object ^-> T<unit>)
+            Method "increment" (T<int>?value ^-> T<int>)
+            "add" => T<int>?x * T<int>?y ^-> T<int>
+        ]
 
 ### Variable-Argument Signatures
 
@@ -200,22 +199,22 @@ annotation and compiles such methods and delegates to
 variable-argument accepting functions in JavaScript.  Here is the
 syntax to define a variable-argument signature:
 
-	let methods =
-	  [
-		"t1" => !+ T<obj> ^-> T<unit>
-		"t2" => T<string> *+ T<obj> ^-> T<unit>
-	  ]
+    let methods =
+        [
+            "t1" => !+ T<obj> ^-> T<unit>
+            "t2" => T<string> *+ T<obj> ^-> T<unit>
+        ]
 
 When compiled to F#, these methods will have the following signatures:
 
-	val t1 : ([<System.ParamArray>] args: obj []) -> unit
-	val t2 : string * ([<System.ParamArray>] args: obj []) -> unit
+    val t1 : ([<System.ParamArray>] args: obj []) -> unit
+    val t2 : string * ([<System.ParamArray>] args: obj []) -> unit
 
 ### Optional Parameters
 
 Parameters can be made optional:
 
-	Method "exit" (!? T<string>?reason ^-> T<unit>)
+    Method "exit" (!? T<string>?reason ^-> T<unit>)
 
 Signatures such as the one above generate multiple members by implicit
 overloading (see below).
@@ -237,46 +236,46 @@ overloads are generated for this signature.
 Properties can be generated with a getter, a setter or both.  Below
 are the full and abbreviated syntax forms:
 
-	let properties =
-	  [
-		Getter "ReadOnly" T<int>
-		Setter "WriteOnly" T<int>
-		Property "Mutable" T<int>
-	  ]
+    let properties =
+        [
+            Getter "ReadOnly" T<int>
+            Setter "WriteOnly" T<int>
+            Property "Mutable" T<int>
+        ]
 
-	let shorthand =
-	  [
-		"ReadOnly"  =? T<int>
-		"WriteOnly" =! T<int>
-		"Mutable"   =@ T<int>
-	  ]
+    let shorthand =
+        [
+            "ReadOnly"  =? T<int>
+            "WriteOnly" =! T<int>
+            "Mutable"   =@ T<int>
+        ]
 
 ### Constructors
 
 Constructors definitions are similar to methods but do not carry a
 return type.  Examples:
 
-	let constructors =
-	  [
-		Constructor T<unit>
-		Constructor T<int>?width * T<int>?height
-	  ]
+    let constructors =
+        [
+            Constructor T<unit>
+            Constructor T<int>?width * T<int>?height
+        ]
 
 ### Fields
 
 Fields are generated using a similar syntax to properties:
 
-	let fields =
-	  [
-		Field "width" T<int>
-		Field "height" T<int>
-	  ]
+    let fields =
+        [
+            Field "width" T<int>
+            Field "height" T<int>
+        ]
 
-	let shorthand =
-	  [
-		"width"  =% T<int>
-		"height" =% T<int>
-	  ]
+    let shorthand =
+        [
+            "width"  =% T<int>
+            "height" =% T<int>
+        ]
 
 ### Interfaces
 
@@ -290,23 +289,23 @@ with members.
 Member definitions are appended using the `|+>` combinator, for
 example:
 
-	Interface "IAccessible"
-	|+> [
-	  "Access" => T<unit->unit>
-	  "LastAccessTime" =? T<System.DateTime>
-	]
+    Interface "IAccessible"
+    |+> [
+        "Access" => T<unit->unit>
+        "LastAccessTime" =? T<System.DateTime>
+    ]
 
 ### Inheritance
 
 Interfaces can inherit or extend multiple other interfaces.  The
 syntax is as follows:
 
-	Interface "IAccessible"
-	|=> Extends [T<System.IComparable>; T<System.IEnumerable<int>>]
-	|+> [
-	  "Access"         => T<unit->unit>
-	  "LastAccessTime" =? T<System.DateTime>
-	]
+    Interface "IAccessible"
+    |=> Extends [T<System.IComparable>; T<System.IEnumerable<int>>]
+    |+> [
+        "Access"         => T<unit->unit>
+        "LastAccessTime" =? T<System.DateTime>
+    ]
 
 ### Clases
 
@@ -319,23 +318,23 @@ with the `Class` keyword:
 
 Static members are added using the `|+>` combinator:
 
-	let Pear =
-	  let Pear = Type.New()
-	  Class "Pear"
-	  |=> Pear
-	  |=> [
-		"Create" => T<unit> ^-> Pear
-	  ]
+    let Pear =
+        let Pear = Type.New()
+        Class "Pear"
+        |=> Pear
+        |=> [
+            "Create" => T<unit> ^-> Pear
+        ]
 
 ### Instance Member Definitions
 
 Instance members are usually added using the `Protocol` combinator:
 
-	Class "Pear"
-	|+> Protocol [
-	  "Eat"     => T<unit->unit>
-	  "IsEaten" =? T<bool>
-	]
+    Class "Pear"
+    |+> Protocol [
+        "Eat"     => T<unit->unit>
+        "IsEaten" =? T<bool>
+    ]
 
 The use of the `Protocol` function is equivalent to transforming the
 methods with the `Instance` function prior to inclusion.
@@ -344,8 +343,8 @@ methods with the `Instance` function prior to inclusion.
 
 The syntax for class inheritance is as follows:
 
-	Class "ChildClass"
-	|=> Inherits BaseClass
+    Class "ChildClass"
+    |=> Inherits BaseClass
 
 ### Interface Implementation
 
@@ -359,10 +358,10 @@ The syntax for class inheritance is as follows:
 
 Class nesting is allowed:
 
-	Class "MyClass"
-	|=> Nested [
-		  Class "SubClass"
-		]
+    Class "MyClass"
+    |=> Nested [
+        Class "SubClass"
+    ]
 
 ### Generics
 
@@ -373,34 +372,34 @@ with the code of the form `Generic / fun t1 t2 .. tN ->`.  The
 `t1..tN` parameters can be used as types in the definition and
 represent the generic parameters.  For example:
 
-	Generic / fun t1 t2 ->
-	  Interface "IDictionary"
-	  |+> [
-			"Lookup"      => t1 ^-> t2
-			"ContainsKey" => t1 -> T<bool>
-			"Add"         => t1 * t2 -> T<unit>
-			"Remove"      => t1 -> T<unit>
-		  ]
+    Generic / fun t1 t2 ->
+        Interface "IDictionary"
+        |+> [
+            "Lookup"      => t1 ^-> t2
+            "ContainsKey" => t1 -> T<bool>
+            "Add"         => t1 * t2 -> T<unit>
+            "Remove"      => t1 -> T<unit>
+        ]
 
 This compiles to the following signature:
 
-	type IDictionary<'T1,'T2> =
-	  abstract member Lookup : 'T1 -> 'T2
-	  abstract member ContainsKey : 'T1 -> bool
-	  abstract member Add : 'T1 * 'T2 -> unit
-	  abstract member Remove : 'T1 -> unit
+    type IDictionary<'T1,'T2> =
+        abstract member Lookup : 'T1 -> 'T2
+        abstract member ContainsKey : 'T1 -> bool
+        abstract member Add : 'T1 * 'T2 -> unit
+        abstract member Remove : 'T1 -> unit
 
 #### Generic Methods
 
 Similarly, generic methods are generated using lambda expressions, but
 the syntax is now `Generic - fun t1 .. tN ->`, for example:
 
-	Generic - fun t ->
-	  "length" => T<list<_>>.[t] ^-> T<int>
+    Generic - fun t ->
+        "length" => T<list<_>>.[t] ^-> T<int>
 
 This code would generate the following F# signature:
 
-	val Length<'T> : list<'T> -> int
+    val Length<'T> : list<'T> -> int
 
 ## Modifiers
 
@@ -450,8 +449,8 @@ The simplest form of customization allows to decouple the .NET name of
 a member from the name used by the inline generation process.  This is
 done by the `WithSourceName` function.  For example:
 
-	"ClonePoint" => Point ^-> Point
-	|> WithSourceName "clone"
+    "ClonePoint" => Point ^-> Point
+    |> WithSourceName "clone"
 
 This generates a method that is available as `ClonePoint` from .NET
 but calls `clone` in JavaScript.
@@ -480,23 +479,23 @@ Configuration objects typically are simple collections of fields, most
 of them optional, that are used to describe how another object it to
 be constructed or operate.  Let us take a simple example:
 
-	let MyConfig : Class =
-	  Pattern.Config "classname" {
-		Required =
-		  [
-			"name", T<string>
-		  ]
-		Optional =
-		  [
-			"width", T<int>
-			"height", T<int>
-		  ]
-	  }
+    let MyConfig : Class =
+        Pattern.Config "classname" {
+            Required =
+            [
+                "name", T<string>
+            ]
+            Optional =
+            [
+                "width", T<int>
+                "height", T<int>
+            ]
+        }
 
 This definition would produce a class useable from F# that would
 compile to simple JavaScript object literals:
 
-	MyConfig("Alpha", Width=140)
+    MyConfig("Alpha", Width=140)
 
 #### Enumeration Pattern
 

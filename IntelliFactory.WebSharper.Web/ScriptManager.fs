@@ -23,6 +23,7 @@ namespace IntelliFactory.WebSharper.Web
 
 module J = IntelliFactory.WebSharper.Core.Json
 module M = IntelliFactory.WebSharper.Core.Metadata
+module P = IntelliFactory.WebSharper.PathConventions
 module R = IntelliFactory.WebSharper.Core.Reflection
 module Re = IntelliFactory.WebSharper.Core.Resources
 
@@ -49,26 +50,28 @@ type ScriptManager() =
         | None -> System.String.Format("ws{0}", next ())
 
     member private this.ResourceContext : Re.Context =
+        let isDebug = this.Context.IsDebuggingEnabled
+        let pu = P.PathUtility.VirtualPaths("/")
         {
-            DebuggingEnabled =
-                this.Context.IsDebuggingEnabled
+            DebuggingEnabled = isDebug
             DefaultToHttp = false
-            GetSetting = fun key ->
-                match Conf.AppSettings.[key] with
+            GetSetting = fun (name: string) ->
+                match Conf.AppSettings.[name] with
                 | null -> None
                 | x -> Some x
             GetAssemblyRendering = fun name ->
-                let ext =
-                    if System.Web.HttpContext.Current.IsDebuggingEnabled
-                    then ".dll.js"
-                    else ".dll.min.js"
-                let url =
-                    System.String.Format("~/Scripts/{0}{1}", name.Name, ext)
-                    |> this.ResolveUrl
+                let aid = P.AssemblyId.Create(name.FullName)
+                let url = if isDebug then pu.JavaScriptPath(aid) else pu.MinifiedJavaScriptPath(aid)
                 Re.RenderLink url
-            GetWebResourceRendering = fun t name ->
-                let url = this.Page.ClientScript.GetWebResourceUrl(t, name)
-                Re.RenderLink url
+            GetWebResourceRendering = fun ty resource ->
+                let id = P.AssemblyId.Create(ty)
+                let kind =
+                    if resource.EndsWith(".js") || resource.EndsWith(".ts")
+                        then P.ResourceKind.Script
+                        else P.ResourceKind.Content
+                P.EmbeddedResource.Create(kind, id, resource)
+                |> pu.EmbeddedPath
+                |> Re.RenderLink
         }
 
     /// Registers a pagelet with the manager.

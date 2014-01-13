@@ -73,5 +73,6 @@
     </Compile>
     <Compile Include="FrontEnd.fsi" />
     <Compile Include="FrontEnd.fs" />
+    <EmbeddedResource Include="DomFix.d.ts" />
   </ItemGroup>
 </Project>

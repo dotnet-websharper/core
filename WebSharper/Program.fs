@@ -204,6 +204,8 @@ let Start args =
             let write (c: FE.Content) (ext: string) =
                 c.WriteFile(out + ext)
             write bundle.CSS ".css"
+            write bundle.HtmlHeaders ".head.html"
+            write bundle.JavaScriptHeaders ".head.js"
             write bundle.JavaScript ".js"
             write bundle.MinifiedJavaScript ".min.js"
             write bundle.TypeScript ".d.ts"

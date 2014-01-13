@@ -18,7 +18,7 @@
     * [Mobile Applications](Mobile.md)
 * Deploying Code
     * [Deploying to IIS](IIS.md)
-    * [Deploying with Web API](http://github.com/intellifactory/websharper.webapi)
+    * [Deploying with Web API (OWIN, Standalone, IIS)](WebApi.md)
     * Generating Standalone HTML Applications
     * [Bundling Code](Bundling.md)
 * Reference

@@ -29,6 +29,17 @@ type IPagelet =
     abstract member Render : unit -> unit
     abstract member Body : Dom.Node
 
+[<AutoOpen>]
+module PageletExtensions =
+
+    type IPagelet with
+
+        [<JavaScript>]
+        member p.AppendTo(targetId: string) =
+            let target = Document.Current.GetElementById(targetId)
+            target.AppendChild(p.Body) |> ignore
+            p.Render()
+
 module Interfaces =
 
     /// Interface for required HTML/DOM functionality.

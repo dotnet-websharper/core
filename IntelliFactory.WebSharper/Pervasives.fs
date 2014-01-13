@@ -26,6 +26,7 @@ module IntelliFactory.WebSharper.Pervasives
 
 module A = IntelliFactory.WebSharper.Core.Attributes
 module J = IntelliFactory.WebSharper.JavaScript
+module M = IntelliFactory.WebSharper.Macro
 
 /// Returns null or some other default value of the given type.
 /// Note: a short-hand for "Unchecked.defaultof<'T>".
@@ -120,13 +121,16 @@ let ( ?<- ) (obj: obj) (key: string) (value: obj) = J.ClientSide<unit>
 [<Inline "[$x,$y]">]
 let ( => ) (x: string) (y: obj) = (x, y)
 
-/// Constructs a new object as if an object literal was used.
 [<JavaScript>]
-let New<'T> (fields: seq<string * obj>) : 'T =
+let private NewFromList<'T> (fields: seq<string * obj>) : 'T =
     let r = obj ()
     for (k, v) in fields do
         (?<-) r k v
     As r
+
+/// Constructs a new object as if an object literal was used.
+[<Macro(typeof<M.New>)>]
+let New<'T> (fields: seq<string * obj>) = X<'T>
 
 /// Re-exports Remoting.IRpcHandlerFactory.
 type IRpcHandlerFactory =

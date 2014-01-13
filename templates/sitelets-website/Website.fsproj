@@ -38,6 +38,7 @@
     <Content Include="Main.html" />
     <Content Include="Web.config" />
     <Content Include="Global.asax" />
+    <Content Include="Setup.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

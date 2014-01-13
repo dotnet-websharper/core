@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -19,19 +19,31 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Collections.Tests
+module IntelliFactory.WebSharper.Tests.LinkedList
 
 open IntelliFactory.WebSharper
-open IntelliFactory.WebSharper.Html
+open IntelliFactory.WebSharper.Testing
 
-[<Sealed>]
-type Runner() =
-    inherit Web.Control()
+type LL<'T> = System.Collections.Generic.LinkedList<'T>
 
-    [<JavaScript>]
-    override this.Body =
-        ignore Dictionary.Tests
-        ignore Map.Tests
-        ignore Set.Tests
-        ignore ResizeArray.Tests
-        Div [] :> _
+[<JavaScript>]
+let Tests =
+    Section "LinkedList"
+
+    Test "Construction" {
+        LL<int>().Count =? 0 
+        LL(seq { 1 .. 3 }) |> Array.ofSeq =? [| 1; 2; 3 |]
+    }
+
+    Test "Adding nodes" {
+        let l = LL()
+        l.AddFirst(3) |> ignore
+        Array.ofSeq l =? [| 3 |]
+        let n = l.AddLast(5)
+        Array.ofSeq l =? [| 3; 5 |]
+        l.AddBefore(n, 4) |> ignore
+        Array.ofSeq l =? [| 3; 4; 5 |]
+        l.AddAfter(n, 6) |> ignore
+        Array.ofSeq l =? [| 3; 4; 5; 6 |]
+        l |> Seq.sum =? 18
+    }
