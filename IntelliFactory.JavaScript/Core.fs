@@ -252,6 +252,18 @@ let Fold f init expr =
     ignore (Transform g expr)
     !state
 
+let Children expr =
+    let r = ResizeArray()
+    let _ = Transform (fun e -> r.Add(e); e) expr
+    r.ToArray()
+
+let Iterate f expr =
+    let rec loop expr =
+        f expr
+        Transform (fun e -> loop e; e) expr
+        |> ignore
+    loop expr
+
 let IsAlphaNormalized e =
     let set = HashSet()
     let rec ok = function
@@ -291,23 +303,6 @@ let AlphaNormalize e =
         | expr ->
             Transform (norm env) expr
     if IsAlphaNormalized e then e else norm Map.empty e
-
-let GetFreeIds e =
-    let bound = HashSet()
-    let free = HashSet()
-    let rec visit = function
-        | Lambda (v, vs, b) ->
-            if v.IsSome then
-                bound.Add v.Value |> ignore
-            Seq.iter (bound.Add >> ignore) vs
-            visit b
-        | Var v ->
-            if bound.Contains v then () else
-                free.Add v |> ignore
-        | e ->
-            Fold (fun () e -> visit e) () e
-    visit (AlphaNormalize e)
-    Set.ofSeq free
 
 let IsGround e =
     let bound = HashSet()
@@ -921,187 +916,351 @@ let ElaborateConstant c =
     | True -> S.Constant S.True
     | Undefined -> S.Var "undefined"
 
-let CapturesVariables expr =
-    not (GetFreeIds expr).IsEmpty
+/// Check if an expression is compilable to a JavaScript expression.
+let rec CompilesToJavaScriptExpression (expr: E) : bool =
+    let inline isE x = CompilesToJavaScriptExpression x
+    match expr with
+    | Application (f, a)
+    | New (f, a) -> isE f && List.forall isE a
+    | Binary (x, _, y)
+    | FieldDelete (x, y)
+    | FieldGet (x, y) -> isE x && isE y
+    | Call (t, m, a) -> isE t && isE m && List.forall isE a
+    | Constant _
+    | Global _
+    | Lambda _
+    | NewRegex _
+    | Runtime
+    | Var _ -> true
+    | FieldSet (x, y, z)
+    | IfThenElse (x, y, z) -> isE x && isE y && isE z
+    | ForEachField _
+    | ForIntegerRangeLoop _
+    | Let _
+    | LetRecursive _
+    | Sequential _
+    | Throw _
+    | TryFinally _ 
+    | TryWith _
+    | WhileLoop _ -> false
+    | NewArray xs -> List.forall isE xs
+    | NewObject xs -> List.forall (snd >> isE) xs
+    | Unary (_, x) | VarSet (_, x) -> isE x
 
-type ExpressionMode =
-    | Ignored
-    | Used
+type Effects =
+    | EffZ
+    | EffSt of S.Statement
+    | EffApp of Effects * Effects
 
-type StatementMode =
-    | Discard
-    | Return
+    static member Append a b =
+        match a, b with
+        | EffZ, x | x, EffZ -> x
+        | _ -> EffApp (a, b)
 
-let ToProgram prefs expr =
-    let scope = Scope.New prefs
+    static member Concat es =
+        match es with
+        | [] -> EffZ
+        | xs -> List.reduce Effects.Append xs
+
+    static member Statement s = EffSt s
+    static member Zero = EffZ
+
+    member eff.ToStatements() =
+        let rec toS eff tail =
+            match eff with
+            | EffZ -> tail
+            | EffSt s -> s :: tail
+            | EffApp (a, b) -> toS a (toS b tail)
+        toS eff []
+
+    member eff.ToBlock() =
+        S.Block (eff.ToStatements())
+
+type K =
+    | KIgnore
+    | KReturn
+    | KSet of S.Id
+    | KThrow
+    | KWith of (S.Expression -> Effects)
+
+let GetMutableIds expr =
+    let set = HashSet<Id>()
+    let add v = set.Add(v) |> ignore
+    expr
+    |> Iterate (function
+        | VarSet (var, _)
+        | ForIntegerRangeLoop (var, _, _, _)
+        | ForEachField (var, _, _) -> add var
+        | _ -> ())
+    Set.ofSeq set
+
+let GetFreeIds e =
+    let rec free e =
+        match e with
+        | ForEachField (var, obj, body) ->
+            free obj + Set.remove var (free body)
+        | ForIntegerRangeLoop (var, lo, hi, body) ->
+            free lo + free hi + Set.remove var (free body)
+        | Let (var, value, body) ->
+            free value + Set.remove var (free body)
+        | LetRecursive (bindings, body) ->
+            let bound = Set.ofSeq (List.map fst bindings)
+            let fr =
+                Set.unionMany [
+                    for (_, b) in bindings do
+                        yield free b
+                    yield free body
+                ]
+            Set.difference fr bound
+        | Lambda (None, vs, b) ->
+            List.foldBack Set.remove vs (free b)
+        | Lambda (Some v, vs, b) ->
+            List.foldBack Set.remove vs (free b)
+            |> Set.remove v
+        | TryWith (b1, var, b2) ->
+            free b1 + Set.remove var (free b2)
+        | Var v ->
+            Set.singleton v
+        | VarSet (v, e) ->
+            Set.add v (free e)
+        | e ->
+            Fold (fun fr e -> fr + free e) Set.empty e
+    free e
+
+let CloseOverMutablesIfNecessary (mut: Set<Id>) (sc: Scope.T) (expr: E) (tr: S.Expression) : S.Expression =
+    let vs = Set.intersect (GetFreeIds expr) mut
+    if not vs.IsEmpty then
+        let vars = [for m in vs -> Scope.Id sc m]
+        S.Application (S.Lambda (None, vars, [S.Action (S.Return (Some tr))]), List.map S.Var vars)
+    else tr
+
+let ToProgram prefs (expr: E) : S.Program =
+
+    let mut = GetMutableIds expr
+
     let lib = RuntimeName prefs
     let glob = GlobalName prefs
-    let kw s = (S.Var lib).[!~(S.String s)]
-    let rec toExpr scope mode expr =
-        let (!) : _ -> S.Expression = toExpr scope mode
-        let (!-) : _ -> S.Expression = toExpr scope Ignored
-        let (!!) = List.map (!)
-        let (!^) = Scope.Expression scope
+    let undef = S.Var "undefined"
+
+    let ( ++ ) a b = Effects.Append a b
+    let stmt x = Effects.Statement x
+
+    let appKU k =
+        match k with
+        | KIgnore -> Effects.Zero
+        | KReturn -> stmt (S.Return None)
+        | KSet var -> Effects.Zero
+        | KThrow -> stmt (S.Throw undef)
+        | KWith cont -> cont undef
+
+    let appK k (e: S.Expression) : Effects =
+        match e with
+        | S.Var "undefined" -> appKU k
+        | e ->
+            match k with
+            | KIgnore -> stmt (S.Ignore e)
+            | KReturn -> stmt (S.Return (Some e))
+            | KSet var -> stmt (S.Ignore (S.Var var ^= e))
+            | KThrow -> stmt (S.Throw e)
+            | KWith cont -> cont e
+
+    let block (eff: Effects) =
+        eff.ToBlock()
+
+    let voidK k s =
+        s ++ appKU k
+
+    let voidKS k s =
+        voidK k (stmt s)
+
+    let rec cW (sc: Scope.T) (expr: E) (k: S.Expression -> Effects) : Effects =
+        c sc expr (KWith k)
+
+    and cW2 sc e1 e2 k =
+        cW sc e1 (fun e1 -> cW sc e2 (k e1))
+
+    and cW3 sc e1 e2 e3 k =
+        cW2 sc e1 e2 (fun e1 e2 -> cW sc e3 (k e1 e2))
+
+    and cList sc list k =
+        match list with
+        | [] -> k []
+        | e1 :: es -> cW sc e1 (fun e1 -> cList sc es (fun e2 -> k (e1 :: e2)))
+
+    and c sc expr k =
+        let inline (!^) x = Scope.Expression sc x
         match expr with
-        | Application (FieldGet (t, m), a) ->
-            (!-t).[!-m]?call.[!~S.Null :: !!a]
         | Application (f, a) ->
-            (!f).[!!a]
+            match f with
+            | FieldGet (t, m) ->
+                cW sc t (fun t -> cW sc m (fun m -> cList sc a (fun a ->
+                    appK k t.[m]?call.[!~ S.Null :: a])))
+            | _ ->
+                cW sc f (fun f -> cList sc a (fun a -> appK k f.[a]))
         | Binary (x, o, y) ->
-            S.Binary (!x, ElaborateBinaryOperator o, !y)
+            let o = ElaborateBinaryOperator o
+            cW2 sc x y (fun x y -> appK k (S.Binary (x, o, y)))
         | Call (t, m, a) ->
-            (!t).[!m].[!!a]
+            cW2 sc t m (fun t m -> cList sc a (fun a -> appK k t.[m].[a]))
         | Constant c ->
-            ElaborateConstant c
+            appK k (ElaborateConstant c)
         | FieldDelete (t, f) ->
-            let d = (!t).[!f].Delete
-            match mode with
-            | Ignored -> d
-            | Used -> d.Void
+            cW2 sc t f (fun t f ->
+                let d = t.[f].Delete
+                let d =
+                    match k with
+                    | KIgnore -> d
+                    | _ -> d.Void
+                appK k d)
         | FieldGet (t, f) ->
-            (!t).[!f]
+            cW2 sc t f (fun t f -> appK k t.[f])
         | FieldSet (t, f, v) ->
-            let s = (!t).[!f] ^= !v
-            match mode with
-            | Ignored -> s
-            | Used -> s.Void
+            cW3 sc t f v (fun t f v ->
+                let s = t.[f] ^= v
+                let s =
+                    match k with
+                    | KIgnore -> s
+                    | _ -> s.Void
+                appK k s)
         | ForEachField (i, o, b) ->
-            let body = Lambda (None, [i], b.Void)
-            S.Application (kw "ForEach", [!body])
+            cW sc o (fun o ->
+                let v = !^ i
+                S.ForIn (v, o, block (c sc b KIgnore))
+                |> voidKS k)
         | ForIntegerRangeLoop (i, l, h, b) ->
-            let body = Lambda (None, [i], b.Void)
-            S.Application (kw "For", [!l; !h; !body])
+            cW2 sc l h (fun l h ->
+                let v = !^i
+                let pp = S.Postfix (v, S.PostfixOperator.``++``)
+                S.For (Some (v ^= l), Some (v &<= h), Some pp, block (c sc b KIgnore))
+                |> voidKS k)
         | Global name ->
             (S.Var glob, name)
             ||> Seq.fold (fun s x -> s.[!~(S.String x)])
-        | IfThenElse (c, t, e) ->
-            S.Conditional (!c, !t, !e)
-        | Lambda (this, vars, body) ->
-            toLambda scope this vars body
+            |> appK k
+        | IfThenElse (cond, t, e) ->
+            cW sc cond (fun cond ->
+                let compilesToExpr =
+                    CompilesToJavaScriptExpression t
+                    && CompilesToJavaScriptExpression e
+                if compilesToExpr then
+                    cW sc t (fun t -> cW sc e (fun e -> appK k (S.Conditional (cond, t, e))))
+                else
+                    match k with
+                    | KIgnore | KReturn | KSet _ | KThrow ->
+                        S.If (cond, block (c sc t k), block (c sc e k))
+                        |> stmt
+                    | KWith k ->
+                        let freshVar = Scope.Id sc (Id())
+                        let kS = KSet freshVar
+                        let st = S.If (cond, block (c sc t kS), block (c sc e kS)) |> stmt
+                        st ++ k (S.Var freshVar))
+        | Lambda (this, vars, body) as orig ->
+            match k with
+            | K.KIgnore -> Effects.Zero
+            | _ -> appK k (cLambda sc orig this vars body)
         | Let (var, value, body) ->
-            S.Binary (!^var ^= !value, S.BinaryOperator.``,``, !body)
+            c sc value (KSet (Scope.Id sc var))
+            ++ c sc body k
         | LetRecursive (bindings, body) ->
-            for (var, _) in bindings do
-                ignore !^var
-            (bindings, !body)
-            ||> List.foldBack (fun (var, value) body ->
-                match value with
-                | Constant Undefined -> body
-                | _ ->
-                    S.Binary (!^var ^= !value,
-                        S.BinaryOperator.``,``, body))
+            let (vars, values) = List.unzip bindings
+            let vars = List.map (Scope.Id sc) vars
+            Effects.Concat [
+                for (var, value) in List.zip vars values do
+                    match value with
+                    | Constant Undefined -> ()
+                    | _ -> yield c sc value (KSet var)
+                yield c sc body k
+            ]
         | New (f, a) ->
-            S.New (!f, !!a)
+            cW sc f (fun f -> cList sc a (fun a -> appK k (S.New (f, a))))
         | NewArray a ->
-            S.NewArray [for e in a -> Some !e]
+            cList sc a (fun a -> appK k (S.NewArray (List.map Some a)))
         | NewObject o ->
-            S.NewObject [for (k, v) in o -> (k, !v)]
+            let (ks, vs) = List.unzip o
+            cList sc vs (fun vs -> appK k (S.NewObject (List.zip ks vs)))
         | NewRegex x ->
-            S.NewRegex x
+            appK k (S.NewRegex x)
         | Runtime ->
-            S.Var lib
+            appK k (S.Var lib)
         | Sequential (x, y) ->
-            S.Binary (!-x, S.BinaryOperator.``,``, !y)
-        | Throw x ->
-            S.Application (kw "Throw", [!x])
-        | TryFinally (block, guard) ->
-            let block = Lambda (None, [], block)
-            let guard = Lambda (None, [], guard.Void)
-            S.Application (kw "TryFinally", [!block; !guard])
-        | TryWith (block, var, guard) ->
-            let block = Lambda (None, [], block)
-            let guard = Lambda (None, [var], guard)
-            S.Application (kw "Try", [!block; !guard])
-        | Unary (UnaryOperator.``void``, x) ->
-            match mode with
-            | Ignored -> !-x
-            | Used ->
-                match !-x with
-                | S.Unary (S.UnaryOperator.``void``, _) as e -> e
-                | e -> e.Void
+            c sc x KIgnore ++ c sc y k
+        | Throw e ->
+            c sc e KThrow
+        | TryFinally (tryBlock, guard) ->
+            match k with
+            | KIgnore | KReturn | K.KThrow | KSet _ ->
+                S.TryFinally (block (c sc tryBlock k), block (c sc guard KIgnore))
+                |> stmt
+            | KWith k ->
+                let freshVar = Scope.Id sc (Id())
+                let kS = KSet freshVar
+                let st =
+                    S.TryFinally (block (c sc tryBlock kS), block (c sc guard KIgnore))
+                    |> stmt
+                st ++ k (S.Var freshVar)
+        | TryWith (tryBlock, var, guard) ->
+            match k with
+            | KIgnore | KReturn | KSet _ ->
+                S.TryWith (block (c sc tryBlock k), Scope.Id sc var, block (c sc guard k), None)
+                |> stmt
+            | k ->
+                let freshVar = Scope.Id sc (Id())
+                let kS = KSet freshVar
+                let st =
+                    S.TryWith (block (c sc tryBlock kS), Scope.Id sc var, block (c sc guard kS), None)
+                    |> stmt
+                st ++ appK k (S.Var freshVar)
         | Unary (o, x) ->
-            S.Unary (ElaborateUnaryOperator o, !x)
+            match o with
+            | UnaryOperator.``void`` ->
+                cW sc x (fun x ->
+                    match k with
+                    | KIgnore -> x
+                    | _ ->
+                        match x with
+                        | S.Unary (S.UnaryOperator.``void``, _) as x -> x
+                        | x -> x.Void
+                    |> appK k)
+            | _ ->
+                cW sc x (fun x -> appK k (S.Unary (ElaborateUnaryOperator o, x)))
         | Var v ->
-            !^v
+            appK k !^v
         | VarSet (var, value) ->
-            !^var ^= !value
-        | WhileLoop (c, b) ->
-            let c = Lambda (None, [], c)
-            let b = Lambda (None, [], b.Void)
-            S.Application (kw "While", [!c; !b])
-    and toLambda scope this vars body =
-        let scope = Scope.Nest scope this vars
+            cW sc value (fun v -> appK k (!^var ^= v))
+        | WhileLoop (cond, body) ->
+            if CompilesToJavaScriptExpression cond then
+                cW sc cond (fun cond ->
+                    S.While (cond, block (c sc body KIgnore))
+                    |> voidKS k)
+            else
+                let expr =
+                    let ok = Id()
+                    Let (ok, !~ Literal.True,
+                        WhileLoop (Var ok,
+                            Sequential (
+                                VarSet (ok, cond),
+                                IfThenElse (Var ok, body, !~ Literal.Undefined)
+                            )))
+                c sc expr k
+
+    and cLambda sc orig this vars body : S.Expression =
+        let scope = Scope.Nest sc this vars
         let formals = List.map (Scope.Id scope) vars
         let mode =
             match body with
-            | Unary (UnaryOperator.``void``, body) -> Discard
-            | body -> Return
-        let body =
-            toStmts scope mode [] body
-            |> List.rev
-            |> List.map S.Action
+            | Unary (UnaryOperator.``void``, body) -> KIgnore
+            | body -> KReturn
+        let body = List.map S.Action <| (c scope body mode).ToStatements()
         S.Lambda (None, formals, Scope.WithVars scope body)
-    and toStmts scope (mode: StatementMode) acc expr =
-        let eS = toStmts scope
-        let eB mode = S.Block << List.rev << eS mode []
-        let eE = toExpr scope
-        let eV = Scope.Expression scope
-        let eID = Scope.Id scope
-        match expr with
-        | FieldDelete _ | FieldSet _ ->
-            S.Ignore (eE Ignored expr) :: acc
-        | ForEachField (i, o, b) ->
-            if CapturesVariables b
-            then S.Ignore (eE Ignored expr) :: acc
-            else S.ForIn (eV i, eE Used o, eB Discard b) :: acc
-        | ForIntegerRangeLoop (i, l, h, b) ->
-            if CapturesVariables b then
-                S.Ignore (eE Ignored expr) :: acc
-            else
-                let v = eV i
-                let e1 = v ^=  eE Used l
-                let e2 = v &<= eE Used h
-                let e3 = S.Postfix(v, S.PostfixOperator.``++``)
-                let body = eB Discard b
-                S.For (Some e1, Some e2, Some e3, body) :: acc
-        | IfThenElse (c, t, e) ->
-            S.If (eE Used c, eB mode t, eB mode e) :: acc
-        | Let (var, value, body) ->
-            eS mode (S.Ignore (eV var ^= eE Used value) :: acc) body
-        | LetRecursive (bindings, body) ->
-            for (k, _) in bindings do
-                ignore (eV k)
-            let acc =
-                (acc, bindings)
-                ||> List.fold (fun acc (var, value) ->
-                    match value with
-                    | Constant Undefined -> acc
-                    | _ -> S.Ignore (eV var ^= eE Used value) :: acc)
-            eS mode acc body
-        | Sequential (x, y) -> eS mode (eS Discard acc x) y
-        | Throw x -> S.Throw (eE Used x) :: acc
-        | TryFinally (block, guard) ->
-            S.TryFinally (eB mode block, eB Discard guard) :: acc
-        | TryWith (block, var, guard) ->
-            S.TryWith (eB mode block, eID var, eB mode guard, None) :: acc
-        | Unary (UnaryOperator.``void``, x) ->
-            S.Ignore (eE Ignored x) :: acc
-        | WhileLoop (c, b) ->
-            if CapturesVariables b
-                then S.Ignore (eE Ignored expr) :: acc
-                else S.While (eE Used c, eB Discard b) :: acc
-        | _ ->
-            match expr, mode with
-            | Constant Undefined, _
-            | Constant _, Discard -> acc
-            | _, Discard -> S.Ignore (eE Ignored expr) :: acc
-            | _, Return -> S.Return (Some (eE Used expr)) :: acc
-    let main = toStmts scope Discard [] expr
+        |> CloseOverMutablesIfNecessary mut sc orig
+
+    let scope = Scope.New prefs
+    let main = (c scope expr KIgnore).ToStatements()
     let vars =
         S.Vars ((glob, Some S.This)
         :: (lib, Some S.This?IntelliFactory?Runtime)
         :: Scope.Vars scope)
-    vars :: List.rev main
+    vars :: main
     |> List.map S.Action
 
 exception RecognitionError

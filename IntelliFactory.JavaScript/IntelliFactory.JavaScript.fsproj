@@ -6,12 +6,11 @@
     <ProjectGuid>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.JavaScript</Name>
-    <OutputPath>bin</OutputPath>
+    <OutputPath>../build/compiler</OutputPath>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
   </PropertyGroup>
   <Import Project="../build/compiler/$(Name).proj" />
   <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
-  <Target Name="Build" />
-  <Target Name="Clean" />
   <ItemGroup>
     <Compile Include="Extensions.fs" />
     <Compile Include="Preferences.fs" />
@@ -32,7 +31,6 @@
     <Compile Include="Packager.fsi" />
     <Compile Include="Packager.fs" />
     <Compile Include="Annotations.fs" />
-    <None Include="Test.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Web" />
