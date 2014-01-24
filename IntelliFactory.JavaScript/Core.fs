@@ -951,7 +951,7 @@ let Simplify expr =
                 | LetRecursive (bs, b) -> List.iter (snd >> eval) bs; eval b
                 | TryFinally _ | TryWith _ -> stop ()
                 | Unary (_, x) -> eval x
-                | Var v -> if v = var then st := 1 else ()
+                | Var v -> (if v.IsMutable then stop () elif v = var then st := 1)
                 | WhileLoop (_, _) -> stop ()
         eval body
         if !st = 1 then subst var value body else expr
@@ -996,6 +996,8 @@ let Simplify expr =
                 | 0 -> if isPure value then body else Sequential (value, body)
                 | 1 -> inlineLet expr var value body
                 | _ -> expr
+        | Sequential (a, b) when isPure a ->
+            b
         | Sequential (VarSet (returnVal, NewObject objFields), Sequential (propSetters, Var v)) when v = returnVal ->
             let rec getSetters acc e =
                 match e with
@@ -1195,14 +1197,33 @@ let ToProgram prefs (expr: E) : S.Program =
         | KThrow -> stmt (S.Throw undef)
         | KWith cont -> cont undef
 
+    let isPureSE e =
+        match e with
+        | S.Constant _
+        | S.Var _ -> true
+        | _ -> false
+
+    let noVoid e =
+        let e =
+            match e with
+            | S.Unary (S.UnaryOperator.``void``, e) -> e
+            | _ -> e
+        if isPureSE e then Effects.Zero else stmt (S.Ignore e)
+
+    let noVoidRet e =
+        match e with
+        | S.Unary (S.UnaryOperator.``void``, e) ->
+            noVoid e ++ stmt (S.Return None)
+        | _ -> stmt (S.Return (Some e))
+
     let appK k (e: S.Expression) : Effects =
         match e with
         | S.Var "undefined" -> appKU k
         | e ->
             match k with
-            | KIgnore -> stmt (S.Ignore e)
-            | KReturn -> stmt (S.Return (Some e))
-            | KSet var -> stmt (S.Ignore (S.Var var ^= e))
+            | KIgnore -> noVoid e
+            | KReturn -> noVoidRet e
+            | KSet var -> noVoid (S.Var var ^= e)
             | KThrow -> stmt (S.Throw e)
             | KWith cont -> cont e
 
@@ -1280,13 +1301,11 @@ let ToProgram prefs (expr: E) : S.Program =
             ||> Seq.fold (fun s x -> s.[!~(S.String x)])
             |> appK k
         | IfThenElse (cond, t, e) ->
-            cW sc cond (fun cond ->
+            cW sc cond <| fun cond ->
                 let compilesToExpr =
                     CompilesToJavaScriptExpression t
                     && CompilesToJavaScriptExpression e
-                if compilesToExpr then
-                    cW sc t (fun t -> cW sc e (fun e -> appK k (S.Conditional (cond, t, e))))
-                else
+                let toStmt () =
                     match k with
                     | KIgnore | KReturn | KSet _ | KThrow ->
                         S.If (cond, block (c sc t k), block (c sc e k))
@@ -1295,7 +1314,12 @@ let ToProgram prefs (expr: E) : S.Program =
                         let freshVar = Scope.Id sc (Id())
                         let kS = KSet freshVar
                         let st = S.If (cond, block (c sc t kS), block (c sc e kS)) |> stmt
-                        st ++ k (S.Var freshVar))
+                        st ++ k (S.Var freshVar)
+                if compilesToExpr then
+                    match k with
+                    | KIgnore -> toStmt ()
+                    | _ -> cW sc t (fun t -> cW sc e (fun e -> appK k (S.Conditional (cond, t, e))))
+                else toStmt ()
         | Lambda (this, vars, body) as orig ->
             match k with
             | K.KIgnore -> Effects.Zero
