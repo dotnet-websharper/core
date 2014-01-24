@@ -21,27 +21,32 @@
 
 module IntelliFactory.JavaScript.Core
 
+open IntelliFactory.JavaScript
 module S = Syntax
 
 type Dictionary<'T1,'T2> = System.Collections.Generic.Dictionary<'T1,'T2>
 type HashSet<'T> = System.Collections.Generic.HashSet<'T>
+type Interlocked = System.Threading.Interlocked
 
 type SB = Syntax.BinaryOperator
 type SP = Syntax.PostfixOperator
 type SU = Syntax.UnaryOperator
 
 [<Sealed>]
-type Id(id: int, name: string option, mut: bool) =
+type Id(id: int64, name: string option, mut: bool) =
     static let root = obj ()
-    static let mutable n = 0
-    static let next() = lock root (fun () -> let k = n in n <- k + 1; k)
+    static let mutable n = 0L
+    static let next() = Interlocked.Increment(&n)
     let mutable name = name
 
     new () = new Id(next(), None, false)
-    new (nameOpt) = new Id(next(), nameOpt, false)    
-    new (name) = new Id(next(), Some name, false)    
+    new (nameOpt) = new Id(next(), nameOpt, false)
+    new (name) = new Id(next(), Some name, false)
     new (name, mut) = new Id(next(), Some name, mut)
+    new (id: Id) = new Id(next (), id.Name, id.Mutable)
 
+
+    member this.IsMutable = mut
     member this.Id = id
 
     member this.Name
@@ -50,7 +55,7 @@ type Id(id: int, name: string option, mut: bool) =
 
     member this.Mutable = mut
 
-    override this.GetHashCode() = id
+    override this.GetHashCode() = int id
 
     override this.Equals obj =
         match obj with
@@ -68,7 +73,10 @@ type Id(id: int, name: string option, mut: bool) =
             match name with
             | None -> "id"
             | Some n -> n
-        System.String.Format("{0}#{1:x}", n, id)
+        if this.Mutable then
+            System.String.Format("{0}#{1:x}!", n, id)
+        else
+            System.String.Format("{0}#{1:x}", n, id)
 
 type UnaryOperator =
     | ``~`` = 0
@@ -191,149 +199,314 @@ and E = Expression
 
 exception TransformError
 
-let Transform (!) expr =
-    let (!!) = List.map (!)
-    let t v x =
-        match !(Lambda (None, [v], x)) with
-        | Lambda (None, [v], x) -> (v, x)
-        | Var f -> (v, Application (Var f, [Var v]))
+// Now define recursion schemes reminiscent of the Haskell Uniplate library.
+// On any tree, we need to deconstruct a node into a list of children,
+// and reconstruct children at that node.
+
+type M<'T> = list<'T> * (list<'T> -> 'T)
+type U<'T> = 'T -> M<'T>
+
+let inline UChildren (recur: U<'T>) node =
+    fst (recur node)
+
+let inline UAll u node =
+    let ch node = UChildren u node
+    let rec all node =
+        seq {
+            yield node
+            for c in ch node do
+                yield! all c
+        }
+    all node
+
+let inline UMapChildren (recur: U<'T>) f node =
+    let (ch, b) = recur node
+    b (List.map f ch)
+
+let inline UBottomUp (recur: U<'T>) tr node =
+    let rec g node =
+        let (ch, b) = recur node
+        tr (b (List.map g ch))
+    g node
+
+// To simplify recursion that is aware of binding structure,
+// we will mostly recur on `Node` tree below rather than `E`.
+// For example, an expression `let x = Y in Z` will be represented
+// as an `ExprNode` with two children, `ExprNode Y` and `BindNode ([x], Z)`.
+
+type Node =
+    | BindNode of list<Id> * E
+    | ExprNode of E
+
+let inline ENodeMatch e =
+
+    let inline match0 () =
+        ([], fun _ -> e)
+
+    let inline match1 x ctor =
+        ([ExprNode x], function
+            | [ExprNode x] -> ctor x
+            | _ -> raise TransformError)
+
+    let inline match2 x y ctor =
+        ([ExprNode x; ExprNode y], function
+            | [ExprNode x; ExprNode y] -> ctor (x, y)
+            | _ -> raise TransformError)
+
+    let inline match3 x y z ctor =
+        ([ExprNode x; ExprNode y; ExprNode z], function
+            | [ExprNode x; ExprNode y; ExprNode z] -> ctor (x, y, z)
+            | _ -> raise TransformError)
+
+    let unExprNode e =
+        match e with
+        | ExprNode e -> e
         | _ -> raise TransformError
-    let letRec vs b =
-        let (vars, bs) = List.unzip vs
-        match !(Lambda (None, vars, Sequential (NewArray bs, b))) with
-        | Lambda (None, vars, Sequential (NewArray bs, b))
-            when bs.Length = vars.Length ->
-                LetRecursive (List.zip vars bs, b)
-        | _ -> raise TransformError
-    match expr with
-    | Application (x, xs) -> Application (!x, !!xs)
-    | Binary (x, o, y) -> Binary (!x, o, !y)
-    | Call (f, m, xs) -> Call (!f, !m, !!xs)
-    | FieldDelete (x, y) -> FieldDelete (!x, !y)
-    | FieldGet (x, y) -> FieldGet (!x, !y)
-    | FieldSet (x, y, z) -> FieldSet (!x, !y, !z)
-    | ForEachField (v, x, y) ->
-        let x = !x
-        let (v, y) = t v y
-        ForEachField (v, x, y)
-    | ForIntegerRangeLoop (v, x, y, z) ->
-        let x = !x
-        let y = !y
-        let (v, z) = t v z
-        ForIntegerRangeLoop (v, x, y, z)
-    | IfThenElse (x, y, z) -> IfThenElse (!x, !y, !z)
-    | Lambda (this, vars, x) -> Lambda (this, vars, !x)
-    | Let (v, x, y) ->
-        let x = !x
-        let (v, y) = t v y
-        Let (v, x, y)
-    | LetRecursive ([], b) -> LetRecursive ([], !b)
-    | LetRecursive (vs, b) -> letRec vs b
-    | New (f, xs) -> New (!f, !!xs)
-    | NewArray x -> NewArray !!x
-    | NewObject xs ->
-        let t (k, v) = (k, !v)
-        NewObject (List.map t xs)
-    | Sequential (x, y) -> Sequential (!x, !y)
-    | Throw x -> Throw !x
-    | TryWith (x, v, y) ->
-        let x = !x
-        let (v, y) = t v y
-        TryWith (x, v, y)
-    | TryFinally (x, y) -> TryFinally (!x, !y)
-    | Unary (o, x) -> Unary (o, !x)
-    | VarSet (v, x) -> VarSet(v, !x)
-    | WhileLoop (x, y) -> WhileLoop (!x, !y)
-    | _ ->  expr
 
-let Fold f init expr =
-    let state = ref init
-    let g x = state := f !state x; x
-    ignore (Transform g expr)
-    !state
+    let inline matchL xs ctor =
+        let nodes = List.map ExprNode xs
+        let build xs = ctor (List.map unExprNode xs)
+        (nodes, build)
 
-let Children expr =
-    let r = ResizeArray()
-    let _ = Transform (fun e -> r.Add(e); e) expr
-    r.ToArray()
+    let inline matchXL x xs ctor =
+        let nodes = ExprNode x :: List.map ExprNode xs
+        let build = function
+            | ExprNode x :: xs -> ctor (x, List.map unExprNode xs)
+            | _ -> raise TransformError
+        (nodes, build)
 
-let Iterate f expr =
-    let rec loop expr =
-        f expr
-        Transform (fun e -> loop e; e) expr
-        |> ignore
-    loop expr
+    // First handle every binding form..
+    match e with
+    | Application (x, xs) ->
+        matchXL x xs Application
+    | Binary (x, op, y) ->
+        match2 x y (fun (x, y) -> Binary (x, op, y))
+    | Call (x, y, rest) ->
+        let nodes = ExprNode x :: ExprNode y :: List.map ExprNode rest
+        let build = function
+            | ExprNode x :: ExprNode y :: rest ->
+                Call (x, y, List.map unExprNode rest)
+            | _ -> raise TransformError
+        (nodes, build)
+    | Constant _ ->
+        match0 ()
+    | FieldDelete (x, y) ->
+        match2 x y FieldDelete
+    | FieldGet (x, y) ->
+        match2 x y FieldGet
+    | FieldSet (x, y, z) ->
+        match3 x y z FieldSet
+    | ForEachField (var, obj, body) ->
+        let nodes = [ExprNode obj; BindNode ([var], body)]
+        let build = function
+            | [ExprNode obj; BindNode ([var], body)] ->
+                ForEachField (var, obj, body)
+            | _ -> raise TransformError
+        (nodes, build)
+    | ForIntegerRangeLoop (id, x, y, z) ->
+        let nodes = [ExprNode x; ExprNode y; BindNode ([id], z)]
+        let build = function
+            | [ExprNode x; ExprNode y; BindNode ([id], z)] ->
+                ForIntegerRangeLoop (id, x, y, z)
+            | _ -> raise TransformError
+        (nodes, build)
+    | Global _ ->
+        match0 ()
+    | IfThenElse (x, y, z) ->
+        match3 x y z IfThenElse
+    | Lambda (None, vs, body) ->
+        let node = [BindNode (vs, body)]
+        let build = function
+            | [BindNode (vs, body)] -> Lambda (None, vs, body)
+            | _ -> raise TransformError
+        (node, build)
+    | Lambda (Some v, vs, body) ->
+        let node = [BindNode (v :: vs, body)]
+        let build = function
+            | [BindNode (v :: vs, body)] -> Lambda (Some v, vs, body)
+            | _ -> raise TransformError
+        (node, build)
+    | Let (var, value, body) ->
+        let nodes = [ExprNode value; BindNode ([var], body)]
+        let build = function
+            | [ExprNode value; BindNode ([var], body)] ->
+                Let (var, value, body)
+            | _ -> raise TransformError
+        (nodes, build)
+    | LetRecursive (bindings, body) ->
+        let vars = List.map fst bindings
+        let nodes =
+            [
+                yield BindNode (vars, body)
+                for (_, value) in bindings do
+                    yield BindNode (vars, value)
 
+            ]
+        let build = function
+            | BindNode (vars, body) :: rest ->
+                let bindings =
+                    List.zip vars [
+                        for r in rest ->
+                            match r with
+                            | BindNode (_, e) -> e
+                            | _ -> raise TransformError
+                    ]
+                LetRecursive (bindings, body)
+            | _ -> raise TransformError
+        (nodes, build)
+    | New (x, xs) ->
+        matchXL x xs New
+    | NewArray xs ->
+        matchL xs NewArray
+    | NewObject pairs ->
+        let (names, xs) = List.unzip pairs
+        matchL xs (NewObject << List.zip names)
+    | NewRegex _ ->
+        match0 ()
+    | Runtime ->
+        match0 ()
+    | Sequential (x, y) ->
+        match2 x y Sequential
+    | Throw e ->
+        match1 e Throw
+    | TryFinally (x, y) ->
+        match2 x y TryFinally
+    | TryWith (block, var, catch) ->
+        let nodes = [ExprNode block; BindNode ([var], catch)]
+        let build = function
+            | [ExprNode block; BindNode ([var], catch)] ->
+                TryWith (block, var, catch)
+            | _ -> raise TransformError
+        (nodes, build)
+    | Unary (op, e) ->
+        match1 e (fun e -> Unary (op, e))
+    | Var _ ->
+        match0 ()
+    | VarSet (id, e) ->
+        match1 e (fun e -> VarSet (id, e))
+    | WhileLoop (x, y) ->
+        match2 x y WhileLoop
+
+let inline NodeEMatch node =
+    match node with
+    | BindNode (vs, e) ->
+        ([e], function [e] -> BindNode (vs, e) | _ -> raise TransformError)
+    | ExprNode e ->
+        ([e], function [e] -> ExprNode e | _ -> raise TransformError)
+
+let inline NodeMatch node =
+    match node with
+    | ExprNode e ->
+        let (nodes, build) = ENodeMatch e
+        (nodes, fun nodes -> ExprNode (build nodes))
+    | BindNode (bound, e) ->
+        let (nodes, build) = ENodeMatch e
+        (nodes, fun nodes -> BindNode (bound, build nodes))
+
+let NodeE node =
+    match node with
+    | ExprNode e -> e
+    | BindNode (_, e) -> e
+
+let NodeUpdateE node e =
+    match node with
+    | ExprNode _ -> ExprNode e
+    | BindNode (ids, _) -> BindNode (ids, e)
+
+let inline EMatch e =
+    let (nodes, build) = ENodeMatch e
+    let build ch = build (List.map2 NodeUpdateE nodes ch)
+    (List.map NodeE nodes, build)
+
+let All expr = UAll EMatch expr
+let MapChildren f expr = UMapChildren EMatch f expr
+let Transform f expr = MapChildren f expr
+let Children expr = UChildren EMatch expr
+let Fold f init expr = List.fold f init (Children expr)
+let Iterate f expr = Seq.iter f (All expr)
+let AllNodes node = UAll NodeMatch node
+let BottomUp expr = UBottomUp EMatch expr
+
+// Examine all binders. If the same variable binds in multiple
+// places, discard the expression as not alpha-normalized.
 let IsAlphaNormalized e =
     let set = HashSet()
-    let rec ok = function
-        | Lambda (v, vs, b) ->
-            if v.IsSome && set.Contains v.Value
-               || Seq.exists set.Contains vs then
-                false
-            else
-                if v.IsSome then
-                    set.Add v.Value |> ignore
-                Seq.iter (set.Add >> ignore) vs
-                ok b
-        | expr ->
-            Fold (fun s e -> s && ok e) true expr
-    ok e
+    AllNodes (ExprNode e)
+    |> Seq.forall (fun node ->
+        match node with
+        | BindNode (vars, _) ->
+            vars |> List.forall (fun v -> set.Add(v) |> not)
+        | _ -> true)
 
+// Recur on binding structure, freshening the variables.
 let AlphaNormalize e =
-    let rec norm env expr =
-        match expr with
-        | Lambda (this, vars, body) ->
-            let (this, env) =
-                match this with
-                | None -> (None, env)
-                | Some this ->
-                    let v = Id this.Name
-                    (Some v, Map.add this v env)
+    let rec normN env node =
+        match node with
+        | BindNode (vars, expr) ->
             let (vars, env) =
                 (vars, ([], env))
                 ||> List.foldBack (fun var (vars, env) ->
-                    let v = Id var.Name
+                    let v = Id var
                     (v :: vars, Map.add var v env))
-            Lambda (this, vars, norm env body)
+            BindNode (vars, normE env expr)
+        | ExprNode e ->
+            ExprNode (normE env e)
+    and normE env e =
+        match e with
         | Var v ->
-            match env.TryFind v with
+            match env.TryFind(v) with
             | Some v -> Var v
-            | None -> Var v
-        | expr ->
-            Transform (norm env) expr
-    if IsAlphaNormalized e then e else norm Map.empty e
+            | None -> e
+        | VarSet (v, e) ->
+            let v =
+                match env.TryFind(v) with
+                | Some v -> v
+                | None -> v
+            VarSet (v, normE env e)
+        | _ ->
+            let (nodes, build) = ENodeMatch e
+            build (List.map (normN env) nodes)
+    if IsAlphaNormalized e then e else normE Map.empty e
+
+// Recur on binding structure, finding free variables.
+let GetFreeIdSet e =
+    let out = HashSet<Id>()
+    let visV bound v =
+        if not (Set.contains v bound) then
+            out.Add(v) |> ignore
+    let rec visN bound node =
+        match node with
+        | BindNode (vars, expr) ->
+            let bound = List.foldBack Set.add vars bound
+            visE bound expr
+        | ExprNode expr ->
+            visE bound expr
+    and visE bound e =
+        match e with
+        | Var v | VarSet (v, _) -> visV bound v
+        | _ -> ()
+        List.iter (visN bound) (fst (ENodeMatch e))
+    visE Set.empty e
+    out
 
 let IsGround e =
-    let bound = HashSet()
-    let rec ok = function
-        | Lambda (v, vs, b) ->
-            if v.IsSome then
-                bound.Add v.Value |> ignore
-            Seq.iter (bound.Add >> ignore) vs
-            ok b
-        | Var v ->
-            bound.Contains v
-        | e ->
-            Fold (fun s e -> s && ok e) true e
-    ok (AlphaNormalize e)
+    let set = GetFreeIdSet e
+    set.Count = 0
 
 let Substitute f e =
-    let bound = HashSet()
-    let rec sub = function
-        | Lambda (v, vs, b) ->
-            if v.IsSome then
-                bound.Add v.Value |> ignore
-            Seq.iter (bound.Add >> ignore) vs
-            Lambda (v, vs, sub b)
-        | Var v ->
-            if bound.Contains v then Var v else
-                match f v with
-                | None -> Var v
-                | Some e -> e
-        | e ->
-            Transform sub e
-    sub (AlphaNormalize e)
+    let e = AlphaNormalize e
+    let free = GetFreeIdSet e
+    let replace e =
+        match e with
+        | Var v when not v.IsMutable && free.Contains(v) ->
+            match f v with
+            | Some e -> AlphaNormalize e
+            | None -> e
+        | _ -> e
+    BottomUp replace e
+
+let GetFreeIds e =
+    Set.ofSeq (GetFreeIdSet e)
 
 // Utilities ------------------------------------------------------------------
 
@@ -527,7 +700,7 @@ let Uncurry expression =
         | Var x ->
             arities.[x] <- 0
         | expr ->
-            Fold (fun () e -> analyze e) () expr
+            List.iter analyze (Children expr)
     let rec optimize (fs: Set<_>) expr =
         match expr with
         | CurriedApplication (_, Var f, xs) when fs.Contains f ->
@@ -709,154 +882,149 @@ let RemoveLoops expr =
         Let (argId, NewArray [], t exit body ++ cycle ++ res)
     t id expr
 
-let rec removeRedexes expr =
-    let apply f xs =
-        match f with
-        | Lambda (None, args, body)
-            when List.length args = List.length xs ->
-            let bind key value body = Let (key, value, body)
-            List.foldBack2 bind args xs body
-        | _ -> Application (f, xs)
-    match expr with
-    | Application (f, xs) ->
-        let f = removeRedexes f
-        let xs = List.map removeRedexes xs
-        match f with
-        | Let (key, var, value) -> Let (key, var, apply value xs)
-        | _ -> apply f xs
-    | _ -> Transform removeRedexes expr
+let Simplify expr =
 
-let unalias expr =
-    let rec norm env expr =
-        match expr with
-        | Let (var, value, body) ->
-            match value with
-            | Constant _ | Var _ ->
-                norm (Map.add var (norm env value) env) body
-            | _ ->
-                let v = Id var.Name
-                Let (v, norm env value, norm (Map.add var (Var v) env) body)
-        | Lambda (this, vars, body) ->
-            let (this, env) =
-                match this with
-                | None -> (None, env)
-                | Some this ->
-                    let v = Id this.Name
-                    (Some v, Map.add this (Var v) env)
-            let (vars, env) =
-                (vars, ([], env))
-                ||> List.foldBack (fun var (vars, env) ->
-                    let v = Id var.Name
-                    (v :: vars, Map.add var (Var v) env))
-            Lambda (this, vars, norm env body)
-        | Var id ->
-            match env.TryFind id with
-            | Some expr -> expr
-            | None -> expr
-        | expr ->
-            Transform (norm env) expr
-    norm Map.empty expr
-
-let rec simpleObjExprs expr =
-    match expr with
-    | Sequential(VarSet (returnVal, NewObject objFields), Sequential(propSetters, Var v)) when v = returnVal ->
-        let rec getSetters acc e =
+    // fast-track Substitue: assume IsAlphaNormalized on all
+    // expressions involved
+    let subst (var: Id) replace body =
+        if var.Mutable then
+            invalidArg "var" "Var should not be mutable"
+        let sub e =
             match e with
-            | Constant Null -> Some acc
-            | Sequential(more, Unary(UnaryOperator.``void``, FieldSet (Var v, Constant (String field), value)))
-            | Sequential(more, FieldSet (Var v, Constant (String field), value)) ->
-                getSetters ((field, Transform simpleObjExprs value) :: acc) more
-            | _ -> None
-        match getSetters [] propSetters with
-        | Some s -> NewObject (objFields @ s)
-        | _ -> Transform simpleObjExprs expr   
-    | _ -> Transform simpleObjExprs expr
+            | Var v when v = var -> replace
+            | _ -> e
+        BottomUp sub body
 
-let rec eta expr =
-    match expr with
-    | Lambda (None, [x], Application (Var f, [Var y])) when x = y -> Var f
-    | Lambda (t, v, x) -> Lambda (t, v, eta x)
-    | _ -> Transform eta expr
-
-let inlineLetExprs expr =
-
-    let findCount m k =
-        defaultArg (Map.tryFind k m) 0
-
-    let sumCounts a b =
-        (a, b)
-        ||> Map.fold (fun a k v ->
-            Map.add k (findCount a k + v) a)
-
-    let isPure e =
-        match e with
-        | Lambda _
-        | Constant _
-        | Global _
-        | Var _ -> true
-        | _ -> false
- 
-    let isTiny e =
-        match e with
-        | Constant _
-        | Global _
-        | Var _ -> true
-        | _ -> false
-
-    /// Computes the optimized expression and its free variable counts.
-    let rec t (expr: Expression) : Expression * Map<Id,int> =
+    // approximate test for purity - if true, evaluating the
+    // expression should not have any observable side-effects
+    let rec isPure expr =
         match expr with
-        | Let (var, value, body) when not var.Mutable ->
-            let (body2, bc) = t body
-            let (value2, vc) = t value
-            let counts = Map.remove var (sumCounts bc vc)
-            match findCount bc var with
-            | 0 ->
-                if isPure value
-                    then (body2, bc)
-                    else (Sequential (value2, body2), counts)
-            | k when k = 1 ->
-                if isPure value || isTiny value then
-                    let result = Substitute (fun x -> if x = var then Some value else None) body
-                    (result, counts)
-                else 
-                match body2 with 
-                | Application(f, Var v :: argt) when var = v ->
-                    Application(f, value2 :: argt) |> removeRedexes, counts
-                | Call(o, m, Var v :: argt) when var = v ->
-                    Call(o, m, value2 :: argt) |> removeRedexes, counts
-                | _ ->
-                    (Let (var, value2, body2), counts)
-            | _ ->
-                (Let (var, value2, body2), counts)
-        | Lambda (this, vars, body) ->
-            let (body2, bc) = t body
-            (Lambda (this, vars, body2),
-                (bc, Option.toList this @ vars)
-                ||> List.fold (fun counts x -> Map.remove x counts))
-        | Var id ->
-            (expr, Map [id, 1])
-        | _ -> 
-            let r = ref Map.empty
-            let expr2 =
-                expr
-                |> Transform (fun e1 ->
-                    let (e2, counts) = t e1
-                    r := sumCounts !r counts
-                    e2)
-            (expr2, !r)
+        | Constant _ | Global _ | Lambda _ | Runtime | Var _ -> true
+        | Binary _ | NewArray _ | NewObject _ | NewRegex _ | FieldGet _
+        | IfThenElse _ | Let _ | LetRecursive _ | Unary _ ->
+            List.forall isPure (Children expr)
+        | _ -> false
 
-    fst (t expr)
+    // counts free occurences of var in expr
+    // assumes IsAlphaNormalized on all expressions invovled
+    // because of the invariant, all occurences are free
+    let occurenceCount (var: Id) expr =
+        if var.Mutable then
+            invalidArg "var" "Var should not be mutable"
+        let mutable count = 0
+        for e in All expr do
+            match e with
+            | Var v when v = var -> count <- count + 1
+            | _ -> ()
+        count
+
+    // optimizes a given expr = Let (var, value, body)
+    // assuming occurenceCount var body = 1
+    // test here if the only occurence is the first thing
+    // that gets evaluated. if so, inlining is safe.
+    // state: 0 = search; 1 = ok; 2 = fail
+    // state is used as a poor-man's cheap exceptions -
+    // would use exceptions here in OCaml/SML
+    let inlineLet expr var value body =
+        let st = ref 0
+        let stop () =
+            if !st = 0 then st := 2
+        let rec eval e =
+            if !st = 0 then
+                match e with
+                | Application _ | Call _ | FieldSet _ | FieldDelete _
+                | New _ | NewArray _ | NewObject _ | NewRegex _ | Throw _ | VarSet _ ->
+                    List.iter eval (Children e); stop ()
+                | Binary (x, _, y) | FieldGet (x, y) | Sequential (x, y) -> eval x; eval y
+                | Constant _ | Global _ | Lambda _ | Runtime -> ()
+                | ForEachField (_, obj, _) -> eval obj; stop ()
+                | ForIntegerRangeLoop (_, x, y, body) -> eval x; eval y; stop ()
+                | IfThenElse (e, _, _) -> eval e; stop ()
+                | Let (_, v, b) -> eval v; eval b
+                | LetRecursive (bs, b) -> List.iter (snd >> eval) bs; eval b
+                | TryFinally _ | TryWith _ -> stop ()
+                | Unary (_, x) -> eval x
+                | Var v -> if v = var then st := 1 else ()
+                | WhileLoop (_, _) -> stop ()
+        eval body
+        if !st = 1 then subst var value body else expr
+
+    // specify a simple rewrite step - recusion is taken care of later
+    // assume rewrites are confluent or else the order does not matter
+    // assume rewrites terminate
+    let step expr =
+        match expr with
+        | Application (Lambda (None, args, body), xs) ->
+            if List.length args = List.length xs then
+                let bind key value body = Let (key, value, body)
+                List.foldBack2 bind args xs body
+            else expr
+        | Application (Let (var, value, body), xs) ->
+            Let (var, value, Application (body, xs))
+        | Lambda (None, [x], Application (Var f, [Var y])) when x = y ->
+            Var f
+        | Let (var, Let (v, vl, bd), body) ->
+            Let (v, vl, Let (var, bd, body))
+        | Let (var, value, body) when not var.IsMutable ->
+            match value with
+            | Constant _ | Global _ | Runtime ->
+                subst var value body
+            | Var var2 when not var2.IsMutable ->
+                subst var value body
+            | Lambda _ ->
+                let mutable count = 0
+                let mutable isApplication = false
+                for occ in All body do
+                    match occ with
+                    | Application (Var f, _) when f = var -> isApplication <- true
+                    | Var x when x = var -> count <- count + 1
+                    | _ -> ()
+                if count = 1 then
+                    if isApplication
+                        then subst var value body
+                        else inlineLet expr var value body
+                else expr
+            | _ ->
+                match occurenceCount var body with
+                | 0 -> if isPure value then body else Sequential (value, body)
+                | 1 -> inlineLet expr var value body
+                | _ -> expr
+        | Sequential (VarSet (returnVal, NewObject objFields), Sequential (propSetters, Var v)) when v = returnVal ->
+            let rec getSetters acc e =
+                match e with
+                | Constant Null -> Some acc
+                | Sequential (more, Unary (UnaryOperator.``void``, FieldSet (Var v, Constant (String field), value)))
+                | Sequential (more, FieldSet (Var v, Constant (String field), value)) ->
+                    getSetters ((field, value) :: acc) more
+                | _ -> None
+            match getSetters [] propSetters with
+            | Some s -> NewObject (objFields @ s)
+            | _ -> expr
+        | _ ->
+            expr
+
+    let ( == ) a b =
+        System.Object.ReferenceEquals(a, b)
+
+    // keep rewriting with `step` bottom-up until reach a fixpoint
+    let rec simpl expr =
+        let changed = ref false
+        let tr e =
+            let eN = step e
+            if not (eN == e) then
+                changed := true
+            eN
+        let exprN = BottomUp tr expr
+        if !changed then simpl exprN else expr
+
+    simpl (AlphaNormalize expr)
 
 let Optimize expr =
-    AlphaNormalize expr
+    expr
+    |> AlphaNormalize
     |> Uncurry
     |> RemoveLoops
-    |> simpleObjExprs
-    |> removeRedexes
-    |> inlineLetExprs
-    |> unalias
-    |> eta
+    |> Simplify
 
 // Elaboration ----------------------------------------------------------------
 
@@ -993,39 +1161,6 @@ let GetMutableIds expr =
         | ForEachField (var, _, _) -> add var
         | _ -> ())
     Set.ofSeq set
-
-let GetFreeIds e =
-    let rec free e =
-        match e with
-        | ForEachField (var, obj, body) ->
-            free obj + Set.remove var (free body)
-        | ForIntegerRangeLoop (var, lo, hi, body) ->
-            free lo + free hi + Set.remove var (free body)
-        | Let (var, value, body) ->
-            free value + Set.remove var (free body)
-        | LetRecursive (bindings, body) ->
-            let bound = Set.ofSeq (List.map fst bindings)
-            let fr =
-                Set.unionMany [
-                    for (_, b) in bindings do
-                        yield free b
-                    yield free body
-                ]
-            Set.difference fr bound
-        | Lambda (None, vs, b) ->
-            List.foldBack Set.remove vs (free b)
-        | Lambda (Some v, vs, b) ->
-            List.foldBack Set.remove vs (free b)
-            |> Set.remove v
-        | TryWith (b1, var, b2) ->
-            free b1 + Set.remove var (free b2)
-        | Var v ->
-            Set.singleton v
-        | VarSet (v, e) ->
-            Set.add v (free e)
-        | e ->
-            Fold (fun fr e -> fr + free e) Set.empty e
-    free e
 
 let CloseOverMutablesIfNecessary (mut: Set<Id>) (sc: Scope.T) (expr: E) (tr: S.Expression) : S.Expression =
     let vs = Set.intersect (GetFreeIds expr) mut

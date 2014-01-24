@@ -10,7 +10,7 @@
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
   </PropertyGroup>
   <Import Project="../build/compiler/$(Name).proj" />
-  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
+  <Import Project="../msbuild/FSharp.targets" />
   <ItemGroup>
     <Compile Include="Extensions.fs" />
     <Compile Include="Preferences.fs" />
@@ -31,6 +31,7 @@
     <Compile Include="Packager.fsi" />
     <Compile Include="Packager.fs" />
     <Compile Include="Annotations.fs" />
+    <None Include="Core.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Web" />

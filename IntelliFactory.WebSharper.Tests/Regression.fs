@@ -84,7 +84,6 @@ module BugBB80 =
         }
         |> Async.Start
 
-
 [<JavaScript>]
 let Tests =
     Section "Regression"
