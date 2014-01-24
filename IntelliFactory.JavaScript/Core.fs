@@ -232,13 +232,14 @@ let inline UBottomUp (recur: U<'T>) tr node =
 // To simplify recursion that is aware of binding structure,
 // we will mostly recur on `Node` tree below rather than `E`.
 // For example, an expression `let x = Y in Z` will be represented
-// as an `ExprNode` with two children, `ExprNode Y` and `BindNode ([x], Z)`.
+// as an `ExprNode` with two children, `ExprNode Y` and `BindNode (x, Z)`.
 
 type Node =
-    | BindNode of list<Id> * E
+    | BindNode of Id * E
+    | BindNodes of list<Id> * list<E>
     | ExprNode of E
 
-let inline ENodeMatch e =
+let ENodeMatch e =
 
     let inline match0 () =
         ([], fun _ -> e)
@@ -297,16 +298,16 @@ let inline ENodeMatch e =
     | FieldSet (x, y, z) ->
         match3 x y z FieldSet
     | ForEachField (var, obj, body) ->
-        let nodes = [ExprNode obj; BindNode ([var], body)]
+        let nodes = [ExprNode obj; BindNode (var, body)]
         let build = function
-            | [ExprNode obj; BindNode ([var], body)] ->
+            | [ExprNode obj; BindNode (var, body)] ->
                 ForEachField (var, obj, body)
             | _ -> raise TransformError
         (nodes, build)
     | ForIntegerRangeLoop (id, x, y, z) ->
-        let nodes = [ExprNode x; ExprNode y; BindNode ([id], z)]
+        let nodes = [ExprNode x; ExprNode y; BindNode (id, z)]
         let build = function
-            | [ExprNode x; ExprNode y; BindNode ([id], z)] ->
+            | [ExprNode x; ExprNode y; BindNode (id, z)] ->
                 ForIntegerRangeLoop (id, x, y, z)
             | _ -> raise TransformError
         (nodes, build)
@@ -315,43 +316,30 @@ let inline ENodeMatch e =
     | IfThenElse (x, y, z) ->
         match3 x y z IfThenElse
     | Lambda (None, vs, body) ->
-        let node = [BindNode (vs, body)]
+        let node = [BindNodes (vs, [body])]
         let build = function
-            | [BindNode (vs, body)] -> Lambda (None, vs, body)
+            | [BindNodes (vs, [body])] -> Lambda (None, vs, body)
             | _ -> raise TransformError
         (node, build)
     | Lambda (Some v, vs, body) ->
-        let node = [BindNode (v :: vs, body)]
+        let node = [BindNodes (v :: vs, [body])]
         let build = function
-            | [BindNode (v :: vs, body)] -> Lambda (Some v, vs, body)
+            | [BindNodes (v :: vs, [body])] -> Lambda (Some v, vs, body)
             | _ -> raise TransformError
         (node, build)
     | Let (var, value, body) ->
-        let nodes = [ExprNode value; BindNode ([var], body)]
+        let nodes = [ExprNode value; BindNode (var, body)]
         let build = function
-            | [ExprNode value; BindNode ([var], body)] ->
+            | [ExprNode value; BindNode (var, body)] ->
                 Let (var, value, body)
             | _ -> raise TransformError
         (nodes, build)
     | LetRecursive (bindings, body) ->
-        let vars = List.map fst bindings
-        let nodes =
-            [
-                yield BindNode (vars, body)
-                for (_, value) in bindings do
-                    yield BindNode (vars, value)
-
-            ]
+        let (vars, values) = List.unzip bindings
+        let nodes = [BindNodes (vars, body :: values)]
         let build = function
-            | BindNode (vars, body) :: rest ->
-                let bindings =
-                    List.zip vars [
-                        for r in rest ->
-                            match r with
-                            | BindNode (_, e) -> e
-                            | _ -> raise TransformError
-                    ]
-                LetRecursive (bindings, body)
+            | [BindNodes (vars, body :: values)] ->
+                LetRecursive (List.zip vars values, body)
             | _ -> raise TransformError
         (nodes, build)
     | New (x, xs) ->
@@ -372,9 +360,9 @@ let inline ENodeMatch e =
     | TryFinally (x, y) ->
         match2 x y TryFinally
     | TryWith (block, var, catch) ->
-        let nodes = [ExprNode block; BindNode ([var], catch)]
+        let nodes = [ExprNode block; BindNode (var, catch)]
         let build = function
-            | [ExprNode block; BindNode ([var], catch)] ->
+            | [ExprNode block; BindNode (var, catch)] ->
                 TryWith (block, var, catch)
             | _ -> raise TransformError
         (nodes, build)
@@ -387,36 +375,47 @@ let inline ENodeMatch e =
     | WhileLoop (x, y) ->
         match2 x y WhileLoop
 
-let inline NodeEMatch node =
+let NodeEMatch node =
     match node with
-    | BindNode (vs, e) ->
-        ([e], function [e] -> BindNode (vs, e) | _ -> raise TransformError)
+    | BindNode (v, e) ->
+        ([e], function [e] -> BindNode (v, e) | _ -> raise TransformError)
+    | BindNodes (vs, es) ->
+        (es, fun es -> BindNodes (vs, es))
     | ExprNode e ->
         ([e], function [e] -> ExprNode e | _ -> raise TransformError)
 
-let inline NodeMatch node =
+let NodeMatch node =
     match node with
-    | ExprNode e ->
-        let (nodes, build) = ENodeMatch e
-        (nodes, fun nodes -> ExprNode (build nodes))
     | BindNode (bound, e) ->
         let (nodes, build) = ENodeMatch e
         (nodes, fun nodes -> BindNode (bound, build nodes))
+    | BindNodes (bound, es) ->
+        let unExprNode = function ExprNode e -> e | _ -> raise TransformError
+        (List.map ExprNode es, fun es -> BindNodes (bound, List.map unExprNode es))
+    | ExprNode e ->
+        let (nodes, build) = ENodeMatch e
+        (nodes, fun nodes -> ExprNode (build nodes))
 
-let NodeE node =
-    match node with
-    | ExprNode e -> e
-    | BindNode (_, e) -> e
-
-let NodeUpdateE node e =
-    match node with
-    | ExprNode _ -> ExprNode e
-    | BindNode (ids, _) -> BindNode (ids, e)
-
-let inline EMatch e =
-    let (nodes, build) = ENodeMatch e
-    let build ch = build (List.map2 NodeUpdateE nodes ch)
-    (List.map NodeE nodes, build)
+let EMatch e =
+    // note: to simplify implementation we are using the fact
+    // that BindNodes can only be in a list of length = 1
+    // representing LetRecursive
+    match ENodeMatch e with
+    | (BindNodes (vars, ch) :: _, build) ->
+        (ch, fun ch -> build [BindNodes (vars, ch)])
+    | (nodes, build) ->
+        let nodeE node =
+            match node with
+            | BindNode (_, e) -> e
+            | ExprNode e -> e
+            | _ -> raise TransformError
+        let nodeUpdateE node e =
+            match node with
+            | BindNode (ids, _) -> BindNode (ids, e)       
+            | ExprNode _ -> ExprNode e
+            | _ -> raise TransformError
+        let build ch = build (List.map2 nodeUpdateE nodes ch)
+        (List.map nodeE nodes, build)
 
 let All expr = UAll EMatch expr
 let MapChildren f expr = UMapChildren EMatch f expr
@@ -434,7 +433,9 @@ let IsAlphaNormalized e =
     AllNodes (ExprNode e)
     |> Seq.forall (fun node ->
         match node with
-        | BindNode (vars, _) ->
+        | BindNode (var, _) ->
+            set.Add(var) |> not
+        | BindNodes (vars, _) ->
             vars |> List.forall (fun v -> set.Add(v) |> not)
         | _ -> true)
 
@@ -442,13 +443,17 @@ let IsAlphaNormalized e =
 let AlphaNormalize e =
     let rec normN env node =
         match node with
-        | BindNode (vars, expr) ->
+        | BindNode (var, e) ->
+            let varN = Id var
+            let envN = Map.add var varN env
+            BindNode (varN, normE envN e)
+        | BindNodes (vars, exprs) ->
             let (vars, env) =
                 (vars, ([], env))
                 ||> List.foldBack (fun var (vars, env) ->
                     let v = Id var
                     (v :: vars, Map.add var v env))
-            BindNode (vars, normE env expr)
+            BindNodes (vars, List.map (normE env) exprs)
         | ExprNode e ->
             ExprNode (normE env e)
     and normE env e =
@@ -476,9 +481,11 @@ let GetFreeIdSet e =
             out.Add(v) |> ignore
     let rec visN bound node =
         match node with
-        | BindNode (vars, expr) ->
+        | BindNode (var, e) ->
+            visE (Set.add var bound) e
+        | BindNodes (vars, exprs) ->
             let bound = List.foldBack Set.add vars bound
-            visE bound expr
+            List.iter (visE bound) exprs
         | ExprNode expr ->
             visE bound expr
     and visE bound e =
