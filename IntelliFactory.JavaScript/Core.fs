@@ -912,6 +912,8 @@ let Simplify expr =
             List.forall isPure (Children expr)
         | _ -> false
 
+    let size = Seq.length (All expr)
+
     // counts free occurences of var in expr
     // assumes IsAlphaNormalized on all expressions invovled
     // because of the invariant, all occurences are free
@@ -992,10 +994,12 @@ let Simplify expr =
                         else inlineLet expr var value body
                 else expr
             | _ ->
-                match occurenceCount var body with
-                | 0 -> if isPure value then body else Sequential (value, body)
-                | 1 -> inlineLet expr var value body
-                | _ -> expr
+                // do not recur on large expressions (since this is quadratic).
+                if size > 128 then expr else
+                    match occurenceCount var body with
+                    | 0 -> if isPure value then body else Sequential (value, body)
+                    | 1 -> inlineLet expr var value body
+                    | _ -> expr
         | Sequential (a, b) when isPure a ->
             b
         | Sequential (VarSet (returnVal, NewObject objFields), Sequential (propSetters, Var v)) when v = returnVal ->
