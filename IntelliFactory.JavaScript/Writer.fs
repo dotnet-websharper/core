@@ -373,7 +373,8 @@ and Statement (buf: StringBuilder) statement =
         ++ Statement buf body
     | S.ForVars (vs, e1, e2, body) ->
         Word "for"
-        ++ Parens (VarsNoIn buf vs
+        ++ Parens (Word "var"
+                   ++ VarsNoIn buf vs
                    ++ Token ";"
                    ++ Optional (Expression buf) e1
                    ++ Token ";"
