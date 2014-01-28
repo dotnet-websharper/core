@@ -248,21 +248,24 @@ let FoldStatement fE fS init stmt =
     Fold TransformStatement fE fS init stmt
 
 /// Gets all locally scoped variables.
-let getLocals (body: list<ProgramElement>) acc =
-    let rec elem acc e =
-        match e with
-        | Action s -> stmt acc s
-        | Function (id, _, _) -> Set.add id acc
-    and stmt acc s =
+let GetLocals (body: list<ProgramElement>) (bound: Set<Id>) =
+    let res = ref bound
+    let rec visitStmt s : unit =
         match s with
-        | ForVars (v, _, _, _)
-        | Vars v ->
-            let f vs (v, _) = Set.add v vs
-            List.fold f acc v
-        | ForVarIn (id, _, _, _) -> Set.add id acc
-        | Labelled (id, s) -> stmt (Set.add id acc) s
-        | _ -> FoldStatement (fun x _ -> x) stmt acc s
-    List.fold elem acc body
+        | ForVars (vars, _, _, _) | Vars vars ->
+            for (v, _) in vars do
+                res := Set.add v !res
+        | ForVarIn (v, _, _, _) ->
+            res := Set.add v !res
+        | _ -> ()
+        FoldStatement (fun () _ -> ()) (fun () s -> visitStmt s) () s
+    and visitElem e =
+        match e with
+        | Action s -> visitStmt s
+        | Function (v, _, _) ->
+            res := Set.add v !res
+    List.iter visitElem body
+    !res
 
 /// Closes an expression by rewiring global variables to be
 /// member accesses on a global object.
@@ -273,15 +276,14 @@ let Close (glob: Id) (expr: E) =
             if Set.contains id bound then expr else
                 (?) (Var glob) id
         | Lambda (name, vars, body) ->
-            let bound =
-                getLocals body bound
-                + Set.ofList (Option.toList name @ vars)
+            let bound = GetLocals body (bound + Set.ofList (Option.toList name @ vars))
             Lambda (name, vars, tP bound body)
-        | _ -> TransformExpression (tE bound) (tS bound) expr
+        | _ ->
+            TransformExpression (tE bound) (tS bound) expr
     and tPE bound e =
         match e with
         | Function (name, vars, body) ->
-            let bound = getLocals body bound + Set.ofList vars
+            let bound = GetLocals body (Set.add name bound + Set.ofList vars)
             Function (name, vars, tP bound body)
         | Action s -> Action (tS bound s)
     and tP scope prog = List.map (tPE scope) prog
