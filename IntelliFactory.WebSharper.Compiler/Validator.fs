@@ -277,7 +277,7 @@ let verifyWebControl logger (verifier: Verifier.State) (t: Re.Type) =
 let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
     (assembly: Re.Assembly) : Assembly =
 
-    let verifier = Verifier.Create()
+    let verifier = Verifier.Create(logger)
     let warn = warn logger
     let error = error logger
 
