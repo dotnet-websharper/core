@@ -28,15 +28,18 @@ module XT = IntelliFactory.Xml.Templating
 /// for combinators to have access to it.
 type Content<'Action> =
     | CustomContent of (Context<'Action> -> Http.Response)
-    | PageContent of (Context<'Action> -> Page)
     | CustomContentAsync of (Context<'Action> -> Async<Http.Response>)
+    | PageContent of (Context<'Action> -> Page)
     | PageContentAsync of (Context<'Action> -> Async<Page>)
 
 /// Provides combinators for modifying content.
 module Content =
 
+    /// Generates an HTTP response. OBSOLETE - use the Async version.
+    val ToResponse<'T> : Content<'T> -> Context<'T> -> Http.Response
+
     /// Generates an HTTP response.
-    val ToResponse<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>
+    val ToResponseAsync<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>
 
     /// Eliminates the PageContent case. This member is obsolete.
     /// Use ToResponse instead.
@@ -45,7 +48,11 @@ module Content =
 
     /// Modify the response of a content. Transforms any
     /// content to 'CustomContent'.
-    val MapResponse<'T> : (Http.Response -> Async<Http.Response>) -> Content<'T> -> Content<'T>
+    val MapResponse<'T> : (Http.Response -> Http.Response) -> Content<'T> -> Content<'T>
+
+    /// Modify the response of a content. Transforms any
+    /// content to 'CustomContent'.
+    val MapResponseAsync<'T> : (Http.Response -> Async<Http.Response>) -> Content<'T> -> Content<'T>
 
     /// Add headers to the generated response. Transforms any
     /// content to 'CustomContent'.

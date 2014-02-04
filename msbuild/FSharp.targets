@@ -28,6 +28,7 @@
       $(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets
     </FSharp30Targets>
     <FSharp31Targets>$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.1/Framework/v4.0/Microsoft.FSharp.targets</FSharp31Targets>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
   </PropertyGroup>
   <Choose>
     <When Condition="Exists('$(FSharp31Targets)')">

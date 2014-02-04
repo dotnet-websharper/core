@@ -6,7 +6,7 @@
     <ProjectGuid>{d991329a-3aa3-4269-83ad-3597864855a0}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.Sitelets</Name>
-    <OutputPath>bin</OutputPath>
+    <OutputPath>../build/net45</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Extensions.fs" />
@@ -34,7 +34,6 @@
     <Compile Include="Offline\Plugin.fs" />
   </ItemGroup>
   <Import Project="../build/net45/$(Name).proj" />
-  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
-  <Target Name="Build" />
-  <Target Name="Clean" />
+  <Import Project="../msbuild/FSharp.targets" />
 </Project>
+
