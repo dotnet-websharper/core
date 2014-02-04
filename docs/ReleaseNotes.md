@@ -1,4 +1,6 @@
-# WebSharper 2.5.93.22
+# WebSharper 2.5.93
+
+Released: February 4, 2014.
 
 This release brings a new and improved optimizer for the Core language
 that is used as an intermediate form during compilation to JavaScript.
@@ -18,4 +20,4 @@ extension templates.
 
 # WebSharper 2.5
 
-See [ReleaseNotes for WebSharper 2.5](ReleaseNotes-2.5.md)
+See [Release Notes for WebSharper 2.5](ReleaseNotes-2.5.md)
