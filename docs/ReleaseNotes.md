@@ -11,10 +11,10 @@ extension templates.
 
 ## Bug fixes:
 
-* Issue #209 
-* Issue #210
-* Issue #211
-* Issue #213
+* [Issue #209](http://bitbucket.org/IntelliFactory/websharper/issue/209) 
+* [Issue #210](http://bitbucket.org/IntelliFactory/websharper/issue/210)
+* [Issue #212](http://bitbucket.org/IntelliFactory/websharper/issue/212)
+* [Issue #213](http://bitbucket.org/IntelliFactory/websharper/issue/213)
 
 # WebSharper 2.5
 
