@@ -32,8 +32,7 @@
 * Developing WebSharper
     * Building from Source
     * Roadmap
-    * Release Notes
-        * [2.5](ReleaseNotes-2.5.md)
+    * [Release Notes](ReleaseNotes.md)
 * Licensing
 * Contact
  
