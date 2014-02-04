@@ -93,7 +93,7 @@ type Plugin() =
                     ReferenceFiles = options.ReferenceFiles
                     TargetDir = options.OutputDirectory
                     Actions = actions
-                }
+                } |> Async.RunSynchronously
                 Result.Success
         with
         | Options.BadOptions message ->

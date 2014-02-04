@@ -24,6 +24,8 @@ namespace IntelliFactory.WebSharper.Sitelets
 type Content<'Action> =
     | CustomContent of (Context<'Action> -> Http.Response)
     | PageContent of (Context<'Action> -> Page)
+    | CustomContentAsync of (Context<'Action> -> Async<Http.Response>)
+    | PageContentAsync of (Context<'Action> -> Async<Page>)
 
 module Content =
     open System
@@ -118,8 +120,9 @@ module Content =
         writeStartScript tw
         m.ToString()
 
-    let toCustomContent genPage context : Http.Response =
-        let htmlPage = genPage context
+    let toCustomContent (genPage:Context<'a> -> Async<Page>) context : Async<Http.Response> =
+        async {
+        let! htmlPage = genPage context
         let writeBody (stream: Stream) =
             // Finds all the client side controls on the page.
             let controls =
@@ -143,39 +146,54 @@ module Content =
                 new System.Web.UI.HtmlTextWriter(textWriter)
             htmlPage.Renderer htmlPage.Doctype htmlPage.Title
                 renderHead renderBody htmlWriter
-        {
+        return {
             Status = Http.Status.Ok
             Headers = [Http.Header.Custom "Content-Type" "text/html; charset=utf-8"]
             WriteBody = writeBody
         }
+        }
 
-    let ToResponse<'T> (c: Content<'T>) (ctx: Context<'T>) =
+    let ToResponse<'T> (c: Content<'T>) (ctx: Context<'T>) : Async<Http.Response> =
         match c with
-        | CustomContent x -> x ctx
-        | PageContent genPage -> toCustomContent genPage ctx
+        | CustomContent x -> async{return x ctx}
+        | CustomContentAsync x -> x ctx
+        | PageContent genPage -> toCustomContent (fun c -> async {return genPage c}) ctx
+        | PageContentAsync genPage -> toCustomContent genPage ctx
+
+    let delay1 f =
+      fun arg -> async {return f arg}
 
     [<Obsolete>]
     let ToCustomContent (c: Content<'T>) =
         match c with
-        | CustomContent _ -> c
-        | PageContent genPage -> CustomContent (toCustomContent genPage)
+        | CustomContent _ | CustomContentAsync _ -> c        
+        | PageContent genPage -> CustomContentAsync (toCustomContent (delay1 genPage))
+        | PageContentAsync genPageAsync -> CustomContentAsync (toCustomContent genPageAsync)
 
-    let MapResponse<'T> (f: Http.Response -> Http.Response) (content: Content<'T>) =
+    let MapResponse<'T> (f: Http.Response -> Async<Http.Response>) (content: Content<'T>) =
         let genResp =
             match content with
-            | CustomContent x -> x
-            | PageContent genPage -> toCustomContent genPage
-        CustomContent <| fun context -> f (genResp context)
+            | CustomContent gen -> delay1 gen
+            | CustomContentAsync x -> x
+            | PageContent genPage -> toCustomContent (delay1 genPage)
+            | PageContentAsync genPage -> toCustomContent genPage
+        CustomContentAsync <| fun context ->
+          async {
+          let! result = genResp context
+          return! f result
+          }
 
     let WithHeaders<'T> (headers: seq<Http.Header>) (cont: Content<'T>) =
         cont
         |> MapResponse (fun resp ->
+            async {
             let headers = (List.ofSeq headers) @ (List.ofSeq resp.Headers)
-            {resp with Headers = headers})
+            return {resp with Headers = headers}})
 
     let SetStatus<'T> (status: Http.Status) (cont: Content<'T>) =
         cont
-        |> MapResponse (fun resp -> {resp with Status = status})
+        |> MapResponse (fun resp ->
+          async {return {resp with Status = status}})
 
     /// Emits a 301 Moved Permanently response to a given URL.
     let RedirectToUrl<'T> (url: string) : Content<'T> =
@@ -188,7 +206,7 @@ module Content =
 
     /// Emits a 301 Moved Permanently response to a given action.
     let Redirect<'T> (action: 'T) =
-        CustomContent <| fun ctx ->
+        CustomContentAsync <| fun ctx ->
             ToResponse (RedirectToUrl (ctx.Link action)) ctx
 
     /// Emits a 307 Redirect Temporary response to a given url.
@@ -202,7 +220,7 @@ module Content =
 
     /// Emits a 307 Redirect Temporary response to a given url.
     let RedirectTemporary<'T> (action: 'T) : Content<'T> =
-        CustomContent <| fun ctx ->
+        CustomContentAsync <| fun ctx ->
             ToResponse (RedirectTemporaryToUrl (ctx.Link action)) ctx
 
     /// Constructs a status code response.
@@ -230,8 +248,8 @@ module Content =
     type HtmlElement = H.Element<Control>
 
     type Hole<'T> =
-        | SH of ('T -> string)
-        | EH of ('T -> seq<HtmlElement>)
+        | SH of ('T -> Async<string>)
+        | EH of ('T -> Async<seq<HtmlElement>>)
 
     type Wrapper<'T> =
         {
@@ -424,14 +442,33 @@ module Content =
         new (path, freq) = Template(path, freq, Map.empty)
 
         member this.With(name: string, f: Func<'T,string>) =
-            Template(pathSpec, freq, Map.add name (SH f.Invoke) holes)
+            Template(pathSpec, freq, Map.add name (SH (async.Return << f.Invoke)) holes)
 
         member this.With(name: string, f: Func<'T,HtmlElement>) =
-            let h = EH (fun x -> Seq.singleton (f.Invoke(x)))
+            let h = EH (fun x -> async.Return <| Seq.singleton (f.Invoke(x)))
             Template(pathSpec, freq, Map.add name h holes)
 
         member this.With(name: string, f: Func<'T,#seq<HtmlElement>>) =
-            let h = EH (fun x -> Seq.cast(f.Invoke(x)))
+            let h = EH (fun x -> async.Return <| Seq.cast(f.Invoke(x)))
+            Template(pathSpec, freq, Map.add name h holes)
+
+        member this.With(name: string, f: Func<'T,Async<string>>) =
+            Template(pathSpec, freq, Map.add name (SH f.Invoke) holes)
+
+        member this.With(name: string, f: Func<'T,Async<HtmlElement>>) =
+            let h = EH (fun x ->
+              async {
+              let! result = f.Invoke(x)
+              return Seq.singleton (result)
+              })
+            Template(pathSpec, freq, Map.add name h holes)
+
+        member this.With(name: string, f: Func<'T,Async<#seq<HtmlElement>>>) =
+            let h = EH (fun x ->
+              async {
+              let! result = f.Invoke(x)
+              return Seq.cast(result)
+              })
             Template(pathSpec, freq, Map.add name h holes)
 
         member this.Compile(root) =
@@ -446,15 +483,17 @@ module Content =
         member this.CheckPageTemplate(root: string) =
             ignore (getPageTemplate root ())
 
-        member this.Run(env: Env, x: 'T, ?root: string) : XS.Element =
+        member this.Run(env: Env, x: Async<'T>, ?root: string) : Async<XS.Element> =
             let tpl = getPageTemplate (defaultArg root ".") ()
             let controls = Queue()
             let extra = Dictionary()
+            async {
+            let! x = x
             for KeyValue (k, v) in holes do
                 match v with
                 | SH _ -> ()
                 | EH es ->
-                    let children = es x
+                    let! children = es x
                     let div = H.NewElement "div" children
                     div.CollectAnnotations()
                     |> Seq.iter controls.Enqueue
@@ -466,20 +505,22 @@ module Content =
                 getResourcesAndScripts env controls
                 |> XS.CDataNode :> XS.INode
                 |> Seq.singleton
-            tpl.Run {
+            return tpl.Run {
                 appPath = env.AppPath
                 extra = extra
                 value = x
             }
             |> postProcess env.AppPath
+            }
 
-    let WithTemplate<'Action,'T>
+    let WithTemplateAsync<'Action,'T>
         (template: Template<'T>)
-        (content: Context<'Action> -> 'T) : Content<'Action> =
-        CustomContent (fun ctx ->
+        (content: Context<'Action> -> Async<'T>) : Content<'Action> =
+        CustomContentAsync (fun ctx ->
+            async {
             template.CheckPageTemplate(ctx.RootFolder)
-            let xml = template.Run(Env.Create ctx, content ctx, ctx.RootFolder)
-            {
+            let! xml = template.Run(Env.Create ctx, content ctx, ctx.RootFolder)
+            return {
                 Status = Http.Status.Ok
                 Headers =
                     [
@@ -490,4 +531,9 @@ module Content =
                     use w = new System.IO.StreamWriter(s)
                     w.WriteLine("<!DOCTYPE html>")
                     XS.Node.RenderHtml w xml
-            })
+            }})
+
+    let WithTemplate<'Action,'T>
+        (template: Template<'T>)
+        (content: Context<'Action> -> 'T) : Content<'Action> =
+        WithTemplateAsync template (fun ctx -> async.Return (content ctx))
