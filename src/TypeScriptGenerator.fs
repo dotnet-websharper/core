@@ -358,21 +358,17 @@ module internal TypeScriptGenerator =
                 UsedNames = HashSet(usedNames)
             }
 
-    type AliasContext =
-        | ACGlobal
-        | ACInRootModule of Q.Id * AliasTable
-
     type PrintContext =
         {
-            AliasContext : AliasContext
+            AliasTable : AliasTable
             Builder : Q.Builder
             IndentedWriter : IndentedWriter
             Scope : Scope
         }
 
-        static member Create(w, builder) =
+        static member Create(aT, w, builder) =
             {
-                AliasContext = ACGlobal
+                AliasTable = aT
                 Builder = builder
                 IndentedWriter = IndentedWriter.Create(w)
                 Scope = globalScope
@@ -421,50 +417,53 @@ module internal TypeScriptGenerator =
 
     let aliasInTable (tab: AliasTable) (Address qn as addr) =
         let qb = qn.Builder
+        let abbrev = qb.Root(qb.Id("__ABBREV"))
         match qn with
         | Q.Nested (ns, name) ->
             let shortModuleName =
                 cached tab.ModuleAliases ns <| fun ns ->
                     let moduleName =
-                        "_" + ns.Id.Text
+                        "__" + ns.Id.Text
                         |> pickName (fun n ->
                             let id = qb.Id(n)
                             tab.UsedNames.Add(id))
                     qb.Id(moduleName)
-            qb.Root(shortModuleName).[name]
+            abbrev.[shortModuleName].[name]
             |> Address
         | Q.Root name ->
             let shortName =
                 cached tab.TypeAliases qn <| fun qn ->
                     let typeName =
-                        "_" + name.Text
+                        "__" + name.Text
                         |> pickName (fun n ->
                             let id = qb.Id(n)
                             tab.UsedNames.Add(id))
                     qb.Id(typeName)
-            qb.Root(shortName)
+            abbrev.[shortName]
             |> Address
 
-    let alias pc (Address qn as addr) =
-        match pc.AliasContext with
-        | ACInRootModule (rM, tab) ->
-            aliasInTable tab addr
-        | ACGlobal -> addr
+    let alias pc addr =
+        aliasInTable pc.AliasTable addr
 
-    let writeAliasesTable pc tab =
-        writeLine pc ""
-        for KeyValue (k, v) in tab.ModuleAliases do
-            write pc "import "
-            write pc v.Text
-            write pc " = "
-            write pc k.Text
-            writeLine pc ";"
-        for KeyValue (k, v) in tab.TypeAliases do
-            write pc "interface "
-            write pc v.Text
-            write pc " extends "
-            write pc k.Text
-            writeLine pc " {}"
+    let writeAliasTable pc =
+        writeLine pc "declare module __ABBREV {"
+        indent pc {
+            let tab = pc.AliasTable
+            do  writeLine pc ""
+                for KeyValue (k, v) in tab.ModuleAliases do
+                    write pc "export import "
+                    write pc v.Text
+                    write pc " = "
+                    write pc k.Text
+                    writeLine pc ";"
+                for KeyValue (k, v) in tab.TypeAliases do
+                    write pc "interface "
+                    write pc v.Text
+                    write pc " extends "
+                    write pc k.Text
+                    writeLine pc " {}"
+        }
+        writeLine pc "}"
 
     let writeAddress pc addr =
         let addr = alias pc addr
@@ -684,25 +683,7 @@ module internal TypeScriptGenerator =
         write pc "module "
         write pc (local addr)
         writeLine pc " {"
-        match addr with
-        | Q.Root name ->
-            let usedNames =
-                seq {
-                    yield name
-                    let sc = AtModule addr
-                    for ss in queryModules data sc do
-                        yield ss.Id
-                    for (n, d) in queryDefinitions data sc do
-                        yield n.Id
-                }
-            let tab = AliasTable.Create(usedNames)
-            let pc = { pc with AliasContext = ACInRootModule (name, tab) }
-            indent pc {
-                writeModuleBody pc data (AtModule addr)
-                writeAliasesTable pc tab
-            }
-        | _ ->
-            indent pc { writeModuleBody pc data (AtModule addr) }
+        indent pc { writeModuleBody pc data (AtModule addr) }
         writeLine pc "}"
 
     and writeModuleBody pc data sc =
@@ -724,10 +705,22 @@ module internal TypeScriptGenerator =
             write pc "declare "
             writeModule pc data m
 
+    let getGloballyUsedNames (data: Data) =
+        seq {
+            let sc = Location.AtGlobalModule
+            for ss in queryModules data sc do
+                yield ss.Id
+            for (n, d) in queryDefinitions data sc do
+                yield n.Id
+        }
+
     let writeDefinitions opts defs w =
         let data = Data.Build(defs)
-        let pc = PrintContext.Create(w, data.NameBuilder)
+        let usedNames = getGloballyUsedNames data
+        let aT = AliasTable.Create(usedNames)
+        let pc = PrintContext.Create(aT, w, data.NameBuilder)
         writeDefs opts pc data defs
+        writeAliasTable pc
 
     type Definitions with
 
