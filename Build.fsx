@@ -26,7 +26,7 @@ module Extensions =
             [
                 r.NuGet("Mono.Cecil.Security").Version("0.9.28-security").Reference()
                 r.NuGet("IntelliFactory.Core").Reference()
-                r.NuGet("IntelliFactory.Xml").Version("0.5.0").Reference()
+                r.NuGet("IntelliFactory.Xml").Reference()
                 r.Assembly("System.Configuration")
                 r.Assembly("System.Xml")
                 r.Assembly("System.Xml.Linq")

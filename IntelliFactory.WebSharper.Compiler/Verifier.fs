@@ -37,8 +37,16 @@ type Status =
     | Correct
     | Incorrect of string
 
+
 [<Sealed>]
-type State() =
+type State(logger: Logger) =
+
+    let log priority loc text =
+        logger.Log {
+            Priority = priority
+            Location = { ReadableLocation = loc; SourceLocation = None }
+            Text = text
+        }
 
     let memoize (f: R.Type -> bool) : R.Type -> bool =
         let cache = Dictionary()
@@ -61,9 +69,10 @@ type State() =
                     try
                         let enc = jP.GetEncoder(t)
                         true
-                    with e ->
+                    with IntelliFactory.WebSharper.Core.Json.NoEncoderException _ ->
                         false
                 with e ->
+                    log Warning (string t) ("Failed to load type: " + string e)
                     true)
 
     let canDecodeFromJson =
@@ -74,9 +83,10 @@ type State() =
                     try
                         let enc = jP.GetDecoder(t)
                         true
-                    with e ->
+                    with IntelliFactory.WebSharper.Core.Json.NoEncoderException _ ->
                         false
                 with e ->
+                    log Warning (string t) ("Failed to load type: " + string e)
                     true)
 
     let getRemoteContractError (m: MethodDefinition) : option<string> =
@@ -134,4 +144,5 @@ type State() =
         | None -> Correct
         | Some msg -> Incorrect msg
 
-let Create () = State()
+let Create logger =
+    State(logger)

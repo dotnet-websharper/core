@@ -38,4 +38,4 @@ type State =
     member VerifyWebControl : TypeDefinition -> Status
 
 /// Creates a new object for verification.
-val Create : unit -> State
+val Create : Logger -> State

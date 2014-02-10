@@ -138,25 +138,35 @@ module private WebUtils =
         // Create a context
         let context = getContext site ctx.Request req
         // Handle action
-        let response =
-            (site.Controller.Handle action, context)
-            ||> Content.ToResponse
-        let resp = ctx.Response
-        resp.Status <- response.Status.ToString()
-        for header in response.Headers do
-            resp.AddHeader(header.Name, header.Value)
-        response.WriteBody resp.OutputStream
-        resp.End()
+        async {
+            let! response =
+                (site.Controller.Handle action, context)
+                ||> Content.ToResponseAsync
+            let resp = ctx.Response
+            resp.Status <- response.Status.ToString()
+            for header in response.Headers do
+                resp.AddHeader(header.Name, header.Value)
+            response.WriteBody resp.OutputStream
+            resp.End()
+        }
 
 /// The ISS handler for WebSharper applications.
 [<Sealed>]
 type HttpHandler(request: Http.Request, action: obj, site: Sitelet<obj>) =
+    let processRequest ctx = WebUtils.respond site ctx request action
+    let (beginAction, endAction, cancelAction) = Async.AsBeginEnd (fun ctx -> processRequest ctx)
+
     interface SessionState.IRequiresSessionState
+
     interface IHttpHandler with
         member this.IsReusable = false
-        member this.ProcessRequest(ctx) = this.ProcessRequest(ctx)
-    member this.ProcessRequest(ctx) =
-        WebUtils.respond site ctx request action
+        member this.ProcessRequest(ctx) = this.ProcessRequest(ctx) |> Async.RunSynchronously
+
+    interface IHttpAsyncHandler with
+        member this.BeginProcessRequest(ctx, cb, _) = beginAction (ctx, cb, null)
+        member this.EndProcessRequest(result) = endAction result
+
+    member this.ProcessRequest(ctx) = processRequest ctx
 
 /// IIS module, processing the URLs and serving the pages.
 [<Sealed>]

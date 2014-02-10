@@ -93,6 +93,12 @@ type Id =
     /// Constructs a new identifier with a given readable name hint, can be set to mutable.
     new : string * bool -> Id
 
+    /// Clones an identifier.
+    new : Id -> Id
+
+    /// Mutability flag.
+    member IsMutable : bool
+
     /// Returns the readable name hint of the identifier, if provided.
     member Name : option<string> with get, set
 
@@ -188,6 +194,9 @@ val AlphaNormalize : E -> E
 
 /// Finds all free variables in an expression.
 val GetFreeIds : E -> Set<Id>
+
+/// Finds all mutable variables in an expression.
+val GetMutableIds : E -> Set<Id>
 
 /// Tests if an expression is ground (contains no free
 /// identifiers).

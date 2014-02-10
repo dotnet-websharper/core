@@ -245,7 +245,7 @@ type ResolvedContent =
         Path : string
         RelativePath : string
         ResourceContext : R.Context
-        Respond : Context<obj> -> Http.Response
+        Respond : Context<obj> -> Async<Http.Response>
     }
 
 /// Partially resolves the content.
@@ -264,55 +264,57 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
             |> Array.filter (fun s -> s.Length > 0)
         parts.Length - 1
     let resContext = resourceContext st level
-    let genResp = C.ToResponse content
-    let response =
-        genResp {
-            Json = st.Json
-            Link = fun _ -> ""
-            ApplicationPath = "."
-            ResolveUrl = fun x -> x
-            Metadata = st.Metadata
+    let genResp = C.ToResponseAsync content
+    async {
+        let! response =
+            genResp {
+                Json = st.Json
+                Link = fun _ -> ""
+                ApplicationPath = "."
+                ResolveUrl = fun x -> x
+                Metadata = st.Metadata
+                ResourceContext = resContext
+                Request = emptyRequest locationString
+                RootFolder = projectFolder
+            }
+        let path =
+            let ext =
+                response.Headers
+                |> Seq.tryPick (fun header ->
+                    if header.Name.ToLower() = "content-type" then
+                        Some header.Value
+                    else
+                        None)
+                |> Option.map (fun ct ->
+                    if ct.StartsWith "application/json" then
+                        ".json"
+                    elif ct.StartsWith "text/html" then
+                        ".html"
+                    elif ct.StartsWith "text/css" then
+                        ".css"
+                    elif ct.StartsWith "text/plain" then
+                        ".txt"
+                    elif ct.StartsWith "image/gif" then
+                        ".gif"
+                    elif ct.StartsWith "image/jpeg" then
+                        ".jpeg"
+                    elif ct.StartsWith "image/png" then
+                        ".png"
+                    elif ct.StartsWith "image/svg+xml" then
+                        ".xml"
+                    elif ct.StartsWith "image/tiff" then
+                        ".tiff"
+                    else
+                        ".html")
+            match ext with
+            | Some ext -> locationString + ext
+            | None -> locationString
+        return {
+            Path = path
+            RelativePath = relPath level
             ResourceContext = resContext
-            Request = emptyRequest locationString
-            RootFolder = projectFolder
+            Respond = genResp
         }
-    let path =
-        let ext =
-            response.Headers
-            |> Seq.tryPick (fun header ->
-                if header.Name.ToLower() = "content-type" then
-                    Some header.Value
-                else
-                    None)
-            |> Option.map (fun ct ->
-                if ct.StartsWith "application/json" then
-                    ".json"
-                elif ct.StartsWith "text/html" then
-                    ".html"
-                elif ct.StartsWith "text/css" then
-                    ".css"
-                elif ct.StartsWith "text/plain" then
-                    ".txt"
-                elif ct.StartsWith "image/gif" then
-                    ".gif"
-                elif ct.StartsWith "image/jpeg" then
-                    ".jpeg"
-                elif ct.StartsWith "image/png" then
-                    ".png"
-                elif ct.StartsWith "image/svg+xml" then
-                    ".xml"
-                elif ct.StartsWith "image/tiff" then
-                    ".tiff"
-                else
-                    ".html")
-        match ext with
-        | Some ext -> locationString + ext
-        | None -> locationString
-    {
-        Path = path
-        RelativePath = relPath level
-        ResourceContext = resContext
-        Respond = genResp
     }
 
 /// Trims the starting slashes from a path.
@@ -324,46 +326,52 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
     let table = Dictionary()
     let projectFolder = conf.ProjectDir.FullName
     let rootFolder = conf.TargetDir.FullName
-    let contents =
-        conf.Actions
-        |> List.ofSeq
-        |> List.choose (fun action ->
-            match conf.Sitelet.Router.Link(action) with
-            | Some location ->
-                let content = conf.Sitelet.Controller.Handle(action)
-                let rC = resolveContent projectFolder rootFolder st location content
-                table.[action] <- rC.Path
-                Some rC
-            | None -> None)
+    let contents () =
+        async {
+            let res = ResizeArray()
+            for action in conf.Actions do
+                match conf.Sitelet.Router.Link(action) with
+                | Some location ->
+                    let content = conf.Sitelet.Controller.Handle(action)
+                    let! rC = resolveContent projectFolder rootFolder st location content
+                    do table.[action] <- rC.Path
+                    do res.Add(rC)
+                | None -> ()
+            return res.ToArray()
+        }
     // Write contents
-    for rC in contents do
-        // Define context
-        let context : Context<obj> =
-            {
-                ApplicationPath = "."
-                ResolveUrl = fun x -> x
-                Json = st.Json
-                Link = fun action ->
-                    // First try to find from url table.
-                    if table.ContainsKey(action) then
-                        rC.RelativePath + trimPath table.[action]
-                    else
-                        // Otherwise, link to the action using the router
-                        match conf.Sitelet.Router.Link action with
-                        | Some loc ->
-                            rC.RelativePath + trimPath (string loc)
-                        | None ->
-                            let msg = "Failed to link to action from " + rC.Path
-                            stdout.WriteLine("Warning: " + msg)
-                            "#"
-                Metadata = st.Metadata
-                ResourceContext = rC.ResourceContext
-                Request = emptyRequest rC.Path
-                RootFolder = projectFolder
-            }
-        let fullPath = conf.TargetDir.FullName + rC.Path
-        let response = rC.Respond context
-        use stream = createFile fullPath
-        response.WriteBody(stream)
-    // Write resources determined to be necessary.
-    writeResources aR st
+    async {
+        let! results = contents ()
+        for rC in results do
+            // Define context
+            let context : Context<obj> =
+                {
+                    ApplicationPath = "."
+                    ResolveUrl = fun x -> x
+                    Json = st.Json
+                    Link = fun action ->
+                        // First try to find from url table.
+                        if table.ContainsKey(action) then
+                            rC.RelativePath + trimPath table.[action]
+                        else
+                            // Otherwise, link to the action using the router
+                            match conf.Sitelet.Router.Link action with
+                            | Some loc ->
+                                rC.RelativePath + trimPath (string loc)
+                            | None ->
+                                let msg = "Failed to link to action from " + rC.Path
+                                stdout.WriteLine("Warning: " + msg)
+                                "#"
+                    Metadata = st.Metadata
+                    ResourceContext = rC.ResourceContext
+                    Request = emptyRequest rC.Path
+                    RootFolder = projectFolder
+                }
+            let fullPath = conf.TargetDir.FullName + rC.Path
+            let! response = rC.Respond context
+            use stream = createFile fullPath
+            response.WriteBody(stream)
+
+        // Write resources determined to be necessary.
+        return writeResources aR st
+    }

@@ -78,14 +78,23 @@ module Sitelet =
                 {
                     Handle = fun action ->
                         let prot = filter
-                        match UserSession.GetLoggedInUser () with
-                        | Some user ->
-                            if prot.VerifyUser user then
-                                site.Controller.Handle action
-                            else
-                                Content.Redirect (prot.LoginRedirect action)
-                        | None ->
-                            Content.Redirect (prot.LoginRedirect action)
+
+                        let failure = Content.Redirect (prot.LoginRedirect action)
+
+                        try
+                          match UserSession.GetLoggedInUser () with
+                          | Some user ->
+                              if prot.VerifyUser user then
+                                  site.Controller.Handle action
+                              else
+                                  failure
+                          | None ->
+                               failure
+                        with :? NullReferenceException ->
+                          // If server crashes or is restarted and doesn't have a hardcoded machine
+                          // key then GetLoggedInUser() throws an exception. Log out in this case.
+                          UserSession.Logout()
+                          failure
                 }
         }
 
@@ -118,8 +127,34 @@ module Sitelet =
                                     RootFolder = ctx.RootFolder
                                 }
                                 |> genResp
+                        | Content.CustomContentAsync genResp ->
+                            CustomContentAsync <| fun ctx ->
+                                {
+                                    ResolveUrl = ctx.ResolveUrl
+                                    ApplicationPath = ctx.ApplicationPath
+                                    Link = fun a -> ctx.Link (f a)
+                                    Json = ctx.Json
+                                    Metadata = ctx.Metadata
+                                    ResourceContext = ctx.ResourceContext
+                                    Request = ctx.Request
+                                    RootFolder = ctx.RootFolder
+                                }
+                                |> genResp
                         | Content.PageContent genPage ->
                             PageContent <| fun ctx ->
+                                {
+                                    ResolveUrl = ctx.ResolveUrl
+                                    ApplicationPath = ctx.ApplicationPath
+                                    Json = ctx.Json
+                                    Link = fun a -> ctx.Link (f a)
+                                    Metadata = ctx.Metadata
+                                    ResourceContext = ctx.ResourceContext
+                                    Request = ctx.Request
+                                    RootFolder = ctx.RootFolder
+                                }
+                                |> genPage
+                        | Content.PageContentAsync genPage ->
+                            PageContentAsync <| fun ctx ->
                                 {
                                     ResolveUrl = ctx.ResolveUrl
                                     ApplicationPath = ctx.ApplicationPath

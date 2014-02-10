@@ -9,9 +9,7 @@
     <OutputPath>bin</OutputPath>
   </PropertyGroup>
   <Import Project="../build/compiler/$(Name).proj" />
-  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.0/Framework/v4.0/Microsoft.FSharp.targets" />
-  <Target Name="Build" />
-  <Target Name="Clean" />
+  <Import Project="../msbuild/FSharp.targets" />
   <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="System" />

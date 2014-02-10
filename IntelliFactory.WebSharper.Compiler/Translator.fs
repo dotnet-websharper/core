@@ -161,7 +161,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
             match d.TryGetValue x with
             | true, y -> y
             | _ ->
-                let y = C.Id (x.Name, x.Mutable) 
+                let y = C.Id (x.Name, x.Mutable)
                 d.[x] <- y
                 y
 
@@ -245,10 +245,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
             | _ ->
                 f
         | Q.Let (var, value, body) ->
-            if var.Mutable then    
-                C.Sequential(C.VarSet (!^var, !value), !body)
-            else
-                C.Let (!^var, !value, !body)
+            C.Let (!^var, !value, !body)
         | Q.LetRecursive (vs, b) ->
             let f (var: Q.Id, value) = !^var, !value
             C.LetRecursive (List.map f vs, !b)

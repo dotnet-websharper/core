@@ -84,7 +84,6 @@ module BugBB80 =
         }
         |> Async.Start
 
-
 [<JavaScript>]
 let Tests =
     Section "Regression"
@@ -160,4 +159,13 @@ let Tests =
             mappedObservable2.Subscribe(fun x -> k := !k + x) |> ignore
             x.Trigger(3)
         !k =? 9
+    }
+
+    Test "Bug #109" {
+        do
+            let n = ResizeArray()
+            for i in 1 .. 10 do
+                for j in 1 .. 10 do
+                    n.Add(fun k -> k + i + j)
+            Seq.sum [for x in n -> x 5] =? 1600
     }
