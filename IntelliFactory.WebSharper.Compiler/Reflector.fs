@@ -441,7 +441,7 @@ let Reflect (logger: Logger) (assembly: AssemblyDefinition) =
         Option.toList rD @
         (tgt.CustomAttributes
         |> List.choose (fun attr ->
-            match annotationsTable.TryGetValue attr.AttributeType.FullName with
+            match annotationsTable.TryGetValue (attr.AttributeType.FullName.Replace('+', '/')) with
             | true, f -> f attr (warn location)
             | _ -> None))
     let reflectMethod inc loc (m: MethodDefinition) : option<Member<_>> =
