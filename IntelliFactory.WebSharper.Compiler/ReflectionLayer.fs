@@ -24,6 +24,7 @@ module internal IntelliFactory.WebSharper.Compiler.ReflectionLayer
 
 open System.IO
 module Q = IntelliFactory.WebSharper.Core.Quotations
+module Re = IntelliFactory.WebSharper.Core.Reflection
 
 [<AbstractClass>]
 type Entity() =
@@ -521,6 +522,17 @@ module QuotationUtils =
             | true, f -> f x
             | _ -> Q.Literal.Unit
 
+    let GetSourceConstructFlags (info: MemberInfo) =
+        match System.Attribute.GetCustomAttribute(info, typeof<CompilationMappingAttribute>) with
+        | :? CompilationMappingAttribute as attr -> attr.SourceConstructFlags
+        | _ -> SourceConstructFlags.None
+
+    let (|RecordProperty|_|) (info: PropertyInfo) : option<Q.Concrete<Re.Property>> =
+        let ok =
+            GetSourceConstructFlags(info).HasFlag(SourceConstructFlags.Field)
+            && GetSourceConstructFlags(info.DeclaringType).HasFlag(SourceConstructFlags.RecordType)
+        if ok then Some (ConvertProperty info) else None
+
     let ConvertQuotation (q: Quotations.Expr) : Q.Expression =
         let ( !^ ) = CR.Type.FromType
         let d = Dictionary(HashIdentity.Reference)
@@ -569,11 +581,19 @@ module QuotationUtils =
             | RQ.PropertyGet (None, prop, xs) ->
                 Q.PropertyGet (ConvertProperty prop, !!xs)
             | RQ.PropertyGet (Some x, prop, xs) ->
-                Q.PropertyGet (ConvertProperty prop, !!(x :: xs))
+                match prop, xs with
+                | RecordProperty prop, [] ->
+                    Q.FieldGetRecord(!x, prop)
+                | _ ->
+                    Q.PropertyGet (ConvertProperty prop, !!(x :: xs))
             | RQ.PropertySet (None, prop, xs, v) ->
                 Q.PropertySet (ConvertProperty prop, !!(xs @ [v]))
             | RQ.PropertySet (Some x, prop, xs, v) ->
-                Q.PropertySet (ConvertProperty prop, !!(x :: xs @ [v]))
+                match prop, xs with
+                | RecordProperty prop, [] ->
+                    Q.FieldSetRecord (!x, prop, !v)
+                | _ ->
+                    Q.PropertySet (ConvertProperty prop, !!(x :: xs @ [v]))
             | RQ.Quote q -> Q.Quote !q
             | RQ.Sequential (a, b) -> Q.Sequential (!a, !b)
             | RQ.TryFinally (a, b) -> Q.TryFinally (!a, !b)
