@@ -179,11 +179,10 @@ let Start args =
                 loop [path] args
             let aR = aR.SearchPaths searchPaths
             aR.Wrap <| fun () ->
-                let assem = aR.Resolve(AssemblyName.GetAssemblyName path)
-                let ad =
-                    match assem with
-                    | None -> failwithf "Could not resolve: %s" path
-                    | Some assem ->
+                match aR.Resolve(AssemblyName.GetAssemblyName path) with
+                | None -> failwithf "Could not resolve: %s" path
+                | Some assem ->
+                    let ad =
                         match Attribute.GetCustomAttribute(assem, typeof<EA>) with
                         | :? EA as attr ->
                             attr.GetAssembly()
@@ -191,9 +190,9 @@ let Start args =
                             failwith "Failed to load assembly definition - \
                                 is the assembly properly marked with \
                                 ExtensionAttribute?"
-                let c = InterfaceGenerator.Compiler.Create()
-                c.Start(args, ad, aR)
-                |> Some
+                    let c = InterfaceGenerator.Compiler.Create()
+                    c.Start(args, ad, assem, aR)
+                    |> Some
         | "bundle" :: out :: paths ->
             let bundle =
                 FE.Bundle.Create().WithDefaultReferences()

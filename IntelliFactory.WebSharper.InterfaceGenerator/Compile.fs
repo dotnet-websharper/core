@@ -828,6 +828,47 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
     member a.FileName =
         def.Name.Name + ".dll"
 
+    member a.SetAssemblyAttributes(orig: Assembly) =
+        let attrTypes =
+            HashSet [|
+                typeof<System.Reflection.AssemblyCompanyAttribute>
+                typeof<System.Reflection.AssemblyCopyrightAttribute>
+                typeof<System.Reflection.AssemblyProductAttribute>
+                typeof<System.Reflection.AssemblyTitleAttribute>
+                typeof<System.Reflection.AssemblyFileVersionAttribute>
+                typeof<System.Reflection.AssemblyInformationalVersionAttribute>
+            |]
+        let systemAssembly =
+            def.MainModule.AssemblyResolver.Resolve(typeof<string>.Assembly.FullName)
+        let getSystemTypeDef (t: Type) =
+            systemAssembly.MainModule.GetType(t.FullName)
+            |> def.MainModule.Import
+        let stringTypeDef =
+            getSystemTypeDef typeof<string>
+        let findStringCtor (ty: TypeReference) =
+            ty.Resolve().Methods
+            |> Seq.find (fun m ->
+                m.IsConstructor
+                && m.HasParameters
+                && m.Parameters.Count = 1
+                && m.Parameters.[0].ParameterType.FullName = stringTypeDef.FullName)
+            |> def.MainModule.Import
+        let setAttr (t: Type) (v: string) =
+            let ty = getSystemTypeDef t
+            let ctor = findStringCtor ty
+            let attr = CustomAttribute(ctor)
+            attr.ConstructorArguments.Add(CustomAttributeArgument(stringTypeDef, v))
+            def.CustomAttributes.Add(attr)
+        for data in orig.GetCustomAttributesData() do
+            if attrTypes.Contains data.AttributeType then
+                match Seq.toList data.ConstructorArguments with
+                | [x] when x.ArgumentType = typeof<string> ->
+                    match x.Value with
+                    | :? string as s ->
+                        setAttr data.AttributeType s
+                    | _ -> ()
+                | _ -> ()
+
 [<Sealed>]
 type Resolver(aR: AssemblyResolver) =
     let def = DefaultAssemblyResolver()
@@ -976,7 +1017,7 @@ type Compiler() =
                 | x when x.EndsWith(".css") -> addResource r.Name "text/css"
                 | _ -> ()
 
-    member c.Compile(resolver, options, assembly) =
+    member c.Compile(resolver, options, assembly, ?originalAssembly: Assembly) =
         let (def, comments, mB) = buildAssembly resolver options assembly
         for f in options.EmbeddedResources do
             EmbeddedResource(Path.GetFileName f, ManifestResourceAttributes.Public, File.ReadAllBytes f)
@@ -984,6 +1025,9 @@ type Compiler() =
         addResourceExports mB def
         let doc = XmlDocGenerator(def, comments)
         let r = CompiledAssembly(def, doc, options)
+        match originalAssembly with
+        | None -> ()
+        | Some assem -> r.SetAssemblyAttributes(assem)
         match options.OutputPath with
         | None -> ()
         | Some out -> r.Save out
@@ -996,7 +1040,7 @@ type Compiler() =
         let (aR, resolver) = createAssemblyResolvers options
         c.Compile(resolver, options, assembly)
 
-    member c.Start(args, assembly, ?resolver: AssemblyResolver) =
+    member c.StartProgram(args, assembly, ?resolver: AssemblyResolver, ?originalAssembly: Assembly) =
         let opts =
             let opts = CompilerOptions.Parse args
             match resolver with
@@ -1004,9 +1048,15 @@ type Compiler() =
             | Some r -> { opts with AssemblyResolver = Some r }
         let (aR, resolver) = createAssemblyResolvers opts
         aR.Wrap <| fun () ->
-            c.Compile(resolver, opts, assembly)
+            c.Compile(resolver, opts, assembly, ?originalAssembly = originalAssembly)
             |> ignore
         0
+
+    member c.Start(args, assembly, ?resolver) =
+        c.StartProgram(args, assembly, ?resolver = resolver)
+
+    member c.Start(args, assembly, original, ?resolver) =
+        c.StartProgram(args, assembly, ?resolver = resolver, originalAssembly = original)
 
     static member Create() =
         Compiler()
