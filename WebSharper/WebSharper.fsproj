@@ -3,14 +3,12 @@
   <PropertyGroup>
     <ProjectGuid>{df5f2614-44e8-4c7d-a6e2-019d220d38c9}</ProjectGuid>
     <Name>WebSharper</Name>
-    <OutputPath>bin</OutputPath>
+    <OutputPath>../build/compiler</OutputPath>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <Import Project="../build/compiler/$(Name).proj" />
   <Import Project="../msbuild/FSharp.targets" />
-  <Target Name="Build" />
-  <Target Name="Clean" />
   <ItemGroup>
     <Compile Include="Arguments.fs" />
     <Compile Include="Options.fs" />
