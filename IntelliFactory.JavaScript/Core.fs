@@ -676,6 +676,26 @@ module Scope =
 
 // Optimization ---------------------------------------------------------------
 
+// Remove 'this' bindings from lambdas when it is not used in body
+let RemoveUnusedThis expr =
+    let bound = HashSet()
+    let rec rem expr =
+        match expr with
+        | Lambda (Some this, args, body) -> 
+            bound.Add this |> ignore
+            let bodyTr = Transform rem body
+            if bound.Contains this then
+                 bound.Remove this |> ignore
+                 Lambda (None, args, bodyTr)
+            else
+                 Lambda (Some this, args, bodyTr)
+        | Var v when bound.Contains v ->
+            bound.Remove v |> ignore
+            expr
+        | _ -> Transform rem expr  
+
+    rem expr
+
 /// Transforms local Let- or LetRecursive-bound curried lambda functions to
 /// multi-argument functions when such transformations are possible - the
 /// functions are strictly local, do not escape the scope, and are always
@@ -889,6 +909,37 @@ let RemoveLoops expr =
         Let (argId, NewArray [], t exit body ++ cycle ++ res)
     t id expr
 
+// Transforms JavaScipt object creation with additional field setters
+// into a single object literal 
+let CollectObjLiterals expr =
+    let (|PropSet|_|) expr =
+        match expr with
+        | Unary (UnaryOperator.``void``, FieldSet (Var objVar, Constant (String field), value))
+        | FieldSet (Var objVar, Constant (String field), value) ->
+            Some (objVar, (field, value))
+        | _ -> None    
+        
+    let rec coll expr =
+        match expr with
+        | Let (objVar, NewObject objFields, Sequential (propSetters, Var v)) when v = objVar ->
+            let rec getSetters acc e =
+                match e with
+                | Constant Null -> Some acc
+                | Sequential (more, PropSet (v, fv)) when v = objVar ->
+                    getSetters (fv :: acc) more
+                | PropSet (v, fv) when v = objVar -> 
+                    Some (fv :: acc)
+                | _ -> None
+            match getSetters [] propSetters with
+            | Some s -> 
+                objFields @ s 
+                |> List.map (fun (f, vExpr) -> f, Transform coll vExpr)
+                |> NewObject
+            | _ -> Transform coll expr
+        | _ -> Transform coll expr
+
+    coll expr        
+     
 let Simplify expr =
 
     // fast-track Substitue: assume IsAlphaNormalized on all
@@ -964,16 +1015,21 @@ let Simplify expr =
     let step expr =
         match expr with
         | Application (Lambda (None, args, body), xs) ->
-            if List.length args = List.length xs then
-                let bind key value body = Let (key, value, body)
-                List.foldBack2 bind args xs body
-            else expr
+            let rec binds args xs body =
+                match args, xs with
+                | a :: args, x :: xs -> Let (a, x, binds args xs body)
+                | [], [] -> body
+                | [], _ -> Application(body, xs)
+                | _, [] -> Lambda(None, args, body)
+            binds args xs body
         | Application (Let (var, value, body), xs) ->
             Let (var, value, Application (body, xs))
-        | Lambda (None, [x], Application (Var f, [Var y])) when x = y ->
-            Var f
+        | Lambda (None, [x], Application (f, [Var y])) ->
+            if x = y && isPure f then f else expr
         | Let (var, Let (v, vl, bd), body) ->
             Let (v, vl, Let (var, bd, body))
+        | Let (var, value, Application (f, [Var v])) when v = var && isPure f ->
+            Application(f, [value])
         | Let (var, value, body) when not var.IsMutable ->
             match value with
             | Constant _ | Global _ | Runtime ->
@@ -1002,17 +1058,6 @@ let Simplify expr =
                     | _ -> expr
         | Sequential (a, b) when isPure a ->
             b
-        | Sequential (VarSet (returnVal, NewObject objFields), Sequential (propSetters, Var v)) when v = returnVal ->
-            let rec getSetters acc e =
-                match e with
-                | Constant Null -> Some acc
-                | Sequential (more, Unary (UnaryOperator.``void``, FieldSet (Var v, Constant (String field), value)))
-                | Sequential (more, FieldSet (Var v, Constant (String field), value)) ->
-                    getSetters ((field, value) :: acc) more
-                | _ -> None
-            match getSetters [] propSetters with
-            | Some s -> NewObject (objFields @ s)
-            | _ -> expr
         | _ ->
             expr
 
@@ -1035,8 +1080,10 @@ let Simplify expr =
 let Optimize expr =
     expr
     |> AlphaNormalize
+    |> RemoveUnusedThis
     |> Uncurry
     |> RemoveLoops
+    |> CollectObjLiterals
     |> Simplify
 
 // Elaboration ----------------------------------------------------------------
