@@ -54,7 +54,7 @@ let bt =
             |> WebSharperConfig.WebSharperHome.Custom (Some compiler)
             |> Logs.Config.Custom(Logs.Default.Verbose().ToConsole()))
         .WithDefaultRefs()
-
+    |> fun bt -> BuildConfig.CurrentFramework.Custom bt.Framework.Net40 bt
 
 let cbt =
     bt
@@ -62,7 +62,7 @@ let cbt =
 
 let beforeBuild () =
     let rs =
-        bt.ResolveReferences bt.Framework.Net45 [
+        bt.ResolveReferences bt.Framework.Net40 [
             bt.Reference.NuGet("YUICompressor.NET").Version("2.2.1.0").Reference()
         ]
     bt.FSharp.ExecuteScript("compress.fsx", rs)
@@ -478,23 +478,27 @@ let nuPkg =
                         LicenseUrl = Some Config.LicenseUrl
                 })
             .AddNuGetExportingProject(ws)
+    let file src tgt =
+        {
+            new INuGetFile with
+                member x.Read() = File.OpenRead(src) :> _
+                member x.TargetPath = "/tools/net40/" + defaultArg tgt (Path.GetFileName src)
+        }
     nuPkg.AddNuGetExportingProject {
         new INuGetExportingProject with
             member p.NuGetFiles =
                 seq {
                     let cfg = configureVSI nuPkg
                     yield! VSI.BuildContents cfg
-                    yield {
-                        new INuGetFile with
-                            member x.Read() = File.OpenRead(typedefof<list<_>>.Assembly.Location) :> _
-                            member x.TargetPath = "/tools/net45/FSharp.Core.dll"
-                    }
+                    yield file "build/compiler/FSharp.Core.dll" None
+                    yield file "build/compiler/WebSharper.exe" (Some "WebSharper31.exe")
+                    yield file "build/WebSharper31.exe.config" None
                     for p in exports do
                         for f in p.NuGetFiles do
                             yield {
                                 new INuGetFile with
                                     member x.Read() = f.Read()
-                                    member x.TargetPath = "/tools/net45/" + Path.GetFileName f.TargetPath
+                                    member x.TargetPath = "/tools/net40/" + Path.GetFileName f.TargetPath
                             }
                 }
     }

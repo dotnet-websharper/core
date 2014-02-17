@@ -23,9 +23,11 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <PropertyGroup>
-    <WebSharperHome Condition=" '$(WebSharperHome)' == '' ">$(MSBuildThisFileDirectory)/../tools/net45</WebSharperHome>
+    <WebSharperHome Condition=" '$(WebSharperHome)' == '' ">$(MSBuildThisFileDirectory)/../tools/net40</WebSharperHome>
     <WebSharperIncludes Condition=" '$(WebSharperIncludes)' == 'false' ">false</WebSharperIncludes>
     <WebSharperIncludes Condition=" '$(WebSharperIncludes)' != 'false' ">true</WebSharperIncludes>
+    <WebSharperTool>$(WebSharperHome)\WebSharper.exe</WebSharperTool>
+    <WebSharperTool Condition="'$(TargetFSharpCoreVersion)' == '4.3.1.0'">$(WebSharperHome)\WebSharper31.exe</WebSharperTool>
   </PropertyGroup>
 
   <!-- Determine Project Kind -->
@@ -100,7 +102,7 @@
       <WebSharperRefs>@(ReferencePath->'-r "%(FullPath)"',' ')</WebSharperRefs>
       <WebSharperArgs>$(WebSharperRefs) $(WebSharperKey) "$(RawIntermediateAssembly)" "$(ProcessedIntermediateAssembly)"</WebSharperArgs>
     </PropertyGroup>
-    <Exec Command="&quot;$(WebSharperHome)\WebSharper.exe&quot; $(WebSharperArgs)"
+    <Exec Command="&quot;$(WebSharperTool)&quot; $(WebSharperArgs)"
           Condition="Exists('$(RawIntermediateAssembly)')" />
     <ItemGroup>
       <IntermediateAssembly Remove="@(IntermediateAssembly)" />
@@ -235,7 +237,7 @@
           Inputs="@(Compile);@(ReferencePath)"
           Outputs="$(RawIntermediateAssembly)">
     <PropertyGroup>
-      <Cmd>"$(WebSharperHome)\WebSharper.exe" ig</Cmd>
+      <Cmd>"$(WebSharperTool)" ig</Cmd>
       <Cmd>$(Cmd) "$(Generator)"</Cmd>
       <Cmd>$(Cmd) "-n:$(Name)"</Cmd>
       <Cmd Condition=" '$(Version)' != '' ">$(Cmd) "-v:$(Version)"</Cmd>
@@ -268,7 +270,7 @@
     <PropertyGroup>
       <WebSharperArgs>-unpack "$(WebSharperOutputRootFolder)" @(WebSharperBinaries->'"%(FullPath)"',' ')</WebSharperArgs>
     </PropertyGroup>
-    <Exec Command='"$(WebSharperHome)\WebSharper.exe" $(WebSharperArgs)' />
+    <Exec Command='"$(WebSharperTool)" $(WebSharperArgs)' />
     <Touch Files="$(WebSharperMarker)" AlwaysCreate="true" />
   </Target>
 
@@ -310,7 +312,7 @@
       <Args>$(Args) -out "$(WebSharperHtmlDirectory)\."</Args>
       <Args>$(Args) -site "$(TargetPath)"</Args>
     </PropertyGroup>
-    <Exec Command='"$(WebSharperHome)\WebSharper.exe" sitelets $(Args)' WorkingDirectory='$(WebSharperHome)' />
+    <Exec Command='"$(WebSharperTool)" sitelets $(Args)' WorkingDirectory='$(WebSharperHome)' />
   </Target>
 
   <Target Name="WebSharperHtmlClean">
@@ -330,7 +332,7 @@
       <Args>$(Args) "$(TargetPath)"</Args>
     </PropertyGroup>
     <MakeDir Directories='Content' />
-    <Exec Command='"$(WebSharperHome)\WebSharper.exe" bundle $(Args)'
+    <Exec Command='"$(WebSharperTool)" bundle $(Args)'
           WorkingDirectory='$(MSBuildProjectDirectory)' />
   </Target>
 </Project>

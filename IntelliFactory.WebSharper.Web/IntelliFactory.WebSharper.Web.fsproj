@@ -8,7 +8,7 @@
     <Name>IntelliFactory.WebSharper.Web</Name>
     <OutputPath>bin</OutputPath>
   </PropertyGroup>
-  <Import Project="../build/net45/$(Name).proj" />
+  <Import Project="../build/net40/$(Name).proj" />
   <Import Project="../msbuild/FSharp.targets" />
   <Target Name="Build" />
   <Target Name="Clean" />

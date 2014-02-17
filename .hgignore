@@ -29,6 +29,7 @@ content/WebSharper
 ^packages/
 
 ^tools/packages/
+^build/net40/
 ^build/net45/
 ^build/.*includes.fsx
 ^build/.*Config.fs
