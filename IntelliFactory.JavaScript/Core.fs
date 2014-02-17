@@ -912,11 +912,13 @@ let RemoveLoops expr =
 // Transforms JavaScipt object creation with additional field setters
 // into a single object literal 
 let CollectObjLiterals expr =
-    let (|PropSet|_|) expr =
+    let rec (|PropSet|_|) expr =
         match expr with
         | Unary (UnaryOperator.``void``, FieldSet (Var objVar, Constant (String field), value))
         | FieldSet (Var objVar, Constant (String field), value) ->
             Some (objVar, (field, value))
+        | Let (var, value, PropSet ((objVar, (field, Var v)))) when v = var ->
+            Some (objVar, (field, value))            
         | _ -> None    
         
     let rec coll expr =
