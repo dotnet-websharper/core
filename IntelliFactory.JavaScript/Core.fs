@@ -21,12 +21,12 @@
 
 module IntelliFactory.JavaScript.Core
 
+open System
+open System.Collections
+open System.Collections.Generic
+open System.Threading
 open IntelliFactory.JavaScript
 module S = Syntax
-
-type Dictionary<'T1,'T2> = System.Collections.Generic.Dictionary<'T1,'T2>
-type HashSet<'T> = System.Collections.Generic.HashSet<'T>
-type Interlocked = System.Threading.Interlocked
 
 type SB = Syntax.BinaryOperator
 type SP = Syntax.PostfixOperator
@@ -681,19 +681,18 @@ let RemoveUnusedThis expr =
     let bound = HashSet()
     let rec rem expr =
         match expr with
-        | Lambda (Some this, args, body) -> 
-            bound.Add this |> ignore
+        | Lambda (Some this, args, body) ->
+            bound.Add(this) |> ignore
             let bodyTr = Transform rem body
-            if bound.Contains this then
-                 bound.Remove this |> ignore
+            if bound.Remove(this) then
                  Lambda (None, args, bodyTr)
             else
                  Lambda (Some this, args, bodyTr)
-        | Var v when bound.Contains v ->
-            bound.Remove v |> ignore
+        | Var v ->
+            bound.Remove(v) |> ignore
             expr
-        | _ -> Transform rem expr  
-
+        | _ ->
+            Transform rem expr
     rem expr
 
 /// Transforms local Let- or LetRecursive-bound curried lambda functions to
@@ -918,9 +917,8 @@ let CollectObjLiterals expr =
         | FieldSet (Var objVar, Constant (String field), value) ->
             Some (objVar, (field, value))
         | Let (var, value, PropSet ((objVar, (field, Var v)))) when v = var ->
-            Some (objVar, (field, value))            
-        | _ -> None    
-        
+            Some (objVar, (field, value))
+        | _ -> None
     let rec coll expr =
         match expr with
         | Let (objVar, NewObject objFields, Sequential (propSetters, Var v)) when v = objVar ->
@@ -940,8 +938,8 @@ let CollectObjLiterals expr =
             | _ -> Transform coll expr
         | _ -> Transform coll expr
 
-    coll expr        
-     
+    coll expr
+
 let Simplify expr =
 
     // fast-track Substitue: assume IsAlphaNormalized on all
@@ -965,20 +963,27 @@ let Simplify expr =
             List.forall isPure (Children expr)
         | _ -> false
 
-    let size = Seq.length (All expr)
-
     // counts free occurences of var in expr
+    // return : 0 - no occurences; 1 - one occurence; 2 - unknown
     // assumes IsAlphaNormalized on all expressions invovled
     // because of the invariant, all occurences are free
-    let occurenceCount (var: Id) expr =
+    let occurenceCountApprox (var: Id) (expr: E) =
         if var.Mutable then
             invalidArg "var" "Var should not be mutable"
-        let mutable count = 0
-        for e in All expr do
-            match e with
-            | Var v when v = var -> count <- count + 1
-            | _ -> ()
-        count
+        let all = All expr
+        use e = all.GetEnumerator()
+        let rec loop (steps: int) (occurs: int) =
+            if steps > 64 then 2 else
+                if e.MoveNext() then
+                    match e.Current with
+                    | Var v when v = var ->
+                        match occurs + 1 with
+                        | 1 -> loop (steps + 1) 1
+                        | _ -> 2
+                    | _ ->
+                        loop (steps + 1) occurs
+                else occurs
+        loop 0 0
 
     // optimizes a given expr = Let (var, value, body)
     // assuming occurenceCount var body = 1
@@ -1017,21 +1022,16 @@ let Simplify expr =
     let step expr =
         match expr with
         | Application (Lambda (None, args, body), xs) ->
-            let rec binds args xs body =
-                match args, xs with
-                | a :: args, x :: xs -> Let (a, x, binds args xs body)
-                | [], [] -> body
-                | [], _ -> Application(body, xs)
-                | _, [] -> Lambda(None, args, body)
-            binds args xs body
+            if List.length args = List.length xs then
+                let bind key value body = Let (key, value, body)
+                List.foldBack2 bind args xs body
+            else expr
         | Application (Let (var, value, body), xs) ->
             Let (var, value, Application (body, xs))
         | Lambda (None, [x], Application (f, [Var y])) ->
             if x = y && isPure f then f else expr
         | Let (var, Let (v, vl, bd), body) ->
             Let (v, vl, Let (var, bd, body))
-        | Let (var, value, Application (f, [Var v])) when v = var && isPure f ->
-            Application(f, [value])
         | Let (var, value, body) when not var.IsMutable ->
             match value with
             | Constant _ | Global _ | Runtime ->
@@ -1052,12 +1052,10 @@ let Simplify expr =
                         else inlineLet expr var value body
                 else expr
             | _ ->
-                // do not recur on large expressions (since this is quadratic).
-                if size > 128 then expr else
-                    match occurenceCount var body with
-                    | 0 -> if isPure value then body else Sequential (value, body)
-                    | 1 -> inlineLet expr var value body
-                    | _ -> expr
+                match occurenceCountApprox var body with
+                | 0 -> if isPure value then body else Sequential (value, body)
+                | 1 -> inlineLet expr var value body
+                | _ -> expr
         | Sequential (a, b) when isPure a ->
             b
         | _ ->
