@@ -95,9 +95,9 @@ let Create size value =
 [<Inline "[]">]
 let Empty () = X<'T []>
 
-[<Inline "$arr.some(function(x){return $f(x)})">]
-[<Name "exists">]
-let Exists<'T> (f: 'T -> bool) (arr: 'T []) = X<bool> 
+[<Inline>]
+[<JavaScript>]
+let Exists<'T> (f: 'T -> bool) (arr: 'T []) = Seq.exists f arr
 
 [<JavaScript>]
 [<Name "exists2">]
@@ -112,9 +112,14 @@ let Fill<'T> (arr: 'T []) (start: int) (length: int) (value: 'T) =
     for i = start to start + length - 1 do
         arr.[i] <- value
 
-[<Inline "$arr.filter(function(x){return $f(x)})">]
+[<JavaScript>]
 [<Name "filter">]
-let Filter<'T> (f: 'T  -> bool) (arr: 'T []) = X<'T[]> 
+let Filter<'T> f (arr: 'T []) : 'T [] =
+    let r : 'T [] = [||]
+    for i = 0 to arr.Length - 1 do
+        if f arr.[i] then
+            push r arr.[i]
+    r
 
 [<JavaScript>]
 let Find f (arr: _ []) =
@@ -128,9 +133,13 @@ let FindIndex f (arr: _ []) =
     | Some x -> x
     | None   -> failwith "KeyNotFoundException"
 
-[<Inline "$arr.reduce(function(s,x){return $f(s)(x)}, $zero)">]
+[<JavaScript>]
 [<Name "fold">]
-let Fold<'T,'S> (f: 'S -> 'T -> 'S) (zero: 'S) (arr: 'T []) = X<'S>
+let Fold<'T,'S> (f: 'S -> 'T -> 'S) (zero: 'S) (arr: 'T []) : 'S =
+    let mutable acc = zero
+    for i = 0 to arr.Length - 1 do
+        acc <- f acc arr.[i]
+    acc
 
 [<JavaScript>]
 [<Name "fold2">]
@@ -141,9 +150,14 @@ let Fold2<'T1,'T2,'S> f (zero: 'S) (arr1: 'T1 []) (arr2: 'T2 []) : 'S =
         accum <- f accum arr1.[i] arr2.[i]
     accum
 
-[<Inline "$arr.reduceRight(function(s,x){return $f(x)(s)}, $zero)">]
+[<JavaScript>]
 [<Name "foldBack">]
-let FoldBack (f: 'T -> 'S -> 'S) (arr: 'T []) (zero: 'S) = X<'S> 
+let FoldBack f (arr: _ []) zero =
+    let mutable acc = zero
+    let len = arr.Length
+    for i = 1 to len do
+        acc <- f arr.[len - i] acc
+    acc
 
 [<JavaScript>]
 [<Name "foldBack2">]
@@ -155,8 +169,9 @@ let FoldBack2 f (arr1: _ []) (arr2: _ []) zero =
         accum <- f arr1.[len - i] arr2.[len - i] accum
     accum
 
-[<Inline "$arr.every(function(x){return $f(x)})">]
-let ForAll f (arr: 'T []) = X<bool> 
+[<Inline>]
+[<JavaScript>]
+let ForAll f (arr: _ []) = Seq.forall f arr
 
 [<JavaScript>]
 [<Name "forall2">]
@@ -181,9 +196,11 @@ let Initialize size f =
 [<Inline "$arr.length == 0">]
 let IsEmpty (arr: _ []) = arr.Length = 0
 
-[<Inline "$arr.forEach(function(x){$f(x)})">]
+[<JavaScript>]
 [<Name "iter">]
-let Iterate (f: 'T -> unit) (arr: 'T []) = () 
+let Iterate f (arr: 'T []) =
+    for i = 0 to arr.Length - 1 do
+        f arr.[i]
 
 [<JavaScript>]
 [<Name "iter2">]
@@ -192,9 +209,11 @@ let Iterate2 f (arr1: _ []) (arr2: _ []) =
     for i = 0 to arr1.Length - 1 do
         f arr1.[i] arr2.[i]
 
-[<Inline "$arr.forEach(function(x, i){$f(i)(x)})">]
+[<JavaScript>]
 [<Name "iteri">]
-let IterateIndexed (f: int -> 'T -> unit) (arr: 'T []) = () 
+let IterateIndexed f (arr: 'T []) =
+    for i = 0 to arr.Length - 1 do
+        f i arr.[i]
 
 [<JavaScript>]
 [<Name "iteri2">]
@@ -206,9 +225,13 @@ let IterateIndexed2 f (arr1: _ []) (arr2: _ []) =
 [<Inline "$arr.length">]
 let Length<'T> (arr: 'T []) = arr.Length
 
-[<Inline "$arr.map(function(x){return $f(x)})">]
+[<JavaScript>]
 [<Name "map">]
-let Map<'T1,'T2> (f: 'T1 -> 'T2) (arr: 'T1 []) = X<'T2[]> 
+let Map<'T1,'T2> (f: 'T1 -> 'T2) (arr: 'T1 []) : 'T2 [] =
+    let r = Array.zeroCreate<'T2> arr.Length
+    for i = 0 to arr.Length - 1 do
+        r.[i] <- f arr.[i]
+    r
 
 [<JavaScript>]
 [<Name "map2">]
@@ -219,9 +242,13 @@ let Map2 (f: 'T1 -> 'T2 -> 'T3) (arr1: 'T1 []) (arr2: 'T2 []) : 'T3 [] =
         r.[i] <- f arr1.[i] arr2.[i]
     r
 
-[<Inline "$arr.map(function(x, i){return $f(i)(x)})">]
+[<JavaScript>]
 [<Name "mapi">]
-let MapIndexed (f: int -> 'T -> 'U) (arr: 'T []) = X<'U[]> 
+let MapIndexed f (arr: _ []) =
+    let y = Array.zeroCreate arr.Length
+    for i = 0 to arr.Length - 1 do
+        y.[i] <- f i arr.[i]
+    y
 
 [<JavaScript>]
 [<Name "mapi2">]
@@ -294,13 +321,24 @@ let private nonEmpty (arr: _ []) =
     if arr.Length = 0 then
         failwith "The input array was empty."
 
-[<Inline "$arr.reduce(function(s,x){return $f(s)(x)})">]
+[<JavaScript>]
 [<Name "reduce">]
-let Reduce (f: 'T -> 'T -> 'T) (arr: 'T []) = X<'T> 
+let Reduce f (arr: _ []) =
+    nonEmpty arr
+    let mutable acc = arr.[0]
+    for i = 1 to arr.Length - 1 do
+        acc <- f acc arr.[i]
+    acc
 
-[<Inline "$arr.reduceRight(function(s,x){return $f(x)(s)})">]
+[<JavaScript>]
 [<Name "reduceBack">]
-let ReduceBack (f: 'T -> 'T -> 'T) (arr: 'T []) = X<'T> 
+let ReduceBack f (arr: _ []) =
+    nonEmpty arr
+    let len = arr.Length
+    let mutable acc = arr.[len - 1]
+    for i = 2 to len do
+        acc <- f arr.[len - i] acc
+    acc
 
 [<Inline "$x.slice().reverse()">]
 [<Name "rev">]
@@ -384,11 +422,9 @@ let SumBy (f: 'T -> 'U) (arr: 'T []) : 'U =  X<'U>
 
 [<JavaScript>]
 [<Inline>]
-[<Name "toList">]
 let ToList arr = List.ofArray arr
 
 [<Inline "$arr">]
-[<Name "toSeq">]
 let ToSeq (arr: _ []) = arr :> seq<_>
 
 [<JavaScript>]
@@ -411,7 +447,7 @@ let TryFindIndex f (arr: _ []) =
         i <- i + 1
     res
 
-[<JavaScript>]    
+[<JavaScript>]
 [<Name "tryPick">]
 let TryPick f (arr: _ []) = 
     let mutable res = None
