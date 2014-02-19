@@ -27,11 +27,12 @@ type private IE<'T> = System.Collections.Generic.IEnumerator<'T>
 
 /// Represents an unfolding enumerator.
 [<Name "T">]
-[<JavaScript>]
-type T<'S,'T>(s: 'S, c: 'T, n: T<'S,'T> -> bool) =
+[<Sealed>]
+type T<'S,'T> [<JavaScript>] (s: 'S, c: 'T, n: T<'S,'T> -> bool) =
+    [<JavaScript>] 
     member this.MoveNext() = n this
-    member this.State with [<Inline>] get() = s and [<Inline>] set (v: 'S) = this?s <- v
-    member this.Current with get() = c and [<Inline>] set (v: 'T) = this?c <- v
+    member this.State with [<Inline; JavaScript>] get() = s and [<Inline; JavaScript>] set (v: 'S) = this?s <- v
+    member this.Current with [<JavaScript>] get() = c and [<Inline; JavaScript>] set (v: 'T) = this?c <- v
 
 /// Constructs a new `IEnumerator` by unfolding a function.
 [<Inline>]
