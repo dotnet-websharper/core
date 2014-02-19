@@ -61,7 +61,7 @@
     <Compile Include="Proxy/TimeSpan.fs" />
     <Compile Include="Proxy/Unchecked.fs" />
   </ItemGroup>
-  <Import Project="../build/net45/$(Name).proj" />
+  <Import Project="../build/net40/$(Name).proj" />
   <Import Project="../msbuild/FSharp.targets" />
   <Target Name="Build" />
   <Target Name="Clean" />

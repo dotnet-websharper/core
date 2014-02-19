@@ -120,9 +120,9 @@ type InlineGenerator() =
         |> mangle
 
 [<Sealed>]
-type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition) =
+type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName: string) =
     let mscorlib = aR.Resolve(typeof<int>.Assembly.FullName)
-    let fscore = aR.Resolve(typedefof<list<_>>.Assembly.FullName)
+    let fscore = aR.Resolve(fsCoreFullName)
     let wsCore = aR.Resolve(typeof<IntelliFactory.WebSharper.Core.Attributes.InlineAttribute>.Assembly.FullName)
     let sysWeb = aR.Resolve(typeof<System.Web.UI.WebResourceAttribute>.Assembly.FullName)
     let main = out.MainModule
@@ -212,7 +212,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition) =
         commonType mscorlib "System" "Tuple" ts
 
     member b.Type(assemblyName: string, fullName: string) =
-        let a = aR.Resolve assemblyName
+        let a = if AssemblyName(assemblyName).Name = "FSharp.Core" then fscore else aR.Resolve assemblyName
         let imp (x: TypeReference) =
             if a.Name = out.Name then x else main.Import x
         match a with
@@ -860,12 +860,13 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
             attr.ConstructorArguments.Add(CustomAttributeArgument(stringTypeDef, v))
             def.CustomAttributes.Add(attr)
         for data in orig.GetCustomAttributesData() do
-            if attrTypes.Contains data.AttributeType then
+            let attrType = data.Constructor.DeclaringType
+            if attrTypes.Contains attrType then
                 match Seq.toList data.ConstructorArguments with
                 | [x] when x.ArgumentType = typeof<string> ->
                     match x.Value with
                     | :? string as s ->
-                        setAttr data.AttributeType s
+                        setAttr attrType s
                     | _ -> ()
                 | _ -> ()
 
@@ -978,6 +979,15 @@ type Compiler() =
             (buildNested TypeAttributes.Interface)
         types
 
+    let findFSharpCoreFullName options =
+        let fsCorePath =
+            options.ReferencePaths
+            |> Seq.tryFind (fun p -> p.ToLower().EndsWith("fsharp.core.dll"))
+        match fsCorePath with
+        | None -> typedefof<list<_>>.Assembly.FullName
+        | Some p ->
+            AssemblyName.GetAssemblyName(p).FullName
+
     let buildAssembly resolver options (assembly: Code.Assembly) =
         if box assembly = null then
             failwithf "buildAssembly: assembly cannot be null"
@@ -993,7 +1003,7 @@ type Compiler() =
         let comments : Comments = Dictionary()
         let def = AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
         let types = buildInitialTypes assembly def
-        let tB = TypeBuilder(resolver, def)
+        let tB = TypeBuilder(resolver, def, findFSharpCoreFullName options)
         let tC = TypeConverter(tB, types)
         let mB = MemberBuilder(tB, def)
         let mC = MemberConverter(tB, mB, tC, types, iG, def, comments)
