@@ -43,11 +43,11 @@ module internal Implementation =
 
             [<JavaScript>]
             member this.AppendAttribute node attr =
-                JQuery.Of(node).Append(As<Dom.Element> attr).Ignore
+                (this :> IHtmlProvider).SetAttribute node attr.NodeName attr.NodeValue
 
             [<JavaScript>]
             member this.AppendNode node el =
-                JQuery.Of(node).Append(As<Dom.Element> el).Ignore
+                JQuery.Of(node).Append(JQuery.Of(el)).Ignore
 
             [<JavaScript>]
             member this.GetText node =
