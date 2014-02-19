@@ -43,21 +43,19 @@ module internal Implementation =
 
             [<JavaScript>]
             member this.AppendAttribute node attr =
-                let name = attr.NodeName
-                let value = attr.NodeValue
-                (this :> IHtmlProvider).SetAttribute node name value
+                JQuery.Of(node).Append(As<Dom.Element> attr).Ignore
 
             [<JavaScript>]
             member this.AppendNode node el =
-                JQuery.Of(node).Append(JQuery.Of(el)).Ignore
+                JQuery.Of(node).Append(As<Dom.Element> el).Ignore
 
             [<JavaScript>]
             member this.GetText node =
-                JQuery.Of(node).Text()
+                node.TextContent
 
             [<JavaScript>]
             member this.SetText node text =
-                JQuery.Of(node).Text(text).Ignore
+                node.TextContent <- text
 
             [<JavaScript>]
             member this.AddClass node cls =
@@ -77,7 +75,7 @@ module internal Implementation =
 
             [<JavaScript>]
             member this.GetValue node =
-                unbox box <| JQuery.Of(node).Val()
+                As <| JQuery.Of(node).Val()
 
             [<JavaScript>]
             member this.SetValue node value =
@@ -97,18 +95,15 @@ module internal Implementation =
 
             [<JavaScript>]
             member this.GetAttribute node name =
-                let attr = JQuery.Of(node).Attr(name)
-                unbox box attr
+                JQuery.Of(node).Attr(name)
 
             [<JavaScript>]
             member this.GetProperty node name =
-                let attr = JQuery.Of(node).Attr(name)
-                unbox box attr
+                As <| JQuery.Of(node).Attr(name)
 
             [<JavaScript>]
             member this.SetProperty node name value =
-                let attr = JQuery.Of(node).Prop(name, value)
-                unbox box attr
+                As <| JQuery.Of(node).Prop(name, value)
 
             [<JavaScript>]
             member this.RemoveAttribute node name =

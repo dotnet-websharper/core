@@ -103,9 +103,9 @@ type Element [<JavaScript>] (HtmlProvider : IHtmlProvider) =
     [<Name "AppendI">]
     member this.Append(pl: IPagelet) =
         // Check if attribute
-        if (unbox pl.Body.NodeType) = 2 then
-            let attr = pl.Body :?> Dom.Attr
-            HtmlProvider.AppendAttribute this.Body attr
+        let body = pl.Body
+        if (unbox body.NodeType) = 2 then
+            HtmlProvider.AppendAttribute this.Body (body :?> Dom.Attr)
         else
             HtmlProvider.AppendNode this.Body pl.Body
         // Call render if outer component already is rendered.
