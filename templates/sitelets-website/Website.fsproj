@@ -40,6 +40,12 @@
     <Content Include="Global.asax" />
     <Content Include="Setup.fsx" />
   </ItemGroup>
+  <Target Name="IncludeContent" BeforeTargets="Compile">
+    <ItemGroup>
+      <Content Include="Content/**/*.*" />
+      <Content Include="Scripts/**/*.*" />
+    </ItemGroup>
+  </Target>
   <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
