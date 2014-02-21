@@ -1,6 +1,6 @@
-# WebSharper 2.5.?
+# WebSharper 2.5.98.29
 
-Released: February ?, 2014.
+Released: February 21, 2014.
 
 This release brings asynchronous sitelets, brings back support for
 targeting .NET 4.0 - 4.5.1, and offers several bug fixes.
