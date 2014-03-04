@@ -30,14 +30,14 @@ IntelliFactory.
 
 	open IntelliFactory.WebSharper.InterfaceGenerator
 
-	let I1 =
+    let I1 =
         Interface "I1"
         |+> [
             "test1" => T<string> ^-> T<string>
             "radius1" =@ T<float>
         ]
 
-	let I2 =
+    let I2 =
         Generic / fun t1 t2 ->
             Interface "I2"
             |+> [
