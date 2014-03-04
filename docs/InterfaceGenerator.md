@@ -28,7 +28,7 @@ IntelliFactory.
 
     module WebSharperExtension.Definition
 
-	open IntelliFactory.WebSharper.InterfaceGenerator
+    open IntelliFactory.WebSharper.InterfaceGenerator
 
     let I1 =
         Interface "I1"
