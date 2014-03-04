@@ -23,19 +23,19 @@ templates.
 
 Below you will find a sample binding definition. For more examples,
 please check out the
-[open-source code]("http://bitbucket.org/IntelliFactory/) by
+[open-source code](http://bitbucket.org/IntelliFactory/) by
 IntelliFactory.
 
     module WebSharperExtension.Definition
-	
+
 	open IntelliFactory.WebSharper.InterfaceGenerator
-	
+
 	let I1 =
         Interface "I1"
         |+> [
             "test1" => T<string> ^-> T<string>
             "radius1" =@ T<float>
-      ]
+        ]
 
 	let I2 =
         Generic / fun t1 t2 ->
