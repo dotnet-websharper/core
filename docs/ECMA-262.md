@@ -5,7 +5,7 @@ direct, type-safe way without inlining actual EcmaScript code. You can
 use this extension to compile Standard ECMA-262 compliant code
 directly from F#.
 
-This extension fully implements the 5th edition of the @Ecma{}.
+This extension implements the full 5th edition of the ECMA standard.
 
 The ECMA code is available in the
 `IntelliFactory.WebSharper.EcmaScript` namespace.  The implementation
@@ -32,10 +32,10 @@ extension does not contain any browser-specific objects or methods.
 You have access to the `Math` object with all of its constants and
 methods:
 
-    let pi   = Math.PI
+    let pi = Math.PI
     let sq25 = Math.Sqrt 25.
 
-Strings can be manipulated with the ECMA @code{String} object and its
+Strings can be manipulated with the ECMA `String` object and its
 methods:
 
     let str = new String("a lowercase string")
@@ -43,7 +43,7 @@ methods:
     let tenthchar = str.CharAt(10) // "e"
     let substring = str.Substring(2,11) // "lowercase"
 
-@code{RegExp} objects can be used to manipulate text:
+`RegExp` objects can be used to manipulate text:
 
     let str = new String("Bob likes pineapples.")
     let regex = new RegExp("^\w+") // matches the first word
