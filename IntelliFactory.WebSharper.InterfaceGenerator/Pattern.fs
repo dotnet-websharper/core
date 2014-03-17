@@ -51,6 +51,11 @@ module Pattern =
             Required : seq<string * T>
             Optional : seq<string * T>
         }
+        static member Empty =
+            {
+                Required = []
+                Optional = []
+            } 
 
     /// Generates a configuration object type.
     let Config (name: string) (properties: ConfigProperties) =
@@ -78,3 +83,43 @@ module Pattern =
             ]
         |+> [ Constructor ctor |> WithInline code ]
 
+    type ConfigObsProperties =
+        {
+            Required : seq<string * T>
+            Optional : seq<string * T>
+            Obsolete : seq<string * T>
+        }
+        static member Empty =
+            {
+                Required = []
+                Optional = []
+                Obsolete = []
+            } 
+
+    /// Generates a configuration object type with Obsolete support.
+    let ConfigObs (name: string) (properties: ConfigObsProperties) =
+        let t = Type.New()
+        let ctor : Type.Parameters =
+            { This = None
+              Variable = None
+              Arguments =
+                [ for (n, t) in properties.Required ->
+                    (t :> Type.IParameter).Parameter |=> n
+                ]
+            }
+        let code =
+            let ss =
+                properties.Required
+                |> Seq.mapi (fun i (n, _) ->
+                    String.Format("{0}:${1}", Util.Quote n, i))
+            String.Format("{{{0}}}", String.concat "," ss)
+        Class name
+        |+> Protocol
+            [ for (n, t) in properties.Required do
+                yield Getter n t :> _
+              for (n, t) in properties.Optional do
+                yield Property n t :> _
+              for (n, t) in properties.Obsolete do
+                yield Property n t |> Obsolete :> _
+            ]
+        |+> [ Constructor ctor |> WithInline code ]
