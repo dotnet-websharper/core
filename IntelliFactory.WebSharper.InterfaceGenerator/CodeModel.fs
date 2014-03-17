@@ -42,6 +42,7 @@ module CodeModel =
         val mutable Type : T
         val mutable AccessModifier : AccessModifier
         val mutable Comment : option<string>
+        val mutable IsObsolete : bool
 
         internal new (name, t) =
             {
@@ -50,6 +51,7 @@ module CodeModel =
                 Type = t
                 AccessModifier = AccessModifier.Public
                 Comment = None
+                IsObsolete = false
             }
 
         member internal this.Clone() = (this.MemberwiseClone()) :?> Entity

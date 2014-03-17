@@ -184,6 +184,10 @@ module Pervasives =
     /// Marks an entity as internal.
     let Internal x = Access Code.AccessModifier.Internal x
 
+    /// Marks an entity with the Obsolete attribute.
+    let Obsolete<'T when 'T :> Code.Entity> (x: 'T) =
+        x |> Code.Entity.Update (fun x -> x.IsObsolete <- true)
+
     /// Constructs a class protocol (instance members).
     let Protocol (members: list<Code.Member>) =
         [ for m in members -> Instance m :> Code.IClassMember ]

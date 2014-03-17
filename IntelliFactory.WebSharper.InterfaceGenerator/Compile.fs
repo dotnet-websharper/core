@@ -178,6 +178,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
 
     let paramArray = fromSystem "ParamArrayAttribute"
     let notImpl = fromSystem "NotImplementedException"
+    let obsolete = fromSystem "ObsoleteAttribute"
 
     let attributes =
         wsCore.MainModule.GetType("IntelliFactory.WebSharper.Core", "Attributes")
@@ -243,6 +244,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     member b.Object = objectType
     member b.ParamArray = paramArray
     member b.Require = requireAttr
+    member b.Obsolete = obsolete
     member b.String = stringType
     member b.SystemType = systemType
     member b.Void = voidType
@@ -357,6 +359,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     let baseResourceCtorN = findConstructorByArity tB.BaseResource 3
     let inlineAttributeConstructor = findTypedConstructor tB.Inline [tB.String.Name]
     let requireAttributeConstructor = findTypedConstructor tB.Require [tB.SystemType.Name]
+    let obsoleteAttributeConstructor = findDefaultConstructor tB.Obsolete 
 
     member c.AddBody(m: MethodDefinition) =
         let body = MethodBody(m)
@@ -391,6 +394,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     member c.BaseResourceConstructorN = baseResourceCtorN
     member c.InlineAttributeConstructor = inlineAttributeConstructor
     member c.RequireAttributeConstructor = requireAttributeConstructor
+    member c.ObsoleteAttributeConstructor = obsoleteAttributeConstructor
 
 [<Sealed>]
 type MemberConverter
@@ -413,6 +417,8 @@ type MemberConverter
         let attr = CustomAttribute(mB.RequireAttributeConstructor)
         attr.ConstructorArguments.Add(CustomAttributeArgument(tB.SystemType, resourceType))
         attr
+
+    let obsoleteAttribute = CustomAttribute(mB.ObsoleteAttributeConstructor)
 
     let withGenerics gs =
         MemberConverter(tB, mB, tC.WithGenerics gs, types, iG, def, comments)
@@ -460,6 +466,7 @@ type MemberConverter
                 |> cD.CustomAttributes.Add
                 for p in makeParameters f do
                     cD.Parameters.Add p
+                if x.IsObsolete then cD.CustomAttributes.Add obsoleteAttribute
                 dT.Methods.Add(cD)
                 do
                     match x.Comment with
@@ -500,6 +507,7 @@ type MemberConverter
                 mB.AddBody mD
             dT.Methods.Add mD
             pD.SetMethod <- mD
+        if p.IsObsolete then dT.CustomAttributes.Add obsoleteAttribute
         dT.Properties.Add pD
 
     let genericType (x: Code.TypeDeclaration) k =
@@ -549,6 +557,7 @@ type MemberConverter
             iG.GetMethodBaseInline(td, Type.FunctionType f, x)
             |> inlineAttribute
             |> mD.CustomAttributes.Add
+        if x.IsObsolete then dT.CustomAttributes.Add obsoleteAttribute
         dT.Methods.Add mD
 
     member private c.AddTypeMembers<'T when 'T :> Code.TypeDeclaration and 'T :> Code.IResourceDependable<'T>>
@@ -586,6 +595,7 @@ type MemberConverter
             tD.Interfaces.Add(tC.TypeReference i)
         for ctor in x.Constructors do
             addConstructor tD x ctor
+        if x.IsObsolete then tD.CustomAttributes.Add obsoleteAttribute
         c.AddTypeMembers(x, tD)
 
     member c.Interface(x: Code.Interface) =
@@ -594,6 +604,7 @@ type MemberConverter
     member private c.Interface(x: Code.Interface, tD: TypeDefinition) =
         for i in x.BaseInterfaces do
             tD.Interfaces.Add(tC.TypeReference i)
+        if x.IsObsolete then tD.CustomAttributes.Add obsoleteAttribute
         c.AddTypeMembers(x, tD)
         do
             match x.Comment with
