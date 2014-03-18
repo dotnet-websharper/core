@@ -507,7 +507,7 @@ type MemberConverter
                 mB.AddBody mD
             dT.Methods.Add mD
             pD.SetMethod <- mD
-        if p.IsObsolete then dT.CustomAttributes.Add obsoleteAttribute
+        if p.IsObsolete then pD.CustomAttributes.Add obsoleteAttribute
         dT.Properties.Add pD
 
     let genericType (x: Code.TypeDeclaration) k =
@@ -557,7 +557,7 @@ type MemberConverter
             iG.GetMethodBaseInline(td, Type.FunctionType f, x)
             |> inlineAttribute
             |> mD.CustomAttributes.Add
-        if x.IsObsolete then dT.CustomAttributes.Add obsoleteAttribute
+        if x.IsObsolete then mD.CustomAttributes.Add obsoleteAttribute
         dT.Methods.Add mD
 
     member private c.AddTypeMembers<'T when 'T :> Code.TypeDeclaration and 'T :> Code.IResourceDependable<'T>>
