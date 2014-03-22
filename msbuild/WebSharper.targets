@@ -22,7 +22,13 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
-  <UsingTask AssemblyFile="$(MSBuildThisFileDirectory)/../tools/net40/IntelliFactory.WebSharper.MSBuild.dll"
+  <PropertyGroup>
+    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">
+      $(MSBuildThisFileDirectory)/../tools/net40/IntelliFactory.WebSharper.MSBuild.dll
+    </WebSharperTaskAssembly>
+  </PropertyGroup>
+
+  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)"
              TaskName="IntelliFactory.WebSharper.MSBuild.WebSharperTask" />
 
   <Target Name="WebSharper_ComputeReferences" BeforeTargets="ResolveAssemblyReferences">
@@ -31,24 +37,9 @@
     </WebSharperTask>
   </Target>
 
-  <!--<Target Name="WebSharper_RedirectIntermediateAssembly" BeforeTargets="CoreCompile">
-    <ItemGroup>
-      <FinalIntermediateAssembly Include="@(IntermediateAssembly)" />
-      <IntermediateAssembly Remove="@(IntermediateAssembly)" />
-    </ItemGroup>
-    <WebSharperTask Command="RedirectIntermediateAssembly"
-                    ItemInput="@(FinalIntermediateAssembly)">
-      <Output TaskParameter="ItemOutput" ItemName="IntermediateAssembly" />
-    </WebSharperTask>
-  </Target>-->
-
   <Target Name="WebSharper_Compile" AfterTargets="CoreCompile" DependsOnTargets="ResolveReferences">
     <WebSharperTask Command="Compile"
                     ItemInput="@(IntermediateAssembly);@(ReferencePath)" />
-    <!--<ItemGroup>
-      <IntermediateAssembly Remove="@(IntermediateAssembly)" />
-      <IntermediateAssembly Include="@(FinalIntermediateAssembly)" />
-    </ItemGroup>-->
   </Target>
 
   <!--<PropertyGroup>

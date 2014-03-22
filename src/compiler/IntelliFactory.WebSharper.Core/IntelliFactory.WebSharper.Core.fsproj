@@ -6,20 +6,16 @@
     <ProjectGuid>{52741881-8d64-4639-8b5c-19c060958c35}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.Core</Name>
-    <OutputPath>bin</OutputPath>
   </PropertyGroup>
-  <Import Project="../build/compiler/$(Name).proj" />
-  <Import Project="../msbuild/FSharp.targets" />
+  <Import Project="../../../msbuild/FSharp.targets" />
+  <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="System" />
-    <Reference Include="System.Configuration" />
-    <Reference Include="System.Web" />
-    <Reference Include="System.Xml" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="../src/PathConventions.fsi" />
-    <Compile Include="../src/PathConventions.fs" />
+    <Compile Include="../../PathConventions.fsi">
+      <Link>PathConventions.fsi</Link>
+    </Compile>
+    <Compile Include="../../PathConventions.fs">
+      <Link>PathConventions.fs</Link>
+    </Compile>
     <Compile Include="Reflection.fsi" />
     <Compile Include="Reflection.fs" />
     <Compile Include="Quotations.fsi" />
@@ -39,5 +35,17 @@
     <Compile Include="Remoting.fs" />
     <Compile Include="Plugins.fs" />
     <Compile Include="Functions.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
+      <Name>IntelliFactory.JavaScript</Name>
+      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="IntelliFactory.Core">
+      <HintPath>..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
+    </Reference>
   </ItemGroup>
 </Project>
