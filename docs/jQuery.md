@@ -153,8 +153,8 @@ handler for the click event:
     [<JavaScript>]
     let ButtonWithEvent () =
         JQuery.Of("<button/>")
-		    .Text("Click")
-			.Click(fun _ _ ->
+            .Text("Click")
+            .Click(fun _ _ ->
                 Window.Alert("Button clicked"))
-			.AppendTo("body")
-			.Ignore
+            .AppendTo("body")
+            .Ignore
