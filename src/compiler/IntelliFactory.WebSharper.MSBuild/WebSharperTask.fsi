@@ -40,5 +40,8 @@ type WebSharperTask =
     /// Item output for item commands.
     member ItemOutput : ITaskItem [] with get, set
 
+    /// Path to an `.snk` strong name key file, if any.
+    member KeyOriginatorFile : string with get, set
+
     /// Specifies which project type is being built.
     member ProjectType : string with get, set

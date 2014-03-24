@@ -34,9 +34,17 @@ module FE = FrontEnd
 type CompilerInput =
     {
         AssemblyFile : string
+        KeyOriginatorFile : string
         References : list<string>
         RunInterfaceGenerator : bool
     }
+
+    member this.StrongNameKeyPair =
+        match this.KeyOriginatorFile with
+        | "" | null -> None
+        | p when File.Exists(p) ->
+            Some (StrongNameKeyPair(File.ReadAllBytes(p)))
+        | _ -> None
 
 type CompilerMessage =
     | CMErr1 of string
@@ -168,8 +176,8 @@ module CompilerJobModule =
                     InterfaceGenerator.CompilerOptions.Default name.Name with
                         AssemblyResolver = Some aR
                         AssemblyVersion = name.Version
-                        // DocPath : option<string>
                         ReferencePaths = input.References
+                        StrongNameKeyPair = input.StrongNameKeyPair
                 }
             let cmp = InterfaceGenerator.Compiler.Create()
             let out = cmp.Compile(cfg, asm)

@@ -104,7 +104,7 @@ module private WebSharperTaskModule =
                     yield it :> _
         |]
 
-    let DoCompile ty (log: TaskLoggingHelper) (input: ITaskItem[]) =
+    let DoCompile ty (log: TaskLoggingHelper) (input: ITaskItem[]) (keyOriginatorFile: string) =
         match List.ofArray input with
         | raw :: refs ->
             let rawInfo = FileInfo(raw.ItemSpec)
@@ -114,6 +114,7 @@ module private WebSharperTaskModule =
                 let out =
                     CompilerUtility.Compile {
                         AssemblyFile = raw.ItemSpec
+                        KeyOriginatorFile = keyOriginatorFile
                         References = [ for r in refs -> r.ItemSpec ]
                         RunInterfaceGenerator =
                             match ty with
@@ -138,25 +139,26 @@ type WebSharperTask() =
         try
             match Command.Parse this.Command with
             | Compile ->
-                DoCompile (ProjectType.Parse this.ProjectType) this.Log this.ItemInput
+                DoCompile this.ActualProjectType this.Log this.ItemInput this.KeyOriginatorFile
                 true
             | ComputeReferences ->
-                this.ItemOutput <- DoComputeReferences (ProjectType.Parse this.ProjectType)
+                this.ItemOutput <- DoComputeReferences this.ActualProjectType
                 true
         with e ->
             this.Log.LogErrorFromException(e)
             false
 
-    /// Used to specify which "method" to call
+    member this.ActualProjectType =
+        ProjectType.Parse this.ProjectType
+
     [<Required>]
     member val Command = "" with get, set
 
-    /// Item input for item commands.
     member val ItemInput : ITaskItem [] = Array.empty with get, set
 
-    /// Item output for item commands.
     [<Output>]
     member val ItemOutput : ITaskItem [] = Array.empty with get, set
 
-    /// Specifies which project type is being built.
+    member val KeyOriginatorFile = "" with get, set
     member val ProjectType = "Library" with get, set
+

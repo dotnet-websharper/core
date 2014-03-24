@@ -33,9 +33,10 @@
     AssemblyFile="$(WebSharperTaskAssembly)"
     TaskName="IntelliFactory.WebSharper.MSBuild.WebSharperTask" />
 
-  <Target Name="WebSharper_ComputeReferences" BeforeTargets="ResolveAssemblyReferences">
+  <Target Name="WebSharper_ComputeReferences" BeforeTargets="ResolveAssemblyReferences" Condition=" '$(WebSharper_ExplicitRefs)' == '' ">
     <WebSharperTask
       Command="ComputeReferences"
+      KeyOriginatorFile="$(KeyOriginatorFile)"
       ProjectType="$(WebSharperProject)">
       <Output TaskParameter="ItemOutput" ItemName="Reference" />
     </WebSharperTask>
@@ -45,6 +46,7 @@
     <WebSharperTask
       Command="Compile"
       ItemInput="@(IntermediateAssembly);@(ReferencePath)"
+      KeyOriginatorFile="$(KeyOriginatorFile)"
       ProjectType="$(WebSharperProject)" />
   </Target>
 

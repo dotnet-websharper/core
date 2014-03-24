@@ -8,6 +8,7 @@
     <CP Include="../src/compiler/WebSharper/*.fsproj" />
     <SP Include="../src/stdlib/IntelliFactory.WebSharper/*.fsproj" />
     <SP Include="../src/stdlib/IntelliFactory.WebSharper.Dom/*.fsproj" />
+    <SP Include="../src/stdlib/IntelliFactory.WebSharper.JQuery/*.fsproj" />
   </ItemGroup>
   <Target Name="Build">
     <MSBuild Projects="@(CP)" />

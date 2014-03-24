@@ -26,6 +26,7 @@ open Microsoft.Build.Utilities
 type internal CompilerInput =
     {
         AssemblyFile : string
+        KeyOriginatorFile : string
         References : list<string>
         RunInterfaceGenerator : bool
     }
