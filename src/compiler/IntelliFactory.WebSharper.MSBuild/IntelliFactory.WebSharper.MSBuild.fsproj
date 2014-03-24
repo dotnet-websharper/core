@@ -12,6 +12,7 @@
     <Compile Include="AppDomainUtility.fs" />
     <Compile Include="CompilerUtility.fsi" />
     <Compile Include="CompilerUtility.fs" />
+    <Compile Include="WebSharperTask.fsi" />
     <Compile Include="WebSharperTask.fs" />
   </ItemGroup>
   <ItemGroup>
@@ -30,6 +31,11 @@
     <ProjectReference Include="..\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
       <Name>IntelliFactory.WebSharper.Core</Name>
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.InterfaceGenerator\IntelliFactory.WebSharper.InterfaceGenerator.fsproj">
+      <Name>IntelliFactory.WebSharper.InterfaceGenerator</Name>
+      <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

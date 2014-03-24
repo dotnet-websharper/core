@@ -21,24 +21,24 @@
 
 namespace IntelliFactory.WebSharper.MSBuild
 
+open Microsoft.Build.Framework
 open Microsoft.Build.Utilities
 
-type internal CompilerInput =
-    {
-        AssemblyFile : string
-        References : list<string>
-        RunInterfaceGenerator : bool
-    }
-
+/// Implements MSBuild logic used in WebSharper.targets
 [<Sealed>]
-type internal CompilerMessage =
-    member SendTo : TaskLoggingHelper -> unit
+type WebSharperTask =
+    inherit Task
 
-type internal CompilerOutput =
-    {
-        Messages : CompilerMessage []
-        Ok : bool
-    }
+    new : unit -> WebSharperTask
 
-module CompilerUtility =
-    val Compile : CompilerInput -> CompilerOutput
+    /// Used to specify which "method" to call
+    member Command : string with get, set
+
+    /// Item input for item commands.
+    member ItemInput : ITaskItem [] with get, set
+
+    /// Item output for item commands.
+    member ItemOutput : ITaskItem [] with get, set
+
+    /// Specifies which project type is being built.
+    member ProjectType : string with get, set

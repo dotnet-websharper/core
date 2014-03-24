@@ -22,7 +22,7 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <WebSharperTaskAssembly>$(MSBuildThisFileDirectory)/../src/compiler/IntelliFactory.WebSharper.MSBuild/bin/$(Configuration)/IntelliFactory.WebSharper.MSBuild.dll</WebSharperTaskAssembly>
+    <WebSharperTaskAssembly>$(MSBuildThisFileDirectory)/../build/$(Configuration)/IntelliFactory.WebSharper.MSBuild.dll</WebSharperTaskAssembly>
   </PropertyGroup>
   <Import Project="$(MSBuildThisFileDirectory)/WebSharper.targets" />
 </Project>

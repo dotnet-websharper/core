@@ -1,12 +1,13 @@
 ﻿<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup>
-    <CP Include="../src/compiler/IntelliFactory.JavaScript/IntelliFactory.JavaScript.fsproj" />
-    <CP Include="../src/compiler/IntelliFactory.WebSharper.Core/IntelliFactory.WebSharper.Core.fsproj" />
-    <CP Include="../src/compiler/IntelliFactory.WebSharper.Compiler/IntelliFactory.WebSharper.Compiler.fsproj" />
-    <CP Include="../src/compiler/IntelliFactory.WebSharper.InterfaceGenerator/IntelliFactory.WebSharper.InterfaceGenerator.fsproj" />
-    <CP Include="../src/compiler/IntelliFactory.WebSharper.MSBuild/IntelliFactory.WebSharper.MSBuild.fsproj" />
-    <CP Include="../src/compiler/WebSharper/WebSharper.fsproj" />
-    <SP Include="../src/stdlib/IntelliFactory.WebSharper/IntelliFactory.WebSharper.fsproj" />
+    <CP Include="../src/compiler/IntelliFactory.JavaScript/*.fsproj" />
+    <CP Include="../src/compiler/IntelliFactory.WebSharper.Core/*.fsproj" />
+    <CP Include="../src/compiler/IntelliFactory.WebSharper.Compiler/*.fsproj" />
+    <CP Include="../src/compiler/IntelliFactory.WebSharper.InterfaceGenerator/*.fsproj" />
+    <CP Include="../src/compiler/IntelliFactory.WebSharper.MSBuild/*.fsproj" />
+    <CP Include="../src/compiler/WebSharper/*.fsproj" />
+    <SP Include="../src/stdlib/IntelliFactory.WebSharper/*.fsproj" />
+    <SP Include="../src/stdlib/IntelliFactory.WebSharper.Dom/*.fsproj" />
   </ItemGroup>
   <Target Name="Build">
     <MSBuild Projects="@(CP)" />

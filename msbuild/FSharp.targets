@@ -27,6 +27,9 @@
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' != '' ">$(INTELLIFACTORY)/keys/IntelliFactory.snk</KeyOriginatorFile>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+    <Root>$(MSBuildThisFileDirectory)\..</Root>
+    <AssemblyName>$(Name)</AssemblyName>
+    <RootNamespace>$(Name)</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -44,19 +47,19 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath>bin\Debug\</OutputPath>
+    <OutputPath>$(Root)\build\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\$(Name).xml</DocumentationFile>
+    <DocumentationFile>$(Root)\build\Debug\$(Name).xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>$(Root)\build\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\$(Name).xml</DocumentationFile>
+    <DocumentationFile>$(Root)\build\Release\$(Name).xml</DocumentationFile>
   </PropertyGroup>
   <Target Name="IncludeVersionFile" BeforeTargets="CoreCompile">
     <ItemGroup>

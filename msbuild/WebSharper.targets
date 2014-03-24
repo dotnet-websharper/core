@@ -26,20 +26,26 @@
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">
       $(MSBuildThisFileDirectory)/../tools/net40/IntelliFactory.WebSharper.MSBuild.dll
     </WebSharperTaskAssembly>
+    <WebSharperProject Condition=" '$(WebSharperProject)' == '' ">Library</WebSharperProject>
   </PropertyGroup>
 
-  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)"
-             TaskName="IntelliFactory.WebSharper.MSBuild.WebSharperTask" />
+  <UsingTask
+    AssemblyFile="$(WebSharperTaskAssembly)"
+    TaskName="IntelliFactory.WebSharper.MSBuild.WebSharperTask" />
 
   <Target Name="WebSharper_ComputeReferences" BeforeTargets="ResolveAssemblyReferences">
-    <WebSharperTask Command="ComputeReferences">
+    <WebSharperTask
+      Command="ComputeReferences"
+      ProjectType="$(WebSharperProject)">
       <Output TaskParameter="ItemOutput" ItemName="Reference" />
     </WebSharperTask>
   </Target>
 
   <Target Name="WebSharper_Compile" AfterTargets="CoreCompile" DependsOnTargets="ResolveReferences">
-    <WebSharperTask Command="Compile"
-                    ItemInput="@(IntermediateAssembly);@(ReferencePath)" />
+    <WebSharperTask
+      Command="Compile"
+      ItemInput="@(IntermediateAssembly);@(ReferencePath)"
+      ProjectType="$(WebSharperProject)" />
   </Target>
 
   <!--<PropertyGroup>

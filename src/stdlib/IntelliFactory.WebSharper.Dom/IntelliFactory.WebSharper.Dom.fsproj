@@ -6,13 +6,10 @@
     <ProjectGuid>{4382f3a7-126b-4bc6-988b-caa8c8a9b62f}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.Dom</Name>
-    <WebSharperProject>InterfaceGenerator</WebSharperProject>
-    <OutputPath>bin</OutputPath>
+    <WebSharperProject>Extension</WebSharperProject>
   </PropertyGroup>
-  <Import Project="../build/net40/$(Name).proj" />
-  <Import Project="../msbuild/FSharp.targets" />
-  <Target Name="Build" />
-  <Target Name="Clean" />
+  <Import Project="../../../msbuild/FSharp.targets" />
+  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
     <Compile Include="Definition.fs" />
   </ItemGroup>

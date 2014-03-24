@@ -43,11 +43,13 @@ type Command =
 
 /// WebSharper project types handled by the task (below).
 type ProjectType =
+    | Extension
     | Library
 
     /// Parses from string.
     static member Parse(ty: string) =
         match ty with
+        | "Extension" -> Extension
         | "Library" -> Library
         | _ -> invalidArg "type" ("Invalid project type: " + ty)
 
@@ -90,8 +92,8 @@ module private WebSharperTaskModule =
         let assemblies = GetReferences projTy
         let priv =
             match projTy with
-            | ProjectType.Library -> false
-            // | _ -> true
+            | Extension -> false
+            | Library -> false
         [|
             for asm in assemblies do
                 let hintPath = Path.Combine(BaseDir, asm + ".dll")
@@ -102,7 +104,7 @@ module private WebSharperTaskModule =
                     yield it :> _
         |]
 
-    let DoCompile (log: TaskLoggingHelper) (input: ITaskItem[]) =
+    let DoCompile ty (log: TaskLoggingHelper) (input: ITaskItem[]) =
         match List.ofArray input with
         | raw :: refs ->
             let rawInfo = FileInfo(raw.ItemSpec)
@@ -113,6 +115,10 @@ module private WebSharperTaskModule =
                     CompilerUtility.Compile {
                         AssemblyFile = raw.ItemSpec
                         References = [ for r in refs -> r.ItemSpec ]
+                        RunInterfaceGenerator =
+                            match ty with
+                            | Extension -> true
+                            | _ -> false
                     }
                 for msg in out.Messages do
                     msg.SendTo(log)
@@ -132,7 +138,7 @@ type WebSharperTask() =
         try
             match Command.Parse this.Command with
             | Compile ->
-                DoCompile this.Log this.ItemInput
+                DoCompile (ProjectType.Parse this.ProjectType) this.Log this.ItemInput
                 true
             | ComputeReferences ->
                 this.ItemOutput <- DoComputeReferences (ProjectType.Parse this.ProjectType)
