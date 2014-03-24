@@ -1,4 +1,25 @@
-﻿namespace IntelliFactory.WebSharper.MSBuild
+﻿// $begin{copyright}
+//
+// This file is part of WebSharper
+//
+// Copyright (c) 2008-2014 IntelliFactory
+//
+// GNU Affero General Public License Usage
+// WebSharper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU Affero General Public License, version 3, as published
+// by the Free Software Foundation.
+//
+// WebSharper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License
+// for more details at <http://www.gnu.org/licenses/>.
+//
+// If you are unsure which license is appropriate for your use, please contact
+// IntelliFactory at http://intellifactory.com/contact.
+//
+// $end{copyright}
+
+namespace IntelliFactory.WebSharper.MSBuild
 
 open System
 open System.IO
@@ -81,25 +102,6 @@ module private WebSharperTaskModule =
                     yield it :> _
         |]
 
-    let SendMessage (log: TaskLoggingHelper) (msg: Message) =
-        match msg.Priority with
-        | Priority.Critical
-        | Priority.Error ->
-            match msg.Location.SourceLocation with
-            | Some loc ->
-                log.LogError("WebSharper", "WebSharper", "WebSharper",
-                    loc.File, loc.Line, loc.Column, loc.Line, loc.Column, msg.Text)
-            | None ->
-                log.LogError(string msg)
-        | Priority.Warning ->
-            match msg.Location.SourceLocation with
-            | Some loc ->
-                log.LogWarning("WebSharper", "WebSharper", "WebSharper",
-                    loc.File, loc.Line, loc.Column, loc.Line, loc.Column,
-                    msg.Text)
-            | None ->
-                log.LogWarning(string msg)
-
     let DoCompile (log: TaskLoggingHelper) (input: ITaskItem[]) =
         match List.ofArray input with
         | raw :: refs ->
@@ -107,21 +109,17 @@ module private WebSharperTaskModule =
             let temp = raw.ItemSpec + ".tmp"
             let tempInfo = FileInfo(temp)
             if not tempInfo.Exists || tempInfo.LastWriteTimeUtc < rawInfo.LastWriteTimeUtc then
-                let aR = AssemblyResolution.AssemblyResolver.Create()
-                let refPaths =
-                    Set [ for i in input -> Path.GetFullPath(i.ItemSpec) ]
-                let aR = aR.SearchPaths(refPaths)
-                aR.Wrap <| fun () ->
-                    let loader = FE.Loader.Create aR (fun msg -> log.LogWarning(msg))
-                    let refs = [ for r in refs -> loader.LoadFile(r.ItemSpec) ]
-                    let opts = { FE.Options.Default with References = refs }
-                    let compiler = FE.Prepare opts (SendMessage log)
-                    let fileName = raw.ItemSpec
-                    let assem = loader.LoadFile fileName
-                    if not (compiler.CompileAndModify assem) then
-                        failwith "Could not compile the assembly with WebSharper"
-                    assem.Write None fileName
-                File.WriteAllText(tempInfo.FullName, "")
+                let out =
+                    CompilerUtility.Compile {
+                        AssemblyFile = raw.ItemSpec
+                        References = [ for r in refs -> r.ItemSpec ]
+                    }
+                for msg in out.Messages do
+                    msg.SendTo(log)
+                if out.Ok then
+                    File.WriteAllText(tempInfo.FullName, "")
+                else
+                    failwith "Failed to compile assembly with WebSharper"
         | _ ->
             failwith "Need 1+ items for Compile command"
 

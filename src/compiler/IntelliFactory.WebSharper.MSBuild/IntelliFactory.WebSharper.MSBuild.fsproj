@@ -8,6 +8,10 @@
   </PropertyGroup>
   <Import Project="../../../msbuild/fsharp.targets" />
   <ItemGroup>
+    <Compile Include="AppDomainUtility.fsi" />
+    <Compile Include="AppDomainUtility.fs" />
+    <Compile Include="CompilerUtility.fsi" />
+    <Compile Include="CompilerUtility.fs" />
     <Compile Include="WebSharperTask.fs" />
   </ItemGroup>
   <ItemGroup>

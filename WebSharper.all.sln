@@ -11,6 +11,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "msbuild", "msbuild", "{B80D
 		msbuild\FSharp.targets = msbuild\FSharp.targets
 		msbuild\Mono.Cecil.targets = msbuild\Mono.Cecil.targets
 		msbuild\WebSharper.Internal.targets = msbuild\WebSharper.Internal.targets
+		msbuild\WebSharper.proj = msbuild\WebSharper.proj
 		msbuild\WebSharper.targets = msbuild\WebSharper.targets
 	EndProjectSection
 EndProject
