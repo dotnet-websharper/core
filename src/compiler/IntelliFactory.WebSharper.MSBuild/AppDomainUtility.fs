@@ -32,16 +32,22 @@ open System.Runtime.Serialization.Formatters.Binary
 module AppDomainUtility =
 
     let Pickle (x: 'T) : byte [] =
-        use stream = new MemoryStream()
-        do
-            let fmt = BinaryFormatter()
-            fmt.Serialize(stream, x)
-        stream.ToArray()
+        try
+            use stream = new MemoryStream()
+            do
+                let fmt = BinaryFormatter()
+                fmt.Serialize(stream, x)
+            stream.ToArray()
+        with e ->
+            failwithf "Pickle error: %O" e
 
     let Unpickle (x: byte[]) : 'T =
-        use stream = new MemoryStream(x)
-        let fmt = BinaryFormatter()
-        fmt.Deserialize(stream) :?> 'T
+        try
+            use stream = new MemoryStream(x)
+            let fmt = BinaryFormatter()
+            fmt.Deserialize(stream) :?> 'T
+        with e ->
+            failwithf "Unpickle error: %O" e
 
     type ITransform<'T1,'T2> =
         abstract Do : 'T1 -> 'T2

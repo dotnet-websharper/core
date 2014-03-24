@@ -39,32 +39,44 @@ type CompilerInput =
     }
 
 type CompilerMessage =
-    | Report of exn
-    | Send of Message
-    | Warn of string
+    | CMErr1 of string
+    | CMErr2 of string * int * int * string
+    | CMExn of exn
+    | CMWarn1 of string
+    | CMWarn2 of string * int * int * string
 
     member msg.SendTo(log: TaskLoggingHelper) =
         match msg with
-        | Report e -> log.LogErrorFromException(e)
-        | Warn warn -> log.LogWarning(warn)
-        | Send msg ->
-            match msg.Priority with
-            | Priority.Critical
-            | Priority.Error ->
-                match msg.Location.SourceLocation with
-                | Some loc ->
-                    log.LogError("WebSharper", "WebSharper", "WebSharper",
-                        loc.File, loc.Line, loc.Column, loc.Line, loc.Column, msg.Text)
-                | None ->
-                    log.LogError(string msg)
-            | Priority.Warning ->
-                match msg.Location.SourceLocation with
-                | Some loc ->
-                    log.LogWarning("WebSharper", "WebSharper", "WebSharper",
-                        loc.File, loc.Line, loc.Column, loc.Line, loc.Column,
-                        msg.Text)
-                | None ->
-                    log.LogWarning(string msg)
+        | CMErr1 msg ->
+            log.LogError(msg)
+        | CMErr2 (file, line, col, msg) ->
+            log.LogError("WebSharper", "WebSharper", "WebSharper",
+                file, line, col, line, col, msg)
+        | CMWarn1 msg ->
+            log.LogWarning(msg)
+        | CMWarn2 (file, line, col, msg) ->
+            log.LogWarning("WebSharper", "WebSharper", "WebSharper",
+                file, line, col, line, col, msg)
+        | CMExn err ->
+            log.LogErrorFromException(err)
+
+    static member Report(e) =
+        CMExn e
+
+    static member Send(msg) =
+        match msg.Priority with
+        | Priority.Critical
+        | Priority.Error ->
+            match msg.Location.SourceLocation with
+            | Some loc -> CMErr2(loc.File, loc.Line, loc.Column, msg.Text)
+            | None -> CMErr1(string msg)
+        | Priority.Warning ->
+            match msg.Location.SourceLocation with
+            | Some loc -> CMWarn2(loc.File, loc.Line, loc.Column, msg.Text)
+            | None -> CMWarn1(string msg)
+
+    static member Warn(msg) =
+        CMWarn1 msg
 
 type CompilerOutput =
     {
@@ -86,7 +98,7 @@ type CompilerActionBuilder() =
                 action.Run ctx
                 |> Option.bind (fun res ->
                     try Some (cont res) with err ->
-                        ctx.Add(Report err)
+                        ctx.Add(CompilerMessage.Report err)
                         None)
                 |> Option.bind (fun next ->
                     next.Run(ctx))
@@ -99,7 +111,7 @@ type CompilerActionBuilder() =
         {
             Run = fun ctx ->
                 try Some (f ()) with err ->
-                    ctx.Add(Report err)
+                    ctx.Add(CompilerMessage.Report err)
                     None
                 |> Option.bind (fun next ->
                     next.Run(ctx))
@@ -109,7 +121,7 @@ type CompilerActionBuilder() =
         let ok res =
             {
                 Run = fun ctx ->
-                    ctx.Add(Warn res)
+                    ctx.Add(CompilerMessage.Warn res)
                     None
             }
         Printf.ksprintf ok fmt
@@ -168,10 +180,10 @@ module CompilerJobModule =
     let CompileWithWebSharper aR input =
         Act {
             let! out = Act.Out
-            let loader = FE.Loader.Create aR (fun msg -> out.Add(Warn msg))
+            let loader = FE.Loader.Create aR (fun msg -> out.Add(CompilerMessage.Warn msg))
             let refs = [ for r in input.References -> loader.LoadFile(r) ]
             let opts = { FE.Options.Default with References = refs }
-            let compiler = FE.Prepare opts (fun msg -> out.Add(Send msg))
+            let compiler = FE.Prepare opts (fun msg -> out.Add(CompilerMessage.Send msg))
             let fileName = input.AssemblyFile
             let assem = loader.LoadFile fileName
             let ok = compiler.CompileAndModify assem
@@ -185,13 +197,13 @@ type CompilerJob() =
     interface AppDomainUtility.ITransform<CompilerInput,CompilerOutput> with
         member this.Do(input) =
             let aR =
-                let dirs =
+                let files =
                     Set [
                         for i in input.AssemblyFile :: input.References ->
-                            Path.GetDirectoryName(Path.GetFullPath(i))
+                            Path.GetFullPath(i)
                     ]
                 AssemblyResolution.AssemblyResolver.Create()
-                    .SearchDirectories(dirs)
+                    .SearchPaths(files)
             aR.Wrap <| fun () ->
                 Act {
                     if input.RunInterfaceGenerator then
