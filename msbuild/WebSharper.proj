@@ -1,0 +1,13 @@
+﻿<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <Target Name="Build">
+    <ItemGroup>
+      <P Include="../src/compiler/IntelliFactory.JavaScript/IntelliFactory.JavaScript.fsproj" />
+      <P Include="../src/compiler/IntelliFactory.WebSharper.Core/IntelliFactory.WebSharper.Core.fsproj" />
+      <P Include="../src/compiler/IntelliFactory.WebSharper.Compiler/IntelliFactory.WebSharper.Compiler.fsproj" />
+      <P Include="../src/compiler/IntelliFactory.WebSharper.InterfaceGenerator/IntelliFactory.WebSharper.InterfaceGenerator.fsproj" />
+      <P Include="../src/compiler/IntelliFactory.WebSharper.MSBuild/IntelliFactory.WebSharper.MSBuild.fsproj" />
+      <P Include="../src/compiler/WebSharper/WebSharper.fsproj" />
+    </ItemGroup>
+    <MSBuild Projects="@(P)" />
+  </Target>
+</Project>

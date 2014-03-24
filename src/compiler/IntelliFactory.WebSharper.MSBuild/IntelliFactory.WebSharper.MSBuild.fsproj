@@ -12,7 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="IntelliFactory.Core">
-      <HintPath>..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
+      <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Build.Framework" />
     <Reference Include="Microsoft.Build.Utilities.v4.0" />

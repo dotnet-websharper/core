@@ -35,6 +35,17 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.WebSharper",
 		{C713BE60-B53C-44BB-A1EB-1696894996F5} = {C713BE60-B53C-44BB-A1EB-1696894996F5}
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{EED59312-2E8D-4332-8BA5-671F85D8E25E}"
+	ProjectSection(SolutionItems) = preProject
+		tools\configure.fsx = tools\configure.fsx
+		tools\minify.fsx = tools\minify.fsx
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NuGet", "NuGet", "{B38B1480-30AC-4F48-8AA3-C406889EC6CF}"
+	ProjectSection(SolutionItems) = preProject
+		tools\NuGet\NuGet.exe = tools\NuGet\NuGet.exe
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,5 +94,6 @@ Global
 		{C713BE60-B53C-44BB-A1EB-1696894996F5} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{DF5F2614-44E8-4C7D-A6E2-019D220D38C9} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
+		{B38B1480-30AC-4F48-8AA3-C406889EC6CF} = {EED59312-2E8D-4332-8BA5-671F85D8E25E}
 	EndGlobalSection
 EndGlobal
