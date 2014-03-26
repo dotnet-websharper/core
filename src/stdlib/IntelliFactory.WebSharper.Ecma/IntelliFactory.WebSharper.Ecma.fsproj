@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{3bee2a9e-c5c9-4bd5-847d-f0f88f02a438}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <Name>IntelliFactory.WebSharper.Ecma</Name>
+    <WebSharperProject>Extension</WebSharperProject>
+  </PropertyGroup>
+  <Import Project="../../../msbuild/FSharp.targets" />
+  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
+  <ItemGroup>
+    <Compile Include="Definition.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\compiler\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
+      <Name>IntelliFactory.WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\compiler\IntelliFactory.WebSharper.InterfaceGenerator\IntelliFactory.WebSharper.InterfaceGenerator.fsproj">
+      <Name>IntelliFactory.WebSharper.InterfaceGenerator</Name>
+      <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
+      <Name>IntelliFactory.WebSharper</Name>
+      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

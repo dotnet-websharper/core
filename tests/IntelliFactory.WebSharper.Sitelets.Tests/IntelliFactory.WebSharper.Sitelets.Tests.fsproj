@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{bba692b3-ab48-4f2e-8a33-260b0dd09a9b}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <Name>IntelliFactory.WebSharper.Sitelets.Tests</Name>
+  </PropertyGroup>
+  <Import Project="../../msbuild/FSharp.targets" />
+  <Import Project="../../msbuild/WebSharper.Internal.targets" />
+  <ItemGroup>
+    <Compile Include="SampleSite.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\compiler\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
+      <Name>IntelliFactory.WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\htmllib\IntelliFactory.Html\IntelliFactory.Html.fsproj">
+      <Name>IntelliFactory.Html</Name>
+      <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\htmllib\IntelliFactory.WebSharper.Html\IntelliFactory.WebSharper.Html.fsproj">
+      <Name>IntelliFactory.WebSharper.Html</Name>
+      <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\sitelets\IntelliFactory.WebSharper.Sitelets\IntelliFactory.WebSharper.Sitelets.fsproj">
+      <Name>IntelliFactory.WebSharper.Sitelets</Name>
+      <Project>{d991329a-3aa3-4269-83ad-3597864855a0}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\sitelets\IntelliFactory.WebSharper.Web\IntelliFactory.WebSharper.Web.fsproj">
+      <Name>IntelliFactory.WebSharper.Web</Name>
+      <Project>{fe6ba781-fdc9-4bb5-b38a-3bb9841ea836}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\IntelliFactory.WebSharper.Dom\IntelliFactory.WebSharper.Dom.fsproj">
+      <Name>IntelliFactory.WebSharper.Dom</Name>
+      <Project>{4382f3a7-126b-4bc6-988b-caa8c8a9b62f}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\IntelliFactory.WebSharper.JQuery\IntelliFactory.WebSharper.JQuery.fsproj">
+      <Name>IntelliFactory.WebSharper.JQuery</Name>
+      <Project>{730ae40a-001c-4137-972d-898dc7c2bf0a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
+      <Name>IntelliFactory.WebSharper</Name>
+      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

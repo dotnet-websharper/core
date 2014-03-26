@@ -1,0 +1,76 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{d991329a-3aa3-4269-83ad-3597864855a0}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <Name>IntelliFactory.WebSharper.Sitelets</Name>
+  </PropertyGroup>
+  <Import Project="../../../msbuild/FSharp.targets" />
+  <Import Project="../../../msbuild/Mono.Cecil.targets" />
+  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
+  <ItemGroup>
+    <Compile Include="Extensions.fs" />
+    <Compile Include="UrlEncoding.fsi" />
+    <Compile Include="UrlEncoding.fs" />
+    <Compile Include="UserSession.fs" />
+    <Compile Include="Http.fs" />
+    <Compile Include="Page.fs" />
+    <Compile Include="Router.fsi" />
+    <Compile Include="Router.fs" />
+    <Compile Include="Context.fs" />
+    <Compile Include="Content.fsi" />
+    <Compile Include="Content.fs" />
+    <Compile Include="Controller.fs" />
+    <Compile Include="Sitelet.fsi" />
+    <Compile Include="Sitelet.fs" />
+    <Compile Include="Website.fs" />
+    <Compile Include="HttpModule.fs" />
+    <Compile Include="UrlHelpers.fs" />
+    <Compile Include="Offline\Output.fsi" />
+    <Compile Include="Offline\Output.fs" />
+    <Compile Include="Offline\Options.fs" />
+    <Compile Include="Offline\Extra.fsi" />
+    <Compile Include="Offline\Extra.fs" />
+    <Compile Include="Offline\Plugin.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="IntelliFactory.Core">
+      <HintPath>../../../packages/IntelliFactory.Core/lib/net40/IntelliFactory.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="IntelliFactory.Xml">
+      <HintPath>../../../packages/IntelliFactory.Xml/lib/net40/IntelliFactory.Xml.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\compiler\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">
+      <Name>IntelliFactory.JavaScript</Name>
+      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\compiler\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
+      <Name>IntelliFactory.WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\htmllib\IntelliFactory.Html\IntelliFactory.Html.fsproj">
+      <Name>IntelliFactory.Html</Name>
+      <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\htmllib\IntelliFactory.WebSharper.Html\IntelliFactory.WebSharper.Html.fsproj">
+      <Name>IntelliFactory.WebSharper.Html</Name>
+      <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\stdlib\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
+      <Name>IntelliFactory.WebSharper</Name>
+      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Web\IntelliFactory.WebSharper.Web.fsproj">
+      <Name>IntelliFactory.WebSharper.Web</Name>
+      <Project>{fe6ba781-fdc9-4bb5-b38a-3bb9841ea836}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

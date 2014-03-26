@@ -23,7 +23,8 @@ let nuget cmd =
     exec (loc "NuGet/NuGet.exe") cmd
 
 let ok =
-    nuget "install IntelliFactory.Core -pre -o packages -excludeVersion"
+    nuget "install IntelliFactory.Core -pre -o packages -excludeVersion -nocache"
+    && nuget "install IntelliFactory.Xml -pre -o packages -excludeVersion -nocache"
     && nuget "install Mono.Cecil -o packages -excludeVersion"
     && nuget "install AjaxMin -o packages -excludeVersion"
 
