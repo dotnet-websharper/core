@@ -46,6 +46,24 @@
       <DependentUpon>Web.config</DependentUpon>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\compiler\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Name>IntelliFactory.WebSharper.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\sitelets\IntelliFactory.WebSharper.Sitelets\IntelliFactory.WebSharper.Sitelets.fsproj">
+      <Project>{d991329a-3aa3-4269-83ad-3597864855a0}</Project>
+      <Name>IntelliFactory.WebSharper.Sitelets</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\sitelets\IntelliFactory.WebSharper.Web\IntelliFactory.WebSharper.Web.fsproj">
+      <Project>{fe6ba781-fdc9-4bb5-b38a-3bb9841ea836}</Project>
+      <Name>IntelliFactory.WebSharper.Web</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
+      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
+      <Name>IntelliFactory.WebSharper</Name>
+    </ProjectReference>
+  </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>

@@ -37,4 +37,5 @@ content/WebSharper
 ^build/.*Config.fs
 ^build/compiler/
 ^build/.*nupkg$
+^tests/Web/bin
 __
