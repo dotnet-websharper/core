@@ -39,7 +39,7 @@ type CompilerInput =
         RunInterfaceGenerator : bool
     }
 
-    member this.StrongNameKeyPair =
+    member this.ReadStrongNameKeyPair() =
         match this.KeyOriginatorFile with
         | "" | null -> None
         | p when File.Exists(p) ->
@@ -168,7 +168,7 @@ module CompilerJobModule =
                 return! Act.Fail "No ExtensionAttribute set on the input assembly"
         }
 
-    let RunInterfaceGenerator aR (input: CompilerInput) =
+    let RunInterfaceGenerator aR snk (input: CompilerInput) =
         Act {
             let! (name, asm) = LoadInterfaceGeneratorAssembly aR input.AssemblyFile
             let cfg =
@@ -177,7 +177,7 @@ module CompilerJobModule =
                         AssemblyResolver = Some aR
                         AssemblyVersion = name.Version
                         ReferencePaths = input.References
-                        StrongNameKeyPair = input.StrongNameKeyPair
+                        StrongNameKeyPair = snk
                 }
             let cmp = InterfaceGenerator.Compiler.Create()
             let out = cmp.Compile(cfg, asm)
@@ -185,18 +185,23 @@ module CompilerJobModule =
             return ()
         }
 
-    let CompileWithWebSharper aR input =
+    let CompileWithWebSharper aR snk input =
         Act {
             let! out = Act.Out
             let loader = FE.Loader.Create aR (fun msg -> out.Add(CompilerMessage.Warn msg))
             let refs = [ for r in input.References -> loader.LoadFile(r) ]
-            let opts = { FE.Options.Default with References = refs }
+            let opts =
+                {
+                    FE.Options.Default with
+                        KeyPair = snk
+                        References = refs
+                }
             let compiler = FE.Prepare opts (fun msg -> out.Add(CompilerMessage.Send msg))
             let fileName = input.AssemblyFile
             let assem = loader.LoadFile fileName
             let ok = compiler.CompileAndModify assem
             if ok then
-                assem.Write None fileName
+                assem.Write snk fileName
         }
 
 [<Sealed>]
@@ -214,9 +219,10 @@ type CompilerJob() =
                     .SearchPaths(files)
             aR.Wrap <| fun () ->
                 Act {
+                    let snk = input.ReadStrongNameKeyPair()
                     if input.RunInterfaceGenerator then
-                        do! RunInterfaceGenerator aR input
-                    return! CompileWithWebSharper aR input
+                        do! RunInterfaceGenerator aR snk input
+                    return! CompileWithWebSharper aR snk input
                 }
                 |> Run
 
