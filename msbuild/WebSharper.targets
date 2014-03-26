@@ -26,6 +26,7 @@
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">
       $(MSBuildThisFileDirectory)/../tools/net40/IntelliFactory.WebSharper.MSBuild.dll
     </WebSharperTaskAssembly>
+    <WebSharperProject Condition="Exists('$(MSBuildProjectDirectory)/Web.config')">Website</WebSharperProject>
     <WebSharperProject Condition=" '$(WebSharperProject)' == '' ">Library</WebSharperProject>
   </PropertyGroup>
 
@@ -33,7 +34,7 @@
     AssemblyFile="$(WebSharperTaskAssembly)"
     TaskName="IntelliFactory.WebSharper.MSBuild.WebSharperTask" />
 
-  <Target Name="WebSharper_ComputeReferences" BeforeTargets="ResolveAssemblyReferences" Condition=" '$(WebSharper_ExplicitRefs)' == '' ">
+  <Target Name="WebSharperComputeReferences" BeforeTargets="ResolveAssemblyReferences" Condition=" '$(WebSharperExplicitRefs)' == '' ">
     <WebSharperTask
       Command="ComputeReferences"
       KeyOriginatorFile="$(KeyOriginatorFile)"
@@ -42,7 +43,7 @@
     </WebSharperTask>
   </Target>
 
-  <Target Name="WebSharper_Compile" AfterTargets="CoreCompile" DependsOnTargets="ResolveReferences">
+  <Target Name="WebSharperCompile" AfterTargets="CoreCompile" DependsOnTargets="ResolveReferences">
     <WebSharperTask
       Command="Compile"
       ItemInput="@(IntermediateAssembly);@(ReferencePath)"
@@ -50,27 +51,15 @@
       ProjectType="$(WebSharperProject)" />
   </Target>
 
-  <!--<PropertyGroup>
-    <WebSharperHome Condition=" '$(WebSharperHome)' == '' ">$(MSBuildThisFileDirectory)/../tools/net40</WebSharperHome>
-    <WebSharperIncludes Condition=" '$(WebSharperIncludes)' == 'false' ">false</WebSharperIncludes>
-    <WebSharperIncludes Condition=" '$(WebSharperIncludes)' != 'false' ">true</WebSharperIncludes>
-    <WebSharperTool>$(WebSharperHome)\WebSharper.exe</WebSharperTool>
-    <WebSharperTool Condition="'$(TargetFSharpCoreVersion)' == '4.3.1.0'">$(WebSharperHome)\WebSharper31.exe</WebSharperTool>
-  </PropertyGroup>
+  <Target Name="WebSharperUnpack" AfterTargets="Build" Condition=" '$(WebSharperProject)'=='Website' ">
+    <WebSharperTask
+      Command="Unpack"
+      ProjectType="$(WebSharperProject)"
+      WebRootDirectory="$(WebProjectOutputDir)" />
+  </Target>
 
-  -->
   <!-- Determine Project Kind -->
-  <!--
-
-  <PropertyGroup>
-    <Bundling>false</Bundling>
-    <CompileWebSharper>true</CompileWebSharper>
-    <InterfaceGenerator>false</InterfaceGenerator>
-    <SiteWebSharperProject>false</SiteWebSharperProject>
-    <HtmlWebSharperProject>false</HtmlWebSharperProject>
-  </PropertyGroup>
-
-  <Choose>
+  <!--<Choose>
     <When Condition="'$(WebSharperProject)' == 'Library'" />
     <When Condition="'$(WebSharperProject)' == 'Bundle'">
       <PropertyGroup>
@@ -92,244 +81,8 @@
         <HtmlWebSharperProject>true</HtmlWebSharperProject>
       </PropertyGroup>
     </When>
-    <When Condition="Exists('$(MSBuildProjectDirectory)/Web.config')">
-      <PropertyGroup>
-        <CompileWebSharper>false</CompileWebSharper>
-        <SiteWebSharperProject>true</SiteWebSharperProject>
-      </PropertyGroup>
-    </When>
-  </Choose>
+  </Choose>-->
 
-  -->
-  <!-- Default WebSharper Projects -->
-  <!--
-
-  <PropertyGroup Condition="$(CompileWebSharper)">
-    <CleanDependsOn>$(CleanDependsOn);WebSharperClean</CleanDependsOn>
-    <CompileDependsOn>$(CompileDependsOn);WebSharperCompile</CompileDependsOn>
-    <CoreCompileDependsOn>WebSharperPrepare;$(CoreCompileDependsOn)</CoreCompileDependsOn>
-    <WebSharperCompileDependsOn>WebSharperPrepare</WebSharperCompileDependsOn>
-  </PropertyGroup>
-
-  <Target Name="WebSharperPrepare">
-    <PropertyGroup>
-      <RawFolder>$(MSBuildProjectDirectory)\obj\$(Configuration)\Raw</RawFolder>
-      <RawIntermediateAssembly>$(RawFolder)\@(IntermediateAssembly->'%(Filename)%(Extension)')</RawIntermediateAssembly>
-      <ProcessedIntermediateAssembly>@(IntermediateAssembly->'%(FullPath)')</ProcessedIntermediateAssembly>
-    </PropertyGroup>
-    <MakeDir Directories="$(RawFolder)" />
-    <ItemGroup>
-      <IntermediateAssembly Remove="@(IntermediateAssembly)" />
-      <IntermediateAssembly Include="$(RawIntermediateAssembly)" />
-    </ItemGroup>
-  </Target>
-
-  <Target Name="WebSharperCompile"
-          DependsOnTargets="$(WebSharperCompileDependsOn)"
-          Inputs="$(RawIntermediateAssembly)"
-          Outputs="$(ProcessedIntermediateAssembly)">
-    <PropertyGroup>
-      <WebSharperKey Condition="'$(KeyOriginatorFile)'==''"></WebSharperKey>
-      <WebSharperKey Condition="'$(KeyOriginatorFile)'!=''">-snk "$(KeyOriginatorFile)"</WebSharperKey>
-      <WebSharperRefs>@(ReferencePath->'-r "%(FullPath)"',' ')</WebSharperRefs>
-      <WebSharperArgs>$(WebSharperRefs) $(WebSharperKey) "$(RawIntermediateAssembly)" "$(ProcessedIntermediateAssembly)"</WebSharperArgs>
-    </PropertyGroup>
-    <Exec Command="&quot;$(WebSharperTool)&quot; $(WebSharperArgs)"
-          Condition="Exists('$(RawIntermediateAssembly)')" />
-    <ItemGroup>
-      <IntermediateAssembly Remove="@(IntermediateAssembly)" />
-      <IntermediateAssembly Include="$(ProcessedIntermediateAssembly)" />
-    </ItemGroup>
-  </Target>
-
-  <Target Name="WebSharperClean">
-    <ItemGroup>
-      <GeneratedFiles Include="$(OutputPath)\**\*.*"
-                      Exclude="$(OutputPath)\**\*.xml" />
-      <GeneratedFiles Include="obj\$(Configuration)\**\*.*"
-                      Exclude="obj\$(Configuration)\**\*.xml" />
-    </ItemGroup>
-    <Delete Files="@(GeneratedFiles)" />
-  </Target>
-
-  -->
-  <!-- Common Includes -->
-  <!--
-
-  <PropertyGroup>
-    <WSPrivateRefs>false</WSPrivateRefs>
-    <WSPrivateRefs Condition="$(SiteWebSharperProject)">true</WSPrivateRefs>
-  </PropertyGroup>
-
-  <ItemGroup Condition=" $(WebSharperIncludes) ">
-    <Reference Include="IntelliFactory.Formlet">
-      <Private>$(WSPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.Formlet.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.Html">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.Html.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.JavaScript">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.JavaScript.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.Reactive">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.Reactive.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Collections">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Collections.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Control">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Control.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Core">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Dom">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Dom.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Ecma">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Ecma.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Formlet">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Formlet.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Html">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Html.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Html5">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Html5.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.JQuery">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.JQuery.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Sitelets">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Sitelets.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Testing">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Testing.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.WebSharper.Web">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.Web.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.Xml">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.Xml.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.Core">
-      <Private>$(WsPrivateRefs)</Private>
-      <HintPath>$(WebSharperHome)/IntelliFactory.Core.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
-  -->
-  <!-- Interface Generator WebSharper Projects -->
-  <!--
-
-  <PropertyGroup Condition=" $(InterfaceGenerator) ">
-    <CoreCompileDependsOn>InterfaceGeneratorPrepare;$(CoreCompileDependsOn);</CoreCompileDependsOn>
-    <WebSharperCompileDependsOn>InterfaceGeneratorCompile;$(WebSharperCompileDependsOn)</WebSharperCompileDependsOn>
-  </PropertyGroup>
-
-  <Target Name="InterfaceGeneratorPrepare" DependsOnTargets="WebSharperPrepare">
-    <PropertyGroup>
-      <Generator>$(OutputPath)/$(Name).Generator.dll</Generator>
-      <DebugType>none</DebugType>
-      <OutputType>library</OutputType>
-    </PropertyGroup>
-    <ItemGroup>
-      <IntermediateAssembly Remove="@(IntermediateAssembly)" />
-      <IntermediateAssembly Include="$(Generator)" />
-    </ItemGroup>
-  </Target>
-
-  <ItemGroup Condition=" $(WebSharperIncludes) AND $(InterfaceGenerator) ">
-    <Reference Include="IntelliFactory.WebSharper.InterfaceGenerator">
-      <HintPath>$(WebSharperHome)/IntelliFactory.WebSharper.InterfaceGenerator.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-  </ItemGroup>
-
-  <Target Name="InterfaceGeneratorCompile"
-          DependsOnTargets="InterfaceGeneratorPrepare"
-          Inputs="@(Compile);@(ReferencePath)"
-          Outputs="$(RawIntermediateAssembly)">
-    <PropertyGroup>
-      <Cmd>"$(WebSharperTool)" ig</Cmd>
-      <Cmd>$(Cmd) "$(Generator)"</Cmd>
-      <Cmd>$(Cmd) "-n:$(Name)"</Cmd>
-      <Cmd Condition=" '$(Version)' != '' ">$(Cmd) "-v:$(Version)"</Cmd>
-      <Cmd Condition=" '$(Version)' == '' ">$(Cmd) "-v:1.0"</Cmd>
-      <Cmd>$(Cmd) @(ReferencePath->'"-r:%(FullPath)"',' ')</Cmd>
-      <Cmd>$(Cmd) "-o:$(RawIntermediateAssembly)"</Cmd>
-      <Cmd>$(Cmd) @(EmbeddedResource->'"-embed:%(FullPath)"',' ')</Cmd>
-      <Cmd Condition=" '$(DocumentationFile)' != '' ">$(Cmd) "-doc:$(DocumentationFile)"</Cmd>
-      <Cmd Condition=" '$(KeyOriginatorFile)' != '' ">$(Cmd) "-snk:$(KeyOriginatorFile)"</Cmd>
-    </PropertyGroup>
-    <Exec Command="$(Cmd)" />
-  </Target>
-
-  -->
-  <!-- Site WebSharper Projects -->
-  <!--
-
-  <PropertyGroup Condition=" $(SiteWebSharperProject) ">
-    <CleanDependsOn>$(CleanDependsOn);WebSharperWebClean</CleanDependsOn>
-    <PrepareForRunDependsOn>$(PrepareForRunDependsOn);WebSharperWebCompile</PrepareForRunDependsOn>
-    <WebSharperOutputRootFolder Condition=" '$(WebSharperOutputRootFolder)' == ''">$(WebProjectOutputDir)</WebSharperOutputRootFolder>
-    <WebSharperMarker>$(WebSharperOutputRootFolder)\Scripts\WebSharper\build.tmp</WebSharperMarker>
-  </PropertyGroup>
-
-  <Target Name="WebSharperWebCompile" Inputs="@(WebSharperBinaries)" Outputs="$(WebSharperMarker)"
-          DependsOnTargets="WebSharperDetermineBinaries">
-    <MakeDir Directories="$(WebSharperOutputRootFolder)" />
-    <MakeDir Directories="$(WebSharperOutputRootFolder)\Content" />
-    <MakeDir Directories="$(WebSharperOutputRootFolder)\Content\WebSharper" />
-    <MakeDir Directories="$(WebSharperOutputRootFolder)\Scripts" />
-    <MakeDir Directories="$(WebSharperOutputRootFolder)\Scripts\WebSharper" />
-    <PropertyGroup>
-      <WebSharperArgs>-unpack "$(WebSharperOutputRootFolder)" @(WebSharperBinaries->'"%(FullPath)"',' ')</WebSharperArgs>
-    </PropertyGroup>
-    <Exec Command='"$(WebSharperTool)" $(WebSharperArgs)' />
-    <Touch Files="$(WebSharperMarker)" AlwaysCreate="true" />
-  </Target>
-
-  <Target Name="WebSharperWebClean">
-    <ItemGroup>
-      <WebSharperBinaries Include="$(OutputPath)\*.dll" />
-      <WebSharperBinaries Include="$(OutputPath)\*.js" />
-      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperOutputRootFolder)\Scripts\WebSharper\**\*.*')" />
-      <WebSharperWebTargets Include="@(WebSharperBinaries->'$(WebSharperOutputRootFolder)\Content\WebSharper\**\*.*')" />
-    </ItemGroup>
-    <Delete Files="@(WebSharperWebTargets)" />
-  </Target>
-
-  <Target Name="WebSharperDetermineBinaries">
-    <ItemGroup>
-      <WebSharperBinaries Include="$(WebProjectOutputDir)\$(OutputPath)*.dll" />
-      <WebSharperBinaries Include="$(WebProjectOutputDir)\$(OutputPath)*.js" />
-    </ItemGroup>
-  </Target>
-
-  -->
   <!-- Html Generation Projects -->
   <!--
 

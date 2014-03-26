@@ -45,3 +45,6 @@ type WebSharperTask =
 
     /// Specifies which project type is being built.
     member ProjectType : string with get, set
+
+    /// Path to the directory containing Web.config, used by the "Unpack" command.
+    member WebRootDirectory : string with get, set

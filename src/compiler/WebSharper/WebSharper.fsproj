@@ -12,6 +12,7 @@
     <Compile Include="Options.fs" />
     <Compile Include="DependencyReporter.fs" />
     <Compile Include="ProxyReporter.fs" />
+    <Compile Include="UnpackCommand.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

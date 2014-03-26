@@ -8,6 +8,7 @@
   </PropertyGroup>
   <Import Project="../../../msbuild/fsharp.targets" />
   <ItemGroup>
+    <Compile Include="../WebSharper/UnpackCommand.fs" />
     <Compile Include="AppDomainUtility.fsi" />
     <Compile Include="AppDomainUtility.fs" />
     <Compile Include="CompilerUtility.fsi" />

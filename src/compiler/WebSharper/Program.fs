@@ -122,31 +122,7 @@ let run (aR: AssemblyResolver) (opts: Options.T) =
     | Options.Compile opts ->
         compile aR opts
     | Options.Unpack (rootDirectory, assemblies) ->
-        let pc = PathConventions.PathUtility.FileSystem(rootDirectory)
-        let aR = aR.SearchPaths(assemblies)
-        let loader = FE.Loader.Create aR stderr.WriteLine
-        let emit text path =
-            match text with
-            | Some text -> writeTextFile (path, text)
-            | None -> ()
-        let script = PathConventions.ResourceKind.Script
-        let content = PathConventions.ResourceKind.Content
-        for p in assemblies do
-            let a = loader.LoadFile p
-            let aid = PathConventions.AssemblyId.Create(a.FullName)
-            emit a.ReadableJavaScript (pc.JavaScriptPath aid)
-            emit a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
-            emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
-            let writeText k fn c =
-                let p = pc.EmbeddedPath(PathConventions.EmbeddedResource.Create(k, aid, fn))
-                writeTextFile (p, c)
-            let writeBinary k fn c =
-                let p = pc.EmbeddedPath(PathConventions.EmbeddedResource.Create(k, aid, fn))
-                writeBinaryFile (p, c)
-            for r in a.GetScripts() do
-                writeText script r.FileName r.Content
-            for r in a.GetContents() do
-                writeBinary content r.FileName (r.GetContentData())
+        Commands.UnpackCommand(AssemblyResolver = aR, RootDirectory = rootDirectory, Assemblies = assemblies).Run()
         0
     | Options.Dependencies path ->
         DependencyReporter.Run path

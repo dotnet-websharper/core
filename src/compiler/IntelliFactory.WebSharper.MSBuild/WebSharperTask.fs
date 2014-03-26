@@ -26,6 +26,7 @@ open System.IO
 open Microsoft.Build.Framework
 open Microsoft.Build.Utilities
 open IntelliFactory.Core
+open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.Compiler
 module FE = FrontEnd
 
@@ -33,24 +34,28 @@ module FE = FrontEnd
 type Command =
     | Compile
     | ComputeReferences
+    | Unpack
 
     /// Parses from string.
     static member Parse(command: string) =
         match command with
         | "Compile" -> Compile
         | "ComputeReferences" -> ComputeReferences
+        | "Unpack" -> Unpack
         | _ -> invalidArg "command" ("Invalid command name: " + command)
 
 /// WebSharper project types handled by the task (below).
 type ProjectType =
     | Extension
     | Library
+    | Website
 
     /// Parses from string.
     static member Parse(ty: string) =
-        match ty with
-        | "Extension" -> Extension
-        | "Library" -> Library
+        match ty.ToLower() with
+        | "extension" | "interfacegenerator" -> Extension
+        | "library" -> Library
+        | "web" | "website" -> Website
         | _ -> invalidArg "type" ("Invalid project type: " + ty)
 
 [<AutoOpen>]
@@ -65,27 +70,29 @@ module private WebSharperTaskModule =
 
     let GetReferences (ty: ProjectType) =
         [
-            "IntelliFactory.Core"
-            "IntelliFactory.Formlet"
-            "IntelliFactory.Html"
-            // "IntelliFactory.JavaScript"
-            "IntelliFactory.Reactive"
-            "IntelliFactory.WebSharper.Collections"
+            yield "IntelliFactory.Core"
+            yield "IntelliFactory.Formlet"
+            yield "IntelliFactory.Html"
+            yield "IntelliFactory.JavaScript"
+            yield "IntelliFactory.Reactive"
+            yield "IntelliFactory.WebSharper.Collections"
             // "IntelliFactory.WebSharper.Compiler"
-            "IntelliFactory.WebSharper.Control"
-            "IntelliFactory.WebSharper.Core"
-            "IntelliFactory.WebSharper.Dom"
-            "IntelliFactory.WebSharper.Ecma"
-            "IntelliFactory.WebSharper.Formlet"
-            "IntelliFactory.WebSharper.Html"
-            "IntelliFactory.WebSharper.Html5"
-            "IntelliFactory.WebSharper.InterfaceGenerator"
-            "IntelliFactory.WebSharper.JQuery"
-            "IntelliFactory.WebSharper.Sitelets"
-            "IntelliFactory.WebSharper.Testing"
-            "IntelliFactory.WebSharper.Web"
-            "IntelliFactory.WebSharper"
-            "IntelliFactory.Xml"
+            yield "IntelliFactory.WebSharper.Control"
+            yield "IntelliFactory.WebSharper.Core"
+            yield "IntelliFactory.WebSharper.Dom"
+            yield "IntelliFactory.WebSharper.Ecma"
+            yield "IntelliFactory.WebSharper.Formlet"
+            yield "IntelliFactory.WebSharper.Html"
+            yield "IntelliFactory.WebSharper.Html5"
+            match ty with
+            | Extension -> yield "IntelliFactory.WebSharper.InterfaceGenerator"
+            | _ -> ()
+            yield "IntelliFactory.WebSharper.JQuery"
+            yield "IntelliFactory.WebSharper.Sitelets"
+            yield "IntelliFactory.WebSharper.Testing"
+            yield "IntelliFactory.WebSharper.Web"
+            yield "IntelliFactory.WebSharper"
+            yield "IntelliFactory.Xml"
         ]
 
     let DoComputeReferences projTy : ITaskItem [] =
@@ -94,6 +101,7 @@ module private WebSharperTaskModule =
             match projTy with
             | Extension -> false
             | Library -> false
+            | Website -> true
         [|
             for asm in assemblies do
                 let hintPath = Path.Combine(BaseDir, asm + ".dll")
@@ -130,6 +138,27 @@ module private WebSharperTaskModule =
         | _ ->
             failwith "Need 1+ items for Compile command"
 
+    let DoUnpack webRoot =
+        let assemblies =
+            let dir = DirectoryInfo(Path.Combine(webRoot, "bin"))
+            Seq.concat [
+                dir.EnumerateFiles("*.dll")
+                dir.EnumerateFiles("*.exe")
+            ]
+            |> Seq.map (fun fn -> fn.FullName)
+            |> Seq.toList
+        for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
+            let dir = DirectoryInfo(Path.Combine(webRoot, d))
+            if not dir.Exists then
+                dir.Create()
+        let cmd =
+            Commands.UnpackCommand
+                (
+                    Assemblies = assemblies,
+                    RootDirectory = webRoot
+                )
+        cmd.Run()
+
 /// Implements MSBuild logic used in WebSharper.targets
 [<Sealed>]
 type WebSharperTask() =
@@ -140,10 +169,11 @@ type WebSharperTask() =
             match Command.Parse this.Command with
             | Compile ->
                 DoCompile this.ActualProjectType this.Log this.ItemInput this.KeyOriginatorFile
-                true
             | ComputeReferences ->
                 this.ItemOutput <- DoComputeReferences this.ActualProjectType
-                true
+            | Unpack ->
+                DoUnpack this.WebRootDirectory
+            true
         with e ->
             this.Log.LogErrorFromException(e)
             false
@@ -161,4 +191,5 @@ type WebSharperTask() =
 
     member val KeyOriginatorFile = "" with get, set
     member val ProjectType = "Library" with get, set
+    member val WebRootDirectory = "." with get, set
 
