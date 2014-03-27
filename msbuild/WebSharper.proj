@@ -6,7 +6,7 @@
     <SP Include="../src/formlets/*/*.fsproj" />
     <SP Include="../src/sitelets/*/*.fsproj" />
     <SP Include="../tests/*/*.fsproj" />
-    <BP Include="../build/*/*.fsproj" />
+    <BP Include="../src/build/*/*.fsproj" />
   </ItemGroup>
   <Target Name="Build">
     <MSBuild Projects="@(CP)" />
