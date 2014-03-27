@@ -12,7 +12,7 @@
 // implied.  See the License for the specific language governing
 // permissions and limitations under the License.
 
-namespace IntelliFactory.VisualStudioTools
+namespace IntelliFactory.WebSharper.Build
 
 /// Attempt to target the 2010 format:
 /// http://msdn.microsoft.com/en-us/library/vstudio/dd393754(v=vs.100).aspx
@@ -22,8 +22,8 @@ module Extensions =
     open System.IO
     open System.Text
     module X = IntelliFactory.Core.XmlTools
-    module NG = IntelliFactory.VisualStudioTools.NuGet
-    type Content = IntelliFactory.VisualStudioTools.Utils.Content
+    module NG = NuGet
+    type Content = Utils.Content
 
     let ( +/ ) a b =
         Path.Combine(a, b)

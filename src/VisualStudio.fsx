@@ -1,7 +1,0 @@
-#r "System.IO.Compression"
-#r "System.IO.Compression.FileSystem"
-#load "VisualStudioTools.Utils.fs"
-#load "VisualStudioTools.NuGet.fs"
-#load "VisualStudioTools.Templates.fs"
-#load "VisualStudioTools.Extensions.fs"
-#load "VisualStudioIntegration.fs"

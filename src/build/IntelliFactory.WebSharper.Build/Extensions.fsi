@@ -12,7 +12,7 @@
 // implied.  See the License for the specific language governing
 // permissions and limitations under the License.
 
-namespace IntelliFactory.VisualStudioTools
+namespace IntelliFactory.WebSharper.Build
 
 /// Provides a facility to generate VisualStudio extension `.vsix` files
 /// using the 2010 VSIX format compatible with VisualStudio 2010 and VisualStudio 2012,

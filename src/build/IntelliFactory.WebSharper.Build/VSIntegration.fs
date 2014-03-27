@@ -12,18 +12,18 @@
 // implied.  See the License for the specific language governing
 // permissions and limitations under the License.
 
-namespace IntelliFactory.WebSharper
+namespace IntelliFactory.WebSharper.Build
 
 /// Defines VisualStudio templates for WebSharper.
-module VisualStudioIntegration =
+module VSIntegration =
     open System
     open System.IO
     open System.Text.RegularExpressions
     module X = IntelliFactory.Core.XmlTools
-    module NG = IntelliFactory.VisualStudioTools.NuGet
-    module VST = IntelliFactory.VisualStudioTools.Templates
-    module VX = IntelliFactory.VisualStudioTools.Extensions
-    type Content = IntelliFactory.VisualStudioTools.Utils.Content
+    module NG = NuGet
+    module VST = Templates
+    module VX = Extensions
+    type Content = Utils.Content
 
     let getExtensionName () =
         "WebSharper"
@@ -77,7 +77,7 @@ module VisualStudioIntegration =
         }
 
         static member Create(cfg) =
-            let iconPath = cfg.RootPath +/ "WebSharper.png"
+            let iconPath = cfg.RootPath +/ "tools" +/ "WebSharper.png"
             let icon = VST.Icon.FromFile(iconPath)
             {
                 Config = cfg
@@ -252,7 +252,7 @@ module VisualStudioIntegration =
 
     let BuildContents cfg =
         seq {
-            let sourcePath = cfg.RootPath +/ "build" +/ "DeployedTargets" +/ "WebSharper.targets"
+            let sourcePath = cfg.RootPath +/ "msbuild" +/ "WebSharper.targets"
             let targetPath = "build/WebSharper.targets"
             yield IntelliFactory.Build.NuGetFile.Local(sourcePath, targetPath)
         }

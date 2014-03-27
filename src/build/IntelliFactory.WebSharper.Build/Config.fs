@@ -12,26 +12,17 @@
 // implied.  See the License for the specific language governing
 // permissions and limitations under the License.
 
-namespace IntelliFactory.VisualStudioTools
+namespace IntelliFactory.WebSharper.Build
 
-module NuGet =
-    open System
-    type Content = IntelliFactory.VisualStudioTools.Utils.Content
+open System
 
-    type Package =
-        {
-            PContent : Content
-            PId : string
-            PVersion : string
-        }
-
-        member p.Content = p.PContent
-        member p.Id = p.PId
-        member p.Version = p.PVersion
-
-        static member Create(id: string, version: string, c: Content) =
-            {
-                PContent = c
-                PId = id
-                PVersion = version
-            }
+module Config =
+    let PackageId = "WebSharper"
+    let NumericVersion = Version("2.5.0.0")
+    let VersionSuffix = None
+    let PackageVerion = "2.5"
+    let Company = "IntelliFactory"
+    let Description = "F#-to-JavaScript compiler and web application framework"
+    let LicenseUrl = "http://websharper.com/licensing"
+    let Tags = ["Web"; "JavaScript"; "F#"]
+    let Website = "http://bitbucket.org/IntelliFactory/websharper"

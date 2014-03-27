@@ -12,12 +12,12 @@
 // implied.  See the License for the specific language governing
 // permissions and limitations under the License.
 
-namespace IntelliFactory.VisualStudioTools
+namespace IntelliFactory.WebSharper.Build
 
 /// NuGet-related functionality.
 module NuGet =
     open System
-    type Content = IntelliFactory.VisualStudioTools.Utils.Content
+    type Content = Utils.Content
 
     /// A compiled NuGet package together with its contents.
     [<Sealed>]

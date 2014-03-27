@@ -12,7 +12,7 @@
 // implied.  See the License for the specific language governing
 // permissions and limitations under the License.
 
-namespace IntelliFactory.VisualStudioTools
+namespace IntelliFactory.WebSharper.Build
 
 /// Provides a facility to generate VisualStudio template archive files.
 /// These typically have a `.zip` extension and contain `.vstemplate` XML manifests.
@@ -21,8 +21,8 @@ namespace IntelliFactory.VisualStudioTools
 module Templates =
     open System
     open System.IO
-    module NG = IntelliFactory.VisualStudioTools.NuGet
-    type Content = IntelliFactory.VisualStudioTools.Utils.Content
+    module NG = NuGet
+    type Content = Utils.Content
 
     /// Defines a project item corresponding to the `ProjectItem` XML element
     /// within VisualStudio project templates.

@@ -6,12 +6,14 @@
     <SP Include="../src/formlets/*/*.fsproj" />
     <SP Include="../src/sitelets/*/*.fsproj" />
     <SP Include="../tests/*/*.fsproj" />
+    <BP Include="../build/*/*.fsproj" />
   </ItemGroup>
   <Target Name="Build">
     <MSBuild Projects="@(CP)" />
     <MSBuild Projects="@(SP)" />
+    <MSBuild Projects="@(BP)" />
   </Target>
   <Target Name="Clean">
-    <MSBuild Projects="@(CP);@(SP)" Targets="Clean" />
+    <MSBuild Projects="@(CP);@(SP);@(BP)" Targets="Clean" />
   </Target>
 </Project>
