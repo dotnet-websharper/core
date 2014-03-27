@@ -41,6 +41,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{EED59312
 	ProjectSection(SolutionItems) = preProject
 		tools\configure.fsx = tools\configure.fsx
 		tools\minify.fsx = tools\minify.fsx
+		tools\rebuild.fsx = tools\rebuild.fsx
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NuGet", "NuGet", "{B38B1480-30AC-4F48-8AA3-C406889EC6CF}"
@@ -105,6 +106,14 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{1ACAFCBC-6FE9-4CD6-91DF-AAE1902C9B1F}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.WebSharper.Build", "src\build\IntelliFactory.WebSharper.Build\IntelliFactory.WebSharper.Build.fsproj", "{15DD08E0-9E5E-49B1-9738-D73ACA630FF5}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-497B-A0A2-135BA8A16B0A}"
+	ProjectSection(SolutionItems) = preProject
+		build.cmd = build.cmd
+		ivy.xml = ivy.xml
+		LICENSE.md = LICENSE.md
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
