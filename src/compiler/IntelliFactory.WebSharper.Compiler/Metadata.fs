@@ -297,3 +297,16 @@ let Serialize (s: System.IO.Stream) (t: T) =
 
 let Deserialize (s: System.IO.Stream) =
     Encoding.Decode s :?> T
+
+let ReadFromCecilAssembly (a: Mono.Cecil.AssemblyDefinition) =
+    let key = EMBEDDED_METADATA
+    a.MainModule.Resources
+    |> Seq.tryPick (function
+        | :? Mono.Cecil.EmbeddedResource as r when r.Name = key ->
+            try
+                use s = r.GetResourceStream()
+                Some (Deserialize s)
+            with _ ->
+                failwithf "Failed to deserialize metadata for: %s" a.FullName
+            | _ -> None)
+

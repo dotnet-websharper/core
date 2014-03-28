@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2013 IntelliFactory
+// Copyright (c) 2008-2014 IntelliFactory
 //
 // GNU Affero General Public License Usage
 // WebSharper is free software: you can redistribute it and/or modify it under
@@ -21,9 +21,6 @@
 
 module IntelliFactory.WebSharper.Compiler.Graphs
 
-type Dictionary<'T1,'T2> = System.Collections.Generic.Dictionary<'T1,'T2>
-type Queue<'T> = System.Collections.Generic.Queue<'T>
-
 module DSet =
     type T<'T> = Dictionary<'T,unit>
     let inline Count (d: T<'T>) = d.Count
@@ -35,8 +32,8 @@ module DSet =
 [<NoComparison>]
 type Node<'T> =
     {
-        Index        : int
-        Value        : 'T
+        Index : int
+        Value : 'T
         Dependencies : DSet.T<Node<'T>>
     }
 
@@ -69,13 +66,20 @@ let inline GetOrAdd (lookup: NodeLookup<_>) v =
 type Graph<'T> =
     { Lookup : NodeLookup<'T> }
 
-    member this.Add node    = ignore (GetOrAdd this.Lookup node)
-    member this.Contains x  = this.Lookup.ContainsKey x
-    member this.NodeCount   = this.Lookup.Count
-    member this.Nodes       = Seq.toList this.Lookup.Keys
+    member this.Add node =
+        ignore (GetOrAdd this.Lookup node)
+
+    member this.Contains x =
+        this.Lookup.ContainsKey x
+
+    member this.NodeCount =
+        this.Lookup.Count
+
+    member this.Nodes =
+        Seq.toList this.Lookup.Keys
 
     member this.Connect src dst =
-        let gr      = this.Lookup
+        let gr = this.Lookup
         let srcNode = GetOrAdd gr src
         let dstNode = GetOrAdd gr dst
         DSet.Insert dstNode srcNode.Dependencies
@@ -83,7 +87,7 @@ type Graph<'T> =
     member this.Links node =
         match this.Lookup.TryGetValue node with
         | true, node -> Seq.map (fun x -> x.Value) (DSet.Iterate node.Dependencies)
-        | _          -> Seq.empty
+        | _ -> Seq.empty
         |> Seq.toList
 
     member this.Walk node =
@@ -125,7 +129,6 @@ let New (nodes: seq<'T>) (links: seq<'T * 'T>) : Graph<'T> =
     for node in nodes do
         let n = NewNode lookup.Count node
         lookup.Add(node, n)
-
     for s, t in links do
         let src = lookup.[s]
         let dst = lookup.[t]
@@ -142,4 +145,3 @@ let Union (grs: seq<Graph<'T>>) : Graph<'T> =
                 let dst = getOrAdd dep.Value
                 DSet.Insert dst src.Dependencies
     { Lookup = lookup }
-

@@ -19,7 +19,7 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper
+namespace IntelliFactory.WebSharper.Compiler
 
 module Algorithms =
     open System

@@ -105,3 +105,6 @@ val Serialize : System.IO.Stream -> T -> unit
 
 /// Reads metadata from a binary representation.
 val Deserialize : System.IO.Stream -> T
+
+/// Reads from a Mono.Cecil assembly.
+val ReadFromCecilAssembly : Mono.Cecil.AssemblyDefinition -> option<T>

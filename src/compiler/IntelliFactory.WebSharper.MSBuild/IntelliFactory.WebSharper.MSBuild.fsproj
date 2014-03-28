@@ -6,7 +6,8 @@
     <OutputType>Library</OutputType>
     <Name>IntelliFactory.WebSharper.MSBuild</Name>
   </PropertyGroup>
-  <Import Project="../../../msbuild/fsharp.targets" />
+  <Import Project="../../../msbuild/FSharp.targets" />
+  <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
     <Compile Include="../WebSharper/UnpackCommand.fs" />
     <Compile Include="AppDomainUtility.fsi" />

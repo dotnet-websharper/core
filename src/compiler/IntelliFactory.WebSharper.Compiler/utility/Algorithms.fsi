@@ -19,7 +19,7 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper
+namespace IntelliFactory.WebSharper.Compiler
 
 /// Some algorithms used in WebSharper, expressed in a general form.
 module internal Algorithms =
