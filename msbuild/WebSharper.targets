@@ -21,113 +21,36 @@
 // $end{copyright}
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-
   <PropertyGroup>
-    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">
-      $(MSBuildThisFileDirectory)/../tools/net40/IntelliFactory.WebSharper.MSBuild.dll
-    </WebSharperTaskAssembly>
-    <WebSharperProject Condition="Exists('$(MSBuildProjectDirectory)/Web.config')">Website</WebSharperProject>
-    <WebSharperProject Condition=" '$(WebSharperProject)' == '' ">Library</WebSharperProject>
+    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/net40/IntelliFactory.WebSharper.MSBuild.dll</WebSharperTaskAssembly>
   </PropertyGroup>
-
-  <UsingTask
-    AssemblyFile="$(WebSharperTaskAssembly)"
-    TaskName="IntelliFactory.WebSharper.MSBuild.WebSharperTask" />
-
-  <Target Name="WebSharperComputeReferences" BeforeTargets="ResolveAssemblyReferences" Condition=" '$(WebSharperExplicitRefs)' == '' ">
-    <WebSharperTask
-      Command="ComputeReferences"
-      KeyOriginatorFile="$(KeyOriginatorFile)"
-      ProjectType="$(WebSharperProject)">
-      <Output TaskParameter="ItemOutput" ItemName="Reference" />
-    </WebSharperTask>
-  </Target>
-
+  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="IntelliFactory.WebSharper.MSBuild.WebSharperTask" />
   <Target Name="WebSharperCompile" AfterTargets="CoreCompile" DependsOnTargets="ResolveReferences">
     <WebSharperTask
       Command="Compile"
       ItemInput="@(IntermediateAssembly);@(ReferencePath)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
-      ProjectType="$(WebSharperProject)" />
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
+      WebSharperProject="$(WebSharperProject)" />
   </Target>
-
-  <Target Name="WebSharperUnpack" AfterTargets="Build" Condition=" '$(WebSharperProject)'=='Website' ">
+  <Target Name="WebSharperComputeReferences" BeforeTargets="ResolveAssemblyReferences">
+    <WebSharperTask
+      Command="ComputeReferences"
+      ItemInput="@(Reference)"
+      KeyOriginatorFile="$(KeyOriginatorFile)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
+      WebSharperProject="$(WebSharperProject)">
+      <Output TaskParameter="ItemOutput" ItemName="Reference" />
+    </WebSharperTask>
+  </Target>
+  <Target Name="WebSharperUnpack" AfterTargets="Build">
     <WebSharperTask
       Command="Unpack"
-      ProjectType="$(WebSharperProject)"
-      WebRootDirectory="$(WebProjectOutputDir)" />
+      KeyOriginatorFile="$(KeyOriginatorFile)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
+      WebSharperProject="$(WebSharperProject)" />
   </Target>
-
-  <!-- Determine Project Kind -->
-  <!--<Choose>
-    <When Condition="'$(WebSharperProject)' == 'Library'" />
-    <When Condition="'$(WebSharperProject)' == 'Bundle'">
-      <PropertyGroup>
-        <Bundling>true</Bundling>
-      </PropertyGroup>
-    </When>
-    <When Condition="'$(WebSharperProject)' == 'InterfaceGenerator'">
-      <PropertyGroup>
-        <InterfaceGenerator>true</InterfaceGenerator>
-      </PropertyGroup>
-    </When>
-    <When Condition="'$(WebSharperProject)' == 'Site'">
-      <PropertyGroup>
-        <SiteWebSharperProject>true</SiteWebSharperProject>
-      </PropertyGroup>
-    </When>
-    <When Condition="'$(WebSharperProject)' == 'Html'">
-      <PropertyGroup>
-        <HtmlWebSharperProject>true</HtmlWebSharperProject>
-      </PropertyGroup>
-    </When>
-  </Choose>-->
-
-  <!-- Html Generation Projects -->
-  <!--
-
-  <PropertyGroup Condition=" $(HtmlWebSharperProject) AND '$(WebSharperHtmlDirectory)' != '' ">
-    <BuildDependsOn>$(BuildDependsOn);WebSharperHtmlGenerate</BuildDependsOn>
-    <CleanDependsOn>$(CleanDependsOn);WebSharperHtmlClean</CleanDependsOn>
-    <StartAction>Program</StartAction>
-    <StartWorkingDirectory>$(WebSharperHtmlDirectory)</StartWorkingDirectory>
-    <StartArguments>
-      $(WebSharperHtmlDirectory)
-    </StartArguments>
-    <StartProgram>$(windir)\explorer.exe</StartProgram>
-  </PropertyGroup>
-
-  <Target Name="WebSharperHtmlGenerate">
-    <PropertyGroup>
-      <Args>$(Args) -mode "$(Configuration)"</Args>
-      <Args>$(Args) -project "$(MSBuildProjectDirectory)\."</Args>
-      <Args>$(Args) @(ReferencePath->'-ref "%(FullPath)"',' ')</Args>
-      <Args>$(Args) -out "$(WebSharperHtmlDirectory)\."</Args>
-      <Args>$(Args) -site "$(TargetPath)"</Args>
-    </PropertyGroup>
-    <Exec Command='"$(WebSharperTool)" sitelets $(Args)' WorkingDirectory='$(WebSharperHome)' />
-  </Target>
-
-  <Target Name="WebSharperHtmlClean">
-    <RemoveDir Directories="$(WebSharperHtmlDirectory)" />
-  </Target>
-
-  -->
-  <!-- Bundle Projects -->
-  <!--
-
-  <PropertyGroup Condition="$(Bundling)">
-    <BuildDependsOn>$(BuildDependsOn);WebSharperBundle</BuildDependsOn>
-  </PropertyGroup>
-
-  <Target Name="WebSharperBundle" Inputs="$(TargetPath)" Outputs="Content/$(Name).js">
-    <PropertyGroup>
-      <Args>$(Args) "Content/$(Name)"</Args>
-      <Args>$(Args) @(ReferencePath->'"%(FullPath)"',' ')</Args>
-      <Args>$(Args) "$(TargetPath)"</Args>
-    </PropertyGroup>
-    <MakeDir Directories='Content' />
-    <Exec Command='"$(WebSharperTool)" bundle $(Args)'
-          WorkingDirectory='$(MSBuildProjectDirectory)' />
-  </Target>-->
 </Project>

@@ -30,45 +30,93 @@ open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.Compiler
 module FE = FrontEnd
 
-/// Commands handled by the WebSharper task (below).
-type Command =
-    | Compile
-    | ComputeReferences
-    | Unpack
-
-    /// Parses from string.
-    static member Parse(command: string) =
-        match command with
-        | "Compile" -> Compile
-        | "ComputeReferences" -> ComputeReferences
-        | "Unpack" -> Unpack
-        | _ -> invalidArg "command" ("Invalid command name: " + command)
-
-/// WebSharper project types handled by the task (below).
-type ProjectType =
-    | Extension
-    | Library
-    | Website
-
-    /// Parses from string.
-    static member Parse(ty: string) =
-        match ty.ToLower() with
-        | "extension" | "interfacegenerator" -> Extension
-        | "library" -> Library
-        | "web" | "website" -> Website
-        | _ -> invalidArg "type" ("Invalid project type: " + ty)
-
 [<AutoOpen>]
-module private WebSharperTaskModule =
+module WebSharperTaskModule =
+
+    type Settings =
+        {
+            Command : string
+            ItemInput : ITaskItem []
+            ItemOutput : ITaskItem []
+            KeyOriginatorFile : string
+            Log : TaskLoggingHelper
+            SetItemOutput : ITaskItem [] -> unit
+            WebProjectOutputDir : string
+            WebSharperExplicitRefs : string
+            WebSharperProject : string
+        }
+
+    type ProjectType =
+        | Extension
+        | Library
+        | Website of webroot: string // webroot
+
+    let GetProjectType settings =
+        let getWebRoot () =
+            match settings.WebProjectOutputDir with
+            | null | "" -> None
+            | dir ->
+                let isWeb =
+                    File.Exists(Path.Combine(dir, "Web.config"))
+                    || File.Exists(Path.Combine(dir, "web.config"))
+                if isWeb then Some dir else None
+        match settings.WebSharperProject with
+        | null | "" ->
+            match getWebRoot () with
+            | None -> Library
+            | Some dir -> Website dir
+        | proj ->
+            match proj.ToLower() with
+            | "extension" | "interfacegenerator" -> Extension
+            | "library" -> Library
+            | "site" | "web" | "website" ->
+                match getWebRoot () with
+                | None -> Library
+                | Some dir -> Website dir
+            | _ -> invalidArg "type" ("Invalid project type: " + proj)
+
+    let Fail settings fmt =
+        fmt
+        |> Printf.ksprintf (fun msg ->
+            settings.Log.LogError(msg)
+            false)
+
+    let Compile settings =
+        match List.ofArray settings.ItemInput with
+        | raw :: refs ->
+            let rawInfo = FileInfo(raw.ItemSpec)
+            let temp = raw.ItemSpec + ".tmp"
+            let tempInfo = FileInfo(temp)
+            if not tempInfo.Exists || tempInfo.LastWriteTimeUtc < rawInfo.LastWriteTimeUtc then
+                let out =
+                    CompilerUtility.Compile {
+                        AssemblyFile = raw.ItemSpec
+                        KeyOriginatorFile = settings.KeyOriginatorFile
+                        References = [ for r in refs -> r.ItemSpec ]
+                        RunInterfaceGenerator =
+                            match GetProjectType settings with
+                            | Extension -> true
+                            | _ -> false
+                    }
+                for msg in out.Messages do
+                    msg.SendTo(settings.Log)
+                if out.Ok then
+                    File.WriteAllText(tempInfo.FullName, "")
+                    true
+                else
+                    Fail settings "Failed to compile assembly with WebSharper"
+            else true
+        | _ ->
+            Fail settings "Need 1+ items for Compile command"
 
     [<Sealed>]
-    type private Marker = class end
+    type Marker = class end
 
-    let private BaseDir =
+    let BaseDir =
         typeof<Marker>.Assembly.Location
         |> Path.GetDirectoryName
 
-    let GetReferences (ty: ProjectType) =
+    let GetReferences ty =
         [
             yield "IntelliFactory.Core"
             yield "IntelliFactory.Formlet"
@@ -95,101 +143,92 @@ module private WebSharperTaskModule =
             yield "IntelliFactory.Xml"
         ]
 
-    let DoComputeReferences projTy : ITaskItem [] =
-        let assemblies = GetReferences projTy
-        let priv =
-            match projTy with
-            | Extension -> false
-            | Library -> false
-            | Website -> true
-        [|
-            for asm in assemblies do
-                let hintPath = Path.Combine(BaseDir, asm + ".dll")
-                if File.Exists(hintPath) then
-                    let it = TaskItem(asm)
-                    it.SetMetadata("HintPath", hintPath)
-                    it.SetMetadata("Private", string priv)
-                    yield it :> _
-        |]
+    let ComputeReferences settings =
+        let expl =
+            match settings.WebSharperExplicitRefs with
+            | null | "" -> false
+            | t when t.ToLower() = "true" -> true
+            | _ -> false
+        if not expl then
+            let projTy = GetProjectType settings
+            let assemblies = GetReferences projTy
+            let priv =
+                match projTy with
+                | Extension -> false
+                | Library -> false
+                | Website _ -> true
+            settings.SetItemOutput [|
+                for asm in assemblies do
+                    let hintPath = Path.Combine(BaseDir, asm + ".dll")
+                    if File.Exists(hintPath) then
+                        let it = TaskItem(asm)
+                        it.SetMetadata("HintPath", hintPath)
+                        it.SetMetadata("Private", string priv)
+                        yield it :> _
+            |]
+        true
 
-    let DoCompile ty (log: TaskLoggingHelper) (input: ITaskItem[]) (keyOriginatorFile: string) =
-        match List.ofArray input with
-        | raw :: refs ->
-            let rawInfo = FileInfo(raw.ItemSpec)
-            let temp = raw.ItemSpec + ".tmp"
-            let tempInfo = FileInfo(temp)
-            if not tempInfo.Exists || tempInfo.LastWriteTimeUtc < rawInfo.LastWriteTimeUtc then
-                let out =
-                    CompilerUtility.Compile {
-                        AssemblyFile = raw.ItemSpec
-                        KeyOriginatorFile = keyOriginatorFile
-                        References = [ for r in refs -> r.ItemSpec ]
-                        RunInterfaceGenerator =
-                            match ty with
-                            | Extension -> true
-                            | _ -> false
-                    }
-                for msg in out.Messages do
-                    msg.SendTo(log)
-                if out.Ok then
-                    File.WriteAllText(tempInfo.FullName, "")
-                else
-                    failwith "Failed to compile assembly with WebSharper"
-        | _ ->
-            failwith "Need 1+ items for Compile command"
+    let Unpack settings =
+        match GetProjectType settings with
+        | Website webRoot ->
+            let assemblies =
+                let dir = DirectoryInfo(Path.Combine(webRoot, "bin"))
+                Seq.concat [
+                    dir.EnumerateFiles("*.dll")
+                    dir.EnumerateFiles("*.exe")
+                ]
+                |> Seq.map (fun fn -> fn.FullName)
+                |> Seq.toList
+            for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
+                let dir = DirectoryInfo(Path.Combine(webRoot, d))
+                if not dir.Exists then
+                    dir.Create()
+            let cmd =
+                Commands.UnpackCommand
+                    (
+                        Assemblies = assemblies,
+                        RootDirectory = webRoot
+                    )
+            cmd.Run()
+            true
+        | _ -> true
 
-    let DoUnpack webRoot =
-        let assemblies =
-            let dir = DirectoryInfo(Path.Combine(webRoot, "bin"))
-            Seq.concat [
-                dir.EnumerateFiles("*.dll")
-                dir.EnumerateFiles("*.exe")
-            ]
-            |> Seq.map (fun fn -> fn.FullName)
-            |> Seq.toList
-        for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
-            let dir = DirectoryInfo(Path.Combine(webRoot, d))
-            if not dir.Exists then
-                dir.Create()
-        let cmd =
-            Commands.UnpackCommand
-                (
-                    Assemblies = assemblies,
-                    RootDirectory = webRoot
-                )
-        cmd.Run()
+    let Execute settings =
+        try
+            match settings.Command with
+            | "Compile" -> Compile settings
+            | "ComputeReferences" -> ComputeReferences settings
+            | "Unpack" -> Unpack settings
+            | cmd -> Fail settings "Unknown command: %s" (string cmd)
+        with e ->
+            settings.Log.LogErrorFromException(e)
+            false
 
-/// Implements MSBuild logic used in WebSharper.targets
 [<Sealed>]
 type WebSharperTask() =
     inherit Task()
 
-    override this.Execute() =
-        try
-            match Command.Parse this.Command with
-            | Compile ->
-                DoCompile this.ActualProjectType this.Log this.ItemInput this.KeyOriginatorFile
-            | ComputeReferences ->
-                this.ItemOutput <- DoComputeReferences this.ActualProjectType
-            | Unpack ->
-                DoUnpack this.WebRootDirectory
-            true
-        with e ->
-            this.Log.LogErrorFromException(e)
-            false
-
-    member this.ActualProjectType =
-        ProjectType.Parse this.ProjectType
+    member val ItemInput : ITaskItem [] = Array.empty with get, set
+    member val KeyOriginatorFile = "" with get, set
+    member val WebProjectOutputDir = "" with get, set
+    member val WebSharperExplicitRefs = "" with get, set
+    member val WebSharperProject = "" with get, set
 
     [<Required>]
     member val Command = "" with get, set
 
-    member val ItemInput : ITaskItem [] = Array.empty with get, set
-
     [<Output>]
     member val ItemOutput : ITaskItem [] = Array.empty with get, set
 
-    member val KeyOriginatorFile = "" with get, set
-    member val ProjectType = "Library" with get, set
-    member val WebRootDirectory = "." with get, set
-
+    override this.Execute() =
+        Execute {
+            Command = this.Command
+            ItemInput = this.ItemInput
+            ItemOutput = this.ItemOutput
+            KeyOriginatorFile = this.KeyOriginatorFile
+            Log = this.Log
+            SetItemOutput = fun items -> this.ItemOutput <- items
+            WebProjectOutputDir = this.WebProjectOutputDir
+            WebSharperExplicitRefs = this.WebSharperExplicitRefs
+            WebSharperProject = this.WebSharperProject
+        }

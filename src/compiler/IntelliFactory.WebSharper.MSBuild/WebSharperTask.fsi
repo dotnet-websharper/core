@@ -31,7 +31,7 @@ type WebSharperTask =
 
     new : unit -> WebSharperTask
 
-    /// Used to specify which "method" to call
+    /// Used to specify which "method" to call.
     member Command : string with get, set
 
     /// Item input for item commands.
@@ -43,8 +43,12 @@ type WebSharperTask =
     /// Path to an `.snk` strong name key file, if any.
     member KeyOriginatorFile : string with get, set
 
-    /// Specifies which project type is being built.
-    member ProjectType : string with get, set
+    /// Path to the directory containing Web.config, used by the "Unpack" command,
+    /// and also to detect Web projects.
+    member WebProjectOutputDir : string with get, set
 
-    /// Path to the directory containing Web.config, used by the "Unpack" command.
-    member WebRootDirectory : string with get, set
+    /// Flag used to skip auto-referencing assemblies.
+    member WebSharperExplicitRefs : string with get, set
+
+    /// Specifies which project type is being built.
+    member WebSharperProject : string with get, set
