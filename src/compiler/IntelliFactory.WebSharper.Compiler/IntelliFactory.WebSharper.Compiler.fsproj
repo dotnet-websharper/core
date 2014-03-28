@@ -8,24 +8,12 @@
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
-    <Compile Include="../../MutableCollections.fsi">
-      <Link>MutableCollections.fsi</Link>
-    </Compile>
-    <Compile Include="../../MutableCollections.fs">
-      <Link>MutableCollections.fs</Link>
-    </Compile>
-    <Compile Include="../../QualifiedNames.fsi">
-      <Link>QualifiedNames.fsi</Link>
-    </Compile>
-    <Compile Include="../../QualifiedNames.fs">
-      <Link>QualifiedNames.fs</Link>
-    </Compile>
-    <Compile Include="../../TypeScriptGenerator.fsi">
-      <Link>TypeScriptGenerator.fsi</Link>
-    </Compile>
-    <Compile Include="../../TypeScriptGenerator.fs">
-      <Link>TypeScriptGenerator.fs</Link>
-    </Compile>
+    <Compile Include="utility/MutableCollections.fsi" />
+    <Compile Include="utility/MutableCollections.fs" />
+    <Compile Include="utility/QualifiedNames.fsi" />
+    <Compile Include="utility/QualifiedNames.fs" />
+    <Compile Include="utility/Algorithms.fsi" />
+    <Compile Include="utility/Algorithms.fs" />
     <Compile Include="Compiler.fsi" />
     <Compile Include="Compiler.fs" />
     <Compile Include="ReflectionLayer.fs" />
@@ -55,18 +43,10 @@
     <Compile Include="Translator.fs" />
     <Compile Include="Assembler.fsi" />
     <Compile Include="Assembler.fs" />
-    <Compile Include="../../TypeScriptExporter.fsi">
-      <Link>TypeScriptExporter.fsi</Link>
-    </Compile>
-    <Compile Include="../../TypeScriptExporter.fs">
-      <Link>TypeScriptExporter.fs</Link>
-    </Compile>
-    <Compile Include="../../Algorithms.fsi">
-      <Link>Algorithms.fs</Link>
-    </Compile>
-    <Compile Include="../../Algorithms.fs">
-      <Link>Algorithms.fs</Link>
-    </Compile>
+    <Compile Include="typescript/TypeScriptGenerator.fsi" />
+    <Compile Include="typescript/TypeScriptGenerator.fs" />
+    <Compile Include="typescript/TypeScriptExporter.fsi" />
+    <Compile Include="typescript/TypeScriptExporter.fs" />
     <Compile Include="FrontEnd.fsi" />
     <Compile Include="FrontEnd.fs" />
     <EmbeddedResource Include="DomFix.d.ts" />

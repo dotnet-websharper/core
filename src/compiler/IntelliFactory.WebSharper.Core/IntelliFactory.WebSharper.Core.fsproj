@@ -10,12 +10,8 @@
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
-    <Compile Include="../../PathConventions.fsi">
-      <Link>PathConventions.fsi</Link>
-    </Compile>
-    <Compile Include="../../PathConventions.fs">
-      <Link>PathConventions.fs</Link>
-    </Compile>
+    <Compile Include="PathConventions.fsi" />
+    <Compile Include="PathConventions.fs" />
     <Compile Include="Reflection.fsi" />
     <Compile Include="Reflection.fs" />
     <Compile Include="Quotations.fsi" />
