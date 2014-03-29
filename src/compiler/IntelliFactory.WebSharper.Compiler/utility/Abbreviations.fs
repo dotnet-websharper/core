@@ -32,6 +32,7 @@ module internal Abbreviations =
     type CustomAttributeData = Reflection.CustomAttributeData
     type IDictionary<'T1,'T2> = Generic.IDictionary<'T1,'T2>
     type Dictionary<'T1,'T2> = Generic.Dictionary<'T1,'T2>
+    type DirectoryInfo = IO.DirectoryInfo
     type Encoding = Text.Encoding
     type File = IO.File
     type HtmlTextWriter = Web.UI.HtmlTextWriter

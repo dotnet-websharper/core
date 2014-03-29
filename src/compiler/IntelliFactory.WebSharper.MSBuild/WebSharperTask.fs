@@ -40,16 +40,19 @@ module WebSharperTaskModule =
             ItemOutput : ITaskItem []
             KeyOriginatorFile : string
             Log : TaskLoggingHelper
+            Name : string
             SetItemOutput : ITaskItem [] -> unit
             WebProjectOutputDir : string
+            WebSharperBundleOutputDir : string
             WebSharperExplicitRefs : string
             WebSharperProject : string
         }
 
     type ProjectType =
+        | Bundle of webroot: option<string>
         | Extension
         | Library
-        | Website of webroot: string // webroot
+        | Website of webroot: string
 
     let GetProjectType settings =
         let getWebRoot () =
@@ -67,6 +70,7 @@ module WebSharperTaskModule =
             | Some dir -> Website dir
         | proj ->
             match proj.ToLower() with
+            | "bundle" -> Bundle (getWebRoot ())
             | "extension" | "interfacegenerator" -> Extension
             | "library" -> Library
             | "site" | "web" | "website" ->
@@ -80,6 +84,36 @@ module WebSharperTaskModule =
         |> Printf.ksprintf (fun msg ->
             settings.Log.LogError(msg)
             false)
+
+    let Bundle settings =
+        match GetProjectType settings with
+        | Bundle webRoot ->
+            let outputDir =
+                match settings.WebSharperBundleOutputDir with
+                | null | "" ->
+                    match webRoot with
+                    | Some webRoot ->
+                        let d = Path.Combine(webRoot, "Content")
+                        let di = DirectoryInfo(d)
+                        if not di.Exists then
+                            di.Create()
+                        d
+                    | None -> failwith "WebSharperBundleOutputDir property is required"
+                | dir -> dir
+            let fileName =
+                match settings.Name with
+                | null | "" -> "Bundle"
+                | name -> name
+            match List.ofArray settings.ItemInput with
+            | raw :: refs ->
+                let cmd = FE.BundleCommand()
+                cmd.AssemblyPaths <- raw.ItemSpec :: [for r in refs -> r.ItemSpec]
+                cmd.FileName <- fileName
+                cmd.OutputDirectory <- outputDir
+                cmd.Execute()
+                true
+            | _ -> Fail settings "Invalid options for Bundle command"
+        | _ -> true
 
     let Compile settings =
         match List.ofArray settings.ItemInput with
@@ -154,6 +188,7 @@ module WebSharperTaskModule =
             let assemblies = GetReferences projTy
             let priv =
                 match projTy with
+                | Bundle _ -> false
                 | Extension -> false
                 | Library -> false
                 | Website _ -> true
@@ -196,6 +231,7 @@ module WebSharperTaskModule =
     let Execute settings =
         try
             match settings.Command with
+            | "Bundle" -> Bundle settings
             | "Compile" -> Compile settings
             | "ComputeReferences" -> ComputeReferences settings
             | "Unpack" -> Unpack settings
@@ -210,7 +246,9 @@ type WebSharperTask() =
 
     member val ItemInput : ITaskItem [] = Array.empty with get, set
     member val KeyOriginatorFile = "" with get, set
+    member val Name = "" with get, set
     member val WebProjectOutputDir = "" with get, set
+    member val WebSharperBundleOutputDir = "" with get, set
     member val WebSharperExplicitRefs = "" with get, set
     member val WebSharperProject = "" with get, set
 
@@ -227,8 +265,10 @@ type WebSharperTask() =
             ItemOutput = this.ItemOutput
             KeyOriginatorFile = this.KeyOriginatorFile
             Log = this.Log
+            Name = this.Name
             SetItemOutput = fun items -> this.ItemOutput <- items
             WebProjectOutputDir = this.WebProjectOutputDir
+            WebSharperBundleOutputDir = this.WebSharperBundleOutputDir
             WebSharperExplicitRefs = this.WebSharperExplicitRefs
             WebSharperProject = this.WebSharperProject
         }

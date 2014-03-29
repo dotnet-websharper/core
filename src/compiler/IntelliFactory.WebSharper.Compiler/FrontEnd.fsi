@@ -25,6 +25,7 @@ namespace IntelliFactory.WebSharper.Compiler
 module FrontEnd =
     type Assembly = IntelliFactory.WebSharper.Compiler.Assembly
     type Bundle = IntelliFactory.WebSharper.Compiler.Bundle
+    type BundleCommand = IntelliFactory.WebSharper.Compiler.BundleCommand
     type CompiledAssembly = IntelliFactory.WebSharper.Compiler.CompiledAssembly
     type Content = IntelliFactory.WebSharper.Compiler.Content
     type EmbeddedFile = IntelliFactory.WebSharper.Compiler.EmbeddedFile

@@ -170,20 +170,11 @@ let Start args =
                     c.Start(args, ad, assem, aR)
                     |> Some
         | "bundle" :: out :: paths ->
-            let bundle =
-                FE.Bundle.Create().WithDefaultReferences()
-                |> (fun b ->
-                    (b, paths)
-                    ||> Seq.fold (fun b p -> b.WithAssembly(p)))
-                |> (fun b -> b.WithTransitiveReferences())
-            let write (c: FE.Content) (ext: string) =
-                c.WriteFile(out + ext)
-            write bundle.CSS ".css"
-            write bundle.HtmlHeaders ".head.html"
-            write bundle.JavaScriptHeaders ".head.js"
-            write bundle.JavaScript ".js"
-            write bundle.MinifiedJavaScript ".min.js"
-            write bundle.TypeScript ".d.ts"
+            let cmd = FE.BundleCommand()
+            cmd.OutputDirectory <- Path.GetDirectoryName(out)
+            cmd.FileName <- Path.GetFileName(out)
+            cmd.AssemblyPaths <- paths
+            cmd.Execute()
             Some 0
         | _ ->
             let env =

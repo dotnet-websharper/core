@@ -43,12 +43,19 @@ type WebSharperTask =
     /// Path to an `.snk` strong name key file, if any.
     member KeyOriginatorFile : string with get, set
 
+    /// The project name, typically set in F# projects.
+    member Name : string with get, set
+
     /// Path to the directory containing Web.config, used by the "Unpack" command,
     /// and also to detect Web projects.
     member WebProjectOutputDir : string with get, set
+
+    /// Output directory for the Bundle task.
+    member WebSharperBundleOutputDir : string with get, set
 
     /// Flag used to skip auto-referencing assemblies.
     member WebSharperExplicitRefs : string with get, set
 
     /// Specifies which project type is being built.
     member WebSharperProject : string with get, set
+

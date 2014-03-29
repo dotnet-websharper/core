@@ -101,7 +101,8 @@ type Bundle(set: list<Assembly>) =
             match cType.ToLower(), mode with
             | "text/javascript", BundleMode.JavaScript
             | "text/javascript", BundleMode.MinifiedJavaScript ->
-                writer.WriteLine(c)
+                writer.Write(c)
+                writer.WriteLine(";")
             | "text/css", BundleMode.CSS ->
                 writer.WriteLine(c)
             | _ -> ()

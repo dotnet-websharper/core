@@ -24,5 +24,23 @@ namespace IntelliFactory.WebSharper.Compiler
 
 [<Sealed>]
 type BundleCommand() =
-    class
-    end
+    member val AssemblyPaths : seq<string> = Seq.empty with get, set
+    member val FileName = "Bundle" with get, set
+    member val OutputDirectory = "." with get, set
+
+    member this.Execute() =
+        let bundle =
+            Bundle.Create().WithDefaultReferences()
+            |> (fun b ->
+                (b, this.AssemblyPaths)
+                ||> Seq.fold (fun b p -> b.WithAssembly(p)))
+            |> (fun b -> b.WithTransitiveReferences())
+        let write (c: Content) (ext: string) =
+            c.WriteFile(Path.Combine(this.OutputDirectory, this.FileName + ext))
+        write bundle.CSS ".css"
+        write bundle.HtmlHeaders ".head.html"
+        write bundle.JavaScriptHeaders ".head.js"
+        write bundle.JavaScript ".js"
+        write bundle.MinifiedJavaScript ".min.js"
+        write bundle.TypeScript ".d.ts"
+

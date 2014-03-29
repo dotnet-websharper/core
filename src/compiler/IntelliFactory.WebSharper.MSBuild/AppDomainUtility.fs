@@ -95,6 +95,7 @@ module AppDomainUtility =
 
     let CreateAppDomain () =
         let setup = AppDomainSetup()
+        setup.ShadowCopyFiles <- string true
         setup.ApplicationBase <-
             Assembly.GetExecutingAssembly().Location
             |> Path.GetDirectoryName

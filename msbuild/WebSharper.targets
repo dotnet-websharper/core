@@ -25,11 +25,23 @@
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/net40/IntelliFactory.WebSharper.MSBuild.dll</WebSharperTaskAssembly>
   </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="IntelliFactory.WebSharper.MSBuild.WebSharperTask" />
+  <Target Name="WebSharperBundle" AfterTargets="Build">
+    <WebSharperTask
+      Command="Bundle"
+      ItemInput="$(TargetPath);@(ReferencePath)"
+      KeyOriginatorFile="$(KeyOriginatorFile)"
+      Name="$(Name)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
+      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
+      WebSharperProject="$(WebSharperProject)" />
+  </Target>
   <Target Name="WebSharperCompile" AfterTargets="CoreCompile" DependsOnTargets="ResolveReferences">
     <WebSharperTask
       Command="Compile"
       ItemInput="@(IntermediateAssembly);@(ReferencePath)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
+      Name="$(Name)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
       WebSharperProject="$(WebSharperProject)" />
@@ -39,6 +51,7 @@
       Command="ComputeReferences"
       ItemInput="@(Reference)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
+      Name="$(Name)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
       WebSharperProject="$(WebSharperProject)">
@@ -49,6 +62,7 @@
     <WebSharperTask
       Command="Unpack"
       KeyOriginatorFile="$(KeyOriginatorFile)"
+      Name="$(Name)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
       WebSharperProject="$(WebSharperProject)" />
