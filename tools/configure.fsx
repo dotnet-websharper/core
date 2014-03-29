@@ -1,6 +1,11 @@
 open System
 open System.Diagnostics
+open System.Collections
+open System.Collections.Specialized
 open System.IO
+
+let env =
+    ["EnableNuGetPackageRestore", "true"]
 
 let exec (fileName: string) (arguments: string) =
     let psi = ProcessStartInfo()
@@ -10,6 +15,8 @@ let exec (fileName: string) (arguments: string) =
     psi.UseShellExecute <- false
     psi.RedirectStandardError <- true
     psi.RedirectStandardOutput <- true
+    for (k, v) in env do
+        psi.EnvironmentVariables.Add(k, v)
     let proc = Process.Start(psi)
     proc.WaitForExit()
     proc.StandardError.ReadToEnd() |> stderr.Write
@@ -29,4 +36,3 @@ let ok =
     && nuget "install NuGet.Core -o packages -excludeVersion"
     && nuget "install Mono.Cecil -o packages -excludeVersion"
     && nuget "install AjaxMin -o packages -excludeVersion"
-
