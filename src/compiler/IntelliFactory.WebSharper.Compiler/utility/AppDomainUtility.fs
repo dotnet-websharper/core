@@ -19,7 +19,7 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.MSBuild
+namespace IntelliFactory.WebSharper.Compiler
 
 open System
 open System.IO

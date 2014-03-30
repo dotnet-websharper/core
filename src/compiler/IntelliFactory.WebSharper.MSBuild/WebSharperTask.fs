@@ -85,6 +85,14 @@ module WebSharperTaskModule =
             settings.Log.LogError(msg)
             false)
 
+    let SendResult settings result =
+        match result with
+        | Compiler.Commands.Ok -> true
+        | Compiler.Commands.Errors errors ->
+            for e in errors do
+                settings.Log.LogError(e)
+            true
+
     let Bundle settings =
         match GetProjectType settings with
         | Bundle webRoot ->
@@ -106,12 +114,16 @@ module WebSharperTaskModule =
                 | name -> name
             match List.ofArray settings.ItemInput with
             | raw :: refs ->
-                let cmd = FE.BundleCommand()
-                cmd.AssemblyPaths <- raw.ItemSpec :: [for r in refs -> r.ItemSpec]
-                cmd.FileName <- fileName
-                cmd.OutputDirectory <- outputDir
-                cmd.Execute()
-                true
+                let cfg =
+                    {
+                        Compiler.BundleCommand.Config.Create() with
+                            AssemblyPaths = raw.ItemSpec :: [for r in refs -> r.ItemSpec]
+                            FileName = fileName
+                            OutputDirectory = outputDir
+                    }
+                let env = Unchecked.defaultof<Compiler.Commands.Environment>
+                Compiler.BundleCommand.Instance.Execute(env, cfg)
+                |> SendResult settings
             | _ -> Fail settings "Invalid options for Bundle command"
         | _ -> true
 
@@ -218,14 +230,15 @@ module WebSharperTaskModule =
                 let dir = DirectoryInfo(Path.Combine(webRoot, d))
                 if not dir.Exists then
                     dir.Create()
-            let cmd =
-                Commands.UnpackCommand
-                    (
-                        Assemblies = assemblies,
+            let cfg =
+                {
+                    Compiler.UnpackCommand.Config.Create() with
+                        Assemblies = assemblies
                         RootDirectory = webRoot
-                    )
-            cmd.Run()
-            true
+                }
+            let env = Compiler.Commands.Environment.Create()
+            Compiler.UnpackCommand.Instance.Execute(env, cfg)
+            |> SendResult settings
         | _ -> true
 
     let Execute settings =

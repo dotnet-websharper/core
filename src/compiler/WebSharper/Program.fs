@@ -28,10 +28,8 @@ open System.Diagnostics
 open System.Reflection
 open IntelliFactory.Core
 open IntelliFactory.WebSharper.Core
-open IntelliFactory.WebSharper.Core.Plugins
 
 module FE = IntelliFactory.WebSharper.Compiler.FrontEnd
-module Plugins = IntelliFactory.WebSharper.Core.Plugins.Configuration
 
 let writeTextFile (output, text) =
     Content.Text(text).WriteFile(output)
@@ -117,78 +115,80 @@ let compile (aR: AssemblyResolver) (opts: Options.CompilationOptions) =
                 sw.Elapsed.TotalSeconds)
         k
 
-let run (aR: AssemblyResolver) (opts: Options.T) =
+let ShowResult (r: Compiler.Commands.Result) =
+    match r with
+    | Compiler.Commands.Ok -> 0
+    | Compiler.Commands.Errors errors ->
+        for e in errors do
+            stderr.WriteLine(e)
+        1
+
+let Run (aR: AssemblyResolver) (opts: Options.T) =
     match opts with
     | Options.Compile opts ->
         compile aR opts
-    | Options.Unpack (rootDirectory, assemblies) ->
-        Commands.UnpackCommand(AssemblyResolver = aR, RootDirectory = rootDirectory, Assemblies = assemblies).Run()
-        0
     | Options.Dependencies path ->
         DependencyReporter.Run path
 
 type private EA = InterfaceGenerator.Pervasives.ExtensionAttribute
 
+open IntelliFactory.WebSharper.Compiler
+
+let (|Cmd|_|) (cmd: Commands.ICommand) argv =
+    match cmd.Parse argv with
+    | Commands.NotRecognized -> None
+    | Commands.Parsed f ->
+        match f (Commands.Environment.Create()) with
+        | Commands.Ok -> Some 0
+        | Commands.Errors errors ->
+            for e in errors do
+                stderr.WriteLine(e)
+            Some 1
+    | Commands.ParseFailed err ->
+        for e in err do
+            stderr.WriteLine(e)
+        stderr.WriteLine()
+        stderr.WriteLine(cmd.Usage)
+        Some 1
+
+let AR =
+    AssemblyResolver.Create()
+        .WithBaseDirectory(baseDir)
+        .SearchDirectories([baseDir])
+
+let RunInterfaceGenerator path args =
+    let searchPaths =
+        let (|S|_|) (a: string) (b: string) =
+            if b.StartsWith a then Some (b.Substring a.Length) else None
+        let rec loop acc args =
+            match args with
+            | S "-r:" assem :: rest -> loop (assem :: acc) rest
+            | "-r" :: assem :: rest -> loop (assem :: acc) rest
+            | _ :: rest -> loop acc rest
+            | [] | [_] -> acc
+        loop [path] args
+    let aR = AR.SearchPaths searchPaths
+    AR.Wrap <| fun () ->
+        match AR.Resolve(AssemblyName.GetAssemblyName path) with
+        | None -> failwithf "Could not resolve: %s" path
+        | Some assem ->
+            let ad =
+                match Attribute.GetCustomAttribute(assem, typeof<EA>) with
+                | :? EA as attr ->
+                    attr.GetAssembly()
+                | _ ->
+                    failwith "Failed to load assembly definition - \
+                        is the assembly properly marked with \
+                        ExtensionAttribute?"
+            let c = InterfaceGenerator.Compiler.Create()
+            c.Start(args, ad, assem, aR)
+
 [<EntryPoint>]
-let Start args =
-    let fullArgs =
-        [|
-            yield pathToSelf
-            yield! args
-        |]
-    let aR =
-        AssemblyResolver.Create()
-            .WithBaseDirectory(baseDir)
-            .SearchDirectories([baseDir])
-    let plugins () =
-        match List.ofArray args with
-        | "ig" :: path :: args ->
-            let searchPaths =
-                let (|S|_|) (a: string) (b: string) =
-                    if b.StartsWith a then Some (b.Substring a.Length) else None
-                let rec loop acc args =
-                    match args with
-                    | S "-r:" assem :: rest -> loop (assem :: acc) rest
-                    | "-r" :: assem :: rest -> loop (assem :: acc) rest
-                    | _ :: rest -> loop acc rest
-                    | [] | [_] -> acc
-                loop [path] args
-            let aR = aR.SearchPaths searchPaths
-            aR.Wrap <| fun () ->
-                match aR.Resolve(AssemblyName.GetAssemblyName path) with
-                | None -> failwithf "Could not resolve: %s" path
-                | Some assem ->
-                    let ad =
-                        match Attribute.GetCustomAttribute(assem, typeof<EA>) with
-                        | :? EA as attr ->
-                            attr.GetAssembly()
-                        | _ ->
-                            failwith "Failed to load assembly definition - \
-                                is the assembly properly marked with \
-                                ExtensionAttribute?"
-                    let c = InterfaceGenerator.Compiler.Create()
-                    c.Start(args, ad, assem, aR)
-                    |> Some
-        | "bundle" :: out :: paths ->
-            let cmd = FE.BundleCommand()
-            cmd.OutputDirectory <- Path.GetDirectoryName(out)
-            cmd.FileName <- Path.GetFileName(out)
-            cmd.AssemblyPaths <- paths
-            cmd.Execute()
-            Some 0
-        | _ ->
-            let env =
-                {
-                    new IEnvironment with
-                        member e.AssemblyResolver = aR
-                        member e.CommandLineArgs = fullArgs
-                }
-            Plugins.GetPlugins()
-            |> Seq.tryPick (fun p ->
-                match p.Run(env) with
-                | Success -> Some 0
-                | Error -> Some -1
-                | Pass -> None)
-    let main () =
-        Options.Run plugins (run aR) (Array.toList args)
-    guard main
+let Start argv =
+    guard <| fun () ->
+        match List.ofArray argv with
+        | Cmd BundleCommand.Instance r -> r
+        | Cmd HtmlCommand.Instance r -> r
+        | Cmd UnpackCommand.Instance r -> r
+        | "ig" :: path :: args -> RunInterfaceGenerator path args
+        | argv -> Options.Run (Run AR) argv

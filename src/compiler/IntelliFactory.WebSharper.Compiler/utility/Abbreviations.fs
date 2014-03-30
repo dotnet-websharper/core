@@ -25,16 +25,17 @@ namespace IntelliFactory.WebSharper.Compiler
 module internal Abbreviations =
     open System
     open System.Collections
-    open IntelliFactory.Core
 
+    type Activator = System.Activator
     type AssemblyName = Reflection.AssemblyName
-    type AssemblyResolver = AssemblyResolution.AssemblyResolver
+    type AssemblyResolver = IntelliFactory.Core.AssemblyResolution.AssemblyResolver
     type CustomAttributeData = Reflection.CustomAttributeData
     type IDictionary<'T1,'T2> = Generic.IDictionary<'T1,'T2>
     type Dictionary<'T1,'T2> = Generic.Dictionary<'T1,'T2>
     type DirectoryInfo = IO.DirectoryInfo
     type Encoding = Text.Encoding
     type File = IO.File
+    type FileInfo = IO.FileInfo
     type HtmlTextWriter = Web.UI.HtmlTextWriter
     type InvalidOperationException = System.InvalidOperationException
     type MemoryStream = IO.MemoryStream

@@ -26,7 +26,7 @@ open System.Collections.Generic
 open System.Reflection
 
 module A = IntelliFactory.WebSharper.Core.Attributes
-module FI = IntelliFactory.Core.FastInvoke
+module FI = FastInvoke
 module J = IntelliFactory.WebSharper.Core.Json
 module M = IntelliFactory.WebSharper.Core.Metadata
 module R = IntelliFactory.WebSharper.Core.Reflection

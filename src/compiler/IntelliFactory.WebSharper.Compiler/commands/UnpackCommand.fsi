@@ -1,8 +1,8 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2013 IntelliFactory
+// Copyright (c) 2008-2014 IntelliFactory
 //
 // GNU Affero General Public License Usage
 // WebSharper is free software: you can redistribute it and/or modify it under
@@ -19,23 +19,17 @@
 //
 // $end{copyright}
 
-/// Implements offline sitelet HTML generation.
-module internal IntelliFactory.WebSharper.Sitelets.Offline.Output
+namespace IntelliFactory.WebSharper.Compiler
 
-open IntelliFactory.Core
-open IntelliFactory.WebSharper.Sitelets
-module H = IntelliFactory.WebSharper.Compiler.HtmlCommand
+/// Unpacks resources from WebSharper assemblies.
+module UnpackCommand =
 
-/// The output mode, Debug or Release.
-type Mode = H.Mode
+    type Config =
+        {
+            Assemblies : list<string>
+            RootDirectory : string
+        }
 
-/// Configuration options.
-type Config =
-    {
-        Actions : list<obj>
-        Options : H.Config
-        Sitelet : Sitelet<obj>
-    }
+        static member Create : unit -> Config
 
-/// Writes a site given the configuration options.
-val WriteSite : AssemblyResolver -> config: Config -> Async<unit>
+    val Instance : Commands.ICommand<Config>

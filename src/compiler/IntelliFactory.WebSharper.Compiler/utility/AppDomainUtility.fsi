@@ -19,7 +19,7 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.MSBuild
+namespace IntelliFactory.WebSharper.Compiler
 
 /// Utilities for inserting a layer of appdomain isolation.
 module internal AppDomainUtility =

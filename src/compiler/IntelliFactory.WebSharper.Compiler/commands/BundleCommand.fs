@@ -19,28 +19,98 @@
 //
 // $end{copyright}
 
-/// Exposes the compiler front-end for programmatic use.
 namespace IntelliFactory.WebSharper.Compiler
 
-[<Sealed>]
-type BundleCommand() =
-    member val AssemblyPaths : seq<string> = Seq.empty with get, set
-    member val FileName = "Bundle" with get, set
-    member val OutputDirectory = "." with get, set
+module C = Commands
 
-    member this.Execute() =
+module BundleCommand =
+
+    type Config =
+        {
+            AppDomainIndirection : bool
+            AssemblyPaths : list<string>
+            FileName : string
+            OutputDirectory : string
+        }
+
+        static member Create() =
+            {
+                AppDomainIndirection = true
+                AssemblyPaths = []
+                FileName = "Bundle"
+                OutputDirectory = "."
+            }
+
+    let GetErrors config =
+        [
+            for p in config.AssemblyPaths do
+                if C.NoFile p then
+                    yield "No such file: " + p
+            if C.IsFile config.OutputDirectory then
+                yield "-out parameter invalid: " + config.OutputDirectory
+        ]
+
+    let Parse (args: list<string>) =
+        let rec proc opts xs =
+            match xs with
+            | [] ->
+                opts
+            | "-name" :: name :: xs ->
+                proc { opts with FileName = name } xs
+            | "-o" :: f :: xs | "-out" :: f :: xs ->
+                proc { opts with OutputDirectory = f } xs
+            | x :: xs ->
+                proc { opts with AssemblyPaths = x :: opts.AssemblyPaths } xs
+        match args with
+        | "bundle" :: args ->
+            let def = Config.Create()
+            let cfg = proc def args
+            match GetErrors cfg with
+            | [] -> C.Parsed cfg
+            | errors -> C.ParseFailed errors
+        | _ -> C.NotRecognized
+
+    let Do env config =
+        C.MkDir config.OutputDirectory
         let bundle =
             Bundle.Create().WithDefaultReferences()
             |> (fun b ->
-                (b, this.AssemblyPaths)
+                (b, config.AssemblyPaths)
                 ||> Seq.fold (fun b p -> b.WithAssembly(p)))
             |> (fun b -> b.WithTransitiveReferences())
         let write (c: Content) (ext: string) =
-            c.WriteFile(Path.Combine(this.OutputDirectory, this.FileName + ext))
+            c.WriteFile(Path.Combine(config.OutputDirectory, config.FileName + ext))
         write bundle.CSS ".css"
         write bundle.HtmlHeaders ".head.html"
         write bundle.JavaScriptHeaders ".head.js"
         write bundle.JavaScript ".js"
         write bundle.MinifiedJavaScript ".min.js"
         write bundle.TypeScript ".d.ts"
+        C.Ok
 
+    [<Sealed>]
+    type Tr() =
+        interface AppDomainUtility.ITransform<C.Environment * Config, C.Result> with
+            member this.Do((env, config)) =
+                Do env config
+
+    let Exec env config =
+        if config.AppDomainIndirection then
+            AppDomainUtility.TransformWithAppDomain
+                AppDomainUtility.MarkType<Tr>
+                (env, config)
+        else Do env config
+
+    let Description =
+        "generates JS/CSS bundles from WebSharper assembly sets"
+
+    let Usage =
+        [
+            "Usage: WebSharper.exe bundle [OPTIONS] X.dll ..."
+            "-name <id>      Name prefix for the output files"
+            "-out <dir>      Path to the output directory. Short form: -o"
+        ]
+        |> String.concat System.Environment.NewLine
+
+    let Instance =
+        C.DefineCommand<Config> "bundle" Description Usage Parse Exec

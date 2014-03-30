@@ -9,9 +9,8 @@
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
-    <Compile Include="../WebSharper/UnpackCommand.fs" />
-    <Compile Include="AppDomainUtility.fsi" />
-    <Compile Include="AppDomainUtility.fs" />
+    <Compile Include="../IntelliFactory.WebSharper.Compiler/utility/AppDomainUtility.fsi" />
+    <Compile Include="../IntelliFactory.WebSharper.Compiler/utility/AppDomainUtility.fs" />
     <Compile Include="CompilerUtility.fsi" />
     <Compile Include="CompilerUtility.fs" />
     <Compile Include="WebSharperTask.fsi" />

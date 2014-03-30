@@ -33,6 +33,7 @@ open IntelliFactory.Core
 open IntelliFactory.WebSharper.Sitelets
 
 module C = IntelliFactory.WebSharper.Sitelets.Content
+module H = IntelliFactory.WebSharper.Compiler.HtmlCommand
 module Http = IntelliFactory.WebSharper.Sitelets.Http
 module J = IntelliFactory.WebSharper.Core.Json
 module M = IntelliFactory.WebSharper.Core.Metadata
@@ -45,27 +46,21 @@ let EMBEDDED_JS = "WebSharper.js"
 [<Literal>]
 let EMBEDDED_MINJS = "WebSharper.min.js"
 
-type Mode =
-    | Debug
-    | Release
+type Mode = H.Mode
 
 type Config =
     {
         Actions : list<obj>
-        MainAssembly : FileInfo
-        Mode : Mode
-        ProjectDir : DirectoryInfo
-        ReferenceFiles : list<FileInfo>
+        Options : H.Config
         Sitelet : Sitelet<obj>
-        TargetDir : DirectoryInfo
     }
 
 /// Collects metadata from all assemblies in referenced folders.
 let getMetadata conf =
-    Seq.append [conf.MainAssembly] conf.ReferenceFiles
+    Seq.append [conf.Options.MainAssemblyPath] conf.Options.ReferenceAssemblyPaths
     |> Seq.distinctBy (fun assemblyFile ->
-        AssemblyName.GetAssemblyName(assemblyFile.FullName).Name)
-    |> Seq.choose (fun x -> M.AssemblyInfo.Load x.FullName)
+        AssemblyName.GetAssemblyName(assemblyFile).Name)
+    |> Seq.choose M.AssemblyInfo.Load
     |> M.Info.Create
 
 /// Generates unique file names.
@@ -132,17 +127,17 @@ let ( ++ ) a b = Path.Combine(a, b)
 /// Gets the JavaScript filename of an assembly, for example `IntelliFactory.WebSharper.js`.
 let getAssemblyFileName (mode: Mode) (aN: Re.AssemblyName) =
     match mode with
-    | Debug -> String.Format("{0}.js", aN.Name)
-    | Release -> String.Format("{0}.min.js", aN.Name)
+    | H.Debug -> String.Format("{0}.js", aN.Name)
+    | H.Release -> String.Format("{0}.min.js", aN.Name)
 
 /// Gets the physical path to the assembly JavaScript.
 let getAssemblyJavaScriptPath (conf: Config) (aN: Re.AssemblyName) =
-    conf.TargetDir.FullName ++ "Scripts" ++ aN.Name ++ getAssemblyFileName conf.Mode aN
+    conf.Options.OutputDirectory ++ "Scripts" ++ aN.Name ++ getAssemblyFileName conf.Options.Mode aN
 
 /// Gets the physical path to the embedded resoure file.
 let getEmbeddedResourcePath (conf: Config) (res: EmbeddedResource) =
     let x = res.Type.Assembly.GetName()
-    conf.TargetDir.FullName ++ "Scripts" ++ x.Name ++ res.Name
+    conf.Options.OutputDirectory ++ "Scripts" ++ x.Name ++ res.Name
 
 /// Opens a file for writing, taking care to create folders.
 let createFile (targetPath: string) =
@@ -183,9 +178,9 @@ let writeResources (aR: AssemblyResolver) (st: State) =
         match assemblyPath with
         | Some aP ->
             let embeddedResourceName =
-                match st.Config.Mode with
-                | Debug -> EMBEDDED_JS
-                | Release -> EMBEDDED_MINJS
+                match st.Config.Options.Mode with
+                | H.Debug -> EMBEDDED_JS
+                | H.Release -> EMBEDDED_MINJS
             let p = getAssemblyJavaScriptPath st.Config aN
             writeEmbeddedResource aP embeddedResourceName p
         | None ->
@@ -208,9 +203,9 @@ let resourceContext (st: State) (level: int) : R.Context =
         R.RenderLink url
     {
         DebuggingEnabled =
-            match st.Config.Mode with
-            | Debug -> true
-            | _ -> false
+            match st.Config.Options.Mode with
+            | H.Debug -> true
+            | H.Release -> false
 
         DefaultToHttp = true
 
@@ -218,7 +213,7 @@ let resourceContext (st: State) (level: int) : R.Context =
 
         GetAssemblyRendering = fun aN ->
             st.UseAssembly(aN)
-            scriptsFile aN.Name (getAssemblyFileName st.Config.Mode aN)
+            scriptsFile aN.Name (getAssemblyFileName st.Config.Options.Mode aN)
 
         GetWebResourceRendering = fun ty name ->
             st.UseResource(EmbeddedResource.Create(name, ty))
@@ -324,8 +319,8 @@ let trimPath (path: string) =
 let WriteSite (aR: AssemblyResolver) (conf: Config) =
     let st = State(conf)
     let table = Dictionary()
-    let projectFolder = conf.ProjectDir.FullName
-    let rootFolder = conf.TargetDir.FullName
+    let projectFolder = conf.Options.ProjectDirectory
+    let rootFolder = conf.Options.OutputDirectory
     let contents () =
         async {
             let res = ResizeArray()
@@ -367,7 +362,7 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                     Request = emptyRequest rC.Path
                     RootFolder = projectFolder
                 }
-            let fullPath = conf.TargetDir.FullName + rC.Path
+            let fullPath = conf.Options.OutputDirectory ++ rC.Path
             let! response = rC.Respond context
             use stream = createFile fullPath
             response.WriteBody(stream)

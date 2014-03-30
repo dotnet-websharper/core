@@ -257,7 +257,7 @@ let Parse p inputs =
     | Parsed (_, x::xs) -> Choice2Of2 ("Unexpected input: " + x)
     | Failed r| Invalid r -> Choice2Of2 r
 
-let Run plugins inputs usage p main =
+let Run inputs usage p main =
     let scanner x =
         match x with
         | "-help" | "--help" | "/?" | "/h" | "/help" -> (true, true)
@@ -270,10 +270,7 @@ let Run plugins inputs usage p main =
         match Parse p inputs with
         | Choice1Of2 x -> main x
         | Choice2Of2 x ->
-            match plugins () with
-            | Some code -> code
-            | _ ->
-                stderr.WriteLine x
-                stderr.WriteLine()
-                stderr.WriteLine(Help usage p)
-                -1
+            stderr.WriteLine x
+            stderr.WriteLine()
+            stderr.WriteLine(Help usage p)
+            -1

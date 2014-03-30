@@ -10,6 +10,8 @@
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
+    <Compile Include="utility/FastInvoke.fsi" />
+    <Compile Include="utility/FastInvoke.fs" />
     <Compile Include="PathConventions.fsi" />
     <Compile Include="PathConventions.fs" />
     <Compile Include="Reflection.fsi" />
@@ -29,7 +31,6 @@
     <Compile Include="Json.fs" />
     <Compile Include="Remoting.fsi" />
     <Compile Include="Remoting.fs" />
-    <Compile Include="Plugins.fs" />
     <Compile Include="Functions.fs" />
   </ItemGroup>
   <ItemGroup>
@@ -39,9 +40,9 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
+  <!--<ItemGroup>
     <Reference Include="IntelliFactory.Core">
       <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
     </Reference>
-  </ItemGroup>
+  </ItemGroup>-->
 </Project>

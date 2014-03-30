@@ -46,7 +46,6 @@ type CompilationOptions =
 type T =
     | Compile of CompilationOptions
     | Dependencies of Path
-    | Unpack of Path * list<Path>
 
 let version =
     try
@@ -123,24 +122,15 @@ let spec =
                 "Extracts a DLL resource of the given name to the target path."
                 (A.Tuple3 file A.String A.String)
             |> A.Many
-        let! unpack =
-            A.Keyword "-unpack"
-                "Unpacks JavaScript from WebSharper-compiled assemblies."
-                (A.Do {
-                    let! x = A.String
-                    let! y = A.Several file
-                    return (x, y)
-                })
-            |> A.Optional
         let! deps =
             A.Keyword "-dep"
                 "Prints resource dependency information for a given assembly."
                 file
             |> A.Optional
-        match deps, unpack with
-        | Some file, _ ->
+        match deps with
+        | Some file ->
             return Dependencies file
-        | None, None ->
+        | None ->
             let! input  = file
             let! output = A.String
             return
@@ -156,9 +146,7 @@ let spec =
                     OutputTypeScript = dts
                     TailCalls = tramp
                 }
-        | None, Some u ->
-            return Unpack u
     }
 
-let Run plugins main args =
-    A.Run plugins args usage spec main
+let Run main args =
+    A.Run args usage spec main
