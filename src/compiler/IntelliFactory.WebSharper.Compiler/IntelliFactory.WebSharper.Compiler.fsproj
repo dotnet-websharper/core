@@ -96,4 +96,9 @@
       <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
     </Reference>
   </ItemGroup>
+  <ItemGroup>
+    <Reference Include="FsPickler">
+      <HintPath>..\..\..\packages\FsPickler\lib\net40\FsPickler.dll</HintPath>
+    </Reference>
+  </ItemGroup>
 </Project>

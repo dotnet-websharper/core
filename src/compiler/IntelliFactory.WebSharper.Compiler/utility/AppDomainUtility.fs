@@ -24,30 +24,20 @@ namespace IntelliFactory.WebSharper.Compiler
 open System
 open System.IO
 open System.Reflection
-open System.Runtime
-open System.Runtime.Serialization
-open System.Runtime.Serialization.Formatters
-open System.Runtime.Serialization.Formatters.Binary
+open Nessos.FsPickler
 
 module AppDomainUtility =
 
     let Pickle (x: 'T) : byte [] =
-        try
-            use stream = new MemoryStream()
-            do
-                let fmt = BinaryFormatter()
-                fmt.Serialize(stream, x)
-            stream.ToArray()
-        with e ->
-            failwithf "Pickle error: %O" e
+        let fsp = FsPickler()
+        use stream = new MemoryStream()
+        fsp.Serialize<'T>(stream, x)
+        stream.ToArray()
 
     let Unpickle (x: byte[]) : 'T =
-        try
-            use stream = new MemoryStream(x)
-            let fmt = BinaryFormatter()
-            fmt.Deserialize(stream) :?> 'T
-        with e ->
-            failwithf "Unpickle error: %O" e
+        let fsp = FsPickler()
+        use stream = new MemoryStream(x)
+        fsp.Deserialize<'T>(stream)
 
     type ITransform<'T1,'T2> =
         abstract Do : 'T1 -> 'T2

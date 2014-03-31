@@ -58,6 +58,19 @@
       <Output TaskParameter="ItemOutput" ItemName="Reference" />
     </WebSharperTask>
   </Target>
+  <Target Name="WebSharperHtml" AfterTargets="Build" DependsOnTargets="ResolveReferences">
+    <WebSharperTask
+      Command="Html"
+      Configuration="$(Configuration)"
+      ItemInput="$(TargetPath);@(ReferencePath)"
+      KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
+      Name="$(Name)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
+      WebSharperProject="$(WebSharperProject)" />
+  </Target>
   <Target Name="WebSharperUnpack" AfterTargets="Build">
     <WebSharperTask
       Command="Unpack"

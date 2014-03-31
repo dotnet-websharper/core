@@ -34,6 +34,9 @@ type WebSharperTask =
     /// Used to specify which "method" to call.
     member Command : string with get, set
 
+    /// MSBuild $(Configuration) property.
+    member Configuration : string with get, set
+
     /// Item input for item commands.
     member ItemInput : ITaskItem [] with get, set
 
@@ -43,7 +46,10 @@ type WebSharperTask =
     /// Path to an `.snk` strong name key file, if any.
     member KeyOriginatorFile : string with get, set
 
-    /// The project name, typically set in F# projects.
+    /// MSBuild $(MSBuildProjectDirectory) property.
+    member MSBuildProjectDirectory : string with get, set
+
+    /// The project $(Name) property, typically set in F# projects.
     member Name : string with get, set
 
     /// Path to the directory containing Web.config, used by the "Unpack" command,
@@ -55,6 +61,9 @@ type WebSharperTask =
 
     /// Flag used to skip auto-referencing assemblies.
     member WebSharperExplicitRefs : string with get, set
+
+    /// Used as root for HTML project output.
+    member WebSharperHtmlDirectory : string with get, set
 
     /// Specifies which project type is being built.
     member WebSharperProject : string with get, set

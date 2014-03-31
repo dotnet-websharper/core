@@ -362,11 +362,10 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                     Request = emptyRequest rC.Path
                     RootFolder = projectFolder
                 }
-            let fullPath = conf.Options.OutputDirectory ++ rC.Path
+            let fullPath = conf.Options.OutputDirectory + rC.Path
             let! response = rC.Respond context
             use stream = createFile fullPath
-            response.WriteBody(stream)
-
+            return response.WriteBody(stream)
         // Write resources determined to be necessary.
         return writeResources aR st
     }

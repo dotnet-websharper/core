@@ -36,14 +36,17 @@ module WebSharperTaskModule =
     type Settings =
         {
             Command : string
+            Configuration : string
             ItemInput : ITaskItem []
             ItemOutput : ITaskItem []
             KeyOriginatorFile : string
             Log : TaskLoggingHelper
+            MSBuildProjectDirectory : string
             Name : string
             SetItemOutput : ITaskItem [] -> unit
             WebProjectOutputDir : string
             WebSharperBundleOutputDir : string
+            WebSharperHtmlDirectory : string
             WebSharperExplicitRefs : string
             WebSharperProject : string
         }
@@ -51,6 +54,7 @@ module WebSharperTaskModule =
     type ProjectType =
         | Bundle of webroot: option<string>
         | Extension
+        | Html
         | Library
         | Website of webroot: string
 
@@ -72,6 +76,7 @@ module WebSharperTaskModule =
             match proj.ToLower() with
             | "bundle" -> Bundle (getWebRoot ())
             | "extension" | "interfacegenerator" -> Extension
+            | "html" -> Html
             | "library" -> Library
             | "site" | "web" | "website" ->
                 match getWebRoot () with
@@ -202,6 +207,7 @@ module WebSharperTaskModule =
                 match projTy with
                 | Bundle _ -> false
                 | Extension -> false
+                | Html -> false
                 | Library -> false
                 | Website _ -> true
             settings.SetItemOutput [|
@@ -241,12 +247,42 @@ module WebSharperTaskModule =
             |> SendResult settings
         | _ -> true
 
+    let Html settings =
+        match GetProjectType settings with
+        | Html ->
+            match List.ofArray settings.ItemInput with
+            | main :: refs ->
+                let main = main.ItemSpec
+                let refs = [for r in refs -> r.ItemSpec]
+                let cfg =
+                    {
+                        Compiler.HtmlCommand.Config.Create(main) with
+                            AppDomainIndirection = true
+                            Mode =
+                                match settings.Configuration with
+                                | x when x.ToLower().Contains("debug") -> Compiler.HtmlCommand.Debug
+                                | x when x.ToLower().Contains("release") -> Compiler.HtmlCommand.Release
+                                | _ -> Compiler.HtmlCommand.Debug
+                            OutputDirectory =
+                                match settings.WebSharperHtmlDirectory with
+                                | "" -> Path.Combine(settings.MSBuildProjectDirectory, "bin", "html")
+                                | dir -> dir
+                            ProjectDirectory = settings.MSBuildProjectDirectory
+                            ReferenceAssemblyPaths = refs
+                    }
+                let env = Compiler.Commands.Environment.Create()
+                Compiler.HtmlCommand.Instance.Execute(env, cfg)
+                |> SendResult settings
+            | _ -> Fail settings "Invalid arguments for Html command"
+        | _ -> true
+
     let Execute settings =
         try
             match settings.Command with
             | "Bundle" -> Bundle settings
             | "Compile" -> Compile settings
             | "ComputeReferences" -> ComputeReferences settings
+            | "Html" -> Html settings
             | "Unpack" -> Unpack settings
             | cmd -> Fail settings "Unknown command: %s" (string cmd)
         with e ->
@@ -257,12 +293,15 @@ module WebSharperTaskModule =
 type WebSharperTask() =
     inherit Task()
 
+    member val Configuration = "" with get, set
     member val ItemInput : ITaskItem [] = Array.empty with get, set
     member val KeyOriginatorFile = "" with get, set
+    member val MSBuildProjectDirectory = "" with get, set
     member val Name = "" with get, set
     member val WebProjectOutputDir = "" with get, set
     member val WebSharperBundleOutputDir = "" with get, set
     member val WebSharperExplicitRefs = "" with get, set
+    member val WebSharperHtmlDirectory = "" with get, set
     member val WebSharperProject = "" with get, set
 
     [<Required>]
@@ -274,14 +313,17 @@ type WebSharperTask() =
     override this.Execute() =
         Execute {
             Command = this.Command
+            Configuration = this.Configuration
             ItemInput = this.ItemInput
             ItemOutput = this.ItemOutput
             KeyOriginatorFile = this.KeyOriginatorFile
             Log = this.Log
+            MSBuildProjectDirectory = this.MSBuildProjectDirectory
             Name = this.Name
             SetItemOutput = fun items -> this.ItemOutput <- items
             WebProjectOutputDir = this.WebProjectOutputDir
             WebSharperBundleOutputDir = this.WebSharperBundleOutputDir
             WebSharperExplicitRefs = this.WebSharperExplicitRefs
+            WebSharperHtmlDirectory = this.WebSharperHtmlDirectory
             WebSharperProject = this.WebSharperProject
         }
