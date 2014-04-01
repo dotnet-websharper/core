@@ -33,9 +33,6 @@ module HtmlCommand =
     /// Options for the command.
     type Config =
         {
-            /// Defaults to `true`, runs the command in a fresh AppDomain.
-            AppDomainIndirection : bool
-
             /// Path to the main assembly defining the sitelet.
             MainAssemblyPath : string
 

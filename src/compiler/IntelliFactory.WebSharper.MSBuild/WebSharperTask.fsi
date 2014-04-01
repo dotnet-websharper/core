@@ -24,10 +24,10 @@ namespace IntelliFactory.WebSharper.MSBuild
 open Microsoft.Build.Framework
 open Microsoft.Build.Utilities
 
-/// Implements MSBuild logic used in WebSharper.targets
+/// Implements MSBuild logic used in `WebSharper.targets`.
 [<Sealed>]
 type WebSharperTask =
-    inherit Task
+    inherit AppDomainIsolatedTask
 
     new : unit -> WebSharperTask
 

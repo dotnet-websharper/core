@@ -9,8 +9,6 @@
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
-    <Compile Include="../IntelliFactory.WebSharper.Compiler/utility/AppDomainUtility.fsi" />
-    <Compile Include="../IntelliFactory.WebSharper.Compiler/utility/AppDomainUtility.fs" />
     <Compile Include="CompilerUtility.fsi" />
     <Compile Include="CompilerUtility.fs" />
     <Compile Include="WebSharperTask.fsi" />
@@ -19,9 +17,6 @@
   <ItemGroup>
     <Reference Include="IntelliFactory.Core">
       <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="FsPickler">
-      <HintPath>..\..\..\packages\FsPickler\lib\net40\FsPickler.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Build.Framework" />
     <Reference Include="Microsoft.Build.Utilities.v4.0" />

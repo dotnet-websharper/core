@@ -126,7 +126,7 @@ module WebSharperTaskModule =
                             FileName = fileName
                             OutputDirectory = outputDir
                     }
-                let env = Unchecked.defaultof<Compiler.Commands.Environment>
+                let env = Compiler.Commands.Environment.Create()
                 Compiler.BundleCommand.Instance.Execute(env, cfg)
                 |> SendResult settings
             | _ -> Fail settings "Invalid options for Bundle command"
@@ -257,7 +257,6 @@ module WebSharperTaskModule =
                 let cfg =
                     {
                         Compiler.HtmlCommand.Config.Create(main) with
-                            AppDomainIndirection = true
                             Mode =
                                 match settings.Configuration with
                                 | x when x.ToLower().Contains("debug") -> Compiler.HtmlCommand.Debug
@@ -291,7 +290,7 @@ module WebSharperTaskModule =
 
 [<Sealed>]
 type WebSharperTask() =
-    inherit Task()
+    inherit AppDomainIsolatedTask()
 
     member val Configuration = "" with get, set
     member val ItemInput : ITaskItem [] = Array.empty with get, set

@@ -204,32 +204,31 @@ module CompilerJobModule =
                 assem.Write snk fileName
         }
 
-[<Sealed>]
-type CompilerJob() =
-
-    interface AppDomainUtility.ITransform<CompilerInput,CompilerOutput> with
-        member this.Do(input) =
-            let aR =
-                let files =
-                    Set [
-                        for i in input.AssemblyFile :: input.References ->
-                            Path.GetFullPath(i)
-                    ]
-                AssemblyResolution.AssemblyResolver.Create()
-                    .SearchPaths(files)
-            aR.Wrap <| fun () ->
-                Act {
-                    let snk = input.ReadStrongNameKeyPair()
-                    if input.RunInterfaceGenerator then
-                        do! RunInterfaceGenerator aR snk input
-                    return! CompileWithWebSharper aR snk input
-                }
-                |> Run
+//[<Sealed>]
+//type CompilerJob() =
+//
+//    interface AppDomainUtility.ITransform<CompilerInput,CompilerOutput> with
+//        member this.Do(input) =
 
 module CompilerUtility =
 
     let Compile input =
-        AppDomainUtility.TransformWithAppDomain
-            AppDomainUtility.MarkType<CompilerJob>
-            input
-
+//        AppDomainUtility.TransformWithAppDomain
+//            AppDomainUtility.MarkType<CompilerJob>
+//            input
+        let aR =
+            let files =
+                Set [
+                    for i in input.AssemblyFile :: input.References ->
+                        Path.GetFullPath(i)
+                ]
+            AssemblyResolution.AssemblyResolver.Create()
+                .SearchPaths(files)
+        aR.Wrap <| fun () ->
+            Act {
+                let snk = input.ReadStrongNameKeyPair()
+                if input.RunInterfaceGenerator then
+                    do! RunInterfaceGenerator aR snk input
+                return! CompileWithWebSharper aR snk input
+            }
+            |> Run

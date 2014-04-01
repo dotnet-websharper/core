@@ -36,4 +36,3 @@ let ok =
     && nuget "install NuGet.Core -version 2.8.0 -o packages -excludeVersion"
     && nuget "install Mono.Cecil -version 0.9.5.4 -o packages -excludeVersion"
     && nuget "install AjaxMin -version 5.8.5172.27710 -o packages -excludeVersion"
-    && nuget "install FsPickler -version 0.8.5.3 -o packages -excludeVersion"

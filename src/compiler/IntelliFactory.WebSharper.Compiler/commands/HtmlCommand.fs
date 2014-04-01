@@ -31,7 +31,6 @@ module HtmlCommand =
 
     type Config =
         {
-            AppDomainIndirection : bool
             MainAssemblyPath : string
             Mode : Mode
             OutputDirectory : string
@@ -41,7 +40,6 @@ module HtmlCommand =
 
         static member Create(mainAssemblyPath) =
             {
-                AppDomainIndirection = true
                 MainAssemblyPath = mainAssemblyPath
                 Mode = Debug
                 OutputDirectory = "."
@@ -65,25 +63,12 @@ module HtmlCommand =
     type IHtmlCommand =
         abstract Execute : C.Environment * Config -> C.Result
 
-    let Do env config =
+    let Exec env config =
         let t =
             Type.GetType("IntelliFactory.WebSharper.Sitelets.Offline.HtmlCommand,
                 IntelliFactory.WebSharper.Sitelets", throwOnError = true)
         let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
         cmd.Execute(env, config)
-
-    [<Sealed>]
-    type ExecTransform() =
-        interface AppDomainUtility.ITransform<C.Environment * Config,C.Result> with
-            member this.Do((env, config)) =
-                Do env config
-
-    let Exec env config =
-        if config.AppDomainIndirection then
-            AppDomainUtility.TransformWithAppDomain
-                AppDomainUtility.MarkType<ExecTransform>
-                (env, config)
-        else Do env config
 
     let Parse (args: list<string>) =
         let trim (s: string) =

@@ -25,7 +25,7 @@
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/net40/IntelliFactory.WebSharper.MSBuild.dll</WebSharperTaskAssembly>
   </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="IntelliFactory.WebSharper.MSBuild.WebSharperTask" />
-  <Target Name="WebSharperBundle" AfterTargets="Build">
+  <Target Name="WebSharperBundle" AfterTargets="Build" DependsOnTargets="ResolveReferences">
     <WebSharperTask
       Command="Bundle"
       ItemInput="$(TargetPath);@(ReferencePath)"

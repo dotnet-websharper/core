@@ -27,7 +27,6 @@ module BundleCommand =
 
     type Config =
         {
-            AppDomainIndirection : bool
             AssemblyPaths : list<string>
             FileName : string
             OutputDirectory : string
@@ -35,7 +34,6 @@ module BundleCommand =
 
         static member Create() =
             {
-                AppDomainIndirection = true
                 AssemblyPaths = []
                 FileName = "Bundle"
                 OutputDirectory = "."
@@ -70,7 +68,7 @@ module BundleCommand =
             | errors -> C.ParseFailed errors
         | _ -> C.NotRecognized
 
-    let Do env config =
+    let Exec env config =
         C.MkDir config.OutputDirectory
         let bundle =
             Bundle.Create().WithDefaultReferences()
@@ -87,19 +85,6 @@ module BundleCommand =
         write bundle.MinifiedJavaScript ".min.js"
         write bundle.TypeScript ".d.ts"
         C.Ok
-
-    [<Sealed>]
-    type Tr() =
-        interface AppDomainUtility.ITransform<C.Environment * Config, C.Result> with
-            member this.Do((env, config)) =
-                Do env config
-
-    let Exec env config =
-        if config.AppDomainIndirection then
-            AppDomainUtility.TransformWithAppDomain
-                AppDomainUtility.MarkType<Tr>
-                (env, config)
-        else Do env config
 
     let Description =
         "generates JS/CSS bundles from WebSharper assembly sets"

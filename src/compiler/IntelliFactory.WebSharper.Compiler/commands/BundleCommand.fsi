@@ -28,9 +28,6 @@ module BundleCommand =
     /// Configuration for the bundle command.
     type Config =
         {
-            /// Defaults to `true`, runs the command in a fresh AppDomain.
-            AppDomainIndirection : bool
-
             /// Paths to WebSharper assemblies to consider.
             AssemblyPaths : list<string>
 
