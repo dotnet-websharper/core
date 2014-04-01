@@ -23,6 +23,7 @@ namespace IntelliFactory.WebSharper.MSBuild
 
 open System
 open System.IO
+open System.Reflection
 open Microsoft.Build.Framework
 open Microsoft.Build.Utilities
 open IntelliFactory.Core
@@ -215,6 +216,11 @@ module WebSharperTaskModule =
             | null | "" -> false
             | t when t.ToLower() = "true" -> true
             | _ -> false
+        let alreadyReferenced =
+            Set [
+                for asm in settings.ItemInput ->
+                    AssemblyName(asm.ItemSpec).Name
+            ]
         if not expl then
             let projTy = GetProjectType settings
             let assemblies = GetReferences projTy
@@ -227,11 +233,17 @@ module WebSharperTaskModule =
                 | Website _ -> true
             settings.SetItemOutput [|
                 for asm in assemblies do
-                    let hintPath = Path.Combine(BaseDir, asm + ".dll")
-                    if File.Exists(hintPath) then
-                        let it = TaskItem(asm)
-                        it.SetMetadata("HintPath", hintPath)
+                    if alreadyReferenced.Contains(asm) |> not then
+                        let hintPath = Path.Combine(BaseDir, asm + ".dll")
+                        if File.Exists(hintPath) then
+                            let it = TaskItem(asm)
+                            it.SetMetadata("HintPath", hintPath)
+                            it.SetMetadata("Private", string priv)
+                            yield it :> _
+                    if alreadyReferenced.Contains("FSharp.Core") |> not then
+                        let it = TaskItem("FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a")
                         it.SetMetadata("Private", string priv)
+                        it.SetMetadata("HintPath", Path.Combine(BaseDir, "FSharp.Core.dll"))
                         yield it :> _
             |]
         true

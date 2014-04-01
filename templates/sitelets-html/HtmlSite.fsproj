@@ -26,8 +26,8 @@
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <Name>$safeprojectname$</Name>
-    <RootNamespace>$(Name)</RootNamespace>
-    <AssemblyName>$(Name)</AssemblyName>
+    <RootNamespace>$safeprojectname$</RootNamespace>
+    <AssemblyName>$safeprojectname$</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <WarningLevel>3</WarningLevel>
   </PropertyGroup>
@@ -43,10 +43,19 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
     <Reference Include="System.Web" />
-    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>true</Private>
-      <SpecificVersion>true</SpecificVersion>
-    </Reference>
   </ItemGroup>
-  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" />
+  <!-- F# targets -->
+  <Choose>
+    <When Condition="'$(VisualStudioVersion)' == '11.0'">
+      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')">
+        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargetsPath>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets')">
+        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+  <Import Project="$(FSharpTargetsPath)" />
 </Project>

@@ -119,6 +119,9 @@ module Main =
                         yield file "build/Release/WebSharper31.exe.config" None
                         for src in exports do
                             yield file src None
+                        let fscore = Path.Combine(root, "packages", "FSharp.Core.3", "lib", "net40")
+                        yield file (Path.Combine(fscore, "FSharp.Core.optdata")) None
+                        yield file (Path.Combine(fscore, "FSharp.Core.sigdata")) None
                     }
         }
 

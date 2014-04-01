@@ -7,6 +7,11 @@
     <ProjectGuid>$guid1$</ProjectGuid>
     <ProjectTypeGuids>{349c5851-65df-11da-9384-00065b846f21};{F2A71F9B-5D33-465A-A702-920D77279786}</ProjectTypeGuids>
     <WebSharperProject>Site</WebSharperProject>
+    <UseIISExpress>true</UseIISExpress>
+    <IISExpressSSLPort />
+    <IISExpressAnonymousAuthentication />
+    <IISExpressWindowsAuthentication />
+    <IISExpressUseClassicPipelineMode />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebugSymbols>true</DebugSymbols>
@@ -26,8 +31,8 @@
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <Name>$safeprojectname$</Name>
-    <RootNamespace>$(Name)</RootNamespace>
-    <AssemblyName>$(Name)</AssemblyName>
+    <RootNamespace>$safeprojectname$</RootNamespace>
+    <AssemblyName>$safeprojectname$</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <WarningLevel>3</WarningLevel>
   </PropertyGroup>
@@ -52,12 +57,26 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
     <Reference Include="System.Web" />
-    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>true</Private>
-      <SpecificVersion>true</SpecificVersion>
-    </Reference>
   </ItemGroup>
-  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" />
+  <!-- F# targets -->
+  <Choose>
+    <When Condition="'$(VisualStudioVersion)' == '11.0'">
+      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')">
+        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargetsPath>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets')">
+        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+  <Import Project="$(FSharpTargetsPath)" />
+  <!-- Web targets -->
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+  </PropertyGroup>
   <Import Project="$(VSToolsPath)\WebApplications\Microsoft.WebApplication.targets" Condition="'$(VSToolsPath)' != ''" />
-  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v11.0\WebApplications\Microsoft.WebApplication.targets" />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications\Microsoft.WebApplication.targets" Condition="false" />
 </Project>
