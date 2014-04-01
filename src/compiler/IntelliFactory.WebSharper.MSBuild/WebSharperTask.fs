@@ -58,28 +58,29 @@ module WebSharperTaskModule =
         | Library
         | Website of webroot: string
 
+    let GetWebRoot settings =
+        match settings.WebProjectOutputDir with
+        | null | "" -> None
+        | dir ->
+            let isWeb =
+                File.Exists(Path.Combine(dir, "Web.config"))
+                || File.Exists(Path.Combine(dir, "web.config"))
+            if isWeb then Some dir else None
+
     let GetProjectType settings =
-        let getWebRoot () =
-            match settings.WebProjectOutputDir with
-            | null | "" -> None
-            | dir ->
-                let isWeb =
-                    File.Exists(Path.Combine(dir, "Web.config"))
-                    || File.Exists(Path.Combine(dir, "web.config"))
-                if isWeb then Some dir else None
         match settings.WebSharperProject with
         | null | "" ->
-            match getWebRoot () with
+            match GetWebRoot settings with
             | None -> Library
             | Some dir -> Website dir
         | proj ->
             match proj.ToLower() with
-            | "bundle" -> Bundle (getWebRoot ())
+            | "bundle" -> Bundle (GetWebRoot settings)
             | "extension" | "interfacegenerator" -> Extension
             | "html" -> Html
             | "library" -> Library
             | "site" | "web" | "website" ->
-                match getWebRoot () with
+                match GetWebRoot settings with
                 | None -> Library
                 | Some dir -> Website dir
             | _ -> invalidArg "type" ("Invalid project type: " + proj)
@@ -98,21 +99,23 @@ module WebSharperTaskModule =
                 settings.Log.LogError(e)
             true
 
+    let BundleOutputDir settings webRoot =
+        match settings.WebSharperBundleOutputDir with
+        | null | "" ->
+            match webRoot with
+            | Some webRoot ->
+                let d = Path.Combine(webRoot, "Content")
+                let di = DirectoryInfo(d)
+                if not di.Exists then
+                    di.Create()
+                d
+            | None -> failwith "WebSharperBundleOutputDir property is required"
+        | dir -> dir
+
     let Bundle settings =
         match GetProjectType settings with
         | Bundle webRoot ->
-            let outputDir =
-                match settings.WebSharperBundleOutputDir with
-                | null | "" ->
-                    match webRoot with
-                    | Some webRoot ->
-                        let d = Path.Combine(webRoot, "Content")
-                        let di = DirectoryInfo(d)
-                        if not di.Exists then
-                            di.Create()
-                        d
-                    | None -> failwith "WebSharperBundleOutputDir property is required"
-                | dir -> dir
+            let outputDir = BundleOutputDir settings webRoot
             let fileName =
                 match settings.Name with
                 | null | "" -> "Bundle"
@@ -131,6 +134,18 @@ module WebSharperTaskModule =
                 |> SendResult settings
             | _ -> Fail settings "Invalid options for Bundle command"
         | _ -> true
+
+    let BundleClean settings webRoot =
+        let outputDir = BundleOutputDir settings webRoot
+        let fileName =
+            match settings.Name with
+            | null | "" -> "Bundle"
+            | name -> name
+        let files =
+            Directory.EnumerateFiles(outputDir, "*.*")
+            |> Seq.filter (fun p -> Path.GetFileName(p).StartsWith(fileName))
+        for f in files do
+            File.Delete(f)
 
     let Compile settings =
         match List.ofArray settings.ItemInput with
@@ -247,6 +262,11 @@ module WebSharperTaskModule =
             |> SendResult settings
         | _ -> true
 
+    let HtmlOutputDirectory settings =
+        match settings.WebSharperHtmlDirectory with
+        | "" -> Path.Combine(settings.MSBuildProjectDirectory, "bin", "html")
+        | dir -> dir
+
     let Html settings =
         match GetProjectType settings with
         | Html ->
@@ -262,10 +282,7 @@ module WebSharperTaskModule =
                                 | x when x.ToLower().Contains("debug") -> Compiler.HtmlCommand.Debug
                                 | x when x.ToLower().Contains("release") -> Compiler.HtmlCommand.Release
                                 | _ -> Compiler.HtmlCommand.Debug
-                            OutputDirectory =
-                                match settings.WebSharperHtmlDirectory with
-                                | "" -> Path.Combine(settings.MSBuildProjectDirectory, "bin", "html")
-                                | dir -> dir
+                            OutputDirectory = HtmlOutputDirectory settings
                             ProjectDirectory = settings.MSBuildProjectDirectory
                             ReferenceAssemblyPaths = refs
                     }
@@ -275,10 +292,44 @@ module WebSharperTaskModule =
             | _ -> Fail settings "Invalid arguments for Html command"
         | _ -> true
 
+    let HtmlClean settings =
+        let d = DirectoryInfo(HtmlOutputDirectory settings)
+        if d.Exists then
+            d.Delete(``recursive`` = true)
+
+    let Clean settings =
+        // clean temp file used during compilation
+        do
+            match settings.ItemInput with
+            | [| intermAssembly |] ->
+                let tmp = FileInfo(intermAssembly.ItemSpec + ".tmp")
+                if tmp.Exists then
+                    tmp.Delete()
+            | _ -> ()
+        match GetProjectType settings with
+        | ProjectType.Bundle webRoot ->
+            BundleClean settings webRoot
+            true
+        | ProjectType.Extension ->
+            true
+        | ProjectType.Html ->
+            HtmlClean settings
+            true
+        | ProjectType.Library ->
+            true
+        | ProjectType.Website webRoot ->
+            // clean what Unpack command generated:
+            for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
+                let dir = DirectoryInfo(Path.Combine(webRoot, d))
+                if dir.Exists then
+                    dir.Delete(``recursive`` = true)
+            true
+
     let Execute settings =
         try
             match settings.Command with
             | "Bundle" -> Bundle settings
+            | "Clean" -> Clean settings
             | "Compile" -> Compile settings
             | "ComputeReferences" -> ComputeReferences settings
             | "Html" -> Html settings

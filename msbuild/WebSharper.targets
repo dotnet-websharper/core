@@ -26,58 +26,77 @@
   </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="IntelliFactory.WebSharper.MSBuild.WebSharperTask" />
   <Target Name="WebSharperBundle" AfterTargets="Build" DependsOnTargets="ResolveReferences">
-    <WebSharperTask
-      Command="Bundle"
-      ItemInput="$(TargetPath);@(ReferencePath)"
+    <WebSharperTask Command="Bundle" ItemInput="$(TargetPath);@(ReferencePath)"
+      Configuration="$(Configuration)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(Name)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
+      WebSharperProject="$(WebSharperProject)" />
+  </Target>
+  <Target Name="WebSharperClean" AfterTargets="Clean">
+    <WebSharperTask Command="Clean" ItemInput="@(IntermediateAssembly)"
+      Configuration="$(Configuration)"
+      KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
+      Name="$(Name)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
+      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
   </Target>
   <Target Name="WebSharperCompile" AfterTargets="CoreCompile" DependsOnTargets="ResolveReferences">
-    <WebSharperTask
-      Command="Compile"
-      ItemInput="@(IntermediateAssembly);@(ReferencePath)"
+    <WebSharperTask Command="Compile" ItemInput="@(IntermediateAssembly);@(ReferencePath)"
+      Configuration="$(Configuration)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(Name)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
   </Target>
   <Target Name="WebSharperComputeReferences" BeforeTargets="ResolveAssemblyReferences">
-    <WebSharperTask
-      Command="ComputeReferences"
-      ItemInput="@(Reference)"
+    <WebSharperTask Command="ComputeReferences" ItemInput="@(Reference)"
+      Configuration="$(Configuration)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(Name)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)">
       <Output TaskParameter="ItemOutput" ItemName="Reference" />
     </WebSharperTask>
   </Target>
   <Target Name="WebSharperHtml" AfterTargets="Build" DependsOnTargets="ResolveReferences">
-    <WebSharperTask
-      Command="Html"
+    <WebSharperTask Command="Html" ItemInput="$(TargetPath);@(ReferencePath)"
       Configuration="$(Configuration)"
-      ItemInput="$(TargetPath);@(ReferencePath)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(Name)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
   </Target>
   <Target Name="WebSharperUnpack" AfterTargets="Build">
-    <WebSharperTask
-      Command="Unpack"
+    <WebSharperTask Command="Unpack"
+      Configuration="$(Configuration)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(Name)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
   </Target>
 </Project>
