@@ -59,10 +59,16 @@ module WebSharperTaskModule =
         | Library
         | Website of webroot: string
 
+    let (|Defined|_|) s =
+        match s with
+        | null | "" -> None
+        | _ -> Some s
+
     let GetWebRoot settings =
         match settings.WebProjectOutputDir with
-        | null | "" -> None
-        | dir ->
+        | Defined out -> Some out
+        | _ ->
+            let dir = settings.MSBuildProjectDirectory
             let isWeb =
                 File.Exists(Path.Combine(dir, "Web.config"))
                 || File.Exists(Path.Combine(dir, "web.config"))
