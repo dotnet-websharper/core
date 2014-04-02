@@ -37,6 +37,7 @@ module H = IntelliFactory.WebSharper.Compiler.HtmlCommand
 module Http = IntelliFactory.WebSharper.Sitelets.Http
 module J = IntelliFactory.WebSharper.Core.Json
 module M = IntelliFactory.WebSharper.Core.Metadata
+module P = PathUtility
 module Re = IntelliFactory.WebSharper.Core.Reflection
 module R = IntelliFactory.WebSharper.Core.Resources
 
@@ -54,6 +55,9 @@ type Config =
         Options : H.Config
         Sitelet : Sitelet<obj>
     }
+
+    member this.OutputDirectory =
+        this.Options.OutputDirectory
 
 /// Collects metadata from all assemblies in referenced folders.
 let getMetadata conf =
@@ -85,14 +89,7 @@ type UniqueFileNameGenerator() =
 
 /// Copies the contents of source stream to the target stream.
 let streamCopy (source: Stream) (target: Stream) =
-    let buf = Array.create 4096 0uy
-    let rec loop () =
-        match source.Read(buf, 0, buf.Length) with
-        | 0 -> ()
-        | k ->
-            target.Write(buf, 0, k)
-            loop ()
-    loop ()
+    source.CopyTo(target, 4096)
 
 /// Represents embedded resources. Uses F# structural equality.
 type EmbeddedResource =
@@ -121,9 +118,6 @@ type State(conf: Config) =
     member this.UseAssembly(name: Re.AssemblyName) = usedAssemblies.Add(name) |> ignore
     member this.UseResource(res: EmbeddedResource) = usedResources.Add(res) |> ignore
 
-/// Utility: combines two paths with a slash or backslash.
-let ( ++ ) a b = Path.Combine(a, b)
-
 /// Gets the JavaScript filename of an assembly, for example `IntelliFactory.WebSharper.js`.
 let getAssemblyFileName (mode: Mode) (aN: Re.AssemblyName) =
     match mode with
@@ -132,15 +126,16 @@ let getAssemblyFileName (mode: Mode) (aN: Re.AssemblyName) =
 
 /// Gets the physical path to the assembly JavaScript.
 let getAssemblyJavaScriptPath (conf: Config) (aN: Re.AssemblyName) =
-    conf.Options.OutputDirectory ++ "Scripts" ++ aN.Name ++ getAssemblyFileName conf.Options.Mode aN
+    P.CreatePath ["Scripts"; aN.Name; getAssemblyFileName conf.Options.Mode aN]
 
 /// Gets the physical path to the embedded resoure file.
 let getEmbeddedResourcePath (conf: Config) (res: EmbeddedResource) =
     let x = res.Type.Assembly.GetName()
-    conf.Options.OutputDirectory ++ "Scripts" ++ x.Name ++ res.Name
+    P.CreatePath ["Scripts"; x.Name; res.Name]
 
 /// Opens a file for writing, taking care to create folders.
-let createFile (targetPath: string) =
+let createFile (cfg: Config) (targetPath: P.Path) =
+    let targetPath = P.ToAbsolute cfg.OutputDirectory targetPath
     let d = Path.GetDirectoryName(targetPath)
     if not (Directory.Exists(d)) then
         Directory.CreateDirectory(d)
@@ -148,7 +143,7 @@ let createFile (targetPath: string) =
     File.Open(targetPath, FileMode.Create) :> Stream
 
 /// Writes an embedded resource to the target path.
-let writeEmbeddedResource (assemblyPath: string) (n: string) (targetPath: string) =
+let writeEmbeddedResource (cfg: Config) (assemblyPath: string) (n: string) (targetPath: P.Path) =
     let aD = AssemblyDefinition.ReadAssembly(assemblyPath)
     let stream =
         aD.MainModule.Resources
@@ -165,10 +160,10 @@ let writeEmbeddedResource (assemblyPath: string) (n: string) (targetPath: string
         | ".css" ->
             use r = new StreamReader(s)
             let text = r.ReadToEnd()
-            use w = new StreamWriter(createFile targetPath, Encoding.UTF8)
+            use w = new StreamWriter(createFile cfg targetPath, Encoding.UTF8)
             w.Write(text)
         | _ ->
-            use s2 = createFile targetPath
+            use s2 = createFile cfg targetPath
             streamCopy s s2
 
 /// Outputs all required resources. This is the last step of processing.
@@ -182,13 +177,13 @@ let writeResources (aR: AssemblyResolver) (st: State) =
                 | H.Debug -> EMBEDDED_JS
                 | H.Release -> EMBEDDED_MINJS
             let p = getAssemblyJavaScriptPath st.Config aN
-            writeEmbeddedResource aP embeddedResourceName p
+            writeEmbeddedResource st.Config aP embeddedResourceName p
         | None ->
             stderr.WriteLine("Could not resolve: {0}", aN)
     for res in st.Resources do
         let erp = getEmbeddedResourcePath st.Config res
         match aR.ResolvePath(AssemblyName res.Type.Assembly.FullName) with
-        | Some aP -> writeEmbeddedResource aP res.Name erp
+        | Some aP -> writeEmbeddedResource st.Config aP res.Name erp
         | None -> stderr.WriteLine("Could not resolve {0}", res.Type.Assembly.FullName)
 
 /// Generates a relative path prefix, such as "../../../" for level 3.
@@ -237,7 +232,7 @@ let emptyRequest (uri: string) : Http.Request =
 /// Represents an action that was partially resolved to some content.
 type ResolvedContent =
     {
-        Path : string
+        Path : P.Path
         RelativePath : string
         ResourceContext : R.Context
         Respond : Context<obj> -> Async<Http.Response>
@@ -304,6 +299,7 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
             match ext with
             | Some ext -> locationString + ext
             | None -> locationString
+            |> P.ParsePath
         return {
             Path = path
             RelativePath = relPath level
@@ -347,24 +343,23 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                     Link = fun action ->
                         // First try to find from url table.
                         if table.ContainsKey(action) then
-                            rC.RelativePath + trimPath table.[action]
+                            rC.RelativePath + P.ShowPath table.[action]
                         else
                             // Otherwise, link to the action using the router
                             match conf.Sitelet.Router.Link action with
                             | Some loc ->
                                 rC.RelativePath + trimPath (string loc)
                             | None ->
-                                let msg = "Failed to link to action from " + rC.Path
+                                let msg = "Failed to link to action from " + P.ShowPath rC.Path
                                 stdout.WriteLine("Warning: " + msg)
                                 "#"
                     Metadata = st.Metadata
                     ResourceContext = rC.ResourceContext
-                    Request = emptyRequest rC.Path
+                    Request = emptyRequest (P.ShowPath rC.Path)
                     RootFolder = projectFolder
                 }
-            let fullPath = conf.Options.OutputDirectory + rC.Path
             let! response = rC.Respond context
-            use stream = createFile fullPath
+            use stream = createFile conf rC.Path
             return response.WriteBody(stream)
         // Write resources determined to be necessary.
         return writeResources aR st

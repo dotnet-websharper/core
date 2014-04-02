@@ -64,11 +64,25 @@ module HtmlCommand =
         abstract Execute : C.Environment * Config -> C.Result
 
     let Exec env config =
-        let t =
-            Type.GetType("IntelliFactory.WebSharper.Sitelets.Offline.HtmlCommand,
-                IntelliFactory.WebSharper.Sitelets", throwOnError = true)
-        let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
-        cmd.Execute(env, config)
+        // this is a forward declaration - actual logic in the Sitelets assembly
+        let baseDir =
+            typeof<IHtmlCommand>.Assembly.Location
+            |> Path.GetDirectoryName
+        // install resolution rules specifically to work on Mono
+        let aR =
+            AssemblyResolver.Create()
+                .WithBaseDirectory(baseDir)
+                .SearchDirectories([baseDir])
+        let assemblyName =
+            let n = typeof<IHtmlCommand>.Assembly.GetName()
+            n.Name <- "IntelliFactory.WebSharper.Sitelets"
+            n
+        aR.Wrap <| fun () ->
+            let asm = System.Reflection.Assembly.Load(assemblyName)
+            let tN = "IntelliFactory.WebSharper.Sitelets.Offline.HtmlCommand"
+            let t = asm.GetType(tN, throwOnError = true)
+            let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
+            cmd.Execute(env, config)
 
     let Parse (args: list<string>) =
         let trim (s: string) =
