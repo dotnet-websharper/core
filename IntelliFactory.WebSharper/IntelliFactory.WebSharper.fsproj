@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProductVersion>8.0.30703</ProductVersion>
@@ -23,8 +23,6 @@
     <Compile Include="Enumerator.fs" />
     <Compile Include="Enumerable.fs" />
     <Compile Include="Resources.fs" />
-    <Compile Include="Proxy/Array.fs" />
-    <Compile Include="Proxy/ArrayModule.fs" />
     <Compile Include="Proxy/Async.fs" />
     <Compile Include="Proxy/AsyncBuilder.fs" />
     <Compile Include="Proxy/Char.fs" />
@@ -40,6 +38,9 @@
     <Compile Include="Proxy/Int32.fs" />
     <Compile Include="Proxy/IntrinsicFunctions.fs" />
     <Compile Include="Proxy/IntrinsicOperators.fs" />
+    <Compile Include="Proxy/ArrayModule.fs" />
+    <Compile Include="Proxy/Array.fs" />
+    <Compile Include="Proxy\Array2DModule.fs" />
     <Compile Include="Proxy/KeyValuePair.fs" />
     <Compile Include="Proxy/LanguagePrimitives.fs" />
     <Compile Include="Proxy/Lazy.fs" />
