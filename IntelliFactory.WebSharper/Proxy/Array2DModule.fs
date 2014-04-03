@@ -40,6 +40,13 @@ let Length2 (arr: 'T[,]) = F.GetArray2DLength2 arr
 
 [<Inline>]
 [<JavaScript>]
+let Get (array: 'T[,]) (n:int) (m:int) = F.GetArray2D array n m
+
+[<Inline>]
+[<JavaScript>]
+let Set (array: 'T[,]) (n:int) (m:int) (x:'T) = F.SetArray2D array n m x
+
+[<JavaScript>]
 [<Name "zeroCreate">]
 let ZeroCreate (n:int) (m:int) = F.Array2DZeroCreate n m
     
@@ -51,3 +58,44 @@ let Create n m (x:'T) =
     arr?dims <- 2
     arr
      
+[<JavaScript>]
+[<Name "init">]
+let Initialize n m f = 
+    let array = ZeroCreate n m : 'T[,]  
+    for i = 0 to n - 1 do 
+        for j = 0 to m - 1 do 
+            array.[i, j] <- f i j
+    array
+
+[<JavaScript>]
+[<Name "iter">]
+let Iterate f array = 
+    let count1 = F.GetArray2DLength1 array 
+    let count2 = F.GetArray2DLength2 array 
+    for i = 0 to count1 - 1 do 
+      for j = 0 to count2 - 1 do 
+        f array.[i,j]
+
+[<JavaScript>]
+[<Name "iteri">]
+let IterateIndexed (f : int -> int -> 'T -> unit) (array:'T[,]) =
+    let count1 = F.GetArray2DLength1 array 
+    let count2 = F.GetArray2DLength2 array 
+    for i = 0 to count1 - 1 do 
+      for j = 0 to count2 - 1 do 
+        f i j array.[i,j]
+
+[<JavaScript>]
+[<Name "map">]
+let Map f array = 
+    Initialize (F.GetArray2DLength1 array) (F.GetArray2DLength2 array) (fun i j -> f array.[i,j])
+
+[<JavaScript>]
+[<Name "mapi">]
+let MapIndexed f array = 
+    Initialize (F.GetArray2DLength1 array) (F.GetArray2DLength2 array) (fun i j -> f i j array.[i,j])
+
+[<JavaScript>]
+[<Name "copy">]
+let Copy array = 
+    Initialize (F.GetArray2DLength1 array) (F.GetArray2DLength2 array) (fun i j -> array.[i,j])
