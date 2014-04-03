@@ -50,6 +50,11 @@ module Main =
             VsixPath = vsixPath
         }
 
+    let private searchDir (dir: string) =
+        let dir =Path.GetFullPath(dir)
+        Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
+        |> Seq.map (fun p -> (p, p.Substring(dir.Length).Replace("\\", "/")))
+
     let private exports =
         let lib name =
             Seq.concat [
@@ -82,7 +87,10 @@ module Main =
             lib "IntelliFactory.WebSharper.Ecma"
             lib "IntelliFactory.WebSharper.JQuery"
             lib "IntelliFactory.WebSharper.Testing"
+            // build:
+            lib "IntelliFactory.WebSharper.Templates"
             // foreign:
+            lib "NuGet.Core"
             lib "FSharp.Core"
             lib "Mono.Cecil"
             lib "Mono.Cecil.Mdb"
@@ -102,12 +110,15 @@ module Main =
                             ProjectUrl = Some Config.Website
                             LicenseUrl = Some Config.LicenseUrl
                     })
-        let file src tgt =
+        let fileAt src tgt =
             {
                 new INuGetFile with
                     member x.Read() = File.OpenRead(Path.Combine(root, src)) :> _
-                    member x.TargetPath = "/tools/net40/" + defaultArg tgt (Path.GetFileName src)
+                    member x.TargetPath = tgt
             }
+        let file src tgt =
+            "/tools/net40/" + defaultArg tgt (Path.GetFileName src)
+            |> fileAt src
         nuPkg.AddNuGetExportingProject {
             new INuGetExportingProject with
                 member p.NuGetFiles =
@@ -122,6 +133,8 @@ module Main =
                         let fscore = Path.Combine(root, "packages", "FSharp.Core.3", "lib", "net40")
                         yield file (Path.Combine(fscore, "FSharp.Core.optdata")) None
                         yield file (Path.Combine(fscore, "FSharp.Core.sigdata")) None
+                        for (src, tgt) in searchDir (Path.Combine(root, "templates")) do
+                            yield fileAt src ("/templates" + tgt)
                     }
         }
 

@@ -2,7 +2,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyTitle("$projectname$")]
+[assembly: AssemblyTitle("$safeprojectname$")]
 
 [assembly: ComVisible(false)]
 [assembly: Guid("$guid2$")]
