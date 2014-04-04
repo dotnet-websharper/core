@@ -24,7 +24,7 @@
     <Compile Include="Resources.fs" />
     <Compile Include="Proxy/Array.fs" />
     <Compile Include="Proxy/ArrayModule.fs" />
-    <Compile Include="Proxy/Array2D.fs" />
+    <Compile Include="Proxy/Array2DModule.fs" />
     <Compile Include="Proxy/Async.fs" />
     <Compile Include="Proxy/AsyncBuilder.fs" />
     <Compile Include="Proxy/Char.fs" />
