@@ -1005,7 +1005,7 @@ let Simplify expr =
                 | Binary (x, _, y) | FieldGet (x, y) | Sequential (x, y) -> eval x; eval y
                 | Constant _ | Global _ | Lambda _ | Runtime -> ()
                 | ForEachField (_, obj, _) -> eval obj; stop ()
-                | ForIntegerRangeLoop (_, x, y, body) -> eval x; eval y; stop ()
+                | ForIntegerRangeLoop (_, x, _, _) -> eval x; stop ()
                 | IfThenElse (e, _, _) -> eval e; stop ()
                 | Let (_, v, b) -> eval v; eval b
                 | LetRecursive (bs, b) -> List.iter (snd >> eval) bs; eval b

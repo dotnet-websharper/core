@@ -21,6 +21,8 @@
 
 namespace IntelliFactory.WebSharper
 
+module F = IntelliFactory.WebSharper.IntrinsicFunctionProxy
+
 [<Proxy(typeof<System.Array>)>]
 type private ArrayProxy =
 
@@ -34,5 +36,4 @@ type private ArrayProxy =
         Array.blit a 0 (As array) offset a.Length
 
     member this.Length
-        with [<Inline "$this.length">] get () = X<int>
-
+        with [<Inline; JavaScript>] get() = F.GetLength (As this)            

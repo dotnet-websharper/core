@@ -28,3 +28,10 @@ module private IntelliFactory.WebSharper.ExtraTopLevelOperatorsProxy
 [<Inline "null">]
 let DefaultAsyncBuilder : Control.AsyncBuilder =
     As (AsyncBuilderProxy())
+
+[<JavaScript>]
+[<Name "array2D">]
+let CreateArray2D (rows : seq<#seq<'T>>) =
+    let arr = rows |> Seq.map (Array.ofSeq) |> Array.ofSeq |> As<'T[,]>
+    arr?dims <- 2
+    arr
