@@ -1,0 +1,101 @@
+// $begin{copyright}
+//
+// This file is part of WebSharper
+//
+// Copyright (c) 2008-2014 IntelliFactory
+//
+// GNU Affero General Public License Usage
+// WebSharper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU Affero General Public License, version 3, as published
+// by the Free Software Foundation.
+//
+// WebSharper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License
+// for more details at <http://www.gnu.org/licenses/>.
+//
+// If you are unsure which license is appropriate for your use, please contact
+// IntelliFactory at http://intellifactory.com/contact.
+//
+// $end{copyright}
+
+namespace IntelliFactory.WebSharper.Compiler
+
+module M = IntelliFactory.WebSharper.Core.Metadata
+module R = IntelliFactory.WebSharper.Compiler.ReflectionLayer
+module TSE = IntelliFactory.WebSharper.TypeScriptExporter
+
+module FrontEnd =
+    type Assembly = IntelliFactory.WebSharper.Compiler.Assembly
+    type Bundle = IntelliFactory.WebSharper.Compiler.Bundle
+    type CompiledAssembly = IntelliFactory.WebSharper.Compiler.CompiledAssembly
+    type Content = IntelliFactory.WebSharper.Compiler.Content
+    type EmbeddedFile = IntelliFactory.WebSharper.Compiler.EmbeddedFile
+    type Loader = IntelliFactory.WebSharper.Compiler.Loader
+    type ResourceContent = IntelliFactory.WebSharper.Compiler.ResourceContent
+    type ResourceContext = IntelliFactory.WebSharper.Compiler.ResourceContext
+    type Symbols = IntelliFactory.WebSharper.Compiler.Symbols
+
+    type Options =
+        {
+            ErrorLimit : int
+            KeyPair : option<StrongNameKeyPair>
+            References : list<Assembly>
+        }
+
+        static member Default =
+            {
+                ErrorLimit = 20
+                KeyPair = None
+                References = []
+            }
+
+    [<Sealed>]
+    type Compiler(errorLimit: int, log: Message -> unit, ctx: Context) =
+
+        member this.Compile(quotation: Quotations.Expr, context: System.Reflection.Assembly, ?name) : option<CompiledAssembly> =
+            this.CompileAssembly(R.Dynamic.FromQuotation quotation context (defaultArg name "Example"))
+
+        member this.Compile(quotation: Quotations.Expr, ?name) : option<CompiledAssembly> =
+            this.Compile(quotation, System.Reflection.Assembly.GetCallingAssembly(), ?name = name)
+
+        member this.CompileAssembly(assembly: R.AssemblyDefinition) : option<CompiledAssembly> =
+            let succ = ref true
+            let err (m: Message) =
+                match m.Priority with
+                | Priority.Warning -> ()
+                | _ -> succ := false
+                log m
+            let logger = Logger.Create err errorLimit
+            let meta = Metadata.Union logger ctx.MetadataRecords
+            let pool = Inlining.Pool.Create logger
+            let macros = Reflector.Pool.Create logger
+            try
+                let ra = Reflector.Reflect logger assembly
+                let pkg = Resolver.Resolve logger ra
+                let va = Validator.Validate logger pool macros ra
+                let rm = Analyzer.Analyze ctx.AssemblyInfos va
+                let local = Metadata.Parse logger va
+                let joined = Metadata.Union logger [meta; local]
+                Assembler.Assemble logger pool macros joined va
+                if !succ then
+                    let mInfo = M.Info.Create (rm :: ctx.AssemblyInfos)
+                    let pkg = pkg.Value
+                    let tsDecls = TSE.ExportDeclarations joined va
+                    Some (CompiledAssembly.Create(ctx, assembly, local, rm, mInfo, pkg, tsDecls))
+                else None
+            with ErrorLimitExceeded -> None
+
+        member this.CompileAndModify(assembly: Assembly) : bool =
+            let asm = R.Cecil.AdaptAssembly assembly.Raw
+            match this.CompileAssembly(asm) with
+            | None -> false
+            | Some a -> a.WriteToCecilAssembly(assembly.Raw); true
+
+    let Prepare (options: Options) (log: Message -> unit) : Compiler =
+        let ctx = Context.Get(options.References)
+        Compiler(options.ErrorLimit, log, ctx)
+
+    let Compile (options: Options) (log: Message -> unit) : Assembly -> bool =
+        let c = Prepare options log
+        fun aF -> c.CompileAndModify(aF)

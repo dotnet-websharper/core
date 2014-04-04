@@ -22,6 +22,8 @@ content/WebSharper
 
 ^\.nuget
 
+^build/Release
+^build/Debug
 ^build/vs10/packages
 
 ^build/vs11/packages
@@ -35,4 +37,5 @@ content/WebSharper
 ^build/.*Config.fs
 ^build/compiler/
 ^build/.*nupkg$
+^tests/Web/bin
 __

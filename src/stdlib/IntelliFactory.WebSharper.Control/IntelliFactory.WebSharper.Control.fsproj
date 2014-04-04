@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{666977bf-e022-4c8f-b53d-5d294d41010f}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <Name>IntelliFactory.WebSharper.Control</Name>
+  </PropertyGroup>
+  <Import Project="../../../msbuild/FSharp.targets" />
+  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
+  <ItemGroup>
+    <Compile Include="Disposable.fs" />
+    <Compile Include="Observer.fs" />
+    <Compile Include="HotStream.fs" />
+    <Compile Include="IObserverProxy.fs" />
+    <Compile Include="IObservableProxy.fs" />
+    <Compile Include="Observable.fs" />
+    <Compile Include="ObservableModule.fs" />
+    <Compile Include="Event.fs" />
+    <Compile Include="FSharpEvent.fs" />
+    <Compile Include="EventModule.fs" />
+    <Compile Include="EcmaExtensions.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\compiler\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
+      <Name>IntelliFactory.WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Ecma\IntelliFactory.WebSharper.Ecma.fsproj">
+      <Name>IntelliFactory.WebSharper.Ecma</Name>
+      <Project>{3bee2a9e-c5c9-4bd5-847d-f0f88f02a438}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
+      <Name>IntelliFactory.WebSharper</Name>
+      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

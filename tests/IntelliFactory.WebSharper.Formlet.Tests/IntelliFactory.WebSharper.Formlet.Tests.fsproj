@@ -1,0 +1,51 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{35514715-41df-4c17-a9ec-d80abcd9e353}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <Name>IntelliFactory.WebSharper.Formlet.Tests</Name>
+  </PropertyGroup>
+  <Import Project="../../msbuild/FSharp.targets" />
+  <Import Project="../../msbuild/WebSharper.Internal.targets" />
+  <ItemGroup>
+    <Compile Include="Tests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\compiler\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
+      <Name>IntelliFactory.WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\formlets\IntelliFactory.Formlet\IntelliFactory.Formlet.fsproj">
+      <Name>IntelliFactory.Formlet</Name>
+      <Project>{7e70b9e1-7e68-4df9-a3b8-74378e31be08}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\formlets\IntelliFactory.Reactive\IntelliFactory.Reactive.fsproj">
+      <Name>IntelliFactory.Reactive</Name>
+      <Project>{2d30fa07-e6be-45ac-90da-c2ca8309e137}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\formlets\IntelliFactory.WebSharper.Formlet\IntelliFactory.WebSharper.Formlet.fsproj">
+      <Name>IntelliFactory.WebSharper.Formlet</Name>
+      <Project>{9a0df78f-a51e-4056-b180-4a77afb82897}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\htmllib\IntelliFactory.WebSharper.Html\IntelliFactory.WebSharper.Html.fsproj">
+      <Name>IntelliFactory.WebSharper.Html</Name>
+      <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\IntelliFactory.WebSharper.Dom\IntelliFactory.WebSharper.Dom.fsproj">
+      <Name>IntelliFactory.WebSharper.Dom</Name>
+      <Project>{4382f3a7-126b-4bc6-988b-caa8c8a9b62f}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
+      <Name>IntelliFactory.WebSharper</Name>
+      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

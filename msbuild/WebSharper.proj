@@ -1,0 +1,20 @@
+﻿<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <ItemGroup>
+    <CP Include="../src/compiler/*/*.fsproj" />
+    <SP Include="../src/stdlib/*/*.fsproj" />
+    <SP Include="../src/htmllib/*/*.fsproj" />
+    <SP Include="../src/formlets/*/*.fsproj" />
+    <SP Include="../src/sitelets/*/*.fsproj" />
+    <SP Include="../tests/*/*.fsproj" />
+    <BP Include="../src/build/IntelliFactory.WebSharper.Templates/*.fsproj" />
+    <BP Include="../src/build/IntelliFactory.WebSharper.Build/*.fsproj" />
+  </ItemGroup>
+  <Target Name="Build">
+    <MSBuild Projects="@(CP)" />
+    <MSBuild Projects="@(SP)" />
+    <MSBuild Projects="@(BP)" />
+  </Target>
+  <Target Name="Clean">
+    <MSBuild Projects="@(CP);@(SP);@(BP)" Targets="Clean" />
+  </Target>
+</Project>
