@@ -151,30 +151,32 @@ module TemplateUtility =
         | errors ->
             failwith (String.concat Environment.NewLine errors)
 
-    let rec copyDir src tgt =
-        ensureDir tgt
-        for d in Directory.EnumerateDirectories(src) do
-            copyDir d (Path.Combine(tgt, Path.GetFileName(d)))
-        for f in Directory.EnumerateFiles(src) do
-            File.Copy(f, Path.Combine(tgt, Path.GetFileName(f)))
-
     let isTextFile path =
         match Path.GetExtension(path) with
         | ".asax" | ".config" | ".cs" | ".csproj"
         | ".files" | ".fs" | ".fsproj" | ".fsx" -> true
         | _ -> false
 
-    type Vars =
-        {
-            Guid1 : Guid
-            Guid2 : Guid
-        }
+    let neutralEncoding =
+        let bom = false
+        UTF8Encoding(bom, throwOnInvalidBytes = true) :> Encoding
 
-    let vars () =
-        {
-            Guid1 = Guid.NewGuid()
-            Guid2 = Guid.NewGuid()
-        }
+    let copyTextFile source target =
+        let lines = File.ReadAllLines(source)
+        File.WriteAllLines(target, lines, neutralEncoding)
+
+    let copyFile src tgt =
+        if isTextFile src then
+            copyTextFile src tgt
+        else
+            File.Copy(src, tgt)
+
+    let rec copyDir src tgt =
+        ensureDir tgt
+        for d in Directory.EnumerateDirectories(src) do
+            copyDir d (Path.Combine(tgt, Path.GetFileName(d)))
+        for f in Directory.EnumerateFiles(src) do
+            copyFile f (Path.Combine(tgt, Path.GetFileName(f)))
 
     let replace (a: string) (b: string) (main: string) =
         main.Replace(a, b)
@@ -198,19 +200,21 @@ module TemplateUtility =
         for p in projFiles do
             moveProjectFile opts p
 
-    let expandVariables vars opts path =
+    let freshGuid () =
+        Guid.NewGuid().ToString()
+
+    let expandVariables opts path =
         if isTextFile path then
             let t =
                 File.ReadAllText(path)
-                |> replace "$guid1$" (string vars.Guid1)
-                |> replace "$guid2$" (string vars.Guid2)
+                |> replace "$guid1$" (freshGuid ())
+                |> replace "$guid2$" (freshGuid ())
                 |> replace "$safeprojectname$" opts.ProjectName
-            File.WriteAllText(path, t)
+            File.WriteAllText(path, t, neutralEncoding)
 
     let expandAllVariables opts =
-        let vars = vars ()
         for p in all opts do
-            expandVariables vars opts p
+            expandVariables opts p
 
     let relPath baseDir path =
         let baseDir = Path.GetFullPath(baseDir)
@@ -247,7 +251,9 @@ module TemplateUtility =
             let el = XElement(imp)
             el.SetAttributeValue(proj, relPath)
             doc.Root.Add(el)
-        doc.Save(p)
+        let str = doc.ToString()
+        File.WriteAllText(p, doc.ToString(), neutralEncoding)
+        File.WriteAllLines(p, File.ReadAllLines(p), neutralEncoding)
 
     let initSource (src: WebSharperSource) =
         match src with

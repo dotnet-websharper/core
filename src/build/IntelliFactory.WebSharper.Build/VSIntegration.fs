@@ -205,7 +205,7 @@ module VSIntegration =
             VST.Project.FromFile(dir +/ "Web.csproj",
                 [
                     folder "Properties" [
-                        file "AssemblyInfo.cs"
+                        file "Properties/AssemblyInfo.cs"
                     ]
                     file "Main.html"
                     file "Web.config"

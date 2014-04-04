@@ -133,6 +133,8 @@ module Main =
                         let fscore = Path.Combine(root, "packages", "FSharp.Core.3", "lib", "net40")
                         yield file (Path.Combine(fscore, "FSharp.Core.optdata")) None
                         yield file (Path.Combine(fscore, "FSharp.Core.sigdata")) None
+                        for (src, tgt) in searchDir (Path.Combine(root, "docs")) do
+                            yield fileAt src ("/docs" + tgt)
                         for (src, tgt) in searchDir (Path.Combine(root, "templates")) do
                             yield fileAt src ("/templates" + tgt)
                     }
