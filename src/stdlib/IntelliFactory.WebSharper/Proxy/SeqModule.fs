@@ -132,7 +132,25 @@ let CompareWith  (f: 'T -> 'T -> int) (s1: seq<'T>) (s2: seq<'T>) : int =
 
 [<JavaScript>]
 [<Name "concat">]
-let Concat ss = Seq.fold Seq.append Seq.empty ss
+let Concat (ss: seq<#seq<'T>>) : seq<'T> =
+    Enumerable.Of (fun () ->
+        let outerE = Enumerator.Get ss
+        let rec next (st: Enumerator.T<Enumerator.IE<'T>,'T>) =
+            match st.State with
+            | null ->
+                if outerE.MoveNext() then
+                    st.State <- Enumerator.Get outerE.Current
+                    next st
+                else
+                    false
+            | innerE ->
+                if innerE.MoveNext() then
+                    st.Current <- innerE.Current
+                    true
+                else
+                    st.State <- null
+                    next st
+        Enumerator.New null next)
 
 [<JavaScript>]
 [<Name "countBy">]

@@ -22,8 +22,8 @@
 /// Provides an `IEnumerator` implementation.
 module private IntelliFactory.WebSharper.Enumerator
 
-module J            = IntelliFactory.WebSharper.JavaScript
-type private IE<'T> = System.Collections.Generic.IEnumerator<'T>
+module J = IntelliFactory.WebSharper.JavaScript
+type IE<'T> = System.Collections.Generic.IEnumerator<'T>
 
 /// Represents an unfolding enumerator.
 [<Name "T">]

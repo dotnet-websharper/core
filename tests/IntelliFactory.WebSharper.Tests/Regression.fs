@@ -169,3 +169,25 @@ let Tests =
                     n.Add(fun k -> k + i + j)
             Seq.sum [for x in n -> x 5] =? 1600
     }
+
+    Test "Bug #231" {
+        let arr =
+            [|
+                let prev = ref None
+                for c in [| 2; 2; 4; 2 |] do
+                    match !prev with
+                    | Some p ->
+                        if p = c then
+                            yield c * 2
+                            prev := None
+                        else
+                            yield p
+                            prev := Some c
+                    | _ ->
+                        prev := Some c
+                match !prev with
+                | Some p -> yield p
+                | _ -> ()
+            |]
+        arr =? [| 4; 4; 2 |]
+    }
