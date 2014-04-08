@@ -203,17 +203,24 @@ module Extensions =
         member this.AsSupportedProduct() =
             SupportedProduct.VSProduct(this)
 
+    let LICENSE_FILE =
+        "license.txt"
+
     type Identifier =
         {
             ID_Author : string
             ID_Culture : CultureInfo
             ID_Description : string
             ID_Id : Templates.ExtensionIdentity
+            ID_License : option<string>
             ID_Name : string
             ID_Products : list<SupportedProduct>
             ID_SupportedFrameworks : SupportedFrameworks
             ID_Version : Version
         }
+
+        member this.WithLicense(lic) =
+            { this with ID_License = Some lic }
 
         member this.WithProducts(ps) =
             { this with ID_Products = Seq.toList ps }
@@ -222,20 +229,29 @@ module Extensions =
             { this with ID_Version = v }
 
         member this.ToXml() =
+            let all =
+                [
+                    E?Author -- this.ID_Author
+                    E?Description -- this.ID_Description
+                    E?Name -- this.ID_Name
+                    E?Locale -- string this.ID_Culture.LCID
+                    E?Version -- string this.ID_Version
+                    E?SupportedFrameworkRuntimeEdition + [
+                        A?MinVersion (this.ID_SupportedFrameworks.Min.GetLiteral())
+                        A?MaxVersion (this.ID_SupportedFrameworks.Max.GetLiteral())
+                    ]
+                    E?SupportedProducts -< [
+                        for p in this.ID_Products ->
+                            p.ToXml()
+                    ]
+                ]
+            let lic =
+                match this.ID_License with
+                | None -> []
+                | Some _ -> [E?License -- LICENSE_FILE]
             E?Identifier + [A?Id this.ID_Id.FullName] - [
-                E?Author -- this.ID_Author
-                E?Description -- this.ID_Description
-                E?Name -- this.ID_Name
-                E?Locale -- string this.ID_Culture.LCID
-                E?Version -- string this.ID_Version
-                E?SupportedFrameworkRuntimeEdition + [
-                    A?MinVersion (this.ID_SupportedFrameworks.Min.GetLiteral())
-                    A?MaxVersion (this.ID_SupportedFrameworks.Max.GetLiteral())
-                ]
-                E?SupportedProducts -< [
-                    for p in this.ID_Products ->
-                        p.ToXml()
-                ]
+                for x in all @ lic do
+                    yield x :> _
             ]
 
         static member Create(author, id, name, desc) =
@@ -244,6 +260,7 @@ module Extensions =
                 ID_Culture = CultureInfo.InvariantCulture
                 ID_Description = desc
                 ID_Id = id
+                ID_License = None
                 ID_Name = name
                 ID_Products = []
                 ID_SupportedFrameworks = { Min = FrameworkVersion.Net40; Max = FrameworkVersion.Net45 }
@@ -445,7 +462,13 @@ module Extensions =
             [for c in this.GetContentsAndPackages() -> (c.Path, c.Content)]
 
         member this.GetPaths() =
-            [for c in this.GetContentsAndPackages() -> c.Path]
+            [
+                for c in this.GetContentsAndPackages() do
+                    yield c.Path
+                match this.Vsix_Identifier.ID_License with
+                | None -> ()
+                | Some lic -> yield LICENSE_FILE
+            ]
 
         member this.ToXml() =
             E?Vsix + [A?Version "1.0.0"] -< [
@@ -484,6 +507,10 @@ module Extensions =
         static member Create(fileName: string, vsix: Vsix) =
             let zip =
                 seq {
+                    match vsix.Vsix_Identifier.ID_License with
+                    | None -> ()
+                    | Some lic ->
+                        yield (LICENSE_FILE, Content.FromText lic)
                     yield ("extension.vsixmanifest",
                         vsix.ToXml().Write()
                         |> Content.FromText)

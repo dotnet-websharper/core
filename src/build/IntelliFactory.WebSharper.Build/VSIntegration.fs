@@ -231,6 +231,7 @@ module VSIntegration =
             VX.Identifier.Create("IntelliFactory", getIdentity (), com.VersionInfo.PackageId, desc)
                 .WithVersion(com.VersionInfo.NumericVersion)
                 .WithProducts(products)
+                .WithLicense(File.ReadAllText(Path.Combine(com.Config.RootPath, "LICENSE.md")))
         let category = ["WebSharper"]
         let proj x = VX.VsixContent.ProjectTemplate(category, x)
         let vsix =

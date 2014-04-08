@@ -73,6 +73,9 @@ module Extensions =
     [<Sealed>]
     type Identifier =
 
+        /// Adds license information.
+        member WithLicense : string -> Identifier
+
         /// Sets the set of supported products.
         member WithProducts : seq<SupportedProduct> -> Identifier
 
