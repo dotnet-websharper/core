@@ -16,7 +16,8 @@ let exec (fileName: string) (arguments: string) =
     psi.RedirectStandardError <- true
     psi.RedirectStandardOutput <- true
     for (k, v) in env do
-        psi.EnvironmentVariables.Add(k, v)
+        if psi.EnvironmentVariables.ContainsKey(k) |> not then
+            psi.EnvironmentVariables.Add(k, v)
     let proc = Process.Start(psi)
     proc.WaitForExit()
     proc.StandardError.ReadToEnd() |> stderr.Write
