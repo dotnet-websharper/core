@@ -58,6 +58,12 @@ module UnpackCommand =
             | x :: xs ->
                 proc { opts with Assemblies = x :: opts.Assemblies } xs
         match args with
+        | "-unpack" :: root :: args ->
+            let def = Config.Create()
+            let cfg = { proc def args with RootDirectory = root }
+            match GetErrors cfg with
+            | [] -> C.Parsed cfg
+            | errors -> C.ParseFailed errors
         | "unpack" :: args ->
             let def = Config.Create()
             let cfg = proc def args

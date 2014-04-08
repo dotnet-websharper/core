@@ -167,10 +167,12 @@ let RunInterfaceGenerator path args =
             | _ :: rest -> loop acc rest
             | [] | [_] -> acc
         loop [path] args
-    let aR = AR.SearchPaths searchPaths
+    let AR = AR.SearchPaths searchPaths
     AR.Wrap <| fun () ->
-        match AR.Resolve(AssemblyName.GetAssemblyName path) with
-        | None -> failwithf "Could not resolve: %s" path
+        let name = AssemblyName.GetAssemblyName(path)
+        match AR.Resolve(name) with
+        | None ->
+            failwithf "Could not resolve: %s" path
         | Some assem ->
             let ad =
                 match Attribute.GetCustomAttribute(assem, typeof<EA>) with
@@ -181,7 +183,7 @@ let RunInterfaceGenerator path args =
                         is the assembly properly marked with \
                         ExtensionAttribute?"
             let c = InterfaceGenerator.Compiler.Create()
-            c.Start(args, ad, assem, aR)
+            c.Start(args, ad, assem, AR)
 
 [<EntryPoint>]
 let Start argv =
