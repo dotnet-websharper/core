@@ -133,6 +133,7 @@ module HtmlCommand =
                     | _ -> raise (BadOptions <| "Invalid parameter: " + x)
                 proc opts (x :: xs)
         match args with
+        | "sitelets" :: args
         | "html" :: args ->
             try
                 let def = Config.Create("")
