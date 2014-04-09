@@ -28,7 +28,14 @@ open System.Text.RegularExpressions
 open System.Xml
 open System.Xml.Linq
 
-type LocalWebSharperSource =
+module Utility =
+
+    let ReadStream (s: Stream) =
+        use m = new MemoryStream()
+        s.CopyTo(m)
+        m.ToArray()
+
+type LocalSource =
     {
         TargetsFile : string
         TemplatesDirectory : string
@@ -40,43 +47,57 @@ type LocalWebSharperSource =
             TemplatesDirectory = Path.Combine(root, "templates")
         }
 
-type NuGetOptions =
+type NuGetPackage =
+    | PkgBytes of byte[]
+    | PkgLatestPublic
+
+    static member FromBytes(bytes) =
+        Array.copy bytes
+        |> PkgBytes
+
+    static member FromFile(path) =
+        File.ReadAllBytes(path)
+        |> PkgBytes
+
+    static member FromStream(s: Stream) =
+        Utility.ReadStream s
+        |> PkgBytes
+
+    static member LatestPublic() =
+        PkgLatestPublic
+
+type NuGetSource =
     {
+        NuGetPackage : NuGetPackage
         PackagesDirectory : string
     }
 
     static member Create() =
         {
+            NuGetPackage = NuGetPackage.LatestPublic()
             PackagesDirectory = "packages"
         }
 
-type WebSharperSource =
-    | LocalWS of source: LocalWebSharperSource
-    | NuGetWS of version: option<string> * opts: NuGetOptions
+type Source =
+    | SLocal of LocalSource
+    | SNuGet of NuGetSource
 
-    static member FromNuGet(?version, ?opts) =
-        let opts =
-            match opts with
-            | Some opts -> opts
-            | None -> NuGetOptions.Create()
-        NuGetWS (version, opts)
-
-    static member Local(source) =
-        LocalWS source
+    static member Local(s) = SLocal s
+    static member NuGet(s) = SNuGet s
 
 type InitOptions =
     {
         Directory : string
         ProjectName : string
-        WebSharperSource : WebSharperSource
+        Source : Source
     }
 
     static member Create() =
-        let source = WebSharperSource.FromNuGet()
+        let source = Source.NuGet(NuGetSource.Create())
         {
             Directory = "."
             ProjectName = "MyProject"
-            WebSharperSource = source
+            Source = source
         }
 
 [<AutoOpen>]
@@ -101,7 +122,7 @@ module TemplateUtility =
 
     let checkSource src =
         match src with
-        | LocalWS loc ->
+        | SLocal loc ->
             [
                 if notFile loc.TargetsFile then
                     yield sprintf "WebSharper.targets not found at %s" loc.TargetsFile
@@ -115,7 +136,7 @@ module TemplateUtility =
 
     let check opts =
         [
-            yield! checkSource opts.WebSharperSource
+            yield! checkSource opts.Source
             if isFile opts.Directory then
                 yield sprintf "Specified InitOptions.Directory is a file: %s" opts.Directory
         ]
@@ -252,14 +273,23 @@ module TemplateUtility =
         File.WriteAllText(p, doc.ToString(), neutralEncoding)
         File.WriteAllLines(p, File.ReadAllLines(p), neutralEncoding)
 
-    let initSource (src: WebSharperSource) =
+    let installNuGet (nuget: NuGetSource) =
+        let ws =
+            match nuget.NuGetPackage with
+            | PkgLatestPublic ->
+                FsNuGet.Package.GetLatest("WebSharper")
+            | PkgBytes bytes ->
+                FsNuGet.Package.FromBytes(bytes)
+        let path = Path.Combine(nuget.PackagesDirectory, ws.Text)
+        ws.Install(path)
+        path
+
+    let initSource src =
         match src with
-        | LocalWS local -> local
-        | NuGetWS (ver, opts) ->
-            let ws = FsNuGet.Package.GetLatest("WebSharper")
-            let path = Path.Combine(opts.PackagesDirectory, ws.Text)
-            ws.Install(path)
-            LocalWebSharperSource.Create(path)
+        | SLocal local -> local
+        | SNuGet nuget ->
+            installNuGet nuget
+            |> LocalSource.Create
 
     let installTargets opts local =
         for p in all opts do
@@ -268,7 +298,7 @@ module TemplateUtility =
 
     let init id opts =
         let opts = prepare opts
-        let local = initSource opts.WebSharperSource
+        let local = initSource opts.Source
         let sourceDir = Path.Combine(local.TemplatesDirectory, id)
         let targetDir = opts.Directory
         copyDir sourceDir targetDir

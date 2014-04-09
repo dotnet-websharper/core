@@ -21,18 +21,11 @@
 
 namespace IntelliFactory.WebSharper.Templates
 
-/// Options for resolving WebSharper with NuGet.
-type NuGetOptions =
-    {
-        /// Path to a directory where packages should be installed.
-        PackagesDirectory : string
-    }
-
-    /// Creates default options.
-    static member Create : unit -> NuGetOptions
+open System
+open System.IO
 
 /// Configures local WebSharper installation.
-type LocalWebSharperSource =
+type LocalSource =
     {
         /// Path to WebSharper.targets
         TargetsFile : string
@@ -42,17 +35,46 @@ type LocalWebSharperSource =
     }
 
     /// Creates default source using standard layout under root.
-    static member Create : root: string -> LocalWebSharperSource
+    static member Create : root: string -> LocalSource
+
+/// Represents how to get the WebSharper NuGet package (nupkg) to use.
+[<Sealed>]
+type NuGetPackage =
+
+    /// Reads the nupkg from raw bytes.
+    static member FromBytes : raw: byte[] -> NuGetPackage
+
+    /// Reads the nupkg from disk.
+    static member FromFile : path: string -> NuGetPackage
+
+    /// Reads raw nupkg bytes from a given stream.
+    static member FromStream : Stream -> NuGetPackage
+
+    /// Obtains the latest package from public NuGet repository over the network.
+    static member LatestPublic : unit -> NuGetPackage
+
+/// A Source that uses NuGet-packaged WebSharper.
+type NuGetSource =
+    {
+        /// How to get the WebSharper NuGet package.
+        NuGetPackage : NuGetPackage
+
+        /// Path to a directory where packages should be installed.
+        PackagesDirectory : string
+    }
+
+    /// Creates the default.
+    static member Create : unit -> NuGetSource
 
 /// Defines where to obtain WebSharper for the templates.
 [<Sealed>]
-type WebSharperSource =
+type Source =
 
     /// Query NuGet repository to obtain the latest WebSharper.
-    static member FromNuGet : ?version: string * ?opts: NuGetOptions -> WebSharperSource
+    static member NuGet : NuGetSource -> Source
 
     /// Specify a local installation.
-    static member Local : LocalWebSharperSource -> WebSharperSource
+    static member Local : LocalSource -> Source
 
 /// Options for initializing templates.
 type InitOptions =
@@ -64,7 +86,7 @@ type InitOptions =
         ProjectName : string
 
         /// Defines how to obtain WebSharper.
-        WebSharperSource : WebSharperSource
+        Source : Source
     }
 
     /// Creates default options.

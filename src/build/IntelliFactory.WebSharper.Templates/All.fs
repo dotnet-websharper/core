@@ -27,7 +27,8 @@ open IntelliFactory.WebSharper
 /// module T = IntelliFactory.WebSharper.Templates.All
 module All =
     type InitOptions = Templates.InitOptions
-    type LocalWebSharperSource = Templates.LocalWebSharperSource
-    type NuGetOptions = Templates.NuGetOptions
+    type LocalSource = Templates.LocalSource
+    type NuGetPackage = Templates.NuGetPackage
+    type NuGetSource = Templates.NuGetSource
+    type Source = Templates.Source
     type Template = Templates.Template
-    type WebSharperSource = Templates.WebSharperSource
