@@ -183,6 +183,23 @@ let Tests =
         DateTime.Today =? DateTime.Now.Date
     }
 
-    Test "Ecma Date" {
+    Section "Native Dates"
+
+    Test "Turnaround" {
         d.ToEcma().ToDotNet() =?~ d
+    }
+
+    Test "Equality" {
+        let a = DateTime.Now.ToEcma()
+        let b = DateTime.Now.ToEcma()
+        a =? b
+        let c = DateTime.Now.AddDays(1.).ToEcma()
+        a <>? c
+    }
+
+    Test "Comparison" {
+        let a = DateTime.Now.ToEcma()
+        let b = DateTime.Now.AddDays(1.).ToEcma()
+        Unchecked.compare a b < 0 =? true
+        Unchecked.compare b a > 0 =? true
     }

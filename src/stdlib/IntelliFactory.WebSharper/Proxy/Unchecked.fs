@@ -35,6 +35,9 @@ let compareTo (a: obj) (b: obj) = X<int>
 [<Inline "$a instanceof Array">]
 let isArray (a: obj) = X<bool>
 
+[<Inline "$a instanceof Date">]
+let isDate (a: obj) = X<bool>
+
 [<JavaScript>]
 let rec compareArrays (a: obj []) (b: obj []) =
     if a.Length < b.Length   then -1
@@ -47,6 +50,13 @@ let rec compareArrays (a: obj []) (b: obj []) =
             i <- i + 1
         cmp
 
+[<Inline "$d.getTime()">]
+let getTime (d: obj) : int = X
+
+[<JavaScript>]
+let rec compareDates (a: obj) (b: obj) =
+    compare (getTime a) (getTime b)
+
 /// Compares two values generically.
 [<JavaScript>]
 let Compare<'T> (a: 'T) (b: 'T) : int =
@@ -55,16 +65,17 @@ let Compare<'T> (a: 'T) (b: 'T) : int =
         | J.Undefined ->
             match J.TypeOf b with
             | J.Undefined -> 0
-            | _           -> -1
+            | _ -> -1
         | J.Function ->
             failwith "Cannot compare function values."
         | J.Boolean | J.Number | J.String ->
             if a <. b then -1 else 1
         | _ ->
-            if a ===. null              then -1
-            elif b ===. null            then 1
-            elif J.In "CompareTo" a     then compareTo a b
+            if a ===. null then -1
+            elif b ===. null then 1
+            elif J.In "CompareTo" a then compareTo a b
             elif isArray a && isArray b then compareArrays (As a) (As b)
+            elif isDate a && isDate b then compareDates a b
             else compareArrays (As (J.GetFields a)) (As (J.GetFields b))
 
 /// Produces an undefined value.
@@ -87,16 +98,21 @@ let arrayEquals (a: obj []) (b: obj []) =
     else
         false
 
+[<JavaScript>]
+let dateEquals a b =
+    getTime a ===. getTime b
+
 /// Tests if two values are equal.
 [<JavaScript>]
 let rec Equals (a: 'T) (b: 'T) : bool =
     if a ===. b then true else
         match J.TypeOf a with
         | J.Object ->
-            if a ===. null              then false
-            elif b ===. null            then false
-            elif J.In "Equals" a        then equals a b
+            if a ===. null then false
+            elif b ===. null then false
+            elif J.In "Equals" a then equals a b
             elif isArray a && isArray b then arrayEquals (As a) (As b)
+            elif isDate a && isDate b then dateEquals a b
             else arrayEquals (As (J.GetFields a)) (As (J.GetFields b))
         | _ ->
             false
