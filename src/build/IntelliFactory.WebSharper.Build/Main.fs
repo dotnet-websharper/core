@@ -90,6 +90,7 @@ module Main =
             // build:
             lib "IntelliFactory.WebSharper.Templates"
             // foreign:
+            lib "FsNuGet"
             lib "NuGet.Core"
             lib "FSharp.Core"
             lib "Mono.Cecil"

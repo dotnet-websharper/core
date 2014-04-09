@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProjectGuid>{d7b4b349-dcfd-4e80-a055-39578cf6b82b}</ProjectGuid>
@@ -12,8 +12,8 @@
     <Compile Include="All.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="NuGet.Core">
-      <HintPath>..\..\..\packages\Nuget.Core\lib\net40-Client\NuGet.Core.dll</HintPath>
+    <Reference Include="FsNuGet">
+      <HintPath>..\..\..\packages\FsNuGet\lib\net40\FsNuGet.dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>

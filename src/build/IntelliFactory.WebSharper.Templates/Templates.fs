@@ -27,7 +27,6 @@ open System.Text
 open System.Text.RegularExpressions
 open System.Xml
 open System.Xml.Linq
-open NuGet
 
 type LocalWebSharperSource =
     {
@@ -44,13 +43,11 @@ type LocalWebSharperSource =
 type NuGetOptions =
     {
         PackagesDirectory : string
-        PackageSource : string
     }
 
     static member Create() =
         {
             PackagesDirectory = "packages"
-            PackageSource = "https://www.nuget.org/api/v2/"
         }
 
 type WebSharperSource =
@@ -259,17 +256,9 @@ module TemplateUtility =
         match src with
         | LocalWS local -> local
         | NuGetWS (ver, opts) ->
-            let prf = NuGet.PackageRepositoryFactory.Default
-            let repo = prf.CreateRepository(opts.PackageSource)
-            let pm = PackageManager(repo, opts.PackagesDirectory)
-            let id = "WebSharper"
-            match ver with
-            | None -> pm.InstallPackage(id)
-            | Some v -> pm.InstallPackage(id, SemanticVersion.Parse(v))
-            let pkg = pm.LocalRepository.FindPackage(id)
-            if pkg = null then
-                failwithf "Failed to install %s" id
-            let path = Path.Combine(opts.PackagesDirectory, pm.PathResolver.GetPackageDirectory(pkg))
+            let ws = FsNuGet.Package.GetLatest("WebSharper")
+            let path = Path.Combine(opts.PackagesDirectory, ws.Text)
+            ws.Install(path)
             LocalWebSharperSource.Create(path)
 
     let installTargets opts local =

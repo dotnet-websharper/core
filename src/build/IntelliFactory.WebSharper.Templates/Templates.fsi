@@ -26,9 +26,6 @@ type NuGetOptions =
     {
         /// Path to a directory where packages should be installed.
         PackagesDirectory : string
-
-        /// NuGet package source, a URL or a directory.
-        PackageSource : string
     }
 
     /// Creates default options.
