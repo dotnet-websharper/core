@@ -22,6 +22,7 @@
 namespace IntelliFactory.WebSharper.MSBuild
 
 open System
+open System.Diagnostics
 open System.IO
 open System.Reflection
 open Microsoft.Build.Framework
@@ -154,6 +155,12 @@ module WebSharperTaskModule =
         for f in files do
             File.Delete(f)
 
+    let Timed f =
+        let sw = Stopwatch()
+        sw.Start()
+        let r = f ()
+        (r, sw.Elapsed)
+
     let Compile settings =
         match List.ofArray settings.ItemInput with
         | raw :: refs ->
@@ -161,23 +168,31 @@ module WebSharperTaskModule =
             let temp = raw.ItemSpec + ".tmp"
             let tempInfo = FileInfo(temp)
             if not tempInfo.Exists || tempInfo.LastWriteTimeUtc < rawInfo.LastWriteTimeUtc then
-                let out =
-                    CompilerUtility.Compile {
-                        AssemblyFile = raw.ItemSpec
-                        KeyOriginatorFile = settings.KeyOriginatorFile
-                        References = [ for r in refs -> r.ItemSpec ]
-                        RunInterfaceGenerator =
-                            match GetProjectType settings with
-                            | Extension -> true
-                            | _ -> false
-                    }
-                for msg in out.Messages do
-                    msg.SendTo(settings.Log)
-                if out.Ok then
-                    File.WriteAllText(tempInfo.FullName, "")
-                    true
-                else
-                    Fail settings "Failed to compile assembly with WebSharper"
+                let main () =
+                    let out =
+                        CompilerUtility.Compile {
+                            AssemblyFile = raw.ItemSpec
+                            KeyOriginatorFile = settings.KeyOriginatorFile
+                            References = [ for r in refs -> r.ItemSpec ]
+                            RunInterfaceGenerator =
+                                match GetProjectType settings with
+                                | Extension -> true
+                                | _ -> false
+                        }
+                    for msg in out.Messages do
+                        msg.SendTo(settings.Log)
+                    if out.Ok then
+                        File.WriteAllText(tempInfo.FullName, "")
+                        true
+                    else
+                        Fail settings "Failed to compile assembly with WebSharper"
+                settings.Log.LogMessage(MessageImportance.High, "Compiling with WebSharper..")
+                let (res, t) = Timed main
+                if res then
+                    settings.Log.LogMessage(MessageImportance.High,
+                        "WebSharper: compiled ok in {0} seconds",
+                        round (t.TotalSeconds * 100.0) / 100.0)
+                res
             else true
         | _ ->
             Fail settings "Need 1+ items for Compile command"
