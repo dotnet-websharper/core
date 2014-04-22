@@ -46,6 +46,7 @@ module WebSharperTaskModule =
             MSBuildProjectDirectory : string
             Name : string
             SetItemOutput : ITaskItem [] -> unit
+            SetReferenceCopyLocalPaths : ITaskItem [] -> unit
             WebProjectOutputDir : string
             WebSharperBundleOutputDir : string
             WebSharperHtmlDirectory : string
@@ -237,12 +238,12 @@ module WebSharperTaskModule =
             | null | "" -> false
             | t when t.ToLower() = "true" -> true
             | _ -> false
-        let alreadyReferenced =
-            Set [
-                for asm in settings.ItemInput ->
-                    AssemblyName(asm.ItemSpec).Name
-            ]
         if not expl then
+            let alreadyReferenced =
+                Set [
+                    for asm in settings.ItemInput ->
+                        AssemblyName.GetAssemblyName(asm.ItemSpec).Name
+                ]
             let projTy = GetProjectType settings
             let assemblies = GetReferences projTy
             let priv =
@@ -252,21 +253,27 @@ module WebSharperTaskModule =
                 | Html -> false
                 | Library -> false
                 | Website _ -> true
+            let copyLocal = ResizeArray<ITaskItem>()
             settings.SetItemOutput [|
                 for asm in assemblies do
                     if alreadyReferenced.Contains(asm) |> not then
                         let hintPath = Path.Combine(BaseDir, asm + ".dll")
                         if File.Exists(hintPath) then
-                            let it = TaskItem(asm)
-                            it.SetMetadata("HintPath", hintPath)
-                            it.SetMetadata("Private", string priv)
+                            let it = TaskItem(hintPath)
+                            do it.SetMetadata("CopyLocal", string priv)
+                            if priv then
+                                copyLocal.Add(it)
                             yield it :> _
                     if alreadyReferenced.Contains("FSharp.Core") |> not then
-                        let it = TaskItem("FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a")
-                        it.SetMetadata("Private", string priv)
-                        it.SetMetadata("HintPath", Path.Combine(BaseDir, "FSharp.Core.dll"))
+                        let path = Path.Combine(BaseDir, "FSharp.Core.dll")
+                        let it = TaskItem(path)
+                        do it.SetMetadata("CopyLocal", string priv)
+                        if priv then
+                            copyLocal.Add(it)
                         yield it :> _
             |]
+            copyLocal.ToArray()
+            |> settings.SetReferenceCopyLocalPaths
         true
 
     let Unpack settings =
@@ -393,6 +400,9 @@ type WebSharperTask() =
     [<Output>]
     member val ItemOutput : ITaskItem [] = Array.empty with get, set
 
+    [<Output>]
+    member val ReferenceCopyLocalPaths : ITaskItem [] = Array.empty with get, set
+
     override this.Execute() =
         Execute {
             Command = this.Command
@@ -404,6 +414,7 @@ type WebSharperTask() =
             MSBuildProjectDirectory = this.MSBuildProjectDirectory
             Name = this.Name
             SetItemOutput = fun items -> this.ItemOutput <- items
+            SetReferenceCopyLocalPaths = fun items -> this.ReferenceCopyLocalPaths <- items
             WebProjectOutputDir = this.WebProjectOutputDir
             WebSharperBundleOutputDir = this.WebSharperBundleOutputDir
             WebSharperExplicitRefs = this.WebSharperExplicitRefs

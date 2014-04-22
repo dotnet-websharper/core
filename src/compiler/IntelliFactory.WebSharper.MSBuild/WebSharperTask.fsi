@@ -52,6 +52,9 @@ type WebSharperTask =
     /// The project $(Name) property, typically set in F# projects.
     member Name : string with get, set
 
+    /// Copy-local file list.
+    member ReferenceCopyLocalPaths : ITaskItem [] with get, set
+
     /// Path to the directory containing Web.config, used by the "Unpack" command,
     /// and also to detect Web projects.
     member WebProjectOutputDir : string with get, set

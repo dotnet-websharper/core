@@ -25,7 +25,7 @@
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/net40/IntelliFactory.WebSharper.MSBuild.dll</WebSharperTaskAssembly>
   </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="IntelliFactory.WebSharper.MSBuild.WebSharperTask" />
-  <Target Name="WebSharperBundle" AfterTargets="Build" DependsOnTargets="ResolveReferences">
+  <Target Name="WebSharperBundle" AfterTargets="Build" DependsOnTargets="WebSharperComputeReferences">
     <WebSharperTask Command="Bundle" ItemInput="$(TargetPath);@(ReferencePath)"
       Configuration="$(Configuration)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
@@ -49,7 +49,7 @@
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
   </Target>
-  <Target Name="WebSharperCompile" AfterTargets="CoreCompile" DependsOnTargets="ResolveReferences">
+  <Target Name="WebSharperCompile" AfterTargets="CoreCompile" DependsOnTargets="WebSharperComputeReferences">
     <WebSharperTask Command="Compile" ItemInput="@(IntermediateAssembly);@(ReferencePath)"
       Configuration="$(Configuration)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
@@ -61,8 +61,8 @@
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
   </Target>
-  <Target Name="WebSharperComputeReferences" BeforeTargets="ResolveAssemblyReferences">
-    <WebSharperTask Command="ComputeReferences" ItemInput="@(Reference)"
+  <Target Name="WebSharperComputeReferences" BeforeTargets="CoreCompile;CopyFilesMarkedCopyLocal" DependsOnTargets="ResolveReferences">
+    <WebSharperTask Command="ComputeReferences" ItemInput="@(ReferencePath)"
       Configuration="$(Configuration)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
@@ -72,10 +72,11 @@
       WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)">
-      <Output TaskParameter="ItemOutput" ItemName="Reference" />
+      <Output TaskParameter="ItemOutput" ItemName="ReferencePath" />
+      <Output TaskParameter="ReferenceCopyLocalPaths" ItemName="ReferenceCopyLocalPaths" />
     </WebSharperTask>
   </Target>
-  <Target Name="WebSharperHtml" AfterTargets="Build" DependsOnTargets="ResolveReferences">
+  <Target Name="WebSharperHtml" AfterTargets="Build" DependsOnTargets="WebSharperComputeReferences">
     <WebSharperTask Command="Html" ItemInput="$(TargetPath);@(ReferencePath)"
       Configuration="$(Configuration)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
