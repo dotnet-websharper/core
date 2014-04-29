@@ -170,6 +170,7 @@ type Bundle(set: list<Assembly>) =
             "IntelliFactory.WebSharper.Control"
         |]
         |> Seq.map (fun n -> Path.Combine(wsHome, n + ".dll"))
+        |> Seq.filter (fun x -> File.Exists(x))
         |> Seq.fold (fun (b: Bundle) x -> b.WithAssembly(x)) b
 
     member b.WithTransitiveReferences() =
