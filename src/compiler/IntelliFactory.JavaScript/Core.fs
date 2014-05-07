@@ -1049,8 +1049,8 @@ let Simplify expr =
             else expr
         | Application (Let (var, value, body), xs) ->
             Let (var, value, Application (body, xs))
-        | Lambda (None, [x], Application (f, [Var y])) ->
-            if x = y && isStrictlyPure f && occurenceCountApprox x f = 0 then f else expr
+//        | Lambda (None, [x], Application (f, [Var y])) ->
+//            if x = y && isStrictlyPure f && occurenceCountApprox x f = 0 then f else expr
         | Let (var, Let (v, vl, bd), body) ->
             Let (v, vl, Let (var, bd, body))
         | Let (var, value, body) when not var.IsMutable ->
