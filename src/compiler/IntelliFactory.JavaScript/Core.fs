@@ -940,6 +940,37 @@ let CollectObjLiterals expr =
 
     coll expr
 
+// define approximate tests for purity
+// true value means evaluating the expr has no side-effects
+//
+// isMostlyPure : treat identity effects (new obj) as benign
+// isStrictlyPure : treat identity effects as side-effects
+//
+// both predicates recur to an arbitrary fixed depth.
+let (isMostlyPure, isStrictlyPure) =
+
+    let isStrictlyPureNode expr =
+        match expr with
+        | Constant _ | Global _ | Lambda _ | Runtime | Var _
+        | Binary _  | FieldGet _
+        | IfThenElse _ | Let _ | LetRecursive _ | Unary _ -> true
+        | _ -> false
+
+    let isMostlyPureNode expr =
+        match expr with
+        | NewArray _ | NewObject _ | NewRegex _ -> true
+        | _ -> isStrictlyPureNode expr
+
+    // true if expr is less than n-deep and all nodes sastisfy the predicate
+    let rec sat pred d expr =
+        if (d <= 0) || (not (pred expr)) then false else
+            List.forall (sat pred (d - 1)) (Children expr)
+
+    let isMostlyPure = sat isMostlyPureNode 3
+    let isStrictlyPure = sat isStrictlyPureNode 3
+
+    (isMostlyPure, isStrictlyPure)
+
 let Simplify expr =
 
     // fast-track Substitue: assume IsAlphaNormalized on all
@@ -952,16 +983,6 @@ let Simplify expr =
             | Var v when v = var -> replace
             | _ -> e
         BottomUp sub body
-
-    // approximate test for purity - if true, evaluating the
-    // expression should not have any observable side-effects
-    let rec isPure expr =
-        match expr with
-        | Constant _ | Global _ | Lambda _ | Runtime | Var _ -> true
-        | Binary _ | NewArray _ | NewObject _ | NewRegex _ | FieldGet _
-        | IfThenElse _ | Let _ | LetRecursive _ | Unary _ ->
-            List.forall isPure (Children expr)
-        | _ -> false
 
     // counts free occurences of var in expr
     // return : 0 - no occurences; 1 - one occurence; 2 - unknown
@@ -1029,7 +1050,7 @@ let Simplify expr =
         | Application (Let (var, value, body), xs) ->
             Let (var, value, Application (body, xs))
         | Lambda (None, [x], Application (f, [Var y])) ->
-            if x = y && isPure f then f else expr
+            if x = y && isStrictlyPure f && occurenceCountApprox x f = 0 then f else expr
         | Let (var, Let (v, vl, bd), body) ->
             Let (v, vl, Let (var, bd, body))
         | Let (var, value, body) when not var.IsMutable ->
@@ -1053,13 +1074,11 @@ let Simplify expr =
                 else expr
             | _ ->
                 match occurenceCountApprox var body with
-                | 0 -> if isPure value then body else Sequential (value, body)
+                | 0 -> if isMostlyPure value then body else Sequential (value, body)
                 | 1 -> inlineLet expr var value body
                 | _ -> expr
-        | Sequential (a, b) when isPure a ->
-            b
-        | _ ->
-            expr
+        | Sequential (a, b) when isMostlyPure a -> b
+        | _ -> expr
 
     let ( == ) a b =
         System.Object.ReferenceEquals(a, b)
