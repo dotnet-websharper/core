@@ -472,6 +472,21 @@ module QuotationUtils =
     let makeSignature (xs: seq<ParameterInfo>) : CR.Signature =
         [for x in xs -> CR.Type.FromType x.ParameterType]
 
+    let GeneralizeProperty (p: PropertyInfo) =
+        if p.DeclaringType.IsGenericType then
+            try
+                let p =
+                    p.DeclaringType.GetGenericTypeDefinition().GetProperty(p.Name,
+                        BindingFlags.Public
+                        ||| BindingFlags.NonPublic
+                        ||| BindingFlags.Static
+                        ||| BindingFlags.Instance)
+                if p = null then
+                    nullArg "p"
+                p
+            with _ -> p
+        else p
+
     let ConvertConstructor (c: ConstructorInfo) : Q.Concrete<CR.Constructor> =
         let tD = CR.TypeDefinition.FromType c.DeclaringType
         makeSignature (c.GetParameters())
@@ -487,12 +502,13 @@ module QuotationUtils =
         CR.Field.Create tD f.Name
         |> makeConcrete f.DeclaringType []
 
-    let ConvertProperty (p: PropertyInfo) : Q.Concrete<CR.Property> =
-        let tD = CR.TypeDefinition.FromType p.DeclaringType
+    let ConvertProperty (info: PropertyInfo) : Q.Concrete<CR.Property> =
+        let tD = CR.TypeDefinition.FromType info.DeclaringType
+        let p = GeneralizeProperty info
         let ty = CR.Type.FromType p.PropertyType
         let pSig = makeSignature (p.GetIndexParameters())
-        CR.Property.Create tD p.Name ty pSig
-        |> makeConcrete p.DeclaringType []
+        CR.Property.Create tD info.Name ty pSig
+        |> makeConcrete info.DeclaringType []
 
     let ConvertUnionCase (uci: Reflection.UnionCaseInfo) : Q.Concrete<CR.UnionCase> =
         let tD = CR.TypeDefinition.FromType uci.DeclaringType
