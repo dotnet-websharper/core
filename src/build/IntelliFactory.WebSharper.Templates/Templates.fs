@@ -28,43 +28,15 @@ open System.Text.RegularExpressions
 open System.Xml
 open System.Xml.Linq
 
-module Utility =
-
-    let ReadStream (s: Stream) =
-        use m = new MemoryStream()
-        s.CopyTo(m)
-        m.ToArray()
-
 type LocalSource =
     {
+        FileSet : FileSet
         TargetsFile : string
-        TemplatesDirectory : string
     }
-
-    static member Create(root) =
-        {
-            TargetsFile = Path.Combine(root, "build", "WebSharper.targets")
-            TemplatesDirectory = Path.Combine(root, "templates")
-        }
 
 type NuGetPackage =
     | PkgBytes of byte[]
     | PkgLatestPublic
-
-    static member FromBytes(bytes) =
-        Array.copy bytes
-        |> PkgBytes
-
-    static member FromFile(path) =
-        File.ReadAllBytes(path)
-        |> PkgBytes
-
-    static member FromStream(s: Stream) =
-        Utility.ReadStream s
-        |> PkgBytes
-
-    static member LatestPublic() =
-        PkgLatestPublic
 
 type NuGetSource =
     {
@@ -72,18 +44,9 @@ type NuGetSource =
         PackagesDirectory : string
     }
 
-    static member Create() =
-        {
-            NuGetPackage = NuGetPackage.LatestPublic()
-            PackagesDirectory = "packages"
-        }
-
 type Source =
     | SLocal of LocalSource
     | SNuGet of NuGetSource
-
-    static member Local(s) = SLocal s
-    static member NuGet(s) = SNuGet s
 
 type InitOptions =
     {
@@ -92,149 +55,123 @@ type InitOptions =
         Source : Source
     }
 
-    static member Create() =
-        let source = Source.NuGet(NuGetSource.Create())
-        {
-            Directory = "."
-            ProjectName = "MyProject"
-            Source = source
-        }
+type Template =
+    | T of string
 
 [<AutoOpen>]
-module TemplateUtility =
+module Implementation =
 
-    let isFile path =
-        FileInfo(path).Exists
-
-    let isDir path =
-        DirectoryInfo(path).Exists
-
-    let notDir path =
-        not (isDir path)
-
-    let notFile path =
-        not (isFile path)
-
-    let checkNuGetOpts opts =
-        if isFile opts.PackagesDirectory then
+    let CheckNuGetOpts opts =
+        if IsFile opts.PackagesDirectory then
             [sprintf "Invalid PackagesDirectory: %s" opts.PackagesDirectory]
         else []
 
-    let checkSource src =
+    let CheckSource src =
         match src with
         | SLocal loc ->
             [
-                if notFile loc.TargetsFile then
+                if NotFile loc.TargetsFile then
                     yield sprintf "WebSharper.targets not found at %s" loc.TargetsFile
-                if notDir loc.TemplatesDirectory then
-                    yield sprintf "TemplatesDirectory is not found: %s" loc.TemplatesDirectory
             ]
         | _ -> []
 
-    let complain fmt =
+    let Complain fmt =
         Printf.ksprintf (fun str -> "TemplateOptions: " + str) fmt
 
-    let check opts =
+    let Check opts =
         [
-            yield! checkSource opts.Source
-            if isFile opts.Directory then
+            yield! CheckSource opts.Source
+            if IsFile opts.Directory then
                 yield sprintf "Specified InitOptions.Directory is a file: %s" opts.Directory
         ]
 
-    let unsafeChars =
+    let UnsafeChars =
         Regex("[^_0-9a-zA-Z]")
 
-    let clean str =
+    let Clean str =
         match str with
         | null | "" -> "MyProject"
         | str ->
-            let str = unsafeChars.Replace(str, "_")
+            let str = UnsafeChars.Replace(str, "_")
             if Char.IsDigit(str.[0]) then
                 "_" + str
             else
                 str
 
-    let ensureDir path =
-        if notDir path then
-            Directory.CreateDirectory(path) |> ignore
-
-    let prepare opts =
-        match check opts with
+    let Prepare opts =
+        match Check opts with
         | [] ->
-            ensureDir opts.Directory
-            {
-                opts with
-                    ProjectName = clean opts.ProjectName
-            }
+            EnsureDir opts.Directory
+            { opts with ProjectName = Clean opts.ProjectName }
         | errors ->
             failwith (String.concat Environment.NewLine errors)
 
-    let isTextFile path =
+    let IsTextFile path =
         match Path.GetExtension(path) with
         | ".asax" | ".config" | ".cs" | ".csproj"
         | ".files" | ".fs" | ".fsproj" | ".fsx" -> true
         | _ -> false
 
-    let neutralEncoding =
+    let NeutralEncoding =
         let bom = false
         UTF8Encoding(bom, throwOnInvalidBytes = true) :> Encoding
 
-    let copyTextFile source target =
+    let CopyTextFile source target =
         let lines = File.ReadAllLines(source)
-        File.WriteAllLines(target, lines, neutralEncoding)
+        File.WriteAllLines(target, lines, NeutralEncoding)
 
-    let copyFile src tgt =
-        if isTextFile src then
-            copyTextFile src tgt
+    let CopyFile src tgt =
+        if IsTextFile src then
+            CopyTextFile src tgt
         else
             File.Copy(src, tgt)
 
-    let rec copyDir src tgt =
-        ensureDir tgt
+    let rec CopyDir src tgt =
+        EnsureDir tgt
         for d in Directory.EnumerateDirectories(src) do
-            copyDir d (Path.Combine(tgt, Path.GetFileName(d)))
+            CopyDir d (Path.Combine(tgt, Path.GetFileName(d)))
         for f in Directory.EnumerateFiles(src) do
-            copyFile f (Path.Combine(tgt, Path.GetFileName(f)))
+            CopyFile f (Path.Combine(tgt, Path.GetFileName(f)))
 
-    let replace (a: string) (b: string) (main: string) =
+    let Replace (a: string) (b: string) (main: string) =
         main.Replace(a, b)
 
-    let isProjectFile path =
+    let IsProjectFile path =
         match Path.GetExtension(path) with
         | ".csproj" | ".fsproj" -> true
         | _ -> false
 
-    let moveProjectFile opts path =
-        if isProjectFile path then
+    let MoveProjectFile opts path =
+        if IsProjectFile path then
             let ext = Path.GetExtension(path)
             let tgt = Path.Combine(Path.GetDirectoryName(path), opts.ProjectName + ext)
             File.Move(path, tgt)
 
-    let all opts =
+    let All opts =
         Directory.EnumerateFiles(opts.Directory, "*.*", SearchOption.AllDirectories)
 
-    let moveProjectFiles opts =
-        let projFiles = all opts |> Seq.filter isProjectFile |> Seq.toArray
+    let MoveProjectFiles opts =
+        let projFiles = All opts |> Seq.filter IsProjectFile |> Seq.toArray
         for p in projFiles do
-            moveProjectFile opts p
+            MoveProjectFile opts p
 
-    let freshGuid () =
+    let FreshGuid () =
         Guid.NewGuid().ToString()
 
-    let expandVariables opts path =
-        if isTextFile path then
+    let ExpandVariables opts path =
+        if IsTextFile path then
             let t =
                 File.ReadAllText(path)
-                |> replace "$guid1$" (freshGuid ())
-                |> replace "$guid2$" (freshGuid ())
-                |> replace "$safeprojectname$" opts.ProjectName
-            File.WriteAllText(path, t, neutralEncoding)
+                |> Replace "$guid1$" (FreshGuid ())
+                |> Replace "$guid2$" (FreshGuid ())
+                |> Replace "$safeprojectname$" opts.ProjectName
+            File.WriteAllText(path, t, NeutralEncoding)
 
-    let expandAllVariables opts =
-        for p in all opts do
-            expandVariables opts p
+    let ExpandAllVariables opts =
+        for p in All opts do
+            ExpandVariables opts p
 
-    let relPath baseDir path =
+    let RelPath baseDir path =
         let baseDir = Path.GetFullPath(baseDir)
         let path = Path.GetFullPath(path)
         let chars = [| Path.AltDirectorySeparatorChar; Path.DirectorySeparatorChar |]
@@ -254,8 +191,8 @@ module TemplateUtility =
                 |> String.concat "/"
         loop (split baseDir) (split path)
 
-    let installTargetsTo targets p =
-        let relPath = relPath (Path.GetDirectoryName(p)) targets
+    let InstallTargetsTo targets p =
+        let relPath = RelPath (Path.GetDirectoryName(p)) targets
         let doc = XDocument.Parse(File.ReadAllText(p))
         let ns = doc.Root.Name.Namespace
         let imp = ns.GetName("Import")
@@ -270,10 +207,10 @@ module TemplateUtility =
             el.SetAttributeValue(proj, relPath)
             doc.Root.Add(el)
         let str = doc.ToString()
-        File.WriteAllText(p, doc.ToString(), neutralEncoding)
-        File.WriteAllLines(p, File.ReadAllLines(p), neutralEncoding)
+        File.WriteAllText(p, doc.ToString(), NeutralEncoding)
+        File.WriteAllLines(p, File.ReadAllLines(p), NeutralEncoding)
 
-    let installNuGet (nuget: NuGetSource) =
+    let InstallNuGet (nuget: NuGetSource) =
         let ws =
             match nuget.NuGetPackage with
             | PkgLatestPublic ->
@@ -284,33 +221,76 @@ module TemplateUtility =
         ws.Install(path)
         path
 
-    let initSource src =
+    let CreateLocalSource root =
+        {
+            FileSet = FileSet.FromZipFile(Path.Combine(root, "templates/templates.zip"))
+            TargetsFile = Path.Combine(root, "build", "WebSharper.targets")
+        }
+
+    let InitSource src =
         match src with
         | SLocal local -> local
         | SNuGet nuget ->
-            installNuGet nuget
-            |> LocalSource.Create
+            InstallNuGet nuget
+            |> CreateLocalSource
 
-    let installTargets opts local =
-        for p in all opts do
-            if isProjectFile p then
-                installTargetsTo local.TargetsFile p
+    let InstallTargets opts local =
+        for p in All opts do
+            if IsProjectFile p then
+                InstallTargetsTo local.TargetsFile p
 
-    let init id opts =
-        let opts = prepare opts
-        let local = initSource opts.Source
-        let sourceDir = Path.Combine(local.TemplatesDirectory, id)
-        let targetDir = opts.Directory
-        copyDir sourceDir targetDir
-        moveProjectFiles opts
-        expandAllVariables opts
-        installTargets opts local
+    let Init id opts =
+        let opts = Prepare opts
+        let local = InitSource opts.Source
+        local.FileSet.[id].Populate(opts.Directory)
+        MoveProjectFiles opts
+        ExpandAllVariables opts
+        InstallTargets opts local
 
-[<Sealed>]
-type Template(id: string) =
+type NuGetPackage with
 
-    member this.Init(opts) =
-        init id opts
+    static member FromBytes(bytes) =
+        Array.copy bytes |> PkgBytes
+
+    static member FromFile(path) =
+        File.ReadAllBytes(path) |> PkgBytes
+
+    static member FromStream(s: Stream) =
+        ReadStream s |> PkgBytes
+
+    static member LatestPublic() =
+        PkgLatestPublic
+
+type Source with
+    static member Local(s) = SLocal s
+    static member NuGet(s) = SNuGet s
+
+type LocalSource with
+    static member Create(root) = CreateLocalSource root
+
+type NuGetSource with
+
+    static member Create() =
+        {
+            NuGetPackage = NuGetPackage.LatestPublic()
+            PackagesDirectory = "packages"
+        }
+
+type InitOptions with
+
+    static member Create() =
+        let source = Source.NuGet(NuGetSource.Create())
+        {
+            Directory = "."
+            ProjectName = "MyProject"
+            Source = source
+        }
+
+type Template with
+
+    member t.Init(opts) =
+        match t with
+        | T t -> Init t opts
 
     static member All =
         [
@@ -322,10 +302,10 @@ type Template(id: string) =
             Template.SiteletsWebsite
         ]
 
-    static member BundleWebsite = Template("bundle-website")
-    static member Extension = Template("extension")
-    static member Library = Template("library")
-    static member SiteletsHost = Template("sitelets-host")
-    static member SiteletsHtml = Template("sitelets-html")
-    static member SiteletsWebsite = Template("sitelets-website")
+    static member BundleWebsite = T("bundle-website")
+    static member Extension = T("extension")
+    static member Library = T("library")
+    static member SiteletsHost = T("sitelets-host")
+    static member SiteletsHtml = T("sitelets-html")
+    static member SiteletsWebsite = T("sitelets-website")
 

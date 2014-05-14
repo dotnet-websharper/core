@@ -101,7 +101,7 @@ module Main =
         ]
         |> Seq.toList
 
-    let private nuPkg =
+    let private nuPkg () =
         let nuPkg =
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
@@ -136,18 +136,41 @@ module Main =
                         yield file (Path.Combine(fscore, "FSharp.Core.sigdata")) None
                         for (src, tgt) in searchDir (Path.Combine(root, "docs")) do
                             yield fileAt src ("/docs" + tgt)
-                        for (src, tgt) in searchDir (Path.Combine(root, "templates")) do
-                            yield fileAt src ("/templates" + tgt)
+                        yield fileAt "build/templates.zip" "/templates/templates.zip"
                     }
         }
+
+    let BuildTemplatesZip () =
+        use zip = SharpCompress.Archive.Zip.ZipArchive.Create()
+        let dir = DirectoryInfo("templates")
+        for f in dir.EnumerateFiles("*.*", SearchOption.AllDirectories) do
+            zip.AddEntry(f.FullName.Replace(dir.FullName, ""), f)
+        let ci = SharpCompress.Common.CompressionInfo()
+        ci.Type <- SharpCompress.Common.CompressionType.Deflate
+        Directory.CreateDirectory("build") |> ignore
+        use out = File.OpenWrite("build/templates.zip")
+        zip.SaveTo(out, ci)
+
+    let Package () =
+        let nuPkg = nuPkg ()
+        let sln = bt.Solution [nuPkg]
+        sln.Build()
+        configureVSI nuPkg
+        |> VSI.BuildVsixFile
 
     [<EntryPoint>]
     let Start args =
         try
-            let sln = bt.Solution [nuPkg]
-            sln.Build()
-            configureVSI nuPkg
-            |> VSI.BuildVsixFile
+            match Seq.toList args with
+            | ["minify"] | ["prepare"] ->
+                Minify.Run()
+                BuildTemplatesZip ()
+            | ["package"] -> Package ()
+            | _ ->
+                printfn "Known commands:"
+                printfn "  minify"
+                printfn "  package"
+                printfn "  prepare"
             0
         with e ->
             stderr.WriteLine(e)

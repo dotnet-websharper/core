@@ -6,14 +6,18 @@
     <SP Include="../src/formlets/*/*.fsproj" />
     <SP Include="../src/sitelets/*/*.fsproj" />
     <SP Include="../tests/*/*.fsproj" />
-    <BP Include="../src/build/IntelliFactory.WebSharper.Templates/*.fsproj" />
     <BP Include="../src/build/IntelliFactory.WebSharper.Build/*.fsproj" />
   </ItemGroup>
-  <Target Name="Build">
+  <Target Name="Dispatch" Condition="'$(Arguments)' != ''">
+    <MSBuild Projects="@(BP)" Properties="Arguments=$(Arguments)"/>
+  </Target>
+  <Target Name="FullBuild" Condition="'$(Arguments)' == ''">
+    <MSBuild Projects="@(BP)" Properties="Arguments=prepare"/>
     <MSBuild Projects="@(CP)" />
     <MSBuild Projects="@(SP)" />
-    <MSBuild Projects="@(BP)" />
+    <MSBuild Projects="@(BP)" Properties="Arguments=package"/>
   </Target>
+  <Target Name="Build" DependsOnTargets="Dispatch;FullBuild" />
   <Target Name="Clean">
     <MSBuild Projects="@(CP);@(SP);@(BP)" Targets="Clean" />
   </Target>

@@ -27,11 +27,11 @@ open System.IO
 /// Configures local WebSharper installation.
 type LocalSource =
     {
+        /// FileSet with all template files.
+        FileSet : FileSet
+
         /// Path to WebSharper.targets
         TargetsFile : string
-
-        /// Path to templates directory.
-        TemplatesDirectory : string
     }
 
     /// Creates default source using standard layout under root.

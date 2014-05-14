@@ -21,15 +21,29 @@
 
 namespace IntelliFactory.WebSharper.Templates
 
-open IntelliFactory.WebSharper
+open System
+open System.IO
 
-/// Re-export all types so that F# users can say:
-/// module T = IntelliFactory.WebSharper.Templates.All
-module All =
-    type FileSet = Templates.FileSet
-    type InitOptions = Templates.InitOptions
-    type LocalSource = Templates.LocalSource
-    type NuGetPackage = Templates.NuGetPackage
-    type NuGetSource = Templates.NuGetSource
-    type Source = Templates.Source
-    type Template = Templates.Template
+[<AutoOpen>]
+module internal Utility =
+
+    let ReadStream (s: Stream) =
+        use m = new MemoryStream()
+        s.CopyTo(m)
+        m.ToArray()
+
+    let IsFile path =
+        FileInfo(path).Exists
+
+    let IsDir path =
+        DirectoryInfo(path).Exists
+
+    let NotDir path =
+        not (IsDir path)
+
+    let NotFile path =
+        not (IsFile path)
+
+    let EnsureDir path =
+        if NotDir path then
+            Directory.CreateDirectory(path) |> ignore
