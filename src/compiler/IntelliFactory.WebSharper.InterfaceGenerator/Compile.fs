@@ -433,7 +433,7 @@ type MemberConverter
                 yield mB.BuildParamArrayParameter(tC.TypeReference pa)
         |]
 
-    let methodAttributes(x: Code.Entity) =
+    let methodAttributes (dt: TypeDefinition) (x: Code.Entity) =
         let accessAttrs =
             match x.AccessModifier with
             | Code.AccessModifier.Private ->
@@ -449,6 +449,7 @@ type MemberConverter
         match x with
         | :? Code.Constructor -> accessAttrs
         | :? Code.Member as m when m.IsStatic -> MethodAttributes.Static ||| accessAttrs
+        | _ when dt.IsInterface -> accessAttrs ||| MethodAttributes.Abstract ||| MethodAttributes.Virtual
         | _ -> accessAttrs
 
     let addConstructor (dT: TypeDefinition) (td: Code.TypeDeclaration) (x: Code.Constructor) =
@@ -459,8 +460,8 @@ type MemberConverter
         for t in overloads do
             match t with
             | Type.FunctionType f ->
-                let attrs = methodAttributes x
-                let cD = mB.BuildConstructor(methodAttributes x)
+                let attrs = methodAttributes dT x
+                let cD = mB.BuildConstructor(methodAttributes dT x)
                 iG.GetMethodBaseInline(td, t, x)
                 |> inlineAttribute
                 |> cD.CustomAttributes.Add
@@ -487,7 +488,7 @@ type MemberConverter
             | None -> ()
             | Some c -> comments.[pD] <- c
         if p.HasGetter then
-            let mD = MethodDefinition("get_" + name, methodAttributes p, ty)
+            let mD = MethodDefinition("get_" + name, methodAttributes dT p, ty)
             if not dT.IsInterface then
                 mB.AddBody mD
                 iG.GetPropertyGetterInline(td, p)
@@ -496,7 +497,7 @@ type MemberConverter
             dT.Methods.Add mD
             pD.GetMethod <- mD
         if p.HasSetter then
-            let mD = MethodDefinition("set_" + name, methodAttributes p, tB.Void)
+            let mD = MethodDefinition("set_" + name, methodAttributes dT p, tB.Void)
             if not dT.IsInterface then
                 mB.AddBody mD
                 iG.GetPropertySetterInline(td, p)
@@ -532,7 +533,7 @@ type MemberConverter
             match t with
             | Type.FunctionType f ->
                 let name = iG.GetSourceName x
-                let attrs = methodAttributes x
+                let attrs = methodAttributes dT x
                 let mD = MethodDefinition(name, attrs, tB.Object)
                 do
                     match x.Comment with
@@ -981,13 +982,16 @@ type Compiler() =
                 types.[getId x] <- tD
                 parent.NestedTypes.Add tD
             | _ -> ()
+        let interf =
+            TypeAttributes.Interface
+            ||| TypeAttributes.Abstract
         assembly
         |> visit
             (build TypeAttributes.Class)
-            (build TypeAttributes.Interface)
+            (build interf)
             (build TypeAttributes.Class)
             (buildNested TypeAttributes.Class)
-            (buildNested TypeAttributes.Interface)
+            (buildNested interf)
         types
 
     let findFSharpCoreFullName options =
