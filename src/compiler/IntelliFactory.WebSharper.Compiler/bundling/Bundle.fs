@@ -21,6 +21,7 @@
 
 namespace IntelliFactory.WebSharper.Compiler
 
+module CT = IntelliFactory.WebSharper.Core.ContentTypes
 module JS = IntelliFactory.JavaScript.Syntax
 module M = IntelliFactory.WebSharper.Core.Metadata
 module Re = IntelliFactory.WebSharper.Core.Reflection
@@ -97,13 +98,13 @@ type Bundle(set: list<Assembly>) =
             | BundleMode.TypeScript -> a.TypeScriptDeclarations
             | _ -> None
             |> Option.iter (fun t -> writer.WriteLine(t))
-        let renderWebResource (name: string) (cType: string) (c: string) =
-            match cType.ToLower(), mode with
-            | "text/javascript", BundleMode.JavaScript
-            | "text/javascript", BundleMode.MinifiedJavaScript ->
+        let renderWebResource (name: string) cType (c: string) =
+            match cType, mode with
+            | CT.JavaScript, BundleMode.JavaScript
+            | CT.JavaScript, BundleMode.MinifiedJavaScript ->
                 writer.Write(c)
                 writer.WriteLine(";")
-            | "text/css", BundleMode.CSS ->
+            | CT.Css, BundleMode.CSS ->
                 writer.WriteLine(c)
             | _ -> ()
         let ctx : Res.Context =

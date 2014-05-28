@@ -35,6 +35,7 @@ open IntelliFactory.Core
 open IntelliFactory.WebSharper.Core
 
 module Code = IntelliFactory.WebSharper.InterfaceGenerator.CodeModel
+module CT = IntelliFactory.WebSharper.Core.ContentTypes
 module R = IntelliFactory.WebSharper.Core.Reflection
 module Ty = IntelliFactory.WebSharper.InterfaceGenerator.Type
 
@@ -396,6 +397,74 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     member c.RequireAttributeConstructor = requireAttributeConstructor
     member c.ObsoleteAttributeConstructor = obsoleteAttributeConstructor
 
+type CompilationKind =
+    | LibraryKind
+    | ConsoleKind
+    | WindowsKind
+
+    static member Library = LibraryKind
+    static member Console = ConsoleKind
+    static member Windows = WindowsKind
+
+type CompilerOptions =
+    {
+        AssemblyName : string
+        AssemblyResolver : option<AssemblyResolver>
+        AssemblyVersion : Version
+        DocPath : option<string>
+        EmbeddedResources : seq<string>
+        Kind : CompilationKind
+        OutputPath : option<string>
+        ProjectDir : string
+        ReferencePaths : seq<string>
+        StrongNameKeyPair : option<StrongNameKeyPair>
+    }
+
+    static member Default(name) =
+        {
+            AssemblyName = name
+            AssemblyResolver = None
+            AssemblyVersion = Version(0, 0)
+            DocPath = None
+            EmbeddedResources = Seq.empty
+            Kind = LibraryKind
+            OutputPath = None
+            ProjectDir = "."
+            ReferencePaths = Seq.empty
+            StrongNameKeyPair = None
+        }
+
+    static member Parse args =
+        let (|S|_|) (prefix: string) (x: string) =
+            if x.StartsWith(prefix) then Some (x.Substring(prefix.Length)) else None
+        (CompilerOptions.Default("Assembly"), args)
+        ||> Seq.fold (fun opts arg ->
+            match arg with
+            | S "-n:" name ->
+                { opts with AssemblyName = name }
+            | S "-v:" ver ->
+                { opts with AssemblyVersion = Version.Parse ver }
+            | S "-snk:" path ->
+                let snk = StrongNameKeyPair(File.ReadAllBytes path)
+                { opts with StrongNameKeyPair = Some snk }
+            | S "-embed:" path ->
+                { opts with EmbeddedResources = Seq.append opts.EmbeddedResources [path] }
+            | S "-o:" out ->
+                { opts with OutputPath = Some out }
+            | S "-doc:" doc ->
+                { opts with DocPath = Some doc }
+            | S "-r:" ref ->
+                let rps = Seq.toArray (Seq.append opts.ReferencePaths [ref])
+                { opts with ReferencePaths = rps :> seq<_> }
+            | "-console" ->
+                { opts with Kind = CompilationKind.Console }
+            | "-library" ->
+                { opts with Kind = CompilationKind.Library }
+            | "-windows" ->
+                { opts with Kind = CompilationKind.Windows }
+            | _ ->
+                opts)
+
 [<Sealed>]
 type MemberConverter
         (
@@ -405,7 +474,8 @@ type MemberConverter
             types: Types,
             iG: InlineGenerator,
             def: AssemblyDefinition,
-            comments: Comments
+            comments: Comments,
+            compilerOptions: CompilerOptions
         ) =
 
     let inlineAttribute (code: string) =
@@ -421,7 +491,7 @@ type MemberConverter
     let obsoleteAttribute = CustomAttribute(mB.ObsoleteAttributeConstructor)
 
     let withGenerics gs =
-        MemberConverter(tB, mB, tC.WithGenerics gs, types, iG, def, comments)
+        MemberConverter(tB, mB, tC.WithGenerics gs, types, iG, def, comments, compilerOptions)
 
     let makeParameters (f: Type.Function) =
         Seq.ofArray [|
@@ -615,6 +685,17 @@ type MemberConverter
     member c.Resource(r: Code.Resource) =
         match types.TryGetValue(r.Id) with
         | true, tD ->
+            /// recognize embedded resources here.
+            do
+                match r.Paths with
+                | [p] when
+                    compilerOptions.EmbeddedResources
+                    |> Seq.exists ((=) p) ->
+                        let f = Path.Combine(compilerOptions.ProjectDir, r.Name)
+                        if File.Exists(f) then
+                            EmbeddedResource(Path.GetFileName(f), ManifestResourceAttributes.Public, File.ReadAllBytes(f))
+                            |> def.MainModule.Resources.Add
+                | _ -> ()
             c.AddDependencies(r, tD)
             if r.IsAssemblyWide then
                 def.CustomAttributes.Add(requireAttribute tD)
@@ -651,15 +732,6 @@ type MemberConverter
                 ctor.Body <- body
                 tD.Methods.Add ctor
         | _ -> ()
-
-type CompilationKind =
-    | LibraryKind
-    | ConsoleKind
-    | WindowsKind
-
-    static member Library = LibraryKind
-    static member Console = ConsoleKind
-    static member Windows = WindowsKind
 
 [<Sealed>]
 type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
@@ -754,63 +826,6 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
 
     member g.Generate(fileName: string) =
         generate fileName
-
-type CompilerOptions =
-    {
-        AssemblyName : string
-        AssemblyResolver : option<AssemblyResolver>
-        AssemblyVersion : Version
-        DocPath : option<string>
-        EmbeddedResources : seq<string>
-        Kind : CompilationKind
-        OutputPath : option<string>
-        ReferencePaths : seq<string>
-        StrongNameKeyPair : option<StrongNameKeyPair>
-    }
-
-    static member Default name =
-        {
-            AssemblyName = name
-            AssemblyResolver = None
-            AssemblyVersion = Version(0, 0)
-            DocPath = None
-            EmbeddedResources = Seq.empty
-            Kind = LibraryKind
-            OutputPath = None
-            ReferencePaths = Seq.empty
-            StrongNameKeyPair = None
-        }
-
-    static member Parse args =
-        let (|S|_|) (prefix: string) (x: string) =
-            if x.StartsWith(prefix) then Some (x.Substring(prefix.Length)) else None
-        (CompilerOptions.Default "Assembly", args)
-        ||> Seq.fold (fun opts arg ->
-            match arg with
-            | S "-n:" name ->
-                { opts with AssemblyName = name }
-            | S "-v:" ver ->
-                { opts with AssemblyVersion = Version.Parse ver }
-            | S "-snk:" path ->
-                let snk = StrongNameKeyPair(File.ReadAllBytes path)
-                { opts with StrongNameKeyPair = Some snk }
-            | S "-embed:" path ->
-                { opts with EmbeddedResources = Seq.append opts.EmbeddedResources [path] }
-            | S "-o:" out ->
-                { opts with OutputPath = Some out }
-            | S "-doc:" doc ->
-                { opts with DocPath = Some doc }
-            | S "-r:" ref ->
-                let rps = Seq.toArray (Seq.append opts.ReferencePaths [ref])
-                { opts with ReferencePaths = rps :> seq<_> }
-            | "-console" ->
-                { opts with Kind = CompilationKind.Console }
-            | "-library" ->
-                { opts with Kind = CompilationKind.Library }
-            | "-windows" ->
-                { opts with Kind = CompilationKind.Windows }
-            | _ ->
-                opts)
 
 [<Sealed>]
 type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: CompilerOptions) =
@@ -1021,7 +1036,7 @@ type Compiler() =
         let tB = TypeBuilder(resolver, def, findFSharpCoreFullName options)
         let tC = TypeConverter(tB, types)
         let mB = MemberBuilder(tB, def)
-        let mC = MemberConverter(tB, mB, tC, types, iG, def, comments)
+        let mC = MemberConverter(tB, mB, tC, types, iG, def, comments, options)
         assembly
         |> visit
             (fun _ c -> mC.Class c)
@@ -1037,15 +1052,17 @@ type Compiler() =
             def.CustomAttributes.Add(mB.BuildWebResourceAttribute(name, mime))
         for r in def.MainModule.Resources do
             if r.IsPublic then
-                match r.Name.ToLower() with
-                | x when x.EndsWith(".js") -> addResource r.Name "text/javascript"
-                | x when x.EndsWith(".css") -> addResource r.Name "text/css"
-                | _ -> ()
+                match CT.TryGuessByFileName r.Name with
+                | Some (CT.JavaScript as res) ->
+                    addResource r.Name res.Text
+                | Some (CT.Css as res) ->
+                    addResource r.Name res.Text
+                | _ -> () // TODO: correct here?
 
     member c.Compile(resolver, options, assembly, ?originalAssembly: Assembly) =
         let (def, comments, mB) = buildAssembly resolver options assembly
         for f in options.EmbeddedResources do
-            EmbeddedResource(Path.GetFileName f, ManifestResourceAttributes.Public, File.ReadAllBytes f)
+            EmbeddedResource(Path.GetFileName(f), ManifestResourceAttributes.Public, File.ReadAllBytes(f))
             |> def.MainModule.Resources.Add
         addResourceExports mB def
         let doc = XmlDocGenerator(def, comments)

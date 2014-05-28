@@ -21,12 +21,14 @@
 
 namespace IntelliFactory.WebSharper.Compiler
 
+module CT = IntelliFactory.WebSharper.Core.ContentTypes
+
 type EmbeddedFile =
     {
         ResAssembly : string
         mutable ResContent : string
         ResContentBytes : byte []
-        ResContentType : string
+        ResContentType : CT.ContentType
         ResName : string
     }
 
@@ -59,5 +61,5 @@ type EmbeddedFile =
 
     member ri.IsScript =
         match ri.ResContentType with
-        | "text/javascript" -> true
+        | CT.JavaScript -> true
         | _ -> false

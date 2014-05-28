@@ -28,6 +28,7 @@
   <Target Name="WebSharperBundle" AfterTargets="Build" DependsOnTargets="WebSharperComputeReferences">
     <WebSharperTask Command="Bundle" ItemInput="$(TargetPath);@(ReferencePath)"
       Configuration="$(Configuration)"
+      EmbeddedResources="@(EmbeddedResource)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(Name)"
@@ -40,6 +41,7 @@
   <Target Name="WebSharperClean" AfterTargets="Clean">
     <WebSharperTask Command="Clean" ItemInput="@(IntermediateAssembly)"
       Configuration="$(Configuration)"
+      EmbeddedResources="@(EmbeddedResource)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(Name)"
@@ -52,6 +54,7 @@
   <Target Name="WebSharperCompile" AfterTargets="CoreCompile" DependsOnTargets="WebSharperComputeReferences">
     <WebSharperTask Command="Compile" ItemInput="@(IntermediateAssembly);@(ReferencePath)"
       Configuration="$(Configuration)"
+      EmbeddedResources="@(EmbeddedResource)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(Name)"
@@ -64,6 +67,7 @@
   <Target Name="WebSharperComputeReferences" BeforeTargets="CoreCompile;CopyFilesMarkedCopyLocal" DependsOnTargets="ResolveReferences">
     <WebSharperTask Command="ComputeReferences" ItemInput="@(ReferencePath)"
       Configuration="$(Configuration)"
+      EmbeddedResources="@(EmbeddedResource)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(Name)"
@@ -79,6 +83,7 @@
   <Target Name="WebSharperHtml" AfterTargets="Build" DependsOnTargets="WebSharperComputeReferences">
     <WebSharperTask Command="Html" ItemInput="$(TargetPath);@(ReferencePath)"
       Configuration="$(Configuration)"
+      EmbeddedResources="@(EmbeddedResource)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(Name)"
@@ -91,6 +96,7 @@
   <Target Name="WebSharperUnpack" AfterTargets="Build">
     <WebSharperTask Command="Unpack"
       Configuration="$(Configuration)"
+      EmbeddedResources="@(EmbeddedResource)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(Name)"

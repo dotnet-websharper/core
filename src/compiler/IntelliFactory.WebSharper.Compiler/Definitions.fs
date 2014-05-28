@@ -22,6 +22,7 @@
 /// Defines types that are too simple to deserve a dedicated file.
 namespace IntelliFactory.WebSharper.Compiler
 
+module CT = IntelliFactory.WebSharper.Core.ContentTypes
 module Res = IntelliFactory.WebSharper.Core.Resources
 
 /// Represents the priority of the error messages.
@@ -100,7 +101,7 @@ type MemberScope =
 type ResourceContent =
     {
         Content : string
-        ContentType : string
+        ContentType : CT.ContentType
         Name : string
     }
 

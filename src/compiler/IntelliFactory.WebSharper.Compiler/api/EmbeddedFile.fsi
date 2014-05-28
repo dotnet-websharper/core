@@ -21,6 +21,8 @@
 
 namespace IntelliFactory.WebSharper.Compiler
 
+module CT = IntelliFactory.WebSharper.Core.ContentTypes
+
 /// Represents embedded resource files.
 [<Sealed>]
 type EmbeddedFile =
@@ -32,7 +34,7 @@ type EmbeddedFile =
     member Content : string
 
     /// The mime content type.
-    member ContentType : string
+    member ContentType : CT.ContentType
 
     /// The file name.
     member FileName : string
@@ -44,5 +46,5 @@ type EmbeddedFile =
         assemblyFullName: string
         * resourceName: string
         * bytes: byte[]
-        * contentType: string ->
+        * contentType: CT.ContentType ->
         EmbeddedFile

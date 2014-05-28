@@ -21,6 +21,11 @@
 
 namespace IntelliFactory.WebSharper.Compiler
 
+open System
+open System.IO
+open System.Web
+open System.Web.UI
+module CT = IntelliFactory.WebSharper.Core.ContentTypes
 module M = IntelliFactory.WebSharper.Core.Metadata
 
 module internal Utility =
@@ -35,32 +40,39 @@ module internal Utility =
             Some (r.ReadToEnd()))
 
     /// Like `ReadResourceFromAssembly`, but checks if it is marked as WebResource.
-    /// Returns a tuple of resource contents and its content-type.
+    /// First consults if the resource has been marked with WebResourceAttribute, and if yes,
+    /// uses the annotation to determine content type.
+    /// Otherwise, tries to guess content-type from filename.
     let ReadWebResource (ty: Type) (name: string) =
         try
             let content = defaultArg (ReadResourceFromAssembly ty name) ""
             let contentType =
-                let cT =
+                let explicit =
                     CustomAttributeData.GetCustomAttributes(ty.Assembly)
                     |> Seq.tryPick (fun attr ->
-                        if attr.Constructor.DeclaringType = typeof<System.Web.UI.WebResourceAttribute> then
+                        if attr.Constructor.DeclaringType = typeof<WebResourceAttribute> then
                             match [for a in attr.ConstructorArguments -> a.Value] with
                             | [(:? string as n); (:? string as contentType)] ->
-                                if n.Contains(name)
-                                    then Some contentType
+                                if n.Contains(name) // TODO: better checking here.
+                                    then Some (CT.Parse contentType)
                                     else None
                             | _ -> None
                         else None)
-                defaultArg cT "text/plain"
+                match explicit with
+                | None ->
+                    match CT.TryGuessByFileName name with
+                    | None -> CT.Text.Plain
+                    | Some cT -> cT
+                | Some cT -> cT
             (content, contentType)
         with e ->
-            ("", "text/plain")
+            ("", CT.Text.Plain)
 
     /// Writes WebSharper startup code to a text writer.
     let WriteStartCode (withScript: bool) (writer: TextWriter) =
         writer.WriteLine()
         if withScript then
-            writer.WriteLine("<script type='text/javascript'>")
+            writer.WriteLine("<script type='{0}'>", CT.Text.JavaScript.Text)
         writer.WriteLine @"if (typeof IntelliFactory !=='undefined')"
         writer.WriteLine @"  IntelliFactory.Runtime.Start();"
         if withScript then

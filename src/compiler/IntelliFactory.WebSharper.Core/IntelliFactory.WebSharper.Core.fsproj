@@ -18,6 +18,7 @@
     <Compile Include="Reflection.fs" />
     <Compile Include="Quotations.fsi" />
     <Compile Include="Quotations.fs" />
+    <Compile Include="ContentTypes.fs" />
     <Compile Include="Resources.fsi" />
     <Compile Include="Resources.fs" />
     <Compile Include="Binary.fsi" />

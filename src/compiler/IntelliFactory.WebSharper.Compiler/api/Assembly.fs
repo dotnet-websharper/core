@@ -21,6 +21,8 @@
 
 namespace IntelliFactory.WebSharper.Compiler
 
+module CT = IntelliFactory.WebSharper.Core.ContentTypes
+
 [<AutoOpen>]
 module AssemblyUtility =
 
@@ -72,7 +74,7 @@ module AssemblyUtility =
                     | [StringArg resourceName; StringArg contentType] ->
                         ReadResourceBytes resourceName def
                         |> Option.map (fun c ->
-                            EmbeddedFile.Create(string def.FullName, resourceName, c, contentType))
+                            EmbeddedFile.Create(string def.FullName, resourceName, c, CT.Parse contentType))
                     | _ -> None
                 else None)
         else Seq.empty

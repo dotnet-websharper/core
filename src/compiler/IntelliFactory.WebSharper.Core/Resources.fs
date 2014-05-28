@@ -26,6 +26,7 @@ open System.IO
 open System.Web
 open System.Web.UI
 module R = IntelliFactory.WebSharper.Core.Reflection
+module CT = ContentTypes
 
 type Rendering =
     | RenderInline of string
@@ -51,7 +52,7 @@ let cleanLink dHttp (url: string) =
         else url
 
 let link dHttp (html: HtmlTextWriter) (url: string) =
-    html.AddAttribute("type", "text/css")
+    html.AddAttribute("type", CT.Text.Css.Text)
     html.AddAttribute("rel", "stylesheet")
     html.AddAttribute("href", cleanLink dHttp url)
     html.RenderBeginTag "link"
@@ -59,7 +60,7 @@ let link dHttp (html: HtmlTextWriter) (url: string) =
     html.WriteLine()
 
 let inlineStyle (html: HtmlTextWriter) (text: string) =
-    html.AddAttribute("type", "text/css")
+    html.AddAttribute("type", CT.Text.Css.Text)
     html.RenderBeginTag "style"
     html.Write(text)
     html.RenderEndTag()
@@ -67,13 +68,13 @@ let inlineStyle (html: HtmlTextWriter) (text: string) =
 
 let script dHttp (html: HtmlTextWriter) (url: string) =
     html.AddAttribute("src", cleanLink dHttp url)
-    html.AddAttribute("type", "text/javascript")
+    html.AddAttribute("type", CT.Text.JavaScript.Text)
     html.AddAttribute("charset", "UTF-8")
     html.RenderBeginTag "script"
     html.RenderEndTag()
 
 let inlineScript (html: HtmlTextWriter) (text: string) =
-    html.AddAttribute("type", "text/javascript")
+    html.AddAttribute("type", CT.Text.JavaScript.Text)
     html.AddAttribute("charset", "UTF-8")
     html.RenderBeginTag "script"
     html.Write(text)

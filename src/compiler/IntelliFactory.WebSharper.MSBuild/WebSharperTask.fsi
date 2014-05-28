@@ -37,6 +37,9 @@ type WebSharperTask =
     /// MSBuild $(Configuration) property.
     member Configuration : string with get, set
 
+    /// Propagating EmbeddedResource group from MSBuild.
+    member EmbeddedResources : ITaskItem [] with get, set
+
     /// Item input for item commands.
     member ItemInput : ITaskItem [] with get, set
 

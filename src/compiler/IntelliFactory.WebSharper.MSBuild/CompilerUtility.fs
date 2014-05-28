@@ -34,7 +34,9 @@ module FE = FrontEnd
 type CompilerInput =
     {
         AssemblyFile : string
+        EmbeddedResources : list<string>
         KeyOriginatorFile : string
+        ProjectDir : string
         References : list<string>
         RunInterfaceGenerator : bool
     }
@@ -173,12 +175,15 @@ module CompilerJobModule =
             let! (name, asm) = LoadInterfaceGeneratorAssembly aR input.AssemblyFile
             let cfg =
                 {
-                    InterfaceGenerator.CompilerOptions.Default name.Name with
+                    InterfaceGenerator.CompilerOptions.Default(name.Name) with
                         AssemblyResolver = Some aR
                         AssemblyVersion = name.Version
+                        EmbeddedResources = input.EmbeddedResources
+                        ProjectDir = input.ProjectDir
                         ReferencePaths = input.References
                         StrongNameKeyPair = snk
                 }
+
             let cmp = InterfaceGenerator.Compiler.Create()
             let out = cmp.Compile(cfg, asm)
             do out.Save(input.AssemblyFile)
@@ -204,18 +209,9 @@ module CompilerJobModule =
                 assem.Write snk fileName
         }
 
-//[<Sealed>]
-//type CompilerJob() =
-//
-//    interface AppDomainUtility.ITransform<CompilerInput,CompilerOutput> with
-//        member this.Do(input) =
-
 module CompilerUtility =
 
     let Compile input =
-//        AppDomainUtility.TransformWithAppDomain
-//            AppDomainUtility.MarkType<CompilerJob>
-//            input
         let aR =
             let files =
                 Set [

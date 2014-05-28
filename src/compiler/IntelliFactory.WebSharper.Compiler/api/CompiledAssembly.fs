@@ -21,6 +21,7 @@
 
 namespace IntelliFactory.WebSharper.Compiler
 
+module CT = IntelliFactory.WebSharper.Core.ContentTypes
 module M = IntelliFactory.WebSharper.Core.Metadata
 module P = IntelliFactory.JavaScript.Packager
 module PC = IntelliFactory.WebSharper.PathConventions
@@ -80,7 +81,7 @@ type CompiledAssembly
         let makeJsUri (name: PC.AssemblyId) js =
             getRendering {
                 Content = js
-                ContentType = "text/javascript"
+                ContentType = CT.Text.JavaScript
                 Name =
                     if ctx.DebuggingEnabled then
                         pU.JavaScriptPath(name)

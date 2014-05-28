@@ -39,6 +39,7 @@ module WebSharperTaskModule =
         {
             Command : string
             Configuration : string
+            EmbeddedResources : ITaskItem []
             ItemInput : ITaskItem []
             ItemOutput : ITaskItem []
             KeyOriginatorFile : string
@@ -174,7 +175,13 @@ module WebSharperTaskModule =
                         CompilerUtility.Compile {
                             AssemblyFile = raw.ItemSpec
                             KeyOriginatorFile = settings.KeyOriginatorFile
+                            EmbeddedResources =
+                                [
+                                    for r in settings.EmbeddedResources ->
+                                        Path.Combine(settings.MSBuildProjectDirectory, r.ItemSpec)
+                                ]
                             References = [ for r in refs -> r.ItemSpec ]
+                            ProjectDir = settings.MSBuildProjectDirectory
                             RunInterfaceGenerator =
                                 match GetProjectType settings with
                                 | Extension -> true
@@ -384,6 +391,7 @@ type WebSharperTask() =
     inherit AppDomainIsolatedTask()
 
     member val Configuration = "" with get, set
+    member val EmbeddedResources : ITaskItem [] = Array.empty with get, set
     member val ItemInput : ITaskItem [] = Array.empty with get, set
     member val KeyOriginatorFile = "" with get, set
     member val MSBuildProjectDirectory = "" with get, set
@@ -407,6 +415,7 @@ type WebSharperTask() =
         Execute {
             Command = this.Command
             Configuration = this.Configuration
+            EmbeddedResources = this.EmbeddedResources
             ItemInput = this.ItemInput
             ItemOutput = this.ItemOutput
             KeyOriginatorFile = this.KeyOriginatorFile

@@ -21,6 +21,7 @@
 
 namespace IntelliFactory.WebSharper.Web
 
+module CT = IntelliFactory.WebSharper.Core.ContentTypes
 module J = IntelliFactory.WebSharper.Core.Json
 module M = IntelliFactory.WebSharper.Core.Metadata
 module P = IntelliFactory.WebSharper.PathConventions
@@ -106,7 +107,7 @@ type ScriptManager() =
         Shared.Metadata.GetDependencies(Seq.toList nodes)
         |> Seq.iter (fun r -> r.Render ctx writer)
         writer.WriteLine()
-        writer.WriteLine("<script type='text/javascript'>")
+        writer.WriteLine("<script type='{0}'>", CT.Text.JavaScript.Text)
         writer.WriteLine @"if (typeof IntelliFactory !=='undefined')"
         writer.WriteLine @"  IntelliFactory.Runtime.Start();"
         writer.WriteLine("</script>")

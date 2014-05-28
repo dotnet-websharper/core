@@ -42,6 +42,7 @@ type CompilerOptions =
         EmbeddedResources : seq<string>
         Kind : CompilationKind
         OutputPath : option<string>
+        ProjectDir : string
         ReferencePaths : seq<string>
         StrongNameKeyPair : option<StrongNameKeyPair>
     }

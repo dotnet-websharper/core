@@ -21,6 +21,8 @@
 
 namespace IntelliFactory.WebSharper.Sitelets
 
+module CT = IntelliFactory.WebSharper.Core.ContentTypes
+
 type Content<'Action> =
     | CustomContent of (Context<'Action> -> Http.Response)
     | CustomContentAsync of (Context<'Action> -> Async<Http.Response>)
@@ -108,7 +110,7 @@ module Content =
             r.Render env.ResourceContext tw
 
     let writeStartScript (tw: UI.HtmlTextWriter) =
-        tw.WriteLine @"<script type='text/javascript'>"
+        tw.WriteLine(@"<script type='{0}'>", CT.Text.JavaScript.Text)
         tw.WriteLine @"if (typeof IntelliFactory !=='undefined')"
         tw.WriteLine @"  IntelliFactory.Runtime.Start();"
         tw.WriteLine @"</script>"
