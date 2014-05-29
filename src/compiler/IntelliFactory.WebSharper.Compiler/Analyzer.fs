@@ -21,55 +21,49 @@
 
 module IntelliFactory.WebSharper.Compiler.Analyzer
 
+open System
+open System.Collections
+open System.Collections.Generic
+
 module M = IntelliFactory.WebSharper.Core.Metadata
 module Q = IntelliFactory.WebSharper.Core.Quotations
 module R = IntelliFactory.WebSharper.Core.Reflection
 module Re = IntelliFactory.WebSharper.Core.Resources
 module V = IntelliFactory.WebSharper.Compiler.Validator
 
-type D<'T1,'T2> = System.Collections.Generic.Dictionary<'T1,'T2>
-type S<'T> = System.Collections.Generic.HashSet<'T>
+type D<'T1,'T2> = Dictionary<'T1,'T2>
+type S<'T> = HashSet<'T>
+
+let rec Visit f (expr: Q.Expression) =
+    f expr
+    expr |> Q.Transform (fun e -> Visit f e; e) |> ignore
 
 /// Finds all outgoing calls, field accesses and
 /// constructor expressions in the quotation.
-let getCalls (expr: Q.Expression) =
-    let rec f ds expr =
+let GetCalls (expr: Q.Expression) =
+    let res = ResizeArray()
+    let ( ~+ ) s = res.Add(s) |> ignore
+    let visitor expr =
         match expr with
-        | Q.Call (m, xs) ->
-            let ds =
-                M.MethodNode m.Entity
-                :: M.TypeNode m.Entity.DeclaringType
-                :: ds
-            List.fold f ds xs
-        | Q.CallModule (m, xs) ->
-            let ds =
-                M.MethodNode m.Entity
-                :: M.TypeNode m.Entity.DeclaringType
-                :: ds
-            List.fold f ds xs
-        | Q.FieldGetStatic fld ->
-            M.TypeNode fld.Entity.DeclaringType :: ds
-        | Q.FieldSetStatic (fld, x) ->
-            f (M.TypeNode fld.Entity.DeclaringType :: ds) x
+        | Q.Call (m, xs) | Q.CallModule (m, xs) ->
+            + M.MethodNode m.Entity;
+            + M.TypeNode m.Entity.DeclaringType
+        | Q.FieldGetRecord (_, prop) | Q.FieldSetRecord (_, prop, _) ->
+            + M.TypeNode prop.Entity.DeclaringType
+        | Q.FieldGetStatic fld | Q.FieldSetStatic (fld, _) ->
+            + M.TypeNode fld.Entity.DeclaringType
         | Q.NewObject (ctor, xs) ->
-            let ds =
-                M.ConstructorNode ctor.Entity
-                :: M.TypeNode ctor.Entity.DeclaringType
-                :: ds
-            List.fold f ds xs
+            + M.ConstructorNode ctor.Entity;
+            + M.TypeNode ctor.Entity.DeclaringType
         | Q.NewRecord (t, xs) ->
-            List.fold f (M.TypeNode t.DeclaringType :: ds) xs
+            + M.TypeNode t.DeclaringType
         | Q.NewUnionCase (t, xs) ->
-            List.fold f (M.TypeNode t.Entity.DeclaringType :: ds) xs
-        | Q.PropertyGet (p, xs) ->
-            List.fold f (M.TypeNode p.Entity.DeclaringType :: ds) xs
-        | Q.PropertySet (p, xs) ->
-            List.fold f (M.TypeNode p.Entity.DeclaringType :: ds) xs
-        | _ ->
-            Q.Fold f ds expr
-    f [] expr
-    |> Seq.distinct
-    |> Seq.toList
+            + M.TypeNode t.Entity.DeclaringType
+        | Q.PropertyGet (p, _) | Q.PropertySet (p, _) ->
+            + M.TypeNode p.Entity.DeclaringType
+        | _ -> ()
+    Visit visitor expr
+    Seq.toList (Seq.distinct res)
 
 let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
     let info = M.AssemblyInfo.Create assembly.Name
@@ -81,7 +75,7 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
             deps.Connect src (M.ResourceNode rT)
         match c.Kind with
         | V.JavaScriptConstructor e ->
-            List.iter (deps.Connect src) (getCalls e)
+            List.iter (deps.Connect src) (GetCalls e)
         | _ -> ()
     let visitMethod src (m: V.Method) =
         m.Requirements
@@ -92,9 +86,9 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
         | V.InlineMethod inl ->
             match inl.Quotation with
             | None -> ()
-            | Some e -> List.iter (deps.Connect src) (getCalls e)
+            | Some e -> List.iter (deps.Connect src) (GetCalls e)
         | V.JavaScriptMethod e ->
-            List.iter (deps.Connect src) (getCalls e)
+            List.iter (deps.Connect src) (GetCalls e)
         | V.RemoteMethod (_, ref) ->
             ref := Some (info.AddRemoteMethod m.Reference)
         | V.StubMethod -> ()
@@ -106,9 +100,9 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
         | V.InlineModuleProperty i ->
             match i.Quotation with
             | None -> ()
-            | Some e -> List.iter (deps.Connect src) (getCalls e)
+            | Some e -> List.iter (deps.Connect src) (GetCalls e)
         | V.JavaScriptModuleProperty e ->
-            List.iter (deps.Connect src) (getCalls e)
+            List.iter (deps.Connect src) (GetCalls e)
         | _ -> ()
     let rec visitType assem ctx (t: V.Type) =
         let self =
