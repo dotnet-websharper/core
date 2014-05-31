@@ -35,3 +35,6 @@ let CreateArray2D (rows : seq<#seq<'T>>) =
     let arr = rows |> Seq.map (Array.ofSeq) |> Array.ofSeq |> As<'T[,]>
     arr?dims <- 2
     arr
+
+[<Inline "+$0">]
+let ToDouble<'T> (x: 'T) : double = X

@@ -191,3 +191,7 @@ let Tests =
             |]
         arr =? [| 4; 4; 2 |]
     }
+
+    Test "Bug #249" {
+        double 1 =? 1.0
+    }
