@@ -393,7 +393,7 @@ module WebSharperTaskModule =
 type WebSharperTask() =
     inherit AppDomainIsolatedTask()
 
-    member val EmbeddedResources : ITaskItem [] = Array.empty
+    member val EmbeddedResources : ITaskItem [] = Array.empty with get, set
     member val Configuration = "" with get, set
     member val ItemInput : ITaskItem [] = Array.empty with get, set
     member val KeyOriginatorFile = "" with get, set
