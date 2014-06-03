@@ -35,6 +35,9 @@ module FE = FrontEnd
 [<AutoOpen>]
 module WebSharperTaskModule =
 
+    let NotNull (def: 'T) (x: 'T) =
+        if Object.ReferenceEquals(x, null) then def else x
+
     type Settings =
         {
             Command : string
@@ -390,8 +393,8 @@ module WebSharperTaskModule =
 type WebSharperTask() =
     inherit AppDomainIsolatedTask()
 
+    member val EmbeddedResources : ITaskItem [] = Array.empty
     member val Configuration = "" with get, set
-    member val EmbeddedResources : ITaskItem [] = Array.empty with get, set
     member val ItemInput : ITaskItem [] = Array.empty with get, set
     member val KeyOriginatorFile = "" with get, set
     member val MSBuildProjectDirectory = "" with get, set
@@ -414,19 +417,19 @@ type WebSharperTask() =
     override this.Execute() =
         Execute {
             Command = this.Command
-            Configuration = this.Configuration
-            EmbeddedResources = this.EmbeddedResources
-            ItemInput = this.ItemInput
-            ItemOutput = this.ItemOutput
-            KeyOriginatorFile = this.KeyOriginatorFile
+            Configuration = NotNull "Release" this.Configuration
+            EmbeddedResources = NotNull [||] this.EmbeddedResources
+            ItemInput = NotNull [||] this.ItemInput
+            ItemOutput = NotNull [||] this.ItemOutput
+            KeyOriginatorFile = NotNull "" this.KeyOriginatorFile
             Log = this.Log
-            MSBuildProjectDirectory = this.MSBuildProjectDirectory
-            Name = this.Name
+            MSBuildProjectDirectory = NotNull "." this.MSBuildProjectDirectory
+            Name = NotNull "Project" this.Name
             SetItemOutput = fun items -> this.ItemOutput <- items
             SetReferenceCopyLocalPaths = fun items -> this.ReferenceCopyLocalPaths <- items
-            WebProjectOutputDir = this.WebProjectOutputDir
-            WebSharperBundleOutputDir = this.WebSharperBundleOutputDir
-            WebSharperExplicitRefs = this.WebSharperExplicitRefs
-            WebSharperHtmlDirectory = this.WebSharperHtmlDirectory
-            WebSharperProject = this.WebSharperProject
+            WebProjectOutputDir = NotNull "" this.WebProjectOutputDir
+            WebSharperBundleOutputDir = NotNull "" this.WebSharperBundleOutputDir
+            WebSharperExplicitRefs = NotNull "" this.WebSharperExplicitRefs
+            WebSharperHtmlDirectory = NotNull "" this.WebSharperHtmlDirectory
+            WebSharperProject = NotNull "" this.WebSharperProject
         }
