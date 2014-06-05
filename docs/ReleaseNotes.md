@@ -1,3 +1,42 @@
+# WebSharper 2.5.114.49
+
+Released: June 4, 2014.
+
+We are working to support building on Mono and integrating with
+MonoDevelop, Xamarin Studio and CloudSharper on Linux and Mac OS
+X.  This release contains a revision of the build system and
+templates to make heavier use of MSBuild tasks in place of
+XML-defined MSBuild targets, working around bugs in XBuild
+implementation of MSBuild shipping with Mono.
+
+For more information on using WebSharper with MonoDevelop and
+Xamarin Studio, please see
+[monodevelop.websharper](https://github.com/intellifactory/monodevelop.websharper).
+
+## Improvements:
+
+* Support for 2-dimensional arrays and F# 3.1 slicing operators
+
+* Upgraded to jQuery 1.11.0
+
+* InterfaceGenerator: pattern for config objects with obsolete
+  option amembers and Obsolete attribute helper
+
+## Bug fixes:
+
+* [Issue 179](http://bitbucket.org/IntelliFactory/websharper/issue/179)
+* [Issue 226](http://bitbucket.org/IntelliFactory/websharper/issue/226) 
+* [Issue 231](http://bitbucket.org/IntelliFactory/websharper/issue/231)
+* [Issue 234](http://bitbucket.org/IntelliFactory/websharper/issue/234)
+* [Issue 236](http://bitbucket.org/IntelliFactory/websharper/issue/236)
+* [Issue 239](http://bitbucket.org/IntelliFactory/websharper/issue/239)
+* [Issue 241](http://bitbucket.org/IntelliFactory/websharper/issue/241)
+* [Issue 246](http://bitbucket.org/IntelliFactory/websharper/issue/246)
+* [Issue 247](http://bitbucket.org/IntelliFactory/websharper/issue/247)
+* [Issue 249](http://bitbucket.org/IntelliFactory/websharper/issue/249)
+* [Issue 252](http://bitbucket.org/IntelliFactory/websharper/issue/252)
+
+
 # WebSharper 2.5.98.29
 
 Released: February 21, 2014.
