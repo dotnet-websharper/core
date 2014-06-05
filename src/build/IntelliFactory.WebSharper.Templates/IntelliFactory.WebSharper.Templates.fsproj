@@ -13,7 +13,6 @@
     <Compile Include="Templates.fsi" />
     <Compile Include="Templates.fs" />
     <Compile Include="All.fs" />
-    <None Include="T.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FsNuGet">
