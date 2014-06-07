@@ -48,10 +48,12 @@ let AddRegistryKeys (product, key) =
 let InstallFSharpWebCapability () =
     [
         "VWD Express 11", HKCU "Software\Microsoft\VWDExpress\11.0_Config\Projects\{349C5851-65DF-11DA-9384-00065B846F21}"
+        "VWD Express 12", HKCU "Software\Microsoft\VWDExpress\12.0_Config\Projects\{349C5851-65DF-11DA-9384-00065B846F21}"
         "VS 11", HKCU "Software\Microsoft\VisualStudio\11.0_Config\Projects\{349C5851-65DF-11DA-9384-00065B846F21}"
         "VS WinDesktop Express 12", HKCU "Software\Microsoft\VSWinDesktopExpress\12.0_Config\Projects\{349C5851-65DF-11DA-9384-00065B846F21}"
         "VS 12", HKCU "Software\Microsoft\VisualStudio\12.0_Config\Projects\{349C5851-65DF-11DA-9384-00065B846F21}"
         "VWD Express 11 (x64)", HKLM "SOFTWARE\Wow6432Node\Microsoft\VWDExpress\11.0\Projects\{349C5851-65DF-11DA-9384-00065B846F21}"
+        "VWD Express 12 (x64)", HKLM "SOFTWARE\Wow6432Node\Microsoft\VWDExpress\12.0\Projects\{349C5851-65DF-11DA-9384-00065B846F21}"
         "VS 11 (x64)", HKLM "SOFTWARE\Wow6432Node\Microsoft\VisualStudio\11.0\Projects\{349C5851-65DF-11DA-9384-00065B846F21}"
         "VS WinDesktop Express 12 (x64)", HKLM "SOFTWARE\Wow6432Node\Microsoft\VSWinDesktopExpress\12.0\Projects\{349C5851-65DF-11DA-9384-00065B846F21}"
         "VS 12 (x64)", HKLM "SOFTWARE\Wow6432Node\Microsoft\VisualStudio\12.0\Projects\{349C5851-65DF-11DA-9384-00065B846F21}"
