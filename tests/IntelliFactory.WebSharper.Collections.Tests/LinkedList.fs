@@ -45,5 +45,22 @@ let Tests =
         Array.ofSeq l =? [| 3; 4; 5 |]
         l.AddAfter(n, 6) |> ignore
         Array.ofSeq l =? [| 3; 4; 5; 6 |]
-        l |> Seq.sum =? 18
+        l.Contains(6) =? true
+        l.Clear()
+        Array.ofSeq l =? [||]
+    }
+
+    Test "Removing nodes" {
+        let l = LL(seq { 1 .. 5 })
+        l.Remove(3) =? true;
+        l.Remove(3) =? false;
+        Array.ofSeq l =? [| 1; 2; 4; 5 |]
+        l.RemoveFirst();
+        Array.ofSeq l =? [| 2; 4; 5 |]
+        l.RemoveLast();
+        Array.ofSeq l =? [| 2; 4 |]
+        l.AddLast(0) |> l.Remove;
+        Array.ofSeq l =? [| 2; 4 |]
+        l.AddFirst(0) |> l.Remove;
+        Array.ofSeq l =? [| 2; 4 |]
     }

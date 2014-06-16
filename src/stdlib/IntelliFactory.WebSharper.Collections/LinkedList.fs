@@ -140,7 +140,7 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
         p <- null
 
     [<JavaScript>]
-    member this.Contains(value) =
+    member this.Contains(value: 'T) =
         let mutable found = false
         let mutable node = n
         while node <> null && not found do
@@ -151,16 +151,24 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
     [<JavaScript>]
     member this.Find(value: 'T) =
         let mutable node = n
-        while node <> null && node.Value !=. value do
-            node <- node.Next
-        if node ==. value then node else null
+        let mutable notFound = true
+        while notFound && node <> null do
+            if node.Value ==. value then
+                notFound <- false    
+            else
+                node <- node.Next
+        if notFound then null else node
 
     [<JavaScript>]
     member this.FindLast(value: 'T) = 
         let mutable node = p
-        while node <> null && node.Value !=. value do
-            node <- node.Previous
-        if node ==. value then node else null
+        let mutable notFound = true
+        while notFound && node <> null do
+            if node.Value ==. value then
+                notFound <- false    
+            else
+                node <- node.Previous
+        if notFound then null else node
                 
     [<JavaScript>]
     member this.GetEnumerator(): LinkedList<'T>.Enumerator =
