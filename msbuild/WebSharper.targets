@@ -64,21 +64,6 @@
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
   </Target>
-  <Target Name="WebSharperAddReferences" BeforeTargets="ResolveAssemblyReferences">
-    <WebSharperTask Command="AddReferences" ItemInput="@(ReferencePath)"
-      Configuration="$(Configuration)"
-      EmbeddedResources="@(EmbeddedResource)"
-      KeyOriginatorFile="$(KeyOriginatorFile)"
-      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
-      Name="$(Name)"
-      WebProjectOutputDir="$(WebProjectOutputDir)"
-      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
-      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
-      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
-      WebSharperProject="$(WebSharperProject)">
-      <Output TaskParameter="ItemOutput" ItemName="Reference" />
-    </WebSharperTask>
-  </Target>
   <Target Name="WebSharperComputeReferences" BeforeTargets="CoreCompile;CopyFilesMarkedCopyLocal" DependsOnTargets="ResolveReferences">
     <WebSharperTask Command="ComputeReferences" ItemInput="@(ReferencePath)"
       Configuration="$(Configuration)"

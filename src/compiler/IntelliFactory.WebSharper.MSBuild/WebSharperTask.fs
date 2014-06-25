@@ -242,35 +242,13 @@ module WebSharperTaskModule =
             yield "IntelliFactory.Xml"
         ]
 
-    let IsMono =
-        Type.GetType("Mono.Runtime") <> null
-
-    type Reference =
-        {
-            CopyLocal : bool
-            ReferenceName : string
-            ReferencePath : string
-        }
-
-        member r.WithCopyLocal(?x) =
-            { r with CopyLocal = defaultArg x true }
-
-        static member FromFile(p) =
-            {
-                ReferenceName = AssemblyName.GetAssemblyName(p).Name
-                ReferencePath = p
-                CopyLocal = false
-            }
-
-    let DetermineReferences settings =
+    let ComputeReferences settings =
         let expl =
             match settings.WebSharperExplicitRefs with
             | null | "" -> false
             | t when t.ToLower() = "true" -> true
             | _ -> false
-        if expl then
-            []
-        else
+        if not expl then
             let alreadyReferenced =
                 Set [
                     for asm in settings.ItemInput ->
@@ -285,41 +263,28 @@ module WebSharperTaskModule =
                 | Html -> false
                 | Library -> false
                 | Website _ -> true
-            [
+            let copyLocal = ResizeArray<ITaskItem>()
+            settings.SetItemOutput [|
                 for asm in assemblies do
                     if alreadyReferenced.Contains(asm) |> not then
                         let hintPath = Path.Combine(BaseDir, asm + ".dll")
                         if File.Exists(hintPath) then
-                            yield Reference.FromFile(hintPath).WithCopyLocal(priv)
+                            let it = TaskItem(hintPath)
+                            do it.SetMetadata("CopyLocal", string priv)
+                            if priv then
+                                copyLocal.Add(it)
+                            yield it :> _
                     if alreadyReferenced.Contains("FSharp.Core") |> not then
                         let path = Path.Combine(BaseDir, "FSharp.Core.dll")
-                        yield Reference.FromFile(path).WithCopyLocal(priv)
-            ]
-
-    let AddReferences settings =
-        if not IsMono then true else
-            let refs = DetermineReferences settings
-            let conv r =
-                let it = TaskItem(r.ReferenceName)
-                it.SetMetadata("HintPath", string r.ReferencePath)
-                it.SetMetadata("CopyLocal", string r.CopyLocal)
-                it :> ITaskItem
-            let mk xs = Array.ofList (List.map conv xs)
-            settings.SetItemOutput(mk refs)
-            true
-
-    let ComputeReferences settings =
-        if IsMono then true else
-            let refs = DetermineReferences settings
-            let (local, normal) = refs |> List.partition (fun r -> r.CopyLocal)
-            let conv r =
-                let it = TaskItem(r.ReferencePath)
-                it.SetMetadata("CopyLocal", string r.CopyLocal)
-                it :> ITaskItem
-            let mk xs = Array.ofList (List.map conv xs)
-            settings.SetItemOutput(mk normal)
-            settings.SetReferenceCopyLocalPaths(mk local)
-            true
+                        let it = TaskItem(path)
+                        do it.SetMetadata("CopyLocal", string priv)
+                        if priv then
+                            copyLocal.Add(it)
+                        yield it :> _
+            |]
+            copyLocal.ToArray()
+            |> settings.SetReferenceCopyLocalPaths
+        true
 
     let Unpack settings =
         match GetProjectType settings with
@@ -413,7 +378,6 @@ module WebSharperTaskModule =
     let Execute settings =
         try
             match settings.Command with
-            | "AddReferences" -> AddReferences settings
             | "Bundle" -> Bundle settings
             | "Clean" -> Clean settings
             | "Compile" -> Compile settings
