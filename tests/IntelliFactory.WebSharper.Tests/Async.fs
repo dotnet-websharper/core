@@ -57,3 +57,12 @@ let Tests =
             return  !l
         } @=? [ 3; 2; 1 ]
     }
+
+    Test "Parallel" {
+        Async.Parallel (Array.empty<Async<int>>) @=? [||]
+
+        Async.Parallel [|
+            async { return 1 }
+            async { return 2 }
+        |] @=? [| 1; 2 |] 
+    }

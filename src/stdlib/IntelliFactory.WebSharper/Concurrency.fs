@@ -133,6 +133,7 @@ let Sleep (ms: Milliseconds) =
 [<JavaScript>]
 let Parallel (cs: seq<C<'T>>) =
     let cs = Array.ofSeq cs
+    if cs.Length = 0 then Return [||] else
     C (fun k ->
         let n = Array.length cs
         let o = ref n
