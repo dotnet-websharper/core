@@ -215,6 +215,9 @@ module Pervasives =
     /// Constructs a new `Type`.
     let T<'T> = Type.SystemType (R.Type.FromType typeof<'T>)
 
+    /// Constructs a new `Type` from System.Type object.
+    let SystemType t = Type.SystemType (R.Type.FromType t)
+
     /// Constructs a new `FunctionType`.
     let ( ^-> ) (parameters: Type.IParameters) (returnType: Type.IType) =
         Type.Lambda parameters.Parameters returnType.Type
