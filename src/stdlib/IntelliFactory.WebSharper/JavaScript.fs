@@ -123,6 +123,14 @@ let In (field: string) (x: obj) = ClientSide<bool>
 [<A.Direct "var r=[]; for(var k in $o) r.push([k,$o[k]]); return r">]
 let GetFields (o: obj) = ClientSide<(string * obj)[]>
 
+/// Retrieves the names of all proper fields from an object.
+[<A.Direct "var r=[]; for(var k in $o) r.push(k); return r">]
+let GetFieldNames (o: obj) = ClientSide<string[]>
+
+/// Retrieves the values of all proper fields from an object.
+[<A.Direct "var r=[]; for(var k in $o) r.push($o[k]); return r">]
+let GetFieldValues (o: obj) = ClientSide<obj[]>
+
 /// Constructs a new object with a given constructor function.
 [<A.Inline "new $x()">]
 let New (x: obj) : 'T = ClientSide<'T>

@@ -17,6 +17,7 @@
     <Compile Include="SetModule.fs" />
     <Compile Include="ResizeArray.fs" />
     <Compile Include="LinkedList.fs" />
+    <Compile Include="HashSet.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">

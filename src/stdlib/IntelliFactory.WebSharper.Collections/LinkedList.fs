@@ -45,7 +45,6 @@ let setPrev (node: LLN<'T>) (p: LLN<'T>) = ()
 [<Inline "$node.n = $n" >]
 let setNext (node: LLN<'T>) (n: LLN<'T>) = ()
 
-
 [<Proxy(typeof<LLE<_>>)>]
 type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
     let mutable c = l

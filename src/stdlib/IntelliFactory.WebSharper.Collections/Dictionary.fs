@@ -28,8 +28,7 @@ module J = JavaScript
 type private KVP<'K,'V> = KeyValuePair<'K,'V>
 type private D<'K,'V> = Dictionary<'K,'V>
 
-[<AutoOpen>]
-module private DictionaryUtil =
+module internal DictionaryUtil =
 
     [<JavaScript>]
     let notPresent () =
@@ -42,6 +41,8 @@ module private DictionaryUtil =
     [<Inline "$c.GetHashCode($x)">]
     let getHashCode (c: IEqualityComparer<'T>) x =
         c.GetHashCode x
+
+open DictionaryUtil
 
 /// Implements a proxy for the .NET dictionary.
 [<Name "Dictionary">]
@@ -127,7 +128,7 @@ type internal Dictionary<'K,'V when 'K : equality>
 
         [<JavaScript>]
         member this.GetEnumerator() =
-            let s = Array.map snd (J.GetFields data)
+            let s = J.GetFieldValues data
             (As<seq<obj>> s).GetEnumerator()
 
         [<JavaScript>]
