@@ -84,6 +84,18 @@ module BugBB80 =
         }
         |> Async.Start
 
+module Bug264 =
+    type Y<'X> = | Y of int
+
+    type X =
+        {
+            A : int
+            mutable B : Y<X>
+        }
+
+    [<JavaScript>]
+    let Make (f: unit -> X) : Y<X> = Y (f().A)
+
 [<JavaScript>]
 let Tests =
     Section "Regression"
@@ -194,4 +206,19 @@ let Tests =
 
     Test "Bug #249" {
         double 1 =? 1.0
+    }
+
+    Test "Bug #264" {
+        let Mk () =
+            let v =
+                {
+                    A = 0
+                    B = Unchecked.defaultof<_>
+                } : Bug264.X
+            v.B <- Bug264.Make (fun () -> { v with A = 2 })
+            v
+        
+        try Mk().B = Bug264.Y 2
+        with _ -> false
+        =? true
     }
