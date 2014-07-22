@@ -42,7 +42,10 @@ there as well.  Perhaps the most basic improvement is to optimize
 self-calling top-level function, which currently is not done.
 
 Interfaces are compiled in "JS-natural" way, which breaks the .NET
-semantics.  This is probably a design mistake, again need to
+semantics, when .Foo method is different depending on whether it
+implements an interface, or is a private class method, and also
+which interface it implements.  In our translation, it is always .Foo.
+This is probably a design mistake, again need to
 distinguish between interfaces used for FFI and for internal code.
 
 Note that it would be better to start from CIL rather than quotations.
