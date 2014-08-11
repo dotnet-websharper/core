@@ -227,7 +227,7 @@ let activate resource =
                 new R.IResource with
                     member this.Render ctx writer =
                         writer.Write("<-- ")
-                        writer.Write("Failed to load: {0}", t)
+                        writer.Write("Failed to load: {0}; because of: {1}", t, e.Message)
                         writer.WriteLine(" -->")
                         ()
             }
