@@ -38,14 +38,15 @@ var IntelliFactory =
 
         Define:
             function (a, b) {
+                var overwrite = !!this.overwrite;
                 function define(a, b) {
                     for (var k in b) {
                         var t1 = typeof a[k];
                         var t2 = typeof b[k];
-                        if (t1 == "undefined") {
-                            a[k] = b[k];
-                        } else if (t1 == "object" && t2 == "object") {
+                        if (t1 == "object" && t2 == "object") {
                             define(a[k], b[k]);
+                        } else if (t1 == "undefined" || overwrite) {
+                            a[k] = b[k];
                         } else {
                             throw new Error("Name conflict: " + k);
                         }
