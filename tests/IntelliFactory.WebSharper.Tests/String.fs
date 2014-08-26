@@ -82,6 +82,7 @@ let Tests =
     Test "Replace" {
         karina.Replace("ar", "AR") =? "KARina"
         karina.Replace('a', 'A') =? "KArinA"
+        "aaa".Replace("aa", "a") =? "aa"
     }
 
     Test "Split" {
