@@ -70,11 +70,15 @@ let ReplaceOnce string search replace = X<string>
 
 [<JavaScript>]
 let Replace (subject: string) (search: string) (replace: string) =
-    let rec loop subject =
-        match ReplaceOnce subject search replace with
-        | x when x = subject -> x
-        | x                  -> loop x
-    loop subject
+    let rec replaceLoop (subj: string) =
+        let index = subj.IndexOf(search)
+        if index <> -1 then
+            let replaced = ReplaceOnce subj search replace
+            let nextStartIndex = index + replace.Length
+            (replaced.Substring(0, index + replace.Length)) +
+                (replaceLoop (replaced.Substring(nextStartIndex)))
+        else subj
+    replaceLoop subject
 
 [<JavaScript>]
 let ReplaceChar (s: string) (oldC: char) (newC: char) =
