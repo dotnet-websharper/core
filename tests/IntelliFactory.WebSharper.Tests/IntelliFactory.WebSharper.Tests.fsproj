@@ -9,6 +9,7 @@
   <Import Project="../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
     <Compile Include="Array.fs" />
+    <Compile Include="Array2D.fs" />
     <Compile Include="Async.fs" />
     <Compile Include="Basis.fs" />
     <Compile Include="Char.fs" />

@@ -239,6 +239,15 @@ let Tests =
         arr.[3] =? 5
         iterate (fun n -> Array.set arr n 5) 0
         Array.create 6 5 =? arr
+
+        Assert.Raises
+            (fun () ->
+                let x = arr.[-1]
+                x - 3 |> ignore )
+        Assert.Raises
+            (fun () ->
+                let x = arr.[size]
+                x - 3 |> ignore )
     }
 
     Test "Array.init" {
@@ -373,7 +382,7 @@ let Tests =
     }
 
     Test "Array.permute" {
-        Array.permute (fun x -> (x + 3) % 5) [| 1 .. 5 |]
+        Array.permute (fun x -> (x + 3) % 5) [| 1 ; 2; 3 ; 4; 5 |]
             =? [| 3; 4; 5; 1; 2 |]
     }
 
@@ -555,6 +564,6 @@ let Tests =
     Test "GetArraySlice" {
         let arr = [| 0; 1; 2; 3; 4; 5 |]
         arr.[.. 2] =? [| 0; 1; 2 |]
-        arr.[4 ..] =? [| 4 ; 5 |] 
+        arr.[4 ..] =? [| 4 ; 5 |]
         arr.[2 .. 4] =? [| 2; 3; 4 |]
     }
