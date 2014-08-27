@@ -32,7 +32,6 @@ type private ExceptionProxy =
 
     member this.Message with [<Inline "$this.message">] get () = X<string>
 
-
 [<Proxy(typeof<MatchFailureException>)>]
 type private MatchFailureExceptionProxy =
 
@@ -43,3 +42,8 @@ type private MatchFailureExceptionProxy =
     new (message: string, line: int, column: int) =
         MatchFailureExceptionProxy()
 
+[<Proxy(typeof<System.IndexOutOfRangeException>)>]
+type private IndexOutOfRangeExceptionProxy =
+
+    [<Inline "new Error(\"IndexOutOfRangeException\")">]
+    new () = {}
