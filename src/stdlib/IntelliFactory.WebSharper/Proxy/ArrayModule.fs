@@ -44,11 +44,11 @@ let Append<'T> (arr1: 'T []) (arr2: 'T []) : 'T [] = arr1
 
 [<JavaScript>]
 [<Name "average">]
-let inline Average (arr: 'T []): 'T = As (float (Array.sum arr) / float arr.Length) 
+let inline Average (arr: 'T []): 'T = As (float (Array.sum arr) / float arr.Length)
 
 [<JavaScript>]
 [<Name "averageBy">]
-let inline AverageBy (f: 'T -> 'U) (arr: 'T []) : 'U = As (float (Array.sumBy f arr) / float arr.Length) 
+let inline AverageBy (f: 'T -> 'U) (arr: 'T []) : 'U = As (float (Array.sumBy f arr) / float arr.Length)
 
 [<JavaScript>]
 [<Name "blit">]
@@ -305,13 +305,13 @@ let Partition f (arr: 'T []) : 'T [] * 'T [] =
 [<JavaScript>]
 [<Name "permute">]
 let Permute f (arr: 'T []) =
-    let ret = [||] : 'T[]
+    let ret = Array.zeroCreate (arr.Length)
     for i = 0 to arr.Length - 1 do
         ret.[f i] <- arr.[i]
     ret
 
 [<JavaScript>]
-let Pick f (arr: _ []) = 
+let Pick f (arr: _ []) =
     match Array.tryPick f arr with
     | Some x -> x
     | None   -> failwith "KeyNotFoundException"
@@ -429,7 +429,7 @@ let ToSeq (arr: _ []) = arr :> seq<_>
 
 [<JavaScript>]
 [<Name "tryFind">]
-let TryFind f (arr: _ []) = 
+let TryFind f (arr: _ []) =
     let mutable res = None
     let mutable i = 0
     while i < arr.Length && Option.isNone res do
@@ -449,7 +449,7 @@ let TryFindIndex f (arr: _ []) =
 
 [<JavaScript>]
 [<Name "tryPick">]
-let TryPick f (arr: _ []) = 
+let TryPick f (arr: _ []) =
     let mutable res = None
     let mutable i = 0
     while i < arr.Length && Option.isNone res do
