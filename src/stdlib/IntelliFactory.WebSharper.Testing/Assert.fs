@@ -25,8 +25,11 @@ module IntelliFactory.WebSharper.Testing.Assert
 open IntelliFactory.WebSharper
 
 [<JavaScript>]
-let Raises<'T when 'T :> exn> (f: unit -> unit) =
-    try f (); failwith "No exception was thrown." with _ -> ()
+let Raises (f: unit -> unit) =
+    try f ()
+        true |? "Pass."
+    with _ -> 
+        false |? "Assert raises exception test failed."
 
 [<JavaScript>]
 let For<'T> (times: int) (gen: Random.Generator<'T>) (attempt: 'T -> unit) =
