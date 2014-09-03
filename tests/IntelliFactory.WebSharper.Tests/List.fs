@@ -180,6 +180,7 @@ let Tests =
     Test "List.head" {
         [1; 2; 3].Head =? 1
         List.head [1; 2; 3] =? 1
+        Assert.Raises (fun () -> List.head [] |> ignore)
     }
 
     Test "List.init" {
@@ -412,8 +413,7 @@ let Tests =
     }
 
     Test "List.tail" {
-        let nf () = List.tail [] |> ignore
-        Assert.Raises nf
+        Assert.Raises (fun () -> List.tail [] |> ignore)
         List.tail [1;2;3] =? [2; 3]
         [1; 2; 3].Tail =? [2; 3]
     }

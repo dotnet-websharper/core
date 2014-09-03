@@ -110,8 +110,12 @@ let ForAll p (l: list<_>) = Seq.forall p l
 let ForAll2 p (l1: list<_>) (l2: list<_>) =
     Array.forall2 p (Array.ofSeq l1) (Array.ofSeq l2)
 
-[<Inline "$l.$0">]
-let Head (l: list<'T>) = X<'T>
+[<JavaScript>]
+[<Name "head">]
+let Head (l: list<'T>) =
+    match l with 
+    | h :: _ -> h
+    | _ -> failwith "The input list was empty."
 
 [<JavaScript>]
 [<Name "init">]
@@ -284,8 +288,12 @@ let inline Sum (l: list<'T>) : 'T = Seq.sum l
 [<JavaScript>]
 let inline SumBy (f: 'T -> 'U) (l: list<'T>) : 'U = Seq.sumBy f l
 
-[<Inline "$l.$1">]
-let Tail (l: list<'T>) = X<list<'T>>
+[<JavaScript>]
+[<Name "tail">]
+let Tail (l: list<'T>) = 
+    match l with 
+    | _ :: t -> t
+    | _ -> failwith "The input list was empty."
 
 [<Inline>]
 [<JavaScript>]

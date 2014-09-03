@@ -27,9 +27,9 @@ open IntelliFactory.WebSharper
 [<JavaScript>]
 let Raises (f: unit -> unit) =
     try f ()
-        true |? "Pass."
-    with _ -> 
         false |? "Assert raises exception test failed."
+    with _ -> 
+        true |? "Pass."
 
 [<JavaScript>]
 let For<'T> (times: int) (gen: Random.Generator<'T>) (attempt: 'T -> unit) =
