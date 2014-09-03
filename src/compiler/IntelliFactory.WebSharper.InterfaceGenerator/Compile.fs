@@ -54,11 +54,6 @@ type InlineGenerator() =
 
     member g.GetMethodBaseInline(td: Code.TypeDeclaration, t: T, m: Code.MethodBase) =
         if m.Inline.IsSome then m.Inline.Value else
-            let name =
-                match m.Name with
-                | "" -> "new " + td.Name
-                | name when m.IsStatic -> td.Name + "." + name
-                | name -> name
             match t with
             | Type.FunctionType f ->
                 let args =
@@ -70,6 +65,11 @@ type InlineGenerator() =
                 let arity = f.Parameters.Length
                 match f.ParamArray with
                 | Some v ->
+                    let name =
+                        match m.Name with
+                        | "" -> td.Name + ".prototype.constructor"
+                        | name when m.IsStatic -> td.Name + "." + name
+                        | name -> name
                     if m.IsStatic then
                         let tpl = "{0}.apply(undefined,[{1}].concat(${2}))"
                         String.Format(tpl, name, args, arity)
@@ -77,6 +77,11 @@ type InlineGenerator() =
                         let tpl = "$this.{0}.apply($this,[{1}].concat(${2}))"
                         String.Format(tpl, name, args, arity + 1)
                 | None ->
+                    let name =
+                        match m.Name with
+                        | "" -> "new " + td.Name
+                        | name when m.IsStatic -> td.Name + "." + name
+                        | name -> name
                     let tpl =
                         if m.IsStatic
                         then "{0}({1})"

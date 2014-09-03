@@ -222,3 +222,8 @@ let Tests =
         with _ -> false
         =? true
     }
+
+    Test "Bug #279" {
+        let arr = EcmaScript.Array<int>()
+        arr.ToDotNet() =? [||]    
+    }
