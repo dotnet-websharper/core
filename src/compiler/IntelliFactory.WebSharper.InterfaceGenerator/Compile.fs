@@ -591,6 +591,8 @@ type MemberConverter
                         tD.GenericParameters.Add(gP)
                         yield gP
                 ]
+            if x.Generics.Length > 0 then
+                tD.Name <- tD.Name + "`" + string x.Generics.Length
             k (withGenerics gs) tD
         | _ -> ()
 
