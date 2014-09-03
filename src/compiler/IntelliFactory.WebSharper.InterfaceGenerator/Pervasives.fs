@@ -212,6 +212,10 @@ module Pervasives =
     let WithSetterInline (code: string) (p: Code.Property) =
         p |> Code.Entity.Update (fun x -> x.SetterInline <- Some code)
 
+    /// Adds indexer argument.
+    let Indexed (indexer: T) (p: Code.Property) =
+        p |> Code.Entity.Update (fun x -> x.IndexerType <- Some indexer)
+
     /// Constructs a new `Type`.
     let T<'T> = Type.SystemType (R.Type.FromType typeof<'T>)
 

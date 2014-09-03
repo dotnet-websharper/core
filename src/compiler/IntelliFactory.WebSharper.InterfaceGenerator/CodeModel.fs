@@ -242,6 +242,7 @@ module CodeModel =
         inherit Member
         val mutable HasGetter : bool
         val mutable HasSetter : bool
+        val mutable IndexerType : option<T>
         val mutable GetterInline : option<string>
         val mutable SetterInline : option<string>
 
@@ -252,6 +253,7 @@ module CodeModel =
                 SetterInline = None
                 HasGetter = false
                 HasSetter = false
+                IndexerType = None
             }
 
         member private this.Add<'T when 'T :> TypeDeclaration> (x: 'T) =

@@ -93,20 +93,28 @@ type InlineGenerator() =
     member g.GetPropertyGetterInline(td: Code.TypeDeclaration, p: Code.Property) =
         if p.GetterInline.IsSome then p.GetterInline.Value else
             let pfx = if p.IsStatic then td.Name else "$this"
+            let ind = if p.IndexerType.IsSome then "[$index]" else ""
             let format =
                 if validJsIdentRE.IsMatch p.Name
-                then "{0}.{1}"
-                else "{0}['{1}']"
-            String.Format(format, pfx, p.Name)
+                then 
+                    if p.Name = "item" 
+                    then "{0}{2}" 
+                    else "{0}.{1}{2}"
+                else "{0}['{1}']{2}"
+            String.Format(format, pfx, p.Name, ind)
 
     member g.GetPropertySetterInline(td: Code.TypeDeclaration, p: Code.Property) =
         if p.SetterInline.IsSome then p.SetterInline.Value else
             let pfx = if p.IsStatic then td.Name else "$this"
+            let ind = if p.IndexerType.IsSome then "[$index]" else ""
             let format =
                 if validJsIdentRE.IsMatch p.Name
-                then "void ({0}.{1} = $value)"
-                else "void ({0}['{1}'] = $value)"
-            String.Format(format, pfx, p.Name)
+                then
+                    if p.Name = "item"
+                    then "void ({0}{2} = $value)"
+                    else "void ({0}.{1}{2} = $value)"
+                else "void ({0}['{1}']{2} = $value)"
+            String.Format(format, pfx, p.Name, ind)
 
     member g.GetSourceName(entity: Code.Entity) =
         let mangle name =
@@ -569,6 +577,10 @@ type MemberConverter
                 iG.GetPropertyGetterInline(td, p)
                 |> inlineAttribute
                 |> mD.CustomAttributes.Add
+            match p.IndexerType with
+            | None -> ()
+            | Some it ->
+                mD.Parameters.Add(ParameterDefinition("index", ParameterAttributes.None, tC.TypeReference it))         
             dT.Methods.Add mD
             pD.GetMethod <- mD
         if p.HasSetter then
@@ -578,6 +590,10 @@ type MemberConverter
                 iG.GetPropertySetterInline(td, p)
                 |> inlineAttribute
                 |> mD.CustomAttributes.Add
+            match p.IndexerType with
+            | None -> ()
+            | Some it ->
+                mD.Parameters.Add(ParameterDefinition("index", ParameterAttributes.None, tC.TypeReference it))         
             mD.Parameters.Add(ParameterDefinition("value", ParameterAttributes.None, ty))
             if not dT.IsInterface then
                 mB.AddBody mD

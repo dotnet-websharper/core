@@ -29,8 +29,8 @@ open IntelliFactory.WebSharper
 [<AutoOpen>]
 module HashSetUtil =
     [<Direct "var r=[]; for(var k in $o) { r.push.apply(r, $o[k]) }; return r">]
-    let concat (o: 'T[][]) = X<'T[]>
-
+    let concat (o: EcmaScript.Array<EcmaScript.Array<'T>>) = X<EcmaScript.Array<'T>>
+    
 open DictionaryUtil
 
 [<Name "HashSet">]
@@ -42,11 +42,11 @@ type HashSetProxy<'T when 'T : equality>
              equals : 'T -> 'T -> bool,
              hash   : 'T -> int) =
 
-        let mutable data  = [||]
+        let mutable data  = EcmaScript.Array<EcmaScript.Array<'T>>()
         let mutable count = 0
 
         [<JavaScript>]
-        let arrContains (item: 'T) (arr: 'T[])  =
+        let arrContains (item: 'T) (arr: EcmaScript.Array<'T>)  =
             let mutable c = true
             let mutable i = 0
             let l = arr.Length
@@ -58,13 +58,13 @@ type HashSetProxy<'T when 'T : equality>
             not c
 
         [<JavaScript>]
-        let arrRemove (item: 'T) (arr: 'T[])  =
+        let arrRemove (item: 'T) (arr: EcmaScript.Array<'T>)  =
             let mutable c = true
             let mutable i = 0
             let l = arr.Length
             while c && i < l do
                 if equals arr.[i] item then
-                    ResizeArray.splice arr i 1 [||] |> ignore
+                    arr.Splice(i, 1, [||]) |> ignore
                     c <- false
                 else
                     i <- i + 1
@@ -75,12 +75,12 @@ type HashSetProxy<'T when 'T : equality>
             let h = hash item
             let arr = data.[h]
             if arr ==. null then
-                data.[h] <- [| item |] 
+                data.[h] <- As [| item |]
                 count <- count + 1
                 true
             else
                 if arrContains item arr then false else    
-                    ResizeArray.push arr item
+                    arr.Push item |> ignore
                     count <- count + 1
                     true
 
@@ -105,7 +105,7 @@ type HashSetProxy<'T when 'T : equality>
 
         [<JavaScript>]
         member this.Clear() =
-            data <- [||]
+            data <- EcmaScript.Array()
             count <- 0
 
         [<JavaScript>]
@@ -116,9 +116,9 @@ type HashSetProxy<'T when 'T : equality>
         [<JavaScript>]
         member x.CopyTo(arr: 'T[]) =
             let mutable i = 0
-            for item in concat data do
-                arr.[i] <- item
-                i <- i + 1
+            let all = concat data 
+            for i = 0 to all.Length - 1 do 
+                arr.[i] <- all.[i]
 
         [<JavaScript>]
         member x.Count = count
@@ -144,7 +144,9 @@ type HashSetProxy<'T when 'T : equality>
         [<JavaScript>]
         member x.IntersectWith(xs: seq<'T>) =
             let other = HashSetProxy(xs, equals, hash) 
-            for item in concat data do
+            let all = concat data
+            for i = 0 to all.Length - 1 do
+                let item = all.[i]
                 if other.Contains(item) |> not then
                     x.Remove(item) |> ignore
 
@@ -161,7 +163,7 @@ type HashSetProxy<'T when 'T : equality>
         [<JavaScript>]
         member x.IsSubsetOf(xs: seq<'T>) =
             let other = HashSetProxy(xs, equals, hash)
-            concat data |> Seq.forall other.Contains
+            As<_[]>(concat data) |> Array.forall other.Contains
 
         [<JavaScript>]
         member x.IsSupersetOf(xs: seq<'T>) =
@@ -183,7 +185,9 @@ type HashSetProxy<'T when 'T : equality>
 
         [<JavaScript>]
         member x.RemoveWhere(cond: 'T -> bool) =
-            for item in concat data do
+            let all = concat data
+            for i = 0 to all.Length - 1 do
+                let item = all.[i]
                 if cond item then
                     x.Remove(item) |> ignore
 
