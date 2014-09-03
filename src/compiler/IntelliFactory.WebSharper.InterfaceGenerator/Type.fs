@@ -39,7 +39,7 @@ module Type =
         | ArrayType of int * Type
         | DeclaredType of Id
         | FunctionType of Function
-        | GenericType of string
+        | GenericType of string * ref<list<Type>>
         | SpecializedType of Type * list<Type>
         | SystemType of R.Type
         | TupleType of list<Type>
@@ -101,7 +101,7 @@ module Type =
 
         interface IType with
             member this.Type = this
-
+    
     /// Represents a JavaScript function type.
     and Function =
         {
@@ -316,8 +316,8 @@ module Type =
                                 }
                                 |> FunctionType
                 ]
-            | GenericType x ->
-                [GenericType x]
+            | GenericType (x, cs) ->
+                [GenericType (x, cs)]
             | SpecializedType (x, y) ->
                 [ for x in norm x do
                     for y in norms y do

@@ -65,9 +65,19 @@ module CodeModel =
                 f clone
                 clone
 
+    and TypeParameter =
+        val mutable Name : string
+        val mutable Constraints : list<T>
+
+        internal new (name) =
+            {
+                Name = name
+                Constraints = []
+            }
+
     and [<AbstractClass>] TypeDeclaration =
         inherit NamespaceEntity
-        val mutable Generics : list<string>
+        val mutable Generics : list<TypeParameter>
         val mutable Methods : list<Method>
         val mutable Properties : list<Property>
 
@@ -218,7 +228,7 @@ module CodeModel =
 
     and Method =
         inherit MethodBase
-        val mutable Generics : list<string>
+        val mutable Generics : list<TypeParameter>
 
         internal new (name, t) =
             {

@@ -326,7 +326,7 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: G
             | _ ->
                 // ParamArray not supported yet:
                 tB.Object
-        | Type.GenericType name ->
+        | Type.GenericType (name, _) ->
             genericsByName.[name] :> _
         | Type.SpecializedType (x, xs) ->
             let args = xs |> Seq.map c.TypeReference
@@ -607,10 +607,12 @@ type MemberConverter
         | true, tD ->
             let gs =
                 [
-                    for g in x.Generics do
-                        let gP = GenericParameter(g, tD)
+                    for g in x.Generics ->
+                        let gP = GenericParameter(g.Name, tD)
+                        for c in g.Constraints do
+                            gP.Constraints.Add(tC.TypeReference c)
                         tD.GenericParameters.Add(gP)
-                        yield gP
+                        gP
                 ]
             if x.Generics.Length > 0 then
                 tD.Name <- tD.Name + "`" + string x.Generics.Length
@@ -632,9 +634,15 @@ type MemberConverter
                     match x.Comment with
                     | None -> ()
                     | Some c -> comments.[mD] <- c
-                let gs = [| for g in x.Generics -> GenericParameter(g, mD) |]
-                for g in gs do
-                    mD.GenericParameters.Add(g)
+                let gs = 
+                    [| 
+                        for g in x.Generics -> 
+                            let gP = GenericParameter(g.Name, mD) 
+                            for c in g.Constraints do
+                                gP.Constraints.Add(tC.TypeReference c)
+                            mD.GenericParameters.Add(gP)
+                            gP
+                    |]
                 let c = withGenerics gs
                 c.AddMethod(dT, td, x, mD, f)
             | _ -> ()

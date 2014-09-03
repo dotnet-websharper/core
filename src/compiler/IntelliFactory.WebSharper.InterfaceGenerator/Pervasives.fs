@@ -264,11 +264,16 @@ module Pervasives =
     type GenericHelper = | Generic with
 
         member this.Entity (arity: int) (make: list<T> -> #Code.Entity) =
-            let g = List.init arity (fun x -> "T" + string (x + 1))
-            let t = List.map Type.GenericType g
-            let x = make t
+            let generics = List.init arity (fun x -> Code.TypeParameter ("T" + string (x + 1)))
+            let types = generics |> List.map (fun p -> Type.GenericType (p.Name, ref []))
+            let x = make types
+            for g, t in Seq.zip generics types do
+                match t with
+                | Type.GenericType(_, cs) ->
+                    g.Constraints <- !cs
+                | _ -> ()
             match box x with
-            | :? Code.Method as m -> m.Generics <- g
+            | :? Code.Method as m -> m.Generics <- generics
             | _ -> ()
             x
 
@@ -294,9 +299,14 @@ module Pervasives =
 
         member this.TypeDeclaration (arity: int) (make: list<T> -> #Code.TypeDeclaration) =
             let prefix = String.Format("T{0:x}", Fresh ())
-            let generics = [for n in 1 .. arity -> prefix + "_" + string n]
-            let types = [for g in generics -> Type.GenericType g]
+            let generics = [for n in 1 .. arity -> Code.TypeParameter (prefix + "_" + string n)]
+            let types = [for g in generics -> Type.GenericType (g.Name, ref [])]
             let id = (make types).Id
+            for g, t in Seq.zip generics types do
+                match t with
+                | Type.GenericType(_, cs) ->
+                    g.Constraints <- !cs
+                | _ -> ()
             fun parameters ->
                 let decl = make types
                 decl.Id <- id
@@ -332,3 +342,8 @@ module Pervasives =
         static member ( - ) (this: GenericHelper, f) =
             this.Entity 4 (fun x -> f x.[0] x.[1] x.[2] x.[3])
 
+    let WithConstraint (constraints: list<Type.IType>) (ty: Type.IType) =
+        match ty.Type with
+        | Type.GenericType (_, cs) -> cs := constraints |> List.map (fun t -> t.Type)
+        | _ -> ()
+        ty
