@@ -194,9 +194,7 @@ module WebSharperTaskModule =
                         msg.SendTo(settings.Log)
                     if out.Ok then
                         File.WriteAllText(tempInfo.FullName, "")
-                        true
-                    else
-                        Fail settings "Failed to compile assembly with WebSharper"
+                    out.Ok
                 settings.Log.LogMessage(MessageImportance.High, "Compiling with WebSharper..")
                 let (res, t) = Timed main
                 if res then

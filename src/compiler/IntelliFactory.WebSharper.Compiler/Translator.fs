@@ -146,7 +146,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
 
     let log priority message =
         logger.Log {
-            Priority = Error
+            Priority = priority
             Location = here
             Text = message
         }

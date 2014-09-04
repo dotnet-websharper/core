@@ -131,7 +131,7 @@ type CompilerActionBuilder() =
         let ok res =
             {
                 Run = fun ctx ->
-                    ctx.Add(CompilerMessage.Warn res)
+                    ctx.Add(CompilerMessage.CMErr1 res)
                     None
             }
         Printf.ksprintf ok fmt
@@ -186,8 +186,7 @@ module CompilerJobModule =
 
             let cmp = InterfaceGenerator.Compiler.Create()
             let out = cmp.Compile(cfg, asm)
-            do out.Save(input.AssemblyFile)
-            return ()
+            out.Save(input.AssemblyFile)
         }
 
     let CompileWithWebSharper aR snk input =
@@ -207,6 +206,8 @@ module CompilerJobModule =
             let ok = compiler.CompileAndModify assem
             if ok then
                 assem.Write snk fileName
+            else
+                return! Act.Fail "Failed to compile assembly with WebSharper."
         }
 
 module CompilerUtility =
