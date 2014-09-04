@@ -56,25 +56,28 @@ module private ObservableModule =
 
     [<JavaScript>]
     let Pairwise (e: IObservable<'T>) : IObservable<'T * 'T> =
-        ((None, None), e)
-        ||> Observable.scan (fun (_, o) n -> (o, Some n))
-        |> Observable.choose (function
-            | Some x, Some y    -> Some (x, y)
-            | _                 -> None)
+        Observable.New <| fun o1 ->
+            let last = ref None
+            let on v =
+                match !last with
+                | None -> ()
+                | Some l -> o1.OnNext(l, v)
+                last := Some v
+            e.Subscribe <| Observer.New(on, o1.OnError, o1.OnCompleted)  
 
     [<JavaScript>]
     let Partition (f: 'T -> bool) (e: IObservable<'T>) :
             IObservable<'T> * IObservable<'T> =
-        (Observable.filter f e, Observable.filter (f >> not) e)
+        (Observable.Filter f e, Observable.filter (f >> not) e)
 
     [<JavaScript>]
-    let Scan (fold: 'U -> 'T -> 'U) (seed: 'U) (e: IObservable<'T>) :
-            IObservable<'U> =
-        let state = ref seed
-        let f value =
-            state := fold !state value
-            !state
-        Observable.map f e
+    let Scan (fold: 'U -> 'T -> 'U) (seed: 'U) (e: IObservable<'T>) : IObservable<'U> =
+        Observable.New <| fun o1 ->
+            let state = ref seed
+            let on v = 
+                Observable.Protect (fun () -> fold !state v) 
+                    (fun s -> state := s; o1.OnNext s) o1.OnError
+            e.Subscribe <| Observer.New(on, o1.OnError, o1.OnCompleted)  
 
     [<JavaScript>]
     let Split (f: 'T -> Core.Choice<'U1,'U2>) (e: IObservable<'T>) :

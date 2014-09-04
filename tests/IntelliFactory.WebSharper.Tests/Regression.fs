@@ -225,5 +225,16 @@ let Tests =
 
     Test "Bug #279" {
         let arr = EcmaScript.Array<int>()
-        arr.ToDotNet() =? [||]    
+        arr.ToDotNet() =? [||]
+    }
+
+    Test "Bug #282" {
+        let stream = IntelliFactory.Reactive.HotStream.New()
+        let pairs = stream |> Observable.pairwise
+        let acc = ResizeArray()
+        pairs.Subscribe acc.Add |> ignore
+        pairs.Subscribe acc.Add |> ignore
+        pairs.Subscribe ignore |> ignore
+        [ 1 .. 3 ] |> List.iter stream.Trigger
+        acc.ToArray() =? [| 1, 2; 1, 2; 2, 3; 2, 3 |]
     }

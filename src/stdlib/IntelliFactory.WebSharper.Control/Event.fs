@@ -25,38 +25,22 @@ module internal Event =
     open System
     open IntelliFactory.WebSharper
 
-    [<Inline "$x.push($y)">]
-    let private push (x: obj) (y: obj) = X<unit>
-
-    [<Inline "$x.splice($y,1)">]
-    let private cut (x: obj) (y: int) = X<unit>
-
-    type Event<'T> = private { Handlers : obj [] } with
+    type Event<'T> = private { Handlers : ResizeArray<Handler<'T>> } with
 
         [<JavaScript>]
         member this.Trigger(x: 'T) =
-            for i = 0 to this.Handlers.Length - 1 do
-                (this.Handlers.[i] :?> 'T -> unit) x
+            for h in this.Handlers.ToArray() do
+                (As<'T -> unit> h) x
 
         [<JavaScript>]
         member this.AddHandler(h: Handler<'T>) =
-            push this.Handlers h
+            this.Handlers.Add h
 
         [<JavaScript>]
         member this.RemoveHandler(h: Handler<'T>) =
-            let x =
-                this.Handlers
-                |> Array.mapi (fun i x ->
-                    if x = (box h) then
-                        Some i
-                    else
-                        None
-                )
-                |> Array.choose id
-                |> Array.toList
-            match x with
-            | []        -> ()
-            | n :: _    -> cut this.Handlers n
+            this.Handlers
+            |> Seq.tryFindIndex ((=) h)
+            |> Option.iter this.Handlers.RemoveAt
 
         [<JavaScript>]
         member this.Subscribe(observer: IObserver<'T>) =
@@ -78,6 +62,6 @@ module internal Event =
 
     [<Inline>]
     [<JavaScript>]
-    let New () = { Handlers = [||] }
+    let New () = { Handlers = ResizeArray() }
 
 

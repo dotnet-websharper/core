@@ -42,7 +42,6 @@ let New f : IObservable<_> = upcast { Subscribe = f }
 let Of (f: ('T -> unit) -> (unit -> unit)) : IObservable<_> =
     New (fun o -> Disposable.Of (f (fun x -> o.OnNext x)))
 
-
 [<JavaScript>]
 let Return<'T> (x: 'T) : IObservable<'T> =
     let f (o : IObserver<'T>) =
@@ -57,27 +56,31 @@ let Never<'T> () : IObservable<'T> =
         Disposable.Of ignore
     )
 
+[<JavaScript>]
+let Protect f succeed fail =
+    match (try Choice1Of2 (f ()) with e -> Choice2Of2 e) with
+    | Choice1Of2 x -> (succeed x)
+    | Choice2Of2 e -> (fail e)
 
 [<JavaScript>]
 let Map (f: 'T -> 'U) (io: IObservable<'T>) : IObservable<'U> =
     New <| fun o1 ->
-        let on v = o1.OnNext (f v)
+        let on v = Protect (fun () -> f v) o1.OnNext o1.OnError
         io.Subscribe <| Observer.New(on, o1.OnError, o1.OnCompleted)
 
 
 [<JavaScript>]
 let Filter (f: 'T -> bool) (io: IObservable<'T>) : IObservable<'T> =
     New <| fun o1 ->
-        let on v = if f v then o1.OnNext v
+        let on v = 
+            Protect (fun () -> if f v then Some v else None)
+                (Option.iter o1.OnNext) o1.OnError
         io.Subscribe <|  Observer.New(on, o1.OnError, o1.OnCompleted)
 
 [<JavaScript>]
 let Choose  (f: 'T -> option<'U>) (io: IObservable<'T>) : IObservable<'U> =
     New <| fun o1 ->
-        let on v =
-            match f v with
-            | Some v    -> o1.OnNext v
-            | None      -> ()
+        let on v = Protect (fun () -> f v) (Option.iter o1.OnNext) o1.OnError
         io.Subscribe <| Observer.New(on, o1.OnError, o1.OnCompleted)
 
 [<JavaScript>]
@@ -145,7 +148,7 @@ let CombineLatest   (io1 : IObservable<'T>)
         let update () =
             match !lv1, !lv2 with
             | Some v1, Some v2  ->
-                o.OnNext (f v1 v2)
+                Protect (fun () -> f v1 v2) o.OnNext o.OnError
             | _                 ->
                 ()
         let o1 =
@@ -213,14 +216,13 @@ let SelectMany (io: IObservable<IObservable<'T>>) : IObservable<'T> =
     )
 
 [<JavaScript>]
-let Aggregate (io: IObservable<'T>) (seed: 'S) (acc: 'S -> 'T -> 'S) =
-    New (fun o ->
+let Aggregate (io: IObservable<'T>) (seed: 'S) (fold: 'S -> 'T -> 'S) =
+    New <| fun o1 ->
         let state = ref seed
-        io.Subscribe(fun value ->
-            state := acc state.Value value
-            o.OnNext(state.Value)
-        )
-    )
+        let on v = 
+            Protect (fun () -> fold !state v) 
+                (fun s -> state := s; o1.OnNext s) o1.OnError
+        io.Subscribe <| Observer.New(on, o1.OnError, o1.OnCompleted)  
 
 //    [<JavaScript>]
 //    let CollectLatest (outer: IObservable<IObservable<'T>>) : IObservable<seq<'T>> =
