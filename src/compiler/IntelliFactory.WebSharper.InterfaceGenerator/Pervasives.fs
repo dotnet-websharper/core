@@ -103,11 +103,11 @@ module Pervasives =
         Code.Resource (name, basePath :: paths)
 
     /// Makes a member static.
-    let Static<'T when 'T :> Code.Member> (x: 'T) =
+    let Static (x: #Code.Member) =
         x |> Code.Entity.Update (fun x -> x.IsStatic <- true)
         
     /// Makes a member instance.
-    let Instance<'T when 'T :> Code.Member> (x: 'T) =
+    let Instance (x: #Code.Member) =
         x |> Code.Entity.Update (fun x -> x.IsStatic <- false)
 
     /// Sets the base class.
@@ -167,7 +167,7 @@ module Pervasives =
     /// Constructs a new property with a getter and a setter.
     let ( =% ) name ty = Property name ty
 
-    let private Access<'T when 'T :> Code.Entity> m (x: 'T) : 'T =
+    let private Access m (x: #Code.Entity) =
         let x = x.Clone() :?> 'T
         x.AccessModifier <- m
         x
@@ -185,7 +185,7 @@ module Pervasives =
     let Internal x = Access Code.AccessModifier.Internal x
 
     /// Marks an entity with the Obsolete attribute.
-    let Obsolete<'T when 'T :> Code.Entity> (x: 'T) =
+    let Obsolete (x: #Code.Entity) =
         x |> Code.Entity.Update (fun x -> x.IsObsolete <- true)
 
     /// Constructs a class protocol (instance members).
@@ -193,15 +193,15 @@ module Pervasives =
         [ for m in members -> Instance m :> Code.IClassMember ]
 
     /// Adds a comment.
-    let WithComment<'T when 'T :> Code.Entity> (comment: string) (x: 'T) : 'T =
+    let WithComment (comment: string) (x: #Code.Entity) =
         x |> Code.Entity.Update (fun x -> x.Comment <- Some comment)
 
     /// Adds a source name.
-    let WithSourceName<'T when 'T :> Code.Entity> (name: string) (x: 'T) : 'T =
+    let WithSourceName (name: string) (x: #Code.Entity) =
         x |> Code.Entity.Update (fun x -> x.SourceName <- Some name)
 
     /// Adds an inline.
-    let WithInline<'T when 'T :> Code.MethodBase> (code: string) (x: 'T) : 'T =
+    let WithInline (code: string) (x: #Code.MethodBase) =
         x |> Code.Entity.Update (fun x -> x.Inline <- Some code)
 
     /// Adds an inline.
@@ -342,8 +342,8 @@ module Pervasives =
         static member ( - ) (this: GenericHelper, f) =
             this.Entity 4 (fun x -> f x.[0] x.[1] x.[2] x.[3])
 
-    let WithConstraint (constraints: list<Type.IType>) (ty: Type.IType) =
+    let WithConstraint (constraints: list<T>) (ty: #Type.IType) =
         match ty.Type with
-        | Type.GenericType (_, cs) -> cs := constraints |> List.map (fun t -> t.Type)
+        | Type.GenericType (_, cs) -> cs := constraints
         | _ -> ()
         ty
