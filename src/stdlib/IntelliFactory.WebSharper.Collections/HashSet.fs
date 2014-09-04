@@ -64,7 +64,7 @@ type HashSetProxy<'T when 'T : equality>
             let l = arr.Length
             while c && i < l do
                 if equals arr.[i] item then
-                    arr.Splice(i, 1, [||]) |> ignore
+                    arr.Splice(i, 1) |> ignore
                     c <- false
                 else
                     i <- i + 1
