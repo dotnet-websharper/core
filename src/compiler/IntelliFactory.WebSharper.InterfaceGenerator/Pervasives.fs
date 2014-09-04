@@ -342,8 +342,8 @@ module Pervasives =
         static member ( - ) (this: GenericHelper, f) =
             this.Entity 4 (fun x -> f x.[0] x.[1] x.[2] x.[3])
 
-    let WithConstraint (constraints: list<T>) (ty: #Type.IType) =
-        match ty.Type with
+    let WithConstraint (constraints: list<T>) (ty: T) =
+        match ty with
         | Type.GenericType (_, cs) -> cs := constraints
         | _ -> ()
         ty
