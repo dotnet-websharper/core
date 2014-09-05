@@ -28,6 +28,7 @@ let TestsPage =
             Div [Id "qunit"]
             Div [Id "qunit-fixture"]
             Div [new Controls.Tests()]
+            Div [new Web.Tests.RemotingTests()]
         ]
 
 let Main =

@@ -130,6 +130,9 @@ module Server =
         |> async.Return
 
     [<Remote>]
+    let f15 (x: string) = async.Return x
+
+    [<Remote>]
     let reverse (x: string) =
         new System.String(Array.rev (x.ToCharArray()))
         |> async.Return
@@ -202,9 +205,9 @@ type Harness [<JavaScript>] () =
             return
                 if v = b then
                     passed <- passed + 1
-                    JavaScript.Log("pass:", name)
+                    JavaScript.LogMore("pass:", name)
                 else
-                    JavaScript.Log("fail:", name, v, b)
+                    JavaScript.LogMore("fail:", name, v, b)
         }
 
     [<JavaScript>]
@@ -216,9 +219,9 @@ type Harness [<JavaScript>] () =
             return
                 if prop v then
                     passed <- passed + 1
-                    JavaScript.Log("pass:", name)
+                    JavaScript.LogMore("pass:", name)
                 else
-                    JavaScript.Log("fail:", name, v)
+                    JavaScript.LogMore("fail:", name, v)
         }
 
     [<JavaScript>]
@@ -227,9 +230,9 @@ type Harness [<JavaScript>] () =
         executed <- executed + 1
         if a = b then
             passed <- passed + 1
-            JavaScript.Log("pass:", name)
+            JavaScript.LogMore("pass:", name)
         else
-            JavaScript.Log("fail:", name, a, b)
+            JavaScript.LogMore("fail:", name, a, b)
 
     [<JavaScript>]
     member this.Summarize() =
@@ -258,7 +261,7 @@ module RemotingTestSuite =
 
     [<JavaScript>]
     let RunTests (dom: IntelliFactory.WebSharper.Dom.Element) =
-        JavaScript.Log("Starting tests", dom)
+        JavaScript.LogMore("Starting tests", dom)
         async {
             do test "unit -> unit"
             do! Server.reset()
@@ -315,6 +318,9 @@ module RemotingTestSuite =
             do! Server.f14 { X = "X" } =? { X = "X!" }
             do! satisfy (Server.f14 {X = "X"}) (fun x ->
                 x.Body = "X!")
+
+            do test "Null string"
+            do! Server.f15 null =? null
 
             do test "M1"
             do Remote<Server.IHandler>.M1()

@@ -348,8 +348,10 @@ module internal FastInvoke =
         match types with
         | Some (iT, dT) ->
             let ts = if isAction then ts else Array.append ts [| r |]
-            let dT = dT.MakeGenericType(ts)
-            let iT = iT.MakeGenericType(ts)
+            let dT, iT =
+                if ts.Length > 0
+                then dT.MakeGenericType(ts), iT.MakeGenericType(ts)
+                else dT, iT
             let factory = Activator.CreateInstance iT :?> Factory
             factory.Prepare(Delegate.CreateDelegate(dT, info))
         | _ ->

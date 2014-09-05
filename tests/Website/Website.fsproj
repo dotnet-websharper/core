@@ -68,5 +68,10 @@
       <Project>{87d32671-869d-4f33-9f24-380a4070b2dc}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Web.Tests\IntelliFactory.WebSharper.Web.Tests.fsproj">
+      <Name>IntelliFactory.WebSharper.Web.Tests</Name>
+      <Project>{2605322f-851c-4c6a-a204-f4eee9e21252}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
 </Project>
