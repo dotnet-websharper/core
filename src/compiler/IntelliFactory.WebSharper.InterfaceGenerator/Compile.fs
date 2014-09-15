@@ -174,7 +174,12 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         if Seq.isEmpty args then
             def
         else
-            let r = GenericInstanceType(def)
+            let r = 
+                match def with
+                | :? GenericInstanceType as r ->
+                    r.GenericArguments.Clear()
+                    r
+                | _ -> GenericInstanceType(def)
             for x in args do
                 r.GenericArguments.Add(x)
             r :> TypeReference
@@ -215,13 +220,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         genericInstance func [d; r]
 
     member c.GenericInstanceType(def: TypeReference, args: seq<TypeReference>) =
-        if Seq.isEmpty args then
-            def
-        else
-            let r = GenericInstanceType(def)
-            for x in args do
-                r.GenericArguments.Add(x)
-            r :> TypeReference
+        genericInstance def args
 
     member b.Tuple(ts: seq<TypeReference>) =
         commonType mscorlib "System" "Tuple" ts
@@ -249,7 +248,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
             functions.NestedTypes
             |> Seq.find (fun t -> t.Name.StartsWith("Func") && t.GenericParameters.Count = n)
             |> main.Import
-        b.GenericInstanceType(t, Seq.append ts [ret])
+        genericInstance t (Seq.append ts [ret])
 
     member b.Attribute = attributeType
     member b.BaseResource = baseResourceType

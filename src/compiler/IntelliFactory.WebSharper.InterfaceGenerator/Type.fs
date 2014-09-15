@@ -47,7 +47,9 @@ module Type =
 
         member this.Item
             with get ([<ParamArray>] x : IType []) =
-                SpecializedType (this, [for t in x -> t.Type])
+                match this with
+                | SpecializedType(g, _) -> SpecializedType (g, [for t in x -> t.Type])
+                | _ -> SpecializedType (this, [for t in x -> t.Type])
 
         /// `T?x` constructs a `Parameter` named "x" of type `T`.
         static member op_Dynamic(ty: Type, name: string) =
