@@ -42,7 +42,7 @@ contains the minimum set of resources that its contents need.
 An assembly, a type, a module, a static member or a module `let`
 declaration can be marked as requiring a resource (see "Declaring
 Resources and Dependencies" below for the different ways to declare
-a dependency). Any page that calls client-side code from this element
+a dependency). Any page that calls this item's client-side code
 will have the given resource included.
 
 A resource B can also be required by another resource A. In this case,
@@ -143,21 +143,24 @@ implementing the `IResource` interface. You can emit arbitrary
 HTML in the `Render` method using the provided `HtmlTextWriter`.
 
 ```fsharp
-type MyResource() =
+type R3() =
     interface R.IResource with
         member this.Render ctx writer = ...
 ```
 
-A resource dependency can be declared on a type or a member by
-annotating it with `RequireAttribute`. It is parameterized by the type
-of the resource to require:
+A resource dependency can be declared on a type, a member or an
+assembly by annotating it with `RequireAttribute`. It is parameterized
+by the type of the resource to require:
 
 ```fsharp
-[<Require(typeof<MyResource>)>]
+[<Require(typeof<R1>)>]
 type MyWidget() = ...
 
-[<Require(typeof<MyResource>)>]
+[<Require(typeof<R2>)>]
 let F x = ...
+
+[<assembly:Require(typeof<R3>)>]
+do()
 ```
 
 ## Resource Implementation
