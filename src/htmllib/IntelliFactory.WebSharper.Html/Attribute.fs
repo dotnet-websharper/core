@@ -43,7 +43,7 @@ type internal Attribute [<JavaScript>] private (HtmlProvider) =
         [<JavaScript>]
         member this.Body =
             let attr = HtmlProvider.CreateAttribute this.Name
-            attr.NodeValue <- this.Value
+            attr.Value <- this.Value
             attr :> _
 
         [<JavaScript>]

@@ -43,7 +43,7 @@ module internal Implementation =
 
             [<JavaScript>]
             member this.AppendAttribute node attr =
-                (this :> IHtmlProvider).SetAttribute node attr.NodeName attr.NodeValue
+                (this :> IHtmlProvider).SetAttribute node attr.NodeName attr.Value
 
             [<JavaScript>]
             member this.AppendNode node el =
