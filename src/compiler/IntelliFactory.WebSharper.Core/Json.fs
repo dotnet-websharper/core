@@ -722,6 +722,131 @@ let objectDecoder dD (t: System.Type) =
         | _ ->
             raise DecoderException
 
+let btree node left right height count = 
+    EncodedObject [
+        "Node", node  
+        "Left", left
+        "Right", right  
+        "Height", EncodedNumber height
+        "Count", EncodedNumber count  
+    ]
+
+let mapEncoder dE (t: System.Type) =
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 2 then raise EncoderException
+    let dK = dE tg.[0]
+    let dV = dE tg.[1]
+    let treeF = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
+    let pair key value =
+        EncodedObject [
+            "Key", key
+            "Value", value
+        ]   
+    let tR = FSV.PreComputeUnionTagReader(treeF.FieldType, flags)
+    let uR =
+        FST.GetUnionCases(treeF.FieldType, flags)
+        |> Array.map (fun c -> FSV.PreComputeUnionReader(c, flags))
+    fun (i: M.Info) (x: obj) ->
+        let rec encNode v = 
+            match v with
+            | null -> EncodedNull, 0
+            | _ ->
+            match tR v with
+            | 0 -> EncodedNull, 0
+            | 1 ->
+                let u = uR.[1] v
+                btree (pair (dK i u.[0]) (dV i u.[1])) EncodedNull EncodedNull "1" "1", 1
+            | 2 ->
+                let u = uR.[2] v
+                let l, lc = encNode u.[2]
+                let r, rc = encNode u.[3]
+                let c = 1 + lc + rc
+                btree (pair (dK i u.[0]) (dV i u.[1])) l r (string u.[4]) (string c), c 
+            | _ -> raise EncoderException     
+        let tr = fst (encNode (treeF.GetValue x))
+        EncodedObject [ "tree", tr ] |> addTag i t
+
+let mapDecoder dD (t: System.Type) =
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 2 then raise DecoderException
+    let dK = dD tg.[0]
+    let dV = dD tg.[1]
+    let tt = typedefof<System.Tuple<_,_>>.MakeGenericType(tg.[0], tg.[1])
+    let cT = FSV.PreComputeTupleConstructor(tt)
+    fun (i: M.Info) (x: Value) ->
+        let rec walk fields =
+            seq {
+                for f in fields do
+                    match f with
+                    | "Node", Object [ "Key", k; "Value", v ] -> 
+                        yield cT [| dK i k; dV i v |]
+                    | ("Left" | "Right"), Object st -> 
+                        yield! walk st
+                    | _ -> ()
+            }
+        match x with
+        | Null -> System.Activator.CreateInstance(t)
+        | Object [ "tree", Object tr ] ->
+            let els = walk tr |> Array.ofSeq
+            let tEls = System.Array.CreateInstance(tt, els.Length)
+            System.Array.Copy(els, tEls, els.Length)
+            System.Activator.CreateInstance(t, tEls)
+        | _ -> raise DecoderException
+
+let setEncoder dE (t: System.Type) =
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    let dI = dE tg.[0]
+    let treeF = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
+    let tR = FSV.PreComputeUnionTagReader(treeF.FieldType, flags)
+    let uR =
+        FST.GetUnionCases(treeF.FieldType, flags)
+        |> Array.map (fun c -> FSV.PreComputeUnionReader(c, flags))
+    fun (i: M.Info) (x: obj) ->
+        let rec encNode v = 
+            match v with
+            | null -> EncodedNull, 0
+            | _ ->
+            match tR v with
+            | 0 -> EncodedNull, 0
+            | 1 ->
+                let u = uR.[1] v
+                let l, lc = encNode u.[1]
+                let r, rc = encNode u.[2]
+                let c = 1 + lc + rc
+                btree (dI i u.[0]) l r (string u.[3]) (string c), c
+            | 2 ->
+                let u = uR.[2] v
+                btree (dI i u.[0]) EncodedNull EncodedNull "1" "1", 1
+            | _ -> raise EncoderException     
+        let tr = fst (encNode (treeF.GetValue x))
+        EncodedObject [ "tree", tr ] |> addTag i t
+
+let setDecoder dD (t: System.Type) =
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    let ti = tg.[0]
+    let dI = dD ti
+    fun (i: M.Info) (x: Value) ->
+        let rec walk fields =
+            seq {
+                for f in fields do
+                    match f with
+                    | "Node", n -> 
+                        yield dI i n
+                    | ("Left" | "Right"), Object st -> 
+                        yield! walk st
+                    | _ -> ()
+            }
+        match x with
+        | Null -> System.Activator.CreateInstance(t)
+        | Object [ "tree", Object tr ] ->
+            let els = walk tr |> Array.ofSeq
+            let tEls = System.Array.CreateInstance(ti, els.Length)
+            System.Array.Copy(els, tEls, els.Length)
+            System.Activator.CreateInstance(t, tEls)
+        | _ -> raise DecoderException
+
 let enumEncoder dE (t: System.Type) =
     let uT = System.Enum.GetUnderlyingType t
     let uE = dE uT
@@ -735,7 +860,7 @@ let enumDecoder dD (t: System.Type) =
         let y : obj = uD i x
         System.Enum.ToObject(t, y)
 
-let getEncoding scalar array tuple union record enu obj
+let getEncoding scalar array tuple union record enu map set obj
                 (cache: Dictionary<_,_>) =
     let recurse t =
         lock cache <| fun () ->
@@ -761,7 +886,14 @@ let getEncoding scalar array tuple union record enu obj
                     Choice1Of2 (enu dD t)
                 else
                     recurse t
-                    Choice1Of2 (obj dD t)
+                    let tn =
+                        if t.IsGenericType 
+                        then Some (t.GetGenericTypeDefinition().FullName)
+                        else None
+                    match tn with
+                    | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> Choice1Of2 (map dD t)
+                    | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> Choice1Of2 (set dD t)
+                    | _ -> Choice1Of2 (obj dD t)
             with NoEncodingException t ->
                 Choice2Of2 t
         if t = null then Choice2Of2 t else
@@ -852,6 +984,8 @@ type Provider(info: M.Info, pack: Encoded -> Value) =
                 unionDecoder
                 recordDecoder
                 enumDecoder
+                mapDecoder
+                setDecoder
                 objectDecoder
                 decoders
                 t
@@ -867,6 +1001,8 @@ type Provider(info: M.Info, pack: Encoded -> Value) =
                 unionEncoder
                 recordEncoder
                 enumEncoder
+                mapEncoder
+                setEncoder
                 objectEncoder
                 encoders
                 t

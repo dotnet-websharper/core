@@ -100,6 +100,16 @@ module Server =
         x.Add(System.TimeSpan.FromMinutes min)
         |> async.Return
 
+    [<Remote>]
+    let add2_2ToMap m =
+        m |> Map.add 2 2
+        |> async.Return
+
+    [<Remote>]
+    let add2ToSet s =
+        s |> Set.add 2
+        |> async.Return
+
     type T1 =
         | A of int
         | B of int * T1
@@ -321,6 +331,12 @@ module RemotingTestSuite =
 
             do test "Null string"
             do! Server.f15 null =? null
+
+            do test "Map<int,int> -> Map<int,int>"
+            do! Server.add2_2ToMap (Map.ofArray [| 1, 1 |]) =? Map.ofArray [| 1, 1; 2, 2 |]
+
+            do test "Set<int> -> Set<int>"
+            do! Server.add2ToSet (Set.ofArray [| 0; 1; 3; 4 |]) =? Set.ofArray [| 0 .. 4 |]
 
             do test "M1"
             do Remote<Server.IHandler>.M1()
