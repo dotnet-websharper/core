@@ -6,94 +6,166 @@ rendered to the `<head>` section of a page, for example a CSS or a
 JavaScript reference.  Pages written with WebSharper infer their
 minimal necessary resource set and the correct resource ordering.
 
-## Declaring Resources
+Most resources are declared as subclasses of the `Core.Resources.BaseResource`
+class (see "Declaring Resources and Dependencies" below for the different
+ways to declare a resource). Such a resource is declared with an associated
+path. The path is resolved by WebSharper as follows:
 
-The code necessary to declare resources can be found in the
-`Resources` module under the `IntelliFactory.WebSharper.Core`
-namespace:
+1. If the assembly contains an embedded resource file whose name
+corresponds to the resource's path, then WebSharper:
 
-    module R = IntelliFactory.WebSharper.Core.Resources
+    * extracts this file into the relevant subfolder of your application
+      (`/Scripts/WebSharper/<path>` for JavaScript files,
+      `/Content/WebSharper/<path>` for other resources)
 
-To declare a resource, you create a new type with a default
-constructor and implement the `IResource` interface:
+    * adds the correct tag to `<head>` (`<script>` for JavaScript files,
+      `<link>` for CSS files) with the corresponding path.
+      
+2. If there is no such embedded resource file, then WebSharper simply
+adds the correct tag to `<head>` without altering the path. This means
+that for such resources, you *should* use absolute URLs, either inside
+the application (for example `/some/path.js`) or to an external website
+(for example `//my.cdn.net/file1.js`).
 
-    type MyResource() =
-        interface R.IResource with
-            member this.Render ctx writer = ..
+A resource of type `BaseResource` can also be declared with a base path
+and a set of subpaths. This is useful for a library consisting of several
+files that need to be loaded eg. from a CDN. In this case, step 1 above
+is skipped, and a tag is added for each subpath by combining it with the
+base path.
 
-You can emit arbitrary HTML in the `Render` method.  It will appear in
-the `<head/>` section of pages that depend on this resource.
+## Dependency resolution
 
-A convenient way to do declare resources is to derive from the
-`BaseResource` class:
+A resource is only included by WebSharper if it is required by a
+client-side element. This means that each page of your website only
+contains the minimum set of resources that its contents need.
 
-    type MyResource() =
-        inherit Resources.BaseResource("http://my.cdn.net",
-           "file1.js", "file2.js", "file3.css")
+An assembly, a type, a module, a static member or a module `let`
+declaration can be marked as requiring a resource (see "Declaring
+Resources and Dependencies" below for the different ways to declare
+a dependency). Any page that calls this item's client-side code
+will have the given resource included.
 
-The above code declares a resource that renders to this HTML:
+A resource B can also be required by another resource A. In this case,
+any code that requires A will also include B. WebSharper ensures that
+B is located before A in the `<head>`.
 
-    <script type="text/javascript"
-            src="http://my.cdn.net/file1.js"></script>
-    <script type="text/javascript"
-            src="http://my.cdn.net/file2.js"></script>
-    <link rel="stylesheet" type="text/css"
-          href="http://my.cdn.net/file1.css" />
+## Declaring Resources and Dependencies
 
-The ID of the resource is set to `MyNamespace.MyResource`, the
-`FullName` of the class.  The base URL (`http://my.cdn.net`) can be
-overriden by providing an application setting with the key
-`MyNamespace.MyResource`.
+### In WebSharper Interface Generator
 
-`BaseResource` can also declare resources embedded into the current
-assembly:
+To declare a resource in WIG, you can use one of the following
+functions:
 
-    [<assembly: System.Web.UI.WebResource("My.js", "text/javascript")>]
-    do ()
+* `Resource` declares a `BaseResource` with a single path.
 
-    type MyEmbeddedResource() =
-        inherit Resources.BaseResource("My.js")
+```fsharp
+let R1 = Resource "ResourceClassName" "path.js"
+```
 
-## Declaring Resource Dependencies
+* `Resources` declares a `BaseResource` with a base path and multiple
+subpaths.
 
-A resource dependency can be declared on a type or a member by
-annotating it with `RequireAttribute`. It is parameterized by the type
-of the resource to require:
+```fsharp
+let R2 =
+    Resources "ResourceClassName2"
+        "//my.cdn.net" ["file1.js"; "file2.js"; "file1.css"]
+```
 
-    [<Require(typeof<MyResource>)>]
-    type MyWidget() = ...
+In either case, your resource must be included in the `Assembly`
+declaration. A common idiom is to create a sub-namespace called
+`Resources` and to include all resources in it:
 
-    [<Require(typeof<MyResource>)>]
-    let F (..) = ..
+```fsharp
+let Assembly =
+    Assembly [
+        Namespace "My.Library" [
+            // Library classes...
+        ]
+        Namespace "My.Library.Resources" [
+            R1
+            R2
+        ]
+    ]
+```
 
-Types, modules and static methods can be annotated with dependencies.
-All code that calls the annotated methods is assumed to depend on the
-resource.
+To declare that a class or an assembly depends on a given resource,
+you can use one of the following functions:
 
-## Dependency Graph
+* `Requires` declares a dependency on resources declared in this
+assembly.
 
-When constructing a page, `WebSharper` infers the set of resources to
-include in the `<head/>` section.  It starts by looking at the set of
-controls present on the page.  Every control has a type, and this type
-corresponds to a node in the dependency graph.  WebSharper computes
-the set of all nodes in the graph reachable from the control nodes.
-It then renders all resources found in this set.
+```fsharp
+let C =
+    Class "My.Library.C"
+    |+> (* members... *)
+    |> Requires [R1; R2]
+    
+let Assembly =
+    Assembly [
+        // ...
+    ]
+    |> Requires [R3]
+```
 
-The dependency graph is a directed graph with .NET classes and static
-methods as nodes.  An edge from A to B singifies that A depends on B.
-The graph is partially inferred and partially specified by the user:
+* `RequiresExternal` declares a dependency on resources declared
+outside of this assembly.
 
-* Graph edges are inferred from the call graph.  For an example, if a
-  function `f` calls a function `g`, then there is an edge from `f` to
-  `g`.  There are also structural rules, such as classes depending on
-  their base classes, or methods and modules depending on the modules
-  that declared them.
+```fsharp
+let C2 =
+    Class "My.Library.C2"
+    |+> (* members... *)
+    |> RequiresExternal [typeof<Other.Library.Resources.R4>]
+```
 
-* Graph edges are also declared by using the `RequireAttribute`.
+### In WebSharper Libraries, Applications and Manual Bindings
+
+To declare a resource in a WebSharper library or application,
+you can simply declare a class inheriting from `BaseResource`.
+Use the constructor with a single argument for single paths,
+and multiple arguments for a base path and a set of subpaths.
+
+```fsharp
+module Resources =
+
+    open IntelliFactory.WebSharper.Core.Resources
+
+    type R1() =
+        inherit BaseResource("path.js")
+        
+    type R2() =
+        inherit BaseResource("//my.cdn.net",
+            "file1.js", "file2.js", "file3.css")
+```
+
+You can also implement more complex resources (for example,
+resources that require a bit of inline JavaScript) by directly
+implementing the `IResource` interface. You can emit arbitrary
+HTML in the `Render` method using the provided `HtmlTextWriter`.
+
+```fsharp
+type R3() =
+    interface R.IResource with
+        member this.Render ctx writer = ...
+```
+
+A resource dependency can be declared on a type, a member or an
+assembly by annotating it with `RequireAttribute`. It is parameterized
+by the type of the resource to require:
+
+```fsharp
+[<Require(typeof<R1>)>]
+type MyWidget() = ...
+
+[<Require(typeof<R2>)>]
+let F x = ...
+
+[<assembly:Require(typeof<R3>)>]
+do()
+```
 
 ## Resource Implementation
 
-The resource graphs are constructed for every WebSharper-processed
+The resource dependency graphs are constructed for every WebSharper-processed
 assembly and are serialized to binary. They are stored within the
-assembly itself.  At runtime all the graphs of all the referenced
-assemblies are deserialized and merged into a single graph.
+assembly itself.  At runtime all the graphs of all the referenced assemblies
+are deserialized and merged into a single graph.
