@@ -72,7 +72,7 @@ type State(logger: Logger) =
                     with IntelliFactory.WebSharper.Core.Json.NoEncoderException _ ->
                         false
                 with e ->
-                    log Error (string t) ("Failed to load type: " + string e)
+                    log Warning (string t) ("Failed to load type: " + string e)
                     true)
 
     let canDecodeFromJson =
@@ -86,7 +86,7 @@ type State(logger: Logger) =
                     with IntelliFactory.WebSharper.Core.Json.NoDecoderException _ ->
                         false
                 with e ->
-                    log Error (string t) ("Failed to load type: " + string e)
+                    log Warning (string t) ("Failed to load type: " + string e)
                     true)
 
     let getRemoteContractError (m: MethodDefinition) : option<string> =

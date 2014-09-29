@@ -443,7 +443,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
         | Some (RemoteMethod _) ->
             match verifier.VerifyRemoteMethod t.Definition with
             | Verifier.Correct -> ()
-            | Verifier.Incorrect msg -> error t.Location msg
+            | Verifier.Incorrect msg -> warn t.Location msg
         | _ -> ()
         annot
 

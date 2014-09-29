@@ -315,7 +315,7 @@ exception NoDecoderException of System.Type with
 
 exception NoEncoderException of System.Type with
     override this.Message =
-        "No JSON decoder for " + string this.Data0
+        "No JSON encoder for " + string this.Data0
 
 type Encoded =
     | EncodedNull
@@ -866,9 +866,11 @@ let getEncoding scalar array tuple union record enu map set obj
         lock cache <| fun () ->
             cache.[t] <-
                 Choice1Of2 (fun i v ->
-                    match cache.TryGetValue t with
-                    | true, Choice1Of2 f -> f i v
-                    | _ -> raise (NoEncodingException t))
+                    let ct = lock cache <| fun () -> cache.[t]
+                    match ct with
+                    | Choice1Of2 f -> f i v
+                    | Choice2Of2 d -> raise (NoEncodingException d)
+                )
     let rec get (t: System.Type) =
         let derive dD =
             try
@@ -885,7 +887,6 @@ let getEncoding scalar array tuple union record enu map set obj
                 elif t.IsEnum then
                     Choice1Of2 (enu dD t)
                 else
-                    recurse t
                     let tn =
                         if t.IsGenericType 
                         then Some (t.GetGenericTypeDefinition().FullName)
@@ -893,7 +894,9 @@ let getEncoding scalar array tuple union record enu map set obj
                     match tn with
                     | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> Choice1Of2 (map dD t)
                     | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> Choice1Of2 (set dD t)
-                    | _ -> Choice1Of2 (obj dD t)
+                    | _ -> 
+                        recurse t
+                        Choice1Of2 (obj dD t)
             with NoEncodingException t ->
                 Choice2Of2 t
         if t = null then Choice2Of2 t else
@@ -912,7 +915,7 @@ let getEncoding scalar array tuple union record enu map set obj
                     let dD t =
                         match get t with
                         | Choice1Of2 d -> d
-                        | Choice2Of2 d -> raise (NoEncodingException t)
+                        | Choice2Of2 d -> raise (NoEncodingException d)
                     let d = derive dD
                     lock cache <| fun () ->
                         cache.[t] <- d
