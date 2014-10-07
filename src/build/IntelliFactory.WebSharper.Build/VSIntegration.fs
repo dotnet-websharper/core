@@ -107,7 +107,7 @@ module VSIntegration =
     let getLibraryTemplate com =
         let dir = com.Config.RootPath +/ "templates" +/ "library"
         let meta =
-            "An F# library capable of containing JavaScript-compiled code"
+            "Creates an F# library capable of containing WebSharper-compiled code."
             |> makeTemplateMetadata com "Library" "Library"
         let main = VST.ProjectItem.FromTextFile(dir +/ "Main.fs").ReplaceParameters()
         let project =
@@ -119,8 +119,8 @@ module VSIntegration =
     let getExtensionTempalte com =
         let dir = com.Config.RootPath +/ "templates" +/ "extension"
         let meta =
-            "Creates a new WebSharper binding to existing JavaScript code using \
-                the WebSharper Interface Generator tool"
+            "Creates a new WebSharper extension to existing JavaScript code using \
+                the WebSharper Interface Generator (WIG) tool."
             |> makeTemplateMetadata com "Extension" "Extension"
         let main = VST.ProjectItem.FromTextFile(dir +/ "Main.fs").ReplaceParameters()
         let project =
@@ -132,8 +132,8 @@ module VSIntegration =
     let getSiteletsWebsiteTemplate com =
         let dir = com.Config.RootPath +/ "templates" +/ "sitelets-website"
         let meta =
-            "A starter WebSharper website using WebSharper Sitelets"
-            |> makeTemplateMetadata com "Sitelet Website" "Website"
+            "Creates a starter client-server web application based on sitelets."
+            |> makeTemplateMetadata com "Client-Server Web Application" "Website"
         let file name =
             let i = VST.ProjectItem.FromTextFile(dir +/ name).ReplaceParameters()
             VST.FolderElement.Nested(i)
@@ -154,13 +154,13 @@ module VSIntegration =
     let getBundleSiteTemplate com =
         let dir = com.Config.RootPath +/ "templates" +/ "bundle-website"
         let meta =
-            "A starter WebSharper client-side website"
-            |> makeTemplateMetadata com "Bundle Website" "Bundle"
+            "Creates an empty markup-based HTML application."
+            |> makeTemplateMetadata com "HTML Application" "Bundle"
         let file name =
             let i = VST.ProjectItem.FromTextFile(dir +/ name).ReplaceParameters()
             VST.FolderElement.Nested(i)
         let project =
-            VST.Project.FromFile(dir +/ "BundleWebsite.fsproj",
+            VST.Project.FromFile(dir +/ "Bundle.fsproj",
                 [
                     file "Client.fs"
                     file "Main.fs"
@@ -174,13 +174,13 @@ module VSIntegration =
     let getSiteletsHtmlTemplate com =
         let dir = com.Config.RootPath +/ "templates" +/ "sitelets-html"
         let meta =
-            "A starter static HTML application using WebSharper Sitelets"
-            |> makeTemplateMetadata com "Sitelet Html App" "HtmlApp"
+            "Creates a starter sitelet-based HTML application."
+            |> makeTemplateMetadata com "Generated HTML Application" "HtmlApp"
         let file repl name =
             let i = VST.ProjectItem.FromTextFile(dir +/ name).ReplaceParameters()
             VST.FolderElement.Nested(i)
         let project =
-            VST.Project.FromFile(dir +/ "HtmlSite.fsproj",
+            VST.Project.FromFile(dir +/ "HtmlApp.fsproj",
                 [
                     file true "Client.fs"
                     file true "Main.fs"
@@ -193,8 +193,8 @@ module VSIntegration =
     let getSiteletsHostTemplate com =
         let dir = com.Config.RootPath +/ "templates" +/ "sitelets-host"
         let meta =
-            "A C#-based web project for hosting WebSharper sitelets in a web server."
-            |> makeTemplateMetadata com "Sitelet Host Website" "Web"
+            "Creates a C#-based web project for hosting WebSharper sitelets in a web server."
+            |> makeTemplateMetadata com "Host Application" "Web"
         let file name =
             VST.ProjectItem.FromTextFile(dir +/ name).ReplaceParameters()
             |> VST.FolderElement.Nested
