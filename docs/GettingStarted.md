@@ -7,7 +7,7 @@ After completing the installation, open Visual Studio and create a new
 project ("Website"):
 
     File > New Project > Templates > Visual F# >
-    WebSharper > Sitelet Website
+    WebSharper > Client-Server Web Application
 
 ![New Project Screenshot](images/GettingStarted-1.png)
 
