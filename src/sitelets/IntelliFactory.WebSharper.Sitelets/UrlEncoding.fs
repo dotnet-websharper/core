@@ -138,6 +138,11 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
             else false
     elif t = typeof<System.DateTime> then
         fun w x -> w.Add((x :?> System.DateTime).ToString "o"); true
+    elif t.IsEnum then
+        let uT = System.Enum.GetUnderlyingType(t)
+        fun w x ->
+            let s = System.Convert.ChangeType(x, uT)
+            getS uT w s
     elif t.IsArray then
         let eT = t.GetElementType()
         let eS = getS eT
@@ -259,6 +264,12 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
     elif t = typeof<System.DateTime> then
         let rT = System.Globalization.DateTimeStyles.RoundtripKind
         tryParse <| fun x -> System.DateTime.TryParse(x, null, rT)
+    elif t.IsEnum then
+        let uT = System.Enum.GetUnderlyingType(t)
+        let m =
+            typeof<System.Enum>
+                .GetMethod("ToObject", [|typeof<System.Type>; uT|])
+        getD uT >> Option.map (fun x -> m.Invoke(null, [|t; x|]))
     elif t.IsArray then
         if t.GetArrayRank() > 1 then
             raise (NoFormatError t)
