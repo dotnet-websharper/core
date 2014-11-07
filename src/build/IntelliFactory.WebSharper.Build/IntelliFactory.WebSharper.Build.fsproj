@@ -13,10 +13,10 @@
   <Import Project="$(Root)/msbuild/FSharp.targets" />
   <Target Name="BeforeBuild">
     <MSBuild Projects="$(Root)/src/build/Bootstrap/Bootstrap.fsproj" Properties="Configuration=$(Configuration)" />
-    <Exec Command="$(Root)/build/Bootstrap/Bootstrap.exe" WorkingDirectory="$(Root)" ContinueOnError="False" />
+    <Exec Command="&quot;$(Root)/build/Bootstrap/Bootstrap.exe&quot;" WorkingDirectory="$(Root)" ContinueOnError="False" />
   </Target>
   <Target Name="AfterBuild">
-    <Exec Command="$(OutputPath)/$(Name).exe $(Arguments)" WorkingDirectory="$(Root)" ContinueOnError="False" />
+    <Exec Command="&quot;$(OutputPath)/$(Name).exe&quot; $(Arguments)" WorkingDirectory="$(Root)" ContinueOnError="False" />
   </Target>
   <ItemGroup>
     <Compile Include="Config.fs" />
