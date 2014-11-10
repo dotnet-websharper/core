@@ -118,7 +118,7 @@ module Http =
             Cookies : HttpCookieCollection
             ServerVariables : ParameterCollection
             Body : Stream
-            Files : seq<HttpPostedFile>
+            Files : seq<HttpPostedFileBase>
         }
 
     /// Represents the status of HTTP responses.
