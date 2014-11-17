@@ -18,7 +18,6 @@ open System
 open System.IO
 open IntelliFactory.Build
 open IntelliFactory.Core
-module VSI = VSIntegration
 
 module Main =
 
@@ -40,15 +39,6 @@ module Main =
                     |> FSharpConfig.OtherFlags.Custom ["--optimize+"]
                     |> Logs.Config.Custom(Logs.Default.Verbose().ToConsole()))
         BuildConfig.CurrentFramework.Custom bt.Framework.Net40 bt
-
-    let private configureVSI (nuPkg: NuGetPackageBuilder) : VSI.Config =
-        let nupkgPath = nuPkg.GetComputedFileName()
-        let vsixPath = Path.ChangeExtension(nupkgPath, ".vsix")
-        {
-            NuPkgPath = nupkgPath
-            RootPath = root
-            VsixPath = vsixPath
-        }
 
     let private searchDir (dir: string) =
         let dir =Path.GetFullPath(dir)
@@ -87,8 +77,6 @@ module Main =
             lib "IntelliFactory.WebSharper.Ecma"
             lib "IntelliFactory.WebSharper.JQuery"
             lib "IntelliFactory.WebSharper.Testing"
-            // build:
-            lib "IntelliFactory.WebSharper.Templates"
             // foreign:
             lib "FsNuGet"
             lib "NuGet.Core"
@@ -124,8 +112,6 @@ module Main =
             new INuGetExportingProject with
                 member p.NuGetFiles =
                     seq {
-                        let cfg = configureVSI nuPkg
-                        yield! VSI.BuildContents cfg
                         yield file "build/Release/WebSharper.exe" None
                         yield file "build/Release/WebSharper.exe" (Some "WebSharper31.exe")
                         yield file "build/Release/WebSharper31.exe.config" None
@@ -136,27 +122,13 @@ module Main =
                         yield file (Path.Combine(fscore, "FSharp.Core.sigdata")) None
                         for (src, tgt) in searchDir (Path.Combine(root, "docs")) do
                             yield fileAt src ("/docs" + tgt)
-                        yield fileAt "build/templates.zip" "/templates/templates.zip"
                     }
         }
-
-    let BuildTemplatesZip () =
-        use zip = SharpCompress.Archive.Zip.ZipArchive.Create()
-        let dir = DirectoryInfo("templates")
-        for f in dir.EnumerateFiles("*.*", SearchOption.AllDirectories) do
-            zip.AddEntry(f.FullName.Replace(dir.FullName, ""), f)
-        let ci = SharpCompress.Common.CompressionInfo()
-        ci.Type <- SharpCompress.Common.CompressionType.Deflate
-        Directory.CreateDirectory("build") |> ignore
-        use out = File.OpenWrite("build/templates.zip")
-        zip.SaveTo(out, ci)
 
     let Package () =
         let nuPkg = nuPkg ()
         let sln = bt.Solution [nuPkg]
         sln.Build()
-        configureVSI nuPkg
-        |> VSI.BuildVsixFile
 
     [<EntryPoint>]
     let Start args =
@@ -164,7 +136,6 @@ module Main =
             match Seq.toList args with
             | ["minify"] | ["prepare"] ->
                 Minify.Run()
-                BuildTemplatesZip ()
             | ["package"] -> Package ()
             | _ ->
                 printfn "Known commands:"

@@ -20,16 +20,6 @@
   </Target>
   <ItemGroup>
     <Compile Include="Config.fs" />
-    <Compile Include="Utils.fsi" />
-    <Compile Include="Utils.fs" />
-    <Compile Include="NuGet.fsi" />
-    <Compile Include="NuGet.fs" />
-    <Compile Include="Templates.fsi" />
-    <Compile Include="Templates.fs" />
-    <Compile Include="Extensions.fsi" />
-    <Compile Include="Extensions.fs" />
-    <Compile Include="VSIntegration.fsi" />
-    <Compile Include="VSIntegration.fs" />
     <Compile Include="Minify.fs" />
     <Compile Include="Main.fs" />
     <None Include="WebSharper31.exe.config">
