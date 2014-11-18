@@ -30,6 +30,12 @@ type Hi() =
 
 type X = { A: int; B: int }
 
+//[<Direct "var orig = console.log; console.log = function (){window.lastLogged = arguments; orig.apply(console, arguments)}">]
+//let WatchConsole () = ()
+//
+//[<Inline "window.lastLogged">]
+//let GetLastLogged() = X
+
 [<JavaScript>]
 let Tests =
     Section "Printf"
@@ -61,6 +67,13 @@ let Tests =
         sprintf "%o" 735 =? "1337"
     }
 
+    Test "Continuation" {
+        Printf.ksprintf (fun s -> s.Length) "Web%s" "Sharper" =? 10
+        let lenf = Printf.ksprintf (fun s -> s.Length) 
+        lenf "Web%s" "Sharper" =? 10
+        lenf "Cloud%s" "Sharper" =? 12
+    }
+
     Test "Floating-Point" {
         sprintf "%10.5f" 9. =? "   9.00000"
         sprintf "%10.5f" 9. =? "   9.00000"
@@ -76,12 +89,11 @@ let Tests =
         sprintf "%A" { A = 1; B = 2 }  =? "{ A = 1; B = 2 }"            
     }
 
-    Test "PrintfModule" {
-        Printf.sprintf "Web%s" "Sharper" =? "WebSharper"
-    }
-
     Test "Console" {
+//        WatchConsole()
         printfn "Printing to console %s" "ok"
+        1 =? 1
+//        GetLastLogged() =? [| "Printing to console ok" |]
     }
 
     Test "FailWithF" {

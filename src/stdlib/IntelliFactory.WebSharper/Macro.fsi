@@ -55,23 +55,8 @@ type New =
     interface M.IMacroDefinition
 
 [<Sealed>]
-type SPrintF =
-    new : unit -> SPrintF
-    interface M.IMacroDefinition
-
-[<Sealed>]
-type KSPrintF =
-    new : unit -> KSPrintF
-    interface M.IMacroDefinition
-
-[<Sealed>]
-type PrintFN =
-    new : unit -> PrintFN
-    interface M.IMacroDefinition
-
-[<Sealed>]
-type FailWithF =
-    new : unit -> FailWithF
+type PrintF =
+    new : unit -> PrintF
     interface M.IMacroDefinition
 
 [<AbstractClass>]

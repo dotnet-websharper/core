@@ -39,6 +39,7 @@ type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 type ConstructorKind =
     | BasicConstructor of P.Address
     | InlineConstructor of Inlining.Inline
+    | MacroConstructor of R.Type
     | StubConstructor of P.Address
 
 type DataTypeKind =
@@ -153,6 +154,8 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
             f (BasicConstructor c.Name)
         | V.InlineConstructor (Inlined i) ->
             f (InlineConstructor i)
+        | V.MacroConstructor (t, _) ->
+            f (MacroConstructor t)
         | V.StubConstructor n ->
             f (StubConstructor n)
 

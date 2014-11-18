@@ -47,6 +47,12 @@ let Assemble (logger: Logger) (iP: I.Pool) mP (meta: M.T)
                 |> Corrector.Correct (Corrector.Constructor c.Currying)
                 |> C.Optimize
                 |> P.Core
+        | V.MacroConstructor (_, x) ->
+            if x.Body.IsSome then
+                c.Slot.Method <-
+                    match x.Body.Value with
+                    | Ma.CoreBody x -> P.Core (C.Optimize x)
+                    | Ma.SyntaxBody x -> P.Syntax x
         | V.StubConstructor _ -> ()
     let visitMethod (m: V.Method) =
         match m.Kind with

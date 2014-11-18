@@ -19,27 +19,26 @@
 //
 // $end{copyright}
 
-[<IntelliFactory.WebSharper.Core.Attributes.Name "Printf">]
-[<IntelliFactory.WebSharper.Core.Attributes.Proxy
+namespace IntelliFactory.WebSharper
+
+module M = Macro
+
+[<Proxy(typeof<PrintfFormat<_,_,_,_,_>>)>]
+type PrintfFormat = 
+    [<Macro(typeof<M.PrintF>)>]
+    new (value: string) = {}
+
+[<Name "Printf">]
+[<Proxy
     "Microsoft.FSharp.Core.PrintfModule, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
-module private IntelliFactory.WebSharper.PrintfProxy
+module private PrintfProxy =
+    [<Inline "$f($k)">]
+    let PrintFormatToStringThen (k: string -> _) (f: Printf.StringFormat<_, _>) = X
 
-module M = IntelliFactory.WebSharper.Macro
+    [<JavaScript; Inline>]
+    let PrintFormatLine (f: Printf.StringFormat<_>) = PrintFormatToStringThen JavaScript.Log f  
 
-[<Name "sprintf">]
-[<Macro(typeof<M.SPrintF>)>]
-let PrintFormatToString (fp: Printf.StringFormat<'T>) = X
-
-[<Name "ksprintf">]
-[<Macro(typeof<M.KSPrintF>)>]
-let PrintFormatToStringThen k (fp: Printf.StringFormat<'T>) = X
-
-[<Name "printfn">]
-[<Macro(typeof<M.PrintFN>)>]
-let PrintFormatLine (fp: Printf.StringFormat<'T>) = X
-
-[<Name "failwithf">]
-[<Macro(typeof<M.FailWithF>)>]
-let PrintFormatToStringThenFail (fp: Printf.StringFormat<'T>) k = X
+    [<JavaScript; Inline>]
+    let PrintFormatToStringThenFail (f: Printf.StringFormat<_>) = PrintFormatToStringThen failwith f

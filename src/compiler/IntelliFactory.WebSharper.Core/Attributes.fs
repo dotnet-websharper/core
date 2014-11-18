@@ -64,7 +64,7 @@ type JavaScriptAttribute =
 
 /// Annotates methods with custom compilation rules. The supplied type
 /// should implement Macros.IMacroDefinition and a default constructor.
-[<Sealed; U(T.Method|||T.Property)>]
+[<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
 type MacroAttribute(def: System.Type) =
     inherit A()
 

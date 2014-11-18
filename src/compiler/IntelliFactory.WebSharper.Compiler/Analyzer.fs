@@ -76,6 +76,8 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
         match c.Kind with
         | V.JavaScriptConstructor e ->
             List.iter (deps.Connect src) (GetCalls e)
+        | V.MacroConstructor (_, mac) ->
+            List.iter (deps.Connect src) mac.Requirements
         | _ -> ()
     let visitMethod src (m: V.Method) =
         m.Requirements

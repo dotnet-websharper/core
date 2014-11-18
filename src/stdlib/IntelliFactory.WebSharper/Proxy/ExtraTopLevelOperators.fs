@@ -41,14 +41,14 @@ let CreateArray2D (rows : seq<#seq<'T>>) =
 [<Inline "+$0">]
 let ToDouble<'T> (x: 'T) : double = X
 
-[<Inline; JavaScript>]
-let PrintFormatToString fp = Printf.sprintf fp 
+[<Inline "$f(function(x){return x;})">]
+let PrintFormatToString f = X
 
 [<Inline; JavaScript>]
-let PrintFormatToStringThen k fp = Printf.ksprintf k fp 
+let PrintFormatToStringThen k f = Printf.ksprintf k f 
 
 [<Inline; JavaScript>]
-let PrintFormatLine fp = Printf.printfn fp 
+let PrintFormatLine f = Printf.printfn f 
 
 [<Inline; JavaScript>]
-let PrintFormatToStringThenFail fp = Printf.failwithf fp 
+let PrintFormatToStringThenFail f = Printf.failwithf f 

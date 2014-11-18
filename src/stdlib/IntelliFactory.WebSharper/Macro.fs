@@ -463,52 +463,20 @@ let createPrinter fs =
                 | c -> failwithf "Failed to parse format string: '%%%c' is not supported." c
         )
         |> Seq.reduce (+)
-    args |> List.rev |> List.fold (fun c a -> C.Lambda(None, [a], c)) inner
-
-let sprintfMacro = macro <| fun tr q ->
+    
+    let k = C.Id() 
+    C.Lambda(None, [k],
+        args |> List.rev |> List.fold (fun c a -> C.Lambda(None, [a], c)) (C.Var k).[[inner]]
+    )
+    
+let printfMacro = macro <| fun tr q ->
     match q with
-    | CallOrCM (_, [OptCoerce (Q.NewObject (_, [Q.Value (Q.String fs)]))]) ->
+    | Q.NewObject (_, [Q.Value (Q.String fs)]) ->
         createPrinter fs
     | _ ->
-        failwith "sprintfMacro error"
+        failwith "printfMacro error"
 
 [<Sealed>]
-type SPrintF() =
+type PrintF() =
     interface M.IMacroDefinition with
-        member this.Macro = sprintfMacro
-
-let ksprintfMacro = macro <| fun tr q ->
-    match q with
-    | CallOrCM (_, [k; OptCoerce (Q.NewObject (_, [Q.Value (Q.String fs)]))]) ->
-        C.Application (tr k, [createPrinter fs])
-    | _ ->
-        failwithf "ksprintfMacro error"
-
-[<Sealed>]
-type KSPrintF() =
-    interface M.IMacroDefinition with
-        member this.Macro = ksprintfMacro
-
-let printfnMacro = macro <| fun tr q ->
-    match q with
-    | CallOrCM (_, [OptCoerce (Q.NewObject (_, [Q.Value (Q.String fs)]))]) ->
-        cCallG ["console"] "log" [createPrinter fs]
-    | _ ->
-        failwith "printfnMacro error"
-
-[<Sealed>]
-type PrintFN() =
-    interface M.IMacroDefinition with
-        member this.Macro = printfnMacro
-
-let failwithfMacro = macro <| fun tr q ->
-    match q with
-    | CallOrCM (_, [OptCoerce (Q.NewObject (_, [Q.Value (Q.String fs)]))]) ->
-        C.Throw (cCallG [] "Error" [createPrinter fs])
-    | _ ->
-        failwith "failwithfMacro error"
-
-[<Sealed>]
-type FailWithF() =
-    interface M.IMacroDefinition with
-        member this.Macro = failwithfMacro
+        member this.Macro = printfMacro

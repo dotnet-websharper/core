@@ -269,6 +269,8 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                 match i with
                 | Inlining.Transformer f -> f (!) !!args
                 | _ -> error "Internal inline substitution error."
+            | Some (M.MacroConstructor t) ->
+                (mP.Load t).Expand (!) quotation
             | Some (M.StubConstructor fn) ->
                 C.New (glob fn, !!args)
             | None ->

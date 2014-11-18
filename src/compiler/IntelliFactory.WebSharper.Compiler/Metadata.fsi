@@ -40,6 +40,7 @@ type Field = string
 type ConstructorKind =
     | BasicConstructor of P.Address
     | InlineConstructor of Inlining.Inline
+    | MacroConstructor of R.Type
     | StubConstructor of P.Address
 
 /// Represents data type metadata.

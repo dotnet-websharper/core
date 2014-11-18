@@ -44,6 +44,7 @@ type Name = P.Address
 type ConstructorKind =
     | InlineConstructor of Inlining.Inline
     | JavaScriptConstructor of Q.Expression
+    | MacroConstructor of R.Type * M.Macro
     | StubConstructor of Name
 
 type Constructor =

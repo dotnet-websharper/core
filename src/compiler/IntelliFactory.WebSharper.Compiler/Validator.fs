@@ -48,6 +48,7 @@ type Name = P.Address
 type ConstructorKind =
     | InlineConstructor of I.Inline
     | JavaScriptConstructor of Q.Expression
+    | MacroConstructor of R.Type * M.Macro
     | StubConstructor of Name
 
 type Constructor =
@@ -171,6 +172,10 @@ let getCtorStatus this =
     match this with
     | InlineConstructor i when not i.IsTransformer -> Compiled
     | JavaScriptConstructor _ -> Compiled
+    | MacroConstructor (_, m) ->
+        match m.Body with
+        | Some _ -> Compiled
+        | _ -> Ignored
     | _ -> Ignored
 
 let isCompiledConstructor ({Kind=ck}: Constructor) =
@@ -348,6 +353,9 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 |> Some
             | Some (JavaScript js) ->
                 Some (JavaScriptConstructor js)
+            | Some (Macro d) ->
+                let m = macros.Load d
+                Some (MacroConstructor (d, m))
             | Some (InlineJavaScript js) ->
                 warn t.Location
                     "Inline JavaScript constructors are not supported."

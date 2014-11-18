@@ -52,16 +52,16 @@ let plusForPos0 (n: obj, s, l) =
 
 [<JavaScript>]
 let rec prettyPrint (o: obj) =
-    let printObject (o: obj) = 
-        if J.In "toString" o then
-            string o
-        else
+    let printObject (o: obj) =
+        let s = string o
+        if s = "[object Object]" then
             "{ " + (J.GetFields o |> Array.map (fun (k, v) -> k + " = " + prettyPrint v) |> String.concat "; ") + " }"
+        else s
     let t = J.TypeOf o
     if t  ==. J.String then
         "\"" + As o + "\""
     elif t  ==. J.Object then
         if J.InstanceOf o J.Global?Array then
             "[| " + (As o |> Array.map prettyPrint |> String.concat "; ") + " |]"
-        else string o
+        else printObject o
     else string o
