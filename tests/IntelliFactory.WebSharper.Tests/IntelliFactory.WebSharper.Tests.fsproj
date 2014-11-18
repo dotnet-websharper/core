@@ -31,6 +31,7 @@
     <Compile Include="Stack.fs" />
     <Compile Include="String.fs" />
     <Compile Include="TimeSpan.fs" />
+    <Compile Include="Printf.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">

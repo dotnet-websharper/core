@@ -161,8 +161,10 @@ and Expression =
     static member ( &> ) : E * E -> E
     static member ( &<= ) : E * E -> E
     static member ( &>= ) : E * E -> E
+    static member ( &>> ) : E * E -> E
+    static member ( &<< ) : E * E -> E
     static member ( ? ) : E * string -> E
-    static member ( ! ) : E -> E
+    static member ( !! ) : E -> E
     static member ( ~+ ) : E -> E
     static member ( ~- ) : E -> E
 

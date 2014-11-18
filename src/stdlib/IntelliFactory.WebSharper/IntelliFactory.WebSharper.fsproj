@@ -18,6 +18,7 @@
     <Compile Include="Macro.fsi" />
     <Compile Include="Macro.fs" />
     <Compile Include="Pervasives.fs" />
+    <Compile Include="PrintfHelpers.fs" />
     <Compile Include="Concurrency.fs" />
     <Compile Include="Enumerator.fs" />
     <Compile Include="Enumerable.fs" />
@@ -54,6 +55,7 @@
     <Compile Include="Proxy/Option.fs" />
     <Compile Include="Proxy/OptionModule.fs" />
     <Compile Include="Proxy/Queue.fs" />
+    <Compile Include="Proxy/Printf.fs" />
     <Compile Include="Proxy/Ref.fs" />
     <Compile Include="Proxy/RuntimeHelpers.fs" />
     <Compile Include="Proxy/SeqModule.fs" />

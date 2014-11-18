@@ -178,8 +178,10 @@ and Expression =
     static member ( &> )   (a, b) = Binary (a, B.``>``, b)
     static member ( &<= )  (a, b) = Binary (a, B.``<=``, b)
     static member ( &>= )  (a, b) = Binary (a, B.``>=``, b)
+    static member ( &<< )  (a, b) = Binary (a, B.``<<``, b)
+    static member ( &>> )  (a, b) = Binary (a, B.``>>``, b)
 
-    static member ( ! ) a = Unary (UnaryOperator.``!``, a)
+    static member ( !! ) a = Unary (UnaryOperator.``!``, a)
     static member ( ~+ ) a = Unary (UnaryOperator.``+``, a)
     static member ( ~- ) a = Unary (UnaryOperator.``-``, a)
 

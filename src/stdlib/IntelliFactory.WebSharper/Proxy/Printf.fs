@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -19,36 +19,27 @@
 //
 // $end{copyright}
 
+[<IntelliFactory.WebSharper.Core.Attributes.Name "Printf">]
 [<IntelliFactory.WebSharper.Core.Attributes.Proxy
-    "Microsoft.FSharp.Core.ExtraTopLevelOperators, \
+    "Microsoft.FSharp.Core.PrintfModule, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
-module private IntelliFactory.WebSharper.ExtraTopLevelOperatorsProxy
+module private IntelliFactory.WebSharper.PrintfProxy
 
 module M = IntelliFactory.WebSharper.Macro
 
-[<Inline "null">]
-let DefaultAsyncBuilder : Control.AsyncBuilder =
-    As (AsyncBuilderProxy())
+[<Name "sprintf">]
+[<Macro(typeof<M.SPrintF>)>]
+let PrintFormatToString (fp: Printf.StringFormat<'T>) = X
 
-[<JavaScript>]
-[<Name "array2D">]
-let CreateArray2D (rows : seq<#seq<'T>>) =
-    let arr = rows |> Seq.map (Array.ofSeq) |> Array.ofSeq |> As<'T[,]>
-    arr?dims <- 2
-    arr
+[<Name "ksprintf">]
+[<Macro(typeof<M.KSPrintF>)>]
+let PrintFormatToStringThen k (fp: Printf.StringFormat<'T>) = X
 
-[<Inline "+$0">]
-let ToDouble<'T> (x: 'T) : double = X
+[<Name "printfn">]
+[<Macro(typeof<M.PrintFN>)>]
+let PrintFormatLine (fp: Printf.StringFormat<'T>) = X
 
-[<Inline; JavaScript>]
-let PrintFormatToString fp = Printf.sprintf fp 
-
-[<Inline; JavaScript>]
-let PrintFormatToStringThen k fp = Printf.ksprintf k fp 
-
-[<Inline; JavaScript>]
-let PrintFormatLine fp = Printf.printfn fp 
-
-[<Inline; JavaScript>]
-let PrintFormatToStringThenFail fp = Printf.failwithf fp 
+[<Name "failwithf">]
+[<Macro(typeof<M.FailWithF>)>]
+let PrintFormatToStringThenFail (fp: Printf.StringFormat<'T>) k = X

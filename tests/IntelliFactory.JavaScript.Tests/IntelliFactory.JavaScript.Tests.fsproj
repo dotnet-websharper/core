@@ -21,6 +21,6 @@
     </ProjectReference>
   </ItemGroup>
   <Target Name="AfterBuild">
-    <Exec Command="$(TargetPath)" ContinueOnError="false" />
+    <Exec Command="&quot;$(TargetPath)&quot;" ContinueOnError="false" />
   </Target>
 </Project>

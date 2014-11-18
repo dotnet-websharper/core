@@ -24,6 +24,11 @@ module IntelliFactory.WebSharper.Tests.String
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.Testing
 
+    
+[<JavaScript>]
+type Hi() =
+    override this.ToString() = "Hello"
+
 [<JavaScript>]
 let Tests =
 
@@ -174,4 +179,10 @@ let Tests =
         karina.[.. 2] =? "Kar"
         karina.[4 ..] =? "na" 
         karina.[2 .. 4] =? "rin" 
-    }
+    }  
+    
+    Test "string" {
+        string "abc" =? "abc"
+        string 123 =? "123"
+        string (Hi()) =? "Hello"
+    }               

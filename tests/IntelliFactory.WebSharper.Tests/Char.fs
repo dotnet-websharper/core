@@ -81,4 +81,9 @@ let Tests =
         C.Parse "k" =? 'k'
     }
 
-
+    Test "char" {
+        char 'x' =? 'x'
+        char "a" =? 'a'
+        char 65 =? 'A'
+        Assert.Raises (fun () -> char "aa" |> ignore)
+    }

@@ -48,14 +48,14 @@ let IsNullOrEmpty (x: string) = X<bool>
 [<Direct "$s.lastIndexOf(String.fromCharCode($c),$i)">]
 let LastIndexOf (s: string) (c: char) (i: int) = X<int>
 
-[<Inline "Array($n-$s.length+1).join(String.fromCharCode($c))+$s">]
+[<Direct "Array($n-$s.length+1).join(String.fromCharCode($c))+$s">]
 let PadLeftWith (s: string) (n: int) (c: char) = X<string>
 
 [<JavaScript>]
 let PadLeft (s: string) (n: int) =
     PadLeftWith s n ' '
 
-[<Inline "$s+Array($n-$s.length+1).join(String.fromCharCode($c))">]
+[<Direct "$s+Array($n-$s.length+1).join(String.fromCharCode($c))">]
 let PadRightWith (s: string) (n: int) (c: char) = X<string>
 
 [<JavaScript>]
