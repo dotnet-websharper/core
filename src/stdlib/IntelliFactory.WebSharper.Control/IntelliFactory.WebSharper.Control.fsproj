@@ -18,6 +18,7 @@
     <Compile Include="Event.fs" />
     <Compile Include="FSharpEvent.fs" />
     <Compile Include="EventModule.fs" />
+    <Compile Include="MailboxProcessor.fs" />
     <Compile Include="EcmaExtensions.fs" />
   </ItemGroup>
   <ItemGroup>

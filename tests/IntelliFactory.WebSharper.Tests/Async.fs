@@ -40,6 +40,10 @@ let ( @=? ) a b =
     while not (isIdle()) do tick()
     !res |> Option.get =? b
 
+type Message =
+    | Increment of int
+    | GetCurrent of AsyncReplyChannel<int> 
+
 [<JavaScript>]
 let Tests =
 
@@ -65,4 +69,28 @@ let Tests =
             async { return 1 }
             async { return 2 }
         |] @=? [| 1; 2 |] 
+    }
+
+    Test "MailboxProcessor" {
+        let mb = 
+            MailboxProcessor.Start <| fun mb ->
+                let v = ref 0
+                let rec loop() = async {
+                    let! msg = mb.Receive()
+                    match msg with
+                    | Increment i ->
+                        v := !v + i
+                    | GetCurrent chan ->
+                        chan.Reply !v
+                    do! loop()
+                }
+                loop()
+        async {
+            mb.Post(Increment 1)
+            return! mb.PostAndAsyncReply GetCurrent     
+        } @=? 1
+        async {
+            mb.Post(Increment 5)
+            return! mb.PostAndAsyncReply GetCurrent     
+        } @=? 6
     }
