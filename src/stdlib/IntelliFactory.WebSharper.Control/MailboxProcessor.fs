@@ -101,6 +101,7 @@ type private MailboxProcessorProxy<'T> (initial, ?token: CancellationToken) =
                 match scanner mailbox.First.Value with
                 | None -> scanNext ok
                 | Some c ->
+                    mailbox.RemoveFirst()
                     let! res = c
                     ok res
             }
