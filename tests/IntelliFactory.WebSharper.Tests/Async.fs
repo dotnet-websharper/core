@@ -43,6 +43,9 @@ let ( @=? ) a b =
 type Message =
     | Increment of int
     | GetCurrent of AsyncReplyChannel<int> 
+    | ScanNegative
+    | LastScanned of AsyncReplyChannel<int>
+    | GetHistory of AsyncReplyChannel<int list>
 
 [<JavaScript>]
 let Tests =
@@ -75,13 +78,29 @@ let Tests =
         let mb = 
             MailboxProcessor.Start <| fun mb ->
                 let v = ref 0
+                let n = ref 0
+                let h = ref []
+                let add i =
+                    h := !v :: !h
+                    v := !v + i
                 let rec loop() = async {
                     let! msg = mb.Receive()
                     match msg with
                     | Increment i ->
-                        v := !v + i
+                        add i
                     | GetCurrent chan ->
                         chan.Reply !v
+                    | ScanNegative ->
+                        let! j = 
+                            mb.Scan (function
+                                | Increment i when i < 0 -> Some (async { n := i; return -1 })
+                                | _ -> None
+                            )
+                        add j
+                    | LastScanned chan ->
+                        chan.Reply !n
+                    | GetHistory chan ->
+                        chan.Reply !h
                     do! loop()
                 }
                 loop()
@@ -93,4 +112,13 @@ let Tests =
             mb.Post(Increment 5)
             return! mb.PostAndAsyncReply GetCurrent     
         } @=? 6
+        async {
+            mb.Post(ScanNegative)  
+            mb.Post(Increment 3)  
+            mb.Post(Increment -2)
+            mb.Post(Increment 5)  
+            return! mb.PostAndAsyncReply LastScanned
+        } @=? -2
+        mb.PostAndAsyncReply GetCurrent @=? 13
+        mb.PostAndAsyncReply GetHistory @=? [ 8; 5; 6; 1; 0 ] 
     }
