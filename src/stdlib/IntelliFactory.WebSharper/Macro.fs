@@ -22,6 +22,8 @@
 /// Defines macros used by proxy definitions.
 module IntelliFactory.WebSharper.Macro
 
+open System.Collections.Generic
+
 module C = IntelliFactory.JavaScript.Core
 module M = IntelliFactory.WebSharper.Core.Macros
 module Q = IntelliFactory.WebSharper.Core.Quotations
@@ -382,16 +384,26 @@ module private FormatString =
         go 0 (System.Text.StringBuilder())
         parts.ToArray()
 
-let createPrinter fs =
+type FST = Reflection.FSharpType
+
+let flags =
+    System.Reflection.BindingFlags.Public
+    ||| System.Reflection.BindingFlags.NonPublic
+
+let createPrinter ts fs =
     let parts = FormatString.parseAll fs
     let args =
+        match ts with 
+        | Some ts -> 
+            ts |> Seq.map (fun t -> C.Id(), Some t) |> List.ofSeq
+        | _ ->
         [
             for p in parts do
                 match p with
                 | FormatString.FormatPart f ->
-                    yield C.Id()
-                    if f.IsStarWidth then yield C.Id()
-                    if f.IsStarPrecision then yield C.Id()
+                    yield C.Id(), None
+                    if f.IsStarWidth then yield C.Id(), None
+                    if f.IsStarPrecision then yield C.Id(), None
                 | _ -> () 
         ]
     let helpers = ["IntelliFactory"; "WebSharper"; "PrintfHelpers"] 
@@ -400,14 +412,14 @@ let createPrinter fs =
     let rArgs = ref args
     let nextVar() =
         match !rArgs with
-        | a :: r ->
+        | (a, t) :: r ->
             rArgs := r
-            C.Var a
+            C.Var a, t
         | _ -> failwith "sprintfMacro error"   
         
     let withPadding (f: FormatString.FormatSpecifier) t =
         if f.IsWidthSpecified then
-            let width = if f.IsStarWidth then nextVar() else cInt f.Width
+            let width = if f.IsStarWidth then nextVar() |> fst else cInt f.Width
             let s = t (nextVar())
             if FormatString.isLeftJustify f.Flags then
                 cCallG strings "PadRight" [s; width]
@@ -419,11 +431,81 @@ let createPrinter fs =
         else t (nextVar())
         
     let numberToString (f: FormatString.FormatSpecifier) t =
-        withPadding f (fun n ->
+        withPadding f (fun (n, _) ->
             if FormatString.isPlusForPositives f.Flags then cCallG helpers "plusForPos" [n; t n]
             elif FormatString.isSpaceForPositives f.Flags then cCallG helpers "spaceForPos" [n; t n]
             else t n
         )
+
+    let prettyPrint t o = 
+        let d = Dictionary<System.Type, C.Id * C.Expression ref>()
+        let rec pp t (o: C.Expression) = 
+            printfn "pp: %A" t
+            if FST.IsTuple t then
+                seq {
+                    yield cString "("
+                    let ts = FST.GetTupleElements t
+                    for i = 0 to ts.Length - 1 do 
+                        printfn "tuple element:" 
+                        yield pp ts.[i] o.[cInt i] 
+                        if i < ts.Length - 1 then yield cString ", "
+                    yield cString ")"
+                }
+                |> Seq.reduce (+)
+            else
+            let tn =
+                if t.IsGenericType 
+                then Some (t.GetGenericTypeDefinition().FullName)
+                else None
+            if tn = Some "Microsoft.FSharp.Collections.FSharpList`1" then
+                let a = t.GetGenericArguments().[0]
+                let x = C.Id()
+                printfn "list element:" 
+                cCallG helpers "printList" [ C.Lambda(None, [x], pp a (C.Var x)) ; o ]    
+            elif FST.IsUnion t then
+                let pi =
+                    match d.TryGetValue t with
+                    | false, _ ->
+                        let pi = C.Id()
+                        let pr = ref <| C.Runtime // placeholder
+                        d.Add(t, (pi, pr))
+                        pr := (
+                            let x = C.Id()
+                            C.Lambda(None, [x], 
+                                FST.GetUnionCases(t, flags) |> Seq.map (fun c ->
+                                    let fs = c.GetFields()
+                                    c.Tag,
+                                    match fs.Length with
+                                    | 0 -> cString c.Name
+                                    | 1 -> 
+                                        printfn "union field:" 
+                                        cString (c.Name + " ") + pp fs.[0].PropertyType (C.Var x).[cString "$0"]
+                                    | _ -> 
+                                        seq {
+                                            yield cString (c.Name + " (")
+                                            for i = 0 to fs.Length - 1 do
+                                                printfn "union field:" 
+                                                yield pp fs.[i].PropertyType (C.Var x).[cString ("$" + string i)]
+                                                if i < fs.Length - 1 then yield cString ", "
+                                            yield cString ")"
+                                        }
+                                        |> Seq.reduce (+)
+                                )
+                                |> Seq.fold (fun s (tag, e) ->
+                                    match s with
+                                    | None -> Some e
+                                    | Some s -> Some <| C.IfThenElse ((C.Var x).[cString "$"] &== cInt tag, e, s)
+                                ) None |> Option.get
+                            )
+                        )
+                        pi
+                    | true, (pi, _) -> pi
+                (C.Var pi).[[o]]
+            else cCallG helpers "prettyPrint" [o]
+        printfn "prettyPrint:"
+        let inner = pp t o
+        if d.Count = 0 then inner else
+        C.LetRecursive (d |> Seq.map (fun (KeyValue(_, (pi, pr))) -> pi, !pr) |> List.ofSeq, inner)
 
     let inner = 
         parts
@@ -433,15 +515,19 @@ let createPrinter fs =
                 match f.TypeChar with
                 | 'b'
                 | 'O' -> 
-                    withPadding f (fun s -> cCallG [] "String" [s])
+                    withPadding f (fun (o, _) -> cCallG [] "String" [o])
                 | 'A' -> 
-                    withPadding f (fun s -> cCallG helpers "prettyPrint" [s])
+                    withPadding f (function 
+                        | o, Some t -> 
+                            prettyPrint t o
+                        | o, _ -> cCallG helpers "prettyPrint" [o]
+                    )
                 | 'c' -> 
-                    withPadding f (fun s -> cCallG ["String"] "fromCharCode" [s])   
+                    withPadding f (fun (s, _) -> cCallG ["String"] "fromCharCode" [s])   
                 | 's' -> 
-                    withPadding f (fun s -> cCallG helpers "toSafe" [s])
+                    withPadding f (fun (s, _) -> cCallG helpers "toSafe" [s])
                 | 'd' | 'i' ->
-                    numberToString f (fun s -> cCallG [] "String" [s])
+                    numberToString f (fun n -> cCallG [] "String" [n])
                 | 'x' ->                                           
                     numberToString f (fun n -> cCall n "toString" [cInt 16])
                 | 'X' ->                                           
@@ -456,7 +542,7 @@ let createPrinter fs =
                     numberToString f (fun n ->
                         let prec =
                             if f.IsPrecisionSpecified then
-                                if f.IsStarPrecision then nextVar() else cInt f.Precision
+                                if f.IsStarPrecision then nextVar() |> fst else cInt f.Precision
                             else cInt 6 // Default precision
                         cCall n "toFixed" [prec]
                     )
@@ -466,13 +552,22 @@ let createPrinter fs =
     
     let k = C.Id() 
     C.Lambda(None, [k],
-        args |> List.rev |> List.fold (fun c a -> C.Lambda(None, [a], c)) (C.Var k).[[inner]]
+        args |> List.rev |> List.fold (fun c (a, _) -> C.Lambda(None, [a], c)) (C.Var k).[[inner]]
     )
     
 let printfMacro = macro <| fun tr q ->
     match q with
-    | Q.NewObject (_, [Q.Value (Q.String fs)]) ->
-        createPrinter fs
+    | Q.NewObject (c, [Q.Value (Q.String fs)]) ->
+        let rec getFunctionArgs t =
+            if FST.IsFunction t then
+                let x, y = FST.GetFunctionElements t
+                x :: getFunctionArgs y
+            else []
+        let ts =
+            try c.Generics.[0].Load() |> getFunctionArgs |> Some
+            with _ -> None
+        printfn "printfMacro type: %A, loaded %A" c.Generics.[0] ts
+        createPrinter ts fs
     | _ ->
         failwith "printfMacro error"
 

@@ -51,17 +51,21 @@ let plusForPos0 (n: obj, s, l) =
     if 0 <=. n then "+" + s else s     
 
 [<JavaScript>]
+let printList (p: obj -> string, o: obj list) =
+     "[" + (o |> Seq.map p |> String.concat "; ") + "]" 
+
+[<JavaScript>]
 let rec prettyPrint (o: obj) =
     let printObject (o: obj) =
         let s = string o
         if s = "[object Object]" then
-            "{ " + (J.GetFields o |> Array.map (fun (k, v) -> k + " = " + prettyPrint v) |> String.concat "; ") + " }"
+            "{" + (J.GetFields o |> Array.map (fun (k, v) -> k + " = " + prettyPrint v) |> String.concat "; ") + "}"
         else s
     let t = J.TypeOf o
     if t  ==. J.String then
         "\"" + As o + "\""
     elif t  ==. J.Object then
         if J.InstanceOf o J.Global?Array then
-            "[| " + (As o |> Array.map prettyPrint |> String.concat "; ") + " |]"
+            "[|" + (As o |> Array.map prettyPrint |> String.concat "; ") + "|]"
         else printObject o
     else string o

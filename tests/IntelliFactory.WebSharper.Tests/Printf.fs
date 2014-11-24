@@ -30,6 +30,10 @@ type Hi() =
 
 type X = { A: int; B: int }
 
+type MyList<'T> =
+    | Empty
+    | Cons of 'T * MyList<'T>
+
 //[<Direct "var orig = console.log; console.log = function (){window.lastLogged = arguments; orig.apply(console, arguments)}">]
 //let WatchConsole () = ()
 //
@@ -85,8 +89,12 @@ let Tests =
 
     Test "Pretty-Print" {
         sprintf "%A World" (Hi()) =? "Hello World"            
-        sprintf "%A" [| 3; 4 |] =? "[| 3; 4 |]"            
-        sprintf "%A" { A = 1; B = 2 }  =? "{ A = 1; B = 2 }"            
+        sprintf "%A" [| 3; 4 |] =? "[|3; 4|]"            
+        sprintf "%A" { A = 1; B = 2 }  =? "{A = 1; B = 2}"            
+        sprintf "%A" (3, 4) =? "(3, 4)"
+        sprintf "%A" [3; 4] =? "[3; 4]"
+        sprintf "%A" (Some 1) =? "Some 1"
+        sprintf "%A" (Cons (1, Cons (2, Empty))) =? "Cons (1, Cons (2, Empty))"
     }
 
     Test "Console" {
