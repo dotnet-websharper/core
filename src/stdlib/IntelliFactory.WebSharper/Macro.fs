@@ -25,6 +25,7 @@ module IntelliFactory.WebSharper.Macro
 open System.Collections.Generic
 
 module C = IntelliFactory.JavaScript.Core
+module A = IntelliFactory.WebSharper.Core.Attributes
 module M = IntelliFactory.WebSharper.Core.Macros
 module Q = IntelliFactory.WebSharper.Core.Quotations
 module R = IntelliFactory.WebSharper.Core.Reflection
@@ -440,18 +441,55 @@ let createPrinter ts fs =
     let prettyPrint t o = 
         let d = Dictionary<System.Type, C.Id * C.Expression ref>()
         let rec pp t (o: C.Expression) = 
-            printfn "pp: %A" t
             if FST.IsTuple t then
                 seq {
                     yield cString "("
                     let ts = FST.GetTupleElements t
                     for i = 0 to ts.Length - 1 do 
-                        printfn "tuple element:" 
                         yield pp ts.[i] o.[cInt i] 
                         if i < ts.Length - 1 then yield cString ", "
                     yield cString ")"
                 }
                 |> Seq.reduce (+)
+            elif FST.IsRecord t then
+                let pi = 
+                    match d.TryGetValue t with
+                    | false, _ ->
+                        let pi = C.Id()
+                        let pr = ref <| C.Runtime // placeholder
+                        d.Add(t, (pi, pr))
+                        pr := (
+                            let x = C.Id()
+                            C.Lambda(None, [x], 
+                                seq {
+                                    yield cString "{"
+                                    let fs = FST.GetRecordFields(t, flags)
+                                    for i = 0 to fs.Length - 1 do
+                                        let f = fs.[i]
+                                        let name = 
+                                            f.GetCustomAttributesData() |> Seq.tryPick (fun a ->
+                                                if a.Constructor.DeclaringType = typeof<A.NameAttribute>
+                                                then Some (a.ConstructorArguments.[0].Value :?> string)
+                                                else None
+                                            ) |> function Some n -> n | _ -> f.Name
+                                        yield cString (f.Name + " = ") + pp f.PropertyType (C.Var x).[cString name]
+                                        if i < fs.Length - 1 then yield cString "; "
+                                    yield cString "}"
+                                }
+                                |> Seq.reduce (+)
+                            ) 
+                        )
+                        pi
+                    | true, (pi, _) -> pi
+                (C.Var pi).[[o]]
+            elif t.IsArray then
+                let r = t.GetArrayRank()
+                let a = t.GetElementType()
+                let x = C.Id()
+                match r with 
+                | 1 -> cCallG helpers "printArray" [ C.Lambda(None, [x], pp a (C.Var x)) ; o ]
+                | 2 -> cCallG helpers "printArray2D" [ C.Lambda(None, [x], pp a (C.Var x)) ; o ]
+                | _ -> cCallG helpers "prettyPrint" [o]
             else
             let tn =
                 if t.IsGenericType 
@@ -460,7 +498,6 @@ let createPrinter ts fs =
             if tn = Some "Microsoft.FSharp.Collections.FSharpList`1" then
                 let a = t.GetGenericArguments().[0]
                 let x = C.Id()
-                printfn "list element:" 
                 cCallG helpers "printList" [ C.Lambda(None, [x], pp a (C.Var x)) ; o ]    
             elif FST.IsUnion t then
                 let pi =
@@ -478,13 +515,11 @@ let createPrinter ts fs =
                                     match fs.Length with
                                     | 0 -> cString c.Name
                                     | 1 -> 
-                                        printfn "union field:" 
                                         cString (c.Name + " ") + pp fs.[0].PropertyType (C.Var x).[cString "$0"]
                                     | _ -> 
                                         seq {
                                             yield cString (c.Name + " (")
                                             for i = 0 to fs.Length - 1 do
-                                                printfn "union field:" 
                                                 yield pp fs.[i].PropertyType (C.Var x).[cString ("$" + string i)]
                                                 if i < fs.Length - 1 then yield cString ", "
                                             yield cString ")"
@@ -502,7 +537,6 @@ let createPrinter ts fs =
                     | true, (pi, _) -> pi
                 (C.Var pi).[[o]]
             else cCallG helpers "prettyPrint" [o]
-        printfn "prettyPrint:"
         let inner = pp t o
         if d.Count = 0 then inner else
         C.LetRecursive (d |> Seq.map (fun (KeyValue(_, (pi, pr))) -> pi, !pr) |> List.ofSeq, inner)
@@ -566,7 +600,6 @@ let printfMacro = macro <| fun tr q ->
         let ts =
             try c.Generics.[0].Load() |> getFunctionArgs |> Some
             with _ -> None
-        printfn "printfMacro type: %A, loaded %A" c.Generics.[0] ts
         createPrinter ts fs
     | _ ->
         failwith "printfMacro error"

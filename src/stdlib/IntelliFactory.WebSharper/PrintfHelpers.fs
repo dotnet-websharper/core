@@ -55,6 +55,22 @@ let printList (p: obj -> string, o: obj list) =
      "[" + (o |> Seq.map p |> String.concat "; ") + "]" 
 
 [<JavaScript>]
+let printArray (p: obj -> string, o: obj[]) =
+     "[|" + (o |> Array.map p |> String.concat "; ") + "|]" 
+
+[<JavaScript>]
+let printArray2D (p: obj -> string, o: obj[,]) =
+     "[[" + (
+        seq {
+            let l2 = Array2D.length2 o
+            for i in 0 .. Array2D.length1 o - 1 ->
+                seq { for j in 0 .. l2 - 1 -> p o.[i, j] } 
+                |> String.concat "; "
+        }
+        |> String.concat "]["
+     ) + "]]" 
+
+[<JavaScript>]
 let rec prettyPrint (o: obj) =
     let printObject (o: obj) =
         let s = string o

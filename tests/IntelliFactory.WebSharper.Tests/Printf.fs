@@ -30,6 +30,10 @@ type Hi() =
 
 type X = { A: int; B: int }
 
+type Y = { C: int; D: Y option }
+
+type Z = { [<Name "F">] E : int * Z option }
+
 type MyList<'T> =
     | Empty
     | Cons of 'T * MyList<'T>
@@ -90,11 +94,15 @@ let Tests =
     Test "Pretty-Print" {
         sprintf "%A World" (Hi()) =? "Hello World"            
         sprintf "%A" [| 3; 4 |] =? "[|3; 4|]"            
-        sprintf "%A" { A = 1; B = 2 }  =? "{A = 1; B = 2}"            
+        sprintf "%A" {A = 1; B = 2}  =? "{A = 1; B = 2}"            
         sprintf "%A" (3, 4) =? "(3, 4)"
         sprintf "%A" [3; 4] =? "[3; 4]"
         sprintf "%A" (Some 1) =? "Some 1"
         sprintf "%A" (Cons (1, Cons (2, Empty))) =? "Cons (1, Cons (2, Empty))"
+        sprintf "%A" [|Some 1; Some 2|] =? "[|Some 1; Some 2|]"
+        sprintf "%A" {C = 1; D = Some {C = 2; D = None}} =? "{C = 1; D = Some {C = 2; D = None}}"            
+        sprintf "%A" {E = 1, Some {E = 2, None}} =? "{E = (1, Some {E = (2, None)})}"            
+        sprintf "%A" (Array2D.init 2 2 (fun r c -> 2 * r + c)) =? "[[0; 1][2; 3]]"            
     }
 
     Test "Console" {
