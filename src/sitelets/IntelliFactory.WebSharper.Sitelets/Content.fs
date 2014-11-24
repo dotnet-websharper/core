@@ -399,7 +399,7 @@ module Content =
                 | SH f -> t <- t.WithAsync(k, fun x -> f x.value)
                 | EH f -> t <- t.With(k, fun x -> x.extra.[k])
             t <- t.With(SCRIPTS, fun x -> x.extra.[SCRIPTS])
-            t <- t.With(SCRIPTS.ToLower(), fun x -> x.extra.[SCRIPTS])
+            t <- t.With(SCRIPTS.ToLower(Globalization.CultureInfo("en-US")), fun x -> x.extra.[SCRIPTS])
             t
 
         let basicTemplate =
