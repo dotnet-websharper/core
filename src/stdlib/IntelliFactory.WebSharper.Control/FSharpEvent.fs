@@ -33,3 +33,8 @@ type private FSharpEvent<'T> [<JavaScript>] () =
 
     [<JavaScript>]
     member this.Publish with [<Inline>] get () = event :> IEvent<_>
+
+[<Proxy(typeof<IDelegateEvent<_>>)>]
+type private IDelegateEventProxy<'D> =
+    abstract AddHandler : 'D -> unit
+    abstract RemoveHandler : 'D -> unit

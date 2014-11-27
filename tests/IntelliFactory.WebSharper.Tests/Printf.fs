@@ -28,6 +28,8 @@ open IntelliFactory.WebSharper.Testing
 type Hi() =
     override this.ToString() = "Hello"
 
+type A = { X : int } with override x.ToString() = "X"
+
 type X = { A: int; B: int }
 
 type Y = { C: int; D: Y option }
@@ -102,7 +104,9 @@ let Tests =
         sprintf "%A" [|Some 1; Some 2|] =? "[|Some 1; Some 2|]"
         sprintf "%A" {C = 1; D = Some {C = 2; D = None}} =? "{C = 1; D = Some {C = 2; D = None}}"            
         sprintf "%A" {E = 1, Some {E = 2, None}} =? "{E = (1, Some {E = (2, None)})}"            
-        sprintf "%A" (Array2D.init 2 2 (fun r c -> 2 * r + c)) =? "[[0; 1][2; 3]]"            
+        sprintf "%A" (Array2D.init 2 2 (fun r c -> 2 * r + c)) =? "[[0; 1][2; 3]]"  
+        let pr (x: obj) = sprintf "%A" x
+        pr (Some 1) <>? "Some 1"         
     }
 
     Test "Console" {

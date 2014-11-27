@@ -73,3 +73,20 @@ let EnumerateWhile (f: unit -> bool) (s: seq<'T>) : seq<'T> =
                     en.State <- None
                     next en
         Enumerator.New None next)
+
+[<JavaScript>]
+[<Name "IntelliFactory.WebSharper.Control.createEvent">]
+let CreateEvent<'A, 'D when 'D : delegate<'A, unit> and 'D :> System.Delegate> 
+        (add: 'D -> unit) 
+        (remove: 'D -> unit)
+        (create: (obj -> 'A -> unit) -> 'D) : IEvent<'D, 'A> =
+    New [
+        "AddHandler" => add
+        "RemoveHandler" => remove
+        "Subscribe" => 
+            fun (r: System.IObserver<'A>) ->
+                let h = create (fun _ args -> r?OnNext(args))
+                add h
+                New [ "Dispose" => fun () -> remove h ] 
+    ]
+    

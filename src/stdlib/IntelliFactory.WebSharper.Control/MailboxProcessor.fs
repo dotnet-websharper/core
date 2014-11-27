@@ -39,13 +39,16 @@ type private MailboxProcessorProxy<'T> (initial, ?token: CancellationToken) =
     let errorEvent = Event<exn>()
     let mailbox = LinkedList<'T>()
     let mutable savedCont = None
-
+    
     let dequeue() =
         let f = mailbox.First.Value
         mailbox.RemoveFirst()
         f
 
-    member thi.Error = errorEvent.Publish
+    member this.Error = errorEvent.Publish
+
+    member this.add_Error handler = this.Error.AddHandler handler
+    member this.remove_Error handler = this.Error.RemoveHandler handler
 
     member this.Start() =
         if started then

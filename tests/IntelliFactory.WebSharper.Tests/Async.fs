@@ -46,6 +46,7 @@ type Message =
     | ScanNegative
     | LastScanned of AsyncReplyChannel<int>
     | GetHistory of AsyncReplyChannel<int list>
+    | Die
 
 [<JavaScript>]
 let Tests =
@@ -72,6 +73,15 @@ let Tests =
             async { return 1 }
             async { return 2 }
         |] @=? [| 1; 2 |] 
+    }
+
+    Test "TryWith" {
+        async {
+            let failed = ref false
+            try failwith "error"
+            with _ -> failed := true
+            return Some !failed
+        } @=? Some true
     }
 
     Test "MailboxProcessor" {
@@ -101,6 +111,7 @@ let Tests =
                         chan.Reply !n
                     | GetHistory chan ->
                         chan.Reply !h
+                    | Die -> failwith "error"
                     do! loop()
                 }
                 loop()
@@ -121,4 +132,11 @@ let Tests =
         } @=? -2
         mb.PostAndAsyncReply GetCurrent @=? 13
         mb.PostAndAsyncReply GetHistory @=? [ 8; 5; 6; 1; 0 ] 
+
+        // testing Error event
+        let errorCatched = ref false
+        mb.Error.Add (fun _ -> errorCatched := true)
+        mb.Post(Die)
+        do while not (isIdle()) do tick()
+        !errorCatched =? true
     }
