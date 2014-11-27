@@ -112,6 +112,8 @@ module Main =
             new INuGetExportingProject with
                 member p.NuGetFiles =
                     seq {
+                        yield fileAt (Path.Combine(root, "msbuild", "WebSharper.targets"))
+                            "build/WebSharper.targets"
                         yield file "build/Release/WebSharper.exe" None
                         yield file "build/Release/WebSharper.exe" (Some "WebSharper31.exe")
                         yield file "build/Release/WebSharper31.exe.config" None
