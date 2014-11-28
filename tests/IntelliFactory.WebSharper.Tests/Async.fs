@@ -76,12 +76,42 @@ let Tests =
     }
 
     Test "TryWith" {
+        let ops = ref ""
+        let a = async { ops := !ops + "A" }
+        let b = async { ops := !ops + "B" }
         async {
-            let failed = ref false
-            try failwith "error"
-            with _ -> failed := true
-            return Some !failed
-        } @=? Some true
+            try
+                do! a
+                failwith "error"
+                do! a
+            with _ ->
+                do! b
+            return !ops
+        } @=? "AB"
+    }
+
+    Test "TryFinally" {
+        let ops = ref ""
+        let a = async { ops := !ops + "A" }
+        async {
+            try
+                do! a
+                failwith "error"
+                do! a
+            finally ops := !ops + "F"
+            return !ops
+        } @=? "AF"
+    }
+
+    Test "Cancellation" {
+        let ops = ref ""
+        let a = async { ops := !ops + "A" }
+        async {
+            do! a
+            Async.CancelDefaultToken()
+            do! a 
+            return !ops
+        } @=? "A"
     }
 
     Test "MailboxProcessor" {

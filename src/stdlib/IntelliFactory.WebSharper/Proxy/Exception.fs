@@ -47,3 +47,22 @@ type private IndexOutOfRangeExceptionProxy =
 
     [<Inline "new Error(\"IndexOutOfRangeException\")">]
     new () = {}
+
+[<Proxy(typeof<System.OperationCanceledException>)>]
+type OperationCanceledExceptionProxy =
+
+    [<Inline "new Error(\"OperationCanceledException\")">]
+    new () = {}
+
+[<Proxy(typeof<System.ArgumentException>)>]
+type ArgumentExceptionProxy =
+
+    [<Inline "new Error(\"ArgumentException\")">]
+    new () = {}
+
+[<Proxy(typeof<System.InvalidOperationException>)>]
+type InvalidOperationExceptionProxy =
+
+    [<Inline "new Error(\"InvalidOperationException\")">]
+    new () = {}
+

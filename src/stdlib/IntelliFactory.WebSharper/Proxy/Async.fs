@@ -36,12 +36,12 @@ type private AsyncProxy =
     [<Inline>]
     [<JavaScript>]
     static member Start(computation: Async<unit>, ?t: CT) : unit =
-        C.Start (As computation)
+        C.Start (As computation, As t)
 
     [<Inline>]
     [<JavaScript>]
     static member Ignore (computation: Async<'T>) : Async<unit> =
-        As (C.Bind (As computation) (fun _ -> C.Return ()))
+        As (C.Bind (As computation), fun _ -> C.Return ())
 
     [<Inline>]
     [<JavaScript>]
@@ -55,7 +55,7 @@ type private AsyncProxy =
                                          c2: exn -> unit,
                                          c3: OCE -> unit,
                                          ?t: CT) : unit =
-        C.StartWithContinuations (As op) c1 c2
+        C.StartWithContinuations (As op, c1, c2, c3, As t)
 
     [<Inline>]
     [<JavaScript>]
@@ -63,7 +63,7 @@ type private AsyncProxy =
                                                (exn -> unit) *
                                                (OCE -> unit)) -> unit)
                                     : Async<'T> =
-        As (C.FromContinuations (fun ok no -> callback (ok, no, ignore)))
+        As (C.FromContinuations callback)
 
     [<Inline>]
     [<JavaScript>]
@@ -83,4 +83,37 @@ type private AsyncProxy =
     [<Inline>]
     [<JavaScript>]
     static member StartImmediate(c: Async<unit>, ?t: CT) : unit =
-        C.Start (As c)
+        C.Start (As c, As t)
+
+    [<Inline>]
+    [<JavaScript>]
+    static member DefaultCancellationToken : CT =
+        As !C.defCT
+
+    [<JavaScript>]
+    static member CancelDefaultToken() : unit =
+        (!C.defCT).IsCancellationRequested <- true        
+        C.defCT := { C.IsCancellationRequested = false }
+
+    [<Inline>]
+    [<JavaScript>]
+    static member CancellationToken : Async<CT> =
+        As C.GetCT
+
+[<Proxy(typeof<System.Threading.CancellationTokenSource>)>]
+type private CancellationTokenSourceProxy =
+
+    [<Inline "{run: true}">]
+    new () = {}
+
+    [<Inline "$this.c">]
+    member this.IsCancellationRequested = X<bool>
+
+    [<Inline "$this">]
+    member this.Token = X<CT>
+
+[<Proxy(typeof<System.Threading.CancellationToken>)>]
+type private CancellationTokenProxy =
+
+    [<Inline "$this.c">]
+    member this.IsCancellationRequested = X<bool>
