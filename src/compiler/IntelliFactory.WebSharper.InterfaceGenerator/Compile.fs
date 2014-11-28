@@ -95,11 +95,9 @@ type InlineGenerator() =
             let pfx = if p.IsStatic then td.Name else "$this"
             let ind = if p.IndexerType.IsSome then "[$index]" else ""
             let format =
-                if validJsIdentRE.IsMatch p.Name
-                then 
-                    if p.Name = "item" 
-                    then "{0}{2}" 
-                    else "{0}.{1}{2}"
+                if p.Name = "" then "{0}{2}"
+                elif validJsIdentRE.IsMatch p.Name
+                then "{0}.{1}{2}"
                 else "{0}['{1}']{2}"
             String.Format(format, pfx, p.Name, ind)
 
@@ -108,11 +106,9 @@ type InlineGenerator() =
             let pfx = if p.IsStatic then td.Name else "$this"
             let ind = if p.IndexerType.IsSome then "[$index]" else ""
             let format =
-                if validJsIdentRE.IsMatch p.Name
-                then
-                    if p.Name = "item"
-                    then "void ({0}{2} = $value)"
-                    else "void ({0}.{1}{2} = $value)"
+                if p.Name = "" then "void ({0}{2} = $value)"
+                elif validJsIdentRE.IsMatch p.Name
+                then "void ({0}.{1}{2} = $value)"
                 else "void ({0}['{1}']{2} = $value)"
             String.Format(format, pfx, p.Name, ind)
 
@@ -132,6 +128,10 @@ type InlineGenerator() =
                     name
             name.Substring(0, 1).ToUpper() + name.Substring 1
         |> mangle
+
+    member g.GetPropertySourceName(p: Code.Property) =
+        if p.Name = "" && Option.isSome p.IndexerType then "Item"
+        else g.GetSourceName(p)
 
 [<Sealed>]
 type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName: string) =
@@ -562,7 +562,7 @@ type MemberConverter
             match Type.Normalize p.Type with
             | [t] -> tC.TypeReference t
             | _  -> tB.Object
-        let name = iG.GetSourceName p
+        let name = iG.GetPropertySourceName p
         let attrs = PropertyAttributes.None
         let pD = PropertyDefinition(name, attrs, ty)
         do

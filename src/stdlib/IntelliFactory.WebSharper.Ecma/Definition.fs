@@ -136,7 +136,7 @@ module Definition =
                 "reduceRight" => Reduce
                 Generic - fun b -> "reduceRight" => ReduceG b
                 "length" =@ T<int>
-                "item" =@ a |> Indexed T<int>
+                "" =@ a |> Indexed T<int>
             ]
         |+> [
                 Constructor (T<int>)
