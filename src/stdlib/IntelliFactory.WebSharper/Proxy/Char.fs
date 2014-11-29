@@ -58,5 +58,10 @@ type private CharProxy =
     static member IsWhiteSpace(c: char) = X<bool>
 
     [<Inline "$s.charCodeAt(0)">]
-    static member Parse(s: string) = X<char>
+    static member CharCodeAt0(s: string) = X<char>
+
+    [<JavaScript>]
+    static member Parse(s: string) =
+        if s.Length = 1 then CharProxy.CharCodeAt0(s) else
+            failwith "String must be exactly one character long."
 

@@ -189,6 +189,8 @@ type CMP(c: Comparison) =
 [<Sealed>] type LE() = inherit CMP(Comparison.``<=``)
 [<Sealed>] type GE() = inherit CMP(Comparison.``>=``)
 
+let charProxy = ["IntelliFactory"; "WebSharper"; "Char"]
+
 let charMacro = macro <| fun tr q ->
     match q with
     | CallOrCM (m, [x]) ->
@@ -198,7 +200,7 @@ let charMacro = macro <| fun tr q ->
                 match t with
                 | R.Type.Concrete (d, _) ->
                     match d.FullName with
-                    | "System.String" -> cCall (tr x) "charCodeAt" [cInt 0]
+                    | "System.String" -> cCallG charProxy "Parse" [tr x]
                     | "System.Char"
                     | "System.Double"
                     | "System.Single" -> tr x
@@ -391,6 +393,9 @@ let flags =
     System.Reflection.BindingFlags.Public
     ||| System.Reflection.BindingFlags.NonPublic
 
+let printfHelpers = ["IntelliFactory"; "WebSharper"; "PrintfHelpers"] 
+let stringProxy = ["IntelliFactory"; "WebSharper"; "Strings"]
+
 let createPrinter ts fs =
     let parts = FormatString.parseAll fs
     let args =
@@ -407,8 +412,6 @@ let createPrinter ts fs =
                     if f.IsStarPrecision then yield C.Id(), None
                 | _ -> () 
         ]
-    let helpers = ["IntelliFactory"; "WebSharper"; "PrintfHelpers"] 
-    let strings = ["IntelliFactory"; "WebSharper"; "Strings"]
         
     let rArgs = ref args
     let nextVar() =
@@ -423,18 +426,18 @@ let createPrinter ts fs =
             let width = if f.IsStarWidth then nextVar() |> fst else cInt f.Width
             let s = t (nextVar())
             if FormatString.isLeftJustify f.Flags then
-                cCallG strings "PadRight" [s; width]
+                cCallG stringProxy "PadRight" [s; width]
             else
                 if FormatString.isPadWithZeros f.Flags then
-                    cCallG helpers "padNumLeft" [s; width]
+                    cCallG printfHelpers "padNumLeft" [s; width]
                 else
-                    cCallG strings "PadLeft" [s; width]
+                    cCallG stringProxy "PadLeft" [s; width]
         else t (nextVar())
         
     let numberToString (f: FormatString.FormatSpecifier) t =
         withPadding f (fun (n, _) ->
-            if FormatString.isPlusForPositives f.Flags then cCallG helpers "plusForPos" [n; t n]
-            elif FormatString.isSpaceForPositives f.Flags then cCallG helpers "spaceForPos" [n; t n]
+            if FormatString.isPlusForPositives f.Flags then cCallG printfHelpers "plusForPos" [n; t n]
+            elif FormatString.isSpaceForPositives f.Flags then cCallG printfHelpers "spaceForPos" [n; t n]
             else t n
         )
 
@@ -487,9 +490,9 @@ let createPrinter ts fs =
                 let a = t.GetElementType()
                 let x = C.Id()
                 match r with 
-                | 1 -> cCallG helpers "printArray" [ C.Lambda(None, [x], pp a (C.Var x)) ; o ]
-                | 2 -> cCallG helpers "printArray2D" [ C.Lambda(None, [x], pp a (C.Var x)) ; o ]
-                | _ -> cCallG helpers "prettyPrint" [o]
+                | 1 -> cCallG printfHelpers "printArray" [ C.Lambda(None, [x], pp a (C.Var x)) ; o ]
+                | 2 -> cCallG printfHelpers "printArray2D" [ C.Lambda(None, [x], pp a (C.Var x)) ; o ]
+                | _ -> cCallG printfHelpers "prettyPrint" [o]
             else
             let tn =
                 if t.IsGenericType 
@@ -498,7 +501,7 @@ let createPrinter ts fs =
             if tn = Some "Microsoft.FSharp.Collections.FSharpList`1" then
                 let a = t.GetGenericArguments().[0]
                 let x = C.Id()
-                cCallG helpers "printList" [ C.Lambda(None, [x], pp a (C.Var x)) ; o ]    
+                cCallG printfHelpers "printList" [ C.Lambda(None, [x], pp a (C.Var x)) ; o ]    
             elif FST.IsUnion t then
                 let pi =
                     match d.TryGetValue t with
@@ -536,7 +539,7 @@ let createPrinter ts fs =
                         pi
                     | true, (pi, _) -> pi
                 (C.Var pi).[[o]]
-            else cCallG helpers "prettyPrint" [o]
+            else cCallG printfHelpers "prettyPrint" [o]
         let inner = pp t o
         if d.Count = 0 then inner else
         C.LetRecursive (d |> Seq.map (fun (KeyValue(_, (pi, pr))) -> pi, !pr) |> List.ofSeq, inner)
@@ -554,12 +557,12 @@ let createPrinter ts fs =
                     withPadding f (function 
                         | o, Some t -> 
                             prettyPrint t o
-                        | o, _ -> cCallG helpers "prettyPrint" [o]
+                        | o, _ -> cCallG printfHelpers "prettyPrint" [o]
                     )
                 | 'c' -> 
                     withPadding f (fun (s, _) -> cCallG ["String"] "fromCharCode" [s])   
                 | 's' -> 
-                    withPadding f (fun (s, _) -> cCallG helpers "toSafe" [s])
+                    withPadding f (fun (s, _) -> cCallG printfHelpers "toSafe" [s])
                 | 'd' | 'i' ->
                     numberToString f (fun n -> cCallG [] "String" [n])
                 | 'x' ->                                           
