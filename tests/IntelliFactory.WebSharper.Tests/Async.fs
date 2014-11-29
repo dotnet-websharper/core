@@ -95,10 +95,12 @@ let Tests =
         let a = async { ops := !ops + "A" }
         async {
             try
-                do! a
-                failwith "error"
-                do! a
-            finally ops := !ops + "F"
+                try
+                    do! a
+                    failwith "error"
+                    do! a
+                finally ops := !ops + "F"
+            with _ -> ()
             return !ops
         } @=? "AF"
     }
@@ -110,8 +112,8 @@ let Tests =
             do! a
             Async.CancelDefaultToken()
             do! a 
-            return !ops
-        } @=? "A"
+        } @=? JavaScript.Undefined
+        !ops =? "A"
     }
 
     Test "MailboxProcessor" {

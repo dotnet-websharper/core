@@ -41,7 +41,7 @@ type private AsyncProxy =
     [<Inline>]
     [<JavaScript>]
     static member Ignore (computation: Async<'T>) : Async<unit> =
-        As (C.Bind (As computation), fun _ -> C.Return ())
+        As (C.Ignore (As computation))
 
     [<Inline>]
     [<JavaScript>]

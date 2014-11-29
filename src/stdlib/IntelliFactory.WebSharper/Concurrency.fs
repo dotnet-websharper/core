@@ -99,6 +99,10 @@ let Bind (r: C<'T>, f: 'T -> C<'R>) =
         , ct)
 
 [<JavaScript>]
+let Ignore (r: C<'T>): C<unit> =
+    Bind (r, fun _ -> Return ())
+
+[<JavaScript>]
 let Delay (mk: unit -> C<'T>) : C<'T> =
     fun ((k, ct) as c) ->
         if ct.IsCancellationRequested then k Cc else
@@ -135,12 +139,18 @@ let GetCT : C<CT> =
     fun (k, ct) -> k (Ok ct)
 
 [<JavaScript>]
-let FromContinuations subscribe =
-    fun k -> 
+let FromContinuations (subscribe: ('T -> unit) * (exn -> unit) * (OCE -> unit) -> unit) : C<'T> =
+    fun (k, ct) -> 
+        if ct.IsCancellationRequested then k Cc else
+        let continued = ref false
+        let once cont : unit =
+            if !continued then failwith "A continuation provided by Async.FromContinuations was invoked multiple times" else
+            continued := true
+            cont ()   
         subscribe (
-            fun a -> k (Ok a)
-        ,   fun (e: exn) -> k (No e)
-        ,   fun (e: OCE) -> k Cc)
+            fun a -> once (fun () -> k (Ok a))
+        ,   fun e -> once (fun () -> k (No e))
+        ,   fun _ -> once (fun () -> k Cc))
 
 [<JavaScript>]
 let StartWithContinuations (c: C<'T>, s: 'T -> unit, f: exn -> unit, cc: OCE -> unit, ctOpt) =
