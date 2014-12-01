@@ -31,14 +31,23 @@ let tick() = ()
 let isIdle() = X<bool>
 
 [<JavaScript>]
+let forceAsync() =
+    while not (isIdle()) do tick()
+
+[<JavaScript>]
 let ( @=? ) a b =
     let res = ref None
     async {
         let! r = a
         res := Some r
     } |> Async.Start
-    while not (isIdle()) do tick()
+    forceAsync()
     !res |> Option.get =? b
+
+//[<JavaScript>]
+//let runSyncWithCT a ct =
+//    Async.Start (a, ct) 
+//    while not (isIdle()) do tick()
 
 type Message =
     | Increment of int
@@ -108,11 +117,17 @@ let Tests =
     Test "Cancellation" {
         let ops = ref ""
         let a = async { ops := !ops + "A" }
-        async {
-            do! a
-            Async.CancelDefaultToken()
-            do! a
-        } @=? JavaScript.Undefined
+        let cancelled = ref false
+        let cts = new System.Threading.CancellationTokenSource()
+        cts.Token.Register(fun () -> cancelled := true) |> ignore
+        Async.Start (
+            async {
+                do! a
+                cts.Cancel()
+                do! a
+            }, cts.Token)
+        forceAsync()
+        !cancelled =? true
         !ops =? "A"
     }
 
@@ -169,6 +184,6 @@ let Tests =
         let errorCatched = ref false
         mb.Error.Add (fun _ -> errorCatched := true)
         mb.Post(Die)
-        do while not (isIdle()) do tick()
+        forceAsync()
         !errorCatched =? true
     }

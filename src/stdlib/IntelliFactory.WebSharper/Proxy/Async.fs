@@ -90,8 +90,9 @@ type private AsyncProxy =
     [<Inline>]
     [<JavaScript>]
     static member DefaultCancellationToken : CT =
-        (!C.defCTS).Token
+        As !C.defCTS
 
+    [<Inline>]
     [<JavaScript>]
     static member CancelDefaultToken() : unit =
         let cts = !C.defCTS
@@ -104,7 +105,12 @@ type private AsyncProxy =
         As C.GetCT
 
 [<Proxy(typeof<System.Action>)>]
-type ActionProxy = delegate of unit -> unit
+type ActionProxy =
+    [<Inline "$action">]
+    new (action: unit -> unit) = {}
+        
+    [<Inline "$this()">]
+    member this.Invoke() = ()
 
 [<Proxy(typeof<CTR>)>]
 type private CancellationTokenRegistrationProxy =
@@ -116,42 +122,63 @@ type private CancellationTokenProxy =
     member this.IsCancellationRequested = X<bool>
 
     [<JavaScript>]
+    [<Inline>]
     member this.Register(callback: System.Action) =
         As<CTR> (C.register (As this) callback.Invoke)
         
 [<Proxy(typeof<CTS>)>]
-[<JavaScript>]
-type private CancellationTokenSourceProxy() =
-    [<Name "c">]
-    let mutable isCancellationRequested = false
+[<Name "CancellationTokenSource">]
+type private CancellationTokenSourceProxy [<JavaScript>] () =
+    let mutable c = false
 
     let mutable pending = None
 
-    [<Name "r">]
-    let registrations = [||] : (unit -> unit)[]
+    let r = [||] : (unit -> unit)[]
 
+    [<JavaScript>]
     [<Inline>]
-    member this.IsCancellationRequested = isCancellationRequested
+    member this.IsCancellationRequested = c
 
-    [<Inline>]
-    member this.Token = As<CT> this
+    member this.Token 
+        with [<Inline "$this">] get() = X<CT>
 
+    [<JavaScript>]
     member this.Cancel() =
-        if not isCancellationRequested then
-            isCancellationRequested <- true
-            registrations |> Array.iter (fun a -> a())    
-
+        if not c then
+            c <- true
+            let errors = 
+                r |> Array.choose (fun a -> 
+                    try a()
+                        None
+                    with e -> Some e
+                )
+            if errors.Length > 0 then
+                raise (System.AggregateException(errors))    
+            
+    [<JavaScript>]
+    member this.Cancel(throwOnFirstException) =
+        if not throwOnFirstException then
+            this.Cancel()
+        else
+            if not c then
+                c <- true
+                r |> Array.iter (fun a -> a())   
+ 
+    [<JavaScript>]
     member this.CancelAfter(delay: int) =
-        if not isCancellationRequested then
+        if not c then
             pending |> Option.iter JavaScript.ClearTimeout
             pending <- Some <| JavaScript.SetTimeout this.Cancel delay
 
+    [<JavaScript>]
     [<Inline>]
     member this.CancelAfter(delay: System.TimeSpan) = this.CancelAfter(As<int> delay)
 
+    [<JavaScript>]
     static member CreateLinkedTokenSource(tokens: CT[]) =
         let cts = new CTS()
         tokens |> Array.iter (fun t -> t.Register(fun () -> cts.Cancel()) |> ignore)
 
-    [<Stub>]
-    static member CreateLinkedTokenSource(t1: CT, t2: CT) = X<CTS>
+    [<JavaScript>]
+    static member CreateLinkedTokenSource(t1: CT, t2: CT) =
+        CancellationTokenSourceProxy.CreateLinkedTokenSource [| t1; t2 |]

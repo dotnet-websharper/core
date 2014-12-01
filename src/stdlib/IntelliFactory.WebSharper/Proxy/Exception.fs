@@ -66,3 +66,12 @@ type InvalidOperationExceptionProxy =
     [<Inline "new Error(\"InvalidOperationException\")">]
     new () = {}
 
+[<Proxy(typeof<System.AggregateException>)>]
+[<Name "AggregateException">]
+type AggregateExceptionProxy =
+
+    [<Direct "e = new Error(\"AggregateException\"), e.InnerExceptions = $innerExceptions, e">]
+    new (innerExceptions: exn[]) = {}
+
+    [<Inline "$this.InnerExceptions">]
+    member this.InnerExceptions = X<System.Collections.ObjectModel.ReadOnlyCollection<exn>>
