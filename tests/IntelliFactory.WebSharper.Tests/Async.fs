@@ -111,7 +111,7 @@ let Tests =
         async {
             do! a
             Async.CancelDefaultToken()
-            do! a 
+            do! a
         } @=? JavaScript.Undefined
         !ops =? "A"
     }

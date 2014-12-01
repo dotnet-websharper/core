@@ -81,7 +81,7 @@ type private Scheduler [<JavaScript>]() =
 let private scheduler = Scheduler()
 
 [<JavaScript>]
-let internal defCT = ref(new System.Threading.CancellationTokenSource())
+let internal defCTS = ref(new System.Threading.CancellationTokenSource())
 
 [<JavaScript>]
 [<Inline>]
@@ -100,6 +100,10 @@ let Bind (r: C<'T>, f: 'T -> C<'R>) =
                   | No e -> fork (fun () -> k (No e))
                   | Cc   -> fork (fun () -> k Cc)
         , ct)
+
+[<JavaScript>]
+let Combine(a: C<unit>, b: C<'T>) : C<'T> = 
+    Bind(a, (fun _ -> b))
 
 [<JavaScript>]
 let Ignore (r: C<'T>): C<unit> =
@@ -157,7 +161,7 @@ let FromContinuations (subscribe: ('T -> unit) * (exn -> unit) * (OCE -> unit) -
 
 [<JavaScript>]
 let StartWithContinuations (c: C<'T>, s: 'T -> unit, f: exn -> unit, cc: OCE -> unit, ctOpt) =
-    let ct = defaultArg ctOpt (As !defCT)
+    let ct = defaultArg ctOpt (As !defCTS)
     fork (fun () -> 
         c (function Ok x -> s x
                   | No e -> f e

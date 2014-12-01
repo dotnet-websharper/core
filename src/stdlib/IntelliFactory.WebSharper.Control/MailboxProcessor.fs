@@ -71,7 +71,7 @@ type private MailboxProcessorProxy<'T> (initial, ?token: CancellationToken) =
     [<Inline>]
     member this.remove_Error handler = this.Error.RemoveHandler handler
 
-    // TODO : DefaultTimeout
+    member val DefaultTimeout = -1 with get, set    
 
     member this.Start() =
         if started then
@@ -94,7 +94,7 @@ type private MailboxProcessorProxy<'T> (initial, ?token: CancellationToken) =
         resume()
 
     member this.TryReceive(?timeout: int) =        
-        let timeout = defaultArg timeout -1
+        let timeout = defaultArg timeout this.DefaultTimeout
         Async.FromContinuations <| fun (ok, _, _) ->
             if mailbox.First = null then
                 if timeout < 0 then
@@ -128,7 +128,7 @@ type private MailboxProcessorProxy<'T> (initial, ?token: CancellationToken) =
     member this.CurrentQueueLength = mailbox.Count
 
     member this.PostAndTryAsyncReply(msgf: AsyncReplyChannel<'R> -> 'T, ?timeout: int) : Async<'R option> =
-        let timeout = defaultArg timeout -1
+        let timeout = defaultArg timeout this.DefaultTimeout
         Async.FromContinuations <| fun (ok, _, _) ->
             if timeout < 0 then
                 As (Some >> ok) |> msgf |> this.Post
@@ -155,7 +155,7 @@ type private MailboxProcessorProxy<'T> (initial, ?token: CancellationToken) =
         }
 
     member this.TryScan(scanner, ?timeout: int) =
-        let timeout = defaultArg timeout -1
+        let timeout = defaultArg timeout this.DefaultTimeout
         async {
             let scanInbox() =
                 let mutable m = mailbox.First

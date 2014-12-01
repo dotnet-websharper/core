@@ -52,7 +52,7 @@ type private AsyncBuilderProxy [<Inline "null">]() =
     [<Inline>]
     [<JavaScript>]
     member this.Combine(a: Async<unit>, b: Async<'T>) : Async<'T> =
-        this.Bind(a, (fun _ -> b))
+        As (C.Combine (As a, As b))
 
     [<Inline>]
     [<JavaScript>]

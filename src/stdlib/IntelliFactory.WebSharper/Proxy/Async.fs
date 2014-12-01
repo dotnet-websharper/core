@@ -90,12 +90,13 @@ type private AsyncProxy =
     [<Inline>]
     [<JavaScript>]
     static member DefaultCancellationToken : CT =
-        (!C.defCT).Token
+        (!C.defCTS).Token
 
     [<JavaScript>]
     static member CancelDefaultToken() : unit =
-        (!C.defCT).Cancel()    
-        C.defCT := new CTS()
+        let cts = !C.defCTS
+        C.defCTS := new CTS()
+        cts.Cancel()    
 
     [<Inline>]
     [<JavaScript>]
