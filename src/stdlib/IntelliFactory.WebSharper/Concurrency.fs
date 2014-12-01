@@ -31,8 +31,18 @@ type Result<'T> =
     | No of exn
     | Cc //of OCE
 
-type CT = 
-    { [<Name "c">] mutable IsCancellationRequested : bool }
+type CT =
+    { 
+        [<Name "c">] mutable IsCancellationRequested : bool 
+        [<Name "r">] Registrations : (unit -> unit)[]
+    }
+
+[<JavaScript>]
+let register (ct: CT) (callback: unit -> unit) =
+    let i = ct.Registrations?push(callback) - 1
+    New [
+        "Dispose" => fun () -> ct.Registrations.[i] <- ignore
+    ] : System.IDisposable
 
 type Continuation<'T>   = Result<'T> -> unit
 type Concurrent<'T>     = Continuation<'T> * CT -> unit
@@ -40,13 +50,6 @@ and private C<'T>       = Concurrent<'T>
 
 type private Queue<'T>  = System.Collections.Generic.Queue<'T>
 type Milliseconds       = int
-
-[<Inline "setTimeout($action, $ms)">]
-let private schedule (ms: Milliseconds) (action: unit -> unit) =
-    JavaScript.ClientSide<unit>
-
-[<Inline "setTimeout($action, 0)">]
-let private spark (action: unit -> unit) = JavaScript.ClientSide<unit>
 
 type private Scheduler [<JavaScript>]() =
     let mutable idle    = true
@@ -64,7 +67,7 @@ type private Scheduler [<JavaScript>]() =
             | _ ->
                 robin.Dequeue()()
                 if System.DateTime.Now - t > System.TimeSpan.FromMilliseconds 40. then
-                    spark tick
+                    JavaScript.SetTimeout tick 0 |> ignore
                     loop <- false
 
     [<JavaScript>]
@@ -72,13 +75,13 @@ type private Scheduler [<JavaScript>]() =
         robin.Enqueue action
         if idle then
             idle <- false
-            spark tick
+            JavaScript.SetTimeout tick 0 |> ignore
 
 [<JavaScript>]
 let private scheduler = Scheduler()
 
 [<JavaScript>]
-let internal defCT = ref { IsCancellationRequested = false }
+let internal defCT = ref(new System.Threading.CancellationTokenSource())
 
 [<JavaScript>]
 [<Inline>]
@@ -94,8 +97,8 @@ let Bind (r: C<'T>, f: 'T -> C<'R>) =
     fun ((k, ct) as c) ->
         if ct.IsCancellationRequested then k Cc else
         r (function Ok x -> fork (fun () -> try f x c with e -> k (No e))
-                  | No e -> k (No e)
-                  | Cc   -> k Cc
+                  | No e -> fork (fun () -> k (No e))
+                  | Cc   -> fork (fun () -> k Cc)
         , ct)
 
 [<JavaScript>]
@@ -146,7 +149,7 @@ let FromContinuations (subscribe: ('T -> unit) * (exn -> unit) * (OCE -> unit) -
         let once cont : unit =
             if !continued then failwith "A continuation provided by Async.FromContinuations was invoked multiple times" else
             continued := true
-            cont ()   
+            fork cont   
         subscribe (
             fun a -> once (fun () -> k (Ok a))
         ,   fun e -> once (fun () -> k (No e))
@@ -154,7 +157,7 @@ let FromContinuations (subscribe: ('T -> unit) * (exn -> unit) * (OCE -> unit) -
 
 [<JavaScript>]
 let StartWithContinuations (c: C<'T>, s: 'T -> unit, f: exn -> unit, cc: OCE -> unit, ctOpt) =
-    let ct = defaultArg ctOpt !defCT
+    let ct = defaultArg ctOpt (As !defCT)
     fork (fun () -> 
         c (function Ok x -> s x
                   | No e -> f e
@@ -168,13 +171,37 @@ let Start (c: C<unit>, ctOpt) =
     , ignore, ctOpt)
 
 [<JavaScript>]
-let AwaitEvent (e: IEvent<'T>) =
-    fun k -> let sub = ref Unchecked.defaultof<System.IDisposable>
-             sub := e.Subscribe (fun x -> (!sub).Dispose(); k (Ok x))
+let AwaitEvent (e: IEvent<'T>) : C<'T> =
+    fun (k, ct) ->
+        if ct.IsCancellationRequested then k Cc else
+        let rec sub : System.IDisposable =
+            e.Subscribe (fun x -> 
+                sub.Dispose()
+                creg.Dispose()
+                fork (fun () -> k (Ok x))        
+            )
+        and creg : System.IDisposable = 
+            register ct (fun () -> 
+                sub.Dispose()
+                fork (fun () -> k Cc)    
+            )
+        ()
 
 [<JavaScript>]
-let Sleep (ms: Milliseconds) =
-    fun k -> schedule ms (fun () -> k (Ok ()))
+let Sleep (ms: Milliseconds) : C<unit> =
+    fun (k, ct) ->
+        if ct.IsCancellationRequested then k Cc else
+        let rec pending =
+            JavaScript.SetTimeout (fun () -> 
+                creg.Dispose()
+                fork (fun () -> k (Ok ()))
+            ) ms
+        and creg : System.IDisposable =
+            register ct (fun () -> 
+                JavaScript.ClearTimeout pending
+                fork (fun () -> k Cc)
+            )
+        ()
 
 [<JavaScript>]
 let Parallel (cs: seq<C<'T>>) =
@@ -229,7 +256,7 @@ let rec For (s: seq<'T>, b: 'T -> C<unit>) =
     let ie = s.GetEnumerator()
     While (fun () -> ie.MoveNext()
         , Delay (fun () -> b ie.Current))
-//    // if IEnumerable would always have IDisposable
+//    // if IEnumerator<_> would always have IDisposable
 //    Using (s.GetEnumerator()) (fun ie ->
 //        While (fun () -> ie.MoveNext())
 //            (Delay (fun () -> b ie.Current)))

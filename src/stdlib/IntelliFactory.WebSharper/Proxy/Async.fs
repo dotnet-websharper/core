@@ -22,6 +22,8 @@
 namespace IntelliFactory.WebSharper
 
 type private CT  = System.Threading.CancellationToken
+type private CTS  = System.Threading.CancellationTokenSource
+type private CTR  = System.Threading.CancellationTokenRegistration
 type private OCE = System.OperationCanceledException
 module C = IntelliFactory.WebSharper.Concurrency
 
@@ -88,32 +90,67 @@ type private AsyncProxy =
     [<Inline>]
     [<JavaScript>]
     static member DefaultCancellationToken : CT =
-        As !C.defCT
+        (!C.defCT).Token
 
     [<JavaScript>]
     static member CancelDefaultToken() : unit =
-        (!C.defCT).IsCancellationRequested <- true        
-        C.defCT := { C.IsCancellationRequested = false }
+        (!C.defCT).Cancel()    
+        C.defCT := new CTS()
 
     [<Inline>]
     [<JavaScript>]
     static member CancellationToken : Async<CT> =
         As C.GetCT
 
-[<Proxy(typeof<System.Threading.CancellationTokenSource>)>]
-type private CancellationTokenSourceProxy =
+[<Proxy(typeof<System.Action>)>]
+type ActionProxy = delegate of unit -> unit
 
-    [<Inline "{run: true}">]
-    new () = {}
+[<Proxy(typeof<CTR>)>]
+type private CancellationTokenRegistrationProxy =
+    [<Stub>] abstract member Dispose : unit -> unit
 
-    [<Inline "$this.c">]
-    member this.IsCancellationRequested = X<bool>
-
-    [<Inline "$this">]
-    member this.Token = X<CT>
-
-[<Proxy(typeof<System.Threading.CancellationToken>)>]
+[<Proxy(typeof<CT>)>]
 type private CancellationTokenProxy =
-
     [<Inline "$this.c">]
     member this.IsCancellationRequested = X<bool>
+
+    [<JavaScript>]
+    member this.Register(callback: System.Action) =
+        As<CTR> (C.register (As this) callback.Invoke)
+        
+[<Proxy(typeof<CTS>)>]
+[<JavaScript>]
+type private CancellationTokenSourceProxy() =
+    [<Name "c">]
+    let mutable isCancellationRequested = false
+
+    let mutable pending = None
+
+    [<Name "r">]
+    let registrations = [||] : (unit -> unit)[]
+
+    [<Inline>]
+    member this.IsCancellationRequested = isCancellationRequested
+
+    [<Inline>]
+    member this.Token = As<CT> this
+
+    member this.Cancel() =
+        if not isCancellationRequested then
+            isCancellationRequested <- true
+            registrations |> Array.iter (fun a -> a())    
+
+    member this.CancelAfter(delay: int) =
+        if not isCancellationRequested then
+            pending |> Option.iter JavaScript.ClearTimeout
+            pending <- Some <| JavaScript.SetTimeout this.Cancel delay
+
+    [<Inline>]
+    member this.CancelAfter(delay: System.TimeSpan) = this.CancelAfter(As<int> delay)
+
+    static member CreateLinkedTokenSource(tokens: CT[]) =
+        let cts = new CTS()
+        tokens |> Array.iter (fun t -> t.Register(fun () -> cts.Cancel()) |> ignore)
+
+    [<Stub>]
+    static member CreateLinkedTokenSource(t1: CT, t2: CT) = X<CTS>
