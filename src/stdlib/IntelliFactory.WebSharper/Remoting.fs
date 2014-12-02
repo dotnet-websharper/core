@@ -107,9 +107,28 @@ let Call m data : obj =
 let Async m data : Async<obj> =
     let headers = makeHeaders m
     let payload = makePayload data
-    Async.FromContinuations (fun (ok, err, _) ->
-        let ok (x: Data) = ok (Json.Activate (Json.Parse x))
-        AjaxProvider.Async EndPoint headers payload ok err)
+    async {
+        let! token = Async.CancellationToken
+        return! Async.FromContinuations (fun (ok, err, cc) ->
+            let waiting = ref true
+            let reg =
+                token.Register(fun () ->
+                    if !waiting then
+                        waiting := false
+                        cc (new System.OperationCanceledException())
+                )
+            let ok (x: Data) = 
+                if !waiting then
+                    waiting := false
+                    reg.Dispose()
+                    ok (Json.Activate (Json.Parse x))
+            let err (e: exn) =
+                if !waiting then
+                    waiting := false
+                    reg.Dispose()
+                    err e
+            AjaxProvider.Async EndPoint headers payload ok err)
+    }
 
 type A = Async
 

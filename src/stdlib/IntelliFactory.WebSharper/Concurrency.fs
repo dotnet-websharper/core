@@ -29,7 +29,7 @@ type private OCE = System.OperationCanceledException
 type Result<'T> =
     | Ok of 'T
     | No of exn
-    | Cc //of OCE
+    | Cc of OCE
   
 type CT =
     { 
@@ -41,7 +41,7 @@ type CT =
 let private push arr item = X<int>
 
 [<JavaScript>]
-let internal register (ct: CT) (callback: unit -> unit) =
+let internal Register (ct: CT) (callback: unit -> unit) =
     let i = push ct.Registrations callback - 1
     New [
         "Dispose" => fun () -> ct.Registrations.[i] <- ignore
@@ -96,21 +96,25 @@ let internal defCTS = ref(new System.Threading.CancellationTokenSource())
 let private fork action = scheduler.Fork action
 
 [<JavaScript>]
-let Return (x: 'T) : C<'T> =
+[<Inline>]
+let private cancel c = c.k (Cc (new OCE()))
+
+[<JavaScript>]
+let private checkCancel r =
     ()
-    fun c -> 
-        if c.ct.IsCancellationRequested then c.k Cc else c.k (Ok x)
+    fun c -> if c.ct.IsCancellationRequested then cancel c else r c
+
+[<JavaScript>]
+let Return (x: 'T) : C<'T> =
+    checkCancel <| fun c -> c.k (Ok x)
 
 [<JavaScript>]
 let Bind (r: C<'T>, f: 'T -> C<'R>) =
-    ()
-    fun c ->
-        if c.ct.IsCancellationRequested then c.k Cc else
+    checkCancel <| fun c ->
         r { 
             k = function 
                 | Ok x -> fork (fun () -> try f x c with e -> c.k (No e))
-                | No e -> fork (fun () -> c.k (No e))
-                | Cc   -> fork (fun () -> c.k Cc)
+                | res  -> fork (fun () -> c.k (As res)) // error or cancellation
             ct = c.ct
         }
 
@@ -124,61 +128,50 @@ let Ignore (r: C<'T>): C<unit> =
 
 [<JavaScript>]
 let Delay (mk: unit -> C<'T>) : C<'T> =
-    ()
-    fun c ->
-        if c.ct.IsCancellationRequested then c.k Cc else
+    checkCancel <| fun c ->
         try mk () c with e -> c.k (No e)
 
 [<JavaScript>]
 let TryFinally (run: C<'T>, f: unit -> unit) =
-    ()
-    fun c ->
-        if c.ct.IsCancellationRequested then c.k Cc else
+    checkCancel <| fun c ->
         run {
             k = fun r -> 
                 try f ()
                     c.k r 
-                with e -> if c.ct.IsCancellationRequested then c.k Cc else c.k (No e)
+                with e -> c.k (No e)
             ct = c.ct
         }
 
 [<JavaScript>]
 let TryWith (r: C<'T>, f: exn -> C<'T>) =
-    ()
-    fun c ->
-        if c.ct.IsCancellationRequested then c.k Cc else
+    checkCancel <| fun c ->
         r {
             k = function
                 | Ok x -> c.k (Ok x)
-                | No e -> try f e c with e -> c.k (No e)
-                | Cc   -> c.k Cc
+                | No e as res -> try f e c with e -> c.k (As res)
+                | res -> c.k (As res)
             ct = c.ct
         }
 
 [<JavaScript>]
 let Catch (r : C<'T>) : C<Choice<'T, exn>> =
-    ()
-    fun c ->
-        if c.ct.IsCancellationRequested then c.k Cc else
+    checkCancel <| fun c ->
         try r {
                 k = function 
                     | Ok x -> c.k (Ok (Choice1Of2 x))
                     | No e -> c.k (Ok (Choice2Of2 e))
-                    | Cc   -> c.k Cc
+                    | res  -> c.k (As res)
                 ct = c.ct
             }
         with e -> c.k (Ok (Choice2Of2 e))
 
 [<JavaScript>]
 let GetCT : C<CT> =
-    ()
-    fun c -> c.k (Ok c.ct)
+    checkCancel <| fun c -> c.k (Ok c.ct)
 
 [<JavaScript>]
 let FromContinuations (subscribe: ('T -> unit) * (exn -> unit) * (OCE -> unit) -> unit) : C<'T> =
-    ()
-    fun c ->
-        if c.ct.IsCancellationRequested then c.k Cc else
+    checkCancel <| fun c ->
         let continued = ref false
         let once cont : unit =
             if !continued then failwith "A continuation provided by Async.FromContinuations was invoked multiple times" else
@@ -187,7 +180,7 @@ let FromContinuations (subscribe: ('T -> unit) * (exn -> unit) * (OCE -> unit) -
         subscribe (
             fun a -> once (fun () -> c.k (Ok a))
         ,   fun e -> once (fun () -> c.k (No e))
-        ,   fun _ -> once (fun () -> c.k Cc)
+        ,   fun e -> once (fun () -> c.k (Cc e))
         )
 
 [<JavaScript>]
@@ -198,7 +191,7 @@ let StartWithContinuations (c: C<'T>, s: 'T -> unit, f: exn -> unit, cc: OCE -> 
             k = function
                 | Ok x -> s x
                 | No e -> f e
-                | Cc   -> cc (OCE())
+                | Cc e -> cc e
             ct = ct
         }
     )
@@ -213,9 +206,7 @@ let Start (c: C<unit>, ctOpt) =
 
 [<JavaScript>]
 let AwaitEvent (e: IEvent<'T>) : C<'T> =
-    ()
-    fun c ->
-        if c.ct.IsCancellationRequested then c.k Cc else
+    checkCancel <| fun c ->
         let rec sub : System.IDisposable =
             e.Subscribe (fun x -> 
                 sub.Dispose()
@@ -223,35 +214,32 @@ let AwaitEvent (e: IEvent<'T>) : C<'T> =
                 fork (fun () -> c.k (Ok x))        
             )
         and creg : System.IDisposable = 
-            register c.ct (fun () -> 
+            Register c.ct (fun () -> 
                 sub.Dispose()
-                fork (fun () -> c.k Cc)    
+                fork (fun () -> cancel c)    
             ) 
         ()
 
 [<JavaScript>]
 let Sleep (ms: Milliseconds) : C<unit> =
-    ()
-    fun c ->
-        if c.ct.IsCancellationRequested then c.k Cc else
+    checkCancel <|  fun c ->
         let rec pending =
             JavaScript.SetTimeout (fun () -> 
                 creg.Dispose()
                 fork (fun () -> c.k (Ok ()))
             ) ms
         and creg : System.IDisposable =
-            register c.ct (fun () -> 
+            Register c.ct (fun () -> 
                 JavaScript.ClearTimeout pending
-                fork (fun () -> c.k Cc)
+                fork (fun () -> cancel c)
             )
         ()
 
 [<JavaScript>]
-let Parallel (cs: seq<C<'T>>) =
+let Parallel (cs: seq<C<'T>>) : C<'T[]> =
     let cs = Array.ofSeq cs
     if cs.Length = 0 then Return [||] else
-    fun c ->
-        if c.ct.IsCancellationRequested then c.k Cc else
+    checkCancel <| fun c ->
         let n = Array.length cs
         let o = ref n
         let a = Array.create n Unchecked.defaultof<_>
@@ -260,16 +248,14 @@ let Parallel (cs: seq<C<'T>>) =
             | 0, _     -> ()
             | 1, Ok x  -> a.[i] <- x; o := 0; c.k (Ok a)
             | n, Ok x  -> a.[i] <- x; o := n - 1
-            | n, No e  -> o := 0; c.k (No e)
-            | n, Cc    -> o := 0; c.k Cc
+            | n, res   -> o := 0; c.k (As res)
         Array.iteri (fun i run ->
             fork (fun () -> run { k = accept i; ct = c.ct }))
             cs
 
 [<JavaScript>]
 let StartChild (r : C<'T>) : C<C<'T>> =
-    ()
-    fun c ->
+    checkCancel <| fun c ->
         let cached = ref None
         let queue  = Queue()
         fork (fun _ ->
@@ -281,11 +267,28 @@ let StartChild (r : C<'T>) : C<C<'T>> =
                 ct = c.ct
             }
         )
-        let r2 c2 =            
-            match cached.Value with
-            | Some x    -> c2.k x
-            | None      -> queue.Enqueue c2.k
+        let r2 =            
+            checkCancel <| fun c2 ->
+                match cached.Value with
+                | Some x    -> c2.k x
+                | None      -> queue.Enqueue c2.k
         c.k (Ok r2)
+
+[<JavaScript>]
+let OnCancel (action: unit -> unit) : C<System.IDisposable> =
+    checkCancel <| fun c -> c.k (Ok (Register c.ct action))
+
+[<JavaScript>]
+let TryCancelled (run: C<'T>, comp: OCE -> unit) : C<'T> =
+    checkCancel <| fun c ->
+        run {
+            k = function
+                | Cc e as res ->
+                    comp e
+                    c.k res
+                | res -> c.k res
+            ct = c.ct
+        }
 
 [<JavaScript>]
 let Using (x: 'U, f: 'U -> C<'T>) =

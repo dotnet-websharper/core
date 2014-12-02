@@ -104,6 +104,16 @@ type private AsyncProxy =
     static member CancellationToken : Async<CT> =
         As C.GetCT
 
+    [<Inline>]
+    [<JavaScript>]
+    static member OnCancel(action: unit -> unit) : Async<System.IDisposable> =
+        As (C.OnCancel action)
+    
+    [<Inline>]
+    [<JavaScript>]
+    static member TryCancelled(p: Async<'T>, f: OCE -> unit) : Async<'T> =
+        As (C.TryCancelled(As p, f))
+
 [<Proxy(typeof<System.Action>)>]
 type ActionProxy =
     [<Inline "$action">]
@@ -124,7 +134,7 @@ type private CancellationTokenProxy =
     [<JavaScript>]
     [<Inline>]
     member this.Register(callback: System.Action) =
-        As<CTR> (C.register (As this) callback.Invoke)
+        As<CTR> (C.Register (As this) callback.Invoke)
         
 [<Proxy(typeof<CTS>)>]
 [<Name "CancellationTokenSource">]
