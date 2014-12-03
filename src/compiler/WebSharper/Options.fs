@@ -2,20 +2,19 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2013 IntelliFactory
+// Copyright (c) 2008-2014 IntelliFactory
 //
-// GNU Affero General Public License Usage
-// WebSharper is free software: you can redistribute it and/or modify it under
-// the terms of the GNU Affero General Public License, version 3, as published
-// by the Free Software Foundation.
+// Licensed under the Apache License, Version 2.0 (the "License"); you
+// may not use this file except in compliance with the License.  You may
+// obtain a copy of the License at
 //
-// WebSharper is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License
-// for more details at <http://www.gnu.org/licenses/>.
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-// If you are unsure which license is appropriate for your use, please contact
-// IntelliFactory at http://intellifactory.com/contact.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.  See the License for the specific language governing
+// permissions and limitations under the License.
 //
 // $end{copyright}
 
@@ -54,14 +53,14 @@ let version =
             |> FileVersionInfo.GetVersionInfo
         Version vn.FileVersion
     with _ ->
-        Version "2.5.0.0"
+        Version "3.0.0.0"
 
 let usage =
     String.Format("\
 Usage: WebSharper.exe [options] input.dll output.dll
 
 WebSharper (TM) Compiler V{0}
-Copyright (c) IntelliFactory, 2004-2013.
+Copyright (c) IntelliFactory, 2004-2014.
 
 Compiles F#-produced assemblies to JavaScript, adding the resulting
 code as an embedded resource to the assembly.", version)
