@@ -1107,9 +1107,9 @@ type Compiler() =
         | Some docPath -> doc.Generate docPath
         r
 
-    member c.Compile(options, assembly) =
+    member c.Compile(options, assembly, ?originalAssembly) =
         let (aR, resolver) = createAssemblyResolvers options
-        c.Compile(resolver, options, assembly)
+        c.Compile(resolver, options, assembly, ?originalAssembly = originalAssembly)
 
     member c.StartProgram(args, assembly, ?resolver: AssemblyResolver, ?originalAssembly: Assembly) =
         let opts =

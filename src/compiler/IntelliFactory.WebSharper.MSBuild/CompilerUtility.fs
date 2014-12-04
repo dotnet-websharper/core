@@ -164,14 +164,14 @@ module CompilerJobModule =
             let name = AssemblyName.GetAssemblyName(file)
             match Attribute.GetCustomAttribute(asm, typeof<InterfaceGenerator.Pervasives.ExtensionAttribute>) with
             | :? InterfaceGenerator.Pervasives.ExtensionAttribute as attr ->
-                return (name, attr.GetAssembly())
+                return (name, attr.GetAssembly(), asm)
             | _ ->
                 return! Act.Fail "No ExtensionAttribute set on the input assembly"
         }
 
     let RunInterfaceGenerator aR snk (input: CompilerInput) =
         Act {
-            let! (name, asm) = LoadInterfaceGeneratorAssembly aR input.AssemblyFile
+            let! (name, asmDef, asm) = LoadInterfaceGeneratorAssembly aR input.AssemblyFile
             let cfg =
                 {
                     InterfaceGenerator.CompilerOptions.Default(name.Name) with
@@ -184,7 +184,7 @@ module CompilerJobModule =
                 }
 
             let cmp = InterfaceGenerator.Compiler.Create()
-            let out = cmp.Compile(cfg, asm)
+            let out = cmp.Compile(cfg, asmDef, asm)
             out.Save(input.AssemblyFile)
         }
 
