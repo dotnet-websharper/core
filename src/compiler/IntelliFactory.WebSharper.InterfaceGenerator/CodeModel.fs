@@ -35,13 +35,17 @@ module CodeModel =
         | Protected = 3uy
         | Internal = 4uy
 
+    type ObsoleteStatus =
+        | NotObsolete
+        | Obsolete of string option
+
     and [<AbstractClass>] Entity =
         val mutable Name : string
         val mutable SourceName : option<string>
         val mutable Type : T
         val mutable AccessModifier : AccessModifier
         val mutable Comment : option<string>
-        val mutable IsObsolete : bool
+        val mutable ObsoleteStatus : ObsoleteStatus
 
         internal new (name, t) =
             {
@@ -50,7 +54,7 @@ module CodeModel =
                 Type = t
                 AccessModifier = AccessModifier.Public
                 Comment = None
-                IsObsolete = false
+                ObsoleteStatus = NotObsolete
             }
 
         member internal this.Clone() = (this.MemberwiseClone()) :?> Entity

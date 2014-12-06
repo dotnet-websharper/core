@@ -185,7 +185,11 @@ module Pervasives =
 
     /// Marks an entity with the Obsolete attribute.
     let Obsolete (x: #Code.Entity) =
-        x |> Code.Entity.Update (fun x -> x.IsObsolete <- true)
+        x |> Code.Entity.Update (fun x -> x.ObsoleteStatus <- CodeModel.Obsolete None)
+
+    /// Marks an entity with the Obsolete attribute.
+    let ObsoleteWithMessage message (x: #Code.Entity) =
+        x |> Code.Entity.Update (fun x -> x.ObsoleteStatus <- CodeModel.Obsolete (Some message))
 
     /// Constructs a class protocol (instance members).
     let Protocol (members: list<Code.Member>) =
