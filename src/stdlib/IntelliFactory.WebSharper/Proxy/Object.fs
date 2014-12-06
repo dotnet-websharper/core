@@ -21,7 +21,7 @@
 namespace IntelliFactory.WebSharper
 
 #nowarn "864"
-open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 
 [<Proxy(typeof<System.Object>)>]
 type private ObjectProxy =

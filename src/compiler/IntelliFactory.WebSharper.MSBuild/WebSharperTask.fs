@@ -223,11 +223,9 @@ module WebSharperTaskModule =
             // "IntelliFactory.WebSharper.Compiler"
             yield "IntelliFactory.WebSharper.Control"
             yield "IntelliFactory.WebSharper.Core"
-            yield "IntelliFactory.WebSharper.Dom"
-            yield "IntelliFactory.WebSharper.Ecma"
+            yield "IntelliFactory.WebSharper.JavaScript"
             yield "IntelliFactory.WebSharper.Formlet"
             yield "IntelliFactory.WebSharper.Html"
-            yield "IntelliFactory.WebSharper.Html5"
             match ty with
             | Extension -> yield "IntelliFactory.WebSharper.InterfaceGenerator"
             | _ -> ()

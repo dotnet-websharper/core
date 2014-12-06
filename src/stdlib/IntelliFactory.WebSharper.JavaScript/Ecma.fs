@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Ecma
+namespace IntelliFactory.WebSharper.JavaScript.Ecma
 
 open IntelliFactory.WebSharper.InterfaceGenerator
 
@@ -37,7 +37,7 @@ module Definition =
     /// The JavaScript global properties and functions can be used with all the built-in JavaScript objects.
     let EcmaGlobal =
         let N = T<int> + T<float>
-        Class "Global"
+        Class "JS"
         |+> [
                 "NaN" =? T<double> |> WithGetterInline "$global.NaN"
                 "Infinity" =? T<double> |> WithGetterInline "$global.Infinity"
@@ -360,9 +360,9 @@ module Definition =
                 "stringify" => T<obj>?value * !?(T<obj->obj> + (Type.ArrayOf T<obj>))?replacer * !?(T<string> + T<int>)?space ^-> T<string>
             ]
 
-    let Assembly =
-        Assembly [
-            Namespace "IntelliFactory.WebSharper.EcmaScript" [
+    let Namespaces =
+        [
+            Namespace "IntelliFactory.WebSharper.JavaScript" [
                 EcmaGlobal
                 EcmaObject
                 EcmaFunction
@@ -377,11 +377,3 @@ module Definition =
                 EcmaJSON
             ]
         ]
-
-[<Sealed>]
-type EcmaExtension() =
-    interface IExtension with
-        member x.Assembly = Definition.Assembly
-
-[<assembly: Extension(typeof<EcmaExtension>)>]
-do ()

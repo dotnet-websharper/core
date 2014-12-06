@@ -21,6 +21,7 @@
 namespace IntelliFactory.WebSharper.Html
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.Html.Interfaces
 
 module internal Utils =
@@ -83,7 +84,7 @@ type Element [<JavaScript>] (HtmlProvider : IHtmlProvider) =
         with get () =
             let id = HtmlProvider.GetProperty this.Body "id"
             // Sets the id if empty
-            if id = JavaScript.Undefined<string> || id = "" then
+            if id = JS.Undefined<string> || id = "" then
                 let newId = Utils.NewId ()
                 HtmlProvider.SetProperty this.Body "id"  newId
                 newId

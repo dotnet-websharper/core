@@ -25,6 +25,8 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private IntelliFactory.WebSharper.OperatorIntrinsicsProxy 
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<Inline "$s.slice($st,$e)">]
 let Slice (s: 'T) (st: int) (e: int) = X<'T>
 

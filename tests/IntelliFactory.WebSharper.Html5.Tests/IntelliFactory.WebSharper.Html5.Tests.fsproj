@@ -21,11 +21,6 @@
       <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\htmllib\IntelliFactory.WebSharper.Html5\IntelliFactory.WebSharper.Html5.fsproj">
-      <Name>IntelliFactory.WebSharper.Html5</Name>
-      <Project>{f2c14b18-8bdb-4449-b816-366ea900e75a}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\src\htmllib\IntelliFactory.WebSharper.Html\IntelliFactory.WebSharper.Html.fsproj">
       <Name>IntelliFactory.WebSharper.Html</Name>
       <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
@@ -36,14 +31,9 @@
       <Project>{fe6ba781-fdc9-4bb5-b38a-3bb9841ea836}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\stdlib\IntelliFactory.WebSharper.Dom\IntelliFactory.WebSharper.Dom.fsproj">
-      <Name>IntelliFactory.WebSharper.Dom</Name>
-      <Project>{4382f3a7-126b-4bc6-988b-caa8c8a9b62f}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\stdlib\IntelliFactory.WebSharper.Ecma\IntelliFactory.WebSharper.Ecma.fsproj">
-      <Name>IntelliFactory.WebSharper.Ecma</Name>
-      <Project>{3bee2a9e-c5c9-4bd5-847d-f0f88f02a438}</Project>
+    <ProjectReference Include="..\..\src\stdlib\IntelliFactory.WebSharper.JavaScript\IntelliFactory.WebSharper.JavaScript.fsproj">
+      <Name>IntelliFactory.WebSharper.JavaScript</Name>
+      <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\..\src\stdlib\IntelliFactory.WebSharper.JQuery\IntelliFactory.WebSharper.JQuery.fsproj">

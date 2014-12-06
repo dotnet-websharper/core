@@ -20,6 +20,8 @@
 
 namespace IntelliFactory.WebSharper
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<Proxy(typeof<option<_>>)>]
 type private OptionProxy<'T> =
     | [<Name "None">] NoneCase

@@ -21,6 +21,7 @@
 module IntelliFactory.WebSharper.Tests.DateTime
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.Testing
 
 type private DayOfWeek    = System.DayOfWeek

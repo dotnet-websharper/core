@@ -20,6 +20,8 @@
 
 namespace IntelliFactory.WebSharper
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<Proxy(typeof<int>)>]
 type private Int32Proxy =
 

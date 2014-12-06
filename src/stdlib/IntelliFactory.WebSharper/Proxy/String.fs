@@ -25,6 +25,8 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private IntelliFactory.WebSharper.StringProxy
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<JavaScript>]
 let Compare (x: string) (y: string) = compare x y
 

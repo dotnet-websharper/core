@@ -20,6 +20,8 @@
 
 module private IntelliFactory.WebSharper.Ref
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<Name "IntelliFactory.WebSharper.ref">]
 [<Proxy(typeof<ref<_>>)>]
 type private RefProxy<'T> =

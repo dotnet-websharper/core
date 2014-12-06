@@ -20,6 +20,7 @@
 namespace IntelliFactory.WebSharper.Formlet
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.Formlet.Base
 open IntelliFactory.Reactive
 
@@ -124,7 +125,7 @@ module Data =
     // Ugly hack for propagating render from IPagelets
     [<JavaScript>]
     let internal PropagateRenderFrom (f1: IFormlet<_,_>) f2 =
-        if JavaScript.HasOwnProperty f1 "Render" then
+        if JS.HasOwnProperty f1 "Render" then
             f2?Render <- f1?Render
         f2
 

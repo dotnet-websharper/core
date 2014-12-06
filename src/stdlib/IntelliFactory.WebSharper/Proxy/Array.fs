@@ -20,6 +20,7 @@
 
 namespace IntelliFactory.WebSharper
 
+open IntelliFactory.WebSharper.JavaScript
 module F = IntelliFactory.WebSharper.IntrinsicFunctionProxy
 
 [<Proxy(typeof<System.Array>)>]

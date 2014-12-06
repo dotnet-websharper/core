@@ -24,11 +24,12 @@ open System.Collections
 open System.Collections.Generic
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 
 [<AutoOpen>]
 module HashSetUtil =
     [<Direct "var r=[]; for(var k in $o) { r.push.apply(r, $o[k]) }; return r">]
-    let concat (o: EcmaScript.Array<EcmaScript.Array<'T>>) = X<EcmaScript.Array<'T>>
+    let concat (o: Array<Array<'T>>) = X<Array<'T>>
     
 open DictionaryUtil
 
@@ -41,11 +42,11 @@ type HashSetProxy<'T when 'T : equality>
              equals : 'T -> 'T -> bool,
              hash   : 'T -> int) =
 
-        let mutable data  = EcmaScript.Array<EcmaScript.Array<'T>>()
+        let mutable data  = Array<Array<'T>>()
         let mutable count = 0
 
         [<JavaScript>]
-        let arrContains (item: 'T) (arr: EcmaScript.Array<'T>)  =
+        let arrContains (item: 'T) (arr: Array<'T>)  =
             let mutable c = true
             let mutable i = 0
             let l = arr.Length
@@ -57,7 +58,7 @@ type HashSetProxy<'T when 'T : equality>
             not c
 
         [<JavaScript>]
-        let arrRemove (item: 'T) (arr: EcmaScript.Array<'T>)  =
+        let arrRemove (item: 'T) (arr: Array<'T>)  =
             let mutable c = true
             let mutable i = 0
             let l = arr.Length
@@ -104,7 +105,7 @@ type HashSetProxy<'T when 'T : equality>
 
         [<JavaScript>]
         member this.Clear() =
-            data <- EcmaScript.Array()
+            data <- Array()
             count <- 0
 
         [<JavaScript>]

@@ -21,6 +21,7 @@
 namespace IntelliFactory.WebSharper.Collections
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 
 /// Implements a proxy for the F# Set module.
 [<Proxy "Microsoft.FSharp.Collections.SetModule, \

@@ -18,42 +18,43 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.EcmaScript
+namespace IntelliFactory.WebSharper.JavaScript
 
 module F = IntelliFactory.WebSharper.Core.Functions
 
+[<AutoOpen>]
 module Extensions =
     open IntelliFactory.WebSharper
 
-    type EcmaScript.Array<'T> with 
+    type Array<'T> with 
         [<Inline "$0">] 
         member this.ToDotNet() = X<'T[]>
     type 'T ``[]`` with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Array<'T>>   
+        member this.ToEcma() = X<Array<'T>>   
 
-    type EcmaScript.Boolean with
+    type Boolean with
         [<Inline "$0">]
         member this.ToDotNet() = X<bool>
     type System.Boolean with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Boolean>   
+        member this.ToEcma() = X<Boolean>   
 
-    type EcmaScript.Date with
+    type Date with
         [<Inline "$0.getTime()">]
         member this.ToDotNet() = X<System.DateTime>
     type System.DateTime with
         [<Inline "new Date($0)">]
-        member this.ToEcma() = X<EcmaScript.Date>
+        member this.ToEcma() = X<Date>
 
-    type EcmaScript.Error with
+    type Error with
         [<Inline "$0">]
         member this.ToDotNet() = X<System.Exception>
     type System.Exception with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Error>
+        member this.ToEcma() = X<Error>
 
-    type EcmaScript.Function with
+    type Function with
         [<Inline "$0">]
         member this.ToDotNet<'T, 'R>() = X<'T -> 'R>
         member this.ToWSFunc<'T1, 'T2>() = X<F.Func<'T1,'T2>>
@@ -66,79 +67,76 @@ module Extensions =
         member this.ToWSFunc<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9>() = X<F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9>>
     type FSharpFunc<'T, 'R> with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Function>
+        member this.ToEcma() = X<Function>
     type F.Func<'T1,'T2> with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Function>
+        member this.ToEcma() = X<Function>
     type F.Func<'T1,'T2,'T3> with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Function>
+        member this.ToEcma() = X<Function>
     type F.Func<'T1,'T2,'T3,'T4> with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Function>
+        member this.ToEcma() = X<Function>
     type F.Func<'T1,'T2,'T3,'T4,'T5> with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Function>
+        member this.ToEcma() = X<Function>
     type F.Func<'T1,'T2,'T3,'T4,'T5,'T6> with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Function>
+        member this.ToEcma() = X<Function>
     type F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7> with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Function>
+        member this.ToEcma() = X<Function>
     type F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8> with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Function>
+        member this.ToEcma() = X<Function>
     type F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9> with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Function>
+        member this.ToEcma() = X<Function>
 
-    type EcmaScript.Number with
+    type Number with
         [<Inline "$0">]
         member this.ToDotNet<'T when 'T: struct>() = X<'T>
     type System.Byte    with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Number>
+        member this.ToEcma() = X<Number>
     type System.SByte   with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Number>
+        member this.ToEcma() = X<Number>
     type System.Int16   with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Number>
+        member this.ToEcma() = X<Number>
     type System.Int32   with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Number>
+        member this.ToEcma() = X<Number>
     type System.Int64   with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Number>
+        member this.ToEcma() = X<Number>
     type System.UInt16  with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Number>
+        member this.ToEcma() = X<Number>
     type System.UInt32  with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Number>
+        member this.ToEcma() = X<Number>
     type System.UInt64  with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Number>
+        member this.ToEcma() = X<Number>
     type System.Single  with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Number>
+        member this.ToEcma() = X<Number>
     type System.Double  with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Number>
+        member this.ToEcma() = X<Number>
     type System.Decimal with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Number>
+        member this.ToEcma() = X<Number>
 
     type System.Object with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.Object>
+        member this.ToEcma() = X<Object>
 
-    type EcmaScript.String with
+    type String with
         [<Inline "$0">]
         member this.ToDotNet() = X<string>
     type System.String with
         [<Inline "$0">]
-        member this.ToEcma() = X<EcmaScript.String>
-
-[<assembly: AutoOpen "IntelliFactory.WebSharper.EcmaScript.Extensions">]
-()
+        member this.ToEcma() = X<String>

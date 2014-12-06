@@ -20,6 +20,7 @@
 
 namespace IntelliFactory.WebSharper.Html
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 
 type internal Text = { text: string } with
 

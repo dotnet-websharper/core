@@ -20,6 +20,8 @@
 
 namespace IntelliFactory.WebSharper
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<Name "Math">]
 [<Proxy(typeof<System.Math>)>]
 type private MathProxy =

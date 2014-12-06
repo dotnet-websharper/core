@@ -20,6 +20,8 @@
 
 namespace IntelliFactory.WebSharper
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<Name "Char">]
 [<Proxy(typeof<System.Char>)>]
 type private CharProxy =

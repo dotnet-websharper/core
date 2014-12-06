@@ -20,6 +20,8 @@
 
 namespace IntelliFactory.WebSharper
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<Name "IntelliFactory.WebSharper.List.T">]
 [<Proxy(typeof<list<_>>)>]
 type private ListProxy<'T> =

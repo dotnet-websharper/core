@@ -25,6 +25,8 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private IntelliFactory.WebSharper.LazyExtensionsProxy
 
+open IntelliFactory.WebSharper.JavaScript
+
 type LazyRecord<'T> =
     {
         mutable value   : 'T

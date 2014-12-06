@@ -21,6 +21,7 @@
 module private IntelliFactory.WebSharper.Collections.ResizeArray
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 
 [<Inline "$arr.push($x)">]
 let push (arr: 'T []) (x: 'T) = ()

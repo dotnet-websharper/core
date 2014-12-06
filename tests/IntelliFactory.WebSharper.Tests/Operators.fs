@@ -21,6 +21,7 @@
 module IntelliFactory.WebSharper.Tests.Operators
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.Testing
 module R = IntelliFactory.WebSharper.Testing.Random
 

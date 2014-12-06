@@ -18,6 +18,7 @@
     <Compile Include="Macro.fsi" />
     <Compile Include="Macro.fs" />
     <Compile Include="Pervasives.fs" />
+    <Compile Include="JavaScript.Pervasives.fs" />
     <Compile Include="PrintfHelpers.fs" />
     <Compile Include="Concurrency.fs" />
     <Compile Include="Enumerator.fs" />

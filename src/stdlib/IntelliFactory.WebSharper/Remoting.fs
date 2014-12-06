@@ -20,6 +20,8 @@
 
 module IntelliFactory.WebSharper.Remoting
 
+open IntelliFactory.WebSharper.JavaScript
+
 module A = IntelliFactory.WebSharper.Core.Attributes
 module R = IntelliFactory.WebSharper.Core.Remoting
 
@@ -84,7 +86,7 @@ let mutable AjaxProvider = XhrProvider() :> IAjaxProvider
 
 [<A.Inline "void ($obj[$key] = $value)">]
 let ( ?<- ) (obj: obj) (key: string) (value: obj) =
-    JavaScript.ClientSide<unit>
+    JS.ClientSide<unit>
 
 [<A.JavaScript>]
 let makeHeaders (m: string) =

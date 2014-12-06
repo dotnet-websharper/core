@@ -23,9 +23,9 @@ namespace IntelliFactory.WebSharper.Collections
 open System.Collections
 open System.Collections.Generic
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.Collections
 module T = BalancedTree
-module J = JavaScript
 
 [<AutoOpen>]
 module private MapUtil =
@@ -57,7 +57,7 @@ type internal FSharpMap<'K,'V when 'K : comparison>
 
         [<JavaScript>]
         member this.ContainsKey k = 
-            tree |> T.Contains {Key=k; Value = J.Undefined}
+            tree |> T.Contains {Key=k; Value = JS.Undefined}
 
         [<JavaScript>]
         member this.Count = T.Count tree
@@ -75,12 +75,12 @@ type internal FSharpMap<'K,'V when 'K : comparison>
 
         [<JavaScript>]
         member this.Remove(k: 'K) : Map<'K,'V> =
-            As (FSharpMap(tree |> T.Remove {Key=k; Value=J.Undefined}))
+            As (FSharpMap(tree |> T.Remove {Key=k; Value=JS.Undefined}))
 
         [<JavaScript>]
         member this.TryFind(k: 'K) =
             tree
-            |> T.TryFind {Key=k; Value=J.Undefined}
+            |> T.TryFind {Key=k; Value=JS.Undefined}
             |> Option.map (fun kv -> kv.Value)
 
         [<JavaScript>]

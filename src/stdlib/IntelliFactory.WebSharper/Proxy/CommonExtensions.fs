@@ -25,6 +25,8 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private IntelliFactory.WebSharper.CommonExtensionsProxy
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<Inline "$event.Subscribe($obs)">]
 let subscribe (event: System.IObservable<'T>) (obs: System.IObserver<'T>) =
     X<System.IDisposable>

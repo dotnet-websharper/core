@@ -21,6 +21,7 @@ namespace IntelliFactory.WebSharper.Html
 
 module internal Implementation =
     open IntelliFactory.WebSharper
+    open IntelliFactory.WebSharper.JavaScript
     open Interfaces
     open IntelliFactory.WebSharper.JQuery
 

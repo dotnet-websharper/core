@@ -21,6 +21,7 @@
 module IntelliFactory.WebSharper.Tests.Async
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.Testing
 
 [<Inline "IntelliFactory.WebSharper.Concurrency.scheduler().tick()">]

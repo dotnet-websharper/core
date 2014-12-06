@@ -24,6 +24,7 @@
 namespace IntelliFactory.WebSharper.Web.Tests
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 module H = IntelliFactory.WebSharper.Html.Default
 
 module Server =
@@ -214,9 +215,9 @@ type Harness [<JavaScript>] () =
             return
                 if v = b then
                     passed <- passed + 1
-                    JavaScript.LogMore("pass:", name)
+                    JS.LogMore("pass:", name)
                 else
-                    JavaScript.LogMore("fail:", name, v, b)
+                    JS.LogMore("fail:", name, v, b)
         }
 
     [<JavaScript>]
@@ -228,9 +229,9 @@ type Harness [<JavaScript>] () =
             return
                 if prop v then
                     passed <- passed + 1
-                    JavaScript.LogMore("pass:", name)
+                    JS.LogMore("pass:", name)
                 else
-                    JavaScript.LogMore("fail:", name, v)
+                    JS.LogMore("fail:", name, v)
         }
 
     [<JavaScript>]
@@ -239,9 +240,9 @@ type Harness [<JavaScript>] () =
         executed <- executed + 1
         if a = b then
             passed <- passed + 1
-            JavaScript.LogMore("pass:", name)
+            JS.LogMore("pass:", name)
         else
-            JavaScript.LogMore("fail:", name, a, b)
+            JS.LogMore("fail:", name, a, b)
 
     [<JavaScript>]
     member this.Summarize() =
@@ -269,8 +270,8 @@ module RemotingTestSuite =
     let ( =?!) a b = harness.AssertEquals a b
 
     [<JavaScript>]
-    let RunTests (dom: IntelliFactory.WebSharper.Dom.Element) =
-        JavaScript.LogMore("Starting tests", dom)
+    let RunTests (dom: IntelliFactory.WebSharper.JavaScript.Dom.Element) =
+        JS.LogMore("Starting tests", dom)
         async {
             do test "unit -> unit"
             do! Server.reset()

@@ -20,8 +20,8 @@
 
 module IntelliFactory.WebSharper.Json
 
+open IntelliFactory.WebSharper.JavaScript
 module A = IntelliFactory.WebSharper.Core.Attributes
-module J = IntelliFactory.WebSharper.JavaScript
 module Js = IntelliFactory.WebSharper.Core.Json
 module Re = IntelliFactory.WebSharper.Core.Resources
 
@@ -35,32 +35,32 @@ type Resource() =
             html.WriteLine "<![endif]-->"
 
 [<A.Inline "$obj[$field]">]
-let ( ? ) (obj: obj) (field: string) = J.ClientSide<'T>
+let ( ? ) (obj: obj) (field: string) = JS.ClientSide<'T>
 
 [<A.Inline "void ($obj[$key] = $value)">]
-let ( ?<- ) (obj: obj) (key: string) (value: obj) = J.ClientSide<unit>
+let ( ?<- ) (obj: obj) (key: string) (value: obj) = JS.ClientSide<unit>
 
 [<A.Inline "$x">]
-let As<'T> (x: obj) = J.ClientSide<'T>
+let As<'T> (x: obj) = JS.ClientSide<'T>
 
 [<A.Inline "JSON.parse($json)">]
 [<A.Require(typeof<Resource>)>]
-let Parse (json: string) = J.ClientSide<obj>
+let Parse (json: string) = JS.ClientSide<obj>
 
 [<A.Inline "JSON.stringify($obj)">]
 [<A.Require(typeof<Resource>)>]
-let Stringify (obj: obj) = J.ClientSide<string>
+let Stringify (obj: obj) = JS.ClientSide<string>
 
 /// Lookups an object by its FQN.
 [<A.JavaScript>]
 let lookup<'T> (x: string []) : obj =
     let k = x.Length
-    let mutable r = J.Global
+    let mutable r = JS.Global
     let mutable i = 0
     while i < k do
         let n  = x.[i]
         let rn = (?) r n
-        if J.TypeOf rn <> J.Undefined then
+        if JS.TypeOf rn <> JS.Undefined then
             r <- rn
             i <- i + 1
         else
@@ -70,20 +70,20 @@ let lookup<'T> (x: string []) : obj =
 /// Restores the type of a serialized object by field copying.
 [<A.JavaScript>]
 let restore (ty: obj) (obj: obj) : obj =
-    let r = J.New ty
-    J.ForEach obj (fun k -> (?<-) r k ((?) obj k); false)
+    let r = JS.New ty
+    JS.ForEach obj (fun k -> (?<-) r k ((?) obj k); false)
     r
 
 /// Does a shallow generic mapping over an object.
 [<A.JavaScript>]
 let shallowMap (f: obj -> obj) (x: obj) : obj =
-    if J.InstanceOf x J.Global?Array then
+    if JS.InstanceOf x JS.Global?Array then
         As (Array.map f (As x))
     else
-        match J.TypeOf x with
-        | J.Object ->
+        match JS.TypeOf x with
+        | JS.Object ->
             let r = obj ()
-            J.ForEach x (fun y -> (?<-) r y (f ((?) x y)); false)
+            JS.ForEach x (fun y -> (?<-) r y (f ((?) x y)); false)
             r
         | _ ->
             x
@@ -96,14 +96,14 @@ let Activate<'T> (json: obj) : 'T =
         types.[i] <- lookup (As types.[i])
     let rec decode (x: obj) : obj =
         if x = null then x else
-            match J.TypeOf x with
-            | J.Object ->
-                if J.InstanceOf x J.Global?Array then
+            match JS.TypeOf x with
+            | JS.Object ->
+                if JS.InstanceOf x JS.Global?Array then
                     shallowMap decode x
                 else
                     let o  = shallowMap decode ((?) x "$V")
                     let ti = (?) x "$T"
-                    if J.TypeOf ti = J.Kind.Undefined then o else
+                    if JS.TypeOf ti = JS.Kind.Undefined then o else
                         restore types.[ti] o
             | _ ->
                 x

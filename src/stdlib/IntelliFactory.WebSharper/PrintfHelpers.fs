@@ -21,7 +21,7 @@
 /// Defines macros used by proxy definitions.
 module private IntelliFactory.WebSharper.PrintfHelpers
 
-module J = IntelliFactory.WebSharper.JavaScript
+open IntelliFactory.WebSharper.JavaScript
 
 [<JavaScript>]
 let toSafe (s: string) =
@@ -74,13 +74,13 @@ let rec prettyPrint (o: obj) =
     let printObject (o: obj) =
         let s = string o
         if s = "[object Object]" then
-            "{" + (J.GetFields o |> Array.map (fun (k, v) -> k + " = " + prettyPrint v) |> String.concat "; ") + "}"
+            "{" + (JS.GetFields o |> Array.map (fun (k, v) -> k + " = " + prettyPrint v) |> String.concat "; ") + "}"
         else s
-    let t = J.TypeOf o
-    if t  ==. J.String then
+    let t = JS.TypeOf o
+    if t  ==. JS.String then
         "\"" + As o + "\""
-    elif t  ==. J.Object then
-        if J.InstanceOf o J.Global?Array then
+    elif t  ==. JS.Object then
+        if JS.InstanceOf o JS.Global?Array then
             "[|" + (As o |> Array.map prettyPrint |> String.concat "; ") + "|]"
         else printObject o
     else string o

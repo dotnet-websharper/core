@@ -21,8 +21,8 @@
 namespace IntelliFactory.WebSharper.Html5.Tests
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.Html
-open IntelliFactory.WebSharper.Html5
 open IntelliFactory.WebSharper.JQuery
 
 module Utils =
@@ -32,9 +32,9 @@ module Utils =
 module SamplesInternals =
 
     [<JavaScriptAttribute>]
-    let GetPosition() : (Async<Html5.Position>) =
+    let GetPosition() : (Async<Geolocation.Position>) =
         Async.FromContinuations(fun (onOk, _, _) ->
-            Html5.Window.Self.Navigator.Geolocation.GetCurrentPosition(fun pos ->
+            Window.Self.Navigator.Geolocation.GetCurrentPosition(fun pos ->
                 onOk pos
             )
         )
@@ -63,7 +63,7 @@ module SamplesInternals =
             let storage = Window.Self.LocalStorage
             let key = "intReference"
             let intReference = storage.GetItem(key)
-            if intReference = null || intReference = JavaScript.Undefined then
+            if intReference = null || intReference = JS.Undefined then
                 storage.SetItem(key, "0")
             else
                 let oldValue = int (intReference)
@@ -108,13 +108,13 @@ module SamplesInternals =
     [<JavaScript>]
     let Example3 (ctx: CanvasRenderingContext2D) =
         ctx.BeginPath()
-        ctx.Arc(75., 75., 50., 0., EcmaScript.Math.PI * 2., true);
+        ctx.Arc(75., 75., 50., 0., Math.PI * 2., true);
         ctx.MoveTo(110., 75.)
-        ctx.Arc(75., 75., 35., 0., EcmaScript.Math.PI, false);
+        ctx.Arc(75., 75., 35., 0., Math.PI, false);
         ctx.MoveTo(65., 65.)
-        ctx.Arc(60., 65., 5., 0., EcmaScript.Math.PI *2., true);
+        ctx.Arc(60., 65., 5., 0., Math.PI *2., true);
         ctx.MoveTo(95., 65.)
-        ctx.Arc(90., 65., 5., 0., EcmaScript.Math.PI *2., true);
+        ctx.Arc(90., 65., 5., 0., Math.PI *2., true);
         ctx.Stroke()
 
     [<JavaScript>]
@@ -168,7 +168,7 @@ module SamplesInternals =
         roundedRect(135.,53.,49.,33.,10.)
         roundedRect(135.,119.,25.,49.,10.)
         ctx.BeginPath()
-        ctx.Arc(37., 37., 13., -EcmaScript.Math.PI/7., EcmaScript.Math.PI/7., true)
+        ctx.Arc(37., 37., 13., -Math.PI/7., Math.PI/7., true)
         ctx.LineTo(31., 37.)
         ctx.Fill()
         for i in 0..7 do
@@ -205,10 +205,10 @@ module SamplesInternals =
         ctx.Fill()
         ctx.FillStyle <- "black"
         ctx.BeginPath()
-        ctx.Arc(101., 102., 2., 0., EcmaScript.Math.PI*2., true)
+        ctx.Arc(101., 102., 2., 0., Math.PI*2., true)
         ctx.Fill()
         ctx.BeginPath()
-        ctx.Arc(89., 102., 2., 0., EcmaScript.Math.PI*2., true)
+        ctx.Arc(89., 102., 2., 0., Math.PI*2., true)
         ctx.Fill()
 
     [<JavaScriptAttribute>]
@@ -229,12 +229,12 @@ module SamplesInternals =
     [<JavaScriptAttribute>]
     let Example8 (ctx: CanvasRenderingContext2D) =
         let paint () =
-            let now = new EcmaScript.Date()
+            let now = new Date()
             ctx.Save();
             ctx.ClearRect(0., 0., 150., 150.)
             ctx.Translate(75., 75.)
             ctx.Scale(0.4, 0.4)
-            ctx.Rotate(-EcmaScript.Math.PI/2.)
+            ctx.Rotate(-Math.PI/2.)
             ctx.StrokeStyle <- "black"
             ctx.FillStyle <- "white"
             ctx.LineWidth <- 8.
@@ -244,7 +244,7 @@ module SamplesInternals =
             // Hours marks
             for i in 1..12 do
                 ctx.BeginPath()
-                ctx.Rotate(EcmaScript.Math.PI/6.)
+                ctx.Rotate(Math.PI/6.)
                 ctx.MoveTo(100., 0.)
                 ctx.LineTo(120., 0.)
                 ctx.Stroke()
@@ -258,7 +258,7 @@ module SamplesInternals =
                     ctx.MoveTo(117., 0.)
                     ctx.LineTo(120., 0.)
                     ctx.Stroke()
-                ctx.Rotate (EcmaScript.Math.PI / 30.)
+                ctx.Rotate (Math.PI / 30.)
             ctx.Restore()
 
             let sec = now.GetSeconds() |> float
@@ -272,7 +272,7 @@ module SamplesInternals =
 
             // write Hours
             ctx.Save()
-            ctx.Rotate( hr*(EcmaScript.Math.PI/6.) + (EcmaScript.Math.PI/360.)*min + (EcmaScript.Math.PI/21600.)*sec )
+            ctx.Rotate( hr*(Math.PI/6.) + (Math.PI/360.)*min + (Math.PI/21600.)*sec )
             ctx.LineWidth <- 14.
             ctx.BeginPath()
             ctx.MoveTo(-20., 0.)
@@ -282,7 +282,7 @@ module SamplesInternals =
 
             // write Minutes
             ctx.Save()
-            ctx.Rotate( (EcmaScript.Math.PI/30.)*min + (EcmaScript.Math.PI/1800.)*sec )
+            ctx.Rotate( (Math.PI/30.)*min + (Math.PI/1800.)*sec )
             ctx.LineWidth <- 10.
             ctx.BeginPath()
             ctx.MoveTo(-28., 0.)
@@ -292,7 +292,7 @@ module SamplesInternals =
 
             // Write seconds
             ctx.Save()
-            ctx.Rotate(sec * EcmaScript.Math.PI/30.)
+            ctx.Rotate(sec * Math.PI/30.)
             ctx.StrokeStyle <- "#D40000"
             ctx.FillStyle <- "#D40000"
             ctx.LineWidth <- 6.
@@ -301,20 +301,20 @@ module SamplesInternals =
             ctx.LineTo(83., 0.)
             ctx.Stroke()
             ctx.BeginPath()
-            ctx.Arc(0., 0., 10., 0., (EcmaScript.Math.PI*2.), true)
+            ctx.Arc(0., 0., 10., 0., (Math.PI*2.), true)
             ctx.Fill()
             ctx.BeginPath()
-            ctx.Arc(95., 0., 10., 0., (EcmaScript.Math.PI*2.), true)
+            ctx.Arc(95., 0., 10., 0., (Math.PI*2.), true)
             ctx.Stroke()
             ctx.FillStyle <- "#555"
-            ctx.Arc(0., 0., 3., 0., (EcmaScript.Math.PI*2.), true)
+            ctx.Arc(0., 0., 3., 0., (Math.PI*2.), true)
             ctx.Fill()
             ctx.Restore()
 
             ctx.BeginPath()
             ctx.LineWidth <- 14.
             ctx.StrokeStyle <- "#325FA2"
-            ctx.Arc(0., 0., 142., 0., (EcmaScript.Math.PI*2.), true)
+            ctx.Arc(0., 0., 142., 0., (Math.PI*2.), true)
             ctx.Stroke()
             ctx.Restore()
         Utils.SetInterval paint 1000

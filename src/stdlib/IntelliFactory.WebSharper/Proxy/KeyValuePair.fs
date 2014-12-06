@@ -20,6 +20,8 @@
 
 namespace IntelliFactory.WebSharper
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<Proxy(typeof<System.Collections.Generic.KeyValuePair<_,_>>)>]
 type private KeyValuePairProxy<'K,'V> =
     [<Inline "{K: $key, V: $value}">]

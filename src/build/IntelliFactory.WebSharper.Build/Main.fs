@@ -71,7 +71,6 @@ module Main =
             // htmllib:
             lib "IntelliFactory.Html"
             lib "IntelliFactory.WebSharper.Html"
-            lib "IntelliFactory.WebSharper.Html5"
             // sitelets:
             lib "IntelliFactory.WebSharper.Sitelets"
             lib "IntelliFactory.WebSharper.Web"
@@ -79,8 +78,7 @@ module Main =
             lib "IntelliFactory.WebSharper"
             lib "IntelliFactory.WebSharper.Collections"
             lib "IntelliFactory.WebSharper.Control"
-            lib "IntelliFactory.WebSharper.Dom"
-            lib "IntelliFactory.WebSharper.Ecma"
+            lib "IntelliFactory.WebSharper.JavaScript"
             lib "IntelliFactory.WebSharper.JQuery"
             lib "IntelliFactory.WebSharper.Testing"
             // foreign:

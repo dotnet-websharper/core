@@ -20,6 +20,7 @@
 
 namespace IntelliFactory.WebSharper.Html
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.Html.Interfaces
 
 /// Represents HTML attributes.

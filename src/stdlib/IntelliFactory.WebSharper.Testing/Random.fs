@@ -22,6 +22,7 @@
 module IntelliFactory.WebSharper.Testing.Random
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 
 /// A test case generator.
 type Generator<'T> =

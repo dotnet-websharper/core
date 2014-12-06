@@ -25,6 +25,8 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private IntelliFactory.WebSharper.ArrayModuleProxy
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<JavaScript>]
 let checkRange (arr: 'T []) (start: int) (size: int) : unit =
     if (size < 0) || (start < 0) || (arr.Length < start + size) then

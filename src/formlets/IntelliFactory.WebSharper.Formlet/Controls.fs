@@ -20,6 +20,7 @@
 namespace IntelliFactory.WebSharper.Formlet
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 
 /// Defines formlets and their operations.
 module Controls =

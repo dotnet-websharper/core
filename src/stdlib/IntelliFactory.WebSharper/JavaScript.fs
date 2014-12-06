@@ -19,7 +19,8 @@
 // $end{copyright}
 
 /// Defines common JavaScript operations.
-module IntelliFactory.WebSharper.JavaScript
+[<RequireQualifiedAccess>]
+module IntelliFactory.WebSharper.JavaScript.JS
 
 module A = IntelliFactory.WebSharper.Core.Attributes
 

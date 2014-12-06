@@ -20,6 +20,8 @@
 
 namespace IntelliFactory.WebSharper
 
+open IntelliFactory.WebSharper.JavaScript
+
 type private D = System.DateTime
 type private K = System.DateTimeKind
 type private TS = System.TimeSpan

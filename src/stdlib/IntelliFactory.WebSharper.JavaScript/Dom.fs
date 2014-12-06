@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Dom
+namespace IntelliFactory.WebSharper.JavaScript.Dom
 
 open IntelliFactory.WebSharper.InterfaceGenerator
 module P = Pattern
@@ -114,8 +114,7 @@ module private Enumerations =
         Enum "attrChangeType" "MutationEvent." "" "\
             ADDITION MODIFICATION REMOVAL"
 
-[<AutoOpen>]
-module private Interfaces =
+module Interfaces =
 
     let DOMException =
         Class "DomException"
@@ -861,9 +860,9 @@ module Definition =
     module E = Enumerations
     module I = Interfaces
 
-    let Assembly =
-        Assembly [
-            Namespace "IntelliFactory.WebSharper.Dom" [
+    let Namespaces =
+        [
+            Namespace "IntelliFactory.WebSharper.JavaScript.Dom" [
                 I.Attr
                 I.CDATASection
                 I.CharacterData
@@ -920,11 +919,3 @@ module Definition =
                 E.attrChangeType
             ]
         ]
-
-[<Sealed>]
-type DomExtension() =
-    interface IExtension with
-        member x.Assembly = Definition.Assembly
-
-[<assembly: Extension(typeof<DomExtension>)>]
-do ()

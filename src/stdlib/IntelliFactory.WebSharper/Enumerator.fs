@@ -21,7 +21,7 @@
 /// Provides an `IEnumerator` implementation.
 module private IntelliFactory.WebSharper.Enumerator
 
-module J = IntelliFactory.WebSharper.JavaScript
+open IntelliFactory.WebSharper.JavaScript
 type IE<'T> = System.Collections.Generic.IEnumerator<'T>
 
 /// Represents an unfolding enumerator.
@@ -44,7 +44,7 @@ let getEnumerator (x: obj) : IE<'T> = X
 
 [<JavaScript>]
 let Get (x: obj) : IE<'T> =
-    if J.InstanceOf x J.Global?Array then
+    if JS.InstanceOf x JS.Global?Array then
         let s = As<obj[]> x
         New 0 (fun e ->
             let i = e.State
@@ -54,7 +54,7 @@ let Get (x: obj) : IE<'T> =
                 true
             else
                 false)
-    elif J.TypeOf x = J.String then
+    elif JS.TypeOf x = JS.String then
         let s = As<string> x
         New 0 (fun e ->
             let i = e.State

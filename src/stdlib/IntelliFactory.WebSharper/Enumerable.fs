@@ -21,6 +21,8 @@
 /// Provides an `IEnumerable` implementation.
 module private IntelliFactory.WebSharper.Enumerable
 
+open IntelliFactory.WebSharper.JavaScript
+
 /// Constructs an `IEnumerable`.
 [<JavaScript>]
 let Of (getEnumerator: unit -> System.Collections.Generic.IEnumerator<'T>) =

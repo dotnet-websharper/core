@@ -22,7 +22,8 @@
 module Website.Client
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 
 [<JavaScript>]
 let EntryPoint () =
-    JavaScript.Log("Loaded OK")
+    JS.Log("Loaded OK")

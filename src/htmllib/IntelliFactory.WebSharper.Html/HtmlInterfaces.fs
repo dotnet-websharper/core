@@ -21,7 +21,7 @@
 namespace IntelliFactory.WebSharper.Html
 
 open IntelliFactory.WebSharper
-open IntelliFactory.WebSharper.Dom
+open IntelliFactory.WebSharper.JavaScript
 
 /// IPagelet
 type IPagelet =
@@ -35,7 +35,7 @@ module PageletExtensions =
 
         [<JavaScript>]
         member p.AppendTo(targetId: string) =
-            let target = Document.Current.GetElementById(targetId)
+            let target = Dom.Document.Current.GetElementById(targetId)
             target.AppendChild(p.Body) |> ignore
             p.Render()
 

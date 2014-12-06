@@ -21,9 +21,9 @@
 namespace IntelliFactory.WebSharper.Web.Tests
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 module A = IntelliFactory.WebSharper.Core.Attributes
 module H = IntelliFactory.WebSharper.Html.Default
-module J = IntelliFactory.WebSharper.JavaScript
 
 
 [<Proxy(typeof<System.Text.StringBuilder>)>]
@@ -49,7 +49,7 @@ module Client =
         |> ignore
         sb.Append("bar")
         |> ignore
-        JavaScript.Log(sb.ToString())
+        JS.Log(sb.ToString())
 
 type HelloWorld() =
     inherit IntelliFactory.WebSharper.Web.Control()
@@ -58,8 +58,8 @@ type HelloWorld() =
     override this.Body =
         Client.test()
         let o = obj ()
-        J.Set o "a" 1
-        J.Set o "b" 2
-        let k = J.Get<int> "b" o
+        JS.Set o "a" 1
+        JS.Set o "b" 2
+        let k = JS.Get<int> "b" o
         let t = string k
         H.Div [H.Text t] :> _

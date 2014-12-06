@@ -21,8 +21,8 @@
 namespace IntelliFactory.WebSharper.Collections
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open System.Collections.Generic
-module J = JavaScript
 
 type private KVP<'K,'V> = KeyValuePair<'K,'V>
 type private D<'K,'V> = Dictionary<'K,'V>
@@ -92,7 +92,7 @@ type internal Dictionary<'K,'V when 'K : equality>
         [<JavaScript>]
         member this.Add(k: 'K, v: 'V) =
             let h = h k
-            if J.HasOwnProperty data h then
+            if JS.HasOwnProperty data h then
                 failwith "An item with the same key has already been added."
             else
                 (?<-) data h (new KVP<'K,'V>(k, v))
@@ -105,7 +105,7 @@ type internal Dictionary<'K,'V when 'K : equality>
 
         [<JavaScript>]
         member this.ContainsKey(k: 'K) =
-            J.HasOwnProperty data (h k)
+            JS.HasOwnProperty data (h k)
 
         [<JavaScript>]
         member this.Count with [<Inline>] get () = count
@@ -114,27 +114,27 @@ type internal Dictionary<'K,'V when 'K : equality>
         member this.Item
             with get (k: 'K) : 'V =
                 let k = h k
-                if J.HasOwnProperty data k then
+                if JS.HasOwnProperty data k then
                     let x : KVP<'K, 'V> = (?) data k
                     x.Value
                 else
                     notPresent ()
             and set (k: 'K) (v: 'V) =
                 let h = h k
-                if not (J.HasOwnProperty data h) then
+                if not (JS.HasOwnProperty data h) then
                     count <- count + 1
                 (?<-) data h (new KVP<'K,'V>(k, v))
 
         [<JavaScript>]
         member this.GetEnumerator() =
-            let s = J.GetFieldValues data
+            let s = JS.GetFieldValues data
             (As<seq<obj>> s).GetEnumerator()
 
         [<JavaScript>]
         member this.Remove(k: 'K) =
             let h = h k
-            if J.HasOwnProperty data h then
-                J.Delete data h
+            if JS.HasOwnProperty data h then
+                JS.Delete data h
                 count <- count - 1
                 true
             else

@@ -23,6 +23,7 @@ namespace IntelliFactory.WebSharper.Control
 module internal Event =
     open System
     open IntelliFactory.WebSharper
+    open IntelliFactory.WebSharper.JavaScript
 
     type Event<'T> = private { Handlers : ResizeArray<Handler<'T>> } with
 

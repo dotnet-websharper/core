@@ -21,6 +21,7 @@
 namespace IntelliFactory.WebSharper.Formlet.Tests
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.Html
 open IntelliFactory.WebSharper.Formlet
 open System
@@ -187,7 +188,7 @@ module F =
 
     [<JavaScript>]
     let PropagateRenderFrom (f1: IFormlet<_,_>) f2 =
-        if JavaScript.HasOwnProperty f1 "Render" then
+        if JS.HasOwnProperty f1 "Render" then
             f2?Render <- f1?Render
         f2
 

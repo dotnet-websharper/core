@@ -20,6 +20,8 @@
 
 namespace IntelliFactory.WebSharper
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<Proxy(typeof<System.Exception>)>]
 type private ExceptionProxy =
 

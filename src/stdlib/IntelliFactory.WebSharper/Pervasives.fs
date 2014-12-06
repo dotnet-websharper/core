@@ -24,15 +24,6 @@
 module IntelliFactory.WebSharper.Pervasives
 
 module A = IntelliFactory.WebSharper.Core.Attributes
-module J = IntelliFactory.WebSharper.JavaScript
-module M = IntelliFactory.WebSharper.Macro
-
-/// Returns null or some other default value of the given type.
-/// Note: a short-hand for "Unchecked.defaultof<'T>".
-let X<'T> = Unchecked.defaultof<'T>
-
-let private binary (x: obj) (y: obj) = J.ClientSide<obj>
-let private binaryAs<'T> (x: obj) (y: obj) = J.ClientSide<'T>
 
 type ConstantAttribute = A.ConstantAttribute
 type DirectAttribute = A.DirectAttribute
@@ -46,91 +37,6 @@ type RequireAttribute = A.RequireAttribute
 type RpcAttribute = A.RemoteAttribute
 type StubAttribute = A.StubAttribute
 
-/// Casts an object to the desired type.
-[<Inline "$x">]
-let As<'T> (x: obj) = J.ClientSide<'T>
-
-/// Implements piping with mutation.
-[<Inline "($f($x), $x)">]
-let ( |>! ) x f = f x; x
-
-[<Inline "$x * $y">]
-let ( *. ) x y = binary x y
-
-[<Inline "$x / $y">]
-let ( /. ) x y = binary x y
-
-[<Inline "$x % $y">]
-let ( %. ) x y = binary x y
-
-[<Inline "$x + $y">]
-let ( +. ) x y = binary x y
-
-[<Inline "$x - $y">]
-let ( -. ) x y = binary x y
-
-[<Inline "$x << $y">]
-let ( <<. ) x y = binary x y
-
-[<Inline "$x >> $y">]
-let ( >>. ) x y = binary x y
-
-[<Inline "$x >>> $y">]
-let ( >>>. ) x y = binary x y
-
-[<Inline "$x < $y">]
-let ( <. ) x y = binaryAs<bool> x y
-
-[<Inline "$x > $y">]
-let ( >. ) x y = binaryAs<bool> x y
-
-[<Inline "$x >= $y">]
-let ( >=. ) x y = binaryAs<bool> x y
-
-[<Inline "$x <= $y">]
-let ( <=. ) x y = binaryAs<bool> x y
-
-[<Inline "$x == $y">]
-let ( ==. ) x y = binaryAs<bool> x y
-
-[<Inline "$x === $y">]
-let ( ===. ) x y = binaryAs<bool> x y
-
-[<Inline "$x != $y">]
-let ( !=. ) x y = binaryAs<bool> x y
-
-[<Inline "$x !== $y">]
-let ( !==. ) x y = binaryAs<bool> x y
-
-[<Inline "$x | $y">]
-let ( |. ) x y = binary x y
-
-[<Inline "$x & $y">]
-let ( &. ) x y = binary x y
-
-[<Inline "$x ^ $y">]
-let ( ^. ) x y = binary x y
-
-[<Inline "$obj[$field]">]
-let ( ? ) (obj: obj) (field: string) = J.ClientSide<'T>
-
-[<Inline "void ($obj[$key] = $value)">]
-let ( ?<- ) (obj: obj) (key: string) (value: obj) = J.ClientSide<unit>
-
-[<Inline "[$x,$y]">]
-let ( => ) (x: string) (y: obj) = (x, y)
-
-[<JavaScript>]
-let private NewFromList<'T> (fields: seq<string * obj>) : 'T =
-    let r = obj ()
-    for (k, v) in fields do
-        (?<-) r k v
-    As r
-
-/// Constructs a new object as if an object literal was used.
-[<Macro(typeof<M.New>)>]
-let New<'T> (fields: seq<string * obj>) = X<'T>
-
 /// Re-exports Remoting.IRpcHandlerFactory.
 type IRpcHandlerFactory =
     IntelliFactory.WebSharper.Core.Remoting.IHandlerFactory
@@ -138,10 +44,6 @@ type IRpcHandlerFactory =
 /// Re-exports Remoting.SetHandlerFactory.
 let SetRpcHandlerFactory (factory: IRpcHandlerFactory) =
     IntelliFactory.WebSharper.Core.Remoting.SetHandlerFactory factory
-
-/// Constructs an proxy to a remote object instance.
-[<Inline "null">]
-let Remote<'T> = JavaScript.ClientSide<'T>
 
 module F = IntelliFactory.WebSharper.Core.Functions
 

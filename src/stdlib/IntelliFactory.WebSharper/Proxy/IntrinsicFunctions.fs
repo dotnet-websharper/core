@@ -25,6 +25,7 @@
 module private IntelliFactory.WebSharper.IntrinsicFunctionProxy
 
 open System
+open IntelliFactory.WebSharper.JavaScript
 
 [<Inline "$value">]
 let UnboxGeneric<'T> (value: obj) = X<'T>

@@ -25,7 +25,7 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private IntelliFactory.WebSharper.SeqModuleProxy
 
-module J = IntelliFactory.WebSharper.JavaScript
+open IntelliFactory.WebSharper.JavaScript
 
 [<JavaScript>]
 let private insufficient () =
@@ -161,7 +161,7 @@ let CountBy (f: 'T -> 'K) (s: seq<'T>) : seq<'K * int> =
         while e.MoveNext() do
             let k = f e.Current
             let h = As<string> (Unchecked.hash k)
-            if J.HasOwnProperty d (As h) then
+            if JS.HasOwnProperty d (As h) then
                 (?<-) d h ((?) d h + 1)
             else
                 keys.Enqueue k
@@ -191,7 +191,7 @@ let DistinctBy<'T,'K when 'K : equality>
             if enum.MoveNext() then
                 let mutable cur = enum.Current
                 let h c         = As<string> (hash (f c))
-                let check c     = J.HasOwnProperty seen (h c)
+                let check c     = JS.HasOwnProperty seen (h c)
                 let mutable has = check cur
                 while has && enum.MoveNext() do
                     cur <- enum.Current
@@ -298,10 +298,10 @@ let GroupBy (f: 'T -> 'K when 'K : equality)
             let c = e.Current
             let k = f c
             let h = As<string> (hash k)
-            if not (J.HasOwnProperty d h) then
+            if not (JS.HasOwnProperty d h) then
                 push keys k
             (?<-) d1 h k
-            if J.HasOwnProperty d h then
+            if JS.HasOwnProperty d h then
                 push ((?) d h) c
             else
                 (?<-) d h [| c |]

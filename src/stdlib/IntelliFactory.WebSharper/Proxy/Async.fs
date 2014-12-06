@@ -20,6 +20,8 @@
 
 namespace IntelliFactory.WebSharper
 
+open IntelliFactory.WebSharper.JavaScript
+
 type private CT  = System.Threading.CancellationToken
 type private CTS  = System.Threading.CancellationTokenSource
 type private CTR  = System.Threading.CancellationTokenRegistration
@@ -176,8 +178,8 @@ type private CancellationTokenSourceProxy [<JavaScript>] () =
     [<JavaScript>]
     member this.CancelAfter(delay: int) =
         if not c then
-            pending |> Option.iter JavaScript.ClearTimeout
-            pending <- Some <| JavaScript.SetTimeout this.Cancel delay
+            pending |> Option.iter JS.ClearTimeout
+            pending <- Some <| JS.SetTimeout this.Cancel delay
 
     [<JavaScript>]
     [<Inline>]

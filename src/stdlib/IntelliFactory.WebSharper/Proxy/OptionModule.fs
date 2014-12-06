@@ -25,6 +25,8 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private IntelliFactory.WebSharper.OptionModuleProxy
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<JavaScript>]
 [<Name "bind">]
 let Bind f x =

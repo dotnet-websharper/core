@@ -21,8 +21,8 @@
 module IntelliFactory.WebSharper.Tests.Basis
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.Testing
-module J = IntelliFactory.WebSharper.JavaScript
 
 [<JavaScript>]
 let rec private fac : int -> int = function
@@ -255,9 +255,9 @@ let Tests =
         box 0 <> box ""               |? "0 <> \"\""
         box 0 <> box "0"              |? "0 <> \"0\""
         box 0 <> box false            |? "0 <> false"
-        box 0 <> box J.Undefined      |? "0 <> undefined"
-        box false <> box J.Undefined  |? "false <> undefined"
-        null <> box J.Undefined       |? "null <> undefined"
+        box 0 <> box JS.Undefined     |? "0 <> undefined"
+        box false <> box JS.Undefined |? "false <> undefined"
+        null <> box JS.Undefined      |? "null <> undefined"
         box " \t\r\n" <> box 0        |? "whitespace <> 0"
     }
 

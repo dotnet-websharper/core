@@ -20,7 +20,7 @@
 
 namespace IntelliFactory.WebSharper
 
-open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 
 [<Proxy(typeof<System.Lazy<_>>)>]
 type private LazyProxy<'T> =

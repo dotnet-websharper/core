@@ -20,6 +20,7 @@
 namespace IntelliFactory.WebSharper.Formlet
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.Formlet.Base
 open IntelliFactory.WebSharper.JQuery
 open System.Collections.Generic

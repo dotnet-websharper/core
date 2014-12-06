@@ -25,9 +25,9 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Ecma\IntelliFactory.WebSharper.Ecma.fsproj">
-      <Name>IntelliFactory.WebSharper.Ecma</Name>
-      <Project>{3bee2a9e-c5c9-4bd5-847d-f0f88f02a438}</Project>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.JavaScript\IntelliFactory.WebSharper.JavaScript.fsproj">
+      <Name>IntelliFactory.WebSharper.JavaScript</Name>
+      <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">

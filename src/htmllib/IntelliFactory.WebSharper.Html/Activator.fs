@@ -22,8 +22,8 @@
 module IntelliFactory.WebSharper.Html.Activator
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 module H = IntelliFactory.WebSharper.Html.Default
-module J = IntelliFactory.WebSharper.JavaScript
 
 /// The identifier of the meta tag holding the controls.
 [<Literal>]
@@ -46,7 +46,7 @@ let private Activate =
             H.OnLoad (fun () ->
                 let text = meta.GetAttribute("content")
                 let obj = Json.Activate (Json.Parse text)
-                J.GetFields obj
+                JS.GetFields obj
                 |> Array.iter (fun (k, v) ->
                     let p : IPagelet = (As<IControl> v).Body
                     let old = doc.GetElementById k

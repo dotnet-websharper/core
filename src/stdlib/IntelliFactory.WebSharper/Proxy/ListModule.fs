@@ -25,6 +25,8 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private IntelliFactory.WebSharper.ListModuleProxy
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<JavaScript>]
 [<Name "append">]
 let Append (x: list<_>) (y: list<_>) = List.ofSeq (Seq.append x y)

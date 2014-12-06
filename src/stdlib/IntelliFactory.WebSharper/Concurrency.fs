@@ -22,6 +22,7 @@
 module internal IntelliFactory.WebSharper.Concurrency
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 
 type private OCE = System.OperationCanceledException
 
@@ -74,7 +75,7 @@ type private Scheduler [<JavaScript>]() =
             | _ ->
                 robin.Dequeue()()
                 if System.DateTime.Now - t > System.TimeSpan.FromMilliseconds 40. then
-                    JavaScript.SetTimeout tick 0 |> ignore
+                    JS.SetTimeout tick 0 |> ignore
                     loop <- false
 
     [<JavaScript>]
@@ -82,7 +83,7 @@ type private Scheduler [<JavaScript>]() =
         robin.Enqueue action
         if idle then
             idle <- false
-            JavaScript.SetTimeout tick 0 |> ignore
+            JS.SetTimeout tick 0 |> ignore
 
 [<JavaScript>]
 let private scheduler = Scheduler()
@@ -198,7 +199,7 @@ let StartWithContinuations (c: C<'T>, s: 'T -> unit, f: exn -> unit, cc: OCE -> 
 [<JavaScript>]
 let Start (c: C<unit>, ctOpt) =
     StartWithContinuations (c, ignore, 
-        fun exn -> JavaScript.LogMore ("WebSharper: Uncaught asynchronous exception", exn)
+        fun exn -> JS.LogMore ("WebSharper: Uncaught asynchronous exception", exn)
     , ignore, ctOpt)
 
 #nowarn "40"
@@ -223,13 +224,13 @@ let AwaitEvent (e: IEvent<'T>) : C<'T> =
 let Sleep (ms: Milliseconds) : C<unit> =
     checkCancel <|  fun c ->
         let rec pending =
-            JavaScript.SetTimeout (fun () -> 
+            JS.SetTimeout (fun () -> 
                 creg.Dispose()
                 fork (fun () -> c.k (Ok ()))
             ) ms
         and creg : System.IDisposable =
             Register c.ct (fun () -> 
-                JavaScript.ClearTimeout pending
+                JS.ClearTimeout pending
                 fork (fun () -> cancel c)
             )
         ()

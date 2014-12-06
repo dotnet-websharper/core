@@ -21,6 +21,7 @@
 namespace IntelliFactory.WebSharper.Collections
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 
 /// Implements a proxy for the F# Map module.
 [<Proxy "Microsoft.FSharp.Collections.MapModule, \

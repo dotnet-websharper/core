@@ -23,6 +23,7 @@ namespace IntelliFactory.WebSharper
 open System.Collections.Generic
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 module C = IntelliFactory.WebSharper.Concurrency
 
 [<Proxy "Microsoft.FSharp.Control.FSharpAsyncBuilder, \

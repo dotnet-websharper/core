@@ -20,6 +20,8 @@
 
 namespace IntelliFactory.WebSharper.Collections
 
+open IntelliFactory.WebSharper.JavaScript
+
 /// Provides balanced binary search tree operations.
 module internal BalancedTree =
     open IntelliFactory.WebSharper

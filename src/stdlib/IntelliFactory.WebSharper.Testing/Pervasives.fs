@@ -23,6 +23,7 @@
 module IntelliFactory.WebSharper.Testing.Pervasives
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 
 let private X<'T> : 'T = Unchecked.defaultof<_>
 
@@ -56,7 +57,7 @@ let Section (name: string) : unit = X
 let ( =? ) (a: 'T) (b: 'T) : unit =
     if not (Unchecked.equals a b) then
         let msg = "Equality test failed."
-        JavaScript.Log(msg, a, b)
+        JS.Log(msg, a, b)
         false |? msg
     else
         true |? "Pass."
@@ -67,7 +68,7 @@ let ( =? ) (a: 'T) (b: 'T) : unit =
 let ( <>? ) (a: 'T) (b: 'T) =
     if Unchecked.equals a b then
         let msg = "Inequality test failed."
-        JavaScript.Log(msg, a, b)
+        JS.Log(msg, a, b)
         false |? msg
     else
         true |? "Pass."

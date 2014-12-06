@@ -23,6 +23,7 @@ namespace IntelliFactory.WebSharper.Collections
 open System.Collections
 open System.Collections.Generic
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 module T = BalancedTree
 
 [<AutoOpen>]

@@ -24,6 +24,7 @@ open System.Collections
 open System.Collections.Generic
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 
 type LL<'T> = LinkedList<'T>
 type LLN<'T> = LinkedListNode<'T>

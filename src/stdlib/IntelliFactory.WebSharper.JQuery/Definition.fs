@@ -20,7 +20,7 @@
 
 namespace IntelliFactory.WebSharper.JQuery
 
-open IntelliFactory.WebSharper.Dom
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.InterfaceGenerator
 
 module Definition =
@@ -39,9 +39,9 @@ module Definition =
         |=> Event
         |+> Protocol
                 [
-                    "currentTarget" =? T<Element>
-                    "absurd" => T<Node> ^-> T<unit>
-                    "delegateTarget" =? T<Element>
+                    "currentTarget" =? T<Dom.Element>
+                    "absurd" => T<Dom.Node> ^-> T<unit>
+                    "delegateTarget" =? T<Dom.Element>
                     "data" =? T<obj>
                     "isDefaultPrevented" => T<unit->bool>
                     "isImmediatePropagationStopped" => T<unit->bool>
@@ -50,11 +50,11 @@ module Definition =
                     "pageX" =? T<int>
                     "pageY" =? T<int>
                     "preventDefault" => T<unit->unit>
-                    "relatedTarget" =? T<Element>
+                    "relatedTarget" =? T<Dom.Element>
                     "result" =? T<obj>
                     "stopImmediatePropagation" => T<unit->unit>
                     "stopPropagation" => T<unit->unit>
-                    "target" =? T<Element>
+                    "target" =? T<Dom.Element>
                     "timeStamp" =? T<int>
                     "eventType" =? T<obj>
                     "which" =? T<int>
@@ -168,13 +168,13 @@ module Definition =
 
 
     /// Abbreviations
-    let Content = T<Element> + T<string> + JQ
+    let Content = T<Dom.Element> + T<string> + JQ
     let IntString = T<int> + T<string>
     let FloatString = T<float> + T<string>
     let UnitCallback = (T<unit> ^-> T<unit>)
     let AjaxHandler =
         (
-            T<Element> -*
+            T<Dom.Element> -*
             Event?event *
 
             XmlHttpRequest?request *
@@ -185,7 +185,7 @@ module Definition =
     let AjaxErrorHandler = Type.New ()
 //    let AjaxErrorHandler =
 //        (
-//            T<Element> -*
+//            T<Dom.Element> -*
 //            Event?event *
 //            XmlHttpRequest?request *
 //            AjaxConfig?config *
@@ -195,7 +195,7 @@ module Definition =
 
     let EventHandler =
         (
-            T<Element>  -*
+            T<Dom.Element>  -*
             Event?event
         ) ^-> T<unit>
 
@@ -301,9 +301,9 @@ module Definition =
                 // Add (Tested)
                 "add" => T<string> ^-> JQ
                 |> WithComment AddCmt
-                "add" => T<Element> ^-> JQ
+                "add" => T<Dom.Element> ^-> JQ
                 |> WithComment AddCmt
-                "add" => Type.ArrayOf T<Element> ^-> JQ
+                "add" => Type.ArrayOf T<Dom.Element> ^-> JQ
                 |> WithComment AddCmt
 
                 // Add class (Tested)
@@ -425,7 +425,7 @@ module Definition =
                 |> WithComment "Create a copy of the set of matched elements."
 
                 // Closest
-                "closest" => T<string>?selector * !?T<Element>?context ^-> JQ
+                "closest" => T<string>?selector * !?T<Dom.Element>?context ^-> JQ
                 |> WithComment "Get the first ancestor element that matches the selector, beginning at the current element and progressing up through the DOM tree."
 
                 // Contents
@@ -433,7 +433,7 @@ module Definition =
                 |> WithComment "Get the children of each element in the set of matched elements, including text nodes."
 
                 // Context (Tested)
-                "context" =? T<Element>
+                "context" =? T<Dom.Element>
                 |> WithComment "The DOM node context originally passed to jQuery(); if none was passed then context will likely be the document."
 
                 // Css (Tested)
@@ -480,7 +480,7 @@ module Definition =
                 |> WithComment "Remove the set of matched elements from the DOM."
 
                 // Each
-                "each" => (T<Element> -* !?T<int> ^-> T<unit>)?handler ^-> JQ
+                "each" => (T<Dom.Element> -* !?T<int> ^-> T<unit>)?handler ^-> JQ
                 |> WithComment "Iterate over a jQuery object, executing a function for each matched element."
 
                 // Empty
@@ -528,7 +528,7 @@ module Definition =
                 // Filter
                 "filter" => T<string>?selector ^-> JQ
                 |> WithComment FilterCmt
-                "filter" => (T<Element> -* !?T<int> ^-> T<bool>)?predicate ^-> JQ
+                "filter" => (T<Dom.Element> -* !?T<int> ^-> T<bool>)?predicate ^-> JQ
                 |> WithComment FilterCmt
 
                 // Find
@@ -559,13 +559,13 @@ module Definition =
                 |> WithComment "Bind an event handler to the \"focusout\" JavaScript event."
 
                 // Get
-                "get" => T<int>?index ^-> T<Node>
+                "get" => T<int>?index ^-> T<Dom.Node>
                 |> WithComment GetCmt
-                "get" => T<unit> ^-> Type.ArrayOf T<Node>
+                "get" => T<unit> ^-> Type.ArrayOf T<Dom.Node>
                 |> WithComment GetCmt
 
                 // Has
-                "has" => (T<string>?selector * T<Element>?element) ^-> JQ
+                "has" => (T<string>?selector * T<Dom.Element>?element) ^-> JQ
                 |> WithComment "Reduce the set of matched elements to those that have a descendant that matches the selector or DOM element."
 
                 // HasClass
@@ -580,9 +580,9 @@ module Definition =
 
 
                 // Hide (Tested)
-                "hide" => !?IntString?duration * !?(T<Element> -* T<unit> ^-> T<unit>)?handler  ^-> JQ
+                "hide" => !?IntString?duration * !?(T<Dom.Element> -* T<unit> ^-> T<unit>)?handler  ^-> JQ
                 |> WithComment "Hide the matched elements."
-                "hide" => IntString?duration * T<string>?easing * !?(T<Element> -* T<unit> ^-> T<unit>)?handler  ^-> JQ
+                "hide" => IntString?duration * T<string>?easing * !?(T<Dom.Element> -* T<unit> ^-> T<unit>)?handler  ^-> JQ
                 |> WithComment "Hide the matched elements."
 
                 // Hover
@@ -600,7 +600,7 @@ module Definition =
                 "index" => T<string>?selector ^-> T<int>
                 |> WithComment IndexCmt
 
-                "index" => T<Element>?element ^-> T<int>
+                "index" => T<Dom.Element>?element ^-> T<int>
                 |> WithComment IndexCmt
 
                 "innerHeight" => T<unit> ^-> T<int>
@@ -632,7 +632,7 @@ module Definition =
                 "load" => StringMap?data * EventHandler ^-> JQ
 
                 Generic -   ( fun t ->
-                                Method "map" ((T<int> * T<Element> ^-> t) ^-> JQ)
+                                Method "map" ((T<int> * T<Dom.Element> ^-> t) ^-> JQ)
                             )
                 
                 "mousedown" => StringMap?data * EventHandler ^-> JQ
@@ -663,10 +663,10 @@ module Definition =
                 "nextUntil" => !?T<string> ^-> JQ
 
                 "not" => T<string> ^-> JQ
-                "not" => T<Element> ^-> JQ
-                "not" => Type.ArrayOf T<Element> ^-> JQ
+                "not" => T<Dom.Element> ^-> JQ
+                "not" => Type.ArrayOf T<Dom.Element> ^-> JQ
 
-                "not" => (T<Element> -* T<int> ^-> T<unit>) ^-> JQ
+                "not" => (T<Dom.Element> -* T<int> ^-> T<unit>) ^-> JQ
 
                 "offset" => T<unit> ^-> Position
                 "offset" => Position ^-> JQ
@@ -696,8 +696,8 @@ module Definition =
 
                 "prevUntil" => !?T<string> ^-> JQ
 
-                "pushStack" => Type.ArrayOf T<Element> ^-> JQ
-                "pushStack" => Type.ArrayOf T<Element> * T<string> * Type.ArrayOf T<obj> ^-> JQ
+                "pushStack" => Type.ArrayOf T<Dom.Element> ^-> JQ
+                "pushStack" => Type.ArrayOf T<Dom.Element> * T<string> * Type.ArrayOf T<obj> ^-> JQ
 
                 "queue" => !?T<string> ^-> JQ
                 "queue" => !?T<string> * Type.ArrayOf T<obj> ^-> JQ
@@ -717,9 +717,9 @@ module Definition =
                 "replaceAll" => !?T<string> ^-> JQ
 
                 "replaceWith" => Content ^-> JQ
-                "replaceWith" => (T<Element> -* T<unit> ^-> T<string>) ^-> JQ
-                "replaceWith" => (T<Element> -* T<unit> ^-> JQ) ^-> JQ
-                "replaceWith" => (T<Element> -* T<unit> ^-> T<Element>) ^-> JQ
+                "replaceWith" => (T<Dom.Element> -* T<unit> ^-> T<string>) ^-> JQ
+                "replaceWith" => (T<Dom.Element> -* T<unit> ^-> JQ) ^-> JQ
+                "replaceWith" => (T<Dom.Element> -* T<unit> ^-> T<Dom.Element>) ^-> JQ
 
                 "resize" => !?EventHandler ^-> JQ
                 "resize" => StringMap?data * !?EventHandler ^-> JQ
@@ -740,8 +740,8 @@ module Definition =
 
                 "serializeArray" => T<unit> ^-> Type.ArrayOf T<obj>
 
-                "show" => !?IntString * !?(T<Element> -* T<unit> ^-> T<unit>)  ^-> JQ
-                "show" => IntString * T<string>?easing * !?(T<Element> -* T<unit> ^-> T<unit>)  ^-> JQ
+                "show" => !?IntString * !?(T<Dom.Element> -* T<unit> ^-> T<unit>)  ^-> JQ
+                "show" => IntString * T<string>?easing * !?(T<Dom.Element> -* T<unit> ^-> T<unit>)  ^-> JQ
 
                 "siblings" => !?T<string> ^-> JQ
 
@@ -767,7 +767,7 @@ module Definition =
                 "text" => T<unit> ^-> T<string>
                 "text" => T<string> ^-> JQ
 
-                "toArray" => T<unit> ^-> Type.ArrayOf T<Element>
+                "toArray" => T<unit> ^-> Type.ArrayOf T<Dom.Element>
 
                 /// TODO: review
                 "toggle" => !?T<int> * !?EventHandler ^-> JQ
@@ -830,15 +830,15 @@ module Definition =
                 |> WithInline "jQuery($0,$1)"
                 |> WithComment "Accepts a string containing a CSS selector and a DOM Element, Document, or jQuery to use as context."
 
-                "of" => (Type.ArrayOf T<Node>)?elementArray ^-> JQ
+                "of" => (Type.ArrayOf T<Dom.Node>)?elementArray ^-> JQ
                 |> WithInline "jQuery($0)"
                 |> WithComment "An array containing a set of DOM elements to wrap in a jQuery object."
 
-                "of" => T<Node>?node^-> JQ
+                "of" => T<Dom.Node>?node^-> JQ
                 |> WithInline "jQuery($0)"
                 |> WithComment "DOM node to wrap in a jQuery object."
 
-                "of" => T<string>?html * T<Document>?ownerDocument ^-> JQ
+                "of" => T<string>?html * T<Dom.Document>?ownerDocument ^-> JQ
                 |> WithInline "jQuery($0,$1)"
                 |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
 
@@ -857,14 +857,14 @@ module Definition =
                 "ajaxSetup" => AjaxConfig ^-> T<unit>
 
                 "contains" =>
-                    T<Element>?container * T<Node>?contained ^-> T<bool>
+                    T<Dom.Element>?container * T<Dom.Node>?contained ^-> T<bool>
 
                 "data" =>
-                    (T<Element> * T<string> * T<obj> ^-> T<unit>)
-                    + (T<Element> * T<string> ^-> T<obj>)
-                    + (T<Element> ^-> T<obj>)
+                    (T<Dom.Element> * T<string> * T<obj> ^-> T<unit>)
+                    + (T<Dom.Element> * T<string> ^-> T<obj>)
+                    + (T<Dom.Element> ^-> T<obj>)
 
-                "dequeue" => T<Element> * !?T<string>?queueName ^-> T<unit>
+                "dequeue" => T<Dom.Element> * !?T<string>?queueName ^-> T<unit>
 
                 Generic -   ( fun t ->
                                 Method "each" (Type.ArrayOf t * (T<int> * t ^-> T<unit>) ^-> T<unit>)
@@ -909,7 +909,7 @@ module Definition =
                           )
 
 
-                "hasData" => T<Element -> bool>
+                "hasData" => T<Dom.Element -> bool>
                 Generic -   (fun t ->
                                 Method "inArray" (
                                     t * (Type.ArrayOf t)  ^-> T<int>
@@ -929,7 +929,7 @@ module Definition =
 
                 "isPlainObject" => T<obj->bool>
 
-                "isXMLDoc" => T<Node> ^-> T<bool>
+                "isXMLDoc" => T<Dom.Node> ^-> T<bool>
 
                 "makeArray" => T<obj> ^-> Type.ArrayOf T<obj>
 
@@ -949,7 +949,7 @@ module Definition =
 
                 "parseJSON" => T<string->obj>
                 
-                "parseXML" => T<string -> Document>
+                "parseXML" => T<string -> Dom.Document>
 
                 "post" =>
                     T<string>?url *
@@ -964,11 +964,11 @@ module Definition =
                 "proxy" => (T<obj> * T<string> ^-> T<obj>)
 
                 "queue" =>
-                    T<Element> * !?T<string>?queueName *
+                    T<Dom.Element> * !?T<string>?queueName *
                     !?(T<unit->unit> + T<(unit->unit)[]>)?callback ^-> T<int>
 
                 "removeData" =>
-                    T<Element> * !?T<string>?name ^-> T<unit>
+                    T<Dom.Element> * !?T<string>?name ^-> T<unit>
 
                 // TODO!!!
                 // "support" =? Support
@@ -978,7 +978,7 @@ module Definition =
                 |> WithComment "Determine the internal JavaScript [[Class]] of an object"
                 
                 "unique" =>
-                    Type.ArrayOf T<Element> ^-> Type.ArrayOf T<Element>
+                    Type.ArrayOf T<Dom.Element> ^-> Type.ArrayOf T<Dom.Element>
             ]
 
     let Callbacks =

@@ -21,6 +21,8 @@
 [<IntelliFactory.WebSharper.Core.Attributes.Name "Stack">]
 module private IntelliFactory.WebSharper.StackProxy
 
+open IntelliFactory.WebSharper.JavaScript
+
 [<Inline "$arr.splice($offset,$len)">]
 let splice (arr: obj) (offset: int) (len: int) = X<unit>
 

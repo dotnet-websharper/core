@@ -24,6 +24,7 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private IntelliFactory.WebSharper.ExtraTopLevelOperatorsProxy
 
+open IntelliFactory.WebSharper.JavaScript
 module M = IntelliFactory.WebSharper.Macro
 
 [<Inline "null">]

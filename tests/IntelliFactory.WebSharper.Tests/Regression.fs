@@ -22,6 +22,7 @@ module IntelliFactory.WebSharper.Tests.Regression
 
 open System
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.Testing
 
 [<Inline "new Array(0)">]
@@ -223,7 +224,7 @@ let Tests =
     }
 
     Test "Bug #279" {
-        let arr = EcmaScript.Array<int>()
+        let arr = Array<int>()
         arr.ToDotNet() =? [||]
     }
 

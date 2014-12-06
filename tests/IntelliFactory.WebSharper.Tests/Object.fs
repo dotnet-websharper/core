@@ -21,8 +21,8 @@
 module IntelliFactory.WebSharper.Tests.Object
 
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.Testing
-module J = IntelliFactory.WebSharper.JavaScript
 
 type T = { K : int }
 
@@ -40,7 +40,7 @@ let Tests =
     Section "Object"
 
     Test "Construction" {
-        J.TypeOf (obj ()) =? J.Kind.Object
+        JS.TypeOf (obj ()) =? JS.Kind.Object
     }
 
     Test "Equals" {
@@ -61,11 +61,11 @@ let Tests =
     }
 
     Test "ToString" {
-        J.TypeOf (obj().ToString()) =? J.Kind.String
+        JS.TypeOf (obj().ToString()) =? JS.Kind.String
     }
 
     Test "GetHashCode" {
-        J.TypeOf (obj().GetHashCode()) =? J.Kind.Number
+        JS.TypeOf (obj().GetHashCode()) =? JS.Kind.Number
     }
 
     Test "Construction with properties" {

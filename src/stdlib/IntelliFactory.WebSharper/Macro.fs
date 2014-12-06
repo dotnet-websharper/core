@@ -236,7 +236,7 @@ type String() =
 
 let getFieldsList q =
     let ``is (=>)`` (m: R.Method) =
-        m.DeclaringType.FullName = "IntelliFactory.WebSharper.Pervasives"
+        m.DeclaringType.FullName = "IntelliFactory.WebSharper.JavaScript.Pervasives"
         && m.Name = "op_EqualsGreater"
     let rec getFieldsListTC l q =
         match q with
@@ -264,7 +264,7 @@ let newMacro = macro <| fun tr q ->
         | Some xl ->
             C.NewObject (xl |> List.map (fun (n, v) -> n, tr v))
         | _ ->
-            cCallG ["IntelliFactory"; "WebSharper"; "Pervasives"] "NewFromList" [tr x]
+            cCallG ["IntelliFactory"; "WebSharper"; "JavaScript"; "Pervasives"] "NewFromList" [tr x]
     | _ ->
         failwith "newMacro error"
 

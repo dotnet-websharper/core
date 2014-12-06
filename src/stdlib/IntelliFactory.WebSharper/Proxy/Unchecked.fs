@@ -26,7 +26,7 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private IntelliFactory.WebSharper.UncheckedProxy
 
-module J = IntelliFactory.WebSharper.JavaScript
+open IntelliFactory.WebSharper.JavaScript
 
 [<Inline "$a.CompareTo($b)">]
 let compareTo (a: obj) (b: obj) = X<int>
@@ -60,22 +60,22 @@ let rec compareDates (a: obj) (b: obj) =
 [<JavaScript>]
 let Compare<'T> (a: 'T) (b: 'T) : int =
     if a ===. b then 0 else
-        match J.TypeOf a with
-        | J.Undefined ->
-            match J.TypeOf b with
-            | J.Undefined -> 0
+        match JS.TypeOf a with
+        | JS.Undefined ->
+            match JS.TypeOf b with
+            | JS.Undefined -> 0
             | _ -> -1
-        | J.Function ->
+        | JS.Function ->
             failwith "Cannot compare function values."
-        | J.Boolean | J.Number | J.String ->
+        | JS.Boolean | JS.Number | JS.String ->
             if a <. b then -1 else 1
         | _ ->
             if a ===. null then -1
             elif b ===. null then 1
-            elif J.In "CompareTo" a then compareTo a b
+            elif JS.In "CompareTo" a then compareTo a b
             elif isArray a && isArray b then compareArrays (As a) (As b)
             elif isDate a && isDate b then compareDates a b
-            else compareArrays (As (J.GetFields a)) (As (J.GetFields b))
+            else compareArrays (As (JS.GetFields a)) (As (JS.GetFields b))
 
 /// Produces an undefined value.
 [<Inline "undefined">]
@@ -105,14 +105,14 @@ let dateEquals a b =
 [<JavaScript>]
 let rec Equals (a: 'T) (b: 'T) : bool =
     if a ===. b then true else
-        match J.TypeOf a with
-        | J.Object ->
+        match JS.TypeOf a with
+        | JS.Object ->
             if a ===. null then false
             elif b ===. null then false
-            elif J.In "Equals" a then equals a b
+            elif JS.In "Equals" a then equals a b
             elif isArray a && isArray b then arrayEquals (As a) (As b)
             elif isDate a && isDate b then dateEquals a b
-            else arrayEquals (As (J.GetFields a)) (As (J.GetFields b))
+            else arrayEquals (As (JS.GetFields a)) (As (JS.GetFields b))
         | _ ->
             false
 
@@ -140,10 +140,10 @@ let hashString (s: string) : int =
 
 [<JavaScript>]
 let hashObject (o: obj) =
-    if J.In "GetHashCode" o then getHashCode o else
+    if JS.In "GetHashCode" o then getHashCode o else
         let (++) = hashMix
         let h = ref 0
-        J.ForEach o (fun key ->
+        JS.ForEach o (fun key ->
             h := !h ++ hashString key ++ Unchecked.hash ((?) o key)
             false)
         !h
@@ -151,13 +151,13 @@ let hashObject (o: obj) =
 /// Computes the hash of an object.
 [<JavaScript>]
 let Hash<'T> (o: 'T) : int =
-    match J.TypeOf o with
-    | J.Undefined -> 0
-    | J.Function  -> 0
-    | J.Boolean   -> if As o then 1 else 0
-    | J.Number    -> As o
-    | J.String    -> hashString (As o)
-    | J.Object    -> if o ==. null then 0
-                     elif isArray o then hashArray (As o)
-                     else hashObject o
+    match JS.TypeOf o with
+    | JS.Undefined -> 0
+    | JS.Function  -> 0
+    | JS.Boolean   -> if As o then 1 else 0
+    | JS.Number    -> As o
+    | JS.String    -> hashString (As o)
+    | JS.Object    -> if o ==. null then 0
+                      elif isArray o then hashArray (As o)
+                      else hashObject o
 

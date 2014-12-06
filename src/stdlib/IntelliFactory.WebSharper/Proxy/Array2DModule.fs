@@ -25,6 +25,7 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private IntelliFactory.WebSharper.Array2DModuleProxy
 
+open IntelliFactory.WebSharper.JavaScript
 module F = IntelliFactory.WebSharper.IntrinsicFunctionProxy
 
 [<JavaScript>]

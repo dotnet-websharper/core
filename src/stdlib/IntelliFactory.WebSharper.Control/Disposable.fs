@@ -23,6 +23,7 @@ namespace IntelliFactory.WebSharper.Control
 module internal Disposable =
     open System
     open IntelliFactory.WebSharper
+    open IntelliFactory.WebSharper.JavaScript
 
     [<JavaScript>]
     let Of (dispose: unit -> unit) : IDisposable =

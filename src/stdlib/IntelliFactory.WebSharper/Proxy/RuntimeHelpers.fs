@@ -26,6 +26,8 @@ module private IntelliFactory.WebSharper.RuntimeHelpersProxy
 
 #nowarn "40"
 
+open IntelliFactory.WebSharper.JavaScript
+
 type IE<'T> = System.Collections.Generic.IEnumerator<'T>
 
 [<JavaScript>]

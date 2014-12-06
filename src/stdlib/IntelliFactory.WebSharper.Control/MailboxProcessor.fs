@@ -22,6 +22,7 @@ namespace IntelliFactory.WebSharper.Control
 
 open System.Collections.Generic
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.JavaScript
 open System.Threading
 
 [<Proxy(typeof<AsyncReplyChannel<_>>)>]
@@ -101,7 +102,7 @@ type private MailboxProcessorProxy<'T> (initial, ?token: CancellationToken) =
                 else  
                     let waiting = ref true
                     let pending = 
-                        JavaScript.SetTimeout(fun () ->
+                        JS.SetTimeout(fun () ->
                             if !waiting then
                                 waiting := false
                                 savedCont <- None
@@ -110,7 +111,7 @@ type private MailboxProcessorProxy<'T> (initial, ?token: CancellationToken) =
                     savedCont <- Some <| async { 
                         if !waiting then do
                             waiting := false  
-                            JavaScript.ClearTimeout pending
+                            JS.ClearTimeout pending
                             dequeue() |> Some |> ok 
                     }
             else dequeue() |> Some |> ok
@@ -138,7 +139,7 @@ type private MailboxProcessorProxy<'T> (initial, ?token: CancellationToken) =
                         waiting := false
                         ok (Some res)
                 ) |> msgf |> this.Post
-                JavaScript.SetTimeout (fun () ->
+                JS.SetTimeout (fun () ->
                     if !waiting then
                         waiting := false
                         ok None        
@@ -187,7 +188,7 @@ type private MailboxProcessorProxy<'T> (initial, ?token: CancellationToken) =
                 else
                     let waiting = ref true
                     let pending = 
-                        JavaScript.SetTimeout(fun () ->
+                        JS.SetTimeout(fun () ->
                             if !waiting then
                                 waiting := false
                                 savedCont <- None
@@ -202,7 +203,7 @@ type private MailboxProcessorProxy<'T> (initial, ?token: CancellationToken) =
                                 let! res = c
                                 if !waiting then do
                                     waiting := false
-                                    JavaScript.ClearTimeout pending
+                                    JS.ClearTimeout pending
                                     ok (Some res)
                         }
                     scanNext()

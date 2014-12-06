@@ -34,11 +34,6 @@
       <Project>{666977bf-e022-4c8f-b53d-5d294d41010f}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\stdlib\IntelliFactory.WebSharper.Ecma\IntelliFactory.WebSharper.Ecma.fsproj">
-      <Name>IntelliFactory.WebSharper.Ecma</Name>
-      <Project>{3bee2a9e-c5c9-4bd5-847d-f0f88f02a438}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\src\stdlib\IntelliFactory.WebSharper.Testing\IntelliFactory.WebSharper.Testing.fsproj">
       <Name>IntelliFactory.WebSharper.Testing</Name>
       <Project>{a7f7a74b-d0ee-4918-8a54-280fc7d2a30c}</Project>

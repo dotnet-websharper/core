@@ -18,11 +18,10 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Html5
+namespace IntelliFactory.WebSharper.JavaScript.Html5
 
 open IntelliFactory.WebSharper.InterfaceGenerator
-open IntelliFactory.WebSharper.Dom
-open IntelliFactory.WebSharper.EcmaScript
+open IntelliFactory.WebSharper.JavaScript
 
 module Utils =
     let RenamedEnumStrings n f l =
@@ -157,7 +156,7 @@ module Canvas =
     let CanvasRenderingContext2D = 
         Class "CanvasRenderingContext2D"
         |+> Protocol [
-            "canvas" =? T<Element> // FIXME
+            "canvas" =? Dom.Interfaces.Element // FIXME
             // push state on state stack
             "save" => T<unit> ^-> T<unit>
             // pop state stack and restore state
@@ -175,7 +174,7 @@ module Canvas =
             "fillStyle" =@ T<obj>
             "createLinearGradient" => (T<float> * T<float> * T<float> * T<float>) ^-> CanvasGradient
             "createRadialGradient" => (T<float> * T<float> * T<float> * T<float> * T<float> * T<float>) ^-> CanvasGradient
-            "createPattern" => (T<Element> * Repetition) ^-> CanvasPattern
+            "createPattern" => (Dom.Interfaces.Element * Repetition) ^-> CanvasPattern
             // (default 1)
             "lineWidth" =@ T<float> 
             // "butt", "round", "square" (default "butt")
@@ -214,7 +213,7 @@ module Canvas =
             "isPointInPath" => (T<float> * T<float>) ^-> T<bool>
 
             // focus management
-            "drawFocusRing" => (T<Element>?el * T<float>?x * T<float>?y * !? T<bool>) ^-> T<bool>
+            "drawFocusRing" => (Dom.Interfaces.Element?el * T<float>?x * T<float>?y * !? T<bool>) ^-> T<bool>
 
             // text
             // (default 10px sans-serif)
@@ -229,9 +228,9 @@ module Canvas =
             "measureText" => T<string> ^-> TextMetrics
 
             // drawing images
-            "drawImage" => (T<Element> * T<float> * T<float>) ^-> T<unit>
-            "drawImage" => (T<Element> * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
-            "drawImage" => (T<Element> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
+            "drawImage" => (Dom.Interfaces.Element * T<float> * T<float>) ^-> T<unit>
+            "drawImage" => (Dom.Interfaces.Element * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
+            "drawImage" => (Dom.Interfaces.Element * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
 
             // pixel manipulation
             "createImageData" => (T<float> * T<float>) ^-> ImageData
@@ -396,7 +395,7 @@ module Elements =
             "defaultPlaybackRate" =@ T<float>
             "playbackRate" =@ T<float>
 
-            "startOffsetTime" =? T<Date>
+            "startOffsetTime" =? Ecma.Definition.EcmaDate
             "played" =? TimeRanges
             "seekable" =? TimeRanges
             "ended" =? T<bool>
@@ -464,7 +463,7 @@ module Geolocation =
         Class "Position"
         |+> Protocol [
             "coords" =? Coordinates
-            "timestamp" =? T<Date>
+            "timestamp" =? Ecma.Definition.EcmaDate
         ]
 
     let PositionError = 
@@ -488,10 +487,6 @@ module Geolocation =
             "watchPosition" => (positionCallback?p * !? errorCallback?e * !? PositionOptions?o) ^-> T<int>
             "clearWatch" => T<int> ^-> T<unit>
         ]
-
-    let NavigatorGeolocation =
-        Class "NavigatorGeolocation" 
-        |+> Protocol ["geolocation" =? Geolocation]
 
 module WebStorage =
 
@@ -684,13 +679,17 @@ module General =
             "onmessage" =@ MessageEvent ^-> T<unit>
         ]
 
+    let Navigator =
+        Class "Navigator" 
+        |+> Protocol ["geolocation" =? Geolocation.Geolocation]
+
     let Window = 
-        let f = T<Event> ^-> T<unit>
+        let f = Dom.Interfaces.Event ^-> T<unit>
         WindowProxyType
         |+> [ "self" =? WindowProxyType |> WithGetterInline "window" ]  // Because it conflicts with the class name
         |+> Protocol [
             "history" =? History
-            "document" =? T<Document>
+            "document" =? Dom.Interfaces.Document
             "name" =@ T<string>
             "location" =? Location
             "undoManager" =? UndoManager
@@ -707,14 +706,14 @@ module General =
             "top" =? WindowProxyType
             "opener" =? WindowProxyType
             "parent" =? WindowProxyType
-            "frameElement" =? T<Element>
+            "frameElement" =? Dom.Interfaces.Element
             "open" => (T<string> * T<string> * T<string> * T<string>) ^->  WindowProxyType
             "open" => (T<string> * T<string> * T<string>) ^->  WindowProxyType
             "open" => (T<string> * T<string>) ^->  WindowProxyType
             "open" => (T<string>) ^->  WindowProxyType
             "open" => (T<unit>) ^->  WindowProxyType
 
-            "navigator" =? Geolocation.NavigatorGeolocation
+            "navigator" =? Navigator
             "applicationCache" =? AppCache.ApplicationCache
             "localStorage" =? WebStorage.Storage
             "sessionStorage" =? WebStorage.Storage
@@ -928,12 +927,12 @@ module File =
         |=> Inherits Blob
         |+> Protocol [
                 "name" =? T<string>
-                "lastModifiedDate" =? T<Date>
+                "lastModifiedDate" =? Ecma.Definition.EcmaDate
             ]
 
     let ProgressEvent =
         Class "ProgressEvent"
-        |=> Inherits T<Event>
+        |=> Inherits Dom.Interfaces.Event
         |+> Protocol [
                 "lengthComputable" =? T<bool>
                 "loaded" =? T<int>
@@ -949,7 +948,7 @@ module File =
                 "length" =? T<int>
             ]
         |+> [
-                "ofElement" => T<Element>?input ^-> FileList
+                "ofElement" => Dom.Interfaces.Element?input ^-> FileList
                 |> WithInline "$input.files"
                 "ofEvent" => ProgressEvent?event ^-> FileList
                 |> WithInline "$event.target.files"
@@ -966,12 +965,12 @@ module File =
         let EventListener = (ProgressEvent + T<unit>) ^-> T<unit>
         Generic / fun t ->
         Class "FileReader"
-        |=> Inherits T<EventTarget>
+        |=> Inherits Dom.Interfaces.EventTarget
         |+> Protocol [
                 "abort" => T<unit> ^-> T<unit>
                 "readyState" =? FileReaderReadyState
                 "result" =? t
-                "error" =? T<Error>
+                "error" =? Ecma.Definition.EcmaError
                 "onloadstart" =@ ProgressEvent ^-> T<unit>
                 "onprogress" =@ ProgressEvent ^-> T<unit>
                 "onload" =@ ProgressEvent ^-> T<unit>
@@ -1068,7 +1067,7 @@ module WebGL =
             ]
 
     let RenderingContextClass =
-        Class "WebGLRenderingContext"
+        Class "RenderingContext"
         |=> RenderingContext
         |+> Protocol
             [
@@ -1372,7 +1371,7 @@ module WebGL =
                 "UNPACK_COLORSPACE_CONVERSION_WEBGL" =? Enum
                 "BROWSER_DEFAULT_WEBGL" =? Enum
 
-                "canvas" =? T<Element>
+                "canvas" =? Dom.Interfaces.Element
                 "drawingBufferWidth" =? T<int>
                 "drawingBufferHeight" =? T<int>
 
@@ -1479,13 +1478,13 @@ module WebGL =
                 "stencilOpSeparate" => Enum?face * Enum?fail * Enum?zfail * Enum?zpass ^-> T<unit>
                 "texImage2D" => Enum?target * T<int>?level * Enum?internalformat * T<int>?width * T<int>?height * T<int>?border * Enum?format * Enum?typ * TypedArrays.ArrayBufferView?pixels ^-> T<unit>
                 "texImage2D" => Enum?target * T<int>?level * Enum?internalformat * Enum?format * Enum?typ * Canvas.ImageData?pixels ^-> T<unit>
-                "texImage2D" => Enum?target * T<int>?level * Enum?internalformat * Enum?format * Enum?typ * T<Element>?image ^-> T<unit>
+                "texImage2D" => Enum?target * T<int>?level * Enum?internalformat * Enum?format * Enum?typ * Dom.Interfaces.Element?image ^-> T<unit>
                 "texParameterf" => Enum?target * Enum?pname * T<float>?param ^-> T<unit>
                 "texParameteri" => Enum?target * Enum?pname * T<int>?param ^-> T<unit>
                 "texParameteri" => Enum?target * Enum?pname * Enum?param ^-> T<unit>
                 "texSubImage2D" => Enum?target * T<int>?level * T<int>?xoffset * T<int>?yoffset * T<int>?width * T<int>?height * Enum?format * Enum?typ * TypedArrays.ArrayBufferView?pixels ^-> T<unit>
                 "texSubImage2D" => Enum?target * T<int>?level * T<int>?xoffset * T<int>?yoffset * Enum?format * Enum?typ * Canvas.ImageData?pixels ^-> T<unit>
-                "texSubImage2D" => Enum?target * T<int>?level * T<int>?xoffset * T<int>?yoffset * Enum?format * Enum?typ * T<Element>?image ^-> T<unit>
+                "texSubImage2D" => Enum?target * T<int>?level * T<int>?xoffset * T<int>?yoffset * Enum?format * Enum?typ * Dom.Interfaces.Element?image ^-> T<unit>
                 "uniform1f" => UniformLocation?location * T<float>?x ^-> T<unit>
                 "uniform1fv" => UniformLocation?location * TypedArrays.Float32Array?v ^-> T<unit>
                 "uniform1fv" => UniformLocation?location * (Type.ArrayOf T<float>)?v ^-> T<unit>
@@ -1535,7 +1534,7 @@ module WebGL =
             ]
 
     let ContextAttributesClass =
-        Pattern.Config "WebGLContextAttributes" {
+        Pattern.Config "ContextAttributes" {
             Required = []
             Optional =
                 [
@@ -1550,39 +1549,39 @@ module WebGL =
         |=> ContextAttributes
 
     let ObjectClass =
-        Interface "WebGLObject"
+        Interface "Object"
         |=> Object
 
     let BufferClass =
-        Interface "WebGLBuffer"
+        Interface "Buffer"
         |=> Buffer
 
     let FramebufferClass =
-        Interface "WebGLFramebuffer"
+        Interface "Framebuffer"
         |=> Framebuffer
 
     let ProgramClass =
-        Interface "WebGLProgram"
+        Interface "Program"
         |=> Program
 
     let RenderbufferClass =
-        Interface "WebGLRenderbuffer"
+        Interface "Renderbuffer"
         |=> Renderbuffer
 
     let ShaderClass =
-        Interface "WebGLShader"
+        Interface "Shader"
         |=> Shader
 
     let TextureClass =
-        Interface "WebGLTexture"
+        Interface "Texture"
         |=> Texture
 
     let UniformLocationClass =
-        Interface "WebGLUniformLocation"
+        Interface "UniformLocation"
         |=> UniformLocation
 
     let ActiveInfoClass =
-        Class "WebGLActiveInfo"
+        Class "ActiveInfo"
         |=> ActiveInfo
         |+> Protocol
             [
@@ -1593,8 +1592,8 @@ module WebGL =
 
 module WebSockets =
 
-    let WebSocketReadyState =
-        Pattern.EnumInlines "WebSocketReadyState" [
+    let ReadyState =
+        Pattern.EnumInlines "ReadyState" [
             "Connecting", "0"
             "Open", "1"
             "Closing", "2"
@@ -1603,9 +1602,10 @@ module WebSockets =
 
     let WebSocket =
         Class "WebSocket"
+        |=> Nested [ReadyState]
         |+> Protocol
             [
-                "readyState" =? WebSocketReadyState
+                "readyState" =? ReadyState
                 "bufferedAmount" =? T<int>
                 "onopen" =@ T<unit->unit>
                 "onclose" =@ T<unit->unit>
@@ -1629,9 +1629,9 @@ module WebSockets =
 
 module Definition =
 
-    let Assembly =
-        Assembly [
-            Namespace "IntelliFactory.WebSharper.Html5" [
+    let Namespaces =
+        [
+            Namespace "IntelliFactory.WebSharper.JavaScript" [
                 AudioVideoCommon.MediaError
                 AudioVideoCommon.MutableTimedTrack
                 AudioVideoCommon.TimeRanges
@@ -1665,17 +1665,12 @@ module Definition =
                 File.FileReaderReadyState
                 File.ProgressEvent
                 File.TextFileReader
-                Geolocation.Coordinates
-                Geolocation.Geolocation
-                Geolocation.NavigatorGeolocation
-                Geolocation.Position
-                Geolocation.PositionError
-                Geolocation.PositionOptions
                 General.BarProp
                 General.History
                 General.Location
                 General.MessageEvent
                 General.MessagePort
+                General.Navigator
                 General.UndoManager
                 General.Window
                 TypedArrays.DataView.Class
@@ -1691,11 +1686,17 @@ module Definition =
                 TypedArrays.Uint8Array
                 TypedArrays.Uint8ClampedArray
                 WebSockets.WebSocket
-                WebSockets.WebSocketReadyState
                 WebStorage.Storage
                 WebStorage.StorageEvent
             ]
-            Namespace "IntelliFactory.WebSharper.Html5.WebGL" [
+            Namespace "IntelliFactory.WebSharper.JavaScript.Geolocation" [
+                Geolocation.Coordinates
+                Geolocation.Geolocation
+                Geolocation.Position
+                Geolocation.PositionError
+                Geolocation.PositionOptions
+            ]
+            Namespace "IntelliFactory.WebSharper.JavaScript.WebGL" [
                 WebGL.RenderingContextClass
                 WebGL.ContextAttributesClass
                 WebGL.ObjectClass
@@ -1711,11 +1712,3 @@ module Definition =
                 WebGL.DataViewClass
             ]
         ]
-
-[<Sealed>]
-type Html5Extension() =
-    interface IExtension with
-        member x.Assembly = Definition.Assembly
-
-[<assembly: Extension(typeof<Html5Extension>)>]
-do ()

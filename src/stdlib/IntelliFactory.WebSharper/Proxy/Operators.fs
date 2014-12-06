@@ -27,6 +27,8 @@ module private IntelliFactory.WebSharper.OperatorsProxy
 
 #nowarn "86"
 
+open IntelliFactory.WebSharper.JavaScript
+
 module M = IntelliFactory.WebSharper.Macro
 
 [<JavaScript>]
