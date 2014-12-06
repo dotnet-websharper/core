@@ -28,7 +28,7 @@ type internal Text = { text: string } with
 
         [<JavaScript>]
         member this.Body =
-            Dom.Document.Current.CreateTextNode this.text :> _
+            JS.Document.CreateTextNode this.text :> _
 
         [<JavaScript>]
         member this.Render () = ()

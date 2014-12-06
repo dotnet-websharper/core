@@ -854,6 +854,7 @@ module Interfaces =
             [
                 "Current" =? Document
                 |> WithGetterInline "document"
+                |> ObsoleteWithMessage "Use JS.Document or JS.Window.Document instead."
             ]
 
 module Definition =

@@ -40,8 +40,7 @@ let private hasDocument () = false
 [<JavaScript>]
 let private Activate =
     if hasDocument () then
-        let doc = Dom.Document.Current
-        let meta = doc.GetElementById(META_ID)
+        let meta = JS.Document.GetElementById(META_ID)
         if (As meta) then
             H.OnLoad (fun () ->
                 let text = meta.GetAttribute("content")
@@ -49,6 +48,6 @@ let private Activate =
                 JS.GetFields obj
                 |> Array.iter (fun (k, v) ->
                     let p : IPagelet = (As<IControl> v).Body
-                    let old = doc.GetElementById k
+                    let old = JS.Document.GetElementById k
                     ignore (old.ParentNode.ReplaceChild(p.Body, old))
                     p.Render()))

@@ -31,15 +31,15 @@ module internal Implementation =
 
             [<JavaScript>]
             member this.CreateTextNode str =
-                Dom.Document.Current.CreateTextNode(str)
+                JS.Document.CreateTextNode(str)
 
             [<JavaScript>]
             member this.CreateAttribute str =
-                Dom.Document.Current.CreateAttribute str
+                JS.Document.CreateAttribute str
 
             [<JavaScript>]
             member this.CreateElement name =
-                Dom.Document.Current.CreateElement(name)
+                JS.Document.CreateElement(name)
 
             [<JavaScript>]
             member this.AppendAttribute node attr =
@@ -127,7 +127,7 @@ module internal Implementation =
 
             [<JavaScript>]
             member this.OnDocumentReady f =
-                JQuery.Of(Dom.Document.Current).Ready(f).Ignore
+                JQuery.Of(JS.Document).Ready(f).Ignore
 
 
     [<JavaScript>]

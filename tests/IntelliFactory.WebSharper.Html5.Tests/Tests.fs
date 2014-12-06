@@ -34,7 +34,7 @@ module SamplesInternals =
     [<JavaScriptAttribute>]
     let GetPosition() : (Async<Geolocation.Position>) =
         Async.FromContinuations(fun (onOk, _, _) ->
-            Window.Self.Navigator.Geolocation.GetCurrentPosition(fun pos ->
+            JS.Window.Navigator.Geolocation.GetCurrentPosition(fun pos ->
                 onOk pos
             )
         )
@@ -60,7 +60,7 @@ module SamplesInternals =
             H1 [Text "LocalStorage Test"]
         ]
         |>! OnAfterRender (fun elem ->
-            let storage = Window.Self.LocalStorage
+            let storage = JS.Window.LocalStorage
             let key = "intReference"
             let intReference = storage.GetItem(key)
             if intReference = null || intReference = JS.Undefined then

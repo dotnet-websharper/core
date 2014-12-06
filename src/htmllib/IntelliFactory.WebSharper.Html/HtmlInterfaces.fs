@@ -35,7 +35,7 @@ module PageletExtensions =
 
         [<JavaScript>]
         member p.AppendTo(targetId: string) =
-            let target = Dom.Document.Current.GetElementById(targetId)
+            let target = JS.Document.GetElementById(targetId)
             target.AppendChild(p.Body) |> ignore
             p.Render()
 

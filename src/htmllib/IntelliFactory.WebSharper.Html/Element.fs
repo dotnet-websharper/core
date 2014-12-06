@@ -47,7 +47,7 @@ type Element [<JavaScript>] (HtmlProvider : IHtmlProvider) =
     [<JavaScript>]
     static member New(html: IHtmlProvider, name: string) : Element =
         let el = new Element(html)
-        let dom = Dom.Document.Current.CreateElement(name)
+        let dom = JS.Document.CreateElement(name)
         el.RenderInternal <- ignore
         el.Body <- dom
         el.IsRendered <- false

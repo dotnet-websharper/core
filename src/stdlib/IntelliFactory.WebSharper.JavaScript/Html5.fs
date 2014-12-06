@@ -686,7 +686,11 @@ module General =
     let Window = 
         let f = Dom.Interfaces.Event ^-> T<unit>
         WindowProxyType
-        |+> [ "self" =? WindowProxyType |> WithGetterInline "window" ]  // Because it conflicts with the class name
+        |+> [
+            "self" =? WindowProxyType
+            |> WithGetterInline "window"
+            |> ObsoleteWithMessage "Use JS.Window instead."
+        ]
         |+> Protocol [
             "history" =? History
             "document" =? Dom.Interfaces.Document
