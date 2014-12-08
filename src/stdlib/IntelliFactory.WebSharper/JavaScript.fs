@@ -150,10 +150,12 @@ let InstanceOf (x: obj) (cl: obj) = ClientSide<bool>
 
 /// Logs the given object to console if one is defined.
 [<A.Direct "if (console) console.log($x)">]
+[<System.Obsolete "Use Console.Log instead.">]
 let Log (x: obj) = ClientSide<unit>
 
 /// Logs an array or tuple to console if one is defined.
 [<A.Direct "if (console) console.log.apply(console, $args)">]
+[<System.Obsolete "Use Console.Log instead.">]
 let LogMore args = ()
 
 /// Gets a given field from an object.

@@ -215,9 +215,9 @@ type Harness [<JavaScript>] () =
             return
                 if v = b then
                     passed <- passed + 1
-                    JS.LogMore("pass:", name)
+                    Console.Log("pass:", name)
                 else
-                    JS.LogMore("fail:", name, v, b)
+                    Console.Log("fail:", name, v, b)
         }
 
     [<JavaScript>]
@@ -229,9 +229,9 @@ type Harness [<JavaScript>] () =
             return
                 if prop v then
                     passed <- passed + 1
-                    JS.LogMore("pass:", name)
+                    Console.Log("pass:", name)
                 else
-                    JS.LogMore("fail:", name, v)
+                    Console.Log("fail:", name, v)
         }
 
     [<JavaScript>]
@@ -240,9 +240,9 @@ type Harness [<JavaScript>] () =
         executed <- executed + 1
         if a = b then
             passed <- passed + 1
-            JS.LogMore("pass:", name)
+            Console.Log("pass:", name)
         else
-            JS.LogMore("fail:", name, a, b)
+            Console.Log("fail:", name, a, b)
 
     [<JavaScript>]
     member this.Summarize() =
@@ -271,7 +271,7 @@ module RemotingTestSuite =
 
     [<JavaScript>]
     let RunTests (dom: IntelliFactory.WebSharper.JavaScript.Dom.Element) =
-        JS.LogMore("Starting tests", dom)
+        Console.Log("Starting tests", dom)
         async {
             do test "unit -> unit"
             do! Server.reset()

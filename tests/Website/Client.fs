@@ -26,4 +26,4 @@ open IntelliFactory.WebSharper.JavaScript
 
 [<JavaScript>]
 let EntryPoint () =
-    JS.Log("Loaded OK")
+    Console.Log("Loaded OK")

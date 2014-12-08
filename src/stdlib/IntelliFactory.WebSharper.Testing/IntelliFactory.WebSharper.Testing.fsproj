@@ -23,5 +23,10 @@
       <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.JavaScript\IntelliFactory.WebSharper.JavaScript.fsproj">
+      <Name>IntelliFactory.WebSharper.JavaScript</Name>
+      <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
 </Project>

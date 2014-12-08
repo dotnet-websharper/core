@@ -26,6 +26,36 @@ open IntelliFactory.WebSharper.JavaScript
 /// The JavaScript global properties and functions can be used with all the built-in JavaScript objects.
 let Global =
     Namespace "IntelliFactory.WebSharper.JavaScript" [
+        Class "Console"
+        |+> [
+            "count" => !?T<string> ^-> T<unit>
+            |> WithInline "console?console.count.apply(console,$0):undefined"
+            "dir" => T<obj> ^-> T<unit>
+            |> WithInline "console?console.dir($0):undefined"
+            "error" => !+T<obj> ^-> T<unit>
+            |> WithInline "console?console.error.apply(console,$0):undefined"
+            "group" => T<string> *+ T<obj> ^-> T<unit>
+            |> WithInline "console?console.group.apply(console,[$0].concat($1)):undefined"
+            "groupEnd" => T<unit> ^-> T<unit>
+            |> WithInline "console?console.groupEnd():undefined"
+            "info" => !+T<obj> ^-> T<unit>
+            |> WithInline "console?console.info.apply(console,$0):undefined"
+            "log" => !+T<obj> ^-> T<unit>
+            |> WithInline "console?console.log.apply(console,$0):undefined"
+            "profile" => T<string> ^-> T<unit>
+            |> WithInline "console?console.profile($0):undefined"
+            "profileEnd" => T<unit> ^-> T<unit>
+            |> WithInline "console?console.profileEnd():undefined"
+            "time" => T<string> ^-> T<unit>
+            |> WithInline "console?console.time($0):undefined"
+            "timeEnd" => T<string> ^-> T<unit>
+            |> WithInline "console?console.timeEnd($0):undefined"
+            "trace" => T<unit> ^-> T<unit>
+            |> WithInline "console?console.trace():undefined"
+            "warn" => !+T<obj> ^-> T<unit>
+            |> WithInline "console?console.warn.apply(console,$0):undefined"
+        ]
+
         Class "JS"
         |+> [
                 "window" =? Html5.General.Window |> WithGetterInline "window"

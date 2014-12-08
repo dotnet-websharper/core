@@ -49,7 +49,7 @@ module Client =
         |> ignore
         sb.Append("bar")
         |> ignore
-        JS.Log(sb.ToString())
+        Console.Log(sb.ToString())
 
 type HelloWorld() =
     inherit IntelliFactory.WebSharper.Web.Control()
