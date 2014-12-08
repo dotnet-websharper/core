@@ -1,0 +1,14 @@
+**/bin
+**/obj
+*.min.js
+*.suo
+*.user
+*.vsix
+*~
+IntelliFactory.WebSharper.JQuery/*.js
+**/Scripts/WebSharper/
+**/Content/WebSharper/
+/build/
+/packages/
+/tools/packages/
+/tests/Web/downloads/
