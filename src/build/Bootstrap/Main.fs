@@ -33,15 +33,23 @@ let FindCommand cmd =
     |> Seq.map (fun dir -> Path.Combine(dir, cmd))
     |> Seq.tryFind File.Exists
 
+let private IsMono =
+    Type.GetType("Mono.Runtime") <> null
+
 /// Executes a command.
 let Exec env (command: string) (arguments: string) =
     let psi = ProcessStartInfo()
-    psi.FileName <-
+    let filename =
         if File.Exists(command) then command else
             match FindCommand command with
             | Some command -> command
             | None -> failwithf "Unknown command: %s" command
-    psi.Arguments <- arguments
+    if IsMono then
+        psi.FileName <- "mono"
+        psi.Arguments <- sprintf "\"%s\" %s" filename arguments
+    else
+        psi.FileName <- filename
+        psi.Arguments <- arguments
     psi.CreateNoWindow <- true
     psi.UseShellExecute <- false
     psi.RedirectStandardError <- true
