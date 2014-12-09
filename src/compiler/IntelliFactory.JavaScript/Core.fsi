@@ -183,6 +183,38 @@ val (|IgnorePos|) : E -> E
 
 val IgnorePos : E -> E
 
+val (|Application        |_|) : E -> (E * list<E>              ) option                         
+val (|Binary             |_|) : E -> (E * BinaryOperator * E   ) option                              
+val (|Call               |_|) : E -> (E * E * list<E>          ) option                       
+val (|Constant           |_|) : E -> (Literal                  ) option               
+val (|FieldDelete        |_|) : E -> (E * E                    ) option             
+val (|FieldGet           |_|) : E -> (E * E                    ) option             
+val (|FieldSet           |_|) : E -> (E * E * E                ) option                 
+val (|ForEachField       |_|) : E -> (Id * E * E               ) option                  
+val (|ForIntegerRangeLoop|_|) : E -> (Id * E * E * E           ) option                      
+val (|Global             |_|) : E -> (list<string>             ) option                    
+val (|IfThenElse         |_|) : E -> (E * E * E                ) option                 
+val (|Lambda             |_|) : E -> (option<Id> * list<Id> * E) option                                 
+val (|Let                |_|) : E -> (Id * E * E               ) option                  
+val (|LetRecursive       |_|) : E -> (list<Id * E> * E         ) option                        
+val (|New                |_|) : E -> (E * list<E>              ) option                   
+val (|NewArray           |_|) : E -> (list<E>                  ) option               
+val (|NewObject          |_|) : E -> (list<string * E>         ) option                        
+val (|NewRegex           |_|) : E -> (string                   ) option              
+val (|Runtime            |_|) : E -> (unit                     ) option        
+val (|Sequential         |_|) : E -> (E * E                    ) option             
+val (|Throw              |_|) : E -> (E                        ) option         
+val (|TryFinally         |_|) : E -> (E * E                    ) option             
+val (|TryWith            |_|) : E -> (E * Id * E               ) option                  
+val (|Unary              |_|) : E -> (UnaryOperator * E        ) option                         
+val (|Var                |_|) : E -> (Id                       ) option          
+val (|VarSet             |_|) : E -> (Id * E                   ) option              
+val (|WhileLoop          |_|) : E -> (E * E                    ) option             
+
+/// Transfer the source mapping position of the first argument to the
+/// second expression if it exists.
+val WithPosOf : E -> E -> E
+
 /// Maps over the immediate sub-expressions. Expression forms
 /// that bind variables are transformed by inserting Lambda,
 /// so that Lambda is the only variable-binding form.

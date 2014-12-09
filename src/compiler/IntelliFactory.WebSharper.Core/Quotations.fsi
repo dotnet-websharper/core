@@ -156,6 +156,8 @@ type Expression =
 
 and private E = Expression
 
+val (|IgnoreCustomAttrs|) : E -> E
+
 /// Represents a set of reflected definitions.
 type Definitions = list<Definition * Expression>
 

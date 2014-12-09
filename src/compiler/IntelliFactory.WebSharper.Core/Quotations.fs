@@ -187,6 +187,13 @@ type Expression =
 
 and private E = Expression
 
+let (|IgnoreCustomAttrs|) expr =
+    match expr with
+    | CustomAttrs (e, _)
+    | e -> e
+
+let inline (|ICU|) e = (|IgnoreCustomAttrs|) e
+
 type Definitions =
     list<Definition * Expression>
 
@@ -269,12 +276,14 @@ let ReadText (input: Input) =
     if input.Buffer.Length < k then
         System.Array.Resize(&input.Buffer, k)
     if input.Stream.Read(input.Buffer, 0, k) <> k then
+        printfn "ReadText error"
         raise InvalidFormatException
     Encoding.UTF8.GetString(input.Buffer, 0, k)
 
 let ReadString (input: Input) =
     let n = ReadInt input
     if n < 0 || n >= input.SymbolTable.Length then
+        printfn "ReadString error"
         raise InvalidFormatException
     input.SymbolTable.[n]
 
@@ -294,28 +303,37 @@ let ReadList read input =
 let ReadList0 input =
     match ReadInt input with
     | 0 -> ()
-    | _ -> raise InvalidFormatException
+    | _ -> 
+        printfn "ReadList0 error"
+        raise InvalidFormatException
 
 let ReadList1 read input =
     match ReadList read input with
     | [a] -> a
-    | _ -> raise InvalidFormatException
+    | _ -> 
+        printfn "ReadList1 error"
+        raise InvalidFormatException
 
 let ReadList2 read input =
     match ReadList read input with
     | [a; b] -> (a, b)
-    | _ -> raise InvalidFormatException
+    | _ -> 
+        printfn "ReadList2 error"
+        raise InvalidFormatException
 
 let ReadList3 read input =
     match ReadList read input with
     | [a; b; c] -> (a, b, c)
-    | _ -> raise InvalidFormatException
+    | _ -> 
+        printfn "ReadList3 error"
+        raise InvalidFormatException
 
 let ReadBytes input =
     let k = ReadInt input
     if input.Buffer.Length < k then
         System.Array.Resize(&input.Buffer, k)
     if input.Stream.Read(input.Buffer, 0, k) <> k then
+        printfn "ReadBytes error"
         raise InvalidFormatException
     input.Buffer.[0 .. k - 1]
 
@@ -372,8 +390,12 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
                 let k = ReadInt input
                 let t = ReadList1 readType input
                 R.Type.Array (t, k)
-            | _ -> raise InvalidFormatException
-        | _ -> raise InvalidFormatException
+            | t ->
+                printfn "readType error, tag: 1 %d" t
+                raise InvalidFormatException
+        | t ->
+            printfn "readType error, tag: %d" t
+            raise InvalidFormatException
     let readValue v input =
         ignore (ReadList1 readType input)
         ReadList0 input
@@ -400,7 +422,9 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
         | 0 -> readModuleDefinition input
         | 1 -> MethodDefinition (readMethodReference input)
         | 2 -> ConstructorDefinition (readConstructorReference input)
-        | _ -> raise InvalidFormatException
+        | t -> 
+            printfn "readDefinition error, tag: %d" t
+            raise InvalidFormatException
     let rec readExpression env input =
         let E = readExpression env
         match ReadByte input with
@@ -411,7 +435,9 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
         | 4 -> Quote (E input)
         | 5 -> CustomAttrs (E input, ReadList E input)
         | 6 -> Var (Id.Global "this" (readType input))
-        | _ -> raise InvalidFormatException
+        | t ->
+            printfn "readExpression error, tag: %d" t
+            raise InvalidFormatException
     and readTerm env input =
         let E = readExpression env
         match ReadByte input with
@@ -513,7 +539,10 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
             let (a, b, c) = ReadList3 E input
             match c with
             | Lambda (v, body) -> ForIntegerRangeLoop (v, a, b, body)
-            | _ -> raise InvalidFormatException
+            | CustomAttrs(Lambda (v, body), l) -> CustomAttrs(ForIntegerRangeLoop (v, a, b, body), l)
+            | _ ->
+                printfn "readTerm error, ForIntegerRangeLoop"
+                raise InvalidFormatException
         | 31 ->
             let mR = readMethodReference input
             let meth = Concrete (mR, ReadList readType input)
@@ -533,7 +562,10 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
             let (a, b) = ReadList2 E input
             match b with
             | Lambda (v, b) -> Let (v, a, b)
-            | _ -> raise InvalidFormatException
+            | CustomAttrs(Lambda (v, b), l) -> CustomAttrs(Let (v, a, b), l)
+            | _ ->
+                printfn "readTerm error, Let"
+                raise InvalidFormatException
         | 36 ->
             let t = readTypeReference input
             let n = ReadString input
@@ -549,7 +581,9 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
             match ReadList E input with
             | [] -> FieldGetStatic f
             | [x] -> FieldGetInstance (x, f)
-            | _ -> raise InvalidFormatException
+            | _ ->
+                printfn "readTerm error, FieldGet"
+                raise InvalidFormatException
         | 39 ->
             ReadList0 input
             let (a, b) = ReadList2 E input
@@ -574,7 +608,9 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
             match ReadList E input with
             | [x] -> FieldSetStatic (f, x)
             | [x; y] -> FieldSetInstance (x, f, y)
-            | _ -> raise InvalidFormatException
+            | _ ->
+                printfn "readTerm error, FieldSet"
+                raise InvalidFormatException
         | 44 ->
             ReadList0 input
             AddressOf (ReadList1 E input)
@@ -593,16 +629,24 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
             ReadList0 input
             let (a, b, c) = ReadList3 E input
             match b, c with
-            | Lambda (bV, bB), Lambda (cV, cB) -> TryWith (a, bV, bB, cV, cB)
-            | _ -> raise InvalidFormatException
+            | Lambda (bV, bB), ICU(Lambda (cV, cB)) ->
+                TryWith (a, bV, bB, cV, cB)
+            | CustomAttrs(Lambda (bV, bB), l), ICU(Lambda (cV, cB)) ->
+                CustomAttrs(TryWith (a, bV, bB, cV, cB), l)
+            | _ ->
+                printfn "readTerm error, TryWith"
+                raise InvalidFormatException
         | 49 ->
             ReadList0 input
             let (a, b) = ReadList2 E input
             match a with
             | Var x -> VarSet (x, b)
+            | CustomAttrs(Var x, l) -> CustomAttrs(VarSet (x, b), l)
             | _ -> 
+                printfn "readTerm error, VarSet"
                 raise InvalidFormatException
         | t ->
+            printfn "readTerm error, tag: %d" t
             raise InvalidFormatException
     and readLambda env input =
         let v = readVar input
@@ -617,14 +661,18 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
                     ReadList0 input
                     match ReadList (readExpression env) input with
                     | b :: bs -> ([], bs, b)
-                    | _ -> raise InvalidFormatException
-                | _ ->
+                    | _ ->
+                        printfn "readLetRecursive error, LetRecCombOp"
+                        raise InvalidFormatException
+                | t ->
+                    printfn "readLetRecursive error, tag: 0 %d" t
                     raise InvalidFormatException
             | 2 -> // LambdaTerm
                 let v = readVar input
                 let (vs, bs, b) = loop (Environment.WithVar v env)
                 (v :: vs, bs, b)
-            | _ ->
+            | t ->
+                printfn "readLetRecursive error, tag: %d" t
                 raise InvalidFormatException
         let (vs, bs, b) = loop env
         LetRecursive (List.zip vs bs, b)

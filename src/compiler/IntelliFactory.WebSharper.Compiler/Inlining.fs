@@ -292,13 +292,17 @@ let parseQuoted cc (q: Q.Expression) : Inliner =
         | _ -> false
     let rec apply f xs =
         match f with
-        | C.IgnorePos(C.Lambda (t, vs, body)) -> // TODO: track source position
+        | C.Lambda (t, vs, body) ->
             let vs = if isCtor then vs else (Option.toList t @ vs)
             try
                 List.foldBack2 (fun var value body ->
                     C.Let (var, value, body)) vs xs body
-            with e -> raise InlineTransformError
+            with e ->
+                printfn "Failed to transform inline: %A" f
+                printfn "error: %A" e
+                raise InlineTransformError
         | _ ->
+            printfn "Failed to transform inline: %A" f
             raise InlineTransformError
     Transformer (fun t xs ->
         apply (Corrector.Correct cc (t (Q.Alpha q))) xs)
