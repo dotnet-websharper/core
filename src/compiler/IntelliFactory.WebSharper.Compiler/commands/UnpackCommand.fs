@@ -90,13 +90,24 @@ module UnpackCommand =
             match text with
             | Some text -> writeTextFile (path, text)
             | None -> ()
+        let emitWithMap text path mapping mapFileName mapPath =
+            let text =
+                text |> Option.map (fun t ->
+                match mapping with
+                | None -> t
+                | Some _ -> t + ("\n//# sourceMappingURL=" + mapFileName))
+            emit text path
+            emit mapping mapPath
+
         let script = PC.ResourceKind.Script
         let content = PC.ResourceKind.Content
         for p in cmd.Assemblies do
             let a = loader.LoadFile p
             let aid = PC.AssemblyId.Create(a.FullName)
-            emit a.ReadableJavaScript (pc.JavaScriptPath aid)
-            emit a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
+            emitWithMap a.ReadableJavaScript (pc.JavaScriptPath aid)
+                a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
+            emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
+                a.MapFileForCompressed (pc.MinifiedMapFileName aid) (pc.MinifiedMapFilePath aid)
             emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
             let writeText k fn c =
                 let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))

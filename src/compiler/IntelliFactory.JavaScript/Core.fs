@@ -133,7 +133,7 @@ type Literal =
         | Undefined -> "undefined"
 
     static member ( !~ ) x = Constant x
-
+        
 and Expression =
     | Application of E * list<E>
     | Binary of E * BinaryOperator * E
@@ -162,6 +162,7 @@ and Expression =
     | Var of Id
     | VarSet of Id * E
     | WhileLoop of E * E
+    | SourcePos of E * S.SourcePos
 
     static member ( + ) (a, b) = Binary (a, B.``+``, b)
     static member ( - ) (a, b) = Binary (a, B.``-``, b)
@@ -197,6 +198,32 @@ and Expression =
         FieldGet (e, Constant (String msg))
 
 and E = Expression
+
+let (|IgnorePos|) e =
+    match e with
+    | SourcePos(e, _) -> e
+    | _ -> e
+
+let inline (|IP|) e = (|IgnorePos|) e
+
+let IgnorePos e =
+    match e with
+    | SourcePos(e, _) -> e
+    | _ -> e
+
+let inline IP e = IgnorePos e
+
+let (==) a b =
+    System.Object.ReferenceEquals(a, b)
+
+let withPosOf eFrom e =
+    match eFrom with
+    | SourcePos(ef, pos) ->
+        if e == ef then eFrom else
+        match e with
+        | SourcePos(e, _) -> SourcePos(e, pos)
+        | _ -> SourcePos(e, pos)
+    | _ -> e
 
 exception TransformError
 
@@ -240,6 +267,11 @@ type Node =
     | BindNodes of list<Id> * list<E>
     | ExprNode of E
 
+let inline unExprNode e =
+    match e with
+    | ExprNode e -> e
+    | _ -> raise TransformError
+
 let ENodeMatch e =
 
     let inline match0 () =
@@ -260,10 +292,6 @@ let ENodeMatch e =
             | [ExprNode x; ExprNode y; ExprNode z] -> ctor (x, y, z)
             | _ -> raise TransformError)
 
-    let unExprNode e =
-        match e with
-        | ExprNode e -> e
-        | _ -> raise TransformError
 
     let inline matchL xs ctor =
         let nodes = List.map ExprNode xs
@@ -375,6 +403,8 @@ let ENodeMatch e =
         match1 e (fun e -> VarSet (id, e))
     | WhileLoop (x, y) ->
         match2 x y WhileLoop
+    | SourcePos (x, pos) ->
+        match1 x (withPosOf e)
 
 let NodeEMatch node =
     match node with
@@ -391,7 +421,6 @@ let NodeMatch node =
         let (nodes, build) = ENodeMatch e
         (nodes, fun nodes -> BindNode (bound, build nodes))
     | BindNodes (bound, es) ->
-        let unExprNode = function ExprNode e -> e | _ -> raise TransformError
         (List.map ExprNode es, fun es -> BindNodes (bound, List.map unExprNode es))
     | ExprNode e ->
         let (nodes, build) = ENodeMatch e
@@ -458,17 +487,17 @@ let AlphaNormalize e =
         | ExprNode e ->
             ExprNode (normE env e)
     and normE env e =
-        match e with
+        match IP e with
         | Var v ->
             match env.TryFind(v) with
-            | Some v -> Var v
+            | Some v -> Var v |> withPosOf e
             | None -> e
         | VarSet (v, e) ->
             let v =
                 match env.TryFind(v) with
                 | Some v -> v
                 | None -> v
-            VarSet (v, normE env e)
+            VarSet (v, normE env e) |> withPosOf e
         | _ ->
             let (nodes, build) = ENodeMatch e
             build (List.map (normN env) nodes)
@@ -490,7 +519,7 @@ let GetFreeIdSet e =
         | ExprNode expr ->
             visE bound expr
     and visE bound e =
-        match e with
+        match IP e with
         | Var v | VarSet (v, _) -> visV bound v
         | _ -> ()
         List.iter (visN bound) (fst (ENodeMatch e))
@@ -506,7 +535,7 @@ let Substitute f e =
     let free = GetFreeIdSet e
     let replace e =
         match e with
-        | Var v when not v.IsMutable && free.Contains(v) ->
+        | IP(Var v) when not v.IsMutable && free.Contains(v) ->
             match f v with
             | Some e -> AlphaNormalize e
             | None -> e
@@ -681,7 +710,7 @@ module Scope =
 let RemoveUnusedThis expr =
     let bound = HashSet()
     let rec rem expr =
-        match expr with
+        match IP expr with
         | Lambda (Some this, args, body) ->
             bound.Add(this) |> ignore
             let bodyTr = Transform rem body
@@ -689,6 +718,7 @@ let RemoveUnusedThis expr =
                  Lambda (None, args, bodyTr)
             else
                  Lambda (Some this, args, bodyTr)
+            |> withPosOf expr
         | Var v ->
             bound.Remove(v) |> ignore
             expr
@@ -703,14 +733,14 @@ let RemoveUnusedThis expr =
 let Uncurry expression =
     let (|CurriedApplication|_|) expr =
         let rec loop n acc = function
-            | Application (f, [x]) -> loop (n + 1) (x :: acc) f
+            | IP(Application (f, [x])) -> loop (n + 1) (x :: acc) f
             | f -> (n, f, acc)
         match loop 0 [] expr with
         | n, f, x when n > 0 -> Some (n, f, x)
         | _ -> None
     let (|CurriedLambda|_|) expr =
         let rec loop n acc = function
-            | Lambda (None, [x], y) -> loop (n + 1) (x :: acc) y
+            | IP(Lambda (None, [x], y)) -> loop (n + 1) (x :: acc) y
             | b -> (n, List.rev acc, b)
         match loop 0 [] expr with
         | (n, vars, body) when n > 0 -> Some (n, vars, body)
@@ -724,13 +754,14 @@ let Uncurry expression =
                     arities.[f] <- 0
             | false, _ ->
                 arities.[f] <- k
-        | Var x ->
+        | IP(Var x) ->
             arities.[x] <- 0
         | expr ->
             List.iter analyze (Children expr)
     let rec optimize (fs: Set<_>) expr =
-        match expr with
-        | CurriedApplication (_, Var f, xs) when fs.Contains f ->
+//        let (OP (e, pos)) = expr
+        match IP expr with
+        | CurriedApplication (_, IP(Var f), xs) when fs.Contains f ->
             Application (Var f, List.map (optimize fs) xs)
         | Let (var, value, body) ->
             match value with
@@ -771,6 +802,7 @@ let Uncurry expression =
             )
         | _ ->
             Transform (optimize fs) expr
+        |> withPosOf expr
     analyze expression
     optimize Set.empty expression
 
@@ -783,7 +815,7 @@ let IsLoop expr =
     let rec analyze loops vars labels expr =
         let add x (a: HashSet<_>) =
             ignore (a.Add x)
-        match expr with
+        match IP expr with
         | Application (Var f, a) ->
             add f labels
             List.iter (analyze loops vars vars) a
@@ -838,8 +870,9 @@ let RemoveLoops expr =
     let i x = Constant (Integer (int64 x))
     let ( ++ ) a b = Sequential (a, b)
     let rec t ret expr =
-        match expr with
-        | Application (Var f, a) when labels.ContainsKey f ->
+//        let (OP (e, pos)) = expr
+        match IP expr with
+        | Application (IP(Var f), a) when labels.ContainsKey f ->
             let (args, p) = labels.[f]
             let rec g k bs ss = function
                 | [] ->
@@ -876,6 +909,8 @@ let RemoveLoops expr =
             |> ret
         | _ ->
             ret (Transform (t id) expr)
+        |> withPosOf expr
+
     and loop ret bindings body =
         let argId = Id "loop"
         let args = Var argId
@@ -883,7 +918,7 @@ let RemoveLoops expr =
         |> List.iteri (fun i (k, v) ->
             labels.[k] <- (args, i + 1)
             match v with
-            | Lambda (None, formals, body) ->
+            | IP(Lambda (None, formals, body)) ->
                 formals
                 |> List.iteri (fun j v ->
                     slots.[v] <- (args, j + 1))
@@ -901,7 +936,7 @@ let RemoveLoops expr =
                                        c, f (k+1) cs)
             f 1 cases
         let getBody = function
-            | (_, Lambda (None, _, b)) -> b
+            | (_, IP(Lambda (None, _, b))) -> b
             | _ -> failwith "Unreachable."
         let states = List.map (getBody >> t exit) bindings
         let cycle = WhileLoop (next, switch next states)
@@ -918,9 +953,9 @@ let CollectObjLiterals expr =
         |> not
 
     let rec (|PropSet|_|) expr =
-        match expr with
-        | Unary (UnaryOperator.``void``, FieldSet (Var objVar, Constant (String field), value))
-        | FieldSet (Var objVar, Constant (String field), value) 
+        match IP expr with
+        | Unary (UnaryOperator.``void``, IP(FieldSet (IP(Var objVar), IP(Constant (String field)), value)))
+        | FieldSet (Var objVar, IP(Constant (String field)), value) 
             when notOccurs objVar value ->
             Some (objVar, (field, value))
         | Let (var, value, PropSet ((objVar, (field, Var v)))) 
@@ -928,12 +963,12 @@ let CollectObjLiterals expr =
             Some (objVar, (field, value))
         | _ -> None
     let rec coll expr =
-        match expr with
-        | Let (objVar, NewObject objFields, Sequential (propSetters, Var v)) when v = objVar ->
+        match IP expr with
+        | Let (objVar, IP(NewObject objFields), IP(Sequential (propSetters, Var v))) when v = objVar ->
             let rec getSetters acc e =
                 match e with
-                | Constant Null -> Some acc
-                | Sequential (more, PropSet (v, fv)) when v = objVar ->
+                | IP(Constant Null) -> Some acc
+                | IP(Sequential (more, PropSet (v, fv))) when v = objVar ->
                     getSetters (fv :: acc) more
                 | PropSet (v, fv) when v = objVar -> 
                     Some (fv :: acc)
@@ -943,6 +978,7 @@ let CollectObjLiterals expr =
                 objFields @ s 
                 |> List.map (fun (f, vExpr) -> f, Transform coll vExpr)
                 |> NewObject
+                |> withPosOf expr
             | _ -> Transform coll expr
         | _ -> Transform coll expr
 
@@ -958,7 +994,7 @@ let CollectObjLiterals expr =
 let (isMostlyPure, isStrictlyPure) =
 
     let isStrictlyPureNode expr =
-        match expr with
+        match IP expr with
         | Var i when not i.IsMutable -> true
         | Constant _ | Global _ | Lambda _ | Runtime
         | Binary _  | FieldGet _
@@ -966,7 +1002,7 @@ let (isMostlyPure, isStrictlyPure) =
         | _ -> false
 
     let isMostlyPureNode expr =
-        match expr with
+        match IP expr with
         | NewArray _ | NewObject _ | NewRegex _ -> true
         | _ -> isStrictlyPureNode expr
 
@@ -988,7 +1024,7 @@ let Simplify expr =
         if var.Mutable then
             invalidArg "var" "Var should not be mutable"
         let sub e =
-            match e with
+            match IP e with
             | Var v when v = var -> replace
             | _ -> e
         BottomUp sub body
@@ -1005,7 +1041,7 @@ let Simplify expr =
         let rec loop (steps: int) (occurs: int) =
             if steps > 64 then 2 else
                 if e.MoveNext() then
-                    match e.Current with
+                    match IP e.Current with
                     | Var v when v = var ->
                         match occurs + 1 with
                         | 1 -> loop (steps + 1) 1
@@ -1043,6 +1079,7 @@ let Simplify expr =
                 | Unary (_, x) -> eval x
                 | Var v -> (if v.IsMutable then stop () elif v = var then st := 1)
                 | WhileLoop (_, _) -> stop ()
+                | SourcePos (x, _) -> eval x
         eval body
         if !st = 1 then subst var value body else expr
 
@@ -1050,22 +1087,22 @@ let Simplify expr =
     // assume rewrites are confluent or else the order does not matter
     // assume rewrites terminate
     let step expr =
-        match expr with
-        | Application (Lambda (None, args, body), xs) ->
+        match IP expr with
+        | Application (IP(Lambda (None, args, body)), xs) ->
             if List.length args = List.length xs then
                 let bind key value body = Let (key, value, body)
-                List.foldBack2 bind args xs body
+                List.foldBack2 bind args xs body |> withPosOf expr
             else expr
-        | Application (Let (var, value, body), xs) ->
-            Let (var, value, Application (body, xs))
-        | Let (var, Let (v, vl, bd), body) ->
-            Let (v, vl, Let (var, bd, body))
+        | Application (IP(Let (var, value, body)), xs) ->
+            Let (var, value, Application (body, xs)) |> withPosOf expr
+        | Let (var, IP(Let (v, vl, bd)), body) ->
+            Let (v, vl, Let (var, bd, body)) |> withPosOf expr
         // this pattern is generated by Async functions
-        | Let (var, value, Lambda (None, [x], Application (Var f, [Var y])))
+        | Let (var, value, IP(Lambda (None, [x], IP(Application (IP(Var f), [IP(Var y)])))))
             when not var.IsMutable && f = var && x = y ->
                 value
         | Let (var, value, body) when not var.IsMutable ->
-            match value with
+            match IP value with
             | Constant _ | Global _ | Runtime ->
                 subst var value body
             | Var var2 when not var2.IsMutable ->
@@ -1090,9 +1127,6 @@ let Simplify expr =
                 | _ -> expr
         | Sequential (a, b) when isMostlyPure a -> b
         | _ -> expr
-
-    let ( == ) a b =
-        System.Object.ReferenceEquals(a, b)
 
     // keep rewriting with `step` bottom-up until reach a fixpoint
     let rec simpl expr =
@@ -1204,11 +1238,13 @@ let rec CompilesToJavaScriptExpression (expr: E) : bool =
     | NewArray xs -> List.forall isE xs
     | NewObject xs -> List.forall (snd >> isE) xs
     | Unary (_, x) | VarSet (_, x) -> isE x
+    | SourcePos (x, _) -> isE x
 
 type Effects =
     | EffZ
     | EffSt of S.Statement
     | EffApp of Effects * Effects
+    | EffPos of Effects * S.SourcePos
 
     static member Append a b =
         match a, b with
@@ -1229,6 +1265,10 @@ type Effects =
             | EffZ -> tail
             | EffSt s -> s :: tail
             | EffApp (a, b) -> toS a (toS b tail)
+            | EffPos (a, pos) ->
+                match toS a tail with
+                | [] -> []
+                | f :: t -> S.StatementPos(f, pos) :: t
         toS eff []
 
     member eff.ToBlock() =
@@ -1489,6 +1529,8 @@ let ToProgram prefs (expr: E) : S.Program =
                                 IfThenElse (Var ok, body, !~ Literal.Undefined)
                             )))
                 c sc expr k
+        | SourcePos (x, pos) ->
+            EffPos(c sc x k, pos)
 
     and cLambda sc orig this vars body : S.Expression =
         let scope = Scope.Nest sc this vars
@@ -1636,6 +1678,9 @@ let Recognize expr =
             match env.TryFind id with
             | Some id -> Var id
             | None -> Global [id]
+        | S.ExprPos (x, pos) ->
+            SourcePos(!x, pos)
+               
     and rS this (env: Map<_,_>) tail (stmt: S.Statement) =
         let (!) = rE this env true
         let rS = rS this
@@ -1691,4 +1736,6 @@ let Recognize expr =
         | S.Vars _
         | S.With _ ->
             raise RecognitionError
+        | S.StatementPos (x, pos) ->
+            SourcePos(rS env tail x, pos) 
     try Some (rE None Map.empty true expr) with RecognitionError -> None

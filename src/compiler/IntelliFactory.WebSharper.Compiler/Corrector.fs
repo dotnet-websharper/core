@@ -30,14 +30,18 @@ type Correction =
 
 exception UncurryError
 
+let inline (|IP|) e = match e with C.IgnorePos e -> e
+
+let inline IP e = C.IgnorePos e
+
 let (|Tupled|_|) q =
-    match q with
+    match IP q with
     | C.Call (C.Runtime, C.Constant (C.String "Tupled"), lam) -> Some lam
     | _ -> None
 
 let (|L|_|) q =
     let (|L|_|) q =
-        match q with
+        match IP q with
         | C.Lambda (None, [id], b) -> Some (id, b)
         | _ -> None
     match q with
@@ -47,7 +51,7 @@ let (|L|_|) q =
 
 let unsafeUncurry (curr: list<int>) (q: C.Expression) =
     let (|I|_|) x =
-        match x with
+        match IP x with
         | C.Constant (C.Integer x) -> Some (int x)
         | _ -> None
     match curr with
@@ -65,7 +69,7 @@ let unsafeUncurry (curr: list<int>) (q: C.Expression) =
                 | L (id, q) ->
                     let rec detuple tup j q =
                         match q with
-                        | C.Let (vn, C.FieldGet (C.Var tuple, I n), q)
+                        | IP (C.Let (vn, IP (C.FieldGet (IP (C.Var tuple), I n)), q))
                             when tuple = id && int n = j ->
                             if j + 1 = k then
                                 let tup = vn :: tup
@@ -116,7 +120,7 @@ let fixThisUse scope (q: C.Expression) =
     | Static -> q
     | Instance ->
         match q with
-        | C.Lambda (None, x :: args, body) -> C.Lambda (Some x, args, body)
+        | IP (C.Lambda (None, x :: args, body)) -> C.Lambda (Some x, args, body)
         | _ -> q
 
 let fixCtor (q: C.Expression) =
@@ -128,7 +132,7 @@ let fixCtor (q: C.Expression) =
             e
     let ret t self = C.Call (C.Runtime, !~(C.String "New"), [C.Var t; self])
     match q with
-    | C.Lambda (None, args, body) ->
+    | IP (C.Lambda (None, args, body)) ->
         let this = C.Id ()
         let (inst, rest) =
             match body with
@@ -144,7 +148,7 @@ let removeUnitVar q =
         | Some i when i.StartsWith "unitVar" -> Some x
         | _ -> None
     match q with
-    | C.Lambda (t, [U i], q) ->
+    | IP (C.Lambda (t, [U i], q)) ->
         if not ((C.GetFreeIds q).Contains i) then
             C.Lambda (t, [], q)
         else q
@@ -162,7 +166,7 @@ let Correct correction quotation =
         let lam x =
             match x with
             | Tupled _
-            | C.Lambda _ -> x
+            | IP (C.Lambda _) -> x
             | x -> C.Lambda (None, [], x)
         uncurry c quotation
         |> fixThisUse s

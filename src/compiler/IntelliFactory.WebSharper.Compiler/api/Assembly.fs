@@ -131,8 +131,14 @@ type Assembly =
     member this.ReadableJavaScript =
         ReadResource EMBEDDED_JS this.Definition
 
+    member this.MapFileForReadable =
+        ReadResource EMBEDDED_MAP this.Definition
+
     member this.CompressedJavaScript =
         ReadResource EMBEDDED_MINJS this.Definition
+
+    member this.MapFileForCompressed =
+        ReadResource EMBEDDED_MINMAP this.Definition
 
     member this.TypeScriptDeclarations =
         ReadResource EMBEDDED_DTS this.Definition

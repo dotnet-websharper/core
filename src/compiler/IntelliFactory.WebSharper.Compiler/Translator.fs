@@ -26,6 +26,7 @@ module P = IntelliFactory.JavaScript.Packager
 module Q = IntelliFactory.WebSharper.Core.Quotations
 module R = IntelliFactory.WebSharper.Core.Reflection
 module V = IntelliFactory.WebSharper.Compiler.Validator
+module S = IntelliFactory.JavaScript.Syntax
 
 type Dictionary<'T1,'T2> =
     System.Collections.Generic.Dictionary<'T1,'T2>
@@ -470,5 +471,28 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
         | Q.VarSet (x, y) -> C.VarSet (!^x, !y)
         | Q.WhileLoop (x, y) ->
             C.WhileLoop (!x, !y)
+        | Q.CustomAttrs (x, y) ->
+            y |> List.tryPick (
+                function 
+                | Q.NewTuple
+                    [
+                        Q.Value (Q.String "DebugRange")
+                        Q.NewTuple [
+                            Q.Value (Q.String fileName)
+                            Q.Value (Q.Int startLine)
+                            Q.Value (Q.Int startCol)
+                            _; _
+                        ]
+                    ] -> 
+                        Some {
+                            S.File   = fileName
+                            S.Line   = startLine
+                            S.Column = startCol
+                        }
+                | _ -> None
+            )
+            |> function
+            | Some pos -> C.SourcePos(!x, pos)
+            | None -> !x
 
     tExpr None expr

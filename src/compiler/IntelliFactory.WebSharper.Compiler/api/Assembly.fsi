@@ -39,8 +39,14 @@ type Assembly =
     /// Reads the embedded JavaScript.
     member CompressedJavaScript : option<string>
 
+    /// Reads the embedded map file.
+    member MapFileForCompressed : option<string>
+
     /// Reads the embedded JavaScript.
     member ReadableJavaScript : option<string>
+
+    /// Reads the embedded map file.
+    member MapFileForReadable : option<string>
 
     /// The full name of the assembly.
     member FullName : string

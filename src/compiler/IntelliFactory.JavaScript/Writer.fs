@@ -20,6 +20,7 @@
 
 module IntelliFactory.JavaScript.Writer
 
+
 module S = Syntax
 type StringBuilder = System.Text.StringBuilder
 type StringWriter = System.IO.StringWriter
@@ -32,6 +33,7 @@ type Layout =
     | Horizontal of Layout * Layout
     | Vertical of Layout * Layout
     | Indent of Layout
+    | SourceMapping of Layout * S.SourcePos
 
 let inline ( ++ ) a b = Horizontal (a, b)
 let inline ( -- ) a b = Vertical (a, b)
@@ -331,6 +333,8 @@ let rec Expression (buf: StringBuilder) expression =
         Token (string x)
     | S.This ->
         Word "this"
+    | S.ExprPos (x, pos) -> 
+        SourceMapping (Expression buf x, pos)
 
 and Statement (buf: StringBuilder) statement =
     match statement with
@@ -455,6 +459,8 @@ and Statement (buf: StringBuilder) statement =
         -- Indent (Statement buf s)
     | S.With (e, s) ->
         Word "with" ++ Parens (Expression buf e) ++ Statement buf s
+    | S.StatementPos (e, pos) ->
+        SourceMapping (Statement buf e, pos)
 
 and Element (buf: StringBuilder) elem =
     match elem with
@@ -533,6 +539,7 @@ and VarsNoIn = VarsGeneric AssignmentExpressionNoIn
 type Atom =
     | T of string
     | W of string
+    | P of S.SourcePos
 
 type Line =
     {
@@ -582,29 +589,174 @@ let ToLines mode layout =
             append level (W x) tail
         | Token x ->
             append level (T x) tail
+        | SourceMapping (x, pos) ->
+            lines level (append level (P pos) tail) x        
     lines 0 [] (Simplify layout)
 
-let Render mode (out: TextWriter) layout =
-    let rec renderAtoms x xs =
-        match x with W x | T x -> out.Write x
+type CodeMapping =
+    {
+        OutputLine : int
+        OutputColumn : int
+        SourcePos : S.SourcePos
+    }
+
+let base64Digits =
+    lazy [|
+        yield! { 'A' .. 'Z' }
+        yield! { 'a' .. 'z' }
+        yield! { '0' .. '9' }
+        yield '+'
+        yield '/'
+    |]
+    
+let encodeBase64VLQ value (builder: StringBuilder) =
+    let base64Digits = base64Digits.Value
+    let mutable v = abs value
+
+    let mutable digit = (v &&& 0b00001111) <<< 1
+    if value < 0 then digit <- digit + 1 
+    v <- v >>> 4
+    if v > 0 then digit <- digit ||| 0b00100000
+    builder.Append base64Digits.[digit] |> ignore
+
+    while v > 0 do
+        let mutable digit = v &&& 0b00011111    
+        v <- v >>> 5
+        if v > 0 then
+            digit <- digit ||| 0b00100000
+        builder.Append base64Digits.[digit] |> ignore
+
+type CodeWriter() =
+    let code = StringBuilder()
+    let mappings = StringBuilder()
+    let mutable insertComma = false
+    let mutable colFromLastMapping = 0
+    let sources = ResizeArray()
+    let sourcesDict = System.Collections.Generic.Dictionary()
+    let mutable lastFileName = ""
+    let mutable lastFileIndex = 0
+    let mutable lastSourceLine = 0
+    let mutable lastSourceColumn = 0
+
+    member this.Write(s: string) =
+        code.Append s |> ignore
+        colFromLastMapping <- colFromLastMapping + s.Length
+
+    member this.Write(s: char) =
+        code.Append s |> ignore
+        colFromLastMapping <- colFromLastMapping + 1
+
+    member this.WriteLine() =
+        code.AppendLine() |> ignore
+        mappings.Append ';' |> ignore
+        insertComma <- false
+        colFromLastMapping <- 0
+
+    member this.AddCodeMapping(pos : S.SourcePos) =
+        if insertComma then
+            mappings.Append ',' |> ignore
+        else
+            insertComma <- true
+
+        mappings |> encodeBase64VLQ colFromLastMapping
+        colFromLastMapping <- 0
+
+        let fileName = pos.File
+        if lastFileName = fileName then
+            mappings.Append 'A' |> ignore
+        else
+            let fileIndex =
+                match sourcesDict.TryGetValue fileName with
+                | true, i ->  i
+                | false, _ ->
+                    let i = sources.Count
+                    sources.Add(fileName)
+                    sourcesDict.Add(fileName, i)   
+                    i
+        
+            mappings |> encodeBase64VLQ (fileIndex - lastFileIndex)   
+            lastFileIndex <- fileIndex   
+            lastFileName <- fileName
+        
+        let sourceLine = pos.Line
+        mappings |> encodeBase64VLQ (sourceLine - lastSourceLine)
+        lastSourceLine <- sourceLine
+        
+        let sourceColumn = pos.Column
+        mappings |> encodeBase64VLQ (sourceColumn - lastSourceColumn)
+        lastSourceColumn <- sourceColumn
+
+    member this.GetCodeFile() = string code
+
+    member this.GetMapFile() =
+        if sources.Count = 0 then printfn "Warning: source map not generated"; None else
+        let mapFile = StringBuilder()
+        mapFile.AppendLine "{" |> ignore
+        mapFile.AppendLine "\"version\": 3," |> ignore
+        mapFile.AppendLine "\"sourceRoot\": \"FSharpSource\"," |> ignore
+        mapFile.Append "\"sources\": [\"" |> ignore
+        let im = sources.Count - 1
+        for i = 0 to im do
+            mapFile.Append(System.IO.Path.GetFileName(sources.[i])) |> ignore    
+            if i < im then
+                mapFile.Append "\", \"" |> ignore  
+        mapFile.AppendLine "\"]," |> ignore
+        mapFile.Append "\"sourcesContent\": [\"" |> ignore
+        for i = 0 to im do
+            mapFile.Append(System.IO.File.ReadAllText(sources.[i]).Replace("\\", "\\\\").Replace("\"", "\\\"").Replace(System.Environment.NewLine, "\\n")) |> ignore    
+            if i < im then
+                mapFile.Append "\", \"" |> ignore  
+        mapFile.AppendLine "\"]," |> ignore            
+        mapFile.AppendLine "\"names\": []," |> ignore
+        mapFile.Append "\"mappings\": \"" |> ignore
+        mapFile.Append mappings |> ignore
+        mapFile.AppendLine "\"" |> ignore    
+        mapFile.AppendLine "}" |> ignore
+        Some <| string mapFile
+
+let Render mode (out: CodeWriter) layout =
+    let inline (|OP|_|) xs =
+        match xs with
+        | [] -> None
+        | P _ :: y :: _
+        | y :: _ -> Some y
+    let rec renderAtoms xs =
         match xs with
         | [] -> ()
-        | y :: ys ->
-            match x, y with
-            | W _,  W _ | T "+", T "+" | T "-", T "-" ->
-                out.Write ' '
-            | _ ->
-                ()
-            renderAtoms y ys
+        | (W s as x) :: ys | (T s as x) :: ys ->
+            out.Write s   
+            match x, ys with
+            | _, [] -> ()
+            | W _, OP(W _) | T "+", OP(T "+") | T "-", OP(T "-") ->
+                out.Write ' '   
+            | _ -> () 
+            renderAtoms ys
+        | P p :: ys ->
+            out.AddCodeMapping p
+            renderAtoms ys   
+//    let rec renderAtoms x xs =
+//        match x with 
+//        | W x | T x -> 
+//            out.Write x
+//        | P p -> out.AddCodeMapping p
+//        match xs with
+//        | [] -> ()
+//        | y :: ys ->
+//            match x, y with
+//            | W _,  W _ | T "+", T "+" | T "-", T "-" ->
+//                out.Write ' '
+//            | _ ->
+//                ()
+//            renderAtoms y ys
     let renderLine line =
         match line.Atoms with
         | [] -> ()
-        | x :: xs ->
+        | xs ->
             match mode with
             | Compact -> ()
             | Readable -> for k in 1 .. line.Indent do
                               out.Write ' '
-            renderAtoms x xs
+            renderAtoms xs
         out.WriteLine()
     ToLines mode layout
     |> Seq.iter renderLine
@@ -621,11 +773,11 @@ let WriteProgram options writer (program: S.Program) =
         |> Render options writer
 
 let ExpressionToString options expression =
-    use w = new StringWriter()
+    let w = CodeWriter()
     WriteExpression options w expression
     w.ToString()
 
 let ProgramToString options program =
-    use w = new StringWriter()
+    let w = CodeWriter()
     WriteProgram options w program
     w.ToString()

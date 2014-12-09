@@ -183,6 +183,7 @@ type Expression =
     | Var of Id
     | VarSet of Id * E
     | WhileLoop of E * E
+    | CustomAttrs of E * E list 
 
 and private E = Expression
 
@@ -408,7 +409,7 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
         | 2 -> readLambda env input
         | 3 -> Hole (readType input, ReadInt input)
         | 4 -> Quote (E input)
-        | 5 -> let (e, _) = (E input, ReadList E input) in e
+        | 5 -> CustomAttrs (E input, ReadList E input)
         | 6 -> Var (Id.Global "this" (readType input))
         | _ -> raise InvalidFormatException
     and readTerm env input =
@@ -599,8 +600,9 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
             let (a, b) = ReadList2 E input
             match a with
             | Var x -> VarSet (x, b)
-            | _ -> raise InvalidFormatException
-        | _ ->
+            | _ -> 
+                raise InvalidFormatException
+        | t ->
             raise InvalidFormatException
     and readLambda env input =
         let v = readVar input
@@ -749,6 +751,8 @@ let Transform (!) (expr: E) : E =
         VarSet (x, !y)
     | WhileLoop (x, y) ->
         WhileLoop (!x, !y)
+    | CustomAttrs (e, l) ->
+        CustomAttrs (!e, l)
 
 let Fold f init expr =
     let state = ref init

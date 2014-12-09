@@ -290,15 +290,16 @@ let parseQuoted cc (q: Q.Expression) : Inliner =
         match cc with
         | Corrector.Constructor _ -> true
         | _ -> false
-    let apply f xs =
+    let rec apply f xs =
         match f with
-        | C.Lambda (t, vs, body) ->
+        | C.IgnorePos(C.Lambda (t, vs, body)) -> // TODO: track source position
             let vs = if isCtor then vs else (Option.toList t @ vs)
             try
                 List.foldBack2 (fun var value body ->
                     C.Let (var, value, body)) vs xs body
             with e -> raise InlineTransformError
-        | _ -> raise InlineTransformError
+        | _ ->
+            raise InlineTransformError
     Transformer (fun t xs ->
         apply (Corrector.Correct cc (t (Q.Alpha q))) xs)
 

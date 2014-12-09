@@ -146,6 +146,7 @@ and Expression =
     | Var of Id
     | VarSet of Id * E
     | WhileLoop of E * E
+    | SourcePos of E * Syntax.SourcePos
 
     static member ( + ) : E * E -> E
     static member ( - ) : E * E -> E
@@ -176,6 +177,11 @@ and Expression =
     member Item : list<E> -> E  with get
 
 and private E = Expression
+
+/// Pattern for ignoring source position.
+val (|IgnorePos|) : E -> E
+
+val IgnorePos : E -> E
 
 /// Maps over the immediate sub-expressions. Expression forms
 /// that bind variables are transformed by inserting Lambda,

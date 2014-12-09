@@ -87,6 +87,13 @@ type BinaryOperator =
     | ``|`` = 35
     | ``||`` = 36
 
+type SourcePos =
+    {
+        File : string
+        Line : int
+        Column : int
+    }
+
 /// Represents literals.
 type Literal =
     | False
@@ -113,6 +120,7 @@ and Expression =
     | This
     | Unary of UnaryOperator * E
     | Var of Id
+    | ExprPos of Expression * SourcePos
 
     static member ( + ) : E * E -> E
     static member ( - ) : E * E -> E
@@ -165,6 +173,7 @@ and Statement =
     | Vars of list<Id * option<E>>
     | While of E * S
     | With of E * S
+    | StatementPos of S * SourcePos
 
 /// Represents switch elements.
 and SwitchElement =

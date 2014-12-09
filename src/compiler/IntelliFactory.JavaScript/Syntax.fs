@@ -80,6 +80,13 @@ type BinaryOperator =
 
 type B = BinaryOperator
 
+type SourcePos =
+    {
+        File : string
+        Line : int
+        Column : int
+    }
+
 type Literal =
     | False
     | Null
@@ -111,6 +118,7 @@ and Expression =
     | This
     | Unary of UnaryOperator * E
     | Var of Id
+    | ExprPos of Expression * SourcePos
 
     static member ( + ) (a, b) = Binary (a, B.``+``, b)
     static member ( - ) (a, b) = Binary (a, B.``-``, b)
@@ -167,6 +175,7 @@ and Statement =
     | Vars of list<Id * option<E>>
     | While of E * S
     | With of E * S
+    | StatementPos of S * SourcePos
 
 and SwitchElement =
     | Case of E * list<S>
@@ -200,6 +209,7 @@ let TransformExpression (!) (!^) expr =
     | NewRegex _
     | This
     | Var _ -> expr
+    | ExprPos (x, pos) -> ExprPos (!x, pos)
 
 let TransformStatement (!) (!^) stmt =
     let (!?) = Option.map (!)
@@ -232,6 +242,7 @@ let TransformStatement (!) (!^) stmt =
     | Continue _
     | Debugger
     | Empty -> stmt
+    | StatementPos (x, pos) -> StatementPos (!^x, pos) 
 
 let Fold t fE fS init x =
     let state = ref init

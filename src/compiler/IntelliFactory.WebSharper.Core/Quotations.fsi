@@ -152,6 +152,7 @@ type Expression =
     | Var of Id
     | VarSet of Id * E
     | WhileLoop of E * E
+    | CustomAttrs of E * E list 
 
 and private E = Expression
 

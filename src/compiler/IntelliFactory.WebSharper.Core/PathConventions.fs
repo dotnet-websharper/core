@@ -82,8 +82,20 @@ module PathConventions =
         member p.JavaScriptPath(a) =
             scripts ++ p.JavaScriptFileName(a)
 
+        member p.MapFileName(a) =
+            a.ShortName + ".map"
+
+        member p.MapFilePath(a) =
+            scripts ++ p.MapFileName(a)
+
         member p.MinifiedJavaScriptPath(a) =
             scripts ++ p.MinifiedJavaScriptFileName(a)
+
+        member p.MinifiedMapFileName(a) =
+            a.ShortName + ".min.map"
+
+        member p.MinifiedMapFilePath(a) =
+            scripts ++ p.MinifiedMapFileName(a)
 
         member p.TypeScriptDefinitionsPath(a) =
             scripts ++ p.TypeScriptDefinitionsFileName(a)
