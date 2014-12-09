@@ -36,6 +36,8 @@ type Sitelet<'T when 'T : equality> =
 /// Provides combinators over sitelets.
 module Sitelet =
 
+    open Microsoft.FSharp.Quotations
+
     /// Creates an empty sitelet.
     val Empty<'Action when 'Action : equality> : Sitelet<'Action>
 
@@ -63,6 +65,15 @@ module Sitelet =
     /// Maps over the sitelet action type. Requires a bijection.
     val Map<'T1,'T2 when 'T1 : equality and 'T2 : equality> :
         ('T1 -> 'T2) -> ('T2 -> 'T1) -> Sitelet<'T1> -> Sitelet<'T2>
+
+    /// Maps over the sitelet action type with only an injection.
+    val Embed<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
+        ('T1 -> 'T2) -> ('T2 -> 'T1 option) -> Sitelet<'T1> -> Sitelet<'T2>
+
+    /// Maps over the sitelet action type, where the destination type
+    /// is a discriminated union with a case containing the source type.
+    val EmbedInUnion<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
+        Expr<'T1 -> 'T2> -> Sitelet<'T1> -> Sitelet<'T2>
 
     /// Shifts all sitelet locations by a given prefix.
     val Shift<'T when 'T : equality> :

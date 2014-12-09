@@ -44,6 +44,10 @@ type Sitelet<'T when 'T : equality> =
 
 /// Provides combinators over sitelets.
 module Sitelet =
+    open Microsoft.FSharp.Quotations
+    open Microsoft.FSharp.Reflection
+    module C = Content
+    type C<'T> = Content<'T>
 
     /// Creates an empty sitelet.
     let Empty<'Action when 'Action : equality> : Sitelet<'Action> =
@@ -167,6 +171,46 @@ module Sitelet =
                                 |> genPage
                 }
         }
+
+    /// Maps over the sitelet action type with only an injection.
+    let Embed embed unembed sitelet =
+        {
+            Router =
+                Router.New
+                    (sitelet.Router.Route >> Option.map embed)
+                    (unembed >> Option.bind sitelet.Router.Link)
+            Controller =
+                { Handle = fun a ->
+                    match unembed a with
+                    | Some ea -> C.CustomContent <| fun ctx ->
+                        C.ToResponse (sitelet.Controller.Handle ea)
+                            {
+                                ResolveUrl = ctx.ResolveUrl
+                                ApplicationPath = ctx.ApplicationPath
+                                Link = embed >> ctx.Link
+                                Json = ctx.Json
+                                Metadata = ctx.Metadata
+                                ResourceContext = ctx.ResourceContext
+                                Request = ctx.Request
+                                RootFolder = ctx.RootFolder
+                            }
+ 
+                    | None -> failwith "Invalid action in Sitelet.Embed" }
+        }
+ 
+    /// Maps over the sitelet action type, where the destination type
+    /// is a discriminated union with a case containing the source type.
+    let EmbedInUnion (case: Expr<'T1 -> 'T2>) sitelet =
+        match case with
+        | ExprShape.ShapeLambda(_, Patterns.NewUnionCase (uci, _)) ->
+            let embed (y: 'T1) = FSharpValue.MakeUnion(uci, [|box y|]) :?> 'T2
+            let unembed (x: 'T2) =
+                let uci', args' = FSharpValue.GetUnionFields(box x, uci.DeclaringType)
+                if uci.Tag = uci'.Tag then
+                    Some (args'.[0] :?> 'T1)
+                else None
+            Embed embed unembed sitelet
+        | _ -> failwith "Invalid union case in Sitelet.EmbedInUnion"
 
     /// Shifts all sitelet locations by a given prefix.
     let Shift (prefix: string) (sitelet: Sitelet<'T>) =
