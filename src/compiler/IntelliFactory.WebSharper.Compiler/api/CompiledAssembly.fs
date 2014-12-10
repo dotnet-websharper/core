@@ -42,15 +42,15 @@ type CompiledAssembly
         typeScript: string
     ) =
 
+    let nameOfSelf = Re.AssemblyName.Convert(source.Name)
+
     let getJS (pref: Pref) =
-        let w = W.CodeWriter()
+        let w = W.CodeWriter(nameOfSelf.Name)
         W.WriteProgram pref w (P.Package pkg pref)
         w.GetCodeFile(), w.GetMapFile()
 
     let compressedJS = lazy getJS Pref.Compact
     let readableJS = lazy getJS Pref.Readable
-
-    let nameOfSelf = Re.AssemblyName.Convert(source.Name)
 
     let deps =
         lazy

@@ -22,7 +22,7 @@
 module IntelliFactory.JavaScript.Writer
 
 type CodeWriter =
-    new : unit -> CodeWriter 
+    new : ?assemblyName : string -> CodeWriter 
     member GetMapFile : unit -> string option
     member GetCodeFile : unit -> string
 

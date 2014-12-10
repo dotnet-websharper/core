@@ -626,7 +626,7 @@ let encodeBase64VLQ value (builder: StringBuilder) =
             digit <- digit ||| 0b00100000
         builder.Append base64Digits.[digit] |> ignore
 
-type CodeWriter() =
+type CodeWriter(?assemblyName: string) =
     let code = StringBuilder()
     let mappings = StringBuilder()
     let mutable insertComma = false
@@ -693,10 +693,17 @@ type CodeWriter() =
         let mapFile = StringBuilder()
         mapFile.AppendLine "{" |> ignore
         mapFile.AppendLine "\"version\": 3," |> ignore
-        mapFile.AppendLine "\"sourceRoot\": \"FSharpSource\"," |> ignore
+        mapFile.Append "\"sourceRoot\": \"FSharpSource" |> ignore
+        assemblyName |> Option.iter (fun a ->
+            mapFile.Append '/' |> ignore
+            mapFile.Append a |> ignore
+        ) 
+        mapFile.AppendLine "\"," |> ignore
         mapFile.Append "\"sources\": [\"" |> ignore
         let im = sources.Count - 1
         for i = 0 to im do
+            mapFile.Append(string (i + 1)) |> ignore
+            mapFile.Append('_') |> ignore
             mapFile.Append(System.IO.Path.GetFileName(sources.[i])) |> ignore    
             if i < im then
                 mapFile.Append "\", \"" |> ignore  

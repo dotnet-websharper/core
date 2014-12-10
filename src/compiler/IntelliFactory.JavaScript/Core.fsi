@@ -119,34 +119,35 @@ type Literal =
 
 /// Represents expressions of the language.
 and Expression =
-    | Application of E * list<E>
-    | Binary of E * BinaryOperator * E
-    | Call of E * E * list<E>
-    | Constant of Literal
-    | FieldDelete of E * E
-    | FieldGet of E * E
-    | FieldSet of E * E * E
-    | ForEachField of Id * E * E
+    private
+    | Application         of E * list<E>
+    | Binary              of E * BinaryOperator * E
+    | Call                of E * E * list<E>
+    | Constant            of Literal
+    | FieldDelete         of E * E
+    | FieldGet            of E * E
+    | FieldSet            of E * E * E
+    | ForEachField        of Id * E * E
     | ForIntegerRangeLoop of Id * E * E * E
-    | Global of list<string>
-    | IfThenElse of E * E * E
-    | Lambda of option<Id> * list<Id> * E
-    | Let of Id * E * E
-    | LetRecursive of list<Id * E> * E
-    | New of E * list<E>
-    | NewArray of list<E>
-    | NewObject of list<string * E>
-    | NewRegex of string
+    | Global              of list<string>
+    | IfThenElse          of E * E * E
+    | Lambda              of option<Id> * list<Id> * E
+    | Let                 of Id * E * E
+    | LetRecursive        of list<Id * E> * E
+    | New                 of E * list<E>
+    | NewArray            of list<E>
+    | NewObject           of list<string * E>
+    | NewRegex            of string
     | Runtime
-    | Sequential of E * E
-    | Throw of E
-    | TryFinally of E * E
-    | TryWith of E * Id * E
-    | Unary of UnaryOperator * E
-    | Var of Id
-    | VarSet of Id * E
-    | WhileLoop of E * E
-    | SourcePos of E * Syntax.SourcePos
+    | Sequential          of E * E
+    | Throw               of E
+    | TryFinally          of E * E
+    | TryWith             of E * Id * E
+    | Unary               of UnaryOperator * E
+    | Var                 of Id
+    | VarSet              of Id * E
+    | WhileLoop           of E * E
+    | SourcePos           of E * Syntax.SourcePos
 
     static member ( + ) : E * E -> E
     static member ( - ) : E * E -> E
@@ -178,11 +179,6 @@ and Expression =
 
 and private E = Expression
 
-/// Pattern for ignoring source position.
-val (|IgnorePos|) : E -> E
-
-val IgnorePos : E -> E
-
 val (|Application        |_|) : E -> (E * list<E>              ) option                         
 val (|Binary             |_|) : E -> (E * BinaryOperator * E   ) option                              
 val (|Call               |_|) : E -> (E * E * list<E>          ) option                       
@@ -210,6 +206,37 @@ val (|Unary              |_|) : E -> (UnaryOperator * E        ) option
 val (|Var                |_|) : E -> (Id                       ) option          
 val (|VarSet             |_|) : E -> (Id * E                   ) option              
 val (|WhileLoop          |_|) : E -> (E * E                    ) option             
+
+val Application         : E * list<E>               -> E
+val Binary              : E * BinaryOperator * E    -> E
+val Call                : E * E * list<E>           -> E
+val Constant            : Literal                   -> E
+val FieldDelete         : E * E                     -> E
+val FieldGet            : E * E                     -> E
+val FieldSet            : E * E * E                 -> E
+val ForEachField        : Id * E * E                -> E
+val ForIntegerRangeLoop : Id * E * E * E            -> E
+val Global              : list<string>              -> E
+val IfThenElse          : E * E * E                 -> E
+val Lambda              : option<Id> * list<Id> * E -> E
+val Let                 : Id * E * E                -> E
+val LetRecursive        : list<Id * E> * E          -> E
+val New                 : E * list<E>               -> E
+val NewArray            : list<E>                   -> E
+val NewObject           : list<string * E>          -> E
+val NewRegex            : string                    -> E
+val Runtime             :                              E
+val Sequential          : E * E                     -> E
+val Throw               : E                         -> E
+val TryFinally          : E * E                     -> E
+val TryWith             : E * Id * E                -> E
+val Unary               : UnaryOperator * E         -> E
+val Var                 : Id                        -> E
+val VarSet              : Id * E                    -> E
+val WhileLoop           : E * E                     -> E
+
+/// Add a source mapping position to an expression.
+val WithPos : Syntax.SourcePos -> E -> E
 
 /// Transfer the source mapping position of the first argument to the
 /// second expression if it exists.

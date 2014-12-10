@@ -31,8 +31,6 @@ module S = IntelliFactory.JavaScript.Syntax
 type Dictionary<'T1,'T2> =
     System.Collections.Generic.Dictionary<'T1,'T2>
 
-let inline (|ICU|) e = match e with Q.IgnoreCustomAttrs e -> e
-
 exception InvalidQuotation
 
 let Literal x =
@@ -205,6 +203,29 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
             printfn "Invalid quotation: %A" quotation
             raise InvalidQuotation
         match quotation with
+        | Q.CustomAttrs (x, y) ->
+            y |> List.tryPick (
+                function 
+                | Q.NewTuple
+                    [
+                        Q.Value (Q.String "DebugRange")
+                        Q.NewTuple [
+                            Q.Value (Q.String fileName)
+                            Q.Value (Q.Int startLine)
+                            Q.Value (Q.Int startCol)
+                            _; _
+                        ]
+                    ] -> 
+                        Some {
+                            S.File   = fileName
+                            S.Line   = startLine
+                            S.Column = startCol
+                        }
+                | _ -> None
+            )
+            |> function
+            | Some pos -> !x |> C.WithPos pos
+            | None -> !x
         | Q.AddressOf x ->
             error "Explicit address capture is not supported."
         | Q.AddressSet _ ->
@@ -261,12 +282,12 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
             C.NewArray (List.map (!) x)
         | Q.NewDelegate (_, x) ->
             let rec loop acc = function
-                | ICU(Q.Lambda (var, body)) -> loop (var :: acc) body
+                | Q.Lambda (var, body) -> loop (var :: acc) body
                 | body -> (List.rev acc, body)
             match loop [] x with
             | (this :: vars, body) ->
                 C.Lambda (Some !^this, List.map (!^) vars, !body)
-            | ([], ICU(Q.Application (f, ICU(Q.Value Q.Unit)))) -> !f
+            | ([], Q.Application (f, Q.Value Q.Unit)) -> !f
             | _ -> invalidQuot()
         | Q.NewObject (c, args) ->
             match meta.Constructor c.Entity with
@@ -481,28 +502,5 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
         | Q.VarSet (x, y) -> C.VarSet (!^x, !y)
         | Q.WhileLoop (x, y) ->
             C.WhileLoop (!x, !y)
-        | Q.CustomAttrs (x, y) ->
-            y |> List.tryPick (
-                function 
-                | Q.NewTuple
-                    [
-                        Q.Value (Q.String "DebugRange")
-                        Q.NewTuple [
-                            Q.Value (Q.String fileName)
-                            Q.Value (Q.Int startLine)
-                            Q.Value (Q.Int startCol)
-                            _; _
-                        ]
-                    ] -> 
-                        Some {
-                            S.File   = fileName
-                            S.Line   = startLine
-                            S.Column = startCol
-                        }
-                | _ -> None
-            )
-            |> function
-            | Some pos -> C.SourcePos(!x, pos)
-            | None -> !x
 
     tExpr None expr

@@ -113,50 +113,130 @@ type Literal =
 /// argument order is target-value?-argument*.  For static properties
 /// it is value?-argument*.
 type Expression =
-    | AddressOf of E
-    | AddressSet of E * E
-    | Application of E * E
-    | Call of Concrete<R.Method> * list<E>
-    | CallModule of Concrete<R.Method> * list<E>
-    | Coerce of R.Type * E
-    | DefaultValue of R.Type
-    | FieldGetInstance of E * Concrete<R.Field>
-    | FieldGetRecord of E * Concrete<R.Property>
-    | FieldGetStatic of Concrete<R.Field>
-    | FieldGetUnion of E * Concrete<R.UnionCase> * int
-    | FieldSetRecord of E * Concrete<R.Property> * E
-    | FieldSetInstance of E * Concrete<R.Field> * E
-    | FieldSetStatic of Concrete<R.Field> * E
+    private
+    | AddressOf           of E
+    | AddressSet          of E * E
+    | Application         of E * E
+    | Call                of Concrete<R.Method> * list<E>
+    | CallModule          of Concrete<R.Method> * list<E>
+    | Coerce              of R.Type * E
+    | DefaultValue        of R.Type
+    | FieldGetInstance    of E * Concrete<R.Field>
+    | FieldGetRecord      of E * Concrete<R.Property>
+    | FieldGetStatic      of Concrete<R.Field>
+    | FieldGetUnion       of E * Concrete<R.UnionCase> * int
+    | FieldSetRecord      of E * Concrete<R.Property> * E
+    | FieldSetInstance    of E * Concrete<R.Field> * E
+    | FieldSetStatic      of Concrete<R.Field> * E
     | ForIntegerRangeLoop of Id * E * E * E
-    | Hole of R.Type * int
-    | IfThenElse of E * E * E
-    | Lambda of Id * E
-    | Let of Id * E * E
-    | LetRecursive of list<Id * E> * E
-    | NewArray of R.Type * list<E>
-    | NewDelegate of R.Type * E
-    | NewObject of Concrete<R.Constructor> * list<E>
-    | NewRecord of R.Type * list<E>
-    | NewTuple of list<E>
-    | NewUnionCase of Concrete<R.UnionCase> * list<E>
-    | PropertyGet of Concrete<R.Property> * list<E>
-    | PropertySet of Concrete<R.Property> * list<E>
-    | Quote of E
-    | Sequential of E * E
-    | TupleGet of int * E
-    | TryFinally of E * E
-    | TryWith of E * Id * E * Id * E
-    | TypeTest of R.Type * E
-    | UnionCaseTest of Concrete<R.UnionCase> * E
-    | Value of Literal
-    | Var of Id
-    | VarSet of Id * E
-    | WhileLoop of E * E
-    | CustomAttrs of E * E list 
+    | Hole                of R.Type * int
+    | IfThenElse          of E * E * E
+    | Lambda              of Id * E
+    | Let                 of Id * E * E
+    | LetRecursive        of list<Id * E> * E
+    | NewArray            of R.Type * list<E>
+    | NewDelegate         of R.Type * E
+    | NewObject           of Concrete<R.Constructor> * list<E>
+    | NewRecord           of R.Type * list<E>
+    | NewTuple            of list<E>
+    | NewUnionCase        of Concrete<R.UnionCase> * list<E>
+    | PropertyGet         of Concrete<R.Property> * list<E>
+    | PropertySet         of Concrete<R.Property> * list<E>
+    | Quote               of E
+    | Sequential          of E * E
+    | TupleGet            of int * E
+    | TryFinally          of E * E
+    | TryWith             of E * Id * E * Id * E
+    | TypeTest            of R.Type * E
+    | UnionCaseTest       of Concrete<R.UnionCase> * E
+    | Value               of Literal
+    | Var                 of Id
+    | VarSet              of Id * E
+    | WhileLoop           of E * E
+    | CustomAttrs         of E * E list 
 
 and private E = Expression
 
-val (|IgnoreCustomAttrs|) : E -> E
+val (|AddressOf          |_|) : E -> (E                                ) option
+val (|AddressSet         |_|) : E -> (E * E                            ) option
+val (|Application        |_|) : E -> (E * E                            ) option
+val (|Call               |_|) : E -> (Concrete<R.Method> * list<E>     ) option
+val (|CallModule         |_|) : E -> (Concrete<R.Method> * list<E>     ) option
+val (|Coerce             |_|) : E -> (R.Type * E                       ) option
+val (|DefaultValue       |_|) : E -> (R.Type                           ) option
+val (|FieldGetInstance   |_|) : E -> (E * Concrete<R.Field>            ) option
+val (|FieldGetRecord     |_|) : E -> (E * Concrete<R.Property>         ) option
+val (|FieldGetStatic     |_|) : E -> (Concrete<R.Field>                ) option
+val (|FieldGetUnion      |_|) : E -> (E * Concrete<R.UnionCase> * int  ) option
+val (|FieldSetRecord     |_|) : E -> (E * Concrete<R.Property> * E     ) option
+val (|FieldSetInstance   |_|) : E -> (E * Concrete<R.Field> * E        ) option
+val (|FieldSetStatic     |_|) : E -> (Concrete<R.Field> * E            ) option
+val (|ForIntegerRangeLoop|_|) : E -> (Id * E * E * E                   ) option
+val (|Hole               |_|) : E -> (R.Type * int                     ) option
+val (|IfThenElse         |_|) : E -> (E * E * E                        ) option
+val (|Lambda             |_|) : E -> (Id * E                           ) option
+val (|Let                |_|) : E -> (Id * E * E                       ) option
+val (|LetRecursive       |_|) : E -> (list<Id * E> * E                 ) option
+val (|NewArray           |_|) : E -> (R.Type * list<E>                 ) option
+val (|NewDelegate        |_|) : E -> (R.Type * E                       ) option
+val (|NewObject          |_|) : E -> (Concrete<R.Constructor> * list<E>) option
+val (|NewRecord          |_|) : E -> (R.Type * list<E>                 ) option
+val (|NewTuple           |_|) : E -> (list<E>                          ) option
+val (|NewUnionCase       |_|) : E -> (Concrete<R.UnionCase> * list<E>  ) option
+val (|PropertyGet        |_|) : E -> (Concrete<R.Property> * list<E>   ) option
+val (|PropertySet        |_|) : E -> (Concrete<R.Property> * list<E>   ) option
+val (|Quote              |_|) : E -> (E                                ) option
+val (|Sequential         |_|) : E -> (E * E                            ) option
+val (|TupleGet           |_|) : E -> (int * E                          ) option
+val (|TryFinally         |_|) : E -> (E * E                            ) option
+val (|TryWith            |_|) : E -> (E * Id * E * Id * E              ) option
+val (|TypeTest           |_|) : E -> (R.Type * E                       ) option
+val (|UnionCaseTest      |_|) : E -> (Concrete<R.UnionCase> * E        ) option
+val (|Value              |_|) : E -> (Literal                          ) option
+val (|Var                |_|) : E -> (Id                               ) option
+val (|VarSet             |_|) : E -> (Id * E                           ) option
+val (|WhileLoop          |_|) : E -> (E * E                            ) option
+val (|CustomAttrs        |_|) : E -> (E * E list                       ) option
+
+val AddressOf           : E                                 -> E
+val AddressSet          : E * E                             -> E
+val Application         : E * E                             -> E
+val Call                : Concrete<R.Method> * list<E>      -> E
+val CallModule          : Concrete<R.Method> * list<E>      -> E
+val Coerce              : R.Type * E                        -> E
+val DefaultValue        : R.Type                            -> E
+val FieldGetInstance    : E * Concrete<R.Field>             -> E
+val FieldGetRecord      : E * Concrete<R.Property>          -> E
+val FieldGetStatic      : Concrete<R.Field>                 -> E
+val FieldGetUnion       : E * Concrete<R.UnionCase> * int   -> E
+val FieldSetRecord      : E * Concrete<R.Property> * E      -> E
+val FieldSetInstance    : E * Concrete<R.Field> * E         -> E
+val FieldSetStatic      : Concrete<R.Field> * E             -> E
+val ForIntegerRangeLoop : Id * E * E * E                    -> E
+val Hole                : R.Type * int                      -> E
+val IfThenElse          : E * E * E                         -> E
+val Lambda              : Id * E                            -> E
+val Let                 : Id * E * E                        -> E
+val LetRecursive        : list<Id * E> * E                  -> E
+val NewArray            : R.Type * list<E>                  -> E
+val NewDelegate         : R.Type * E                        -> E
+val NewObject           : Concrete<R.Constructor> * list<E> -> E
+val NewRecord           : R.Type * list<E>                  -> E
+val NewTuple            : list<E>                           -> E
+val NewUnionCase        : Concrete<R.UnionCase> * list<E>   -> E
+val PropertyGet         : Concrete<R.Property> * list<E>    -> E
+val PropertySet         : Concrete<R.Property> * list<E>    -> E
+val Quote               : E                                 -> E
+val Sequential          : E * E                             -> E
+val TupleGet            : int * E                           -> E
+val TryFinally          : E * E                             -> E
+val TryWith             : E * Id * E * Id * E               -> E
+val TypeTest            : R.Type * E                        -> E
+val UnionCaseTest       : Concrete<R.UnionCase> * E         -> E
+val Value               : Literal                           -> E
+val Var                 : Id                                -> E
+val VarSet              : Id * E                            -> E
+val WhileLoop           : E * E                             -> E
 
 /// Represents a set of reflected definitions.
 type Definitions = list<Definition * Expression>
