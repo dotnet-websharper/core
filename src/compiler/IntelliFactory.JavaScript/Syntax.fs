@@ -82,6 +82,7 @@ type B = BinaryOperator
 
 type SourcePos =
     {
+        Assembly : string
         File : string
         Line : int
         Column : int

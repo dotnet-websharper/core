@@ -321,6 +321,8 @@ let inline unExprNode e =
     | ExprNode e -> e
     | _ -> raise TransformError
 
+#nowarn "25"
+
 let ENodeMatch e =
 
     let inline match0 () =

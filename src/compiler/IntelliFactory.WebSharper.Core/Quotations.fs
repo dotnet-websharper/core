@@ -21,6 +21,7 @@
 module IntelliFactory.WebSharper.Core.Quotations
 
 module R = IntelliFactory.WebSharper.Core.Reflection
+module S = IntelliFactory.JavaScript.Syntax
 
 type AssemblyName = System.Reflection.AssemblyName
 type BitConverter = System.BitConverter
@@ -184,94 +185,9 @@ type Expression =
     | Var                 of Id
     | VarSet              of Id * E
     | WhileLoop           of E * E
-    | CustomAttrs         of E * E list 
+    | SourcePos           of E * S.SourcePos
 
 and private E = Expression
-
-let inline (|IgnoreCustomAttrs|) expr =
-    match expr with CustomAttrs (e, _) | e -> e
-
-let (|AddressOf          |_|) e = match e with IgnoreCustomAttrs(AddressOf x                    ) -> Some x               | _ -> None
-let (|AddressSet         |_|) e = match e with IgnoreCustomAttrs(AddressSet(x, y)               ) -> Some (x, y)          | _ -> None
-let (|Application        |_|) e = match e with IgnoreCustomAttrs(Application(x, y)              ) -> Some (x, y)          | _ -> None
-let (|Call               |_|) e = match e with IgnoreCustomAttrs(Call(x, y)                     ) -> Some (x, y)          | _ -> None
-let (|CallModule         |_|) e = match e with IgnoreCustomAttrs(CallModule(x, y)               ) -> Some (x, y)          | _ -> None
-let (|Coerce             |_|) e = match e with IgnoreCustomAttrs(Coerce(x, y)                   ) -> Some (x, y)          | _ -> None
-let (|DefaultValue       |_|) e = match e with IgnoreCustomAttrs(DefaultValue x                 ) -> Some x               | _ -> None
-let (|FieldGetInstance   |_|) e = match e with IgnoreCustomAttrs(FieldGetInstance(x, y)         ) -> Some (x, y)          | _ -> None
-let (|FieldGetRecord     |_|) e = match e with IgnoreCustomAttrs(FieldGetRecord(x, y)           ) -> Some (x, y)          | _ -> None
-let (|FieldGetStatic     |_|) e = match e with IgnoreCustomAttrs(FieldGetStatic x               ) -> Some x               | _ -> None
-let (|FieldGetUnion      |_|) e = match e with IgnoreCustomAttrs(FieldGetUnion(x, y, z)         ) -> Some (x, y, z)       | _ -> None
-let (|FieldSetRecord     |_|) e = match e with IgnoreCustomAttrs(FieldSetRecord(x, y, z)        ) -> Some (x, y, z)       | _ -> None
-let (|FieldSetInstance   |_|) e = match e with IgnoreCustomAttrs(FieldSetInstance(x, y, z)      ) -> Some (x, y, z)       | _ -> None
-let (|FieldSetStatic     |_|) e = match e with IgnoreCustomAttrs(FieldSetStatic(x, y)           ) -> Some (x, y)          | _ -> None
-let (|ForIntegerRangeLoop|_|) e = match e with IgnoreCustomAttrs(ForIntegerRangeLoop(x, y, z, u)) -> Some (x, y, z, u)    | _ -> None
-let (|Hole               |_|) e = match e with IgnoreCustomAttrs(Hole(x, y)                     ) -> Some (x, y)          | _ -> None
-let (|IfThenElse         |_|) e = match e with IgnoreCustomAttrs(IfThenElse(x, y, z)            ) -> Some (x, y, z)       | _ -> None
-let (|Lambda             |_|) e = match e with IgnoreCustomAttrs(Lambda(x, y)                   ) -> Some (x, y)          | _ -> None
-let (|Let                |_|) e = match e with IgnoreCustomAttrs(Let(x, y, z)                   ) -> Some (x, y, z)       | _ -> None
-let (|LetRecursive       |_|) e = match e with IgnoreCustomAttrs(LetRecursive(x, y)             ) -> Some (x, y)          | _ -> None
-let (|NewArray           |_|) e = match e with IgnoreCustomAttrs(NewArray(x, y)                 ) -> Some (x, y)          | _ -> None
-let (|NewDelegate        |_|) e = match e with IgnoreCustomAttrs(NewDelegate(x, y)              ) -> Some (x, y)          | _ -> None
-let (|NewObject          |_|) e = match e with IgnoreCustomAttrs(NewObject(x, y)                ) -> Some (x, y)          | _ -> None
-let (|NewRecord          |_|) e = match e with IgnoreCustomAttrs(NewRecord(x, y)                ) -> Some (x, y)          | _ -> None
-let (|NewTuple           |_|) e = match e with IgnoreCustomAttrs(NewTuple x                     ) -> Some x               | _ -> None
-let (|NewUnionCase       |_|) e = match e with IgnoreCustomAttrs(NewUnionCase(x, y)             ) -> Some (x, y)          | _ -> None
-let (|PropertyGet        |_|) e = match e with IgnoreCustomAttrs(PropertyGet(x, y)              ) -> Some (x, y)          | _ -> None
-let (|PropertySet        |_|) e = match e with IgnoreCustomAttrs(PropertySet(x, y)              ) -> Some (x, y)          | _ -> None
-let (|Quote              |_|) e = match e with IgnoreCustomAttrs(Quote x                        ) -> Some x               | _ -> None
-let (|Sequential         |_|) e = match e with IgnoreCustomAttrs(Sequential(x, y)               ) -> Some (x, y)          | _ -> None
-let (|TupleGet           |_|) e = match e with IgnoreCustomAttrs(TupleGet(x, y)                 ) -> Some (x, y)          | _ -> None
-let (|TryFinally         |_|) e = match e with IgnoreCustomAttrs(TryFinally(x, y)               ) -> Some (x, y)          | _ -> None
-let (|TryWith            |_|) e = match e with IgnoreCustomAttrs(TryWith(x, y, z, u, v)         ) -> Some (x, y, z, u, v) | _ -> None
-let (|TypeTest           |_|) e = match e with IgnoreCustomAttrs(TypeTest(x, y)                 ) -> Some (x, y)          | _ -> None
-let (|UnionCaseTest      |_|) e = match e with IgnoreCustomAttrs(UnionCaseTest(x, y)            ) -> Some (x, y)          | _ -> None
-let (|Value              |_|) e = match e with IgnoreCustomAttrs(Value x                        ) -> Some x               | _ -> None
-let (|Var                |_|) e = match e with IgnoreCustomAttrs(Var x                          ) -> Some x               | _ -> None
-let (|VarSet             |_|) e = match e with IgnoreCustomAttrs(VarSet(x, y)                   ) -> Some (x, y)          | _ -> None
-let (|WhileLoop          |_|) e = match e with IgnoreCustomAttrs(WhileLoop(x, y)                ) -> Some (x, y)          | _ -> None
-
-let (|CustomAttrs|_|) e = match e with CustomAttrs(x, y) -> Some (x, y) | _ -> None
-
-let AddressOf x                     = AddressOf x                    
-let AddressSet(x, y)                = AddressSet(x, y)               
-let Application(x, y)               = Application(x, y)              
-let Call(x, y)                      = Call(x, y)                     
-let CallModule(x, y)                = CallModule(x, y)               
-let Coerce(x, y)                    = Coerce(x, y)                   
-let DefaultValue x                  = DefaultValue x                 
-let FieldGetInstance(x, y)          = FieldGetInstance(x, y)         
-let FieldGetRecord(x, y)            = FieldGetRecord(x, y)           
-let FieldGetStatic x                = FieldGetStatic x               
-let FieldGetUnion(x, y, z)          = FieldGetUnion(x, y, z)         
-let FieldSetRecord(x, y, z)         = FieldSetRecord(x, y, z)        
-let FieldSetInstance(x, y, z)       = FieldSetInstance(x, y, z)      
-let FieldSetStatic(x, y)            = FieldSetStatic(x, y)           
-let ForIntegerRangeLoop(x, y, z, u) = ForIntegerRangeLoop(x, y, z, u)
-let Hole(x, y)                      = Hole(x, y)                     
-let IfThenElse(x, y, z)             = IfThenElse(x, y, z)            
-let Lambda(x, y)                    = Lambda(x, y)                   
-let Let(x, y, z)                    = Let(x, y, z)                   
-let LetRecursive(x, y)              = LetRecursive(x, y)             
-let NewArray(x, y)                  = NewArray(x, y)                 
-let NewDelegate(x, y)               = NewDelegate(x, y)              
-let NewObject(x, y)                 = NewObject(x, y)                
-let NewRecord(x, y)                 = NewRecord(x, y)                
-let NewTuple x                      = NewTuple x                     
-let NewUnionCase(x, y)              = NewUnionCase(x, y)             
-let PropertyGet(x, y)               = PropertyGet(x, y)              
-let PropertySet(x, y)               = PropertySet(x, y)              
-let Quote x                         = Quote x                        
-let Sequential(x, y)                = Sequential(x, y)               
-let TupleGet(x, y)                  = TupleGet(x, y)                 
-let TryFinally(x, y)                = TryFinally(x, y)               
-let TryWith(x, y, z, u, v)          = TryWith(x, y, z, u, v)         
-let TypeTest(x, y)                  = TypeTest(x, y)                 
-let UnionCaseTest(x, y)             = UnionCaseTest(x, y)            
-let Value x                         = Value x                        
-let Var x                           = Var x                          
-let VarSet(x, y)                    = VarSet(x, y)                   
-let WhileLoop(x, y)                 = WhileLoop(x, y)                
 
 type Definitions =
     list<Definition * Expression>
@@ -430,6 +346,7 @@ let ReadBool input =
 
 let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
     let localAssembly = assemblyName.FullName
+    let assemblyName = assemblyName.Name
     let readAssemblyReference input =
         match ReadString input with
         | "" -> typeof<int>.Assembly.FullName
@@ -512,7 +429,32 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
         | 2 -> readLambda env input
         | 3 -> Hole (readType input, ReadInt input)
         | 4 -> Quote (E input)
-        | 5 -> CustomAttrs (E input, ReadList E input)
+        | 5 -> 
+            let x = E input
+            let posOpt =
+                ReadList E input |> List.tryPick (
+                    function 
+                    | NewTuple
+                        [
+                            Value (String "DebugRange")
+                            NewTuple [
+                                Value (String fileName)
+                                Value (Int startLine)
+                                Value (Int startCol)
+                                _; _
+                            ]
+                        ] -> 
+                            Some {
+                                S.Assembly = assemblyName
+                                S.File   = fileName
+                                S.Line   = startLine
+                                S.Column = startCol
+                            }
+                    | _ -> None
+                )
+            match posOpt with
+            | Some pos -> SourcePos(x, pos)
+            | None -> x
         | 6 -> Var (Id.Global "this" (readType input))
         | t ->
             printfn "readExpression error, tag: %d" t
@@ -617,7 +559,7 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
             ReadList0 input
             let (a, b, c) = ReadList3 E input
             match c with
-            | CustomAttrs(Lambda (v, body), l) -> CustomAttrs(ForIntegerRangeLoop (v, a, b, body), l)
+            | SourcePos(Lambda (v, body), pos) -> SourcePos(ForIntegerRangeLoop (v, a, b, body), pos)
             | Lambda (v, body) -> ForIntegerRangeLoop (v, a, b, body)
             | _ ->
                 printfn "readTerm error, ForIntegerRangeLoop"
@@ -640,7 +582,7 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
             ReadList0 input
             let (a, b) = ReadList2 E input
             match b with
-            | CustomAttrs(Lambda (v, b), l) -> CustomAttrs(Let (v, a, b), l)
+            | SourcePos(Lambda (v, b), pos) -> SourcePos(Let (v, a, b), pos)
             | Lambda (v, b) -> Let (v, a, b)
             | _ ->
                 printfn "readTerm error, Let"
@@ -708,8 +650,8 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
             ReadList0 input
             let (a, b, c) = ReadList3 E input
             match b, c with
-            | CustomAttrs(Lambda (bV, bB), l), Lambda (cV, cB) ->
-                CustomAttrs(TryWith (a, bV, bB, cV, cB), l)
+            | SourcePos(Lambda (bV, bB), pos), Lambda (cV, cB) ->
+                SourcePos(TryWith (a, bV, bB, cV, cB), pos)
             | Lambda (bV, bB), Lambda (cV, cB) ->
                 TryWith (a, bV, bB, cV, cB)
             | _ ->
@@ -719,7 +661,7 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
             ReadList0 input
             let (a, b) = ReadList2 E input
             match a with
-            | CustomAttrs(Var x, l) -> CustomAttrs(VarSet (x, b), l)
+            | SourcePos(Var x, pos) -> SourcePos(VarSet (x, b), pos)
             | Var x -> VarSet (x, b)
             | _ -> 
                 printfn "readTerm error, VarSet"
@@ -792,8 +734,8 @@ let Transform (!) (expr: E) : E =
         | Lambda (v, x) -> (v, x)
         | _ -> raise TransformException
     match expr with
-    | CustomAttrs (e, l) ->
-        CustomAttrs (!e, l)
+    | SourcePos (e, pos) ->
+        SourcePos (!e, pos)
     | AddressOf x ->
         AddressOf !x
     | AddressSet (x, y) ->
@@ -920,3 +862,87 @@ let Alpha expr =
             Transform (t env) expr
     t Map.empty expr
 
+let inline (|IgnoreSourcePos|) expr =
+    match expr with SourcePos (e, _) | e -> e
+
+let (|AddressOf          |_|) e = match e with IgnoreSourcePos(AddressOf x                    ) -> Some x               | _ -> None
+let (|AddressSet         |_|) e = match e with IgnoreSourcePos(AddressSet(x, y)               ) -> Some (x, y)          | _ -> None
+let (|Application        |_|) e = match e with IgnoreSourcePos(Application(x, y)              ) -> Some (x, y)          | _ -> None
+let (|Call               |_|) e = match e with IgnoreSourcePos(Call(x, y)                     ) -> Some (x, y)          | _ -> None
+let (|CallModule         |_|) e = match e with IgnoreSourcePos(CallModule(x, y)               ) -> Some (x, y)          | _ -> None
+let (|Coerce             |_|) e = match e with IgnoreSourcePos(Coerce(x, y)                   ) -> Some (x, y)          | _ -> None
+let (|DefaultValue       |_|) e = match e with IgnoreSourcePos(DefaultValue x                 ) -> Some x               | _ -> None
+let (|FieldGetInstance   |_|) e = match e with IgnoreSourcePos(FieldGetInstance(x, y)         ) -> Some (x, y)          | _ -> None
+let (|FieldGetRecord     |_|) e = match e with IgnoreSourcePos(FieldGetRecord(x, y)           ) -> Some (x, y)          | _ -> None
+let (|FieldGetStatic     |_|) e = match e with IgnoreSourcePos(FieldGetStatic x               ) -> Some x               | _ -> None
+let (|FieldGetUnion      |_|) e = match e with IgnoreSourcePos(FieldGetUnion(x, y, z)         ) -> Some (x, y, z)       | _ -> None
+let (|FieldSetRecord     |_|) e = match e with IgnoreSourcePos(FieldSetRecord(x, y, z)        ) -> Some (x, y, z)       | _ -> None
+let (|FieldSetInstance   |_|) e = match e with IgnoreSourcePos(FieldSetInstance(x, y, z)      ) -> Some (x, y, z)       | _ -> None
+let (|FieldSetStatic     |_|) e = match e with IgnoreSourcePos(FieldSetStatic(x, y)           ) -> Some (x, y)          | _ -> None
+let (|ForIntegerRangeLoop|_|) e = match e with IgnoreSourcePos(ForIntegerRangeLoop(x, y, z, u)) -> Some (x, y, z, u)    | _ -> None
+let (|Hole               |_|) e = match e with IgnoreSourcePos(Hole(x, y)                     ) -> Some (x, y)          | _ -> None
+let (|IfThenElse         |_|) e = match e with IgnoreSourcePos(IfThenElse(x, y, z)            ) -> Some (x, y, z)       | _ -> None
+let (|Lambda             |_|) e = match e with IgnoreSourcePos(Lambda(x, y)                   ) -> Some (x, y)          | _ -> None
+let (|Let                |_|) e = match e with IgnoreSourcePos(Let(x, y, z)                   ) -> Some (x, y, z)       | _ -> None
+let (|LetRecursive       |_|) e = match e with IgnoreSourcePos(LetRecursive(x, y)             ) -> Some (x, y)          | _ -> None
+let (|NewArray           |_|) e = match e with IgnoreSourcePos(NewArray(x, y)                 ) -> Some (x, y)          | _ -> None
+let (|NewDelegate        |_|) e = match e with IgnoreSourcePos(NewDelegate(x, y)              ) -> Some (x, y)          | _ -> None
+let (|NewObject          |_|) e = match e with IgnoreSourcePos(NewObject(x, y)                ) -> Some (x, y)          | _ -> None
+let (|NewRecord          |_|) e = match e with IgnoreSourcePos(NewRecord(x, y)                ) -> Some (x, y)          | _ -> None
+let (|NewTuple           |_|) e = match e with IgnoreSourcePos(NewTuple x                     ) -> Some x               | _ -> None
+let (|NewUnionCase       |_|) e = match e with IgnoreSourcePos(NewUnionCase(x, y)             ) -> Some (x, y)          | _ -> None
+let (|PropertyGet        |_|) e = match e with IgnoreSourcePos(PropertyGet(x, y)              ) -> Some (x, y)          | _ -> None
+let (|PropertySet        |_|) e = match e with IgnoreSourcePos(PropertySet(x, y)              ) -> Some (x, y)          | _ -> None
+let (|Quote              |_|) e = match e with IgnoreSourcePos(Quote x                        ) -> Some x               | _ -> None
+let (|Sequential         |_|) e = match e with IgnoreSourcePos(Sequential(x, y)               ) -> Some (x, y)          | _ -> None
+let (|TupleGet           |_|) e = match e with IgnoreSourcePos(TupleGet(x, y)                 ) -> Some (x, y)          | _ -> None
+let (|TryFinally         |_|) e = match e with IgnoreSourcePos(TryFinally(x, y)               ) -> Some (x, y)          | _ -> None
+let (|TryWith            |_|) e = match e with IgnoreSourcePos(TryWith(x, y, z, u, v)         ) -> Some (x, y, z, u, v) | _ -> None
+let (|TypeTest           |_|) e = match e with IgnoreSourcePos(TypeTest(x, y)                 ) -> Some (x, y)          | _ -> None
+let (|UnionCaseTest      |_|) e = match e with IgnoreSourcePos(UnionCaseTest(x, y)            ) -> Some (x, y)          | _ -> None
+let (|Value              |_|) e = match e with IgnoreSourcePos(Value x                        ) -> Some x               | _ -> None
+let (|Var                |_|) e = match e with IgnoreSourcePos(Var x                          ) -> Some x               | _ -> None
+let (|VarSet             |_|) e = match e with IgnoreSourcePos(VarSet(x, y)                   ) -> Some (x, y)          | _ -> None
+let (|WhileLoop          |_|) e = match e with IgnoreSourcePos(WhileLoop(x, y)                ) -> Some (x, y)          | _ -> None
+
+let (|SourcePos|_|) e = match e with SourcePos(x, y) -> Some (x, y) | _ -> None
+
+let AddressOf x                     = AddressOf x                    
+let AddressSet(x, y)                = AddressSet(x, y)               
+let Application(x, y)               = Application(x, y)              
+let Call(x, y)                      = Call(x, y)                     
+let CallModule(x, y)                = CallModule(x, y)               
+let Coerce(x, y)                    = Coerce(x, y)                   
+let DefaultValue x                  = DefaultValue x                 
+let FieldGetInstance(x, y)          = FieldGetInstance(x, y)         
+let FieldGetRecord(x, y)            = FieldGetRecord(x, y)           
+let FieldGetStatic x                = FieldGetStatic x               
+let FieldGetUnion(x, y, z)          = FieldGetUnion(x, y, z)         
+let FieldSetRecord(x, y, z)         = FieldSetRecord(x, y, z)        
+let FieldSetInstance(x, y, z)       = FieldSetInstance(x, y, z)      
+let FieldSetStatic(x, y)            = FieldSetStatic(x, y)           
+let ForIntegerRangeLoop(x, y, z, u) = ForIntegerRangeLoop(x, y, z, u)
+let Hole(x, y)                      = Hole(x, y)                     
+let IfThenElse(x, y, z)             = IfThenElse(x, y, z)            
+let Lambda(x, y)                    = Lambda(x, y)                   
+let Let(x, y, z)                    = Let(x, y, z)                   
+let LetRecursive(x, y)              = LetRecursive(x, y)             
+let NewArray(x, y)                  = NewArray(x, y)                 
+let NewDelegate(x, y)               = NewDelegate(x, y)              
+let NewObject(x, y)                 = NewObject(x, y)                
+let NewRecord(x, y)                 = NewRecord(x, y)                
+let NewTuple x                      = NewTuple x                     
+let NewUnionCase(x, y)              = NewUnionCase(x, y)             
+let PropertyGet(x, y)               = PropertyGet(x, y)              
+let PropertySet(x, y)               = PropertySet(x, y)              
+let Quote x                         = Quote x                        
+let Sequential(x, y)                = Sequential(x, y)               
+let TupleGet(x, y)                  = TupleGet(x, y)                 
+let TryFinally(x, y)                = TryFinally(x, y)               
+let TryWith(x, y, z, u, v)          = TryWith(x, y, z, u, v)         
+let TypeTest(x, y)                  = TypeTest(x, y)                 
+let UnionCaseTest(x, y)             = UnionCaseTest(x, y)            
+let Value x                         = Value x                        
+let Var x                           = Var x                          
+let VarSet(x, y)                    = VarSet(x, y)                   
+let WhileLoop(x, y)                 = WhileLoop(x, y)                

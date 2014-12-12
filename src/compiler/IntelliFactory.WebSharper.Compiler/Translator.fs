@@ -26,7 +26,6 @@ module P = IntelliFactory.JavaScript.Packager
 module Q = IntelliFactory.WebSharper.Core.Quotations
 module R = IntelliFactory.WebSharper.Core.Reflection
 module V = IntelliFactory.WebSharper.Compiler.Validator
-module S = IntelliFactory.JavaScript.Syntax
 
 type Dictionary<'T1,'T2> =
     System.Collections.Generic.Dictionary<'T1,'T2>
@@ -141,6 +140,8 @@ let (|ListLiteral|_|) q =
             |> Some
         | _ -> None
 
+#nowarn "25"
+
 let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
     (meta: Metadata.T) (here: Location) (expr: Q.Expression) =
 
@@ -203,29 +204,8 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
             printfn "Invalid quotation: %A" quotation
             raise InvalidQuotation
         match quotation with
-        | Q.CustomAttrs (x, y) ->
-            y |> List.tryPick (
-                function 
-                | Q.NewTuple
-                    [
-                        Q.Value (Q.String "DebugRange")
-                        Q.NewTuple [
-                            Q.Value (Q.String fileName)
-                            Q.Value (Q.Int startLine)
-                            Q.Value (Q.Int startCol)
-                            _; _
-                        ]
-                    ] -> 
-                        Some {
-                            S.File   = fileName
-                            S.Line   = startLine
-                            S.Column = startCol
-                        }
-                | _ -> None
-            )
-            |> function
-            | Some pos -> !x |> C.WithPos pos
-            | None -> !x
+        | Q.SourcePos (x, pos) ->
+            !x |> C.WithPos pos
         | Q.AddressOf x ->
             error "Explicit address capture is not supported."
         | Q.AddressSet _ ->

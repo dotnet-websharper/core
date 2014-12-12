@@ -42,6 +42,7 @@
 module IntelliFactory.WebSharper.Core.Quotations
 
 module R = IntelliFactory.WebSharper.Core.Reflection
+module S = IntelliFactory.JavaScript.Syntax
 
 /// Thrown when the parser fails to recognize serialized metadata.
 exception InvalidFormatException
@@ -153,7 +154,7 @@ type Expression =
     | Var                 of Id
     | VarSet              of Id * E
     | WhileLoop           of E * E
-    | CustomAttrs         of E * E list 
+    | SourcePos           of E * S.SourcePos
 
 and private E = Expression
 
@@ -196,7 +197,7 @@ val (|Value              |_|) : E -> (Literal                          ) option
 val (|Var                |_|) : E -> (Id                               ) option
 val (|VarSet             |_|) : E -> (Id * E                           ) option
 val (|WhileLoop          |_|) : E -> (E * E                            ) option
-val (|CustomAttrs        |_|) : E -> (E * E list                       ) option
+val (|SourcePos          |_|) : E -> (E * S.SourcePos                  ) option
 
 val AddressOf           : E                                 -> E
 val AddressSet          : E * E                             -> E

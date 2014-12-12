@@ -670,7 +670,7 @@ type CodeWriter(?assemblyName: string) =
                 | true, i ->  i
                 | false, _ ->
                     let i = sources.Count
-                    sources.Add(fileName)
+                    sources.Add(fileName, pos.Assembly)
                     sourcesDict.Add(fileName, i)   
                     i
         
@@ -689,36 +689,49 @@ type CodeWriter(?assemblyName: string) =
     member this.GetCodeFile() = string code
 
     member this.GetMapFile() =
-        if sources.Count = 0 then printfn "Warning: source map not generated"; None else
+        if sources.Count = 0 then None else
         let mapFile = StringBuilder()
-        mapFile.AppendLine "{" |> ignore
-        mapFile.AppendLine "\"version\": 3," |> ignore
-        mapFile.Append "\"sourceRoot\": \"FSharpSource" |> ignore
-        assemblyName |> Option.iter (fun a ->
-            mapFile.Append '/' |> ignore
-            mapFile.Append a |> ignore
-        ) 
-        mapFile.AppendLine "\"," |> ignore
-        mapFile.Append "\"sources\": [\"" |> ignore
+        let inline mapC (c: char) = mapFile.Append c |> ignore 
+        let inline mapS (s: string) = mapFile.Append s |> ignore 
+        let inline mapN (s: string) = mapFile.AppendLine s |> ignore 
+
+        mapN "{"
+        mapN "\"version\": 3,"
+        mapN "\"sourceRoot\": \"FSharpSource\","
+        mapS "\"sources\": [\""
         let im = sources.Count - 1
         for i = 0 to im do
-            mapFile.Append(string (i + 1)) |> ignore
-            mapFile.Append('_') |> ignore
-            mapFile.Append(System.IO.Path.GetFileName(sources.[i])) |> ignore    
+            let file, assembly = sources.[i]
+            mapS assembly
+            mapC '/'
+            mapS (System.IO.Path.GetFileName file)
             if i < im then
-                mapFile.Append "\", \"" |> ignore  
-        mapFile.AppendLine "\"]," |> ignore
-        mapFile.Append "\"sourcesContent\": [\"" |> ignore
+                mapS "\", \""
+        mapN "\"],"
+        mapS "\"sourcesContent\": ["
         for i = 0 to im do
-            mapFile.Append(System.IO.File.ReadAllText(sources.[i]).Replace("\\", "\\\\").Replace("\"", "\\\"").Replace(System.Environment.NewLine, "\\n")) |> ignore    
+            let file, assembly = sources.[i]
+            if Some assembly = assemblyName then
+                mapC '"'
+                for c in System.IO.File.ReadAllText file do
+                    match c with
+                    | '\\' -> mapS "\\\\"
+                    | '"' ->  mapS "\\\""
+                    | '\n' -> mapS "\\n"
+                    | '\r' -> ()
+                    | _ -> mapC c
+                mapC '"'
+            else 
+                mapS "null"
             if i < im then
-                mapFile.Append "\", \"" |> ignore  
-        mapFile.AppendLine "\"]," |> ignore            
-        mapFile.AppendLine "\"names\": []," |> ignore
-        mapFile.Append "\"mappings\": \"" |> ignore
+                mapS ", "
+
+        mapN "],"         
+        mapN "\"names\": [],"
+        mapS "\"mappings\": \""
         mapFile.Append mappings |> ignore
-        mapFile.AppendLine "\"" |> ignore    
-        mapFile.AppendLine "}" |> ignore
+        mapN "\""  
+        mapN "}"
         Some <| string mapFile
 
 let Render mode (out: CodeWriter) layout =
@@ -741,20 +754,6 @@ let Render mode (out: CodeWriter) layout =
         | P p :: ys ->
             out.AddCodeMapping p
             renderAtoms ys   
-//    let rec renderAtoms x xs =
-//        match x with 
-//        | W x | T x -> 
-//            out.Write x
-//        | P p -> out.AddCodeMapping p
-//        match xs with
-//        | [] -> ()
-//        | y :: ys ->
-//            match x, y with
-//            | W _,  W _ | T "+", T "+" | T "-", T "-" ->
-//                out.Write ' '
-//            | _ ->
-//                ()
-//            renderAtoms y ys
     let renderLine line =
         match line.Atoms with
         | [] -> ()
