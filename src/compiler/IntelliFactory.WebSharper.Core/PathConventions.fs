@@ -100,6 +100,9 @@ module PathConventions =
         member p.TypeScriptDefinitionsPath(a) =
             scripts ++ p.TypeScriptDefinitionsFileName(a)
 
+        member p.SourceFilePath(s) =
+            scripts ++ s
+
         member p.EmbeddedPath(r) =
             match r.Kind with
             | ContentResource -> content ++ r.Id.ShortName ++ r.Name

@@ -60,6 +60,9 @@ type Assembly =
     /// The TypeScript `.d.ts` declarations for the JavaScript.
     member TypeScriptDeclarations : option<string>
 
+    /// The source files embedded for source mapping, in path-contents pairs
+    member EmbeddedSourceFiles : (string * string)[]
+
     static member internal Create :
         def: Mono.Cecil.AssemblyDefinition
         * ?loadPath: string

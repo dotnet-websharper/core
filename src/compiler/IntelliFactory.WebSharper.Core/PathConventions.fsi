@@ -95,6 +95,9 @@ module PathConventions =
         /// Filename for the `.d.ts` TypeScript file corresponding to an assembly.
         member TypeScriptDefinitionsFileName : AssemblyId -> string
 
+        /// Path or URL to a source file that was packaged for source mapping.
+        member SourceFilePath : string -> string 
+
         /// Constructs a utiltiy object based on the physical path to the
         /// web root folder, which can be obtained by `Server.MapPath("~")`.
         static member FileSystem : rootDirectory: string -> PathUtility

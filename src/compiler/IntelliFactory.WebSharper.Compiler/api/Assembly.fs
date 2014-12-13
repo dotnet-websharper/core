@@ -143,6 +143,15 @@ type Assembly =
     member this.TypeScriptDeclarations =
         ReadResource EMBEDDED_DTS this.Definition
 
+    member this.EmbeddedSourceFiles =
+        this.Definition.MainModule.Resources
+        |> Seq.choose (function
+            | :? Mono.Cecil.EmbeddedResource as r when r.Name.StartsWith EMBEDDED_SOURCES ->
+                use reader = new StreamReader(r.GetResourceStream())
+                Some (r.Name, reader.ReadToEnd())
+            | _ -> None)
+        |> Seq.toArray 
+
     static member Create(def, ?loadPath, ?symbols) =
         {
             Debug = symbols

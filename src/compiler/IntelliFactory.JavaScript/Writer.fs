@@ -708,31 +708,17 @@ type CodeWriter(?assemblyName: string) =
             if i < im then
                 mapS "\", \""
         mapN "\"],"
-        mapS "\"sourcesContent\": ["
-        for i = 0 to im do
-            let file, assembly = sources.[i]
-            if Some assembly = assemblyName then
-                mapC '"'
-                for c in System.IO.File.ReadAllText file do
-                    match c with
-                    | '\\' -> mapS "\\\\"
-                    | '"' ->  mapS "\\\""
-                    | '\n' -> mapS "\\n"
-                    | '\r' -> ()
-                    | _ -> mapC c
-                mapC '"'
-            else 
-                mapS "null"
-            if i < im then
-                mapS ", "
-
-        mapN "],"         
         mapN "\"names\": [],"
         mapS "\"mappings\": \""
         mapFile.Append mappings |> ignore
         mapN "\""  
         mapN "}"
-        Some <| string mapFile
+        Some (string mapFile)        
+
+    member this.GetSourceFiles() =
+        sources |> Seq.choose (
+            fun (f, a) -> if Some a = assemblyName then Some f else None
+        ) |> Array.ofSeq    
 
 let Render mode (out: CodeWriter) layout =
     let inline (|OP|_|) xs =
