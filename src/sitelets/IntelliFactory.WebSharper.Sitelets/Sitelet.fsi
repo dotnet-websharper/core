@@ -101,10 +101,10 @@ module Sitelet =
     val Infer<'T when 'T : equality> : ('T -> Content<'T>) -> Sitelet<'T>
 
     /// Constructs a partial sitelet with an inferred router and a given controller function.
-    val InferPartial<'T1, 'T2 when 'T2 : equality> :
+    val InferPartial<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
         ('T1 -> 'T2) -> ('T2 -> 'T1 option) -> ('T1 -> Content<'T2>) -> Sitelet<'T2>
 
     /// Constructs a partial sitelet with an inferred router and a given controller function.
     /// The actions covered by this sitelet correspond to the given union case.
-    val InferPartialInUnion<'T1, 'T2 when 'T2 : equality> :
+    val InferPartialInUnion<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
         Expr<'T1 -> 'T2> -> ('T1 -> Content<'T2>) -> Sitelet<'T2>
