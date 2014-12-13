@@ -139,11 +139,9 @@ module Sitelet =
                         C.ToResponse (sitelet.Controller.Handle ea) (Context.Map embed ctx)
                     | None -> failwith "Invalid action in Sitelet.Embed" }
         }
- 
-    /// Maps over the sitelet action type, where the destination type
-    /// is a discriminated union with a case containing the source type.
-    let EmbedInUnion (case: Expr<'T1 -> 'T2>) sitelet =
-        match case with
+
+    let tryGetEmbedFunctionsFromExpr (expr: Expr<'T1 -> 'T2>) =
+        match expr with
         | ExprShape.ShapeLambda(_, Patterns.NewUnionCase (uci, _)) ->
             let embed (y: 'T1) = FSharpValue.MakeUnion(uci, [|box y|]) :?> 'T2
             let unembed (x: 'T2) =
@@ -151,8 +149,15 @@ module Sitelet =
                 if uci.Tag = uci'.Tag then
                     Some (args'.[0] :?> 'T1)
                 else None
-            Embed embed unembed sitelet
-        | _ -> failwith "Invalid union case in Sitelet.EmbedInUnion"
+            Some (embed, unembed)
+        | _ -> None
+ 
+    /// Maps over the sitelet action type, where the destination type
+    /// is a discriminated union with a case containing the source type.
+    let EmbedInUnion (case: Expr<'T1 -> 'T2>) sitelet =
+        match tryGetEmbedFunctionsFromExpr case with
+        | Some (embed, unembed) -> Embed embed unembed sitelet
+        | None -> failwith "Invalid union case in Sitelet.EmbedInUnion"
 
     /// Shifts all sitelet locations by a given prefix.
     let Shift (prefix: string) (sitelet: Sitelet<'T>) =
@@ -188,3 +193,18 @@ module Sitelet =
             Router = Router.Infer()
             Controller = { Handle = handle }
         }
+
+    let InferPartial (embed: 'T1 -> 'T2) (unembed: 'T2 -> 'T1 option) (mkContent: 'T1 -> Content<'T2>) : Sitelet<'T2> =
+        {
+            Router = Router.Infer() |> Router.TryMap (Some << embed) unembed
+            Controller =
+                { Handle = fun p ->
+                    match unembed p with
+                    | Some e -> mkContent e
+                    | None -> failwith "Invalid action in Sitelet.InferPartial" }
+        }
+
+    let InferPartialInUnion (case: Expr<'T1 -> 'T2>) mkContent =
+        match tryGetEmbedFunctionsFromExpr case with
+        | Some (embed, unembed) -> InferPartial embed unembed mkContent
+        | None -> failwith "Invalid union case in Sitelet.InferPartialInUnion"
