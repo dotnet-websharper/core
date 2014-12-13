@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -20,28 +20,35 @@
 
 namespace IntelliFactory.WebSharper.Sitelets
 
+/// Provides services available to handlers at run-time.
 type Context<'Action> =
     {
+
+        /// Virtual application root path on the server.
         ApplicationPath : string
+
+        /// Generates a (possibly relative) URL to a given action.
         Link : 'Action -> string
+
+        /// The typed JSON provider for interacting with the client.
         Json : IntelliFactory.WebSharper.Core.Json.Provider
+
+        /// WebSharper metadata required for serializing controls.
         Metadata : IntelliFactory.WebSharper.Core.Metadata.Info
+
+        // Generates a URL respecting the application path.
         ResolveUrl : string -> string
+
+        /// WebSharper resource rendering context required for resources.
         ResourceContext : IntelliFactory.WebSharper.Core.Resources.Context
+
+        /// HTTP Request object
         Request : Http.Request
+
+        /// The full path to the root application folder.
         RootFolder : string
     }
 
 module Context =
 
-    let Map (f: 'T2 -> 'T1) (ctx: Context<'T1>) : Context<'T2> =
-        {
-            ApplicationPath = ctx.ApplicationPath
-            Link = ctx.Link << f
-            Json = ctx.Json
-            Metadata = ctx.Metadata
-            ResolveUrl = ctx.ResolveUrl
-            ResourceContext = ctx.ResourceContext
-            Request = ctx.Request
-            RootFolder = ctx.RootFolder
-        }
+    val Map : ('T2 -> 'T1) -> Context<'T1> -> Context<'T2>
