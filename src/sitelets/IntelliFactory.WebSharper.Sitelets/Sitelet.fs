@@ -118,83 +118,25 @@ module Sitelet =
                     Handle = fun action ->
                         match s.Controller.Handle <| g action with
                         | Content.CustomContent genResp ->
-                            CustomContent <| fun ctx ->
-                                {
-                                    ResolveUrl = ctx.ResolveUrl
-                                    ApplicationPath = ctx.ApplicationPath
-                                    Link = fun a -> ctx.Link (f a)
-                                    Json = ctx.Json
-                                    Metadata = ctx.Metadata
-                                    ResourceContext = ctx.ResourceContext
-                                    Request = ctx.Request
-                                    RootFolder = ctx.RootFolder
-                                }
-                                |> genResp
+                            CustomContent (genResp << Context.Map f)
                         | Content.CustomContentAsync genResp ->
-                            CustomContentAsync <| fun ctx ->
-                                {
-                                    ResolveUrl = ctx.ResolveUrl
-                                    ApplicationPath = ctx.ApplicationPath
-                                    Link = fun a -> ctx.Link (f a)
-                                    Json = ctx.Json
-                                    Metadata = ctx.Metadata
-                                    ResourceContext = ctx.ResourceContext
-                                    Request = ctx.Request
-                                    RootFolder = ctx.RootFolder
-                                }
-                                |> genResp
+                            CustomContentAsync (genResp << Context.Map f)
                         | Content.PageContent genPage ->
-                            PageContent <| fun ctx ->
-                                {
-                                    ResolveUrl = ctx.ResolveUrl
-                                    ApplicationPath = ctx.ApplicationPath
-                                    Json = ctx.Json
-                                    Link = fun a -> ctx.Link (f a)
-                                    Metadata = ctx.Metadata
-                                    ResourceContext = ctx.ResourceContext
-                                    Request = ctx.Request
-                                    RootFolder = ctx.RootFolder
-                                }
-                                |> genPage
+                            PageContent (genPage << Context.Map f)
                         | Content.PageContentAsync genPage ->
-                            PageContentAsync <| fun ctx ->
-                                {
-                                    ResolveUrl = ctx.ResolveUrl
-                                    ApplicationPath = ctx.ApplicationPath
-                                    Json = ctx.Json
-                                    Link = fun a -> ctx.Link (f a)
-                                    Metadata = ctx.Metadata
-                                    ResourceContext = ctx.ResourceContext
-                                    Request = ctx.Request
-                                    RootFolder = ctx.RootFolder
-                                }
-                                |> genPage
+                            PageContentAsync (genPage << Context.Map f)
                 }
         }
 
     /// Maps over the sitelet action type with only an injection.
     let Embed embed unembed sitelet =
         {
-            Router =
-                Router.New
-                    (sitelet.Router.Route >> Option.map embed)
-                    (unembed >> Option.bind sitelet.Router.Link)
+            Router = Router.TryMap (Some << embed) unembed sitelet.Router
             Controller =
                 { Handle = fun a ->
                     match unembed a with
                     | Some ea -> C.CustomContent <| fun ctx ->
-                        C.ToResponse (sitelet.Controller.Handle ea)
-                            {
-                                ResolveUrl = ctx.ResolveUrl
-                                ApplicationPath = ctx.ApplicationPath
-                                Link = embed >> ctx.Link
-                                Json = ctx.Json
-                                Metadata = ctx.Metadata
-                                ResourceContext = ctx.ResourceContext
-                                Request = ctx.Request
-                                RootFolder = ctx.RootFolder
-                            }
- 
+                        C.ToResponse (sitelet.Controller.Handle ea) (Context.Map embed ctx)
                     | None -> failwith "Invalid action in Sitelet.Embed" }
         }
  
