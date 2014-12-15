@@ -122,6 +122,7 @@ and Expression =
     | This
     | Unary       of UnaryOperator * E
     | Var         of Id
+    | VarNamed    of Id * string
     | ExprPos     of Expression * SourcePos
 
     static member ( + ) : E * E -> E
@@ -202,6 +203,7 @@ val (|Postfix    |_|) : E -> (E * PostfixOperator                         ) opti
 val (|This       |_|) : E -> (unit                                        ) option
 val (|Unary      |_|) : E -> (UnaryOperator * E                           ) option
 val (|Var        |_|) : E -> (Id                                          ) option
+val (|VarNamed   |_|) : E -> (Id * string                                 ) option
 val (|ExprPos    |_|) : E -> (Expression * SourcePos                      ) option
 
 val Application : E * list<E>                                  -> E
@@ -217,6 +219,7 @@ val Postfix     : E * PostfixOperator                          -> E
 val This        :                                                 E
 val Unary       : UnaryOperator * E                            -> E
 val Var         : Id                                           -> E
+val VarNamed    : Id * string                                  -> E
 val ExprPos     : Expression * SourcePos                       -> E
 
 /// Represents complete programs.

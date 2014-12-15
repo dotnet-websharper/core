@@ -633,7 +633,7 @@ module Scope =
             Formals : HashSet<Id>
             Mode : Preferences
             Parent : option<T>
-            Table : Dictionary<Id,S.Id>
+            Table : Dictionary<Id,S.Expression>
             This : Id
             Used : HashSet<S.Id>
         }
@@ -698,31 +698,37 @@ module Scope =
             match scope.Mode with
             | Compact -> PickCompactName id scope
             | Readable -> PickReadableName id scope
-        scope.Table.[id] <- name
+        let e =
+            match id.Name with
+            | None -> S.Var name
+            | Some n -> if n = name then S.Var n else S.VarNamed(name, n)
+        scope.Table.[id] <- e
         Use scope name
-        name
+        e
 
     let Expression scope id =
         let rec lookup scope id k =
             match scope.Table.TryGetValue id with
-            | true, value ->
-                Some (S.Var value)
+            | true, value -> Some value
             | _ ->
                 if scope.This = id then
                     if k = 0 then Some S.This else
-                        Some (S.Var (Bind id scope))
+                        Some (Bind id scope)
                 else
                     match scope.Parent with
                     | Some p -> lookup p id (k + 1)
                     | None -> None
         match lookup scope id 0 with
-        | None -> S.Var (Bind id scope)
+        | None -> Bind id scope
         | Some v -> v
 
     let Id scope id =
         match Expression scope id with
-        | S.This -> Bind id scope
-        | S.Var x -> x
+        | S.This -> 
+            match Bind id scope with
+            | S.Var x -> x
+            | _ -> failwith "Unreachable."
+        | S.Var x  -> x
         | _ -> failwith "Unreachable."
 
     let Nest scope this formals =
@@ -743,7 +749,7 @@ module Scope =
 
     let Vars scope =
         [
-            for KeyValue (k, v) in scope.Table do
+            for KeyValue (k, S.Var v) in scope.Table do
                 if scope.This = k then
                     yield (v, Some S.This)
                 elif not (scope.Formals.Contains k) then

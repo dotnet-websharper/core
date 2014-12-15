@@ -34,6 +34,7 @@ type Layout =
     | Vertical of Layout * Layout
     | Indent of Layout
     | SourceMapping of S.SourcePos
+    | SourceName of string
 
 let inline ( ++ ) a b = Horizontal (a, b)
 let inline ( -- ) a b = Vertical (a, b)
@@ -299,6 +300,8 @@ let rec Expression (buf: StringBuilder) expression =
         ++ AssignmentExpression buf b
         ++ Token ":"
         ++ AssignmentExpression buf c
+    | S.VarNamed (x, n) ->
+        SourceName n ++ Word (EscapeId buf x)
     | S.Var x ->
         Word (EscapeId buf x)
     | S.Lambda (name, formals, body) ->
@@ -537,6 +540,7 @@ type Atom =
     | T of string
     | W of string
     | P of S.SourcePos
+    | N of string
 
 type Line =
     {
@@ -588,6 +592,8 @@ let ToLines mode layout =
             append level (T x) tail
         | SourceMapping p ->
             append level (P p) tail
+        | SourceName n ->
+            append level (N n) tail
     lines 0 [] (Simplify layout)
 
 type CodeMapping =
@@ -630,10 +636,14 @@ type CodeWriter(?assemblyName: string) =
     let mutable colFromLastMapping = 0
     let sources = ResizeArray()
     let sourcesDict = System.Collections.Generic.Dictionary()
+    let names = ResizeArray()
+    let namesDict = System.Collections.Generic.Dictionary()
+
     let mutable lastFileName = ""
     let mutable lastFileIndex = 0
     let mutable lastSourceLine = 0
     let mutable lastSourceColumn = 0
+    let mutable lastNameIndex = 0
 
     member this.Write(s: string) =
         code.Append s |> ignore
@@ -649,7 +659,7 @@ type CodeWriter(?assemblyName: string) =
         insertComma <- false
         colFromLastMapping <- 0
 
-    member this.AddCodeMapping(pos : S.SourcePos) =
+    member this.AddCodeMapping(pos : S.SourcePos, ?name : string) =
         if insertComma then
             mappings.Append ',' |> ignore
         else
@@ -665,7 +675,7 @@ type CodeWriter(?assemblyName: string) =
             let fileIndex =
                 match sourcesDict.TryGetValue fileName with
                 | true, i ->  i
-                | false, _ ->
+                | _ ->
                     let i = sources.Count
                     sources.Add(fileName, pos.Assembly)
                     sourcesDict.Add(fileName, i)   
@@ -682,6 +692,20 @@ type CodeWriter(?assemblyName: string) =
         let sourceColumn = pos.Column
         mappings |> encodeBase64VLQ (sourceColumn - lastSourceColumn)
         lastSourceColumn <- sourceColumn
+
+        match name with
+        | Some name ->
+            let nameIndex =
+                match namesDict.TryGetValue name with
+                | true, i -> i
+                | _ ->
+                    let i = names.Count
+                    names.Add name
+                    namesDict.Add(name, i)
+                    i
+            mappings |> encodeBase64VLQ (nameIndex - lastNameIndex)
+            lastNameIndex <- nameIndex
+        | _ -> ()
 
     member this.GetCodeFile() = string code
 
@@ -705,7 +729,15 @@ type CodeWriter(?assemblyName: string) =
             if i < im then
                 mapS "\", \""
         mapN "\"],"
-        mapN "\"names\": [],"
+        mapS "\"names\": [" 
+        let im = names.Count - 1
+        for i = 0 to im do
+            mapC '"'
+            mapS names.[i]
+            mapC '"'
+            if i < im then
+                mapS ", "
+        mapN "],"
         mapS "\"mappings\": \""
         mapFile.Append mappings |> ignore
         mapN "\""  
@@ -718,14 +750,15 @@ type CodeWriter(?assemblyName: string) =
         ) |> Array.ofSeq    
 
 let Render mode (out: CodeWriter) layout =
-    let rec (|OP|_|) xs =
+    let rec (|O|_|) xs =
         match xs with
         | [] -> None
-        | P _ :: ys -> (|OP|_|) ys
+        | P _ :: ys 
+        | N _ :: ys -> (|O|_|) ys
         | y :: _ -> Some y
-    let rec (|SP|) xs =
+    let rec (|S|) xs =
         match xs with
-        | P _ :: ys -> (|SP|) ys
+        | P _ :: ys -> (|S|) ys
         | _ -> xs
     let rec renderAtoms xs =
         match xs with
@@ -734,11 +767,14 @@ let Render mode (out: CodeWriter) layout =
             out.Write s   
             match x, ys with
             | _, [] -> ()
-            | W _, OP(W _) | T "+", OP(T "+") | T "-", OP(T "-") ->
+            | W _, O(W _) | T "+", O(T "+") | T "-", O(T "-") ->
                 out.Write ' '   
             | _ -> () 
             renderAtoms ys
-        | P p :: SP ys ->
+        | P p :: S(N n :: ys) ->
+            out.AddCodeMapping(p, n)
+            renderAtoms ys   
+        | P p :: S ys ->
             out.AddCodeMapping p
 //            out.Write " /* P "
 //            out.Write (System.IO.Path.GetFileName p.File)
@@ -748,6 +784,11 @@ let Render mode (out: CodeWriter) layout =
 //            out.Write (string p.Column)
 //            out.Write " */ "
             renderAtoms ys   
+        | N n :: ys ->
+//            out.Write " /* N "
+//            out.Write n
+//            out.Write " */ "
+            renderAtoms ys               
     let renderLine line =
         match line.Atoms with
         | [] -> ()

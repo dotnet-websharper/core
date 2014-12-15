@@ -123,6 +123,7 @@ and Expression =
     | This
     | Unary       of UnaryOperator * E
     | Var         of Id
+    | VarNamed    of Id * string
     | ExprPos     of Expression * SourcePos
 
     static member ( + ) (a, b) = Binary (a, B.``+``, b)
@@ -192,9 +193,6 @@ and ProgramElement =
     | Action of S
     | Function of Id * list<Id> * list<ProgramElement>
 
-let inline (|IgnorePos|) e =
-    match e with ExprPos(e, _) | e -> e
-
 type Program = list<ProgramElement>
 
 let TransformExpression (!) (!^) expr =
@@ -215,7 +213,8 @@ let TransformExpression (!) (!^) expr =
     | Constant _
     | NewRegex _
     | This
-    | Var _ -> expr
+    | Var _ 
+    | VarNamed _ -> expr
     | ExprPos (x, pos) -> ExprPos (!x, pos)
 
 let TransformStatement (!) (!^) stmt =
@@ -288,7 +287,8 @@ let GetLocals (body: list<ProgramElement>) (bound: Set<Id>) =
 let Close (glob: Id) (expr: E) =
     let rec tE bound expr =
         match expr with
-        | Var id ->
+        | Var id
+        | VarNamed (id, _) ->
             if Set.contains id bound then expr else
                 (?) (Var glob) id
         | Lambda (name, vars, body) ->
@@ -337,7 +337,8 @@ let Optimize (expr: E) =
             let newFree = Set.difference free (Set.ofList fv)
             let newVars = List.rev (removeVars free (List.rev vars))
             (newFree, Lambda (name, newVars, newBody))
-        | Var x ->
+        | Var x 
+        | VarNamed (x, _) ->
             (Set.singleton x, expr)
         | _ ->
             WalkExpression tE tS Set.unionMany expr
@@ -358,6 +359,9 @@ let Optimize (expr: E) =
         WalkStatement tE tS Set.unionMany stmt
     snd (tE expr)
 
+let inline (|IgnorePos|) e =
+    match e with ExprPos(e, _) | e -> e
+
 let (|Application|_|) e = match e with IgnorePos (Application(x, y)   ) -> Some (x, y)    | _ -> None 
 let (|Binary     |_|) e = match e with IgnorePos (Binary(x, y, z)     ) -> Some (x, y, z) | _ -> None 
 let (|Conditional|_|) e = match e with IgnorePos (Conditional(x, y, z)) -> Some (x, y, z) | _ -> None 
@@ -370,7 +374,9 @@ let (|NewRegex   |_|) e = match e with IgnorePos (NewRegex x          ) -> Some 
 let (|Postfix    |_|) e = match e with IgnorePos (Postfix(x, y)       ) -> Some (x, y)    | _ -> None 
 let (|This       |_|) e = match e with IgnorePos (This                ) -> Some ()        | _ -> None 
 let (|Unary      |_|) e = match e with IgnorePos (Unary(x, y)         ) -> Some (x, y)    | _ -> None 
-let (|Var        |_|) e = match e with IgnorePos (Var x               ) -> Some x         | _ -> None 
+
+let (|Var        |_|) e = match e with IgnorePos (Var x | VarNamed(x, _)) -> Some x         | _ -> None 
+let (|VarNamed   |_|) e = match e with IgnorePos (VarNamed(x, y)        ) -> Some (x, y)    | _ -> None 
 
 let (|ExprPos|_|) e = match e with ExprPos(x, y)  -> Some (x, y) | _ -> None 
 
@@ -387,4 +393,5 @@ let Postfix(x, y)        = Postfix(x, y)
 let This                 = This                
 let Unary(x, y)          = Unary(x, y)         
 let Var x                = Var x               
+let VarNamed(x, y)       = VarNamed(x, y)        
 let ExprPos(x, y)        = ExprPos(x, y)
