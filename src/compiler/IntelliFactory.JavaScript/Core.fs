@@ -321,7 +321,7 @@ let inline unExprNode e =
     | ExprNode e -> e
     | _ -> raise TransformError
 
-#nowarn "25"
+//#nowarn "25"
 
 let ENodeMatch e =
 
@@ -1292,7 +1292,6 @@ type Effects =
     | EffZ
     | EffSt of S.Statement
     | EffApp of Effects * Effects
-    | EffPos of Effects * S.SourcePos
 
     static member Append a b =
         match a, b with
@@ -1313,10 +1312,6 @@ type Effects =
             | EffZ -> tail
             | EffSt s -> s :: tail
             | EffApp (a, b) -> toS a (toS b tail)
-            | EffPos (a, pos) ->
-                match toS a tail with
-                | [] -> []
-                | f :: t -> S.StatementPos(f, pos) :: t
         toS eff []
 
     member eff.ToBlock() =
@@ -1405,6 +1400,11 @@ let ToProgram prefs (expr: E) : S.Program =
     let voidKS k s =
         voidK k (stmt s)
 
+    let withPos pos e = 
+        match e with
+        | S.ExprPos (e, _)
+        | e -> S.ExprPos (e, pos)
+
     let rec cW (sc: Scope.T) (expr: E) (k: S.Expression -> Effects) : Effects =
         c sc expr (KWith k)
 
@@ -1423,7 +1423,7 @@ let ToProgram prefs (expr: E) : S.Program =
         let inline (!^) x = Scope.Expression sc x
         match expr with
         | SourcePos (x, pos) ->
-            EffPos(c sc x k, pos)
+            cW sc x (fun x -> appK k (x |> withPos pos))
         | Application (f, a) ->
             match f with
             | FieldGet (t, m) ->
@@ -1784,6 +1784,4 @@ let Recognize expr =
         | S.Vars _
         | S.With _ ->
             raise RecognitionError
-        | S.StatementPos (x, pos) ->
-            rS env tail x |> WithPos pos 
     try Some (rE None Map.empty true expr) with RecognitionError -> None

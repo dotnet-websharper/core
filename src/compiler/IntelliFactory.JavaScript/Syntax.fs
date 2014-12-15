@@ -109,20 +109,21 @@ type Literal =
         | True -> "true"
 
 and Expression =
+    private
     | Application of E * list<E>
-    | Binary of E * BinaryOperator * E
+    | Binary      of E * BinaryOperator * E
     | Conditional of E * E * E
-    | Constant of Literal
-    | Lambda of option<Id> * list<Id> * list<ProgramElement>
-    | New of E * list<E>
-    | NewArray of list<option<E>>
-    | NewObject of list<Id * E>
-    | NewRegex of Regex
-    | Postfix of E * PostfixOperator
+    | Constant    of Literal
+    | Lambda      of option<Id> * list<Id> * list<ProgramElement>
+    | New         of E * list<E>
+    | NewArray    of list<option<E>>
+    | NewObject   of list<Id * E>
+    | NewRegex    of Regex
+    | Postfix     of E * PostfixOperator
     | This
-    | Unary of UnaryOperator * E
-    | Var of Id
-    | ExprPos of Expression * SourcePos
+    | Unary       of UnaryOperator * E
+    | Var         of Id
+    | ExprPos     of Expression * SourcePos
 
     static member ( + ) (a, b) = Binary (a, B.``+``, b)
     static member ( - ) (a, b) = Binary (a, B.``-``, b)
@@ -158,28 +159,27 @@ and Expression =
         Binary (e, B.``.``, Constant (String msg))
 
 and Statement =
-    | Block of list<S>
-    | Break of option<Label>
-    | Continue of option<Label>
+    | Block      of list<S>
+    | Break      of option<Label>
+    | Continue   of option<Label>
     | Debugger
-    | Do of S * E
+    | Do         of S * E
     | Empty
-    | For of option<E> * option<E> * option<E> * S
-    | ForIn of E * E * S
-    | ForVarIn of Id * option<E> * E * S
-    | ForVars of list<Id * option<E>> * option<E> * option<E> * S
-    | If of E * S * S
-    | Ignore of E
-    | Labelled of Label * S
-    | Return of option<E>
-    | Switch of E * list<SwitchElement>
-    | Throw of E
+    | For        of option<E> * option<E> * option<E> * S
+    | ForIn      of E * E * S
+    | ForVarIn   of Id * option<E> * E * S
+    | ForVars    of list<Id * option<E>> * option<E> * option<E> * S
+    | If         of E * S * S
+    | Ignore     of E
+    | Labelled   of Label * S
+    | Return     of option<E>
+    | Switch     of E * list<SwitchElement>
+    | Throw      of E
     | TryFinally of S * S
-    | TryWith of S * Id * S * option<S>
-    | Vars of list<Id * option<E>>
-    | While of E * S
-    | With of E * S
-    | StatementPos of S * SourcePos
+    | TryWith    of S * Id * S * option<S>
+    | Vars       of list<Id * option<E>>
+    | While      of E * S
+    | With       of E * S
 
 and SwitchElement =
     | Case of E * list<S>
@@ -191,6 +191,9 @@ and S = Statement
 and ProgramElement =
     | Action of S
     | Function of Id * list<Id> * list<ProgramElement>
+
+let inline (|IgnorePos|) e =
+    match e with ExprPos(e, _) | e -> e
 
 type Program = list<ProgramElement>
 
@@ -246,7 +249,6 @@ let TransformStatement (!) (!^) stmt =
     | Continue _
     | Debugger
     | Empty -> stmt
-    | StatementPos (x, pos) -> StatementPos (!^x, pos) 
 
 let Fold t fE fS init x =
     let state = ref init
@@ -355,3 +357,34 @@ let Optimize (expr: E) =
     and tS stmt : Set<Id> * Statement =
         WalkStatement tE tS Set.unionMany stmt
     snd (tE expr)
+
+let (|Application|_|) e = match e with IgnorePos (Application(x, y)   ) -> Some (x, y)    | _ -> None 
+let (|Binary     |_|) e = match e with IgnorePos (Binary(x, y, z)     ) -> Some (x, y, z) | _ -> None 
+let (|Conditional|_|) e = match e with IgnorePos (Conditional(x, y, z)) -> Some (x, y, z) | _ -> None 
+let (|Constant   |_|) e = match e with IgnorePos (Constant x          ) -> Some x         | _ -> None 
+let (|Lambda     |_|) e = match e with IgnorePos (Lambda(x, y, z)     ) -> Some (x, y, z) | _ -> None 
+let (|New        |_|) e = match e with IgnorePos (New(x, y)           ) -> Some (x, y)    | _ -> None 
+let (|NewArray   |_|) e = match e with IgnorePos (NewArray x          ) -> Some x         | _ -> None 
+let (|NewObject  |_|) e = match e with IgnorePos (NewObject x         ) -> Some x         | _ -> None 
+let (|NewRegex   |_|) e = match e with IgnorePos (NewRegex x          ) -> Some x         | _ -> None 
+let (|Postfix    |_|) e = match e with IgnorePos (Postfix(x, y)       ) -> Some (x, y)    | _ -> None 
+let (|This       |_|) e = match e with IgnorePos (This                ) -> Some ()        | _ -> None 
+let (|Unary      |_|) e = match e with IgnorePos (Unary(x, y)         ) -> Some (x, y)    | _ -> None 
+let (|Var        |_|) e = match e with IgnorePos (Var x               ) -> Some x         | _ -> None 
+
+let (|ExprPos|_|) e = match e with ExprPos(x, y)  -> Some (x, y) | _ -> None 
+
+let Application(x, y)    = Application(x, y)   
+let Binary(x, y, z)      = Binary(x, y, z)     
+let Conditional(x, y, z) = Conditional(x, y, z)
+let Constant x           = Constant x          
+let Lambda(x, y, z)      = Lambda(x, y, z)     
+let New(x, y)            = New(x, y)           
+let NewArray x           = NewArray x          
+let NewObject x          = NewObject x         
+let NewRegex x           = NewRegex x          
+let Postfix(x, y)        = Postfix(x, y)       
+let This                 = This                
+let Unary(x, y)          = Unary(x, y)         
+let Var x                = Var x               
+let ExprPos(x, y)        = ExprPos(x, y)

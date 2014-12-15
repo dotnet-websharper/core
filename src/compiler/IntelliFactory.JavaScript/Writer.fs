@@ -33,7 +33,7 @@ type Layout =
     | Horizontal of Layout * Layout
     | Vertical of Layout * Layout
     | Indent of Layout
-    | SourceMapping of Layout * S.SourcePos
+    | SourceMapping of S.SourcePos
 
 let inline ( ++ ) a b = Horizontal (a, b)
 let inline ( -- ) a b = Vertical (a, b)
@@ -245,6 +245,8 @@ let BlockLayout items =
 
 let rec Expression (buf: StringBuilder) expression =
     match expression with
+    | S.ExprPos (x, pos) -> 
+        SourceMapping pos ++ Expression buf x
     | S.Application (f, xs) ->
         MemberExpression buf f
         ++ Parens (CommaSeparated (AssignmentExpression buf) xs)
@@ -292,7 +294,6 @@ let rec Expression (buf: StringBuilder) expression =
         | S.Number x -> Word x
         | S.String x -> Token (QuoteString buf x)
     | S.Conditional (a, b, c) ->
-        let p = Precedence expression
         LogicalOrExpression buf a
         ++ Token "?"
         ++ AssignmentExpression buf b
@@ -333,8 +334,6 @@ let rec Expression (buf: StringBuilder) expression =
         Token (string x)
     | S.This ->
         Word "this"
-    | S.ExprPos (x, pos) -> 
-        SourceMapping (Expression buf x, pos)
 
 and Statement (buf: StringBuilder) statement =
     match statement with
@@ -459,8 +458,6 @@ and Statement (buf: StringBuilder) statement =
         -- Indent (Statement buf s)
     | S.With (e, s) ->
         Word "with" ++ Parens (Expression buf e) ++ Statement buf s
-    | S.StatementPos (e, pos) ->
-        SourceMapping (Statement buf e, pos)
 
 and Element (buf: StringBuilder) elem =
     match elem with
@@ -589,8 +586,8 @@ let ToLines mode layout =
             append level (W x) tail
         | Token x ->
             append level (T x) tail
-        | SourceMapping (x, pos) ->
-            lines level (append level (P pos) tail) x        
+        | SourceMapping p ->
+            append level (P p) tail
     lines 0 [] (Simplify layout)
 
 type CodeMapping =
@@ -721,11 +718,15 @@ type CodeWriter(?assemblyName: string) =
         ) |> Array.ofSeq    
 
 let Render mode (out: CodeWriter) layout =
-    let inline (|OP|_|) xs =
+    let rec (|OP|_|) xs =
         match xs with
         | [] -> None
-        | P _ :: y :: _
+        | P _ :: ys -> (|OP|_|) ys
         | y :: _ -> Some y
+    let rec (|SP|) xs =
+        match xs with
+        | P _ :: ys -> (|SP|) ys
+        | _ -> xs
     let rec renderAtoms xs =
         match xs with
         | [] -> ()
@@ -737,8 +738,15 @@ let Render mode (out: CodeWriter) layout =
                 out.Write ' '   
             | _ -> () 
             renderAtoms ys
-        | P p :: ys ->
+        | P p :: SP ys ->
             out.AddCodeMapping p
+//            out.Write " /* P "
+//            out.Write (System.IO.Path.GetFileName p.File)
+//            out.Write " Ln "
+//            out.Write (string p.Line)
+//            out.Write " Col "
+//            out.Write (string p.Column)
+//            out.Write " */ "
             renderAtoms ys   
     let renderLine line =
         match line.Atoms with
