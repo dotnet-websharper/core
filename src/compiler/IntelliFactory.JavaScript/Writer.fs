@@ -337,6 +337,8 @@ let rec Expression (buf: StringBuilder) expression =
         Token (string x)
     | S.This ->
         Word "this"
+    | _ ->
+        failwith "Syntax.Expression not recognized"
 
 and Statement (buf: StringBuilder) statement =
     match statement with
@@ -714,6 +716,8 @@ type CodeWriter(?assemblyName: string) =
 
     member this.GetCodeFile() = string code
 
+    override this.ToString() = string code
+
     member this.GetMapFile() =
         if sources.Count = 0 then None else
         let mapFile = StringBuilder()
@@ -781,18 +785,8 @@ let Render mode (out: CodeWriter) layout =
             renderAtoms ys   
         | P p :: S ys ->
             out.AddCodeMapping p
-//            out.Write " /* P "
-//            out.Write (System.IO.Path.GetFileName p.File)
-//            out.Write " Ln "
-//            out.Write (string p.Line)
-//            out.Write " Col "
-//            out.Write (string p.Column)
-//            out.Write " */ "
             renderAtoms ys   
         | N n :: ys ->
-//            out.Write " /* N "
-//            out.Write n
-//            out.Write " */ "
             renderAtoms ys               
     let renderLine line =
         match line.Atoms with

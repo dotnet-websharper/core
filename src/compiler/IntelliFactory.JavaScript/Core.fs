@@ -321,7 +321,7 @@ let inline unExprNode e =
     | ExprNode e -> e
     | _ -> raise TransformError
 
-//#nowarn "25"
+#nowarn "25"
 
 let ENodeMatch e =
 
@@ -727,9 +727,7 @@ module Scope =
         | S.This -> 
             match Bind id scope with
             | S.Var x -> x
-            | _ -> failwith "Unreachable."
         | S.Var x  -> x
-        | _ -> failwith "Unreachable."
 
     let Nest scope this formals =
         let nS =
@@ -850,8 +848,6 @@ let Uncurry expression =
                         match b with
                         | CurriedLambda (_, vs, b) ->
                             (v, Lambda (None, vs, optimize fs b))
-                        | _ ->
-                            failwith "Unreachable."
                     else
                         (v, optimize fs b)),
                 optimize fs body
@@ -978,8 +974,7 @@ let RemoveLoops expr =
                 formals
                 |> List.iteri (fun j v ->
                     slots.[v] <- (args, j + 1))
-            | _ ->
-                failwith "Unreachable.")
+        )
         let exit x =
             FieldSet (args, i 0, i 0)
             ++ FieldSet (args, i 1, x)
@@ -991,9 +986,7 @@ let RemoveLoops expr =
                 | c::cs -> IfThenElse (Binary (x, B.``===``, i k),
                                        c, f (k+1) cs)
             f 1 cases
-        let getBody = function
-            | (_, Lambda (None, _, b)) -> b
-            | _ -> failwith "Unreachable."
+        let getBody (_, Lambda (None, _, b)) = b
         let states = List.map (getBody >> t exit) bindings
         let cycle = WhileLoop (next, switch next states)
         let res = ret (FieldGet (args, i 1))
