@@ -27,6 +27,7 @@ module UnpackCommand =
         {
             Assemblies : list<string>
             RootDirectory : string
+            UnpackSourceMap : bool
         }
 
         static member Create : unit -> Config

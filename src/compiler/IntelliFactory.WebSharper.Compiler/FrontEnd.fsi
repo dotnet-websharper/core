@@ -38,6 +38,7 @@ module FrontEnd =
             ErrorLimit : int
             KeyPair : option<StrongNameKeyPair>
             References : list<Assembly>
+            IncludeSourceMap : bool
         }
 
         /// The defaults.
@@ -58,7 +59,7 @@ module FrontEnd =
         member Compile : quotation: Quotations.Expr * context: System.Reflection.Assembly * ?name: string -> option<CompiledAssembly>
 
         /// Compiles an assembly and rewrites it on disk.
-        member CompileAndModify : assembly: Assembly -> bool
+        member CompileAndModify : assembly: Assembly * ?sourceMap: bool -> bool
 
     /// Prepares a compiler.
     val Prepare : Options -> log: (Message -> unit) -> Compiler

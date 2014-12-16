@@ -73,3 +73,7 @@ type WebSharperTask =
     /// Specifies which project type is being built.
     member WebSharperProject : string with get, set
 
+    /// Specifies if source map is generated and source files are included
+    /// in the assembly as resources.
+    member WebSharperSourceMap : string with get, set
+

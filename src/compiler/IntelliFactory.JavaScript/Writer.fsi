@@ -21,14 +21,17 @@
 /// Provides a writer for JavaScript syntax.
 module IntelliFactory.JavaScript.Writer
 
-type private TextWriter =
-    System.IO.TextWriter
+type CodeWriter =
+    new : ?assemblyName : string -> CodeWriter 
+    member GetMapFile : unit -> string option
+    member GetCodeFile : unit -> string
+    member GetSourceFiles : unit -> string[]
 
 /// Writes a JavaScript expression to a writer.
-val WriteExpression : Preferences -> TextWriter -> Syntax.Expression -> unit
+val WriteExpression : Preferences -> CodeWriter -> Syntax.Expression -> unit
 
 /// Writes a JavaScript program to a writer.
-val WriteProgram : Preferences -> TextWriter -> Syntax.Program -> unit
+val WriteProgram : Preferences -> CodeWriter -> Syntax.Program -> unit
 
 /// Writes a JavaScript expression to a string.
 val ExpressionToString : Preferences -> Syntax.Expression -> string

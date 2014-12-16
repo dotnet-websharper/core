@@ -53,8 +53,9 @@ module WebSharperTaskModule =
             WebProjectOutputDir : string
             WebSharperBundleOutputDir : string
             WebSharperHtmlDirectory : string
-            WebSharperExplicitRefs : string
+            WebSharperExplicitRefs : bool
             WebSharperProject : string
+            WebSharperSourceMap : bool
         }
 
     type ProjectType =
@@ -188,6 +189,7 @@ module WebSharperTaskModule =
                                 match GetProjectType settings with
                                 | Extension -> true
                                 | _ -> false
+                            IncludeSourceMap = settings.WebSharperSourceMap
                         }
                     for msg in out.Messages do
                         msg.SendTo(settings.Log)
@@ -260,12 +262,7 @@ module WebSharperTaskModule =
             }
 
     let DetermineReferences settings =
-        let expl =
-            match settings.WebSharperExplicitRefs with
-            | null | "" -> false
-            | t when t.ToLower() = "true" -> true
-            | _ -> false
-        if expl then
+        if settings.WebSharperExplicitRefs then
             []
         else
             let alreadyReferenced =
@@ -338,6 +335,7 @@ module WebSharperTaskModule =
                     Compiler.UnpackCommand.Config.Create() with
                         Assemblies = assemblies
                         RootDirectory = webRoot
+                        UnpackSourceMap = settings.WebSharperSourceMap
                 }
             let env = Compiler.Commands.Environment.Create()
             Compiler.UnpackCommand.Instance.Execute(env, cfg)
@@ -367,6 +365,7 @@ module WebSharperTaskModule =
                             OutputDirectory = HtmlOutputDirectory settings
                             ProjectDirectory = settings.MSBuildProjectDirectory
                             ReferenceAssemblyPaths = refs
+                            UnpackSourceMap = settings.WebSharperSourceMap
                     }
                 let env = Compiler.Commands.Environment.Create()
                 Compiler.HtmlCommand.Instance.Execute(env, cfg)
@@ -437,6 +436,7 @@ type WebSharperTask() =
     member val WebSharperExplicitRefs = "" with get, set
     member val WebSharperHtmlDirectory = "" with get, set
     member val WebSharperProject = "" with get, set
+    member val WebSharperSourceMap = "" with get, set
 
     [<Required>]
     member val Command = "" with get, set
@@ -448,6 +448,12 @@ type WebSharperTask() =
     member val ReferenceCopyLocalPaths : ITaskItem [] = Array.empty with get, set
 
     override this.Execute() =
+        let bool s =
+            match s with
+            | null | "" -> false
+            | t when t.ToLower() = "true" -> true
+            | _ -> false
+
         Execute {
             Command = this.Command
             Configuration = NotNull "Release" this.Configuration
@@ -462,7 +468,8 @@ type WebSharperTask() =
             SetReferenceCopyLocalPaths = fun items -> this.ReferenceCopyLocalPaths <- items
             WebProjectOutputDir = NotNull "" this.WebProjectOutputDir
             WebSharperBundleOutputDir = NotNull "" this.WebSharperBundleOutputDir
-            WebSharperExplicitRefs = NotNull "" this.WebSharperExplicitRefs
+            WebSharperExplicitRefs = bool this.WebSharperExplicitRefs
             WebSharperHtmlDirectory = NotNull "" this.WebSharperHtmlDirectory
             WebSharperProject = NotNull "" this.WebSharperProject
+            WebSharperSourceMap = bool this.WebSharperSourceMap
         }

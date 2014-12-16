@@ -46,6 +46,12 @@ let EMBEDDED_JS = "WebSharper.js"
 [<Literal>]
 let EMBEDDED_MINJS = "WebSharper.min.js"
 
+[<Literal>]
+let EMBEDDED_MAP = "WebSharper.map"
+
+[<Literal>]
+let EMBEDDED_MINMAP = "WebSharper.min.map"
+
 type Mode = H.Mode
 
 type Config =
@@ -53,6 +59,7 @@ type Config =
         Actions : list<obj>
         Options : H.Config
         Sitelet : Sitelet<obj>
+        UnpackSourceMap : bool
     }
 
     member this.OutputDirectory =
@@ -127,6 +134,20 @@ let getAssemblyFileName (mode: Mode) (aN: Re.AssemblyName) =
 let getAssemblyJavaScriptPath (conf: Config) (aN: Re.AssemblyName) =
     P.CreatePath ["Scripts"; aN.Name; getAssemblyFileName conf.Options.Mode aN]
 
+/// Gets the source map filename of an assembly, for example `IntelliFactory.WebSharper.map`.
+let getAssemblyMapFileName (mode: Mode) (aN: Re.AssemblyName) =
+    match mode with
+    | H.Debug -> String.Format("{0}.map", aN.Name)
+    | H.Release -> String.Format("{0}.min.map", aN.Name)
+
+/// Gets the physical path to the assembly source map.
+let getAssemblyMapPath (conf: Config) (aN: Re.AssemblyName) =
+    P.CreatePath ["Scripts"; aN.Name; getAssemblyMapFileName conf.Options.Mode aN]
+
+/// Gets the physical path to the assembly source map.
+let getSourceFilePath (conf: Config) (aN: Re.AssemblyName) (n: string) =
+    P.CreatePath ["Scripts"; aN.Name; n]
+
 /// Gets the physical path to the embedded resoure file.
 let getEmbeddedResourcePath (conf: Config) (res: EmbeddedResource) =
     let x = res.Type.Assembly.GetName()
@@ -165,8 +186,23 @@ let writeEmbeddedResource (cfg: Config) (assemblyPath: string) (n: string) (targ
             use s2 = createFile cfg targetPath
             streamCopy s s2
 
+/// Writes an embedded resource to the target path.
+let writeEmbeddedSourceFiles (cfg: Config) assemblyName (assemblyPath: string) =
+    let aD = AssemblyDefinition.ReadAssembly(assemblyPath)
+    aD.MainModule.Resources
+    |> Seq.choose (fun r ->
+        match r with
+        | :? Mono.Cecil.EmbeddedResource as r ->
+            if r.Name.StartsWith "FSharpSource/" then Some (r.Name, r.GetResourceStream()) else None
+        | _ -> None)
+    |> Seq.iter (fun (n, s) ->
+        use s = s
+        use s2 = createFile cfg (getSourceFilePath cfg assemblyName n)
+        streamCopy s s2
+    )
+
 /// Outputs all required resources. This is the last step of processing.
-let writeResources (aR: AssemblyResolver) (st: State) =
+let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) =
     for aN in st.Assemblies do
         let assemblyPath = aR.ResolvePath(AssemblyName aN.FullName)
         match assemblyPath with
@@ -177,6 +213,16 @@ let writeResources (aR: AssemblyResolver) (st: State) =
                 | H.Release -> EMBEDDED_MINJS
             let p = getAssemblyJavaScriptPath st.Config aN
             writeEmbeddedResource st.Config aP embeddedResourceName p
+            if sourceMap then
+                let sourceMapResourceName =
+                    match st.Config.Options.Mode with
+                    | H.Debug -> EMBEDDED_MAP
+                    | H.Release -> EMBEDDED_MINMAP
+                let p = getAssemblyMapPath st.Config aN
+                try writeEmbeddedResource st.Config aP embeddedResourceName p
+                    if sourceMap then
+                        writeEmbeddedSourceFiles st.Config aN aP
+                with _ -> ()
         | None ->
             stderr.WriteLine("Could not resolve: {0}", aN)
     for res in st.Resources do
@@ -361,5 +407,5 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
             use stream = createFile conf rC.Path
             return response.WriteBody(stream)
         // Write resources determined to be necessary.
-        return writeResources aR st
+        return writeResources aR st conf.UnpackSourceMap
     }

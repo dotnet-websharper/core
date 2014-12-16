@@ -39,8 +39,14 @@ type Assembly =
     /// Reads the embedded JavaScript.
     member CompressedJavaScript : option<string>
 
+    /// Reads the embedded map file.
+    member MapFileForCompressed : option<string>
+
     /// Reads the embedded JavaScript.
     member ReadableJavaScript : option<string>
+
+    /// Reads the embedded map file.
+    member MapFileForReadable : option<string>
 
     /// The full name of the assembly.
     member FullName : string
@@ -53,6 +59,9 @@ type Assembly =
 
     /// The TypeScript `.d.ts` declarations for the JavaScript.
     member TypeScriptDeclarations : option<string>
+
+    /// The source files embedded for source mapping, in path-contents pairs
+    member EmbeddedSourceFiles : (string * string)[]
 
     static member internal Create :
         def: Mono.Cecil.AssemblyDefinition

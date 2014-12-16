@@ -46,6 +46,9 @@ module HtmlCommand =
 
             /// Paths to reference assemblies.
             ReferenceAssemblyPaths : list<string>
+
+            /// Outputs source maps and source files.
+            UnpackSourceMap : bool
         }
 
         /// Configures with default options.

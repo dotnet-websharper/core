@@ -39,18 +39,20 @@ type CompiledAssembly
         aInfo: M.AssemblyInfo,
         mInfo: M.Info,
         pkg: P.Module,
-        typeScript: string
+        typeScript: string,
+        sourceMap: bool
     ) =
 
+    let nameOfSelf = Re.AssemblyName.Convert(source.Name)
+    let shortName = nameOfSelf.Name
+
     let getJS (pref: Pref) =
-        use w = new StringWriter()
+        let w = if sourceMap then W.CodeWriter(shortName) else W.CodeWriter()
         W.WriteProgram pref w (P.Package pkg pref)
-        w.ToString()
+        w.GetCodeFile(), (w.GetMapFile(), w.GetSourceFiles())
 
     let compressedJS = lazy getJS Pref.Compact
     let readableJS = lazy getJS Pref.Readable
-
-    let nameOfSelf = Re.AssemblyName.Convert(source.Name)
 
     let deps =
         lazy
@@ -58,12 +60,19 @@ type CompiledAssembly
         mInfo.GetDependencies([self])
 
     member this.AssemblyInfo = aInfo
-    member this.CompressedJavaScript = compressedJS.Value
+    member this.CompressedJavaScript = fst compressedJS.Value
+    member this.MapFileForCompressed = if sourceMap then fst (snd compressedJS.Value) else None
     member this.Info = mInfo
     member this.Metadata = meta
     member this.Package = pkg
-    member this.ReadableJavaScript = readableJS.Value
+    member this.ReadableJavaScript = fst readableJS.Value
+    member this.MapFileForReadable = if sourceMap then fst (snd readableJS.Value) else None
     member this.TypeScriptDeclarations = typeScript
+    member this.SourcesToInclude =
+        if not sourceMap then [||] else
+        if compressedJS.IsValueCreated
+        then snd (snd compressedJS.Value)
+        else snd (snd readableJS.Value)
 
     member this.Dependencies = deps.Value
 
@@ -94,7 +103,7 @@ type CompiledAssembly
                 GetAssemblyRendering = fun name ->
                     if name = nameOfSelf then
                         (if ctx.DebuggingEnabled then Pref.Readable else Pref.Compact)
-                        |> getJS
+                        |> getJS |> fst
                         |> makeJsUri (PC.AssemblyId.Create name.FullName)
                     else
                         match context.LookupAssemblyCode(ctx.DebuggingEnabled, name) with
@@ -124,9 +133,10 @@ type CompiledAssembly
                 aInfo: M.AssemblyInfo,
                 mInfo: M.Info,
                 pkg: P.Module,
-                typeScript: string
+                typeScript: string,
+                sourceMap: bool
             ) =
-        CompiledAssembly(context, source, meta, aInfo, mInfo, pkg, typeScript)
+        CompiledAssembly(context, source, meta, aInfo, mInfo, pkg, typeScript, sourceMap)
 
     member this.WriteToCecilAssembly(a: Mono.Cecil.AssemblyDefinition) =
         let pub = Mono.Cecil.ManifestResourceAttributes.Public
@@ -135,12 +145,6 @@ type CompiledAssembly
             Metadata.Serialize s meta
             s.ToArray()
         let prog = P.Package pkg
-        let js pref =
-            use s = new MemoryStream(8 * 1024)
-            let () =
-                use w = new StreamWriter(s)
-                W.WriteProgram pref w (prog pref)
-            s.ToArray()
         let rmdata =
             use s = new MemoryStream(8 * 1024)
             aInfo.ToStream(s)
@@ -151,10 +155,22 @@ type CompiledAssembly
         Mono.Cecil.EmbeddedResource(EMBEDDED_METADATA, pub, dep)
         |> a.MainModule.Resources.Add
         if not pkg.IsEmpty then
-            Mono.Cecil.EmbeddedResource(EMBEDDED_MINJS, pub, js Pref.Compact)
+            let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
+            Mono.Cecil.EmbeddedResource(EMBEDDED_MINJS, pub, getBytes this.CompressedJavaScript)
             |> a.MainModule.Resources.Add
-            Mono.Cecil.EmbeddedResource(EMBEDDED_JS, pub, js Pref.Readable)
+            this.MapFileForCompressed |> Option.iter (fun m ->
+                Mono.Cecil.EmbeddedResource(EMBEDDED_MINMAP, pub, getBytes m)
+                |> a.MainModule.Resources.Add )
+            Mono.Cecil.EmbeddedResource(EMBEDDED_JS, pub, getBytes this.ReadableJavaScript)
             |> a.MainModule.Resources.Add
+            this.MapFileForReadable |> Option.iter (fun m ->
+                Mono.Cecil.EmbeddedResource(EMBEDDED_MAP, pub, getBytes m)
+                |> a.MainModule.Resources.Add )
+            let rootOfSources = EMBEDDED_SOURCES + shortName + "/"
+            this.SourcesToInclude |> Array.iter (fun s ->
+                let b = System.IO.File.ReadAllBytes s
+                Mono.Cecil.EmbeddedResource(rootOfSources + System.IO.Path.GetFileName s, pub, b)
+                |> a.MainModule.Resources.Add )
         Mono.Cecil.EmbeddedResource
             (
                 EMBEDDED_DTS, pub,

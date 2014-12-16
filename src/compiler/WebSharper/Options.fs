@@ -39,6 +39,7 @@ type CompilationOptions =
         OutputJavaScript : option<Path>
         OutputMinified : option<Path>
         OutputTypeScript : option<Path>
+        IncludeSourceMap : bool
         TailCalls : bool
     }
 
@@ -101,6 +102,11 @@ let spec =
                 "Enables trampolines for global tail-call optimization."
                 (A.Do.Return true)
             |> A.Default false
+        let! sm =
+            A.Keyword "-sm"
+                "Enables source map generation."
+                (A.Do.Return true)
+            |> A.Default false
         let! js =
             A.Keyword "-js"
                 "The path for the generated JavaScript."
@@ -143,6 +149,7 @@ let spec =
                     OutputJavaScript = js
                     OutputMinified = jsmin
                     OutputTypeScript = dts
+                    IncludeSourceMap = sm
                     TailCalls = tramp
                 }
     }

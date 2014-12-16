@@ -30,7 +30,16 @@ module internal Constants =
     let EMBEDDED_JS = "WebSharper.js"
 
     [<Literal>]
+    let EMBEDDED_MAP = "WebSharper.map"
+
+    [<Literal>]
     let EMBEDDED_MINJS = "WebSharper.min.js"
 
     [<Literal>]
+    let EMBEDDED_MINMAP = "WebSharper.min.map"
+
+    [<Literal>]
     let EMBEDDED_DTS = "WebSharper.d.ts"
+
+    [<Literal>]
+    let EMBEDDED_SOURCES = "FSharpSource/"
