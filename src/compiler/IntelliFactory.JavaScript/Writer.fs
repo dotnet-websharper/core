@@ -692,7 +692,7 @@ type CodeWriter(?assemblyName: string) =
                 lastFileIndex <- fileIndex   
                 lastFileName <- fileName
         
-            let sourceLine = pos.Line
+            let sourceLine = pos.Line - 1
             mappings |> encodeBase64VLQ (sourceLine - lastSourceLine)
             lastSourceLine <- sourceLine
         
