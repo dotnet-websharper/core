@@ -7,7 +7,6 @@
     <SP Include="../src/sitelets/*/*.fsproj" />
     <SP Include="../src/build/IntelliFactory.WebSharper.Templates/*.fsproj" />
     <SP Include="../tests/*/*.fsproj" />
-    <SP Include="../tests/Web/Web.csproj" />
     <BP Include="../src/build/IntelliFactory.WebSharper.Build/*.fsproj" />
   </ItemGroup>
   <Target Name="Dispatch" Condition="'$(Arguments)' != ''">
