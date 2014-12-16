@@ -335,6 +335,7 @@ module WebSharperTaskModule =
                     Compiler.UnpackCommand.Config.Create() with
                         Assemblies = assemblies
                         RootDirectory = webRoot
+                        UnpackSourceMap = settings.WebSharperSourceMap
                 }
             let env = Compiler.Commands.Environment.Create()
             Compiler.UnpackCommand.Instance.Execute(env, cfg)
@@ -364,6 +365,7 @@ module WebSharperTaskModule =
                             OutputDirectory = HtmlOutputDirectory settings
                             ProjectDirectory = settings.MSBuildProjectDirectory
                             ReferenceAssemblyPaths = refs
+                            UnpackSourceMap = settings.WebSharperSourceMap
                     }
                 let env = Compiler.Commands.Environment.Create()
                 Compiler.HtmlCommand.Instance.Execute(env, cfg)
