@@ -40,6 +40,7 @@ module FrontEnd =
             ErrorLimit : int
             KeyPair : option<StrongNameKeyPair>
             References : list<Assembly>
+            IncludeSourceMap : bool
         }
 
         static member Default =
@@ -47,18 +48,19 @@ module FrontEnd =
                 ErrorLimit = 20
                 KeyPair = None
                 References = []
+                IncludeSourceMap = false
             }
 
     [<Sealed>]
     type Compiler(errorLimit: int, log: Message -> unit, ctx: Context) =
 
         member this.Compile(quotation: Quotations.Expr, context: System.Reflection.Assembly, ?name) : option<CompiledAssembly> =
-            this.CompileAssembly(R.Dynamic.FromQuotation quotation context (defaultArg name "Example"))
+            this.CompileAssembly(R.Dynamic.FromQuotation quotation context (defaultArg name "Example"), false)
 
         member this.Compile(quotation: Quotations.Expr, ?name) : option<CompiledAssembly> =
             this.Compile(quotation, System.Reflection.Assembly.GetCallingAssembly(), ?name = name)
 
-        member this.CompileAssembly(assembly: R.AssemblyDefinition) : option<CompiledAssembly> =
+        member this.CompileAssembly(assembly: R.AssemblyDefinition, sourceMap: bool) : option<CompiledAssembly> =
             let succ = ref true
             let err (m: Message) =
                 match m.Priority with
@@ -81,13 +83,14 @@ module FrontEnd =
                     let mInfo = M.Info.Create (rm :: ctx.AssemblyInfos)
                     let pkg = pkg.Value
                     let tsDecls = TSE.ExportDeclarations joined va
-                    Some (CompiledAssembly.Create(ctx, assembly, local, rm, mInfo, pkg, tsDecls))
+                    Some (CompiledAssembly.Create(ctx, assembly, local, rm, mInfo, pkg, tsDecls, sourceMap))
                 else None
             with ErrorLimitExceeded -> None
 
-        member this.CompileAndModify(assembly: Assembly) : bool =
+        member this.CompileAndModify(assembly: Assembly, ?sourceMap: bool) : bool =
+            let sourceMap = defaultArg sourceMap false
             let asm = R.Cecil.AdaptAssembly assembly.Raw
-            match this.CompileAssembly(asm) with
+            match this.CompileAssembly(asm, sourceMap) with
             | None -> false
             | Some a -> a.WriteToCecilAssembly(assembly.Raw); true
 
@@ -97,4 +100,4 @@ module FrontEnd =
 
     let Compile (options: Options) (log: Message -> unit) : Assembly -> bool =
         let c = Prepare options log
-        fun aF -> c.CompileAndModify(aF)
+        fun aF -> c.CompileAndModify(aF, options.IncludeSourceMap)

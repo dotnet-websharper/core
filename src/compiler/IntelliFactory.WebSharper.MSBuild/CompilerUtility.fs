@@ -38,6 +38,7 @@ type CompilerInput =
         ProjectDir : string
         References : list<string>
         RunInterfaceGenerator : bool
+        IncludeSourceMap : bool
     }
 
     member this.ReadStrongNameKeyPair() =
@@ -202,7 +203,7 @@ module CompilerJobModule =
             let compiler = FE.Prepare opts (fun msg -> out.Add(CompilerMessage.Send msg))
             let fileName = input.AssemblyFile
             let assem = loader.LoadFile fileName
-            let ok = compiler.CompileAndModify assem
+            let ok = compiler.CompileAndModify(assem, input.IncludeSourceMap)
             if ok then
                 assem.Write snk fileName
             else

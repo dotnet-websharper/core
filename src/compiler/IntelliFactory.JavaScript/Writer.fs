@@ -632,6 +632,7 @@ let encodeBase64VLQ value (builder: StringBuilder) =
 type CodeWriter(?assemblyName: string) =
     let code = StringBuilder()
     let mappings = StringBuilder()
+    let sourceMap = Option.isSome assemblyName
     let mutable insertComma = false
     let mutable colFromLastMapping = 0
     let sources = ResizeArray()
@@ -647,65 +648,69 @@ type CodeWriter(?assemblyName: string) =
 
     member this.Write(s: string) =
         code.Append s |> ignore
-        colFromLastMapping <- colFromLastMapping + s.Length
+        if sourceMap then
+            colFromLastMapping <- colFromLastMapping + s.Length
 
     member this.Write(s: char) =
         code.Append s |> ignore
-        colFromLastMapping <- colFromLastMapping + 1
+        if sourceMap then
+            colFromLastMapping <- colFromLastMapping + 1
 
     member this.WriteLine() =
         code.AppendLine() |> ignore
-        mappings.Append ';' |> ignore
-        insertComma <- false
-        colFromLastMapping <- 0
+        if sourceMap then
+            mappings.Append ';' |> ignore
+            insertComma <- false
+            colFromLastMapping <- 0
 
     member this.AddCodeMapping(pos : S.SourcePos, ?name : string) =
-        if insertComma then
-            mappings.Append ',' |> ignore
-        else
-            insertComma <- true
+        if sourceMap then
+            if insertComma then
+                mappings.Append ',' |> ignore
+            else
+                insertComma <- true
 
-        mappings |> encodeBase64VLQ colFromLastMapping
-        colFromLastMapping <- 0
+            mappings |> encodeBase64VLQ colFromLastMapping
+            colFromLastMapping <- 0
 
-        let fileName = pos.File
-        if lastFileName = fileName then
-            mappings.Append 'A' |> ignore
-        else
-            let fileIndex =
-                match sourcesDict.TryGetValue fileName with
-                | true, i ->  i
-                | _ ->
-                    let i = sources.Count
-                    sources.Add(fileName, pos.Assembly)
-                    sourcesDict.Add(fileName, i)   
-                    i
+            let fileName = pos.File
+            if lastFileName = fileName then
+                mappings.Append 'A' |> ignore
+            else
+                let fileIndex =
+                    match sourcesDict.TryGetValue fileName with
+                    | true, i ->  i
+                    | _ ->
+                        let i = sources.Count
+                        sources.Add(fileName, pos.Assembly)
+                        sourcesDict.Add(fileName, i)   
+                        i
         
-            mappings |> encodeBase64VLQ (fileIndex - lastFileIndex)   
-            lastFileIndex <- fileIndex   
-            lastFileName <- fileName
+                mappings |> encodeBase64VLQ (fileIndex - lastFileIndex)   
+                lastFileIndex <- fileIndex   
+                lastFileName <- fileName
         
-        let sourceLine = pos.Line
-        mappings |> encodeBase64VLQ (sourceLine - lastSourceLine)
-        lastSourceLine <- sourceLine
+            let sourceLine = pos.Line
+            mappings |> encodeBase64VLQ (sourceLine - lastSourceLine)
+            lastSourceLine <- sourceLine
         
-        let sourceColumn = pos.Column
-        mappings |> encodeBase64VLQ (sourceColumn - lastSourceColumn)
-        lastSourceColumn <- sourceColumn
+            let sourceColumn = pos.Column
+            mappings |> encodeBase64VLQ (sourceColumn - lastSourceColumn)
+            lastSourceColumn <- sourceColumn
 
-        match name with
-        | Some name ->
-            let nameIndex =
-                match namesDict.TryGetValue name with
-                | true, i -> i
-                | _ ->
-                    let i = names.Count
-                    names.Add name
-                    namesDict.Add(name, i)
-                    i
-            mappings |> encodeBase64VLQ (nameIndex - lastNameIndex)
-            lastNameIndex <- nameIndex
-        | _ -> ()
+            match name with
+            | Some name ->
+                let nameIndex =
+                    match namesDict.TryGetValue name with
+                    | true, i -> i
+                    | _ ->
+                        let i = names.Count
+                        names.Add name
+                        namesDict.Add(name, i)
+                        i
+                mappings |> encodeBase64VLQ (nameIndex - lastNameIndex)
+                lastNameIndex <- nameIndex
+            | _ -> ()
 
     member this.GetCodeFile() = string code
 

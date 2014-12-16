@@ -39,14 +39,15 @@ type CompiledAssembly
         aInfo: M.AssemblyInfo,
         mInfo: M.Info,
         pkg: P.Module,
-        typeScript: string
+        typeScript: string,
+        sourceMap: bool
     ) =
 
     let nameOfSelf = Re.AssemblyName.Convert(source.Name)
     let shortName = nameOfSelf.Name
 
     let getJS (pref: Pref) =
-        let w = W.CodeWriter(shortName)
+        let w = if sourceMap then W.CodeWriter(shortName) else W.CodeWriter()
         W.WriteProgram pref w (P.Package pkg pref)
         w.GetCodeFile(), (w.GetMapFile(), w.GetSourceFiles())
 
@@ -60,14 +61,15 @@ type CompiledAssembly
 
     member this.AssemblyInfo = aInfo
     member this.CompressedJavaScript = fst compressedJS.Value
-    member this.MapFileForCompressed = fst (snd compressedJS.Value)
+    member this.MapFileForCompressed = if sourceMap then fst (snd compressedJS.Value) else None
     member this.Info = mInfo
     member this.Metadata = meta
     member this.Package = pkg
     member this.ReadableJavaScript = fst readableJS.Value
-    member this.MapFileForReadable = fst (snd readableJS.Value)
+    member this.MapFileForReadable = if sourceMap then fst (snd readableJS.Value) else None
     member this.TypeScriptDeclarations = typeScript
     member this.SourcesToInclude =
+        if not sourceMap then [||] else
         if compressedJS.IsValueCreated
         then snd (snd compressedJS.Value)
         else snd (snd readableJS.Value)
@@ -131,9 +133,10 @@ type CompiledAssembly
                 aInfo: M.AssemblyInfo,
                 mInfo: M.Info,
                 pkg: P.Module,
-                typeScript: string
+                typeScript: string,
+                sourceMap: bool
             ) =
-        CompiledAssembly(context, source, meta, aInfo, mInfo, pkg, typeScript)
+        CompiledAssembly(context, source, meta, aInfo, mInfo, pkg, typeScript, sourceMap)
 
     member this.WriteToCecilAssembly(a: Mono.Cecil.AssemblyDefinition) =
         let pub = Mono.Cecil.ManifestResourceAttributes.Public
