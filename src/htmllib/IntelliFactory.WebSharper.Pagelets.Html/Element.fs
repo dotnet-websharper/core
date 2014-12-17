@@ -18,11 +18,11 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Html
+namespace IntelliFactory.WebSharper.Pagelets.Html
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
-open IntelliFactory.WebSharper.Html.Interfaces
+open IntelliFactory.WebSharper.Pagelets.Html.Interfaces
 
 module internal Utils =
 

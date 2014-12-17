@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Html
+namespace IntelliFactory.WebSharper.Pagelets.Html
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript

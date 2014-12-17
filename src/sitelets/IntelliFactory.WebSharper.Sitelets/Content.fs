@@ -38,7 +38,7 @@ module Content =
 
     type private Func<'A,'B> = System.Func<'A,'B>
 
-    module Activator = IntelliFactory.WebSharper.Html.Activator
+    module Activator = IntelliFactory.WebSharper.Pagelets.Html.Activator
     module M = IntelliFactory.WebSharper.Core.Metadata
     module R = IntelliFactory.WebSharper.Core.Reflection
     module J = IntelliFactory.WebSharper.Core.Json
@@ -102,7 +102,7 @@ module Content =
         // Render meta
         tw.WriteLine(
             "<meta id='{0}' name='{0}' content='{1}' />",
-            IntelliFactory.WebSharper.Html.Activator.META_ID, 
+            IntelliFactory.WebSharper.Pagelets.Html.Activator.META_ID, 
             escape mJson
         )
         // Render resources

@@ -22,7 +22,7 @@ namespace IntelliFactory.WebSharper.Sitelets.Tests
 
 module Client =
     open IntelliFactory.WebSharper
-    open IntelliFactory.WebSharper.Html
+    open IntelliFactory.WebSharper.Pagelets.Html
 
     [<Sealed>]
     type SignupSequenceControl() =

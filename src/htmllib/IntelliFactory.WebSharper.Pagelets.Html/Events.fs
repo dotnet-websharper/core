@@ -18,13 +18,12 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Html
+namespace IntelliFactory.WebSharper.Pagelets.Html
 
 /// Provides the event interfaces and the default event support.
 module Events =
     open IntelliFactory.WebSharper
     open IntelliFactory.WebSharper.JavaScript
-    open IntelliFactory.WebSharper.Html
     open IntelliFactory.WebSharper.JQuery
 
     /// Represents mouse event data.

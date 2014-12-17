@@ -17,12 +17,12 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-namespace IntelliFactory.WebSharper.Html
+namespace IntelliFactory.WebSharper.Pagelets.Html
 
 module internal Implementation =
     open IntelliFactory.WebSharper
     open IntelliFactory.WebSharper.JavaScript
-    open Interfaces
+    open IntelliFactory.WebSharper.Pagelets.Html.Interfaces
     open IntelliFactory.WebSharper.JQuery
 
     /// jQuery based HTMLProvider.

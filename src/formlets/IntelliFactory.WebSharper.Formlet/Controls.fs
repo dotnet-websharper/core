@@ -27,8 +27,8 @@ module Controls =
     open System
     open IntelliFactory.Formlet.Base
     open IntelliFactory.WebSharper.Formlet
-    open IntelliFactory.WebSharper.Html
-    open IntelliFactory.WebSharper.Html.Events
+    open IntelliFactory.WebSharper.Pagelets.Html
+    open IntelliFactory.WebSharper.Pagelets.Html.Events
     open IntelliFactory.Reactive
 
     [<JavaScript>]
@@ -95,7 +95,7 @@ module Controls =
 
     [<JavaScript>]
     let private InputControl (value: string)
-                             (f: HotStream<Result<string>> -> Html.Element)
+                             (f: HotStream<Result<string>> -> Element)
                              : Formlet<string> =
         MkFormlet <| fun () ->
             let state = HotStream<_>.New(Success value)
@@ -327,7 +327,7 @@ module Controls =
     /// the value "0". For every additional click the value is
     /// incremented by one.
     [<JavaScript>]
-    let ElementButton (genElem: unit -> Html.Element) : Formlet<int> =
+    let ElementButton (genElem: unit -> Element) : Formlet<int> =
         MkFormlet <| fun () ->
             let state = HotStream<_>.New(Result.Failure [])
             let count = ref 0

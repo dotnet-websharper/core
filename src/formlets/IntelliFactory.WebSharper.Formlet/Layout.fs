@@ -25,13 +25,13 @@ open IntelliFactory.Formlet.Base
 open IntelliFactory.WebSharper.JQuery
 open System.Collections.Generic
 open IntelliFactory.Formlet.Base
-open IntelliFactory.WebSharper.Html
+open IntelliFactory.WebSharper.Pagelets.Html
 
 /// Represents the visual element of a formlet.
 type Body =
     {
-        Element: Html.Element
-        Label: option<unit -> Html.Element>
+        Element: Element
+        Label: option<unit -> Element>
     }
     with
         [<JavaScript>]
@@ -69,8 +69,8 @@ type internal ElementStore<'T when 'T : equality> [<JavaScript>] internal ()=
 
 type internal LayoutManager =
     {
-        Insert : int -> Body -> list<Html.Element>
-        Panel : Html.Element
+        Insert : int -> Body -> list<Element>
+        Panel : Element
     }
 
 module Layout =

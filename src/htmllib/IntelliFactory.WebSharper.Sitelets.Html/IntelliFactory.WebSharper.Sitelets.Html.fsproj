@@ -13,8 +13,8 @@
     <Compile Include="Control.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Html\IntelliFactory.WebSharper.Html.fsproj">
-      <Name>IntelliFactory.WebSharper.Html</Name>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Pagelets.Html\IntelliFactory.WebSharper.Pagelets.Html.fsproj">
+      <Name>IntelliFactory.WebSharper.Pagelets.Html</Name>
       <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
       <Private>True</Private>
     </ProjectReference>

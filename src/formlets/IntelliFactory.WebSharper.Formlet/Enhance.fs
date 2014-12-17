@@ -21,14 +21,15 @@ namespace IntelliFactory.WebSharper.Formlet
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
-open IntelliFactory.WebSharper.Html
-open IntelliFactory.WebSharper.Html.Events
+open IntelliFactory.WebSharper.Pagelets.Html
+open IntelliFactory.WebSharper.Pagelets.Html.Events
+
+module H = IntelliFactory.WebSharper.Pagelets.Html.Default
 
 /// Defines formlets and their operations.
 module Enhance =
 
     open IntelliFactory.Formlet.Base
-    open IntelliFactory.WebSharper.Html
     open IntelliFactory.WebSharper.Formlet
     open IntelliFactory.WebSharper.Formlet.Controls
     open IntelliFactory.Reactive
@@ -136,7 +137,7 @@ module Enhance =
             let submit =
                 let label = Utils.Maybe "Submit" id conf.Label
                 let submit =
-                    IntelliFactory.WebSharper.Html.Default.Input[Attr.Type "button"] -< [
+                    H.Input[Attr.Type "button"] -< [
                         Attr.Class CssConstants.SubmitButtonClass; Attr.Value label
                     ]
                     |>! Events.OnClick (fun _ _ ->
@@ -277,7 +278,7 @@ module Enhance =
 
     [<JavaScript>]
     let internal WrapFormlet
-            (wrapper: System.IObservable<Result<'T>> -> Body -> Html.Element)
+            (wrapper: System.IObservable<Result<'T>> -> Body -> Element)
             (formlet: Formlet<'T>) : Formlet<'T> =
         MkFormlet <| fun () ->
 
@@ -427,7 +428,7 @@ module Enhance =
 
     /// Enhances a formlet with a label component.
     [<JavaScript>]
-    let WithLabel (labelGen: unit -> Html.Element)  (formlet: Formlet<'T>) : Formlet<'T> =
+    let WithLabel (labelGen: unit -> Element)  (formlet: Formlet<'T>) : Formlet<'T> =
         Formlet.WithLabel (Some labelGen) formlet
 
     /// Creates a formlet enhanced with a label specified by the given label configuration.

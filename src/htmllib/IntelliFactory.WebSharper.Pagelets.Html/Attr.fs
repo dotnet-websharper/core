@@ -17,10 +17,10 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-namespace IntelliFactory.WebSharper.Html
+namespace IntelliFactory.WebSharper.Pagelets.Html
 
 open IntelliFactory.WebSharper
-open IntelliFactory.WebSharper.Html.Interfaces
+open IntelliFactory.WebSharper.Pagelets.Html.Interfaces
 
 /// Exposes HTML5 attributes.
 type Html5AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =

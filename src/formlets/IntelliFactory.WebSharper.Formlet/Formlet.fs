@@ -21,6 +21,7 @@ namespace IntelliFactory.WebSharper.Formlet
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
+open IntelliFactory.WebSharper.Pagelets
 open IntelliFactory.Formlet.Base
 open IntelliFactory.Reactive
 
@@ -505,8 +506,6 @@ module Formlet =
     [<JavaScript>]
     let Run (f: 'T -> unit) (formlet: Formlet<'T>) =
         formlet.Run f
-
-    open IntelliFactory.WebSharper.Html
 
     /// Generalized bind, with the ability to group the
     /// customize the layout of the body parts.

@@ -101,7 +101,7 @@ type ScriptManager() =
                     | _ -> "&amp;")
             System.Text.RegularExpressions.Regex.Replace(text, @"['<>&]", ev)
         writer.WriteLine("<meta id='{0}' name='{0}' content='{1}' />",
-            IntelliFactory.WebSharper.Html.Activator.META_ID, encode content)
+            IntelliFactory.WebSharper.Pagelets.Html.Activator.META_ID, encode content)
         let ctx = this.ResourceContext
         Shared.Metadata.GetDependencies(Seq.toList nodes)
         |> Seq.iter (fun r -> r.Render ctx writer)

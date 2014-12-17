@@ -21,7 +21,7 @@
 module Website.Controls
 
 open IntelliFactory.WebSharper
-open IntelliFactory.WebSharper.Html
+open IntelliFactory.WebSharper.Pagelets.Html
 
 [<Sealed>]
 type EntryPoint() =

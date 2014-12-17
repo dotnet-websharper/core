@@ -25,7 +25,7 @@ open System.Web.UI
 open IntelliFactory.WebSharper.Sitelets.Html
 open IntelliFactory.WebSharper
 type private Writer = HtmlTextWriter -> unit
-type private IControl = IntelliFactory.WebSharper.Html.Activator.IControl
+type private IControl = IntelliFactory.WebSharper.Pagelets.Html.Activator.IControl
 
 /// Represents HTML pages with embedded WebSharper controls.
 type Page =

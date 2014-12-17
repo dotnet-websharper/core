@@ -21,7 +21,7 @@
 namespace IntelliFactory.WebSharper.Formlet.Tests
 
 open IntelliFactory.WebSharper
-open IntelliFactory.WebSharper.Html
+open IntelliFactory.WebSharper.Pagelets.Html
 open IntelliFactory.WebSharper.Formlet
 open IntelliFactory.WebSharper.Formlet.Layout
 

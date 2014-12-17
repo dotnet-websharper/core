@@ -50,10 +50,10 @@ type Control() =
             let el = el |> H.Annotate this
             H.ContentNode el
 
-    abstract member Body : IntelliFactory.WebSharper.Html.IPagelet
+    abstract member Body : IntelliFactory.WebSharper.Pagelets.Html.IPagelet
     default this.Body = Unchecked.defaultof<_>
 
-    interface IntelliFactory.WebSharper.Html.Activator.IControl with
+    interface IntelliFactory.WebSharper.Pagelets.Html.Activator.IControl with
         member this.Body = this.Body
         member this.Id = this.ID
 

@@ -20,7 +20,7 @@
 namespace IntelliFactory.WebSharper.Formlet
 
 open IntelliFactory.WebSharper
-open IntelliFactory.WebSharper.Html
+open IntelliFactory.WebSharper.Pagelets.Html
 
 module internal Utils =
 
@@ -37,7 +37,7 @@ module internal Utils =
         | Some v    -> Some (f v)
 
     [<JavaScript>]
-    let InTable (rows : list<list<IPagelet>>) : Html.Element =
+    let InTable (rows : list<list<IPagelet>>) : Element =
         let rs =
             rows
             |> List.map (fun cols ->
