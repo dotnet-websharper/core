@@ -87,6 +87,14 @@ type BinaryOperator =
     | ``|`` = 35
     | ``||`` = 36
 
+type SourcePos =
+    {
+        Assembly : string
+        File : string
+        Line : int
+        Column : int
+    }
+
 /// Represents literals.
 type Literal =
     | False
@@ -100,19 +108,22 @@ type Literal =
 
 /// Represents JavaScript expressions.
 and Expression =
+    private
     | Application of E * list<E>
-    | Binary of E * BinaryOperator * E
+    | Binary      of E * BinaryOperator * E
     | Conditional of E * E * E
-    | Constant of Literal
-    | Lambda of option<Id> * list<Id> * list<ProgramElement>
-    | New of E * list<E>
-    | NewArray of list<option<E>>
-    | NewObject of list<Id * E>
-    | NewRegex of Regex
-    | Postfix of E * PostfixOperator
+    | Constant    of Literal
+    | Lambda      of option<Id> * list<Id> * list<ProgramElement>
+    | New         of E * list<E>
+    | NewArray    of list<option<E>>
+    | NewObject   of list<Id * E>
+    | NewRegex    of Regex
+    | Postfix     of E * PostfixOperator
     | This
-    | Unary of UnaryOperator * E
-    | Var of Id
+    | Unary       of UnaryOperator * E
+    | Var         of Id
+    | VarNamed    of Id * string
+    | ExprPos     of Expression * SourcePos
 
     static member ( + ) : E * E -> E
     static member ( - ) : E * E -> E
@@ -144,27 +155,27 @@ and Expression =
 
 /// JavaScript statements.
 and Statement =
-    | Block of list<S>
-    | Break of option<Label>
-    | Continue of option<Label>
+    | Block      of list<S>
+    | Break      of option<Label>
+    | Continue   of option<Label>
     | Debugger
-    | Do of S * E
+    | Do         of S * E
     | Empty
-    | For of option<E> * option<E> * option<E> * S
-    | ForIn of E * E * S
-    | ForVarIn of Id * option<E> * E * S
-    | ForVars of list<Id * option<E>> * option<E> * option<E> * S
-    | If of E * S * S
-    | Ignore of E
-    | Labelled of Label * S
-    | Return of option<E>
-    | Switch of E * list<SwitchElement>
-    | Throw of E
+    | For        of option<E> * option<E> * option<E> * S
+    | ForIn      of E * E * S
+    | ForVarIn   of Id * option<E> * E * S
+    | ForVars    of list<Id * option<E>> * option<E> * option<E> * S
+    | If         of E * S * S
+    | Ignore     of E
+    | Labelled   of Label * S
+    | Return     of option<E>
+    | Switch     of E * list<SwitchElement>
+    | Throw      of E
     | TryFinally of S * S
-    | TryWith of S * Id * S * option<S>
-    | Vars of list<Id * option<E>>
-    | While of E * S
-    | With of E * S
+    | TryWith    of S * Id * S * option<S>
+    | Vars       of list<Id * option<E>>
+    | While      of E * S
+    | With       of E * S
 
 /// Represents switch elements.
 and SwitchElement =
@@ -178,6 +189,38 @@ and private S = Statement
 and ProgramElement =
     | Action of S
     | Function of Id * list<Id> * list<ProgramElement>
+     
+val (|Application|_|) : E -> (E * list<E>                                 ) option
+val (|Binary     |_|) : E -> (E * BinaryOperator * E                      ) option
+val (|Conditional|_|) : E -> (E * E * E                                   ) option
+val (|Constant   |_|) : E -> (Literal                                     ) option
+val (|Lambda     |_|) : E -> (option<Id> * list<Id> * list<ProgramElement>) option
+val (|New        |_|) : E -> (E * list<E>                                 ) option
+val (|NewArray   |_|) : E -> (list<option<E>>                             ) option
+val (|NewObject  |_|) : E -> (list<Id * E>                                ) option
+val (|NewRegex   |_|) : E -> (Regex                                       ) option
+val (|Postfix    |_|) : E -> (E * PostfixOperator                         ) option
+val (|This       |_|) : E -> (unit                                        ) option
+val (|Unary      |_|) : E -> (UnaryOperator * E                           ) option
+val (|Var        |_|) : E -> (Id                                          ) option
+val (|VarNamed   |_|) : E -> (Id * string                                 ) option
+val (|ExprPos    |_|) : E -> (Expression * SourcePos                      ) option
+
+val Application : E * list<E>                                  -> E
+val Binary      : E * BinaryOperator * E                       -> E
+val Conditional : E * E * E                                    -> E
+val Constant    : Literal                                      -> E
+val Lambda      : option<Id> * list<Id> * list<ProgramElement> -> E
+val New         : E * list<E>                                  -> E
+val NewArray    : list<option<E>>                              -> E
+val NewObject   : list<Id * E>                                 -> E
+val NewRegex    : Regex                                        -> E
+val Postfix     : E * PostfixOperator                          -> E
+val This        :                                                 E
+val Unary       : UnaryOperator * E                            -> E
+val Var         : Id                                           -> E
+val VarNamed    : Id * string                                  -> E
+val ExprPos     : Expression * SourcePos                       -> E
 
 /// Represents complete programs.
 type Program = list<ProgramElement>

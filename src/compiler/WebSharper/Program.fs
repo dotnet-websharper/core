@@ -70,6 +70,7 @@ let compile (aR: AssemblyResolver) (opts: Options.CompilationOptions) =
                     ErrorLimit = opts.ErrorLimit
                     KeyPair = snk
                     References = refs
+                    IncludeSourceMap = opts.IncludeSourceMap
                 }
             let result = FE.Compile options stderr.WriteLine assem
             if result then

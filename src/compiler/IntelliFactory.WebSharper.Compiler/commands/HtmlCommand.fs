@@ -35,6 +35,7 @@ module HtmlCommand =
             OutputDirectory : string
             ProjectDirectory : string
             ReferenceAssemblyPaths : list<string>
+            UnpackSourceMap : bool
         }
 
         static member Create(mainAssemblyPath) =
@@ -44,6 +45,7 @@ module HtmlCommand =
                 OutputDirectory = "."
                 ProjectDirectory = "."
                 ReferenceAssemblyPaths = []
+                UnpackSourceMap = false
             }
 
     exception BadOptions of string
@@ -124,6 +126,8 @@ module HtmlCommand =
                 proc (setOutputDirectory opts (trim f)) xs
             | "-site" ::f :: xs ->
                 proc (setSourceAssembly opts (trim f)) xs
+            | "-sm" :: xs ->
+                proc { opts with UnpackSourceMap = true } xs
             | x :: xs ->
                 let x =
                     match x with
@@ -155,6 +159,7 @@ module HtmlCommand =
             "-out <dir>      Path to the output directory. Short form: -o"
             "-project <dir>  Path to the project directory."
             "-site <file>    Path to the assembly containing the web site. Short form: -s"
+            "-sm             Unpack source maps and source files"
         ]
         |> String.concat System.Environment.NewLine
 

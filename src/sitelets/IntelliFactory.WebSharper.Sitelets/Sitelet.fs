@@ -44,6 +44,10 @@ type Sitelet<'T when 'T : equality> =
 
 /// Provides combinators over sitelets.
 module Sitelet =
+    open Microsoft.FSharp.Quotations
+    open Microsoft.FSharp.Reflection
+    module C = Content
+    type C<'T> = Content<'T>
 
     /// Creates an empty sitelet.
     let Empty<'Action when 'Action : equality> : Sitelet<'Action> =
@@ -114,59 +118,46 @@ module Sitelet =
                     Handle = fun action ->
                         match s.Controller.Handle <| g action with
                         | Content.CustomContent genResp ->
-                            CustomContent <| fun ctx ->
-                                {
-                                    ResolveUrl = ctx.ResolveUrl
-                                    ApplicationPath = ctx.ApplicationPath
-                                    Link = fun a -> ctx.Link (f a)
-                                    Json = ctx.Json
-                                    Metadata = ctx.Metadata
-                                    ResourceContext = ctx.ResourceContext
-                                    Request = ctx.Request
-                                    RootFolder = ctx.RootFolder
-                                }
-                                |> genResp
+                            CustomContent (genResp << Context.Map f)
                         | Content.CustomContentAsync genResp ->
-                            CustomContentAsync <| fun ctx ->
-                                {
-                                    ResolveUrl = ctx.ResolveUrl
-                                    ApplicationPath = ctx.ApplicationPath
-                                    Link = fun a -> ctx.Link (f a)
-                                    Json = ctx.Json
-                                    Metadata = ctx.Metadata
-                                    ResourceContext = ctx.ResourceContext
-                                    Request = ctx.Request
-                                    RootFolder = ctx.RootFolder
-                                }
-                                |> genResp
+                            CustomContentAsync (genResp << Context.Map f)
                         | Content.PageContent genPage ->
-                            PageContent <| fun ctx ->
-                                {
-                                    ResolveUrl = ctx.ResolveUrl
-                                    ApplicationPath = ctx.ApplicationPath
-                                    Json = ctx.Json
-                                    Link = fun a -> ctx.Link (f a)
-                                    Metadata = ctx.Metadata
-                                    ResourceContext = ctx.ResourceContext
-                                    Request = ctx.Request
-                                    RootFolder = ctx.RootFolder
-                                }
-                                |> genPage
+                            PageContent (genPage << Context.Map f)
                         | Content.PageContentAsync genPage ->
-                            PageContentAsync <| fun ctx ->
-                                {
-                                    ResolveUrl = ctx.ResolveUrl
-                                    ApplicationPath = ctx.ApplicationPath
-                                    Json = ctx.Json
-                                    Link = fun a -> ctx.Link (f a)
-                                    Metadata = ctx.Metadata
-                                    ResourceContext = ctx.ResourceContext
-                                    Request = ctx.Request
-                                    RootFolder = ctx.RootFolder
-                                }
-                                |> genPage
+                            PageContentAsync (genPage << Context.Map f)
                 }
         }
+
+    /// Maps over the sitelet action type with only an injection.
+    let Embed embed unembed sitelet =
+        {
+            Router = Router.TryMap (Some << embed) unembed sitelet.Router
+            Controller =
+                { Handle = fun a ->
+                    match unembed a with
+                    | Some ea -> C.CustomContent <| fun ctx ->
+                        C.ToResponse (sitelet.Controller.Handle ea) (Context.Map embed ctx)
+                    | None -> failwith "Invalid action in Sitelet.Embed" }
+        }
+
+    let tryGetEmbedFunctionsFromExpr (expr: Expr<'T1 -> 'T2>) =
+        match expr with
+        | ExprShape.ShapeLambda(_, Patterns.NewUnionCase (uci, _)) ->
+            let embed (y: 'T1) = FSharpValue.MakeUnion(uci, [|box y|]) :?> 'T2
+            let unembed (x: 'T2) =
+                let uci', args' = FSharpValue.GetUnionFields(box x, uci.DeclaringType)
+                if uci.Tag = uci'.Tag then
+                    Some (args'.[0] :?> 'T1)
+                else None
+            Some (embed, unembed)
+        | _ -> None
+ 
+    /// Maps over the sitelet action type, where the destination type
+    /// is a discriminated union with a case containing the source type.
+    let EmbedInUnion (case: Expr<'T1 -> 'T2>) sitelet =
+        match tryGetEmbedFunctionsFromExpr case with
+        | Some (embed, unembed) -> Embed embed unembed sitelet
+        | None -> failwith "Invalid union case in Sitelet.EmbedInUnion"
 
     /// Shifts all sitelet locations by a given prefix.
     let Shift (prefix: string) (sitelet: Sitelet<'T>) =
@@ -202,3 +193,18 @@ module Sitelet =
             Router = Router.Infer()
             Controller = { Handle = handle }
         }
+
+    let InferPartial (embed: 'T1 -> 'T2) (unembed: 'T2 -> 'T1 option) (mkContent: 'T1 -> Content<'T2>) : Sitelet<'T2> =
+        {
+            Router = Router.Infer() |> Router.TryMap (Some << embed) unembed
+            Controller =
+                { Handle = fun p ->
+                    match unembed p with
+                    | Some e -> mkContent e
+                    | None -> failwith "Invalid action in Sitelet.InferPartial" }
+        }
+
+    let InferPartialInUnion (case: Expr<'T1 -> 'T2>) mkContent =
+        match tryGetEmbedFunctionsFromExpr case with
+        | Some (embed, unembed) -> InferPartial embed unembed mkContent
+        | None -> failwith "Invalid union case in Sitelet.InferPartialInUnion"

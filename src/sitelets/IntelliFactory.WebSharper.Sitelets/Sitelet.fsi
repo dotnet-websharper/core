@@ -36,6 +36,8 @@ type Sitelet<'T when 'T : equality> =
 /// Provides combinators over sitelets.
 module Sitelet =
 
+    open Microsoft.FSharp.Quotations
+
     /// Creates an empty sitelet.
     val Empty<'Action when 'Action : equality> : Sitelet<'Action>
 
@@ -64,6 +66,15 @@ module Sitelet =
     val Map<'T1,'T2 when 'T1 : equality and 'T2 : equality> :
         ('T1 -> 'T2) -> ('T2 -> 'T1) -> Sitelet<'T1> -> Sitelet<'T2>
 
+    /// Maps over the sitelet action type with only an injection.
+    val Embed<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
+        ('T1 -> 'T2) -> ('T2 -> 'T1 option) -> Sitelet<'T1> -> Sitelet<'T2>
+
+    /// Maps over the sitelet action type, where the destination action type
+    /// is a discriminated union with a case containing the source type.
+    val EmbedInUnion<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
+        Expr<'T1 -> 'T2> -> Sitelet<'T1> -> Sitelet<'T2>
+
     /// Shifts all sitelet locations by a given prefix.
     val Shift<'T when 'T : equality> :
         prefix: string -> sitelet: Sitelet<'T> -> Sitelet<'T>
@@ -86,6 +97,14 @@ module Sitelet =
     val UnsafeDowncast<'T when 'T : equality> :
         sitelet: Sitelet<obj> -> Sitelet<'T>
 
-    /// Constructs a sitelet with an inferred router and a given controller
-    /// function.
+    /// Constructs a sitelet with an inferred router and a given controller function.
     val Infer<'T when 'T : equality> : ('T -> Content<'T>) -> Sitelet<'T>
+
+    /// Constructs a partial sitelet with an inferred router and a given controller function.
+    val InferPartial<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
+        ('T1 -> 'T2) -> ('T2 -> 'T1 option) -> ('T1 -> Content<'T2>) -> Sitelet<'T2>
+
+    /// Constructs a partial sitelet with an inferred router and a given controller function.
+    /// The actions covered by this sitelet correspond to the given union case.
+    val InferPartialInUnion<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
+        Expr<'T1 -> 'T2> -> ('T1 -> Content<'T2>) -> Sitelet<'T2>

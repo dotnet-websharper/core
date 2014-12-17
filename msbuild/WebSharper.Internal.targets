@@ -24,6 +24,8 @@
   <PropertyGroup>
     <WebSharperTaskAssembly>$(MSBuildThisFileDirectory)/../build/$(Configuration)/IntelliFactory.WebSharper.MSBuild.dll</WebSharperTaskAssembly>
     <WebSharperExplicitRefs>True</WebSharperExplicitRefs>
+    <OtherFlags>--quotations-debug</OtherFlags>
+    <WebSharperSourceMap>True</WebSharperSourceMap>
   </PropertyGroup>
   <Import Project="$(MSBuildThisFileDirectory)/WebSharper.targets" />
 </Project>

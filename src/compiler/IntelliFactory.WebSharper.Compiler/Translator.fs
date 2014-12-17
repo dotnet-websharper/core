@@ -140,6 +140,8 @@ let (|ListLiteral|_|) q =
             |> Some
         | _ -> None
 
+#nowarn "25"
+
 let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
     (meta: Metadata.T) (here: Location) (expr: Q.Expression) =
 
@@ -167,11 +169,14 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
     let rec tCall exn q methodKind args =
         let (!) = tExpr exn
         let (!!) = List.map (!)
+        let invalidQuot() =
+            printfn "Invalid quotation, method kind: %A" methodKind
+            raise InvalidQuotation
         match methodKind with
         | M.BasicInstanceMethod x ->
             match args with
             | t :: xs -> call !t x !!xs
-            | [] -> raise InvalidQuotation
+            | [] -> invalidQuot()
         | M.BasicStaticMethod fn ->
             callAt fn !!args
         | M.InlineMethod f ->
@@ -195,7 +200,12 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
     and tExpr exn quotation =
         let (!) = tExpr exn
         let (!!) = List.map (!)
+        let invalidQuot() =
+            printfn "Invalid quotation: %A" quotation
+            raise InvalidQuotation
         match quotation with
+        | Q.SourcePos (x, pos) ->
+            !x |> C.WithPos pos
         | Q.AddressOf x ->
             error "Explicit address capture is not supported."
         | Q.AddressSet _ ->
@@ -205,7 +215,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
         | Reraise ->
             match exn with
             | Some id -> C.Throw (C.Var id)
-            | None -> raise InvalidQuotation
+            | None -> invalidQuot()
         | Q.Call (m, args)
         | Q.CallModule (m, args) as q ->
             match meta.Method m.Entity with
@@ -258,7 +268,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
             | (this :: vars, body) ->
                 C.Lambda (Some !^this, List.map (!^) vars, !body)
             | ([], Q.Application (f, Q.Value Q.Unit)) -> !f
-            | _ -> raise InvalidQuotation
+            | _ -> invalidQuot()
         | Q.NewObject (c, args) ->
             match meta.Constructor c.Entity with
             | Some (M.BasicConstructor fn) ->
@@ -296,7 +306,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                     let obj = C.NewObject init
                     call C.Runtime "New" [glob fn; obj]
                 else
-                    raise InvalidQuotation
+                    invalidQuot()
             | Some (M.Object fields) ->
                 if List.length fields = args.Length then
                     let init =
@@ -304,7 +314,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                         |> List.map2 (fun v (_, f) -> (f, v)) !!args
                     C.NewObject init
                 else
-                    raise InvalidQuotation
+                    invalidQuot()
             | _ ->
                 err "Failed to translate record creation" t.FullName
         | Q.NewTuple x ->
@@ -331,15 +341,15 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
             | Some (M.BasicProperty (getter, setter)) ->
                 match getter with
                 | Some g -> tCall exn q g xs
-                | None -> raise InvalidQuotation
+                | None -> invalidQuot()
             | Some (M.InterfaceProperty x) ->
                 match xs with
                 | t :: xs -> C.Call (!t, str ("get_" + x), !!xs)
-                | _ -> raise InvalidQuotation
+                | _ -> invalidQuot()
             | Some (M.InstanceStubProperty x) ->
                 match xs with
                 | t :: _ -> C.FieldGet (!t, str x)
-                | _ -> raise InvalidQuotation
+                | _ -> invalidQuot()
             | Some (M.StaticStubProperty fn) ->
                 (globParent fn).[str fn.LocalName]
             | Some (M.FieldProperty k) ->
@@ -367,11 +377,11 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
             | Some (M.InstanceStubProperty x) ->
                 match xs with
                 | t :: v :: _ -> C.FieldSet (!t, str x, !v)
-                | _ -> raise InvalidQuotation
+                | _ -> invalidQuot()
             | Some (M.InterfaceProperty x) ->
                 match xs with
                 | t :: xs -> C.Call (!t, str ("set" + x), !!xs)
-                | _ -> raise InvalidQuotation
+                | _ -> invalidQuot()
             | Some (M.StaticStubProperty fn) ->
                 match xs with
                 | [v] -> C.FieldSet (globParent fn, str fn.LocalName, !v)
@@ -415,6 +425,8 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                     typeof "number"
                 | "System.String" ->
                     typeof "string"
+                | "System.IDisposable" ->
+                    (!e).[!~(C.String "Dispose")] &!= !~C.Undefined
                 | _ ->
                     match meta.DataType t with
                     | None | Some (M.Object _) | Some (M.Interface _) ->

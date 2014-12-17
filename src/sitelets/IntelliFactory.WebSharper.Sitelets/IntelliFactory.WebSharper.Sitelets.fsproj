@@ -17,6 +17,7 @@
     <Compile Include="Page.fs" />
     <Compile Include="Router.fsi" />
     <Compile Include="Router.fs" />
+    <Compile Include="Context.fsi" />
     <Compile Include="Context.fs" />
     <Compile Include="Content.fsi" />
     <Compile Include="Content.fs" />

@@ -131,11 +131,26 @@ type Assembly =
     member this.ReadableJavaScript =
         ReadResource EMBEDDED_JS this.Definition
 
+    member this.MapFileForReadable =
+        ReadResource EMBEDDED_MAP this.Definition
+
     member this.CompressedJavaScript =
         ReadResource EMBEDDED_MINJS this.Definition
 
+    member this.MapFileForCompressed =
+        ReadResource EMBEDDED_MINMAP this.Definition
+
     member this.TypeScriptDeclarations =
         ReadResource EMBEDDED_DTS this.Definition
+
+    member this.EmbeddedSourceFiles =
+        this.Definition.MainModule.Resources
+        |> Seq.choose (function
+            | :? Mono.Cecil.EmbeddedResource as r when r.Name.StartsWith EMBEDDED_SOURCES ->
+                use reader = new StreamReader(r.GetResourceStream())
+                Some (r.Name, reader.ReadToEnd())
+            | _ -> None)
+        |> Seq.toArray 
 
     static member Create(def, ?loadPath, ?symbols) =
         {
