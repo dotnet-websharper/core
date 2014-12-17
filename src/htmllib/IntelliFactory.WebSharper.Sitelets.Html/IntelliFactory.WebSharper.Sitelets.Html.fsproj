@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProjectGuid>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</ProjectGuid>
@@ -11,5 +11,12 @@
     <Compile Include="Tags.fs" />
     <Compile Include="Attributes.fs" />
     <Compile Include="Control.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Html\IntelliFactory.WebSharper.Html.fsproj">
+      <Name>IntelliFactory.WebSharper.Html</Name>
+      <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
 </Project>

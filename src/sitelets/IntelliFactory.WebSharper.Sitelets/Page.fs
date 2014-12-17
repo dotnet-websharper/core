@@ -25,7 +25,7 @@ open System.Web.UI
 open IntelliFactory.WebSharper.Sitelets.Html
 open IntelliFactory.WebSharper
 type private Writer = HtmlTextWriter -> unit
-type private Control = IntelliFactory.WebSharper.Web.Control
+type private IControl = IntelliFactory.WebSharper.Html.Activator.IControl
 
 /// Represents HTML pages with embedded WebSharper controls.
 type Page =
@@ -34,8 +34,8 @@ type Page =
         Title : option<string>
         Renderer : option<string> -> option<string> -> Writer -> Writer ->
             HtmlTextWriter -> unit
-        Head : seq<Element<unit>>
-        Body : seq<Element<Control>>
+        Head : seq<Element>
+        Body : seq<Element>
     }
 
     static member Default =

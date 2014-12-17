@@ -29,53 +29,55 @@ open System.Xml
 [<AutoOpen>]
 module Html =
 
+    type IControl = IntelliFactory.WebSharper.Html.Activator.IControl
+
     /// Represents HTML tags.
-    type TagContent<'T> =
+    type TagContent =
         {
             Name : string
-            Attributes : list<Attribute<'T>>
-            Contents : list<Element<'T>>
-            Annotation : option<'T>
+            Attributes : list<Attribute>
+            Contents : list<Element>
+            Annotation : option<IControl>
         }
 
     /// Represents HTML attributes.
-    and Attribute<'T> =
+    and Attribute =
         {
             Name : string
             Value : string
         }
 
-        interface INode<'T> with
+        interface INode with
             member this.Node = AttributeNode this
 
     /// Represents nodes as an interface, for convenience.
-    and INode<'T> =
-        abstract member Node : Node<'T>
+    and INode =
+        abstract member Node : Node
 
     /// Represents elements as an interface, for convenience.
-    and IElement<'T> =
-        abstract member Element : Element<'T>
+    and IElement =
+        abstract member Element : Element
 
     /// Represents nodes.
-    and Node<'T> =
-        | AttributeNode of Attribute<'T>
-        | ContentNode of Element<'T>
+    and Node =
+        | AttributeNode of Attribute
+        | ContentNode of Element
 
     /// Represents HTML/XML contents.
-    and  Element<'T> =
-        | TagContent of TagContent<'T>
+    and  Element =
+        | TagContent of TagContent
         | TextContent of string
         | VerbatimContent of string
         | CommentContent of string
 
-        interface IElement<'T> with
+        interface IElement with
             member this.Element = this
 
-        interface INode<'T> with
+        interface INode with
             member this.Node = ContentNode this
 
         /// Collects all annotations from contained elements.
-        member this.CollectAnnotations () : list<'T> =
+        member this.CollectAnnotations () : list<IControl> =
             match this with
             | TagContent content ->
                 let nested =
@@ -91,7 +93,7 @@ module Html =
             | CommentContent _ -> []
 
     /// Constructs a new HTML element.
-    let NewElement (name: string) (elements: seq<#INode<'T>>) =
+    let NewElement (name: string) (elements: seq<#INode>) =
         let attrs =
             elements
             |> Seq.choose (fun x ->
@@ -100,7 +102,7 @@ module Html =
                 | _ -> None)
             |> Seq.toList
 
-        let selCnt (x: INode<_>) =
+        let selCnt (x: INode) =
             match x.Node with
             | ContentNode x -> Some x
             | _ -> None
@@ -117,7 +119,7 @@ module Html =
         }
         |> TagContent
 
-    let (-<) (el: Element<'T>) (elements: seq<#INode<'T>>) : Element<'T> =
+    let (-<) (el: Element) (elements: seq<#INode>) : Element =
         match el with
         | TagContent el ->
             let newAttrs =
@@ -155,7 +157,7 @@ module Html =
 
     /// Sets an annotation on the element.
     /// If the element is a non-tag element, this operation is a no-op.
-    let Annotate (x: 'T) (e: Element<'T>) =
+    let Annotate (x: IControl) (e: Element) =
         match e with
         | TagContent e ->
             { e with Annotation = Some x }
@@ -168,17 +170,17 @@ module Html =
     type Id = string
 
     /// Represents documents with annotations mapped by HTML identifiers.
-    type Document<'T> =
+    type Document =
         {
-            Annotations : Map<Id,'T>
-            Body : Element<unit>
+            Annotations : Map<Id, IControl>
+            Body : Element
         }
 
     /// Resolves the annotations by giving them HTML identifiers. The function
     /// `isUsed` tests if a given identifier should not be used by the document.
-    let Resolve (isUsed: Id -> bool) (document: TagContent<'T>) =
+    let Resolve (isUsed: Id -> bool) (document: TagContent) =
         let ids = Dictionary<Id,unit>()
-        let annotations = Dictionary<Id,'T>()
+        let annotations = Dictionary<Id,IControl>()
         let showId (k: int) = String.Format("id{0:x}", k)
         let newId () =
             let mutable k  = ids.Count
@@ -188,7 +190,7 @@ module Html =
                 id <- showId k
             ids.[id] <- ()
             id
-        let rec transform (element: TagContent<'T>) =
+        let rec transform (element: TagContent) =
             let mutable attributes = []
             let mutable id = None
             for x in element.Attributes do
@@ -261,7 +263,7 @@ module Html =
 
         // Renders an element without content and with self
         // closing tagE.g. <img class="c" />
-        member private this.RenderElementWithSelfClosingTag name (attrs: list<Attribute<'T>>) =
+        member private this.RenderElementWithSelfClosingTag name (attrs: list<Attribute>) =
             writer.WriteBeginTag(name)
             for a in attrs do
                 writer.WriteAttribute(a.Name, a.Value)
@@ -270,8 +272,8 @@ module Html =
         // Renders tag with content.
         // E.g. <div class="c">...</div>
         member private this.RenderElementWithContent name
-                (attrs: list<Attribute<'T>>)
-                (contents : list<Element<'T>>) =
+                (attrs: list<Attribute>)
+                (contents : list<Element>) =
 
             writer.WriteBeginTag(name)
             for a in attrs do
@@ -284,7 +286,7 @@ module Html =
             writer.WriteEndTag(name)
 
         /// Writes a content node.
-        member this.Write(x: Element<'T>) =
+        member this.Write(x: Element) =
             match x with
             | TagContent element ->
                 match element.Contents with

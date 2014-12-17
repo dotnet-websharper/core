@@ -33,6 +33,7 @@ let META_ID = "websharper-data"
 /// are subject to activation.
 type IControl =
     abstract member Body : IPagelet
+    abstract member Id : string
 
 [<Direct "typeof document !== 'undefined'">]
 let private hasDocument () = false

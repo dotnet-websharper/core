@@ -26,7 +26,7 @@ open IntelliFactory.WebSharper.Sitelets.Html
 type Control() =
     inherit System.Web.UI.Control()
 
-    abstract member Element : Html.Element<unit>
+    abstract member Element : Html.Element
 
     override this.Render writer =
         let w = new Html.Writer(writer)

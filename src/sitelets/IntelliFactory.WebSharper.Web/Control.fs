@@ -44,7 +44,7 @@ type Control() =
             ScriptManager.Find(base.Page).Register
                 (if isR then None else Some id) this
 
-    interface IntelliFactory.WebSharper.Sitelets.Html.Html.INode<Control> with
+    interface IntelliFactory.WebSharper.Sitelets.Html.Html.INode with
         member this.Node =
             let el = T.Div [A.Id this.ID]
             let el = el |> H.Annotate this
@@ -55,6 +55,7 @@ type Control() =
 
     interface IntelliFactory.WebSharper.Html.Activator.IControl with
         member this.Body = this.Body
+        member this.Id = this.ID
 
     override this.Render writer =
         writer.WriteLine("<div id='{0}'></div>", this.ID)

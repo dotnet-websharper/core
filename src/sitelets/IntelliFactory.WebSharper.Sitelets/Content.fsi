@@ -107,7 +107,7 @@ module Content =
             | WhenChanged
 
     /// A type of HTML elements.
-    type HtmlElement = H.Element<Control>
+    type HtmlElement = H.Element
 
     /// <summary>Defines a new page template.  Template files are parsed as XML
     /// and then analyzed for placeholders.  There are text placeholders

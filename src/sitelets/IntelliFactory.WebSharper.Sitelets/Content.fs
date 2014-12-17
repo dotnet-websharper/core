@@ -46,11 +46,11 @@ module Content =
     module XT = IntelliFactory.Xml.Templating
     module H = IntelliFactory.WebSharper.Sitelets.Html.Html
 
-    let metaJson<'T> (jP: Core.Json.Provider) (controls: seq<Control>) =
-        let encode (c: Control) =
+    let metaJson<'T> (jP: Core.Json.Provider) (controls: seq<Activator.IControl>) =
+        let encode (c: Activator.IControl) =
             let encoder = jP.GetEncoder(c.GetType())
             encoder.Encode c
-        J.Encoded.Object [for c in controls -> (c.ID, encode c)]
+        J.Encoded.Object [for c in controls -> (c.Id, encode c)]
         |> jP.Pack
         |> J.Stringify
 
@@ -88,7 +88,7 @@ module Content =
                 ResourceContext = ctx.ResourceContext
             }
 
-    let writeResources (env: Env) (controls: seq<Control>) (tw: UI.HtmlTextWriter) =
+    let writeResources (env: Env) (controls: seq<Activator.IControl>) (tw: UI.HtmlTextWriter) =
         // Resolve resources for the set of types and this assembly
         let resources =
             controls
@@ -265,7 +265,7 @@ module Content =
     let ServerError<'T> : Content<'T> =
         httpStatusContent Http.Status.InternalServerError
 
-    type HtmlElement = H.Element<Control>
+    type HtmlElement = H.Element
 
     type Hole<'T> =
         | SH of ('T -> Async<string>)
@@ -312,11 +312,11 @@ module Content =
             member this.ElementNode x = x
             member this.Element(name, attrs, children) =
                 children
-                |> Seq.map (fun x -> x :> H.INode<_>)
+                |> Seq.map (fun x -> x :> H.INode)
                 |> Seq.append
                     (attrs
                     |> Seq.map (fun (KeyValue (k, v)) ->
-                        H.NewAttribute k.Local v :> H.INode<_>))
+                        H.NewAttribute k.Local v :> H.INode))
                 |> H.NewElement name.Local
 
     /// Decides if an attribute should contain a URL by HTML rules.
