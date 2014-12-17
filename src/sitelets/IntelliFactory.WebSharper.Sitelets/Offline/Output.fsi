@@ -34,6 +34,7 @@ type Config =
         Actions : list<obj>
         Options : H.Config
         Sitelet : Sitelet<obj>
+        UnpackSourceMap : bool
     }
 
 /// Writes a site given the configuration options.

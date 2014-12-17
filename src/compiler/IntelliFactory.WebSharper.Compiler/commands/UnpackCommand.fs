@@ -30,12 +30,14 @@ module UnpackCommand =
         {
             Assemblies : list<string>
             RootDirectory : string
+            UnpackSourceMap : bool
         }
 
         static member Create() =
             {
                 Assemblies = []
                 RootDirectory = "."
+                UnpackSourceMap = false
             }
 
     let GetErrors config =
@@ -54,6 +56,8 @@ module UnpackCommand =
                 opts
             | "-root" :: root :: xs ->
                 proc { opts with RootDirectory = root } xs
+            | "-sm" :: xs ->
+                proc { opts with UnpackSourceMap = true } xs
             | x :: xs ->
                 proc { opts with Assemblies = x :: opts.Assemblies } xs
         match args with
@@ -90,13 +94,30 @@ module UnpackCommand =
             match text with
             | Some text -> writeTextFile (path, text)
             | None -> ()
+        let emitWithMap text path mapping mapFileName mapPath =
+            if cmd.UnpackSourceMap then
+                let text =
+                    text |> Option.map (fun t ->
+                    match mapping with
+                    | None -> t
+                    | Some _ -> t + ("\n//# sourceMappingURL=" + mapFileName))
+                emit text path
+                emit mapping mapPath
+            else
+                emit text path
+
         let script = PC.ResourceKind.Script
         let content = PC.ResourceKind.Content
         for p in cmd.Assemblies do
             let a = loader.LoadFile p
             let aid = PC.AssemblyId.Create(a.FullName)
-            emit a.ReadableJavaScript (pc.JavaScriptPath aid)
-            emit a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
+            emitWithMap a.ReadableJavaScript (pc.JavaScriptPath aid)
+                a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
+            emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
+                a.MapFileForCompressed (pc.MinifiedMapFileName aid) (pc.MinifiedMapFilePath aid)
+            if cmd.UnpackSourceMap then
+                for p, c in a.EmbeddedSourceFiles do
+                    emit (Some c) (pc.SourceFilePath p)
             emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
             let writeText k fn c =
                 let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
@@ -116,7 +137,8 @@ module UnpackCommand =
     let Usage =
         [
             "Usage: WebSharper.exe unpack [OPTIONS] assembly.dll ..."
-            "-root <dir>    web project root directory"
+            "-root <dir>    Path to web project root directory"
+            "-sm            Unpack source maps and source files"
         ]
         |> String.concat System.Environment.NewLine
 

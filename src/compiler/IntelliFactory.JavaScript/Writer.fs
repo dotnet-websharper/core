@@ -20,6 +20,7 @@
 
 module IntelliFactory.JavaScript.Writer
 
+
 module S = Syntax
 type StringBuilder = System.Text.StringBuilder
 type StringWriter = System.IO.StringWriter
@@ -32,6 +33,8 @@ type Layout =
     | Horizontal of Layout * Layout
     | Vertical of Layout * Layout
     | Indent of Layout
+    | SourceMapping of S.SourcePos
+    | SourceName of string
 
 let inline ( ++ ) a b = Horizontal (a, b)
 let inline ( -- ) a b = Vertical (a, b)
@@ -243,6 +246,8 @@ let BlockLayout items =
 
 let rec Expression (buf: StringBuilder) expression =
     match expression with
+    | S.ExprPos (x, pos) -> 
+        SourceMapping pos ++ Expression buf x
     | S.Application (f, xs) ->
         MemberExpression buf f
         ++ Parens (CommaSeparated (AssignmentExpression buf) xs)
@@ -290,12 +295,13 @@ let rec Expression (buf: StringBuilder) expression =
         | S.Number x -> Word x
         | S.String x -> Token (QuoteString buf x)
     | S.Conditional (a, b, c) ->
-        let p = Precedence expression
         LogicalOrExpression buf a
         ++ Token "?"
         ++ AssignmentExpression buf b
         ++ Token ":"
         ++ AssignmentExpression buf c
+    | S.VarNamed (x, n) ->
+        SourceName n ++ Word (EscapeId buf x)
     | S.Var x ->
         Word (EscapeId buf x)
     | S.Lambda (name, formals, body) ->
@@ -331,6 +337,8 @@ let rec Expression (buf: StringBuilder) expression =
         Token (string x)
     | S.This ->
         Word "this"
+    | _ ->
+        failwith "Syntax.Expression not recognized"
 
 and Statement (buf: StringBuilder) statement =
     match statement with
@@ -533,6 +541,8 @@ and VarsNoIn = VarsGeneric AssignmentExpressionNoIn
 type Atom =
     | T of string
     | W of string
+    | P of S.SourcePos
+    | N of string
 
 type Line =
     {
@@ -582,29 +592,211 @@ let ToLines mode layout =
             append level (W x) tail
         | Token x ->
             append level (T x) tail
+        | SourceMapping p ->
+            append level (P p) tail
+        | SourceName n ->
+            append level (N n) tail
     lines 0 [] (Simplify layout)
 
-let Render mode (out: TextWriter) layout =
-    let rec renderAtoms x xs =
-        match x with W x | T x -> out.Write x
+type CodeMapping =
+    {
+        OutputLine : int
+        OutputColumn : int
+        SourcePos : S.SourcePos
+    }
+
+let base64Digits =
+    lazy [|
+        yield! { 'A' .. 'Z' }
+        yield! { 'a' .. 'z' }
+        yield! { '0' .. '9' }
+        yield '+'
+        yield '/'
+    |]
+    
+let encodeBase64VLQ value (builder: StringBuilder) =
+    let base64Digits = base64Digits.Value
+    let mutable v = abs value
+
+    let mutable digit = (v &&& 0b00001111) <<< 1
+    if value < 0 then digit <- digit + 1 
+    v <- v >>> 4
+    if v > 0 then digit <- digit ||| 0b00100000
+    builder.Append base64Digits.[digit] |> ignore
+
+    while v > 0 do
+        let mutable digit = v &&& 0b00011111    
+        v <- v >>> 5
+        if v > 0 then
+            digit <- digit ||| 0b00100000
+        builder.Append base64Digits.[digit] |> ignore
+
+type CodeWriter(?assemblyName: string) =
+    let code = StringBuilder()
+    let mappings = StringBuilder()
+    let sourceMap = Option.isSome assemblyName
+    let mutable insertComma = false
+    let mutable colFromLastMapping = 0
+    let sources = ResizeArray()
+    let sourcesDict = System.Collections.Generic.Dictionary()
+    let names = ResizeArray()
+    let namesDict = System.Collections.Generic.Dictionary()
+
+    let mutable lastFileName = ""
+    let mutable lastFileIndex = 0
+    let mutable lastSourceLine = 0
+    let mutable lastSourceColumn = 0
+    let mutable lastNameIndex = 0
+
+    member this.Write(s: string) =
+        code.Append s |> ignore
+        if sourceMap then
+            colFromLastMapping <- colFromLastMapping + s.Length
+
+    member this.Write(s: char) =
+        code.Append s |> ignore
+        if sourceMap then
+            colFromLastMapping <- colFromLastMapping + 1
+
+    member this.WriteLine() =
+        code.AppendLine() |> ignore
+        if sourceMap then
+            mappings.Append ';' |> ignore
+            insertComma <- false
+            colFromLastMapping <- 0
+
+    member this.AddCodeMapping(pos : S.SourcePos, ?name : string) =
+        if sourceMap then
+            if insertComma then
+                mappings.Append ',' |> ignore
+            else
+                insertComma <- true
+
+            mappings |> encodeBase64VLQ colFromLastMapping
+            colFromLastMapping <- 0
+
+            let fileName = pos.File
+            if lastFileName = fileName then
+                mappings.Append 'A' |> ignore
+            else
+                let fileIndex =
+                    match sourcesDict.TryGetValue fileName with
+                    | true, i ->  i
+                    | _ ->
+                        let i = sources.Count
+                        sources.Add(fileName, pos.Assembly)
+                        sourcesDict.Add(fileName, i)   
+                        i
+        
+                mappings |> encodeBase64VLQ (fileIndex - lastFileIndex)   
+                lastFileIndex <- fileIndex   
+                lastFileName <- fileName
+        
+            let sourceLine = pos.Line - 1
+            mappings |> encodeBase64VLQ (sourceLine - lastSourceLine)
+            lastSourceLine <- sourceLine
+        
+            let sourceColumn = pos.Column
+            mappings |> encodeBase64VLQ (sourceColumn - lastSourceColumn)
+            lastSourceColumn <- sourceColumn
+
+            match name with
+            | Some name ->
+                let nameIndex =
+                    match namesDict.TryGetValue name with
+                    | true, i -> i
+                    | _ ->
+                        let i = names.Count
+                        names.Add name
+                        namesDict.Add(name, i)
+                        i
+                mappings |> encodeBase64VLQ (nameIndex - lastNameIndex)
+                lastNameIndex <- nameIndex
+            | _ -> ()
+
+    member this.GetCodeFile() = string code
+
+    override this.ToString() = string code
+
+    member this.GetMapFile() =
+        if sources.Count = 0 then None else
+        let mapFile = StringBuilder()
+        let inline mapC (c: char) = mapFile.Append c |> ignore 
+        let inline mapS (s: string) = mapFile.Append s |> ignore 
+        let inline mapN (s: string) = mapFile.AppendLine s |> ignore 
+
+        mapN "{"
+        mapN "\"version\": 3,"
+        mapN "\"sourceRoot\": \"FSharpSource\","
+        mapS "\"sources\": [\""
+        let im = sources.Count - 1
+        for i = 0 to im do
+            let file, assembly = sources.[i]
+            mapS assembly
+            mapC '/'
+            mapS (System.IO.Path.GetFileName file)
+            if i < im then
+                mapS "\", \""
+        mapN "\"],"
+        mapS "\"names\": [" 
+        let im = names.Count - 1
+        for i = 0 to im do
+            mapC '"'
+            mapS names.[i]
+            mapC '"'
+            if i < im then
+                mapS ", "
+        mapN "],"
+        mapS "\"mappings\": \""
+        mapFile.Append mappings |> ignore
+        mapN "\""  
+        mapN "}"
+        Some (string mapFile)        
+
+    member this.GetSourceFiles() =
+        sources |> Seq.choose (
+            fun (f, a) -> if Some a = assemblyName then Some f else None
+        ) |> Array.ofSeq    
+
+let Render mode (out: CodeWriter) layout =
+    let rec (|O|_|) xs =
+        match xs with
+        | [] -> None
+        | P _ :: ys 
+        | N _ :: ys -> (|O|_|) ys
+        | y :: _ -> Some y
+    let rec (|S|) xs =
+        match xs with
+        | P _ :: ys -> (|S|) ys
+        | _ -> xs
+    let rec renderAtoms xs =
         match xs with
         | [] -> ()
-        | y :: ys ->
-            match x, y with
-            | W _,  W _ | T "+", T "+" | T "-", T "-" ->
-                out.Write ' '
-            | _ ->
-                ()
-            renderAtoms y ys
+        | (W s as x) :: ys | (T s as x) :: ys ->
+            out.Write s   
+            match x, ys with
+            | _, [] -> ()
+            | W _, O(W _) | T "+", O(T "+") | T "-", O(T "-") ->
+                out.Write ' '   
+            | _ -> () 
+            renderAtoms ys
+        | P p :: S(N n :: ys) ->
+            out.AddCodeMapping(p, n)
+            renderAtoms ys   
+        | P p :: S ys ->
+            out.AddCodeMapping p
+            renderAtoms ys   
+        | N n :: ys ->
+            renderAtoms ys               
     let renderLine line =
         match line.Atoms with
         | [] -> ()
-        | x :: xs ->
+        | xs ->
             match mode with
             | Compact -> ()
             | Readable -> for k in 1 .. line.Indent do
                               out.Write ' '
-            renderAtoms x xs
+            renderAtoms xs
         out.WriteLine()
     ToLines mode layout
     |> Seq.iter renderLine
@@ -621,11 +813,11 @@ let WriteProgram options writer (program: S.Program) =
         |> Render options writer
 
 let ExpressionToString options expression =
-    use w = new StringWriter()
+    let w = CodeWriter()
     WriteExpression options w expression
     w.ToString()
 
 let ProgramToString options program =
-    use w = new StringWriter()
+    let w = CodeWriter()
     WriteProgram options w program
     w.ToString()

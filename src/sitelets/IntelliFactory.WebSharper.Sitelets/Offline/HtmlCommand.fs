@@ -76,6 +76,7 @@ type HtmlCommand() =
                     Sitelet = sitelet
                     Options = options
                     Actions = actions
+                    UnpackSourceMap = options.UnpackSourceMap
                 }
                 |> Async.RunSynchronously
                 C.Ok

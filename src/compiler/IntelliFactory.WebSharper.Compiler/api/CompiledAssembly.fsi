@@ -57,7 +57,8 @@ type CompiledAssembly =
         * aInfo: M.AssemblyInfo
         * mInfo: M.Info
         * pkg: P.Module
-        * typeScript: string ->
+        * typeScript: string 
+        * sourceMap : bool ->
         CompiledAssembly
 
     member internal WriteToCecilAssembly : Mono.Cecil.AssemblyDefinition -> unit

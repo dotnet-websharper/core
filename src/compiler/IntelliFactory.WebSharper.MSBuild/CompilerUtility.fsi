@@ -30,6 +30,7 @@ type internal CompilerInput =
         ProjectDir : string
         References : list<string>
         RunInterfaceGenerator : bool
+        IncludeSourceMap : bool
     }
 
 [<Sealed>]
