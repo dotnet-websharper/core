@@ -104,8 +104,8 @@ module private WebUtils =
             Files =
                 let fs = req.Files
                 seq {
-                    for k in fs.Keys do
-                        yield HttpPostedFileWrapper(fs.[k]) :> _
+                    for i = 1 to fs.Count do
+                        yield HttpPostedFileWrapper(fs.[i-1]) :> _
                 }
         }
 
