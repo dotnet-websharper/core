@@ -199,7 +199,7 @@ let StartWithContinuations (c: C<'T>, s: 'T -> unit, f: exn -> unit, cc: OCE -> 
 [<JavaScript>]
 let Start (c: C<unit>, ctOpt) =
     StartWithContinuations (c, ignore, 
-        fun exn -> JS.LogMore ("WebSharper: Uncaught asynchronous exception", exn)
+        fun exn -> Console.Log ("WebSharper: Uncaught asynchronous exception", exn)
     , ignore, ctOpt)
 
 #nowarn "40"

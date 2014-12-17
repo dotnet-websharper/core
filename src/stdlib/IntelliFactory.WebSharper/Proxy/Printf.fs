@@ -39,7 +39,7 @@ module private PrintfProxy =
     let PrintFormatToStringThen (k: string -> _) (f: Printf.StringFormat<_, _>) = X
 
     [<JavaScript; Inline>]
-    let PrintFormatLine (f: Printf.StringFormat<_>) = PrintFormatToStringThen JS.Log f  
+    let PrintFormatLine (f: Printf.StringFormat<_>) = PrintFormatToStringThen (fun s -> Console.Log(s)) f  
 
     [<JavaScript; Inline>]
     let PrintFormatToStringThenFail (f: Printf.StringFormat<_>) = PrintFormatToStringThen failwith f
