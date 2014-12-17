@@ -44,6 +44,7 @@ module Content =
     module J = IntelliFactory.WebSharper.Core.Json
     module XS = IntelliFactory.Xml.SimpleXml
     module XT = IntelliFactory.Xml.Templating
+    module H = IntelliFactory.WebSharper.Sitelets.Html.Html
 
     let metaJson<'T> (jP: Core.Json.Provider) (controls: seq<Control>) =
         let encode (c: Control) =
@@ -132,12 +133,12 @@ module Content =
                         elem.CollectAnnotations ())
                 let renderHead (tw: UI.HtmlTextWriter) =
                     writeResources (Env.Create context) controls tw
-                    let writer = new IntelliFactory.Html.Html.Writer(tw)
+                    let writer = new H.Writer(tw)
                     for elem in htmlPage.Head do
                         writer.Write elem
                     writeStartScript tw
                 let renderBody (tw: UI.HtmlTextWriter) =
-                    let writer = new IntelliFactory.Html.Html.Writer(tw)
+                    let writer = new H.Writer(tw)
                     for elem in htmlPage.Body do
                         writer.Write elem
                 // Create html writer from stream
@@ -264,7 +265,6 @@ module Content =
     let ServerError<'T> : Content<'T> =
         httpStatusContent Http.Status.InternalServerError
 
-    module H = IntelliFactory.Html.Html
     type HtmlElement = H.Element<Control>
 
     type Hole<'T> =

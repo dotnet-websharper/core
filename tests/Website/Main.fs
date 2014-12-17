@@ -20,7 +20,6 @@
 
 namespace Website
 
-open IntelliFactory.Html
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.Sitelets
 

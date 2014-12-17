@@ -22,7 +22,7 @@ namespace IntelliFactory.WebSharper.Sitelets
 
 open System.Collections.Generic
 open System.Web.UI
-open IntelliFactory.Html
+open IntelliFactory.WebSharper.Sitelets.Html
 open IntelliFactory.WebSharper
 type private Writer = HtmlTextWriter -> unit
 type private Control = IntelliFactory.WebSharper.Web.Control

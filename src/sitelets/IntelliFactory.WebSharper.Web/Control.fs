@@ -20,9 +20,9 @@
 
 namespace IntelliFactory.WebSharper.Web
 
-module A = IntelliFactory.Html.Attributes
-module H = IntelliFactory.Html.Html
-module T = IntelliFactory.Html.Tags
+module A = IntelliFactory.WebSharper.Sitelets.Html.Attributes
+module H = IntelliFactory.WebSharper.Sitelets.Html.Html
+module T = IntelliFactory.WebSharper.Sitelets.Html.Tags
 
 /// A base class for defining custom ASP.NET controls. Inherit from this class,
 /// override the Body property and use the new class as a Server ASP.NET
@@ -44,7 +44,7 @@ type Control() =
             ScriptManager.Find(base.Page).Register
                 (if isR then None else Some id) this
 
-    interface IntelliFactory.Html.Html.INode<Control> with
+    interface IntelliFactory.WebSharper.Sitelets.Html.Html.INode<Control> with
         member this.Node =
             let el = T.Div [A.Id this.ID]
             let el = el |> H.Annotate this

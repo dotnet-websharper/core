@@ -59,7 +59,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.WebSharper.T
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "htmllib", "htmllib", "{04AB3F7E-0F5A-45F4-AB87-E3AF0E1BFE8E}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.Html", "src\htmllib\IntelliFactory.Html\IntelliFactory.Html.fsproj", "{BF697D62-639D-47C7-9AB4-3B9B5B133694}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.WebSharper.Sitelets.Html", "src\htmllib\IntelliFactory.WebSharper.Sitelets.Html\IntelliFactory.WebSharper.Sitelets.Html.fsproj", "{BF697D62-639D-47C7-9AB4-3B9B5B133694}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.WebSharper.Html", "src\htmllib\IntelliFactory.WebSharper.Html\IntelliFactory.WebSharper.Html.fsproj", "{4A6BAE18-3F58-4ADD-A7E8-B5380EFDF0D1}"
 EndProject

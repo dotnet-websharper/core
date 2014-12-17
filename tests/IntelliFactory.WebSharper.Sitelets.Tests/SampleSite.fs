@@ -42,7 +42,7 @@ module Client =
 
 /// The website definition.
 module SampleSite =
-    open IntelliFactory.Html
+    open IntelliFactory.WebSharper.Sitelets.Html
     open IntelliFactory.WebSharper
     open IntelliFactory.WebSharper.Sitelets
 

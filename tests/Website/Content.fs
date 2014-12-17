@@ -21,7 +21,7 @@
 /// Declares server-side content utilities.
 module Website.Content
 
-open IntelliFactory.Html
+open IntelliFactory.WebSharper.Sitelets.Html
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.Sitelets
 

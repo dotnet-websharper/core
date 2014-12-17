@@ -67,7 +67,7 @@
       <Project>{9a0df78f-a51e-4056-b180-4a77afb82897}</Project>
       <Name>IntelliFactory.WebSharper.Formlet</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\htmllib\IntelliFactory.Html\IntelliFactory.Html.fsproj">
+    <ProjectReference Include="..\..\src\htmllib\IntelliFactory.WebSharper.Sitelets.Html\IntelliFactory.WebSharper.Sitelets.Html.fsproj">
       <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
       <Name>IntelliFactory.Html</Name>
     </ProjectReference>

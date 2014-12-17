@@ -85,7 +85,7 @@ module Content =
     /// Constructs a 500 Server Error response.
     val ServerError<'T> : Content<'T>
 
-    module H = IntelliFactory.Html.Html
+    module H = IntelliFactory.WebSharper.Sitelets.Html.Html
 
     /// HTML template utilities.
     module Template =
