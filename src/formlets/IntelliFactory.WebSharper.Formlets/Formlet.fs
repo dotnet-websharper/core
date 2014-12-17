@@ -17,11 +17,11 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-namespace IntelliFactory.WebSharper.Formlet
+namespace IntelliFactory.WebSharper.Formlets
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
-open IntelliFactory.Formlet.Base
+open IntelliFactory.Formlets.Base
 open IntelliFactory.Reactive
 
 type private HtmlElement = IntelliFactory.WebSharper.Html.Client.Element
@@ -61,7 +61,7 @@ module Data =
                 LayoutInternal : Layout<Body>
                 mutable ElementInternal : option<HtmlElement>
                 FormletBase : FormletProvider<Body>
-                Utils : IntelliFactory.Formlet.Base.Utils<Body>
+                Utils : IntelliFactory.Formlets.Base.Utils<Body>
             }
 
         /// Returns the internal element. Multiple invocations of `Run` will
@@ -123,7 +123,7 @@ module Data =
                 (this.Run ignore).Render ()
 
     /// Formlet result type.
-    type Result<'T> = IntelliFactory.Formlet.Base.Result<'T>
+    type Result<'T> = IntelliFactory.Formlets.Base.Result<'T>
 
     // Ugly hack for propagating render from IPagelets
     [<JavaScript>]

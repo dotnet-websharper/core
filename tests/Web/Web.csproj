@@ -55,7 +55,7 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Name>IntelliFactory.WebSharper.Core</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\formlets\IntelliFactory.Formlet\IntelliFactory.Formlet.fsproj">
+    <ProjectReference Include="..\..\src\formlets\IntelliFactory.Formlets\IntelliFactory.Formlets.fsproj">
       <Project>{7e70b9e1-7e68-4df9-a3b8-74378e31be08}</Project>
       <Name>IntelliFactory.Formlet</Name>
     </ProjectReference>
@@ -63,7 +63,7 @@
       <Project>{2d30fa07-e6be-45ac-90da-c2ca8309e137}</Project>
       <Name>IntelliFactory.Reactive</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\formlets\IntelliFactory.WebSharper.Formlet\IntelliFactory.WebSharper.Formlet.fsproj">
+    <ProjectReference Include="..\..\src\formlets\IntelliFactory.WebSharper.Formlets\IntelliFactory.WebSharper.Formlets.fsproj">
       <Project>{9a0df78f-a51e-4056-b180-4a77afb82897}</Project>
       <Name>IntelliFactory.WebSharper.Formlet</Name>
     </ProjectReference>
@@ -111,7 +111,7 @@
       <Project>{bb4817e7-12a1-4622-b8ce-29cb3c406851}</Project>
       <Name>IntelliFactory.WebSharper.Collections.Tests</Name>
     </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Formlet.Tests\IntelliFactory.WebSharper.Formlet.Tests.fsproj">
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Formlets.Tests\IntelliFactory.WebSharper.Formlets.Tests.fsproj">
       <Project>{35514715-41df-4c17-a9ec-d80abcd9e353}</Project>
       <Name>IntelliFactory.WebSharper.Formlet.Tests</Name>
     </ProjectReference>

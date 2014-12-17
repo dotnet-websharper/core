@@ -17,14 +17,13 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-namespace IntelliFactory.WebSharper.Formlet
+namespace IntelliFactory.WebSharper.Formlets
 
+open System.Collections.Generic
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
-open IntelliFactory.Formlet.Base
+open IntelliFactory.Formlets.Base
 open IntelliFactory.WebSharper.JQuery
-open System.Collections.Generic
-open IntelliFactory.Formlet.Base
 open IntelliFactory.WebSharper.Html.Client
 
 /// Represents the visual element of a formlet.

@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Formlet
+namespace IntelliFactory.WebSharper.Formlets
 
 open IntelliFactory.WebSharper
 open System.Reflection

@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.Formlet.Base
+namespace IntelliFactory.Formlets.Base
 open IntelliFactory.WebSharper
 
 // Interface for basic validation functionality.

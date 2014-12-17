@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.Formlet.Base
+namespace IntelliFactory.Formlets.Base
 
 type Result<'T> =
     | Success of 'T

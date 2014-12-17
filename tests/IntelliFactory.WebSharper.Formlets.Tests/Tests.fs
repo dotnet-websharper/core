@@ -18,12 +18,12 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Formlet.Tests
+namespace IntelliFactory.WebSharper.Formlets.Tests
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.Html.Client
-open IntelliFactory.WebSharper.Formlet
-open IntelliFactory.WebSharper.Formlet.Layout
+open IntelliFactory.WebSharper.Formlets
+open IntelliFactory.WebSharper.Formlets.Layout
 
 module FormletTest =
 

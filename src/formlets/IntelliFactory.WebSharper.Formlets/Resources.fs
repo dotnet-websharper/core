@@ -18,18 +18,15 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.Formlet.Base
+namespace IntelliFactory.WebSharper.Formlets
 
-open System
+open IntelliFactory.WebSharper
+open System.Web.UI
 
-/// Represent a form
-type Form<'Body,'State> =
-    {
-        Body    : IObservable<Tree.Edit<'Body>>
-        Dispose : unit -> unit
-        Notify  : obj -> unit
-        State   : IObservable<Result<'State>>
-    }
-        interface IDisposable with
-            [<ReflectedDefinition>]
-            member this.Dispose() = this.Dispose()
+module internal Resources =
+    open IntelliFactory.Formlets.Base
+
+    /// Default CSS skin.
+    [<Sealed>]
+    type SkinResource() =
+        inherit Core.Resources.BaseResource("Formlet.css")

@@ -17,7 +17,7 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-namespace IntelliFactory.WebSharper.Formlet
+namespace IntelliFactory.WebSharper.Formlets
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
@@ -25,8 +25,7 @@ open IntelliFactory.WebSharper.JavaScript
 /// Defines formlets and their operations.
 module Controls =
     open System
-    open IntelliFactory.Formlet.Base
-    open IntelliFactory.WebSharper.Formlet
+    open IntelliFactory.Formlets.Base
     open IntelliFactory.WebSharper.Html.Client
     open IntelliFactory.WebSharper.Html.Client.Events
     open IntelliFactory.Reactive

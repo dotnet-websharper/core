@@ -1,9 +1,9 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProjectGuid>{9a0df78f-a51e-4056-b180-4a77afb82897}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <Name>IntelliFactory.WebSharper.Formlet</Name>
+    <Name>IntelliFactory.WebSharper.Formlets</Name>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/WebSharper.Internal.targets" />
@@ -59,8 +59,8 @@
       <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\IntelliFactory.Formlet\IntelliFactory.Formlet.fsproj">
-      <Name>IntelliFactory.Formlet</Name>
+    <ProjectReference Include="..\IntelliFactory.Formlets\IntelliFactory.Formlets.fsproj">
+      <Name>IntelliFactory.Formlets</Name>
       <Project>{7e70b9e1-7e68-4df9-a3b8-74378e31be08}</Project>
       <Private>True</Private>
     </ProjectReference>

@@ -17,7 +17,7 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-namespace IntelliFactory.WebSharper.Formlet
+namespace IntelliFactory.WebSharper.Formlets
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.Html.Client

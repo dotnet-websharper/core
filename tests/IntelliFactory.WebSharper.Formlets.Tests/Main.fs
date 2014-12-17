@@ -18,12 +18,12 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Formlet.Tests
+namespace IntelliFactory.WebSharper.Formlets.Tests
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.Html.Client
-open IntelliFactory.WebSharper.Formlet
+open IntelliFactory.WebSharper.Formlets
 open System
 
 module Utils =
@@ -32,7 +32,7 @@ module Utils =
     let Log x = ()
 
 module BF =
-    open IntelliFactory.Formlet.Base
+    open IntelliFactory.Formlets.Base
 
     [<JavaScript>]
     let RX = IntelliFactory.Reactive.Reactive.Default
@@ -184,7 +184,7 @@ module BF =
         |> Join
 
 module F =
-    open IntelliFactory.Formlet.Base
+    open IntelliFactory.Formlets.Base
 
     [<JavaScript>]
     let PropagateRenderFrom (f1: IFormlet<_,_>) f2 =

@@ -1,9 +1,9 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProjectGuid>{35514715-41df-4c17-a9ec-d80abcd9e353}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <Name>IntelliFactory.WebSharper.Formlet.Tests</Name>
+    <Name>IntelliFactory.WebSharper.Formlets.Tests</Name>
   </PropertyGroup>
   <Import Project="../../msbuild/FSharp.targets" />
   <Import Project="../../msbuild/WebSharper.Internal.targets" />
@@ -17,8 +17,8 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\formlets\IntelliFactory.Formlet\IntelliFactory.Formlet.fsproj">
-      <Name>IntelliFactory.Formlet</Name>
+    <ProjectReference Include="..\..\src\formlets\IntelliFactory.Formlets\IntelliFactory.Formlets.fsproj">
+      <Name>IntelliFactory.Formlets</Name>
       <Project>{7e70b9e1-7e68-4df9-a3b8-74378e31be08}</Project>
       <Private>True</Private>
     </ProjectReference>
@@ -27,8 +27,8 @@
       <Project>{2d30fa07-e6be-45ac-90da-c2ca8309e137}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\formlets\IntelliFactory.WebSharper.Formlet\IntelliFactory.WebSharper.Formlet.fsproj">
-      <Name>IntelliFactory.WebSharper.Formlet</Name>
+    <ProjectReference Include="..\..\src\formlets\IntelliFactory.WebSharper.Formlets\IntelliFactory.WebSharper.Formlets.fsproj">
+      <Name>IntelliFactory.WebSharper.Formlets</Name>
       <Project>{9a0df78f-a51e-4056-b180-4a77afb82897}</Project>
       <Private>True</Private>
     </ProjectReference>

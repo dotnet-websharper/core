@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.Formlet.Base
+namespace IntelliFactory.Formlets.Base
 
 /// Defines a binary tree structure and its associated operations.
 /// In particular, defines a derivative type to describe tree edits.
