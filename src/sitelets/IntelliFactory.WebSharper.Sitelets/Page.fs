@@ -22,10 +22,10 @@ namespace IntelliFactory.WebSharper.Sitelets
 
 open System.Collections.Generic
 open System.Web.UI
-open IntelliFactory.WebSharper.Sitelets.Html
+open IntelliFactory.WebSharper.Html.Server
 open IntelliFactory.WebSharper
 type private Writer = HtmlTextWriter -> unit
-type private IControl = IntelliFactory.WebSharper.Pagelets.Html.Activator.IControl
+type private IControl = IntelliFactory.WebSharper.Html.Client.Activator.IControl
 
 /// Represents HTML pages with embedded WebSharper controls.
 type Page =

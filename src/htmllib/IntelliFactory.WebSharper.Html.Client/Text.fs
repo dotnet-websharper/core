@@ -18,33 +18,17 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Pagelets.Html
+namespace IntelliFactory.WebSharper.Html.Client
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
-open IntelliFactory.WebSharper.Pagelets.Html.Interfaces
 
-/// Represents HTML attributes.
-type internal Attribute [<JavaScript>] private (HtmlProvider) =
-
-    [<DefaultValue>]
-    val mutable Name : string
-
-    [<DefaultValue>]
-    val mutable Value: string
-
-    [<JavaScript>]
-    static member New(htmlProvider: IHtmlProvider, name: string, value: string) =
-        let a = new Attribute(htmlProvider)
-        a.Name <- name
-        a.Value <- value
-        a
+type internal Text = { text: string } with
 
     interface IPagelet with
+
         [<JavaScript>]
         member this.Body =
-            let attr = HtmlProvider.CreateAttribute this.Name
-            attr.Value <- this.Value
-            attr :> _
+            JS.Document.CreateTextNode this.text :> _
 
         [<JavaScript>]
         member this.Render () = ()

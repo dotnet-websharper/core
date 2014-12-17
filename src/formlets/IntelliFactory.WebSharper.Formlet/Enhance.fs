@@ -21,10 +21,10 @@ namespace IntelliFactory.WebSharper.Formlet
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
-open IntelliFactory.WebSharper.Pagelets.Html
-open IntelliFactory.WebSharper.Pagelets.Html.Events
+open IntelliFactory.WebSharper.Html.Client
+open IntelliFactory.WebSharper.Html.Client.Events
 
-module H = IntelliFactory.WebSharper.Pagelets.Html.Default
+module H = IntelliFactory.WebSharper.Html.Client.Default
 
 /// Defines formlets and their operations.
 module Enhance =

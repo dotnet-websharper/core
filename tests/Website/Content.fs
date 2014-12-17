@@ -21,8 +21,8 @@
 /// Declares server-side content utilities.
 module Website.Content
 
-open IntelliFactory.WebSharper.Sitelets.Html
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.Html.Server
 open IntelliFactory.WebSharper.Sitelets
 
 let ( => ) text url =

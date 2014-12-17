@@ -67,11 +67,11 @@
       <Project>{9a0df78f-a51e-4056-b180-4a77afb82897}</Project>
       <Name>IntelliFactory.WebSharper.Formlet</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\htmllib\IntelliFactory.WebSharper.Sitelets.Html\IntelliFactory.WebSharper.Sitelets.Html.fsproj">
+    <ProjectReference Include="..\..\src\htmllib\IntelliFactory.WebSharper.Html.Server\IntelliFactory.WebSharper.Html.Server.fsproj">
       <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
       <Name>IntelliFactory.Html</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\htmllib\IntelliFactory.WebSharper.Pagelets.Html\IntelliFactory.WebSharper.Pagelets.Html.fsproj">
+    <ProjectReference Include="..\..\src\htmllib\IntelliFactory.WebSharper.Html.Client\IntelliFactory.WebSharper.Html.Client.fsproj">
       <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
       <Name>IntelliFactory.WebSharper.Html</Name>
     </ProjectReference>

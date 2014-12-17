@@ -22,7 +22,7 @@ namespace IntelliFactory.WebSharper.Sitelets.Tests
 
 module Client =
     open IntelliFactory.WebSharper
-    open IntelliFactory.WebSharper.Pagelets.Html
+    open IntelliFactory.WebSharper.Html.Client
 
     [<Sealed>]
     type SignupSequenceControl() =
@@ -42,8 +42,8 @@ module Client =
 
 /// The website definition.
 module SampleSite =
-    open IntelliFactory.WebSharper.Sitelets.Html
     open IntelliFactory.WebSharper
+    open IntelliFactory.WebSharper.Html.Server
     open IntelliFactory.WebSharper.Sitelets
 
     /// Actions that corresponds to the different pages in the site.

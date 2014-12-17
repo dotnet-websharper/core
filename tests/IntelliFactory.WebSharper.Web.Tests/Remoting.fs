@@ -25,7 +25,7 @@ namespace IntelliFactory.WebSharper.Web.Tests
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
-module H = IntelliFactory.WebSharper.Pagelets.Html.Default
+module H = IntelliFactory.WebSharper.Html.Client.Default
 
 module Server =
 

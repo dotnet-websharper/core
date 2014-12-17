@@ -25,7 +25,7 @@ open IntelliFactory.Formlet.Base
 open IntelliFactory.WebSharper.JQuery
 open System.Collections.Generic
 open IntelliFactory.Formlet.Base
-open IntelliFactory.WebSharper.Pagelets.Html
+open IntelliFactory.WebSharper.Html.Client
 
 /// Represents the visual element of a formlet.
 type Body =

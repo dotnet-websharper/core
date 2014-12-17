@@ -17,7 +17,7 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-namespace IntelliFactory.WebSharper.Sitelets.Html
+namespace IntelliFactory.WebSharper.Html.Server
 
 open System
 open System.Collections.Generic
@@ -29,7 +29,7 @@ open System.Xml
 [<AutoOpen>]
 module Html =
 
-    type IControl = IntelliFactory.WebSharper.Pagelets.Html.Activator.IControl
+    type IControl = IntelliFactory.WebSharper.Html.Client.Activator.IControl
 
     /// Represents HTML tags.
     type TagContent =

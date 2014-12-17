@@ -20,9 +20,9 @@
 
 namespace IntelliFactory.WebSharper.Web
 
-module A = IntelliFactory.WebSharper.Sitelets.Html.Attributes
-module H = IntelliFactory.WebSharper.Sitelets.Html.Html
-module T = IntelliFactory.WebSharper.Sitelets.Html.Tags
+module A = IntelliFactory.WebSharper.Html.Server.Attributes
+module H = IntelliFactory.WebSharper.Html.Server.Html
+module T = IntelliFactory.WebSharper.Html.Server.Tags
 
 /// A base class for defining custom ASP.NET controls. Inherit from this class,
 /// override the Body property and use the new class as a Server ASP.NET
@@ -44,16 +44,16 @@ type Control() =
             ScriptManager.Find(base.Page).Register
                 (if isR then None else Some id) this
 
-    interface IntelliFactory.WebSharper.Sitelets.Html.Html.INode with
+    interface IntelliFactory.WebSharper.Html.Server.Html.INode with
         member this.Node =
             let el = T.Div [A.Id this.ID]
             let el = el |> H.Annotate this
             H.ContentNode el
 
-    abstract member Body : IntelliFactory.WebSharper.Pagelets.Html.IPagelet
+    abstract member Body : IntelliFactory.WebSharper.Html.Client.IPagelet
     default this.Body = Unchecked.defaultof<_>
 
-    interface IntelliFactory.WebSharper.Pagelets.Html.Activator.IControl with
+    interface IntelliFactory.WebSharper.Html.Client.Activator.IControl with
         member this.Body = this.Body
         member this.Id = this.ID
 

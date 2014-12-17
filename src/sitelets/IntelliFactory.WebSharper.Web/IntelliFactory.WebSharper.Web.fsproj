@@ -24,13 +24,13 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\htmllib\IntelliFactory.WebSharper.Pagelets.Html\IntelliFactory.WebSharper.Pagelets.Html.fsproj">
-      <Name>IntelliFactory.WebSharper.Pagelets.Html</Name>
+    <ProjectReference Include="..\..\htmllib\IntelliFactory.WebSharper.Html.Client\IntelliFactory.WebSharper.Html.Client.fsproj">
+      <Name>IntelliFactory.WebSharper.Html.Client</Name>
       <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\htmllib\IntelliFactory.WebSharper.Sitelets.Html\IntelliFactory.WebSharper.Sitelets.Html.fsproj">
-      <Name>IntelliFactory.WebSharper.Sitelets.Html</Name>
+    <ProjectReference Include="..\..\htmllib\IntelliFactory.WebSharper.Html.Server\IntelliFactory.WebSharper.Html.Server.fsproj">
+      <Name>IntelliFactory.WebSharper.Html.Server</Name>
       <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
       <Private>True</Private>
     </ProjectReference>

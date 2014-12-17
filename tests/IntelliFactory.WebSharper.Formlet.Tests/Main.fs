@@ -22,7 +22,7 @@ namespace IntelliFactory.WebSharper.Formlet.Tests
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
-open IntelliFactory.WebSharper.Pagelets.Html
+open IntelliFactory.WebSharper.Html.Client
 open IntelliFactory.WebSharper.Formlet
 open System
 

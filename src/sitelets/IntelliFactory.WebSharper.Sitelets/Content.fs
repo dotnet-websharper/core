@@ -38,13 +38,13 @@ module Content =
 
     type private Func<'A,'B> = System.Func<'A,'B>
 
-    module Activator = IntelliFactory.WebSharper.Pagelets.Html.Activator
+    module Activator = IntelliFactory.WebSharper.Html.Client.Activator
     module M = IntelliFactory.WebSharper.Core.Metadata
     module R = IntelliFactory.WebSharper.Core.Reflection
     module J = IntelliFactory.WebSharper.Core.Json
     module XS = IntelliFactory.Xml.SimpleXml
     module XT = IntelliFactory.Xml.Templating
-    module H = IntelliFactory.WebSharper.Sitelets.Html.Html
+    module H = IntelliFactory.WebSharper.Html.Server.Html
 
     let metaJson<'T> (jP: Core.Json.Provider) (controls: seq<Activator.IControl>) =
         let encode (c: Activator.IControl) =
@@ -102,7 +102,7 @@ module Content =
         // Render meta
         tw.WriteLine(
             "<meta id='{0}' name='{0}' content='{1}' />",
-            IntelliFactory.WebSharper.Pagelets.Html.Activator.META_ID, 
+            IntelliFactory.WebSharper.Html.Client.Activator.META_ID, 
             escape mJson
         )
         // Render resources

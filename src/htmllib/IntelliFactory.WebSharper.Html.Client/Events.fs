@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Pagelets.Html
+namespace IntelliFactory.WebSharper.Html.Client
 
 /// Provides the event interfaces and the default event support.
 module Events =

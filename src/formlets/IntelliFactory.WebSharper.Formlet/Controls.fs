@@ -27,8 +27,8 @@ module Controls =
     open System
     open IntelliFactory.Formlet.Base
     open IntelliFactory.WebSharper.Formlet
-    open IntelliFactory.WebSharper.Pagelets.Html
-    open IntelliFactory.WebSharper.Pagelets.Html.Events
+    open IntelliFactory.WebSharper.Html.Client
+    open IntelliFactory.WebSharper.Html.Client.Events
     open IntelliFactory.Reactive
 
     [<JavaScript>]

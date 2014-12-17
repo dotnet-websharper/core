@@ -18,10 +18,10 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Pagelets.Html
+namespace IntelliFactory.WebSharper.Html.Client
 
 open IntelliFactory.WebSharper
-open IntelliFactory.WebSharper.Pagelets.Html.Interfaces
+open IntelliFactory.WebSharper.Html.Client.Interfaces
 
 /// HTML5 combinators
 type Html5TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =

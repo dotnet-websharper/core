@@ -21,9 +21,11 @@ namespace IntelliFactory.WebSharper.Formlet
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
-open IntelliFactory.WebSharper.Pagelets
 open IntelliFactory.Formlet.Base
 open IntelliFactory.Reactive
+
+type private HtmlElement = IntelliFactory.WebSharper.Html.Client.Element
+type private IPagelet = IntelliFactory.WebSharper.Html.Client.IPagelet
 
 /// Defines formlets and their operations.
 [<AutoOpen>]
@@ -57,7 +59,7 @@ module Data =
             {
                 BuildInternal : unit -> Form<Body,'T>
                 LayoutInternal : Layout<Body>
-                mutable ElementInternal : option<Html.Element>
+                mutable ElementInternal : option<HtmlElement>
                 FormletBase : FormletProvider<Body>
                 Utils : IntelliFactory.Formlet.Base.Utils<Body>
             }
@@ -68,7 +70,7 @@ module Data =
         member this.Run (f: 'T -> unit) =
             match this.ElementInternal with
             | Some el   ->
-                el :> Html.IPagelet
+                el :> IPagelet
             | None      ->
                 let formlet = this.FormletBase.ApplyLayout this
                 let form = formlet.Build()
@@ -84,7 +86,7 @@ module Data =
                         let (body, _) = DefaultLayout.Apply(form.Body).Value
                         body.Element
                 this.ElementInternal <- Some el
-                el :> Html.IPagelet
+                el :> IPagelet
 
         /// IFormlet implementation.
         interface IFormlet<Body,'T> with
@@ -112,7 +114,7 @@ module Data =
                 unbox x
 
         /// IPagelet implementation.
-        interface Html.IPagelet with
+        interface IPagelet with
             [<JavaScript>]
             member this.Body =
                 (this.Run ignore).Body
@@ -473,7 +475,7 @@ module Formlet =
 
     /// Maps the HTML elements of the body component of a formlet.
     [<JavaScript>]
-    let MapElement (f: Html.Element -> Html.Element) (formlet: Formlet<'T>) : Formlet<'T> =
+    let MapElement (f: HtmlElement -> HtmlElement) (formlet: Formlet<'T>) : Formlet<'T> =
         formlet
         |> (BaseFormlet()).MapBody (fun b ->
             {b with Element = f b.Element}
@@ -485,7 +487,7 @@ module Formlet =
     /// Given an element generator function, creates a formlet
     /// containing the element as the form body and a successful unit value state.
     [<JavaScript>]
-    let OfElement (genElem: unit -> Html.Element) : Formlet<unit> =
+    let OfElement (genElem: unit -> HtmlElement) : Formlet<unit> =
         MkFormlet <| fun () ->
             let elem = genElem ()
             elem, ignore, (RX.Return(Success ()))

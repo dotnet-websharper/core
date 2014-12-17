@@ -17,7 +17,7 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-namespace IntelliFactory.WebSharper.Sitelets.Html
+namespace IntelliFactory.WebSharper.Html.Server
 
 /// Exposes common HTML tags.
 // List is from:

@@ -1,9 +1,9 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProjectGuid>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <Name>IntelliFactory.WebSharper.Sitelets.Html</Name>
+    <Name>IntelliFactory.WebSharper.Html.Server</Name>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <ItemGroup>
@@ -13,8 +13,8 @@
     <Compile Include="Control.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\IntelliFactory.WebSharper.Pagelets.Html\IntelliFactory.WebSharper.Pagelets.Html.fsproj">
-      <Name>IntelliFactory.WebSharper.Pagelets.Html</Name>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Html.Client\IntelliFactory.WebSharper.Html.Client.fsproj">
+      <Name>IntelliFactory.WebSharper.Html.Client</Name>
       <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
       <Private>True</Private>
     </ProjectReference>

@@ -23,8 +23,8 @@ module Website.Skin
 
 open System
 open System.Web
-open IntelliFactory.WebSharper.Sitelets.Html
 open IntelliFactory.WebSharper
+open IntelliFactory.WebSharper.Html.Server
 open IntelliFactory.WebSharper.Sitelets
 
 let Footer =

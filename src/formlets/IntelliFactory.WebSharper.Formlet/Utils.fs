@@ -20,7 +20,7 @@
 namespace IntelliFactory.WebSharper.Formlet
 
 open IntelliFactory.WebSharper
-open IntelliFactory.WebSharper.Pagelets.Html
+open IntelliFactory.WebSharper.Html.Client
 
 module internal Utils =
 

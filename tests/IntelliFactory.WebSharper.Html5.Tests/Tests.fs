@@ -22,7 +22,7 @@ namespace IntelliFactory.WebSharper.Html5.Tests
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
-open IntelliFactory.WebSharper.Pagelets.Html
+open IntelliFactory.WebSharper.Html.Client
 open IntelliFactory.WebSharper.JQuery
 
 module Utils =

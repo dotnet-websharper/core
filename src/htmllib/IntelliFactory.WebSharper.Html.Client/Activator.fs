@@ -19,11 +19,11 @@
 // $end{copyright}
 
 /// Initializes all controls found on the page.
-module IntelliFactory.WebSharper.Pagelets.Html.Activator
+module IntelliFactory.WebSharper.Html.Client.Activator
 
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
-module H = IntelliFactory.WebSharper.Pagelets.Html.Default
+module H = IntelliFactory.WebSharper.Html.Client.Default
 
 /// The identifier of the meta tag holding the controls.
 [<Literal>]

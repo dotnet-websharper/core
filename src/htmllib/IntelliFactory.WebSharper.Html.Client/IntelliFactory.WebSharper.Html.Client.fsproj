@@ -3,7 +3,7 @@
   <PropertyGroup>
     <ProjectGuid>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <Name>IntelliFactory.WebSharper.Pagelets.Html</Name>
+    <Name>IntelliFactory.WebSharper.Html.Client</Name>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/WebSharper.Internal.targets" />

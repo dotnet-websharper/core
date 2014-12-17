@@ -23,7 +23,7 @@ namespace IntelliFactory.WebSharper.Web.Tests
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
 module A = IntelliFactory.WebSharper.Core.Attributes
-module H = IntelliFactory.WebSharper.Pagelets.Html.Default
+module H = IntelliFactory.WebSharper.Html.Client.Default
 
 
 [<Proxy(typeof<System.Text.StringBuilder>)>]
@@ -40,7 +40,7 @@ type StringBuilder [<JavaScript>] () =
     override this.ToString() = c
 
 module Client =
-    open IntelliFactory.WebSharper.Pagelets.Html
+    open IntelliFactory.WebSharper.Html.Client
 
     [<JavaScript>]
     let test () =

@@ -18,9 +18,9 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper.Sitelets.Html.Web
+namespace IntelliFactory.WebSharper.Html.Server.Web
 
-open IntelliFactory.WebSharper.Sitelets.Html
+open IntelliFactory.WebSharper.Html.Server
 
 [<AbstractClass>]
 type Control() =
