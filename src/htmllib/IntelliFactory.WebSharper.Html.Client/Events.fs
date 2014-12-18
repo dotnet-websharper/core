@@ -49,38 +49,38 @@ module Events =
     type IEventSupport =
 
         // Mouse
-        abstract member OnClick<'T when 'T :> IPagelet>         : ('T -> MouseEvent -> unit) -> 'T -> unit
-        abstract member OnDoubleClick<'T when 'T :> IPagelet>   : ('T -> MouseEvent -> unit) -> 'T -> unit
-        abstract member OnMouseDown<'T when 'T :> IPagelet>     : ('T -> MouseEvent -> unit) -> 'T -> unit
-        abstract member OnMouseEnter<'T when 'T :> IPagelet>    : ('T -> MouseEvent -> unit) -> 'T -> unit
-        abstract member OnMouseLeave<'T when 'T :> IPagelet>    : ('T -> MouseEvent -> unit) -> 'T -> unit
-        abstract member OnMouseMove<'T when 'T :> IPagelet>     : ('T -> MouseEvent -> unit) -> 'T -> unit
-        abstract member OnMouseOut<'T when 'T :> IPagelet>      : ('T -> MouseEvent -> unit) -> 'T -> unit
-        abstract member OnMouseUp<'T when 'T :> IPagelet>      : ('T -> MouseEvent -> unit) -> 'T -> unit
+        abstract member OnClick<'T when 'T :> Pagelet>         : ('T -> MouseEvent -> unit) -> 'T -> unit
+        abstract member OnDoubleClick<'T when 'T :> Pagelet>   : ('T -> MouseEvent -> unit) -> 'T -> unit
+        abstract member OnMouseDown<'T when 'T :> Pagelet>     : ('T -> MouseEvent -> unit) -> 'T -> unit
+        abstract member OnMouseEnter<'T when 'T :> Pagelet>    : ('T -> MouseEvent -> unit) -> 'T -> unit
+        abstract member OnMouseLeave<'T when 'T :> Pagelet>    : ('T -> MouseEvent -> unit) -> 'T -> unit
+        abstract member OnMouseMove<'T when 'T :> Pagelet>     : ('T -> MouseEvent -> unit) -> 'T -> unit
+        abstract member OnMouseOut<'T when 'T :> Pagelet>      : ('T -> MouseEvent -> unit) -> 'T -> unit
+        abstract member OnMouseUp<'T when 'T :> Pagelet>      : ('T -> MouseEvent -> unit) -> 'T -> unit
 
         // Keys
-        abstract member OnKeyDown<'T when 'T :> IPagelet>       : ('T -> KeyCode -> unit) -> 'T ->  unit
-        abstract member OnKeyPress<'T when 'T :> IPagelet>      : ('T -> CharacterCode -> unit) -> 'T ->  unit
-        abstract member OnKeyUp<'T when 'T :> IPagelet>         : ('T -> KeyCode -> unit) -> 'T ->  unit
+        abstract member OnKeyDown<'T when 'T :> Pagelet>       : ('T -> KeyCode -> unit) -> 'T ->  unit
+        abstract member OnKeyPress<'T when 'T :> Pagelet>      : ('T -> CharacterCode -> unit) -> 'T ->  unit
+        abstract member OnKeyUp<'T when 'T :> Pagelet>         : ('T -> KeyCode -> unit) -> 'T ->  unit
 
         // Other
-        abstract member OnBlur<'T when 'T :> IPagelet>          : ('T -> unit) -> 'T -> unit
-        abstract member OnChange<'T when 'T :> IPagelet>        : ('T -> unit) -> 'T -> unit
-        abstract member OnFocus<'T when 'T :> IPagelet>         : ('T -> unit) -> 'T -> unit
-        abstract member OnError<'T when 'T :> IPagelet>         : ('T -> unit) -> 'T -> unit
-        abstract member OnLoad<'T when 'T :> IPagelet>          : ('T -> unit) -> 'T -> unit
-        abstract member OnUnLoad<'T when 'T :> IPagelet>        : ('T -> unit) -> 'T -> unit
-        abstract member OnResize<'T when 'T :> IPagelet>        : ('T -> unit) -> 'T -> unit
-        abstract member OnScroll<'T when 'T :> IPagelet>        : ('T -> unit) -> 'T -> unit
-        abstract member OnSelect<'T when 'T :> IPagelet>        : ('T -> unit) -> 'T -> unit
-        abstract member OnSubmit<'T when 'T :> IPagelet>        : ('T -> unit) -> 'T -> unit
+        abstract member OnBlur<'T when 'T :> Pagelet>          : ('T -> unit) -> 'T -> unit
+        abstract member OnChange<'T when 'T :> Pagelet>        : ('T -> unit) -> 'T -> unit
+        abstract member OnFocus<'T when 'T :> Pagelet>         : ('T -> unit) -> 'T -> unit
+        abstract member OnError<'T when 'T :> Pagelet>         : ('T -> unit) -> 'T -> unit
+        abstract member OnLoad<'T when 'T :> Pagelet>          : ('T -> unit) -> 'T -> unit
+        abstract member OnUnLoad<'T when 'T :> Pagelet>        : ('T -> unit) -> 'T -> unit
+        abstract member OnResize<'T when 'T :> Pagelet>        : ('T -> unit) -> 'T -> unit
+        abstract member OnScroll<'T when 'T :> Pagelet>        : ('T -> unit) -> 'T -> unit
+        abstract member OnSelect<'T when 'T :> Pagelet>        : ('T -> unit) -> 'T -> unit
+        abstract member OnSubmit<'T when 'T :> Pagelet>        : ('T -> unit) -> 'T -> unit
 
     type internal JE = IntelliFactory.WebSharper.JQuery.Event
 
     type internal JQueryEventSupport [<JavaScript>] () =
 
         [<JavaScript>]
-        member private this.OnMouse<'T when 'T :> IPagelet> name (f: 'T -> MouseEvent -> unit) (el: 'T)  =
+        member private this.OnMouse<'T when 'T :> Pagelet> name (f: 'T -> MouseEvent -> unit) (el: 'T)  =
             let h =
                 new Func<_,_,_>(fun (_ : Dom.Element) (ev: JE)->
                     f el {X = ev.PageX; Y = ev.PageY}

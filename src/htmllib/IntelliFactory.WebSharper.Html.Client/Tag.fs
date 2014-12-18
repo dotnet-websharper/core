@@ -26,10 +26,10 @@ open IntelliFactory.WebSharper.Html.Client.Interfaces
 /// HTML5 combinators
 type Html5TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     [<JavaScript>]
-    member this.NewTag (name: string) (children: seq<#IPagelet>) : Element =
+    member this.NewTag (name: string) (children: seq<#Pagelet>) : Element =
         let el = Element.New (HtmlProvider, name)
         for pl in children do
-            el.Append (pl :> IPagelet)
+            el.Append (pl :> Pagelet)
         el
 
     [<Inline>]
@@ -150,10 +150,10 @@ type Html5TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 type DeprecatedTagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<JavaScript>]
-    member this.NewTag (name: string) (children: seq<#IPagelet>) : Element =
+    member this.NewTag (name: string) (children: seq<#Pagelet>) : Element =
         let el = Element.New (HtmlProvider, name)
         for pl in children do
-            el.Append (pl :> IPagelet)
+            el.Append (pl :> Pagelet)
         el
 
     [<Inline>]
@@ -200,16 +200,16 @@ type DeprecatedTagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<JavaScript>]
-    member this.NewTag (name: string) (children: seq<#IPagelet>) : Element =
+    member this.NewTag (name: string) (children: seq<#Pagelet>) : Element =
         let el = Element.New (HtmlProvider, name)
         for pl in children do
-            el.Append (pl :> IPagelet)
+            el.Append (pl :> Pagelet)
         el
 
     /// Creates a Text node.
     [<JavaScript>]
     [<Name "text">]
-    member this.Text (data: string) = { text = data } :> IPagelet
+    member this.Text (data: string) = Text(data) :> Pagelet
 
     [<Inline>]
     [<JavaScript>]

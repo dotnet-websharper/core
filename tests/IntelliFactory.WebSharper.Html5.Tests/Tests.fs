@@ -337,5 +337,5 @@ type Samples() =
             SamplesInternals.Canvas (150, 150) SamplesInternals.Example6
             SamplesInternals.Canvas (180, 130) SamplesInternals.Example7
             SamplesInternals.Canvas (200, 200) SamplesInternals.Example8
-        ] :> IPagelet
+        ] :> _
 

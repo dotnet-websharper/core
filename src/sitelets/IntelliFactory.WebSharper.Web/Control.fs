@@ -20,6 +20,8 @@
 
 namespace IntelliFactory.WebSharper.Web
 
+open IntelliFactory.WebSharper
+
 module A = IntelliFactory.WebSharper.Html.Server.Attributes
 module H = IntelliFactory.WebSharper.Html.Server.Html
 module T = IntelliFactory.WebSharper.Html.Server.Tags
@@ -44,16 +46,16 @@ type Control() =
             ScriptManager.Find(base.Page).Register
                 (if isR then None else Some id) this
 
-    interface IntelliFactory.WebSharper.Html.Server.Html.INode with
+    interface Html.Server.Html.INode with
         member this.Node =
             let el = T.Div [A.Id this.ID]
             let el = el |> H.Annotate this
             H.ContentNode el
 
-    abstract member Body : IntelliFactory.WebSharper.Html.Client.IPagelet
+    abstract member Body : Html.Client.IControlBody
     default this.Body = Unchecked.defaultof<_>
 
-    interface IntelliFactory.WebSharper.Html.Client.Activator.IControl with
+    interface Html.Client.IControl with
         member this.Body = this.Body
         member this.Id = this.ID
 

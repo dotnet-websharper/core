@@ -37,7 +37,7 @@ module internal Utils =
         | Some v    -> Some (f v)
 
     [<JavaScript>]
-    let InTable (rows : list<list<IPagelet>>) : Element =
+    let InTable (rows : list<list<Pagelet>>) : Element =
         let rs =
             rows
             |> List.map (fun cols ->

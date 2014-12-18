@@ -46,8 +46,8 @@ module Content =
     module XT = IntelliFactory.Xml.Templating
     module H = IntelliFactory.WebSharper.Html.Server.Html
 
-    let metaJson<'T> (jP: Core.Json.Provider) (controls: seq<Activator.IControl>) =
-        let encode (c: Activator.IControl) =
+    let metaJson<'T> (jP: Core.Json.Provider) (controls: seq<IControl>) =
+        let encode (c: IControl) =
             let encoder = jP.GetEncoder(c.GetType())
             encoder.Encode c
         J.Encoded.Object [for c in controls -> (c.Id, encode c)]
@@ -88,7 +88,7 @@ module Content =
                 ResourceContext = ctx.ResourceContext
             }
 
-    let writeResources (env: Env) (controls: seq<Activator.IControl>) (tw: UI.HtmlTextWriter) =
+    let writeResources (env: Env) (controls: seq<IControl>) (tw: UI.HtmlTextWriter) =
         // Resolve resources for the set of types and this assembly
         let resources =
             controls

@@ -23,16 +23,14 @@ open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.Formlets.Base
 open IntelliFactory.Reactive
-
-type private HtmlElement = IntelliFactory.WebSharper.Html.Client.Element
-type private IPagelet = IntelliFactory.WebSharper.Html.Client.IPagelet
+open IntelliFactory.WebSharper.Html.Client
 
 /// Defines formlets and their operations.
 [<AutoOpen>]
 module Data =
 
     [<JavaScript>]
-    let private NewBody = Body.New
+    let private NewBody = Formlets.Body.New
 
     [<JavaScript>]
     let internal RX = Reactive.Default
@@ -54,25 +52,26 @@ module Data =
     let internal BaseFormlet() = FormletProvider(UtilsProvider())
 
     // WebSharper formlet type.
-    type Formlet<'T> =
-        internal
-            {
-                BuildInternal : unit -> Form<Body,'T>
-                LayoutInternal : Layout<Body>
-                mutable ElementInternal : option<HtmlElement>
-                FormletBase : FormletProvider<Body>
-                Utils : IntelliFactory.Formlets.Base.Utils<Body>
-            }
+    [<JavaScript>]
+    type Formlet<'T>
+        (
+            buildInternal: unit -> Form<Body, 'T>,
+            layoutInternal: Layout<Body>,
+            formletBase: FormletProvider<Body>,
+            utils: IntelliFactory.Formlets.Base.Utils<Body>
+        ) =
+        inherit Pagelet()
+
+        member val internal ElementInternal : option<Element> = None with get, set
 
         /// Returns the internal element. Multiple invocations of `Run` will
         /// return the same element.
-        [<JavaScript>]
         member this.Run (f: 'T -> unit) =
             match this.ElementInternal with
             | Some el   ->
-                el :> IPagelet
+                el :> Pagelet
             | None      ->
-                let formlet = this.FormletBase.ApplyLayout this
+                let formlet = formletBase.ApplyLayout this
                 let form = formlet.Build()
                 form.State.Subscribe (fun res ->
                     Result.Map f res |> ignore
@@ -86,41 +85,34 @@ module Data =
                         let (body, _) = DefaultLayout.Apply(form.Body).Value
                         body.Element
                 this.ElementInternal <- Some el
-                el :> IPagelet
+                el :> Pagelet
 
         /// IFormlet implementation.
         interface IFormlet<Body,'T> with
-            [<JavaScript>]
-            member this.Build () = this.BuildInternal ()
-            [<JavaScript>]
-            member this.Layout = this.LayoutInternal
-            [<JavaScript>]
+            member this.Build () = buildInternal ()
+            member this.Layout = layoutInternal
             member this.MapResult (f : Result<'T> -> Result<'U>) =
                 let x =
-                    {
-                        BuildInternal = fun () ->
-                            let form = this.BuildInternal()
+                    Formlet<'U>(
+                        buildInternal = (fun () ->
+                            let form = buildInternal()
                             {
                                 Body = form.Body
                                 Dispose = form.Dispose
                                 Notify = form.Notify
-                                State =  this.Utils.Reactive.Select form.State (fun x -> f x)
-                            }
-                        LayoutInternal = this.LayoutInternal
-                        ElementInternal = None
-                        FormletBase = this.FormletBase
-                        Utils = this.Utils
-                    }
+                                State =  utils.Reactive.Select form.State (fun x -> f x)
+                            }),
+                        layoutInternal = layoutInternal,
+                        formletBase = formletBase,
+                        utils = utils
+                    )
                 unbox x
 
-        /// IPagelet implementation.
-        interface IPagelet with
-            [<JavaScript>]
-            member this.Body =
-                (this.Run ignore).Body
-            [<JavaScript>]
-            member this.Render () =
-                (this.Run ignore).Render ()
+        /// Pagelet implementation.
+        override this.Body =
+            (this.Run ignore).Body
+        override this.Render () =
+            (this.Run ignore).Render ()
 
     /// Formlet result type.
     type Result<'T> = IntelliFactory.Formlets.Base.Result<'T>
@@ -135,13 +127,12 @@ module Data =
     /// Construct a formlet from an IFormlet.
     [<JavaScript>]
     let OfIFormlet (formlet: IFormlet<Body, 'T>) : Formlet<'T> =
-        {
-            BuildInternal = formlet.Build
-            LayoutInternal = formlet.Layout
-            ElementInternal = None
-            FormletBase = BaseFormlet ()
-            Utils = UtilsProvider ()
-        }
+        Formlet<'T>(
+            buildInternal = formlet.Build,
+            layoutInternal = formlet.Layout,
+            formletBase = BaseFormlet (),
+            utils = UtilsProvider ()
+        )
         |> PropagateRenderFrom formlet
 
     [<JavaScript>]
@@ -475,7 +466,7 @@ module Formlet =
 
     /// Maps the HTML elements of the body component of a formlet.
     [<JavaScript>]
-    let MapElement (f: HtmlElement -> HtmlElement) (formlet: Formlet<'T>) : Formlet<'T> =
+    let MapElement (f: Element -> Element) (formlet: Formlet<'T>) : Formlet<'T> =
         formlet
         |> (BaseFormlet()).MapBody (fun b ->
             {b with Element = f b.Element}
@@ -487,7 +478,7 @@ module Formlet =
     /// Given an element generator function, creates a formlet
     /// containing the element as the form body and a successful unit value state.
     [<JavaScript>]
-    let OfElement (genElem: unit -> HtmlElement) : Formlet<unit> =
+    let OfElement (genElem: unit -> Element) : Formlet<unit> =
         MkFormlet <| fun () ->
             let elem = genElem ()
             elem, ignore, (RX.Return(Success ()))

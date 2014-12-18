@@ -29,7 +29,7 @@ open System.Xml
 [<AutoOpen>]
 module Html =
 
-    type IControl = IntelliFactory.WebSharper.Html.Client.Activator.IControl
+    type IControl = IntelliFactory.WebSharper.Html.Client.IControl
 
     /// Represents HTML tags.
     type TagContent =

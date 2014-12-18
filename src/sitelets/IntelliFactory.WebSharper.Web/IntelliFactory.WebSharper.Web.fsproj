@@ -24,14 +24,14 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\htmllib\IntelliFactory.WebSharper.Html.Client\IntelliFactory.WebSharper.Html.Client.fsproj">
-      <Name>IntelliFactory.WebSharper.Html.Client</Name>
-      <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\htmllib\IntelliFactory.WebSharper.Html.Server\IntelliFactory.WebSharper.Html.Server.fsproj">
       <Name>IntelliFactory.WebSharper.Html.Server</Name>
       <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\stdlib\IntelliFactory.WebSharper.JavaScript\IntelliFactory.WebSharper.JavaScript.fsproj">
+      <Name>IntelliFactory.WebSharper.JavaScript</Name>
+      <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\..\stdlib\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">

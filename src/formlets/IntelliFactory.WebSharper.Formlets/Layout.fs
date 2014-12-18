@@ -227,7 +227,7 @@ type LayoutProvider [<JavaScript>](LayoutUtils: LayoutUtils) =
                 if csp then
                     [(Attr.ColSpan "2")]
                 else []
-            TD <| style :: colSpan @ [elem] :> IPagelet
+            TD <| style :: colSpan @ [elem] :> Pagelet
 
         let elem = body.Element
 
@@ -396,7 +396,7 @@ type LayoutProvider [<JavaScript>](LayoutUtils: LayoutUtils) =
                         JQuery.Of(row.Body).InsertBefore(jqRow).Ignore
                         // Since it's parent is already rendered,
                         // explicit rendering is required.
-                        (row :> IPagelet).Render()
+                        row.Render()
                         inserted := true
                     incr index
                 ).Ignore
@@ -445,7 +445,7 @@ type LayoutProvider [<JavaScript>](LayoutUtils: LayoutUtils) =
                         JQuery.Of(newCol.Body).InsertBefore(jqCol).Ignore
                         // Since it's parent is already rendered,
                         // explicit rendering is required.
-                        (newCol :> IPagelet).Render()
+                        newCol.Render()
                         inserted := true
                     incr index
                 ).Ignore

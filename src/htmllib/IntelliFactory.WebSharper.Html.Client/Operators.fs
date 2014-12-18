@@ -29,14 +29,14 @@ module Operators =
 
     [<JavaScript>]
     [<Name "add">]
-    let ( -< ) (el: Element) (inner: seq<#IPagelet>) =
+    let ( -< ) (el: Element) (inner: seq<#Pagelet>) =
         for pl in inner do
-            el.Append (pl :> IPagelet)
+            el.Append (pl :> Pagelet)
         el
 
     [<Inline>]
     [<JavaScript>]
-    let ( -- ) (el: Element) (inner: #IPagelet) =
+    let ( -- ) (el: Element) (inner: #Pagelet) =
         el -< [inner]
 
     [<Inline "$f.apply($o)">]
@@ -45,7 +45,7 @@ module Operators =
     /// Destructively adds an function to be invoked after the render is called on
     /// the pagelet.
     [<JavaScript>]
-    let OnAfterRender<'T when 'T :> IPagelet> (f: 'T -> unit) (w: 'T) : unit =
+    let OnAfterRender<'T when 'T :> Pagelet> (f: 'T -> unit) (w: 'T) : unit =
         let r = w?Render
         w?Render <- fun () ->
             Apply r w
@@ -54,7 +54,7 @@ module Operators =
     /// Destructively adds an function to be invoked before the render is called on
     /// the pagelet.
     [<JavaScript>]
-    let OnBeforeRender<'T when 'T :> IPagelet> (f: 'T -> unit) (w: 'T) : unit =
+    let OnBeforeRender<'T when 'T :> Pagelet> (f: 'T -> unit) (w: 'T) : unit =
         let r = w?Render
         w?Render <- fun () ->
             f w

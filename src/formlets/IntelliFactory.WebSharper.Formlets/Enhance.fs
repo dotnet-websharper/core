@@ -831,6 +831,6 @@ module Enhance =
                 JQuery.JQuery.Of(submitButton.Body).Click()
             )
         Div [
-            form :> IPagelet
+            form :> Pagelet
             formlet :> _
         ]

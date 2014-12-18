@@ -23,21 +23,24 @@ namespace IntelliFactory.WebSharper.Html.Client
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
 
-/// IPagelet
-type IPagelet =
-    abstract member Render : unit -> unit
+[<AbstractClass>]
+[<JavaScript>]
+type Pagelet() =
+
     abstract member Body : Dom.Node
 
-[<AutoOpen>]
-module PageletExtensions =
+    abstract member Render : unit -> unit
+    default this.Render() = ()
 
-    type IPagelet with
+    interface IControlBody with
+        member this.ReplaceInDom(node: Dom.Node) =
+            node.ParentNode.ReplaceChild(this.Body, node) |> ignore
+            this.Render()
 
-        [<JavaScript>]
-        member p.AppendTo(targetId: string) =
-            let target = JS.Document.GetElementById(targetId)
-            target.AppendChild(p.Body) |> ignore
-            p.Render()
+    member this.AppendTo(targetId: string) =
+        let target = JS.Document.GetElementById(targetId)
+        target.AppendChild(this.Body) |> ignore
+        this.Render()
 
 module Interfaces =
 

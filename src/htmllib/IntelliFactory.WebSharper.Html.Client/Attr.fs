@@ -26,7 +26,7 @@ open IntelliFactory.WebSharper.Html.Client.Interfaces
 type Html5AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
 
     [<JavaScript>]
-    member this.NewAttr (name: string) (value: string) : IPagelet =
+    member this.NewAttr (name: string) (value: string) : Pagelet =
         let a = Attribute.New(HtmlProvider, name, value)
         a :> _
 
@@ -146,7 +146,7 @@ type Html5AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
 type DeprecatedAttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
 
     [<JavaScript>]
-    member this.NewAttr (name: string) (value: string) : IPagelet =
+    member this.NewAttr (name: string) (value: string) : Pagelet =
         let a = Attribute.New(HtmlProvider, name, value)
         a :> _
 
@@ -234,7 +234,7 @@ type DeprecatedAttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
 type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
 
     [<JavaScript>]
-    member this.NewAttr (name: string) (value: string) : IPagelet =
+    member this.NewAttr (name: string) (value: string) : Pagelet =
         let a = Attribute.New(HtmlProvider, name, value)
         a :> _
 

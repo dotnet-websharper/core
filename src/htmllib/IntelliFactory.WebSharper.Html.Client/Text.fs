@@ -22,13 +22,9 @@ namespace IntelliFactory.WebSharper.Html.Client
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.JavaScript
 
-type internal Text = { text: string } with
+[<JavaScript>]
+type internal Text(text: string) =
+    inherit Pagelet()
 
-    interface IPagelet with
-
-        [<JavaScript>]
-        member this.Body =
-            JS.Document.CreateTextNode this.text :> _
-
-        [<JavaScript>]
-        member this.Render () = ()
+    override this.Body =
+        JS.Document.CreateTextNode text :> _

@@ -24,7 +24,9 @@ open IntelliFactory.WebSharper.JavaScript
 open IntelliFactory.WebSharper.Html.Client.Interfaces
 
 /// Represents HTML attributes.
-type internal Attribute [<JavaScript>] private (HtmlProvider) =
+[<JavaScript>]
+type internal Attribute private (HtmlProvider) =
+    inherit Pagelet()
 
     [<DefaultValue>]
     val mutable Name : string
@@ -32,19 +34,13 @@ type internal Attribute [<JavaScript>] private (HtmlProvider) =
     [<DefaultValue>]
     val mutable Value: string
 
-    [<JavaScript>]
     static member New(htmlProvider: IHtmlProvider, name: string, value: string) =
         let a = new Attribute(htmlProvider)
         a.Name <- name
         a.Value <- value
         a
 
-    interface IPagelet with
-        [<JavaScript>]
-        member this.Body =
-            let attr = HtmlProvider.CreateAttribute this.Name
-            attr.Value <- this.Value
-            attr :> _
-
-        [<JavaScript>]
-        member this.Render () = ()
+    override this.Body =
+        let attr = HtmlProvider.CreateAttribute this.Name
+        attr.Value <- this.Value
+        attr :> _

@@ -24,6 +24,7 @@
     <Compile Include="Enumerator.fs" />
     <Compile Include="Enumerable.fs" />
     <Compile Include="Resources.fs" />
+    <Compile Include="Html.fs" />
     <Compile Include="Proxy/IntrinsicFunctions.fs" />
     <Compile Include="Proxy/Array.fs" />
     <Compile Include="Proxy/ArrayModule.fs" />
@@ -79,6 +80,11 @@
     <ProjectReference Include="..\IntelliFactory.WebSharper.JavaScript\IntelliFactory.WebSharper.JavaScript.fsproj">
       <Name>IntelliFactory.WebSharper.JavaScript</Name>
       <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.JQuery\IntelliFactory.WebSharper.JQuery.fsproj">
+      <Name>IntelliFactory.WebSharper.JQuery</Name>
+      <Project>{730ae40a-001c-4137-972d-898dc7c2bf0a}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
