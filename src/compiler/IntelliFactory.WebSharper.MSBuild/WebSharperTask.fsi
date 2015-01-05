@@ -64,9 +64,6 @@ type WebSharperTask =
     /// Output directory for the Bundle task.
     member WebSharperBundleOutputDir : string with get, set
 
-    /// Flag used to skip auto-referencing assemblies.
-    member WebSharperExplicitRefs : string with get, set
-
     /// Used as root for HTML project output.
     member WebSharperHtmlDirectory : string with get, set
 

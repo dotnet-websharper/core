@@ -25,7 +25,7 @@
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/net40/IntelliFactory.WebSharper.MSBuild.dll</WebSharperTaskAssembly>
   </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="IntelliFactory.WebSharper.MSBuild.WebSharperTask" />
-  <Target Name="WebSharperBundle" AfterTargets="Build" DependsOnTargets="WebSharperComputeReferences">
+  <Target Name="WebSharperBundle" AfterTargets="Build">
     <WebSharperTask Command="Bundle" ItemInput="$(TargetPath);@(ReferencePath)"
       Configuration="$(Configuration)"
       EmbeddedResources="@(EmbeddedResource)"
@@ -34,7 +34,6 @@
       Name="$(Name)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
-      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
@@ -48,11 +47,10 @@
       Name="$(Name)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
-      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
   </Target>
-  <Target Name="WebSharperCompile" AfterTargets="CoreCompile" DependsOnTargets="WebSharperComputeReferences">
+  <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
     <WebSharperTask Command="Compile" ItemInput="@(IntermediateAssembly);@(ReferencePath)"
       Configuration="$(Configuration)"
       EmbeddedResources="@(EmbeddedResource)"
@@ -61,43 +59,11 @@
       Name="$(Name)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
-      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
   </Target>
-  <Target Name="WebSharperAddReferences" BeforeTargets="ResolveAssemblyReferences">
-    <WebSharperTask Command="AddReferences" ItemInput="@(ReferencePath)"
-      Configuration="$(Configuration)"
-      EmbeddedResources="@(EmbeddedResource)"
-      KeyOriginatorFile="$(KeyOriginatorFile)"
-      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
-      Name="$(Name)"
-      WebProjectOutputDir="$(WebProjectOutputDir)"
-      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
-      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
-      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
-      WebSharperProject="$(WebSharperProject)">
-      <Output TaskParameter="ItemOutput" ItemName="Reference" />
-    </WebSharperTask>
-  </Target>
-  <Target Name="WebSharperComputeReferences" BeforeTargets="CoreCompile;CopyFilesMarkedCopyLocal" DependsOnTargets="ResolveReferences">
-    <WebSharperTask Command="ComputeReferences" ItemInput="@(ReferencePath)"
-      Configuration="$(Configuration)"
-      EmbeddedResources="@(EmbeddedResource)"
-      KeyOriginatorFile="$(KeyOriginatorFile)"
-      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
-      Name="$(Name)"
-      WebProjectOutputDir="$(WebProjectOutputDir)"
-      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
-      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
-      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
-      WebSharperProject="$(WebSharperProject)">
-      <Output TaskParameter="ItemOutput" ItemName="ReferencePath" />
-      <Output TaskParameter="ReferenceCopyLocalPaths" ItemName="ReferenceCopyLocalPaths" />
-    </WebSharperTask>
-  </Target>
-  <Target Name="WebSharperHtml" AfterTargets="Build" DependsOnTargets="WebSharperComputeReferences">
+  <Target Name="WebSharperHtml" AfterTargets="Build">
     <WebSharperTask Command="Html" ItemInput="$(TargetPath);@(ReferencePath)"
       Configuration="$(Configuration)"
       EmbeddedResources="@(EmbeddedResource)"
@@ -106,13 +72,12 @@
       Name="$(Name)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
-      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
   </Target>
   <Target Name="WebSharperUnpack" AfterTargets="Build">
-    <WebSharperTask Command="Unpack"
+    <WebSharperTask Command="Unpack" ItemInput="@(ReferencePath)"
       Configuration="$(Configuration)"
       EmbeddedResources="@(EmbeddedResource)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
@@ -120,7 +85,6 @@
       Name="$(Name)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
-      WebSharperExplicitRefs="$(WebSharperExplicitRefs)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />

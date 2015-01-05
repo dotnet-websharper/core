@@ -52,44 +52,45 @@ module Main =
         |> Seq.map (fun p -> (p, p.Substring(dir.Length).Replace("\\", "/")))
 
     let private exports =
-        let lib name =
+        let lib kind name =
             Seq.concat [
                 Directory.EnumerateFiles(buildDir, name + ".dll")
                 Directory.EnumerateFiles(buildDir, name + ".xml")
             ]
+            |> Seq.map (fun p -> (kind, p))
         Seq.concat [
             // compiler:
-            lib "IntelliFactory.JavaScript"
-            lib "IntelliFactory.WebSharper.Compiler"
-            lib "IntelliFactory.WebSharper.Core"
-            lib "IntelliFactory.WebSharper.InterfaceGenerator"
-            lib "IntelliFactory.WebSharper.MSBuild"
+            lib "lib"   "IntelliFactory.JavaScript"
+            lib "tools" "IntelliFactory.WebSharper.Compiler"
+            lib "lib"   "IntelliFactory.WebSharper.Core"
+            lib "lib"   "IntelliFactory.WebSharper.InterfaceGenerator"
+            lib "tools" "IntelliFactory.WebSharper.MSBuild"
             // formlets:
-            lib "IntelliFactory.Formlet"
-            lib "IntelliFactory.Reactive"
-            lib "IntelliFactory.WebSharper.Formlet"
+            lib "lib"   "IntelliFactory.Formlets"
+            lib "lib"   "IntelliFactory.Reactive"
+            lib "lib"   "IntelliFactory.WebSharper.Formlets"
             // htmllib:
-            lib "IntelliFactory.Html"
-            lib "IntelliFactory.WebSharper.Html"
+            lib "lib"   "IntelliFactory.WebSharper.Html.Server"
+            lib "lib"   "IntelliFactory.WebSharper.Html.Client"
             // sitelets:
-            lib "IntelliFactory.WebSharper.Sitelets"
-            lib "IntelliFactory.WebSharper.Web"
+            lib "lib"   "IntelliFactory.WebSharper.Sitelets"
+            lib "lib"   "IntelliFactory.WebSharper.Web"
             // stdlib:
-            lib "IntelliFactory.WebSharper"
-            lib "IntelliFactory.WebSharper.Collections"
-            lib "IntelliFactory.WebSharper.Control"
-            lib "IntelliFactory.WebSharper.JavaScript"
-            lib "IntelliFactory.WebSharper.JQuery"
-            lib "IntelliFactory.WebSharper.Testing"
+            lib "lib"   "IntelliFactory.WebSharper"
+            lib "lib"   "IntelliFactory.WebSharper.Collections"
+            lib "lib"   "IntelliFactory.WebSharper.Control"
+            lib "lib"   "IntelliFactory.WebSharper.JavaScript"
+            lib "lib"   "IntelliFactory.WebSharper.JQuery"
+            lib "lib"   "IntelliFactory.WebSharper.Testing"
             // foreign:
-            lib "FsNuGet"
-            lib "NuGet.Core"
-            lib "FSharp.Core"
-            lib "Mono.Cecil"
-            lib "Mono.Cecil.Mdb"
-            lib "Mono.Cecil.Pdb"
-            lib "IntelliFactory.Core"
-            lib "IntelliFactory.Xml"
+            lib "tools" "FsNuGet"
+            lib "tools" "NuGet.Core"
+            lib "tools" "FSharp.Core"
+            lib "tools" "Mono.Cecil"
+            lib "tools" "Mono.Cecil.Mdb"
+            lib "tools" "Mono.Cecil.Pdb"
+            lib "tools" "IntelliFactory.Core"
+            lib "lib"   "IntelliFactory.Xml"
         ]
         |> Seq.toList
 
@@ -109,8 +110,8 @@ module Main =
                     member x.Read() = File.OpenRead(Path.Combine(root, src)) :> _
                     member x.TargetPath = tgt
             }
-        let file src tgt =
-            "/tools/net40/" + defaultArg tgt (Path.GetFileName src)
+        let file kind src tgt =
+            sprintf "/%s/net40/%s" kind (defaultArg tgt (Path.GetFileName src))
             |> fileAt src
         nuPkg.AddNuGetExportingProject {
             new INuGetExportingProject with
@@ -118,14 +119,14 @@ module Main =
                     seq {
                         yield fileAt (Path.Combine(root, "msbuild", "WebSharper.targets"))
                             "build/WebSharper.targets"
-                        yield file "build/Release/WebSharper.exe" None
-                        yield file "build/Release/WebSharper.exe" (Some "WebSharper31.exe")
-                        yield file "build/Release/WebSharper31.exe.config" None
-                        for src in exports do
-                            yield file src None
+                        yield file "tools" "build/Release/WebSharper.exe" None
+                        yield file "tools" "build/Release/WebSharper.exe" (Some "WebSharper31.exe")
+                        yield file "tools" "build/Release/WebSharper31.exe.config" None
+                        for kind, src in exports do
+                            yield file kind src None
                         let fscore = Path.Combine(root, "packages", "FSharp.Core.3", "lib", "net40")
-                        yield file (Path.Combine(fscore, "FSharp.Core.optdata")) None
-                        yield file (Path.Combine(fscore, "FSharp.Core.sigdata")) None
+                        yield file "tools" (Path.Combine(fscore, "FSharp.Core.optdata")) None
+                        yield file "tools" (Path.Combine(fscore, "FSharp.Core.sigdata")) None
                         for (src, tgt) in searchDir (Path.Combine(root, "docs")) do
                             yield fileAt src ("/docs" + tgt)
                     }
