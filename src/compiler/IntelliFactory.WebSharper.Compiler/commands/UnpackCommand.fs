@@ -109,7 +109,9 @@ module UnpackCommand =
         let script = PC.ResourceKind.Script
         let content = PC.ResourceKind.Content
         for p in cmd.Assemblies do
-            let a = loader.LoadFile p
+            match (try loader.LoadFile p |> Some with _ -> None) with 
+            | None -> () 
+            | Some a ->
             let aid = PC.AssemblyId.Create(a.FullName)
             emitWithMap a.ReadableJavaScript (pc.JavaScriptPath aid)
                 a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
