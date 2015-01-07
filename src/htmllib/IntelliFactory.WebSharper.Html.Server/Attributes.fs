@@ -69,10 +69,10 @@ module Attributes =
     let FrameBorder x = Html.NewAttribute "frameborder" x
     let Headers x = Html.NewAttribute "headers" x
     let Height x = Html.NewAttribute "height" x
-    let Hidden x = Html.NewAttribute "hidden" x
     let HRef x = Html.NewAttribute "href" x
     let HRefLang x = Html.NewAttribute "hreflang" x
     let HttpEquiv x = Html.NewAttribute "http-equiv" x
+    let Hidden x = Html.NewAttribute "hidden" x
     let Id x = Html.NewAttribute "id" x
     let IsMap x = Html.NewAttribute "ismap" x
     let ItemProp x = Html.NewAttribute "itemprop" x
@@ -139,15 +139,6 @@ module Attributes =
     let Value x = Html.NewAttribute "value" x
     let ValueType x = Html.NewAttribute "valuetype" x
     let Width x = Html.NewAttribute "width" x
-    // Custom types
-    //------------------------------
-    let CheckBox<'T> = Html.NewAttribute "type" "checkbox"
-    let Hidden<'T> = Html.NewAttribute "type" "hidden"
-    let Radio<'T> = Html.NewAttribute "type" "radio"
-    let Reset<'T> = Html.NewAttribute "type" "reset"
-    let Submit<'T> = Html.NewAttribute "type" "submit"
-    let Password<'T> = Html.NewAttribute "type" "password"
-    let TextField<'T> = Html.NewAttribute "type" "textfield"
 
     [<RequireQualifiedAccess>]
     module Deprecated =

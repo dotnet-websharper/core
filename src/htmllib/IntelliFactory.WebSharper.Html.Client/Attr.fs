@@ -598,24 +598,3 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     [<Inline>]
     [<JavaScript>]
     member this.Width x = this.NewAttr "width" x
-//
-//    [<JavaScript>]
-//    member this.CheckBox = this.NewAttr "type" "checkbox"
-//
-//    [<JavaScript>]
-//    member this.Hidden = this.NewAttr "type" "hidden"
-//
-//    [<JavaScript>]
-//    member this.Radio = this.NewAttr "type" "radio"
-//
-//    [<JavaScript>]
-//    member this.Reset = this.NewAttr "type" "reset"
-//
-//    [<JavaScript>]
-//    member this.Submit = this.NewAttr "type" "submit"
-//
-//    [<JavaScript>]
-//    member this.Password = this.NewAttr "type" "password"
-//
-//    [<JavaScript>]
-//    member this.TextField = this.NewAttr "type" "textfield"
