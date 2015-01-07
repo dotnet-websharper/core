@@ -25,42 +25,15 @@ namespace IntelliFactory.WebSharper.Html.Server
 [<AutoOpen>]
 module Tags =
 
-    module HTML5 =
-        let Article x = Html.NewElement "article" x
-        let Aside x = Html.NewElement "aside" x
-        let Audio x = Html.NewElement "audio" x
-        let Canvas x = Html.NewElement "canvas" x
-        let Command x = Html.NewElement "command" x
-        let DataList x = Html.NewElement "datalist" x
-        let Details x = Html.NewElement "details" x
-        let Embed x = Html.NewElement "embed" x
-        let FigCaption x = Html.NewElement "figcaption" x
-        let Figure x = Html.NewElement "figure" x
-        let Footer x = Html.NewElement "footer" x
-        let Header x = Html.NewElement "header" x
-        let HGroup x = Html.NewElement "hgroup" x
-        let KeyGen x = Html.NewElement "keygen" x
-        let Mark x = Html.NewElement "mark" x
-        let Meter x = Html.NewElement "meter" x
-        let Nav x = Html.NewElement "nav" x
-        let Output x = Html.NewElement "output" x
-        let Progress x = Html.NewElement "progress" x
-        let Rp x = Html.NewElement "rp" x
-        let Rt x = Html.NewElement "rt" x
-        let Ruby x = Html.NewElement "ruby" x
-        let Section x = Html.NewElement "section" x
-        let Source x = Html.NewElement "source" x
-        let Summary x = Html.NewElement "summary" x
-        let Time x = Html.NewElement "time" x
-        let Video x = Html.NewElement "video" x
-        let Wbr x = Html.NewElement "wbr" x
-
     let Comment x = Html.CommentContent x
     let Text x = Html.TextContent x
 
     let A x = Html.NewElement "a" x
     let Abbr x = Html.NewElement "abbr" x
     let Acronym x = Html.NewElement "acronym"
+    let Article x = Html.NewElement "article" x
+    let Aside x = Html.NewElement "aside" x
+    let Audio x = Html.NewElement "audio" x
     let Address x = Html.NewElement "address" x
     // ?
     let Anchor x = Html.NewElement "anchor" x
@@ -73,27 +46,30 @@ module Tags =
     let Body x = Html.NewElement "body" x
     let Br x = Html.NewElement "br" x
     let Button x = Html.NewElement "button" x
-
+    let Canvas x = Html.NewElement "canvas" x
+    let Command x = Html.NewElement "command" x
     let Caption x = Html.NewElement "caption" x
     let Cite x = Html.NewElement "cite" x
     let Code x = Html.NewElement "code" x
     let Col x = Html.NewElement "col" x
     let ColGroup x = Html.NewElement "colgroup" x
-
+    let DataList x = Html.NewElement "datalist" x
     let DD x = Html.NewElement "dd" x
     let Del x = Html.NewElement "del" x
     let Dfn x = Html.NewElement "dfn" x
     let Div x = Html.NewElement "div" x
     let DL x = Html.NewElement "dl" x
     let DT x = Html.NewElement "dt" x
-
+    let Details x = Html.NewElement "details" x
+    let Embed x = Html.NewElement "embed" x
     let Em x = Html.NewElement "em" x
-
     let FieldSet x = Html.NewElement "fieldset" x
+    let FigCaption x = Html.NewElement "figcaption" x
+    let Figure x = Html.NewElement "figure" x
+    let Footer x = Html.NewElement "footer" x
     let Form x = Html.NewElement "form" x
     let Frame x = Html.NewElement "frame" x
     let FrameSet x = Html.NewElement "frameset" x
-
     let H1 x = Html.NewElement "h1" x
     let H2 x = Html.NewElement "h2" x
     let H3 x = Html.NewElement "h3" x
@@ -101,47 +77,49 @@ module Tags =
     let H5 x = Html.NewElement "h5" x
     let H6 x = Html.NewElement "h6" x
     let Head x = Html.NewElement "head" x
+    let Header x = Html.NewElement "header" x
+    let HGroup x = Html.NewElement "hgroup" x
     let HR x = Html.NewElement "hr" x
     let HTML x = Html.NewElement "html" x
-
     let I x = Html.NewElement "i" x
     let IFrame x = Html.NewElement "iframe" x
     let Img x = Html.NewElement "img" x
     let Input x = Html.NewElement "input" x
     let Ins x = Html.NewElement "ins" x
-    
     let Kbd x = Html.NewElement "kbd" x
-
+    let KeyGen x = Html.NewElement "keygen" x
     let Label x = Html.NewElement "label" x
     let Legend x = Html.NewElement "legend" x
     let LI x = Html.NewElement "li" x
     let Link x = Html.NewElement "link" x
-
-
-
+    let Mark x = Html.NewElement "mark" x
+    let Meter x = Html.NewElement "meter" x
+    let Nav x = Html.NewElement "nav" x
     let NoFrames x = Html.NewElement "noframes" x
     let NoScript x = Html.NewElement "noscript" x
-
-    
     let OL x = Html.NewElement "ol" x
     let OptGroup x = Html.NewElement "optgroup" x
-
+    let Output x = Html.NewElement "output" x
     let P x = Html.NewElement "p" x
     let Param x = Html.NewElement "param" x
     let Pre x = Html.NewElement "pre" x
-
+    let Progress x = Html.NewElement "progress" x
     let Q x = Html.NewElement "q" x
-
+    let Rp x = Html.NewElement "rp" x
+    let Rt x = Html.NewElement "rt" x
+    let Ruby x = Html.NewElement "ruby" x
     let Samp x = Html.NewElement "samp" x
     let Script x = Html.NewElement "script" x
+    let Section x = Html.NewElement "section" x
     let Select x = Html.NewElement "select" x
     let Small x = Html.NewElement "small" x
+    let Source x = Html.NewElement "source" x
     let Span x = Html.NewElement "span" x
     let Strong x = Html.NewElement "strong" x
     let Style x = Html.NewElement "style" x
     let Sub x = Html.NewElement "sub" x
+    let Summary x = Html.NewElement "summary" x
     let Sup x = Html.NewElement "sup" x
-
     let Table x = Html.NewElement "table" x
     let TBody x = Html.NewElement "tbody" x
     let TD x = Html.NewElement "td" x
@@ -149,12 +127,13 @@ module Tags =
     let TFoot x = Html.NewElement "tfoot" x
     let TH x = Html.NewElement "th" x
     let THead x = Html.NewElement "thead" x
+    let Time x = Html.NewElement "time" x
     let TR x = Html.NewElement "tr" x
     let TT x = Html.NewElement "tt" x
-
     let UL x = Html.NewElement "ul" x
-
     let Var x = Html.NewElement "var" x
+    let Video x = Html.NewElement "video" x
+    let Wbr x = Html.NewElement "wbr" x
 
     [<RequireQualifiedAccess>]
     module Deprecated =

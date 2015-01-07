@@ -138,17 +138,6 @@ module internal Implementation =
 
     [<JavaScript>]
     let Tags = new TagBuilder(HtmlProvider)
-
-    module HTML5 =
-
-        [<JavaScript>]
-        let private Html5Provider = new JQueryHtmlProvider()
-
-        [<JavaScript>]
-        let Tags = new Html5TagBuilder(Html5Provider)
-
-        [<JavaScript>]
-        let Attr = new Html5AttributeBuilder(Html5Provider)
         
     [<JavaScript>]
     let DeprecatedHtml = DeprecatedTagBuilder(HtmlProvider)
@@ -161,14 +150,6 @@ module internal Implementation =
 [<AutoOpen>]
 module Default =
     open IntelliFactory.WebSharper
-
-    module HTML5 =
-
-        [<JavaScript>]
-        let Tags = Implementation.HTML5.Tags
-
-        [<JavaScript>]
-        let Attr = Implementation.HTML5.Attr
 
     [<JavaScript>]
     let Tags = Implementation.Tags
@@ -209,6 +190,18 @@ module Default =
     [<JavaScript>]
     let Area x = Tags.Area x
 
+    [<Inline>]
+    [<JavaScript>]
+    let Article x = Tags.Article x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Aside x = Tags.Aside x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Audio x = Tags.Audio x
+
     [<JavaScript>]
     let B x = Tags.B x
 
@@ -239,6 +232,10 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let Canvas x = Tags.Canvas x
+
+    [<Inline>]
+    [<JavaScript>]
     let Caption x = Tags.Caption x
 
     [<JavaScript>]
@@ -258,11 +255,23 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let Command x = Tags.Command x
+
+    [<Inline>]
+    [<JavaScript>]
+    let DataList x = Tags.DataList x
+
+    [<Inline>]
+    [<JavaScript>]
     let DD x = Tags.DD x
 
     [<Inline>]
     [<JavaScript>]
     let Del x = Tags.Del x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Details x = Tags.Details x
 
     [<JavaScript>]
     let Div x = Tags.Div x
@@ -284,7 +293,23 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let Embed x = Tags.Embed x
+
+    [<Inline>]
+    [<JavaScript>]
     let FieldSet x = Tags.FieldSet x
+
+    [<Inline>]
+    [<JavaScript>]
+    let FigCaption x = Tags.FigCaption x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Figure x = Tags.Figure x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Footer x = Tags.Footer x
 
     [<JavaScript>]
     let Form x = Tags.Form x
@@ -320,6 +345,14 @@ module Default =
     [<JavaScript>]
     let Head x = Tags.Head x
 
+    [<Inline>]
+    [<JavaScript>]
+    let Header x = Tags.Header x
+
+    [<Inline>]
+    [<JavaScript>]
+    let HGroup x = Tags.HGroup x
+
     [<JavaScript>]
     let Hr x = Tags.Hr x
 
@@ -345,6 +378,10 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let KeyGen x = Tags.KeyGen x
+
+    [<Inline>]
+    [<JavaScript>]
     let Label x = Tags.Label x
 
     [<Inline>]
@@ -360,7 +397,19 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let Mark x = Tags.Mark x
+
+    [<Inline>]
+    [<JavaScript>]
     let Meta x = Tags.Meta x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Meter x = Tags.Meter x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Nav x = Tags.Nav x
 
     [<Inline>]
     [<JavaScript>]
@@ -377,6 +426,10 @@ module Default =
     [<JavaScript>]
     let OptGroup x = Tags.OptGroup x
 
+    [<Inline>]
+    [<JavaScript>]
+    let Output x = Tags.Output x
+
     [<JavaScript>]
     let P x = Tags.P x
 
@@ -389,7 +442,23 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let Progress x = Tags.Progress x
+
+    [<Inline>]
+    [<JavaScript>]
     let Q x = Tags.Q x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Rp x = Tags.Rp x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Rt x = Tags.Rt x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Ruby x = Tags.Ruby x
 
     [<Inline>]
     [<JavaScript>]
@@ -398,12 +467,20 @@ module Default =
     [<JavaScript>]
     let Script x = Tags.Script x
 
+    [<Inline>]
+    [<JavaScript>]
+    let Section x = Tags.Section x
+
     [<JavaScript>]
     let Select x = Tags.Select x
 
     [<Inline>]
     [<JavaScript>]
     let Small x = Tags.Small x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Source x = Tags.Source x
 
     [<JavaScript>]
     let Span x = Tags.Span x
@@ -415,6 +492,10 @@ module Default =
     [<Inline>]
     [<JavaScript>]
     let Sub x = Tags.Sub x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Summary x = Tags.Summary x
 
     [<Inline>]
     [<JavaScript>]
@@ -441,6 +522,10 @@ module Default =
     [<JavaScript>]
     let THead x = Tags.THead x
 
+    [<Inline>]
+    [<JavaScript>]
+    let Time x = Tags.Time x
+
     [<JavaScript>]
     let TR x = Tags.TR x
 
@@ -450,6 +535,14 @@ module Default =
 
     [<JavaScript>]
     let UL x = Tags.UL x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Video x = Tags.Video x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Wbr x = Tags.Wbr x
 
     (* Attributes *)
 
@@ -472,6 +565,14 @@ module Default =
     [<Inline>]
     [<JavaScript>]
     let Archive x = Attr.Archive x
+
+    [<Inline>]
+    [<JavaScript>]
+    let AutoComplete x = Attr.AutoComplete x
+
+    [<Inline>]
+    [<JavaScript>]
+    let AutoFocus x = Attr.AutoFocus x
 
     [<Inline>]
     [<JavaScript>]
@@ -511,6 +612,14 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let ContentEditable x = Attr.ContentEditable x
+
+    [<Inline>]
+    [<JavaScript>]
+    let ContextMenu x = Attr.ContextMenu x
+
+    [<Inline>]
+    [<JavaScript>]
     let Coords x = Attr.Coords x
 
     [<Inline>]
@@ -519,7 +628,31 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let Draggable x = Attr.Draggable x
+
+    [<Inline>]
+    [<JavaScript>]
     let EncType x = Attr.EncType x
+
+    [<Inline>]
+    [<JavaScript>]
+    let FormAction x = Attr.FormAction x
+
+    [<Inline>]
+    [<JavaScript>]
+    let FormEncType x = Attr.FormEncType x
+
+    [<Inline>]
+    [<JavaScript>]
+    let FormMethod x = Attr.FormMethod x
+
+    [<Inline>]
+    [<JavaScript>]
+    let FormNoValidate x = Attr.FormNoValidate x
+
+    [<Inline>]
+    [<JavaScript>]
+    let FormTarget x = Attr.FormTarget x
 
     [<JavaScript>]
     let HRef x = Attr.HRef x
@@ -533,6 +666,10 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let Hidden x = Attr.Hidden x
+
+    [<Inline>]
+    [<JavaScript>]
     let HttpEquiv x = Attr.HttpEquiv x
 
     [<JavaScript>]
@@ -541,6 +678,10 @@ module Default =
     [<Inline>]
     [<JavaScript>]
     let IsMap x = Attr.IsMap x
+
+    [<Inline>]
+    [<JavaScript>]
+    let ItemProp x = Attr.ItemProp x
 
     [<Inline>]
     [<JavaScript>]
@@ -567,7 +708,23 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let NoValidate x = Attr.NoValidate x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Pattern x = Attr.Pattern x
+
+    [<Inline>]
+    [<JavaScript>]
+    let PlaceHolder x = Attr.PlaceHolder x
+
+    [<Inline>]
+    [<JavaScript>]
     let Rel x = Attr.Rel x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Required x = Attr.Required x
 
     [<Inline>]
     [<JavaScript>]
@@ -595,8 +752,20 @@ module Default =
     [<JavaScript>]
     let Size x = Attr.Size x
 
+    [<Inline>]
+    [<JavaScript>]
+    let SpellCheck x = Attr.SpellCheck x
+
     [<JavaScript>]
     let Src x = Attr.Src x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Step x = Attr.Step x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Subject x = Attr.Subject x
 
     [<Inline>]
     [<JavaScript>]
