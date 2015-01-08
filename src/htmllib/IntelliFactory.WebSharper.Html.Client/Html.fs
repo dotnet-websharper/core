@@ -608,10 +608,6 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
-    let Content x = Attr.Content x
-
-    [<Inline>]
-    [<JavaScript>]
     let ContentEditable x = Attr.ContentEditable x
 
     [<Inline>]
