@@ -209,6 +209,10 @@ module WebSharperTaskModule =
     [<Sealed>]
     type Marker = class end
 
+    let BaseDir =
+        typeof<Marker>.Assembly.Location
+        |> Path.GetDirectoryName
+
     let Unpack settings =
         match GetProjectType settings with
         | Website webRoot ->
@@ -341,7 +345,9 @@ type WebSharperTask() =
     member private this.AddProjectReferencesToAssemblyResolution() =
         let referencedAsmNames =
             this.ItemInput
-            |> Seq.map (fun i -> Path.GetFileNameWithoutExtension(i.ItemSpec), i.ItemSpec)
+            |> Seq.map (fun i -> i.ItemSpec)
+            |> Seq.append (Directory.GetFiles(BaseDir, "*.dll"))
+            |> Seq.map (fun i -> Path.GetFileNameWithoutExtension(i), i)
             |> Seq.filter (fst >> (<>) this.Name)
             |> Map.ofSeq
         System.AppDomain.CurrentDomain.add_AssemblyResolve(fun sender e ->
