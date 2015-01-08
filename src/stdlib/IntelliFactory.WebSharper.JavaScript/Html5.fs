@@ -1597,7 +1597,7 @@ module WebGL =
 module WebSockets =
 
     let ReadyState =
-        Pattern.EnumInlines "ReadyState" [
+        Pattern.EnumInlines "WebSocketReadyState" [
             "Connecting", "0"
             "Open", "1"
             "Closing", "2"
@@ -1606,7 +1606,6 @@ module WebSockets =
 
     let WebSocket =
         Class "WebSocket"
-        |=> Nested [ReadyState]
         |+> Protocol
             [
                 "readyState" =? ReadyState
@@ -1690,6 +1689,7 @@ module Definition =
                 TypedArrays.Uint8Array
                 TypedArrays.Uint8ClampedArray
                 WebSockets.WebSocket
+                WebSockets.ReadyState
                 WebStorage.Storage
                 WebStorage.StorageEvent
             ]
