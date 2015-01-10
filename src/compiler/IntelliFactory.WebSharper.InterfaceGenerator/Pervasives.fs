@@ -166,6 +166,20 @@ module Pervasives =
     /// Constructs a new property with a getter and a setter.
     let ( =% ) name ty = Property name ty
 
+    // Note: the operator below may seem useless, since `op_Dynamic`
+    // already provides the `T?x` syntax.
+    // However, static members operators are always overridden
+    // by `let`-bound operators, regardless of the order in which
+    // they are brought to scope. This means that if `IF.WS.JavaScript`
+    // is opened in a WIG project, then any use of `?` will invoke
+    // JavaScript field access, instead of the intended parameter naming.
+    // With the `let` definition below, opening `IF.WS.InterfaceGenerator`
+    // after `IF.WS.JavaScript` allows the use of the correct operator.
+
+    /// `T?x` constructs a `Parameter` named "x" of type `T`.
+    let inline ( ? ) (ty: ^T) name =
+        (^T : (static member op_Dynamic : ^T * string -> ^U) (ty, name))
+
     let private Access m (x: #Code.Entity) =
         let x = x.Clone() :?> 'T
         x.AccessModifier <- m
