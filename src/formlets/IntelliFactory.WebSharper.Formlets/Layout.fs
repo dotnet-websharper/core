@@ -390,7 +390,7 @@ type LayoutProvider [<JavaScript>](LayoutUtils: LayoutUtils) =
 
                 let index = ref 0
                 let inserted = ref false
-                jqPanel.Children().Each(fun el ->
+                jqPanel.Children().Each(FuncWithThis(fun el () ->
                     let jqRow = JQuery.Of(el : Dom.Element)
                     if rowIx = index.Value then
                         JQuery.Of(row.Body).InsertBefore(jqRow).Ignore
@@ -399,7 +399,7 @@ type LayoutProvider [<JavaScript>](LayoutUtils: LayoutUtils) =
                         row.Render()
                         inserted := true
                     incr index
-                ).Ignore
+                )).Ignore
                 if not inserted.Value then
                     panel.Append(row)
 
@@ -439,7 +439,7 @@ type LayoutProvider [<JavaScript>](LayoutUtils: LayoutUtils) =
                 let jqPanel = JQuery.Of(row.Body)
                 let index = ref 0
                 let inserted = ref false
-                jqPanel.Children().Each(fun el ->
+                jqPanel.Children().Each(FuncWithThis(fun el () ->
                     let jqCol = JQuery.Of(el : Dom.Element)
                     if rowIx = index.Value then
                         JQuery.Of(newCol.Body).InsertBefore(jqCol).Ignore
@@ -448,7 +448,7 @@ type LayoutProvider [<JavaScript>](LayoutUtils: LayoutUtils) =
                         newCol.Render()
                         inserted := true
                     incr index
-                ).Ignore
+                )).Ignore
                 if not inserted.Value then
                     row.Append(newCol)
 

@@ -368,7 +368,7 @@ let ScanBack (f: 'T -> 'S -> 'S) (arr: 'T []) (zero: 'S) : 'S [] =
 let Set (arr: _ [], i, v) = arr.[i] <- v
 
 [<Inline "$x.sort($f)">]
-let private sortArray (x: 'T) f = X<'T>
+let private sortArray (x: 'T[]) (f: JavaScript.FuncWithArgs<'T * 'T, int>) = X<'T[]>
 
 [<JavaScript>]
 [<Name "sort">]
@@ -378,8 +378,7 @@ let Sort<'T when 'T: comparison> (arr: 'T []) : 'T [] =
 [<JavaScript>]
 [<Name "sortBy">]
 let SortBy<'T,'U when 'U: comparison> (f: 'T -> 'U) (arr: 'T []) : 'T [] =
-    let f (x, y) = compare (f x) (f y)
-    sortArray (Array.copy arr) f
+    sortArray (Array.copy arr) (FuncWithArgs(fun (x, y) -> compare (f x) (f y)))
 
 [<JavaScript>]
 [<Name "sortInPlace">]
@@ -389,20 +388,19 @@ let SortInPlace<'T when 'T: comparison> (arr: 'T []) =
 [<JavaScript>]
 [<Name "sortInPlaceBy">]
 let SortInPlaceBy<'T,'U when 'U: comparison> (f: 'T -> 'U) (arr: 'T []) =
-    let f (x, y) = compare (f x) (f y)
-    As<unit> (sortArray arr f)
+    As<unit> (sortArray arr (FuncWithArgs(fun (x, y) -> compare (f x) (f y))))
 
 [<JavaScript>]
 [<Name "sortInPlaceWith">]
 let SortInPlaceWith<'T> (comparer: 'T -> 'T -> int) (arr: 'T []) =
     let f (x, y) = comparer x y
-    As<unit> (sortArray arr f)
+    As<unit> (sortArray arr (FuncWithArgs(fun (x, y) -> comparer x y)))
 
 [<JavaScript>]
 [<Name "sortWith">]
 let SortWith<'T> (comparer: 'T -> 'T -> int) (arr: 'T []) : 'T [] =
     let f (x, y) = comparer x y
-    sortArray (Array.copy arr) f
+    sortArray (Array.copy arr) (FuncWithArgs(fun (x, y) -> comparer x y))
 
 [<Inline "$x.slice($start,$start+$length)">]
 let private subArray (x: 'T) start length = X<'T>

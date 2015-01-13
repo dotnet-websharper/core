@@ -43,6 +43,15 @@ let private bug35_Foo (t: 'T * 'T) x = x
 [<JavaScript>]
 let private bug35_Bar () = bug35_Foo ("a","b") "c"
 
+type FuncHelper =
+    static member inline Compose f g x = g(f(x))
+
+[<Proxy(typeof<FuncHelper>)>]
+[<JavaScript>]
+type FuncHelperProxy =
+    [<Inline>]
+    static member Compose f g x = g(f(x))
+
 module private Bug61_M =
 
     type T[<JavaScript>]() =
@@ -237,4 +246,13 @@ let Tests =
         pairs.Subscribe ignore |> ignore
         [ 1 .. 3 ] |> List.iter stream.Trigger
         acc.ToArray() =? [| 1, 2; 1, 2; 2, 3; 2, 3 |]
+    }
+
+    Test "Curried inlining" {
+        let add1 x = x + 1
+        let twice x = x * 2
+        FuncHelper.Compose add1 twice 0 =? 2
+        let f = FuncHelper.Compose add1 twice 
+        f 1 =? 4
+        f 2 =? 6
     }

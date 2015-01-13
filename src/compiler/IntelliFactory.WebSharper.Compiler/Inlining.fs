@@ -298,11 +298,8 @@ let parseQuoted cc (q: Q.Expression) : Inliner =
                 List.foldBack2 (fun var value body ->
                     C.Let (var, value, body)) vs xs body
             with e ->
-                printfn "Failed to transform inline: %A" f
-                printfn "error: %A" e
                 raise InlineTransformError
         | _ ->
-            printfn "Failed to transform inline: %A" f
             raise InlineTransformError
     Transformer (fun t xs ->
         apply (Corrector.Correct cc (t (Q.Alpha q))) xs)

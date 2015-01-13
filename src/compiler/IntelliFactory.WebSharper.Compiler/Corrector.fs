@@ -30,19 +30,9 @@ type Correction =
 
 exception UncurryError
 
-let (|Tupled|_|) q =
-    match q with
-    | C.Call (C.Runtime, C.Constant (C.String "Tupled"), lam) -> Some lam
-    | _ -> None
-
 let (|L|_|) q =
-    let (|L|_|) q =
-        match q with
-        | C.Lambda (None, [id], b) -> Some (id, b)
-        | _ -> None
     match q with
-    | Tupled [L (id, b)]
-    | L (id, b) -> Some (id, b)
+    | C.Lambda (None, [id], b) -> Some (id, b)
     | _ -> None
 
 let unsafeUncurry (curr: list<int>) (q: C.Expression) =
@@ -161,7 +151,6 @@ let Correct correction quotation =
     | Method (c, s) ->
         let lam x =
             match x with
-            | Tupled _
             | C.Lambda _ -> x
             | x -> C.Lambda (None, [], x)
         uncurry c quotation

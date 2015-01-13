@@ -32,7 +32,6 @@
     <Compile Include="Json.fs" />
     <Compile Include="Remoting.fsi" />
     <Compile Include="Remoting.fs" />
-    <Compile Include="Functions.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\IntelliFactory.JavaScript\IntelliFactory.JavaScript.fsproj">

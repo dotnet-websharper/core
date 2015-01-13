@@ -82,20 +82,21 @@ module Events =
         [<JavaScript>]
         member private this.OnMouse<'T when 'T :> Pagelet> name (f: 'T -> MouseEvent -> unit) (el: 'T)  =
             let h =
-                new Func<_,_,_>(fun (_ : Dom.Element) (ev: JE)->
+                FuncWithThis(fun _ (ev: JE) ->
                     f el {X = ev.PageX; Y = ev.PageY}
                 )
-            JQuery.Of(el.Body).Bind(name,h).Ignore
+            JQuery.Of(el.Body).Bind(name, h).Ignore
+
 
         interface IEventSupport with
 
             [<JavaScript>]
             member this.OnBlur f el  =
-                JQuery.Of(el.Body).Bind("blur", new Func<_,_,_>(fun _ ev -> f el )   ).Ignore
+                JQuery.Of(el.Body).Bind("blur", FuncWithThis(fun _ _ -> f el)).Ignore
 
             [<JavaScript>]
             member this.OnChange f el =
-                JQuery.Of(el.Body).Bind("change", new Func<_,_,_>(fun _ ev -> f el )   ).Ignore
+                JQuery.Of(el.Body).Bind("change", FuncWithThis(fun _ _ -> f el)).Ignore
 
             [<JavaScript>]
             member this.OnClick f el =
@@ -132,56 +133,56 @@ module Events =
             [<JavaScript>]
             member this.OnKeyDown f el =
                 let h =
-                    new Func<_,_,_>(fun (_ : Dom.Element) (ev: JE)->
+                    FuncWithThis(fun _ (ev: JE)->
                         f el {KeyCode = ev?keyCode}
                     )
-                JQuery.Of(el.Body).Bind("keydown",h).Ignore
+                JQuery.Of(el.Body).Bind("keydown", h).Ignore
 
             [<JavaScript>]
             member this.OnKeyPress f el =
                 JQuery.Of(el.Body)
-                    .Keypress(fun _ arg -> f el ({ CharacterCode = arg.Which }))
+                    .Keypress(FuncWithThis(fun _ (arg: JE) -> f el ({ CharacterCode = arg.Which })))
                     .Ignore
 
             [<JavaScript>]
             member this.OnKeyUp f el  =
                 let h =
-                    new Func<_,_,_>(fun (_ : Dom.Element) (ev: JE)->
+                    FuncWithThis(fun _ (ev: JE)->
                         f el {KeyCode = ev?keyCode}
                     )
-                JQuery.Of(el.Body).Bind("keyup",h).Ignore
+                JQuery.Of(el.Body).Bind("keyup", h).Ignore
 
             [<JavaScript>]
             member this.OnFocus f el =
-                JQuery.Of(el.Body).Bind("focus", new Func<_,_,_>(fun _ ev -> f el )).Ignore
+                JQuery.Of(el.Body).Bind("focus", FuncWithThis(fun _ _ -> f el)).Ignore
 
             [<JavaScript>]
             member this.OnLoad f el =
-                JQuery.Of(el.Body).Bind("load", new Func<_,_,_>(fun _ ev -> f el )).Ignore
+                JQuery.Of(el.Body).Bind("load", FuncWithThis(fun _ _ -> f el)).Ignore
 
             [<JavaScript>]
             member this.OnUnLoad f el =
-                JQuery.Of(el.Body).Bind("unload", new Func<_,_,_>(fun _ ev -> f el )   ).Ignore
+                JQuery.Of(el.Body).Bind("unload", FuncWithThis(fun _ _ -> f el)).Ignore
 
             [<JavaScript>]
             member this.OnResize f el =
-                JQuery.Of(el.Body).Bind("resize", new Func<_,_,_>(fun _ ev -> f el )   ).Ignore
+                JQuery.Of(el.Body).Bind("resize", FuncWithThis(fun _ _ -> f el)).Ignore
 
             [<JavaScript>]
             member this.OnScroll f el =
-                JQuery.Of(el.Body).Bind("scroll", new Func<_,_,_>(fun _ ev -> f el )   ).Ignore
+                JQuery.Of(el.Body).Bind("scroll", FuncWithThis(fun _ _ -> f el)).Ignore
 
             [<JavaScript>]
             member this.OnSelect f el =
-                JQuery.Of(el.Body).Bind("select", new Func<_,_,_>(fun _ ev -> f el )   ).Ignore
+                JQuery.Of(el.Body).Bind("select", FuncWithThis(fun _ _ -> f el)).Ignore
 
             [<JavaScript>]
             member this.OnSubmit f el =
-                JQuery.Of(el.Body).Bind("submit", new Func<_,_,_>(fun _ ev -> f el )   ).Ignore
+                JQuery.Of(el.Body).Bind("submit", FuncWithThis(fun _ _ -> f el)).Ignore
 
             [<JavaScript>]
             member this.OnError f el =
-                JQuery.Of(el.Body).Bind("error", new Func<_,_,_>(fun _ ev -> f el )   ).Ignore
+                JQuery.Of(el.Body).Bind("error", FuncWithThis(fun _ _ -> f el)).Ignore
 
 /// Provides aliases to the commonly used events.
 [<AutoOpen>]

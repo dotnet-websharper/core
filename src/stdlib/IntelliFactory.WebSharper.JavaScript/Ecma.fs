@@ -63,10 +63,9 @@ module Definition =
                 "isExtensible" => T<obj->bool> // not implemented in firefox/chrome
                 "keys" => T<obj->string[]>
             ]
-
        
     let EcmaFunction =
-        Class "Function"
+        Class "Function" |> WithSourceName "Function"
         |=> Inherits EcmaObject
         |=> EcmaFunctionT
         |+> Protocol 
@@ -78,6 +77,59 @@ module Definition =
             ]
         |+> [
                 Constructor (T<string> *+ T<string>)
+            ]
+
+    let EcmaFunctionWithArgs =
+        Generic / fun (a: Type.Type) (b: Type.Type) ->
+        Class "FuncWithArgs"
+        |+> Protocol [
+                "length" =? T<int>
+                "call" => a?args ^-> b |> WithInline "$this.apply(null, $args)"
+            ]
+        |+> [
+                Constructor (a ^-> b)?func |> WithInline "function() { return $func(arguments); }"
+            ]    
+
+    let EcmaFunctionWithThis =
+        Generic / fun (a: Type.Type) (b: Type.Type) ->
+        Class "FuncWithThis"
+        |+> Protocol [
+                "length" =? T<int>
+                "bind" => a?thisArg ^-> b |> WithInline "$this.bind($thisArg)"
+            ]
+        |+> [
+                Constructor (a ^-> b)?func |> WithInline "function() { return $func.apply(this, arguments); }"
+            ]    
+
+    let EcmaArguments =
+        Generic / fun (a: Type.Type) ->
+        Class "Arguments"
+        |+> Protocol [
+                "length" =@ T<int>
+                "" =@ a |> Indexed T<int>
+                "toArray" => T<unit> ^-> EcmaArrayT.[a] |> WithInline "Array.prototype.slice.call($this)"
+            ]
+
+    let EcmaFunctionWithRest =
+        Generic / fun (a: Type.Type) (b: Type.Type) (c: Type.Type) ->
+        Class "FuncWithRest"
+        |+> Protocol [
+                "call" => a?arg *+ b ^-> c |> WithInline "$this.apply(null, [$arg].concat($2))"
+            ]
+        |+> [
+                Constructor (a * Type.ArrayOf b ^-> c)?func
+                    |> WithInline "function(x) { return $func([x, Array.prototype.slice.call(arguments, 1)]); }"
+            ]
+
+    let EcmaFunctionWithArgsRest =
+        Generic / fun (a: Type.Type) (b: Type.Type) (c: Type.Type) ->
+        Class "FuncWithArgsRest"
+        |+> Protocol [
+                "call" => a?args *+ b ^-> c |> WithInline "$this.apply(null, $args.concat($2))"
+            ]
+        |+> [
+                Constructor (T<int>?length * (a * Type.ArrayOf b ^-> c)?func) 
+                    |> WithInline "function(x) { return $func([Array.prototype.slice.call(arguments, 0, $length), Array.prototype.slice.call(arguments, $length)]); }"
             ]
 
     /// The Array object is used to store multiple values in a single variable.
@@ -346,6 +398,11 @@ module Definition =
             Namespace "IntelliFactory.WebSharper.JavaScript" [
                 EcmaObject
                 EcmaFunction
+                Generic - EcmaFunctionWithArgs
+                Generic - EcmaFunctionWithThis
+                Generic - EcmaArguments
+                Generic - EcmaFunctionWithRest
+                Generic - EcmaFunctionWithArgsRest
                 Generic - EcmaArray
                 EcmaString
                 EcmaBoolean

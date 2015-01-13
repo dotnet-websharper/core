@@ -20,8 +20,6 @@
 
 namespace IntelliFactory.WebSharper.JavaScript
 
-module F = IntelliFactory.WebSharper.Core.Functions
-
 [<AutoOpen>]
 module Extensions =
     open IntelliFactory.WebSharper
@@ -57,39 +55,7 @@ module Extensions =
     type Function with
         [<Inline "$0">]
         member this.ToDotNet<'T, 'R>() = X<'T -> 'R>
-        member this.ToWSFunc<'T1, 'T2>() = X<F.Func<'T1,'T2>>
-        member this.ToWSFunc<'T1,'T2,'T3>() = X<F.Func<'T1,'T2,'T3>>
-        member this.ToWSFunc<'T1,'T2,'T3,'T4>() = X<F.Func<'T1,'T2,'T3,'T4>>
-        member this.ToWSFunc<'T1,'T2,'T3,'T4,'T5>() = X<F.Func<'T1,'T2,'T3,'T4,'T5>>
-        member this.ToWSFunc<'T1,'T2,'T3,'T4,'T5,'T6>() = X<F.Func<'T1,'T2,'T3,'T4,'T5,'T6>>
-        member this.ToWSFunc<'T1,'T2,'T3,'T4,'T5,'T6,'T7>() = X<F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7>>
-        member this.ToWSFunc<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8>() = X<F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8>>
-        member this.ToWSFunc<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9>() = X<F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9>>
     type FSharpFunc<'T, 'R> with
-        [<Inline "$0">]
-        member this.ToEcma() = X<Function>
-    type F.Func<'T1,'T2> with
-        [<Inline "$0">]
-        member this.ToEcma() = X<Function>
-    type F.Func<'T1,'T2,'T3> with
-        [<Inline "$0">]
-        member this.ToEcma() = X<Function>
-    type F.Func<'T1,'T2,'T3,'T4> with
-        [<Inline "$0">]
-        member this.ToEcma() = X<Function>
-    type F.Func<'T1,'T2,'T3,'T4,'T5> with
-        [<Inline "$0">]
-        member this.ToEcma() = X<Function>
-    type F.Func<'T1,'T2,'T3,'T4,'T5,'T6> with
-        [<Inline "$0">]
-        member this.ToEcma() = X<Function>
-    type F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7> with
-        [<Inline "$0">]
-        member this.ToEcma() = X<Function>
-    type F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8> with
-        [<Inline "$0">]
-        member this.ToEcma() = X<Function>
-    type F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9> with
         [<Inline "$0">]
         member this.ToEcma() = X<Function>
 

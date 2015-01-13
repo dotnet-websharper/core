@@ -141,17 +141,6 @@ var IntelliFactory =
                 throw e;
             },
 
-        Tupled:
-            function (f) {
-                return function (x) {
-                    if (arguments.length > 1) {
-                        return f(arguments);
-                    } else {
-                        return f(x);
-                    }
-                }
-            },
-
         Try:
             function (block, handler) {
                 try {

@@ -88,9 +88,6 @@ type SourcePos =
         Column : int
     }
 
-let X =
-    Microsoft.FSharp.Quotations.Expr.AddressOf
-
 type Literal =
     | False
     | Null

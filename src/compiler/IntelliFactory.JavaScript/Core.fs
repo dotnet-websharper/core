@@ -198,6 +198,69 @@ and Expression =
     static member ( ? ) (e: E, msg: string) =
         FieldGet (e, Constant (String msg))
 
+    override this.ToString() =
+        let b = System.Text.StringBuilder()
+        let p (x: string) = b.Append x |> ignore
+        let pc (x: char) = b.Append x |> ignore
+        let po (x: obj) = b.Append x |> ignore
+        let rec pr e = 
+            let rec pl l =
+                match l with
+                | [] -> ()
+                | [i] -> p i
+                | i :: t -> p i; p "."; pl t
+            let rec prl l =
+                match l with
+                | [] -> ()
+                | [i] -> pr i
+                | i :: t -> pr i; p ", "; prl t
+            let rec pol l =
+                match l with
+                | [] -> ()
+                | [i] -> po i
+                | i :: t -> po i; p ", "; pol t
+            let rec pletr l =
+                match l with
+                | [] -> ()
+                | [x, y] -> po x; p " = ("; pr y; pc ')'
+                | (x, y) :: t -> po x; p " = ("; pr y; pc ')'; p " and " ; pletr t
+            let rec pobj l =
+                match l with
+                | [] -> ()
+                | [x, y] -> p x; p " = ("; pr y; pc ')'
+                | (x, y) :: t -> po x; p " = ("; pr y; pc ')'; p ", " ; pobj t
+            match e with 
+            | Application(x, y)               -> pc '('; pr x; p ")("; prl y; pc ')'
+            | Binary(x, y, z)                 -> pr x; pc ' '; po y; pc ' '; pr z
+            | Call(x, y, z)                   -> pc '('; pr x; p ").("; pr y; p ")("; prl z; pc ')'
+            | Constant x                      -> po x
+            | FieldDelete(x, y)               -> p "delete ("; pr x; p ").("; pr y; pc ')' 
+            | FieldGet(x, y)                  -> pc '('; pr x; p ").["; pr y; pc ']'
+            | FieldSet(x, y, z)               -> pc '('; pr x; p ").["; pr y; p "] = ("; pr z; pc ')'
+            | ForEachField(x, y, z)           -> p "for ("; po x; p " in "; pr y; p ") {\n"; pr z; pc '}'
+            | ForIntegerRangeLoop(x, y, z, u) -> p "for ("; po x; p " = "; pr y; p " to "; pr z; p ") {\n"; pr u; pc '}'
+            | Global x                        -> pl x
+            | IfThenElse(x, y, z)             -> p "if ("; pr x; p ") {\n"; pr y; p "} else {\n"; pr z; pc '}'
+            | Lambda(x, y, z)                 -> p "fun ("; x |> Option.iter (fun x -> po x; p " | "); pol y; p ") {\n"; pr z; pc '}'
+            | Let(x, y, z)                    -> p "let "; po x; p " = ("; pr y; p ") in {\n"; pr z; pc '}'
+            | LetRecursive(x, y)              -> p "let "; pletr x; p " in {\n"; pr y; pc '}'
+            | New(x, y)                       -> p "new ("; pr x; p ")("; prl y; pc ')'
+            | NewArray x                      -> pc '['; prl x; pc ']'
+            | NewObject x                     -> pc '{'; pobj x; pc '}'
+            | NewRegex x                      -> p "RegExp("; p x; pc ')'
+            | Runtime                         -> p "Runtime"
+            | Sequential(x, y)                -> pr x; p ";\n"; pr y
+            | Throw x                         -> p "throw ("; pr x; pc ')'
+            | TryFinally(x, y)                -> p "try {\n"; pr x; p "} finally {\n"; pr y; pc '}'
+            | TryWith(x, y, z)                -> p "try {\n"; pr x; p "} with ("; po y; p ") {\n"; pr z; pc '}'
+            | Unary(x, y)                     -> po x; pc ' '; pr y
+            | Var x                           -> po x
+            | VarSet(x, y)                    -> po x; p " = ("; pr y; pc ')'
+            | WhileLoop(x, y)                 -> p "while ("; pr x; p ") {\n"; pr y; pc '}' 
+            | SourcePos(x, y)                 -> pr x
+        pr this
+        string b
+
 and E = Expression
 
 let inline (|IgnorePos|) e =

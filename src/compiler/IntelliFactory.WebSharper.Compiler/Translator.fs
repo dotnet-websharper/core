@@ -245,14 +245,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
         | Q.IfThenElse (c, t, e) ->
             C.IfThenElse (!c, !t, !e)
         | Q.Lambda (v, b) ->
-            let f = C.Lambda (None, [!^v], !b)
-            match v.Type with
-            | R.Type.Concrete (tD, _)
-                when tD.Namespace = Some "System"
-                     && tD.Name.StartsWith "Tuple" ->
-                call C.Runtime "Tupled" [f]
-            | _ ->
-                f
+            C.Lambda (None, [!^v], !b)
         | Q.Let (var, value, body) ->
             C.Let (!^var, !value, !body)
         | Q.LetRecursive (vs, b) ->
@@ -266,7 +259,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                 | body -> (List.rev acc, body)
             match loop [] x with
             | (this :: vars, body) ->
-                C.Lambda (Some !^this, List.map (!^) vars, !body)
+                        C.Lambda (Some !^this, List.map (!^) vars, !body)
             | ([], Q.Application (f, Q.Value Q.Unit)) -> !f
             | _ -> invalidQuot()
         | Q.NewObject (c, args) ->

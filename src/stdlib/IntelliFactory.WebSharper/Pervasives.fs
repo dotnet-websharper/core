@@ -44,15 +44,3 @@ type IRpcHandlerFactory =
 /// Re-exports Remoting.SetHandlerFactory.
 let SetRpcHandlerFactory (factory: IRpcHandlerFactory) =
     IntelliFactory.WebSharper.Core.Remoting.SetHandlerFactory factory
-
-module F = IntelliFactory.WebSharper.Core.Functions
-
-type Func<'T1,'T2> = F.Func<'T1,'T2>
-type Func<'T1,'T2,'T3> = F.Func<'T1,'T2,'T3>
-type Func<'T1,'T2,'T3,'T4> = F.Func<'T1,'T2,'T3,'T4>
-type Func<'T1,'T2,'T3,'T4,'T5> = F.Func<'T1,'T2,'T3,'T4,'T5>
-type Func<'T1,'T2,'T3,'T4,'T5,'T6> = F.Func<'T1,'T2,'T3,'T4,'T5,'T6>
-type Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7> = F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7>
-type Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8> = F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8>
-type Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9> = F.Func<'T1,'T2,'T3,'T4,'T5,'T6,'T7,'T8,'T9>
-

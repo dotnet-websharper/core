@@ -133,19 +133,34 @@ type InlineGenerator() =
         else g.GetSourceName(p)
 
 [<Sealed>]
-type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName: string) =
+type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName: string, currentTypes: Types) =
     let mscorlib = aR.Resolve(typeof<int>.Assembly.FullName)
     let fscore = aR.Resolve(fsCoreFullName)
     let wsCore = aR.Resolve(typeof<IntelliFactory.WebSharper.Core.Attributes.InlineAttribute>.Assembly.FullName)
     let sysWeb = aR.Resolve(typeof<System.Web.UI.WebResourceAttribute>.Assembly.FullName)
     let main = out.MainModule
 
+    let funcWithArgs, funcWithThis =
+        let wsJS = aR.Resolve "IntelliFactory.WebSharper.JavaScript, Version=3.0.0.0, Culture=neutral, PublicKeyToken=451ee5fa653b377d"
+        let a = wsJS.MainModule.GetType("IntelliFactory.WebSharper.JavaScript", "FuncWithArgs`2")
+        if a = null then 
+            printfn "WebSharper.JavaScript not found"
+            currentTypes.Values |> Seq.find (fun td -> 
+                td.Namespace = "IntelliFactory.WebSharper.JavaScript" && td.Name = "FuncWithArgs" //&& td.GenericParameters.Count = 2
+            ) |> main.Import
+            ,
+            currentTypes.Values |> Seq.find (fun td -> 
+                td.Namespace = "IntelliFactory.WebSharper.JavaScript" && td.Name = "FuncWithThis"
+            ) |> main.Import
+        else
+            printfn "WebSharper.JavaScript found"
+            a |> main.Import
+            ,
+            wsJS.MainModule.GetType("IntelliFactory.WebSharper.JavaScript", "FuncWithThis`2") |> main.Import
+
     let func =
         fscore.MainModule.GetType(typedefof<_->_>.FullName)
         |> main.Import
-
-    let functions =
-        wsCore.MainModule.GetType("IntelliFactory.WebSharper.Core", "Functions")
 
     let fromSystem (name: string) =
         mscorlib.MainModule.GetType("System", name)
@@ -241,13 +256,11 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     member b.Type<'T>() =
         b.Type typeof<'T>
 
-    member b.WebSharperFunc ts ret =
-        let n = Seq.length ts + 1
-        let t =
-            functions.NestedTypes
-            |> Seq.find (fun t -> t.Name.StartsWith("Func") && t.GenericParameters.Count = n)
-            |> main.Import
-        genericInstance t (Seq.append ts [ret])
+    member b.FuncWithArgs args ret =
+        genericInstance funcWithArgs [args; ret]   
+                 
+    member b.FuncWithThis this func =
+        genericInstance funcWithThis [this; func]        
 
     member b.Attribute = attributeType
     member b.BaseResource = baseResourceType
@@ -298,29 +311,18 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: G
         | Type.DeclaredType id ->
             byId id
         | Type.FunctionType f ->
+            let func =
+                let ret = c.TypeReference f.ReturnType
+                let args = f.Parameters |> List.map (snd >> c.TypeReference)
+                match args with
+                | [] -> tB.Function (tB.Type<unit>()) ret
+                | [a] -> tB.Function a ret
+                | _ -> tB.FuncWithArgs (tB.Tuple args) ret                
             match f.ParamArray, f.This with
             | None, None ->
-                let domain =
-                    match f.Parameters with
-                    | [] -> tB.Type<unit>()
-                    | [(_, t)] -> c.TypeReference t
-                    | ts -> tB.Tuple [for (_, t) in ts -> c.TypeReference t]
-                tB.Function domain (c.TypeReference f.ReturnType)
-            | None, Some this when f.Parameters.IsEmpty ->
-                match f.ReturnType with
-                | Type.Unit ->
-                    tB.Action [c.TypeReference this]
-                | Type.NonUnit ->
-                    tB.Converter (c.TypeReference this) (c.TypeReference f.ReturnType)
+                func
             | None, Some this ->
-                let types =
-                    match f.ReturnType with
-                    | Type.Unit ->
-                        Type.Unit :: this :: List.map snd f.Parameters
-                    | Type.NonUnit ->
-                        f.ReturnType :: this :: List.map snd f.Parameters
-                    |> List.map c.TypeReference
-                tB.WebSharperFunc types.Tail types.Head
+                tB.FuncWithThis (c.TypeReference this) func
             | _ ->
                 // ParamArray not supported yet:
                 tB.Object
@@ -1073,7 +1075,7 @@ type Compiler() =
         let comments : Comments = Dictionary()
         let def = AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
         let types = buildInitialTypes assembly def
-        let tB = TypeBuilder(resolver, def, findFSharpCoreFullName options)
+        let tB = TypeBuilder(resolver, def, findFSharpCoreFullName options, types)
         let tC = TypeConverter(tB, types)
         let mB = MemberBuilder(tB, def)
         let mC = MemberConverter(tB, mB, tC, types, iG, def, comments, options)
