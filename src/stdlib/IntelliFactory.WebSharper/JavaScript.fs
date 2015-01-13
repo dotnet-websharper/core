@@ -20,6 +20,7 @@
 
 /// Defines common JavaScript operations.
 [<RequireQualifiedAccess>]
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module IntelliFactory.WebSharper.JavaScript.JS
 
 module A = IntelliFactory.WebSharper.Core.Attributes
