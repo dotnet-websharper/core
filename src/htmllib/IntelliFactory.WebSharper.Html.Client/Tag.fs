@@ -23,127 +23,6 @@ namespace IntelliFactory.WebSharper.Html.Client
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.Html.Client.Interfaces
 
-/// HTML5 combinators
-type Html5TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
-    [<JavaScript>]
-    member this.NewTag (name: string) (children: seq<#Pagelet>) : Element =
-        let el = Element.New (HtmlProvider, name)
-        for pl in children do
-            el.Append (pl :> Pagelet)
-        el
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Article x = this.NewTag "article" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Aside x = this.NewTag "aside" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Audio x = this.NewTag "audio" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Canvas x = this.NewTag "canvas" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Command x = this.NewTag "command" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.DataList x = this.NewTag "datalist" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Details x = this.NewTag "details" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Embed x = this.NewTag "embed" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.FigCaption x = this.NewTag "figcaption" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Figure x = this.NewTag "figure" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Footer x = this.NewTag "footer" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Header x = this.NewTag "header" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.HGroup x = this.NewTag "hgroup" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.KeyGen x = this.NewTag "keygen" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Mark x = this.NewTag "mark" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Meter x = this.NewTag "meter" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Nav x = this.NewTag "nav" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Output x = this.NewTag "output" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Progress x = this.NewTag "progress" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Rp x = this.NewTag "rp" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Rt x = this.NewTag "rt" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Ruby x = this.NewTag "ruby" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Section x = this.NewTag "section" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Source x = this.NewTag "source" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Summary x = this.NewTag "summary" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Time x = this.NewTag "time" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Video x = this.NewTag "video" x
-
-    [<Inline>]
-    [<JavaScript>]
-    member this.Wbr x = this.NewTag "wbr" x
-
 /// Deprecated HTML combinators
 // These are listed under a dedicated builder type for no reason
 // other than readability.
@@ -237,6 +116,18 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<Inline>]
     [<JavaScript>]
+    member this.Article x = this.NewTag "article" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Aside x = this.NewTag "aside" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Audio x = this.NewTag "audio" x
+
+    [<Inline>]
+    [<JavaScript>]
     member this.B x = this.NewTag "b" x
 
     [<Inline>]
@@ -269,15 +160,19 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<Inline>]
     [<JavaScript>]
+    member this.Canvas x = this.NewTag "canvas" x
+
+    [<Inline>]
+    [<JavaScript>]
     member this.Caption x = this.NewTag "caption" x
 
     [<Inline>]
     [<JavaScript>]
-    member this.Code x = this.NewTag "code" x
+    member this.Cite x = this.NewTag "cite" x
 
     [<Inline>]
     [<JavaScript>]
-    member this.Cite x = this.NewTag "cite" x
+    member this.Code x = this.NewTag "code" x
 
     [<Inline>]
     [<JavaScript>]
@@ -289,11 +184,23 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<Inline>]
     [<JavaScript>]
+    member this.Command x = this.NewTag "command" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.DataList x = this.NewTag "datalist" x
+
+    [<Inline>]
+    [<JavaScript>]
     member this.DD x = this.NewTag "dd" x
 
     [<Inline>]
     [<JavaScript>]
     member this.Del x = this.NewTag "del" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Details x = this.NewTag "details" x
 
     [<JavaScript>]
     member this.Div x = this.NewTag "div" x
@@ -316,7 +223,23 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<Inline>]
     [<JavaScript>]
+    member this.Embed x = this.NewTag "embed" x
+
+    [<Inline>]
+    [<JavaScript>]
     member this.FieldSet x = this.NewTag "fieldset" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.FigCaption x = this.NewTag "figcaption" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Figure x = this.NewTag "figure" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Footer x = this.NewTag "footer" x
 
     [<Inline>]
     [<JavaScript>]
@@ -360,6 +283,14 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<Inline>]
     [<JavaScript>]
+    member this.Header x = this.NewTag "header" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.HGroup x = this.NewTag "hgroup" x
+
+    [<Inline>]
+    [<JavaScript>]
     member this.Hr x = this.NewTag "hr" x
 
     [<Inline>]
@@ -392,6 +323,10 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<Inline>]
     [<JavaScript>]
+    member this.KeyGen x = this.NewTag "keygen" x
+
+    [<Inline>]
+    [<JavaScript>]
     member this.Label x = this.NewTag "label" x
 
     [<Inline>]
@@ -412,7 +347,19 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<Inline>]
     [<JavaScript>]
+    member this.Mark x = this.NewTag "mark" x
+
+    [<Inline>]
+    [<JavaScript>]
     member this.Meta x = this.NewTag "meta" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Meter x = this.NewTag "meter" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Nav x = this.NewTag "nav" x
 
     [<Inline>]
     [<JavaScript>]
@@ -440,6 +387,10 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<Inline>]
     [<JavaScript>]
+    member this.Output x = this.NewTag "output" x
+
+    [<Inline>]
+    [<JavaScript>]
     member this.P x = this.NewTag "p" x
 
     [<Inline>]
@@ -452,7 +403,23 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<Inline>]
     [<JavaScript>]
+    member this.Progress x = this.NewTag "progress" x
+
+    [<Inline>]
+    [<JavaScript>]
     member this.Q x = this.NewTag "q" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Rp x = this.NewTag "rp" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Rt x = this.NewTag "rt" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Ruby x = this.NewTag "ruby" x
 
     [<Inline>]
     [<JavaScript>]
@@ -468,7 +435,15 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<Inline>]
     [<JavaScript>]
+    member this.Section x = this.NewTag "section" x
+
+    [<Inline>]
+    [<JavaScript>]
     member this.Small x = this.NewTag "small" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Source x = this.NewTag "source" x
 
     [<Inline>]
     [<JavaScript>]
@@ -485,6 +460,10 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     [<Inline>]
     [<JavaScript>]
     member this.Sub x = this.NewTag "sub" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Summary x = this.NewTag "summary" x
 
     [<Inline>]
     [<JavaScript>]
@@ -520,6 +499,10 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<Inline>]
     [<JavaScript>]
+    member this.Time x = this.NewTag "time" x
+
+    [<Inline>]
+    [<JavaScript>]
     member this.Title x = this.NewTag "title" x
 
     [<Inline>]
@@ -537,3 +520,11 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     [<Inline>]
     [<JavaScript>]
     member this.Var x = this.NewTag "var" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Video x = this.NewTag "video" x
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.Wbr x = this.NewTag "wbr" x

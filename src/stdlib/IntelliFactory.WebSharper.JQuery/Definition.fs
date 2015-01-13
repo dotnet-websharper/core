@@ -491,6 +491,10 @@ module Definition =
                 "end" => T<unit> ^-> JQ
                 |> WithComment "End the most recent filtering operation in the current chain and return the set of matched elements to its previous state."
 
+                // Eq
+                "eq" => T<int> ^-> JQ
+                |> WithComment "Reduce the set of matched elements to the one at the specified index."
+
                 // Error
                 "error" => EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"error\" JavaScript event."
