@@ -58,7 +58,9 @@ type InlineGenerator() =
                 let args =
                     seq {
                         for i in 0 .. f.Parameters.Length - 1 ->
-                            "$" + string ((if m.IsStatic then 0 else 1) + i)
+                            let inl = "$" + string ((if m.IsStatic then 0 else 1) + i)
+//                            if f.Parameters.[i]
+                            inl
                     }
                     |> String.concat ","
                 let arity = f.Parameters.Length
@@ -144,7 +146,6 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         let wsJS = aR.Resolve "IntelliFactory.WebSharper.JavaScript, Version=3.0.0.0, Culture=neutral, PublicKeyToken=451ee5fa653b377d"
         let a = wsJS.MainModule.GetType("IntelliFactory.WebSharper.JavaScript", "FuncWithArgs`2")
         if a = null then 
-            printfn "WebSharper.JavaScript not found"
             currentTypes.Values |> Seq.find (fun td -> 
                 td.Namespace = "IntelliFactory.WebSharper.JavaScript" && td.Name = "FuncWithArgs" //&& td.GenericParameters.Count = 2
             ) |> main.Import
@@ -153,7 +154,6 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
                 td.Namespace = "IntelliFactory.WebSharper.JavaScript" && td.Name = "FuncWithThis"
             ) |> main.Import
         else
-            printfn "WebSharper.JavaScript found"
             a |> main.Import
             ,
             wsJS.MainModule.GetType("IntelliFactory.WebSharper.JavaScript", "FuncWithThis`2") |> main.Import
@@ -276,7 +276,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     member b.WebResource = webResource
 
 [<Sealed>]
-type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: GenericParameter [], genericsByName: Map<string,GenericParameter>) =
+type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: GenericParameter []) =
 
     let byId id =
         match types.TryGetValue id with
@@ -284,7 +284,7 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: G
         | _ -> tB.Object
 
     new (tB, types) =
-        TypeConverter(tB, types, Array.empty, Map.empty)
+        TypeConverter(tB, types, Array.empty)
 
     member c.TypeReference(d: R.TypeDefinition) =
         tB.Type(d.AssemblyName.FullName, d.FullName)
@@ -326,8 +326,8 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: G
             | _ ->
                 // ParamArray not supported yet:
                 tB.Object
-        | Type.GenericType (name, _) ->
-            genericsByName.[name] :> _
+        | Type.GenericType pos ->
+            genericsByPosition.[pos] :> _
         | Type.SpecializedType (x, xs) ->
             let args = xs |> Seq.map c.TypeReference
             tB.GenericInstanceType(c.TypeReference x, args)
@@ -339,10 +339,7 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: G
 
     member c.WithGenerics(gs: seq<GenericParameter>) =
         let gs = Seq.toArray gs
-        let gbn =
-            (genericsByName, gs)
-            ||> Array.fold (fun m g -> m.Add(g.Name, g))
-        TypeConverter(tB, types, Array.append genericsByPosition gs, gbn)
+        TypeConverter(tB, types, Array.append genericsByPosition gs)
 
 [<Sealed>]
 type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =

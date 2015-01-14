@@ -32,7 +32,8 @@ module Pattern =
         let t = Type.New ()
         Class name
         |=> t
-        |+> [ for (n, c) in values ->
+        |+> Static 
+            [ for (n, c) in values ->
                 Getter n t
                 |> WithGetterInline c :> _
             ]
@@ -74,13 +75,13 @@ module Pattern =
                     String.Format("{0}:${1}", Util.Quote n, i))
             String.Format("{{{0}}}", String.concat "," ss)
         Class name
-        |+> Protocol
+        |+> Instance
             [ for (n, t) in properties.Required do
                 yield Getter n t :> _
               for (n, t) in properties.Optional do
                 yield Property n t :> _
             ]
-        |+> [ Constructor ctor |> WithInline code ]
+        |+> Static [ Constructor ctor |> WithInline code ]
 
     type ConfigObsProperties =
         {
@@ -113,7 +114,7 @@ module Pattern =
                     String.Format("{0}:${1}", Util.Quote n, i))
             String.Format("{{{0}}}", String.concat "," ss)
         Class name
-        |+> Protocol
+        |+> Instance
             [ for (n, t) in properties.Required do
                 yield Getter n t :> _
               for (n, t) in properties.Optional do
@@ -121,4 +122,4 @@ module Pattern =
               for (n, t) in properties.Obsolete do
                 yield Property n t |> Obsolete :> _
             ]
-        |+> [ Constructor ctor |> WithInline code ]
+        |+> Static [ Constructor ctor |> WithInline code ]

@@ -69,14 +69,47 @@ module CodeModel =
                 clone
 
     and TypeParameter =
+        val Position : int
         val mutable Name : string
         val mutable Constraints : list<T>
 
-        internal new (name) =
+        internal new (pos, name) =
             {
+                Position = pos
                 Name = name
                 Constraints = []
             }
+
+        /// `T?x` constructs a `Parameter` named "x" of type `T`.
+        static member op_Dynamic(this: TypeParameter, name: string) =
+            this.Type?(name)
+
+        /// Constructs a union type.
+        static member ( + ) (this: TypeParameter, x: Type.IType) =
+            this.Type + x
+
+        /// Constructs a tuple type.
+        static member ( * ) (this: TypeParameter, x: Type.IType) =
+            this.Type * x
+
+        /// Adds the class to parameters.
+        static member ( * ) (this: TypeParameter, x: Type.Parameter) =
+            this.Type * x
+
+        member this.Type = Type.GenericType this.Position
+
+        interface Type.IType with
+            member this.Type = this.Type
+
+        interface Type.IParameter with
+            member this.Parameter =
+                let x = (this :> Type.IType).Type
+                (x :> Type.IParameter).Parameter
+
+        interface Type.IParameters with
+            member this.Parameters =
+                let x = (this :> Type.IParameter).Parameter
+                (x :> Type.IParameters).Parameters
 
     and [<AbstractClass>] TypeDeclaration =
         inherit NamespaceEntity
@@ -103,6 +136,14 @@ module CodeModel =
                 | _ -> ()
                 x
 
+        member this.Item
+            with get ([<System.ParamArray>] x : Type.IType []) =
+                this.Type.Item x
+
+        /// `T?x` constructs a `Parameter` named "x" of type `T`.
+        static member op_Dynamic(this: TypeDeclaration, name: string) =
+            this.Type?(name)
+
         /// Constructs a union type.
         static member ( + ) (this: TypeDeclaration, x: Type.IType) =
             this.Type + x
@@ -114,10 +155,6 @@ module CodeModel =
         /// Adds the class to parameters.
         static member ( * ) (this: TypeDeclaration, x: Type.Parameter) =
             this.Type * x
-
-        /// Supports the `op_Dynamic` operator.
-        static member op_Dynamic (this: TypeDeclaration, name: string) =
-            Type.Type.op_Dynamic(this.Type, name)
 
         interface Type.IType with
             member this.Type = this.Type
@@ -176,9 +213,18 @@ module CodeModel =
             }
 
         /// Applies updates.
+        [<System.Obsolete "Use |+> Static [...] or |+> Instance [...]">]
         static member ( |+> ) (this: Class, xs: list<IClassMember>) =
             (this, xs)
             ||> List.fold (fun x y -> y.AddTo x)
+
+        /// Applies updates.
+        static member ( |+> ) (this: Class, xs: ClassMembers) =
+            match xs with
+            | Static xs ->
+                (this, xs) ||> List.fold (fun x y -> y.SetIsStatic(true).AddTo x)
+            | Instance xs ->
+                (this, xs) ||> List.fold (fun x y -> y.SetIsStatic(false).AddTo x)
 
         /// Sets a property.
         static member ( |=> ) (this: Class, x: IClassProperty) =
@@ -199,6 +245,7 @@ module CodeModel =
 
         interface IClassMember with
             member this.AddTo x = this.AddTo x
+            member this.SetIsStatic s = this |> Entity.Update (fun x -> x.IsStatic <- s) :> _
 
         internal new (name, t) = 
             {
@@ -228,6 +275,7 @@ module CodeModel =
 
         interface IClassMember with
             member this.AddTo x = this.AddTo x
+            member this.SetIsStatic s = this :> _
 
     and Method =
         inherit MethodBase
@@ -283,9 +331,14 @@ module CodeModel =
 
     and IClassMember =
         abstract member AddTo : Class -> Class
+        abstract member SetIsStatic: bool -> IClassMember 
 
     and IInterfaceMember =
         abstract member AddTo : Interface -> Interface
+
+    and ClassMembers =
+        | Static of list<IClassMember>
+        | Instance of list<IClassMember>
 
     and IClassProperty =
         abstract member SetOn : Class -> Class

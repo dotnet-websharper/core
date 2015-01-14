@@ -77,7 +77,7 @@ module Canvas =
 
     let CanvasGradient =
         Class "CanvasGradient"
-        |+> Protocol [
+        |+> Instance [
             "addColorStop" => (T<float> * T<string>) ^-> T<unit>
         ]
     
@@ -133,11 +133,11 @@ module Canvas =
     
     let TextMetrics = 
         Class "TextMetrics"
-        |+> Protocol ["width" =@ T<float> ]
+        |+> Instance ["width" =@ T<float> ]
     
     let CanvasPixelArray = 
         Class "CanvasPixelArray"
-        |+> Protocol [
+        |+> Instance [
             "length" =? T<int>
             "Get" => T<int> ^-> T<int>
             |> WithInline "$this[$0]"
@@ -147,7 +147,7 @@ module Canvas =
 
     let ImageData =
         Class "ImageData"
-        |+> Protocol [
+        |+> Instance [
             "height" =? T<int> 
             "width" =? T<int> 
             "data" =? CanvasPixelArray
@@ -155,7 +155,7 @@ module Canvas =
     
     let CanvasRenderingContext2D = 
         Class "CanvasRenderingContext2D"
-        |+> Protocol [
+        |+> Instance [
             "canvas" =? Dom.Interfaces.Element // FIXME
             // push state on state stack
             "save" => T<unit> ^-> T<unit>
@@ -245,7 +245,7 @@ module AudioVideoCommon =
     
     let TimeRanges = 
         Class "TimeRanges"
-        |+> Protocol [
+        |+> Instance [
             "length" =? T<int>
             "start" => (T<int>) ^-> T<int>
             "end" => T<int> ^-> T<int>
@@ -272,7 +272,7 @@ module AudioVideoCommon =
 
     let TimedTrackCue =
         Class "TimedTrackCue"
-        |+> Protocol [
+        |+> Instance [
             "track" =? TimedTrack
             "id" => T<string>
 
@@ -298,14 +298,14 @@ module AudioVideoCommon =
 
     let TimedTrackCueList = 
         Class "TimedTrackCueList"
-        |+> Protocol [
+        |+> Instance [
             "length" =? T<int>
             "getter" => (T<int>) ^-> TimedTrackCue
             "getCueById" => (T<string>) ^-> TimedTrackCue
         ]
 
     do  TimedTrack
-        |+> Protocol [
+        |+> Instance [
             "kind" =? TrackType
             "label" =? T<string> 
             "language" =? T<string> 
@@ -335,7 +335,7 @@ module AudioVideoCommon =
     let MutableTimedTrack = 
         Class "MutableTimedTrack"
         |=> Inherits TimedTrack
-        |+> Protocol [
+        |+> Instance [
             "addCue" => TimedTrackCue ^-> T<unit>
             "removeCue" => TimedTrackCue ^-> T<unit>
         ]
@@ -347,7 +347,7 @@ module Elements =
     let CanvasElement =
         Class "CanvasElement"
         // |=> Inherits Type.Node
-        |+> Protocol [
+        |+> Instance [
             "width" =@ T<int>
             "height" =@ T<int>
             "toDataURL" => !? T<string>?a * !? T<float>?b ^-> T<string>
@@ -357,7 +357,7 @@ module Elements =
     let HTMLMediaElement =
         Class "HTMLMediaElement"
         // |=> Inherits Type.Node
-        |+> Protocol [
+        |+> Instance [
             // error state
             "error" =?  MediaError
 
@@ -419,7 +419,7 @@ module Elements =
     let HTMLVideoElement = 
         Class "HTMLVideoElement"
         |=> Inherits HTMLMediaElement
-        |+> Protocol [
+        |+> Instance [
             "width" =@ T<string>
             "height" =@ T<string>
             "videoWidth" =? T<int>
@@ -430,7 +430,7 @@ module Elements =
     let HTMLAudioElement =
         Class "HTMLAudioElement"
         |=> Inherits HTMLMediaElement
-        |+> Protocol [
+        |+> Instance [
             Constructor T<unit> |> WithInline "new Audio()"
             Constructor T<string> |> WithInline "new Audio($0)"
         ]
@@ -449,7 +449,7 @@ module Geolocation =
 
     let Coordinates =
         Class "Coordinates"
-        |+> Protocol [
+        |+> Instance [
             "latitude" =? T<float>
             "longitude" =? T<float>
             "altitude" =? T<float>
@@ -461,14 +461,14 @@ module Geolocation =
 
     let Position = 
         Class "Position"
-        |+> Protocol [
+        |+> Instance [
             "coords" =? Coordinates
             "timestamp" =? Ecma.Definition.EcmaDate
         ]
 
     let PositionError = 
         Class "PositionError"
-        |+> Protocol [
+        |+> Instance [
             "UNKNOWN_ERROR" =? T<int>
             "PERMISSION_DENIED" =? T<int>
             "POSITION_UNAVAILABLE" =? T<int>
@@ -482,7 +482,7 @@ module Geolocation =
         let errorCallback = PositionError ^-> T<unit>
         
         Class "Geolocation"
-        |+> Protocol [
+        |+> Instance [
             "getCurrentPosition" => (positionCallback?p * !? errorCallback?e * !? PositionOptions?o) ^-> T<unit>
             "watchPosition" => (positionCallback?p * !? errorCallback?e * !? PositionOptions?o) ^-> T<int>
             "clearWatch" => T<int> ^-> T<unit>
@@ -492,7 +492,7 @@ module WebStorage =
 
     let Storage =
         Class "Storage"
-        |+> Protocol [
+        |+> Instance [
                 "length" =? T<int>
                 "key" => T<int -> string>
                 "getItem" => T<string->string>
@@ -503,7 +503,7 @@ module WebStorage =
 
     let StorageEvent =
         Class "StorageEvent"
-        |+> Protocol [
+        |+> Instance [
                 "key" =? T<string>
                 "newValue" =? T<string>
                 "oldValue" =? T<string>
@@ -515,7 +515,7 @@ module AppCache =
     let ApplicationCache =
         Class "ApplicationCache"
         // |=> Implements [T<EventTarget>]
-        |+> Protocol [
+        |+> Instance [
             // update status
             "UNCACHED" =? T<int>
             "IDLE" =? T<int>
@@ -547,7 +547,7 @@ module WebWorkers =
 
     let WorkerUtils =
         Class "WorkerUtils"
-        |+> [
+        |+> Static [
             "importScripts" => (!+ T<string>) ^-> T<unit>
             "navigator" =? WorkerNavigator
         ]
@@ -559,7 +559,7 @@ module WebWorkers =
         let WorkerGlobalScope = Class "WorkerGlobalScope"
         WorkerGlobalScope
         // |=> Implements [T<EventTarget>; WorkerUtils]
-        |+> Protocol [
+        |+> Instance [
             "self" =? WorkerGlobalScope
             "location" =? WorkerLocation
             "close" => T<unit> ^-> T<unit>
@@ -569,7 +569,7 @@ module WebWorkers =
     let SharedWorkerScope =   
         Class "SharedWorkerGlobalScope"
             |=> Inherits WorkerGlobalScope
-            |+> Protocol [
+            |+> Instance [
                 "name" =? T<string>
                 "applicationCache" =? AppCache.ApplicationCache
                 //           attribute Function onconnect;
@@ -578,7 +578,7 @@ module WebWorkers =
     let DedicatedWorkerGlobalScope =
         Class "DedicatedWorkerGlobalScope"
         |=> Inherits WorkerGlobalScope
-        |+> Protocol [
+        |+> Instance [
             "postMessage" => (T<obj> * !? MessagePortArray) ^-> T<unit>
             /// attribute Function onmessage;
             
@@ -587,14 +587,14 @@ module WebWorkers =
     let AbstractWorker =
         Class "AbstractWorker"
         // |=> Implements [T<EventTarget>]
-        |+> Protocol [
+        |+> Instance [
             // attribute Function onerror;
             ]
 
     let Worker =           
         Class "Worker"
         |=> Inherits AbstractWorker
-        |+> Protocol [
+        |+> Instance [
             "terminate" => T<unit> ^-> T<unit>
             "postMessage" => (T<obj> * !? MessagePortArray) ^-> T<unit>
             // attribute Function onmessage;
@@ -604,14 +604,14 @@ module General =
     let BarProp =
         let BarProp = Class "BarProp"
         BarProp
-        |+> Protocol [
+        |+> Instance [
             "visible" =@ T<bool>
         ]
     
     let History =
         let History = Class "History"
         History
-        |+> Protocol [
+        |+> Instance [
             "length" =? T<int>
             "go" => T<unit> ^-> T<unit>
             "go" => T<int> ^-> T<unit>
@@ -625,7 +625,7 @@ module General =
 
     let Location =
         Class "Location" 
-        |+> Protocol [
+        |+> Instance [
             "href" =@ T<string>
             "assign" => T<string> ^-> T<unit> 
             "replace" => T<string> ^-> T<unit> 
@@ -645,7 +645,7 @@ module General =
 
     let UndoManager =
         Class "UndoManager"
-        |+> Protocol [
+        |+> Instance [
             "length" =? T<int>
             "item" => T<int> ^-> T<obj>
             "position" =? T<int>
@@ -661,7 +661,7 @@ module General =
     let MessageEvent =
         Class "MessageEvent"
         // |=> Implements [T<Event>]
-        |+> Protocol [
+        |+> Instance [
             "data" =? T<obj>
             "origin" =? T<string>
             "lastEventId" =? T<string>
@@ -672,7 +672,7 @@ module General =
 
     let MessagePort =
         MessagePortType
-        |+> Protocol [
+        |+> Instance [
             "postMessage" => T<obj> * Type.ArrayOf(MessagePortType) ^-> T<unit>
             "start" => T<unit> ^-> T<unit>
             "close" => T<unit> ^-> T<unit>
@@ -681,17 +681,17 @@ module General =
 
     let Navigator =
         Class "Navigator" 
-        |+> Protocol ["geolocation" =? Geolocation.Geolocation]
+        |+> Instance ["geolocation" =? Geolocation.Geolocation]
 
     let Window = 
         let f = Dom.Interfaces.Event ^-> T<unit>
         WindowProxyType
-        |+> [
+        |+> Static [
             "self" =? WindowProxyType
             |> WithGetterInline "window"
             |> ObsoleteWithMessage "Use JS.Window instead."
         ]
-        |+> Protocol [
+        |+> Instance [
             "history" =? History
             "document" =? Dom.Interfaces.Document
             "name" =@ T<string>
@@ -814,12 +814,12 @@ module TypedArrays =
         let ArrayBuffer = Type.New()
         Class "ArrayBuffer"
         |=> ArrayBuffer
-        |+> Protocol [
+        |+> Instance [
                 "byteLength" =? T<int>
                 /// Warning: although part of the spec, may not work in IE10 as of 6/6/2013.
                 "slice" => T<int> * T<int> ^-> ArrayBuffer
             ]
-        |+> [ Constructor T<int> ]
+        |+> Static [ Constructor T<int> ]
 
     module DataView =
 
@@ -831,12 +831,12 @@ module TypedArrays =
 
         let Class =
             Class "DataView"
-            |+> [
+            |+> Static [
                     Constructor ArrayBuffer
                     Constructor (ArrayBuffer * T<int>?byteOffset)
                     Constructor (ArrayBuffer * T<int>?byteOffset * T<int>?byteLength)
                 ]
-            |+> Protocol [
+            |+> Instance [
                     "getInt8" => T<int>?byteOffset ^-> T<sbyte>
                     "getUint8" => T<int>?byteOffset ^-> T<byte>
                     Getter<int16> "getInt16"
@@ -857,7 +857,7 @@ module TypedArrays =
 
     let ArrayBufferView =
         Class "ArrayBufferView"
-        |+> Protocol
+        |+> Instance
             [
                 "buffer" =? ArrayBuffer
                 "byteOffset" =? T<int>
@@ -869,7 +869,7 @@ module TypedArrays =
         Class typedArray
         |=> self
         |=> Inherits ArrayBufferView
-        |+> [
+        |+> Static [
                 Constructor T<unit>
                 Constructor T<int>
                 Constructor self
@@ -877,7 +877,7 @@ module TypedArrays =
                 Constructor (ArrayBuffer?buffer * !? T<int>?byteOffset * !? T<int>?length)
                 "BYTES_PER_ELEMENT" =? T<int>
             ]
-        |+> Protocol [
+        |+> Instance [
                 "length" =? T<int>
                 "get" =>
                     T<int>?offset ^-> elementType
@@ -915,11 +915,11 @@ module File =
         let Blob = Type.New()
         Class "Blob"
         |=> Blob
-        |+> [
+        |+> Static [
                 Constructor T<unit>
                 Constructor ((Type.ArrayOf TypedArrays.ArrayBuffer + Type.ArrayOf TypedArrays.ArrayBufferView + Blob + T<string>) * !?BlobPropertyBag)
             ]
-        |+> Protocol [
+        |+> Instance [
                 "size" =? T<int>
                 "type" =? T<string>
                 "slice" => T<int>?start * T<int>?``end`` * T<string>?contentType ^-> Blob
@@ -929,7 +929,7 @@ module File =
     let File =
         Class "File"
         |=> Inherits Blob
-        |+> Protocol [
+        |+> Instance [
                 "name" =? T<string>
                 "lastModifiedDate" =? Ecma.Definition.EcmaDate
             ]
@@ -937,7 +937,7 @@ module File =
     let ProgressEvent =
         Class "ProgressEvent"
         |=> Inherits Dom.Interfaces.Event
-        |+> Protocol [
+        |+> Instance [
                 "lengthComputable" =? T<bool>
                 "loaded" =? T<int>
                 "total" =? T<int>
@@ -947,11 +947,11 @@ module File =
         let FileList = Type.New()
         Class "FileList"
         |=> FileList
-        |+> Protocol [
+        |+> Instance [
                 "item" => T<int> ^-> File
                 "length" =? T<int>
             ]
-        |+> [
+        |+> Static [
                 "ofElement" => Dom.Interfaces.Element?input ^-> FileList
                 |> WithInline "$input.files"
                 "ofEvent" => ProgressEvent?event ^-> FileList
@@ -967,10 +967,10 @@ module File =
 
     let FileReader =
         let EventListener = (ProgressEvent + T<unit>) ^-> T<unit>
-        Generic / fun t ->
+        Generic - fun t ->
         Class "FileReader"
         |=> Inherits Dom.Interfaces.EventTarget
-        |+> Protocol [
+        |+> Instance [
                 "abort" => T<unit> ^-> T<unit>
                 "readyState" =? FileReaderReadyState
                 "result" =? t
@@ -985,24 +985,24 @@ module File =
 
     let TextFileReader =
         Class "TextFileReader"
-        |=> Inherits (FileReader T<string>)
-        |+> [
+        |=> Inherits (FileReader.[T<string>])
+        |+> Static [
                 Constructor T<unit>
                 |> WithInline "new FileReader()"
             ]
-        |+> Protocol [
+        |+> Instance [
                 "readAsText" => Blob * !?T<string>?encoding ^-> T<unit>
                 "readAsDataURL" => Blob ^-> T<unit>
             ]
 
     let BinaryFileReader =
         Class "BinaryFileReader"
-        |=> Inherits (FileReader TypedArrays.ArrayBuffer)
-        |+> [
+        |=> Inherits (FileReader.[TypedArrays.ArrayBuffer])
+        |+> Static [
                 Constructor T<unit>
                 |> WithInline "new FileReader()"
             ]
-        |+> Protocol [
+        |+> Instance [
                 "readAsArrayBuffer" => Blob ^-> T<unit>
             ]
 
@@ -1030,12 +1030,12 @@ module WebGL =
         Class "DataView"
         |=> DataView
         |=> Inherits TypedArrays.ArrayBufferView
-        |+> [
+        |+> Static [
                 Constructor (TypedArrays.ArrayBuffer * T<int> * T<int>)
                 Constructor (TypedArrays.ArrayBuffer * T<int>)
                 Constructor TypedArrays.ArrayBuffer
             ]
-        |+> Protocol
+        |+> Instance
             [
                 "buffer" =? TypedArrays.ArrayBuffer
                 "byteOffset" =? T<uint64>
@@ -1073,7 +1073,7 @@ module WebGL =
     let RenderingContextClass =
         Class "RenderingContext"
         |=> RenderingContext
-        |+> Protocol
+        |+> Instance
             [
                 // GLEnum constants
                 "DEPTH_BUFFER_BIT" =? T<int>
@@ -1587,7 +1587,7 @@ module WebGL =
     let ActiveInfoClass =
         Class "ActiveInfo"
         |=> ActiveInfo
-        |+> Protocol
+        |+> Instance
             [
                 "size" =? T<int>
                 "type" =? Enum
@@ -1606,7 +1606,7 @@ module WebSockets =
 
     let WebSocket =
         Class "WebSocket"
-        |+> Protocol
+        |+> Instance
             [
                 "readyState" =? ReadyState
                 "bufferedAmount" =? T<int>
@@ -1625,7 +1625,7 @@ module WebSockets =
                 (* TODO: describe FILE Api: http://dev.w3.org/2006/webapi/FileAPI *)
                 // "send" => Blob ^-> T<unit>
             ]
-        |+> [
+        |+> Static [
                 Constructor T<string>
                 Constructor (T<string> * T<string[]>)
             ]
@@ -1664,7 +1664,7 @@ module Definition =
                 File.BlobPropertyBag
                 File.File
                 File.FileList
-                Generic - File.FileReader
+                File.FileReader
                 File.FileReaderReadyState
                 File.ProgressEvent
                 File.TextFileReader

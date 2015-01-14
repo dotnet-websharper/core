@@ -27,7 +27,7 @@ open IntelliFactory.WebSharper.JavaScript
 let Global =
     Namespace "IntelliFactory.WebSharper.JavaScript" [
         Class "Console"
-        |+> [
+        |+> Static [
             "count" => !?T<string> ^-> T<unit>
             |> WithInline "console?console.count.apply(console,$0):undefined"
             "dir" => T<obj> ^-> T<unit>
@@ -57,7 +57,7 @@ let Global =
         ]
 
         Class "JS"
-        |+> [
+        |+> Static [
                 "window" =? Html5.General.Window |> WithGetterInline "window"
                 "document" =? Dom.Interfaces.Document |> WithGetterInline "document"
                 "NaN" =? T<double> |> WithGetterInline "$global.NaN"

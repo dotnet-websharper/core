@@ -101,13 +101,13 @@ module Pervasives =
     let Resources name basePath paths =
         Code.Resource (name, basePath :: paths)
 
-    /// Makes a member static.
-    let Static (x: #Code.Member) =
-        x |> Code.Entity.Update (fun x -> x.IsStatic <- true)
-        
-    /// Makes a member instance.
-    let Instance (x: #Code.Member) =
-        x |> Code.Entity.Update (fun x -> x.IsStatic <- false)
+    /// Makes a list of members static.
+    let Static xs =
+        Code.Static xs
+
+    /// Makes a list of members instance.
+    let Instance xs =
+        Code.Instance xs
 
     /// Sets the base class.
     let Inherits (c: Type.IType) =
@@ -206,8 +206,9 @@ module Pervasives =
         x |> Code.Entity.Update (fun x -> x.ObsoleteStatus <- CodeModel.Obsolete (Some message))
 
     /// Constructs a class protocol (instance members).
+    [<Obsolete "Use |+> Instance [...]">]
     let Protocol (members: list<Code.Member>) =
-        [ for m in members -> Instance m :> Code.IClassMember ]
+        [ for m in members -> m |> Code.Entity.Update (fun x -> x.IsStatic <- false) :> Code.IClassMember ]
 
     /// Adds a comment.
     let WithComment (comment: string) (x: #Code.Entity) =
@@ -278,74 +279,27 @@ module Pervasives =
             !x
 
     /// Generics helper.
-    type GenericHelper = | Generic with
+    type GenericHelper =
+        | Generic 
+        | GenericNamed of string list
+        with
 
-        member this.Entity (arity: int) (make: list<T> -> #Code.Entity) =
-            let generics = List.init arity (fun x -> Code.TypeParameter ("T" + string (x + 1)))
-            let types = generics |> List.map (fun p -> Type.GenericType (p.Name, ref []))
-            let x = make types
-            for g, t in Seq.zip generics types do
-                match t with
-                | Type.GenericType(_, cs) ->
-                    g.Constraints <- !cs
-                | _ -> ()
-            match box x with
+        member this.Entity (arity: int) (make: list<_> -> #Code.Entity) =
+            let generics = 
+                match this with
+                | GenericNamed ns ->
+                    ns |> List.mapi (fun i n -> Code.TypeParameter (i, n))
+                | _ ->
+                    if arity = 1 then
+                        [ Code.TypeParameter (0, "T") ]
+                    else
+                        List.init arity (fun x -> Code.TypeParameter (x, "T" + string (x + 1)))
+            let x = make generics
+            match x :> Code.Entity with
             | :? Code.Method as m -> m.Generics <- generics
+            | :? Code.TypeDeclaration as d -> d.Generics <- generics
             | _ -> ()
             x
-
-        member this.Type (arity: int) =
-            let t = Type.New ()
-            fun ts -> t.[List.toArray ts]
-
-        member this.Type1() = 
-            let f = this.Type 1
-            fun a -> f [a]
-
-        member this.Type2 () =
-            let f = this.Type 2
-            fun a b -> f [a; b]
-
-        member this.Type3 () =
-            let f = this.Type 3
-            fun a b c -> f [a; b; c]
-
-        member this.Type4 () =
-            let f = this.Type 4
-            fun a b c d -> f [a; b; c; d]
-
-        member this.TypeDeclaration (arity: int) (make: list<T> -> #Code.TypeDeclaration) =
-            let prefix = String.Format("T{0:x}", Fresh ())
-            let generics = [for n in 1 .. arity -> Code.TypeParameter (prefix + "_" + string n)]
-            let types = [for g in generics -> Type.GenericType (g.Name, ref [])]
-            let id = (make types).Id
-            for g, t in Seq.zip generics types do
-                match t with
-                | Type.GenericType(_, cs) ->
-                    g.Constraints <- !cs
-                | _ -> ()
-            fun parameters ->
-                let decl = make types
-                decl.Id <- id
-                decl.Generics <- generics
-                decl.Type <- (Type.DeclaredType id).[List.toArray parameters]
-                decl
-
-        static member ( / ) (this: GenericHelper, f) =
-            let f = this.TypeDeclaration 1 (fun x -> f x.[0])
-            fun x -> f [x]
-
-        static member ( / ) (this: GenericHelper, f) =
-            let f = this.TypeDeclaration 2 (fun x -> f x.[0] x.[1])
-            fun x y -> f [x; y]
-
-        static member ( / ) (this: GenericHelper, f) =
-            let f = this.TypeDeclaration 3 (fun x -> f x.[0] x.[1] x.[2])
-            fun x y z -> f [x; y; z]
-
-        static member ( / ) (this: GenericHelper, f) =
-            let f = this.TypeDeclaration 4 (fun x -> f x.[0] x.[1] x.[2] x.[3])
-            fun a b c d -> f [a; b; c; d]
 
         static member ( - ) (this: GenericHelper, f) =
             this.Entity 1 (fun x -> f x.[0])
@@ -359,8 +313,5 @@ module Pervasives =
         static member ( - ) (this: GenericHelper, f) =
             this.Entity 4 (fun x -> f x.[0] x.[1] x.[2] x.[3])
 
-    let WithConstraint (constraints: list<T>) (ty: T) =
-        match ty with
-        | Type.GenericType (_, cs) -> cs := constraints
-        | _ -> ()
-        ty
+        static member ( + ) (this: GenericHelper, names) =
+            GenericNamed names

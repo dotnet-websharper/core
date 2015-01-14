@@ -25,7 +25,6 @@ namespace IntelliFactory.WebSharper.InterfaceGenerator
 /// The meta-objects are defined with overloaded operators and
 /// helper types to support an F#-embedded DSL.
 module Type =
-    open System
     module R = IntelliFactory.WebSharper.Core.Reflection
 
     /// Represents type identifiers that are used to match types to classes.
@@ -38,14 +37,14 @@ module Type =
         | ArrayType of int * Type
         | DeclaredType of Id
         | FunctionType of Function
-        | GenericType of string * ref<list<Type>>
+        | GenericType of int //of string * ref<list<Type>>
         | SpecializedType of Type * list<Type>
         | SystemType of R.Type
         | TupleType of list<Type>
         | UnionType of Type * Type
-
+        
         member this.Item
-            with get ([<ParamArray>] x : IType []) =
+            with get ([<System.ParamArray>] x : IType []) =
                 match this with
                 | SpecializedType(g, _) -> SpecializedType (g, [for t in x -> t.Type])
                 | _ -> SpecializedType (this, [for t in x -> t.Type])
@@ -297,8 +296,6 @@ module Type =
         let rec norm = function
             | ArrayType (rank, t) ->
                 List.map (fun x -> ArrayType (rank, x)) (norm t)
-            | DeclaredType id ->
-                [DeclaredType id]
             | FunctionType x ->
                 [ for this in normo x.This do
                     for returnType in norm x.ReturnType do
@@ -317,8 +314,6 @@ module Type =
                                 }
                                 |> FunctionType
                 ]
-            | GenericType (x, cs) ->
-                [GenericType (x, cs)]
             | SpecializedType (x, y) ->
                 [ for x in norm x do
                     for y in norms y do
@@ -330,6 +325,7 @@ module Type =
                 [for n in norms xs -> TupleType xs]
             | UnionType (x, y) ->
                 norm x @ norm y
+            | t -> [t]
         and normo t =
             match t with
             | None -> [None]

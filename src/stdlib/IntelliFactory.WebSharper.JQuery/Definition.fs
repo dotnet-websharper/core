@@ -37,7 +37,7 @@ module Definition =
     let EventClass =
         Class "Event"
         |=> Event
-        |+> Protocol
+        |+> Instance
                 [
                     "currentTarget" =? T<Dom.Element>
                     "absurd" => T<Dom.Node> ^-> T<unit>
@@ -84,11 +84,11 @@ module Definition =
              scriptEval style tbody".Split ' '
         let props =
             [for f in fields ->
-                f =? T<bool> :> CodeModel.Member
+                f =? T<bool> :> CodeModel.IClassMember
             ]
         Class "Support"
         |=> Support
-        |+> Protocol props
+        |+> Instance props
 
     /// Ajax configuration
     let AjaxConfig = Type.New()
@@ -215,7 +215,7 @@ module Definition =
 
     let FX =
         Class "fx"
-        |+> [
+        |+> Static [
             "off" =@ T<bool>
             "interval" =@ T<int>
         ]
@@ -230,7 +230,7 @@ module Definition =
             Type.ArrayOf((!+ T<obj>) ^-> T<unit>) 
             + ((!+ T<obj>) ^-> T<unit>)
 
-        let promiseDeferredProtocol retType : list<CodeModel.Member> =
+        let promiseDeferredProtocol retType : list<CodeModel.IClassMember> =
             [
                 // It actually returns the same type. Not sure how to express it.
                 "done" => promiseDeferredCallbacks ^-> retType
@@ -241,12 +241,12 @@ module Definition =
 
         let Promise =
             PromiseClass
-            |+> [Constructor T<unit>]
-            |+> Protocol (promiseDeferredProtocol PromiseClass)
+            |+> Static [Constructor T<unit>]
+            |+> Instance (promiseDeferredProtocol PromiseClass)
 
         let Deferred =
             let Deferred = Class "jQuery.Deferred"
-            let mems : list<CodeModel.Member> =
+            let mems : list<CodeModel.IClassMember> =
                 [
                     "resolve" => !+ T<obj> ^-> Deferred 
                     "resolveWith" => (T<obj>?context *+ T<obj>) ^-> Deferred
@@ -265,15 +265,15 @@ module Definition =
                               * !? T<obj->bool>?progressFilter ^-> Deferred
                 ]
             Deferred
-            |+> [Constructor T<unit>]
-            |+> Protocol ((promiseDeferredProtocol Deferred) @ mems)
+            |+> Static [Constructor T<unit>]
+            |+> Instance ((promiseDeferredProtocol Deferred) @ mems)
         Deferred, Promise
 
     let JqXHR =
         let JqXHR = Class "jqXHR"
         JqXHR
         |=> Inherits Deferred
-        |+> Protocol [
+        |+> Instance [
             // The documentation isn't clear about the types of each of the functions.
             "readyState" =? T<bool> 
             "statusText" =? T<string>
@@ -293,7 +293,7 @@ module Definition =
     let JQueryClass =
         Class "jQuery"
         |=> JQ
-        |+> Protocol
+        |+> Instance
             [
                 "ignore" =? T<unit>
                 |> WithGetterInline "$this"
@@ -825,7 +825,7 @@ module Definition =
                     * !?T<obj->bool>?handler ^-> T<unit>
 
             ]
-        |+> [
+        |+> Static [
                 "of" => T<string>?selector ^-> JQ
                 |> WithInline "jQuery($0)"
                 |> WithComment "Accepts a string containing a CSS selector which is then used to match a set of elements."
@@ -987,7 +987,7 @@ module Definition =
 
     let Callbacks =
         Class "jQuery.Callbacks"
-        |+> Protocol
+        |+> Instance
             [
                 "add" => T<(unit->unit)->unit>
                 "add" => T<(unit->unit)[]->unit>
@@ -1002,7 +1002,7 @@ module Definition =
                 "lock" => T<unit->unit>
                 "locked" => T<unit->bool>
             ]
-        |+> [
+        |+> Static [
                 Constructor T<unit>
                 |> WithInline "jQuery.Callbacks()"
                 Constructor T<string>

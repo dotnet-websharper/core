@@ -37,7 +37,7 @@ module Definition =
     let EcmaObject =
         Class "Object"
         |=> EcmaObjectT
-        |+> Protocol
+        |+> Instance
             [
                 "constructor" =? EcmaFunctionT
                 "toString" => T<unit->string>
@@ -47,7 +47,7 @@ module Definition =
                 "isPrototypeOf" => T<obj->bool>
                 "propertyIsEnumerable" => T<string->bool>
             ]
-        |+> [
+        |+> Static [
                 Constructor (T<unit> + T<obj>) 
                 "prototype" =? EcmaObjectT
                 "create" => T<obj>?proto * !?T<obj>?properties ^-> T<obj>                
@@ -68,73 +68,73 @@ module Definition =
         Class "Function" |> WithSourceName "Function"
         |=> Inherits EcmaObject
         |=> EcmaFunctionT
-        |+> Protocol 
+        |+> Instance 
             [
                 "length" =? T<int>
                 "apply" => T<obj> * !?T<obj[]>?args ^-> T<obj>
                 "call" => T<obj> *+ T<obj> ^-> T<obj>
                 "bind" => T<obj> *+ T<obj> ^-> EcmaFunctionT
             ]
-        |+> [
+        |+> Static [
                 Constructor (T<string> *+ T<string>)
             ]
 
     let EcmaFunctionWithArgs =
-        Generic / fun (a: Type.Type) (b: Type.Type) ->
+        Generic + [ "TArgs"; "TResult" ] - fun a b ->
         Class "FuncWithArgs"
-        |+> Protocol [
+        |+> Instance [
                 "length" =? T<int>
                 "call" => a?args ^-> b |> WithInline "$this.apply(null, $args)"
             ]
-        |+> [
+        |+> Static [
                 Constructor (a ^-> b)?func |> WithInline "function() { return $func(arguments); }"
             ]    
 
     let EcmaFunctionWithThis =
-        Generic / fun (a: Type.Type) (b: Type.Type) ->
+        Generic + [ "TThis"; "TFunc" ] - fun a b ->
         Class "FuncWithThis"
-        |+> Protocol [
+        |+> Instance [
                 "length" =? T<int>
                 "bind" => a?thisArg ^-> b |> WithInline "$this.bind($thisArg)"
             ]
-        |+> [
+        |+> Static [
                 Constructor (a ^-> b)?func |> WithInline "function() { return $func.apply(this, arguments); }"
             ]    
 
     let EcmaArguments =
-        Generic / fun (a: Type.Type) ->
+        Generic - fun a ->
         Class "Arguments"
-        |+> Protocol [
+        |+> Instance [
                 "length" =@ T<int>
                 "" =@ a |> Indexed T<int>
                 "toArray" => T<unit> ^-> EcmaArrayT.[a] |> WithInline "Array.prototype.slice.call($this)"
             ]
 
     let EcmaFunctionWithRest =
-        Generic / fun (a: Type.Type) (b: Type.Type) (c: Type.Type) ->
+        Generic + [ "TArg"; "TRest"; "TResult" ] - fun a b c ->
         Class "FuncWithRest"
-        |+> Protocol [
+        |+> Instance [
                 "call" => a?arg *+ b ^-> c |> WithInline "$this.apply(null, [$arg].concat($2))"
             ]
-        |+> [
+        |+> Static [
                 Constructor (a * Type.ArrayOf b ^-> c)?func
                     |> WithInline "function(x) { return $func([x, Array.prototype.slice.call(arguments, 1)]); }"
             ]
 
     let EcmaFunctionWithArgsRest =
-        Generic / fun (a: Type.Type) (b: Type.Type) (c: Type.Type) ->
+        Generic + [ "TArgs"; "TRest"; "TResult" ] - fun a b c ->
         Class "FuncWithArgsRest"
-        |+> Protocol [
+        |+> Instance [
                 "call" => a?args *+ b ^-> c |> WithInline "$this.apply(null, $args.concat($2))"
             ]
-        |+> [
+        |+> Static [
                 Constructor (T<int>?length * (a * Type.ArrayOf b ^-> c)?func) 
                     |> WithInline "function(x) { return $func([Array.prototype.slice.call(arguments, 0, $length), Array.prototype.slice.call(arguments, $length)]); }"
             ]
 
     /// The Array object is used to store multiple values in a single variable.
     let EcmaArray =
-        Generic / fun (a: Type.Type) ->
+        Generic - fun (a: CodeModel.TypeParameter) ->
         let WithCallback r x =
             let t = a * T<int> * EcmaArrayT.[a]
             ((t ^-> r) ^-> x) + ((T<obj> -* t ^-> r) * T<obj> ^-> x)
@@ -145,7 +145,7 @@ module Definition =
         Class "Array"
         |=> Inherits EcmaObject
         |=> EcmaArrayT.[a]
-        |+> Protocol [
+        |+> Instance [
                 "concat" => !+ a ^-> EcmaArrayT.[a]
                 "join" => T<string->string>
                 "pop" => T<unit> ^-> a
@@ -170,7 +170,7 @@ module Definition =
                 "length" =@ T<int>
                 "" =@ a |> Indexed T<int>
             ]
-        |+> [
+        |+> Static [
                 Constructor (T<int>)
                 Constructor (!+ a)
                 "isArray" => T<obj->bool>
@@ -182,7 +182,7 @@ module Definition =
     let EcmaString =
         Class "String"
         |=> Inherits EcmaObject
-        |+> Protocol 
+        |+> Instance 
             [
                 "charAt" => T<int->string>
                 "charCodeAt" => T<int->int>
@@ -203,8 +203,9 @@ module Definition =
                 "toLocaleUpperCase" => T<unit->string>
                 "trim" => T<unit->string>
                 "length" =? T<int>
+                "nonsense" =? EcmaArray.Type.[T<string>]
             ]
-        |+> [   
+        |+> Static [   
                 Constructor (T<unit> + T<obj>)
                 "fromCharCode" => !+ T<int> ^-> T<string>
             ]
@@ -213,7 +214,7 @@ module Definition =
     let EcmaBoolean =
         Class "Boolean"
         |=> Inherits EcmaObject
-        |+> [               
+        |+> Static [               
                 Constructor (T<obj>) 
             ]
 
@@ -221,14 +222,14 @@ module Definition =
     let EcmaNumber =
         Class "Number"
         |=> Inherits EcmaObject
-        |+> Protocol
+        |+> Instance
             [
                 "toString" => T<int>?tobase ^-> T<string>
                 "toFixed" => !?T<int>?fractionDigits ^-> T<string>
                 "toExponential" => !?T<int>?fractionDigits ^-> T<string>
                 "toPrecision" => T<double->string>
             ]
-        |+> [
+        |+> Static [
                 Constructor (T<unit> + T<obj>)
                 "MAX_VALUE" =? T<double>
                 "MIN_VALUE" =? T<double>
@@ -242,7 +243,7 @@ module Definition =
         let D = T<double>
         let F = T<double->double>
         Class "Math"
-        |+> [
+        |+> Static [
                 "E" =? D
                 "LN10" =? D
                 "LN2" =? D
@@ -282,8 +283,15 @@ module Definition =
         let Seconds  = T<int>?sec * !?T<int>?ms ^-> T<unit>
         let Msec     = T<int>?ms ^-> T<unit>
 
-        let Protocol =
-            Protocol [
+        let DateArgs =
+            T<int>?year * T<int>?month * !?T<int>?date *
+            !?T<int>?hours * !?T<int>?minutes * !?T<int>?seconds *
+            !?T<int>?ms
+        
+        let DateType = Class "Date" 
+        DateType
+        |=> Inherits EcmaObject
+        |+> Instance [
                 "toDateString" => T<unit->string>
                 "toTimeString" => T<unit->string>
                 "toLocaleString" => T<unit->string>
@@ -331,17 +339,7 @@ module Definition =
                 "setUTCSeconds" => Seconds
                 "setUTCMilliseconds" => T<int->unit>
             ]
-
-        let DateArgs =
-            T<int>?year * T<int>?month * !?T<int>?date *
-            !?T<int>?hours * !?T<int>?minutes * !?T<int>?seconds *
-            !?T<int>?ms
-        
-        let DateType = Class "Date" 
-        DateType
-        |=> Inherits EcmaObject
-        |+> Protocol
-        |+> [
+        |+> Static [
                 Constructor T<unit>
                 Constructor (T<int> * T<int>)
                 Constructor (T<int> * T<int> * T<int>)
@@ -359,7 +357,7 @@ module Definition =
     let EcmaRegExp =
         Class "RegExp"
         |=> Inherits EcmaObject
-        |+> Protocol
+        |+> Instance
             [
                 "exec" => T<string->string[]>
                 "test" => T<string->bool>
@@ -369,25 +367,25 @@ module Definition =
                 "multiLine" =? T<bool>
                 "lastIndex" =@ T<int>
             ]
-        |+> [
+        |+> Static [
                 Constructor(T<string> * !?T<string>?flags)
             ]
 
     let EcmaError =
         Class "Error"
         |=> Inherits EcmaObject
-        |+> Protocol
+        |+> Instance
             [
                 "name" =? T<string>
                 "message" =@ T<string>
             ]
 
-        |+> [ Constructor (T<string>)]
+        |+> Static [ Constructor (T<string>)]
 
     let EcmaJSON =
         Class "JSON"
         |=> Inherits EcmaObject
-        |+> Protocol
+        |+> Instance
             [
                 "parse" => T<string> * !?T<obj->obj->bool>?reviver ^-> T<obj>
                 "stringify" => T<obj>?value * !?(T<obj->obj> + (Type.ArrayOf T<obj>))?replacer * !?(T<string> + T<int>)?space ^-> T<string>
@@ -398,12 +396,12 @@ module Definition =
             Namespace "IntelliFactory.WebSharper.JavaScript" [
                 EcmaObject
                 EcmaFunction
-                Generic - EcmaFunctionWithArgs
-                Generic - EcmaFunctionWithThis
-                Generic - EcmaArguments
-                Generic - EcmaFunctionWithRest
-                Generic - EcmaFunctionWithArgsRest
-                Generic - EcmaArray
+                EcmaFunctionWithArgs
+                EcmaFunctionWithThis
+                EcmaArguments
+                EcmaFunctionWithRest
+                EcmaFunctionWithArgsRest
+                EcmaArray
                 EcmaString
                 EcmaBoolean
                 EcmaNumber

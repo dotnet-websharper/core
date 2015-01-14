@@ -118,13 +118,13 @@ module Interfaces =
 
     let DOMException =
         Class "DomException"
-        |+> [
+        |+> Static [
                 "code" =% DOMExceptionType
             ]
 
     let DOMStringList =
         Class "DomStringList"
-        |+> Protocol [
+        |+> Instance [
                 "length" =% T<int>
                 "contains" => T<string->bool>
                 "item" => T<int->string>
@@ -132,7 +132,7 @@ module Interfaces =
 
     let NameList =
         Class "NameList"
-        |+> Protocol [
+        |+> Instance [
                 "length" =% T<int>
                 "getName" => T<int->string>
                 "getNamespaceURI" => T<int->string>
@@ -142,7 +142,7 @@ module Interfaces =
 
     let DOMImplementation =
         Class "DOMImplementation"
-        |+> Protocol [
+        |+> Instance [
                 "hasFeature" =>
                     T<string>?feature * T<string>?version ^-> T<bool>
                 "createDocumentType" =>
@@ -158,14 +158,14 @@ module Interfaces =
 
     let DOMImplementationList =
         Class "DomImplementationList"
-        |+> Protocol [
+        |+> Instance [
                 "item" => T<int> ^-> DOMImplementation
                 "length" =% T<int>
             ]
 
     let DOMImpementationSource =
         Class "DomImplementationSource"
-        |+> Protocol [
+        |+> Instance [
                 "getDOMImplementation" =>
                     T<string> ^-> DOMImplementation
                 "getDOMImplementationList" =>
@@ -175,10 +175,10 @@ module Interfaces =
     let EventTarget =
         let EventListener = (T<unit> + Event) ^-> T<unit>
         Class "EventTarget"
-        |+> [
+        |+> Static [
                 Constructor T<unit>
             ]
-        |+> Protocol [
+        |+> Instance [
                 "addEventListener" =>
                     T<string>?eventtype *
                     EventListener?listener *
@@ -205,7 +205,7 @@ module Interfaces =
         Class "Node"
         |=> Node
         |=> Inherits EventTarget
-        |+> Protocol [
+        |+> Instance [
                 "attributes" =% NamedNodeMap
                 "baseURI" =% T<string>
                 "childNodes" =% NodeList
@@ -249,7 +249,7 @@ module Interfaces =
     let NodeList =
         Class "NodeList"
         |=> NodeList
-        |+> Protocol [
+        |+> Instance [
                 "item" => T<int>?index ^-> Node
                 |> WithInline "$this[$index]"
                 "length" =% T<int>
@@ -258,7 +258,7 @@ module Interfaces =
     let NamedNodeMap =
         Class "NamedNodeMap"
         |=> NamedNodeMap
-        |+> Protocol [
+        |+> Instance [
                 "getNamedItem" => T<string> ^-> Node
                 "setNamedItem" => Node ^-> Node
                 "removeNamedItem" => T<string> ^-> Node
@@ -272,7 +272,7 @@ module Interfaces =
     let CharacterData =
         Class "CharacterData"
         |=> Inherits Node
-        |+> Protocol [
+        |+> Instance [
                 "data" =% T<string>
                 "length" =% T<int>
                 "substringData" =>
@@ -287,7 +287,7 @@ module Interfaces =
     let Attr =
         Class "Attr"
         |=> Inherits Node
-        |+> Protocol [
+        |+> Instance [
                 "name" =% T<string>
                 "specified" =% T<bool>
                 "value" =% T<string>
@@ -299,7 +299,7 @@ module Interfaces =
     let Element =
         Class "Element"
         |=> Inherits Node
-        |+> Protocol [
+        |+> Instance [
                 "schemaTypeInfo" =% TypeInfo
                 "tagName" =% T<string>
                 "getAttribute" => T<string->string>
@@ -327,7 +327,7 @@ module Interfaces =
         Class "Text"
         |=> Text
         |=> Inherits CharacterData
-        |+> Protocol [
+        |+> Instance [
                 "splitText" => T<int> ^-> Text
                 "isElementContentWhiteSpace" =% T<bool>
                 "wholeText" =% T<string>
@@ -340,7 +340,7 @@ module Interfaces =
 
     let TypeInfo =
         Class "TypeInfo"
-        |+> Protocol [
+        |+> Instance [
                 "typeName" =% T<string>
                 "typeNamespace" =% T<string>
                 "isDerivedFrom" =>
@@ -351,7 +351,7 @@ module Interfaces =
 
     let UserDataHandler =
         Class "UserDataHandler"
-        |+> Protocol [
+        |+> Instance [
                 "handle" =>
                     NodeOperation * T<string>?key * T<obj>?data *
                     Node?src * Node?dst ^-> T<unit>
@@ -359,7 +359,7 @@ module Interfaces =
 
     let DOMError =
         Class "DOMError"
-        |+> Protocol [
+        |+> Instance [
                 "severity" =% ErrorSeverity
                 "message" =% T<string>
                 "type" =% T<string>
@@ -370,13 +370,13 @@ module Interfaces =
 
     let DOMErrorHandler =
         Class "DOMErrorHandler"
-        |+> Protocol [
+        |+> Instance [
                 "handleError" => DOMError ^-> T<bool>
             ]
 
     let DOMLocator =
         Class "DOMLocator"
-        |+> Protocol [
+        |+> Instance [
                 "lineNumber" =% T<int>
                 "columnNumber" =% T<int>
                 "byteOffset" =% T<int>
@@ -387,7 +387,7 @@ module Interfaces =
 
     let DOMConfiguration =
         Class "DOMConfiguration"
-        |+> Protocol [
+        |+> Instance [
                 "setParameter" => T<string*obj->unit>
                 "getParameter" => T<string->obj>
                 "canSetParameter" => T<string*obj->bool>
@@ -400,7 +400,7 @@ module Interfaces =
 
     let DocumentType =
         Class "DocumentType"
-        |+> Protocol [
+        |+> Instance [
                 "name" =% T<string>
                 "entities" =% NamedNodeMap
                 "notations" =% NamedNodeMap
@@ -412,7 +412,7 @@ module Interfaces =
     let Notation =
         Class "Notation"
         |=> Inherits Node
-        |+> Protocol [
+        |+> Instance [
                 "publicId" =% T<string>
                 "systemId" =% T<string>
             ]
@@ -420,7 +420,7 @@ module Interfaces =
     let Entity =
         Class "Entity"
         |=> Inherits Node
-        |+> Protocol [
+        |+> Instance [
                 "publicId" =% T<string>
                 "systemId" =% T<string>
                 "notationName" =% T<string>
@@ -436,7 +436,7 @@ module Interfaces =
     let ProcessingInstruction =
         Class "ProcessingInstruction"
         |=> Inherits Node
-        |+> Protocol [
+        |+> Instance [
                 "target" =% T<string>
                 "data" =% T<string>
             ]
@@ -447,7 +447,7 @@ module Interfaces =
 
     let CustomEvent  =
         Class "CustomEvent"
-        |+> Protocol [
+        |+> Instance [
                 "detail" =% T<obj>
                 "initCustomEvent" =>
                     T<string>?typeArg *
@@ -465,10 +465,10 @@ module Interfaces =
     let Event =
         Class "Event"
         |=> Event
-        |+> [
+        |+> Static [
                 Constructor T<unit>
             ]
-        |+> Protocol [
+        |+> Instance [
                 "bubbles" =% T<bool>
                 "cancelable" =% T<bool>
                 "currentTarget" =% EventTarget
@@ -494,21 +494,21 @@ module Interfaces =
 
     let DocumentView =
         Class "DocumentView"
-        |+> Protocol [
+        |+> Instance [
                 "defaultView" => AbstractView
             ]
 
     let AbstractView =
         Class "AbstractView"
         |=> AbstractView
-        |+> Protocol [
+        |+> Instance [
                 "document" =% DocumentView
             ]
 
     let UIEvent =
         Class "UIEvent"
         |=> Inherits Event
-        |+> Protocol [
+        |+> Instance [
                 "detail" =% T<int>
                 "view" =% AbstractView
                 "initUIEvent" =>
@@ -529,7 +529,7 @@ module Interfaces =
     let MouseEvent =
         Class "MouseEvent"
         |=> Inherits Event
-        |+> Protocol [
+        |+> Instance [
                 "altKey" =% T<bool>
                 "button" =% T<int> // short
                 "clientX" =% T<int>
@@ -576,7 +576,7 @@ module Interfaces =
     let MouseWheelEvent =
         Class "MouseWheelEvent"
         |=> Inherits Event
-        |+> Protocol [
+        |+> Instance [
                 "wheelDelta" =% T<int>
                 "initMouseWheelEvent" =>
                     T<string>?typeArg *
@@ -612,7 +612,7 @@ module Interfaces =
     let WheelEvent =
         Class "WheelEvent"
         |=> Inherits Event
-        |+> Protocol [
+        |+> Instance [
                 "deltaX" =% T<int>
                 "deltaY" =% T<int>
                 "deltaZ" =% T<int>
@@ -659,7 +659,7 @@ module Interfaces =
     let TextEvent =
         Class "TextEvent"
         |=> Inherits Event
-        |+> Protocol [
+        |+> Instance [
                 "data" =% T<string>
                 "inputMode" =% InputModeCode
                 "initTextEvent" =>
@@ -682,7 +682,7 @@ module Interfaces =
     let KeyboardEvent =
         Class "KeyboardEvent"
         |=> Inherits Event
-        |+> Protocol [
+        |+> Instance [
                 "altKey" =% T<bool>
                 "ctrlKey" =% T<bool>
                 "keyIdentifier" =% T<string>
@@ -712,7 +712,7 @@ module Interfaces =
     let CompositionEvent =
         Class "CompositionEvent"
         |=> Inherits Event
-        |+> Protocol [
+        |+> Instance [
                 "data" =% T<string>
                 "initCompositionEvent" =>
                     T<string>?typeArg *
@@ -732,7 +732,7 @@ module Interfaces =
     let MutationEvent =
         Class "MutationEvent"
         |=> Inherits Event
-        |+> Protocol [
+        |+> Instance [
                 "attrChange" =% attrChangeType
                 "attrName" =% T<string>
                 "newValue" =% T<string>
@@ -762,7 +762,7 @@ module Interfaces =
     let MutationNameEvent =
         Class "MutationNameEvent"
         |=> Inherits Event
-        |+> Protocol [
+        |+> Instance [
                 "prevNamespaceURI" =% T<string>
                 "prevNodeName" =% T<string>
                 "initMutationNameEvent" =>
@@ -784,7 +784,7 @@ module Interfaces =
 
     let DocumentEvent =
         Class "DocumentEvent"
-        |+> Protocol [
+        |+> Instance [
                 "canDispatch" => T<string>?namespaceURI * T<string>?eventtype ^-> T<bool>
                 "createEvent" => T<string>?eventType ^-> Event // user needs to downcast to the right event
                 // the following methods are non-standard
@@ -810,7 +810,7 @@ module Interfaces =
         Class "Document"
         |=> Document
         |=> Inherits Node
-        |+> Protocol [
+        |+> Instance [
                 "doctype" =% DocumentType
                 "documentElement" =% Element
                 "documentURI" =% T<string>
