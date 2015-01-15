@@ -82,7 +82,7 @@ module Sitelet =
                     Handle = fun action ->
                         let prot = filter
 
-                        let failure = Content.Redirect (prot.LoginRedirect action)
+                        let failure = Content.RedirectTemporary (prot.LoginRedirect action)
 
                         try
                           match UserSession.GetLoggedInUser () with
