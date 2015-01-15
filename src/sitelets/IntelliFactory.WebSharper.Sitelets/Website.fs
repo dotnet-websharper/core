@@ -24,13 +24,17 @@ open System
 open System.Reflection
 open System.Web
 
+/// Define a Sitelets website. This interface must be
+/// implemented by the type passed to WebsiteAttribute.
 type IWebsite<'Action when 'Action : equality> =
     abstract Actions : list<'Action>
     abstract Sitelet : Sitelet<'Action>
 
+/// The action type for SinglePageWebsite.
 [<RequireQualifiedAccess>]
 type SinglePageAction = | Index
 
+/// Helper to create a Sitelets website consisting of a single page.
 type SinglePageWebsite(page: Page, ?url: string) =
 
     let sitelet =
@@ -78,6 +82,8 @@ module private Utils =
                     (Sitelet.Upcast website.Sitelet, List.map box website.Actions)
         }
 
+/// Mark an assembly that contains a Sitelets website.
+/// The type passed must implement IWebsite.
 [<AttributeUsage(AttributeTargets.Assembly)>]
 type WebsiteAttribute(ty: System.Type) =
     inherit Attribute()
