@@ -256,11 +256,13 @@ module CodeModel =
     and [<AbstractClass>] MethodBase =
         inherit Member
         val mutable Inline : option<string>
+        val mutable Macro : option<T>
 
         internal new (name, t) =
             {
                 inherit Member(name, t)
                 Inline = None
+                Macro = None
             }
 
     and Constructor =

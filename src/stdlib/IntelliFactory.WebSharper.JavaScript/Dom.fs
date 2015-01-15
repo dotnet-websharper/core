@@ -119,13 +119,13 @@ module Interfaces =
     let DOMException =
         Class "DomException"
         |+> Static [
-                "code" =% DOMExceptionType
+                "code" =@ DOMExceptionType
             ]
 
     let DOMStringList =
         Class "DomStringList"
         |+> Instance [
-                "length" =% T<int>
+                "length" =@ T<int>
                 "contains" => T<string->bool>
                 "item" => T<int->string>
             ]
@@ -133,7 +133,7 @@ module Interfaces =
     let NameList =
         Class "NameList"
         |+> Instance [
-                "length" =% T<int>
+                "length" =@ T<int>
                 "getName" => T<int->string>
                 "getNamespaceURI" => T<int->string>
                 "contains" => T<string->bool>
@@ -160,7 +160,7 @@ module Interfaces =
         Class "DomImplementationList"
         |+> Instance [
                 "item" => T<int> ^-> DOMImplementation
-                "length" =% T<int>
+                "length" =@ T<int>
             ]
 
     let DOMImpementationSource =
@@ -206,22 +206,22 @@ module Interfaces =
         |=> Node
         |=> Inherits EventTarget
         |+> Instance [
-                "attributes" =% NamedNodeMap
-                "baseURI" =% T<string>
-                "childNodes" =% NodeList
+                "attributes" =@ NamedNodeMap
+                "baseURI" =@ T<string>
+                "childNodes" =@ NodeList
                 "firstChild" =? Node
-                "lastChild" =% Node
-                "localName" =% T<string>
-                "namespaceURI" =% T<string>
-                "nextSibling" =% Node
-                "nodeName" =% T<string>
-                "nodeType" =% NodeType
-                "nodeValue" =% T<string>
-                "ownerDocument" =% Document
-                "parentNode" =% Node
-                "prefix" =% T<string>
-                "previousSibling" =% Node
-                "textContent" =% T<string>
+                "lastChild" =@ Node
+                "localName" =@ T<string>
+                "namespaceURI" =@ T<string>
+                "nextSibling" =@ Node
+                "nodeName" =@ T<string>
+                "nodeType" =@ NodeType
+                "nodeValue" =@ T<string>
+                "ownerDocument" =@ Document
+                "parentNode" =@ Node
+                "prefix" =@ T<string>
+                "previousSibling" =@ Node
+                "textContent" =@ T<string>
                 "appendChild" => Node?newChild ^-> Node
                 "cloneNode" => T<bool>?deep ^-> Node
                 "compareDocumentPosition" => Node ^-> DocumentPosition
@@ -252,7 +252,7 @@ module Interfaces =
         |+> Instance [
                 "item" => T<int>?index ^-> Node
                 |> WithInline "$this[$index]"
-                "length" =% T<int>
+                "length" =@ T<int>
             ]
 
     let NamedNodeMap =
@@ -263,7 +263,7 @@ module Interfaces =
                 "setNamedItem" => Node ^-> Node
                 "removeNamedItem" => T<string> ^-> Node
                 "item" => T<int> ^-> Node
-                "length" =% T<int>
+                "length" =@ T<int>
                 "getNamedItemNS" => GetNS ^-> Node
                 "setNamedItemNS" => Node ^-> Node
                 "removeNamedItemNS" => GetNS ^-> Node
@@ -273,8 +273,8 @@ module Interfaces =
         Class "CharacterData"
         |=> Inherits Node
         |+> Instance [
-                "data" =% T<string>
-                "length" =% T<int>
+                "data" =@ T<string>
+                "length" =@ T<int>
                 "substringData" =>
                     T<int>?offset * T<int>?count ^-> T<string>
                 "appendData" => T<string->unit>
@@ -288,20 +288,20 @@ module Interfaces =
         Class "Attr"
         |=> Inherits Node
         |+> Instance [
-                "name" =% T<string>
-                "specified" =% T<bool>
-                "value" =% T<string>
-                "ownerElement" =% Element
-                "schemaTypeInfo" =% TypeInfo
-                "isId" =% T<bool>
+                "name" =@ T<string>
+                "specified" =@ T<bool>
+                "value" =@ T<string>
+                "ownerElement" =@ Element
+                "schemaTypeInfo" =@ TypeInfo
+                "isId" =@ T<bool>
             ]
 
     let Element =
         Class "Element"
         |=> Inherits Node
         |+> Instance [
-                "schemaTypeInfo" =% TypeInfo
-                "tagName" =% T<string>
+                "schemaTypeInfo" =@ TypeInfo
+                "tagName" =@ T<string>
                 "getAttribute" => T<string->string>
                 "setAttribute" => T<string> * T<string> ^-> T<unit>
                 "removeAttribute" => T<string->unit>
@@ -329,8 +329,8 @@ module Interfaces =
         |=> Inherits CharacterData
         |+> Instance [
                 "splitText" => T<int> ^-> Text
-                "isElementContentWhiteSpace" =% T<bool>
-                "wholeText" =% T<string>
+                "isElementContentWhiteSpace" =@ T<bool>
+                "wholeText" =@ T<string>
                 "replaceWholeText" => T<string> ^-> Text
             ]
 
@@ -341,8 +341,8 @@ module Interfaces =
     let TypeInfo =
         Class "TypeInfo"
         |+> Instance [
-                "typeName" =% T<string>
-                "typeNamespace" =% T<string>
+                "typeName" =@ T<string>
+                "typeNamespace" =@ T<string>
                 "isDerivedFrom" =>
                     T<string>?typeNamespace *
                     T<string>?typeName *
@@ -360,12 +360,12 @@ module Interfaces =
     let DOMError =
         Class "DOMError"
         |+> Instance [
-                "severity" =% ErrorSeverity
-                "message" =% T<string>
-                "type" =% T<string>
-                "relatedException" =% T<obj>
-                "relatedData" =% T<obj>
-                "location" =% DOMLocator
+                "severity" =@ ErrorSeverity
+                "message" =@ T<string>
+                "type" =@ T<string>
+                "relatedException" =@ T<obj>
+                "relatedData" =@ T<obj>
+                "location" =@ DOMLocator
             ]
 
     let DOMErrorHandler =
@@ -377,12 +377,12 @@ module Interfaces =
     let DOMLocator =
         Class "DOMLocator"
         |+> Instance [
-                "lineNumber" =% T<int>
-                "columnNumber" =% T<int>
-                "byteOffset" =% T<int>
-                "utf16Offset" =% T<int>
-                "relatedNode" =% Node
-                "uri" =% T<string>
+                "lineNumber" =@ T<int>
+                "columnNumber" =@ T<int>
+                "byteOffset" =@ T<int>
+                "utf16Offset" =@ T<int>
+                "relatedNode" =@ Node
+                "uri" =@ T<string>
             ]
 
     let DOMConfiguration =
@@ -391,7 +391,7 @@ module Interfaces =
                 "setParameter" => T<string*obj->unit>
                 "getParameter" => T<string->obj>
                 "canSetParameter" => T<string*obj->bool>
-                "parameterNames" =% DOMStringList
+                "parameterNames" =@ DOMStringList
             ]
 
     let CDATASection =
@@ -401,32 +401,32 @@ module Interfaces =
     let DocumentType =
         Class "DocumentType"
         |+> Instance [
-                "name" =% T<string>
-                "entities" =% NamedNodeMap
-                "notations" =% NamedNodeMap
-                "publicId" =% T<string>
-                "systemId" =% T<string>
-                "internalSubset" =% T<string>
+                "name" =@ T<string>
+                "entities" =@ NamedNodeMap
+                "notations" =@ NamedNodeMap
+                "publicId" =@ T<string>
+                "systemId" =@ T<string>
+                "internalSubset" =@ T<string>
             ]
 
     let Notation =
         Class "Notation"
         |=> Inherits Node
         |+> Instance [
-                "publicId" =% T<string>
-                "systemId" =% T<string>
+                "publicId" =@ T<string>
+                "systemId" =@ T<string>
             ]
 
     let Entity =
         Class "Entity"
         |=> Inherits Node
         |+> Instance [
-                "publicId" =% T<string>
-                "systemId" =% T<string>
-                "notationName" =% T<string>
-                "inputEncoding" =% T<string>
-                "xmlEncoding" =% T<string>
-                "xmlVersion" =% T<string>
+                "publicId" =@ T<string>
+                "systemId" =@ T<string>
+                "notationName" =@ T<string>
+                "inputEncoding" =@ T<string>
+                "xmlEncoding" =@ T<string>
+                "xmlVersion" =@ T<string>
             ]
 
     let EntityReference =
@@ -437,8 +437,8 @@ module Interfaces =
         Class "ProcessingInstruction"
         |=> Inherits Node
         |+> Instance [
-                "target" =% T<string>
-                "data" =% T<string>
+                "target" =@ T<string>
+                "data" =@ T<string>
             ]
 
     let DocumentFragment =
@@ -448,7 +448,7 @@ module Interfaces =
     let CustomEvent  =
         Class "CustomEvent"
         |+> Instance [
-                "detail" =% T<obj>
+                "detail" =@ T<obj>
                 "initCustomEvent" =>
                     T<string>?typeArg *
                     T<bool>?canBubbleArg *
@@ -469,15 +469,15 @@ module Interfaces =
                 Constructor T<unit>
             ]
         |+> Instance [
-                "bubbles" =% T<bool>
-                "cancelable" =% T<bool>
-                "currentTarget" =% EventTarget
-                "defaultPrevented" =% T<bool>
-                "eventPhase" =% PhaseType
-                "namespaceURI " =% T<string>
-                "target " =% EventTarget
-                "timeStamp " =% DOMTimeStamp
-                "time" =% T<string>
+                "bubbles" =@ T<bool>
+                "cancelable" =@ T<bool>
+                "currentTarget" =@ EventTarget
+                "defaultPrevented" =@ T<bool>
+                "eventPhase" =@ PhaseType
+                "namespaceURI " =@ T<string>
+                "target " =@ EventTarget
+                "timeStamp " =@ DOMTimeStamp
+                "time" =@ T<string>
                 "initEvent" =>
                     T<string>?eventTypeArg *
                     T<bool>?canBubbleArg *
@@ -502,15 +502,15 @@ module Interfaces =
         Class "AbstractView"
         |=> AbstractView
         |+> Instance [
-                "document" =% DocumentView
+                "document" =@ DocumentView
             ]
 
     let UIEvent =
         Class "UIEvent"
         |=> Inherits Event
         |+> Instance [
-                "detail" =% T<int>
-                "view" =% AbstractView
+                "detail" =@ T<int>
+                "view" =@ AbstractView
                 "initUIEvent" =>
                     T<string>?typeArg *
                     T<bool>?canBubbleArg *
@@ -530,16 +530,16 @@ module Interfaces =
         Class "MouseEvent"
         |=> Inherits Event
         |+> Instance [
-                "altKey" =% T<bool>
-                "button" =% T<int> // short
-                "clientX" =% T<int>
-                "clientY" =% T<int>
-                "ctrlKey" =% T<bool>
-                "metaKey " =% T<bool>
-                "relatedTarget" =% EventTarget
-                "screenX" =% T<int>
-                "screenY" =% T<int>
-                "shiftKey" =% T<bool>
+                "altKey" =@ T<bool>
+                "button" =@ T<int> // short
+                "clientX" =@ T<int>
+                "clientY" =@ T<int>
+                "ctrlKey" =@ T<bool>
+                "metaKey " =@ T<bool>
+                "relatedTarget" =@ EventTarget
+                "screenX" =@ T<int>
+                "screenY" =@ T<int>
+                "shiftKey" =@ T<bool>
                 "getModifierState" => T<string>?keyIdentifierArg ^-> T<bool>
                 "initMouseEvent" =>
                     T<string>?typeArg *
@@ -577,7 +577,7 @@ module Interfaces =
         Class "MouseWheelEvent"
         |=> Inherits Event
         |+> Instance [
-                "wheelDelta" =% T<int>
+                "wheelDelta" =@ T<int>
                 "initMouseWheelEvent" =>
                     T<string>?typeArg *
                     T<bool>?canBubbleArg *
@@ -613,10 +613,10 @@ module Interfaces =
         Class "WheelEvent"
         |=> Inherits Event
         |+> Instance [
-                "deltaX" =% T<int>
-                "deltaY" =% T<int>
-                "deltaZ" =% T<int>
-                "deltaMode" =% DeltaModeCode
+                "deltaX" =@ T<int>
+                "deltaY" =@ T<int>
+                "deltaZ" =@ T<int>
+                "deltaMode" =@ DeltaModeCode
                 "initWheelEvent" =>
                     T<string>?typeArg *
                     T<bool>?canBubbleArg *
@@ -660,8 +660,8 @@ module Interfaces =
         Class "TextEvent"
         |=> Inherits Event
         |+> Instance [
-                "data" =% T<string>
-                "inputMode" =% InputModeCode
+                "data" =@ T<string>
+                "inputMode" =@ InputModeCode
                 "initTextEvent" =>
                     T<string>?typeArg *
                     T<bool>?canBubbleArg *
@@ -683,13 +683,13 @@ module Interfaces =
         Class "KeyboardEvent"
         |=> Inherits Event
         |+> Instance [
-                "altKey" =% T<bool>
-                "ctrlKey" =% T<bool>
-                "keyIdentifier" =% T<string>
-                "keyLocation " =% KeyLocationCode
-                "metaKey" =% T<bool>
-                "shiftKey" =% T<bool>
-                "repeat" =% T<bool>
+                "altKey" =@ T<bool>
+                "ctrlKey" =@ T<bool>
+                "keyIdentifier" =@ T<string>
+                "keyLocation " =@ KeyLocationCode
+                "metaKey" =@ T<bool>
+                "shiftKey" =@ T<bool>
+                "repeat" =@ T<bool>
                 "getModifierState" => T<string>?keyIdentifierArg ^-> T<bool>
                 "initKeyboardEvent" =>
                     T<string>?typeArg *
@@ -713,7 +713,7 @@ module Interfaces =
         Class "CompositionEvent"
         |=> Inherits Event
         |+> Instance [
-                "data" =% T<string>
+                "data" =@ T<string>
                 "initCompositionEvent" =>
                     T<string>?typeArg *
                     T<bool>?canBubbleArg *
@@ -733,11 +733,11 @@ module Interfaces =
         Class "MutationEvent"
         |=> Inherits Event
         |+> Instance [
-                "attrChange" =% attrChangeType
-                "attrName" =% T<string>
-                "newValue" =% T<string>
-                "prevValue" =% T<string>
-                "relatedNode" =% Node
+                "attrChange" =@ attrChangeType
+                "attrName" =@ T<string>
+                "newValue" =@ T<string>
+                "prevValue" =@ T<string>
+                "relatedNode" =@ Node
                 "initMutationEvent" =>
                     T<string>?typeArg *
                     T<bool>?canBubbleArg *
@@ -763,8 +763,8 @@ module Interfaces =
         Class "MutationNameEvent"
         |=> Inherits Event
         |+> Instance [
-                "prevNamespaceURI" =% T<string>
-                "prevNodeName" =% T<string>
+                "prevNamespaceURI" =@ T<string>
+                "prevNodeName" =@ T<string>
                 "initMutationNameEvent" =>
                     T<string>?typeArg *
                     T<bool>?canBubbleArg *
@@ -811,16 +811,16 @@ module Interfaces =
         |=> Document
         |=> Inherits Node
         |+> Instance [
-                "doctype" =% DocumentType
-                "documentElement" =% Element
-                "documentURI" =% T<string>
-                "domConfig" =% DOMConfiguration
-                "inputEncoding" =% T<string>
-                "implementation" =% DOMImplementation
-                "strictErrorChecking" =% T<bool>
-                "xmlEncoding" =% T<string>
-                "xmlStandalone" =% T<bool>
-                "xmlVersion" =% T<string>
+                "doctype" =@ DocumentType
+                "documentElement" =@ Element
+                "documentURI" =@ T<string>
+                "domConfig" =@ DOMConfiguration
+                "inputEncoding" =@ T<string>
+                "implementation" =@ DOMImplementation
+                "strictErrorChecking" =@ T<bool>
+                "xmlEncoding" =@ T<string>
+                "xmlStandalone" =@ T<bool>
+                "xmlVersion" =@ T<string>
                 "adoptNode" => Node ^-> Node
                 "createAttribute" => T<string> ^-> Attr
                 "createAttributeNS" =>

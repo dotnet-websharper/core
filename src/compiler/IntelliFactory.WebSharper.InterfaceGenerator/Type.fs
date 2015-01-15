@@ -42,6 +42,9 @@ module Type =
         | SystemType of R.Type
         | TupleType of list<Type>
         | UnionType of Type * Type
+        | InteropType of Type * InlineTransforms
+        | ArgumentsType of Type
+        | DefiningType
         
         member this.Item
             with get ([<System.ParamArray>] x : IType []) =
@@ -101,9 +104,15 @@ module Type =
 
         interface IType with
             member this.Type = this
-    
+      
+    and [<ReferenceEquality>] InlineTransforms =
+        {
+            InTranform : string -> string
+            OutTransform : string -> string
+        }
+
     /// Represents a JavaScript function type.
-    and Function =
+    and Function =        
         {
             ReturnType : Type
             Parameters : list<string * Type>
@@ -352,3 +361,57 @@ module Type =
         ts
         |> Seq.distinctBy key
         |> Seq.toList
+
+    let private argsTransform = 
+        {
+            InTranform = fun x -> "function() { return " + x + "(arguments); }"    
+            OutTransform = fun x -> "function(args) { return (" + x + ").apply(null, args) }"
+        }
+
+    let private thisArgsTransform = 
+        {
+            InTranform = fun x -> "function() { return " + x + ".call(this, arguments); }"
+            OutTransform = fun x -> "function(args) { return (" + x + ").apply(this, args) }"
+        }
+
+    let (|UnionOf|_|) t =
+        let rec getTypes t =
+            match t with
+            | UnionType (t1, t2) -> Seq.append (getTypes t1) (getTypes t2)
+            | _ -> Seq.singleton t
+        match getTypes t |> Seq.distinct |> List.ofSeq with
+        | [_] -> None
+        | ts -> Some ts
+
+    let TransformFuncValue (t: Type) =
+        match t with
+        | FunctionType f ->
+            let withTupledArg() =
+                FunctionType { 
+                    f with 
+                        Parameters = ["", TupleType (f.Parameters |> List.map snd)]
+                }
+            let withArguments a =
+                FunctionType {
+                    f with
+                        Parameters = ["", ArgumentsType a]
+                        ParamArray = None
+                }
+            match f.This, f.Parameters.Length, f.ParamArray with
+            | None, l, None when l > 2   -> InteropType (withTupledArg(), argsTransform)
+            | None, 0, Some _            -> InteropType (withTupledArg(), argsTransform)
+            | Some a, l, None when l > 2 -> InteropType (withArguments a, thisArgsTransform)
+            | Some a, 0, Some _          -> InteropType (withArguments a, thisArgsTransform)
+            | _ -> t
+//        | UnionOf ts ->
+        | _ -> t
+
+    let TransformFuncArgs (t: Type) =
+        match t with 
+        | FunctionType f ->
+            FunctionType 
+                { f with
+                    Parameters = f.Parameters |> List.map (fun (n, p) -> n, TransformFuncValue p)
+                    ReturnType = f.ReturnType |> TransformFuncValue   
+                }
+        | _ -> t

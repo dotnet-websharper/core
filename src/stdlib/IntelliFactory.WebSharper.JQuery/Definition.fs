@@ -628,7 +628,7 @@ module Definition =
 
                 "last" => T<unit> ^-> JQ
 
-                "length" =% T<int>
+                "length" =@ T<int>
 
                 "load" => T<string>  * !?(T<string> + T<obj>) * !?(T<string> * T<string> * XmlHttpRequest ^-> T<unit>) ^-> JQ
 

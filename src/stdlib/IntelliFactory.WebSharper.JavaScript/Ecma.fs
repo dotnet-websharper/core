@@ -79,59 +79,6 @@ module Definition =
                 Constructor (T<string> *+ T<string>)
             ]
 
-    let EcmaFunctionWithArgs =
-        Generic + [ "TArgs"; "TResult" ] - fun a b ->
-        Class "FuncWithArgs"
-        |+> Instance [
-                "length" =? T<int>
-                "call" => a?args ^-> b |> WithInline "$this.apply(null, $args)"
-            ]
-        |+> Static [
-                Constructor (a ^-> b)?func |> WithInline "function() { return $func(arguments); }"
-            ]    
-
-    let EcmaFunctionWithThis =
-        Generic + [ "TThis"; "TFunc" ] - fun a b ->
-        Class "FuncWithThis"
-        |+> Instance [
-                "length" =? T<int>
-                "bind" => a?thisArg ^-> b |> WithInline "$this.bind($thisArg)"
-            ]
-        |+> Static [
-                Constructor (a ^-> b)?func |> WithInline "function() { return $func.apply(this, arguments); }"
-            ]    
-
-    let EcmaArguments =
-        Generic - fun a ->
-        Class "Arguments"
-        |+> Instance [
-                "length" =@ T<int>
-                "" =@ a |> Indexed T<int>
-                "toArray" => T<unit> ^-> EcmaArrayT.[a] |> WithInline "Array.prototype.slice.call($this)"
-            ]
-
-    let EcmaFunctionWithRest =
-        Generic + [ "TArg"; "TRest"; "TResult" ] - fun a b c ->
-        Class "FuncWithRest"
-        |+> Instance [
-                "call" => a?arg *+ b ^-> c |> WithInline "$this.apply(null, [$arg].concat($2))"
-            ]
-        |+> Static [
-                Constructor (a * Type.ArrayOf b ^-> c)?func
-                    |> WithInline "function(x) { return $func([x, Array.prototype.slice.call(arguments, 1)]); }"
-            ]
-
-    let EcmaFunctionWithArgsRest =
-        Generic + [ "TArgs"; "TRest"; "TResult" ] - fun a b c ->
-        Class "FuncWithArgsRest"
-        |+> Instance [
-                "call" => a?args *+ b ^-> c |> WithInline "$this.apply(null, $args.concat($2))"
-            ]
-        |+> Static [
-                Constructor (T<int>?length * (a * Type.ArrayOf b ^-> c)?func) 
-                    |> WithInline "function(x) { return $func([Array.prototype.slice.call(arguments, 0, $length), Array.prototype.slice.call(arguments, $length)]); }"
-            ]
-
     /// The Array object is used to store multiple values in a single variable.
     let EcmaArray =
         Generic - fun (a: CodeModel.TypeParameter) ->
@@ -396,11 +343,6 @@ module Definition =
             Namespace "IntelliFactory.WebSharper.JavaScript" [
                 EcmaObject
                 EcmaFunction
-                EcmaFunctionWithArgs
-                EcmaFunctionWithThis
-                EcmaArguments
-                EcmaFunctionWithRest
-                EcmaFunctionWithArgsRest
                 EcmaArray
                 EcmaString
                 EcmaBoolean

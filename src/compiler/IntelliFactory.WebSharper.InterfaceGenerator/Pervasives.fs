@@ -29,6 +29,7 @@ module Pervasives =
     module R = IntelliFactory.WebSharper.Core.Reflection
 
     type private T = Type.Type
+    type private P = Code.TypeParameter
 
     type IExtension =
         abstract Assembly : Code.Assembly
@@ -164,6 +165,7 @@ module Pervasives =
     let ( =! ) name ty = Setter name ty
 
     /// Constructs a new property with a getter and a setter.
+    [<Obsolete "Use the equivalent =@ operator">]
     let ( =% ) name ty = Property name ty
 
     // Note: the operator below may seem useless, since `op_Dynamic`
@@ -237,8 +239,15 @@ module Pervasives =
     /// Constructs a new `Type`.
     let T<'T> = Type.SystemType (R.Type.FromType typeof<'T>)
 
+    /// Will be evaluated to the type the member is added to.
+    let TSelf = Type.DefiningType
+
     /// Constructs a new `Type` from System.Type object.
     let SystemType t = Type.SystemType (R.Type.FromType t)
+
+    /// Adds a macro to method or constructor. Macro type must be defined in another assembly.
+    let WithMacro (macroType: System.Type) (x: #Code.MethodBase) =
+        x |> Code.Entity.Update (fun x -> x.Macro <- Some (SystemType macroType))
 
     /// Constructs a new `FunctionType`.
     let ( ^-> ) (parameters: Type.IParameters) (returnType: Type.IType) =
@@ -255,6 +264,10 @@ module Pervasives =
     /// Constructs an optional parameter.
     let ( !? ) (parameter: Type.IParameter) =
         { parameter.Parameter with Optional = true }
+
+    /// Constructs a new `ArrayType`.
+    let ( !| ) (itemType: Type.IType) =
+        Type.ArrayOf itemType
 
     /// Constructs variable-argument `Parameters`.
     let ( !+ ) (ty: Type.IType) : Type.Parameters =
@@ -288,12 +301,10 @@ module Pervasives =
             let generics = 
                 match this with
                 | GenericNamed ns ->
-                    ns |> List.mapi (fun i n -> Code.TypeParameter (i, n))
+                    ns |> List.mapi (fun i n -> P (i, n))
                 | _ ->
-                    if arity = 1 then
-                        [ Code.TypeParameter (0, "T") ]
-                    else
-                        List.init arity (fun x -> Code.TypeParameter (x, "T" + string (x + 1)))
+                    if arity = 1 then [ P (0, "T") ]
+                    else List.init arity (fun x -> P (x, "T" + string (x + 1)))
             let x = make generics
             match x :> Code.Entity with
             | :? Code.Method as m -> m.Generics <- generics
@@ -315,3 +326,23 @@ module Pervasives =
 
         static member ( + ) (this: GenericHelper, names) =
             GenericNamed names
+
+        [<Obsolete "Use `Generic -` for definition and `MyGenericType.[t1]` for specializing">]
+        static member ( / ) (this: GenericHelper, f: T -> #Code.TypeDeclaration) =
+            let td = this - (fun (p1: P) -> f p1.Type :> Code.Entity)
+            fun t1 -> td.Type.[t1]
+
+        [<Obsolete "Use `Generic -` for definition and `MyGenericType.[t1, t2]` for specializing">]
+        static member ( / ) (this: GenericHelper, f: T -> T -> #Code.TypeDeclaration) =
+            let td = this - (fun (p1: P) (p2: P) -> f p1.Type p2.Type :> Code.Entity)
+            fun t1 t2 -> td.Type.[t1, t2]
+
+        [<Obsolete "Use `Generic -` for definition and `MyGenericType.[t1, t2, t3]` for specializing">]
+        static member ( / ) (this: GenericHelper, f: T -> T -> T -> #Code.TypeDeclaration) =
+            let td = this - (fun (p1: P) (p2: P) (p3: P) -> f p1.Type p2.Type p3.Type :> Code.Entity)
+            fun t1 t2 t3 -> td.Type.[t1, t2, t3]
+
+        [<Obsolete "Use `Generic -` for definition and `MyGenericType.[t1, t2, t3, t4]` for specializing">]
+        static member ( / ) (this: GenericHelper, f: T -> T -> T -> T -> #Code.TypeDeclaration) =
+            let td = this - (fun (p1: P) (p2: P) (p3: P) (p4: P) -> f p1.Type p2.Type p3.Type p4.Type :> Code.Entity)
+            fun t1 t2 t3 t4 -> td.Type.[t1, t2, t3, t4]

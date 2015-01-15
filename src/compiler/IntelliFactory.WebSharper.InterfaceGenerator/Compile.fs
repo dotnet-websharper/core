@@ -59,39 +59,44 @@ type InlineGenerator() =
                     seq {
                         for i in 0 .. f.Parameters.Length - 1 ->
                             let inl = "$" + string ((if m.IsStatic then 0 else 1) + i)
-//                            if f.Parameters.[i]
-                            inl
+                            match f.Parameters.[i] with
+                            | _, Type.InteropType (_, tr) -> tr.InTranform inl
+                            | _ -> inl
                     }
                     |> String.concat ","
                 let arity = f.Parameters.Length
-                match f.ParamArray with
-                | Some v ->
-                    let name =
-                        match m.Name with
-                        | "" -> td.Name + ".prototype.constructor"
-                        | name when m.IsStatic -> td.Name + "." + name
-                        | name -> name
-                    if m.IsStatic then
-                        let tpl = "{0}.apply(undefined,[{1}].concat(${2}))"
-                        String.Format(tpl, name, args, arity)
-                    else
-                        let tpl = "$this.{0}.apply($this,[{1}].concat(${2}))"
-                        String.Format(tpl, name, args, arity + 1)
-                | None ->
-                    let name =
-                        match m.Name with
-                        | "" -> "new " + td.Name
-                        | name when m.IsStatic -> td.Name + "." + name
-                        | name -> name
-                    let tpl =
-                        if m.IsStatic
-                        then "{0}({1})"
-                        else "$this.{0}({1})"
-                    String.Format(tpl, name, args)
+                let mInl =
+                    match f.ParamArray with
+                    | Some v ->
+                        let name =
+                            match m.Name with
+                            | "" -> td.Name + ".prototype.constructor"
+                            | name when m.IsStatic -> td.Name + "." + name
+                            | name -> name
+                        if m.IsStatic then
+                            let tpl = "{0}.apply(undefined,[{1}].concat(${2}))"
+                            String.Format(tpl, name, args, arity)
+                        else
+                            let tpl = "$this.{0}.apply($this,[{1}].concat(${2}))"
+                            String.Format(tpl, name, args, arity + 1)
+                    | None ->
+                        let name =
+                            match m.Name with
+                            | "" -> "new " + td.Name
+                            | name when m.IsStatic -> td.Name + "." + name
+                            | name -> name
+                        let tpl =
+                            if m.IsStatic
+                            then "{0}({1})"
+                            else "$this.{0}({1})"
+                        String.Format(tpl, name, args)
+                match f.ReturnType with
+                | Type.InteropType (_, tr) -> tr.OutTransform mInl
+                | _ -> mInl 
             | _ ->
                 if m.IsStatic then m.Name + "()" else "$this." + m.Name + "()"
 
-    member g.GetPropertyGetterInline(td: Code.TypeDeclaration, p: Code.Property) =
+    member g.GetPropertyGetterInline(td: Code.TypeDeclaration, t: T, p: Code.Property) =
         if p.GetterInline.IsSome then p.GetterInline.Value else
             let pfx = if p.IsStatic then td.Name else "$this"
             let ind = if p.IndexerType.IsSome then "[$index]" else ""
@@ -100,9 +105,12 @@ type InlineGenerator() =
                 elif validJsIdentRE.IsMatch p.Name
                 then "{0}.{1}{2}"
                 else "{0}['{1}']{2}"
-            String.Format(format, pfx, p.Name, ind)
+            let inl = String.Format(format, pfx, p.Name, ind)
+            match p.Type with
+            | Type.InteropType (_, tr) -> tr.OutTransform inl
+            | _ -> inl
 
-    member g.GetPropertySetterInline(td: Code.TypeDeclaration, p: Code.Property) =
+    member g.GetPropertySetterInline(td: Code.TypeDeclaration, t: T, p: Code.Property) =
         if p.SetterInline.IsSome then p.SetterInline.Value else
             let pfx = if p.IsStatic then td.Name else "$this"
             let ind = if p.IndexerType.IsSome then "[$index]" else ""
@@ -111,7 +119,10 @@ type InlineGenerator() =
                 elif validJsIdentRE.IsMatch p.Name
                 then "void ({0}.{1}{2} = $value)"
                 else "void ({0}['{1}']{2} = $value)"
-            String.Format(format, pfx, p.Name, ind)
+            let inl = String.Format(format, pfx, p.Name, ind)
+            match p.Type with
+            | Type.InteropType (_, tr) -> tr.InTranform inl
+            | _ -> inl
 
     member g.GetSourceName(entity: Code.Entity) =
         let mangle name =
@@ -135,28 +146,12 @@ type InlineGenerator() =
         else g.GetSourceName(p)
 
 [<Sealed>]
-type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName: string, currentTypes: Types) =
+type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName: string) =
     let mscorlib = aR.Resolve(typeof<int>.Assembly.FullName)
     let fscore = aR.Resolve(fsCoreFullName)
     let wsCore = aR.Resolve(typeof<IntelliFactory.WebSharper.Core.Attributes.InlineAttribute>.Assembly.FullName)
     let sysWeb = aR.Resolve(typeof<System.Web.UI.WebResourceAttribute>.Assembly.FullName)
     let main = out.MainModule
-
-    let funcWithArgs, funcWithThis =
-        let wsJS = aR.Resolve "IntelliFactory.WebSharper.JavaScript, Version=3.0.0.0, Culture=neutral, PublicKeyToken=451ee5fa653b377d"
-        let a = wsJS.MainModule.GetType("IntelliFactory.WebSharper.JavaScript", "FuncWithArgs`2")
-        if a = null then 
-            currentTypes.Values |> Seq.find (fun td -> 
-                td.Namespace = "IntelliFactory.WebSharper.JavaScript" && td.Name = "FuncWithArgs" //&& td.GenericParameters.Count = 2
-            ) |> main.Import
-            ,
-            currentTypes.Values |> Seq.find (fun td -> 
-                td.Namespace = "IntelliFactory.WebSharper.JavaScript" && td.Name = "FuncWithThis"
-            ) |> main.Import
-        else
-            a |> main.Import
-            ,
-            wsJS.MainModule.GetType("IntelliFactory.WebSharper.JavaScript", "FuncWithThis`2") |> main.Import
 
     let func =
         fscore.MainModule.GetType(typedefof<_->_>.FullName)
@@ -222,8 +217,18 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         |> main.Import
 
     let inlineAttr = findWsAttr "InlineAttribute"
+    let macroAttr = findWsAttr "MacroAttribute"
     let requireAttr = findWsAttr "RequireAttribute"
 
+    let fromInterop (name: string) =
+        wsCore.MainModule.GetType("IntelliFactory.WebSharper.JavaScript", name)
+        |> main.Import
+
+    let funcWithArgs = fromInterop "FuncWithArgs`2" 
+    let funcWithThis = fromInterop "FuncWithThis`2" 
+
+    let arguments = fromInterop "Arguments`1"
+        
     member b.Action ts =
         commonType mscorlib "System" "Action" ts
 
@@ -232,6 +237,9 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
 
     member b.Function d r =
         genericInstance func [d; r]
+
+    member b.Arguments a =
+        genericInstance arguments [a]
 
     member c.GenericInstanceType(def: TypeReference, args: seq<TypeReference>) =
         genericInstance def args
@@ -265,6 +273,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     member b.Attribute = attributeType
     member b.BaseResource = baseResourceType
     member b.Inline = inlineAttr
+    member b.Macro = macroAttr
     member b.NotImplemented = notImpl
     member b.Object = objectType
     member b.ParamArray = paramArray
@@ -304,16 +313,17 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: G
         | R.Type.Generic pos ->
             genericsByPosition.[pos] :> _
 
-    member c.TypeReference(t: T) =
+    member c.TypeReference(t: T, defT: Code.TypeDeclaration) =
+        let tRef x = c.TypeReference(x, defT)
         match t with
         | Type.ArrayType (rank, t) ->
-            ArrayType(c.TypeReference t, rank) :> TypeReference
+            ArrayType(tRef t, rank) :> TypeReference
         | Type.DeclaredType id ->
             byId id
         | Type.FunctionType f ->
             let func =
-                let ret = c.TypeReference f.ReturnType
-                let args = f.Parameters |> List.map (snd >> c.TypeReference)
+                let ret = tRef f.ReturnType
+                let args = f.Parameters |> List.map (snd >> tRef)
                 match args with
                 | [] -> tB.Function (tB.Type<unit>()) ret
                 | [a] -> tB.Function a ret
@@ -322,20 +332,27 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: G
             | None, None ->
                 func
             | None, Some this ->
-                tB.FuncWithThis (c.TypeReference this) func
+                tB.FuncWithThis (tRef this) func
             | _ ->
-                // ParamArray not supported yet:
+                // TODO: ParamArray not supported yet:
                 tB.Object
         | Type.GenericType pos ->
             genericsByPosition.[pos] :> _
         | Type.SpecializedType (x, xs) ->
-            let args = xs |> Seq.map c.TypeReference
-            tB.GenericInstanceType(c.TypeReference x, args)
+            let args = xs |> Seq.map tRef
+            tB.GenericInstanceType(tRef x, args)
         | Type.SystemType t ->
             c.TypeReference t
         | Type.TupleType xs ->
-            tB.Tuple [ for t in List.rev xs -> c.TypeReference t ]
+            tB.Tuple [ for t in List.rev xs -> tRef t ]
+        | Type.InteropType (t, _) ->
+            tRef t
+        | Type.ArgumentsType t ->
+            tB.Arguments (tRef t)
         | Type.UnionType _ -> tB.Object
+        | Type.DefiningType ->
+            try byId defT.Id
+            with _ -> failwith "Can't Require a type definition containing TSelf" 
 
     member c.WithGenerics(gs: seq<GenericParameter>) =
         let gs = Seq.toArray gs
@@ -369,6 +386,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     let baseResourceCtor1 = findTypedConstructor tB.BaseResource [tB.String.Name]
     let baseResourceCtorN = findConstructorByArity tB.BaseResource 3
     let inlineAttributeConstructor = findTypedConstructor tB.Inline [tB.String.Name]
+    let macroAttributeConstructor = findTypedConstructor tB.Macro [tB.SystemType.Name]
     let requireAttributeConstructor = findTypedConstructor tB.Require [tB.SystemType.Name]
     let obsoleteAttributeConstructor = findDefaultConstructor tB.Obsolete 
     let obsoleteAttributeWithMsgConstructor = findTypedConstructor tB.Obsolete [tB.String.Name]
@@ -405,6 +423,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     member c.BaseResourceConstructor1 = baseResourceCtor1
     member c.BaseResourceConstructorN = baseResourceCtorN
     member c.InlineAttributeConstructor = inlineAttributeConstructor
+    member c.MacroAttributeConstructor = macroAttributeConstructor
     member c.RequireAttributeConstructor = requireAttributeConstructor
     member c.ObsoleteAttributeConstructor = obsoleteAttributeConstructor
     member c.ObsoleteAttributeWithMsgConstructor = obsoleteAttributeWithMsgConstructor
@@ -495,6 +514,11 @@ type MemberConverter
         attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, code))
         attr
 
+    let macroAttribute (macroType: TypeReference) =
+        let attr = CustomAttribute(mB.MacroAttributeConstructor)
+        attr.ConstructorArguments.Add(CustomAttributeArgument(tB.SystemType, macroType))
+        attr
+
     let requireAttribute (resourceType: TypeReference) =
         let attr = CustomAttribute(mB.RequireAttributeConstructor)
         attr.ConstructorArguments.Add(CustomAttributeArgument(tB.SystemType, resourceType))
@@ -514,14 +538,14 @@ type MemberConverter
     let withGenerics gs =
         MemberConverter(tB, mB, tC.WithGenerics gs, types, iG, def, comments, compilerOptions)
 
-    let makeParameters (f: Type.Function) =
+    let makeParameters (f: Type.Function, defT) =
         Seq.ofArray [|
             for (n, t) in f.Parameters do
-                yield ParameterDefinition(n, ParameterAttributes.None, tC.TypeReference t)
+                yield ParameterDefinition(n, ParameterAttributes.None, tC.TypeReference (t, defT))
             match f.ParamArray with
             | None -> ()
             | Some pa ->
-                yield mB.BuildParamArrayParameter(tC.TypeReference pa)
+                yield mB.BuildParamArrayParameter(tC.TypeReference (pa, defT))
         |]
 
     let methodAttributes (dt: TypeDefinition) (x: Code.Entity) =
@@ -548,15 +572,25 @@ type MemberConverter
             x.Type
             |> Type.Normalize
             |> Type.DistinctOverloads
+        let overloads = 
+            if Option.isNone x.Inline
+            then overloads |> List.map Type.TransformFuncArgs
+            else overloads
         for t in overloads do
             match t with
             | Type.FunctionType f ->
                 let attrs = methodAttributes dT x
                 let cD = mB.BuildConstructor(methodAttributes dT x)
-                iG.GetMethodBaseInline(td, t, x)
-                |> inlineAttribute
-                |> cD.CustomAttributes.Add
-                for p in makeParameters f do
+                match x.Macro with
+                | Some macro ->
+                    tC.TypeReference (macro, td)
+                    |> macroAttribute
+                    |> cD.CustomAttributes.Add
+                | _ -> 
+                    iG.GetMethodBaseInline(td, t, x)
+                    |> inlineAttribute
+                    |> cD.CustomAttributes.Add
+                for p in makeParameters (f, td) do
                     cD.Parameters.Add p
                 setObsoleteAttribute x cD.CustomAttributes
                 dT.Methods.Add(cD)
@@ -567,10 +601,18 @@ type MemberConverter
             | _ -> ()
 
     let addProperty (dT: TypeDefinition) (td: Code.TypeDeclaration) (p: Code.Property) =
-        let ty =
+        let t =
             match Type.Normalize p.Type with
-            | [t] -> tC.TypeReference t
-            | _  -> tB.Object
+            | [t] ->
+                if Option.isNone p.GetterInline && Option.isSome p.SetterInline
+                then Type.TransformFuncValue t
+                else t
+            | _ -> p.Type
+        let ty = tC.TypeReference (t, td)
+//        let ty =
+//            match Type.Normalize p.Type with
+//            | [t] -> tC.TypeReference t
+//            | _  -> tB.Object
         let name = iG.GetPropertySourceName p
         let attrs = PropertyAttributes.None
         let pD = PropertyDefinition(name, attrs, ty)
@@ -582,26 +624,26 @@ type MemberConverter
             let mD = MethodDefinition("get_" + name, methodAttributes dT p, ty)
             if not dT.IsInterface then
                 mB.AddBody mD
-                iG.GetPropertyGetterInline(td, p)
+                iG.GetPropertyGetterInline(td, t, p)
                 |> inlineAttribute
                 |> mD.CustomAttributes.Add
             match p.IndexerType with
             | None -> ()
             | Some it ->
-                mD.Parameters.Add(ParameterDefinition("index", ParameterAttributes.None, tC.TypeReference it))         
+                mD.Parameters.Add(ParameterDefinition("index", ParameterAttributes.None, tC.TypeReference (it, td)))         
             dT.Methods.Add mD
             pD.GetMethod <- mD
         if p.HasSetter then
             let mD = MethodDefinition("set_" + name, methodAttributes dT p, tB.Void)
             if not dT.IsInterface then
                 mB.AddBody mD
-                iG.GetPropertySetterInline(td, p)
+                iG.GetPropertySetterInline(td, t, p)
                 |> inlineAttribute
                 |> mD.CustomAttributes.Add
             match p.IndexerType with
             | None -> ()
             | Some it ->
-                mD.Parameters.Add(ParameterDefinition("index", ParameterAttributes.None, tC.TypeReference it))         
+                mD.Parameters.Add(ParameterDefinition("index", ParameterAttributes.None, tC.TypeReference (it, td)))         
             mD.Parameters.Add(ParameterDefinition("value", ParameterAttributes.None, ty))
             if not dT.IsInterface then
                 mB.AddBody mD
@@ -618,7 +660,7 @@ type MemberConverter
                     for g in x.Generics ->
                         let gP = GenericParameter(g.Name, tD)
                         for c in g.Constraints do
-                            gP.Constraints.Add(tC.TypeReference c)
+                            gP.Constraints.Add(tC.TypeReference (c, x))
                         tD.GenericParameters.Add(gP)
                         gP
                 ]
@@ -632,6 +674,10 @@ type MemberConverter
             x.Type
             |> Type.Normalize
             |> Type.DistinctOverloads
+        let overloads = 
+            if Option.isNone x.Inline 
+            then overloads |> List.map Type.TransformFuncArgs
+            else overloads
         for t in overloads do
             match t with
             | Type.FunctionType f ->
@@ -647,7 +693,7 @@ type MemberConverter
                         for g in x.Generics -> 
                             let gP = GenericParameter(g.Name, mD) 
                             for c in g.Constraints do
-                                gP.Constraints.Add(tC.TypeReference c)
+                                gP.Constraints.Add(tC.TypeReference (c, td))
                             mD.GenericParameters.Add(gP)
                             gP
                     |]
@@ -659,14 +705,20 @@ type MemberConverter
         mD.ReturnType <-
             match f.ReturnType with
             | Type.Unit -> tB.Void
-            | Type.NonUnit -> tC.TypeReference f.ReturnType
-        for p in makeParameters f do
+            | Type.NonUnit -> tC.TypeReference (f.ReturnType, td)
+        for p in makeParameters (f, td) do
             mD.Parameters.Add p
         if not dT.IsInterface then
             mB.AddBody mD
-            iG.GetMethodBaseInline(td, Type.FunctionType f, x)
-            |> inlineAttribute
-            |> mD.CustomAttributes.Add
+            match x.Macro with
+            | Some macro ->
+                tC.TypeReference (macro, td)
+                |> macroAttribute
+                |> mD.CustomAttributes.Add
+            | _ -> 
+                iG.GetMethodBaseInline(td, Type.FunctionType f, x)
+                |> inlineAttribute
+                |> mD.CustomAttributes.Add
         setObsoleteAttribute x mD.CustomAttributes
         dT.Methods.Add mD
 
@@ -686,7 +738,7 @@ type MemberConverter
                 | true, t -> prov.CustomAttributes.Add(requireAttribute t)
                 | _ -> ()
             | Code.ExternalDependency ty ->
-                let t = tC.TypeReference ty
+                let t = tC.TypeReference (ty, Unchecked.defaultof<_>)
                 prov.CustomAttributes.Add(requireAttribute t)
 
     member c.Class(x: Code.Class) =
@@ -696,13 +748,13 @@ type MemberConverter
         do
             match x.BaseClass with
             | None -> tD.BaseType <- tB.Object
-            | Some t -> tD.BaseType <- tC.TypeReference t
+            | Some t -> tD.BaseType <- tC.TypeReference (t, x)
         do
             match x.Comment with
             | None -> ()
             | Some c -> comments.[tD] <- c
         for i in x.ImplementedInterfaces do
-            tD.Interfaces.Add(tC.TypeReference i)
+            tD.Interfaces.Add(tC.TypeReference (i, x))
         for ctor in x.Constructors do
             addConstructor tD x ctor
         setObsoleteAttribute x tD.CustomAttributes
@@ -713,7 +765,7 @@ type MemberConverter
 
     member private c.Interface(x: Code.Interface, tD: TypeDefinition) =
         for i in x.BaseInterfaces do
-            tD.Interfaces.Add(tC.TypeReference i)
+            tD.Interfaces.Add(tC.TypeReference (i, x))
         setObsoleteAttribute x tD.CustomAttributes
         c.AddTypeMembers(x, tD)
         do
@@ -1072,7 +1124,7 @@ type Compiler() =
         let comments : Comments = Dictionary()
         let def = AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
         let types = buildInitialTypes assembly def
-        let tB = TypeBuilder(resolver, def, findFSharpCoreFullName options, types)
+        let tB = TypeBuilder(resolver, def, findFSharpCoreFullName options)
         let tC = TypeConverter(tB, types)
         let mB = MemberBuilder(tB, def)
         let mC = MemberConverter(tB, mB, tC, types, iG, def, comments, options)
