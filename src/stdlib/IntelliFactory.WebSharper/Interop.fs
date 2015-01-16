@@ -24,7 +24,7 @@ open IntelliFactory.WebSharper.JavaScript
 
 [<Proxy(typeof<FuncWithArgs<_,_>>)>]
 type FuncWithArgsProxy<'TArgs, 'TResult> =
-    [<Inline "function() { return $func(arguments); }">]
+    [<Inline "$wsruntime.CreateFuncWithArgs($func)">]
     new (func: 'TArgs -> 'TResult) = {}
     
     member this.Length with [<Inline "$this.length">] get() = X<int>
@@ -34,7 +34,7 @@ type FuncWithArgsProxy<'TArgs, 'TResult> =
 
 [<Proxy(typeof<FuncWithThis<_,_>>)>]
 type FuncWithThisProxy<'TThis, 'TFunc> =
-    [<Inline "function() { return $func.apply(this, arguments); }">]
+    [<Inline "$wsruntime.CreateFuncWithThis($func)">]
     new (func: 'TThis -> 'TFunc) = {}
 
     member this.Length with [<Inline "$this.length">] get() = 0
@@ -53,7 +53,7 @@ type ArgumentsProxy<'T> =
 
 [<Proxy(typeof<FuncWithRest<_,_,_>>)>]
 type FuncWithRestProxy<'TArg, 'TRest, 'TResult> =
-    [<Inline "function(x) { return $func([x, Array.prototype.slice.call(arguments, 1)]); }">]
+    [<Inline "$wsruntime.CreateFuncWithRest($func)">]
     new (func: 'TArg * 'TRest[] -> 'TResult) = {}
 
     [<Inline "$this.apply(null, [$arg].concat($rest))">]
@@ -61,7 +61,7 @@ type FuncWithRestProxy<'TArg, 'TRest, 'TResult> =
 
 [<Proxy(typeof<FuncWithArgsRest<_,_,_>>)>]
 type FuncWithArgsRestProxy<'TArgs, 'TRest, 'TResult> =
-    [<Inline "function(x) { return $func([Array.prototype.slice.call(arguments, 0, $length), Array.prototype.slice.call(arguments, $length)]); }">]
+    [<Inline "$wsruntime.CreateFuncWithArgsRest($length, $func)">]
     new (length: int, func: 'TArgs * 'TRest[] -> 'TResult) = {}
 
     [<Inline "$this.apply(null, $args.concat($rest))">]

@@ -111,6 +111,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-49
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Bootstrap", "src\build\Bootstrap\Bootstrap.fsproj", "{5FB61954-9230-4408-A349-7F1EFC6E0A66}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IntelliFactory.WebSharper.InterfaceGenerator.Tests", "tests\IntelliFactory.WebSharper.InterfaceGenerator.Tests\IntelliFactory.WebSharper.InterfaceGenerator.Tests.fsproj", "{4C826618-E150-40F7-B13A-9182F0C3EACA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -237,6 +239,10 @@ Global
 		{5FB61954-9230-4408-A349-7F1EFC6E0A66}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5FB61954-9230-4408-A349-7F1EFC6E0A66}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5FB61954-9230-4408-A349-7F1EFC6E0A66}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -279,5 +285,6 @@ Global
 		{1ACAFCBC-6FE9-4CD6-91DF-AAE1902C9B1F} = {E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}
 		{15DD08E0-9E5E-49B1-9738-D73ACA630FF5} = {1ACAFCBC-6FE9-4CD6-91DF-AAE1902C9B1F}
 		{5FB61954-9230-4408-A349-7F1EFC6E0A66} = {1ACAFCBC-6FE9-4CD6-91DF-AAE1902C9B1F}
+		{4C826618-E150-40F7-B13A-9182F0C3EACA} = {7C8FF043-B608-42BD-930B-2249675BA666}
 	EndGlobalSection
 EndGlobal

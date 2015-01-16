@@ -43,7 +43,9 @@ module Type =
         | TupleType of list<Type>
         | UnionType of Type * Type
         | InteropType of Type * InlineTransforms
+        | FSFunctionType of Type * Type * Type option
         | ArgumentsType of Type
+//        | ChoiceType of Type list
         | DefiningType
         
         member this.Item
@@ -364,13 +366,13 @@ module Type =
 
     let private argsTransform = 
         {
-            InTranform = fun x -> "function() { return " + x + "(arguments); }"    
+            InTranform = fun x -> "$wsruntime.CreateFuncWithArgs(" + x + ")"
             OutTransform = fun x -> "function(args) { return (" + x + ").apply(null, args) }"
         }
 
     let private thisArgsTransform = 
         {
-            InTranform = fun x -> "function() { return " + x + ".call(this, arguments); }"
+            InTranform = fun x -> "$wsruntime.CreateFuncWithThisArgs(" + x + ")"
             OutTransform = fun x -> "function(args) { return (" + x + ").apply(this, args) }"
         }
 
@@ -383,35 +385,28 @@ module Type =
         | [_] -> None
         | ts -> Some ts
 
-    let TransformFuncValue (t: Type) =
+    let TransformValue (t: Type) =
         match t with
         | FunctionType f ->
-            let withTupledArg() =
-                FunctionType { 
-                    f with 
-                        Parameters = ["", TupleType (f.Parameters |> List.map snd)]
-                }
-            let withArguments a =
-                FunctionType {
-                    f with
-                        Parameters = ["", ArgumentsType a]
-                        ParamArray = None
-                }
-            match f.This, f.Parameters.Length, f.ParamArray with
-            | None, l, None when l > 2   -> InteropType (withTupledArg(), argsTransform)
-            | None, 0, Some _            -> InteropType (withTupledArg(), argsTransform)
-            | Some a, l, None when l > 2 -> InteropType (withArguments a, thisArgsTransform)
-            | Some a, 0, Some _          -> InteropType (withArguments a, thisArgsTransform)
+            let getTransform() =
+                match f.This with
+                | None -> argsTransform
+                | Some _ -> thisArgsTransform
+            match f.Parameters.Length, f.ParamArray with
+            | l, None when l > 1 -> 
+                InteropType (FSFunctionType (TupleType (f.Parameters |> List.map snd), f.ReturnType, f.This), getTransform())
+            | 0, Some pa -> 
+                InteropType (FSFunctionType (ArgumentsType pa, f.ReturnType, f.This), getTransform())
             | _ -> t
 //        | UnionOf ts ->
         | _ -> t
 
-    let TransformFuncArgs (t: Type) =
+    let TransformArgs (t: Type) =
         match t with 
         | FunctionType f ->
             FunctionType 
                 { f with
-                    Parameters = f.Parameters |> List.map (fun (n, p) -> n, TransformFuncValue p)
-                    ReturnType = f.ReturnType |> TransformFuncValue   
+                    Parameters = f.Parameters |> List.map (fun (n, p) -> n, TransformValue p)
+                    ReturnType = f.ReturnType |> TransformValue   
                 }
         | _ -> t

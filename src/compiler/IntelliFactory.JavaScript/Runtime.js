@@ -26,7 +26,6 @@ var IntelliFactory =
 {
     Runtime:
     {
-
         Class:
             function (p, s) {
                 function r() { }
@@ -164,6 +163,26 @@ var IntelliFactory =
                 while (guard()) {
                     body();
                 }
+            },
+
+        CreateFuncWithArgs:
+            function (f) {
+                return function () { return f(arguments); }
+            },
+
+        CreateFuncWithThis:
+            function (f) {
+                return function () { return f.apply(this, arguments); }
+            },
+
+        CreateFuncWithThisArgs:
+            function (f) {
+                return function (x) { return f([x, Array.prototype.slice.call(arguments, 1)]); }
+            },
+
+        CreateFuncWithRest: 
+            function (length, f) {
+                return function() { return f([Array.prototype.slice.call(arguments, 0, length), Array.prototype.slice.call(arguments, length)]); }
             }
     }
 };

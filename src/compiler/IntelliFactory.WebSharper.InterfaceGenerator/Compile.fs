@@ -226,6 +226,8 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
 
     let funcWithArgs = fromInterop "FuncWithArgs`2" 
     let funcWithThis = fromInterop "FuncWithThis`2" 
+    let funcWithRest = fromInterop "FuncWithRest`3" 
+    let funcWithArgsRest = fromInterop "FuncWithArgsRest`3" 
 
     let arguments = fromInterop "Arguments`1"
         
@@ -269,6 +271,12 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
                  
     member b.FuncWithThis this func =
         genericInstance funcWithThis [this; func]        
+
+    member b.FuncWithRest arg rest result =
+        genericInstance funcWithRest [arg; rest; result]        
+
+    member b.FuncWithArgsRest args rest result =
+        genericInstance funcWithArgsRest [args; rest; result]        
 
     member b.Attribute = attributeType
     member b.BaseResource = baseResourceType
@@ -321,21 +329,29 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: G
         | Type.DeclaredType id ->
             byId id
         | Type.FunctionType f ->
+            let ret = tRef f.ReturnType
+            let args = f.Parameters |> List.map (snd >> tRef)
             let func =
-                let ret = tRef f.ReturnType
-                let args = f.Parameters |> List.map (snd >> tRef)
-                match args with
-                | [] -> tB.Function (tB.Type<unit>()) ret
-                | [a] -> tB.Function a ret
-                | _ -> tB.FuncWithArgs (tB.Tuple args) ret                
-            match f.ParamArray, f.This with
-            | None, None ->
-                func
-            | None, Some this ->
-                tB.FuncWithThis (tRef this) func
-            | _ ->
-                // TODO: ParamArray not supported yet:
-                tB.Object
+                match f.ParamArray with
+                | None ->
+                    match args with
+                    | [] -> tB.Function (tB.Type<unit>()) ret
+                    | [a] -> tB.Function a ret
+                    | _ -> tB.FuncWithArgs (tB.Tuple args) ret                
+                | Some p ->
+                    let pa = tRef p
+                    match args with 
+                    | [] -> tB.FuncWithArgs (tB.Arguments pa) ret
+                    | [a] -> tB.FuncWithRest a pa ret
+                    | _ -> tB.FuncWithArgsRest (tB.Tuple args) pa ret        
+            match f.This with
+            | None -> func
+            | Some this -> tB.FuncWithThis (tRef this) func
+        | Type.FSFunctionType (a, r, thisOpt) ->
+            let func = tB.Function (tRef a) (tRef r)
+            match thisOpt with
+            | None -> func
+            | Some this -> tB.FuncWithThis (tRef this) func
         | Type.GenericType pos ->
             genericsByPosition.[pos] :> _
         | Type.SpecializedType (x, xs) ->
@@ -574,7 +590,7 @@ type MemberConverter
             |> Type.DistinctOverloads
         let overloads = 
             if Option.isNone x.Inline
-            then overloads |> List.map Type.TransformFuncArgs
+            then overloads |> List.map Type.TransformArgs
             else overloads
         for t in overloads do
             match t with
@@ -605,7 +621,7 @@ type MemberConverter
             match Type.Normalize p.Type with
             | [t] ->
                 if Option.isNone p.GetterInline && Option.isSome p.SetterInline
-                then Type.TransformFuncValue t
+                then Type.TransformValue t
                 else t
             | _ -> p.Type
         let ty = tC.TypeReference (t, td)
@@ -676,7 +692,7 @@ type MemberConverter
             |> Type.DistinctOverloads
         let overloads = 
             if Option.isNone x.Inline 
-            then overloads |> List.map Type.TransformFuncArgs
+            then overloads |> List.map Type.TransformArgs
             else overloads
         for t in overloads do
             match t with

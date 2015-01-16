@@ -232,6 +232,13 @@ module Pervasives =
     let WithSetterInline (code: string) (p: Code.Property) =
         p |> Code.Entity.Update (fun x -> x.SetterInline <- Some code)
 
+    /// Adds a default in and out inline transform to a type.
+    /// In transform is applied to method arguments and property setters.
+    /// Out transform is applied to method return values and property getters.
+    /// When a member defines a custom inline these transforms are ignored.
+    let WithInlineTransformer transforms (t: #Type.IType) = 
+        Type.InteropType (t.Type, transforms)
+
     /// Adds indexer argument.
     let Indexed (indexer: T) (p: Code.Property) =
         p |> Code.Entity.Update (fun x -> x.IndexerType <- Some indexer)
@@ -248,6 +255,9 @@ module Pervasives =
     /// Adds a macro to method or constructor. Macro type must be defined in another assembly.
     let WithMacro (macroType: System.Type) (x: #Code.MethodBase) =
         x |> Code.Entity.Update (fun x -> x.Macro <- Some (SystemType macroType))
+
+    /// Makes a resource always linked if any type in assembly is used. 
+    let AssemblyWide (r: Code.Resource) = r.AssemblyWide()
 
     /// Constructs a new `FunctionType`.
     let ( ^-> ) (parameters: Type.IParameters) (returnType: Type.IType) =
@@ -326,23 +336,3 @@ module Pervasives =
 
         static member ( + ) (this: GenericHelper, names) =
             GenericNamed names
-
-        [<Obsolete "Use `Generic -` for definition and `MyGenericType.[t1]` for specializing">]
-        static member ( / ) (this: GenericHelper, f: T -> #Code.TypeDeclaration) =
-            let td = this - (fun (p1: P) -> f p1.Type :> Code.Entity)
-            fun t1 -> td.Type.[t1]
-
-        [<Obsolete "Use `Generic -` for definition and `MyGenericType.[t1, t2]` for specializing">]
-        static member ( / ) (this: GenericHelper, f: T -> T -> #Code.TypeDeclaration) =
-            let td = this - (fun (p1: P) (p2: P) -> f p1.Type p2.Type :> Code.Entity)
-            fun t1 t2 -> td.Type.[t1, t2]
-
-        [<Obsolete "Use `Generic -` for definition and `MyGenericType.[t1, t2, t3]` for specializing">]
-        static member ( / ) (this: GenericHelper, f: T -> T -> T -> #Code.TypeDeclaration) =
-            let td = this - (fun (p1: P) (p2: P) (p3: P) -> f p1.Type p2.Type p3.Type :> Code.Entity)
-            fun t1 t2 t3 -> td.Type.[t1, t2, t3]
-
-        [<Obsolete "Use `Generic -` for definition and `MyGenericType.[t1, t2, t3, t4]` for specializing">]
-        static member ( / ) (this: GenericHelper, f: T -> T -> T -> T -> #Code.TypeDeclaration) =
-            let td = this - (fun (p1: P) (p2: P) (p3: P) (p4: P) -> f p1.Type p2.Type p3.Type p4.Type :> Code.Entity)
-            fun t1 t2 t3 t4 -> td.Type.[t1, t2, t3, t4]

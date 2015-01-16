@@ -33,6 +33,7 @@
     <Compile Include="TimeSpan.fs" />
     <Compile Include="Printf.fs" />
     <Compile Include="Tupled.fs" />
+    <Compile Include="WIG.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
@@ -68,6 +69,11 @@
     <ProjectReference Include="..\..\src\stdlib\IntelliFactory.WebSharper\IntelliFactory.WebSharper.fsproj">
       <Name>IntelliFactory.WebSharper</Name>
       <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.InterfaceGenerator.Tests\IntelliFactory.WebSharper.InterfaceGenerator.Tests.fsproj">
+      <Name>IntelliFactory.WebSharper.InterfaceGenerator.Tests</Name>
+      <Project>{4c826618-e150-40f7-b13a-9182f0c3eaca}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

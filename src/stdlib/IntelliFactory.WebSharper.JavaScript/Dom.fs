@@ -850,8 +850,7 @@ module Interfaces =
                     T<string>?namespaceURI *
                     T<string>?qualifiedName ^-> Node
             ]
-        |+>
-            [
+        |+> Static [
                 "Current" =? Document
                 |> WithGetterInline "document"
                 |> ObsoleteWithMessage "Use JS.Document or JS.Window.Document instead."

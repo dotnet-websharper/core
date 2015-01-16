@@ -119,6 +119,10 @@
       <Project>{3958f5e1-dda2-4a22-bf29-794a25bb14f7}</Project>
       <Name>IntelliFactory.WebSharper.Html5.Tests</Name>
     </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.InterfaceGenerator.Tests\IntelliFactory.WebSharper.InterfaceGenerator.Tests.fsproj">
+      <Project>{4c826618-e150-40f7-b13a-9182f0c3eaca}</Project>
+      <Name>IntelliFactory.WebSharper.InterfaceGenerator.Tests</Name>
+    </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper.Sitelets.Tests\IntelliFactory.WebSharper.Sitelets.Tests.fsproj">
       <Project>{bba692b3-ab48-4f2e-8a33-260b0dd09a9b}</Project>
       <Name>IntelliFactory.WebSharper.Sitelets.Tests</Name>

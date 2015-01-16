@@ -135,6 +135,7 @@ let parseDirectTransformer (logger: Logger) loc kind (args: list<_>) core =
                     | C.Global [x] as e ->
                         match x with
                         | "$global" -> C.Global []
+                        | "$wsruntime" -> C.Runtime
                         | _ ->
                             match names.TryGetValue x with
                             | true, i -> xs.[i]
@@ -168,12 +169,15 @@ let parseIndirectTransformer kind args core =
         (d, Seq.toList v)
     let body =
         let rec replace e =
-            match e with
-            | C.Global ["$global"] -> C.Global []
+            match e with 
             | C.Global [x] ->
-                match names.TryGetValue x with
-                | true, id -> C.Var id
-                | _ -> e
+                match x with
+                | "$global" -> C.Global []
+                | "$wsruntime" -> C.Runtime
+                | _ ->
+                    match names.TryGetValue x with
+                    | true, id -> C.Var id
+                    | _ -> e
             | _ -> C.Transform replace e
         replace core
     let fn = C.Lambda (None, vars, body)
