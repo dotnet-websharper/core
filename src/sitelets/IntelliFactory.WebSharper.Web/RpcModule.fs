@@ -33,21 +33,30 @@ type RpcHandler() =
     let work (ctx: HttpContext) =
         let req = ctx.Request
         let resp = ctx.Response
-        let getHeader (x: string) =
-            match req.Headers.[x] with
-            | null -> None
-            | v -> Some v
         async {
-            let body =
-                use s = new StreamReader(req.InputStream)
-                s.ReadToEnd()
-            let! response =
-                RpcUtil.server.HandleRequest { Headers = getHeader; Body = body }
-            do
+            // Manage "preflight" OPTIONS request
+            // sent by the browser if the site is https.
+            let origin = req.Headers.["Origin"]
+            if origin <> null && req.Url.Authority = Uri(origin).Authority then
+                resp.AddHeader("Access-Control-Allow-Origin", origin)
+                resp.AddHeader("Access-Control-Allow-Credentials", "true")
+            match req.HttpMethod with
+            | "OPTIONS" ->
+                resp.AddHeader("Access-Control-Allow-Headers",
+                    "x-websharper-rpc, content-type")
+            | _ ->
+                let getHeader (x: string) =
+                    match req.Headers.[x] with
+                    | null -> None
+                    | v -> Some v
+                let body =
+                    use s = new StreamReader(req.InputStream)
+                    s.ReadToEnd()
+                let! response =
+                    RpcUtil.server.HandleRequest { Headers = getHeader; Body = body }
                 resp.ContentType <- response.ContentType
                 resp.Write response.Content
-            return
-                resp.End()
+            return resp.End()
         }
 
     let (beginPR, endPR, cancelPR) = Async.AsBeginEnd(work)

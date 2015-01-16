@@ -28,6 +28,19 @@ module R = IntelliFactory.WebSharper.Core.Remoting
 [<A.JavaScript>]
 let mutable EndPoint = "?"
 
+[<A.JavaScript>]
+let UseHttps() =
+    try
+        if not (JS.Window.Location.Href.StartsWith "https://") then
+            EndPoint <- JS.Window.Location.Href.Replace("http://", "https://")
+            true
+        else false
+    with _ ->
+        // This function is intended to be callable from the top-level in a module,
+        // which means that it will be (unnecessarily) called on the server too
+        // and throw NotImplementedException. Just silence it.
+        false
+
 type Data = string
 type Headers = obj
 type Url = string
@@ -40,6 +53,7 @@ type IAjaxProvider =
 
 [<A.Direct @"
     var xhr = new XMLHttpRequest();
+    xhr.withCredentials = true;
     xhr.open('POST', $url, $async);
     for (var h in $headers) {
         xhr.setRequestHeader(h, $headers[h]);

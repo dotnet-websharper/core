@@ -29,6 +29,12 @@ module R = IntelliFactory.WebSharper.Core.Remoting
 /// the deployed address of the server application.
 val mutable EndPoint : string
 
+/// Set the Endpoint to use HTTPS even if the current page was
+/// server via HTTP.
+/// Return true if the endpoint needed to be changed, false if
+/// the current page is already HTTPS.
+val UseHttps : unit -> bool
+
 /// Represents URLs.
 type Url = string
 
