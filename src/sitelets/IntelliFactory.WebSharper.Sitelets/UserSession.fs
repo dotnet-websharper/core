@@ -67,6 +67,10 @@ module UserSession =
     let LoginUser (user: string) =
         FormsAuthentication.SetAuthCookie(user, false)
 
+    /// Login user and persist the login across browser sessions.
+    let LoginUserPersistent (user: string) =
+        FormsAuthentication.SetAuthCookie(user, true)
+
     /// Logout current user.
     let Logout () =
         FormsAuthentication.SignOut()

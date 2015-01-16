@@ -51,4 +51,5 @@ type Context<'Action> =
 
 module Context =
 
+    /// Map a context to a wrapping type.
     val Map : ('T2 -> 'T1) -> Context<'T1> -> Context<'T2>

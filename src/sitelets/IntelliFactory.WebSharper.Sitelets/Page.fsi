@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -20,52 +20,30 @@
 
 namespace IntelliFactory.WebSharper.Sitelets
 
-open System.Collections.Generic
 open System.Web.UI
 open IntelliFactory.WebSharper.Html.Server
 open IntelliFactory.WebSharper
 type private Writer = HtmlTextWriter -> unit
 type private IControl = IntelliFactory.WebSharper.Html.Client.IControl
 
+/// Represents HTML pages with embedded WebSharper controls.
 type Page =
     {
+        /// Doctype tag.
+        /// Default is the standard HTML5 doctype: "<!DOCTYPE html>"
         Doctype : option<string>
+        /// Title of the page, ie. contents of the <title> tag.
         Title : option<string>
         Renderer : option<string> -> option<string> -> Writer -> Writer ->
             HtmlTextWriter -> unit
+        /// Head of the page, ie. contents of the <head> tag.
+        /// WebSharper-generated tags, such as script dependencies,
+        /// are appended to this head.
         Head : seq<Element>
+        /// Body of the page, ie. contents of the <body> tag.
         Body : seq<Element>
     }
 
-    static member Default =
-        let renderer (doctype : option<string>) (title: option<string>)
-            writeHead writeBody (writer: System.Web.UI.HtmlTextWriter) =
-            // Doctype
-            match doctype with
-            | Some dt -> writer.WriteLine dt
-            | None -> ()
-            writer.RenderBeginTag HtmlTextWriterTag.Html
-            // Head section
-            writer.RenderBeginTag HtmlTextWriterTag.Head
-            writer.WriteLine()
-            writeHead writer
-            match title with
-            | Some t ->
-                writer.RenderBeginTag HtmlTextWriterTag.Title
-                writer.Write t
-                writer.RenderEndTag ()
-            | None -> ()
-            writer.RenderEndTag()
-            // Body section
-            writer.RenderBeginTag HtmlTextWriterTag.Body
-            writer.WriteLine()
-            writeBody writer
-            writer.RenderEndTag()
-            writer.RenderEndTag()
-        {
-            Doctype = Some "<!DOCTYPE html>"
-            Title = None
-            Head = []
-            Renderer = renderer
-            Body = []
-        }
+    /// A default, empty page.
+    /// Use the `{ Page.Default with ... }` syntax to create your own pages.
+    static member Default : Page

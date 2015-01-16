@@ -44,7 +44,8 @@ type ConstantAttribute private () =
 
 /// Marks methods and constructors for inline compilation to JavaScript.
 /// Inline members work by expanding JavaScript code templates
-/// with placeholders of the form such as $0, $x, $this or $value.
+/// with placeholders of the form such as $0, $x, $this or $value
+/// directly at the place of invocation. See also DirectAttribute.
 [<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
 type InlineAttribute() =
     inherit A()
@@ -52,7 +53,10 @@ type InlineAttribute() =
     /// Constructs a new inlining annotation from a code template.
     new (template: string) = InlineAttribute()
 
-/// Similar to InlineAttribute, but does not inline the method invocation.
+/// Marks methods and constructors for direct compilation to a JavaScript function.
+/// Direct members work by expanding JavaScript code templates
+/// with placeholders of the form such as $0, $x, $this or $value
+/// into the body of a JavaScript function. See also InlineAttribute.
 [<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
 type DirectAttribute(template: string) =
     inherit A()
@@ -92,7 +96,7 @@ type ProxyAttribute private () =
     /// Constructs a new proxy link using a type directly.
     new (proxiedType: System.Type) = ProxyAttribute()
 
-/// Marks methods for remote invocation.
+/// Marks a server-side function to be invokable remotely from the client-side.
 [<Sealed; U(T.Method)>]
 type RemoteAttribute() =
     inherit A()
