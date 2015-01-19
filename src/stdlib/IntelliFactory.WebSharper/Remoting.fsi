@@ -58,14 +58,26 @@ type IAjaxProvider =
 /// XMLHttpRequest implementation. Can be reset.
 val mutable AjaxProvider : IAjaxProvider
 
-/// Calls a remote method asynchronously.
-val private Async : string -> obj [] -> Async<obj>
+/// This interface only exists for documentation purposes.
+/// A remoting provider must implement its members as *static* members.
+/// (see AjaxRemotingProvider)
+type IRemotingProvider =
 
-/// Calls a remote method synchronously.
-val private Call : string -> obj [] -> obj
+    /// Calls a remote method asynchronously.
+    abstract member Sync : string -> obj[] -> obj
 
-/// Calls a remote method asynchronously and ignores the response.
-val private Send : string -> obj [] -> unit
+    /// Calls a remote method synchronously.
+    abstract member Async : string -> obj[] -> Async<obj>
+
+    /// Calls a remote method asynchronously and ignores the response.
+    abstract member Send : string -> obj[] -> unit
+
+/// Implements remote method calls via AJAX.
+[<Sealed>]
+type AjaxRemotingProvider =
+    static member Sync : string -> obj[] -> obj
+    static member Async : string -> obj[] -> Async<obj>
+    static member Send : string -> obj[] -> unit
 
 val private ajax : bool -> Url -> Headers -> Data -> (Data -> unit) ->
     (exn -> unit) -> unit

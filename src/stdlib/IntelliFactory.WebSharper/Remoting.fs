@@ -113,40 +113,44 @@ let makeHeaders (m: string) =
 let makePayload (data: obj []) =
     Json.Stringify data
 
-[<A.JavaScript>]
-let Call m data : obj =
-    let data = AjaxProvider.Sync EndPoint (makeHeaders m) (makePayload data)
-    Json.Activate (Json.Parse data)
+type IRemotingProvider =
+    abstract member Sync : string -> obj[] -> obj
+    abstract member Async : string -> obj[] -> Async<obj>
+    abstract member Send : string -> obj[] -> unit
 
 [<A.JavaScript>]
-let Async m data : Async<obj> =
-    let headers = makeHeaders m
-    let payload = makePayload data
-    async {
-        let! token = Async.CancellationToken
-        return! Async.FromContinuations (fun (ok, err, cc) ->
-            let waiting = ref true
-            let reg =
-                token.Register(fun () ->
+[<Sealed>]
+type AjaxRemotingProvider =
+
+    static member Sync m data : obj =
+        let data = AjaxProvider.Sync EndPoint (makeHeaders m) (makePayload data)
+        Json.Activate (Json.Parse data)
+
+    static member Async m data : Async<obj> =
+        let headers = makeHeaders m
+        let payload = makePayload data
+        async {
+            let! token = Async.CancellationToken
+            return! Async.FromContinuations (fun (ok, err, cc) ->
+                let waiting = ref true
+                let reg =
+                    token.Register(fun () ->
+                        if !waiting then
+                            waiting := false
+                            cc (new System.OperationCanceledException())
+                    )
+                let ok (x: Data) = 
                     if !waiting then
                         waiting := false
-                        cc (new System.OperationCanceledException())
-                )
-            let ok (x: Data) = 
-                if !waiting then
-                    waiting := false
-                    reg.Dispose()
-                    ok (Json.Activate (Json.Parse x))
-            let err (e: exn) =
-                if !waiting then
-                    waiting := false
-                    reg.Dispose()
-                    err e
-            AjaxProvider.Async EndPoint headers payload ok err)
-    }
+                        reg.Dispose()
+                        ok (Json.Activate (Json.Parse x))
+                let err (e: exn) =
+                    if !waiting then
+                        waiting := false
+                        reg.Dispose()
+                        err e
+                AjaxProvider.Async EndPoint headers payload ok err)
+        }
 
-type A = Async
-
-[<A.JavaScript>]
-let Send m data : unit =
-    A.Start (A.Ignore (Async m data))
+    static member Send m data =
+        Async.Start (Async.Ignore (AjaxRemotingProvider.Async m data))

@@ -45,6 +45,7 @@ type Annotation =
     | Name of Name
     | Proxy of R.TypeDefinition
     | Remote
+    | RemotingProvider of R.TypeDefinition
     | Require of R.TypeDefinition
     | Stub
 

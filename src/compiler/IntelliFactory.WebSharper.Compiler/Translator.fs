@@ -142,7 +142,7 @@ let (|ListLiteral|_|) q =
 
 #nowarn "25"
 
-let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
+let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remotingProvider
     (meta: Metadata.T) (here: Location) (expr: Q.Expression) =
 
     let log priority message =
@@ -190,13 +190,13 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                 match kind with
                 | V.RemoteAsync -> "Async"
                 | V.RemoteSend -> "Send"
-                | V.RemoteSync -> "Call"
+                | V.RemoteSync -> "Sync"
             let str x = !~ (C.String x)
             let args =
                 match scope, args with
                 | Instance, _ :: args | _, args -> C.NewArray !!args
-            let mdl = C.Global ["IntelliFactory"; "WebSharper"; "Remoting"]
-            C.Call (mdl, str name, [str (handle.Pack()); args])
+            let provider = C.Global remotingProvider
+            C.Call (provider, str name, [str (handle.Pack()); args])
     and tExpr exn quotation =
         let (!) = tExpr exn
         let (!!) = List.map (!)

@@ -112,3 +112,11 @@ type RequireAttribute(def: System.Type) =
 [<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property)>]
 type StubAttribute() =
     inherit A()
+
+/// Indicates the client-side remoting provider that should be used
+/// by remote function calls in this assembly. The type passed to the
+/// constructor must have three static methods as described by the
+/// interface Remoting.IRemotingProvider.
+[<Sealed; U(T.Assembly)>]
+type RemotingProviderAttribute(provider: System.Type) =
+    inherit A()

@@ -152,6 +152,7 @@ type Assembly =
         Name : R.AssemblyName
         Location : Location
         Mode : Me.AssemblyMode
+        RemotingProvider : option<R.TypeDefinition>
         Requirements : list<Requirement>
         Types : list<Type>
     }

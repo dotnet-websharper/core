@@ -88,6 +88,7 @@ type Annotation =
     | Name of Name
     | Proxy of R.TypeDefinition
     | Remote
+    | RemotingProvider of R.TypeDefinition
     | Require of R.TypeDefinition
     | Stub
 
@@ -103,6 +104,7 @@ type Annotation =
         | Name _ -> "Name"
         | Proxy _ -> "Proxy"
         | Remote _ -> "Remote"
+        | RemotingProvider _ -> "RemotingProvider"
         | Require _ -> "Require"
         | Stub -> "Stub"
 
@@ -403,6 +405,11 @@ let annotationsTable =
             Some (Proxy r)
         | _ -> None)
     add typeof<A.RemoteAttribute> (fun attr _ -> Some Remote)
+    add typeof<A.RemotingProviderAttribute> (fun attr warn ->
+        match attr.ConstructorArguments with
+        | [TypeArgument x] ->
+            Some (RemotingProvider (parseTypeReference warn x))
+        | _ -> None)
     add typeof<A.RequireAttribute> (fun attr warn ->
         match attr.ConstructorArguments with
         | [TypeArgument x] ->

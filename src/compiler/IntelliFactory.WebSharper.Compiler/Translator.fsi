@@ -31,6 +31,6 @@ exception InvalidQuotation
 
 /// Translates a quotation to JavaScript.
 val Translate :
-    Logger -> I.Pool -> R.Pool ->
+    Logger -> I.Pool -> R.Pool -> remotingProviderQualifiedName:list<string> ->
     Metadata.T -> Location ->
     Q.Expression -> C.Expression

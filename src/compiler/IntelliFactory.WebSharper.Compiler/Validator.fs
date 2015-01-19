@@ -159,6 +159,7 @@ type Assembly =
         Name : R.AssemblyName
         Location : Location
         Mode : Me.AssemblyMode
+        RemotingProvider : option<R.TypeDefinition>
         Requirements : list<Requirement>
         Types : list<Type>
     }
@@ -796,10 +797,16 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
     let compiled =
         types
         |> List.exists isCompiledType
+    let remotingProvider =
+        assembly.Annotations
+        |> List.tryPick (function
+            | Reflector.Annotation.RemotingProvider cR -> Some cR
+            | _ -> None)
     {
         Name = assembly.Name
         Location = assembly.Location
         Mode = if compiled then Me.CompiledAssembly else Me.IgnoredAssembly
+        RemotingProvider = remotingProvider
         Requirements = reqs
         Types = types
     }
