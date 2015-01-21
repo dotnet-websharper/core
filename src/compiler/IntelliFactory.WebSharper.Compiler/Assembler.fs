@@ -38,7 +38,8 @@ let Assemble (logger: Logger) (iP: I.Pool) mP (meta: M.T)
         | Some t ->
             let rec f acc (t: R.TypeDefinition) =
                 match t.DeclaringType with
-                | None -> t.Name :: acc
+                | None ->
+                    List.ofSeq ((defaultArg t.Namespace "").Split('.')) @ acc
                 | Some t' -> f (t'.Name :: acc) t'
             f [t.Name] t
     let trans loc input =
