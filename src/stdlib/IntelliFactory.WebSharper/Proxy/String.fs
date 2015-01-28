@@ -101,6 +101,12 @@ let ToCharArrayRange (s: string) (startIndex: int) (length: int) =
 [<Direct @"$s.replace(/^\s+/,'').replace(/\s+$/,'')">]
 let Trim (s: string) = X<string>
 
+[<Direct @"$s.replace(/^\s+/,'')">]
+let TrimStart (s: string) = X<string>
+
+[<Direct @"$s.replace(/\s+$/,'')">]
+let TrimEnd (s: string) = X<string>
+
 [<Direct "$values.join($sep)">]
 let Join (sep: string) (values: string []) = X<string>
 
@@ -316,6 +322,14 @@ type private StringProxy =
     [<Inline>]
     [<JavaScript>]
     member this.Trim() = Trim (As this)
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.TrimStart() = TrimStart (As this)
+
+    [<Inline>]
+    [<JavaScript>]
+    member this.TrimEnd() = TrimEnd (As this)
 
 [<JavaScript>]
 let protect (s : string) =
