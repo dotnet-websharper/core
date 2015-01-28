@@ -47,6 +47,12 @@ let LocateProperty (def: PropertyDefinition) : Location =
             | Some m -> (LocateMethod m).SourceLocation
     }
 
+let LocateField (def: FieldDefinition) : Location =
+    {
+        ReadableLocation = def.Name
+        SourceLocation = None   
+    }
+
 let LocateType (def: TypeDefinition) : Location =
     {
         ReadableLocation = def.Name

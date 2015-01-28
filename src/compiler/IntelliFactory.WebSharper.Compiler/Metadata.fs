@@ -42,7 +42,7 @@ type ConstructorKind =
     | StubConstructor of P.Address
 
 type DataTypeKind =
-    | Class of P.Address
+    | Class of P.Address * list<Field> * list<string * Field>
     | Exception of P.Address
     | Interface of P.Address
     | Object of list<string * string>
@@ -110,6 +110,16 @@ type T =
     member this.UnionCase (c: R.UnionCase) =
         c.WithDeclaringType (this.Proxy c.DeclaringType)
         |> Get this.unions
+
+    member this.Field (f: R.Field) =
+        this.Proxy f.DeclaringType
+        |> Get this.datatypes
+        |> function
+        | Some (Class (_, _, renames)) ->
+            let n = f.Name
+            let rn = renames |> List.tryPick (fun (on, rn) -> if on = n then Some rn else None) 
+            match rn with Some rn -> rn | _ -> n
+        | _ -> f.Name
 
     static member Empty : T =
         {
@@ -208,14 +218,14 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
         | _ -> ()
         match ty.Kind with
         | V.Resource _ -> ()
-        | V.Class (_, bT, ctors, nested) ->
+        | V.Class c ->
             match ty.Status with
-            | V.Compiled -> t.datatypes.[self] <- Class ty.Name
+            | V.Compiled -> t.datatypes.[self] <- Class (ty.Name, c.Fields, c.FieldRenames)
             | V.Ignored  -> t.datatypes.[self] <- Interface ty.Name
-            List.iter ParseConstructor ctors
+            List.iter ParseConstructor c.Constructors
             List.iter ParseMethod ty.Methods
             List.iter ParseProperty ty.Properties
-            List.iter ParseType nested
+            List.iter ParseType c.Nested
         | V.Interface ->
             t.datatypes.[self] <- Interface ty.Name
             List.iter ParseMethod ty.Methods
@@ -237,7 +247,7 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
             List.iter ParseProperty ty.Properties
         | V.Union cases ->
             match ty.Status with
-            | V.Compiled -> t.datatypes.[self] <- Class ty.Name
+            | V.Compiled -> t.datatypes.[self] <- Class (ty.Name, [], [])
             | V.Ignored -> t.datatypes.[self] <- Interface ty.Name
             cases
             |> List.iteri (fun i c ->
@@ -289,6 +299,11 @@ let Union (logger: Logger) (ts: seq<T>) =
         for KeyValue (k, v) in t.unions do
             r.unions.[k] <- v
     r
+
+let Fields (t: T) (td: R.TypeDefinition) =
+    match t.Proxy td |> Get t.datatypes with
+    | Some (Class (_, fs, _)) -> fs
+    | _ -> []
 
 let Encoding =
     let eP = B.EncodingProvider.Create()

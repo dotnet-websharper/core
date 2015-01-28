@@ -74,7 +74,7 @@ type MacroAttribute(def: System.Type) =
 /// Provides a runtime name for members when it differs from the F# name.
 /// The constructor accepts either an explicit array of parts,
 /// or a single string, in which case it is assumed to be dot-separated.
-[<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property)>]
+[<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property|||T.Field)>]
 type NameAttribute private () =
     inherit A()
 

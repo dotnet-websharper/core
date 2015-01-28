@@ -162,7 +162,7 @@ module internal TypeScriptExporter =
 
     let getNamedContract ctx (tR: TypeReference) ts =
         match ctx.CM.DataType(Adapter.AdaptTypeDefinition(tR)) with
-        | Some (CM.DataTypeKind.Class addr)
+        | Some (CM.DataTypeKind.Class (addr, _, _))
         | Some (CM.DataTypeKind.Exception addr)
         | Some (CM.DataTypeKind.Interface addr)
         | Some (CM.DataTypeKind.Record (addr, _)) ->
@@ -318,7 +318,7 @@ module internal TypeScriptExporter =
     let rec exportType ctx (t: V.Type) =
         seq {
             match t.Kind with
-            | V.TypeKind.Class (_, _, _, nT)
+            | V.TypeKind.Class { Nested = nT }
             | V.TypeKind.Module nT ->
                 for t in nT do
                     yield! exportType ctx t
@@ -327,7 +327,7 @@ module internal TypeScriptExporter =
                 yield! exportStaticMethods ctx t
                 yield! exportStaticProperties ctx t
                 match t.Kind with
-                | V.TypeKind.Class (slot, baseType, ctorList, _) ->
+                | V.TypeKind.Class _ ->
                     yield exportNamedContract ctx t false []
                 | V.TypeKind.Exception ->
                     yield exportNamedContract ctx t false []

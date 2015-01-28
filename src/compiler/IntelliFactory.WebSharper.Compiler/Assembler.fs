@@ -103,12 +103,14 @@ let Assemble (logger: Logger) (iP: I.Pool) mP (meta: M.T)
             Option.iter visitMethod s
     let rec visitType (t: V.Type) =
         match t.Kind with
-        | V.Class (slot, bT, ctors, _) ->
-            if bT.IsSome then
-                match meta.DataType bT.Value.DeclaringType with
-                | Some (M.Class addr) -> slot.BaseType <- Some addr
+        | V.Class c ->
+            match c.BaseClass with
+            | Some bT ->
+                match meta.DataType bT.DeclaringType with
+                | Some (M.Class (addr, _, _)) -> c.Slot.BaseType <- Some addr
                 | _ -> ()
-            List.iter visitCtor ctors
+            | _ -> ()
+            List.iter visitCtor c.Constructors
         | _ -> ()
         List.iter visitMethod t.Methods
         List.iter visitProp t.Properties

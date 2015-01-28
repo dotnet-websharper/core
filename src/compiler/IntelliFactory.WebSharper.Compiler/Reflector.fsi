@@ -111,6 +111,7 @@ type Type =
         Methods : list<Member<MethodDefinition>>
         Nested : list<Type>
         Properties : list<Property>
+        Fields : list<Member<FieldDefinition>>
     }
 
 /// Represents a reflected assembly.

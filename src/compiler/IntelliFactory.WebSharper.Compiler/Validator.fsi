@@ -109,7 +109,7 @@ type Property =
     }
 
 and TypeKind =
-    | Class of Re.ClassSlot * option<R.Type> * list<Constructor> * list<Type>
+    | Class of ClassKind
     | Exception
     | Interface
     | Module of list<Type>
@@ -118,6 +118,16 @@ and TypeKind =
     | Union of list<UnionCase>
 
     member Nested : list<Type>
+
+and ClassKind =
+    {
+        Slot : Re.ClassSlot
+        BaseClass : option<R.Type>
+        Constructors : list<Constructor>
+        Nested : list<Type>
+        Fields : list<string>
+        FieldRenames : list<string * string>   
+    }
 
 and Type =
     {
@@ -157,4 +167,4 @@ type Assembly =
         Types : list<Type>
     }
 
-val Validate : Logger -> I.Pool -> Re.Pool -> Re.Assembly -> Assembly
+val Validate : Logger -> I.Pool -> Re.Pool -> (R.TypeDefinition -> list<string>) -> Re.Assembly -> Assembly

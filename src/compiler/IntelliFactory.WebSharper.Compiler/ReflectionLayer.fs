@@ -61,7 +61,9 @@ and CustomAttributeArgument =
 
 and [<AbstractClass>] FieldDefinition() =
     inherit Entity()
+    abstract CustomAttributes : list<CustomAttribute>
     abstract FieldType : TypeReference
+    abstract Name : string
     abstract IsNonSerialized : bool
     abstract IsStatic : bool
 
@@ -408,7 +410,9 @@ module Cecil =
 
     and [<Sealed>] FDef(x: Mono.Cecil.FieldDefinition) =
         inherit FieldDefinition()
+        override this.CustomAttributes = Converter.GetCustomAttributes(x) 
         override this.FieldType = Converter.TRef(x.FieldType)
+        override this.Name = x.Name
         override this.IsNonSerialized = int (x.Attributes &&& Mono.Cecil.FieldAttributes.NotSerialized) > 0
         override this.IsStatic = x.IsStatic
 
@@ -713,7 +717,14 @@ module Reflection =
 
         let fT = lazy conv.ConvertType(p.FieldType)
 
+        let attrs =
+            lazy
+                CustomAttributeData.GetCustomAttributes(p)
+                |> conv.ConvertAttributes
+
+        override this.CustomAttributes = attrs.Value
         override this.FieldType = fT.Value :> _
+        override this.Name = p.Name
         override this.IsNonSerialized = p.IsNotSerialized
         override this.IsStatic = p.IsStatic
 

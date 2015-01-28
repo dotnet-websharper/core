@@ -113,7 +113,7 @@ type Property =
     }
 
 and TypeKind =
-    | Class of Re.ClassSlot * option<R.Type> * list<Constructor> * list<Type>
+    | Class of ClassKind //Re.ClassSlot * option<R.Type> * list<Constructor> * list<Type> * list<string * string>
     | Exception
     | Interface
     | Module of list<Type>
@@ -123,8 +123,18 @@ and TypeKind =
 
     member this.Nested =
         match this with
-        | Class (_, _, _, n) | Module n -> n
+        | Class { Nested = n } | Module n -> n
         | _ -> []
+
+and ClassKind =
+    {
+        Slot : Re.ClassSlot
+        BaseClass : option<R.Type>
+        Constructors : list<Constructor>
+        Nested : list<Type>
+        Fields : list<string>
+        FieldRenames : list<string * string>   
+    }
 
 and Type =
     {
@@ -164,7 +174,7 @@ type Assembly =
         Types : list<Type>
     }
 
-//type HashSet<'T> = System.Collections.Generic.HashSet<'T>
+type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 
 type Pool = I.Pool
 
@@ -279,7 +289,7 @@ let verifyWebControl logger (verifier: Verifier.State) (t: Re.Type) =
     | Verifier.Incorrect msg ->
         error logger t.Location msg
 
-let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
+let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDefinition -> list<string>)
     (assembly: Re.Assembly) : Assembly =
 
     let verifier = Verifier.Create(logger)
@@ -545,6 +555,16 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
     let pProp pStub (iP: Pool) (p: Re.Property) : option<Property> =
         pPropFromKind iP p (pPropKind pStub iP p)
 
+    let pFieldRename (f: Re.Member<FieldDefinition>) =
+        let fn = f.Definition.Name
+        let name = 
+            f.Annotations |> Seq.tryPick (function
+               | Re.Name (Re.RelativeName n) -> Some n 
+               | _ -> None)
+        match name with
+        | Some n -> fn, Some n
+        | _ -> fn, None
+
     let pField (iP: Pool) (p: Re.Property) : option<Property> =
         let prop = p.Member
         let self = p.Member.Definition : PropertyDefinition
@@ -637,12 +657,21 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 let ms = c (pMethod pStub iP) mtods
                 let ns = c (pType iP) t.Nested
                 let ps = c (pProp pStub iP) t.Properties
+                let fs = t.Fields |> List.map pFieldRename 
                 let bT =
                     match d.BaseType with
                     | None -> None
                     | Some bT -> Some (Adapter.AdaptType bT)
                 Some {
-                    Kind = Class (cSlot, bT, cs, ns)
+                    Kind = 
+                        Class { 
+                            Slot = cSlot
+                            BaseClass = bT
+                            Constructors = cs
+                            Nested = ns
+                            Fields = fs |> List.map fst
+                            FieldRenames = c (fun (on, rn) -> rn |> Option.map (fun n -> on, n)) fs
+                        } 
                     Location = loc
                     Methods = ms
                     Name = t.AddressSlot.Address
@@ -790,10 +819,70 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                     if comp then Compiled else Ignored
             }
 
+    let fieldRenames (types: list<Type>) =
+        let localClasses = Dictionary()
+        let rec addLocal (t: Type) =
+            match t.Kind with
+            | Class c -> 
+                localClasses.Add(t.Reference, c)
+                c.Nested |> List.iter addLocal
+            | Module ns ->
+                ns |> List.iter addLocal     
+            | _ -> ()   
+        types |> List.iter addLocal 
+        let handled = Dictionary()
+        let rec repl (bT: R.Type option) (fs : string list) (fr: (string * string) list) =
+            match bT with
+            | Some bt -> 
+                let d = bt.DeclaringType 
+                let baseFields =
+                    match handled.TryGetValue d with
+                    | true, (bfs, _) -> bfs
+                    | _ ->
+                    match localClasses.TryGetValue d with
+                    | true, c ->
+                        repl c.BaseClass c.Fields c.FieldRenames |> fst
+                    | _ -> fields d
+                    |> Set.ofList
+                let newFields = HashSet()
+                let newRenames = ResizeArray()
+                let rec getSafeName n =
+                    if baseFields.Contains n || newFields.Contains n then
+                        getSafeName (n + "_")
+                    else n
+                for on, rn in fr do
+                    let rn = getSafeName rn
+                    newFields.Add rn |> ignore
+                    if on <> rn then newRenames.Add (on, rn) 
+                for on in fs do
+                    let rn = getSafeName on
+                    newFields.Add rn |> ignore
+                    if on <> rn then newRenames.Add (on, rn) 
+                List.ofSeq (Seq.append newFields baseFields), List.ofSeq newRenames
+            | None -> fs, fr
+        let rec updateReplacers (t: Type) =
+            match t.Kind with 
+            | Class c ->
+                let fs, fr = repl c.BaseClass c.Fields c.FieldRenames
+                { t with 
+                    Kind = 
+                        Class {
+                            c with 
+                                Nested = c.Nested |> List.map updateReplacers
+                                Fields = fs
+                                FieldRenames = fr
+                        }
+                }    
+            | Module ns ->
+                { t with Kind = Module (ns |> List.map updateReplacers) }
+            | _ -> t
+        types |> List.map updateReplacers   
+
     let reqs = getRequirements assembly.Location Static assembly.Annotations
     let types =
         assembly.Types
         |> List.choose (pType pool)
+        |> fieldRenames
     let compiled =
         types
         |> List.exists isCompiledType
