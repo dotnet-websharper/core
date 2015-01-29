@@ -105,6 +105,33 @@ module Bug264 =
     [<JavaScript>]
     let Make (f: unit -> X) : Y<X> = Y (f().A)
 
+module Bug323 =
+[<JavaScript>]
+    type BaseClass(x) =
+        member this.Value = x
+
+    [<JavaScript>]    
+    type DescendantClass(x) =
+        inherit BaseClass(x + 1)
+
+        member this.OriginalValue = x
+
+// TODO : does not translate yet 
+
+//    [<JavaScript>]    
+//    type BaseClass2 =
+//        val x : int
+//        new v = { x = v }
+//        member this.Value = this.x
+//
+//    [<JavaScript>]    
+//    type DescendantClass2 =
+//        inherit BaseClass2
+//
+//        val x : int
+//        new v = { inherit BaseClass(v + 1); x = v }
+//        member this.OriginalValue = this.x
+
 [<JavaScript>]
 let Tests =
     Section "Regression"
@@ -246,6 +273,12 @@ let Tests =
         pairs.Subscribe ignore |> ignore
         [ 1 .. 3 ] |> List.iter stream.Trigger
         acc.ToArray() =? [| 1, 2; 1, 2; 2, 3; 2, 3 |]
+    }
+
+    Test "Bug #323" {
+        let a = Bug323.DescendantClass(3)
+        a.OriginalValue =? 3
+        a.Value =? 4    
     }
 
     Test "Curried inlining" {

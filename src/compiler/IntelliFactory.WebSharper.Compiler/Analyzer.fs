@@ -121,14 +121,14 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
         t.Proxy
         |> Option.iter (fun pT -> deps.Connect (M.TypeNode pT) self)
         match t.Kind with
-        | V.Class (_, bT, ctors, nested) ->
-            bT
+        | V.Class c ->
+            c.BaseClass
             |> Option.iter (fun bT ->
                 deps.Connect self (M.TypeNode bT.DeclaringType))
-            List.iter (visitConstructor self) ctors
+            List.iter (visitConstructor self) c.Constructors
             List.iter (visitMethod self) t.Methods
             List.iter (visitProperty self) t.Properties
-            List.iter (visitType assem self) nested
+            List.iter (visitType assem self) c.Nested
         | V.Resource -> ()
         | V.Exception ->
             List.iter (visitMethod self) t.Methods

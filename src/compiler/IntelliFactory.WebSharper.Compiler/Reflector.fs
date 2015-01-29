@@ -88,6 +88,7 @@ type Annotation =
     | Name of Name
     | Proxy of R.TypeDefinition
     | Remote
+    | RemotingProvider of R.TypeDefinition
     | Require of R.TypeDefinition
     | Stub
     | OptionalField
@@ -104,6 +105,7 @@ type Annotation =
         | Name _ -> "Name"
         | Proxy _ -> "Proxy"
         | Remote _ -> "Remote"
+        | RemotingProvider _ -> "RemotingProvider"
         | Require _ -> "Require"
         | Stub -> "Stub"
         | OptionalField -> "OptionalField"
@@ -152,6 +154,7 @@ and UnionCase =
 
 type Method = Member<MethodDefinition>
 type Case = Member<TypeDefinition>
+type Field = Member<FieldDefinition>
 
 type Property =
     {
@@ -173,6 +176,7 @@ type Type =
         Methods : list<Method>
         Nested : list<Type>
         Properties : list<Property>
+        Fields : list<Field>
     }
 
     override this.ToString() =
@@ -405,6 +409,11 @@ let annotationsTable =
             Some (Proxy r)
         | _ -> None)
     add typeof<A.RemoteAttribute> (fun attr _ -> Some Remote)
+    add typeof<A.RemotingProviderAttribute> (fun attr warn ->
+        match attr.ConstructorArguments with
+        | [TypeArgument x] ->
+            Some (RemotingProvider (parseTypeReference warn x))
+        | _ -> None)
     add typeof<A.RequireAttribute> (fun attr warn ->
         match attr.ConstructorArguments with
         | [TypeArgument x] ->
@@ -519,6 +528,21 @@ let Reflect (logger: Logger) (assembly: AssemblyDefinition) =
                             })
                 |> Seq.toList
         }
+    let withFields t = 
+        { t with
+            Fields = 
+                t.Definition.Fields
+                |> Seq.map (fun f ->
+                    let loc = Locator.LocateField f
+                    {
+                        Annotations = getAnnotations loc (AnnotatedMember f.CustomAttributes)
+                        Definition = f
+                        Location = loc
+                        MemberSlot = MemberSlot()
+                    } 
+                )
+                |> Seq.toList
+        }
     let yieldType (t: Type) =
         match t.Kind with
         | Kind.Record _ -> Some t
@@ -590,11 +614,13 @@ let Reflect (logger: Logger) (assembly: AssemblyDefinition) =
                     Methods = []
                     Nested = []
                     Properties = []
+                    Fields = []
                 }
             match kind with
             | Class _ ->
                 result
                 |> withMethodsAndProperties
+                |> withFields
                 |> withNested
                 |> yieldType
             | Enum ->

@@ -88,10 +88,9 @@ let eliminateDispose q =
     | _ ->
         q
 
-let fieldName (meta: Metadata.T) (f: Q.Concrete<R.Property>) =
-    let n = f.Entity.Name
-    match meta.DataType f.Entity.DeclaringType with
-    | Some (M.Record (_, fs)) | Some (M.Object fs) ->
+let fieldName (meta: Metadata.T) (n: string) (t: R.TypeDefinition) =
+    match meta.DataType t with
+    | Some (M.Record (_, fs)) | Some (M.Object fs) | Some (M.Class (_, _, fs)) ->
         let ok (x, y, _) = if x = n then Some y else None
         match List.tryPick ok fs with
         | Some n -> str n
@@ -142,7 +141,7 @@ let (|ListLiteral|_|) q =
 
 #nowarn "25"
 
-let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
+let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remotingProvider
     (meta: Metadata.T) (here: Location) (expr: Q.Expression) =
 
     let log priority message =
@@ -190,13 +189,13 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                 match kind with
                 | V.RemoteAsync -> "Async"
                 | V.RemoteSend -> "Send"
-                | V.RemoteSync -> "Call"
+                | V.RemoteSync -> "Sync"
             let str x = !~ (C.String x)
             let args =
                 match scope, args with
                 | Instance, _ :: args | _, args -> C.NewArray !!args
-            let mdl = C.Global ["IntelliFactory"; "WebSharper"; "Remoting"]
-            C.Call (mdl, str name, [str (handle.Pack()); args])
+            let provider = C.Global remotingProvider
+            C.Call (provider, str name, [str (handle.Pack()); args])
     and tExpr exn quotation =
         let (!) = tExpr exn
         let (!!) = List.map (!)
@@ -226,18 +225,18 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
         | Q.DefaultValue _ ->
             undef
         | Q.FieldGetInstance (e, f) ->
-            (!e).[str f.Entity.Name]
+            (!e).[fieldName meta f.Entity.Name f.Entity.DeclaringType]
         | Q.FieldGetRecord (e, f) ->
-            (!e).[fieldName meta f] // TODO: handle OptionalField
+            (!e).[fieldName meta f.Entity.Name f.Entity.DeclaringType] // TODO: handle OptionalField
         | Q.FieldGetStatic f
         | Q.FieldSetStatic (f, _) ->
             err "Static fields are not supported" f.Entity.Name
         | Q.FieldGetUnion (e, uc, k) ->
             (!e).[str ("$" + string k)]
         | Q.FieldSetInstance (t, f, v) ->
-            C.FieldSet (!t, str f.Entity.Name, !v)
+            C.FieldSet (!t, fieldName meta f.Entity.Name f.Entity.DeclaringType, !v)
         | Q.FieldSetRecord (t, f, v) ->
-            C.FieldSet (!t, fieldName meta f, !v) // TODO: handle OptionalField
+            C.FieldSet (!t, fieldName meta f.Entity.Name f.Entity.DeclaringType, !v) // TODO: handle OptionalField
         | Q.ForIntegerRangeLoop (v, min, max, body) ->
             C.ForIntegerRangeLoop (!^v, !min, !max, !body)
         | Q.Hole _ ->
@@ -259,7 +258,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                 | body -> (List.rev acc, body)
             match loop [] x with
             | (this :: vars, body) ->
-                        C.Lambda (Some !^this, List.map (!^) vars, !body)
+                C.Lambda (Some !^this, List.map (!^) vars, !body)
             | ([], Q.Application (f, Q.Value Q.Unit)) -> !f
             | _ -> invalidQuot()
         | Q.NewObject (c, args) ->
@@ -289,7 +288,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                         c.Entity.DeclaringType.FullName
         | Q.NewRecord (t, args) ->
             match meta.DataType t.DeclaringType with
-            | Some (M.Class fn) ->
+            | Some (M.Class (fn, _, _)) ->
                 C.New (glob fn, !!args)
             | Some (M.Record (fn, fields)) ->
                 if List.length fields = args.Length then
@@ -442,7 +441,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                     match meta.DataType t with
                     | None | Some (M.Object _) | Some (M.Interface _) ->
                         err "Failed to compile a type test: " t.FullName
-                    | Some (M.Class fn)
+                    | Some (M.Class (fn, _, _))
                     | Some (M.Record (fn, _))
                     | Some (M.Exception fn) ->
                         (!e).InstanceOf(glob fn)

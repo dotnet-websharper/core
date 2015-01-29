@@ -74,7 +74,7 @@ type MacroAttribute(def: System.Type) =
 /// Provides a runtime name for members when it differs from the F# name.
 /// The constructor accepts either an explicit array of parts,
 /// or a single string, in which case it is assumed to be dot-separated.
-[<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property)>]
+[<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property|||T.Field)>]
 type NameAttribute private () =
     inherit A()
 
@@ -111,6 +111,14 @@ type RequireAttribute(def: System.Type) =
 /// Marks members that should be compiled by-name.
 [<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property)>]
 type StubAttribute() =
+    inherit A()
+
+/// Indicates the client-side remoting provider that should be used
+/// by remote function calls in this assembly. The type passed to the
+/// constructor must have three static methods as described by the
+/// interface Remoting.IRemotingProvider.
+[<Sealed; U(T.Assembly)>]
+type RemotingProviderAttribute(provider: System.Type) =
     inherit A()
 
 /// Adds automatic inlines to a property so that a missing JavaScript field

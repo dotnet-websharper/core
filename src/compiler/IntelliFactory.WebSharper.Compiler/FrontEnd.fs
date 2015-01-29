@@ -74,7 +74,7 @@ module FrontEnd =
             try
                 let ra = Reflector.Reflect logger assembly
                 let pkg = Resolver.Resolve logger ra
-                let va = Validator.Validate logger pool macros ra
+                let va = Validator.Validate logger pool macros (Metadata.Fields meta) ra
                 let rm = Analyzer.Analyze ctx.AssemblyInfos va
                 let local = Metadata.Parse logger va
                 let joined = Metadata.Union logger [meta; local]

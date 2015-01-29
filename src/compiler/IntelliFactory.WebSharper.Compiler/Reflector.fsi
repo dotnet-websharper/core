@@ -45,6 +45,7 @@ type Annotation =
     | Name of Name
     | Proxy of R.TypeDefinition
     | Remote
+    | RemotingProvider of R.TypeDefinition
     | Require of R.TypeDefinition
     | Stub
     | OptionalField
@@ -111,6 +112,7 @@ type Type =
         Methods : list<Member<MethodDefinition>>
         Nested : list<Type>
         Properties : list<Property>
+        Fields : list<Member<FieldDefinition>>
     }
 
 /// Represents a reflected assembly.

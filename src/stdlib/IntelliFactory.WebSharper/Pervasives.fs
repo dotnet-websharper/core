@@ -59,6 +59,12 @@ type ProxyAttribute = A.ProxyAttribute
 /// Marks a server-side function to be invokable remotely from the client-side.
 type RemoteAttribute = A.RemoteAttribute
 
+/// Indicates the client-side remoting provider that should be used
+/// by remote function calls in this assembly. The type passed to the
+/// constructor must have three static methods as described by the
+/// interface Remoting.IRemotingProvider.
+type RemotingProviderAttribute = A.RemotingProviderAttribute
+
 /// Annotates members with dependencies. The type passed to the constructor
 /// must implement Resources.IResourceDefinition and a default constructor.
 type RequireAttribute = A.RequireAttribute

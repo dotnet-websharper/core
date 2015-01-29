@@ -25,6 +25,7 @@ module R = IntelliFactory.WebSharper.Core.Reflection
 val LocateAssembly : AssemblyDefinition -> Location
 val LocateMethod : MethodDefinition -> Location
 val LocateProperty : PropertyDefinition -> Location
+val LocateField : FieldDefinition -> Location
 val LocateType : TypeDefinition -> Location
 val LocateReflectedType : R.Type -> Location
 

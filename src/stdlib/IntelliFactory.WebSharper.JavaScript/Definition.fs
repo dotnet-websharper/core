@@ -28,20 +28,28 @@ let Global =
     Namespace "IntelliFactory.WebSharper.JavaScript" [
         Class "Console"
         |+> Static [
-            "count" => !?T<string> ^-> T<unit>
-            |> WithInline "console?console.count.apply(console,$0):undefined"
+            "count" => T<string> ^-> T<unit>
+            |> WithInline "console?console.count($0):undefined"
+            "count" => T<unit> ^-> T<unit>
+            |> WithInline "console?console.count():undefined"
             "dir" => T<obj> ^-> T<unit>
             |> WithInline "console?console.dir($0):undefined"
-            "error" => !+T<obj> ^-> T<unit>
-            |> WithInline "console?console.error.apply(console,$0):undefined"
+            Generic - fun t -> "error" => t ^-> T<unit>
+            |> WithInline "console?console.error($0):undefined"
+            Generic - fun t -> "error" => t *+ T<obj> ^-> T<unit>
+            |> WithInline "console?console.error.apply(console,[$0].concat($1)):undefined"
             "group" => T<string> *+ T<obj> ^-> T<unit>
             |> WithInline "console?console.group.apply(console,[$0].concat($1)):undefined"
             "groupEnd" => T<unit> ^-> T<unit>
             |> WithInline "console?console.groupEnd():undefined"
-            "info" => !+T<obj> ^-> T<unit>
-            |> WithInline "console?console.info.apply(console,$0):undefined"
-            "log" => !+T<obj> ^-> T<unit>
-            |> WithInline "console?console.log.apply(console,$0):undefined"
+            Generic - fun t -> "info" => t ^-> T<unit>
+            |> WithInline "console?console.info($0):undefined"
+            Generic - fun t -> "info" => t *+ T<obj> ^-> T<unit>
+            |> WithInline "console?console.info.apply(console,[$0].concat($1)):undefined"
+            Generic - fun t -> "log" => t ^-> T<unit>
+            |> WithInline "console?console.log($0):undefined"
+            Generic - fun t -> "log" => t *+ T<obj> ^-> T<unit>
+            |> WithInline "console?console.log.apply(console,[$0].concat($1)):undefined"
             "profile" => T<string> ^-> T<unit>
             |> WithInline "console?console.profile($0):undefined"
             "profileEnd" => T<unit> ^-> T<unit>
@@ -52,8 +60,10 @@ let Global =
             |> WithInline "console?console.timeEnd($0):undefined"
             "trace" => T<unit> ^-> T<unit>
             |> WithInline "console?console.trace():undefined"
-            "warn" => !+T<obj> ^-> T<unit>
-            |> WithInline "console?console.warn.apply(console,$0):undefined"
+            Generic - fun t -> "warn" => t ^-> T<unit>
+            |> WithInline "console?console.warn($0):undefined"
+            Generic - fun t -> "warn" => t *+ T<obj> ^-> T<unit>
+            |> WithInline "console?console.warn.apply(console,[$0].concat($1)):undefined"
         ]
 
         Class "JS"

@@ -95,7 +95,7 @@ module private ObservableModule =
                 | _ -> None)
         (left, right)
 
-
-
-
-
+    [<JavaScript>]
+    [<Inline>]
+    let Subscribe (f: 'T -> unit) (e: IObservable<'T>) =
+        e.Subscribe f

@@ -25,6 +25,7 @@
     <Compile Include="Operators.fs" />
     <Compile Include="Option.fs" />
     <Compile Include="Queue.fs" />
+    <Compile Include="Random.fs" />
     <Compile Include="Ref.fs" />
     <Compile Include="Regression.fs" />
     <Compile Include="Seq.fs" />

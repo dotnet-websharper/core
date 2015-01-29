@@ -44,7 +44,7 @@ type ConstructorKind =
 
 /// Represents data type metadata.
 type DataTypeKind =
-    | Class of P.Address
+    | Class of P.Address * list<Field> * list<string * Field>
     | Exception of P.Address
     | Interface of P.Address
     | Object of list<string * string * bool>
@@ -93,6 +93,9 @@ type T =
     /// Maps a union case to its metadata.
     member UnionCase : R.UnionCase -> option<UnionCaseKind>
 
+    /// Tries to look up a field rename.
+    member Field : R.Field -> string
+
     /// The empty metadata record.
     static member Empty : T
 
@@ -101,6 +104,9 @@ val Parse : Logger -> Validator.Assembly -> T
 
 /// Takes a union of several metadata records.
 val Union : Logger -> seq<T> -> T
+
+/// Gets the compiled field names of a class from metadata.
+val Fields : T -> R.TypeDefinition -> list<string> 
 
 /// Writes metadata in binary representation to a stream.
 val Serialize : System.IO.Stream -> T -> unit

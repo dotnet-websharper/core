@@ -152,7 +152,10 @@ let HEADER_NAME = "x-websharper-rpc"
 let IsRemotingRequest (h: Headers) =
     match h HEADER_NAME with
     | Some _ -> true
-    | _      -> false
+    | None ->
+        match h "Access-Control-Request-Headers" with
+        | Some s when s.Contains HEADER_NAME -> true
+        | _ -> false
 
 exception InvalidHeadersException
 
