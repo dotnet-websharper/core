@@ -465,6 +465,15 @@ let serializers =
             | _ -> raise DecoderException
         | _ -> raise DecoderException
     add encTimeSpan decTimeSpan d
+    let encGuid (g: System.Guid) =
+        EncodedString (string g)
+    let decGuid = function
+        | String g -> 
+            match System.Guid.TryParse g with
+            | true, g -> g
+            | _ -> raise DecoderException
+        | _ -> raise DecoderException  
+    add encGuid decGuid d   
     d
 
 type FST = Reflection.FSharpType
