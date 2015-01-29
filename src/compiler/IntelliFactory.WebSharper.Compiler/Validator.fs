@@ -115,7 +115,7 @@ type Property =
     }
 
 and TypeKind =
-    | Class of ClassKind //Re.ClassSlot * option<R.Type> * list<Constructor> * list<Type> * list<string * string>
+    | Class of ClassKind
     | Exception
     | Interface
     | Module of list<Type>
@@ -135,7 +135,7 @@ and ClassKind =
         Constructors : list<Constructor>
         Nested : list<Type>
         Fields : list<string>
-        FieldRenames : list<string * string>   
+        FieldRenames : list<string * string * bool>   
     }
 
 and Type =
@@ -588,9 +588,14 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
             f.Annotations |> Seq.tryPick (function
                | Re.Name (Re.RelativeName n) -> Some n 
                | _ -> None)
-        match name with
-        | Some n -> fn, Some n
-        | _ -> fn, None
+        let optF =
+            f.Annotations |> Seq.exists (function
+                | Re.OptionalField -> true 
+                | _ -> false)
+        match name, optF with
+        | Some n, _ -> fn, Some n, optF
+        | _, true -> fn, Some fn, true
+        | _ -> fn, None, false
 
     let pField (iP: Pool) (p: Re.Property) : option<Property> =
         let prop = p.Member
@@ -696,8 +701,8 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
                             BaseClass = bT
                             Constructors = cs
                             Nested = ns
-                            Fields = fs |> List.map fst
-                            FieldRenames = c (fun (on, rn) -> rn |> Option.map (fun n -> on, n)) fs
+                            Fields = fs |> List.map (fun (n, _, _) -> n)
+                            FieldRenames = c (fun (on, rn, opt) -> rn |> Option.map (fun n -> on, n, opt)) fs
                         } 
                     Location = loc
                     Methods = ms
@@ -862,7 +867,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
             | _ -> ()   
         types |> List.iter addLocal 
         let handled = Dictionary()
-        let rec repl (bT: R.Type option) (fs : string list) (fr: (string * string) list) =
+        let rec repl (bT: R.Type option) (fs : string list) (fr: (string * string * bool) list) =
             match bT with
             | Some bt -> 
                 let d = bt.DeclaringType 
@@ -881,14 +886,14 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
                     if baseFields.Contains n || newFields.Contains n then
                         getSafeName (n + "_")
                     else n
-                for on, rn in fr do
+                for on, rn, opt in fr do
                     let rn = getSafeName rn
                     newFields.Add rn |> ignore
-                    if on <> rn then newRenames.Add (on, rn) 
+                    if on <> rn || opt then newRenames.Add (on, rn, opt) 
                 for on in fs do
                     let rn = getSafeName on
                     newFields.Add rn |> ignore
-                    if on <> rn then newRenames.Add (on, rn) 
+                    if on <> rn then newRenames.Add (on, rn, false) 
                 List.ofSeq (Seq.append newFields baseFields), List.ofSeq newRenames
             | None -> fs, fr
         let rec updateReplacers (t: Type) =

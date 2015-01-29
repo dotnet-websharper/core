@@ -39,7 +39,7 @@ type O [<Inline "{}">] () =
         with get() = X<int option> 
         and  set v = () 
 
-type R = { [<Inline "asdasd">] KO: int option }
+type R = { [<OptionalField>] KO: int option }
 
 [<JavaScript>]
 let Tests =

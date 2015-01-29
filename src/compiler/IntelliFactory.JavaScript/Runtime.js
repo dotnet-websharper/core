@@ -53,6 +53,14 @@ var IntelliFactory =
                 define(a, b);
             },
 
+        DeleteEmptyFields:
+            function (obj, fields) {
+                for (var f in fields) {
+                    if (obj[f] === undefined) { delete obj[f]; }
+                }
+                return obj;
+            },
+
         Field:
             function (f) {
                 var value, ready = false;

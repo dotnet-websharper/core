@@ -123,6 +123,6 @@ type RemotingProviderAttribute(provider: System.Type) =
 
 /// Adds automatic inlines to a property so that a missing JavaScript field
 /// is converted to None, otherwise Some fieldValue.
-[<Sealed; U(T.Class|||T.Property)>]
+[<Sealed; U(T.Class|||T.Property|||T.Field)>]
 type OptionalFieldAttribute() =
     inherit A()

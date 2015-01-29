@@ -42,11 +42,11 @@ type ConstructorKind =
     | StubConstructor of P.Address
 
 type DataTypeKind =
-    | Class of P.Address * list<Field> * list<string * Field>
+    | Class of P.Address * list<Field> * list<string * Field * bool>
     | Exception of P.Address
     | Interface of P.Address
-    | Object of list<string * string * bool>
-    | Record of P.Address * list<string * string * bool>
+    | Object of list<string * Field * bool>
+    | Record of P.Address * list<string * Field * bool>
 
 type MethodKind =
     | BasicInstanceMethod of Name
@@ -119,9 +119,9 @@ type T =
         |> function
         | Some (Class (_, _, renames)) ->
             let n = f.Name
-            let rn = renames |> List.tryPick (fun (on, rn) -> if on = n then Some rn else None) 
-            match rn with Some rn -> rn | _ -> n
-        | _ -> f.Name
+            let rn = renames |> List.tryPick (fun (on, rn, opt) -> if on = n then Some (rn, opt) else None) 
+            match rn with Some rn -> rn | _ -> n, false
+        | _ -> f.Name, false
 
     static member Empty : T =
         {

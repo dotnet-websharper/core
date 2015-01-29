@@ -128,7 +128,7 @@ and ClassKind =
         Constructors : list<Constructor>
         Nested : list<Type>
         Fields : list<string>
-        FieldRenames : list<string * string>   
+        FieldRenames : list<string * string * bool>   
     }
 
 and Type =

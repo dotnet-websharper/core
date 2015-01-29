@@ -88,15 +88,15 @@ let eliminateDispose q =
     | _ ->
         q
 
-let fieldName (meta: Metadata.T) (n: string) (t: R.TypeDefinition) =
+let fieldNameOpt (meta: Metadata.T) (n: string) (t: R.TypeDefinition) =
     match meta.DataType t with
     | Some (M.Record (_, fs)) | Some (M.Object fs) | Some (M.Class (_, _, fs)) ->
-        let ok (x, y, _) = if x = n then Some y else None
+        let ok (x, y, opt) = if x = n then Some (str y, opt) else None
         match List.tryPick ok fs with
-        | Some n -> str n
-        | None -> str n
+        | Some res -> res
+        | None -> str n, false
     | _ ->
-        str n
+        str n, false
 
 let (|Reraise|_|) (q: Q.Expression) =
     match q with
@@ -225,18 +225,22 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
         | Q.DefaultValue _ ->
             undef
         | Q.FieldGetInstance (e, f) ->
-            (!e).[fieldName meta f.Entity.Name f.Entity.DeclaringType]
+            let fn, opt = fieldNameOpt meta f.Entity.Name f.Entity.DeclaringType
+            if opt then call C.Runtime "GetOptional" [(!e).[fn]] else (!e).[fn]
         | Q.FieldGetRecord (e, f) ->
-            (!e).[fieldName meta f.Entity.Name f.Entity.DeclaringType] // TODO: handle OptionalField
+            let fn, opt = fieldNameOpt meta f.Entity.Name f.Entity.DeclaringType
+            if opt then call C.Runtime "GetOptional" [(!e).[fn]] else (!e).[fn]
         | Q.FieldGetStatic f
         | Q.FieldSetStatic (f, _) ->
             err "Static fields are not supported" f.Entity.Name
         | Q.FieldGetUnion (e, uc, k) ->
             (!e).[str ("$" + string k)]
         | Q.FieldSetInstance (t, f, v) ->
-            C.FieldSet (!t, fieldName meta f.Entity.Name f.Entity.DeclaringType, !v)
+            let fn, opt = fieldNameOpt meta f.Entity.Name f.Entity.DeclaringType
+            if opt then call C.Runtime "SetOptional" [!t; fn; !v] else C.FieldSet (!t, fn, !v)
         | Q.FieldSetRecord (t, f, v) ->
-            C.FieldSet (!t, fieldName meta f.Entity.Name f.Entity.DeclaringType, !v) // TODO: handle OptionalField
+            let fn, opt = fieldNameOpt meta f.Entity.Name f.Entity.DeclaringType
+            if opt then call C.Runtime "SetOptional" [!t; fn; !v] else C.FieldSet (!t, fn, !v)
         | Q.ForIntegerRangeLoop (v, min, max, body) ->
             C.ForIntegerRangeLoop (!^v, !min, !max, !body)
         | Q.Hole _ ->
@@ -287,30 +291,28 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
                     err "Failed to translate object creation"
                         c.Entity.DeclaringType.FullName
         | Q.NewRecord (t, args) ->
+            let getObjFromFields fields =
+                if List.length fields = args.Length then
+                    let init =
+                        fields
+                        |> List.map2 (fun v (_, f, o) -> 
+                            f, if o then C.FieldGet (v, str "$0") else v
+                        ) !!args
+                    let optFields = 
+                        fields |> List.choose (fun (_, f, o) -> 
+                            if o then Some (str f) else None)
+                    let obj = C.NewObject init
+                    if List.isEmpty optFields then obj 
+                    else call C.Runtime "DeleteEmptyFields" [obj; C.NewArray optFields]
+                else
+                    invalidQuot()
             match meta.DataType t.DeclaringType with
             | Some (M.Class (fn, _, _)) ->
                 C.New (glob fn, !!args)
-            | Some (M.Record (fn, fields)) ->
-                if List.length fields = args.Length then
-                    let init =
-                        fields
-                        |> List.map2 (fun v (_, f, o) -> 
-                            f, if o then C.FieldGet (v, str "$0") else v
-                        ) !!args
-                    let obj = C.NewObject init
-                    call C.Runtime "New" [glob fn; obj]
-                else
-                    invalidQuot()
+            | Some (M.Record (fn, fields)) ->                
+                call C.Runtime "New" [glob fn; getObjFromFields fields]
             | Some (M.Object fields) ->
-                if List.length fields = args.Length then
-                    let init =
-                        fields
-                        |> List.map2 (fun v (_, f, o) -> 
-                            f, if o then C.FieldGet (v, str "$0") else v
-                        ) !!args
-                    C.NewObject init
-                else
-                    invalidQuot()
+                getObjFromFields fields
             | _ ->
                 err "Failed to translate record creation" t.FullName
         | Q.NewTuple x ->
@@ -340,7 +342,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
                 | None -> invalidQuot()
             | Some (M.InstanceOptProperty x) ->
                 match xs with
-                | t :: _ -> call C.Runtime "GetOptional" [C.FieldGet (!t, str x)]
+                | t :: _ -> call C.Runtime "GetOptional" [(!t).[str x]]
                 | _ -> invalidQuot()
             | Some (M.StaticOptProperty fn) ->
                 call C.Runtime "GetOptional" [(globParent fn).[str fn.LocalName]]    
@@ -350,7 +352,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
                 | _ -> invalidQuot()
             | Some (M.InstanceStubProperty x) ->
                 match xs with
-                | t :: _ -> C.FieldGet (!t, str x)
+                | t :: _ -> (!t).[str x]
                 | _ -> invalidQuot()
             | Some (M.StaticStubProperty fn) ->
                 (globParent fn).[str fn.LocalName]
@@ -410,7 +412,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             let v = !^v
             C.TryWith (!x, v, tExpr (Some v) y)
         | Q.TupleGet (i, e) ->
-            C.FieldGet (!e, !~ (C.Integer (int64 i)))
+            (!e).[!~ (C.Integer (int64 i))]
         | Q.TypeTest (t, e) ->
             let typeof x = (!e).TypeOf &== str x
             match t with
@@ -450,7 +452,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
         | Q.UnionCaseTest (uc, e) ->
             match meta.UnionCase uc.Entity with
             | Some (M.BasicUnionCase k) | Some (M.CompiledUnionCase (_, k)) ->
-                C.FieldGet (!e, str "$") &== i k
+                (!e).[str "$"] &== i k
             | Some (M.ConstantUnionCase x) ->
                 !e &=== !~ (Literal x)
             | None ->

@@ -44,11 +44,11 @@ type ConstructorKind =
 
 /// Represents data type metadata.
 type DataTypeKind =
-    | Class of P.Address * list<Field> * list<string * Field>
+    | Class of P.Address * list<Field> * list<string * Field * bool>
     | Exception of P.Address
     | Interface of P.Address
-    | Object of list<string * string * bool>
-    | Record of P.Address * list<string * string * bool>
+    | Object of list<string * Field * bool>
+    | Record of P.Address * list<string * Field * bool>
 
 /// Represents method metadata.
 type MethodKind =
@@ -93,8 +93,8 @@ type T =
     /// Maps a union case to its metadata.
     member UnionCase : R.UnionCase -> option<UnionCaseKind>
 
-    /// Tries to look up a field rename.
-    member Field : R.Field -> string
+    /// Tries to look up a field rename and optional state.
+    member Field : R.Field -> string * bool
 
     /// The empty metadata record.
     static member Empty : T

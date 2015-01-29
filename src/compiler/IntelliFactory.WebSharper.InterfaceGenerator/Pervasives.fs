@@ -295,26 +295,21 @@ module Pervasives =
     let RequiresExternal<'T when 'T :> Code.IResourceDependable<'T>> (requires: Type.Type list) (ty: 'T) =
         ty.AddRequires (requires |> List.map (fun res -> Code.ExternalDependency res))
 
-    let private Fresh =
-        let x = ref 0
-        fun () ->
-            incr x
-            !x
-
     /// Generics helper.
     type GenericHelper =
         | Generic 
         | GenericNamed of string list
         with
-
         member this.Entity (arity: int) (make: list<_> -> #Code.Entity) =
             let generics = 
                 match this with
                 | GenericNamed ns ->
                     ns |> List.mapi (fun i n -> P (i, n))
                 | _ ->
-                    if arity = 1 then [ P (0, "T") ]
-                    else List.init arity (fun x -> P (x, "T" + string (x + 1)))
+                    let makeRet = snd (Microsoft.FSharp.Reflection.FSharpType.GetFunctionElements (make.GetType()))
+                    let genName = if (typeof<Code.TypeDeclaration>).IsAssignableFrom makeRet then "T" else "U"
+                    if arity = 1 then [ P (0, genName) ]
+                    else List.init arity (fun x -> P (x, genName + string (x + 1)))
             let x = make generics
             match x :> Code.Entity with
             | :? Code.Method as m -> m.Generics <- generics

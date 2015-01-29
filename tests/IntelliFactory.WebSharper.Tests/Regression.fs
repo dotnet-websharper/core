@@ -106,7 +106,7 @@ module Bug264 =
     let Make (f: unit -> X) : Y<X> = Y (f().A)
 
 module Bug323 =
-[<JavaScript>]
+    [<JavaScript>]
     type BaseClass(x) =
         member this.Value = x
 
