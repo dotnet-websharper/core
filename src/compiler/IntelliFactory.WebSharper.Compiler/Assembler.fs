@@ -88,6 +88,7 @@ let Assemble (logger: Logger) (iP: I.Pool) mP (meta: M.T)
         | V.StubProperty -> ()
         | V.InterfaceProperty -> ()
         | V.FieldProperty _ -> ()
+        | V.OptionalProperty _ -> ()
         | V.BasicProperty (g, s) ->
             Option.iter visitMethod g
             Option.iter visitMethod s

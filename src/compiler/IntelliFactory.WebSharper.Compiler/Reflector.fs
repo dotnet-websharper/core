@@ -90,6 +90,7 @@ type Annotation =
     | Remote
     | Require of R.TypeDefinition
     | Stub
+    | OptionalField
 
     override this.ToString() =
         match this with
@@ -105,6 +106,7 @@ type Annotation =
         | Remote _ -> "Remote"
         | Require _ -> "Require"
         | Stub -> "Stub"
+        | OptionalField -> "OptionalField"
 
 type Kind =
     | Class of ClassSlot
@@ -409,6 +411,7 @@ let annotationsTable =
             Some (Require (parseTypeReference warn x))
         | _ -> None)
     add typeof<A.StubAttribute> (fun attr _ -> Some Stub)
+    add typeof<A.OptionalFieldAttribute> (fun attr _ -> Some OptionalField)
     add typeof<CompilationMappingAttribute> (fun attr _ ->
         match attr.ConstructorArguments with
         | [IntArgument scf; IntArgument x] when enum scf = SourceConstructFlags.Field -> Some (Field x)

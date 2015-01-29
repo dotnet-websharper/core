@@ -47,6 +47,7 @@ type Annotation =
     | Remote
     | Require of R.TypeDefinition
     | Stub
+    | OptionalField
 
 [<Sealed>]
 type AddressSlot =

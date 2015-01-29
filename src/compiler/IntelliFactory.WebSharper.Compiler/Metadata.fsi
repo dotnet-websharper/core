@@ -47,8 +47,8 @@ type DataTypeKind =
     | Class of P.Address
     | Exception of P.Address
     | Interface of P.Address
-    | Object of list<string * string>
-    | Record of P.Address * list<string * string>
+    | Object of list<string * string * bool>
+    | Record of P.Address * list<string * string * bool>
 
 /// Represents method metadata.
 type MethodKind =
@@ -61,6 +61,8 @@ type MethodKind =
 /// Represents property metadata.
 type PropertyKind =
     | BasicProperty of option<MethodKind> * option<MethodKind>
+    | InstanceOptProperty of Name
+    | StaticOptProperty of P.Address
     | FieldProperty of int
     | InstanceStubProperty of Name
     | InterfaceProperty of Name

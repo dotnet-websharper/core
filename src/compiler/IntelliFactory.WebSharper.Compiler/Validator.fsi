@@ -84,6 +84,7 @@ type Method =
 
 type PropertyKind =
     | BasicProperty of option<Method> * option<Method>
+    | OptionalProperty
     | FieldProperty of int
     | InlineModuleProperty of Inlining.Inline
     | InterfaceProperty
@@ -95,6 +96,7 @@ type RecordProperty =
         JavaScriptName : string
         OriginalName : string
         PropertyType : TypeReference
+        OptionalField : bool
     }
 
 type Property =

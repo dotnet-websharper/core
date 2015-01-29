@@ -76,6 +76,11 @@ var IntelliFactory =
                 }
             },
 
+        GetOptional:
+            function (value) {
+                return (value === undefined) ? { $: 0 } : { $: 1, $0: value };
+            },
+
         New:
             function (ctor, fields) {
                 var r = new ctor();
@@ -116,6 +121,15 @@ var IntelliFactory =
             function (x) {
                 if (x === undefined) return {};
                 return x;
+            },
+
+        SetOptional:
+            function (obj, field, value) {
+                if (value.$ == 0) {
+                    delete obj[field];
+                } else {
+                    obj[field] = value.$0;
+                }
             },
 
         Start:
@@ -183,6 +197,16 @@ var IntelliFactory =
         CreateFuncWithRest: 
             function (length, f) {
                 return function() { return f([Array.prototype.slice.call(arguments, 0, length), Array.prototype.slice.call(arguments, length)]); }
+            },
+
+        UnionByType:
+            function (types, value) {
+                var vt = typeof value;
+                for (var i = 0; i < types.length; i++) {
+                    if (types[i] = vt || (types[i] == "array" && Array.isArray(value))) {
+                        return { $: i, $0: value };
+                    }
+                }
             }
     }
 };

@@ -45,7 +45,8 @@ module Type =
         | InteropType of Type * InlineTransforms
         | FSFunctionType of Type * Type * Type option
         | ArgumentsType of Type
-//        | ChoiceType of Type list
+        | ChoiceType of Type list
+        | OptionType of Type
         | DefiningType
         
         member this.Item
@@ -336,6 +337,8 @@ module Type =
                 [for n in norms xs -> TupleType xs]
             | UnionType (x, y) ->
                 norm x @ norm y
+            | InteropType (t, tr) ->
+                norm t |> List.map (fun t -> InteropType (t, tr))
             | t -> [t]
         and normo t =
             match t with
@@ -385,6 +388,28 @@ module Type =
         | [_] -> None
         | ts -> Some ts
 
+    let rec GetJSType t = 
+        match t with
+        | ArrayType _
+        | TupleType _ -> Some "array"
+        | FunctionType _
+        | FSFunctionType _ -> Some "function"
+        | SpecializedType (t, _)
+        | InteropType (t, _) -> GetJSType t
+        | SystemType t ->
+            match t.FullName with
+            | "System.String" -> Some "string"
+            | "System.Boolean" -> Some "boolean"
+            | "System.Int32"
+            | "System.Int64"
+            | "System.Double"
+            | "System.Byte" -> Some "number"
+            | _ -> Some "object"
+        | DeclaredType _
+        | ArgumentsType _ 
+        | DefiningType -> Some "object"
+        | _ -> None
+
     let TransformValue (t: Type) =
         match t with
         | FunctionType f ->
@@ -398,7 +423,16 @@ module Type =
             | 0, Some pa -> 
                 InteropType (FSFunctionType (ArgumentsType pa, f.ReturnType, f.This), getTransform())
             | _ -> t
-//        | UnionOf ts ->
+        | UnionOf ts ->
+            let tts = ts |> Seq.choose GetJSType |> Seq.distinct |> List.ofSeq
+            if List.length tts = List.length ts then
+                InteropType (ChoiceType ts, 
+                    {
+                        InTranform = fun x -> x + ".$0"
+                        OutTransform = fun x -> "$wsruntime.UnionByType([\"" + String.concat "\", \"" tts + "\"]," + x + ")"    
+                    }
+                )
+            else t
         | _ -> t
 
     let TransformArgs (t: Type) =

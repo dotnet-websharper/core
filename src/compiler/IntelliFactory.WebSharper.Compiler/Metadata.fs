@@ -45,8 +45,8 @@ type DataTypeKind =
     | Class of P.Address
     | Exception of P.Address
     | Interface of P.Address
-    | Object of list<string * string>
-    | Record of P.Address * list<string * string>
+    | Object of list<string * string * bool>
+    | Record of P.Address * list<string * string * bool>
 
 type MethodKind =
     | BasicInstanceMethod of Name
@@ -57,6 +57,8 @@ type MethodKind =
 
 type PropertyKind =
     | BasicProperty of option<MethodKind> * option<MethodKind>
+    | InstanceOptProperty of Name
+    | StaticOptProperty of P.Address
     | FieldProperty of int
     | InstanceStubProperty of Name
     | InterfaceProperty of Name
@@ -184,6 +186,10 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
             | V.BasicProperty (getter, setter) ->
                 let m x = Option.map ConvertMethod x
                 BasicProperty (m getter, m setter)
+            | V.OptionalProperty ->
+                match p.Scope with
+                | Instance -> InstanceOptProperty p.Name.LocalName
+                | Static -> StaticOptProperty p.Name
             | V.FieldProperty x ->
                 FieldProperty x
             | V.InlineModuleProperty i ->
@@ -231,8 +237,8 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
         | V.Record fields ->
             t.datatypes.[self] <-
                 match ty.Status with
-                | V.Compiled -> Record (ty.Name, [for f in fields -> (f.OriginalName, f.JavaScriptName)])
-                | V.Ignored  -> Object [for f in fields -> (f.OriginalName, f.JavaScriptName)]
+                | V.Compiled -> Record (ty.Name, [for f in fields -> (f.OriginalName, f.JavaScriptName, f.OptionalField)])
+                | V.Ignored  -> Object [for f in fields -> (f.OriginalName, f.JavaScriptName, f.OptionalField)]
             List.iter ParseMethod ty.Methods
             List.iter ParseProperty ty.Properties
         | V.Union cases ->

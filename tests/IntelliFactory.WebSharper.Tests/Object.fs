@@ -34,6 +34,12 @@ type O [<Inline "{}">] () =
     member this.P2 
         with [<Inline "$this.p2">] get() = X<int>
         and  [<Inline "void($this.p2 = $v)">] set v = ()
+    [<OptionalField>]
+    member this.P3 
+        with get() = X<int option> 
+        and  set v = () 
+
+type R = { [<Inline "asdasd">] KO: int option }
 
 [<JavaScript>]
 let Tests =
@@ -72,4 +78,17 @@ let Tests =
         let o = O(P1 = 1, P2 = 2)
         o.P1 =? 1
         o.P2 =? 2
+    }
+
+    Test "Optional fields" {
+        let o = O()
+        o.P3 =? None
+        o.P3 <- Some 1
+        o?P3 =? 1
+        o.P3 =? Some 1
+        let r = { KO = Some 2 }
+        r.KO =? Some 2
+        r?KO =? 2
+        let r2 = { KO = None }
+        r2 =? New []
     }

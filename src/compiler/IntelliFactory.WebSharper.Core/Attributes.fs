@@ -112,3 +112,9 @@ type RequireAttribute(def: System.Type) =
 [<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property)>]
 type StubAttribute() =
     inherit A()
+
+/// Adds automatic inlines to a property so that a missing JavaScript field
+/// is converted to None, otherwise Some fieldValue.
+[<Sealed; U(T.Class|||T.Property)>]
+type OptionalFieldAttribute() =
+    inherit A()

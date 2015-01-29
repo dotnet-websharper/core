@@ -88,6 +88,7 @@ type Method =
 
 type PropertyKind =
     | BasicProperty of option<Method> * option<Method>
+    | OptionalProperty
     | FieldProperty of int
     | InlineModuleProperty of I.Inline
     | InterfaceProperty
@@ -99,6 +100,7 @@ type RecordProperty =
         JavaScriptName : string
         OriginalName : string
         PropertyType : TypeReference
+        OptionalField : bool
     }
 
 type Property =
@@ -246,6 +248,7 @@ type Annotation =
     | JavaScript of Q.Expression
     | Remote
     | Stub
+    | OptionalField
 
 let fullName (t: System.Type) =
     System.String.Format("{0}/{1}",
@@ -310,9 +313,13 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
             | Re.Macro t -> Some (Macro t)
             | Re.Remote -> Some Remote
             | Re.Stub -> Some Stub
+            | Re.OptionalField -> Some OptionalField
             | _ -> None
         match List.choose parse annotations with
         | [] -> None
+        | [a] -> Some a
+        | annot ->
+        match annot |> List.filter (function OptionalField -> false | _ -> true) with     
         | [a] -> Some a
         | [Inline null; JavaScript x]
         | [JavaScript x; Inline null] ->
@@ -323,6 +330,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
         | a :: _ ->
             warn loc "Ignoring incompatible attributes."
             Some a
+        | [] -> None
 
     let pCtor pStub (dT: Re.Type) (iP: Pool) (t: Re.Member<_>)
         : option<Constructor> =
@@ -361,11 +369,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 None
             | Some Stub ->
                 Some (StubConstructor dT.AddressSlot.Address)
-            | Some (Constant _)
-            | Some (Field _)
-            | Some (Macro _)
-            | Some (Remote _)
-            | None ->
+            | _ ->
                 if pStub
                 then Some (StubConstructor dT.AddressSlot.Address)
                 else None
@@ -399,7 +403,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 then x
                 else 1 :: x
 
-    let pMethodKind pStub (iP: Pool) (t: Re.Member<_>) =
+    let pPropMethodKind pStub pOptF (iP: Pool) (t: Re.Member<_>) =
         let self = t.Definition : MethodDefinition
         let scope = if self.IsStatic then Static else Instance
         let pars = [for p in self.Parameters -> p.Name]
@@ -415,12 +419,12 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 iP.CreateInline scope loc pars (I.Inlined pat)
                 |> InlineMethod
                 |> Some
-            | Some (InlineJavaScript js) ->
+            | Some (InlineJavaScript js) when not pOptF ->
                 iP.CreateInline scope loc pars
                     (I.Quoted (Corrector.Method (curr, scope), js))
                 |> InlineMethod
                 |> Some
-            | Some (JavaScript js) -> Some (JavaScriptMethod js)
+            | Some (JavaScript js) when not pOptF -> Some (JavaScriptMethod js)
             | Some (Macro d) ->
                 let m = macros.Load d
                 Some (MacroMethod (d, m))
@@ -442,10 +446,20 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 | Some _ -> RemoteMethod (RemoteSync, ref None)
                 |> Some
             | Some Stub -> Some StubMethod
-            | Some (Constant _)
-            | Some (Field _)
-            | None ->
-                if pStub || self.IsVirtual then Some StubMethod else None
+            | _ ->
+                if (pStub || self.IsVirtual) && not pOptF then Some StubMethod else None
+//                if pOptF then
+//                    let pat = 
+//                        if self.IsGetter then
+//                            Some ("$wsruntime.GetOptional($this." + self.Name.[4 ..] + ")")
+//                        elif self.IsSetter then
+//                            Some ("$wsruntime.SetOptional($this, '" + self.Name.[4 ..] + "', $value)")
+//                        else None
+//                    pat |> Option.map (fun pat ->
+//                        iP.CreateInline scope loc pars (I.Inlined pat)
+//                        |> InlineMethod
+//                    )
+//                elif pStub || self.IsVirtual then Some StubMethod else None
         match annot with
         | Some (RemoteMethod _) ->
             match verifier.VerifyRemoteMethod t.Definition with
@@ -453,6 +467,9 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
             | Verifier.Incorrect msg -> warn t.Location msg
         | _ -> ()
         annot
+
+    let pMethodKind pStub (iP: Pool) (t: Re.Member<_>) =
+        pPropMethodKind pStub false (iP: Pool) t
 
     let fixStubName (n: Name) (name: string) : Name =
         match n with
@@ -494,9 +511,17 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 Slot = t.MemberSlot
             })
 
+    let pPropMethod pStub pOptF (iP: Pool) t =
+        let kind = pPropMethodKind pStub pOptF iP t
+        pMethodFromKind iP t kind
+
     let pMethod pStub (iP: Pool) t =
         let kind = pMethodKind pStub iP t
         pMethodFromKind iP t kind
+
+    let isOptProp (p: PropertyDefinition) =
+        let pt = p.PropertyType
+        pt.AssemblyName.StartsWith "FSharp.Core," && pt.Name = "FSharpOption`1"
 
     let pPropKind pStub (iP: Pool) (p: Re.Property) =
         let prop = p.Member
@@ -517,13 +542,15 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                     getters and setters."
             Some StubProperty
         else
-            let pM = pMethod pStub iP
+            let pr pOptF =
+                let pM = pPropMethod pStub pOptF iP
+                match Option.bind pM p.Getter, Option.bind pM p.Setter with
+                | None, None -> if pOptF then Some OptionalProperty else None 
+                | g, s -> Some (BasicProperty (g, s))
             match annot with
             | Some (Field j) -> Some (FieldProperty j)
-            | _ ->
-                match Option.bind pM p.Getter, Option.bind pM p.Setter with
-                | None, None -> None
-                | g, s -> Some (BasicProperty (g, s))
+            | Some OptionalField -> pr (isOptProp p.Member.Definition)
+            | _ -> pr false
 
     let pPropFromKind iP (p: Re.Property) kind : option<Property> =
         let prop = p.Member
@@ -744,10 +771,14 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool)
                 |> List.map (fun f ->
                     let oN = f.Definition.Name
                     let cN = f.AddressSlot.Address.LocalName
+                    let optF =
+                        f.Annotations |> List.exists (function Re.OptionalField -> true | _ -> false)
+                        && isOptProp f.Definition   
                     {
                         OriginalName = oN
                         JavaScriptName = cN
                         PropertyType = f.Definition.PropertyType
+                        OptionalField = optF
                     })
             let ms = c (pMethod pStub iP) t.Methods
             let ps = c (pProp pStub iP) t.Properties

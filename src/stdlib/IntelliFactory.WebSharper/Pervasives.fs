@@ -69,6 +69,10 @@ type RpcAttribute = A.RemoteAttribute
 /// Marks members that should be compiled by-name.
 type StubAttribute = A.StubAttribute
 
+/// Adds automatic inlines to a property so that a missing JavaScript field
+/// is converted to None, otherwise Some fieldValue.
+type OptionalFieldAttribute = A.OptionalFieldAttribute
+
 /// Re-exports Remoting.IRpcHandlerFactory.
 type IRpcHandlerFactory =
     IntelliFactory.WebSharper.Core.Remoting.IHandlerFactory

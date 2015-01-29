@@ -92,7 +92,7 @@ let fieldName (meta: Metadata.T) (f: Q.Concrete<R.Property>) =
     let n = f.Entity.Name
     match meta.DataType f.Entity.DeclaringType with
     | Some (M.Record (_, fs)) | Some (M.Object fs) ->
-        let ok (x, y) = if x = n then Some y else None
+        let ok (x, y, _) = if x = n then Some y else None
         match List.tryPick ok fs with
         | Some n -> str n
         | None -> str n
@@ -228,7 +228,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
         | Q.FieldGetInstance (e, f) ->
             (!e).[str f.Entity.Name]
         | Q.FieldGetRecord (e, f) ->
-            (!e).[fieldName meta f]
+            (!e).[fieldName meta f] // TODO: handle OptionalField
         | Q.FieldGetStatic f
         | Q.FieldSetStatic (f, _) ->
             err "Static fields are not supported" f.Entity.Name
@@ -237,7 +237,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
         | Q.FieldSetInstance (t, f, v) ->
             C.FieldSet (!t, str f.Entity.Name, !v)
         | Q.FieldSetRecord (t, f, v) ->
-            C.FieldSet (!t, fieldName meta f, !v)
+            C.FieldSet (!t, fieldName meta f, !v) // TODO: handle OptionalField
         | Q.ForIntegerRangeLoop (v, min, max, body) ->
             C.ForIntegerRangeLoop (!^v, !min, !max, !body)
         | Q.Hole _ ->
@@ -295,7 +295,9 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                 if List.length fields = args.Length then
                     let init =
                         fields
-                        |> List.map2 (fun v (_, f) -> (f, v)) !!args
+                        |> List.map2 (fun v (_, f, o) -> 
+                            f, if o then C.FieldGet (v, str "$0") else v
+                        ) !!args
                     let obj = C.NewObject init
                     call C.Runtime "New" [glob fn; obj]
                 else
@@ -304,7 +306,9 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                 if List.length fields = args.Length then
                     let init =
                         fields
-                        |> List.map2 (fun v (_, f) -> (f, v)) !!args
+                        |> List.map2 (fun v (_, f, o) -> 
+                            f, if o then C.FieldGet (v, str "$0") else v
+                        ) !!args
                     C.NewObject init
                 else
                     invalidQuot()
@@ -335,6 +339,12 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                 match getter with
                 | Some g -> tCall exn q g xs
                 | None -> invalidQuot()
+            | Some (M.InstanceOptProperty x) ->
+                match xs with
+                | t :: _ -> call C.Runtime "GetOptional" [C.FieldGet (!t, str x)]
+                | _ -> invalidQuot()
+            | Some (M.StaticOptProperty fn) ->
+                call C.Runtime "GetOptional" [(globParent fn).[str fn.LocalName]]    
             | Some (M.InterfaceProperty x) ->
                 match xs with
                 | t :: xs -> C.Call (!t, str ("get_" + x), !!xs)
@@ -367,6 +377,14 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool)
                         err "Cannot assign to an inline property" p.Entity.Name
                     | _ ->
                         err "Failed to translate assignment" p.Entity.Name
+            | Some (M.InstanceOptProperty x) ->
+                match xs with
+                | t :: v :: _ -> call C.Runtime "SetOptional" [!t; str x; !v]
+                | _ -> invalidQuot()
+            | Some (M.StaticOptProperty fn) ->
+                match xs with
+                | [v] -> call C.Runtime "SetOptional" [globParent fn; str fn.LocalName; !v]
+                | _ -> err "Cannot set an indexed optional property" fn.LocalName
             | Some (M.InstanceStubProperty x) ->
                 match xs with
                 | t :: v :: _ -> C.FieldSet (!t, str x, !v)

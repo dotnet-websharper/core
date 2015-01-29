@@ -153,9 +153,12 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     let sysWeb = aR.Resolve(typeof<System.Web.UI.WebResourceAttribute>.Assembly.FullName)
     let main = out.MainModule
 
-    let func =
-        fscore.MainModule.GetType(typedefof<_->_>.FullName)
+    let fromFsCore (name: string) = 
+        fscore.MainModule.GetType("Microsoft.FSharp.Core", name)
         |> main.Import
+
+    let funcType = fromFsCore "FSharpFunc`2"
+    let optionType = fromFsCore "FSharpOption`1"
 
     let fromSystem (name: string) =
         mscorlib.MainModule.GetType("System", name)
@@ -238,7 +241,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         genericInstance converterType [d; r]
 
     member b.Function d r =
-        genericInstance func [d; r]
+        genericInstance funcType [d; r]
 
     member b.Arguments a =
         genericInstance arguments [a]
@@ -248,6 +251,12 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
 
     member b.Tuple(ts: seq<TypeReference>) =
         commonType mscorlib "System" "Tuple" ts
+
+    member b.Choice(ts: seq<TypeReference>) =
+        commonType fscore "Microsoft.FSharp.Core" "Choice" ts
+
+    member b.Option t =
+        genericInstance optionType [t]    
 
     member b.Type(assemblyName: string, fullName: string) =
         let a = if AssemblyName(assemblyName).Name = "FSharp.Core" then fscore else aR.Resolve assemblyName
@@ -366,6 +375,10 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: G
         | Type.ArgumentsType t ->
             tB.Arguments (tRef t)
         | Type.UnionType _ -> tB.Object
+        | Type.ChoiceType ts ->
+            tB.Choice (ts |> Seq.map tRef)
+        | Type.OptionType t ->
+            tB.Option (tRef t) 
         | Type.DefiningType ->
             try byId defT.Id
             with _ -> failwith "Can't Require a type definition containing TSelf" 
