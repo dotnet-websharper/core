@@ -96,6 +96,10 @@ module CodeModel =
         static member ( * ) (this: TypeParameter, x: Type.Parameter) =
             this.Type * x
 
+        /// Constructs an option type.
+        static member ( !? ) (this: TypeParameter) =
+            !? this.Type
+
         member this.Type = Type.GenericType this.Position
 
         interface Type.IType with
@@ -138,7 +142,7 @@ module CodeModel =
 
         member this.Item
             with get ([<System.ParamArray>] x : Type.IType []) =
-                this.Type.Item x
+                this.Type.[x]
 
         /// `T?x` constructs a `Parameter` named "x" of type `T`.
         static member op_Dynamic(this: TypeDeclaration, name: string) =
@@ -156,6 +160,7 @@ module CodeModel =
         static member ( * ) (this: TypeDeclaration, x: Type.Parameter) =
             this.Type * x
    
+        /// Constructs an option type.
         static member ( !? ) (this: TypeDeclaration) =
             !? this.Type
 

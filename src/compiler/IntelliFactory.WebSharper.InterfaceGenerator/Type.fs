@@ -450,7 +450,7 @@ module Type =
                 | Some _ -> thisArgsTransform
             match f.Parameters.Length, f.ParamArray with
             | l, None when l > 1 -> 
-                InteropType (FSFunctionType (TupleType (f.Parameters |> List.map snd), f.ReturnType, f.This), getTransform())
+                InteropType (FSFunctionType (TupleType (f.Parameters |> List.map snd |> List.rev), f.ReturnType, f.This), getTransform())
             | 0, Some pa -> 
                 InteropType (FSFunctionType (ArgumentsType pa, f.ReturnType, f.This), getTransform())
             | _ -> t
