@@ -271,10 +271,6 @@ module Pervasives =
     let ( *+ ) (parameters: Type.IParameters) (paramArrayType: Type.IType) =
         { parameters.Parameters with Variable = Some paramArrayType.Type }
 
-    /// Constructs an optional parameter.
-    let ( !? ) (parameter: Type.IParameter) =
-        { parameter.Parameter with Optional = true }
-
     /// Constructs a new `ArrayType`.
     let ( !| ) (itemType: Type.IType) =
         Type.ArrayOf itemType

@@ -56,12 +56,8 @@ module Type =
                 | _ -> SpecializedType (this, [for t in x -> t.Type])
 
         /// `T?x` constructs a `Parameter` named "x" of type `T`.
-        static member op_Dynamic(ty: Type, name: string) =
-            {
-                Name = Some name
-                Type = ty
-                Optional = false
-            }
+        static member op_Dynamic(this: Type, name: string) =
+            {  this.Parameter with Name = Some name }
 
         /// Constructs tuple types.
         static member ( * ) (a: Type, b: IType) =
@@ -77,13 +73,25 @@ module Type =
         static member ( + ) (this: Type, other: IType) =
             UnionType (this, other.Type)
 
+        /// Constructs an option type.
+        static member ( !? ) (this: Type) =
+            OptionType this
+
         /// Converts the type to a parameter.
         member this.Parameter = 
-            {
-                Name = None
-                Type = this
-                Optional = false
-            }
+            match this with
+            | OptionType t ->
+                {
+                    Name = None
+                    Type = t
+                    Optional = true
+                }
+            | _ ->
+                {
+                    Name = None
+                    Type = this
+                    Optional = false
+                }
 
         interface IParameter with
             member this.Parameter = this.Parameter
@@ -146,6 +154,9 @@ module Type =
                 Arguments = [a; b.Parameter]
                 Variable = None
             }
+
+        static member ( !? ) (this: Parameter) =
+            { this with Optional = true }
 
         /// Sets the name.
         static member ( |=> ) (this: Parameter, name: string) =
@@ -311,6 +322,26 @@ module Type =
             | FunctionType x ->
                 [ for this in normo x.This do
                     for returnType in norm x.ReturnType do
+                        // for if there is a generic or obj[] paramarray but no 
+                        // other parameters, create a single parameter overload
+                        match x.Parameters, x.ParamArray with
+                        | [], Some (GenericType _ | ArrayType (1, _) as pa) ->
+                            for p in norm pa do
+                                yield {
+                                    This = this
+                                    ReturnType = returnType
+                                    ParamArray = None
+                                    Parameters = [ "a", p ]
+                                }
+                                |> FunctionType
+                                yield {
+                                    This = this
+                                    ReturnType = returnType
+                                    ParamArray = Some p
+                                    Parameters = []
+                                }
+                                |> FunctionType
+                        | _ -> 
                         for paramArray in normo x.ParamArray do
                             let parameters =
                                 norms (List.map snd x.Parameters)
@@ -410,7 +441,7 @@ module Type =
         | DefiningType -> Some "object"
         | _ -> None
 
-    let TransformValue (t: Type) =
+    let TransformValue t =
         match t with
         | FunctionType f ->
             let getTransform() =
@@ -435,7 +466,12 @@ module Type =
             else t
         | _ -> t
 
-    let TransformArgs (t: Type) =
+    let TransformOption t =
+        match t with
+        | OptionType t -> OptionType (TransformValue t)
+        | _ -> TransformValue t
+
+    let TransformArgs t =
         match t with 
         | FunctionType f ->
             FunctionType 

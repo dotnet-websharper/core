@@ -55,7 +55,8 @@ var IntelliFactory =
 
         DeleteEmptyFields:
             function (obj, fields) {
-                for (var f in fields) {
+                for (var i = 0; i < fields.length; i++) {
+                    var f = fields[i];
                     if (obj[f] === undefined) { delete obj[f]; }
                 }
                 return obj;

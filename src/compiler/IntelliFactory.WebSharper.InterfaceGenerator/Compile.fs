@@ -74,22 +74,18 @@ type InlineGenerator() =
                             | name when m.IsStatic -> td.Name + "." + name
                             | name -> name
                         if m.IsStatic then
-                            let tpl = "{0}.apply(undefined,[{1}].concat(${2}))"
-                            String.Format(tpl, name, args, arity)
+                            sprintf "%s.apply(undefined,[%s].concat($%d))" name args arity
                         else
-                            let tpl = "$this.{0}.apply($this,[{1}].concat(${2}))"
-                            String.Format(tpl, name, args, arity + 1)
+                            sprintf "$this.%s.apply($this,[%s].concat($%d))" name args (arity + 1)
                     | None ->
                         let name =
                             match m.Name with
                             | "" -> "new " + td.Name
                             | name when m.IsStatic -> td.Name + "." + name
                             | name -> name
-                        let tpl =
-                            if m.IsStatic
-                            then "{0}({1})"
-                            else "$this.{0}({1})"
-                        String.Format(tpl, name, args)
+                        if m.IsStatic
+                        then sprintf "%s(%s)" name args
+                        else sprintf "$this.%s(%s)" name args
                 match f.ReturnType with
                 | Type.InteropType (_, tr) -> tr.OutTransform mInl
                 | _ -> mInl 
@@ -98,31 +94,52 @@ type InlineGenerator() =
 
     member g.GetPropertyGetterInline(td: Code.TypeDeclaration, t: T, p: Code.Property) =
         if p.GetterInline.IsSome then p.GetterInline.Value else
-            let pfx = if p.IsStatic then td.Name else "$this"
-            let ind = if p.IndexerType.IsSome then "[$index]" else ""
-            let format =
-                if p.Name = "" then "{0}{2}"
-                elif validJsIdentRE.IsMatch p.Name
-                then "{0}.{1}{2}"
-                else "{0}['{1}']{2}"
-            let inl = String.Format(format, pfx, p.Name, ind)
+            let inl = 
+                let pfx = if p.IsStatic then td.Name else "$this"
+                let noIndex =
+                    let name = p.Name
+                    if name = "" then pfx
+                    elif validJsIdentRE.IsMatch name
+                    then sprintf "%s.%s" pfx name
+                    else sprintf "%s['%s']" pfx name
+                if p.IndexerType.IsSome then noIndex + "[$index]" else noIndex
+            let withInterop t =
+                match t with  
+                | Type.InteropType (_, tr) -> tr.OutTransform inl
+                | _ -> inl
             match p.Type with
-            | Type.InteropType (_, tr) -> tr.OutTransform inl
-            | _ -> inl
+            | Type.OptionType t -> "$wsruntime.GetOptional(" + withInterop t + ")"
+            | _ -> withInterop t
 
     member g.GetPropertySetterInline(td: Code.TypeDeclaration, t: T, p: Code.Property) =
         if p.SetterInline.IsSome then p.SetterInline.Value else
+            let t, opt =
+                match p.Type with
+                | Type.OptionType t -> t, true
+                | t -> t, false 
+            let name = p.Name
             let pfx = if p.IsStatic then td.Name else "$this"
-            let ind = if p.IndexerType.IsSome then "[$index]" else ""
-            let format =
-                if p.Name = "" then "void ({0}{2} = $value)"
-                elif validJsIdentRE.IsMatch p.Name
-                then "void ({0}.{1}{2} = $value)"
-                else "void ({0}['{1}']{2} = $value)"
-            let inl = String.Format(format, pfx, p.Name, ind)
-            match p.Type with
-            | Type.InteropType (_, tr) -> tr.InTranform inl
-            | _ -> inl
+            let value = 
+                match t with
+                | Type.InteropType (_, tr) -> tr.InTranform "$value"
+                | _ -> "$value"
+            let prop() =
+                if validJsIdentRE.IsMatch name then sprintf "%s.%s" pfx name
+                else sprintf "%s['%s']" pfx name
+            if opt then
+                if name = "" then 
+                    if p.IndexerType.IsSome 
+                    then sprintf "$wsruntime.SetOptional(%s, $index, %s)" pfx value
+                    else failwith "Optional property with empty name not allowed."
+                else
+                    if p.IndexerType.IsSome then
+                        sprintf "$wsruntime.SetOptional(%s, $index, %s)" (prop()) value 
+                    else 
+                        sprintf "$wsruntime.SetOptional(%s, '%s', %s)" pfx name value    
+            else
+                let ind = if p.IndexerType.IsSome then "[$index]" else ""
+                if name = "" then sprintf "void (%s%s = %s)" pfx ind value
+                else sprintf "void (%s%s = %s)" (prop()) ind value
 
     member g.GetSourceName(entity: Code.Entity) =
         let mangle name =
@@ -634,14 +651,10 @@ type MemberConverter
             match Type.Normalize p.Type with
             | [t] ->
                 if Option.isNone p.GetterInline && Option.isSome p.SetterInline
-                then Type.TransformValue t
+                then Type.TransformOption t
                 else t
             | _ -> p.Type
         let ty = tC.TypeReference (t, td)
-//        let ty =
-//            match Type.Normalize p.Type with
-//            | [t] -> tC.TypeReference t
-//            | _  -> tB.Object
         let name = iG.GetPropertySourceName p
         let attrs = PropertyAttributes.None
         let pD = PropertyDefinition(name, attrs, ty)
@@ -877,26 +890,18 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
         if t.IsArray then
             let t = t :?> ArrayType
             match t.Rank with
-            | 0 | 1 -> String.Format("{0}[]", typeRefId t.ElementType)
-            | k -> String.Format("{0}, [{1}]", typeRefId t.ElementType, String.replicate (k - 1) ",")
+            | 0 | 1 -> typeRefId t.ElementType + "[]"
+            | k -> sprintf "%s, [%s]" (typeRefId t.ElementType) (String.replicate (k - 1) ",")
         else
             // TODO: generic types.
             t.FullName
 
     let propertyId (p: PropertyDefinition) =
-        String.Format
-            (
-                "P:{0}.{1}",
-                typeRefId p.DeclaringType,
-                p.Name
-            )
+        sprintf "P:%s.%s" (typeRefId p.DeclaringType) p.Name
 
     let methodId (m: MethodDefinition) =
-        String.Format
+        sprintf "M:%s.%s(%s)" (typeRefId m.DeclaringType) m.Name
             (
-                "M:{0}.{1}({2})", 
-                typeRefId m.DeclaringType,
-                m.Name,
                 seq {
                     for p in m.Parameters ->
                         typeRefId p.ParameterType
@@ -919,7 +924,7 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
 
     let rec visitType (t: TypeDefinition) =
         seq {
-            yield! visitMember (String.Format("T:{0}", typeRefId t)) (getComment t)
+            yield! visitMember ("T:" + typeRefId t) (getComment t)
             for m in t.Methods do
                 yield! visitMethod m
             for p in t.Properties do

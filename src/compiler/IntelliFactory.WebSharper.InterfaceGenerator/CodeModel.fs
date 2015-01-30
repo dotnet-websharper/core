@@ -155,6 +155,9 @@ module CodeModel =
         /// Adds the class to parameters.
         static member ( * ) (this: TypeDeclaration, x: Type.Parameter) =
             this.Type * x
+   
+        static member ( !? ) (this: TypeDeclaration) =
+            !? this.Type
 
         interface Type.IType with
             member this.Type = this.Type
