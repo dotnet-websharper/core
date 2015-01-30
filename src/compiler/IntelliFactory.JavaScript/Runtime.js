@@ -190,20 +190,20 @@ var IntelliFactory =
 
         CreateFuncWithArgs:
             function (f) {
-                return function () { return f(arguments); }
+                return function () { return f.call(this, arguments); }
             },
 
         CreateFuncWithThis:
             function (f) {
-                return function () { return f.apply(this, arguments); }
+                return function () { return f(this).apply(null, arguments); }
             },
 
-        CreateFuncWithThisArgs:
+        CreateFuncWithArgsRest: 
             function (f) {
                 return function (x) { return f([x, Array.prototype.slice.call(arguments, 1)]); }
             },
 
-        CreateFuncWithRest: 
+        CreateFuncWithRest:
             function (length, f) {
                 return function() { return f([Array.prototype.slice.call(arguments, 0, length), Array.prototype.slice.call(arguments, length)]); }
             },

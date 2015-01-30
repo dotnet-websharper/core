@@ -1,22 +1,33 @@
 ﻿var WIGtest = {
-    TupledFuncIn: function (f) {
+    ArgsFuncIn: function (f) {
         return f(1, 2)
     },
 
-    TupledFuncOut: function() {
-        return function(a, b) { return a + b; }
+    ArgsFuncOut: function () {
+        return function (a, b) { return a + b; }
     },
 
-    GetThis: function() {
+    GetThis: function () {
         return this;
     },
 
-    GetGetThis: function() {
+    GetGetThis: function () {
         return WIGtest.GetThis;
     },
 
-    TupledFuncInWithThis: function(f) {
-       return f(this.x, a, b)
-    }
+    FuncInWithThis: function (f) {
+        return f.call({ x: 0 });
+    },
 
+    ArgFuncInWithThis: function (f) {
+        return f.call({ x: 0 }, 1);
+    },
+
+    ArgsFuncInWithThis: function (f) {
+        return f.call({ x: 0 }, 1, 2);
+    },
+
+    TupledFuncInWithThis: function (f) {
+        return f.call({ x: 0 }, [1, 2]);
+    }
 }

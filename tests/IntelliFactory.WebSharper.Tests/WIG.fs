@@ -30,6 +30,12 @@ let Tests =
     Section "Interface generator"
 
     Test "Functions" {
-        WIGtest.TupledFuncIn(fun (a, b) -> a + b) =? 3    
-        WIGtest.TupledFuncOut()(1, 2) =? 3
+        WIGtest.ArgsFuncIn(fun (a, b) -> a + b) =? 3    
+        WIGtest.ArgsFuncOut()(1, 2) =? 3
+        let x = JustX(5)       
+        WIGtest.GetGetThis().Bind(x)() =? x
+        WIGtest.FuncInWithThis(FuncWithThis(fun (t: JustX) () -> string t.X)) =? "0"
+        WIGtest.ArgFuncInWithThis(FuncWithThis(fun (t: JustX) a -> string t.X + string a)) =? "01"
+        WIGtest.ArgsFuncInWithThis(FuncWithThis(fun (t: JustX) (a, b) -> string t.X + string a + string b)) =? "012"
+        WIGtest.TupledFuncInWithThis(FuncWithThis(fun (t: JustX) (a, b) -> string t.X + string a + string b)) =? "012"
     }

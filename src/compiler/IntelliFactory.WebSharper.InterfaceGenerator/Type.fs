@@ -401,12 +401,6 @@ module Type =
     let private argsTransform = 
         {
             InTranform = fun x -> "$wsruntime.CreateFuncWithArgs(" + x + ")"
-            OutTransform = fun x -> "function(args) { return (" + x + ").apply(null, args) }"
-        }
-
-    let private thisArgsTransform = 
-        {
-            InTranform = fun x -> "$wsruntime.CreateFuncWithThisArgs(" + x + ")"
             OutTransform = fun x -> "function(args) { return (" + x + ").apply(this, args) }"
         }
 
@@ -444,15 +438,11 @@ module Type =
     let TransformValue t =
         match t with
         | FunctionType f ->
-            let getTransform() =
-                match f.This with
-                | None -> argsTransform
-                | Some _ -> thisArgsTransform
             match f.Parameters.Length, f.ParamArray with
             | l, None when l > 1 -> 
-                InteropType (FSFunctionType (TupleType (f.Parameters |> List.map snd |> List.rev), f.ReturnType, f.This), getTransform())
+                InteropType (FSFunctionType (TupleType (f.Parameters |> List.map snd |> List.rev), f.ReturnType, f.This), argsTransform)
             | 0, Some pa -> 
-                InteropType (FSFunctionType (ArgumentsType pa, f.ReturnType, f.This), getTransform())
+                InteropType (FSFunctionType (ArgumentsType pa, f.ReturnType, f.This), argsTransform)
             | _ -> t
         | UnionOf ts ->
             let tts = ts |> Seq.choose GetJSType |> Seq.distinct |> List.ofSeq
