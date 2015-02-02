@@ -60,7 +60,7 @@ type InlineGenerator() =
                         for i in 0 .. f.Parameters.Length - 1 ->
                             let inl = "$" + string ((if m.IsStatic then 0 else 1) + i)
                             match f.Parameters.[i] with
-                            | _, Type.InteropType (_, tr) -> tr.InTranform inl
+                            | _, Type.InteropType (_, tr) -> tr.InTransform inl
                             | _ -> inl
                     }
                     |> String.concat ","
@@ -121,7 +121,7 @@ type InlineGenerator() =
             let pfx = if p.IsStatic then td.Name else "$this"
             let value = 
                 match t with
-                | Type.InteropType (_, tr) -> tr.InTranform "$value"
+                | Type.InteropType (_, tr) -> tr.InTransform "$value"
                 | _ -> "$value"
             let prop() =
                 if validJsIdentRE.IsMatch name then sprintf "%s.%s" pfx name

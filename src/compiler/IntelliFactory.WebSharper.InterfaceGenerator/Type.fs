@@ -118,7 +118,7 @@ module Type =
       
     and [<ReferenceEquality>] InlineTransforms =
         {
-            InTranform : string -> string
+            InTransform : string -> string
             OutTransform : string -> string
         }
 
@@ -400,7 +400,7 @@ module Type =
 
     let private argsTransform = 
         {
-            InTranform = fun x -> "$wsruntime.CreateFuncWithArgs(" + x + ")"
+            InTransform = fun x -> "$wsruntime.CreateFuncWithArgs(" + x + ")"
             OutTransform = fun x -> "function(args) { return (" + x + ").apply(this, args) }"
         }
 
@@ -449,7 +449,7 @@ module Type =
             if List.length tts = List.length ts then
                 InteropType (ChoiceType ts, 
                     {
-                        InTranform = fun x -> x + ".$0"
+                        InTransform = fun x -> x + ".$0"
                         OutTransform = fun x -> "$wsruntime.UnionByType([\"" + String.concat "\", \"" tts + "\"]," + x + ")"    
                     }
                 )

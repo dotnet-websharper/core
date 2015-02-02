@@ -28,9 +28,6 @@ module Pervasives =
     module Code = CodeModel
     module R = IntelliFactory.WebSharper.Core.Reflection
 
-    type private T = Type.Type
-    type private P = Code.TypeParameter
-
     type IExtension =
         abstract Assembly : Code.Assembly
 
@@ -240,7 +237,7 @@ module Pervasives =
         Type.InteropType (t.Type, transforms)
 
     /// Adds indexer argument.
-    let Indexed (indexer: T) (p: Code.Property) =
+    let Indexed (indexer: Type.Type) (p: Code.Property) =
         p |> Code.Entity.Update (fun x -> x.IndexerType <- Some indexer)
 
     /// Constructs a new `Type`.
@@ -300,12 +297,12 @@ module Pervasives =
             let generics = 
                 match this with
                 | GenericNamed ns ->
-                    ns |> List.mapi (fun i n -> P (i, n))
+                    ns |> List.mapi (fun i n -> Code.TypeParameter (i, n))
                 | _ ->
                     let makeRet = snd (Microsoft.FSharp.Reflection.FSharpType.GetFunctionElements (make.GetType()))
                     let genName = if (typeof<Code.TypeDeclaration>).IsAssignableFrom makeRet then "T" else "U"
-                    if arity = 1 then [ P (0, genName) ]
-                    else List.init arity (fun x -> P (x, genName + string (x + 1)))
+                    if arity = 1 then [ Code.TypeParameter (0, genName) ]
+                    else List.init arity (fun x -> Code.TypeParameter (x, genName + string (x + 1)))
             let x = make generics
             match x :> Code.Entity with
             | :? Code.Method as m -> m.Generics <- generics

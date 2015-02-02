@@ -24,7 +24,6 @@ open System
 
 /// Implements common code generation patterns in binding code.
 module Pattern =
-    type private T = Type.Type
 
     /// Constructs a new class with no constructors and a given
     /// list of static inline members.
@@ -48,8 +47,8 @@ module Pattern =
     /// to be used by the Config function.
     type ConfigProperties =
         {
-            Required : seq<string * T>
-            Optional : seq<string * T>
+            Required : seq<string * Type.Type>
+            Optional : seq<string * Type.Type>
         }
         static member Empty =
             {
@@ -85,9 +84,9 @@ module Pattern =
 
     type ConfigObsProperties =
         {
-            Required : seq<string * T>
-            Optional : seq<string * T>
-            Obsolete : seq<string * T>
+            Required : seq<string * Type.Type>
+            Optional : seq<string * Type.Type>
+            Obsolete : seq<string * Type.Type>
         }
         static member Empty =
             {
