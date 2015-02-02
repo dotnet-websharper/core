@@ -37,13 +37,13 @@ module Type =
         | ArrayType of int * Type
         | DeclaredType of Id
         | FunctionType of Function
-        | GenericType of int //of string * ref<list<Type>>
+        | GenericType of int
         | SpecializedType of Type * list<Type>
         | SystemType of R.Type
         | TupleType of list<Type>
         | UnionType of Type * Type
         | InteropType of Type * InlineTransforms
-        | FSFunctionType of Type * Type * Type option
+        | FSFunctionType of Type * Type 
         | ArgumentsType of Type
         | ChoiceType of Type list
         | OptionType of Type
@@ -398,6 +398,18 @@ module Type =
         |> Seq.distinctBy key
         |> Seq.toList
 
+    let private thisTransform =
+        {
+            InTransform = fun x -> "$wsruntime.CreateFuncWithThis(" + x + ")"
+            OutTransform = fun x -> "function(obj) { return (" + x + ").bind(obj); }"
+        }
+
+    let private thisArgsTransform =
+        {
+            InTransform = fun x -> "$wsruntime.CreateFuncWithThisArgs(" + x + ")"
+            OutTransform = fun x -> "function(obj) { return function(args) { return (" + x + ").apply(this, args); }; }"
+        }
+
     let private argsTransform = 
         {
             InTransform = fun x -> "$wsruntime.CreateFuncWithArgs(" + x + ")"
@@ -438,11 +450,21 @@ module Type =
     let TransformValue t =
         match t with
         | FunctionType f ->
-            match f.Parameters.Length, f.ParamArray with
-            | l, None when l > 1 -> 
-                InteropType (FSFunctionType (TupleType (f.Parameters |> List.map snd |> List.rev), f.ReturnType, f.This), argsTransform)
-            | 0, Some pa -> 
-                InteropType (FSFunctionType (ArgumentsType pa, f.ReturnType, f.This), argsTransform)
+            match f.This, f.Parameters.Length, f.ParamArray with
+            | None, l, None when l > 1 -> 
+                InteropType (FSFunctionType (TupleType (f.Parameters |> List.map snd |> List.rev), f.ReturnType), argsTransform)
+            | None, 0, Some pa -> 
+                InteropType (FSFunctionType (ArgumentsType pa, f.ReturnType), argsTransform)
+            | Some this, 0, None -> 
+                InteropType (FSFunctionType (this, FSFunctionType (Unit, f.ReturnType)), thisTransform)
+            | Some this, 1, None -> 
+                InteropType (FSFunctionType (this, FSFunctionType (snd f.Parameters.[0], f.ReturnType)), thisTransform)
+            | Some this, _, None -> 
+                InteropType (FSFunctionType (this, FSFunctionType (TupleType (f.Parameters |> List.map snd |> List.rev), f.ReturnType)), thisArgsTransform)
+            | Some this, 0, Some pa -> 
+                InteropType (FSFunctionType (this, FSFunctionType (ArgumentsType pa, f.ReturnType)), thisArgsTransform)
+            | Some this, _, _ ->
+                InteropType (FSFunctionType (this, FunctionType { f with This = None }), thisTransform)
             | _ -> t
         | UnionOf ts ->
             let tts = ts |> Seq.choose GetJSType |> Seq.distinct |> List.ofSeq

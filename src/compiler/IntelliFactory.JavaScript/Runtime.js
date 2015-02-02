@@ -198,7 +198,12 @@ var IntelliFactory =
                 return function () { return f(this).apply(null, arguments); }
             },
 
-        CreateFuncWithArgsRest: 
+        CreateFuncWithThisArgs:
+            function (f) {
+                return function () { return f(this).call(null, arguments); }
+            },
+
+        CreateFuncWithArgsRest:
             function (f) {
                 return function (x) { return f([x, Array.prototype.slice.call(arguments, 1)]); }
             },

@@ -216,7 +216,7 @@ module SamplesInternals =
         Img [ Src "backdrop.png" ]
         |> fun x ->
             let img = x.Dom
-            JQuery.Of(img).Load(FuncWithThis(fun _ _ ->
+            JQuery.Of(img).Load(fun _ _ ->
                 ctx.DrawImage(x.Dom, 0., 0.)
                 ctx.BeginPath()
                 ctx.MoveTo(30.,  96.)
@@ -224,7 +224,7 @@ module SamplesInternals =
                 ctx.LineTo(103., 76.)
                 ctx.LineTo(170., 15.)
                 ctx.Stroke()
-            )).Ignore
+            ).Ignore
 
     [<JavaScriptAttribute>]
     let Example8 (ctx: CanvasRenderingContext2D) =

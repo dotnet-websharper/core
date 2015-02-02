@@ -373,11 +373,8 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: G
             match f.This with
             | None -> func
             | Some this -> tB.FuncWithThis (tRef this) func
-        | Type.FSFunctionType (a, r, thisOpt) ->
-            let func = tB.Function (tRef a) (tRef r)
-            match thisOpt with
-            | None -> func
-            | Some this -> tB.FuncWithThis (tRef this) func
+        | Type.FSFunctionType (a, r) ->
+            tB.Function (tRef a) (tRef r)
         | Type.GenericType pos ->
             genericsByPosition.[pos] :> _
         | Type.SpecializedType (x, xs) ->
