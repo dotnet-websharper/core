@@ -107,14 +107,14 @@ type InlineGenerator() =
                 match t with  
                 | Type.InteropType (_, tr) -> tr.OutTransform inl
                 | _ -> inl
-            match p.Type with
+            match t with
             | Type.OptionType t -> "$wsruntime.GetOptional(" + withInterop t + ")"
             | _ -> withInterop t
 
     member g.GetPropertySetterInline(td: Code.TypeDeclaration, t: T, p: Code.Property) =
         if p.SetterInline.IsSome then p.SetterInline.Value else
             let t, opt =
-                match p.Type with
+                match t with
                 | Type.OptionType t -> t, true
                 | t -> t, false 
             let name = p.Name
@@ -220,7 +220,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
             | 0 -> baseName
             | k -> baseName + "`" + string k
         let tDef =
-            mscorlib.MainModule.GetType(ns, name)
+            assembly.MainModule.GetType(ns, name)
             |> main.Import
         genericInstance tDef ts
 
@@ -270,7 +270,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         commonType mscorlib "System" "Tuple" ts
 
     member b.Choice(ts: seq<TypeReference>) =
-        commonType fscore "Microsoft.FSharp.Core" "Choice" ts
+        commonType fscore "Microsoft.FSharp.Core" "FSharpChoice" ts
 
     member b.Option t =
         genericInstance optionType [t]    
@@ -613,12 +613,11 @@ type MemberConverter
     let addConstructor (dT: TypeDefinition) (td: Code.TypeDeclaration) (x: Code.Constructor) =
         let overloads =
             x.Type
-            |> Type.Normalize
-            |> Type.DistinctOverloads
+            |> Type.GetOverloads
         let overloads = 
-            if Option.isNone x.Inline
-            then overloads |> List.map Type.TransformArgs
-            else overloads
+            match x.Inline with
+            | None -> overloads |> List.map Type.TransformArgs
+            | _ -> overloads
         for t in overloads do
             match t with
             | Type.FunctionType f ->
@@ -645,12 +644,9 @@ type MemberConverter
 
     let addProperty (dT: TypeDefinition) (td: Code.TypeDeclaration) (p: Code.Property) =
         let t =
-            match Type.Normalize p.Type with
-            | [t] ->
-                if Option.isNone p.GetterInline && Option.isSome p.SetterInline
-                then Type.TransformOption t
-                else t
-            | _ -> p.Type
+            match p.GetterInline, p.SetterInline with
+            | None, None -> Type.TransformOption (Type.Normalize p.Type)
+            | _ -> Type.Normalize p.Type
         let ty = tC.TypeReference (t, td)
         let name = iG.GetPropertySourceName p
         let attrs = PropertyAttributes.None
@@ -711,12 +707,11 @@ type MemberConverter
     member private c.AddMethod(dT: TypeDefinition, td: Code.TypeDeclaration, x: Code.Method) =
         let overloads =
             x.Type
-            |> Type.Normalize
-            |> Type.DistinctOverloads
+            |> Type.GetOverloads
         let overloads = 
-            if Option.isNone x.Inline 
-            then overloads |> List.map Type.TransformArgs
-            else overloads
+            match x.Inline with
+            | None -> overloads |> List.map Type.TransformArgs
+            | _ -> overloads
         for t in overloads do
             match t with
             | Type.FunctionType f ->

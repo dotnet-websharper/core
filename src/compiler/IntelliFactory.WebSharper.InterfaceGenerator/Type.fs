@@ -288,9 +288,8 @@ module Type =
 
     let Unit = SystemType (R.Type.FromType typeof<unit>)
 
-    /// Computes the normal forms for a type by eliminating the Union case.
-    /// The returned list is always non-empty.
-    let rec Normalize (t: Type) : list<Type> =
+    /// Recognize arrays, tuples, functions and convert them to WIG Type representation.
+    let rec Normalize (t: Type) : Type =
         let rec normSys (t: R.Type) : Type =
             match t with
             | R.Type.Array (eT, rank) ->
@@ -312,11 +311,41 @@ module Type =
                 SpecializedType (def, List.map normSys ts)
             | _ ->
                 SystemType t
+        match t with
+        | ArrayType (rank, t) ->
+            ArrayType (rank, Normalize t)
+        | FunctionType x ->
+            FunctionType {
+                This = x.This |> Option.map Normalize
+                ReturnType = x.ReturnType |> Normalize
+                ParamArray = x.ParamArray |> Option.map Normalize
+                Parameters = x.Parameters |> List.map (fun (n, t) -> n, Normalize t)         
+            }
+        | SpecializedType (x, y) ->
+            SpecializedType (Normalize x, y |> List.map Normalize)
+        | SystemType t ->
+            normSys t
+        | TupleType xs ->
+            TupleType (xs |> List.map Normalize)
+        | UnionType (x, y) ->
+            UnionType (Normalize x, Normalize y)
+        | InteropType (t, tr) ->
+            InteropType (Normalize t, tr)
+        | _ -> t        
+
+    type private Overload =
+        | BasicOverload of Type
+        | FunctionOverload of list<Type> * option<Type>
+
+    /// Computes the distinct overloads of a function type, eliminating the Union case.
+    /// The returned list is always non-empty.
+    let rec GetOverloads (t: Type) : list<Type> =
         let normArgs args =
             match args with
             | [(_, Unit)] -> []
             | _ -> args
-        let rec norm = function
+        let rec norm t =
+            match t with
             | ArrayType (rank, t) ->
                 List.map (fun x -> ArrayType (rank, x)) (norm t)
             | FunctionType x ->
@@ -362,8 +391,8 @@ module Type =
                     for y in norms y do
                         yield SpecializedType (x, y)
                 ]
-            | SystemType t ->
-                [normSys t]
+            | SystemType _ ->
+                [Normalize t]
             | TupleType xs ->
                 [for n in norms xs -> TupleType xs]
             | UnionType (x, y) ->
@@ -382,19 +411,11 @@ module Type =
                 [ for a in norm x do
                     for b in norms xs do
                         yield a :: b ]
-        norm t
-
-    type private Overload =
-        | BasicOverload of Type
-        | FunctionOverload of list<Type> * option<Type>
-
-    /// Computes the distinct overloads for a type.
-    let DistinctOverloads (ts: list<Type>) : list<Type> =
         let key = function
             | FunctionType f ->
                 FunctionOverload (List.map snd f.Parameters, f.ParamArray)
             | t -> BasicOverload t
-        ts
+        norm t
         |> Seq.distinctBy key
         |> Seq.toList
 
@@ -407,7 +428,7 @@ module Type =
     let private thisArgsTransform =
         {
             InTransform = fun x -> "$wsruntime.CreateFuncWithThisArgs(" + x + ")"
-            OutTransform = fun x -> "function(obj) { return function(args) { return (" + x + ").apply(this, args); }; }"
+            OutTransform = fun x -> "function(obj) { return function(args) { return (" + x + ").apply(obj, args); }; }"
         }
 
     let private argsTransform = 

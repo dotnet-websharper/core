@@ -217,7 +217,7 @@ var IntelliFactory =
             function (types, value) {
                 var vt = typeof value;
                 for (var i = 0; i < types.length; i++) {
-                    if (types[i] = vt || (types[i] == "array" && Array.isArray(value))) {
+                    if (types[i] == vt || (types[i] == "array" && Array.isArray(value))) {
                         return { $: i, $0: value };
                     }
                 }

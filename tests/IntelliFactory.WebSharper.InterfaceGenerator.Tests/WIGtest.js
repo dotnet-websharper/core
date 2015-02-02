@@ -29,5 +29,18 @@
 
     TupledFuncInWithThis: function (f) {
         return f.call({ x: 0 }, [1, 2]);
+    },
+
+    Instance: {
+        x: 0,
+        adderFunc:
+            function (a, b) {
+                return a + b;
+            },
+        adderFuncWithThis:
+            function (a, b) {
+                return this.x + a + b;
+            },
+        stringOrInt: 0
     }
 }

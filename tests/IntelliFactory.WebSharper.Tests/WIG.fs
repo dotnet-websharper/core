@@ -39,3 +39,24 @@ let Tests =
         WIGtest.ArgsFuncInWithThis(fun (t: JustX) (a, b) -> string t.X + string a + string b) =? "012"
         WIGtest.TupledFuncInWithThis(fun (t: JustX) (a, b) -> string t.X + string a + string b) =? "012"
     }
+
+    Test "Function property" {
+        let x = WIGtest.Instance 
+        x.AdderFunc(1, 2) =? 3
+        x.AdderFunc <- fun (a, b) -> a + b + 1
+        x.AdderFunc(1, 2) =? 4 
+        x.AdderFuncWithThis(x)(1, 2) =? 3
+        x.X <- 1
+        x.AdderFuncWithThis(x)(1, 2) =? 4
+        x.AdderFuncWithThis <- fun t (a, b) -> t.X + a + b + 1
+        x.AdderFuncWithThis(x)(1, 2) =? 5
+    }
+
+    Test "Choice property" {
+        let x = WIGtest.Instance 
+        x.StringOrInt =? Choice2Of2 0
+        x.StringOrInt <- Choice1Of2 "hi"
+        x.StringOrInt =? Choice1Of2 "hi"
+        x.StringOrInt <- Choice2Of2 1
+        x.StringOrInt =? Choice2Of2 1
+    }

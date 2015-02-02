@@ -11,6 +11,15 @@ module Definition =
             Optional = []
         }
 
+    let WIGtestInstance =
+        Class "WIGtestInstance"
+        |+> Instance [
+            "x" =@ T<int>
+            "adderFunc" =@ T<int> * T<int> ^-> T<int>
+            "adderFuncWithThis" =@ TSelf -* T<int> * T<int> ^-> T<int>
+            "stringOrInt" =@ T<string> + T<int>
+        ]
+
     let WIGtest =
         Class "WIGtest"
         |+> Static [
@@ -21,6 +30,7 @@ module Definition =
             "ArgFuncInWithThis" => (JustX -* T<int> ^-> T<string>) ^-> T<string>
             "ArgsFuncInWithThis" => (JustX -* T<int> * T<int> ^-> T<string>) ^-> T<string>
             "TupledFuncInWithThis" => (JustX -* (T<int> * T<int>).Parameter ^-> T<string>) ^-> T<string>
+            "Instance" =@ WIGtestInstance
         ]
 
     let WIGtestGeneric =
@@ -36,6 +46,7 @@ module Definition =
         Assembly [
             Namespace "IntelliFactory.WebSharper.InterfaceGenerator.Tests" [
                  JustX
+                 WIGtestInstance
                  WIGtest
                  WIGtestGeneric
                  Resource "WIGTestJs" "WIGtest.js" |> AssemblyWide
