@@ -63,7 +63,14 @@ type InlineGenerator() =
                             | _, Type.InteropType (_, tr) -> tr.InTransform inl
                             | _ -> inl
                     }
-                    |> String.concat ","
+                match m with
+                | :? Code.Constructor as c when c.IsObject ->
+                    let ss =
+                        (f.Parameters, args)
+                        ||> Seq.map2 (fun (n, _) a -> Util.Quote n + ":" + a)
+                    "{" + String.concat "," ss + "}"
+                | _ ->
+                let args = args |> String.concat ","
                 let arity = f.Parameters.Length
                 let mInl =
                     match f.ParamArray with

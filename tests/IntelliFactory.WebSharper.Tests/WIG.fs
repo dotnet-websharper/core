@@ -60,3 +60,22 @@ let Tests =
         x.StringOrInt <- Choice2Of2 1
         x.StringOrInt =? Choice2Of2 1
     }
+
+    Test "Option property" {
+        let x = WIGtest.Instance 
+        x.OptionalInt =? None
+        x.OptionalInt <- Some 1
+        x.OptionalInt =? Some 1
+        x.OptionalInt <- None
+        x.OptionalInt =? None       
+    }
+
+    Test "Pattern.Config" {
+        let c = 
+            ConfigObj(1, (fun (a, b) -> string a + string b), 
+                FirstOpt = 2, SecondOpt = (fun (a, b) -> string a + "," + string b))
+        c.FirstReq =? 1
+        c.SecondReq(1, 2) =? "12"
+        c.FirstOpt =?2
+        c.SecondOpt(1, 2) =? "1,2"
+    }

@@ -276,7 +276,13 @@ module CodeModel =
     and Constructor =
         inherit MethodBase
 
-        internal new (t, zero) = { inherit MethodBase("", t) }
+        val mutable IsObject : bool
+
+        internal new (t, ?obj) =
+            { 
+                inherit MethodBase("", t)
+                IsObject = defaultArg obj false
+            }
 
         override this.AddTo x =
             x

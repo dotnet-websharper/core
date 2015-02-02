@@ -76,8 +76,11 @@ module Pervasives =
 
     /// Constructs a new constructor.
     let Constructor (ps: Type.IParameters) =
-        Code.Constructor (Type.Lambda ps.Parameters Type.Unit,
-            ps.Parameters = Type.Parameters.Empty)
+        Code.Constructor (Type.Lambda ps.Parameters Type.Unit)
+
+    /// Constructs a new constructor with an object expression as inline.
+    let ObjectConstructor (ps: Type.IParameters) =
+        Code.Constructor (Type.Lambda ps.Parameters Type.Unit, true)
 
     /// Constructs a new property getter.
     let Getter name (ty: Type.IType) = 

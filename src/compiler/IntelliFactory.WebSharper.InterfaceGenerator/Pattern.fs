@@ -35,7 +35,7 @@ module Pattern =
             [ for (n, c) in values ->
                 Getter n t
                 |> WithGetterInline c :> _
-            ]
+        ]
 
     /// Constructs a new class with no constructors and a given
     /// list of static inline members. The values of the members
@@ -67,20 +67,12 @@ module Pattern =
                     (t :> Type.IParameter).Parameter |=> n
                 ]
             }
-        let code =
-            let ss =
-                properties.Required
-                |> Seq.mapi (fun i (n, _) ->
-                    String.Format("{0}:${1}", Util.Quote n, i))
-            String.Format("{{{0}}}", String.concat "," ss)
         Class name
-        |+> Instance
-            [ for (n, t) in properties.Required do
-                yield Getter n t :> _
-              for (n, t) in properties.Optional do
-                yield Property n t :> _
+        |+> Instance [ 
+                for (n, t) in properties.Required -> Getter n t :> _
+                for (n, t) in properties.Optional -> Property n t :> _
             ]
-        |+> Static [ Constructor ctor |> WithInline code ]
+        |+> Static [ ObjectConstructor ctor ]
 
     type ConfigObsProperties =
         {
@@ -97,28 +89,10 @@ module Pattern =
 
     /// Generates a configuration object type with Obsolete support.
     let ConfigObs (name: string) (properties: ConfigObsProperties) =
-        let t = Type.New()
-        let ctor : Type.Parameters =
-            { This = None
-              Variable = None
-              Arguments =
-                [ for (n, t) in properties.Required ->
-                    (t :> Type.IParameter).Parameter |=> n
-                ]
-            }
-        let code =
-            let ss =
-                properties.Required
-                |> Seq.mapi (fun i (n, _) ->
-                    String.Format("{0}:${1}", Util.Quote n, i))
-            String.Format("{{{0}}}", String.concat "," ss)
-        Class name
-        |+> Instance
-            [ for (n, t) in properties.Required do
-                yield Getter n t :> _
-              for (n, t) in properties.Optional do
-                yield Property n t :> _
-              for (n, t) in properties.Obsolete do
-                yield Property n t |> Obsolete :> _
+        Config name {
+            Required = properties.Required    
+            Optional = properties.Optional
+        }
+        |+> Instance [ 
+                for (n, t) in properties.Obsolete -> Property n t |> Obsolete :> _
             ]
-        |+> Static [ Constructor ctor |> WithInline code ]

@@ -18,6 +18,7 @@ module Definition =
             "adderFunc" =@ T<int> * T<int> ^-> T<int>
             "adderFuncWithThis" =@ TSelf -* T<int> * T<int> ^-> T<int>
             "stringOrInt" =@ T<string> + T<int>
+            "optionalInt" =@ !? T<int>
         ]
 
     let WIGtest =
@@ -42,6 +43,20 @@ module Definition =
                 Constructor T<unit>
             ]
 
+    let ConfigObj =
+        Pattern.Config "ConfigObj" {
+            Required = 
+                [
+                    "firstReq", T<int>
+                    "secondReq", T<int * int -> string>
+                ]
+            Optional = 
+                [
+                    "firstOpt", T<int>
+                    "secondOpt", T<int * int -> string>
+                ]
+        }
+
     let Assembly =
         Assembly [
             Namespace "IntelliFactory.WebSharper.InterfaceGenerator.Tests" [
@@ -49,6 +64,7 @@ module Definition =
                  WIGtestInstance
                  WIGtest
                  WIGtestGeneric
+                 ConfigObj
                  Resource "WIGTestJs" "WIGtest.js" |> AssemblyWide
             ]
         ]
