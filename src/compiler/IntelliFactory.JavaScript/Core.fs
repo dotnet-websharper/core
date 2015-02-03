@@ -1194,6 +1194,21 @@ let Simplify expr =
         eval body
         if !st = 1 then subst var value body else expr
 
+    let (|TupledLambda|_|) expr =
+        match expr with
+        | Lambda (None, [tupledArg], b) when tupledArg.Name = Some "tupledArg" ->
+            let rec loop i acc = function
+                | Let (v, FieldGet(Var t, Constant (Integer j)), body) when t = tupledArg && i = int j ->
+                    loop (i + 1) (v :: acc) body
+                | body -> List.rev acc, body
+            match loop 0 [] b with
+            | [], _ -> None
+            | vars, body -> 
+                match occurenceCountApprox tupledArg body with
+                | 0 -> Some (vars, body)
+                | _ -> Some (vars, Let (tupledArg, NewArray (vars |> List.map Var), body))
+        | _ -> None
+
     // specify a simple rewrite step - recusion is taken care of later
     // assume rewrites are confluent or else the order does not matter
     // assume rewrites terminate
@@ -1237,6 +1252,53 @@ let Simplify expr =
                 | 1 -> inlineLet expr var value body
                 | _ -> expr
         | Sequential (a, b) when isMostlyPure a -> b
+        | FieldGet (NewObject fs, Constant (String fieldName)) ->
+            let mutable nonPureBefore = []
+            let mutable nonPureAfter = []
+            let mutable fieldValue = None
+            for n, v in fs do
+                if n = fieldName then
+                    fieldValue <- Some v
+                else 
+                    if not (isMostlyPure v) then
+                        match fieldValue with
+                        | None -> nonPureBefore <- v :: nonPureBefore
+                        | _ -> nonPureAfter <- v :: nonPureAfter
+            let fieldValue = defaultArg fieldValue (Constant Undefined)
+            let result =
+                Seq.fold (fun e v -> Sequential (v, e)) fieldValue nonPureBefore 
+            if List.isEmpty nonPureAfter then
+                result 
+            else 
+                let resVar = Id fieldName
+                Let (resVar, result, 
+                    Seq.fold (fun e v -> Sequential (v, e)) (Var resVar) nonPureAfter
+                )
+        | Call (Runtime, Constant (String rtFunc), xs) ->
+            match rtFunc, xs with
+            | "CreateFuncWithArgs", [f] ->
+                match f with
+                | TupledLambda (vars, body) -> 
+                    Lambda(None, vars, body) |> WithPosOf f
+                | _ -> expr
+            | "CreateFuncWithThis", [f] ->
+                match f with
+                | Lambda (None, [obj], Lambda (None, args, body)) ->
+                    Lambda (Some obj, args, body)    
+                | _ -> expr
+            | "CreateFuncWithThisArgs", [f] ->
+                match f with
+                | Lambda (None, [obj], TupledLambda (vars, body)) ->
+                    Lambda(Some obj, vars, body) |> WithPosOf f
+                | _ -> expr
+            | "SetOptional", [obj; field; optValue] ->
+                match optValue with
+                | NewObject ["$", Constant (Integer 0L)] ->
+                    FieldDelete (obj, field)
+                | NewObject ["$", Constant (Integer 1L); "$0", value] ->
+                    FieldSet (obj, field, value)
+                | _ -> expr     
+            | _ -> expr     
         | _ -> expr
 
     // keep rewriting with `step` bottom-up until reach a fixpoint

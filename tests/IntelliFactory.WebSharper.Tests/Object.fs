@@ -41,6 +41,8 @@ type O [<Inline "{}">] () =
 
 type R = { [<OptionalField>] KO: int option }
 
+type Abcde = { A: string; B: string; C: string; D: string; E: string }
+
 [<JavaScript>]
 let Tests =
     Section "Object"
@@ -91,4 +93,19 @@ let Tests =
         r?KO =? 2
         let r2 = { KO = None }
         r2 =? New []
+    }
+
+    Test "Optimized field access" {
+        let x = ref ""
+        let f i =
+            x := !x + i
+            i
+        {
+            A = f "a"
+            B = f "b"
+            C = f "c"
+            D = f "d"
+            E = f "e"
+        }.C =? "c"
+        !x =? "abcde"
     }

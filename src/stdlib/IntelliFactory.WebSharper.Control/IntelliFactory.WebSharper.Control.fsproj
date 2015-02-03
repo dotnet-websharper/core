@@ -19,7 +19,6 @@
     <Compile Include="FSharpEvent.fs" />
     <Compile Include="EventModule.fs" />
     <Compile Include="MailboxProcessor.fs" />
-    <Compile Include="EcmaExtensions.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\IntelliFactory.WebSharper.Core\IntelliFactory.WebSharper.Core.fsproj">
