@@ -41,6 +41,7 @@ module Ty = IntelliFactory.WebSharper.InterfaceGenerator.Type
 type T = Ty.Type
 type Comments = Dictionary<MemberReference,string>
 type Types = Dictionary<Ty.Id,TypeDefinition>
+type GenericTypes = Dictionary<Ty.Id, int>
 
 [<Sealed>]
 type InlineGenerator() =
@@ -333,15 +334,15 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     member b.WebResource = webResource
 
 [<Sealed>]
-type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: GenericParameter []) =
+type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericTypes, genericsByPosition: GenericParameter []) =
 
     let byId id =
         match types.TryGetValue id with
         | true, x -> x :> TypeReference
         | _ -> tB.Object
 
-    new (tB, types) =
-        TypeConverter(tB, types, Array.empty)
+    new (tB, types, genTypes) =
+        TypeConverter(tB, types, genTypes, Array.empty)
 
     member c.TypeReference(d: R.TypeDefinition) =
         tB.Type(d.AssemblyName.FullName, d.FullName)
@@ -361,59 +362,90 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genericsByPosition: G
         | R.Type.Generic pos ->
             genericsByPosition.[pos] :> _
 
+    member private c.TypeReference(t: T, defT: Code.TypeDeclaration, allowGeneric: bool) =
+        let tRef x = c.TypeReference(x, defT, false)
+        let tres =
+            match t with
+            | Type.ArrayType (rank, t) ->
+                ArrayType(tRef t, rank) :> TypeReference
+            | Type.DeclaredType id ->
+                byId id
+            | Type.FunctionType f ->
+                let ret = tRef f.ReturnType
+                let args = f.Parameters |> List.map (snd >> tRef)
+                let func =
+                    match f.ParamArray with
+                    | None ->
+                        match args with
+                        | [] -> tB.Function (tB.Type<unit>()) ret
+                        | [a] -> tB.Function a ret
+                        | _ -> tB.FuncWithArgs (tB.Tuple args) ret                
+                    | Some p ->
+                        let pa = tRef p
+                        match args with 
+                        | [] -> tB.FuncWithArgs (tB.Arguments pa) ret
+                        | [a] -> tB.FuncWithRest a pa ret
+                        | _ -> tB.FuncWithArgsRest (tB.Tuple args) pa ret        
+                match f.This with
+                | None -> func
+                | Some this -> tB.FuncWithThis (tRef this) func
+            | Type.FSFunctionType (a, r) ->
+                tB.Function (tRef a) (tRef r)
+            | Type.GenericType pos ->
+                genericsByPosition.[pos] :> _
+            | Type.SpecializedType (Type.DeclaredType id, xs) 
+            | Type.SpecializedType (Type.InteropType(Type.DeclaredType id, _), xs) ->
+                let t = byId id
+                let gen =
+                    match genTypes.TryGetValue id with
+                    | true, g -> g
+                    | _ -> 0
+                if gen <> xs.Length then
+                    failwithf "Wrong number of generic parameters applied on %s in member of %s: %d instead of %d"
+                        t.FullName defT.Name xs.Length gen
+                let args = xs |> Seq.map tRef
+                tB.GenericInstanceType(t, args)
+            | Type.SpecializedType (x, xs) ->
+                let t = c.TypeReference(x, defT, true)
+                let gen = t.GenericParameters.Count
+                if gen <> xs.Length then
+                    failwithf "Wrong number of generic parameters applied on %s in member of %s: %d instead of %d"
+                        t.FullName defT.Name xs.Length gen
+                let args = xs |> Seq.map tRef
+                tB.GenericInstanceType(t, args)
+            | Type.SystemType t ->
+                c.TypeReference t
+            | Type.TupleType xs ->
+                tB.Tuple [ for t in List.rev xs -> tRef t ]
+            | Type.InteropType (t, _) ->
+                tRef t
+            | Type.ArgumentsType t ->
+                tB.Arguments (tRef t)
+            | Type.UnionType _ -> tB.Object
+            | Type.ChoiceType ts ->
+                tB.Choice (ts |> Seq.map tRef)
+            | Type.OptionType t ->
+                tB.Option (tRef t) 
+            | Type.DefiningType ->
+                try byId defT.Id
+                with _ -> failwith "Can't Require a type definition containing TSelf" 
+        // check missing generics
+        if not allowGeneric then
+            match t with
+            | Type.DeclaredType id ->
+                if genTypes.ContainsKey id then
+                    failwithf "Generic parameters not applied on %s in member of %s" tres.FullName defT.Name       
+            | _ ->
+                if tres.HasGenericParameters && not (tres :? GenericInstanceType) then
+                    failwithf "Generic parameters not applied on %s in member of %s" tres.FullName defT.Name       
+        tres
+
     member c.TypeReference(t: T, defT: Code.TypeDeclaration) =
-        let tRef x = c.TypeReference(x, defT)
-        match t with
-        | Type.ArrayType (rank, t) ->
-            ArrayType(tRef t, rank) :> TypeReference
-        | Type.DeclaredType id ->
-            byId id
-        | Type.FunctionType f ->
-            let ret = tRef f.ReturnType
-            let args = f.Parameters |> List.map (snd >> tRef)
-            let func =
-                match f.ParamArray with
-                | None ->
-                    match args with
-                    | [] -> tB.Function (tB.Type<unit>()) ret
-                    | [a] -> tB.Function a ret
-                    | _ -> tB.FuncWithArgs (tB.Tuple args) ret                
-                | Some p ->
-                    let pa = tRef p
-                    match args with 
-                    | [] -> tB.FuncWithArgs (tB.Arguments pa) ret
-                    | [a] -> tB.FuncWithRest a pa ret
-                    | _ -> tB.FuncWithArgsRest (tB.Tuple args) pa ret        
-            match f.This with
-            | None -> func
-            | Some this -> tB.FuncWithThis (tRef this) func
-        | Type.FSFunctionType (a, r) ->
-            tB.Function (tRef a) (tRef r)
-        | Type.GenericType pos ->
-            genericsByPosition.[pos] :> _
-        | Type.SpecializedType (x, xs) ->
-            let args = xs |> Seq.map tRef
-            tB.GenericInstanceType(tRef x, args)
-        | Type.SystemType t ->
-            c.TypeReference t
-        | Type.TupleType xs ->
-            tB.Tuple [ for t in List.rev xs -> tRef t ]
-        | Type.InteropType (t, _) ->
-            tRef t
-        | Type.ArgumentsType t ->
-            tB.Arguments (tRef t)
-        | Type.UnionType _ -> tB.Object
-        | Type.ChoiceType ts ->
-            tB.Choice (ts |> Seq.map tRef)
-        | Type.OptionType t ->
-            tB.Option (tRef t) 
-        | Type.DefiningType ->
-            try byId defT.Id
-            with _ -> failwith "Can't Require a type definition containing TSelf" 
+        c.TypeReference(t, defT, false)
 
     member c.WithGenerics(gs: seq<GenericParameter>) =
         let gs = Seq.toArray gs
-        TypeConverter(tB, types, Array.append genericsByPosition gs)
+        TypeConverter(tB, types, genTypes, Array.append genericsByPosition gs)
 
 [<Sealed>]
 type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
@@ -423,7 +455,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
         |> Seq.tryFind (fun m -> m.IsConstructor && isMatch m)
         |> function
             | Some x -> def.MainModule.Import x
-            | None -> failwithf "Could not find a constructor in %O" t.FullName
+            | None -> failwithf "Could not find a constructor in %s" t.FullName
 
     let findConstructorByArity t n =
         findConstructor t (fun m -> m.Parameters.Count = n)
@@ -1112,13 +1144,19 @@ type Compiler() =
 
     let buildInitialTypes assembly (def: AssemblyDefinition) =
         let types : Types = Dictionary()
+        let genTypes : GenericTypes = Dictionary()
         let build attrs ns (x: Code.NamespaceEntity) =
             let nested = false
             let attrs = attrs ||| getAccessAttributes nested x
             let tD = TypeDefinition(ns, iG.GetSourceName x, attrs)
             types.[getId x] <- tD
             def.MainModule.Types.Add(tD)
-        let buildNested attrs (parent: Code.NamespaceEntity) (x: Code.NamespaceEntity) =
+        let buildType attrs ns (x: Code.TypeDeclaration) =
+            build attrs ns x
+            match x.Generics.Length with
+            | 0 -> ()
+            | gs -> genTypes.[getId x] <- gs 
+        let buildNested attrs (parent: Code.NamespaceEntity) (x: Code.TypeDeclaration) =
             match types.TryGetValue parent.Id with
             | true, parent ->
                 let nested = true
@@ -1127,18 +1165,21 @@ type Compiler() =
                 tD.DeclaringType <- parent
                 types.[getId x] <- tD
                 parent.NestedTypes.Add tD
+                match x.Generics.Length with
+                | 0 -> ()
+                | gs -> genTypes.[getId x] <- gs 
             | _ -> ()
         let interf =
             TypeAttributes.Interface
             ||| TypeAttributes.Abstract
         assembly
         |> visit
-            (build TypeAttributes.Class)
-            (build interf)
+            (buildType TypeAttributes.Class)
+            (buildType interf)
             (build TypeAttributes.Class)
             (buildNested TypeAttributes.Class)
             (buildNested interf)
-        types
+        types, genTypes
 
     let findFSharpCoreFullName options =
         let fsCorePath =
@@ -1163,9 +1204,9 @@ type Compiler() =
         mp.Runtime <- TargetRuntime.Net_4_0 // TODO: make a parameter
         let comments : Comments = Dictionary()
         let def = AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
-        let types = buildInitialTypes assembly def
+        let types, genTypes = buildInitialTypes assembly def
         let tB = TypeBuilder(resolver, def, findFSharpCoreFullName options)
-        let tC = TypeConverter(tB, types)
+        let tC = TypeConverter(tB, types, genTypes)
         let mB = MemberBuilder(tB, def)
         let mC = MemberConverter(tB, mB, tC, types, iG, def, comments, options)
         assembly

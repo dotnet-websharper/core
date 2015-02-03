@@ -236,8 +236,17 @@ module Pervasives =
     /// In transform is applied to method arguments and property setters.
     /// Out transform is applied to method return values and property getters.
     /// When a member defines a custom inline these transforms are ignored.
-    let WithInlineTransformer transforms (t: #Type.IType) = 
-        Type.InteropType (t.Type, transforms)
+    let WithInlineTransformer (transforms: Type.InlineTransforms) (t: #Type.IType) = 
+        match t.Type with
+        | Type.InteropType (t, tr) ->
+            Type.InteropType (t,
+                {
+                    InTransform  = transforms.InTransform >> tr.InTransform 
+                    OutTransform = tr.OutTransform >> transforms.OutTransform
+                }
+            )
+        | t ->
+            Type.InteropType (t, transforms)
 
     /// Adds indexer argument.
     let Indexed (indexer: Type.Type) (p: Code.Property) =
