@@ -70,6 +70,21 @@ let Tests =
         x.OptionalInt =? None       
     }
 
+    Test "Optional choice property" {
+        let x = WIGtest.Instance 
+        x.OptionalStringOrFunction =? None
+        x.OptionalStringOrFunction <- Some (Choice1Of2 "hi")
+        x.OptionalStringOrFunction =? Some (Choice1Of2 "hi")
+        x.OptionalStringOrFunction <- Some (Choice2Of2 (FuncWithArgs(fun (a, b) -> a + b)))
+        (
+            match x.OptionalStringOrFunction with
+            | Some (Choice2Of2 f) -> f.Call(1, 2)
+            | _ -> 0
+        ) =? 3
+        x.OptionalStringOrFunction <- None
+        x.OptionalStringOrFunction =? None
+    }
+
     Test "Pattern.Config" {
         let c = 
             ConfigObj(1, (fun (a, b) -> string a + string b), 

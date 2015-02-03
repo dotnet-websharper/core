@@ -19,6 +19,7 @@ module Definition =
             "adderFuncWithThis" =@ TSelf -* T<int> * T<int> ^-> T<int>
             "stringOrInt" =@ T<string> + T<int>
             "optionalInt" =@ !? T<int>
+            "optionalStringOrFunction" =@ !? (T<string> + ( T<int> * T<int> ^-> T<int>))
         ]
 
     let WIGtest =

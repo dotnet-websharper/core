@@ -93,9 +93,13 @@ type InlineGenerator() =
                         if m.IsStatic
                         then sprintf "%s(%s)" name args
                         else sprintf "$this.%s(%s)" name args
+                let withInterop t =
+                    match t with  
+                    | Type.InteropType (_, tr) -> tr.OutTransform mInl
+                    | _ -> mInl
                 match f.ReturnType with
-                | Type.InteropType (_, tr) -> tr.OutTransform mInl
-                | _ -> mInl 
+                | Type.OptionType rt -> "$wsruntime.GetOptional(" + withInterop rt + ")"
+                | rt -> withInterop rt
             | _ ->
                 if m.IsStatic then m.Name + "()" else "$this." + m.Name + "()"
 
@@ -128,7 +132,10 @@ type InlineGenerator() =
             let pfx = if p.IsStatic then td.Name else "$this"
             let value = 
                 match t with
-                | Type.InteropType (_, tr) -> tr.InTransform "$value"
+                | Type.InteropType (_, tr) -> 
+                    if opt 
+                    then "$value.$?{$: 1, $0: " + tr.InTransform "$value.$0" + "}:{$: 0}"
+                    else tr.InTransform "$value"
                 | _ -> "$value"
             let prop() =
                 if validJsIdentRE.IsMatch name then sprintf "%s.%s" pfx name

@@ -446,26 +446,47 @@ module Type =
         | [_] -> None
         | ts -> Some ts
 
+    let private NumberTypes = 
+        Set [
+            "Byte"
+            "SByte"
+            "Int16"
+            "Int32"
+            "UInt16"
+            "UInt32"
+            "Decimal"
+            "Int64"
+            "UInt64" 
+            "Char"
+            "Double"
+            "Single"
+            "String" 
+            "TimeSpan"
+            "DateTime"
+        ]
+
     let rec GetJSType t = 
         match t with
-        | ArrayType _
-        | TupleType _ -> Some "array"
+        | ArrayType _ -> Some "0"
+        | TupleType ts -> Some (string ts.Length)
         | FunctionType _
-        | FSFunctionType _ -> Some "function"
+        | FSFunctionType _ -> Some "'function'"
         | SpecializedType (t, _)
         | InteropType (t, _) -> GetJSType t
         | SystemType t ->
-            match t.FullName with
-            | "System.String" -> Some "string"
-            | "System.Boolean" -> Some "boolean"
-            | "System.Int32"
-            | "System.Int64"
-            | "System.Double"
-            | "System.Byte" -> Some "number"
-            | _ -> Some "object"
+            let fn = t.FullName
+            if fn.StartsWith "System." then
+                match fn.[7 .. ] with
+                | "String" -> Some "'string'"
+                | "Boolean" -> Some "'boolean'"
+                | n when NumberTypes.Contains n -> Some "'number'"
+                | _ -> Some "'object'"
+            else 
+                if fn = "Microsoft.FSharp.Core.Unit" then Some "'undefined'"
+                else Some "'object'"
         | DeclaredType _
         | ArgumentsType _ 
-        | DefiningType -> Some "object"
+        | DefiningType -> Some "'object'"
         | _ -> None
 
     let TransformValue t =
@@ -493,7 +514,7 @@ module Type =
                 InteropType (ChoiceType ts, 
                     {
                         InTransform = fun x -> x + ".$0"
-                        OutTransform = fun x -> "$wsruntime.UnionByType([\"" + String.concat "\", \"" tts + "\"]," + x + ")"    
+                        OutTransform = fun x -> "$wsruntime.UnionByType([" + String.concat ", " tts + "]," + x + ")"    
                     }
                 )
             else t
@@ -510,6 +531,6 @@ module Type =
             FunctionType 
                 { f with
                     Parameters = f.Parameters |> List.map (fun (n, p) -> n, TransformValue p)
-                    ReturnType = f.ReturnType |> TransformValue   
+                    ReturnType = f.ReturnType |> TransformOption
                 }
         | _ -> t

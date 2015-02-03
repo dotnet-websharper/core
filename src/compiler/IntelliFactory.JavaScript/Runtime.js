@@ -210,15 +210,22 @@ var IntelliFactory =
 
         CreateFuncWithRest:
             function (length, f) {
-                return function() { return f([Array.prototype.slice.call(arguments, 0, length), Array.prototype.slice.call(arguments, length)]); }
+                return function () { return f([Array.prototype.slice.call(arguments, 0, length), Array.prototype.slice.call(arguments, length)]); }
             },
 
         UnionByType:
             function (types, value) {
                 var vt = typeof value;
                 for (var i = 0; i < types.length; i++) {
-                    if (types[i] == vt || (types[i] == "array" && Array.isArray(value))) {
-                        return { $: i, $0: value };
+                    var t = types[i];
+                    if (Number.isInteger(t)) {
+                        if (Array.isArray(value) && (t == 0 || value.length == t)) {
+                            return { $: i, $0: value };
+                        }
+                    } else {
+                        if (t == vt) {
+                            return { $: i, $0: value };
+                        }
                     }
                 }
             }
