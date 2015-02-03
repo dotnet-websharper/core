@@ -31,6 +31,7 @@ let Tests =
 
     Test "Functions" {
         WIGtest.ArgsFuncIn(fun (a, b) -> a + b) =? 3    
+        WIGtest.ArgsFuncIn2(fun (a, b) -> a + b) =? 3    
         WIGtest.ArgsFuncOut()(1, 2) =? 3
         let x = JustX(5)       
         WIGtest.GetGetThis()(x)() =? x

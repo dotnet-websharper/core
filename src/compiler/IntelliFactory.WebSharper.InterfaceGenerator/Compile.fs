@@ -53,7 +53,34 @@ type InlineGenerator() =
         Regex(@"[^\p{Ll}\p{Lu}\p{Lt}\p{Lo}\p{Nd}\p{Nl}\p{Mn}\p{Mc}\p{Cf}\p{Pc}\p{Lm}]")
 
     member g.GetMethodBaseInline(td: Code.TypeDeclaration, t: T, m: Code.MethodBase) =
-        if m.Inline.IsSome then m.Inline.Value else
+        let withOutTransform retT mInl =
+            let withInterop t =
+                match t with  
+                | Type.InteropType (_, tr) -> tr.OutTransform mInl
+                | _ -> mInl
+            match retT with
+            | Type.OptionType rt -> "$wsruntime.GetOptional(" + withInterop rt + ")"
+            | rt -> withInterop rt
+        match m.Inline with
+        | Some (Code.BasicInline inl) -> inl
+        | Some (Code.TransformedInline createInline) ->
+            match t with 
+            | Type.FunctionType f ->
+                let argMap =
+                    seq {
+                        for i in 0 .. f.Parameters.Length - 1 ->
+                            let inl = "$" + string ((if m.IsStatic then 0 else 1) + i)
+                            match f.Parameters.[i] with
+                            | n, Type.InteropType (_, tr) -> n, tr.InTransform inl
+                            | n, _ -> n, inl
+                    } |> Map.ofSeq
+                createInline (fun argName -> 
+                    match argMap |> Map.tryFind argName with
+                    | Some inl -> inl
+                    | None -> failwithf "Unrecognized parameter name in transformed inline: %s in member of %s" argName td.Name)
+                |> withOutTransform f.ReturnType
+            | _ -> failwith "GetMethodBaseInline error"
+        | _ ->
             match t with
             | Type.FunctionType f ->
                 let args =
@@ -94,18 +121,24 @@ type InlineGenerator() =
                         if m.IsStatic
                         then sprintf "%s(%s)" name args
                         else sprintf "$this.%s(%s)" name args
-                let withInterop t =
-                    match t with  
-                    | Type.InteropType (_, tr) -> tr.OutTransform mInl
-                    | _ -> mInl
-                match f.ReturnType with
-                | Type.OptionType rt -> "$wsruntime.GetOptional(" + withInterop rt + ")"
-                | rt -> withInterop rt
-            | _ ->
-                if m.IsStatic then m.Name + "()" else "$this." + m.Name + "()"
+                mInl |> withOutTransform f.ReturnType
+            | _ -> failwith "GetMethodBaseInline error"
 
     member g.GetPropertyGetterInline(td: Code.TypeDeclaration, t: T, p: Code.Property) =
-        if p.GetterInline.IsSome then p.GetterInline.Value else
+        let withOutTransform inl = 
+            let withInterop t =
+                match t with  
+                | Type.InteropType (_, tr) -> tr.OutTransform inl
+                | _ -> inl
+            match t with
+            | Type.OptionType t -> "$wsruntime.GetOptional(" + withInterop t + ")"
+            | _ -> withInterop t
+        match p.GetterInline with
+        | Some (Code.BasicInline inl) -> inl
+        | Some (Code.TransformedInline createInline) ->
+            createInline (fun _ -> failwith "GetPropertyGetterInline error")
+            |> withOutTransform
+        | _ ->
             let inl = 
                 let pfx = if p.IsStatic then td.Name else "$this"
                 let noIndex =
@@ -115,16 +148,25 @@ type InlineGenerator() =
                     then sprintf "%s.%s" pfx name
                     else sprintf "%s['%s']" pfx name
                 if p.IndexerType.IsSome then noIndex + "[$index]" else noIndex
-            let withInterop t =
-                match t with  
-                | Type.InteropType (_, tr) -> tr.OutTransform inl
-                | _ -> inl
-            match t with
-            | Type.OptionType t -> "$wsruntime.GetOptional(" + withInterop t + ")"
-            | _ -> withInterop t
+            withOutTransform inl
 
     member g.GetPropertySetterInline(td: Code.TypeDeclaration, t: T, p: Code.Property) =
-        if p.SetterInline.IsSome then p.SetterInline.Value else
+        match p.SetterInline with
+        | Some (Code.BasicInline inl) -> inl
+        | Some (Code.TransformedInline createInline) ->
+            let t, opt =
+                match t with
+                | Type.OptionType t -> t, true
+                | t -> t, false 
+            let value = 
+                match t with
+                | Type.InteropType (_, tr) -> 
+                    if opt 
+                    then "$value.$?{$: 1, $0: " + tr.InTransform "$value.$0" + "}:{$: 0}"
+                    else tr.InTransform "$value"
+                | _ -> "$value"
+            createInline (fun _ -> value)
+        | _ ->
             let t, opt =
                 match t with
                 | Type.OptionType t -> t, true
@@ -662,8 +704,8 @@ type MemberConverter
             |> Type.GetOverloads
         let overloads = 
             match x.Inline with
-            | None -> overloads |> List.map Type.TransformArgs
-            | _ -> overloads
+            | Some (Code.BasicInline _) -> overloads
+            | _ -> overloads |> List.map Type.TransformArgs
         for t in overloads do
             match t with
             | Type.FunctionType f ->
@@ -691,8 +733,9 @@ type MemberConverter
     let addProperty (dT: TypeDefinition) (td: Code.TypeDeclaration) (p: Code.Property) =
         let t =
             match p.GetterInline, p.SetterInline with
-            | None, None -> Type.TransformOption (Type.Normalize p.Type)
-            | _ -> Type.Normalize p.Type
+            | Some (Code.BasicInline _), _
+            | _, Some (Code.BasicInline _) -> Type.Normalize p.Type
+            | _ -> Type.TransformOption (Type.Normalize p.Type)
         let ty = tC.TypeReference (t, td)
         let name = iG.GetPropertySourceName p
         let attrs = PropertyAttributes.None
@@ -756,8 +799,8 @@ type MemberConverter
             |> Type.GetOverloads
         let overloads = 
             match x.Inline with
-            | None -> overloads |> List.map Type.TransformArgs
-            | _ -> overloads
+            | Some (Code.BasicInline _) -> overloads
+            | _ -> overloads |> List.map Type.TransformArgs
         for t in overloads do
             match t with
             | Type.FunctionType f ->

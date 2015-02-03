@@ -261,9 +261,13 @@ module CodeModel =
                 IsStatic = true
             }
 
+    and Inline =
+        | BasicInline of string
+        | TransformedInline of ((string -> string) -> string)
+
     and [<AbstractClass>] MethodBase =
         inherit Member
-        val mutable Inline : option<string>
+        val mutable Inline : option<Inline>
         val mutable Macro : option<T>
 
         internal new (name, t) =
@@ -320,8 +324,8 @@ module CodeModel =
         val mutable HasGetter : bool
         val mutable HasSetter : bool
         val mutable IndexerType : option<T>
-        val mutable GetterInline : option<string>
-        val mutable SetterInline : option<string>
+        val mutable GetterInline : option<Inline>
+        val mutable SetterInline : option<Inline>
 
         internal new (name, t) = 
             {

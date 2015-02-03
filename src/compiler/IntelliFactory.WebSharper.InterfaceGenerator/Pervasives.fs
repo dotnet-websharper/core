@@ -222,21 +222,35 @@ module Pervasives =
 
     /// Adds an inline.
     let WithInline (code: string) (x: #Code.MethodBase) =
-        x |> Code.Entity.Update (fun x -> x.Inline <- Some code)
+        x |> Code.Entity.Update (fun x -> x.Inline <- Some (Code.BasicInline code))
 
-    /// Adds an inline.
+    /// Adds an inline for a property getter.
     let WithGetterInline (code: string) (p: Code.Property) =
-        p |> Code.Entity.Update (fun x -> x.GetterInline <- Some code)
+        p |> Code.Entity.Update (fun x -> x.GetterInline <- Some (Code.BasicInline code))
 
-    /// Adds an inline.
+    /// Adds an inline for a property setter.
     let WithSetterInline (code: string) (p: Code.Property) =
-        p |> Code.Entity.Update (fun x -> x.SetterInline <- Some code)
+        p |> Code.Entity.Update (fun x -> x.SetterInline <- Some (Code.BasicInline code))
+
+    /// Creates an inline using interop transformations.
+    /// Use the function provided by createInline to wrap a parameter name.
+    let WithTransformedInline (createInline: (string -> string) -> string) (x: #Code.MethodBase) =
+        x |> Code.Entity.Update (fun x -> x.Inline <- Some (Code.TransformedInline createInline))
+
+    /// Creates an inline using interop transformation on the returned value for a property getter.
+    let WithTransformedGetterInline (code: string) (p: Code.Property) =
+        p |> Code.Entity.Update (fun x -> x.GetterInline <- Some (Code.TransformedInline (fun _ -> code)))
+
+    /// Creates an inline using interop transformations for a property setter.
+    /// Use the value provided by createInline to instead of $value.
+    let WithTransformedSetterInline (createInline: string -> string) (p: Code.Property) =
+        p |> Code.Entity.Update (fun x -> x.SetterInline <- Some (Code.TransformedInline (fun v -> createInline (v ""))))
 
     /// Adds a default in and out inline transform to a type.
     /// In transform is applied to method arguments and property setters.
     /// Out transform is applied to method return values and property getters.
     /// When a member defines a custom inline these transforms are ignored.
-    let WithInlineTransformer (transforms: Type.InlineTransforms) (t: #Type.IType) = 
+    let WithInterop (transforms: Type.InlineTransforms) (t: #Type.IType) = 
         match t.Type with
         | Type.InteropType (t, tr) ->
             Type.InteropType (t,

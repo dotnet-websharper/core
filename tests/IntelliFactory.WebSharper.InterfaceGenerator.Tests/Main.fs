@@ -26,6 +26,9 @@ module Definition =
         Class "WIGtest"
         |+> Static [
             "ArgsFuncIn" => (T<int> * T<int> ^-> T<int>)?add ^-> T<int>    
+            "ArgsFuncIn2" => 
+                (T<int> * T<int> ^-> T<int>)?add ^-> T<int>   
+                |> WithTransformedInline (fun tr -> "WIGtest.ArgsFuncIn(" + tr "add" + ")") 
             "ArgsFuncOut" => T<unit> ^-> (T<int> * T<int> ^-> T<int>)
             Generic - fun a -> "GetGetThis" => T<unit> ^-> (a -* T<unit> ^-> a)            
             "FuncInWithThis" => (JustX -* T<unit> ^-> T<string>) ^-> T<string>
