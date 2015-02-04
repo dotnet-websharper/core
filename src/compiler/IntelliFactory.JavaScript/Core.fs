@@ -562,8 +562,7 @@ let EMatch e =
         (List.map nodeE nodes, build)
 
 let All expr = UAll EMatch expr
-let MapChildren f expr = UMapChildren EMatch f expr
-let Transform f expr = MapChildren f expr
+let Transform f expr = UMapChildren EMatch f expr
 let Children expr = UChildren EMatch expr
 let Fold f init expr = List.fold f init (Children expr)
 let Iterate f expr = Seq.iter f (All expr)
@@ -1248,6 +1247,28 @@ let Simplify expr =
                     then subst var value body
                     else inlineLet expr var value body
                 | _ -> 
+                // transform function if it is always used as JavaScript interop
+                let transformIfAlwaysInterop rtFunc jsFunc =
+                    let withInterop e =
+                        match e with
+                        | Call (Runtime, Constant (String f), [ Var v ]) when f = rtFunc && v = var -> true
+                        | _ -> false
+                    let rec alwaysInterop e =
+                        if withInterop e then true else
+                            match e with
+                            | Var v when v = var -> false
+                            | _ -> Children e |> List.forall alwaysInterop  
+                    if alwaysInterop body then
+                        Let(var, jsFunc |> WithPosOf value, body |> Transform (fun e -> if withInterop e then Var var else e))
+                    else expr
+                match value with
+                | TupledLambda (vars, lBody) ->
+                    transformIfAlwaysInterop "CreateFuncWithArgs" (Lambda(None, vars, lBody))
+                | Lambda (None, [obj], Lambda (None, args, lBody)) ->
+                    transformIfAlwaysInterop "CreateFuncWithThis" (Lambda (Some obj, args, lBody))
+                | Lambda (None, [obj], TupledLambda (vars, lBody)) ->
+                    transformIfAlwaysInterop "CreateFuncWithThisArgs" (Lambda (Some obj, vars, lBody))
+                | _ ->
                     expr
             | _ ->
                 match occurenceCountApprox var body with
@@ -1291,7 +1312,7 @@ let Simplify expr =
             | "CreateFuncWithThis", [f] ->
                 match f with
                 | Lambda (None, [obj], Lambda (None, args, body)) ->
-                    Lambda (Some obj, args, body)    
+                    Lambda (Some obj, args, body) |> WithPosOf f   
                 | _ -> expr
             | "CreateFuncWithThisArgs", [f] ->
                 match f with
@@ -1301,9 +1322,9 @@ let Simplify expr =
             | "SetOptional", [obj; field; optValue] ->
                 match optValue with
                 | NewObject ["$", Constant (Integer 0L)] ->
-                    FieldDelete (obj, field)
+                    FieldDelete (obj, field) |> WithPosOf expr
                 | NewObject ["$", Constant (Integer 1L); "$0", value] ->
-                    FieldSet (obj, field, value)
+                    FieldSet (obj, field, value) |> WithPosOf expr
                 | _ -> expr     
             | _ -> expr     
         | _ -> expr

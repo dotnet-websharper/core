@@ -109,3 +109,8 @@ let Tests =
         }.C =? "c"
         !x =? "abcde"
     }
+
+    Test "NewObject" {
+        let o = Object<int>([| "a", 1; "b", 2 |])
+        o =? New [ "a" => 1; "b" => 2 ]
+    }

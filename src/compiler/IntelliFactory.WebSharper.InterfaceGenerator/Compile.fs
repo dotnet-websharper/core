@@ -449,7 +449,10 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
                 tB.GenericInstanceType(t, args)
             | Type.SpecializedType (x, xs) ->
                 let t = c.TypeReference(x, defT, true)
-                let gen = t.GenericParameters.Count
+                let gen = 
+                    match t with
+                    | :? GenericInstanceType as t -> t.GenericArguments.Count
+                    | _ -> t.GenericParameters.Count
                 if gen <> xs.Length then
                     failwithf "Wrong number of generic parameters applied on %s in member of %s: %d instead of %d"
                         t.FullName defT.Name xs.Length gen

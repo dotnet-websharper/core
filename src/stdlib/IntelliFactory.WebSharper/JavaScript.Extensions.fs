@@ -98,7 +98,7 @@ module Extensions =
 
     type System.Object with
         [<Inline "$0">]
-        member this.ToEcma() = X<Object>
+        member this.ToEcma() = X<Object<obj>>
 
     type String with
         [<Inline "$0">]

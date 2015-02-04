@@ -27,16 +27,11 @@ open IntelliFactory.WebSharper.InterfaceGenerator
 module Definition =
     module P = Pattern
 
-    let EcmaRegExpT = Type.New()
-    let EcmaNumberT = Type.New()
-    let EcmaBooleanT = Type.New()
     let EcmaFunctionT = Type.New()
-    let EcmaObjectT = Type.New()
-    let EcmaArrayT = Type.New()
 
     let EcmaObject =
+        Generic - fun (a: CodeModel.TypeParameter) ->
         Class "Object"
-        |=> EcmaObjectT
         |+> Instance
             [
                 "constructor" =? EcmaFunctionT
@@ -46,12 +41,14 @@ module Definition =
                 "hasOwnProperty" => T<string->bool>
                 "isPrototypeOf" => T<obj->bool>
                 "propertyIsEnumerable" => T<string->bool>
+                "" =@ a |> Indexed T<string>                  
             ]
         |+> Static [
-                Constructor (T<unit> + T<obj>) 
-                "prototype" =? EcmaObjectT
+                ObjectConstructor T<unit> 
+                Constructor (!|(T<string> * a))?keyValuePairs |> WithInline "$wsruntime.NewObject($keyValuePairs)" 
+                "prototype" =? TSelf.[T<obj>]
                 "create" => T<obj>?proto * !?T<obj>?properties ^-> T<obj>                
-                "getPrototypeOf" => T<obj> ^-> EcmaObjectT
+                "getPrototypeOf" => T<obj> ^-> TSelf.[T<obj>]
                 "getOwnPropertyDescriptor" => T<obj->obj>
                 "defineProperty" => T<obj*string*obj->obj>
                 "defineProperties" => T<obj*obj->obj>
@@ -64,52 +61,36 @@ module Definition =
                 "keys" => T<obj->string[]>
             ]
        
-    let EcmaFunction =
-        Class "Function" |> WithSourceName "Function"
-        |=> Inherits EcmaObject
-        |=> EcmaFunctionT
-        |+> Instance 
-            [
-                "length" =? T<int>
-                "apply" => T<obj> * !?T<obj[]>?args ^-> T<obj>
-                "call" => T<obj> *+ T<obj> ^-> T<obj>
-                "bind" => T<obj> *+ T<obj> ^-> EcmaFunctionT
-            ]
-        |+> Static [
-                Constructor (T<string> *+ T<string>)
-            ]
-
     /// The Array object is used to store multiple values in a single variable.
     let EcmaArray =
         Generic - fun (a: CodeModel.TypeParameter) ->
         let WithCallback r x =
-            let t = a * T<int> * EcmaArrayT.[a]
+            let t = a * T<int> * TSelf.[a]
             ((t ^-> r) ^-> x) + ((T<obj> -* t ^-> r) * T<obj> ^-> x)
         let Reduce =
-            (a?previousValue * a?currentValue * T<int>?index * EcmaArrayT.[a] ^-> a) ^-> a        
+            (a?previousValue * a?currentValue * T<int>?index * TSelf.[a] ^-> a) ^-> a        
         let ReduceG b =
-            (b?previousValue * a?currentValue * T<int>?index * EcmaArrayT.[a] ^-> b) * b?initialValue ^-> b
+            (b?previousValue * a?currentValue * T<int>?index * TSelf.[a] ^-> b) * b?initialValue ^-> b
         Class "Array"
-        |=> Inherits EcmaObject
-        |=> EcmaArrayT.[a]
+        |=> Inherits EcmaObject.[a]
         |+> Instance [
-                "concat" => !+ a ^-> EcmaArrayT.[a]
+                "concat" => !+ a ^-> TSelf.[a]
                 "join" => T<string->string>
                 "pop" => T<unit> ^-> a
                 "push" => !+ a ^-> T<int>
-                "reverse" => T<unit> ^-> EcmaArrayT.[a]
+                "reverse" => T<unit> ^-> TSelf.[a]
                 "shift" => T<unit> ^-> a
-                "slice" => T<int>?startPos * !?T<int>?endPos ^-> EcmaArrayT.[a]
-                "sort" => (a * a ^-> T<int>) + T<unit> ^-> EcmaArrayT.[a]
-                "splice" => T<int>?start * T<int>?delete *+ a ^-> EcmaArrayT.[a]
+                "slice" => T<int>?startPos * !?T<int>?endPos ^-> TSelf.[a]
+                "sort" => (a * a ^-> T<int>) + T<unit> ^-> TSelf.[a]
+                "splice" => T<int>?start * T<int>?delete *+ a ^-> TSelf.[a]
                 "unshift" => !+ a ^-> T<int>
                 "indexOf" => a * !?T<int>?fromIndex ^-> T<int>
                 "lastIndexOf" => a * !?T<int>?fromIndex ^-> T<int>
                 "every" => WithCallback T<bool> T<bool>
                 "some" => WithCallback T<bool> T<bool>
                 "forEach" => WithCallback T<unit> T<unit>
-                Generic - fun b -> "map" => WithCallback b EcmaArrayT.[b]
-                "filter" => WithCallback T<bool> EcmaArrayT.[a]
+                Generic - fun b -> "map" => WithCallback b TSelf.[b]
+                "filter" => WithCallback T<bool> TSelf.[a]
                 "reduce" => Reduce
                 Generic - fun b -> "reduce" => ReduceG b
                 "reduceRight" => Reduce
@@ -123,26 +104,59 @@ module Definition =
                 "isArray" => T<obj->bool>
             ]
 
-    let EcmaStringT = Type.New()
+    let EcmaObjectT = EcmaObject.[T<obj>]
+
+    let EcmaFunction =
+        Class "Function" |> WithSourceName "Function"
+        |=> Inherits EcmaObjectT
+        |=> EcmaFunctionT
+        |+> Instance 
+            [
+                "length" =? T<int>
+                "apply" => T<obj> * !?T<obj[]>?args ^-> T<obj>
+                "call" => T<obj> *+ T<obj> ^-> T<obj>
+                "bind" => T<obj> *+ T<obj> ^-> EcmaFunctionT
+            ]
+        |+> Static [
+                Constructor (T<string> *+ T<string>)
+            ]
+
+    /// A resgular expression is an object that describes a pattern of characters.
+    let EcmaRegExp =
+        Class "RegExp"
+        |=> Inherits EcmaObjectT
+        |+> Instance
+            [
+                "exec" => T<string->string[]>
+                "test" => T<string->bool>
+                "source" =? T<string>
+                "global" =? T<bool>
+                "ignoreCase" =? T<bool>
+                "multiLine" =? T<bool>
+                "lastIndex" =@ T<int>
+            ]
+        |+> Static [
+                Constructor(T<string> * !?T<string>?flags)
+            ]
 
     /// The String object is used to manipulate a stored piece of text.
     let EcmaString =
         Class "String"
-        |=> Inherits EcmaObject
+        |=> Inherits EcmaObjectT
         |+> Instance 
             [
                 "charAt" => T<int->string>
                 "charCodeAt" => T<int->int>
-                "concat" => !+ (T<string> + EcmaStringT) ^-> T<string>
+                "concat" => !+ (T<string> + TSelf) ^-> T<string>
                 "indexOf" => T<string> * !?T<int>?pos ^-> T<int>
                 "lastIndexOf" => T<string> * !?T<int>?pos ^-> T<int>
                 "localeCompare" => T<obj> ^-> T<int>
-                "match" => EcmaRegExpT + T<string> ^-> T<string []>
-                "replace" => EcmaRegExpT * T<string> ^-> T<string>
-                "search" => EcmaRegExpT ^-> T<int>
+                "match" => EcmaRegExp + T<string> ^-> T<string []>
+                "replace" => EcmaRegExp * T<string> ^-> T<string>
+                "search" => EcmaRegExp ^-> T<int>
                 "slice" => T<int>?startPos * !?T<int>?endPos ^-> T<string>
                 "split" =>
-                    (T<string> + EcmaRegExpT) * !?T<int>?limit ^-> T<string[]>
+                    (T<string> + EcmaRegExp) * !?T<int>?limit ^-> T<string[]>
                 "substring" => T<int>?startPos * !?T<int>?endPos ^-> T<string>
                 "toLowerCase" => T<unit->string>
                 "toLocaleLowerCase" => T<unit->string>
@@ -160,7 +174,7 @@ module Definition =
     /// The Boolean object is used to convert a non-Boolean value to a Boolean value (true or false).
     let EcmaBoolean =
         Class "Boolean"
-        |=> Inherits EcmaObject
+        |=> Inherits EcmaObjectT
         |+> Static [               
                 Constructor (T<obj>) 
             ]
@@ -168,7 +182,7 @@ module Definition =
     /// The Number object is an object wrapper for primitive numeric values.
     let EcmaNumber =
         Class "Number"
-        |=> Inherits EcmaObject
+        |=> Inherits EcmaObjectT
         |+> Instance
             [
                 "toString" => T<int>?tobase ^-> T<string>
@@ -237,7 +251,7 @@ module Definition =
         
         let DateType = Class "Date" 
         DateType
-        |=> Inherits EcmaObject
+        |=> Inherits EcmaObjectT
         |+> Instance [
                 "toDateString" => T<unit->string>
                 "toTimeString" => T<unit->string>
@@ -300,27 +314,9 @@ module Definition =
                 "parse" => T<string> ^-> T<int>
             ]
 
-    /// A resgular expression is an object that describes a pattern of characters.
-    let EcmaRegExp =
-        Class "RegExp"
-        |=> Inherits EcmaObject
-        |+> Instance
-            [
-                "exec" => T<string->string[]>
-                "test" => T<string->bool>
-                "source" =? T<string>
-                "global" =? T<bool>
-                "ignoreCase" =? T<bool>
-                "multiLine" =? T<bool>
-                "lastIndex" =@ T<int>
-            ]
-        |+> Static [
-                Constructor(T<string> * !?T<string>?flags)
-            ]
-
     let EcmaError =
         Class "Error"
-        |=> Inherits EcmaObject
+        |=> Inherits EcmaObjectT
         |+> Instance
             [
                 "name" =? T<string>
@@ -331,8 +327,8 @@ module Definition =
 
     let EcmaJSON =
         Class "JSON"
-        |=> Inherits EcmaObject
-        |+> Instance
+        |=> Inherits EcmaObjectT
+        |+> Static
             [
                 "parse" => T<string> * !?T<obj->obj->bool>?reviver ^-> T<obj>
                 "stringify" => T<obj>?value * !?(T<obj->obj> + (Type.ArrayOf T<obj>))?replacer * !?(T<string> + T<int>)?space ^-> T<string>
