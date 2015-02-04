@@ -101,6 +101,15 @@ var IntelliFactory =
                 return r
             },
 
+        NewObject:
+            function (kv) {
+                var o = {};
+                for (var i = 0; i < kv.length; i++) {
+                    o[kv[0]] = kv[1];
+                }
+                return o;
+            },
+
         OnInit:
             function (f) {
                 if (!("init" in this)) {
