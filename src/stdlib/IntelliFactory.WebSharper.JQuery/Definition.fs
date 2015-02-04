@@ -93,15 +93,16 @@ module Definition =
     let JqXHR = Type.New ()
 
     /// Ajax configuration
-    let AjaxConfig = Type.New()
-    let AjaxConfigClass =
-        Pattern.Config "AjaxConfig" {
+    let AjaxSettings =
+        let AjaxSettings = Type.New ()
+        
+        Pattern.Config "AjaxSettings" {
             Required = []
             Optional =
                 [
                     "accepts" , T<obj>
                     "async" , T<bool>
-                    "beforeSend" ,  JqXHR * !? AjaxConfig ^-> T<bool>
+                    "beforeSend" ,  JqXHR * !? AjaxSettings ^-> T<bool>
                     "cache" , T<bool>
                     // 1.5 allows _also_ an array of functions. We can't have both so the array version is 
                     // preferred.
@@ -137,7 +138,7 @@ module Definition =
                     "xhr" , T<unit> ^-> XmlHttpRequest
                 ]
         }
-        |=> AjaxConfig
+        |=> AjaxSettings
 
     let StringMap = Type.New()
 
@@ -183,7 +184,7 @@ module Definition =
             Event?event *
 
             XmlHttpRequest?request *
-            AjaxConfig?config ^->
+            AjaxSettings?config ^->
             T<unit>
         ) ^-> JQ
 
@@ -859,11 +860,11 @@ module Definition =
                 |> WithInline "jQuery($0)"
                 |> WithComment "Binds a function to be executed when the DOM has finished loading."
 
-                "ajax" => AjaxConfig ^-> JqXHR
-                "ajax" => T<string> * AjaxConfig ^-> JqXHR
+                "ajax" => AjaxSettings ^-> JqXHR
+                "ajax" => T<string> * AjaxSettings ^-> JqXHR
 
 
-                "ajaxSetup" => AjaxConfig ^-> T<unit>
+                "ajaxSetup" => AjaxSettings ^-> T<unit>
 
                 "contains" =>
                     T<Dom.Element>?container * T<Dom.Node>?contained ^-> T<bool>
@@ -1026,7 +1027,7 @@ module Definition =
                  SupportClass
                  PositionClass
                  AnimateConfigClass
-                 AjaxConfigClass
+                 AjaxSettings
                  EventClass
                  JQueryClass
                  FX
