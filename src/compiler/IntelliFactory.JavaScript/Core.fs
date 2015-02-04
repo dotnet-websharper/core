@@ -1241,11 +1241,14 @@ let Simplify expr =
                     | Application (Var f, _) when f = var -> isApplication <- true
                     | Var x when x = var -> count <- count + 1
                     | _ -> ()
-                if count = 1 then
+                match count with
+                | 0 -> body
+                | 1 ->
                     if isApplication
-                        then subst var value body
-                        else inlineLet expr var value body
-                else expr
+                    then subst var value body
+                    else inlineLet expr var value body
+                | _ -> 
+                    expr
             | _ ->
                 match occurenceCountApprox var body with
                 | 0 -> if isMostlyPure value then body else Sequential (value, body)
@@ -1274,6 +1277,10 @@ let Simplify expr =
                 Let (resVar, result, 
                     Seq.fold (fun e v -> Sequential (v, e)) (Var resVar) nonPureAfter
                 )
+        | Application (Call (Runtime, Constant (String "Bind"), [f; obj]), args) ->
+            Call(f, !~(String "call"), obj :: args)
+        | Call (Call (Runtime, Constant (String "Bind"), [f; obj]), Constant (String "apply"), [args]) ->
+            Call (f, !~(String "apply"), [obj; args])
         | Call (Runtime, Constant (String rtFunc), xs) ->
             match rtFunc, xs with
             | "CreateFuncWithArgs", [f] ->

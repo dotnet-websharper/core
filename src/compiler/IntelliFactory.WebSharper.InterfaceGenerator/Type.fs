@@ -422,7 +422,7 @@ module Type =
     let private thisTransform =
         {
             InTransform = fun x -> "$wsruntime.CreateFuncWithThis(" + x + ")"
-            OutTransform = fun x -> "function(obj) { return (" + x + ").bind(obj); }"
+            OutTransform = fun x -> "function(obj) { return $wsruntime.Bind(" + x + ", obj); }"
         }
 
     let private thisArgsTransform =

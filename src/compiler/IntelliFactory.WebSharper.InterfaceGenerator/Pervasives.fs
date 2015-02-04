@@ -20,7 +20,7 @@
 
 namespace IntelliFactory.WebSharper.InterfaceGenerator
 
-#nowarn "1189"
+#nowarn "25"
 
 [<AutoOpen>]
 module Pervasives =
@@ -242,7 +242,7 @@ module Pervasives =
         p |> Code.Entity.Update (fun x -> x.GetterInline <- Some (Code.TransformedInline (fun _ -> code)))
 
     /// Creates an inline using interop transformations for a property setter.
-    /// Use the value provided by createInline to instead of $value.
+    /// Use the value provided by createInline instead of $value.
     let WithTransformedSetterInline (createInline: string -> string) (p: Code.Property) =
         p |> Code.Entity.Update (fun x -> x.SetterInline <- Some (Code.TransformedInline (fun v -> createInline (v ""))))
 
@@ -315,7 +315,8 @@ module Pervasives =
         ty.AddRequires (requires |> List.map (fun res -> Code.ExternalDependency res))
 
     /// Generics helper.
-    type GenericHelper =
+    type GenericHelper = 
+        private
         | Generic 
         | GenericNamed of string list
         with
@@ -337,16 +338,23 @@ module Pervasives =
             x
 
         static member ( - ) (this: GenericHelper, f) =
-            this.Entity 1 (fun x -> f x.[0])
+            this.Entity 1 (fun [ a ] -> f a)
 
         static member ( - ) (this: GenericHelper, f) =
-            this.Entity 2 (fun x -> f x.[0] x.[1])
+            this.Entity 2 (fun [ a; b ] -> f a b)
 
         static member ( - ) (this: GenericHelper, f) =
-            this.Entity 3 (fun x -> f x.[0] x.[1] x.[2])
+            this.Entity 3 (fun [ a; b; c ] -> f a b c)
 
         static member ( - ) (this: GenericHelper, f) =
-            this.Entity 4 (fun x -> f x.[0] x.[1] x.[2] x.[3])
+            this.Entity 4 (fun [ a; b; c; d ] -> f a b c d)
+
+        static member ( - ) (this: GenericHelper, (arity, make)) =
+            this.Entity arity make
 
         static member ( + ) (this: GenericHelper, names) =
             GenericNamed names
+
+    /// Generics helper.
+    let Generic = Generic
+

@@ -188,6 +188,11 @@ var IntelliFactory =
                 }
             },
 
+        Bind:
+            function(f, obj) {
+                return function () { return f.apply(this, arguments) } 
+            },
+
         CreateFuncWithArgs:
             function (f) {
                 return function () { return f.call(this, arguments); }

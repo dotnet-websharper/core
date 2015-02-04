@@ -39,7 +39,7 @@ type FuncWithThisProxy<'TThis, 'TFunc> =
 
     member this.Length with [<Inline "$this.length">] get() = 0
 
-    [<Inline "$this.bind($thisArg)">]
+    [<Inline "$wsruntime.Bind($this, $thisArg)">]
     member this.Bind (thisArg: 'TThis) = Unchecked.defaultof<'TFunc>
 
 [<Proxy(typeof<Arguments<_>>)>]
