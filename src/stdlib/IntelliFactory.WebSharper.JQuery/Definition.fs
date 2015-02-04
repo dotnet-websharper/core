@@ -106,18 +106,18 @@ module Definition =
                     // 1.5 allows _also_ an array of functions. We can't have both so the array version is 
                     // preferred.
                     "complete" , Type.ArrayOf (JqXHR * T<string> ^-> T<unit>)
-                    "contents", T<obj> // Should be Type.ArrayOf (Type.Tuple [T<string>; T<string>]) with an inline
+                    "contents", T<Object<string>>
                     "contentType" ,  T<string>
                     "context" , T<obj>
-                    "converters", T<obj> // Should be Type.ArrayOf (Type.Tuple [T<string>; T<string -> obj>]) with an inline
+                    "converters", T<Object<string -> obj>>
                     "crossDomain", T<bool>
-                    "data" , T<obj> // Should be Type.ArrayOf (Type.Tuple [T<string>; T<obj>]) with an inline
+                    "data" , T<Object<obj>>
                     "dataFilter" , T<string> * DataType ^-> T<obj>
                     "dataType" , DataType
                     // See complete's comment.
                     "error" , Type.ArrayOf (JqXHR * T<string> * T<string> ^-> T<unit>)
                     "global" , T<bool>
-                    "headers", T<obj> // Should be Type.ArrayOf (Type.Tuple [T<string>; T<string>]) with an inline
+                    "headers", T<Object<string>>
                     "ifModified" , T<bool>
                     "isLocal" , T<bool>
                     "jsonp" , T<string>
@@ -126,7 +126,7 @@ module Definition =
                     "password" , T<string>
                     "processData" , T<bool>
                     "scriptCharset" , T<string>
-                    "statusCode", T<obj> // Should be Type.ArrayOf (Type.Tuple [T<int>; T<unit -> unit>]) with an inline
+                    "statusCode", T<Object<unit -> unit>>
                     // See complete's comment.
                     "success" , Type.ArrayOf (T<obj> * T<string> * JqXHR ^-> T<unit>)
                     "timeout" , T<int>
