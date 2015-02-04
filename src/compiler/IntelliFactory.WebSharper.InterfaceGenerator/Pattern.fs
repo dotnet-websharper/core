@@ -28,12 +28,10 @@ module Pattern =
     /// Constructs a new class with no constructors and a given
     /// list of static inline members.
     let EnumInlines name (values: seq<string * string>) =
-        let t = Type.New ()
         Class name
-        |=> t
         |+> Static 
             [ for (n, c) in values ->
-                Getter n t
+                Getter n TSelf
                 |> WithGetterInline c :> _
         ]
 
@@ -58,7 +56,6 @@ module Pattern =
 
     /// Generates a configuration object type.
     let Config (name: string) (properties: ConfigProperties) =
-        let t = Type.New()
         let ctor : Type.Parameters =
             { This = None
               Variable = None

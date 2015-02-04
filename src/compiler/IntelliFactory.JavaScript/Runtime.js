@@ -105,7 +105,7 @@ var IntelliFactory =
             function (kv) {
                 var o = {};
                 for (var i = 0; i < kv.length; i++) {
-                    o[kv[0]] = kv[1];
+                    o[kv[i][0]] = kv[i][1];
                 }
                 return o;
             },
