@@ -30,14 +30,6 @@ open IntelliFactory.WebSharper.JavaScript
 [<Inline "$value">]
 let UnboxGeneric<'T> (value: obj) = X<'T>
 
-[<JavaScript>]
-let BoundsCheck<'T> (arr: 'T[]) (n: int) =
-    // JS makes it difficult to debug out-of-bounds exceptions, as
-    // just inserts "undefined" when doing an OOB get, and silently
-    // does an OOB set
-    if n < 0 || n >= arr.Length then
-        raise (new IndexOutOfRangeException())
-
 [<Inline "$arr.length">]
 let GetArray2DLength1 (arr: 'T[,]) = X<int>
 
@@ -45,10 +37,23 @@ let GetArray2DLength1 (arr: 'T[,]) = X<int>
 let GetArray2DLength2 (arr: 'T[,]) =  X<int>
 
 [<JavaScript>]
-let BoundsCheck2D<'T> (arr: 'T[,]) (n1: int) (n2: int) =
+[<Name "IntelliFactory.WebSharper.Arrays.checkBounds">]
+let checkBounds (arr: 'T[]) (n: int) =
+    if n < 0 || n >= Array.length arr then
+        failwith "Index was outside the bounds of the array."
+
+[<JavaScript>]
+[<Name "IntelliFactory.WebSharper.Arrays.checkBounds2D">]
+let checkBounds2D<'T> (arr: 'T[,]) (n1: int) (n2: int) =
     if n1 < 0 || n2 < 0 || n1 >= GetArray2DLength1 arr
         || n2 >= GetArray2DLength2 arr then
         raise (new IndexOutOfRangeException())
+
+[<Name "IntelliFactory.WebSharper.Arrays.checkRange">]
+[<JavaScript>]
+let checkRange (arr: 'T []) (start: int) (size: int) : unit =
+    if (size < 0) || (start < 0) || (Array.length arr < start + size) then
+        failwith "Index was outside the bounds of the array."
 
 [<Inline "$arr[$n]">]
 let GetArrayInternal<'T> (arr: 'T[]) (n:int) = X<'T>
@@ -57,26 +62,32 @@ let GetArrayInternal<'T> (arr: 'T[]) (n:int) = X<'T>
 let SetArrayInternal<'T> (arr: 'T[]) (n:int) (x:'T) = ()
 
 [<JavaScript>]
+[<Name "IntelliFactory.WebSharper.Arrays.set">]
 let SetArray<'T> (arr: 'T[]) (n: int) (x: 'T) =
-    BoundsCheck arr n
+    checkBounds arr n
     SetArrayInternal arr n x
 
 [<Inline "$s.charCodeAt($ix)">]
+[<Name "IntelliFactory.WebSharper.Strings.get">]
 let GetString (s: string) (ix: int) = X<char>
 
 [<JavaScript>]
+[<Name "IntelliFactory.WebSharper.Arrays.get">]
 let GetArray<'T> (arr: 'T[]) (n: int) =
-    BoundsCheck arr n
+    checkBounds arr n
     GetArrayInternal arr n
 
-[<JavaScript>]
-let GetArraySub<'T> (arr: 'T[]) start len =
-    let dst = Array.zeroCreate len
-    for i = 0 to len - 1 do
-        dst.[i] <- arr.[start + 1]
-    dst
+[<Inline "$x.slice($start,$start+$length)">]
+let private subArray (x: 'T) start length = X<'T>
 
 [<JavaScript>]
+[<Name "IntelliFactory.WebSharper.Arrays.sub">]
+let GetArraySub<'T> (arr: 'T[]) start length =
+    checkRange arr start length
+    subArray arr start length
+
+[<JavaScript>]
+[<Name "IntelliFactory.WebSharper.Arrays.setSub" >]
 let SetArraySub<'T> (arr: 'T[]) start len (src: 'T[]) =
     for i = 0 to len - 1 do
         arr.[start+i] <- src.[i]
@@ -85,25 +96,29 @@ let SetArraySub<'T> (arr: 'T[]) start len (src: 'T[]) =
 let GetArray2DInternal (arr: 'T[,]) (n1:int) (n2:int) = X<'T>
 
 [<JavaScript>]
+[<Name "IntelliFactory.WebSharper.Arrays.get2D" >]
 let GetArray2D (arr: 'T[,]) (n1: int) (n2: int) =
-    BoundsCheck2D arr n1 n2
+    checkBounds2D arr n1 n2
     GetArray2DInternal arr n1 n2
 
 [<Inline "void ($arr[$n1][$n2] = $x)">]
 let SetArray2DInternal (arr: 'T[,]) (n1:int) (n2:int) (x:'T) = ()
 
 [<JavaScript>]
+[<Name "IntelliFactory.WebSharper.Arrays.set2D" >]
 let SetArray2D (arr: 'T[,]) (n1: int) (n2: int) (x: 'T) =
-    BoundsCheck2D arr n1 n2
+    checkBounds2D arr n1 n2
     SetArray2DInternal arr n1 n2 x
 
 [<JavaScript>]
+[<Name "IntelliFactory.WebSharper.Arrays.zeroCreate2D" >]
 let Array2DZeroCreate<'T> (n:int) (m:int) =
     let arr = As<'T[,]>(Array.init n (fun _ -> Array.zeroCreate m))
     arr?dims <- 2
     arr
 
 [<JavaScript>]
+[<Name "IntelliFactory.WebSharper.Arrays.sub2D" >]
 let GetArray2DSub<'T> (src: 'T[,]) src1 src2 len1 len2 =
     let len1 = (if len1 < 0 then 0 else len1)
     let len2 = (if len2 < 0 then 0 else len2)
@@ -114,12 +129,14 @@ let GetArray2DSub<'T> (src: 'T[,]) src1 src2 len1 len2 =
     dst
 
 [<JavaScript>]
+[<Name "IntelliFactory.WebSharper.Arrays.setSub2D" >]
 let SetArray2DSub<'T> (dst: 'T[,]) src1 src2 len1 len2 (src: 'T[,]) =
     for i = 0 to len1 - 1 do
         for j = 0 to len2 - 1 do
             dst.[src1+i, src2+j] <- src.[i, j]
 
 [<JavaScript>]
+[<Name "IntelliFactory.WebSharper.Arrays.length" >]
 let GetLength<'T> (arr: System.Array) =
     match arr?dims with
     | 2 -> GetArray2DLength1 (As arr) * GetArray2DLength1 (As arr)

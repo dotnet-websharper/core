@@ -30,12 +30,10 @@ module F = IntelliFactory.WebSharper.IntrinsicFunctionProxy
 
 [<JavaScript>]
 [<Inline>]
-[<Name "length1">]
 let Length1 (arr: 'T[,]) = F.GetArray2DLength1 arr
 
 [<Inline>]
 [<JavaScript>]
-[<Name "length2">]
 let Length2 (arr: 'T[,]) = F.GetArray2DLength2 arr
 
 [<Inline>]
@@ -47,12 +45,11 @@ let Get (array: 'T[,]) (n:int) (m:int) = F.GetArray2D array n m
 let Set (array: 'T[,]) (n:int) (m:int) (x:'T) = F.SetArray2D array n m x
 
 [<JavaScript>]
-[<Name "zeroCreate">]
+[<Inline>]
 let ZeroCreate (n:int) (m:int) = F.Array2DZeroCreate n m
     
 [<Inline>]
 [<JavaScript>]
-[<Name "create">]
 let Create n m (x:'T) =
     let arr = As<'T[,]>(Array.init n (fun _ -> Array.create m x))
     arr?dims <- 2
