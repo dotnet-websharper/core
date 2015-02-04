@@ -90,6 +90,8 @@ module Definition =
         |=> Support
         |+> Instance props
 
+    let JqXHR = Type.New ()
+
     /// Ajax configuration
     let AjaxConfig = Type.New()
     let AjaxConfigClass =
@@ -99,32 +101,34 @@ module Definition =
                 [
                     "accepts" , T<obj>
                     "async" , T<bool>
-                    "beforeSend" ,  XmlHttpRequest ^-> T<unit>
+                    "beforeSend" ,  JqXHR * !? AjaxConfig ^-> T<bool>
                     "cache" , T<bool>
                     // 1.5 allows _also_ an array of functions. We can't have both so the array version is 
                     // preferred.
-                    "complete" , Type.ArrayOf(XmlHttpRequest * T<string> ^-> T<unit>)
-                    "contents", T<obj>
+                    "complete" , Type.ArrayOf (JqXHR * T<string> ^-> T<unit>)
+                    "contents", T<obj> // Should be Type.ArrayOf (Type.Tuple [T<string>; T<string>]) with an inline
                     "contentType" ,  T<string>
                     "context" , T<obj>
-                    "converters", T<obj>
+                    "converters", T<obj> // Should be Type.ArrayOf (Type.Tuple [T<string>; T<string -> obj>]) with an inline
                     "crossDomain", T<bool>
-                    "data" , T<obj>
-                    "dataFilter" , T<obj> * DataType ^-> T<unit>
+                    "data" , T<obj> // Should be Type.ArrayOf (Type.Tuple [T<string>; T<obj>]) with an inline
+                    "dataFilter" , T<string> * DataType ^-> T<obj>
                     "dataType" , DataType
                     // See complete's comment.
-                    "error" , Type.ArrayOf(XmlHttpRequest * T<string> * Error ^-> T<unit>)
+                    "error" , Type.ArrayOf (JqXHR * T<string> * T<string> ^-> T<unit>)
                     "global" , T<bool>
-                    "headers", T<obj>
+                    "headers", T<obj> // Should be Type.ArrayOf (Type.Tuple [T<string>; T<string>]) with an inline
                     "ifModified" , T<bool>
+                    "isLocal" , T<bool>
                     "jsonp" , T<string>
                     "jsonpCallback" , T<string>
+                    "mimeType", T<string>
                     "password" , T<string>
                     "processData" , T<bool>
                     "scriptCharset" , T<string>
-                    "statusCode", T<obj>
+                    "statusCode", T<obj> // Should be Type.ArrayOf (Type.Tuple [T<int>; T<unit -> unit>]) with an inline
                     // See complete's comment.
-                    "success" , Type.ArrayOf(T<obj> * T<string> * XmlHttpRequest ^-> T<unit>)
+                    "success" , Type.ArrayOf (T<obj> * T<string> * JqXHR ^-> T<unit>)
                     "timeout" , T<int>
                     "traditional" , T<bool>
                     "type" , RequestType
@@ -270,9 +274,8 @@ module Definition =
             |+> Instance ((promiseDeferredProtocol Deferred) @ mems)
         Deferred, Promise
 
-    let JqXHR =
-        let JqXHR = Class "jqXHR"
-        JqXHR
+    let JqXHRClass =
+        Class "jqXHR"
         |=> Inherits Deferred
         |+> Instance [
             // The documentation isn't clear about the types of each of the functions.
@@ -289,6 +292,7 @@ module Definition =
             "complete" => (XmlHttpRequest * T<string> ^-> T<unit>) ^-> JqXHR
 
         ]
+        |=> JqXHR
 
     /// JQuery class
     let JQueryClass =
@@ -1018,7 +1022,7 @@ module Definition =
                  Promise
                  Deferred
                  DeferredState
-                 JqXHR
+                 JqXHRClass
                  SupportClass
                  PositionClass
                  AnimateConfigClass
