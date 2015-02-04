@@ -133,6 +133,7 @@ module Definition =
                     "xhr" , T<unit> ^-> XmlHttpRequest
                 ]
         }
+        |=> AjaxConfig
 
     let StringMap = Type.New()
 
