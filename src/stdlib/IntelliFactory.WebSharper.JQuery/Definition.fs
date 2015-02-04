@@ -106,7 +106,7 @@ module Definition =
                     "cache" , T<bool>
                     // 1.5 allows _also_ an array of functions. We can't have both so the array version is 
                     // preferred.
-                    "complete" , Type.ArrayOf (JqXHR * T<string> ^-> T<unit>)
+                    "complete" , JqXHR * T<string> ^-> T<unit>
                     "contents", T<Object<string>>
                     "contentType" ,  T<string>
                     "context" , T<obj>
@@ -116,7 +116,7 @@ module Definition =
                     "dataFilter" , T<string> * DataType ^-> T<obj>
                     "dataType" , DataType
                     // See complete's comment.
-                    "error" , Type.ArrayOf (JqXHR * T<string> * T<string> ^-> T<unit>)
+                    "error" , JqXHR * T<string> * T<string> ^-> T<unit>
                     "global" , T<bool>
                     "headers", T<Object<string>>
                     "ifModified" , T<bool>
@@ -129,7 +129,7 @@ module Definition =
                     "scriptCharset" , T<string>
                     "statusCode", T<Object<unit -> unit>>
                     // See complete's comment.
-                    "success" , Type.ArrayOf (T<obj> * T<string> * JqXHR ^-> T<unit>)
+                    "success" , T<obj> * T<string> * JqXHR ^-> T<unit>
                     "timeout" , T<int>
                     "traditional" , T<bool>
                     "type" , RequestType
