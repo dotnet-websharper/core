@@ -75,21 +75,6 @@ module Definition =
         |> Pattern.EnumStrings "DataType"
         |=> DataType
 
-    /// Support
-    let Support = Type.New()
-    let SupportClass =
-        let fields =
-            "boxModel cssFloat hrefNormalized htmlSerialize \
-             leadingWhitespace noCloneEvent objectAll opacity \
-             scriptEval style tbody".Split ' '
-        let props =
-            [for f in fields ->
-                f =? T<bool> :> CodeModel.IClassMember
-            ]
-        Class "Support"
-        |=> Support
-        |+> Instance props
-
     let JqXHR = Type.New ()
 
     /// Ajax configuration
@@ -993,8 +978,6 @@ module Definition =
                 "removeData" =>
                     T<Dom.Element> * !?T<string>?name ^-> T<unit>
 
-                // TODO!!!
-                // "support" =? Support
                 "trim" => T<string->string>
                 
                 "type" => T<unit> ^-> T<string>
@@ -1074,7 +1057,6 @@ module Definition =
                  PromiseClass
                  Deferred
                  JqXHRClass
-                 SupportClass
                  Position
                  AnimateSettings
                  AjaxSettings
