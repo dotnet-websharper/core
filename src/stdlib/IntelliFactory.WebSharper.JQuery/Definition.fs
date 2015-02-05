@@ -1058,7 +1058,7 @@ module Definition =
                  FX
             ]
             Namespace "IntelliFactory.WebSharper.JQuery.Resources" [
-                Resource "JQuery" "http://code.jquery.com/jquery-1.11.1.min.js"
+                Resource "JQuery" "http://code.jquery.com/jquery-1.11.2.min.js"
                 |> fun r -> r.AssemblyWide()
             ]
         ]
