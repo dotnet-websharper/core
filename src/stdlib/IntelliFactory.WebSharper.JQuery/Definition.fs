@@ -247,19 +247,46 @@ module Definition =
         ]
         |+> Instance [
             "always" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Deferred
+            |> WithComment "Add handlers to be called when the Deferred object is either resolved or rejected."
+
             "done" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Deferred
+            |> WithComment "Add handlers to be called when the Deferred object is resolved."
+
             "fail" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Deferred
+            |> WithComment "Add handlers to be called when the Deferred object is rejected."
+
             "notify" => !+ T<obj> ^-> Deferred
+            |> WithComment "Call the progressCallbacks on a Deferred object with the given args."
+
             "notifyWith" => T<obj> *+ T<obj> ^-> Deferred
+            |> WithComment "Call the progressCallbacks on a Deferred object with the given context and args."
+
             "progress" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Deferred
+            |> WithComment "Add handlers to be called when the Deferred object generates progress notifications."
+
             "promise" => !? T<obj> ^-> Promise
+            |> WithComment "Return a Deferred's Promise object."
+
             "reject" => !+ T<obj> ^-> Deferred
+            |> WithComment "Reject a Deferred object and call any failCallbacks with the given args."
+
             "rejectWith" => T<obj> *+ T<obj> ^-> Deferred
+            |> WithComment "Reject a Deferred object and call any failCallbacks with the given context and args."
+
             "resolve" => !+ T<obj> ^-> Deferred
+            |> WithComment "Resolve a Deferred object and call any doneCallbacks with the given args."
+
             "resolveWith" => T<obj> *+ T<obj> ^-> Deferred
+            |> WithComment "Resolve a Deferred object and call any doneCallbacks with the given context and args."
+
             "state" => T<unit -> string>
+            |> WithComment "Determine the current state of a Deferred object."
+
             "then" => T<unit -> unit> * !? T<unit -> unit> * !? T<unit -> unit> ^-> Promise
+            |> WithComment "Add handlers to be called when the Deferred object is resolved, rejected, or still in progress."
+
             "when" => !+ T<obj> ^-> Promise
+            |> WithComment "Provides a way to execute callback functions based on one or more objects, usually Deferred objects that represent asynchronous events."
         ]
 
     let JqXHRClass =
