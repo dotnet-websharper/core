@@ -140,8 +140,6 @@ module Definition =
         }
         |=> AjaxSettings
 
-    let StringMap = Type.New()
-
     let Position =
         Pattern.Config "Position" {
             Required = []
@@ -351,15 +349,15 @@ module Definition =
                 "andSelf" => T<unit> ^-> JQ
 
                 // Animate (Tested)
-                "animate" => StringMap?properties * AnimateSettings?options ^-> JQ
+                "animate" => T<Object<string>>?properties * AnimateSettings?options ^-> JQ
                 |> WithComment AnimateCmt
-                "animate" => StringMap * IntString?duration ^-> JQ
+                "animate" => T<Object<string>> * IntString?duration ^-> JQ
                 |> WithComment AnimateCmt
-                "animate" => StringMap * IntString?duration * T<string>?easing ^-> JQ
+                "animate" => T<Object<string>> * IntString?duration * T<string>?easing ^-> JQ
                 |> WithComment AnimateCmt
-                "animate" => StringMap * IntString?duration * UnitCallback?callback ^-> JQ
+                "animate" => T<Object<string>> * IntString?duration * UnitCallback?callback ^-> JQ
                 |> WithComment AnimateCmt
-                "animate" => StringMap * IntString?duration * T<string>?easing * UnitCallback?callback ^-> JQ
+                "animate" => T<Object<string>> * IntString?duration * T<string>?easing * UnitCallback?callback ^-> JQ
                 |> WithComment AnimateCmt
 
                 // Append (Tested)
@@ -402,10 +400,10 @@ module Definition =
                 |> WithComment BeforeCmt
 
                 // Bind (Tested)
-                "bind" => T<string>?event * !?StringMap?eventData * EventHandler?handler ^-> JQ
+                "bind" => T<string>?event * !?T<Object<string>>?eventData * EventHandler?handler ^-> JQ
                 |> WithComment "Attach a handler to an event for the elements."
 
-                "bindFalse" => T<string>?event * StringMap?eventData ^-> JQ
+                "bindFalse" => T<string>?event * T<Object<string>>?eventData ^-> JQ
                 |> WithComment "Attach a handler to an event for the elements."
                 |> WithInline "$this.bind($event, $eventData, false)"
 
@@ -414,7 +412,7 @@ module Definition =
                 "blur" => !?EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"blur\" JavaScript event, or trigger that event on an element."
 
-                "blur" => StringMap?eventData * EventHandler?handler ^-> JQ
+                "blur" => T<Object<string>>?eventData * EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"blur\" JavaScript event, or trigger that event on an element."
 
 
@@ -422,7 +420,7 @@ module Definition =
                 "change" => !?EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"change\" JavaScript event, or trigger that event on an element."
 
-                "change" => StringMap?eventData * EventHandler?handler ^-> JQ
+                "change" => T<Object<string>>?eventData * EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"change\" JavaScript event, or trigger that event on an element."
 
 
@@ -438,7 +436,7 @@ module Definition =
                 "click" => !?EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"click\" JavaScript event, or trigger that event on an element."
 
-                "click" => StringMap?eventData * EventHandler?handler ^-> JQ
+                "click" => T<Object<string>>?eventData * EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"click\" JavaScript event, or trigger that event on an element."
 
                 // Clone
@@ -466,13 +464,13 @@ module Definition =
                 |> WithComment CssCmt
                 "css" => T<string>?propertyName * (T<int> * T<string> ^-> T<string>)?valGen ^-> JQ
                 |> WithComment CssCmt
-                "css" => StringMap?map ^-> JQ
+                "css" => T<Object<string>>?map ^-> JQ
                 |> WithComment CssCmt
 
                 // Data
                 "data" => T<string>?key * T<obj>?value ^-> JQ
                 |> WithComment DataCmt
-                "data" => StringMap?updates ^-> JQ
+                "data" => T<Object<string>>?updates ^-> JQ
                 |> WithComment DataCmt
                 "data" => T<string>?key ^-> T<obj>
                 |> WithComment DataCmt
@@ -481,7 +479,7 @@ module Definition =
                 "dblclick" => !?EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"dblclick\" JavaScript event, or trigger that event on an element"
 
-                "dblclick" => StringMap?data * EventHandler?handler ^-> JQ
+                "dblclick" => T<Object<string>>?data * EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"dblclick\" JavaScript event, or trigger that event on an element"
 
                 // Delay
@@ -489,7 +487,7 @@ module Definition =
                 |> WithComment "Set a timer to delay execution of subsequent items in the queue"
 
                 // Delegate
-                "delegate" => T<string>?selector * Event?eventType * !?StringMap?eventData * EventHandler?handler ^-> JQ
+                "delegate" => T<string>?selector * Event?eventType * !?T<Object<string>>?eventData * EventHandler?handler ^-> JQ
                 |> WithComment "Attach a handler to one or more events for all elements that match the selector, now or in the future, based on a specific set of root elements."
 
                 // Dequeue
@@ -521,7 +519,7 @@ module Definition =
                 |> WithComment "Bind an event handler to the \"error\" JavaScript event."
 
                 // Error
-                "error" => StringMap?data * EventHandler?handler ^-> JQ
+                "error" => T<Object<string>>?data * EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"error\" JavaScript event."
 
                 // Fade in
@@ -567,20 +565,20 @@ module Definition =
                 // Focus
                 "focus" => !?EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"focus\" JavaScript event, or trigger that event on an element."
-                "focus" => StringMap?data * EventHandler?handler ^-> JQ
+                "focus" => T<Object<string>>?data * EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"focus\" JavaScript event, or trigger that event on an element."
 
 
                 // Focusin
                 "focusin" => EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"focusin\" JavaScript event."
-                "focusin" => StringMap?data * EventHandler?handler ^-> JQ
+                "focusin" => T<Object<string>>?data * EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"focusin\" JavaScript event."
 
                 // Focusout
                 "focusout" => EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"focusout\" JavaScript event."
-                "focusout" => StringMap?data * EventHandler?handler ^-> JQ
+                "focusout" => T<Object<string>>?data * EventHandler?handler ^-> JQ
                 |> WithComment "Bind an event handler to the \"focusout\" JavaScript event."
 
                 // Get
@@ -639,13 +637,13 @@ module Definition =
                 "is" => T<string> ^-> T<bool>
 
                 "keydown" => !?EventHandler ^-> JQ
-                "keydown" => StringMap?data * EventHandler ^-> JQ
+                "keydown" => T<Object<string>>?data * EventHandler ^-> JQ
 
                 "keypress" => !?EventHandler ^-> JQ
-                "keypress" => StringMap?data * EventHandler ^-> JQ
+                "keypress" => T<Object<string>>?data * EventHandler ^-> JQ
 
                 "keyup" => !?EventHandler ^-> JQ
-                "keyup" => StringMap?data * EventHandler ^-> JQ
+                "keyup" => T<Object<string>>?data * EventHandler ^-> JQ
 
                 "last" => T<unit> ^-> JQ
 
@@ -654,32 +652,32 @@ module Definition =
                 "load" => T<string>  * !?(T<string> + T<obj>) * !?(T<string> * T<string> * XmlHttpRequest ^-> T<unit>) ^-> JQ
 
                 "load" => EventHandler ^-> JQ
-                "load" => StringMap?data * EventHandler ^-> JQ
+                "load" => T<Object<string>>?data * EventHandler ^-> JQ
 
                 Generic -   ( fun t ->
                                 Method "map" ((T<int> * T<Dom.Element> ^-> t) ^-> JQ)
                             )
                 
-                "mousedown" => StringMap?data * EventHandler ^-> JQ
+                "mousedown" => T<Object<string>>?data * EventHandler ^-> JQ
                 "mousedown" => !?EventHandler ^-> JQ
 
                 "mouseenter" => !?EventHandler ^-> JQ
-                "mouseenter" => StringMap?data * EventHandler ^-> JQ
+                "mouseenter" => T<Object<string>>?data * EventHandler ^-> JQ
                 
                 "mouseleave" => !?EventHandler ^-> JQ
-                "mouseleave" => StringMap?data * EventHandler ^-> JQ
+                "mouseleave" => T<Object<string>>?data * EventHandler ^-> JQ
                 
                 "mousemove" => !?EventHandler ^-> JQ
-                "mousemove" => StringMap?data * EventHandler ^-> JQ
+                "mousemove" => T<Object<string>>?data * EventHandler ^-> JQ
                 
                 "mouseout" => !?EventHandler ^-> JQ
-                "mouseout" => StringMap?data * EventHandler ^-> JQ
+                "mouseout" => T<Object<string>>?data * EventHandler ^-> JQ
                 
                 "mouseover" => !?EventHandler ^-> JQ
-                "mouseover" => StringMap?data * EventHandler ^-> JQ
+                "mouseover" => T<Object<string>>?data * EventHandler ^-> JQ
 
                 "mouseup" => !?EventHandler ^-> JQ
-                "mouseup" => StringMap?data * EventHandler ^-> JQ
+                "mouseup" => T<Object<string>>?data * EventHandler ^-> JQ
 
                 "next" => !?T<string> ^-> JQ
 
@@ -747,10 +745,10 @@ module Definition =
                 "replaceWith" => (T<Dom.Element> -* T<unit> ^-> T<Dom.Element>) ^-> JQ
 
                 "resize" => !?EventHandler ^-> JQ
-                "resize" => StringMap?data * !?EventHandler ^-> JQ
+                "resize" => T<Object<string>>?data * !?EventHandler ^-> JQ
 
                 "scroll" => !?EventHandler ^-> JQ
-                "scroll" => StringMap?data * !?EventHandler ^-> JQ
+                "scroll" => T<Object<string>>?data * !?EventHandler ^-> JQ
 
                 "scrollLeft" => T<int> ^-> JQ
                 "scrollLeft" => T<unit->int>
@@ -759,7 +757,7 @@ module Definition =
                 "scrollTop" => T<unit->int>
 
                 "select" => !?EventHandler ^-> JQ
-                "select" => StringMap?data * !?EventHandler ^-> JQ
+                "select" => T<Object<string>>?data * !?EventHandler ^-> JQ
 
                 "serialize" => T<unit> ^-> T<string>
 
@@ -787,7 +785,7 @@ module Definition =
                 "stop" => T<string> * !?T<bool> * !?T<bool> ^-> JQ
 
                 "submit" => !?EventHandler ^-> JQ
-                "submit" => StringMap?data * !?EventHandler ^-> JQ
+                "submit" => T<Object<string>>?data * !?EventHandler ^-> JQ
 
                 "text" => T<unit> ^-> T<string>
                 "text" => T<string> ^-> JQ
@@ -808,7 +806,7 @@ module Definition =
                 "unbind" => T<unit> ^-> JQ
                 "unbind" => Event ^-> JQ
                 "unbind" => T<string> * !?EventHandler ^-> JQ
-                "unbindFalse" => T<string>?event * StringMap?eventData ^-> JQ
+                "unbindFalse" => T<string>?event * T<Object<string>>?eventData ^-> JQ
                 |> WithComment "Attach a handler to an event for the elements."
                 |> WithInline "$this.bind($event, $eventData, false)"
 
@@ -816,7 +814,7 @@ module Definition =
                 "undelegate" => T<string> * T<string> * !?EventHandler ^-> JQ
 
                 "unload" => EventHandler ^-> JQ
-                "unload" => StringMap?data * EventHandler ^-> JQ
+                "unload" => T<Object<string>>?data * EventHandler ^-> JQ
 
                 "unwrap" => T<unit> ^-> JQ
 
@@ -867,7 +865,7 @@ module Definition =
                 |> WithInline "jQuery($0,$1)"
                 |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
 
-                "of" => T<string>?html * StringMap?props ^-> JQ
+                "of" => T<string>?html * T<Object<string>>?props ^-> JQ
                 |> WithInline "jQuery($0,$1)"
                 |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
 
@@ -1077,7 +1075,7 @@ module Definition =
                  Deferred
                  JqXHRClass
                  SupportClass
-                 PositionClass
+                 Position
                  AnimateSettings
                  AjaxSettings
                  EventClass
