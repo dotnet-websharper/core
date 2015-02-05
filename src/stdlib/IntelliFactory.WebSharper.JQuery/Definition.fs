@@ -157,8 +157,8 @@ module Definition =
 
     let Promise = Type.New ()
 
-    let AnimateConfig =
-        Pattern.Config "AnimateConfig" {
+    let AnimateSettings =
+        Pattern.Config "AnimateSettings" {
             Required = []
             Optional =
                 [
@@ -354,7 +354,7 @@ module Definition =
                 "andSelf" => T<unit> ^-> JQ
 
                 // Animate (Tested)
-                "animate" => StringMap?properties * AnimateConfig?options ^-> JQ
+                "animate" => StringMap?properties * AnimateSettings?options ^-> JQ
                 |> WithComment AnimateCmt
                 "animate" => StringMap * IntString?duration ^-> JQ
                 |> WithComment AnimateCmt
@@ -1081,7 +1081,7 @@ module Definition =
                  JqXHRClass
                  SupportClass
                  PositionClass
-                 AnimateConfigClass
+                 AnimateSettings
                  AjaxSettings
                  EventClass
                  JQueryClass
