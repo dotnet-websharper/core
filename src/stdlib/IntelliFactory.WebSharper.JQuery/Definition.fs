@@ -223,7 +223,10 @@ module Definition =
         Class "jQuery.fx"
         |+> Static [
             "off" =@ T<bool>
+            |> WithComment "Globally disable all animations."
+
             "interval" =@ T<int>
+            |> WithComment "The rate (in milliseconds) at which animations fire."
         ]
     
     let Promise =
@@ -1008,27 +1011,61 @@ module Definition =
     let Callbacks =
         let Callbacks = Type.New ()
         
+        let constructorComment = "A multi-purpose callbacks list object that provides a powerful way to manage callback lists."
+
+        let addComment = "Add a callback or a collection of callbacks to a callback list."
+
+        let removeComment = "Remove a callback or a collection of callbacks from a callback list."
+
         Class "jQuery.Callbacks"
         |+> Static [
             Constructor T<unit>
             |> WithInline "jQuery.Callbacks()"
+            |> WithComment constructorComment
+
             Constructor T<string>
             |> WithInline "jQuery.Callbacks($0)"
+            |> WithComment constructorComment
         ]
         |+> Instance [
             "add" => (!+ T<obj> ^-> T<unit>) ^-> Callbacks
+            |> WithComment addComment
+
             "add" => Type.ArrayOf (!+ T<obj> ^-> T<unit>) ^-> Callbacks
+            |> WithComment addComment
+
             "disable" => T<unit> ^-> Callbacks
+            |> WithComment "Disable a callback list from doing anything more."
+
             "disabled" => T<unit -> bool>
+            |> WithComment "Determine if the callbacks list has been disabled."
+
             "empty" => T<unit> ^-> Callbacks
+            |> WithComment "Remove all of the callbacks from a list."
+
             "fire" => !+ T<obj> ^-> Callbacks
+            |> WithComment "Call all of the callbacks with the given arguments."
+
             "fired" => T<unit -> bool>
+            |> WithComment "Determine if the callbacks have already been called at least once."
+
             "fireWith" => !? T<obj> * !? (T<obj> + T<obj array>) ^-> Callbacks
+            |> WithComment "Call all callbacks in a list with the given context and arguments."
+
             "has" => !? (!+ T<obj> ^-> T<unit>) ^-> T<bool>
+            |> WithComment "Determine whether or not the list has any callbacks attached. If a callback is provided as an argument, determine whether it is in a list."
+
             "lock" => T<unit> ^-> Callbacks
+            |> WithComment "Lock a callback list in its current state."
+
             "locked" => T<unit -> bool>
+            |> WithComment "Determine if the callbacks list has been locked."
+
             "remove" => (!+ T<obj> ^-> T<unit>) ^-> Callbacks
+            |> WithComment removeComment
+
             "remove" => Type.ArrayOf (!+ T<obj> ^-> T<unit>) ^-> Callbacks
+            |> WithComment removeComment
         ]
         
     let Assembly =
