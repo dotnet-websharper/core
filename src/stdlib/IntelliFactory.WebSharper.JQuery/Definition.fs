@@ -60,24 +60,16 @@ module Definition =
                     "which" =? T<int>
             ]
 
-    /// Request type
-    let RequestType = Type.New()
-
-    let RequestTypeClass =
+    let RequestType =
         "GET POST PUT DELETE".Split ' '
         |> Pattern.EnumStrings "RequestType"
-        |=> RequestType
 
-    /// Data type
-    let DataType = Type.New()
-    let DataTypeClass =
+    let DataType =
         "xml html script json jsonp text".Split ' '
         |> Pattern.EnumStrings "DataType"
-        |=> DataType
 
     let JqXHR = Type.New ()
 
-    /// Ajax configuration
     let AjaxSettings =
         let AjaxSettings = Type.New ()
         
@@ -89,35 +81,31 @@ module Definition =
                     "async" , T<bool>
                     "beforeSend" ,  JqXHR * !? AjaxSettings ^-> T<bool>
                     "cache" , T<bool>
-                    // 1.5 allows _also_ an array of functions. We can't have both so the array version is 
-                    // preferred.
                     "complete" , JqXHR * T<string> ^-> T<unit>
                     "contents", T<Object<string>>
                     "contentType" ,  T<string>
                     "context" , T<obj>
-                    "converters", T<Object<string -> obj>>
-                    "crossDomain", T<bool>
+                    "converters" , T<Object<string -> obj>>
+                    "crossDomain" , T<bool>
                     "data" , T<Object<obj>>
                     "dataFilter" , T<string> * DataType ^-> T<obj>
-                    "dataType" , DataType
-                    // See complete's comment.
+                    "dataType" , DataType.Type
                     "error" , JqXHR * T<string> * T<string> ^-> T<unit>
                     "global" , T<bool>
-                    "headers", T<Object<string>>
+                    "headers" , T<Object<string>>
                     "ifModified" , T<bool>
                     "isLocal" , T<bool>
                     "jsonp" , T<string>
                     "jsonpCallback" , T<string>
-                    "mimeType", T<string>
+                    "mimeType" , T<string>
                     "password" , T<string>
                     "processData" , T<bool>
                     "scriptCharset" , T<string>
                     "statusCode", T<Object<unit -> unit>>
-                    // See complete's comment.
                     "success" , T<obj> * T<string> * JqXHR ^-> T<unit>
                     "timeout" , T<int>
                     "traditional" , T<bool>
-                    "type" , RequestType
+                    "type" , RequestType.Type
                     "url" , T<string>
                     "username" , T<string>
                     "xhr" , T<unit> ^-> XmlHttpRequest
