@@ -220,60 +220,47 @@ module Definition =
     let HeightCmt = "Get the current computed height for the first element in the set of matched elements."
 
     let FX =
-        Class "fx"
+        Class "jQuery.fx"
         |+> Static [
             "off" =@ T<bool>
             "interval" =@ T<int>
         ]
+    
+    let Promise =
+        let Promise = Type.New ()
 
-    let DeferredState =
-        Pattern.EnumStrings "DeferredState"
-            ["pending"; "resolved"; "rejected"]
+        Class "Promise"
+        |+> Instance [
+            "always" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
+            "done" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
+            "fail" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
+            "state" => T<unit -> string>
+            "then" => T<unit -> unit> * !? T<unit -> unit> * !? T<unit -> unit> ^-> Promise
+        ]
 
-    let Deferred, Promise =
-        
-        let promiseDeferredCallbacks =
-            Type.ArrayOf((!+ T<obj>) ^-> T<unit>) 
-            + ((!+ T<obj>) ^-> T<unit>)
+    let Deferred =
+        let Deferred = Type.New ()
 
-        let promiseDeferredProtocol retType : list<CodeModel.IClassMember> =
-            [
-                // It actually returns the same type. Not sure how to express it.
-                "done" => promiseDeferredCallbacks ^-> retType
-                "fail" => promiseDeferredCallbacks ^-> retType 
-                "then" => promiseDeferredCallbacks * promiseDeferredCallbacks ^-> retType
-            ]
-        let PromiseClass = Class "jQuery.Promise"
-
-        let Promise =
-            PromiseClass
-            |+> Static [Constructor T<unit>]
-            |+> Instance (promiseDeferredProtocol PromiseClass)
-
-        let Deferred =
-            let Deferred = Class "jQuery.Deferred"
-            let mems : list<CodeModel.IClassMember> =
-                [
-                    "resolve" => !+ T<obj> ^-> Deferred 
-                    "resolveWith" => (T<obj>?context *+ T<obj>) ^-> Deferred
-                    "reject" => !+ T<obj> ^-> Deferred 
-                    "rejectWith" => (T<obj>?context *+ T<obj>) ^-> Deferred
-                    "promise" => T<unit> ^-> PromiseClass
-                    "notify" => !+ T<obj> ^-> T<unit>
-                    "notifyWith" => T<obj> *+ T<obj> ^-> T<unit>
-                    "pipe" => !? T<obj->bool>?doneFilter
-                              * !? T<obj->bool>?failFilter
-                              * !? T<obj->bool>?progressFilter ^-> Deferred
-                    "progress" => (T<obj->unit> + T<(obj->unit)[]>) ^-> T<unit>
-                    "state" => DeferredState
-                    "then" => !? T<obj->bool>?doneFilter
-                              * !? T<obj->bool>?failFilter
-                              * !? T<obj->bool>?progressFilter ^-> Deferred
-                ]
-            Deferred
-            |+> Static [Constructor T<unit>]
-            |+> Instance ((promiseDeferredProtocol Deferred) @ mems)
-        Deferred, Promise
+        Class "jQuery.Deferred"
+        |+> Static [
+            Constructor (!? Deferred ^-> T<unit>)
+        ]
+        |+> Instance [
+            "always" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Deferred
+            "done" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Deferred
+            "fail" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Deferred
+            "notify" => !+ T<obj> ^-> Deferred
+            "notifyWith" => T<obj> *+ T<obj> ^-> Deferred
+            "progress" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Deferred
+            "promise" => !? T<obj> ^-> Promise
+            "reject" => !+ T<obj> ^-> Deferred
+            "rejectWith" => T<obj> *+ T<obj> ^-> Deferred
+            "resolve" => !+ T<obj> ^-> Deferred
+            "resolveWith" => T<obj> *+ T<obj> ^-> Deferred
+            "state" => T<unit -> string>
+            "then" => T<unit -> unit> * !? T<unit -> unit> * !? T<unit -> unit> ^-> Promise
+            "when" => !+ T<obj> ^-> Promise
+        ]
 
     let JqXHRClass =
         Class "jqXHR"
@@ -1025,7 +1012,6 @@ module Definition =
                  DataTypeClass
                  Promise
                  Deferred
-                 DeferredState
                  JqXHRClass
                  SupportClass
                  PositionClass
