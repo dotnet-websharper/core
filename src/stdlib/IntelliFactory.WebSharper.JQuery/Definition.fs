@@ -27,38 +27,48 @@ module Definition =
 
     let JQ = Type.New()
 
-    // TODO: Where to define??
-    let Error = Type.New ()
-    // TODO: Where to define???
-    let XmlHttpRequest = Type.New ()
-
-    // Event
-    let Event = Type.New()
-    let EventClass =
+    let Event =
         Class "Event"
-        |=> Event
-        |+> Instance
-                [
-                    "currentTarget" =? T<Dom.Element>
-                    "absurd" => T<Dom.Node> ^-> T<unit>
-                    "delegateTarget" =? T<Dom.Element>
-                    "data" =? T<obj>
-                    "isDefaultPrevented" => T<unit->bool>
-                    "isImmediatePropagationStopped" => T<unit->bool>
-                    "isPropagationStopped" => T<unit->bool>
-                    "namespace" =? T<string>
-                    "pageX" =? T<int>
-                    "pageY" =? T<int>
-                    "preventDefault" => T<unit->unit>
-                    "relatedTarget" =? T<Dom.Element>
-                    "result" =? T<obj>
-                    "stopImmediatePropagation" => T<unit->unit>
-                    "stopPropagation" => T<unit->unit>
-                    "target" =? T<Dom.Element>
-                    "timeStamp" =? T<int>
-                    "eventType" =? T<obj>
-                    "which" =? T<int>
-            ]
+        |+> Instance [
+            "altKey" =? T<bool>
+            "bubbles" =? T<bool>
+            "button" =? T<int>
+            "cancelable" =? T<bool>
+            "charCode" =? T<int>
+            "clientX" =? T<int>
+            "clientY" =? T<int>
+            "ctrlKey" =? T<bool>
+            "currentTarget" =? T<Dom.Element>
+            "data" =? T<obj>
+            "detail" =? T<obj>
+            "eventPhase" =? T<int>
+            "metaKey" =? T<bool>
+            "offsetX" =? T<int>
+            "offsetY" =? T<int>
+            "originalTarget" =? T<Dom.Element>
+            "pageX" =? T<int>
+            "pageY" =? T<int>
+            "relatedTarget" =? T<Dom.Element>
+            "screenX" =? T<int>
+            "screenY" =? T<int>
+            "shiftKey" =? T<bool>
+            "target" =? T<Dom.Element>
+            "view" =? T<obj>
+            "which" =? T<int>
+            "originalEvent" =? T<Dom.Event>
+            "delegateTarget" =? T<Dom.Element>
+            "namespace" =? T<string>
+            "result" =? T<obj>
+            "timeStamp" =? T<int>
+            "type" =? T<string>
+
+            "isDefaultPrevented" => T<unit> ^-> T<bool>
+            "isImmediatePropagationStopped" => T<unit> ^-> T<bool>
+            "isPropagationStopped" => T<unit> ^-> T<bool>
+            "preventDefault" => T<unit> ^-> T<unit>
+            "stopImmediatePropagation" => T<unit> ^-> T<unit>
+            "stopPropagation" => T<unit> ^-> T<unit>
+        ]
 
     let RequestType =
         "GET POST PUT DELETE".Split ' '
@@ -69,6 +79,7 @@ module Definition =
         |> Pattern.EnumStrings "DataType"
 
     let JqXHR = Type.New ()
+    let XmlHttpRequest = Type.New ()
 
     let AjaxSettings =
         let AjaxSettings = Type.New ()
@@ -978,29 +989,23 @@ module Definition =
     let Callbacks =
         let Callbacks = Type.New ()
         
-        let constructorComment = "A multi-purpose callbacks list object that provides a powerful way to manage callback lists."
-
-        let addComment = "Add a callback or a collection of callbacks to a callback list."
-
-        let removeComment = "Remove a callback or a collection of callbacks from a callback list."
-
         Class "jQuery.Callbacks"
         |=> Callbacks
         |+> Static [
             Constructor T<unit>
             |> WithInline "jQuery.Callbacks()"
-            |> WithComment constructorComment
+            |> WithComment "A multi-purpose callbacks list object that provides a powerful way to manage callback lists."
 
             Constructor T<string>
             |> WithInline "jQuery.Callbacks($0)"
-            |> WithComment constructorComment
+            |> WithComment "A multi-purpose callbacks list object that provides a powerful way to manage callback lists."
         ]
         |+> Instance [
             "add" => (!+ T<obj> ^-> T<unit>) ^-> Callbacks
-            |> WithComment addComment
+            |> WithComment "Add a callback or a collection of callbacks to a callback list."
 
             "add" => Type.ArrayOf (!+ T<obj> ^-> T<unit>) ^-> Callbacks
-            |> WithComment addComment
+            |> WithComment "Add a callback or a collection of callbacks to a callback list."
 
             "disable" => T<unit> ^-> Callbacks
             |> WithComment "Disable a callback list from doing anything more."
@@ -1030,25 +1035,25 @@ module Definition =
             |> WithComment "Determine if the callbacks list has been locked."
 
             "remove" => (!+ T<obj> ^-> T<unit>) ^-> Callbacks
-            |> WithComment removeComment
+            |> WithComment "Remove a callback or a collection of callbacks from a callback list."
 
             "remove" => Type.ArrayOf (!+ T<obj> ^-> T<unit>) ^-> Callbacks
-            |> WithComment removeComment
+            |> WithComment "Remove a callback or a collection of callbacks from a callback list."
         ]
         
     let Assembly =
         Assembly [
             Namespace "IntelliFactory.WebSharper.JQuery" [
                  Callbacks
-                 RequestTypeClass
-                 DataTypeClass
+                 RequestType
+                 DataType
                  PromiseClass
                  Deferred
                  JqXHRClass
                  Position
                  AnimateSettings
                  AjaxSettings
-                 EventClass
+                 Event
                  JQueryClass
                  FX
             ]
