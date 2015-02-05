@@ -155,23 +155,26 @@ module Definition =
         }
         |=> Position
 
-    // Animate options
-    let AnimateConfig = Type.New()
-    let AnimateConfigClass =
+    let Promise = Type.New ()
+
+    let AnimateConfig =
         Pattern.Config "AnimateConfig" {
             Required = []
             Optional =
                 [
-                    "duration", (T<int> + T<string>)
+                    "duration" , T<int> + T<string>
                     "easing" , T<string>
+                    "queue" , T<bool> + T<string>
+                    "specialEasing" , T<Object<string>>
+                    "step" , T<int> * T<obj> ^-> T<unit>
+                    "progress" , Promise * T<int> * T<int> ^-> T<unit>
                     "complete" , T<unit -> unit>
-                    "step" , T<unit -> unit>
-                    "queue" , T<bool>
-                    "specialEasing" , StringMap
+                    "start" , Promise ^-> T<unit>
+                    "done" , Promise * T<bool> ^-> T<unit>
+                    "fail" , Promise * T<bool> ^-> T<unit>
+                    "always" , Promise * T<bool> ^-> T<unit>
                 ]
         }
-        |=> AnimateConfig
-
 
     /// Abbreviations
     let Content = T<Dom.Element> + T<string> + JQ
@@ -230,9 +233,8 @@ module Definition =
         ]
     
     let Promise =
-        let Promise = Type.New ()
-
         Class "Promise"
+        |=> Promise
         |+> Instance [
             "always" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
             "done" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
@@ -245,6 +247,7 @@ module Definition =
         let Deferred = Type.New ()
 
         Class "jQuery.Deferred"
+        |=> Deferred
         |+> Static [
             Constructor (!? Deferred ^-> T<unit>)
         ]
@@ -1016,6 +1019,7 @@ module Definition =
         let removeComment = "Remove a callback or a collection of callbacks from a callback list."
 
         Class "jQuery.Callbacks"
+        |=> Callbacks
         |+> Static [
             Constructor T<unit>
             |> WithInline "jQuery.Callbacks()"
