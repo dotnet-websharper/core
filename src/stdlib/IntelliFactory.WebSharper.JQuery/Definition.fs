@@ -293,22 +293,20 @@ module Definition =
         ]
 
     let JqXHRClass =
-        Class "jqXHR"
-        |=> Inherits Deferred
+        Class "jQuery.jqXHR"
+        |=> Inherits Promise
         |+> Instance [
-            // The documentation isn't clear about the types of each of the functions.
-            "readyState" =? T<bool> 
+            "readyState" =? T<int>
+            "status" =? T<int>
             "statusText" =? T<string>
-            "responseXML" =? T<string> 
+            "responseXML" =? T<Dom.Document> 
             "responseText" =? T<string>
-            "setRequestHeader" => T<string> * T<obj> ^-> T<unit>
-            "getAllResponseHeaders" => T<unit> ^-> T<obj>
-            "getResponseHeader" => T<unit> ^-> T<obj>
-            "abort" => T<unit> ^-> T<unit>
-            "success" => (T<obj> * T<string> * XmlHttpRequest ^-> T<unit>) ^-> JqXHR
-            "error" => (XmlHttpRequest * T<string> * Error ^-> T<unit>) ^-> JqXHR
-            "complete" => (XmlHttpRequest * T<string> ^-> T<unit>) ^-> JqXHR
 
+            "setRequestHeader" => T<string> * T<string> ^-> T<unit>
+            "getAllResponseHeaders" => T<unit> ^-> T<string>
+            "getResponseHeader" => T<string> ^-> T<string>
+            "statusCode" => T<unit> ^-> T<obj>
+            "abort" => T<unit> ^-> T<unit>
         ]
         |=> JqXHR
 
