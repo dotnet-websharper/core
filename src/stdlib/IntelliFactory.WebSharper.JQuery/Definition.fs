@@ -142,18 +142,15 @@ module Definition =
 
     let StringMap = Type.New()
 
-    // Position
-    let Position = Type.New()
-    let PositionClass =
+    let Position =
         Pattern.Config "Position" {
             Required = []
             Optional =
                 [
-                    "top", T<int>
+                    "top" , T<int>
                     "left" , T<int>
                 ]
         }
-        |=> Position
 
     let Promise = Type.New ()
 
@@ -232,7 +229,7 @@ module Definition =
             |> WithComment "The rate (in milliseconds) at which animations fire."
         ]
     
-    let Promise =
+    let PromiseClass =
         Class "Promise"
         |=> Promise
         |+> Instance [
@@ -1076,7 +1073,7 @@ module Definition =
                  Callbacks
                  RequestTypeClass
                  DataTypeClass
-                 Promise
+                 PromiseClass
                  Deferred
                  JqXHRClass
                  SupportClass
