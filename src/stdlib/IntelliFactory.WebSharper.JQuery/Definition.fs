@@ -990,34 +990,37 @@ module Definition =
                 "unique" =>
                     Type.ArrayOf T<Dom.Element> ^-> Type.ArrayOf T<Dom.Element>
             ]
-
+    
     let Callbacks =
+        let Callbacks = Type.New ()
+        
         Class "jQuery.Callbacks"
-        |+> Instance
-            [
-                "add" => T<(unit->unit)->unit>
-                "add" => T<(unit->unit)[]->unit>
-                "remove" => T<(unit->unit)->unit>
-                "remove" => T<(unit->unit)[]->unit>
-                "disable" => T<unit->unit>
-                "empty" => T<unit->unit>
-                "fire" => !+T<obj> ^-> T<unit>
-                "fired" => T<unit->bool>
-                "fireWith" => T<obj> *+ T<obj> ^-> T<unit>
-                "has" => T<obj->bool>
-                "lock" => T<unit->unit>
-                "locked" => T<unit->bool>
-            ]
         |+> Static [
-                Constructor T<unit>
-                |> WithInline "jQuery.Callbacks()"
-                Constructor T<string>
-                |> WithInline "jQuery.Callbacks($0)"
-            ]
-
+            Constructor T<unit>
+            |> WithInline "jQuery.Callbacks()"
+            Constructor T<string>
+            |> WithInline "jQuery.Callbacks($0)"
+        ]
+        |+> Instance [
+            "add" => (!+ T<obj> ^-> T<unit>) ^-> Callbacks
+            "add" => Type.ArrayOf (!+ T<obj> ^-> T<unit>) ^-> Callbacks
+            "disable" => T<unit> ^-> Callbacks
+            "disabled" => T<unit -> bool>
+            "empty" => T<unit> ^-> Callbacks
+            "fire" => !+ T<obj> ^-> Callbacks
+            "fired" => T<unit -> bool>
+            "fireWith" => !? T<obj> * !? (T<obj> + T<obj array>) ^-> Callbacks
+            "has" => !? (!+ T<obj> ^-> T<unit>) ^-> T<bool>
+            "lock" => T<unit> ^-> Callbacks
+            "locked" => T<unit -> bool>
+            "remove" => (!+ T<obj> ^-> T<unit>) ^-> Callbacks
+            "remove" => Type.ArrayOf (!+ T<obj> ^-> T<unit>) ^-> Callbacks
+        ]
+        
     let Assembly =
         Assembly [
             Namespace "IntelliFactory.WebSharper.JQuery" [
+                 Callbacks
                  RequestTypeClass
                  DataTypeClass
                  Promise
