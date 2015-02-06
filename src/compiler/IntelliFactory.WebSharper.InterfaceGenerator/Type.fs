@@ -567,6 +567,7 @@ module Type =
                 match fn.[7 .. ] with
                 | "String" -> Some "'string'"
                 | "Boolean" -> Some "'boolean'"
+                | "Object" -> None
                 | n when NumberTypes.Contains n -> Some "'number'"
                 | _ -> Some "'object'"
             else 
@@ -616,7 +617,7 @@ module Type =
                 && (ts |> Seq.exists (function TupleType _ -> true | _ -> false)) then t else
             let tts = ts |> Seq.choose GetJSType |> Seq.distinct |> List.ofSeq
             if List.length tts = List.length ts then
-                InteropType (ChoiceType ts, unionTransform tts)
+                InteropType (ChoiceType ts, unionTransform (List.sort tts))
             else t
         | _ -> t
 
