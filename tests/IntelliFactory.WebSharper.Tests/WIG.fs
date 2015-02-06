@@ -39,6 +39,46 @@ let Tests =
         WIGtest.ArgFuncInWithThis(fun (t: JustX) a -> string t.X + string a) =? "01"
         WIGtest.ArgsFuncInWithThis(fun (t: JustX) (a, b) -> string t.X + string a + string b) =? "012"
         WIGtest.TupledFuncInWithThis(fun (t: JustX) (a, b) -> string t.X + string a + string b) =? "012"
+
+        WIGtest.CallWith1 id =? 1
+        WIGtest.CallWith1 ((+) 2) =? 3
+        WIGtest.CallWith2 (fun (a, b) -> a + b) =? 3
+        WIGtest.CallWith10 (fun (a, b, c, d, e, f, g, h, i, j) -> a + b + c + d + e + f + g + h + i + j) =? 55
+    }
+
+    Test "Functions with ParamArray" {
+        let doNotRun() = 
+            (WIGtest.TestCurriedSig 0 "" : obj) |> ignore
+            (WIGtest.TestIntOrStringReturned() : Choice<int, string>) |> ignore
+            (WIGtest.TestWithNoInterop : FuncWithArgs<int * int, int> -> obj) |> ignore
+
+        WIGtest.Sum(1) =? 1
+        WIGtest.Sum(1, 2) =? 3
+        WIGtest.Sum(1, 2, 3) =? 6
+        WIGtest.SumBy((+) 1, 1) =? 2
+        WIGtest.SumBy((+) 1, 1, 2) =? 5
+        WIGtest.SumBy((+) 1, 1, 2, 3) =? 9
+        WIGtest.SumByThenMap((+) 1, (+) 2, 1) =? 4
+        WIGtest.SumByThenMap((+) 1, (+) 2, 1, 2) =? 7
+        WIGtest.SumByThenMap((+) 1, (+) 2, 1, 2, 3) =? 11
+
+        WIGtest.GetSum() [| 1 |] =? 1
+        WIGtest.GetSum() [| 1; 2 |] =? 3
+        WIGtest.GetSum() [| 1; 2; 3 |] =? 6
+        WIGtest.GetSumBy() ((+) 1, [| 1 |]) =? 2
+        WIGtest.GetSumBy() ((+) 1, [| 1; 2 |]) =? 5
+        WIGtest.GetSumBy() ((+) 1, [| 1; 2; 3 |]) =? 9
+        WIGtest.GetSumByThenMap() ((+) 1, (+) 2, [| 1 |]) =? 4
+        WIGtest.GetSumByThenMap() ((+) 1, (+) 2, [| 1; 2 |]) =? 7
+        WIGtest.GetSumByThenMap() ((+) 1, (+) 2, [| 1; 2; 3 |]) =? 11
+        
+        WIGtest.GetSum7AndRest() (1, 2, 3, 4, 5, 6, 7, [| 8; 9; 10 |]) =? 55
+
+        WIGtest.CallWithRest(fun r -> Array.sum r) =? 55
+        WIGtest.CallWith1AndRest(fun (a, r) -> a + Array.sum r) =? 55
+        WIGtest.CallWith2AndRest(fun (a, b, r) -> a + b + Array.sum r) =? 55
+        WIGtest.CallWith7AndRest(fun (a, b, c, d, e, f, g, r) -> a + b + c + d + e + f + g + Array.sum r) =? 55
+
     }
 
     Test "Function property" {

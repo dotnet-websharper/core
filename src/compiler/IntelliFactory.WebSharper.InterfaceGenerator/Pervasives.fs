@@ -253,14 +253,17 @@ module Pervasives =
     let WithInterop (transforms: Type.InlineTransforms) (t: #Type.IType) = 
         match t.Type with
         | Type.InteropType (t, tr) ->
-            Type.InteropType (t,
-                {
-                    InTransform  = transforms.InTransform >> tr.InTransform 
-                    OutTransform = tr.OutTransform >> transforms.OutTransform
-                }
-            )
+            Type.InteropType (t, transforms * tr)
+        | Type.NoInteropType t
         | t ->
             Type.InteropType (t, transforms)
+
+    let WithNoInterop (t: #Type.IType) =
+        match t.Type with
+        | Type.NoInteropType _ as t -> t
+        | Type.InteropType (t, _)
+        | t -> 
+            Type.NoInteropType t
 
     /// Adds indexer argument.
     let Indexed (indexer: Type.Type) (p: Code.Property) =
@@ -319,7 +322,6 @@ module Pervasives =
         private
         | Generic 
         | GenericNamed of string list
-        with
         member this.Entity (arity: int) (make: list<_> -> #Code.Entity) =
             let generics = 
                 match this with

@@ -217,12 +217,12 @@ var IntelliFactory =
                 return function () { return f(this).call(null, arguments); }
             },
 
-        CreateFuncWithArgsRest:
-            function (f) {
-                return function (x) { return f([x, Array.prototype.slice.call(arguments, 1)]); }
+        CreateFuncWithRest:
+            function (length, f) {
+                return function () { return f(Array.prototype.slice.call(arguments, 0, length).concat([Array.prototype.slice.call(arguments, length)])); }
             },
 
-        CreateFuncWithRest:
+        CreateFuncWithArgsRest:
             function (length, f) {
                 return function () { return f([Array.prototype.slice.call(arguments, 0, length), Array.prototype.slice.call(arguments, length)]); }
             },

@@ -56,11 +56,15 @@ type InlineGenerator() =
         let withOutTransform retT mInl =
             let withInterop t =
                 match t with  
-                | Type.InteropType (_, tr) -> tr.OutTransform mInl
+                | Type.InteropType (_, tr) -> tr.Out mInl
                 | _ -> mInl
             match retT with
             | Type.OptionType rt -> "$wsruntime.GetOptional(" + withInterop rt + ")"
             | rt -> withInterop rt
+        let t, interop =
+            match t with
+            | Type.NoInteropType t -> t, false
+            | t -> t, true
         match m.Inline with
         | Some (Code.BasicInline inl) -> inl
         | Some (Code.TransformedInline createInline) ->
@@ -70,9 +74,9 @@ type InlineGenerator() =
                     seq {
                         for i in 0 .. f.Parameters.Length - 1 ->
                             let inl = "$" + string ((if m.IsStatic then 0 else 1) + i)
-                            match f.Parameters.[i] with
-                            | n, Type.InteropType (_, tr) -> n, tr.InTransform inl
-                            | n, _ -> n, inl
+                            match interop, f.Parameters.[i] with
+                            | true, (n, Type.InteropType (_, tr)) -> n, tr.In inl
+                            | _, (n, _) -> n, inl
                     } |> Map.ofSeq
                 createInline (fun argName -> 
                     match argMap |> Map.tryFind argName with
@@ -87,8 +91,8 @@ type InlineGenerator() =
                     seq {
                         for i in 0 .. f.Parameters.Length - 1 ->
                             let inl = "$" + string ((if m.IsStatic then 0 else 1) + i)
-                            match f.Parameters.[i] with
-                            | _, Type.InteropType (_, tr) -> tr.InTransform inl
+                            match interop, f.Parameters.[i] with
+                            | true, (_, Type.InteropType (_, tr)) -> tr.In inl
                             | _ -> inl
                     }
                 match m with
@@ -128,7 +132,7 @@ type InlineGenerator() =
         let withOutTransform inl = 
             let withInterop t =
                 match t with  
-                | Type.InteropType (_, tr) -> tr.OutTransform inl
+                | Type.InteropType (_, tr) -> tr.Out inl
                 | _ -> inl
             match t with
             | Type.OptionType t -> "$wsruntime.GetOptional(" + withInterop t + ")"
@@ -162,8 +166,8 @@ type InlineGenerator() =
                 match t with
                 | Type.InteropType (_, tr) -> 
                     if opt 
-                    then "$value.$?{$: 1, $0: " + tr.InTransform "$value.$0" + "}:{$: 0}"
-                    else tr.InTransform "$value"
+                    then "$value.$?{$: 1, $0: " + tr.In "$value.$0" + "}:{$: 0}"
+                    else tr.In "$value"
                 | _ -> "$value"
             createInline (fun _ -> value)
         | _ ->
@@ -177,8 +181,8 @@ type InlineGenerator() =
                 match t with
                 | Type.InteropType (_, tr) -> 
                     if opt 
-                    then "$value.$?{$: 1, $0: " + tr.InTransform "$value.$0" + "}:{$: 0}"
-                    else tr.InTransform "$value"
+                    then "$value.$?{$: 1, $0: " + tr.In "$value.$0" + "}:{$: 0}"
+                    else tr.In "$value"
                 | _ -> "$value"
             let prop() =
                 if validJsIdentRE.IsMatch name then sprintf "%s.%s" pfx name
@@ -303,11 +307,8 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
 
     let funcWithArgs = fromInterop "FuncWithArgs`2" 
     let funcWithThis = fromInterop "FuncWithThis`2" 
-    let funcWithRest = fromInterop "FuncWithRest`3" 
     let funcWithArgsRest = fromInterop "FuncWithArgsRest`3" 
 
-    let arguments = fromInterop "Arguments`1"
-        
     member b.Action ts =
         commonType mscorlib "System" "Action" ts
 
@@ -317,14 +318,16 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     member b.Function d r =
         genericInstance funcType [d; r]
 
-    member b.Arguments a =
-        genericInstance arguments [a]
-
     member c.GenericInstanceType(def: TypeReference, args: seq<TypeReference>) =
         genericInstance def args
 
     member b.Tuple(ts: seq<TypeReference>) =
-        commonType mscorlib "System" "Tuple" ts
+        let rec createTuple (ta: _[]) =
+            if ta.Length < 8 then
+                commonType mscorlib "System" "Tuple" ta
+            else
+                commonType mscorlib "System" "Tuple" (Seq.append (ta.[.. 6]) [ createTuple ta.[7 ..] ])    
+        createTuple (Array.ofSeq ts)
 
     member b.Choice(ts: seq<TypeReference>) =
         commonType fscore "Microsoft.FSharp.Core" "FSharpChoice" ts
@@ -355,8 +358,8 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     member b.FuncWithThis this func =
         genericInstance funcWithThis [this; func]        
 
-    member b.FuncWithRest arg rest result =
-        genericInstance funcWithRest [arg; rest; result]        
+    member b.FuncWithRest args rest result =
+        commonType wsCore "IntelliFactory.WebSharper.JavaScript" "FuncWithRest" (args @ [ rest; result ])
 
     member b.FuncWithArgsRest args rest result =
         genericInstance funcWithArgsRest [args; rest; result]        
@@ -424,10 +427,10 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
                         | _ -> tB.FuncWithArgs (tB.Tuple args) ret                
                     | Some p ->
                         let pa = tRef p
-                        match args with 
-                        | [] -> tB.FuncWithArgs (tB.Arguments pa) ret
-                        | [a] -> tB.FuncWithRest a pa ret
-                        | _ -> tB.FuncWithArgsRest (tB.Tuple args) pa ret        
+                        if args.Length <= 6 then
+                            tB.FuncWithRest args pa ret
+                        else
+                            tB.FuncWithArgsRest (tB.Tuple args) pa ret        
                 match f.This with
                 | None -> func
                 | Some this -> tB.FuncWithThis (tRef this) func
@@ -436,7 +439,8 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
             | Type.GenericType pos ->
                 genericsByPosition.[pos] :> _
             | Type.SpecializedType (Type.DeclaredType id, xs) 
-            | Type.SpecializedType (Type.InteropType(Type.DeclaredType id, _), xs) ->
+            | Type.SpecializedType (Type.InteropType(Type.DeclaredType id, _), xs)
+            | Type.SpecializedType (Type.NoInteropType(Type.DeclaredType id), xs) ->
                 let t = byId id
                 let gen =
                     match genTypes.TryGetValue id with
@@ -462,10 +466,9 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
                 c.TypeReference t
             | Type.TupleType xs ->
                 tB.Tuple [ for t in List.rev xs -> tRef t ]
-            | Type.InteropType (t, _) ->
+            | Type.InteropType (t, _)
+            | Type.NoInteropType t ->
                 tRef t
-            | Type.ArgumentsType t ->
-                tB.Arguments (tRef t)
             | Type.UnionType _ -> tB.Object
             | Type.ChoiceType ts ->
                 tB.Choice (ts |> Seq.map tRef)
@@ -711,6 +714,7 @@ type MemberConverter
             | _ -> overloads |> List.map Type.TransformArgs
         for t in overloads do
             match t with
+            | Type.NoInteropType (Type.FunctionType f)
             | Type.FunctionType f ->
                 let attrs = methodAttributes dT x
                 let cD = mB.BuildConstructor(methodAttributes dT x)
@@ -806,6 +810,7 @@ type MemberConverter
             | _ -> overloads |> List.map Type.TransformArgs
         for t in overloads do
             match t with
+            | Type.NoInteropType (Type.FunctionType f)
             | Type.FunctionType f ->
                 let name = iG.GetSourceName x
                 let attrs = methodAttributes dT x
@@ -824,10 +829,10 @@ type MemberConverter
                             gP
                     |]
                 let c = withGenerics gs
-                c.AddMethod(dT, td, x, mD, f)
+                c.AddMethod(dT, td, x, mD, t, f)
             | _ -> ()
 
-    member private c.AddMethod(dT: TypeDefinition, td: Code.TypeDeclaration, x: Code.Method, mD: MethodDefinition, f: Type.Function) =
+    member private c.AddMethod(dT: TypeDefinition, td: Code.TypeDeclaration, x: Code.Method, mD: MethodDefinition, t: Type.Type, f: Type.Function) =
         mD.ReturnType <-
             match f.ReturnType with
             | Type.Unit -> tB.Void
@@ -842,7 +847,7 @@ type MemberConverter
                 |> macroAttribute
                 |> mD.CustomAttributes.Add
             | _ -> 
-                iG.GetMethodBaseInline(td, Type.FunctionType f, x)
+                iG.GetMethodBaseInline(td, t, x)
                 |> inlineAttribute
                 |> mD.CustomAttributes.Add
         setObsoleteAttribute x mD.CustomAttributes
@@ -1297,8 +1302,10 @@ type Compiler() =
         r
 
     member c.Compile(options, assembly, ?originalAssembly) =
-        let (aR, resolver) = createAssemblyResolvers options
-        c.Compile(resolver, options, assembly, ?originalAssembly = originalAssembly)
+        try
+            let (aR, resolver) = createAssemblyResolvers options
+            c.Compile(resolver, options, assembly, ?originalAssembly = originalAssembly)
+        with e -> failwithf "%A" e
 
     member c.StartProgram(args, assembly, ?resolver: AssemblyResolver, ?originalAssembly: Assembly) =
         let opts =

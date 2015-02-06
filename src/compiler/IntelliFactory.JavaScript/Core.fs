@@ -1326,6 +1326,14 @@ let Simplify expr =
                 | NewObject ["$", Constant (Integer 1L); "$0", value] ->
                     FieldSet (obj, field, value) |> WithPosOf expr
                 | _ -> expr     
+            | "NewObject", [NewArray keyValuePairs] ->
+                let withConstantKey =
+                    keyValuePairs |> List.choose (function 
+                        | NewArray [Constant (String k); v] -> Some (k, v) 
+                        | _ -> None)
+                if withConstantKey.Length = keyValuePairs.Length then
+                    NewObject withConstantKey |> WithPosOf expr
+                else expr
             | _ -> expr     
         | _ -> expr
 

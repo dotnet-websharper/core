@@ -43,8 +43,8 @@ module Type =
         | TupleType of list<Type>
         | UnionType of Type * Type
         | InteropType of Type * InlineTransforms
+        | NoInteropType of Type
         | FSFunctionType of Type * Type 
-        | ArgumentsType of Type
         | ChoiceType of Type list
         | OptionType of Type
         | DefiningType
@@ -118,9 +118,14 @@ module Type =
       
     and [<ReferenceEquality>] InlineTransforms =
         {
-            InTransform : string -> string
-            OutTransform : string -> string
+            In : string -> string
+            Out : string -> string
         }
+        static member (*) (outer: InlineTransforms, inner: InlineTransforms) =
+            {
+                In = outer.In >> inner.In
+                Out = inner.Out >> outer.Out 
+            }
 
     /// Represents a JavaScript function type.
     and Function =        
@@ -331,6 +336,9 @@ module Type =
             UnionType (Normalize x, Normalize y)
         | InteropType (t, tr) ->
             InteropType (Normalize t, tr)
+        | NoInteropType (InteropType (t, _))
+        | NoInteropType t ->
+            NoInteropType (Normalize t)
         | _ -> t        
 
     type private Overload =
@@ -399,6 +407,8 @@ module Type =
                 norm x @ norm y
             | InteropType (t, tr) ->
                 norm t |> List.map (fun t -> InteropType (t, tr))
+            | NoInteropType t ->
+                norm t |> List.map NoInteropType
             | t -> [t]
         and normo t =
             match t with
@@ -411,30 +421,108 @@ module Type =
                 [ for a in norm x do
                     for b in norms xs do
                         yield a :: b ]
-        let key = function
+        let rec withoutInterop t =
+            match t with
+            | ArrayType (i, t) -> 
+                ArrayType (i, withoutInterop t)
+            | FunctionType f ->
+                FunctionType {
+                    ReturnType = f.ReturnType |> withoutInterop
+                    Parameters = f.Parameters |> List.map (fun (n, p) -> n, withoutInterop p)
+                    ParamArray = f.ParamArray |> Option.map withoutInterop
+                    This       = f.This       |> Option.map withoutInterop
+                }
+            | SpecializedType (t, ts) ->
+                SpecializedType (withoutInterop t, List.map withoutInterop ts)    
+            | TupleType ts ->
+                TupleType (List.map withoutInterop ts)
+            | UnionType (a, b) ->
+                UnionType (withoutInterop a, withoutInterop b) 
+            | InteropType (t, _)
+            | NoInteropType t -> t
+            | FSFunctionType (a, r) ->
+                FSFunctionType (withoutInterop a, withoutInterop r)   
+            | ChoiceType ts ->
+                ChoiceType (List.map withoutInterop ts)
+            | OptionType t ->
+                OptionType (withoutInterop t)
+            | _ -> t
+        let key t = 
+            match withoutInterop t with
             | FunctionType f ->
                 FunctionOverload (List.map snd f.Parameters, f.ParamArray)
             | t -> BasicOverload t
         norm t
-        |> Seq.distinctBy key
+        |> Seq.groupBy key
+        |> Seq.map (fun (k, gr) ->
+            match k with      
+            | BasicOverload _ -> Seq.head gr
+            | FunctionOverload _ ->
+                if Seq.length gr = 1 then
+                    Seq.head gr
+                else
+                    let getReturnType t =
+                        match t with 
+                        | FunctionType f -> f.ReturnType
+                        | NoInteropType (FunctionType f) ->
+                            match f.ReturnType with
+                            | NoInteropType _ as r -> r
+                            | InteropType(r, _)
+                            | r -> t
+                        | InteropType _ -> failwith "The function type defining a method signature cannot use WithInterop."
+                        | _ -> failwith "The type defining a method signature must be a function."
+                    let groupReturnTypes =
+                        gr |> Seq.map getReturnType |> Seq.distinct 
+                        |> Seq.reduce (fun a b -> UnionType(a, b))
+                    match Seq.head gr with
+                    | NoInteropType (FunctionType g) ->
+                        NoInteropType(FunctionType { g with ReturnType = groupReturnTypes })                        
+                    | FunctionType g ->
+                        FunctionType { g with ReturnType = groupReturnTypes }
+                    | _ -> failwith "unreachable"
+        )
         |> Seq.toList
 
     let private thisTransform =
         {
-            InTransform = fun x -> "$wsruntime.CreateFuncWithThis(" + x + ")"
-            OutTransform = fun x -> "function(obj) { return $wsruntime.Bind(" + x + ", obj); }"
+            In = fun x -> "$wsruntime.CreateFuncWithThis(" + x + ")"
+            Out = fun x -> "function(obj) { return $wsruntime.Bind(" + x + ", obj); }"
         }
 
     let private thisArgsTransform =
         {
-            InTransform = fun x -> "$wsruntime.CreateFuncWithThisArgs(" + x + ")"
-            OutTransform = fun x -> "function(obj) { return function(args) { return (" + x + ").apply(obj, args); }; }"
+            In = fun x -> "$wsruntime.CreateFuncWithThisArgs(" + x + ")"
+            Out = fun x -> "function(obj) { return function(args) { return (" + x + ").apply(obj, args); }; }"
         }
 
     let private argsTransform = 
         {
-            InTransform = fun x -> "$wsruntime.CreateFuncWithArgs(" + x + ")"
-            OutTransform = fun x -> "function(args) { return (" + x + ").apply(this, args) }"
+            In = fun x -> "$wsruntime.CreateFuncWithArgs(" + x + ")"
+            Out = fun x -> "function(args) { return (" + x + ").apply(this, args); }"
+        }
+
+    let private restTransform (i: int) =
+        {
+            In =
+                match i with
+                | 0 -> 
+                    fun x -> "$wsruntime.CreateFuncWithArgs(" + x + ")"
+                | _ -> 
+                    fun x -> "$wsruntime.CreateFuncWithRest(" + string i + ", " + x + ")"
+            Out = 
+                match i with
+                | 0 ->
+                    fun x -> "function(rest) { return (" + x + ").apply(null, rest); }" 
+                | 1 ->
+                    fun x -> "function(args) { return (" + x + ").apply(null, [args[0]].concat(args[1])); }"                  
+                | _ ->
+                    fun x -> "function(args) { return (" + x + ").apply(null, args.slice(0, - 1).concat(args[ " + string i + "])); }" 
+        }
+
+    let private unionTransform typeStrings =
+        {
+            In = fun x -> x + ".$0"
+            Out = fun x -> "$wsruntime.UnionByType([" + String.concat ", " typeStrings + "]," + x + ")"    
         }
 
     let (|UnionOf|_|) t =
@@ -485,38 +573,50 @@ module Type =
                 if fn = "Microsoft.FSharp.Core.Unit" then Some "'undefined'"
                 else Some "'object'"
         | DeclaredType _
-        | ArgumentsType _ 
         | DefiningType -> Some "'object'"
         | _ -> None
 
     let TransformValue t =
         match t with
         | FunctionType f ->
+            let trFunc args tr = 
+                match f.This with
+                | None -> InteropType (FSFunctionType (args, f.ReturnType), tr)    
+                | Some this -> InteropType (FSFunctionType (this, FSFunctionType (args, f.ReturnType)), tr)
             match f.This, f.Parameters.Length, f.ParamArray with
             | None, l, None when l > 1 -> 
-                InteropType (FSFunctionType (TupleType (f.Parameters |> List.map snd |> List.rev), f.ReturnType), argsTransform)
-            | None, 0, Some pa -> 
-                InteropType (FSFunctionType (ArgumentsType pa, f.ReturnType), argsTransform)
-            | Some this, 0, None -> 
-                InteropType (FSFunctionType (this, FSFunctionType (Unit, f.ReturnType)), thisTransform)
-            | Some this, 1, None -> 
-                InteropType (FSFunctionType (this, FSFunctionType (snd f.Parameters.[0], f.ReturnType)), thisTransform)
-            | Some this, _, None -> 
-                InteropType (FSFunctionType (this, FSFunctionType (TupleType (f.Parameters |> List.map snd |> List.rev), f.ReturnType)), thisArgsTransform)
-            | Some this, 0, Some pa -> 
-                InteropType (FSFunctionType (this, FSFunctionType (ArgumentsType pa, f.ReturnType)), thisArgsTransform)
-            | Some this, _, _ ->
-                InteropType (FSFunctionType (this, FunctionType { f with This = None }), thisTransform)
+                trFunc (TupleType (f.Parameters |> List.map snd |> List.rev)) argsTransform   
+
+            | None, 0, Some pa ->
+                trFunc (ArrayType (1, pa)) (restTransform 0)
+            | None, 1, Some pa ->
+                trFunc (TupleType [ArrayType (1, pa); snd f.Parameters.[0]]) (restTransform 1)
+            | None, l, Some pa ->
+                trFunc (TupleType (ArrayType (1, pa) :: (f.Parameters |> List.map snd |> List.rev))) (restTransform l)       
+            
+            | Some _, 0, None -> 
+                trFunc Unit thisTransform
+            | Some _, 1, None -> 
+                trFunc (snd f.Parameters.[0]) thisTransform
+            | Some _, _, None -> 
+                trFunc (TupleType (f.Parameters |> List.map snd |> List.rev)) thisArgsTransform
+            
+            | Some _, 0, Some pa ->
+                trFunc (ArrayType (1, pa)) (thisTransform * restTransform 0)
+            | Some _, 1, Some pa ->
+                trFunc (TupleType [ArrayType (1, pa); snd f.Parameters.[0]]) (thisTransform * restTransform 1)
+            | Some _, l, Some pa ->
+                trFunc (TupleType (ArrayType (1, pa) :: (f.Parameters |> List.map snd |> List.rev))) (thisTransform * restTransform l)       
+
+            | Some _, _, _ ->
+                trFunc (FunctionType { f with This = None }) thisTransform
             | _ -> t
         | UnionOf ts ->
+            if (ts |> Seq.exists (function ArrayType _ -> true | _ -> false))
+                && (ts |> Seq.exists (function TupleType _ -> true | _ -> false)) then t else
             let tts = ts |> Seq.choose GetJSType |> Seq.distinct |> List.ofSeq
             if List.length tts = List.length ts then
-                InteropType (ChoiceType ts, 
-                    {
-                        InTransform = fun x -> x + ".$0"
-                        OutTransform = fun x -> "$wsruntime.UnionByType([" + String.concat ", " tts + "]," + x + ")"    
-                    }
-                )
+                InteropType (ChoiceType ts, unionTransform tts)
             else t
         | _ -> t
 

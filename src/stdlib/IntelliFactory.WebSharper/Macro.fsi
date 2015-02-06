@@ -54,6 +54,11 @@ type New =
     interface M.IMacroDefinition
 
 [<Sealed>]
+type FuncWithArgsRest =
+    new : unit -> FuncWithArgsRest
+    interface M.IMacroDefinition
+
+[<Sealed>]
 type PrintF =
     new : unit -> PrintF
     interface M.IMacroDefinition
