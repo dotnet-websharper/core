@@ -33,7 +33,7 @@ module Definition =
             "ArgsFuncIn" => (Int * Int ^-> Int)?add ^-> Int    
             "ArgsFuncIn2" => 
                 (Int * Int ^-> Int)?add ^-> Int   
-                |> WithTransformedInline (fun tr -> "WIGtest.ArgsFuncIn(" + tr "add" + ")") 
+                |> WithInteropInline (fun tr -> "WIGtest.ArgsFuncIn(" + tr "add" + ")") 
             "ArgsFuncOut" => O ^-> (Int * Int ^-> Int)
             Generic - fun a -> "GetGetThis" => O ^-> (a -* O ^-> a)            
             "FuncInWithThis" => (JustX -* O ^-> String) ^-> String
