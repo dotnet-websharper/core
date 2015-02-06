@@ -617,7 +617,9 @@ module Type =
                 && (ts |> Seq.exists (function TupleType _ -> true | _ -> false)) then t else
             let tts = ts |> Seq.choose GetJSType |> Seq.distinct |> List.ofSeq
             if List.length tts = List.length ts then
-                InteropType (ChoiceType ts, unionTransform (List.sort tts))
+                let ts, tts =
+                    (ts, tts) ||> List.zip |> List.sortBy snd |> List.unzip
+                InteropType (ChoiceType ts, unionTransform tts)
             else t
         | _ -> t
 
