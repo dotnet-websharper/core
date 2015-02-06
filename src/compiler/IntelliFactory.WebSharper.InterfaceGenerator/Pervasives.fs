@@ -234,16 +234,16 @@ module Pervasives =
 
     /// Creates an inline using interop transformations.
     /// Use the function provided by createInline to wrap a parameter name.
-    let WithTransformedInline (createInline: (string -> string) -> string) (x: #Code.MethodBase) =
+    let WithInteropInline (createInline: (string -> string) -> string) (x: #Code.MethodBase) =
         x |> Code.Entity.Update (fun x -> x.Inline <- Some (Code.TransformedInline createInline))
 
     /// Creates an inline using interop transformation on the returned value for a property getter.
-    let WithTransformedGetterInline (code: string) (p: Code.Property) =
+    let WithInteropGetterInline (code: string) (p: Code.Property) =
         p |> Code.Entity.Update (fun x -> x.GetterInline <- Some (Code.TransformedInline (fun _ -> code)))
 
     /// Creates an inline using interop transformations for a property setter.
     /// Use the value provided by createInline instead of $value.
-    let WithTransformedSetterInline (createInline: string -> string) (p: Code.Property) =
+    let WithInteropSetterInline (createInline: string -> string) (p: Code.Property) =
         p |> Code.Entity.Update (fun x -> x.SetterInline <- Some (Code.TransformedInline (fun v -> createInline (v ""))))
 
     /// Adds a default in and out inline transform to a type.
