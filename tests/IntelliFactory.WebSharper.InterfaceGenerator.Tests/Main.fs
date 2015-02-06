@@ -34,6 +34,7 @@ module Definition =
             "ArgsFuncIn2" => 
                 (Int * Int ^-> Int)?add ^-> Int   
                 |> WithInteropInline (fun tr -> "WIGtest.ArgsFuncIn(" + tr "add" + ")") 
+            "ArgsFuncInStrings" => (String * String ^-> O)?f ^-> O
             "ArgsFuncOut" => O ^-> (Int * Int ^-> Int)
             Generic - fun a -> "GetGetThis" => O ^-> (a -* O ^-> a)            
             "FuncInWithThis" => (JustX -* O ^-> String) ^-> String

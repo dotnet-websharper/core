@@ -26,6 +26,9 @@ open IntelliFactory.WebSharper.Testing
 open IntelliFactory.WebSharper.InterfaceGenerator.Tests
 
 [<JavaScript>]
+let f (x, y) = Console.Log((x:obj), (y:obj))
+
+[<JavaScript>]
 let Tests =
     Section "Interface generator"
 
@@ -95,11 +98,11 @@ let Tests =
 
     Test "Choice property" {
         let x = WIGtest.Instance 
-        x.StringOrInt =? Choice2Of2 0
-        x.StringOrInt <- Choice1Of2 "hi"
-        x.StringOrInt =? Choice1Of2 "hi"
-        x.StringOrInt <- Choice2Of2 1
-        x.StringOrInt =? Choice2Of2 1
+        x.StringOrInt =? Choice1Of2 0
+        x.StringOrInt <- Choice2Of2 "hi"
+        x.StringOrInt =? Choice2Of2 "hi"
+        x.StringOrInt <- Choice1Of2 1
+        x.StringOrInt =? Choice1Of2 1
     }
 
     Test "Option property" {
@@ -114,12 +117,12 @@ let Tests =
     Test "Optional choice property" {
         let x = WIGtest.Instance 
         x.OptionalStringOrFunction =? None
-        x.OptionalStringOrFunction <- Some (Choice1Of2 "hi")
-        x.OptionalStringOrFunction =? Some (Choice1Of2 "hi")
-        x.OptionalStringOrFunction <- Some (Choice2Of2 (FuncWithArgs(fun (a, b) -> a + b)))
+        x.OptionalStringOrFunction <- Some (Choice2Of2 "hi")
+        x.OptionalStringOrFunction =? Some (Choice2Of2 "hi")
+        x.OptionalStringOrFunction <- Some (Choice1Of2 (FuncWithArgs(fun (a, b) -> a + b)))
         (
             match x.OptionalStringOrFunction with
-            | Some (Choice2Of2 f) -> f.Call(1, 2)
+            | Some (Choice1Of2 f) -> f.Call(1, 2)
             | _ -> 0
         ) =? 3
         x.OptionalStringOrFunction <- None
@@ -134,4 +137,12 @@ let Tests =
         c.SecondReq(1, 2) =? "12"
         c.FirstOpt =?2
         c.SecondOpt(1, 2) =? "1,2"
+    }
+
+    Test "Passing variadic" {
+        WIGtest.ArgsFuncInStrings(f)
+        WIGtest.ArgsFuncInStrings(fun (x, y) -> f (x, y))
+        WIGtest.ArgsFuncInStrings(fun (x, y) -> Console.Log(x, y))
+        WIGtest.ArgsFuncInStrings(Console.Log)
+        () =? ()
     }

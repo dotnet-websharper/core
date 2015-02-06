@@ -3,6 +3,10 @@
         return f(1, 2)
     },
 
+    ArgsFuncInStrings: function (f) {
+        return f("Hello", "world")
+    },
+
     ArgsFuncOut: function () {
         return function (a, b) { return a + b; }
     },
