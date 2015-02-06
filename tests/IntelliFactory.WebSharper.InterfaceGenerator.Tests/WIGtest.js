@@ -31,6 +31,54 @@
         return f.call({ x: 0 }, [1, 2]);
     },
 
+    Sum: function () {
+        var res = 0;
+        for (var i = 0; i < arguments.length; i++) {
+            res += arguments[i];
+        }
+        return res;
+    },
+
+    SumBy: function (f) {
+        var res = 0;
+        for (var i = 1; i < arguments.length; i++) {
+            res += f(arguments[i]);
+        }
+        return res;
+    },
+
+    SumByThenMap: function (f, g) {
+        var res = 0;
+        for (var i = 2; i < arguments.length; i++) {
+            res += f(arguments[i]);
+        }
+        return g(res);
+    },
+
+    GetSum: function () {
+        return WIGtest.Sum;
+    },
+
+    GetSumBy: function () {
+        return WIGtest.SumBy;
+    },
+
+    GetSumByThenMap: function () {
+        return WIGtest.SumByThenMap;
+    },
+
+    CallWith1: function(f) {
+        return f(1);
+    },
+
+    CallWith2: function (f) {
+        return f(1, 2);
+    },
+
+    CallWith10: function (f) {
+        return f(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+    },
+
     Instance: {
         x: 0,
         adderFunc:

@@ -30,13 +30,28 @@ type FuncWithThis<'TThis, 'TFunc>(func: 'TThis -> 'TFunc) =
     member this.Length = 0
     member this.Bind (thisArg: 'TThis) = Unchecked.defaultof<'TFunc>
 
-type Arguments<'T> =
-    member this.Length = 0
-    member this.Item with get (i: int) = Unchecked.defaultof<'T>
-    member this.ToArray() = Unchecked.defaultof<'T[]>
+type private PA = System.ParamArrayAttribute
+
+type FuncWithRest<'TRest, 'TResult>(func: 'TRest[] -> 'TResult) =
+    member this.Call ([<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 type FuncWithRest<'TArg, 'TRest, 'TResult>(func: 'TArg * 'TRest[] -> 'TResult) =
-    member this.Call (arg: 'TArg, [<System.ParamArray>] rest: 'TRest) = Unchecked.defaultof<'TResult>
+    member this.Call (arg: 'TArg, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
-type FuncWithArgsRest<'TArgs, 'TRest, 'TResult>(length: int, func: 'TArgs * 'TRest[] -> 'TResult) =
-    member this.Call (args: 'TArgs, [<System.ParamArray>] rest: 'TRest) = Unchecked.defaultof<'TResult>
+type FuncWithRest<'TArg1, 'TArg2, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TRest[] -> 'TResult) =
+    member this.Call (arg1: 'TArg1, arg2: 'TArg2, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
+
+type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TRest[] -> 'TResult) =
+    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
+
+type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TRest[] -> 'TResult) =
+    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
+
+type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TArg5 * 'TRest[] -> 'TResult) =
+    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
+
+type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TArg6, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TArg5 * 'TArg6 * 'TRest[] -> 'TResult) =
+    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, arg6: 'TArg6, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
+
+type FuncWithArgsRest<'TArgs, 'TRest, 'TResult>(func: 'TArgs * 'TRest[] -> 'TResult) =
+    member this.Call (args: 'TArgs, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>

@@ -273,6 +273,24 @@ type New() =
     interface M.IMacroDefinition with
         member this.Macro = newMacro
 
+type FST = Reflection.FSharpType
+
+let funcWithArgsRestMacro = macro <| fun tr q ->
+    match q with
+    | Q.NewObject (c, [func]) ->
+        let tArgs = c.Generics.[0].Load()
+        if FST.IsTuple tArgs then
+            cCall C.Runtime "CreateFuncWithArgsRest" [ tr func ]
+        else
+            failwith "Wrong type argument on FuncWithArgsRest: 'TArgs mut be a tuple"
+    | _ ->
+        failwith "funcWithArgsRestMacro error"
+
+[<Sealed>]
+type FuncWithArgsRest() =
+    interface M.IMacroDefinition with
+        member this.Macro = funcWithArgsRestMacro
+
 /// Set of helpers to parse format string
 /// Source: https://github.com/fsharp/fsharp/blob/master/src/fsharp/FSharp.Core/printf.fs
 module private FormatString =
@@ -385,8 +403,6 @@ module private FormatString =
                     go (i + 1) buf
         go 0 (System.Text.StringBuilder())
         parts.ToArray()
-
-type FST = Reflection.FSharpType
 
 let flags =
     System.Reflection.BindingFlags.Public

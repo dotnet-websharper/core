@@ -5,58 +5,83 @@ open IntelliFactory.WebSharper
 module Definition =
     open IntelliFactory.WebSharper.InterfaceGenerator
 
+    let Int = T<int>
+    let String = T<string>
+
+    let O = Type.Unit
+
     let JustX =
         Pattern.Config "JustX" {
-            Required = [ "x", T<int> ]
+            Required = [ "x", Int ]
             Optional = []
         }
 
     let WIGtestInstance =
         Class "WIGtestInstance"
         |+> Instance [
-            "x" =@ T<int>
-            "adderFunc" =@ T<int> * T<int> ^-> T<int>
-            "adderFuncWithThis" =@ TSelf -* T<int> * T<int> ^-> T<int>
-            "stringOrInt" =@ T<string> + T<int>
-            "optionalInt" =@ !? T<int>
-            "optionalStringOrFunction" =@ !? (T<string> + ( T<int> * T<int> ^-> T<int>))
+            "x" =@ Int
+            "adderFunc" =@ Int * Int ^-> Int
+            "adderFuncWithThis" =@ TSelf -* Int * Int ^-> Int
+            "stringOrInt" =@ String + Int
+            "optionalInt" =@ !? Int
+            "optionalStringOrFunction" =@ !? (String + ( Int * Int ^-> Int))
         ]
 
     let WIGtest =
         Class "WIGtest"
         |+> Static [
-            "ArgsFuncIn" => (T<int> * T<int> ^-> T<int>)?add ^-> T<int>    
+            "ArgsFuncIn" => (Int * Int ^-> Int)?add ^-> Int    
             "ArgsFuncIn2" => 
-                (T<int> * T<int> ^-> T<int>)?add ^-> T<int>   
+                (Int * Int ^-> Int)?add ^-> Int   
                 |> WithTransformedInline (fun tr -> "WIGtest.ArgsFuncIn(" + tr "add" + ")") 
-            "ArgsFuncOut" => T<unit> ^-> (T<int> * T<int> ^-> T<int>)
-            Generic - fun a -> "GetGetThis" => T<unit> ^-> (a -* T<unit> ^-> a)            
-            "FuncInWithThis" => (JustX -* T<unit> ^-> T<string>) ^-> T<string>
-            "ArgFuncInWithThis" => (JustX -* T<int> ^-> T<string>) ^-> T<string>
-            "ArgsFuncInWithThis" => (JustX -* T<int> * T<int> ^-> T<string>) ^-> T<string>
-            "TupledFuncInWithThis" => (JustX -* (T<int> * T<int>).Parameter ^-> T<string>) ^-> T<string>
+            "ArgsFuncOut" => O ^-> (Int * Int ^-> Int)
+            Generic - fun a -> "GetGetThis" => O ^-> (a -* O ^-> a)            
+            "FuncInWithThis" => (JustX -* O ^-> String) ^-> String
+            "ArgFuncInWithThis" => (JustX -* Int ^-> String) ^-> String
+            "ArgsFuncInWithThis" => (JustX -* Int * Int ^-> String) ^-> String
+            "TupledFuncInWithThis" => (JustX -* (Int * Int).Parameter ^-> String) ^-> String
+            "Sum" => !+ Int ^-> Int
+            "SumBy" => T<int -> int>?mapping *+ Int ^-> Int
+            "SumByThenMap" => T<int -> int>?mapping * T<int -> int>?resultMapping *+ Int ^-> Int
+            "GetSum" => O ^-> (!+ Int ^-> Int)
+            "GetSumBy" => O ^-> (T<int -> int>?mapping *+ Int ^-> Int)
+            "GetSumByThenMap" => O ^-> (T<int -> int>?mapping * T<int -> int>?resultMapping *+ Int ^-> Int)
+            "GetSum" => O ^-> (Int * Int * Int * Int * Int * Int * Int *+ Int ^-> Int) |> WithSourceName "GetSum7AndRest"
+            
+            "CallWith1" => (Int ^-> Int) ^-> Int
+            "CallWith2" => (Int * Int ^-> Int) ^-> Int
+            "CallWith10" => (Int * Int * Int * Int * Int * Int * Int * Int * Int * Int ^-> Int) ^-> Int
+            "CallWith10" => (!+ Int ^-> Int) ^-> Int |> WithSourceName "CallWithRest"
+            "CallWith10" => (Int *+ Int ^-> Int) ^-> Int |> WithSourceName "CallWith1AndRest"
+            "CallWith10" => (Int * Int *+ Int ^-> Int) ^-> Int |> WithSourceName "CallWith2AndRest"
+            "CallWith10" => (Int * Int * Int * Int * Int * Int * Int *+ Int ^-> Int) ^-> Int |> WithSourceName "CallWith7AndRest"
+
             "Instance" =@ WIGtestInstance
+
+            "TestCurriedSig" => Int ^-> String ^-> T<obj>
+            "TestIntOrStringReturned" => O ^-> (Int + String)
+            "TestWithNoInterop" => ((Int * Int ^-> Int) ^-> (Int + String) |> WithNoInterop)
         ]
 
     let WIGtestGeneric =
         Generic - fun a b ->
             Class "WIGtestGeneric"
             |+> Instance [
-                "NonGenericMethod" => a * b ^-> T<unit>
-                Generic - fun c d -> "GenericMethod" => a * b * c * d ^-> T<unit>
-                Constructor T<unit>
+                "NonGenericMethod" => a * b ^-> O
+                Generic - fun c d -> "GenericMethod" => a * b * c * d ^-> O
+                Constructor O
             ]
 
     let ConfigObj =
         Pattern.Config "ConfigObj" {
             Required = 
                 [
-                    "firstReq", T<int>
+                    "firstReq", Int
                     "secondReq", T<int * int -> string>
                 ]
             Optional = 
                 [
-                    "firstOpt", T<int>
+                    "firstOpt", Int
                     "secondOpt", T<int * int -> string>
                 ]
         }
