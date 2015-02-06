@@ -141,11 +141,34 @@
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v12.0</VSToolsPath>
-  </PropertyGroup>
-  <Import Project="$(VSToolsPath)\WebApplications\Microsoft.WebApplication.targets" Condition="'$(VSToolsPath)' != ''" />
-  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications\Microsoft.WebApplication.targets" Condition="false" />
+  <Choose>
+    <When Condition="'$(VSToolsPath)' != ''">
+      <PropertyGroup>
+        <VSWebAppsPath>$(VSToolsPath)\WebApplications</VSWebAppsPath>
+      </PropertyGroup>
+    </When>
+    <When Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v14.0\WebApplications')">
+      <PropertyGroup>
+        <VSWebAppsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v14.0\WebApplications</VSWebAppsPath>
+      </PropertyGroup>
+    </When>
+    <When Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v12.0\WebApplications')">
+      <PropertyGroup>
+        <VSWebAppsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v12.0\WebApplications</VSWebAppsPath>
+      </PropertyGroup>
+    </When>
+    <When Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v11.0\WebApplications')">
+      <PropertyGroup>
+        <VSWebAppsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v11.0\WebApplications</VSWebAppsPath>
+      </PropertyGroup>
+    </When>
+    <When Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications')">
+      <PropertyGroup>
+        <VSWebAppsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications</VSWebAppsPath>
+      </PropertyGroup>
+    </When>
+  </Choose>
+  <Import Project="$(VSWebAppsPath)\Microsoft.WebApplication.targets" />
   <Import Project="../../msbuild/WebSharper.Internal.targets" />
   <ProjectExtensions>
     <VisualStudio>
