@@ -1205,7 +1205,7 @@ let Simplify expr =
             | vars, body -> 
                 match occurenceCountApprox tupledArg body with
                 | 0 -> Some (vars, body)
-                | _ -> Some (vars, Let (tupledArg, NewArray (vars |> List.map Var), body))
+                | _ -> None
         | _ -> None
 
     // specify a simple rewrite step - recusion is taken care of later

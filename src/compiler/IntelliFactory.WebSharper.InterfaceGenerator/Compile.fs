@@ -70,18 +70,19 @@ type InlineGenerator() =
         | Some (Code.TransformedInline createInline) ->
             match t with 
             | Type.FunctionType f ->
-                let argMap =
-                    seq {
-                        for i in 0 .. f.Parameters.Length - 1 ->
-                            let inl = "$" + string ((if m.IsStatic then 0 else 1) + i)
-                            match interop, f.Parameters.[i] with
-                            | true, (n, Type.InteropType (_, tr)) -> n, tr.In inl
-                            | _, (n, _) -> n, inl
-                    } |> Map.ofSeq
+                let argMap = Dictionary()
+                for i in 0 .. f.Parameters.Length - 1 do
+                    let inl = "$" + string ((if m.IsStatic then 0 else 1) + i)
+                    let name, trInl =
+                        match interop, f.Parameters.[i] with
+                        | true, (n, Type.InteropType (_, tr)) -> n, tr.In inl
+                        | _, (n, _) -> n, inl
+                    argMap.Add(inl, trInl)        
+                    argMap.Add(name, trInl)        
                 createInline (fun argName -> 
-                    match argMap |> Map.tryFind argName with
-                    | Some inl -> inl
-                    | None -> failwithf "Unrecognized parameter name in transformed inline: %s in member of %s" argName td.Name)
+                    match argMap.TryGetValue argName with
+                    | true, inl -> inl
+                    | _ -> failwithf "Unrecognized parameter name in transformed inline: %s in member of %s" argName td.Name)
                 |> withOutTransform f.ReturnType
             | _ -> failwith "GetMethodBaseInline error"
         | _ ->
@@ -113,7 +114,7 @@ type InlineGenerator() =
                             | name when m.IsStatic -> td.Name + "." + name
                             | name -> name
                         if m.IsStatic then
-                            sprintf "%s.apply(undefined,[%s].concat($%d))" name args arity
+                            sprintf "%s.apply(%s,[%s].concat($%d))" name td.Name args arity
                         else
                             sprintf "$this.%s.apply($this,[%s].concat($%d))" name args (arity + 1)
                     | None ->

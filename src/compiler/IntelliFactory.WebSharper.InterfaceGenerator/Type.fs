@@ -288,7 +288,8 @@ module Type =
     /// Detects the `unit` type.
     let (|Unit|NonUnit|) (t: Type) =
         match t with
-        | SystemType t when t.FullName = "Microsoft.FSharp.Core.Unit" -> Unit
+        | (InteropType (SystemType t, _) | NoInteropType (SystemType t) | SystemType t)
+            when t.FullName = "Microsoft.FSharp.Core.Unit" -> Unit
         | _ -> NonUnit
 
     let Unit = SystemType (R.Type.FromType typeof<unit>)
@@ -345,6 +346,9 @@ module Type =
         | BasicOverload of Type
         | FunctionOverload of list<Type> * option<Type>
 
+    let private (|SysObj|_|) (t: R.Type) =
+        if t.FullName = "System.Object" then Some () else None   
+
     /// Computes the distinct overloads of a function type, eliminating the Union case.
     /// The returned list is always non-empty.
     let rec GetOverloads (t: Type) : list<Type> =
@@ -359,10 +363,10 @@ module Type =
             | FunctionType x ->
                 [ for this in normo x.This do
                     for returnType in norm x.ReturnType do
-                        // for if there is a generic or obj[] paramarray but no 
+                        // if there is a generic or obj paramarray but no 
                         // other parameters, create a single parameter overload
                         match x.Parameters, x.ParamArray with
-                        | [], Some (GenericType _ | ArrayType (1, _) as pa) ->
+                        | [], Some (GenericType _ | SystemType SysObj as pa) ->
                             for p in norm pa do
                                 yield {
                                     This = this

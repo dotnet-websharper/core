@@ -25,45 +25,31 @@ open IntelliFactory.WebSharper.JavaScript
 
 /// The JavaScript global properties and functions can be used with all the built-in JavaScript objects.
 let Global =
+    let CheckConsole =
+        T<unit> |> WithInterop {
+            In = id
+            Out = fun s -> "console?" + s + ":undefined"
+        }   
     Namespace "IntelliFactory.WebSharper.JavaScript" [
-        Class "Console"
+        Class "console"
         |+> Static [
-            "count" => T<string> ^-> T<unit>
-            |> WithInline "console?console.count($0):undefined"
-            "count" => T<unit> ^-> T<unit>
-            |> WithInline "console?console.count():undefined"
-            "dir" => T<obj> ^-> T<unit>
-            |> WithInline "console?console.dir($0):undefined"
-            Generic - fun t -> "error" => t ^-> T<unit>
-            |> WithInline "console?console.error($0):undefined"
-            Generic - fun t -> "error" => t *+ T<obj> ^-> T<unit>
-            |> WithInline "console?console.error.apply(console,[$0].concat($1)):undefined"
-            "group" => T<string> *+ T<obj> ^-> T<unit>
-            |> WithInline "console?console.group.apply(console,[$0].concat($1)):undefined"
-            "groupEnd" => T<unit> ^-> T<unit>
-            |> WithInline "console?console.groupEnd():undefined"
-            Generic - fun t -> "info" => t ^-> T<unit>
-            |> WithInline "console?console.info($0):undefined"
-            Generic - fun t -> "info" => t *+ T<obj> ^-> T<unit>
-            |> WithInline "console?console.info.apply(console,[$0].concat($1)):undefined"
-            Generic - fun t -> "log" => t ^-> T<unit>
-            |> WithInline "console?console.log($0):undefined"
-            Generic - fun t -> "log" => t *+ T<obj> ^-> T<unit>
-            |> WithInline "console?console.log.apply(console,[$0].concat($1)):undefined"
-            "profile" => T<string> ^-> T<unit>
-            |> WithInline "console?console.profile($0):undefined"
-            "profileEnd" => T<unit> ^-> T<unit>
-            |> WithInline "console?console.profileEnd():undefined"
-            "time" => T<string> ^-> T<unit>
-            |> WithInline "console?console.time($0):undefined"
-            "timeEnd" => T<string> ^-> T<unit>
-            |> WithInline "console?console.timeEnd($0):undefined"
-            "trace" => T<unit> ^-> T<unit>
-            |> WithInline "console?console.trace():undefined"
-            Generic - fun t -> "warn" => t ^-> T<unit>
-            |> WithInline "console?console.warn($0):undefined"
-            Generic - fun t -> "warn" => t *+ T<obj> ^-> T<unit>
-            |> WithInline "console?console.warn.apply(console,[$0].concat($1)):undefined"
+            "count" => !? T<string> ^-> CheckConsole
+            "dir" => T<obj> ^-> CheckConsole
+            Generic - fun t -> "error" => t ^-> CheckConsole
+            Generic - fun t -> "error" => t *+ T<obj> ^-> CheckConsole
+            "group" => T<string> *+ T<obj> ^-> CheckConsole
+            "groupEnd" => T<unit> ^-> CheckConsole
+            Generic - fun t -> "info" => t ^-> CheckConsole
+            Generic - fun t -> "info" => t *+ T<obj> ^-> CheckConsole
+            Generic - fun t -> "log" => t ^-> CheckConsole
+            Generic - fun t -> "log" => t *+ T<obj> ^-> CheckConsole
+            "profile" => T<string> ^-> CheckConsole
+            "profileEnd" => T<unit> ^-> CheckConsole
+            "time" => T<string> ^-> CheckConsole
+            "timeEnd" => T<string> ^-> CheckConsole
+            "trace" => T<unit> ^-> CheckConsole
+            Generic - fun t -> "warn" => t ^-> CheckConsole
+            Generic - fun t -> "warn" => t *+ T<obj> ^-> CheckConsole
         ]
 
         Class "JS"
