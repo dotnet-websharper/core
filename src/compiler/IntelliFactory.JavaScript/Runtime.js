@@ -207,6 +207,11 @@ var IntelliFactory =
                 return function () { return f.call(this, arguments); }
             },
 
+        CreateFuncWithOnlyThis:
+            function (f) {
+                return function () { return f(this); }
+            },
+
         CreateFuncWithThis:
             function (f) {
                 return function () { return f(this).apply(null, arguments); }

@@ -1266,6 +1266,8 @@ let Simplify expr =
                     transformIfAlwaysInterop "CreateFuncWithArgs" (Lambda(None, vars, lBody))
                 | Lambda (None, [obj], Lambda (None, args, lBody)) ->
                     transformIfAlwaysInterop "CreateFuncWithThis" (Lambda (Some obj, args, lBody))
+                | Lambda (None, [obj], lBody) ->
+                    transformIfAlwaysInterop "CreateFuncWithOnlyThis" (Lambda (Some obj, [], lBody))
                 | Lambda (None, [obj], TupledLambda (vars, lBody)) ->
                     transformIfAlwaysInterop "CreateFuncWithThisArgs" (Lambda (Some obj, vars, lBody))
                 | _ ->
@@ -1308,6 +1310,11 @@ let Simplify expr =
                 match f with
                 | TupledLambda (vars, body) -> 
                     Lambda(None, vars, body) |> WithPosOf f
+                | _ -> expr
+            | "CreateFuncWithOnlyThis", [f] ->
+                match f with
+                | Lambda (None, [obj], body) ->
+                    Lambda (Some obj, [], body) |> WithPosOf f   
                 | _ -> expr
             | "CreateFuncWithThis", [f] ->
                 match f with

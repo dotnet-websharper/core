@@ -483,6 +483,12 @@ module Type =
         )
         |> Seq.toList
 
+    let private onlyThisTransform =
+        {
+            In = fun x -> "$wsruntime.CreateFuncWithOnlyThis(" + x + ")"
+            Out = fun x -> "function(obj) { return (" + x + ").call(obj); }"
+        }
+
     let private thisTransform =
         {
             In = fun x -> "$wsruntime.CreateFuncWithThis(" + x + ")"
@@ -595,8 +601,8 @@ module Type =
             | None, l, Some pa ->
                 trFunc (TupleType (ArrayType (1, pa) :: (f.Parameters |> List.map snd |> List.rev))) (restTransform l)       
             
-            | Some _, 0, None -> 
-                trFunc Unit thisTransform
+            | Some this, 0, None -> 
+                InteropType (FSFunctionType (this, f.ReturnType), onlyThisTransform)
             | Some _, 1, None -> 
                 trFunc (snd f.Parameters.[0]) thisTransform
             | Some _, _, None -> 
