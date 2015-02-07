@@ -53,8 +53,10 @@ type IAjaxProvider =
 
 [<A.Direct @"
     var xhr = new XMLHttpRequest();
-    xhr.withCredentials = true;
     xhr.open('POST', $url, $async);
+    if ($async == true) {
+        xhr.withCredentials = true;
+    }
     for (var h in $headers) {
         xhr.setRequestHeader(h, $headers[h]);
     }
