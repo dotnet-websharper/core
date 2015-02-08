@@ -49,6 +49,10 @@ let Tests =
         WIGtest.CallWith10 (fun (a, b, c, d, e, f, g, h, i, j) -> a + b + c + d + e + f + g + h + i + j) =? 55
     }
 
+    Test "Named tuple" {
+        WIGtest.ArgsFuncIn(fun ((a, b) as ab) -> a + b + fst ab + snd ab) =? 6    
+    }
+
     Test "Functions with ParamArray" {
         let doNotRun() = 
             (WIGtest.TestCurriedSig 0 "" : obj) |> ignore

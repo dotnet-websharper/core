@@ -42,17 +42,15 @@ type Id(id: int64, name: string option, mut: bool) =
     new (nameOpt) = new Id(next(), nameOpt, false)
     new (name) = new Id(next(), Some name, false)
     new (name, mut) = new Id(next(), Some name, mut)
-    new (id: Id) = new Id(next (), id.Name, id.Mutable)
+    new (id: Id) = new Id(next (), id.Name, id.IsMutable)
 
-
-    member this.IsMutable = mut
     member this.Id = id
 
     member this.Name
         with get () = name
         and set x = name <- x
 
-    member this.Mutable = mut
+    member this.IsMutable = mut
 
     override this.GetHashCode() = int id
 
@@ -72,7 +70,7 @@ type Id(id: int64, name: string option, mut: bool) =
             match name with
             | None -> "id"
             | Some n -> n
-        if this.Mutable then
+        if this.IsMutable then
             System.String.Format("{0}#{1:x}!", n, id)
         else
             System.String.Format("{0}#{1:x}", n, id)
@@ -128,7 +126,7 @@ type Literal =
         | False -> "false"
         | Integer x -> string x
         | Null -> "null"
-        | String x -> System.String.Format("\"{0}\"", x)
+        | String x -> "\"" + x + "\""
         | True -> "true"
         | Undefined -> "undefined"
 
@@ -137,6 +135,7 @@ type Literal =
 and Expression =
     private
     | Application         of E * list<E>
+    | Arguments        
     | Binary              of E * BinaryOperator * E
     | Call                of E * E * list<E>
     | Constant            of Literal
@@ -198,6 +197,7 @@ and Expression =
     static member ( ? ) (e: E, msg: string) =
         FieldGet (e, Constant (String msg))
 
+    /// use only for debugging
     override this.ToString() =
         let b = System.Text.StringBuilder()
         let p (x: string) = b.Append x |> ignore
@@ -231,6 +231,7 @@ and Expression =
                 | (x, y) :: t -> po x; p " = ("; pr y; pc ')'; p ", " ; pobj t
             match e with 
             | Application(x, y)               -> pc '('; pr x; p ")("; prl y; pc ')'
+            | Arguments                       -> p "arguments"
             | Binary(x, y, z)                 -> pr x; pc ' '; po y; pc ' '; pr z
             | Call(x, y, z)                   -> pc '('; pr x; p ").("; pr y; p ")("; prl z; pc ')'
             | Constant x                      -> po x
@@ -267,6 +268,7 @@ let inline (|IgnorePos|) e =
     match e with SourcePos(e, _) | e -> e
       
 let (|Application        |_|) e = match e with IgnorePos (Application(x, y)              ) -> Some (x, y)       | _ -> None 
+let (|Arguments          |_|) e = match e with IgnorePos  Arguments                        -> Some ()           | _ -> None 
 let (|Binary             |_|) e = match e with IgnorePos (Binary(x, y, z)                ) -> Some (x, y, z)    | _ -> None 
 let (|Call               |_|) e = match e with IgnorePos (Call(x, y, z)                  ) -> Some (x, y, z)    | _ -> None 
 let (|Constant           |_|) e = match e with IgnorePos (Constant x                     ) -> Some x            | _ -> None 
@@ -295,6 +297,7 @@ let (|VarSet             |_|) e = match e with IgnorePos (VarSet(x, y)          
 let (|WhileLoop          |_|) e = match e with IgnorePos (WhileLoop(x, y)                ) -> Some (x, y)       | _ -> None 
 
 let Application(x, y)               = Application(x, y)              
+let Arguments                       = Arguments                        
 let Binary(x, y, z)                 = Binary(x, y, z)                
 let Call(x, y, z)                   = Call(x, y, z)                  
 let Constant x                      = Constant x                     
@@ -425,6 +428,8 @@ let ENodeMatch e =
         match1 x (WithPosOf e)
     | Application (x, xs) ->
         matchXL x xs Application
+    | Arguments ->
+        match0 ()
     | Binary (x, op, y) ->
         match2 x y (fun (x, y) -> Binary (x, op, y))
     | Call (x, y, rest) ->
@@ -984,7 +989,6 @@ let RemoveLoops expr =
     let i x = Constant (Integer (int64 x))
     let ( ++ ) a b = Sequential (a, b)
     let rec t ret expr =
-//        let (OP (e, pos)) = expr
         match expr with
         | Application (Var f, a) when labels.ContainsKey f ->
             let (args, p) = labels.[f]
@@ -1074,6 +1078,7 @@ let CollectObjLiterals expr =
             Some (objVar, (field, value))
         | _ -> None
     let rec coll expr =
+        let tr = Transform coll
         match expr with
         | Let (objVar, NewObject objFields, Sequential (propSetters, Var v)) when v = objVar ->
             let rec getSetters acc e =
@@ -1087,11 +1092,11 @@ let CollectObjLiterals expr =
             match getSetters [] propSetters with
             | Some s -> 
                 objFields @ s 
-                |> List.map (fun (f, vExpr) -> f, Transform coll vExpr)
+                |> List.map (fun (f, vExpr) -> f, tr vExpr)
                 |> NewObject
                 |> WithPosOf expr
-            | _ -> Transform coll expr
-        | _ -> Transform coll expr
+            | _ -> tr expr
+        | _ -> tr expr
 
     coll expr
 
@@ -1107,7 +1112,7 @@ let (isMostlyPure, isStrictlyPure) =
     let isStrictlyPureNode expr =
         match expr with
         | Var i when not i.IsMutable -> true
-        | Constant _ | Global _ | Lambda _ | Runtime
+        | Arguments | Constant _ | Global _ | Lambda _ | Runtime
         | Binary _  | FieldGet _
         | IfThenElse _ | Let _ | LetRecursive _ | Unary _ -> true
         | _ -> false
@@ -1127,25 +1132,161 @@ let (isMostlyPure, isStrictlyPure) =
 
     (isMostlyPure, isStrictlyPure)
 
-let Simplify expr =
+let containsVar (var: Id) (expr: E) =
+    let all = All expr
+    use e = all.GetEnumerator()
+    let rec loop (occurs: int) =
+        if e.MoveNext() then
+            match e.Current with
+            | Var v when v = var -> true
+            | _ -> loop occurs
+        else false
+    loop 0
 
-    // fast-track Substitue: assume IsAlphaNormalized on all
-    // expressions involved
-    let subst (var: Id) replace body =
-        if var.Mutable then
-            invalidArg "var" "Var should not be mutable"
-        let sub e =
-            match e with
-            | Var v when v = var -> replace
-            | _ -> e
-        BottomUp sub body
+// fast-track Substitue: assume IsAlphaNormalized on all
+// expressions involved
+let subst (var: Id) replace body =
+    if var.IsMutable then
+        invalidArg "var" "Var should not be mutable"
+    let sub e =
+        match e with
+        | Var v when v = var -> replace
+        | _ -> e
+    BottomUp sub body
+
+// Eliminate calls to Runtime.js helpers when possible.
+let CleanupRuntime expr =
+    
+    let sliceFromArguments slice =
+        Call (Global [ "Array"; "prototype"; "slice"], 
+            !~ (String "call"), Arguments :: [ for a in slice -> !~ (Integer a) ])
+
+    let (|TupledLambda|_|) expr =
+        match expr with
+        | Lambda (None, [tupledArg], b) ->
+            // when the tuple itself is bound to a name, there will be an extra let expression
+            let tupledArg, b =
+                match b with
+                | Let (newTA, Var t, b) when t = tupledArg -> 
+                    newTA, subst tupledArg (Var newTA) b
+                | _ -> tupledArg, b
+            let rec loop acc = function
+                | Let (v, FieldGet(Var t, Constant (Integer i)), body) when t = tupledArg ->
+                    loop ((int i, v) :: acc) body
+                | body -> 
+                    if List.isEmpty acc then None else
+                    let m = Map.ofList acc
+                    Some (
+                        [ for i in 0 .. (acc |> Seq.map fst |> Seq.max) -> 
+                            match m |> Map.tryFind i with
+                            | None -> Id()
+                            | Some v -> v 
+                        ], body)
+            match loop [] b with
+            | None -> None
+            | Some (vars, body) -> 
+                if containsVar tupledArg body then
+                    let (|TupleGet|_|) e =
+                        match e with 
+                        | FieldGet(Var t, Constant (Integer i)) when t = tupledArg ->
+                            Some (int i)
+                        | _ -> None 
+                    let maxTupleGet = ref (vars.Length - 1)
+                    let rec alwaysTupleGet e =
+                        match e with 
+                        | TupleGet i -> 
+                            if i > !maxTupleGet then maxTupleGet := i
+                            true
+                        | Var t when t = tupledArg -> false
+                        | _ -> Children e |> List.forall alwaysTupleGet
+                    if alwaysTupleGet body then
+                        let vars = 
+                            if List.length vars > !maxTupleGet then vars
+                            else vars @ [ for k in List.length vars .. !maxTupleGet -> Id() ]
+                        Some (vars, body |> BottomUp (function TupleGet i -> Var vars.[i] | e -> e))
+                    else 
+                        // if we would use the arguments object for anything else than getting
+                        // a tuple item, convert it to an array
+                        Some (vars, Let (tupledArg, sliceFromArguments [], body))
+                else
+                    Some (vars, body)
+        | _ -> None
+
+    let rec clean expr =
+        let tr = Transform clean
+        match expr with
+        | Application (Call (Runtime, Constant (String "Bind"), [f; obj]), args) ->
+            Call(tr f, !~(String "call"), (obj :: args) |> List.map tr)
+        | Call (Call (Runtime, Constant (String "Bind"), [f; obj]), Constant (String "apply"), [args]) ->
+            Call (tr f, !~(String "apply"), [tr obj; tr args])
+        | Call (Runtime, Constant (String rtFunc), xs) ->
+            match rtFunc, xs with
+            | "CreateFuncWithArgs", [ TupledLambda (vars, body) as f ] ->
+                Lambda(None, vars, tr body) |> WithPosOf f
+            | "CreateFuncWithOnlyThis", [ Lambda (None, [obj], body) as f ] ->
+                Lambda (Some obj, [], tr body) |> WithPosOf f   
+            | "CreateFuncWithThis", [ Lambda (None, [obj], Lambda (None, args, body)) as f ] ->
+                Lambda (Some obj, args, tr body) |> WithPosOf f   
+            | "CreateFuncWithThisArgs", [ Lambda (None, [obj], TupledLambda (vars, body)) as f ] ->
+                Lambda(Some obj, vars, tr body) |> WithPosOf f
+            | "CreateFuncWithRest", [ Constant (Integer length); TupledLambda (vars, body) as f ] ->
+                let rest :: fixRev = List.rev vars
+                let fix = List.rev fixRev
+                Lambda (None, fix, Let (rest, sliceFromArguments [ length ], body)) |> WithPosOf f
+            | "SetOptional", [obj; field; optValue] ->
+                match optValue with
+                | NewObject ["$", Constant (Integer 0L)] ->
+                    FieldDelete (tr obj, tr field) |> WithPosOf expr
+                | NewObject ["$", Constant (Integer 1L); "$0", value] ->
+                    FieldSet (tr obj, tr field, tr value) |> WithPosOf expr
+                | _ -> tr expr     
+            | "NewObject", [NewArray keyValuePairs] ->
+                let withConstantKey =
+                    keyValuePairs |> List.choose (function 
+                        | NewArray [Constant (String k); v] -> Some (k, v) 
+                        | _ -> None)
+                if withConstantKey.Length = keyValuePairs.Length then
+                    NewObject (withConstantKey |> List.map (fun (k, v) -> k, tr v)) |> WithPosOf expr
+                else tr expr
+            | _ -> tr expr     
+        | Let (var, value, body) when not var.IsMutable ->
+            // transform function if it is always used as JavaScript interop
+            let transformIfAlwaysInterop rtFunc jsFunc =
+                let (|WithInterop|_|) e =
+                    match e with
+                    | Call (Runtime, Constant (String f), [ Var v ]) when f = rtFunc && v = var -> Some ()
+                    | _ -> None
+                let rec alwaysInterop e =
+                    match e with
+                    | WithInterop -> true
+                    | Var v when v = var -> false
+                    | _ -> Children e |> List.forall alwaysInterop  
+                if alwaysInterop body then
+                    Let(var, jsFunc |> tr |> WithPosOf value, body |> BottomUp (function WithInterop -> Var var | e -> e) |> tr)
+                else tr expr
+            match value with
+            | TupledLambda (vars, lBody) ->
+                transformIfAlwaysInterop "CreateFuncWithArgs" (Lambda(None, vars, lBody))
+            | Lambda (None, [obj], Lambda (None, args, lBody)) ->
+                transformIfAlwaysInterop "CreateFuncWithThis" (Lambda (Some obj, args, lBody))
+            | Lambda (None, [obj], lBody) ->
+                transformIfAlwaysInterop "CreateFuncWithOnlyThis" (Lambda (Some obj, [], lBody))
+            | Lambda (None, [obj], TupledLambda (vars, lBody)) ->
+                transformIfAlwaysInterop "CreateFuncWithThisArgs" (Lambda (Some obj, vars, lBody))
+            | _ ->
+                tr expr
+        | _ -> tr expr
+     
+    clean expr   
+        
+let Simplify expr =
 
     // counts free occurences of var in expr
     // return : 0 - no occurences; 1 - one occurence; 2 - unknown
     // assumes IsAlphaNormalized on all expressions invovled
     // because of the invariant, all occurences are free
     let occurenceCountApprox (var: Id) (expr: E) =
-        if var.Mutable then
+        if var.IsMutable then
             invalidArg "var" "Var should not be mutable"
         let all = All expr
         use e = all.GetEnumerator()
@@ -1180,7 +1321,7 @@ let Simplify expr =
                 | New _ | NewArray _ | NewObject _ | NewRegex _ | Throw _ | VarSet _ ->
                     List.iter eval (Children e); stop ()
                 | Binary (x, _, y) | FieldGet (x, y) | Sequential (x, y) -> eval x; eval y
-                | Constant _ | Global _ | Lambda _ | Runtime -> ()
+                | Arguments | Constant _ | Global _ | Lambda _ | Runtime -> ()
                 | ForEachField (_, obj, _) -> eval obj; stop ()
                 | ForIntegerRangeLoop (_, x, _, _) -> eval x; stop ()
                 | IfThenElse (e, _, _) -> eval e; stop ()
@@ -1192,21 +1333,6 @@ let Simplify expr =
                 | WhileLoop (_, _) -> stop ()
         eval body
         if !st = 1 then subst var value body else expr
-
-    let (|TupledLambda|_|) expr =
-        match expr with
-        | Lambda (None, [tupledArg], b) when tupledArg.Name = Some "tupledArg" ->
-            let rec loop i acc = function
-                | Let (v, FieldGet(Var t, Constant (Integer j)), body) when t = tupledArg && i = int j ->
-                    loop (i + 1) (v :: acc) body
-                | body -> List.rev acc, body
-            match loop 0 [] b with
-            | [], _ -> None
-            | vars, body -> 
-                match occurenceCountApprox tupledArg body with
-                | 0 -> Some (vars, body)
-                | _ -> None
-        | _ -> None
 
     // specify a simple rewrite step - recusion is taken care of later
     // assume rewrites are confluent or else the order does not matter
@@ -1247,30 +1373,6 @@ let Simplify expr =
                     then subst var value body
                     else inlineLet expr var value body
                 | _ -> 
-                // transform function if it is always used as JavaScript interop
-                let transformIfAlwaysInterop rtFunc jsFunc =
-                    let withInterop e =
-                        match e with
-                        | Call (Runtime, Constant (String f), [ Var v ]) when f = rtFunc && v = var -> true
-                        | _ -> false
-                    let rec alwaysInterop e =
-                        if withInterop e then true else
-                            match e with
-                            | Var v when v = var -> false
-                            | _ -> Children e |> List.forall alwaysInterop  
-                    if alwaysInterop body then
-                        Let(var, jsFunc |> WithPosOf value, body |> Transform (fun e -> if withInterop e then Var var else e))
-                    else expr
-                match value with
-                | TupledLambda (vars, lBody) ->
-                    transformIfAlwaysInterop "CreateFuncWithArgs" (Lambda(None, vars, lBody))
-                | Lambda (None, [obj], Lambda (None, args, lBody)) ->
-                    transformIfAlwaysInterop "CreateFuncWithThis" (Lambda (Some obj, args, lBody))
-                | Lambda (None, [obj], lBody) ->
-                    transformIfAlwaysInterop "CreateFuncWithOnlyThis" (Lambda (Some obj, [], lBody))
-                | Lambda (None, [obj], TupledLambda (vars, lBody)) ->
-                    transformIfAlwaysInterop "CreateFuncWithThisArgs" (Lambda (Some obj, vars, lBody))
-                | _ ->
                     expr
             | _ ->
                 match occurenceCountApprox var body with
@@ -1300,48 +1402,30 @@ let Simplify expr =
                 Let (resVar, result, 
                     Seq.fold (fun e v -> Sequential (v, e)) (Var resVar) nonPureAfter
                 )
-        | Application (Call (Runtime, Constant (String "Bind"), [f; obj]), args) ->
-            Call(f, !~(String "call"), obj :: args)
-        | Call (Call (Runtime, Constant (String "Bind"), [f; obj]), Constant (String "apply"), [args]) ->
-            Call (f, !~(String "apply"), [obj; args])
-        | Call (Runtime, Constant (String rtFunc), xs) ->
-            match rtFunc, xs with
-            | "CreateFuncWithArgs", [f] ->
-                match f with
-                | TupledLambda (vars, body) -> 
-                    Lambda(None, vars, body) |> WithPosOf f
-                | _ -> expr
-            | "CreateFuncWithOnlyThis", [f] ->
-                match f with
-                | Lambda (None, [obj], body) ->
-                    Lambda (Some obj, [], body) |> WithPosOf f   
-                | _ -> expr
-            | "CreateFuncWithThis", [f] ->
-                match f with
-                | Lambda (None, [obj], Lambda (None, args, body)) ->
-                    Lambda (Some obj, args, body) |> WithPosOf f   
-                | _ -> expr
-            | "CreateFuncWithThisArgs", [f] ->
-                match f with
-                | Lambda (None, [obj], TupledLambda (vars, body)) ->
-                    Lambda(Some obj, vars, body) |> WithPosOf f
-                | _ -> expr
-            | "SetOptional", [obj; field; optValue] ->
-                match optValue with
-                | NewObject ["$", Constant (Integer 0L)] ->
-                    FieldDelete (obj, field) |> WithPosOf expr
-                | NewObject ["$", Constant (Integer 1L); "$0", value] ->
-                    FieldSet (obj, field, value) |> WithPosOf expr
-                | _ -> expr     
-            | "NewObject", [NewArray keyValuePairs] ->
-                let withConstantKey =
-                    keyValuePairs |> List.choose (function 
-                        | NewArray [Constant (String k); v] -> Some (k, v) 
-                        | _ -> None)
-                if withConstantKey.Length = keyValuePairs.Length then
-                    NewObject withConstantKey |> WithPosOf expr
-                else expr
-            | _ -> expr     
+        | FieldGet (NewArray fs, Constant (Integer index)) ->
+            let mutable nonPureBefore = []
+            let mutable nonPureAfter = []
+            let mutable fieldValue = None
+            let mutable i = 0
+            for v in fs do
+                if i = int index then
+                    fieldValue <- Some v
+                else 
+                    if not (isMostlyPure v) then
+                        match fieldValue with
+                        | None -> nonPureBefore <- v :: nonPureBefore
+                        | _ -> nonPureAfter <- v :: nonPureAfter
+                i <- i + 1
+            let fieldValue = defaultArg fieldValue (Constant Undefined)
+            let result =
+                Seq.fold (fun e v -> Sequential (v, e)) fieldValue nonPureBefore 
+            if List.isEmpty nonPureAfter then
+                result 
+            else 
+                let resVar = Id ("item" + string index)
+                Let (resVar, result, 
+                    Seq.fold (fun e v -> Sequential (v, e)) (Var resVar) nonPureAfter
+                )
         | _ -> expr
 
     // keep rewriting with `step` bottom-up until reach a fixpoint
@@ -1364,6 +1448,7 @@ let Optimize expr =
     |> Uncurry
     |> RemoveLoops
     |> CollectObjLiterals
+    |> CleanupRuntime
     |> Simplify
 
 // Elaboration ----------------------------------------------------------------
@@ -1434,6 +1519,7 @@ let rec CompilesToJavaScriptExpression (expr: E) : bool =
     | FieldDelete (x, y)
     | FieldGet (x, y) -> isE x && isE y
     | Call (t, m, a) -> isE t && isE m && List.forall isE a
+    | Arguments 
     | Constant _
     | Global _
     | Lambda _
@@ -1598,6 +1684,8 @@ let ToProgram prefs (expr: E) : S.Program =
                     appK k t.[m]?call.[!~ S.Null :: a])))
             | _ ->
                 cW sc f (fun f -> cList sc a (fun a -> appK k f.[a]))
+        | Arguments ->
+            appK k (S.Var "arguments")
         | Binary (x, o, y) ->
             let o = ElaborateBinaryOperator o
             cW2 sc x y (fun x y -> appK k (S.Binary (x, o, y)))
@@ -1892,6 +1980,7 @@ let Recognize expr =
         | S.Var id ->
             match env.TryFind id with
             | Some id -> Var id
+            | None when id = "arguments" -> Arguments
             | None -> Global [id]
         | S.ExprPos (x, pos) ->
             !x |> WithPos pos

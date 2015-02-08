@@ -104,7 +104,6 @@ type InlineGenerator() =
                     "{" + String.concat "," ss + "}"
                 | _ ->
                 let args = args |> String.concat ","
-                let arity = f.Parameters.Length
                 let mInl =
                     match f.ParamArray with
                     | Some v ->
@@ -113,10 +112,11 @@ type InlineGenerator() =
                             | "" -> td.Name + ".prototype.constructor"
                             | name when m.IsStatic -> td.Name + "." + name
                             | name -> name
-                        if m.IsStatic then
-                            sprintf "%s.apply(%s,[%s].concat($%d))" name td.Name args arity
-                        else
-                            sprintf "$this.%s.apply($this,[%s].concat($%d))" name args (arity + 1)
+                        match m.IsStatic, f.Parameters.Length with
+                        | true,  0     -> sprintf "%s.apply(%s,$0)" name td.Name
+                        | false, 0     -> sprintf "$this.%s.apply($this, $1)" name
+                        | true,  arity -> sprintf "%s.apply(%s,[%s].concat($%d))" name td.Name args arity
+                        | false, arity -> sprintf "$this.%s.apply($this,[%s].concat($%d))" name args (arity + 1)
                     | None ->
                         let name =
                             match m.Name with
