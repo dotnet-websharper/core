@@ -1232,7 +1232,7 @@ let CleanupRuntime expr =
             | "CreateFuncWithRest", [ Constant (Integer length); TupledLambda (vars, body) as f ] ->
                 let rest :: fixRev = List.rev vars
                 let fix = List.rev fixRev
-                Lambda (None, fix, Let (rest, sliceFromArguments [ length ], body)) |> WithPosOf f
+                Lambda (None, fix, Let (rest, sliceFromArguments [ length ], tr body)) |> WithPosOf f
             | "SetOptional", [obj; field; optValue] ->
                 match optValue with
                 | NewObject ["$", Constant (Integer 0L)] ->
@@ -1275,6 +1275,9 @@ let CleanupRuntime expr =
                 transformIfAlwaysInterop "CreateFuncWithThisArgs" (Lambda (Some obj, vars, lBody))
             | _ ->
                 tr expr
+        // used by functions with rest argument
+        | Call (NewArray arr, Constant (String "concat"), [ NewArray rest ]) ->
+            NewArray (arr @ rest |> List.map tr)    
         | _ -> tr expr
      
     clean expr   

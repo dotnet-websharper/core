@@ -526,7 +526,7 @@ module Type =
                 | 1 ->
                     fun x -> "function(args) { return (" + x + ").apply(null, [args[0]].concat(args[1])); }"                  
                 | _ ->
-                    fun x -> "function(args) { return (" + x + ").apply(null, args.slice(0, - 1).concat(args[ " + string i + "])); }" 
+                    fun x -> "function(args) { return (" + x + ").apply(null, args.slice(0, " + string i + ").concat(args[ " + string i + "])); }" 
         }
 
     let private unionTransform typeStrings =
