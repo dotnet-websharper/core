@@ -31,6 +31,12 @@ module Server =
 
     let counter = ref 0
 
+    type OptionsRecord =
+        {
+            [<OptionalField>] x : option<int>
+            y : option<int>
+        }
+
     [<Remote>]
     let reset () =
         counter := 0
@@ -141,6 +147,10 @@ module Server =
 
     [<Remote>]
     let f15 (x: string) = async.Return x
+
+    [<Remote>]
+    let f16 (r: OptionsRecord) =
+        async.Return { x = r.y; y = r.x }
 
     [<Remote>]
     let reverse (x: string) =
@@ -331,6 +341,12 @@ module RemotingTestSuite =
 
             do test "Null string"
             do! Server.f15 null =? null
+
+            do test "{None; Some} -> {Some; None}"
+            do! Server.f16 { x = None; y = Some 12 } =? { x = Some 12; y = None }
+
+            do test "{Some; None} -> {None; Some}"
+            do! Server.f16 { x = Some 12; y = None } =? { x = None; y = Some 12 }
 
             do test "Map<int,int> -> Map<int,int>"
             do! Server.add2_2ToMap (Map.ofArray [| 1, 1 |]) =? Map.ofArray [| 1, 1; 2, 2 |]

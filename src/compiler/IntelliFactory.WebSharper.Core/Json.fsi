@@ -102,9 +102,13 @@ type Encoder<'T> =
 type Provider =
 
     /// Constructs a basic JSON encoding provider.
+    /// This provider uses an untyped encoding
+    /// and is suitable for use with external APIs.
     static member Create : unit -> Provider
 
     /// Constructs a typed JSON encoding provider.
+    /// This provider uses a WebSharper-specific encoding of types
+    /// and is only suitable for internal uses.
     static member CreateTyped : M.Info -> Provider
 
     /// Derives a decoder for a given type.

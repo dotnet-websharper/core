@@ -360,21 +360,21 @@ type FormatSettings =
         /// Tag the given encoded value with its type.
         AddTag : System.Type -> Encoded -> Encoded
         /// Get the JSON-encoded name of the given F# record field.
-        GetEncodedRecordFieldName : Reflection.TypeDefinition -> string -> string
+        GetEncodedFieldName : Reflection.TypeDefinition -> string -> string
         /// Pack an encoded value to JSON.
         Pack : Encoded -> Value
     }
 
 type Serializer =
     {
-        Decode : option<FormatSettings -> Value -> obj>
-        Encode : option<FormatSettings -> obj -> Encoded>
+        Decode : option<Value -> obj>
+        Encode : option<obj -> Encoded>
     }
 
 let simple enc dec =
     {
-        Encode = Some (fun _ x -> enc x)
-        Decode = Some (fun _ x -> dec x)
+        Encode = Some (fun x -> enc x)
+        Decode = Some (fun x -> dec x)
     }
 
 let numeric<'T> dec =
@@ -488,57 +488,57 @@ let serializers =
 type FST = Reflection.FSharpType
 type FSV = Reflection.FSharpValue
 
-let tupleEncoder dE (t: System.Type) =
+let tupleEncoder dE (i: FormatSettings) (t: System.Type) =
     let e = Array.map dE (FST.GetTupleElements t)
     let r = FSV.PreComputeTupleReader t
-    fun (i: FormatSettings) (x: obj) ->
+    fun (x: obj) ->
         match x with
         | null ->
             raise EncoderException
         | o when o.GetType() = t ->
-            EncodedArray (Array.toList (Array.map2 (fun e x -> e i x) e (r o)))
+            EncodedArray (Array.toList (Array.map2 (fun e x -> e x) e (r o)))
         | _ ->
             raise EncoderException
 
-let tupleDecoder dD (t: System.Type) =
+let tupleDecoder dD (i: FormatSettings) (t: System.Type) =
     let e = Array.map dD (FST.GetTupleElements t)
     let c = FSV.PreComputeTupleConstructor t
-    fun (i: FormatSettings) (x: Value) ->
+    fun (x: Value) ->
         match x with
         | Array xs ->
             let xs = List.toArray xs
             if xs.Length = e.Length then
-                c (Array.map2 (fun e x -> e i x) e xs)
+                c (Array.map2 (fun e x -> e x) e xs)
             else
                 raise DecoderException
         | _ ->
             raise DecoderException
 
-let arrayEncoder dE (t: System.Type) =
+let arrayEncoder dE (i: FormatSettings) (t: System.Type) =
     let e = dE (t.GetElementType())
-    fun (i: FormatSettings) (x: obj) ->
+    fun (x: obj) ->
         match x with
         | null ->
             EncodedNull
         | o when o.GetType() = t ->
             let o = o :?> System.Array
             Seq.cast o
-            |> Seq.map (e i)
+            |> Seq.map e
             |> Seq.toList
             |> EncodedArray
         | _ ->
             raise EncoderException
 
-let arrayDecoder dD (t: System.Type) =
+let arrayDecoder dD (i: FormatSettings) (t: System.Type) =
     let eT = t.GetElementType()
     let e = dD eT
-    fun (i: FormatSettings) (x: Value) ->
+    fun (x: Value) ->
         match x with
         | Null ->
             null
         | Array xs ->
             let data =
-                Seq.map (e i) xs
+                Seq.map e xs
                 |> Seq.toArray
             let k = data.Length
             let r = System.Array.CreateInstance(eT, k)
@@ -563,7 +563,7 @@ let table ts =
         | true, x -> Some x
         | _ -> None
 
-let unionEncoder dE (t: System.Type) =
+let unionEncoder dE (i: FormatSettings) (t: System.Type) =
     let tR = FSV.PreComputeUnionTagReader(t, flags)
     let cs =
         FST.GetUnionCases(t, flags)
@@ -573,7 +573,7 @@ let unionEncoder dE (t: System.Type) =
                 c.GetFields()
                 |> Array.map (fun f -> dE f.PropertyType)
             (r, fs))
-    fun (i: FormatSettings) (x: obj) ->
+    fun (x: obj) ->
         match x with
         | null ->
             EncodedObject [("$", EncodedNumber "0")]
@@ -582,14 +582,14 @@ let unionEncoder dE (t: System.Type) =
             let tag = tR o
             let (r, fs) = cs.[tag]
             let data =
-                Array.mapi2 (fun k e x -> (field k, e i x)) fs (r o)
+                Array.mapi2 (fun k e x -> (field k, e x)) fs (r o)
                 |> Array.toList
             EncodedObject (("$", EncodedNumber (string tag)) :: data)
             |> i.AddTag t
         | x ->
             raise EncoderException
 
-let unionDecoder dD (t: System.Type) =
+let unionDecoder dD (i: FormatSettings) (t: System.Type) =
     let cs =
         FST.GetUnionCases(t, flags)
         |> Array.map (fun c ->
@@ -599,7 +599,7 @@ let unionDecoder dD (t: System.Type) =
                 |> Array.map (fun f -> dD f.PropertyType)
             (mk, fs))
     let k = cs.Length
-    fun (i: FormatSettings) (x: Value) ->
+    fun (x: Value) ->
         match x with
         | Object fields ->
             let get = table fields
@@ -615,49 +615,85 @@ let unionDecoder dD (t: System.Type) =
             fs
             |> Array.mapi (fun k f ->
                 match get (field k) with
-                | Some x -> f i x
+                | Some x -> f x
                 | None -> raise DecoderException)
             |> mk
         | _ ->
             raise DecoderException
 
-let recordEncoder dE (t: System.Type) =
+let isOptionalField (mi: System.Reflection.MemberInfo) (mt: System.Type) =
+    mt.IsGenericType &&
+    mt.GetGenericTypeDefinition() = typedefof<option<_>> &&
+    (mi.GetCustomAttributes(false)
+    |> Array.exists (fun t -> t.GetType() = typeof<A.OptionalFieldAttribute>))
+
+let encodeOptionalField dE (i: FormatSettings) (mi: System.Reflection.MemberInfo) (mt: System.Type) : obj -> option<Encoded> =
+    if isOptionalField mi mt then
+        let vt = mt.GetGenericArguments().[0]
+        let enc = dE vt
+        let ucis = FST.GetUnionCases(mt, flags)
+        let getTag = FSV.PreComputeUnionTagReader(mt, flags)
+        let getSome = FSV.PreComputeUnionReader(ucis.[1], flags)
+        fun x ->
+            if getTag x = 0 then
+                None
+            else
+                Some (enc (getSome x).[0])
+    else
+        let enc = dE mt
+        fun x -> Some (enc x)
+
+let decodeOptionalField dD (i: FormatSettings) (mi: System.Reflection.MemberInfo) (mt: System.Type) : option<Value> -> obj =
+    if isOptionalField mi mt then
+        let vt = mt.GetGenericArguments().[0]
+        let dec = dD vt
+        let ucis = FST.GetUnionCases(mt, flags)
+        let none = FSV.PreComputeUnionConstructor(ucis.[0], flags) [||]
+        let some = FSV.PreComputeUnionConstructor(ucis.[1], flags)
+        fun x ->
+            match x with
+            | None -> none
+            | Some v -> some [| dec v |]
+    else
+        let dec = dD mt
+        function
+        | Some v -> dec v
+        | None -> raise DecoderException
+
+let recordEncoder dE (i: FormatSettings) (t: System.Type) =
+    let mt = R.TypeDefinition.FromType t
     let fs =
         FST.GetRecordFields(t, flags)
         |> Array.map (fun f ->
             let r = FSV.PreComputeRecordFieldReader f
-            (f.Name, r, dE f.PropertyType))
-    let mt = R.TypeDefinition.FromType t
-    fun (i: FormatSettings) (x: obj) ->
+            (i.GetEncodedFieldName mt f.Name, r, encodeOptionalField dE i f f.PropertyType))
+    fun (x: obj) ->
         match x with
         | null ->
             raise EncoderException
         | o when o.GetType() = t ->
             fs
-            |> Array.map (fun (n, r, enc) ->
-                (i.GetEncodedRecordFieldName mt n, enc i (r o)))
+            |> Array.choose (fun (n, r, enc) ->
+                enc (r o) |> Option.map (fun e -> (n, e)))
             |> Array.toList
             |> EncodedObject
             |> i.AddTag t
         | _ ->
             raise EncoderException
 
-let recordDecoder dD (t: System.Type) =
+let recordDecoder dD (i: FormatSettings) (t: System.Type) =
     let mt = R.TypeDefinition.FromType t
     let mk = FSV.PreComputeRecordConstructor(t, flags)
     let fs =
         FST.GetRecordFields(t, flags)
-        |> Array.map (fun f -> (f.Name, dD f.PropertyType))
-    fun (i: FormatSettings) (x: Value) ->
+        |> Array.map (fun f ->
+            (i.GetEncodedFieldName mt f.Name, decodeOptionalField dD i f f.PropertyType))
+    fun (x: Value) ->
         match x with
         | Object fields ->
             let get = table fields
             fs
-            |> Array.map (fun (n, dec) ->
-                let n = i.GetEncodedRecordFieldName mt n
-                match get n with
-                | None -> raise DecoderException
-                | Some x -> dec i x)
+            |> Array.map (fun (n, dec) -> dec (get n))
             |> mk
         | _ ->
             raise DecoderException
@@ -683,13 +719,15 @@ let getObjectFields (t: System.Type) =
     |> Seq.distinctBy (fun x -> x.Name)
     |> Seq.toArray
 
-let objectEncoder dE (t: System.Type) =
+let objectEncoder dE (i: FormatSettings) (t: System.Type) =
     if not t.IsSerializable then
         raise (NoEncodingException t)
+    let mt = R.TypeDefinition.FromType t
     let fs = getObjectFields t
     let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
-    let es = fs |> Array.map (fun f -> (f.Name, dE f.FieldType))
-    fun (i: FormatSettings) (x: obj) ->
+    let es = fs |> Array.map (fun f ->
+        (f.Name, encodeOptionalField dE i f f.FieldType))
+    fun (x: obj) ->
         match x with
         | null ->
             EncodedNull
@@ -697,23 +735,26 @@ let objectEncoder dE (t: System.Type) =
             let data = FS.GetObjectData(o, ms)
             (data, es)
             ||> Array.map2 (fun x (name, enc) ->
-                (name, enc i x))
+                enc x |> Option.map (fun e -> (name, e)))
+            |> Array.choose id
             |> Array.toList
             |> EncodedObject
             |> i.AddTag t
         | _ ->
             raise EncoderException
 
-let objectDecoder dD (t: System.Type) =
+let objectDecoder dD (i: FormatSettings) (t: System.Type) =
     if not t.IsSerializable then
         raise (NoEncodingException t)
     match t.GetConstructor [||] with
     | null -> raise (NoEncodingException t)
     | _ -> ()
+    let mt = R.TypeDefinition.FromType t
     let fs = getObjectFields t
     let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
-    let ds = fs |> Array.map (fun f -> (f.Name, dD f.FieldType))
-    fun (i: FormatSettings) (x: Value) ->
+    let ds = fs |> Array.map (fun f ->
+        (f.Name, decodeOptionalField dD i f f.FieldType))
+    fun (x: Value) ->
         match x with
         | Null -> null
         | Object fields ->
@@ -722,9 +763,7 @@ let objectDecoder dD (t: System.Type) =
             let data =
                 ds
                 |> Seq.map (fun (n, dec) ->
-                   match get n with
-                    | Some x -> dec i x
-                    | None -> raise DecoderException)
+                   dec (get n))
                 |> Seq.toArray
             FS.PopulateObjectMembers(obj, ms, data)
         | _ ->
@@ -739,7 +778,7 @@ let btree node left right height count =
         "Count", EncodedNumber count  
     ]
 
-let mapEncoder dE (t: System.Type) =
+let mapEncoder dE (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 2 then raise EncoderException
     let dK = dE tg.[0]
@@ -754,7 +793,7 @@ let mapEncoder dE (t: System.Type) =
     let uR =
         FST.GetUnionCases(treeF.FieldType, flags)
         |> Array.map (fun c -> FSV.PreComputeUnionReader(c, flags))
-    fun (i: FormatSettings) (x: obj) ->
+    fun (x: obj) ->
         let rec encNode v = 
             match v with
             | null -> EncodedNull, 0
@@ -763,31 +802,31 @@ let mapEncoder dE (t: System.Type) =
             | 0 -> EncodedNull, 0
             | 1 ->
                 let u = uR.[1] v
-                btree (pair (dK i u.[0]) (dV i u.[1])) EncodedNull EncodedNull "1" "1", 1
+                btree (pair (dK u.[0]) (dV u.[1])) EncodedNull EncodedNull "1" "1", 1
             | 2 ->
                 let u = uR.[2] v
                 let l, lc = encNode u.[2]
                 let r, rc = encNode u.[3]
                 let c = 1 + lc + rc
-                btree (pair (dK i u.[0]) (dV i u.[1])) l r (string u.[4]) (string c), c 
+                btree (pair (dK u.[0]) (dV u.[1])) l r (string u.[4]) (string c), c 
             | _ -> raise EncoderException     
         let tr = fst (encNode (treeF.GetValue x))
         EncodedObject [ "tree", tr ] |> i.AddTag t
 
-let mapDecoder dD (t: System.Type) =
+let mapDecoder dD (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 2 then raise DecoderException
     let dK = dD tg.[0]
     let dV = dD tg.[1]
     let tt = typedefof<System.Tuple<_,_>>.MakeGenericType(tg.[0], tg.[1])
     let cT = FSV.PreComputeTupleConstructor(tt)
-    fun (i: FormatSettings) (x: Value) ->
+    fun (x: Value) ->
         let rec walk fields =
             seq {
                 for f in fields do
                     match f with
                     | "Node", Object [ "Key", k; "Value", v ] -> 
-                        yield cT [| dK i k; dV i v |]
+                        yield cT [| dK k; dV v |]
                     | ("Left" | "Right"), Object st -> 
                         yield! walk st
                     | _ -> ()
@@ -801,7 +840,7 @@ let mapDecoder dD (t: System.Type) =
             System.Activator.CreateInstance(t, tEls)
         | _ -> raise DecoderException
 
-let setEncoder dE (t: System.Type) =
+let setEncoder dE (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 1 then raise EncoderException
     let dI = dE tg.[0]
@@ -810,7 +849,7 @@ let setEncoder dE (t: System.Type) =
     let uR =
         FST.GetUnionCases(treeF.FieldType, flags)
         |> Array.map (fun c -> FSV.PreComputeUnionReader(c, flags))
-    fun (i: FormatSettings) (x: obj) ->
+    fun (x: obj) ->
         let rec encNode v = 
             match v with
             | null -> EncodedNull, 0
@@ -822,26 +861,26 @@ let setEncoder dE (t: System.Type) =
                 let l, lc = encNode u.[1]
                 let r, rc = encNode u.[2]
                 let c = 1 + lc + rc
-                btree (dI i u.[0]) l r (string u.[3]) (string c), c
+                btree (dI u.[0]) l r (string u.[3]) (string c), c
             | 2 ->
                 let u = uR.[2] v
-                btree (dI i u.[0]) EncodedNull EncodedNull "1" "1", 1
+                btree (dI u.[0]) EncodedNull EncodedNull "1" "1", 1
             | _ -> raise EncoderException     
         let tr = fst (encNode (treeF.GetValue x))
         EncodedObject [ "tree", tr ] |> i.AddTag t
 
-let setDecoder dD (t: System.Type) =
+let setDecoder dD (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 1 then raise EncoderException
     let ti = tg.[0]
     let dI = dD ti
-    fun (i: FormatSettings) (x: Value) ->
+    fun (x: Value) ->
         let rec walk fields =
             seq {
                 for f in fields do
                     match f with
                     | "Node", n -> 
-                        yield dI i n
+                        yield dI n
                     | ("Left" | "Right"), Object st -> 
                         yield! walk st
                     | _ -> ()
@@ -855,56 +894,56 @@ let setDecoder dD (t: System.Type) =
             System.Activator.CreateInstance(t, tEls)
         | _ -> raise DecoderException
 
-let enumEncoder dE (t: System.Type) =
+let enumEncoder dE (i: FormatSettings) (t: System.Type) =
     let uT = System.Enum.GetUnderlyingType t
     let uE = dE uT
-    fun (i: FormatSettings) (x: obj) ->
-        uE i (System.Convert.ChangeType(x, uT)) : Encoded
+    fun (x: obj) ->
+        uE (System.Convert.ChangeType(x, uT)) : Encoded
 
-let enumDecoder dD (t: System.Type) =
+let enumDecoder dD (i: FormatSettings) (t: System.Type) =
     let uT = System.Enum.GetUnderlyingType t
     let uD = dD uT
-    fun (i: FormatSettings) (x: Value) ->
-        let y : obj = uD i x
+    fun (x: Value) ->
+        let y : obj = uD x
         System.Enum.ToObject(t, y)
 
-let getEncoding scalar array tuple union record enu map set obj
+let getEncoding scalar array tuple union record enu map set obj (fo: FormatSettings)
                 (cache: Dictionary<_,_>) =
     let recurse t =
         lock cache <| fun () ->
             cache.[t] <-
-                Choice1Of2 (fun i v ->
+                Choice1Of2 (fun v ->
                     let ct = lock cache <| fun () -> cache.[t]
                     match ct with
-                    | Choice1Of2 f -> f i v
+                    | Choice1Of2 f -> f v
                     | Choice2Of2 d -> raise (NoEncodingException d)
                 )
     let rec get (t: System.Type) =
         let derive dD =
             try
                 if t.IsArray && t.GetArrayRank() = 1 then
-                    Choice1Of2 (array dD t)
+                    Choice1Of2 (array dD fo t)
                 elif FST.IsTuple t then
-                    Choice1Of2 (tuple dD t)
+                    Choice1Of2 (tuple dD fo t)
                 elif FST.IsUnion (t, flags) then
                     recurse t
-                    Choice1Of2 (union dD t)
+                    Choice1Of2 (union dD fo t)
                 elif FST.IsRecord (t, flags) then
                     recurse t
-                    Choice1Of2 (record dD t)
+                    Choice1Of2 (record dD fo t)
                 elif t.IsEnum then
-                    Choice1Of2 (enu dD t)
+                    Choice1Of2 (enu dD fo t)
                 else
                     let tn =
                         if t.IsGenericType 
                         then Some (t.GetGenericTypeDefinition().FullName)
                         else None
                     match tn with
-                    | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> Choice1Of2 (map dD t)
-                    | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> Choice1Of2 (set dD t)
+                    | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> Choice1Of2 (map dD fo t)
+                    | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> Choice1Of2 (set dD fo t)
                     | _ -> 
                         recurse t
-                        Choice1Of2 (obj dD t)
+                        Choice1Of2 (obj dD fo t)
             with NoEncodingException t ->
                 Choice2Of2 t
         if t = null then Choice2Of2 t else
@@ -962,7 +1001,7 @@ module TypedProviderInternals =
             | EncodedObject xs -> Object [VALUE, pko xs]
             | EncodedInstance (a, x) -> Object [TYPE, encT a; VALUE, pko x]
         and pko xs =
-            Object (List.map (fun (a, b) -> (a, pk b)) xs)
+            Object (xs |> List.map (fun (a, b) -> (a, pk b)))
         let data = pk encoded
         let rec encA acc x =
             match x with
@@ -978,7 +1017,7 @@ module TypedProviderInternals =
     let format info =
         {
             AddTag = addTag info
-            GetEncodedRecordFieldName = info.GetFieldName
+            GetEncodedFieldName = info.GetFieldName
             Pack = pack
         }
 
@@ -995,13 +1034,13 @@ module PlainProviderInternals =
             | EncodedObject xs -> pko xs
             | EncodedInstance (_, xs) -> pko xs
         and pko xs =
-            Object (List.map (fun (a, b) -> (a, pk b)) xs)
+            Object (xs |> List.map (fun (a, b) -> (a, pk b)))
         pk encoded
 
     let format =
         {
             AddTag = fun _ -> id
-            GetEncodedRecordFieldName = fun _ -> id
+            GetEncodedFieldName = fun _ -> id
             Pack = flatten
         }
 
@@ -1020,9 +1059,10 @@ type Provider(fo: FormatSettings) =
             mapDecoder
             setDecoder
             objectDecoder
+            fo
             decoders
         >> function
-            | Choice1Of2 x -> Decoder (x fo)
+            | Choice1Of2 x -> Decoder x
             | Choice2Of2 x -> raise (NoDecoderException x)
 
     let getEncoder =
@@ -1035,9 +1075,10 @@ type Provider(fo: FormatSettings) =
             mapEncoder
             setEncoder
             objectEncoder
+            fo
             encoders
         >> function
-            | Choice1Of2 x -> Encoder (x fo)
+            | Choice1Of2 x -> Encoder x
             | Choice2Of2 x -> raise (NoEncoderException x)
 
     static member Create() =
