@@ -107,6 +107,12 @@ let Tests =
         x.StringOrInt =? Choice2Of2 "hi"
         x.StringOrInt <- Choice1Of2 1
         x.StringOrInt =? Choice1Of2 1
+
+        x.JsStringOrNum =? Choice1Of2 ((0).ToEcma())
+        x.JsStringOrNum <- Choice2Of2 ("hi".ToEcma())
+        x.JsStringOrNum =? Choice2Of2 ("hi".ToEcma())
+        x.JsStringOrNum <- Choice1Of2 ((1).ToEcma())
+        x.JsStringOrNum =? Choice1Of2 ((1).ToEcma())
     }
 
     Test "Option property" {

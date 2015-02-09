@@ -41,6 +41,16 @@ type O [<Inline "{}">] () =
 
 type R = { [<OptionalField>] KO: int option }
 
+[<JavaScript>]
+type RN () =
+    [< Name "x" >]
+    let mutable y = 0
+
+    [<Inline>]
+    member this.Value 
+        with get() = y
+        and  set v = y <- v
+
 type Abcde = { A: string; B: string; C: string; D: string; E: string }
 
 [<JavaScript>]
@@ -113,4 +123,12 @@ let Tests =
     Test "NewObject" {
         let o = Object<int>([| "a", 1; "b", 2 |])
         o =? New [ "a" => 1; "b" => 2 ]
+    }
+
+    Test "Field rename" {
+        let o = RN()
+        o?x =? 0
+        o.Value <- 1
+        o.Value =? 1
+        o?x =? 1
     }

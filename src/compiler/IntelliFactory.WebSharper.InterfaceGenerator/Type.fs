@@ -558,31 +558,48 @@ module Type =
             "Char"
             "Double"
             "Single"
-            "String" 
             "TimeSpan"
             "DateTime"
         ]
 
     let rec GetJSType t = 
+        let (|StartsWith|_|) start (s: string) =
+            if s.StartsWith start then Some (s.Substring(start.Length)) else None
         match t with
         | ArrayType _ -> Some "0"
         | TupleType ts -> Some (string ts.Length)
         | FunctionType _
         | FSFunctionType _ -> Some "'function'"
         | SpecializedType (t, _)
-        | InteropType (t, _) -> GetJSType t
+        | InteropType (t, _)
+        | NoInteropType t -> GetJSType t
         | SystemType t ->
-            let fn = t.FullName
-            if fn.StartsWith "System." then
-                match fn.[7 .. ] with
-                | "String" -> Some "'string'"
-                | "Boolean" -> Some "'boolean'"
-                | "Object" -> None
-                | n when NumberTypes.Contains n -> Some "'number'"
-                | _ -> Some "'object'"
-            else 
-                if fn = "Microsoft.FSharp.Core.Unit" then Some "'undefined'"
-                else Some "'object'"
+            match t.FullName with
+            | StartsWith "System." n ->
+                match n with
+                | "Guid"
+                | "String" -> "'string'"
+                | "Boolean" -> "'boolean'"
+                | "Object" -> "'object'"
+                | n when NumberTypes.Contains n -> "'number'"
+                | _ -> "'object'"
+            | StartsWith "System.Collections.Generic." n ->
+                match n with
+                | "List`1"
+                | "Queue`1"
+                | "Stack`1" -> "0"
+                | _ -> "'object'"
+            | StartsWith "IntelliFactory.WebSharper.JavaScript." n ->
+                match n with
+                | "Array" -> "0"
+                | "Boolean" -> "'boolean'"
+                | "Number" -> "'number'"
+                | "String" -> "'string'"
+                | n when n.StartsWith "Func" -> "'function'"
+                | _ -> "'object'"
+            | "Microsoft.FSharp.Core.Unit" -> "'undefined'"
+            | _ ->  "'object'"
+            |> Some    
         | DeclaredType _
         | DefiningType -> Some "'object'"
         | _ -> None

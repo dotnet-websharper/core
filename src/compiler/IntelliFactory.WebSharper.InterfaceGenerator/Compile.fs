@@ -72,12 +72,13 @@ type InlineGenerator() =
             | Type.FunctionType f ->
                 let argMap = Dictionary()
                 for i in 0 .. f.Parameters.Length - 1 do
-                    let inl = "$" + string ((if m.IsStatic then 0 else 1) + i)
+                    let index = string ((if m.IsStatic then 0 else 1) + i)
+                    let inl = "$" + index
                     let name, trInl =
                         match interop, f.Parameters.[i] with
                         | true, (n, Type.InteropType (_, tr)) -> n, tr.In inl
                         | _, (n, _) -> n, inl
-                    argMap.Add(inl, trInl)        
+                    argMap.Add(index, trInl)        
                     argMap.Add(name, trInl)        
                 createInline (fun argName -> 
                     match argMap.TryGetValue argName with
