@@ -23,6 +23,7 @@ module Definition =
             "adderFunc" =@ Int * Int ^-> Int
             "adderFuncWithThis" =@ TSelf -* Int * Int ^-> Int
             "stringOrInt" =@ String + Int
+            "jsStringOrNum" =@ T<JavaScript.String> + T<JavaScript.Number>
             "optionalInt" =@ !? Int
             "optionalStringOrFunction" =@ !? (String + ( Int * Int ^-> Int))
         ]

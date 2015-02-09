@@ -161,25 +161,19 @@ module Definition =
     let FloatString = T<float> + T<string>
     let UnitCallback = (T<unit> ^-> T<unit>)
     let AjaxHandler =
-        (
-            T<Dom.Element> -*
-            Event?event *
+        T<Dom.Element> -*
+        Event?event *
+        XmlHttpRequest?request *
+        AjaxSettings?config ^->
+        T<unit>
 
-            XmlHttpRequest?request *
-            AjaxSettings?config ^->
-            T<unit>
-        ) ^-> JQ
-
-    let AjaxErrorHandler = Type.New ()
-//    let AjaxErrorHandler =
-//        (
-//            T<Dom.Element> -*
-//            Event?event *
-//            XmlHttpRequest?request *
-//            AjaxConfig?config *
-//            !?Error?error ^->
-//            T<unit>
-//        ) ^-> JQ
+    let AjaxErrorHandler =
+        T<Dom.Element> -*
+        Event?event *
+        XmlHttpRequest?request *
+        AjaxSettings?config *
+        T<string>?error ^->
+        T<unit>
 
     let EventHandler =
         (
@@ -911,7 +905,7 @@ module Definition =
 
                 Generic - ( fun t ->
                                 Method "grep" (
-                                    Type.ArrayOf t * (t * T<int> ^-> T<bool>) * !?T<bool>?invert ^-> Type.ArrayOf t
+                                    (Type.ArrayOf t)?array * (t * T<int> ^-> T<bool>)?``function`` * !?T<bool>?invert ^-> Type.ArrayOf t
                                 )
                           )
 

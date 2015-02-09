@@ -121,6 +121,7 @@ type Literal =
 and Expression =
     private
     | Application         of E * list<E>
+    | Arguments
     | Binary              of E * BinaryOperator * E
     | Call                of E * E * list<E>
     | Constant            of Literal
@@ -180,6 +181,7 @@ and Expression =
 and private E = Expression
 
 val (|Application        |_|) : E -> (E * list<E>              ) option                         
+val (|Arguments          |_|) : E -> (unit                     ) option        
 val (|Binary             |_|) : E -> (E * BinaryOperator * E   ) option                              
 val (|Call               |_|) : E -> (E * E * list<E>          ) option                       
 val (|Constant           |_|) : E -> (Literal                  ) option               
@@ -208,6 +210,7 @@ val (|VarSet             |_|) : E -> (Id * E                   ) option
 val (|WhileLoop          |_|) : E -> (E * E                    ) option             
 
 val Application         : E * list<E>               -> E
+val Arguments           :                              E
 val Binary              : E * BinaryOperator * E    -> E
 val Call                : E * E * list<E>           -> E
 val Constant            : Literal                   -> E

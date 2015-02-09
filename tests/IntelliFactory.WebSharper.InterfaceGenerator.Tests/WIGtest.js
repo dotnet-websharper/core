@@ -93,6 +93,7 @@
             function (a, b) {
                 return this.x + a + b;
             },
-        stringOrInt: 0
-    }
+        stringOrInt: 0,
+        jsStringOrNum: 0
+}
 }
