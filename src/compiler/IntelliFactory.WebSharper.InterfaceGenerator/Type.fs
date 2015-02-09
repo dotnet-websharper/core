@@ -529,11 +529,11 @@ module Type =
                     fun x -> "function(args) { return (" + x + ").apply(null, args.slice(0, " + string i + ").concat(args[ " + string i + "])); }" 
         }
 
-    let private unionTransform typeStrings =
+    let private unionTransform optional typeStrings =
         {
             In = fun x -> x + ".$0"
-            Out = fun x -> "$wsruntime.UnionByType([" + String.concat ", " typeStrings + "]," + x + ")"    
-        }
+            Out = fun x -> sprintf "$wsruntime.UnionByType([%s], %s%s)" (String.concat ", " typeStrings) x (if optional then ", true" else "")
+        }                  
 
     let (|UnionOf|_|) t =
         let rec getTypes t =
@@ -578,33 +578,32 @@ module Type =
             | StartsWith "System." n ->
                 match n with
                 | "Guid"
-                | "String" -> "'string'"
-                | "Boolean" -> "'boolean'"
-                | "Object" -> "'object'"
-                | n when NumberTypes.Contains n -> "'number'"
-                | _ -> "'object'"
+                | "String" -> Some "'string'"
+                | "Boolean" -> Some "'boolean'"
+                | "Object" -> None
+                | n when NumberTypes.Contains n -> Some "'number'"
+                | _ -> Some "'object'"
             | StartsWith "System.Collections.Generic." n ->
                 match n with
                 | "List`1"
                 | "Queue`1"
-                | "Stack`1" -> "0"
-                | _ -> "'object'"
+                | "Stack`1" -> Some "0"
+                | _ -> Some "'object'"
             | StartsWith "IntelliFactory.WebSharper.JavaScript." n ->
                 match n with
-                | "Array" -> "0"
-                | "Boolean" -> "'boolean'"
-                | "Number" -> "'number'"
-                | "String" -> "'string'"
-                | n when n.StartsWith "Func" -> "'function'"
-                | _ -> "'object'"
-            | "Microsoft.FSharp.Core.Unit" -> "'undefined'"
-            | _ ->  "'object'"
-            |> Some    
+                | "Array" -> Some "0"
+                | "Boolean" -> Some "'boolean'"
+                | "Number" -> Some "'number'"
+                | "String" -> Some "'string'"
+                | n when n.StartsWith "Func" -> Some "'function'"
+                | _ -> Some "'object'"
+            | "Microsoft.FSharp.Core.Unit" -> Some "'undefined'"
+            | _ -> Some "'object'"
         | DeclaredType _
         | DefiningType -> Some "'object'"
         | _ -> None
 
-    let TransformValue t =
+    let TransformValue opt t =
         match t with
         | FunctionType f ->
             let trFunc args tr = 
@@ -646,21 +645,21 @@ module Type =
             if List.length tts = List.length ts then
                 let ts, tts =
                     (ts, tts) ||> List.zip |> List.sortBy snd |> List.unzip
-                InteropType (ChoiceType ts, unionTransform tts)
+                InteropType (ChoiceType ts, unionTransform opt tts)
             else t
         | _ -> t
 
     let TransformOption t =
         match t with
-        | OptionType t -> OptionType (TransformValue t)
-        | _ -> TransformValue t
+        | OptionType t -> OptionType (TransformValue true t)
+        | _ -> TransformValue false t
 
     let TransformArgs t =
         match t with 
         | FunctionType f ->
             FunctionType 
                 { f with
-                    Parameters = f.Parameters |> List.map (fun (n, p) -> n, TransformValue p)
+                    Parameters = f.Parameters |> List.map (fun (n, p) -> n, TransformValue false p)
                     ReturnType = f.ReturnType |> TransformOption
                 }
         | _ -> t

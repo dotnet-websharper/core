@@ -233,7 +233,7 @@ var IntelliFactory =
             },
 
         UnionByType:
-            function (types, value) {
+            function (types, value, optional) {
                 var vt = typeof value;
                 for (var i = 0; i < types.length; i++) {
                     var t = types[i];
@@ -246,6 +246,9 @@ var IntelliFactory =
                             return { $: i, $0: value };
                         }
                     }
+                }
+                if (!optional) {
+                    throw new Error("Type not expected for creating Choice value.");
                 }
             }
     }

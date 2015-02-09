@@ -1450,8 +1450,8 @@ let Optimize expr =
     |> RemoveUnusedThis
     |> Uncurry
     |> RemoveLoops
-    |> CollectObjLiterals
     |> CleanupRuntime
+    |> CollectObjLiterals
     |> Simplify
 
 // Elaboration ----------------------------------------------------------------
