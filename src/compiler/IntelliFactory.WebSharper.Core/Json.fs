@@ -716,17 +716,16 @@ let getObjectFields (t: System.Type) =
             f.Attributes &&&
             System.Reflection.FieldAttributes.NotSerialized
         f.DeclaringType.IsSerializable && int nS = 0)
-    |> Seq.distinctBy (fun x -> x.Name)
     |> Seq.toArray
 
 let objectEncoder dE (i: FormatSettings) (t: System.Type) =
     if not t.IsSerializable then
         raise (NoEncodingException t)
-    let mt = R.TypeDefinition.FromType t
     let fs = getObjectFields t
     let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
     let es = fs |> Array.map (fun f ->
-        (f.Name, encodeOptionalField dE i f f.FieldType))
+        (i.GetEncodedFieldName (R.TypeDefinition.FromType f.DeclaringType) f.Name,
+         encodeOptionalField dE i f f.FieldType))
     fun (x: obj) ->
         match x with
         | null ->
@@ -749,11 +748,11 @@ let objectDecoder dD (i: FormatSettings) (t: System.Type) =
     match t.GetConstructor [||] with
     | null -> raise (NoEncodingException t)
     | _ -> ()
-    let mt = R.TypeDefinition.FromType t
     let fs = getObjectFields t
     let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
     let ds = fs |> Array.map (fun f ->
-        (f.Name, decodeOptionalField dD i f f.FieldType))
+        (i.GetEncodedFieldName (R.TypeDefinition.FromType f.DeclaringType) f.Name,
+         decodeOptionalField dD i f f.FieldType))
     fun (x: Value) ->
         match x with
         | Null -> null

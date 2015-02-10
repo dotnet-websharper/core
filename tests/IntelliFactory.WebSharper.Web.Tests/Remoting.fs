@@ -152,6 +152,26 @@ module Server =
     let f16 (r: OptionsRecord) =
         async.Return { x = r.y; y = r.x }
 
+    [<JavaScript>]
+    [<System.Serializable>]
+    type BaseClass() =
+        let mutable x = 0
+        member this.Zero = x
+
+    [<JavaScript>]
+    [<System.Serializable>]
+    type DescendantClass() =
+        inherit BaseClass()
+        let mutable x = 1
+        member this.One = x
+
+    [<Remote>]
+    let f17 (x: DescendantClass) =
+        if x.Zero = 0 && x.One = 1
+        then Some (DescendantClass())
+        else None
+        |> async.Return
+
     [<Remote>]
     let reverse (x: string) =
         new System.String(Array.rev (x.ToCharArray()))
@@ -353,6 +373,10 @@ module RemotingTestSuite =
 
             do test "{Some; None} -> {None; Some}"
             do! Server.f16 { x = Some 12; y = None } =? { x = None; y = Some 12 }
+
+            do test "Automatic field rename"
+            do! satisfy (Server.f17 (Server.DescendantClass())) (fun x ->
+                x |> Option.exists (fun x -> x.Zero = 0 && x.One = 1))
 
             do test "Map<int,int> -> Map<int,int>"
             do! Server.add2_2ToMap (Map.ofArray [| 1, 1 |]) =? Map.ofArray [| 1, 1; 2, 2 |]

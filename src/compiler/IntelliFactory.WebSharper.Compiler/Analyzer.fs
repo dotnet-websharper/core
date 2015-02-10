@@ -129,6 +129,7 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
             List.iter (visitMethod self) t.Methods
             List.iter (visitProperty self) t.Properties
             List.iter (visitType assem self) c.Nested
+            info.AddRecord t.Reference [for (o, j, _) in c.FieldRenames -> (o, j)]
         | V.Resource -> ()
         | V.Exception ->
             List.iter (visitMethod self) t.Methods
