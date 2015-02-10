@@ -1216,29 +1216,29 @@ let CleanupRuntime expr =
         let tr = Transform clean
         match expr with
         | Application (Call (Runtime, Constant (String "Bind"), [f; obj]), args) ->
-            Call(tr f, !~(String "call"), (obj :: args) |> List.map tr)
+            Call(clean f, !~(String "call"), (obj :: args) |> List.map clean)
         | Call (Call (Runtime, Constant (String "Bind"), [f; obj]), Constant (String "apply"), [args]) ->
-            Call (tr f, !~(String "apply"), [tr obj; tr args])
+            Call (clean f, !~(String "apply"), [clean obj; clean args])
         | Call (Runtime, Constant (String rtFunc), xs) ->
             match rtFunc, xs with
             | "CreateFuncWithArgs", [ TupledLambda (vars, body) as f ] ->
-                Lambda(None, vars, tr body) |> WithPosOf f
+                Lambda(None, vars, clean body) |> WithPosOf f
             | "CreateFuncWithOnlyThis", [ Lambda (None, [obj], body) as f ] ->
-                Lambda (Some obj, [], tr body) |> WithPosOf f   
+                Lambda (Some obj, [], clean body) |> WithPosOf f   
             | "CreateFuncWithThis", [ Lambda (None, [obj], Lambda (None, args, body)) as f ] ->
-                Lambda (Some obj, args, tr body) |> WithPosOf f   
+                Lambda (Some obj, args, clean body) |> WithPosOf f   
             | "CreateFuncWithThisArgs", [ Lambda (None, [obj], TupledLambda (vars, body)) as f ] ->
-                Lambda(Some obj, vars, tr body) |> WithPosOf f
+                Lambda(Some obj, vars, clean body) |> WithPosOf f
             | "CreateFuncWithRest", [ Constant (Integer length); TupledLambda (vars, body) as f ] ->
                 let rest :: fixRev = List.rev vars
                 let fix = List.rev fixRev
-                Lambda (None, fix, Let (rest, sliceFromArguments [ length ], tr body)) |> WithPosOf f
+                Lambda (None, fix, Let (rest, sliceFromArguments [ length ], clean body)) |> WithPosOf f
             | "SetOptional", [obj; field; optValue] ->
                 match optValue with
                 | NewObject ["$", Constant (Integer 0L)] ->
-                    FieldDelete (tr obj, tr field) |> WithPosOf expr
+                    FieldDelete (clean obj, clean field) |> WithPosOf expr
                 | NewObject ["$", Constant (Integer 1L); "$0", value] ->
-                    FieldSet (tr obj, tr field, tr value) |> WithPosOf expr
+                    FieldSet (clean obj, clean field, clean value) |> WithPosOf expr
                 | _ -> tr expr     
             | "NewObject", [NewArray keyValuePairs] ->
                 let withConstantKey =
@@ -1246,7 +1246,45 @@ let CleanupRuntime expr =
                         | NewArray [Constant (String k); v] -> Some (k, v) 
                         | _ -> None)
                 if withConstantKey.Length = keyValuePairs.Length then
-                    NewObject (withConstantKey |> List.map (fun (k, v) -> k, tr v)) |> WithPosOf expr
+                    NewObject (withConstantKey |> List.map (fun (k, v) -> k, clean v)) |> WithPosOf expr
+                else tr expr
+            | "DeleteEmptyFields", [NewObject fs; NewArray names] ->
+                printfn "using DeleteEmptyFields:\n%O" expr
+                let toDelete = HashSet (names |> Seq.choose (function Constant (String n) -> Some n | _ -> None))
+                if names.Length = toDelete.Count then
+                    let remaining = ResizeArray()
+                    //let mutable alwaysHasValue = true
+                    let rec alwaysHasValue e =
+                        match e with
+                        | Arguments        
+                        | Constant _
+                        | Lambda _            
+                        | New _               
+                        | NewArray _          
+                        | NewObject _         
+                        | NewRegex _          
+                        | Runtime -> true
+                        | Let (_, _, b)       
+                        | LetRecursive (_, b) -> alwaysHasValue b     
+                        | Sequential (_, b) -> alwaysHasValue b     
+                        | _ -> false    
+                    for (n, v) in fs do
+                        let v = clean v
+                        if toDelete.Contains n then
+                            if v = Constant Undefined then 
+                                toDelete.Remove n |> ignore
+                            else
+                                if alwaysHasValue v then
+                                    toDelete.Remove n |> ignore
+                                remaining.Add (n, v)
+                        else remaining.Add (n, v)
+                    let obj = NewObject (List.ofSeq remaining)
+                    if toDelete.Count = 0 then
+                        obj
+                    else                  
+                        let names = NewArray [for f in toDelete -> !~(String f)]
+                        Call (Runtime, !~(String "DeleteEmptyFields"), [obj; names])
+                    |> fun res -> printfn "result:\n%O" res ; res
                 else tr expr
             | _ -> tr expr     
         | Let (var, value, body) when not var.IsMutable ->
@@ -1262,7 +1300,7 @@ let CleanupRuntime expr =
                     | Var v when v = var -> false
                     | _ -> Children e |> List.forall alwaysInterop  
                 if alwaysInterop body then
-                    Let(var, jsFunc |> tr |> WithPosOf value, body |> BottomUp (function WithInterop -> Var var | e -> e) |> tr)
+                    Let(var, jsFunc |> clean |> WithPosOf value, body |> BottomUp (function WithInterop -> Var var | e -> e) |> tr)
                 else tr expr
             match value with
             | TupledLambda (vars, lBody) ->
@@ -1277,7 +1315,55 @@ let CleanupRuntime expr =
                 tr expr
         // used by functions with rest argument
         | Call (NewArray arr, Constant (String "concat"), [ NewArray rest ]) ->
-            NewArray (arr @ rest |> List.map tr)    
+            NewArray (arr @ rest |> List.map clean)    
+        | FieldGet (NewObject fs, Constant (String fieldName)) ->
+            let mutable nonPureBefore = []
+            let mutable nonPureAfter = []
+            let mutable fieldValue = None
+            for n, v in fs do
+                let v = clean v
+                if n = fieldName then
+                    fieldValue <- Some v
+                else 
+                    if not (isMostlyPure v) then
+                        match fieldValue with
+                        | None -> nonPureBefore <- v :: nonPureBefore
+                        | _ -> nonPureAfter <- v :: nonPureAfter
+            let fieldValue = defaultArg fieldValue (Constant Undefined)
+            let result =
+                Seq.fold (fun e v -> Sequential (v, e)) fieldValue nonPureBefore 
+            if List.isEmpty nonPureAfter then
+                result 
+            else 
+                let resVar = Id fieldName
+                Let (resVar, result, 
+                    Seq.fold (fun e v -> Sequential (v, e)) (Var resVar) nonPureAfter
+                )
+        | FieldGet (NewArray fs, Constant (Integer index)) ->
+            let mutable nonPureBefore = []
+            let mutable nonPureAfter = []
+            let mutable fieldValue = None
+            let mutable i = 0
+            for v in fs do
+                let v = clean v
+                if i = int index then
+                    fieldValue <- Some v
+                else 
+                    if not (isMostlyPure v) then
+                        match fieldValue with
+                        | None -> nonPureBefore <- v :: nonPureBefore
+                        | _ -> nonPureAfter <- v :: nonPureAfter
+                i <- i + 1
+            let fieldValue = defaultArg fieldValue (Constant Undefined)
+            let result =
+                Seq.fold (fun e v -> Sequential (v, e)) fieldValue nonPureBefore 
+            if List.isEmpty nonPureAfter then
+                result 
+            else 
+                let resVar = Id ("item" + string index)
+                Let (resVar, result, 
+                    Seq.fold (fun e v -> Sequential (v, e)) (Var resVar) nonPureAfter
+                )
         | _ -> tr expr
      
     clean expr   
@@ -1383,52 +1469,6 @@ let Simplify expr =
                 | 1 -> inlineLet expr var value body
                 | _ -> expr
         | Sequential (a, b) when isMostlyPure a -> b
-        | FieldGet (NewObject fs, Constant (String fieldName)) ->
-            let mutable nonPureBefore = []
-            let mutable nonPureAfter = []
-            let mutable fieldValue = None
-            for n, v in fs do
-                if n = fieldName then
-                    fieldValue <- Some v
-                else 
-                    if not (isMostlyPure v) then
-                        match fieldValue with
-                        | None -> nonPureBefore <- v :: nonPureBefore
-                        | _ -> nonPureAfter <- v :: nonPureAfter
-            let fieldValue = defaultArg fieldValue (Constant Undefined)
-            let result =
-                Seq.fold (fun e v -> Sequential (v, e)) fieldValue nonPureBefore 
-            if List.isEmpty nonPureAfter then
-                result 
-            else 
-                let resVar = Id fieldName
-                Let (resVar, result, 
-                    Seq.fold (fun e v -> Sequential (v, e)) (Var resVar) nonPureAfter
-                )
-        | FieldGet (NewArray fs, Constant (Integer index)) ->
-            let mutable nonPureBefore = []
-            let mutable nonPureAfter = []
-            let mutable fieldValue = None
-            let mutable i = 0
-            for v in fs do
-                if i = int index then
-                    fieldValue <- Some v
-                else 
-                    if not (isMostlyPure v) then
-                        match fieldValue with
-                        | None -> nonPureBefore <- v :: nonPureBefore
-                        | _ -> nonPureAfter <- v :: nonPureAfter
-                i <- i + 1
-            let fieldValue = defaultArg fieldValue (Constant Undefined)
-            let result =
-                Seq.fold (fun e v -> Sequential (v, e)) fieldValue nonPureBefore 
-            if List.isEmpty nonPureAfter then
-                result 
-            else 
-                let resVar = Id ("item" + string index)
-                Let (resVar, result, 
-                    Seq.fold (fun e v -> Sequential (v, e)) (Var resVar) nonPureAfter
-                )
         | _ -> expr
 
     // keep rewriting with `step` bottom-up until reach a fixpoint
