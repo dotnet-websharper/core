@@ -220,28 +220,34 @@ type Harness [<JavaScript>] () =
     member this.AsyncEquals a b =
         expected <- expected + 1
         async {
-            let! v = a
-            do executed <- executed + 1
-            return
-                if v = b then
-                    passed <- passed + 1
-                    Console.Log("pass:", name)
-                else
-                    Console.Log("fail:", name, v, b)
+            try
+                let! v = a
+                do executed <- executed + 1
+                return
+                    if v = b then
+                        passed <- passed + 1
+                        Console.Log("pass:", name)
+                    else
+                        Console.Log("fail:", name, v, b)
+            with e ->
+                return Console.Log("fail with exception:", name, e)
         }
 
     [<JavaScript>]
     member this.AsyncSatisfy a prop =
         expected <- expected + 1
         async {
-            let! v = a
-            do executed <- executed + 1
-            return
-                if prop v then
-                    passed <- passed + 1
-                    Console.Log("pass:", name)
-                else
-                    Console.Log("fail:", name, v)
+            try
+                let! v = a
+                do executed <- executed + 1
+                return
+                    if prop v then
+                        passed <- passed + 1
+                        Console.Log("pass:", name)
+                    else
+                        Console.Log("fail:", name, v)
+            with e ->
+                return Console.Log("fail with exception:", name, e)
         }
 
     [<JavaScript>]
