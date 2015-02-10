@@ -1249,11 +1249,9 @@ let CleanupRuntime expr =
                     NewObject (withConstantKey |> List.map (fun (k, v) -> k, clean v)) |> WithPosOf expr
                 else tr expr
             | "DeleteEmptyFields", [NewObject fs; NewArray names] ->
-                printfn "using DeleteEmptyFields:\n%O" expr
                 let toDelete = HashSet (names |> Seq.choose (function Constant (String n) -> Some n | _ -> None))
                 if names.Length = toDelete.Count then
                     let remaining = ResizeArray()
-                    //let mutable alwaysHasValue = true
                     let rec alwaysHasValue e =
                         match e with
                         | Arguments        
@@ -1284,7 +1282,6 @@ let CleanupRuntime expr =
                     else                  
                         let names = NewArray [for f in toDelete -> !~(String f)]
                         Call (Runtime, !~(String "DeleteEmptyFields"), [obj; names])
-                    |> fun res -> printfn "result:\n%O" res ; res
                 else tr expr
             | _ -> tr expr     
         | Let (var, value, body) when not var.IsMutable ->
