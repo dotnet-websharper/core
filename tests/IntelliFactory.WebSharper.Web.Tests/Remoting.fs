@@ -193,7 +193,7 @@ module Server =
             member this.M5 a b =
                 async.Return (a + b)
 
-    let Initialize () =
+    do
         SetRpcHandlerFactory {
             new IRpcHandlerFactory with
                 member this.Create t =
