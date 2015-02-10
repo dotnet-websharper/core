@@ -139,10 +139,18 @@ type InlineGenerator() =
             match t with
             | Type.OptionType t -> "$wsruntime.GetOptional(" + withInterop t + ")"
             | _ -> withInterop t
+        let index() =
+            match p.IndexerType with
+            | Some (Type.InteropType (_, tr)) -> tr.In "$index"
+            | Some _ -> "$index"
+            | _ -> failwithf "No index type is defined but used in interop inline: %s in member of %s" p.Name td.Name
         match p.GetterInline with
         | Some (Code.BasicInline inl) -> inl
         | Some (Code.TransformedInline createInline) ->
-            createInline (fun _ -> failwith "GetPropertyGetterInline error")
+            createInline (fun i ->
+                if i = "index" then index()
+                else failwithf "In a property with WithInteropGetterInline, call the provided function only with \"index\"."
+            )
             |> withOutTransform
         | _ ->
             let inl = 
@@ -153,13 +161,11 @@ type InlineGenerator() =
                     elif validJsIdentRE.IsMatch name
                     then sprintf "%s.%s" pfx name
                     else sprintf "%s['%s']" pfx name
-                if p.IndexerType.IsSome then noIndex + "[$index]" else noIndex
+                if p.IndexerType.IsSome then sprintf "%s[%s]" noIndex (index()) else noIndex
             withOutTransform inl
 
     member g.GetPropertySetterInline(td: Code.TypeDeclaration, t: T, p: Code.Property) =
-        match p.SetterInline with
-        | Some (Code.BasicInline inl) -> inl
-        | Some (Code.TransformedInline createInline) ->
+        let getTOptAndValue =     
             let t, opt =
                 match t with
                 | Type.OptionType t -> t, true
@@ -171,7 +177,21 @@ type InlineGenerator() =
                     then "$value.$?{$: 1, $0: " + tr.In "$value.$0" + "}:{$: 0}"
                     else tr.In "$value"
                 | _ -> "$value"
-            createInline (fun _ -> value)
+            t, opt, value
+        let index() =
+            match p.IndexerType with
+            | Some (Type.InteropType (_, tr)) -> tr.In "$index"
+            | Some _ -> "$index"
+            | _ -> failwithf "No index type is defined but used in interop inline: %s in member of %s" p.Name td.Name
+        match p.SetterInline with
+        | Some (Code.BasicInline inl) -> inl
+        | Some (Code.TransformedInline createInline) ->
+            let (_, _, value) = getTOptAndValue
+            createInline (fun x -> 
+                if x = "value" then value
+                elif x = "index" then index()
+                else failwithf "In a property with WithInteropSetterInline, call the provided function only with \"value\" or \"index\"."
+            )
         | _ ->
             let t, opt =
                 match t with
@@ -192,15 +212,15 @@ type InlineGenerator() =
             if opt then
                 if name = "" then 
                     if p.IndexerType.IsSome 
-                    then sprintf "$wsruntime.SetOptional(%s, $index, %s)" pfx value
+                    then sprintf "$wsruntime.SetOptional(%s, %s, %s)" pfx (index()) value
                     else failwith "Optional property with empty name not allowed."
                 else
                     if p.IndexerType.IsSome then
-                        sprintf "$wsruntime.SetOptional(%s, $index, %s)" (prop()) value 
+                        sprintf "$wsruntime.SetOptional(%s, %s, %s)" (prop()) (index()) value 
                     else 
                         sprintf "$wsruntime.SetOptional(%s, '%s', %s)" pfx name value    
             else
-                let ind = if p.IndexerType.IsSome then "[$index]" else ""
+                let ind = if p.IndexerType.IsSome then "[" + index() + "]" else ""
                 if name = "" then sprintf "void (%s%s = %s)" pfx ind value
                 else sprintf "void (%s%s = %s)" (prop()) ind value
 

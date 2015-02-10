@@ -156,3 +156,23 @@ let Tests =
         WIGtest.ArgsFuncInStrings(Console.Log)
         () =? ()
     }
+
+    Test "Indexed property" {
+        let a = OneBasedArr(1)
+        a.[1] <- "hi"
+        a =? New [| "0" => "hi" |] 
+        a.[1] =? "hi"
+
+        let b = ObjWithOptionalFields()
+        b.["x"] <- Some "hi"
+        b =? New [| "x" => "hi" |] 
+        b.["x"] =? Some "hi"
+        b.["x"] <- None
+        b =? New [| |]
+
+        b.AsLowerCase("X") <- Some "hi"
+        b =? New [| "x" => "hi" |] 
+        b.AsLowerCase("X") =? Some "hi"
+        b.AsLowerCase("X") <- None
+        b =? New [| |]
+    }

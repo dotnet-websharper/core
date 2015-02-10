@@ -237,14 +237,15 @@ module Pervasives =
     let WithInteropInline (createInline: (string -> string) -> string) (x: #Code.MethodBase) =
         x |> Code.Entity.Update (fun x -> x.Inline <- Some (Code.TransformedInline createInline))
 
-    /// Creates an inline using interop transformation on the returned value for a property getter.
-    let WithInteropGetterInline (code: string) (p: Code.Property) =
-        p |> Code.Entity.Update (fun x -> x.GetterInline <- Some (Code.TransformedInline (fun _ -> code)))
+    /// Creates an inline using interop transformations for a property getter.
+    /// Use the function provided by createInline to call it with "index" if the property is indexed.
+    let WithInteropGetterInline (createInline: (string -> string) -> string) (p: Code.Property) =
+        p |> Code.Entity.Update (fun x -> x.GetterInline <- Some (Code.TransformedInline createInline))
 
     /// Creates an inline using interop transformations for a property setter.
-    /// Use the value provided by createInline instead of $value.
-    let WithInteropSetterInline (createInline: string -> string) (p: Code.Property) =
-        p |> Code.Entity.Update (fun x -> x.SetterInline <- Some (Code.TransformedInline (fun v -> createInline (v ""))))
+    /// Use the function provided by createInline to call it with "value" and with "index" if the property is indexed.
+    let WithInteropSetterInline (createInline: (string -> string) -> string) (p: Code.Property) =
+        p |> Code.Entity.Update (fun x -> x.SetterInline <- Some (Code.TransformedInline createInline))
 
     /// Adds a default in and out inline transform to a type.
     /// In transform is applied to method arguments and property setters.

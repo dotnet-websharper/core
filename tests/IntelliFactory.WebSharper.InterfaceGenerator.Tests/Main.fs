@@ -88,6 +88,39 @@ module Definition =
                 ]
         }
 
+    let Index =
+        T<int> |> WithInterop {
+            In = fun s -> s + " - 1" 
+            Out = fun s -> s + " + 1"
+        }
+    
+    let OneBasedArr =
+        Class "OneBasedArr"
+        |+> Static [
+            Constructor T<int> |> WithInline "Array($0)"
+        ]
+        |+> Instance [
+            "" =@ T<string> |> Indexed Index
+        ] 
+
+    let Lowercase =
+        T<string> |> WithInterop {
+            In = fun s -> s + "[0].toLowerCase() + " + s + ".slice(1)"
+            Out = fun s -> s + "[0].toUpperCase() + " + s + ".slice(1)"
+        }
+
+    let ObjWithOptionalFields =
+        Class "ObjWithOptionalFields"
+        |+> Static [
+            Constructor T<unit> |> WithInline "{}"
+        ]
+        |+> Instance [
+            "" =@ !? T<string> |> Indexed T<string>
+            "asLowerCase" =@ !? T<string> |> Indexed Lowercase
+                |> WithInteropGetterInline (fun tr -> sprintf "$this[%s]" (tr "index"))
+                |> WithInteropSetterInline (fun tr -> sprintf "$wsruntime.SetOptional($this, %s, %s)" (tr "index") (tr "value"))
+        ] 
+
     let Assembly =
         Assembly [
             Namespace "IntelliFactory.WebSharper.InterfaceGenerator.Tests" [
@@ -96,6 +129,8 @@ module Definition =
                  WIGtest
                  WIGtestGeneric
                  ConfigObj
+                 OneBasedArr
+                 ObjWithOptionalFields
                  Resource "WIGTestJs" "WIGtest.js" |> AssemblyWide
             ]
         ]
