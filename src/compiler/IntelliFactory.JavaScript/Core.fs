@@ -1297,7 +1297,7 @@ let CleanupRuntime expr =
                     | Var v when v = var -> false
                     | _ -> Children e |> List.forall alwaysInterop  
                 if alwaysInterop body then
-                    Let(var, jsFunc |> clean |> WithPosOf value, body |> BottomUp (function WithInterop -> Var var | e -> e) |> tr)
+                    Let(var, jsFunc |> clean |> WithPosOf value, body |> BottomUp (function WithInterop -> Var var | e -> e) |> clean)
                 else tr expr
             match value with
             | TupledLambda (vars, lBody) ->
@@ -1309,7 +1309,7 @@ let CleanupRuntime expr =
             | Lambda (None, [obj], TupledLambda (vars, lBody)) ->
                 transformIfAlwaysInterop "CreateFuncWithThisArgs" (Lambda (Some obj, vars, lBody))
             | _ ->
-                tr expr
+            tr expr
         // used by functions with rest argument
         | Call (NewArray arr, Constant (String "concat"), [ NewArray rest ]) ->
             NewArray (arr @ rest |> List.map clean)    

@@ -71,20 +71,6 @@ var IntelliFactory =
                 }
             },
 
-        For:
-            function (lowerBound, upperBound, body) {
-                for (var i = lowerBound; i <= upperBound; i++) {
-                    body(i);
-                }
-            },
-
-        ForEach:
-            function (obj, body) {
-                for (var f in obj) {
-                    body(f);
-                }
-            },
-
         GetOptional:
             function (value) {
                 return (value === undefined) ? { $: 0 } : { $: 1, $0: value };
@@ -167,39 +153,9 @@ var IntelliFactory =
                 }
             },
 
-        Throw:
-            function (e) {
-                throw e;
-            },
-
-        Try:
-            function (block, handler) {
-                try {
-                    return block();
-                } catch (e) {
-                    return handler(e);
-                }
-            },
-
-        TryFinally:
-            function (block, handler) {
-                try {
-                    return block();
-                } finally {
-                    handler();
-                }
-            },
-
-        While:
-            function (guard, body) {
-                while (guard()) {
-                    body();
-                }
-            },
-
         Bind:
-            function(f, obj) {
-                return function () { return f.apply(this, arguments) } 
+            function (f, obj) {
+                return function () { return f.apply(this, arguments) }
             },
 
         CreateFuncWithArgs:
