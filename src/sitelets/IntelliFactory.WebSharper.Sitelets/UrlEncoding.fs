@@ -25,7 +25,7 @@ open IntelliFactory.WebSharper.Core
 
 type DecodeResult<'Action> =
     | Success of 'Action
-    | InvalidMethod of 'Action
+    | InvalidMethod of 'Action * ``method``: string
     | InvalidJson of 'Action
 
 module DecodeResult =
@@ -33,19 +33,20 @@ module DecodeResult =
     let map (f: 'a -> 'b) (x: option<DecodeResult<'a>>) : option<DecodeResult<'b>> =
         x |> Option.map (function
             | Success x -> Success (f x)
-            | InvalidMethod x -> InvalidMethod (f x)
+            | InvalidMethod (x, m) -> InvalidMethod (f x, m)
             | InvalidJson x -> InvalidJson (f x))
 
 let (>>=) (x: option<DecodeResult<'a>>) (f: 'a -> option<DecodeResult<'b>>) : option<DecodeResult<'b>> =
     match x with
     | None -> None
     | Some (Success x) -> f x
-    | Some (InvalidMethod x) ->
+    | Some (InvalidMethod (x, m)) ->
         f x |> Option.map (function
-            | Success y | InvalidMethod y | InvalidJson y -> InvalidMethod y)
+            | Success y | InvalidJson y -> InvalidMethod (y, m)
+            | InvalidMethod (y, m) -> InvalidMethod (y, m))
     | Some (InvalidJson x) ->
         f x |> Option.map (function
-            | InvalidMethod y -> InvalidMethod y
+            | InvalidMethod (y, m) -> InvalidMethod (y, m)
             | Success y | InvalidJson y -> InvalidJson y)
 
 let isUnreserved isLast c =
@@ -433,8 +434,8 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                             d |> Map.tryPick (fun _ k -> ds.[k].Decode p)
                             |> Option.map (function
                                 | Success a
-                                | InvalidMethod a
-                                | InvalidJson a -> InvalidMethod a)
+                                | InvalidJson a -> InvalidMethod (a, p.Request.Method.ToString())
+                                | InvalidMethod (a, m) -> InvalidMethod (a, m))
                 | false, _ -> None)
     else
         raise (NoFormatError t)
