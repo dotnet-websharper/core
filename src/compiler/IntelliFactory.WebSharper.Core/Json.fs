@@ -1048,6 +1048,59 @@ type Provider(fo: FormatSettings) =
     let decoders = Dictionary()
     let encoders = Dictionary()
 
+    let defaultof =
+        typeof<option<_>>.Assembly
+            .GetType("Microsoft.FSharp.Core.Operators")
+            .GetNestedType("Unchecked")
+            .GetMethod("DefaultOf")
+    let defaultof (t: System.Type) =
+        defaultof.MakeGenericMethod(t).Invoke(null, [||])
+
+    let getDefaultBuilder =
+        getEncoding
+            (fun _ -> Some defaultof)
+            (fun dD i t ->
+                let x = box ([||] : obj[])
+                fun _ -> x)
+            (fun dD i t ->
+                let xs = FST.GetTupleElements t |> Array.map (fun t -> dD t t)
+                let x = FSV.MakeTuple(xs, t)
+                fun _ -> x)
+            (fun dD i t ->
+                let uci = FST.GetUnionCases(t).[0]
+                let xs = uci.GetFields() |> Array.map (fun f -> dD f.PropertyType f.PropertyType)
+                let x = FSV.MakeUnion(uci, xs)
+                fun _ -> x)
+            (fun dD i t ->
+                let xs = FST.GetRecordFields t |> Array.map (fun f -> dD f.PropertyType f.PropertyType)
+                let x = FSV.MakeRecord(t, xs)
+                fun _ -> x)
+            (fun dD i t ->
+                let x = defaultof t
+                fun _ -> x)
+            (fun dD i t ->
+                let x =
+                    typedefof<Map<_,_>>.Assembly
+                        .GetType("Microsoft.FSharp.Collections.MapModule")
+                        .GetMethod("Empty")
+                        .MakeGenericMethod(t.GetGenericArguments())
+                        .Invoke(null, [||])
+                fun _ -> x)
+            (fun dD i t ->
+                let x =
+                    typedefof<Set<_>>.Assembly
+                        .GetType("Microsoft.FSharp.Collections.SetModule")
+                        .GetMethod("Empty")
+                        .MakeGenericMethod(t.GetGenericArguments())
+                        .Invoke(null, [||])
+                fun _ -> x)
+            (fun _ _ _ _ -> null)
+            fo
+            (Dictionary<_,_>())
+        >> function
+            | Choice1Of2 x -> x
+            | Choice2Of2 x -> raise (NoDecoderException x)
+
     let getDecoder =
         getEncoding (fun {Decode=x} -> x)
             arrayDecoder
@@ -1102,6 +1155,14 @@ type Provider(fo: FormatSettings) =
     member this.GetEncoder<'T>() : Encoder<'T> =
         let e = this.GetEncoder typeof<'T>
         Encoder<'T>(fun x -> e.Encode (box x))
+
+    member this.BuildDefaultValue(t: System.Type) =
+        getDefaultBuilder t t
+
+    member this.BuildDefaultValue<'T>() =
+        match this.BuildDefaultValue typeof<'T> with
+        | :? 'T as x -> x
+        | _ -> raise DecoderException
 
     member this.Pack x = fo.Pack x
 
