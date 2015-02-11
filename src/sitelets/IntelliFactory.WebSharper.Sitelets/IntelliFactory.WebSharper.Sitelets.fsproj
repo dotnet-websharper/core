@@ -10,6 +10,7 @@
   <Import Project="../../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
     <Compile Include="Extensions.fs" />
+    <Compile Include="Attributes.fs" />
     <Compile Include="UrlEncoding.fsi" />
     <Compile Include="UrlEncoding.fs" />
     <Compile Include="UserSession.fs" />

@@ -194,6 +194,15 @@ module Sitelet =
             Controller = { Handle = handle }
         }
 
+    let InferWithCustomErrors<'T when 'T : equality> (handle : UrlEncoding.DecodeResult<'T> -> Content<'T>) =
+        {
+            Router = Router.InferWithErrors<'T>()
+            Controller = { Handle = fun x ->
+                C.CustomContent <| fun ctx ->
+                    C.ToResponse (handle x) (Context.Map UrlEncoding.Success ctx)
+            }
+        }
+
     let InferPartial (embed: 'T1 -> 'T2) (unembed: 'T2 -> 'T1 option) (mkContent: 'T1 -> Content<'T2>) : Sitelet<'T2> =
         {
             Router = Router.Infer() |> Router.TryMap (Some << embed) unembed

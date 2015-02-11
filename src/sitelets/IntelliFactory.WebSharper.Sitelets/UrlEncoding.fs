@@ -20,6 +20,26 @@
 
 module IntelliFactory.WebSharper.Sitelets.UrlEncoding
 
+open System.Collections.Generic
+
+type DecodeResult<'Action> =
+    | Success of 'Action
+    | InvalidMethod of 'Action
+
+module DecodeResult =
+
+    let map (f: 'a -> 'b) (x: option<DecodeResult<'a>>) : option<DecodeResult<'b>> =
+        x |> Option.map (function
+            | Success x -> Success (f x)
+            | InvalidMethod x -> InvalidMethod (f x))
+
+let (>>=) (x: option<DecodeResult<'a>>) (f: 'a -> option<DecodeResult<'b>>) : option<DecodeResult<'b>> =
+    match x with
+    | None -> None
+    | Some (Success x) -> f x
+    | Some (InvalidMethod x) ->
+        f x |> Option.map (fun (Success y | InvalidMethod y) -> InvalidMethod y)
+
 let isUnreserved isLast c =
     match c with
     | '-' | '_' -> true
@@ -199,45 +219,60 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
     else
         raise (NoFormatError t)
 
-type D = (unit -> option<string>) -> option<obj>
+type Method = option<string>
+type D = Method -> (unit -> option<string>) -> option<DecodeResult<obj>>
+
+let getUnionCaseMethods (c: Reflection.UnionCaseInfo) =
+    let s =
+        c.GetCustomAttributesData()
+        |> Seq.collect (fun cad ->
+            if cad.Constructor.DeclaringType = typeof<MethodAttribute> then
+                cad.ConstructorArguments.[0].Value
+                :?> System.Collections.ObjectModel.ReadOnlyCollection<
+                        System.Reflection.CustomAttributeTypedArgument>
+                |> Seq.map (fun a ->
+                    (a.Value :?> string)
+                        .ToLower(System.Globalization.CultureInfo.InvariantCulture)
+                    |> Some)
+            else Seq.empty)
+    if Seq.isEmpty s then Seq.singleton None else s
 
 let getD (getD: System.Type -> D) (t: System.Type) : D =
     let tryParse p : D =
-        fun r ->
+        fun _ r ->
             match r () with
             | Some s ->
                 match p s with
-                | true, x -> Some (x :> obj)
+                | true, x -> Some (Success (x :> obj))
                 | _ -> None
             | None -> None
-    let parseTuple mk ds : D =
+    let parseTuple mk (ds: D[]) : D =
         let k = Array.length ds
-        fun r ->
+        fun m r ->
             let xs : obj [] = Array.create k null
             let rec loop x =
                 match x with
-                | i when i = k -> Some (mk xs)
+                | i when i = k -> Some (Success (mk xs))
                 | i ->
-                    match ds.[i] r with
-                    | Some x ->
+                    ds.[i] m r
+                    >>= fun x ->
                         xs.[i] <- x
                         loop (i + 1)
-                    | None -> None
             loop 0
     let parseArray eT (eD: D) : D =
-        fun r ->
-            match tryParse System.Int32.TryParse r with
-            | Some (:? int as k) ->
+        fun m r ->
+            tryParse System.Int32.TryParse m r
+            >>= function
+            | (:? int as k) ->
                 let data = System.Array.CreateInstance(eT, k)
                 let rec loop x =
                     match x with
-                    | i when i = k -> Some (box data)
+                    | i when i = k -> Some (Success (box data))
                     | i ->
-                        match eD r with
-                        | Some obj ->
+                        eD m r
+                        >>= fun obj ->
                             data.SetValue(obj, i)
                             loop (i + 1)
-                        | None -> None
                 if k >= 0 then loop 0 else None
             | _ -> None
     if t = typeof<bool> then
@@ -248,7 +283,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
         tryParse System.Double.TryParse
     elif t = typeof<string> then
         let buf = System.Text.StringBuilder()
-        fun r ->
+        fun _ r ->
             let s = r ()
             match s with
             | Some s ->
@@ -256,7 +291,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                 let rec loop () =
                     match readEscaped i with
                     | ERROR -> None
-                    | EOF -> Some (box (buf.Flush()))
+                    | EOF -> Some (Success (box (buf.Flush())))
                     | x -> buf.Add (char x); loop ()
                 loop ()
             | None -> None
@@ -265,10 +300,11 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
         tryParse <| fun x -> System.DateTime.TryParse(x, null, rT)
     elif t.IsEnum then
         let uT = System.Enum.GetUnderlyingType(t)
-        let m =
+        let toObj =
             typeof<System.Enum>
                 .GetMethod("ToObject", [|typeof<System.Type>; uT|])
-        getD uT >> Option.map (fun x -> m.Invoke(null, [|t; x|]))
+        let f = getD uT
+        fun m r -> f m r |> DecodeResult.map (fun x -> toObj.Invoke(null, [|t; x|]))
     elif t.IsArray then
         if t.GetArrayRank() > 1 then
             raise (NoFormatError t)
@@ -281,9 +317,10 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
         let sP =
             typedefof<ListProcessor<_>>.MakeGenericType(eT)
             |> System.Activator.CreateInstance :?> ISequenceProcessor
-        fun f ->
-            parseArray eT eD f
-            |> Option.map (fun x -> sP.FromSequence (x :?> _))
+        let f = parseArray eT eD
+        fun m r ->
+            f m r
+            |> DecodeResult.map (fun x -> sP.FromSequence (x :?> _))
     elif Reflection.FSharpType.IsTuple t then
         let e = Reflection.FSharpType.GetTupleElements t
         let c = Reflection.FSharpValue.PreComputeTupleConstructor t
@@ -295,24 +332,41 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
     elif Reflection.FSharpType.IsUnion(t, flags) then
         let cs = Reflection.FSharpType.GetUnionCases(t, flags)
         let uC x = Reflection.FSharpValue.PreComputeUnionConstructor(x, flags)
-        let d = System.Collections.Generic.Dictionary()
+        let d = Dictionary<string, Map<Method, int>>()
         let ds =
-            [|
-                for c in cs ->
-                    d.[c.CustomizedName] <- d.Count
-                    parseTuple (uC c) [|
-                        for f in c.GetFields() ->
-                            getD f.PropertyType
-                    |]
-            |]
-        fun r ->
-            let name = r ()
-            match name with
-            | Some name ->
+            cs |> Array.mapi (fun i c ->
+                let allowedMeths = getUnionCaseMethods c
+                let existing =
+                    match d.TryGetValue c.CustomizedName with
+                    | true, m -> m
+                    | false, _ -> Map.empty
+                d.[c.CustomizedName] <-
+                    (existing, allowedMeths)
+                    ||> Seq.fold (fun map m -> Map.add m i map)
+                parseTuple (uC c) [|
+                    for f in c.GetFields() ->
+                        getD f.PropertyType
+                |]
+            )
+        fun m r ->
+            r () |> Option.bind (fun name ->
                 match d.TryGetValue name with
-                | false, _ -> None
-                | true, k -> ds.[k] r
-            | None -> None
+                | true, d ->
+                    // Try to find a union case for the exact method searched
+                    match d.TryFind m with
+                    | Some k -> ds.[k] m r
+                    | None ->
+                        // Try to find None, ie. a non-method-specific union case
+                        match d.TryFind None with
+                        | Some k -> ds.[k] m r
+                        | None ->
+                            // This action doesn't parse, but try to find another action
+                            // with the same name to pass to InvalidMethod
+                            d |> Map.tryPick (fun _ k -> ds.[k] m r)
+                            |> Option.map (function
+                                | Success a -> InvalidMethod a
+                                | InvalidMethod a -> InvalidMethod a)
+                | false, _ -> None)
     else
         raise (NoFormatError t)
 
@@ -332,14 +386,14 @@ let memoFix delay f =
 
 type Format<'T> =
     {
-        read : string -> option<obj>
+        read : string -> Method -> option<DecodeResult<obj>>
         show : obj -> option<string>
     }
 
-    member this.Read x =
-        match this.read x with
-        | Some (:? 'T as r) -> Some r
-        | _ -> None
+    member this.Read(x, meth) =
+        this.read x meth >>= function
+            | (:? 'T as r) -> Some (Success r)
+            | _ -> None
 
     member this.Show(x: 'T) =
         this.show (x :> obj)
@@ -354,13 +408,15 @@ type Factory() =
         let d = getD t
         let s = getS t
         {
-            read = fun input ->
+            read = fun input meth ->
                 let sb = System.Text.StringBuilder 128
+                let meth = meth |> Option.map (fun m ->
+                    m.ToLower(System.Globalization.CultureInfo.InvariantCulture))
                 if input = null then None else
                     let parts = input.Split '/'
                     let e = (parts :> seq<string>).GetEnumerator()
                     let n () = if e.MoveNext() then Some e.Current else None
-                    d n
+                    d meth n
             show = fun value ->
                 let sb = System.Text.StringBuilder 128
                 if s sb value then Some (sb.Flush()) else None

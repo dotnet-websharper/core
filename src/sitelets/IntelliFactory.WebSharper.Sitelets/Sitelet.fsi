@@ -100,6 +100,11 @@ module Sitelet =
     /// Constructs a sitelet with an inferred router and a given controller function.
     val Infer<'T when 'T : equality> : ('T -> Content<'T>) -> Sitelet<'T>
 
+    /// Constructs a sitelet with an inferred router and a given controller function.
+    val InferWithCustomErrors<'T when 'T : equality>
+        : (UrlEncoding.DecodeResult<'T> -> Content<'T>)
+        -> Sitelet<UrlEncoding.DecodeResult<'T>>
+
     /// Constructs a partial sitelet with an inferred router and a given controller function.
     val InferPartial<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
         ('T1 -> 'T2) -> ('T2 -> 'T1 option) -> ('T1 -> Content<'T2>) -> Sitelet<'T2>

@@ -265,6 +265,9 @@ module Content =
     let ServerError<'T> : Content<'T> =
         httpStatusContent Http.Status.InternalServerError
 
+    let MethodNotAllowed<'T> : Content<'T> =
+        httpStatusContent Http.Status.MethodNotAllowed
+
     type HtmlElement = H.Element
 
     type Hole<'T> =

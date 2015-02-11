@@ -29,12 +29,19 @@ module IntelliFactory.WebSharper.Sitelets.UrlEncoding
 /// Thrown when a formatter cannot be derived for a certain type.
 exception NoFormatError of System.Type
 
+/// The result of trying to decode a request.
+type DecodeResult<'Action> =
+    /// The request was correct and an action was decoded.
+    | Success of 'Action
+    /// An action was decoded, but the request used an invalid HTTP method.
+    | InvalidMethod of 'Action
+
 /// Represents an URL encoding for a given type.
 [<Sealed>]
 type Format<'T> =
 
     /// Parses a string. Fails if the string cannot be parsed.
-    member Read : string -> option<'T>
+    member Read : path: string * ``method``: string option -> option<DecodeResult<'T>>
 
     /// Formats a value. Fails if it cannot be represented.
     member Show : 'T -> option<string>

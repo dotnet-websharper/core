@@ -85,6 +85,9 @@ module Content =
     /// Constructs a 500 Server Error response.
     val ServerError<'T> : Content<'T>
 
+    /// Constructs a 405 Method Not Allowed response.
+    val MethodNotAllowed<'T> : Content<'T>
+
     module H = IntelliFactory.WebSharper.Html.Server.Html
 
     /// HTML template utilities.

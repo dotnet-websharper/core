@@ -55,6 +55,11 @@ module Router =
     /// Infers the router by analyzing an algebraic action data type.
     val Infer<'T when 'T : equality> : unit -> Router<'T>
 
+    /// Infers the router by analyzing an algebraic action data type.
+    /// The returned router's action includes possible errors that occurred
+    /// when parsing the request.
+    val InferWithErrors<'T when 'T : equality> : unit -> Router<UrlEncoding.DecodeResult<'T>>
+
     /// Composes several routers. For both linking and routing,
     /// the leftmost matching router is selected. Two routers can be
     /// composed with the `<|>` combinator.
