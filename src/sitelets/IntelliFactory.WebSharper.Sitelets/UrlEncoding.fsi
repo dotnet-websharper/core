@@ -41,7 +41,7 @@ type DecodeResult<'Action> =
 type Format<'T> =
 
     /// Parses a string. Fails if the string cannot be parsed.
-    member Read : path: string * ``method``: string option -> option<DecodeResult<'T>>
+    member Read : path: string * ``method``: Http.Request -> option<DecodeResult<'T>>
 
     /// Formats a value. Fails if it cannot be represented.
     member Show : 'T -> option<string>

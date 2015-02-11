@@ -137,7 +137,7 @@ module Router =
             StaticLinks  = Dictionary()
             DynamicRoute = fun req ->
                 let uri = path req.Uri
-                fmt.Read (uri.Substring 1, Some (req.Method.ToString()))
+                fmt.Read (uri.Substring 1, req)
                 |> Option.bind (function
                     | UrlEncoding.Success x -> Some x
                     | _ -> None)
@@ -154,7 +154,7 @@ module Router =
             StaticLinks  = Dictionary()
             DynamicRoute = fun req ->
                 let uri = path req.Uri
-                fmt.Read (uri.Substring 1, Some (req.Method.ToString()))
+                fmt.Read (uri.Substring 1, req)
             DynamicLink = function
                 | UrlEncoding.Success act ->
                     match fmt.Show act with

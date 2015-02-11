@@ -27,6 +27,6 @@ type private U = System.AttributeUsageAttribute
 
 /// Marks a union case in an action type to be only mapped
 /// for requests that use the given HTTP method(s).
-[<Sealed; U(T.Property)>]
+[<Sealed; U(T.Property, AllowMultiple = true)>]
 type MethodAttribute([<ParamArray>] methodName: string[]) =
     inherit A()
