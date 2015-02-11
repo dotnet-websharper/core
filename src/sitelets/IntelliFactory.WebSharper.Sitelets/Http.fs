@@ -54,6 +54,18 @@ module Http =
             | Trace -> "TRACE"
             | Custom s -> s
 
+        static member OfString (s: string) =
+            match s with
+            | "GET" -> Get
+            | "POST" -> Post
+            | "CONNECT" -> Connect
+            | "DELETE" -> Delete
+            | "HEAD" -> Head
+            | "OPTIONS" -> Options
+            | "PUT" -> Put
+            | "TRACE" -> Trace
+            | s -> Custom s
+
     /// Represents the HTTP version for responses and requests.
     type Version =
         private {

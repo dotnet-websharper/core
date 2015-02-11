@@ -35,6 +35,9 @@ type DecodeResult<'Action> =
     | Success of 'Action
     /// An action was decoded, but the request used an invalid HTTP method.
     | InvalidMethod of 'Action
+    /// An action failed to be decoded as JSON from the request body.
+    /// The JSON part of the action is a default value.
+    | InvalidJson of 'Action
 
 /// Represents an URL encoding for a given type.
 [<Sealed>]

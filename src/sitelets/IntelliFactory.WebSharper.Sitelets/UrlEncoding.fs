@@ -21,24 +21,32 @@
 module IntelliFactory.WebSharper.Sitelets.UrlEncoding
 
 open System.Collections.Generic
+open IntelliFactory.WebSharper.Core
 
 type DecodeResult<'Action> =
     | Success of 'Action
     | InvalidMethod of 'Action
+    | InvalidJson of 'Action
 
 module DecodeResult =
 
     let map (f: 'a -> 'b) (x: option<DecodeResult<'a>>) : option<DecodeResult<'b>> =
         x |> Option.map (function
             | Success x -> Success (f x)
-            | InvalidMethod x -> InvalidMethod (f x))
+            | InvalidMethod x -> InvalidMethod (f x)
+            | InvalidJson x -> InvalidJson (f x))
 
 let (>>=) (x: option<DecodeResult<'a>>) (f: 'a -> option<DecodeResult<'b>>) : option<DecodeResult<'b>> =
     match x with
     | None -> None
     | Some (Success x) -> f x
     | Some (InvalidMethod x) ->
-        f x |> Option.map (fun (Success y | InvalidMethod y) -> InvalidMethod y)
+        f x |> Option.map (function
+            | Success y | InvalidMethod y | InvalidJson y -> InvalidMethod y)
+    | Some (InvalidJson x) ->
+        f x |> Option.map (function
+            | InvalidMethod y -> InvalidMethod y
+            | Success y | InvalidJson y -> InvalidJson y)
 
 let isUnreserved isLast c =
     match c with
@@ -132,6 +140,14 @@ type ListProcessor<'T>() =
 
 type S = System.Text.StringBuilder -> obj -> bool
 
+let getUnionCaseJsonArgumentName (c: Reflection.UnionCaseInfo) =
+    c.GetCustomAttributesData()
+    |> Seq.tryPick (fun cad ->
+        if cad.Constructor.DeclaringType = typeof<JsonAttribute> then
+            Some (cad.ConstructorArguments.[0].Value :?> string)
+        else None
+    )
+
 let getS (getS: System.Type -> S) (t: System.Type) : S =
     let writeTuple r (ss: S []) : S =
         fun w x ->
@@ -201,10 +217,22 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
         let ss =
             [|
                 for c in cs ->
-                    writeTuple (uR c) [|
-                        for f in c.GetFields() ->
-                            getS f.PropertyType
-                    |]
+                    let json = getUnionCaseJsonArgumentName c
+                    let jsonI =
+                        c.GetFields()
+                        |> Array.tryFindIndex (fun f -> json.IsSome && f.Name = json.Value)
+                    match jsonI with
+                    | None ->
+                        writeTuple (uR c) [| for f in c.GetFields() -> getS f.PropertyType |]
+                    | Some jsonI ->
+                        writeTuple
+                            (uR c >> fun a ->
+                                Array.init (a.Length - 1)
+                                    (fun j -> if j < jsonI then a.[j] else a.[j+1]))
+                            (c.GetFields()
+                                |> Array.mapi (fun i f ->
+                                    if i = jsonI then None else Some (getS f.PropertyType))
+                                |> Array.choose id)
             |]
         let ns = [| for c in cs -> c.CustomizedName |]
         let es = [| for c in cs -> c.GetFields().Length > 0 |]
@@ -223,9 +251,18 @@ type Parameters =
     {
         Request : Http.Request
         Read : unit -> option<string>
-        mutable JsonAlreadyRead : bool
     }
-type D = Parameters -> option<DecodeResult<obj>>
+
+type D =
+    {
+        ReadsJson : unit -> bool
+        Decode : Parameters -> option<DecodeResult<obj>>
+    }
+    static member Make json decode =
+        {
+            ReadsJson = fun () -> json
+            Decode = decode
+        }
 
 let getUnionCaseMethods (c: Reflection.UnionCaseInfo) =
     let s =
@@ -239,39 +276,54 @@ let getUnionCaseMethods (c: Reflection.UnionCaseInfo) =
             else Seq.empty)
     if Seq.isEmpty s then Seq.singleton None else s
 
-let getUnionCaseJsonArgumentName (c: Reflection.UnionCaseInfo) =
-    c.GetCustomAttributesData()
-    |> Seq.tryPick (fun cad ->
-        if cad.Constructor.DeclaringType = typeof<JsonAttribute> then
-            Some (cad.ConstructorArguments.[0].Value :?> string)
-        else None
-    )
+let parseJson =
+    let provider = Json.Provider.Create()
+    fun (t: System.Type) ->
+        let decoder =
+            try
+                provider.GetDecoder t
+            with Json.NoDecoderException _ -> raise (NoFormatError t)
+        D.Make true <| fun p ->
+            try
+                use tr = new System.IO.StreamReader(p.Request.Body)
+                Success (decoder.Decode (Json.Read tr))
+            with
+                | Json.ReadException
+                | Json.DecoderException -> InvalidJson (provider.BuildDefaultValue t)
+            |> Some
 
 let getD (getD: System.Type -> D) (t: System.Type) : D =
     let tryParse parse : D =
-        fun p ->
+        D.Make false <| fun p ->
             match p.Read () with
             | Some s ->
                 match parse s with
                 | true, x -> Some (Success (x :> obj))
                 | _ -> None
             | None -> None
-    let parseTuple mk (ds: D[]) : D =
+    let parseInt = tryParse System.Int32.TryParse
+    let parseTuple t mk (ds: D[]) : D =
         let k = Array.length ds
-        fun p ->
+        let json =
+            match ds |> Seq.filter (fun d -> d.ReadsJson()) |> Seq.length with
+            | 0 -> false
+            | 1 -> true
+            | _ -> raise (NoFormatError t)
+        D.Make json <| fun p ->
             let xs : obj [] = Array.create k null
             let rec loop x =
                 match x with
                 | i when i = k -> Some (Success (mk xs))
                 | i ->
-                    ds.[i] p
+                    ds.[i].Decode p
                     >>= fun x ->
                         xs.[i] <- x
                         loop (i + 1)
             loop 0
     let parseArray eT (eD: D) : D =
-        fun p ->
-            tryParse System.Int32.TryParse p
+        if eD.ReadsJson() then raise (NoFormatError eT)
+        D.Make false <| fun p ->
+            parseInt.Decode p
             >>= function
             | (:? int as k) ->
                 let data = System.Array.CreateInstance(eT, k)
@@ -279,7 +331,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                     match x with
                     | i when i = k -> Some (Success (box data))
                     | i ->
-                        eD p
+                        eD.Decode p
                         >>= fun obj ->
                             data.SetValue(obj, i)
                             loop (i + 1)
@@ -288,12 +340,12 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
     if t = typeof<bool> then
         tryParse System.Boolean.TryParse
     elif t = typeof<int> then
-        tryParse System.Int32.TryParse
+        parseInt
     elif t = typeof<float> then
         tryParse System.Double.TryParse
     elif t = typeof<string> then
         let buf = System.Text.StringBuilder()
-        fun p ->
+        D.Make false <| fun p ->
             let s = p.Read ()
             match s with
             | Some s ->
@@ -314,7 +366,8 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
             typeof<System.Enum>
                 .GetMethod("ToObject", [|typeof<System.Type>; uT|])
         let f = getD uT
-        fun p -> f p |> DecodeResult.map (fun x -> toObj.Invoke(null, [|t; x|]))
+        D.Make false <| fun p ->
+            f.Decode p |> DecodeResult.map (fun x -> toObj.Invoke(null, [|t; x|]))
     elif t.IsArray then
         if t.GetArrayRank() > 1 then
             raise (NoFormatError t)
@@ -328,17 +381,17 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
             typedefof<ListProcessor<_>>.MakeGenericType(eT)
             |> System.Activator.CreateInstance :?> ISequenceProcessor
         let f = parseArray eT eD
-        fun p ->
-            f p
+        D.Make false <| fun p ->
+            f.Decode p
             |> DecodeResult.map (fun x -> sP.FromSequence (x :?> _))
     elif Reflection.FSharpType.IsTuple t then
         let e = Reflection.FSharpType.GetTupleElements t
         let c = Reflection.FSharpValue.PreComputeTupleConstructor t
-        parseTuple c (Array.map getD e)
+        parseTuple t c (Array.map getD e)
     elif Reflection.FSharpType.IsRecord(t, flags) then
         let c = Reflection.FSharpValue.PreComputeRecordConstructor(t, flags)
         let fs = Reflection.FSharpType.GetRecordFields t
-        parseTuple c [| for f in fs -> getD f.PropertyType |]
+        parseTuple t c [| for f in fs -> getD f.PropertyType |]
     elif Reflection.FSharpType.IsUnion(t, flags) then
         let cs = Reflection.FSharpType.GetUnionCases(t, flags)
         let uC x = Reflection.FSharpValue.PreComputeUnionConstructor(x, flags)
@@ -346,6 +399,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
         let ds =
             cs |> Array.mapi (fun i c ->
                 let allowedMeths = getUnionCaseMethods c
+                let jsonArg = getUnionCaseJsonArgumentName c
                 let existing =
                     match d.TryGetValue c.CustomizedName with
                     | true, m -> m
@@ -353,29 +407,34 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                 d.[c.CustomizedName] <-
                     (existing, allowedMeths)
                     ||> Seq.fold (fun map m -> Map.add (Option.map Http.Method.OfString m) i map)
-                parseTuple (uC c) [|
+                parseTuple t (uC c) [|
                     for f in c.GetFields() ->
+                        if jsonArg.IsSome && f.Name = jsonArg.Value then
+                            parseJson f.PropertyType
+                        else
                             getD f.PropertyType
                 |]
             )
-        fun p ->
+        let json = ds |> Array.exists (fun d -> d.ReadsJson())
+        D.Make json <| fun p ->
             p.Read () |> Option.bind (fun name ->
                 match d.TryGetValue name with
                 | true, d ->
                     // Try to find a union case for the exact method searched
                     match d.TryFind (Some p.Request.Method) with
-                    | Some k -> ds.[k] p
+                    | Some k -> ds.[k].Decode p
                     | None ->
                         // Try to find None, ie. a non-method-specific union case
                         match d.TryFind None with
-                        | Some k -> ds.[k] p
+                        | Some k -> ds.[k].Decode p
                         | None ->
                             // This action doesn't parse, but try to find another action
                             // with the same name to pass to InvalidMethod
-                            d |> Map.tryPick (fun _ k -> ds.[k] p)
+                            d |> Map.tryPick (fun _ k -> ds.[k].Decode p)
                             |> Option.map (function
-                                | Success a -> InvalidMethod a
-                                | InvalidMethod a -> InvalidMethod a)
+                                | Success a
+                                | InvalidMethod a
+                                | InvalidJson a -> InvalidMethod a)
                 | false, _ -> None)
     else
         raise (NoFormatError t)
@@ -411,8 +470,13 @@ type Format<'T> =
 [<Sealed>]
 type Factory() =
     let delay f = fun x -> f () x
+    let delayD d =
+        {
+            Decode = fun x -> d().Decode x
+            ReadsJson = fun () -> d().ReadsJson()
+        }
     let getS : System.Type -> S = memoFix delay getS
-    let getD : System.Type -> D = memoFix delay getD
+    let getD : System.Type -> D = memoFix delayD getD
 
     member this.GetFormatFor (t: System.Type) : Format<obj> =
         let d = getD t
@@ -424,7 +488,7 @@ type Factory() =
                     let parts = input.Split '/'
                     let e = (parts :> seq<string>).GetEnumerator()
                     let n () = if e.MoveNext() then Some e.Current else None
-                    d { Request = req; Read = n; JsonAlreadyRead = false }
+                    d.Decode { Request = req; Read = n }
             show = fun value ->
                 let sb = System.Text.StringBuilder 128
                 if s sb value then Some (sb.Flush()) else None

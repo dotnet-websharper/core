@@ -30,3 +30,10 @@ type private U = System.AttributeUsageAttribute
 [<Sealed; U(T.Property, AllowMultiple = true)>]
 type MethodAttribute([<ParamArray>] methodName: string[]) =
     inherit A()
+
+/// Indicates that a union case must be parsed from the request body as JSON.
+/// The union case argument whose name is passed to JsonAttribute is parsed as JSON,
+/// the other arguments are parsed from the URL as per usual.
+[<Sealed; U(T.Property, AllowMultiple = false)>]
+type JsonAttribute(argumentName: string) =
+    inherit A()
