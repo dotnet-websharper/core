@@ -359,8 +359,15 @@ type FormatSettings =
     {
         /// Tag the given encoded value with its type.
         AddTag : System.Type -> Encoded -> Encoded
-        /// Get the JSON-encoded name of the given F# record field.
+        /// Get the JSON-encoded name of the given F# record or class field.
         GetEncodedFieldName : Reflection.TypeDefinition -> string -> string
+        /// Find the union case tag of the given JSON object
+        /// (represented as a fieldname -> value function)
+        GetUnionTag : System.Type -> (string -> option<Value>) -> option<int>
+        /// Get the JSON-encoded union tag name and value.
+        EncodeUnionTag : System.Type -> int -> option<string * Encoded>
+        /// Get the JSON-encoded name of the given F# union case field.
+        GetEncodedUnionFieldName : System.Reflection.PropertyInfo -> int -> string
         /// Pack an encoded value to JSON.
         Pack : Encoded -> Value
     }
@@ -551,9 +558,6 @@ let flags =
     System.Reflection.BindingFlags.Public
     ||| System.Reflection.BindingFlags.NonPublic
 
-let field (n: int) =
-    System.String.Format("${0}", n)
-
 let table ts =
     let d = Dictionary()
     for (k, v) in ts do
@@ -571,20 +575,26 @@ let unionEncoder dE (i: FormatSettings) (t: System.Type) =
             let r = FSV.PreComputeUnionReader(c, flags)
             let fs =
                 c.GetFields()
-                |> Array.map (fun f -> dE f.PropertyType)
+                |> Array.mapi (fun k f ->
+                    i.GetEncodedUnionFieldName f k, dE f.PropertyType)
             (r, fs))
+    let encodeTag = i.EncodeUnionTag t
     fun (x: obj) ->
         match x with
         | null ->
-            EncodedObject [("$", EncodedNumber "0")]
+            EncodedObject (Option.toList (encodeTag 0))
             |> i.AddTag t
         | o when t.IsAssignableFrom(o.GetType()) ->
             let tag = tR o
             let (r, fs) = cs.[tag]
             let data =
-                Array.mapi2 (fun k e x -> (field k, e x)) fs (r o)
+                Array.map2 (fun (f, e) x -> (f, e x)) fs (r o)
                 |> Array.toList
-            EncodedObject (("$", EncodedNumber (string tag)) :: data)
+            let data =
+                match encodeTag tag with
+                | Some kv -> kv :: data
+                | None -> data
+            EncodedObject data
             |> i.AddTag t
         | x ->
             raise EncoderException
@@ -596,26 +606,24 @@ let unionDecoder dD (i: FormatSettings) (t: System.Type) =
             let mk = FSV.PreComputeUnionConstructor(c, flags)
             let fs =
                 c.GetFields()
-                |> Array.map (fun f -> dD f.PropertyType)
+                |> Array.mapi (fun k f ->
+                    i.GetEncodedUnionFieldName f k, dD f.PropertyType)
             (mk, fs))
     let k = cs.Length
+    let getTag = i.GetUnionTag t
     fun (x: Value) ->
         match x with
         | Object fields ->
             let get = table fields
             let tag =
-                match get "$" with
-                | Some (Number n) ->
-                    match System.Int32.TryParse n with
-                    | true, tag when tag >= 0 && tag < k -> tag
-                    | _ -> raise DecoderException
-                | _ ->
-                    raise DecoderException
+                match getTag get with
+                | Some tag -> tag
+                | None -> raise DecoderException
             let (mk, fs) = cs.[tag]
             fs
-            |> Array.mapi (fun k f ->
-                match get (field k) with
-                | Some x -> f x
+            |> Array.map (fun (f, e) ->
+                match get f with
+                | Some x -> e x
                 | None -> raise DecoderException)
             |> mk
         | _ ->
@@ -970,6 +978,33 @@ let getEncoding scalar array tuple union record enu map set obj (fo: FormatSetti
 
 module M = IntelliFactory.WebSharper.Core.Metadata
 
+let defaultGetUnionTag t =
+    let k = FST.GetUnionCases(t, flags).Length
+    fun get ->
+        match get "$" with
+        | Some (Number n) ->
+            match System.Int32.TryParse n with
+            | true, tag when tag >= 0 && tag < k -> Some tag
+            | _ -> None
+        | _ -> None
+
+let defaultEncodeUnionTag _ (tag: int) =
+    Some ("$", EncodedNumber (string tag))
+
+let getDiscriminatorName (t: System.Type) =
+    t.GetCustomAttributesData()
+    |> Seq.tryPick (fun cad ->
+        if cad.Constructor.DeclaringType <> typeof<A.NamedUnionCasesAttribute> then
+            None
+        else Some (cad.ConstructorArguments.[0].Value :?> string))
+
+type Reflection.UnionCaseInfo with
+    member this.CustomizedName =
+        let aT = typeof<CompiledNameAttribute>
+        match this.GetCustomAttributes aT with
+        | [| :? CompiledNameAttribute as attr |] -> attr.CompiledName
+        | _ -> this.Name
+
 module TypedProviderInternals =
 
     let addTag (i: M.Info) (t: System.Type) (v: Encoded) =
@@ -1017,6 +1052,9 @@ module TypedProviderInternals =
         {
             AddTag = addTag info
             GetEncodedFieldName = info.GetFieldName
+            GetUnionTag = defaultGetUnionTag
+            EncodeUnionTag = defaultEncodeUnionTag
+            GetEncodedUnionFieldName = fun _ i -> "$" + string i
             Pack = pack
         }
 
@@ -1040,6 +1078,28 @@ module PlainProviderInternals =
         {
             AddTag = fun _ -> id
             GetEncodedFieldName = fun _ -> id
+            GetUnionTag = fun t ->
+                match getDiscriminatorName t with
+                | None -> defaultGetUnionTag t
+                | Some n ->
+                    let names =
+                        Map [
+                            for c in FST.GetUnionCases(t, flags) ->
+                                (String c.CustomizedName, c.Tag)
+                        ]
+                    fun get ->
+                        get n |> Option.bind names.TryFind
+            EncodeUnionTag = fun t ->
+                match getDiscriminatorName t with
+                | None -> defaultEncodeUnionTag t
+                | Some n ->
+                    let tags =
+                        [|
+                            for c in FST.GetUnionCases(t, flags) ->
+                                EncodedString c.CustomizedName
+                        |]
+                    fun tag -> Some (n, tags.[tag])
+            GetEncodedUnionFieldName = fun p -> let n = p.Name in fun _ -> n
             Pack = flatten
         }
 

@@ -126,3 +126,10 @@ type RemotingProviderAttribute(provider: System.Type) =
 [<Sealed; U(T.Class|||T.Property|||T.Field)>]
 type OptionalFieldAttribute() =
     inherit A()
+
+/// Declares that when de/serializing this union type for external use, its cases
+/// must be tagged by their CompiledName rather than an integer.
+/// `discriminatorName` is the name of the field in which this tag is stored.
+[<Sealed; U(T.Class)>]
+type NamedUnionCasesAttribute(discriminatorName: string) =
+    inherit A()
