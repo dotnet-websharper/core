@@ -563,68 +563,6 @@ let table ts =
         | true, x -> Some x
         | _ -> None
 
-let unionEncoder dE (i: FormatSettings) (t: System.Type) =
-    let tR = FSV.PreComputeUnionTagReader(t, flags)
-    let cs =
-        FST.GetUnionCases(t, flags)
-        |> Array.map (fun c ->
-            let r = FSV.PreComputeUnionReader(c, flags)
-            let fs =
-                c.GetFields()
-                |> Array.mapi (fun k f ->
-                    i.GetEncodedUnionFieldName f k, dE f.PropertyType)
-            (r, fs))
-    let encodeTag = i.EncodeUnionTag t
-    fun (x: obj) ->
-        match x with
-        | null ->
-            EncodedObject (Option.toList (encodeTag 0))
-            |> i.AddTag t
-        | o when t.IsAssignableFrom(o.GetType()) ->
-            let tag = tR o
-            let (r, fs) = cs.[tag]
-            let data =
-                Array.map2 (fun (f, e) x -> (f, e x)) fs (r o)
-                |> Array.toList
-            let data =
-                match encodeTag tag with
-                | Some kv -> kv :: data
-                | None -> data
-            EncodedObject data
-            |> i.AddTag t
-        | x ->
-            raise EncoderException
-
-let unionDecoder dD (i: FormatSettings) (t: System.Type) =
-    let cs =
-        FST.GetUnionCases(t, flags)
-        |> Array.map (fun c ->
-            let mk = FSV.PreComputeUnionConstructor(c, flags)
-            let fs =
-                c.GetFields()
-                |> Array.mapi (fun k f ->
-                    i.GetEncodedUnionFieldName f k, dD f.PropertyType)
-            (mk, fs))
-    let k = cs.Length
-    let getTag = i.GetUnionTag t
-    fun (x: Value) ->
-        match x with
-        | Object fields ->
-            let get = table fields
-            let tag =
-                match getTag get with
-                | Some tag -> tag
-                | None -> raise DecoderException
-            let (mk, fs) = cs.[tag]
-            fs
-            |> Array.map (fun (f, e) ->
-                match get f with
-                | Some x -> e x
-                | None -> raise DecoderException)
-            |> mk
-        | _ ->
-            raise DecoderException
-
 let isOptionalField (i: FormatSettings) (mi: System.Reflection.MemberInfo) (mt: System.Type) =
     mt.IsGenericType &&
     mt.GetGenericTypeDefinition() = typedefof<option<_>> &&
@@ -688,6 +626,67 @@ let decodeOptionalField dD (i: FormatSettings) (mi: System.Reflection.MemberInfo
         function
         | Some v -> dec v
         | None -> raise DecoderException
+
+let unionEncoder dE (i: FormatSettings) (t: System.Type) =
+    let tR = FSV.PreComputeUnionTagReader(t, flags)
+    let cs =
+        FST.GetUnionCases(t, flags)
+        |> Array.map (fun c ->
+            let r = FSV.PreComputeUnionReader(c, flags)
+            let fs =
+                c.GetFields()
+                |> Array.mapi (fun k f ->
+                    i.GetEncodedUnionFieldName f k, encodeOptionalField dE i f f.PropertyType)
+            (r, fs))
+    let encodeTag = i.EncodeUnionTag t
+    fun (x: obj) ->
+        match x with
+        | null ->
+            EncodedObject (Option.toList (encodeTag 0))
+            |> i.AddTag t
+        | o when t.IsAssignableFrom(o.GetType()) ->
+            let tag = tR o
+            let (r, fs) = cs.[tag]
+            let data =
+                [
+                    for f, d in Array.map2 (fun (f, e) x -> (f, e x)) fs (r o) do
+                        if d.IsSome then yield f, d.Value
+                ]
+            let data =
+                match encodeTag tag with
+                | Some kv -> kv :: data
+                | None -> data
+            EncodedObject data
+            |> i.AddTag t
+        | x ->
+            raise EncoderException
+
+let unionDecoder dD (i: FormatSettings) (t: System.Type) =
+    let cs =
+        FST.GetUnionCases(t, flags)
+        |> Array.map (fun c ->
+            let mk = FSV.PreComputeUnionConstructor(c, flags)
+            let fs =
+                c.GetFields()
+                |> Array.mapi (fun k f ->
+                    i.GetEncodedUnionFieldName f k, decodeOptionalField dD i f f.PropertyType)
+            (mk, fs))
+    let k = cs.Length
+    let getTag = i.GetUnionTag t
+    fun (x: Value) ->
+        match x with
+        | Object fields ->
+            let get = table fields
+            let tag =
+                match getTag get with
+                | Some tag -> tag
+                | None -> raise DecoderException
+            let (mk, fs) = cs.[tag]
+            fs
+            |> Array.map (fun (f, e) -> e (get f))
+            |> mk
+        | _ ->
+            raise DecoderException
 
 let recordEncoder dE (i: FormatSettings) (t: System.Type) =
     let mt = R.TypeDefinition.FromType t
