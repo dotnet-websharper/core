@@ -68,3 +68,4 @@ val GetFormat<'T> : unit -> Format<'T>
 /// Derives a format for a given type using a new temporary factory.
 val GetFormatFor : System.Type -> Format<obj>
 
+val internal JsonProvider : IntelliFactory.WebSharper.Core.Json.Provider

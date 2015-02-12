@@ -40,6 +40,12 @@ module Content =
     /// Generates an HTTP response.
     val ToResponseAsync<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>
 
+    /// Generates JSON content from the given object.
+    val JsonContent<'T, 'U> : (Context<'T> -> 'U) -> Content<'T>
+
+    /// Generates JSON content from the given object.
+    val JsonContentAsync<'T, 'U> : (Context<'T> -> Async<'U>) -> Content<'T>
+
     /// Eliminates the PageContent case. This member is obsolete.
     /// Use ToResponse instead.
     [<Obsolete>]

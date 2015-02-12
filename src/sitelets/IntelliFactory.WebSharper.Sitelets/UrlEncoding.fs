@@ -277,21 +277,21 @@ let getUnionCaseMethods (c: Reflection.UnionCaseInfo) =
             else Seq.empty)
     if Seq.isEmpty s then Seq.singleton None else s
 
-let parseJson =
-    let provider = Json.Provider.Create()
-    fun (t: System.Type) ->
-        let decoder =
-            try
-                provider.GetDecoder t
-            with Json.NoDecoderException _ -> raise (NoFormatError t)
-        D.Make true <| fun p ->
-            try
-                use tr = new System.IO.StreamReader(p.Request.Body)
-                Success (decoder.Decode (Json.Read tr))
-            with
-                | Json.ReadException
-                | Json.DecoderException -> InvalidJson (provider.BuildDefaultValue t)
-            |> Some
+let JsonProvider = Json.Provider.Create()
+
+let parseJson (t: System.Type) =
+    let decoder =
+        try JsonProvider.GetDecoder t
+        with Json.NoDecoderException _ -> raise (NoFormatError t)
+    let defaultValue = lazy (JsonProvider.BuildDefaultValue t)
+    D.Make true <| fun p ->
+        try
+            use tr = new System.IO.StreamReader(p.Request.Body)
+            Success (decoder.Decode (Json.Read tr))
+        with
+            | Json.ReadException
+            | Json.DecoderException -> InvalidJson defaultValue.Value
+        |> Some
 
 let getD (getD: System.Type -> D) (t: System.Type) : D =
     let tryParse parse : D =

@@ -157,6 +157,38 @@ module Content =
     let toCustomContent genPage context =
         Async.RunSynchronously(toCustomContentAsync genPage context)
 
+    let JsonContent<'T, 'U> (f: Context<'T> -> 'U) =
+        let encoder = UrlEncoding.JsonProvider.GetEncoder<'U>()
+        Content.CustomContent <| fun ctx ->
+            let x = f ctx
+            {
+                Status = Http.Status.Ok
+                Headers = [Http.Header.Custom "Content-Type" "application/json"]
+                WriteBody = fun s ->
+                    use tw = new StreamWriter(s)
+                    x
+                    |> encoder.Encode
+                    |> UrlEncoding.JsonProvider.Pack
+                    |> IntelliFactory.WebSharper.Core.Json.Write tw
+            }
+
+    let JsonContentAsync<'T, 'U> (f: Context<'T> -> Async<'U>) =
+        let encoder = UrlEncoding.JsonProvider.GetEncoder<'U>()
+        Content.CustomContentAsync <| fun ctx ->
+            async {
+                let! x = f ctx
+                return {
+                    Status = Http.Status.Ok
+                    Headers = [Http.Header.Custom "Content-Type" "application/json"]
+                    WriteBody = fun s ->
+                        use tw = new StreamWriter(s)
+                        x
+                        |> encoder.Encode
+                        |> UrlEncoding.JsonProvider.Pack
+                        |> IntelliFactory.WebSharper.Core.Json.Write tw
+                }
+            }
+
     let ToResponseAsync<'T> (c: Content<'T>) (ctx: Context<'T>) : Async<Http.Response> =
         match c with
         | CustomContent x -> async { return x ctx }
