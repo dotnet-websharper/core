@@ -374,6 +374,8 @@ type FormatSettings =
         RepresentNullUnionsAsAbsentField : bool
         /// Pack an encoded value to JSON.
         Pack : Encoded -> Value
+        EncodeDateTime : System.DateTime -> Encoded
+        DecodeDateTime : Value -> option<System.DateTime>
     }
 
 type Serializer =
@@ -466,16 +468,6 @@ let serializers =
         | String x -> x
         | _ -> raise DecoderException
     add EncodedString decString d
-    let epoch = System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
-    let encDateTime (d: System.DateTime) =
-        EncodedNumber (string (d.ToUniversalTime() - epoch).TotalMilliseconds)
-    let decDateTime = function
-        | Number x ->
-            match tryParseDouble x with
-            | true, x -> epoch + System.TimeSpan.FromMilliseconds x
-            | _ -> raise DecoderException
-        | _ -> raise DecoderException
-    add encDateTime decDateTime d
     let encTimeSpan (t: System.TimeSpan) =
         EncodedNumber (string t.TotalMilliseconds)
     let decTimeSpan = function
@@ -756,8 +748,14 @@ let getObjectFields (t: System.Type) =
     |> Seq.toArray
 
 let objectEncoder dE (i: FormatSettings) (t: System.Type) =
-    if not t.IsSerializable then
+    if t = typeof<System.DateTime> then
+        fun (x: obj) ->
+            match x with
+            | :? System.DateTime as t -> i.EncodeDateTime t
+            | _ -> raise EncoderException
+    elif not t.IsSerializable then
         raise (NoEncodingException t)
+    else
     let fs = getObjectFields t
     let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
     let es = fs |> Array.map (fun f ->
@@ -780,8 +778,14 @@ let objectEncoder dE (i: FormatSettings) (t: System.Type) =
             raise EncoderException
 
 let objectDecoder dD (i: FormatSettings) (t: System.Type) =
-    if not t.IsSerializable then
+    if t = typeof<System.DateTime> then
+        fun (x: Value) ->
+            match i.DecodeDateTime x with
+            | Some d -> box d
+            | None -> raise DecoderException
+    elif not t.IsSerializable then
         raise (NoEncodingException t)
+    else
     match t.GetConstructor [||] with
     | null -> raise (NoEncodingException t)
     | _ -> ()
@@ -1084,6 +1088,8 @@ module TypedProviderInternals =
             DATA, data
         ]
 
+    let epoch = System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+
     let format info =
         {
             AddTag = addTag info
@@ -1093,6 +1099,14 @@ module TypedProviderInternals =
             EncodeUnionTag = defaultEncodeUnionTag
             GetEncodedUnionFieldName = fun _ i -> "$" + string i
             RepresentNullUnionsAsAbsentField = false
+            EncodeDateTime = fun (d: System.DateTime) ->
+                EncodedNumber (string (d.ToUniversalTime() - epoch).TotalMilliseconds)
+            DecodeDateTime = function
+                | Number x ->
+                    match tryParseDouble x with
+                    | true, x -> Some (epoch + System.TimeSpan.FromMilliseconds x)
+                    | _ -> None
+                | _ -> None
             Pack = pack
         }
 
@@ -1154,6 +1168,14 @@ module PlainProviderInternals =
                     fun tag -> Some (n, tags.[tag])
             GetEncodedUnionFieldName = fun p -> let n = p.Name in fun _ -> n
             RepresentNullUnionsAsAbsentField = true
+            EncodeDateTime = fun d ->
+                EncodedString (d.ToString("o"))
+            DecodeDateTime = function
+                | String s ->
+                    match System.DateTime.TryParse(s) with
+                    | true, x -> Some x
+                    | false, _ -> None
+                | _ -> None
             Pack = flatten
         }
 
