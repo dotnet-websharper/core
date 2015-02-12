@@ -24,14 +24,19 @@ module Website.Content
 open IntelliFactory.WebSharper
 open IntelliFactory.WebSharper.Html.Server
 open IntelliFactory.WebSharper.Sitelets
+module SampleSite = IntelliFactory.WebSharper.Sitelets.Tests.SampleSite
+
+type FullAction =
+    | Site of Actions.Action
+    | SiteletsTests of SampleSite.Action
 
 let ( => ) text url =
     A [HRef url] -< [Text text]
 
-let Menu (ctx: Context<Actions.Action>) =
+let Menu (ctx: Context<_>) =
     [
-        LI ["Home" => ctx.Link Actions.Home]
-        LI ["Tests" => ctx.Link Actions.Tests]
+        LI ["Home" => ctx.Link (Site Actions.Home)]
+        LI ["Tests" => ctx.Link (Site Actions.Tests)]
     ]
 
 let HomePage =
@@ -42,17 +47,25 @@ let HomePage =
         ]
 
 let TestsPage =
-    Skin.WithTemplate "Tests"  Menu <| fun ctx ->
+    Skin.WithTemplate "Tests" Menu <| fun ctx ->
         [
-            Div [Text "Tests"]
+            Div [
+                A [HRef (ctx.Link (SiteletsTests SampleSite.Home))] -< [
+                    Text "Go to Sitelets tests"
+                ]
+            ]
             Div [Id "qunit"]
             Div [Id "qunit-fixture"]
             Div [new Controls.Tests()]
             Div [new Web.Tests.RemotingTests()]
         ]
 
+let MainSite = function
+    | Actions.Home -> HomePage
+    | Actions.Tests -> TestsPage
+
 let Main =
     Sitelet.Sum [
-        Sitelet.Content "/" Actions.Home HomePage
-        Sitelet.Content "/tests" Actions.Tests TestsPage
+        Sitelet.InferPartialInUnion <@ FullAction.Site @> MainSite
+        Sitelet.EmbedInUnion <@ FullAction.SiteletsTests @> SampleSite.EntireSite
     ]

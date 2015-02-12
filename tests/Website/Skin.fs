@@ -70,11 +70,11 @@ let FrontTempalte =
         .With("title", fun x -> x.Title)
         .With("version", fun x -> x.Version)
 
-let RenderFront (ctx: Context<Actions.Action>) =
+let RenderFront (ctx: Context<_>) =
     let front = FrontTempalte.Compile(ctx.RootFolder)
     fun x -> front.Run(x, ctx.RootFolder)
 
-let WithTemplate title menu body : Content<Actions.Action> =
+let WithTemplate title menu body : Content<_> =
     Content.WithTemplate MainTemplate <| fun context ->
         let p = Page.Default title
         {
