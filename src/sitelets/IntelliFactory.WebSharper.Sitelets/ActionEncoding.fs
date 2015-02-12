@@ -261,7 +261,7 @@ type D =
     }
     static member Make json decode =
         {
-            ReadsJson = fun () -> json
+            ReadsJson = json
             Decode = decode
         }
 
@@ -284,7 +284,7 @@ let parseJson (t: System.Type) =
         try JsonProvider.GetDecoder t
         with Json.NoDecoderException _ -> raise (NoFormatError t)
     let defaultValue = lazy (JsonProvider.BuildDefaultValue t)
-    D.Make true <| fun p ->
+    D.Make (fun () -> true) <| fun p ->
         try
             use tr = new System.IO.StreamReader(p.Request.Body)
             Success (decoder.Decode (Json.Read tr))
@@ -295,7 +295,7 @@ let parseJson (t: System.Type) =
 
 let getD (getD: System.Type -> D) (t: System.Type) : D =
     let tryParse parse : D =
-        D.Make false <| fun p ->
+        D.Make (fun () -> false) <| fun p ->
             match p.Read () with
             | Some s ->
                 match parse s with
@@ -305,7 +305,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
     let parseInt = tryParse System.Int32.TryParse
     let parseTuple t mk (ds: D[]) : D =
         let k = Array.length ds
-        let json =
+        let json() =
             match ds |> Seq.filter (fun d -> d.ReadsJson()) |> Seq.length with
             | 0 -> false
             | 1 -> true
@@ -323,7 +323,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
             loop 0
     let parseArray eT (eD: D) : D =
         if eD.ReadsJson() then raise (NoFormatError eT)
-        D.Make false <| fun p ->
+        D.Make (fun () -> false) <| fun p ->
             parseInt.Decode p
             >>= function
             | (:? int as k) ->
@@ -346,7 +346,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
         tryParse System.Double.TryParse
     elif t = typeof<string> then
         let buf = System.Text.StringBuilder()
-        D.Make false <| fun p ->
+        D.Make (fun () -> false) <| fun p ->
             let s = p.Read ()
             match s with
             | Some s ->
@@ -367,7 +367,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
             typeof<System.Enum>
                 .GetMethod("ToObject", [|typeof<System.Type>; uT|])
         let f = getD uT
-        D.Make false <| fun p ->
+        D.Make (fun () -> false) <| fun p ->
             f.Decode p |> DecodeResult.map (fun x -> toObj.Invoke(null, [|t; x|]))
     elif t.IsArray then
         if t.GetArrayRank() > 1 then
@@ -382,7 +382,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
             typedefof<ListProcessor<_>>.MakeGenericType(eT)
             |> System.Activator.CreateInstance :?> ISequenceProcessor
         let f = parseArray eT eD
-        D.Make false <| fun p ->
+        D.Make (fun () -> false) <| fun p ->
             f.Decode p
             |> DecodeResult.map (fun x -> sP.FromSequence (x :?> _))
     elif Reflection.FSharpType.IsTuple t then
@@ -416,7 +416,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                             getD f.PropertyType
                 |]
             )
-        let json = ds |> Array.exists (fun d -> d.ReadsJson())
+        let json() = ds |> Array.exists (fun d -> d.ReadsJson())
         D.Make json <| fun p ->
             p.Read () |> Option.bind (fun name ->
                 match d.TryGetValue name with
@@ -504,7 +504,7 @@ type Factory() =
 
     static member Create() = Factory()
 
-let GetFormat<'T> ()=
+let GetFormat<'T> () =
     Factory.Create().GetFormat<'T>()
 
 let GetFormatFor t =
