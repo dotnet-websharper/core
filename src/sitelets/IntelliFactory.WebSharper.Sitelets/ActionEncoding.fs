@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module IntelliFactory.WebSharper.Sitelets.UrlEncoding
+module IntelliFactory.WebSharper.Sitelets.ActionEncoding
 
 open System.Collections.Generic
 open IntelliFactory.WebSharper.Core

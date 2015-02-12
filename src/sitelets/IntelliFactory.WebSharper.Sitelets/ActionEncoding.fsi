@@ -24,7 +24,7 @@
 /// underscore and dot characters). Tilde serves as a special character
 /// starting escape sequences. The encoding also uses the forward slash
 /// to separate logical components.
-module IntelliFactory.WebSharper.Sitelets.UrlEncoding
+module IntelliFactory.WebSharper.Sitelets.ActionEncoding
 
 /// Thrown when a formatter cannot be derived for a certain type.
 exception NoFormatError of System.Type

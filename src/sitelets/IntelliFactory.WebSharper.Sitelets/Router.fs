@@ -131,7 +131,7 @@ module Router =
         }
 
     let Infer () : Router<'Action> =
-        let fmt = UrlEncoding.GetFormat<'Action>()
+        let fmt = ActionEncoding.GetFormat<'Action>()
         {
             StaticRoutes = Dictionary()
             StaticLinks  = Dictionary()
@@ -139,7 +139,7 @@ module Router =
                 let uri = path req.Uri
                 fmt.Read (uri.Substring 1, req)
                 |> Option.bind (function
-                    | UrlEncoding.Success x -> Some x
+                    | ActionEncoding.Success x -> Some x
                     | _ -> None)
             DynamicLink = fun act ->
                 match fmt.Show act with
@@ -147,8 +147,8 @@ module Router =
                 | None -> None
         }
 
-    let InferWithErrors () : Router<UrlEncoding.DecodeResult<'Action>> =
-        let fmt = UrlEncoding.GetFormat<'Action>()
+    let InferWithErrors () : Router<ActionEncoding.DecodeResult<'Action>> =
+        let fmt = ActionEncoding.GetFormat<'Action>()
         {
             StaticRoutes = Dictionary()
             StaticLinks  = Dictionary()
@@ -156,7 +156,7 @@ module Router =
                 let uri = path req.Uri
                 fmt.Read (uri.Substring 1, req)
             DynamicLink = function
-                | UrlEncoding.Success act ->
+                | ActionEncoding.Success act ->
                     match fmt.Show act with
                     | Some x -> Some (Uri("/" + x, UriKind.Relative))
                     | None -> None

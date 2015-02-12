@@ -194,12 +194,12 @@ module Sitelet =
             Controller = { Handle = handle }
         }
 
-    let InferWithCustomErrors<'T when 'T : equality> (handle : UrlEncoding.DecodeResult<'T> -> Content<'T>) =
+    let InferWithCustomErrors<'T when 'T : equality> (handle : ActionEncoding.DecodeResult<'T> -> Content<'T>) =
         {
             Router = Router.InferWithErrors<'T>()
             Controller = { Handle = fun x ->
                 C.CustomContent <| fun ctx ->
-                    C.ToResponse (handle x) (Context.Map UrlEncoding.Success ctx)
+                    C.ToResponse (handle x) (Context.Map ActionEncoding.Success ctx)
             }
         }
 

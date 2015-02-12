@@ -158,7 +158,7 @@ module Content =
         Async.RunSynchronously(toCustomContentAsync genPage context)
 
     let JsonContent<'T, 'U> (f: Context<'T> -> 'U) =
-        let encoder = UrlEncoding.JsonProvider.GetEncoder<'U>()
+        let encoder = ActionEncoding.JsonProvider.GetEncoder<'U>()
         Content.CustomContent <| fun ctx ->
             let x = f ctx
             {
@@ -168,12 +168,12 @@ module Content =
                     use tw = new StreamWriter(s)
                     x
                     |> encoder.Encode
-                    |> UrlEncoding.JsonProvider.Pack
+                    |> ActionEncoding.JsonProvider.Pack
                     |> IntelliFactory.WebSharper.Core.Json.Write tw
             }
 
     let JsonContentAsync<'T, 'U> (f: Context<'T> -> Async<'U>) =
-        let encoder = UrlEncoding.JsonProvider.GetEncoder<'U>()
+        let encoder = ActionEncoding.JsonProvider.GetEncoder<'U>()
         Content.CustomContentAsync <| fun ctx ->
             async {
                 let! x = f ctx
@@ -184,7 +184,7 @@ module Content =
                         use tw = new StreamWriter(s)
                         x
                         |> encoder.Encode
-                        |> UrlEncoding.JsonProvider.Pack
+                        |> ActionEncoding.JsonProvider.Pack
                         |> IntelliFactory.WebSharper.Core.Json.Write tw
                 }
             }
