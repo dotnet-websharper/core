@@ -360,7 +360,7 @@ type FormatSettings =
         /// Tag the given encoded value with its type.
         AddTag : System.Type -> Encoded -> Encoded
         /// Get the JSON-encoded name of the given F# record or class field.
-        GetEncodedFieldName : Reflection.TypeDefinition -> string -> string
+        GetEncodedFieldName : System.Type -> string -> string
         /// Find the union case tag of the given JSON object
         /// (represented as a fieldname -> value function)
         GetUnionTag : System.Type -> (string -> option<Value>) -> option<int>
@@ -674,7 +674,7 @@ let recordEncoder dE (i: FormatSettings) (t: System.Type) =
         FST.GetRecordFields(t, flags)
         |> Array.map (fun f ->
             let r = FSV.PreComputeRecordFieldReader f
-            (i.GetEncodedFieldName mt f.Name, r, encodeOptionalField dE i f f.PropertyType))
+            (i.GetEncodedFieldName t f.Name, r, encodeOptionalField dE i f f.PropertyType))
     fun (x: obj) ->
         match x with
         | null ->
@@ -695,7 +695,7 @@ let recordDecoder dD (i: FormatSettings) (t: System.Type) =
     let fs =
         FST.GetRecordFields(t, flags)
         |> Array.map (fun f ->
-            (i.GetEncodedFieldName mt f.Name, decodeOptionalField dD i f f.PropertyType))
+            (i.GetEncodedFieldName t f.Name, decodeOptionalField dD i f f.PropertyType))
     fun (x: Value) ->
         match x with
         | Object fields ->
@@ -732,7 +732,7 @@ let objectEncoder dE (i: FormatSettings) (t: System.Type) =
     let fs = getObjectFields t
     let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
     let es = fs |> Array.map (fun f ->
-        (i.GetEncodedFieldName (R.TypeDefinition.FromType f.DeclaringType) f.Name,
+        (i.GetEncodedFieldName f.DeclaringType f.Name,
          encodeOptionalField dE i f f.FieldType))
     fun (x: obj) ->
         match x with
@@ -759,7 +759,7 @@ let objectDecoder dD (i: FormatSettings) (t: System.Type) =
     let fs = getObjectFields t
     let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
     let ds = fs |> Array.map (fun f ->
-        (i.GetEncodedFieldName (R.TypeDefinition.FromType f.DeclaringType) f.Name,
+        (i.GetEncodedFieldName f.DeclaringType f.Name,
          decodeOptionalField dD i f f.FieldType))
     fun (x: Value) ->
         match x with
@@ -994,9 +994,16 @@ let defaultEncodeUnionTag _ (tag: int) =
 let getDiscriminatorName (t: System.Type) =
     t.GetCustomAttributesData()
     |> Seq.tryPick (fun cad ->
-        if cad.Constructor.DeclaringType <> typeof<A.NamedUnionCasesAttribute> then
-            None
-        else Some (cad.ConstructorArguments.[0].Value :?> string))
+        if cad.Constructor.DeclaringType = typeof<A.NamedUnionCasesAttribute> then
+            Some (cad.ConstructorArguments.[0].Value :?> string)
+        else None)
+
+let getNameAttr (m: System.Reflection.MemberInfo) =
+    m.GetCustomAttributesData()
+    |> Seq.tryPick (fun cad ->
+        if cad.Constructor.DeclaringType = typeof<A.NameAttribute> then
+            Some (cad.ConstructorArguments.[0].Value :?> string)
+        else None)
 
 type Reflection.UnionCaseInfo with
     member this.CustomizedName =
@@ -1051,7 +1058,8 @@ module TypedProviderInternals =
     let format info =
         {
             AddTag = addTag info
-            GetEncodedFieldName = info.GetFieldName
+            GetEncodedFieldName = fun t ->
+                info.GetFieldName (R.TypeDefinition.FromType t)
             GetUnionTag = defaultGetUnionTag
             EncodeUnionTag = defaultEncodeUnionTag
             GetEncodedUnionFieldName = fun _ i -> "$" + string i
@@ -1077,7 +1085,22 @@ module PlainProviderInternals =
     let format =
         {
             AddTag = fun _ -> id
-            GetEncodedFieldName = fun _ -> id
+            GetEncodedFieldName = fun t ->
+                let d = Dictionary()
+                let fields =
+                    if FST.IsRecord t then
+                        FST.GetRecordFields(t, flags)
+                        |> Seq.cast<System.Reflection.MemberInfo>
+                    else
+                        getObjectFields t
+                        |> Seq.cast<System.Reflection.MemberInfo>
+                for f in fields do
+                    if not (d.ContainsKey f.Name) then
+                        d.Add(f.Name, defaultArg (getNameAttr f) f.Name)
+                fun n ->
+                    match d.TryGetValue n with
+                    | true, n -> n
+                    | false, _ -> n
             GetUnionTag = fun t ->
                 match getDiscriminatorName t with
                 | None -> defaultGetUnionTag t
