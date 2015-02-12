@@ -28,10 +28,14 @@ open IntelliFactory.WebSharper.Sitelets
 module Api =
 
     type Action =
-        | [<CompiledName "person"; Method "GET">]
-            GetPerson of string
         | [<CompiledName "person"; Method "POST"; Json "userdata">]
             PostPerson of string * userdata: UserData
+        | [<CompiledName "person"; Method "GET">]
+            GetPerson of string
+        | [<CompiledName "person"; Method "PUT"; Json "userdata">]
+            UpdatePerson of string * userdata: UserData
+        | [<CompiledName "person"; Method "DELETE">]
+            DeletePerson of string
 
     and [<NamedUnionCases "result">]
         Result<'T> =
@@ -46,48 +50,57 @@ module Api =
             [<Name "died">]         Died        : DateTime option
         }
 
-    let usersDatabase =
-        Dictionary(
-            Map [
-                "alonzo.church", {
-                    FirstName = "Alonzo"
-                    LastName = "Church"
-                    Born = DateTime(1903, 6, 14)
-                    Died = Some(DateTime(1995, 8, 11))
-                }
-                "alan.turing", {
-                    FirstName = "Alan"
-                    LastName = "Turing"
-                    Born = DateTime(1912, 6, 23)
-                    Died = Some(DateTime(1954, 6, 7))
-                }
-                "bertrand.russell", {
-                    FirstName = "Bertrand"
-                    LastName = "Russell"
-                    Born = DateTime(1872, 5, 18)
-                    Died = Some(DateTime(1970, 2, 2))
-                }
-                "noam.chomsky", {
-                    FirstName = "Noam"
-                    LastName = "Chomsky"
-                    Born = DateTime(1928, 12, 7)
-                    Died = None
-                }
-            ])
+    let private usersDatabase = Dictionary()
 
-    let Sitelet =
-        Sitelet.Infer <| function
-            | GetPerson ident ->
-                Content.JsonContent <| fun ctx ->
-                    lock usersDatabase <| fun () ->
-                        match usersDatabase.TryGetValue ident with
-                        | true, u -> Success u
-                        | false, _ -> Failure "User not found"
+    let Sitelet = Sitelet.Infer <| fun action ->
+        lock usersDatabase <| fun () ->
+            match action with
             | PostPerson (ident, data) ->
                 Content.JsonContent <| fun ctx ->
-                    lock usersDatabase <| fun () ->
-                        match usersDatabase.TryGetValue ident with
-                        | true, _ -> Failure "User already registered"
-                        | false, _ ->
-                            usersDatabase.[ident] <- data
-                            Success ()
+                    match usersDatabase.TryGetValue ident with
+                    | true, _ -> Failure "User already registered"
+                    | false, _ -> usersDatabase.[ident] <- data; Success ()
+            | GetPerson ident ->
+                Content.JsonContent <| fun ctx ->
+                    match usersDatabase.TryGetValue ident with
+                    | true, u -> Success u
+                    | false, _ -> Failure "User not found"
+            | UpdatePerson (ident, data) ->
+                Content.JsonContent <| fun ctx ->
+                    match usersDatabase.TryGetValue ident with
+                    | true, _ -> usersDatabase.[ident] <- data; Success ()
+                    | false, _ -> Failure "User not found"
+            | DeletePerson ident ->
+                Content.JsonContent <| fun ctx ->
+                    if usersDatabase.Remove(ident) then
+                        Success ()
+                    else Failure "User not found"
+
+    do
+        [
+            "alonzo.church", {
+                FirstName = "Alonzo"
+                LastName = "Church"
+                Born = DateTime(1903, 6, 14)
+                Died = Some(DateTime(1995, 8, 11))
+            }
+            "alan.turing", {
+                FirstName = "Alan"
+                LastName = "Turing"
+                Born = DateTime(1912, 6, 23)
+                Died = Some(DateTime(1954, 6, 7))
+            }
+            "bertrand.russell", {
+                FirstName = "Bertrand"
+                LastName = "Russell"
+                Born = DateTime(1872, 5, 18)
+                Died = Some(DateTime(1970, 2, 2))
+            }
+            "noam.chomsky", {
+                FirstName = "Noam"
+                LastName = "Chomsky"
+                Born = DateTime(1928, 12, 7)
+                Died = None
+            }
+        ]
+        |> Seq.iter usersDatabase.Add
