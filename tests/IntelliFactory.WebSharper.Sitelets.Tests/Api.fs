@@ -28,12 +28,12 @@ open IntelliFactory.WebSharper.Sitelets
 module Api =
 
     type Action =
-        | [<CompiledName "person"; Method "POST"; Json "userdata">]
-            PostPerson of string * userdata: UserData
+        | [<CompiledName "person"; Method "POST"; Json "data">]
+            PostPerson of string * data: PersonData
         | [<CompiledName "person"; Method "GET">]
             GetPerson of string
-        | [<CompiledName "person"; Method "PUT"; Json "userdata">]
-            UpdatePerson of string * userdata: UserData
+        | [<CompiledName "person"; Method "PUT"; Json "data">]
+            UpdatePerson of string * data: PersonData
         | [<CompiledName "person"; Method "DELETE">]
             DeletePerson of string
 
@@ -42,7 +42,7 @@ module Api =
         | [<CompiledName "success">] Success of data: 'T
         | [<CompiledName "error">] Failure of message: string
 
-    and UserData =
+    and PersonData =
         {
             [<Name "firstName">]    FirstName   : string
             [<Name "lastName">]     LastName    : string
@@ -50,31 +50,31 @@ module Api =
             [<Name "died">]         Died        : DateTime option
         }
 
-    let private usersDatabase = Dictionary()
+    let private peopleDatabase = Dictionary()
 
     let Sitelet = Sitelet.Infer <| fun action ->
-        lock usersDatabase <| fun () ->
+        lock peopleDatabase <| fun () ->
             match action with
             | PostPerson (ident, data) ->
                 Content.JsonContent <| fun ctx ->
-                    match usersDatabase.TryGetValue ident with
-                    | true, _ -> Failure "User already registered"
-                    | false, _ -> usersDatabase.[ident] <- data; Success ()
+                    match peopleDatabase.TryGetValue ident with
+                    | true, _ -> Failure "Person already registered"
+                    | false, _ -> peopleDatabase.[ident] <- data; Success ()
             | GetPerson ident ->
                 Content.JsonContent <| fun ctx ->
-                    match usersDatabase.TryGetValue ident with
+                    match peopleDatabase.TryGetValue ident with
                     | true, u -> Success u
-                    | false, _ -> Failure "User not found"
+                    | false, _ -> Failure "Person not found"
             | UpdatePerson (ident, data) ->
                 Content.JsonContent <| fun ctx ->
-                    match usersDatabase.TryGetValue ident with
-                    | true, _ -> usersDatabase.[ident] <- data; Success ()
-                    | false, _ -> Failure "User not found"
+                    match peopleDatabase.TryGetValue ident with
+                    | true, _ -> peopleDatabase.[ident] <- data; Success ()
+                    | false, _ -> Failure "Person not found"
             | DeletePerson ident ->
                 Content.JsonContent <| fun ctx ->
-                    if usersDatabase.Remove(ident) then
+                    if peopleDatabase.Remove(ident) then
                         Success ()
-                    else Failure "User not found"
+                    else Failure "Person not found"
 
     do
         [
@@ -103,4 +103,4 @@ module Api =
                 Died = None
             }
         ]
-        |> Seq.iter usersDatabase.Add
+        |> Seq.iter peopleDatabase.Add
