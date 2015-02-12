@@ -368,6 +368,10 @@ type FormatSettings =
         EncodeUnionTag : System.Type -> int -> option<string * Encoded>
         /// Get the JSON-encoded name of the given F# union case field.
         GetEncodedUnionFieldName : System.Reflection.PropertyInfo -> int -> string
+        /// If true, represent fields whose type is a union marked
+        /// UseNullAsTrueValue as absent field.
+        /// Also always represent options as if they were marked [<OptionalField>].
+        RepresentNullUnionsAsAbsentField : bool
         /// Pack an encoded value to JSON.
         Pack : Encoded -> Value
     }
@@ -629,14 +633,24 @@ let unionDecoder dD (i: FormatSettings) (t: System.Type) =
         | _ ->
             raise DecoderException
 
-let isOptionalField (mi: System.Reflection.MemberInfo) (mt: System.Type) =
+let isOptionalField (i: FormatSettings) (mi: System.Reflection.MemberInfo) (mt: System.Type) =
     mt.IsGenericType &&
     mt.GetGenericTypeDefinition() = typedefof<option<_>> &&
-    (mi.GetCustomAttributes(false)
-    |> Array.exists (fun t -> t.GetType() = typeof<A.OptionalFieldAttribute>))
+    (i.RepresentNullUnionsAsAbsentField ||
+        (mi.GetCustomAttributes(false)
+        |> Array.exists (fun t -> t.GetType() = typeof<A.OptionalFieldAttribute>)))
+
+let isNullableUnion (i: FormatSettings) (mt: System.Type) =
+    i.RepresentNullUnionsAsAbsentField &&
+    FST.IsUnion mt &&
+    (mt.GetCustomAttributesData()
+    |> Seq.exists (fun cad ->
+        cad.Constructor.DeclaringType = typeof<CompilationRepresentationAttribute> &&
+        let flags = cad.ConstructorArguments.[0].Value :?> CompilationRepresentationFlags
+        flags &&& CompilationRepresentationFlags.UseNullAsTrueValue <> enum 0))
 
 let encodeOptionalField dE (i: FormatSettings) (mi: System.Reflection.MemberInfo) (mt: System.Type) : obj -> option<Encoded> =
-    if isOptionalField mi mt then
+    if isOptionalField i mi mt then
         let vt = mt.GetGenericArguments().[0]
         let enc = dE vt
         let ucis = FST.GetUnionCases(mt, flags)
@@ -647,12 +661,20 @@ let encodeOptionalField dE (i: FormatSettings) (mi: System.Reflection.MemberInfo
                 None
             else
                 Some (enc (getSome x).[0])
+    elif isNullableUnion i mt then
+        let enc = dE mt
+        let getTag = FSV.PreComputeUnionTagReader(mt, flags)
+        fun x ->
+            if getTag x = 0 then
+                None
+            else
+                Some (enc x)
     else
         let enc = dE mt
         fun x -> Some (enc x)
 
 let decodeOptionalField dD (i: FormatSettings) (mi: System.Reflection.MemberInfo) (mt: System.Type) : option<Value> -> obj =
-    if isOptionalField mi mt then
+    if isOptionalField i mi mt then
         let vt = mt.GetGenericArguments().[0]
         let dec = dD vt
         let ucis = FST.GetUnionCases(mt, flags)
@@ -662,6 +684,13 @@ let decodeOptionalField dD (i: FormatSettings) (mi: System.Reflection.MemberInfo
             match x with
             | None -> none
             | Some v -> some [| dec v |]
+    elif isNullableUnion i mt then
+        let dec = dD mt
+        let ucis = FST.GetUnionCases(mt, flags)
+        let none = FSV.PreComputeUnionConstructor(ucis.[0], flags) [||]
+        function
+        | Some v -> dec v
+        | None -> none
     else
         let dec = dD mt
         function
@@ -1063,6 +1092,7 @@ module TypedProviderInternals =
             GetUnionTag = defaultGetUnionTag
             EncodeUnionTag = defaultEncodeUnionTag
             GetEncodedUnionFieldName = fun _ i -> "$" + string i
+            RepresentNullUnionsAsAbsentField = false
             Pack = pack
         }
 
@@ -1123,6 +1153,7 @@ module PlainProviderInternals =
                         |]
                     fun tag -> Some (n, tags.[tag])
             GetEncodedUnionFieldName = fun p -> let n = p.Name in fun _ -> n
+            RepresentNullUnionsAsAbsentField = true
             Pack = flatten
         }
 
