@@ -8,6 +8,7 @@
   <Import Project="../../msbuild/FSharp.targets" />
   <Import Project="../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
+    <Compile Include="Api.fs" />
     <Compile Include="SampleSite.fs" />
   </ItemGroup>
   <ItemGroup>

@@ -54,6 +54,7 @@ module SampleSite =
         | Login of option<Action>
         | Logout
         | Echo of string
+        | [<CompiledName "api">] Api of Api.Action
 
     /// A helper function to create a hyperlink
     let private ( => ) title href =
@@ -186,6 +187,8 @@ module SampleSite =
                     Content.Redirect Action.Home
                 | Action.Protected ->
                     Content.ServerError
+                | Action.Api _ ->
+                    Content.ServerError
 
         // A sitelet for the protected content that requires users to log in first.
         let authenticated =
@@ -198,10 +201,14 @@ module SampleSite =
             Sitelet.Protect filter <|
                 Sitelet.Content "/protected" Action.Protected Pages.ProtectedPage
 
+        // A sitelet wrapping the API sitelet into the main action.
+        let api = Sitelet.EmbedInUnion <@ Action.Api @> Api.Sitelet
+
         // Compose the above sitelets into a larger one.
         [
             home
             authenticated
+            api
             basic
         ]
         |> Sitelet.Sum
