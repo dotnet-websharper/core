@@ -633,14 +633,6 @@ let opsModule =
     typeof<Set<_>>.Assembly
         .GetType("Microsoft.FSharp.Core.Operators")
 
-let setModule =
-    typeof<Set<_>>.Assembly
-        .GetType("Microsoft.FSharp.Collections.SetModule")
-
-let mapModule =
-    typeof<Set<_>>.Assembly
-        .GetType("Microsoft.FSharp.Collections.MapModule")
-
 let seqModule =
     typeof<Set<_>>.Assembly
         .GetType("Microsoft.FSharp.Collections.SeqModule")
@@ -654,7 +646,8 @@ let thisModule =
         .GetType("IntelliFactory.WebSharper.Core.Json")
 
 let makeEmptySet (t: System.Type) =
-    setModule
+    typeof<Set<_>>.Assembly
+        .GetType("Microsoft.FSharp.Collections.SetModule")
         .GetMethod("Empty")
         .MakeGenericMethod(t.GetGenericArguments())
         .Invoke(null, [||])
@@ -665,20 +658,32 @@ let makeEmptyList (t: System.Type) =
         .MakeGenericMethod(t.GetGenericArguments())
         .Invoke(null, [||])
 
+let callGeneric (actualFunction: 'f -> 'g) (name: string) (targ: System.Type) (dD: System.Type -> 'f) =
+    // actualFunction is not used but it must be passed
+    // to check the types and avoid being dead-code-eliminated.
+    FastInvoke.Compile(
+        thisModule.GetMethod(name,
+            flags ||| System.Reflection.BindingFlags.Static
+        ).MakeGenericMethod(targ)
+    ).Invoke1(dD targ)
+    :?> 'g
+
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let unmakeList<'T> (dV: obj -> Encoded) =
+    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
+    fun (x: obj) ->
+        EncodedArray [
+            for v in unbox<list<'T>> x ->
+                dV (box v)
+        ]
+
 let unionEncoder dE (i: FormatSettings) (t: System.Type) =
     if i.FlattenCollections &&
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<list<_>>
     then
-        let tg = t.GetGenericArguments()
-        let tI = tg.[0]
-        let dI = dE tI
-        let toSeq =
-            FastInvoke.Compile(
-                listModule.GetMethod("ToSeq").MakeGenericMethod(tg)
-            ).Invoke1
-        fun (x: obj) ->
-            EncodedArray [for e in Seq.cast<obj> (toSeq x :?> _) -> dI e]
+        let tI = t.GetGenericArguments().[0]
+        callGeneric unmakeList "unmakeList" tI dE
     else
     let tR = FSV.PreComputeUnionTagReader(t, flags)
     let cs =
@@ -713,26 +718,20 @@ let unionEncoder dE (i: FormatSettings) (t: System.Type) =
         | x ->
             raise EncoderException
 
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let makeList<'T> (dV: Value -> obj) =
+    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
+    function
+    | Array vs -> vs |> List.map (unbox<'T> << dV) |> box
+    | _ -> raise DecoderException
+
 let unionDecoder dD (i: FormatSettings) (t: System.Type) =
     if i.FlattenCollections &&
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<list<_>>
     then
-        let tg = t.GetGenericArguments()
-        let tI = tg.[0]
-        let dI = dD tI
-        let empty = makeEmptyList t
-        let ofSeq =
-            FastInvoke.Compile(
-                listModule.GetMethod("OfSeq").MakeGenericMethod(tg)
-            ).Invoke1
-        let seqCast =
-            FastInvoke.Compile(
-                seqModule.GetMethod("Cast").MakeGenericMethod(tg)
-            ).Invoke1
-        function
-        | Array vs -> ofSeq (seqCast (Seq.map dI vs))
-        | _ -> raise DecoderException
+        let tI = t.GetGenericArguments().[0]
+        callGeneric makeList "makeList" tI dD
     else
     let cs =
         FST.GetUnionCases(t, flags)
@@ -901,16 +900,8 @@ let unmakeMap<'T> (dV: obj -> Encoded) =
 let mapEncoder dE (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 2 then raise EncoderException
-    let dK = dE tg.[0]
-    let dV = dE tg.[1]
     if i.FlattenCollections && tg.[0] = typeof<string> then
-        let x = unmakeMap dV // Prevents unmakeMap from being dead-code-eliminated
-        FastInvoke.Compile(
-            thisModule.GetMethod("unmakeMap",
-                flags ||| System.Reflection.BindingFlags.Static
-            ).MakeGenericMethod(tg.[1])
-        ).Invoke1(dV)
-        :?> (obj -> Encoded)
+        callGeneric unmakeMap "unmakeMap" tg.[1] dE
     else
     let treeF = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
     let pair key value =
@@ -918,6 +909,8 @@ let mapEncoder dE (i: FormatSettings) (t: System.Type) =
             "Key", key
             "Value", value
         ]   
+    let dK = dE tg.[0]
+    let dV = dE tg.[1]
     let tR = FSV.PreComputeUnionTagReader(treeF.FieldType, flags)
     let uR =
         FST.GetUnionCases(treeF.FieldType, flags)
@@ -945,30 +938,22 @@ let mapEncoder dE (i: FormatSettings) (t: System.Type) =
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let makeMap<'T> (dV: Value -> obj) =
     let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
-    fun (vs: list<string * Value>) ->
+    function
+    | Object vs ->
         Map.ofList<string, 'T>(
             vs |> List.map (fun (k, v) -> k, unbox (dV v))
         )
         |> box
+    | _ -> raise DecoderException
 
 let mapDecoder dD (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 2 then raise DecoderException
+    if i.FlattenCollections && tg.[0] = typeof<string> then
+        callGeneric makeMap "makeMap" tg.[1] dD
+    else
     let dK = dD tg.[0]
     let dV = dD tg.[1]
-    if i.FlattenCollections && tg.[0] = typeof<string> then
-        let x = makeMap dV // Prevents makeMap from being dead-code-eliminated
-        let f =
-            FastInvoke.Compile(
-                thisModule.GetMethod("makeMap",
-                    flags ||| System.Reflection.BindingFlags.Static
-                ).MakeGenericMethod(tg.[1])
-            ).Invoke1(dV)
-            :?> (list<string * Value> -> obj)
-        function
-        | Object vs -> f vs
-        | _ -> raise DecoderException
-    else
     let tt = typedefof<System.Tuple<_,_>>.MakeGenericType(tg.[0], tg.[1])
     let cT = FSV.PreComputeTupleConstructor(tt)
     fun (x: Value) ->
@@ -991,18 +976,19 @@ let mapDecoder dD (i: FormatSettings) (t: System.Type) =
             System.Activator.CreateInstance(t, tEls)
         | _ -> raise DecoderException
 
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let unmakeSet<'T when 'T : comparison> (dV: obj -> Encoded) =
+    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
+    fun (x: obj) ->
+        EncodedArray [for v in unbox<Set<'T>> x -> dV v]
+
 let setEncoder dE (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 1 then raise EncoderException
-    let dI = dE tg.[0]
     if i.FlattenCollections then
-        let toSeq =
-            FastInvoke.Compile(
-                setModule.GetMethod("ToSeq").MakeGenericMethod(tg)
-            ).Invoke1
-        fun (x: obj) ->
-            EncodedArray [for e in Seq.cast<obj> (toSeq x :?> _) -> dI e]
+        callGeneric unmakeSet "unmakeSet" tg.[0] dE
     else
+    let dI = dE tg.[0]
     let treeF = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
     let tR = FSV.PreComputeUnionTagReader(treeF.FieldType, flags)
     let uR =
@@ -1028,39 +1014,43 @@ let setEncoder dE (i: FormatSettings) (t: System.Type) =
         let tr = fst (encNode (treeF.GetValue x))
         EncodedObject [ "tree", tr ] |> i.AddTag t
 
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let makeSet<'T when 'T : comparison> (dV: Value -> obj) =
+    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
+    function
+    | Array vs ->
+        Set.ofList<'T>(vs |> List.map (unbox << dV))
+        |> box
+    | _ -> raise DecoderException
+
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let makeSet'<'T when 'T : comparison> (dV: Value -> obj) =
+    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
+    fun (xs: seq<obj>) ->
+        Set.ofSeq (Seq.cast<'T> xs)
+        |> box
+
 let setDecoder dD (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 1 then raise EncoderException
-    let ti = tg.[0]
-    let dI = dD ti
-    let empty = makeEmptySet t
-    let ofSeq =
-        FastInvoke.Compile(
-            setModule.GetMethod("OfSeq").MakeGenericMethod(tg)
-        ).Invoke1
-    let seqCast =
-        FastInvoke.Compile(
-            seqModule.GetMethod("Cast").MakeGenericMethod(tg)
-        ).Invoke1
     if i.FlattenCollections then
-        function
-        | Array vs -> ofSeq (seqCast (Seq.map dI vs))
-        | _ -> raise DecoderException
-    else fun (x: Value) ->
-        let rec walk fields =
-            seq {
-                for f in fields do
-                    match f with
-                    | "Node", n -> 
-                        yield dI n
-                    | ("Left" | "Right"), Object st -> 
-                        yield! walk st
-                    | _ -> ()
-            }
-        match x with
-        | Null -> empty
-        | Object [ "tree", Object tr ] ->
-            ofSeq (seqCast (walk tr))
+        callGeneric makeSet "makeSet" tg.[0] dD
+    else
+    let dI = dD tg.[0]
+    let mk = callGeneric makeSet' "makeSet'" tg.[0] dD
+    let rec walk fields =
+        seq {
+            for f in fields do
+                match f with
+                | "Node", n -> 
+                    yield dI n
+                | ("Left" | "Right"), Object st -> 
+                    yield! walk st
+                | _ -> ()
+        }
+    function
+        | Null -> mk Seq.empty
+        | Object [ "tree", Object tr ] -> mk (walk tr)
         | _ -> raise DecoderException
 
 let enumEncoder dE (i: FormatSettings) (t: System.Type) =
