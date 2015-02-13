@@ -20,6 +20,7 @@
 
 module IntelliFactory.WebSharper.Core.Json
 
+open System.Runtime.CompilerServices
 module A = IntelliFactory.WebSharper.Core.Attributes
 module P = IntelliFactory.JavaScript.Packager
 module R = IntelliFactory.WebSharper.Core.Reflection
@@ -628,7 +629,45 @@ let decodeOptionalField dD (i: FormatSettings) (mi: System.Reflection.MemberInfo
         | Some v -> dec v
         | None -> raise DecoderException
 
+let setModule =
+    typeof<Set<_>>.Assembly
+        .GetType("Microsoft.FSharp.Collections.SetModule")
+
+let seqModule =
+    typeof<Set<_>>.Assembly
+        .GetType("Microsoft.FSharp.Collections.SeqModule")
+
+let listModule =
+    typeof<Set<_>>.Assembly
+        .GetType("Microsoft.FSharp.Collections.ListModule")
+
+let makeEmptySet (t: System.Type) =
+    setModule
+        .GetMethod("Empty")
+        .MakeGenericMethod(t.GetGenericArguments())
+        .Invoke(null, [||])
+
+let makeEmptyList (t: System.Type) =
+    listModule
+        .GetMethod("Empty")
+        .MakeGenericMethod(t.GetGenericArguments())
+        .Invoke(null, [||])
+
 let unionEncoder dE (i: FormatSettings) (t: System.Type) =
+    if i.FlattenCollections &&
+        t.IsGenericType &&
+        t.GetGenericTypeDefinition() = typedefof<list<_>>
+    then
+        let tg = t.GetGenericArguments()
+        let tI = tg.[0]
+        let dI = dE tI
+        let toSeq =
+            FastInvoke.Compile(
+                listModule.GetMethod("ToSeq").MakeGenericMethod(tg)
+            ).Invoke1
+        fun (x: obj) ->
+            EncodedArray [for e in Seq.cast<obj> (toSeq x :?> _) -> dI e]
+    else
     let tR = FSV.PreComputeUnionTagReader(t, flags)
     let cs =
         FST.GetUnionCases(t, flags)
@@ -663,6 +702,26 @@ let unionEncoder dE (i: FormatSettings) (t: System.Type) =
             raise EncoderException
 
 let unionDecoder dD (i: FormatSettings) (t: System.Type) =
+    if i.FlattenCollections &&
+        t.IsGenericType &&
+        t.GetGenericTypeDefinition() = typedefof<list<_>>
+    then
+        let tg = t.GetGenericArguments()
+        let tI = tg.[0]
+        let dI = dD tI
+        let empty = makeEmptyList t
+        let ofSeq =
+            FastInvoke.Compile(
+                listModule.GetMethod("OfSeq").MakeGenericMethod(tg)
+            ).Invoke1
+        let seqCast =
+            FastInvoke.Compile(
+                seqModule.GetMethod("Cast").MakeGenericMethod(tg)
+            ).Invoke1
+        function
+        | Array vs -> ofSeq (seqCast (Seq.map dI vs))
+        | _ -> raise DecoderException
+    else
     let cs =
         FST.GetUnionCases(t, flags)
         |> Array.map (fun c ->
@@ -880,20 +939,6 @@ let mapDecoder dD (i: FormatSettings) (t: System.Type) =
             System.Activator.CreateInstance(t, tEls)
         | _ -> raise DecoderException
 
-let setModule =
-    typeof<Set<_>>.Assembly
-        .GetType("Microsoft.FSharp.Collections.SetModule")
-
-let seqModule =
-    typeof<Set<_>>.Assembly
-        .GetType("Microsoft.FSharp.Collections.SeqModule")
-
-let makeEmptySetOf (t: System.Type) =
-    setModule
-        .GetMethod("Empty")
-        .MakeGenericMethod(t.GetGenericArguments())
-        .Invoke(null, [||])
-
 let setEncoder dE (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 1 then raise EncoderException
@@ -936,7 +981,7 @@ let setDecoder dD (i: FormatSettings) (t: System.Type) =
     if tg.Length <> 1 then raise EncoderException
     let ti = tg.[0]
     let dI = dD ti
-    let empty = makeEmptySetOf t
+    let empty = makeEmptySet t
     let ofSeq =
         FastInvoke.Compile(
             setModule.GetMethod("OfSeq").MakeGenericMethod(tg)
@@ -1257,7 +1302,7 @@ type Provider(fo: FormatSettings) =
                         .Invoke(null, [||])
                 fun _ -> x)
             (fun dD i t ->
-                let x = makeEmptySetOf t
+                let x = makeEmptySet t
                 fun _ -> x)
             (fun _ _ _ _ -> null)
             fo
