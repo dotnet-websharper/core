@@ -59,7 +59,7 @@ module Api =
                 Content.JsonContent <| fun ctx ->
                     match peopleDatabase.TryGetValue ident with
                     | true, _ -> Failure "Person already registered"
-                    | false, _ -> peopleDatabase.[ident] <- data; Success ()
+                    | false, _ -> peopleDatabase.[ident] <- data; Success None
             | GetPerson ident ->
                 Content.JsonContent <| fun ctx ->
                     match peopleDatabase.TryGetValue ident with
@@ -68,12 +68,12 @@ module Api =
             | UpdatePerson (ident, data) ->
                 Content.JsonContent <| fun ctx ->
                     match peopleDatabase.TryGetValue ident with
-                    | true, _ -> peopleDatabase.[ident] <- data; Success ()
+                    | true, _ -> peopleDatabase.[ident] <- data; Success None
                     | false, _ -> Failure "Person not found"
             | DeletePerson ident ->
                 Content.JsonContent <| fun ctx ->
                     if peopleDatabase.Remove(ident) then
-                        Success ()
+                        Success None
                     else Failure "Person not found"
 
     do
