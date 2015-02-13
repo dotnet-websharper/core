@@ -156,11 +156,12 @@ module Router =
                 let uri = path req.Uri
                 fmt.Read (uri.Substring 1, req)
             DynamicLink = function
-                | ActionEncoding.Success act ->
+                | ActionEncoding.Success act
+                | ActionEncoding.InvalidJson act
+                | ActionEncoding.InvalidMethod (act, _) ->
                     match fmt.Show act with
                     | Some x -> Some (Uri("/" + x, UriKind.Relative))
                     | None -> None
-                | _ -> None
         }
 
     let Empty<'Action when 'Action : equality> : Router<'Action> =

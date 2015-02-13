@@ -198,8 +198,8 @@ module Sitelet =
         {
             Router = Router.InferWithErrors<'T>()
             Controller = { Handle = fun x ->
-                C.CustomContent <| fun ctx ->
-                    C.ToResponse (handle x) (Context.Map ActionEncoding.Success ctx)
+                C.CustomContentAsync <| fun ctx ->
+                    C.ToResponseAsync (handle x) (Context.Map ActionEncoding.Success ctx)
             }
         }
 

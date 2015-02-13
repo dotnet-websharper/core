@@ -28,13 +28,25 @@ type DecodeResult<'Action> =
     | InvalidMethod of 'Action * ``method``: string
     | InvalidJson of 'Action
 
-module DecodeResult =
+    member this.Action =
+        match this with
+        | Success a
+        | InvalidMethod (a, _)
+        | InvalidJson a -> a
 
-    let map (f: 'a -> 'b) (x: option<DecodeResult<'a>>) : option<DecodeResult<'b>> =
+type DecodeResult =
+
+    static member map (f: 'a -> 'b) (x: option<DecodeResult<'a>>) : option<DecodeResult<'b>> =
         x |> Option.map (function
             | Success x -> Success (f x)
             | InvalidMethod (x, m) -> InvalidMethod (f x, m)
             | InvalidJson x -> InvalidJson (f x))
+
+    static member unbox (x: DecodeResult<obj>) : DecodeResult<'b> =
+        match x with
+        | Success x -> Success (unbox x)
+        | InvalidMethod (x, m) -> InvalidMethod (unbox x, m)
+        | InvalidJson x -> InvalidJson (unbox x)
 
 let (>>=) (x: option<DecodeResult<'a>>) (f: 'a -> option<DecodeResult<'b>>) : option<DecodeResult<'b>> =
     match x with
@@ -212,6 +224,16 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
         let fs = Reflection.FSharpType.GetRecordFields t
         writeTuple r [| for f in fs -> getS f.PropertyType |]
     elif Reflection.FSharpType.IsUnion(t, flags) then
+        if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<DecodeResult<_>> then
+            let s = getS (t.GetGenericArguments().[0])
+            let getAction =
+                t.GetProperty("Action",
+                    System.Reflection.BindingFlags.NonPublic ||| 
+                    System.Reflection.BindingFlags.Instance
+                ).GetGetMethod(true)
+            fun w x ->
+                s w (getAction.Invoke(x, [||]))
+        else
         let tR = Reflection.FSharpValue.PreComputeUnionTagReader(t, flags)
         let cs = Reflection.FSharpType.GetUnionCases(t, flags)
         let uR x = Reflection.FSharpValue.PreComputeUnionReader(x, flags)
@@ -394,6 +416,20 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
         let fs = Reflection.FSharpType.GetRecordFields t
         parseTuple t c [| for f in fs -> getD f.PropertyType |]
     elif Reflection.FSharpType.IsUnion(t, flags) then
+        if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<DecodeResult<_>> then
+            let ti = t.GetGenericArguments().[0]
+            let d = getD ti
+            let mkSuccess =
+                let unbox =
+                    typeof<DecodeResult>.GetMethod("unbox",
+                        System.Reflection.BindingFlags.NonPublic |||
+                        System.Reflection.BindingFlags.Static
+                    ).MakeGenericMethod(ti)
+                fun x -> DecodeResult<obj>.Success(unbox.Invoke(null, [| x |]))
+
+            D.Make d.ReadsJson <| fun p ->
+                d.Decode p |> Option.map mkSuccess
+        else
         let cs = Reflection.FSharpType.GetUnionCases(t, flags)
         let uC x = Reflection.FSharpValue.PreComputeUnionConstructor(x, flags)
         let d = Dictionary<string, Map<option<Http.Method>, int>>()
