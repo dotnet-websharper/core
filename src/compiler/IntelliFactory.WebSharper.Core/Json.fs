@@ -629,9 +629,17 @@ let decodeOptionalField dD (i: FormatSettings) (mi: System.Reflection.MemberInfo
         | Some v -> dec v
         | None -> raise DecoderException
 
+let opsModule =
+    typeof<Set<_>>.Assembly
+        .GetType("Microsoft.FSharp.Core.Operators")
+
 let setModule =
     typeof<Set<_>>.Assembly
         .GetType("Microsoft.FSharp.Collections.SetModule")
+
+let mapModule =
+    typeof<Set<_>>.Assembly
+        .GetType("Microsoft.FSharp.Collections.MapModule")
 
 let seqModule =
     typeof<Set<_>>.Assembly
@@ -640,6 +648,10 @@ let seqModule =
 let listModule =
     typeof<Set<_>>.Assembly
         .GetType("Microsoft.FSharp.Collections.ListModule")
+
+let thisModule =
+    typeof<FormatSettings>.Assembly
+        .GetType("IntelliFactory.WebSharper.Core.Json")
 
 let makeEmptySet (t: System.Type) =
     setModule
@@ -877,11 +889,29 @@ let btree node left right height count =
         "Count", EncodedNumber count  
     ]
 
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let unmakeMap<'T> (dV: obj -> Encoded) =
+    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
+    fun (x: obj) ->
+        EncodedObject [
+            for KeyValue(k, v) in unbox<Map<string, 'T>> x ->
+                k, dV (box v)
+        ]
+
 let mapEncoder dE (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 2 then raise EncoderException
     let dK = dE tg.[0]
     let dV = dE tg.[1]
+    if i.FlattenCollections && tg.[0] = typeof<string> then
+        let x = unmakeMap dV // Prevents unmakeMap from being dead-code-eliminated
+        FastInvoke.Compile(
+            thisModule.GetMethod("unmakeMap",
+                flags ||| System.Reflection.BindingFlags.Static
+            ).MakeGenericMethod(tg.[1])
+        ).Invoke1(dV)
+        :?> (obj -> Encoded)
+    else
     let treeF = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
     let pair key value =
         EncodedObject [
@@ -912,11 +942,33 @@ let mapEncoder dE (i: FormatSettings) (t: System.Type) =
         let tr = fst (encNode (treeF.GetValue x))
         EncodedObject [ "tree", tr ] |> i.AddTag t
 
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let makeMap<'T> (dV: Value -> obj) =
+    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
+    fun (vs: list<string * Value>) ->
+        Map.ofList<string, 'T>(
+            vs |> List.map (fun (k, v) -> k, unbox (dV v))
+        )
+        |> box
+
 let mapDecoder dD (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 2 then raise DecoderException
     let dK = dD tg.[0]
     let dV = dD tg.[1]
+    if i.FlattenCollections && tg.[0] = typeof<string> then
+        let x = makeMap dV // Prevents makeMap from being dead-code-eliminated
+        let f =
+            FastInvoke.Compile(
+                thisModule.GetMethod("makeMap",
+                    flags ||| System.Reflection.BindingFlags.Static
+                ).MakeGenericMethod(tg.[1])
+            ).Invoke1(dV)
+            :?> (list<string * Value> -> obj)
+        function
+        | Object vs -> f vs
+        | _ -> raise DecoderException
+    else
     let tt = typedefof<System.Tuple<_,_>>.MakeGenericType(tg.[0], tg.[1])
     let cT = FSV.PreComputeTupleConstructor(tt)
     fun (x: Value) ->
