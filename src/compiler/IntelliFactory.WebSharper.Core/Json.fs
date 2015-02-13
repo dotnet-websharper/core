@@ -376,6 +376,7 @@ type FormatSettings =
         Pack : Encoded -> Value
         EncodeDateTime : System.DateTime -> Encoded
         DecodeDateTime : Value -> option<System.DateTime>
+        FlattenCollections : bool
     }
 
 type Serializer =
@@ -879,10 +880,32 @@ let mapDecoder dD (i: FormatSettings) (t: System.Type) =
             System.Activator.CreateInstance(t, tEls)
         | _ -> raise DecoderException
 
+let setModule =
+    typeof<Set<_>>.Assembly
+        .GetType("Microsoft.FSharp.Collections.SetModule")
+
+let seqModule =
+    typeof<Set<_>>.Assembly
+        .GetType("Microsoft.FSharp.Collections.SeqModule")
+
+let makeEmptySetOf (t: System.Type) =
+    setModule
+        .GetMethod("Empty")
+        .MakeGenericMethod(t.GetGenericArguments())
+        .Invoke(null, [||])
+
 let setEncoder dE (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 1 then raise EncoderException
     let dI = dE tg.[0]
+    if i.FlattenCollections then
+        let toSeq =
+            FastInvoke.Compile(
+                setModule.GetMethod("ToSeq").MakeGenericMethod(tg)
+            ).Invoke1
+        fun (x: obj) ->
+            EncodedArray [for e in Seq.cast<obj> (toSeq x :?> _) -> dI e]
+    else
     let treeF = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
     let tR = FSV.PreComputeUnionTagReader(treeF.FieldType, flags)
     let uR =
@@ -913,7 +936,20 @@ let setDecoder dD (i: FormatSettings) (t: System.Type) =
     if tg.Length <> 1 then raise EncoderException
     let ti = tg.[0]
     let dI = dD ti
-    fun (x: Value) ->
+    let empty = makeEmptySetOf t
+    let ofSeq =
+        FastInvoke.Compile(
+            setModule.GetMethod("OfSeq").MakeGenericMethod(tg)
+        ).Invoke1
+    let seqCast =
+        FastInvoke.Compile(
+            seqModule.GetMethod("Cast").MakeGenericMethod(tg)
+        ).Invoke1
+    if i.FlattenCollections then
+        function
+        | Array vs -> ofSeq (seqCast (Seq.map dI vs))
+        | _ -> raise DecoderException
+    else fun (x: Value) ->
         let rec walk fields =
             seq {
                 for f in fields do
@@ -925,12 +961,9 @@ let setDecoder dD (i: FormatSettings) (t: System.Type) =
                     | _ -> ()
             }
         match x with
-        | Null -> System.Activator.CreateInstance(t)
+        | Null -> empty
         | Object [ "tree", Object tr ] ->
-            let els = walk tr |> Array.ofSeq
-            let tEls = System.Array.CreateInstance(ti, els.Length)
-            System.Array.Copy(els, tEls, els.Length)
-            System.Activator.CreateInstance(t, tEls)
+            ofSeq (seqCast (walk tr))
         | _ -> raise DecoderException
 
 let enumEncoder dE (i: FormatSettings) (t: System.Type) =
@@ -1106,6 +1139,7 @@ module TypedProviderInternals =
                     | true, x -> Some (epoch + System.TimeSpan.FromMilliseconds x)
                     | _ -> None
                 | _ -> None
+            FlattenCollections = false
             Pack = pack
         }
 
@@ -1175,6 +1209,7 @@ module PlainProviderInternals =
                     | true, x -> Some x
                     | false, _ -> None
                 | _ -> None
+            FlattenCollections = true
             Pack = flatten
         }
 
@@ -1222,12 +1257,7 @@ type Provider(fo: FormatSettings) =
                         .Invoke(null, [||])
                 fun _ -> x)
             (fun dD i t ->
-                let x =
-                    typedefof<Set<_>>.Assembly
-                        .GetType("Microsoft.FSharp.Collections.SetModule")
-                        .GetMethod("Empty")
-                        .MakeGenericMethod(t.GetGenericArguments())
-                        .Invoke(null, [||])
+                let x = makeEmptySetOf t
                 fun _ -> x)
             (fun _ _ _ _ -> null)
             fo
