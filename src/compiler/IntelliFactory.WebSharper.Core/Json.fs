@@ -583,91 +583,53 @@ let isNullableUnion (i: FormatSettings) (mt: System.Type) =
         let flags = cad.ConstructorArguments.[0].Value :?> CompilationRepresentationFlags
         flags &&& CompilationRepresentationFlags.UseNullAsTrueValue <> enum 0))
 
+/// Get the MethodInfo corresponding to a let-bound function or value,
+/// parameterized with the given types.
+let genLetMethod (e: Expr, ts: System.Type[]) =
+    match e with
+    | Lambda(_, Lambda(_, Call(None, m, [_;_]))) // function
+    | Call(None, m, []) -> // value
+        FastInvoke.Compile(m.GetGenericMethodDefinition().MakeGenericMethod(ts))
+    | _ -> failwithf "Json.genLetMethod: invalid expr passed: %A" e
+
+let callGeneric (func: Expr<'f -> 'i -> 'o>) (dD: System.Type -> 'f) (targ: System.Type) : 'i -> 'o =
+    let m = genLetMethod(func, [|targ|])
+    let dI = dD targ
+    fun x -> unbox<'o> (m.Invoke2(dI, x))
+
+let unmakeOption<'T> (dV: obj -> Encoded) (x: obj) =
+    x |> unbox<option<'T>> |> Option.map (box >> dV)
+
 let encodeOptionalField dE (i: FormatSettings) (mi: System.Reflection.MemberInfo) (mt: System.Type) : obj -> option<Encoded> =
     if isOptionalField i mi mt then
-        let vt = mt.GetGenericArguments().[0]
-        let enc = dE vt
-        let ucis = FST.GetUnionCases(mt, flags)
-        let getTag = FSV.PreComputeUnionTagReader(mt, flags)
-        let getSome = FSV.PreComputeUnionReader(ucis.[1], flags)
-        fun x ->
-            if getTag x = 0 then
-                None
-            else
-                Some (enc (getSome x).[0])
+        mt.GetGenericArguments().[0]
+        |> callGeneric <@ unmakeOption @> dE
     elif isNullableUnion i mt then
         let enc = dE mt
-        let getTag = FSV.PreComputeUnionTagReader(mt, flags)
-        fun x ->
-            if getTag x = 0 then
-                None
-            else
-                Some (enc x)
+        function
+        | null -> None
+        | x -> Some (enc x)
     else
         let enc = dE mt
         fun x -> Some (enc x)
 
+let makeOption<'T> (dV: Value -> obj) (v: option<Value>) =
+    v |> Option.map (dV >> unbox<'T>) |> box
+
 let decodeOptionalField dD (i: FormatSettings) (mi: System.Reflection.MemberInfo) (mt: System.Type) : option<Value> -> obj =
     if isOptionalField i mi mt then
-        let vt = mt.GetGenericArguments().[0]
-        let dec = dD vt
-        let ucis = FST.GetUnionCases(mt, flags)
-        let none = FSV.PreComputeUnionConstructor(ucis.[0], flags) [||]
-        let some = FSV.PreComputeUnionConstructor(ucis.[1], flags)
-        fun x ->
-            match x with
-            | None -> none
-            | Some v -> some [| dec v |]
+        mt.GetGenericArguments().[0]
+        |> callGeneric <@ makeOption @> dD
     elif isNullableUnion i mt then
         let dec = dD mt
-        let ucis = FST.GetUnionCases(mt, flags)
-        let none = FSV.PreComputeUnionConstructor(ucis.[0], flags) [||]
         function
         | Some v -> dec v
-        | None -> none
+        | None -> null
     else
         let dec = dD mt
         function
         | Some v -> dec v
         | None -> raise DecoderException
-
-let opsModule =
-    typeof<Set<_>>.Assembly
-        .GetType("Microsoft.FSharp.Core.Operators")
-
-let seqModule =
-    typeof<Set<_>>.Assembly
-        .GetType("Microsoft.FSharp.Collections.SeqModule")
-
-let listModule =
-    typeof<Set<_>>.Assembly
-        .GetType("Microsoft.FSharp.Collections.ListModule")
-
-let thisModule =
-    typeof<FormatSettings>.Assembly
-        .GetType("IntelliFactory.WebSharper.Core.Json")
-
-let makeEmptySet (t: System.Type) =
-    typeof<Set<_>>.Assembly
-        .GetType("Microsoft.FSharp.Collections.SetModule")
-        .GetMethod("Empty")
-        .MakeGenericMethod(t.GetGenericArguments())
-        .Invoke(null, [||])
-
-let makeEmptyList (t: System.Type) =
-    listModule
-        .GetMethod("Empty")
-        .MakeGenericMethod(t.GetGenericArguments())
-        .Invoke(null, [||])
-
-let callGeneric (func: Expr<'f -> 'i -> 'o>) (dD: System.Type -> 'f) (targ: System.Type) : 'i -> 'o =
-    let meth =
-        match func with
-        | Lambda(_, Lambda(_, Call(None, m, [_;_]))) -> m
-        | _ -> failwithf "Json.callGeneric: invalid expr passed: %A" func
-    let m = FastInvoke.Compile(meth.GetGenericMethodDefinition().MakeGenericMethod(targ)).Invoke2
-    let dI = dD targ
-    fun x -> unbox<'o> (m (dI, x))
 
 let unmakeList<'T> (dV: obj -> Encoded) (x: obj) =
     EncodedArray [
@@ -930,7 +892,7 @@ let mapEncoder dE (i: FormatSettings) (t: System.Type) =
 let makeMap<'T> (dV: Value -> obj) = function
     | Object vs ->
         Map.ofList<string, 'T>(
-            vs |> List.map (fun (k, v) -> k, unbox (dV v))
+            vs |> List.map (fun (k, v) -> k, unbox<'T> (dV v))
         )
         |> box
     | _ -> raise DecoderException
@@ -1002,7 +964,7 @@ let setEncoder dE (i: FormatSettings) (t: System.Type) =
 
 let makeSet<'T when 'T : comparison> (dV: Value -> obj) = function
     | Array vs ->
-        Set.ofList<'T>(vs |> List.map (unbox << dV))
+        Set.ofList<'T>(vs |> List.map (unbox<'T> << dV))
         |> box
     | _ -> raise DecoderException
 
@@ -1285,13 +1247,8 @@ type Provider(fo: FormatSettings) =
     let decoders = Dictionary()
     let encoders = Dictionary()
 
-    let defaultof =
-        typeof<option<_>>.Assembly
-            .GetType("Microsoft.FSharp.Core.Operators")
-            .GetNestedType("Unchecked")
-            .GetMethod("DefaultOf")
     let defaultof (t: System.Type) =
-        defaultof.MakeGenericMethod(t).Invoke(null, [||])
+        genLetMethod(<@ Unchecked.defaultof<_> @>, [|t|]).Invoke0()
 
     let getDefaultBuilder =
         getEncoding
@@ -1316,15 +1273,10 @@ type Provider(fo: FormatSettings) =
                 let x = defaultof t
                 fun _ -> x)
             (fun dD i t ->
-                let x =
-                    typedefof<Map<_,_>>.Assembly
-                        .GetType("Microsoft.FSharp.Collections.MapModule")
-                        .GetMethod("Empty")
-                        .MakeGenericMethod(t.GetGenericArguments())
-                        .Invoke(null, [||])
+                let x = genLetMethod(<@ Map.empty @>, t.GetGenericArguments()).Invoke0()
                 fun _ -> x)
             (fun dD i t ->
-                let x = makeEmptySet t
+                let x = genLetMethod(<@ Set.empty @>, t.GetGenericArguments()).Invoke0()
                 fun _ -> x)
             (fun _ _ _ _ -> null)
             fo
