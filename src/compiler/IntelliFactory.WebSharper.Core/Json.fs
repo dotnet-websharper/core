@@ -20,7 +20,9 @@
 
 module IntelliFactory.WebSharper.Core.Json
 
-open System.Runtime.CompilerServices
+open Microsoft.FSharp.Quotations
+open Microsoft.FSharp.Quotations.Patterns
+
 module A = IntelliFactory.WebSharper.Core.Attributes
 module P = IntelliFactory.JavaScript.Packager
 module R = IntelliFactory.WebSharper.Core.Reflection
@@ -658,32 +660,28 @@ let makeEmptyList (t: System.Type) =
         .MakeGenericMethod(t.GetGenericArguments())
         .Invoke(null, [||])
 
-let callGeneric (actualFunction: 'f -> 'g) (name: string) (targ: System.Type) (dD: System.Type -> 'f) =
-    // actualFunction is not used but it must be passed
-    // to check the types and avoid being dead-code-eliminated.
-    FastInvoke.Compile(
-        thisModule.GetMethod(name,
-            flags ||| System.Reflection.BindingFlags.Static
-        ).MakeGenericMethod(targ)
-    ).Invoke1(dD targ)
-    :?> 'g
+let callGeneric (func: Expr<'f -> 'i -> 'o>) (dD: System.Type -> 'f) (targ: System.Type) : 'i -> 'o =
+    let meth =
+        match func with
+        | Lambda(_, Lambda(_, Call(None, m, [_;_]))) -> m
+        | _ -> failwithf "Json.callGeneric: invalid expr passed: %A" func
+    let m = FastInvoke.Compile(meth.GetGenericMethodDefinition().MakeGenericMethod(targ)).Invoke2
+    let dI = dD targ
+    fun x -> unbox<'o> (m (dI, x))
 
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let unmakeList<'T> (dV: obj -> Encoded) =
-    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
-    fun (x: obj) ->
-        EncodedArray [
-            for v in unbox<list<'T>> x ->
-                dV (box v)
-        ]
+let unmakeList<'T> (dV: obj -> Encoded) (x: obj) =
+    EncodedArray [
+        for v in unbox<list<'T>> x ->
+            dV (box v)
+    ]
 
 let unionEncoder dE (i: FormatSettings) (t: System.Type) =
     if i.FlattenCollections &&
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<list<_>>
     then
-        let tI = t.GetGenericArguments().[0]
-        callGeneric unmakeList "unmakeList" tI dE
+        t.GetGenericArguments().[0]
+        |> callGeneric <@ unmakeList @> dE
     else
     let tR = FSV.PreComputeUnionTagReader(t, flags)
     let cs =
@@ -718,10 +716,7 @@ let unionEncoder dE (i: FormatSettings) (t: System.Type) =
         | x ->
             raise EncoderException
 
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let makeList<'T> (dV: Value -> obj) =
-    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
-    function
+let makeList<'T> (dV: Value -> obj) = function
     | Array vs -> vs |> List.map (unbox<'T> << dV) |> box
     | _ -> raise DecoderException
 
@@ -730,8 +725,8 @@ let unionDecoder dD (i: FormatSettings) (t: System.Type) =
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<list<_>>
     then
-        let tI = t.GetGenericArguments().[0]
-        callGeneric makeList "makeList" tI dD
+        t.GetGenericArguments().[0]
+        |> callGeneric <@ makeList @> dD
     else
     let cs =
         FST.GetUnionCases(t, flags)
@@ -888,20 +883,17 @@ let btree node left right height count =
         "Count", EncodedNumber count  
     ]
 
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let unmakeMap<'T> (dV: obj -> Encoded) =
-    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
-    fun (x: obj) ->
-        EncodedObject [
-            for KeyValue(k, v) in unbox<Map<string, 'T>> x ->
-                k, dV (box v)
-        ]
+let unmakeMap<'T> (dV: obj -> Encoded)  (x: obj) =
+    EncodedObject [
+        for KeyValue(k, v) in unbox<Map<string, 'T>> x ->
+            k, dV (box v)
+    ]
 
 let mapEncoder dE (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 2 then raise EncoderException
     if i.FlattenCollections && tg.[0] = typeof<string> then
-        callGeneric unmakeMap "unmakeMap" tg.[1] dE
+        callGeneric <@ unmakeMap @> dE tg.[1]
     else
     let treeF = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
     let pair key value =
@@ -935,10 +927,7 @@ let mapEncoder dE (i: FormatSettings) (t: System.Type) =
         let tr = fst (encNode (treeF.GetValue x))
         EncodedObject [ "tree", tr ] |> i.AddTag t
 
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let makeMap<'T> (dV: Value -> obj) =
-    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
-    function
+let makeMap<'T> (dV: Value -> obj) = function
     | Object vs ->
         Map.ofList<string, 'T>(
             vs |> List.map (fun (k, v) -> k, unbox (dV v))
@@ -950,7 +939,7 @@ let mapDecoder dD (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 2 then raise DecoderException
     if i.FlattenCollections && tg.[0] = typeof<string> then
-        callGeneric makeMap "makeMap" tg.[1] dD
+        callGeneric <@ makeMap @> dD tg.[1]
     else
     let dK = dD tg.[0]
     let dV = dD tg.[1]
@@ -976,17 +965,14 @@ let mapDecoder dD (i: FormatSettings) (t: System.Type) =
             System.Activator.CreateInstance(t, tEls)
         | _ -> raise DecoderException
 
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let unmakeSet<'T when 'T : comparison> (dV: obj -> Encoded) =
-    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
-    fun (x: obj) ->
-        EncodedArray [for v in unbox<Set<'T>> x -> dV v]
+let unmakeSet<'T when 'T : comparison> (dV: obj -> Encoded) (x: obj) =
+    EncodedArray [for v in unbox<Set<'T>> x -> dV v]
 
 let setEncoder dE (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 1 then raise EncoderException
     if i.FlattenCollections then
-        callGeneric unmakeSet "unmakeSet" tg.[0] dE
+        callGeneric <@ unmakeSet @> dE tg.[0]
     else
     let dI = dE tg.[0]
     let treeF = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
@@ -1014,30 +1000,24 @@ let setEncoder dE (i: FormatSettings) (t: System.Type) =
         let tr = fst (encNode (treeF.GetValue x))
         EncodedObject [ "tree", tr ] |> i.AddTag t
 
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let makeSet<'T when 'T : comparison> (dV: Value -> obj) =
-    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
-    function
+let makeSet<'T when 'T : comparison> (dV: Value -> obj) = function
     | Array vs ->
         Set.ofList<'T>(vs |> List.map (unbox << dV))
         |> box
     | _ -> raise DecoderException
 
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let makeSet'<'T when 'T : comparison> (dV: Value -> obj) =
-    let dV x = dV x // Force the method to return an FSharpFunc instead of taking 2 args
-    fun (xs: seq<obj>) ->
-        Set.ofSeq (Seq.cast<'T> xs)
-        |> box
+let makeSet'<'T when 'T : comparison> (dV: Value -> obj) (xs: seq<obj>) =
+    Set.ofSeq (Seq.cast<'T> xs)
+    |> box
 
 let setDecoder dD (i: FormatSettings) (t: System.Type) =
     let tg = t.GetGenericArguments()
     if tg.Length <> 1 then raise EncoderException
     if i.FlattenCollections then
-        callGeneric makeSet "makeSet" tg.[0] dD
+        callGeneric <@ makeSet @> dD tg.[0]
     else
     let dI = dD tg.[0]
-    let mk = callGeneric makeSet' "makeSet'" tg.[0] dD
+    let mk = callGeneric <@ makeSet' @> dD tg.[0]
     let rec walk fields =
         seq {
             for f in fields do
