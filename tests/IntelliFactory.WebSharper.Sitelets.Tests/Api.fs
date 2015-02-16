@@ -48,7 +48,13 @@ module Api =
             [<Name "lastName">]     LastName    : string
             [<Name "born">]         Born        : DateTime
             [<Name "died">]         Died        : DateTime option
+            [<Name "links">]        Links       : Set<Link>
         }
+
+    and [<NamedUnionCases>]
+        Link =
+        | Website of url: string
+        | Book of isbn: string
 
     let private peopleDatabase = Dictionary()
 
@@ -83,24 +89,28 @@ module Api =
                 LastName = "Church"
                 Born = DateTime(1903, 6, 14)
                 Died = Some(DateTime(1995, 8, 11))
+                Links = Set [Website "https://en.wikipedia.org/wiki/Alonzo_Church"; Book "9780691029061"]
             }
             "alan.turing", {
                 FirstName = "Alan"
                 LastName = "Turing"
                 Born = DateTime(1912, 6, 23)
                 Died = Some(DateTime(1954, 6, 7))
+                Links = Set [Website "https://en.wikipedia.org/wiki/Alan_Turing"; Book "3540200207"]
             }
             "bertrand.russell", {
                 FirstName = "Bertrand"
                 LastName = "Russell"
                 Born = DateTime(1872, 5, 18)
                 Died = Some(DateTime(1970, 2, 2))
+                Links = Set [Website "https://en.wikipedia.org/wiki/Bertrand_Russell"]
             }
             "noam.chomsky", {
                 FirstName = "Noam"
                 LastName = "Chomsky"
                 Born = DateTime(1928, 12, 7)
                 Died = None
+                Links = Set [Website "https://en.wikipedia.org/wiki/Noam_Chomsky"]
             }
         ]
         |> Seq.iter peopleDatabase.Add
