@@ -22,8 +22,52 @@ namespace IntelliFactory.WebSharper.Web
 
 open System
 open System.IO
+open System.Security.Principal
+open System.Web.Security
 open System.Web
 module R = IntelliFactory.WebSharper.Core.Remoting
+
+type AspNetFormsUserSession(ctx: HttpContext) =
+
+    let refresh (cookie: HttpCookie) =
+        match cookie with
+        | null -> ctx.User <- null
+        | cookie ->
+            let ticket = FormsAuthentication.Decrypt cookie.Value
+            let principal = GenericPrincipal(FormsIdentity(ticket), [||])
+            ctx.User <- principal
+
+    do refresh ctx.Request.Cookies.[FormsAuthentication.FormsCookieName]
+
+    interface IUserSession with
+
+        member this.IsAvailable = true
+
+        member this.GetLoggedInUser() =
+            async {
+                match ctx.User with
+                | null -> return None
+                | x ->
+                    if x.Identity.IsAuthenticated then
+                        return Some x.Identity.Name
+                    else return None
+            }
+
+        member this.LoginUser(user, ?persistent) =
+            async {
+                let cookie = FormsAuthentication.GetAuthCookie(user, defaultArg persistent false)
+                ctx.Response.SetCookie cookie
+                return refresh cookie
+            }
+
+        member this.Logout() =
+            async {
+                match ctx.Response.Cookies.[FormsAuthentication.FormsCookieName] with
+                | null -> return ()
+                | cookie ->
+                    cookie.Expires <- DateTime.Now.AddDays(-1.)
+                    return refresh null
+            }
 
 module private RpcUtil =
     let server = R.Server.Create None Shared.Metadata
@@ -60,6 +104,8 @@ type RpcHandler() =
         }
 
     let (beginPR, endPR, cancelPR) = Async.AsBeginEnd(work)
+
+    do Remoting.SetUserSession (fun () -> new AspNetFormsUserSession(HttpContext.Current) :> _)
 
     interface SessionState.IRequiresSessionState
 

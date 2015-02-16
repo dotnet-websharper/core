@@ -47,6 +47,9 @@ type Context<'Action> =
 
         /// The full path to the root application folder.
         RootFolder : string
+
+        /// Manage user login sessions.
+        UserSession : IntelliFactory.WebSharper.Web.IUserSession
     }
 
 module Context =

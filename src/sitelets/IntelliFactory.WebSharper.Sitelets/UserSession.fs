@@ -21,57 +21,30 @@
 namespace IntelliFactory.WebSharper.Sitelets
 
 open System
-open System.Collections.Generic
-open System.Configuration
-open System.Diagnostics
-open System.IO
-open System.Reflection
-open System.Web
 
+[<Obsolete "\
+    In Rpc functions, use IntelliFactory.WebSharper.Web.Remoting.GetUserSession(). \n\
+    In Sitelets, use context.UserSession.">]
 module UserSession =
-    open System
-    open System.Security.Principal
-    open System.Web.Security
-    open System.Web
-
-    /// Refreshes the user cookie.
-    let internal Refresh() =
-        match HttpContext.Current.Request.Cookies.[FormsAuthentication.FormsCookieName] with
-        | null -> HttpContext.Current.User <- null
-        | cookie ->
-            let ticket = FormsAuthentication.Decrypt cookie.Value
-            let principal = GenericPrincipal(FormsIdentity(ticket), [||])
-            HttpContext.Current.User <- principal
+    open IntelliFactory.WebSharper.Web
 
     /// Gets the currently logged in user.
+    /// Warning: Must be called from the same thread as the request.
     let GetLoggedInUser () =
-        let getUser () =
-            match HttpContext.Current.User with
-            | null ->
-                None
-            | x ->
-                if x.Identity.IsAuthenticated then
-                    x.Identity.Name
-                    |> Some
-                else
-                    None
-        match getUser () with
-        | Some user ->
-            Some user
-        | None      ->
-            // Refresh the cookie and try again
-            Refresh ()
-            getUser ()
+        Remoting.GetUserSession().GetLoggedInUser() |> Async.RunSynchronously
 
     /// Login user.
+    /// Warning: Must be called from the same thread as the request.
     let LoginUser (user: string) =
-        FormsAuthentication.SetAuthCookie(user, false)
+        Remoting.GetUserSession().LoginUser(user, false) |> Async.RunSynchronously
 
     /// Login user and persist the login across browser sessions.
+    /// Warning: Must be called from the same thread as the request.
     let LoginUserPersistent (user: string) =
-        FormsAuthentication.SetAuthCookie(user, true)
+        Remoting.GetUserSession().LoginUser(user, true) |> Async.RunSynchronously
 
     /// Logout current user.
+    /// Warning: Must be called from the same thread as the request.
     let Logout () =
-        FormsAuthentication.SignOut()
+        Remoting.GetUserSession().Logout() |> Async.RunSynchronously
 

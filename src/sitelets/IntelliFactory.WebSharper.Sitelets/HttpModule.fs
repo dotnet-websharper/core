@@ -29,6 +29,7 @@ open System.Reflection
 open System.Web
 open System.Web.Compilation
 open System.Web.Hosting
+open IntelliFactory.WebSharper.Web
 module R = IntelliFactory.WebSharper.Core.Remoting
 
 module internal SiteLoading =
@@ -110,8 +111,8 @@ module private WebUtils =
         }
 
     /// Constructs the sitelet context object.
-    let getContext (site: Sitelet<obj>) (req: HttpRequest) (request: Http.Request) : Context<obj> =
-        let appPath = req.ApplicationPath
+    let getContext (site: Sitelet<obj>) (ctx: HttpContext) (request: Http.Request) : Context<obj> =
+        let appPath = ctx.Request.ApplicationPath
         {
             ApplicationPath = appPath
             ResolveUrl = fun url ->
@@ -129,13 +130,14 @@ module private WebUtils =
             Metadata = ResourceContext.MetaData()
             ResourceContext = ResourceContext.ResourceContext appPath
             Request = request
-            RootFolder = HttpContext.Current.Server.MapPath("~")
+            RootFolder = ctx.Server.MapPath("~")
+            UserSession = new AspNetFormsUserSession(ctx)
         }
 
     /// Writes a response.
     let respond (site: Sitelet<obj>) (ctx: HttpContext) (req: Http.Request) (action: obj) =
         // Create a context
-        let context = getContext site ctx.Request req
+        let context = getContext site ctx req
         // Handle action
         async {
             let! response =

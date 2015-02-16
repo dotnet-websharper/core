@@ -78,26 +78,30 @@ module Sitelet =
         {
             Router = site.Router
             Controller =
-                {
-                    Handle = fun action ->
-                        let prot = filter
-
-                        let failure = Content.RedirectTemporary (prot.LoginRedirect action)
-
-                        try
-                          match UserSession.GetLoggedInUser () with
-                          | Some user ->
-                              if prot.VerifyUser user then
-                                  site.Controller.Handle action
-                              else
-                                  failure
-                          | None ->
-                               failure
-                        with :? NullReferenceException ->
-                          // If server crashes or is restarted and doesn't have a hardcoded machine
-                          // key then GetLoggedInUser() throws an exception. Log out in this case.
-                          UserSession.Logout()
-                          failure
+                { Handle = fun action ->
+                    let prot = filter
+                    let failure =
+                        Content.ToResponseAsync
+                        <| Content.RedirectTemporary (prot.LoginRedirect action)
+                    Content.CustomContentAsync <| fun ctx ->
+                        async {
+                            try
+                                let! loggedIn = ctx.UserSession.GetLoggedInUser ()
+                                match loggedIn with
+                                | Some user ->
+                                    if prot.VerifyUser user then
+                                        let content = site.Controller.Handle action
+                                        return! Content.ToResponseAsync content ctx
+                                    else
+                                        return! failure ctx
+                                | None ->
+                                    return! failure ctx
+                            with :? NullReferenceException ->
+                                // If server crashes or is restarted and doesn't have a hardcoded machine
+                                // key then GetLoggedInUser() throws an exception. Log out in this case.
+                                do! ctx.UserSession.Logout()
+                                return! failure ctx
+                        }
                 }
         }
 
