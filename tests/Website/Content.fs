@@ -37,6 +37,7 @@ let Menu (ctx: Context<_>) =
     [
         LI ["Home" => ctx.Link (Site Actions.Home)]
         LI ["Tests" => ctx.Link (Site Actions.Tests)]
+        LI ["Sitelets Tests" => ctx.Link (SiteletsTests SampleSite.Home)]
     ]
 
 let HomePage =
@@ -49,11 +50,6 @@ let HomePage =
 let TestsPage =
     Skin.WithTemplate "Tests" Menu <| fun ctx ->
         [
-            Div [
-                A [HRef (ctx.Link (SiteletsTests SampleSite.Home))] -< [
-                    Text "Go to Sitelets tests"
-                ]
-            ]
             Div [Id "qunit"]
             Div [Id "qunit-fixture"]
             Div [new Controls.Tests()]
@@ -67,5 +63,6 @@ let MainSite = function
 let Main =
     Sitelet.Sum [
         Sitelet.InferPartialInUnion <@ FullAction.Site @> MainSite
-        Sitelet.EmbedInUnion <@ FullAction.SiteletsTests @> SampleSite.EntireSite
+        Sitelet.Shift "sitelet-tests" <|
+            Sitelet.EmbedInUnion <@ FullAction.SiteletsTests @> SampleSite.EntireSite
     ]

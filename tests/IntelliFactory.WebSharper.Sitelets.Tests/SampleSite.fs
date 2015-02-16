@@ -70,7 +70,10 @@ module SampleSite =
 
         /// Widget for displaying login status or a link to login.
         let LoginInfo (ctx: Context<Action>) =
-            let user = UserSession.GetLoggedInUser ()
+            let user =
+                // try ... with is only necessary due to a bug:
+                // see https://github.com/intellifactory/websharper/issues/339
+                try UserSession.GetLoggedInUser () with _ -> None
             [
                 (
                     match user with
