@@ -69,17 +69,19 @@ module SampleSite =
 
         /// Widget for displaying login status or a link to login.
         let LoginInfo (ctx: Context<Action>) =
-            let user = UserSession.GetLoggedInUser ()
-            [
-                (
-                    match user with
-                    | Some email ->
-                        "Log Out (" + email + ")" =>
-                            (RandomizeUrl <| ctx.Link Action.Logout)
-                    | None ->
-                        "Login" => (ctx.Link <| Action.Login None)
-                )
-            ]
+            async {
+                let! user = ctx.UserSession.GetLoggedInUser ()
+                return [
+                    (
+                        match user with
+                        | Some email ->
+                            "Log Out (" + email + ")" =>
+                                (RandomizeUrl <| ctx.Link Action.Logout)
+                        | None ->
+                            "Login" => (ctx.Link <| Action.Login None)
+                    )
+                ]
+            }
 
     /// A template function that renders a page with a menu bar, based on the `Skin` template.
     let Template title main : Content<Action> =
@@ -95,18 +97,20 @@ module SampleSite =
             |> List.map (fun link ->
                 Label [Class "menu-item"] -< [link]
             )
-        Content.PageContent (fun ctx ->
-            let login = Widgets.LoginInfo ctx
-            let body =
-                Div [
-                    Div login
-                    Div (menu ctx)
-                    Div (main ctx)
-                ]
-            {
-                Page.Default with
-                    Title = Some title
-                    Body = [body]
+        Content.PageContentAsync (fun ctx ->
+            async {
+                let! login = Widgets.LoginInfo ctx
+                let body =
+                    Div [
+                        Div login
+                        Div (menu ctx)
+                        Div (main ctx)
+                    ]
+                return {
+                    Page.Default with
+                        Title = Some title
+                        Body = [body]
+                }
             })
 
     /// The pages of this website.
@@ -180,8 +184,11 @@ module SampleSite =
                     Pages.LoginPage action
                 | Action.Logout ->
                     // Logout user and redirect to home
-                    UserSession.Logout ()
-                    Content.Redirect Action.Home
+                    Content.CustomContentAsync <| fun ctx ->
+                        async {
+                            do! ctx.UserSession.Logout ()
+                            return! Content.ToResponseAsync (Content.Redirect Action.Home) ctx
+                        }
                 | Action.Home ->
                     Content.Redirect Action.Home
                 | Action.Protected ->

@@ -30,6 +30,7 @@ open System.Web
 open Mono.Cecil
 open IntelliFactory.Core
 open IntelliFactory.WebSharper.Sitelets
+open IntelliFactory.WebSharper.Web
 
 module C = IntelliFactory.WebSharper.Sitelets.Content
 module H = IntelliFactory.WebSharper.Compiler.HtmlCommand
@@ -311,6 +312,7 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
                 ResourceContext = resContext
                 Request = emptyRequest locationString
                 RootFolder = projectFolder
+                UserSession = IUserSession.NotAvailable
             }
         let path =
             let ext =
@@ -402,6 +404,7 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                     ResourceContext = rC.ResourceContext
                     Request = emptyRequest (P.ShowPath rC.Path)
                     RootFolder = projectFolder
+                    UserSession = IUserSession.NotAvailable
                 }
             let! response = rC.Respond context
             use stream = createFile conf rC.Path

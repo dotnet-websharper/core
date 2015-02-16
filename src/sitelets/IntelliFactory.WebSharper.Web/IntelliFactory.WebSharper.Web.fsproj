@@ -8,6 +8,7 @@
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
+    <Compile Include="UserSession.fs" />
     <Compile Include="Shared.fs" />
     <Compile Include="RpcModule.fs" />
     <Compile Include="ScriptManager.fs" />

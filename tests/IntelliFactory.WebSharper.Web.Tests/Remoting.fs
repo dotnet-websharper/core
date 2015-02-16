@@ -152,6 +152,29 @@ module Server =
     let f16 (r: OptionsRecord) =
         async.Return { x = r.y; y = r.x }
 
+    [<Remote>]
+    let LoginAs (username: string) =
+        let userSession = Web.Remoting.GetUserSession()
+        async {
+            do! userSession.LoginUser(username)
+            return! userSession.GetLoggedInUser()
+        }
+
+    [<Remote>]
+    let GetLoggedInUser () =
+        let userSession = Web.Remoting.GetUserSession()
+        async {
+            return! userSession.GetLoggedInUser()
+        }
+
+    [<Remote>]
+    let Logout () =
+        let userSession = Web.Remoting.GetUserSession()
+        async {
+            do! userSession.Logout()
+            return! userSession.GetLoggedInUser()
+        }
+
     [<JavaScript>]
     [<System.Serializable>]
     type BaseClass() =
@@ -383,6 +406,14 @@ module RemotingTestSuite =
 
             do test "Set<int> -> Set<int>"
             do! Server.add2ToSet (Set.ofArray [| 0; 1; 3; 4 |]) =? Set.ofArray [| 0 .. 4 |]
+
+            do test "LoginUser()"
+            do! Server.LoginAs("some_test_user") =? Some "some_test_user"
+            do! Server.GetLoggedInUser() =? Some "some_test_user"
+
+            do test "Logout()"
+            do! Server.Logout() =? None
+            do! Server.GetLoggedInUser() =? None
 
             do test "M1"
             do Remote<Server.IHandler>.M1()

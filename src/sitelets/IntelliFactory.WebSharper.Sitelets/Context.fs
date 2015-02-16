@@ -30,6 +30,7 @@ type Context<'Action> =
         ResourceContext : IntelliFactory.WebSharper.Core.Resources.Context
         Request : Http.Request
         RootFolder : string
+        UserSession : IntelliFactory.WebSharper.Web.IUserSession
     }
 
 module Context =
@@ -44,4 +45,5 @@ module Context =
             ResourceContext = ctx.ResourceContext
             Request = ctx.Request
             RootFolder = ctx.RootFolder
+            UserSession = ctx.UserSession
         }
