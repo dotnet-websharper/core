@@ -774,12 +774,25 @@ let getObjectFields (t: System.Type) =
         f.DeclaringType.IsSerializable && int nS = 0)
     |> Seq.toArray
 
+let unmakeDictionary<'T> (dE: obj -> Encoded) (x: obj) =
+    EncodedObject [
+        for KeyValue(k, v) in unbox<Dictionary<string, 'T>> x ->
+            k, dE (box v)
+    ]
+
 let objectEncoder dE (i: FormatSettings) (t: System.Type) =
     if t = typeof<System.DateTime> then
         fun (x: obj) ->
             match x with
             | :? System.DateTime as t -> i.EncodeDateTime t
             | _ -> raise EncoderException
+    elif i.FlattenCollections &&
+        t.IsGenericType &&
+        t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> &&
+        t.GetGenericArguments().[0] = typeof<string>
+    then
+        t.GetGenericArguments().[1]
+        |> callGeneric <@ unmakeDictionary @> dE
     elif not t.IsSerializable then
         raise (NoEncodingException t)
     else
@@ -804,12 +817,26 @@ let objectEncoder dE (i: FormatSettings) (t: System.Type) =
         | _ ->
             raise EncoderException
 
+let makeDictionary<'T> (dD: Value -> obj) = function
+    | Object vs ->
+        let d = Dictionary<string, 'T>()
+        for k, v in vs do d.Add(k, unbox<'T>(dD v))
+        box d
+    | _ -> raise DecoderException
+
 let objectDecoder dD (i: FormatSettings) (t: System.Type) =
     if t = typeof<System.DateTime> then
         fun (x: Value) ->
             match i.DecodeDateTime x with
             | Some d -> box d
             | None -> raise DecoderException
+    elif i.FlattenCollections &&
+        t.IsGenericType &&
+        t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> &&
+        t.GetGenericArguments().[0] = typeof<string>
+    then
+        t.GetGenericArguments().[1]
+        |> callGeneric <@ makeDictionary @> dD
     elif not t.IsSerializable then
         raise (NoEncodingException t)
     else
