@@ -1109,6 +1109,46 @@ let defaultGetUnionTag t =
             | _ -> None
         | _ -> None
 
+let inferUnionTag t =
+    let cases =
+        FST.GetUnionCases(t, flags)
+        |> Array.map (fun c ->
+            let fields =
+                c.GetFields()
+                |> Array.filter (fun f ->
+                    let t = f.PropertyType
+                    not (t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>>))
+                |> Array.map (fun f -> f.Name)
+            c.Tag, Set fields
+        )
+        |> Map.ofArray
+    let findDistinguishingCase (cases: Map<int, Set<string>>) =
+        cases
+        |> Map.tryPick (fun t fs ->
+            let allOtherFields =
+                cases
+                |> Seq.choose (fun (KeyValue(t', fs)) ->
+                    if t = t' then None else Some fs)
+                |> Set.unionMany
+            let uniqueCases = fs - allOtherFields
+            if Set.isEmpty uniqueCases then
+                None
+            else Some (Seq.head uniqueCases, t)
+        )
+    let rec buildTable acc cases =
+        if Map.isEmpty cases then acc else
+        match findDistinguishingCase cases with
+        | None -> raise (NoDecoderException t)
+        | Some (name, tag) ->
+            buildTable
+                <| (name, tag) :: acc
+                <| Map.remove tag cases
+    let findInTable table get =
+        table |> List.tryPick (fun (name, tag) ->
+            get name |> Option.map (fun _ -> tag))
+    findInTable (buildTable [] cases)
+        
+
 let defaultEncodeUnionTag _ (tag: int) =
     Some ("$", EncodedNumber (string tag))
 
@@ -1116,7 +1156,9 @@ let getDiscriminatorName (t: System.Type) =
     t.GetCustomAttributesData()
     |> Seq.tryPick (fun cad ->
         if cad.Constructor.DeclaringType = typeof<A.NamedUnionCasesAttribute> then
-            Some (cad.ConstructorArguments.[0].Value :?> string)
+            if cad.ConstructorArguments.Count = 1 then
+                Some (Some (cad.ConstructorArguments.[0].Value :?> string))
+            else Some None
         else None)
 
 let getNameAttr (m: System.Reflection.MemberInfo) =
@@ -1237,7 +1279,8 @@ module PlainProviderInternals =
             GetUnionTag = fun t ->
                 match getDiscriminatorName t with
                 | None -> defaultGetUnionTag t
-                | Some n ->
+                | Some None -> inferUnionTag t
+                | Some (Some n) ->
                     let names =
                         Map [
                             for c in FST.GetUnionCases(t, flags) ->
@@ -1248,7 +1291,8 @@ module PlainProviderInternals =
             EncodeUnionTag = fun t ->
                 match getDiscriminatorName t with
                 | None -> defaultEncodeUnionTag t
-                | Some n ->
+                | Some None -> fun _ -> None
+                | Some (Some n) ->
                     let tags =
                         [|
                             for c in FST.GetUnionCases(t, flags) ->
