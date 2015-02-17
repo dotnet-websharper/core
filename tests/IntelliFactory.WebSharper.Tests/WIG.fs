@@ -33,6 +33,11 @@ let Tests =
     Section "Interface generator"
 
     Test "Functions" {
+        let doNotRun() = 
+            let g = WIGtestGeneric<int, string>()
+            g.NonGenericMethod(1, "")
+            g.GenericMethod<bool, obj>(1, "", true, obj())
+
         WIGtest.ArgsFuncIn(fun (a, b) -> a + b) =? 3    
         WIGtest.ArgsFuncIn2(fun (a, b) -> a + b) =? 3    
         WIGtest.ArgsFuncOut()(1, 2) =? 3

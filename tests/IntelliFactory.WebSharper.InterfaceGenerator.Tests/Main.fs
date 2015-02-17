@@ -66,11 +66,11 @@ module Definition =
         ]
 
     let WIGtestGeneric =
-        Generic - fun a b ->
+        Generic + [ "T"; "U" ] - fun a b ->
             Class "WIGtestGeneric"
             |+> Instance [
                 "NonGenericMethod" => a * b ^-> O
-                Generic - fun c d -> "GenericMethod" => a * b * c * d ^-> O
+                Generic + [ "T"; "U" ] - fun c d -> "GenericMethod" => a * b * c * d ^-> O
                 Constructor O
             ]
 

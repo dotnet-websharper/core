@@ -37,7 +37,7 @@ module Type =
         | ArrayType of int * Type
         | DeclaredType of Id
         | FunctionType of Function
-        | GenericType of int
+        | GenericType of Id
         | SpecializedType of Type * list<Type>
         | SystemType of R.Type
         | TupleType of list<Type>

@@ -102,11 +102,7 @@ module Definition =
         |+> CallbackMethod "every" T<bool> T<bool>
         |+> CallbackMethod "some" T<bool> T<bool>
         |+> CallbackMethod "forEach" T<bool> T<bool>
-        |+> //Generic - fun b -> CallbackMethod "map" b !|b
-            Instance [
-                Generic - fun b -> "map" => (a * T<int> * Arr ^-> b)?callback ^-> !|b
-                Generic - fun b t -> "map" => (t -* a * T<int> * Arr ^-> b)?callback * t?thisArg ^-> !|b
-            ]     
+        |+> Generic - fun b -> CallbackMethod "map" b !|b
         |+> CallbackMethod "filter" T<bool> !|a
         |+> Static [
                 Constructor (T<int>)
