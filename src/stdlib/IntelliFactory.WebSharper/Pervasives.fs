@@ -79,6 +79,11 @@ type StubAttribute = A.StubAttribute
 /// is converted to None, otherwise Some fieldValue.
 type OptionalFieldAttribute = A.OptionalFieldAttribute
 
+/// Declares that when de/serializing this union type for external use, its cases
+/// must be tagged by their CompiledName rather than an integer.
+/// `discriminatorName` is the name of the field in which this tag is stored.
+type NamedUnionCasesAttribute = A.NamedUnionCasesAttribute
+
 /// Re-exports Remoting.IRpcHandlerFactory.
 type IRpcHandlerFactory =
     IntelliFactory.WebSharper.Core.Remoting.IHandlerFactory

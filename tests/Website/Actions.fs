@@ -22,6 +22,6 @@
 module Website.Actions
 
 type Action =
-    | Home
-    | Tests
+    | [<CompiledName "">] Home
+    | [<CompiledName "tests">] Tests
 

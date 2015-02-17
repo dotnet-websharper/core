@@ -123,5 +123,8 @@ type Provider =
     /// Derives an encoder for a given type.
     member GetEncoder<'T> : unit -> Encoder<'T>
 
+    member BuildDefaultValue : System.Type -> obj
+    member BuildDefaultValue<'T> : unit -> 'T
+
     /// Packs an encoded value to JSON.
     member Pack : Encoded -> Value

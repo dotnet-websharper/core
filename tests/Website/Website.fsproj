@@ -63,6 +63,11 @@
       <Project>{bb4817e7-12a1-4622-b8ce-29cb3c406851}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\IntelliFactory.WebSharper.Sitelets.Tests\IntelliFactory.WebSharper.Sitelets.Tests.fsproj">
+      <Name>IntelliFactory.WebSharper.Sitelets.Tests</Name>
+      <Project>{bba692b3-ab48-4f2e-8a33-260b0dd09a9b}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\IntelliFactory.WebSharper.Tests\IntelliFactory.WebSharper.Tests.fsproj">
       <Name>IntelliFactory.WebSharper.Tests</Name>
       <Project>{87d32671-869d-4f33-9f24-380a4070b2dc}</Project>

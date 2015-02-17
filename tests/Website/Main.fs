@@ -25,9 +25,9 @@ open IntelliFactory.WebSharper.Sitelets
 
 [<Sealed>]
 type WebsiteEntryPoint() =
-    interface IWebsite<Actions.Action> with
+    interface IWebsite<Content.FullAction> with
         member this.Sitelet = Content.Main
-        member this.Actions = [Actions.Home; Actions.Tests]
+        member this.Actions = [Content.Site Actions.Home; Content.Site Actions.Tests]
 
 [<assembly: Website(typeof<WebsiteEntryPoint>)>]
 do ()

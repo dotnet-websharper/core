@@ -42,6 +42,30 @@ module Http =
         | Trace
         | Custom of string
 
+        override this.ToString() =
+            match this with
+            | Get -> "GET"
+            | Post -> "POST"
+            | Connect -> "CONNECT"
+            | Delete -> "DELETE"
+            | Head -> "HEAD"
+            | Options -> "OPTIONS"
+            | Put -> "PUT"
+            | Trace -> "TRACE"
+            | Custom s -> s
+
+        static member OfString (s: string) =
+            match s with
+            | "GET" -> Get
+            | "POST" -> Post
+            | "CONNECT" -> Connect
+            | "DELETE" -> Delete
+            | "HEAD" -> Head
+            | "OPTIONS" -> Options
+            | "PUT" -> Put
+            | "TRACE" -> Trace
+            | s -> Custom s
+
     /// Represents the HTTP version for responses and requests.
     type Version =
         private {
@@ -142,6 +166,7 @@ module Http =
         let notFound = def 404 "Not Found"
         let ok = def 200 "Ok"
         let unauthorized = def 401 "Unauthorized"
+        let methodNotAllowed = def 405 "Method Not Allowed"
 
     type Status with
 
@@ -162,6 +187,9 @@ module Http =
 
         /// 401 Unauthorized.
         static member Unauthorized = unauthorized
+
+        /// 405 Method Not Allowed.
+        static member MethodNotAllowed = methodNotAllowed
 
         /// Custom status with an integer code and optional message.
         static member Custom n s =

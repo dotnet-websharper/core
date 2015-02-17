@@ -126,3 +126,19 @@ type RemotingProviderAttribute(provider: System.Type) =
 [<Sealed; U(T.Class|||T.Property|||T.Field)>]
 type OptionalFieldAttribute() =
     inherit A()
+
+/// Declares that when de/serializing this union type for external use
+/// (eg. when parsing a [<Json>] sitelet action or writing a Sitelet.Content.JsonContent),
+/// its fields must be tagged by their name rather than "$0" ... "$n".
+/// Also determines how the cases are distinguished, instead of the default "$": <integer>.
+[<Sealed; U(T.Class)>]
+type NamedUnionCasesAttribute =
+    inherit A
+
+    /// The case is determined by a field named `discriminatorName`,
+    /// which stores the CompiledName of the case.
+    new (discriminatorName: string) = { inherit A() }
+
+    /// The case is inferred from the field names. Every case must have at least one
+    /// non-option-typed field whose name is unique across all cases of this union.
+    new () = { inherit A() }

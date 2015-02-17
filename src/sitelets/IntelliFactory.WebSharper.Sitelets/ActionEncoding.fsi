@@ -24,19 +24,32 @@
 /// underscore and dot characters). Tilde serves as a special character
 /// starting escape sequences. The encoding also uses the forward slash
 /// to separate logical components.
-module IntelliFactory.WebSharper.Sitelets.UrlEncoding
+module IntelliFactory.WebSharper.Sitelets.ActionEncoding
 
 /// Thrown when a formatter cannot be derived for a certain type.
 exception NoFormatError of System.Type
+
+/// The result of trying to decode a request.
+type DecodeResult<'Action> =
+    /// The request was correct and an action was decoded.
+    | Success of 'Action
+    /// An action was decoded, but the request used the given invalid HTTP method.
+    | InvalidMethod of 'Action * ``method``: string
+    /// An action failed to be decoded as JSON from the request body.
+    /// The JSON part of the action is a default value.
+    | InvalidJson of 'Action
+    /// A GET query parameter was missing to decode an action.
+    /// The corresponding part of the action is a default value.
+    | MissingQueryParameter of 'Action * queryParam: string
 
 /// Represents an URL encoding for a given type.
 [<Sealed>]
 type Format<'T> =
 
-    /// Parses a string. Fails if the string cannot be parsed.
-    member Read : string -> option<'T>
+    /// Parses a URL path from the given request. Fails if the request cannot be parsed.
+    member Read : path: string * Http.Request -> option<DecodeResult<'T>>
 
-    /// Formats a value. Fails if it cannot be represented.
+    /// Formats a value into a URL. Fails if it cannot be represented.
     member Show : 'T -> option<string>
 
 /// Represents cached formatter collection.
@@ -58,3 +71,4 @@ val GetFormat<'T> : unit -> Format<'T>
 /// Derives a format for a given type using a new temporary factory.
 val GetFormatFor : System.Type -> Format<obj>
 
+val internal JsonProvider : IntelliFactory.WebSharper.Core.Json.Provider

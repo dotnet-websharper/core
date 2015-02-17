@@ -131,17 +131,38 @@ module Router =
         }
 
     let Infer () : Router<'Action> =
-        let fmt = UrlEncoding.GetFormat<'Action>()
+        let fmt = ActionEncoding.GetFormat<'Action>()
         {
             StaticRoutes = Dictionary()
             StaticLinks  = Dictionary()
             DynamicRoute = fun req ->
                 let uri = path req.Uri
-                fmt.Read (uri.Substring 1)
+                fmt.Read (uri.Substring 1, req)
+                |> Option.bind (function
+                    | ActionEncoding.Success x -> Some x
+                    | _ -> None)
             DynamicLink = fun act ->
                 match fmt.Show act with
                 | Some x -> Some (Uri("/" + x, UriKind.Relative))
                 | None -> None
+        }
+
+    let InferWithErrors () : Router<ActionEncoding.DecodeResult<'Action>> =
+        let fmt = ActionEncoding.GetFormat<'Action>()
+        {
+            StaticRoutes = Dictionary()
+            StaticLinks  = Dictionary()
+            DynamicRoute = fun req ->
+                let uri = path req.Uri
+                fmt.Read (uri.Substring 1, req)
+            DynamicLink = function
+                | ActionEncoding.Success act
+                | ActionEncoding.MissingQueryParameter (act, _)
+                | ActionEncoding.InvalidJson act
+                | ActionEncoding.InvalidMethod (act, _) ->
+                    match fmt.Show act with
+                    | Some x -> Some (Uri("/" + x, UriKind.Relative))
+                    | None -> None
         }
 
     let Empty<'Action when 'Action : equality> : Router<'Action> =
