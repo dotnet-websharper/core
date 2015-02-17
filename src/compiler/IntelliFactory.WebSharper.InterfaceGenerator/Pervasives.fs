@@ -120,12 +120,12 @@ module Pervasives =
         }
 
     /// Adds nested classes and interfaces.
-    let Nested (cs: list<#Code.TypeDeclaration>) =
+    let Nested (cs: list<Code.TypeDeclaration>) =
         { new Code.IClassProperty with
             member this.SetOn x = 
                 let x = x.Clone() :?> Code.Class
                 for decl in cs do
-                    match decl :> Code.TypeDeclaration with
+                    match decl with
                     | :? Code.Class as c ->
                         x.NestedClasses <- c :: x.NestedClasses
                     | :? Code.Interface as i ->
@@ -182,7 +182,7 @@ module Pervasives =
     let inline ( ? ) (ty: ^T) name =
         (^T : (static member op_Dynamic : ^T * string -> ^U) (ty, name))
 
-    let private Access m (x: #Code.Entity) =
+    let private Access<'T when 'T :> Code.Entity> m (x: 'T) =
         let x = x.Clone() :?> 'T
         x.AccessModifier <- m
         x
@@ -251,7 +251,7 @@ module Pervasives =
     /// In transform is applied to method arguments and property setters.
     /// Out transform is applied to method return values and property getters.
     /// When a member defines a custom inline these transforms are ignored.
-    let WithInterop (transforms: Type.InlineTransforms) (t: #Type.IType) = 
+    let WithInterop (transforms: Type.InlineTransforms) (t: Type.IType) = 
         match t.Type with
         | Type.InteropType (t, tr) ->
             Type.InteropType (t, transforms * tr)
@@ -259,7 +259,7 @@ module Pervasives =
         | t ->
             Type.InteropType (t, transforms)
 
-    let WithNoInterop (t: #Type.IType) =
+    let WithNoInterop (t: Type.IType) =
         match t.Type with
         | Type.NoInteropType _ as t -> t
         | Type.InteropType (t, _)
@@ -318,42 +318,88 @@ module Pervasives =
     let RequiresExternal<'T when 'T :> Code.IResourceDependable<'T>> (requires: Type.Type list) (ty: 'T) =
         ty.AddRequires (requires |> List.map (fun res -> Code.ExternalDependency res))
 
+    open System.Collections.Generic
+    
+    let private addGenerics (generics: Code.TypeParameter list) (x: Code.Entity) =
+        let add (prevGen: Code.TypeParameter list) setGen =
+            if List.isEmpty prevGen then 
+                setGen generics
+            else
+                let namesTaken = HashSet (prevGen |> Seq.map (fun p -> p.Name))
+                let fmt (x: string) (n: int) =
+                    if n = 0 then x else
+                        System.String.Format("{0}{1:x}", x, n)
+                let rec pick name k =
+                    let res = fmt name k
+                    if namesTaken.Contains res then
+                        pick name (k + 1)
+                    else res
+                for p in generics do
+                    let n = pick p.Name 0
+                    namesTaken.Add n |> ignore
+                    p.Name <- n
+                setGen <| prevGen @ generics
+        
+        match x with
+        | :? Code.Method as m -> add m.Generics (fun g -> m.Generics <- g)
+        | :? Code.TypeDeclaration as d -> add d.Generics (fun g -> d.Generics <- g)
+        | _ -> ()
+
     /// Generics helper.
     type GenericHelper = 
         private
         | Generic 
         | GenericNamed of string list
-        member this.Entity (arity: int) (make: list<_> -> #Code.Entity) =
-            let generics = 
-                match this with
-                | GenericNamed ns ->
-                    ns |> List.mapi (fun i n -> Code.TypeParameter (i, n))
-                | _ ->
-                    let makeRet = snd (Microsoft.FSharp.Reflection.FSharpType.GetFunctionElements (make.GetType()))
-                    let genName = if (typeof<Code.TypeDeclaration>).IsAssignableFrom makeRet then "T" else "U"
-                    if arity = 1 then [ Code.TypeParameter (0, genName) ]
-                    else List.init arity (fun x -> Code.TypeParameter (x, genName + string (x + 1)))
+        member private this.MakeParameters (arity: int) isTypeDecl =
+            match this with
+            | GenericNamed ns ->
+                ns |> List.mapi (fun i n -> Code.TypeParameter (i, n))
+            | _ ->
+                let genName = if isTypeDecl then "T" else "U" 
+                if arity = 1 then [ Code.TypeParameter (0, genName) ]
+                else List.init arity (fun x -> Code.TypeParameter (x, genName + string (x + 1)))
+
+        member this.TypeDeclaration (arity: int) (make: list<_> -> #Code.TypeDeclaration) =
+            let generics = this.MakeParameters arity true
             let x = make generics
-            match x :> Code.Entity with
-            | :? Code.Method as m -> m.Generics <- generics
-            | :? Code.TypeDeclaration as d -> d.Generics <- generics
-            | _ -> ()
+            x |> addGenerics generics
+            x
+
+        member this.Method (arity: int) (make: list<_> -> Code.Method) =
+            let generics = this.MakeParameters arity false
+            let x = make generics
+            x |> addGenerics generics
             x
 
         static member ( - ) (this: GenericHelper, f) =
-            this.Entity 1 (fun [ a ] -> f a)
+            this.TypeDeclaration 1 (fun [ a ] -> f a)
 
         static member ( - ) (this: GenericHelper, f) =
-            this.Entity 2 (fun [ a; b ] -> f a b)
+            this.TypeDeclaration 2 (fun [ a; b ] -> f a b)
 
         static member ( - ) (this: GenericHelper, f) =
-            this.Entity 3 (fun [ a; b; c ] -> f a b c)
+            this.TypeDeclaration 3 (fun [ a; b; c ] -> f a b c)
 
         static member ( - ) (this: GenericHelper, f) =
-            this.Entity 4 (fun [ a; b; c; d ] -> f a b c d)
+            this.TypeDeclaration 4 (fun [ a; b; c; d ] -> f a b c d)
 
         static member ( - ) (this: GenericHelper, (arity, make)) =
-            this.Entity arity make
+            this.TypeDeclaration arity make
+
+        static member ( - ) (this: GenericHelper, f) =
+            this.Method 1 (fun [ a ] -> f a)
+
+        static member ( - ) (this: GenericHelper, f) =
+            this.Method 2 (fun [ a; b ] -> f a b)
+
+        static member ( - ) (this: GenericHelper, f) =
+            this.Method 3 (fun [ a; b; c ] -> f a b c)
+
+        static member ( - ) (this: GenericHelper, f) =
+            this.Method 4 (fun [ a; b; c; d ] -> f a b c d)
+
+        static member ( - ) (this: GenericHelper, (arity, make)) =
+            this.Method arity make
 
         static member ( + ) (this: GenericHelper, names) =
             GenericNamed names

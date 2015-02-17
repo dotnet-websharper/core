@@ -528,14 +528,22 @@ let Reflect (logger: Logger) (assembly: AssemblyDefinition) =
                             })
                 |> Seq.toList
         }
-    let withFields t = 
+    let withFields (t: Type) = 
+        let hasOptF a = 
+            a |> Seq.exists (function OptionalField -> true | _ -> false)
+        let optFields = hasOptF t.Annotations
         { t with
             Fields = 
                 t.Definition.Fields
                 |> Seq.map (fun f ->
                     let loc = Locator.LocateField f
+                    let origAnnots = getAnnotations loc (AnnotatedMember f.CustomAttributes)
+                    let annots = 
+                        if optFields && not (hasOptF origAnnots) then
+                            OptionalField :: origAnnots
+                        else origAnnots 
                     {
-                        Annotations = getAnnotations loc (AnnotatedMember f.CustomAttributes)
+                        Annotations = annots
                         Definition = f
                         Location = loc
                         MemberSlot = MemberSlot()
@@ -575,14 +583,22 @@ let Reflect (logger: Logger) (assembly: AssemblyDefinition) =
             |> Seq.toList
         { t with Kind = Union cases }
     let withRecordFields (t: Type) =
+        let hasOptF a = 
+            a |> Seq.exists (function OptionalField -> true | _ -> false)
+        let optFields = hasOptF t.Annotations
         let fields =
             t.Definition.Properties
             |> Seq.choose (function
                 | RecordField k as p ->
                     let loc = Locator.LocateProperty p
+                    let origAnnots = getAnnotations loc (AnnotatedProperty (t.Kind, p))
+                    let annots = 
+                        if optFields && not (hasOptF origAnnots) then
+                            OptionalField :: origAnnots
+                        else origAnnots 
                     let m : Member<_> =
                         {
-                            Annotations = getAnnotations loc (AnnotatedProperty (t.Kind, p))
+                            Annotations = annots
                             Definition = p
                             Location = loc
                             MemberSlot = MemberSlot()
