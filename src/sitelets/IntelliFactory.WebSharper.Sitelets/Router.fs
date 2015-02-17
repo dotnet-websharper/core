@@ -157,6 +157,7 @@ module Router =
                 fmt.Read (uri.Substring 1, req)
             DynamicLink = function
                 | ActionEncoding.Success act
+                | ActionEncoding.MissingQueryParameter (act, _)
                 | ActionEncoding.InvalidJson act
                 | ActionEncoding.InvalidMethod (act, _) ->
                     match fmt.Show act with

@@ -20,6 +20,7 @@
 
 module IntelliFactory.WebSharper.Sitelets.ActionEncoding
 
+open System
 open System.Collections.Generic
 open IntelliFactory.WebSharper.Core
 
@@ -27,12 +28,14 @@ type DecodeResult<'Action> =
     | Success of 'Action
     | InvalidMethod of 'Action * ``method``: string
     | InvalidJson of 'Action
+    | MissingQueryParameter of 'Action * queryParam: string
 
     member this.Action =
         match this with
         | Success a
         | InvalidMethod (a, _)
-        | InvalidJson a -> a
+        | InvalidJson a
+        | MissingQueryParameter (a, _) -> a
 
 type DecodeResult =
 
@@ -40,13 +43,15 @@ type DecodeResult =
         x |> Option.map (function
             | Success x -> Success (f x)
             | InvalidMethod (x, m) -> InvalidMethod (f x, m)
-            | InvalidJson x -> InvalidJson (f x))
+            | InvalidJson x -> InvalidJson (f x)
+            | MissingQueryParameter (x, p) -> MissingQueryParameter (f x, p))
 
     static member unbox (x: DecodeResult<obj>) : DecodeResult<'b> =
         match x with
         | Success x -> Success (unbox x)
         | InvalidMethod (x, m) -> InvalidMethod (unbox x, m)
         | InvalidJson x -> InvalidJson (unbox x)
+        | MissingQueryParameter (x, p) -> MissingQueryParameter (unbox x, p)
 
 let (>>=) (x: option<DecodeResult<'a>>) (f: 'a -> option<DecodeResult<'b>>) : option<DecodeResult<'b>> =
     match x with
@@ -54,12 +59,16 @@ let (>>=) (x: option<DecodeResult<'a>>) (f: 'a -> option<DecodeResult<'b>>) : op
     | Some (Success x) -> f x
     | Some (InvalidMethod (x, m)) ->
         f x |> Option.map (function
-            | Success y | InvalidJson y -> InvalidMethod (y, m)
-            | InvalidMethod (y, m) -> InvalidMethod (y, m))
+            | InvalidMethod (y, m) -> InvalidMethod (y, m)
+            | r -> InvalidMethod (r.Action, m))
     | Some (InvalidJson x) ->
         f x |> Option.map (function
-            | InvalidMethod (y, m) -> InvalidMethod (y, m)
-            | Success y | InvalidJson y -> InvalidJson y)
+            | Success y -> InvalidJson y
+            | r -> r)
+    | Some (MissingQueryParameter (x, p)) ->
+        f x |> Option.map (function
+            | Success y -> MissingQueryParameter (y, p)
+            | r -> r)
 
 let isUnreserved isLast c =
     match c with
@@ -151,7 +160,104 @@ type ListProcessor<'T>() =
         member this.ToSequence (x: obj) = Seq.map box (x :?> list<'T>)
         member this.FromSequence (s: seq<obj>) = box [for x in s -> x :?> 'T]
 
-type S = System.Text.StringBuilder -> obj -> bool
+type S =
+    {
+        Write : System.Text.StringBuilder -> List<string * string> -> obj -> bool
+        WritesToUrlPath : unit -> bool
+    }
+    static member Make(writesToPath, write) =
+        {
+            Write = write
+            WritesToUrlPath = writesToPath
+        }
+    static member Make(writesToPath, write) =
+        {
+            Write = write
+            WritesToUrlPath = fun () -> writesToPath
+        }
+
+/// Dict<type, (encode * decode)>
+let primitiveValueHandlers =
+    let opt f s =
+        match f s with
+        | true, x -> Some (box x)
+        | false, _ -> None
+    let d = Dictionary()
+    d.Add(typeof<bool>,
+        (opt System.Boolean.TryParse, string))
+    d.Add(typeof<int>,
+        (opt System.Int32.TryParse, string))
+    d.Add(typeof<float>,
+        (opt System.Double.TryParse, string))
+    d.Add(typeof<string>,
+        ((fun s ->
+            let buf = System.Text.StringBuilder()
+            use i = new System.IO.StringReader(s)
+            let rec loop () =
+                match readEscaped i with
+                | ERROR -> None
+                | EOF -> Some (box (buf.Flush()))
+                | x -> buf.Add (char x); loop ()
+            loop ()),
+         (fun (x: obj) ->
+            match x :?> string with
+            | null -> ""
+            | s ->
+                let b = System.Text.StringBuilder()
+                s |> Seq.iteri (fun i c ->
+                    writeEscaped b (i + 1 = s.Length) c)
+                b.Flush())))
+    d.Add(typeof<DateTime>,
+        ((let rT = System.Globalization.DateTimeStyles.RoundtripKind
+          opt <| fun x -> DateTime.TryParse(x, null, rT)),
+         (fun (x: obj) -> (x :?> DateTime).ToString "o")))
+    d
+
+let isPrimitive t =
+    primitiveValueHandlers.ContainsKey t
+
+let isPrimitiveOption (t: System.Type) =
+    t.IsGenericType &&
+    t.GetGenericTypeDefinition() = typedefof<option<_>> &&
+    isPrimitive (t.GetGenericArguments().[0])
+
+type Field =
+    | RecordField of System.Reflection.PropertyInfo
+    | UnionCaseField of Reflection.UnionCaseInfo * System.Reflection.PropertyInfo
+
+    member private this.Property =
+        match this with
+        | RecordField pi
+        | UnionCaseField (_, pi) -> pi
+
+    member this.Type = this.Property.PropertyType
+
+    member this.DeclaringType = this.Property.DeclaringType
+
+    member this.Name =
+        let aT = typeof<IntelliFactory.WebSharper.Core.Attributes.NameAttribute>
+        let p = this.Property
+        let customName =
+            p.GetCustomAttributesData()
+            |> Seq.tryPick (fun cad ->
+                if cad.Constructor.DeclaringType = aT then
+                    Some (cad.ConstructorArguments.[0].Value :?> string)
+                else None)
+        defaultArg customName p.Name
+
+let isQueryParam = function
+    | RecordField f ->
+        f.GetCustomAttributesData() |> Seq.exists (fun cad ->
+            cad.Constructor.DeclaringType = typeof<QueryAttribute> &&
+            cad.ConstructorArguments.Count = 0)
+    | UnionCaseField (uci, f) as ff ->
+        uci.GetCustomAttributesData() |> Seq.exists (fun cad ->
+            cad.Constructor.DeclaringType = typeof<QueryAttribute> &&
+            cad.ConstructorArguments.Count = 1 &&
+            cad.ConstructorArguments.[0].Value
+            :?> System.Collections.ObjectModel.ReadOnlyCollection<
+                    System.Reflection.CustomAttributeTypedArgument>
+            |> Seq.exists (fun a -> a.Value :?> string = ff.Name))
 
 let getUnionCaseJsonArgumentName (c: Reflection.UnionCaseInfo) =
     c.GetCustomAttributesData()
@@ -161,69 +267,133 @@ let getUnionCaseJsonArgumentName (c: Reflection.UnionCaseInfo) =
         else None
     )
 
-let getS (getS: System.Type -> S) (t: System.Type) : S =
-    let writeTuple r (ss: S []) : S =
-        fun w x ->
-            let xs : _ [] = r x
-            if xs.Length >= 1 then
-                ss.[0] w xs.[0] &&
-                seq { 1 .. xs.Length - 1 }
-                |> Seq.forall (fun  i ->
-                    w.Add '/'
-                    ss.[i] w xs.[i])
-            else
-                true
-    if t = typeof<bool> || t = typeof<int> || t = typeof<float> then
-        fun w x -> w.Add (string x); true
-    elif t = typeof<string> then
-        fun w x ->
-            if x <> null then
-                let s = string x
-                s
-                |> Seq.iteri (fun i c ->
-                    writeEscaped w (i + 1 = s.Length) c)
-                true
-            else false
-    elif t = typeof<System.DateTime> then
-        fun w x -> w.Add((x :?> System.DateTime).ToString "o"); true
-    elif t.IsEnum then
-        let uT = System.Enum.GetUnderlyingType(t)
-        fun w x ->
-            let s = System.Convert.ChangeType(x, uT)
-            getS uT w s
+let isJson = function
+    | RecordField f ->
+        f.GetCustomAttributesData() |> Seq.exists (fun cad ->
+            cad.Constructor.DeclaringType = typeof<JsonAttribute> &&
+            cad.ConstructorArguments.Count = 0)
+    | UnionCaseField (uci, f) as ff ->
+        uci.GetCustomAttributesData() |> Seq.exists (fun cad ->
+            cad.Constructor.DeclaringType = typeof<JsonAttribute> &&
+            cad.ConstructorArguments.Count = 1 &&
+            cad.ConstructorArguments.[0].Value :?> string = ff.Name)
+
+let (|Enum|Array|List|Tuple|Record|Union|Other|) (t: System.Type) =
+    if t.IsEnum then
+        Enum (System.Enum.GetUnderlyingType(t))
     elif t.IsArray then
-        let eT = t.GetElementType()
+        Array (t.GetElementType())
+    elif t.IsGenericType &&
+        t.GetGenericTypeDefinition() = typedefof<list<_>> then
+        List (t.GetGenericArguments().[0])
+    elif Reflection.FSharpType.IsTuple t then
+        let e = Reflection.FSharpType.GetTupleElements t
+        let r = Reflection.FSharpValue.PreComputeTupleReader t
+        let c = Reflection.FSharpValue.PreComputeTupleConstructor t
+        Tuple (e, (r : obj -> obj[]), c)
+    elif Reflection.FSharpType.IsRecord t then
+        let fs = Reflection.FSharpType.GetRecordFields t
+        let r = Reflection.FSharpValue.PreComputeRecordReader(t, flags)
+        let c = Reflection.FSharpValue.PreComputeRecordConstructor(t, flags)
+        Record (fs, (r : obj -> obj[]), c)
+    elif Reflection.FSharpType.IsUnion t then
+        let cs = Reflection.FSharpType.GetUnionCases(t, flags)
+        let tR = Reflection.FSharpValue.PreComputeUnionTagReader(t, flags)
+        let uR x = Reflection.FSharpValue.PreComputeUnionReader(x, flags)
+        let uC x = Reflection.FSharpValue.PreComputeUnionConstructor(x, flags)
+        Union (cs, (tR : obj -> int), (uR : _ -> obj -> obj[]), uC)
+    else Other t
+
+let writePrimitiveType (t: System.Type) =
+    match primitiveValueHandlers.TryGetValue t with
+    | false, _ -> raise (NoFormatError t)
+    | true, (_, w) -> w
+
+/// ot is known to be option<X>
+let getSome (ot: System.Type) =
+    let uci = Reflection.FSharpType.GetUnionCases(ot).[1]
+    let r = Reflection.FSharpValue.PreComputeUnionReader(uci)
+    fun x -> (r x).[0]
+
+let writeQueryParam (f: Field) : S option =
+    if isQueryParam f then
+        let ft = f.Type
+        if isPrimitive ft then
+            let wp = writePrimitiveType ft
+            S.Make(false, fun w (q: List<string * string>) x ->
+                q.Add((f.Name, wp x))
+                true)
+            |> Some
+        elif isPrimitiveOption ft then
+            let wp = writePrimitiveType (ft.GetGenericArguments().[0])
+            let getSome = getSome ft
+            S.Make(false, fun w (q: List<string * string>) x ->
+                match x with
+                | null -> ()
+                | x -> q.Add((f.Name, wp (getSome x)))
+                true)
+            |> Some
+        else None
+    else None
+
+let writeField (getS: System.Type -> S) (f: Field) : S =
+    if isJson f then
+        S.Make(false, fun _ _ _ -> true)
+    else
+        match writeQueryParam f with
+        | Some w -> w
+        | None -> getS f.Type
+
+let getS (getS: System.Type -> S) (t: System.Type) : S =
+    let writeTuple r (prefixSlash: bool) (ss: S []) : S =
+        let writesToPath() =
+            ss |> Array.exists (fun s -> s.WritesToUrlPath())
+        let ss =
+            ss |> Array.mapi (fun i s ->
+                let prefixSlash =
+                    if i = 0 then
+                        fun () -> false
+                    else
+                        s.WritesToUrlPath
+                prefixSlash, s)
+        S.Make(writesToPath, fun w q x ->
+            let xs : _ [] = r x
+            (ss, xs)
+            ||> Array.forall2 (fun (slash, s) x ->
+                if slash() then w.Add '/'
+                s.Write w q x))
+    match t with
+    | Enum uT ->
+        let s = getS uT
+        S.Make(true, fun w q x ->
+            let x' = System.Convert.ChangeType(x, uT)
+            s.Write w q x')
+    | Array eT ->
         let eS = getS eT
         if t.GetArrayRank() = 1 then
-            fun w x ->
+            S.Make(true, fun w q x ->
                 let s = x :?> System.Array
                 w.Add (string s.Length)
                 Seq.cast s
                 |> Seq.forall (fun x ->
                     w.Add '/'
-                    eS w x)
+                    eS.Write w q x))
         else
             raise (NoFormatError t)
-    elif t.IsGenericType &&
-         t.GetGenericTypeDefinition() = typedefof<list<_>> then
-        let eT = t.GetGenericArguments().[0]
+    | List eT ->
         let eS = getS eT
-        fun w x ->
+        S.Make(true, fun w q x ->
             let s : seq<obj> = Seq.cast (x :?> _)
             w.Add (string (Seq.length s))
             s
             |> Seq.forall (fun x ->
                 w.Add '/'
-                eS w x)
-    elif Reflection.FSharpType.IsTuple t then
-        let e = Reflection.FSharpType.GetTupleElements t
-        let r = Reflection.FSharpValue.PreComputeTupleReader t
-        writeTuple r (Array.map getS e)
-    elif Reflection.FSharpType.IsRecord(t, flags) then
-        let r  = Reflection.FSharpValue.PreComputeRecordReader(t, flags)
-        let fs = Reflection.FSharpType.GetRecordFields t
-        writeTuple r [| for f in fs -> getS f.PropertyType |]
-    elif Reflection.FSharpType.IsUnion(t, flags) then
+                eS.Write w q x))
+    | Tuple (e, r, _) ->
+        writeTuple r false (Array.map getS e)
+    | Record (fs, r, _) ->
+        writeTuple r false [| for f in fs -> writeField getS (RecordField f) |]
+    | Union (cs, tR, uR, _) ->
         if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<DecodeResult<_>> then
             let s = getS (t.GetGenericArguments().[0])
             let getAction =
@@ -231,44 +401,25 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
                     System.Reflection.BindingFlags.NonPublic ||| 
                     System.Reflection.BindingFlags.Instance
                 ).GetGetMethod(true)
-            fun w x ->
-                s w (getAction.Invoke(x, [||]))
+            S.Make(s.WritesToUrlPath, fun w q x ->
+                s.Write w q (getAction.Invoke(x, [||])))
         else
-        let tR = Reflection.FSharpValue.PreComputeUnionTagReader(t, flags)
-        let cs = Reflection.FSharpType.GetUnionCases(t, flags)
-        let uR x = Reflection.FSharpValue.PreComputeUnionReader(x, flags)
         let ss =
             [|
                 for c in cs ->
-                    let json = getUnionCaseJsonArgumentName c
-                    let jsonI =
-                        c.GetFields()
-                        |> Array.tryFindIndex (fun f -> json.IsSome && f.Name = json.Value)
-                    match jsonI with
-                    | None ->
-                        writeTuple (uR c) [| for f in c.GetFields() -> getS f.PropertyType |]
-                    | Some jsonI ->
-                        writeTuple
-                            (uR c >> fun a ->
-                                Array.init (a.Length - 1)
-                                    (fun j -> if j < jsonI then a.[j] else a.[j+1]))
-                            (c.GetFields()
-                                |> Array.mapi (fun i f ->
-                                    if i = jsonI then None else Some (getS f.PropertyType))
-                                |> Array.choose id)
+                    writeTuple (uR c) true [|
+                        for f in c.GetFields() ->
+                            writeField getS (UnionCaseField(c, f))
+                    |]
             |]
         let ns = [| for c in cs -> c.CustomizedName |]
-        let es = [| for c in cs -> c.GetFields().Length > 0 |]
-        fun w x ->
+        S.Make(true, fun w q x ->
             let t = tR x
             w.Add ns.[t]
-            if es.[t] then
-                w.Add '/'
-                ss.[t] w x
-            else
-                true
-    else
-        raise (NoFormatError t)
+            ss.[t].Write w q x)
+    | Other t ->
+        let wt = writePrimitiveType t
+        S.Make(true, fun w q x -> w.Add(wt x); true)
 
 type Parameters =
     {
@@ -279,11 +430,19 @@ type Parameters =
 type D =
     {
         ReadsJson : unit -> bool
+        QueryParams : unit -> Set<string>
         Decode : Parameters -> option<DecodeResult<obj>>
     }
-    static member Make json decode =
+    static member Make(json, query, decode) =
         {
             ReadsJson = json
+            QueryParams = query
+            Decode = decode
+        }
+    static member Make(json, query, decode) =
+        {
+            ReadsJson = fun () -> json
+            QueryParams = fun () -> query
             Decode = decode
         }
 
@@ -299,31 +458,81 @@ let getUnionCaseMethods (c: Reflection.UnionCaseInfo) =
             else Seq.empty)
     if Seq.isEmpty s then Seq.singleton None else s
 
+let parsePrimitiveType (t: System.Type) =
+    match primitiveValueHandlers.TryGetValue t with
+    | false, _ -> raise (NoFormatError t)
+    | true, (p, _) -> p
+
 let JsonProvider = Json.Provider.Create()
 
-let parseJson (t: System.Type) =
-    let decoder =
-        try JsonProvider.GetDecoder t
-        with Json.NoDecoderException _ -> raise (NoFormatError t)
-    let defaultValue = lazy (JsonProvider.BuildDefaultValue t)
-    D.Make (fun () -> true) <| fun p ->
-        try
-            use tr = new System.IO.StreamReader(p.Request.Body)
-            Success (decoder.Decode (Json.Read tr))
-        with
-            | Json.ReadException
-            | Json.DecoderException -> InvalidJson defaultValue.Value
+/// "ot" is known to be option<X>
+let mkSome (ot: System.Type) =
+    let someUci = Reflection.FSharpType.GetUnionCases(ot).[1]
+    let ctor = Reflection.FSharpValue.PreComputeUnionConstructor(someUci)
+    fun x -> ctor [| x |]
+
+let getQueryParamParser (f: Field) =
+    if isQueryParam f then
+        let ft = f.Type
+        let fn = f.Name
+        if isPrimitive ft then
+            let parse = parsePrimitiveType ft
+            let defaultValue = JsonProvider.BuildDefaultValue ft
+            D.Make(false, Set.singleton fn, fun p ->
+                match p.Request.Get.[fn] with
+                | None -> Some (MissingQueryParameter(defaultValue, fn))
+                | Some v -> parse v |> Option.map Success
+            )
+            |> Some
+        elif ft.IsGenericType &&
+                ft.GetGenericTypeDefinition() = typedefof<option<_>> &&
+                isPrimitive (ft.GetGenericArguments().[0]) then
+            let parse = parsePrimitiveType (ft.GetGenericArguments().[0])
+            let some = mkSome ft
+            D.Make(false, Set.singleton fn, fun p ->
+                match p.Request.Get.[fn] with
+                | None -> Some (Success null)
+                | Some v -> parse v |> Option.map (some >> Success)
+            )
+            |> Some
+        else raise (NoFormatError f.DeclaringType)
+    else None
+
+let getJsonParser (f: Field) =
+    if isJson f then
+        let t = f.Type
+        let decoder =
+            try JsonProvider.GetDecoder t
+            with Json.NoDecoderException _ -> raise (NoFormatError t)
+        let defaultValue = JsonProvider.BuildDefaultValue t
+        D.Make(true, Set.empty, fun p ->
+            try
+                use tr = new System.IO.StreamReader(p.Request.Body)
+                Success (decoder.Decode (Json.Read tr))
+            with
+                | Json.ReadException
+                | Json.DecoderException -> InvalidJson defaultValue
+            |> Some)
         |> Some
+    else None
+
+let parseField getD (f: Field) =
+    match getJsonParser f with
+    | Some p -> p
+    | None ->
+        match getQueryParamParser f with
+        | Some p -> p
+        | None -> getD f.Type
 
 let getD (getD: System.Type -> D) (t: System.Type) : D =
     let tryParse parse : D =
-        D.Make (fun () -> false) <| fun p ->
+        D.Make(false, Set.empty, fun p ->
             match p.Read () with
             | Some s ->
                 match parse s with
                 | true, x -> Some (Success (x :> obj))
                 | _ -> None
-            | None -> None
+            | None -> None)
     let parseInt = tryParse System.Int32.TryParse
     let parseTuple t mk (ds: D[]) : D =
         let k = Array.length ds
@@ -332,7 +541,16 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
             | 0 -> false
             | 1 -> true
             | _ -> raise (NoFormatError t)
-        D.Make json <| fun p ->
+        let queryParams() =
+            let qps = ds |> Array.map (fun d -> d.QueryParams())
+            let noOverlap =
+                qps |> Array.forall (fun q1 ->
+                    qps |> Array.forall (fun q2 ->
+                        Set.isEmpty (Set.intersect q1 q2)))
+            if noOverlap then
+                Set.unionMany qps
+            else raise (NoFormatError t)
+        D.Make(json, queryParams, fun p ->
             let xs : obj [] = Array.create k null
             let rec loop x =
                 match x with
@@ -342,10 +560,10 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                     >>= fun x ->
                         xs.[i] <- x
                         loop (i + 1)
-            loop 0
+            loop 0)
     let parseArray eT (eD: D) : D =
         if eD.ReadsJson() then raise (NoFormatError eT)
-        D.Make (fun () -> false) <| fun p ->
+        D.Make(false, Set.empty, fun p ->
             parseInt.Decode p
             >>= function
             | (:? int as k) ->
@@ -359,63 +577,33 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                             data.SetValue(obj, i)
                             loop (i + 1)
                 if k >= 0 then loop 0 else None
-            | _ -> None
-    if t = typeof<bool> then
-        tryParse System.Boolean.TryParse
-    elif t = typeof<int> then
-        parseInt
-    elif t = typeof<float> then
-        tryParse System.Double.TryParse
-    elif t = typeof<string> then
-        let buf = System.Text.StringBuilder()
-        D.Make (fun () -> false) <| fun p ->
-            let s = p.Read ()
-            match s with
-            | Some s ->
-                use i = new System.IO.StringReader(s)
-                let rec loop () =
-                    match readEscaped i with
-                    | ERROR -> None
-                    | EOF -> Some (Success (box (buf.Flush())))
-                    | x -> buf.Add (char x); loop ()
-                loop ()
-            | None -> None
-    elif t = typeof<System.DateTime> then
-        let rT = System.Globalization.DateTimeStyles.RoundtripKind
-        tryParse <| fun x -> System.DateTime.TryParse(x, null, rT)
-    elif t.IsEnum then
-        let uT = System.Enum.GetUnderlyingType(t)
+            | _ -> None)
+    match t with
+    | Enum uT ->
         let toObj =
             typeof<System.Enum>
                 .GetMethod("ToObject", [|typeof<System.Type>; uT|])
         let f = getD uT
-        D.Make (fun () -> false) <| fun p ->
-            f.Decode p |> DecodeResult.map (fun x -> toObj.Invoke(null, [|t; x|]))
-    elif t.IsArray then
+        D.Make(false, Set.empty, fun p ->
+            f.Decode p |> DecodeResult.map (fun x -> toObj.Invoke(null, [|t; x|])))
+    | Array eT ->
         if t.GetArrayRank() > 1 then
             raise (NoFormatError t)
-        let eT = t.GetElementType()
         parseArray eT (getD eT)
-    elif t.IsGenericType &&
-         t.GetGenericTypeDefinition() = typedefof<list<_>> then
-        let eT = t.GetGenericArguments().[0]
+    | List eT ->
         let eD = getD eT
         let sP =
             typedefof<ListProcessor<_>>.MakeGenericType(eT)
             |> System.Activator.CreateInstance :?> ISequenceProcessor
         let f = parseArray eT eD
-        D.Make (fun () -> false) <| fun p ->
+        D.Make(false, Set.empty, fun p ->
             f.Decode p
-            |> DecodeResult.map (fun x -> sP.FromSequence (x :?> _))
-    elif Reflection.FSharpType.IsTuple t then
-        let e = Reflection.FSharpType.GetTupleElements t
-        let c = Reflection.FSharpValue.PreComputeTupleConstructor t
+            |> DecodeResult.map (fun x -> sP.FromSequence (x :?> _)))
+    | Tuple (e, _, c) ->
         parseTuple t c (Array.map getD e)
-    elif Reflection.FSharpType.IsRecord(t, flags) then
-        let c = Reflection.FSharpValue.PreComputeRecordConstructor(t, flags)
-        let fs = Reflection.FSharpType.GetRecordFields t
-        parseTuple t c [| for f in fs -> getD f.PropertyType |]
-    elif Reflection.FSharpType.IsUnion(t, flags) then
+    | Record (fs, _, c) ->
+        parseTuple t c [| for f in fs -> parseField getD (RecordField f) |]
+    | Union (cs, _, _, uC) ->
         if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<DecodeResult<_>> then
             let ti = t.GetGenericArguments().[0]
             let d = getD ti
@@ -427,16 +615,13 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                     ).MakeGenericMethod(ti)
                 fun x -> DecodeResult<obj>.Success(unbox.Invoke(null, [| x |]))
 
-            D.Make d.ReadsJson <| fun p ->
-                d.Decode p |> Option.map mkSuccess
+            D.Make(d.ReadsJson, d.QueryParams, fun p ->
+                d.Decode p |> Option.map mkSuccess)
         else
-        let cs = Reflection.FSharpType.GetUnionCases(t, flags)
-        let uC x = Reflection.FSharpValue.PreComputeUnionConstructor(x, flags)
         let d = Dictionary<string, Map<option<Http.Method>, int>>()
         let ds =
             cs |> Array.mapi (fun i c ->
                 let allowedMeths = getUnionCaseMethods c
-                let jsonArg = getUnionCaseJsonArgumentName c
                 let existing =
                     match d.TryGetValue c.CustomizedName with
                     | true, m -> m
@@ -444,16 +629,11 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                 d.[c.CustomizedName] <-
                     (existing, allowedMeths)
                     ||> Seq.fold (fun map m -> Map.add (Option.map Http.Method.OfString m) i map)
-                parseTuple t (uC c) [|
-                    for f in c.GetFields() ->
-                        if jsonArg.IsSome && f.Name = jsonArg.Value then
-                            parseJson f.PropertyType
-                        else
-                            getD f.PropertyType
-                |]
+                parseTuple t (uC c)
+                    [| for f in c.GetFields() -> parseField getD (UnionCaseField(c, f)) |]
             )
         let json() = ds |> Array.exists (fun d -> d.ReadsJson())
-        D.Make json <| fun p ->
+        D.Make(json, (fun () -> Set.empty), fun p ->
             p.Read () |> Option.bind (fun name ->
                 match d.TryGetValue name with
                 | true, d ->
@@ -470,11 +650,16 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                             d |> Map.tryPick (fun _ k -> ds.[k].Decode p)
                             |> Option.map (function
                                 | Success a
+                                | MissingQueryParameter (a, _)
                                 | InvalidJson a -> InvalidMethod (a, p.Request.Method.ToString())
                                 | InvalidMethod (a, m) -> InvalidMethod (a, m))
-                | false, _ -> None)
-    else
-        raise (NoFormatError t)
+                | false, _ -> None))
+    | Other t ->
+        let parse = parsePrimitiveType t
+        D.Make(false, Set.empty, fun p ->
+            match p.Read () with
+            | Some s -> parse s |> Option.map Success
+            | None -> None)
 
 let memoFix delay f =
     let cache = System.Collections.Generic.Dictionary()
@@ -511,8 +696,14 @@ type Factory() =
         {
             Decode = fun x -> d().Decode x
             ReadsJson = fun () -> d().ReadsJson()
+            QueryParams = fun () -> d().QueryParams()
         }
-    let getS : System.Type -> S = memoFix delay getS
+    let delayS s =
+        {
+            Write = fun x -> s().Write x
+            WritesToUrlPath = fun () -> s().WritesToUrlPath()
+        }
+    let getS : System.Type -> S = memoFix delayS getS
     let getD : System.Type -> D = memoFix delayD getD
 
     member this.GetFormatFor (t: System.Type) : Format<obj> =
@@ -528,7 +719,15 @@ type Factory() =
                     d.Decode { Request = req; Read = n }
             show = fun value ->
                 let sb = System.Text.StringBuilder 128
-                if s sb value then Some (sb.Flush()) else None
+                let q = List()
+                if s.Write sb q value then
+                    q |> Seq.iteri (fun i (k, v) ->
+                        sb.Add (if i = 0 then '?' else '&')
+                        sb.Add k
+                        sb.Add '='
+                        sb.Add v)
+                    Some (sb.Flush())
+                else None
         }
 
     member this.GetFormat<'T>() : Format<'T> =

@@ -1319,6 +1319,7 @@ type Provider(fo: FormatSettings) =
     let encoders = Dictionary()
 
     let defaultof (t: System.Type) =
+        if t = typeof<string> then box "" else
         genLetMethod(<@ Unchecked.defaultof<_> @>, [|t|]).Invoke0()
 
     let getDefaultBuilder =

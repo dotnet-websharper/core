@@ -25,15 +25,35 @@ type private A = System.Attribute
 type private T = System.AttributeTargets
 type private U = System.AttributeUsageAttribute
 
-/// Marks a union case in an action type to be only mapped
+/// Indicates that a union case in an action type must only be mapped
 /// for requests that use the given HTTP method(s).
 [<Sealed; U(T.Property, AllowMultiple = true)>]
 type MethodAttribute([<ParamArray>] methodName: string[]) =
     inherit A()
 
-/// Indicates that a union case must be parsed from the request body as JSON.
-/// The union case argument whose name is passed to JsonAttribute is parsed as JSON,
-/// the other arguments are parsed from the URL as per usual.
+/// Indicates that a field or a union case argument must be parsed
+/// from the request body as JSON, rather than from the URL path.
 [<Sealed; U(T.Property, AllowMultiple = false)>]
-type JsonAttribute(argumentName: string) =
-    inherit A()
+type JsonAttribute =
+    inherit A
+
+    /// Indicates that a field must be parsed from the request's body as JSON.
+    new() = { inherit A() }
+
+    /// Indicates that the union case argument with the given name must be parsed
+    /// from the request's body as JSON.
+    new(argumentName: string) = { inherit A() }
+
+/// Indicates that a field or union case argument must be parsed
+/// from the request's query parameters, rather than from the URL path.
+/// The value must be a primitive value, a DateTime, or an option thereof.
+[<Sealed; U(T.Property, AllowMultiple = true)>]
+type QueryAttribute =
+    inherit A
+
+    /// Indicates that a field must be parsed from the request's query parameters.
+    new() = { inherit A() }
+
+    /// Indicates that the union case arguments with the given names must be parsed
+    /// from the request's query parameters.
+    new([<ParamArray>] argumentName: string[]) = { inherit A() }

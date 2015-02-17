@@ -38,6 +38,9 @@ type DecodeResult<'Action> =
     /// An action failed to be decoded as JSON from the request body.
     /// The JSON part of the action is a default value.
     | InvalidJson of 'Action
+    /// A GET query parameter was missing to decode an action.
+    /// The corresponding part of the action is a default value.
+    | MissingQueryParameter of 'Action * queryParam: string
 
 /// Represents an URL encoding for a given type.
 [<Sealed>]
