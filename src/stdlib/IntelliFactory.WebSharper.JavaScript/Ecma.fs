@@ -28,6 +28,8 @@ module Definition =
     module P = Pattern
 
     let EcmaFunctionT = Type.New()
+    let EcmaStringT = Type.New()
+    let Str = EcmaStringT + T<string>
 
     let EcmaObject =
         Generic - fun (a: CodeModel.TypeParameter) ->
@@ -38,66 +40,74 @@ module Definition =
                 "toString" => T<unit->string>
                 "toLocaleString" => T<unit->string>
                 "valueOf" => T<unit->obj>
-                "hasOwnProperty" => T<string->bool>
+                "hasOwnProperty" => Str ^-> T<bool>
                 "isPrototypeOf" => T<obj->bool>
-                "propertyIsEnumerable" => T<string->bool>
-                "" =@ a |> Indexed T<string>                  
+                "propertyIsEnumerable" => Str ^-> T<bool>
+                "" =@ a |> Indexed T<string>            
+                "self" =? T<obj> |> WithGetterInline "$this"      
             ]
         |+> Static [
                 ObjectConstructor T<unit> 
-                Constructor (!|(T<string> * a))?keyValuePairs |> WithInline "$wsruntime.NewObject($keyValuePairs)" 
+                Constructor (!|(T<string> * a))?nameValuePairs |> WithInline "$wsruntime.NewObject($nameValuePairs)"
                 "prototype" =? TSelf.[T<obj>]
                 "create" => T<obj>?proto * !?T<obj>?properties ^-> T<obj>                
                 "getPrototypeOf" => T<obj> ^-> TSelf.[T<obj>]
                 "getOwnPropertyDescriptor" => T<obj->obj>
                 "defineProperty" => T<obj*string*obj->obj>
                 "defineProperties" => T<obj*obj->obj>
-                "seal" => T<obj->obj> // not implemented in firefox/chrome
-                "freeze" => T<obj->obj> // not implemented in firefox/chrome
-                "preventExtensions" => T<obj->obj> // not implemented in firefox/chrome
-                "isSealed" => T<obj->bool> //not implemented in firefox/chrome
-                "isFrozen" => T<obj->bool> // not implemented in firefox/chrome
-                "isExtensible" => T<obj->bool> // not implemented in firefox/chrome
+                "seal" => T<obj->obj> 
+                "freeze" => T<obj->obj>
+                "preventExtensions" => T<obj->obj>
+                "isSealed" => T<obj->bool>
+                "isFrozen" => T<obj->bool>
+                "isExtensible" => T<obj->bool>
                 "keys" => T<obj->string[]>
             ]
        
     /// The Array object is used to store multiple values in a single variable.
     let EcmaArray =
         Generic - fun (a: CodeModel.TypeParameter) ->
-        let WithCallback r x =
-            let t = a * T<int> * TSelf.[a]
-            ((t ^-> r) ^-> x) + ((T<obj> -* t ^-> r) * T<obj> ^-> x)
-        let Reduce =
-            (a?previousValue * a?currentValue * T<int>?index * TSelf.[a] ^-> a) ^-> a        
-        let ReduceG b =
-            (b?previousValue * a?currentValue * T<int>?index * TSelf.[a] ^-> b) * b?initialValue ^-> b
+        let Arr = TSelf.[a] + !|a
+        let ReduceMethod name =
+            Instance [
+                name => (a * a * T<int> * Arr ^-> a)?callback ^-> a
+                Generic - fun b -> name => (b * a * T<int> * Arr ^-> b)?callback * b?initialValue ^-> b
+            ] 
+        let CallbackMethod name cRes mRes =
+            Instance [
+                name => (a * T<int> * Arr ^-> cRes)?callback ^-> mRes
+                Generic - fun t -> name => (t -* a * T<int> * Arr ^-> cRes)?callback * t?thisArg ^-> mRes
+            ]     
         Class "Array"
         |=> Inherits EcmaObject.[a]
         |+> Instance [
-                "concat" => !+ a ^-> TSelf.[a]
-                "join" => T<string->string>
+                "concat" => !+ a ^-> !|a
+                "join" => Str ^-> T<string>
                 "pop" => T<unit> ^-> a
                 "push" => !+ a ^-> T<int>
-                "reverse" => T<unit> ^-> TSelf.[a]
+                "reverse" => T<unit> ^-> !|a
                 "shift" => T<unit> ^-> a
-                "slice" => T<int>?startPos * !?T<int>?endPos ^-> TSelf.[a]
-                "sort" => (a * a ^-> T<int>) + T<unit> ^-> TSelf.[a]
-                "splice" => T<int>?start * T<int>?delete *+ a ^-> TSelf.[a]
+                "slice" => !?T<int>?startPos * !?T<int>?endPos ^-> !|a
+                "sort" => (a * a ^-> T<int>) + T<unit> ^-> !|a
+                "splice" => T<int>?start * T<int>?delete *+ a ^-> !|a
                 "unshift" => !+ a ^-> T<int>
                 "indexOf" => a * !?T<int>?fromIndex ^-> T<int>
                 "lastIndexOf" => a * !?T<int>?fromIndex ^-> T<int>
-                "every" => WithCallback T<bool> T<bool>
-                "some" => WithCallback T<bool> T<bool>
-                "forEach" => WithCallback T<unit> T<unit>
-                Generic - fun b -> "map" => WithCallback b TSelf.[b]
-                "filter" => WithCallback T<bool> TSelf.[a]
-                "reduce" => Reduce
-                Generic - fun b -> "reduce" => ReduceG b
-                "reduceRight" => Reduce
-                Generic - fun b -> "reduceRight" => ReduceG b
                 "length" =@ T<int>
                 "" =@ a |> Indexed T<int>
-            ]
+                "self" =? !|a |> WithGetterInline "$this"
+             ]
+        |+> ReduceMethod "reduce"
+        |+> ReduceMethod "reduceRight"
+        |+> CallbackMethod "every" T<bool> T<bool>
+        |+> CallbackMethod "some" T<bool> T<bool>
+        |+> CallbackMethod "forEach" T<bool> T<bool>
+        |+> //Generic - fun b -> CallbackMethod "map" b !|b
+            Instance [
+                Generic - fun b -> "map" => (a * T<int> * Arr ^-> b)?callback ^-> !|b
+                Generic - fun b t -> "map" => (t -* a * T<int> * Arr ^-> b)?callback * t?thisArg ^-> !|b
+            ]     
+        |+> CallbackMethod "filter" T<bool> !|a
         |+> Static [
                 Constructor (T<int>)
                 Constructor (!+ a)
@@ -115,7 +125,7 @@ module Definition =
                 "length" =? T<int>
                 "apply" => T<obj> * !?T<obj[]>?args ^-> T<obj>
                 "call" => T<obj> *+ T<obj> ^-> T<obj>
-                "bind" => T<obj> *+ T<obj> ^-> EcmaFunctionT
+                "bind" => T<obj> *+ T<obj> ^-> TSelf
             ]
         |+> Static [
                 Constructor (T<string> *+ T<string>)
@@ -127,8 +137,8 @@ module Definition =
         |=> Inherits EcmaObjectT
         |+> Instance
             [
-                "exec" => T<string->string[]>
-                "test" => T<string->bool>
+                "exec" => Str ^-> !|T<string>
+                "test" => Str ^-> T<bool>
                 "source" =? T<string>
                 "global" =? T<bool>
                 "ignoreCase" =? T<bool>
@@ -136,24 +146,26 @@ module Definition =
                 "lastIndex" =@ T<int>
             ]
         |+> Static [
-                Constructor(T<string> * !?T<string>?flags)
+                Constructor(Str * !?Str?flags)
             ]
 
     /// The String object is used to manipulate a stored piece of text.
     let EcmaString =
+        let REStr = EcmaRegExp + Str
         Class "String"
+        |=> EcmaStringT
         |=> Inherits EcmaObjectT
         |+> Instance 
             [
                 "charAt" => T<int->string>
                 "charCodeAt" => T<int->int>
-                "concat" => !+ (T<string> + TSelf) ^-> T<string>
-                "indexOf" => T<string> * !?T<int>?pos ^-> T<int>
-                "lastIndexOf" => T<string> * !?T<int>?pos ^-> T<int>
+                "concat" => !+ Str ^-> T<string>
+                "indexOf" => Str * !?T<int>?pos ^-> T<int>
+                "lastIndexOf" => Str * !?T<int>?pos ^-> T<int>
                 "localeCompare" => T<obj> ^-> T<int>
-                "match" => EcmaRegExp + T<string> ^-> T<string []>
-                "replace" => EcmaRegExp * T<string> ^-> T<string>
-                "search" => EcmaRegExp ^-> T<int>
+                "match" => REStr ^-> T<string []>
+                "replace" => REStr * Str ^-> T<string>
+                "search" => !?EcmaRegExp ^-> T<int>
                 "slice" => T<int>?startPos * !?T<int>?endPos ^-> T<string>
                 "split" =>
                     (T<string> + EcmaRegExp) * !?T<int>?limit ^-> T<string[]>
@@ -164,7 +176,7 @@ module Definition =
                 "toLocaleUpperCase" => T<unit->string>
                 "trim" => T<unit->string>
                 "length" =? T<int>
-                "nonsense" =? EcmaArray.Type.[T<string>]
+                "self" =? T<string> |> WithGetterInline "$this"
             ]
         |+> Static [   
                 Constructor (T<unit> + T<obj>)
@@ -175,6 +187,9 @@ module Definition =
     let EcmaBoolean =
         Class "Boolean"
         |=> Inherits EcmaObjectT
+        |+> Instance [
+                "self" =? T<bool> |> WithGetterInline "$this"      
+            ]
         |+> Static [               
                 Constructor (T<obj>) 
             ]
@@ -189,6 +204,7 @@ module Definition =
                 "toFixed" => !?T<int>?fractionDigits ^-> T<string>
                 "toExponential" => !?T<int>?fractionDigits ^-> T<string>
                 "toPrecision" => T<double->string>
+                "self" =? T<double> |> WithGetterInline "$this"      
             ]
         |+> Static [
                 Constructor (T<unit> + T<obj>)
@@ -202,7 +218,8 @@ module Definition =
     /// The Math object allows you to perform mathematical tasks.
     let EcmaMath =
         let D = T<double>
-        let F = T<double->double>
+        let DN = EcmaNumber + T<double>
+        let F = DN ^-> D
         Class "Math"
         |+> Static [
                 "E" =? D
@@ -217,17 +234,17 @@ module Definition =
                 "acos" => F
                 "asin" => F
                 "atan" => F
-                "atan2" => T<double> * T<double> ^-> T<double>
-                "ceil" => T<double->int>
+                "atan2" => DN * DN ^-> D
+                "ceil" => DN ^-> T<int>
                 "cos" => F
                 "exp" => F
-                "floor" => T<double->int>
+                "floor" => DN ^-> T<int>
                 "log" => F
-                "max" => !+ T<obj> ^-> T<double>
-                "min" => !+ T<obj> ^-> T<double>
-                "pow" => T<double> * T<double> ^-> T<double>
-                "random" => T<unit->double>
-                "round" => T<double->int>
+                "max" => !+ T<obj> ^-> D
+                "min" => !+ T<obj> ^-> D
+                "pow" => DN * DN ^-> D
+                "random" => T<unit> ^-> D
+                "round" => DN ^-> T<int>
                 "sin" => F
                 "sqrt" => F
                 "tan" => F
@@ -299,6 +316,8 @@ module Definition =
                 "setUTCMinutes" => Minutes
                 "setUTCSeconds" => Seconds
                 "setUTCMilliseconds" => T<int->unit>
+
+                "self" =? T<System.DateTime> |> WithGetterInline "$0.getTime()"
             ]
         |+> Static [
                 Constructor T<unit>
@@ -321,6 +340,7 @@ module Definition =
             [
                 "name" =? T<string>
                 "message" =@ T<string>
+                "self" =? T<exn> |> WithGetterInline "$this"
             ]
 
         |+> Static [ Constructor (T<string>)]

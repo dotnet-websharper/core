@@ -261,7 +261,7 @@ let Tests =
 
     Test "Bug #279" {
         let arr = Array<int>()
-        arr.ToDotNet() =? [||]
+        arr.Self =? [||]
     }
 
     Test "Bug #282" {

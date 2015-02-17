@@ -38,11 +38,6 @@ let Tests =
 
     let d = DateTime(2010, 4, 8, 15, 5, 39)
 
-
-    Test "Ecma Date" {
-        d.ToEcma().ToDotNet() =?~ d
-    }
-
     Test "Year" {
         d.Year =? 2010
     }
@@ -186,20 +181,20 @@ let Tests =
     Section "Native Dates"
 
     Test "Turnaround" {
-        d.ToEcma().ToDotNet() =?~ d
+        d.ToJS().Self =?~ d
     }
 
     Test "Equality" {
-        let a = DateTime.Now.ToEcma()
-        let b = DateTime.Now.ToEcma()
+        let a = DateTime.Now.ToJS()
+        let b = DateTime.Now.ToJS()
         a =? b
-        let c = DateTime.Now.AddDays(1.).ToEcma()
+        let c = DateTime.Now.AddDays(1.).ToJS()
         a <>? c
     }
 
     Test "Comparison" {
-        let a = DateTime.Now.ToEcma()
-        let b = DateTime.Now.AddDays(1.).ToEcma()
+        let a = DateTime.Now.ToJS()
+        let b = DateTime.Now.AddDays(1.).ToJS()
         Unchecked.compare a b < 0 =? true
         Unchecked.compare b a > 0 =? true
     }
