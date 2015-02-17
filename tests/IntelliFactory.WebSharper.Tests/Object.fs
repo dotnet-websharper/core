@@ -40,6 +40,7 @@ type O [<Inline "{}">] () =
         and  set v = () 
 
 type R = { [<OptionalField>] KO: int option }
+type [<OptionalField>] R2 = { KO2: int option; K2 : int }
 
 [<JavaScript>]
 type RN () =
@@ -103,6 +104,14 @@ let Tests =
         r?KO =? 2
         let r2 = { KO = None }
         r2 =? New []
+        let r3 = { KO2 = Some 1; K2 = 2 }
+        r3.KO2 =? Some 1
+        r3.K2 =? 2
+        r3 =? New [ "KO2" => 1; "K2" => 2 ]
+        let r4 = { KO2 = None; K2 = 2 }
+        r4.KO2 =? None
+        r4.K2 =? 2
+        r4 =? New [ "K2" => 2 ]        
     }
 
     Test "Optimized field access" {

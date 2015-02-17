@@ -1212,6 +1212,23 @@ let CleanupRuntime expr =
                     Some (vars, body)
         | _ -> None
 
+    let lambda this args body =
+        let simplifyThis finalArgs =
+            match this with
+            | Some t when containsVar t body ->
+                Lambda (this, finalArgs, body)
+            | _ -> 
+                Lambda (None, finalArgs, body) 
+        let rec simplifyArgs revArgs =
+            match revArgs with
+            | [] -> simplifyThis []
+            | x :: rest ->
+                if containsVar x body then
+                    simplifyThis (List.rev revArgs)
+                else
+                    simplifyArgs rest          
+        simplifyArgs (List.rev args)
+
     let rec clean expr =
         let tr = Transform clean
         match expr with
@@ -1222,17 +1239,20 @@ let CleanupRuntime expr =
         | Call (Runtime, Constant (String rtFunc), xs) ->
             match rtFunc, xs with
             | "CreateFuncWithArgs", [ TupledLambda (vars, body) as f ] ->
-                Lambda(None, vars, clean body) |> WithPosOf f
+                lambda None vars (clean body) |> WithPosOf f
             | "CreateFuncWithOnlyThis", [ Lambda (None, [obj], body) as f ] ->
-                Lambda (Some obj, [], clean body) |> WithPosOf f   
+                lambda (Some obj) [] (clean body) |> WithPosOf f
             | "CreateFuncWithThis", [ Lambda (None, [obj], Lambda (None, args, body)) as f ] ->
-                Lambda (Some obj, args, clean body) |> WithPosOf f   
+                lambda (Some obj) args (clean body) |> WithPosOf f   
             | "CreateFuncWithThisArgs", [ Lambda (None, [obj], TupledLambda (vars, body)) as f ] ->
-                Lambda(Some obj, vars, clean body) |> WithPosOf f
+                lambda (Some obj) vars (clean body) |> WithPosOf f
             | "CreateFuncWithRest", [ Constant (Integer length); TupledLambda (vars, body) as f ] ->
                 let rest :: fixRev = List.rev vars
                 let fix = List.rev fixRev
-                Lambda (None, fix, Let (rest, sliceFromArguments [ length ], clean body)) |> WithPosOf f
+                if containsVar rest body then
+                    lambda None fix (Let (rest, sliceFromArguments [ length ], clean body)) |> WithPosOf f
+                else
+                    lambda None fix (clean body) |> WithPosOf f
             | "SetOptional", [obj; field; optValue] ->
                 match optValue with
                 | NewObject ["$", Constant (Integer 0L)] ->
@@ -1286,7 +1306,7 @@ let CleanupRuntime expr =
             | _ -> tr expr     
         | Let (var, value, body) when not var.IsMutable ->
             // transform function if it is always used as JavaScript interop
-            let transformIfAlwaysInterop rtFunc jsFunc =
+            let transformIfAlwaysInterop rtFunc getJsFunc =
                 let (|WithInterop|_|) e =
                     match e with
                     | Call (Runtime, Constant (String f), [ Var v ]) when f = rtFunc && v = var -> Some ()
@@ -1297,17 +1317,18 @@ let CleanupRuntime expr =
                     | Var v when v = var -> false
                     | _ -> Children e |> List.forall alwaysInterop  
                 if alwaysInterop body then
-                    Let(var, jsFunc |> clean |> WithPosOf value, body |> BottomUp (function WithInterop -> Var var | e -> e) |> clean)
+                    Let(var, getJsFunc() |> clean |> WithPosOf value, 
+                        body |> BottomUp (function WithInterop -> Var var | e -> e) |> clean)
                 else tr expr
             match value with
             | TupledLambda (vars, lBody) ->
-                transformIfAlwaysInterop "CreateFuncWithArgs" (Lambda(None, vars, lBody))
+               transformIfAlwaysInterop "CreateFuncWithArgs" (fun () -> lambda None vars lBody)
             | Lambda (None, [obj], Lambda (None, args, lBody)) ->
-                transformIfAlwaysInterop "CreateFuncWithThis" (Lambda (Some obj, args, lBody))
+               transformIfAlwaysInterop "CreateFuncWithThis" (fun () -> lambda (Some obj) args lBody)
             | Lambda (None, [obj], lBody) ->
-                transformIfAlwaysInterop "CreateFuncWithOnlyThis" (Lambda (Some obj, [], lBody))
+               transformIfAlwaysInterop "CreateFuncWithOnlyThis" (fun () -> lambda (Some obj) [] lBody)
             | Lambda (None, [obj], TupledLambda (vars, lBody)) ->
-                transformIfAlwaysInterop "CreateFuncWithThisArgs" (Lambda (Some obj, vars, lBody))
+               transformIfAlwaysInterop "CreateFuncWithThisArgs" (fun () -> lambda (Some obj) vars lBody)
             | _ ->
             tr expr
         // used by functions with rest argument

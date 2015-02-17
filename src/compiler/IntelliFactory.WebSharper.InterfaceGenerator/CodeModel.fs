@@ -69,13 +69,13 @@ module CodeModel =
                 clone
 
     and TypeParameter =
-        val Position : int
+        val Id : Type.Id
         val mutable Name : string
         val mutable Constraints : list<T>
 
-        internal new (pos, name) =
+        internal new (name) =
             {
-                Position = pos
+                Id = Type.Id()
                 Name = name
                 Constraints = []
             }
@@ -100,7 +100,7 @@ module CodeModel =
         static member ( !? ) (this: TypeParameter) =
             !? this.Type
 
-        member this.Type = Type.GenericType this.Position
+        member this.Type = Type.GenericType this.Id
 
         interface Type.IType with
             member this.Type = this.Type

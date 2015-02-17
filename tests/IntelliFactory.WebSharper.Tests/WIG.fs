@@ -33,6 +33,11 @@ let Tests =
     Section "Interface generator"
 
     Test "Functions" {
+        let doNotRun() = 
+            let g = WIGtestGeneric<int, string>()
+            g.NonGenericMethod(1, "")
+            g.GenericMethod<bool, obj>(1, "", true, obj())
+
         WIGtest.ArgsFuncIn(fun (a, b) -> a + b) =? 3    
         WIGtest.ArgsFuncIn2(fun (a, b) -> a + b) =? 3    
         WIGtest.ArgsFuncOut()(1, 2) =? 3
@@ -108,11 +113,11 @@ let Tests =
         x.StringOrInt <- Choice1Of2 1
         x.StringOrInt =? Choice1Of2 1
 
-        x.JsStringOrNum =? Choice1Of2 ((0).ToEcma())
-        x.JsStringOrNum <- Choice2Of2 ("hi".ToEcma())
-        x.JsStringOrNum =? Choice2Of2 ("hi".ToEcma())
-        x.JsStringOrNum <- Choice1Of2 ((1).ToEcma())
-        x.JsStringOrNum =? Choice1Of2 ((1).ToEcma())
+        x.JsStringOrNum =? Choice1Of2 ((0).ToJS())
+        x.JsStringOrNum <- Choice2Of2 ("hi".ToJS())
+        x.JsStringOrNum =? Choice2Of2 ("hi".ToJS())
+        x.JsStringOrNum <- Choice1Of2 ((1).ToJS())
+        x.JsStringOrNum =? Choice1Of2 ((1).ToJS())
     }
 
     Test "Option property" {

@@ -882,16 +882,20 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
                     |> Set.ofList
                 let newFields = HashSet()
                 let newRenames = ResizeArray()
-                let rec getSafeName n =
-                    if baseFields.Contains n || newFields.Contains n then
-                        getSafeName (n + "_")
-                    else n
+                let fmt (x: string) (n: int) =
+                    if n = 0 then x else
+                        System.String.Format("{0}{1:x}", x, n)
+                let rec pick name k =
+                    let res = fmt name k
+                    if baseFields.Contains res || newFields.Contains res then
+                        pick name (k + 1)
+                    else res
                 for on, rn, opt in fr do
-                    let rn = getSafeName rn
+                    let rn = pick rn 0
                     newFields.Add rn |> ignore
                     if on <> rn || opt then newRenames.Add (on, rn, opt) 
                 for on in fs do
-                    let rn = getSafeName on
+                    let rn = pick on 0
                     newFields.Add rn |> ignore
                     if on <> rn then newRenames.Add (on, rn, false) 
                 List.ofSeq (Seq.append newFields baseFields), List.ofSeq newRenames

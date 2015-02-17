@@ -401,15 +401,18 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     member b.WebResource = webResource
 
 [<Sealed>]
-type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericTypes, genericsByPosition: GenericParameter []) =
+type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericTypes, 
+                                genericsByPosition: GenericParameter [], genericsById: Type.Id -> GenericParameter) =
 
     let byId id =
         match types.TryGetValue id with
         | true, x -> x :> TypeReference
         | _ -> tB.Object
 
+    static let noGenerics _ = failwith "Generic parameter not found."
+
     new (tB, types, genTypes) =
-        TypeConverter(tB, types, genTypes, Array.empty)
+        TypeConverter(tB, types, genTypes, Array.empty, noGenerics)
 
     member c.TypeReference(d: R.TypeDefinition) =
         tB.Type(d.AssemblyName.FullName, d.FullName)
@@ -458,8 +461,8 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
                 | Some this -> tB.FuncWithThis (tRef this) func
             | Type.FSFunctionType (a, r) ->
                 tB.Function (tRef a) (tRef r)
-            | Type.GenericType pos ->
-                genericsByPosition.[pos] :> _
+            | Type.GenericType i ->
+                genericsById i :> _
             | Type.SpecializedType (Type.DeclaredType id, xs) 
             | Type.SpecializedType (Type.InteropType(Type.DeclaredType id, _), xs)
             | Type.SpecializedType (Type.NoInteropType(Type.DeclaredType id), xs) ->
@@ -513,9 +516,12 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
     member c.TypeReference(t: T, defT: Code.TypeDeclaration) =
         c.TypeReference(t, defT, false)
 
-    member c.WithGenerics(gs: seq<GenericParameter>) =
-        let gs = Seq.toArray gs
-        TypeConverter(tB, types, genTypes, Array.append genericsByPosition gs)
+    member c.WithGenerics(gs: seq<GenericParameter>, byId: Type.Id -> GenericParameter option) =
+        let gbi i =
+            match byId i with
+            | Some p -> p
+            | _ -> genericsById i
+        TypeConverter(tB, types, genTypes, Array.append genericsByPosition (Seq.toArray gs), gbi)
 
 [<Sealed>]
 type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
@@ -665,7 +671,8 @@ type MemberConverter
             iG: InlineGenerator,
             def: AssemblyDefinition,
             comments: Comments,
-            compilerOptions: CompilerOptions
+            compilerOptions: CompilerOptions,
+            genParamNames: string list
         ) =
 
     let inlineAttribute (code: string) =
@@ -693,9 +700,6 @@ type MemberConverter
         | CodeModel.NotObsolete -> ()
         | CodeModel.Obsolete None -> attrs.Add obsoleteAttribute
         | CodeModel.Obsolete (Some msg) -> attrs.Add (obseleteAttributeWithMsg msg)
-
-    let withGenerics gs =
-        MemberConverter(tB, mB, tC.WithGenerics gs, types, iG, def, comments, compilerOptions)
 
     let makeParameters (f: Type.Function, defT) =
         Seq.ofArray [|
@@ -805,21 +809,38 @@ type MemberConverter
         setObsoleteAttribute p pD.CustomAttributes
         dT.Properties.Add pD
 
+    let withGenerics (generics: Code.TypeParameter list, td: Code.TypeDeclaration, owner) =
+        let namesTaken = HashSet(genParamNames) 
+        let fmt (x: string) (n: int) =
+            if n = 0 then x else
+                System.String.Format("{0}{1:x}", x, n)
+        let rec pick name k =
+            let res = fmt name k
+            if namesTaken.Contains res then
+                pick name (k + 1)
+            else res
+        let gs =
+            [
+                for g in generics ->
+                    let n = pick g.Name 0
+                    namesTaken.Add n |> ignore
+                    let gP = GenericParameter(n, owner)
+                    for c in g.Constraints do
+                        gP.Constraints.Add(tC.TypeReference (c, td))
+                    owner.GenericParameters.Add(gP)
+                    g.Id, gP
+            ]        
+        let byId i =
+            gs |> List.tryPick (fun (id, p) -> if i = id then Some p else None)    
+        MemberConverter(tB, mB, tC.WithGenerics (gs |> Seq.map snd, byId), types, iG, def, comments, 
+            compilerOptions, List.ofSeq namesTaken)
+
     let genericType (x: Code.TypeDeclaration) k =
         match types.TryGetValue(x.Id) with
         | true, tD ->
-            let gs =
-                [
-                    for g in x.Generics ->
-                        let gP = GenericParameter(g.Name, tD)
-                        for c in g.Constraints do
-                            gP.Constraints.Add(tC.TypeReference (c, x))
-                        tD.GenericParameters.Add(gP)
-                        gP
-                ]
             if x.Generics.Length > 0 then
                 tD.Name <- tD.Name + "`" + string x.Generics.Length
-            k (withGenerics gs) tD
+            k (withGenerics (x.Generics, x, tD)) tD
         | _ -> ()
 
     member private c.AddMethod(dT: TypeDefinition, td: Code.TypeDeclaration, x: Code.Method) =
@@ -841,16 +862,7 @@ type MemberConverter
                     match x.Comment with
                     | None -> ()
                     | Some c -> comments.[mD] <- c
-                let gs = 
-                    [| 
-                        for g in x.Generics -> 
-                            let gP = GenericParameter(g.Name, mD) 
-                            for c in g.Constraints do
-                                gP.Constraints.Add(tC.TypeReference (c, td))
-                            mD.GenericParameters.Add(gP)
-                            gP
-                    |]
-                let c = withGenerics gs
+                let c = withGenerics (x.Generics, td, mD)
                 c.AddMethod(dT, td, x, mD, t, f)
             | _ -> ()
 
@@ -1281,7 +1293,7 @@ type Compiler() =
         let tB = TypeBuilder(resolver, def, findFSharpCoreFullName options)
         let tC = TypeConverter(tB, types, genTypes)
         let mB = MemberBuilder(tB, def)
-        let mC = MemberConverter(tB, mB, tC, types, iG, def, comments, options)
+        let mC = MemberConverter(tB, mB, tC, types, iG, def, comments, options, [])
         assembly
         |> visit
             (fun _ c -> mC.Class c)
