@@ -38,53 +38,53 @@ This table summarizes the capabilities of the available application/helper proje
         </tr>
         <tr>
             <td>Client-Server App<br/><span style="color:#888;font-size:smaller">ASP.NET-based or self-hosted via OWIN</span></td>
-            <td><img src="images/ok.png" alt="X"/></td>
-            <td><img src="images/ok.png" alt="X"/></td>
-            <td><img src="images/ok.png" alt="X"/></td>
-            <td><img src="images/ok.png" alt="X"/></td>
-            <td><img src="images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
         </tr>
         <tr>
             <td>HTML App</td>
-            <td><img src="images/ok.png" alt="X"/></td>
-            <td><img src="images/ok.png" alt="X"/></td>
-            <td><img src="images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
             <td></td>
-            <td><img src="images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
         </tr>
         <tr>
             <td>Single-Page App</td>
-            <td><img src="images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
             <td></td>
-            <td><img src="images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
             <td></td>
-            <td><img src="images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
         </tr>
         <tr class="header">
             <th colspan="6">Helpers</th>
         </tr>
         <tr>
             <td>Library</td>
-            <td><img src="images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
             <td></td>
-            <td><img src="images/ok.png" alt="X"/></td>
-            <td><img src="images/ok.png" alt="X"/></td>
-            <td><img src="images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
         </tr>
         <tr>
             <td>Extension</td>
-            <td><img src="images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
             <td></td>
-            <td><img src="images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
             <td></td>
-            <td><img src="images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
         </tr>
         <tr>
             <td>ASP.NET Container</td>
             <td></td>
             <td></td>
             <td></td>
-            <td><img src="images/ok.png" alt="X"/></td>
+            <td><img src="https://raw.githubusercontent.com/intellifactory/websharper/master/docs/images/ok.png" alt="X"/></td>
             <td></td>
         </tr>
     </tbody>
