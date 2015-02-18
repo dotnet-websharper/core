@@ -37,7 +37,10 @@ type AspNetFormsUserSession(ctx: HttpContext) =
             let principal = GenericPrincipal(FormsIdentity(ticket), [||])
             ctx.User <- principal
 
-    do refresh ctx.Request.Cookies.[FormsAuthentication.FormsCookieName]
+    do  // Using `try ... with` because `FormsAuthentication.Decrypt`
+        // throws an exception when there is a cookie but its format is invalid
+        try refresh ctx.Request.Cookies.[FormsAuthentication.FormsCookieName]
+        with _ -> refresh null
 
     interface IUserSession with
 
