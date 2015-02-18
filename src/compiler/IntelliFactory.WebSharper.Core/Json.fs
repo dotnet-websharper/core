@@ -631,6 +631,12 @@ let decodeOptionalField dD (i: FormatSettings) (mi: System.Reflection.MemberInfo
         | Some v -> dec v
         | None -> raise DecoderException
 
+let isInlinableRecordCase (uci: Reflection.UnionCaseInfo) =
+    let fields = uci.GetFields()
+    fields.Length = 1 &&
+    fields.[0].Name = "Item" &&
+    FST.IsRecord fields.[0].PropertyType
+
 let unmakeList<'T> (dV: obj -> Encoded) (x: obj) =
     EncodedArray [
         for v in unbox<list<'T>> x ->
@@ -650,10 +656,16 @@ let unionEncoder dE (i: FormatSettings) (t: System.Type) =
         FST.GetUnionCases(t, flags)
         |> Array.map (fun c ->
             let r = FSV.PreComputeUnionReader(c, flags)
-            let fs =
-                c.GetFields()
-                |> Array.mapi (fun k f ->
-                    i.GetEncodedUnionFieldName f k, encodeOptionalField dE i f f.PropertyType)
+            let fields = c.GetFields()
+            let r, fields =
+                if isInlinableRecordCase c then
+                    let rt = fields.[0].PropertyType
+                    let rr = FSV.PreComputeRecordReader(rt, flags)
+                    let r x = rr (r x).[0]
+                    r, FST.GetRecordFields(rt, flags)
+                else r, fields
+            let fs = fields |> Array.mapi (fun k f ->
+                i.GetEncodedUnionFieldName f k, encodeOptionalField dE i f f.PropertyType)
             (r, fs))
     let encodeTag = i.EncodeUnionTag t
     fun (x: obj) ->
@@ -694,8 +706,16 @@ let unionDecoder dD (i: FormatSettings) (t: System.Type) =
         FST.GetUnionCases(t, flags)
         |> Array.map (fun c ->
             let mk = FSV.PreComputeUnionConstructor(c, flags)
+            let fields = c.GetFields()
+            let mk, fields =
+                if isInlinableRecordCase c then
+                    let rt = fields.[0].PropertyType
+                    let mkR = FSV.PreComputeRecordConstructor(rt, flags)
+                    let mk x = mk [|mkR x|]
+                    mk, FST.GetRecordFields(rt, flags)
+                else mk, fields
             let fs =
-                c.GetFields()
+                fields
                 |> Array.mapi (fun k f ->
                     i.GetEncodedUnionFieldName f k, decodeOptionalField dD i f f.PropertyType)
             (mk, fs))
@@ -1113,8 +1133,13 @@ let inferUnionTag t =
     let cases =
         FST.GetUnionCases(t, flags)
         |> Array.map (fun c ->
+            let fields = c.GetFields()
             let fields =
-                c.GetFields()
+                if isInlinableRecordCase c then
+                    FST.GetRecordFields fields.[0].PropertyType
+                else fields
+            let fields =
+                fields
                 |> Array.filter (fun f ->
                     let t = f.PropertyType
                     not (t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>>))
@@ -1152,6 +1177,9 @@ let inferUnionTag t =
 let defaultEncodeUnionTag _ (tag: int) =
     Some ("$", EncodedNumber (string tag))
 
+/// Some (Some x) if tagged [<NameUnionCases x>];
+/// Some None if tagged [<NamedUnionCases>];
+/// None if not tagged.
 let getDiscriminatorName (t: System.Type) =
     t.GetCustomAttributesData()
     |> Seq.tryPick (fun cad ->
