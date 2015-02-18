@@ -167,3 +167,43 @@ module Extensions =
         member this.ToEcma() = X<String>
         [<Inline "$0">]
         member this.ToJS() = X<String>
+
+    type FuncWithArgs<'TArgs, 'TResult> with
+        [<Inline "$0">]
+        member this.Untyped() = X<JavaScript.Function>
+
+    type FuncWithThis<'TThis, 'TFunc> with
+        [<Inline "$0">]
+        member this.Untyped() = X<JavaScript.Function>
+
+    type FuncWithRest<'TRest, 'TResult> with
+        [<Inline "$0">]
+        member this.Untyped() = X<JavaScript.Function>
+
+    type FuncWithRest<'TArg, 'TRest, 'TResult> with
+        [<Inline "$0">]
+        member this.Untyped() = X<JavaScript.Function>
+
+    type FuncWithRest<'TArg1, 'TArg2, 'TRest, 'TResult> with
+        [<Inline "$0">]
+        member this.Untyped() = X<JavaScript.Function>
+
+    type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TRest, 'TResult> with
+        [<Inline "$0">]
+        member this.Untyped() = X<JavaScript.Function>
+
+    type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TRest, 'TResult> with
+        [<Inline "$0">]
+        member this.Untyped() = X<JavaScript.Function>
+
+    type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TRest, 'TResult> with
+        [<Inline "$0">]
+        member this.Untyped() = X<JavaScript.Function>
+
+    type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TArg6, 'TRest, 'TResult> with
+        [<Inline "$0">]
+        member this.Untyped() = X<JavaScript.Function>
+
+    type FuncWithArgsRest<'TArgs, 'TRest, 'TResult> with
+        [<Inline "$0">]
+        member this.Untyped() = X<JavaScript.Function>
