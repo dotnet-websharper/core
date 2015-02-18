@@ -198,12 +198,35 @@ module Sitelet =
             Controller = { Handle = handle }
         }
 
+    let InferAsync<'T when 'T : equality> (handle : Context<'T> -> 'T -> Async<Content<'T>>) =
+        {
+            Router = Router.Infer()
+            Controller = { Handle = fun x ->
+                C.CustomContentAsync <| fun ctx -> async {
+                    let! content = handle ctx x
+                    return! C.ToResponseAsync content ctx
+                }
+            }
+        }
+
     let InferWithCustomErrors<'T when 'T : equality> (handle : ActionEncoding.DecodeResult<'T> -> Content<'T>) =
         {
             Router = Router.InferWithErrors<'T>()
             Controller = { Handle = fun x ->
                 C.CustomContentAsync <| fun ctx ->
                     C.ToResponseAsync (handle x) (Context.Map ActionEncoding.Success ctx)
+            }
+        }
+
+    let InferWithCustomErrorsAsync<'T when 'T : equality> (handle : Context<'T> -> ActionEncoding.DecodeResult<'T> -> Async<Content<'T>>) =
+        {
+            Router = Router.InferWithErrors<'T>()
+            Controller = { Handle = fun x ->
+                C.CustomContentAsync <| fun ctx -> async {
+                    let ctx = (Context.Map ActionEncoding.Success ctx)
+                    let! content = handle ctx x
+                    return! C.ToResponseAsync content ctx
+                }
             }
         }
 
@@ -217,7 +240,26 @@ module Sitelet =
                     | None -> failwith "Invalid action in Sitelet.InferPartial" }
         }
 
+    let InferPartialAsync (embed: 'T1 -> 'T2) (unembed: 'T2 -> 'T1 option) (mkContent: Context<'T2> -> 'T1 -> Async<Content<'T2>>) : Sitelet<'T2> =
+        {
+            Router = Router.Infer() |> Router.TryMap (Some << embed) unembed
+            Controller = { Handle = fun p ->
+                C.CustomContentAsync <| fun ctx -> async {
+                    match unembed p with
+                    | Some e ->
+                        let! content = mkContent ctx e
+                        return! C.ToResponseAsync content ctx
+                    | None -> return failwith "Invalid action in Sitelet.InferPartial"
+                }
+            }
+        }
+
     let InferPartialInUnion (case: Expr<'T1 -> 'T2>) mkContent =
         match tryGetEmbedFunctionsFromExpr case with
         | Some (embed, unembed) -> InferPartial embed unembed mkContent
+        | None -> failwith "Invalid union case in Sitelet.InferPartialInUnion"
+
+    let InferPartialInUnionAsync (case: Expr<'T1 -> 'T2>) mkContent =
+        match tryGetEmbedFunctionsFromExpr case with
+        | Some (embed, unembed) -> InferPartialAsync embed unembed mkContent
         | None -> failwith "Invalid union case in Sitelet.InferPartialInUnion"
