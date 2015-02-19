@@ -108,7 +108,16 @@ type RpcHandler() =
 
     let (beginPR, endPR, cancelPR) = Async.AsBeginEnd(work)
 
-    do Remoting.SetUserSession (fun () -> new AspNetFormsUserSession(HttpContext.Current) :> _)
+    do Remoting.SetContext (fun () ->
+        let root = HttpContext.Current.Server.MapPath("~")
+        let uri = HttpContext.Current.Request.Url
+        let session = new AspNetFormsUserSession(HttpContext.Current)
+        { new IContext with
+            member this.RootFolder = root
+            member this.RequestUri = uri
+            member this.UserSession = session :> _
+        }
+        |> Some)
 
     interface SessionState.IRequiresSessionState
 

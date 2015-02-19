@@ -33,6 +33,11 @@ type Context<'Action> =
         UserSession : IntelliFactory.WebSharper.Web.IUserSession
     }
 
+    interface IntelliFactory.WebSharper.Web.IContext with
+        member this.RequestUri = this.Request.Uri
+        member this.RootFolder = this.RootFolder
+        member this.UserSession = this.UserSession
+
 module Context =
 
     let Map (f: 'T2 -> 'T1) (ctx: Context<'T1>) : Context<'T2> =

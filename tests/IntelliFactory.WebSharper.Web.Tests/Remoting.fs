@@ -154,25 +154,25 @@ module Server =
 
     [<Remote>]
     let LoginAs (username: string) =
-        let userSession = Web.Remoting.GetUserSession()
+        let ctx = Web.Remoting.GetContext()
         async {
-            do! userSession.LoginUser(username)
-            return! userSession.GetLoggedInUser()
+            do! ctx.UserSession.LoginUser(username)
+            return! ctx.UserSession.GetLoggedInUser()
         }
 
     [<Remote>]
     let GetLoggedInUser () =
-        let userSession = Web.Remoting.GetUserSession()
+        let ctx = Web.Remoting.GetContext()
         async {
-            return! userSession.GetLoggedInUser()
+            return! ctx.UserSession.GetLoggedInUser()
         }
 
     [<Remote>]
     let Logout () =
-        let userSession = Web.Remoting.GetUserSession()
+        let ctx = Web.Remoting.GetContext()
         async {
-            do! userSession.Logout()
-            return! userSession.GetLoggedInUser()
+            do! ctx.UserSession.Logout()
+            return! ctx.UserSession.GetLoggedInUser()
         }
 
     [<JavaScript>]

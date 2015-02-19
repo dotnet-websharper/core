@@ -23,7 +23,7 @@ namespace IntelliFactory.WebSharper.Sitelets
 open System
 
 [<Obsolete "\
-    In Rpc functions, use IntelliFactory.WebSharper.Web.Remoting.GetUserSession(). \n\
+    In Rpc functions, use IntelliFactory.WebSharper.Web.Remoting.GetContext().UserSession. \
     In Sitelets, use context.UserSession.">]
 module UserSession =
     open IntelliFactory.WebSharper.Web
@@ -31,20 +31,20 @@ module UserSession =
     /// Gets the currently logged in user.
     /// Warning: Must be called from the same thread as the request.
     let GetLoggedInUser () =
-        Remoting.GetUserSession().GetLoggedInUser() |> Async.RunSynchronously
+        Remoting.GetContext().UserSession.GetLoggedInUser() |> Async.RunSynchronously
 
     /// Login user.
     /// Warning: Must be called from the same thread as the request.
     let LoginUser (user: string) =
-        Remoting.GetUserSession().LoginUser(user, false) |> Async.RunSynchronously
+        Remoting.GetContext().UserSession.LoginUser(user, false) |> Async.RunSynchronously
 
     /// Login user and persist the login across browser sessions.
     /// Warning: Must be called from the same thread as the request.
     let LoginUserPersistent (user: string) =
-        Remoting.GetUserSession().LoginUser(user, true) |> Async.RunSynchronously
+        Remoting.GetContext().UserSession.LoginUser(user, true) |> Async.RunSynchronously
 
     /// Logout current user.
     /// Warning: Must be called from the same thread as the request.
     let Logout () =
-        Remoting.GetUserSession().Logout() |> Async.RunSynchronously
+        Remoting.GetContext().UserSession.Logout() |> Async.RunSynchronously
 

@@ -22,13 +22,17 @@ namespace IntelliFactory.WebSharper.Web
 
 /// Manages user sessions in a web application.
 type IUserSession =
+
     /// Check whether user sessions are currently available.
     abstract member IsAvailable : bool
+
     /// Retrieve the currently logged in user.
     abstract GetLoggedInUser : unit -> Async<option<string>>
+
     /// Log in the given user.
     /// Set `persistent` to true to persist the login across browser sessions.
     abstract LoginUser : string * ?persistent: bool -> Async<unit>
+
     /// Log out the current user.
     abstract Logout : unit -> Async<unit>
 
@@ -43,17 +47,3 @@ module IUserSessionExtensions =
                 member this.LoginUser(name, ?persistent) = async { return () }
                 member this.Logout() = async { return () }
             }
-
-type Remoting private () =
-
-    static let mutable userSession = fun () -> IUserSession.NotAvailable
-
-    /// Sets the user login session manager for this thread.
-    /// This should only be used by WebSharper host implementations.
-    static member SetUserSession s = userSession <- s
-
-    /// Manage user login sessions in an Rpc function. This method must be called
-    /// from the thread from which the Rpc function is originally called. The returned
-    /// object can be used throughout the Rpc function.
-    static member GetUserSession() =
-        userSession()

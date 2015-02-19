@@ -52,6 +52,8 @@ type Context<'Action> =
         UserSession : IntelliFactory.WebSharper.Web.IUserSession
     }
 
+    interface IntelliFactory.WebSharper.Web.IContext
+
 module Context =
 
     /// Map a context to a wrapping type.
