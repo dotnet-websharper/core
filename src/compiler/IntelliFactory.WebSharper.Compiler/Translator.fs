@@ -220,7 +220,26 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             match meta.Method m.Entity with
             | Some k -> tCall exn q k args
             | None -> err "Failed to translate a method call" m.Entity
-        | Q.Coerce (_, x) ->
+        | Q.Coerce (t, x) ->
+            match t with
+            | R.Type.Concrete (tD, _) when tD.FullName = "System.Object" ->
+                let warnTupled() = log Warning "Tupled function coerced to object."
+                let warnCurried() = log Warning "Curried function coerced to object."
+                match x with
+                | Q.Lambda (v, _) when v.Name = "tupledArg" -> warnTupled()
+                | Q.Lambda (_, Q.Lambda _) -> warnCurried()
+                | Q.Var v ->
+                    match v.Type with
+                    | R.Type.Concrete (tD, [d; r]) when tD.FullName.StartsWith "Microsoft.FSharp.Core.FSharpFunc" ->
+                        match d, r with
+                        | R.Type.Concrete (tD, _), _ when tD.FullName.StartsWith "System.Tuple" ->
+                            warnTupled()
+                        | _, R.Type.Concrete (tD, _) when tD.FullName.StartsWith "Microsoft.FSharp.Core.FSharpFunc" -> 
+                            warnCurried()
+                        | _ -> ()
+                    | _ -> ()
+                | _ -> ()
+            | _ -> ()
             !x
         | Q.DefaultValue _ ->
             undef

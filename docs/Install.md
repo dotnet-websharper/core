@@ -1,4 +1,4 @@
-# Installation
+## Installing WebSharper into Visual Studio
 
 Developing with WebSharper in Visual Studio currently requires:
 
@@ -18,6 +18,14 @@ WebSharper `.vsix` file from the [WebSharper download page][downloads].
 This will install the WebSharper project templates into Visual Studio
 (you may have to restart Visual Studio if you have it running while
 you install WebSharper), making it easy to get started with new projects.
+
+## Visual Studio templates
+
+Once you installed WebSharper and, if needed, restarted Visual Studio, you should see the main WebSharper templates in the New Project dialog.
+
+![Visual Studio templates](images/VisualStudioTemplates.png)
+
+## Updating WebSharper in existing projects
 
 When you create a new WebSharper project from a Visual Studio template,
 it will use the version of WebSharper that came bundled with the 
