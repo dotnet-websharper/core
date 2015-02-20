@@ -28,8 +28,6 @@ module Definition =
     module P = Pattern
 
     let EcmaFunctionT = Type.New()
-    let EcmaStringT = Type.New()
-    let Str = EcmaStringT + T<string>
 
     let EcmaObject =
         Generic - fun (a: CodeModel.TypeParameter) ->
@@ -40,18 +38,18 @@ module Definition =
                 "toString" => T<unit->string>
                 "toLocaleString" => T<unit->string>
                 "valueOf" => T<unit->obj>
-                "hasOwnProperty" => Str ^-> T<bool>
+                "hasOwnProperty" => T<string> ^-> T<bool>
                 "isPrototypeOf" => T<obj->bool>
-                "propertyIsEnumerable" => Str ^-> T<bool>
+                "propertyIsEnumerable" => T<string> ^-> T<bool>
                 "" =@ a |> Indexed T<string>            
                 "self" =? T<obj> |> WithGetterInline "$this"      
             ]
         |+> Static [
                 ObjectConstructor T<unit> 
                 Constructor (!|(T<string> * a))?nameValuePairs |> WithInline "$wsruntime.NewObject($nameValuePairs)"
-                "prototype" =? TSelf.[T<obj>]
+                "prototype" =? T<obj>
                 "create" => T<obj>?proto * !?T<obj>?properties ^-> T<obj>                
-                "getPrototypeOf" => T<obj> ^-> TSelf.[T<obj>]
+                "getPrototypeOf" => T<obj> ^-> T<obj>
                 "getOwnPropertyDescriptor" => T<obj->obj>
                 "defineProperty" => T<obj*string*obj->obj>
                 "defineProperties" => T<obj*obj->obj>
@@ -67,22 +65,21 @@ module Definition =
     /// The Array object is used to store multiple values in a single variable.
     let EcmaArray =
         Generic - fun (a: CodeModel.TypeParameter) ->
-        let Arr = TSelf.[a] + !|a
         let ReduceMethod name =
             Instance [
-                name => (a * a * T<int> * Arr ^-> a)?callback ^-> a
-                Generic - fun b -> name => (b * a * T<int> * Arr ^-> b)?callback * b?initialValue ^-> b
+                name => (a * a * T<int> * !|a ^-> a)?callback ^-> a
+                Generic - fun b -> name => (b * a * T<int> * !|a ^-> b)?callback * b?initialValue ^-> b
             ] 
         let CallbackMethod name cRes mRes =
             Instance [
-                name => (a * T<int> * Arr ^-> cRes)?callback ^-> mRes
-                Generic - fun t -> name => (t -* a * T<int> * Arr ^-> cRes)?callback * t?thisArg ^-> mRes
+                name => (a * T<int> * !|a ^-> cRes)?callback ^-> mRes
+                Generic - fun t -> name => (t -* a * T<int> * !|a ^-> cRes)?callback * t?thisArg ^-> mRes
             ]     
         Class "Array"
         |=> Inherits EcmaObject.[a]
         |+> Instance [
                 "concat" => !+ a ^-> !|a
-                "join" => Str ^-> T<string>
+                "join" => T<string> ^-> T<string>
                 "pop" => T<unit> ^-> a
                 "push" => !+ a ^-> T<int>
                 "reverse" => T<unit> ^-> !|a
@@ -133,8 +130,8 @@ module Definition =
         |=> Inherits EcmaObjectT
         |+> Instance
             [
-                "exec" => Str ^-> !|T<string>
-                "test" => Str ^-> T<bool>
+                "exec" => T<string> ^-> !|T<string>
+                "test" => T<string> ^-> T<bool>
                 "source" =? T<string>
                 "global" =? T<bool>
                 "ignoreCase" =? T<bool>
@@ -142,25 +139,23 @@ module Definition =
                 "lastIndex" =@ T<int>
             ]
         |+> Static [
-                Constructor(Str * !?Str?flags)
+                Constructor(T<string> * !?T<string>?flags)
             ]
 
     /// The String object is used to manipulate a stored piece of text.
     let EcmaString =
-        let REStr = EcmaRegExp + Str
         Class "String"
-        |=> EcmaStringT
         |=> Inherits EcmaObjectT
         |+> Instance 
             [
                 "charAt" => T<int->string>
                 "charCodeAt" => T<int->int>
-                "concat" => !+ Str ^-> T<string>
-                "indexOf" => Str * !?T<int>?pos ^-> T<int>
-                "lastIndexOf" => Str * !?T<int>?pos ^-> T<int>
+                "concat" => !+ T<string> ^-> T<string>
+                "indexOf" => T<string> * !?T<int>?pos ^-> T<int>
+                "lastIndexOf" => T<string> * !?T<int>?pos ^-> T<int>
                 "localeCompare" => T<obj> ^-> T<int>
-                "match" => REStr ^-> T<string []>
-                "replace" => REStr * Str ^-> T<string>
+                "match" => (EcmaRegExp + T<string>) ^-> T<string []>
+                "replace" => (EcmaRegExp + T<string>) * T<string> ^-> T<string>
                 "search" => !?EcmaRegExp ^-> T<int>
                 "slice" => T<int>?startPos * !?T<int>?endPos ^-> T<string>
                 "split" =>
@@ -214,8 +209,7 @@ module Definition =
     /// The Math object allows you to perform mathematical tasks.
     let EcmaMath =
         let D = T<double>
-        let DN = EcmaNumber + T<double>
-        let F = DN ^-> D
+        let F = D ^-> D
         Class "Math"
         |+> Static [
                 "E" =? D
@@ -230,17 +224,17 @@ module Definition =
                 "acos" => F
                 "asin" => F
                 "atan" => F
-                "atan2" => DN * DN ^-> D
-                "ceil" => DN ^-> T<int>
+                "atan2" => D * D ^-> D
+                "ceil" => D ^-> T<int>
                 "cos" => F
                 "exp" => F
-                "floor" => DN ^-> T<int>
+                "floor" => D ^-> T<int>
                 "log" => F
                 "max" => !+ T<obj> ^-> D
                 "min" => !+ T<obj> ^-> D
-                "pow" => DN * DN ^-> D
+                "pow" => D * D ^-> D
                 "random" => T<unit> ^-> D
-                "round" => DN ^-> T<int>
+                "round" => D ^-> T<int>
                 "sin" => F
                 "sqrt" => F
                 "tan" => F
