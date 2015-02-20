@@ -507,7 +507,12 @@ let getJsonParser (f: Field) =
         let defaultValue = JsonProvider.BuildDefaultValue t
         D.Make(true, Set.empty, fun p ->
             try
-                use tr = new System.IO.StreamReader(p.Request.Body)
+                // We need to copy the stream because else StreamReader would close it.
+                use m = new System.IO.MemoryStream(int p.Request.Body.Length)
+                p.Request.Body.CopyTo m
+                p.Request.Body.Seek(0L, IO.SeekOrigin.Begin) |> ignore
+                m.Seek(0L, IO.SeekOrigin.Begin) |> ignore
+                use tr = new System.IO.StreamReader(m)
                 Success (decoder.Decode (Json.Read tr))
             with
                 | Json.ReadException
