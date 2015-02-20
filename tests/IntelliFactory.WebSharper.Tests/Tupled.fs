@@ -43,21 +43,24 @@ let DoNotInline x =
     ignore x    
 
 [<JavaScript>]
+let logged = ref <| obj()
+
+[<JavaScript>]
 let logArgC f x =
-    Console.Log("should be [1, 2]:", box x)
+    logged := box x
     f x    
 
 [<JavaScript>]
 let logArgL f =
     ()
     fun x ->
-        Console.Log("should be [1, 2]:", box x)
+        logged := box x
         f x    
 
 [<JavaScript>]
 [<Inline>]
 let logArgCI f x =
-    Console.Log("should be [1, 2]:", box x)
+    logged := box x
     f x    
 
 [<JavaScript>]
@@ -65,7 +68,7 @@ let logArgCI f x =
 let logArgLI f =
     ()
     fun x ->
-        Console.Log("should be [1, 2]:", box x)
+        logged := box x
         f x    
 
 [<Inline "$arr.map(function (v, i, a) { return $mapping([v, i, a]); })">]
@@ -167,13 +170,21 @@ let Tests =
     Test "Generic" {
         let add(x, y) = x + y   
         callWithArgs (FuncWithArgs(logArgC add)) =? 3
+        !logged =? box [| 1; 2 |]
         callWithArgs (FuncWithArgs(logArgL add)) =? 3
+        !logged =? box [| 1; 2 |]
         callWithArgs (FuncWithArgs(logArgCI add)) =? 3
+        !logged =? box [| 1; 2 |]
         callWithArgs (FuncWithArgs(logArgLI add)) =? 3
+        !logged =? box [| 1; 2 |]
         callWithTuple (logArgC add) =? 3
+        !logged =? box [| 1; 2 |]
         callWithTuple (logArgL add) =? 3
+        !logged =? box [| 1; 2 |]
         callWithTuple (logArgCI add) =? 3
+        !logged =? box [| 1; 2 |]
         callWithTuple (logArgLI add) =? 3
+        !logged =? box [| 1; 2 |]
     }
 
     Test "Inlines" {

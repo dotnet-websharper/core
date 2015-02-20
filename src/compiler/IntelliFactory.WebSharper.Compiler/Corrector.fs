@@ -116,7 +116,7 @@ let fixCtor (q: C.Expression) =
             let e = free.MinimumElement
             e.Name <- Some "r"
             e
-    let ret t self = C.Call (C.Runtime, !~(C.String "New"), [C.Var t; self])
+    let ret t self = C.New (C.Var t, [self])
     match q with
     | C.Lambda (None, args, body) ->
         let this = C.Id ()
