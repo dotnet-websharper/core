@@ -41,6 +41,5 @@ let Tests =
 
     Test "Guid" {
         let guids = List.init 100 (fun _ -> System.Guid.NewGuid())
-        JavaScript.Console.Log guids
         guids |> Seq.distinct |> Seq.length =? 100
     }
