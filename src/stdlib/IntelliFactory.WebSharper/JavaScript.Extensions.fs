@@ -72,12 +72,6 @@ module Extensions =
         [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use Self property instead.">]
         member this.ToDotNet<'T, 'R>() = X<'T -> 'R>
-    type FSharpFunc<'T, 'R> with
-        [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
-        member this.ToEcma() = X<Function>
-        [<Inline "$0">]
-        member this.ToJS() = X<Function>
 
     type Number with
         [<Inline "$0">]
@@ -170,40 +164,40 @@ module Extensions =
 
     type FuncWithArgs<'TArgs, 'TResult> with
         [<Inline "$0">]
-        member this.Untyped() = X<JavaScript.Function>
+        member this.ToJS() = X<JavaScript.Function>
 
     type FuncWithThis<'TThis, 'TFunc> with
         [<Inline "$0">]
-        member this.Untyped() = X<JavaScript.Function>
+        member this.ToJS() = X<JavaScript.Function>
 
     type FuncWithRest<'TRest, 'TResult> with
         [<Inline "$0">]
-        member this.Untyped() = X<JavaScript.Function>
+        member this.ToJS() = X<JavaScript.Function>
 
     type FuncWithRest<'TArg, 'TRest, 'TResult> with
         [<Inline "$0">]
-        member this.Untyped() = X<JavaScript.Function>
+        member this.ToJS() = X<JavaScript.Function>
 
     type FuncWithRest<'TArg1, 'TArg2, 'TRest, 'TResult> with
         [<Inline "$0">]
-        member this.Untyped() = X<JavaScript.Function>
+        member this.ToJS() = X<JavaScript.Function>
 
     type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TRest, 'TResult> with
         [<Inline "$0">]
-        member this.Untyped() = X<JavaScript.Function>
+        member this.ToJS() = X<JavaScript.Function>
 
     type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TRest, 'TResult> with
         [<Inline "$0">]
-        member this.Untyped() = X<JavaScript.Function>
+        member this.ToJS() = X<JavaScript.Function>
 
     type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TRest, 'TResult> with
         [<Inline "$0">]
-        member this.Untyped() = X<JavaScript.Function>
+        member this.ToJS() = X<JavaScript.Function>
 
     type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TArg6, 'TRest, 'TResult> with
         [<Inline "$0">]
-        member this.Untyped() = X<JavaScript.Function>
+        member this.ToJS() = X<JavaScript.Function>
 
     type FuncWithArgsRest<'TArgs, 'TRest, 'TResult> with
         [<Inline "$0">]
-        member this.Untyped() = X<JavaScript.Function>
+        member this.ToJS() = X<JavaScript.Function>
