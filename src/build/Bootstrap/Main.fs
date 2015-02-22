@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// This is the first entry point of the build system.
-module IntelliFactory.WebSharper.Bootstrap.Main
+module WebSharper.Bootstrap.Main
 
 open System
 open System.Diagnostics

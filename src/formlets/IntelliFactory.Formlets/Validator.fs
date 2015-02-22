@@ -19,7 +19,7 @@
 // $end{copyright}
 
 namespace IntelliFactory.Formlets.Base
-open IntelliFactory.WebSharper
+open WebSharper
 
 // Interface for basic validation functionality.
 type IValidatorProvider =

@@ -5,9 +5,8 @@
     <SP Include="../src/htmllib/*/*.fsproj" />
     <SP Include="../src/formlets/*/*.fsproj" />
     <SP Include="../src/sitelets/*/*.fsproj" />
-    <SP Include="../src/build/IntelliFactory.WebSharper.Templates/*.fsproj" />
     <SP Include="../tests/*/*.fsproj" />
-    <BP Include="../src/build/IntelliFactory.WebSharper.Build/*.fsproj" />
+    <BP Include="../src/build/WebSharper.Build/*.fsproj" />
   </ItemGroup>
   <Target Name="Dispatch" Condition="'$(Arguments)' != ''">
     <MSBuild Projects="@(BP)" Properties="Arguments=$(Arguments)"/>

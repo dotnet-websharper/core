@@ -20,7 +20,7 @@
 
 namespace IntelliFactory.Reactive
 
-open IntelliFactory.WebSharper
+open WebSharper
 
 type private IDisposable = System.IDisposable
 type private IObservable<'T> = System.IObservable<'T>

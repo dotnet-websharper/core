@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// Implements a monadic command-line option parser framework.
-module internal IntelliFactory.WebSharper.Arguments
+module internal WebSharper.Arguments
 
 open System
 open System.IO

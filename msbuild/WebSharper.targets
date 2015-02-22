@@ -22,9 +22,9 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/net40/IntelliFactory.WebSharper.MSBuild.dll</WebSharperTaskAssembly>
+    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/net40/WebSharper.MSBuild.dll</WebSharperTaskAssembly>
   </PropertyGroup>
-  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="IntelliFactory.WebSharper.MSBuild.WebSharperTask" />
+  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.WebSharperTask" />
   <Target Name="WebSharperBundle" AfterTargets="Build">
     <WebSharperTask Command="Bundle" ItemInput="$(TargetPath);@(ReferencePath)"
       Configuration="$(Configuration)"

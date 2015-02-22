@@ -21,10 +21,10 @@
 /// Declares server-side content utilities.
 module Website.Content
 
-open IntelliFactory.WebSharper
-open IntelliFactory.WebSharper.Html.Server
-open IntelliFactory.WebSharper.Sitelets
-module SampleSite = IntelliFactory.WebSharper.Sitelets.Tests.SampleSite
+open WebSharper
+open WebSharper.Html.Server
+open WebSharper.Sitelets
+module SampleSite = WebSharper.Sitelets.Tests.SampleSite
 
 type FullAction =
     | Site of Actions.Action

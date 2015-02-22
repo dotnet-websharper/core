@@ -20,8 +20,8 @@
 
 module Website.Controls
 
-open IntelliFactory.WebSharper
-open IntelliFactory.WebSharper.Html.Client
+open WebSharper
+open WebSharper.Html.Client
 
 [<Sealed>]
 type EntryPoint() =
@@ -38,6 +38,6 @@ type Tests() =
 
     [<JavaScript>]
     override this.Body =
-        do IntelliFactory.WebSharper.Collections.Tests.Dictionary.Tests
-        do IntelliFactory.WebSharper.Tests.Regression.Tests
+        do WebSharper.Collections.Tests.Dictionary.Tests
+        do WebSharper.Tests.Regression.Tests
         Span [] :> _

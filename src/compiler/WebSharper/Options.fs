@@ -19,13 +19,13 @@
 // $end{copyright}
 
 /// Provides command-line option parsing for WebSharper.
-module internal IntelliFactory.WebSharper.Options
+module internal WebSharper.Options
 
 open System
 open System.Diagnostics
 open System.IO
 open System.Security
-module A = IntelliFactory.WebSharper.Arguments
+module A = WebSharper.Arguments
 type Path = string
 
 type CompilationOptions =

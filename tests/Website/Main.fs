@@ -20,8 +20,8 @@
 
 namespace Website
 
-open IntelliFactory.WebSharper
-open IntelliFactory.WebSharper.Sitelets
+open WebSharper
+open WebSharper.Sitelets
 
 [<Sealed>]
 type WebsiteEntryPoint() =

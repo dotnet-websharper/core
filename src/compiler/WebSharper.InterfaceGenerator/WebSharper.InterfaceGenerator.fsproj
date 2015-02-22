@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</ProjectGuid>
+    <Name>WebSharper.InterfaceGenerator</Name>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <Import Project="../../../msbuild/FSharp.targets" />
+  <Import Project="../../../msbuild/Mono.Cecil.targets" />
+  <ItemGroup>
+    <Compile Include="Util.fs" />
+    <Compile Include="Type.fs" />
+    <Compile Include="CodeModel.fs" />
+    <Compile Include="Pervasives.fs" />
+    <Compile Include="Pattern.fs" />
+    <Compile Include="Compile.fsi" />
+    <Compile Include="Compile.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj">
+      <Name>WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="IntelliFactory.Core">
+      <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
