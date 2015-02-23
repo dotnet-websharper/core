@@ -22,36 +22,57 @@ namespace IntelliFactory.WebSharper.JavaScript
 
 open IntelliFactory.WebSharper.Core.Attributes
 
+type Function([<System.ParamArray>] paramsAndBody: string[]) =
+    [<Inline "$this.length">]
+    member this.Length = Unchecked.defaultof<int>
+    
+    [<Inline "$this.apply($thisArg)">]
+    member this.Apply(thisArg: obj) = Unchecked.defaultof<obj>
+
+    [<Inline "$this.apply($thisArg, $argsArray)">]
+    member this.Apply(thisArg: obj, argsArray: obj[]) = Unchecked.defaultof<obj>
+  
+    [<Inline "$this.bind($thisArg, $args)">]
+    member this.Bind(thisArg: obj, [<System.ParamArray>] args: obj[]) = Unchecked.defaultof<Function>
+
 type FuncWithArgs<'TArgs, 'TResult>(func: 'TArgs -> 'TResult) =
-    member this.Length = 0      
+    inherit Function()    
     member this.Call(args: 'Args) = Unchecked.defaultof<'TResult>
 
 type FuncWithThis<'TThis, 'TFunc>(func: 'TThis -> 'TFunc) =
-    member this.Length = 0
+    inherit Function()
     member this.Bind (thisArg: 'TThis) = Unchecked.defaultof<'TFunc>
 
 type private PA = System.ParamArrayAttribute
 
 type FuncWithRest<'TRest, 'TResult>(func: 'TRest[] -> 'TResult) =
+    inherit Function()
     member this.Call ([<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 type FuncWithRest<'TArg, 'TRest, 'TResult>(func: 'TArg * 'TRest[] -> 'TResult) =
+    inherit Function()
     member this.Call (arg: 'TArg, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 type FuncWithRest<'TArg1, 'TArg2, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TRest[] -> 'TResult) =
+    inherit Function()
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TRest[] -> 'TResult) =
+    inherit Function()
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TRest[] -> 'TResult) =
+    inherit Function()
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TArg5 * 'TRest[] -> 'TResult) =
+    inherit Function()
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TArg6, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TArg5 * 'TArg6 * 'TRest[] -> 'TResult) =
+    inherit Function()
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, arg6: 'TArg6, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 type FuncWithArgsRest<'TArgs, 'TRest, 'TResult>(func: 'TArgs * 'TRest[] -> 'TResult) =
+    inherit Function()
     member this.Call (args: 'TArgs, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>

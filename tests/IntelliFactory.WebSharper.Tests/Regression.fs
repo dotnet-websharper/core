@@ -259,11 +259,6 @@ let Tests =
         =? true
     }
 
-    Test "Bug #279" {
-        let arr = Array<int>()
-        arr.Self =? [||]
-    }
-
     Test "Bug #282" {
         let stream = IntelliFactory.Reactive.HotStream.New()
         let pairs = stream |> Observable.pairwise
