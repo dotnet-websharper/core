@@ -21,7 +21,7 @@
 /// Declares resource (JS/CSS) dependencies.
 module Website.Dependencies
 
-open IntelliFactory.WebSharper
+open WebSharper
 
 /// Declare how to load Twitter Bootstrap resources from the CDN.
 /// Declare that Twitter Bootstrap depends on jQuery (so that jQuery is included first).

@@ -19,16 +19,16 @@
 // $end{copyright}
 
 /// The main entry-point module of WebSharper.
-module internal IntelliFactory.WebSharper.Program
+module internal WebSharper.Program
 
 open System
 open System.IO
 open System.Diagnostics
 open System.Reflection
 open IntelliFactory.Core
-open IntelliFactory.WebSharper.Core
+open WebSharper.Core
 
-module FE = IntelliFactory.WebSharper.Compiler.FrontEnd
+module FE = WebSharper.Compiler.FrontEnd
 
 let writeTextFile (output, text) =
     Content.Text(text).WriteFile(output)
@@ -132,7 +132,7 @@ let Run (aR: AssemblyResolver) (opts: Options.T) =
 
 type private EA = InterfaceGenerator.Pervasives.ExtensionAttribute
 
-open IntelliFactory.WebSharper.Compiler
+open WebSharper.Compiler
 
 let (|Cmd|_|) (cmd: Commands.ICommand) argv =
     match cmd.Parse argv with

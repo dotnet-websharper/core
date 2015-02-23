@@ -20,6 +20,6 @@
 
 module Website.Config
 
-open IntelliFactory.WebSharper
+open WebSharper
 
 let Version = "?"

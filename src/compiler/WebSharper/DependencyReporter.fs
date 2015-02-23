@@ -19,12 +19,12 @@
 // $end{copyright}
 
 /// Prints resource dependency graphs in GML format.
-module internal IntelliFactory.WebSharper.DependencyReporter
+module internal WebSharper.DependencyReporter
 
 open System.IO
 open System.Collections.Generic
-module R = IntelliFactory.WebSharper.Core.Resources
-module M = IntelliFactory.WebSharper.Core.Metadata
+module R = WebSharper.Core.Resources
+module M = WebSharper.Core.Metadata
 
 /// Runs the dependency graph report generation.
 let Run (inFile: string) =

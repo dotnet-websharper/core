@@ -1,0 +1,76 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{87d32671-869d-4f33-9f24-380a4070b2dc}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <Name>WebSharper.Tests</Name>
+  </PropertyGroup>
+  <Import Project="../../msbuild/FSharp.targets" />
+  <Import Project="../../msbuild/WebSharper.Internal.targets" />
+  <ItemGroup>
+    <Compile Include="Array.fs" />
+    <Compile Include="Array2D.fs" />
+    <Compile Include="Async.fs" />
+    <Compile Include="Basis.fs" />
+    <Compile Include="Char.fs" />
+    <Compile Include="DateTime.fs" />
+    <Compile Include="Double.fs" />
+    <Compile Include="Exception.fs" />
+    <Compile Include="Int32.fs" />
+    <Compile Include="KeyValuePair.fs" />
+    <Compile Include="Lazy.fs" />
+    <Compile Include="List.fs" />
+    <Compile Include="Math.fs" />
+    <Compile Include="Object.fs" />
+    <Compile Include="Operators.fs" />
+    <Compile Include="Option.fs" />
+    <Compile Include="Queue.fs" />
+    <Compile Include="Random.fs" />
+    <Compile Include="Ref.fs" />
+    <Compile Include="Regression.fs" />
+    <Compile Include="Seq.fs" />
+    <Compile Include="Stack.fs" />
+    <Compile Include="String.fs" />
+    <Compile Include="TimeSpan.fs" />
+    <Compile Include="Printf.fs" />
+    <Compile Include="Tupled.fs" />
+    <Compile Include="WIG.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj">
+      <Name>WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj">
+      <Name>WebSharper.Collections</Name>
+      <Project>{4ef94364-b50f-4906-ab91-77bca8413d60}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Control\WebSharper.Control.fsproj">
+      <Name>WebSharper.Control</Name>
+      <Project>{666977bf-e022-4c8f-b53d-5d294d41010f}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj">
+      <Name>WebSharper.JavaScript</Name>
+      <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj">
+      <Name>WebSharper.Testing</Name>
+      <Project>{a7f7a74b-d0ee-4918-8a54-280fc7d2a30c}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj">
+      <Name>WebSharper.Main</Name>
+      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj">
+      <Name>WebSharper.InterfaceGenerator.Tests</Name>
+      <Project>{4c826618-e150-40f7-b13a-9182f0c3eaca}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

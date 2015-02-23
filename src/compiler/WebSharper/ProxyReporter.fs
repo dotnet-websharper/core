@@ -19,14 +19,14 @@
 // $end{copyright}
 
 /// Constructs proxy reports in XML format.
-module internal IntelliFactory.WebSharper.ProxyReporter
+module internal WebSharper.ProxyReporter
 
 //open System.Collections.Generic
 //open System.IO
 //open System.Reflection
 //open System.Text.RegularExpressions
 //open System.Xml
-//module M    = IntelliFactory.WebSharper.Metadata
+//module M    = WebSharper.Metadata
 //module AL   = IntelliFactory.PowerPack.AssemblyLoading
 //module RH   = IntelliFactory.PowerPack.ReflectionHelpers
 //module MI   = IntelliFactory.PowerPack.MetaId

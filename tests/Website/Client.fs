@@ -21,8 +21,8 @@
 /// Client-side (JavaScript) code.
 module Website.Client
 
-open IntelliFactory.WebSharper
-open IntelliFactory.WebSharper.JavaScript
+open WebSharper
+open WebSharper.JavaScript
 
 [<JavaScript>]
 let EntryPoint () =
