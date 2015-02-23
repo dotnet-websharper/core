@@ -98,7 +98,7 @@ module Definition =
                     "context" , T<obj>
                     "converters" , T<Object<string -> obj>>
                     "crossDomain" , T<bool>
-                    "data" , T<Object<obj>>
+                    "data" , T<obj>
                     "dataFilter" , T<string> * DataType ^-> T<obj>
                     "dataType" , DataType.Type
                     "error" , JqXHR * T<string> * T<string> ^-> T<unit>

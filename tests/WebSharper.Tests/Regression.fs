@@ -245,11 +245,6 @@ let Tests =
         =? true
     }
 
-    Test "Bug #279" {
-        let arr = Array<int>()
-        arr.Self =? [||]
-    }
-
     Test "Bug #323" {
         let a = Bug323.DescendantClass(3)
         a.OriginalValue =? 3

@@ -90,7 +90,6 @@ let Tests =
         WIGtest.CallWith1AndRest(fun (a, r) -> a + Array.sum r) =? 55
         WIGtest.CallWith2AndRest(fun (a, b, r) -> a + b + Array.sum r) =? 55
         WIGtest.CallWith7AndRest(fun (a, b, c, d, e, f, g, r) -> a + b + c + d + e + f + g + Array.sum r) =? 55
-
     }
 
     Test "Function property" {
@@ -112,12 +111,6 @@ let Tests =
         x.StringOrInt =? Choice2Of2 "hi"
         x.StringOrInt <- Choice1Of2 1
         x.StringOrInt =? Choice1Of2 1
-
-        x.JsStringOrNum =? Choice1Of2 ((0).ToJS())
-        x.JsStringOrNum <- Choice2Of2 ("hi".ToJS())
-        x.JsStringOrNum =? Choice2Of2 ("hi".ToJS())
-        x.JsStringOrNum <- Choice1Of2 ((1).ToJS())
-        x.JsStringOrNum =? Choice1Of2 ((1).ToJS())
     }
 
     Test "Option property" {

@@ -24,27 +24,157 @@ namespace WebSharper.JavaScript
 module Extensions =
     open WebSharper
 
-    type Array<'T> with 
-        [<Inline "$0">] 
-        [<System.Obsolete "Deprecated. Use Self property instead.">]
-        member this.ToDotNet() = X<'T[]>
-    type 'T ``[]`` with
-        [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
-        member this.ToEcma() = X<Array<'T>>   
-        [<Inline "$0">]
-        member this.ToJS() = X<Array<'T>>   
+    type System.Object with
+        /// JavaScript-only.
+        [<Inline "$this.constructor">]
+        member this.Constructor = X<Function>         
 
-    type Boolean with
-        [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use Self property instead.">]
-        member this.ToDotNet() = X<bool>
-    type System.Boolean with
-        [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
-        member this.ToEcma() = X<Boolean>   
-        [<Inline "$0">]
-        member this.ToJS() = X<Boolean>   
+        /// JavaScript-only.
+        [<Inline "$this.toLocaleString()">]
+        member this.ToLocaleString() = X<string>
+
+        /// JavaScript-only.
+        [<Inline "$this.valueOf()">]
+        member this.ValueOf() = X<obj>
+
+        /// JavaScript-only.
+        [<Inline "$this.hasOwnProperty($prop)">]
+        member this.HasOwnProperty(prop: string) = X<bool>
+
+        /// JavaScript-only.
+        [<Inline "$this.propertyIsEnumerable($prop)">]
+        member this.PropertyIsEnumerable(prop: string) = X<bool>
+
+    type ``[]``<'T> with
+        /// JavaScript-only.
+        [<Inline "$this.concat($value)">]
+        member this.Concat(value: 'T) = X<'T[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.concat($array)">]
+        member this.Concat(array: 'T[]) = X<'T[]>
+
+        /// JavaScript-only.
+        [<Inline "Array.prototype.concat.apply($this, [$1].concat($2))">]
+        member this.Concat(value1: 'T, [<System.ParamArray>] rest: 'T[]) = X<'T[]>
+
+        /// JavaScript-only.
+        [<Inline "Array.prototype.concat.apply($this, [$1].concat($2))">]
+        member this.Concat(array1: 'T[], [<System.ParamArray>] rest: 'T[][]) = X<'T[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.join()">]
+        member this.Join() = X<string>
+
+        /// JavaScript-only.
+        [<Inline "$this.join($separator)">]
+        member this.Join(separator: string) = X<string>
+
+        /// JavaScript-only.
+        [<Inline "$this.pop()">]
+        member this.Pop() = X<'T>
+
+        /// JavaScript-only.
+        [<Inline "$this.push($element)">]
+        member this.Push(element: 'T) = X<int>
+
+//        /// JavaScript-only.
+//        [<Inline "Array.prototype.push.apply($0, [$1].concat($2))">]
+//        member this.Push(element1: 'T, [<System.ParamArray>] rest: 'T[]) = X<int>
+
+        /// JavaScript-only.
+        [<Inline "$this.reverse()">]
+        member this.Reverse() = X<'T[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.shift()">]
+        member this.Shift() = X<'T>
+
+        /// JavaScript-only.
+        [<Inline "$this.slice()">]
+        member this.Slice() = X<'T[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.slice($startPos)">]
+        member this.Slice(startPos: int) = X<'T[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.slice($startPos, $endPos)">]
+        member this.Slice(startPos: int, endPos: int) = X<'T[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.sort()">]
+        member this.Sort() = X<'T[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.sort($wsruntime.CreateFuncWithArgs($compareFunction))">]
+        member this.Sort(compareFunction: 'T * 'T -> int) = X<'T[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.splice($startPos, $deleteCount)">]
+        member this.Splice(startPos: int, deleteCount: int) = X<'T[]>
+
+//        /// JavaScript-only.
+//        [<Inline "Array.prototype.splice.apply($this, [$startPos, $deleteCount].concat($items))">]
+//        member this.Splice(startPos: int, deleteCount: int, [<System.ParamArray>] items: 'T[]) = X<'T[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.unshift($element)">]
+        member this.Unshift(element: 'T) = X<int>
+
+        /// JavaScript-only.
+        [<Inline "Array.prototype.unshift.apply($0, [$1].concat($2))">]
+        member this.Unshift(element1: 'T, [<System.ParamArray>] rest: 'T[]) = X<int>
+
+        /// JavaScript-only.
+        [<Inline "Array.isArray($obj)">]
+        static member IsArray(obj: obj) = X<bool>
+
+    type System.String with
+        /// JavaScript-only.
+        [<Inline "$this.charAt($index)">]
+        member this.CharAt(index: int) = X<string>
+
+        /// JavaScript-only.
+        [<Inline "$this.charCodeAt($index)">]
+        member this.CharCodeAt(index: int) = X<int>
+
+        /// JavaScript-only.
+        [<Inline "$this.concat($string)">]
+        member this.Concat(string: string) = X<string>
+
+        /// JavaScript-only.
+        [<Inline "String.prototype.concat.apply($this, [$1].concat($2))">]
+        member this.Concat(string1: string, [<System.ParamArray>] rest: 'T[]) = X<string>
+
+        /// JavaScript-only.
+        [<Inline "$this.localeCompare($compareString)">]
+        member this.LocaleCompare(compareString: string) = X<int> 
+        
+        /// JavaScript-only.
+        [<Inline "$this.localeCompare($compareString, $locale)">]
+        member this.LocaleCompare(compareString: string, locale: string) = X<int> 
+
+        /// JavaScript-only.
+        [<Inline "$this.localeCompare($compareString, locales)">]
+        member this.LocaleCompare(compareString: string, locales: string[]) = X<int> 
+
+        // TODO: LocaleCompare with options
+
+        // TODO : RegExp-related functions
+
+        /// JavaScript-only.
+        [<Inline "$this.toLocaleLowerCase()">]
+        member this.ToLocaleLowerCase() = X<string> 
+
+        /// JavaScript-only.
+        [<Inline "$this.toLocaleUpperCase()">]
+        member this.ToLocaleUpperCase() = X<string> 
+
+    type System.Exception with
+        /// JavaScript-only.
+        [<Inline "$this.name">]
+        member this.Name = X<string>
 
     type Date with
         [<Inline "$0.getTime()">]
@@ -52,21 +182,10 @@ module Extensions =
         member this.ToDotNet() = X<System.DateTime>
     type System.DateTime with
         [<Inline "new Date($0)">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
+        [<System.Obsolete "Deprecated. Use ToJS property instead.">]
         member this.ToEcma() = X<Date>
         [<Inline "new Date($0)">]
-        member this.ToJS() = X<Date>
-
-    type Error with
-        [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use Self property instead.">]
-        member this.ToDotNet() = X<System.Exception>
-    type System.Exception with
-        [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
-        member this.ToEcma() = X<Error>
-        [<Inline "$0">]
-        member this.ToJS() = X<Error>
+        member this.JS = X<Date>
 
     type Function with
         [<Inline "$0">]
@@ -79,125 +198,67 @@ module Extensions =
         member this.ToDotNet<'T when 'T: struct>() = X<'T>
     type System.Byte    with
         [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
         [<Inline "$0">]
-        member this.ToJS() = X<Number>
+        member this.JS = X<Number>
     type System.SByte   with
         [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
         [<Inline "$0">]
-        member this.ToJS() = X<Number>
+        member this.JS = X<Number>
     type System.Int16   with
         [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
         [<Inline "$0">]
-        member this.ToJS() = X<Number>
+        member this.JS = X<Number>
     type System.Int32   with
         [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
+        member this.ToEcma() = X<Number>      
+        [<Inline "$0">]                       
+        member this.JS = X<Number>            
+    type System.Int64   with                  
+        [<Inline "$0">]                       
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
+        member this.ToEcma() = X<Number>      
+        [<Inline "$0">]                       
+        member this.JS = X<Number>            
+    type System.UInt16  with                  
+        [<Inline "$0">]                       
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
+        member this.ToEcma() = X<Number>      
+        [<Inline "$0">]                       
+        member this.JS = X<Number>            
+    type System.UInt32  with                  
+        [<Inline "$0">]                       
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
         [<Inline "$0">]
-        member this.ToJS() = X<Number>
-    type System.Int64   with
-        [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
-        member this.ToEcma() = X<Number>
-        [<Inline "$0">]
-        member this.ToJS() = X<Number>
-    type System.UInt16  with
-        [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
-        member this.ToEcma() = X<Number>
-        [<Inline "$0">]
-        member this.ToJS() = X<Number>
-    type System.UInt32  with
-        [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
-        member this.ToEcma() = X<Number>
-        [<Inline "$0">]
-        member this.ToJS() = X<Number>
+        member this.JS = X<Number>
     type System.UInt64  with
         [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
         [<Inline "$0">]
-        member this.ToJS() = X<Number>
+        member this.JS = X<Number>
     type System.Single  with
         [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
         [<Inline "$0">]
-        member this.ToJS() = X<Number>
+        member this.JS = X<Number>
     type System.Double  with
         [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
         [<Inline "$0">]
-        member this.ToJS() = X<Number>
+        member this.JS = X<Number>
     type System.Decimal with
         [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
         [<Inline "$0">]
-        member this.ToJS() = X<Number>
-
-    type System.Object with
-        [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
-        member this.ToEcma() = X<Object<obj>>
-        [<Inline "$0">]
-        member this.ToJS() = X<Object<obj>>
-
-    type String with
-        [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use Self property instead.">]
-        member this.ToDotNet() = X<string>
-    type System.String with
-        [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
-        member this.ToEcma() = X<String>
-        [<Inline "$0">]
-        member this.ToJS() = X<String>
-
-    type FuncWithArgs<'TArgs, 'TResult> with
-        [<Inline "$0">]
-        member this.ToJS() = X<JavaScript.Function>
-
-    type FuncWithThis<'TThis, 'TFunc> with
-        [<Inline "$0">]
-        member this.ToJS() = X<JavaScript.Function>
-
-    type FuncWithRest<'TRest, 'TResult> with
-        [<Inline "$0">]
-        member this.ToJS() = X<JavaScript.Function>
-
-    type FuncWithRest<'TArg, 'TRest, 'TResult> with
-        [<Inline "$0">]
-        member this.ToJS() = X<JavaScript.Function>
-
-    type FuncWithRest<'TArg1, 'TArg2, 'TRest, 'TResult> with
-        [<Inline "$0">]
-        member this.ToJS() = X<JavaScript.Function>
-
-    type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TRest, 'TResult> with
-        [<Inline "$0">]
-        member this.ToJS() = X<JavaScript.Function>
-
-    type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TRest, 'TResult> with
-        [<Inline "$0">]
-        member this.ToJS() = X<JavaScript.Function>
-
-    type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TRest, 'TResult> with
-        [<Inline "$0">]
-        member this.ToJS() = X<JavaScript.Function>
-
-    type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TArg6, 'TRest, 'TResult> with
-        [<Inline "$0">]
-        member this.ToJS() = X<JavaScript.Function>
-
-    type FuncWithArgsRest<'TArgs, 'TRest, 'TResult> with
-        [<Inline "$0">]
-        member this.ToJS() = X<JavaScript.Function>
+        member this.JS = X<Number>
