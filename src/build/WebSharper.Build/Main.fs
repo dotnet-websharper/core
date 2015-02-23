@@ -76,7 +76,7 @@ module Main =
             lib "lib"   "WebSharper.Sitelets"
             lib "lib"   "WebSharper.Web"
             // stdlib:
-            lib "lib"   "WebSharper"
+            lib "lib"   "WebSharper.Main"
             lib "lib"   "WebSharper.Collections"
             lib "lib"   "WebSharper.Control"
             lib "lib"   "WebSharper.JavaScript"
