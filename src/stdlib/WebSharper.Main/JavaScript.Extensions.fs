@@ -161,7 +161,61 @@ module Extensions =
 
         // TODO: LocaleCompare with options
 
-        // TODO : RegExp-related functions
+        /// JavaScript-only.
+        [<Inline "$this.match($regexp)">]
+        member this.Match(regexp: RegExp) = X<string[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.match($regexp)">]
+        member this.Match(regexp: string) = X<string[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.replace($regexp, $newSubStr)">]
+        member this.Replace(regexp: RegExp, newSubStr: string) = X<string>
+
+        /// JavaScript-only.
+        [<Inline "$this.replace($regexp, $func)">]
+        member this.Replace(regexp: RegExp, func: Function) = X<string>
+
+        /// JavaScript-only.
+        [<Inline "$this.replace($regexp, $func)">]
+        member this.Replace(regexp: string, func: Function) = X<string>
+
+        /// JavaScript-only.
+        [<Inline "$this.search($regexp)">]
+        member this.Search(regexp: RegExp) = X<int>
+
+        /// JavaScript-only.
+        [<Inline "$this.search($regexp)">]
+        member this.Search(regexp: string) = X<int>
+
+        /// JavaScript-only.
+        [<Inline "$this.slice($startPos)">]
+        member this.Slice(startPos: int) = X<string>
+
+        /// JavaScript-only.
+        [<Inline "$this.slice($startPos, $endPos)">]
+        member this.Slice(startPos: int, endPos: int) = X<string>
+
+        /// JavaScript-only.
+        [<Inline "$this.split()">]
+        member this.Split() = X<string[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.split($separator)">]
+        member this.Split(separator: RegExp) =X<string[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.split($separator)">]
+        member this.Split(separator: string) =X<string[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.split($separator, $limit)">]
+        member this.Split(separator: RegExp, limit: int) =X<string[]>
+
+        /// JavaScript-only.
+        [<Inline "$this.split($separator, $limit)">]
+        member this.Split(separator: string, limit: int) =X<string[]>
 
         /// JavaScript-only.
         [<Inline "$this.toLocaleLowerCase()">]
