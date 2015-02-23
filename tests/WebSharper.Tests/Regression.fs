@@ -195,20 +195,6 @@ let Tests =
         a =? 4
     }
 
-    Test "Bug #172" {
-        let k = ref 0
-        do
-            let x = Event<int>()
-            let observable = x.Publish :> IObservable<_>
-            let mappedObservable1 = IntelliFactory.Reactive.Reactive.Select observable id
-            let mappedObservable2 = Observable.map id observable
-            observable.Subscribe(fun x -> k := !k + x) |> ignore
-            mappedObservable1.Subscribe(fun x -> k := !k + x) |> ignore
-            mappedObservable2.Subscribe(fun x -> k := !k + x) |> ignore
-            x.Trigger(3)
-        !k =? 9
-    }
-
     Test "Bug #109" {
         do
             let n = ResizeArray()
@@ -262,17 +248,6 @@ let Tests =
     Test "Bug #279" {
         let arr = Array<int>()
         arr.Self =? [||]
-    }
-
-    Test "Bug #282" {
-        let stream = IntelliFactory.Reactive.HotStream.New()
-        let pairs = stream |> Observable.pairwise
-        let acc = ResizeArray()
-        pairs.Subscribe acc.Add |> ignore
-        pairs.Subscribe acc.Add |> ignore
-        pairs.Subscribe ignore |> ignore
-        [ 1 .. 3 ] |> List.iter stream.Trigger
-        acc.ToArray() =? [| 1, 2; 1, 2; 2, 3; 2, 3 |]
     }
 
     Test "Bug #323" {

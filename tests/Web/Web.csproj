@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -55,18 +55,6 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Name>WebSharper.Core</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\formlets\IntelliFactory.Formlets\IntelliFactory.Formlets.fsproj">
-      <Project>{7e70b9e1-7e68-4df9-a3b8-74378e31be08}</Project>
-      <Name>IntelliFactory.Formlet</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\formlets\IntelliFactory.Reactive\IntelliFactory.Reactive.fsproj">
-      <Project>{2d30fa07-e6be-45ac-90da-c2ca8309e137}</Project>
-      <Name>IntelliFactory.Reactive</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\formlets\WebSharper.Formlets\WebSharper.Formlets.fsproj">
-      <Project>{9a0df78f-a51e-4056-b180-4a77afb82897}</Project>
-      <Name>WebSharper.Formlet</Name>
-    </ProjectReference>
     <ProjectReference Include="..\..\src\htmllib\WebSharper.Html.Server\WebSharper.Html.Server.fsproj">
       <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
       <Name>WebSharper.Html.Server</Name>
@@ -110,10 +98,6 @@
     <ProjectReference Include="..\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj">
       <Project>{bb4817e7-12a1-4622-b8ce-29cb3c406851}</Project>
       <Name>WebSharper.Collections.Tests</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\WebSharper.Formlets.Tests\WebSharper.Formlets.Tests.fsproj">
-      <Project>{35514715-41df-4c17-a9ec-d80abcd9e353}</Project>
-      <Name>WebSharper.Formlet.Tests</Name>
     </ProjectReference>
     <ProjectReference Include="..\WebSharper.Html5.Tests\WebSharper.Html5.Tests.fsproj">
       <Project>{3958f5e1-dda2-4a22-bf29-794a25bb14f7}</Project>

@@ -42,11 +42,6 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\formlets\IntelliFactory.Reactive\IntelliFactory.Reactive.fsproj">
-      <Name>IntelliFactory.Reactive</Name>
-      <Project>{2d30fa07-e6be-45ac-90da-c2ca8309e137}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj">
       <Name>WebSharper.Collections</Name>
       <Project>{4ef94364-b50f-4906-ab91-77bca8413d60}</Project>
