@@ -23,16 +23,9 @@ namespace WebSharper.JavaScript
 open WebSharper.Core.Attributes
 
 type Function([<System.ParamArray>] paramsAndBody: string[]) =
-    [<Inline "$this.length">]
     member this.Length = Unchecked.defaultof<int>
-    
-    [<Inline "$this.apply($thisArg)">]
     member this.Apply(thisArg: obj) = Unchecked.defaultof<obj>
-
-    [<Inline "$this.apply($thisArg, $argsArray)">]
     member this.Apply(thisArg: obj, argsArray: obj[]) = Unchecked.defaultof<obj>
-  
-    [<Inline "$this.bind($thisArg, $args)">]
     member this.Bind(thisArg: obj, [<System.ParamArray>] args: obj[]) = Unchecked.defaultof<Function>
 
 type FuncWithArgs<'TArgs, 'TResult>(func: 'TArgs -> 'TResult) =

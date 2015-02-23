@@ -22,6 +22,28 @@ module private WebSharper.InteropProxy
 
 open WebSharper.JavaScript
 
+[<Proxy(typeof<Function>)>]
+type FunctionProxy =
+    [<Inline "Function.constructor.apply(null, $paramsAndBody)">]
+    new ([<System.ParamArray>] paramsAndBody: string[]) = {}
+    
+    member this.Length with [<Inline "$this.length">] get() = X<int>
+    
+    [<Inline "$this.apply($thisArg)">]
+    member this.Apply(thisArg: obj) = X<obj>
+
+    [<Inline "$this.apply($thisArg, $argsArray)">]
+    member this.Apply(thisArg: obj, argsArray: obj[]) = X<obj>
+  
+    [<Inline "$this.bind($thisArg)">]
+    member this.Bind(thisArg: obj) = X<Function>
+
+    [<Inline "$this.bind($thisArg, $arg)">]
+    member this.Bind(thisArg: obj, arg: obj) = X<Function>
+
+    [<Inline "Function.prototype.bind.apply($thisArg, [$arg1].concat($rest))">]
+    member this.Bind(thisArg: obj, arg1: obj, [<System.ParamArray>] rest: obj[]) = X<Function>
+
 [<Proxy(typeof<FuncWithArgs<_,_>>)>]
 type FuncWithArgsProxy<'TArgs, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithArgs($func)">]

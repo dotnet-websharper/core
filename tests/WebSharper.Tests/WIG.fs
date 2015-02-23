@@ -52,6 +52,8 @@ let Tests =
         WIGtest.CallWith1 ((+) 2) =? 3
         WIGtest.CallWith2 (fun (a, b) -> a + b) =? 3
         WIGtest.CallWith10 (fun (a, b, c, d, e, f, g, h, i, j) -> a + b + c + d + e + f + g + h + i + j) =? 55
+
+        FuncWithArgs(fun (a, b) -> a + b).Length =? 2
     }
 
     Test "Named tuple" {
