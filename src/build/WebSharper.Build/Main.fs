@@ -65,10 +65,6 @@ module Main =
             lib "lib"   "WebSharper.Core"
             lib "lib"   "WebSharper.InterfaceGenerator"
             lib "tools" "WebSharper.MSBuild"
-            // formlets:
-            lib "lib"   "IntelliFactory.Formlets"
-            lib "lib"   "IntelliFactory.Reactive"
-            lib "lib"   "WebSharper.Formlets"
             // htmllib:
             lib "lib"   "WebSharper.Html.Server"
             lib "lib"   "WebSharper.Html.Client"
