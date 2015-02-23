@@ -181,20 +181,20 @@ let Tests =
     Section "Native Dates"
 
     Test "Turnaround" {
-        d.ToJS().Self =?~ d
+        d.JS.Self =?~ d
     }
 
     Test "Equality" {
-        let a = DateTime.Now.ToJS()
-        let b = DateTime.Now.ToJS()
+        let a = DateTime.Now.JS
+        let b = DateTime.Now.JS
         a =? b
-        let c = DateTime.Now.AddDays(1.).ToJS()
+        let c = DateTime.Now.AddDays(1.).JS
         a <>? c
     }
 
     Test "Comparison" {
-        let a = DateTime.Now.ToJS()
-        let b = DateTime.Now.AddDays(1.).ToJS()
+        let a = DateTime.Now.JS
+        let b = DateTime.Now.AddDays(1.).JS
         Unchecked.compare a b < 0 =? true
         Unchecked.compare b a > 0 =? true
     }
