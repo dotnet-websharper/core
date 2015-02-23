@@ -318,6 +318,9 @@ module Pervasives =
     let RequiresExternal<'T when 'T :> Code.IResourceDependable<'T>> (requires: Type.Type list) (ty: 'T) =
         ty.AddRequires (requires |> List.map (fun res -> Code.ExternalDependency res))
 
+    // only used for Obsolete members
+    type private T = Type.Type
+
     /// Generics helper.
     type GenericHelper = 
         private
@@ -381,9 +384,6 @@ module Pervasives =
         static member ( - ) (this: GenericHelper, f) =
             this.TypeDeclaration 4 (fun [ a; b; c; d ] -> f a b c d)
 
-        static member ( - ) (this: GenericHelper, (arity, make)) =
-            this.TypeDeclaration arity make
-
         static member ( - ) (this: GenericHelper, f) =
             this.Method 1 (fun [ a ] -> f a)
 
@@ -396,38 +396,29 @@ module Pervasives =
         static member ( - ) (this: GenericHelper, f) =
             this.Method 4 (fun [ a; b; c; d ] -> f a b c d)
 
-        static member ( - ) (this: GenericHelper, (arity, make)) =
-            this.Method arity make
-
-        static member ( - ) (this: GenericHelper, f) =
+        static member ( * ) (this: GenericHelper, f) =
             this.MemberList 1 (fun [ a ] -> f a)
 
-        static member ( - ) (this: GenericHelper, f) =
+        static member ( * ) (this: GenericHelper, f) =
             this.MemberList 2 (fun [ a; b ] -> f a b)
 
-        static member ( - ) (this: GenericHelper, f) =
+        static member ( * ) (this: GenericHelper, f) =
             this.MemberList 3 (fun [ a; b; c ] -> f a b c)
 
-        static member ( - ) (this: GenericHelper, f) =
+        static member ( * ) (this: GenericHelper, f) =
             this.MemberList 4 (fun [ a; b; c; d ] -> f a b c d)
 
-        static member ( - ) (this: GenericHelper, (arity, make)) =
-            this.MemberList arity make
-
-        static member ( - ) (this: GenericHelper, f) =
+        static member ( * ) (this: GenericHelper, f) =
             this.ClassMembers 1 (fun [ a ] -> f a)
 
-        static member ( - ) (this: GenericHelper, f) =
+        static member ( * ) (this: GenericHelper, f) =
             this.ClassMembers 2 (fun [ a; b ] -> f a b)
 
-        static member ( - ) (this: GenericHelper, f) =
+        static member ( * ) (this: GenericHelper, f) =
             this.ClassMembers 3 (fun [ a; b; c ] -> f a b c)
 
-        static member ( - ) (this: GenericHelper, f) =
+        static member ( * ) (this: GenericHelper, f) =
             this.ClassMembers 4 (fun [ a; b; c; d ] -> f a b c d)
-
-        static member ( - ) (this: GenericHelper, (arity, make)) =
-            this.ClassMembers arity make
 
         static member ( + ) (this: GenericHelper, names) =
             GenericNamed names
@@ -435,3 +426,35 @@ module Pervasives =
     /// Generics helper.
     let Generic = Generic
 
+    type GenericNHelper =
+        private
+        | GenericN of int * GenericHelper
+
+        static member ( - ) (this: GenericNHelper, f) =
+            match this with
+            | GenericN (arity, h) -> 
+                h.TypeDeclaration arity f
+
+        static member ( - ) (this: GenericNHelper, f) =
+            match this with
+            | GenericN (arity, h) -> 
+                h.Method arity f
+
+        static member ( * ) (this: GenericNHelper, f) =
+            match this with
+            | GenericN (arity, h) -> 
+                h.MemberList arity f
+
+        static member ( * ) (this: GenericNHelper, f) =
+            match this with
+            | GenericN (arity, h) -> 
+                h.ClassMembers arity f
+
+        static member ( + ) (this: GenericNHelper, names) =
+            match this with
+            | GenericN (arity, _) -> 
+                if List.length names <> arity then
+                    failwith "GenericN + : wrong number of type parameter names specified."
+                GenericN (arity, GenericNamed names)
+
+    let GenericN arity = GenericN (arity, Generic)   

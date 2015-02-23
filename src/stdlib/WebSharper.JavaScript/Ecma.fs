@@ -21,6 +21,9 @@
 namespace WebSharper.JavaScript.Ecma
 
 open WebSharper.InterfaceGenerator
+open WebSharper.JavaScript
+
+#nowarn "25"
 
 /// Defines the bindings to ECMA-262 5th edition JavaScript functions
 /// and objects.
@@ -99,7 +102,7 @@ module Definition =
         |+> CallbackMethod "every" T<bool> T<bool>
         |+> CallbackMethod "some" T<bool> T<bool>
         |+> CallbackMethod "forEach" T<bool> T<bool>
-        |+> Generic - fun b -> CallbackMethod "map" b !|b
+        |+> Generic * fun b -> CallbackMethod "map" b !|b
         |+> CallbackMethod "filter" T<bool> !|a
         |+> Static [
                 Constructor (T<int>)
@@ -122,6 +125,17 @@ module Definition =
             ]
         |+> Static [
                 Constructor (T<string> *+ T<string>)
+                Generic - fun a b -> "as" => (a ^-> b)?f ^-> TSelf |> WithInline "$f"
+                Generic - fun a b -> "as" => T<FuncWithArgs<_,_>>.[a, b]?f ^-> TSelf |> WithInline "$f" 
+                Generic - fun a b -> "as" => T<FuncWithThis<_,_>>.[a, b]?f ^-> TSelf |> WithInline "$f"
+                Generic - fun a b -> "as" => T<FuncWithRest<_,_>>.[a, b]?f ^-> TSelf |> WithInline "$f"
+                Generic - fun a b c -> "as" => T<FuncWithRest<_,_,_>>.[a, b, c]?f ^-> TSelf |> WithInline "$f"
+                Generic - fun a b c d -> "as" => T<FuncWithRest<_,_,_,_>>.[a, b, c, d]?f ^-> TSelf |> WithInline "$f"
+                GenericN 5 - function [a; b; c; d; e] -> "as" => T<FuncWithRest<_,_,_,_,_>>.[a, b, c, d, e]?f ^-> TSelf |> WithInline "$f"
+                GenericN 6 - function [a; b; c; d; e; f]-> "as" => T<FuncWithRest<_,_,_,_,_,_>>.[a, b, c, d, e, f]?f ^-> TSelf |> WithInline "$f"
+                GenericN 7 - function [a; b; c; d; e; f; g] -> "as" => T<FuncWithRest<_,_,_,_,_,_,_>>.[a, b, c, d, e, f, g]?f ^-> TSelf |> WithInline "$f"
+                GenericN 8 - function [a; b; c; d; e; f; g; h] -> "as" => T<FuncWithRest<_,_,_,_,_,_,_,_>>.[a, b, c, d, e, f, g, h]?f ^-> TSelf |> WithInline "$f"
+                Generic - fun a b c -> "as" => T<FuncWithArgsRest<_,_,_>>.[a, b, c]?f ^-> TSelf |> WithInline "$f"
             ]
 
     /// A resgular expression is an object that describes a pattern of characters.
