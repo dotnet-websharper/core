@@ -28,11 +28,7 @@ var IntelliFactory =
     {
         Class:
             function (p, s) {
-                function r(fields) {
-                    for (var f in fields) {
-                        this[f] = fields[f];
-                    }
-                }
+                function r() { }
                 r.prototype = p;
                 for (var f in s) { r[f] = s[f]; }
                 return r;
@@ -78,6 +74,17 @@ var IntelliFactory =
         GetOptional:
             function (value) {
                 return (value === undefined) ? { $: 0 } : { $: 1, $0: value };
+            },
+
+        New:		
+            function (ctor, fields) {
+                var r = new ctor();
+                for (var f in fields) {
+                    if (!(f in r)) {
+                        r[f] = fields[f];
+                    }
+                }
+                return r
             },
 
         NewObject:

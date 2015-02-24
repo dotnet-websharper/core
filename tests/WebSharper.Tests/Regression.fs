@@ -115,6 +115,17 @@ module Bug323 =
         inherit BaseClass(x + 1)
 
         member this.OriginalValue = x
+                 
+[<JavaScript>]
+module Bug352 =
+    [<AbstractClass>]
+    type A() =
+        abstract Foo : unit -> int
+        default this.Foo() = 1
+
+    type B() =
+        inherit A()
+        override this.Foo() = 2    
 
 // TODO : does not translate yet 
 
@@ -258,4 +269,8 @@ let Tests =
         let f = FuncHelper.Compose add1 twice 
         f 1 =? 4
         f 2 =? 6
+    }
+
+    Test "Bug #352" {
+        Bug352.B().Foo() =? 2    
     }

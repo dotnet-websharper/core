@@ -305,7 +305,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
                         |> List.mapi (fun i a ->
                             ("$" + string i, a))
                         |> C.NewObject
-                    C.New (glob fn, [init])
+                    call C.Runtime "New" [glob fn; init]
                 | _ ->
                     err "Failed to translate object creation"
                         c.Entity.DeclaringType.FullName
@@ -329,7 +329,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             | Some (M.Class (fn, _, _)) ->
                 C.New (glob fn, !!args)
             | Some (M.Record (fn, fields)) ->                
-                C.New (glob fn, [getObjFromFields fields])
+                call C.Runtime "New" [glob fn; getObjFromFields fields]
             | Some (M.Object fields) ->
                 getObjFromFields fields
             | _ ->
@@ -348,7 +348,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
                 | Some (M.BasicUnionCase k) ->
                     mkUnion k
                 | Some (M.CompiledUnionCase (fn, k)) ->
-                    C.New (glob fn, [mkUnion k])
+                    call C.Runtime "New" [glob fn; mkUnion k]
                 | Some (M.ConstantUnionCase x) ->
                     !~ (Literal x)
                 | None ->
