@@ -568,11 +568,27 @@ let Tests =
         arr.[2 .. 4] =? [| 2; 3; 4 |]
     }
 
-    Test "Extensions" {
-        [| 0; 1; 2; 3 |].Slice(1, 3) =? [| 1; 2 |]
+    Test "Extensions" {       
+        [| "a"; "b"; "c" |].JS.Join() =? "a,b,c"
+        [| "a"; "b"; "c" |].JS.Join("-") =? "a-b-c"
+
+        [| 0; 1; 2; 3 |].JS.Slice(1) =? [| 1; 2; 3 |]
+        [| 0; 1; 2; 3 |].JS.Slice(1, 3) =? [| 1; 2 |]
 
         let a = [| 0 |]
-        a.Push(1) =? 2
-        a.Push(2, 3) =? 4
+        a.JS.Push(1) =? 2
+        a.JS.Push(2, 3) =? 4
         a =? [| 0; 1; 2; 3 |]
+
+        let b = [| 0; 1; 2; 3 |];
+        b.JS.Splice(1, 2, 4, 4, 4) =? [| 1; 2 |]
+        b =? [| 0; 4; 4; 4; 3 |]
+
+        [| 0; 1; 2 |].JS.Sort(fun (a, b) -> b - a) =? [| 2; 1; 0 |]
+
+        [| 0; 1; 2 |].JS.Map(fun (x, i, arr) -> if arr = [| 0; 1; 2 |] then x + 1 + i else 0) =? [| 1; 3; 5 |]
+        [| 0; 1; 2 |].JS.Map((fun t (x, i, a) -> if a = [| 0; 1; 2 |] then x + t + i else 0), 1) =? [| 1; 3; 5 |]
+
+        [| 1; 2; 3 |].JS.Reduce(fun (a, b, i, arr) -> if arr = [| 1; 2; 3 |] then a + b + i else 0) =? 9
+        [| 1; 2; 3 |].JS.Reduce((fun (a, b, i, arr) -> if arr = [| 1; 2; 3 |] then a + b + i else 0), 1) =? 10
     }

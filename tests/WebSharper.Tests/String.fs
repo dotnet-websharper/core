@@ -187,6 +187,6 @@ let Tests =
     }               
 
     Test "Extensions" {
-        "abc".CharAt(1) =? "b"
+        "abc".JS.CharAt(1) =? "b"
         String.FromCharCode(72, 69, 76, 76, 79) =? "HELLO" 
     }

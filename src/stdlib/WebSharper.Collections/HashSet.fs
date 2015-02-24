@@ -29,17 +29,8 @@ open WebSharper.JavaScript
 [<AutoOpen>]
 module HashSetUtil =
     [<Direct "var r=[]; for(var k in $o) { r.push.apply(r, $o[k]) }; return r">]
-    let concat (o: 'T[][]) = X<'T[]>
+    let concat (o: Array<Array<'T>>) = X<Array<'T>>
     
-    [<Inline "$a[$i] = $v">]
-    let set (i: int) (a: 'T[]) (v: 'T) = ()
-
-    [<Inline "$a[$i]">]
-    let get (i: int) (a: 'T[]) = X<'T>
-
-    [<Inline "$b[$i] = $a[$i]">]
-    let copy (i: int) (a: 'T[]) (b: 'T[]) = ()
-
 open DictionaryUtil
 
 [<Name "HashSet">]
@@ -51,28 +42,28 @@ type HashSetProxy<'T when 'T : equality>
              equals : 'T -> 'T -> bool,
              hash   : 'T -> int) =
 
-        let mutable data  = [||] : 'T[][]
+        let mutable data  = Array<Array<'T>>()
         let mutable count = 0
 
         [<JavaScript>]
-        let arrContains (item: 'T) (arr: 'T[])  =
+        let arrContains (item: 'T) (arr: Array<'T>)  =
             let mutable c = true
             let mutable i = 0
             let l = arr.Length
             while c && i < l do
-                if equals (get i arr) item then
+                if equals arr.[i] item then
                     c <- false
                 else
                     i <- i + 1
             not c
 
         [<JavaScript>]
-        let arrRemove (item: 'T) (arr: 'T[])  =
+        let arrRemove (item: 'T) (arr: Array<'T>)  =
             let mutable c = true
             let mutable i = 0
             let l = arr.Length
             while c && i < l do
-                if equals (get i arr) item then
+                if equals arr.[i] item then
                     arr.Splice(i, 1) |> ignore
                     c <- false
                 else
@@ -82,9 +73,9 @@ type HashSetProxy<'T when 'T : equality>
         [<JavaScript>]
         let add (item: 'T) =
             let h = hash item
-            let arr = get h data
+            let arr = data.[h]
             if arr ==. null then
-                set h data [| item |]
+                data.[h] <- As [| item |]
                 count <- count + 1
                 true
             else
@@ -114,12 +105,12 @@ type HashSetProxy<'T when 'T : equality>
 
         [<JavaScript>]
         member this.Clear() =
-            data <- [||]
+            data <- Array()
             count <- 0
 
         [<JavaScript>]
         member x.Contains(item: 'T) =
-            let arr = get (hash item) data
+            let arr = data.[hash item]
             if arr ==. null then false else arrContains item arr
 
         [<JavaScript>]
@@ -127,7 +118,7 @@ type HashSetProxy<'T when 'T : equality>
             let mutable i = 0
             let all = concat data 
             for i = 0 to all.Length - 1 do 
-                copy i all arr
+                arr.[i] <- all.[i]
 
         [<JavaScript>]
         member x.Count = count
@@ -172,7 +163,7 @@ type HashSetProxy<'T when 'T : equality>
         [<JavaScript>]
         member x.IsSubsetOf(xs: seq<'T>) =
             let other = HashSetProxy(xs, equals, hash)
-            concat data |> Array.forall other.Contains
+            As<_[]>(concat data) |> Array.forall other.Contains
 
         [<JavaScript>]
         member x.IsSupersetOf(xs: seq<'T>) =
@@ -185,7 +176,7 @@ type HashSetProxy<'T when 'T : equality>
         [<JavaScript>]
         member x.Remove(item: 'T) =
             let h = hash item
-            let arr = get h data
+            let arr = data.[h]
             if arr ==. null then false else
                 if arrRemove item arr then
                     count <- count - 1

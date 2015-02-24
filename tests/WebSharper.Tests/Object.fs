@@ -143,6 +143,6 @@ let Tests =
     }
 
     Test "Extensions" {
-        (New [ "a" => 1 ]).HasOwnProperty("a") =? true
+        (New [ "a" => 1 ]).JS.HasOwnProperty("a") =? true
         Object.Prototype.Constructor.Length =? 1
     }
