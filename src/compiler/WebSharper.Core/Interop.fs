@@ -22,11 +22,14 @@ namespace WebSharper.JavaScript
 
 open WebSharper.Core.Attributes
 
+type private PA = System.ParamArrayAttribute
+
 type Function([<System.ParamArray>] paramsAndBody: string[]) =
     member this.Length = Unchecked.defaultof<int>
-    member this.Apply(thisArg: obj) = Unchecked.defaultof<obj>
-    member this.Apply(thisArg: obj, argsArray: obj[]) = Unchecked.defaultof<obj>
-    member this.Bind(thisArg: obj, [<System.ParamArray>] args: obj[]) = Unchecked.defaultof<Function>
+    member this.ApplyUnsafe(thisArg: obj) = Unchecked.defaultof<obj>
+    member this.ApplyUnsafe(thisArg: obj, argsArray: obj[]) = Unchecked.defaultof<obj>
+    member this.CallUnsafe(thisArg: obj, [<PA>] args: obj[]) = Unchecked.defaultof<obj>
+    member this.BindUnsafe(thisArg: obj, [<PA>] args: obj[]) = Unchecked.defaultof<Function>
     
     /// Type cast.
     /// Warning: a tupled F# function is translated to JavaScript as a function with a single array argument.
@@ -39,8 +42,6 @@ type FuncWithArgs<'TArgs, 'TResult>(func: 'TArgs -> 'TResult) =
 type FuncWithThis<'TThis, 'TFunc>(func: 'TThis -> 'TFunc) =
     inherit Function()
     member this.Bind (thisArg: 'TThis) = Unchecked.defaultof<'TFunc>
-
-type private PA = System.ParamArrayAttribute
 
 type FuncWithRest<'TRest, 'TResult>(func: 'TRest[] -> 'TResult) =
     inherit Function()

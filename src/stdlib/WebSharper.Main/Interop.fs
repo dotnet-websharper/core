@@ -22,6 +22,8 @@ module private WebSharper.InteropProxy
 
 open WebSharper.JavaScript
 
+type PA = System.ParamArrayAttribute
+
 [<Proxy(typeof<Function>)>]
 type FunctionProxy =
     [<Inline "Function.constructor.apply(null, $paramsAndBody)">]
@@ -30,19 +32,16 @@ type FunctionProxy =
     member this.Length with [<Inline "$this.length">] get() = X<int>
     
     [<Inline "$this.apply($thisArg)">]
-    member this.Apply(thisArg: obj) = X<obj>
+    member this.ApplyUnsafe(thisArg: obj) = X<obj>
 
     [<Inline "$this.apply($thisArg, $argsArray)">]
-    member this.Apply(thisArg: obj, argsArray: obj[]) = X<obj>
+    member this.ApplyUnsafe(thisArg: obj, argsArray: obj[]) = X<obj>
+
+    [<Inline "$this.apply($thisArg, $args)">]
+    member this.CallUnsafe(thisArg: obj, [<PA>] args: obj[]) = X<obj>
   
-    [<Inline "$this.bind($thisArg)">]
-    member this.Bind(thisArg: obj) = X<Function>
-
-    [<Inline "$this.bind($thisArg, $arg)">]
-    member this.Bind(thisArg: obj, arg: obj) = X<Function>
-
-    [<Inline "Function.prototype.bind.apply($thisArg, [$arg1].concat($rest))">]
-    member this.Bind(thisArg: obj, arg1: obj, [<System.ParamArray>] rest: obj[]) = X<Function>
+    [<Inline "Function.prototype.bind.apply($thisArg, $args)">]
+    member this.BindUnsafe(thisArg: obj, [<PA>] args: obj[]) = Unchecked.defaultof<Function>
 
     [<Inline "$func">]
     static member Of<'T, 'U>(func: 'T -> 'U) = X<Function>
@@ -66,8 +65,6 @@ type FuncWithThisProxy<'TThis, 'TFunc> =
 
     [<Inline "$wsruntime.Bind($this, $thisArg)">]
     member this.Bind (thisArg: 'TThis) = X<'TFunc>
-
-type PA = System.ParamArrayAttribute
 
 [<Proxy(typeof<FuncWithRest<_,_>>)>]
 type FuncWithRestProxy<'TRest, 'TResult> =
