@@ -19,11 +19,11 @@ registering IIS modules in `Web.config:
   <system.webServer>
     <modules>
       <add name="WebSharper.RemotingModule"
-           type="IntelliFactory.WebSharper.Web.RpcModule,
-                 IntelliFactory.WebSharper.Web" />
+           type="WebSharper.Web.RpcModule,
+                 WebSharper.Web" />
       <add name="WebSharper.Sitelets"
-           type="IntelliFactory.WebSharper.Sitelets.HttpModule,
-                 IntelliFactory.WebSharper.Sitelets" />
+           type="WebSharper.Sitelets.HttpModule,
+                 WebSharper.Sitelets" />
 ```
 
 These modules are installed into the request processing pipele and

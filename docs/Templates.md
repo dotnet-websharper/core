@@ -1,4 +1,4 @@
-# HTML Templates
+﻿# HTML Templates
 
 Default sitelet projects will contain a `Main.html`
 file similar to the following:
@@ -39,8 +39,8 @@ of the template is specified using a webroot-relative path such as
 
 ```fsharp
 module Skin =
-    open IntelliFactory.WebSharper
-    open IntelliFactory.WebSharper.Sitelets
+    open WebSharper
+    open WebSharper.Sitelets
  
     type Page =
         {

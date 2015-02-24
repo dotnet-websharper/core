@@ -32,11 +32,11 @@ Below is a minimal example of a complete site serving one HTML page:
 ```fsharp
 namespace SampleWebsite
 
-open IntelliFactory.WebSharper.Sitelets
+open WebSharper.Sitelets
 
 module SampleSite =
-    open IntelliFactory.WebSharper
-    open IntelliFactory.Html
+    open WebSharper
+    open WebSharper.Html.Server
 
     type Action = | Index
 
@@ -114,7 +114,7 @@ Action value, and lets you match this action and return the
 appropriate content. Here is an example sitelet using `Infer`:
 
 ```fsharp
-open IntelliFactory.WebSharper.Sitelets
+open WebSharper.Sitelets
 
 type Action =
     | Index
@@ -304,10 +304,10 @@ HTML:
 
 ```fsharp
 module Client =
-    open IntelliFactory.WebSharper.Html
+    open WebSharper.Html
 
     type MyControl() =
-        inherit IntelliFactory.WebSharper.Web.Control ()
+        inherit WebSharper.Web.Control ()
         [<JavaScript>]
         override this.Body =
             I [Text "Client control"] :> IPagelet
@@ -324,7 +324,7 @@ let Page : Content<Action> =
 ```
 
 Here, `MyControl` inherits from
-`IntelliFactory.WebSharper.Web.Control` and overrides the `Body`
+`WebSharper.Web.Control` and overrides the `Body`
 property with some client-side HTML.  This control is then placed
 within a server-side `div` tag.
 

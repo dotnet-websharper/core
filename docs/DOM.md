@@ -1,6 +1,6 @@
 # WebSharper Extensions for DOM
 
-DOM types can be found under the `IntelliFactory.WebSharper.Dom`
+DOM types can be found under the `WebSharper.Dom`
 namespace.  The extension is based on the DOM specification, and
 therefore does not provide any browser-specific methods, such as
 `innerHtml`.  Be warned that DOM compliance varies from browser to
