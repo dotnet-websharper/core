@@ -21,6 +21,7 @@
 module WebSharper.Tests.Array
 
 open WebSharper
+open WebSharper.JavaScript
 open WebSharper.Testing
 module R = WebSharper.Testing.Random
 
@@ -565,4 +566,13 @@ let Tests =
         arr.[.. 2] =? [| 0; 1; 2 |]
         arr.[4 ..] =? [| 4 ; 5 |]
         arr.[2 .. 4] =? [| 2; 3; 4 |]
+    }
+
+    Test "Extensions" {
+        [| 0; 1; 2; 3 |].Slice(1, 3) =? [| 1; 2 |]
+
+        let a = [| 0 |]
+        a.Push(1) =? 2
+        a.Push(2, 3) =? 4
+        a =? [| 0; 1; 2; 3 |]
     }
