@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.31101.0
+# Visual Studio 14
+VisualStudioVersion = 14.0.22512.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}"
 EndProject
@@ -102,6 +102,38 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Bootstrap", "src\build\Bootstrap\Bootstrap.fsproj", "{5FB61954-9230-4408-A349-7F1EFC6E0A66}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.InterfaceGenerator.Tests", "tests\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj", "{4C826618-E150-40F7-B13A-9182F0C3EACA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{F4582361-BAD1-4D58-AFB8-529185357EE4}"
+	ProjectSection(SolutionItems) = preProject
+		docs\Async.md = docs\Async.md
+		docs\Bindings.md = docs\Bindings.md
+		docs\Bundling.md = docs\Bundling.md
+		docs\CodeGen.md = docs\CodeGen.md
+		docs\doc.fsx = docs\doc.fsx
+		docs\DOM.md = docs\DOM.md
+		docs\ECMA-262.md = docs\ECMA-262.md
+		docs\Formlets.md = docs\Formlets.md
+		docs\GettingStarted.md = docs\GettingStarted.md
+		docs\HtmlCombinators.md = docs\HtmlCombinators.md
+		docs\IIS.md = docs\IIS.md
+		docs\Install.md = docs\Install.md
+		docs\InterfaceGenerator.md = docs\InterfaceGenerator.md
+		docs\jQuery.md = docs\jQuery.md
+		docs\Libraries.md = docs\Libraries.md
+		docs\Mobile.md = docs\Mobile.md
+		docs\Pagelets.md = docs\Pagelets.md
+		docs\ProjectTemplates.md = docs\ProjectTemplates.md
+		docs\Proxies.md = docs\Proxies.md
+		docs\ReleaseNotes-2.5.md = docs\ReleaseNotes-2.5.md
+		docs\ReleaseNotes.md = docs\ReleaseNotes.md
+		docs\Remoting.md = docs\Remoting.md
+		docs\Resources.md = docs\Resources.md
+		docs\Sitelets.md = docs\Sitelets.md
+		docs\Templates.md = docs\Templates.md
+		docs\TypeScriptOutput.md = docs\TypeScriptOutput.md
+		docs\WebApi.md = docs\WebApi.md
+		docs\WebSharper.md = docs\WebSharper.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

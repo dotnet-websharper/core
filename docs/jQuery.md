@@ -1,12 +1,12 @@
 # WebSharper Extension for jQuery
 
-|               |                                      |
-| --------------|--------------------------------------|
-| Library Home  | [jquery.com][jq]                     |
-| Bound Version | 1.10.2                               |
-| NuGet Package | WebSharper                           |
-| Assembly      | IntelliFactory.WebSharper.JQuery.dll |
-| Namespace     | IntelliFactory.WebSharper.JQuery     |
+|               |                       |
+| --------------|-----------------------|
+| Library Home  | [jquery.com][jq]      |
+| Bound Version | 1.10.2                |
+| NuGet Package | WebSharper            |
+| Assembly      | WebSharper.JQuery.dll |
+| Namespace     | WebSharper.JQuery     |
 
 [jq]: http://jquery.com
 

@@ -3,10 +3,10 @@
 WebSharper introduces two sets of HTML combinators with similar syntax
 but distinct types and purpose:
 
-* Server-side combinators from the `IntelliFactory.Html` namespace
+* Server-side combinators from the `WebSharper.Html.Server` namespace
   used to define server-side markup generation.
 
-* Client-side combinators from the `IntelliFactory.WebSharper.Html`
+* Client-side combinators from the `WebSharper.Html.Client`
   namespace used to generate DOM nodes on the client.
 
 ## Combinator Syntax

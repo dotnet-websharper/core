@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-namespace IntelliFactory.WebSharper
+namespace WebSharper
 
 open System
 open System.Reflection

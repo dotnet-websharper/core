@@ -8,7 +8,7 @@ directly from F#.
 This extension implements the full 5th edition of the ECMA standard.
 
 The ECMA code is available in the
-`IntelliFactory.WebSharper.EcmaScript` namespace.  The implementation
+`WebSharper.JavaScript` namespace.  The implementation
 closely follows the standard, covering the following ECMA objects:
 
 * `Global`

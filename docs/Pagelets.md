@@ -30,7 +30,7 @@ does it automatically for pagelets embedded in web pages.
 ## HTML Combinators
 
 The most commonly used pagelets in WebSharper are constructed using
-the HTML combinators from the `IntelliFactory.WebSharper.Html`.
+the HTML combinators from the `WebSharper.Html`.
 
     Div [Width "200px"] -< [
         H1 [Text "HELLO, WORLD!"]
@@ -123,7 +123,7 @@ In this way the controls can have fields that pass information from
 the server-side to the client-side context.
 
 Every page that uses `WebSharper` controls is required to include the
-`IntelliFactory.WebSharper.Web.ScriptManager` control in the `<head>`
+`WebSharper.Web.ScriptManager` control in the `<head>`
 section:
 
     <head runat="server">

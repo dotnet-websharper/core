@@ -28,7 +28,7 @@ IntelliFactory.
 
     module WebSharperExtension.Definition
 
-    open IntelliFactory.WebSharper.InterfaceGenerator
+    open WebSharper.InterfaceGenerator
 
     let I1 =
         Interface "I1"
@@ -80,7 +80,7 @@ IntelliFactory.
 
 Defining classes, interfaces and member signatures requires an
 abstraction for types.  Types are represented as
-`IntelliFactory.WebSharper.InterfaceGenerator.Type.IType` values.
+`WebSharper.InterfaceGenerator.Type.IType` values.
 These values describe system, user-defined, existing, and generated
 types.
 

@@ -28,185 +28,49 @@ module Extensions =
 
     [<Extension>]
     type System.Object with
-        /// JavaScript-only.
-        [<Extension; Inline "$this.constructor">]
-        member this.Constructor = X<Function>         
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.toLocaleString()">]
-        member this.ToLocaleString() = X<string>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.valueOf()">]
-        member this.ValueOf() = X<obj>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.hasOwnProperty($prop)">]
-        member this.HasOwnProperty(prop: string) = X<bool>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.propertyIsEnumerable($prop)">]
-        member this.PropertyIsEnumerable(prop: string) = X<bool>
+        [<Extension; Inline "$0">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
+        member this.ToEcma() = X<Object>
+        [<Extension; Inline "$0">]
+        member this.JS = X<Object>
 
     [<Extension>]
     type ``[]``<'T> with
-        /// JavaScript-only.
-        [<Extension; Inline "Array.prototype.concat.apply($this, $values)">]
-        member this.Concat([<System.ParamArray>] values: 'T[]) = X<'T[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "Array.prototype.concat.apply($this, $arrays)">]
-        member this.Concat([<System.ParamArray>] arrays: 'T[][]) = X<'T[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.join()">]
-        member this.Join() = X<string>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.join($separator)">]
-        member this.Join(separator: string) = X<string>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.pop()">]
-        member this.Pop() = X<'T>
-
-        /// JavaScript-only.
-        [<Extension; Inline "Array.prototype.push.apply($this, $elements)">]
-        member this.Push([<System.ParamArray>] elements: 'T[]) = X<int>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.reverse()">]
-        member this.Reverse() = X<'T[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.shift()">]
-        member this.Shift() = X<'T>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.slice()">]
-        member this.Slice() = X<'T[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.slice($startPos)">]
-        member this.Slice(startPos: int) = X<'T[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.slice($startPos, $endPos)">]
-        member this.Slice(startPos: int, endPos: int) = X<'T[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.sort()">]
-        member this.Sort() = X<'T[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.sort($wsruntime.CreateFuncWithArgs($compareFunction))">]
-        member this.Sort(compareFunction: 'T * 'T -> int) = X<'T[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "Array.prototype.splice.apply($this, [$startPos, $deleteCount].concat($items))">]
-        member this.Splice(startPos: int, deleteCount: int, [<System.ParamArray>] items: 'T[]) = X<'T[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "Array.prototype.unshift.apply($this, $1elements)">]
-        member this.Unshift([<System.ParamArray>] elements: 'T[]) = X<int>
+        [<Extension; Inline "$0">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
+        member this.ToEcma() = X<Array<'T>>
+        [<Extension; Inline "$0">]
+        member this.JS = X<Array<'T>>
 
     [<Extension>]
     type System.String with
-        /// JavaScript-only.
-        [<Extension; Inline "$this.charAt($index)">]
-        member this.CharAt(index: int) = X<string>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.charCodeAt($index)">]
-        member this.CharCodeAt(index: int) = X<int>
-
-        /// JavaScript-only.
-        [<Extension; Inline "String.prototype.concat.apply($this, $strings)">]
-        member this.Concat([<System.ParamArray>] strings: 'T[]) = X<string>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.localeCompare($compareString)">]
-        member this.LocaleCompare(compareString: string) = X<int> 
-        
-        /// JavaScript-only.
-        [<Extension; Inline "$this.localeCompare($compareString, $locale)">]
-        member this.LocaleCompare(compareString: string, locale: string) = X<int> 
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.localeCompare($compareString, locales)">]
-        member this.LocaleCompare(compareString: string, locales: string[]) = X<int> 
-
-        // TODO: LocaleCompare with options
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.match($regexp)">]
-        member this.Match(regexp: RegExp) = X<string[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.match($regexp)">]
-        member this.Match(regexp: string) = X<string[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.replace($regexp, $newSubStr)">]
-        member this.Replace(regexp: RegExp, newSubStr: string) = X<string>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.replace($regexp, $func)">]
-        member this.Replace(regexp: RegExp, func: Function) = X<string>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.replace($regexp, $func)">]
-        member this.Replace(regexp: string, func: Function) = X<string>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.search($regexp)">]
-        member this.Search(regexp: RegExp) = X<int>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.search($regexp)">]
-        member this.Search(regexp: string) = X<int>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.slice($startPos)">]
-        member this.Slice(startPos: int) = X<string>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.slice($startPos, $endPos)">]
-        member this.Slice(startPos: int, endPos: int) = X<string>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.split()">]
-        member this.Split() = X<string[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.split($separator)">]
-        member this.Split(separator: RegExp) =X<string[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.split($separator)">]
-        member this.Split(separator: string) =X<string[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.split($separator, $limit)">]
-        member this.Split(separator: RegExp, limit: int) =X<string[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.split($separator, $limit)">]
-        member this.Split(separator: string, limit: int) =X<string[]>
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.toLocaleLowerCase()">]
-        member this.ToLocaleLowerCase() = X<string> 
-
-        /// JavaScript-only.
-        [<Extension; Inline "$this.toLocaleUpperCase()">]
-        member this.ToLocaleUpperCase() = X<string> 
+        [<Extension; Inline "$0">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
+        member this.ToEcma() = X<String>
+        [<Extension; Inline "$0">]
+        member this.JS = X<String>
 
     [<Extension>]
     type System.Exception with
-        /// JavaScript-only.
-        [<Extension; Inline "$this.name">]
-        member this.Name = X<string>
+        [<Extension; Inline "$0">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
+        member this.ToEcma() = X<Error>
+        [<Extension; Inline "$0">]
+        member this.JS = X<Error>
+
+    [<Extension>]
+    type Boolean with
+        [<Inline "$0">]
+        [<System.Obsolete "Deprecated. Use Self property instead.">]
+        member this.ToDotNet() = X<bool>
+
+    [<Extension>]
+    type System.Boolean with
+        [<Extension; Inline "$0">]
+        [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
+        member this.ToEcma() = X<Boolean>   
+        [<Extension; Inline "$0">]
+        member this.ToJS() = X<Boolean>   
 
     [<Extension>]
     type Date with
@@ -225,7 +89,7 @@ module Extensions =
     [<Extension>]
     type Function with
         [<Extension; Inline "$0">]
-        [<System.Obsolete "Deprecated. Use Self property instead.">]
+        [<System.Obsolete "Unsafe.">]
         member this.ToDotNet<'T, 'R>() = X<'T -> 'R>
 
     [<Extension>]

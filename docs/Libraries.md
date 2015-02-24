@@ -471,18 +471,18 @@ WebSharper makes it easy to access JavaScript APIs in a typed way from
 F# by shipping bindings to JavaScript libraries. While a lot of these
 are available as WebSharper, the standard distribution ships:
 
-* The `IntelliFactory.WebSharper.JavaScript` module with common
+* The `WebSharper.JavaScript` module with common
   utilities, such as getting or setting fields on JavaScript objects,
   doing `alert` or `setTimeout` calls, and the like.
 
 * JavaScript standard library bindings based on the ECMA 262 3rd
-  edition. Consult the `IntelliFactory.WebSharper.EcmaScript`
+  edition. Consult the `WebSharper.JavaScript`
   namespace for details.
 
 * [DOM level 3](http://www.w3.org/DOM/) bindings.  Consult the
-  `IntelliFactory.WebSharper.Dom` namespace for details.
+  `WebSharper.Dom` namespace for details.
 
 * [jQuery](http://jquery.com) bindings. Consult the
-  `IntelliFactory.WebSharper.JQuery` namespace for details.
+  `WebSharper.JQuery` namespace for details.
 
 

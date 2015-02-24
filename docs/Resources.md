@@ -127,7 +127,7 @@ and multiple arguments for a base path and a set of subpaths.
 ```fsharp
 module Resources =
 
-    open IntelliFactory.WebSharper.Core.Resources
+    open WebSharper.Core.Resources
 
     type R1() =
         inherit BaseResource("path.js")
