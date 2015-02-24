@@ -352,7 +352,7 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
             ss |> Array.mapi (fun i s ->
                 let prefixSlash =
                     if i = 0 then
-                        fun () -> prefixSlash
+                        fun () -> prefixSlash && s.WritesToUrlPath()
                     else
                         s.WritesToUrlPath
                 prefixSlash, s)
