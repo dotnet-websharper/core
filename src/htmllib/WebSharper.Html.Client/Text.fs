@@ -28,3 +28,6 @@ type internal Text(text: string) =
 
     override this.Body =
         JS.Document.CreateTextNode text :> _
+
+    override this.Render() =
+        ()

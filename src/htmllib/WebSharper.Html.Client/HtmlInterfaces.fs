@@ -30,7 +30,6 @@ type Pagelet() =
     abstract member Body : Dom.Node
 
     abstract member Render : unit -> unit
-    default this.Render() = ()
 
     interface IControlBody with
         member this.ReplaceInDom(node: Dom.Node) =

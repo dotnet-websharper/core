@@ -44,3 +44,6 @@ type internal Attribute private (HtmlProvider) =
         let attr = HtmlProvider.CreateAttribute this.Name
         attr.Value <- this.Value
         attr :> _
+
+    override this.Render() =
+        ()
