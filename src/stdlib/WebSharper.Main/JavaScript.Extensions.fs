@@ -110,10 +110,6 @@ module Extensions =
         [<Extension; Inline "Array.prototype.unshift.apply($this, $1elements)">]
         member this.Unshift([<System.ParamArray>] elements: 'T[]) = X<int>
 
-        /// JavaScript-only.
-        [<Extension; Inline "Array.isArray($obj)">]
-        static member IsArray(obj: obj) = X<bool>
-
     [<Extension>]
     type System.String with
         /// JavaScript-only.

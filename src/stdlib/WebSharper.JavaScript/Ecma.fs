@@ -95,6 +95,18 @@ module Definition =
                 "POSITIVE_INFINITY" =? T<double>
             ]
 
+    let EcmaString =
+        Class "String"
+        |+> Static [
+            "fromCharCode" => !+ T<int> ^-> T<string>
+        ]
+
+    let EcmaArray =
+        Class "Array"
+        |+> Static [
+            "isArray" => T<obj->bool>
+        ]
+
     /// The Math object allows you to perform mathematical tasks.
     let EcmaMath =
         let D = T<double>
@@ -224,6 +236,8 @@ module Definition =
             Namespace "WebSharper.JavaScript" [
                 EcmaObject
                 EcmaNumber
+                EcmaString
+                EcmaArray
                 EcmaMath
                 EcmaDate
                 EcmaRegExp
