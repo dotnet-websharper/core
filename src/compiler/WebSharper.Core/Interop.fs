@@ -27,6 +27,10 @@ type Function([<System.ParamArray>] paramsAndBody: string[]) =
     member this.Apply(thisArg: obj) = Unchecked.defaultof<obj>
     member this.Apply(thisArg: obj, argsArray: obj[]) = Unchecked.defaultof<obj>
     member this.Bind(thisArg: obj, [<System.ParamArray>] args: obj[]) = Unchecked.defaultof<Function>
+    
+    /// Type cast.
+    /// Warning: a tupled F# function is translated to JavaScript as a function with a single array argument.
+    static member Of<'T, 'U>(func: 'T -> 'U) = Unchecked.defaultof<Function>
 
 type FuncWithArgs<'TArgs, 'TResult>(func: 'TArgs -> 'TResult) =
     inherit Function()    

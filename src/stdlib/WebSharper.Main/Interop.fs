@@ -44,6 +44,9 @@ type FunctionProxy =
     [<Inline "Function.prototype.bind.apply($thisArg, [$arg1].concat($rest))">]
     member this.Bind(thisArg: obj, arg1: obj, [<System.ParamArray>] rest: obj[]) = X<Function>
 
+    [<Inline "$func">]
+    static member Of<'T, 'U>(func: 'T -> 'U) = X<Function>
+
 [<Proxy(typeof<FuncWithArgs<_,_>>)>]
 type FuncWithArgsProxy<'TArgs, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithArgs($func)">]
