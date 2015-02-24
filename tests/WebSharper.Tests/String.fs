@@ -21,8 +21,8 @@
 module WebSharper.Tests.String
 
 open WebSharper
+open WebSharper.JavaScript
 open WebSharper.Testing
-
     
 [<JavaScript>]
 type Hi() =
@@ -185,3 +185,8 @@ let Tests =
         string 123 =? "123"
         string (Hi()) =? "Hello"
     }               
+
+    Test "Extensions" {
+        "abc".CharAt(1) =? "b"
+        String.FromCharCode(72, 69, 76, 76, 79) =? "HELLO" 
+    }
