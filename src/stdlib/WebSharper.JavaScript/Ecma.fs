@@ -33,15 +33,8 @@ module Definition =
     let EcmaFunctionT = Type.New()
 
     let EcmaObject =
-        Generic - fun (a: CodeModel.TypeParameter) ->
         Class "Object"
-        |+> Instance
-            [
-                "" =@ a |> Indexed T<string>            
-            ]
         |+> Static [
-                ObjectConstructor T<unit> 
-                Constructor (!|(T<string> * a))?nameValuePairs |> WithInline "$wsruntime.NewObject($nameValuePairs)"
                 "prototype" =? T<obj>
                 "create" => T<obj>?proto * !?T<obj>?properties ^-> T<obj>                
                 "getPrototypeOf" => T<obj> ^-> T<obj>
@@ -57,6 +50,16 @@ module Definition =
                 "keys" => T<obj->string[]>
             ]
        
+    let EcmaObjectG =
+        Generic - fun (a: CodeModel.TypeParameter) ->
+        Class "Object"
+        |+> Instance
+            [
+                "" =@ a |> Indexed T<string>            
+            ]
+        |+> Static [
+                Constructor (!|(T<string> * a))?nameValuePairs |> WithInline "$wsruntime.NewObject($nameValuePairs)"
+            ]
 
     /// A resgular expression is an object that describes a pattern of characters.
     let EcmaRegExp =
@@ -73,6 +76,7 @@ module Definition =
             ]
         |+> Static [
                 Constructor(T<string> * !?T<string>?flags)
+                "prototype" =? TSelf
             ]
 
     /// The Number object is an object wrapper for primitive numeric values.
@@ -93,18 +97,21 @@ module Definition =
                 "NaN" =? T<double>
                 "NEGATIVE_INFINITY" =? T<double>
                 "POSITIVE_INFINITY" =? T<double>
+                "prototype" =? TSelf
             ]
 
     let EcmaString =
         Class "String"
         |+> Static [
             "fromCharCode" => !+ T<int> ^-> T<string>
+            "prototype" =? T<string>
         ]
 
     let EcmaArray =
         Class "Array"
         |+> Static [
             "isArray" => T<obj->bool>
+            "prototype" =? T<System.Array>
         ]
 
     /// The Math object allows you to perform mathematical tasks.
@@ -221,6 +228,7 @@ module Definition =
                 "UTC" => DateArgs ^-> T<int>
                 "now" => T<unit> ^-> T<int>
                 "parse" => T<string> ^-> T<int>
+                "prototype" =? TSelf
             ]
 
     let EcmaJSON =
@@ -235,6 +243,7 @@ module Definition =
         [
             Namespace "WebSharper.JavaScript" [
                 EcmaObject
+                EcmaObjectG
                 EcmaNumber
                 EcmaString
                 EcmaArray

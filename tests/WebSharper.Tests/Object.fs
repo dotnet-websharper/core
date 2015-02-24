@@ -144,4 +144,5 @@ let Tests =
 
     Test "Extensions" {
         (New [ "a" => 1 ]).HasOwnProperty("a") =? true
+        Object.Prototype.Constructor.Length =? 1
     }
