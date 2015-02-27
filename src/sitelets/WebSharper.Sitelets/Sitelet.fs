@@ -139,8 +139,8 @@ module Sitelet =
             Controller =
                 { Handle = fun a ->
                     match unembed a with
-                    | Some ea -> C.CustomContent <| fun ctx ->
-                        C.ToResponse (sitelet.Controller.Handle ea) (Context.Map embed ctx)
+                    | Some ea -> C.CustomContentAsync <| fun ctx ->
+                        C.ToResponseAsync (sitelet.Controller.Handle ea) (Context.Map embed ctx)
                     | None -> failwith "Invalid action in Sitelet.Embed" }
         }
 
