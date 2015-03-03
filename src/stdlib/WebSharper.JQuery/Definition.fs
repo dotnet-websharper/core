@@ -30,6 +30,9 @@ module Definition =
     let Event =
         Class "Event"
         |+> Instance [
+            "AsDomEvent" =? T<Dom.Event>
+            |> WithGetterInline "$0"
+            |> WithComment "Casts this JQuery.Event to a Dom.Event."
             "altKey" =? T<bool>
             "bubbles" =? T<bool>
             "button" =? T<int>
