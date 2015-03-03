@@ -31,18 +31,21 @@ module Events =
         {
             X : int
             Y : int
+            Event : Dom.MouseEvent
         }
 
     /// Represents character code data.
     type CharacterCode =
         {
             CharacterCode : int
+            Event : Dom.KeyboardEvent
         }
 
     /// Represents key code data
     type KeyCode =
         {
             KeyCode : int
+            Event : Dom.KeyboardEvent
         }
 
     /// Interface for event handling implementation
@@ -82,7 +85,7 @@ module Events =
         [<JavaScript>]
         member private this.OnMouse<'T when 'T :> Pagelet> name (f: 'T -> MouseEvent -> unit) (el: 'T)  =
             JQuery.Of(el.Body).Bind(name, fun _ (ev: JE) ->
-                f el {X = ev.PageX; Y = ev.PageY}
+                f el {X = ev.PageX; Y = ev.PageY; Event = ev.AsDomEvent :?> _}
             ).Ignore
 
         interface IEventSupport with
@@ -130,19 +133,19 @@ module Events =
             [<JavaScript>]
             member this.OnKeyDown f el =
                 JQuery.Of(el.Body).Bind("keydown", fun _ (ev: JE) ->
-                    f el {KeyCode = ev?keyCode}
+                    f el {KeyCode = ev?keyCode; Event = ev.AsDomEvent :?> _}
                 ).Ignore
 
             [<JavaScript>]
             member this.OnKeyPress f el =
                 JQuery.Of(el.Body)
-                    .Keypress(fun _ (arg: JE) -> f el ({ CharacterCode = arg.Which }))
+                    .Keypress(fun _ (ev: JE) -> f el ({ CharacterCode = ev.Which; Event = ev.AsDomEvent :?> _ }))
                     .Ignore
 
             [<JavaScript>]
             member this.OnKeyUp f el  =
                 JQuery.Of(el.Body).Bind("keyup", fun _ (ev: JE) ->
-                    f el {KeyCode = ev?keyCode}
+                    f el {KeyCode = ev?keyCode; Event = ev.AsDomEvent :?> _}
                 ).Ignore
 
             [<JavaScript>]
