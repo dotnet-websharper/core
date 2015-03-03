@@ -526,9 +526,16 @@ module Interfaces =
                     T<int>?detailArg ^-> T<unit>
             ]
 
+    let FocusEvent =
+        Class "FocusEvent"
+        |=> Inherits UIEvent
+        |+> Instance [
+            "relatedTarget" =@ EventTarget
+        ]
+
     let MouseEvent =
         Class "MouseEvent"
-        |=> Inherits Event
+        |=> Inherits UIEvent
         |+> Instance [
                 "altKey" =@ T<bool>
                 "button" =@ T<int> // short
@@ -575,7 +582,7 @@ module Interfaces =
 
     let MouseWheelEvent =
         Class "MouseWheelEvent"
-        |=> Inherits Event
+        |=> Inherits MouseEvent
         |+> Instance [
                 "wheelDelta" =@ T<int>
                 "initMouseWheelEvent" =>
@@ -611,7 +618,7 @@ module Interfaces =
 
     let WheelEvent =
         Class "WheelEvent"
-        |=> Inherits Event
+        |=> Inherits MouseEvent
         |+> Instance [
                 "deltaX" =@ T<int>
                 "deltaY" =@ T<int>
@@ -681,7 +688,7 @@ module Interfaces =
 
     let KeyboardEvent =
         Class "KeyboardEvent"
-        |=> Inherits Event
+        |=> Inherits UIEvent
         |+> Instance [
                 "altKey" =@ T<bool>
                 "ctrlKey" =@ T<bool>
@@ -711,7 +718,7 @@ module Interfaces =
             ]
     let CompositionEvent =
         Class "CompositionEvent"
-        |=> Inherits Event
+        |=> Inherits UIEvent
         |+> Instance [
                 "data" =@ T<string>
                 "initCompositionEvent" =>
@@ -894,6 +901,7 @@ module Definition =
                 I.Event
                 I.EventTarget
                 I.CustomEvent
+                I.FocusEvent
                 I.DocumentEvent
                 I.DocumentView
                 I.AbstractView
