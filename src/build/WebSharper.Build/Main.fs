@@ -32,7 +32,13 @@ module Main =
         |> Path.GetFullPath
 
     let private buildDir =
-        Path.Combine(root, "build", "Release")
+        Path.Combine(root, "build",
+#if DEBUG
+            "Debug"
+#else
+            "Release"
+#endif
+        )
 
     let private bt =
         let bt =
@@ -109,16 +115,17 @@ module Main =
         let file kind src tgt =
             sprintf "/%s/net40/%s" kind (defaultArg tgt (Path.GetFileName src))
             |> fileAt src
+        let out f = Path.Combine(buildDir, f)
         nuPkg.AddNuGetExportingProject {
             new INuGetExportingProject with
                 member p.NuGetFiles =
                     seq {
                         yield fileAt (Path.Combine(root, "msbuild", "WebSharper.targets"))
                             "build/WebSharper.targets"
-                        yield file "tools" "build/Release/WebSharper.exe" None
-                        yield file "tools" "build/Release/WebSharper.exe" (Some "WebSharper31.exe")
-                        yield file "tools" "build/Release/WebSharper31.exe.config" None
-                        yield file "tools" "build/Release/WebSharper.exe.config" None
+                        yield file "tools" (out "WebSharper.exe") None
+                        yield file "tools" (out "WebSharper.exe") (Some "WebSharper31.exe")
+                        yield file "tools" (out "WebSharper31.exe.config") None
+                        yield file "tools" (out "WebSharper.exe.config") None
                         for kind, src in exports do
                             yield file kind src None
                         let fscore = Path.Combine(root, "packages", "FSharp.Core.3", "lib", "net40")
