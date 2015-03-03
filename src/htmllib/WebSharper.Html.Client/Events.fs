@@ -51,6 +51,9 @@ module Events =
     /// Interface for event handling implementation
     type IEventSupport =
 
+        // Generic
+        abstract member OnEvent<'T when 'T :> Pagelet>         : eventName: string -> ('T -> Dom.Event -> unit) -> 'T -> unit
+
         // Mouse
         abstract member OnClick<'T when 'T :> Pagelet>         : ('T -> MouseEvent -> unit) -> 'T -> unit
         abstract member OnDoubleClick<'T when 'T :> Pagelet>   : ('T -> MouseEvent -> unit) -> 'T -> unit
@@ -89,6 +92,10 @@ module Events =
             ).Ignore
 
         interface IEventSupport with
+
+            [<JavaScript>]
+            member this.OnEvent ev f el =
+                JQuery.Of(el.Body).Bind(ev, fun _ ev -> f el ev.AsDomEvent).Ignore
 
             [<JavaScript>]
             member this.OnBlur f el  =
@@ -187,6 +194,10 @@ module EventsPervasives =
 
     [<JavaScript>]
     let Events = Events.JQueryEventSupport() :> Events.IEventSupport
+
+    [<Inline>]
+    [<JavaScript>]
+    let OnEvent e x = Events.OnEvent e x
 
     [<Inline>]
     [<JavaScript>]
