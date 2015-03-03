@@ -212,6 +212,7 @@ module Definition =
             "always" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
             "done" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
             "fail" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
+            "progress" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
             "state" => T<unit -> string>
             "then" => T<unit -> unit> * !? T<unit -> unit> * !? T<unit -> unit> ^-> Promise
         ]
@@ -263,9 +264,6 @@ module Definition =
 
             "then" => T<unit -> unit> * !? T<unit -> unit> * !? T<unit -> unit> ^-> Promise
             |> WithComment "Add handlers to be called when the Deferred object is resolved, rejected, or still in progress."
-
-            "when" => !+ T<obj> ^-> Promise
-            |> WithComment "Provides a way to execute callback functions based on one or more objects, usually Deferred objects that represent asynchronous events."
         ]
 
     let JqXHRClass =
@@ -303,6 +301,8 @@ module Definition =
                 "add" => Type.ArrayOf T<Dom.Element> ^-> JQ
                 |> WithComment AddCmt
 
+                "addBack" => !?T<string> ^-> JQ
+
                 // Add class (Tested)
                 "addClass" => T<string>?className ^-> JQ
                 |> WithComment AddClassCmt
@@ -322,20 +322,23 @@ module Definition =
 
                 "ajaxStart" => AjaxHandler ^-> JQ
 
+                "ajaxStop" => AjaxHandler ^-> JQ
+
                 "ajaxSuccess" => AjaxHandler ^-> JQ
 
                 "andSelf" => T<unit> ^-> JQ
+                |> ObsoleteWithMessage "Deprecated in jQuery 1.8"
 
                 // Animate (Tested)
-                "animate" => T<Object<string>>?properties * AnimateSettings?options ^-> JQ
+                "animate" => T<Object<string>>?properties * !?AnimateSettings?options ^-> JQ
                 |> WithComment AnimateCmt
-                "animate" => T<Object<string>> * IntString?duration ^-> JQ
+                "animate" => T<Object<string>>?properties * IntString?duration ^-> JQ
                 |> WithComment AnimateCmt
-                "animate" => T<Object<string>> * IntString?duration * T<string>?easing ^-> JQ
+                "animate" => T<Object<string>>?properties * IntString?duration * T<string>?easing ^-> JQ
                 |> WithComment AnimateCmt
-                "animate" => T<Object<string>> * IntString?duration * UnitCallback?callback ^-> JQ
+                "animate" => T<Object<string>>?properties * IntString?duration * UnitCallback?callback ^-> JQ
                 |> WithComment AnimateCmt
-                "animate" => T<Object<string>> * IntString?duration * T<string>?easing * UnitCallback?callback ^-> JQ
+                "animate" => T<Object<string>>?properties * IntString?duration * T<string>?easing * UnitCallback?callback ^-> JQ
                 |> WithComment AnimateCmt
 
                 // Append (Tested)
@@ -356,21 +359,6 @@ module Definition =
                 "attr" => T<string>?attributeName * T<string>?value ^-> JQ
                 |> WithComment "Set the value of an attribute for the first element in the set of matched elements."
 
-                Generic -   ( fun t ->
-                                Method "prop" (T<string>?propName ^-> t)
-                                |> WithComment "Get the value of a property for the first element in the set of matched elements."
-                            )
-
-                "removeProp" => T<string>?propName * T<string>?value ^-> JQ
-                |> WithComment "Remove a property for the set of matched elements."
-
-                "removeProp" => T<string>?propName ^-> JQ
-                |> WithComment "Remove a property for the set of matched elements."
-
-                Generic -   ( fun t ->
-                                Method "prop" (T<string>?attributeName * t?value ^-> JQ)
-                                |> WithComment "Set the value of a property for the first element in the set of matched elements."
-                            )
                 // Before
                 "before" => Content?content ^-> JQ
                 |> WithComment BeforeCmt
@@ -432,6 +420,7 @@ module Definition =
                 // Context (Tested)
                 "context" =? T<Dom.Element>
                 |> WithComment "The DOM node context originally passed to jQuery(); if none was passed then context will likely be the document."
+                |> ObsoleteWithMessage "Deprecated in jQuery 1.10"
 
                 // Css (Tested)
                 "css" => T<unit> ^-> T<string>
@@ -535,6 +524,10 @@ module Definition =
                 // Find
                 "find" => T<string> ^-> JQ
                 |> WithComment "Get the descendants of each element in the current set of matched elements, filtered by a selector."
+
+                // Finish
+                "finish" => T<string>?queue ^-> JQ
+                |> WithComment "Stop the currently-running animation, remove all queued animations, and complete all animations for the matched elements."
 
                 // First
                 "first" => T<unit> ^-> JQ
@@ -669,12 +662,46 @@ module Definition =
 
                 "not" => (T<Dom.Element> -* T<int> ^-> T<unit>) ^-> JQ
 
+                "off" =>
+                    !?T<string>?events
+                    * !?T<string>?selector
+                    * !?EventHandler?handler ^-> JQ
+
+                "off" =>
+                    T<Object<_>>.[EventHandler]?events
+                    * !?T<string>?selector
+                    ^-> JQ
+
                 "offset" => T<unit> ^-> Position
                 "offset" => Position ^-> JQ
 
                 "offsetParent" => T<unit> ^-> JQ
 
-                "one" => T<string> * !?T<obj> * EventHandler ^-> JQ
+                "on" =>
+                    T<string>?events
+                    * !?T<string>?selector
+                    * !?T<obj>?data
+                    * EventHandler?handler
+                    ^-> JQ
+
+                "on" =>
+                    T<Object<_>>.[EventHandler]?events
+                    * !?T<string>?selector
+                    * !?T<obj>?data
+                    ^-> JQ
+
+                "one" =>
+                    T<string>?events
+                    * !?T<string>?selector
+                    * !?T<obj>?data
+                    * EventHandler
+                    ^-> JQ
+
+                "one" =>
+                    T<Object<_>>.[EventHandler]?events
+                    * !?T<string>?selector
+                    * !?T<obj>?data
+                    ^-> JQ
 
                 "outerHeight" => !?T<bool> ^-> T<int>
 
@@ -695,7 +722,23 @@ module Definition =
 
                 "prev" => !?T<string> ^-> JQ
 
+                "prevAll" => !?T<string> ^-> JQ
+
                 "prevUntil" => !?T<string> ^-> JQ
+
+                "promise" => !?T<string>?``type`` * !?T<obj>?target ^-> Promise
+
+
+                Generic -   ( fun t ->
+                                Method "prop" (T<string>?propName ^-> t)
+                                |> WithComment "Get the value of a property for the first element in the set of matched elements."
+                            )
+                Generic -   ( fun t ->
+                                Method "prop" (T<string>?attributeName * t?value ^-> JQ)
+                                |> WithComment "Set the value of a property for the first element in the set of matched elements."
+                            )
+                "prop" => T<Object<obj>> ^-> JQ
+                |> WithComment "Set one or more properties for the set of matched elements."
 
                 "pushStack" => Type.ArrayOf T<Dom.Element> ^-> JQ
                 "pushStack" => Type.ArrayOf T<Dom.Element> * T<string> * Type.ArrayOf T<obj> ^-> JQ
@@ -714,6 +757,11 @@ module Definition =
 
                 "removeData" => !?T<string> ^-> JQ
                 "removeData" => T<string[]> ^-> JQ
+
+                "removeProp" => T<string>?propName * T<string>?value ^-> JQ
+                |> WithComment "Remove a property for the set of matched elements."
+                "removeProp" => T<string>?propName ^-> JQ
+                |> WithComment "Remove a property for the set of matched elements."
 
                 "replaceAll" => !?T<string> ^-> JQ
 
@@ -774,6 +822,7 @@ module Definition =
                 "toggle" => !?T<int> * !?EventHandler ^-> JQ
                 "toggle" => T<int> * T<string>?easing * !?EventHandler ^-> JQ
                 "toggle" => T<bool>?showOrHide ^-> JQ
+                "toggle" => T<Object<obj>>?options ^-> JQ
 
                 "toggleClass" => T<string> * !?T<bool> ^-> JQ
                 "toggleClass" => (T<int> * T<string> ^-> T<unit>)  * !?T<bool> ^-> JQ
@@ -809,17 +858,6 @@ module Definition =
 
                 "wrapInner" => Content ^-> JQ
                 "wrapInner" => (T<unit> ^-> T<string>) ^-> JQ
-
-                "on" =>
-                    T<string>?events
-                    * !?T<string>?selector
-                    * !?T<obj>?data
-                    * T<obj->bool>?handler ^-> T<unit>
-
-                "off" =>
-                    T<string>?events
-                    * !?T<string>?selector
-                    * !?T<obj->bool>?handler ^-> T<unit>
 
             ]
         |+> Static [
@@ -978,6 +1016,9 @@ module Definition =
                 
                 "unique" =>
                     Type.ArrayOf T<Dom.Element> ^-> Type.ArrayOf T<Dom.Element>
+
+                "when" => !+ T<obj> ^-> Promise
+                |> WithComment "Provides a way to execute callback functions based on one or more objects, usually Deferred objects that represent asynchronous events."
             ]
     
     let Callbacks =
