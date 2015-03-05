@@ -91,3 +91,7 @@ type IRpcHandlerFactory =
 /// Re-exports Remoting.SetHandlerFactory.
 let SetRpcHandlerFactory (factory: IRpcHandlerFactory) =
     WebSharper.Core.Remoting.SetHandlerFactory factory
+
+/// Implements piping with mutation.
+[<Inline "($f($x), $x)">]
+let ( |>! ) x f = f x; x
