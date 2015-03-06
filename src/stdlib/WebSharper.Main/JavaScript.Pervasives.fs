@@ -37,10 +37,6 @@ let private binaryAs<'T> (x: obj) (y: obj) = JS.ClientSide<'T>
 [<Inline "$x">]
 let As<'T> (x: obj) = JS.ClientSide<'T>
 
-/// Implements piping with mutation.
-[<Inline "($f($x), $x)">]
-let ( |>! ) x f = f x; x
-
 [<Inline "$x * $y">]
 let ( *. ) x y = binary x y
 
