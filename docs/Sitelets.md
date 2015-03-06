@@ -1,31 +1,20 @@
 # Developing With Sitelets
 
-WebSharper sitelets provide a way to alleviate the need of serving
-content via ASPX pages.  Instead, you can define complete websites
-programmatically using F#.
+Sitelets are WebSharper's primary way to create server-side content. They provide facilities to route requests and generate HTML pages or JSON responses.
 
-Sitelets go one step further in bridging the gap between the server
-and client by allowing server-side HTML to be constructed by
-combinators similar to those used in its WebSharper client-side
-counterpart.  These combinators also allow you to embed WebSharper
-client-side controls.
+Sitelets allow you to:
 
-You will benefit from using sitelets by:
+* Dynamically construct pages and serve arbitrary content.
 
-* Being able to dynamically construct pages and serve arbitrary
-  content.
+* Have full control of your URLs by specifying [custom routers](#advanced-sitelets) for linking them to content, or let the URLs be [automatically inferred](#sitelet-infer) from an action type.
 
-* Having full control of your URLs by specifying custom routers for
-  linking them to content.
+* Compose contents into sitelets, which may themselves be [composed into larger sitelets](#sitelet-combinators).
 
-* Composing contents into sitelets, which may themselves be composed
-  into larger sitelets.
+* Have [safe links](#linking) for referencing other content contained within your site.
 
-* Having safe links for referencing other content contained within
-  your site.
+* Use the type-safe HTML [templating facilities](Templates.md) that come with sitelets.
 
-* Being able to use the type-safe HTML templating facilities that come
-  with sitelets.
+* Automatically [parse JSON requests and generate JSON responses](Json.md) based on your types.
 
 Below is a minimal example of a complete site serving one HTML page:
 
@@ -58,60 +47,37 @@ module SampleSite =
 do ()
 ```
 
-First, a custom action type is defined. It is used for linking URLs to
-content within your sitelet. Here, you only need one action
-corresponding to your only page.
+First, a custom action type is defined. It is used for linking URLs to content within your sitelet. Here, you only need one action corresponding to your only page.
 
-The content of the index page is defined as a `PageContent`, where the
-body consists of a server side HTML element.  Here the current time is
-computed and displayed within an H1 tag.
+The content of the index page is defined as a `PageContent`, where the body consists of a server side HTML element.  Here the current time is computed and displayed within an H1 tag.
 
-The `MySampleWebsite` type specifies the sitelet to be served by
-implementing the `IWebsite` interface.  In this case, the sitlet is
-defined using the `Sitelet.Content` operator for constructing a
-sitelet of the Index content.  In the resulting sitelet, the
-`Action.Index` value is associated with the path `/index` and the
-given content.
+The `MySampleWebsite` type specifies the sitelet to be served by implementing the `IWebsite` interface.  In this case, the sitlet is defined using the `Sitelet.Content` operator for constructing a sitelet of the Index content.  In the resulting sitelet, the `Action.Index` value is associated with the path `/index` and the given content.
 
 ## Sitelet routing
 
-WebSharper Sitelets abstract away URLs by using an action type that
-represents the different pages available in a website. For example, a
-site with an index and a blog article page parameterized by an
-(integer) article id and a slug can be represented by the following
-action type:
+WebSharper Sitelets abstract away URLs by using an action type that represents the different pages available in a website. For example, a site's URL scheme can be represented by the following action type:
 
 ```fsharp
 type Action =
     | Index
-    | BlogArticle of int * string
+    | Stats of username: string
+    | BlogArticle of id: int * slug: string
 ```
 
-Based on this, a Sitelet is a value that represents the following
-mappings:
+Based on this, a Sitelet is a value that represents the following mappings:
 
-* Mapping from URLs to actions. A Sitelet is able to parse a URL such
-  as `/blog/1243/some-article-slug` into the action value `BlogArticle
-  (1243, "some-article-slug").`
+* Mapping from URLs to actions. A Sitelet is able to parse a URL such as `/blog/1243/some-article-slug` into the action value `BlogArticle (id = 1243, slug = "some-article-slug").`
 
-* Mapping from actions to URLs. This allows you to have internal links
-  that are verified by the type system, instead of writing URLs by
-  hand and being at the mercy of a typo or a change in the URL scheme.
-  You can read more on this in the "Content" section below.
+* Mapping from actions to URLs. This allows you to have internal links that are verified by the type system, instead of writing URLs by hand and being at the mercy of a typo or a change in the URL scheme. You can read more on this [in the "Context" section](#context).
 
-* Mapping from actions to content. Finally, once a URL has been
-  parsed, this determines what content (HTML or other) must be
-  returned to the client.
+* Mapping from actions to content. Finally, once a URL has been parsed, this determines what content (HTML or other) must be returned to the client.
 
 A number of primitives are available to create and compose Sitelets.
 
+<a name="sitelet-infer"></a>
 ### Sitelet.Infer
 
-The easiest way to create a Sitelet is to automatically generate URLs
-from the shape of your action type using `Sitelet.Infer`. This
-function parses slash-separated path segments into the corresponding
-Action value, and lets you match this action and return the
-appropriate content. Here is an example sitelet using `Infer`:
+The easiest way to create a Sitelet is to automatically generate URLs from the shape of your action type using `Sitelet.Infer`. This function parses slash-separated path segments into the corresponding Action value, and lets you match this action and return the appropriate content. Here is an example sitelet using `Infer`:
 
 ```fsharp
 open WebSharper.Sitelets
@@ -119,7 +85,7 @@ open WebSharper.Sitelets
 type Action =
     | Index
     | Stats of username: string
-    | [<CompiledName "blog">] BlogArticle of int * string
+    | BlogArticle of id: int * slug: string
 
 type MyWebsite() =
     interface IWebsite<Action> with
@@ -129,7 +95,8 @@ type MyWebsite() =
                     // Content of the index page
                     Content.PageContent <| fun ctx ->
                         { Page.Default with
-                            Body = [Text "Index page"] }
+                            Title = Some "Welcome!"
+                            Body = [H1 [Text "Index page"]] }
                 | Stats username ->
                     // Content of the stats page, which depends on the username
                     Content.PageContent <| fun ctx ->
@@ -149,264 +116,555 @@ do ()
 
 The above sitelets accepts URLs with the following shape:
 
-```
-/Index
-    --> action value: Index
-/Stats/someUser
-    --> action value: Stats "someUser"
-/blog/1423/some-article-slug
-    --> action value: Article (1423, "some-article-slug")
+```xml
+Accepted Request:    GET /Index
+Parsed Action:       Index
+Returned Content:    <!DOCTYPE html>
+                     <html>
+                         <head><title>Welcome!</title></head>
+                         <body>
+                             <h1>Index page</h1>
+                         </body>
+                     </html>
+
+Accepted Request:    GET /Stats/someUser
+Parsed Action:       Stats (username = "someUser")
+Returned Content:    <!DOCTYPE html>
+                     <html>
+                         <head><title></title></head>
+                         <body>
+                             Stats for someUser
+                         </body>
+                     </html>
+
+Accepted Request:    GET /BlogArticle/1423/some-article-slug
+Parsed Action:       BlogArticle (id = 1423, slug = "some-article-slug")
+Returned Content:    <!DOCTYPE html>
+                     <html>
+                         <head><title></title></head>
+                         <body>
+                             Article id 1423, slug some-article-slug
+                         </body>
+                     </html>
 ```
 
 The following types are accepted by `Sitelet.Infer`:
 
 * Numbers and strings are encoded as a single path segment.
 
-* Tuples and records are encoded as consecutive path segments. For
-  example:
-    * `(1, "a")` is encoded as `/1/a`.
-    * `{ Number = 1; Name = "a" }` is encoded as `/1/a`.
-
-* Union types are encoded as a path segment identifying the case,
-  followed by segments for the arguments (see the example above). For
-  example, `option<'a>` is encoded as either `/None` or
-  `/Some/<value>`.
-
-  The attribute `CompiledName` can be used to provide an identifying
-  segment which is different from the actual case's name. In
-  particular, if you use `CompiledName ""` on an argument-less case,
-  then the root url `/` will be mapped to this action.
-
-* Lists and arrays are encoded as a number representing the length,
-  followed by each element. For example, `["a"; "b"]` is encoded as
-  `/2/a/b`.
-
-### Other Constructors and Combinators
-
-The following functions are available to build simple sitelets or
-compose more complex sitelets out of simple ones:
-
-* `Sitelet.Content`, as shown in the first example, builds a sitelet
-  that accepts a single URL and maps it to a given action and content.
-
-  The following sitelet accepts `/index`:
-
 ```fsharp
-Sitelet.Content "/index" Action.Index IndexContent
+type Action = string
+
+// Accepted Request:    GET /abc
+// Parsed Action:       "abc"
+// Returned Content:    (determined by Sitelet.Infer)
+
+type Action = int
+
+// Accepted Request:    GET /1423
+// Parsed Action:       1423
+// Returned Content:    (determined by Sitelet.Infer)
 ```
 
-* `Sitelet.Sum` takes a sequence of Sitelets and tries them in order
-  until one of them accepts the URL. It is generally used to combine a
-  list of `Sitelet.Content`s.
+* Tuples and records are encoded as consecutive path segments.
+
+```fsharp
+type Action = int * string
+
+// Accepted Request:    GET /1/abc
+// Parsed Action:       (1, "abc")
+// Returned Content:    (determined by Sitelet.Infer)
+
+type Action = { Number : int; Name : string }
+
+// Accepted Request:    GET /1/abc
+// Parsed Action:       { Number = 1; Name = "abc" }
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+* Union types are encoded as a path segment identifying the case, followed by segments for the arguments (see the example above).
+
+```fsharp
+type Action = string option
+
+// Accepted Request:    GET /Some/abc
+// Parsed Action:       Some "abc"
+// Returned Content:    (determined by Sitelet.Infer)
+//
+// Accepted Request:    GET /None
+// Parsed Action:       None
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+* Lists and arrays are encoded as a number representing the length, followed by each element. For example:
+
+```fsharp
+type Action = string list
+
+// Accepted Request:    GET /2/abc/def
+// Parsed Action:       ["abc"; "def"]
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+### Customizing Sitelet.Infer
+
+It is possible to annotate your Action type with attributes to customize the `Sitelet.Infer`'s request inference. Here are the available attributes:
+
+* `[<Method("GET", "POST", ...)>]` on a union case indicates which methods are parsed by this action.
+
+```fsharp
+type Action =
+    | [<Method "POST">] PostArticle of id: int
+
+// Accepted Request:    POST /PostArticle/12
+// Parsed Action:       PostArticle 12
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+* `[<CompiledName "string">]` on a union case indicates the identifying segment.
+
+```fsharp
+type Action =
+    | [<CompiledName "blog-article">] BlogArticle of id: int * slug: string
+
+// Accepted Request:    GET /blog-article/1423/some-article-slug
+// Parsed Action:       BlogArticle(id = 1423, slug = "some-article-slug")
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+* A common trick is to use `[<CompiledName "">]` on an argument-less union case to indicate the home page.
+
+```fsharp
+type Action =
+    | [<CompiledName "">] Home
+
+// Accepted Request:    GET /
+// Parsed Action:       Home
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+* `[<Query("arg1", "arg2", ...)>]` on a union case indicates that the fields with the given names must be parsed as GET query parameters instead of path segments. The value of this field must be either a base type (number, string) or an option of a base type (in which case the parameter is optional).
+
+```fsharp
+type Action =
+    | [<Query("id", "slug")>] BlogArticle of id: int * slug: string option
+
+// Accepted Request:    GET /BlogArticle?id=1423&slug=some-article-slug
+// Parsed Action:       BlogArticle(id = 1423, slug = Some "some-article-slug")
+// Returned Content:    (determined by Sitelet.Infer)
+//
+// Accepted Request:    GET /BlogArticle?id=1423
+// Parsed Action:       BlogArticle(id = 1423, slug = None)
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+* You can of course mix Query and non-Query parameters.
+
+```fsharp
+type Action =
+    | [<Query("id")>] BlogArticle of id: int * slug: string option
+
+// Accepted Request:    GET /BlogArticle/1423?slug=some-article-slug
+// Parsed Action:       BlogArticle(id = 1423, slug = Some "some-article-slug")
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+* Similarly, `[<Query>]` on a record field indicates that this field must be parsed as a GET query parameter.
+
+```fsharp
+type Action =
+    {
+        id : int
+        [<Query>] slug : string option
+    }
+
+// Accepted Request:    GET /1423?slug=some-article-slug
+// Parsed Action:       { id = 1423; slug = Some "some-article-slug" }
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+<a name="json-request"></a>
+
+* `[<Json "arg">]` on a union case indicates that the field with the given name must be parsed as JSON from the body of the request. If an action type contains several `[<Json>]` fields, a compile-time error is thrown.
+
+    [Learn more about JSON parsing.](Json.md)
+
+```fsharp
+type Action =
+    | [<Method "POST"; Json "data">] PostBlog of id: int * data: BlogData
+and BlogData =
+    {
+        slug: string
+        title: string
+    }
+
+// Accepted Request:    POST /PostBlog/1423
+//
+//                      {"slug": "some-blog-post", "title": "Some blog post!"}
+//
+// Parsed Action:       PostBlog(
+//                          id = 1423,
+//                          data = { slug = "some-blog-post"
+//                                   title = "Some blog post!" })
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+* Similarly, `[<Json>]` on a record field indicates that this field must be parsed as JSON from the body of the request.
+
+```fsharp
+type Action =
+    | [<Method "POST">] PostBlog of BlogPostArgs
+and BlogPostArgs =
+    {
+        id: int
+        [<Json>] data: BlogData
+    }
+and BlogData =
+    {
+        slug: string
+        title: string
+    }
+
+// Accepted Request:    POST /PostBlog/1423
+//
+//                      {"slug": "some-blog-post", "title": "Some blog post!"}
+//
+// Parsed Action:       PostBlog { id = 1423,
+//                                 data = { slug = "some-blog-post"
+//                                          title = "Some blog post!" } }
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+<a name="sitelet-combinators"></a>
+### Other Constructors and Combinators
+
+The following functions are available to build simple sitelets or compose more complex sitelets out of simple ones:
+
+* `Sitelet.Content`, as shown in the first example, builds a sitelet that accepts a single URL and maps it to a given action and content.
+
+```fsharp
+Sitelet.Content "/index" Index IndexContent
+
+// Accepted Request:    GET /index
+// Parsed Action:       Index
+// Returned Content:    (value of IndexContent : Content<Action>)
+```
+
+* `Sitelet.Sum` takes a sequence of Sitelets and tries them in order until one of them accepts the URL. It is generally used to combine a list of `Sitelet.Content`s.
 
   The following sitelet accepts `/index` and `/about`:
 
 ```fsharp
 Sitelet.Sum [
-    Sitelet.Content "/index" Action.Index IndexContent
-    Sitelet.Content "/about" Action.About AboutContent
+    Sitelet.Content "/index" Index IndexContent
+    Sitelet.Content "/about" About AboutContent
 ]
+
+// Accepted Request:    GET /index
+// Parsed Action:       Index
+// Returned Content:    (value of IndexContent : Content<Action>)
+//
+// Accepted Request:    GET /about
+// Parsed Action:       About
+// Returned Content:    (value of AboutContent : Content<Action>)
 ```
 
-* `<|>` takes two Sitelets and tries them in order. `s1 <|> s2` is
-  equivalent to `Sitelet.Sum [s1; s2]`.
-
-  The following sitelet accepts `/index` and `/about`:
+* `<|>` takes two Sitelets and tries them in order. `s1 <|> s2` is equivalent to `Sitelet.Sum [s1; s2]`.
 
 ```fsharp
-Sitelet.Content "/index" Action.Index IndexContent
+Sitelet.Content "/index" Index IndexContent
 <|>
-Sitelet.Content "/about" Action.About AboutContent
+Sitelet.Content "/about" About AboutContent
+
+// Accepted Request:    GET /index
+// Parsed Action:       Index
+// Returned Content:    (value of IndexContent : Content<Action>)
+//
+// Accepted Request:    GET /about
+// Parsed Action:       About
+// Returned Content:    (value of AboutContent : Content<Action>)
 ```
 
 * `Sitelet.Shift` takes a Sitelet and shifts it by a path segment.
 
-  The following sitelet accepts `/folder/index`:
-
 ```fsharp
-Sitelet.Content "index" Action.Index IndexContent
+Sitelet.Content "index" Index IndexContent
 |> Sitelet.Shift "folder"
+
+// Accepted Request:    GET /folder/index
+// Parsed Action:       Index
+// Returned Content:    (value of IndexContent : Content<Action>)
 ```
 
-* `Sitelet.Folder` takes a sequence of Sitelets and shifts them by a
-  path segment. It is effectively a combination of `Sum` and `Shift`.
-
-  The following sitelet accepts `/sub/index` and `/sub/about`:
+* `Sitelet.Folder` takes a sequence of Sitelets and shifts them by a path segment. It is effectively a combination of `Sum` and `Shift`.
 
 ```fsharp
-Sitelet.Folder "sub" [
-    Sitelet.Content "/index" Action.Index IndexContent
-    Sitelet.Content "/about" Action.About AboutContent
+Sitelet.Folder "folder" [
+    Sitelet.Content "/index" Index IndexContent
+    Sitelet.Content "/about" About AboutContent
 ]
+
+// Accepted Request:    GET /folder/index
+// Parsed Action:       Index
+// Returned Content:    (value of IndexContent : Content<Action>)
+//
+// Accepted Request:    GET /folder/about
+// Parsed Action:       About
+// Returned Content:    (value of AboutContent : Content<Action>)
 ```
 
+* `Sitelet.Protect` creates protected content, i.e.  content only available for authenticated users:
+
+```fsharp
+module Sitelet =
+    type Filter<'Action> =
+        {
+            VerifyUser : string -> bool;
+            LoginRedirect : 'Action -> 'Action
+        }
+
+val Protect : Filter<'Action> -> Sitelet<'Action> -> Sitelet<'Action>
+```
+
+Given a filter value and a sitelet, `Protect` returns a new sitelet that requires a logged in user that passes the `VerifyUser` predicate, specified by the filter.  If the user is not logged in, or the predicate returns false, the request is redirected to the action specified by the `LoginRedirect` function specified by the filter. [See here how to log users in and out.](WebContext.md)
+
+<a name="content"></a>
 ## Content
 
-Content is conceptually a function from a context to an HTTP response.
-For convenience it differentiates between custom content and ones
-producing HTML pages:
+Content is conceptually a function from a context to an HTTP response. There are four main ways to create content, each with a synchronous and an asynchronous variant:
 
 ```fsharp
-type Content<'Action> =
-    | CustomContent of (Context<'Action> -> Http.Response)
-    | PageContent   of (Context<'Action> -> Page)
+module Content =
+    open Http
+
+    val PageContent                       : (Context<'Action> -> Page)            -> Content<'Action>
+    val PageContentAsync                  : (Context<'Action> -> Async<Page>)     -> Content<'Action>
+
+    val WithTemplate      : Template<'T> -> (Context<'Action> -> 'T)              -> Content<'Action>
+    val WithTemplateAsync : Template<'T> -> (Context<'Action> -> Async<'T>)       -> Content<'Action>
+
+    val JsonContent                       : (Context<'Action> -> 'T)              -> Content<'Action>
+    val JsonContentAsync                  : (Context<'Action> -> Async<'T>)       -> Content<'Action>
+
+    val CustomContent                     : (Context<'Action> -> Response)        -> Content<'Action>
+    val CustomContentAsync                : (Context<'Action> -> Async<Response>) -> Content<'Action>
 ```
 
-Values of type `Context` contain runtime information of how to resolve
-links to actions and resources.
+Each of them receives as argument a callback from `Context<_>` to the type of content to return. The context contains various runtime information, notably on how to resolve links and authenticate users. [See here for more information about using the context.](#context)
 
-The example below defines a page content with a link to another page
+### PageContent
+
+The first type of content you can return is HTML content, using `PageContent` or `PageContentAsync`. Here is a simple example:
 
 ```fsharp
-let Page1 : Content<Action> =
-  PageContent <| fun context ->
-    {Page.Default with
-      Title = Some "Title of Page 1"
-      Body =
-        [
-          H1 [Text "Page 1"]
-          A [HRef (context.Link Action.Page2)] -< [Text "Page 2"]
-          A [HRef (context.ResolveUrl "~/Page3.html")] -< [Text "Page 3"]
-        ]
+let IndexPage : Content<Action> =
+    PageContent <| fun context ->
+        { Page.Default with
+            Title = Some "Welcome!"
+            Head = [ Link [HRef "/css/style.css"; Rel "stylesheet"] ]
+            Body = [ H1 [Text "Welcome to my site."] ]
+        }
+```
+
+The value you must return from the content callback is of record type `Page`. It is recommended to use record update on the provided `Page.Default`, as shown above.
+
+The fields `Head` and `Body` have type `seq<Html.Server.Element>`. [See here for more information about generating HTML content with `Html.Server`.](HtmlCombinators.md)
+
+### WithTemplate
+
+Very often, most of a page is constant, and only parts of it need to be generated. Templates allow you to use a static HTML file for the main structure, with placeholders for generated content. [See here for more information about templates.](Templates.md)
+
+<a name="json-response"></a>
+### JsonContent
+
+If you are creating a web API, then Sitelets can automatically generate JSON content for you based on the type of your data. Simply return your value from the content callback, and WebSharper will serialize it. The format is the same as when parsing requests. [See here for more information about the JSON format.](Json.md)
+
+```fsharp
+type BlogArticleResponse =
+    {
+        id: int
+        slug: string
+        title: string
     }
+
+let content id =
+    Content.JsonContent <| fun context ->
+        {
+            id = id
+            slug = "some-blog-article"
+            title = "Some blog article!"
+        }
+
+type Action =
+    | GetBlogArticle of id: int
+
+let sitelet = Sitelet.Infer <| function
+    | GetBlogArticle id -> content id
+
+// Accepted Request:    GET /GetBlogArticle/1423
+// Parsed Action:       GetBlogArticle 1423
+// Returned Content:    {"id": 1423, "slug": "some-blog-article", "title": "Some blog article!"}
 ```
 
-Note how `context.Link` is used in order to resolve the URL to the
-`Page2` action.  Action URLs are always constructed relative to the
-application root, whether the application is deployed as a standalone
-website or in a virtual folder.  `context.ResolveUrl` helps to
-manually construct application-relative URLs to resources that do not
-map to actions.
+### CustomContent
 
-Contents are not restricted to produce HTML responses.  To change the
-content type and encoding, you can customize the meta information that
-drives the HTTP headers of the response.  Below is an example of
-defining JSON data.
+CustomContent can be used to output any type of content. The value you must return from the content callback has the following record type:
 
 ```fsharp
-let JsonData : Content<Action> =
-    CustomContent <| fun context ->
+module Http =
+    type Response =
+        {
+            Status : Status
+            Headers : seq<Header>
+            WriteBody : System.IO.Stream -> unit
+        }
+```
+
+* `Status` is the HTTP status code. It can be created using the function `Http.Status.Custom`, or you can use one of the predefined statuses such as `Http.Status.Forbidden`.
+
+* `Headers` is the HTTP headers. You can create them using the function `Http.Header.Custom`.
+
+* `WriteBody` writes the response body.
+
+```fsharp
+let content =
+    Content.CustomContent <| fun context ->
         {
             Status = Http.Status.Ok
-            Headers = [Http.Header.Custom "Content-Type" "application/json"]
+            Headers = [Http.Header.Custom "Content-Type" "text/plain"]
             WriteBody = fun stream ->
-                use tw = new System.IO.StreamWriter(stream)
-                tw.WriteLine "{X: 10, Y: 20}"
+                use w = new System.IO.StreamWriter(stream)
+                w.Write("The contents of the text file.")
+        }
+
+type Action =
+    | GetSomeTextFile
+
+let sitelet = Sitelet.Content "/someTextFile.txt" GetSomeTextFile content
+
+// Accepted Request:    GET /someTextFile.txt
+// Parsed Action:       GetSomeTextFile
+// Returned Content:    The contents of the text file.
+```
+
+### Helpers
+
+In addition to the four standard Content families above, the `Content` module contains a few helper functions.
+
+* Redirection:
+
+```fsharp
+module Content =
+    /// Permanently redirect to an action. (HTTP status code 301)
+    val Redirect : 'Action -> Content<'Action>
+    /// Permanently redirect to a URL. (HTTP status code 301)
+    val RedirectToUrl : string -> Content<'Action>
+    /// Temporarily redirect to an action. (HTTP status code 307)
+    val RedirectTemporary : 'Action -> Content<'Action>
+    /// Temporarily redirect to a URL. (HTTP status code 307)
+    val RedirectTemporaryToUrl : string -> Content<'Action>
+```
+
+* Response mapping: if you want to return HTML or JSON content, but further customize the HTTP response, then you can use one of the following:
+
+```fsharp
+module Content =
+    val SetStatus : Http.Status -> Content<'T> -> Content<'T>
+    val WithHeaders : seq<Header> -> Content<'T> -> Content<'T>
+    val MapResponse : (Http.Response -> Http.Response)
+
+// Example use
+let customForbidden =
+    Content.PageContent <| fun context ->
+        { Page.Default with
+            Title = "No entrance!"
+            Body = [Text "Oops! You're not supposed to be here."] }
+    // Set the HTTP status code to 403 Forbidden:
+    |> Content.MapResponse (fun response ->
+        { response with Status = Http.Status.Forbidden })
+    // Or equivalently:
+    |> Content.SetStatus Http.Status.Forbidden
+```
+
+* Converting a `Content<'T>` to a `Http.Response`:
+
+```fsharp
+module Content =
+    val ToResponseAsync : Content<'T> -> Context<'T> -> Async<Http.Response>
+```
+
+Sometimes it is necessary to access the context before even choosing what type of `Content` you want to return. For this purpose, you can use `Content.ToResponseAsync` inside `Content.CustomContentAsync`, like so:
+
+```fsharp
+let content =
+    Content.CustomContentAsync <| fun context ->
+        async {
+            let! loggedInUser = context.UserSession.GetLoggedInUser()
+            let content =
+                match loggedInUser with
+                | None -> Content.Redirect Index
+                | Some username -> Content.PageContent <| fun ctx ->
+                    { Page.Default with
+                        Body = [Text ("Welcome, " + username + "!")] }
+            return! Content.ToResponseAsync content context
         }
 ```
 
-### Embedding Client-Side Controls
+Note that using the synchronous `Content.ToResponse` is obsolete and strongly discouraged, as it can lead to deadlocks in some situations.
 
-The integration of WebSharper controls(i.e. code that translates to
-JavaScript and runs on the client) in sitelet content is
-straightforward. They can be directly embedded within server-side
-HTML:
+<a name="context"></a>
+## Using the Context
 
-```fsharp
-module Client =
-    open WebSharper.Html
+Regardless of which function you use to generate your Content, your callback is supplied with a context of type `Context<'T>`. This context can be used for several purposes; the most important are creating internal links and managing user sessions.
 
-    type MyControl() =
-        inherit WebSharper.Web.Control ()
-        [<JavaScript>]
-        override this.Body =
-            I [Text "Client control"] :> IPagelet
+<a name="linking"></a>
+### Creating links
 
-let Page : Content<Action> =
-    PageContent <| fun context ->
-        {Page.Default with
-            Title = Some "Index"
-            Body =
-                [
-                    Div [ new Client.MyControl ()]
-                ]
-        }
-```
-
-Here, `MyControl` inherits from
-`WebSharper.Web.Control` and overrides the `Body`
-property with some client-side HTML.  This control is then placed
-within a server-side `div` tag.
-
-## User Sessions and Protecting Content
-
-The `UserSession` module provides three primitive functions for
-handling user sessions:
-
-* `LoginUser : string -> unit` : Logs in a user with the given
-  identifier.
-
-* `GetLoggedInUser` - Returns the currently logged in user identifier
-   as an option value.  If no user is logged in, the value `None` is
-   returned.
-
-* `Logout : unit -> unit` : Removes the logged in identifier.
-
-The implementation of these functions relies on cookies and thus
-requires that the browser has enabled cookies.
-
-In addition to the functions above a combinator `Protect` is provided
-in order create protected content, i.e.  content only available for
-authenticated users:
+Since every accepted URL is uniquely mapped to a strongly typed action value, it is also possible to generate internal links from an action value. For this, you can use the function `context.Link`.
 
 ```fsharp
-Protect : Filter<'Action> -> Sitelet<'Action> -> Sitelet<'Action>
-```
-
-where the type `Filter` is defined as:
-
-```fsharp
-type Filter<'Action> =
-    {
-        VerifyUser : string -> bool;
-        LoginRedirect : 'Action -> 'Action
+let HomePage =
+  PageContent <| fun context ->
+    {Page.Default with
+      Title = Some "Welcome!"
+      Body =
+        [
+          H1 [Text "Index page"]
+          A [HRef (context.Link (BlogArticle(1423, "some-article-slug")))]
+            -< [Text "Go to some article"]
+          Br []
+          A [HRef (context.ResolveUrl "~/Page2.html")] -< [Text "Go to page 2"]
+        ]
     }
 ```
 
-Given a filter value and a sitelet, `Protect` returns a new sitelet
-that requires a logged in user that passes the `VerifyUser` predicate,
-specified by the filter.  If the user is not logged in, or the
-predicate returns false, the request is redirected to the action
-specified by the `LoginRedirect` function specified by the filter.
+Note how `context.Link` is used in order to resolve the URL to the `BlogArticle` action.  Action URLs are always constructed relative to the application root, whether the application is deployed as a standalone website or in a virtual folder.  `context.ResolveUrl` helps to manually construct application-relative URLs to resources that do not map to actions.
 
-Below is an example of creating a protected sitelet containing two
-pages:
+### Managing User Sessions
 
-```fsharp
-let protected =
-    let filter : Sitelet.Filter<Action> =
-        {
-            VerifyUser = fun _ -> true
-            LoginRedirect = fun _ -> Action.Login
-        }
-    Sitelet.Protect filter (
-        [
-            Sitelet.Content "/p1" Action.P1 P1
-            Sitelet.Content "/p2" Action.P2 P2
-        ]
-        |> Sitelet.Folder "protected"
-    )
-```
+Since `Context<'T>` implements the interface `WebSharper.Web.IContext`, it can be used to access the currently logged in user. [See here for more information about user sessions.](WebContext.md)
 
+### Other Context members
+
+* `context.ApplicationPath` returns the web root of the application. Most of the time this will be `"/"`, unless you use a feature such as an ASP.NET virtual directory.
+
+* `context.Request` returns the `Http.Request` being responded to. This is useful to access elements such as HTTP headers, posted files or cookies.
+
+* `context.ResolveUrl` resolves links to static pages in your application. A leading `~` character is translated to the `ApplicationPath` described above.
+
+* `context.RootFolder` returns the physical folder on the server machine from which the application is running.
+
+
+<a name="advanced-sitelets"></a>
 ## Advanced Sitelets
 
-So far, we have constructed sitelets using built-in constructors such
-as `Sitelet.Infer`. But if you want finer-grained control over the
-exact URLs that it parses and generates, you can create sitelets by
-hand.
+So far, we have constructed sitelets using built-in constructors such as `Sitelet.Infer`. But if you want finer-grained control over the exact URLs that it parses and generates, you can create sitelets by hand.
 
-A sitelet consists of two parts; a router and a controller.  The job
-of the router is to map actions to URLs and to map HTTP requests to
-actions. The controller is responsible for handling actions, by
-converting them into content that in turn produces the HTTP
-response. The overall architecture is analogous to ASP.NET/MVC, and
-other `Model-View-Controller` -based web frameworks.
+A sitelet consists of two parts; a router and a controller.  The job of the router is to map actions to URLs and to map HTTP requests to actions. The controller is responsible for handling actions, by converting them into content that in turn produces the HTTP response. The overall architecture is analogous to ASP.NET/MVC, and other `Model-View-Controller` -based web frameworks.
 
 ### Routers
 
-The router component of a sitelet can be constructed in a variety of
-ways.  The following example shows how you can create a complete
-customized router of type `Action`.
+The router component of a sitelet can be constructed in a variety of ways.  The following example shows how you can create a complete customized router of type `Action`.
 
 ```fsharp
 type Action = | Page1 | Page2
@@ -430,14 +688,9 @@ let MyRouter : Router<Action> =
     Router.New route link
 ```
 
-Specifying routers manually gives you full control of how to parse
-incoming requests and to map actions to corresponding URLs.  It is
-your responsibility to make sure that the router forms a bijection of
-URLs and actions, so that linking to an action produces a URL that is
-in turn routed back to the same action.
+Specifying routers manually gives you full control of how to parse incoming requests and to map actions to corresponding URLs.  It is your responsibility to make sure that the router forms a bijection of URLs and actions, so that linking to an action produces a URL that is in turn routed back to the same action.
 
-Constructing routers manually is only required for very special cases.
-The above router can for example be generated using `Router.Table`:
+Constructing routers manually is only required for very special cases. The above router can for example be generated using `Router.Table`:
 
 ```fsharp
 let MyRouter : Router<Action> =
@@ -448,20 +701,56 @@ let MyRouter : Router<Action> =
     |> Router.Table
 ```
 
-Even simpler, if you want to create the same URL shapes that would be
-generated by `Sitelet.Infer`, you can simply use `Router.Infer()`:
+Even simpler, if you want to create the same URL shapes that would be generated by `Sitelet.Infer`, you can simply use `Router.Infer()`:
 
 ```fsharp
 let MyRouter : Router<Action> =
     Router.Infer ()
 ```
 
+### URL Parsing Helpers
+
+To simplify the parsing of URLs in the Router, some active patterns are provided in the module `UrlHelpers`.
+
+* Method parsing: the active patterns `GET`, `POST`, etc. match a request with the given method, and return the list of parameters (from the query for `GET`, from the body for the others) and the URI.
+
+* `SPLIT_BY` then splits the path of a URI into fragments.
+
+* Finally, individual fragments can be parsed with `EOL`, `SLASH` `INT`, `FLOAT`, `ALPHA`, `ALPHA_NUM` and `REGEX`.
+
+The three sets of patterns above are generally used together to create a whole parser.
+
+```fsharp
+type Action =
+    | Index
+    | Stats of username: string
+    | BlogArticle of id: int * slug: string
+
+let myRouter =
+    let route request =
+        match request with
+        | GET (_, SPLIT_BY '/' []) ->
+            Some Index
+        | GET (_, SPLIT_BY '/' ["stats"; username]) ->
+            Some (Stats username)
+        | GET (_, SPLIT_BY '/' ["blog-article"; INT id; slug]) ->
+            Some (BlogArticle (id, slug))
+        | _ -> None
+    let link action =
+        match action with
+        | Index ->
+            System.Uri "/"
+        | Stats u ->
+            System.Uri ("/stats/" + u)
+        | BlogArticle (id, slug) ->
+            System.Uri (sprintf "/blog-article/%i/%s" id slug)
+        |> Some
+    Router.New route link
+```
+
 ### Controllers
 
-If an incoming request can be mapped to an action by the router, it is
-passed on to the controller. The job of the controller is to map
-actions to content. Here is an example of a controller handling
-actions of the `Action` type defined above.
+If an incoming request can be mapped to an action by the router, it is passed on to the controller. The job of the controller is to map actions to content. Here is an example of a controller handling actions of the `Action` type defined above.
 
 ```fsharp
 let MyController : Controller<Action> =
@@ -473,8 +762,7 @@ let MyController : Controller<Action> =
     }
 ```
 
-Finally, the router and the controller components are combined into a
-sitelet:
+Finally, the router and the controller components are combined into a sitelet:
 
 ```fsharp
 let MySitelet : Sitelet<Action> =
@@ -482,61 +770,4 @@ let MySitelet : Sitelet<Action> =
         Router = MyRouter
         Controller = MyController
     }
-```
-
-### Handling HTTP Parameters
-
-The `Http.Request` represents the incomming request containing the GET
-and POST parameters.  By defining your sitelet manually you can decide
-how to route requests depending on these parameters.
-
-The `Router` module contains some funcions for simplifying the
-construction of routers that map requests containing `POST`
-parameters.
-
-Here is an example of creating a sitelet with a router for handling
-POST requests. The function `Router.FromPostParameter` and `Router.At`
-are utilized for constructing a router mapping POST requests to the
-url `/post`:
-
-```fsharp
-let MyRouter =
-    [
-        Router.Table [
-            Action.Index , "/index"
-        ]
-        Router.FromPostParameter ParamName
-        |> Router.At "/post"
-        |> Router.TryMap
-            (Action.Post >> Some)
-            (function | Post x -> Some x | _ -> None)
-    ]
-    |> Router.Sum
-
-let Handle action =
-    match action with
-    | Action.Index -> Pages.Index
-    | Action.Post value -> Pages.Post value
-
-let MySitelet =
-    {
-        Router = MyRouter
-        Controller = { Handle = Handle }
-    }
-```
-
-The function `Router.TryMap` is used for mapping the string router to
-one of type `Action`:
-
-Alternatively, the parameteres can be obtained at the content
-generation phase, via the `Context` object:
-
-```fsharp
-let Index =
-    Content.PageContent <| fun context ->
-        let param =
-            match context.Request.Post.["post"] with
-            | Some n    -> n
-            | None      -> "No Param"
-        {Page.Default with Body = [Text param}
 ```
