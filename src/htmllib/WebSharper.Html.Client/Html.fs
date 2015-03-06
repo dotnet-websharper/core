@@ -19,8 +19,9 @@
 // $end{copyright}
 namespace WebSharper.Html.Client
 
+open WebSharper
+
 module internal Implementation =
-    open WebSharper
     open WebSharper.JavaScript
     open WebSharper.Html.Client.Interfaces
     open WebSharper.JQuery
@@ -149,7 +150,13 @@ module internal Implementation =
 
 [<AutoOpen>]
 module Default =
-    open WebSharper
+
+    [<JavaScript>]
+    let OnLoad (init: unit -> unit) : unit =
+        Implementation.OnDocumentReady init
+
+[<AutoOpen>]
+module Tags =
 
     [<JavaScript>]
     let Tags = Implementation.Tags
@@ -157,16 +164,15 @@ module Default =
     [<JavaScript>]
     let Deprecated = Implementation.DeprecatedHtml
 
+    [<Inline>]
     [<JavaScript>]
-    let OnLoad (init: unit -> unit) : unit =
-        Implementation.OnDocumentReady init
+    let NewTag x = Tags.NewTag x
 
-    [<JavaScript>]
-    let Attr = Implementation.Attr
-
+    [<Inline>]
     [<JavaScript>]
     let Text x = Tags.Text x
 
+    [<Inline>]
     [<JavaScript>]
     let A x = Tags.A x
 
@@ -221,12 +227,15 @@ module Default =
     [<JavaScript>]
     let BlockQuote x = Tags.BlockQuote x
 
+    [<Inline>]
     [<JavaScript>]
     let Body x = Tags.Body x
 
+    [<Inline>]
     [<JavaScript>]
     let Br x = Tags.Br x
 
+    [<Inline>]
     [<JavaScript>]
     let Button x = Tags.Button x
 
@@ -238,12 +247,13 @@ module Default =
     [<JavaScript>]
     let Caption x = Tags.Caption x
 
-    [<JavaScript>]
-    let Code x = Tags.Code x
-
     [<Inline>]
     [<JavaScript>]
     let Cite x= Tags.Cite x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Code x = Tags.Code x
 
     [<Inline>]
     [<JavaScript>]
@@ -273,12 +283,13 @@ module Default =
     [<JavaScript>]
     let Details x = Tags.Details x
 
-    [<JavaScript>]
-    let Div x = Tags.Div x
-
     [<Inline>]
     [<JavaScript>]
     let Dfn x = Tags.Dfn x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Div x = Tags.Div x
 
     [<Inline>]
     [<JavaScript>]
@@ -311,6 +322,7 @@ module Default =
     [<JavaScript>]
     let Footer x = Tags.Footer x
 
+    [<Inline>]
     [<JavaScript>]
     let Form x = Tags.Form x
 
@@ -322,15 +334,19 @@ module Default =
     [<JavaScript>]
     let FrameSet x = Tags.FrameSet x
 
+    [<Inline>]
     [<JavaScript>]
     let H1 x = Tags.H1 x
 
+    [<Inline>]
     [<JavaScript>]
     let H2 x = Tags.H2 x
 
+    [<Inline>]
     [<JavaScript>]
     let H3 x = Tags.H3 x
 
+    [<Inline>]
     [<JavaScript>]
     let H4 x = Tags.H4 x
 
@@ -342,6 +358,7 @@ module Default =
     [<JavaScript>]
     let H6 x = Tags.H6 x
 
+    [<Inline>]
     [<JavaScript>]
     let Head x = Tags.Head x
 
@@ -353,18 +370,23 @@ module Default =
     [<JavaScript>]
     let HGroup x = Tags.HGroup x
 
+    [<Inline>]
     [<JavaScript>]
-    let Hr x = Tags.Hr x
+    let HR x = Tags.HR x
 
+    [<Inline>]
     [<JavaScript>]
     let I x = Tags.I x
 
+    [<Inline>]
     [<JavaScript>]
     let IFrame x = Tags.IFrame x
 
+    [<Inline>]
     [<JavaScript>]
     let Img x = Tags.Img x
 
+    [<Inline>]
     [<JavaScript>]
     let Input x = Tags.Input x
 
@@ -401,10 +423,6 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
-    let Meta x = Tags.Meta x
-
-    [<Inline>]
-    [<JavaScript>]
     let Meter x = Tags.Meter x
 
     [<Inline>]
@@ -419,6 +437,7 @@ module Default =
     [<JavaScript>]
     let NoScript x = Tags.NoScript x
 
+    [<Inline>]
     [<JavaScript>]
     let OL x =  Tags.OL x
 
@@ -430,6 +449,7 @@ module Default =
     [<JavaScript>]
     let Output x = Tags.Output x
 
+    [<Inline>]
     [<JavaScript>]
     let P x = Tags.P x
 
@@ -437,6 +457,7 @@ module Default =
     [<JavaScript>]
     let Param x = Tags.Param x
 
+    [<Inline>]
     [<JavaScript>]
     let Pre x = Tags.Pre x
 
@@ -464,6 +485,7 @@ module Default =
     [<JavaScript>]
     let Samp x = Tags.Samp x
 
+    [<Inline>]
     [<JavaScript>]
     let Script x = Tags.Script x
 
@@ -471,6 +493,7 @@ module Default =
     [<JavaScript>]
     let Section x = Tags.Section x
 
+    [<Inline>]
     [<JavaScript>]
     let Select x = Tags.Select x
 
@@ -482,12 +505,17 @@ module Default =
     [<JavaScript>]
     let Source x = Tags.Source x
 
+    [<Inline>]
     [<JavaScript>]
     let Span x = Tags.Span x
 
     [<Inline>]
     [<JavaScript>]
     let Strong x = Tags.Strong x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Style x = Tags.Style x
 
     [<Inline>]
     [<JavaScript>]
@@ -501,24 +529,31 @@ module Default =
     [<JavaScript>]
     let Sup x = Tags.Sup x
 
+    [<Inline>]
     [<JavaScript>]
     let Table x  = Tags.Table x
 
+    [<Inline>]
     [<JavaScript>]
     let TBody x = Tags.TBody x
 
+    [<Inline>]
     [<JavaScript>]
     let TD x = Tags.TD x
 
+    [<Inline>]
     [<JavaScript>]
     let TextArea x = Tags.TextArea x
 
+    [<Inline>]
     [<JavaScript>]
     let TFoot x = Tags.TFoot x
 
+    [<Inline>]
     [<JavaScript>]
     let TH x = Tags.TH x
 
+    [<Inline>]
     [<JavaScript>]
     let THead x = Tags.THead x
 
@@ -526,6 +561,7 @@ module Default =
     [<JavaScript>]
     let Time x = Tags.Time x
 
+    [<Inline>]
     [<JavaScript>]
     let TR x = Tags.TR x
 
@@ -533,8 +569,13 @@ module Default =
     [<JavaScript>]
     let TT  x = Tags.TT x
 
+    [<Inline>]
     [<JavaScript>]
     let UL x = Tags.UL x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Var x = Tags.Var x
 
     [<Inline>]
     [<JavaScript>]
@@ -544,17 +585,33 @@ module Default =
     [<JavaScript>]
     let Wbr x = Tags.Wbr x
 
-    (* Attributes *)
+[<AutoOpen>]
+module Attr =
 
+    [<JavaScript>]
+    let Attr = Implementation.Attr
+
+    [<Inline>]
     [<JavaScript>]
     let NewAttr x = Attr.NewAttr x
 
+    [<Inline>]
     [<JavaScript>]
-    let Action x = Attr.Action x
+    let AcceptCharSet x = Attr.AcceptCharSet x
 
+    [<Inline>]
+    [<JavaScript>]
+    let Accept x = Attr.Accept x
+
+    [<Inline>]
+    [<JavaScript>]
+    let AccessKey x = Attr.AccessKey x
+
+    [<Inline>]
     [<JavaScript>]
     let Align x = Attr.Align x
 
+    [<Inline>]
     [<JavaScript>]
     let Alt x = Attr.Alt x
 
@@ -576,6 +633,10 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let Axis x = Attr.Axis x
+
+    [<Inline>]
+    [<JavaScript>]
     let Border x = Attr.Border x
 
     [<Inline>]
@@ -592,11 +653,31 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let Char x = Attr.Char x
+
+    [<Inline>]
+    [<JavaScript>]
+    let CharOff x = Attr.CharOff x
+
+    [<Inline>]
+    [<JavaScript>]
+    let CharSet x = Attr.CharSet x
+
+    [<Inline>]
+    [<JavaScript>]
     let Checked x = Attr.Checked x
 
     [<Inline>]
     [<JavaScript>]
+    let Class x = Attr.Class x
+
+    [<Inline>]
+    [<JavaScript>]
     let Codebase x = Attr.Codebase x
+
+    [<Inline>]
+    [<JavaScript>]
+    let CodeType x = Attr.CodeType x
 
     [<Inline>]
     [<JavaScript>]
@@ -620,6 +701,14 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let Declare x = Attr.Declare x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Defer x = Attr.Defer x
+
+    [<Inline>]
+    [<JavaScript>]
     let Disabled x = Attr.Disabled x
 
     [<Inline>]
@@ -629,6 +718,10 @@ module Default =
     [<Inline>]
     [<JavaScript>]
     let EncType x = Attr.EncType x
+
+    [<Inline>]
+    [<JavaScript>]
+    let For x = Attr.For x
 
     [<Inline>]
     [<JavaScript>]
@@ -650,15 +743,22 @@ module Default =
     [<JavaScript>]
     let FormTarget x = Attr.FormTarget x
 
+    [<Inline>]
+    [<JavaScript>]
+    let FrameBorder x = Attr.FrameBorder x
+
+    [<JavaScript>]
+    let Headers x = Attr.Headers x
+
+    [<JavaScript>]
+    let Height x = Attr.Height x
+
     [<JavaScript>]
     let HRef x = Attr.HRef x
 
     [<Inline>]
     [<JavaScript>]
     let HRefLang x = Attr.HRefLang x
-
-    [<JavaScript>]
-    let Height x = Attr.Height x
 
     [<Inline>]
     [<JavaScript>]
@@ -685,7 +785,23 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let LongDesc x = Attr.LongDesc x
+
+    [<Inline>]
+    [<JavaScript>]
+    let MarginHeight x = Attr.MarginHeight x
+
+    [<Inline>]
+    [<JavaScript>]
+    let MarginWidth x = Attr.MarginWidth x
+
+    [<Inline>]
+    [<JavaScript>]
     let MaxLength x = Attr.MaxLength x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Media x = Attr.Media x
 
     [<Inline>]
     [<JavaScript>]
@@ -704,6 +820,10 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let NoResize x = Attr.NoResize x
+
+    [<Inline>]
+    [<JavaScript>]
     let NoValidate x = Attr.NoValidate x
 
     [<Inline>]
@@ -713,6 +833,14 @@ module Default =
     [<Inline>]
     [<JavaScript>]
     let PlaceHolder x = Attr.PlaceHolder x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Profile x = Attr.Profile x
+
+    [<Inline>]
+    [<JavaScript>]
+    let ReadOnly x = Attr.ReadOnly x
 
     [<Inline>]
     [<JavaScript>]
@@ -726,16 +854,28 @@ module Default =
     [<JavaScript>]
     let Rev x = Attr.Rev x
 
+    [<Inline>]
+    [<JavaScript>]
+    let Rows x = Attr.Rows x
+
     [<JavaScript>]
     let RowSpan x = Attr.RowSpan x
 
     [<Inline>]
     [<JavaScript>]
-    let Rows x = Attr.Rows x
+    let Rules x = Attr.Rules x
 
     [<Inline>]
     [<JavaScript>]
-    let Rules x = Attr.Rules x
+    let Scheme x = Attr.Scheme x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Scope x = Attr.Scope x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Scrolling x = Attr.Scrolling x
 
     [<JavaScript>]
     let Selected x = Attr.Selected x
@@ -752,8 +892,13 @@ module Default =
     [<JavaScript>]
     let SpellCheck x = Attr.SpellCheck x
 
+    [<Inline>]
     [<JavaScript>]
     let Src x = Attr.Src x
+
+    [<Inline>]
+    [<JavaScript>]
+    let StandBy x = Attr.StandBy x
 
     [<Inline>]
     [<JavaScript>]
@@ -761,14 +906,48 @@ module Default =
 
     [<Inline>]
     [<JavaScript>]
+    let Style x = Attr.Style x
+
+    [<Inline>]
+    [<JavaScript>]
     let Subject x = Attr.Subject x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Summary x = Attr.Summary x
+
+    [<Inline>]
+    [<JavaScript>]
+    let TabIndex x = Attr.TabIndex x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Target x = Attr.Target x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Title x = Attr.Title x
+
+    [<Inline>]
+    [<JavaScript>]
+    let Type x = Attr.Type x
 
     [<Inline>]
     [<JavaScript>]
     let UseMap x = Attr.UseMap x
 
+    [<Inline>]
     [<JavaScript>]
     let VAlign x = Attr.VAlign x
 
+    [<Inline>]
+    [<JavaScript>]
+    let Value x = Attr.Value x
+
+    [<Inline>]
+    [<JavaScript>]
+    let ValueType x = Attr.ValueType x
+
+    [<Inline>]
     [<JavaScript>]
     let Width x = Attr.Width x

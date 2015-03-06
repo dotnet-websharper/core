@@ -93,7 +93,7 @@ module Html =
             | CommentContent _ -> []
 
     /// Constructs a new HTML element.
-    let NewElement (name: string) (elements: seq<#INode>) =
+    let NewTag (name: string) (elements: seq<#INode>) =
         let attrs =
             elements
             |> Seq.choose (fun x ->
@@ -149,7 +149,7 @@ module Html =
             failwith "Invalid HTML operation - can't append to a non-tag node"
 
     /// Constructs a new attribute value.
-    let NewAttribute name value =
+    let NewAttr name value =
         {
             Name = name
             Value = value

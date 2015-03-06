@@ -351,8 +351,8 @@ module Content =
                 |> Seq.append
                     (attrs
                     |> Seq.map (fun (KeyValue (k, v)) ->
-                        H.NewAttribute k.Local v :> H.INode))
-                |> H.NewElement name.Local
+                        H.NewAttr k.Local v :> H.INode))
+                |> H.NewTag name.Local
 
     /// Decides if an attribute should contain a URL by HTML rules.
     let isUrlAttribute : XS.Element -> XS.Name -> bool =
@@ -549,7 +549,7 @@ module Content =
                 | SH _ -> ()
                 | EH es ->
                     let! children = es x
-                    let div = H.NewElement "div" children
+                    let div = H.NewTag "div" children
                     div.CollectAnnotations()
                     |> Seq.iter controls.Enqueue
                     extra.[k] <-

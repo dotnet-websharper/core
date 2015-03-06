@@ -22,7 +22,7 @@ namespace WebSharper.Web
 
 open WebSharper
 
-module A = WebSharper.Html.Server.Attributes
+module A = WebSharper.Html.Server.Attr
 module H = WebSharper.Html.Server.Html
 module T = WebSharper.Html.Server.Tags
 

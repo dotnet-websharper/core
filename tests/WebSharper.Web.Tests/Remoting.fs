@@ -25,7 +25,7 @@ namespace WebSharper.Web.Tests
 
 open WebSharper
 open WebSharper.JavaScript
-module H = WebSharper.Html.Client.Default
+module H = WebSharper.Html.Client.Tags
 
 module Server =
 

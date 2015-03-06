@@ -23,7 +23,7 @@ namespace WebSharper.Web.Tests
 open WebSharper
 open WebSharper.JavaScript
 module A = WebSharper.Core.Attributes
-module H = WebSharper.Html.Client.Default
+module H = WebSharper.Html.Client.Tags
 
 
 [<Proxy(typeof<System.Text.StringBuilder>)>]

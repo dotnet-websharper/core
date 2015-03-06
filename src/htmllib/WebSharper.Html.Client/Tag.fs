@@ -291,7 +291,7 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
 
     [<Inline>]
     [<JavaScript>]
-    member this.Hr x = this.NewTag "hr" x
+    member this.HR x = this.NewTag "hr" x
 
     [<Inline>]
     [<JavaScript>]
