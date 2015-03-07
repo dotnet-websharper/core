@@ -152,7 +152,7 @@ Unnamed fields receive the names `Item1`, `Item2`, etc.
 
 ### Implicit discriminator
 
-With an argumentless `[<NamedUnionCases>]`, no extra field is added to determine the union case; instead, it is inferred from the names of the fields present. This means that each case must have at least one field that no other case in the same type has, or a compile-time error will be thrown.
+With an argumentless `[<NamedUnionCases>]`, no extra field is added to determine the union case; instead, it is inferred from the names of the fields present. This means that each case must have at least one mandatory field that no other case in the same type has, or a compile-time error will be thrown.
 
 ```fsharp
 [<NamedUnionCases>]
