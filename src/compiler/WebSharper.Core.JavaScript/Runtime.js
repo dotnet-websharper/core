@@ -160,7 +160,7 @@ var IntelliFactory =
 
         CreateFuncWithArgs:
             function (f) {
-                return function () { return f.call(this, Array.prototype.slice.call(arguments)); }
+                return function () { return f(Array.prototype.slice.call(arguments)); }
             },
 
         CreateFuncWithOnlyThis:
@@ -175,7 +175,7 @@ var IntelliFactory =
 
         CreateFuncWithThisArgs:
             function (f) {
-                return function () { return f(this).call(null, Array.prototype.slice.call(arguments)); }
+                return function () { return f(this)(Array.prototype.slice.call(arguments)); }
             },
 
         CreateFuncWithRest:

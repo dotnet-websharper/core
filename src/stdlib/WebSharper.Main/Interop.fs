@@ -68,7 +68,7 @@ type FuncWithThisProxy<'TThis, 'TFunc> =
 
 [<Proxy(typeof<FuncWithRest<_,_>>)>]
 type FuncWithRestProxy<'TRest, 'TResult> =
-    [<Inline "$wsruntime.CreateFuncWithRest(0, $func)">]
+    [<Inline "$wsruntime.CreateFuncWithArgs($func)">]
     new (func: 'TRest[] -> 'TResult) = {}
 
     [<Inline "$this.apply(null, $rest)">]
