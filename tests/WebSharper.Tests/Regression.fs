@@ -143,6 +143,20 @@ module Bug352 =
 //        new v = { inherit BaseClass(v + 1); x = v }
 //        member this.OriginalValue = this.x
 
+// for bug #328
+type System.Object with
+    [<Inline "$this.test">]
+    member this.TestProperty = X<int>
+
+    [<Inline "$this.test">]
+    member this.TestMethod() = X<int>
+
+    [<Inline "$this.testf($x)">]
+    member this.TestMethod1 (x: int) = X<int[]>
+
+    [<Inline "$this.testf($x, $y)">]
+    member this.TestMethod2 (x: int, y: int) = X<int[]>
+
 [<JavaScript>]
 let Tests =
     Section "Regression"
@@ -260,6 +274,18 @@ let Tests =
         let a = Bug323.DescendantClass(3)
         a.OriginalValue =? 3
         a.Value =? 4    
+    }
+
+    Test "Bug #328" {
+        let o = 
+            New [
+                "test" => 3
+                "testf" => FuncWithRest<int, int[]> id
+            ]
+        o.TestProperty =? 3
+        o.TestMethod() =? 3
+        o.TestMethod1(1) =? [| 1 |]
+        o.TestMethod2(1, 2) =? [| 1; 2 |]
     }
 
     Test "Curried inlining" {
