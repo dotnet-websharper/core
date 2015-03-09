@@ -183,12 +183,20 @@ let primitiveValueHandlers =
         | true, x -> Some (box x)
         | false, _ -> None
     let d = Dictionary()
-    d.Add(typeof<bool>,
-        (opt System.Boolean.TryParse, string))
-    d.Add(typeof<int>,
-        (opt System.Int32.TryParse, string))
-    d.Add(typeof<float>,
-        (opt System.Double.TryParse, string))
+    let add (parse: string -> bool * 'T) =
+        d.Add(typeof<'T>, (opt parse, string))
+    add System.Boolean.TryParse
+    add System.SByte.TryParse
+    add System.Byte.TryParse
+    add System.Int16.TryParse
+    add System.UInt16.TryParse
+    add System.Int32.TryParse
+    add System.UInt32.TryParse
+    add System.Int64.TryParse
+    add System.UInt64.TryParse
+    add System.Single.TryParse
+    add System.Double.TryParse
+    add System.Decimal.TryParse
     d.Add(typeof<string>,
         ((fun s ->
             let buf = System.Text.StringBuilder()
