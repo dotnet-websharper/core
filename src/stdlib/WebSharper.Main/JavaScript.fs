@@ -81,6 +81,10 @@ let Alert (message: string) = ClientSide<unit>
 [<A.Inline "confirm($message)">]
 let Confirm (message: string) = ClientSide<bool>
 
+/// Displays a popup dialog with a text input box, returns the value entered by the user.
+[<A.Inline "prompt($message, $value)">]
+let Prompt (message: string) (value: string) = ClientSide<string>
+
 /// Represents a timer handle.
 [<Sealed>]
 type Handle = class end
