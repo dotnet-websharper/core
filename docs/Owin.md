@@ -78,7 +78,7 @@ Several methods in the WebSharper.Owin API receive options via the `Options` typ
 
 Options can be altered using the following methods:
 
-* `WithDebug()` enables debugging: JavaScript files are served uncompressed.
+* `WithDebug()` enables debugging: WebSharper-generated JavaScript files are requested uncompressed.
 
 * `WithDebug(bool)` indicates whether debugging is enabled. The default is false.
 
