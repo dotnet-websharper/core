@@ -35,6 +35,7 @@ let (|Async|_|) (t: TypeReference) =
 type Status =
     | Correct
     | Incorrect of string
+    | CriticallyIncorrect of string
 
 
 [<Sealed>]
@@ -88,11 +89,11 @@ type State(logger: Logger) =
                     log Warning (string t) ("Failed to load type: " + string e)
                     true)
 
-    let getRemoteContractError (m: MethodDefinition) : option<string> =
+    let getRemoteContractError (m: MethodDefinition) : Status =
         if m.DeclaringType.HasGenericParameters then
-            Some "Static remote methods must be defined on non-generic types."
+            CriticallyIncorrect "Static remote methods must be defined on non-generic types."
         elif m.HasGenericParameters then
-            Some "Remote methods must not be generic."
+            CriticallyIncorrect "Remote methods must not be generic."
         else
             let p =
                 m.Parameters
@@ -101,18 +102,18 @@ type State(logger: Logger) =
             match p with
             | Some p ->
                 let msg = "Cannot decode a parameter from JSON: "
-                Some (msg + p.Name)
+                Incorrect (msg + p.Name)
             | None ->
                 match m.ReturnType with
-                | None -> None
+                | None -> Correct
                 | Some (Async t) | Some t ->
                     if canEncodeToJson t
-                        then None
-                        else Some "Cannot encode the return type to JSON."
+                        then Correct
+                        else Incorrect "Cannot encode the return type to JSON."
 
-    let getWebControlError (t: TypeDefinition) =
+    let getWebControlError (t: TypeDefinition) : Status =
         if not (canEncodeToJson t) then
-            Some "Cannot encode the Web.Control type to JSON."
+            CriticallyIncorrect "Cannot encode the Web.Control type to JSON."
         else
             let body =
                 t.Properties
@@ -124,24 +125,20 @@ type State(logger: Logger) =
                     then Some x
                     else None)
             match body with
-            | None -> Some "Web.Control types must override the Body property."
+            | None -> CriticallyIncorrect "Web.Control types must override the Body property."
             | Some p ->
                 let fN = typeof<ReflectedDefinitionAttribute>.FullName
                 let ok =
                     p.CustomAttributes
                     |> Seq.exists (fun x -> x.AttributeType.FullName = fN)
-                if ok then None else
-                    Some "JavaScript attribute is required on the Body property."
+                if ok then Correct else
+                    CriticallyIncorrect "JavaScript attribute is required on the Body property."
 
     member this.VerifyRemoteMethod(m: MethodDefinition) =
-        match getRemoteContractError m with
-        | None -> Correct
-        | Some msg -> Incorrect msg
+        getRemoteContractError m
 
     member this.VerifyWebControl(t: TypeDefinition) =
-        match getWebControlError t with
-        | None -> Correct
-        | Some msg -> Incorrect msg
+        getWebControlError t
 
 let Create logger =
     State(logger)

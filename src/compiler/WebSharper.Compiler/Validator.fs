@@ -289,8 +289,8 @@ let isWebControl (t: TypeDefinition) =
 let verifyWebControl logger (verifier: Verifier.State) (t: Re.Type) =
     match verifier.VerifyWebControl t.Definition with
     | Verifier.Correct -> ()
-    | Verifier.Incorrect msg ->
-        error logger t.Location msg
+    | Verifier.Incorrect msg -> warn logger t.Location msg
+    | Verifier.CriticallyIncorrect msg -> error logger t.Location msg
 
 let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDefinition -> list<string>)
     (assembly: Re.Assembly) : Assembly =
@@ -476,6 +476,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
             match verifier.VerifyRemoteMethod t.Definition with
             | Verifier.Correct -> ()
             | Verifier.Incorrect msg -> warn t.Location msg
+            | Verifier.CriticallyIncorrect msg -> error t.Location msg
         | _ -> ()
         annot
 

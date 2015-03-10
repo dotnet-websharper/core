@@ -25,6 +25,7 @@ module internal WebSharper.Compiler.Verifier
 type Status =
     | Correct
     | Incorrect of string
+    | CriticallyIncorrect of string
 
 /// Provides verification methods.
 [<Sealed>]
