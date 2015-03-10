@@ -246,3 +246,5 @@ Content.JsonContent <| fun ctx ->
 //                       "zip": "51423"}}
 //         ]
 ```
+
+When parsing JSON, `null` is also accepted as a `None` value.
