@@ -614,7 +614,13 @@ let encodeOptionalField dE (i: FormatSettings) (mi: System.Reflection.MemberInfo
         fun x -> Some (enc x)
 
 let makeOption<'T> (dV: Value -> obj) (v: option<Value>) =
-    v |> Option.map (dV >> unbox<'T>) |> box
+    match v with
+    | Some (Null as v) ->
+        // Decode null as None, only if 'T itself doesn't support encoding as Null
+        try Some (dV v |> unbox<'T>) with _ -> None
+    | v ->
+        v |> Option.map (dV >> unbox<'T>)
+    |> box
 
 let decodeOptionalField dD (i: FormatSettings) (mi: System.Reflection.MemberInfo) (mt: System.Type) : option<Value> -> obj =
     if isOptionalField i mi mt then
