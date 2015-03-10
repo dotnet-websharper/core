@@ -46,7 +46,11 @@ The middleware classes are:
 
     Searches for a sitelet to serve in assemblies located in the provided bin directory. Uses the given directory as web application root. If the bin directory is not provided, then the `bin` subdirectory of the web root is used. Also serves RPC functions as per `RemotingMiddleware(webRoot, ?binDirectory)`.
 
-**NOTE**: The `RemotingMiddleware` should always appear *before* any self-contained application in the stack. In particular, it should appear before `SiteletMiddleware`.
+### Notes
+
+* The `RemotingMiddleware` should always appear *before* any self-contained application in the stack. In particular, it should appear before `SiteletMiddleware`.
+
+* `SiteletMiddleware` does not serve any static files, and in particular it does not serve the WebSharper-generated JavaScript files. You need to use a file system middleware such as `Microsoft.Owin.StaticFiles`, as shown in the [Self-Hosted Client-Server Web Application project template](https://github.com/intellifactory/websharper.visualstudio/blob/master/templates/owin-selfhost/Main.fs).
 
 ## Katana IAppBuilder extension methods
 
