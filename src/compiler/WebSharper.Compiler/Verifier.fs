@@ -106,10 +106,11 @@ type State(logger: Logger) =
             | None ->
                 match m.ReturnType with
                 | None -> Correct
-                | Some (Async t) | Some t ->
+                | Some (Async t) ->
                     if canEncodeToJson t
                         then Correct
                         else Incorrect "Cannot encode the return type to JSON."
+                | Some t -> Incorrect "Synchronous remote methods are strongly advised against; consider returning an Async<'T> instead."
 
     let getWebControlError (t: TypeDefinition) : Status =
         if not (canEncodeToJson t) then
