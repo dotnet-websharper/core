@@ -202,10 +202,10 @@ module Tags =
     let Base x = Tags.Base x
     [<Inline>]
     [<JavaScript>]
-    let Bdi x = Tags.Bdi x
+    let BDI x = Tags.BDI x
     [<Inline>]
     [<JavaScript>]
-    let Bdo x = Tags.Bdo x
+    let BDO x = Tags.BDO x
     [<Inline>]
     [<JavaScript>]
     let BlockQuote x = Tags.BlockQuote x
@@ -385,6 +385,9 @@ module Tags =
     let Param x = Tags.Param x
     [<Inline>]
     [<JavaScript>]
+    let Picture x = Tags.Picture x
+    [<Inline>]
+    [<JavaScript>]
     let Pre x = Tags.Pre x
     [<Inline>]
     [<JavaScript>]
@@ -394,13 +397,13 @@ module Tags =
     let Q x = Tags.Q x
     [<Inline>]
     [<JavaScript>]
-    let Rp x = Tags.Rp x
+    let RP x = Tags.RP x
     [<Inline>]
     [<JavaScript>]
-    let Rt x = Tags.Rt x
+    let RT x = Tags.RT x
     [<Inline>]
     [<JavaScript>]
-    let Rtc x = Tags.Rtc x
+    let RTC x = Tags.RTC x
     [<Inline>]
     [<JavaScript>]
     let Ruby x = Tags.Ruby x
@@ -481,7 +484,7 @@ module Tags =
     let Video x = Tags.Video x
     [<Inline>]
     [<JavaScript>]
-    let Wbr x = Tags.Wbr x
+    let WBR x = Tags.WBR x
     // }}
 
 [<AutoOpen>]
@@ -497,13 +500,10 @@ module Attr =
     // {{ attr normal
     [<Inline>]
     [<JavaScript>]
-    let Abbr x = Attr.Abbr x
+    let Accept x = Attr.Accept x
     [<Inline>]
     [<JavaScript>]
     let AcceptCharSet x = Attr.AcceptCharSet x
-    [<Inline>]
-    [<JavaScript>]
-    let Accept x = Attr.Accept x
     [<Inline>]
     [<JavaScript>]
     let AccessKey x = Attr.AccessKey x
@@ -527,6 +527,12 @@ module Attr =
     let AutoFocus x = Attr.AutoFocus x
     [<Inline>]
     [<JavaScript>]
+    let AutoPlay x = Attr.AutoPlay x
+    [<Inline>]
+    [<JavaScript>]
+    let AutoSave x = Attr.AutoSave x
+    [<Inline>]
+    [<JavaScript>]
     let Axis x = Attr.Axis x
     [<Inline>]
     [<JavaScript>]
@@ -536,10 +542,16 @@ module Attr =
     let BorderColor x = Attr.BorderColor x
     [<Inline>]
     [<JavaScript>]
+    let Buffered x = Attr.Buffered x
+    [<Inline>]
+    [<JavaScript>]
     let CellPadding x = Attr.CellPadding x
     [<Inline>]
     [<JavaScript>]
     let CellSpacing x = Attr.CellSpacing x
+    [<Inline>]
+    [<JavaScript>]
+    let Challenge x = Attr.Challenge x
     [<Inline>]
     [<JavaScript>]
     let Char x = Attr.Char x
@@ -584,13 +596,22 @@ module Attr =
     let Declare x = Attr.Declare x
     [<Inline>]
     [<JavaScript>]
+    let Default x = Attr.Default x
+    [<Inline>]
+    [<JavaScript>]
     let Defer x = Attr.Defer x
     [<Inline>]
     [<JavaScript>]
     let Disabled x = Attr.Disabled x
     [<Inline>]
     [<JavaScript>]
+    let Download x = Attr.Download x
+    [<Inline>]
+    [<JavaScript>]
     let Draggable x = Attr.Draggable x
+    [<Inline>]
+    [<JavaScript>]
+    let DropZone x = Attr.DropZone x
     [<Inline>]
     [<JavaScript>]
     let EncType x = Attr.EncType x
@@ -623,16 +644,22 @@ module Attr =
     let Height x = Attr.Height x
     [<Inline>]
     [<JavaScript>]
+    let Hidden x = Attr.Hidden x
+    [<Inline>]
+    [<JavaScript>]
+    let High x = Attr.High x
+    [<Inline>]
+    [<JavaScript>]
     let HRef x = Attr.HRef x
     [<Inline>]
     [<JavaScript>]
     let HRefLang x = Attr.HRefLang x
     [<Inline>]
     [<JavaScript>]
-    let Hidden x = Attr.Hidden x
+    let HttpEquiv x = Attr.HttpEquiv x
     [<Inline>]
     [<JavaScript>]
-    let HttpEquiv x = Attr.HttpEquiv x
+    let Icon x = Attr.Icon x
     [<Inline>]
     [<JavaScript>]
     let Id x = Attr.Id x
@@ -648,6 +675,15 @@ module Attr =
     [<Inline>]
     [<JavaScript>]
     let LongDesc x = Attr.LongDesc x
+    [<Inline>]
+    [<JavaScript>]
+    let Loop x = Attr.Loop x
+    [<Inline>]
+    [<JavaScript>]
+    let Low x = Attr.Low x
+    [<Inline>]
+    [<JavaScript>]
+    let Manifest x = Attr.Manifest x
     [<Inline>]
     [<JavaScript>]
     let MarginHeight x = Attr.MarginHeight x
@@ -683,10 +719,25 @@ module Attr =
     let Pattern x = Attr.Pattern x
     [<Inline>]
     [<JavaScript>]
+    let Ping x = Attr.Ping x
+    [<Inline>]
+    [<JavaScript>]
     let PlaceHolder x = Attr.PlaceHolder x
     [<Inline>]
     [<JavaScript>]
+    let Poster x = Attr.Poster x
+    [<Inline>]
+    [<JavaScript>]
+    let Preload x = Attr.Preload x
+    [<Inline>]
+    [<JavaScript>]
     let Profile x = Attr.Profile x
+    [<Inline>]
+    [<JavaScript>]
+    let PubDate x = Attr.PubDate x
+    [<Inline>]
+    [<JavaScript>]
+    let RadioGroup x = Attr.RadioGroup x
     [<Inline>]
     [<JavaScript>]
     let ReadOnly x = Attr.ReadOnly x
@@ -701,6 +752,9 @@ module Attr =
     let Rev x = Attr.Rev x
     [<Inline>]
     [<JavaScript>]
+    let Reversed x = Attr.Reversed x
+    [<Inline>]
+    [<JavaScript>]
     let Rows x = Attr.Rows x
     [<Inline>]
     [<JavaScript>]
@@ -710,13 +764,22 @@ module Attr =
     let Rules x = Attr.Rules x
     [<Inline>]
     [<JavaScript>]
+    let Sandbox x = Attr.Sandbox x
+    [<Inline>]
+    [<JavaScript>]
     let Scheme x = Attr.Scheme x
     [<Inline>]
     [<JavaScript>]
     let Scope x = Attr.Scope x
     [<Inline>]
     [<JavaScript>]
+    let Scoped x = Attr.Scoped x
+    [<Inline>]
+    [<JavaScript>]
     let Scrolling x = Attr.Scrolling x
+    [<Inline>]
+    [<JavaScript>]
+    let Seamless x = Attr.Seamless x
     [<Inline>]
     [<JavaScript>]
     let Selected x = Attr.Selected x
@@ -728,10 +791,19 @@ module Attr =
     let Size x = Attr.Size x
     [<Inline>]
     [<JavaScript>]
+    let Sizes x = Attr.Sizes x
+    [<Inline>]
+    [<JavaScript>]
     let SpellCheck x = Attr.SpellCheck x
     [<Inline>]
     [<JavaScript>]
     let Src x = Attr.Src x
+    [<Inline>]
+    [<JavaScript>]
+    let SrcDoc x = Attr.SrcDoc x
+    [<Inline>]
+    [<JavaScript>]
+    let SrcLang x = Attr.SrcLang x
     [<Inline>]
     [<JavaScript>]
     let StandBy x = Attr.StandBy x
@@ -744,9 +816,6 @@ module Attr =
     [<Inline>]
     [<JavaScript>]
     let Subject x = Attr.Subject x
-    [<Inline>]
-    [<JavaScript>]
-    let Summary x = Attr.Summary x
     [<Inline>]
     [<JavaScript>]
     let TabIndex x = Attr.TabIndex x
@@ -774,4 +843,7 @@ module Attr =
     [<Inline>]
     [<JavaScript>]
     let Width x = Attr.Width x
+    [<Inline>]
+    [<JavaScript>]
+    let Wrap x = Attr.Wrap x
     // }}

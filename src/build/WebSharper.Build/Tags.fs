@@ -58,14 +58,17 @@ module Tags =
                             while e.MoveNext() && not (finish.Match(e.Current).Success) do ()
                             let indent = m.Groups.[1].Value
                             let ``type`` = m.Groups.[2].Value
-                            let allType = all.[``type``]
-                            for s in m.Groups.[4].Captures do
-                                match Map.tryFind s.Value allType with
-                                | None -> ()
-                                | Some elts ->
-                                    for (name, srcname) in elts do
-                                        for l in f ``type`` name srcname do
-                                            yield indent + l
+                            let allType =
+                                seq {
+                                    for s in m.Groups.[4].Captures do
+                                        match Map.tryFind s.Value all.[``type``] with
+                                        | None -> ()
+                                        | Some elts -> yield! elts
+                                }
+                                |> Seq.sortBy (snd >> fun s -> s.ToLower())
+                            for name, srcname in allType do
+                                for l in f ``type`` name srcname do
+                                    yield indent + l
                             yield e.Current
                 |]
             File.WriteAllLines(path, newLines)

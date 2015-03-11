@@ -71,6 +71,9 @@ type DeprecatedTagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     member this.Menu x = this.NewTag "menu" x
     [<Inline>]
     [<JavaScript>]
+    member this.MenuItem x = this.NewTag "menuitem" x
+    [<Inline>]
+    [<JavaScript>]
     member this.S x = this.NewTag "s" x
     [<Inline>]
     [<JavaScript>]
@@ -128,10 +131,10 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     member this.Base x = this.NewTag "base" x
     [<Inline>]
     [<JavaScript>]
-    member this.Bdi x = this.NewTag "bdi" x
+    member this.BDI x = this.NewTag "bdi" x
     [<Inline>]
     [<JavaScript>]
-    member this.Bdo x = this.NewTag "bdo" x
+    member this.BDO x = this.NewTag "bdo" x
     [<Inline>]
     [<JavaScript>]
     member this.BlockQuote x = this.NewTag "blockquote" x
@@ -165,6 +168,12 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     [<Inline>]
     [<JavaScript>]
     member this.Command x = this.NewTag "command" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Content x = this.NewTag "content" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Data x = this.NewTag "data" x
     [<Inline>]
     [<JavaScript>]
     member this.DataList x = this.NewTag "datalist" x
@@ -278,6 +287,12 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     member this.Link x = this.NewTag "link" x
     [<Inline>]
     [<JavaScript>]
+    member this.Main x = this.NewTag "main" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Map x = this.NewTag "map" x
+    [<Inline>]
+    [<JavaScript>]
     member this.Mark x = this.NewTag "mark" x
     [<Inline>]
     [<JavaScript>]
@@ -296,10 +311,16 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     member this.NoScript x = this.NewTag "noscript" x
     [<Inline>]
     [<JavaScript>]
+    member this.Object x = this.NewTag "object" x
+    [<Inline>]
+    [<JavaScript>]
     member this.OL x = this.NewTag "ol" x
     [<Inline>]
     [<JavaScript>]
     member this.OptGroup x = this.NewTag "optgroup" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Option x = this.NewTag "option" x
     [<Inline>]
     [<JavaScript>]
     member this.Output x = this.NewTag "output" x
@@ -311,6 +332,9 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     member this.Param x = this.NewTag "param" x
     [<Inline>]
     [<JavaScript>]
+    member this.Picture x = this.NewTag "picture" x
+    [<Inline>]
+    [<JavaScript>]
     member this.Pre x = this.NewTag "pre" x
     [<Inline>]
     [<JavaScript>]
@@ -320,13 +344,13 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     member this.Q x = this.NewTag "q" x
     [<Inline>]
     [<JavaScript>]
-    member this.Rp x = this.NewTag "rp" x
+    member this.RP x = this.NewTag "rp" x
     [<Inline>]
     [<JavaScript>]
-    member this.Rt x = this.NewTag "rt" x
+    member this.RT x = this.NewTag "rt" x
     [<Inline>]
     [<JavaScript>]
-    member this.Rtc x = this.NewTag "rtc" x
+    member this.RTC x = this.NewTag "rtc" x
     [<Inline>]
     [<JavaScript>]
     member this.Ruby x = this.NewTag "ruby" x
@@ -359,6 +383,9 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     member this.Strong x = this.NewTag "strong" x
     [<Inline>]
     [<JavaScript>]
+    member this.Style x = this.NewTag "style" x
+    [<Inline>]
+    [<JavaScript>]
     member this.Sub x = this.NewTag "sub" x
     [<Inline>]
     [<JavaScript>]
@@ -377,6 +404,9 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     member this.TD x = this.NewTag "td" x
     [<Inline>]
     [<JavaScript>]
+    member this.Template x = this.NewTag "template" x
+    [<Inline>]
+    [<JavaScript>]
     member this.TextArea x = this.NewTag "textarea" x
     [<Inline>]
     [<JavaScript>]
@@ -390,6 +420,9 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     [<Inline>]
     [<JavaScript>]
     member this.Time x = this.NewTag "time" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Title x = this.NewTag "title" x
     [<Inline>]
     [<JavaScript>]
     member this.TR x = this.NewTag "tr" x
@@ -407,29 +440,5 @@ type TagBuilder [<JavaScript>](HtmlProvider: IHtmlProvider) =
     member this.Video x = this.NewTag "video" x
     [<Inline>]
     [<JavaScript>]
-    member this.Wbr x = this.NewTag "wbr" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Content x = this.NewTag "content" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Data x = this.NewTag "data" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Map x = this.NewTag "map" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Object x = this.NewTag "object" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Option x = this.NewTag "option" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Style x = this.NewTag "style" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Template x = this.NewTag "template" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Title x = this.NewTag "title" x
+    member this.WBR x = this.NewTag "wbr" x
     // }}

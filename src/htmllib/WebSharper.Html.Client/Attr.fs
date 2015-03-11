@@ -78,10 +78,19 @@ type DeprecatedAttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     member this.Object x = this.NewAttr "object" x
     [<Inline>]
     [<JavaScript>]
+    member this.Open x = this.NewAttr "open" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Optimum x = this.NewAttr "optimum" x
+    [<Inline>]
+    [<JavaScript>]
     member this.Prompt x = this.NewAttr "prompt" x
     [<Inline>]
     [<JavaScript>]
     member this.Start x = this.NewAttr "start" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Summary x = this.NewAttr "summary" x
     [<Inline>]
     [<JavaScript>]
     member this.Text x = this.NewAttr "text" x
@@ -107,16 +116,16 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     // {{ attr normal colliding
     [<Inline>]
     [<JavaScript>]
-    member this.Abbr x = this.NewAttr "abbr" x
+    member this.Accept x = this.NewAttr "accept" x
     [<Inline>]
     [<JavaScript>]
     member this.AcceptCharSet x = this.NewAttr "accept-charset" x
     [<Inline>]
     [<JavaScript>]
-    member this.Accept x = this.NewAttr "accept" x
+    member this.AccessKey x = this.NewAttr "accesskey" x
     [<Inline>]
     [<JavaScript>]
-    member this.AccessKey x = this.NewAttr "accesskey" x
+    member this.Action x = this.NewAttr "action" x
     [<Inline>]
     [<JavaScript>]
     member this.Align x = this.NewAttr "align" x
@@ -131,10 +140,19 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     member this.Archive x = this.NewAttr "archive" x
     [<Inline>]
     [<JavaScript>]
+    member this.Async x = this.NewAttr "async" x
+    [<Inline>]
+    [<JavaScript>]
     member this.AutoComplete x = this.NewAttr "autocomplete" x
     [<Inline>]
     [<JavaScript>]
     member this.AutoFocus x = this.NewAttr "autofocus" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.AutoPlay x = this.NewAttr "autoplay" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.AutoSave x = this.NewAttr "autosave" x
     [<Inline>]
     [<JavaScript>]
     member this.Axis x = this.NewAttr "axis" x
@@ -146,10 +164,16 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     member this.BorderColor x = this.NewAttr "bordercolor" x
     [<Inline>]
     [<JavaScript>]
+    member this.Buffered x = this.NewAttr "buffered" x
+    [<Inline>]
+    [<JavaScript>]
     member this.CellPadding x = this.NewAttr "cellpadding" x
     [<Inline>]
     [<JavaScript>]
     member this.CellSpacing x = this.NewAttr "cellspacing" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Challenge x = this.NewAttr "challenge" x
     [<Inline>]
     [<JavaScript>]
     member this.Char x = this.NewAttr "char" x
@@ -162,6 +186,9 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     [<Inline>]
     [<JavaScript>]
     member this.Checked x = this.NewAttr "checked" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Cite x = this.NewAttr "cite" x
     [<Inline>]
     [<JavaScript>]
     member this.Class x = this.NewAttr "class" x
@@ -182,31 +209,55 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     member this.ColSpan x = this.NewAttr "colspan" x
     [<Inline>]
     [<JavaScript>]
+    member this.Content x = this.NewAttr "content" x
+    [<Inline>]
+    [<JavaScript>]
     member this.ContentEditable x = this.NewAttr "contenteditable" x
     [<Inline>]
     [<JavaScript>]
     member this.ContextMenu x = this.NewAttr "contextmenu" x
     [<Inline>]
     [<JavaScript>]
+    member this.Controls x = this.NewAttr "controls" x
+    [<Inline>]
+    [<JavaScript>]
     member this.Coords x = this.NewAttr "coords" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.DateTime x = this.NewAttr "datetime" x
     [<Inline>]
     [<JavaScript>]
     member this.Declare x = this.NewAttr "declare" x
     [<Inline>]
     [<JavaScript>]
+    member this.Default x = this.NewAttr "default" x
+    [<Inline>]
+    [<JavaScript>]
     member this.Defer x = this.NewAttr "defer" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Dir x = this.NewAttr "dir" x
     [<Inline>]
     [<JavaScript>]
     member this.Disabled x = this.NewAttr "disabled" x
     [<Inline>]
     [<JavaScript>]
+    member this.Download x = this.NewAttr "download" x
+    [<Inline>]
+    [<JavaScript>]
     member this.Draggable x = this.NewAttr "draggable" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.DropZone x = this.NewAttr "dropzone" x
     [<Inline>]
     [<JavaScript>]
     member this.EncType x = this.NewAttr "enctype" x
     [<Inline>]
     [<JavaScript>]
     member this.For x = this.NewAttr "for" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Form x = this.NewAttr "form" x
     [<Inline>]
     [<JavaScript>]
     member this.FormAction x = this.NewAttr "formaction" x
@@ -224,6 +275,9 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     member this.FormTarget x = this.NewAttr "formtarget" x
     [<Inline>]
     [<JavaScript>]
+    member this.Frame x = this.NewAttr "frame" x
+    [<Inline>]
+    [<JavaScript>]
     member this.FrameBorder x = this.NewAttr "frameborder" x
     [<Inline>]
     [<JavaScript>]
@@ -233,16 +287,22 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     member this.Height x = this.NewAttr "height" x
     [<Inline>]
     [<JavaScript>]
+    member this.Hidden x = this.NewAttr "hidden" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.High x = this.NewAttr "high" x
+    [<Inline>]
+    [<JavaScript>]
     member this.HRef x = this.NewAttr "href" x
     [<Inline>]
     [<JavaScript>]
     member this.HRefLang x = this.NewAttr "hreflang" x
     [<Inline>]
     [<JavaScript>]
-    member this.Hidden x = this.NewAttr "hidden" x
+    member this.HttpEquiv x = this.NewAttr "http" x
     [<Inline>]
     [<JavaScript>]
-    member this.HttpEquiv x = this.NewAttr "http" x
+    member this.Icon x = this.NewAttr "icon" x
     [<Inline>]
     [<JavaScript>]
     member this.Id x = this.NewAttr "id" x
@@ -254,16 +314,40 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     member this.ItemProp x = this.NewAttr "itemprop" x
     [<Inline>]
     [<JavaScript>]
+    member this.KeyType x = this.NewAttr "keytype" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Kind x = this.NewAttr "kind" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Label x = this.NewAttr "label" x
+    [<Inline>]
+    [<JavaScript>]
     member this.Lang x = this.NewAttr "lang" x
     [<Inline>]
     [<JavaScript>]
+    member this.List x = this.NewAttr "list" x
+    [<Inline>]
+    [<JavaScript>]
     member this.LongDesc x = this.NewAttr "longdesc" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Loop x = this.NewAttr "loop" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Low x = this.NewAttr "low" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Manifest x = this.NewAttr "manifest" x
     [<Inline>]
     [<JavaScript>]
     member this.MarginHeight x = this.NewAttr "marginheight" x
     [<Inline>]
     [<JavaScript>]
     member this.MarginWidth x = this.NewAttr "marginwidth" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Max x = this.NewAttr "max" x
     [<Inline>]
     [<JavaScript>]
     member this.MaxLength x = this.NewAttr "maxlength" x
@@ -273,6 +357,9 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     [<Inline>]
     [<JavaScript>]
     member this.Method x = this.NewAttr "method" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Min x = this.NewAttr "min" x
     [<Inline>]
     [<JavaScript>]
     member this.Multiple x = this.NewAttr "multiple" x
@@ -293,10 +380,25 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     member this.Pattern x = this.NewAttr "pattern" x
     [<Inline>]
     [<JavaScript>]
+    member this.Ping x = this.NewAttr "ping" x
+    [<Inline>]
+    [<JavaScript>]
     member this.PlaceHolder x = this.NewAttr "placeholder" x
     [<Inline>]
     [<JavaScript>]
+    member this.Poster x = this.NewAttr "poster" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Preload x = this.NewAttr "preload" x
+    [<Inline>]
+    [<JavaScript>]
     member this.Profile x = this.NewAttr "profile" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.PubDate x = this.NewAttr "pubdate" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.RadioGroup x = this.NewAttr "radiogroup" x
     [<Inline>]
     [<JavaScript>]
     member this.ReadOnly x = this.NewAttr "readonly" x
@@ -311,6 +413,9 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     member this.Rev x = this.NewAttr "rev" x
     [<Inline>]
     [<JavaScript>]
+    member this.Reversed x = this.NewAttr "reversed" x
+    [<Inline>]
+    [<JavaScript>]
     member this.Rows x = this.NewAttr "rows" x
     [<Inline>]
     [<JavaScript>]
@@ -320,13 +425,22 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     member this.Rules x = this.NewAttr "rules" x
     [<Inline>]
     [<JavaScript>]
+    member this.Sandbox x = this.NewAttr "sandbox" x
+    [<Inline>]
+    [<JavaScript>]
     member this.Scheme x = this.NewAttr "scheme" x
     [<Inline>]
     [<JavaScript>]
     member this.Scope x = this.NewAttr "scope" x
     [<Inline>]
     [<JavaScript>]
+    member this.Scoped x = this.NewAttr "scoped" x
+    [<Inline>]
+    [<JavaScript>]
     member this.Scrolling x = this.NewAttr "scrolling" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Seamless x = this.NewAttr "seamless" x
     [<Inline>]
     [<JavaScript>]
     member this.Selected x = this.NewAttr "selected" x
@@ -338,10 +452,22 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     member this.Size x = this.NewAttr "size" x
     [<Inline>]
     [<JavaScript>]
+    member this.Sizes x = this.NewAttr "sizes" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.Span x = this.NewAttr "span" x
+    [<Inline>]
+    [<JavaScript>]
     member this.SpellCheck x = this.NewAttr "spellcheck" x
     [<Inline>]
     [<JavaScript>]
     member this.Src x = this.NewAttr "src" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.SrcDoc x = this.NewAttr "srcdoc" x
+    [<Inline>]
+    [<JavaScript>]
+    member this.SrcLang x = this.NewAttr "srclang" x
     [<Inline>]
     [<JavaScript>]
     member this.StandBy x = this.NewAttr "standby" x
@@ -354,9 +480,6 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     [<Inline>]
     [<JavaScript>]
     member this.Subject x = this.NewAttr "subject" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Summary x = this.NewAttr "summary" x
     [<Inline>]
     [<JavaScript>]
     member this.TabIndex x = this.NewAttr "tabindex" x
@@ -386,38 +509,5 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
     member this.Width x = this.NewAttr "width" x
     [<Inline>]
     [<JavaScript>]
-    member this.Action x = this.NewAttr "action" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Cite x = this.NewAttr "cite" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Content x = this.NewAttr "content" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.DateTime x = this.NewAttr "datetime" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Dir x = this.NewAttr "dir" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Form x = this.NewAttr "form" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Frame x = this.NewAttr "frame" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Label x = this.NewAttr "label" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.List x = this.NewAttr "list" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Max x = this.NewAttr "max" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Min x = this.NewAttr "min" x
-    [<Inline>]
-    [<JavaScript>]
-    member this.Span x = this.NewAttr "span" x
+    member this.Wrap x = this.NewAttr "wrap" x
     // }}
