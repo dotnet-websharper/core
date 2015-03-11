@@ -25,6 +25,7 @@ namespace WebSharper.Html.Server
 [<AutoOpen>]
 module Attr =
 
+    // {{ attr normal
     let Abbr x = Html.NewAttr "abbr" x
     let AcceptCharSet x = Html.NewAttr "accept-charset" x
     let Accept x = Html.NewAttr "accept" x
@@ -70,7 +71,7 @@ module Attr =
     let HRef x = Html.NewAttr "href" x
     let HRefLang x = Html.NewAttr "hreflang" x
     let Hidden x = Html.NewAttr "hidden" x
-    let HttpEquiv x = Html.NewAttr "http-equiv" x
+    let HttpEquiv x = Html.NewAttr "http" x
     let Id x = Html.NewAttr "id" x
     let IsMap x = Html.NewAttr "ismap" x
     let ItemProp x = Html.NewAttr "itemprop" x
@@ -86,24 +87,6 @@ module Attr =
     let NoHRef x = Html.NewAttr "nohref" x
     let NoResize x = Html.NewAttr "noresize" x
     let NoValidate x = Html.NewAttr "novalidate" x
-    let OnBlur x = Html.NewAttr "onblur" x
-    let OnChange x = Html.NewAttr "onchange" x
-    let OnClick x = Html.NewAttr "onclick" x
-    let OnDbClick x = Html.NewAttr "ondbclick" x
-    let OnFocus x = Html.NewAttr "onfocus" x
-    let OnKeyDown x = Html.NewAttr "onkeydown" x
-    let OnKeyPress x = Html.NewAttr "onkeypress" x
-    let OnKeyUp x = Html.NewAttr "onkeyup" x
-    let OnLoad x = Html.NewAttr "onload" x
-    let OnMouseDown x = Html.NewAttr "onmousedown" x
-    let OnMouseMove x = Html.NewAttr "onmousemove" x
-    let OnMouseOut x = Html.NewAttr "onmouseout" x
-    let OnMouseOver x = Html.NewAttr "onmouseover" x
-    let OnMouseUp x = Html.NewAttr "onmouseup" x
-    let OnReset x = Html.NewAttr "onreset" x
-    let OnSelect x = Html.NewAttr "onselect" x
-    let OnSubmit x = Html.NewAttr "onsubmit" x
-    let OnUnload x = Html.NewAttr "onunload" x
     let Pattern x = Html.NewAttr "pattern" x
     let PlaceHolder x = Html.NewAttr "placeholder" x
     let Profile x = Html.NewAttr "profile" x
@@ -136,9 +119,11 @@ module Attr =
     let Value x = Html.NewAttr "value" x
     let ValueType x = Html.NewAttr "valuetype" x
     let Width x = Html.NewAttr "width" x
+    // }}
 
     [<RequireQualifiedAccess>]
     module Deprecated =
+        // {{ attr deprecated
         let Alink x = Html.NewAttr "alink" x
         let Background x = Html.NewAttr "background" x
         let BgColor x = Html.NewAttr "bgcolor" x
@@ -160,16 +145,21 @@ module Attr =
         let Version x = Html.NewAttr "version" x
         let VLink x = Html.NewAttr "vlink" x
         let VSpace x = Html.NewAttr "vspace" x
+        // }}
 
     module Attr =
-        let Action x = Html.NewAttr "action" x
-        let Content x = Html.NewAttr "content" x
-        let Cite x = Html.NewAttr "cite" x
         let Data key x = Html.NewAttr ("data-"+key) x
+        // {{ attr colliding
+        let Action x = Html.NewAttr "action" x
+        let Cite x = Html.NewAttr "cite" x
+        let Content x = Html.NewAttr "content" x
         let DateTime x = Html.NewAttr "datetime" x
         let Dir x = Html.NewAttr "dir" x
         let Form x = Html.NewAttr "form" x
         let Frame x = Html.NewAttr "frame" x
         let Label x = Html.NewAttr "label" x
         let List x = Html.NewAttr "list" x
+        let Max x = Html.NewAttr "max" x
+        let Min x = Html.NewAttr "min" x
         let Span x = Html.NewAttr "span" x
+        // }}

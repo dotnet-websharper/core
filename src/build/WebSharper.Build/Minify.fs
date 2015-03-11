@@ -26,15 +26,10 @@ open Microsoft.Ajax.Utilities
 
 let Run () =
 
-    let needsBuilding input output =
-        let i = FileInfo(input)
-        let o = FileInfo(output)
-        not o.Exists || o.LastWriteTimeUtc < i.LastWriteTimeUtc
-
     let minify (path: string) =
         let min = Minifier()
         let out = Path.ChangeExtension(path, ".min.js")
-        if needsBuilding path out then
+        if NeedsBuilding path out then
             let raw = File.ReadAllText(path)
             let mjs = min.MinifyJavaScript(raw)
             File.WriteAllText(Path.ChangeExtension(path, ".min.js"), mjs)

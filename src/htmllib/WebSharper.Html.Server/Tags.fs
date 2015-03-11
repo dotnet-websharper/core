@@ -28,19 +28,18 @@ module Tags =
     let Comment x = Html.CommentContent x
     let Text x = Html.TextContent x
 
+    // {{ tag normal
     let A x = Html.NewTag "a" x
     let Abbr x = Html.NewTag "abbr" x
-    let Acronym x = Html.NewTag "acronym"
     let Address x = Html.NewTag "address" x
-    let Anchor x = Html.NewTag "anchor" x
     let Area x = Html.NewTag "area" x
     let Article x = Html.NewTag "article" x
     let Aside x = Html.NewTag "aside" x
     let Audio x = Html.NewTag "audio" x
     let B x = Html.NewTag "b" x
     let Base x = Html.NewTag "base" x
+    let Bdi x = Html.NewTag "bdi" x
     let Bdo x = Html.NewTag "bdo" x
-    let Big x = Html.NewTag "big" x
     let BlockQuote x = Html.NewTag "blockquote" x
     let Body x = Html.NewTag "body" x
     let Br x = Html.NewTag "br" x
@@ -67,8 +66,6 @@ module Tags =
     let Figure x = Html.NewTag "figure" x
     let Footer x = Html.NewTag "footer" x
     let Form x = Html.NewTag "form" x
-    let Frame x = Html.NewTag "frame" x
-    let FrameSet x = Html.NewTag "frameset" x
     let H1 x = Html.NewTag "h1" x
     let H2 x = Html.NewTag "h2" x
     let H3 x = Html.NewTag "h3" x
@@ -92,6 +89,7 @@ module Tags =
     let LI x = Html.NewTag "li" x
     let Link x = Html.NewTag "link" x
     let Mark x = Html.NewTag "mark" x
+    let Meta x = Html.NewTag "meta" x
     let Meter x = Html.NewTag "meter" x
     let Nav x = Html.NewTag "nav" x
     let NoFrames x = Html.NewTag "noframes" x
@@ -106,16 +104,17 @@ module Tags =
     let Q x = Html.NewTag "q" x
     let Rp x = Html.NewTag "rp" x
     let Rt x = Html.NewTag "rt" x
+    let Rtc x = Html.NewTag "rtc" x
     let Ruby x = Html.NewTag "ruby" x
     let Samp x = Html.NewTag "samp" x
     let Script x = Html.NewTag "script" x
     let Section x = Html.NewTag "section" x
     let Select x = Html.NewTag "select" x
+    let Shadow x = Html.NewTag "shadow" x
     let Small x = Html.NewTag "small" x
     let Source x = Html.NewTag "source" x
     let Span x = Html.NewTag "span" x
     let Strong x = Html.NewTag "strong" x
-    let Style x = Html.NewTag "style" x
     let Sub x = Html.NewTag "sub" x
     let Summary x = Html.NewTag "summary" x
     let Sup x = Html.NewTag "sup" x
@@ -128,28 +127,41 @@ module Tags =
     let THead x = Html.NewTag "thead" x
     let Time x = Html.NewTag "time" x
     let TR x = Html.NewTag "tr" x
-    let TT x = Html.NewTag "tt" x
+    let Track x = Html.NewTag "track" x
     let UL x = Html.NewTag "ul" x
     let Var x = Html.NewTag "var" x
     let Video x = Html.NewTag "video" x
     let Wbr x = Html.NewTag "wbr" x
+    // }}
 
     [<RequireQualifiedAccess>]
     module Deprecated =
+        // {{ tag deprecated
+        let Acronym x = Html.NewTag "acronym" x
         let Applet x = Html.NewTag "applet" x
         let BaseFont x = Html.NewTag "basefont" x
+        let Big x = Html.NewTag "big" x
         let Center x = Html.NewTag "center" x
         let Dir x = Html.NewTag "dir" x
         let Font x = Html.NewTag "font" x
+        let Frame x = Html.NewTag "frame" x
+        let FrameSet x = Html.NewTag "frameset" x
         let IsIndex x = Html.NewTag "isindex" x
         let Menu x = Html.NewTag "menu" x
         let S x = Html.NewTag "s" x
         let Strike x = Html.NewTag "strike" x
+        let TT x = Html.NewTag "tt" x
         let U x = Html.NewTag "u" x
+        // }}
 
     module Tags =
-        let Title x = Html.NewTag "title" x
-        let Option x = Html.NewTag "option" x
+        // {{ tag colliding
+        let Content x = Html.NewTag "content" x
+        let Data x = Html.NewTag "data" x
         let Map x = Html.NewTag "map" x
-        let Meta x = Html.NewTag "meta" x
         let Object x = Html.NewTag "object" x
+        let Option x = Html.NewTag "option" x
+        let Style x = Html.NewTag "style" x
+        let Template x = Html.NewTag "template" x
+        let Title x = Html.NewTag "title" x
+        // }}
