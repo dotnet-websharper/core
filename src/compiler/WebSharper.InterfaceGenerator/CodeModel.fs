@@ -28,13 +28,6 @@ module CodeModel =
 
     type private T = Type.Type
 
-    /// Represents the access restriction modifier.
-    type AccessModifier =
-        | Public = 0uy
-        | Private = 2uy
-        | Protected = 3uy
-        | Internal = 4uy
-
     type ObsoleteStatus =
         | NotObsolete
         | Obsolete of string option
@@ -43,7 +36,6 @@ module CodeModel =
         val mutable Name : string
         val mutable SourceName : option<string>
         val mutable Type : T
-        val mutable AccessModifier : AccessModifier
         val mutable Comment : option<string>
         val mutable ObsoleteStatus : ObsoleteStatus
 
@@ -52,7 +44,6 @@ module CodeModel =
                 Name = name
                 SourceName = None
                 Type = t
-                AccessModifier = AccessModifier.Public
                 Comment = None
                 ObsoleteStatus = NotObsolete
             }

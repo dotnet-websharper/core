@@ -181,24 +181,7 @@ module Pervasives =
     /// `T?x` constructs a `Parameter` named "x" of type `T`.
     let inline ( ? ) (ty: ^T) name =
         (^T : (static member op_Dynamic : ^T * string -> ^U) (ty, name))
-
-    let private Access<'T when 'T :> Code.Entity> m (x: 'T) =
-        let x = x.Clone() :?> 'T
-        x.AccessModifier <- m
-        x
         
-    /// Marks an entity as public.
-    let Public x = Access Code.AccessModifier.Public x
-
-    /// Marks an entity as private.
-    let Private x = Access Code.AccessModifier.Private x
-
-    /// Marks an entity as protected.
-    let Protected x = Access Code.AccessModifier.Protected x
-
-    /// Marks an entity as internal.
-    let Internal x = Access Code.AccessModifier.Internal x
-
     /// Marks an entity with the Obsolete attribute.
     let Obsolete (x: #Code.Entity) =
         x |> Code.Entity.Update (fun x -> x.ObsoleteStatus <- CodeModel.Obsolete None)

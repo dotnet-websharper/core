@@ -712,23 +712,11 @@ type MemberConverter
         |]
 
     let methodAttributes (dt: TypeDefinition) (x: Code.Entity) =
-        let accessAttrs =
-            match x.AccessModifier with
-            | Code.AccessModifier.Private ->
-                MethodAttributes.Private
-            | Code.AccessModifier.Protected ->
-                MethodAttributes.Family
-            | Code.AccessModifier.Internal ->
-                MethodAttributes.Assembly
-            | Code.AccessModifier.Public ->
-                MethodAttributes.Public
-            | _ ->
-                MethodAttributes.Public
         match x with
-        | :? Code.Constructor -> accessAttrs
-        | :? Code.Member as m when m.IsStatic -> MethodAttributes.Static ||| accessAttrs
-        | _ when dt.IsInterface -> accessAttrs ||| MethodAttributes.Abstract ||| MethodAttributes.Virtual
-        | _ -> accessAttrs
+        | :? Code.Constructor -> MethodAttributes.Public
+        | :? Code.Member as m when m.IsStatic -> MethodAttributes.Static ||| MethodAttributes.Public
+        | _ when dt.IsInterface -> MethodAttributes.Public ||| MethodAttributes.Abstract ||| MethodAttributes.Virtual
+        | _ -> MethodAttributes.Public
 
     let addConstructor (dT: TypeDefinition) (td: Code.TypeDeclaration) (x: Code.Constructor) =
         let overloads =
@@ -1192,21 +1180,6 @@ type Compiler() =
         let aR = aR.SearchPaths(opts.ReferencePaths)
         (aR, Resolver(aR) :> IAssemblyResolver)
 
-    let getAccessAttributes (nested: bool) (t: Code.NamespaceEntity) =
-        match t.AccessModifier, nested with
-        | Code.AccessModifier.Private, true ->
-            TypeAttributes.NestedPrivate
-        | Code.AccessModifier.Protected, true ->
-            TypeAttributes.NestedFamily
-        | Code.AccessModifier.Internal, true ->
-            TypeAttributes.NestedFamORAssem
-        | Code.AccessModifier.Public, true ->
-            TypeAttributes.NestedPublic
-        | Code.AccessModifier.Public, false ->
-            TypeAttributes.Public
-        | _ , _ ->
-            TypeAttributes.NotPublic
-
     let getId (d: Code.NamespaceEntity) =
         d.Id
 
@@ -1231,8 +1204,7 @@ type Compiler() =
         let types : Types = Dictionary()
         let genTypes : GenericTypes = Dictionary()
         let build attrs ns (x: Code.NamespaceEntity) =
-            let nested = false
-            let attrs = attrs ||| getAccessAttributes nested x
+            let attrs = attrs ||| TypeAttributes.Public
             let tD = TypeDefinition(ns, iG.GetSourceName x, attrs)
             types.[getId x] <- tD
             def.MainModule.Types.Add(tD)
@@ -1244,8 +1216,7 @@ type Compiler() =
         let buildNested attrs (parent: Code.NamespaceEntity) (x: Code.TypeDeclaration) =
             match types.TryGetValue parent.Id with
             | true, parent ->
-                let nested = true
-                let attrs = attrs ||| getAccessAttributes nested x
+                let attrs = attrs ||| TypeAttributes.NestedPublic
                 let tD = TypeDefinition(null, iG.GetSourceName x, attrs)
                 tD.DeclaringType <- parent
                 types.[getId x] <- tD
