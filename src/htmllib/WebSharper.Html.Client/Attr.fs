@@ -113,6 +113,10 @@ type AttributeBuilder [<JavaScript>] (HtmlProvider: IHtmlProvider) =
         let a = Attribute.New(HtmlProvider, name, value)
         a :> _
 
+    [<Inline>]
+    [<JavaScript>]
+    member this.Data n x = this.NewAttr ("data-" + n) x
+
     // {{ attr normal colliding
     [<Inline>]
     [<JavaScript>]
