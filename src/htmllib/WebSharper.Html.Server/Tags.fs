@@ -130,7 +130,6 @@ module Tags =
     let TR x = Html.NewTag "tr" x
     let Track x = Html.NewTag "track" x
     let UL x = Html.NewTag "ul" x
-    let Var x = Html.NewTag "var" x
     let Video x = Html.NewTag "video" x
     let WBR x = Html.NewTag "wbr" x
     // }}
@@ -167,4 +166,5 @@ module Tags =
         let Style x = Html.NewTag "style" x
         let Template x = Html.NewTag "template" x
         let Title x = Html.NewTag "title" x
+        let Var x = Html.NewTag "var" x
         // }}

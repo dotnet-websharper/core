@@ -124,7 +124,7 @@ tag,normal,track,Track
 tag,deprecated,tt,TT
 tag,deprecated,u,U
 tag,normal,ul,UL
-tag,normal,var,Var
+tag,colliding,var,Var
 tag,normal,video,Video
 tag,normal,wbr,WBR
 attr,normal,accept-charset,AcceptCharSet

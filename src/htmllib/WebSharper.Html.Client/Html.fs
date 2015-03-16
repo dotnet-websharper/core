@@ -478,9 +478,6 @@ module Tags =
     let UL x = Tags.UL x
     [<Inline>]
     [<JavaScript>]
-    let Var x = Tags.Var x
-    [<Inline>]
-    [<JavaScript>]
     let Video x = Tags.Video x
     [<Inline>]
     [<JavaScript>]
