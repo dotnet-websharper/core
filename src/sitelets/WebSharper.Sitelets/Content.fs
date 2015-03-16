@@ -68,7 +68,10 @@ module Content =
     let watchForChanges (path: string) (recompile: unit -> unit) =
         let dir = Path.GetDirectoryName(path)
         let file = Path.GetFileName(path)
-        let watcher = new FileSystemWatcher(dir, file, EnableRaisingEvents = true)
+        let watcher =
+            new FileSystemWatcher(dir, file,
+                EnableRaisingEvents = true,
+                NotifyFilter = (NotifyFilters.LastWrite ||| NotifyFilters.Security))
         watcher.Changed.Add(fun _ -> recompile ())
         watcher :> System.IDisposable
 
@@ -467,11 +470,19 @@ module Content =
                 let read () =
                     try Choice1Of2 (parse path)
                     with e -> Choice2Of2 e
-                let load () =
+                let rec load () =
+                    let watcher =
+                        match !cell with
+                        | None ->
+                            // NOTE: resource leak here, watcher
+                            // does not get disposed. Not a problem if
+                            // template object is static.
+                            watchForChanges path reload
+                        | Some (_, w) -> w
                     let v = read ()
-                    cell := Some v
+                    cell := Some (v, watcher)
                     v
-                let reload () = lock cell (load >> ignore)
+                and reload () = lock cell (load >> ignore)
                 let unpack x =
                     match x with
                     | Choice1Of2 x -> x
@@ -479,12 +490,9 @@ module Content =
                 fun () ->
                     lock cell <| fun () ->
                         match !cell with
-                        | Some x -> unpack x
+                        | Some (x, w) ->
+                            unpack x
                         | None ->
-                            // NOTE: resource leak here, watcher
-                            // does not get disposed. Not a problem if
-                            // template object is static.
-                            let watcher = watchForChanges path reload
                             unpack (load ())
 
         let getBasicTemplate =
