@@ -408,7 +408,8 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
         match types.TryGetValue id with
         | true, x -> x :> TypeReference
         | _ ->
-            failwithf "Type definition not included in assembly definition: %s" id.Name
+            tB.Object
+            //failwithf "Type definition not included in assembly definition: %s" id.Name
 
     static let noGenerics _ = failwith "Generic parameter not found."
 
