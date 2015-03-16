@@ -30,13 +30,11 @@ module private Util =
 
 [<AutoOpen>]
 module private Types =
-    let DOMTimeStamp = Type.New () // Type.Date
-    let DOMImplementation = Type.New ()
+    let DOMTimeStamp = T<System.DateTime>
     let DocumentType = Type.New ()
     let Document = Type.New ()
     let NodeList = Type.New ()
     let NamedNodeMap = Type.New ()
-    let UserDataHandler = Type.New ()
     let Element = Type.New ()
     let TypeInfo = Type.New ()
     let DOMLocator = Type.New ()
@@ -243,7 +241,7 @@ module Interfaces =
                 "setUserData" =>
                     T<string>?key *
                     T<obj>?data *
-                    UserDataHandler ^-> T<obj>
+                    T<obj>?handler ^-> T<obj> |> Obsolete
             ]
 
     let NodeList =
@@ -298,6 +296,7 @@ module Interfaces =
 
     let Element =
         Class "Element"
+        |=> Element
         |=> Inherits Node
         |+> Instance [
                 "schemaTypeInfo" =@ TypeInfo
@@ -340,6 +339,7 @@ module Interfaces =
 
     let TypeInfo =
         Class "TypeInfo"
+        |=> TypeInfo
         |+> Instance [
                 "typeName" =@ T<string>
                 "typeNamespace" =@ T<string>
@@ -376,6 +376,7 @@ module Interfaces =
 
     let DOMLocator =
         Class "DOMLocator"
+        |=> DOMLocator
         |+> Instance [
                 "lineNumber" =@ T<int>
                 "columnNumber" =@ T<int>
@@ -400,6 +401,7 @@ module Interfaces =
 
     let DocumentType =
         Class "DocumentType"
+        |=> DocumentType
         |+> Instance [
                 "name" =@ T<string>
                 "entities" =@ NamedNodeMap

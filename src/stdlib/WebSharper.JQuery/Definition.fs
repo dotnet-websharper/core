@@ -82,18 +82,16 @@ module Definition =
         |> Pattern.EnumStrings "DataType"
 
     let JqXHR = Type.New ()
-    let XmlHttpRequest = Type.New ()
+    let XmlHttpRequest = Class "XmlHttpRequest" // TODO: XmlHttpRequest definition
 
     let AjaxSettings =
-        let AjaxSettings = Type.New ()
-        
         Pattern.Config "AjaxSettings" {
             Required = []
             Optional =
                 [
                     "accepts" , T<obj>
                     "async" , T<bool>
-                    "beforeSend" ,  JqXHR * !? AjaxSettings ^-> T<bool>
+                    "beforeSend" ,  JqXHR * !? TSelf ^-> T<bool>
                     "cache" , T<bool>
                     "complete" , JqXHR * T<string> ^-> T<unit>
                     "contents", T<Object<string>>
@@ -125,7 +123,6 @@ module Definition =
                     "xhr" , T<unit> ^-> XmlHttpRequest
                 ]
         }
-        |=> AjaxSettings
 
     let Position =
         Pattern.Config "Position" {
@@ -221,45 +218,42 @@ module Definition =
         ]
 
     let Deferred =
-        let Deferred = Type.New ()
-
         Class "jQuery.Deferred"
-        |=> Deferred
         |+> Static [
-            Constructor (!? Deferred ^-> T<unit>)
+            Constructor (!? TSelf ^-> T<unit>)
         ]
         |+> Instance [
-            "always" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Deferred
+            "always" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
             |> WithComment "Add handlers to be called when the Deferred object is either resolved or rejected."
 
-            "done" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Deferred
+            "done" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
             |> WithComment "Add handlers to be called when the Deferred object is resolved."
 
-            "fail" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Deferred
+            "fail" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
             |> WithComment "Add handlers to be called when the Deferred object is rejected."
 
-            "notify" => !+ T<obj> ^-> Deferred
+            "notify" => !+ T<obj> ^-> TSelf
             |> WithComment "Call the progressCallbacks on a Deferred object with the given args."
 
-            "notifyWith" => T<obj> *+ T<obj> ^-> Deferred
+            "notifyWith" => T<obj> *+ T<obj> ^-> TSelf
             |> WithComment "Call the progressCallbacks on a Deferred object with the given context and args."
 
-            "progress" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Deferred
+            "progress" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
             |> WithComment "Add handlers to be called when the Deferred object generates progress notifications."
 
             "promise" => !? T<obj> ^-> Promise
             |> WithComment "Return a Deferred's Promise object."
 
-            "reject" => !+ T<obj> ^-> Deferred
+            "reject" => !+ T<obj> ^-> TSelf
             |> WithComment "Reject a Deferred object and call any failCallbacks with the given args."
 
-            "rejectWith" => T<obj> *+ T<obj> ^-> Deferred
+            "rejectWith" => T<obj> *+ T<obj> ^-> TSelf
             |> WithComment "Reject a Deferred object and call any failCallbacks with the given context and args."
 
-            "resolve" => !+ T<obj> ^-> Deferred
+            "resolve" => !+ T<obj> ^-> TSelf
             |> WithComment "Resolve a Deferred object and call any doneCallbacks with the given args."
 
-            "resolveWith" => T<obj> *+ T<obj> ^-> Deferred
+            "resolveWith" => T<obj> *+ T<obj> ^-> TSelf
             |> WithComment "Resolve a Deferred object and call any doneCallbacks with the given context and args."
 
             "state" => T<unit -> string>
@@ -1024,11 +1018,8 @@ module Definition =
                 |> WithComment "Provides a way to execute callback functions based on one or more objects, usually Deferred objects that represent asynchronous events."
             ]
     
-    let Callbacks =
-        let Callbacks = Type.New ()
-        
+    let Callbacks =        
         Class "jQuery.Callbacks"
-        |=> Callbacks
         |+> Static [
             Constructor T<unit>
             |> WithInline "jQuery.Callbacks()"
@@ -1039,44 +1030,44 @@ module Definition =
             |> WithComment "A multi-purpose callbacks list object that provides a powerful way to manage callback lists."
         ]
         |+> Instance [
-            "add" => (!+ T<obj> ^-> T<unit>) ^-> Callbacks
-            |> WithComment "Add a callback or a collection of callbacks to a callback list."
+            "add" => (!+ T<obj> ^-> T<unit>) ^-> TSelf
+            |> WithComment "Add a callback or a collection of TSelf to a callback list."
 
-            "add" => Type.ArrayOf (!+ T<obj> ^-> T<unit>) ^-> Callbacks
-            |> WithComment "Add a callback or a collection of callbacks to a callback list."
+            "add" => Type.ArrayOf (!+ T<obj> ^-> T<unit>) ^-> TSelf
+            |> WithComment "Add a callback or a collection of TSelf to a callback list."
 
-            "disable" => T<unit> ^-> Callbacks
+            "disable" => T<unit> ^-> TSelf
             |> WithComment "Disable a callback list from doing anything more."
 
             "disabled" => T<unit -> bool>
-            |> WithComment "Determine if the callbacks list has been disabled."
+            |> WithComment "Determine if the TSelf list has been disabled."
 
-            "empty" => T<unit> ^-> Callbacks
-            |> WithComment "Remove all of the callbacks from a list."
+            "empty" => T<unit> ^-> TSelf
+            |> WithComment "Remove all of the TSelf from a list."
 
-            "fire" => !+ T<obj> ^-> Callbacks
-            |> WithComment "Call all of the callbacks with the given arguments."
+            "fire" => !+ T<obj> ^-> TSelf
+            |> WithComment "Call all of the TSelf with the given arguments."
 
             "fired" => T<unit -> bool>
-            |> WithComment "Determine if the callbacks have already been called at least once."
+            |> WithComment "Determine if the TSelf have already been called at least once."
 
-            "fireWith" => !? T<obj> * !? (T<obj> + T<obj array>) ^-> Callbacks
-            |> WithComment "Call all callbacks in a list with the given context and arguments."
+            "fireWith" => !? T<obj> * !? (T<obj> + T<obj array>) ^-> TSelf
+            |> WithComment "Call all TSelf in a list with the given context and arguments."
 
             "has" => !? (!+ T<obj> ^-> T<unit>) ^-> T<bool>
-            |> WithComment "Determine whether or not the list has any callbacks attached. If a callback is provided as an argument, determine whether it is in a list."
+            |> WithComment "Determine whether or not the list has any TSelf attached. If a callback is provided as an argument, determine whether it is in a list."
 
-            "lock" => T<unit> ^-> Callbacks
+            "lock" => T<unit> ^-> TSelf
             |> WithComment "Lock a callback list in its current state."
 
             "locked" => T<unit -> bool>
-            |> WithComment "Determine if the callbacks list has been locked."
+            |> WithComment "Determine if the TSelf list has been locked."
 
-            "remove" => (!+ T<obj> ^-> T<unit>) ^-> Callbacks
-            |> WithComment "Remove a callback or a collection of callbacks from a callback list."
+            "remove" => (!+ T<obj> ^-> T<unit>) ^-> TSelf
+            |> WithComment "Remove a callback or a collection of TSelf from a callback list."
 
-            "remove" => Type.ArrayOf (!+ T<obj> ^-> T<unit>) ^-> Callbacks
-            |> WithComment "Remove a callback or a collection of callbacks from a callback list."
+            "remove" => Type.ArrayOf (!+ T<obj> ^-> T<unit>) ^-> TSelf
+            |> WithComment "Remove a callback or a collection of TSelf from a callback list."
         ]
         
     let Assembly =
@@ -1094,6 +1085,7 @@ module Definition =
                  Event
                  JQueryClass
                  FX
+                 XmlHttpRequest
             ]
             Namespace "WebSharper.JQuery.Resources" [
                 Resource "JQuery" "http://code.jquery.com/jquery-1.11.2.min.js"

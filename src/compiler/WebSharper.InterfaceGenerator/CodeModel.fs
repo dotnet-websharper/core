@@ -126,8 +126,10 @@ module CodeModel =
                 let x = this.Clone() :?> 'T
                 x.Type <- t.Type
                 match t.Type with
-                | Type.DeclaredType id -> x.Id <- id
-                | Type.SpecializedType(Type.DeclaredType id, _) -> x.Id <- id
+                | Type.DeclaredType id 
+                | Type.SpecializedType(Type.DeclaredType id, _) ->
+                    id.Name <- this.Name
+                    x.Id <- id
                 | _ -> ()
                 x
 
@@ -370,7 +372,7 @@ module CodeModel =
         val mutable Id : Type.Id
 
         internal new (name) =
-            let id = Type.Id ()
+            let id = Type.Id name
             {
                 inherit Entity(name, Type.DeclaredType id)
                 DependsOn = []
