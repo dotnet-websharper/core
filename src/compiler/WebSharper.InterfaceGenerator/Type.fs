@@ -29,7 +29,8 @@ module Type =
 
     /// Represents type identifiers that are used to match types to classes.
     [<Sealed>]
-    type Id() = class end
+    type Id (?name) =
+        member val Name = defaultArg name "Unnamed" with get, set
 
     /// Represents types used in bindings.
     type Type =

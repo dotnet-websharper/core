@@ -407,7 +407,8 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
     let byId id =
         match types.TryGetValue id with
         | true, x -> x :> TypeReference
-        | _ -> tB.Object
+        | _ ->
+            failwithf "Type definition not included in assembly definition: %s" id.Name
 
     static let noGenerics _ = failwith "Generic parameter not found."
 
@@ -500,8 +501,7 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
             | Type.OptionType t ->
                 tB.Option (tRef t) 
             | Type.DefiningType ->
-                try byId defT.Id
-                with _ -> failwith "Can't Require a type definition containing TSelf" 
+                byId defT.Id
         // check missing generics
         if not allowGeneric then
             match t with
