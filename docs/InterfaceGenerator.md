@@ -1,14 +1,13 @@
 # WebSharper Interface Generator
 
-The WebSharper Interface Generator (WIG) is a tool for generating
+The WebSharper Interface Generator (WIG) is a tool (build task) for generating
 WebSharper bindings to JavaScript libraries.  Bindings allow
 developers to access these libraries from typed F# code that gets
 compiled to JavaScript by WebSharper.  While it is possible to create
 bindings manually, WIG allows to write the binding definitions in F#,
 making full use of the language to streamline repetitive tasks.
 
-WIG includes an assembly with binding-generating code and Visual
-Studio project templates.  Simply put, WIG takes an F# value
+Simply put, WIG takes an F# value
 representing a set of classes, interfaces, and members together with
 their documentation and mappings to JavaScript, and generates a
 binding assembly from that definition.  The binding is a .NET assembly
@@ -17,97 +16,192 @@ JavaScript code using the `InlineAttribute` custom attribute.
 
 ## Getting Started
 
-WIG installs together with WebSharper.  To create a new project open
-Visual Studio and select an "Extension" template from WebSharper
-templates.
+WIG is included with the WebSharper installer.
+To create a new project select the "Extension" template from WebSharper templates.
+This project file contains the line required for the WIG build task to run.
 
-Below you will find a sample binding definition. For more examples,
-please check out the
-[open-source code](http://bitbucket.org/IntelliFactory/) by
-IntelliFactory.
+    <WebSharperProject>InterfaceGenerator</WebSharperProject>
 
-    module WebSharperExtension.Definition
+You get a small example in the `Main.fs` file, which ends in this:
 
-    open WebSharper.InterfaceGenerator
+    [<Sealed>]
+    type Extension() =
+        interface IExtension with
+            member ext.Assembly =
+                Definition.Assembly
 
-    let I1 =
-        Interface "I1"
-        |+> [
-            "test1" => T<string> ^-> T<string>
-            "radius1" =@ T<float>
-        ]
+    [<assembly: Extension(typeof<Extension>)>]
+    do ()
 
-    let I2 =
-        Generic / fun t1 t2 ->
-            Interface "I2"
-            |+> [
-                Generic - fun m1 -> "foo" => m1 * t1 ^-> t2
-            ]
-
-    let C1 =
-        let C1T = Type.New ()
-        Class "C1"
-        |=> C1T
-        |+> Protocol [
-            "foo" =% T<int>
-        ]
-        |+> [
-            Constructor (T<unit> + T<int>)
-
-            "mem" =>
-                (T<unit> + T<int> ^-> T<unit>)
-
-            "test2" =>
-                (C1T -* T<int> ^-> T<unit>) * T<string> ^-> T<string>
-
-            "radius2" =@ T<float>
-            |> WithSourceName "R2"
-
-            "length" =% T<int>
-            |> WithSourceName "L2"
-        ]
-
-    let Assembly =
-        Assembly [
-            Namespace "MyNamespace" [
-                I1
-                Generic - I2
-                C1
-            ]
-        ]
+This exposes the value defined by `Definition.Assembly` to the WIG compiler.
+The library that you write is used just as a generator for this value,
+any other code that it has will have no effect on the final assembly produced by the
+WIG build task.
 
 ## Constructing Types
 
 Defining classes, interfaces and member signatures requires an
 abstraction for types.  Types are represented as
 `WebSharper.InterfaceGenerator.Type.IType` values.
-These values describe system, user-defined, existing, and generated
-types.
+These values can describe both types from other assemblies (external) or 
+type definitions in current WIG project.
 
-### Existing Types
+### Immutability and Identity
 
-Existing system and user-defined types can be defined by using the `T`
-combinator with a generic parameter:
+All operators and helper functions work non-desctructively.
+Type definitions are automatically given a unique ID, this defines identity.
+`Type.New()` creates an empty type definition with a new ID.
+Adding members and attributes on the type definition does not change its ID,
+however the `|=>` operator takes the ID of the right hand side, and sets it
+on a clone of the left hand side. 
+This allows mutual recursion between types:
 
-    let types : list<Type.IType> =
-        [
-            T<int>
-            T<list<string>>
-            T<MyType>
+    let A = Type.New()
+    let B = Type.New()
+    
+    let ADef =
+        Class "A"
+        |=> A 
+        |+> Instance [
+            "getB" => T<unit> ^-> B   
+        ]
+    let BDef =
+        Class "B"
+        |=> B 
+        |+> Instance [
+            "getA" => T<unit> ^-> A   
         ]
 
+Remember that using `A` and `ADef` as types is equivalent after these
+`let` bindings because their ID is the same.
+However only `ADef` is a full type definition value, you must use this when
+you include the type definition in a namespace or nested in a class.
+
+### Operator Reference
+
+<table>
+<thead>
+<tr>
+    <td>Function</td>
+    <td>Operator</td>
+    <td>Description</td>
+</tr>
+</thead>
+<tbody>
+<tr>
+    <td><code>Method</code></td>
+    <td><code>=></code></td>
+    <td>Defines a method from name and signature</td>
+</tr>
+<tr>
+    <td><code>Property</code></td>
+    <td><code>=&#64;</code></td>
+    <td>Defines a property with a getter and setter</td>
+</tr>
+<tr>
+    <td><code>Getter</code></td>
+    <td><code>=?</code></td>
+    <td>Defines a read-only property</td>
+</tr>
+<tr>
+    <td><code>Setter</code></td>
+    <td><code>=!</code></td>
+    <td>Defines a write-only property</td>
+</tr>
+<tr>
+    <td></td>
+    <td><code>?</code></td>
+    <td>Defines a named parameter</td>
+</tr>
+<tr>
+    <td></td>
+    <td><code>^-></code></td>
+    <td>Defines a function type</td>
+</tr>
+<tr>
+    <td></td>
+    <td><code>-*</code></td>
+    <td>Defines the type of the <code>this</code> parameter on a function</td>
+</tr>
+<tr>
+    <td></td>
+    <td><code>*+</code></td>
+    <td>Defines the <code>rest</code> parameter (ParamArray in .NET)</td>
+</tr>
+<tr>
+    <td><code>Type.ArrayOf</code></td>
+    <td><code>!|</code></td>
+    <td>Defines an array type from its element type</td>
+</tr>
+<tr>
+    <td></td>
+    <td><code>!+</code></td>
+    <td>Defines <code>arguments</code> parameter (single ParamArray in .NET)</td>
+</tr>
+<tr>
+    <td></td>
+    <td><code>!?</code></td>
+    <td>Defines an optional parameter, property or return type</td>
+</tr>
+<tr>
+    <td></td>
+    <td><code>*</code></td>
+    <td>Defines a tuple type or joins parameters</td>
+</tr>
+<tr>
+    <td></td>
+    <td><code>+</code></td>
+    <td>Defines an overloaded parameter or a <code>Choice</code> property or return type</td>
+</tr>
+<tr>
+    <td></td>
+    <td><code>|=></code></td>
+    <td>Copies type definition identifier or applies attributes</td>
+</tr>
+<tr>
+    <td></td>
+    <td><code>|+></code></td>
+    <td>Adds members to a type definition</td>
+</tr>
+</tbody>
+</table>
+
+### Side cases
+
+* When defining tuples, `*` expands the tuple if the left hand argument is already a tuple.
+If you want to define the type `(A * B) * C`, you must use `Type.Tuple [ A * B; C ]`.
+
+* When defining functions like `A * B ^-> C`, the tuple on the left hand side is
+automatically converted to a `Type.Parameters` which creates multiple arguments
+from the tuple elements.
+If you want to describe a JavaScript function that do take a single 2-length array
+as argument, you must convert it to a single parameter explicitly:
+`(A * B).Parameter ^-> C`.
+
+### External Types
+
+External types can be defined by using the `T` type function, for example
+`T<int>`, `T<list<string>>`, `T<MyOtherLibrary.SomeType>`.
+        
 ### Type Combinators
 
-Simpler types can be comined to form more complex types, including
+Simpler types can be combined to form more complex types, including
 arrays, tuples, function types, and generic instantiations.
 
-    [
-        Type.ArrayOf T<int>
-        T<int> * T<float> * T<string>
-        Type.Tuple [T<int> * T<float>; T<string>]
-        T<int> ^-> T<unit>
-        T<System.Collections.Generic.Dictionary<_,_>>.[T<int>,T<string>]
-    ]
+    Type.ArrayOf T<int>
+        // array, equivalent to T<int[]>
+        // alternate syntax: !| T<int>  
+
+    T<int> * T<float> * T<string>
+        // tuple, equivalent to T<int * float * string>
+        // alternate syntax: Type.Tuple [T<int>; T<float>; T<string>]
+
+    T<int> ^-> T<unit>
+        // function, equivalent to T<int -> unit>
+
+    T<System.Collections.Generic.Dictionary<_,_>>.[T<int>, MyTypeDef]
+        // adding type parameters to a generic type
+        // compile-time error if number of parameters do not match
 
 In addition, delegate types can be formed.  WebSharper treats delegate
 types specially: their are compiled to JavaScript functions accepting
@@ -133,25 +227,10 @@ thus:
 The type of the callback is then compiled to a delegate type in F#,
 `Func<obj,int,unit>`.
 
-### New Types
+### Self Placeholder
 
-In addition to existing user-defined and system types, there are new
-types that correspond to the classes and interfaces being defined.
-Class and interface definitions implement the `Type.IType` interface
-and can be used where types are expected.  When this is inconvenient,
-as it often is, for example, with mutually recursive classes, new type
-values can be constructed and used before being associated with a
-particular class or interface definition:
-
-    let Widget   = Type.New()
-    let Callback = Widget ^-> T<unit>
-
-    let WidgetClass =
-        Class "Widget"
-        |=> Widget
-
-The last line associates the `Widget` type with the `WidgetClass`
-definition.
+The `TSelf` type value will be evaluated to the type the defined member is added to
+when the member definition is used for compilation.
 
 ## Defining Members
 
@@ -174,10 +253,6 @@ corresponding functional type.  Some examples:
 Void return types and empty parameter lists are indicated by the
 `unit` type, multiple parameters are indicated by tuple types.  It is
 an error to define a method with a non-functional type.
-
-Due to their prevalence in F#, by default all methods are generated as
-static and public.  See Instance Member Definitions, Access Modifiers,
-Static and Instance Modifiers.
 
 ### Parameter Names
 
@@ -248,7 +323,18 @@ are the full and abbreviated syntax forms:
             "ReadOnly"  =? T<int>
             "WriteOnly" =! T<int>
             "Mutable"   =@ T<int>
+   
         ]
+        
+#### Indexed properties
+
+Properties can have indexers. `"" =@ T<string> |> Indexed T<int>` creates
+an indexed property where `x.[n] : string` translates to `x[n]`.
+If the property name is not empty:
+`"Lines" =@ T<string> |> Indexed T<int>` creates an indexed property where
+`x.Lines.[n]` translates to `x.Lines[n]`.
+
+If you define a custom inline, use `$index` to refer to the index parameter.
 
 ### Constructors
 
@@ -258,24 +344,13 @@ return type.  Examples:
     let constructors =
         [
             Constructor T<unit>
-            Constructor T<int>?width * T<int>?height
+            Constructor (T<int>?width * T<int>?height)
         ]
 
-### Fields
+#### JavaScript Object Expression
 
-Fields are generated using a similar syntax to properties:
-
-    let fields =
-        [
-            Field "width" T<int>
-            Field "height" T<int>
-        ]
-
-    let shorthand =
-        [
-            "width"  =% T<int>
-            "height" =% T<int>
-        ]
+`ObjectConstructor (T<int>?x * T<int>?y)` defines a .NET constructor with
+JavaScript inline `{ x = $x, y = $y }`.
 
 ### Interfaces
 
@@ -295,6 +370,11 @@ example:
         "LastAccessTime" =? T<System.DateTime>
     ]
 
+Interface definitions take a `list<CodeModel.IInterfaceMember>`.
+Class definitions take a `CodeModel.ClassMembers` value, which can be
+constructed from a `list<CodeModel.IClassMember>` using the `Instance`
+and `Static` functions.
+
 ### Inheritance
 
 Interfaces can inherit or extend multiple other interfaces.  The
@@ -307,37 +387,20 @@ syntax is as follows:
         "LastAccessTime" =? T<System.DateTime>
     ]
 
-### Clases
+### Classes
 
 Class definition is very similar to interface definition.  It starts
 with the `Class` keyword:
 
-    Class "Pear"
-
-### Static Member Definitions
-
-Static members are added using the `|+>` combinator:
-
     let Pear =
-        let Pear = Type.New()
         Class "Pear"
-        |=> Pear
-        |=> [
-            "Create" => T<unit> ^-> Pear
+        |+> Static [
+            "Create" => T<unit> ^-> TSelf
         ]
-
-### Instance Member Definitions
-
-Instance members are usually added using the `Protocol` combinator:
-
-    Class "Pear"
-    |+> Protocol [
-        "Eat"     => T<unit->unit>
-        "IsEaten" =? T<bool>
-    ]
-
-The use of the `Protocol` function is equivalent to transforming the
-methods with the `Instance` function prior to inclusion.
+        |+> Instance [
+            "Eat"     => T<unit->unit>
+            "IsEaten" =? T<bool>
+        ]
 
 ### Class Inheritance
 
@@ -353,7 +416,6 @@ The syntax for class inheritance is as follows:
     Class "MyClass"
     |=> Implements [T<System.IComparable>]
 
-
 ### Nested Classes
 
 Class nesting is allowed:
@@ -368,11 +430,11 @@ Class nesting is allowed:
 #### Generic Types
 
 Generic types and interfaces are defined by prefixing the definition
-with the code of the form `Generic / fun t1 t2 .. tN ->`.  The
+with the code of the form `Generic - fun t1 t2 .. tN ->`.  The
 `t1..tN` parameters can be used as types in the definition and
 represent the generic parameters.  For example:
 
-    Generic / fun t1 t2 ->
+    Generic - fun t1 t2 ->
         Interface "IDictionary"
         |+> [
             "Lookup"      => t1 ^-> t2
@@ -389,10 +451,15 @@ This compiles to the following signature:
         abstract member Add : 'T1 * 'T2 -> unit
         abstract member Remove : 'T1 -> unit
 
+This syntax can produce up to 4 type parameters.
+To have more, the `Generic -` helper can be nested, or
+use `GenericN n - fun [t1; t2; .. tN] ->`.
+Although this gives an incomplete pattern match warning, there will be no
+runtime errors if the matching the list for the provided length `n`.
+
 #### Generic Methods
 
-Similarly, generic methods are generated using lambda expressions, but
-the syntax is now `Generic - fun t1 .. tN ->`, for example:
+Similarly, generic methods are generated using lambda expressions, for example:
 
     Generic - fun t ->
         "length" => T<list<_>>.[t] ^-> T<int>
@@ -401,19 +468,15 @@ This code would generate the following F# signature:
 
     val Length<'T> : list<'T> -> int
 
+You can use `Generic %` to add the same generics to a list of members,
+`Generic *` to add the same generics to a `ClassMembers` value.
+Also `Generic + ["a"; "b"; ...] - ...` specifies the names of the type parameters.
+
+#### Type Constraints
+
+You can now set type constraints on parameters using `p.Constraints <- [...]` inside the lambda passed to `Generic -`. Previous `WithConstraints` helper is removed as we want to have all helper functions named `With...` to be non-destructive.
+
 ## Modifiers
-
-### Access Modifiers
-
-By default, all members and types are generated with the public access
-modifier.  This can be changed by applying one of the four access
-modifier setters: `Public`, `Internal`, `Protected` and `Private`.
-
-### Static and Instance Modifiers
-
-By default, all members are generated static.  Members can be made
-static or instance by using the `Static` or `Instance` functions.
-Interface definitions automatically apply the `Instance` function.
 
 ### Documentation Comments
 
@@ -443,6 +506,65 @@ JavaScript with a qualified name, for example:
 This generates a .NET class `Point` which binds all static members as
 `geometry.Point.foo()` in JavaScript.
 
+### Inline Transformations
+
+#### Functions
+
+The `FSharpFunc<'TArg, 'TRes>` type (which is used for lambdas by the F# compiler)
+always take one parameter (which can be a tuple).
+In WebSharper translation, these become JavaScript functions taking a single
+fixed-length array (although curried functions only used in local scope are optimized).
+However, it is often required that we pass functions defined in F# to a JavaScript
+library (for example event handlers, callbacks, functional-style libraries).
+WIG automatically converts between these function calling conventions.
+
+#### Choice
+
+Union types (for example `T<int> + T<string>`) can create method overloads,
+but also `Choice` typed properties or method return types when the cases can be 
+distinguished in JavaScript using the `typeof`, `Array.isArray` and the
+`arr.length` functions.
+In F# this means either at most one array case or possibly multiple tuple cases
+with all different length, at most one number type (including `DateTime` and 
+`TimeSpan`, which are proxied as a Number), `string`, `bool`, and at most one other
+object type. 
+If there are cases which can't be separated, the type will default to `obj`.
+
+#### Option
+
+By using the `!?` operator on the type of a property, it will be an option
+type in F# which is converted to and from an existing or missing field on a
+JavaScript object.
+On method returns, undefined is converted to `None`, all other values
+(including `null`) to `Some ...`.
+
+#### Custom Inline Transformations
+
+You can add a custom defined inline transformation with the `WithInterop` helper.
+This takes a record with an `In` and an `Out` field, both `string -> string`.
+For example:
+
+    let Index = 
+        T<int> |> WithInterop { 
+            In  = fun s -> s + " - 1"
+            Out = fun s -> s + " + 1"
+        }
+
+Use this `Type.Type` value instead of `T<int>` in your member
+declarations where you want to handle an index as 1-based in your code,
+but pass it to and get it from a 0-based value in a JavaScript library.
+On method parameters and property setters the `In` function will be used on the
+parameter or property value in the automatic inline. On method return values and
+property getters the `Out` function will be used on the whole inline of the
+method or property getter.
+ 
+#### Erasing Inline Transformations
+
+Use the `WithNoInterop` helper to clean any automatic and custom inline 
+transformations from a `Type.Type` value.
+
+### Customizations
+
 #### Custom Names
 
 The simplest form of customization allows to decouple the .NET name of
@@ -462,9 +584,32 @@ The method and constructor inlines can be set explicitly by using
 
 #### Custom Inline Properties
 
-Properties have separete inlines for the getter and the setter
+Properties have separate inlines for the getter and the setter
 methods.  These can be set explicitly by using `WithGetterInline` and
 `WithSetterInline` respectively.
+
+#### Custom Inlines Using Transformations
+
+To define a custom inline for a method that still makes use of the default or
+custom inline transformations on parameters and return value, use the
+`WithInteropInline` helper.
+It takes a function typed `(string -> string) -> string`, use the provided
+function on a parameter name or index to get its transformed inline.
+For example, defining an `on` event setter with function argument detupling:
+
+    "onChange" => (T<int> * T<obj> ^-> T<unit>)?callback ^-> T<unit>
+    |> WithInteropInline (fun tr -> "$this.on('change', " + tr "callback" + ")"
+
+Similar helpers exists for property getters and setters:
+`WithInteropGetterInline` and `WithInteropSetterInline`.
+For getters, provided function is only usable for transforming `"index"`
+in the case of an indexed property, and for setters transforming `"value"` or `"index"`.
+
+#### Obsoleted Members and Types
+
+Use the `Obsolate` helper to mark a type or member definition with
+`System.ObsoleteAttribute`.
+`ObsolateWithMessage` also sets a custom warning message.
 
 ## Best Practices
 
@@ -497,6 +642,11 @@ compile to simple JavaScript object literals:
 
     MyConfig("Alpha", Width=140)
 
+#### Confifuration Class With Obsolete
+
+The `Pattern.ConfigObs` can be used similarly, the record expected has
+one more field, `Obsolete` for obsoleted config properties.
+
 #### Enumeration Pattern
 
 JavaScript functions often accept only a fixed set of constants, such
@@ -506,3 +656,33 @@ is limited to a specific set of constants, specified as either inlines
 or strings literals.  See `Pattern.EnumInlines` and
 `Pattern.EnumStrings`, both of which generate `Class` values.
 
+## Assembly and Namespaces
+
+You have to provide the WIG compiler with a single `CodeModel.Assembly`
+value as described in the "Getting Started" section.
+Construct this with the `Assembly` helper which takes a list of
+`CodeModel.Namespace` values which can be created with the `Namespace` helper
+specifying its name and a list of `CodeModel.NamespaceEntity` values.
+These latter can be type definitions or resource types.
+
+### Missing Type Definitions
+
+If you have a type definition which you refer to but does not get included in a
+namespace in the assembly definition, when building the library, you will get
+an error.
+
+## Resources
+
+You can define WebSharper resource classes using the `Resource` function.
+Pass it to `AssemblyWide` to make the resource loaded if anything from the
+currently created assembly is used.
+
+    Namespace "WebSharper.JQuery.Resources" [
+        Resource "JQuery" "http://code.jquery.com/jquery-1.11.2.min.js"
+        |> AssemblyWide
+    ]
+
+Use the `Requires` helper to add a list of defined resources as a dependency to a
+type definition or another resource definition.
+Use the `RequiresExternal` to add a list of resource classes from another assembly
+to a type definition or a resource definition.
