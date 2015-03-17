@@ -922,18 +922,18 @@ module Definition =
 
                 "getJSON" =>
                     T<string>?url *
-                    !?(T<obj*string->unit>)?callback ^->
+                    !?(T<obj> * T<string> ^-> T<unit>)?callback ^->
                     JqXHR
 
                 "getJSON" =>
                     T<string>?url *
                     (T<string> + T<obj>)?data *
-                    !?(T<obj*string->unit>)?callback ^->
+                    !?(T<obj> * T<string> ^-> T<unit>)?callback ^->
                     JqXHR
 
                 "getScript" =>
                     T<string>?url *
-                    !?(T<obj*string->unit>)?callback ^->
+                    !?(T<obj> * T<string> ^-> T<unit>)?callback ^->
                     JqXHR
 
                 "globalEval" => T<string->obj>
