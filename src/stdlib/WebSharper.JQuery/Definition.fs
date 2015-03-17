@@ -25,7 +25,7 @@ open WebSharper.InterfaceGenerator
 
 module Definition =
 
-    let JQ = Type.New()
+    let JQ = Class "jQuery"
 
     let Event =
         Class "Event"
@@ -81,7 +81,7 @@ module Definition =
         "xml html script json jsonp text".Split ' '
         |> Pattern.EnumStrings "DataType"
 
-    let JqXHR = Type.New ()
+    let JqXHR = Class "jQuery.jqXHR"
     let XmlHttpRequest = Class "XmlHttpRequest" // TODO: XmlHttpRequest definition
 
     let AjaxSettings =
@@ -134,7 +134,7 @@ module Definition =
                 ]
         }
 
-    let Promise = Type.New ()
+    let Promise = Class "Promise"
 
     let AnimateSettings =
         Pattern.Config "AnimateSettings" {
@@ -206,8 +206,7 @@ module Definition =
         ]
     
     let PromiseClass =
-        Class "Promise"
-        |=> Promise
+        Promise
         |+> Instance [
             "always" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
             "done" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
@@ -264,7 +263,7 @@ module Definition =
         ]
 
     let JqXHRClass =
-        Class "jQuery.jqXHR"
+        JqXHR
         |=> Inherits Promise
         |+> Instance [
             "readyState" =? T<int>
@@ -279,12 +278,10 @@ module Definition =
             "statusCode" => T<unit> ^-> T<obj>
             "abort" => T<unit> ^-> T<unit>
         ]
-        |=> JqXHR
 
     /// JQuery class
     let JQueryClass =
-        Class "jQuery"
-        |=> JQ
+        JQ
         |+> Instance
             [
                 "ignore" =? T<unit>

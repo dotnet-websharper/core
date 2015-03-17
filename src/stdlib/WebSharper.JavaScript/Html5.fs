@@ -811,13 +811,11 @@ module TypedArrays =
 
 
     let ArrayBuffer =
-        let ArrayBuffer = Type.New()
         Class "ArrayBuffer"
-        |=> ArrayBuffer
         |+> Instance [
                 "byteLength" =? T<int>
                 /// Warning: although part of the spec, may not work in IE10 as of 6/6/2013.
-                "slice" => T<int> * T<int> ^-> ArrayBuffer
+                "slice" => T<int> * T<int> ^-> TSelf
             ]
         |+> Static [ Constructor T<int> ]
 
@@ -865,14 +863,12 @@ module TypedArrays =
             ]
 
     let private MakeTypedArray typedArray (elementType: Type.Type) =
-        let self = Type.New()
         Class typedArray
-        |=> self
         |=> Inherits ArrayBufferView
         |+> Static [
                 Constructor T<unit>
                 Constructor T<int>
-                Constructor self
+                Constructor TSelf
                 Constructor (Type.ArrayOf elementType)
                 Constructor (ArrayBuffer?buffer * !? T<int>?byteOffset * !? T<int>?length)
                 "BYTES_PER_ELEMENT" =? T<int>
@@ -885,9 +881,9 @@ module TypedArrays =
                 "set" =>
                     T<int>?offset * elementType?value ^-> T<unit>
                     |> WithInline "void($this[$offset]=$value)"
-                "set" => self?array * !? T<int>?offset ^-> T<unit>
+                "set" => TSelf?array * !? T<int>?offset ^-> T<unit>
                 "set" => (Type.ArrayOf elementType)?array * !? T<int>?offset ^-> T<unit>
-                "subarray" => T<int64>?``begin`` * T<int>?``end`` ^-> self
+                "subarray" => T<int64>?``begin`` * T<int>?``end`` ^-> TSelf
             ]
 
     let Int8Array = MakeTypedArray "Int8Array" T<sbyte>
@@ -912,17 +908,15 @@ module File =
         }
 
     let Blob =
-        let Blob = Type.New()
         Class "Blob"
-        |=> Blob
         |+> Static [
                 Constructor T<unit>
-                Constructor ((Type.ArrayOf TypedArrays.ArrayBuffer + Type.ArrayOf TypedArrays.ArrayBufferView + Blob + T<string>) * !?BlobPropertyBag)
+                Constructor ((Type.ArrayOf TypedArrays.ArrayBuffer + Type.ArrayOf TypedArrays.ArrayBufferView + TSelf + T<string>) * !?BlobPropertyBag)
             ]
         |+> Instance [
                 "size" =? T<int>
                 "type" =? T<string>
-                "slice" => T<int>?start * T<int>?``end`` * T<string>?contentType ^-> Blob
+                "slice" => T<int>?start * T<int>?``end`` * T<string>?contentType ^-> TSelf
                 "close" => T<unit> ^-> T<unit>
             ]
 
@@ -944,17 +938,15 @@ module File =
             ]
 
     let FileList =
-        let FileList = Type.New()
         Class "FileList"
-        |=> FileList
         |+> Instance [
                 "item" => T<int> ^-> File
                 "length" =? T<int>
             ]
         |+> Static [
-                "ofElement" => Dom.Interfaces.Element?input ^-> FileList
+                "ofElement" => Dom.Interfaces.Element?input ^-> TSelf
                 |> WithInline "$input.files"
-                "ofEvent" => ProgressEvent?event ^-> FileList
+                "ofEvent" => ProgressEvent?event ^-> TSelf
                 |> WithInline "$event.target.files"
             ]
 
@@ -1008,27 +1000,25 @@ module File =
 
 module WebGL =
 
-    let RenderingContext = Type.New()
-    let ContextAttributes = Type.New()
-    let Object = Type.New()
-    let Buffer = Type.New()
-    let Framebuffer = Type.New()
-    let Program = Type.New()
-    let Renderbuffer = Type.New()
-    let Shader = Type.New()
-    let Texture = Type.New()
-    let UniformLocation = Type.New()
-    let ActiveInfo = Type.New()
-    let Enum = Type.New()
-    let DataView = Type.New()
+    let RenderingContext = Class "RenderingContext"
+    let ContextAttributes = Class "ContextAttributes"
+    let Object = Interface "Object"
+    let Buffer = Interface "Buffer"
+    let Framebuffer = Interface "Framebuffer"
+    let Program = Interface "Program"
+    let Renderbuffer = Interface "Renderbuffer"
+    let Shader = Interface "Shader"
+    let Texture = Interface "Texture"
+    let UniformLocation = Interface "UniformLocation"
+    let ActiveInfo = Class "ActiveInfo"
+    let Enum = Class "Enum"
+    let DataView = Class "DataView"
 
     let EnumClass =
-        Class "Enum"
-        |=> Enum
+        Enum
 
     let DataViewClass =
-        Class "DataView"
-        |=> DataView
+        DataView
         |=> Inherits TypedArrays.ArrayBufferView
         |+> Static [
                 Constructor (TypedArrays.ArrayBuffer * T<int> * T<int>)
@@ -1071,8 +1061,7 @@ module WebGL =
             ]
 
     let RenderingContextClass =
-        Class "RenderingContext"
-        |=> RenderingContext
+        RenderingContext
         |+> Instance
             [
                 // GLEnum constants
@@ -1538,55 +1527,42 @@ module WebGL =
             ]
 
     let ContextAttributesClass =
-        Pattern.Config "ContextAttributes" {
-            Required = []
-            Optional =
-                [
-                    "alpha", T<bool>
-                    "depth", T<bool>
-                    "stencil", T<bool>
-                    "antialias", T<bool>
-                    "premultipliedAlpha", T<bool>
-                    "preserveDrawingBuffer", T<bool>
-                ]
-        }
-        |=> ContextAttributes
+        ContextAttributes
+        |+> Pattern.OptionalFields [
+                "alpha", T<bool>
+                "depth", T<bool>
+                "stencil", T<bool>
+                "antialias", T<bool>
+                "premultipliedAlpha", T<bool>
+                "preserveDrawingBuffer", T<bool>
+            ]
 
     let ObjectClass =
-        Interface "Object"
-        |=> Object
+        Object
 
     let BufferClass =
-        Interface "Buffer"
-        |=> Buffer
+        Buffer
 
     let FramebufferClass =
-        Interface "Framebuffer"
-        |=> Framebuffer
+        Framebuffer
 
     let ProgramClass =
-        Interface "Program"
-        |=> Program
+        Program
 
     let RenderbufferClass =
-        Interface "Renderbuffer"
-        |=> Renderbuffer
+        Renderbuffer
 
     let ShaderClass =
-        Interface "Shader"
-        |=> Shader
+        Shader
 
     let TextureClass =
-        Interface "Texture"
-        |=> Texture
+        Texture
 
     let UniformLocationClass =
-        Interface "UniformLocation"
-        |=> UniformLocation
+        UniformLocation
 
     let ActiveInfoClass =
-        Class "ActiveInfo"
-        |=> ActiveInfo
+        ActiveInfo
         |+> Instance
             [
                 "size" =? T<int>

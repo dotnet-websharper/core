@@ -121,6 +121,7 @@ module CodeModel =
             }
 
         /// Assigns the associated type.
+        [<System.Obsolete>]
         static member ( |=> )<'T when 'T :> TypeDeclaration>
             (this: 'T, t: Type.IType) =
                 let x = this.Clone() :?> 'T
