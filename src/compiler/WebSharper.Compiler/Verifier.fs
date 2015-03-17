@@ -27,7 +27,7 @@ module R = WebSharper.Core.Reflection
 let (|Async|_|) (t: TypeReference) =
     match t.Shape with
     | TypeShape.GenericInstanceType [x]
-        when t.FullName = "Microsoft.FSharp.Control.FSharpAsync`1" ->
+        when t.FullName.StartsWith "Microsoft.FSharp.Control.FSharpAsync`1" ->
             Some x
     | _ ->
         None
@@ -110,7 +110,11 @@ type State(logger: Logger) =
                     if canEncodeToJson t
                         then Correct
                         else Incorrect "Cannot encode the return type to JSON."
-                | Some t -> Incorrect "Synchronous remote methods are strongly advised against; consider returning an Async<'T> instead."
+                | Some t ->
+                    if canEncodeToJson t
+                        then "Synchronous remote methods are strongly advised against; consider returning an Async<'T>."
+                        else "Cannot encode the return type to JSON."
+                    |> Incorrect
 
     let getWebControlError (t: TypeDefinition) : Status =
         if not (canEncodeToJson t) then
