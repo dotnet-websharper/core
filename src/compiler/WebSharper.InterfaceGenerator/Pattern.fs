@@ -40,6 +40,36 @@ module Pattern =
     /// are strings with their names.
     let EnumStrings name (words: seq<string>) =
         EnumInlines name [for w in words -> (w, Util.Quote w)]
+               
+    /// Generates properties for JavaSrcipt fields and an object constructor setting all of it.
+    let RequiredFields (required: seq<string * Type.Type>) =
+        let ctor : Type.Parameters =
+            { This = None
+              Variable = None
+              Arguments =
+                [ for (n, t) in required ->
+                    (t :> Type.IParameter).Parameter |=> n
+                ]
+            }
+        Instance [
+            yield ObjectConstructor ctor :> _ 
+            for (n, t) in required -> n =@ t :> _
+        ]
+
+    /// Generates setters for optional JavaScript fields and properties named `...Opt` with
+    /// getting. 
+    let OptionalFields (optional: seq<string * Type.Type>) =
+        Instance [
+            for (n, t) in optional do
+                yield n =! t :> _
+                yield n + "Opt" =@ !?t :> _
+        ]
+
+    /// Generates properties marked obsolete.
+    let ObsoleteFields (obsolete: seq<string * Type.Type>) =
+        Instance [
+            for (n, t) in obsolete -> n =@ t :> _
+        ]
 
     /// Represents the properties of a configuration object type
     /// to be used by the Config function.

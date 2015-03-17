@@ -50,32 +50,27 @@ type definitions in current WIG project.
 
 All operators and helper functions work non-desctructively.
 Type definitions are automatically given a unique ID, this defines identity.
-`Type.New()` creates an empty type definition with a new ID.
-Adding members and attributes on the type definition does not change its ID,
-however the `|=>` operator takes the ID of the right hand side, and sets it
-on a clone of the left hand side. 
+Adding members and attributes on the type definition does not change its ID. 
 This allows mutual recursion between types:
 
-    let A = Type.New()
-    let B = Type.New()
+    let A = Class "A"
+    let B = Class "B"
     
     let ADef =
-        Class "A"
-        |=> A 
+        A 
         |+> Instance [
             "getB" => T<unit> ^-> B   
         ]
     let BDef =
-        Class "B"
-        |=> B 
+        B 
         |+> Instance [
             "getA" => T<unit> ^-> A   
         ]
 
 Remember that using `A` and `ADef` as types is equivalent after these
 `let` bindings because their ID is the same.
-However only `ADef` is a full type definition value, you must use this when
-you include the type definition in a namespace or nested in a class.
+However only `ADef` is a full type definition value, `A` does not have the member, so
+you must use `ADef` to include the type definition in a namespace or nested in a class.
 
 ### Operator Reference
 
@@ -617,37 +612,37 @@ The benefit of using F# for generating the bindings is that repetitive
 tasks or patterns can be distributed as functions.  Several such
 patterns are pre-defined in the standard library.
 
-### Configuration Class Pattern
+### Configuration Class Patterns
 
-This pattern is useful for describing JavaScript configuarion objects.
+These patterns for constructing member lists are useful for describing
+JavaScript configuarion objects.
 Configuration objects typically are simple collections of fields, most
 of them optional, that are used to describe how another object it to
 be constructed or operate.  Let us take a simple example:
 
     let MyConfig : Class =
-        Pattern.Config "classname" {
-            Required =
-            [
+        Class "classname"
+        |+> Pattern.RequiredFields [ 
                 "name", T<string>
             ]
-            Optional =
-            [
+        |+> Pattern.OptionalFields [
                 "width", T<int>
                 "height", T<int>
             ]
-        }
 
 This definition would produce a class useable from F# that would
 compile to simple JavaScript object literals:
 
     MyConfig("Alpha", Width=140)
 
-#### Confifuration Class With Obsolete
+The `Width` property is write-only, but there is also a `WidthOpt`
+property generated which allow access to the optional field typed as
+an F# `option` value.
 
-The `Pattern.ConfigObs` can be used similarly, the record expected has
-one more field, `Obsolete` for obsoleted config properties.
+`Pattern.ObsoleteFields` can be used similarly, to create a list of
+properties with the `Obsolete` attribute.
 
-#### Enumeration Pattern
+#### Enumeration Patterns
 
 JavaScript functions often accept only a fixed set of constants, such
 as strings.  Typing such parameters with `string` would be misleading

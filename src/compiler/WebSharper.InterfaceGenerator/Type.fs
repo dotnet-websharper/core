@@ -30,7 +30,7 @@ module Type =
     /// Represents type identifiers that are used to match types to classes.
     [<Sealed>]
     type Id (?name) =
-        member val Name = defaultArg name "Unnamed" with get, set
+        member val Name = defaultArg name "" with get, set
 
     /// Represents types used in bindings.
     type Type =
@@ -218,6 +218,7 @@ module Type =
         abstract member Parameters : Parameters
 
     /// Constructs a new `ClassType`.
+    [<System.Obsolete "Use Class or Interface for the initial definitions">]
     let New () = DeclaredType (Id ())
 
     /// Constructs a new `TupleType`.

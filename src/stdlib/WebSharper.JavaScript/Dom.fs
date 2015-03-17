@@ -31,15 +31,15 @@ module private Util =
 [<AutoOpen>]
 module private Types =
     let DOMTimeStamp = T<System.DateTime>
-    let DocumentType = Type.New ()
-    let Document = Type.New ()
-    let NodeList = Type.New ()
-    let NamedNodeMap = Type.New ()
-    let Element = Type.New ()
-    let TypeInfo = Type.New ()
-    let DOMLocator = Type.New ()
-    let Event = Type.New ()
-    let AbstractView = Type.New ()
+    let DocumentType = Class "DocumentType"
+    let Document = Class "Document"
+    let NodeList = Class "NodeList"
+    let NamedNodeMap = Class "NamedNodeMap"
+    let Element = Class "Element"
+    let TypeInfo = Class "TypeInfo"
+    let DOMLocator = Class "DOMLocator"
+    let Event = Class "Event"
+    let AbstractView = Class "AbstractView"
 
 [<AutoOpen>]
 module private Enumerations =
@@ -199,45 +199,43 @@ module Interfaces =
             ]
 
     let Node =
-        let Node = Type.New ()
         Class "Node"
-        |=> Node
         |=> Inherits EventTarget
         |+> Instance [
                 "attributes" =@ NamedNodeMap
                 "baseURI" =@ T<string>
                 "childNodes" =@ NodeList
-                "firstChild" =? Node
-                "lastChild" =@ Node
+                "firstChild" =? TSelf
+                "lastChild" =@ TSelf
                 "localName" =@ T<string>
                 "namespaceURI" =@ T<string>
-                "nextSibling" =@ Node
+                "nextSibling" =@ TSelf
                 "nodeName" =@ T<string>
                 "nodeType" =@ NodeType
                 "nodeValue" =@ T<string>
                 "ownerDocument" =@ Document
-                "parentNode" =@ Node
+                "parentNode" =@ TSelf
                 "prefix" =@ T<string>
-                "previousSibling" =@ Node
+                "previousSibling" =@ TSelf
                 "textContent" =@ T<string>
-                "appendChild" => Node?newChild ^-> Node
-                "cloneNode" => T<bool>?deep ^-> Node
-                "compareDocumentPosition" => Node ^-> DocumentPosition
+                "appendChild" => TSelf?newChild ^-> TSelf
+                "cloneNode" => T<bool>?deep ^-> TSelf
+                "compareDocumentPosition" => TSelf ^-> DocumentPosition
                 "getFeature" => T<string>?feature * T<string>?version ^-> T<obj>
                 "getUserData" => T<string>?key ^-> T<obj>
                 "hasAttributes" => T<unit->bool>
                 "hasChildNodes" => T<unit->bool>
-                "insertBefore" => Node?newChild * Node?refChild ^-> Node
+                "insertBefore" => TSelf?newChild * TSelf?refChild ^-> TSelf
                 "isDefaultNamespace" => T<string->bool>
-                "isEqualNode" => Node ^-> T<bool>
-                "isSameNode" => Node ^-> T<bool>
+                "isEqualNode" => TSelf ^-> T<bool>
+                "isSameNode" => TSelf ^-> T<bool>
                 "isSupported" =>
                     T<string>?feature * T<string>?version ^-> T<bool>
                 "lookupNamespaceURI" => T<string->string>
                 "lookupPrefix" => T<string->string>
                 "normalize" => T<unit->unit>
-                "removeChild" => Node?oldChild ^-> Node
-                "replaceChild" => Node?newChild * Node?oldChild ^-> Node
+                "removeChild" => TSelf?oldChild ^-> TSelf
+                "replaceChild" => TSelf?newChild * TSelf?oldChild ^-> TSelf
                 "setUserData" =>
                     T<string>?key *
                     T<obj>?data *
@@ -245,8 +243,7 @@ module Interfaces =
             ]
 
     let NodeList =
-        Class "NodeList"
-        |=> NodeList
+        NodeList
         |+> Instance [
                 "item" => T<int>?index ^-> Node
                 |> WithInline "$this[$index]"
@@ -254,8 +251,7 @@ module Interfaces =
             ]
 
     let NamedNodeMap =
-        Class "NamedNodeMap"
-        |=> NamedNodeMap
+        NamedNodeMap
         |+> Instance [
                 "getNamedItem" => T<string> ^-> Node
                 "setNamedItem" => Node ^-> Node
@@ -295,8 +291,7 @@ module Interfaces =
             ]
 
     let Element =
-        Class "Element"
-        |=> Element
+        Element
         |=> Inherits Node
         |+> Instance [
                 "schemaTypeInfo" =@ TypeInfo
@@ -322,15 +317,13 @@ module Interfaces =
             ]
 
     let Text =
-        let Text = Type.New ()
         Class "Text"
-        |=> Text
         |=> Inherits CharacterData
         |+> Instance [
-                "splitText" => T<int> ^-> Text
+                "splitText" => T<int> ^-> TSelf
                 "isElementContentWhiteSpace" =@ T<bool>
                 "wholeText" =@ T<string>
-                "replaceWholeText" => T<string> ^-> Text
+                "replaceWholeText" => T<string> ^-> TSelf
             ]
 
     let Comment =
@@ -338,8 +331,7 @@ module Interfaces =
         |=> Inherits CharacterData
 
     let TypeInfo =
-        Class "TypeInfo"
-        |=> TypeInfo
+        TypeInfo
         |+> Instance [
                 "typeName" =@ T<string>
                 "typeNamespace" =@ T<string>
@@ -375,8 +367,7 @@ module Interfaces =
             ]
 
     let DOMLocator =
-        Class "DOMLocator"
-        |=> DOMLocator
+        DOMLocator
         |+> Instance [
                 "lineNumber" =@ T<int>
                 "columnNumber" =@ T<int>
@@ -400,8 +391,7 @@ module Interfaces =
         |=> Inherits Text
 
     let DocumentType =
-        Class "DocumentType"
-        |=> DocumentType
+        DocumentType
         |+> Instance [
                 "name" =@ T<string>
                 "entities" =@ NamedNodeMap
@@ -465,8 +455,7 @@ module Interfaces =
             ]
 
     let Event =
-        Class "Event"
-        |=> Event
+        Event
         |+> Static [
                 Constructor T<unit>
             ]
@@ -501,8 +490,7 @@ module Interfaces =
             ]
 
     let AbstractView =
-        Class "AbstractView"
-        |=> AbstractView
+        AbstractView
         |+> Instance [
                 "document" =@ DocumentView
             ]
@@ -816,8 +804,7 @@ module Interfaces =
             ]
 
     let Document =
-        Class "Document"
-        |=> Document
+        Document
         |=> Inherits Node
         |+> Instance [
                 "doctype" =@ DocumentType
