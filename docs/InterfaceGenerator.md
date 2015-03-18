@@ -26,9 +26,9 @@ You get a small example in the `Main.fs` file, which ends in this:
 
     [<Sealed>]
     type Extension() =
-    interface IExtension with
-    member ext.Assembly =
-    Definition.Assembly
+        interface IExtension with
+            member ext.Assembly =
+                Definition.Assembly
 
     [<assembly: Extension(typeof<Extension>)>]
     do ()
@@ -58,11 +58,11 @@ This allows mutual recursion between types:
     let B = Class "B"
 
     A |+> Instance [
-    "getB" => T<unit> ^-> B
+        "getB" => T<unit> ^-> B
     ] |> ignore // "GetB" method was addded to method list of A
 
     B |+> Instance [
-    "getA" => T<unit> ^-> A
+        "getA" => T<unit> ^-> A
     ] |> ignore // "GetA" method was addded to method list of B
 
 Example for immutability of members:
@@ -323,7 +323,6 @@ are the full and abbreviated syntax forms:
             "ReadOnly"  =? T<int>
             "WriteOnly" =! T<int>
             "Mutable"   =@ T<int>
-
         ]
 
 #### Indexed properties
