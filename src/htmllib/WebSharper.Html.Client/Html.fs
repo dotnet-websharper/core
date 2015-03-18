@@ -100,7 +100,7 @@ module internal Implementation =
 
             [<JavaScript>]
             member this.GetProperty node name =
-                As <| JQuery.Of(node).Attr(name)
+                As <| JQuery.Of(node).Prop(name)
 
             [<JavaScript>]
             member this.SetProperty node name value =
