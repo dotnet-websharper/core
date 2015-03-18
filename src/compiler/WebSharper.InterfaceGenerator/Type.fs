@@ -30,7 +30,19 @@ module Type =
     /// Represents type identifiers that are used to match types to classes.
     [<Sealed>]
     type Id (?name) =
+        static let mutable last = -1
+        let id = System.Threading.Interlocked.Increment(&last)
+        
         member val Name = defaultArg name "" with get, set
+
+        override this.GetHashCode() = id
+
+        member private this.Id = id
+
+        override this.Equals(other) =
+            match other with
+            | :? Id as o -> id = o.Id
+            | _ -> false
 
     /// Represents types used in bindings.
     type Type =

@@ -43,122 +43,126 @@ WIG build task.
 Defining classes, interfaces and member signatures requires an
 abstraction for types.  Types are represented as
 `WebSharper.InterfaceGenerator.Type.IType` values.
-These values can describe both types from other assemblies (external) or 
+These values can describe both types from other assemblies (external) or
 type definitions in current WIG project.
 
 ### Immutability and Identity
 
-All operators and helper functions work non-desctructively.
-Type definitions are automatically given a unique ID, this defines identity.
-Adding members and attributes on the type definition does not change its ID. 
+Adding members or attributes to a type declaration is mutable and returns the
+type declaration for chaining.
+However, all operators and helper functions work non-desctructively on member,
+attribute and resource definitions.
 This allows mutual recursion between types:
 
     let A = Class "A"
     let B = Class "B"
-    
-    let ADef =
-        A 
-        |+> Instance [
-            "getB" => T<unit> ^-> B   
-        ]
-    let BDef =
-        B 
-        |+> Instance [
-            "getA" => T<unit> ^-> A   
-        ]
 
-Remember that using `A` and `ADef` as types is equivalent after these
-`let` bindings because their ID is the same.
-However only `ADef` is a full type definition value, `A` does not have the member, so
-you must use `ADef` to include the type definition in a namespace or nested in a class.
+    A |+> Instance [
+        "getB" => T<unit> ^-> B
+    ] |> ignore // "GetB" method was addded to method list of A
+
+    B |+> Instance [
+        "getA" => T<unit> ^-> A
+    ] |> ignore // "GetA" method was addded to method list of B
+
+Example for immutability of members:
+
+    let GetCount = Method "getCount" (T<unit> ^-> T<int>)
+    let GetCountObs = GetCount |> Obsolete
+
+    A |+> Instance [ GetCount ]
+    |> ignore // A will have "GetCount" without the Obsolete attribute
+
+    B |+> Instance [ GetCountObs ]
+    |> ignore // B will have "GetCount" with the Obsolete attribute
 
 ### Operator Reference
 
 <table>
-<thead>
-<tr>
-    <td>Function</td>
-    <td>Operator</td>
-    <td>Description</td>
-</tr>
-</thead>
-<tbody>
-<tr>
-    <td><code>Method</code></td>
-    <td><code>=></code></td>
-    <td>Defines a method from name and signature</td>
-</tr>
-<tr>
-    <td><code>Property</code></td>
-    <td><code>=&#64;</code></td>
-    <td>Defines a property with a getter and setter</td>
-</tr>
-<tr>
-    <td><code>Getter</code></td>
-    <td><code>=?</code></td>
-    <td>Defines a read-only property</td>
-</tr>
-<tr>
-    <td><code>Setter</code></td>
-    <td><code>=!</code></td>
-    <td>Defines a write-only property</td>
-</tr>
-<tr>
-    <td></td>
-    <td><code>?</code></td>
-    <td>Defines a named parameter</td>
-</tr>
-<tr>
-    <td></td>
-    <td><code>^-></code></td>
-    <td>Defines a function type</td>
-</tr>
-<tr>
-    <td></td>
-    <td><code>-*</code></td>
-    <td>Defines the type of the <code>this</code> parameter on a function</td>
-</tr>
-<tr>
-    <td></td>
-    <td><code>*+</code></td>
-    <td>Defines the <code>rest</code> parameter (ParamArray in .NET)</td>
-</tr>
-<tr>
-    <td><code>Type.ArrayOf</code></td>
-    <td><code>!|</code></td>
-    <td>Defines an array type from its element type</td>
-</tr>
-<tr>
-    <td></td>
-    <td><code>!+</code></td>
-    <td>Defines <code>arguments</code> parameter (single ParamArray in .NET)</td>
-</tr>
-<tr>
-    <td></td>
-    <td><code>!?</code></td>
-    <td>Defines an optional parameter, property or return type</td>
-</tr>
-<tr>
-    <td></td>
-    <td><code>*</code></td>
-    <td>Defines a tuple type or joins parameters</td>
-</tr>
-<tr>
-    <td></td>
-    <td><code>+</code></td>
-    <td>Defines an overloaded parameter or a <code>Choice</code> property or return type</td>
-</tr>
-<tr>
-    <td></td>
-    <td><code>|=></code></td>
-    <td>Copies type definition identifier or applies attributes</td>
-</tr>
-<tr>
-    <td></td>
-    <td><code>|+></code></td>
-    <td>Adds members to a type definition</td>
-</tr>
-</tbody>
+    <thead>
+        <tr>
+            <td>Function</td>
+            <td>Operator</td>
+            <td>Description</td>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>Method</code></td>
+            <td><code>=></code></td>
+            <td>Defines a method from name and signature</td>
+        </tr>
+        <tr>
+            <td><code>Property</code></td>
+            <td><code>=&#64;</code></td>
+            <td>Defines a property with a getter and setter</td>
+        </tr>
+        <tr>
+            <td><code>Getter</code></td>
+            <td><code>=?</code></td>
+            <td>Defines a read-only property</td>
+        </tr>
+        <tr>
+            <td><code>Setter</code></td>
+            <td><code>=!</code></td>
+            <td>Defines a write-only property</td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><code>?</code></td>
+            <td>Defines a named parameter</td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><code>^-></code></td>
+            <td>Defines a function type</td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><code>-*</code></td>
+            <td>Defines the type of the <code>this</code> parameter on a function</td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><code>*+</code></td>
+            <td>Defines the <code>rest</code> parameter (ParamArray in .NET)</td>
+        </tr>
+        <tr>
+            <td><code>Type.ArrayOf</code></td>
+            <td><code>!|</code></td>
+            <td>Defines an array type from its element type</td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><code>!+</code></td>
+            <td>Defines <code>arguments</code> parameter (single ParamArray in .NET)</td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><code>!?</code></td>
+            <td>Defines an optional parameter, property or return type</td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><code>*</code></td>
+            <td>Defines a tuple type or joins parameters</td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><code>+</code></td>
+            <td>Defines an overloaded parameter or a <code>Choice</code> property or return type</td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><code>|=></code></td>
+            <td>Copies type definition identifier or applies attributes</td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><code>|+></code></td>
+            <td>Adds members to a type definition</td>
+        </tr>
+    </tbody>
 </table>
 
 ### Side cases
@@ -176,8 +180,8 @@ as argument, you must convert it to a single parameter explicitly:
 ### External Types
 
 External types can be defined by using the `T` type function, for example
-`T<int>`, `T<list<string>>`, `T<MyOtherLibrary.SomeType>`.
-        
+`T<int>`, `<int>`, `T<list<string>>`, `<list<string>>`, `T<MyOtherLibrary.SomeType>`.
+
 ### Type Combinators
 
 Simpler types can be combined to form more complex types, including
@@ -185,7 +189,7 @@ arrays, tuples, function types, and generic instantiations.
 
     Type.ArrayOf T<int>
         // array, equivalent to T<int[]>
-        // alternate syntax: !| T<int>  
+        // alternate syntax: !| T<int>
 
     T<int> * T<float> * T<string>
         // tuple, equivalent to T<int * float * string>
@@ -224,8 +228,9 @@ The type of the callback is then compiled to a delegate type in F#,
 
 ### Self Placeholder
 
-The `TSelf` type value will be evaluated to the type the defined member is added to
-when the member definition is used for compilation.
+The `TSelf` type value will be evaluated to the type the defined member is added to.
+This allows creating a member, list of members or `ClassMembers` value (list of members
+marked with `Instance` or `Static`) and reuse it by adding it to multiple type declarations.
 
 ## Defining Members
 
@@ -318,9 +323,8 @@ are the full and abbreviated syntax forms:
             "ReadOnly"  =? T<int>
             "WriteOnly" =! T<int>
             "Mutable"   =@ T<int>
-   
         ]
-        
+
 #### Indexed properties
 
 Properties can have indexers. `"" =@ T<string> |> Indexed T<int>` creates
@@ -516,13 +520,13 @@ WIG automatically converts between these function calling conventions.
 #### Choice
 
 Union types (for example `T<int> + T<string>`) can create method overloads,
-but also `Choice` typed properties or method return types when the cases can be 
+but also `Choice` typed properties or method return types when the cases can be
 distinguished in JavaScript using the `typeof`, `Array.isArray` and the
 `arr.length` functions.
 In F# this means either at most one array case or possibly multiple tuple cases
-with all different length, at most one number type (including `DateTime` and 
+with all different length, at most one number type (including `DateTime` and
 `TimeSpan`, which are proxied as a Number), `string`, `bool`, and at most one other
-object type. 
+object type.
 If there are cases which can't be separated, the type will default to `obj`.
 
 #### Option
@@ -539,8 +543,8 @@ You can add a custom defined inline transformation with the `WithInterop` helper
 This takes a record with an `In` and an `Out` field, both `string -> string`.
 For example:
 
-    let Index = 
-        T<int> |> WithInterop { 
+    let Index =
+        T<int> |> WithInterop {
             In  = fun s -> s + " - 1"
             Out = fun s -> s + " + 1"
         }
@@ -552,10 +556,10 @@ On method parameters and property setters the `In` function will be used on the
 parameter or property value in the automatic inline. On method return values and
 property getters the `Out` function will be used on the whole inline of the
 method or property getter.
- 
+
 #### Erasing Inline Transformations
 
-Use the `WithNoInterop` helper to clean any automatic and custom inline 
+Use the `WithNoInterop` helper to clean any automatic and custom inline
 transformations from a `Type.Type` value.
 
 ### Customizations
@@ -622,7 +626,7 @@ be constructed or operate.  Let us take a simple example:
 
     let MyConfig : Class =
         Class "classname"
-        |+> Pattern.RequiredFields [ 
+        |+> Pattern.RequiredFields [
                 "name", T<string>
             ]
         |+> Pattern.OptionalFields [

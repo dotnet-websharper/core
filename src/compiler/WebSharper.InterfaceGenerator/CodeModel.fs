@@ -50,14 +50,19 @@ module CodeModel =
 
         member internal this.Clone() = (this.MemberwiseClone()) :?> Entity
 
-        /// Clones the specified entity object, invokes the
+        /// On type definitions, applies the update.
+        /// On other entities, clones the specified entity object, invokes the
         /// function to perform changes on it as side-effects and then
         /// returns the updated entity object.
         static member Update<'TEntity when 'TEntity :> Entity>
             f (x: 'TEntity) : 'TEntity =
-                let clone = x.Clone() :?> 'TEntity
-                f clone
-                clone
+                if x :> Entity :? TypeDeclaration then
+                    f x
+                    x  
+                else
+                    let clone = x.Clone() :?> 'TEntity
+                    f clone
+                    clone
 
     and TypeParameter =
         val Id : Type.Id
