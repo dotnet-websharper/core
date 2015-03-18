@@ -1598,8 +1598,7 @@ module WebSockets =
                 "binaryType" =@ T<string>
                 "send" => T<string->unit>
                 "send" => TypedArrays.ArrayBuffer ^-> T<unit>
-                (* TODO: describe FILE Api: http://dev.w3.org/2006/webapi/FileAPI *)
-                // "send" => Blob ^-> T<unit>
+                "send" => File.Blob ^-> T<unit>
             ]
         |+> Static [
                 Constructor T<string>
