@@ -20,18 +20,18 @@ WIG is included with the WebSharper installer.
 To create a new project select the "Extension" template from WebSharper templates.
 This project file contains the line required for the WIG build task to run.
 
-<WebSharperProject>InterfaceGenerator</WebSharperProject>
+    <WebSharperProject>InterfaceGenerator</WebSharperProject>
 
 You get a small example in the `Main.fs` file, which ends in this:
 
-[<Sealed>]
-type Extension() =
-interface IExtension with
-member ext.Assembly =
-Definition.Assembly
+    [<Sealed>]
+    type Extension() =
+    interface IExtension with
+    member ext.Assembly =
+    Definition.Assembly
 
-[<assembly: Extension(typeof<Extension>)>]
-do ()
+    [<assembly: Extension(typeof<Extension>)>]
+    do ()
 
 This exposes the value defined by `Definition.Assembly` to the WIG compiler.
 The library that you write is used just as a generator for this value,
@@ -54,27 +54,27 @@ However, all operators and helper functions work non-desctructively on member,
 attribute and resource definitions.
 This allows mutual recursion between types:
 
-let A = Class "A"
-let B = Class "B"
+    let A = Class "A"
+    let B = Class "B"
 
-A |+> Instance [
-"getB" => T<unit> ^-> B
-] |> ignore // "GetB" method was addded to method list of A
+    A |+> Instance [
+    "getB" => T<unit> ^-> B
+    ] |> ignore // "GetB" method was addded to method list of A
 
-B |+> Instance [
-"getA" => T<unit> ^-> A
-] |> ignore // "GetA" method was addded to method list of B
+    B |+> Instance [
+    "getA" => T<unit> ^-> A
+    ] |> ignore // "GetA" method was addded to method list of B
 
 Example for immutability of members:
 
-let GetCount = Method "getCount" (T<unit> ^-> T<int>)
-let GetCountObs = GetCount |> Obsolete
+    let GetCount = Method "getCount" (T<unit> ^-> T<int>)
+    let GetCountObs = GetCount |> Obsolete
 
-A |+> Instance [ GetCount ]
-|> ignore // A will have "GetCount" without the Obsolete attribute
+    A |+> Instance [ GetCount ]
+    |> ignore // A will have "GetCount" without the Obsolete attribute
 
-B |+> Instance [ GetCountObs ]
-|> ignore // B will have "GetCount" with the Obsolete attribute
+    B |+> Instance [ GetCountObs ]
+    |> ignore // B will have "GetCount" with the Obsolete attribute
 
 ### Operator Reference
 
@@ -180,8 +180,7 @@ as argument, you must convert it to a single parameter explicitly:
 ### External Types
 
 External types can be defined by using the `T` type function, for example
-`T<int>`<int>
-    ``, `T<list<string>>`<list<string>>`, `T<MyOtherLibrary.SomeType>`.
+`T<int>`, `<int>`, `T<list<string>>`, `<list<string>>`, `T<MyOtherLibrary.SomeType>`.
 
 ### Type Combinators
 
