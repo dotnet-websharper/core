@@ -142,6 +142,8 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
                 let mn = M.MethodNode m.Reference
                 deps.Connect mn self
                 visitMethod mn m
+            if not (List.isEmpty t.Properties) then
+                deps.Connect assem self
             List.iter vm t.Methods
             List.iter (visitProperty assem) t.Properties
             List.iter (visitType assem self) nested
