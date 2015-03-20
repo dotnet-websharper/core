@@ -22,7 +22,8 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <WebSharperTaskAssembly>$(MSBuildThisFileDirectory)/../build/$(Configuration)/WebSharper.MSBuild.dll</WebSharperTaskAssembly>
+    <WSMSBuildPath Condition="'$(WSMSBuildPath)' == ''">$(Configuration)</WSMSBuildPath>
+    <WebSharperTaskAssembly>$(MSBuildThisFileDirectory)/../build/$(WSMSBuildPath)/WebSharper.MSBuild.dll</WebSharperTaskAssembly>
     <WebSharperExplicitRefs>True</WebSharperExplicitRefs>
     <OtherFlags>--quotations-debug</OtherFlags>
     <WebSharperSourceMap>True</WebSharperSourceMap>

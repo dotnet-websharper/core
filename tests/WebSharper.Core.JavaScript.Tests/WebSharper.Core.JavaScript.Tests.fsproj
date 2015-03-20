@@ -1,10 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" TreatAsLocalProperty="Configuration">
   <PropertyGroup>
     <ProjectGuid>{198ac342-e6f2-4612-813c-905b81e5471d}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <Name>WebSharper.Core.JavaScript.Tests</Name>
     <Stage>compiler</Stage>
+    <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
+    <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
   </PropertyGroup>
   <Import Project="../../msbuild/FSharp.targets" />
   <ItemGroup>

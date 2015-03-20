@@ -1,9 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" TreatAsLocalProperty="Configuration">
   <PropertyGroup>
     <ProjectGuid>{bba692b3-ab48-4f2e-8a33-260b0dd09a9b}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.Sitelets.Tests</Name>
+    <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
+    <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
   </PropertyGroup>
   <Import Project="../../msbuild/FSharp.targets" />
   <Import Project="../../msbuild/WebSharper.Internal.targets" />
