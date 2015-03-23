@@ -1027,13 +1027,14 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
 
     let methodId (m: MethodDefinition) =
         let gen = if m.HasGenericParameters then "``" + string m.GenericParameters.Count else ""
-        sprintf "M:%s.%s%s(%s)" (typeRefId m.DeclaringType) m.Name gen
-            (
+        sprintf "M:%s.%s%s%s" (typeRefId m.DeclaringType) m.Name gen
+            (if m.Parameters.Count = 0 then "" else
                 seq {
                     for p in m.Parameters ->
                         typeRefId p.ParameterType
                 }
                 |> String.concat ","
+                |> sprintf "(%s)"
             )
 
     let visitMember name comment =
