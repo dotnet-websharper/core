@@ -999,20 +999,35 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
         XText(text)
 
     let rec typeRefId (t: TypeReference) : string =
+        let fullName (t: TypeReference) =
+            t.FullName.Replace("/", ".")
         if t.IsArray then
             let t = t :?> ArrayType
             match t.Rank with
             | 0 | 1 -> typeRefId t.ElementType + "[]"
             | k -> sprintf "%s, [%s]" (typeRefId t.ElementType) (String.replicate (k - 1) ",")
+        elif t.IsGenericInstance then
+            let t = t :?> GenericInstanceType
+            let untaggedName = t.FullName.[.. (fullName t).IndexOf '`' - 1]
+            let pars =
+                t.GenericArguments
+                |> Seq.map typeRefId
+                |> String.concat ","
+            sprintf "%s{%s}" untaggedName pars
+        elif t.IsGenericParameter then
+            let t = t :?> GenericParameter
+            match t.DeclaringMethod with
+            | null -> "`" + string t.Position
+            | _ -> "``" + string t.Position
         else
-            // TODO: generic types.
-            t.FullName
+            fullName t
 
     let propertyId (p: PropertyDefinition) =
         sprintf "P:%s.%s" (typeRefId p.DeclaringType) p.Name
 
     let methodId (m: MethodDefinition) =
-        sprintf "M:%s.%s(%s)" (typeRefId m.DeclaringType) m.Name
+        let gen = if m.HasGenericParameters then "``" + string m.GenericParameters.Count else ""
+        sprintf "M:%s.%s%s(%s)" (typeRefId m.DeclaringType) m.Name gen
             (
                 seq {
                     for p in m.Parameters ->
