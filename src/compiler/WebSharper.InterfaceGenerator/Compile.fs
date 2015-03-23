@@ -1026,8 +1026,13 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
         sprintf "P:%s.%s" (typeRefId p.DeclaringType) p.Name
 
     let methodId (m: MethodDefinition) =
+        let name =
+            match m.Name with
+            | ".ctor" -> "#ctor"
+            | ".cctor" -> "#cctor"
+            | n -> n
         let gen = if m.HasGenericParameters then "``" + string m.GenericParameters.Count else ""
-        sprintf "M:%s.%s%s%s" (typeRefId m.DeclaringType) m.Name gen
+        sprintf "M:%s.%s%s%s" (typeRefId m.DeclaringType) name gen
             (if m.Parameters.Count = 0 then "" else
                 seq {
                     for p in m.Parameters ->
