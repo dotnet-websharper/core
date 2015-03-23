@@ -36,6 +36,9 @@ type WebSharperTask =
     /// MSBuild $(Configuration) property.
     member Configuration : string with get, set
 
+    /// Path to the XML documentation file that the Interface Generator should generate.
+    member DocumentationFile : string with get, set
+
     /// Propagating EmbeddedResource group from MSBuild.
     member EmbeddedResources : ITaskItem [] with get, set
 

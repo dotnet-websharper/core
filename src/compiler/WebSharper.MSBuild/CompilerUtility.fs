@@ -33,6 +33,7 @@ module FE = FrontEnd
 type CompilerInput =
     {
         AssemblyFile : string
+        DocumentationFile : option<string>
         EmbeddedResources : list<string>
         KeyOriginatorFile : string
         ProjectDir : string
@@ -178,6 +179,7 @@ module CompilerJobModule =
                     InterfaceGenerator.CompilerOptions.Default(name.Name) with
                         AssemblyResolver = Some aR
                         AssemblyVersion = name.Version
+                        DocPath = input.DocumentationFile
                         EmbeddedResources = input.EmbeddedResources
                         ProjectDir = input.ProjectDir
                         ReferencePaths = input.References

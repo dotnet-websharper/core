@@ -41,6 +41,7 @@ module WebSharperTaskModule =
         {
             Command : string
             Configuration : string
+            DocumentationFile : string
             EmbeddedResources : ITaskItem []
             ItemInput : ITaskItem []
             ItemOutput : ITaskItem []
@@ -188,6 +189,10 @@ module WebSharperTaskModule =
                                 match GetProjectType settings with
                                 | Extension -> true
                                 | _ -> false
+                            DocumentationFile =
+                                if String.IsNullOrEmpty settings.DocumentationFile then
+                                    None
+                                else Some settings.DocumentationFile
                             IncludeSourceMap = settings.WebSharperSourceMap
                         }
                     for msg in out.Messages do
@@ -332,6 +337,7 @@ type WebSharperTask() =
     member val WebSharperHtmlDirectory = "" with get, set
     member val WebSharperProject = "" with get, set
     member val WebSharperSourceMap = "" with get, set
+    member val DocumentationFile = "" with get, set
 
     [<Required>]
     member val Command = "" with get, set
@@ -367,6 +373,7 @@ type WebSharperTask() =
         Execute {
             Command = this.Command
             Configuration = NotNull "Release" this.Configuration
+            DocumentationFile = NotNull "" this.DocumentationFile
             EmbeddedResources = NotNull [||] this.EmbeddedResources
             ItemInput = NotNull [||] this.ItemInput
             ItemOutput = NotNull [||] this.ItemOutput

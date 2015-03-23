@@ -25,6 +25,7 @@ open Microsoft.Build.Utilities
 type internal CompilerInput =
     {
         AssemblyFile : string
+        DocumentationFile : option<string>
         EmbeddedResources : list<string>
         KeyOriginatorFile : string
         ProjectDir : string
