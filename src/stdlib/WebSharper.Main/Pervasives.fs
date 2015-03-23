@@ -84,6 +84,11 @@ type OptionalFieldAttribute = A.OptionalFieldAttribute
 /// `discriminatorName` is the name of the field in which this tag is stored.
 type NamedUnionCasesAttribute = A.NamedUnionCasesAttribute
 
+/// Defines the format used to de/serialize a DateTime field or union case argument.
+/// The default is "o" (ISO 8601 round-trip format) for JSON serialization,
+/// and "yyyy-MM-dd-HH.mm.ss" for URL parsing.
+type DateTimeFormatAttribute = A.DateTimeFormatAttribute
+
 /// Re-exports Remoting.IRpcHandlerFactory.
 type IRpcHandlerFactory =
     WebSharper.Core.Remoting.IHandlerFactory

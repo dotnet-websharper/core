@@ -142,3 +142,15 @@ type NamedUnionCasesAttribute =
     /// The case is inferred from the field names. Every case must have at least one
     /// non-option-typed field whose name is unique across all cases of this union.
     new () = { inherit A() }
+
+/// Defines the format used to de/serialize a DateTime field or union case argument.
+/// The default is "o" (ISO 8601 round-trip format) for JSON serialization.
+[<Sealed; U(T.Property, AllowMultiple = true)>]
+type DateTimeFormatAttribute =
+    inherit A
+
+    /// Defines the format used to de/serialize a record or object field.
+    new (format: string) = { inherit A() }
+
+    /// Defines the format used to de/serialize the union case argument with the given name.
+    new (argumentName: string, format: string) = { inherit A() }
