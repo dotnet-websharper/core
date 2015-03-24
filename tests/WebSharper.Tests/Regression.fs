@@ -145,16 +145,16 @@ module Bug352 =
 
 // for bug #328
 type System.Object with
-    [<Inline "$this.test">]
+    [<Inline "$0.test">]
     member this.TestProperty = X<int>
 
-    [<Inline "$this.test">]
+    [<Inline "$0.test">]
     member this.TestMethod() = X<int>
 
-    [<Inline "$this.testf($x)">]
+    [<Inline "$0.testf($x)">]
     member this.TestMethod1 (x: int) = X<int[]>
 
-    [<Inline "$this.testf($x, $y)">]
+    [<Inline "$0.testf($x, $y)">]
     member this.TestMethod2 (x: int, y: int) = X<int[]>
 
 [<JavaScript>]
