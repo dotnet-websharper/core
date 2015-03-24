@@ -64,9 +64,6 @@ module Definition =
             "TestWithNoInterop" => ((Int * Int ^-> Int) ^-> (Int + String) |> WithNoInterop)
         ]
 
-    let WIGtest2 =
-        Class "WIGtest"
-
     let WIGtestGeneric =
         Generic + [ "T"; "U" ] - fun a b ->
             Class "WIGtestGeneric"
@@ -129,7 +126,6 @@ module Definition =
                  JustX
                  WIGtestInstance
                  WIGtest
-                 WIGtest2
                  WIGtestGeneric
                  ConfigObj
                  OneBasedArr
