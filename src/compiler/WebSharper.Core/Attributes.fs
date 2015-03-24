@@ -144,7 +144,8 @@ type NamedUnionCasesAttribute =
     new () = { inherit A() }
 
 /// Defines the format used to de/serialize a DateTime field or union case argument.
-/// The default is "o" (ISO 8601 round-trip format) for JSON serialization.
+/// The default is "o" (ISO 8601 round-trip format) for JSON serialization,
+/// and "yyyy-MM-dd-HH.mm.ss" for URL parsing.
 [<Sealed; U(T.Property, AllowMultiple = true)>]
 type DateTimeFormatAttribute =
     inherit A

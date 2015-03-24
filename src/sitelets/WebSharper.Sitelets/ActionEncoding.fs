@@ -176,12 +176,20 @@ type S =
             WritesToUrlPath = fun () -> writesToPath
         }
 
+let opt f s =
+    match f s with
+    | true, x -> Some (box x)
+    | false, _ -> None
+
+let parseDateTime (fmt: string) =
+    let rT = System.Globalization.DateTimeStyles.RoundtripKind
+    opt <| fun x -> DateTime.TryParseExact(x, fmt, System.Globalization.CultureInfo.InvariantCulture, rT)
+
+let writeDateTime (fmt: string) =
+    fun (x: obj) -> (x :?> DateTime).ToString(fmt)
+
 /// Dict<type, (encode * decode)>
 let primitiveValueHandlers =
-    let opt f s =
-        match f s with
-        | true, x -> Some (box x)
-        | false, _ -> None
     let d = Dictionary()
     let add (parse: string -> bool * 'T) =
         d.Add(typeof<'T>, (opt parse, string))
@@ -215,10 +223,7 @@ let primitiveValueHandlers =
                 s |> Seq.iteri (fun i c ->
                     writeEscaped b (i + 1 = s.Length) c)
                 b.Flush())))
-    d.Add(typeof<DateTime>,
-        ((let rT = System.Globalization.DateTimeStyles.RoundtripKind
-          opt <| fun x -> DateTime.TryParse(x, null, rT)),
-         (fun (x: obj) -> (x :?> DateTime).ToString "o")))
+    d.Add(typeof<DateTime>, (parseDateTime "o", writeDateTime "o"))
     d
 
 let isPrimitive t =
@@ -253,6 +258,25 @@ type Field =
                 else None)
         defaultArg customName p.Name
 
+let getDateTimeFormat = function
+    | RecordField f ->
+        if f.PropertyType = typeof<System.DateTime> || f.PropertyType = typeof<option<System.DateTime>> then
+            f.GetCustomAttributesData() |> Seq.tryPick (fun cad ->
+                if cad.Constructor.DeclaringType = typeof<WebSharper.Core.Attributes.DateTimeFormatAttribute> &&
+                   cad.ConstructorArguments.Count = 1 then
+                    Some (cad.ConstructorArguments.[0].Value :?> string)
+                else None)
+        else None
+    | UnionCaseField (uci, pi) ->
+        if pi.PropertyType = typeof<System.DateTime> || pi.PropertyType = typeof<option<System.DateTime>> then
+            uci.GetCustomAttributesData() |> Seq.tryPick (fun cad ->
+                if cad.Constructor.DeclaringType = typeof<WebSharper.Core.Attributes.DateTimeFormatAttribute> &&
+                   cad.ConstructorArguments.Count = 2 &&
+                   cad.ConstructorArguments.[0].Value :?> string = pi.Name then
+                    Some (cad.ConstructorArguments.[1].Value :?> string)
+                else None)
+        else None
+
 let isQueryParam = function
     | RecordField f ->
         f.GetCustomAttributesData() |> Seq.exists (fun cad ->
@@ -266,14 +290,6 @@ let isQueryParam = function
             :?> System.Collections.ObjectModel.ReadOnlyCollection<
                     System.Reflection.CustomAttributeTypedArgument>
             |> Seq.exists (fun a -> a.Value :?> string = ff.Name))
-
-let getUnionCaseJsonArgumentName (c: Reflection.UnionCaseInfo) =
-    c.GetCustomAttributesData()
-    |> Seq.tryPick (fun cad ->
-        if cad.Constructor.DeclaringType = typeof<JsonAttribute> then
-            Some (cad.ConstructorArguments.[0].Value :?> string)
-        else None
-    )
 
 let isJson = function
     | RecordField f ->
@@ -323,25 +339,31 @@ let getSome (ot: System.Type) =
     let r = Reflection.FSharpValue.PreComputeUnionReader(uci)
     fun x -> (r x).[0]
 
+let tryWritePrimitiveField (f: Field) acceptOption =
+    let ft = f.Type
+    let writePrimitiveField t =
+        if t = typeof<DateTime> then
+            match getDateTimeFormat f with
+            | None -> writePrimitiveType t
+            | Some fmt -> writeDateTime fmt
+        else writePrimitiveType t
+    if isPrimitive ft then
+        Some (writePrimitiveField ft >> Some)
+    elif acceptOption && isPrimitiveOption ft then
+        let w = getSome ft >> writePrimitiveField (ft.GetGenericArguments().[0])
+        Some <| function
+            | null -> None
+            | x -> Some (w x)
+    else None
+
 let writeQueryParam (f: Field) : S option =
     if isQueryParam f then
         let ft = f.Type
-        if isPrimitive ft then
-            let wp = writePrimitiveType ft
-            S.Make(false, fun w (q: List<string * string>) x ->
-                q.Add((f.Name, wp x))
-                true)
-            |> Some
-        elif isPrimitiveOption ft then
-            let wp = writePrimitiveType (ft.GetGenericArguments().[0])
-            let getSome = getSome ft
-            S.Make(false, fun w (q: List<string * string>) x ->
-                match x with
-                | null -> ()
-                | x -> q.Add((f.Name, wp (getSome x)))
-                true)
-            |> Some
-        else None
+        tryWritePrimitiveField f true
+        |> Option.map (fun wp ->
+            S.Make(false, fun w q x ->
+                wp x |> Option.iter (fun x -> q.Add((f.Name, x)))
+                true))
     else None
 
 let writeField (getS: System.Type -> S) (f: Field) : S =
@@ -350,7 +372,14 @@ let writeField (getS: System.Type -> S) (f: Field) : S =
     else
         match writeQueryParam f with
         | Some w -> w
-        | None -> getS f.Type
+        | None ->
+            match tryWritePrimitiveField f false with
+            | Some wp ->
+                S.Make(true, fun w _ x ->
+                    match wp x with
+                    | Some t -> w.Add t; true
+                    | None -> false)
+            | None -> getS f.Type
 
 let getS (getS: System.Type -> S) (t: System.Type) : S =
     let writeTuple r (prefixSlash: bool) (ss: S []) : S =
@@ -479,31 +508,39 @@ let mkSome (ot: System.Type) =
     let ctor = Reflection.FSharpValue.PreComputeUnionConstructor(someUci)
     fun x -> ctor [| x |]
 
+let tryParsePrimitiveField (f: Field) acceptOption =
+    let ft = f.Type
+    let parsePrimitiveField t =
+        if t = typeof<DateTime> then
+            match getDateTimeFormat f with
+            | None -> parsePrimitiveType t
+            | Some fmt -> parseDateTime fmt
+        else
+            parsePrimitiveType t
+    if isPrimitive ft then
+        let parse = parsePrimitiveField ft
+        let defaultValue = JsonProvider.BuildDefaultValue ft
+        Some <| function
+            | None -> None
+            | Some v -> parse v |> Option.map Success
+    elif acceptOption && isPrimitiveOption ft then
+        let parse = parsePrimitiveField (ft.GetGenericArguments().[0])
+        let some = mkSome ft
+        Some <| function
+            | None -> Some (Success null)
+            | Some v -> parse v |> Option.map (some >> Success)
+    else None
+
 let getQueryParamParser (f: Field) =
     if isQueryParam f then
         let ft = f.Type
         let fn = f.Name
-        if isPrimitive ft then
-            let parse = parsePrimitiveType ft
-            let defaultValue = JsonProvider.BuildDefaultValue ft
+        match tryParsePrimitiveField f true with
+        | None -> raise (NoFormatError f.DeclaringType)
+        | Some parse ->
             D.Make(false, Set.singleton fn, fun p ->
-                match p.Request.Get.[fn] with
-                | None -> Some (MissingQueryParameter(defaultValue, fn))
-                | Some v -> parse v |> Option.map Success
-            )
+                parse p.Request.Get.[fn])
             |> Some
-        elif ft.IsGenericType &&
-                ft.GetGenericTypeDefinition() = typedefof<option<_>> &&
-                isPrimitive (ft.GetGenericArguments().[0]) then
-            let parse = parsePrimitiveType (ft.GetGenericArguments().[0])
-            let some = mkSome ft
-            D.Make(false, Set.singleton fn, fun p ->
-                match p.Request.Get.[fn] with
-                | None -> Some (Success null)
-                | Some v -> parse v |> Option.map (some >> Success)
-            )
-            |> Some
-        else raise (NoFormatError f.DeclaringType)
     else None
 
 let getJsonParser (f: Field) =
@@ -535,7 +572,12 @@ let parseField getD (f: Field) =
     | None ->
         match getQueryParamParser f with
         | Some p -> p
-        | None -> getD f.Type
+        | None ->
+            match tryParsePrimitiveField f false with
+            | Some parse ->
+                D.Make(false, Set.empty, fun p ->
+                    parse <| p.Read())
+            | None -> getD f.Type
 
 let getD (getD: System.Type -> D) (t: System.Type) : D =
     let tryParse parse : D =
