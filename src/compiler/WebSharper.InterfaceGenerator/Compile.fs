@@ -1206,40 +1206,60 @@ type Compiler() =
         d.Id
 
     let visit visitClass visitInterface visitResource visitNestedClass visitNestedInterface (assembly: Code.Assembly) =
-        let rec onClass (ctx: Choice<string,Code.Class>) (c: Code.Class) =
+        let names = HashSet()
+        let genCl (c: CodeModel.Class) =
+            if c.Generics.Length > 0 then "`" + string c.Generics.Length else ""   
+        let genInt (i: CodeModel.Interface) =
+            if i.Generics.Length > 0 then "`" + string i.Generics.Length else ""  
+        let rec onClass (ctx: Choice<string,Code.Class>) fullName sourceName (c: Code.Class) =
             match ctx with
-            | Choice1Of2 ns -> visitClass ns c
-            | Choice2Of2 parent -> visitNestedClass parent c
+            | Choice1Of2 ns -> visitClass ns sourceName c
+            | Choice2Of2 parent -> visitNestedClass parent sourceName c
             for nC in c.NestedClasses do
-                onClass (Choice2Of2 c) nC
+                let nestedSourceName = iG.GetSourceName nC
+                let nestedFullName = fullName + "." + nestedSourceName + genCl nC
+                if not (names.Add nestedFullName) then failwithf "Duplicate type definition: %s" nestedFullName
+                onClass (Choice2Of2 c) nestedFullName nestedSourceName nC
             for nI in c.NestedInterfaces do
-                visitNestedInterface c nI
+                let nestedSourceName = iG.GetSourceName nI
+                let nestedFullName = fullName + "." + nestedSourceName + genInt nI
+                if not (names.Add nestedFullName) then failwithf "Duplicate type definition: %s" nestedFullName
+                visitNestedInterface c nestedSourceName nI
         for ns in assembly.Namespaces do
             for c in ns.Classes do
-                onClass (Choice1Of2 ns.Name) c
+                let sourceName = iG.GetSourceName c
+                let fullName = ns.Name + "." + sourceName + genCl c
+                if not (names.Add fullName) then failwithf "Duplicate type definition: %s" fullName
+                onClass (Choice1Of2 ns.Name) fullName sourceName c
             for i in ns.Interfaces do
-                visitInterface ns.Name i
+                let sourceName = iG.GetSourceName i
+                let fullName = ns.Name + "." + sourceName + genInt i
+                if not (names.Add fullName) then failwithf "Duplicate type definition: %s" fullName
+                visitInterface ns.Name sourceName i
             for r in ns.Resources do
-                visitResource ns.Name r
+                let sourceName = iG.GetSourceName r
+                let fullName = ns.Name + "." + sourceName
+                if not (names.Add fullName) then failwithf "Duplicate type definition: %s" fullName
+                visitResource ns.Name sourceName r
 
     let buildInitialTypes assembly (def: AssemblyDefinition) =
         let types : Types = Dictionary()
         let genTypes : GenericTypes = Dictionary()
-        let build attrs ns (x: Code.NamespaceEntity) =
+        let build attrs ns sourceName (x: Code.NamespaceEntity) =
             let attrs = attrs ||| TypeAttributes.Public
-            let tD = TypeDefinition(ns, iG.GetSourceName x, attrs)
+            let tD = TypeDefinition(ns, sourceName, attrs)
             types.[getId x] <- tD
             def.MainModule.Types.Add(tD)
-        let buildType attrs ns (x: Code.TypeDeclaration) =
-            build attrs ns x
+        let buildType attrs ns sourceName (x: Code.TypeDeclaration) =
+            build attrs ns sourceName x
             match x.Generics.Length with
             | 0 -> ()
             | gs -> genTypes.[getId x] <- gs 
-        let buildNested attrs (parent: Code.NamespaceEntity) (x: Code.TypeDeclaration) =
+        let buildNested attrs (parent: Code.NamespaceEntity) sourceName (x: Code.TypeDeclaration) =
             match types.TryGetValue parent.Id with
             | true, parent ->
                 let attrs = attrs ||| TypeAttributes.NestedPublic
-                let tD = TypeDefinition(null, iG.GetSourceName x, attrs)
+                let tD = TypeDefinition(null, sourceName, attrs)
                 tD.DeclaringType <- parent
                 types.[getId x] <- tD
                 parent.NestedTypes.Add tD
@@ -1289,11 +1309,11 @@ type Compiler() =
         let mC = MemberConverter(tB, mB, tC, types, iG, def, comments, options, [])
         assembly
         |> visit
-            (fun _ c -> mC.Class c)
-            (fun _ i -> mC.Interface i)
-            (fun _ r -> mC.Resource r)
-            (fun _ c -> mC.Class c)
-            (fun _ i -> mC.Interface i)
+            (fun _ _ c -> mC.Class c)
+            (fun _ _ i -> mC.Interface i)
+            (fun _ _ r -> mC.Resource r)
+            (fun _ _ c -> mC.Class c)
+            (fun _ _ i -> mC.Interface i)
         mC.AddDependencies(assembly, def)
         (def, comments, mB)
 
@@ -1329,10 +1349,8 @@ type Compiler() =
         r
 
     member c.Compile(options, assembly, ?originalAssembly) =
-        try
-            let (aR, resolver) = createAssemblyResolvers options
-            c.Compile(resolver, options, assembly, ?originalAssembly = originalAssembly)
-        with e -> failwithf "%A" e
+        let (aR, resolver) = createAssemblyResolvers options
+        c.Compile(resolver, options, assembly, ?originalAssembly = originalAssembly)
 
     member c.StartProgram(args, assembly, ?resolver: AssemblyResolver, ?originalAssembly: Assembly) =
         let opts =
