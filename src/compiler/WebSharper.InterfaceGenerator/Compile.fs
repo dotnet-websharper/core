@@ -752,14 +752,14 @@ type MemberConverter
                     | Some c -> comments.[cD] <- c
             | _ -> ()
 
-    let addProperty (dT: TypeDefinition) (td: Code.TypeDeclaration) (p: Code.Property) =
+    let addProperty (dT: TypeDefinition) (td: Code.TypeDeclaration) name (p: Code.Property) =
         let t =
             match p.GetterInline, p.SetterInline with
             | Some (Code.BasicInline _), _
             | _, Some (Code.BasicInline _) -> Type.Normalize p.Type
             | _ -> Type.TransformOption (Type.Normalize p.Type)
         let ty = tC.TypeReference (t, td)
-        let name = iG.GetPropertySourceName p
+        //let name = iG.GetPropertySourceName p
         let attrs = PropertyAttributes.None
         let pD = PropertyDefinition(name, attrs, ty)
         do
@@ -880,8 +880,11 @@ type MemberConverter
             (x: 'T, tD: TypeDefinition) =
         for m in x.Methods do
             c.AddMethod(tD, x, m)
+        let propNames = HashSet()
         for p in x.Properties do
-            addProperty tD x p
+            let name = iG.GetPropertySourceName p
+            if not (propNames.Add name) then failwithf "Duplicate property definition: %s on %s" name x.Name
+            addProperty tD x name p
         c.AddDependencies(x, tD)
 
     member d.AddDependencies(ent: Code.IResourceDependable, prov: ICustomAttributeProvider) =
