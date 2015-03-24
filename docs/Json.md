@@ -60,15 +60,6 @@ Content.JsonContent <| fun ctx ->
 // Output: true
 ```
 
-* Dates: `System.DateTime`, using an ISO 8601 round-trip format string:
-
-```fsharp
-Content.JsonContent <| fun ctx ->
-    System.DateTime.UtcNow
-
-// Output: "2015-03-06T17:05:19.2077851Z"
-```
-
 ## Collections
 
 Values of type `list<'T>`, `'T[]` and `Set<'T>` are represented as JSON arrays:
@@ -248,3 +239,34 @@ Content.JsonContent <| fun ctx ->
 ```
 
 When parsing JSON, `null` is also accepted as a `None` value.
+
+## DateTimes
+
+Values of type `System.DateTime` are encoded using an ISO 8601 round-trip format string:
+
+```fsharp
+Content.JsonContent <| fun ctx ->
+    System.DateTime.UtcNow
+
+// Output: "2015-03-06T17:05:19.2077851Z"
+```
+
+The format can be customized with the attribute `[<DateTimeFormat>]`. This attribute can be placed either on a record field of type `System.DateTime` or `option<System.DateTime>`, or on a union case with an argument of one of these types.
+
+```fsharp
+type Action =
+    {
+        [<DateTimeFormat "yyyy-MM-dd">] dateOnly: System.DateTime
+    }
+
+Content.JsonContent <| fun ctx ->
+    { dateOnly = System.DateTime.UtcNow }
+
+// Output: { dateOnly: "2015-03-24" }
+
+[<NamedUnionCases>]
+type Action =
+    | [<DateTimeFormat("time", "HH.mm.ss")>] A of time: System.DateTime
+
+// Output: { dateOnly: "15.03.32" }
+```

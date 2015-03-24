@@ -206,6 +206,24 @@ type Action = string list
 // Returned Content:    (determined by Sitelet.Infer)
 ```
 
+* Enumerations are encoded as their underlying type.
+
+```fsharp
+type Action = System.IO.FileAccess
+// Accepted Request:    GET /3
+// Parsed Action:       System.IO.FileAccess.ReadWrite
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+* `System.DateTime` is serialized with the format `yyyy-MM-dd-HH.mm.ss`. See below to customize this format.
+
+```fsharp
+type Action = System.DateTime
+// Accepted Request:    GET /2015-03-24-15.05.32
+// Parsed Action:       System.DateTime(2015,3,24,15,5,32)
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
 ### Customizing Sitelet.Infer
 
 It is possible to annotate your Action type with attributes to customize the `Sitelet.Infer`'s request inference. Here are the available attributes:
@@ -332,6 +350,26 @@ and BlogData =
 // Parsed Action:       PostBlog { id = 1423,
 //                                 data = { slug = "some-blog-post"
 //                                          title = "Some blog post!" } }
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+* `[<DateTimeFormat(string)>]` on a record field or named union case field of type `System.DateTime` indicates the date format to use. Be careful as some characters are not valid in URLs; in particular, the ISO 8601 round-trip format (`"o"` format) cannot be used because it uses the character `:`.
+
+```fsharp
+type Action =
+    {
+        [<DateTimeFormat "yyyy-MM-dd">] dateOnly: System.DateTime
+    }
+
+// Accepted Request:    GET /2015-03-24
+// Parsed Action:       System.DateTime(2015,3,24)
+// Returned Content:    (determined by Sitelet.Infer)
+
+type Action =
+    | [<DateTimeFormat("time", "HH.mm.ss")>] A of time: System.DateTime
+
+// Accepted Request:    GET /A/15.05.32
+// Parsed Action:       A (System.DateTime(2015,3,24,15,5,32))
 // Returned Content:    (determined by Sitelet.Infer)
 ```
 
