@@ -42,6 +42,7 @@ type Annotation =
     | Inline of option<string>
     | JavaScript of Q.Expression
     | Macro of R.Type
+    | Generated of R.Type
     | Name of Name
     | Proxy of R.TypeDefinition
     | Remote
@@ -132,7 +133,10 @@ val Reflect : Logger -> AssemblyDefinition -> Assembly
 type Pool =
 
     /// Loads a macro definition from a given type.
-    member Load : R.Type -> M.Macro
+    member LoadMacro : R.Type -> M.IMacro
+
+    /// Loads a generator definition from a given type.
+    member LoadGenerator : R.Type -> M.IGenerator
 
     /// Constructs a macro pool.
     static member Create : Logger -> Pool

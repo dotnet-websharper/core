@@ -65,10 +65,16 @@ type DirectAttribute(template: string) =
 type JavaScriptAttribute =
     ReflectedDefinitionAttribute
 
-/// Annotates methods with custom compilation rules. The supplied type
-/// should implement Macros.IMacroDefinition and a default constructor.
+/// Annotates methods an constructors with custom compilation rules.
+/// The supplied type should implement Macros.IMacro and a default constructor.
 [<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
 type MacroAttribute(def: System.Type) =
+    inherit A()
+
+/// Annotates methods with a generator type that provides the method body.
+/// The supplied type should implement Macros.IGenerator and a default constructor.
+[<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
+type GeneratedAttribute(def: System.Type) =
     inherit A()
 
 /// Provides a runtime name for members when it differs from the F# name.

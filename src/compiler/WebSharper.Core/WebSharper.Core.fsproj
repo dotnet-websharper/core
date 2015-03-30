@@ -25,7 +25,6 @@
     <Compile Include="Binary.fs" />
     <Compile Include="Metadata.fsi" />
     <Compile Include="Metadata.fs" />
-    <Compile Include="Macros.fsi" />
     <Compile Include="Macros.fs" />
     <Compile Include="Attributes.fs" />
     <Compile Include="Json.fsi" />

@@ -226,10 +226,10 @@ module internal TypeScriptExporter =
         let isExported =
             isInterfaceMethod ||
             match m.Kind with
-            | V.JavaScriptMethod _ -> true
-            | V.MacroMethod (_, x) -> x.Body.IsSome
-            | _ ->
-                false
+            | V.JavaScriptMethod _
+            | V.CoreMethod _ -> true
+            | V.SyntaxMethod _ -> true
+            | _ -> false
         if isExported then
             Some (getSignature ctx m.Definition)
         else

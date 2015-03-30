@@ -166,8 +166,8 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
                 y
 
     let rec tCall exn q methodKind args =
-        let (!) = tExpr exn
-        let (!!) = List.map (!)
+        let inline (!) q = tExpr exn true q
+        let inline (!!) q = List.map (!) q
         let invalidQuot() =
             printfn "Invalid quotation, method kind: %A" methodKind
             raise InvalidQuotation
@@ -182,8 +182,8 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             match iP.Parse f with
             | Inlining.Transformer f -> f (!) !!args
             | _ -> error "Unexpected inline expansion error."
-        | M.MacroMethod t ->
-            (mP.Load t).Expand (!) q
+        | M.MacroMethod (t, _) ->
+            (mP.LoadMacro t).Expand (!) (Q.NoMacro q)
         | M.RemoteMethod (scope, kind, handle) ->
             let name =
                 match kind with
@@ -196,15 +196,32 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
                 | Instance, _ :: args | _, args -> C.NewArray !!args
             let provider = C.Global remotingProvider
             C.Call (provider, str name, [str (handle.Pack()); args])
-    and tExpr exn quotation =
-        let (!) = tExpr exn
-        let (!!) = List.map (!)
+    and tCons exn q consKind args =
+        let inline (!) q = tExpr exn true q
+        let inline (!!) q = List.map (!) q
+        match consKind with
+        | M.BasicConstructor fn ->
+            callAt fn !!args
+        | M.InlineConstructor f ->
+            let i = iP.Parse f
+            match i with
+            | Inlining.Transformer f -> f (!) !!args
+            | _ -> error "Internal inline substitution error."
+        | M.MacroConstructor (t, _) ->
+            (mP.LoadMacro t).Expand (!) (Q.NoMacro q)
+        | M.StubConstructor fn ->
+            C.New (glob fn, !!args)
+    and tExpr exn allowMacro quotation =
+        let inline (!) q = tExpr exn true q
+        let inline (!!) q = List.map (!) q
         let invalidQuot() =
             printfn "Invalid quotation: %A" quotation
             raise InvalidQuotation
         match quotation with
         | Q.SourcePos (x, pos) ->
             !x |> C.WithPos pos
+        | Q.NoMacro x ->
+            tExpr exn false x        
         | Q.AddressOf x ->
             error "Explicit address capture is not supported."
         | Q.AddressSet _ ->
@@ -218,8 +235,12 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
         | Q.Call (m, args)
         | Q.CallModule (m, args) as q ->
             match meta.Method m.Entity with
+            | Some (M.MacroMethod (_, b)) when not allowMacro ->
+                match b with
+                | Some bkind -> tCall exn q bkind args
+                | None -> err "Failed to translate a method call with macro fallback." m.Entity 
             | Some k -> tCall exn q k args
-            | None -> err "Failed to translate a method call" m.Entity
+            | None -> err "Failed to translate a method call." m.Entity
         | Q.Coerce (t, x) ->
             match t with
             | R.Type.Concrete (tD, _) when tD.FullName = "System.Object" ->
@@ -284,20 +305,18 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
                 C.Lambda (Some !^this, List.map (!^) vars, !body)
             | ([], Q.Application (f, Q.Value Q.Unit)) -> !f
             | _ -> invalidQuot()
-        | Q.NewObject (c, args) ->
-            match meta.Constructor c.Entity with
-            | Some (M.BasicConstructor fn) ->
-                callAt fn !!args
-            | Some (M.InlineConstructor f) ->
-                let i = iP.Parse f
-                match i with
-                | Inlining.Transformer f -> f (!) !!args
-                | _ -> error "Internal inline substitution error."
-            | Some (M.MacroConstructor t) ->
-                (mP.Load t).Expand (!) quotation
-            | Some (M.StubConstructor fn) ->
-                C.New (glob fn, !!args)
-            | None ->
+        | Q.NewObject (c, args) as q ->
+            let tOpt = 
+                match meta.Constructor c.Entity with
+                | Some (M.MacroConstructor (_, b)) when not allowMacro ->
+                    match b with
+                    | Some bkind -> tCons exn q bkind args |> Some   
+                    | None -> None
+                | Some kind -> tCons exn q kind args |> Some 
+                | None -> None
+            match tOpt with
+            | Some t -> t
+            | _ ->
                 match meta.DataType c.Entity.DeclaringType with
                 | Some (M.Exception fn) ->
                     let init =
@@ -429,7 +448,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             | q -> !q
         | Q.TryWith (x, _, _, v, y) ->
             let v = !^v
-            C.TryWith (!x, v, tExpr (Some v) y)
+            C.TryWith (!x, v, tExpr (Some v) true y)
         | Q.TupleGet (i, e) ->
             (!e).[!~ (C.Integer (int64 i))]
         | Q.TypeTest (t, e) ->
@@ -514,4 +533,4 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
         | Q.WhileLoop (x, y) ->
             C.WhileLoop (!x, !y)
 
-    tExpr None expr
+    tExpr None true expr

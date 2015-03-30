@@ -23,6 +23,7 @@
 /// stages.
 module internal WebSharper.Compiler.Validator
 
+module C = WebSharper.Core.JavaScript.Core
 module I = WebSharper.Compiler.Inlining
 module M = WebSharper.Core.Macros
 module Me = WebSharper.Core.Metadata
@@ -30,6 +31,7 @@ module R = WebSharper.Core.Reflection
 module Re = WebSharper.Compiler.Reflector
 module P = WebSharper.Core.JavaScript.Packager
 module Q = WebSharper.Core.Quotations
+module S = WebSharper.Core.JavaScript.Syntax
 
 type RecordField = string
 type Requirement = R.TypeDefinition
@@ -43,8 +45,10 @@ type Name = P.Address
 type ConstructorKind =
     | InlineConstructor of Inlining.Inline
     | JavaScriptConstructor of Q.Expression
-    | MacroConstructor of R.Type * M.Macro
+    | MacroConstructor of R.Type * M.IMacro * ConstructorKind option
     | StubConstructor of Name
+    | CoreConstructor of C.Expression
+    | SyntaxConstructor of S.Expression
 
 type Constructor =
     {
@@ -65,9 +69,11 @@ type RemotingKind =
 type MethodKind =
     | InlineMethod of Inlining.Inline
     | JavaScriptMethod of Q.Expression
-    | MacroMethod of R.Type * M.Macro
+    | MacroMethod of R.Type * M.IMacro * MethodKind option
     | RemoteMethod of RemotingKind * ref<option<Me.MethodHandle>>
     | StubMethod
+    | CoreMethod of C.Expression
+    | SyntaxMethod of S.Expression
 
 type Method =
     {

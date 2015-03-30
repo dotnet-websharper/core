@@ -38,7 +38,7 @@ type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 type ConstructorKind =
     | BasicConstructor of P.Address
     | InlineConstructor of Inlining.Inline
-    | MacroConstructor of R.Type
+    | MacroConstructor of R.Type * ConstructorKind option
     | StubConstructor of P.Address
 
 type DataTypeKind =
@@ -52,7 +52,7 @@ type MethodKind =
     | BasicInstanceMethod of Name
     | BasicStaticMethod of P.Address
     | InlineMethod of Inlining.Inline
-    | MacroMethod of R.Type
+    | MacroMethod of R.Type * MethodKind option
     | RemoteMethod of MemberScope * V.RemotingKind * M.MethodHandle
 
 type PropertyKind =
@@ -159,33 +159,43 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
 
     let ParseConstructor (c: V.Constructor) =
         let inline f x = t.constructors.[c.Reference] <- x
-        match c.Kind with
-        | V.JavaScriptConstructor _
-        | V.InlineConstructor Compiled ->
-            f (BasicConstructor c.Name)
-        | V.InlineConstructor (Inlined i) ->
-            f (InlineConstructor i)
-        | V.MacroConstructor (t, _) ->
-            f (MacroConstructor t)
-        | V.StubConstructor n ->
-            f (StubConstructor n)
+        let rec parse kind =
+            match kind with
+            | V.JavaScriptConstructor _
+            | V.CoreConstructor _
+            | V.SyntaxConstructor _
+            | V.InlineConstructor Compiled ->
+                BasicConstructor c.Name
+            | V.InlineConstructor (Inlined i) ->
+                InlineConstructor i
+            | V.MacroConstructor (t, _, b) ->
+                MacroConstructor (t, b |> Option.map parse)
+            | V.StubConstructor n ->
+                StubConstructor n
+                
+        parse c.Kind |> f
 
     let ConvertMethod (m: V.Method) =
-        match m.Kind with
-        | V.InlineMethod Compiled
-        | V.JavaScriptMethod _
-        | V.StubMethod ->
-            match m.Scope with
-            | Static -> BasicStaticMethod m.Name
-            | Instance -> BasicInstanceMethod m.Name.LocalName
-        | V.RemoteMethod (kind, ref) ->
-            match !ref with
-            | Some x -> RemoteMethod (m.Scope, kind, x)
-            | None -> failwith "Unexpected remote method problem."
-        | V.InlineMethod (Inlined i) ->
-            InlineMethod i
-        | V.MacroMethod (t, _) ->
-            MacroMethod t
+        let rec convert kind =
+            match kind with
+            | V.InlineMethod Compiled
+            | V.JavaScriptMethod _
+            | V.CoreMethod _
+            | V.SyntaxMethod _
+            | V.StubMethod ->
+                match m.Scope with
+                | Static -> BasicStaticMethod m.Name
+                | Instance -> BasicInstanceMethod m.Name.LocalName
+            | V.RemoteMethod (kind, ref) ->
+                match !ref with
+                | Some x -> RemoteMethod (m.Scope, kind, x)
+                | None -> failwith "Unexpected remote method problem."
+            | V.InlineMethod (Inlined i) ->
+                InlineMethod i
+            | V.MacroMethod (t, _, b) ->
+                MacroMethod (t, b |> Option.map convert)
+                
+        convert m.Kind
 
     let ParseMethod (m: V.Method) =
         t.methods.[m.Reference] <- ConvertMethod m
