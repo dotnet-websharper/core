@@ -162,6 +162,8 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
         let rec parse kind =
             match kind with
             | V.JavaScriptConstructor _
+            | V.CoreConstructor _
+            | V.SyntaxConstructor _
             | V.InlineConstructor Compiled ->
                 BasicConstructor c.Name
             | V.InlineConstructor (Inlined i) ->
@@ -170,6 +172,7 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
                 MacroConstructor (t, b |> Option.map parse)
             | V.StubConstructor n ->
                 StubConstructor n
+                
         parse c.Kind |> f
 
     let ConvertMethod (m: V.Method) =
@@ -177,6 +180,8 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
             match kind with
             | V.InlineMethod Compiled
             | V.JavaScriptMethod _
+            | V.CoreMethod _
+            | V.SyntaxMethod _
             | V.StubMethod ->
                 match m.Scope with
                 | Static -> BasicStaticMethod m.Name
@@ -189,6 +194,7 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
                 InlineMethod i
             | V.MacroMethod (t, _, b) ->
                 MacroMethod (t, b |> Option.map convert)
+                
         convert m.Kind
 
     let ParseMethod (m: V.Method) =

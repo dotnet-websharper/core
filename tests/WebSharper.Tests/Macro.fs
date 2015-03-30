@@ -18,39 +18,34 @@
 //
 // $end{copyright}
 
-module WebSharper.Tests.Macro
+namespace WebSharper.Tests
 
-open WebSharper
-open WebSharper.Testing
-open WebSharper.JavaScript
-//
-//open WebSharper.Core.Macros
-//module C = WebSharper.Core.JavaScript.Core
-//
-//[<Sealed>]
-//type HelloWorldCoreMacro() =
-//    interface IMacroDefinition with
-//        member this.Macro =
-//            let b = 
-//                C.Lambda (None, [], C.Binary(!~(C.String "Hello "), C.BinaryOperator.``+``, !~(C.String "world!")))
-//            {
-//                Body         = Some (CoreBody b)
-//                Expand       = id
-//                Requirements = []
-//            }
+open WebSharper.Core.Macros
+module C = WebSharper.Core.JavaScript.Core
 
-//[<Macro(typeof<HelloWorldCoreMacro>)>]
-//[<Macro(typeof<Assert.HelloWorldCoreMacro>)>]
-[<JavaScript>]
-let helloWorld() = "Hello world!"
+[<Sealed>]
+type HelloWorldGenerator() =
+    interface IGenerator with
+        member this.Body =
+            C.Lambda (None, [], C.Binary(!~(C.String "Hello "), C.BinaryOperator.``+``, !~(C.String "world!")))
+            |> CoreBody
 
-[<JavaScript>]
-let Tests =
+module Macro =
 
-    Section "Macro"
+    open WebSharper
+    open WebSharper.Testing
+    open WebSharper.JavaScript
 
-    Test "Core macro" {
-        helloWorld() =? "Hello world!"    
-    }
+    [<Generated(typeof<HelloWorldGenerator>)>]
+    let helloWorld() = X<string>
+
+    [<JavaScript>]
+    let Tests =
+
+        Section "Macro"
+
+        Test "Core macro" {
+            helloWorld() =? "Hello world!"    
+        }
     
 

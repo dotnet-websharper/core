@@ -183,7 +183,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             | Inlining.Transformer f -> f (!) !!args
             | _ -> error "Unexpected inline expansion error."
         | M.MacroMethod (t, _) ->
-            (mP.Load t).Expand (!) (Q.NoMacro q)
+            (mP.LoadMacro t).Expand (!) (Q.NoMacro q)
         | M.RemoteMethod (scope, kind, handle) ->
             let name =
                 match kind with
@@ -208,7 +208,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             | Inlining.Transformer f -> f (!) !!args
             | _ -> error "Internal inline substitution error."
         | M.MacroConstructor (t, _) ->
-            (mP.Load t).Expand (!) (Q.NoMacro q)
+            (mP.LoadMacro t).Expand (!) (Q.NoMacro q)
         | M.StubConstructor fn ->
             C.New (glob fn, !!args)
     and tExpr exn allowMacro quotation =

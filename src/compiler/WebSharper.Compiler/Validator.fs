@@ -29,6 +29,7 @@ module Re = WebSharper.Compiler.Reflector
 module Res = WebSharper.Core.Resources
 module P = WebSharper.Core.JavaScript.Packager
 module Q = WebSharper.Core.Quotations
+module S = WebSharper.Core.JavaScript.Syntax
 
 type RecordField = string
 type Requirement = R.TypeDefinition
@@ -44,11 +45,14 @@ type Status =
 
 type Name = P.Address
 
+
 type ConstructorKind =
     | InlineConstructor of I.Inline
     | JavaScriptConstructor of Q.Expression
-    | MacroConstructor of R.Type * M.Macro * ConstructorKind option
+    | MacroConstructor of R.Type * M.IMacro * ConstructorKind option
     | StubConstructor of Name
+    | CoreConstructor of C.Expression
+    | SyntaxConstructor of S.Expression
 
 type Constructor =
     {
@@ -69,9 +73,11 @@ type RemotingKind =
 type MethodKind =
     | InlineMethod of I.Inline
     | JavaScriptMethod of Q.Expression
-    | MacroMethod of R.Type * M.Macro * MethodKind option
+    | MacroMethod of R.Type * M.IMacro * MethodKind option
     | RemoteMethod of RemotingKind * ref<option<Me.MethodHandle>>
     | StubMethod
+    | CoreMethod of C.Expression
+    | SyntaxMethod of S.Expression
 
 type Method =
     {
@@ -183,11 +189,9 @@ type Pool = I.Pool
 let getCtorStatus this =
     match this with
     | InlineConstructor i when not i.IsTransformer -> Compiled
-    | JavaScriptConstructor _ -> Compiled
-    | MacroConstructor (_, m, _) ->
-        match m.Body with
-        | Some _ -> Compiled
-        | _ -> Ignored
+    | JavaScriptConstructor _
+    | CoreConstructor _ 
+    | SyntaxConstructor _ -> Compiled
     | _ -> Ignored
 
 let isCompiledConstructor ({Kind=ck}: Constructor) =
@@ -199,13 +203,10 @@ let getMethodStatus this =
     match this with
     | InlineMethod i ->
         if i.IsTransformer then Ignored else Compiled
-    | JavaScriptMethod _ -> Compiled
-    | MacroMethod (_, m, _) ->
-        match m.Body with
-        | Some _ -> Compiled
-        | _ -> Ignored
-    | RemoteMethod _ -> Ignored
-    | StubMethod -> Ignored
+    | JavaScriptMethod _ 
+    | CoreMethod _ 
+    | SyntaxMethod _ -> Compiled
+    | _ -> Ignored
 
 let isCompiledMethod ({Kind = mk}: Method) =
     match getMethodStatus mk with
@@ -256,6 +257,7 @@ type Annotation =
     | Inline of string
     | InlineJavaScript of Q.Expression
     | Macro of R.Type
+    | Generated of R.Type
     | JavaScript of Q.Expression
     | Remote
     | Stub
@@ -322,6 +324,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
             | Re.Inline None -> Some (Inline null)
             | Re.JavaScript x -> Some (JavaScript x)
             | Re.Macro t -> Some (Macro t)
+            | Re.Generated t -> Some (Generated t)
             | Re.Remote -> Some Remote
             | Re.Stub -> Some Stub
             | Re.OptionalField -> Some OptionalField
@@ -376,8 +379,15 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
             | Some (JavaScript js) ->
                 Some (JavaScriptConstructor js)
             | Some (Macro d) ->
-                let m = macros.Load d
+                let m = macros.LoadMacro d
                 Some (MacroConstructor (d, m, annot false))
+            | Some (Generated x) ->
+                let g = macros.LoadGenerator x
+                match g.Body with
+                | M.QuotationBody x ->
+                    Some (JavaScriptConstructor (ReflectionLayer.QuotationUtils.ConvertQuotation x))
+                | M.CoreBody x -> Some (CoreConstructor x)
+                | M.SyntaxBody x -> Some (SyntaxConstructor x)
             | Some (InlineJavaScript js) ->
                 warn t.Location
                     "Inline JavaScript constructors are not supported."
@@ -441,8 +451,15 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
                 |> Some
             | Some (JavaScript js) when not pOptF -> Some (JavaScriptMethod js)
             | Some (Macro d) ->
-                let m = macros.Load d
+                let m = macros.LoadMacro d
                 Some (MacroMethod (d, m, annot false))
+            | Some (Generated x) ->
+                let g = macros.LoadGenerator x
+                match g.Body with
+                | M.QuotationBody x ->
+                    Some (JavaScriptMethod (ReflectionLayer.QuotationUtils.ConvertQuotation x))
+                | M.CoreBody x -> Some (CoreMethod x)
+                | M.SyntaxBody x -> Some (SyntaxMethod x)
             | Some Remote ->
                 let (|Void|_|) (t: TypeReference) =
                     if  t.FullName = "Sysem.Void"

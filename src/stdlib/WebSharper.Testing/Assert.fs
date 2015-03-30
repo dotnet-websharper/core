@@ -36,18 +36,3 @@ let For<'T> (times: int) (gen: Random.Generator<'T>) (attempt: 'T -> unit) =
         attempt gen.Base.[i]
     for i = 1 to times do
         attempt (gen.Next())
-
-open WebSharper.Core.Macros
-module C = WebSharper.Core.JavaScript.Core
-
-[<Sealed>]
-type HelloWorldCoreMacro() =
-    interface IMacroDefinition with
-        member this.Macro =
-            let b = 
-                C.Lambda (None, [], C.Binary(!~(C.String "Hello "), C.BinaryOperator.``+``, !~(C.String "world!")))
-            {
-                Body         = None
-                Expand       = id
-                Requirements = []
-            }

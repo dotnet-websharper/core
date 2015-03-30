@@ -25,6 +25,7 @@ open System.Collections
 open System.Collections.Generic
 
 module M = WebSharper.Core.Metadata
+module Ma = WebSharper.Core.Macros
 module Q = WebSharper.Core.Quotations
 module R = WebSharper.Core.Reflection
 module Re = WebSharper.Core.Resources
@@ -73,19 +74,17 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
         for rT in c.Requirements do
             deps.Connect src (M.ResourceNode rT)
         match c.Kind with
+        | V.InlineConstructor inl ->
+            match inl.Quotation with
+            | None -> ()
+            | Some e -> List.iter (deps.Connect src) (GetCalls e)
         | V.JavaScriptConstructor e ->
             List.iter (deps.Connect src) (GetCalls e)
-        | V.MacroConstructor (_, mac, _) ->
-            ()
-//            List.iter (deps.Connect src) mac.Requirements // TODO: macro dependencies
         | _ -> ()
     let visitMethod src (m: V.Method) =
         m.Requirements
         |> List.iter (fun rT -> deps.Connect src (M.ResourceNode rT))
         match m.Kind with
-        | V.MacroMethod (_, mac, _) ->
-            ()
-//            List.iter (deps.Connect src) mac.Requirements // TODO: macro dependencies
         | V.InlineMethod inl ->
             match inl.Quotation with
             | None -> ()
@@ -94,7 +93,7 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
             List.iter (deps.Connect src) (GetCalls e)
         | V.RemoteMethod (_, ref) ->
             ref := Some (info.AddRemoteMethod m.Reference)
-        | V.StubMethod -> ()
+        | _ -> ()
     let visitProperty src (p: V.Property) =
         match p.Kind with
         | V.BasicProperty (g, s) ->

@@ -29,13 +29,6 @@ module M = WebSharper.Core.Macros
 module Q = WebSharper.Core.Quotations
 module R = WebSharper.Core.Reflection
 
-let macro x : M.Macro =
-    {
-        Body         = None
-        Expand       = x
-        Requirements = []
-    }
-
 let smallIntegralTypes =
     Set [
         "System.Byte"
@@ -89,7 +82,7 @@ let cCall t m x = C.Call (t, cString m, x)
 let cCallG l m x = cCall (C.Global l) m x
 let cInt x = !~ (C.Integer (int64 x))
 
-let divisionMacro = macro <| fun tr q ->
+let divisionMacro tr q =
     match q with
     | CallOrCM (m, [x; y]) ->
         match m.Generics with
@@ -102,7 +95,7 @@ let divisionMacro = macro <| fun tr q ->
     | _ ->
         failwith "divisionMacro error"
 
-let arithMacro name def = macro <| fun tr q ->
+let arithMacro name def tr q =
     match q with
     | CallOrCM (m, [x; y]) ->
         match m.Generics with
@@ -119,18 +112,18 @@ let subMacro = arithMacro "sub" ( - )
 
 [<Sealed>]
 type Add() =
-    interface M.IMacroDefinition with
-        member this.Macro = addMacro
+    interface M.IMacro with
+        member this.Expand tr = addMacro tr
 
 [<Sealed>]
 type Sub() =
-    interface M.IMacroDefinition with
-        member this.Macro = subMacro
+    interface M.IMacro with
+        member this.Expand tr = subMacro tr
 
 [<Sealed>]
 type Division() =
-    interface M.IMacroDefinition with
-        member this.Macro = divisionMacro
+    interface M.IMacro with
+        member this.Expand tr = divisionMacro tr
 
 type Comparison =
     | ``<``  = 0
@@ -162,7 +155,7 @@ let makeComparison cmp x y =
     | Comparison.``=``  -> f "Equals" x y
     | _                 -> !!(f "Equals" x y)
 
-let comparisonMacro cmp = macro <| fun tr q ->
+let comparisonMacro cmp tr q =
     match q with
     | CallOrCM (m, [x; y]) ->
         match m.Generics with
@@ -178,8 +171,8 @@ let comparisonMacro cmp = macro <| fun tr q ->
 
 [<AbstractClass>]
 type CMP(c: Comparison) =
-    interface M.IMacroDefinition with
-        member this.Macro = comparisonMacro c
+    interface M.IMacro with
+        member this.Expand tr = comparisonMacro c tr
 
 [<Sealed>] type EQ() = inherit CMP(Comparison.``=``)
 [<Sealed>] type NE() = inherit CMP(Comparison.``<>``)
@@ -190,7 +183,7 @@ type CMP(c: Comparison) =
 
 let charProxy = ["WebSharper"; "Char"]
 
-let charMacro = macro <| fun tr q ->
+let charMacro tr q =
     match q with
     | CallOrCM (m, [x]) ->
         match m.Generics with
@@ -213,10 +206,10 @@ let charMacro = macro <| fun tr q ->
 
 [<Sealed>]
 type Char() =
-    interface M.IMacroDefinition with
-        member this.Macro = charMacro
+    interface M.IMacro with
+        member this.Expand tr = charMacro tr
 
-let stringMacro = macro <| fun tr q ->
+let stringMacro tr q =
     match q with
     | CallOrCM (m, [x]) ->
         match m.Generics with
@@ -231,8 +224,8 @@ let stringMacro = macro <| fun tr q ->
 
 [<Sealed>]
 type String() =
-    interface M.IMacroDefinition with
-        member this.Macro = stringMacro
+    interface M.IMacro with
+        member this.Expand tr = stringMacro tr
 
 let getFieldsList q =
     let ``is (=>)`` (m: R.Method) =
@@ -257,7 +250,7 @@ let getFieldsList q =
         | _ -> None
     getFieldsListTC [] q
 
-let newMacro = macro <| fun tr q ->
+let newMacro tr q =
     match q with
     | CallOrCM (_, [OptCoerce x]) ->
         match getFieldsList x with
@@ -270,12 +263,12 @@ let newMacro = macro <| fun tr q ->
 
 [<Sealed>]
 type New() =
-    interface M.IMacroDefinition with
-        member this.Macro = newMacro
+    interface M.IMacro with
+        member this.Expand tr = newMacro tr
 
 type FST = Reflection.FSharpType
 
-let funcWithArgsRestMacro = macro <| fun tr q ->
+let funcWithArgsRestMacro tr q =
     match q with
     | Q.NewObject (c, [func]) ->
         let tArgs = c.Generics.[0].Load()
@@ -288,8 +281,8 @@ let funcWithArgsRestMacro = macro <| fun tr q ->
 
 [<Sealed>]
 type FuncWithArgsRest() =
-    interface M.IMacroDefinition with
-        member this.Macro = funcWithArgsRestMacro
+    interface M.IMacro with
+        member this.Expand tr = funcWithArgsRestMacro tr
 
 /// Set of helpers to parse format string
 /// Source: https://github.com/fsharp/fsharp/blob/master/src/fsharp/FSharp.Core/printf.fs
@@ -607,7 +600,7 @@ let createPrinter ts fs =
         args |> List.rev |> List.fold (fun c (a, _) -> C.Lambda(None, [a], c)) (C.Var k).[[inner]]
     )
     
-let printfMacro = macro <| fun tr q ->
+let printfMacro tr q =
     match q with
     | Q.NewObject (c, [Q.Value (Q.String fs)]) ->
         let rec getFunctionArgs t =
@@ -624,5 +617,5 @@ let printfMacro = macro <| fun tr q ->
 
 [<Sealed>]
 type PrintF() =
-    interface M.IMacroDefinition with
-        member this.Macro = printfMacro
+    interface M.IMacro with
+        member this.Expand tr = printfMacro tr
