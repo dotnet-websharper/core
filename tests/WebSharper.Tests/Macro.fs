@@ -22,13 +22,29 @@ namespace WebSharper.Tests
 
 open WebSharper.Core.Macros
 module C = WebSharper.Core.JavaScript.Core
+module S = WebSharper.Core.JavaScript.Syntax
 
 [<Sealed>]
-type HelloWorldGenerator() =
+type HelloQuotationGenerator() =
     interface IGenerator with
         member this.Body =
-            C.Lambda (None, [], C.Binary(!~(C.String "Hello "), C.BinaryOperator.``+``, !~(C.String "world!")))
+            <@@ fun w -> "Hello " + w + "!" @@>
+            |> QuotationBody
+
+[<Sealed>]
+type HelloCoreGenerator() =
+    interface IGenerator with
+        member this.Body =
+            let w = C.Id "w"
+            C.Lambda (None, [w], !~(C.String "Hello ") + C.Var w + !~(C.String "!"))
             |> CoreBody
+
+[<Sealed>]
+type HelloJSGenerator() =
+    interface IGenerator with
+        member this.Body =
+            S.Lambda (None, ["w"], [ S.Action (S.Return (Some (!~(S.String "Hello ") + S.Var "w" + !~(S.String "!")))) ])
+            |> SyntaxBody
 
 module Macro =
 
@@ -36,16 +52,24 @@ module Macro =
     open WebSharper.Testing
     open WebSharper.JavaScript
 
-    [<Generated(typeof<HelloWorldGenerator>)>]
-    let helloWorld() = X<string>
+    [<Generated(typeof<HelloQuotationGenerator>)>]
+    let helloQuotation (w: string) = X<string>
+
+    [<Generated(typeof<HelloCoreGenerator>)>]
+    let helloCore (w: string) = X<string>
+
+    [<Generated(typeof<HelloJSGenerator>)>]
+    let helloJS (w: string) = X<string>
 
     [<JavaScript>]
     let Tests =
 
         Section "Macro"
 
-        Test "Core macro" {
-            helloWorld() =? "Hello world!"    
+        Test "Generated" {
+            helloQuotation "world" =? "Hello world!"    
+            helloCore "world" =? "Hello world!"    
+            helloJS "world" =? "Hello world!"    
         }
     
 
