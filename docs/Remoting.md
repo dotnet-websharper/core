@@ -58,6 +58,8 @@ where `'T1, 'T2, ...` are arbitrary JSON-serializable types:
 * `'T1 * 'T2 * ... * 'Tn`
 * unions (including `option` and `list`)
 * records
+* `Map<'K, 'V>`
+* `Set<'T>`
 * classes with a default constructor
 
 For records, unions and classes to be JSON-serializable, all their
@@ -68,10 +70,9 @@ call: message-passing, synchronous and asynchronous.
 
 ### Message-Passing Calls
 
-Message-passing calls are similar to RPC calls but they do not lock
-the browser, returning immediately on the client. If an RPC function
-has the return type of `unit`, calls to this function are
-message-passing calls.
+Message-passing calls do not lock the browser, returning immediately
+on the client. If an RPC function has the return type of `unit`, calls
+to this function are message-passing calls.
 
 ```fsharp
 [<Remote>]
@@ -138,9 +139,10 @@ The mechanics of individual calls are similar to the message-passing
 calls.
 
 Note that using `Async` on the server side means that your code can
-switch threads.  Extra care should be taken to acquire references to
+switch threads. Extra care should be taken to acquire references to
 thread-local objects such as `System.Web.HttpContext.Current` before
-entering the async expression.
+entering the async expression. It is recommended to use
+[Web.IContext](WebContext.md).
 
 ### Synchronous Calls
 
@@ -226,18 +228,10 @@ the use of Inversion of Control containers to implement
 
 The communication protocol used by WebSharper is a custom protocol
 built on top of HTTP and JSON. The client sends HTTP POST requests
-marked with a special HTTP headers to the current URL of the page
-(`?`), with the bodies of the requests containing the JSON-serialized
-method arguments. The server responds with a JSON reply.
+marked with a special HTTP header `x-websharper-rpc` to the current
+URL of the page (`?`), with the bodies of the requests containing the
+JSON-serialized method arguments. The server responds with a JSON
+reply.
 
-The URL to which the requets are sent can be customized by subclassing
+The URL to which the requests are sent can be customized by subclassing
 from the `RpcAttribute`.
-
---------
-
-See also:
-
-* [Manual TOC](WebSharper.md)
-* [Hosting in IIS](IIS.md)
-
-
