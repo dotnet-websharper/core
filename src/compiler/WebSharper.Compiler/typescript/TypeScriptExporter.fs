@@ -227,7 +227,7 @@ module internal TypeScriptExporter =
             isInterfaceMethod ||
             match m.Kind with
             | V.JavaScriptMethod _ -> true
-            | V.MacroMethod (_, x) -> x.Body.IsSome
+            | V.MacroMethod (_, x, _) -> x.Body.IsSome
             | _ ->
                 false
         if isExported then

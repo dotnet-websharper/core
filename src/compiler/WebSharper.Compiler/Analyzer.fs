@@ -75,15 +75,17 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
         match c.Kind with
         | V.JavaScriptConstructor e ->
             List.iter (deps.Connect src) (GetCalls e)
-        | V.MacroConstructor (_, mac) ->
-            List.iter (deps.Connect src) mac.Requirements
+        | V.MacroConstructor (_, mac, _) ->
+            ()
+//            List.iter (deps.Connect src) mac.Requirements // TODO: macro dependencies
         | _ -> ()
     let visitMethod src (m: V.Method) =
         m.Requirements
         |> List.iter (fun rT -> deps.Connect src (M.ResourceNode rT))
         match m.Kind with
-        | V.MacroMethod (_, mac) ->
-            List.iter (deps.Connect src) mac.Requirements
+        | V.MacroMethod (_, mac, _) ->
+            ()
+//            List.iter (deps.Connect src) mac.Requirements // TODO: macro dependencies
         | V.InlineMethod inl ->
             match inl.Quotation with
             | None -> ()

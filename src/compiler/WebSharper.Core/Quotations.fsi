@@ -155,6 +155,7 @@ type Expression =
     | VarSet              of Id * E
     | WhileLoop           of E * E
     | SourcePos           of E * S.SourcePos
+    | NoMacro             of E
 
 and private E = Expression
 
@@ -198,6 +199,7 @@ val (|Var                |_|) : E -> (Id                               ) option
 val (|VarSet             |_|) : E -> (Id * E                           ) option
 val (|WhileLoop          |_|) : E -> (E * E                            ) option
 val (|SourcePos          |_|) : E -> (E * S.SourcePos                  ) option
+val (|NoMacro            |_|) : E -> (E                                ) option
 
 val AddressOf           : E                                 -> E
 val AddressSet          : E * E                             -> E
@@ -238,6 +240,7 @@ val Value               : Literal                           -> E
 val Var                 : Id                                -> E
 val VarSet              : Id * E                            -> E
 val WhileLoop           : E * E                             -> E
+val NoMacro             : E                                 -> E
 
 /// Represents a set of reflected definitions.
 type Definitions = list<Definition * Expression>

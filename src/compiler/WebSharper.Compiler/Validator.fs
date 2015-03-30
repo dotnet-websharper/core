@@ -47,7 +47,7 @@ type Name = P.Address
 type ConstructorKind =
     | InlineConstructor of I.Inline
     | JavaScriptConstructor of Q.Expression
-    | MacroConstructor of R.Type * M.Macro
+    | MacroConstructor of R.Type * M.Macro * ConstructorKind option
     | StubConstructor of Name
 
 type Constructor =
@@ -69,7 +69,7 @@ type RemotingKind =
 type MethodKind =
     | InlineMethod of I.Inline
     | JavaScriptMethod of Q.Expression
-    | MacroMethod of R.Type * M.Macro
+    | MacroMethod of R.Type * M.Macro * MethodKind option
     | RemoteMethod of RemotingKind * ref<option<Me.MethodHandle>>
     | StubMethod
 
@@ -184,7 +184,7 @@ let getCtorStatus this =
     match this with
     | InlineConstructor i when not i.IsTransformer -> Compiled
     | JavaScriptConstructor _ -> Compiled
-    | MacroConstructor (_, m) ->
+    | MacroConstructor (_, m, _) ->
         match m.Body with
         | Some _ -> Compiled
         | _ -> Ignored
@@ -200,7 +200,7 @@ let getMethodStatus this =
     | InlineMethod i ->
         if i.IsTransformer then Ignored else Compiled
     | JavaScriptMethod _ -> Compiled
-    | MacroMethod (_, m) ->
+    | MacroMethod (_, m, _) ->
         match m.Body with
         | Some _ -> Compiled
         | _ -> Ignored
@@ -312,7 +312,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
             []
         | _ -> annot
 
-    let getMainAnnotation loc annotations =
+    let getMainAnnotation loc allowMacro annotations =
         let parse x =
             match x with
             | Re.Constant x -> Some (Constant x)
@@ -328,9 +328,9 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
             | _ -> None
         match List.choose parse annotations with
         | [] -> None
-        | [a] -> Some a
+        | [OptionalField _ as a] -> Some a
         | annot ->
-        match annot |> List.filter (function OptionalField -> false | _ -> true) with     
+        match annot |> List.filter (function OptionalField -> false | Macro _ -> allowMacro | _ -> true) with     
         | [a] -> Some a
         | [Inline null; JavaScript x]
         | [JavaScript x; Inline null] ->
@@ -338,10 +338,14 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
         | [a; JavaScript _]
         | [JavaScript _; a] ->
             Some a
-        | a :: _ ->
-            warn loc "Ignoring incompatible attributes."
-            Some a
         | [] -> None
+        | al ->
+            match al |> List.tryFind (function Macro m -> true | _ -> false) with
+            | Some ma ->
+                Some ma
+            | _ ->
+                warn loc "Ignoring incompatible attributes."
+                Some (List.head al)
 
     let pCtor pStub (dT: Re.Type) (iP: Pool) (t: Re.Member<_>)
         : option<Constructor> =
@@ -359,8 +363,8 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
                 let k = self.Parameters.Length
                 if k > 1 then [k] else []
             | Some x -> x
-        let annot =
-            match getMainAnnotation t.Location t.Annotations with
+        let rec annot allowMacro =
+            match getMainAnnotation t.Location allowMacro t.Annotations with
             | Some (Direct pat) ->
                 iP.CreateInline Static t.Location pars (I.Compiled pat)
                 |> InlineConstructor
@@ -373,7 +377,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
                 Some (JavaScriptConstructor js)
             | Some (Macro d) ->
                 let m = macros.Load d
-                Some (MacroConstructor (d, m))
+                Some (MacroConstructor (d, m, annot false))
             | Some (InlineJavaScript js) ->
                 warn t.Location
                     "Inline JavaScript constructors are not supported."
@@ -384,7 +388,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
                 if pStub
                 then Some (StubConstructor dT.AddressSlot.Address)
                 else None
-        annot
+        annot true
         |> Option.map (fun kind ->
             {
                 Currying = curr
@@ -420,8 +424,8 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
         let pars = [for p in self.Parameters -> p.Name]
         let loc = t.Location
         let curr = pMethodCurrying t
-        let annot =
-            match getMainAnnotation t.Location t.Annotations with
+        let rec annot allowMacro =
+            match getMainAnnotation t.Location allowMacro t.Annotations with
             | Some (Direct pat) ->
                 iP.CreateInline scope loc pars (I.Compiled pat)
                 |> InlineMethod
@@ -438,7 +442,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
             | Some (JavaScript js) when not pOptF -> Some (JavaScriptMethod js)
             | Some (Macro d) ->
                 let m = macros.Load d
-                Some (MacroMethod (d, m))
+                Some (MacroMethod (d, m, annot false))
             | Some Remote ->
                 let (|Void|_|) (t: TypeReference) =
                     if  t.FullName = "Sysem.Void"
@@ -471,6 +475,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
 //                        |> InlineMethod
 //                    )
 //                elif pStub || self.IsVirtual then Some StubMethod else None
+        let annot = annot true
         match annot with
         | Some (RemoteMethod _) ->
             match verifier.VerifyRemoteMethod t.Definition with
@@ -538,7 +543,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
     let pPropKind pStub (iP: Pool) (p: Re.Property) =
         let prop = p.Member
         let self = prop.Definition
-        let annot = getMainAnnotation prop.Location prop.Annotations
+        let annot = getMainAnnotation prop.Location true prop.Annotations
         let loc = p.Member.Location
         match annot with
         | Some (Constant _) ->
@@ -604,7 +609,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
         let reqs = getRequirements prop.Location Static prop.Annotations
         let loc = prop.Location
         let annot =
-            match getMainAnnotation prop.Location prop.Annotations with
+            match getMainAnnotation prop.Location true prop.Annotations with
             | Some (Direct pat) ->
                 let i = iP.CreateInline Static loc [] (I.Compiled pat)
                 Some (InlineModuleProperty i)

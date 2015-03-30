@@ -43,7 +43,7 @@ type Name = P.Address
 type ConstructorKind =
     | InlineConstructor of Inlining.Inline
     | JavaScriptConstructor of Q.Expression
-    | MacroConstructor of R.Type * M.Macro
+    | MacroConstructor of R.Type * M.Macro * ConstructorKind option
     | StubConstructor of Name
 
 type Constructor =
@@ -65,7 +65,7 @@ type RemotingKind =
 type MethodKind =
     | InlineMethod of Inlining.Inline
     | JavaScriptMethod of Q.Expression
-    | MacroMethod of R.Type * M.Macro
+    | MacroMethod of R.Type * M.Macro * MethodKind option
     | RemoteMethod of RemotingKind * ref<option<Me.MethodHandle>>
     | StubMethod
 

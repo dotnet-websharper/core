@@ -56,7 +56,7 @@ let Assemble (logger: Logger) (iP: I.Pool) mP (meta: M.T)
                 |> Corrector.Correct (Corrector.Constructor c.Currying)
                 |> C.Optimize
                 |> P.Core
-        | V.MacroConstructor (_, x) ->
+        | V.MacroConstructor (_, x, _) ->
             if x.Body.IsSome then
                 c.Slot.Method <-
                     match x.Body.Value with
@@ -75,7 +75,7 @@ let Assemble (logger: Logger) (iP: I.Pool) mP (meta: M.T)
                 |> Corrector.Correct (Corrector.Method (m.Currying, m.Scope))
                 |> C.Optimize
                 |> P.Core
-        | V.MacroMethod (_, x) ->
+        | V.MacroMethod (_, x, _) ->
             if x.Body.IsSome then
                 m.Slot.Method <-
                     match x.Body.Value with

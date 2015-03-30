@@ -39,7 +39,7 @@ type Field = string
 type ConstructorKind =
     | BasicConstructor of P.Address
     | InlineConstructor of Inlining.Inline
-    | MacroConstructor of R.Type
+    | MacroConstructor of R.Type * ConstructorKind option
     | StubConstructor of P.Address
 
 /// Represents data type metadata.
@@ -55,7 +55,7 @@ type MethodKind =
     | BasicInstanceMethod of Name
     | BasicStaticMethod of P.Address
     | InlineMethod of Inlining.Inline
-    | MacroMethod of R.Type
+    | MacroMethod of R.Type * MethodKind option
     | RemoteMethod of MemberScope * V.RemotingKind * M.MethodHandle
 
 /// Represents property metadata.
