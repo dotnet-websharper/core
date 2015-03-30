@@ -420,7 +420,7 @@ and TAttrs =
             t.IsGenericType &&
             t.GetGenericTypeDefinition() = typedefof<option<_>> &&
             (i.RepresentNullUnionsAsAbsentField ||
-                (tcad |> Seq.exists (fun t ->
+                (mcad |> Seq.exists (fun t ->
                     t.Constructor.DeclaringType = typeof<A.OptionalFieldAttribute>)))
         let isNullableUnion =
             i.RepresentNullUnionsAsAbsentField &&
