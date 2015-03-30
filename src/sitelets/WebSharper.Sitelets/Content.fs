@@ -265,6 +265,9 @@ module Content =
             let resp = RedirectToUrl (ctx.Link action)
             ToResponse resp ctx
 
+    let RedirectPermanentToUrl url = RedirectToUrl url
+    let RedirectPermanent url = Redirect url
+
     /// Emits a 307 Redirect Temporary response to a given url.
     let RedirectTemporaryToUrl<'T> (url: string) : Content<'T> =
         CustomContent <| fun ctx ->

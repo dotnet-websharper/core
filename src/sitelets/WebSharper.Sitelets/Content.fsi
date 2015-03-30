@@ -68,10 +68,18 @@ module Content =
     val SetStatus<'T> : status: Http.Status -> Content<'T> -> Content<'T>
 
     /// Redirects permanently (301 Moved Permanently) to a given action.
+    [<Obsolete "Use RedirectPermanent">]
     val Redirect<'T> : action: 'T -> Content<'T>
 
     /// Redirects permanently (301 Moved Permanently) to a given URL.
+    [<Obsolete "Use RedirectPermanentToUrl">]
     val RedirectToUrl : url: string -> Content<'T>
+
+    /// Redirects permanently (301 Moved Permanently) to a given action.
+    val RedirectPermanent<'T> : action: 'T -> Content<'T>
+
+    /// Redirects permanently (301 Moved Permanently) to a given URL.
+    val RedirectPermanentToUrl : url: string -> Content<'T>
 
     /// Redirects temporarily (307 Redirect Temporary) to a given action.
     val RedirectTemporary<'T> : action: 'T -> Content<'T>
