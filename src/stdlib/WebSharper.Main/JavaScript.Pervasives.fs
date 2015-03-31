@@ -26,9 +26,10 @@ module WebSharper.JavaScript.Pervasives
 open WebSharper
 module M = WebSharper.Macro
 
-/// Returns null or some other default value of the given type.
-/// Note: a short-hand for "Unchecked.defaultof<'T>".
-let X<'T> = Unchecked.defaultof<'T>
+/// Specifies a value intended for client-side use only, so that there is no
+/// .NET implementation.
+/// Fails with the message "This function is intended for client-side use only."
+let X<'T> : 'T = failwith "This function is intended for client-side use only."
 
 let private binary (x: obj) (y: obj) = JS.ClientSide<obj>
 let private binaryAs<'T> (x: obj) (y: obj) = JS.ClientSide<'T>
