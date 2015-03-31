@@ -1,5 +1,14 @@
 # Translation and metaprogramming
 
+WebSharper provides several ways to customize the way functions and
+values are compiled to JavaScript:
+
+* [Directly providing JavaScript code](#javascript);
+* [Customizing the compiled name of the value](#name);
+* [Transforming the F# code](#meta) during compilation, a concept
+  known as metaprogramming.
+
+<a name="javascript"></a>
 ## Embedding JavaScript
 
 There are two ways of directly inserting JavaScipt code into a WebSharper project.
@@ -58,24 +67,26 @@ Parameter placeholders work exactly as with `Direct`.
 The `Constant` attribute takes a literal value as parameter.
 It can annotate a property or a union case which will be translated to the literal provided.
 
+<a name="name"></a>
 ## Naming
 
-The `Name` attribure takes a string parameter and allows specifying
+The `Name` attribute takes a string parameter and allows specifying
 the name of a function or class in the translation.
 For example:
 
     [<Name "add" >]
     let OriginalNameForAdd (x: int) (y: int) = x + y
 
+<a name="meta"></a>
 ## Metaprogramming
 
 Currently there are two ways of adding special logic to WebSharper translation.
 The `Generated` attribute can be used to create a function's body by evaluating
-an expression compile-time.
+an expression at compile-time.
 The `Macro` attribute can be used to translate all call sites of a function with
 a custom logic.
 
-## Generated body
+### Generated body
 
 The `Generated` attribute takes a `System.Type` value as a parameter.
 The type specified must have a constructor with no arguments and implement the
@@ -134,7 +145,7 @@ For example:
 
 These 3 samples produce the same function body.
 
-## Macros
+### Macros
 
 WebSharper macros allow a custom translation of all call sites of a function between the
 quotation and "core" levels.
