@@ -34,6 +34,7 @@ type Layout =
     | Vertical of Layout * Layout
     | Indent of Layout
     | SourceMapping of S.SourcePos
+    | SourceMappingEnd of S.SourcePos
     | SourceName of string
 
 let inline ( ++ ) a b = Horizontal (a, b)
@@ -247,7 +248,7 @@ let BlockLayout items =
 let rec Expression (buf: StringBuilder) expression =
     match expression with
     | S.ExprPos (x, pos) -> 
-        SourceMapping pos ++ Expression buf x
+        SourceMapping pos ++ Expression buf x ++ SourceMappingEnd pos
     | S.Application (f, xs) ->
         MemberExpression buf f
         ++ Parens (CommaSeparated (AssignmentExpression buf) xs)
@@ -542,6 +543,7 @@ type Atom =
     | T of string
     | W of string
     | P of S.SourcePos
+    | E of S.SourcePos
     | N of string
 
 type Line =
@@ -594,6 +596,8 @@ let ToLines mode layout =
             append level (T x) tail
         | SourceMapping p ->
             append level (P p) tail
+        | SourceMappingEnd p ->
+            append level (E p) tail
         | SourceName n ->
             append level (N n) tail
     lines 0 [] (Simplify layout)
@@ -665,7 +669,7 @@ type CodeWriter(?assemblyName: string) =
             insertComma <- false
             colFromLastMapping <- 0
 
-    member this.AddCodeMapping(pos : S.SourcePos, ?name : string) =
+    member this.AddCodeMapping(pos : S.SourcePos, start: bool, ?name : string) =
         if sourceMap then
             if insertComma then
                 mappings.Append ',' |> ignore
@@ -692,11 +696,11 @@ type CodeWriter(?assemblyName: string) =
                 lastFileIndex <- fileIndex   
                 lastFileName <- fileName
         
-            let sourceLine = pos.Line - 1
+            let sourceLine = if start then pos.Line - 1 else pos.EndLine - 1
             mappings |> encodeBase64VLQ (sourceLine - lastSourceLine)
             lastSourceLine <- sourceLine
         
-            let sourceColumn = pos.Column
+            let sourceColumn = if start then pos.Column else pos.EndColumn
             mappings |> encodeBase64VLQ (sourceColumn - lastSourceColumn)
             lastSourceColumn <- sourceColumn
 
@@ -763,11 +767,16 @@ let Render mode (out: CodeWriter) layout =
         match xs with
         | [] -> None
         | P _ :: ys 
+        | E _ :: ys
         | N _ :: ys -> (|O|_|) ys
         | y :: _ -> Some y
-    let rec (|S|) xs =
+    let rec (|SP|) xs =
         match xs with
-        | P _ :: ys -> (|S|) ys
+        | P _ :: ys -> (|SP|) ys
+        | _ -> xs
+    let rec (|SE|) xs =
+        match xs with
+        | E _ :: ys -> (|SE|) ys
         | _ -> xs
     let rec renderAtoms xs =
         match xs with
@@ -780,11 +789,14 @@ let Render mode (out: CodeWriter) layout =
                 out.Write ' '   
             | _ -> () 
             renderAtoms ys
-        | P p :: S(N n :: ys) ->
-            out.AddCodeMapping(p, n)
+        | P p :: SP(N n :: SP ys) ->
+            out.AddCodeMapping(p, true, n)
             renderAtoms ys   
-        | P p :: S ys ->
-            out.AddCodeMapping p
+        | P p :: SP ys ->
+            out.AddCodeMapping(p, true)
+            renderAtoms ys   
+        | E p :: SE ys ->
+            out.AddCodeMapping(p, false)
             renderAtoms ys   
         | N n :: ys ->
             renderAtoms ys               

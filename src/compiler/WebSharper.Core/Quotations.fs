@@ -442,7 +442,8 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
                                 Value (String fileName)
                                 Value (Int startLine)
                                 Value (Int startCol)
-                                _; _
+                                Value (Int endLine)
+                                Value (Int endCol)
                             ]
                         ] -> 
                             Some {
@@ -450,6 +451,8 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
                                 S.File   = fileName
                                 S.Line   = startLine
                                 S.Column = startCol
+                                S.EndLine   = endLine
+                                S.EndColumn = endCol
                             }
                     | _ -> None
                 )

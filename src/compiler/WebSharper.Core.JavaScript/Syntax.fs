@@ -86,6 +86,8 @@ type SourcePos =
         File : string
         Line : int
         Column : int
+        EndLine : int
+        EndColumn : int
     }
 
 type Literal =
