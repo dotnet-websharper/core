@@ -18,6 +18,8 @@
 //
 // $end{copyright}
 
+/// Provides supporting types for implementing custom compilation
+/// rules using MacroAttribute.
 module WebSharper.Core.Macros
 
 module C = WebSharper.Core.JavaScript.Core
@@ -25,18 +27,27 @@ module Q = WebSharper.Core.Quotations
 module R = WebSharper.Core.Reflection
 module S = WebSharper.Core.JavaScript.Syntax
 
+/// Represents a translator function.
 type Translator = Q.Expression -> C.Expression
 
+/// Represents method bodies, at either JavaScript core or syntax level.
 type Body =
+    | QuotationBody of Microsoft.FSharp.Quotations.Expr
     | CoreBody of C.Expression
     | SyntaxBody of S.Expression
 
-type Macro =
-    {
-        Body            : option<Body>
-        Expand          : Translator -> Translator
-        Requirements    : list<Metadata.Node>
-    }
+///// Represents a custom compilation rule for a method. Expand
+///// accepts Call or CallModule nodes associated with the given method.
+//type Macro =
+//    {
+//        Body            : option<Body>
+//        Expand          : Translator -> Translator
+//        Requirements    : list<Metadata.Node>
+//    }
 
-type IMacroDefinition =
-    abstract member Macro : Macro
+/// An interface for macro definitions used with MacroAttribute.
+type IMacro =
+    abstract member Expand: Translator -> Translator
+
+type IGenerator =
+    abstract member Body : Body

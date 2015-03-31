@@ -26,46 +26,46 @@ module M = WebSharper.Core.Macros
 [<Sealed>]
 type Add =
     new : unit -> Add
-    interface M.IMacroDefinition
+    interface M.IMacro
 
 [<Sealed>]
 type Sub =
     new : unit -> Sub
-    interface M.IMacroDefinition
+    interface M.IMacro
 
 [<Sealed>]
 type Division =
     new : unit -> Division
-    interface M.IMacroDefinition
+    interface M.IMacro
 
 [<Sealed>]
 type Char =
     new : unit -> Char
-    interface M.IMacroDefinition
+    interface M.IMacro
 
 [<Sealed>]
 type String =
     new : unit -> String
-    interface M.IMacroDefinition
+    interface M.IMacro
 
 [<Sealed>]
 type New =
     new : unit -> New
-    interface M.IMacroDefinition
+    interface M.IMacro
 
 [<Sealed>]
 type FuncWithArgsRest =
     new : unit -> FuncWithArgsRest
-    interface M.IMacroDefinition
+    interface M.IMacro
 
 [<Sealed>]
 type PrintF =
     new : unit -> PrintF
-    interface M.IMacroDefinition
+    interface M.IMacro
 
 [<AbstractClass>]
 type CMP =
-    interface M.IMacroDefinition
+    interface M.IMacro
 
 [<Sealed>]
 type EQ =

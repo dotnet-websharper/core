@@ -43,9 +43,13 @@ type InlineAttribute = A.InlineAttribute
 /// Marks methods, properties and constructors for compilation to JavaScript.
 type JavaScriptAttribute = A.JavaScriptAttribute
 
-/// Annotates methods with custom compilation rules. The supplied type
-/// should implement Macros.IMacroDefinition and a default constructor.
+/// Annotates methods an constructors with custom compilation rules.
+/// The supplied type should implement Macros.IMacro and a default constructor.
 type MacroAttribute = A.MacroAttribute
+
+/// Annotates methods with a generator type that provides the method body.
+/// The supplied type should implement Macros.IGenerator and a default constructor.
+type GeneratedAttribute = A.GeneratedAttribute
 
 /// Provides a runtime name for members when it differs from the F# name.
 /// The constructor accepts either an explicit array of parts,

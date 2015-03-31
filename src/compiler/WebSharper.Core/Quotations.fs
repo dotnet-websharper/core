@@ -186,6 +186,7 @@ type Expression =
     | VarSet              of Id * E
     | WhileLoop           of E * E
     | SourcePos           of E * S.SourcePos
+    | NoMacro             of E
 
 and private E = Expression
 
@@ -728,7 +729,7 @@ let ReadAssemblyFile (file: string) =
 exception TransformException
 
 let Transform (!) (expr: E) : E =
-    let (!!) = List.map (!)
+    let inline (!!) e = List.map (!) e
     let t v x =
         match !(Lambda (v, x)) with
         | Lambda (v, x) -> (v, x)
@@ -736,6 +737,8 @@ let Transform (!) (expr: E) : E =
     match expr with
     | SourcePos (e, pos) ->
         SourcePos (!e, pos)
+    | NoMacro e ->
+        NoMacro !e
     | AddressOf x ->
         AddressOf !x
     | AddressSet (x, y) ->
@@ -863,7 +866,7 @@ let Alpha expr =
     t Map.empty expr
 
 let inline (|IgnoreSourcePos|) expr =
-    match expr with SourcePos (e, _) | e -> e
+    match expr with SourcePos (e, _) | NoMacro e | e -> e
 
 let (|AddressOf          |_|) e = match e with IgnoreSourcePos(AddressOf x                    ) -> Some x               | _ -> None
 let (|AddressSet         |_|) e = match e with IgnoreSourcePos(AddressSet(x, y)               ) -> Some (x, y)          | _ -> None
@@ -906,6 +909,7 @@ let (|VarSet             |_|) e = match e with IgnoreSourcePos(VarSet(x, y)     
 let (|WhileLoop          |_|) e = match e with IgnoreSourcePos(WhileLoop(x, y)                ) -> Some (x, y)          | _ -> None
 
 let (|SourcePos|_|) e = match e with SourcePos(x, y) -> Some (x, y) | _ -> None
+let (|NoMacro|_|) e = match e with NoMacro x -> Some x | _ -> None
 
 let AddressOf x                     = AddressOf x                    
 let AddressSet(x, y)                = AddressSet(x, y)               
@@ -946,3 +950,4 @@ let Value x                         = Value x
 let Var x                           = Var x                          
 let VarSet(x, y)                    = VarSet(x, y)                   
 let WhileLoop(x, y)                 = WhileLoop(x, y)                
+let NoMacro x                       = NoMacro x

@@ -85,6 +85,7 @@ type Annotation =
     | Inline of option<string>
     | JavaScript of Q.Expression
     | Macro of R.Type
+    | Generated of R.Type
     | Name of Name
     | Proxy of R.TypeDefinition
     | Remote
@@ -102,6 +103,7 @@ type Annotation =
         | Inline _ -> "Inline"
         | JavaScript _ -> "JavaScript"
         | Macro _ -> "Macro"
+        | Generated _ -> "Generated"
         | Name _ -> "Name"
         | Proxy _ -> "Proxy"
         | Remote _ -> "Remote"
@@ -317,38 +319,54 @@ type Pool(logger: Logger) =
     static member Create logger =
         Pool logger
 
-    member this.Load(x: R.Type) =
+    member this.LoadMacro(x: R.Type) =
         match cache.TryGetValue x with
         | true, y -> y
         | _ ->
-            let fail : M.Macro =
-                {
-                    Body = None
-                    Expand = fun _ _ -> !~ C.Undefined
-                    Requirements = []
-                }
             let report reason =
                 logger.Log {
                     Location = Locator.LocateReflectedType x
                     Priority = Error
                     Text = reason
                 }
+                let fail = { new M.IMacro with member this.Expand _ = fun _ -> !~ C.Undefined }
                 cache.[x] <- fail
                 fail
             try
                 let t = x.Load()
                 let def = System.Activator.CreateInstance t
-                let md = def :?> M.IMacroDefinition
-                let y = md.Macro
-                cache.[x] <- y
-                y
+                let md = def :?> M.IMacro
+                cache.[x] <- md
+                md
             with
             | :? System.TypeLoadException as e ->
                 report (sprintf "Failed to load macro definition: %A" e)
             | :? System.MissingMethodException as e ->
                 report "No default constructor."
             | :? System.InvalidCastException as e ->
-                report "No IMacroDefinition implementation."
+                report "No IMacro implementation."
+
+    member this.LoadGenerator(x: R.Type) =
+        let report reason =
+            logger.Log {
+                Location = Locator.LocateReflectedType x
+                Priority = Error
+                Text = reason
+            }
+            { new M.IGenerator with member this.Body = M.CoreBody (!~ C.Undefined) }
+        try
+            let t = x.Load()
+            let def = System.Activator.CreateInstance t
+            let md = def :?> M.IGenerator
+            md
+        with
+        | :? System.TypeLoadException as e ->
+            report (sprintf "Failed to load generator definition: %A" e)
+        | :? System.MissingMethodException as e ->
+            report "No default constructor."
+        | :? System.InvalidCastException as e ->
+            report "No IGenerator implementation."
+
 
 let annotationsTable =
     let d = Dictionary<string,CustomAttribute->_>()
@@ -377,6 +395,10 @@ let annotationsTable =
     add typeof<A.MacroAttribute> (fun attr _ ->
         match attr.ConstructorArguments with
         | [TypeArgument x] -> Some (Macro (Adapter.AdaptType x))
+        | _ -> None)
+    add typeof<A.GeneratedAttribute> (fun attr _ ->
+        match attr.ConstructorArguments with
+        | [TypeArgument x] -> Some (Generated (Adapter.AdaptType x))
         | _ -> None)
     add typeof<A.NameAttribute> (fun attr warn ->
         match attr.ConstructorArguments with
