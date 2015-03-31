@@ -7,8 +7,6 @@ As in F#, a workflow of type `async<'T>` represents a program that can
 be invoked to either succeed with a result `'T` asynchronously or fail
 with an exception.  The limiations on the client are:
 
-* Cancellation is not supported.
-
 * All parallelism is cooperative.  You have to yield control inside a
   workflow to let other workflows execute.  In current implementation,
   yielding of control may happen implicitly every time you use `let!`
