@@ -230,14 +230,17 @@ type InlineGenerator() =
         if entity.SourceName.IsSome then entity.SourceName.Value else
             let name = entity.Name
             let name =
-                match name.LastIndexOf '.' with
-                | -1 -> name
-                | n -> name.Substring(n + 1)
-            let name =
-                if name.StartsWith "new " then
-                    name.Substring 4
+                if entity :? Code.NamespaceEntity then
+                    let name =
+                        if name.StartsWith "new " then
+                            name.Substring 4
+                        else
+                            name
+                    match name.LastIndexOf '.' with
+                    | -1 -> name
+                    | n -> name.Substring(n + 1)
                 else
-                    name
+                    name.Replace('.', '_')
             name.Substring(0, 1).ToUpper() + name.Substring 1
         |> mangle
 
