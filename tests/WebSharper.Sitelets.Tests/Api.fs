@@ -25,92 +25,109 @@ open System.Collections.Generic
 open WebSharper
 open WebSharper.Sitelets
 
+/// This module implements the tutorial REST API from http://websharper.com/tutorials/rest-api
+/// It's a full CRUD application maintaining a basic in-memory database of people.
 module Api =
 
+    /// The type of actions, ie. REST API entry points.
     type Action =
-        | [<CompiledName "person"; Method "POST"; Json "data">]
-            PostPerson of string * data: PersonData
-        | [<CompiledName "person"; Method "GET">]
-            GetPerson of string
-        | [<CompiledName "person"; Method "PUT"; Json "data">]
-            UpdatePerson of string * data: PersonData
-        | [<CompiledName "person"; Method "DELETE">]
-            DeletePerson of string
+        /// GET /person?id=123
+        | [<Method "GET"; CompiledName "person"; Query "id">]
+            GetPerson of id: int
+        /// POST /person (with JSON body)
+        | [<Method "POST"; CompiledName "person"; Json "personData">]
+            PostPerson of personData: PersonData
+        /// PUT /person?id=123 (with JSON body)
+        | [<Method "PUT"; CompiledName "person"; Query "id"; Json "personData">]
+            PutPerson of id: int * personData: PersonData
+        /// DELETE /person?id=123
+        | [<Method "DELETE"; CompiledName "person"; Query "id">]
+            DeletePerson of id: int
 
-    and [<NamedUnionCases "result">]
-        Result<'T> =
-        | [<CompiledName "success">] Success of data: 'T
-        | [<CompiledName "error">] Failure of message: string
-
+    /// Data about a person. Used both for storage and JSON parsing/writing.
     and PersonData =
-        {
-            [<Name "firstName">]    FirstName   : string
-            [<Name "lastName">]     LastName    : string
-            [<Name "born">]         Born        : DateTime
-            [<Name "died">]         Died        : DateTime option
-            [<Name "links">]        Links       : Set<Link>
-        }
+        { firstName: string
+          lastName: string
+          /// DateTimeFormat indicates how JSON parses and writes this date.
+          [<DateTimeFormat "yyyy-MM-dd">] born: System.DateTime
+          /// Since this is an option, this field is only present in JSON for Some value.
+          [<DateTimeFormat "yyyy-MM-dd">] died: option<System.DateTime> }
 
-    and [<NamedUnionCases>]
-        Link =
-        | Website of url: string
-        | Book of isbn: string
+    /// Type used for all JSON responses to indicate success or failure.
+    [<NamedUnionCases "result">]
+    type Result<'T> =
+        /// JSON: {"result": "success", /* fields of 'T... */}
+        | [<CompiledName "success">] Success of 'T
+        /// JSON: {"result": "failure", "message": "error message..."}
+        | [<CompiledName "failure">] Failure of message: string
 
-    let private peopleDatabase = Dictionary()
+    /// Result value for PostPerson.
+    type Id = { id : int }
 
-    let Sitelet = Sitelet.Infer <| fun action ->
-        lock peopleDatabase <| fun () ->
-            match action with
-            | PostPerson (ident, data) ->
-                Content.JsonContent <| fun ctx ->
-                    match peopleDatabase.TryGetValue ident with
-                    | true, _ -> Failure "Person already registered"
-                    | false, _ -> peopleDatabase.[ident] <- data; Success None
-            | GetPerson ident ->
-                Content.JsonContent <| fun ctx ->
-                    match peopleDatabase.TryGetValue ident with
-                    | true, u -> Success u
-                    | false, _ -> Failure "Person not found"
-            | UpdatePerson (ident, data) ->
-                Content.JsonContent <| fun ctx ->
-                    match peopleDatabase.TryGetValue ident with
-                    | true, _ -> peopleDatabase.[ident] <- data; Success None
-                    | false, _ -> Failure "Person not found"
-            | DeletePerson ident ->
-                Content.JsonContent <| fun ctx ->
-                    if peopleDatabase.Remove(ident) then
-                        Success None
-                    else Failure "Person not found"
+    module private ApplicationLogic =
 
-    do
-        [
-            "alonzo.church", {
-                FirstName = "Alonzo"
-                LastName = "Church"
-                Born = DateTime(1903, 6, 14)
-                Died = Some(DateTime(1995, 8, 11))
-                Links = Set [Website "https://en.wikipedia.org/wiki/Alonzo_Church"; Book "9780691029061"]
-            }
-            "alan.turing", {
-                FirstName = "Alan"
-                LastName = "Turing"
-                Born = DateTime(1912, 6, 23)
-                Died = Some(DateTime(1954, 6, 7))
-                Links = Set [Website "https://en.wikipedia.org/wiki/Alan_Turing"; Book "3540200207"]
-            }
-            "bertrand.russell", {
-                FirstName = "Bertrand"
-                LastName = "Russell"
-                Born = DateTime(1872, 5, 18)
-                Died = Some(DateTime(1970, 2, 2))
-                Links = Set [Website "https://en.wikipedia.org/wiki/Bertrand_Russell"]
-            }
-            "noam.chomsky", {
-                FirstName = "Noam"
-                LastName = "Chomsky"
-                Born = DateTime(1928, 12, 7)
-                Died = None
-                Links = Set [Website "https://en.wikipedia.org/wiki/Noam_Chomsky"]
-            }
-        ]
-        |> Seq.iter peopleDatabase.Add
+        /// The people database.
+        let people = new Dictionary<int, PersonData>()
+        /// The highest id used so far, incremented each time a person is POSTed.
+        let lastId = ref 0
+
+        let getPerson (id: int) : Result<PersonData> =
+            lock people <| fun () ->
+                match people.TryGetValue(id) with
+                | true, person -> Success person
+                | false, _ -> Failure "Person not found."
+
+        let postPerson (data: PersonData) : Result<Id> =
+            lock people <| fun () ->
+                incr lastId
+                people.[!lastId] <- data
+                Success { id = !lastId }
+
+        let putPerson (id: int) (data: PersonData) : Result<option<unit>> =
+            lock people <| fun () ->
+                match people.TryGetValue(id) with
+                | true, _ ->
+                    people.[id] <- data
+                    Success None
+                | false, _ -> Failure "Person not found."
+
+        let deletePerson (id: int) : Result<option<unit>> =
+            lock people <| fun () ->
+                match people.TryGetValue(id) with
+                | true, _ ->
+                    people.Remove(id) |> ignore
+                    Success None
+                | false, _ -> Failure "Person not found."
+
+    let ApiContent (action: Action) : Content<Action> =
+        match action with
+        | GetPerson id ->
+            Content.JsonContent <| fun ctx -> ApplicationLogic.getPerson id
+        | PostPerson personData ->
+            Content.JsonContent <| fun ctx -> ApplicationLogic.postPerson personData
+        | PutPerson (id, personData) ->
+            Content.JsonContent <| fun ctx -> ApplicationLogic.putPerson id personData
+        | DeletePerson id ->
+            Content.JsonContent <| fun ctx -> ApplicationLogic.deletePerson id
+
+    let Sitelet = Sitelet.Infer ApiContent
+
+    // Pre-fill the database with a few people.
+    do Seq.iter (ApplicationLogic.postPerson >> ignore) [
+        { firstName = "Alonzo"
+          lastName = "Church"
+          born = DateTime(1903, 6, 14)
+          died = Some(DateTime(1995, 8, 11)) }
+        { firstName = "Alan"
+          lastName = "Turing"
+          born = DateTime(1912, 6, 23)
+          died = Some(DateTime(1954, 6, 7)) }
+        { firstName = "Bertrand"
+          lastName = "Russell"
+          born = DateTime(1872, 5, 18)
+          died = Some(DateTime(1970, 2, 2)) }
+        { firstName = "Noam"
+          lastName = "Chomsky"
+          born = DateTime(1928, 12, 7)
+          died = None }
+    ]
