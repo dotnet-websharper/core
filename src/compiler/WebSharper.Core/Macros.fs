@@ -31,23 +31,15 @@ module S = WebSharper.Core.JavaScript.Syntax
 type Translator = Q.Expression -> C.Expression
 
 /// Represents method bodies, at either JavaScript core or syntax level.
-type Body =
+type GeneratedBody =
     | QuotationBody of Microsoft.FSharp.Quotations.Expr
     | CoreBody of C.Expression
     | SyntaxBody of S.Expression
 
-///// Represents a custom compilation rule for a method. Expand
-///// accepts Call or CallModule nodes associated with the given method.
-//type Macro =
-//    {
-//        Body            : option<Body>
-//        Expand          : Translator -> Translator
-//        Requirements    : list<Metadata.Node>
-//    }
-
 /// An interface for macro definitions used with MacroAttribute.
 type IMacro =
-    abstract member Expand: Translator -> Translator
+    abstract member Translate: quotation: Q.Expression * translator: (Q.Expression -> C.Expression) -> C.Expression
 
+/// An interface for code generation used with GeneratedAttribute.
 type IGenerator =
-    abstract member Body : Body
+    abstract member Body : GeneratedBody

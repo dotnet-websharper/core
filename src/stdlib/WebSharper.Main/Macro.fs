@@ -107,23 +107,20 @@ let arithMacro name def tr q =
     | _ ->
         failwith "arithMacro error"
 
-let addMacro = arithMacro "add" ( + )
-let subMacro = arithMacro "sub" ( - )
-
 [<Sealed>]
 type Add() =
-    interface M.IMacro with
-        member this.Expand tr = addMacro tr
+    interface M.IMacro with   
+        member this.Translate(q, tr) = arithMacro "add" ( + ) tr q
 
 [<Sealed>]
 type Sub() =
     interface M.IMacro with
-        member this.Expand tr = subMacro tr
+        member this.Translate(q, tr) = arithMacro "sub" ( - ) tr q
 
 [<Sealed>]
 type Division() =
     interface M.IMacro with
-        member this.Expand tr = divisionMacro tr
+        member this.Translate(q, tr) = divisionMacro tr q
 
 type Comparison =
     | ``<``  = 0
@@ -172,7 +169,7 @@ let comparisonMacro cmp tr q =
 [<AbstractClass>]
 type CMP(c: Comparison) =
     interface M.IMacro with
-        member this.Expand tr = comparisonMacro c tr
+        member this.Translate(q, tr) = comparisonMacro c tr q
 
 [<Sealed>] type EQ() = inherit CMP(Comparison.``=``)
 [<Sealed>] type NE() = inherit CMP(Comparison.``<>``)
@@ -207,7 +204,7 @@ let charMacro tr q =
 [<Sealed>]
 type Char() =
     interface M.IMacro with
-        member this.Expand tr = charMacro tr
+        member this.Translate(q, tr) = charMacro tr q
 
 let stringMacro tr q =
     match q with
@@ -225,7 +222,7 @@ let stringMacro tr q =
 [<Sealed>]
 type String() =
     interface M.IMacro with
-        member this.Expand tr = stringMacro tr
+        member this.Translate(q, tr) = stringMacro tr q
 
 let getFieldsList q =
     let ``is (=>)`` (m: R.Method) =
@@ -264,7 +261,7 @@ let newMacro tr q =
 [<Sealed>]
 type New() =
     interface M.IMacro with
-        member this.Expand tr = newMacro tr
+        member this.Translate(q, tr) = newMacro tr q
 
 type FST = Reflection.FSharpType
 
@@ -282,7 +279,7 @@ let funcWithArgsRestMacro tr q =
 [<Sealed>]
 type FuncWithArgsRest() =
     interface M.IMacro with
-        member this.Expand tr = funcWithArgsRestMacro tr
+        member this.Translate(q, tr) = funcWithArgsRestMacro tr q
 
 /// Set of helpers to parse format string
 /// Source: https://github.com/fsharp/fsharp/blob/master/src/fsharp/FSharp.Core/printf.fs
@@ -618,4 +615,4 @@ let printfMacro tr q =
 [<Sealed>]
 type PrintF() =
     interface M.IMacro with
-        member this.Expand tr = printfMacro tr
+        member this.Translate(q, tr) = printfMacro tr q

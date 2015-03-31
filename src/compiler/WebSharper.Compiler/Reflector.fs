@@ -329,7 +329,7 @@ type Pool(logger: Logger) =
                     Priority = Error
                     Text = reason
                 }
-                let fail = { new M.IMacro with member this.Expand _ = fun _ -> !~ C.Undefined }
+                let fail = { new M.IMacro with member this.Translate(_, _) = !~ C.Undefined }
                 cache.[x] <- fail
                 fail
             try
@@ -366,7 +366,6 @@ type Pool(logger: Logger) =
             report "No default constructor."
         | :? System.InvalidCastException as e ->
             report "No IGenerator implementation."
-
 
 let annotationsTable =
     let d = Dictionary<string,CustomAttribute->_>()
