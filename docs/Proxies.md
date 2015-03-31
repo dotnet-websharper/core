@@ -13,11 +13,11 @@ type and should reference the proxy type.  Sample usage:
     open System.Collections.Generic
 
     [<Proxy(typeof<Dictionary<_, _>)>]
-    type MyDictionaryModule<'K, 'V> [<JavaScript>] () =
+    [<JavaScript>]
+    type MyDictionary<'K, 'V> () =
 
         let mutable count = 0
 
-        [<JavaScript>]
         member this.Count = count
 
 WebSharper projects that reference the DLL containing the above code
