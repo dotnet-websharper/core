@@ -27,6 +27,11 @@ closely follows the standard, covering the following ECMA objects:
 Each object has the methods defined in the ECMA 262 standard.  This
 extension does not contain any browser-specific objects or methods.
 
+The `Object` class has a generic version, useful if you want to constrain 
+all the object fields to a single type.
+You can access a field in a typed manner by using an indexer with a 
+string parameter: `myObj.["someField"]`.
+
 ## Examples
 
 You have access to the `Math` object with all of its constants and
