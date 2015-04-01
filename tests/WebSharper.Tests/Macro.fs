@@ -46,6 +46,31 @@ type HelloJSGenerator() =
             S.Lambda (None, ["w"], [ S.Action (S.Return (Some (!~(S.String "Hello ") + S.Var "w" + !~(S.String "!")))) ])
             |> SyntaxBody
 
+module Q = WebSharper.Core.Quotations
+
+[<Sealed>]
+type NameOfMacro() =
+    interface IMacro with
+        member this.Translate(q, _) =
+            match q with
+            | Q.CallModule (c, []) ->
+                match c.Generics with
+                | [t] -> !~(C.String t.FullName) 
+                | _ -> failwith "NameOfMacro error"
+            | _ -> failwith "NameOfMacro error"
+
+[<Sealed>]
+type AddMacro() =
+    interface IMacro with
+        member this.Translate(q, tr) =
+            match q with
+            | Q.CallModule (_, [a; b]) ->
+                match a, b with
+                | Q.Value (Q.Int ai), Q.Value (Q.Int bi) ->
+                    !~ (C.Integer (int64 (ai + bi)))
+                | _ -> tr q
+            | _ -> failwith "AddMacro error"
+
 module Macro =
 
     open WebSharper
@@ -61,15 +86,27 @@ module Macro =
     [<Generated(typeof<HelloJSGenerator>)>]
     let helloJS (w: string) = X<string>
 
+    [<Macro(typeof<NameOfMacro>)>]
+    let nameof<'a> = X<string>
+
+    [<Macro(typeof<AddMacro>)>]
+    let add a b = a + b 
+
     [<JavaScript>]
     let Tests =
 
-        Section "Macro"
+        Section "Metaprogramming"
 
         Test "Generated" {
             helloQuotation "world" =? "Hello world!"    
             helloCore "world" =? "Hello world!"    
             helloJS "world" =? "Hello world!"    
         }
+
+        Test "Macro" {
+            nameof<string> =? "System.String"
+            add 1 2 =? 3
+        }
     
+
 

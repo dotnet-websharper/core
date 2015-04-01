@@ -116,6 +116,8 @@ and JavaScript syntax levels.
 This expression type is found in the `WebSharper.Core.JavaScript.Core` module.
 For example:
 
+    module C = WebSharper.Core.JavaScript.Core
+
     type HelloCoreGenerator() =
         interface IGenerator with
             member this.Body =
@@ -126,10 +128,11 @@ For example:
     [<Generated(typeof<HelloCoreGenerator>)>]
     let hello2 (w: string) = X<string>
 
-
 With `SyntaxBody`, you can return an AST for the JavaScript language, so all JavaScript
 syntax is usable.
 For example:
+
+    module S = WebSharper.Core.JavaScript.Syntax
 
     type HelloSyntaxGenerator() =
         interface IGenerator with
@@ -161,3 +164,49 @@ similar in structure to the `Microsoft.FSharp.Quotations.Expr` type only it uses
 eager reflection of types involved so that WebSharper translation can be faster.
 The macro must return a `WebSharper.Core.JavaScript.Core.Expression` value.
 The provided function can be used to translate inner parts of the quotation.
+
+Example:
+
+    module Q = WebSharper.Core.Quotations
+
+    type NameOfMacro() =
+        interface IMacro with
+            member this.Translate(q, _) =
+                match q with
+                | Q.CallModule (c, []) ->
+                    match c.Generics with
+                    | [t] -> !~(C.String t.FullName) 
+                    | _ -> failwith "NameOfMacro error"
+                | _ -> failwith "NameOfMacro error"
+
+    [<Macro(typeof<NameOfMacro>)>]
+    let nameof<'a> = X<string>
+
+This macro analyzes the type argument of the type function call and translates to
+the .NET name of that type.
+So `nameof<string>` will appear as `'System.String'` in the JavaScript translation.
+Here the inner translator is not needed.
+
+## Fallback
+
+If you use the provided translator function in the quotation itself,
+WebSharper will default to translating the call as it would without the Macro annotation.
+
+Example:
+
+    type AddMacro() =
+        interface IMacro with
+            member this.Translate(q, tr) =
+                match q with
+                | Q.CallModule (_, [a; b]) ->
+                    match a, b with
+                    | Q.Value (Q.Int ai), Q.Value (Q.Int bi) ->
+                        !~ (C.Integer (int64 (ai + bi)))
+                    | _ -> tr q
+                | _ -> failwith "AddMacro error"
+
+    [<Macro(typeof<AddMacro>)>]
+    let add a b = a + b 
+
+This macro examines if both of its argument are a constant, in this case it adds 
+the numbers compile-time, otherwise defaults to using the `+` operator.
