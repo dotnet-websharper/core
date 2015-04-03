@@ -133,6 +133,7 @@ syntax is usable.
 For example:
 
     module S = WebSharper.Core.JavaScript.Syntax
+    module P = WebSharper.Core.JavaScript.Parser
 
     type HelloSyntaxGenerator() =
         interface IGenerator with
@@ -141,7 +142,11 @@ For example:
                     [ S.Action (S.Return (Some (
                         !~(S.String "Hello ") + S.Var "w" + !~(S.String "!")))) ]
                 )
-                |> SyntaxBody
+                // equivalent to
+                // "function(w) { return 'Hello' + w + '!'; }"
+                //  |> P.Source.FromString 
+                //  |> P.ParseExpression
+            |> SyntaxBody
 
     [<Generated(typeof<HelloJSGenerator>)>]
     let hello3 (w: string) = X<string>
@@ -187,6 +192,28 @@ the .NET name of that type.
 So `nameof<string>` will appear as `'System.String'` in the JavaScript translation.
 Here the inner translator is not needed.
 
+Example for using inner translator:
+
+    [<Sealed>]
+    type AddMacro() =
+        interface IMacro with
+            member this.Translate(q, tr) =
+                match q with
+                | Q.CallModule (_, [a; b]) ->
+                    match a, b with
+                    | Q.Value (Q.Int ai), Q.Value (Q.Int bi) ->
+                        !~ (C.Integer (int64 (ai + bi)))
+                    | _ ->
+                        tr a + tr b // equivalent to C.Binary(tr a, C.BinaryOperator.``+``, tr b)
+                | _ -> failwith "AddMacro error"
+
+    [<Macro(typeof<AddMacro>)>]
+    let add (a: int) (b: int) = X<int>
+
+This macro examines if both of its argument are a constant, in this case it adds 
+the numbers compile-time, otherwise defaults to using the `+` operator, translating
+the `a` and `b` argument expressions separately.
+
 ## Fallback
 
 If you use the provided translator function in the quotation itself,
@@ -208,5 +235,5 @@ Example:
     [<Macro(typeof<AddMacro>)>]
     let add a b = a + b 
 
-This macro examines if both of its argument are a constant, in this case it adds 
-the numbers compile-time, otherwise defaults to using the `+` operator.
+This `add` function works identical to the previous implementation, only
+it translates to the addition by a fallback.

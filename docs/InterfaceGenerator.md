@@ -646,7 +646,7 @@ an F# `option` value.
 `Pattern.ObsoleteFields` can be used similarly, to create a list of
 properties with the `Obsolete` attribute.
 
-#### Enumeration Patterns
+### Enumeration Patterns
 
 JavaScript functions often accept only a fixed set of constants, such
 as strings.  Typing such parameters with `string` would be misleading
