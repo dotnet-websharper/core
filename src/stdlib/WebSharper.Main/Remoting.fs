@@ -102,7 +102,7 @@ let mutable AjaxProvider = XhrProvider() :> IAjaxProvider
 
 [<A.Inline "void ($obj[$key] = $value)">]
 let ( ?<- ) (obj: obj) (key: string) (value: obj) =
-    JS.ClientSide<unit>
+    X<unit>
 
 [<A.JavaScript>]
 let makeHeaders (m: string) =

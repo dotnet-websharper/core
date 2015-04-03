@@ -26,80 +26,72 @@ module WebSharper.JavaScript.Pervasives
 open WebSharper
 module M = WebSharper.Macro
 
-/// Specifies a value intended for client-side use only, so that there is no
-/// .NET implementation.
-/// Fails with the message "This function is intended for client-side use only."
-let X<'T> : 'T = failwith "This function is intended for client-side use only."
-
-let private binary (x: obj) (y: obj) = JS.ClientSide<obj>
-let private binaryAs<'T> (x: obj) (y: obj) = JS.ClientSide<'T>
-
 /// Casts an object to the desired type.
 [<Inline "$x">]
-let As<'T> (x: obj) = JS.ClientSide<'T>
+let As<'T> (x: obj) = X<'T>
 
 [<Inline "$x * $y">]
-let ( *. ) x y = binary x y
+let ( *. ) x y = X<obj>
 
 [<Inline "$x / $y">]
-let ( /. ) x y = binary x y
+let ( /. ) x y = X<obj>
 
 [<Inline "$x % $y">]
-let ( %. ) x y = binary x y
+let ( %. ) x y = X<obj>
 
 [<Inline "$x + $y">]
-let ( +. ) x y = binary x y
+let ( +. ) x y = X<obj>
 
 [<Inline "$x - $y">]
-let ( -. ) x y = binary x y
+let ( -. ) x y = X<obj>
 
 [<Inline "$x << $y">]
-let ( <<. ) x y = binary x y
+let ( <<. ) x y = X<obj>
 
 [<Inline "$x >> $y">]
-let ( >>. ) x y = binary x y
+let ( >>. ) x y = X<obj>
 
 [<Inline "$x >>> $y">]
-let ( >>>. ) x y = binary x y
+let ( >>>. ) x y = X<obj>
 
 [<Inline "$x < $y">]
-let ( <. ) x y = binaryAs<bool> x y
+let ( <. ) x y = X<bool>
 
 [<Inline "$x > $y">]
-let ( >. ) x y = binaryAs<bool> x y
+let ( >. ) x y = X<bool>
 
 [<Inline "$x >= $y">]
-let ( >=. ) x y = binaryAs<bool> x y
+let ( >=. ) x y = X<bool>
 
 [<Inline "$x <= $y">]
-let ( <=. ) x y = binaryAs<bool> x y
+let ( <=. ) x y = X<bool>
 
 [<Inline "$x == $y">]
-let ( ==. ) x y = binaryAs<bool> x y
+let ( ==. ) x y = X<bool>
 
 [<Inline "$x === $y">]
-let ( ===. ) x y = binaryAs<bool> x y
+let ( ===. ) x y = X<bool>
 
 [<Inline "$x != $y">]
-let ( !=. ) x y = binaryAs<bool> x y
+let ( !=. ) x y = X<bool>
 
 [<Inline "$x !== $y">]
-let ( !==. ) x y = binaryAs<bool> x y
+let ( !==. ) x y = X<bool>
 
 [<Inline "$x | $y">]
-let ( |. ) x y = binary x y
+let ( |. ) x y = X<obj>
 
 [<Inline "$x & $y">]
-let ( &. ) x y = binary x y
+let ( &. ) x y = X<obj>
 
 [<Inline "$x ^ $y">]
-let ( ^. ) x y = binary x y
+let ( ^. ) x y = X<obj>
 
 [<Inline "$obj[$field]">]
-let ( ? ) (obj: obj) (field: string) = JS.ClientSide<'T>
+let ( ? ) (obj: obj) (field: string) = X<'T>
 
 [<Inline "void ($obj[$key] = $value)">]
-let ( ?<- ) (obj: obj) (key: string) (value: obj) = JS.ClientSide<unit>
+let ( ?<- ) (obj: obj) (key: string) (value: obj) = X<unit>
 
 [<Inline "[$x,$y]">]
 let ( => ) (x: string) (y: obj) = (x, y)
@@ -117,4 +109,4 @@ let New<'T> (fields: seq<string * obj>) = X<'T>
 
 /// Constructs an proxy to a remote object instance.
 [<Inline "null">]
-let Remote<'T> = JS.ClientSide<'T>
+let Remote<'T> = X<'T>

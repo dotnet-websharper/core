@@ -35,21 +35,21 @@ type Resource() =
             html.WriteLine "<![endif]-->"
 
 [<A.Inline "$obj[$field]">]
-let ( ? ) (obj: obj) (field: string) = JS.ClientSide<'T>
+let ( ? ) (obj: obj) (field: string) = X<'T>
 
 [<A.Inline "void ($obj[$key] = $value)">]
-let ( ?<- ) (obj: obj) (key: string) (value: obj) = JS.ClientSide<unit>
+let ( ?<- ) (obj: obj) (key: string) (value: obj) = X<unit>
 
 [<A.Inline "$x">]
-let As<'T> (x: obj) = JS.ClientSide<'T>
+let As<'T> (x: obj) = X<'T>
 
 [<A.Inline "JSON.parse($json)">]
 [<A.Require(typeof<Resource>)>]
-let Parse (json: string) = JS.ClientSide<obj>
+let Parse (json: string) = X<obj>
 
 [<A.Inline "JSON.stringify($obj)">]
 [<A.Require(typeof<Resource>)>]
-let Stringify (obj: obj) = JS.ClientSide<string>
+let Stringify (obj: obj) = X<string>
 
 /// Lookups an object by its FQN.
 [<A.JavaScript>]
@@ -65,13 +65,6 @@ let lookup<'T> (x: string []) : obj =
             i <- i + 1
         else
             failwith ("Invalid server reply. Failed to find type: " + n)
-    r
-
-/// Restores the type of a serialized object by field copying.
-[<A.JavaScript>]
-let restore (ty: obj) (obj: obj) : obj =
-    let r = JS.New ty
-    JS.ForEach obj (fun k -> (?<-) r k ((?) obj k); false)
     r
 
 /// Does a shallow generic mapping over an object.
@@ -104,7 +97,9 @@ let Activate<'T> (json: obj) : 'T =
                     let o  = shallowMap decode ((?) x "$V")
                     let ti = (?) x "$T"
                     if JS.TypeOf ti = JS.Kind.Undefined then o else
-                        restore types.[ti] o
+                        let r = JS.New types.[ti]
+                        JS.ForEach o (fun k -> (?<-) r k ((?) o k); false)
+                        r
             | _ ->
                 x
     As (decode ((?) json "$DATA"))

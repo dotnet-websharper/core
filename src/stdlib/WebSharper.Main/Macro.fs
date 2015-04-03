@@ -215,9 +215,9 @@ let stringMacro tr q =
             | "System.Char" -> cCallG ["String"] "fromCharCode" [tr x]
             | _             -> cCallG [] "String" [tr x]
         | _ ->
-            failwith "comparisonMacro error"
+            failwith "stringMacro error"
     | _ ->
-        failwith "comparisonMacro error"
+        failwith "stringMacro error"
 
 [<Sealed>]
 type String() =
@@ -264,6 +264,22 @@ type New() =
         member this.Translate(q, tr) = newMacro tr q
 
 type FST = Reflection.FSharpType
+
+let funcWithArgsMacro tr q =
+    match q with
+    | Q.NewObject (c, [func]) ->
+        let tArgs = c.Generics.[0].Load()
+        if FST.IsTuple tArgs then
+            cCall C.Runtime "CreateFuncWithArgs" [ tr func ]
+        else
+            failwith "Wrong type argument on FuncWithArgs: 'TArgs mut be a tuple"
+    | _ ->
+        failwith "funcWithArgsMacro error"
+
+[<Sealed>]
+type FuncWithArgs() =
+    interface M.IMacro with
+        member this.Translate(q, tr) = funcWithArgsMacro tr q
 
 let funcWithArgsRestMacro tr q =
     match q with

@@ -54,6 +54,11 @@ type New =
     interface M.IMacro
 
 [<Sealed>]
+type FuncWithArgs =
+    new : unit -> FuncWithArgs
+    interface M.IMacro
+
+[<Sealed>]
 type FuncWithArgsRest =
     new : unit -> FuncWithArgsRest
     interface M.IMacro

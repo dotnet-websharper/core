@@ -48,7 +48,7 @@ type FunctionProxy =
 
 [<Proxy(typeof<FuncWithArgs<_,_>>)>]
 type FuncWithArgsProxy<'TArgs, 'TResult> =
-    [<Inline "$wsruntime.CreateFuncWithArgs($func)">]
+    [<Macro(typeof<WebSharper.Macro.FuncWithArgs>)>]
     new (func: 'TArgs -> 'TResult) = {}
     
     member this.Length with [<Inline "$this.length">] get() = X<int>
