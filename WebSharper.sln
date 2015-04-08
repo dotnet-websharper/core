@@ -127,6 +127,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{F4582361-B
 		docs\Remoting.md = docs\Remoting.md
 		docs\Resources.md = docs\Resources.md
 		docs\Sitelets.md = docs\Sitelets.md
+		docs\SourceMapping.md = docs\SourceMapping.md
 		docs\Templates.md = docs\Templates.md
 		docs\Translation.md = docs\Translation.md
 		docs\TypeScriptOutput.md = docs\TypeScriptOutput.md
