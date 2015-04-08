@@ -193,7 +193,7 @@ var IntelliFactory =
                 var vt = typeof value;
                 for (var i = 0; i < types.length; i++) {
                     var t = types[i];
-                    if (Number.isInteger(t)) {
+                    if (typeof t == "number") {
                         if (Array.isArray(value) && (t == 0 || value.length == t)) {
                             return { $: i, $0: value };
                         }
