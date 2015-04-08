@@ -553,9 +553,14 @@ let getJsonParser (f: Field) =
         D.Make(true, Set.empty, fun p ->
             try
                 // We need to copy the stream because else StreamReader would close it.
-                use m = new System.IO.MemoryStream(int p.Request.Body.Length)
+                use m =
+                    if p.Request.Body.CanSeek then
+                        new System.IO.MemoryStream(int p.Request.Body.Length)
+                    else
+                        new System.IO.MemoryStream()
                 p.Request.Body.CopyTo m
-                p.Request.Body.Seek(0L, IO.SeekOrigin.Begin) |> ignore
+                if p.Request.Body.CanSeek then
+                    p.Request.Body.Seek(0L, IO.SeekOrigin.Begin) |> ignore
                 m.Seek(0L, IO.SeekOrigin.Begin) |> ignore
                 use tr = new System.IO.StreamReader(m)
                 Success (decoder.Decode (Json.Read tr))
