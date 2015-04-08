@@ -22,57 +22,60 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 
+[<Name "Exception">]
 [<Proxy(typeof<System.Exception>)>]
-type private ExceptionProxy =
+type private ExceptionProxy [<Direct "new Error($message)">] (message: string) =
 
-    [<Inline "new Error()">]
-    new () = {}
-
-    [<Inline "new Error($message)">]
-    new (message: string) = {}
+    [<JavaScript>]
+    new () = ExceptionProxy "Exception of type 'System.Exception' was thrown."
 
     member this.Message with [<Inline "$this.message">] get () = X<string>
 
 [<Proxy(typeof<MatchFailureException>)>]
-type private MatchFailureExceptionProxy =
-
-    [<Inline "new Error()">]
-    new () = {}
-
-    [<Inline "new Error($message + ' at ' + $line + ':' + $column)">]
-    new (message: string, line: int, column: int) =
-        MatchFailureExceptionProxy()
+[<Name "MatchFailureException">]
+[<JavaScript>]
+type private MatchFailureExceptionProxy (message: string, line: int, column: int) =
+    inherit ExceptionProxy (message + " at " + string line + ":" + string column)
 
 [<Proxy(typeof<System.IndexOutOfRangeException>)>]
-type private IndexOutOfRangeExceptionProxy =
+[<Name "IndexOutOfRangeException">]
+[<JavaScript>]
+type private IndexOutOfRangeExceptionProxy(message: string) =
+    inherit ExceptionProxy(message)
 
-    [<Inline "new Error(\"IndexOutOfRangeException\")">]
-    new () = {}
+    new () = IndexOutOfRangeExceptionProxy "Index was outside the bounds of the array."
 
 [<Proxy(typeof<System.OperationCanceledException>)>]
-type OperationCanceledExceptionProxy =
+[<Name "OperationCanceledException">]
+[<JavaScript>]
+type private OperationCanceledExceptionProxy(message: string) =
+    inherit ExceptionProxy(message)
 
-    [<Inline "new Error(\"OperationCanceledException\")">]
-    new () = {}
+    new () = OperationCanceledExceptionProxy "The operation was canceled."
 
 [<Proxy(typeof<System.ArgumentException>)>]
-type ArgumentExceptionProxy =
-
-    [<Inline "new Error(\"ArgumentException\")">]
-    new () = {}
+[<Name "ArgumentException">]
+[<JavaScript>]
+type private ArgumentExceptionProxy(message: string) =
+    inherit ExceptionProxy(message)
+    
+    new () = ArgumentExceptionProxy "Value does not fall within the expected range."
 
 [<Proxy(typeof<System.InvalidOperationException>)>]
-type InvalidOperationExceptionProxy =
-
-    [<Inline "new Error(\"InvalidOperationException\")">]
-    new () = {}
+[<Name "InvalidOperationException">]
+[<JavaScript>]
+type private InvalidOperationExceptionProxy(message: string) =
+    inherit ExceptionProxy(message)
+    
+    new () = InvalidOperationExceptionProxy "Operation is not valid due to the current state of the object."
 
 [<Proxy(typeof<System.AggregateException>)>]
 [<Name "AggregateException">]
-type AggregateExceptionProxy =
+[<JavaScript>]
+type private AggregateExceptionProxy(message: string, innerExceptions: exn[]) =
+    inherit ExceptionProxy(message)
 
-    [<Direct "e = new Error(\"AggregateException\"), e.InnerExceptions = $innerExceptions, e">]
-    new (innerExceptions: exn[]) = {}
+    new (innerExceptions: exn[]) = AggregateExceptionProxy("One or more errors occurred.", innerExceptions)
 
-    [<Inline "$this.InnerExceptions">]
-    member this.InnerExceptions = X<System.Collections.ObjectModel.ReadOnlyCollection<exn>>
+    member this.InnerExceptions 
+        with [<Inline "$this.InnerExceptions">] get() = X<System.Collections.ObjectModel.ReadOnlyCollection<exn>>
