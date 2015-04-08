@@ -305,6 +305,7 @@ let parseQuoted cc (q: Q.Expression) : Inliner =
                 raise InlineTransformError
         | _ ->
             raise InlineTransformError
+    let q = Q.Transform (function (Q.SourcePos (e, _) | e) -> e) q
     Transformer (fun t xs ->
         apply (Corrector.Correct cc (t (Q.Alpha q))) xs)
 
