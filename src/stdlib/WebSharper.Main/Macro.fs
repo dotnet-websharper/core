@@ -268,11 +268,11 @@ type FST = Reflection.FSharpType
 let funcWithArgsMacro tr q =
     match q with
     | Q.NewObject (c, [func]) ->
-        let tArgs = c.Generics.[0].Load()
+        let tArgs = c.Generics.[0].Load(true)
         if FST.IsTuple tArgs then
             cCall C.Runtime "CreateFuncWithArgs" [ tr func ]
         else
-            failwith "Wrong type argument on FuncWithArgs: 'TArgs mut be a tuple"
+            failwith "Wrong type argument on FuncWithArgs: 'TArgs must be a tuple"
     | _ ->
         failwith "funcWithArgsMacro error"
 
@@ -284,11 +284,12 @@ type FuncWithArgs() =
 let funcWithArgsRestMacro tr q =
     match q with
     | Q.NewObject (c, [func]) ->
-        let tArgs = c.Generics.[0].Load()
+        let tArgs = c.Generics.[0].Load(true)
         if FST.IsTuple tArgs then
-            cCall C.Runtime "CreateFuncWithArgsRest" [ tr func ]
+            let length = FST.GetTupleElements tArgs |> Array.length |> int64
+            cCall C.Runtime "CreateFuncWithArgsRest" [ !~(C.Integer length); tr func ]
         else
-            failwith "Wrong type argument on FuncWithArgsRest: 'TArgs mut be a tuple"
+            failwith "Wrong type argument on FuncWithArgsRest: 'TArgs must be a tuple"
     | _ ->
         failwith "funcWithArgsRestMacro error"
 
@@ -419,20 +420,7 @@ let stringProxy = ["WebSharper"; "Strings"]
 
 let createPrinter ts fs =
     let parts = FormatString.parseAll fs
-    let args =
-        match ts with 
-        | Some ts -> 
-            ts |> Seq.map (fun t -> C.Id(), Some t) |> List.ofSeq
-        | _ ->
-        [
-            for p in parts do
-                match p with
-                | FormatString.FormatPart f ->
-                    yield C.Id(), None
-                    if f.IsStarWidth then yield C.Id(), None
-                    if f.IsStarPrecision then yield C.Id(), None
-                | _ -> () 
-        ]
+    let args = ts |> Seq.map (fun t -> C.Id(), Some t) |> List.ofSeq
         
     let rArgs = ref args
     let nextVar() =
@@ -621,9 +609,7 @@ let printfMacro tr q =
                 let x, y = FST.GetFunctionElements t
                 x :: getFunctionArgs y
             else []
-        let ts =
-            try c.Generics.[0].Load() |> getFunctionArgs |> Some
-            with _ -> None
+        let ts = c.Generics.[0].Load(true) |> getFunctionArgs
         createPrinter ts fs
     | _ ->
         failwith "printfMacro error"

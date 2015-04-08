@@ -203,7 +203,8 @@ type TypeDefinition =
                     (name.Substring(k + 1))
         pN (aQN.Substring(0, comma))
 
-exception InvalidTypeException
+exception InvalidType of message: string
+    with override this.Message = this.message
 
 type Type =
     | ArrayType of Type * Rank
@@ -244,7 +245,7 @@ type Type =
         match this with
         | ArrayType (t, _) -> t.DeclaringType
         | ConcreteType (t, _) -> t
-        | GenericType _ -> raise InvalidTypeException
+        | GenericType _ -> raise (InvalidType "Cannot get type of a generic parameter")
 
     member this.Name =
         match this with
@@ -279,8 +280,7 @@ type Type =
                 |> Seq.map (fun t -> t.AssemblyQualifiedName)
                 |> String.concat "],["
             System.String.Format("{0}[[{1}]]", d.FullName, ts)
-        | GenericType p ->
-            raise InvalidTypeException
+        | GenericType p -> "System.Object"
 
     override this.ToString() =
         let fullName t =
@@ -307,14 +307,30 @@ type Type =
         | GenericType p ->
             this.Name
 
+    member private this.AssemblyName =
+        match this with
+        | ArrayType (t, _) -> t.AssemblyName
+        | ConcreteType (t, _) -> string t.AssemblyName
+        | GenericType _ -> "mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+
     member this.AssemblyQualifiedName =
         System.String.Format(
             "{0}, {1}",
             this.FullName,
-            this.DeclaringType.AssemblyName
+            this.AssemblyName
         )
 
-    member this.Load() =
+    member private this.CheckNonGeneric() =
+        match this with
+        | ArrayType (t, _) -> t.CheckNonGeneric()
+        | ConcreteType (_, ts) ->
+            for t in ts do t.CheckNonGeneric()
+        | GenericType _ ->
+            raise (InvalidType "Cannot load generic type")    
+    
+    member this.Load(?allowGeneric) =
+        if allowGeneric.IsNone || not allowGeneric.Value then
+            this.CheckNonGeneric()
         System.Type.GetType(this.AssemblyQualifiedName, true)
 
     static member FromType(t: System.Type) =

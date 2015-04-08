@@ -198,7 +198,7 @@ type Assembly =
 type Definitions = Dictionary<Q.Definition,Q.Expression>
 
 let parseTypeReference (warn: string -> unit) (t: TypeReference) =
-    try Adapter.AdaptTypeDefinition t with :? R.InvalidTypeException ->
+    try Adapter.AdaptTypeDefinition t with :? R.InvalidType ->
         warn ("Invalid type reference: " + string t)
         R.TypeDefinition.FromType typeof<unit>
 

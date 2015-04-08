@@ -66,7 +66,7 @@ type Rank = int
 
 /// Thrown when the reflected type is not valid for a given operation,
 /// for example when it is a generic parameter and this is disallowed.
-exception InvalidTypeException
+exception InvalidType of message: string
 
 /// Represents system and user-defined type definitions.
 [<Sealed>]
@@ -129,7 +129,7 @@ type Type =
     member Name : Name
 
     /// Tries to load the class. Throws exceptions on failure.
-    member Load : unit -> System.Type
+    member Load : ?allowGeneric: bool -> System.Type
 
     /// Parses types. Throws exceptions on failure.
     static member FromType : System.Type -> Type
