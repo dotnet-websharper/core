@@ -5,6 +5,8 @@
 Right-click a WebSharper web project node in the Solution Explorer,
 and select `Publish...` to open the "Publish Web" dialog.
 
+![Publish Web](images/PublishWeb.png)
+
 To publish to Azure, click "Microsoft Azure Websites" and log in with
 your Microsoft account if prompted.
 
