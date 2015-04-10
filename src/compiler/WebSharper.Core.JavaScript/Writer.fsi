@@ -25,7 +25,6 @@ type CodeWriter =
     new : ?assemblyName : string -> CodeWriter 
     member GetMapFile : unit -> string option
     member GetCodeFile : unit -> string
-    member GetSourceFiles : unit -> string[]
 
 /// Writes a JavaScript expression to a writer.
 val WriteExpression : Preferences -> CodeWriter -> Syntax.Expression -> unit

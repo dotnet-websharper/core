@@ -40,6 +40,3 @@ module internal Constants =
 
     [<Literal>]
     let EMBEDDED_DTS = "WebSharper.d.ts"
-
-    [<Literal>]
-    let EMBEDDED_SOURCES = "FSharpSource/"
