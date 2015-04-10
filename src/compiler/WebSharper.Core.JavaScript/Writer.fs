@@ -783,14 +783,22 @@ let Render mode (out: CodeWriter) layout =
         | E _ :: ys
         | N _ :: ys -> (|O|_|) ys
         | y :: _ -> Some y
-    let rec (|SP|) xs =
+    let (|FirstP|_|) xs =
+        let rec skipP xs =
+            match xs with
+            | N n :: ys -> 
+                let ys, _ = skipP ys
+                ys, Some n 
+            | P _ :: ys -> skipP ys
+            | _ -> xs, None
         match xs with
-        | P _ :: ys -> (|SP|) ys
-        | _ -> xs
-    let rec (|SE|) xs =
+        | P p :: ys -> Some (p, skipP ys)
+        | _ -> None
+    let rec (|LastE|_|) xs =
         match xs with
-        | E _ :: ys -> (|SE|) ys
-        | _ -> xs
+        | E _ :: LastE pys -> Some pys
+        | E p :: ys -> Some (p, ys)
+        | _ -> None
     let rec renderAtoms xs =
         match xs with
         | [] -> ()
@@ -802,17 +810,15 @@ let Render mode (out: CodeWriter) layout =
                 out.Write ' '   
             | _ -> () 
             renderAtoms ys
-        | P p :: SP(N n :: SP ys) ->
-            out.AddCodeMapping(p, true, n)
+        | FirstP (p, (ys, n)) ->
+            out.AddCodeMapping(p, true, ?name = n)
             renderAtoms ys   
-        | P p :: SP ys ->
-            out.AddCodeMapping(p, true)
-            renderAtoms ys   
-        | E p :: SE ys ->
+        | LastE (p, ys) ->
             out.AddCodeMapping(p, false)
             renderAtoms ys   
         | N n :: ys ->
-            renderAtoms ys               
+            renderAtoms ys   
+        | _ -> failwith "wrong source position tokens"            
     let renderLine line =
         match line.Atoms with
         | [] -> ()
