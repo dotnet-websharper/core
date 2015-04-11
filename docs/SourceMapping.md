@@ -18,8 +18,8 @@ for WebSharper. Otherwise only the starting lines of functions can be mapped.
 
 If you build with `WebSharper.exe` directly, add `-sm` to the command line.
 
-WebSharper itself is build with source map embedding, so you can debug into
-WebSharper main library code.
+WebSharper itself is built with source map embedding, so you can debug into
+WebSharper library code.
 
 ## Outputting source maps for WebSharper web projects
 
@@ -46,7 +46,7 @@ You can set breakpoints in the original code.
 To enable source maps, check the "Enable JavaScript source maps" 
 setting in Developer Tools Settings (cog icon in F12 panel).
 
-In the Sources tab of the Developer Tools, open a generated `.js` file in 
+In the Sources tab of Developer Tools, open a generated `.js` file in 
 the `Scripts/WebSharper` folder to make Chrome load its source mappings.
 A folder named `FSharpSources` will appear with the original `.fs` files used
 for WebSharper translation.
@@ -60,12 +60,12 @@ Check the "Show Original Sources" item in the "Debugger Options"
 menu (cog icon in F12 panel).
 
 You can access the list of original sources, however breakpoints
-didn't work correctly in version 37.0.1.
+don't work correctly as of version 37.0.1.
 
 ### Limitations
 
 * Single-Page Application projects are currently not supported.
 
-* Do not have multiple source files with the same file name in a single project.
+* Can not have multiple source files with the same file name in a single project.
 
 * Inlines are not mapped.
