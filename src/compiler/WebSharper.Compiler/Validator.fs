@@ -163,6 +163,7 @@ and Type =
 and UnionCase =
     {
         Kind : UnionCaseKind
+        Definition : MethodDefinition
         Location : Location
         Reference : R.UnionCase
         Requirements : list<Requirement>
@@ -676,6 +677,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
         let r = Adapter.AdaptUnionCase self.Definition.DeclaringType name
         {
             Kind = kind
+            Definition = self.Definition
             Location = loc
             Reference = r
             Requirements = reqs

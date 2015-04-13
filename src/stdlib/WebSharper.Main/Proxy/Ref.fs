@@ -22,7 +22,7 @@ module private WebSharper.Ref
 
 open WebSharper.JavaScript
 
-[<Name "WebSharper.ref">]
+[<Name "WebSharper.Ref">]
 [<Proxy(typeof<ref<_>>)>]
 type private RefProxy<'T> =
 

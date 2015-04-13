@@ -23,6 +23,7 @@ namespace WebSharper
 open WebSharper.JavaScript
 
 [<Proxy(typeof<option<_>>)>]
+[<Name "WebSharper.Option.T">]
 type private OptionProxy<'T> =
     | [<Name "None">] NoneCase
     | [<Name "Some">] SomeCase of 'T

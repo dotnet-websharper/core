@@ -51,11 +51,15 @@ module internal TypeScriptGenerator =
     [<Sealed>]
     type Contract
 
-    /// Object contract consisting of method and property signatures.
+    /// Interface contract consisting of method and property signatures.
     [<Sealed>]
     type Interface
 
-    /// Interface members.
+    /// Object contract consisting of instance and static method and property signatures.
+    [<Sealed>]
+    type Class
+
+    /// Interface or class members.
     [<Sealed>]
     type Member
 
@@ -114,6 +118,9 @@ module internal TypeScriptGenerator =
         /// Provides a body (object type) to a named type declaration.
         static member Define : Declaration * Interface -> Definitions
 
+        /// Provides a body (object type) to a named type declaration.
+        static member Define : Declaration * Class -> Definitions
+
         /// Merges definitions.
         static member Merge : seq<Definitions> -> Definitions
 
@@ -150,6 +157,9 @@ module internal TypeScriptGenerator =
         /// Built-in 'string' contract.
         static member String : Contract
 
+        /// Create a tuple type.
+        static member Tuple : list<Contract> -> Contract
+
         /// Built-in 'void' contract.
         static member Void : Contract
 
@@ -157,7 +167,13 @@ module internal TypeScriptGenerator =
     type Interface with
 
         /// Defines an interface.
-        static member Create : seq<Member> -> Interface
+        static member Create : seq<Member> * ?ext:seq<Contract> -> Interface
+
+    /// Class combinators.
+    type Class with
+
+        /// Defines an interface.
+        static member Create : seq<Member> * ?ext:Contract * ?impl:seq<Contract> -> Class
 
     /// Member combinators.
     type Member with
@@ -181,10 +197,10 @@ module internal TypeScriptGenerator =
         static member NumericMethod : pos: int * sign: Signature -> Member
 
         /// Defins a numerically named property.
-        static member NumericProperty : pos: int * contract: Contract -> Member
+        static member NumericProperty : pos: int * contract: Contract * ?opt: bool -> Member
 
         /// Defins a named propery.
-        static member Property : name: string * contract: Contract -> Member
+        static member Property : name: string * contract: Contract * ?opt: bool -> Member
 
     /// Signature combinators.
     type Signature with

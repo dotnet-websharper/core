@@ -23,6 +23,7 @@ namespace WebSharper
 open WebSharper.JavaScript
 
 [<Proxy(typeof<System.Lazy<_>>)>]
+[<Name "WebSharper.Lazy.T">]
 type private LazyProxy<'T> =
 
     member this.IsValueCreated

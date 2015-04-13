@@ -92,17 +92,26 @@ module internal TypeScriptGenerator =
         | CNamed of Address * list<Contract>
         | CNumber
         | CString
+        | CTuple of list<Contract>
         | CVoid
 
     and Interface =
         {
             Members : list<Member>
+            Extends: list<Contract>
+        }
+
+    and Class = 
+        {
+            Members : list<Member>
+            Extends : option<Contract>
+            Implements : list<Contract>
         }
 
     and Member =
         | MCall of Signature
         | MConstruct of Signature
-        | MProperty of string * Contract
+        | MProperty of string * Contract * bool
         | MMethod of string * Signature
         | MNumber of Contract * string
         | MString of Contract * string
@@ -126,7 +135,8 @@ module internal TypeScriptGenerator =
         }
 
     type Definition =
-        | TypeDef of Declaration * Interface
+        | InterfaceDef of Declaration * Interface
+        | ClassDef of Declaration * Class
         | VarDef of Contract
 
     type Definitions =
@@ -210,16 +220,28 @@ module internal TypeScriptGenerator =
         static member NumericMethod(pos: int, sign) =
             MMethod (string pos, sign)
 
-        static member NumericProperty(pos: int, contract) =
-            MProperty (string pos, contract)
+        static member NumericProperty(pos: int, contract, ?opt) =
+            MProperty (string pos, contract, defaultArg opt false)
 
-        static member Property(name, contract) =
-            MProperty(name, contract)
+        static member Property(name, contract, ?opt) =
+            MProperty(name, contract, defaultArg opt false)
 
     type Interface with
 
-        static member Create(ms) =
-            { Members = Seq.toList ms }
+        static member Create(ms, ?ext) =
+            {
+                Members = Seq.toList ms 
+                Extends = Seq.toList (defaultArg ext Seq.empty)
+            }
+
+    type Class with
+
+        static member Create(ms, ?ext, ?impl) =
+            {
+                Members = Seq.toList ms 
+                Extends = ext
+                Implements = Seq.toList (defaultArg impl Seq.empty)
+            }
 
     [<Sealed>]
     exception InvalidTypeGeneric of Address * int * int with
@@ -259,7 +281,11 @@ module internal TypeScriptGenerator =
     type Definitions with
 
         static member Define(decl, i) =
-            Q.NameMap.Singleton(decl.DeclarationAddress.Name, TypeDef (decl, i))
+            Q.NameMap.Singleton(decl.DeclarationAddress.Name, InterfaceDef (decl, i))
+            |> Defs
+
+        static member Define(decl, c) =
+            Q.NameMap.Singleton(decl.DeclarationAddress.Name, ClassDef (decl, c))
             |> Defs
 
         static member Merge(defs) =
@@ -297,6 +323,9 @@ module internal TypeScriptGenerator =
             if decl.DeclarationGenerics.Length <> gs.Length then
                 raise (InvalidGenericArgumentCount decl.DeclarationAddress)
             CNamed (decl.DeclarationAddress, gs)
+
+        static member Tuple(tt) =
+            CTuple tt
 
         static member Any = CAny
         static member Boolean = CBoolean
@@ -526,12 +555,24 @@ module internal TypeScriptGenerator =
             write pc ">"
         | CNumber -> write pc "number"
         | CString -> write pc "string"
+        | CTuple tt ->
+            write pc "["
+            writeCommaSeparated writeContract pc tt
+            write pc "]"
         | CVoid -> write pc "void"
 
     and writeInterface pc i =
         writeLine pc "{"
         indent pc {
             do for m in i.Members do
+                writeMember pc m
+        }
+        write pc "}"
+
+    and writeClass pc c =
+        writeLine pc "{"
+        indent pc {
+            do for m in c.Members do
                 writeMember pc m
         }
         write pc "}"
@@ -551,8 +592,9 @@ module internal TypeScriptGenerator =
             writeArgument pc (Argument.Create(name, CNumber))
             write pc "]: "
             writeContract pc contract
-        | MProperty (name, c) ->
+        | MProperty (name, c, opt) ->
             write pc name
+            if opt then write pc "?"
             write pc ": "
             writeContract pc c
         | MString (contract, name) ->
@@ -587,7 +629,7 @@ module internal TypeScriptGenerator =
     let verifyPromises (Defs defs) =
         let verify addr =
             match defs.TryFind(addr) with
-            | Some (TypeDef _) -> ()
+            | Some (InterfaceDef _ | ClassDef _) -> ()
             | _ -> raise (UndefinedDeclaration addr)
         let rec visitContract c =
             match c with
@@ -596,6 +638,7 @@ module internal TypeScriptGenerator =
             | CNamed (addr, gs) ->
                 verify addr.Name
                 List.iter visitContract gs
+            | CTuple tt -> List.iter visitContract tt
             | CGeneric _ | CAny | CBoolean | CNumber | CString | CVoid -> ()
         and visitSignature (s: Signature) =
             for a in s.ArgumentStack do
@@ -605,10 +648,16 @@ module internal TypeScriptGenerator =
             for m in i.Members do
                 match m with
                 | MMethod (_, s) | MCall s | MConstruct s -> visitSignature s
-                | MProperty (_, c) | MNumber (c, _) | MString (c, _) -> visitContract c
+                | MProperty (_, c, _) | MNumber (c, _) | MString (c, _) -> visitContract c
+        and visitClass c =
+            for m in c.Members do
+                match m with
+                | MMethod (_, s) | MCall s | MConstruct s -> visitSignature s
+                | MProperty (_, c, _) | MNumber (c, _) | MString (c, _) -> visitContract c
         let visit addr v =
             match v with
-            | TypeDef (_, i) -> visitInterface i
+            | InterfaceDef (_, i) -> visitInterface i
+            | ClassDef (_, c) -> visitClass c
             | VarDef c -> visitContract c
         defs.Iterate(visit)
 
@@ -669,13 +718,35 @@ module internal TypeScriptGenerator =
             write pc " : "
             writeContract pc c
             writeLine pc ";"
-        | TypeDef (d, c) ->
+        | InterfaceDef (d, c) ->
             write pc "interface "
             let pc = inGenericContext pc d.DeclarationGenerics
             write pc (local addr)
             writeGenerics pc d.DeclarationGenerics
             write pc " "
+            if not (List.isEmpty c.Extends) then
+                write pc "extends "
+                writeCommaSeparated writeContract pc c.Extends                 
+                write pc " "
             writeInterface pc c
+            writeLine pc ""
+        | ClassDef (d, c) ->
+            write pc "class "
+            let pc = inGenericContext pc d.DeclarationGenerics
+            write pc (local addr)
+            writeGenerics pc d.DeclarationGenerics
+            write pc " "
+            match c.Extends with
+            | Some ext ->
+                write pc "extends "
+                writeContract pc ext
+                write pc " "
+            | _ -> ()
+            if not (List.isEmpty c.Implements) then
+                write pc "implements "
+                writeCommaSeparated writeContract pc c.Implements                 
+                write pc " "
+            writeClass pc c
             writeLine pc ""
 
     let rec writeModule pc data addr =

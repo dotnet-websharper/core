@@ -156,6 +156,7 @@ and Type =
 and UnionCase =
     {
         Kind : UnionCaseKind
+        Definition : MethodDefinition
         Location : Location
         Reference : R.UnionCase
         Requirements : list<Requirement>
