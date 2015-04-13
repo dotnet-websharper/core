@@ -170,6 +170,19 @@ module Interfaces =
                     T<string> ^-> DOMImplementationList
             ]
 
+    let DOMRect =
+        Class "DomRect"
+        |+> Instance [
+                "x" =? T<double>
+                "y" =? T<double>
+                "width" =? T<double>
+                "height" =? T<double>
+                "top" =? T<double>
+                "right" =? T<double>
+                "bottom" =? T<double>
+                "left" =? T<double>
+            ]
+
     let EventTarget =
         let EventListener = (T<unit> + Event) ^-> T<unit>
         Class "EventTarget"
@@ -296,6 +309,21 @@ module Interfaces =
         |+> Instance [
                 "schemaTypeInfo" =@ TypeInfo
                 "tagName" =@ T<string>
+
+                // CSSOM
+                "scrollTop" =? T<double>
+                "scrollLeft" =? T<double>
+                "scrollWidth" =? T<double>
+                "scrollHeight" =? T<double>
+                "clientTop" =? T<double>
+                "clientLeft" =? T<double>
+                "clientWidth" =? T<double>
+                "clientHeight" =? T<double>
+
+                "getClientRects" => T<unit> ^-> Type.ArrayOf DOMRect
+                "getBoundingClientRect" => T<unit> ^-> DOMRect
+                // CSSOM
+
                 "getAttribute" => T<string->string>
                 "setAttribute" => T<string> * T<string> ^-> T<unit>
                 "removeAttribute" => T<string->unit>
@@ -872,6 +900,7 @@ module Definition =
                 I.DOMImplementationList
                 I.DOMLocator
                 I.DOMStringList
+                I.DOMRect
                 I.Document
                 I.DocumentFragment
                 I.DocumentType
