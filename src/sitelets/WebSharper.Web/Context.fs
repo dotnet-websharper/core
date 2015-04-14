@@ -33,16 +33,25 @@ type IContext =
 
 module Remoting =
 
-    let mutable private context : unit -> option<IContext> = fun () -> None
-
-    /// Sets the application-wide Rpc web context retrieval function.
-    /// This should only be used by WebSharper host implementations.
-    let SetContext s = context <- s
+    let internal context =
+        new System.Threading.ThreadLocal<option<IContext>>(fun () -> None)
 
     /// Retrieve the current web context in an Rpc function. This function must be called
     /// from the thread from which the Rpc function is originally called. The returned
     /// object can be used throughout the Rpc function.
     let GetContext() =
-        match context() with
+        match context.Value with
         | None -> failwith "No remoting context available."
         | Some c -> c
+
+[<AutoOpen>]
+module RemotingExtensions =
+
+    type WebSharper.Core.Remoting.Server with
+
+        /// Handle a request with the given web context.
+        member this.HandleRequest(req, context) =
+            Remoting.context.Value <- Some context
+            let res = this.HandleRequest(req)
+            Remoting.context.Value <- None
+            res

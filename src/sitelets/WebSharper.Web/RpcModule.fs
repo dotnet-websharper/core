@@ -99,25 +99,22 @@ type RpcHandler() =
                 let body =
                     use s = new StreamReader(req.InputStream)
                     s.ReadToEnd()
+                let root = ctx.Server.MapPath("~")
+                let uri = ctx.Request.Url
+                let session = new AspNetFormsUserSession(ctx)
+                let ctx =
+                    { new IContext with
+                        member this.RootFolder = root
+                        member this.RequestUri = uri
+                        member this.UserSession = session :> _ }
                 let! response =
-                    RpcUtil.server.HandleRequest { Headers = getHeader; Body = body }
+                    RpcUtil.server.HandleRequest({ Headers = getHeader; Body = body }, ctx)
                 resp.ContentType <- response.ContentType
                 resp.Write response.Content
             return resp.End()
         }
 
     let (beginPR, endPR, cancelPR) = Async.AsBeginEnd(work)
-
-    do Remoting.SetContext (fun () ->
-        let root = HttpContext.Current.Server.MapPath("~")
-        let uri = HttpContext.Current.Request.Url
-        let session = new AspNetFormsUserSession(HttpContext.Current)
-        { new IContext with
-            member this.RootFolder = root
-            member this.RequestUri = uri
-            member this.UserSession = session :> _
-        }
-        |> Some)
 
     interface SessionState.IRequiresSessionState
 
