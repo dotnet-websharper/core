@@ -163,6 +163,7 @@ module internal TypeScriptExporter =
                 | "System.String" -> T.Contract.String
                 | "System.Void"
                 | "Microsoft.FSharp.Core.Unit" -> T.Contract.Void
+                | "System.Object" -> T.Contract.Any
                 | _ -> getNamedContract ctx tR []
 
     let getSignature ctx staticGenerics (m: MethodReference) =
@@ -204,6 +205,19 @@ module internal TypeScriptExporter =
                 |> T.Contract.Anonymous
             [T.Definitions.Var(addr, c)]
 
+    let exportConstructor ctx tgen (t: V.Type) (c: V.Constructor) =
+        let selfAddr = convertAddress ctx (string t.Reference.FullName) t.Name
+        let selfDecl = T.Declaration.Create(selfAddr, tgen)    
+        let addr = convertAddress ctx (string c.Reference) c.Name
+        let sign = getSignature ctx tgen c.Definition
+        let signGen = tgen |> List.mapi (fun i _ -> T.Contract.Generic(sign, i))
+        let sign = sign.WithReturn(T.Contract.Named(selfDecl, signGen))
+        let c =
+            [T.Member.Call sign]
+            |> T.Interface.Create
+            |> T.Contract.Anonymous
+        T.Definitions.Var(addr, c)
+
     let exportStaticMethods ctx tgen (t: V.Type) =
         seq {
             for m in t.Methods do
@@ -238,7 +252,18 @@ module internal TypeScriptExporter =
                 | _ -> ()
         }
 
-    let exportNamedContract ctx tgen (t: V.Type) isIF ext intf =
+    let exportConstructors ctx tgen (t: V.Type) (ck: V.ClassKind) =
+        seq {
+            for c in ck.Constructors do
+                match c.Kind with
+                | V.JavaScriptConstructor _
+                | V.CoreConstructor _
+                | V.SyntaxConstructor _ ->
+                    yield exportConstructor ctx tgen t c
+                | _ -> ()
+        }
+
+    let exportNamedContract ctx tgen (t: V.Type) isIF ext =
         let addr = convertAddress ctx (string t.Reference.FullName) t.Name
         let decl = T.Declaration.Create(addr, tgen)
         let ctx = { ctx with GenericDeclaration = Some decl }
@@ -275,26 +300,23 @@ module internal TypeScriptExporter =
                     yield T.Member.Property("$", T.Contract.Number)
                 | _ -> ()
             ]
-        if isIF then
-            let ext = intf |> Seq.map (getContract ctx) 
-            T.Definitions.Define(decl, T.Interface.Create (members, ext = ext))
-        else 
-            let ext = ext |> Option.map (getContract ctx) 
-            let impl = intf |> Seq.map (getContract ctx) |> Seq.filter ((<>) T.Contract.Any)
-            T.Definitions.Define(decl, T.Class.Create (members, ?ext = ext, impl = impl))
+        let ext = ext |> Seq.map (getContract ctx) |> Seq.filter ((<>) T.Contract.Any)
+        T.Definitions.Define(decl, T.Interface.Create (members, ext))
 
     let exportUnionCase ctx tgen (t: V.Type) ci (uc: V.UnionCase) =
-        let baseAddr = convertAddress ctx (string t.Reference.FullName) t.Name
-        let addr = baseAddr.Builder.Nested(baseAddr, sprintf "_%d_%s" ci uc.Reference.Name)
-        let baseDecl = T.Declaration.Create(baseAddr, tgen)    
-        let decl = T.Declaration.Create(addr, tgen)     
-        let ctx = { ctx with GenericDeclaration = Some decl }
-        let members =
-            uc.Definition.Parameters |> List.mapi (fun i p ->
-                T.Member.Property("$" + string i, getContract ctx p.ParameterType)
-            )
-        let baseGen = tgen |> List.mapi (fun i _ -> T.Contract.Generic(decl, i))
-        T.Definitions.Define(decl, T.Class.Create(members, ext = T.Contract.Named(baseDecl, baseGen)))
+        if uc.Kind = V.BasicUnionCase then
+            let baseAddr = convertAddress ctx (string t.Reference.FullName) t.Name
+            let addr = baseAddr.Builder.Nested(baseAddr, sprintf "_%d_%s" ci uc.Reference.Name)
+            let baseDecl = T.Declaration.Create(baseAddr, tgen)    
+            let decl = T.Declaration.Create(addr, tgen)     
+            let ctx = { ctx with GenericDeclaration = Some decl }
+            let members =
+                uc.Definition.Parameters |> List.mapi (fun i p ->
+                    T.Member.Property("$" + string i, getContract ctx p.ParameterType)
+                )
+            let baseGen = tgen |> List.mapi (fun i _ -> T.Contract.Generic(decl, i))
+            T.Definitions.Define(decl, T.Interface.Create(members, [ T.Contract.Named(baseDecl, baseGen) ])) |> Some
+        else None
 
     let rec exportType ctx (t: V.Type) =
         seq {
@@ -310,18 +332,20 @@ module internal TypeScriptExporter =
                 yield! exportStaticProperties ctx tgen t
                 match t.Kind with
                 | V.TypeKind.Class c ->
-                    yield exportNamedContract ctx tgen t false t.ReflectorType.Definition.BaseType t.ReflectorType.Definition.Interfaces
+                    yield! exportConstructors ctx tgen t c
+                    yield exportNamedContract ctx tgen t false
+                        (Seq.append (Option.toList t.ReflectorType.Definition.BaseType) t.ReflectorType.Definition.Interfaces)
                 | V.TypeKind.Exception ->
-                    yield exportNamedContract ctx tgen t false None []
+                    yield exportNamedContract ctx tgen t false []
                 | V.TypeKind.Interface ->
-                    yield exportNamedContract ctx tgen t true None t.ReflectorType.Definition.Interfaces
+                    yield exportNamedContract ctx tgen t true t.ReflectorType.Definition.Interfaces
                 | V.TypeKind.Module _ -> ()
                 | V.TypeKind.Record props ->
-                    yield exportNamedContract ctx tgen t true None t.ReflectorType.Definition.Interfaces
+                    yield exportNamedContract ctx tgen t false t.ReflectorType.Definition.Interfaces
                 | V.TypeKind.Resource _ -> ()
                 | V.TypeKind.Union ucs ->
-                    yield exportNamedContract ctx tgen t false None t.ReflectorType.Definition.Interfaces
-                    yield! ucs |> List.mapi (exportUnionCase ctx tgen t)   
+                    yield exportNamedContract ctx tgen t false t.ReflectorType.Definition.Interfaces
+                    yield! ucs |> List.mapi (exportUnionCase ctx tgen t) |> List.choose id  
         }
 
     let ExportDeclarations (cm: CM.T) (v: V.Assembly) =

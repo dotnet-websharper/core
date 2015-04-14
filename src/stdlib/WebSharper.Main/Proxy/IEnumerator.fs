@@ -21,11 +21,13 @@
 namespace WebSharper
 
 [<Proxy(typeof<System.Collections.IEnumerator>)>]
+[<Name "WebSharper.IEnumerator">]
 type private IEnumeratorProxy =
     abstract member Current  : obj
     abstract member MoveNext : unit -> bool
     abstract member Reset    : unit -> unit
 
 [<Proxy(typeof<System.Collections.Generic.IEnumerator<_>>)>]
+[<Name "WebSharper.IEnumerator1">]
 type private IEnumeratorProxy<'T> =
     abstract member Current : 'T
