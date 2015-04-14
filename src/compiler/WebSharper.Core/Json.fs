@@ -1419,7 +1419,7 @@ type Provider(fo: FormatSettings) =
         getEncoding
             (fun _ -> Some defaultof)
             (fun dD i ta ->
-                let x = box ([||] : obj[])
+                let x = box (System.Array.CreateInstance(ta.Type.GetElementType(), 0))
                 fun _ -> x)
             (fun dD i ta ->
                 let xs = FST.GetTupleElements ta.Type |> Array.map (fun t -> dD ta ta.Type)
