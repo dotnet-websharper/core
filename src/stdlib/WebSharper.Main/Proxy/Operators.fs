@@ -44,7 +44,7 @@ let ( .. .. ) (min: 'T1) (step: 'T2) (max: 'T1) : seq<'T1> =
     |> Seq.takeWhile (fun k -> s * (As<int> max - As<int> k) >= 0)
     |> As
 
-[<Inline "$r.contents">]
+[<Inline "$r[0]">]
 let ( ! ) (r: ref<'T>) = X<'T>
 
 [<Inline "$a % $b">]
@@ -71,7 +71,7 @@ let ( - ) (a: 'T1) (b: 'T2) = X<'T3>
 [<Macro(typeof<M.Division>)>]
 let ( / ) (x: 'T1) (y: 'T2) = X<'T3>
 
-[<Inline "void ($a.contents = $b)">]
+[<Inline "void ($a[0] = $b)">]
 let ( := ) (a: ref<'T>) (b: 'T) = X<unit>
 
 [<Inline "function (x) { return $f($g(x)); }">]
@@ -285,7 +285,7 @@ let Pown<'T> (a: 'T) (n: int) =
 [<Direct "throw $e">]
 let Raise (e: exn) = X<'T>
 
-[<Inline "{contents: $x}">]
+[<Inline "[$x]">]
 let Ref (x: 'T) = X<ref<'T>>
 
 [<Inline "Math.round($x)">]

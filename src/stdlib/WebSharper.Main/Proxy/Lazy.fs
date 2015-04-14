@@ -25,6 +25,11 @@ open WebSharper.JavaScript
 [<Proxy(typeof<System.Lazy<_>>)>]
 [<Name "WebSharper.Lazy.T">]
 type private LazyProxy<'T> =
+    {
+        mutable value   : 'T
+        mutable created : bool
+        mutable eval    : unit -> 'T
+    }
 
     member this.IsValueCreated
         with [<Inline "$this.created">] get () = X<bool>

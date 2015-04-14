@@ -27,13 +27,6 @@ module private WebSharper.LazyExtensionsProxy
 
 open WebSharper.JavaScript
 
-type LazyRecord<'T> =
-    {
-        mutable value   : 'T
-        mutable created : bool
-        mutable eval    : unit -> 'T
-    }
-
 [<JavaScript>]
 let Create (f: unit -> 'T) : Lazy<'T> =
     let x =
@@ -65,4 +58,4 @@ let CreateFromValue (v: 'T) : Lazy<'T> =
 
 [<JavaScript>]
 let Force (x: Lazy<'T>) : 'T =
-    As<LazyRecord<'T>>(x).eval()
+    As<LazyProxy<'T>>(x).eval()
