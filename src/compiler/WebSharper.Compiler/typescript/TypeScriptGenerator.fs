@@ -88,6 +88,7 @@ module internal TypeScriptGenerator =
         | CAny
         | CArray of Contract
         | CBoolean
+        | CFunction of list<Argument> * option<Argument> * Contract
         | CGeneric of TVar
         | CNamed of Address * list<Contract>
         | CNumber
@@ -311,6 +312,9 @@ module internal TypeScriptGenerator =
 
         static member Array(t) =
             CArray t
+
+        static member Function(args, rest, ret) =
+            CFunction (args |> List.map Argument.Create, rest |> Option.map Argument.Create, ret)
 
         static member Generic(g: Declaration, pos) =
             g.[pos]
@@ -546,6 +550,16 @@ module internal TypeScriptGenerator =
             writeContract pc c
             write pc "[]"
         | CBoolean -> write pc "boolean"
+        | CFunction (args, rest, ret) ->
+            write pc "("
+            writeCommaSeparated writeArgument pc args
+            match rest with
+            | Some r ->
+                write pc ", ..."
+                writeArgument pc r
+            | None -> ()
+            write pc ") => "
+            writeContract pc ret
         | CGeneric v -> writeTVar pc v
         | CNamed (name, []) -> writeAddress pc name
         | CNamed (name, inst) ->
@@ -639,6 +653,13 @@ module internal TypeScriptGenerator =
                 verify addr.Name
                 List.iter visitContract gs
             | CTuple tt -> List.iter visitContract tt
+            | CFunction (args, rest, ret) ->
+                for a in args do
+                    visitContract a.ArgumentContract
+                match rest with
+                | Some r -> visitContract r.ArgumentContract
+                | None -> ()
+                visitContract ret
             | CGeneric _ | CAny | CBoolean | CNumber | CString | CVoid -> ()
         and visitSignature (s: Signature) =
             for a in s.ArgumentStack do
@@ -713,11 +734,18 @@ module internal TypeScriptGenerator =
     let writeDefinition pc def addr =
         match def with
         | VarDef c ->
-            write pc "var "
-            write pc (local addr)
-            write pc " : "
-            writeContract pc c
-            writeLine pc ";"
+            match c with 
+            | CAnonymous { Members = [ MCall sign ]; Extends = [] } ->
+                write pc "function "
+                write pc (local addr)
+                writeSignature pc sign
+                writeLine pc ";"
+            | _ ->
+                write pc "var "
+                write pc (local addr)
+                write pc " : "
+                writeContract pc c
+                writeLine pc ";"
         | InterfaceDef (d, c) ->
             write pc "interface "
             let pc = inGenericContext pc d.DeclarationGenerics

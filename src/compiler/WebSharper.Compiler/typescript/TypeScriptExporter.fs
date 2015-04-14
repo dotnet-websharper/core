@@ -108,19 +108,9 @@ module internal TypeScriptExporter =
     let getFuncContract ctx fT =
         match fT.FArgs with
         | [] ->
-            let call =
-                T.Signature.Create().WithReturn(getContract ctx fT.FRet)
-                |> T.Member.Call
-            T.Interface.Create [call]
-            |> T.Contract.Anonymous
+            T.Contract.Function([], None, getContract ctx fT.FRet)
         | [x] ->
-            let call =
-                T.Signature.Create()
-                    .WithArgument("x", getContract ctx x)
-                    .WithReturn(getContract ctx fT.FRet)
-                |> T.Member.Call
-            T.Interface.Create [call]
-            |> T.Contract.Anonymous
+            T.Contract.Function(["x", getContract ctx x], None, getContract ctx fT.FRet)
         | _ -> failwith "TODO: add more function conventions"
 
     let getNamedContract ctx (tR: TypeReference) ts =
@@ -136,14 +126,13 @@ module internal TypeScriptExporter =
         | None -> T.Contract.Any
 
     let rec getContractImpl ctx (tR: TypeReference) =
-        let inline getContract ctx tR = getContractImpl ctx tR
-        match tR with 
-        | TupleType ts ->
-            T.Contract.Tuple [for t in ts -> getContract ctx t]
-        | _ ->   
         match tR.Shape with
         | TypeShape.ArrayType (1, r) ->
             getContract ctx r
+            |> T.Contract.Array
+        | TypeShape.ArrayType (2, r) ->
+            getContract ctx r
+            |> T.Contract.Array
             |> T.Contract.Array
         | TypeShape.ArrayType _ ->
             T.Contract.Any
@@ -151,6 +140,8 @@ module internal TypeScriptExporter =
             match tR with
             | FuncType ts fT ->
                 getFuncContract ctx fT
+            | TupleType ts ->
+                T.Contract.Tuple [for t in ts -> getContract ctx t]
             | _ ->
                 getNamedContract ctx tR [for t in ts -> getContract ctx t]
         | TypeShape.GenericParameter (OwnerMethod _, pos) ->

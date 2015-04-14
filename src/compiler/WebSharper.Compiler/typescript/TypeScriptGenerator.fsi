@@ -136,6 +136,9 @@ module internal TypeScriptGenerator =
         /// Array contract.
         static member Array : Contract -> Contract
 
+        /// Function contract.
+        static member Function : list<string * Contract> * option<string * Contract> * Contract -> Contract 
+        
         /// A generic variable defined at the contract level.
         static member Generic : Declaration * position: int -> Contract
 
