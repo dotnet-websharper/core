@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module private WebSharper.Collections.HashSet
+namespace WebSharper.Collections
 
 open System.Collections
 open System.Collections.Generic
@@ -27,13 +27,12 @@ open WebSharper
 open WebSharper.JavaScript
 
 [<AutoOpen>]
-module HashSetUtil =
+module private HashSetUtil =
     [<Direct "var r=[]; for(var k in $o) { r.push.apply(r, $o[k]) }; return r">]
     let concat (o: Array<Array<'T>>) = X<Array<'T>>
     
 open DictionaryUtil
 
-[<Name "HashSet">]
 [<Proxy(typeof<HashSet<_>>)>]
 type HashSetProxy<'T when 'T : equality>
 

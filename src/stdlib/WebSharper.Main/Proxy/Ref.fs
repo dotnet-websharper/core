@@ -22,12 +22,15 @@ module private WebSharper.Ref
 
 open WebSharper.JavaScript
 
-[<Name "WebSharper.Ref">]
+[<Name "WebSharper.Ref.T">]
 [<Proxy(typeof<ref<_>>)>]
 type private RefProxy<'T> =
-
+    {
+        [<Name "0">]
+        mutable contents : 'T    
+    } 
     member this.Value
-        with    [<Inline "$this.contents">]
+        with    [<Inline "$this[0]">]
                 get () = X<'T>
-        and     [<Inline "void ($this.contents = $x)">]
+        and     [<Inline "void ($this[0] = $x)">]
                 set (x: 'T) = X<unit>

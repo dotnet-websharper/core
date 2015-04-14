@@ -592,6 +592,7 @@ module internal TypeScriptGenerator =
         | CVoid -> write pc "void"
 
     and writeInterface pc i =
+        if List.isEmpty i.Members then write pc "{}" else 
         writeLine pc "{"
         indent pc {
             do for m in i.Members do
@@ -600,6 +601,7 @@ module internal TypeScriptGenerator =
         write pc "}"
 
     and writeClass pc c =
+        if List.isEmpty c.Members then write pc "{}" else 
         writeLine pc "{"
         indent pc {
             do for m in c.Members do
