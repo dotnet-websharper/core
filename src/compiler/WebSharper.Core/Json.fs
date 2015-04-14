@@ -376,15 +376,18 @@ type FormatSettings =
         EncodeUnionTag : System.Type -> int -> option<string * Encoded>
         /// Get the JSON-encoded name of the given F# union case field.
         GetEncodedUnionFieldName : System.Reflection.PropertyInfo -> int -> string
-        /// If true, represent fields whose type is a union marked
-        /// UseNullAsTrueValue as absent field.
-        /// Also always represent options as if they were marked [<OptionalField>].
-        RepresentNullUnionsAsAbsentField : bool
+        /// If true then:
+        /// * Represent fields whose type is a union marked UseNullAsTrueValue as absent field.
+        /// * Always represent options as if they were marked [<OptionalField>].
+        /// * Flatten collections:
+        ///     * list<'T>, Set<'T> -> array
+        ///     * Map<string, _>, Dictionary<string, _> -> flat object
+        /// * Inline single record argument of a union into the union object itself.
+        ConciseRepresentation : bool
         /// Pack an encoded value to JSON.
         Pack : Encoded -> Value
         EncodeDateTime : TAttrs -> System.DateTime -> Encoded
         DecodeDateTime : TAttrs -> Value -> option<System.DateTime>
-        FlattenCollections : bool
     }
 
 and TAttrs =
@@ -419,11 +422,11 @@ and TAttrs =
         let isOptionalField =
             t.IsGenericType &&
             t.GetGenericTypeDefinition() = typedefof<option<_>> &&
-            (i.RepresentNullUnionsAsAbsentField ||
+            (i.ConciseRepresentation ||
                 (mcad |> Seq.exists (fun t ->
                     t.Constructor.DeclaringType = typeof<A.OptionalFieldAttribute>)))
         let isNullableUnion =
-            i.RepresentNullUnionsAsAbsentField &&
+            i.ConciseRepresentation &&
             FST.IsUnion t &&
             mcad |> Seq.exists (fun cad ->
                 cad.Constructor.DeclaringType = typeof<CompilationRepresentationAttribute> &&
@@ -698,7 +701,7 @@ let unmakeList<'T> (dV: obj -> Encoded) (x: obj) =
 
 let unionEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
-    if i.FlattenCollections &&
+    if i.ConciseRepresentation &&
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<list<_>>
     then
@@ -712,7 +715,7 @@ let unionEncoder dE (i: FormatSettings) (ta: TAttrs) =
             let r = FSV.PreComputeUnionReader(c, flags)
             let fields = c.GetFields()
             let r, fields =
-                if isInlinableRecordCase c then
+                if i.ConciseRepresentation && isInlinableRecordCase c then
                     let rt = fields.[0].PropertyType
                     let rr = FSV.PreComputeRecordReader(rt, flags)
                     let r x = rr (r x).[0]
@@ -752,7 +755,7 @@ let makeList<'T> (dV: Value -> obj) = function
 
 let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
-    if i.FlattenCollections &&
+    if i.ConciseRepresentation &&
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<list<_>>
     then
@@ -765,7 +768,7 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
             let mk = FSV.PreComputeUnionConstructor(c, flags)
             let fields = c.GetFields()
             let mk, fields =
-                if isInlinableRecordCase c then
+                if i.ConciseRepresentation && isInlinableRecordCase c then
                     let rt = fields.[0].PropertyType
                     let mkR = FSV.PreComputeRecordConstructor(rt, flags)
                     let mk x = mk [|mkR x|]
@@ -869,7 +872,7 @@ let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
             match x with
             | :? System.DateTime as t -> i.EncodeDateTime ta t
             | _ -> raise EncoderException
-    elif i.FlattenCollections &&
+    elif i.ConciseRepresentation &&
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> &&
         t.GetGenericArguments().[0] = typeof<string>
@@ -915,7 +918,7 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
             match i.DecodeDateTime ta x with
             | Some d -> box d
             | None -> raise DecoderException
-    elif i.FlattenCollections &&
+    elif i.ConciseRepresentation &&
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> &&
         t.GetGenericArguments().[0] = typeof<string>
@@ -968,7 +971,7 @@ let mapEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
     let tg = t.GetGenericArguments()
     if tg.Length <> 2 then raise EncoderException
-    if i.FlattenCollections && tg.[0] = typeof<string> then
+    if i.ConciseRepresentation && tg.[0] = typeof<string> then
         callGeneric <@ unmakeMap @> dE ta tg.[1]
     else
     let treeF = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
@@ -1015,7 +1018,7 @@ let mapDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
     let tg = t.GetGenericArguments()
     if tg.Length <> 2 then raise DecoderException
-    if i.FlattenCollections && tg.[0] = typeof<string> then
+    if i.ConciseRepresentation && tg.[0] = typeof<string> then
         callGeneric <@ makeMap @> dD ta tg.[1]
     else
     let dK = dD (TAttrs.Get(i, tg.[0]))
@@ -1049,7 +1052,7 @@ let setEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
     let tg = t.GetGenericArguments()
     if tg.Length <> 1 then raise EncoderException
-    if i.FlattenCollections then
+    if i.ConciseRepresentation then
         callGeneric <@ unmakeSet @> dE ta tg.[0]
     else
     let dI = dE (TAttrs.Get(i, tg.[0]))
@@ -1092,7 +1095,7 @@ let setDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
     let tg = t.GetGenericArguments()
     if tg.Length <> 1 then raise EncoderException
-    if i.FlattenCollections then
+    if i.ConciseRepresentation then
         callGeneric <@ makeSet @> dD ta tg.[0]
     else
     let dI = dD (TAttrs.Get(i, tg.[0]))
@@ -1314,7 +1317,6 @@ module TypedProviderInternals =
             GetUnionTag = defaultGetUnionTag
             EncodeUnionTag = defaultEncodeUnionTag
             GetEncodedUnionFieldName = fun _ i -> "$" + string i
-            RepresentNullUnionsAsAbsentField = false
             EncodeDateTime = fun _ (d: System.DateTime) ->
                 EncodedNumber (string (d.ToUniversalTime() - epoch).TotalMilliseconds)
             DecodeDateTime = fun _ -> function
@@ -1323,7 +1325,7 @@ module TypedProviderInternals =
                     | true, x -> Some (epoch + System.TimeSpan.FromMilliseconds x)
                     | _ -> None
                 | _ -> None
-            FlattenCollections = false
+            ConciseRepresentation = false
             Pack = pack
         }
 
@@ -1389,7 +1391,6 @@ module PlainProviderInternals =
                         |]
                     fun tag -> Some (n, tags.[tag])
             GetEncodedUnionFieldName = fun p -> let n = p.Name in fun _ -> n
-            RepresentNullUnionsAsAbsentField = true
             EncodeDateTime = fun ta ->
                 let fmt = defaultArg ta.DateTimeFormat "o"
                 fun d -> EncodedString (d.ToString(fmt, culture))
@@ -1401,7 +1402,7 @@ module PlainProviderInternals =
                     | true, x -> Some x
                     | false, _ -> None
                 | _ -> None
-            FlattenCollections = true
+            ConciseRepresentation = true
             Pack = flatten
         }
 
