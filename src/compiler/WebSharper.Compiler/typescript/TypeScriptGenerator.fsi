@@ -115,11 +115,14 @@ module internal TypeScriptGenerator =
         /// Checks definitions invariants, throwing exceptions on inconsistencies.
         member Verify : unit -> unit
 
-        /// Provides a body (object type) to a named type declaration.
+        /// Provides a body (interface type) to a named type declaration.
         static member Define : Declaration * Interface -> Definitions
 
         /// Provides a body (object type) to a named type declaration.
         static member Define : Declaration * Class -> Definitions
+
+        /// Provides a body (enum type) to a named type declaration.
+        static member Define : Declaration * list<string> -> Definitions
 
         /// Merges definitions.
         static member Merge : seq<Definitions> -> Definitions
@@ -147,6 +150,9 @@ module internal TypeScriptGenerator =
 
         /// Named pre-declared contract, possibly with generic arguments.
         static member Named : Declaration * ?generics: list<Contract> -> Contract
+
+        /// Checks if the contract is a declared type.
+        static member IsNamed : Contract -> bool
 
         /// Built-in 'any' contract.
         static member Any : Contract

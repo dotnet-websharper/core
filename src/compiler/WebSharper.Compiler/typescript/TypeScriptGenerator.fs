@@ -138,6 +138,7 @@ module internal TypeScriptGenerator =
     type Definition =
         | InterfaceDef of Declaration * Interface
         | ClassDef of Declaration * Class
+        | EnumDef of Declaration * list<string>
         | VarDef of Contract
 
     type Definitions =
@@ -289,6 +290,10 @@ module internal TypeScriptGenerator =
             Q.NameMap.Singleton(decl.DeclarationAddress.Name, ClassDef (decl, c))
             |> Defs
 
+        static member Define(decl, c) =
+            Q.NameMap.Singleton(decl.DeclarationAddress.Name, EnumDef (decl, c))
+            |> Defs
+
         static member Merge(defs) =
             seq { for Defs d in defs -> d }
             |> Q.NameMap.Merge
@@ -327,6 +332,11 @@ module internal TypeScriptGenerator =
             if decl.DeclarationGenerics.Length <> gs.Length then
                 raise (InvalidGenericArgumentCount decl.DeclarationAddress)
             CNamed (decl.DeclarationAddress, gs)
+
+        static member IsNamed(c) =
+            match c with
+            | CNamed _ -> true
+            | _ -> false
 
         static member Tuple(tt) =
             CTuple tt
@@ -487,7 +497,7 @@ module internal TypeScriptGenerator =
                     write pc v.Text
                     write pc " = "
                     write pc k.Text
-                    writeLine pc ";"
+                    writeLine pc ""
                 for KeyValue (k, v) in tab.TypeAliases do
                     write pc "interface "
                     write pc v.Text
@@ -497,9 +507,15 @@ module internal TypeScriptGenerator =
         }
         writeLine pc "}"
 
-    let writeAddress pc addr =
-        let addr = alias pc addr
-        write pc addr.Name.Text
+    let writeAddress pc (addr: Address) =
+        let addrT = addr.Name.Text
+//        let aliasAddr = alias pc addr
+//        let aliasAddrT = aliasAddr.Name.Text
+//        if addrT.Length <= aliasAddrT.Length then
+//            write pc addrT
+//        else
+//            write pc aliasAddrT
+        write pc addrT
 
     exception InvalidGeneric
 
@@ -616,7 +632,7 @@ module internal TypeScriptGenerator =
             writeArgument pc (Argument.Create(name, CString))
             write pc "]: "
             writeContract pc contract
-        writeLine pc ";"
+        writeLine pc ""
 
     and writeSignature pc s =
         let pc = inGenericContext pc s.SignatureGenerics
@@ -679,6 +695,7 @@ module internal TypeScriptGenerator =
             match v with
             | InterfaceDef (_, i) -> visitInterface i
             | ClassDef (_, c) -> visitClass c
+            | EnumDef _ -> ()
             | VarDef c -> visitContract c
         defs.Iterate(visit)
 
@@ -739,13 +756,13 @@ module internal TypeScriptGenerator =
                 write pc "function "
                 write pc (local addr)
                 writeSignature pc sign
-                writeLine pc ";"
+                writeLine pc ""
             | _ ->
                 write pc "var "
                 write pc (local addr)
                 write pc " : "
                 writeContract pc c
-                writeLine pc ";"
+                writeLine pc ""
         | InterfaceDef (d, c) ->
             write pc "interface "
             let pc = inGenericContext pc d.DeclarationGenerics
@@ -776,6 +793,12 @@ module internal TypeScriptGenerator =
                 write pc " "
             writeClass pc c
             writeLine pc ""
+        | EnumDef (d, c) ->
+            write pc "enum "
+            write pc (local addr)
+            write pc " { "
+            writeCommaSeparated write pc c
+            writeLine pc " }"
 
     let rec writeModule pc data addr =
         write pc "module "
@@ -818,7 +841,7 @@ module internal TypeScriptGenerator =
         let aT = AliasTable.Create(usedNames)
         let pc = PrintContext.Create(aT, w, data.NameBuilder)
         writeDefs opts pc data defs
-        writeAliasTable pc
+//        writeAliasTable pc
 
     type Definitions with
 
