@@ -73,6 +73,7 @@ and [<AbstractClass>] MethodDefinition() =
     abstract CustomAttributes : list<CustomAttribute>
     abstract IsConstructor : bool
     abstract IsGetter : bool
+    abstract IsPublic : bool
     abstract IsSetter : bool
     abstract IsStatic : bool
     abstract IsVirtual : bool
@@ -349,6 +350,7 @@ module Cecil =
         override this.CustomAttributes = Converter.GetCustomAttributes(mR)
         override this.IsConstructor = mR.IsConstructor
         override this.IsGetter = mR.IsGetter
+        override this.IsPublic = mR.IsPublic
         override this.IsSetter = mR.IsSetter
         override this.IsStatic = mR.IsStatic
         override this.IsVirtual = mR.IsVirtual
@@ -811,6 +813,7 @@ module Reflection =
         override this.CustomAttributes = attrs.Value
         override this.IsConstructor = b.IsConstructor
         override this.IsGetter = kind.IsGetter
+        override this.IsPublic = b.IsPublic
         override this.IsSetter = kind.IsSetter
         override this.IsStatic = b.IsStatic
         override this.IsVirtual = b.IsVirtual
@@ -1044,6 +1047,7 @@ module Dynamic =
         override this.CustomAttributes = m.CustomAttributes
         override this.IsConstructor = m.IsConstructor
         override this.IsGetter = m.IsGetter
+        override this.IsPublic = m.IsPublic
         override this.IsSetter = m.IsSetter
         override this.IsStatic = m.IsStatic
         override this.IsVirtual = m.IsVirtual

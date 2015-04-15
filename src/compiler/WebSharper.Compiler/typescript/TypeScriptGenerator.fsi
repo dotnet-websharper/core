@@ -132,7 +132,7 @@ module internal TypeScriptGenerator =
 
     /// Contract combinators.
     type Contract with
-
+          
         /// Defines an anonymous contract.
         static member Anonymous : Interface -> Contract
 

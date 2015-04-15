@@ -31,6 +31,7 @@ type LLN<'T> = LinkedListNode<'T>
 type LLE<'T> = LinkedList<'T>.Enumerator
 
 [<Proxy(typeof<LLN<_>>)>]
+[<Name "N">]
 type NodeProxy<'T> =
     member this.Previous with [<Inline "$this.p">] get () = X<LLN<'T>>
     member this.Next     with [<Inline "$this.n">] get () = X<LLN<'T>>
@@ -46,6 +47,7 @@ let setPrev (node: LLN<'T>) (p: LLN<'T>) = ()
 let setNext (node: LLN<'T>) (n: LLN<'T>) = ()
 
 [<Proxy(typeof<LLE<_>>)>]
+[<Name "E">]
 type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
     let mutable c = l
 
@@ -61,6 +63,7 @@ type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
     member this.Dispose() = ()
 
 [<Proxy(typeof<LL<_>>)>]
+[<Name "T">]
 type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
     let mutable c = 0
     let mutable n = null
