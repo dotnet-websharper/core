@@ -53,6 +53,9 @@ let EMBEDDED_MAP = "WebSharper.map"
 [<Literal>]
 let EMBEDDED_MINMAP = "WebSharper.min.map"
 
+[<Literal>]
+let EMBEDDED_DTS = "WebSharper.d.ts"
+
 type Mode = H.Mode
 
 type Config =
@@ -135,6 +138,10 @@ let getAssemblyFileName (mode: Mode) (aN: Re.AssemblyName) =
 let getAssemblyJavaScriptPath (conf: Config) (aN: Re.AssemblyName) =
     P.CreatePath ["Scripts"; aN.Name; getAssemblyFileName conf.Options.Mode aN]
 
+/// Gets the physical path to the TypeScript declaration.
+let getAssemblyTypeScriptPath (conf: Config) (aN: Re.AssemblyName) =
+    P.CreatePath ["Scripts"; aN.Name; aN.Name + ".d.ts"]
+
 /// Gets the source map filename of an assembly, for example `WebSharper.map`.
 let getAssemblyMapFileName (mode: Mode) (aN: Re.AssemblyName) =
     match mode with
@@ -187,21 +194,6 @@ let writeEmbeddedResource (cfg: Config) (assemblyPath: string) (n: string) (targ
             use s2 = createFile cfg targetPath
             streamCopy s s2
 
-/// Writes an embedded resource to the target path.
-let writeEmbeddedSourceFiles (cfg: Config) assemblyName (assemblyPath: string) =
-    let aD = AssemblyDefinition.ReadAssembly(assemblyPath)
-    aD.MainModule.Resources
-    |> Seq.choose (fun r ->
-        match r with
-        | :? Mono.Cecil.EmbeddedResource as r ->
-            if r.Name.StartsWith "FSharpSource/" then Some (r.Name, r.GetResourceStream()) else None
-        | _ -> None)
-    |> Seq.iter (fun (n, s) ->
-        use s = s
-        use s2 = createFile cfg (getSourceFilePath cfg assemblyName n)
-        streamCopy s s2
-    )
-
 /// Outputs all required resources. This is the last step of processing.
 let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) =
     for aN in st.Assemblies do
@@ -219,11 +211,14 @@ let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) =
                     match st.Config.Options.Mode with
                     | H.Debug -> EMBEDDED_MAP
                     | H.Release -> EMBEDDED_MINMAP
-                let p = getAssemblyMapPath st.Config aN
-                try writeEmbeddedResource st.Config aP embeddedResourceName p
-                    if sourceMap then
-                        writeEmbeddedSourceFiles st.Config aN aP
+                let sp = getAssemblyMapPath st.Config aN
+                try writeEmbeddedResource st.Config aP sourceMapResourceName sp
+                    let mapFileName = getAssemblyMapFileName st.Config.Options.Mode aN
+                    File.AppendAllText(P.ToAbsolute st.Config.OutputDirectory sp,
+                        "\n//# sourceMappingURL=" + mapFileName)       
                 with _ -> ()
+            let tp = getAssemblyTypeScriptPath st.Config aN
+            writeEmbeddedResource st.Config aP EMBEDDED_DTS tp
         | None ->
             stderr.WriteLine("Could not resolve: {0}", aN)
     for res in st.Resources do

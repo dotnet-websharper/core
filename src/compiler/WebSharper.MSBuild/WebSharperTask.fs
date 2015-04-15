@@ -49,6 +49,7 @@ module WebSharperTaskModule =
             Log : TaskLoggingHelper
             MSBuildProjectDirectory : string
             Name : string
+            OutputPath : string
             SetItemOutput : ITaskItem [] -> unit
             SetReferenceCopyLocalPaths : ITaskItem [] -> unit
             WebProjectOutputDir : string
@@ -65,20 +66,15 @@ module WebSharperTaskModule =
         | Library
         | Website of webroot: string
 
-    let (|Defined|_|) s =
-        match s with
-        | null | "" -> None
-        | _ -> Some s
-
     let GetWebRoot settings =
         match settings.WebProjectOutputDir with
-        | Defined out -> Some out
-        | _ ->
+        | "" ->
             let dir = settings.MSBuildProjectDirectory
             let isWeb =
                 File.Exists(Path.Combine(dir, "Web.config"))
                 || File.Exists(Path.Combine(dir, "web.config"))
             if isWeb then Some dir else None
+        | out -> Some out
 
     let GetProjectType settings =
         match settings.WebSharperProject with
@@ -92,7 +88,7 @@ module WebSharperTaskModule =
             | "extension" | "interfacegenerator" -> Extension
             | "html" -> Html
             | "library" -> Library
-            | "site" | "web" | "website" ->
+            | "site" | "web" | "website" | "export" ->
                 match GetWebRoot settings with
                 | None -> Library
                 | Some dir -> Website dir
@@ -200,7 +196,7 @@ module WebSharperTaskModule =
                     if out.Ok then
                         File.WriteAllText(tempInfo.FullName, "")
                     out.Ok
-                settings.Log.LogMessage(MessageImportance.High, "Compiling with WebSharper..")
+                settings.Log.LogMessage(MessageImportance.High, "Compiling with WebSharper...")
                 let (res, t) = Timed main
                 if res then
                     settings.Log.LogMessage(MessageImportance.High,
@@ -222,13 +218,16 @@ module WebSharperTaskModule =
         match GetProjectType settings with
         | Website webRoot ->
             let assemblies =
-                let dir = DirectoryInfo(Path.Combine(webRoot, "bin"))
-                Seq.concat [
-                    dir.EnumerateFiles("*.dll")
-                    dir.EnumerateFiles("*.exe")
+                let dir =
+                    match settings.OutputPath with
+                    | "" -> Path.Combine(webRoot, "bin")
+                    | p -> p
+                settings.Log.LogMessage(MessageImportance.High, 
+                    sprintf "Unpacking with WebSharper: %s -> %s" dir webRoot)
+                [
+                    yield! Directory.EnumerateFiles(dir, "*.dll")
+                    yield! Directory.EnumerateFiles(dir, "*.exe")
                 ]
-                |> Seq.map (fun fn -> fn.FullName)
-                |> Seq.toList
             for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
                 let dir = DirectoryInfo(Path.Combine(webRoot, d))
                 if not dir.Exists then
@@ -332,6 +331,7 @@ type WebSharperTask() =
     member val KeyOriginatorFile = "" with get, set
     member val MSBuildProjectDirectory = "" with get, set
     member val Name = "" with get, set
+    member val OutputPath = "" with get, set
     member val WebProjectOutputDir = "" with get, set
     member val WebSharperBundleOutputDir = "" with get, set
     member val WebSharperHtmlDirectory = "" with get, set
@@ -381,6 +381,7 @@ type WebSharperTask() =
             Log = this.Log
             MSBuildProjectDirectory = NotNull "." this.MSBuildProjectDirectory
             Name = NotNull "Project" this.Name
+            OutputPath = NotNull "" this.OutputPath
             SetItemOutput = fun items -> this.ItemOutput <- items
             SetReferenceCopyLocalPaths = fun items -> this.ReferenceCopyLocalPaths <- items
             WebProjectOutputDir = NotNull "" this.WebProjectOutputDir

@@ -57,6 +57,9 @@ type WebSharperTask =
     /// The project $(Name) property, typically set in F# projects.
     member Name : string with get, set
 
+    /// The output path of MSBuild compilation.
+    member OutputPath : string with get, set
+
     /// Copy-local file list.
     member ReferenceCopyLocalPaths : ITaskItem [] with get, set
 
