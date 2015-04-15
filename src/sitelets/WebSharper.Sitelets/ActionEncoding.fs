@@ -181,11 +181,15 @@ let opt f s =
     | true, x -> Some (box x)
     | false, _ -> None
 
-let parseDateTime (fmt: string) =
+let defaultDateFormat = "yyyy-MM-dd-HH.mm.ss"
+
+let parseDateTime (fmt: string option) =
+    let fmt = defaultArg fmt defaultDateFormat
     let rT = System.Globalization.DateTimeStyles.RoundtripKind
     opt <| fun x -> DateTime.TryParseExact(x, fmt, System.Globalization.CultureInfo.InvariantCulture, rT)
 
-let writeDateTime (fmt: string) =
+let writeDateTime (fmt: string option) =
+    let fmt = defaultArg fmt defaultDateFormat
     fun (x: obj) -> (x :?> DateTime).ToString(fmt)
 
 /// Dict<type, (encode * decode)>
@@ -223,7 +227,7 @@ let primitiveValueHandlers =
                 s |> Seq.iteri (fun i c ->
                     writeEscaped b (i + 1 = s.Length) c)
                 b.Flush())))
-    d.Add(typeof<DateTime>, (parseDateTime "o", writeDateTime "o"))
+    d.Add(typeof<DateTime>, (parseDateTime None, writeDateTime None))
     d
 
 let isPrimitive t =
@@ -343,9 +347,7 @@ let tryWritePrimitiveField (f: Field) acceptOption =
     let ft = f.Type
     let writePrimitiveField t =
         if t = typeof<DateTime> then
-            match getDateTimeFormat f with
-            | None -> writePrimitiveType t
-            | Some fmt -> writeDateTime fmt
+            writeDateTime (getDateTimeFormat f)
         else writePrimitiveType t
     if isPrimitive ft then
         Some (writePrimitiveField ft >> Some)
@@ -512,9 +514,7 @@ let tryParsePrimitiveField (f: Field) acceptOption =
     let ft = f.Type
     let parsePrimitiveField t =
         if t = typeof<DateTime> then
-            match getDateTimeFormat f with
-            | None -> parsePrimitiveType t
-            | Some fmt -> parseDateTime fmt
+            parseDateTime (getDateTimeFormat f)
         else
             parsePrimitiveType t
     if isPrimitive ft then

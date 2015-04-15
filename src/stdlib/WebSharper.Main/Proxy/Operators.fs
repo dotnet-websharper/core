@@ -44,7 +44,7 @@ let ( .. .. ) (min: 'T1) (step: 'T2) (max: 'T1) : seq<'T1> =
     |> Seq.takeWhile (fun k -> s * (As<int> max - As<int> k) >= 0)
     |> As
 
-[<Inline "$r.contents">]
+[<Inline "$r[0]">]
 let ( ! ) (r: ref<'T>) = X<'T>
 
 [<Inline "$a % $b">]
@@ -71,7 +71,7 @@ let ( - ) (a: 'T1) (b: 'T2) = X<'T3>
 [<Macro(typeof<M.Division>)>]
 let ( / ) (x: 'T1) (y: 'T2) = X<'T3>
 
-[<Inline "void ($a.contents = $b)">]
+[<Inline "void ($a[0] = $b)">]
 let ( := ) (a: ref<'T>) (b: 'T) = X<unit>
 
 [<Inline "function (x) { return $f($g(x)); }">]
@@ -181,8 +181,9 @@ let Cos (x: 'T) = X<'T>
 [<Inline "(Math.exp($x)+Math.exp(-$x))/2">]
 let Cosh<'T> (x: 'T) = X<'T>
 
-[<JavaScript>]
-let Decrement (x: ref<int>) = x := !x - 1
+[<Direct "void ($x[0]--)">]
+[<Name "WebSharper.Ref.decr">]
+let Decrement (x: ref<int>) = ()
 
 [<JavaScript>]
 let DefaultArg x d =
@@ -221,8 +222,9 @@ let Identity (x: 'T) = X<'T>
 [<Inline "void $x">]
 let Ignore (x: 'T) = X<unit>
 
-[<JavaScript>]
-let Increment (x: ref<int>) = x := !x + 1
+[<Direct "void ($x[0]++)">]
+[<Name "WebSharper.Ref.incr">]
+let Increment (x: ref<int>) = ()
 
 [<Inline "Infinity">]
 let Infinity = Unchecked.defaultof<double>
@@ -285,7 +287,7 @@ let Pown<'T> (a: 'T) (n: int) =
 [<Direct "throw $e">]
 let Raise (e: exn) = X<'T>
 
-[<Inline "{contents: $x}">]
+[<Inline "[$x]">]
 let Ref (x: 'T) = X<ref<'T>>
 
 [<Inline "Math.round($x)">]

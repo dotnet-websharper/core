@@ -22,9 +22,12 @@ namespace WebSharper
 
 open System.Collections.Generic
 
-[<Proxy(typeof<seq<_>>)>]
-[<Name "WebSharper.seq">]
+[<Proxy(typeof<seq<_>>)>]  
+[<AbstractClass>]
+[<Name "WebSharper.Seq.T">]
 type private IEnumerableProxy<'T> =
+    [<Name "GetEnumerator">]
+    abstract member GetEnumeratorTS : unit -> IEnumerator<'T>
 
     [<Inline>]
     [<JavaScript>]

@@ -37,6 +37,15 @@ module Server =
             y : option<int>
         }
 
+    type RecordUnion =
+        | Record of Record
+
+    and Record =
+        {
+            a : int
+            b : string
+        }
+
     [<Remote>]
     let reset () =
         counter := 0
@@ -194,6 +203,12 @@ module Server =
         then Some (DescendantClass())
         else None
         |> async.Return
+
+    [<Remote>]
+    let f18 (Record x) =
+        async {
+            return Record { a = x.a + 1; b = x.b + "_" }
+        }
 
     [<Remote>]
     let reverse (x: string) =
@@ -400,6 +415,10 @@ module RemotingTestSuite =
             do test "Automatic field rename"
             do! satisfy (Server.f17 (Server.DescendantClass())) (fun x ->
                 x |> Option.exists (fun x -> x.Zero = 0 && x.One = 1))
+
+            do test "Single record in union"
+            do! satisfy (Server.f18 (Server.Record {a = 3; b = "xyz"})) (fun (Server.Record r) ->
+                r.a = 4 && r.b = "xyz_")
 
             do test "Map<int,int> -> Map<int,int>"
             do! Server.add2_2ToMap (Map.ofArray [| 1, 1 |]) =? Map.ofArray [| 1, 1; 2, 2 |]

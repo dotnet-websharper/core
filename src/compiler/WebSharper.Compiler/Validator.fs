@@ -57,6 +57,7 @@ type ConstructorKind =
 type Constructor =
     {
         Currying : list<int>
+        Definition : MethodDefinition
         Kind : ConstructorKind
         Location : Location
         Name : Name
@@ -403,6 +404,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
         |> Option.map (fun kind ->
             {
                 Currying = curr
+                Definition = self
                 Name = t.AddressSlot.Address
                 Kind = kind
                 Location = t.Location

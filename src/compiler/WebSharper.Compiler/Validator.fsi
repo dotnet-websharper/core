@@ -53,6 +53,7 @@ type ConstructorKind =
 type Constructor =
     {
         Currying : list<int>
+        Definition : MethodDefinition
         Kind : ConstructorKind
         Location : Location
         Name : Name

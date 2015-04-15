@@ -78,6 +78,7 @@ module internal TypeScriptExporter =
     type FType =
         {
             FArgs : list<TypeReference>
+            FRest : option<TypeReference>
             FRet : TypeReference
         }
 
@@ -95,14 +96,39 @@ module internal TypeScriptExporter =
             Some ps
         | _ -> None
 
-    let (|FuncType|_|) ts (tR: TypeReference) =
+    let rec (|FuncType|_|) ts (tR: TypeReference) =
+        let fType args r = { FArgs = args; FRest = None; FRet = r }
+        let fTypeR args rs r = { FArgs = args; FRest = Some rs; FRet = r }
         match tR.Namespace, tR.Name, ts with
         | "Microsoft.FSharp.Core", "FSharpFunc`2", [d; r] ->
-            let fType args r = { FArgs = args; FRet = r }
             match d with
             | UnitType -> fType [] r
             | _ -> fType [d] r
             |> Some
+        | "WebSharper.JavaScript", "FuncWithArgs`2", [d; r] ->
+            match d with
+            | TupleType tt -> fType tt r |> Some
+            | _ -> None
+        | "WebSharper.JavaScript", "FuncWithThis`2", [_; f] ->
+            (|FuncType|_|) ts f
+        | "WebSharper.JavaScript", "FuncWithRest`2", [rs; r] ->
+            fTypeR [] rs r |> Some
+        | "WebSharper.JavaScript", "FuncWithRest`3", [a; rs; r] ->
+            fTypeR [a] rs r |> Some
+        | "WebSharper.JavaScript", "FuncWithRest`4", [a; b; rs; r] ->
+            fTypeR [a; b] rs r |> Some
+        | "WebSharper.JavaScript", "FuncWithRest`5", [a; b; c; rs; r] ->
+            fTypeR [a; b; c] rs r |> Some
+        | "WebSharper.JavaScript", "FuncWithRest`6", [a; b; c; d; rs; r] ->
+            fTypeR [a; b; c; d] rs r |> Some
+        | "WebSharper.JavaScript", "FuncWithRest`7", [a; b; c; d; e; rs; r] ->
+            fTypeR [a; b; c; d; e] rs r |> Some
+        | "WebSharper.JavaScript", "FuncWithRest`8", [a; b; c; d; e; f; rs; r] ->
+            fTypeR [a; b; c; d; e; f] rs r |> Some
+        | "WebSharper.JavaScript", "FuncWithArgsRest", [args; rs; r] ->
+            match args with
+            | TupleType ts -> fTypeR ts rs r |> Some
+            | _ -> None
         | _ -> None
 
     let getFuncContract ctx fT =
@@ -140,8 +166,8 @@ module internal TypeScriptExporter =
             match tR with
             | FuncType ts fT ->
                 getFuncContract ctx fT
-            | TupleType ts ->
-                T.Contract.Tuple [for t in ts -> getContract ctx t]
+            | TupleType tt ->
+                T.Contract.Tuple [for t in tt -> getContract ctx t]
             | _ ->
                 getNamedContract ctx tR [for t in ts -> getContract ctx t]
         | TypeShape.GenericParameter (OwnerMethod _, pos) ->
@@ -163,6 +189,10 @@ module internal TypeScriptExporter =
                 | "System.String" -> T.Contract.String
                 | "System.Void"
                 | "Microsoft.FSharp.Core.Unit" -> T.Contract.Void
+                | "System.Object" -> T.Contract.Any
+                | "System.DateTime" -> T.Contract.Number
+                | "WebSharper.JavaScript.Function" -> 
+                    T.Contract.Named(T.Declaration.Create(convertAddress ctx "Function" (P.Global "Function")))
                 | _ -> getNamedContract ctx tR []
 
     let getSignature ctx staticGenerics (m: MethodReference) =
@@ -182,12 +212,16 @@ module internal TypeScriptExporter =
 
     let convMethod ctx isInterfaceMethod staticGenerics (m: V.Method) =
         let isExported =
-            isInterfaceMethod ||
-            match m.Kind with
-            | V.JavaScriptMethod _
-            | V.CoreMethod _
-            | V.SyntaxMethod _ -> true
-            | _ -> false
+            //m.Definition.IsPublic && 
+            (
+                isInterfaceMethod ||
+                match m.Kind with
+                | V.JavaScriptMethod _
+                | V.CoreMethod _
+                | V.SyntaxMethod _ -> true
+                | V.InlineMethod i -> not i.IsTransformer
+                | _ -> false
+            )
         if isExported then
             Some (getSignature ctx staticGenerics m.Definition)
         else
@@ -203,6 +237,19 @@ module internal TypeScriptExporter =
                 |> T.Interface.Create
                 |> T.Contract.Anonymous
             [T.Definitions.Var(addr, c)]
+
+    let exportConstructor ctx tgen (t: V.Type) (c: V.Constructor) =
+        let selfAddr = convertAddress ctx (string t.Reference.FullName) t.Name
+        let selfDecl = T.Declaration.Create(selfAddr, tgen)    
+        let addr = convertAddress ctx (string c.Reference) c.Name
+        let sign = getSignature ctx tgen c.Definition
+        let signGen = tgen |> List.mapi (fun i _ -> T.Contract.Generic(sign, i))
+        let sign = sign.WithReturn(T.Contract.Named(selfDecl, signGen))
+        let c =
+            [T.Member.Call sign]
+            |> T.Interface.Create
+            |> T.Contract.Anonymous
+        T.Definitions.Var(addr, c)
 
     let exportStaticMethods ctx tgen (t: V.Type) =
         seq {
@@ -238,7 +285,25 @@ module internal TypeScriptExporter =
                 | _ -> ()
         }
 
-    let exportNamedContract ctx tgen (t: V.Type) isIF ext intf =
+    let exportConstructors ctx tgen (t: V.Type) (ck: V.ClassKind) =
+        seq {
+            for c in ck.Constructors do
+                let isExported =
+                    //c.Definition.IsPublic && 
+                    (
+                        match c.Kind with
+                        | V.JavaScriptConstructor _
+                        | V.CoreConstructor _
+                        | V.SyntaxConstructor _ ->
+                            true
+                        | V.InlineConstructor i ->
+                            not i.IsTransformer
+                        | _ -> false
+                     )
+                if isExported then yield exportConstructor ctx tgen t c
+        }
+
+    let exportNamedContract ctx tgen (t: V.Type) isIF ext =
         let addr = convertAddress ctx (string t.Reference.FullName) t.Name
         let decl = T.Declaration.Create(addr, tgen)
         let ctx = { ctx with GenericDeclaration = Some decl }
@@ -265,6 +330,8 @@ module internal TypeScriptExporter =
                         | V.PropertyKind.BasicProperty (gM, sM) ->
                             yield! emitMethodOpt gM
                             yield! emitMethodOpt sM
+                        | V.PropertyKind.OptionalProperty ->
+                            yield T.Member.Property(p.Name.LocalName, getContract ctx p.PropertyType, true)
                         | _ -> ()
                     | _ -> ()
                 match t.Kind with
@@ -272,29 +339,34 @@ module internal TypeScriptExporter =
                     for p in props do
                         yield T.Member.Property(p.JavaScriptName, getContract ctx p.PropertyType, p.OptionalField)
                 | V.TypeKind.Union _ ->
-                    yield T.Member.Property("$", T.Contract.Number)
+                    let enumTagsAddr = addr.Builder.Nested(addr, "Tag")
+                    let tagsDecl = T.Declaration.Create(enumTagsAddr)
+                    yield T.Member.Property("$", T.Contract.Named(tagsDecl))
                 | _ -> ()
             ]
-        if isIF then
-            let ext = intf |> Seq.map (getContract ctx) 
-            T.Definitions.Define(decl, T.Interface.Create (members, ext = ext))
-        else 
-            let ext = ext |> Option.map (getContract ctx) 
-            let impl = intf |> Seq.map (getContract ctx) |> Seq.filter ((<>) T.Contract.Any)
-            T.Definitions.Define(decl, T.Class.Create (members, ?ext = ext, impl = impl))
+        let ext = ext |> Seq.map (getContract ctx) |> Seq.filter T.Contract.IsNamed
+        T.Definitions.Define(decl, T.Interface.Create (members, ext))
 
     let exportUnionCase ctx tgen (t: V.Type) ci (uc: V.UnionCase) =
+        if uc.Kind = V.BasicUnionCase then
+            let baseAddr = convertAddress ctx (string t.Reference.FullName) t.Name
+            let addr = baseAddr.Builder.Nested(baseAddr, uc.Reference.Name)
+            let baseDecl = T.Declaration.Create(baseAddr, tgen)    
+            let decl = T.Declaration.Create(addr, tgen)     
+            let ctx = { ctx with GenericDeclaration = Some decl }
+            let members =
+                uc.Definition.Parameters |> List.mapi (fun i p ->
+                    T.Member.Property("$" + string i, getContract ctx p.ParameterType)
+                )
+            let baseGen = tgen |> List.mapi (fun i _ -> T.Contract.Generic(decl, i))
+            T.Definitions.Define(decl, T.Interface.Create(members, [ T.Contract.Named(baseDecl, baseGen) ])) |> Some
+        else None
+
+    let exportUnionTags ctx (t: V.Type) (ucs: list<V.UnionCase>) =
         let baseAddr = convertAddress ctx (string t.Reference.FullName) t.Name
-        let addr = baseAddr.Builder.Nested(baseAddr, sprintf "_%d_%s" ci uc.Reference.Name)
-        let baseDecl = T.Declaration.Create(baseAddr, tgen)    
-        let decl = T.Declaration.Create(addr, tgen)     
-        let ctx = { ctx with GenericDeclaration = Some decl }
-        let members =
-            uc.Definition.Parameters |> List.mapi (fun i p ->
-                T.Member.Property("$" + string i, getContract ctx p.ParameterType)
-            )
-        let baseGen = tgen |> List.mapi (fun i _ -> T.Contract.Generic(decl, i))
-        T.Definitions.Define(decl, T.Class.Create(members, ext = T.Contract.Named(baseDecl, baseGen)))
+        let addr = baseAddr.Builder.Nested(baseAddr, "Tag")
+        let decl = T.Declaration.Create(addr)
+        T.Definitions.Define(decl, ucs |> List.map (fun c -> c.Reference.Name))
 
     let rec exportType ctx (t: V.Type) =
         seq {
@@ -310,18 +382,21 @@ module internal TypeScriptExporter =
                 yield! exportStaticProperties ctx tgen t
                 match t.Kind with
                 | V.TypeKind.Class c ->
-                    yield exportNamedContract ctx tgen t false t.ReflectorType.Definition.BaseType t.ReflectorType.Definition.Interfaces
+                    yield! exportConstructors ctx tgen t c
+                    yield exportNamedContract ctx tgen t false
+                        (Seq.append (Option.toList t.ReflectorType.Definition.BaseType) t.ReflectorType.Definition.Interfaces)
                 | V.TypeKind.Exception ->
-                    yield exportNamedContract ctx tgen t false None []
+                    yield exportNamedContract ctx tgen t false []
                 | V.TypeKind.Interface ->
-                    yield exportNamedContract ctx tgen t true None t.ReflectorType.Definition.Interfaces
+                    yield exportNamedContract ctx tgen t true t.ReflectorType.Definition.Interfaces
                 | V.TypeKind.Module _ -> ()
                 | V.TypeKind.Record props ->
-                    yield exportNamedContract ctx tgen t true None t.ReflectorType.Definition.Interfaces
+                    yield exportNamedContract ctx tgen t false t.ReflectorType.Definition.Interfaces
                 | V.TypeKind.Resource _ -> ()
                 | V.TypeKind.Union ucs ->
-                    yield exportNamedContract ctx tgen t false None t.ReflectorType.Definition.Interfaces
-                    yield! ucs |> List.mapi (exportUnionCase ctx tgen t)   
+                    yield exportNamedContract ctx tgen t false t.ReflectorType.Definition.Interfaces
+                    yield exportUnionTags ctx t ucs
+                    yield! ucs |> List.mapi (exportUnionCase ctx tgen t) |> List.choose id  
         }
 
     let ExportDeclarations (cm: CM.T) (v: V.Assembly) =
