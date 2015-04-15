@@ -181,8 +181,9 @@ let Cos (x: 'T) = X<'T>
 [<Inline "(Math.exp($x)+Math.exp(-$x))/2">]
 let Cosh<'T> (x: 'T) = X<'T>
 
-[<JavaScript>]
-let Decrement (x: ref<int>) = x := !x - 1
+[<Direct "void ($x[0]--)">]
+[<Name "WebSharper.Ref.decr">]
+let Decrement (x: ref<int>) = ()
 
 [<JavaScript>]
 let DefaultArg x d =
@@ -221,8 +222,9 @@ let Identity (x: 'T) = X<'T>
 [<Inline "void $x">]
 let Ignore (x: 'T) = X<unit>
 
-[<JavaScript>]
-let Increment (x: ref<int>) = x := !x + 1
+[<Direct "void ($x[0]++)">]
+[<Name "WebSharper.Ref.incr">]
+let Increment (x: ref<int>) = ()
 
 [<Inline "Infinity">]
 let Infinity = Unchecked.defaultof<double>

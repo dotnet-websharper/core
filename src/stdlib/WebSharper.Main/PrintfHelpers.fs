@@ -46,10 +46,6 @@ let padNumLeft (s: string, l) =
     else s.PadLeft(l, '0')
 
 [<JavaScript>]
-let plusForPos0 (n: obj, s, l) =
-    if 0 <=. n then "+" + s else s     
-
-[<JavaScript>]
 let printList (p: obj -> string, o: obj list) =
      "[" + (o |> Seq.map p |> String.concat "; ") + "]" 
 

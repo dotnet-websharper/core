@@ -226,7 +226,14 @@ module internal TypeScriptGenerator =
             MProperty (string pos, contract, defaultArg opt false)
 
         static member Property(name, contract, ?opt) =
-            MProperty(name, contract, defaultArg opt false)
+            let opt = defaultArg opt false
+            let contract =
+                if opt then
+                    match contract with
+                    | CNamed (a, [t]) when a.Name.Text = "WebSharper.Option.T" -> t
+                    | _ -> contract
+                else contract
+            MProperty(name, contract, opt)
 
     type Interface with
 

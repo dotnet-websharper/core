@@ -212,12 +212,16 @@ module internal TypeScriptExporter =
 
     let convMethod ctx isInterfaceMethod staticGenerics (m: V.Method) =
         let isExported =
-            isInterfaceMethod ||
-            match m.Kind with
-            | V.JavaScriptMethod _
-            | V.CoreMethod _
-            | V.SyntaxMethod _ -> true
-            | _ -> false
+            //m.Definition.IsPublic && 
+            (
+                isInterfaceMethod ||
+                match m.Kind with
+                | V.JavaScriptMethod _
+                | V.CoreMethod _
+                | V.SyntaxMethod _ -> true
+                | V.InlineMethod i -> not i.IsTransformer
+                | _ -> false
+            )
         if isExported then
             Some (getSignature ctx staticGenerics m.Definition)
         else
@@ -284,12 +288,19 @@ module internal TypeScriptExporter =
     let exportConstructors ctx tgen (t: V.Type) (ck: V.ClassKind) =
         seq {
             for c in ck.Constructors do
-                match c.Kind with
-                | V.JavaScriptConstructor _
-                | V.CoreConstructor _
-                | V.SyntaxConstructor _ ->
-                    yield exportConstructor ctx tgen t c
-                | _ -> ()
+                let isExported =
+                    //c.Definition.IsPublic && 
+                    (
+                        match c.Kind with
+                        | V.JavaScriptConstructor _
+                        | V.CoreConstructor _
+                        | V.SyntaxConstructor _ ->
+                            true
+                        | V.InlineConstructor i ->
+                            not i.IsTransformer
+                        | _ -> false
+                     )
+                if isExported then yield exportConstructor ctx tgen t c
         }
 
     let exportNamedContract ctx tgen (t: V.Type) isIF ext =
@@ -319,6 +330,8 @@ module internal TypeScriptExporter =
                         | V.PropertyKind.BasicProperty (gM, sM) ->
                             yield! emitMethodOpt gM
                             yield! emitMethodOpt sM
+                        | V.PropertyKind.OptionalProperty ->
+                            yield T.Member.Property(p.Name.LocalName, getContract ctx p.PropertyType, true)
                         | _ -> ()
                     | _ -> ()
                 match t.Kind with
