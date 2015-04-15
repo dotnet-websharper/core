@@ -166,8 +166,9 @@ let handle getConverter req =
         let m = M.MethodHandle.Unpack m
         let args = J.Parse req.Body
         let conv = getConverter m
+        let convd = conv args
         async {
-            let! x = conv args
+            let! x = convd
             let r = J.Stringify x
             return {
                 ContentType = "application/json"
