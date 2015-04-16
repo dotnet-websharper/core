@@ -57,6 +57,7 @@ module WebSharperTaskModule =
             WebSharperHtmlDirectory : string
             WebSharperProject : string
             WebSharperSourceMap : bool
+            WebSharperTypeScriptDeclaration : bool
         }
 
     type ProjectType =
@@ -238,6 +239,7 @@ module WebSharperTaskModule =
                         Assemblies = assemblies
                         RootDirectory = webRoot
                         UnpackSourceMap = settings.WebSharperSourceMap
+                        UnpackTypeScript = settings.WebSharperTypeScriptDeclaration
                 }
             let env = Compiler.Commands.Environment.Create()
             Compiler.UnpackCommand.Instance.Execute(env, cfg)
@@ -268,6 +270,7 @@ module WebSharperTaskModule =
                             ProjectDirectory = settings.MSBuildProjectDirectory
                             ReferenceAssemblyPaths = refs
                             UnpackSourceMap = settings.WebSharperSourceMap
+                            UnpackTypeScript = settings.WebSharperTypeScriptDeclaration
                     }
                 let env = Compiler.Commands.Environment.Create()
                 Compiler.HtmlCommand.Instance.Execute(env, cfg)
@@ -337,6 +340,7 @@ type WebSharperTask() =
     member val WebSharperHtmlDirectory = "" with get, set
     member val WebSharperProject = "" with get, set
     member val WebSharperSourceMap = "" with get, set
+    member val WebSharperTypeScriptDeclaration = "" with get, set
     member val DocumentationFile = "" with get, set
 
     [<Required>]
@@ -389,4 +393,5 @@ type WebSharperTask() =
             WebSharperHtmlDirectory = NotNull "" this.WebSharperHtmlDirectory
             WebSharperProject = NotNull "" this.WebSharperProject
             WebSharperSourceMap = bool this.WebSharperSourceMap
+            WebSharperTypeScriptDeclaration = bool this.WebSharperTypeScriptDeclaration
         }

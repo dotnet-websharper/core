@@ -19,6 +19,7 @@
     <IISExpressWindowsAuthentication />
     <IISExpressUseClassicPipelineMode />
     <OutputPath>bin\</OutputPath>
+    <WebSharperTypeScriptDeclaration>True</WebSharperTypeScriptDeclaration>
   </PropertyGroup>
   <PropertyGroup>
     <DebugType>pdbonly</DebugType>

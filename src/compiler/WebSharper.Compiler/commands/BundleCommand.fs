@@ -82,7 +82,8 @@ module BundleCommand =
         write bundle.JavaScriptHeaders ".head.js"
         write bundle.JavaScript ".js"
         write bundle.MinifiedJavaScript ".min.js"
-        write bundle.TypeScript ".d.ts"
+        //write bundle.TypeScript ".d.ts"
+        // TODO : correct .d.ts output for bundles (WIG types currenty not included)
         C.Ok
 
     let Description =

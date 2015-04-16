@@ -31,6 +31,7 @@ module UnpackCommand =
             Assemblies : list<string>
             RootDirectory : string
             UnpackSourceMap : bool
+            UnpackTypeScript : bool
         }
 
         static member Create() =
@@ -38,6 +39,7 @@ module UnpackCommand =
                 Assemblies = []
                 RootDirectory = "."
                 UnpackSourceMap = false
+                UnpackTypeScript = false
             }
 
     let GetErrors config =
@@ -58,6 +60,8 @@ module UnpackCommand =
                 proc { opts with RootDirectory = root } xs
             | "-sm" :: xs ->
                 proc { opts with UnpackSourceMap = true } xs
+            | "-dts" :: xs ->
+                proc { opts with UnpackTypeScript = true } xs
             | x :: xs ->
                 proc { opts with Assemblies = x :: opts.Assemblies } xs
         match args with
@@ -105,7 +109,6 @@ module UnpackCommand =
                 emit mapping mapPath
             else
                 emit text path
-
         let script = PC.ResourceKind.Script
         let content = PC.ResourceKind.Content
         for p in cmd.Assemblies do
@@ -117,7 +120,8 @@ module UnpackCommand =
                 a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
             emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
                 a.MapFileForCompressed (pc.MinifiedMapFileName aid) (pc.MinifiedMapFilePath aid)
-            emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
+            if cmd.UnpackTypeScript then
+                emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
             let writeText k fn c =
                 let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
                 writeTextFile (p, c)
@@ -138,6 +142,7 @@ module UnpackCommand =
             "Usage: WebSharper.exe unpack [OPTIONS] assembly.dll ..."
             "-root <dir>    Path to web project root directory"
             "-sm            Unpack source maps and source files"
+            "-dts           Unpack TypeScript declaration files"
         ]
         |> String.concat System.Environment.NewLine
 

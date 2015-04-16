@@ -36,6 +36,7 @@
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
+      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
   </Target>
@@ -77,6 +78,7 @@
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
+      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
   </Target>
@@ -92,6 +94,7 @@
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
+      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
   </Target>

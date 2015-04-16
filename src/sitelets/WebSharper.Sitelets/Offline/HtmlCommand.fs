@@ -77,6 +77,7 @@ type HtmlCommand() =
                     Options = options
                     Actions = actions
                     UnpackSourceMap = options.UnpackSourceMap
+                    UnpackTypeScript = options.UnpackTypeScript
                 }
                 |> Async.RunSynchronously
                 C.Ok

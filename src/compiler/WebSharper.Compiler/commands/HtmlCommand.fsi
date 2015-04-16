@@ -49,6 +49,9 @@ module HtmlCommand =
 
             /// Outputs source maps and source files.
             UnpackSourceMap : bool
+
+            /// Outputs TypeScript declaration files.
+            UnpackTypeScript : bool
         }
 
         /// Configures with default options.
