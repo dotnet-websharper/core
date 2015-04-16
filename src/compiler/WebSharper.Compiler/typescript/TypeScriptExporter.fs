@@ -132,12 +132,13 @@ module internal TypeScriptExporter =
         | _ -> None
 
     let getFuncContract ctx fT =
-        match fT.FArgs with
-        | [] ->
-            T.Contract.Function([], None, getContract ctx fT.FRet)
-        | [x] ->
-            T.Contract.Function(["x", getContract ctx x], None, getContract ctx fT.FRet)
-        | _ -> failwith "TODO: add more function conventions"
+        let args =
+            match fT.FArgs with
+            | [x] -> ["x", getContract ctx x]
+            | a -> a |> List.mapi (fun i x -> "x" + string i, getContract ctx x)
+        let rest = fT.FRest |> Option.map (fun rs -> "rest", getContract ctx rs)
+        let ret = getContract ctx fT.FRet
+        T.Contract.Function(args, rest, ret)
 
     let getNamedContract ctx (tR: TypeReference) ts =
         match ctx.CM.DataType(Adapter.AdaptTypeDefinition(tR)) with
@@ -339,13 +340,13 @@ module internal TypeScriptExporter =
                     for p in props do
                         yield T.Member.Property(p.JavaScriptName, getContract ctx p.PropertyType, p.OptionalField)
                 | V.TypeKind.Union _ ->
-                    let enumTagsAddr = addr.Builder.Nested(addr, "Tag")
+                    let enumTagsAddr = addr.Builder.Nested(addr, "Tags")
                     let tagsDecl = T.Declaration.Create(enumTagsAddr)
                     yield T.Member.Property("$", T.Contract.Named(tagsDecl))
                 | _ -> ()
             ]
-        let ext = ext |> Seq.map (getContract ctx) |> Seq.filter T.Contract.IsNamed
-        T.Definitions.Define(decl, T.Interface.Create (members, ext))
+        let extc = ext |> Seq.map (getContract ctx) |> Seq.filter T.Contract.IsNamed
+        T.Definitions.Define(decl, T.Interface.Create (members, extc))
 
     let exportUnionCase ctx tgen (t: V.Type) ci (uc: V.UnionCase) =
         if uc.Kind = V.BasicUnionCase then
@@ -364,7 +365,7 @@ module internal TypeScriptExporter =
 
     let exportUnionTags ctx (t: V.Type) (ucs: list<V.UnionCase>) =
         let baseAddr = convertAddress ctx (string t.Reference.FullName) t.Name
-        let addr = baseAddr.Builder.Nested(baseAddr, "Tag")
+        let addr = baseAddr.Builder.Nested(baseAddr, "Tags")
         let decl = T.Declaration.Create(addr)
         T.Definitions.Define(decl, ucs |> List.map (fun c -> c.Reference.Name))
 

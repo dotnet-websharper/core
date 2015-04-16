@@ -160,14 +160,10 @@ module internal TypeScriptGenerator =
             }
 
     [<Sealed>]
-    exception InvalidSignatureGeneric of int * int with
-
+    exception InvalidSignatureGeneric of provided:int * expected:int with
         override err.Message =
-            match err :> exn with
-            | InvalidSignatureGeneric (provided, expected) ->
-                String.Format("Invalid generic argument {0} \
-                    for a signature of generic arity {1}", provided, expected)
-            | _ -> "impossible"
+            sprintf "Invalid number of generic arguments %d for a signature of generic arity %d"
+                err.provided err.expected
 
     type Signature with
 
@@ -253,14 +249,10 @@ module internal TypeScriptGenerator =
             }
 
     [<Sealed>]
-    exception InvalidTypeGeneric of Address * int * int with
-
+    exception InvalidTypeGeneric of addr:Address * provided:int * expected:int with
         override err.Message =
-            match err :> exn with
-            | InvalidTypeGeneric (addr, provided, expected) ->
-                String.Format("Invalid generic argument {1} \
-                    for named contract {0}`{2}", addr, provided, expected)
-            | _ -> "impossible"
+            sprintf "Invalid number of generic arguments %d for named contract %O`%d"
+                err.provided err.addr err.expected
 
     type Declaration with
 
@@ -310,13 +302,6 @@ module internal TypeScriptGenerator =
             Q.NameMap.Singleton(addr, VarDef con)
             |> Defs
 
-    exception InvalidGenericArgumentCount of Address with
-
-        override err.Message =
-            match err :> exn with
-            | InvalidGenericArgumentCount addr -> string addr
-            | _ -> "impossible"
-
     type Contract with
 
         static member Anonymous(t) =
@@ -337,7 +322,7 @@ module internal TypeScriptGenerator =
         static member Named(decl, ?gs) =
             let gs = defaultArg gs []
             if decl.DeclarationGenerics.Length <> gs.Length then
-                raise (InvalidGenericArgumentCount decl.DeclarationAddress)
+                raise (InvalidTypeGeneric (decl.DeclarationAddress, gs.Length, decl.DeclarationGenerics.Length))
             CNamed (decl.DeclarationAddress, gs)
 
         static member IsNamed(c) =
@@ -658,12 +643,9 @@ module internal TypeScriptGenerator =
         write pc ": "
         writeContract pc arg.ArgumentContract
 
-    exception UndefinedDeclaration of Q.Name with
-
+    exception UndefinedDeclaration of name:Q.Name with
         override err.Message =
-            match err :> exn with
-            | UndefinedDeclaration a -> a.Text
-            | _ -> "impossible"
+            sprintf "Undefined declaration: %s" err.name.Text
 
     let verifyPromises (Defs defs) =
         let verify addr =

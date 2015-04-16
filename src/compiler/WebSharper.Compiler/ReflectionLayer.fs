@@ -315,7 +315,7 @@ module Cecil =
                 else 0
 
         override this.Fields = Seq.map Converter.FDef tD.Fields
-        override this.Interfaces = Seq.map Converter.TRef tD.NestedTypes
+        override this.Interfaces = Seq.map Converter.TRef tD.Interfaces
         override this.Methods = Seq.map Converter.MDef tD.Methods
         override this.NestedTypes = Seq.map Converter.TDef tD.NestedTypes
         override this.Properties = Seq.map Converter.PDef tD.Properties
