@@ -1,5 +1,4 @@
 # TypeScript definition output
-=================
 
 WebSharper includes an experimental feature of producing
 [TypeScript](http://www.typescriptlang.org/) definition files (version 1.4)
@@ -24,4 +23,4 @@ the types in the .NET assembly produced by WIG
 * Dependencies between WebSharper output `.js` files are not exposed
 for outside use.
 We are planning switching to exporting
-[AMD](https://github.com/amdjs/amdjs-api/blob/master/AMD.md) modules
+[AMD](https://github.com/amdjs/amdjs-api/blob/master/AMD.md) modules.
