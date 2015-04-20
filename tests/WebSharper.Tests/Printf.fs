@@ -50,75 +50,75 @@ let Tests =
     Section "Printf"
 
     Test "Strings" {
-        sprintf "Web%s" "Sharper" =? "WebSharper"
-        sprintf "Web%s%s" "Shar" "per" =? "WebSharper"
-        sprintf "%5s" "hi" =? "   hi"
-        sprintf "%-5s" "hi" =? "hi   "
-        sprintf "%*s" 5 "hi" =? "   hi"
-        sprintf "hi%s" null =? "hi"
+        Equal (sprintf "Web%s" "Sharper") "WebSharper"
+        Equal (sprintf "Web%s%s" "Shar" "per") "WebSharper"
+        Equal (sprintf "%5s" "hi") "   hi"
+        Equal (sprintf "%-5s" "hi") "hi   "
+        Equal (sprintf "%*s" 5 "hi") "   hi"
+        Equal (sprintf "hi%s" null) "hi"
     }
 
     Test "Char" {
-        sprintf "%c" 'a' =? "a"    
+        Equal (sprintf "%c" 'a') "a"
     }
 
     Test "Integral" {
-        sprintf "%d" 9 =? "9"
-        sprintf "%+d" 9 =? "+9"
-        sprintf "% d" 9 =? " 9"
-        sprintf "%05d" 9 =? "00009"
-        sprintf "%0+5d" 9 =? "+0009"
-        sprintf "%05d" -9 =? "-0009"
-        sprintf "%+5d" 9 =? "   +9"
-        sprintf "%0*d" 5 9 =? "00009"
-        sprintf "%x" 7911 =? "1ee7"
-        sprintf "%X" 7911 =? "1EE7"
-        sprintf "%o" 735 =? "1337"
+        Equal (sprintf "%d" 9) "9"
+        Equal (sprintf "%+d" 9) "+9"
+        Equal (sprintf "% d" 9) " 9"
+        Equal (sprintf "%05d" 9) "00009"
+        Equal (sprintf "%0+5d" 9) "+0009"
+        Equal (sprintf "%05d" -9) "-0009"
+        Equal (sprintf "%+5d" 9) "   +9"
+        Equal (sprintf "%0*d" 5 9) "00009"
+        Equal (sprintf "%x" 7911) "1ee7"
+        Equal (sprintf "%X" 7911) "1EE7"
+        Equal (sprintf "%o" 735) "1337"
     }
 
     Test "Continuation" {
-        Printf.ksprintf (fun s -> s.Length) "Web%s" "Sharper" =? 10
+        Equal (Printf.ksprintf (fun s -> s.Length) "Web%s" "Sharper") 10
         let lenf = Printf.ksprintf (fun s -> s.Length) 
-        lenf "Web%s" "Sharper" =? 10
-        lenf "Cloud%s" "Sharper" =? 12
+        Equal (lenf "Web%s" "Sharper") 10
+        Equal (lenf "Cloud%s" "Sharper") 12
     }
 
     Test "Floating-Point" {
-        sprintf "%10.5f" 9. =? "   9.00000"
-        sprintf "%10.5f" 9. =? "   9.00000"
+        Equal (sprintf "%10.5f" 9.) "   9.00000"
+        Equal (sprintf "%10.5f" 9.) "   9.00000"
     }
 
     Test "Generic" {
-        sprintf "%O World" (Hi()) =? "Hello World"            
+        Equal (sprintf "%O World" (Hi())) "Hello World"            
     }
 
     Test "Pretty-Print" {
-        sprintf "%A World" (Hi()) =? "Hello World"            
-        sprintf "%A" [| 3; 4 |] =? "[|3; 4|]"            
-        sprintf "%A" {A = 1; B = 2}  =? "{A = 1; B = 2}"            
-        sprintf "%A" (3, 4) =? "(3, 4)"
-        sprintf "%A" [3; 4] =? "[3; 4]"
-        sprintf "%A" (Some 1) =? "Some 1"
-        sprintf "%A" (Cons (1, Cons (2, Empty))) =? "Cons (1, Cons (2, Empty))"
-        sprintf "%A" [|Some 1; Some 2|] =? "[|Some 1; Some 2|]"
-        sprintf "%A" {C = 1; D = Some {C = 2; D = None}} =? "{C = 1; D = Some {C = 2; D = None}}"            
-        sprintf "%A" {E = 1, Some {E = 2, None}} =? "{E = (1, Some {E = (2, None)})}"            
-        sprintf "%A" (Array2D.init 2 2 (fun r c -> 2 * r + c)) =? "[[0; 1][2; 3]]"  
+        Equal (sprintf "%A World" (Hi())) "Hello World"            
+        Equal (sprintf "%A" [| 3; 4 |]) "[|3; 4|]"            
+        Equal (sprintf "%A" {A = 1; B = 2} ) "{A = 1; B = 2}"            
+        Equal (sprintf "%A" (3, 4)) "(3, 4)"
+        Equal (sprintf "%A" [3; 4]) "[3; 4]"
+        Equal (sprintf "%A" (Some 1)) "Some 1"
+        Equal (sprintf "%A" (Cons (1, Cons (2, Empty)))) "Cons (1, Cons (2, Empty))"
+        Equal (sprintf "%A" [|Some 1; Some 2|]) "[|Some 1; Some 2|]"
+        Equal (sprintf "%A" {C = 1; D = Some {C = 2; D = None}}) "{C = 1; D = Some {C = 2; D = None}}"            
+        Equal (sprintf "%A" {E = 1, Some {E = 2, None}}) "{E = (1, Some {E = (2, None)})}"            
+        Equal (sprintf "%A" (Array2D.init 2 2 (fun r c -> 2 * r + c))) "[[0; 1][2; 3]]"  
         let pr (x: obj) = sprintf "%A" x
-        pr (Some 1) <>? "Some 1"         
+        NotEqual (pr (Some 1)) "Some 1"
     }
 
     Test "Console" {
 //        WatchConsole()
         printfn "Printing to console %s" "ok"
-        1 =? 1
+        Equal 1 1
 //        GetLastLogged() =? [| "Printing to console ok" |]
     }
 
     Test "FailWithF" {
-        Assert.Raises (fun () -> failwithf "error: %s" "test")
+        Raises (failwithf "error: %s" "test")
     }
 
     Test "KSprintF" {
-        Printf.ksprintf (fun s -> s.Length) "Web%s" "Sharper" =? 10
+        Equal (Printf.ksprintf (fun s -> s.Length) "Web%s" "Sharper") 10
     }

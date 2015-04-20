@@ -29,17 +29,17 @@ let Tests =
 
     Test "Next" {
         let r = System.Random()
-        Assert.For 100 (Random.Const ()) (fun () -> 
+        ForR 100 (Random.Const ()) (fun () -> Do {
             let n = r.Next(10)
-            (0 <= n && n < 10) =? true
-        ) 
-        Assert.For 100 (Random.Const ()) (fun () -> 
+            True (0 <= n && n < 10)
+        })
+        ForR 100 (Random.Const ()) (fun () -> Do {
             let n = r.Next(-5, 5)
-            (-5 <= n && n < 5) =? true
-        ) 
+            True (-5 <= n && n < 5)
+        }) 
     }
 
     Test "Guid" {
         let guids = List.init 100 (fun _ -> System.Guid.NewGuid())
-        guids |> Seq.distinct |> Seq.length =? 100
+        Equal (guids |> Seq.distinct |> Seq.length) 100
     }

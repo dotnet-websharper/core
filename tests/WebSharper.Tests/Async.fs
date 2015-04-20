@@ -34,21 +34,6 @@ let isIdle() = X<bool>
 let forceAsync() =
     while not (isIdle()) do tick()
 
-[<JavaScript>]
-let ( @=? ) a b =
-    let res = ref None
-    async {
-        let! r = a
-        res := Some r
-    } |> Async.Start
-    forceAsync()
-    !res |> Option.get =? b
-
-//[<JavaScript>]
-//let runSyncWithCT a ct =
-//    Async.Start (a, ct) 
-//    while not (isIdle()) do tick()
-
 type Message =
     | Increment of int
     | GetCurrent of AsyncReplyChannel<int> 
@@ -63,32 +48,34 @@ let Tests =
     Section "Async"
 
     Test "Bind and Return" {
-        async { return 1 } @=? 1 
+        EqualA (async { return 1 }) 1 
     }
 
     Test "For" {
-        async {
+        EqualA (async {
             let l = ref []
             for i in 1 .. 3 do 
                 l := i :: !l
             return  !l
-        } @=? [ 3; 2; 1 ]
+        }) [ 3; 2; 1 ]
     }
 
     Test "Parallel" {
-        Async.Parallel (Array.empty<Async<int>>) @=? [||]
+        EqualA (Async.Parallel (Array.empty<Async<int>>)) [||]
 
-        Async.Parallel [|
-            async { return 1 }
-            async { return 2 }
-        |] @=? [| 1; 2 |] 
+        EqualA
+            (Async.Parallel [|
+                async { return 1 }
+                async { return 2 }
+            |])
+            [| 1; 2 |] 
     }
 
     Test "TryWith" {
         let ops = ref ""
         let a = async { ops := !ops + "A" }
         let b = async { ops := !ops + "B" }
-        async {
+        EqualA (async {
             try
                 do! a
                 failwith "error"
@@ -96,13 +83,13 @@ let Tests =
             with _ ->
                 do! b
             return !ops
-        } @=? "AB"
+        }) "AB"
     }
 
     Test "TryFinally" {
         let ops = ref ""
         let a = async { ops := !ops + "A" }
-        async {
+        EqualA (async {
             try
                 try
                     do! a
@@ -111,7 +98,7 @@ let Tests =
                 finally ops := !ops + "F"
             with _ -> ()
             return !ops
-        } @=? "AF"
+        }) "AF"
     }
 
     Test "Cancellation" {
@@ -127,8 +114,8 @@ let Tests =
                 do! a
             }, cts.Token)
         forceAsync()
-        !cancelled =? true
-        !ops =? "A"
+        Equal !cancelled true
+        Equal !ops "A"
     }
 
     Test "MailboxProcessor" {
@@ -162,28 +149,28 @@ let Tests =
                     do! loop()
                 }
                 loop()
-        async {
+        EqualA (async {
             mb.Post(Increment 1)
             return! mb.PostAndAsyncReply GetCurrent     
-        } @=? 1
-        async {
+        }) 1
+        EqualA (async {
             mb.Post(Increment 5)
             return! mb.PostAndAsyncReply GetCurrent     
-        } @=? 6
-        async {
+        }) 6
+        EqualA (async {
             mb.Post(ScanNegative)  
             mb.Post(Increment 3)  
             mb.Post(Increment -2)
             mb.Post(Increment 5)  
             return! mb.PostAndAsyncReply LastScanned
-        } @=? -2
-        mb.PostAndAsyncReply GetCurrent @=? 13
-        mb.PostAndAsyncReply GetHistory @=? [ 8; 5; 6; 1; 0 ] 
+        }) -2
+        EqualA (mb.PostAndAsyncReply GetCurrent) 13
+        EqualA (mb.PostAndAsyncReply GetHistory) [ 8; 5; 6; 1; 0 ] 
 
         // testing Error event
         let errorCatched = ref false
         mb.Error.Add (fun _ -> errorCatched := true)
         mb.Post(Die)
         forceAsync()
-        !errorCatched =? true
+        Equal !errorCatched true
     }

@@ -31,21 +31,21 @@ let Tests =
 
     Test "new" {
         let s = Stack<int>()
-        s.Count =? 0
+        Equal s.Count 0
     }
 
     Test "Push" {
         let s = Stack<int>()
         s.Push 1
         s.Push 2
-        s.ToArray() =? [| 2; 1 |]
+        Equal (s.ToArray()) [| 2; 1 |]
     }
 
     Test "Pop" {
         let s = Stack<int>()
         s.Push 1
         s.Push 2
-        s.Pop() =? 2
-        s.ToArray() =? [|1|]
+        Equal (s.Pop()) 2
+        Equal (s.ToArray()) [|1|]
     }
 

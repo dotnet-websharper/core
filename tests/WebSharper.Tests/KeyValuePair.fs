@@ -29,13 +29,13 @@ let Tests =
 
     Test "Construction" {
         let kv = System.Collections.Generic.KeyValuePair(1, 2)
-        kv.Key   =? 1
-        kv.Value =? 2
+        Equal kv.Key   1
+        Equal kv.Value 2
     }
 
     Test "Matching" {
-        match System.Collections.Generic.KeyValuePair(1, 2) with
-        | KeyValue (k, v) ->
-            k =? 1
-            v =? 2
+        Equal
+            (match System.Collections.Generic.KeyValuePair(1, 2) with
+            | KeyValue (k, v) -> (k, v))
+            (1, 2)
     }

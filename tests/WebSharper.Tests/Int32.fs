@@ -30,5 +30,5 @@ let Tests =
     Section "Int32"
 
     Test "Int32.Parse" {
-        I.Parse "14" =? 14
+        Equal (I.Parse "14") 14
     }

@@ -32,27 +32,28 @@ let Tests =
     Section "Operators"
 
     Test "=" {
-        null =? null
-        null <>? obj ()
-        obj () <>? null
+        Equal null null
+        NotEqual null (obj ())
+        NotEqual (obj ()) null
     }
 
     Test "+" {
-        1 + 2 =? 3
+        Equal (1 + 2) 3
     }
 
     Test "max" {
-        max 1 3 =? 3
-        max "asdf" "asdg" =? "asdg"
-        max (1, 2) (2, 1) =? (2, 1)
+        Equal (max 1 3) 3
+        Equal (max "asdf" "asdg") "asdg"
+        Equal (max (1, 2) (2, 1)) (2, 1)
     }
 
     Test "min" {
-        min 1 3 =? 1
-        min "asdf" "asdg" =? "asdf"
-        min (1, 2) (2, 1) =? (1, 2)
-        Assert.For 100 (R.Tuple2Of (R.Int, R.Int)) (fun (x, y) ->
-            max x y >= min x y =? true)
+        Equal (min 1 3) 1
+        Equal (min "asdf" "asdg") "asdf"
+        Equal (min (1, 2) (2, 1)) (1, 2)
+        ForR 100 (R.Tuple2Of (R.Int, R.Int)) (fun (x, y) -> Do {
+            True (max x y >= min x y)
+        })
     }
 
     let add1 = ((+) 1)
@@ -60,60 +61,60 @@ let Tests =
     let add (x, y) = x + y
 
     Test ">>" {
-        (List.length >> add1 >> twice) [1; 2] =? 6
-        (id >> add) (1, 2) =? 3
+        Equal ((List.length >> add1 >> twice) [1; 2]) 6
+        Equal ((id >> add) (1, 2)) 3
     }
 
     Test "<<" {
-        (twice << add1 << List.length) [1; 2] =? 6
-        (add << id) (1, 2) =? 3
+        Equal ((twice << add1 << List.length) [1; 2]) 6
+        Equal ((add << id) (1, 2)) 3
     }
 
     Test "|>" {
-        (1, 2) |> add =? 3
-        0 |> add1 |> twice |> add1 =? 3   
+        Equal ((1, 2) |> add) 3
+        Equal (0 |> add1 |> twice |> add1) 3   
     }
 
     Test "<|" {
-        add <| (1, 2)  =? 3
+        Equal (add <| (1, 2)) 3
     }
 
     Test "!" {
         let r = ref 3
-        !r =? 3
+        Equal !r 3
     }
 
     Test ":=" {
         let r = ref 3
         r := 4
-        !r =? 4
+        Equal !r 4
     }
 
     Test "incr" {
         let r = ref 3
         incr r
-        !r =? 4
+        Equal !r 4
     }
 
     Test "decr" {
         let r = ref 3
         decr r
-        !r =? 2
+        Equal !r 2
     }
 
     Test "int" {
-        int "3" =? 3
-        int "3.5" =? 3
-        int -3.5 =? - 3
+        Equal (int "3") 3
+        Equal (int "3.5") 3
+        Equal (int -3.5) -3
     }
 
     Test "float" {
-        float "3.5" =? 3.5
+        Equal (float "3.5") 3.5
     }
 
     Test "|>!" {
         let a =
             ref 1
             |>! incr
-        !a =? 2
+        Equal !a 2
     }
