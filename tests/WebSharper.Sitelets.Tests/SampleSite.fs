@@ -188,10 +188,10 @@ module SampleSite =
                     Content.CustomContentAsync <| fun ctx ->
                         async {
                             do! ctx.UserSession.Logout ()
-                            return! Content.ToResponseAsync (Content.Redirect Action.Home) ctx
+                            return! Content.ToResponseAsync (Content.RedirectTemporary Action.Home) ctx
                         }
                 | Action.Home ->
-                    Content.Redirect Action.Home
+                    Content.RedirectPermanent Action.Home
                 | Action.Protected ->
                     Content.ServerError
                 | Action.Api _ ->
