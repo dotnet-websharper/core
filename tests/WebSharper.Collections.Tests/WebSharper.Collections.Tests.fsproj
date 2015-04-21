@@ -12,7 +12,6 @@
   <Import Project="../../msbuild/FSharp.targets" />
   <Import Project="../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
-    <Compile Include="Assert.fs" />
     <Compile Include="Dictionary.fs" />
     <Compile Include="Set.fs" />
     <Compile Include="Map.fs" />

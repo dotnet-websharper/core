@@ -31,24 +31,24 @@ let Tests =
 
     Test "Construction" {
         let s = HS [ "a"; "b"; "c"; "a" ]
-        s.Count =? 3
-        Set.ofSeq s =? Set [ "a"; "b"; "c" ]
+        Equal s.Count 3
+        Equal (Set.ofSeq s) (Set [ "a"; "b"; "c" ])
     }
 
     Test "Element operations" {
         let s = HS [ "a"; "b"; "c"; "a" ]
-        s.Add("b") =? false
-        s.Remove("a") =? true
-        s.Count =? 2
+        False (s.Add("b"))
+        True (s.Remove("a"))
+        Equal s.Count 2
         s.Clear()
-        s.Count =? 0
+        Equal s.Count 0
     }
 
     Test "Set operations" {
         let s = HS [ 1 .. 5 ]
         s.ExceptWith(seq { 4 .. 7 })
-        Set.ofSeq s =? Set [ 1 .. 3 ]
+        Equal (Set.ofSeq s) (Set [ 1 .. 3 ])
         s.UnionWith(seq { 4 .. 7 })
-        Set.ofSeq s =? Set [ 1 .. 7 ]
-        (HS [ 1 .. 5]).IsSubsetOf(HS [ 0 .. 7 ]) =? true
+        Equal (Set.ofSeq s) (Set [ 1 .. 7 ])
+        True ((HS [ 1 .. 5]).IsSubsetOf(HS [ 0 .. 7 ]))
     }

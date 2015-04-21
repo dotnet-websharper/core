@@ -586,6 +586,15 @@ type SubtestBuilder () =
             }
         )
 
+    [<CustomOperation("Run", MaintainsVariableSpace = true)>]
+    member this.RunSubtest
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] subtest: 'A -> Runner<'B>
+        ) : Runner<'B> =
+        fun asserter ->
+            r asserter |> Runner.Bind (fun a -> subtest a asserter)
+
     member this.Yield(x) = fun asserter -> Choice1Of2 x
 
     member this.Zero() = fun asserter -> Choice1Of2 Unchecked.defaultof<_>
