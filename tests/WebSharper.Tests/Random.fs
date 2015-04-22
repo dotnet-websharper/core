@@ -25,21 +25,23 @@ open WebSharper.Testing
 
 [<JavaScript>]
 let Tests =
-    Section "Random"
+    Section "Random" {
 
-    Test "Next" {
-        let r = System.Random()
-        ForR 100 (Random.Const ()) (fun () -> Do {
-            let n = r.Next(10)
-            True (0 <= n && n < 10)
-        })
-        ForR 100 (Random.Const ()) (fun () -> Do {
-            let n = r.Next(-5, 5)
-            True (-5 <= n && n < 5)
-        }) 
-    }
+        Test "Next" {
+            let r = System.Random()
+            ForR 100 (Random.Const ()) (fun () -> Do {
+                let n = r.Next(10)
+                True (0 <= n && n < 10)
+            })
+            ForR 100 (Random.Const ()) (fun () -> Do {
+                let n = r.Next(-5, 5)
+                True (-5 <= n && n < 5)
+            }) 
+        }
 
-    Test "Guid" {
-        let guids = List.init 100 (fun _ -> System.Guid.NewGuid())
-        Equal (guids |> Seq.distinct |> Seq.length) 100
+        Test "Guid" {
+            let guids = List.init 100 (fun _ -> System.Guid.NewGuid())
+            Equal (guids |> Seq.distinct |> Seq.length) 100
+        }
+
     }

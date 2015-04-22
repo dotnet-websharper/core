@@ -33,52 +33,53 @@ type E3 [<JavaScript>] (message) =
 [<JavaScript>]
 let Tests =
 
-    Section "Exception"
+    Section "Exception" {
 
-    Test "E0" {
-        Equal (try 1 with E0 -> 2) 1
-        Equal (try (raise E0; 1) with E0 -> 2) 2
-    }
+        Test "E0" {
+            Equal (try 1 with E0 -> 2) 1
+            Equal (try (raise E0; 1) with E0 -> 2) 2
+        }
 
-    Test "E1" {
-        Equal (try (raise (E1 3); 0) with E1 x -> x) 3
-    }
+        Test "E1" {
+            Equal (try (raise (E1 3); 0) with E1 x -> x) 3
+        }
 
-    Test "E2" {
-        Equal (try (raise (E2 (1, "K")); "") with E2 (_, x) -> x) "K"
-    }
+        Test "E2" {
+            Equal (try (raise (E2 (1, "K")); "") with E2 (_, x) -> x) "K"
+        }
 
-    Test "E3" {
-        Equal (
-            try
-                raise (E3 "OOPS")
-                "Success"
-            with
-            | :? E3 as x -> x.Message)
-            "OOPS"
-    }
-
-    Test "Catching" {
-        let k =
-            try raise (E3 "OOPS") with
-            | E0 _ -> 0
-            | E1 _ -> 1
-            | :? E3 -> 3
-            | E2 _ -> 2
-        Equal k 3
-    }
-
-    Test "Reraising" {
-        Equal (
-            try
+        Test "E3" {
+            Equal (
                 try
                     raise (E3 "OOPS")
                     "Success"
                 with
-                | E0 _ -> "E0"
-                | E2 _ -> "E2"
-            with e ->
-                e.Message)
-            "OOPS"
-    }
+                | :? E3 as x -> x.Message)
+                "OOPS"
+        }
 
+        Test "Catching" {
+            let k =
+                try raise (E3 "OOPS") with
+                | E0 _ -> 0
+                | E1 _ -> 1
+                | :? E3 -> 3
+                | E2 _ -> 2
+            Equal k 3
+        }
+
+        Test "Reraising" {
+            Equal (
+                try
+                    try
+                        raise (E3 "OOPS")
+                        "Success"
+                    with
+                    | E0 _ -> "E0"
+                    | E2 _ -> "E2"
+                with e ->
+                    e.Message)
+                "OOPS"
+        }
+
+    }

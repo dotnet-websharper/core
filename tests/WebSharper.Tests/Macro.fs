@@ -95,18 +95,17 @@ module Macro =
     [<JavaScript>]
     let Tests =
 
-        Section "Metaprogramming"
+        Section "Metaprogramming" {
 
-        Test "Generated" {
-            Equal (helloQuotation "world") "Hello world!"
-            Equal (helloCore "world") "Hello world!"
-            Equal (helloJS "world") "Hello world!"    
+            Test "Generated" {
+                Equal (helloQuotation "world") "Hello world!"
+                Equal (helloCore "world") "Hello world!"
+                Equal (helloJS "world") "Hello world!"    
+            }
+
+            Test "Macro" {
+                Equal nameof<string> "System.String"
+                Equal (add 1 2) 3
+            }
+
         }
-
-        Test "Macro" {
-            Equal nameof<string> "System.String"
-            Equal (add 1 2) 3
-        }
-    
-
-

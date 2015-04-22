@@ -45,132 +45,134 @@ type Message =
 [<JavaScript>]
 let Tests =
 
-    Section "Async"
+    Section "Async" {
 
-    Test "Bind and Return" {
-        EqualA (async { return 1 }) 1 
-    }
+        Test "Bind and Return" {
+            EqualA (async { return 1 }) 1 
+        }
 
-    Test "For" {
-        EqualA (async {
-            let l = ref []
-            for i in 1 .. 3 do 
-                l := i :: !l
-            return  !l
-        }) [ 3; 2; 1 ]
-    }
+        Test "For" {
+            EqualA (async {
+                let l = ref []
+                for i in 1 .. 3 do 
+                    l := i :: !l
+                return  !l
+            }) [ 3; 2; 1 ]
+        }
 
-    Test "Parallel" {
-        EqualA (Async.Parallel (Array.empty<Async<int>>)) [||]
+        Test "Parallel" {
+            EqualA (Async.Parallel (Array.empty<Async<int>>)) [||]
 
-        EqualA
-            (Async.Parallel [|
-                async { return 1 }
-                async { return 2 }
-            |])
-            [| 1; 2 |] 
-    }
+            EqualA
+                (Async.Parallel [|
+                    async { return 1 }
+                    async { return 2 }
+                |])
+                [| 1; 2 |] 
+        }
 
-    Test "TryWith" {
-        let ops = ref ""
-        let a = async { ops := !ops + "A" }
-        let b = async { ops := !ops + "B" }
-        EqualA (async {
-            try
-                do! a
-                failwith "error"
-                do! a
-            with _ ->
-                do! b
-            return !ops
-        }) "AB"
-    }
-
-    Test "TryFinally" {
-        let ops = ref ""
-        let a = async { ops := !ops + "A" }
-        EqualA (async {
-            try
+        Test "TryWith" {
+            let ops = ref ""
+            let a = async { ops := !ops + "A" }
+            let b = async { ops := !ops + "B" }
+            EqualA (async {
                 try
                     do! a
                     failwith "error"
                     do! a
-                finally ops := !ops + "F"
-            with _ -> ()
-            return !ops
-        }) "AF"
-    }
+                with _ ->
+                    do! b
+                return !ops
+            }) "AB"
+        }
 
-    Test "Cancellation" {
-        let ops = ref ""
-        let a = async { ops := !ops + "A" }
-        let cancelled = ref false
-        let cts = new System.Threading.CancellationTokenSource()
-        cts.Token.Register(fun () -> cancelled := true) |> ignore
-        Async.Start (
-            async {
-                do! a
-                cts.Cancel()
-                do! a
-            }, cts.Token)
-        forceAsync()
-        Equal !cancelled true
-        Equal !ops "A"
-    }
+        Test "TryFinally" {
+            let ops = ref ""
+            let a = async { ops := !ops + "A" }
+            EqualA (async {
+                try
+                    try
+                        do! a
+                        failwith "error"
+                        do! a
+                    finally ops := !ops + "F"
+                with _ -> ()
+                return !ops
+            }) "AF"
+        }
 
-    Test "MailboxProcessor" {
-        let mb = 
-            MailboxProcessor.Start <| fun mb ->
-                let v = ref 0
-                let n = ref 0
-                let h = ref []
-                let add i =
-                    h := !v :: !h
-                    v := !v + i
-                let rec loop() = async {
-                    let! msg = mb.Receive()
-                    match msg with
-                    | Increment i ->
-                        add i
-                    | GetCurrent chan ->
-                        chan.Reply !v
-                    | ScanNegative ->
-                        let! j = 
-                            mb.Scan (function
-                                | Increment i when i < 0 -> Some (async { n := i; return -1 })
-                                | _ -> None
-                            )
-                        add j
-                    | LastScanned chan ->
-                        chan.Reply !n
-                    | GetHistory chan ->
-                        chan.Reply !h
-                    | Die -> failwith "error"
-                    do! loop()
-                }
-                loop()
-        EqualA (async {
-            mb.Post(Increment 1)
-            return! mb.PostAndAsyncReply GetCurrent     
-        }) 1
-        EqualA (async {
-            mb.Post(Increment 5)
-            return! mb.PostAndAsyncReply GetCurrent     
-        }) 6
-        EqualA (async {
-            mb.Post(ScanNegative)  
-            mb.Post(Increment 3)  
-            mb.Post(Increment -2)
-            mb.Post(Increment 5)  
-            return! mb.PostAndAsyncReply LastScanned
-        }) -2
-        EqualA (mb.PostAndAsyncReply GetCurrent) 13
-        EqualA (mb.PostAndAsyncReply GetHistory) [ 8; 5; 6; 1; 0 ] 
+        Test "Cancellation" {
+            let ops = ref ""
+            let a = async { ops := !ops + "A" }
+            let cancelled = ref false
+            let cts = new System.Threading.CancellationTokenSource()
+            cts.Token.Register(fun () -> cancelled := true) |> ignore
+            Async.Start (
+                async {
+                    do! a
+                    cts.Cancel()
+                    do! a
+                }, cts.Token)
+            forceAsync()
+            Equal !cancelled true
+            Equal !ops "A"
+        }
 
-        // testing Error event
-        let errorCatched = ref false
-        mb.Error.Add (fun _ -> errorCatched := true)
-        mb.Post(Die)
-        forceAsync()
-        Equal !errorCatched true
+        Test "MailboxProcessor" {
+            let mb = 
+                MailboxProcessor.Start <| fun mb ->
+                    let v = ref 0
+                    let n = ref 0
+                    let h = ref []
+                    let add i =
+                        h := !v :: !h
+                        v := !v + i
+                    let rec loop() = async {
+                        let! msg = mb.Receive()
+                        match msg with
+                        | Increment i ->
+                            add i
+                        | GetCurrent chan ->
+                            chan.Reply !v
+                        | ScanNegative ->
+                            let! j = 
+                                mb.Scan (function
+                                    | Increment i when i < 0 -> Some (async { n := i; return -1 })
+                                    | _ -> None
+                                )
+                            add j
+                        | LastScanned chan ->
+                            chan.Reply !n
+                        | GetHistory chan ->
+                            chan.Reply !h
+                        | Die -> failwith "error"
+                        do! loop()
+                    }
+                    loop()
+            EqualA (async {
+                mb.Post(Increment 1)
+                return! mb.PostAndAsyncReply GetCurrent     
+            }) 1
+            EqualA (async {
+                mb.Post(Increment 5)
+                return! mb.PostAndAsyncReply GetCurrent     
+            }) 6
+            EqualA (async {
+                mb.Post(ScanNegative)  
+                mb.Post(Increment 3)  
+                mb.Post(Increment -2)
+                mb.Post(Increment 5)  
+                return! mb.PostAndAsyncReply LastScanned
+            }) -2
+            EqualA (mb.PostAndAsyncReply GetCurrent) 13
+            EqualA (mb.PostAndAsyncReply GetHistory) [ 8; 5; 6; 1; 0 ] 
+
+            // testing Error event
+            let errorCatched = ref false
+            mb.Error.Add (fun _ -> errorCatched := true)
+            mb.Post(Die)
+            forceAsync()
+            Equal !errorCatched true
+        }
+
     }

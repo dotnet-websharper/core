@@ -27,8 +27,9 @@ type private I = System.Int32
 
 [<JavaScript>]
 let Tests =
-    Section "Int32"
+    Section "Int32" {
 
-    Test "Int32.Parse" {
-        Equal (I.Parse "14") 14
+        Test "Int32.Parse" {
+            Equal (I.Parse "14") 14
+        }
     }

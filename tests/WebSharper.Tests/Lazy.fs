@@ -25,21 +25,23 @@ open WebSharper.Testing
 
 [<JavaScript>]
 let Tests =
-    Section "Lazy"
+    Section "Lazy" {
 
-    Test "Basics" {
-        let k = lazy 1
-        False k.IsValueCreated
-        Equal k.Value 1
-        True k.IsValueCreated
-        let b = Lazy.CreateFromValue 1
-        True b.IsValueCreated
-        Equal b.Value 1
-        let r = ref 0
-        let c = Lazy.Create (fun () -> incr r; 1)
-        False c.IsValueCreated
-        Equal !r 0
-        Equal c.Value 1
-        Equal !r 1
-        True c.IsValueCreated
+        Test "Basics" {
+            let k = lazy 1
+            False k.IsValueCreated
+            Equal k.Value 1
+            True k.IsValueCreated
+            let b = Lazy.CreateFromValue 1
+            True b.IsValueCreated
+            Equal b.Value 1
+            let r = ref 0
+            let c = Lazy.Create (fun () -> incr r; 1)
+            False c.IsValueCreated
+            Equal !r 0
+            Equal c.Value 1
+            Equal !r 1
+            True c.IsValueCreated
+        }
+
     }

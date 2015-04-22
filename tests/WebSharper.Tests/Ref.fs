@@ -26,18 +26,20 @@ open WebSharper.Testing
 [<JavaScript>]
 let Tests =
 
-    Section "Ref"
+    Section "Ref" {
 
-    Test "Value" {
-        let r = ref 3
-        Equal r.Value 3
-        r.Value <- 4
-        Equal r.Value 4
-    }
+        Test "Value" {
+            let r = ref 3
+            Equal r.Value 3
+            r.Value <- 4
+            Equal r.Value 4
+        }
 
-    Test "contents" {
-        let r = ref 3
-        Equal r.contents 3
-        r.contents <- 4
-        Equal r.contents 4
+        Test "contents" {
+            let r = ref 3
+            Equal r.contents 3
+            r.contents <- 4
+            Equal r.contents 4
+        }
+
     }

@@ -54,14 +54,40 @@ module QUnit =
         [<Stub; Name "async">]
         member this.Async() = X<unit -> unit>
 
+        [<Stub; Name "push">]
+        member this.Push(result: bool, actual: 'T, expected: 'T, message: string) = X<unit>
+
+        [<Stub; Name "push">]
+        member this.Push(result: bool, actual: 'T, expected: 'T) = X<unit>
+
+    // Test and Module use Unchecked.defaultof<_> instead of X<_>
+    // because they are intended to be called from the top-level
+
     [<Inline "QUnit.test($name, $callback)">]
-    let Test (name: string) (callback: Asserter -> unit) = X<unit>
+    let Test (name: string) (callback: Asserter -> unit) = Unchecked.defaultof<unit>
 
     [<Inline "QUnit.module($name)">]
-    let Module (name: string) = X<unit>
+    let Module (name: string) = Unchecked.defaultof<unit>
+
+type Section = internal Section of name: string * run: (unit -> unit)
 
 [<JavaScript>]
-let Section name = QUnit.Module name
+type SectionBuilder(name: string) =
+
+    [<Inline>]
+    member this.Delay(f) = Section (name, f)
+
+    [<Inline>]
+    member this.Zero() = ()
+
+[<JavaScript>]
+let Section name = new SectionBuilder(name)
+
+[<JavaScript>]
+let RunTests sections =
+    for (Section(name, run)) in sections do
+        QUnit.Module(name)
+        run()
 
 // This could simply be (Assert -> Async<'A>), but since QUnit's performance
 // degrades a lot when used in asynchronous mode, we want to use it in
@@ -136,7 +162,9 @@ type SubtestBuilder () =
             [<ProjectionParameter>] expected: 'A -> 'T
         ) : Runner<'A> =
         r |> Runner.AddTest (fun asserter args ->
-            asserter.Ok(actual args = expected args)
+            let actual = actual args
+            let expected = expected args
+            asserter.Push((actual = expected), actual, expected)
         )
 
     /// Tests equality between two values using F# `=`.
@@ -149,7 +177,9 @@ type SubtestBuilder () =
             message: string
         ) : Runner<'A> =
         r |> Runner.AddTest (fun asserter args ->
-            asserter.Ok(actual args = expected args, message)
+            let actual = actual args
+            let expected = expected args
+            asserter.Push((actual = expected), actual, expected, message)
         )
 
     /// Tests equality between two values using F# `=`.
@@ -163,7 +193,7 @@ type SubtestBuilder () =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args
-            return asserter.Ok((actual = expected))
+            return asserter.Push((actual = expected), actual, expected)
         })
 
     /// Tests equality between two values using F# `=`.
@@ -178,7 +208,7 @@ type SubtestBuilder () =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args
-            return asserter.Ok((actual = expected), message)
+            return asserter.Push((actual = expected), actual, expected, message)
         })
 
     /// Tests equality between two values using F# `=`.
@@ -190,7 +220,9 @@ type SubtestBuilder () =
             [<ProjectionParameter>] expected: 'A -> 'T
         ) : Runner<'A> =
         r |> Runner.AddTest (fun asserter args ->
-            asserter.Ok(actual args <> expected args)
+            let actual = actual args
+            let expected = expected args
+            asserter.Push((actual <> expected), actual, expected)
         )
 
     /// Tests equality between two values using F# `=`.
@@ -203,7 +235,9 @@ type SubtestBuilder () =
             message: string
         ) : Runner<'A> =
         r |> Runner.AddTest (fun asserter args ->
-            asserter.Ok(actual args <> expected args, message)
+            let actual = actual args
+            let expected = expected args
+            asserter.Push((actual <> expected), actual, expected, message)
         )
 
     /// Tests equality between two values using F# `=`.
@@ -217,7 +251,7 @@ type SubtestBuilder () =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args
-            return asserter.Ok((actual <> expected))
+            return asserter.Push((actual <> expected), actual, expected)
         })
 
     /// Tests equality between two values using F# `=`.
@@ -232,7 +266,7 @@ type SubtestBuilder () =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args
-            return asserter.Ok((actual <> expected), message)
+            return asserter.Push((actual <> expected), actual, expected, message)
         })
 
     /// Tests equality between two values using JavaScript `==`.
@@ -346,40 +380,56 @@ type SubtestBuilder () =
     [<CustomOperation("ApproxEqual", MaintainsVariableSpace = true)>]
     member this.ApproxEqual<'T, 'A>
         (
-            before: Runner<'A>,
+            r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> float,
             [<ProjectionParameter>] expected: 'A -> float
         ) : Runner<'A> =
-        this.True(before, fun a -> abs (actual a - expected a) < 0.0001)
+        r |> Runner.AddTest (fun asserter args ->
+            let actual = actual args
+            let expected = expected args
+            asserter.Push(abs (actual - expected) < 0.0001, actual, expected)
+        )
 
     [<CustomOperation("ApproxEqualM", MaintainsVariableSpace = true)>]
     member this.ApproxEqualM<'T, 'A>
         (
-            before: Runner<'A>,
+            r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> float,
             [<ProjectionParameter>] expected: 'A -> float,
             message: string
         ) : Runner<'A> =
-        this.TrueM(before, (fun a -> abs (actual a - expected a) < 0.0001), message)
+        r |> Runner.AddTest (fun asserter args ->
+            let actual = actual args
+            let expected = expected args
+            asserter.Push(abs (actual - expected) < 0.0001, actual, expected, message)
+        )
 
     [<CustomOperation("NotApproxEqual", MaintainsVariableSpace = true)>]
     member this.NotApproxEqual<'T, 'A>
         (
-            before: Runner<'A>,
+            r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> float,
             [<ProjectionParameter>] expected: 'A -> float
         ) : Runner<'A> =
-        this.True(before, fun a -> abs (actual a - expected a) > 0.0001)
+        r |> Runner.AddTest (fun asserter args ->
+            let actual = actual args
+            let expected = expected args
+            asserter.Push(abs (actual - expected) > 0.0001, actual, expected)
+        )
 
     [<CustomOperation("NotApproxEqualM", MaintainsVariableSpace = true)>]
     member this.NotApproxEqualM<'T, 'A>
         (
-            before: Runner<'A>,
+            r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> float,
             [<ProjectionParameter>] expected: 'A -> float,
             message: string
         ) : Runner<'A> =
-        this.TrueM(before, (fun a -> abs (actual a - expected a) > 0.0001), message)
+        r |> Runner.AddTest (fun asserter args ->
+            let actual = actual args
+            let expected = expected args
+            asserter.Push(abs (actual - expected) > 0.0001, actual, expected, message)
+        )
 
     /// Checks that a boolean is true.
     [<CustomOperation("True", MaintainsVariableSpace = true)>]
@@ -595,7 +645,18 @@ type SubtestBuilder () =
         fun asserter ->
             r asserter |> Runner.Bind (fun a -> subtest a asserter)
 
+    member this.Bind(a: Async<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
+        fun asserter ->
+            Choice2Of2 (async {
+                let! a = a
+                match f a asserter with
+                | Choice1Of2 b -> return b
+                | Choice2Of2 b -> return! b
+            })
+
     member this.Yield(x) = fun asserter -> Choice1Of2 x
+
+    member this.Return(x) = fun asserter -> Choice1Of2 x
 
     member this.Zero() = fun asserter -> Choice1Of2 Unchecked.defaultof<_>
 
@@ -606,14 +667,14 @@ type SubtestBuilder () =
         ) : Runner<'B> =
         fun asserter ->
             match r asserter with
-            | Choice1Of2 args ->
-                y args asserter
-            | Choice2Of2 args ->
+            | Choice1Of2 a ->
+                y a asserter
+            | Choice2Of2 a ->
                 Choice2Of2 (async {
-                    let! args = args
-                    match y args asserter with
-                    | Choice1Of2 args' -> return args'
-                    | Choice2Of2 args' -> return! args'
+                    let! a = a
+                    match y a asserter with
+                    | Choice1Of2 b -> return b
+                    | Choice2Of2 b -> return! b
                 })
 
 [<JavaScript>]
@@ -622,15 +683,24 @@ type TestBuilder (name: string) =
 
     member this.Run(e) =
         QUnit.Test name (fun asserter ->
-            match e asserter with
-            | Choice1Of2 _ -> ()
-            | Choice2Of2 asy ->
-                let ``done`` = asserter.Async()
-                async {
-                    let! _ = asy
-                    return ``done``()
-                }
-                |> Async.Start
+            try
+                match e asserter with
+                | Choice1Of2 _ -> ()
+                | Choice2Of2 asy ->
+                    let ``done`` = asserter.Async()
+                    async {
+                        try
+                            try
+                                let! _ = asy
+                                return ()
+                            with e ->
+                                return asserter.Ok(false, "Test threw an unexpected asynchronous exception")
+                        finally
+                            ``done``()
+                    }
+                    |> Async.Start
+            with e ->
+                asserter.Ok(false, "Test threw an unexpected synchronous exception")
         )
 
 [<JavaScript>]
@@ -638,11 +708,3 @@ let Test name = new TestBuilder(name)
 
 [<JavaScript>]
 let Do = new SubtestBuilder()
-
-[<JavaScript>]
-let y =
-    Test "WebSharper.Testing sanity test" {
-        Equal 1 1
-        let aoeu = 2
-        JsEqual aoeu 2
-    }

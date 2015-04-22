@@ -159,146 +159,148 @@ type System.Object with
 
 [<JavaScript>]
 let Tests =
-    Section "Regression"
+    Section "Regression" {
 
-    Test "Bug #26" {
-        TrueM ([||] = Empty<int>) "[||] = Empty<int>"
-    }
-
-    Test "Bug #35" {
-        Equal (bug35_Bar ()) "c"
-    }
-
-    Test "Bug #61" {
-        let x = Bug61_T2()
-        Equal x.F 1
-    }
-
-    Test "Bug #367" {
-        Equal Bug367.B.y 1
-        Equal Bug367.z 1
-    }
-
-    Test "Bug #476" {
-        let q = new System.Collections.Generic.Queue<int>()
-        seq {
-            q.Enqueue -1
-            let c = ref 0
-            while !c < 2 do
-                q.Enqueue !c
-                incr c
-            q.Enqueue 2
-            while !c < 4 do
-                q.Enqueue !c
-                incr c
-            q.Enqueue 4
+        Test "Bug #26" {
+            TrueM ([||] = Empty<int>) "[||] = Empty<int>"
         }
-        |> Seq.length |> ignore
-        Equal (q.ToArray()) [|-1; 0; 1; 2; 2; 3; 4|]
-        let t (x: list<int>) = Seq.toArray (Seq.windowed 3 x)
-        Equal (t []) [||]
-        Equal (t [1]) [||]
-        Equal (t [1;2]) [||]
-        Equal (t [1;2;3]) [|[|1;2;3|]|]
-        Equal (t [1;2;3;4]) [|[|1;2;3|]; [|2;3;4|]|]
-        Equal (t [1;2;3;4;5]) [|[|1;2;3|]; [|2;3;4|]; [|3;4;5|]|]
-    }
 
-    Test "Bug #431" {
-        Equal (bug431_g()) [| 2; 1 |]
-    }
+        Test "Bug #35" {
+            Equal (bug35_Bar ()) "c"
+        }
 
-    Test "Bug #484" {
-        Equal (string 0) "0"
-    }
+        Test "Bug #61" {
+            let x = Bug61_T2()
+            Equal x.F 1
+        }
 
-    do BugBB80.test()
+        Test "Bug #367" {
+            Equal Bug367.B.y 1
+            Equal Bug367.z 1
+        }
 
-    Test "Mutable" {
-        Equal (
-            let mutable a = 2
-            a <- 4
-            a
-        ) 4
-    }
+        Test "Bug #476" {
+            let q = new System.Collections.Generic.Queue<int>()
+            seq {
+                q.Enqueue -1
+                let c = ref 0
+                while !c < 2 do
+                    q.Enqueue !c
+                    incr c
+                q.Enqueue 2
+                while !c < 4 do
+                    q.Enqueue !c
+                    incr c
+                q.Enqueue 4
+            }
+            |> Seq.length |> ignore
+            Equal (q.ToArray()) [|-1; 0; 1; 2; 2; 3; 4|]
+            let t (x: list<int>) = Seq.toArray (Seq.windowed 3 x)
+            Equal (t []) [||]
+            Equal (t [1]) [||]
+            Equal (t [1;2]) [||]
+            Equal (t [1;2;3]) [|[|1;2;3|]|]
+            Equal (t [1;2;3;4]) [|[|1;2;3|]; [|2;3;4|]|]
+            Equal (t [1;2;3;4;5]) [|[|1;2;3|]; [|2;3;4|]; [|3;4;5|]|]
+        }
 
-    Test "Bug #109" {
-        let n = ResizeArray()
-        do
-            for i in 1 .. 10 do
-                for j in 1 .. 10 do
-                    n.Add(fun k -> k + i + j)
-        Equal (Seq.sum [for x in n -> x 5]) 1600
-    }
+        Test "Bug #431" {
+            Equal (bug431_g()) [| 2; 1 |]
+        }
 
-    Test "Bug #231" {
-        let arr =
-            [|
-                let prev = ref None
-                for c in [| 2; 2; 4; 2 |] do
-                    match !prev with
-                    | Some p ->
-                        if p = c then
-                            yield c * 2
-                            prev := None
-                        else
-                            yield p
+        Test "Bug #484" {
+            Equal (string 0) "0"
+        }
+
+        do BugBB80.test()
+
+        Test "Mutable" {
+            Equal (
+                let mutable a = 2
+                a <- 4
+                a
+            ) 4
+        }
+
+        Test "Bug #109" {
+            let n = ResizeArray()
+            do
+                for i in 1 .. 10 do
+                    for j in 1 .. 10 do
+                        n.Add(fun k -> k + i + j)
+            Equal (Seq.sum [for x in n -> x 5]) 1600
+        }
+
+        Test "Bug #231" {
+            let arr =
+                [|
+                    let prev = ref None
+                    for c in [| 2; 2; 4; 2 |] do
+                        match !prev with
+                        | Some p ->
+                            if p = c then
+                                yield c * 2
+                                prev := None
+                            else
+                                yield p
+                                prev := Some c
+                        | _ ->
                             prev := Some c
-                    | _ ->
-                        prev := Some c
-                match !prev with
-                | Some p -> yield p
-                | _ -> ()
-            |]
-        Equal arr [| 4; 4; 2 |]
-    }
+                    match !prev with
+                    | Some p -> yield p
+                    | _ -> ()
+                |]
+            Equal arr [| 4; 4; 2 |]
+        }
 
-    Test "Bug #249" {
-        Equal (double 1) 1.0
-    }
+        Test "Bug #249" {
+            Equal (double 1) 1.0
+        }
 
-    Test "Bug #264" {
-        let Mk () =
-            let v =
-                {
-                    A = 0
-                    B = Unchecked.defaultof<_>
-                } : Bug264.X
-            v.B <- Bug264.Make (fun () -> { v with A = 2 })
-            v
+        Test "Bug #264" {
+            let Mk () =
+                let v =
+                    {
+                        A = 0
+                        B = Unchecked.defaultof<_>
+                    } : Bug264.X
+                v.B <- Bug264.Make (fun () -> { v with A = 2 })
+                v
         
-        True (
-            try Mk().B = Bug264.Y 2
-            with _ -> false)
-    }
+            True (
+                try Mk().B = Bug264.Y 2
+                with _ -> false)
+        }
 
-    Test "Bug #323" {
-        let a = Bug323.DescendantClass(3)
-        Equal (a.OriginalValue) 3
-        Equal (a.Value) 4    
-    }
+        Test "Bug #323" {
+            let a = Bug323.DescendantClass(3)
+            Equal (a.OriginalValue) 3
+            Equal (a.Value) 4    
+        }
 
-    Test "Bug #328" {
-        let o = 
-            New [
-                "test" => 3
-                "testf" => FuncWithRest<int, int[]> id
-            ]
-        Equal o.TestProperty 3
-        Equal (o.TestMethod()) 3
-        Equal (o.TestMethod1(1)) [| 1 |]
-        Equal (o.TestMethod2(1, 2)) [| 1; 2 |]
-    }
+        Test "Bug #328" {
+            let o = 
+                New [
+                    "test" => 3
+                    "testf" => FuncWithRest<int, int[]> id
+                ]
+            Equal o.TestProperty 3
+            Equal (o.TestMethod()) 3
+            Equal (o.TestMethod1(1)) [| 1 |]
+            Equal (o.TestMethod2(1, 2)) [| 1; 2 |]
+        }
 
-    Test "Curried inlining" {
-        let add1 x = x + 1
-        let twice x = x * 2
-        Equal (FuncHelper.Compose add1 twice 0) 2
-        let f = FuncHelper.Compose add1 twice 
-        Equal (f 1) 4
-        Equal (f 2) 6
-    }
+        Test "Curried inlining" {
+            let add1 x = x + 1
+            let twice x = x * 2
+            Equal (FuncHelper.Compose add1 twice 0) 2
+            let f = FuncHelper.Compose add1 twice 
+            Equal (f 1) 4
+            Equal (f 2) 6
+        }
 
-    Test "Bug #352" {
-        Equal (Bug352.B().Foo()) 2    
+        Test "Bug #352" {
+            Equal (Bug352.B().Foo()) 2    
+        }
+
     }
