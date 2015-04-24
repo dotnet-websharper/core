@@ -60,22 +60,19 @@ module QUnit =
         [<Stub; Name "push">]
         member this.Push(result: bool, actual: 'T, expected: 'T) = X<unit>
 
-    // Test and Module use Unchecked.defaultof<_> instead of X<_>
-    // because they are intended to be called from the top-level
-
     [<Inline "QUnit.test($name, $callback)">]
-    let Test (name: string) (callback: Asserter -> unit) = Unchecked.defaultof<unit>
+    let Test (name: string) (callback: Asserter -> unit) = X<unit>
 
     [<Inline "QUnit.module($name)">]
-    let Module (name: string) = Unchecked.defaultof<unit>
+    let Module (name: string) = X<unit>
 
-type Section = internal Section of name: string * run: (unit -> unit)
+type Section = internal { name : string; run : (unit -> unit) }
 
 [<JavaScript>]
 type SectionBuilder(name: string) =
 
     [<Inline>]
-    member this.Delay(f) = Section (name, f)
+    member this.Delay(f) = { name = name; run = f }
 
     [<Inline>]
     member this.Zero() = ()
@@ -85,9 +82,9 @@ let Section name = new SectionBuilder(name)
 
 [<JavaScript>]
 let RunTests sections =
-    for (Section(name, run)) in sections do
-        QUnit.Module(name)
-        run()
+    for s in sections do
+        QUnit.Module(s.name)
+        s.run()
 
 // This could simply be (Assert -> Async<'A>), but since QUnit's performance
 // degrades a lot when used in asynchronous mode, we want to use it in
