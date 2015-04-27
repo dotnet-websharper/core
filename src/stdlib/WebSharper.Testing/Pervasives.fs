@@ -60,11 +60,16 @@ module QUnit =
         [<Stub; Name "push">]
         member this.Push(result: bool, actual: 'T, expected: 'T) = X<unit>
 
+    // Unlike the methods above, Test and Module must not be implemented as X<_>.
+    // They are meant to be called from the top-level, which means they will be called
+    // from the server side too. Since X<_>'s .NET implementation throws an exception,
+    // it is not suitable in this case.
+
     [<Inline "QUnit.test($name, $callback)">]
-    let Test (name: string) (callback: Asserter -> unit) = X<unit>
+    let Test (name: string) (callback: Asserter -> unit) = Unchecked.defaultof<unit>
 
     [<Inline "QUnit.module($name)">]
-    let Module (name: string) = X<unit>
+    let Module (name: string) = Unchecked.defaultof<unit>
 
 type Section = internal { name : string; run : (unit -> unit) }
 
@@ -77,14 +82,12 @@ type SectionBuilder(name: string) =
     [<Inline>]
     member this.Zero() = ()
 
-[<JavaScript>]
-let Section name = new SectionBuilder(name)
-
-[<JavaScript>]
-let RunTests sections =
-    for s in sections do
+    member this.Run(s: Section) =
         QUnit.Module(s.name)
         s.run()
+
+[<JavaScript>]
+let Section name = new SectionBuilder(name)
 
 // This could simply be (Assert -> Async<'A>), but since QUnit's performance
 // degrades a lot when used in asynchronous mode, we want to use it in

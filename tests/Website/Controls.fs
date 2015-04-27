@@ -39,44 +39,11 @@ type Tests() =
 
     [<JavaScript>]
     override this.Body =
-        RunTests [
-            WebSharper.Collections.Tests.Dictionary.Tests
-            WebSharper.Collections.Tests.Set.Tests
-            WebSharper.Collections.Tests.Map.Tests
-            WebSharper.Collections.Tests.ResizeArray.Tests
-            WebSharper.Collections.Tests.LinkedList.Tests
-            WebSharper.Collections.Tests.HashSet.Tests
-            WebSharper.Tests.Array.Tests
-            WebSharper.Tests.Array2D.Tests
-            WebSharper.Tests.Async.Tests
-            WebSharper.Tests.Basis.Tests
-            WebSharper.Tests.Char.Tests
-            WebSharper.Tests.DateTime.Tests
-            WebSharper.Tests.DateTime.NativeTests
-            WebSharper.Tests.Double.Tests
-            WebSharper.Tests.Exception.Tests
-            WebSharper.Tests.Int32.Tests
-            WebSharper.Tests.KeyValuePair.Tests
-            WebSharper.Tests.Lazy.Tests
-            WebSharper.Tests.List.Tests
-            WebSharper.Tests.Macro.Tests
-            WebSharper.Tests.Math.Tests
-            WebSharper.Tests.Object.Tests
-            WebSharper.Tests.Operators.Tests
-            WebSharper.Tests.Option.Tests
-            WebSharper.Tests.Proxy.Tests
-            WebSharper.Tests.Queue.Tests
-            WebSharper.Tests.Random.Tests
-            WebSharper.Tests.Ref.Tests
-            WebSharper.Tests.Regression.Tests
-            WebSharper.Tests.Seq.Tests
-            WebSharper.Tests.Stack.Tests
-            WebSharper.Tests.String.Tests
-            WebSharper.Tests.TimeSpan.Tests
-            WebSharper.Tests.Printf.Tests
-            WebSharper.Tests.Tupled.Tests
-            WebSharper.Tests.WIG.Tests
-            WebSharper.Web.Tests.Remoting.Tests
-            WebSharper.Html5.Tests.Tests
-        ]
+        // Reference at least one test from each assembly that contains tests,
+        // to ensure that the js (and therefore the tests) from all these assemblies
+        // is included.
+        do WebSharper.Collections.Tests.Dictionary.Tests
+        do WebSharper.Tests.Array.Tests
+        do WebSharper.Web.Tests.Remoting.Tests
+        do WebSharper.Html5.Tests.Tests
         Span [] :> _
