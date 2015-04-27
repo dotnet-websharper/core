@@ -36,7 +36,7 @@ let ( => ) text url =
 let Menu (ctx: Context<_>) =
     [
         LI ["Home" => ctx.Link (Site Actions.Home)]
-        LI ["Tests" => ctx.Link (Site Actions.Tests)]
+        LI ["Client and Remoting Tests" => ctx.Link (Site Actions.Tests)]
         LI ["Sitelets Tests" => ctx.Link (SiteletsTests SampleSite.Home)]
     ]
 
