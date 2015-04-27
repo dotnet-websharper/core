@@ -76,5 +76,6 @@ type Tests() =
             WebSharper.Tests.Tupled.Tests
             WebSharper.Tests.WIG.Tests
             WebSharper.Web.Tests.Remoting.Tests
+            WebSharper.Html5.Tests.Tests
         ]
         Span [] :> _

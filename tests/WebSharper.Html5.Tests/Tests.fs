@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-namespace WebSharper.Html5.Tests
+module WebSharper.Html5.Tests
 
 open WebSharper
 open WebSharper.JavaScript
@@ -31,15 +31,18 @@ module Utils =
 
 module SamplesInternals =
 
-    [<JavaScriptAttribute>]
+    exception NoGeoLocation of Geolocation.PositionError
+
+    [<JavaScript>]
     let GetPosition() : (Async<Geolocation.Position>) =
-        Async.FromContinuations(fun (onOk, _, _) ->
-            JS.Window.Navigator.Geolocation.GetCurrentPosition(fun pos ->
-                onOk pos
+        Async.FromContinuations(fun (onOk, onErr, _) ->
+            JS.Window.Navigator.Geolocation.GetCurrentPosition(
+                (fun pos -> onOk pos),
+                (fun err -> onErr (NoGeoLocation err))
             )
         )
 
-    [<JavaScriptAttribute>]
+    [<JavaScript>]
     let GeolocationTest () =
         Div [
             H1 [Text "Geolocation Sample"]
@@ -54,7 +57,7 @@ module SamplesInternals =
             |> Async.Start |> ignore
         )
 
-    [<JavaScriptAttribute>]
+    [<JavaScript>]
     let LocalStorage () =
         Div [
             H1 [Text "LocalStorage Test"]
@@ -73,7 +76,7 @@ module SamplesInternals =
                          + storage.GetItem(key) + ")</h2>"
         )
 
-    [<JavaScriptAttribute>]
+    [<JavaScript>]
     let Canvas (height: int, width: int) (f: CanvasRenderingContext2D -> unit) =
         Div [
             H1 [Text "Canvas Test"]
@@ -146,7 +149,7 @@ module SamplesInternals =
         ctx.QuadraticCurveTo(125., 25., 75., 25.)
         ctx.Stroke()
 
-    [<JavaScriptAttribute>]
+    [<JavaScript>]
     let Example6 (ctx: CanvasRenderingContext2D) =
         let roundedRect(x: float, y: float, width: float, height: float, radius: float)  =
             ctx.BeginPath()
@@ -211,7 +214,7 @@ module SamplesInternals =
         ctx.Arc(89., 102., 2., 0., Math.PI*2., true)
         ctx.Fill()
 
-    [<JavaScriptAttribute>]
+    [<JavaScript>]
     let Example7 (ctx: CanvasRenderingContext2D) =
         Img [ Src "backdrop.png" ]
         |> fun x ->
@@ -226,7 +229,7 @@ module SamplesInternals =
                 ctx.Stroke()
             ).Ignore
 
-    [<JavaScriptAttribute>]
+    [<JavaScript>]
     let Example8 (ctx: CanvasRenderingContext2D) =
         let paint () =
             let now = new Date()
@@ -339,3 +342,96 @@ type Samples() =
             SamplesInternals.Canvas (200, 200) SamplesInternals.Example8
         ] :> _
 
+open WebSharper.Testing
+
+type TestBuilder with
+
+    [<JavaScript>]
+    [<CustomOperation("Fixture", MaintainsVariableSpace = true)>]
+    member this.Fixture<'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] el: 'A -> Element
+        ) : Runner<'A> =
+        fun asserter ->
+            let v = r asserter
+            Choice2Of2 (async {
+                let! args =
+                    match v with
+                    | Choice1Of2 args -> async.Return args
+                    | Choice2Of2 args -> args
+                let el = el args
+                do! Async.FromContinuations (fun (ok, _, _) ->
+                    el |> OnAfterRender (fun el -> ok ())
+                    JQuery.Of("#qunit-fixture").Empty().Append(el.Dom).Ignore
+                    el.Render()
+                )
+                return args
+            })
+
+[<JavaScript>]
+let Tests =
+    Section "HTML5" {
+
+        Test "Geolocation" {
+            let! position = SamplesInternals.GetPosition()
+            let coords = position.Coords
+            False (JS.IsNaN coords.Latitude)
+            False (JS.IsNaN coords.Longitude)
+        }
+
+        Test "LocalStorage" {
+            let storage = JS.Window.LocalStorage
+            let key = "intReference"
+            let intReference = storage.GetItem(key)
+            let v =
+                if intReference = null || intReference = JS.Undefined then
+                    0
+                else int intReference
+            let newV = (v + 1).ToString()
+            storage.SetItem(key, newV)
+            let storedNewV = storage.GetItem(key)
+            Equal newV storedNewV
+        }
+
+        Test "Canvas 1" {
+            Fixture (SamplesInternals.Canvas (100, 200) SamplesInternals.Example1)
+            True true
+        }
+
+        Test "Canvas 2" {
+            Fixture (SamplesInternals.Canvas (150, 200) SamplesInternals.Example2)
+            True true
+        }
+
+        Test "Canvas 3" {
+            Fixture (SamplesInternals.Canvas (150, 200) SamplesInternals.Example3)
+            True true
+        }
+
+        Test "Canvas 4" {
+            Fixture (SamplesInternals.Canvas (150, 200) SamplesInternals.Example4)
+            True true
+        }
+
+        Test "Canvas 5" {
+            Fixture (SamplesInternals.Canvas (150, 200) SamplesInternals.Example5)
+            True true
+        }
+
+        Test "Canvas 6" {
+            Fixture (SamplesInternals.Canvas (150, 150) SamplesInternals.Example6)
+            True true
+        }
+
+        Test "Canvas 7" {
+            Fixture (SamplesInternals.Canvas (180, 130) SamplesInternals.Example7)
+            True true
+        }
+
+        Test "Canvas 8" {
+            Fixture (SamplesInternals.Canvas (200, 200) SamplesInternals.Example8)
+            True true
+        }
+
+    }
