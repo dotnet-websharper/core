@@ -27,6 +27,7 @@
     <Compile Include="Object.fs" />
     <Compile Include="Operators.fs" />
     <Compile Include="Option.fs" />
+    <Compile Include="Proxy.fs" />
     <Compile Include="Queue.fs" />
     <Compile Include="Random.fs" />
     <Compile Include="Ref.fs" />

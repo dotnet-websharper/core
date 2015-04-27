@@ -64,6 +64,7 @@ type Tests() =
             WebSharper.Tests.Object.Tests
             WebSharper.Tests.Operators.Tests
             WebSharper.Tests.Option.Tests
+            WebSharper.Tests.Proxy.Tests
             WebSharper.Tests.Queue.Tests
             WebSharper.Tests.Random.Tests
             WebSharper.Tests.Ref.Tests

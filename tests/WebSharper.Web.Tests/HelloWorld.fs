@@ -25,38 +25,11 @@ open WebSharper.JavaScript
 module A = WebSharper.Core.Attributes
 module H = WebSharper.Html.Client.Tags
 
-
-[<Proxy(typeof<System.Text.StringBuilder>)>]
-type StringBuilder [<JavaScript>] () =
-    let mutable c = ""
-
-    [<JavaScript>]
-    member this.Append(s: string) =
-        c <- c + s
-        As<System.Text.StringBuilder> this
-
-    [<JavaScript>]
-    [<Name "toString">]
-    override this.ToString() = c
-
-module Client =
-    open WebSharper.Html.Client
-
-    [<JavaScript>]
-    let test () =
-        let sb = StringBuilder()
-        sb.Append("foo")
-        |> ignore
-        sb.Append("bar")
-        |> ignore
-        Console.Log(sb.ToString())
-
 type HelloWorld() =
     inherit WebSharper.Web.Control()
 
     [<A.JavaScript>]
     override this.Body =
-        Client.test()
         let o = obj ()
         JS.Set o "a" 1
         JS.Set o "b" 2
