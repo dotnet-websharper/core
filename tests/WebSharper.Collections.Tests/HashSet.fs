@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module WebSharper.Tests.HashSet
+module WebSharper.Collections.Tests.HashSet
 
 open WebSharper
 open WebSharper.Testing
@@ -27,28 +27,30 @@ type HS<'T> = System.Collections.Generic.HashSet<'T>
 
 [<JavaScript>]
 let Tests =
-    Section "HashSet"
+    Section "HashSet" {
 
-    Test "Construction" {
-        let s = HS [ "a"; "b"; "c"; "a" ]
-        s.Count =? 3
-        Set.ofSeq s =? Set [ "a"; "b"; "c" ]
-    }
+        Test "Construction" {
+            let s = HS [ "a"; "b"; "c"; "a" ]
+            Equal s.Count 3
+            Equal (Set.ofSeq s) (Set [ "a"; "b"; "c" ])
+        }
 
-    Test "Element operations" {
-        let s = HS [ "a"; "b"; "c"; "a" ]
-        s.Add("b") =? false
-        s.Remove("a") =? true
-        s.Count =? 2
-        s.Clear()
-        s.Count =? 0
-    }
+        Test "Element operations" {
+            let s = HS [ "a"; "b"; "c"; "a" ]
+            False (s.Add("b"))
+            True (s.Remove("a"))
+            Equal s.Count 2
+            s.Clear()
+            Equal s.Count 0
+        }
 
-    Test "Set operations" {
-        let s = HS [ 1 .. 5 ]
-        s.ExceptWith(seq { 4 .. 7 })
-        Set.ofSeq s =? Set [ 1 .. 3 ]
-        s.UnionWith(seq { 4 .. 7 })
-        Set.ofSeq s =? Set [ 1 .. 7 ]
-        (HS [ 1 .. 5]).IsSubsetOf(HS [ 0 .. 7 ]) =? true
+        Test "Set operations" {
+            let s = HS [ 1 .. 5 ]
+            s.ExceptWith(seq { 4 .. 7 })
+            Equal (Set.ofSeq s) (Set [ 1 .. 3 ])
+            s.UnionWith(seq { 4 .. 7 })
+            Equal (Set.ofSeq s) (Set [ 1 .. 7 ])
+            True ((HS [ 1 .. 5]).IsSubsetOf(HS [ 0 .. 7 ]))
+        }
+
     }

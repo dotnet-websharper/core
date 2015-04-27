@@ -25,17 +25,19 @@ open WebSharper.Testing
 
 [<JavaScript>]
 let Tests =
-    Section "KeyValuePair"
+    Section "KeyValuePair" {
 
-    Test "Construction" {
-        let kv = System.Collections.Generic.KeyValuePair(1, 2)
-        kv.Key   =? 1
-        kv.Value =? 2
-    }
+        Test "Construction" {
+            let kv = System.Collections.Generic.KeyValuePair(1, 2)
+            Equal kv.Key   1
+            Equal kv.Value 2
+        }
 
-    Test "Matching" {
-        match System.Collections.Generic.KeyValuePair(1, 2) with
-        | KeyValue (k, v) ->
-            k =? 1
-            v =? 2
+        Test "Matching" {
+            Equal
+                (match System.Collections.Generic.KeyValuePair(1, 2) with
+                | KeyValue (k, v) -> (k, v))
+                (1, 2)
+        }
+
     }

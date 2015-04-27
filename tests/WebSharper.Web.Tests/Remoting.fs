@@ -29,7 +29,10 @@ module H = WebSharper.Html.Client.Tags
 
 module Server =
 
-    let counter = ref 0
+    let counter1 = ref 123
+    let counter2 = ref 176
+    let counterM1 = ref 243
+    let counterM2 = ref 367
 
     type OptionsRecord =
         {
@@ -47,22 +50,32 @@ module Server =
         }
 
     [<Remote>]
-    let reset () =
-        counter := 0
+    let reset1 () =
+        counter1 := 123
         async.Return ()
 
     [<Remote>]
-    let sleep () =
-        System.Threading.Thread.Sleep 100
+    let reset2 () =
+        counter2 := 176
+        async.Return ()
+
+    [<Remote>]
+    let resetM1 () =
+        counterM1 := 243
+        async.Return ()
+
+    [<Remote>]
+    let resetM2 () =
+        counterM2 := 367
         async.Return ()
 
     [<Remote>]
     let f1 () =
-        incr counter
+        incr counter1
 
     [<Remote>]
     let f2 () =
-        incr counter
+        incr counter2
         async { return () }
 
     [<Remote>]
@@ -236,10 +249,10 @@ module Server =
         interface IHandler with
 
             member this.M1() =
-                incr counter
+                incr counterM1
 
             member this.M2() =
-                incr counter
+                incr counterM2
                 async.Return ()
 
             member this.M3 x =
@@ -262,210 +275,166 @@ module Server =
         }
 
     [<Remote>]
-    let count () = async.Return counter.Value
+    let count1 () = async.Return counter1.Value
 
-type Harness [<JavaScript>] () =
-    let mutable expected = 0
-    let mutable executed = 0
-    let mutable passed = 0
-    let mutable name = "?"
+    [<Remote>]
+    let count2 () = async.Return counter2.Value
+
+    [<Remote>]
+    let countM1 () = async.Return counterM1.Value
+
+    [<Remote>]
+    let countM2 () = async.Return counterM2.Value
+
+module Remoting =
+
+    open WebSharper.Testing
 
     [<JavaScript>]
-    member this.Test t =
-        name <- t
+    let Tests =
+        Section "Remoting" {
 
-    [<JavaScript>]
-    member this.AsyncEquals a b =
-        expected <- expected + 1
-        async {
-            try
-                let! v = a
-                do executed <- executed + 1
-                return
-                    if v = b then
-                        passed <- passed + 1
-                        Console.Log("pass:", name)
-                    else
-                        Console.Log("fail:", name, v, b)
-            with e ->
-                return Console.Log("fail with exception:", name, e)
+            Test "unit -> unit" {
+                do! Server.reset1()
+                do Server.f1()
+                do! Async.Sleep(200)
+                EqualA (Server.count1()) 124
+            }
+
+            Test "unit -> Async<unit>" {
+                do! Server.reset2()
+                do! Server.f2()
+                EqualA (Server.count2()) 177
+            }
+
+            Test "int -> int" {
+                Equal (Server.f3 15) 16
+            }
+
+            Test "int -> Async<int>" {
+                EqualA (Server.f4 8) 9
+            }
+
+            Test "option<int> -> Async<int>" {
+                EqualA (Server.f5 None) 0
+                EqualA (Server.f5 (Some -40)) -39
+            }
+
+            Test "string -> string -> Async<string>" {
+                EqualA (Server.f6 "a" "b") "ab"
+            }
+
+            Test "string * string -> Async<string>" {
+                EqualA (Server.f7 ("a", "b")) "ab"
+            }
+
+            Test "float * float -> Async<float>" {
+                EqualA (Server.f8 (2.3, 4.5)) (2.3 + 4.5)
+            }
+
+            Test "list<int> -> Async<list<int>>" {
+                let! x = (Server.f9 [1;2;3])
+                Equal (Array.ofSeq x) [| 3; 2; 1 |]
+            }
+
+            Test "DateTime -> Async<DateTime>" {
+                let dt = System.DateTime.UtcNow
+                EqualA (Server.f10 dt) (dt.AddDays 1.0)
+            }
+
+            Test "int -> Async<int * int>" {
+                EqualA (Server.f11 40) (40, 41)
+            }
+
+            Test "TimeSpan -> float -> Async<TimeSpan>" {
+                let ts = System.TimeSpan.FromSeconds 14123.
+                EqualA (Server.f12 ts 1.25) (ts.Add (System.TimeSpan.FromMinutes 1.25))
+            }
+
+            Test "int -> T1 -> Async<T1>" {
+                EqualA (Server.f13 40 (Server.B (8, Server.A 9)))
+                    (Server.B (40, Server.B (8, Server.A 9)))
+                let! x = Server.f13 8 (Server.A 9)
+                Equal x.Head 8
+            }
+
+            Test "T2 -> Async<T2>" {
+                EqualA (Server.f14 { X = "X" }) { X = "X!" }
+                let! x = Server.f14 {X = "X"}
+                Equal x.Body "X!"
+            }
+
+            Test "Null string" {
+                EqualA (Server.f15 null) null
+            }
+
+            Test "{None; Some} -> {Some; None}" {
+                EqualA (Server.f16 { x = None; y = Some 12 }) { x = Some 12; y = None }
+            }
+
+            Test "{Some; None} -> {None; Some}" {
+                EqualA (Server.f16 { x = Some 12; y = None }) { x = None; y = Some 12 }
+            }
+
+            Test "Automatic field rename" {
+                let! x = Server.f17 (Server.DescendantClass())
+                True (x |> Option.exists (fun x -> x.Zero = 0 && x.One = 1))
+            }
+
+            Test "Single record in union" {
+                let! (Server.Record r) = Server.f18 (Server.Record {a = 3; b = "xyz"})
+                Equal r.a 4
+                Equal r.b "xyz_"
+            }
+
+            Test "Map<int,int> -> Map<int,int>" {
+                EqualA (Server.add2_2ToMap (Map.ofArray [| 1, 1 |])) (Map.ofArray [| 1, 1; 2, 2 |])
+            }
+
+            Test "Set<int> -> Set<int>" {
+                EqualA (Server.add2ToSet (Set.ofArray [| 0; 1; 3; 4 |])) (Set.ofArray [| 0 .. 4 |])
+            }
+
+            Test "LoginUser()" {
+                EqualA (Server.LoginAs("some_test_user")) (Some "some_test_user")
+                EqualA (Server.GetLoggedInUser()) (Some "some_test_user")
+            }
+
+            Test "Logout()" {
+                EqualA (Server.Logout()) None
+                EqualA (Server.GetLoggedInUser()) None
+            }
+
+            Test "M1" {
+                do! Server.resetM1()
+                do Remote<Server.IHandler>.M1()
+                do! Async.Sleep 200
+                EqualA (Server.countM1()) 244
+            }
+
+            Test "M2" {
+                do! Server.resetM2()
+                do! Remote<Server.IHandler>.M2()
+                EqualA (Server.countM2()) 368
+            }
+
+            Test "M3" {
+                EqualA (Remote<Server.IHandler>.M3 40) 41
+            }
+
+            Test "M4" {
+                EqualA (Remote<Server.IHandler>.M4 (1, 2)) 3
+            }
+
+            Test "M5" {
+                EqualA (Remote<Server.IHandler>.M5 3 6) 9
+            }
+
+            Test "reverse" {
+                EqualA (Server.reverse "abc#quit;;") ";;tiuq#cba"
+                EqualA (Server.reverse "c#") "#c"
+                EqualA (Server.reverse "\u00EF\u00BB\u00BF") "\u00BF\u00BB\u00EF"
+                EqualA (Server.reverse "c\127\127\127#") "#\127\127\127c"
+            }
+
         }
-
-    [<JavaScript>]
-    member this.AsyncSatisfy a prop =
-        expected <- expected + 1
-        async {
-            try
-                let! v = a
-                do executed <- executed + 1
-                return
-                    if prop v then
-                        passed <- passed + 1
-                        Console.Log("pass:", name)
-                    else
-                        Console.Log("fail:", name, v)
-            with e ->
-                return Console.Log("fail with exception:", name, e)
-        }
-
-    [<JavaScript>]
-    member this.AssertEquals a b =
-        expected <- expected + 1
-        executed <- executed + 1
-        if a = b then
-            passed <- passed + 1
-            Console.Log("pass:", name)
-        else
-            Console.Log("fail:", name, a, b)
-
-    [<JavaScript>]
-    member this.Summarize() =
-        H.Div [
-            H.Div [H.Text ("Expected: " + string expected)]
-            H.Div [H.Text ("Executed: " + string executed)]
-            H.Div [H.Text ("Passed: " + string passed)]
-        ]
-
-module RemotingTestSuite =
-
-    [<JavaScript>]
-    let harness = Harness()
-
-    [<JavaScript>]
-    let test n = harness.Test n
-
-    [<JavaScript>]
-    let satisfy a b = harness.AsyncSatisfy a b
-
-    [<JavaScript>]
-    let ( =? ) a b = harness.AsyncEquals a b
-
-    [<JavaScript>]
-    let ( =?!) a b = harness.AssertEquals a b
-
-    [<JavaScript>]
-    let RunTests (dom: WebSharper.JavaScript.Dom.Element) =
-        Console.Log("Starting tests", dom)
-        async {
-            do test "unit -> unit"
-            do! Server.reset()
-            do Server.f1()
-            do! Server.sleep ()
-            do! Server.count() =? 1
-
-            do test "unit -> Async<unit>"
-            do! Server.f2()
-            do! Server.count() =? 2
-
-            do test "int -> int"
-            do Server.f3 15 =?! 16
-
-            do test "int -> Async<int>"
-            do! Server.f4 8 =? 9
-
-            do test "option<int> -> Async<int>"
-            do! Server.f5 None =? 0
-            do! Server.f5 (Some -40) =? -39
-
-            do test "string -> string -> Async<string>"
-            do! Server.f6 "a" "b" =? "ab"
-
-            do test "string * string -> Async<string>"
-            do! Server.f7 ("a", "b") =? "ab"
-
-            do test "(float * float) -> Async<float>"
-            do! Server.f8 (2.3, 4.5) =? 2.3 + 4.5
-
-            do test "list<int> -> Async<list<int>>"
-            do! Server.f9 [1; 2; 3] =? [3; 2; 1]
-            do! satisfy (Server.f9 [1; 2; 3]) (fun list ->
-                Array.ofSeq list = [| 3; 2; 1 |])
-
-            do test "DateTime -> Async<DateTime>"
-            let dt = System.DateTime.UtcNow
-            do! Server.f10 dt =? dt.AddDays 1.0
-
-            do test "int -> Async<int * int>"
-            do! Server.f11 40 =? (40, 41)
-
-            do test "TimeSpan -> float -> Async<TimeSpan>"
-            let ts = System.TimeSpan.FromSeconds 14123.
-            do! Server.f12 ts 1.25 =? ts.Add (System.TimeSpan.FromMinutes 1.25)
-
-            do test "int -> T1 -> Async<T1>"
-            do! Server.f13 40 (Server.B (8, Server.A 9)) =? 
-                Server.B (40, Server.B (8, Server.A 9))
-            do! satisfy (Server.f13 8 (Server.A 9)) (fun x ->
-                x.Head = 8)
-
-            do test "T2 -> Async<T2>"
-            do! Server.f14 { X = "X" } =? { X = "X!" }
-            do! satisfy (Server.f14 {X = "X"}) (fun x ->
-                x.Body = "X!")
-
-            do test "Null string"
-            do! Server.f15 null =? null
-
-            do test "{None; Some} -> {Some; None}"
-            do! Server.f16 { x = None; y = Some 12 } =? { x = Some 12; y = None }
-
-            do test "{Some; None} -> {None; Some}"
-            do! Server.f16 { x = Some 12; y = None } =? { x = None; y = Some 12 }
-
-            do test "Automatic field rename"
-            do! satisfy (Server.f17 (Server.DescendantClass())) (fun x ->
-                x |> Option.exists (fun x -> x.Zero = 0 && x.One = 1))
-
-            do test "Single record in union"
-            do! satisfy (Server.f18 (Server.Record {a = 3; b = "xyz"})) (fun (Server.Record r) ->
-                r.a = 4 && r.b = "xyz_")
-
-            do test "Map<int,int> -> Map<int,int>"
-            do! Server.add2_2ToMap (Map.ofArray [| 1, 1 |]) =? Map.ofArray [| 1, 1; 2, 2 |]
-
-            do test "Set<int> -> Set<int>"
-            do! Server.add2ToSet (Set.ofArray [| 0; 1; 3; 4 |]) =? Set.ofArray [| 0 .. 4 |]
-
-            do test "LoginUser()"
-            do! Server.LoginAs("some_test_user") =? Some "some_test_user"
-            do! Server.GetLoggedInUser() =? Some "some_test_user"
-
-            do test "Logout()"
-            do! Server.Logout() =? None
-            do! Server.GetLoggedInUser() =? None
-
-            do test "M1"
-            do Remote<Server.IHandler>.M1()
-            do! Server.sleep()
-            do! Server.count() =? 3
-
-            do test "M2"
-            do! Remote<Server.IHandler>.M2()
-            do! Server.count() =? 4
-
-            do test "M3"
-            do! Remote<Server.IHandler>.M3 40 =? 41
-
-            do test "M4"
-            do! Remote<Server.IHandler>.M4 (1, 2) =? 3
-
-            do test "M5"
-            do! Remote<Server.IHandler>.M5 3 6 =? 9
-
-            do test "reverse"
-            do! Server.reverse "abc#quit;;" =? ";;tiuq#cba"
-            do! Server.reverse "c#" =? "#c"
-            do! Server.reverse "\u00EF\u00BB\u00BF" =? "\u00BF\u00BB\u00EF"
-            do! Server.reverse "c\127\127\127#" =? "#\127\127\127c"
-            do ignore (dom.AppendChild (harness.Summarize().Dom))
-        }
-        |> Async.Start
-
-type RemotingTests() =
-    inherit Web.Control()
-
-    [<JavaScript>]
-    override this.Body =
-        let d = H.Div []
-        RemotingTestSuite.RunTests d.Dom
-        d :> _

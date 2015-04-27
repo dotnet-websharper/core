@@ -27,62 +27,64 @@ type private C = System.Char
 
 [<JavaScript>]
 let Tests =
-    Section "Char"
+    Section "Char" {
 
-    Test "Char.GetNumericValue" {
-        C.GetNumericValue '4' =? 4.
-        C.GetNumericValue 'k' =? -1.
-    }
+        Test "Char.GetNumericValue" {
+            Equal (C.GetNumericValue '4') 4.
+            Equal (C.GetNumericValue 'k') -1.
+        }
 
-    Test "Char.IsDigit" {
-        C.GetNumericValue '4' =? 4.
-        C.GetNumericValue 'k' =? -1.
-    }
+        Test "Char.IsDigit" {
+            Equal (C.GetNumericValue '4') 4.
+            Equal (C.GetNumericValue 'k') -1.
+        }
 
-    Test "Char.IsControl" {
-        C.IsControl '\007' =? true
-        C.IsControl 'a' =? false
-    }
+        Test "Char.IsControl" {
+            True (C.IsControl '\007')
+            False (C.IsControl 'a')
+        }
 
-    Test "Char.IsDigit" {
-        C.IsDigit '7' =? true
-        C.IsDigit 'k' =? false
-    }
+        Test "Char.IsDigit" {
+            True (C.IsDigit '7')
+            False (C.IsDigit 'k')
+        }
 
-    Test "Char.IsLetter" {
-        C.IsLetter 'F' =? true
-        C.IsLetter '9' =? false
-    }
+        Test "Char.IsLetter" {
+            True (C.IsLetter 'F')
+            False (C.IsLetter '9')
+        }
 
-    Test "Char.IsLetterOrDigit" {
-        C.IsLetterOrDigit 'F' =? true
-        C.IsLetterOrDigit '9' =? true
-        C.IsLetterOrDigit '_' =? false
-    }
+        Test "Char.IsLetterOrDigit" {
+            True (C.IsLetterOrDigit 'F')
+            True (C.IsLetterOrDigit '9')
+            False (C.IsLetterOrDigit '_')
+        }
 
-    Test "Char.IsLower" {
-        C.IsLower 'F' =? false
-        C.IsLower 'f' =? true
-    }
+        Test "Char.IsLower" {
+            False (C.IsLower 'F')
+            True (C.IsLower 'f')
+        }
 
-    Test "Char.IsUpper" {
-        C.IsUpper 'F' =? true
-        C.IsUpper 'f' =? false
-    }
+        Test "Char.IsUpper" {
+            True (C.IsUpper 'F')
+            False (C.IsUpper 'f')
+        }
 
-    Test "Char.IsWhiteSpace" {
-        C.IsWhiteSpace ' '  =? true
-        C.IsWhiteSpace '\t' =? true
-        C.IsWhiteSpace '3'  =? false
-    }
+        Test "Char.IsWhiteSpace" {
+            True (C.IsWhiteSpace ' ')
+            True (C.IsWhiteSpace '\t')
+            False (C.IsWhiteSpace '3')
+        }
 
-    Test "Char.Parse" {
-        C.Parse "k" =? 'k'
-    }
+        Test "Char.Parse" {
+            Equal (C.Parse "k") 'k'
+        }
 
-    Test "char" {
-        char 'x' =? 'x'
-        char "a" =? 'a'
-        char 65 =? 'A'
-        Assert.Raises (fun () -> char "aa" |> ignore)
+        Test "char" {
+            Equal (char 'x') 'x'
+            Equal (char "a") 'a'
+            Equal (char 65) 'A'
+            Raises (char "aa")
+        }
+
     }

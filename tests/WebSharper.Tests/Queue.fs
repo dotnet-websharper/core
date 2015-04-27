@@ -26,24 +26,26 @@ type Queue<'T> = System.Collections.Generic.Queue<'T>
 
 [<JavaScript>]
 let Tests =
-    Section "Queue"
+    Section "Queue" {
 
-    Test "Construction" {
-        let s = Queue()
-        s.Count =? 0
-    }
+        Test "Construction" {
+            let s = Queue()
+            Equal s.Count 0
+        }
 
-    Test "Enqueue" {
-        let s = Queue()
-        s.Enqueue 1
-        s.Enqueue 2
-        s.ToArray() =? [| 1; 2 |]
-    }
+        Test "Enqueue" {
+            let s = Queue()
+            s.Enqueue 1
+            s.Enqueue 2
+            Equal (s.ToArray()) [| 1; 2 |]
+        }
 
-    Test "Dequeue" {
-        let s = Queue()
-        s.Enqueue 1
-        s.Enqueue 2
-        s.Dequeue() =? 1
-        s.ToArray() =? [|2|]
+        Test "Dequeue" {
+            let s = Queue()
+            s.Enqueue 1
+            s.Enqueue 2
+            Equal (s.Dequeue()) 1
+            Equal (s.ToArray()) [|2|]
+        }
+
     }

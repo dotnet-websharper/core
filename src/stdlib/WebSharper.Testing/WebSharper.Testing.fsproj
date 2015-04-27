@@ -8,9 +8,9 @@
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
-    <Compile Include="Pervasives.fs" />
     <Compile Include="Random.fs" />
-    <Compile Include="Assert.fs" />
+    <Compile Include="Pervasives.fs" />
+    <Compile Include="Resources.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
@@ -26,6 +26,11 @@
     <ProjectReference Include="..\WebSharper.JavaScript\WebSharper.JavaScript.fsproj">
       <Name>WebSharper.JavaScript</Name>
       <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.JQuery\WebSharper.JQuery.fsproj">
+      <Name>WebSharper.JQuery</Name>
+      <Project>{730ae40a-001c-4137-972d-898dc7c2bf0a}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\WebSharper.Main\WebSharper.Main.fsproj">

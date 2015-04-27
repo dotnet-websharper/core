@@ -27,30 +27,32 @@ type private D = System.Double
 
 [<JavaScript>]
 let Tests =
-    Section "Double"
+    Section "Double" {
 
-    Test "Double.IsInfinity" {
-        D.IsInfinity infinity =? true
-        D.IsInfinity 0. =? false
-    }
+        Test "Double.IsInfinity" {
+            True (D.IsInfinity infinity)
+            False (D.IsInfinity 0.)
+        }
 
-    Test "Double.IsNaN" {
-        D.IsNaN nan =? true
-        D.IsNaN 0. =? false
-    }
+        Test "Double.IsNaN" {
+            True (D.IsNaN nan)
+            False (D.IsNaN 0.)
+        }
 
-    Test "Double.IsNegativeInfinity" {
-        D.IsNegativeInfinity infinity =? false
-        D.IsNegativeInfinity -infinity =? true
-        D.IsNegativeInfinity 0. =? false
-    }
+        Test "Double.IsNegativeInfinity" {
+            False (D.IsNegativeInfinity infinity)
+            True (D.IsNegativeInfinity -infinity)
+            False (D.IsNegativeInfinity 0.)
+        }
 
-    Test "Double.IsPositiveInfinity" {
-        D.IsPositiveInfinity infinity =? true
-        D.IsPositiveInfinity -infinity =? false
-        D.IsPositiveInfinity 0. =? false
-    }
+        Test "Double.IsPositiveInfinity" {
+            True (D.IsPositiveInfinity infinity)
+            False (D.IsPositiveInfinity -infinity)
+            False (D.IsPositiveInfinity 0.)
+        }
 
-    Test "Double.Parse" {
-        D.Parse "1.5E3" =? 1.5E3
+        Test "Double.Parse" {
+            Equal (D.Parse "1.5E3") 1.5E3
+        }
+
     }
