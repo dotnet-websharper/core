@@ -161,6 +161,9 @@ type Bundle(set: list<Assembly>) =
 
     member b.WithAssembly(assemblyFile) =
         let assem = loader.LoadFile(assemblyFile)
+        b.WithAssembly(assem)
+
+    member b.WithAssembly(assem) =
         Bundle(assem :: set)
 
     member b.WithDefaultReferences() =

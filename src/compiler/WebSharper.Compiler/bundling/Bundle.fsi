@@ -30,6 +30,7 @@ type Bundle =
     member MinifiedJavaScript : Content
     member TypeScript : Content
     member WithAssembly : assemblyFile: string -> Bundle
+    member WithAssembly : assembly: Assembly -> Bundle
     member WithDefaultReferences : unit -> Bundle
     member WithTransitiveReferences : unit -> Bundle
     static member Empty : Bundle
