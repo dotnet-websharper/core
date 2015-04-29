@@ -44,8 +44,8 @@ module FrontEnd =
         /// The defaults.
         static member Default : Options
 
-    /// Compiles an assembly and rewrites it on disk. Deprecated. Note
-    /// that `Compile opts log a = (Prepare opts log).CompileAndModify(a)`.
+    /// Compiles an assembly and edits the given Assembly object accordingly.
+    [<System.Obsolete "Compile opts log a = (Prepare opts log).CompileAndModify(a)">]
     val Compile : Options -> log: (Message -> unit) -> (Assembly -> bool)
 
     /// Represents the compiler front-end object.
@@ -58,7 +58,7 @@ module FrontEnd =
         /// Attempts to compile an expression potentially coming from a dynamic assembly.
         member Compile : quotation: Quotations.Expr * context: System.Reflection.Assembly * ?name: string -> option<CompiledAssembly>
 
-        /// Compiles an assembly and rewrites it on disk.
+        /// Compiles an assembly and edits the given Assembly object accordingly.
         member CompileAndModify : assembly: Assembly * ?sourceMap: bool -> bool
 
     /// Prepares a compiler.
