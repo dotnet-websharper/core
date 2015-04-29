@@ -20,6 +20,8 @@
 
 namespace WebSharper.Web
 
+open System.Collections.Generic
+
 /// Provides context about the web request being replied to.
 type IContext =
     /// The full path to the application's root folder.
@@ -30,6 +32,9 @@ type IContext =
 
     /// Manage user login sessions.
     abstract member UserSession : IUserSession
+
+    /// Environment-specific information (e.g. the OWIN context)
+    abstract member Environment : IDictionary<string,obj>
 
 module Remoting =
 
