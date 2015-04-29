@@ -74,6 +74,7 @@ type AspNetFormsUserSession(ctx: HttpContext) =
 
 module private RpcUtil =
     let server = R.Server.Create None Shared.Metadata
+    let [<Literal>] HttpContextKey = "HttpContext"
 
 [<Sealed>]
 type RpcHandler() =
@@ -106,7 +107,8 @@ type RpcHandler() =
                     { new IContext with
                         member this.RootFolder = root
                         member this.RequestUri = uri
-                        member this.UserSession = session :> _ }
+                        member this.UserSession = session :> _ 
+                        member this.Environment = upcast Map.ofList [(RpcUtil.HttpContextKey, ctx :> obj)] }
                 let! response =
                     RpcUtil.server.HandleRequest({ Headers = getHeader; Body = body }, ctx)
                 resp.ContentType <- response.ContentType

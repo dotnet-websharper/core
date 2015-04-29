@@ -37,6 +37,7 @@ type Context<'Action> =
         member this.RequestUri = this.Request.Uri
         member this.RootFolder = this.RootFolder
         member this.UserSession = this.UserSession
+        member this.Environment = upcast Map.empty
 
 module Context =
 
