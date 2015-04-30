@@ -88,11 +88,18 @@ module FrontEnd =
             with ErrorLimitExceeded -> None
 
         member this.CompileAndModify(assembly: Assembly, ?sourceMap: bool) : bool =
+            this.Compile(assembly, modifyAssembly = true, ?sourceMap = sourceMap).IsSome
+
+        member this.Compile(assembly: Assembly, ?modifyAssembly: bool, ?sourceMap: bool) : option<CompiledAssembly> =
             let sourceMap = defaultArg sourceMap false
+            let modifyAssembly = defaultArg modifyAssembly false
             let asm = R.Cecil.AdaptAssembly assembly.Raw
-            match this.CompileAssembly(asm, sourceMap) with
-            | None -> false
-            | Some a -> a.WriteToCecilAssembly(assembly.Raw); true
+            let compiled = this.CompileAssembly(asm, sourceMap)
+            match compiled with
+            | Some a when modifyAssembly ->
+                a.WriteToCecilAssembly(assembly.Raw)
+            | _ -> ()
+            compiled
 
     let Prepare (options: Options) (log: Message -> unit) : Compiler =
         let ctx = Context.Get(options.References)

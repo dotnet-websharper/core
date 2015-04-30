@@ -61,6 +61,12 @@ module FrontEnd =
         /// Compiles an assembly and edits the given Assembly object accordingly.
         member CompileAndModify : assembly: Assembly * ?sourceMap: bool -> bool
 
+        /// <summary>Attempts to compile an assembly.</summary>
+        /// <param name="assembly">The assembly to compile.</param>
+        /// <param name="modifyAssembly">If true, edit the passed assembly to add the computed resources.</param>
+        /// <param name="sourceMap">If true, generate source mappings.</param>
+        member Compile : assembly: Assembly * ?modifyAssembly: bool * ?sourceMap: bool -> option<CompiledAssembly>
+
     /// Prepares a compiler.
     val Prepare : Options -> log: (Message -> unit) -> Compiler
 
