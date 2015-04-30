@@ -202,6 +202,12 @@ module Content =
     let ToResponse c ctx =
         Async.RunSynchronously(ToResponseAsync c ctx)
 
+    let FromAsync ac =
+        CustomContentAsync <| fun ctx -> async {
+            let! c = ac
+            return! ToResponseAsync c ctx
+        }
+
     let delay1 f =
         fun arg -> async { return f arg }
 

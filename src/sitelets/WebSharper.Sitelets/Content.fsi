@@ -40,6 +40,9 @@ module Content =
     /// Generates an HTTP response.
     val ToResponseAsync<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>
 
+    /// Wraps an asynchronous content.
+    val FromAsync<'T> : Async<Content<'T>> -> Content<'T>
+
     /// Generates JSON content from the given object.
     val JsonContent<'T, 'U> : (Context<'T> -> 'U) -> Content<'T>
 
