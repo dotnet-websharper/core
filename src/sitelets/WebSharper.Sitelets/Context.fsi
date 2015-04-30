@@ -20,6 +20,8 @@
 
 namespace WebSharper.Sitelets
 
+open System.Collections.Generic
+
 /// Provides services available to handlers at run-time.
 type Context<'Action> =
     {
@@ -50,6 +52,9 @@ type Context<'Action> =
 
         /// Manage user login sessions.
         UserSession : WebSharper.Web.IUserSession
+
+        /// Environment-specific information (e.g. the ASP.NET or OWIN context).
+        Environment : IDictionary<string, obj>
     }
 
     interface WebSharper.Web.IContext

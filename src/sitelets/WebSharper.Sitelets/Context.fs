@@ -20,6 +20,8 @@
 
 namespace WebSharper.Sitelets
 
+open System.Collections.Generic
+
 type Context<'Action> =
     {
         ApplicationPath : string
@@ -31,13 +33,14 @@ type Context<'Action> =
         Request : Http.Request
         RootFolder : string
         UserSession : WebSharper.Web.IUserSession
+        Environment : IDictionary<string, obj>
     }
 
     interface WebSharper.Web.IContext with
         member this.RequestUri = this.Request.Uri
         member this.RootFolder = this.RootFolder
         member this.UserSession = this.UserSession
-        member this.Environment = upcast Map.empty
+        member this.Environment = this.Environment
 
 module Context =
 
@@ -52,4 +55,5 @@ module Context =
             Request = ctx.Request
             RootFolder = ctx.RootFolder
             UserSession = ctx.UserSession
+            Environment = ctx.Environment
         }

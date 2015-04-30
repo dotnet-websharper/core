@@ -33,7 +33,7 @@ type IContext =
     /// Manage user login sessions.
     abstract member UserSession : IUserSession
 
-    /// Environment-specific information (e.g. the OWIN context)
+    /// Environment-specific information (e.g. the ASP.NET or OWIN context)
     abstract member Environment : IDictionary<string,obj>
 
 module Remoting =

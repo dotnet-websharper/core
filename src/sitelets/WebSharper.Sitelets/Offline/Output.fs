@@ -310,6 +310,7 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
                 Request = emptyRequest locationString
                 RootFolder = projectFolder
                 UserSession = IUserSession.NotAvailable
+                Environment = Map []
             }
         let path =
             let ext =
@@ -402,6 +403,7 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                     Request = emptyRequest (P.ShowPath rC.Path)
                     RootFolder = projectFolder
                     UserSession = IUserSession.NotAvailable
+                    Environment = Map []
                 }
             let! response = rC.Respond context
             use stream = createFile conf rC.Path

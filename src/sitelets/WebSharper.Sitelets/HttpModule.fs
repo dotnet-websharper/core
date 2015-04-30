@@ -53,6 +53,8 @@ module internal SiteLoading =
 
 module private WebUtils =
 
+    let [<Literal>] HttpContextKey = "HttpContext"
+
 //    let currentSite =
 //        lazy fst (SiteLoading.LoadFromAssemblies())
 
@@ -132,6 +134,7 @@ module private WebUtils =
             Request = request
             RootFolder = ctx.Server.MapPath("~")
             UserSession = new AspNetFormsUserSession(ctx)
+            Environment = Map [HttpContextKey, box ctx]
         }
 
     /// Writes a response.
