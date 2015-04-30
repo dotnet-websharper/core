@@ -72,7 +72,8 @@ let compile (aR: AssemblyResolver) (opts: Options.CompilationOptions) =
                     References = refs
                     IncludeSourceMap = opts.IncludeSourceMap
                 }
-            let result = FE.Compile options stderr.WriteLine assem
+            let compiler = FE.Prepare options stderr.WriteLine
+            let result = compiler.CompileAndModify assem
             if result then
                 assem.Write snk opts.Output
                 match opts.OutputJavaScript with
