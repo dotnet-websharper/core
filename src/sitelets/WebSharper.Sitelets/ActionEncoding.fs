@@ -776,7 +776,12 @@ type Factory() =
                     let parts = input.Split '/'
                     let e = (parts :> seq<string>).GetEnumerator()
                     let n () = if e.MoveNext() then Some e.Current else None
-                    d.Decode { Request = req; Read = n }
+                    let parsed = d.Decode { Request = req; Read = n }
+                    // Checking that we are at the end of the url,
+                    // at worst with an extra / (ie. an extra empty segment)
+                    if e.MoveNext() && not (e.Current = "" && not (e.MoveNext()))
+                    then None
+                    else parsed
             show = fun value ->
                 let sb = System.Text.StringBuilder 128
                 let q = List()
