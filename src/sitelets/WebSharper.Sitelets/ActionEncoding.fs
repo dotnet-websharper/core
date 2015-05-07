@@ -160,6 +160,11 @@ type ListProcessor<'T>() =
         member this.ToSequence (x: obj) = Seq.map box (x :?> list<'T>)
         member this.FromSequence (s: seq<obj>) = box [for x in s -> x :?> 'T]
 
+type ArrayProcessor<'T>() =
+    interface ISequenceProcessor with
+        member this.ToSequence (x: obj) = Seq.map box (x :?> 'T[])
+        member this.FromSequence (s: seq<obj>) = box [|for x in s -> x :?> 'T|]
+
 type S =
     {
         Write : System.Text.StringBuilder -> List<string * string> -> obj -> bool
@@ -239,13 +244,13 @@ let isPrimitiveOption (t: System.Type) =
     isPrimitive (t.GetGenericArguments().[0])
 
 type Field =
-    | RecordField of System.Reflection.PropertyInfo
-    | UnionCaseField of Reflection.UnionCaseInfo * System.Reflection.PropertyInfo
+    | RecordField of System.Reflection.PropertyInfo * isLast: bool
+    | UnionCaseField of Reflection.UnionCaseInfo * System.Reflection.PropertyInfo * isLast: bool
 
     member private this.Property =
         match this with
-        | RecordField pi
-        | UnionCaseField (_, pi) -> pi
+        | RecordField (pi, _)
+        | UnionCaseField (_, pi, _) -> pi
 
     member this.Type = this.Property.PropertyType
 
@@ -263,7 +268,7 @@ type Field =
         defaultArg customName p.Name
 
 let getDateTimeFormat = function
-    | RecordField f ->
+    | RecordField (f, _) ->
         if f.PropertyType = typeof<System.DateTime> || f.PropertyType = typeof<option<System.DateTime>> then
             f.GetCustomAttributesData() |> Seq.tryPick (fun cad ->
                 if cad.Constructor.DeclaringType = typeof<WebSharper.Core.Attributes.DateTimeFormatAttribute> &&
@@ -271,7 +276,7 @@ let getDateTimeFormat = function
                     Some (cad.ConstructorArguments.[0].Value :?> string)
                 else None)
         else None
-    | UnionCaseField (uci, pi) ->
+    | UnionCaseField (uci, pi, _) ->
         if pi.PropertyType = typeof<System.DateTime> || pi.PropertyType = typeof<option<System.DateTime>> then
             uci.GetCustomAttributesData() |> Seq.tryPick (fun cad ->
                 if cad.Constructor.DeclaringType = typeof<WebSharper.Core.Attributes.DateTimeFormatAttribute> &&
@@ -282,11 +287,11 @@ let getDateTimeFormat = function
         else None
 
 let isQueryParam = function
-    | RecordField f ->
+    | RecordField (f, _) ->
         f.GetCustomAttributesData() |> Seq.exists (fun cad ->
             cad.Constructor.DeclaringType = typeof<QueryAttribute> &&
             cad.ConstructorArguments.Count = 0)
-    | UnionCaseField (uci, f) as ff ->
+    | UnionCaseField (uci, f, _) as ff ->
         uci.GetCustomAttributesData() |> Seq.exists (fun cad ->
             cad.Constructor.DeclaringType = typeof<QueryAttribute> &&
             cad.ConstructorArguments.Count = 1 &&
@@ -296,15 +301,37 @@ let isQueryParam = function
             |> Seq.exists (fun a -> a.Value :?> string = ff.Name))
 
 let isJson = function
-    | RecordField f ->
+    | RecordField (f, _) ->
         f.GetCustomAttributesData() |> Seq.exists (fun cad ->
             cad.Constructor.DeclaringType = typeof<JsonAttribute> &&
             cad.ConstructorArguments.Count = 0)
-    | UnionCaseField (uci, f) as ff ->
+    | UnionCaseField (uci, f, _) as ff ->
         uci.GetCustomAttributesData() |> Seq.exists (fun cad ->
             cad.Constructor.DeclaringType = typeof<JsonAttribute> &&
             cad.ConstructorArguments.Count = 1 &&
             cad.ConstructorArguments.[0].Value :?> string = ff.Name)
+
+let tryGetVariadicType f =
+    let mkSP (sP: System.Type) (eT: System.Type) =
+        sP.MakeGenericType(eT)
+        |> System.Activator.CreateInstance :?> ISequenceProcessor
+    let tryGetVariadicType (f: Reflection.PropertyInfo) =
+        let t = f.PropertyType
+        if t.IsArray then
+            let eT = t.GetElementType()
+            Some (eT, mkSP typedefof<ArrayProcessor<_>> eT)
+        elif t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<list<_>> then
+            let eT = t.GetGenericArguments().[0]
+            Some (eT, mkSP typedefof<ListProcessor<_>> eT)
+        else None
+    match f with
+    | RecordField (f, true)
+        when (f.DeclaringType.GetCustomAttributes(typeof<VariadicPathAttribute>, false) |> Array.isEmpty |> not) ->
+        tryGetVariadicType f
+    | UnionCaseField (uci, f, true)
+        when (uci.GetCustomAttributes(typeof<VariadicPathAttribute>) |> Array.isEmpty |> not) ->
+        tryGetVariadicType f
+    | _ -> None
 
 let (|Enum|Array|List|Tuple|Record|Union|Other|) (t: System.Type) =
     if t.IsEnum then
@@ -368,6 +395,14 @@ let writeQueryParam (f: Field) : S option =
                 true))
     else None
 
+let writeVariadic (eT: System.Type) (eS: S) (sP: ISequenceProcessor) : S =
+    S.Make(false, fun w q x ->
+        sP.ToSequence x
+        |> Seq.cast
+        |> Seq.forall (fun x ->
+            w.Add '/'
+            eS.Write w q x))
+
 let writeField (getS: System.Type -> S) (f: Field) : S =
     if isJson f then
         S.Make(false, fun _ _ _ -> true)
@@ -375,13 +410,16 @@ let writeField (getS: System.Type -> S) (f: Field) : S =
         match writeQueryParam f with
         | Some w -> w
         | None ->
-            match tryWritePrimitiveField f false with
-            | Some wp ->
-                S.Make(true, fun w _ x ->
-                    match wp x with
-                    | Some t -> w.Add t; true
-                    | None -> false)
-            | None -> getS f.Type
+            match tryGetVariadicType f with
+            | Some (eT, sP) -> writeVariadic eT (getS eT) sP
+            | None ->
+                match tryWritePrimitiveField f false with
+                | Some wp ->
+                    S.Make(true, fun w _ x ->
+                        match wp x with
+                        | Some t -> w.Add t; true
+                        | None -> false)
+                | None -> getS f.Type
 
 let getS (getS: System.Type -> S) (t: System.Type) : S =
     let writeTuple r (prefixSlash: bool) (ss: S []) : S =
@@ -431,7 +469,9 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
     | Tuple (e, r, _) ->
         writeTuple r false (Array.map getS e)
     | Record (fs, r, _) ->
-        writeTuple r false [| for f in fs -> writeField getS (RecordField f) |]
+        writeTuple r false
+            (fs |> Array.mapi (fun i f ->
+                writeField getS (RecordField(f, i = fs.Length - 1))))
     | Union (cs, tR, uR, _) ->
         if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<DecodeResult<_>> then
             let s = getS (t.GetGenericArguments().[0])
@@ -446,10 +486,9 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
         let ss =
             [|
                 for c in cs ->
-                    writeTuple (uR c) true [|
-                        for f in c.GetFields() ->
-                            writeField getS (UnionCaseField(c, f))
-                    |]
+                    let fs = c.GetFields()
+                    writeTuple (uR c) true (fs |> Array.mapi (fun i f ->
+                        writeField getS (UnionCaseField(c, f, i = fs.Length - 1))))
             |]
         let ns = [| for c in cs -> c.CustomizedName |]
         S.Make(true, fun w q x ->
@@ -571,6 +610,19 @@ let getJsonParser (f: Field) =
         |> Some
     else None
 
+let parseVariadic (eT: System.Type) (eD: D) (sP: ISequenceProcessor) : D =
+    if eD.ReadsJson() then raise (NoFormatError eT)
+    D.Make(false, Set.empty, fun p ->
+        let data = System.Collections.ArrayList()
+        let rec loop() =
+            match eD.Decode p with
+            | Some (Success x) ->
+                data.Add(x) |> ignore
+                loop()
+            | None -> Some (Success (box (sP.FromSequence (data.ToArray()))))
+            | err -> err
+        loop())
+
 let parseField getD (f: Field) =
     match getJsonParser f with
     | Some p -> p
@@ -578,11 +630,14 @@ let parseField getD (f: Field) =
         match getQueryParamParser f with
         | Some p -> p
         | None ->
-            match tryParsePrimitiveField f false with
-            | Some parse ->
-                D.Make(false, Set.empty, fun p ->
-                    parse <| p.Read())
-            | None -> getD f.Type
+            match tryGetVariadicType f with
+            | Some (eT, sP) -> parseVariadic eT (getD eT) sP
+            | None ->
+                match tryParsePrimitiveField f false with
+                | Some parse ->
+                    D.Make(false, Set.empty, fun p ->
+                        parse <| p.Read())
+                | None -> getD f.Type
 
 let getD (getD: System.Type -> D) (t: System.Type) : D =
     let tryParse parse : D =
@@ -662,7 +717,9 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
     | Tuple (e, _, c) ->
         parseTuple t c (Array.map getD e)
     | Record (fs, _, c) ->
-        parseTuple t c [| for f in fs -> parseField getD (RecordField f) |]
+        parseTuple t c
+            (fs |> Array.mapi (fun i f ->
+                parseField getD (RecordField (f, i = fs.Length - 1))))
     | Union (cs, _, _, uC) ->
         if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<DecodeResult<_>> then
             let ti = t.GetGenericArguments().[0]
@@ -689,8 +746,10 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                 d.[c.CustomizedName] <-
                     (existing, allowedMeths)
                     ||> Seq.fold (fun map m -> Map.add (Option.map Http.Method.OfString m) i map)
+                let fields = c.GetFields()
                 parseTuple t (uC c)
-                    [| for f in c.GetFields() -> parseField getD (UnionCaseField(c, f)) |]
+                    (fields |> Array.mapi (fun i f ->
+                        parseField getD (UnionCaseField(c, f, i = fields.Length - 1))))
             )
         let json() = ds |> Array.exists (fun d -> d.ReadsJson())
         D.Make(json, (fun () -> Set.empty), fun p ->

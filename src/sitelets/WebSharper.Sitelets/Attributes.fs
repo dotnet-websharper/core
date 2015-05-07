@@ -57,3 +57,9 @@ type QueryAttribute =
     /// Indicates that the union case arguments with the given names must be parsed
     /// from the request's query parameters.
     new([<ParamArray>] argumentName: string[]) = { inherit A() }
+
+/// Indicates that the last field or union case argument parses all the remaining
+/// path segments into a list or an array.
+[<Sealed; U(T.Property ||| T.Class)>]
+type VariadicPathAttribute() =
+    inherit A()
