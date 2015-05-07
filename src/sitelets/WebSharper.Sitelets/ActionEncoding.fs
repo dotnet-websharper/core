@@ -502,8 +502,25 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
 type Parameters =
     {
         Request : Http.Request
-        Read : unit -> option<string>
+        Fragments : string[]
+        mutable Pos : int
     }
+
+    member this.Read() =
+        if this.Pos + 1 < this.Fragments.Length then
+            this.Pos <- this.Pos + 1; Some this.Fragments.[this.Pos]
+        else None
+
+    member this.IsAtEnd =
+        { this.Pos + 1 .. this.Fragments.Length - 1 }
+        |> Seq.forall (fun i -> this.Fragments.[i] = "")
+
+    static member Make req frags =
+        {
+            Request = req
+            Fragments = frags
+            Pos = -1
+        }
 
 type D =
     {
@@ -635,13 +652,13 @@ let parseField getD (f: Field) =
             | None ->
                 match tryParsePrimitiveField f false with
                 | Some parse ->
-                    D.Make(false, Set.empty, fun p ->
+                    D.Make(false, Set.empty, fun (p: Parameters) ->
                         parse <| p.Read())
                 | None -> getD f.Type
 
 let getD (getD: System.Type -> D) (t: System.Type) : D =
     let tryParse parse : D =
-        D.Make(false, Set.empty, fun p ->
+        D.Make(false, Set.empty, fun (p: Parameters) ->
             match p.Read () with
             | Some s ->
                 match parse s with
@@ -735,7 +752,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
             D.Make(d.ReadsJson, d.QueryParams, fun p ->
                 d.Decode p |> Option.map mkSuccess)
         else
-        let d = Dictionary<string, Map<option<Http.Method>, int>>()
+        let d = Dictionary<string, Map<option<Http.Method>, list<int>>>()
         let ds =
             cs |> Array.mapi (fun i c ->
                 let allowedMeths = getUnionCaseMethods c
@@ -745,7 +762,9 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                     | false, _ -> Map.empty
                 d.[c.CustomizedName] <-
                     (existing, allowedMeths)
-                    ||> Seq.fold (fun map m -> Map.add (Option.map Http.Method.OfString m) i map)
+                    ||> Seq.fold (fun map m ->
+                        let k = (Option.map Http.Method.OfString m)
+                        Map.add k (i :: defaultArg (map.TryFind k) []) map)
                 let fields = c.GetFields()
                 parseTuple t (uC c)
                     (fields |> Array.mapi (fun i f ->
@@ -753,20 +772,30 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
             )
         let json() = ds |> Array.exists (fun d -> d.ReadsJson())
         D.Make(json, (fun () -> Set.empty), fun p ->
+            let tryDecode(ks) =
+                (ks, None) ||> List.foldBack (fun k s ->
+                    match s with
+                    | Some (Success _, _) -> s
+                    | _ ->
+                        let p' = { p with Pos = p.Pos }
+                        ds.[k].Decode p' |> Option.map (fun r -> r, p'))
+                |> Option.map (fun (r, p') ->
+                    p.Pos <- p'.Pos
+                    r)
             p.Read () |> Option.bind (fun name ->
                 match d.TryGetValue name with
                 | true, d ->
                     // Try to find a union case for the exact method searched
                     match d.TryFind (Some p.Request.Method) with
-                    | Some k -> ds.[k].Decode p
+                    | Some ks -> tryDecode ks
                     | None ->
                         // Try to find None, ie. a non-method-specific union case
                         match d.TryFind None with
-                        | Some k -> ds.[k].Decode p
+                        | Some ks -> tryDecode ks
                         | None ->
                             // This action doesn't parse, but try to find another action
                             // with the same name to pass to InvalidMethod
-                            d |> Map.tryPick (fun _ k -> ds.[k].Decode p)
+                            d |> Map.tryPick (fun _ -> function [] -> None | (k :: _) -> ds.[k].Decode p)
                             |> Option.map (function
                                 | Success a
                                 | MissingQueryParameter (a, _)
@@ -775,7 +804,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                 | false, _ -> None))
     | Other t ->
         let parse = parsePrimitiveType t
-        D.Make(false, Set.empty, fun p ->
+        D.Make(false, Set.empty, fun (p: Parameters) ->
             match p.Read () with
             | Some s -> parse s |> Option.map Success
             | None -> None)
@@ -833,14 +862,9 @@ type Factory() =
                 let sb = System.Text.StringBuilder 128
                 if input = null then None else
                     let parts = input.Split '/'
-                    let e = (parts :> seq<string>).GetEnumerator()
-                    let n () = if e.MoveNext() then Some e.Current else None
-                    let parsed = d.Decode { Request = req; Read = n }
-                    // Checking that we are at the end of the url,
-                    // at worst with an extra / (ie. an extra empty segment)
-                    if e.MoveNext() && not (e.Current = "" && not (e.MoveNext()))
-                    then None
-                    else parsed
+                    let pars = Parameters.Make req parts
+                    let parsed = d.Decode pars
+                    if pars.IsAtEnd then parsed else None
             show = fun value ->
                 let sb = System.Text.StringBuilder 128
                 let q = List()
