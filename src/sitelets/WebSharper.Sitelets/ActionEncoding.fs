@@ -311,11 +311,11 @@ let isJson = function
             cad.ConstructorArguments.Count = 1 &&
             cad.ConstructorArguments.[0].Value :?> string = ff.Name)
 
-let tryGetVariadicType f =
+let tryGetWildcardType f =
     let mkSP (sP: System.Type) (eT: System.Type) =
         sP.MakeGenericType(eT)
         |> System.Activator.CreateInstance :?> ISequenceProcessor
-    let tryGetVariadicType (f: Reflection.PropertyInfo) =
+    let tryGetWildcardType (f: Reflection.PropertyInfo) =
         let t = f.PropertyType
         if t.IsArray then
             let eT = t.GetElementType()
@@ -326,11 +326,11 @@ let tryGetVariadicType f =
         else None
     match f with
     | RecordField (f, true)
-        when (f.DeclaringType.GetCustomAttributes(typeof<VariadicPathAttribute>, false) |> Array.isEmpty |> not) ->
-        tryGetVariadicType f
+        when (f.DeclaringType.GetCustomAttributes(typeof<WildcardAttribute>, false) |> Array.isEmpty |> not) ->
+        tryGetWildcardType f
     | UnionCaseField (uci, f, true)
-        when (uci.GetCustomAttributes(typeof<VariadicPathAttribute>) |> Array.isEmpty |> not) ->
-        tryGetVariadicType f
+        when (uci.GetCustomAttributes(typeof<WildcardAttribute>) |> Array.isEmpty |> not) ->
+        tryGetWildcardType f
     | _ -> None
 
 let (|Enum|Array|List|Tuple|Record|Union|Other|) (t: System.Type) =
@@ -395,7 +395,7 @@ let writeQueryParam (f: Field) : S option =
                 true))
     else None
 
-let writeVariadic (eT: System.Type) (eS: S) (sP: ISequenceProcessor) : S =
+let writeWildcard (eT: System.Type) (eS: S) (sP: ISequenceProcessor) : S =
     S.Make(false, fun w q x ->
         sP.ToSequence x
         |> Seq.cast
@@ -410,8 +410,8 @@ let writeField (getS: System.Type -> S) (f: Field) : S =
         match writeQueryParam f with
         | Some w -> w
         | None ->
-            match tryGetVariadicType f with
-            | Some (eT, sP) -> writeVariadic eT (getS eT) sP
+            match tryGetWildcardType f with
+            | Some (eT, sP) -> writeWildcard eT (getS eT) sP
             | None ->
                 match tryWritePrimitiveField f false with
                 | Some wp ->
@@ -627,7 +627,7 @@ let getJsonParser (f: Field) =
         |> Some
     else None
 
-let parseVariadic (eT: System.Type) (eD: D) (sP: ISequenceProcessor) : D =
+let parseWildcard (eT: System.Type) (eD: D) (sP: ISequenceProcessor) : D =
     if eD.ReadsJson() then raise (NoFormatError eT)
     D.Make(false, Set.empty, fun p ->
         let data = System.Collections.ArrayList()
@@ -647,8 +647,8 @@ let parseField getD (f: Field) =
         match getQueryParamParser f with
         | Some p -> p
         | None ->
-            match tryGetVariadicType f with
-            | Some (eT, sP) -> parseVariadic eT (getD eT) sP
+            match tryGetWildcardType f with
+            | Some (eT, sP) -> parseWildcard eT (getD eT) sP
             | None ->
                 match tryParsePrimitiveField f false with
                 | Some parse ->

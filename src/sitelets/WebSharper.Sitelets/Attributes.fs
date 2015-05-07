@@ -61,5 +61,5 @@ type QueryAttribute =
 /// Indicates that the last field or union case argument parses all the remaining
 /// path segments into a list or an array.
 [<Sealed; U(T.Property ||| T.Class)>]
-type VariadicPathAttribute() =
+type WildcardAttribute() =
     inherit A()
