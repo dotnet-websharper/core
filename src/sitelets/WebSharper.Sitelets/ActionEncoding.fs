@@ -311,19 +311,27 @@ let isJson = function
             cad.ConstructorArguments.Count = 1 &&
             cad.ConstructorArguments.[0].Value :?> string = ff.Name)
 
+[<RequireQualifiedAccess>]
+type Wildcard =
+    | Seq of elementType: System.Type * ISequenceProcessor
+    | String
+    | None
+
 let tryGetWildcardType f =
     let mkSP (sP: System.Type) (eT: System.Type) =
         sP.MakeGenericType(eT)
         |> System.Activator.CreateInstance :?> ISequenceProcessor
     let tryGetWildcardType (f: Reflection.PropertyInfo) =
         let t = f.PropertyType
-        if t.IsArray then
+        if t = typeof<string> then
+            Wildcard.String
+        elif t.IsArray then
             let eT = t.GetElementType()
-            Some (eT, mkSP typedefof<ArrayProcessor<_>> eT)
+            Wildcard.Seq (eT, mkSP typedefof<ArrayProcessor<_>> eT)
         elif t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<list<_>> then
             let eT = t.GetGenericArguments().[0]
-            Some (eT, mkSP typedefof<ListProcessor<_>> eT)
-        else None
+            Wildcard.Seq (eT, mkSP typedefof<ListProcessor<_>> eT)
+        else Wildcard.None
     match f with
     | RecordField (f, true)
         when (f.DeclaringType.GetCustomAttributes(typeof<WildcardAttribute>, false) |> Array.isEmpty |> not) ->
@@ -331,7 +339,7 @@ let tryGetWildcardType f =
     | UnionCaseField (uci, f, true)
         when (uci.GetCustomAttributes(typeof<WildcardAttribute>) |> Array.isEmpty |> not) ->
         tryGetWildcardType f
-    | _ -> None
+    | _ -> Wildcard.None
 
 let (|Enum|Array|List|Tuple|Record|Union|Other|) (t: System.Type) =
     if t.IsEnum then
@@ -395,13 +403,21 @@ let writeQueryParam (f: Field) : S option =
                 true))
     else None
 
-let writeWildcard (eT: System.Type) (eS: S) (sP: ISequenceProcessor) : S =
-    S.Make(false, fun w q x ->
+let writeWildcardSeq (eT: System.Type) (eS: S) (sP: ISequenceProcessor) : S =
+    S.Make(true, fun w q x ->
         sP.ToSequence x
         |> Seq.cast
         |> Seq.forall (fun x ->
             w.Add '/'
             eS.Write w q x))
+
+let writeWildcardString (eS: S) =
+    S.Make(true, fun w q x ->
+        (x :?> string).Split '/'
+        |> Seq.mapi (fun i x -> (i, x))
+        |> Seq.forall (fun (i, x) ->
+            if i <> 0 then w.Add '/'
+            eS.Write w q (box x)))
 
 let writeField (getS: System.Type -> S) (f: Field) : S =
     if isJson f then
@@ -411,8 +427,9 @@ let writeField (getS: System.Type -> S) (f: Field) : S =
         | Some w -> w
         | None ->
             match tryGetWildcardType f with
-            | Some (eT, sP) -> writeWildcard eT (getS eT) sP
-            | None ->
+            | Wildcard.Seq (eT, sP) -> writeWildcardSeq eT (getS eT) sP
+            | Wildcard.String -> writeWildcardString (getS typeof<string>)
+            | Wildcard.None ->
                 match tryWritePrimitiveField f false with
                 | Some wp ->
                     S.Make(true, fun w _ x ->
@@ -627,18 +644,23 @@ let getJsonParser (f: Field) =
         |> Some
     else None
 
-let parseWildcard (eT: System.Type) (eD: D) (sP: ISequenceProcessor) : D =
+let parseRemainingStrings (eD: D) k (p: Parameters) =
+    let data = System.Collections.ArrayList()
+    let rec loop() =
+        match eD.Decode p with
+        | Some (Success x) ->
+            data.Add(x) |> ignore
+            loop()
+        | None -> Some (Success (box (k (data.ToArray()))))
+        | err -> err
+    loop()
+
+let parseWildcardSeq (eT: System.Type) (eD: D) (sP: ISequenceProcessor) : D =
     if eD.ReadsJson() then raise (NoFormatError eT)
-    D.Make(false, Set.empty, fun p ->
-        let data = System.Collections.ArrayList()
-        let rec loop() =
-            match eD.Decode p with
-            | Some (Success x) ->
-                data.Add(x) |> ignore
-                loop()
-            | None -> Some (Success (box (sP.FromSequence (data.ToArray()))))
-            | err -> err
-        loop())
+    D.Make(false, Set.empty, parseRemainingStrings eD sP.FromSequence)
+
+let parseWildcardString (eD: D) : D =
+    D.Make(false, Set.empty, parseRemainingStrings eD (Seq.cast >> String.concat "/"))
 
 let parseField getD (f: Field) =
     match getJsonParser f with
@@ -648,8 +670,9 @@ let parseField getD (f: Field) =
         | Some p -> p
         | None ->
             match tryGetWildcardType f with
-            | Some (eT, sP) -> parseWildcard eT (getD eT) sP
-            | None ->
+            | Wildcard.Seq (eT, sP) -> parseWildcardSeq eT (getD eT) sP
+            | Wildcard.String -> parseWildcardString (getD typeof<string>)
+            | Wildcard.None ->
                 match tryParsePrimitiveField f false with
                 | Some parse ->
                     D.Make(false, Set.empty, fun (p: Parameters) ->
