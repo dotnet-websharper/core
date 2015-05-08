@@ -286,6 +286,20 @@ let getDateTimeFormat = function
                 else None)
         else None
 
+let isFormData = function
+    | RecordField (f, _) ->
+        f.GetCustomAttributesData() |> Seq.exists (fun cad ->
+            cad.Constructor.DeclaringType = typeof<FormDataAttribute> &&
+            cad.ConstructorArguments.Count = 0)
+    | UnionCaseField (uci, f, _) as ff ->
+        uci.GetCustomAttributesData() |> Seq.exists (fun cad ->
+            cad.Constructor.DeclaringType = typeof<FormDataAttribute> &&
+            cad.ConstructorArguments.Count = 1 &&
+            cad.ConstructorArguments.[0].Value
+            :?> System.Collections.ObjectModel.ReadOnlyCollection<
+                    System.Reflection.CustomAttributeTypedArgument>
+            |> Seq.exists (fun a -> a.Value :?> string = ff.Name))
+
 let isQueryParam = function
     | RecordField (f, _) ->
         f.GetCustomAttributesData() |> Seq.exists (fun cad ->
@@ -420,7 +434,7 @@ let writeWildcardString (eS: S) =
             eS.Write w q (box x)))
 
 let writeField (getS: System.Type -> S) (f: Field) : S =
-    if isJson f then
+    if isJson f || isFormData f then
         S.Make(false, fun _ _ _ -> true)
     else
         match writeQueryParam f with
@@ -616,6 +630,18 @@ let getQueryParamParser (f: Field) =
             |> Some
     else None
 
+let getFormDataParser (f: Field) =
+    if isFormData f then
+        let ft = f.Type
+        let fn = f.Name
+        match tryParsePrimitiveField f true with
+        | None -> raise (NoFormatError f.DeclaringType)
+        | Some parse ->
+            D.Make(false, Set.singleton fn, fun p ->
+                parse p.Request.Post.[fn])
+            |> Some
+    else None
+
 let getJsonParser (f: Field) =
     if isJson f then
         let t = f.Type
@@ -669,15 +695,18 @@ let parseField getD (f: Field) =
         match getQueryParamParser f with
         | Some p -> p
         | None ->
-            match tryGetWildcardType f with
-            | Wildcard.Seq (eT, sP) -> parseWildcardSeq eT (getD eT) sP
-            | Wildcard.String -> parseWildcardString (getD typeof<string>)
-            | Wildcard.None ->
-                match tryParsePrimitiveField f false with
-                | Some parse ->
-                    D.Make(false, Set.empty, fun (p: Parameters) ->
-                        parse <| p.Read())
-                | None -> getD f.Type
+            match getFormDataParser f with
+            | Some p -> p
+            | None ->
+                match tryGetWildcardType f with
+                | Wildcard.Seq (eT, sP) -> parseWildcardSeq eT (getD eT) sP
+                | Wildcard.String -> parseWildcardString (getD typeof<string>)
+                | Wildcard.None ->
+                    match tryParsePrimitiveField f false with
+                    | Some parse ->
+                        D.Make(false, Set.empty, fun (p: Parameters) ->
+                            parse <| p.Read())
+                    | None -> getD f.Type
 
 let getD (getD: System.Type -> D) (t: System.Type) : D =
     let tryParse parse : D =

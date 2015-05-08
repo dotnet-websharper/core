@@ -58,6 +58,21 @@ type QueryAttribute =
     /// from the request's query parameters.
     new([<ParamArray>] argumentName: string[]) = { inherit A() }
 
+/// Indicates that a field or union case argument must be parsed
+/// from the request's body in form post syntax, ie. with the Content-Type
+/// being either application/x-www-form-urlencoded or multipart/form-data.
+/// The value must be a primitive value, a DateTime, or an option thereof.
+[<Sealed; U(T.Property, AllowMultiple = true)>]
+type FormDataAttribute =
+    inherit A
+
+    /// Indicates that a field must be parsed from the request's query parameters.
+    new() = { inherit A() }
+
+    /// Indicates that the union case arguments with the given names must be parsed
+    /// from the request's query parameters.
+    new([<ParamArray>] argumentName: string[]) = { inherit A() }
+
 /// Indicates that the last field or union case argument parses all the remaining
 /// path segments into a list or an array.
 [<Sealed; U(T.Property ||| T.Class)>]
