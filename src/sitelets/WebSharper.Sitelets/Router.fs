@@ -158,6 +158,7 @@ module Router =
             DynamicLink = function
                 | ActionEncoding.Success act
                 | ActionEncoding.MissingQueryParameter (act, _)
+                | ActionEncoding.MissingFormData (act, _)
                 | ActionEncoding.InvalidJson act
                 | ActionEncoding.InvalidMethod (act, _) ->
                     match fmt.Show act with

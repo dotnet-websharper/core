@@ -41,6 +41,10 @@ type DecodeResult<'Action> =
     /// A GET query parameter was missing to decode an action.
     /// The corresponding part of the action is a default value.
     | MissingQueryParameter of 'Action * queryParam: string
+    /// A post body parameter of type application/x-www-urlencoded or multipart/form-data
+    /// was missing to decode an action.
+    /// The corresponding part of the action is a default value.
+    | MissingFormData of 'Action * formFieldName: string
 
 /// Represents an URL encoding for a given type.
 [<Sealed>]

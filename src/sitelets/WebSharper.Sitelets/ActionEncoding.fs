@@ -29,13 +29,15 @@ type DecodeResult<'Action> =
     | InvalidMethod of 'Action * ``method``: string
     | InvalidJson of 'Action
     | MissingQueryParameter of 'Action * queryParam: string
+    | MissingFormData of 'Action * formFieldName: string
 
     member this.Action =
         match this with
         | Success a
         | InvalidMethod (a, _)
         | InvalidJson a
-        | MissingQueryParameter (a, _) -> a
+        | MissingQueryParameter (a, _)
+        | MissingFormData (a, _) -> a
 
 type DecodeResult =
 
@@ -44,7 +46,8 @@ type DecodeResult =
             | Success x -> Success (f x)
             | InvalidMethod (x, m) -> InvalidMethod (f x, m)
             | InvalidJson x -> InvalidJson (f x)
-            | MissingQueryParameter (x, p) -> MissingQueryParameter (f x, p))
+            | MissingQueryParameter (x, p) -> MissingQueryParameter (f x, p)
+            | MissingFormData (x, p) -> MissingFormData (f x, p))
 
     static member unbox (x: DecodeResult<obj>) : DecodeResult<'b> =
         match x with
@@ -52,6 +55,7 @@ type DecodeResult =
         | InvalidMethod (x, m) -> InvalidMethod (unbox x, m)
         | InvalidJson x -> InvalidJson (unbox x)
         | MissingQueryParameter (x, p) -> MissingQueryParameter (unbox x, p)
+        | MissingFormData (x, p) -> MissingFormData (unbox x, p)
 
 let (>>=) (x: option<DecodeResult<'a>>) (f: 'a -> option<DecodeResult<'b>>) : option<DecodeResult<'b>> =
     match x with
@@ -68,6 +72,10 @@ let (>>=) (x: option<DecodeResult<'a>>) (f: 'a -> option<DecodeResult<'b>>) : op
     | Some (MissingQueryParameter (x, p)) ->
         f x |> Option.map (function
             | Success y -> MissingQueryParameter (y, p)
+            | r -> r)
+    | Some (MissingFormData (x, p)) ->
+        f x |> Option.map (function
+            | Success y -> MissingFormData (y, p)
             | r -> r)
 
 let isUnreserved isLast c =
@@ -622,11 +630,14 @@ let getQueryParamParser (f: Field) =
     if isQueryParam f then
         let ft = f.Type
         let fn = f.Name
+        let defaultValue = JsonProvider.BuildDefaultValue ft
         match tryParsePrimitiveField f true with
         | None -> raise (NoFormatError f.DeclaringType)
         | Some parse ->
             D.Make(false, Set.singleton fn, fun p ->
-                parse p.Request.Get.[fn])
+                match parse p.Request.Get.[fn] with
+                | Some (Success _) as x -> x
+                | _ -> Some (MissingQueryParameter(defaultValue, fn)))
             |> Some
     else None
 
@@ -634,11 +645,14 @@ let getFormDataParser (f: Field) =
     if isFormData f then
         let ft = f.Type
         let fn = f.Name
+        let defaultValue = JsonProvider.BuildDefaultValue ft
         match tryParsePrimitiveField f true with
         | None -> raise (NoFormatError f.DeclaringType)
         | Some parse ->
             D.Make(false, Set.singleton fn, fun p ->
-                parse p.Request.Post.[fn])
+                match parse p.Request.Post.[fn] with
+                | Some (Success _) as x -> x
+                | _ -> Some (MissingFormData(defaultValue, fn)))
             |> Some
     else None
 
@@ -851,6 +865,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                             |> Option.map (function
                                 | Success a
                                 | MissingQueryParameter (a, _)
+                                | MissingFormData (a, _)
                                 | InvalidJson a -> InvalidMethod (a, p.Request.Method.ToString())
                                 | InvalidMethod (a, m) -> InvalidMethod (a, m))
                 | false, _ -> None))
