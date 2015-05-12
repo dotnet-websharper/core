@@ -72,9 +72,8 @@ type Control() =
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 
-/// A base class for defining custom ASP.NET controls. Inherit from this class,
-/// override the Body property and use the new class as a Server ASP.NET
-/// control in your application.
+/// Implements a web control based on a quotation-wrapped top-level body.
+/// Use the function ClientSide to create an InlineControl.
 type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
     inherit Control()
 
@@ -114,5 +113,8 @@ module WebExtensions =
     open Microsoft.FSharp.Quotations
     open WebSharper.Html.Client
 
+    /// Embed the given client-side control body in a server-side control.
+    /// The client-side control body must be either a module-bound or static value,
+    /// or a call to a module-bound function or static method with argument ().
     let ClientSide (e: Expr<#IControlBody>) =
         new WebSharper.Web.InlineControl<_>(e)
