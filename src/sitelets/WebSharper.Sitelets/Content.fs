@@ -95,10 +95,7 @@ module Content =
         // Resolve resources for the set of types and this assembly
         let resources =
             controls
-            |> Seq.map (fun x -> x.GetType())
-            |> Seq.distinct
-            |> Seq.map (fun t ->
-                M.Node.TypeNode (R.TypeDefinition.FromType t))
+            |> Seq.collect (fun c -> c.Requires env.Meta)
             |> env.Meta.GetDependencies
         // Meta tag encoding the client side controls
         let mJson = metaJson env.Json controls

@@ -75,10 +75,9 @@ type ScriptManager() =
         }
 
     /// Registers a pagelet with the manager.
-    member this.Register (id: option<string>) (c: System.Web.UI.Control) =
+    member this.Register (id: option<string>) (c: WebSharper.Html.Client.IControl) =
+        Seq.iter nodes.Enqueue (c.Requires Shared.Metadata)
         let t = c.GetType()
-        let t = if t.IsGenericType then t.GetGenericTypeDefinition() else t
-        nodes.Enqueue(M.TypeNode (R.TypeDefinition.FromType t))
         let id  = getId id
         let enc = Shared.Json.GetEncoder t
         registry.[id] <- enc.Encode c

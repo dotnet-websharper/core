@@ -25,6 +25,9 @@ open WebSharper
 module A = WebSharper.Html.Server.Attr
 module H = WebSharper.Html.Server.Html
 module T = WebSharper.Html.Server.Tags
+module M = WebSharper.Core.Metadata
+module R = WebSharper.Core.Reflection
+module P = WebSharper.Core.JavaScript.Packager
 
 /// A base class for defining custom ASP.NET controls. Inherit from this class,
 /// override the Body property and use the new class as a Server ASP.NET
@@ -58,6 +61,58 @@ type Control() =
     interface Html.Client.IControl with
         member this.Body = this.Body
         member this.Id = this.ID
+        member this.Requires meta =
+            let t = this.GetType()
+            let t = if t.IsGenericType then t.GetGenericTypeDefinition() else t
+            [M.TypeNode (R.TypeDefinition.FromType t)] :> seq<_>
 
     override this.Render writer =
         writer.WriteLine("<div id='{0}'></div>", this.ID)
+
+open Microsoft.FSharp.Quotations
+open Microsoft.FSharp.Quotations.Patterns
+
+/// A base class for defining custom ASP.NET controls. Inherit from this class,
+/// override the Body property and use the new class as a Server ASP.NET
+/// control in your application.
+type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
+    inherit Control()
+
+    let mutable body = ""
+    let meth =
+        match elt :> Expr with
+        | PropertyGet(None, p, []) -> p.GetGetMethod()
+        | Call(None, m, []) -> m
+        | e -> failwithf "Wrong format for InlineControl: expected global variable access, got: %A" e
+    let rmeth = R.Method.Parse meth
+
+    [<JavaScript>]
+    override this.Body = JavaScript.JS.Eval(body) :?> _
+
+    interface Html.Client.IControl with
+        [<JavaScript>]
+        member this.Body = this.Body
+        member this.Id = this.ID
+        member this.Requires meta =
+            body <-
+                match meta.GetAddress rmeth.DeclaringType with
+                | None -> failwith "Couldn't find address for method"
+                | Some a ->
+                    let rec mk acc (a: P.Address) =
+                        let n = a.LocalName.Replace(@"\", @"\\").Replace("'", @"\'")
+                        match a.Parent with
+                        | None -> n + "['" + acc
+                        | Some p -> mk (n + "']['" + acc) p
+                    mk (rmeth.Name + "']()") a
+            [M.MethodNode(rmeth)] :> seq<_>
+
+namespace WebSharper
+
+[<AutoOpen>]
+module WebExtensions =
+
+    open Microsoft.FSharp.Quotations
+    open WebSharper.Html.Client
+
+    let ClientSide (e: Expr<#IControlBody>) =
+        new WebSharper.Web.InlineControl<_>(e)

@@ -23,6 +23,7 @@ namespace WebSharper.Html.Client
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.JQuery
+module M = WebSharper.Core.Metadata
 
 /// HTML content that can be used as the Body of a web Control.
 /// Can be zero, one or many DOM nodes.
@@ -38,6 +39,7 @@ type IControlBody =
 type IControl =
     abstract member Body : IControlBody
     abstract member Id : string
+    abstract member Requires : M.Info -> seq<M.Node>
 
 [<AutoOpen>]
 [<JavaScript>]
