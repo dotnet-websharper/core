@@ -1130,7 +1130,7 @@ let enumDecoder dD (i: FormatSettings) (ta: TAttrs) =
         let y : obj = uD x
         System.Enum.ToObject(t, y)
 
-let getEncoding scalar array tuple union record enu map set obj (fo: FormatSettings)
+let getEncoding scalar array tuple union record enu map set obj wrap (fo: FormatSettings)
                 (cache: Dictionary<_,_>) =
     let recurse ta =
         lock cache <| fun () ->
@@ -1186,7 +1186,7 @@ let getEncoding scalar array tuple union record enu map set obj (fo: FormatSetti
                         match get ta with
                         | Choice1Of2 d -> d
                         | Choice2Of2 d -> raise (NoEncodingException d)
-                    let d = derive dD
+                    let d = derive (wrap dD)
                     lock cache <| fun () ->
                         cache.[ta] <- d
                     d
@@ -1444,6 +1444,7 @@ type Provider(fo: FormatSettings) =
                 let x = genLetMethod(<@ Set.empty @>, ta.Type.GetGenericArguments()).Invoke0()
                 fun _ -> x)
             (fun _ _ _ _ -> null)
+            id
             fo
             (Dictionary<_,_>())
         >> function
@@ -1460,6 +1461,7 @@ type Provider(fo: FormatSettings) =
             mapDecoder
             setDecoder
             objectDecoder
+            id
             fo
             decoders
         >> function
@@ -1476,6 +1478,9 @@ type Provider(fo: FormatSettings) =
             mapEncoder
             setEncoder
             objectEncoder
+            (fun dE ta ->
+                if ta.Type.IsSealed || FST.IsUnion ta.Type then dE ta else
+                fun x -> dE { ta with Type = x.GetType() } x)
             fo
             encoders
         >> function

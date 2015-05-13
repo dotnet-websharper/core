@@ -71,6 +71,7 @@ type Control() =
     override this.Render writer =
         writer.WriteLine("<div id='{0}'></div>", this.ID)
 
+open WebSharper.JavaScript
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 
@@ -81,31 +82,56 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
 
     [<System.NonSerialized>]
     let bodyAndReqs =
-        let declType, name, deps =
+        let getLocation() =
+            let (|Val|_|) e : 't option =
+                match e with
+                | Quotations.Patterns.Value(:? 't as v,_) -> Some v
+                | _ -> None
+            let l =
+                elt.CustomAttributes |> Seq.tryPick (function
+                    | NewTuple [ Val "DebugRange";
+                                 NewTuple [ Val (file: string)
+                                            Val (startLine: int)
+                                            Val (startCol: int)
+                                            Val (endLine: int)
+                                            Val (endCol: int) ] ] ->
+                        Some (sprintf "%s: %i.%i-%i.%i" file startLine startCol endLine endCol)
+                    | _ -> None)
+            defaultArg l "(no location)"
+        let declType, name, args, reqs =
             match elt :> Expr with
-            | PropertyGet(None, p, []) ->
+            | PropertyGet(None, p, args) ->
                 let rp = R.Property.Parse p
-                rp.DeclaringType, rp.Name, Seq.singleton (M.TypeNode rp.DeclaringType)
-            | Call(None, m, []) ->
+                rp.DeclaringType, rp.Name, args, Seq.singleton (M.TypeNode rp.DeclaringType)
+            | Call(None, m, args) ->
                 let rm = R.Method.Parse m
-                rm.DeclaringType, rm.Name, Seq.singleton (M.MethodNode rm)
-            | e -> failwithf "Wrong format for InlineControl: expected global variable access, got: %A" e
-        let body =
+                rm.DeclaringType, rm.Name, args, Seq.singleton (M.MethodNode rm)
+            | e -> failwithf "Wrong format for InlineControl at %s: expected global value or function access, got: %A" (getLocation()) e
+        let args =
+            args
+            |> Array.ofList
+            |> Array.mapi (fun i -> function
+                | Value (v, t) -> v
+                | _ -> failwithf "Wrong format for InlineControl at %s: argument #%i is not a literal or a local variable" (getLocation()) (i+1)
+            )
+        let funcName =
             match Shared.Metadata.GetAddress declType with
-            | None -> failwith "Couldn't find address for method"
+            | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
             | Some a ->
                 let rec mk acc (a: P.Address) =
-                    let n = a.LocalName.Replace(@"\", @"\\").Replace("'", @"\'")
+                    let acc = a.LocalName :: acc
                     match a.Parent with
-                    | None -> n + "['" + acc
-                    | Some p -> mk (n + "']['" + acc) p
-                mk (name + "']()") a
-        body, deps
+                    | None -> Array.ofList acc
+                    | Some p -> mk acc p
+                mk [name] a
+        (funcName, args), reqs
 
-    let body = fst bodyAndReqs
+    let funcName, args = fst bodyAndReqs
 
     [<JavaScript>]
-    override this.Body = JavaScript.JS.Eval(body) :?> _
+    override this.Body =
+        let f = Array.fold (?) JS.Window funcName
+        As<Function>(f).ApplyUnsafe(null, args) :?> _
 
     interface Html.Client.IControl with
         [<JavaScript>]
@@ -123,6 +149,7 @@ module WebExtensions =
 
     /// Embed the given client-side control body in a server-side control.
     /// The client-side control body must be either a module-bound or static value,
-    /// or a call to a module-bound function or static method with argument ().
+    /// or a call to a module-bound function or static method, and all arguments
+    /// must be either literals or references to local variables.
     let ClientSide (e: Expr<#IControlBody>) =
         new WebSharper.Web.InlineControl<_>(e)
