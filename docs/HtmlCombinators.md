@@ -72,7 +72,96 @@ let myForm =
 
 ## Embedding Client-Side Controls in Server-Side Markup
 
-Integrating client-side content in server-side content is done via `WebSharper.Web.Control`.
+Integrating client-side content in server-side content can be done in two ways: using the `ClientSide` function, or by explicitly creating a web control class.
+
+### The `ClientSide` function
+
+Since WebSharper 3.0.60, the easiest way to embed client-side code in server-side markup is by calling the `ClientSide` function with a quotation containing your client-side element.
+
+```fsharp
+[<JavaScript>]
+module Client =
+    open WebSharper.Html.Client
+
+    let myContent() = I [Text "Client control"]
+
+module Server =
+    open WebSharper.Html.Server
+
+    let Page : Content<Action> =
+        PageContent <| fun context ->
+            {Page.Default with
+                Title = Some "Index"
+                Body =
+                    [
+                        Div [ ClientSide <@ Client.myContent() @> ]
+                    ]
+            }
+```
+
+The generated server-side HTML will contain a placeholder `div` at the location of the `ClientSide` call, which is dynamically replaced by `myContent()` on page load.
+
+There are several constraints when using `ClientSide`:
+
+* The body of the quotation must be a call to a top-level value or function, or a static method or property.
+* Any arguments passed inside the quotation must be either literals or references to local variables.
+* Arguments must be serializable by WebSharper.
+
+For example, given the following client-side code:
+
+```fsharp
+[<JavaScript>]
+module Client =
+    open WebSharper.Html.Client
+
+    let myContent text1 text2 = I [Text (text1 + "; " + text2)]
+```
+
+The following is valid:
+
+```
+module Server =
+    open WebSharper.Html.Server
+
+    let Body =
+        let t = "a local variable"
+        Div [ ClientSide <@ Client.myContent t "a literal" @> ]
+```
+
+But the following isn't:
+
+```
+module Server =
+    open WebSharper.Html.Server
+
+    // Invalid: the quotation must be a call to a global
+    // value, function, property or method.
+    let Body1 =
+        let t1 = "a global variable"
+        let body = Client.myContent t1 "a literal"
+        Div [ClientSide <@ body @>]
+
+    // Invalid: the argument can't be a compound expression.
+    let Body2 =
+        let t2 = "a local variable"
+        Div [ ClientSide <@ Client.myContent t2 ("an" + " expression") @> ]
+
+    // Invalid: the argument can't be a global variable.
+    let t3 = "a global variable"
+    let Body3 = Div [ ClientSide <@ Client.myContent t3 "a literal" @> ]
+
+    // If you want to pass global variables or compound expressions as argument,
+    // you can alias them locally:
+    let t4 = "a global variable"
+    let Body4 =
+        let t4 = t4
+        let t5 = "an" + " expression"
+        Div [ ClientSide <@ Client.myContent t4 t5 @> ]
+```
+
+### Explicit `Web.Control`
+
+The more verbose way to embed client-side code is to create a control class.
 
 ```fsharp
 module Client =
@@ -99,9 +188,11 @@ module Server =
             }
 ```
 
-Here, `MyControl` inherits from `WebSharper.Web.Control` and overrides the `Body` property with some client-side HTML. This control is then placed within a server-side `div` tag, and its contents is created on page load.
+Here, `MyControl` inherits from `WebSharper.Web.Control` and overrides the `Body` property with some client-side HTML. As with `ClientSide`, the generated server-side HTML will contain a placeholder `div` at the location of the `MyControl` call, which is dynamically replaced by `Body` on page load.
 
-Web Controls can also be included in an ASP.NET page, as shown [here](aspnet).
+Any WebSharper-serializable data can be passed to `MyControl`'s constructor, without the local-or-literal limitation that `ClientSide` has.
+
+Another advantage of creating your own web control class is that it can also be included in an ASP.NET page, as shown [here](aspnet).
 
 ## Client-Side Specificities
 
