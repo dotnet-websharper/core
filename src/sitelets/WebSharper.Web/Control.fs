@@ -78,12 +78,20 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
     inherit Control()
 
     let mutable body = ""
-    let meth =
+
+    [<System.NonSerialized>]
+    let elt = elt
+
+    [<System.NonSerialized>]
+    let props =
         match elt :> Expr with
-        | PropertyGet(None, p, []) -> p.GetGetMethod()
-        | Call(None, m, []) -> m
+        | PropertyGet(None, p, []) ->
+            let rp = R.Property.Parse p
+            rp.DeclaringType, rp.Name, Seq.singleton (M.TypeNode rp.DeclaringType)
+        | Call(None, m, []) ->
+            let rm = R.Method.Parse m
+            rm.DeclaringType, rm.Name, Seq.singleton (M.MethodNode rm)
         | e -> failwithf "Wrong format for InlineControl: expected global variable access, got: %A" e
-    let rmeth = R.Method.Parse meth
 
     [<JavaScript>]
     override this.Body = JavaScript.JS.Eval(body) :?> _
@@ -93,8 +101,9 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
         member this.Body = this.Body
         member this.Id = this.ID
         member this.Requires meta =
+            let declType, name, deps = props
             body <-
-                match meta.GetAddress rmeth.DeclaringType with
+                match meta.GetAddress declType with
                 | None -> failwith "Couldn't find address for method"
                 | Some a ->
                     let rec mk acc (a: P.Address) =
@@ -102,8 +111,8 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
                         match a.Parent with
                         | None -> n + "['" + acc
                         | Some p -> mk (n + "']['" + acc) p
-                    mk (rmeth.Name + "']()") a
-            [M.MethodNode(rmeth)] :> seq<_>
+                    mk (name + "']()") a
+            deps
 
 namespace WebSharper
 
