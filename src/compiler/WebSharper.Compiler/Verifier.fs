@@ -118,7 +118,7 @@ type State(logger: Logger) =
 
     let getWebControlError (t: TypeDefinition) : Status =
         if not (canEncodeToJson t) then
-            CriticallyIncorrect "Cannot encode the Web.Control type to JSON."
+            CriticallyIncorrect ("Cannot encode the Web.Control type to JSON: " + t.FullName)
         else
             let body =
                 t.Properties
@@ -130,14 +130,14 @@ type State(logger: Logger) =
                     then Some x
                     else None)
             match body with
-            | None -> CriticallyIncorrect "Web.Control types must override the Body property."
+            | None -> CriticallyIncorrect ("Web.Control type must override the Body property: " + t.FullName)
             | Some p ->
                 let fN = typeof<ReflectedDefinitionAttribute>.FullName
                 let ok =
                     p.CustomAttributes
                     |> Seq.exists (fun x -> x.AttributeType.FullName = fN)
                 if ok then Correct else
-                    CriticallyIncorrect "JavaScript attribute is required on the Body property."
+                    CriticallyIncorrect ("JavaScript attribute is required on the Body property: " + t.FullName)
 
     member this.VerifyRemoteMethod(m: MethodDefinition) =
         getRemoteContractError m
