@@ -63,7 +63,7 @@ type Control() =
     interface Html.Client.IControl with
         member this.Body = this.Body
         member this.Id = this.ID
-        member this.Requires meta =
+        member this.Requires =
             let t = this.GetType()
             let t = if t.IsGenericType then t.GetGenericTypeDefinition() else t
             [M.TypeNode (R.TypeDefinition.FromType t)] :> seq<_>
@@ -79,21 +79,30 @@ open Microsoft.FSharp.Quotations.Patterns
 type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
     inherit Control()
 
-    let mutable body = ""
-
     [<System.NonSerialized>]
-    let elt = elt
+    let bodyAndReqs =
+        let declType, name, deps =
+            match elt :> Expr with
+            | PropertyGet(None, p, []) ->
+                let rp = R.Property.Parse p
+                rp.DeclaringType, rp.Name, Seq.singleton (M.TypeNode rp.DeclaringType)
+            | Call(None, m, []) ->
+                let rm = R.Method.Parse m
+                rm.DeclaringType, rm.Name, Seq.singleton (M.MethodNode rm)
+            | e -> failwithf "Wrong format for InlineControl: expected global variable access, got: %A" e
+        let body =
+            match Shared.Metadata.GetAddress declType with
+            | None -> failwith "Couldn't find address for method"
+            | Some a ->
+                let rec mk acc (a: P.Address) =
+                    let n = a.LocalName.Replace(@"\", @"\\").Replace("'", @"\'")
+                    match a.Parent with
+                    | None -> n + "['" + acc
+                    | Some p -> mk (n + "']['" + acc) p
+                mk (name + "']()") a
+        body, deps
 
-    [<System.NonSerialized>]
-    let props =
-        match elt :> Expr with
-        | PropertyGet(None, p, []) ->
-            let rp = R.Property.Parse p
-            rp.DeclaringType, rp.Name, Seq.singleton (M.TypeNode rp.DeclaringType)
-        | Call(None, m, []) ->
-            let rm = R.Method.Parse m
-            rm.DeclaringType, rm.Name, Seq.singleton (M.MethodNode rm)
-        | e -> failwithf "Wrong format for InlineControl: expected global variable access, got: %A" e
+    let body = fst bodyAndReqs
 
     [<JavaScript>]
     override this.Body = JavaScript.JS.Eval(body) :?> _
@@ -102,19 +111,7 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
         [<JavaScript>]
         member this.Body = this.Body
         member this.Id = this.ID
-        member this.Requires meta =
-            let declType, name, deps = props
-            body <-
-                match meta.GetAddress declType with
-                | None -> failwith "Couldn't find address for method"
-                | Some a ->
-                    let rec mk acc (a: P.Address) =
-                        let n = a.LocalName.Replace(@"\", @"\\").Replace("'", @"\'")
-                        match a.Parent with
-                        | None -> n + "['" + acc
-                        | Some p -> mk (n + "']['" + acc) p
-                    mk (name + "']()") a
-            deps
+        member this.Requires = snd bodyAndReqs
 
 namespace WebSharper
 

@@ -39,7 +39,7 @@ type IControlBody =
 type IControl =
     abstract member Body : IControlBody
     abstract member Id : string
-    abstract member Requires : M.Info -> seq<M.Node>
+    abstract member Requires : seq<M.Node>
 
 [<AutoOpen>]
 [<JavaScript>]
