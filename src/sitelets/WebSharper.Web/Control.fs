@@ -37,7 +37,9 @@ type Control() =
     inherit System.Web.UI.Control()
 
     static let gen = System.Random()
+    [<System.NonSerialized>]
     let mutable isR = true
+    [<System.NonSerialized>]
     let mutable id = System.String.Format("ws{0:x}", gen.Next().ToString())
 
     override this.ID
