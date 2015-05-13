@@ -135,7 +135,7 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
         member this.Requires meta =
             let declType, name, reqs = snd bodyAndReqs
             if funcName.Length = 0 then
-                match Shared.Metadata.GetAddress declType with
+                match meta.GetAddress declType with
                 | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
                 | Some a ->
                     let rec mk acc (a: P.Address) =
