@@ -100,24 +100,28 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
                 | _ -> None)
         defaultArg l "(no location)"
 
+    static let ctrlReq = M.TypeNode (R.TypeDefinition.FromType typeof<InlineControl<Html.Client.IControlBody>>)
+
     [<System.NonSerialized>]
     let bodyAndReqs =
-        let declType, name, args, reqs =
+        let declType, name, args, fReq =
             match elt :> Expr with
             | PropertyGet(None, p, args) ->
                 let rp = R.Property.Parse p
-                rp.DeclaringType, rp.Name, args, Seq.singleton (M.TypeNode rp.DeclaringType)
+                rp.DeclaringType, rp.Name, args, M.TypeNode rp.DeclaringType
             | Call(None, m, args) ->
                 let rm = R.Method.Parse m
-                rm.DeclaringType, rm.Name, args, Seq.singleton (M.MethodNode rm)
+                rm.DeclaringType, rm.Name, args, M.MethodNode rm
             | e -> failwithf "Wrong format for InlineControl at %s: expected global value or function access, got: %A" (getLocation()) e
-        let args =
+        let args, argReqs =
             args
-            |> Array.ofList
-            |> Array.mapi (fun i -> function
-                | Value (v, t) -> v
+            |> List.mapi (fun i -> function
+                | Value (v, t) -> v, M.TypeNode (R.TypeDefinition.FromType t)
                 | _ -> failwithf "Wrong format for InlineControl at %s: argument #%i is not a literal or a local variable" (getLocation()) (i+1)
             )
+            |> List.unzip
+        let args = Array.ofList args
+        let reqs = ctrlReq :: fReq :: argReqs :> seq<_>
         args, (declType, name, reqs)
 
     let args = fst bodyAndReqs
