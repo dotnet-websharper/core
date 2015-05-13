@@ -63,7 +63,7 @@ type Control() =
     interface Html.Client.IControl with
         member this.Body = this.Body
         member this.Id = this.ID
-        member this.Requires =
+        member this.Requires meta =
             let t = this.GetType()
             let t = if t.IsGenericType then t.GetGenericTypeDefinition() else t
             [M.TypeNode (R.TypeDefinition.FromType t)] :> seq<_>
@@ -81,23 +81,27 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
     inherit Control()
 
     [<System.NonSerialized>]
+    let elt = elt
+
+    let getLocation() =
+        let (|Val|_|) e : 't option =
+            match e with
+            | Quotations.Patterns.Value(:? 't as v,_) -> Some v
+            | _ -> None
+        let l =
+            elt.CustomAttributes |> Seq.tryPick (function
+                | NewTuple [ Val "DebugRange";
+                             NewTuple [ Val (file: string)
+                                        Val (startLine: int)
+                                        Val (startCol: int)
+                                        Val (endLine: int)
+                                        Val (endCol: int) ] ] ->
+                    Some (sprintf "%s: %i.%i-%i.%i" file startLine startCol endLine endCol)
+                | _ -> None)
+        defaultArg l "(no location)"
+
+    [<System.NonSerialized>]
     let bodyAndReqs =
-        let getLocation() =
-            let (|Val|_|) e : 't option =
-                match e with
-                | Quotations.Patterns.Value(:? 't as v,_) -> Some v
-                | _ -> None
-            let l =
-                elt.CustomAttributes |> Seq.tryPick (function
-                    | NewTuple [ Val "DebugRange";
-                                 NewTuple [ Val (file: string)
-                                            Val (startLine: int)
-                                            Val (startCol: int)
-                                            Val (endLine: int)
-                                            Val (endCol: int) ] ] ->
-                        Some (sprintf "%s: %i.%i-%i.%i" file startLine startCol endLine endCol)
-                    | _ -> None)
-            defaultArg l "(no location)"
         let declType, name, args, reqs =
             match elt :> Expr with
             | PropertyGet(None, p, args) ->
@@ -114,19 +118,10 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
                 | Value (v, t) -> v
                 | _ -> failwithf "Wrong format for InlineControl at %s: argument #%i is not a literal or a local variable" (getLocation()) (i+1)
             )
-        let funcName =
-            match Shared.Metadata.GetAddress declType with
-            | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
-            | Some a ->
-                let rec mk acc (a: P.Address) =
-                    let acc = a.LocalName :: acc
-                    match a.Parent with
-                    | None -> Array.ofList acc
-                    | Some p -> mk acc p
-                mk [name] a
-        (funcName, args), reqs
+        args, (declType, name, reqs)
 
-    let funcName, args = fst bodyAndReqs
+    let args = fst bodyAndReqs
+    let mutable funcName = [||]
 
     [<JavaScript>]
     override this.Body =
@@ -137,7 +132,19 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
         [<JavaScript>]
         member this.Body = this.Body
         member this.Id = this.ID
-        member this.Requires = snd bodyAndReqs
+        member this.Requires meta =
+            let declType, name, reqs = snd bodyAndReqs
+            if funcName.Length = 0 then
+                match Shared.Metadata.GetAddress declType with
+                | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
+                | Some a ->
+                    let rec mk acc (a: P.Address) =
+                        let acc = a.LocalName :: acc
+                        match a.Parent with
+                        | None -> Array.ofList acc
+                        | Some p -> mk acc p
+                    funcName <- mk [name] a
+            reqs
 
 namespace WebSharper
 

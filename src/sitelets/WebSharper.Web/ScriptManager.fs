@@ -76,7 +76,7 @@ type ScriptManager() =
 
     /// Registers a pagelet with the manager.
     member this.Register (id: option<string>) (c: WebSharper.Html.Client.IControl) =
-        Seq.iter nodes.Enqueue c.Requires
+        Seq.iter nodes.Enqueue (c.Requires Shared.Metadata)
         let t = c.GetType()
         let id  = getId id
         let enc = Shared.Json.GetEncoder t
