@@ -214,6 +214,9 @@ type Property =
     /// The name.
     member Name : Name
 
+    /// Parses the property.
+    static member Parse : System.Reflection.PropertyInfo -> Property
+
     /// Constructs a new property with an explicit type and signature.
     static member Create :
         TypeDefinition -> Name -> Type -> Signature -> Property

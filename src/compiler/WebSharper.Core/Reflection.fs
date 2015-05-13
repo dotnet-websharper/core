@@ -558,6 +558,12 @@ type Property =
     static member Create d n t s = Property (d, n, t, s)
     static member CreateReference d n = PropertyReference (d, n)
 
+    static member Parse(p: System.Reflection.PropertyInfo) =
+        let s = [for p in p.GetGetMethod().GetParameters() -> Type.FromType p.ParameterType]
+        let t = Type.FromType p.PropertyType
+        let d = TypeDefinition.FromType p.DeclaringType
+        Property.Create d p.Name t s
+
     override this.ToString() =
         System.String.Format("{0} [{1}]", this.Name, this.DeclaringType)
 

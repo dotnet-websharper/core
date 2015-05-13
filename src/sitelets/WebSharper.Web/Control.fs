@@ -25,6 +25,9 @@ open WebSharper
 module A = WebSharper.Html.Server.Attr
 module H = WebSharper.Html.Server.Html
 module T = WebSharper.Html.Server.Tags
+module M = WebSharper.Core.Metadata
+module R = WebSharper.Core.Reflection
+module P = WebSharper.Core.JavaScript.Packager
 
 /// A base class for defining custom ASP.NET controls. Inherit from this class,
 /// override the Body property and use the new class as a Server ASP.NET
@@ -58,6 +61,69 @@ type Control() =
     interface Html.Client.IControl with
         member this.Body = this.Body
         member this.Id = this.ID
+        member this.Requires meta =
+            let t = this.GetType()
+            let t = if t.IsGenericType then t.GetGenericTypeDefinition() else t
+            [M.TypeNode (R.TypeDefinition.FromType t)] :> seq<_>
 
     override this.Render writer =
         writer.WriteLine("<div id='{0}'></div>", this.ID)
+
+open Microsoft.FSharp.Quotations
+open Microsoft.FSharp.Quotations.Patterns
+
+/// Implements a web control based on a quotation-wrapped top-level body.
+/// Use the function ClientSide to create an InlineControl.
+type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
+    inherit Control()
+
+    let mutable body = ""
+
+    [<System.NonSerialized>]
+    let elt = elt
+
+    [<System.NonSerialized>]
+    let props =
+        match elt :> Expr with
+        | PropertyGet(None, p, []) ->
+            let rp = R.Property.Parse p
+            rp.DeclaringType, rp.Name, Seq.singleton (M.TypeNode rp.DeclaringType)
+        | Call(None, m, []) ->
+            let rm = R.Method.Parse m
+            rm.DeclaringType, rm.Name, Seq.singleton (M.MethodNode rm)
+        | e -> failwithf "Wrong format for InlineControl: expected global variable access, got: %A" e
+
+    [<JavaScript>]
+    override this.Body = JavaScript.JS.Eval(body) :?> _
+
+    interface Html.Client.IControl with
+        [<JavaScript>]
+        member this.Body = this.Body
+        member this.Id = this.ID
+        member this.Requires meta =
+            let declType, name, deps = props
+            body <-
+                match meta.GetAddress declType with
+                | None -> failwith "Couldn't find address for method"
+                | Some a ->
+                    let rec mk acc (a: P.Address) =
+                        let n = a.LocalName.Replace(@"\", @"\\").Replace("'", @"\'")
+                        match a.Parent with
+                        | None -> n + "['" + acc
+                        | Some p -> mk (n + "']['" + acc) p
+                    mk (name + "']()") a
+            deps
+
+namespace WebSharper
+
+[<AutoOpen>]
+module WebExtensions =
+
+    open Microsoft.FSharp.Quotations
+    open WebSharper.Html.Client
+
+    /// Embed the given client-side control body in a server-side control.
+    /// The client-side control body must be either a module-bound or static value,
+    /// or a call to a module-bound function or static method with argument ().
+    let ClientSide (e: Expr<#IControlBody>) =
+        new WebSharper.Web.InlineControl<_>(e)
