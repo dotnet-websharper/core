@@ -58,7 +58,7 @@ module private WebUtils =
 //    let currentSite =
 //        lazy fst (SiteLoading.LoadFromAssemblies())
 
-    let getUri (req: HttpRequest) : Uri =
+    let getUri (req: HttpRequestBase) : Uri =
         match req.ApplicationPath with
         | "" | "/" -> req.Url
         | _ ->
@@ -71,7 +71,7 @@ module private WebUtils =
                 req.Url
 
     /// Converts ASP.NET requests to Sitelet requests.
-    let convertRequest (ctx: HttpContext) : Http.Request =
+    let convertRequest (ctx: HttpContextBase) : Http.Request =
         let METHOD = function
             | "CONNECT" -> Http.Method.Connect
             | "DELETE" -> Http.Method.Delete
@@ -108,12 +108,12 @@ module private WebUtils =
                 let fs = req.Files
                 seq {
                     for i = 1 to fs.Count do
-                        yield HttpPostedFileWrapper(fs.[i-1]) :> _
+                        yield fs.[i-1]
                 }
         }
 
     /// Constructs the sitelet context object.
-    let getContext (site: Sitelet<obj>) (ctx: HttpContext) (request: Http.Request) : Context<obj> =
+    let getContext (site: Sitelet<obj>) (ctx: HttpContextBase) (request: Http.Request) : Context<obj> =
         let appPath = ctx.Request.ApplicationPath
         {
             ApplicationPath = appPath
@@ -138,7 +138,7 @@ module private WebUtils =
         }
 
     /// Writes a response.
-    let respond (site: Sitelet<obj>) (ctx: HttpContext) (req: Http.Request) (action: obj) =
+    let respond (site: Sitelet<obj>) (ctx: HttpContextBase) (req: Http.Request) (action: obj) =
         // Create a context
         let context = getContext site ctx req
         // Handle action
@@ -164,10 +164,10 @@ type HttpHandler(request: Http.Request, action: obj, site: Sitelet<obj>) =
 
     interface IHttpHandler with
         member this.IsReusable = false
-        member this.ProcessRequest(ctx) = this.ProcessRequest(ctx) |> Async.RunSynchronously
+        member this.ProcessRequest(ctx) = this.ProcessRequest(HttpContextWrapper(ctx)) |> Async.RunSynchronously
 
     interface IHttpAsyncHandler with
-        member this.BeginProcessRequest(ctx, cb, _) = beginAction (ctx, cb, null)
+        member this.BeginProcessRequest(ctx, cb, _) = beginAction (HttpContextWrapper(ctx), cb, null)
         member this.EndProcessRequest(result) = endAction result
 
     member this.ProcessRequest(ctx) = processRequest ctx
@@ -175,31 +175,36 @@ type HttpHandler(request: Http.Request, action: obj, site: Sitelet<obj>) =
 /// IIS module, processing the URLs and serving the pages.
 [<Sealed>]
 type HttpModule() =
-    let isNotRemotingRequest (r: HttpRequest) =
-        let getHeader (x: string) =
-            match r.Headers.[x] with
-            | null -> None
-            | x -> Some x
-        not (R.IsRemotingRequest getHeader)
+
+    let siteAndActions = ref None
+
+    let tryGetHandler (ctx: HttpContextBase) =
+        !siteAndActions
+        |> Option.bind (fun (site, actions) ->
+            let request = WebUtils.convertRequest ctx
+            site.Router.Route(request)
+            |> Option.map (fun action ->
+                HttpHandler(request, action, site)))
+
     interface IHttpModule with
         member this.Init app =
-            let (site, actions) = SiteLoading.LoadFromAssemblies(app)
+            siteAndActions := Some (SiteLoading.LoadFromAssemblies(app))
             let handler =
                 new EventHandler(fun x e ->
                     let app = (x :?> HttpApplication)
-                    let ctx = app.Context
-                    let request = WebUtils.convertRequest ctx
-                    if isNotRemotingRequest ctx.Request then
-                        match site.Router.Route(request) with
-                        | None -> ()
-                        | Some action ->
-                            let h = HttpHandler(request, action, site)
+                    let ctx = HttpContextWrapper(app.Context)
+                    if not (RpcHandler.IsRemotingRequest(ctx.Request)) then
+                        tryGetHandler ctx |> Option.iter (fun h ->
                             if HttpRuntime.UsingIntegratedPipeline then
                                 ctx.RemapHandler(h)
                             else
-                                ctx.Handler <- h)
+                                ctx.Handler <- h))
             if HttpRuntime.UsingIntegratedPipeline
             then app.add_PostAuthorizeRequest(handler)
             else app.add_PostMapRequestHandler(handler)
 
         member this.Dispose() = ()
+
+    member this.TryProcessRequest(ctx: HttpContextBase) : option<Async<unit>> =
+        tryGetHandler ctx
+        |> Option.map (fun h -> h.ProcessRequest(ctx))
