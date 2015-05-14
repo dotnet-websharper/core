@@ -27,7 +27,7 @@ open System.Web.Security
 open System.Web
 module R = WebSharper.Core.Remoting
 
-type AspNetFormsUserSession(ctx: HttpContext) =
+type AspNetFormsUserSession(ctx: HttpContextBase) =
 
     let refresh (cookie: HttpCookie) =
         match cookie with
@@ -78,7 +78,7 @@ module private RpcUtil =
 
 [<Sealed>]
 type RpcHandler() =
-    let work (ctx: HttpContext) =
+    let work (ctx: HttpContextBase) =
         let req = ctx.Request
         let resp = ctx.Response
         async {
@@ -121,21 +121,30 @@ type RpcHandler() =
     interface SessionState.IRequiresSessionState
 
     interface IHttpAsyncHandler with
-        member this.BeginProcessRequest(ctx, cb, d) = beginPR (ctx, cb, d)
+        member this.BeginProcessRequest(ctx, cb, d) = beginPR (HttpContextWrapper(ctx), cb, d)
         member this.EndProcessRequest(res) = endPR res
 
     interface IHttpHandler with
         member this.IsReusable = true
-        member this.ProcessRequest(ctx) = this.ProcessRequest(ctx)
+        member this.ProcessRequest(ctx) = this.ProcessRequest(HttpContextWrapper(ctx)) |> Async.RunSynchronously
 
-    member this.ProcessRequest(ctx: HttpContext) =
+    member this.ProcessRequest(ctx: HttpContextBase) =
         work ctx
-        |> Async.RunSynchronously
+
+    static member IsRemotingRequest (r: HttpRequestBase) =
+        let getHeader (x: string) =
+            match r.Headers.[x] with
+            | null -> None
+            | x -> Some x
+        R.IsRemotingRequest getHeader
 
 
 /// The WebSharper RPC HttpModule. Handles RPC requests.
 [<Sealed>]
 type RpcModule() =
+
+    let handler = RpcHandler()
+
     interface IHttpModule with
         member this.Init(app: HttpApplication) =
             let handler =
@@ -149,11 +158,20 @@ type RpcModule() =
                         | v -> Some v
                     if R.IsRemotingRequest getHeader then
                         if HttpRuntime.UsingIntegratedPipeline then
-                            ctx.RemapHandler(RpcHandler())
+                            ctx.RemapHandler(handler)
                         else
-                            ctx.Handler <- RpcHandler())
+                            ctx.Handler <- handler)
             if HttpRuntime.UsingIntegratedPipeline then
                 app.add_PostAuthorizeRequest(handler)
             else
                 app.add_PostMapRequestHandler(handler)
         member this.Dispose() = ()
+
+    member this.TryProcessRequest(ctx: HttpContextBase) : option<Async<unit>> =
+        let getHeader (x: string) =
+            match ctx.Request.Headers.[x] with
+            | null -> None
+            | v -> Some v
+        if R.IsRemotingRequest getHeader then
+            Some (handler.ProcessRequest(ctx))
+        else None
