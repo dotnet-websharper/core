@@ -1144,8 +1144,10 @@ let getEncoding scalar array tuple union record enu map set obj wrap (fo: Format
     let rec get (ta: TAttrs) =
         let derive dD =
             try
-                if ta.Type.IsArray && ta.Type.GetArrayRank() = 1 then
-                    Choice1Of2 (array dD fo ta)
+                if ta.Type.IsArray then
+                    if ta.Type.GetArrayRank() = 1 then
+                        Choice1Of2 (array dD fo ta)
+                    else Choice2Of2 ta.Type
                 elif FST.IsTuple ta.Type then
                     Choice1Of2 (tuple dD fo ta)
                 elif FST.IsUnion (ta.Type, flags) then
