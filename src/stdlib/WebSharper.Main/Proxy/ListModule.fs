@@ -208,7 +208,7 @@ let OfArray<'T> (arr: 'T []) =
 [<Name "ofSeq">]
 let OfSeq (s: seq<'T>) =
     let r = System.Collections.Generic.Stack<_>()
-    let e = Enumerator.Get s
+    use e = Enumerator.Get s
     while e.MoveNext() do
         r.Push e.Current
     let x = r.ToArray()

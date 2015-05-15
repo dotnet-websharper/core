@@ -33,47 +33,55 @@ type IE<'T> = System.Collections.Generic.IEnumerator<'T>
 [<JavaScript>]
 [<Name "WebSharper.Seq.enumFinally">]
 let EnumerateThenFinally (s: seq<'T>) (f: unit -> unit) : seq<'T> =
-    Enumerable.Of (fun () ->
-        let e = try Enumerator.Get s with e -> f(); raise e
-        Enumerator.New () (fun x ->
-            try
-                if e.MoveNext() then
-                    x.Current <- e.Current
-                    true
-                else
-                    f ()
-                    false
-            with e ->
-                f ()
-                raise e))
+    Enumerable.Of <| fun () ->
+        let enum = try Enumerator.Get s with e -> f(); raise e
+        Enumerator.NewDisposing ()(fun _ -> f(); enum.Dispose()) <| fun e ->
+            if enum.MoveNext() then
+                e.Current <- enum.Current
+                true
+            else
+                false
 
 [<JavaScript>]
 [<Name "WebSharper.Seq.enumUsing">]
 let EnumerateUsing<'T1,'T2,'T3 when 'T1 :> System.IDisposable
                                 and 'T2 :> seq<'T3>>
         (x: 'T1) (f: 'T1 -> 'T2) : seq<'T3> =
-    f x :> _
+
+    Enumerable.Of <| fun () ->
+        let enum = try Enumerator.Get (f x) with e -> x.Dispose(); raise e
+        Enumerator.NewDisposing () (fun _ -> x.Dispose(); enum.Dispose()) <| fun e ->
+            if enum.MoveNext() then
+                e.Current <- enum.Current
+                true
+            else
+                false
 
 [<JavaScript>]
 [<Name "WebSharper.Seq.enumWhile">]
 let EnumerateWhile (f: unit -> bool) (s: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->
-        let rec next (en: Enumerator.T<option<IE<_>>,'T>) =
+        let rec next (en: Enumerator.T<IE<_>,'T>) =
             match en.State with
-            | None ->
+            | null ->
                 if f () then
-                    en.State <- Some (Enumerator.Get s)
+                    en.State <- Enumerator.Get s
                     next en
                 else
                     false
-            | Some e ->
+            | e ->
                 if e.MoveNext() then
                     en.Current <- e.Current
                     true
                 else
-                    en.State <- None
+                    e.Dispose()
+                    en.State <- null
                     next en
-        Enumerator.New None next)
+        Enumerator.NewDisposing null (fun en ->
+            match en.State with
+            | null -> ()
+            | e -> (e : IE<_>).Dispose()) 
+            next)
 
 [<JavaScript>]
 [<Name "WebSharper.Control.createEvent">]

@@ -27,17 +27,24 @@ type IE<'T> = System.Collections.Generic.IEnumerator<'T>
 /// Represents an unfolding enumerator.
 [<Name "T">]
 [<Sealed>]
-type T<'S,'T> [<JavaScript>] (s: 'S, c: 'T, n: T<'S,'T> -> bool) =
+type T<'S,'T> [<JavaScript>] (s: 'S, c: 'T, n: T<'S,'T> -> bool, d: T<'S,'T> -> unit) =
     [<JavaScript>] 
     member this.MoveNext() = n this
     member this.State with [<Inline; JavaScript>] get() = s and [<Inline; JavaScript>] set (v: 'S) = this?s <- v
     member this.Current with [<JavaScript>] get() = c and [<Inline; JavaScript>] set (v: 'T) = this?c <- v
+    [<JavaScript>] 
+    member this.Dispose() = d this
 
 /// Constructs a new `IEnumerator` by unfolding a function.
 [<Inline>]
 [<JavaScript>]
 let New<'S,'T> (state: 'S) (next: T<'S,'T> -> bool) =
-    As<IE<'T>> (new T<'S,'T>(state, As null, next)) 
+    As<IE<'T>> (new T<'S,'T>(state, As null, next, ignore)) 
+
+[<Inline>]
+[<JavaScript>]
+let NewDisposing<'S,'T> (state: 'S) dispose (next: T<'S,'T> -> bool) =
+    As<IE<'T>> (new T<'S,'T>(state, As null, next, dispose))
 
 [<Inline "$x.GetEnumerator()">]
 let getEnumerator (x: obj) : IE<'T> = X

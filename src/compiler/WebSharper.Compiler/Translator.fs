@@ -71,23 +71,6 @@ let callAt addr args =
         | P.Local (addr, name) -> (glob addr, name)
     call obj name args
 
-let eliminateDispose q =
-    match q with
-    | Q.TryFinally
-      (
-        body,
-        Q.IfThenElse (
-            Q.TypeTest (iDisposable, _),
-            Q.Call (dispose, _),
-            _
-        )
-      ) when iDisposable.FullName = "System.IDisposable"
-          && dispose.Entity.DeclaringType.FullName = "System.IDisposable"
-          && dispose.Entity.Name = "Dispose" ->
-        body
-    | _ ->
-        q
-
 let fieldNameOpt (meta: Metadata.T) (n: string) (t: R.TypeDefinition) =
     match meta.DataType t with
     | Some (M.Record (_, fs)) | Some (M.Object fs) | Some (M.Class (_, _, fs)) ->
@@ -442,10 +425,8 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             error "Quotations are not supported."
         | Q.Sequential (x, y) ->
             C.Sequential (!x, !y)
-        | Q.TryFinally (x, y) as q ->
-            match eliminateDispose q with
-            | Q.TryFinally (x, y) -> C.TryFinally (!x, !y)
-            | q -> !q
+        | Q.TryFinally (x, y) ->
+            C.TryFinally (!x, !y)
         | Q.TryWith (x, _, _, v, y) ->
             let v = !^v
             C.TryWith (!x, v, tExpr (Some v) true y)

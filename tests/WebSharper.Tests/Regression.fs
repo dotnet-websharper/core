@@ -302,5 +302,19 @@ let Tests =
         Test "Bug #352" {
             Equal (Bug352.B().Foo()) 2    
         }
+                 
 
+        Test "Bug #396" {
+            let disposed = ref false
+            let mySeq =
+                seq {
+                    try yield 0
+                    finally disposed := true
+                }
+            do
+                try for x in mySeq do
+                        failwith ""
+                with _ -> ()
+            True !disposed 
+        }
     }

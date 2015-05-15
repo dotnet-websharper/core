@@ -303,10 +303,6 @@ let rec While (g: unit -> bool, c: C<unit>) : C<unit> =
 
 [<JavaScript>]
 let rec For (s: seq<'T>, b: 'T -> C<unit>) =
-    let ie = s.GetEnumerator()
-    While (fun () -> ie.MoveNext()
-        , Delay (fun () -> b ie.Current))
-//    // if IEnumerator<_> would always have IDisposable
-//    Using (s.GetEnumerator()) (fun ie ->
-//        While (fun () -> ie.MoveNext())
-//            (Delay (fun () -> b ie.Current)))
+    Using (s.GetEnumerator(), fun ie -> 
+        While ((fun () -> ie.MoveNext()), 
+            Delay (fun () -> b ie.Current)))

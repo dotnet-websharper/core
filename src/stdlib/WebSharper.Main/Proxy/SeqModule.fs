@@ -36,7 +36,7 @@ let private insufficient () =
 let Append (s1: seq<'T>) (s2: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->
         let e1 = Enumerator.Get s1
-        Enumerator.New e1 (fun x ->
+        Enumerator.NewDisposing e1 (fun _ -> e1.Dispose()) (fun x ->
             if x.State.MoveNext() then
                 x.Current <- x.State.Current
                 true
@@ -49,7 +49,7 @@ let Append (s1: seq<'T>) (s2: seq<'T>) : seq<'T> =
                 else
                     false
             else
-                false))
+                false)) 
 
 [<JavaScript>]
 [<Name "average">]
@@ -90,7 +90,7 @@ let Cache<'T> (s: seq<'T>) : seq<'T> =
                     true
                 else
                     false
-        Enumerator.New 0 next
+        Enumerator.NewDisposing 0 (fun _ -> enum.Dispose()) next
 
 /// IEnumerable is not supported.
 [<Inline "$i">]
@@ -147,9 +147,15 @@ let Concat (ss: seq<#seq<'T>>) : seq<'T> =
                     st.Current <- innerE.Current
                     true
                 else
+                    st.Dispose()
                     st.State <- null
                     next st
-        Enumerator.New null next)
+        Enumerator.NewDisposing null (fun st -> 
+            match st.State with
+            | null -> ()
+            | innerE -> (innerE : Enumerator.IE<'T>).Dispose()
+            outerE.Dispose()) 
+            next)
 
 [<JavaScript>]
 [<Name "countBy">]
@@ -187,7 +193,7 @@ let DistinctBy<'T,'K when 'K : equality>
     Enumerable.Of <| fun () ->
         let enum        = Enumerator.Get s
         let seen        = obj ()
-        Enumerator.New () <| fun e ->
+        Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
             if enum.MoveNext() then
                 let mutable cur = enum.Current
                 let h c         = As<string> (hash (f c))
@@ -233,7 +239,7 @@ let Exists2 p (s1: seq<_>) (s2: seq<_>) =
 let Filter (f: 'T -> bool) (s: seq<'T>) =
     Enumerable.Of <| fun () ->
         let enum = Enumerator.Get s
-        Enumerator.New () <| fun e ->
+        Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
             let mutable loop = enum.MoveNext()
             let mutable c    = enum.Current
             let mutable res  = false
@@ -369,7 +375,7 @@ let Length (s: seq<_>) =
 let Map (f: 'T -> 'U) (s: seq<'T>) : seq<'U> =
     Enumerable.Of <| fun () ->
         let en = Enumerator.Get s
-        Enumerator.New () <| fun e ->
+        Enumerator.NewDisposing () (fun _ -> en.Dispose()) <| fun e ->
             if en.MoveNext() then
                 e.Current <- f en.Current
                 true
@@ -387,7 +393,7 @@ let Map2 (f: 'T -> 'U -> 'V) (s1: seq<'T>) (s2: seq<'U>) : seq<'V> =
     Enumerable.Of <| fun () ->
         let e1 = Enumerator.Get s1
         let e2 = Enumerator.Get s2
-        Enumerator.New () <| fun e ->
+        Enumerator.NewDisposing () (fun _ -> e1.Dispose(); e2.Dispose()) <| fun e ->
             if e1.MoveNext() && e2.MoveNext() then
                 e.Current <- f e1.Current e2.Current
                 true
@@ -469,7 +475,7 @@ let Reduce (f: 'T -> 'T -> 'T) (source: seq<'T>) : 'T =
 let Scan<'T,'S> (f: 'S -> 'T -> 'S) (x: 'S) (s: seq<'T>) : seq<'S> =
     Enumerable.Of <| fun () ->
         let en = Enumerator.Get s
-        Enumerator.New false <| fun e ->
+        Enumerator.NewDisposing false (fun _ -> en.Dispose()) <| fun e ->
             if e.State then
                 if en.MoveNext() then
                     e.Current <- f e.Current en.Current
@@ -504,9 +510,10 @@ let SkipWhile (f: 'T -> bool) (s: seq<'T>) : seq<'T> =
         while e.MoveNext() && f e.Current do
             empty <- false
         if empty then
+            e.Dispose()
             Seq.empty.GetEnumerator()
         else
-            Enumerator.New true (fun x ->
+            Enumerator.NewDisposing true (fun _ -> e.Dispose()) (fun x ->
                 if x.State then
                     x.State <- false
                     x.Current <- e.Current
@@ -545,7 +552,7 @@ let SumBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
 let Take (n: int) (s: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->
         let e = Enumerator.Get s
-        Enumerator.New 0 (fun enum ->
+        Enumerator.NewDisposing 0 (fun _ -> e.Dispose()) (fun enum ->
             if enum.State >= n then
                 false
             else
