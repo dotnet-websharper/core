@@ -24,9 +24,9 @@ open System
 
 module Config =
     let PackageId = "WebSharper"
-    let NumericVersion = Version("3.0.0.0")
+    let NumericVersion = Version("3.1.0.0")
     let VersionSuffix = None
-    let PackageVerion = "3.0"
+    let PackageVerion = "3.1"
     let Company = "IntelliFactory"
     let Description = "F#-to-JavaScript compiler and web application framework"
     let LicenseUrl = "http://websharper.com/licensing"
