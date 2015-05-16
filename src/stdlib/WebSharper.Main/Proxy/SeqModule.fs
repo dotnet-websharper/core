@@ -32,24 +32,35 @@ let private insufficient () =
     failwith "The input sequence has an insufficient number of elements."
 
 [<JavaScript>]
+[<Inline>]
+let safeDispose (x: System.IDisposable) =
+    if x <> null then x.Dispose()
+
+[<JavaScript>]
 [<Name "append">]
 let Append (s1: seq<'T>) (s2: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->
         let e1 = Enumerator.Get s1
-        Enumerator.NewDisposing e1 (fun _ -> e1.Dispose()) (fun x ->
+        let first = ref true
+        Enumerator.NewDisposing e1 (fun x -> safeDispose x.State) (fun x ->
             if x.State.MoveNext() then
                 x.Current <- x.State.Current
                 true
-            elif x.State ===. e1 then
-                let e2 = s2.GetEnumerator()
-                x.State <- e2
-                if e2.MoveNext() then
-                    x.Current <- e2.Current
-                    true
-                else
-                    false
-            else
-                false)) 
+            else 
+                safeDispose x.State
+                x.State <- null
+                if !first then
+                    first := false
+                    x.State <- Enumerator.Get s2
+                    if x.State.MoveNext() then
+                        x.Current <- x.State.Current
+                        true
+                    else
+                        x.State.Dispose()
+                        x.State <- null
+                        false
+                else 
+                    false)) 
 
 [<JavaScript>]
 [<Name "average">]
@@ -75,7 +86,7 @@ let AverageBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
 [<Name "cache">]
 let Cache<'T> (s: seq<'T>) : seq<'T> =
     let cache = new System.Collections.Generic.Queue<'T>()
-    let enum  = Enumerator.Get s
+    let enum  = ref (Enumerator.Get s)
     Enumerable.Of <| fun () ->
         let next (e: Enumerator.T<_,_>) =
             if e.State + 1 < cache.Count then
@@ -83,14 +94,18 @@ let Cache<'T> (s: seq<'T>) : seq<'T> =
                 e.Current <- (?) cache (As e.State)
                 true
             else
-                if enum.MoveNext() then
+                let en = !enum
+                if en = null then false
+                elif en.MoveNext() then
                     e.State   <- e.State + 1
-                    e.Current <- enum.Current
+                    e.Current <- en.Current
                     cache.Enqueue e.Current
                     true
                 else
+                    en.Dispose()
+                    enum := null
                     false
-        Enumerator.NewDisposing 0 (fun _ -> enum.Dispose()) next
+        Enumerator.New 0 next
 
 /// IEnumerable is not supported.
 [<Inline "$i">]
@@ -141,6 +156,7 @@ let Concat (ss: seq<#seq<'T>>) : seq<'T> =
                     st.State <- Enumerator.Get outerE.Current
                     next st
                 else
+                    outerE.Dispose()
                     false
             | innerE ->
                 if innerE.MoveNext() then
@@ -151,10 +167,8 @@ let Concat (ss: seq<#seq<'T>>) : seq<'T> =
                     st.State <- null
                     next st
         Enumerator.NewDisposing null (fun st -> 
-            match st.State with
-            | null -> ()
-            | innerE -> (innerE : Enumerator.IE<'T>).Dispose()
-            outerE.Dispose()) 
+            safeDispose st.State 
+            safeDispose outerE) 
             next)
 
 [<JavaScript>]
@@ -550,20 +564,22 @@ let SumBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
 [<JavaScript>]
 [<Name "take">]
 let Take (n: int) (s: seq<'T>) : seq<'T> =
+    if n <= 0 then
+        failwith "The input must be non-negative."
     Enumerable.Of (fun () ->
-        let e = Enumerator.Get s
-        Enumerator.NewDisposing 0 (fun _ -> e.Dispose()) (fun enum ->
-            if enum.State >= n then
+        let e = ref (Enumerator.Get s)
+        Enumerator.NewDisposing 0 (fun _ -> safeDispose !e) (fun enum ->
+            if enum.State = n then
                 false
             else
-                if e.MoveNext() then
+                let en = !e
+                if en = null then false
+                elif en.MoveNext() then
                     enum.State <- enum.State + 1
-                    enum.Current <- e.Current
+                    enum.Current <- en.Current
                     true
                 else
-                    e.Dispose()
-                    enum.State <- n
-                    false
+                    insufficient() 
         )
     )
 

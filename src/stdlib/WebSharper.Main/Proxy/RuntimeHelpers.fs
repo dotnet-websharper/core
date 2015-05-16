@@ -31,11 +31,16 @@ open WebSharper.JavaScript
 type IE<'T> = System.Collections.Generic.IEnumerator<'T>
 
 [<JavaScript>]
+[<Inline>]
+let safeDispose (x: System.IDisposable) =
+    if x <> null then x.Dispose()
+
+[<JavaScript>]
 [<Name "WebSharper.Seq.enumFinally">]
 let EnumerateThenFinally (s: seq<'T>) (f: unit -> unit) : seq<'T> =
     Enumerable.Of <| fun () ->
         let enum = try Enumerator.Get s with e -> f(); raise e
-        Enumerator.NewDisposing ()(fun _ -> f(); enum.Dispose()) <| fun e ->
+        Enumerator.NewDisposing () (fun _ -> enum.Dispose(); f()) <| fun e ->
             if enum.MoveNext() then
                 e.Current <- enum.Current
                 true
@@ -50,7 +55,7 @@ let EnumerateUsing<'T1,'T2,'T3 when 'T1 :> System.IDisposable
 
     Enumerable.Of <| fun () ->
         let enum = try Enumerator.Get (f x) with e -> x.Dispose(); raise e
-        Enumerator.NewDisposing () (fun _ -> x.Dispose(); enum.Dispose()) <| fun e ->
+        Enumerator.NewDisposing () (fun _ -> enum.Dispose(); x.Dispose()) <| fun e ->
             if enum.MoveNext() then
                 e.Current <- enum.Current
                 true
@@ -77,11 +82,7 @@ let EnumerateWhile (f: unit -> bool) (s: seq<'T>) : seq<'T> =
                     e.Dispose()
                     en.State <- null
                     next en
-        Enumerator.NewDisposing null (fun en ->
-            match en.State with
-            | null -> ()
-            | e -> (e : IE<_>).Dispose()) 
-            next)
+        Enumerator.NewDisposing null (fun en -> safeDispose en.State) next)
 
 [<JavaScript>]
 [<Name "WebSharper.Control.createEvent">]
