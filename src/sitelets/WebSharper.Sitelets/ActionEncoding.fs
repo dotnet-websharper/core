@@ -858,7 +858,10 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
             let tryDecode p ks : ReadResult<obj> =
                 ks |> Seq.collect (fun k ->
                     ds.[k].Decode p)
-            p.Read () |> Option.map (fun (name, p) ->
+            if p.IsAtEnd then
+                Some ("", p)
+            else p.Read ()
+            |> Option.map (fun (name, p) ->
                 match d.TryGetValue name with
                 | false, _ -> Nothing
                 | true, m ->
