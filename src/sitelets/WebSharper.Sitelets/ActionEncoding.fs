@@ -39,15 +39,30 @@ type DecodeResult<'Action> =
         | MissingQueryParameter (a, _)
         | MissingFormData (a, _) -> a
 
-type DecodeResult =
+type ReadParameters =
+    {
+        Request : Http.Request
+        Fragments : string[]
+        Pos : int
+    }
 
-    static member map (f: 'a -> 'b) (x: option<DecodeResult<'a>>) : option<DecodeResult<'b>> =
-        x |> Option.map (function
-            | Success x -> Success (f x)
-            | InvalidMethod (x, m) -> InvalidMethod (f x, m)
-            | InvalidJson x -> InvalidJson (f x)
-            | MissingQueryParameter (x, p) -> MissingQueryParameter (f x, p)
-            | MissingFormData (x, p) -> MissingFormData (f x, p))
+    member this.Read() =
+        if this.Pos < this.Fragments.Length then
+            Some (this.Fragments.[this.Pos], { this with Pos = this.Pos + 1 })
+        else None
+
+    member this.IsAtEnd =
+        { this.Pos .. this.Fragments.Length - 1 }
+        |> Seq.forall (fun i -> this.Fragments.[i] = "")
+
+    static member Make req frags =
+        {
+            Request = req
+            Fragments = frags
+            Pos = 0
+        }
+
+type DecodeResult =
 
     static member unbox (x: DecodeResult<obj>) : DecodeResult<'b> =
         match x with
@@ -57,26 +72,37 @@ type DecodeResult =
         | MissingQueryParameter (x, p) -> MissingQueryParameter (unbox x, p)
         | MissingFormData (x, p) -> MissingFormData (unbox x, p)
 
-let (>>=) (x: option<DecodeResult<'a>>) (f: 'a -> option<DecodeResult<'b>>) : option<DecodeResult<'b>> =
-    match x with
-    | None -> None
-    | Some (Success x) -> f x
-    | Some (InvalidMethod (x, m)) ->
-        f x |> Option.map (function
-            | InvalidMethod (y, m) -> InvalidMethod (y, m)
-            | r -> InvalidMethod (r.Action, m))
-    | Some (InvalidJson x) ->
-        f x |> Option.map (function
-            | Success y -> InvalidJson y
-            | r -> r)
-    | Some (MissingQueryParameter (x, p)) ->
-        f x |> Option.map (function
-            | Success y -> MissingQueryParameter (y, p)
-            | r -> r)
-    | Some (MissingFormData (x, p)) ->
-        f x |> Option.map (function
-            | Success y -> MissingFormData (y, p)
-            | r -> r)
+type ReadResult<'a> = seq<DecodeResult<'a> * ReadParameters>
+
+type ReadResult =
+
+    static member map (f: 'a -> 'b) (x: ReadResult<'a>) : ReadResult<'b> =
+        x |> Seq.map (function
+            | Success x, p -> Success (f x), p
+            | InvalidMethod (x, m), p -> InvalidMethod (f x, m), p
+            | InvalidJson x, p -> InvalidJson (f x), p
+            | MissingQueryParameter (x, pa), p -> MissingQueryParameter (f x, pa), p
+            | MissingFormData (x, pa), p -> MissingFormData (f x, pa), p)
+
+let (>>=) (x: ReadResult<'a>) (f: ReadParameters -> 'a -> ReadResult<'b>) : ReadResult<'b> =
+    x |> Seq.collect (function
+        | Success x, p -> f p x
+        | InvalidMethod (x, m), p ->
+            f p x |> Seq.map (function
+                | InvalidMethod (y, m), p -> InvalidMethod (y, m), p
+                | r, p -> InvalidMethod (r.Action, m), p)
+        | InvalidJson x, p ->
+            f p x |> Seq.map (function
+                | Success y, p -> InvalidJson y, p
+                | r -> r)
+        | MissingQueryParameter (x, pa), p ->
+            f p x |> Seq.map (function
+                | Success y, p -> MissingQueryParameter (y, pa), p
+                | r -> r)
+        | MissingFormData (x, pa), p ->
+            f p x |> Seq.map (function
+                | Success y, p -> MissingFormData (y, pa), p
+                | r -> r))
 
 let isUnreserved isLast c =
     match c with
@@ -538,34 +564,11 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
         let wt = writePrimitiveType t
         S.Make(true, fun w q x -> w.Add(wt x); true)
 
-type Parameters =
-    {
-        Request : Http.Request
-        Fragments : string[]
-        mutable Pos : int
-    }
-
-    member this.Read() =
-        if this.Pos + 1 < this.Fragments.Length then
-            this.Pos <- this.Pos + 1; Some this.Fragments.[this.Pos]
-        else None
-
-    member this.IsAtEnd =
-        { this.Pos + 1 .. this.Fragments.Length - 1 }
-        |> Seq.forall (fun i -> this.Fragments.[i] = "")
-
-    static member Make req frags =
-        {
-            Request = req
-            Fragments = frags
-            Pos = -1
-        }
-
 type D =
     {
         ReadsJson : unit -> bool
         QueryParams : unit -> Set<string>
-        Decode : Parameters -> option<DecodeResult<obj>>
+        Decode : ReadParameters -> ReadResult<obj>
     }
     static member Make(json, query, decode) =
         {
@@ -579,6 +582,13 @@ type D =
             QueryParams = fun () -> query
             Decode = decode
         }
+
+let Just (p: ReadParameters) (x: DecodeResult<obj>) = Seq.singleton (x, p)
+let Nothing = Seq.empty<DecodeResult<obj> * ReadParameters>
+let ofOption (p: ReadParameters) (x: option<DecodeResult<obj>>) =
+    match x with
+    | None -> Nothing
+    | Some x -> Just p x
 
 let getUnionCaseMethods (c: Reflection.UnionCaseInfo) =
     let s =
@@ -636,8 +646,9 @@ let getQueryParamParser (f: Field) =
         | Some parse ->
             D.Make(false, Set.singleton fn, fun p ->
                 match parse p.Request.Get.[fn] with
-                | Some (Success _) as x -> x
-                | _ -> Some (MissingQueryParameter(defaultValue, fn)))
+                | Some (Success _ as x) -> x
+                | _ -> MissingQueryParameter(defaultValue, fn)
+                |> Just p)
             |> Some
     else None
 
@@ -651,8 +662,9 @@ let getFormDataParser (f: Field) =
         | Some parse ->
             D.Make(false, Set.singleton fn, fun p ->
                 match parse p.Request.Post.[fn] with
-                | Some (Success _) as x -> x
-                | _ -> Some (MissingFormData(defaultValue, fn)))
+                | Some (Success _ as x) -> x
+                | _ -> MissingFormData(defaultValue, fn)
+                |> Just p)
             |> Some
     else None
 
@@ -680,20 +692,22 @@ let getJsonParser (f: Field) =
             with
                 | Json.ReadException
                 | Json.DecoderException -> InvalidJson defaultValue
-            |> Some)
+            |> Just p)
         |> Some
     else None
 
-let parseRemainingStrings (eD: D) k (p: Parameters) =
-    let data = System.Collections.ArrayList()
-    let rec loop() =
-        match eD.Decode p with
-        | Some (Success x) ->
-            data.Add(x) |> ignore
-            loop()
-        | None -> Some (Success (box (k (data.ToArray()))))
-        | err -> err
-    loop()
+type Arr = System.Collections.ArrayList
+
+let parseRemainingStrings (eD: D) k (p: ReadParameters) =
+    let rec loop (p: ReadParameters) (a: Arr) =
+        if p.IsAtEnd then
+            Just p (Success (box (k (a.ToArray()))))
+        else
+            eD.Decode p >>= fun p fragment ->
+                let a = a.Clone() :?> Arr
+                a.Add(fragment) |> ignore
+                loop p a
+    loop p (new Arr())
 
 let parseWildcardSeq (eT: System.Type) (eD: D) (sP: ISequenceProcessor) : D =
     if eD.ReadsJson() then raise (NoFormatError eT)
@@ -718,19 +732,21 @@ let parseField getD (f: Field) =
                 | Wildcard.None ->
                     match tryParsePrimitiveField f false with
                     | Some parse ->
-                        D.Make(false, Set.empty, fun (p: Parameters) ->
-                            parse <| p.Read())
+                        D.Make(false, Set.empty, fun (p: ReadParameters) ->
+                            match p.Read() with
+                            | None -> parse None |> ofOption p
+                            | Some (x, p) -> parse (Some x) |> ofOption p)
                     | None -> getD f.Type
 
 let getD (getD: System.Type -> D) (t: System.Type) : D =
     let tryParse parse : D =
-        D.Make(false, Set.empty, fun (p: Parameters) ->
+        D.Make(false, Set.empty, fun (p: ReadParameters) ->
             match p.Read () with
-            | Some s ->
+            | Some (s, p) ->
                 match parse s with
-                | true, x -> Some (Success (x :> obj))
-                | _ -> None
-            | None -> None)
+                | true, x -> Just p (Success (x :> obj))
+                | _ -> Nothing
+            | None -> Nothing)
     let parseInt = tryParse System.Int32.TryParse
     let parseTuple t mk (ds: D[]) : D =
         let k = Array.length ds
@@ -750,32 +766,32 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
             else raise (NoFormatError t)
         D.Make(json, queryParams, fun p ->
             let xs : obj [] = Array.create k null
-            let rec loop x =
-                match x with
-                | i when i = k -> Some (Success (mk xs))
-                | i ->
+            let rec loop p i =
+                if i = k then
+                    Just p (Success (mk xs))
+                else
                     ds.[i].Decode p
-                    >>= fun x ->
+                    >>= fun p x ->
                         xs.[i] <- x
-                        loop (i + 1)
-            loop 0)
+                        loop p (i + 1)
+            loop p 0)
     let parseArray eT (eD: D) : D =
         if eD.ReadsJson() then raise (NoFormatError eT)
         D.Make(false, Set.empty, fun p ->
             parseInt.Decode p
-            >>= function
+            >>= fun p -> function
             | (:? int as k) ->
                 let data = System.Array.CreateInstance(eT, k)
-                let rec loop x =
+                let rec loop p x =
                     match x with
-                    | i when i = k -> Some (Success (box data))
+                    | i when i = k -> Just p (Success (box data))
                     | i ->
                         eD.Decode p
-                        >>= fun obj ->
+                        >>= fun p obj ->
                             data.SetValue(obj, i)
-                            loop (i + 1)
-                if k >= 0 then loop 0 else None
-            | _ -> None)
+                            loop p (i + 1)
+                if k >= 0 then loop p 0 else Nothing
+            | _ -> Nothing)
     match t with
     | Enum uT ->
         let toObj =
@@ -783,7 +799,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                 .GetMethod("ToObject", [|typeof<System.Type>; uT|])
         let f = getD uT
         D.Make(false, Set.empty, fun p ->
-            f.Decode p |> DecodeResult.map (fun x -> toObj.Invoke(null, [|t; x|])))
+            f.Decode p |> ReadResult.map (fun x -> toObj.Invoke(null, [|t; x|])))
     | Array eT ->
         if t.GetArrayRank() > 1 then
             raise (NoFormatError t)
@@ -796,7 +812,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
         let f = parseArray eT eD
         D.Make(false, Set.empty, fun p ->
             f.Decode p
-            |> DecodeResult.map (fun x -> sP.FromSequence (x :?> _)))
+            |> ReadResult.map (fun x -> sP.FromSequence (x :?> _)))
     | Tuple (e, _, c) ->
         parseTuple t c (Array.map getD e)
     | Record (fs, _, c) ->
@@ -816,7 +832,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                 fun x -> DecodeResult<obj>.Success(unbox.Invoke(null, [| x |]))
 
             D.Make(d.ReadsJson, d.QueryParams, fun p ->
-                d.Decode p |> Option.map mkSuccess)
+                d.Decode p |> Seq.map (fun (x, p) -> mkSuccess x, p))
         else
         let d = Dictionary<string, Map<option<Http.Method>, list<int>>>()
         let ds =
@@ -830,51 +846,52 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                     (existing, allowedMeths)
                     ||> Seq.fold (fun map m ->
                         let k = (Option.map Http.Method.OfString m)
-                        Map.add k (i :: defaultArg (map.TryFind k) []) map)
+                        Map.add k (defaultArg (map.TryFind k) [] @ [i]) map)
                 let fields = c.GetFields()
                 parseTuple t (uC c)
                     (fields |> Array.mapi (fun i f ->
                         parseField getD (UnionCaseField(c, f, i = fields.Length - 1))))
             )
         let json() = ds |> Array.exists (fun d -> d.ReadsJson())
-        D.Make(json, (fun () -> Set.empty), fun p ->
-            let tryDecode(ks) =
-                (ks, None) ||> List.foldBack (fun k s ->
-                    match s with
-                    | Some (Success _, _) -> s
-                    | _ ->
-                        let p' = { p with Pos = p.Pos }
-                        ds.[k].Decode p' |> Option.map (fun r -> r, p'))
-                |> Option.map (fun (r, p') ->
-                    p.Pos <- p'.Pos
-                    r)
-            p.Read () |> Option.bind (fun name ->
+        D.Make(json, (fun () -> Set.empty), fun (p: ReadParameters) ->
+            let tn = t.FullName
+            let tryDecode p ks : ReadResult<obj> =
+                ks |> Seq.collect (fun k ->
+                    ds.[k].Decode p)
+            p.Read () |> Option.map (fun (name, p) ->
                 match d.TryGetValue name with
-                | true, d ->
+                | false, _ -> Nothing
+                | true, m ->
                     // Try to find a union case for the exact method searched
-                    match d.TryFind (Some p.Request.Method) with
-                    | Some ks -> tryDecode ks
+                    match m.TryFind (Some p.Request.Method) with
+                    | Some ks -> tryDecode p ks
                     | None ->
                         // Try to find None, ie. a non-method-specific union case
-                        match d.TryFind None with
-                        | Some ks -> tryDecode ks
+                        match m.TryFind None with
+                        | Some ks -> tryDecode p ks
                         | None ->
                             // This action doesn't parse, but try to find another action
                             // with the same name to pass to InvalidMethod
-                            d |> Map.tryPick (fun _ -> function [] -> None | (k :: _) -> ds.[k].Decode p)
-                            |> Option.map (function
-                                | Success a
-                                | MissingQueryParameter (a, _)
-                                | MissingFormData (a, _)
-                                | InvalidJson a -> InvalidMethod (a, p.Request.Method.ToString())
-                                | InvalidMethod (a, m) -> InvalidMethod (a, m))
-                | false, _ -> None))
+                            m |> Map.tryPick (fun _ -> function
+                                | [] -> None
+                                | (k :: _) -> Some (ds.[k].Decode p))
+                            |> Option.map (Seq.map (function
+                                | Success a, p
+                                | MissingQueryParameter (a, _), p
+                                | MissingFormData (a, _), p
+                                | InvalidJson a, p -> InvalidMethod (a, p.Request.Method.ToString()), p
+                                | InvalidMethod (a, m), p -> InvalidMethod (a, m), p))
+                            |> function None -> Nothing | Some s -> s)
+            |> function None -> Nothing | Some s -> s)
     | Other t ->
         let parse = parsePrimitiveType t
-        D.Make(false, Set.empty, fun (p: Parameters) ->
+        D.Make(false, Set.empty, fun (p: ReadParameters) ->
             match p.Read () with
-            | Some s -> parse s |> Option.map Success
-            | None -> None)
+            | Some (s, p) ->
+                match parse s with
+                | None -> Nothing
+                | Some s -> Just p (Success s)
+            | None -> Nothing)
 
 let memoFix delay f =
     let cache = System.Collections.Generic.Dictionary()
@@ -896,10 +913,9 @@ type Format<'T> =
         show : obj -> option<string>
     }
 
-    member this.Read(x, req) =
-        this.read x req >>= function
-            | (:? 'T as r) -> Some (Success r)
-            | _ -> None
+    member this.Read(x, req) : option<DecodeResult<'T>> =
+        this.read x req
+        |> Option.map DecodeResult.unbox
 
     member this.Show(x: 'T) =
         this.show (x :> obj)
@@ -928,10 +944,11 @@ type Factory() =
             read = fun input req ->
                 let sb = System.Text.StringBuilder 128
                 if input = null then None else
-                    let parts = input.Split '/'
-                    let pars = Parameters.Make req parts
-                    let parsed = d.Decode pars
-                    if pars.IsAtEnd then parsed else None
+                    input.Split '/'
+                    |> ReadParameters.Make req
+                    |> d.Decode
+                    |> Seq.tryPick (fun (x, p) ->
+                        if p.IsAtEnd then Some x else None)
             show = fun value ->
                 let sb = System.Text.StringBuilder 128
                 let q = List()
