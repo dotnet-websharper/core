@@ -261,6 +261,27 @@ type Action =
 // Returned Content:    (determined by Sitelet.Infer)
 ```
 
+* If several cases have the same `CompiledName`, then parsing tries them in the order in which they are declared until one of them matches:
+
+```fsharp
+type Action =
+  | [<CompiledName "blog">] AllArticles
+  | [<CompiledName "blog">] ArticleById of id: int
+  | [<CompiledName "blog">] ArticleBySlug of slug: string
+
+// Accepted Request:    GET /blog
+// Parsed Action:       AllArticles
+// Returned Content:    (determined by Sitelet.Infer)
+//
+// Accepted Request:    GET /blog/123
+// Parsed Action:       ArticleById 123
+// Returned Content:    (determined by Sitelet.Infer)
+//
+// Accepted Request:    GET /blog/my-article
+// Parsed Action:       ArticleBySlug "my-article"
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
 * `[<Query("arg1", "arg2", ...)>]` on a union case indicates that the fields with the given names must be parsed as GET query parameters instead of path segments. The value of this field must be either a base type (number, string) or an option of a base type (in which case the parameter is optional).
 
 ```fsharp
@@ -353,6 +374,47 @@ and BlogData =
 // Returned Content:    (determined by Sitelet.Infer)
 ```
 
+* `[<FormData("arg1", "arg2", ...)>]` on a union case indicates that the fields with the given names must be parsed from the body as form data (`application/x-www-form-urlencoded` or `multipart/form-data`) instead of path segments. The value of this field must be either a base type (number, string) or an option of a base type (in which case the parameter is optional).
+
+```fsharp
+type Action =
+    | [<FormData("id", "slug")>] BlogArticle of id: int * slug: string option
+
+// Accepted Request:    POST /BlogArticle
+//                      Content-Type: application/x-www-form-urlencoded
+//
+//                      id=1423&slug=some-article-slug
+//
+// Parsed Action:       BlogArticle(id = 1423, slug = Some "some-article-slug")
+// Returned Content:    (determined by Sitelet.Infer)
+//
+// Accepted Request:    POST /BlogArticle
+//                      Content-Type: application/x-www-form-urlencoded
+//
+//                      id=1423
+//
+// Parsed Action:       BlogArticle(id = 1423, slug = None)
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+* Similarly, `[<FormData>]` on a record field indicates that this field must be parsed from the body as form data.
+
+```fsharp
+type Action =
+    {
+        id : int
+        [<FormData>] slug : string option
+    }
+
+// Accepted Request:    POST /1423
+//                      Content-Type: application/x-www-form-urlencoded
+//
+//                      slug=some-article-slug
+//
+// Parsed Action:       { id = 1423; slug = Some "some-article-slug" }
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
 * `[<DateTimeFormat(string)>]` on a record field or named union case field of type `System.DateTime` indicates the date format to use. Be careful as some characters are not valid in URLs; in particular, the ISO 8601 round-trip format (`"o"` format) cannot be used because it uses the character `:`.
 
 ```fsharp
@@ -370,6 +432,27 @@ type Action =
 
 // Accepted Request:    GET /A/15.05.32
 // Parsed Action:       A (System.DateTime(2015,3,24,15,5,32))
+// Returned Content:    (determined by Sitelet.Infer)
+```
+
+* `[<Wildcard>]` on a union case indicates that the last argument represents the remainder of the url's path. That argument can be a `list<'T>`, an `array<'T>`, or a `string`.
+
+```fsharp
+type Action =
+    | [<Wildcard>] Articles of pageId: int * tags: list<string>
+    | [<Wildcard>] Articles2 of array<int * string>
+    | [<Wildcard>] GetFile of path: string
+
+// Accepted Request:    GET /Articles/123/fsharp/websharper
+// Parsed Action:       Articles(123, ["fsharp"; "websharper"])
+// Returned Content:    (determined by Sitelet.Infer)
+//
+// Accepted Request:    GET /Articles/123/fsharp/456/websharper
+// Parsed Action:       Articles2 [(123, "fsharp"); (456, "websharper")]
+// Returned Content:    (determined by Sitelet.Infer)
+//
+// Accepted Request:    GET /GetFile/css/main.css
+// Parsed Action:       GetFile "css/main.css"
 // Returned Content:    (determined by Sitelet.Infer)
 ```
 
