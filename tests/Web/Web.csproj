@@ -20,6 +20,8 @@
     <IISExpressUseClassicPipelineMode />
     <OutputPath>bin\</OutputPath>
     <WebSharperTypeScriptDeclaration>True</WebSharperTypeScriptDeclaration>
+    <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
+    <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
   </PropertyGroup>
   <PropertyGroup>
     <DebugType>pdbonly</DebugType>
