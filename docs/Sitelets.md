@@ -27,7 +27,8 @@ module SampleSite =
     open WebSharper
     open WebSharper.Html.Server
 
-    type Action = | Index
+    type Action =
+        | Index
 
     let IndexContent : Content<Action> =
         PageContent <| fun context ->
@@ -47,11 +48,11 @@ module SampleSite =
 do ()
 ```
 
-First, a custom action type is defined. It is used for linking URLs to content within your sitelet. Here, you only need one action corresponding to your only page.
+First, a custom action type is defined. It is used for linking URLs to content within your sitelet. Here, you only need one action, `Action.Index` corresponding to your only page.
 
 The content of the index page is defined as a `PageContent`, where the body consists of a server side HTML element.  Here the current time is computed and displayed within an H1 tag.
 
-The `MySampleWebsite` type specifies the sitelet to be served by implementing the `IWebsite` interface.  In this case, the sitlet is defined using the `Sitelet.Content` operator for constructing a sitelet of the Index content.  In the resulting sitelet, the `Action.Index` value is associated with the path `/index` and the given content.
+The `MySampleWebsite` type specifies the sitelet to be served by implementing the `IWebsite` interface.  In this case, the sitelet is defined using the `Sitelet.Content` operator for constructing a sitelet of the Index content.  In the resulting sitelet, the `Action.Index` value is associated with the path `/index` and the given content.
 
 ## Sitelet routing
 
@@ -301,7 +302,7 @@ type Action =
 
 ```fsharp
 type Action =
-    | [<Query("id")>] BlogArticle of id: int * slug: string option
+    | [<Query("slug")>] BlogArticle of id: int * slug: string option
 
 // Accepted Request:    GET /BlogArticle/1423?slug=some-article-slug
 // Parsed Action:       BlogArticle(id = 1423, slug = Some "some-article-slug")
@@ -454,6 +455,63 @@ type Action =
 // Accepted Request:    GET /GetFile/css/main.css
 // Parsed Action:       GetFile "css/main.css"
 // Returned Content:    (determined by Sitelet.Infer)
+```
+
+### Catching wrong requests with Sitelet.InferWithErrors
+
+By default, `Sitelet.Infer` ignores requests that it fails to parse, in order to give potential other components (such as [ASP.NET](http://websharper.com/docs/aspnet)) a chance to respond to the request. However, if you want to send a custom response for badly-formatted requests, you can use `Sitelet.InferWithErrors` instead. This function wraps the parsed request in the `ActionEncoding.DecodeResult<'Action>` union. Here are the cases you can match against:
+
+* `ActionEncoding.Success of 'Action`: The request was successfully parsed.
+
+* `ActionEncoding.InvalidMethod of 'Action * method: string`: An action was successfully parsed but with the given wrong HTTP method.
+
+* `ActionEncoding.MissingQueryParameter of 'Action * name: string`: The URL path was successfully parsed but a mandatory query parameter with the given name was missing. The action contains a default value (`Unchecked.defaultof<_>`) where the query parameter value should be.
+
+* `ActionEncoding.InvalidJson of 'Action`: The URL was successfully parsed but the JSON body wasn't. The action contains a default value (`Unchecked.defaultof<_>`) where the JSON-decoded value should be.
+
+* `ActionEncoding.MissingFormData of 'Action * name: string`: The URL was successfully parsed but a form data parameter with the given name was missing or wrongly formatted. The action contains a default value (`Unchecked.defaultof<_>`) where the form body-decoded value should be.
+
+If the URL path isn't matched, then the request falls through as with `Sitelet.Infer`.
+
+```fsharp
+type Action =
+    | [<Method "GET"; Query "page">] Articles of page: int
+
+let MySitelet = Sitelet.InferWithErrors <| function
+    | Success (Articles page) ->
+        Content.JsonContent <| fun ctx ->
+            "serving page " + string page
+    | InvalidMethod (_, m) ->
+        Content.JsonContent <| fun ctx ->
+            "Invalid method: " + m
+        |> Content.SetStatus (Http.Status.MethodNotAllowed)
+    | MissingQueryParameter (_, p) ->
+        Content.JsonContent <| fun ctx ->
+            "Missing parameter: " + p
+        |> Content.SetStatus (Http.Status.Custom 400 (Some "Bad Request"))
+    | _ ->
+        Content.JsonContent <| fun ctx ->
+            "We don't have JSON or FormData, so this shouldn't happen"
+        |> Content.SetStatus Http.Status.InternalServerError
+
+// Accepted Request:    GET /Articles?page=123
+// Parsed Action:       Articles 123
+// Returned Content:    200 Ok
+//                      "serving page 123"
+//
+// Accepted Request:    POST /Articles?page=123
+// Parsed Action:       InvalidMethod(Articles 123, "POST")
+// Returned Content:    405 Method Not Allowed
+//                      "Invalid method: POST"
+//
+// Accepted Request:    GET /Articles
+// Parsed Action:       MissingQueryParameter(Articles 0, "page")
+// Returned Content:    400 Bad Request
+//                      "Missing parameter: page"
+//
+// Request:             GET /this-path-doesnt-exist
+// Parsed Action:       (none)
+// Returned Content:    (not found page provided by the host)
 ```
 
 <a name="sitelet-combinators"></a>
