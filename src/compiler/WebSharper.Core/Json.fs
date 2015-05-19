@@ -1482,7 +1482,7 @@ type Provider(fo: FormatSettings) =
             objectEncoder
             (fun dE ta ->
                 if ta.Type.IsSealed || FST.IsUnion ta.Type then dE ta else
-                fun x -> dE { ta with Type = x.GetType() } x)
+                fun x -> dE (if x = null then ta else { ta with Type = x.GetType() }) x)
             fo
             encoders
         >> function
