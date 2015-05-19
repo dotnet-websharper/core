@@ -108,3 +108,12 @@ module FrontEnd =
     let Compile (options: Options) (log: Message -> unit) : Assembly -> bool =
         let c = Prepare options log
         fun aF -> c.CompileAndModify(aF, options.IncludeSourceMap)
+
+[<assembly: System.Runtime.CompilerServices.InternalsVisibleToAttribute 
+    "WebSharper.Internals, PublicKey=\
+    0024000004800000940000000602000000240000525341310004000001000100b9c3a2acca0ecc\
+    b7f45a6050dfd600ee0c17a677ef9976af57d490e286482049c825b71b9285fa2c6c711eaff63f\
+    9ccfbdd18e88ad7a5b30b45bd7efe8cd871a2c45bdca3ae30ef057db8e12490e7f6e2067a78eba\
+    aaba11b7f96ff862afaed79ef20b2e902375b3c755429cff93a1ef76a6f70fd849aed9e2c6fb2a\
+    e9bfaff0">]
+do()
