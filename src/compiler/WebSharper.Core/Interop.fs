@@ -55,6 +55,10 @@ type FuncWithThis<'TThis, 'TFunc>(func: 'TThis -> 'TFunc) =
     inherit Function()
     member this.Bind (thisArg: 'TThis) = X<'TFunc>
 
+type FuncWithOnlyThis<'TThis, 'TResult>(func: 'TThis -> 'TResult) =
+    inherit FuncWithThis<'TThis, unit -> 'TResult>(X)
+    member this.Bind (thisArg: 'TThis) = X<'TFunc>
+
 type FuncWithRest<'TRest, 'TResult>(func: 'TRest[] -> 'TResult) =
     inherit Function()
     member this.Call ([<PA>] rest: 'TRest[]) = X<'TResult>

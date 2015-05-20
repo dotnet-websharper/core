@@ -58,13 +58,23 @@ type FuncWithArgsProxy<'TArgs, 'TResult> =
 
 [<Proxy(typeof<FuncWithThis<_,_>>)>]
 type FuncWithThisProxy<'TThis, 'TFunc> =
-    [<Inline "$wsruntime.CreateFuncWithThis($func)">]
+    [<Macro(typeof<WebSharper.Macro.FuncWithThis>)>]
     new (func: 'TThis -> 'TFunc) = {}
 
     member this.Length with [<Inline "$this.length">] get() = 0
 
     [<Inline "$wsruntime.Bind($this, $thisArg)">]
     member this.Bind (thisArg: 'TThis) = X<'TFunc>
+
+[<Proxy(typeof<FuncWithOnlyThis<_,_>>)>]
+type FuncWithOnlyThisProxy<'TThis, 'TResult> =
+    [<Inline "$wsruntime.CreateFuncWithOnlyThis($func)">]
+    new (func: 'TThis -> 'TResult) = {}
+
+    member this.Length with [<Inline "$this.length">] get() = 0
+
+    [<Inline "$wsruntime.Bind($this, $thisArg)">]
+    member this.Bind (thisArg: 'TThis) = X<unit -> 'TResult>
 
 [<Proxy(typeof<FuncWithRest<_,_>>)>]
 type FuncWithRestProxy<'TRest, 'TResult> =

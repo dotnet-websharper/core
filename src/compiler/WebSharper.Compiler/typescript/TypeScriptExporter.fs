@@ -111,6 +111,8 @@ module internal TypeScriptExporter =
             | _ -> None
         | "WebSharper.JavaScript", "FuncWithThis`2", [_; f] ->
             (|FuncType|_|) ts f
+        | "WebSharper.JavaScript", "FuncWithOnlyThis`2", [_; r] ->
+            fType [] r |> Some
         | "WebSharper.JavaScript", "FuncWithRest`2", [rs; r] ->
             fTypeR [] rs r |> Some
         | "WebSharper.JavaScript", "FuncWithRest`3", [a; rs; r] ->

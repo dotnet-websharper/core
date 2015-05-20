@@ -332,6 +332,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
 
     let funcWithArgs = fromInterop "FuncWithArgs`2" 
     let funcWithThis = fromInterop "FuncWithThis`2" 
+    let funcWithOnlyThis = fromInterop "FuncWithOnlyThis`2" 
     let funcWithArgsRest = fromInterop "FuncWithArgsRest`3" 
 
     member b.Action ts =
@@ -382,6 +383,9 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
                  
     member b.FuncWithThis this func =
         genericInstance funcWithThis [this; func]        
+
+    member b.FuncWithOnlyThis this ret =
+        genericInstance funcWithThis [this; ret]        
 
     member b.FuncWithRest args rest result =
         commonType wsCore "WebSharper.JavaScript" "FuncWithRest" (args @ [ rest; result ])
@@ -463,7 +467,12 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
                             tB.FuncWithArgsRest (tB.Tuple args) pa ret        
                 match f.This with
                 | None -> func
-                | Some this -> tB.FuncWithThis (tRef this) func
+                | Some this -> 
+                    match f.ParamArray, args with
+                    | None, [] ->
+                        tB.FuncWithOnlyThis (tRef this) ret
+                    | _ -> 
+                        tB.FuncWithThis (tRef this) func
             | Type.FSFunctionType (a, r) ->
                 tB.Function (tRef a) (tRef r)
             | Type.GenericType i ->

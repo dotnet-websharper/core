@@ -64,6 +64,11 @@ type FuncWithArgsRest =
     interface M.IMacro
 
 [<Sealed>]
+type FuncWithThis =
+    new : unit -> FuncWithThis
+    interface M.IMacro
+
+[<Sealed>]
 type PrintF =
     new : unit -> PrintF
     interface M.IMacro

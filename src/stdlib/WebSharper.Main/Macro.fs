@@ -298,6 +298,25 @@ type FuncWithArgsRest() =
     interface M.IMacro with
         member this.Translate(q, tr) = funcWithArgsRestMacro tr q
 
+let funcWithThisMacro tr q =
+    match q with
+    | Q.NewObject (c, [func]) ->
+        let tFunc = c.Generics.[1].Load(true)
+        if FST.IsFunction tFunc || 
+            (tFunc.Namespace = "WebSharper.JavaScript" && 
+                (tFunc.Name = "Function" || tFunc.Name.StartsWith "FuncWith"))
+        then
+            cCall C.Runtime "CreateFuncWithThis" [ tr func ]
+        else 
+            failwith "Wrong type argument on FuncWithThis: 'TFunc must be an F# function or JavaScript function type"
+    | _ ->
+        failwith "funcWithThisMacro error"
+
+[<Sealed>]
+type FuncWithThis() =
+    interface M.IMacro with
+        member this.Translate(q, tr) = funcWithThisMacro tr q
+
 /// Set of helpers to parse format string
 /// Source: https://github.com/fsharp/fsharp/blob/master/src/fsharp/FSharp.Core/printf.fs
 module private FormatString =
