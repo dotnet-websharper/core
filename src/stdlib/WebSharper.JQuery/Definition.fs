@@ -292,6 +292,8 @@ module Definition =
                 |> WithComment AddCmt
                 "add" => T<Dom.Element> ^-> JQ
                 |> WithComment AddCmt
+                "add" => JQ ^-> JQ
+                |> WithComment AddCmt
                 "add" => Type.ArrayOf T<Dom.Element> ^-> JQ
                 |> WithComment AddCmt
 
