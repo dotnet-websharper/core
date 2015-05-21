@@ -239,6 +239,7 @@ let Tests =
 
         Test "Seq.init" {
             let s = Seq.init 10 (fun n -> n)
+            Raises (Seq.init -1 ignore)
             Equal (Seq.toArray s) [|0..9|]
         }
 
@@ -397,6 +398,9 @@ let Tests =
         Test "Seq.take" {
             let s = seq { 1 .. 10 }
             Equal (Seq.toArray (Seq.take 5 s)) [| 1; 2; 3; 4; 5 |]
+            Equal (Seq.toArray (Seq.take 10 s)) [| 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 |]
+            Raises (Seq.toArray (Seq.take -1 s))
+            Raises (Seq.toArray (Seq.take 11 s))
         }
 
         Test "Seq.takeWhile" {
@@ -520,6 +524,8 @@ let Tests =
                 }
                 |> Seq.toArray)
             Equal !r 1
+            True (seq { 1 .. -1 } |> Seq.isEmpty)
+            True (seq { 1 .. -1 .. 3 } |> Seq.isEmpty)
         }
 
     }

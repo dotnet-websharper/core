@@ -569,17 +569,20 @@ let Take (n: int) (s: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->
         let e = ref (Enumerator.Get s)
         Enumerator.NewDisposing 0 (fun _ -> safeDispose !e) (fun enum ->
-            if enum.State = n then
-                false
+            enum.State <- enum.State + 1
+            if enum.State > n then false else
+            let en = !e
+            if en = null then insufficient()
+            elif en.MoveNext() then
+                enum.Current <- en.Current
+                if enum.State = n then
+                    en.Dispose()
+                    e := null
+                true
             else
-                let en = !e
-                if en = null then false
-                elif en.MoveNext() then
-                    enum.State <- enum.State + 1
-                    enum.Current <- en.Current
-                    true
-                else
-                    insufficient() 
+                en.Dispose()
+                e := null
+                insufficient() 
         )
     )
 

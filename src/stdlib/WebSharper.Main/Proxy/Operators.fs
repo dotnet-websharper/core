@@ -34,7 +34,9 @@ module M = WebSharper.Macro
 [<JavaScript>]
 [<Name "range">]
 let ( .. ) (min: 'T) (max: 'T) : seq<'T> =
-    Seq.init (1 + As max - As min) (fun x -> As (x + As min))
+    let count = 1 + As max - As min
+    if count <= 0 then Seq.empty
+    else Seq.init count (fun x -> As (x + As min))
 
 [<JavaScript>]
 [<Name "step">]
