@@ -272,6 +272,13 @@ let Tests =
             Equal !r 1972819
         }
 
+        Test "Seq.last" {
+            let s = seq ["apa"]
+            Equal (Seq.last s) "apa"
+            Equal (Seq.last [1; 2; 3]) 3
+            Raises (Seq.last Seq.empty)
+        }
+
         Test "Seq.length" {
             Equal (Seq.length [1; 2; 3]) 3
             Equal (Seq.length []) 0

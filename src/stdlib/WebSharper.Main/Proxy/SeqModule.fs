@@ -376,6 +376,15 @@ let IterateIndexed p (s: seq<_>) =
         i <- i + 1
 
 [<JavaScript>]
+[<Name "last">]
+let Last (s: seq<_>) =
+    use e = Enumerator.Get s
+    if not <| e.MoveNext() then insufficient ()
+    else 
+        while e.MoveNext() do ()
+        e.Current
+
+[<JavaScript>]
 [<Name "length">]
 let Length (s: seq<_>) =
     let mutable i = 0
