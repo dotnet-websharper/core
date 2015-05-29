@@ -1392,7 +1392,7 @@ module PlainProviderInternals =
                                 EncodedString (TAttrs.GetName c)
                         |]
                     fun tag -> Some (n, tags.[tag])
-            GetEncodedUnionFieldName = fun p -> let n = p.Name in fun _ -> n
+            GetEncodedUnionFieldName = fun p -> let n = TAttrs.GetName p in fun _ -> n
             EncodeDateTime = fun ta ->
                 let fmt = defaultArg ta.DateTimeFormat "o"
                 fun d -> EncodedString (d.ToString(fmt, culture))
