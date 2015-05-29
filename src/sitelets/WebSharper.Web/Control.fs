@@ -104,14 +104,14 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
 
     [<System.NonSerialized>]
     let bodyAndReqs =
-        let declType, name, args, fReq =
+        let declType, name, args, fReqs =
             match elt :> Expr with
             | PropertyGet(None, p, args) ->
                 let rp = R.Property.Parse p
-                rp.DeclaringType, rp.Name, args, M.TypeNode rp.DeclaringType
+                rp.DeclaringType, rp.Name, args, [M.TypeNode rp.DeclaringType]
             | Call(None, m, args) ->
                 let rm = R.Method.Parse m
-                rm.DeclaringType, rm.Name, args, M.MethodNode rm
+                rm.DeclaringType, rm.Name, args, [M.MethodNode rm; M.TypeNode rm.DeclaringType]
             | e -> failwithf "Wrong format for InlineControl at %s: expected global value or function access, got: %A" (getLocation()) e
         let args, argReqs =
             args
@@ -121,7 +121,7 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
             )
             |> List.unzip
         let args = Array.ofList args
-        let reqs = ctrlReq :: fReq :: argReqs :> seq<_>
+        let reqs = ctrlReq :: fReqs @ argReqs :> seq<_>
         args, (declType, name, reqs)
 
     let args = fst bodyAndReqs
