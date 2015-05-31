@@ -116,7 +116,7 @@ let Tests =
                 | Some x -> x
                 | None   -> -1
             equal r -1
-            forRandom 100 R.Int (fun i -> Do {
+            check (fun i -> Do {
                 let o = Some i
                 let a =
                     match o with

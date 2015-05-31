@@ -25,9 +25,6 @@ open WebSharper
 open WebSharper.Testing
 
 [<JavaScript>]
-let RandomInts = Random.ListOf Random.Int
-
-[<JavaScript>]
 let SevenS = [1; 2; 3; 4; 5; 6; 7]
 
 [<JavaScript>]
@@ -75,7 +72,7 @@ let Tests =
             let t (x: list<int>) = Set.toArray (Set.ofList x)
             equal (t SevenDS) (t SevenS)
             equal (t SevenS) (t DoubleSS)
-            forRandom 100 (Random.ListOf Random.Int) (fun x -> Do {
+            check (fun x -> Do {
                 equal (t x) (Seq.toArray (Seq.sort (Seq.distinct x)))
             })
         }
@@ -95,7 +92,7 @@ let Tests =
             let set = Set.ofList SevenS
             isTrue (Set.contains 1 set)
             isFalse (Set.contains 9 set)
-            forRandom 100 (RandomInts) (fun x -> Do {
+            check (fun x -> Do {
                 isTrue (Set.contains 6 (Set.add 6 (Set.ofList x)))
             })
         }
@@ -147,10 +144,16 @@ let Tests =
         }
 
         Test "Set.fold consistency" {
-            forRandom 100 RandomInts (fun x -> Do {
+            check (fun x -> Do {
                 equal (Set.fold (+) 0 (Set.ofList x))
                     (Set.foldBack (+) (Set.ofList x) 0)
             })
+        }
+
+        Test "Set.fold consistency 2" {
+            for x in Random.Auto() do
+            equal (Set.fold (+) 0 (Set.ofList x))
+                (Set.foldBack (+) (Set.ofList x) 0)
         }
 
         Test "Set.forall" {
@@ -261,7 +264,7 @@ let Tests =
             let set3 = Set.ofList FTeenS
             equal (Set.union set1 set1) set1
             equal (Set.union set1 set2) set3
-            forRandom 100 RandomInts (fun x -> Do {
+            check (fun (x: int list) -> Do {
                 let s = Set.ofList x
                 equal (Set.union s s) s
             })

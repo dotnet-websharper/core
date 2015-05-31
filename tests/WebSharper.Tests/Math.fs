@@ -30,7 +30,7 @@ let Tests =
 
     Section "Math" {
 
-        let pFloat = R.Map abs R.Float
+        let positiveFloat = R.Map abs R.Float
 
         Test "Math.Abs" {
             equal (Math.Abs -1y)  1y
@@ -39,11 +39,11 @@ let Tests =
             equal (Math.Abs -2L)  2L
             equal (Math.Abs -4.f) 4.f
             equal (Math.Abs -6.)  6.
-            forRandom 100 R.Natural (fun x -> Do {
+            checkIn R.Natural (fun x -> Do {
                 equal (Math.Abs x) x
                 equal (Math.Abs -x) x
             })
-            forRandom 100 pFloat (fun x -> Do {
+            checkIn positiveFloat (fun x -> Do {
                 equal (Math.Abs x) x
                 equal (Math.Abs -x) x
             })
@@ -75,13 +75,13 @@ let Tests =
         }
 
         Test "Math.Cos" {
-            forRandom 100 R.Float (fun x -> Do {
+            check (fun x -> Do {
                 approxEqual (Math.Cos x) (Math.Cos (x + 2. * Math.PI))
             })
         }
 
         Test "Math.Cosh" {
-            forRandom 100 R.Float (fun x -> Do {
+            check (fun x -> Do {
                 approxEqual (Math.Cosh x) (1. / 2. * (Math.Exp x + Math.Exp -x))
             })
         }
@@ -96,7 +96,7 @@ let Tests =
         }
 
         Test "Math.Exp" {
-            forRandom 100 pFloat (fun x -> Do {
+            checkIn positiveFloat (fun x -> Do {
                 approxEqual (Math.Log (Math.Exp x)) x
             })
         }
@@ -104,10 +104,10 @@ let Tests =
         Test "Math.Log" {
             approxEqual (Math.Log 10.)      2.302585
             approxEqual (Math.Log(10., 9.)) 1.047952
-            forRandom 100 pFloat (fun x -> Do {
+            checkIn positiveFloat (fun x -> Do {
                 approxEqual (Math.E ** Math.Log x) x
             })
-            forRandom 100 (R.Tuple2Of (pFloat, pFloat)) (fun (x, y) -> Do {
+            checkIn (R.Tuple2Of (positiveFloat, positiveFloat)) (fun (x, y) -> Do {
                 let x = x + 1.
                 let y = y + 2.
                 approxEqual (y ** Math.Log(x, y)) x
@@ -116,7 +116,7 @@ let Tests =
 
         Test "Math.Log10" {
             approxEqual (Math.Log10 10.) 1.0
-            forRandom 100 pFloat (fun x -> Do {
+            checkIn positiveFloat (fun x -> Do {
                 approxEqual (10. ** Math.Log10 x) x
             })
         }
@@ -132,13 +132,13 @@ let Tests =
             equal (Math.Max(1us, 2us)) 2us
             equal (Math.Max(1u, 2u))   2u
             equal (Math.Max(1UL, 2UL)) 2UL
-            forRandom 100 (R.Tuple2Of (R.Int, R.Int)) (fun (x, y) ->
+            check (fun (x: float, y: float) ->
                 let res = Math.Max(x, y)
                 if x >= y then
                     Do { equal res x }
                 else Do { equal res y }
             )
-            forRandom 100 (R.Tuple2Of (R.Float, R.Float)) (fun (x, y) ->
+            check (fun (x: float, y: float) ->
                 let res = Math.Max(x, y)
                 if x >= y then
                     Do { equal res x }
@@ -157,13 +157,13 @@ let Tests =
             equal (Math.Min(1us, 2us)) 1us
             equal (Math.Min(1u, 2u))   1u
             equal (Math.Min(1UL, 2UL)) 1UL
-            forRandom 100 (R.Tuple2Of (R.Int, R.Int)) (fun (x, y) ->
+            check (fun (x: float, y: float) ->
                 let res = Math.Min(x, y)
                 if x >= y then
                     Do { equal res y }
                 else Do { equal res x }
             )
-            forRandom 100 (R.Tuple2Of (R.Float, R.Float)) (fun (x, y) ->
+            check (fun (x: float, y: float) ->
                 let res = Math.Min(x, y)
                 if x >= y then
                     Do { equal res y }
@@ -177,14 +177,14 @@ let Tests =
 
         Test "Math.Pow" {
             approxEqual (Math.Pow(2.8, 1.4)) 4.2269
-            forRandom 100 (R.Tuple2Of (pFloat, R.Float)) (fun (x, y) -> Do {
+            checkIn (R.Tuple2Of (positiveFloat, R.Float)) (fun (x, y) -> Do {
                 approxEqual (Math.Pow(x, y)) (x ** y)
             })
         }
 
         Test "Math.Round" {
             equal (Math.Round 1.5) 2.
-            forRandom 100 R.Float (fun x -> Do {
+            check (fun (x: float) -> Do {
                 equal (Math.Round x) (Math.Floor (x + 0.5))
             })
         }
@@ -196,12 +196,12 @@ let Tests =
             equal (Math.Sign -3s)  -1
             equal (Math.Sign -3)   -1
             equal (Math.Sign -3L)  -1
-            forRandom 100 R.Natural (fun x -> Do {
+            checkIn R.Natural (fun x -> Do {
                 let x = x + 1
                 equal (Math.Sign x) 1
                 equal (Math.Sign -x) -1
             })
-            forRandom 100 pFloat (fun x -> Do {
+            checkIn positiveFloat (fun x -> Do {
                 let x = 1. + x
                 equal (Math.Sign x)  1
                 equal (Math.Sign -x) -1
@@ -218,7 +218,7 @@ let Tests =
 
         Test "Math.Sqrt" {
             approxEqual (Math.Sqrt 145.) 12.0416
-            forRandom 100 pFloat (fun x -> Do {
+            checkIn positiveFloat (fun x -> Do {
                 approxEqual (Math.Sqrt x ** 2.) x
             })
         }

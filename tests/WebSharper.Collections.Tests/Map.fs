@@ -57,8 +57,7 @@ let Tests =
         Test "Map/array consistency" {
             let a = [| (1, 5); (2, 9); (3, 6); (4, 13) |]
             equal a (Map.toArray <| Map.ofArray a)
-            let g = Random.ArrayOf (Random.Tuple2Of (Random.Int, Random.Const ()))
-            forRandom 100 g (fun x -> Do {
+            check (fun (x: (int * unit)[]) -> Do {
                 let x1 = x |> Map.ofArray |> Map.toArray
                 let x2 = x |> Set.ofArray |> Set.toArray
                 equal x1 x2
@@ -70,7 +69,7 @@ let Tests =
             let trueF (x: int) = true
             let falseF (x: int) = false
             let ltF x = x < 10
-            let check (xs: (int * unit) []) (f : int -> bool) =
+            let check' (xs: (int * unit) []) (f : int -> bool) =
                 let xs1 =
                     Map.ofArray xs |> Map.filter (fun k _ -> f k) |> Map.toArray
                 let xs2 =
@@ -80,14 +79,12 @@ let Tests =
                     |> Seq.filter (fun (k, _) -> f k)
                     |> Seq.toArray
                 Do { equal xs2 xs1 }
-            forRandom 100
-                (Random.ArrayOf (Random.Tuple2Of (Random.Int, Random.Const ())))
-                (fun xs -> Do {
-                    run (check xs even)
-                    run (check xs trueF)
-                    run (check xs falseF)
-                    run (check xs ltF)
-                })
+            check (fun xs -> Do {
+                run (check' xs even)
+                run (check' xs trueF)
+                run (check' xs falseF)
+                run (check' xs ltF)
+            })
         }
 
         Test "Map.find" {
@@ -115,7 +112,7 @@ let Tests =
         }
 
         Test "Map.fold/foldBack" {
-            forRandom 100 (Random.ListOf (Random.Tuple2Of (Random.Int, Random.Int))) (fun x -> Do {
+            check (fun x -> Do {
                 let f = fun y z x -> x + y + z
                 equal (Map.fold f 0 (Map.ofList x))
                     (Map.foldBack f (Map.ofList x) 0)
@@ -147,8 +144,8 @@ let Tests =
         }
 
         Test "Map.partition" {
-            forRandom 100 (Random.ListOf (Random.Tuple2Of (Random.Int, Random.Const ()))) (
-                fun xs -> Do {
+            check (
+                fun (xs: list<int * unit>) -> Do {
                     let xs = xs |> Set.ofList |> Set.toList
                     let f (k : int) () = k % 2 = 0
                     let (a, b) =

@@ -32,19 +32,17 @@ let Tests =
         Test "Seq.append" {
             equal (Seq.append (seq { 1 .. 5 }) (seq { 6 .. 10 }) |> Seq.toArray)
                 [| 1 .. 10 |]
-            forRandom 100 (R.ArrayOf R.Int) (fun x -> Do {
+            check (fun (x: int[]) -> Do {
                 equal (Seq.toArray (Seq.append x [])) x
                 equal (Seq.toArray (Seq.append [] x)) x
             })
-            forRandom 100 (R.Tuple2Of (R.ArrayOf R.Int, R.ArrayOf R.Int))
-                (fun (x, y) -> Do {
+            check (fun (x: int[], y: int[]) -> Do {
                     let s1 = Array.toSeq x
                     let s2 = Array.toSeq y
                     equal (Seq.length (Seq.append s1 s2))
                         (Seq.length s1 + Seq.length s2)
                 })
-            forRandom 100 (R.Tuple2Of (R.ArrayOf R.Int, R.ArrayOf R.Int))
-                (fun (x, y) -> Do {
+            check (fun (x: int[], y: int[]) -> Do {
                     let s1 = Array.toSeq x
                     let s2 = Array.toSeq y
                     equal (Seq.toArray (Seq.append s1 s2))
@@ -61,7 +59,7 @@ let Tests =
         }
 
         Test "Seq.cache" {
-            forRandom 100 (R.ArrayOf R.Int) (fun x -> Do {
+            check (fun (x: int[]) -> Do {
                 let s = Seq.toArray (Seq.cache x)
                 equal (Seq.toArray s) x
             })
@@ -190,7 +188,7 @@ let Tests =
             equal (Seq.fold (+) 0 <| seq { 1 .. 5 }) 15
             let s = Seq.init 10 (fun n -> seq { 1 .. 2 })
             equal (Seq.fold (fun x y -> x + Seq.length y) 0 <| s) 20
-            forRandom 100 (R.ListOf R.Int) (fun x -> Do {
+            check (fun x -> Do {
                 let a = Array.fold (+) 0 (Array.ofList x)
                 equal (Seq.fold (+) 0 <| List.toSeq x) a
             })
@@ -202,7 +200,7 @@ let Tests =
             let a = Seq.forall ((<>) 21)
             isTrue (a xs2)
             isFalse (a xs1)
-            forRandom 100 (R.ArrayOf R.Int) (fun s -> Do {
+            check (fun (s: int[]) -> Do {
                 let f a = a % 2 = 0
                 equal (Seq.forall f s) (not (Seq.exists (not << f) s))
             })
@@ -210,7 +208,7 @@ let Tests =
 
         Test "Seq.forall2" {
             isFalse (Seq.forall2 (fun x y -> x = y) [1;2;3] [1;3;3])
-            forRandom 100 (R.ArrayOf R.Int) (fun xs -> Do {
+            check (fun (xs: int[]) -> Do {
                 isTrue (Seq.forall2 (=) xs xs)
             })
         }
@@ -356,7 +354,7 @@ let Tests =
             let l3 = seq [seq [2;1]; seq [1;2;3]]
             equal (Seq.scan (fun x y -> x + Seq.length y) 0 l3 |> Seq.toArray)
                 [|0;2;5|]
-            forRandom 100 (R.ArrayOf R.Int) (fun x -> Do {
+            check (fun x -> Do {
                 let bySeq = Seq.scan (+) 0 x
                 let byArray = Array.scan (+) 0 x
                 equal (Seq.toArray bySeq) byArray

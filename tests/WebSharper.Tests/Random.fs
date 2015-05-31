@@ -29,11 +29,11 @@ let Tests =
 
         Test "Next" {
             let r = System.Random()
-            forRandom 100 (Random.Const ()) (fun () -> Do {
+            check (fun () -> Do {
                 let n = r.Next(10)
                 isTrue (0 <= n && n < 10)
             })
-            forRandom 100 (Random.Const ()) (fun () -> Do {
+            check (fun () -> Do {
                 let n = r.Next(-5, 5)
                 isTrue (-5 <= n && n < 5)
             }) 

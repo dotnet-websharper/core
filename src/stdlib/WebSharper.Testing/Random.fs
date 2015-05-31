@@ -32,6 +32,7 @@ type Generator<'T> =
         /// A function generating a new random value.
         Next: unit -> 'T
     }
+
 /// Maps a function over a generator.
 [<JavaScript>]
 let Map f gen =
@@ -237,5 +238,98 @@ let Const x =
 let OptionOf (generator: Generator<'A>) : Generator<option<'A>> =
     Mix (Const None) (Map Some generator)
 
+module Q = WebSharper.Core.Quotations
+module R = WebSharper.Core.Reflection
+module T = WebSharper.Core.Reflection.Type
+module J = WebSharper.Core.JavaScript.Core
 
+module internal Internal =
+    let cString s = !~ (J.String s)
+    let inline cInt i = !~ (J.Integer (int64 i))
+    let cCall t m x = J.Call (t, cString m, x)
+    let cCallG l m x = cCall (J.Global l) m x
+    let cCallR m x = Choice1Of2 (cCallG ["WebSharper"; "Testing"; "Random"] m x)
+    let (|T|_|) n (t: R.TypeDefinition) =
+        if t.FullName = n then Some() else None
+    let (>>=) (m: Choice<J.Expression, string>) (f: J.Expression -> Choice<J.Expression, string>) =
+        match m with
+        | Choice1Of2 e -> f e
+        | Choice2Of2 _ -> m
+    let fail x = Choice2Of2 x : Choice<J.Expression, string>
 
+    let mkGenerator t =
+        let rec mkGenerator = function
+            | T.Array (t, 1) ->
+                mkGenerator t >>= fun x ->
+                cCallR "ArrayOf" [x]
+            | T.Array _ ->
+                fail "Random generators for multidimensional arrays are not supported."
+            | T.Concrete (T "Microsoft.FSharp.Core.Unit", []) ->
+                cCallR "Const" [!~J.Null]
+            | T.Concrete (T "System.Boolean", []) ->
+                cCallR "Boolean" []
+            | T.Concrete (T "System.Double", []) ->
+                cCallR "Float" []
+            | T.Concrete (T "System.Int32", []) ->
+                cCallR "Int" []
+            | T.Concrete (T "System.String", []) ->
+                cCallR "String" []
+            | T.Concrete (T "Microsoft.FSharp.Collections.FSharpList`1", [t]) ->
+                mkGenerator t >>= fun x ->
+                cCallR "ListOf" [x]
+            | T.Concrete (T "System.Tuple`2", [t1; t2]) ->
+                mkGenerator t1 >>= fun x1 ->
+                mkGenerator t2 >>= fun x2 ->
+                cCallR "Tuple2Of" [x1; x2]
+            | T.Concrete (T "System.Tuple`3", [t1; t2; t3]) ->
+                mkGenerator t1 >>= fun x1 ->
+                mkGenerator t2 >>= fun x2 ->
+                mkGenerator t3 >>= fun x3 ->
+                cCallR "Tuple3Of" [x1; x2; x3]
+            | T.Concrete (t, targs) ->
+                fail ("Random generator not supported for type: " + t.FullName)
+            | T.Generic x ->
+                fail ("Cannot create a random generator for a generic type " + string x)
+        match mkGenerator t with
+        | Choice1Of2 x -> x
+        | Choice2Of2 msg -> failwithf "%A: %s" t msg
+
+    let mkSet g count = 
+        cCallG ["WebSharper"; "Testing"; "Random"; "Set"] "Make" [g; count]
+
+open Internal
+
+type AutoGeneratorMacro() =
+    interface Core.Macros.IMacro with
+        member this.Translate(q, tr) =
+            match q with
+            // Auto<'A>()
+            | Q.CallModule({Generics = [t]}, _) -> mkGenerator t
+            // new Set<'A>()
+            | Q.NewObject({Generics = [t]}, []) -> mkSet (mkGenerator t) (cInt 100)
+            // new Set<'A>(count)
+            | Q.NewObject({Generics = [t]}, [count]) -> mkSet (mkGenerator t) (tr count)
+            | _ -> tr q
+
+[<Macro(typeof<AutoGeneratorMacro>)>]
+let Auto<'A>() = X<Generator<'A>>
+
+[<JavaScript>]
+type Set<'A> (generator: Generator<'A>, times: int) =
+
+    static member Make<'A> generator times =
+        new Set<'A>(generator, times)
+
+    member this.AsList =
+        [
+            for i = 0 to generator.Base.Length - 1 do yield generator.Base.[i]
+            for i = 1 to times do yield (generator.Next())
+        ]
+
+    [<Macro(typeof<AutoGeneratorMacro>)>]
+    new () = new Set<'A>(Auto<'A>())
+
+    [<Macro(typeof<AutoGeneratorMacro>)>]
+    new (times: int) = new Set<'A>(Auto<'A>(), times)
+
+    new (generator: Generator<'A>) = new Set<'A>(generator, 100)

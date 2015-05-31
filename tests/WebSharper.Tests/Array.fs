@@ -68,7 +68,7 @@ let Tests =
             equal arr1 [| 1; 2; 3|]
             equal arr2 [| 4; 5 |]
             equal (Array.append [| 1 |] [| |]) [| 1 |]
-            forRandom 100 (R.ArrayOf R.Int) (fun x -> Do {
+            check (fun (x: int[]) -> Do {
                 equal (Array.append x [||]) x
                 equal (Array.append [||] x) x
             })
@@ -96,7 +96,7 @@ let Tests =
 
         Test "Array.collect" {
             equal (Array.collect (fun x -> [| x |]) [| 1..10 |]) [|1..10|]
-            forRandom 100 (R.ArrayOf R.Int) (fun x -> Do {
+            check (fun (x: int[]) -> Do {
                 equal (Array.collect (fun x -> [| x |]) x) x
             })
         }
@@ -106,14 +106,14 @@ let Tests =
         }
 
         Test "Array.copy" {
-            forRandom 100 (R.ArrayOf R.Int) (fun x -> Do {
+            check (fun (x: int[]) -> Do {
                 equal (Array.copy x) x
             })
         }
 
         Test "Array.create" {
             equal (Array.create 5 "Value") [| for i in 1 .. 5 -> "Value" |]
-            forRandom 100 (R.Tuple2Of (R.Natural, R.Int)) (fun (size, elem) -> Do {
+            checkIn (R.Tuple2Of (R.Natural, R.Int)) (fun (size, elem) -> Do {
                 let a = Array.create size elem
                 equal a.Length size
                 isTrue (Array.forall ((=) elem) a)
@@ -176,7 +176,7 @@ let Tests =
             equal (Array.foldBack (+) [| 1; 1; 1; 1; 1 |] 0) 5
             equal (Array.foldBack (fun y x -> x + List.length y)
                     [| [2; 1]; [1; 2] |] 0) 4
-            forRandom 100 (R.ArrayOf R.Int) (fun x -> Do {
+            check (fun x -> Do {
                 let left = Array.fold (+) 0 x
                 let right = Array.foldBack (+) x 0
                 equal left right
@@ -204,8 +204,7 @@ let Tests =
             isTrue (Array.forall (fun x -> x % 2 = 0) a)
             isTrue (Array.forall (fun _ -> false) [||])
             isTrue (not (Array.forall ((=) 8) a))
-            let r = R.ArrayOf R.Int
-            forRandom 100 (R.Tuple2Of (R.Int, r)) (fun (f, l) -> Do {
+            check (fun (f: int, l) -> Do {
                 let p1 = Array.forall ((=) f) l
                 let p2 = Array.exists ((<>) f) l |> not
                 equal p1 p2
@@ -287,8 +286,7 @@ let Tests =
             equal (Array.length [||]) 0
             equal (Array.length [| 1 .. 10 |]) 10
             equal (Array.length (Array.zeroCreate 5)) 5
-            let r = R.ArrayOf R.Int
-            forRandom 100 (R.Tuple2Of (r, r)) (fun (x, y) -> Do {
+            check (fun (x: int[], y: int[]) -> Do {
                 equal (Array.length x + Array.length y) (Array.length (Array.append x y))
             })
         }
@@ -299,7 +297,7 @@ let Tests =
             let funcs = [| (+) 1; ( * ) 2; (fun x -> x); (fun x -> x * x)|]
             let rA  = R.ArrayOf R.Int
             let rF = R.OneOf funcs
-            forRandom 100 (R.Tuple3Of (rA, rF, rF)) (fun (arr, f1, f2) -> Do {
+            checkIn (R.Tuple3Of (rA, rF, rF)) (fun (arr, f1, f2) -> Do {
                 let map1 =
                     arr
                     |> Array.map f1
@@ -362,8 +360,7 @@ let Tests =
             equal even [| 2; 4 |]
             equal odd [| 1; 3; 5|]
             let funcs = [| (=) 3; (fun x -> x % 2 = 0) |]
-            let r = R.Tuple2Of (R.ArrayOf R.Int, R.OneOf funcs)
-            forRandom 100 r (fun (a, f) -> Do {
+            checkIn (R.Tuple2Of (R.ArrayOf R.Int, R.OneOf funcs)) (fun (a, f) -> Do {
                 let (x, y) = Array.partition f a
                 equal (Array.length (Array.append x y)) (Array.length x + Array.length y)
             })
@@ -387,17 +384,17 @@ let Tests =
         Test "Array.reduceBack" {
             equal (Array.reduceBack (+) [| 1; 1; 1; 1; 1 |]) 5
             equal (Array.reduceBack (+) [| 3 |]) 3
-            forRandom 100 (R.ArrayOf R.Int) (fun a -> Do {
+            check (fun a -> Do {
                 isTrue (Array.isEmpty a || (Array.reduce (+) a = Array.reduceBack (+) a))
             })
         }
 
         Test "Array.rev" {
-            forRandom 100 (R.ArrayOf R.Int) (fun a -> Do {
+            check (fun (a: int[]) -> Do {
                 equal (Array.rev (Array.rev a)) a
             })
             equal (Array.rev [||]) [||]
-            forRandom 100 R.Int (fun x -> Do { equal [| x |] (Array.rev [| x |]) })
+            check (fun (x: int) -> Do { equal [| x |] (Array.rev [| x |]) })
         }
 
         Test "Array.scan" {
@@ -440,7 +437,7 @@ let Tests =
                 List.length x - List.length y
             Array.sortInPlaceWith comparer arr
             equal arr [| []; [1; 2]; [1; 2; 3] |]
-            forRandom 100 (R.ArrayOf (R.ListOf R.Int)) (fun arr -> Do {
+            check (fun arr -> Do {
                 let copy = Array.copy arr
                 Array.sortInPlaceWith comparer copy
                 equal (Array.sortWith comparer arr) copy
@@ -483,7 +480,7 @@ let Tests =
             let arr = [| 1; 2; 3; 4; 5 |]
             let l = [1; 2; 3; 4; 5]
             equal l (Array.toList arr)
-            forRandom 100 (R.ListOf R.Int) (fun x -> Do {
+            check (fun (x: list<int>) -> Do {
                 equal (Array.toList (Array.ofList x)) x
             })
         }
@@ -514,7 +511,7 @@ let Tests =
 
         Test "Array.unzip" {
             let r = R.Tuple2Of (R.Int, R.Boolean)
-            forRandom 100 (R.ArrayOf r) (fun arr -> Do {
+            check (fun (arr: (int * bool)[]) -> Do {
                 let (x, y) = Array.unzip arr
                 equal (Array.zip x y) arr
             })
@@ -522,7 +519,7 @@ let Tests =
 
         Test "Array.unzip3" {
             let r = R.Tuple3Of (R.Int, R.Boolean, R.Int)
-            forRandom 100 (R.ArrayOf r) (fun arr -> Do {
+            check (fun (arr: (int * bool * int)[]) -> Do {
                 let (x, y, z) = Array.unzip3 arr
                 equal (Array.zip3 x y z) arr
             })

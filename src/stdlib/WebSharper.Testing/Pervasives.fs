@@ -25,6 +25,34 @@ module WebSharper.Testing.Pervasives
 open WebSharper
 open WebSharper.JavaScript
 
+module internal Internal =
+
+    module Q = WebSharper.Core.Quotations
+    module J = WebSharper.Core.JavaScript.Core
+    open WebSharper.Testing.Random.Internal
+
+    type CheckMacro() =
+        interface Core.Macros.IMacro with
+            member this.Translate(q, tr) =
+                match q with
+                // test.CheckIn(runner, generator, attempt)
+                | Q.Call({Generics = [t; _; _]}, [this; runner; gen; attempt]) ->
+                    let id = J.Id()
+                    cCall (tr this) "CheckInSet" [
+                        tr runner
+                        J.Lambda(None, [id],
+                            mkSet (J.Application(tr gen, [J.Var id])) (cInt 100))
+                        tr attempt
+                    ]
+                // test.Check(runner, attempt)
+                | Q.Call({Generics = [t; _; _]}, [this; runner; attempt]) ->
+                    cCall (tr this) "CheckInSet" [
+                        tr runner
+                        J.Lambda(None, [], mkSet (mkGenerator t) (cInt 100))
+                        tr attempt
+                    ]
+                | _ -> tr q
+
 module QUnit =
 
     [<Stub>]
@@ -89,7 +117,7 @@ type SectionBuilder(name: string) =
 [<JavaScript>]
 let Section name = new SectionBuilder(name)
 
-// This could simply be (Assert -> Async<'A>), but since QUnit's performance
+// This could simply be (Asserter -> Async<'A>), but since QUnit's performance
 // degrades a lot when used in asynchronous mode, we want to use it in
 // synchronous mode whenever possible (ie. when all assertions in a test
 // are synchronous).
@@ -377,6 +405,7 @@ type SubtestBuilder () =
             return asserter.DeepEqual(actual, expected, message)
         })
 
+    /// Tests approximate equality between two floats.
     [<CustomOperation("approxEqual", MaintainsVariableSpace = true)>]
     member this.ApproxEqual<'T, 'A>
         (
@@ -390,6 +419,7 @@ type SubtestBuilder () =
             asserter.Push(abs (actual - expected) < 0.0001, actual, expected)
         )
 
+    /// Tests approximate equality between two floats.
     [<CustomOperation("approxEqualMsg", MaintainsVariableSpace = true)>]
     member this.ApproxEqualMsg<'T, 'A>
         (
@@ -404,6 +434,7 @@ type SubtestBuilder () =
             asserter.Push(abs (actual - expected) < 0.0001, actual, expected, message)
         )
 
+    /// Tests approximate equality between two floats.
     [<CustomOperation("approxEqualAsync", MaintainsVariableSpace = true)>]
     member this.ApproxEqualAsync<'T, 'A>
         (
@@ -417,6 +448,7 @@ type SubtestBuilder () =
             return asserter.Push(abs (actual - expected) < 0.0001, actual, expected)
         })
 
+    /// Tests approximate equality between two floats.
     [<CustomOperation("approxEqualMsgAsync", MaintainsVariableSpace = true)>]
     member this.ApproxEqualMsgAsync<'T, 'A>
         (
@@ -431,6 +463,7 @@ type SubtestBuilder () =
             return asserter.Push(abs (actual - expected) < 0.0001, actual, expected, message)
         })
 
+    /// Tests approximate inequality between two floats.
     [<CustomOperation("notApproxEqual", MaintainsVariableSpace = true)>]
     member this.NotApproxEqual<'T, 'A>
         (
@@ -444,6 +477,7 @@ type SubtestBuilder () =
             asserter.Push(abs (actual - expected) > 0.0001, actual, expected)
         )
 
+    /// Tests approximate inequality between two floats.
     [<CustomOperation("notApproxEqualMsg", MaintainsVariableSpace = true)>]
     member this.NotApproxEqualMsg<'T, 'A>
         (
@@ -458,6 +492,7 @@ type SubtestBuilder () =
             asserter.Push(abs (actual - expected) > 0.0001, actual, expected, message)
         )
 
+    /// Tests approximate inequality between two floats.
     [<CustomOperation("notApproxEqualAsync", MaintainsVariableSpace = true)>]
     member this.NotApproxEqualAsync<'T, 'A>
         (
@@ -471,6 +506,7 @@ type SubtestBuilder () =
             return asserter.Push(abs (actual - expected) > 0.0001, actual, expected)
         })
 
+    /// Tests approximate inequality between two floats.
     [<CustomOperation("notApproxEqualMsgAsync", MaintainsVariableSpace = true)>]
     member this.NotApproxEqualMsgAsync<'T, 'A>
         (
@@ -581,6 +617,7 @@ type SubtestBuilder () =
             return asserter.Ok(not value, message)
         })
 
+    /// Runs a test for each element in a sequence.
     [<CustomOperation("forEach", MaintainsVariableSpace = true)>]
     member this.ForEach
         (
@@ -599,12 +636,12 @@ type SubtestBuilder () =
                 loop (attempt args) (Choice1Of2 args) (List.ofSeq (src args))
             )
 
-    [<CustomOperation("forRandom", MaintainsVariableSpace = true)>]
-    member this.ForRandom<'T, 'A, 'B>
+    /// Runs a test for each element in a randomly generated set.
+    [<CustomOperation("checkInSet", MaintainsVariableSpace = true)>]
+    member this.CheckInSet<'T, 'A, 'B>
         (
             r: Runner<'A>,
-            [<ProjectionParameter>] times: 'A -> int,
-            [<ProjectionParameter>] gen: 'A -> Random.Generator<'T>,
+            [<ProjectionParameter>] gen: 'A -> Random.Set<'T>,
             [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
         ) : Runner<'A> =
         fun asserter ->
@@ -619,13 +656,46 @@ type SubtestBuilder () =
                         l
             r asserter |> Runner.Bind (fun args ->
                 let gen = gen args
-                let times = times args
-                loop (attempt args) (Choice1Of2 args) [
-                    for i = 0 to gen.Base.Length - 1 do yield gen.Base.[i]
-                    for i = 1 to times do yield (gen.Next())
-                ]
+                loop (attempt args) (Choice1Of2 args) gen.AsList
             )
 
+    /// Runs a test for each element in a randomly generated set.
+    member this.For(gen: Random.Set<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
+        fun asserter ->
+            let rec loop (acc: Choice<'B, Async<'B>>) (src: list<'A>) =
+                match src with
+                | [] -> acc
+                | e :: l ->
+                    let r = f e
+                    loop (acc |> Runner.Bind (fun _ -> r asserter)) l
+            loop (Choice1Of2 Unchecked.defaultof<'B>) gen.AsList
+
+    /// Runs a test for 100 occurrences of a random generator.
+    [<CustomOperation("checkIn", MaintainsVariableSpace = true)>]
+    [<Macro(typeof<Internal.CheckMacro>)>]
+    member this.CheckIn<'T, 'A, 'B>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] gen: 'A -> Random.Generator<'T>,
+            [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
+        ) : Runner<'A> =
+            this.CheckInSet(r, (fun args -> Random.Set<'T>(gen args)), attempt)
+
+    /// Runs a test for 100 occurrences of a random generator.
+    member this.For(gen: Random.Generator<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
+        this.For(Random.Set(gen), f)
+
+    /// Runs a test for 100 random occurrences.
+    [<CustomOperation("check", MaintainsVariableSpace = true)>]
+    [<Macro(typeof<Internal.CheckMacro>)>]
+    member this.Check<'T, 'A, 'B>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
+        ) : Runner<'A> =
+            this.CheckInSet(r, (fun _ -> Random.Set<'T>()), attempt)
+
+    /// Checks that an expression raises an exception.
     [<CustomOperation("raises", MaintainsVariableSpace = true)>]
     member this.Raises<'T, 'A>
         (
@@ -640,6 +710,7 @@ type SubtestBuilder () =
                 asserter.Ok(true)
         )
 
+    /// Checks that an expression raises an exception.
     [<CustomOperation("raisesMsg", MaintainsVariableSpace = true)>]
     member this.RaisesMsg<'T, 'A>
         (
@@ -655,6 +726,7 @@ type SubtestBuilder () =
                 asserter.Ok(true, message)
         )
 
+    /// Checks that an expression raises an exception.
     [<CustomOperation("raisesAsync", MaintainsVariableSpace = true)>]
     member this.RaisesAsync<'T, 'A>
         (
@@ -672,6 +744,7 @@ type SubtestBuilder () =
             }
         )
 
+    /// Checks that an expression raises an exception.
     [<CustomOperation("raisesMsgAsync", MaintainsVariableSpace = true)>]
     member this.RaisesMsgAsync<'T, 'A>
         (
@@ -690,6 +763,7 @@ type SubtestBuilder () =
             }
         )
 
+    /// Runs a sub-test.
     [<CustomOperation("run", MaintainsVariableSpace = true)>]
     member this.RunSubtest
         (

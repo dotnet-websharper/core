@@ -51,7 +51,7 @@ let Tests =
             equal (min 1 3) 1
             equal (min "asdf" "asdg") "asdf"
             equal (min (1, 2) (2, 1)) (1, 2)
-            forRandom 100 (R.Tuple2Of (R.Int, R.Int)) (fun (x, y) -> Do {
+            check (fun (x: int, y: int) -> Do {
                 isTrue (max x y >= min x y)
             })
         }
