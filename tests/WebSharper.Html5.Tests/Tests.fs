@@ -371,7 +371,7 @@ type TestBuilder with
 
 [<JavaScript>]
 let Tests =
-    Section "HTML5" {
+    TestCategory "HTML5" {
 
         Test "Geolocation" {
             let! position = SamplesInternals.GetPosition()

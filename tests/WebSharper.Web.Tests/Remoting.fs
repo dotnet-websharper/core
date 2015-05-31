@@ -292,7 +292,7 @@ module Remoting =
 
     [<JavaScript>]
     let Tests =
-        Section "Remoting" {
+        TestCategory "Remoting" {
 
             Test "unit -> unit" {
                 do! Server.reset1()

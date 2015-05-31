@@ -27,7 +27,7 @@ type HS<'T> = System.Collections.Generic.HashSet<'T>
 
 [<JavaScript>]
 let Tests =
-    Section "HashSet" {
+    TestCategory "HashSet" {
 
         Test "Construction" {
             let s = HS [ "a"; "b"; "c"; "a" ]

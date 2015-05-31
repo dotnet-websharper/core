@@ -45,7 +45,7 @@ type Message =
 [<JavaScript>]
 let Tests =
 
-    Section "Async" {
+    TestCategory "Async" {
 
         Test "Bind and Return" {
             let! x = async { return 1 }

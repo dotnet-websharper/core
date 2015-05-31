@@ -27,7 +27,7 @@ type private D = System.Double
 
 [<JavaScript>]
 let Tests =
-    Section "Double" {
+    TestCategory "Double" {
 
         Test "Double.IsInfinity" {
             isTrue (D.IsInfinity infinity)

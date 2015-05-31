@@ -47,7 +47,7 @@ type MyList<'T> =
 
 [<JavaScript>]
 let Tests =
-    Section "Printf" {
+    TestCategory "Printf" {
 
         Test "Strings" {
             equal (sprintf "Web%s" "Sharper") "WebSharper"

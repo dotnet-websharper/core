@@ -50,9 +50,14 @@ let HomePage =
 let TestsPage =
     Skin.WithTemplate "Tests" Menu <| fun ctx ->
         [
-            Div [Id "qunit"]
-            Div [Id "qunit-fixture"]
-            Div [new Controls.Tests()]
+            Div [
+                Testing.Runner.Run [
+                    typeof<WebSharper.Collections.Tests.Dictionary.Foo>.Assembly
+                    typeof<WebSharper.Tests.AddMacro>.Assembly
+                    typeof<WebSharper.Web.Tests.HelloWorld>.Assembly
+                    typeof<WebSharper.Html5.Tests.Samples>.Assembly
+                ]
+            ]
         ]
 
 let MainSite = function

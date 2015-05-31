@@ -95,7 +95,7 @@ module Macro =
     [<JavaScript>]
     let Tests =
 
-        Section "Metaprogramming" {
+        TestCategory "Metaprogramming" {
 
             Test "Generated" {
                 equal (helloQuotation "world") "Hello world!"

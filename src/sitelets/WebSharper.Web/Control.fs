@@ -133,9 +133,6 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
         As<Function>(f).ApplyUnsafe(null, args) :?> _
 
     interface Html.Client.IControl with
-        [<JavaScript>]
-        member this.Body = this.Body
-        member this.Id = this.ID
         member this.Requires meta =
             let declType, name, reqs = snd bodyAndReqs
             if funcName.Length = 0 then

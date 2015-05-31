@@ -26,7 +26,7 @@ open WebSharper.Testing
 [<JavaScript>]
 let Tests =
 
-    Section "Ref" {
+    TestCategory "Ref" {
 
         Test "Value" {
             let r = ref 3

@@ -25,7 +25,7 @@ open WebSharper.Testing
 
 [<JavaScript>]
 let Tests =
-    Section "Lazy" {
+    TestCategory "Lazy" {
 
         Test "Basics" {
             let k = lazy 1

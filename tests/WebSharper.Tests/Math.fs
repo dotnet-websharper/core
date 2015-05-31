@@ -28,7 +28,7 @@ type private Math = System.Math
 [<JavaScript>]
 let Tests =
 
-    Section "Math" {
+    TestCategory "Math" {
 
         let positiveFloat = R.Map abs R.Float
 

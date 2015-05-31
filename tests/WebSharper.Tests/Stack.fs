@@ -27,7 +27,7 @@ type private Stack<'T> = System.Collections.Generic.Stack<'T>
 [<JavaScript>]
 let Tests =
 
-    Section "Stack" {
+    TestCategory "Stack" {
 
         Test "new" {
             let s = Stack<int>()

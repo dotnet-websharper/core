@@ -32,18 +32,3 @@ type EntryPoint() =
     override this.Body =
         Client.EntryPoint()
         Span [] :> _
-
-[<Sealed>]
-type Tests() =
-    inherit Web.Control()
-
-    [<JavaScript>]
-    override this.Body =
-        // Reference at least one test from each assembly that contains tests,
-        // to ensure that the js (and therefore the tests) from all these assemblies
-        // is included.
-        do WebSharper.Collections.Tests.Dictionary.Tests
-        do WebSharper.Tests.Array.Tests
-        do WebSharper.Web.Tests.Remoting.Tests
-        do WebSharper.Html5.Tests.Tests
-        Span [] :> _

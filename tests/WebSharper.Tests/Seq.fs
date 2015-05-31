@@ -27,7 +27,7 @@ module R = WebSharper.Testing.Random
 [<JavaScript>]
 let Tests =
 
-    Section "Seq" {
+    TestCategory "Seq" {
 
         Test "Seq.append" {
             equal (Seq.append (seq { 1 .. 5 }) (seq { 6 .. 10 }) |> Seq.toArray)

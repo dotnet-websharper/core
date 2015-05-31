@@ -110,7 +110,7 @@ let apply (f: 'T -> 'U) (x: 'T) = X<'U>
 
 [<JavaScript>]
 let Tests =
-    Section "Tupled functions" {
+    TestCategory "Tupled functions" {
 
         Test "Methods" {
             let a = A()

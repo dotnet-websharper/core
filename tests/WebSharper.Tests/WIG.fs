@@ -30,7 +30,7 @@ let f (x, y) = Console.Log((x:obj), (y:obj))
 
 [<JavaScript>]
 let Tests =
-    Section "Interface generator" {
+    TestCategory "Interface generator" {
 
         Test "Functions" {
             let doNotRun() = 

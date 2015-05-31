@@ -29,7 +29,7 @@ type Foo = {Foo:string}
 
 [<JavaScript>]
 let Tests =
-    Section "Dictionary" {
+    TestCategory "Dictionary" {
 
         Test "New" {
             let x = Dictionary()

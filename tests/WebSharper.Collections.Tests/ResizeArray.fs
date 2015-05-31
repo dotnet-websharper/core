@@ -27,7 +27,7 @@ open WebSharper.Testing
 [<JavaScript>]
 let Tests =
 
-    Section "ResizeArray" {
+    TestCategory "ResizeArray" {
 
         Test "ResizeArray.ctor" {
             let a = ResizeArray()

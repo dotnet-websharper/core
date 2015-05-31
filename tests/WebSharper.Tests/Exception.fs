@@ -33,7 +33,7 @@ type E3 [<JavaScript>] (message) =
 [<JavaScript>]
 let Tests =
 
-    Section "Exception" {
+    TestCategory "Exception" {
 
         Test "E0" {
             equal (try 1 with E0 -> 2) 1

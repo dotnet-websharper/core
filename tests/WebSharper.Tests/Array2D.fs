@@ -26,7 +26,7 @@ module R = WebSharper.Testing.Random
 
 [<JavaScript>]
 let Tests =
-    Section "Array2D" {
+    TestCategory "Array2D" {
 
         Test "Initialize" {
             let n1 = 5

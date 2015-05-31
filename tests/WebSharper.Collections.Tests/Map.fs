@@ -27,7 +27,7 @@ open WebSharper.Testing
 [<JavaScript>]
 let Tests =
 
-    Section "Map" {
+    TestCategory "Map" {
 
         Test "Map.add" {
             isFalse (Map.isEmpty (Map.add 1 2 Map.empty))

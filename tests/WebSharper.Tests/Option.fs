@@ -27,7 +27,7 @@ module R = WebSharper.Testing.Random
 [<JavaScript>]
 let Tests =
 
-    Section "Option" {
+    TestCategory "Option" {
 
         Test "Option.bind" {
             let f = (+) 1 >> Some

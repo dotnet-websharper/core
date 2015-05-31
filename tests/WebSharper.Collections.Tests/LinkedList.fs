@@ -27,7 +27,7 @@ type LL<'T> = System.Collections.Generic.LinkedList<'T>
 
 [<JavaScript>]
 let Tests =
-    Section "LinkedList" {
+    TestCategory "LinkedList" {
 
         Test "Construction" {
             equal (LL<int>().Count) 0

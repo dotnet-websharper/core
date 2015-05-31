@@ -42,7 +42,7 @@ type StringBuilder [<JavaScript>] () =
 [<JavaScript>]
 let Tests =
 
-    Section "Custom proxy" {
+    TestCategory "Custom proxy" {
 
         Test "StringBuilder" {
             let sb = StringBuilder()

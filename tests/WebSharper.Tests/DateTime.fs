@@ -35,7 +35,7 @@ let private d = DateTime(2010, 4, 8, 15, 5, 39)
 [<JavaScript>]
 let Tests =
 
-    Section "DateTime" {
+    TestCategory "DateTime" {
 
         Test "Year" {
             equal d.Year 2010
@@ -182,7 +182,7 @@ let Tests =
 [<JavaScript>]
 let NativeTests =
 
-    Section "Native Dates" {
+    TestCategory "Native Dates" {
 
         Test "Turnaround" {
             approxEqual (As<float> d.JS.Self) (As<float> d)

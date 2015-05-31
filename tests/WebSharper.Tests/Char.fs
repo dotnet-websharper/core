@@ -27,7 +27,7 @@ type private C = System.Char
 
 [<JavaScript>]
 let Tests =
-    Section "Char" {
+    TestCategory "Char" {
 
         Test "Char.GetNumericValue" {
             equal (C.GetNumericValue '4') 4.

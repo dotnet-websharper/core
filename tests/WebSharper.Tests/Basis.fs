@@ -91,7 +91,7 @@ let private isNaN (x: double) = System.Double.IsNaN x
 
 [<JavaScript>]
 let Tests =
-    Section "Basis" {
+    TestCategory "Basis" {
 
         Test "Comparisons" {
             isTrueMsg (not (not true))  "not (not true)"

@@ -29,7 +29,7 @@ module R = WebSharper.Testing.Random
 [<JavaScript>]
 let Tests =
 
-    Section "Operators" {
+    TestCategory "Operators" {
 
         Test "=" {
             equal null null

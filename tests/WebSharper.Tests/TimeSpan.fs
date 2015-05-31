@@ -27,7 +27,7 @@ type TimeSpan = System.TimeSpan
 
 [<JavaScript>]
 let Tests =
-    Section "TimeSpan" {
+    TestCategory "TimeSpan" {
     
         let s = TimeSpan(733869, 14, 12, 12, 545)
         let ss = TimeSpan(0, 14, 12, 15, 545)

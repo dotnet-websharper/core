@@ -27,7 +27,7 @@ module R = WebSharper.Testing.Random
 [<JavaScript>]
 let Tests =
 
-    Section "List" {
+    TestCategory "List" {
 
         Test "List.Cons" {
             equal (List.Cons (1, [])) [1]

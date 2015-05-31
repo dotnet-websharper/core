@@ -27,7 +27,7 @@ module R = WebSharper.Testing.Random
 
 [<JavaScript>]
 let Tests =
-    Section "Array" {
+    TestCategory "Array" {
 
         Test "Range" {
             equal [| 1; 2; 3 |]  [| 1 .. 3 |]

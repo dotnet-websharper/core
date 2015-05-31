@@ -159,7 +159,7 @@ type System.Object with
 
 [<JavaScript>]
 let Tests =
-    Section "Regression" {
+    TestCategory "Regression" {
 
         Test "Bug #26" {
             isTrueMsg ([||] = Empty<int>) "[||] = Empty<int>"

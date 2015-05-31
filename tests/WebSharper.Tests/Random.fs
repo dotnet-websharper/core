@@ -25,7 +25,7 @@ open WebSharper.Testing
 
 [<JavaScript>]
 let Tests =
-    Section "Random" {
+    TestCategory "Random" {
 
         Test "Next" {
             let r = System.Random()

@@ -56,7 +56,7 @@ type Abcde = { A: string; B: string; C: string; D: string; E: string }
 
 [<JavaScript>]
 let Tests =
-    Section "Object" {
+    TestCategory "Object" {
 
         Test "Construction" {
             equal (JS.TypeOf (obj ())) JS.Kind.Object

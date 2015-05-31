@@ -42,7 +42,7 @@ let EightFTeenS = [8; 9; 10; 11; 12; 13; 14]
 [<JavaScript>]
 let Tests =
 
-    Section "Set" {
+    TestCategory "Set" {
 
         Test "Empty" {
             isTrue (Set.isEmpty Set.empty)
@@ -148,12 +148,6 @@ let Tests =
                 equal (Set.fold (+) 0 (Set.ofList x))
                     (Set.foldBack (+) (Set.ofList x) 0)
             })
-        }
-
-        Test "Set.fold consistency 2" {
-            for x in Random.Auto() do
-            equal (Set.fold (+) 0 (Set.ofList x))
-                (Set.foldBack (+) (Set.ofList x) 0)
         }
 
         Test "Set.forall" {

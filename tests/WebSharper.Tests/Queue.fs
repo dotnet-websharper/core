@@ -26,7 +26,7 @@ type Queue<'T> = System.Collections.Generic.Queue<'T>
 
 [<JavaScript>]
 let Tests =
-    Section "Queue" {
+    TestCategory "Queue" {
 
         Test "Construction" {
             let s = Queue()

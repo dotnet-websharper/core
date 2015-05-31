@@ -25,7 +25,7 @@ open WebSharper.Testing
 
 [<JavaScript>]
 let Tests =
-    Section "KeyValuePair" {
+    TestCategory "KeyValuePair" {
 
         Test "Construction" {
             let kv = System.Collections.Generic.KeyValuePair(1, 2)

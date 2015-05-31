@@ -99,10 +99,10 @@ module QUnit =
     [<Inline "QUnit.module($name)">]
     let Module (name: string) = Unchecked.defaultof<unit>
 
-type Section = internal { name : string; run : (unit -> unit) }
+type TestCategory = internal { name : string; run : (unit -> unit) }
 
 [<JavaScript>]
-type SectionBuilder(name: string) =
+type TestCategoryBuilder(name: string) =
 
     [<Inline>]
     member this.Delay(f) = { name = name; run = f }
@@ -110,12 +110,13 @@ type SectionBuilder(name: string) =
     [<Inline>]
     member this.Zero() = ()
 
-    member this.Run(s: Section) =
+    member this.Run(s: TestCategory) =
         QUnit.Module(s.name)
         s.run()
+        s
 
 [<JavaScript>]
-let Section name = new SectionBuilder(name)
+let TestCategory name = new TestCategoryBuilder(name)
 
 // This could simply be (Asserter -> Async<'A>), but since QUnit's performance
 // degrades a lot when used in asynchronous mode, we want to use it in

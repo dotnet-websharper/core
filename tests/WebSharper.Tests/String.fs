@@ -31,7 +31,7 @@ type Hi() =
 [<JavaScript>]
 let Tests =
 
-    Section "String" {
+    TestCategory "String" {
 
         let karina = "Karina"
 
