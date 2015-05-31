@@ -68,7 +68,7 @@ let Tests =
             equal arr1 [| 1; 2; 3|]
             equal arr2 [| 4; 5 |]
             equal (Array.append [| 1 |] [| |]) [| 1 |]
-            check (fun (x: int[]) -> Do {
+            property (fun (x: int[]) -> Do {
                 equal (Array.append x [||]) x
                 equal (Array.append [||] x) x
             })
@@ -96,7 +96,7 @@ let Tests =
 
         Test "Array.collect" {
             equal (Array.collect (fun x -> [| x |]) [| 1..10 |]) [|1..10|]
-            check (fun (x: int[]) -> Do {
+            property (fun (x: int[]) -> Do {
                 equal (Array.collect (fun x -> [| x |]) x) x
             })
         }
@@ -105,15 +105,13 @@ let Tests =
             equal (Array.concat [| [| 1 |]; [||]; [| 2; 3 |] |]) [| 1; 2; 3 |]
         }
 
-        Test "Array.copy" {
-            check (fun (x: int[]) -> Do {
-                equal (Array.copy x) x
-            })
-        }
+        Property "Array.copy" (fun (x: int[]) -> Do {
+            equal (Array.copy x) x
+        })
 
         Test "Array.create" {
             equal (Array.create 5 "Value") [| for i in 1 .. 5 -> "Value" |]
-            checkIn (R.Tuple2Of (R.Natural, R.Int)) (fun (size, elem) -> Do {
+            propertyWith (R.Tuple2Of (R.Natural, R.Int)) (fun (size, elem) -> Do {
                 let a = Array.create size elem
                 equal a.Length size
                 isTrue (Array.forall ((=) elem) a)
@@ -176,7 +174,7 @@ let Tests =
             equal (Array.foldBack (+) [| 1; 1; 1; 1; 1 |] 0) 5
             equal (Array.foldBack (fun y x -> x + List.length y)
                     [| [2; 1]; [1; 2] |] 0) 4
-            check (fun x -> Do {
+            property (fun x -> Do {
                 let left = Array.fold (+) 0 x
                 let right = Array.foldBack (+) x 0
                 equal left right
@@ -204,7 +202,7 @@ let Tests =
             isTrue (Array.forall (fun x -> x % 2 = 0) a)
             isTrue (Array.forall (fun _ -> false) [||])
             isTrue (not (Array.forall ((=) 8) a))
-            check (fun (f: int, l) -> Do {
+            property (fun (f: int, l) -> Do {
                 let p1 = Array.forall ((=) f) l
                 let p2 = Array.exists ((<>) f) l |> not
                 equal p1 p2
@@ -286,7 +284,7 @@ let Tests =
             equal (Array.length [||]) 0
             equal (Array.length [| 1 .. 10 |]) 10
             equal (Array.length (Array.zeroCreate 5)) 5
-            check (fun (x: int[], y: int[]) -> Do {
+            property (fun (x: int[], y: int[]) -> Do {
                 equal (Array.length x + Array.length y) (Array.length (Array.append x y))
             })
         }
@@ -297,7 +295,7 @@ let Tests =
             let funcs = [| (+) 1; ( * ) 2; (fun x -> x); (fun x -> x * x)|]
             let rA  = R.ArrayOf R.Int
             let rF = R.OneOf funcs
-            checkIn (R.Tuple3Of (rA, rF, rF)) (fun (arr, f1, f2) -> Do {
+            propertyWith (R.Tuple3Of (rA, rF, rF)) (fun (arr, f1, f2) -> Do {
                 let map1 =
                     arr
                     |> Array.map f1
@@ -360,7 +358,7 @@ let Tests =
             equal even [| 2; 4 |]
             equal odd [| 1; 3; 5|]
             let funcs = [| (=) 3; (fun x -> x % 2 = 0) |]
-            checkIn (R.Tuple2Of (R.ArrayOf R.Int, R.OneOf funcs)) (fun (a, f) -> Do {
+            propertyWith (R.Tuple2Of (R.ArrayOf R.Int, R.OneOf funcs)) (fun (a, f) -> Do {
                 let (x, y) = Array.partition f a
                 equal (Array.length (Array.append x y)) (Array.length x + Array.length y)
             })
@@ -384,17 +382,17 @@ let Tests =
         Test "Array.reduceBack" {
             equal (Array.reduceBack (+) [| 1; 1; 1; 1; 1 |]) 5
             equal (Array.reduceBack (+) [| 3 |]) 3
-            check (fun a -> Do {
+            property (fun a -> Do {
                 isTrue (Array.isEmpty a || (Array.reduce (+) a = Array.reduceBack (+) a))
             })
         }
 
         Test "Array.rev" {
-            check (fun (a: int[]) -> Do {
+            property (fun (a: int[]) -> Do {
                 equal (Array.rev (Array.rev a)) a
             })
             equal (Array.rev [||]) [||]
-            check (fun (x: int) -> Do { equal [| x |] (Array.rev [| x |]) })
+            property (fun (x: int) -> Do { equal [| x |] (Array.rev [| x |]) })
         }
 
         Test "Array.scan" {
@@ -437,7 +435,7 @@ let Tests =
                 List.length x - List.length y
             Array.sortInPlaceWith comparer arr
             equal arr [| []; [1; 2]; [1; 2; 3] |]
-            check (fun arr -> Do {
+            property (fun arr -> Do {
                 let copy = Array.copy arr
                 Array.sortInPlaceWith comparer copy
                 equal (Array.sortWith comparer arr) copy
@@ -480,7 +478,7 @@ let Tests =
             let arr = [| 1; 2; 3; 4; 5 |]
             let l = [1; 2; 3; 4; 5]
             equal l (Array.toList arr)
-            check (fun (x: list<int>) -> Do {
+            property (fun (x: list<int>) -> Do {
                 equal (Array.toList (Array.ofList x)) x
             })
         }
@@ -509,21 +507,15 @@ let Tests =
             equal (Array.tryPick f [| 1 .. 3 |]) None
         }
 
-        Test "Array.unzip" {
-            let r = R.Tuple2Of (R.Int, R.Boolean)
-            check (fun (arr: (int * bool)[]) -> Do {
-                let (x, y) = Array.unzip arr
-                equal (Array.zip x y) arr
-            })
-        }
+        Property "Array.unzip" (fun (arr: (int * bool)[]) -> Do {
+            let (x, y) = Array.unzip arr
+            equal (Array.zip x y) arr
+        })
 
-        Test "Array.unzip3" {
-            let r = R.Tuple3Of (R.Int, R.Boolean, R.Int)
-            check (fun (arr: (int * bool * int)[]) -> Do {
-                let (x, y, z) = Array.unzip3 arr
-                equal (Array.zip3 x y z) arr
-            })
-        }
+        Property "Array.unzip3" (fun (arr: (int * bool * int)[]) -> Do {
+            let (x, y, z) = Array.unzip3 arr
+            equal (Array.zip3 x y z) arr
+        })
 
         Test "Array.zeroCreate" {
             equal (Array.zeroCreate 2 : int [])

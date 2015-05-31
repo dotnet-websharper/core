@@ -57,7 +57,7 @@ let Tests =
         Test "Map/array consistency" {
             let a = [| (1, 5); (2, 9); (3, 6); (4, 13) |]
             equal a (Map.toArray <| Map.ofArray a)
-            check (fun (x: (int * unit)[]) -> Do {
+            property (fun (x: (int * unit)[]) -> Do {
                 let x1 = x |> Map.ofArray |> Map.toArray
                 let x2 = x |> Set.ofArray |> Set.toArray
                 equal x1 x2
@@ -69,7 +69,7 @@ let Tests =
             let trueF (x: int) = true
             let falseF (x: int) = false
             let ltF x = x < 10
-            let check' (xs: (int * unit) []) (f : int -> bool) =
+            let check (xs: (int * unit) []) (f : int -> bool) =
                 let xs1 =
                     Map.ofArray xs |> Map.filter (fun k _ -> f k) |> Map.toArray
                 let xs2 =
@@ -79,11 +79,11 @@ let Tests =
                     |> Seq.filter (fun (k, _) -> f k)
                     |> Seq.toArray
                 Do { equal xs2 xs1 }
-            check (fun xs -> Do {
-                run (check' xs even)
-                run (check' xs trueF)
-                run (check' xs falseF)
-                run (check' xs ltF)
+            property (fun xs -> Do {
+                run (check xs even)
+                run (check xs trueF)
+                run (check xs falseF)
+                run (check xs ltF)
             })
         }
 
@@ -111,13 +111,11 @@ let Tests =
             equal (Map.fold (fun x _ _ -> x) 0 m) 0
         }
 
-        Test "Map.fold/foldBack" {
-            check (fun x -> Do {
-                let f = fun y z x -> x + y + z
-                equal (Map.fold f 0 (Map.ofList x))
-                    (Map.foldBack f (Map.ofList x) 0)
-            })
-        }
+        Property "Map.fold/foldBack" (fun x -> Do {
+            let f = fun y z x -> x + y + z
+            equal (Map.fold f 0 (Map.ofList x))
+                (Map.foldBack f (Map.ofList x) 0)
+        })
 
         Test "Map.foldBack" {
             let m = Map.ofList [(1, 5); (2, 9); (3, 6); (4, 13); (5, 5); (6, 9)]
@@ -143,19 +141,16 @@ let Tests =
             isTrue (Map.isEmpty emp)
         }
 
-        Test "Map.partition" {
-            check (
-                fun (xs: list<int * unit>) -> Do {
-                    let xs = xs |> Set.ofList |> Set.toList
-                    let f (k : int) () = k % 2 = 0
-                    let (a, b) =
-                        List.partition (fun (k, _) -> k % 2 = 0) xs
-                    let (x, y) =
-                        Map.partition (fun k _ -> k % 2 = 0) (Map.ofList xs)
-                    equal (Map.ofList a) x
-                    equal (Map.ofList b) y
-            })
-        }
+        Property "Map.partition" (fun (xs: list<int * unit>) -> Do {
+            let xs = xs |> Set.ofList |> Set.toList
+            let f (k : int) () = k % 2 = 0
+            let (a, b) =
+                List.partition (fun (k, _) -> k % 2 = 0) xs
+            let (x, y) =
+                Map.partition (fun k _ -> k % 2 = 0) (Map.ofList xs)
+            equal (Map.ofList a) x
+            equal (Map.ofList b) y
+        })
 
         Test "Map.pick" {
             let m = Map.ofList [(1, 5); (2, 9); (3, 6); (4, 13); (5, 4); (6, 9)]

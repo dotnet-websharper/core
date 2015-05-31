@@ -27,17 +27,17 @@ open WebSharper.Testing
 let Tests =
     TestCategory "Random" {
 
-        Test "Next" {
-            let r = System.Random()
-            check (fun () -> Do {
-                let n = r.Next(10)
-                isTrue (0 <= n && n < 10)
-            })
-            check (fun () -> Do {
-                let n = r.Next(-5, 5)
-                isTrue (-5 <= n && n < 5)
-            }) 
-        }
+        let r = System.Random()
+
+        Property "Next(max)" (fun () -> Do {
+            let n = r.Next(10)
+            isTrue (0 <= n && n < 10)
+        })
+
+        Property "Next(min, max)" (fun () -> Do {
+            let n = r.Next(-5, 5)
+            isTrue (-5 <= n && n < 5)
+        })
 
         Test "Guid" {
             let guids = List.init 100 (fun _ -> System.Guid.NewGuid())

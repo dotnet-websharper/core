@@ -51,7 +51,7 @@ let Tests =
             equal (min 1 3) 1
             equal (min "asdf" "asdg") "asdf"
             equal (min (1, 2) (2, 1)) (1, 2)
-            check (fun (x: int, y: int) -> Do {
+            property (fun (x: int, y: int) -> Do {
                 isTrue (max x y >= min x y)
             })
         }

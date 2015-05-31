@@ -39,15 +39,15 @@ let Tests =
             equal (List.append [] []) []
             equal (List.append [1] []) [1]
             equal (List.append [] [1]) [1]
-            check (fun (x: list<int>) -> Do {
+            property (fun (x: list<int>) -> Do {
                 equal (List.append x []) x
                 equal (List.append [] x) x
             })
-            check (fun (x: list<int>, y: list<int>) -> Do {
+            property (fun (x: list<int>, y: list<int>) -> Do {
                     equal (List.length (List.append x y))
                         (List.length x + List.length y)
                 })
-            check (fun (x: list<int>, y: list<int>) -> Do {
+            property (fun (x: list<int>, y: list<int>) -> Do {
                     equal (List.append x y)
                         (Array.append (Array.ofList x) (Array.ofList y)
                         |> Array.toList)
@@ -125,7 +125,7 @@ let Tests =
             let l2 = [[1]; [2]]
             equal (List.fold2 (fun x y z -> x + List.length y + first z) 0 oneTest l2) 7
             raises (List.fold2 (fun _ _ _ -> true) true [] [1])
-            check (fun x -> Do {
+            property (fun x -> Do {
                 let (x,y) = List.unzip x
                 let conditionalAdder s x y = if y then s + x else s
                 let xArr, yArr = (Array.ofList x, Array.ofList y)
@@ -138,13 +138,13 @@ let Tests =
         Test "List.foldBack" {
             equal (List.foldBack (+) [1;1;1;1] 0) 4
             equal (List.foldBack (fun y x -> x + List.length y) [[1]; [2;3]] 0) 3
-            check (fun x -> Do {
+            property (fun x -> Do {
                 equal (List.foldBack (+) x 0) (Array.foldBack (+) (Array.ofList x) 0)
             })
-            check (fun x -> Do {
+            property (fun x -> Do {
                 equal (List.fold  (+) 0 x) (List.foldBack (+) x 0)
             })
-            check (fun x -> Do {
+            property (fun x -> Do {
                 equal (List.fold (-) 0 x) (Array.fold (-) 0 (Array.ofList x))
             })
         }
@@ -154,7 +154,7 @@ let Tests =
                     [[2; 1]; [1; 2]] [[1]; [2]] 0)
                 7
             raises (List.foldBack2 (fun _ _ _ -> true) [] [1] true)
-            check (fun x -> Do {
+            property (fun x -> Do {
                 let (x,y) = List.unzip x
                 let conditionalAdder s x y = if y then s + x else s
                 let left  = List.fold2  conditionalAdder 0 x y
@@ -238,7 +238,7 @@ let Tests =
             equal (List.map (fun x -> x % 2) oneToTen)
                 [1; 0; 1; 0; 1; 0; 1; 0; 1; 0]
             let funcs = [| (+) 1; (*) 2; (fun x -> x); (fun x -> x * x) |]
-            checkIn (R.Tuple3Of(R.Auto(), R.OneOf funcs, R.OneOf funcs))
+            propertyWith (R.Tuple3Of(R.Auto(), R.OneOf funcs, R.OneOf funcs))
                 (fun (x, f1, f2) -> Do {
                     let map1 = x
                                |> List.map f1
@@ -321,7 +321,7 @@ let Tests =
         Test "List.reduceBack" {
             equal (List.reduceBack (+) [1; 1; 1; 1; 1]) 5
             equal (List.reduceBack (+) [3]) 3
-            check (fun x ->
+            property (fun x ->
                 if List.isEmpty x then Do { () }
                 else
                     Do {
@@ -334,7 +334,7 @@ let Tests =
 
         Test "List.replicate" {
             equal (List.replicate 5 "V") ["V"; "V"; "V"; "V"; "V"]
-            checkIn (R.Tuple2Of (R.Natural, R.Int)) (fun (size, elem) -> Do {
+            propertyWith (R.Tuple2Of (R.Natural, R.Int)) (fun (size, elem) -> Do {
                 let l = List.replicate size elem
                 equal (List.length l) size
                 forEach l (fun x -> Do { equal x elem })
@@ -344,7 +344,7 @@ let Tests =
         Test "List.rev" {
             equal (List.rev [1; 2; 3]) [3; 2; 1]
             equal (List.rev []) []
-            check (fun (x: list<int>) -> Do {
+            property (fun (x: list<int>) -> Do {
                 let doubleRev = List.rev >> List.rev
                 equal (doubleRev x) x
                 let l = List.rev x @ x
@@ -355,7 +355,7 @@ let Tests =
         Test "List.scan" {
             let l3 = [[2; 1]; [1; 2; 3]]
             equal (List.scan (fun x y -> x + List.length y) 0 l3) [0; 2; 5]
-            check (fun x -> Do {
+            property (fun x -> Do {
                 let byList  = List.scan  (+) 0 x
                 let byArray = Array.scan (+) 0 (Array.ofList x)
                 equal byList (Array.toList byArray)
@@ -366,7 +366,7 @@ let Tests =
             equal (List.scanBack (+) [4] 0) [4; 0]
             let l3 = [[2;1]; [1;2;3]]
             equal (List.scanBack (fun y x -> x + List.length y) l3 0) [5; 3; 0]
-            check (fun x -> Do {
+            property (fun x -> Do {
                 let byList  = List.scanBack  (+) x 0
                 let byArray = Array.scanBack (+) (Array.ofList x) 0
                 equal byList (Array.toList byArray)
@@ -388,7 +388,7 @@ let Tests =
             let comparer (x:int list) (y:int list) = List.length x - List.length y
             let l = List.sortWith comparer l
             equal l [[]; [1; 2]; [1; 2; 3]]
-            check (fun x -> Do {
+            property (fun x -> Do {
                 let firstSort = List.sortWith (-) x
                 let secondSort = List.sortWith (-) firstSort
                 equal firstSort secondSort
@@ -462,7 +462,7 @@ let Tests =
         Test "List.zip" {
             raises (List.zip [] [1])
             equal (List.zip ["a"] [1]) [("a", 1)]
-            check (fun (l: list<int * bool>) -> Do {
+            property (fun (l: list<int * bool>) -> Do {
                 let (x, y) = List.unzip l
                 equal (List.zip x y) l
             })

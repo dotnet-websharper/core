@@ -116,7 +116,7 @@ let Tests =
                 | Some x -> x
                 | None   -> -1
             equal r -1
-            check (fun i -> Do {
+            property (fun i -> Do {
                 let o = Some i
                 let a =
                     match o with

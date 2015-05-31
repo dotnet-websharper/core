@@ -39,11 +39,11 @@ let Tests =
             equal (Math.Abs -2L)  2L
             equal (Math.Abs -4.f) 4.f
             equal (Math.Abs -6.)  6.
-            checkIn R.Natural (fun x -> Do {
+            propertyWith R.Natural (fun x -> Do {
                 equal (Math.Abs x) x
                 equal (Math.Abs -x) x
             })
-            checkIn positiveFloat (fun x -> Do {
+            propertyWith positiveFloat (fun x -> Do {
                 equal (Math.Abs x) x
                 equal (Math.Abs -x) x
             })
@@ -74,17 +74,13 @@ let Tests =
             equal (Math.Ceiling 1.)   1.
         }
 
-        Test "Math.Cos" {
-            check (fun x -> Do {
-                approxEqual (Math.Cos x) (Math.Cos (x + 2. * Math.PI))
-            })
-        }
+        Property "Math.Cos" (fun x -> Do {
+            approxEqual (Math.Cos x) (Math.Cos (x + 2. * Math.PI))
+        })
 
-        Test "Math.Cosh" {
-            check (fun x -> Do {
-                approxEqual (Math.Cosh x) (1. / 2. * (Math.Exp x + Math.Exp -x))
-            })
-        }
+        Property "Math.Cosh" (fun x -> Do {
+            approxEqual (Math.Cosh x) (1. / 2. * (Math.Exp x + Math.Exp -x))
+        })
 
         Test "Math.E" {
             equal (round (Math.E * 1000.)) 2718.
@@ -95,19 +91,17 @@ let Tests =
             equal (Math.Floor 1.9)  1.0
         }
 
-        Test "Math.Exp" {
-            checkIn positiveFloat (fun x -> Do {
-                approxEqual (Math.Log (Math.Exp x)) x
-            })
-        }
+        PropertyWith "Math.Exp" positiveFloat (fun x -> Do {
+            approxEqual (Math.Log (Math.Exp x)) x
+        })
 
         Test "Math.Log" {
             approxEqual (Math.Log 10.)      2.302585
             approxEqual (Math.Log(10., 9.)) 1.047952
-            checkIn positiveFloat (fun x -> Do {
+            propertyWith positiveFloat (fun x -> Do {
                 approxEqual (Math.E ** Math.Log x) x
             })
-            checkIn (R.Tuple2Of (positiveFloat, positiveFloat)) (fun (x, y) -> Do {
+            propertyWith (R.Tuple2Of (positiveFloat, positiveFloat)) (fun (x, y) -> Do {
                 let x = x + 1.
                 let y = y + 2.
                 approxEqual (y ** Math.Log(x, y)) x
@@ -116,7 +110,7 @@ let Tests =
 
         Test "Math.Log10" {
             approxEqual (Math.Log10 10.) 1.0
-            checkIn positiveFloat (fun x -> Do {
+            propertyWith positiveFloat (fun x -> Do {
                 approxEqual (10. ** Math.Log10 x) x
             })
         }
@@ -132,13 +126,13 @@ let Tests =
             equal (Math.Max(1us, 2us)) 2us
             equal (Math.Max(1u, 2u))   2u
             equal (Math.Max(1UL, 2UL)) 2UL
-            check (fun (x: float, y: float) ->
+            property (fun (x: float, y: float) ->
                 let res = Math.Max(x, y)
                 if x >= y then
                     Do { equal res x }
                 else Do { equal res y }
             )
-            check (fun (x: float, y: float) ->
+            property (fun (x: float, y: float) ->
                 let res = Math.Max(x, y)
                 if x >= y then
                     Do { equal res x }
@@ -157,13 +151,13 @@ let Tests =
             equal (Math.Min(1us, 2us)) 1us
             equal (Math.Min(1u, 2u))   1u
             equal (Math.Min(1UL, 2UL)) 1UL
-            check (fun (x: float, y: float) ->
+            property (fun (x: float, y: float) ->
                 let res = Math.Min(x, y)
                 if x >= y then
                     Do { equal res y }
                 else Do { equal res x }
             )
-            check (fun (x: float, y: float) ->
+            property (fun (x: float, y: float) ->
                 let res = Math.Min(x, y)
                 if x >= y then
                     Do { equal res y }
@@ -177,14 +171,14 @@ let Tests =
 
         Test "Math.Pow" {
             approxEqual (Math.Pow(2.8, 1.4)) 4.2269
-            checkIn (R.Tuple2Of (positiveFloat, R.Float)) (fun (x, y) -> Do {
+            propertyWith (R.Tuple2Of (positiveFloat, R.Float)) (fun (x, y) -> Do {
                 approxEqual (Math.Pow(x, y)) (x ** y)
             })
         }
 
         Test "Math.Round" {
             equal (Math.Round 1.5) 2.
-            check (fun (x: float) -> Do {
+            property (fun (x: float) -> Do {
                 equal (Math.Round x) (Math.Floor (x + 0.5))
             })
         }
@@ -196,12 +190,12 @@ let Tests =
             equal (Math.Sign -3s)  -1
             equal (Math.Sign -3)   -1
             equal (Math.Sign -3L)  -1
-            checkIn R.Natural (fun x -> Do {
+            propertyWith R.Natural (fun x -> Do {
                 let x = x + 1
                 equal (Math.Sign x) 1
                 equal (Math.Sign -x) -1
             })
-            checkIn positiveFloat (fun x -> Do {
+            propertyWith positiveFloat (fun x -> Do {
                 let x = 1. + x
                 equal (Math.Sign x)  1
                 equal (Math.Sign -x) -1
@@ -218,7 +212,7 @@ let Tests =
 
         Test "Math.Sqrt" {
             approxEqual (Math.Sqrt 145.) 12.0416
-            checkIn positiveFloat (fun x -> Do {
+            propertyWith positiveFloat (fun x -> Do {
                 approxEqual (Math.Sqrt x ** 2.) x
             })
         }

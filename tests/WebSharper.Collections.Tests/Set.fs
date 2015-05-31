@@ -72,7 +72,7 @@ let Tests =
             let t (x: list<int>) = Set.toArray (Set.ofList x)
             equal (t SevenDS) (t SevenS)
             equal (t SevenS) (t DoubleSS)
-            check (fun x -> Do {
+            property (fun x -> Do {
                 equal (t x) (Seq.toArray (Seq.sort (Seq.distinct x)))
             })
         }
@@ -92,7 +92,7 @@ let Tests =
             let set = Set.ofList SevenS
             isTrue (Set.contains 1 set)
             isFalse (Set.contains 9 set)
-            check (fun x -> Do {
+            property (fun x -> Do {
                 isTrue (Set.contains 6 (Set.add 6 (Set.ofList x)))
             })
         }
@@ -143,12 +143,10 @@ let Tests =
             equal r1 r2
         }
 
-        Test "Set.fold consistency" {
-            check (fun x -> Do {
-                equal (Set.fold (+) 0 (Set.ofList x))
-                    (Set.foldBack (+) (Set.ofList x) 0)
-            })
-        }
+        Property "Set.fold consistency" (fun x -> Do {
+            equal (Set.fold (+) 0 (Set.ofList x))
+                (Set.foldBack (+) (Set.ofList x) 0)
+        })
 
         Test "Set.forall" {
             let set = Set.ofList SevenS
@@ -258,7 +256,7 @@ let Tests =
             let set3 = Set.ofList FTeenS
             equal (Set.union set1 set1) set1
             equal (Set.union set1 set2) set3
-            check (fun (x: int list) -> Do {
+            property (fun (x: int list) -> Do {
                 let s = Set.ofList x
                 equal (Set.union s s) s
             })

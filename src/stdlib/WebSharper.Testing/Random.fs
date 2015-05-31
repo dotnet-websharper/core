@@ -294,42 +294,50 @@ module internal Internal =
         | Choice1Of2 x -> x
         | Choice2Of2 msg -> failwithf "%A: %s" t msg
 
-    let mkSet g count = 
-        cCallG ["WebSharper"; "Testing"; "Random"; "Set"] "Make" [g; count]
+    let mkSample g count =
+        cCallG ["WebSharper"; "Testing"; "Random"; "Sample"] "Make" [g; count]
 
-open Internal
+    type AutoGeneratorMacro() =
+        interface Core.Macros.IMacro with
+            member this.Translate(q, tr) =
+                match q with
+                // Auto<'A>()
+                | Q.CallModule({Generics = [t]}, _) -> mkGenerator t
+                | _ -> tr q
 
-type AutoGeneratorMacro() =
-    interface Core.Macros.IMacro with
-        member this.Translate(q, tr) =
-            match q with
-            // Auto<'A>()
-            | Q.CallModule({Generics = [t]}, _) -> mkGenerator t
-            // new Set<'A>()
-            | Q.NewObject({Generics = [t]}, []) -> mkSet (mkGenerator t) (cInt 100)
-            // new Set<'A>(count)
-            | Q.NewObject({Generics = [t]}, [count]) -> mkSet (mkGenerator t) (tr count)
-            | _ -> tr q
+    type SampleMacro() =
+        interface Core.Macros.IMacro with
+            member this.Translate(q, tr) =
+                match q with
+                // new Sample<'A>()
+                | Q.NewObject({Generics = [t]}, []) -> mkSample (mkGenerator t) (cInt 100)
+                // new Sample<'A>(count)
+                | Q.NewObject({Generics = [t]}, [count]) -> mkSample (mkGenerator t) (tr count)
+                | _ -> tr q
 
-[<Macro(typeof<AutoGeneratorMacro>)>]
+[<Macro(typeof<Internal.AutoGeneratorMacro>)>]
 let Auto<'A>() = X<Generator<'A>>
 
 [<JavaScript>]
-type Set<'A> (generator: Generator<'A>, times: int) =
+type Sample<'A> (data: list<'A>) =
 
-    static member Make<'A> generator times =
-        new Set<'A>(generator, times)
+    static member Make<'A> generator count =
+        new Sample<'A>(generator, count)
 
-    member this.AsList =
-        [
-            for i = 0 to generator.Base.Length - 1 do yield generator.Base.[i]
-            for i = 1 to times do yield (generator.Next())
-        ]
+    member this.Data = data
 
-    [<Macro(typeof<AutoGeneratorMacro>)>]
-    new () = new Set<'A>(Auto<'A>())
+    new (generator: Generator<'A>, count: int) =
+        let data =
+            [
+                for i = 0 to generator.Base.Length - 1 do yield generator.Base.[i]
+                for i = 1 to count do yield (generator.Next())
+            ]
+        new Sample<'A>(data)
 
-    [<Macro(typeof<AutoGeneratorMacro>)>]
-    new (times: int) = new Set<'A>(Auto<'A>(), times)
+    [<Macro(typeof<Internal.SampleMacro>)>]
+    new () = new Sample<'A>(Auto<'A>())
 
-    new (generator: Generator<'A>) = new Set<'A>(generator, 100)
+    [<Macro(typeof<Internal.SampleMacro>)>]
+    new (count: int) = new Sample<'A>(Auto<'A>(), count)
+
+    new (generator: Generator<'A>) = new Sample<'A>(generator, 100)

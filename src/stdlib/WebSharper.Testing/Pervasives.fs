@@ -31,26 +31,35 @@ module internal Internal =
     module J = WebSharper.Core.JavaScript.Core
     open WebSharper.Testing.Random.Internal
 
-    type CheckMacro() =
+    type TestPropertyMacro() =
         interface Core.Macros.IMacro with
             member this.Translate(q, tr) =
                 match q with
-                // test.CheckIn(runner, generator, attempt)
+                // test.PropertyWith(runner, generator, attempt)
                 | Q.Call({Generics = [t; _; _]}, [this; runner; gen; attempt]) ->
                     let id = J.Id()
-                    cCall (tr this) "CheckInSet" [
+                    cCall (tr this) "PropertyWithSample" [
                         tr runner
                         J.Lambda(None, [id],
-                            mkSet (J.Application(tr gen, [J.Var id])) (cInt 100))
+                            mkSample (J.Application(tr gen, [J.Var id])) (cInt 100))
                         tr attempt
                     ]
-                // test.Check(runner, attempt)
+                // test.Property(runner, attempt)
                 | Q.Call({Generics = [t; _; _]}, [this; runner; attempt]) ->
-                    cCall (tr this) "CheckInSet" [
+                    cCall (tr this) "PropertyWithSample" [
                         tr runner
-                        J.Lambda(None, [], mkSet (mkGenerator t) (cInt 100))
+                        J.Lambda(None, [], mkSample (mkGenerator t) (cInt 100))
                         tr attempt
                     ]
+                | _ -> tr q
+
+    type PropertyMacro() =
+        interface Core.Macros.IMacro with
+            member this.Translate(q, tr) =
+                match q with
+                // Property name f
+                | Q.CallModule({Generics = [t; _]}, [name; f]) ->
+                    cCallG ["WebSharper"; "Testing"; "Pervasives"] "PropertyWith" [tr name; mkGenerator t; tr f]
                 | _ -> tr q
 
 module QUnit =
@@ -638,11 +647,11 @@ type SubtestBuilder () =
             )
 
     /// Runs a test for each element in a randomly generated set.
-    [<CustomOperation("checkInSet", MaintainsVariableSpace = true)>]
-    member this.CheckInSet<'T, 'A, 'B>
+    [<CustomOperation("propertyWithSample", MaintainsVariableSpace = true)>]
+    member this.PropertyWithSample<'T, 'A, 'B>
         (
             r: Runner<'A>,
-            [<ProjectionParameter>] gen: 'A -> Random.Set<'T>,
+            [<ProjectionParameter>] sample: 'A -> Random.Sample<'T>,
             [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
         ) : Runner<'A> =
         fun asserter ->
@@ -656,12 +665,12 @@ type SubtestBuilder () =
                             r asserter |> Runner.Map (fun _ -> args)))
                         l
             r asserter |> Runner.Bind (fun args ->
-                let gen = gen args
-                loop (attempt args) (Choice1Of2 args) gen.AsList
+                let sample = sample args
+                loop (attempt args) (Choice1Of2 args) sample.Data
             )
 
-    /// Runs a test for each element in a randomly generated set.
-    member this.For(gen: Random.Set<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
+    /// Runs a test for each element in a randomly generated sample.
+    member this.For(sample: Random.Sample<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
         fun asserter ->
             let rec loop (acc: Choice<'B, Async<'B>>) (src: list<'A>) =
                 match src with
@@ -669,32 +678,32 @@ type SubtestBuilder () =
                 | e :: l ->
                     let r = f e
                     loop (acc |> Runner.Bind (fun _ -> r asserter)) l
-            loop (Choice1Of2 Unchecked.defaultof<'B>) gen.AsList
+            loop (Choice1Of2 Unchecked.defaultof<'B>) sample.Data
 
     /// Runs a test for 100 occurrences of a random generator.
-    [<CustomOperation("checkIn", MaintainsVariableSpace = true)>]
-    [<Macro(typeof<Internal.CheckMacro>)>]
-    member this.CheckIn<'T, 'A, 'B>
+    [<CustomOperation("propertyWith", MaintainsVariableSpace = true)>]
+    [<Macro(typeof<Internal.TestPropertyMacro>)>]
+    member this.PropertyWith<'T, 'A, 'B>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] gen: 'A -> Random.Generator<'T>,
             [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
         ) : Runner<'A> =
-            this.CheckInSet(r, (fun args -> Random.Set<'T>(gen args)), attempt)
+            this.PropertyWithSample(r, (fun args -> Random.Sample<'T>(gen args)), attempt)
 
     /// Runs a test for 100 occurrences of a random generator.
     member this.For(gen: Random.Generator<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
-        this.For(Random.Set(gen), f)
+        this.For(Random.Sample(gen), f)
 
     /// Runs a test for 100 random occurrences.
-    [<CustomOperation("check", MaintainsVariableSpace = true)>]
-    [<Macro(typeof<Internal.CheckMacro>)>]
-    member this.Check<'T, 'A, 'B>
+    [<CustomOperation("property", MaintainsVariableSpace = true)>]
+    [<Macro(typeof<Internal.TestPropertyMacro>)>]
+    member this.Property<'T, 'A, 'B>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
         ) : Runner<'A> =
-            this.CheckInSet(r, (fun _ -> Random.Set<'T>()), attempt)
+            this.PropertyWithSample(r, (fun _ -> Random.Sample<'T>()), attempt)
 
     /// Checks that an expression raises an exception.
     [<CustomOperation("raises", MaintainsVariableSpace = true)>]
@@ -837,3 +846,15 @@ let Test name = new TestBuilder(name)
 
 [<JavaScript>]
 let Do = new SubtestBuilder()
+
+[<JavaScript>]
+let PropertyWith name gen f =
+    Test name { propertyWith gen f }
+
+[<JavaScript>]
+let PropertyWithSample name set f =
+    Test name { propertyWithSample set f }
+
+[<Macro(typeof<Internal.PropertyMacro>)>]
+let Property<'T, 'O> name (f: 'T -> Runner<'O>) =
+    PropertyWith name (Random.Auto<'T>()) f
