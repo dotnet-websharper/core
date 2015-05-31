@@ -38,26 +38,26 @@ let Tests =
                 g.NonGenericMethod(1, "")
                 g.GenericMethod<bool, obj>(1, "", true, obj())
 
-            Equal (WIGtest.ArgsFuncIn(fun (a, b) -> a + b)) 3
-            Equal (WIGtest.ArgsFuncIn2(fun (a, b) -> a + b)) 3
-            Equal (WIGtest.ArgsFuncOut()(1, 2)) 3
+            equal (WIGtest.ArgsFuncIn(fun (a, b) -> a + b)) 3
+            equal (WIGtest.ArgsFuncIn2(fun (a, b) -> a + b)) 3
+            equal (WIGtest.ArgsFuncOut()(1, 2)) 3
             let x = JustX(5)       
-            Equal (WIGtest.GetGetThis()(x)) x
-            Equal (WIGtest.FuncInWithThis(fun (t: JustX) -> string t.X)) "0"
-            Equal (WIGtest.ArgFuncInWithThis(fun (t: JustX) a -> string t.X + string a)) "01"
-            Equal (WIGtest.ArgsFuncInWithThis(fun (t: JustX) (a, b) -> string t.X + string a + string b)) "012"
-            Equal (WIGtest.TupledFuncInWithThis(fun (t: JustX) (a, b) -> string t.X + string a + string b)) "012"
+            equal (WIGtest.GetGetThis()(x)) x
+            equal (WIGtest.FuncInWithThis(fun (t: JustX) -> string t.X)) "0"
+            equal (WIGtest.ArgFuncInWithThis(fun (t: JustX) a -> string t.X + string a)) "01"
+            equal (WIGtest.ArgsFuncInWithThis(fun (t: JustX) (a, b) -> string t.X + string a + string b)) "012"
+            equal (WIGtest.TupledFuncInWithThis(fun (t: JustX) (a, b) -> string t.X + string a + string b)) "012"
 
-            Equal (WIGtest.CallWith1 id) 1
-            Equal (WIGtest.CallWith1 ((+) 2)) 3
-            Equal (WIGtest.CallWith2 (fun (a, b) -> a + b)) 3
-            Equal (WIGtest.CallWith10 (fun (a, b, c, d, e, f, g, h, i, j) -> a + b + c + d + e + f + g + h + i + j)) 55
+            equal (WIGtest.CallWith1 id) 1
+            equal (WIGtest.CallWith1 ((+) 2)) 3
+            equal (WIGtest.CallWith2 (fun (a, b) -> a + b)) 3
+            equal (WIGtest.CallWith10 (fun (a, b, c, d, e, f, g, h, i, j) -> a + b + c + d + e + f + g + h + i + j)) 55
 
-            Equal (FuncWithArgs(fun (a, b) -> a + b).Length) 2
+            equal (FuncWithArgs(fun (a, b) -> a + b).Length) 2
         }
 
         Test "Named tuple" {
-            Equal (WIGtest.ArgsFuncIn(fun ((a, b) as ab) -> a + b + fst ab + snd ab)) 6
+            equal (WIGtest.ArgsFuncIn(fun ((a, b) as ab) -> a + b + fst ab + snd ab)) 6
         }
 
         Test "Functions with ParamArray" {
@@ -66,87 +66,87 @@ let Tests =
                 (WIGtest.TestIntOrStringReturned() : Choice<int, string>) |> ignore
                 (WIGtest.TestWithNoInterop : FuncWithArgs<int * int, int> -> obj) |> ignore
 
-            Equal (WIGtest.Sum(1)) 1
-            Equal (WIGtest.Sum(1, 2)) 3
-            Equal (WIGtest.Sum(1, 2, 3)) 6
-            Equal (WIGtest.SumBy((+) 1, 1)) 2
-            Equal (WIGtest.SumBy((+) 1, 1, 2)) 5
-            Equal (WIGtest.SumBy((+) 1, 1, 2, 3)) 9
-            Equal (WIGtest.SumByThenMap((+) 1, (+) 2, 1)) 4
-            Equal (WIGtest.SumByThenMap((+) 1, (+) 2, 1, 2)) 7
-            Equal (WIGtest.SumByThenMap((+) 1, (+) 2, 1, 2, 3)) 11
+            equal (WIGtest.Sum(1)) 1
+            equal (WIGtest.Sum(1, 2)) 3
+            equal (WIGtest.Sum(1, 2, 3)) 6
+            equal (WIGtest.SumBy((+) 1, 1)) 2
+            equal (WIGtest.SumBy((+) 1, 1, 2)) 5
+            equal (WIGtest.SumBy((+) 1, 1, 2, 3)) 9
+            equal (WIGtest.SumByThenMap((+) 1, (+) 2, 1)) 4
+            equal (WIGtest.SumByThenMap((+) 1, (+) 2, 1, 2)) 7
+            equal (WIGtest.SumByThenMap((+) 1, (+) 2, 1, 2, 3)) 11
 
-            Equal (WIGtest.GetSum() [| 1 |]) 1
-            Equal (WIGtest.GetSum() [| 1; 2 |]) 3
-            Equal (WIGtest.GetSum() [| 1; 2; 3 |]) 6
-            Equal (WIGtest.GetSumBy() ((+) 1, [| 1 |])) 2
-            Equal (WIGtest.GetSumBy() ((+) 1, [| 1; 2 |])) 5
-            Equal (WIGtest.GetSumBy() ((+) 1, [| 1; 2; 3 |])) 9
-            Equal (WIGtest.GetSumByThenMap() ((+) 1, (+) 2, [| 1 |])) 4
-            Equal (WIGtest.GetSumByThenMap() ((+) 1, (+) 2, [| 1; 2 |])) 7
-            Equal (WIGtest.GetSumByThenMap() ((+) 1, (+) 2, [| 1; 2; 3 |])) 11
+            equal (WIGtest.GetSum() [| 1 |]) 1
+            equal (WIGtest.GetSum() [| 1; 2 |]) 3
+            equal (WIGtest.GetSum() [| 1; 2; 3 |]) 6
+            equal (WIGtest.GetSumBy() ((+) 1, [| 1 |])) 2
+            equal (WIGtest.GetSumBy() ((+) 1, [| 1; 2 |])) 5
+            equal (WIGtest.GetSumBy() ((+) 1, [| 1; 2; 3 |])) 9
+            equal (WIGtest.GetSumByThenMap() ((+) 1, (+) 2, [| 1 |])) 4
+            equal (WIGtest.GetSumByThenMap() ((+) 1, (+) 2, [| 1; 2 |])) 7
+            equal (WIGtest.GetSumByThenMap() ((+) 1, (+) 2, [| 1; 2; 3 |])) 11
         
-            Equal (WIGtest.GetSum7AndRest() (1, 2, 3, 4, 5, 6, 7, [| 8; 9; 10 |])) 55
+            equal (WIGtest.GetSum7AndRest() (1, 2, 3, 4, 5, 6, 7, [| 8; 9; 10 |])) 55
 
-            Equal (WIGtest.CallWithRest(fun r -> Array.sum r)) 55
-            Equal (WIGtest.CallWith1AndRest(fun (a, r) -> a + Array.sum r)) 55
-            Equal (WIGtest.CallWith2AndRest(fun (a, b, r) -> a + b + Array.sum r)) 55
-            Equal (WIGtest.CallWith7AndRest(fun (a, b, c, d, e, f, g, r) -> a + b + c + d + e + f + g + Array.sum r)) 55
+            equal (WIGtest.CallWithRest(fun r -> Array.sum r)) 55
+            equal (WIGtest.CallWith1AndRest(fun (a, r) -> a + Array.sum r)) 55
+            equal (WIGtest.CallWith2AndRest(fun (a, b, r) -> a + b + Array.sum r)) 55
+            equal (WIGtest.CallWith7AndRest(fun (a, b, c, d, e, f, g, r) -> a + b + c + d + e + f + g + Array.sum r)) 55
         }
 
         Test "Function property" {
             let x = WIGtest.Instance 
-            Equal (x.AdderFunc(1, 2)) 3
+            equal (x.AdderFunc(1, 2)) 3
             x.AdderFunc <- fun (a, b) -> a + b + 1
-            Equal (x.AdderFunc(1, 2)) 4 
-            Equal (x.AdderFuncWithThis(x)(1, 2)) 3
+            equal (x.AdderFunc(1, 2)) 4 
+            equal (x.AdderFuncWithThis(x)(1, 2)) 3
             x.X <- 1
-            Equal (x.AdderFuncWithThis(x)(1, 2)) 4
+            equal (x.AdderFuncWithThis(x)(1, 2)) 4
             x.AdderFuncWithThis <- fun t (a, b) -> t.X + a + b + 1
-            Equal (x.AdderFuncWithThis(x)(1, 2)) 5
+            equal (x.AdderFuncWithThis(x)(1, 2)) 5
         }
 
         Test "Choice property" {
             let x = WIGtest.Instance 
-            Equal (x.StringOrInt) (Choice1Of2 0)
+            equal (x.StringOrInt) (Choice1Of2 0)
             x.StringOrInt <- Choice2Of2 "hi"
-            Equal (x.StringOrInt) (Choice2Of2 "hi")
+            equal (x.StringOrInt) (Choice2Of2 "hi")
             x.StringOrInt <- Choice1Of2 1
-            Equal (x.StringOrInt) (Choice1Of2 1)
+            equal (x.StringOrInt) (Choice1Of2 1)
         }
 
         Test "Option property" {
             let x = WIGtest.Instance 
-            Equal (x.OptionalInt) None
+            equal (x.OptionalInt) None
             x.OptionalInt <- Some 1
-            Equal (x.OptionalInt) (Some 1)
+            equal (x.OptionalInt) (Some 1)
             x.OptionalInt <- None
-            Equal (x.OptionalInt) None       
+            equal (x.OptionalInt) None       
         }
 
         Test "Optional choice property" {
             let x = WIGtest.Instance 
-            Equal (x.OptionalStringOrFunction) None
+            equal (x.OptionalStringOrFunction) None
             x.OptionalStringOrFunction <- Some (Choice2Of2 "hi")
-            Equal (x.OptionalStringOrFunction) (Some (Choice2Of2 "hi"))
+            equal (x.OptionalStringOrFunction) (Some (Choice2Of2 "hi"))
             x.OptionalStringOrFunction <- Some (Choice1Of2 (FuncWithArgs(fun (a, b) -> a + b)))
-            Equal (
+            equal (
                 match x.OptionalStringOrFunction with
                 | Some (Choice1Of2 f) -> f.Call(1, 2)
                 | _ -> 0
             ) 3
             x.OptionalStringOrFunction <- None
-            Equal (x.OptionalStringOrFunction) None
+            equal (x.OptionalStringOrFunction) None
         }
 
         Test "Pattern.Config" {
             let c = 
                 ConfigObj(1, (fun (a, b) -> string a + string b), 
                     FirstOpt = 2, SecondOpt = (fun (a, b) -> string a + "," + string b))
-            Equal (c.FirstReq) 1
-            Equal (c.SecondReq(1, 2)) "12"
-            Equal (c.FirstOpt) 2
-            Equal (c.SecondOpt(1, 2)) "1,2"
+            equal (c.FirstReq) 1
+            equal (c.SecondReq(1, 2)) "12"
+            equal (c.FirstOpt) 2
+            equal (c.SecondOpt(1, 2)) "1,2"
         }
 
         Test "Passing variadic" {
@@ -154,27 +154,27 @@ let Tests =
             WIGtest.ArgsFuncInStrings(fun (x, y) -> f (x, y))
             WIGtest.ArgsFuncInStrings(fun (x, y) -> Console.Log(x, y))
             WIGtest.ArgsFuncInStrings(Console.Log)
-            Equal () ()
+            equal () ()
         }
 
         Test "Indexed property" {
             let a = OneBasedArr(1)
             a.[1] <- "hi"
-            Equal (a) (New [| "0" => "hi" |])
-            Equal (a.[1]) "hi"
+            equal (a) (New [| "0" => "hi" |])
+            equal (a.[1]) "hi"
 
             let b = ObjWithOptionalFields()
             b.["x"] <- Some "hi"
-            Equal (b) (New [| "x" => "hi" |])
-            Equal (b.["x"]) (Some "hi")
+            equal (b) (New [| "x" => "hi" |])
+            equal (b.["x"]) (Some "hi")
             b.["x"] <- None
-            Equal (b) (New [| |])
+            equal (b) (New [| |])
 
             b.AsLowerCase("X") <- Some "hi"
-            Equal (b) (New [| "x" => "hi" |] )
-            Equal (b.AsLowerCase("X")) (Some "hi")
+            equal (b) (New [| "x" => "hi" |] )
+            equal (b.AsLowerCase("X")) (Some "hi")
             b.AsLowerCase("X") <- None
-            Equal (b) (New [| |])
+            equal (b) (New [| |])
         }
 
     }

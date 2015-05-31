@@ -34,29 +34,29 @@ let Tests =
         Test "New" {
             let x = Dictionary()
             let y = Dictionary(10)
-            Expect 0
+            expect 0
         }
 
         Test "Add" {
             let d = Dictionary()
             d.Add(1,"a")
-            Equal d.[1] "a"
+            equal d.[1] "a"
         }
 
         Test "Clear" {
             let d = Dictionary()
             d.Add(1,"a")
             d.Clear()
-            Equal d.Count 0
-            Raises d.[1]
+            equal d.Count 0
+            raises d.[1]
         }
 
         Test "Count" {
             let d = Dictionary()
-            Equal d.Count 0
+            equal d.Count 0
             [1..100]
             |> List.iter (fun i -> d.Add(i,i))
-            Equal d.Count 100
+            equal d.Count 100
         }
 
         Test "Objects" {
@@ -67,8 +67,8 @@ let Tests =
             let f3 = f1
             d.Add(f1,1)
             d.Add(f2,2)
-            Equal (d.Item f3) 1
-            Equal (d.Item f2) 2
+            equal (d.Item f3) 1
+            equal (d.Item f2) 2
         }
 
         Test "ContainsKey" {
@@ -78,8 +78,8 @@ let Tests =
             let f2 = {Foo = "2"}
             let f3 = f1
             d.Add(f1,1)
-            True (d.ContainsKey f1)
-            False (d.ContainsKey f2)
+            isTrue (d.ContainsKey f1)
+            isFalse (d.ContainsKey f2)
         }
 
         Test "GetEnumerator" {
@@ -100,8 +100,8 @@ let Tests =
                     vArr.[ix] <- kvp.Value
                     kArr.[ix] <- kvp.Key
                     ix <- ix + 1
-            Equal vArr [| 1; 2 |]
-            Equal (Array.map (fun o -> o.Foo) kArr) [| "1"; "2" |]
+            equal vArr [| 1; 2 |]
+            equal (Array.map (fun o -> o.Foo) kArr) [| "1"; "2" |]
         }
 
     }

@@ -46,10 +46,10 @@ let Tests =
 
         Test "StringBuilder" {
             let sb = StringBuilder()
-            TrueM (sb?append !==. JS.Undefined) "[<Name>] attribute on proxy method"
+            isTrueMsg (sb?append !==. JS.Undefined) "[<Name>] attribute on proxy method"
             sb.Append("foo") |> ignore
             sb.Append("bar") |> ignore
-            Equal (sb.ToString()) "foobar"
+            equal (sb.ToString()) "foobar"
         }
 
     }

@@ -143,7 +143,7 @@ module private Runner =
 [<JavaScript>]
 type SubtestBuilder () =
 
-    [<CustomOperation("Expect", MaintainsVariableSpace = true)>]
+    [<CustomOperation("expect", MaintainsVariableSpace = true)>]
     member this.Expect
         (
             r: Runner<'A>,
@@ -154,7 +154,7 @@ type SubtestBuilder () =
         )
 
     /// Tests equality between two values using F# `=`.
-    [<CustomOperation("Equal", MaintainsVariableSpace = true)>]
+    [<CustomOperation("equal", MaintainsVariableSpace = true)>]
     member this.Equal<'T, 'A when 'T : equality>
         (
             r: Runner<'A>,
@@ -168,8 +168,8 @@ type SubtestBuilder () =
         )
 
     /// Tests equality between two values using F# `=`.
-    [<CustomOperation("EqualM", MaintainsVariableSpace = true)>]
-    member this.EqualM<'T, 'A when 'T : equality>
+    [<CustomOperation("equalMsg", MaintainsVariableSpace = true)>]
+    member this.EqualMsg<'T, 'A when 'T : equality>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> 'T,
@@ -183,8 +183,8 @@ type SubtestBuilder () =
         )
 
     /// Tests equality between two values using F# `=`.
-    [<CustomOperation("EqualA", MaintainsVariableSpace = true)>]
-    member this.EqualA<'T, 'A when 'T : equality>
+    [<CustomOperation("equalAsync", MaintainsVariableSpace = true)>]
+    member this.EqualAsync<'T, 'A when 'T : equality>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> Async<'T>,
@@ -197,8 +197,8 @@ type SubtestBuilder () =
         })
 
     /// Tests equality between two values using F# `=`.
-    [<CustomOperation("EqualMA", MaintainsVariableSpace = true)>]
-    member this.EqualMA<'T, 'A when 'T : equality>
+    [<CustomOperation("equalMsgAsync", MaintainsVariableSpace = true)>]
+    member this.EqualMsgAsync<'T, 'A when 'T : equality>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> Async<'T>,
@@ -212,7 +212,7 @@ type SubtestBuilder () =
         })
 
     /// Tests equality between two values using F# `=`.
-    [<CustomOperation("NotEqual", MaintainsVariableSpace = true)>]
+    [<CustomOperation("notEqual", MaintainsVariableSpace = true)>]
     member this.NotEqual<'T, 'A when 'T : equality>
         (
             r: Runner<'A>,
@@ -226,8 +226,8 @@ type SubtestBuilder () =
         )
 
     /// Tests equality between two values using F# `=`.
-    [<CustomOperation("NotEqualM", MaintainsVariableSpace = true)>]
-    member this.NotEqualM<'T, 'A when 'T : equality>
+    [<CustomOperation("notEqualMsg", MaintainsVariableSpace = true)>]
+    member this.NotEqualMsg<'T, 'A when 'T : equality>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> 'T,
@@ -241,8 +241,8 @@ type SubtestBuilder () =
         )
 
     /// Tests equality between two values using F# `=`.
-    [<CustomOperation("NotEqualA", MaintainsVariableSpace = true)>]
-    member this.NotEqualA<'T, 'A when 'T : equality>
+    [<CustomOperation("notEqualAsync", MaintainsVariableSpace = true)>]
+    member this.NotEqualAsync<'T, 'A when 'T : equality>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> Async<'T>,
@@ -255,8 +255,8 @@ type SubtestBuilder () =
         })
 
     /// Tests equality between two values using F# `=`.
-    [<CustomOperation("NotEqualMA", MaintainsVariableSpace = true)>]
-    member this.NotEqualMA<'T, 'A when 'T : equality>
+    [<CustomOperation("notEqualMsgAsync", MaintainsVariableSpace = true)>]
+    member this.NotEqualMsgAsync<'T, 'A when 'T : equality>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> Async<'T>,
@@ -270,7 +270,7 @@ type SubtestBuilder () =
         })
 
     /// Tests equality between two values using JavaScript `==`.
-    [<CustomOperation("JsEqual", MaintainsVariableSpace = true)>]
+    [<CustomOperation("jsEqual", MaintainsVariableSpace = true)>]
     member this.JsEqual<'T, 'A>
         (
             r: Runner<'A>,
@@ -282,8 +282,8 @@ type SubtestBuilder () =
         )
 
     /// Tests equality between two values using JavaScript `==`.
-    [<CustomOperation("JsEqualM", MaintainsVariableSpace = true)>]
-    member this.JsEqualM<'T, 'A>
+    [<CustomOperation("jsEqualMsg", MaintainsVariableSpace = true)>]
+    member this.JsEqualMsg<'T, 'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> 'T,
@@ -295,8 +295,8 @@ type SubtestBuilder () =
         )
 
     /// Tests equality between two values using JavaScript `==`.
-    [<CustomOperation("JsEqualA", MaintainsVariableSpace = true)>]
-    member this.JsEqualA<'T, 'A>
+    [<CustomOperation("jsEqualAsync", MaintainsVariableSpace = true)>]
+    member this.JsEqualAsync<'T, 'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> Async<'T>,
@@ -309,8 +309,8 @@ type SubtestBuilder () =
         })
 
     /// Tests equality between two values using JavaScript `==`.
-    [<CustomOperation("JsEqualMA", MaintainsVariableSpace = true)>]
-    member this.JsEqualMA<'T, 'A>
+    [<CustomOperation("jsEqualMsgAsync", MaintainsVariableSpace = true)>]
+    member this.JsEqualMsgAsync<'T, 'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> Async<'T>,
@@ -324,7 +324,7 @@ type SubtestBuilder () =
         })
 
     /// Tests equality between two values using JavaScript `===`.
-    [<CustomOperation("DeepEqual", MaintainsVariableSpace = true)>]
+    [<CustomOperation("deepEqual", MaintainsVariableSpace = true)>]
     member this.DeepEqual<'T, 'A>
         (
             r: Runner<'A>,
@@ -336,8 +336,8 @@ type SubtestBuilder () =
         )
 
     /// Tests equality between two values using JavaScript `===`.
-    [<CustomOperation("DeepEqualM", MaintainsVariableSpace = true)>]
-    member this.DeepEqualM<'T, 'A>
+    [<CustomOperation("deepEqualMsg", MaintainsVariableSpace = true)>]
+    member this.DeepEqualMsg<'T, 'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> 'T,
@@ -349,8 +349,8 @@ type SubtestBuilder () =
         )
 
     /// Tests equality between two values using JavaScript `===`.
-    [<CustomOperation("DeepEqualA", MaintainsVariableSpace = true)>]
-    member this.DeepEqualA<'T, 'A>
+    [<CustomOperation("deepEqualAsync", MaintainsVariableSpace = true)>]
+    member this.DeepEqualAsync<'T, 'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> Async<'T>,
@@ -363,8 +363,8 @@ type SubtestBuilder () =
         })
 
     /// Tests equality between two values using JavaScript `===`.
-    [<CustomOperation("DeepEqualMA", MaintainsVariableSpace = true)>]
-    member this.DeepEqualMA<'T, 'A>
+    [<CustomOperation("deepEqualMsgAsync", MaintainsVariableSpace = true)>]
+    member this.DeepEqualMsgAsync<'T, 'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> Async<'T>,
@@ -377,7 +377,7 @@ type SubtestBuilder () =
             return asserter.DeepEqual(actual, expected, message)
         })
 
-    [<CustomOperation("ApproxEqual", MaintainsVariableSpace = true)>]
+    [<CustomOperation("approxEqual", MaintainsVariableSpace = true)>]
     member this.ApproxEqual<'T, 'A>
         (
             r: Runner<'A>,
@@ -390,8 +390,8 @@ type SubtestBuilder () =
             asserter.Push(abs (actual - expected) < 0.0001, actual, expected)
         )
 
-    [<CustomOperation("ApproxEqualM", MaintainsVariableSpace = true)>]
-    member this.ApproxEqualM<'T, 'A>
+    [<CustomOperation("approxEqualMsg", MaintainsVariableSpace = true)>]
+    member this.ApproxEqualMsg<'T, 'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> float,
@@ -404,7 +404,34 @@ type SubtestBuilder () =
             asserter.Push(abs (actual - expected) < 0.0001, actual, expected, message)
         )
 
-    [<CustomOperation("NotApproxEqual", MaintainsVariableSpace = true)>]
+    [<CustomOperation("approxEqualAsync", MaintainsVariableSpace = true)>]
+    member this.ApproxEqualAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<float>,
+            [<ProjectionParameter>] expected: 'A -> float
+        ) : Runner<'A> =
+        r |> Runner.AddTestAsync (fun asserter args -> async {
+            let expected = expected args
+            let! actual = actual args
+            return asserter.Push(abs (actual - expected) < 0.0001, actual, expected)
+        })
+
+    [<CustomOperation("approxEqualMsgAsync", MaintainsVariableSpace = true)>]
+    member this.ApproxEqualMsgAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<float>,
+            [<ProjectionParameter>] expected: 'A -> float,
+            message: string
+        ) : Runner<'A> =
+        r |> Runner.AddTestAsync (fun asserter args -> async {
+            let expected = expected args
+            let! actual = actual args
+            return asserter.Push(abs (actual - expected) < 0.0001, actual, expected, message)
+        })
+
+    [<CustomOperation("notApproxEqual", MaintainsVariableSpace = true)>]
     member this.NotApproxEqual<'T, 'A>
         (
             r: Runner<'A>,
@@ -417,8 +444,8 @@ type SubtestBuilder () =
             asserter.Push(abs (actual - expected) > 0.0001, actual, expected)
         )
 
-    [<CustomOperation("NotApproxEqualM", MaintainsVariableSpace = true)>]
-    member this.NotApproxEqualM<'T, 'A>
+    [<CustomOperation("notApproxEqualMsg", MaintainsVariableSpace = true)>]
+    member this.NotApproxEqualMsg<'T, 'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] actual: 'A -> float,
@@ -431,9 +458,36 @@ type SubtestBuilder () =
             asserter.Push(abs (actual - expected) > 0.0001, actual, expected, message)
         )
 
+    [<CustomOperation("notApproxEqualAsync", MaintainsVariableSpace = true)>]
+    member this.NotApproxEqualAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<float>,
+            [<ProjectionParameter>] expected: 'A -> float
+        ) : Runner<'A> =
+        r |> Runner.AddTestAsync (fun asserter args -> async {
+            let expected = expected args
+            let! actual = actual args
+            return asserter.Push(abs (actual - expected) > 0.0001, actual, expected)
+        })
+
+    [<CustomOperation("notApproxEqualMsgAsync", MaintainsVariableSpace = true)>]
+    member this.NotApproxEqualMsgAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<float>,
+            [<ProjectionParameter>] expected: 'A -> float,
+            message: string
+        ) : Runner<'A> =
+        r |> Runner.AddTestAsync (fun asserter args -> async {
+            let expected = expected args
+            let! actual = actual args
+            return asserter.Push(abs (actual - expected) > 0.0001, actual, expected, message)
+        })
+
     /// Checks that a boolean is true.
-    [<CustomOperation("True", MaintainsVariableSpace = true)>]
-    member this.True<'A>
+    [<CustomOperation("isTrue", MaintainsVariableSpace = true)>]
+    member this.IsTrue<'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] value: 'A -> bool
@@ -443,8 +497,8 @@ type SubtestBuilder () =
         )
 
     /// Checks that a boolean is true.
-    [<CustomOperation("TrueM", MaintainsVariableSpace = true)>]
-    member this.TrueM<'A>
+    [<CustomOperation("isTrueMsg", MaintainsVariableSpace = true)>]
+    member this.IsTrueMsg<'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] value: 'A -> bool,
@@ -455,8 +509,8 @@ type SubtestBuilder () =
         )
 
     /// Checks that a boolean is true.
-    [<CustomOperation("TrueA", MaintainsVariableSpace = true)>]
-    member this.TrueA<'A>
+    [<CustomOperation("isTrueAsync", MaintainsVariableSpace = true)>]
+    member this.IsTrueAsync<'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] value: 'A -> Async<bool>
@@ -467,8 +521,8 @@ type SubtestBuilder () =
         })
 
     /// Checks that a boolean is true.
-    [<CustomOperation("TrueMA", MaintainsVariableSpace = true)>]
-    member this.TrueMA<'A>
+    [<CustomOperation("isTrueMsgAsync", MaintainsVariableSpace = true)>]
+    member this.IsTrueMsgAsync<'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] value: 'A -> Async<bool>,
@@ -480,8 +534,8 @@ type SubtestBuilder () =
         })
 
     /// Checks that a boolean is false.
-    [<CustomOperation("False", MaintainsVariableSpace = true)>]
-    member this.False<'A>
+    [<CustomOperation("isFalse", MaintainsVariableSpace = true)>]
+    member this.IsFalse<'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] value: 'A -> bool
@@ -491,8 +545,8 @@ type SubtestBuilder () =
         )
 
     /// Checks that a boolean is false.
-    [<CustomOperation("FalseM", MaintainsVariableSpace = true)>]
-    member this.FalseM<'A>
+    [<CustomOperation("isFalseMsg", MaintainsVariableSpace = true)>]
+    member this.IsFalseMsg<'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] value: 'A -> bool,
@@ -503,8 +557,8 @@ type SubtestBuilder () =
         )
 
     /// Checks that a boolean is false.
-    [<CustomOperation("FalseA", MaintainsVariableSpace = true)>]
-    member this.FalseA<'A>
+    [<CustomOperation("isFalseAsync", MaintainsVariableSpace = true)>]
+    member this.IsFalseAsync<'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] value: 'A -> Async<bool>
@@ -515,8 +569,8 @@ type SubtestBuilder () =
         })
 
     /// Checks that a boolean is false.
-    [<CustomOperation("FalseMA", MaintainsVariableSpace = true)>]
-    member this.FalseMA<'A>
+    [<CustomOperation("isFalseMsgAsync", MaintainsVariableSpace = true)>]
+    member this.IsFalseAsync<'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] value: 'A -> Async<bool>,
@@ -527,8 +581,8 @@ type SubtestBuilder () =
             return asserter.Ok(not value, message)
         })
 
-    [<CustomOperation("For", MaintainsVariableSpace = true)>]
-    member this.For
+    [<CustomOperation("forEach", MaintainsVariableSpace = true)>]
+    member this.ForEach
         (
             r: Runner<'A>,
             [<ProjectionParameter>] src: 'A -> #seq<'T>,
@@ -545,7 +599,7 @@ type SubtestBuilder () =
                 loop (attempt args) (Choice1Of2 args) (List.ofSeq (src args))
             )
 
-    [<CustomOperation("ForR", MaintainsVariableSpace = true)>]
+    [<CustomOperation("forRandom", MaintainsVariableSpace = true)>]
     member this.ForRandom<'T, 'A, 'B>
         (
             r: Runner<'A>,
@@ -572,7 +626,7 @@ type SubtestBuilder () =
                 ]
             )
 
-    [<CustomOperation("Raises", MaintainsVariableSpace = true)>]
+    [<CustomOperation("raises", MaintainsVariableSpace = true)>]
     member this.Raises<'T, 'A>
         (
             r: Runner<'A>,
@@ -586,8 +640,8 @@ type SubtestBuilder () =
                 asserter.Ok(true)
         )
 
-    [<CustomOperation("RaisesM", MaintainsVariableSpace = true)>]
-    member this.RaisesM<'T, 'A>
+    [<CustomOperation("raisesMsg", MaintainsVariableSpace = true)>]
+    member this.RaisesMsg<'T, 'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] value: 'A -> 'T,
@@ -601,8 +655,8 @@ type SubtestBuilder () =
                 asserter.Ok(true, message)
         )
 
-    [<CustomOperation("RaisesA", MaintainsVariableSpace = true)>]
-    member this.RaisesA<'T, 'A>
+    [<CustomOperation("raisesAsync", MaintainsVariableSpace = true)>]
+    member this.RaisesAsync<'T, 'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] value: 'A -> Async<'T>
@@ -618,8 +672,8 @@ type SubtestBuilder () =
             }
         )
 
-    [<CustomOperation("RaisesMA", MaintainsVariableSpace = true)>]
-    member this.RaisesMA<'T, 'A>
+    [<CustomOperation("raisesMsgAsync", MaintainsVariableSpace = true)>]
+    member this.RaisesMsgAsync<'T, 'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] value: 'A -> Async<'T>,
@@ -636,7 +690,7 @@ type SubtestBuilder () =
             }
         )
 
-    [<CustomOperation("Run", MaintainsVariableSpace = true)>]
+    [<CustomOperation("run", MaintainsVariableSpace = true)>]
     member this.RunSubtest
         (
             r: Runner<'A>,

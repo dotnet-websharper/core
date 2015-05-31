@@ -30,22 +30,22 @@ let Tests =
 
         Test "Construction" {
             let s = Queue()
-            Equal s.Count 0
+            equal s.Count 0
         }
 
         Test "Enqueue" {
             let s = Queue()
             s.Enqueue 1
             s.Enqueue 2
-            Equal (s.ToArray()) [| 1; 2 |]
+            equal (s.ToArray()) [| 1; 2 |]
         }
 
         Test "Dequeue" {
             let s = Queue()
             s.Enqueue 1
             s.Enqueue 2
-            Equal (s.Dequeue()) 1
-            Equal (s.ToArray()) [|2|]
+            equal (s.Dequeue()) 1
+            equal (s.ToArray()) [|2|]
         }
 
     }

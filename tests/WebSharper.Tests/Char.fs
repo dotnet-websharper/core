@@ -30,61 +30,61 @@ let Tests =
     Section "Char" {
 
         Test "Char.GetNumericValue" {
-            Equal (C.GetNumericValue '4') 4.
-            Equal (C.GetNumericValue 'k') -1.
+            equal (C.GetNumericValue '4') 4.
+            equal (C.GetNumericValue 'k') -1.
         }
 
         Test "Char.IsDigit" {
-            Equal (C.GetNumericValue '4') 4.
-            Equal (C.GetNumericValue 'k') -1.
+            equal (C.GetNumericValue '4') 4.
+            equal (C.GetNumericValue 'k') -1.
         }
 
         Test "Char.IsControl" {
-            True (C.IsControl '\007')
-            False (C.IsControl 'a')
+            isTrue (C.IsControl '\007')
+            isFalse (C.IsControl 'a')
         }
 
         Test "Char.IsDigit" {
-            True (C.IsDigit '7')
-            False (C.IsDigit 'k')
+            isTrue (C.IsDigit '7')
+            isFalse (C.IsDigit 'k')
         }
 
         Test "Char.IsLetter" {
-            True (C.IsLetter 'F')
-            False (C.IsLetter '9')
+            isTrue (C.IsLetter 'F')
+            isFalse (C.IsLetter '9')
         }
 
         Test "Char.IsLetterOrDigit" {
-            True (C.IsLetterOrDigit 'F')
-            True (C.IsLetterOrDigit '9')
-            False (C.IsLetterOrDigit '_')
+            isTrue (C.IsLetterOrDigit 'F')
+            isTrue (C.IsLetterOrDigit '9')
+            isFalse (C.IsLetterOrDigit '_')
         }
 
         Test "Char.IsLower" {
-            False (C.IsLower 'F')
-            True (C.IsLower 'f')
+            isFalse (C.IsLower 'F')
+            isTrue (C.IsLower 'f')
         }
 
         Test "Char.IsUpper" {
-            True (C.IsUpper 'F')
-            False (C.IsUpper 'f')
+            isTrue (C.IsUpper 'F')
+            isFalse (C.IsUpper 'f')
         }
 
         Test "Char.IsWhiteSpace" {
-            True (C.IsWhiteSpace ' ')
-            True (C.IsWhiteSpace '\t')
-            False (C.IsWhiteSpace '3')
+            isTrue (C.IsWhiteSpace ' ')
+            isTrue (C.IsWhiteSpace '\t')
+            isFalse (C.IsWhiteSpace '3')
         }
 
         Test "Char.Parse" {
-            Equal (C.Parse "k") 'k'
+            equal (C.Parse "k") 'k'
         }
 
         Test "char" {
-            Equal (char 'x') 'x'
-            Equal (char "a") 'a'
-            Equal (char 65) 'A'
-            Raises (char "aa")
+            equal (char 'x') 'x'
+            equal (char "a") 'a'
+            equal (char 65) 'A'
+            raises (char "aa")
         }
 
     }

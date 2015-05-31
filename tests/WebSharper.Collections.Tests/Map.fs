@@ -30,38 +30,38 @@ let Tests =
     Section "Map" {
 
         Test "Map.add" {
-            False (Map.isEmpty (Map.add 1 2 Map.empty))
+            isFalse (Map.isEmpty (Map.add 1 2 Map.empty))
         }
 
         Test "Map.remove" {
             let map2 = Map.ofSeq [(1,2); (3,4)]
             let map1 = Map.remove 1 map2 // remove existing element 
-            Equal map1.Count 1
+            equal map1.Count 1
             let map1 = Map.remove 100 map1 // remove non-existing element
-            Equal map1.Count 1
+            equal map1.Count 1
             let map0 = Map.remove 3 map1 // remove existing element
-            Equal map0.Count 0
+            equal map0.Count 0
         }
 
         Test "Map.empty" {
-            True (Map.isEmpty Map.empty)
+            isTrue (Map.isEmpty Map.empty)
         }
 
         Test "Map.exists" {
             let m = Map.ofList [(1, 5); (2, 9); (3, 6); (4, 13)]
-            False (Map.exists (fun x y -> x = 7 && y = 6) m)
-            False (Map.exists (fun _ _ -> true) Map.empty)
-            True (Map.exists (fun x y -> x = 3 && y = 6) m)
+            isFalse (Map.exists (fun x y -> x = 7 && y = 6) m)
+            isFalse (Map.exists (fun _ _ -> true) Map.empty)
+            isTrue (Map.exists (fun x y -> x = 3 && y = 6) m)
         }
 
         Test "Map/array consistency" {
             let a = [| (1, 5); (2, 9); (3, 6); (4, 13) |]
-            Equal a (Map.toArray <| Map.ofArray a)
+            equal a (Map.toArray <| Map.ofArray a)
             let g = Random.ArrayOf (Random.Tuple2Of (Random.Int, Random.Const ()))
-            ForR 100 g (fun x -> Do {
+            forRandom 100 g (fun x -> Do {
                 let x1 = x |> Map.ofArray |> Map.toArray
                 let x2 = x |> Set.ofArray |> Set.toArray
-                Equal x1 x2
+                equal x1 x2
             })
         }
 
@@ -79,49 +79,45 @@ let Tests =
                     |> Seq.distinct
                     |> Seq.filter (fun (k, _) -> f k)
                     |> Seq.toArray
-                Do { Equal xs2 xs1 }
-            ForR 100
+                Do { equal xs2 xs1 }
+            forRandom 100
                 (Random.ArrayOf (Random.Tuple2Of (Random.Int, Random.Const ())))
                 (fun xs -> Do {
-                    Run (check xs even)
-                    Run (check xs trueF)
-                    Run (check xs falseF)
-                    Run (check xs ltF)
+                    run (check xs even)
+                    run (check xs trueF)
+                    run (check xs falseF)
+                    run (check xs ltF)
                 })
         }
 
         Test "Map.find" {
             let m = Map.ofList [(1, 5); (2, 9); (3, 6); (4, 13); (5, 67); (6, 6); (7, 8); (8, 9)]
-            Equal (Map.find 1 m) 5
-            Equal (Map.find 8 m) 9
-            Equal (Map.find 3 m) 6
-            True (try Map.empty |> Map.find 4 |> ignore; false with | _ -> true)
+            equal (Map.find 1 m) 5
+            equal (Map.find 8 m) 9
+            equal (Map.find 3 m) 6
+            raises (Map.empty |> Map.find 4)
         }
 
         Test "Map.findKey" {
             let m = Map.ofList [(1, 5); (2, 9); (3, 6); (4, 13); (5, 4); (6, 9)]
-            Equal (Map.findKey (fun k v -> k = 6 && v = 9) m) 6
-            Equal (Map.findKey (fun x y -> y = 13) m) 4
-            True (
-                try
-                    let k = Map.findKey (fun x y -> y = 100) m
-                    false
-                with | _ -> true)
+            equal (Map.findKey (fun k v -> k = 6 && v = 9) m) 6
+            equal (Map.findKey (fun x y -> y = 13) m) 4
+            raises (Map.findKey (fun x y -> y = 100) m)
         }
 
         Test "Map.fold" {
             let m = Map.ofList [(1, 5); (2, 9); (3, 6); (4, 13); (5, 5); (6, 9)]
             let f x y z = x || (y % 2 = 0 && z % 2 = 0)
-            Equal (Map.fold (fun x y z -> x + y + z) 0 m) 68
-            False (Map.fold f false m)
-            True (Map.fold f true m)
-            Equal (Map.fold (fun x _ _ -> x) 0 m) 0
+            equal (Map.fold (fun x y z -> x + y + z) 0 m) 68
+            isFalse (Map.fold f false m)
+            isTrue (Map.fold f true m)
+            equal (Map.fold (fun x _ _ -> x) 0 m) 0
         }
 
         Test "Map.fold/foldBack" {
-            ForR 100 (Random.ListOf (Random.Tuple2Of (Random.Int, Random.Int))) (fun x -> Do {
+            forRandom 100 (Random.ListOf (Random.Tuple2Of (Random.Int, Random.Int))) (fun x -> Do {
                 let f = fun y z x -> x + y + z
-                Equal (Map.fold f 0 (Map.ofList x))
+                equal (Map.fold f 0 (Map.ofList x))
                     (Map.foldBack f (Map.ofList x) 0)
             })
         }
@@ -129,29 +125,29 @@ let Tests =
         Test "Map.foldBack" {
             let m = Map.ofList [(1, 5); (2, 9); (3, 6); (4, 13); (5, 5); (6, 9)]
             let f y z x = x || (y % 2 = 0 && z % 2 = 0)
-            Equal (Map.foldBack (fun y z x -> x + y + z) m 0) 68
-            False (Map.foldBack f m false)
-            True (Map.foldBack f m true)
-            Equal (Map.foldBack (fun _ _ x -> x) m 0) 0
+            equal (Map.foldBack (fun y z x -> x + y + z) m 0) 68
+            isFalse (Map.foldBack f m false)
+            isTrue (Map.foldBack f m true)
+            equal (Map.foldBack (fun _ _ x -> x) m 0) 0
         }
 
         Test "Map.forall" {
             let m = Map.ofList [(1, 5); (2, 9); (3, 6); (4, 13); (5, 5); (6, 9)]
-            False (Map.forall (fun x y -> x = 6 && y = 9) m)
-            False (Map.forall (fun x y -> y = 13) m)
-            False (Map.forall (<>) m)
-            True (Map.forall (<>) Map.empty)
+            isFalse (Map.forall (fun x y -> x = 6 && y = 9) m)
+            isFalse (Map.forall (fun x y -> y = 13) m)
+            isFalse (Map.forall (<>) m)
+            isTrue (Map.forall (<>) Map.empty)
         }
 
         Test "Map.isEmpty" {
             let emp = Map.remove 1 <| Map.add 1 2 Map.empty
-            True (Map.isEmpty Map.empty)
-            False (Map.isEmpty (Map.add 1 2 Map.empty))
-            True (Map.isEmpty emp)
+            isTrue (Map.isEmpty Map.empty)
+            isFalse (Map.isEmpty (Map.add 1 2 Map.empty))
+            isTrue (Map.isEmpty emp)
         }
 
         Test "Map.partition" {
-            ForR 100 (Random.ListOf (Random.Tuple2Of (Random.Int, Random.Const ()))) (
+            forRandom 100 (Random.ListOf (Random.Tuple2Of (Random.Int, Random.Const ()))) (
                 fun xs -> Do {
                     let xs = xs |> Set.ofList |> Set.toList
                     let f (k : int) () = k % 2 = 0
@@ -159,15 +155,15 @@ let Tests =
                         List.partition (fun (k, _) -> k % 2 = 0) xs
                     let (x, y) =
                         Map.partition (fun k _ -> k % 2 = 0) (Map.ofList xs)
-                    Equal (Map.ofList a) x
-                    Equal (Map.ofList b) y
+                    equal (Map.ofList a) x
+                    equal (Map.ofList b) y
             })
         }
 
         Test "Map.pick" {
             let m = Map.ofList [(1, 5); (2, 9); (3, 6); (4, 13); (5, 4); (6, 9)]
             let finder x y = if x = 5 && y = 4 then Some x else None
-            Equal (Map.pick finder m) 5
+            equal (Map.pick finder m) 5
         }
 
         Test "Map.tryFind" {
@@ -175,8 +171,8 @@ let Tests =
             let m = Map.ofList [(1, 5); (2, 9); (3, 6); (4, 13); (5, 5); (6, 9)]
             let wasFound = Map.tryFind 2 m
             let notFound = Map.tryFind 8 m
-            Equal wasFound (Some 9)
-            Equal notFound None
+            equal wasFound (Some 9)
+            equal notFound None
         }
 
         Test "Map.tryPick" {
@@ -186,8 +182,8 @@ let Tests =
                     Some "foo"
                 else
                     None
-            Equal (Map.tryPick finder m) (Some "foo")
-            Equal (Map.tryPick finder (Map.remove 5 m)) None
+            equal (Map.tryPick finder m) (Some "foo")
+            equal (Map.tryPick finder (Map.remove 5 m)) None
         }
 
     }

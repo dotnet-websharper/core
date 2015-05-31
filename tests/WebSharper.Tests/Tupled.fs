@@ -114,85 +114,85 @@ let Tests =
 
         Test "Methods" {
             let a = A()
-            Equal (a.X(1, 2)) 3
+            equal (a.X(1, 2)) 3
             let d = System.Func<_,_,_,_>(fun (_: obj) x y -> a.X(x, y)) 
-            Equal (callWithArgs (FuncWithArgs(a.X))) 3
-            Equal (a.Y(1, 2)) 3
-            Equal (callWithArgs (FuncWithArgs(a.Y))) 3
-            Equal (a.Z 1 2) 3
+            equal (callWithArgs (FuncWithArgs(a.X))) 3
+            equal (a.Y(1, 2)) 3
+            equal (callWithArgs (FuncWithArgs(a.Y))) 3
+            equal (a.Z 1 2) 3
             let fx = a.X
-            Equal (fx (1, 2)) 3
-            Equal (callWithArgs (FuncWithArgs(fx))) 3
+            equal (fx (1, 2)) 3
+            equal (callWithArgs (FuncWithArgs(fx))) 3
             let fy = a.Y
-            Equal (fy (1, 2)) 3
-            Equal (callWithTuple fy) 3
+            equal (fy (1, 2)) 3
+            equal (callWithTuple fy) 3
         }
 
         Test "Methods with tuple input" {
             let a = A()
             let t = 1, 2
-            Equal (a.X t) 3
-            Equal (a.Y t) 3
-            Equal (callWithArgs (FuncWithArgs(a.X))) 3
-            Equal (callWithTuple a.Y) 3
+            equal (a.X t) 3
+            equal (a.Y t) 3
+            equal (callWithArgs (FuncWithArgs(a.X))) 3
+            equal (callWithTuple a.Y) 3
         }
 
         Test "Constructor" {
-            Equal (B(1, 2).Value) 3
+            equal (B(1, 2).Value) 3
             let t = 1, 2
-            Equal (B(t).Value) 3
-            Equal (B(As t).Value) 3
+            equal (B(t).Value) 3
+            equal (B(As t).Value) 3
         }
 
         Test "Functions" {
             let f (x, y) = x + y 
-            Equal (f(1, 2)) 3
+            equal (f(1, 2)) 3
             let t = 1, 2
-            Equal (f t) 3
+            equal (f t) 3
             let g((x,y)) = x + y
-            Equal (g(1, 2)) 3
-            Equal (g t) 3
+            equal (g(1, 2)) 3
+            equal (g t) 3
             let h =
                 ()
                 fun (x, y) -> x + y
-            Equal (h(1, 2)) 3
-            Equal (h t) 3 
+            equal (h(1, 2)) 3
+            equal (h t) 3 
         }
 
         Test "Corrector" {
             let a = A() 
-            Equal (a.C 1 2 3) 6
+            equal (a.C 1 2 3) 6
             let p = a.C 1 2
-            Equal (p 4) 7
-            Equal (p 5) 8
+            equal (p 4) 7
+            equal (p 5) 8
         }
 
         Test "Generic" {
             let add(x, y) = x + y
-            Equal (callWithArgs (FuncWithArgs(logArgC add))) 3
-            Equal (!logged) (box [| 1; 2 |])
-            Equal (callWithArgs (FuncWithArgs(logArgL add))) 3
-            Equal (!logged) (box [| 1; 2 |])
-            Equal (callWithArgs (FuncWithArgs(logArgCI add))) 3
-            Equal (!logged) (box [| 1; 2 |])
-            Equal (callWithArgs (FuncWithArgs(logArgLI add))) 3
-            Equal (!logged) (box [| 1; 2 |])
-            Equal (callWithTuple (logArgC add)) 3
-            Equal (!logged) (box [| 1; 2 |])
-            Equal (callWithTuple (logArgL add)) 3
-            Equal (!logged) (box [| 1; 2 |])
-            Equal (callWithTuple (logArgCI add)) 3
-            Equal (!logged) (box [| 1; 2 |])
-            Equal (callWithTuple (logArgLI add)) 3
-            Equal (!logged) (box [| 1; 2 |])
+            equal (callWithArgs (FuncWithArgs(logArgC add))) 3
+            equal (!logged) (box [| 1; 2 |])
+            equal (callWithArgs (FuncWithArgs(logArgL add))) 3
+            equal (!logged) (box [| 1; 2 |])
+            equal (callWithArgs (FuncWithArgs(logArgCI add))) 3
+            equal (!logged) (box [| 1; 2 |])
+            equal (callWithArgs (FuncWithArgs(logArgLI add))) 3
+            equal (!logged) (box [| 1; 2 |])
+            equal (callWithTuple (logArgC add)) 3
+            equal (!logged) (box [| 1; 2 |])
+            equal (callWithTuple (logArgL add)) 3
+            equal (!logged) (box [| 1; 2 |])
+            equal (callWithTuple (logArgCI add)) 3
+            equal (!logged) (box [| 1; 2 |])
+            equal (callWithTuple (logArgLI add)) 3
+            equal (!logged) (box [| 1; 2 |])
         }
 
         Test "Inlines" {
-            Equal (apply (getTupledAdd()) (1, 2)) 3
-            Equal (addPair1 (1, 2)) 3
-            Equal (addPair2 (1, 2)) 3
-            Equal (addTriple1 (1, 2) 3) 6
-            Equal (addTriple2 (1, 2) 3) 6
+            equal (apply (getTupledAdd()) (1, 2)) 3
+            equal (addPair1 (1, 2)) 3
+            equal (addPair2 (1, 2)) 3
+            equal (addTriple1 (1, 2) 3) 6
+            equal (addTriple2 (1, 2) 3) 6
         }
 
     }

@@ -298,143 +298,154 @@ module Remoting =
                 do! Server.reset1()
                 do Server.f1()
                 do! Async.Sleep(200)
-                EqualA (Server.count1()) 124
+                let! x = Server.count1()
+                equal x 124
             }
 
             Test "unit -> Async<unit>" {
                 do! Server.reset2()
                 do! Server.f2()
-                EqualA (Server.count2()) 177
+                let! x = Server.count2()
+                equal x 177
             }
 
             Test "int -> int" {
-                Equal (Server.f3 15) 16
+                equal (Server.f3 15) 16
             }
 
             Test "int -> Async<int>" {
-                EqualA (Server.f4 8) 9
+                let! x = Server.f4 8
+                equal x 9
             }
 
             Test "option<int> -> Async<int>" {
-                EqualA (Server.f5 None) 0
-                EqualA (Server.f5 (Some -40)) -39
+                let! x = Server.f5 None
+                equal x 0
+                let! x = Server.f5 (Some -40)
+                equal x -39
             }
 
             Test "string -> string -> Async<string>" {
-                EqualA (Server.f6 "a" "b") "ab"
+                let! x = Server.f6 "a" "b"
+                equal x "ab"
             }
 
             Test "string * string -> Async<string>" {
-                EqualA (Server.f7 ("a", "b")) "ab"
+                let! x = Server.f7 ("a", "b")
+                equal x "ab"
             }
 
             Test "float * float -> Async<float>" {
-                EqualA (Server.f8 (2.3, 4.5)) (2.3 + 4.5)
+                let! x = Server.f8 (2.3, 4.5)
+                equal x (2.3 + 4.5)
             }
 
             Test "list<int> -> Async<list<int>>" {
                 let! x = (Server.f9 [1;2;3])
-                Equal (Array.ofSeq x) [| 3; 2; 1 |]
+                equal (Array.ofSeq x) [| 3; 2; 1 |]
             }
 
             Test "DateTime -> Async<DateTime>" {
                 let dt = System.DateTime.UtcNow
-                EqualA (Server.f10 dt) (dt.AddDays 1.0)
+                let! x = Server.f10 dt
+                equal x (dt.AddDays 1.0)
             }
 
             Test "int -> Async<int * int>" {
-                EqualA (Server.f11 40) (40, 41)
+                let! x = Server.f11 40
+                equal x (40, 41)
             }
 
             Test "TimeSpan -> float -> Async<TimeSpan>" {
                 let ts = System.TimeSpan.FromSeconds 14123.
-                EqualA (Server.f12 ts 1.25) (ts.Add (System.TimeSpan.FromMinutes 1.25))
+                let! x = Server.f12 ts 1.25
+                equal x (ts.Add (System.TimeSpan.FromMinutes 1.25))
             }
 
             Test "int -> T1 -> Async<T1>" {
-                EqualA (Server.f13 40 (Server.B (8, Server.A 9)))
+                equalAsync (Server.f13 40 (Server.B (8, Server.A 9)))
                     (Server.B (40, Server.B (8, Server.A 9)))
                 let! x = Server.f13 8 (Server.A 9)
-                Equal x.Head 8
+                equal x.Head 8
             }
 
             Test "T2 -> Async<T2>" {
-                EqualA (Server.f14 { X = "X" }) { X = "X!" }
+                equalAsync (Server.f14 { X = "X" }) { X = "X!" }
                 let! x = Server.f14 {X = "X"}
-                Equal x.Body "X!"
+                equal x.Body "X!"
             }
 
             Test "Null string" {
-                EqualA (Server.f15 null) null
+                equalAsync (Server.f15 null) null
             }
 
             Test "{None; Some} -> {Some; None}" {
-                EqualA (Server.f16 { x = None; y = Some 12 }) { x = Some 12; y = None }
+                equalAsync (Server.f16 { x = None; y = Some 12 }) { x = Some 12; y = None }
             }
 
             Test "{Some; None} -> {None; Some}" {
-                EqualA (Server.f16 { x = Some 12; y = None }) { x = None; y = Some 12 }
+                equalAsync (Server.f16 { x = Some 12; y = None }) { x = None; y = Some 12 }
             }
 
             Test "Automatic field rename" {
                 let! x = Server.f17 (Server.DescendantClass())
-                True (x |> Option.exists (fun x -> x.Zero = 0 && x.One = 1))
+                isTrue (x |> Option.exists (fun x -> x.Zero = 0 && x.One = 1))
             }
 
             Test "Single record in union" {
                 let! (Server.Record r) = Server.f18 (Server.Record {a = 3; b = "xyz"})
-                Equal r.a 4
-                Equal r.b "xyz_"
+                equal r.a 4
+                equal r.b "xyz_"
             }
 
             Test "Map<int,int> -> Map<int,int>" {
-                EqualA (Server.add2_2ToMap (Map.ofArray [| 1, 1 |])) (Map.ofArray [| 1, 1; 2, 2 |])
+                equalAsync (Server.add2_2ToMap (Map.ofArray [| 1, 1 |])) (Map.ofArray [| 1, 1; 2, 2 |])
             }
 
             Test "Set<int> -> Set<int>" {
-                EqualA (Server.add2ToSet (Set.ofArray [| 0; 1; 3; 4 |])) (Set.ofArray [| 0 .. 4 |])
+                equalAsync (Server.add2ToSet (Set.ofArray [| 0; 1; 3; 4 |])) (Set.ofArray [| 0 .. 4 |])
             }
 
             Test "LoginUser()" {
-                EqualA (Server.LoginAs("some_test_user")) (Some "some_test_user")
-                EqualA (Server.GetLoggedInUser()) (Some "some_test_user")
+                equalAsync (Server.LoginAs("some_test_user")) (Some "some_test_user")
+                equalAsync (Server.GetLoggedInUser()) (Some "some_test_user")
             }
 
             Test "Logout()" {
-                EqualA (Server.Logout()) None
-                EqualA (Server.GetLoggedInUser()) None
+                equalAsync (Server.Logout()) None
+                equalAsync (Server.GetLoggedInUser()) None
             }
 
             Test "M1" {
                 do! Server.resetM1()
                 do Remote<Server.IHandler>.M1()
                 do! Async.Sleep 200
-                EqualA (Server.countM1()) 244
+                equalAsync (Server.countM1()) 244
             }
 
             Test "M2" {
                 do! Server.resetM2()
                 do! Remote<Server.IHandler>.M2()
-                EqualA (Server.countM2()) 368
+                equalAsync (Server.countM2()) 368
             }
 
             Test "M3" {
-                EqualA (Remote<Server.IHandler>.M3 40) 41
+                equalAsync (Remote<Server.IHandler>.M3 40) 41
             }
 
             Test "M4" {
-                EqualA (Remote<Server.IHandler>.M4 (1, 2)) 3
+                equalAsync (Remote<Server.IHandler>.M4 (1, 2)) 3
             }
 
             Test "M5" {
-                EqualA (Remote<Server.IHandler>.M5 3 6) 9
+                equalAsync (Remote<Server.IHandler>.M5 3 6) 9
             }
 
             Test "reverse" {
-                EqualA (Server.reverse "abc#quit;;") ";;tiuq#cba"
-                EqualA (Server.reverse "c#") "#c"
-                EqualA (Server.reverse "\u00EF\u00BB\u00BF") "\u00BF\u00BB\u00EF"
-                EqualA (Server.reverse "c\127\127\127#") "#\127\127\127c"
+                equalAsync (Server.reverse "abc#quit;;") ";;tiuq#cba"
+                equalAsync (Server.reverse "c#") "#c"
+                equalAsync (Server.reverse "\u00EF\u00BB\u00BF") "\u00BF\u00BB\u00EF"
+                equalAsync (Server.reverse "c\127\127\127#") "#\127\127\127c"
             }
 
         }

@@ -29,19 +29,19 @@ let Tests =
 
         Test "Next" {
             let r = System.Random()
-            ForR 100 (Random.Const ()) (fun () -> Do {
+            forRandom 100 (Random.Const ()) (fun () -> Do {
                 let n = r.Next(10)
-                True (0 <= n && n < 10)
+                isTrue (0 <= n && n < 10)
             })
-            ForR 100 (Random.Const ()) (fun () -> Do {
+            forRandom 100 (Random.Const ()) (fun () -> Do {
                 let n = r.Next(-5, 5)
-                True (-5 <= n && n < 5)
+                isTrue (-5 <= n && n < 5)
             }) 
         }
 
         Test "Guid" {
             let guids = List.init 100 (fun _ -> System.Guid.NewGuid())
-            Equal (guids |> Seq.distinct |> Seq.length) 100
+            equal (guids |> Seq.distinct |> Seq.length) 100
         }
 
     }

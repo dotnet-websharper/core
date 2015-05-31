@@ -36,159 +36,159 @@ let Tests =
         let karina = "Karina"
 
         Test "Chars" {
-            Equal (karina.Chars 1) 'a'
+            equal (karina.Chars 1) 'a'
         }
 
         Test "Contains" {
-            True (karina.Contains "ar")
-            False (karina.Contains "AR")
+            isTrue (karina.Contains "ar")
+            isFalse (karina.Contains "AR")
         }
 
         Test "CopyTo" {
             let c = Array.create 5 ' '
             karina.CopyTo(3, c, 1, 2)
-            Equal c [| ' '; 'i'; 'n'; ' '; ' ' |]
+            equal c [| ' '; 'i'; 'n'; ' '; ' ' |]
         }
 
         Test "EndsWith" {
-            True (karina.EndsWith "ina")
-            False (karina.EndsWith "INA")
+            isTrue (karina.EndsWith "ina")
+            isFalse (karina.EndsWith "INA")
         }
 
         Test "IndexOf" {
-            Equal (karina.IndexOf "rin"  ) 2
-            Equal (karina.IndexOf "RIN"  ) -1
-            Equal (karina.IndexOf 'a'    ) 1
-            Equal (karina.IndexOf('a', 2)) 5
-            Equal (karina.IndexOf("a", 2)) 5
+            equal (karina.IndexOf "rin"  ) 2
+            equal (karina.IndexOf "RIN"  ) -1
+            equal (karina.IndexOf 'a'    ) 1
+            equal (karina.IndexOf('a', 2)) 5
+            equal (karina.IndexOf("a", 2)) 5
         }
 
         Test "Length" {
-            Equal (karina.Length) 6
-            Equal ("".Length) 0
+            equal (karina.Length) 6
+            equal ("".Length) 0
         }
 
         Test "PadLeft" {
-            Equal (karina.PadLeft 10      ) "    Karina"
-            Equal (karina.PadLeft(10, '.')) "....Karina"
+            equal (karina.PadLeft 10      ) "    Karina"
+            equal (karina.PadLeft(10, '.')) "....Karina"
         }
 
         Test "PadRight" {
-            Equal (karina.PadRight 10) "Karina    "
-            Equal (karina.PadRight(10, '.')) "Karina...."
+            equal (karina.PadRight 10) "Karina    "
+            equal (karina.PadRight(10, '.')) "Karina...."
         }
 
         Test "Remove" {
-            Equal (karina.Remove 4) "Kari"
-            Equal (karina.Remove(2, 3)) "Kaa"
+            equal (karina.Remove 4) "Kari"
+            equal (karina.Remove(2, 3)) "Kaa"
         }
 
         Test "Replace" {
-            Equal (karina.Replace("ar", "AR")) "KARina"
-            Equal (karina.Replace('a', 'A')) "KArinA"
-            Equal ("aaa".Replace("aa", "a")) "aa"
+            equal (karina.Replace("ar", "AR")) "KARina"
+            equal (karina.Replace('a', 'A')) "KArinA"
+            equal ("aaa".Replace("aa", "a")) "aa"
         }
 
         Test "Split" {
             let N = System.StringSplitOptions.None
             let R = System.StringSplitOptions.RemoveEmptyEntries
-            Equal ("a b c".Split(' ')) [| "a"; "b"; "c" |]
-            Equal ("a b,c".Split(' ', ',')) [| "a"; "b"; "c" |]
-            Equal ("a,;b;c".Split([| ','; ';' |], N)) [|"a"; ""; "b"; "c"|]
-            Equal ("a,;b;c".Split([| ','; ';' |], R)) [|"a"; "b"; "c"|]
-            Equal ("a; b, ; c".Split([| ", "; "; " |], N)) [| "a"; "b"; ""; "c" |]
-            Equal ("a; b, ; c".Split([| ", "; "; " |], R)) [| "a"; "b"; "c" |]
+            equal ("a b c".Split(' ')) [| "a"; "b"; "c" |]
+            equal ("a b,c".Split(' ', ',')) [| "a"; "b"; "c" |]
+            equal ("a,;b;c".Split([| ','; ';' |], N)) [|"a"; ""; "b"; "c"|]
+            equal ("a,;b;c".Split([| ','; ';' |], R)) [|"a"; "b"; "c"|]
+            equal ("a; b, ; c".Split([| ", "; "; " |], N)) [| "a"; "b"; ""; "c" |]
+            equal ("a; b, ; c".Split([| ", "; "; " |], R)) [| "a"; "b"; "c" |]
         }
 
         Test "StartsWith" {
-            True (karina.StartsWith "Kar")
-            False (karina.StartsWith "KAR")
+            isTrue (karina.StartsWith "Kar")
+            isFalse (karina.StartsWith "KAR")
         }
 
         Test "Substring" {
-            Equal (karina.Substring 3) "ina"
-            Equal (karina.Substring(3, 2)) "in"
+            equal (karina.Substring 3) "ina"
+            equal (karina.Substring(3, 2)) "in"
         }
 
         Test "ToCharArray" {
-            Equal (karina.ToCharArray()) [|'K'; 'a'; 'r'; 'i'; 'n'; 'a'|]
-            Equal (karina.ToCharArray(1, 3)) [|'a'; 'r'; 'i'|]
+            equal (karina.ToCharArray()) [|'K'; 'a'; 'r'; 'i'; 'n'; 'a'|]
+            equal (karina.ToCharArray(1, 3)) [|'a'; 'r'; 'i'|]
         }
 
         Test "ToLower" {
-            Equal (karina.ToLower()) "karina"
+            equal (karina.ToLower()) "karina"
         }
 
         Test "ToUpper" {
-            Equal (karina.ToUpper()) "KARINA"
+            equal (karina.ToUpper()) "KARINA"
         }
 
         Test "Trim" {
-            Equal ("   Karina  ".Trim()) karina
+            equal ("   Karina  ".Trim()) karina
         }
 
         Test "String.collect" {
-            Equal (String.collect (fun x -> "`" + string x) "abc") "`a`b`c"
+            equal (String.collect (fun x -> "`" + string x) "abc") "`a`b`c"
         }
 
         Test "String.concat" {
-            Equal (String.concat "," []) ""
-            Equal (String.concat "," ["a"; "b"; "c"]) "a,b,c"
+            equal (String.concat "," []) ""
+            equal (String.concat "," ["a"; "b"; "c"]) "a,b,c"
         }
 
         Test "String.exists" {
-            True (String.exists System.Char.IsDigit "abc1")
-            False (String.exists System.Char.IsDigit "abc")
+            isTrue (String.exists System.Char.IsDigit "abc1")
+            isFalse (String.exists System.Char.IsDigit "abc")
         }
 
         Test "String.forall" {
-            True (String.forall System.Char.IsDigit "123")
-            False (String.forall System.Char.IsDigit "12a")
+            isTrue (String.forall System.Char.IsDigit "123")
+            isFalse (String.forall System.Char.IsDigit "12a")
         }
 
         Test "String.init" {
-            Equal (String.init 10 (fun i -> string (char (i + int 'a')))) "abcdefghij"
+            equal (String.init 10 (fun i -> string (char (i + int 'a')))) "abcdefghij"
         }
 
         Test "String.iter" {
             let r = ref 0
             String.iter (fun x -> r := !r + int x) "abc"
-            Equal !r 294
+            equal !r 294
         }
 
         Test "String.iteri" {
             let r = ref 0
             String.iteri (fun i x -> r := i + !r + int x) "abc"
-            Equal !r 297
+            equal !r 297
         }
 
         Test "String.map" {
-            Equal (String.map (fun c -> char (int c + 1)) "abc") "bcd"
+            equal (String.map (fun c -> char (int c + 1)) "abc") "bcd"
         }
 
         Test "String.mapi" {
-            Equal (String.mapi (fun i c -> char (int c + i)) "abc") "ace"
+            equal (String.mapi (fun i c -> char (int c + i)) "abc") "ace"
         }
 
         Test "String.replicate" {
-            Equal (String.replicate 3 "abc") "abcabcabc"
+            equal (String.replicate 3 "abc") "abcabcabc"
         }
 
         Test "GetStringSlice" {
-            Equal (karina.[.. 2]) "Kar"
-            Equal (karina.[4 ..]) "na" 
-            Equal (karina.[2 .. 4]) "rin" 
+            equal (karina.[.. 2]) "Kar"
+            equal (karina.[4 ..]) "na" 
+            equal (karina.[2 .. 4]) "rin" 
         }  
     
         Test "string" {
-            Equal (string "abc") "abc"
-            Equal (string 123) "123"
-            Equal (string (Hi())) "Hello"
+            equal (string "abc") "abc"
+            equal (string 123) "123"
+            equal (string (Hi())) "Hello"
         }               
 
         Test "Extensions" {
-            Equal ("abc".JS.CharAt(1)) "b"
-            Equal (String.FromCharCode(72, 69, 76, 76, 79)) "HELLO" 
+            equal ("abc".JS.CharAt(1)) "b"
+            equal (String.FromCharCode(72, 69, 76, 76, 79)) "HELLO" 
         }
 
     }

@@ -98,14 +98,14 @@ module Macro =
         Section "Metaprogramming" {
 
             Test "Generated" {
-                Equal (helloQuotation "world") "Hello world!"
-                Equal (helloCore "world") "Hello world!"
-                Equal (helloJS "world") "Hello world!"    
+                equal (helloQuotation "world") "Hello world!"
+                equal (helloCore "world") "Hello world!"
+                equal (helloJS "world") "Hello world!"    
             }
 
             Test "Macro" {
-                Equal nameof<string> "System.String"
-                Equal (add 1 2) 3
+                equal nameof<string> "System.String"
+                equal (add 1 2) 3
             }
 
         }

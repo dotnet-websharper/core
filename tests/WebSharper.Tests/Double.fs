@@ -30,29 +30,29 @@ let Tests =
     Section "Double" {
 
         Test "Double.IsInfinity" {
-            True (D.IsInfinity infinity)
-            False (D.IsInfinity 0.)
+            isTrue (D.IsInfinity infinity)
+            isFalse (D.IsInfinity 0.)
         }
 
         Test "Double.IsNaN" {
-            True (D.IsNaN nan)
-            False (D.IsNaN 0.)
+            isTrue (D.IsNaN nan)
+            isFalse (D.IsNaN 0.)
         }
 
         Test "Double.IsNegativeInfinity" {
-            False (D.IsNegativeInfinity infinity)
-            True (D.IsNegativeInfinity -infinity)
-            False (D.IsNegativeInfinity 0.)
+            isFalse (D.IsNegativeInfinity infinity)
+            isTrue (D.IsNegativeInfinity -infinity)
+            isFalse (D.IsNegativeInfinity 0.)
         }
 
         Test "Double.IsPositiveInfinity" {
-            True (D.IsPositiveInfinity infinity)
-            False (D.IsPositiveInfinity -infinity)
-            False (D.IsPositiveInfinity 0.)
+            isTrue (D.IsPositiveInfinity infinity)
+            isFalse (D.IsPositiveInfinity -infinity)
+            isFalse (D.IsPositiveInfinity 0.)
         }
 
         Test "Double.Parse" {
-            Equal (D.Parse "1.5E3") 1.5E3
+            equal (D.Parse "1.5E3") 1.5E3
         }
 
     }

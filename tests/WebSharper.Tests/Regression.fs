@@ -89,7 +89,7 @@ module BugBB80 =
                     use x = new X(a)
                     return ()
                 }
-            return Test "Bug BB80" { Equal !a 1 }
+            return Test "Bug BB80" { equal !a 1 }
         }
         |> Async.Start
 
@@ -162,21 +162,21 @@ let Tests =
     Section "Regression" {
 
         Test "Bug #26" {
-            TrueM ([||] = Empty<int>) "[||] = Empty<int>"
+            isTrueMsg ([||] = Empty<int>) "[||] = Empty<int>"
         }
 
         Test "Bug #35" {
-            Equal (bug35_Bar ()) "c"
+            equal (bug35_Bar ()) "c"
         }
 
         Test "Bug #61" {
             let x = Bug61_T2()
-            Equal x.F 1
+            equal x.F 1
         }
 
         Test "Bug #367" {
-            Equal Bug367.B.y 1
-            Equal Bug367.z 1
+            equal Bug367.B.y 1
+            equal Bug367.z 1
         }
 
         Test "Bug #476" {
@@ -194,28 +194,28 @@ let Tests =
                 q.Enqueue 4
             }
             |> Seq.length |> ignore
-            Equal (q.ToArray()) [|-1; 0; 1; 2; 2; 3; 4|]
+            equal (q.ToArray()) [|-1; 0; 1; 2; 2; 3; 4|]
             let t (x: list<int>) = Seq.toArray (Seq.windowed 3 x)
-            Equal (t []) [||]
-            Equal (t [1]) [||]
-            Equal (t [1;2]) [||]
-            Equal (t [1;2;3]) [|[|1;2;3|]|]
-            Equal (t [1;2;3;4]) [|[|1;2;3|]; [|2;3;4|]|]
-            Equal (t [1;2;3;4;5]) [|[|1;2;3|]; [|2;3;4|]; [|3;4;5|]|]
+            equal (t []) [||]
+            equal (t [1]) [||]
+            equal (t [1;2]) [||]
+            equal (t [1;2;3]) [|[|1;2;3|]|]
+            equal (t [1;2;3;4]) [|[|1;2;3|]; [|2;3;4|]|]
+            equal (t [1;2;3;4;5]) [|[|1;2;3|]; [|2;3;4|]; [|3;4;5|]|]
         }
 
         Test "Bug #431" {
-            Equal (bug431_g()) [| 2; 1 |]
+            equal (bug431_g()) [| 2; 1 |]
         }
 
         Test "Bug #484" {
-            Equal (string 0) "0"
+            equal (string 0) "0"
         }
 
         do BugBB80.test()
 
         Test "Mutable" {
-            Equal (
+            equal (
                 let mutable a = 2
                 a <- 4
                 a
@@ -228,7 +228,7 @@ let Tests =
                 for i in 1 .. 10 do
                     for j in 1 .. 10 do
                         n.Add(fun k -> k + i + j)
-            Equal (Seq.sum [for x in n -> x 5]) 1600
+            equal (Seq.sum [for x in n -> x 5]) 1600
         }
 
         Test "Bug #231" {
@@ -250,11 +250,11 @@ let Tests =
                     | Some p -> yield p
                     | _ -> ()
                 |]
-            Equal arr [| 4; 4; 2 |]
+            equal arr [| 4; 4; 2 |]
         }
 
         Test "Bug #249" {
-            Equal (double 1) 1.0
+            equal (double 1) 1.0
         }
 
         Test "Bug #264" {
@@ -267,15 +267,15 @@ let Tests =
                 v.B <- Bug264.Make (fun () -> { v with A = 2 })
                 v
         
-            True (
+            isTrue (
                 try Mk().B = Bug264.Y 2
                 with _ -> false)
         }
 
         Test "Bug #323" {
             let a = Bug323.DescendantClass(3)
-            Equal (a.OriginalValue) 3
-            Equal (a.Value) 4    
+            equal (a.OriginalValue) 3
+            equal (a.Value) 4    
         }
 
         Test "Bug #328" {
@@ -284,23 +284,23 @@ let Tests =
                     "test" => 3
                     "testf" => FuncWithRest<int, int[]> id
                 ]
-            Equal o.TestProperty 3
-            Equal (o.TestMethod()) 3
-            Equal (o.TestMethod1(1)) [| 1 |]
-            Equal (o.TestMethod2(1, 2)) [| 1; 2 |]
+            equal o.TestProperty 3
+            equal (o.TestMethod()) 3
+            equal (o.TestMethod1(1)) [| 1 |]
+            equal (o.TestMethod2(1, 2)) [| 1; 2 |]
         }
 
         Test "Curried inlining" {
             let add1 x = x + 1
             let twice x = x * 2
-            Equal (FuncHelper.Compose add1 twice 0) 2
+            equal (FuncHelper.Compose add1 twice 0) 2
             let f = FuncHelper.Compose add1 twice 
-            Equal (f 1) 4
-            Equal (f 2) 6
+            equal (f 1) 4
+            equal (f 2) 6
         }
 
         Test "Bug #352" {
-            Equal (Bug352.B().Foo()) 2    
+            equal (Bug352.B().Foo()) 2    
         }
                  
 
@@ -315,6 +315,6 @@ let Tests =
                 try for x in mySeq do
                         failwith ""
                 with _ -> ()
-            True !disposed 
+            isTrue !disposed 
         }
     }

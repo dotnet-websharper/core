@@ -347,14 +347,14 @@ open WebSharper.Testing
 type TestBuilder with
 
     [<JavaScript>]
-    [<CustomOperation("Fixture", MaintainsVariableSpace = true)>]
+    [<CustomOperation("fixture", MaintainsVariableSpace = true)>]
     member this.Fixture<'A>
         (
             r: Runner<'A>,
             [<ProjectionParameter>] el: 'A -> Element
         ) : Runner<'A> =
-        fun asserter ->
-            let v = r asserter
+        fun isTrueer ->
+            let v = r isTrueer
             Choice2Of2 (async {
                 let! args =
                     match v with
@@ -376,8 +376,8 @@ let Tests =
         Test "Geolocation" {
             let! position = SamplesInternals.GetPosition()
             let coords = position.Coords
-            False (JS.IsNaN coords.Latitude)
-            False (JS.IsNaN coords.Longitude)
+            isFalse (JS.IsNaN coords.Latitude)
+            isFalse (JS.IsNaN coords.Longitude)
         }
 
         Test "LocalStorage" {
@@ -391,47 +391,47 @@ let Tests =
             let newV = (v + 1).ToString()
             storage.SetItem(key, newV)
             let storedNewV = storage.GetItem(key)
-            Equal newV storedNewV
+            equal newV storedNewV
         }
 
         Test "Canvas 1" {
-            Fixture (SamplesInternals.Canvas (100, 200) SamplesInternals.Example1)
-            True true
+            fixture (SamplesInternals.Canvas (100, 200) SamplesInternals.Example1)
+            expect 0
         }
 
         Test "Canvas 2" {
-            Fixture (SamplesInternals.Canvas (150, 200) SamplesInternals.Example2)
-            True true
+            fixture (SamplesInternals.Canvas (150, 200) SamplesInternals.Example2)
+            expect 0
         }
 
         Test "Canvas 3" {
-            Fixture (SamplesInternals.Canvas (150, 200) SamplesInternals.Example3)
-            True true
+            fixture (SamplesInternals.Canvas (150, 200) SamplesInternals.Example3)
+            expect 0
         }
 
         Test "Canvas 4" {
-            Fixture (SamplesInternals.Canvas (150, 200) SamplesInternals.Example4)
-            True true
+            fixture (SamplesInternals.Canvas (150, 200) SamplesInternals.Example4)
+            expect 0
         }
 
         Test "Canvas 5" {
-            Fixture (SamplesInternals.Canvas (150, 200) SamplesInternals.Example5)
-            True true
+            fixture (SamplesInternals.Canvas (150, 200) SamplesInternals.Example5)
+            expect 0
         }
 
         Test "Canvas 6" {
-            Fixture (SamplesInternals.Canvas (150, 150) SamplesInternals.Example6)
-            True true
+            fixture (SamplesInternals.Canvas (150, 150) SamplesInternals.Example6)
+            expect 0
         }
 
         Test "Canvas 7" {
-            Fixture (SamplesInternals.Canvas (180, 130) SamplesInternals.Example7)
-            True true
+            fixture (SamplesInternals.Canvas (180, 130) SamplesInternals.Example7)
+            expect 0
         }
 
         Test "Canvas 8" {
-            Fixture (SamplesInternals.Canvas (200, 200) SamplesInternals.Example8)
-            True true
+            fixture (SamplesInternals.Canvas (200, 200) SamplesInternals.Example8)
+            expect 0
         }
 
     }

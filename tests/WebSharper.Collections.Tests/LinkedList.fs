@@ -30,38 +30,38 @@ let Tests =
     Section "LinkedList" {
 
         Test "Construction" {
-            Equal (LL<int>().Count) 0
-            Equal (LL(seq { 1 .. 3 }) |> Array.ofSeq) [| 1; 2; 3 |]
+            equal (LL<int>().Count) 0
+            equal (LL(seq { 1 .. 3 }) |> Array.ofSeq) [| 1; 2; 3 |]
         }
 
         Test "Adding nodes" {
             let l = LL()
             l.AddFirst(3) |> ignore
-            Equal (Array.ofSeq l) [| 3 |]
+            equal (Array.ofSeq l) [| 3 |]
             let n = l.AddLast(5)
-            Equal (Array.ofSeq l) [| 3; 5 |]
+            equal (Array.ofSeq l) [| 3; 5 |]
             l.AddBefore(n, 4) |> ignore
-            Equal (Array.ofSeq l) [| 3; 4; 5 |]
+            equal (Array.ofSeq l) [| 3; 4; 5 |]
             l.AddAfter(n, 6) |> ignore
-            Equal (Array.ofSeq l) [| 3; 4; 5; 6 |]
-            True (l.Contains 6)
+            equal (Array.ofSeq l) [| 3; 4; 5; 6 |]
+            isTrue (l.Contains 6)
             l.Clear()
-            Equal (Array.ofSeq l) [||]
+            equal (Array.ofSeq l) [||]
         }
 
         Test "Removing nodes" {
             let l = LL(seq { 1 .. 5 })
-            True (l.Remove 3)
-            False (l.Remove 3)
-            Equal (Array.ofSeq l) [| 1; 2; 4; 5 |]
+            isTrue (l.Remove 3)
+            isFalse (l.Remove 3)
+            equal (Array.ofSeq l) [| 1; 2; 4; 5 |]
             l.RemoveFirst();
-            Equal (Array.ofSeq l) [| 2; 4; 5 |]
+            equal (Array.ofSeq l) [| 2; 4; 5 |]
             l.RemoveLast();
-            Equal (Array.ofSeq l) [| 2; 4 |]
+            equal (Array.ofSeq l) [| 2; 4 |]
             l.AddLast(0) |> l.Remove;
-            Equal (Array.ofSeq l) [| 2; 4 |]
+            equal (Array.ofSeq l) [| 2; 4 |]
             l.AddFirst(0) |> l.Remove;
-            Equal (Array.ofSeq l) [| 2; 4 |]
+            equal (Array.ofSeq l) [| 2; 4 |]
         }
 
     }

@@ -36,20 +36,20 @@ let Tests =
     Section "Exception" {
 
         Test "E0" {
-            Equal (try 1 with E0 -> 2) 1
-            Equal (try (raise E0; 1) with E0 -> 2) 2
+            equal (try 1 with E0 -> 2) 1
+            equal (try (raise E0; 1) with E0 -> 2) 2
         }
 
         Test "E1" {
-            Equal (try (raise (E1 3); 0) with E1 x -> x) 3
+            equal (try (raise (E1 3); 0) with E1 x -> x) 3
         }
 
         Test "E2" {
-            Equal (try (raise (E2 (1, "K")); "") with E2 (_, x) -> x) "K"
+            equal (try (raise (E2 (1, "K")); "") with E2 (_, x) -> x) "K"
         }
 
         Test "E3" {
-            Equal (
+            equal (
                 try
                     raise (E3 "OOPS")
                     "Success"
@@ -65,11 +65,11 @@ let Tests =
                 | E1 _ -> 1
                 | :? E3 -> 3
                 | E2 _ -> 2
-            Equal k 3
+            equal k 3
         }
 
         Test "Reraising" {
-            Equal (
+            equal (
                 try
                     try
                         raise (E3 "OOPS")

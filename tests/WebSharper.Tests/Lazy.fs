@@ -29,19 +29,19 @@ let Tests =
 
         Test "Basics" {
             let k = lazy 1
-            False k.IsValueCreated
-            Equal k.Value 1
-            True k.IsValueCreated
+            isFalse k.IsValueCreated
+            equal k.Value 1
+            isTrue k.IsValueCreated
             let b = Lazy.CreateFromValue 1
-            True b.IsValueCreated
-            Equal b.Value 1
+            isTrue b.IsValueCreated
+            equal b.Value 1
             let r = ref 0
             let c = Lazy.Create (fun () -> incr r; 1)
-            False c.IsValueCreated
-            Equal !r 0
-            Equal c.Value 1
-            Equal !r 1
-            True c.IsValueCreated
+            isFalse c.IsValueCreated
+            equal !r 0
+            equal c.Value 1
+            equal !r 1
+            isTrue c.IsValueCreated
         }
 
     }
