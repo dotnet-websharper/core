@@ -39,15 +39,15 @@ let Tests =
             equal (List.append [] []) []
             equal (List.append [1] []) [1]
             equal (List.append [] [1]) [1]
-            property (fun (x: list<int>) -> Do {
+            property (fun x -> Do {
                 equal (List.append x []) x
                 equal (List.append [] x) x
             })
-            property (fun (x: list<int>, y: list<int>) -> Do {
+            property (fun (x, y) -> Do {
                     equal (List.length (List.append x y))
                         (List.length x + List.length y)
                 })
-            property (fun (x: list<int>, y: list<int>) -> Do {
+            property (fun (x, y) -> Do {
                     equal (List.append x y)
                         (Array.append (Array.ofList x) (Array.ofList y)
                         |> Array.toList)
@@ -344,7 +344,7 @@ let Tests =
         Test "List.rev" {
             equal (List.rev [1; 2; 3]) [3; 2; 1]
             equal (List.rev []) []
-            property (fun (x: list<int>) -> Do {
+            property (fun x -> Do {
                 let doubleRev = List.rev >> List.rev
                 equal (doubleRev x) x
                 let l = List.rev x @ x
@@ -462,7 +462,7 @@ let Tests =
         Test "List.zip" {
             raises (List.zip [] [1])
             equal (List.zip ["a"] [1]) [("a", 1)]
-            property (fun (l: list<int * bool>) -> Do {
+            property (fun l -> Do {
                 let (x, y) = List.unzip l
                 equal (List.zip x y) l
             })

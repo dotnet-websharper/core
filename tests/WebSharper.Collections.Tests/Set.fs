@@ -256,7 +256,7 @@ let Tests =
             let set3 = Set.ofList FTeenS
             equal (Set.union set1 set1) set1
             equal (Set.union set1 set2) set3
-            property (fun (x: int list) -> Do {
+            property (fun x -> Do {
                 let s = Set.ofList x
                 equal (Set.union s s) s
             })

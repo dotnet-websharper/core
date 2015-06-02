@@ -52,8 +52,10 @@ let Implies a b =
 let ( ==> ) a b =
     Implies a b
 
+let private SysRandom = System.Random()
+
 [<Inline "Math.random()">]
-let private Random () = X<double>
+let private Random () = SysRandom.NextDouble()
 
 /// Standard uniform distribution sampler.
 [<JavaScript>]
@@ -106,7 +108,7 @@ let FloatExhaustive : Generator<float> =
 let Int : Generator<int> =
     {
         Base = [| 0; 1; -1 |]
-        Next = fun () -> As<int> (round (Float.Next()))
+        Next = fun () -> int (round (Float.Next()))
     }
 
 /// Generates random natural numbers (0, 1, ..).
@@ -225,6 +227,30 @@ let Mix (a: Generator<'T>) (b: Generator<'T>) : Generator<'T> =
                 if !left then a.Next() else b.Next()
     }
 
+/// Mixes many generators witohut bias.
+[<JavaScript>]
+let MixMany (gs: Generator<'T>[]) : Generator<'T> =
+    {
+        Base = Array.concat [| for g in gs -> g.Base |]
+        Next =
+            let i = ref 0 in
+            fun () ->
+                i := (!i + 1) % gs.Length
+                gs.[!i].Next()
+    }
+
+/// Mixes many generators ignoring their bases.
+[<JavaScript>]
+let MixManyWithoutBases (gs: Generator<'T>[]) : Generator<'T> =
+    {
+        Base = [||]
+        Next =
+            let i = ref 0 in
+            fun () ->
+                i := (!i + 1) % gs.Length
+                gs.[!i].Next()
+    }
+
 /// Creates a generator that always generates the given value.
 [<JavaScript>]
 let Const x =
@@ -238,61 +264,124 @@ let Const x =
 let OptionOf (generator: Generator<'A>) : Generator<option<'A>> =
     Mix (Const None) (Map Some generator)
 
+/// Boxes the generated data.
+[<Inline "$g">]
+let Box (g: Generator<'A>) = Map box g
+
+[<JavaScript>]
+let private allTypes =
+    let bases =
+        [|
+            Box Int
+            Box Float
+            Box Boolean
+            Box String
+        |]
+    let compose (gs: Generator<obj>[]) =
+        [|
+            for g in gs do
+                for h in gs do
+                    yield Box (Tuple2Of(g, h))
+                    for i in gs do
+                        yield Box (Tuple3Of(g, h, i))
+                yield Box (ListOf g)
+                yield Box (ArrayOf g)
+        |]
+    let composed = compose bases
+    Array.append bases composed
+
+/// Generates ints, floats, bools, strings and tuples, lists, arrays, options thereof.
+[<JavaScript>]
+let Anything : Generator<obj> =
+    MixManyWithoutBases allTypes
+
+[<JavaScript>]
+let private Choose (gens: Generator<'A>[]) (f: Generator<'A> -> Generator<'B>) : Generator<'B> =
+    let gengen = Within 0 (gens.Length - 1) |> Map (fun i -> gens.[i])
+    {
+        Base = [||]
+        Next = fun () ->
+            let gen = gengen.Next()
+            (f gen).Next()
+    }
+
 module Q = WebSharper.Core.Quotations
 module R = WebSharper.Core.Reflection
 module T = WebSharper.Core.Reflection.Type
 module J = WebSharper.Core.JavaScript.Core
 
 module internal Internal =
+
+    type E = J.Expression
+
     let cString s = !~ (J.String s)
     let inline cInt i = !~ (J.Integer (int64 i))
     let cCall t m x = J.Call (t, cString m, x)
     let cCallG l m x = cCall (J.Global l) m x
-    let cCallR m x = Choice1Of2 (cCallG ["WebSharper"; "Testing"; "Random"] m x)
+    let cCallR m x = cCallG ["WebSharper"; "Testing"; "Random"] m x
     let (|T|_|) n (t: R.TypeDefinition) =
         if t.FullName = n then Some() else None
-    let (>>=) (m: Choice<J.Expression, string>) (f: J.Expression -> Choice<J.Expression, string>) =
+    let (>>=) (wrap: (E -> E), m: Choice<E, string> as x) (f: (E -> E) -> E -> (E -> E) * Choice<E, string>) =
         match m with
-        | Choice1Of2 e -> f e
-        | Choice2Of2 _ -> m
-    let fail x = Choice2Of2 x : Choice<J.Expression, string>
+        | Choice1Of2 e -> f wrap e
+        | Choice2Of2 _ -> x
+    let fail x = id, Choice2Of2 x : (E -> E) * Choice<E, string>
 
     let mkGenerator t =
-        let rec mkGenerator = function
+        let rec mkGenerator wrap = function
             | T.Array (t, 1) ->
-                mkGenerator t >>= fun x ->
-                cCallR "ArrayOf" [x]
+                mkGenerator wrap t >>= fun wrap x ->
+                wrap, Choice1Of2 (cCallR "ArrayOf" [x])
             | T.Array _ ->
                 fail "Random generators for multidimensional arrays are not supported."
             | T.Concrete (T "Microsoft.FSharp.Core.Unit", []) ->
-                cCallR "Const" [!~J.Null]
+                wrap, Choice1Of2 (cCallR "Const" [!~J.Null])
             | T.Concrete (T "System.Boolean", []) ->
-                cCallR "Boolean" []
+                wrap, Choice1Of2 (cCallR "Boolean" [])
             | T.Concrete (T "System.Double", []) ->
-                cCallR "Float" []
+                wrap, Choice1Of2 (cCallR "Float" [])
             | T.Concrete (T "System.Int32", []) ->
-                cCallR "Int" []
+                wrap, Choice1Of2 (cCallR "Int" [])
             | T.Concrete (T "System.String", []) ->
-                cCallR "String" []
+                wrap, Choice1Of2 (cCallR "String" [])
             | T.Concrete (T "Microsoft.FSharp.Collections.FSharpList`1", [t]) ->
-                mkGenerator t >>= fun x ->
-                cCallR "ListOf" [x]
+                mkGenerator wrap t >>= fun wrap x ->
+                wrap, Choice1Of2 (cCallR "ListOf" [x])
             | T.Concrete (T "System.Tuple`2", [t1; t2]) ->
-                mkGenerator t1 >>= fun x1 ->
-                mkGenerator t2 >>= fun x2 ->
-                cCallR "Tuple2Of" [x1; x2]
+                mkGenerator wrap t1 >>= fun wrap x1 ->
+                mkGenerator wrap t2 >>= fun wrap x2 ->
+                wrap, Choice1Of2 (cCallR "Tuple2Of" [x1; x2])
             | T.Concrete (T "System.Tuple`3", [t1; t2; t3]) ->
-                mkGenerator t1 >>= fun x1 ->
-                mkGenerator t2 >>= fun x2 ->
-                mkGenerator t3 >>= fun x3 ->
-                cCallR "Tuple3Of" [x1; x2; x3]
+                mkGenerator wrap t1 >>= fun wrap x1 ->
+                mkGenerator wrap t2 >>= fun wrap x2 ->
+                mkGenerator wrap t3 >>= fun wrap x3 ->
+                wrap, Choice1Of2 (cCallR "Tuple3Of" [x1; x2; x3])
+            | T.Concrete (T "System.Object", [])
+            | T.Generic _ ->
+                wrap, Choice1Of2 (cCallR "Anything" [])
+            | T.Concrete (T "System.IComparable", []) ->
+                // We use Choose because it is necessary for a given generated value
+                // that all occurrences of this type are the same type.
+                // With Anything, we could get e.g for IComparable[]: [|1; "test"; (2.3, true)|]
+                let id = J.Id()
+                let wrap' (e: E) =
+                    cCallR "Choose" [
+                        cCallR "allTypes" []
+                        J.Lambda(None, [id], e)
+                    ]
+                wrap' >> wrap, Choice1Of2 (J.Var id)
+            | T.Concrete (T "System.IEquatable`1", [t])
+            | T.Concrete (T "System.IComparable`1", [t]) ->
+                mkGenerator wrap t
+            | T.Concrete (T "System.Collections.IEnumerable", []) ->
+                mkGenerator wrap (T.Array (T.Generic 1, 1))
+            | T.Concrete (T "System.Collections.Generic.IEnumerable`1", [t]) ->
+                mkGenerator wrap (T.Array (t, 1))
             | T.Concrete (t, targs) ->
                 fail ("Random generator not supported for type: " + t.FullName)
-            | T.Generic x ->
-                fail ("Cannot create a random generator for a generic type " + string x)
-        match mkGenerator t with
-        | Choice1Of2 x -> x
-        | Choice2Of2 msg -> failwithf "%A: %s" t msg
+        match mkGenerator id t with
+        | wrap, Choice1Of2 x -> wrap x
+        | _, Choice2Of2 msg -> failwithf "%A: %s" t msg
 
     let mkSample g count =
         cCallG ["WebSharper"; "Testing"; "Random"; "Sample"] "Make" [g; count]

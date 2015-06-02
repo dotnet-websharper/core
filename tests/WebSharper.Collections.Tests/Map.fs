@@ -141,7 +141,7 @@ let Tests =
             isTrue (Map.isEmpty emp)
         }
 
-        Property "Map.partition" (fun (xs: list<int * unit>) -> Do {
+        Property "Map.partition" (fun xs -> Do {
             let xs = xs |> Set.ofList |> Set.toList
             let f (k : int) () = k % 2 = 0
             let (a, b) =

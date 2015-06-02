@@ -59,7 +59,7 @@ let Tests =
                             yield c
                     |]
                 fibonacciInner 1 1
-            equalMsg [| 2; 3; 5; 8; 13 |] fibonacci "fibs"
+            equalMsg fibonacci [| 2; 3; 5; 8; 13 |] "fibs"
         }
 
         Test "Array.append" {
@@ -68,7 +68,7 @@ let Tests =
             equal arr1 [| 1; 2; 3|]
             equal arr2 [| 4; 5 |]
             equal (Array.append [| 1 |] [| |]) [| 1 |]
-            property (fun (x: int[]) -> Do {
+            property (fun x -> Do {
                 equal (Array.append x [||]) x
                 equal (Array.append [||] x) x
             })
@@ -96,7 +96,7 @@ let Tests =
 
         Test "Array.collect" {
             equal (Array.collect (fun x -> [| x |]) [| 1..10 |]) [|1..10|]
-            property (fun (x: int[]) -> Do {
+            property (fun x -> Do {
                 equal (Array.collect (fun x -> [| x |]) x) x
             })
         }
@@ -105,7 +105,7 @@ let Tests =
             equal (Array.concat [| [| 1 |]; [||]; [| 2; 3 |] |]) [| 1; 2; 3 |]
         }
 
-        Property "Array.copy" (fun (x: int[]) -> Do {
+        Property "Array.copy" (fun x -> Do {
             equal (Array.copy x) x
         })
 
@@ -202,7 +202,7 @@ let Tests =
             isTrue (Array.forall (fun x -> x % 2 = 0) a)
             isTrue (Array.forall (fun _ -> false) [||])
             isTrue (not (Array.forall ((=) 8) a))
-            property (fun (f: int, l) -> Do {
+            property (fun (f, l) -> Do {
                 let p1 = Array.forall ((=) f) l
                 let p2 = Array.exists ((<>) f) l |> not
                 equal p1 p2
@@ -284,7 +284,7 @@ let Tests =
             equal (Array.length [||]) 0
             equal (Array.length [| 1 .. 10 |]) 10
             equal (Array.length (Array.zeroCreate 5)) 5
-            property (fun (x: int[], y: int[]) -> Do {
+            property (fun (x, y) -> Do {
                 equal (Array.length x + Array.length y) (Array.length (Array.append x y))
             })
         }
@@ -388,11 +388,11 @@ let Tests =
         }
 
         Test "Array.rev" {
-            property (fun (a: int[]) -> Do {
+            property (fun a -> Do {
                 equal (Array.rev (Array.rev a)) a
             })
             equal (Array.rev [||]) [||]
-            property (fun (x: int) -> Do { equal [| x |] (Array.rev [| x |]) })
+            property (fun x -> Do { equal [| x |] (Array.rev [| x |]) })
         }
 
         Test "Array.scan" {
@@ -478,7 +478,7 @@ let Tests =
             let arr = [| 1; 2; 3; 4; 5 |]
             let l = [1; 2; 3; 4; 5]
             equal l (Array.toList arr)
-            property (fun (x: list<int>) -> Do {
+            property (fun x -> Do {
                 equal (Array.toList (Array.ofList x)) x
             })
         }
@@ -507,12 +507,12 @@ let Tests =
             equal (Array.tryPick f [| 1 .. 3 |]) None
         }
 
-        Property "Array.unzip" (fun (arr: (int * bool)[]) -> Do {
+        Property "Array.unzip" (fun arr -> Do {
             let (x, y) = Array.unzip arr
             equal (Array.zip x y) arr
         })
 
-        Property "Array.unzip3" (fun (arr: (int * bool * int)[]) -> Do {
+        Property "Array.unzip3" (fun arr -> Do {
             let (x, y, z) = Array.unzip3 arr
             equal (Array.zip3 x y z) arr
         })

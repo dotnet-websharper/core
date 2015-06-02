@@ -32,17 +32,17 @@ let Tests =
         Test "Seq.append" {
             equal (Seq.append (seq { 1 .. 5 }) (seq { 6 .. 10 }) |> Seq.toArray)
                 [| 1 .. 10 |]
-            property (fun (x: int[]) -> Do {
+            property (fun x -> Do {
                 equal (Seq.toArray (Seq.append x [])) x
                 equal (Seq.toArray (Seq.append [] x)) x
             })
-            property (fun (x: int[], y: int[]) -> Do {
+            property (fun (x, y) -> Do {
                     let s1 = Array.toSeq x
                     let s2 = Array.toSeq y
                     equal (Seq.length (Seq.append s1 s2))
                         (Seq.length s1 + Seq.length s2)
                 })
-            property (fun (x: int[], y: int[]) -> Do {
+            property (fun (x, y) -> Do {
                     let s1 = Array.toSeq x
                     let s2 = Array.toSeq y
                     equal (Seq.toArray (Seq.append s1 s2))
@@ -58,8 +58,8 @@ let Tests =
             equal (Seq.averageBy float (seq { 0 .. 100 })) 50.
         }
 
-        Property "Seq.cache" (fun (x: int[]) -> Do {
-            let s = Seq.toArray (Seq.cache x)
+        Property "Seq.cache" (fun x -> Do {
+            let s = Seq.toArray (Seq.cache (Array.toSeq x))
             equal (Seq.toArray s) x
         })
 
@@ -187,8 +187,8 @@ let Tests =
             let s = Seq.init 10 (fun n -> seq { 1 .. 2 })
             equal (Seq.fold (fun x y -> x + Seq.length y) 0 <| s) 20
             property (fun x -> Do {
-                let a = Array.fold (+) 0 (Array.ofList x)
-                equal (Seq.fold (+) 0 <| List.toSeq x) a
+                let a = Array.fold (+) 0 x
+                equal (Seq.fold (+) 0 <| Array.toSeq x) a
             })
         }
 
@@ -198,7 +198,7 @@ let Tests =
             let a = Seq.forall ((<>) 21)
             isTrue (a xs2)
             isFalse (a xs1)
-            property (fun (s: int[]) -> Do {
+            property (fun s -> Do {
                 let f a = a % 2 = 0
                 equal (Seq.forall f s) (not (Seq.exists (not << f) s))
             })
@@ -206,7 +206,7 @@ let Tests =
 
         Test "Seq.forall2" {
             isFalse (Seq.forall2 (fun x y -> x = y) [1;2;3] [1;3;3])
-            property (fun (xs: int[]) -> Do {
+            property (fun xs -> Do {
                 isTrue (Seq.forall2 (=) xs xs)
             })
         }
