@@ -91,7 +91,7 @@ module Content =
                 ResourceContext = ctx.ResourceContext
             }
 
-    let writeResources (env: Env) (controls: seq<IControl>) (tw: UI.HtmlTextWriter) =
+    let writeResources (env: Env) (controls: seq<IControl>) (tw: Core.Resources.RenderLocation -> UI.HtmlTextWriter) =
         // Resolve resources for the set of types and this assembly
         let resources =
             controls
@@ -100,7 +100,7 @@ module Content =
         // Meta tag encoding the client side controls
         let mJson = metaJson env.Json controls
         // Render meta
-        tw.WriteLine(
+        (tw Core.Resources.Meta).WriteLine(
             "<meta id='{0}' name='{0}' content='{1}' />",
             WebSharper.Html.Client.Activator.META_ID, 
             escape mJson
@@ -115,12 +115,26 @@ module Content =
         tw.WriteLine @"  IntelliFactory.Runtime.Start();"
         tw.WriteLine @"</script>"
 
+    let getSeparateResourcesAndScripts env controls =
+        use scriptsW = new StringWriter()
+        let scriptsTw = new UI.HtmlTextWriter(scriptsW, " ")
+        use stylesW = new StringWriter()
+        let stylesTw = new UI.HtmlTextWriter(stylesW, " ")
+        use metaW = new StringWriter()
+        let metaTw = new UI.HtmlTextWriter(metaW, " ")
+        writeResources env controls (function
+            | Core.Resources.Scripts -> scriptsTw
+            | Core.Resources.Styles -> stylesTw
+            | Core.Resources.Meta -> metaTw)
+        writeStartScript scriptsTw
+        scriptsW.ToString(), stylesW.ToString(), metaW.ToString()
+
     let getResourcesAndScripts env controls =
-        use m = new StringWriter()
-        let tw = new UI.HtmlTextWriter(m, " ")
-        writeResources env controls tw
+        use w = new StringWriter()
+        use tw = new UI.HtmlTextWriter(w, " ")
+        writeResources env controls (fun _ -> tw)
         writeStartScript tw
-        m.ToString()
+        w.ToString()
 
     let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Async<Http.Response> =
         async {
@@ -132,7 +146,7 @@ module Content =
                     |> Seq.collect (fun elem ->
                         elem.CollectAnnotations ())
                 let renderHead (tw: UI.HtmlTextWriter) =
-                    writeResources (Env.Create context) controls tw
+                    writeResources (Env.Create context) controls (fun _ -> tw)
                     let writer = new H.Writer(tw)
                     for elem in htmlPage.Head do
                         writer.Write elem
@@ -339,6 +353,10 @@ module Content =
 
     [<Literal>]
     let SCRIPTS = "SCRIPTS"
+    [<Literal>]
+    let STYLES = "STYLES"
+    [<Literal>]
+    let META = "META"
 
     module Template =
         type LoadFrequency =
@@ -441,8 +459,9 @@ module Content =
                 match v with
                 | SH f -> t <- t.WithAsync(k, fun x -> f x.value)
                 | EH f -> t <- t.With(k, fun x -> x.extra.[k])
-            t <- t.With(SCRIPTS, fun x -> x.extra.[SCRIPTS])
-            t <- t.With(SCRIPTS.ToLower(Globalization.CultureInfo("en-US")), fun x -> x.extra.[SCRIPTS])
+            for name in [|SCRIPTS; STYLES; META|] do
+                t <- t.With(name, fun x -> x.extra.[name])
+                t <- t.With(name.ToLower(Globalization.CultureInfo("en-US")), fun x -> x.extra.[name])
             t
 
         let basicTemplate =
@@ -569,10 +588,14 @@ module Content =
                         Seq.map toXml children
                         |> Seq.toArray
                         :> seq<_>
-            extra.[SCRIPTS] <-
-                getResourcesAndScripts env controls
-                |> XS.CDataNode :> XS.INode
-                |> Seq.singleton
+            let scripts, styles, meta = getSeparateResourcesAndScripts env controls
+            if tpl.Holes |> Seq.exists (fun h -> let h = h.ToUpperInvariant() in h = STYLES || h = META) then
+                extra.[SCRIPTS] <- Seq.singleton (XS.CDataNode scripts :> _)
+                extra.[STYLES] <- Seq.singleton (XS.CDataNode styles :> _)
+                extra.[META] <- Seq.singleton (XS.CDataNode meta :> _)
+            else
+                let scripts = String.concat "" [|styles; meta; scripts|]
+                extra.[SCRIPTS] <- Seq.singleton (XS.CDataNode scripts :> _)
             return tpl.Run {
                 appPath = env.AppPath
                 extra = extra

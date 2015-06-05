@@ -28,6 +28,7 @@ module Re = WebSharper.Core.Resources
 type Resource() =
     interface Re.IResource with
         member this.Render ctx html =
+            let html = html Re.Scripts
             html.WriteLine "<!--[if lte IE 7.0]>"
             let name = if ctx.DebuggingEnabled then "Json.js" else "Json.min.js"
             let ren = ctx.GetWebResourceRendering typeof<Resource> name

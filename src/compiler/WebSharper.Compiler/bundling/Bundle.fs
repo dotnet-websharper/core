@@ -77,7 +77,7 @@ type Bundle(set: list<Assembly>) =
         }
 
     let renderHtmlHeaders (hw: HtmlTextWriter) (res: Res.IResource) =
-        res.Render htmlHeadersContext hw
+        res.Render htmlHeadersContext (fun _ -> hw)
 
     let render (mode: BundleMode) (writer: TextWriter) =
         resolver.Wrap <| fun () ->
@@ -124,8 +124,7 @@ type Bundle(set: list<Assembly>) =
         for d in deps.Value do
             match mode with
             | BundleMode.HtmlHeaders -> renderHtmlHeaders htmlHeadersWriter d
-            | _ ->
-                d.Render ctx htmlWriter
+            | _ -> d.Render ctx (fun _ -> htmlWriter)
         match mode with
         | BundleMode.JavaScript | BundleMode.MinifiedJavaScript ->
             Utility.WriteStartCode false writer

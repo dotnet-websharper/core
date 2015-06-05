@@ -208,9 +208,9 @@ type Type = Re.TypeDefinition
 [<Sealed>]
 type AssemblyResource(name: Re.AssemblyName) =
     interface R.IResource with
-        member this.Render ctx html =
+        member this.Render ctx writer =
             let r = ctx.GetAssemblyRendering name
-            r.Emit(html, R.Js)
+            r.Emit(writer R.Scripts, R.Js)
 
 let activate resource =
     match resource with
@@ -225,6 +225,7 @@ let activate resource =
             {
                 new R.IResource with
                     member this.Render ctx writer =
+                        let writer = writer R.Scripts
                         writer.Write("<-- ")
                         writer.Write("Failed to load: {0}; because of: {1}", t, e.Message)
                         writer.WriteLine(" -->")

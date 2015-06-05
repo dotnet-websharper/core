@@ -103,7 +103,7 @@ type ScriptManager() =
             WebSharper.Html.Client.Activator.META_ID, encode content)
         let ctx = this.ResourceContext
         Shared.Metadata.GetDependencies(Seq.toList nodes)
-        |> Seq.iter (fun r -> r.Render ctx writer)
+        |> Seq.iter (fun r -> r.Render ctx (fun _ -> writer))
         writer.WriteLine()
         writer.WriteLine("<script type='{0}'>", CT.Text.JavaScript.Text)
         writer.WriteLine @"if (typeof IntelliFactory !=='undefined')"

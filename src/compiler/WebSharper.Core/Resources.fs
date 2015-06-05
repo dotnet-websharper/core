@@ -79,7 +79,21 @@ let inlineScript (html: HtmlTextWriter) (text: string) =
     html.Write(text)
     html.RenderEndTag()
 
+type RenderLocation =
+    | Scripts
+    | Styles
+    | Meta
+
+    static member ForMediaType t =
+        match t with
+        | Js -> Scripts
+        | Css -> Styles
+
 type Rendering with
+
+    member r.Emit(mkHtml: RenderLocation -> HtmlTextWriter, mt, ?defaultToHttp) =
+        r.Emit(mkHtml (RenderLocation.ForMediaType mt), mt, ?defaultToHttp = defaultToHttp)
+
     member r.Emit(html: HtmlTextWriter, mt, ?defaultToHttp) =
         let dHttp = defaultArg defaultToHttp false
         match r with
@@ -93,11 +107,8 @@ type Rendering with
             | Js -> script dHttp html url
         | Rendering.Skip -> ()
 
-let emit dHttp html (r: Rendering) mt =
-    r.Emit(html, mt, dHttp)
-
 type IResource =
-    abstract Render : Context -> HtmlTextWriter -> unit
+    abstract member Render : Context -> (RenderLocation -> HtmlTextWriter) -> unit
 
 type Kind =
     | Basic of string
@@ -118,7 +129,7 @@ type BaseResource(kind: Kind) =
         new BaseResource(Complex(b, x :: List.ofArray xs))
 
     interface IResource with
-        member this.Render ctx html =
+        member this.Render ctx writer =
             let dHttp = ctx.DefaultToHttp
             match kind with
             | Basic spec ->
@@ -128,26 +139,27 @@ type BaseResource(kind: Kind) =
                 let id = self.FullName
                 let mt = if spec.EndsWith ".css" then Css else Js
                 match ctx.GetSetting id with
-                | Some url -> emit dHttp html (RenderLink url) mt
+                | Some url -> (RenderLink url).Emit(writer, mt, dHttp)
                 | None ->
                     match tryFindWebResource self spec with
                     | Some e ->
-                        emit dHttp html (ctx.GetWebResourceRendering self e) mt
+                        (ctx.GetWebResourceRendering self e).Emit(writer, mt, dHttp)
                     | None ->
-                        emit dHttp html (RenderLink spec) mt
+                        (RenderLink spec).Emit(writer, mt, dHttp)
             | Complex (b, xs) ->
                 let id = this.GetType().FullName
                 let b = defaultArg (ctx.GetSetting id) b
-                let h = html
                 for x in xs do
                     let url = b.TrimEnd [| '/' |] + "/" + x.TrimStart [| '/' |]
-                    if url.EndsWith ".css" then link dHttp h url else script dHttp h url
+                    if url.EndsWith ".css" then
+                        link dHttp (writer Styles) url
+                    else script dHttp (writer Scripts) url
 
 [<Sealed>]
 type Runtime() =
     interface IResource with
-        member this.Render ctx html =
+        member this.Render ctx writer =
             let name = if ctx.DebuggingEnabled then "Runtime.js" else "Runtime.min.js"
             let t = typeof<WebSharper.Core.JavaScript.Core.Id>
             let ren = ctx.GetWebResourceRendering t name
-            emit ctx.DefaultToHttp html ren Js
+            ren.Emit(writer, Js, ctx.DefaultToHttp)

@@ -115,9 +115,9 @@ type CompiledAssembly
             }
         this.RenderDependencies(ctx, writer)
 
-    member this.RenderDependencies(ctx, writer: HtmlTextWriter) =
+    member this.RenderDependencies(ctx, writer) =
         for d in this.Dependencies do
-            d.Render ctx writer
+            d.Render ctx (fun _ -> writer)
         Utility.WriteStartCode true writer
 
     static member Create

@@ -30,6 +30,11 @@ type MediaType =
     | Css
     | Js
 
+type RenderLocation =
+    | Scripts
+    | Styles
+    | Meta
+
 /// Defines how to render a resource.
 type Rendering =
     | RenderInline of string
@@ -37,6 +42,7 @@ type Rendering =
     | Skip
 
     member Emit : HtmlTextWriter * MediaType * ?defaultToHttp: bool -> unit
+    member Emit : (RenderLocation -> HtmlTextWriter) * MediaType * ?defaultToHttp: bool -> unit
 
 /// Defines the context in which resources can be rendered.
 type Context =
@@ -62,7 +68,7 @@ type Context =
 type IResource =
 
     /// Renders the resource to a given TextWriter.
-    abstract member Render : Context -> HtmlTextWriter -> unit
+    abstract member Render : Context -> (RenderLocation -> HtmlTextWriter) -> unit
 
 /// A helper base class for resource-defining types.
 [<AbstractClass>]
