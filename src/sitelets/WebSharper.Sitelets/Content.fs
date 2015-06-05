@@ -489,17 +489,16 @@ module Content =
                     cell := Some (v, watcher)
                     v
                 and reload () = lock cell (load >> ignore)
-                let unpack x =
-                    match x with
-                    | Choice1Of2 x -> x
-                    | Choice2Of2 (e: exn) -> raise e
                 fun () ->
                     lock cell <| fun () ->
                         match !cell with
-                        | Some (x, w) ->
-                            unpack x
+                        | Some (Choice1Of2 x, w) ->
+                            x
+                        | Some (Choice2Of2 _, _)
                         | None ->
-                            unpack (load ())
+                            match load() with
+                            | Choice1Of2 x -> x
+                            | Choice2Of2 exn -> raise exn
 
         let getBasicTemplate =
             memoize (fun (root: string) -> getTemplate root basicTemplate.ParseFragmentFile)
