@@ -43,7 +43,7 @@ module Main =
     let private bt =
         let bt =
             BuildTool()
-                .PackageId(Config.PackageId, Config.PackageVerion)
+                .PackageId(Config.PackageId, Config.PackageVersion)
                 .Configure(fun bt ->
                     let outDir = BuildConfig.OutputDir.Find bt
                     bt

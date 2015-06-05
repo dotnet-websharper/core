@@ -29,11 +29,19 @@ let UpdateConfigFs (filePath: string) (version: string) =
         else l
     )
 
+let UpdateWebsiteConfigFs (filePath: string) (version: string) =
+    ReplacePerLine filePath (fun l ->
+        if l.Contains "let Version" then
+            Regex("\"[0-9.]+\"")
+                .Replace(l, "\"" + version + "\"")
+        else l
+    )
+
 let UpdateOptionsFs (filePath: string) (version: string) =
     ReplacePerLine filePath (fun l ->
         if l.Contains "Version \"" then
             Regex("\"[0-9.]+\"")
-                .Replace(l, "\"" + version + "\"")
+                .Replace(l, "\"" + version + ".0.0\"")
         else l
     )
 
@@ -50,6 +58,7 @@ do
         UpdateExeConfig (wsbuild +/ "WebSharper31.exe.config") v
         UpdateAsmVersionAttr (sln +/ "msbuild" +/ "AssemblyInfo.fs") v
         UpdateConfigFs (wsbuild +/ "Config.fs") v
+        UpdateWebsiteConfigFs (sln +/ "tests" +/ "Website" +/ "Config.fs") v
         UpdateOptionsFs (src +/ "compiler" +/ "WebSharper" +/ "Options.fs") v
     | args ->
         eprintfn "Usage: UpdateVersion VERSION"
