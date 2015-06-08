@@ -227,3 +227,7 @@ type HttpModule() =
     member this.TryProcessRequest(ctx: HttpContextBase) : option<Async<unit>> =
         tryGetHandler ctx
         |> Option.map (fun h -> h.ProcessRequest(ctx))
+
+    static member DiscoverSitelet(assemblies: seq<Assembly>) =
+        Seq.tryPick SiteLoading.TryLoadSite assemblies
+        |> Option.map fst
