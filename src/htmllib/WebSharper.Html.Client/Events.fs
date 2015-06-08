@@ -320,7 +320,7 @@ type EventsExtensions =
     static member OnKeyUp(this: Element, x) = Events.OnKeyUp x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnLoad(this: Element, x) = Events.OnKeyUp x this; this
+    static member OnLoad(this: Element, x) = Events.OnLoad x this; this
 
     [<Extension; Inline; JavaScript>]
     static member OnMouseDown(this: Element, x) = Events.OnMouseDown x this; this
