@@ -290,67 +290,67 @@ module EventsPervasives =
 type EventsExtensions =
 
     [<Extension; Inline; JavaScript>]
-    static member On(this, name, x) = Events.OnEvent name x this; this
+    static member On(this: Element, name, x) = Events.OnEvent name x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnBlur(this, x) = Events.OnBlur x this; this
+    static member OnBlur(this: Element, x) = Events.OnBlur x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnChange(this, x) = Events.OnChange x this; this
+    static member OnChange(this: Element, x) = Events.OnChange x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnClick(this, x) = Events.OnClick x this; this
+    static member OnClick(this: Element, x) = Events.OnClick x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnDoubleClick(this, x) = Events.OnDoubleClick x this; this
+    static member OnDoubleClick(this: Element, x) = Events.OnDoubleClick x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnError(this, x) = Events.OnError x this; this
+    static member OnError(this: Element, x) = Events.OnError x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnFocus(this, x) = Events.OnFocus x this; this
+    static member OnFocus(this: Element, x) = Events.OnFocus x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnKeyDown(this, x) = Events.OnKeyDown x this; this
+    static member OnKeyDown(this: Element, x) = Events.OnKeyDown x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnKeyPress(this, x) = Events.OnKeyPress x this; this
+    static member OnKeyPress(this: Element, x) = Events.OnKeyPress x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnKeyUp(this, x) = Events.OnKeyUp x this; this
+    static member OnKeyUp(this: Element, x) = Events.OnKeyUp x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnLoad(this, x) = Events.OnLoad x this; this
+    static member OnLoad(this: Element, x) = Events.OnKeyUp x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnMouseDown(this, x) = Events.OnMouseDown x this; this
+    static member OnMouseDown(this: Element, x) = Events.OnMouseDown x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnMouseEnter(this, x) = Events.OnMouseEnter x this; this
+    static member OnMouseEnter(this: Element, x) = Events.OnMouseEnter x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnMouseLeave(this, x) = Events.OnMouseLeave x this; this
+    static member OnMouseLeave(this: Element, x) = Events.OnMouseLeave x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnMouseMove(this, x) = Events.OnMouseMove x this; this
+    static member OnMouseMove(this: Element, x) = Events.OnMouseMove x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnMouseOut(this, x) = Events.OnMouseOut x this; this
+    static member OnMouseOut(this: Element, x) = Events.OnMouseOut x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnMouseUp(this, x) = Events.OnMouseUp x this; this
+    static member OnMouseUp(this: Element, x) = Events.OnMouseUp x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnResize(this, x) = Events.OnResize x this; this
+    static member OnResize(this: Element, x) = Events.OnResize x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnScroll(this, x) = Events.OnScroll x this; this
+    static member OnScroll(this: Element, x) = Events.OnScroll x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnSelect(this, x) = Events.OnSelect x this; this
+    static member OnSelect(this: Element, x) = Events.OnSelect x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnSubmit(this, x) = Events.OnSubmit x this; this
+    static member OnSubmit(this: Element, x) = Events.OnSubmit x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnUnLoad(this, x) = Events.OnUnLoad x this; this
+    static member OnUnLoad(this: Element, x) = Events.OnUnLoad x this; this
