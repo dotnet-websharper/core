@@ -293,10 +293,10 @@ type EventsExtensions =
     static member On(this, name, x) = Events.OnEvent name x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnBlur(this, x) = Events.OnBlur (fun el _ -> x el) this; this
+    static member OnBlur(this, x) = Events.OnBlur x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnChange(this, x) = Events.OnChange (fun el _ -> x el) this; this
+    static member OnChange(this, x) = Events.OnChange x this; this
 
     [<Extension; Inline; JavaScript>]
     static member OnClick(this, x) = Events.OnClick x this; this
@@ -305,10 +305,10 @@ type EventsExtensions =
     static member OnDoubleClick(this, x) = Events.OnDoubleClick x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnError(this, x) = Events.OnError (fun el _ -> x el) this; this
+    static member OnError(this, x) = Events.OnError x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnFocus(this, x) = Events.OnFocus (fun el _ -> x el) this; this
+    static member OnFocus(this, x) = Events.OnFocus x this; this
 
     [<Extension; Inline; JavaScript>]
     static member OnKeyDown(this, x) = Events.OnKeyDown x this; this
@@ -320,7 +320,7 @@ type EventsExtensions =
     static member OnKeyUp(this, x) = Events.OnKeyUp x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnLoad(this, x) = Events.OnLoad (fun el _ -> x el) this; this
+    static member OnLoad(this, x) = Events.OnLoad x this; this
 
     [<Extension; Inline; JavaScript>]
     static member OnMouseDown(this, x) = Events.OnMouseDown x this; this
@@ -341,16 +341,16 @@ type EventsExtensions =
     static member OnMouseUp(this, x) = Events.OnMouseUp x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnResize(this, x) = Events.OnResize (fun el _ -> x el) this; this
+    static member OnResize(this, x) = Events.OnResize x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnScroll(this, x) = Events.OnScroll (fun el _ -> x el) this; this
+    static member OnScroll(this, x) = Events.OnScroll x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnSelect(this, x) = Events.OnSelect (fun el _ -> x el) this; this
+    static member OnSelect(this, x) = Events.OnSelect x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnSubmit(this, x) = Events.OnSubmit (fun el _ -> x el) this; this
+    static member OnSubmit(this, x) = Events.OnSubmit x this; this
 
     [<Extension; Inline; JavaScript>]
-    static member OnUnLoad(this, x) = Events.OnUnLoad (fun el _ -> x el) this; this
+    static member OnUnLoad(this, x) = Events.OnUnLoad x this; this
