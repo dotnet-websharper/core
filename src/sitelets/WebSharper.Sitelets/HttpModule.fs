@@ -34,12 +34,31 @@ module R = WebSharper.Core.Remoting
 
 module internal SiteLoading =
 
+    type private BF = BindingFlags
+
     let TryLoadSite (assembly: Assembly) =
         let aT = typeof<WebsiteAttribute>
         match Attribute.GetCustomAttribute(assembly, aT) with
         | :? WebsiteAttribute as attr ->
             attr.Run () |> Some
-        |_ -> None
+        | _ ->
+            assembly.GetTypes()
+            |> Array.tryPick (fun ty ->
+                ty.GetProperties(BF.Static ||| BF.Public ||| BF.NonPublic)
+                |> Array.tryPick (fun p ->
+                    match Attribute.GetCustomAttribute(p, aT) with
+                    | :? WebsiteAttribute ->
+                        let sitelet = p.GetGetMethod().Invoke(null, [||])
+                        let upcastSitelet =
+                            sitelet.GetType()
+                                .GetProperty("Upcast", BF.Instance ||| BF.NonPublic)
+                                .GetGetMethod(nonPublic = true)
+                                .Invoke(sitelet, [||])
+                                :?> Sitelet<obj>
+                        Some (upcastSitelet, [])
+                    | _ -> None
+                )
+            )
 
     let LoadFromAssemblies (app: HttpApplication) =
         Timed "Initialized sitelets" <| fun () ->

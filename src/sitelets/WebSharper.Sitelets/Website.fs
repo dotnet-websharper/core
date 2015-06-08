@@ -82,37 +82,40 @@ module private Utils =
                     (Sitelet.Upcast website.Sitelet, List.map box website.Actions)
         }
 
-/// Mark an assembly that contains a Sitelets website.
-/// The type passed must implement IWebsite.
-[<AttributeUsage(AttributeTargets.Assembly)>]
-type WebsiteAttribute(ty: System.Type) =
+/// Mark an assembly that contains a Sitelets website, or a Sitelet static property.
+[<AttributeUsage(AttributeTargets.Assembly ||| AttributeTargets.Property)>]
+type WebsiteAttribute private (arg: option<System.Type * obj>) =
     inherit Attribute()
 
-    let innerType =
-        ty.GetInterfaces()
-        |> Seq.tryPick (fun iT ->
-            if iT.IsGenericType
-               && iT.GetGenericTypeDefinition() = typedefof<IWebsite<_>> then
-                Some (iT.GetGenericArguments().[0])
-            else
-                None)
+    /// Mark an assembly that contains a Sitelets website.
+    /// The type passed must implement IWebsite.
+    new (ty: System.Type) =
+        let innerType =
+            ty.GetInterfaces()
+            |> Seq.tryPick (fun iT ->
+                if iT.IsGenericType
+                   && iT.GetGenericTypeDefinition() = typedefof<IWebsite<_>> then
+                    Some (iT.GetGenericArguments().[0])
+                else
+                    None)
+        let innerType =
+            match innerType with
+            | Some t -> t
+            | None -> failwith "Type is not implementing IWebsite"
+        let website = Activator.CreateInstance(ty)
+        new WebsiteAttribute(Some(innerType, website))
 
-    let website =
-        try
-            Activator.CreateInstance(ty)
-        with
-            | :? MissingMethodException ->
-                // TODO : Log, i.e. Log.At(ty).Warning("Hello..")
-                failwith "Cannot create new instance"
-            | :? InvalidCastException ->
-                failwith "Type is not implementing IWebsite"
+    /// Mark a static property or module-bound value representing a Sitelets website.
+    /// The value must have type Sitelet<'T>.
+    new () =
+        new WebsiteAttribute(None)
 
     member this.Run() =
-        match innerType with
-        | Some t -> Utils.GetSitelet t (website, None)
-        | _ -> failwith "TODO"
+        match arg with
+        | Some (t, website) -> Utils.GetSitelet t (website, None)
+        | None -> failwith "Cannot Run() an argumentless WebsiteAttribute"
 
     member this.Run(app: HttpApplication) =
-        match innerType with
-        | Some t -> Utils.GetSitelet t (website, Some app)
-        | _ -> failwith "TODO"
+        match arg with
+        | Some (t, website) -> Utils.GetSitelet t (website, Some app)
+        | None -> failwith "Cannot Run() an argumentless WebsiteAttribute"

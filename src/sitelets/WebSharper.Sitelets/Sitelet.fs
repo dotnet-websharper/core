@@ -263,3 +263,7 @@ module Sitelet =
         match tryGetEmbedFunctionsFromExpr case with
         | Some (embed, unembed) -> InferPartialAsync embed unembed mkContent
         | None -> failwith "Invalid union case in Sitelet.InferPartialInUnion"
+
+type Sitelet<'T> with
+    member internal this.Upcast =
+        Sitelet.Upcast this
