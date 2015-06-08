@@ -20,6 +20,9 @@
 
 namespace WebSharper.Html.Client
 
+open System.Runtime.CompilerServices
+open WebSharper
+
 /// Provides the event interfaces and the default event support.
 module Events =
     open WebSharper
@@ -70,16 +73,16 @@ module Events =
         abstract member OnKeyUp<'T when 'T :> Pagelet>         : ('T -> KeyCode -> unit) -> 'T ->  unit
 
         // Other
-        abstract member OnBlur<'T when 'T :> Pagelet>          : ('T -> unit) -> 'T -> unit
-        abstract member OnChange<'T when 'T :> Pagelet>        : ('T -> unit) -> 'T -> unit
-        abstract member OnFocus<'T when 'T :> Pagelet>         : ('T -> unit) -> 'T -> unit
-        abstract member OnError<'T when 'T :> Pagelet>         : ('T -> unit) -> 'T -> unit
-        abstract member OnLoad<'T when 'T :> Pagelet>          : ('T -> unit) -> 'T -> unit
-        abstract member OnUnLoad<'T when 'T :> Pagelet>        : ('T -> unit) -> 'T -> unit
-        abstract member OnResize<'T when 'T :> Pagelet>        : ('T -> unit) -> 'T -> unit
-        abstract member OnScroll<'T when 'T :> Pagelet>        : ('T -> unit) -> 'T -> unit
-        abstract member OnSelect<'T when 'T :> Pagelet>        : ('T -> unit) -> 'T -> unit
-        abstract member OnSubmit<'T when 'T :> Pagelet>        : ('T -> unit) -> 'T -> unit
+        abstract member OnBlur<'T when 'T :> Pagelet>          : ('T -> Dom.Event -> unit) -> 'T -> unit
+        abstract member OnChange<'T when 'T :> Pagelet>        : ('T -> Dom.Event -> unit) -> 'T -> unit
+        abstract member OnFocus<'T when 'T :> Pagelet>         : ('T -> Dom.Event -> unit) -> 'T -> unit
+        abstract member OnError<'T when 'T :> Pagelet>         : ('T -> Dom.Event -> unit) -> 'T -> unit
+        abstract member OnLoad<'T when 'T :> Pagelet>          : ('T -> Dom.Event -> unit) -> 'T -> unit
+        abstract member OnUnLoad<'T when 'T :> Pagelet>        : ('T -> Dom.Event -> unit) -> 'T -> unit
+        abstract member OnResize<'T when 'T :> Pagelet>        : ('T -> Dom.Event -> unit) -> 'T -> unit
+        abstract member OnScroll<'T when 'T :> Pagelet>        : ('T -> Dom.Event -> unit) -> 'T -> unit
+        abstract member OnSelect<'T when 'T :> Pagelet>        : ('T -> Dom.Event -> unit) -> 'T -> unit
+        abstract member OnSubmit<'T when 'T :> Pagelet>        : ('T -> Dom.Event -> unit) -> 'T -> unit
 
     type internal JE = WebSharper.JQuery.Event
 
@@ -99,11 +102,11 @@ module Events =
 
             [<JavaScript>]
             member this.OnBlur f el  =
-                JQuery.Of(el.Body).Bind("blur", fun _ _ -> f el).Ignore
+                JQuery.Of(el.Body).Bind("blur", fun _ ev -> f el ev.AsDomEvent).Ignore
 
             [<JavaScript>]
             member this.OnChange f el =
-                JQuery.Of(el.Body).Bind("change", fun _ _ -> f el).Ignore
+                JQuery.Of(el.Body).Bind("change", fun _ ev -> f el ev.AsDomEvent).Ignore
 
             [<JavaScript>]
             member this.OnClick f el =
@@ -157,40 +160,39 @@ module Events =
 
             [<JavaScript>]
             member this.OnFocus f el =
-                JQuery.Of(el.Body).Bind("focus", fun _ _ -> f el).Ignore
+                JQuery.Of(el.Body).Bind("focus", fun _ ev -> f el ev.AsDomEvent).Ignore
 
             [<JavaScript>]
             member this.OnLoad f el =
-                JQuery.Of(el.Body).Bind("load", fun _ _ -> f el).Ignore
+                JQuery.Of(el.Body).Bind("load", fun _ ev -> f el ev.AsDomEvent).Ignore
 
             [<JavaScript>]
             member this.OnUnLoad f el =
-                JQuery.Of(el.Body).Bind("unload", fun _ _ -> f el).Ignore
+                JQuery.Of(el.Body).Bind("unload", fun _ ev -> f el ev.AsDomEvent).Ignore
 
             [<JavaScript>]
             member this.OnResize f el =
-                JQuery.Of(el.Body).Bind("resize", fun _ _ -> f el).Ignore
+                JQuery.Of(el.Body).Bind("resize", fun _ ev -> f el ev.AsDomEvent).Ignore
 
             [<JavaScript>]
             member this.OnScroll f el =
-                JQuery.Of(el.Body).Bind("scroll", fun _ _ -> f el).Ignore
+                JQuery.Of(el.Body).Bind("scroll", fun _ ev -> f el ev.AsDomEvent).Ignore
 
             [<JavaScript>]
             member this.OnSelect f el =
-                JQuery.Of(el.Body).Bind("select", fun _ _ -> f el).Ignore
+                JQuery.Of(el.Body).Bind("select", fun _ ev -> f el ev.AsDomEvent).Ignore
 
             [<JavaScript>]
             member this.OnSubmit f el =
-                JQuery.Of(el.Body).Bind("submit", fun _ _ -> f el).Ignore
+                JQuery.Of(el.Body).Bind("submit", fun _ ev -> f el ev.AsDomEvent).Ignore
 
             [<JavaScript>]
             member this.OnError f el =
-                JQuery.Of(el.Body).Bind("error", fun _ _ -> f el).Ignore
+                JQuery.Of(el.Body).Bind("error", fun _ ev -> f el ev.AsDomEvent).Ignore
 
 /// Provides aliases to the commonly used events.
 [<AutoOpen>]
 module EventsPervasives =
-    open WebSharper
 
     [<JavaScript>]
     let Events = Events.JQueryEventSupport() :> Events.IEventSupport
@@ -201,11 +203,11 @@ module EventsPervasives =
 
     [<Inline>]
     [<JavaScript>]
-    let OnBlur x = Events.OnBlur x
+    let OnBlur x = Events.OnBlur (fun el _ -> x el)
 
     [<Inline>]
     [<JavaScript>]
-    let OnChange x = Events.OnChange x
+    let OnChange x = Events.OnChange (fun el _ -> x el)
 
     [<Inline>]
     [<JavaScript>]
@@ -217,11 +219,11 @@ module EventsPervasives =
 
     [<Inline>]
     [<JavaScript>]
-    let OnError x = Events.OnError x
+    let OnError x = Events.OnError (fun el _ -> x el)
 
     [<Inline>]
     [<JavaScript>]
-    let OnFocus x = Events.OnFocus x
+    let OnFocus x = Events.OnFocus (fun el _ -> x el)
 
     [<Inline>]
     [<JavaScript>]
@@ -237,7 +239,7 @@ module EventsPervasives =
 
     [<Inline>]
     [<JavaScript>]
-    let OnLoad x = Events.OnLoad x
+    let OnLoad x = Events.OnLoad (fun el _ -> x el)
 
     [<Inline>]
     [<JavaScript>]
@@ -265,20 +267,90 @@ module EventsPervasives =
 
     [<Inline>]
     [<JavaScript>]
-    let OnResize x = Events.OnResize x
+    let OnResize x = Events.OnResize (fun el _ -> x el)
 
     [<Inline>]
     [<JavaScript>]
-    let OnScroll x = Events.OnScroll x
+    let OnScroll x = Events.OnScroll (fun el _ -> x el)
 
     [<Inline>]
     [<JavaScript>]
-    let OnSelect x = Events.OnSelect x
+    let OnSelect x = Events.OnSelect (fun el _ -> x el)
 
     [<Inline>]
     [<JavaScript>]
-    let OnSubmit x = Events.OnSubmit x
+    let OnSubmit x = Events.OnSubmit (fun el _ -> x el)
 
     [<Inline>]
     [<JavaScript>]
-    let OnUnLoad x = Events.OnUnLoad x
+    let OnUnLoad x = Events.OnUnLoad (fun el _ -> x el)
+
+
+[<Extension>]
+type EventsExtensions =
+
+    [<Extension; Inline; JavaScript>]
+    static member On(this, name, x) = Events.OnEvent name x this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnBlur(this, x) = Events.OnBlur (fun el _ -> x el) this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnChange(this, x) = Events.OnChange (fun el _ -> x el) this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnClick(this, x) = Events.OnClick x this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnDoubleClick(this, x) = Events.OnDoubleClick x this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnError(this, x) = Events.OnError (fun el _ -> x el) this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnFocus(this, x) = Events.OnFocus (fun el _ -> x el) this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnKeyDown(this, x) = Events.OnKeyDown x this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnKeyPress(this, x) = Events.OnKeyPress x this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnKeyUp(this, x) = Events.OnKeyUp x this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnLoad(this, x) = Events.OnLoad (fun el _ -> x el) this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnMouseDown(this, x) = Events.OnMouseDown x this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnMouseEnter(this, x) = Events.OnMouseEnter x this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnMouseLeave(this, x) = Events.OnMouseLeave x this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnMouseMove(this, x) = Events.OnMouseMove x this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnMouseOut(this, x) = Events.OnMouseOut x this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnMouseUp(this, x) = Events.OnMouseUp x this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnResize(this, x) = Events.OnResize (fun el _ -> x el) this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnScroll(this, x) = Events.OnScroll (fun el _ -> x el) this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnSelect(this, x) = Events.OnSelect (fun el _ -> x el) this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnSubmit(this, x) = Events.OnSubmit (fun el _ -> x el) this; this
+
+    [<Extension; Inline; JavaScript>]
+    static member OnUnLoad(this, x) = Events.OnUnLoad (fun el _ -> x el) this; this
