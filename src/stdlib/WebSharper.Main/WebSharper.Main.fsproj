@@ -27,6 +27,7 @@
     <Compile Include="Html.fs" />
     <Compile Include="Interop.fs" />
     <Compile Include="JavaScript.Extensions.fs" />
+    <Compile Include="CollectionInternals.fs" />
     <Compile Include="Proxy/IntrinsicFunctions.fs" />
     <Compile Include="Proxy/Array.fs" />
     <Compile Include="Proxy/ArrayModule.fs" />
@@ -92,6 +93,11 @@
       <Project>{730ae40a-001c-4137-972d-898dc7c2bf0a}</Project>
       <Private>True</Private>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="FSharp.Data.TypeProviders" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.Linq" />
   </ItemGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/WebSharper.Internal.targets" />
