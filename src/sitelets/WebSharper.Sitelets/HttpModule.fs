@@ -42,6 +42,7 @@ module internal SiteLoading =
         | :? WebsiteAttribute as attr ->
             attr.Run () |> Some
         | _ ->
+          try
             assembly.GetTypes()
             |> Array.tryPick (fun ty ->
                 ty.GetProperties(BF.Static ||| BF.Public ||| BF.NonPublic)
@@ -59,6 +60,11 @@ module internal SiteLoading =
                     | _ -> None
                 )
             )
+          with :? System.Reflection.ReflectionTypeLoadException as e ->
+            // Some WebSharper assemblies have types that use Mono.Cecil,
+            // so they will fail since Mono.Cecil.dll isn't (necessarily) in bin.
+            // But that's okay because they don't contain sitelets anyway.
+            None
 
     let LoadFromAssemblies (app: HttpApplication) =
         Timed "Initialized sitelets" <| fun () ->
