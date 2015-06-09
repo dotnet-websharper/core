@@ -110,8 +110,16 @@ let Cache<'T> (s: seq<'T>) : seq<'T> =
 
 /// IEnumerable is not supported.
 [<Inline "$i">]
-[<Name "cast">]
 let Cast<'T> (i: System.Collections.IEnumerable) = X<seq<'T>>
+
+[<JavaScript>]
+[<Name "contains">]
+let Contains (el: 'T) (s: seq<'T>) =
+    use e = Enumerator.Get s
+    let mutable r = false
+    while not r && e.MoveNext() do
+        r <- e.Current = el
+    r
 
 [<JavaScript>]
 [<Name "choose">]
@@ -121,6 +129,23 @@ let Choose (f: 'T -> option<'U>) (s: seq<'T>) : seq<'U> =
         match f x with
         | Some v -> [v]
         | None   -> [])
+
+[<JavaScript>]
+[<Name "chunkBySize">]
+let ChunkBySize (size: int) (s: seq<'T>) =
+    if size <= 0 then failwith "Chunk size must be positive"
+    Enumerable.Of <| fun () ->
+        let enum = Enumerator.Get s
+        Enumerator.New () <| fun e ->
+            if enum.MoveNext() then
+                let res = [|enum.Current|]
+                let mutable i = 1 
+                while i < size && e.MoveNext() do 
+                    res.JS.Push enum.Current |> ignore
+                    i <- i + 1 
+                e.Current <- res
+                true
+            else false
 
 [<JavaScript>]
 [<Name "collect">]
@@ -237,8 +262,48 @@ let DistinctBy<'T,'K when 'K : equality>
                 false
 
 [<JavaScript>]
+[<Name "splitInto">]
+let SplitInto count (s: seq<'T>) =
+    ArraySplitInto count (Array.ofSeq s) |> Seq.ofArray   
+
+[<JavaScript>]
 [<Name "empty">]
 let Empty<'T> : seq<'T> = [||] :> _
+
+[<JavaScript>]
+[<Name "except">]
+let Except (itemsToExclude: seq<'T>) (s: seq<'T>) =
+    Enumerable.Of <| fun () ->
+        let enum        = Enumerator.Get s
+        let seen        = Array<Array<'T>>()
+        let add c =
+            let h = hash c
+            let cont = seen.[h]
+            if cont = JS.Undefined then
+                seen.[h] <- [|c|].JS
+                true
+            else
+                if cont |> ArrayContains c then
+                    false
+                else
+                    cont.Push(c) |> ignore
+                    true         
+        for i in itemsToExclude do
+            add i |> ignore
+        Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
+            if enum.MoveNext() then
+                let mutable cur = enum.Current
+                let mutable has = add cur
+                while not has && enum.MoveNext() do
+                    cur <- enum.Current
+                    has <- add cur
+                if has then
+                    e.Current <- cur
+                    true
+                else
+                    false
+            else
+                false
 
 [<JavaScript>]
 [<Name "exists">]
@@ -649,6 +714,18 @@ let TryFind ok (s: seq<_>) =
     r
 
 [<JavaScript>]
+[<Inline>]
+let TryFindBack ok (s: seq<_>) =
+    ArrayTryFindBack ok (Array.ofSeq s) 
+
+[<JavaScript>]
+[<Name "findBack">]
+let FindBack p (s: seq<_>) =
+    match TryFindBack p s with
+    | Some x -> x
+    | None   -> failwith "KeyNotFoundException"
+
+[<JavaScript>]
 [<Name "tryFindIndex">]
 let TryFindIndex ok (s: seq<_>) =
     use e = Enumerator.Get s
@@ -661,6 +738,18 @@ let TryFindIndex ok (s: seq<_>) =
         else
             i <- i + 1
     if loop then None else Some i
+
+[<JavaScript>]
+[<Inline>]
+let TryFindIndexBack ok (s: seq<_>) =
+    ArrayTryFindIndexBack ok (Array.ofSeq s) 
+
+[<JavaScript>]
+[<Name "findIndexBack">]
+let FindIndexBack p (s: seq<_>) =
+    match TryFindIndexBack p s with
+    | Some x -> x
+    | None   -> failwith "KeyNotFoundException"
 
 [<JavaScript>]
 [<Name "tryPick">]

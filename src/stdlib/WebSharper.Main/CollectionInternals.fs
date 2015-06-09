@@ -55,3 +55,23 @@ let ArrayContains (item: 'T) (arr: Array<'T>)  =
         else
             i <- i + 1
     not c
+
+[<JavaScript>]
+[<Name "Arrays.tryFindBack">]
+let ArrayTryFind f (arr: _ []) =
+    let mutable res = None
+    let mutable i = Array.length arr - 1
+    while i > 0 && Option.isNone res do
+        if f arr.[i] then res <- Some arr.[i]
+        i <- i - 1
+    res
+
+[<JavaScript>]
+[<Name "Arrays.tryFindIndexBack">]
+let ArrayTryFindIndex f (arr: _ []) =
+    let mutable res = None
+    let mutable i = Array.length arr - 1
+    while i > 0 && Option.isNone res do
+        if f arr.[i] then res <- Some i
+        i <- i - 1
+    res

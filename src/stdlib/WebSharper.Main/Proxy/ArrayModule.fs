@@ -26,6 +26,7 @@
 module private WebSharper.ArrayModuleProxy
 
 open WebSharper.JavaScript
+open WebSharper.CollectionInternals
 
 module F = WebSharper.IntrinsicFunctionProxy
 
@@ -78,6 +79,10 @@ let Collect<'T,'U> (f: 'T -> 'U[]) (x: 'T []) : 'U[] =
 [<Name "concat">]
 let Concat<'T> (xs: seq<'T []>) : 'T [] =
     concatArray (Array.ofSeq xs)
+
+[<JavaScript>]
+[<Inline>]
+let SplitInto count (arr: 'T[]) = ArraySplitInto count arr
 
 [<Inline "$x.slice()">]
 let Copy (x: 'T []) = X<'T []>
@@ -437,6 +442,10 @@ let TryFind f (arr: _ []) =
     res
 
 [<JavaScript>]
+[<Inline>]
+let TryFindBack f (arr: _ []) = ArrayTryFindBack f arr
+
+[<JavaScript>]
 [<Name "tryFindIndex">]
 let TryFindIndex f (arr: _ []) =
     let mutable res = None
@@ -445,6 +454,10 @@ let TryFindIndex f (arr: _ []) =
         if f arr.[i] then res <- Some i
         i <- i + 1
     res
+
+[<JavaScript>]
+[<Inline>]
+let TryFindIndexBack f (arr: _ []) = TryFindIndexBack f arr
 
 [<JavaScript>]
 [<Name "tryPick">]
