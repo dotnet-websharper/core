@@ -4,6 +4,7 @@
     <ProjectGuid>{a7f7a74b-d0ee-4918-8a54-280fc7d2a30c}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.Testing</Name>
+    <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/WebSharper.Internal.targets" />

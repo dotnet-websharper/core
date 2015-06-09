@@ -6,6 +6,7 @@
     <ProjectGuid>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.Main</Name>
+    <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="JavaScript.fs" />
