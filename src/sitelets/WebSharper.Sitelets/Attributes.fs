@@ -25,6 +25,9 @@ type private A = System.Attribute
 type private T = System.AttributeTargets
 type private U = System.AttributeUsageAttribute
 
+/// Indicates the URL fragment parsed by this union case.
+type EndPointAttribute = CompiledNameAttribute
+
 /// Indicates that a union case in an action type must only be mapped
 /// for requests that use the given HTTP method(s).
 [<Sealed; U(T.Property, AllowMultiple = true)>]
