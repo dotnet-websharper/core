@@ -206,22 +206,32 @@ let DistinctBy<'T,'K when 'K : equality>
         (f: 'T -> 'K) (s: seq<'T>) : seq<'T> =
     Enumerable.Of <| fun () ->
         let enum        = Enumerator.Get s
-        let seen        = obj ()
+        let seen        = Array<Array<'K>>()
+        let add c =
+            let k = f c
+            let h = hash k
+            let cont = seen.[h]
+            if cont = JS.Undefined then
+                seen.[h] <- [|k|].JS
+                true
+            else
+                if cont |> ArrayContains k then
+                    false
+                else
+                    cont.Push(k) |> ignore
+                    true         
         Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
             if enum.MoveNext() then
                 let mutable cur = enum.Current
-                let h c         = As<string> (hash (f c))
-                let check c     = JS.HasOwnProperty seen (h c)
-                let mutable has = check cur
-                while has && enum.MoveNext() do
+                let mutable has = add cur
+                while not has && enum.MoveNext() do
                     cur <- enum.Current
-                    has <- check cur
+                    has <- add cur
                 if has then
-                    false
-                else
-                    (?<-) seen (h cur) ()
                     e.Current <- cur
                     true
+                else
+                    false
             else
                 false
 

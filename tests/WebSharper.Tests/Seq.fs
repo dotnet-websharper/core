@@ -23,6 +23,17 @@ module WebSharper.Tests.Seq
 open WebSharper
 open WebSharper.Testing
 module R = WebSharper.Testing.Random
+      
+[<JavaScript>]
+type CustomHash(a: int, b: int) =    
+    member this.A = a
+    member this.B = b
+    override this.GetHashCode() = a
+    override this.Equals other =
+        match other with
+        | :? CustomHash as o ->
+            this.A = o.A && this.B = o.B
+        | _ -> false
 
 [<JavaScript>]
 let Tests =
@@ -129,6 +140,9 @@ let Tests =
         Test "Seq.distinct" {
             let xs = seq [0; 1; 2; 3; 0; 3; 2; 3; 0; 0; 0]
             equal (Seq.distinct xs |> Seq.toArray) [| 0 .. 3 |]
+
+            let ys = [| CustomHash(0, 0); CustomHash(0, 1) |]
+            equal (Seq.distinct ys |> Seq.toArray) ys
         }
 
         Test "Seq.distinctBy" {
