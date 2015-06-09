@@ -57,7 +57,7 @@ module Main =
         Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
         |> Seq.map (fun p -> (p, p.Substring(dir.Length).Replace("\\", "/")))
 
-    let private exports =
+    let private exports, compilerExports =
         let lib kind name =
             Seq.concat [
                 Directory.EnumerateFiles(buildDir, name + ".dll")
@@ -95,8 +95,18 @@ module Main =
             lib "lib"   "IntelliFactory.Xml"
         ]
         |> Seq.toList
+        ,
+        // compilerExports:
+        Seq.concat [
+            lib "lib" "WebSharper.Compiler"
+            lib "lib" "IntelliFactory.Core"
+            lib "lib" "Mono.Cecil"
+            lib "lib" "Mono.Cecil.Mdb"
+            lib "lib" "Mono.Cecil.Pdb"
+        ]
+        |> Seq.toList
 
-    let private nuPkg () =
+    let private nuPkgs () =
         let nuPkg =
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
@@ -105,6 +115,7 @@ module Main =
                             Description = Config.Description
                             ProjectUrl = Some Config.Website
                             LicenseUrl = Some Config.LicenseUrl
+                            Authors = [ Config.Company ]
                     })
         let fileAt src tgt =
             {
@@ -116,30 +127,52 @@ module Main =
             sprintf "/%s/net40/%s" kind (defaultArg tgt (Path.GetFileName src))
             |> fileAt src
         let out f = Path.Combine(buildDir, f)
-        nuPkg.AddNuGetExportingProject {
-            new INuGetExportingProject with
-                member p.NuGetFiles =
-                    seq {
-                        yield fileAt (Path.Combine(root, "msbuild", "WebSharper.targets"))
-                            "build/WebSharper.targets"
-                        yield file "tools" (out "WebSharper.exe") None
-                        yield file "tools" (out "WebSharper.exe") (Some "WebSharper31.exe")
-                        yield file "tools" (out "WebSharper31.exe.config") None
-                        yield file "tools" (out "WebSharper.exe.config") None
-                        for kind, src in exports do
-                            yield file kind src None
-                        let fscore = Path.Combine(root, "packages", "FSharp.Core.3", "lib", "net40")
-                        yield file "tools" (Path.Combine(fscore, "FSharp.Core.optdata")) None
-                        yield file "tools" (Path.Combine(fscore, "FSharp.Core.sigdata")) None
-                        for (src, tgt) in searchDir (Path.Combine(root, "docs")) do
-                            yield fileAt src ("/docs" + tgt)
-                        yield fileAt (Path.Combine(root, "src", "htmllib", "tags.csv")) ("/tools/net40/tags.csv")
-                    }
-        }
+        let nuPkg = 
+            nuPkg.AddNuGetExportingProject {
+                new INuGetExportingProject with
+                    member p.NuGetFiles =
+                        seq {
+                            yield fileAt (Path.Combine(root, "msbuild", "WebSharper.targets"))
+                                "build/WebSharper.targets"
+                            yield file "tools" (out "WebSharper.exe") None
+                            yield file "tools" (out "WebSharper.exe") (Some "WebSharper31.exe")
+                            yield file "tools" (out "WebSharper31.exe.config") None
+                            yield file "tools" (out "WebSharper.exe.config") None
+                            for kind, src in exports do
+                                yield file kind src None
+                            let fscore = Path.Combine(root, "packages", "FSharp.Core.3", "lib", "net40")
+                            yield file "tools" (Path.Combine(fscore, "FSharp.Core.optdata")) None
+                            yield file "tools" (Path.Combine(fscore, "FSharp.Core.sigdata")) None
+                            for (src, tgt) in searchDir (Path.Combine(root, "docs")) do
+                                yield fileAt src ("/docs" + tgt)
+                            yield fileAt (Path.Combine(root, "src", "htmllib", "tags.csv")) ("/tools/net40/tags.csv")
+                        }
+            }
+        let compilerNuPkg =
+            let bt = bt.PackageId(Config.CompilerPackageId, Config.PackageVersion)
+            bt.NuGet.CreatePackage()
+                .Configure(fun x ->
+                    {
+                        x with
+                            Description = Config.CompilerDescription
+                            ProjectUrl = Some Config.Website
+                            LicenseUrl = Some Config.LicenseUrl
+                            Authors = [ Config.Company ]
+                    })
+                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
+                .AddNuGetExportingProject {
+                    new INuGetExportingProject with
+                        member p.NuGetFiles =
+                            seq {
+                                for kind, src in compilerExports do
+                                    yield file kind src None
+                            }
+                }
+        [ nuPkg; compilerNuPkg ]
 
     let Package () =
-        let nuPkg = nuPkg ()
-        let sln = bt.Solution [nuPkg]
+        let nuPkgs = nuPkgs ()
+        let sln = bt.Solution (Seq.cast nuPkgs)
         sln.Build()
 
     [<EntryPoint>]
