@@ -71,11 +71,13 @@ let Tests =
         Test "PadLeft" {
             equal (karina.PadLeft 10      ) "    Karina"
             equal (karina.PadLeft(10, '.')) "....Karina"
+            equal (karina.PadLeft 1       ) "Karina"
         }
 
         Test "PadRight" {
             equal (karina.PadRight 10) "Karina    "
             equal (karina.PadRight(10, '.')) "Karina...."
+            equal (karina.PadRight 1       ) "Karina"
         }
 
         Test "Remove" {
