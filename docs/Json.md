@@ -114,12 +114,12 @@ Union types intended for use in JSON serialization should bear the attribute `Na
 
 ### Explicit discriminator
 
-With `[<NamedUnionCases "field">]`, the union value is represented as a JSON object with a field called `"field"`, whose value is the name of the union case, and as many other fields as the union case has arguments. You can use `[<CompiledName "name">]` to customize the name of a union case.
+With `[<NamedUnionCases "field">]`, the union value is represented as a JSON object with a field called `"field"`, whose value is the name of the union case, and as many other fields as the union case has arguments. You can use `[<Name "name">]` to customize the name of a union case.
 
 ```fsharp
 [<NamedUnionCases "kind">]
 type Contact =
-    | [<CompiledName "address">]
+    | [<Name "address">]
         Address of street: string * zip: string * city: string
     | Email of email: string
 
