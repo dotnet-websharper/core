@@ -26,6 +26,7 @@
 module private WebSharper.SeqModuleProxy
 
 open WebSharper.JavaScript
+open WebSharper.CollectionInternals
 
 [<JavaScript>]
 let private insufficient () =
