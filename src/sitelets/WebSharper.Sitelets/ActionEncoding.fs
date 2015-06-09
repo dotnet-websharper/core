@@ -174,10 +174,12 @@ type System.Text.StringBuilder with
 
 type Reflection.UnionCaseInfo with
     member this.CustomizedName =
-        let aT = typeof<CompiledNameAttribute>
-        match this.GetCustomAttributes aT with
-        | [| :? CompiledNameAttribute as attr |] -> attr.CompiledName
-        | _ -> this.Name
+        let s =
+            let aT = typeof<CompiledNameAttribute>
+            match this.GetCustomAttributes aT with
+            | [| :? CompiledNameAttribute as attr |] -> attr.CompiledName
+            | _ -> this.Name
+        s.TrimStart('/')
 
 let flags =
     System.Reflection.BindingFlags.Public
