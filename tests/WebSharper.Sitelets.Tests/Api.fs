@@ -32,24 +32,17 @@ module Api =
     /// The type of actions, ie. REST API entry points.
     type Action =
         /// GET /person?id=123
-        | [<Method "GET"; CompiledName "person"; Query "id">]
-            GetPerson2 of id: int
-        | [<Method "GET"; CompiledName "person">]
-            GetPerson of id: int * Sub
-        | [<Method "GET"; CompiledName "person"; Wildcard>]
-            GetPersonWithTags of id: int * tags: (int * string)[]
+        | [<Method "GET"; EndPoint "/person"; Query "id">]
+            GetPerson of id: int
         /// POST /person (with JSON body)
-        | [<Method "POST"; CompiledName "person"; Json "personData">]
+        | [<Method "POST"; EndPoint "/person"; Json "personData">]
             PostPerson of personData: PersonData
         /// PUT /person?id=123 (with JSON body)
-        | [<Method "PUT"; CompiledName "person"; Query "id"; Json "personData">]
+        | [<Method "PUT"; EndPoint "/person"; Query "id"; Json "personData">]
             PutPerson of id: int * personData: PersonData
         /// DELETE /person?id=123
-        | [<Method "DELETE"; CompiledName "person"; Query "id">]
+        | [<Method "DELETE"; EndPoint "/person"; Query "id">]
             DeletePerson of id: int
-
-    and Sub =
-        | [<CompiledName "">] Sub
 
     /// Data about a person. Used both for storage and JSON parsing/writing.
     and PersonData =
@@ -64,9 +57,9 @@ module Api =
     [<NamedUnionCases "result">]
     type Result<'T> =
         /// JSON: {"result": "success", /* fields of 'T... */}
-        | [<CompiledName "success">] Success of 'T
+        | [<Name "success">] Success of 'T
         /// JSON: {"result": "failure", "message": "error message..."}
-        | [<CompiledName "failure">] Failure of message: string
+        | [<Name "failure">] Failure of message: string
 
     /// Result value for PostPerson.
     type Id = { id : int }
@@ -107,23 +100,17 @@ module Api =
                 | false, _ -> Failure "Person not found."
 
     let ApiContent (action: Action) : Content<Action> =
-        Content.JsonContent <| fun ctx -> action
-//        match action with
-//        | GetPerson id ->
-//            Content.JsonContent <| fun ctx -> ApplicationLogic.getPerson id
-//        | PostPerson personData ->
-//            Content.JsonContent <| fun ctx -> ApplicationLogic.postPerson personData
-//        | PutPerson (id, personData) ->
-//            Content.JsonContent <| fun ctx -> ApplicationLogic.putPerson id personData
-//        | DeletePerson id ->
-//            Content.JsonContent <| fun ctx -> ApplicationLogic.deletePerson id
+        match action with
+        | GetPerson id ->
+            Content.JsonContent <| fun ctx -> ApplicationLogic.getPerson id
+        | PostPerson personData ->
+            Content.JsonContent <| fun ctx -> ApplicationLogic.postPerson personData
+        | PutPerson (id, personData) ->
+            Content.JsonContent <| fun ctx -> ApplicationLogic.putPerson id personData
+        | DeletePerson id ->
+            Content.JsonContent <| fun ctx -> ApplicationLogic.deletePerson id
 
-    let Sitelet =
-        Sitelet.InferWithCustomErrors <| function
-            | ActionEncoding.Success a -> ApiContent a
-            | ActionEncoding.MissingQueryParameter (a, q) ->
-                Content.JsonContent <| fun ctx ->
-                    Map ["missingQueryParameter", q]
+    let Sitelet = Sitelet.Infer ApiContent
 
     // Pre-fill the database with a few people.
     do Seq.iter (ApplicationLogic.postPerson >> ignore) [
