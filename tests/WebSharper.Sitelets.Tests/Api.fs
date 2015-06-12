@@ -32,7 +32,7 @@ module Api =
     /// The type of actions, ie. REST API entry points.
     type Action =
         /// GET /person?id=123
-        | [<EndPoint "PATCH GET /person"; Query "id">]
+        | [<EndPoint "GET /person"; Query "id">]
             GetPerson of id: int
         /// POST /person (with JSON body)
         | [<EndPoint "POST /person"; Json "personData">]
