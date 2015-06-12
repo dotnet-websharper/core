@@ -179,7 +179,7 @@ type Reflection.UnionCaseInfo with
             match this.GetCustomAttributes aT with
             | [| :? CompiledNameAttribute as attr |] -> attr.CompiledName
             | _ -> this.Name
-        s.TrimStart('/')
+        s.[s.IndexOf('/') + 1 ..]
 
 let flags =
     System.Reflection.BindingFlags.Public
@@ -601,6 +601,14 @@ let getUnionCaseMethods (c: Reflection.UnionCaseInfo) =
                 :?> System.Collections.ObjectModel.ReadOnlyCollection<
                         System.Reflection.CustomAttributeTypedArgument>
                 |> Seq.map (fun a -> Some (a.Value :?> string))
+            elif cad.Constructor.DeclaringType = typeof<CompiledNameAttribute> then
+                let s = cad.ConstructorArguments.[0].Value :?> string
+                match s.IndexOf '/' with
+                | -1 -> Seq.empty
+                | i ->
+                    s.[..i - 1].Split([|',';' '|],
+                        StringSplitOptions.RemoveEmptyEntries)
+                    |> Seq.map Some
             else Seq.empty)
     if Seq.isEmpty s then Seq.singleton None else s
 
