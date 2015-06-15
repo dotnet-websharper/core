@@ -63,6 +63,8 @@ type EndPointParams =
             |> Array.map (fun f ->
                 if f.StartsWith ":" then
                     Fragment.Argument f.[1..]
+                elif f.StartsWith "{" && f.EndsWith "}" then
+                    Fragment.Argument f.[1..f.Length-2]
                 else Fragment.Constant f)
             |> List.ofArray
         let initialFragment, fragments =

@@ -905,7 +905,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                         | Fragment'.Constant s ->
                             D.Make(false, Set.empty, fun (p: ReadParameters) ->
                                 match p.Read() with
-                                | Some (x, p) when x = s -> Just p Unchecked.defaultof<_>
+                                | Some (x, p) when x = s -> Just p (Success null)
                                 | _ -> Nothing)
                         | Fragment'.Argument (_, f) ->
                             parseField getD (UnionCaseField(c, f, i = frags.Length - 1)))))
