@@ -1022,8 +1022,9 @@ type Factory() =
                 if s.Write sb q value then
                     q |> Seq.iteri (fun i (k, v) ->
                         sb.Add (if i = 0 then '?' else '&')
-                        sb.Add k
-                        sb.Add '='
+                        if k <> null then
+                            sb.Add k
+                            sb.Add '='
                         sb.Add v)
                     Some (sb.Flush())
                 else None
