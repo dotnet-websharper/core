@@ -30,12 +30,31 @@ type Fragment =
     | Constant of string
     | Argument of string
 
+    static member Parse (f: string) =
+        if f.StartsWith ":" then
+            Fragment.Argument f.[1..]
+        elif f.StartsWith "{" && f.EndsWith "}" then
+            Fragment.Argument f.[1..f.Length-2]
+        else Fragment.Constant f
+
+    static member ParseQueryParameters (s: string) =
+        s.Split([|'&'|], StringSplitOptions.RemoveEmptyEntries)
+        |> Array.map (fun f ->
+            match f.IndexOf '=' with
+            | -1 -> null, Fragment.Parse f
+            | i -> f.[.. i - 1], Fragment.Parse f.[i + 1 ..]
+        )
+        |> List.ofArray
+
 type EndPointParams =
     {
         Methods: string list
         InitialFragment : string
         Fragments : Fragment list
-        QueryParameters: string list
+        /// queryParamName * argumentName
+        /// eg: "?foo=bar" --> ("foo", "bar");
+        /// "?baz" --> ("baz", "baz")
+        QueryParameters: (string * Fragment) list
     }
 
     static member Parse (s: string) =
@@ -44,8 +63,7 @@ type EndPointParams =
             | -1 -> [], s
             | i ->
                 let methods =
-                    s.[.. i - 1].Split([|','; ' '|],
-                        StringSplitOptions.RemoveEmptyEntries)
+                    s.[.. i - 1].Split([|','; ' '|], StringSplitOptions.RemoveEmptyEntries)
                 let uri = s.[i + 1 ..]
                 List.ofArray methods, uri
         let path, queryParams =
@@ -53,19 +71,11 @@ type EndPointParams =
             | -1 -> uri, []
             | i ->
                 let path = uri.[.. i - 1]
-                let queryParams =
-                    uri.[i + 1 ..].Split([|'&'|],
-                        StringSplitOptions.RemoveEmptyEntries)
-                path, List.ofArray queryParams
+                let queryParams = Fragment.ParseQueryParameters uri.[i + 1 ..]
+                path, queryParams
         let fragments =
-            path.Split([|'/'|],
-                StringSplitOptions.RemoveEmptyEntries)
-            |> Array.map (fun f ->
-                if f.StartsWith ":" then
-                    Fragment.Argument f.[1..]
-                elif f.StartsWith "{" && f.EndsWith "}" then
-                    Fragment.Argument f.[1..f.Length-2]
-                else Fragment.Constant f)
+            path.Split([|'/'|], StringSplitOptions.RemoveEmptyEntries)
+            |> Array.map Fragment.Parse
             |> List.ofArray
         let initialFragment, fragments =
             match fragments with
@@ -126,6 +136,8 @@ type JsonAttribute
 [<Sealed; U(T.Property, AllowMultiple = true)>]
 type QueryAttribute private (queryParameters: string list) =
     inherit A()
+
+    let queryParameters = List.collect Fragment.ParseQueryParameters queryParameters
 
     member internal this.QueryParameters = queryParameters
 

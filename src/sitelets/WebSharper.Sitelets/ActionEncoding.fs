@@ -365,18 +365,24 @@ let isFormData = function
                 List.exists ((=) ff.Name) fd.FormParameters
             | _ -> false)
 
-let isQueryParam = function
-    | RecordField (f, _) ->
-        f.GetCustomAttributes(false) |> Seq.exists (function
-            | :? QueryAttribute -> true
-            | _ -> false)
+let getQueryParam = function
+    | RecordField (f, _) as r ->
+        f.GetCustomAttributes(false) |> Seq.tryPick (function
+            | :? QueryAttribute -> Some r.Name
+            | _ -> None)
     | UnionCaseField (uci, f, _) as ff ->
-        uci.GetCustomAttributes() |> Seq.exists (function
+        uci.GetCustomAttributes() |> Seq.tryPick (function
             | :? QueryAttribute as qa ->
-                List.exists ((=) ff.Name) qa.QueryParameters
+                qa.QueryParameters
+                |> List.tryPick (function
+                    | (q, Fragment.Argument a) when a = ff.Name -> Some q
+                    | _ -> None)
             | :? EndPointAttribute as ep ->
-                List.exists ((=) ff.Name) ep.QueryParameters
-            | _ -> false)
+                ep.QueryParameters
+                |> List.tryPick (function
+                    | (q, Fragment.Argument a) when a = ff.Name -> Some q
+                    | _ -> None)
+            | _ -> None)
 
 let isJson = function
     | RecordField (f, _) ->
@@ -471,14 +477,15 @@ let tryWritePrimitiveField (f: Field) acceptOption =
     else None
 
 let writeQueryParam (f: Field) : S option =
-    if isQueryParam f then
+    match getQueryParam f with
+    | Some qpName ->
         let ft = f.Type
         tryWritePrimitiveField f true
         |> Option.map (fun wp ->
             S.Make(false, fun w q x ->
-                wp x |> Option.iter (fun x -> q.Add((f.Name, x)))
+                wp x |> Option.iter (fun x -> q.Add((qpName, x)))
                 true))
-    else None
+    | None -> None
 
 let writeWildcardSeq (eT: System.Type) (eS: S) (sP: ISequenceProcessor) : S =
     S.Make(true, fun w q x ->
@@ -680,20 +687,20 @@ let tryParsePrimitiveField (f: Field) acceptOption =
     else None
 
 let getQueryParamParser (f: Field) =
-    if isQueryParam f then
+    match getQueryParam f with
+    | Some qpName ->
         let ft = f.Type
-        let fn = f.Name
         let defaultValue = JsonProvider.BuildDefaultValue ft
         match tryParsePrimitiveField f true with
         | None -> raise (NoFormatError f.DeclaringType)
         | Some parse ->
-            D.Make(false, Set.singleton fn, fun p ->
-                match parse p.Request.Get.[fn] with
+            D.Make(false, Set.singleton qpName, fun p ->
+                match parse p.Request.Get.[qpName] with
                 | Some (Success _ as x) -> x
-                | _ -> MissingQueryParameter(defaultValue, fn)
+                | _ -> MissingQueryParameter(defaultValue, qpName)
                 |> Just p)
             |> Some
-    else None
+    | None -> None
 
 let getFormDataParser (f: Field) =
     if isFormData f then
