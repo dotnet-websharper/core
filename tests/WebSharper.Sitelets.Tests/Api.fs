@@ -32,16 +32,16 @@ module Api =
     /// The type of actions, ie. REST API entry points.
     type Action =
         /// GET /person?id=123
-        | [<EndPoint "GET /person"; Query "id">]
+        | [<EndPoint "GET /person?id">]
             GetPerson of id: int
         /// POST /person (with JSON body)
         | [<EndPoint "POST /person"; Json "personData">]
             PostPerson of personData: PersonData
         /// PUT /person?id=123 (with JSON body)
-        | [<EndPoint "PUT /person"; Query "id"; Json "personData">]
+        | [<EndPoint "PUT /person?id"; Json "personData">]
             PutPerson of id: int * personData: PersonData
         /// DELETE /person?id=123
-        | [<EndPoint "DELETE /person"; Query "id">]
+        | [<EndPoint "DELETE /person?id">]
             DeletePerson of id: int
 
     /// Data about a person. Used both for storage and JSON parsing/writing.

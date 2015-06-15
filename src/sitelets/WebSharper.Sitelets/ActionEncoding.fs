@@ -172,14 +172,46 @@ type System.Text.StringBuilder with
         this.Remove(0, this.Length) |> ignore
         s
 
+type Fragment' =
+    | Constant of string
+    | Argument of int * System.Reflection.PropertyInfo
+
 type Reflection.UnionCaseInfo with
-    member this.CustomizedName =
-        let s =
-            let aT = typeof<CompiledNameAttribute>
-            match this.GetCustomAttributes aT with
-            | [| :? CompiledNameAttribute as attr |] -> attr.CompiledName
-            | _ -> this.Name
-        s.[s.IndexOf('/') + 1 ..]
+    member this.NameAndFragments =
+        let args =
+            this.GetFields()
+            |> Array.mapi (fun i p -> p.Name, (i, p))
+            |> Map.ofArray
+        let basic =
+            this.GetCustomAttributes()
+            |> Seq.tryPick (function
+                | :? EndPointAttribute as ep ->
+                    Some (ep.InitialFragment, ep.Fragments)
+                | :? CompiledNameAttribute as a ->
+                    Some (a.CompiledName, [])
+                | _ -> None)
+        let init, basic =
+            match basic with
+            | Some b -> b
+            | None -> this.Name, []
+        let fragments, remainingFragments =
+            (([], args), basic)
+            ||> List.fold (fun (frags, args) fragment ->
+                match fragment with
+                | Fragment.Constant s -> Fragment'.Constant s :: frags, args
+                | Fragment.Argument arg ->
+                    match Map.tryFind arg args with
+                    | None -> raise (NoFormatError this.DeclaringType)
+                    | Some (i, p) ->
+                        Fragment'.Argument (i, p) :: frags,
+                        Map.remove arg args)
+        let remainingFragments =
+            remainingFragments
+            |> List.ofSeq
+            |> List.map (fun (KeyValue (_, (i, p))) -> i, Fragment'.Argument (i, p))
+            |> List.sortBy fst
+            |> List.map snd
+        init, List.rev fragments @ remainingFragments
 
 let flags =
     System.Reflection.BindingFlags.Public
@@ -324,42 +356,37 @@ let getDateTimeFormat = function
 
 let isFormData = function
     | RecordField (f, _) ->
-        f.GetCustomAttributesData() |> Seq.exists (fun cad ->
-            cad.Constructor.DeclaringType = typeof<FormDataAttribute> &&
-            cad.ConstructorArguments.Count = 0)
+        f.GetCustomAttributes(false) |> Seq.exists (function
+            | :? FormDataAttribute -> true
+            | _ -> false)
     | UnionCaseField (uci, f, _) as ff ->
-        uci.GetCustomAttributesData() |> Seq.exists (fun cad ->
-            cad.Constructor.DeclaringType = typeof<FormDataAttribute> &&
-            cad.ConstructorArguments.Count = 1 &&
-            cad.ConstructorArguments.[0].Value
-            :?> System.Collections.ObjectModel.ReadOnlyCollection<
-                    System.Reflection.CustomAttributeTypedArgument>
-            |> Seq.exists (fun a -> a.Value :?> string = ff.Name))
+        uci.GetCustomAttributes() |> Seq.exists (function
+            | :? FormDataAttribute as fd ->
+                List.exists ((=) ff.Name) fd.FormParameters
+            | _ -> false)
 
 let isQueryParam = function
     | RecordField (f, _) ->
-        f.GetCustomAttributesData() |> Seq.exists (fun cad ->
-            cad.Constructor.DeclaringType = typeof<QueryAttribute> &&
-            cad.ConstructorArguments.Count = 0)
+        f.GetCustomAttributes(false) |> Seq.exists (function
+            | :? QueryAttribute -> true
+            | _ -> false)
     | UnionCaseField (uci, f, _) as ff ->
-        uci.GetCustomAttributesData() |> Seq.exists (fun cad ->
-            cad.Constructor.DeclaringType = typeof<QueryAttribute> &&
-            cad.ConstructorArguments.Count = 1 &&
-            cad.ConstructorArguments.[0].Value
-            :?> System.Collections.ObjectModel.ReadOnlyCollection<
-                    System.Reflection.CustomAttributeTypedArgument>
-            |> Seq.exists (fun a -> a.Value :?> string = ff.Name))
+        uci.GetCustomAttributes() |> Seq.exists (function
+            | :? QueryAttribute as qa ->
+                List.exists ((=) ff.Name) qa.QueryParameters
+            | :? EndPointAttribute as ep ->
+                List.exists ((=) ff.Name) ep.QueryParameters
+            | _ -> false)
 
 let isJson = function
     | RecordField (f, _) ->
-        f.GetCustomAttributesData() |> Seq.exists (fun cad ->
-            cad.Constructor.DeclaringType = typeof<JsonAttribute> &&
-            cad.ConstructorArguments.Count = 0)
+        f.GetCustomAttributes(false) |> Seq.exists (function
+            | :? JsonAttribute -> true
+            | _ -> false)
     | UnionCaseField (uci, f, _) as ff ->
-        uci.GetCustomAttributesData() |> Seq.exists (fun cad ->
-            cad.Constructor.DeclaringType = typeof<JsonAttribute> &&
-            cad.ConstructorArguments.Count = 1 &&
-            cad.ConstructorArguments.[0].Value :?> string = ff.Name)
+        uci.GetCustomAttributes() |> Seq.exists (function
+            | :? JsonAttribute as j -> j.JsonParameter = ff.Name
+            | _ -> false)
 
 [<RequireQualifiedAccess>]
 type Wildcard =
@@ -554,14 +581,30 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
             [|
                 for c in cs ->
                     let fs = c.GetFields()
-                    writeTuple (uR c) true (fs |> Array.mapi (fun i f ->
-                        writeField getS (UnionCaseField(c, f, i = fs.Length - 1))))
+                    let getArgs = uR c
+                    let write ss w q x =
+                        let args = getArgs x
+                        ss |> List.iter (fun s -> s w q args |> ignore)
+                        true
+                    let init, frags = c.NameAndFragments
+                    let ss =
+                        let lastIndex = frags.Length - 1
+                        frags |> List.mapi (fun i -> function
+                            | Fragment'.Constant s ->
+                                fun (w: Text.StringBuilder) q x ->
+                                    w.Add '/'
+                                    w.Add s
+                                    true
+                            | Fragment'.Argument (i, p) ->
+                                let s = writeField getS (UnionCaseField(c, p, i = lastIndex))
+                                fun w q (x: obj[]) ->
+                                    if s.WritesToUrlPath() then w.Add '/'
+                                    s.Write w q x.[i])
+                    S.Make(true, fun w q x ->
+                        w.Add init
+                        write ss w q x)
             |]
-        let ns = [| for c in cs -> c.CustomizedName |]
-        S.Make(true, fun w q x ->
-            let t = tR x
-            w.Add ns.[t]
-            ss.[t].Write w q x)
+        S.Make(true, fun w q x -> ss.[tR x].Write w q x)
     | Other t ->
         let wt = writePrimitiveType t
         S.Make(true, fun w q x -> w.Add(wt x); true)
@@ -594,22 +637,12 @@ let ofOption (p: ReadParameters) (x: option<DecodeResult<obj>>) =
 
 let getUnionCaseMethods (c: Reflection.UnionCaseInfo) =
     let s =
-        c.GetCustomAttributesData()
-        |> Seq.collect (fun cad ->
-            if cad.Constructor.DeclaringType = typeof<MethodAttribute> then
-                cad.ConstructorArguments.[0].Value
-                :?> System.Collections.ObjectModel.ReadOnlyCollection<
-                        System.Reflection.CustomAttributeTypedArgument>
-                |> Seq.map (fun a -> Some (a.Value :?> string))
-            elif cad.Constructor.DeclaringType = typeof<CompiledNameAttribute> then
-                let s = cad.ConstructorArguments.[0].Value :?> string
-                match s.IndexOf '/' with
-                | -1 -> Seq.empty
-                | i ->
-                    s.[..i - 1].Split([|',';' '|],
-                        StringSplitOptions.RemoveEmptyEntries)
-                    |> Seq.map Some
-            else Seq.empty)
+        c.GetCustomAttributes()
+        |> Seq.collect (function
+            | :? MethodAttribute as m -> Seq.map Some m.Methods
+            | :? EndPointAttribute as ep -> Seq.map Some ep.Methods
+            | _ -> Seq.empty
+        )
     if Seq.isEmpty s then Seq.singleton None else s
 
 let parsePrimitiveType (t: System.Type) =
@@ -848,20 +881,34 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
         let ds =
             cs |> Array.mapi (fun i c ->
                 let allowedMeths = getUnionCaseMethods c
+                let name, frags = c.NameAndFragments
+                let frags = Array.ofList frags
                 let existing =
-                    match d.TryGetValue c.CustomizedName with
+                    match d.TryGetValue name with
                     | true, m -> m
                     | false, _ -> Map.empty
-                d.[c.CustomizedName] <-
+                d.[name] <-
                     (existing, allowedMeths)
                     ||> Seq.fold (fun map m ->
                         let k = (Option.map Http.Method.OfString m)
                         Map.add k (defaultArg (map.TryFind k) [] @ [i]) map)
                 let fields = c.GetFields()
-                parseTuple t (uC c)
-                    (fields |> Array.mapi (fun i f ->
-                        parseField getD (UnionCaseField(c, f, i = fields.Length - 1))))
-            )
+                let mk = uC c
+                parseTuple t
+                    (fun parsed ->
+                        let res = Array.zeroCreate<obj> fields.Length
+                        (parsed, frags) ||> Array.iter2 (fun x -> function
+                            | Fragment'.Constant _ -> ()
+                            | Fragment'.Argument (i, _) -> res.[i] <- x)
+                        mk res)
+                    (frags |> Array.mapi (fun i -> function
+                        | Fragment'.Constant s ->
+                            D.Make(false, Set.empty, fun (p: ReadParameters) ->
+                                match p.Read() with
+                                | Some (x, p) when x = s -> Just p Unchecked.defaultof<_>
+                                | _ -> Nothing)
+                        | Fragment'.Argument (_, f) ->
+                            parseField getD (UnionCaseField(c, f, i = frags.Length - 1)))))
         let json() = ds |> Array.exists (fun d -> d.ReadsJson())
         D.Make(json, (fun () -> Set.empty), fun (p: ReadParameters) ->
             let tn = t.FullName
