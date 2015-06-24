@@ -114,7 +114,6 @@ module Pervasives =
     let Inherits (c: Type.IType) =
         { new Code.IClassProperty with
             member this.SetOn x = 
-                let x = x.Clone() :?> Code.Class
                 x.BaseClass <- Some c.Type
                 x
         }
@@ -123,7 +122,6 @@ module Pervasives =
     let Nested (cs: list<Code.TypeDeclaration>) =
         { new Code.IClassProperty with
             member this.SetOn x = 
-                let x = x.Clone() :?> Code.Class
                 for decl in cs do
                     match decl with
                     | :? Code.Class as c ->
@@ -138,8 +136,53 @@ module Pervasives =
     let Implements (interfaces: list<Type.IType>) =
         { new Code.IClassProperty with
             member this.SetOn x =
-                let x = x.Clone() :?> Code.Class
                 x.ImplementedInterfaces <- [for i in interfaces -> i.Type]
+                let implMethods =
+                    interfaces |> Seq.collect (fun i ->
+                        let rec all (i: Type.IType) =                            
+                            match i with
+                            | :? Code.Interface as i ->
+                                seq {
+                                    for m in i.Methods ->
+                                        m |> Code.Entity.Update (fun x -> 
+                                            x.Type <- x.Type.SubsDefining i.Type
+                                        )
+                                    for b in i.BaseInterfaces do yield! all b
+                                }
+                            | _ -> Seq.empty     
+                        all i             
+                    )
+                    |> Seq.groupBy (fun m -> m.Name, m.Type)
+                    |> Seq.map (fun (_, overrides) ->
+                        let m = Seq.head overrides   
+                        m.IsOverride <- true
+                        m
+                    )
+                    |> List.ofSeq
+                x.Methods <- implMethods @ x.Methods
+                let implProperties =
+                    interfaces |> Seq.collect (fun i ->
+                        let rec all (i: Type.IType) =                            
+                            match i with
+                            | :? Code.Interface as i ->
+                                seq {
+                                    for p in i.Properties ->
+                                        p |> Code.Entity.Update (fun x -> 
+                                            x.Type <- x.Type.SubsDefining i.Type
+                                        )
+                                    for b in i.BaseInterfaces do yield! all b
+                                }
+                            | _ -> Seq.empty     
+                        all i             
+                    )
+                    |> Seq.groupBy (fun (p) -> p.Name, p.Type)
+                    |> Seq.map (fun (_, overrides) ->
+                        let p = Seq.head overrides   
+                        p.IsOverride <- true
+                        p
+                    )
+                    |> List.ofSeq
+                x.Properties <- implProperties @ x.Properties
                 x
         }
 
@@ -147,7 +190,6 @@ module Pervasives =
     let Extends (interfaces: list<Type.IType>) =
         { new Code.IInterfaceProperty with
             member this.SetOn x =
-                let x = x.Clone() :?> Code.Interface
                 x.BaseInterfaces <- [for i in interfaces -> i.Type]
                 x
         }

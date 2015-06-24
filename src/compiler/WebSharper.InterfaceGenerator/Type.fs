@@ -61,7 +61,7 @@ module Type =
         | ChoiceType of Type list
         | OptionType of Type
         | DefiningType
-        
+
         member this.Item
             with get ([<System.ParamArray>] x : IType []) =
                 match this with
@@ -105,6 +105,29 @@ module Type =
                     Type = this
                     Optional = false
                 }
+
+        /// Substitutes DefiningType values to `toType`.
+        member this.SubsDefining(toType: Type) =
+            let sub (t: Type) = t.SubsDefining toType
+            match this with
+            | ArrayType (i, t) -> ArrayType (i, sub t) 
+            | FunctionType f ->
+                FunctionType {
+                    ReturnType = sub f.ReturnType
+                    Parameters = f.Parameters |> List.map (fun (n, t) -> n, sub t)
+                    ParamArray = f.ParamArray |> Option.map sub
+                    This       = f.This |> Option.map sub
+                }
+            | SpecializedType (t, ts) -> SpecializedType (sub t, ts |> List.map sub)
+            | TupleType ts -> TupleType (ts |> List.map sub)
+            | UnionType (t1, t2) -> UnionType (sub t1, sub t2)
+            | InteropType (t, tr) -> InteropType (sub t, tr)
+            | NoInteropType t -> NoInteropType (sub t)
+            | FSFunctionType (a, r) -> FSFunctionType (sub a, sub r)
+            | ChoiceType ts -> ChoiceType (ts |> List.map sub)
+            | OptionType t -> OptionType (sub t)
+            | DefiningType -> toType 
+            | _ -> this
 
         interface IParameter with
             member this.Parameter = this.Parameter

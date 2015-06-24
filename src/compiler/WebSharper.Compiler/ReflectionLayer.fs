@@ -1013,8 +1013,8 @@ module Reflection =
                 try
                     d.GetTypes()
                     |> Array.map (fun x -> conv.ConvertType(x))
-                with _ ->
-                    Array.empty
+                with :? ReflectionTypeLoadException as e ->
+                    failwith "Reflection type load error: %s" e.LoaderExceptions.[0].Message
 
         override this.CustomAttributes = atts.Value
         override this.EmbeddedResources = embeddedResources.Value

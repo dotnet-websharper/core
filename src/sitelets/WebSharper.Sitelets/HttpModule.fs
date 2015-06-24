@@ -50,8 +50,8 @@ module internal SiteLoading =
         assembly.GetModules(false)
         |> Seq.collect (fun m ->
             try m.GetTypes() |> Seq.ofArray
-            with :? System.Reflection.ReflectionTypeLoadException as e ->
-                e.Types |> Seq.filter ((<>) null)            
+            with :? ReflectionTypeLoadException as e ->
+                e.Types |> Seq.filter (fun t -> not (obj.ReferenceEquals(t, null)))            
         )
         |> Seq.tryPick (fun ty ->
             ty.GetProperties(BF.Static ||| BF.Public ||| BF.NonPublic)
