@@ -196,6 +196,9 @@ type Constructor =
     /// Updates the declaring type.
     member WithDeclaringType : TypeDefinition -> Constructor
 
+    /// Parses the constructor.
+    static member Parse : System.Reflection.ConstructorInfo -> Constructor
+
     /// Constructs a new Constructor with an explicit signature.
     static member Create : TypeDefinition -> Signature -> Constructor
 
