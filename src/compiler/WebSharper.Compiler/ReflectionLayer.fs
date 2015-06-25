@@ -1015,7 +1015,7 @@ module Reflection =
             lazy
                 try
                     d.GetTypes()
-                    |> Array.map (fun x -> conv.ConvertType(x))
+                    |> Array.choose (fun x -> if x.IsNested then None else Some (conv.ConvertType(x)))
                 with :? ReflectionTypeLoadException as e ->
                     failwith "Reflection type load error: %s" e.LoaderExceptions.[0].Message
 

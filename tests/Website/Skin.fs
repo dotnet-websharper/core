@@ -45,7 +45,7 @@ type Page =
     static member Default(title) =
         {
             Footer = Footer
-            Body = [Div [Style "display:none"] -< [new Controls.EntryPoint()]]
+            Body = [Div [Style "display:none"] -< [ClientSide <@ Client.EntryPoint() @>]]
             Menu = []
             Project = "Site"
             Title = title
