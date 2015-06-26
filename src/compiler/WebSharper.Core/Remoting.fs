@@ -158,48 +158,45 @@ let IsRemotingRequest (h: Headers) =
         | _ -> false
 
 exception InvalidHeadersException
-
-let handle getConverter req =
-    match req.Headers HEADER_NAME with
-    | None -> raise InvalidHeadersException
-    | Some m ->
-        let m = M.MethodHandle.Unpack m
-        let args = J.Parse req.Body
-        let conv = getConverter m
-        let convd = conv args
-        async {
-            let! x = convd
-            let r = J.Stringify x
-            return {
-                ContentType = "application/json"
-                Content = r
-            }
-        }
-
 exception NoRemoteAttributeException
 
-let makeHandler mk info =
-    let jP = J.Provider.CreateTyped info
-    let getConverter =
-        let getConverter m =
-            match info.GetRemoteMethod m with
-            | None -> raise NoRemoteAttributeException
-            | Some m -> toConverter mk jP (m.Load None)
-        let d = Dictionary()
-        fun m ->
-            let v = lock d (fun () ->
-                match d.TryGetValue m with
-                | true, x -> Some x
-                | _ -> None)
-            match v with
-            | Some x -> x
-            | None ->
-                let y = getConverter m
-                lock d (fun () -> d.[m] <- y)
-                y
-    handle getConverter
-
 [<Sealed>]
-type Server(handle: Request -> Async<Response>) =
-    static member Create mk info = Server (makeHandler mk info)
-    member this.HandleRequest(req: Request) = handle req
+type Server(mk, info) =
+    let jP = J.Provider.CreateTyped info
+    let d = Dictionary()
+    let getConverter m =
+        match info.GetRemoteMethod m with
+        | None -> raise NoRemoteAttributeException
+        | Some m -> toConverter mk jP (m.Load None)
+    let getCachedConverter m =
+        let v = lock d (fun () ->
+            match d.TryGetValue m with
+            | true, x -> Some x
+            | _ -> None)
+        match v with
+        | Some x -> x
+        | None ->
+            let y = getConverter m
+            lock d (fun () -> d.[m] <- y)
+            y
+
+    member this.HandleRequest(req: Request) =
+        match req.Headers HEADER_NAME with
+        | None -> raise InvalidHeadersException
+        | Some m ->
+            let m = M.MethodHandle.Unpack m
+            let args = J.Parse req.Body
+            let conv = getCachedConverter m
+            let convd = conv args
+            async {
+                let! x = convd
+                let r = J.Stringify x
+                return {
+                    ContentType = "application/json"
+                    Content = r
+                }
+            }
+
+    member this.JsonProvider = jP
+
+    static member Create mk info = Server(mk, info)

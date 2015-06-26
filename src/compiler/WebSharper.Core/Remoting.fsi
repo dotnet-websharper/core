@@ -64,3 +64,6 @@ type Server =
 
     /// Handles a request.
     member HandleRequest : Request -> Async<Response>
+
+    /// Exposes the Json encoding/decoding provider
+    member JsonProvider : Json.Provider
