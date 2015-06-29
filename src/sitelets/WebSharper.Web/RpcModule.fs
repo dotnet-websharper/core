@@ -22,6 +22,7 @@ namespace WebSharper.Web
 
 open System
 open System.IO
+open System.Security.Cryptography
 open System.Security.Principal
 open System.Web.Security
 open System.Web
@@ -75,9 +76,27 @@ type AspNetFormsUserSession(ctx: HttpContextBase) =
 module private RpcUtil =
     let server = R.Server.Create None Shared.Metadata
     let [<Literal>] HttpContextKey = "HttpContext"
+    let [<Literal>] CsrfTokenKey = "csrftoken"
+    let [<Literal>] CsrfTokenHeader = "x-" + CsrfTokenKey
 
 [<Sealed>]
 type RpcHandler() =
+
+    let checkCsrf (req: HttpRequestBase) (resp: HttpResponseBase) =
+        let cookie = req.Cookies.[RpcUtil.CsrfTokenKey]
+        let header = req.Headers.[RpcUtil.CsrfTokenHeader]
+        if cookie = null || header <> cookie.Value then
+            if cookie = null then
+                use rng = new RNGCryptoServiceProvider()
+                let bytes = Array.zeroCreate 32
+                rng.GetBytes(bytes)
+                HttpCookie(RpcUtil.CsrfTokenKey, Convert.ToBase64String bytes,
+                    Expires = System.DateTime.UtcNow.AddYears(1000))
+                |> resp.SetCookie
+            false
+        else
+            true
+
     let work (ctx: HttpContextBase) =
         let req = ctx.Request
         let resp = ctx.Response
@@ -92,6 +111,10 @@ type RpcHandler() =
             | "OPTIONS" ->
                 resp.AddHeader("Access-Control-Allow-Headers",
                     "x-websharper-rpc, content-type")
+            | _ when not (checkCsrf req resp) ->
+                resp.StatusCode <- 403
+                resp.StatusDescription <- "Forbidden"
+                resp.Write "CSRF"
             | _ ->
                 let getHeader (x: string) =
                     match req.Headers.[x] with
