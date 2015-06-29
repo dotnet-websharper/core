@@ -85,17 +85,11 @@ type RpcHandler() =
     let checkCsrf (req: HttpRequestBase) (resp: HttpResponseBase) =
         let cookie = req.Cookies.[RpcUtil.CsrfTokenKey]
         let header = req.Headers.[RpcUtil.CsrfTokenHeader]
-        if cookie = null || header <> cookie.Value then
-            if cookie = null then
-                use rng = new RNGCryptoServiceProvider()
-                let bytes = Array.zeroCreate 32
-                rng.GetBytes(bytes)
-                HttpCookie(RpcUtil.CsrfTokenKey, Convert.ToBase64String bytes,
-                    Expires = System.DateTime.UtcNow.AddYears(1000))
-                |> resp.SetCookie
+        if cookie = null then
+            RpcHandler.SetCsrfCookie resp
             false
         else
-            true
+            header = cookie.Value
 
     let work (ctx: HttpContextBase) =
         let req = ctx.Request
@@ -160,6 +154,16 @@ type RpcHandler() =
             | null -> None
             | x -> Some x
         R.IsRemotingRequest getHeader
+
+    static member CsrfTokenKey = RpcUtil.CsrfTokenKey
+
+    static member SetCsrfCookie (resp: HttpResponseBase) =
+        use rng = new RNGCryptoServiceProvider()
+        let bytes = Array.zeroCreate 32
+        rng.GetBytes(bytes)
+        HttpCookie(RpcUtil.CsrfTokenKey, Convert.ToBase64String bytes,
+            Expires = System.DateTime.UtcNow.AddYears(1000))
+        |> resp.SetCookie
 
 
 /// The WebSharper RPC HttpModule. Handles RPC requests.
