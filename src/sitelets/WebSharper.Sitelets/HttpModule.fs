@@ -36,44 +36,53 @@ module internal SiteLoading =
 
     type private BF = BindingFlags
 
-    let TryLoadSite (assembly: Assembly) =
+    /// Looks up assembly-wide Website attribute and runs it if present
+    let TryLoadSiteA (assembly: Assembly) =
         let aT = typeof<WebsiteAttribute>
         match Attribute.GetCustomAttribute(assembly, aT) with
         | :? WebsiteAttribute as attr ->
             attr.Run () |> Some
-        | _ ->
-          try
-            assembly.GetTypes()
-            |> Array.tryPick (fun ty ->
-                ty.GetProperties(BF.Static ||| BF.Public ||| BF.NonPublic)
-                |> Array.tryPick (fun p ->
-                    match Attribute.GetCustomAttribute(p, aT) with
-                    | :? WebsiteAttribute ->
-                        let sitelet = p.GetGetMethod().Invoke(null, [||])
-                        let upcastSitelet =
-                            sitelet.GetType()
-                                .GetProperty("Upcast", BF.Instance ||| BF.NonPublic)
-                                .GetGetMethod(nonPublic = true)
-                                .Invoke(sitelet, [||])
-                                :?> Sitelet<obj>
-                        Some (upcastSitelet, [])
-                    | _ -> None
-                )
+        | _ -> None
+    
+    /// Searches for static property with Website attribute and loads it if found
+    let TryLoadSiteB (assembly: Assembly) =
+        let aT = typeof<WebsiteAttribute>
+        assembly.GetModules(false)
+        |> Seq.collect (fun m ->
+            try m.GetTypes() |> Seq.ofArray
+            with :? ReflectionTypeLoadException as e ->
+                e.Types |> Seq.filter (fun t -> not (obj.ReferenceEquals(t, null)))            
+        )
+        |> Seq.tryPick (fun ty ->
+            ty.GetProperties(BF.Static ||| BF.Public ||| BF.NonPublic)
+            |> Array.tryPick (fun p ->
+                match Attribute.GetCustomAttribute(p, aT) with
+                | :? WebsiteAttribute ->
+                    let sitelet = p.GetGetMethod().Invoke(null, [||])
+                    let upcastSitelet =
+                        sitelet.GetType()
+                            .GetProperty("Upcast", BF.Instance ||| BF.NonPublic)
+                            .GetGetMethod(nonPublic = true)
+                            .Invoke(sitelet, [||])
+                            :?> Sitelet<obj>
+                    Some (upcastSitelet, [])
+                | _ -> None
             )
-          with :? System.Reflection.ReflectionTypeLoadException as e ->
-            // Some WebSharper assemblies have types that use Mono.Cecil,
-            // so they will fail since Mono.Cecil.dll isn't (necessarily) in bin.
-            // But that's okay because they don't contain sitelets anyway.
-            None
+        )
+
+    let TryLoadSite (assembly: Assembly) =
+        match TryLoadSiteA assembly with
+        | Some _ as res -> res
+        | _ -> TryLoadSiteB assembly
 
     let LoadFromAssemblies (app: HttpApplication) =
         Timed "Initialized sitelets" <| fun () ->
             let assemblies =
                 BuildManager.GetReferencedAssemblies()
                 |> Seq.cast<Assembly>
-            let pairs = Seq.choose TryLoadSite assemblies
-            let sitelets = Seq.map fst pairs
-            let actions = Seq.map snd pairs
+            let sitelets, actions = 
+                Seq.choose TryLoadSiteA assemblies 
+                |> List.ofSeq |> List.unzip
             (Sitelet.Sum sitelets, Seq.concat actions)
 
 module private WebUtils =
@@ -235,5 +244,9 @@ type HttpModule() =
         |> Option.map (fun h -> h.ProcessRequest(ctx))
 
     static member DiscoverSitelet(assemblies: seq<Assembly>) =
-        Seq.tryPick SiteLoading.TryLoadSite assemblies
-        |> Option.map fst
+        let assemblies = Seq.cache assemblies
+        match Seq.tryPick SiteLoading.TryLoadSiteA assemblies with
+        | Some (s, _) -> Some s
+        | _ ->
+            Seq.tryPick SiteLoading.TryLoadSiteB assemblies
+            |> Option.map fst

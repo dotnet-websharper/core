@@ -48,8 +48,6 @@ module CodeModel =
                 ObsoleteStatus = NotObsolete
             }
 
-        member internal this.Clone() = (this.MemberwiseClone()) :?> Entity
-
         /// On type definitions, applies the update.
         /// On other entities, clones the specified entity object, invokes the
         /// function to perform changes on it as side-effects and then
@@ -60,7 +58,7 @@ module CodeModel =
                     f x
                     x  
                 else
-                    let clone = x.Clone() :?> 'TEntity
+                    let clone = x.MemberwiseClone() :?> 'TEntity
                     f clone
                     clone
 
@@ -129,15 +127,14 @@ module CodeModel =
         [<System.Obsolete>]
         static member ( |=> )<'T when 'T :> TypeDeclaration>
             (this: 'T, t: Type.IType) =
-                let x = this.Clone() :?> 'T
-                x.Type <- t.Type
+                this.Type <- t.Type
                 match t.Type with
                 | Type.DeclaredType id 
                 | Type.SpecializedType(Type.DeclaredType id, _) ->
                     id.Name <- this.Name
-                    x.Id <- id
+                    this.Id <- id
                 | _ -> ()
-                x
+                this
 
         member this.Item
             with get ([<System.ParamArray>] x : Type.IType []) =
@@ -299,11 +296,13 @@ module CodeModel =
     and Method =
         inherit MethodBase
         val mutable Generics : list<TypeParameter>
+        val mutable IsOverride : bool
 
         internal new (name, t) =
             {
                 inherit MethodBase(name, t)
                 Generics = []
+                IsOverride = false
             }
 
         member private this.Add<'T when 'T :> TypeDeclaration> (x: 'T) =
@@ -325,6 +324,7 @@ module CodeModel =
         val mutable IndexerType : option<T>
         val mutable GetterInline : option<Inline>
         val mutable SetterInline : option<Inline>
+        val mutable IsOverride : bool
 
         internal new (name, t) = 
             {
@@ -334,6 +334,7 @@ module CodeModel =
                 HasGetter = false
                 HasSetter = false
                 IndexerType = None
+                IsOverride = false
             }
 
         member private this.Add<'T when 'T :> TypeDeclaration> (x: 'T) =

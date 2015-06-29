@@ -450,6 +450,11 @@ module QuotationUtils =
             for t in ts ->
                 CR.Type.FromType(t)
         ]
+//
+//    let generalize (m: MethodInfo) =
+//        if m.IsGenericMethod && not m.IsGenericMethodDefinition then
+//            m.GetGenericMethodDefinition()
+//        else m
 
     let getProperTypeGenerics (t: System.Type) =
         if t.IsGenericType || t.IsGenericTypeDefinition then
@@ -458,7 +463,7 @@ module QuotationUtils =
         else []
 
     let getProperMethodGenerics (m: MethodBase) =
-        if m.IsGenericMethod|| m.IsGenericMethodDefinition then
+        if m.IsGenericMethod || m.IsGenericMethodDefinition then
             m.GetGenericArguments()
             |> convertTypes
         else []
@@ -493,9 +498,7 @@ module QuotationUtils =
         else p
 
     let ConvertConstructor (c: ConstructorInfo) : Q.Concrete<CR.Constructor> =
-        let tD = CR.TypeDefinition.FromType c.DeclaringType
-        makeSignature (c.GetParameters())
-        |> CR.Constructor.Create tD
+        CR.Constructor.Parse c
         |> makeConcrete c.DeclaringType []
 
     let ConvertMethod (m: MethodInfo) : Q.Concrete<CR.Method> =
@@ -1012,9 +1015,9 @@ module Reflection =
             lazy
                 try
                     d.GetTypes()
-                    |> Array.map (fun x -> conv.ConvertType(x))
-                with _ ->
-                    Array.empty
+                    |> Array.choose (fun x -> if x.IsNested then None else Some (conv.ConvertType(x)))
+                with :? ReflectionTypeLoadException as e ->
+                    failwith "Reflection type load error: %s" e.LoaderExceptions.[0].Message
 
         override this.CustomAttributes = atts.Value
         override this.EmbeddedResources = embeddedResources.Value

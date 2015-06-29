@@ -724,11 +724,17 @@ type MemberConverter
                 yield mB.BuildParamArrayParameter(tC.TypeReference (pa, defT))
         |]
 
+    let staticMethodAttributes = MethodAttributes.Static ||| MethodAttributes.Public
+    let interfaceMethodAttributes = MethodAttributes.Public ||| MethodAttributes.Abstract ||| MethodAttributes.Virtual ||| MethodAttributes.HideBySig ||| MethodAttributes.NewSlot
+    let overrideMethodAttributes = MethodAttributes.Public ||| MethodAttributes.Final ||| MethodAttributes.Virtual ||| MethodAttributes.HideBySig ||| MethodAttributes.NewSlot
+
     let methodAttributes (dt: TypeDefinition) (x: Code.Entity) =
         match x with
         | :? Code.Constructor -> MethodAttributes.Public
-        | :? Code.Member as m when m.IsStatic -> MethodAttributes.Static ||| MethodAttributes.Public
-        | _ when dt.IsInterface -> MethodAttributes.Public ||| MethodAttributes.Abstract ||| MethodAttributes.Virtual
+        | :? Code.Member as m when m.IsStatic -> staticMethodAttributes
+        | :? Code.Method as m when m.IsOverride -> overrideMethodAttributes
+        | :? Code.Property as p when p.IsOverride -> overrideMethodAttributes
+        | _ when dt.IsInterface -> interfaceMethodAttributes
         | _ -> MethodAttributes.Public
 
     let addConstructor (dT: TypeDefinition) (td: Code.TypeDeclaration) (x: Code.Constructor) =
@@ -782,9 +788,9 @@ type MemberConverter
             let mD = MethodDefinition("get_" + name, methodAttributes dT p, ty)
             if not dT.IsInterface then
                 mB.AddBody mD
-                iG.GetPropertyGetterInline(td, t, p)
-                |> inlineAttribute
-                |> mD.CustomAttributes.Add
+            iG.GetPropertyGetterInline(td, t, p)
+            |> inlineAttribute
+            |> mD.CustomAttributes.Add
             match p.IndexerType with
             | None -> ()
             | Some it ->
@@ -795,9 +801,9 @@ type MemberConverter
             let mD = MethodDefinition("set_" + name, methodAttributes dT p, tB.Void)
             if not dT.IsInterface then
                 mB.AddBody mD
-                iG.GetPropertySetterInline(td, t, p)
-                |> inlineAttribute
-                |> mD.CustomAttributes.Add
+            iG.GetPropertySetterInline(td, t, p)
+            |> inlineAttribute
+            |> mD.CustomAttributes.Add
             match p.IndexerType with
             | None -> ()
             | Some it ->
@@ -876,15 +882,15 @@ type MemberConverter
             mD.Parameters.Add p
         if not dT.IsInterface then
             mB.AddBody mD
-            match x.Macro with
-            | Some macro ->
-                tC.TypeReference (macro, td)
-                |> macroAttribute
-                |> mD.CustomAttributes.Add
-            | _ -> 
-                iG.GetMethodBaseInline(td, t, x)
-                |> inlineAttribute
-                |> mD.CustomAttributes.Add
+        match x.Macro with
+        | Some macro ->
+            tC.TypeReference (macro, td)
+            |> macroAttribute
+            |> mD.CustomAttributes.Add
+        | _ -> 
+            iG.GetMethodBaseInline(td, t, x)
+            |> inlineAttribute
+            |> mD.CustomAttributes.Add
         setObsoleteAttribute x mD.CustomAttributes
         dT.Methods.Add mD
 

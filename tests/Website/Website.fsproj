@@ -15,7 +15,6 @@
     <Compile Include="Dependencies.fs" />
     <Compile Include="Actions.fs" />
     <Compile Include="Client.fs" />
-    <Compile Include="Controls.fs" />
     <Compile Include="Skin.fs" />
     <Compile Include="Content.fs" />
     <Compile Include="Main.fs" />
