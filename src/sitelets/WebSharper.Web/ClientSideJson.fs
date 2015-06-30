@@ -60,6 +60,33 @@ module private Encode =
             for KeyValue(k, v) in d :> seq<_> do o?(k) <- encEl v
             o)
 
+[<JavaScript>]
+module private Decode =
+
+    let Tuple (decs: (obj -> obj)[]) = Encode.Tuple decs
+
+    let List (decEl: obj -> 'T) =
+        box (fun (a: obj[]) ->
+            List.init a.Length (fun i -> decEl a.[i]))
+
+    let Set (decEl: obj -> 'T) =
+        box (fun (a: obj[]) ->
+            Set.ofArray(Array.map decEl a))
+
+    let Array decEl = Encode.Array decEl
+
+    let StringMap (decEl: obj -> 'T) =
+        box (fun (o: obj) ->
+            let m = ref Map.empty
+            JS.ForEach o (fun k -> m := Map.add k o?(k) !m; false)
+            !m)
+
+    let StringDictionary (decEl: obj -> 'T) =
+        box (fun (o: obj) ->
+            let d = System.Collections.Generic.Dictionary()
+            JS.ForEach o (fun k -> d.[k] <- o?(k); false)
+            d)
+
 [<AutoOpen>]
 module private Macro =
 
@@ -76,6 +103,7 @@ module private Macro =
     let cCall t m x = J.Call (t, cString m, x)
     let cCallG l m x = cCall (J.Global l) m x
     let cCallE m x = cCallG ["WebSharper"; "Json"; "Encode"] m x
+    let cCallD m x = cCallG ["WebSharper"; "Json"; "Decode"] m x
     let (|T|) (t: R.TypeDefinition) = t.FullName
     let (>>=) (m: Choice<E, string> as x) (f: E -> Choice<E, string>) =
         match m with
@@ -87,54 +115,53 @@ module private Macro =
     module Funs =
         let id = J.Global ["WebSharper"; "Json"; "Encode"; "Id"]
 
-    type SerializeMacro() =
+    let rec encode call (t: T) =
+        match t with
+        | T.Array (t, 1) ->
+            encode call t >>= fun e ->
+            ok (call "Array" [e])
+        | T.Array _ ->
+            fail "JSON serialization for multidimensional arrays is not supported."
+        | T.Concrete (T ("Microsoft.FSharp.Core.Unit"
+                        |"System.Boolean"
+                        |"System.SByte" | "System.Byte"
+                        |"System.Int16" | "System.UInt16"
+                        |"System.Int32" | "System.UInt32"
+                        |"System.Int64" | "System.UInt64"
+                        |"System.Single"| "System.Double"
+                        |"System.Decimal"
+                        |"System.String"), []) ->
+            ok Funs.id
+        | T.Concrete (T "Microsoft.FSharp.Collections.FSharpList`1", [t]) ->
+            encode call t >>= fun e ->
+            ok (call "List" [e])
+        | T.Concrete (T "Microsoft.FSharp.Collections.FSharpSet`1", [t]) ->
+            encode call t >>= fun e ->
+            ok (call "Set" [e])
+        | T.Concrete (T "Microsoft.FSharp.Collections.FSharpMap`2",
+                        [T.Concrete (T "System.String", []); t]) ->
+            encode call t >>= fun e ->
+            ok (call "StringMap" [e])
+        | T.Concrete (T "System.Collections.Generic.Dictionary`2",
+                        [T.Concrete (T "System.String", []); t]) ->
+            encode call t >>= fun e ->
+            ok (call "StringDictionary" [e])
+        | T.Concrete (T n, ts) when n.StartsWith "System.Tuple`" ->
+            ((fun es -> ok (call "Tuple" [J.NewArray es])), ts)
+            ||> List.fold (fun k t ->
+                fun es -> encode call t >>= fun e -> k (e :: es))
+            <| []
+        | t ->
+            fail ("Type not supported for serialization: " + t.FullName)
 
-        let rec encode (t: T) =
-            match t with
-            | T.Array (t, 1) ->
-                encode t >>= fun e ->
-                ok (cCallE "Array" [e])
-            | T.Array _ ->
-                fail "JSON serialization for multidimensional arrays is not supported."
-            | T.Concrete (T ("Microsoft.FSharp.Core.Unit"
-                            |"System.Boolean"
-                            |"System.SByte" | "System.Byte"
-                            |"System.Int16" | "System.UInt16"
-                            |"System.Int32" | "System.UInt32"
-                            |"System.Int64" | "System.UInt64"
-                            |"System.Single"| "System.Double"
-                            |"System.Decimal"
-                            |"System.String"), []) ->
-                ok Funs.id
-            | T.Concrete (T "Microsoft.FSharp.Collections.FSharpList`1", [t]) ->
-                encode t >>= fun e ->
-                ok (cCallE "List" [e])
-            | T.Concrete (T "Microsoft.FSharp.Collections.FSharpSet`1", [t]) ->
-                encode t >>= fun e ->
-                ok (cCallE "Set" [e])
-            | T.Concrete (T "Microsoft.FSharp.Collections.FSharpMap`2",
-                            [T.Concrete (T "System.String", []); t]) ->
-                encode t >>= fun e ->
-                ok (cCallE "StringMap" [e])
-            | T.Concrete (T "System.Collections.Generic.Dictionary`2",
-                            [T.Concrete (T "System.String", []); t]) ->
-                encode t >>= fun e ->
-                ok (cCallE "StringDictionary" [e])
-            | T.Concrete (T n, ts) when n.StartsWith "System.Tuple`" ->
-                ((fun es -> ok (cCallE "Tuple" [J.NewArray es])), ts)
-                ||> List.fold (fun k t ->
-                    fun es -> encode t >>= fun e -> k (e :: es))
-                <| []
-            | t ->
-                let msg = "Type not supported for serialization: " + t.FullName
-                raise (System.NotImplementedException msg)
+    type SerializeMacro() =
 
         interface M.IMacro with
             member this.Translate(q, tr) =
                 match q with
                 // Serialize<'T> x
                 | Q.CallModule({Generics = [t]}, [x]) ->
-                    match encode t with
+                    match encode cCallE t with
                     | Choice1Of2 enc ->
                         cCallG ["JSON"] "stringify" [J.Application(enc, [tr x])]
                     | Choice2Of2 msg ->
@@ -145,7 +172,15 @@ module private Macro =
 
         interface M.IMacro with
             member this.Translate(q, tr) =
-                raise (System.NotImplementedException())
+                match q with
+                // Deserialize<'T> x
+                | Q.CallModule({Generics = [t]}, [x]) ->
+                    match encode cCallD t with
+                    | Choice1Of2 dec ->
+                        J.Application(dec, [cCallG ["JSON"] "parse" [tr x]])
+                    | Choice2Of2 msg ->
+                        failwithf "%A: %s" t msg
+                | _ -> tr q
 
 /// Serializes an object to JSON using the same readable format as Sitelets.
 /// For plain JSON stringification, see Json.Stringify.
