@@ -319,8 +319,7 @@ module internal Internal =
     let cCall t m x = J.Call (t, cString m, x)
     let cCallG l m x = cCall (J.Global l) m x
     let cCallR m x = cCallG ["WebSharper"; "Testing"; "Random"] m x
-    let (|T|_|) n (t: R.TypeDefinition) =
-        if t.FullName = n then Some() else None
+    let (|T|) (t: R.TypeDefinition) = t.FullName
     let (>>=) (wrap: (E -> E), m: Choice<E, string> as x) (f: (E -> E) -> E -> (E -> E) * Choice<E, string>) =
         match m with
         | Choice1Of2 e -> f wrap e
