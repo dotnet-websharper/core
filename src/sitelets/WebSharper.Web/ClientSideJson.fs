@@ -160,7 +160,8 @@ module private Macro =
             member this.Translate(q, tr) =
                 match q with
                 // Serialize<'T> x
-                | Q.CallModule({Generics = [t]}, [x]) ->
+                | Q.CallModule({Generics = [t]}, [x])
+                | Q.Call({Generics = [t]}, [x]) ->
                     match encode cCallE t with
                     | Choice1Of2 enc ->
                         cCallG ["JSON"] "stringify" [J.Application(enc, [tr x])]
@@ -174,7 +175,8 @@ module private Macro =
             member this.Translate(q, tr) =
                 match q with
                 // Deserialize<'T> x
-                | Q.CallModule({Generics = [t]}, [x]) ->
+                | Q.CallModule({Generics = [t]}, [x])
+                | Q.Call({Generics = [t]}, [x]) ->
                     match encode cCallD t with
                     | Choice1Of2 dec ->
                         J.Application(dec, [cCallG ["JSON"] "parse" [tr x]])
