@@ -97,7 +97,7 @@ module private Decode =
 
     let Record (t: obj) (fields: (string * (obj -> obj) * OptionalFieldKind)[]) =
         box (fun (x: obj) ->
-            let o = JS.New t
+            let o = if t ===. JS.Undefined then New [] else JS.New t
             fields |> Array.iter (fun (name, enc, kind) ->
                 match kind with
                 | OptionalFieldKind.NotOption ->
