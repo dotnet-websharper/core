@@ -1530,3 +1530,7 @@ let Stringify v =
     use w = new System.IO.StringWriter()
     Write w v
     w.ToString()
+
+module Internal =
+
+    let inline GetName x = TAttrs.GetName x

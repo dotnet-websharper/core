@@ -104,11 +104,14 @@ type Provider =
     /// Constructs a basic JSON encoding provider.
     /// This provider uses an untyped encoding
     /// and is suitable for use with external APIs.
+    /// It is the encoding used by Sitelets (Infer, JsonContent)
+    /// and WebSharper.Json.Serialize/Deserialize.
     static member Create : unit -> Provider
 
     /// Constructs a typed JSON encoding provider.
     /// This provider uses a WebSharper-specific encoding of types
     /// and is only suitable for internal uses.
+    /// It is the encoding used for Remoting and Web.Control initialization.
     static member CreateTyped : M.Info -> Provider
 
     /// Derives a decoder for a given type.
@@ -128,3 +131,14 @@ type Provider =
 
     /// Packs an encoded value to JSON.
     member Pack : Encoded -> Value
+
+/// Common functions about the JSON encoding.
+module Internal =
+
+    open System.Collections.Generic
+    open System.Reflection
+
+    /// Get the (potentially customized) name of a field or property.
+    val inline GetName : ^T -> string
+        when ^T : (member GetCustomAttributesData : unit -> IList<CustomAttributeData>)
+         and ^T : (member Name : string)

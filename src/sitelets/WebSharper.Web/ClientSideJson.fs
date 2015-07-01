@@ -39,6 +39,13 @@ module private Encode =
             l |> List.iter (fun x -> a.JS.Push (encEl x) |> ignore)
             a)
 
+    let Record (fields: (string * (obj -> obj))[]) =
+        box (fun (x: obj) ->
+            let o = New []
+            fields |> Array.iter (fun (name, enc) ->
+                o?(name) <- enc x?(name))
+            o)
+
     let Array (encEl: 'T -> obj) =
         box (fun (a: 'T[]) -> Array.map encEl a)
 
@@ -73,6 +80,8 @@ module private Decode =
         box (fun (a: obj[]) ->
             Set.ofArray(Array.map decEl a))
 
+    let Record decEl = Encode.Record decEl
+
     let Array decEl = Encode.Array decEl
 
     let StringMap (decEl: obj -> 'T) =
@@ -95,6 +104,7 @@ module private Macro =
     module T = WebSharper.Core.Reflection.Type
     module J = WebSharper.Core.JavaScript.Core
     module M = WebSharper.Core.Macros
+    type FST = Microsoft.FSharp.Reflection.FSharpType
     type T = WebSharper.Core.Reflection.Type
     type E = J.Expression
 
@@ -105,6 +115,7 @@ module private Macro =
     let cCallE m x = cCallG ["WebSharper"; "Json"; "Encode"] m x
     let cCallD m x = cCallG ["WebSharper"; "Json"; "Decode"] m x
     let (|T|) (t: R.TypeDefinition) = t.FullName
+
     let (>>=) (m: Choice<E, string> as x) (f: E -> Choice<E, string>) =
         match m with
         | Choice1Of2 e -> f e
@@ -112,13 +123,17 @@ module private Macro =
     let ok x = Choice1Of2 x : Choice<E, string>
     let fail x = Choice2Of2 x : Choice<E, string>
 
+    let flags =
+        System.Reflection.BindingFlags.Public
+        ||| System.Reflection.BindingFlags.NonPublic
+
     module Funs =
         let id = J.Global ["WebSharper"; "Json"; "Encode"; "Id"]
 
-    let rec encode call (t: T) =
+    let rec encode name call (t: T) =
         match t with
         | T.Array (t, 1) ->
-            encode call t >>= fun e ->
+            encode name call t >>= fun e ->
             ok (call "Array" [e])
         | T.Array _ ->
             fail "JSON serialization for multidimensional arrays is not supported."
@@ -133,36 +148,49 @@ module private Macro =
                         |"System.String"), []) ->
             ok Funs.id
         | T.Concrete (T "Microsoft.FSharp.Collections.FSharpList`1", [t]) ->
-            encode call t >>= fun e ->
+            encode name call t >>= fun e ->
             ok (call "List" [e])
         | T.Concrete (T "Microsoft.FSharp.Collections.FSharpSet`1", [t]) ->
-            encode call t >>= fun e ->
+            encode name call t >>= fun e ->
             ok (call "Set" [e])
         | T.Concrete (T "Microsoft.FSharp.Collections.FSharpMap`2",
                         [T.Concrete (T "System.String", []); t]) ->
-            encode call t >>= fun e ->
+            encode name call t >>= fun e ->
             ok (call "StringMap" [e])
         | T.Concrete (T "System.Collections.Generic.Dictionary`2",
                         [T.Concrete (T "System.String", []); t]) ->
-            encode call t >>= fun e ->
+            encode name call t >>= fun e ->
             ok (call "StringDictionary" [e])
         | T.Concrete (T n, ts) when n.StartsWith "System.Tuple`" ->
             ((fun es -> ok (call "Tuple" [J.NewArray es])), ts)
             ||> List.fold (fun k t ->
-                fun es -> encode call t >>= fun e -> k (e :: es))
+                fun es -> encode name call t >>= fun e -> k (e :: es))
             <| []
-        | t ->
-            fail ("Type not supported for serialization: " + t.FullName)
+        | T.Concrete _ ->
+            let t = t.Load(false)
+            if FST.IsRecord(t, flags) then
+                let fields =
+                    FST.GetRecordFields(t, flags)
+                    |> Array.map (fun f ->
+                        WebSharper.Core.Json.Internal.GetName f, f.PropertyType)
+                ((fun es -> ok (call "Record" [J.NewArray es])), fields)
+                ||> Array.fold (fun k (n, t) ->
+                    fun es ->
+                        encode name call (T.FromType t) >>= fun e ->
+                        k (J.NewArray [cString n; e] :: es))
+                <| []
+            else
+                fail (name + ": Type not supported: " + t.FullName)
+        | T.Generic _ -> fail (name + ": Cannot de/serialize a generic value. You must call this function with a concrete type.")
 
     type SerializeMacro() =
-
         interface M.IMacro with
             member this.Translate(q, tr) =
                 match q with
                 // Serialize<'T> x
                 | Q.CallModule({Generics = [t]}, [x])
                 | Q.Call({Generics = [t]}, [x]) ->
-                    match encode cCallE t with
+                    match encode "Serialize" cCallE t with
                     | Choice1Of2 enc ->
                         cCallG ["JSON"] "stringify" [J.Application(enc, [tr x])]
                     | Choice2Of2 msg ->
@@ -170,14 +198,13 @@ module private Macro =
                 | _ -> tr q
 
     type DeserializeMacro() =
-
         interface M.IMacro with
             member this.Translate(q, tr) =
                 match q with
                 // Deserialize<'T> x
                 | Q.CallModule({Generics = [t]}, [x])
                 | Q.Call({Generics = [t]}, [x]) ->
-                    match encode cCallD t with
+                    match encode "Deserialize" cCallD t with
                     | Choice1Of2 dec ->
                         J.Application(dec, [cCallG ["JSON"] "parse" [tr x]])
                     | Choice2Of2 msg ->
