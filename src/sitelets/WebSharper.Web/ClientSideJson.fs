@@ -24,6 +24,11 @@ open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Core.Attributes
 
+type private OptionalFieldKind =
+    | NotOption = 0     // The field doesn't have type option<'T>
+    | NormalOption = 1  // The field has type option<'T>
+    | MarkedOption = 2  // The field has type option<'T> and is marked [<OptionalField>]
+
 [<JavaScript>]
 module private Encode =
 
@@ -39,11 +44,21 @@ module private Encode =
             l |> List.iter (fun x -> a.JS.Push (encEl x) |> ignore)
             a)
 
-    let Record (fields: (string * (obj -> obj))[]) =
+    let Record (fields: (string * (obj -> obj) * OptionalFieldKind)[]) =
         box (fun (x: obj) ->
             let o = New []
-            fields |> Array.iter (fun (name, enc) ->
-                o?(name) <- enc x?(name))
+            fields |> Array.iter (fun (name, enc, kind) ->
+                match kind with
+                | OptionalFieldKind.NotOption ->
+                    o?(name) <- enc x?(name)
+                | OptionalFieldKind.NormalOption ->
+                    match x?(name) with
+                    | Some x -> o?(name) <- x
+                    | None -> ()
+                | OptionalFieldKind.MarkedOption ->
+                    if JS.HasOwnProperty x name then
+                        o?(name) <- x?(name)
+                | _ -> failwith "Invalid field option kind")
             o)
 
     let Array (encEl: 'T -> obj) =
@@ -80,7 +95,23 @@ module private Decode =
         box (fun (a: obj[]) ->
             Set.ofArray(Array.map decEl a))
 
-    let Record decEl = Encode.Record decEl
+    let Record (fields: (string * (obj -> obj) * OptionalFieldKind)[]) =
+        box (fun (x: obj) ->
+            let o = New []
+            fields |> Array.iter (fun (name, enc, kind) ->
+                match kind with
+                | OptionalFieldKind.NotOption ->
+                    o?(name) <- enc x?(name)
+                | OptionalFieldKind.NormalOption ->
+                    o?(name) <-
+                        if JS.HasOwnProperty x name
+                        then Some x?(name)
+                        else None
+                | OptionalFieldKind.MarkedOption ->
+                    if JS.HasOwnProperty x name then
+                        o?(name) <- x?(name)
+                | _ -> failwith "Invalid field option kind")
+            o)
 
     let Array decEl = Encode.Array decEl
 
@@ -172,12 +203,20 @@ module private Macro =
                 let fields =
                     FST.GetRecordFields(t, flags)
                     |> Array.map (fun f ->
-                        WebSharper.Core.Json.Internal.GetName f, f.PropertyType)
+                        WebSharper.Core.Json.Internal.GetName f, f, f.PropertyType)
                 ((fun es -> ok (call "Record" [J.NewArray es])), fields)
-                ||> Array.fold (fun k (n, t) ->
+                ||> Array.fold (fun k (n, f, t) ->
                     fun es ->
+                        let t, optionKind =
+                            if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>> then
+                                let kind =
+                                    if Array.isEmpty (f.GetCustomAttributes(typeof<OptionalFieldAttribute>, false)) then
+                                        OptionalFieldKind.NormalOption
+                                    else OptionalFieldKind.MarkedOption
+                                t.GetGenericArguments().[0], cInt (int kind)
+                            else t, cInt (int OptionalFieldKind.NotOption)
                         encode name call (T.FromType t) >>= fun e ->
-                        k (J.NewArray [cString n; e] :: es))
+                        k (J.NewArray [cString n; e; optionKind] :: es))
                 <| []
             else
                 fail (name + ": Type not supported: " + t.FullName)
