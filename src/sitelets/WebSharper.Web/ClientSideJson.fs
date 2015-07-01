@@ -44,7 +44,7 @@ module private Encode =
             l |> List.iter (fun x -> a.JS.Push (encEl x) |> ignore)
             a)
 
-    let Record (fields: (string * (obj -> obj) * OptionalFieldKind)[]) =
+    let Record _ (fields: (string * (obj -> obj) * OptionalFieldKind)[]) =
         box (fun (x: obj) ->
             let o = New []
             fields |> Array.iter (fun (name, enc, kind) ->
@@ -95,9 +95,9 @@ module private Decode =
         box (fun (a: obj[]) ->
             Set.ofArray(Array.map decEl a))
 
-    let Record (fields: (string * (obj -> obj) * OptionalFieldKind)[]) =
+    let Record (t: obj) (fields: (string * (obj -> obj) * OptionalFieldKind)[]) =
         box (fun (x: obj) ->
-            let o = New []
+            let o = JS.New t
             fields |> Array.iter (fun (name, enc, kind) ->
                 match kind with
                 | OptionalFieldKind.NotOption ->
@@ -197,14 +197,20 @@ module private Macro =
             ||> List.fold (fun k t ->
                 fun es -> encode name call t >>= fun e -> k (e :: es))
             <| []
-        | T.Concrete _ ->
+        | T.Concrete (td, _) ->
             let t = t.Load(false)
             if FST.IsRecord(t, flags) then
                 let fields =
                     FST.GetRecordFields(t, flags)
                     |> Array.map (fun f ->
                         WebSharper.Core.Json.Internal.GetName f, f, f.PropertyType)
-                ((fun es -> ok (call "Record" [J.NewArray es])), fields)
+                ((fun es ->
+                    let n =
+                        match td.Name.LastIndexOf '`' with
+                        | -1 -> td.Name
+                        | i -> td.Name.[..i-1]
+                    ok (call "Record" [J.FieldGet(J.Global td.DeclaringAddress, cString n); J.NewArray es])
+                 ), fields)
                 ||> Array.fold (fun k (n, f, t) ->
                     fun es ->
                         let t, optionKind =
