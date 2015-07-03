@@ -1534,3 +1534,32 @@ let Stringify v =
 module Internal =
 
     let inline GetName x = TAttrs.GetName x
+
+    type UnionDiscriminator =
+        | NoField
+        | StandardField
+        | NamedField of string
+
+    type UnionCaseEncoding =
+        | Normal of name: string * args: (string * System.Type)[]
+        | InlineRecord of name: string * record: System.Type
+
+    let GetUnionEncoding (t: System.Type) =
+        let discr =
+            match getDiscriminatorName t with
+            | None -> StandardField
+            | Some None -> NoField
+            | Some (Some n) -> NamedField n
+        let cases =
+            FST.GetUnionCases t
+            |> Array.mapi (fun i uci ->
+                let name =
+                    match discr with
+                    | StandardField -> "$" + string i
+                    | _ -> GetName uci
+                if isInlinableRecordCase uci then
+                    InlineRecord(name = name, record = uci.GetFields().[0].PropertyType)
+                else
+                    let args = uci.GetFields() |> Array.map (fun f -> GetName f, f.PropertyType)
+                    Normal(name = name, args = args))
+        discr, cases

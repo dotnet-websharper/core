@@ -142,3 +142,16 @@ module Internal =
     val inline GetName : ^T -> string
         when ^T : (member GetCustomAttributesData : unit -> IList<CustomAttributeData>)
          and ^T : (member Name : string)
+
+    type UnionDiscriminator =
+        | NoField
+        | StandardField
+        | NamedField of string
+
+    type UnionCaseEncoding =
+        | Normal of name: string * args: (string * System.Type)[]
+        | InlineRecord of name: string * record: System.Type
+
+    /// Get the encoding characteristics of a discriminated union.
+    /// t is assumed to be a discriminated union.
+    val GetUnionEncoding : t: System.Type -> UnionDiscriminator * UnionCaseEncoding[]
