@@ -1206,7 +1206,7 @@ let defaultGetUnionTag t =
             | _ -> None
         | _ -> None
 
-let inferUnionTag t =
+let inferredCasesTable t =
     let cases =
         FST.GetUnionCases(t, flags)
         |> Array.map (fun c ->
@@ -1245,10 +1245,13 @@ let inferUnionTag t =
             buildTable
                 <| (name, tag) :: acc
                 <| Map.remove tag cases
+    buildTable [] cases
+
+let inferUnionTag t =
     let findInTable table get =
         table |> List.tryPick (fun (name, tag) ->
             get name |> Option.map (fun _ -> tag))
-    findInTable (buildTable [] cases)
+    findInTable (inferredCasesTable t)
         
 
 let defaultEncodeUnionTag _ (tag: int) =
@@ -1536,7 +1539,7 @@ module Internal =
     let inline GetName x = TAttrs.GetName x
 
     type UnionDiscriminator =
-        | NoField
+        | NoField of (string * int) list
         | StandardField
         | NamedField of string
 
@@ -1548,7 +1551,7 @@ module Internal =
         let discr =
             match getDiscriminatorName t with
             | None -> StandardField
-            | Some None -> NoField
+            | Some None -> NoField (inferredCasesTable t)
             | Some (Some n) -> NamedField n
         let cases =
             FST.GetUnionCases t

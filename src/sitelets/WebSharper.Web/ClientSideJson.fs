@@ -65,14 +65,15 @@ module private Encode =
                     | _ -> failwith "Invalid field option kind")
                 o))
 
-    let Union (discr: string) (cases: (string * (string * string * (unit -> obj -> obj))[])[]) =
+    let Union _ (discr: string) (cases: (string * (string * string * (unit -> obj -> obj))[])[]) =
         box (fun () ->
             box (fun (x: obj) ->
                 let o = New []
                 let tag = x?("$")
                 let tagName, fields = cases.[tag]
-                if discr <> null then o?(discr) <- tagName
-                fields |> Array.iter (fun (from, ``to``, enc) -> o?(``to``) <- enc () (x?(from)))
+                if JS.TypeOf discr = JS.Kind.String then o?(discr) <- tagName
+                fields |> Array.iter (fun (from, ``to``, enc) ->
+                    o?(``to``) <- enc () (x?(from)))
                 o))
 
     let Array (encEl: unit -> 'T -> obj) =
@@ -140,6 +141,24 @@ module private Decode =
                         if JS.HasOwnProperty x name then
                             o?(name) <- x?(name)
                     | _ -> failwith "Invalid field option kind")
+                o))
+
+    let Union (t: obj) (discr: string) (cases: (string * (string * string * (unit -> obj -> obj))[])[]) =
+        box (fun () ->
+            box (fun (x: obj) ->
+                let o = if t ===. JS.Undefined then New [] else JS.New t
+                let tag =
+                    if JS.TypeOf discr = JS.Kind.String then
+                        let tagName = x?(discr)
+                        cases |> Array.findIndex (fun (name, _) -> name = tagName)
+                    else
+                        let r = ref JS.Undefined
+                        JS.ForEach discr (fun k ->
+                            if JS.HasOwnProperty x k then r := discr?(k); true else false)
+                        !r
+                o?("$") <- tag
+                cases.[tag] |> snd |> Array.iter (fun (from, ``to``, dec) ->
+                    o?(from) <- dec () (x?(``to``)))
                 o))
 
     let Array decEl =
@@ -254,6 +273,12 @@ module private Macro =
                 fail (name + ": Cannot de/serialize a generic value. You must call this function with a concrete type.")
         // Encode a type that might be recursively defined
         and encRecType t td args =
+            let typeAddress() =
+                let n =
+                    match td.Name.LastIndexOf '`' with
+                    | -1 -> td.Name
+                    | i -> td.Name.[..i-1]
+                J.FieldGet(J.Global td.DeclaringAddress, cString n)
             match td, args with
             | td, args ->
                 let t = t.Load(false)
@@ -263,11 +288,7 @@ module private Macro =
                         |> Array.map (fun f ->
                             JI.GetName f, f, f.PropertyType)
                     ((fun es ->
-                        let n =
-                            match td.Name.LastIndexOf '`' with
-                            | -1 -> td.Name
-                            | i -> td.Name.[..i-1]
-                        ok (call "Record" [J.FieldGet(J.Global td.DeclaringAddress, cString n); J.NewArray es])
+                        ok (call "Record" [typeAddress(); J.NewArray es])
                      ), fields)
                     ||> Array.fold (fun k (n, f, t) ->
                         fun es ->
@@ -286,10 +307,15 @@ module private Macro =
                     let discr, cases = JI.GetUnionEncoding t
                     ((0, fun cases ->
                         let cases = J.NewArray cases
-                        match discr with
-                        | JI.NoField        -> ok (call "Union" [!~J.Null; cases])
-                        | JI.StandardField  -> ok (call "Union" [cString "$"; cases])
-                        | JI.NamedField n   -> ok (call "Union" [cString n; cases])
+                        let discr =
+                            match discr with
+                            | JI.NoField a ->
+                                a
+                                |> List.map (fun (name, id) -> name, cInt id)
+                                |> J.NewObject
+                            | JI.StandardField -> cString "$"
+                            | JI.NamedField n -> cString n
+                        ok (call "Union" [typeAddress(); discr; cases])
                         ), cases)
                     ||> Array.fold (fun (i, k) case ->
                         i + 1, fun es ->

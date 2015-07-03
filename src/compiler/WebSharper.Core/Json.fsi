@@ -144,7 +144,7 @@ module Internal =
          and ^T : (member Name : string)
 
     type UnionDiscriminator =
-        | NoField
+        | NoField of (string * int) list
         | StandardField
         | NamedField of string
 
