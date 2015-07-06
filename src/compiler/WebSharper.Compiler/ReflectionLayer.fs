@@ -546,16 +546,31 @@ module QuotationUtils =
             | true, f -> f x
             | _ -> Q.Literal.Unit
 
-    let GetSourceConstructFlags (info: MemberInfo) =
+    let HasSourceConstructFlag flag (info: MemberInfo) =
         match System.Attribute.GetCustomAttribute(info, typeof<CompilationMappingAttribute>) with
-        | :? CompilationMappingAttribute as attr -> attr.SourceConstructFlags
-        | _ -> SourceConstructFlags.None
+        | :? CompilationMappingAttribute as attr -> attr.SourceConstructFlags.HasFlag flag
+        | _ -> false
 
     let (|RecordProperty|_|) (info: PropertyInfo) : option<Q.Concrete<Re.Property>> =
         let ok =
-            GetSourceConstructFlags(info).HasFlag(SourceConstructFlags.Field)
-            && GetSourceConstructFlags(info.DeclaringType).HasFlag(SourceConstructFlags.RecordType)
+            info |> HasSourceConstructFlag SourceConstructFlags.Field
+            && info.DeclaringType |> HasSourceConstructFlag SourceConstructFlags.RecordType
         if ok then Some (ConvertProperty info) else None
+
+    let flags =
+        System.Reflection.BindingFlags.Public
+        ||| System.Reflection.BindingFlags.NonPublic
+    
+    let (|UnionProperty|_|) (info: PropertyInfo) : option<Q.Concrete<Re.UnionCase> * int> =
+        let case = info.DeclaringType
+        if not case.IsNested then None else
+        let sum = case.DeclaringType
+        if not (sum |> HasSourceConstructFlag SourceConstructFlags.SumType) then None else
+        match System.Attribute.GetCustomAttribute(info, typeof<CompilationMappingAttribute>) with
+        | :? CompilationMappingAttribute as attr -> 
+            let uC = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(sum, flags).[attr.VariantNumber]
+            Some (ConvertUnionCase uC, attr.SequenceNumber)
+        | _ -> None
 
     let ConvertQuotation (q: Quotations.Expr) : Q.Expression =
         let ( !^ ) = CR.Type.FromType
@@ -608,6 +623,8 @@ module QuotationUtils =
                 match prop, xs with
                 | RecordProperty prop, [] ->
                     Q.FieldGetRecord(!x, prop)
+                | UnionProperty (uC, i), [] ->
+                    Q.FieldGetUnion(!x, uC, i)
                 | _ ->
                     Q.PropertyGet (ConvertProperty prop, !!(x :: xs))
             | RQ.PropertySet (None, prop, xs, v) ->
