@@ -72,6 +72,9 @@ module FrontEnd =
         /// <param name="sourceMap">If true, generate source mappings.</param>
         member Compile : assembly: System.Reflection.Assembly * ?sourceMap: bool -> option<CompiledAssembly>
 
+        /// Gets the metadata info for the loaded references.
+        member GetInfo : unit -> WebSharper.Core.Metadata.Info
+
     /// Prepares a compiler.
     val Prepare : Options -> log: (Message -> unit) -> Compiler
 
