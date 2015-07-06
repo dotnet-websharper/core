@@ -90,6 +90,10 @@ module FrontEnd =
         member this.CompileAndModify(assembly: Assembly, ?sourceMap: bool) : bool =
             this.Compile(assembly, modifyAssembly = true, ?sourceMap = sourceMap).IsSome
 
+        member this.Compile(assembly: System.Reflection.Assembly, ?sourceMap: bool) : option<CompiledAssembly> =
+            let sourceMap = defaultArg sourceMap false
+            this.CompileAssembly(Reflection.AdaptAssembly assembly, sourceMap)
+
         member this.Compile(assembly: Assembly, ?modifyAssembly: bool, ?sourceMap: bool) : option<CompiledAssembly> =
             let sourceMap = defaultArg sourceMap false
             let modifyAssembly = defaultArg modifyAssembly false

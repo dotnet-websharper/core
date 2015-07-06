@@ -67,6 +67,11 @@ module FrontEnd =
         /// <param name="sourceMap">If true, generate source mappings.</param>
         member Compile : assembly: Assembly * ?modifyAssembly: bool * ?sourceMap: bool -> option<CompiledAssembly>
 
+        /// <summary>Attempts to compile an assembly.</summary>
+        /// <param name="assembly">The assembly to compile.</param>
+        /// <param name="sourceMap">If true, generate source mappings.</param>
+        member Compile : assembly: System.Reflection.Assembly * ?sourceMap: bool -> option<CompiledAssembly>
+
     /// Prepares a compiler.
     val Prepare : Options -> log: (Message -> unit) -> Compiler
 
