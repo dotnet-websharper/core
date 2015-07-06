@@ -391,8 +391,7 @@ module internal Internal =
             member this.Translate(q, tr) =
                 match q with
                 // Auto<'A>()
-                | Q.Call({Generics = [t]}, _)
-                | Q.CallModule({Generics = [t]}, _) -> mkGenerator t
+                | Q.CallOrCallModule({Generics = [t]}, _) -> mkGenerator t
                 | _ -> tr q
 
     type SampleMacro() =

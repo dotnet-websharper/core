@@ -58,8 +58,7 @@ module internal Internal =
             member this.Translate(q, tr) =
                 match q with
                 // Property name f
-                | Q.Call({Generics = [t; _]}, [name; f])
-                | Q.CallModule({Generics = [t; _]}, [name; f]) ->
+                | Q.CallOrCallModule({Generics = [t; _]}, [name; f]) ->
                     cCallG ["WebSharper"; "Testing"; "Pervasives"] "PropertyWith" [tr name; mkGenerator t; tr f]
                 | _ -> tr q
 
