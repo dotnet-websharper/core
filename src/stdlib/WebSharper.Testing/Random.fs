@@ -391,6 +391,7 @@ module internal Internal =
             member this.Translate(q, tr) =
                 match q with
                 // Auto<'A>()
+                | Q.Call({Generics = [t]}, _)
                 | Q.CallModule({Generics = [t]}, _) -> mkGenerator t
                 | _ -> tr q
 
@@ -405,7 +406,11 @@ module internal Internal =
                 | _ -> tr q
 
 [<Macro(typeof<Internal.AutoGeneratorMacro>)>]
-let Auto<'A>() = X<Generator<'A>>
+let Auto<'A>() : Generator<'A> =
+    {
+        Base = [||]
+        Next = fun () -> X<'A>
+    }
 
 [<JavaScript>]
 type Sample<'A> (data: list<'A>) =

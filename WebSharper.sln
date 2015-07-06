@@ -97,6 +97,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-49
 		ivy.xml = ivy.xml
 		LICENSE.md = LICENSE.md
 		README.md = README.md
+		runtests.fsx = runtests.fsx
 	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Bootstrap", "src\build\Bootstrap\Bootstrap.fsproj", "{5FB61954-9230-4408-A349-7F1EFC6E0A66}"

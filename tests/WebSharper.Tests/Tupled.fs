@@ -100,10 +100,10 @@ let callWithArgs (f: FuncWithArgs<int * int, int>) = X<int>
 let callWithTuple f = X<int>
 
 [<Inline "function (a, b){ return a + b; }">]
-let normalAdd = X<int * int -> int>
+let normalAdd = Unchecked.defaultof<int * int -> int>
 
 [<Inline "function(){return function (a){ return a[0] + a[1]; }}">]
-let getTupledAdd = X<unit -> int * int -> int>
+let getTupledAdd = Unchecked.defaultof<unit -> int * int -> int>
 
 [<Inline "$f($x)">]
 let apply (f: 'T -> 'U) (x: 'T) = X<'U>
