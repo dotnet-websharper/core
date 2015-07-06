@@ -340,7 +340,7 @@ type Type =
             if t.DeclaringMethod <> null then
                 let dT = t.DeclaringType
                 let k =
-                    if dT.IsGenericType then 0 else
+                    if not dT.IsGenericType then 0 else
                         dT.GetGenericArguments().Length
                 GenericType (k + t.GenericParameterPosition)
             else
