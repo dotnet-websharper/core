@@ -210,6 +210,9 @@ let Tests =
             let t = ("Hello ", "Szia ", "Hej")
             let (t1, t2, t3) = t
             equal (t1 + t2 + t3) "Hello Szia Hej"
+            isTrueMsg ((1, 2) < (1, 3)) "(1, 2) < (1, 3)"
+            isTrueMsg ((1, 2) > (1, 1)) "(1, 2) > (1, 1)"
+            isTrueMsg ((1, 8) < (2, 1)) "(1, 8) < (2, 1)"
         }
 
         Test "Currying" {
