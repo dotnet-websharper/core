@@ -535,7 +535,7 @@ module QuotationUtils =
                 typeof<int64>, fun x -> Q.Int64 (x :?> _)
                 typeof<sbyte>, fun x -> Q.SByte (x :?> _)
                 typeof<single>, fun x -> Q.Single (x :?> _)
-                typeof<string>, fun x -> Q.String (x :?> _)
+                typeof<string>, fun x -> if obj.ReferenceEquals(x, null) then Q.Unit else Q.String (x :?> _)
                 typeof<unit>, fun _ -> Q.Unit
                 typeof<uint16>, fun x -> Q.UInt16 (x :?> _)
                 typeof<uint32>, fun x -> Q.UInt32 (x :?> _)
@@ -544,7 +544,7 @@ module QuotationUtils =
         fun t x ->
             match table.TryGetValue(t) with
             | true, f -> f x
-            | _ -> Q.Literal.Unit
+            | _ -> Q.Unit
 
     let HasSourceConstructFlag flag (info: MemberInfo) =
         match System.Attribute.GetCustomAttribute(info, typeof<CompilationMappingAttribute>) with
@@ -610,7 +610,8 @@ module QuotationUtils =
             | RQ.LetRecursive (bs, b) ->
                 Q.LetRecursive ([for (k, v) in bs -> (!?k, !v)], !b)
             | RQ.NewArray (t, xs) -> Q.NewArray (!^t, !!xs)
-            | RQ.NewDelegate (t, vs, e) -> Q.NewDelegate (!^t, !e)
+            | RQ.NewDelegate (t, vs, e) -> 
+                Q.NewDelegate (!^t, List.fold (fun b v -> Q.Lambda(!?v, b)) !e vs)
             | RQ.NewObject (ctor, xs) ->
                 Q.NewObject (ConvertConstructor ctor, !!xs)
             | RQ.NewRecord (t, xs) -> Q.NewRecord (!^t, !!xs)
