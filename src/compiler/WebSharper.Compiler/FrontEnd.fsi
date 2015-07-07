@@ -59,18 +59,18 @@ module FrontEnd =
         member Compile : quotation: Quotations.Expr * context: System.Reflection.Assembly * ?name: string -> option<CompiledAssembly>
 
         /// Compiles an assembly and edits the given Assembly object accordingly.
-        member CompileAndModify : assembly: Assembly * ?sourceMap: bool -> bool
+        member CompileAndModify : assembly: Assembly * ?sourceMap: bool * ?typeScript: bool -> bool
 
         /// <summary>Attempts to compile an assembly.</summary>
         /// <param name="assembly">The assembly to compile.</param>
         /// <param name="modifyAssembly">If true, edit the passed assembly to add the computed resources.</param>
         /// <param name="sourceMap">If true, generate source mappings.</param>
-        member Compile : assembly: Assembly * ?modifyAssembly: bool * ?sourceMap: bool -> option<CompiledAssembly>
+        member Compile : assembly: Assembly * ?modifyAssembly: bool * ?sourceMap: bool * ?typeScript: bool -> option<CompiledAssembly>
 
         /// <summary>Attempts to compile an assembly.</summary>
         /// <param name="assembly">The assembly to compile.</param>
         /// <param name="sourceMap">If true, generate source mappings.</param>
-        member Compile : assembly: System.Reflection.Assembly * ?sourceMap: bool -> option<CompiledAssembly>
+        member Compile : assembly: System.Reflection.Assembly * ?sourceMap: bool * ?typeScript: bool -> option<CompiledAssembly>
 
         /// Gets the metadata info for the loaded references.
         member GetInfo : unit -> WebSharper.Core.Metadata.Info

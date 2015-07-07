@@ -48,7 +48,7 @@ type CompiledAssembly =
     member ReadableJavaScript : string
 
     /// The TypeScript `.d.ts` declarations for the JavaScript.
-    member TypeScriptDeclarations : string
+    member TypeScriptDeclarations : option<string>
 
     static member internal Create :
         context: Context
@@ -57,7 +57,7 @@ type CompiledAssembly =
         * aInfo: M.AssemblyInfo
         * mInfo: M.Info
         * pkg: P.Module
-        * typeScript: string 
+        * typeScript: option<string> 
         * sourceMap : bool ->
         CompiledAssembly
 
