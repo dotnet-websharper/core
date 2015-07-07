@@ -279,7 +279,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             C.LetRecursive (List.map f vs, !b)
         | Q.NewArray (_, x) ->
             C.NewArray (List.map (!) x)
-        | Q.NewDelegate (_, x) ->
+        | Q.NewDelegate (t, x) ->
             let rec loop acc = function
                 | Q.Lambda (var, body) -> loop (var :: acc) body
                 | body -> (List.rev acc, body)
@@ -287,7 +287,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             | (this :: vars, body) ->
                 C.Lambda (Some !^this, List.map (!^) vars, !body)
             | ([], Q.Application (f, Q.Value Q.Unit)) -> !f
-            | _ -> invalidQuot()
+            | _ -> err "Failed to translate delegate creation" t.FullName 
         | Q.NewObject (c, args) as q ->
             let tOpt = 
                 match meta.Constructor c.Entity with
