@@ -50,7 +50,7 @@ let NewDisposing<'S,'T> (state: 'S) dispose (next: T<'S,'T> -> bool) =
 let getEnumerator (x: obj) : IE<'T> = X
 
 [<JavaScript>]
-let Get (x: obj) : IE<'T> =
+let Get (x: seq<'T>) : IE<'T> =
     if JS.InstanceOf x JS.Global?Array then
         let s = As<obj[]> x
         New 0 (fun e ->
