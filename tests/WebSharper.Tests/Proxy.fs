@@ -26,7 +26,7 @@ open WebSharper.Testing
 module R = WebSharper.Testing.Random
 
 [<Proxy(typeof<System.Text.StringBuilder>)>]
-type StringBuilder [<JavaScript>] () =
+type StringBuilderProxy [<JavaScript>] () =
     let mutable c = ""
 
     [<JavaScript>]
@@ -45,7 +45,7 @@ let Tests =
     TestCategory "Custom proxy" {
 
         Test "StringBuilder" {
-            let sb = StringBuilder()
+            let sb = System.Text.StringBuilder()
             isTrueMsg (sb?append !==. JS.Undefined) "[<Name>] attribute on proxy method"
             sb.Append("foo") |> ignore
             sb.Append("bar") |> ignore
