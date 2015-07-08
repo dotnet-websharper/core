@@ -39,6 +39,11 @@ module private Encode =
             box (fun args ->
                 Array.map2 (fun f x -> f () x) encs args))
 
+    let DateTime() =
+        box (fun () ->
+            box (fun (x: System.DateTime) ->
+                x.JS.ToISOString()))
+
     let List (encEl: unit -> 'T -> obj) =
         box (fun () ->
             box (fun (l: list<'T>) ->
@@ -117,6 +122,11 @@ module private Decode =
     let Tuple (decs: (unit -> obj -> obj)[]) =
         Encode.Tuple decs
 
+    let DateTime() =
+        box (fun () ->
+            box (fun (x: string) ->
+                Date(x).Self))
+
     let List (decEl: unit -> obj -> 'T) =
         box (fun () ->
             box (fun (a: obj[]) ->
@@ -153,10 +163,11 @@ module private Decode =
             box (fun (x: obj) ->
                 let o = if t ===. JS.Undefined then New [] else JS.New t
                 let tag =
+                    // [<NamedUnionCases(discr)>]
                     if JS.TypeOf discr = JS.Kind.String then
                         let tagName = x?(discr)
                         cases |> Array.findIndex (fun (name, _) -> name = tagName)
-                    else
+                    else // [<NamedUnionCases>]
                         let r = ref JS.Undefined
                         JS.ForEach discr (fun k ->
                             if JS.HasOwnProperty x k then r := discr?(k); true else false)
@@ -264,6 +275,8 @@ module private Macro =
                 ||> List.fold (fun k t ->
                     fun es -> encode t >>= fun e -> k (e :: es))
                 <| []
+            | T.Concrete (T "System.DateTime", []) ->
+                ok (call "DateTime" [])
             | T.Concrete (td, args) ->
                 match ctx.TryGetValue td with
                 | true, (id, _) -> ok (J.Var id)
@@ -318,8 +331,8 @@ module private Macro =
                         let cases = J.NewArray cases
                         let discr =
                             match discr with
-                            | JI.NoField a ->
-                                a
+                            | JI.NoField discrFields ->
+                                discrFields
                                 |> List.map (fun (name, id) -> name, cInt id)
                                 |> J.NewObject
                             | JI.StandardField -> cString "$"
@@ -350,7 +363,6 @@ module private Macro =
                                     | _ -> cString name
                                 encode (T.FromType record) >>= fun e ->
                                 k (J.NewArray [tag; J.NewArray [J.NewArray [!~J.Null; !~J.Null; e]]] :: es)
-                                //fail "Inline record not supported"
                     )
                     |> snd
                     <| []

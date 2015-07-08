@@ -249,5 +249,21 @@ module ClientSideJson =
                     (Inline {rx = 9; ry = "o"})
             }
 
-        }
+            let now = System.DateTime.Now
+            let d = Date(Date.UTC(2011, 9, 5, 14, 48, 0)) // "2011-10-05T14:48:00.000Z"
 
+            Test "serialize System.DateTime" {
+                let serAndParse (d: System.DateTime) : Date =
+                    new Date(Date.Parse(Json.Parse(Json.Serialize d) :?> string))
+                equal (serAndParse d.Self) d
+                equal (serAndParse now) now.JS
+            }
+
+            Test "deserialize System.DateTime" {
+                let strAndDeser (d: Date) : System.DateTime =
+                    Json.Deserialize (Json.Stringify (d.ToISOString()))
+                equal (strAndDeser d) d.Self
+                equal (strAndDeser now.JS) now
+            }
+
+        }
