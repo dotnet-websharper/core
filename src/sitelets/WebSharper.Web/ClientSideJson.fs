@@ -237,7 +237,7 @@ module private Macro =
     module Funs =
         let id = J.Global ["WebSharper"; "Json"; "Encode"; "Id"]
 
-    let encode name call (t: T) =
+    let encode name call warn (t: T) =
         let ctx = System.Collections.Generic.Dictionary()
         let rec encode t =
             match t with
@@ -314,6 +314,11 @@ module private Macro =
                      ), fields)
                     ||> Array.fold (fun k (n, f, t) ->
                         fun es ->
+                            if not (Array.isEmpty (f.GetCustomAttributes(typeof<DateTimeFormatAttribute>, false))) then
+                                warn (sprintf "Warning: This record field has a custom DateTime format: %s.%s. \
+                                    Client-side JSON serialization does not support custom DateTime formatting. \
+                                    This field will be serialized using ISO format."
+                                    f.DeclaringType.FullName f.Name)
                             let t, optionKind =
                                 if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>> then
                                     let kind =
@@ -342,18 +347,23 @@ module private Macro =
                     ||> Array.fold (fun (i, k) case ->
                         i + 1, fun es ->
                             match case with
-                            | JI.Normal (name, argNames) ->
+                            | JI.Normal (caseName, argNames) ->
                                 ((0, fun argNames ->
                                     let tag =
                                         match discr with
                                         | JI.StandardField -> cInt i
-                                        | _ -> cString name
+                                        | _ -> cString caseName
                                     k (J.NewArray [tag; J.NewArray argNames] :: es)
                                  ), argNames)
-                                ||> Array.fold (fun (j, k) (n, t) ->
+                                ||> Array.fold (fun (j, k) (argName, argT, argFlags) ->
+                                    if argFlags |> Array.exists (function JI.DateTimeFormat _ -> true) then
+                                        warn (sprintf "Warning: This union case field has a custom DateTime format: %s.%s [%s]. \
+                                            Client-side JSON serialization does not support custom DateTime formatting. \
+                                            This field will be serialized using ISO format."
+                                            t.FullName caseName argName)
                                     j + 1, fun es ->
-                                        encode (T.FromType t) >>= fun e ->
-                                        k (J.NewArray [cString ("$" + string j); cString n; e] :: es))
+                                        encode (T.FromType argT) >>= fun e ->
+                                        k (J.NewArray [cString ("$" + string j); cString argName; e] :: es))
                                 |> snd
                                 <| []
                             | JI.InlineRecord(name, record) ->
@@ -389,11 +399,12 @@ module private Macro =
     type SerializeMacro() =
         interface M.IMacro with
             member this.Translate(q, tr) =
+                let warn = ignore // to change when we implement warn in macros
                 match q with
                 // Serialize<'T> x
                 | Q.CallModule({Generics = [t]}, [x])
                 | Q.Call({Generics = [t]}, [x]) ->
-                    let enc = encode "Serialize" cCallE t
+                    let enc = encode "Serialize" cCallE warn t
                     cCallG ["JSON"] "stringify"
                         [J.Application(J.Application(enc, []), [tr x])]
                 | _ -> tr q
@@ -401,11 +412,12 @@ module private Macro =
     type DeserializeMacro() =
         interface M.IMacro with
             member this.Translate(q, tr) =
+                let warn = ignore // to change when we implement warn in macros
                 match q with
                 // Deserialize<'T> x
                 | Q.CallModule({Generics = [t]}, [x])
                 | Q.Call({Generics = [t]}, [x]) ->
-                    let dec = encode "Deserialize" cCallD t
+                    let dec = encode "Deserialize" cCallD warn t
                     J.Application(J.Application(dec, [!~J.Null]),
                         [cCallG ["JSON"] "parse" [tr x]])
                 | _ -> tr q

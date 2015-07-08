@@ -1543,8 +1543,11 @@ module Internal =
         | StandardField
         | NamedField of string
 
+    type UnionCaseArgFlag =
+        | DateTimeFormat of string
+
     type UnionCaseEncoding =
-        | Normal of name: string * args: (string * System.Type)[]
+        | Normal of name: string * args: (string * System.Type * UnionCaseArgFlag[])[]
         | InlineRecord of name: string * record: System.Type
 
     let GetUnionEncoding (t: System.Type) =
@@ -1563,6 +1566,21 @@ module Internal =
                 if isInlinableRecordCase uci then
                     InlineRecord(name = name, record = uci.GetFields().[0].PropertyType)
                 else
-                    let args = uci.GetFields() |> Array.map (fun f -> GetName f, f.PropertyType)
+                    let dateTimeFormats =
+                        uci.GetCustomAttributesData()
+                        |> Array.ofSeq
+                        |> Array.choose (fun cad ->
+                            if cad.Constructor.DeclaringType = typeof<A.DateTimeFormatAttribute> &&
+                                cad.ConstructorArguments.Count = 2 then
+                                let args = cad.ConstructorArguments
+                                Some (args.[0].Value :?> string, args.[1].Value :?> string)
+                            else None)
+                    let args = uci.GetFields() |> Array.map (fun f ->
+                        let flags =
+                            dateTimeFormats
+                            |> Seq.tryPick (fun (k, v) ->
+                                if k = f.Name then Some (DateTimeFormat v) else None)
+                            |> Option.toArray
+                        GetName f, f.PropertyType, flags)
                     Normal(name = name, args = args))
         discr, cases

@@ -148,8 +148,11 @@ module Internal =
         | StandardField
         | NamedField of string
 
+    type UnionCaseArgFlag =
+        | DateTimeFormat of string
+
     type UnionCaseEncoding =
-        | Normal of name: string * args: (string * System.Type)[]
+        | Normal of name: string * args: (string * System.Type * UnionCaseArgFlag[])[]
         | InlineRecord of name: string * record: System.Type
 
     /// Get the encoding characteristics of a discriminated union.
