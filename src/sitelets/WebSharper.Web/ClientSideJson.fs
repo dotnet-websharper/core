@@ -237,7 +237,7 @@ module private Macro =
     module Funs =
         let id = J.Global ["WebSharper"; "Json"; "Encode"; "Id"]
 
-    let encode name call warn (t: T) =
+    let getEncoding name call warn (t: T) =
         let ctx = System.Collections.Generic.Dictionary()
         let rec encode t =
             match t with
@@ -397,37 +397,59 @@ module private Macro =
         | Choice2Of2 msg -> failwithf "%A: %s" t msg
 
     type SerializeMacro() =
+
+        let encode name warn t arg =
+            let enc = getEncoding name cCallE warn t
+            J.Application(J.Application(enc, []), [arg])
+
+        let Encode warn t arg =
+            encode "Encode" warn t arg
+
+        let Serialize warn t arg =
+            cCallG ["JSON"] "stringify" [encode "Serialize" warn t arg]
+
+        let decode name warn t arg =
+            let dec = getEncoding name cCallD warn t
+            J.Application(J.Application(dec, []), [arg])
+
+        let Decode warn t arg =
+            decode "Decode" warn t arg
+
+        let Deserialize warn t arg =
+            decode "Deserialize" warn t (cCallG ["JSON"] "parse" [arg])
+
+
         interface M.IMacro with
             member this.Translate(q, tr) =
                 let warn = ignore // to change when we implement warn in macros
                 match q with
                 // Serialize<'T> x
-                | Q.CallModule({Generics = [t]}, [x])
-                | Q.Call({Generics = [t]}, [x]) ->
-                    let enc = encode "Serialize" cCallE warn t
-                    cCallG ["JSON"] "stringify"
-                        [J.Application(J.Application(enc, []), [tr x])]
-                | _ -> tr q
+                | Q.CallModule({Generics = [t]; Entity = e}, [x])
+                | Q.Call({Generics = [t]; Entity = e}, [x]) ->
+                    (match e.Name with
+                    | "Encode" -> Encode
+                    | "Decode" -> Decode
+                    | "Serialize" -> Serialize
+                    | "Deserialize" -> Deserialize
+                    | _ -> failwith "Invalid macro invocation")
+                        warn t (tr x)
+                | _ -> failwith "Invalid macro invocation"
 
-    type DeserializeMacro() =
-        interface M.IMacro with
-            member this.Translate(q, tr) =
-                let warn = ignore // to change when we implement warn in macros
-                match q with
-                // Deserialize<'T> x
-                | Q.CallModule({Generics = [t]}, [x])
-                | Q.Call({Generics = [t]}, [x]) ->
-                    let dec = encode "Deserialize" cCallD warn t
-                    J.Application(J.Application(dec, [!~J.Null]),
-                        [cCallG ["JSON"] "parse" [tr x]])
-                | _ -> tr q
+/// Encodes an object in such a way that JSON stringification
+/// results in the same readable format as Sitelets.
+[<Macro(typeof<SerializeMacro>)>]
+let Encode<'T> (x: 'T) = X<obj>
 
 /// Serializes an object to JSON using the same readable format as Sitelets.
 /// For plain JSON stringification, see Json.Stringify.
 [<Macro(typeof<SerializeMacro>)>]
 let Serialize<'T> (x: 'T) = X<string>
 
+/// Decodes an object parsed from the same readable JSON format as Sitelets.
+[<Macro(typeof<SerializeMacro>)>]
+let Decode<'T> (x: obj) = X<'T>
+
 /// Deserializes a JSON string using the same readable format as Sitelets.
 /// For plain JSON parsing, see Json.Parse.
-[<Macro(typeof<DeserializeMacro>)>]
+[<Macro(typeof<SerializeMacro>)>]
 let Deserialize<'T> (x: string) = X<'T>
