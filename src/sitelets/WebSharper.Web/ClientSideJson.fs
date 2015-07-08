@@ -73,7 +73,12 @@ module private Encode =
                 let tagName, fields = cases.[tag]
                 if JS.TypeOf discr = JS.Kind.String then o?(discr) <- tagName
                 fields |> Array.iter (fun (from, ``to``, enc) ->
-                    o?(``to``) <- enc () (x?(from)))
+                    match from with
+                    | null -> // inline record
+                        let record = enc () (x?("$0"))
+                        JS.ForEach record (fun f -> o?(f) <- record?(f); false)
+                    | from -> // normal args
+                        o?(``to``) <- enc () (x?(from)))
                 o))
 
     let Array (encEl: unit -> 'T -> obj) =
@@ -158,7 +163,11 @@ module private Decode =
                         !r
                 o?("$") <- tag
                 cases.[tag] |> snd |> Array.iter (fun (from, ``to``, dec) ->
-                    o?(from) <- dec () (x?(``to``)))
+                    match from with
+                    | null -> // inline record
+                        o?("$0") <- dec () x
+                    | from -> // normal args
+                        o?(from) <- dec () (x?(``to``)))
                 o))
 
     let Array decEl =
@@ -334,7 +343,14 @@ module private Macro =
                                         k (J.NewArray [cString ("$" + string j); cString n; e] :: es))
                                 |> snd
                                 <| []
-                            | _ -> fail "Inline record not supported"
+                            | JI.InlineRecord(name, record) ->
+                                let tag =
+                                    match discr with
+                                    | JI.StandardField -> cInt i
+                                    | _ -> cString name
+                                encode (T.FromType record) >>= fun e ->
+                                k (J.NewArray [tag; J.NewArray [J.NewArray [!~J.Null; !~J.Null; e]]] :: es)
+                                //fail "Inline record not supported"
                     )
                     |> snd
                     <| []
