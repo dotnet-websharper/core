@@ -53,7 +53,7 @@ type NameOfMacro() =
     interface IMacro with
         member this.Translate(q, _) =
             match q with
-            | Q.CallModule (c, []) ->
+            | Q.CallOrCallModule (c, []) ->
                 match c.Generics with
                 | [t] -> !~(C.String t.FullName) 
                 | _ -> failwith "NameOfMacro error"
@@ -64,7 +64,7 @@ type AddMacro() =
     interface IMacro with
         member this.Translate(q, tr) =
             match q with
-            | Q.CallModule (_, [a; b]) ->
+            | Q.CallOrCallModule (_, [a; b]) ->
                 match a, b with
                 | Q.Value (Q.Int ai), Q.Value (Q.Int bi) ->
                     !~ (C.Integer (int64 (ai + bi)))

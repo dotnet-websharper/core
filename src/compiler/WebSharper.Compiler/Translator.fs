@@ -255,7 +255,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             if opt then call C.Runtime "GetOptional" [(!e).[fn]] else (!e).[fn]
         | Q.FieldGetStatic f
         | Q.FieldSetStatic (f, _) ->
-            err "Static fields are not supported" f.Entity.Name
+            err "Static fields are not supported" f.Entity
         | Q.FieldGetUnion (e, uc, k) ->
             (!e).[str ("$" + string k)]
         | Q.FieldSetInstance (t, f, v) ->
@@ -279,7 +279,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             C.LetRecursive (List.map f vs, !b)
         | Q.NewArray (_, x) ->
             C.NewArray (List.map (!) x)
-        | Q.NewDelegate (_, x) ->
+        | Q.NewDelegate (t, x) ->
             let rec loop acc = function
                 | Q.Lambda (var, body) -> loop (var :: acc) body
                 | body -> (List.rev acc, body)
@@ -287,7 +287,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             | (this :: vars, body) ->
                 C.Lambda (Some !^this, List.map (!^) vars, !body)
             | ([], Q.Application (f, Q.Value Q.Unit)) -> !f
-            | _ -> invalidQuot()
+            | _ -> err "Failed to translate delegate creation" t.FullName 
         | Q.NewObject (c, args) as q ->
             let tOpt = 
                 match meta.Constructor c.Entity with
@@ -354,7 +354,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
                 | Some (M.ConstantUnionCase x) ->
                     !~ (Literal x)
                 | None ->
-                    err "Failed to translate union creation" uc.Entity.Name
+                    err "Failed to translate union creation" uc.Entity
         | Q.PropertyGet (p, xs) as q ->
             match meta.Property p.Entity with
             | Some (M.BasicProperty (getter, setter)) ->
@@ -380,9 +380,9 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             | Some (M.FieldProperty k) ->
                 match xs with
                 | [this] -> (!this).[str ("$" + string k)]
-                | _ -> err "Failed to translate property access" p.Entity.Name
+                | _ -> err "Failed to translate property access" p.Entity
             | None ->
-                err "Failed to translate property access" p.Entity.Name
+                err "Failed to translate property access" p.Entity
         | Q.PropertySet (p, xs) as q ->
             match meta.Property p.Entity with
             | Some (M.BasicProperty (getter, setter)) ->
@@ -396,9 +396,9 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
                             C.FieldSet (globParent fn, str fn.LocalName,
                                 C.Lambda (None, [], C.Var id)))
                     | Some (M.InlineMethod _), _ ->
-                        err "Cannot assign to an inline property" p.Entity.Name
+                        err "Cannot assign to an inline property" p.Entity
                     | _ ->
-                        err "Failed to translate assignment" p.Entity.Name
+                        err "Failed to translate assignment" p.Entity
             | Some (M.InstanceOptProperty x) ->
                 match xs with
                 | t :: v :: _ -> call C.Runtime "SetOptional" [!t; str x; !v]
@@ -420,7 +420,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
                 | [v] -> C.FieldSet (globParent fn, str fn.LocalName, !v)
                 | _ -> err "Cannot set an indexed stub property" fn.LocalName
             | None | Some (M.FieldProperty _) ->
-                err "Failed to translate property assignment" p.Entity.Name
+                err "Failed to translate property assignment" p.Entity
         | Q.Quote _ ->
             error "Quotations are not supported."
         | Q.Sequential (x, y) ->
@@ -475,7 +475,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             | Some (M.ConstantUnionCase x) ->
                 !e &=== !~ (Literal x)
             | None ->
-                err "Failed to compile union case test" uc.Entity.Name
+                err "Failed to compile union case test" uc.Entity
         | Q.Value lit ->
             let i x = !~ (C.Integer x)
             match lit with

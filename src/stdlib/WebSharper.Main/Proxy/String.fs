@@ -189,7 +189,7 @@ type private StringProxy =
 
     [<Inline>]
     [<JavaScript>]
-    member this.GetEnumerator() = Enumerator.Get this
+    member this.GetEnumerator() = Enumerator.Get (unbox<seq<char>> this)
 
     [<Inline "$this.indexOf($s)">]
     member this.IndexOf(s: string) = X<int>

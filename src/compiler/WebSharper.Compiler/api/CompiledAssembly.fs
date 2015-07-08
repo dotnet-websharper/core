@@ -39,7 +39,7 @@ type CompiledAssembly
         aInfo: M.AssemblyInfo,
         mInfo: M.Info,
         pkg: P.Module,
-        typeScript: string,
+        typeScript: option<string>,
         sourceMap: bool
     ) =
 
@@ -128,7 +128,7 @@ type CompiledAssembly
                 aInfo: M.AssemblyInfo,
                 mInfo: M.Info,
                 pkg: P.Module,
-                typeScript: string,
+                typeScript: option<string>,
                 sourceMap: bool
             ) =
         CompiledAssembly(context, source, meta, aInfo, mInfo, pkg, typeScript, sourceMap)
@@ -161,9 +161,12 @@ type CompiledAssembly
             this.MapFileForReadable |> Option.iter (fun m ->
                 Mono.Cecil.EmbeddedResource(EMBEDDED_MAP, pub, getBytes m)
                 |> a.MainModule.Resources.Add )
-        Mono.Cecil.EmbeddedResource
-            (
-                EMBEDDED_DTS, pub,
-                UTF8Encoding(false, true).GetBytes(typeScript)
-            )
-        |> a.MainModule.Resources.Add
+        match typeScript with
+        | Some tS ->
+            Mono.Cecil.EmbeddedResource
+                (
+                    EMBEDDED_DTS, pub,
+                    UTF8Encoding(false, true).GetBytes(tS)
+                )
+            |> a.MainModule.Resources.Add
+        | _ -> ()

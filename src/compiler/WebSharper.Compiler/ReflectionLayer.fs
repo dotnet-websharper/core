@@ -535,7 +535,7 @@ module QuotationUtils =
                 typeof<int64>, fun x -> Q.Int64 (x :?> _)
                 typeof<sbyte>, fun x -> Q.SByte (x :?> _)
                 typeof<single>, fun x -> Q.Single (x :?> _)
-                typeof<string>, fun x -> Q.String (x :?> _)
+                typeof<string>, fun x -> if obj.ReferenceEquals(x, null) then Q.Unit else Q.String (x :?> _)
                 typeof<unit>, fun _ -> Q.Unit
                 typeof<uint16>, fun x -> Q.UInt16 (x :?> _)
                 typeof<uint32>, fun x -> Q.UInt32 (x :?> _)
@@ -544,18 +544,33 @@ module QuotationUtils =
         fun t x ->
             match table.TryGetValue(t) with
             | true, f -> f x
-            | _ -> Q.Literal.Unit
+            | _ -> Q.Unit
 
-    let GetSourceConstructFlags (info: MemberInfo) =
+    let HasSourceConstructFlag flag (info: MemberInfo) =
         match System.Attribute.GetCustomAttribute(info, typeof<CompilationMappingAttribute>) with
-        | :? CompilationMappingAttribute as attr -> attr.SourceConstructFlags
-        | _ -> SourceConstructFlags.None
+        | :? CompilationMappingAttribute as attr -> attr.SourceConstructFlags.HasFlag flag
+        | _ -> false
 
     let (|RecordProperty|_|) (info: PropertyInfo) : option<Q.Concrete<Re.Property>> =
         let ok =
-            GetSourceConstructFlags(info).HasFlag(SourceConstructFlags.Field)
-            && GetSourceConstructFlags(info.DeclaringType).HasFlag(SourceConstructFlags.RecordType)
+            info |> HasSourceConstructFlag SourceConstructFlags.Field
+            && info.DeclaringType |> HasSourceConstructFlag SourceConstructFlags.RecordType
         if ok then Some (ConvertProperty info) else None
+
+    let flags =
+        System.Reflection.BindingFlags.Public
+        ||| System.Reflection.BindingFlags.NonPublic
+    
+    let (|UnionProperty|_|) (info: PropertyInfo) : option<Q.Concrete<Re.UnionCase> * int> =
+        let case = info.DeclaringType
+        if not case.IsNested then None else
+        let sum = case.DeclaringType
+        if not (sum |> HasSourceConstructFlag SourceConstructFlags.SumType) then None else
+        match System.Attribute.GetCustomAttribute(info, typeof<CompilationMappingAttribute>) with
+        | :? CompilationMappingAttribute as attr -> 
+            let uC = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(sum, flags).[attr.VariantNumber]
+            Some (ConvertUnionCase uC, attr.SequenceNumber)
+        | _ -> None
 
     let ConvertQuotation (q: Quotations.Expr) : Q.Expression =
         let ( !^ ) = CR.Type.FromType
@@ -595,7 +610,8 @@ module QuotationUtils =
             | RQ.LetRecursive (bs, b) ->
                 Q.LetRecursive ([for (k, v) in bs -> (!?k, !v)], !b)
             | RQ.NewArray (t, xs) -> Q.NewArray (!^t, !!xs)
-            | RQ.NewDelegate (t, vs, e) -> Q.NewDelegate (!^t, !e)
+            | RQ.NewDelegate (t, vs, e) -> 
+                Q.NewDelegate (!^t, List.fold (fun b v -> Q.Lambda(!?v, b)) !e vs)
             | RQ.NewObject (ctor, xs) ->
                 Q.NewObject (ConvertConstructor ctor, !!xs)
             | RQ.NewRecord (t, xs) -> Q.NewRecord (!^t, !!xs)
@@ -608,6 +624,8 @@ module QuotationUtils =
                 match prop, xs with
                 | RecordProperty prop, [] ->
                     Q.FieldGetRecord(!x, prop)
+                | UnionProperty (uC, i), [] ->
+                    Q.FieldGetUnion(!x, uC, i)
                 | _ ->
                     Q.PropertyGet (ConvertProperty prop, !!(x :: xs))
             | RQ.PropertySet (None, prop, xs, v) ->
@@ -1017,7 +1035,7 @@ module Reflection =
                     d.GetTypes()
                     |> Array.choose (fun x -> if x.IsNested then None else Some (conv.ConvertType(x)))
                 with :? ReflectionTypeLoadException as e ->
-                    failwith "Reflection type load error: %s" e.LoaderExceptions.[0].Message
+                    failwithf "Reflection type load error: %s" e.LoaderExceptions.[0].Message
 
         override this.CustomAttributes = atts.Value
         override this.EmbeddedResources = embeddedResources.Value

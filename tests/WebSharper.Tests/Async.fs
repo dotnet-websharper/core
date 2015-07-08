@@ -28,7 +28,7 @@ open WebSharper.Testing
 let tick() = ()
 
 [<Inline "WebSharper.Concurrency.scheduler().idle">]
-let isIdle() = X<bool>
+let isIdle() = true
 
 [<JavaScript>]
 let forceAsync() =

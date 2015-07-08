@@ -32,4 +32,4 @@ type private IEnumerableProxy<'T> =
     [<Inline>]
     [<JavaScript>]
     member this.GetEnumerator() : IEnumerator<'T> =
-        Enumerator.Get this
+        Enumerator.Get (unbox<seq<'T>> this)

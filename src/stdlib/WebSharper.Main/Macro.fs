@@ -66,12 +66,6 @@ let isIn (s: string Set) (t: R.Type) =
     | _ ->
         false
 
-let (|CallOrCM|_|) q =
-    match q with 
-    | Q.Call (m, l)
-    | Q.CallModule (m, l) -> Some (m, l)
-    | _ -> None
-
 let (|OptCoerce|) q =
     match q with
     | Q.Coerce (_, x)
@@ -84,7 +78,7 @@ let cInt x = !~ (C.Integer (int64 x))
 
 let divisionMacro tr q =
     match q with
-    | CallOrCM (m, [x; y]) ->
+    | Q.CallOrCallModule (m, [x; y]) ->
         match m.Generics with
         | t :: _ -> if isIn smallIntegralTypes t
                     then (tr x / tr y) &>> cInt 0
@@ -97,7 +91,7 @@ let divisionMacro tr q =
 
 let arithMacro name def tr q =
     match q with
-    | CallOrCM (m, [x; y]) ->
+    | Q.CallOrCallModule (m, [x; y]) ->
         match m.Generics with
         | t :: _ ->
             if isIn scalarTypes t
@@ -154,7 +148,7 @@ let makeComparison cmp x y =
 
 let comparisonMacro cmp tr q =
     match q with
-    | CallOrCM (m, [x; y]) ->
+    | Q.CallOrCallModule (m, [x; y]) ->
         match m.Generics with
         | t :: _ ->
             if isIn scalarTypes t then
@@ -182,7 +176,7 @@ let charProxy = ["WebSharper"; "Char"]
 
 let charMacro tr q =
     match q with
-    | CallOrCM (m, [x]) ->
+    | Q.CallOrCallModule (m, [x]) ->
         match m.Generics with
         | t :: _ ->
             if isIn integralTypes t then tr x else
@@ -208,7 +202,7 @@ type Char() =
 
 let stringMacro tr q =
     match q with
-    | CallOrCM (m, [x]) ->
+    | Q.CallOrCallModule (m, [x]) ->
         match m.Generics with
         | t :: _ ->
             match t.FullName with
@@ -232,7 +226,7 @@ let getFieldsList q =
         match q with
         | Q.NewUnionCase (_, [Q.NewTuple [Q.Value (Q.String n); v]; t]) ->
             getFieldsListTC ((n, v) :: l) t         
-        | Q.NewUnionCase (_, [Q.CallModule (m, [Q.Value (Q.String n); v]); t])
+        | Q.NewUnionCase (_, [Q.CallOrCallModule (m, [Q.Value (Q.String n); v]); t])
             when m.Entity |> ``is (=>)`` ->
             getFieldsListTC ((n, v) :: l) t         
         | Q.NewUnionCase (_, []) -> Some (l |> List.rev) 
@@ -240,7 +234,7 @@ let getFieldsList q =
             l |> List.map (
                 function 
                 | Q.NewTuple [Q.Value (Q.String n); v] -> n, v 
-                | Q.CallModule (m, [Q.Value (Q.String n); v])
+                | Q.CallOrCallModule (m, [Q.Value (Q.String n); v])
                     when m.Entity |> ``is (=>)`` -> n, v
                 | _ -> failwith "Wrong type of array passed to New"
             ) |> Some
@@ -249,7 +243,7 @@ let getFieldsList q =
 
 let newMacro tr q =
     match q with
-    | CallOrCM (_, [OptCoerce x]) ->
+    | Q.CallOrCallModule (_, [OptCoerce x]) ->
         match getFieldsList x with
         | Some xl ->
             C.NewObject (xl |> List.map (fun (n, v) -> n, tr v))
