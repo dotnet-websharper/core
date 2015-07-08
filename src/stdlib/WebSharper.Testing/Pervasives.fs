@@ -831,13 +831,13 @@ type TestBuilder (name: string) =
                                 let! _ = asy
                                 return ()
                             with e ->
-                                return asserter.Ok(false, "Test threw an unexpected asynchronous exception")
+                                return asserter.Equal(e, null, "Test threw an unexpected asynchronous exception")
                         finally
                             ``done``()
                     }
                     |> Async.Start
             with e ->
-                asserter.Ok(false, "Test threw an unexpected synchronous exception")
+                asserter.Equal(e, null, "Test threw an unexpected synchronous exception")
         )
 
 [<JavaScript>]
