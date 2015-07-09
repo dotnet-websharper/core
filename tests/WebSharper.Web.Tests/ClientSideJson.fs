@@ -39,11 +39,17 @@ module ClientSideJson =
             t: string[]
         }
 
+    type RecordWithOptions<'T>() =
+
+        member this.Test() = "Wrong class :("
+
     type RecordWithOptions =
         {
             ox : option<int>
             [<OptionalField>] oy: option<string>
         }
+
+        member this.Test() = this.ox
 
     [<NamedUnionCases "case">]
     type SimpleUnion =
@@ -68,6 +74,12 @@ module ClientSideJson =
     type GenericUnion<'T> =
         | [<CompiledName "success">] Success of 'T
         | [<CompiledName "failure">] Failure of message: string
+
+        member this.Test() = 12
+
+    type GenericUnion() =
+
+        member this.Test() = "Wrong class :("
 
     type PersonData =
         { firstName: string
@@ -212,10 +224,12 @@ module ClientSideJson =
             }
 
             Test "deserialize record with options" {
-                equal (Json.Deserialize """{"ox":1,"oy":"2"}""")    { ox = Some 1; oy = Some "2" }
-                equal (Json.Deserialize """{"oy":"2"}""")           { ox = None; oy = Some "2" }
-                equal (Json.Deserialize """{"ox":1}""")             { ox = Some 1; oy = None }
-                equal (Json.Deserialize """{}""")                   { ox = None; oy = None }
+                let x = (Json.Deserialize """{"ox":1,"oy":"2"}""")
+                equal x                                     { ox = Some 1; oy = Some "2" }
+                equalMsg (x.Test()) (Some 1) "prototype is set"
+                equal (Json.Deserialize """{"oy":"2"}""")   { ox = None; oy = Some "2" }
+                equal (Json.Deserialize """{"ox":1}""")     { ox = Some 1; oy = None }
+                equal (Json.Deserialize """{}""")           { ox = None; oy = None }
             }
 
             Test "serialize simple union" {
@@ -275,8 +289,9 @@ module ClientSideJson =
             }
 
             Test "deserialize generic union" {
-                equal (Json.Deserialize """{"result":"success","Item":"x"}""")
-                    (Success "x")
+                let x = (Json.Deserialize """{"result":"success","Item":"x"}""")
+                equal x (Success "x")
+                equalMsg (x.Test()) 12 "prototype is set"
                 equal (Json.Deserialize """{"result":"success","rx":9,"ry":"o"}""")
                     (Success { rx = 9; ry = "o" })
                 equal (Json.Deserialize """{"result":"failure","message":"it failed"}""")

@@ -86,13 +86,6 @@ type TypeDefinition =
     /// The full name.
     member FullName : FullName
 
-    /// The namespace and nested type components of the FullName, without `n for generics.
-    member Address : list<string>
-
-    /// The namespace and nested type components of the FullName, without `n for generics,
-    /// excluding the last component.
-    member DeclaringAddress : list<string>
-
     /// The name, such as Queue`1.
     member Name : Name
 

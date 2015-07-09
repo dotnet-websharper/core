@@ -153,22 +153,6 @@ type TypeDefinition =
             | null -> n
             | ns -> System.String.Format("{0}.{1}", ns, n)
 
-    member this.Address =
-        let clean (s: string) =
-            match s.LastIndexOf '`' with
-            | -1 -> s
-            | i -> s.[..i-1]
-        let rec address = function
-            | NestedTD (dT, n, _) -> clean n :: address dT
-            | RootTD (_, ns, n, _) ->
-                clean n :: List.rev (List.ofArray (ns.Split([|'.'|], System.StringSplitOptions.RemoveEmptyEntries)))
-        List.rev (address this)
-
-    member this.DeclaringAddress =
-        match this with
-        | NestedTD (dT, _, _) -> dT.Address
-        | RootTD (_, ns, _, _) -> List.ofArray (ns.Split([|'.'|], System.StringSplitOptions.RemoveEmptyEntries))
-
     member this.AssemblyQualifiedName =
          System.String.Format("{0}, {1}", this.FullName, this.AssemblyName)
 

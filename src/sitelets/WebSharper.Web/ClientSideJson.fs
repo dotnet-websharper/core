@@ -237,7 +237,7 @@ module private Macro =
     module Funs =
         let id = J.Global ["WebSharper"; "Json"; "Encode"; "Id"]
 
-    let getEncoding name call warn (t: T) =
+    let getEncoding name call warn tr (t: T) =
         let ctx = System.Collections.Generic.Dictionary()
         let rec encode t =
             match t with
@@ -284,7 +284,7 @@ module private Macro =
                     let id = J.Id()
                     ctx.[td] <- (id, !~J.Null)
                     ((fun es ->
-                        encRecType t td es >>= fun e ->
+                        encRecType t args es >>= fun e ->
                         ctx.[td] <- (id, e)
                         ok (J.Var id)
                      ), args)
@@ -294,90 +294,117 @@ module private Macro =
             | T.Generic _ ->
                 fail (name + ": Cannot de/serialize a generic value. You must call this function with a concrete type.")
         // Encode a type that might be recursively defined
-        and encRecType t td args =
-            let typeAddress() =
-                let n =
-                    match td.Name.LastIndexOf '`' with
-                    | -1 -> td.Name
-                    | i -> td.Name.[..i-1]
-                J.FieldGet(J.Global td.DeclaringAddress, cString n)
-            match td, args with
-            | td, args ->
-                let t = t.Load(false)
-                if FST.IsRecord(t, flags) then
-                    let fields =
-                        FST.GetRecordFields(t, flags)
-                        |> Array.map (fun f ->
-                            JI.GetName f, f, f.PropertyType)
-                    ((fun es ->
-                        ok (call "Record" [typeAddress(); J.NewArray es])
-                     ), fields)
-                    ||> Array.fold (fun k (n, f, t) ->
-                        fun es ->
-                            if not (Array.isEmpty (f.GetCustomAttributes(typeof<DateTimeFormatAttribute>, false))) then
-                                warn (sprintf "Warning: This record field has a custom DateTime format: %s.%s. \
-                                    Client-side JSON serialization does not support custom DateTime formatting. \
-                                    This field will be serialized using ISO format."
-                                    f.DeclaringType.FullName f.Name)
-                            let t, optionKind =
-                                if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>> then
-                                    let kind =
-                                        if Array.isEmpty (f.GetCustomAttributes(typeof<OptionalFieldAttribute>, false)) then
-                                            OptionalFieldKind.NormalOption
-                                        else OptionalFieldKind.MarkedOption
-                                    t.GetGenericArguments().[0], cInt (int kind)
-                                else t, cInt (int OptionalFieldKind.NotOption)
-                            encode (T.FromType t) >>= fun e ->
-                            k (J.NewArray [cString n; e; optionKind] :: es))
-                    <| []
-                elif FST.IsUnion(t, flags) then
-                    let discr, cases = JI.GetUnionEncoding t
-                    ((0, fun cases ->
-                        let cases = J.NewArray cases
-                        let discr =
-                            match discr with
-                            | JI.NoField discrFields ->
-                                discrFields
-                                |> List.map (fun (name, id) -> name, cInt id)
-                                |> J.NewObject
-                            | JI.StandardField -> cString "$"
-                            | JI.NamedField n -> cString n
-                        ok (call "Union" [typeAddress(); discr; cases])
-                        ), cases)
-                    ||> Array.fold (fun (i, k) case ->
-                        i + 1, fun es ->
-                            match case with
-                            | JI.Normal (caseName, argNames) ->
-                                ((0, fun argNames ->
-                                    let tag =
-                                        match discr with
-                                        | JI.StandardField -> cInt i
-                                        | _ -> cString caseName
-                                    k (J.NewArray [tag; J.NewArray argNames] :: es)
-                                 ), argNames)
-                                ||> Array.fold (fun (j, k) (argName, argT, argFlags) ->
-                                    if argFlags |> Array.exists (function JI.DateTimeFormat _ -> true) then
-                                        warn (sprintf "Warning: This union case field has a custom DateTime format: %s.%s [%s]. \
-                                            Client-side JSON serialization does not support custom DateTime formatting. \
-                                            This field will be serialized using ISO format."
-                                            t.FullName caseName argName)
-                                    j + 1, fun es ->
-                                        encode (T.FromType argT) >>= fun e ->
-                                        k (J.NewArray [cString ("$" + string j); cString argName; e] :: es))
-                                |> snd
-                                <| []
-                            | JI.InlineRecord(name, record) ->
+        and encRecType t targs args =
+            let tt = t.Load(false)
+            if FST.IsRecord(tt, flags) then
+                let fields =
+                    FST.GetRecordFields(tt, flags)
+                    |> Array.map (fun f ->
+                        JI.GetName f, f, f.PropertyType)
+                ((fun es ->
+                    let es, tts = List.unzip es
+                    // In order to construct a value of the right type, we need the
+                    // JS class corresponding to our type. To get it directly we would
+                    // need access to the metadata. For now the best way we have is
+                    // to compile a dummy object creation and extract the class from it.
+                    let tn =
+                        match tr (Q.NewRecord(t, List.map Q.DefaultValue tts)) with
+                        // Runtime.New(rec, {...})
+                        // Runtime.New(rec, Runtime.DeleteEmptyFields({...}, [...]))
+                        | J.Call (_, J.Constant (J.String "New"), [x; _]) -> x
+                        // Runtime.DeleteEmptyFields({...}, [...])
+                        | J.Call (_, J.Constant (J.String "DeleteEmptyFields"), _) 
+                        // {...}
+                        | J.NewObject _ -> !~J.Undefined
+                        | x -> failwithf "Invalid compiled record creation: %O" x
+                    ok (call "Record" [tn; J.NewArray es])
+                    ), fields)
+                ||> Array.fold (fun k (n, f, t) ->
+                    fun es ->
+                        if not (Array.isEmpty (f.GetCustomAttributes(typeof<DateTimeFormatAttribute>, false))) then
+                            warn (sprintf "Warning: This record field has a custom DateTime format: %s.%s. \
+                                Client-side JSON serialization does not support custom DateTime formatting. \
+                                This field will be serialized using ISO format."
+                                f.DeclaringType.FullName f.Name)
+                        let t, optionKind =
+                            if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>> then
+                                let kind =
+                                    if Array.isEmpty (f.GetCustomAttributes(typeof<OptionalFieldAttribute>, false)) then
+                                        OptionalFieldKind.NormalOption
+                                    else OptionalFieldKind.MarkedOption
+                                t.GetGenericArguments().[0], cInt (int kind)
+                            else t, cInt (int OptionalFieldKind.NotOption)
+                        let tt = (T.FromType t)
+                        encode tt >>= fun e ->
+                        k ((J.NewArray [cString n; e; optionKind], tt) :: es))
+                <| []
+            elif FST.IsUnion(tt, flags) then
+                let discr, cases = JI.GetUnionEncoding tt
+                ((0, fun cases ->
+                    let cases = J.NewArray cases
+                    let discr =
+                        match discr with
+                        | JI.NoField discrFields ->
+                            discrFields
+                            |> List.map (fun (name, id) -> name, cInt id)
+                            |> J.NewObject
+                        | JI.StandardField -> cString "$"
+                        | JI.NamedField n -> cString n
+                    // In order to construct a value of the right type, we need the
+                    // JS class corresponding to our type. To get it directly we would
+                    // need access to the metadata. For now the best way we have is
+                    // to compile a dummy object creation and extract the class from it.
+                    let tn =
+                        let c1 = FST.GetUnionCases(tt, flags).[0]
+                        let uc : Q.Concrete<R.UnionCase> =
+                            { Generics = targs
+                              Entity = R.UnionCase.Create (R.TypeDefinition.FromType tt) c1.Name }
+                        let args =
+                            c1.GetFields()
+                            |> Array.map (fun f -> Q.DefaultValue (T.FromType f.PropertyType))
+                            |> List.ofArray
+                        match tr (Q.NewUnionCase(uc, args)) with
+                        // Runtime.New(union, {...})
+                        | J.Call (_, J.Constant (J.String "New"), [x; _]) -> x
+                        | J.NewObject _ -> !~J.Undefined
+                        | x -> failwithf "Invalid compiled union creation: %O" x
+//                        match Q.NewUnionCase(Core.Reflection.un)
+                    ok (call "Union" [tn; discr; cases])
+                    ), cases)
+                ||> Array.fold (fun (i, k) case ->
+                    i + 1, fun es ->
+                        match case with
+                        | JI.Normal (caseName, argNames) ->
+                            ((0, fun argNames ->
                                 let tag =
                                     match discr with
                                     | JI.StandardField -> cInt i
-                                    | _ -> cString name
-                                encode (T.FromType record) >>= fun e ->
-                                k (J.NewArray [tag; J.NewArray [J.NewArray [!~J.Null; !~J.Null; e]]] :: es)
-                    )
-                    |> snd
-                    <| []
-                else
-                    fail (name + ": Type not supported: " + t.FullName)
+                                    | _ -> cString caseName
+                                k (J.NewArray [tag; J.NewArray argNames] :: es)
+                                ), argNames)
+                            ||> Array.fold (fun (j, k) (argName, argT, argFlags) ->
+                                if argFlags |> Array.exists (function JI.DateTimeFormat _ -> true) then
+                                    warn (sprintf "Warning: This union case field has a custom DateTime format: %s.%s [%s]. \
+                                        Client-side JSON serialization does not support custom DateTime formatting. \
+                                        This field will be serialized using ISO format."
+                                        tt.FullName caseName argName)
+                                j + 1, fun es ->
+                                    encode (T.FromType argT) >>= fun e ->
+                                    k (J.NewArray [cString ("$" + string j); cString argName; e] :: es))
+                            |> snd
+                            <| []
+                        | JI.InlineRecord(name, record) ->
+                            let tag =
+                                match discr with
+                                | JI.StandardField -> cInt i
+                                | _ -> cString name
+                            encode (T.FromType record) >>= fun e ->
+                            k (J.NewArray [tag; J.NewArray [J.NewArray [!~J.Null; !~J.Null; e]]] :: es)
+                )
+                |> snd
+                <| []
+            else
+                fail (name + ": Type not supported: " + tt.FullName)
         match encode t with
         | Choice1Of2 x ->
             J.LetRecursive(
@@ -398,25 +425,25 @@ module private Macro =
 
     type SerializeMacro() =
 
-        let encode name warn t arg =
-            let enc = getEncoding name cCallE warn t
+        let encode name warn tr t arg =
+            let enc = getEncoding name cCallE warn tr t
             J.Application(J.Application(enc, []), [arg])
 
-        let Encode warn t arg =
-            encode "Encode" warn t arg
+        let Encode warn tr t arg =
+            encode "Encode" warn tr t (tr arg)
 
-        let Serialize warn t arg =
-            cCallG ["JSON"] "stringify" [encode "Serialize" warn t arg]
+        let Serialize warn tr t arg =
+            cCallG ["JSON"] "stringify" [encode "Serialize" warn tr t (tr arg)]
 
-        let decode name warn t arg =
-            let dec = getEncoding name cCallD warn t
+        let decode name warn tr t arg =
+            let dec = getEncoding name cCallD warn tr t
             J.Application(J.Application(dec, []), [arg])
 
-        let Decode warn t arg =
-            decode "Decode" warn t arg
+        let Decode warn tr t arg =
+            decode "Decode" warn tr t (tr arg)
 
-        let Deserialize warn t arg =
-            decode "Deserialize" warn t (cCallG ["JSON"] "parse" [arg])
+        let Deserialize warn tr t arg =
+            decode "Deserialize" warn tr t (cCallG ["JSON"] "parse" [tr arg])
 
 
         interface M.IMacro with
@@ -432,7 +459,7 @@ module private Macro =
                     | "Serialize" -> Serialize
                     | "Deserialize" -> Deserialize
                     | _ -> failwith "Invalid macro invocation")
-                        warn t (tr x)
+                        warn tr t x
                 | _ -> failwith "Invalid macro invocation"
 
 /// Encodes an object in such a way that JSON stringification
