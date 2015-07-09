@@ -64,6 +64,19 @@ module ClientSideJson =
         | Inline of Rec
         | NotInline of r: Rec
 
+    [<NamedUnionCases "result">]
+    type GenericUnion<'T> =
+        | [<CompiledName "success">] Success of 'T
+        | [<CompiledName "failure">] Failure of message: string
+
+    type PersonData =
+        { firstName: string
+          lastName: string
+          born: System.DateTime
+          died: option<System.DateTime> }
+
+    type Id = { id : int }
+
     let Tests =
         TestCategory "Client-side JSON" {
 
@@ -251,6 +264,29 @@ module ClientSideJson =
 
             let now = System.DateTime.Now
             let d = Date(Date.UTC(2011, 9, 5, 14, 48, 0)) // "2011-10-05T14:48:00.000Z"
+
+            Test "serialize generic union" {
+                equal (Json.Serialize (Success "x") |> Json.Parse)
+                    (New ["result" => "success"; "Item" => "x"])
+                equal (Json.Serialize (Success { rx = 9; ry = "o" }) |> Json.Parse)
+                    (New ["result" => "success"; "rx" => 9; "ry" => "o"])
+                equal (Json.Serialize (Failure "it failed" : GenericUnion<string>) |> Json.Parse)
+                    (New ["result" => "failure"; "message" => "it failed"])
+            }
+
+            Test "deserialize generic union" {
+                equal (Json.Deserialize """{"result":"success","Item":"x"}""")
+                    (Success "x")
+                equal (Json.Deserialize """{"result":"success","rx":9,"ry":"o"}""")
+                    (Success { rx = 9; ry = "o" })
+                equal (Json.Deserialize """{"result":"failure","message":"it failed"}""")
+                    (Failure "it failed" : GenericUnion<string>)
+                equal (Json.Deserialize """{"result":"success","Item":[[{"id":1},{"firstName":"Alonzo","lastName":"Church","born":"1903-06-14T00:00:00.0000000"}],[{"id":2},{"firstName":"Alan","lastName":"Turing","born":"1912-06-23T00:00:00.0000000","died":"1954-06-07T00:00:00.0000000"}]]}""")
+                    (Success [|
+                        {id = 1}, { firstName = "Alonzo"; lastName = "Church"; born = Date(Date.Parse("1903-06-14T00:00:00.0000000")).Self; died = None }
+                        {id = 2}, { firstName = "Alan"; lastName = "Turing"; born = Date(Date.Parse("1912-06-23T00:00:00.0000000")).Self; died = Some(Date(Date.Parse("1954-06-07T00:00:00.0000000")).Self) }
+                    |])
+            }
 
             Test "serialize System.DateTime" {
                 let serAndParse (d: System.DateTime) : Date =

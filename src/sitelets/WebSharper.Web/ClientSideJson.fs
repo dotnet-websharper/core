@@ -62,11 +62,11 @@ module private Encode =
                         o?(name) <- enc () x?(name)
                     | OptionalFieldKind.NormalOption ->
                         match x?(name) with
-                        | Some x -> o?(name) <- x
+                        | Some x -> o?(name) <- enc () x
                         | None -> ()
                     | OptionalFieldKind.MarkedOption ->
                         if JS.HasOwnProperty x name then
-                            o?(name) <- x?(name)
+                            o?(name) <- enc () x?(name)
                     | _ -> failwith "Invalid field option kind")
                 o))
 
@@ -150,11 +150,11 @@ module private Decode =
                     | OptionalFieldKind.NormalOption ->
                         o?(name) <-
                             if JS.HasOwnProperty x name
-                            then Some x?(name)
+                            then Some (enc () x?(name))
                             else None
                     | OptionalFieldKind.MarkedOption ->
                         if JS.HasOwnProperty x name then
-                            o?(name) <- x?(name)
+                            o?(name) <- (enc () x?(name))
                     | _ -> failwith "Invalid field option kind")
                 o))
 
