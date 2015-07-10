@@ -293,7 +293,7 @@ svgtag,normal,normal,animatemotion,AnimateMotion
 svgtag,normal,normal,animatetransform,AnimateTransform
 svgtag,normal,normal,circle,Circle
 svgtag,normal,normal,clippath,ClipPath
-svgtag,normal,normal,color,ColorProfile
+svgtag,normal,normal,color-profile,ColorProfile
 svgtag,normal,normal,cursor,Cursor
 svgtag,normal,normal,defs,Defs
 svgtag,normal,normal,desc,Desc
@@ -324,11 +324,11 @@ svgtag,normal,normal,fetile,FeTile
 svgtag,normal,normal,feturbulence,FeTurbulence
 svgtag,normal,normal,filter,Filter
 svgtag,normal,normal,font,Font
-svgtag,normal,normal,font,FontFace
-svgtag,normal,normal,font,FontFaceFormat
-svgtag,normal,normal,font,FontFaceName
-svgtag,normal,normal,font,FontFaceSrc
-svgtag,normal,normal,font,FontFaceUri
+svgtag,normal,normal,font-face,FontFace
+svgtag,normal,normal,font-face-format,FontFaceFormat
+svgtag,normal,normal,font-face-name,FontFaceName
+svgtag,normal,normal,font-face-src,FontFaceSrc
+svgtag,normal,normal,font-face-uri,FontFaceUri
 svgtag,normal,normal,foreignobject,ForeignObject
 svgtag,normal,normal,g,G
 svgtag,normal,normal,glyph,Glyph
@@ -340,7 +340,7 @@ svgtag,normal,normal,lineargradient,LinearGradient
 svgtag,normal,normal,marker,Marker
 svgtag,normal,normal,mask,Mask
 svgtag,normal,normal,metadata,Metadata
-svgtag,normal,normal,missing,MissingGlyph
+svgtag,normal,normal,missing-glyph,MissingGlyph
 svgtag,normal,normal,mpath,MPath
 svgtag,normal,normal,path,Path
 svgtag,normal,normal,pattern,Pattern
@@ -360,7 +360,7 @@ svgtag,normal,normal,textpath,TextPath
 svgtag,normal,normal,title,Title
 svgtag,normal,normal,tref,TRef
 svgtag,normal,normal,tspan,TSpan
-svgtag,normal,normal,use,Use
+svgtag,normal,keyword,use,Use
 svgtag,normal,normal,view,View
 svgtag,normal,normal,vkern,VKern
 svgattr,normal,normal,accent-height,AccentHeight
@@ -373,10 +373,10 @@ svgattr,normal,normal,attributeType,AttributeType
 svgattr,normal,normal,azimuth,Azimuth
 svgattr,normal,normal,baseFrequency,BaseFrequency
 svgattr,normal,normal,baseline-shift,BaselineShift
-svgattr,normal,normal,begin,Begin
+svgattr,normal,keyword,begin,Begin
 svgattr,normal,normal,bias,Bias
 svgattr,normal,normal,calcMode,CalcMode
-svgattr,normal,normal,class,Class
+svgattr,normal,keyword,class,Class
 svgattr,normal,normal,clip,Clip
 svgattr,normal,normal,clipPathUnits,ClipPathUnits
 svgattr,normal,normal,clip-path,ClipPath
@@ -402,7 +402,7 @@ svgattr,normal,normal,dx,DX
 svgattr,normal,normal,dy,DY
 svgattr,normal,normal,edgeMode,EdgeMode
 svgattr,normal,normal,elevation,Elevation
-svgattr,normal,normal,end,End
+svgattr,normal,keyword,end,End
 svgattr,normal,normal,externalResourcesRequired,ExternalResourcesRequired
 svgattr,normal,normal,fill,Fill
 svgattr,normal,normal,fill-opacity,FillOpacity
@@ -424,7 +424,7 @@ svgattr,normal,normal,gradientTransform,GradientTransform
 svgattr,normal,normal,gradientUnits,GradientUnits
 svgattr,normal,normal,height,Height
 svgattr,normal,normal,image-rendering,ImageRendering
-svgattr,normal,normal,in,IN
+svgattr,normal,keyword,in,In
 svgattr,normal,normal,in2,In2
 svgattr,normal,normal,k1,K1
 svgattr,normal,normal,k2,K2
@@ -502,7 +502,7 @@ svgattr,normal,normal,targetY,TargetY
 svgattr,normal,normal,text-anchor,TextAnchor
 svgattr,normal,normal,text-decoration,TextDecoration
 svgattr,normal,normal,text-rendering,TextRendering
-svgattr,normal,normal,to,To
+svgattr,normal,keyword,to,To
 svgattr,normal,normal,transform,Transform
 svgattr,normal,keyword,type,Type
 svgattr,normal,normal,values,Values
