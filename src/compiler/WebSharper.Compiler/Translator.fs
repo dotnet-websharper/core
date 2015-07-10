@@ -421,8 +421,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
                 | _ -> err "Cannot set an indexed stub property" fn.LocalName
             | None | Some (M.FieldProperty _) ->
                 err "Failed to translate property assignment" p.Entity
-        | Q.Quote _ ->
-            error "Quotations are not supported."
+        | Q.Quote q -> tExpr exn allowMacro q
         | Q.Sequential (x, y) ->
             C.Sequential (!x, !y)
         | Q.TryFinally (x, y) ->
