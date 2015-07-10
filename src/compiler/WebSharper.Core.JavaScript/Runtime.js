@@ -114,6 +114,7 @@ var IntelliFactory =
 
         Inherit:
             function (a, b) {
+		if (typeof b !== "function") return;
                 var p = a.prototype;
                 a.prototype = new b();
                 for (var f in p) {
