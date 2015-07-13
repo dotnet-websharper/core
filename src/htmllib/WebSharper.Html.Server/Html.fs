@@ -44,7 +44,7 @@ module Html =
     and Attribute =
         {
             Name : string
-            Value : string
+            mutable Value : string
             Annotation : option<IRequiresResources>
         }
 
