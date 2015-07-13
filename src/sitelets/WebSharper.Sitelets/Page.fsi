@@ -24,7 +24,6 @@ open System.Web.UI
 open WebSharper.Html.Server
 open WebSharper
 type private Writer = HtmlTextWriter -> unit
-type private IControl = WebSharper.Html.Client.IControl
 
 /// Represents HTML pages with embedded WebSharper controls.
 type Page =

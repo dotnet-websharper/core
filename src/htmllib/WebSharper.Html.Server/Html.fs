@@ -29,7 +29,7 @@ open System.Xml
 [<AutoOpen>]
 module Html =
 
-    type IControl = WebSharper.Html.Client.IControl
+    type private IRequiresResources = WebSharper.Html.Client.IRequiresResources
 
     /// Represents HTML tags.
     type TagContent =
@@ -37,7 +37,7 @@ module Html =
             Name : string
             Attributes : list<Attribute>
             Contents : list<Element>
-            Annotation : option<IControl>
+            Annotation : option<IRequiresResources>
         }
 
     /// Represents HTML attributes.
@@ -45,6 +45,7 @@ module Html =
         {
             Name : string
             Value : string
+            Annotation : option<IRequiresResources>
         }
 
         interface INode with
@@ -77,17 +78,20 @@ module Html =
             member this.Node = ContentNode this
 
         /// Collects all annotations from contained elements.
-        member this.CollectAnnotations () : list<IControl> =
+        member this.CollectAnnotations () : list<IRequiresResources> =
             match this with
             | TagContent content ->
                 let nested =
                     content.Contents
-                    |> List.map (fun content -> content.CollectAnnotations())
-                    |> List.concat
+                    |> List.collect (fun content -> content.CollectAnnotations())
+                let attrs =
+                    content.Attributes
+                    |> List.choose (fun attr -> attr.Annotation)
                 match content.Annotation with
                 | Some a -> [a]
                 | None -> []
                 |> List.append nested
+                |> List.append attrs
             | TextContent _
             | VerbatimContent _
             | CommentContent _ -> []
@@ -153,11 +157,12 @@ module Html =
         {
             Name = name
             Value = value
+            Annotation = None
         }
 
     /// Sets an annotation on the element.
     /// If the element is a non-tag element, this operation is a no-op.
-    let Annotate (x: IControl) (e: Element) =
+    let Annotate (x: IRequiresResources) (e: Element) =
         match e with
         | TagContent e ->
             { e with Annotation = Some x }
@@ -168,72 +173,6 @@ module Html =
 
     /// Represents HTML element identifiers.
     type Id = string
-
-    /// Represents documents with annotations mapped by HTML identifiers.
-    type Document =
-        {
-            Annotations : Map<Id, IControl>
-            Body : Element
-        }
-
-    /// Resolves the annotations by giving them HTML identifiers. The function
-    /// `isUsed` tests if a given identifier should not be used by the document.
-    let Resolve (isUsed: Id -> bool) (document: TagContent) =
-        let ids = Dictionary<Id,unit>()
-        let annotations = Dictionary<Id,IControl>()
-        let showId (k: int) = String.Format("id{0:x}", k)
-        let newId () =
-            let mutable k  = ids.Count
-            let mutable id = showId k
-            while ids.ContainsKey id || isUsed id do
-                k <- k + 1
-                id <- showId k
-            ids.[id] <- ()
-            id
-        let rec transform (element: TagContent) =
-            let mutable attributes = []
-            let mutable id = None
-            for x in element.Attributes do
-                match x.Name.ToLower() with
-                | "id" -> ids.[x.Value] <- (); id <- Some x.Value
-                | _ -> ()
-                let attribute = { Name = x.Name; Value = x.Value }
-                attributes <- attribute :: attributes
-            match element.Annotation with
-            | None -> ()
-            | Some a ->
-                let id =
-                    match id with
-                    | Some id   -> id
-                    | None      ->
-                        let id = newId ()
-                        attributes <- { Name = "id"; Value = id } :: attributes
-                        id
-                annotations.[id] <- a
-            let mutable contents = []
-            for x in element.Contents do
-                match x with
-                | TagContent e ->
-                    contents <- transform e :: contents
-                | CommentContent e ->
-                    contents <- CommentContent e :: contents
-                | VerbatimContent e ->
-                    contents <- VerbatimContent e :: contents
-                | TextContent e ->
-                    contents <- TextContent e :: contents
-            {
-                Name = element.Name // was: document.Name??
-                Attributes = List.rev attributes
-                Contents = List.rev contents
-                Annotation = None
-            }
-            |> TagContent
-        {
-            Body = transform document
-            Annotations =
-                seq { for kv in annotations -> (kv.Key, kv.Value) }
-                |> Map.ofSeq
-        }
 
     let private IsSelfClosingTag (name: string) =
         [

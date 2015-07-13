@@ -37,6 +37,8 @@ module Content =
     open WebSharper
 
     type private Func<'A,'B> = System.Func<'A,'B>
+    type private IRequiresResources = WebSharper.Html.Client.IRequiresResources
+    type private IControl = WebSharper.Html.Client.IControl
 
     module Activator = WebSharper.Html.Client.Activator
     module M = WebSharper.Core.Metadata
@@ -46,11 +48,16 @@ module Content =
     module XT = IntelliFactory.Xml.Templating
     module H = WebSharper.Html.Server.Html
 
-    let metaJson<'T> (jP: Core.Json.Provider) (controls: seq<IControl>) =
-        let encode (c: IControl) =
+    let metaJson<'T> (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
+        let encode (c: IRequiresResources) =
             let encoder = jP.GetEncoder(c.GetType())
             encoder.Encode c
-        J.Encoded.Object [for c in controls -> (c.Id, encode c)]
+        [ for c in controls do
+            match c with
+            | :? IControl as c -> yield (c.Id, encode c)
+            | _ -> ()
+        ]
+        |> J.Encoded.Object
         |> jP.Pack
         |> J.Stringify
 
@@ -91,7 +98,7 @@ module Content =
                 ResourceContext = ctx.ResourceContext
             }
 
-    let writeResources (env: Env) (controls: seq<IControl>) (tw: Core.Resources.RenderLocation -> UI.HtmlTextWriter) =
+    let writeResources (env: Env) (controls: seq<IRequiresResources>) (tw: Core.Resources.RenderLocation -> UI.HtmlTextWriter) =
         // Resolve resources for the set of types and this assembly
         let resources =
             controls
