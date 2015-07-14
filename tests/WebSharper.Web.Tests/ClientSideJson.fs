@@ -77,6 +77,11 @@ module ClientSideJson =
 
         member this.Test() = 12
 
+    type UnionWithConstants =
+        | [<Constant "foo">] Foo
+        | [<Constant "bar">] Bar
+        | [<Constant 12>] Twelve
+
     type GenericUnion() =
 
         member this.Test() = "Wrong class :("
@@ -301,6 +306,18 @@ module ClientSideJson =
                         {id = 1}, { firstName = "Alonzo"; lastName = "Church"; born = Date(Date.Parse("1903-06-14T00:00:00.0000000")).Self; died = None }
                         {id = 2}, { firstName = "Alan"; lastName = "Turing"; born = Date(Date.Parse("1912-06-23T00:00:00.0000000")).Self; died = Some(Date(Date.Parse("1954-06-07T00:00:00.0000000")).Self) }
                     |])
+            }
+
+            Test "serialize union with constants" {
+                equal (Json.Serialize Foo |> Json.Parse |> unbox) "foo"
+                equal (Json.Serialize Bar |> Json.Parse |> unbox) "bar"
+                equal (Json.Serialize Twelve |> Json.Parse |> unbox) 12
+            }
+
+            Test "deserialize union with constants" {
+                equal (Json.Deserialize (Json.Stringify "foo")) Foo
+                equal (Json.Deserialize (Json.Stringify "bar")) Bar
+                equal (Json.Deserialize (Json.Stringify 12)) Twelve
             }
 
             Test "serialize System.DateTime" {

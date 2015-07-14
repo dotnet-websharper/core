@@ -73,18 +73,21 @@ module private Encode =
     let Union _ (discr: string) (cases: (string * (string * string * (unit -> obj -> obj))[])[]) =
         box (fun () ->
             box (fun (x: obj) ->
-                let o = New []
-                let tag = x?("$")
-                let tagName, fields = cases.[tag]
-                if JS.TypeOf discr = JS.Kind.String then o?(discr) <- tagName
-                fields |> Array.iter (fun (from, ``to``, enc) ->
-                    match from with
-                    | null -> // inline record
-                        let record = enc () (x?("$0"))
-                        JS.ForEach record (fun f -> o?(f) <- record?(f); false)
-                    | from -> // normal args
-                        o?(``to``) <- enc () (x?(from)))
-                o))
+                if JS.TypeOf x ===. JS.Object then
+                    let o = New []
+                    let tag = x?("$")
+                    let tagName, fields = cases.[tag]
+                    if JS.TypeOf discr = JS.Kind.String then o?(discr) <- tagName
+                    fields |> Array.iter (fun (from, ``to``, enc) ->
+                        match from with
+                        | null -> // inline record
+                            let record = enc () (x?("$0"))
+                            JS.ForEach record (fun f -> o?(f) <- record?(f); false)
+                        | from -> // normal args
+                            o?(``to``) <- enc () (x?(from)))
+                    o
+                else x // [<Constant>]
+            ))
 
     let Array (encEl: unit -> 'T -> obj) =
         box (fun () ->
@@ -161,25 +164,28 @@ module private Decode =
     let Union (t: obj) (discr: string) (cases: (string * (string * string * (unit -> obj -> obj))[])[]) =
         box (fun () ->
             box (fun (x: obj) ->
-                let o = if t ===. JS.Undefined then New [] else JS.New t
-                let tag =
-                    // [<NamedUnionCases(discr)>]
-                    if JS.TypeOf discr = JS.Kind.String then
-                        let tagName = x?(discr)
-                        cases |> Array.findIndex (fun (name, _) -> name = tagName)
-                    else // [<NamedUnionCases>]
-                        let r = ref JS.Undefined
-                        JS.ForEach discr (fun k ->
-                            if JS.HasOwnProperty x k then r := discr?(k); true else false)
-                        !r
-                o?("$") <- tag
-                cases.[tag] |> snd |> Array.iter (fun (from, ``to``, dec) ->
-                    match from with
-                    | null -> // inline record
-                        o?("$0") <- dec () x
-                    | from -> // normal args
-                        o?(from) <- dec () (x?(``to``)))
-                o))
+                if JS.TypeOf x ===. JS.Object then
+                    let o = if t ===. JS.Undefined then New [] else JS.New t
+                    let tag =
+                        // [<NamedUnionCases(discr)>]
+                        if JS.TypeOf discr = JS.Kind.String then
+                            let tagName = x?(discr)
+                            cases |> Array.findIndex (fun (name, _) -> name = tagName)
+                        else // [<NamedUnionCases>]
+                            let r = ref JS.Undefined
+                            JS.ForEach discr (fun k ->
+                                if JS.HasOwnProperty x k then r := discr?(k); true else false)
+                            !r
+                    o?("$") <- tag
+                    cases.[tag] |> snd |> Array.iter (fun (from, ``to``, dec) ->
+                        match from with
+                        | null -> // inline record
+                            o?("$0") <- dec () x
+                        | from -> // normal args
+                            o?(from) <- dec () (x?(``to``)))
+                    o
+                else x // [<Constant>]
+            ))
 
     let Array decEl =
         Encode.Array decEl
@@ -366,9 +372,11 @@ module private Macro =
                         match tr (Q.NewUnionCase(uc, args)) with
                         // Runtime.New(union, {...})
                         | J.Call (_, J.Constant (J.String "New"), [x; _]) -> x
-                        | J.NewObject _ -> !~J.Undefined
+                        // {...}
+                        | J.NewObject _
+                        // [<Constant>]
+                        | J.Constant _ -> !~J.Undefined
                         | x -> failwithf "Invalid compiled union creation: %O" x
-//                        match Q.NewUnionCase(Core.Reflection.un)
                     ok (call "Union" [tn; discr; cases])
                     ), cases)
                 ||> Array.fold (fun (i, k) case ->
@@ -400,6 +408,7 @@ module private Macro =
                                 | _ -> cString name
                             encode (T.FromType record) >>= fun e ->
                             k (J.NewArray [tag; J.NewArray [J.NewArray [!~J.Null; !~J.Null; e]]] :: es)
+                        | JI.Constant _ -> k (!~J.Null :: es)
                 )
                 |> snd
                 <| []
