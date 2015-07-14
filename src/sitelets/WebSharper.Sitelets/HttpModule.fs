@@ -81,7 +81,7 @@ module internal SiteLoading =
                 BuildManager.GetReferencedAssemblies()
                 |> Seq.cast<Assembly>
             let sitelets, actions = 
-                Seq.choose TryLoadSiteA assemblies 
+                Seq.choose TryLoadSite assemblies 
                 |> List.ofSeq |> List.unzip
             (Sitelet.Sum sitelets, Seq.concat actions)
 
