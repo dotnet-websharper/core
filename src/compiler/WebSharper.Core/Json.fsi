@@ -151,9 +151,17 @@ module Internal =
     type UnionCaseArgFlag =
         | DateTimeFormat of string
 
+    [<RequireQualifiedAccess>]
+    type UnionCaseConstantEncoding =
+        | Bool of bool
+        | Int of int
+        | Float of float
+        | String of string
+
     type UnionCaseEncoding =
         | Normal of name: string * args: (string * System.Type * UnionCaseArgFlag[])[]
         | InlineRecord of name: string * record: System.Type
+        | Constant of value: UnionCaseConstantEncoding
 
     /// Get the encoding characteristics of a discriminated union.
     /// t is assumed to be a discriminated union.

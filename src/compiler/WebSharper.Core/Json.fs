@@ -693,6 +693,140 @@ let isInlinableRecordCase (uci: Reflection.UnionCaseInfo) =
     fields.[0].Name = "Item" &&
     FST.IsRecord fields.[0].PropertyType
 
+/// Some (Some x) if tagged [<NameUnionCases x>];
+/// Some None if tagged [<NamedUnionCases>];
+/// None if not tagged.
+let getDiscriminatorName (t: System.Type) =
+    t.GetCustomAttributesData()
+    |> Seq.tryPick (fun cad ->
+        if cad.Constructor.DeclaringType = typeof<A.NamedUnionCasesAttribute> then
+            if cad.ConstructorArguments.Count = 1 then
+                Some (Some (cad.ConstructorArguments.[0].Value :?> string))
+            else Some None
+        else None)
+
+let inferredCasesTable t =
+    let cases =
+        FST.GetUnionCases(t, flags)
+        |> Array.map (fun c ->
+            let fields = c.GetFields()
+            let fields =
+                if isInlinableRecordCase c then
+                    FST.GetRecordFields fields.[0].PropertyType
+                else fields
+            let fields =
+                fields
+                |> Array.filter (fun f ->
+                    let t = f.PropertyType
+                    not (t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>>))
+                |> Array.map (fun f -> f.Name)
+            c.Tag, Set fields
+        )
+        |> Map.ofArray
+    let findDistinguishingCase (cases: Map<int, Set<string>>) =
+        cases
+        |> Map.tryPick (fun t fs ->
+            let allOtherFields =
+                cases
+                |> Seq.choose (fun (KeyValue(t', fs)) ->
+                    if t = t' then None else Some fs)
+                |> Set.unionMany
+            let uniqueCases = fs - allOtherFields
+            if Set.isEmpty uniqueCases then
+                None
+            else Some (Seq.head uniqueCases, t)
+        )
+    let rec buildTable acc cases =
+        if Map.isEmpty cases then acc else
+        match findDistinguishingCase cases with
+        | None -> raise (NoDecoderException t)
+        | Some (name, tag) ->
+            buildTable
+                <| (name, tag) :: acc
+                <| Map.remove tag cases
+    buildTable [] cases
+
+module Internal =
+
+    let inline GetName x = TAttrs.GetName x
+
+    type UnionDiscriminator =
+        | NoField of (string * int) list
+        | StandardField
+        | NamedField of string
+
+    type UnionCaseArgFlag =
+        | DateTimeFormat of string
+
+    [<RequireQualifiedAccess>]
+    type UnionCaseConstantEncoding =
+        | Bool of bool
+        | Int of int
+        | Float of float
+        | String of string
+
+    type UnionCaseEncoding =
+        | Normal of name: string * args: (string * System.Type * UnionCaseArgFlag[])[]
+        | InlineRecord of name: string * record: System.Type
+        | Constant of value: UnionCaseConstantEncoding
+
+    let getUnionCaseConstantEncoding (uci: Reflection.UnionCaseInfo) =
+        uci.GetCustomAttributesData()
+        |> Seq.tryPick (fun cad ->
+            if cad.Constructor.DeclaringType = typeof<A.ConstantAttribute> then
+                let arg = cad.ConstructorArguments.[0]
+                if arg.ArgumentType = typeof<int> then
+                    UnionCaseConstantEncoding.Int (unbox arg.Value)
+                elif arg.ArgumentType = typeof<float> then
+                    UnionCaseConstantEncoding.Float (unbox arg.Value)
+                elif arg.ArgumentType = typeof<bool> then
+                    UnionCaseConstantEncoding.Bool (unbox arg.Value)
+                elif arg.ArgumentType = typeof<string> then
+                    UnionCaseConstantEncoding.String (unbox arg.Value)
+                else failwith "Invalid ConstantAttribute."
+                |> Some
+            else None)
+
+    let GetUnionEncoding (t: System.Type) =
+        let discr =
+            match getDiscriminatorName t with
+            | None -> StandardField
+            | Some None -> NoField (inferredCasesTable t)
+            | Some (Some n) -> NamedField n
+        let cases =
+            FST.GetUnionCases t
+            |> Array.mapi (fun i uci ->
+                let name =
+                    match discr with
+                    | StandardField -> "$" + string i
+                    | _ -> GetName uci
+                if isInlinableRecordCase uci then
+                    InlineRecord(name = name, record = uci.GetFields().[0].PropertyType)
+                else
+                    match getUnionCaseConstantEncoding uci with
+                    | Some e -> Constant e
+                    | None ->
+                        let dateTimeFormats =
+                            uci.GetCustomAttributesData()
+                            |> Array.ofSeq
+                            |> Array.choose (fun cad ->
+                                if cad.Constructor.DeclaringType = typeof<A.DateTimeFormatAttribute> &&
+                                    cad.ConstructorArguments.Count = 2 then
+                                    let args = cad.ConstructorArguments
+                                    Some (args.[0].Value :?> string, args.[1].Value :?> string)
+                                else None)
+                        let args = uci.GetFields() |> Array.map (fun f ->
+                            let flags =
+                                dateTimeFormats
+                                |> Seq.tryPick (fun (k, v) ->
+                                    if k = f.Name then Some (DateTimeFormat v) else None)
+                                |> Option.toArray
+                            GetName f, f.PropertyType, flags)
+                        Normal(name = name, args = args))
+        discr, cases
+
+open Internal
+
 let unmakeList<'T> (dV: obj -> Encoded) (x: obj) =
     EncodedArray [
         for v in unbox<list<'T>> x ->
@@ -712,19 +846,25 @@ let unionEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let cs =
         FST.GetUnionCases(t, flags)
         |> Array.map (fun c ->
-            let r = FSV.PreComputeUnionReader(c, flags)
-            let fields = c.GetFields()
-            let r, fields =
-                if i.ConciseRepresentation && isInlinableRecordCase c then
-                    let rt = fields.[0].PropertyType
-                    let rr = FSV.PreComputeRecordReader(rt, flags)
-                    let r x = rr (r x).[0]
-                    r, FST.GetRecordFields(rt, flags)
-                else r, fields
-            let fs = fields |> Array.mapi (fun k f ->
-                let ta = TAttrs.Get(i, f.PropertyType, f, c)
-                i.GetEncodedUnionFieldName f k, encodeOptionalField dE ta)
-            (r, fs))
+            match getUnionCaseConstantEncoding c with
+            | Some (UnionCaseConstantEncoding.Int i) -> Choice1Of2 (EncodedNumber (string i))
+            | Some (UnionCaseConstantEncoding.Float f) -> Choice1Of2 (EncodedNumber (string f))
+            | Some (UnionCaseConstantEncoding.Bool b) -> Choice1Of2 (if b then EncodedTrue else EncodedFalse)
+            | Some (UnionCaseConstantEncoding.String s) -> Choice1Of2 (EncodedString s)
+            | None ->
+                let r = FSV.PreComputeUnionReader(c, flags)
+                let fields = c.GetFields()
+                let r, fields =
+                    if i.ConciseRepresentation && isInlinableRecordCase c then
+                        let rt = fields.[0].PropertyType
+                        let rr = FSV.PreComputeRecordReader(rt, flags)
+                        let r x = rr (r x).[0]
+                        r, FST.GetRecordFields(rt, flags)
+                    else r, fields
+                let fs = fields |> Array.mapi (fun k f ->
+                    let ta = TAttrs.Get(i, f.PropertyType, f, c)
+                    i.GetEncodedUnionFieldName f k, encodeOptionalField dE ta)
+                Choice2Of2 (r, fs))
     let encodeTag = i.EncodeUnionTag t
     let addTag = i.AddTag t
     fun (x: obj) ->
@@ -734,18 +874,20 @@ let unionEncoder dE (i: FormatSettings) (ta: TAttrs) =
             |> addTag
         | o when t.IsAssignableFrom(o.GetType()) ->
             let tag = tR o
-            let (r, fs) = cs.[tag]
-            let data =
-                [
-                    for f, d in Array.map2 (fun (f, e) x -> (f, e x)) fs (r o) do
-                        if d.IsSome then yield f, d.Value
-                ]
-            let data =
-                match encodeTag tag with
-                | Some kv -> kv :: data
-                | None -> data
-            EncodedObject data
-            |> addTag
+            match cs.[tag] with
+            | Choice1Of2 constant -> constant
+            | Choice2Of2 (r, fs) ->
+                let data =
+                    [
+                        for f, d in Array.map2 (fun (f, e) x -> (f, e x)) fs (r o) do
+                            if d.IsSome then yield f, d.Value
+                    ]
+                let data =
+                    match encodeTag tag with
+                    | Some kv -> kv :: data
+                    | None -> data
+                EncodedObject data
+                |> addTag
         | x ->
             raise EncoderException
 
@@ -762,8 +904,9 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
         t.GetGenericArguments().[0]
         |> callGeneric <@ makeList @> dD ta
     else
+    let cases = FST.GetUnionCases(t, flags)
     let cs =
-        FST.GetUnionCases(t, flags)
+        cases
         |> Array.map (fun c ->
             let mk = FSV.PreComputeUnionConstructor(c, flags)
             let fields = c.GetFields()
@@ -780,6 +923,22 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
                     let ta = TAttrs.Get(i, f.PropertyType, f, c)
                     i.GetEncodedUnionFieldName f k, decodeOptionalField dD ta)
             (mk, fs))
+    let consts =
+        let c =
+            cases
+            |> Array.choose (fun c ->
+                let mk() = FSV.PreComputeUnionConstructor(c, flags) [||]
+                getUnionCaseConstantEncoding c
+                |> Option.map (function
+                    | UnionCaseConstantEncoding.Int i -> (Number (string i), mk())
+                    | UnionCaseConstantEncoding.Float f -> (Number (string f), mk())
+                    | UnionCaseConstantEncoding.Bool b -> ((if b then True else False), mk())
+                    | UnionCaseConstantEncoding.String s -> (String s, mk())
+                )
+            )
+        let consts = Dictionary()
+        for k, v in c do consts.Add(k, v)
+        consts
     let k = cs.Length
     let getTag = i.GetUnionTag t
     fun (x: Value) ->
@@ -794,8 +953,10 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
             fs
             |> Array.map (fun (f, e) -> e (get f))
             |> mk
-        | _ ->
-            raise DecoderException
+        | v ->
+            match consts.TryGetValue v with
+            | true, x -> x
+            | false, _ -> raise DecoderException
 
 let recordEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
@@ -1206,47 +1367,6 @@ let defaultGetUnionTag t =
             | _ -> None
         | _ -> None
 
-let inferredCasesTable t =
-    let cases =
-        FST.GetUnionCases(t, flags)
-        |> Array.map (fun c ->
-            let fields = c.GetFields()
-            let fields =
-                if isInlinableRecordCase c then
-                    FST.GetRecordFields fields.[0].PropertyType
-                else fields
-            let fields =
-                fields
-                |> Array.filter (fun f ->
-                    let t = f.PropertyType
-                    not (t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>>))
-                |> Array.map (fun f -> f.Name)
-            c.Tag, Set fields
-        )
-        |> Map.ofArray
-    let findDistinguishingCase (cases: Map<int, Set<string>>) =
-        cases
-        |> Map.tryPick (fun t fs ->
-            let allOtherFields =
-                cases
-                |> Seq.choose (fun (KeyValue(t', fs)) ->
-                    if t = t' then None else Some fs)
-                |> Set.unionMany
-            let uniqueCases = fs - allOtherFields
-            if Set.isEmpty uniqueCases then
-                None
-            else Some (Seq.head uniqueCases, t)
-        )
-    let rec buildTable acc cases =
-        if Map.isEmpty cases then acc else
-        match findDistinguishingCase cases with
-        | None -> raise (NoDecoderException t)
-        | Some (name, tag) ->
-            buildTable
-                <| (name, tag) :: acc
-                <| Map.remove tag cases
-    buildTable [] cases
-
 let inferUnionTag t =
     let findInTable table get =
         table |> List.tryPick (fun (name, tag) ->
@@ -1256,18 +1376,6 @@ let inferUnionTag t =
 
 let defaultEncodeUnionTag _ (tag: int) =
     Some ("$", EncodedNumber (string tag))
-
-/// Some (Some x) if tagged [<NameUnionCases x>];
-/// Some None if tagged [<NamedUnionCases>];
-/// None if not tagged.
-let getDiscriminatorName (t: System.Type) =
-    t.GetCustomAttributesData()
-    |> Seq.tryPick (fun cad ->
-        if cad.Constructor.DeclaringType = typeof<A.NamedUnionCasesAttribute> then
-            if cad.ConstructorArguments.Count = 1 then
-                Some (Some (cad.ConstructorArguments.[0].Value :?> string))
-            else Some None
-        else None)
 
 module TypedProviderInternals =
 
@@ -1539,54 +1647,3 @@ let Stringify v =
     use w = new System.IO.StringWriter()
     Write w v
     w.ToString()
-
-module Internal =
-
-    let inline GetName x = TAttrs.GetName x
-
-    type UnionDiscriminator =
-        | NoField of (string * int) list
-        | StandardField
-        | NamedField of string
-
-    type UnionCaseArgFlag =
-        | DateTimeFormat of string
-
-    type UnionCaseEncoding =
-        | Normal of name: string * args: (string * System.Type * UnionCaseArgFlag[])[]
-        | InlineRecord of name: string * record: System.Type
-
-    let GetUnionEncoding (t: System.Type) =
-        let discr =
-            match getDiscriminatorName t with
-            | None -> StandardField
-            | Some None -> NoField (inferredCasesTable t)
-            | Some (Some n) -> NamedField n
-        let cases =
-            FST.GetUnionCases t
-            |> Array.mapi (fun i uci ->
-                let name =
-                    match discr with
-                    | StandardField -> "$" + string i
-                    | _ -> GetName uci
-                if isInlinableRecordCase uci then
-                    InlineRecord(name = name, record = uci.GetFields().[0].PropertyType)
-                else
-                    let dateTimeFormats =
-                        uci.GetCustomAttributesData()
-                        |> Array.ofSeq
-                        |> Array.choose (fun cad ->
-                            if cad.Constructor.DeclaringType = typeof<A.DateTimeFormatAttribute> &&
-                                cad.ConstructorArguments.Count = 2 then
-                                let args = cad.ConstructorArguments
-                                Some (args.[0].Value :?> string, args.[1].Value :?> string)
-                            else None)
-                    let args = uci.GetFields() |> Array.map (fun f ->
-                        let flags =
-                            dateTimeFormats
-                            |> Seq.tryPick (fun (k, v) ->
-                                if k = f.Name then Some (DateTimeFormat v) else None)
-                            |> Option.toArray
-                        GetName f, f.PropertyType, flags)
-                    Normal(name = name, args = args))
-        discr, cases
