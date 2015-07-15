@@ -1022,7 +1022,7 @@ module Reflection =
         override this.Resolve() = this :> _
         override this.Shape = shape.Value
 
-    and [<Sealed>] RAssembly(conv: Converter, d: Assembly) =
+    and [<Sealed>] RAssembly(conv: Converter, d: Assembly, ?name: AssemblyName) =
         inherit AssemblyDefinition()
 
         let atts =
@@ -1031,7 +1031,7 @@ module Reflection =
                     |> conv.ConvertAttributes
                 with _ -> []
 
-        let name = lazy d.GetName()
+        let name = lazy match name with None -> d.GetName() | Some n -> n
 
         let embeddedResources =
             lazy
@@ -1055,8 +1055,8 @@ module Reflection =
         override this.Name = name.Value
         override this.Types = types.Value :> seq<_>
 
-    let AdaptAssembly (a: Assembly) : AssemblyDefinition =
-        RAssembly(Converter(), a) :> _
+    let AdaptAssembly (a: Assembly) (n: option<AssemblyName>) : AssemblyDefinition =
+        RAssembly(Converter(), a, ?name = n) :> _
 
 module Dynamic =
     open WebSharper
@@ -1157,7 +1157,7 @@ module Dynamic =
         let q = QuotationUtils.ConvertQuotation(q)
         let t = MockTypeDefinition(q, name) :> TypeDefinition
         let n = System.Reflection.AssemblyName("WebSharper.EntryPoint")
-        let a = Reflection.AdaptAssembly(ctx)
+        let a = Reflection.AdaptAssembly ctx (Some n)
         {
             new AssemblyDefinition() with
                 override this.CustomAttributes = a.CustomAttributes
