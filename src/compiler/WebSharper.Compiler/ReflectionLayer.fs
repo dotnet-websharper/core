@@ -444,6 +444,7 @@ module QuotationUtils =
     open System.Reflection
     module RQ = Quotations.Patterns
     module CR = WebSharper.Core.Reflection
+    type FST = Microsoft.FSharp.Reflection.FSharpType
 
     let convertTypes (ts: System.Type[]) : list<CR.Type> =
         [
@@ -562,15 +563,21 @@ module QuotationUtils =
         ||| System.Reflection.BindingFlags.NonPublic
     
     let (|UnionProperty|_|) (info: PropertyInfo) : option<Q.Concrete<Re.UnionCase> * int> =
-        let case = info.DeclaringType
-        if not case.IsNested then None else
-        let sum = case.DeclaringType
-        if not (sum |> HasSourceConstructFlag SourceConstructFlags.SumType) then None else
-        match System.Attribute.GetCustomAttribute(info, typeof<CompilationMappingAttribute>) with
-        | :? CompilationMappingAttribute as attr -> 
-            let uC = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(sum, flags).[attr.VariantNumber]
-            Some (ConvertUnionCase uC, attr.SequenceNumber)
-        | _ -> None
+        let sum =
+            let case = info.DeclaringType
+            if FST.IsUnion(case, flags) then Some case
+            elif case.IsNested then
+                let parent = case.DeclaringType
+                if FST.IsUnion(parent, flags) then Some parent else None
+            else None
+        match sum with
+        | Some sum ->
+            match System.Attribute.GetCustomAttribute(info, typeof<CompilationMappingAttribute>) with
+            | :? CompilationMappingAttribute as attr -> 
+                let uC = FST.GetUnionCases(sum, flags).[attr.VariantNumber]
+                Some (ConvertUnionCase uC, attr.SequenceNumber)
+            | _ -> None
+        | None -> None
 
     let ConvertQuotation (q: Quotations.Expr) : Q.Expression =
         let ( !^ ) = CR.Type.FromType
