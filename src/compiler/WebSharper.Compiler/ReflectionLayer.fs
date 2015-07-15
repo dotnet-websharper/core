@@ -710,7 +710,11 @@ module Reflection =
                     |> Seq.toList
                     |> IntsArgument
                 typeof<string>, fun x -> StringArgument (unbox x)
-                typeof<string[]>, fun (x: obj) -> StringsArgument (Seq.toList (x :?> seq<string>))
+                typeof<string[]>, fun (x: obj) ->
+                    x :?> seq<CustomAttributeTypedArgument>
+                    |> Seq.map (fun x -> x.Value :?> string)
+                    |> Seq.toList
+                    |> StringsArgument
                 typeof<System.Type>, fun (x: obj) -> TypeArgument (convType (unbox x) :> TypeReference)
             |]
 
