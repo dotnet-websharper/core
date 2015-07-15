@@ -602,6 +602,8 @@ module QuotationUtils =
                 Q.FieldGetInstance (!t, ConvertField fld)
             | RQ.FieldSet (None, fld, v) ->
                 Q.FieldSetStatic (ConvertField fld, !v)
+            | RQ.FieldSet (Some t, fld, v) ->
+                Q.FieldSetInstance (!t, ConvertField fld, !v)
             | RQ.ForIntegerRangeLoop (a, b, c, d) ->
                 Q.ForIntegerRangeLoop (!?a, !b, !c, !d)
             | RQ.IfThenElse (a, b, c) -> Q.IfThenElse (!a, !b, !c)
