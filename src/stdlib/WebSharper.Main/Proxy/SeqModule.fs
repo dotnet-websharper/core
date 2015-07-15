@@ -131,42 +131,17 @@ let Choose (f: 'T -> option<'U>) (s: seq<'T>) : seq<'U> =
         | None   -> [])
 
 [<JavaScript>]
-[<Name "chunkBySize">]
-let ChunkBySize (size: int) (s: seq<'T>) =
-    if size <= 0 then failwith "Chunk size must be positive"
-    Enumerable.Of <| fun () ->
-        let enum = Enumerator.Get s
-        Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
-            if enum.MoveNext() then
-                let res = [|enum.Current|]
-                while res.Length < size && e.MoveNext() do 
-                    res.JS.Push enum.Current |> ignore
-                e.Current <- res
-                true
-            else false
+[<Inline>]
+let ChunkBySize (size: int) (s: seq<'T>) = SeqChunkBySize size s
 
 [<JavaScript>]
 [<Name "collect">]
 let Collect f s = Seq.concat (Seq.map f s)
 
 [<JavaScript>]
-[<Name "compareWith">]
+[<Inline>]
 let CompareWith  (f: 'T -> 'T -> int) (s1: seq<'T>) (s2: seq<'T>) : int =
-    use e1 = Enumerator.Get s1
-    use e2 = Enumerator.Get s2
-    let mutable r = 0
-    let mutable loop = true
-    while loop && r = 0 do
-        match e1.MoveNext(), e2.MoveNext() with
-        | true, false ->
-            r <- 1
-        | false, true ->
-            r <- -1
-        | false, false ->
-            loop <- false
-        | true, true ->
-            r <- f e1.Current e2.Current
-    r
+    SeqCompareWith f s1 s2
 
 [<JavaScript>]
 [<Name "concat">]
@@ -196,23 +171,9 @@ let Concat (ss: seq<#seq<'T>>) : seq<'T> =
             next)
 
 [<JavaScript>]
-[<Name "countBy">]
+[<Inline>]
 let CountBy (f: 'T -> 'K) (s: seq<'T>) : seq<'K * int> =
-    Seq.delay <| fun () ->
-        let d = new obj()
-        use e = Enumerator.Get s
-        let keys = System.Collections.Generic.Queue<_>()
-        while e.MoveNext() do
-            let k = f e.Current
-            let h = As<string> (Unchecked.hash k)
-            if JS.HasOwnProperty d (As h) then
-                (?<-) d h ((?) d h + 1)
-            else
-                keys.Enqueue k
-                (?<-) d h 1
-        keys.ToArray()
-        |> Array.map (fun k -> (k, (?) d (As (hash k))))
-        |> As<_>
+    SeqCountBy f s
 
 [<JavaScript>]
 [<Name "delay">]

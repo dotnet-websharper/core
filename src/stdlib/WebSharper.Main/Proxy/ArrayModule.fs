@@ -557,4 +557,20 @@ let Zip3 (arr1: _ [], arr2: _ [], arr3: _ []) =
     for i = 0 to Array.length arr1 - 1 do
         res.[i] <- (arr1.[i], arr2.[i], arr3.[i])
     res
-                                         
+        
+[<JavaScript>]
+[<Name "chunkBySize">]
+let ChunkBySize size array =
+    SeqChunkBySize size (Array.toSeq array)
+    |> Seq.toArray
+    
+[<JavaScript>]
+[<Name "compareWith">]
+let CompareWith  (f: 'T -> 'T -> int) (a1: 'T []) (a2: 'T []) : int =
+    SeqCompareWith f (Array.toSeq a1) (Array.toSeq a2)
+        
+[<JavaScript>]
+[<Name "countBy">]
+let CountBy (f: 'T -> 'K) (a: 'T []) : ('K * int) [] =
+    SeqCountBy f (Array.toSeq a)
+    |> Seq.toArray

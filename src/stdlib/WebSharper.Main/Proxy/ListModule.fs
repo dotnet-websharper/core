@@ -368,3 +368,20 @@ let Zip (l1: list<_>) (l2: list<_>) =
 let Zip3 (l1: list<_>) (l2: list<_>) (l3: list<_>) =
     List.ofArray (Array.zip3 (Array.ofSeq l1)
         (Array.ofSeq l2) (Array.ofSeq l3))
+
+[<JavaScript>]
+[<Name "chunkBySize">]
+let ChunkBySize size list =
+    SeqChunkBySize size (List.toSeq list)
+    |> Seq.toList
+
+[<JavaScript>]
+[<Name "compareWith">]
+let CompareWith  (f: 'T -> 'T -> int) (l1: list<'T>) (l2: list<'T>) : int =
+    SeqCompareWith f (List.toSeq l1) (List.toSeq l2)
+
+[<JavaScript>]
+[<Name "countBy">]
+let CountBy (f: 'T -> 'K) (l: list<'T>) : list<'K * int> =
+    SeqCountBy f (List.toSeq l)
+    |> Seq.toList
