@@ -266,6 +266,14 @@ let MapIndexed2 f (arr1: 'T1 []) (arr2: 'T2 []): 'U[] =
     res
 
 [<JavaScript>]
+[<Inline>]
+let MapFold f zero arr = ArrayMapFold f zero arr
+
+[<JavaScript>]
+[<Inline>]
+let MapFoldBack f arr zero = ArrayMapFoldBack f arr zero
+
+[<JavaScript>]
 [<Name "max">]
 let Max x = Array.reduce max x
 
@@ -407,6 +415,16 @@ let SortInPlaceWith<'T> (comparer: 'T -> 'T -> int) (arr: 'T []) =
 [<Name "sortWith">]
 let SortWith<'T> (comparer: 'T -> 'T -> int) (arr: 'T []) : 'T [] =
     sortArray (Array.copy arr) (fun (x, y) -> comparer x y)
+
+[<JavaScript>]
+[<Name "sortByDescending">]
+let SortByDescending<'T,'U when 'U: comparison> (f: 'T -> 'U) (arr: 'T []) : 'T [] =
+    sortArray (Array.copy arr) (fun (x, y) -> - compare (f x) (f y))
+
+[<JavaScript>]
+[<Name "sortDescending">]
+let SortDescending<'T when 'T: comparison> (arr: 'T []) : 'T [] =
+    SortByDescending id arr
 
 [<Inline "$x.slice($start,$start+$length)">]
 let private subArray (x: 'T) start length = X<'T>

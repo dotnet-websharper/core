@@ -75,3 +75,32 @@ let ArrayTryFindIndexBack f (arr: _ []) =
         if f arr.[i] then res <- Some i
         i <- i - 1
     res
+
+[<JavaScript>]
+[<Name "Arrays.mapFold">]
+let ArrayMapFold (f: 'S -> 'T -> 'R * 'S) (zero: 'S) (arr: 'T[]) : 'R[] * 'S =
+    let r = Array.zeroCreate<'R>(Array.length arr)
+    let mutable acc = zero
+    for i = 0 to Array.length arr - 1 do
+        let a, b = f acc arr.[i]
+        r.[i] <- a
+        acc <- b 
+    r, acc
+
+[<JavaScript>]
+[<Name "Arrays.mapFoldBack">]
+let ArrayMapFoldBack (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) : 'R[] * 'S =
+    let r = Array.zeroCreate<'R>(Array.length arr)
+    let mutable acc = zero
+    let len = Array.length arr
+    for j = 1 to len do
+        let i = len - j
+        let a, b = f arr.[i] acc
+        r.[i] <- a
+        acc <- b 
+    r, acc
+
+[<JavaScript>]
+[<Name "Arrays.sortInPlaceByDescending">]
+let ArraySortInPlaceByDescending<'T,'U when 'U: comparison> (f: 'T -> 'U) (arr: 'T []) =
+    As<unit> (arr.JS.Sort(fun (x, y) -> - compare (f x) (f y)))

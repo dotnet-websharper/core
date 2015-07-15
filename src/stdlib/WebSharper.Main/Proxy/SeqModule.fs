@@ -136,13 +136,11 @@ let ChunkBySize (size: int) (s: seq<'T>) =
     if size <= 0 then failwith "Chunk size must be positive"
     Enumerable.Of <| fun () ->
         let enum = Enumerator.Get s
-        Enumerator.New () <| fun e ->
+        Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
             if enum.MoveNext() then
                 let res = [|enum.Current|]
-                let mutable i = 1 
-                while i < size && e.MoveNext() do 
+                while res.Length < size && e.MoveNext() do 
                     res.JS.Push enum.Current |> ignore
-                    i <- i + 1 
                 e.Current <- res
                 true
             else false
@@ -264,7 +262,7 @@ let DistinctBy<'T,'K when 'K : equality>
 [<JavaScript>]
 [<Name "splitInto">]
 let SplitInto count (s: seq<'T>) =
-    ArraySplitInto count (Array.ofSeq s) |> Seq.ofArray   
+    Seq.delay (fun () -> ArraySplitInto count (Array.ofSeq s) |> Seq.ofArray)   
 
 [<JavaScript>]
 [<Name "empty">]
@@ -635,6 +633,20 @@ let SortBy<'T, 'U when 'U: comparison>
         let array = Array.ofSeq s
         Array.sortInPlaceBy f array
         array :> _)
+
+[<JavaScript>]
+[<Name "sortByDescending">]
+let SortByDescending<'T, 'U when 'U: comparison>
+        (f: 'T -> 'U) (s: seq<'T>) : seq<'T> =
+    Seq.delay (fun () ->
+        let array = Array.ofSeq s
+        ArraySortInPlaceByDescending f array
+        array :> _)
+
+[<JavaScript>]
+[<Name "sortDescending">]
+let SortDescending<'T when 'T : comparison> (s: seq<'T>) =
+    SortByDescending id s
 
 [<JavaScript>]
 [<Name "sum">]

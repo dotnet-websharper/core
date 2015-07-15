@@ -26,6 +26,7 @@
 module private WebSharper.ListModuleProxy
 
 open WebSharper.JavaScript
+open WebSharper.CollectionInternals
 
 [<JavaScript>]
 [<Name "append">]
@@ -273,6 +274,18 @@ let Sort (l: list<_>) =
 [<Name "sortBy">]
 let SortBy f (l: list<_>) =
     List.sortWith (fun x y -> compare (f x) (f y)) l
+
+[<JavaScript>]
+[<Name "sortByDescending">]
+let SortByDescending f (l: list<_>) =
+    List.sortWith (fun x y -> - compare (f x) (f y)) l
+
+[<JavaScript>]
+[<Name "sortDescending">]
+let SortDescending (l: list<_>) =
+    let a = Array.ofSeq l
+    ArraySortInPlaceByDescending id a
+    List.ofArray a
 
 [<JavaScript>]
 [<Name "sortWith">]
