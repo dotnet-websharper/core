@@ -137,6 +137,10 @@ let SplitStrings (s: string) (sep: string[]) (opts: System.StringSplitOptions) =
     let re = String.concat "|" (Array.map RegexEscape sep)
     Split s (MakeRegexp re) opts
 
+[<JavaScript>]
+let Filter f (s: string) =
+    System.String.Concat(s |> Seq.filter f |> Array.ofSeq)
+
 [<Proxy(typeof<string>)>]
 type private StringProxy =
 

@@ -261,3 +261,14 @@ let SeqExcept (itemsToExclude: seq<'T>) (s: seq<'T>) =
                     false
             else
                 false
+
+[<JavaScript>]
+[<Name "List.skip">]
+let ListSkip i (l : list<'T>) =
+    let mutable res = l
+    for j = 1 to i do
+        match res with 
+        | _ :: t ->
+            res <- t
+        | [] -> failwith "Input list too short."
+    res

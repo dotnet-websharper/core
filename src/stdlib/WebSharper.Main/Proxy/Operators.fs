@@ -333,6 +333,10 @@ let inline Truncate<'T> (x: 'T) =
 [<Inline "$x">]
 let Unbox (x: obj) = X<'T>
 
+[<Inline>]
+[<JavaScript>]
+let IsNull (x: obj) = x = null
+
 [<JavaScript>]
 let Using t f =
     try f t finally (t :> System.IDisposable).Dispose()

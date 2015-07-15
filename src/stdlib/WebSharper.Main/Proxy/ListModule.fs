@@ -212,13 +212,17 @@ let OfArray<'T> (arr: 'T []) =
 [<JavaScript>]
 [<Name "ofSeq">]
 let OfSeq (s: seq<'T>) =
-    let r = System.Collections.Generic.Stack<_>()
+    let res = New []
+    let mutable last = res
     use e = Enumerator.Get s
     while e.MoveNext() do
-        r.Push e.Current
-    let x = r.ToArray()
-    System.Array.Reverse x
-    List.ofArray x
+        JS.Set last "$" 1
+        let next = New []
+        JS.Set last "$0" e.Current 
+        JS.Set last "$1" next
+        last <- next
+    JS.Set last "$" 0
+    res
 
 [<JavaScript>]
 [<Name "partition">]

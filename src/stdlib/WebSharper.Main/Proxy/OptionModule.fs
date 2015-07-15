@@ -101,3 +101,22 @@ let ToList x =
     match x with
     | Some x -> [x]
     | None   -> []
+
+[<JavaScript>]
+[<Name "ofObj">]
+let OfObj o = 
+    if o = null then None else Some o
+
+[<JavaScript>]
+[<Name "toObj">]
+let ToObj o = 
+    match o with
+    | Some v -> v
+    | None -> null
+
+[<JavaScript>]
+[<Name "filter">]
+let Filter f o =
+    match o with
+    | None -> None
+    | Some v -> if f v then Some v else None
