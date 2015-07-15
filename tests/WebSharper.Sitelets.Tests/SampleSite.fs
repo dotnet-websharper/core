@@ -55,6 +55,7 @@ module SampleSite =
         | Logout
         | Echo of string
         | Api of Api.Action
+        | [<Method "POST">] Json of ActionEncoding.DecodeResult<Json.Action>
 
     /// A helper function to create a hyperlink
     let private ( => ) title href =
@@ -196,6 +197,11 @@ module SampleSite =
                     Content.ServerError
                 | Action.Api _ ->
                     Content.ServerError
+                | Action.Json (ActionEncoding.Success a) ->
+                    WebSharper.Sitelets.Tests.Json.Content a
+                | Action.Json err ->
+                    Content.JsonContent (fun _ -> err)
+                    |> Content.SetStatus Http.Status.NotFound
 
         // A sitelet for the protected content that requires users to log in first.
         let authenticated =
