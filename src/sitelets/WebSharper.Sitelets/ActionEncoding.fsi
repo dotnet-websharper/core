@@ -26,25 +26,33 @@
 /// to separate logical components.
 module WebSharper.Sitelets.ActionEncoding
 
+module A = WebSharper.Core.Attributes
+
 /// Thrown when a formatter cannot be derived for a certain type.
 exception NoFormatError of System.Type
 
 /// The result of trying to decode a request.
+[<A.NamedUnionCases "result">]
 type DecodeResult<'Action> =
     /// The request was correct and an action was decoded.
-    | Success of 'Action
+    | [<CompiledName "success">]
+      Success of action: 'Action
     /// An action was decoded, but the request used the given invalid HTTP method.
-    | InvalidMethod of 'Action * ``method``: string
+    | [<CompiledName "invalidMethod">]
+      InvalidMethod of action: 'Action * ``method``: string
     /// An action failed to be decoded as JSON from the request body.
     /// The JSON part of the action is a default value.
-    | InvalidJson of 'Action
+    | [<CompiledName "invalidJson">]
+      InvalidJson of action: 'Action
     /// A GET query parameter was missing to decode an action.
     /// The corresponding part of the action is a default value.
-    | MissingQueryParameter of 'Action * queryParam: string
+    | [<CompiledName "missingQueryParameter">]
+      MissingQueryParameter of action: 'Action * queryParam: string
     /// A post body parameter of type application/x-www-urlencoded or multipart/form-data
     /// was missing to decode an action.
     /// The corresponding part of the action is a default value.
-    | MissingFormData of 'Action * formFieldName: string
+    | [<CompiledName "missingFormData">]
+      MissingFormData of action: 'Action * formFieldName: string
 
 /// Represents an URL encoding for a given type.
 [<Sealed>]

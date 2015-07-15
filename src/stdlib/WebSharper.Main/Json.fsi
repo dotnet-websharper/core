@@ -35,10 +35,12 @@ val private As<'T>          : obj -> 'T
 val private op_Dynamic<'T>  : obj -> string -> 'T
 val private (?<-)           : obj -> string -> obj -> unit
 
-/// Parses a JSON string.
+/// Reads a JSON string into a JavaScript object.
+/// For type-aware deserialization compatible with Sitelets, see Json.Deserialize.
 val Parse : string -> obj
 
-/// Converts JSON to a string.
+/// Converts a JavaScript object to a JSON string.
+/// For type-aware serialization compatible with Sitelets, see Json.Serialize.
 val Stringify : obj -> string
 
 /// Parses a JSON object returned by the server.
