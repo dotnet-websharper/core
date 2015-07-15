@@ -457,7 +457,7 @@ let TryFindIndex f (arr: _ []) =
 
 [<JavaScript>]
 [<Inline>]
-let TryFindIndexBack f (arr: _ []) = TryFindIndexBack f arr
+let TryFindIndexBack f (arr: _ []) = ArrayTryFindIndexBack f arr
 
 [<JavaScript>]
 [<Name "tryPick">]

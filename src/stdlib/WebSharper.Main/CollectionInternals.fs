@@ -58,7 +58,7 @@ let ArrayContains (item: 'T) (arr: Array<'T>)  =
 
 [<JavaScript>]
 [<Name "Arrays.tryFindBack">]
-let ArrayTryFind f (arr: _ []) =
+let ArrayTryFindBack f (arr: _ []) =
     let mutable res = None
     let mutable i = Array.length arr - 1
     while i > 0 && Option.isNone res do
@@ -68,7 +68,7 @@ let ArrayTryFind f (arr: _ []) =
 
 [<JavaScript>]
 [<Name "Arrays.tryFindIndexBack">]
-let ArrayTryFindIndex f (arr: _ []) =
+let ArrayTryFindIndexBack f (arr: _ []) =
     let mutable res = None
     let mutable i = Array.length arr - 1
     while i > 0 && Option.isNone res do
