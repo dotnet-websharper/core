@@ -1514,7 +1514,7 @@ module PlainProviderInternals =
                     // "o" only accepts 7 digits after the seconds,
                     // but JavaScript's Date.toISOString() only outputs 3.
                     // So we add a custom format to accept that too.
-                    | None -> [|"o"; @"yyyy-MM-dd\Tmm:hh:ss.fff\Z"|]
+                    | None -> [|"o"; @"yyyy-MM-dd\THH:mm:ss.fff\Z"|]
                 function
                 | String s ->
                     match System.DateTime.TryParseExact(s, fmt, culture, dtstyle) with
