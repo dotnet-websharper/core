@@ -113,13 +113,9 @@ let Cache<'T> (s: seq<'T>) : seq<'T> =
 let Cast<'T> (i: System.Collections.IEnumerable) = X<seq<'T>>
 
 [<JavaScript>]
-[<Name "contains">]
+[<Inline>]
 let Contains (el: 'T) (s: seq<'T>) =
-    use e = Enumerator.Get s
-    let mutable r = false
-    while not r && e.MoveNext() do
-        r <- e.Current = el
-    r
+    SeqContains el s
 
 [<JavaScript>]
 [<Name "choose">]
@@ -278,30 +274,11 @@ let ForAll p s =
 let ForAll2 p s1 s2 =
     not (Seq.exists2 (fun x y -> not (p x y)) s1 s2)
 
-[<Inline "$x.push($y)">]
-let push (x: obj) (y: obj) = ()
-
 [<JavaScript>]
-[<Name "groupBy">]
+[<Inline>]
 let GroupBy (f: 'T -> 'K when 'K : equality)
             (s: seq<'T>) : seq<'K * seq<'T>> =
-    Seq.delay (fun () ->
-        let d  = obj ()
-        let d1 = obj ()
-        let keys : obj [] = [||]
-        use e = Enumerator.Get s
-        while e.MoveNext() do
-            let c = e.Current
-            let k = f c
-            let h = As<string> (hash k)
-            if not (JS.HasOwnProperty d h) then
-                push keys k
-            (?<-) d1 h k
-            if JS.HasOwnProperty d h then
-                push ((?) d h) c
-            else
-                (?<-) d h [| c |]
-        As<_> (Array.map (fun k -> (k, (?) d (As (hash k)))) keys))
+    SeqGroupBy f s
 
 [<JavaScript>]
 [<Name "head">]
@@ -352,13 +329,9 @@ let IterateIndexed p (s: seq<_>) =
         i <- i + 1
 
 [<JavaScript>]
-[<Name "last">]
+[<Inline>]
 let Last (s: seq<_>) =
-    use e = Enumerator.Get s
-    if not <| e.MoveNext() then insufficient ()
-    else 
-        while e.MoveNext() do ()
-        e.Current
+    SeqLast s
 
 [<JavaScript>]
 [<Name "length">]
@@ -445,10 +418,9 @@ let OfArray (a: 'T[]) = X<seq<'T>>
 let OfList (l: list<'T>) = X<seq<'T>>
 
 [<JavaScript>]
-[<Name "pairwise">]
+[<Inline>]
 let Pairwise (s: seq<'T>) : seq<'T * 'T> =
-    Seq.windowed 2 s
-    |> Seq.map (fun x -> (x.[0], x.[1]))
+    SeqPairwise s
 
 [<JavaScript>]
 [<Name "pick">]
@@ -738,3 +710,89 @@ let Fold2<'T1,'T2,'S> (f: 'S -> 'T1 -> 'T2 -> 'S)
                         (s1: seq<'T1>)
                         (s2: seq<'T2>) : 'S =
     Array.fold2 f s (Array.ofSeq s1) (Array.ofSeq s2)
+
+[<JavaScript>]
+[<Name "foldBack">]
+let FoldBack f (s: seq<_>) state =
+    Array.foldBack f (Array.ofSeq s) state
+
+[<JavaScript>]
+[<Name "foldBack2">]
+let FoldBack2 f (s1: seq<_>) (s2: seq<_>) s =
+    Array.foldBack2 f (Array.ofSeq s1) (Array.ofSeq s2) s
+
+[<JavaScript>]
+[<Name "iteri2">]
+let IterateIndexed2 f (s1: seq<_>) (s2: seq<_>) =
+    Array.iteri2 f (Array.ofSeq s1) (Array.ofSeq s2)
+
+[<JavaScript>]
+[<Name "map3">]
+let Map3 f (s1: seq<_>) (s2: seq<_>) (s3: seq<_>) =
+    ListMap3 f (Seq.toList s1) (Seq.toList s2) (Seq.toList s3)
+    |> List.toSeq
+
+[<JavaScript>]
+[<Name "mapi2">]
+let MapIndexed2 f (s1: seq<_>) (s2: seq<_>) =
+    Seq.ofArray (Array.mapi2 f (Array.ofSeq s1) (Array.ofSeq s2))
+
+[<JavaScript>]
+[<Name "mapFold">]
+let MapFold f zero s =
+    ArrayMapFold f zero (Seq.toArray s)
+    |> (fun (x, y) ->
+        (Array.toSeq x, y)
+    )
+
+[<JavaScript>]
+[<Name "mapFoldBack">]
+let MapFoldBack f s zero =
+    ArrayMapFoldBack f (Seq.toArray s) zero
+    |> (fun (x, y) ->
+        (Array.toSeq x, y)
+    )
+
+[<JavaScript>]
+[<Name "permute">]
+let Permute f (s: seq<_>) =
+    Seq.ofArray (Array.permute f (Array.ofSeq s))
+
+[<JavaScript>]
+[<Name "reduceBack">]
+let ReduceBack f (s: seq<_>) =
+    Array.reduceBack f (Array.ofSeq s)
+
+[<JavaScript>]
+[<Name "replicate">]
+let Replicate size value =
+    Seq.ofArray (Array.create size value)
+
+[<JavaScript>]
+[<Name "rev">]
+let Reverse (s: seq<'T>) =
+    List.rev (Seq.toList s)
+    |> List.toSeq
+
+[<JavaScript>]
+[<Name "scanBack">]
+let ScanBack f (l: seq<_>) s =
+    Seq.ofArray (Array.scanBack f (Array.ofSeq l) s)
+
+[<JavaScript>]
+[<Name "indexed">]
+let Indexed (s : seq<'T>) : seq<int * 'T> =
+    Seq.mapi (fun a b -> (a, b)) s
+
+[<JavaScript>]
+[<Name "sortWith">]
+let SortWith f (s: seq<_>) =
+    let a = Array.ofSeq s
+    Array.sortInPlaceWith f a
+    Seq.ofArray a
+
+[<JavaScript>]
+[<Name "tail">]
+let Tail<'T> (s : seq<'T>) : seq<'T> =
+    List.tail (Seq.toList s)
+    |> List.toSeq

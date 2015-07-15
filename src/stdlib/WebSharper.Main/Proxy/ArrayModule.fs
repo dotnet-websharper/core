@@ -607,3 +607,91 @@ let FindIndexBack p (s: _ []) =
     match TryFindIndexBack p s with
     | Some x -> x
     | None   -> failwith "KeyNotFoundException"
+
+[<JavaScript>]
+[<Name "groupBy">]
+let GroupBy (f: 'T -> 'K when 'K : equality)
+            (a: 'T []) : ('K * 'T []) [] =
+    SeqGroupBy f (Array.toSeq a)
+    |> Seq.toArray
+    |> Array.map (fun (k, s) ->
+        (k, Seq.toArray s)
+    )
+
+[<JavaScript>]
+[<Name "head">]
+let Head (ar : 'T []) : 'T =
+    List.head (Array.toList ar)
+
+[<JavaScript>]
+[<Name "last">]
+let Last (ar : 'T []) : 'T =
+    SeqLast (Array.toSeq ar)
+
+[<JavaScript>]
+[<Name "map3">]
+let Map3 f (l1: _ []) (l2: _ []) (l3: _ []) =
+    ListMap3 f (Array.toList l1) (Array.toList l2) (Array.toList l3)
+    |> List.toArray
+
+[<JavaScript>]
+[<Name "contains">]
+let Contains (el: 'T) (a: 'T []) =
+    SeqContains el (Array.toSeq a)
+
+[<JavaScript>]
+[<Name "pairwise">]
+let Pairwise (a: 'T []) : ('T * 'T) [] =
+    SeqPairwise (Array.toSeq a)
+    |> Seq.toArray
+
+[<JavaScript>]
+[<Name "replicate">]
+let Replicate size value =
+    Array.create size value
+
+[<JavaScript>]
+[<Name "indexed">]
+let Indexed (ar : 'T []) : (int * 'T) [] =
+    Array.mapi (fun a b -> (a, b)) ar
+
+[<JavaScript>]
+[<Inline>]
+let Singleton<'T> (x: 'T) =
+    [| x |]
+
+[<JavaScript>]
+[<Name "skip">]
+let Skip<'T> i (ar : 'T []) =
+    ListSkip i (Array.toList ar)
+    |> List.toArray
+
+[<JavaScript>]
+[<Name "skipWhile">]
+let SkipWhile<'T> (predicate : 'T -> bool) (ar : 'T []) : 'T [] =
+    ListSkipWhile predicate (Array.toList ar)
+    |> List.toArray
+
+[<JavaScript>]
+[<Name "tail">]
+let Tail<'T> (ar : 'T []) : 'T [] =
+    List.tail (Array.toList ar)
+    |> List.toArray
+
+[<JavaScript>]
+[<Name "take">]
+let Take<'T> n (ar: 'T []) =
+    ListTake n (Array.toList ar)
+    |> List.toArray
+
+[<JavaScript>]
+[<Name "takeWhile">]
+let TakeWhile<'T> (predicate : 'T -> bool) (ar: 'T []) =
+    ListTakeWhile predicate (Array.toList ar)
+    |> List.toArray
+
+[<JavaScript>]
+[<Name "truncate">]
+let Truncate<'T> n (ar: 'T []) =
+    ListTruncate n (Array.toList ar)
+    |> List.toArray

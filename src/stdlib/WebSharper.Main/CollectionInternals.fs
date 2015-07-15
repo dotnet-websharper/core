@@ -272,3 +272,109 @@ let ListSkip i (l : list<'T>) =
             res <- t
         | [] -> failwith "Input list too short."
     res
+
+[<Inline "$x.push($y)">]
+let arrayPush (x: obj) (y: obj) = ()
+
+[<JavaScript>]
+[<Name "Seq.groupBy">]
+let SeqGroupBy (f: 'T -> 'K when 'K : equality)
+            (s: seq<'T>) : seq<'K * seq<'T>> =
+    Seq.delay (fun () ->
+        let d  = obj ()
+        let d1 = obj ()
+        let keys : obj [] = [||]
+        use e = Enumerator.Get s
+        while e.MoveNext() do
+            let c = e.Current
+            let k = f c
+            let h = As<string> (hash k)
+            if not (JS.HasOwnProperty d h) then
+                arrayPush keys k
+            (?<-) d1 h k
+            if JS.HasOwnProperty d h then
+                arrayPush ((?) d h) c
+            else
+                (?<-) d h [| c |]
+        As<_> (Array.map (fun k -> (k, (?) d (As (hash k)))) keys))
+
+[<JavaScript>]
+[<Name "Seq.last">]
+let SeqLast (s: seq<_>) =
+    use e = Enumerator.Get s
+    if not <| e.MoveNext() then failwith "The input sequence has an insufficient number of elements."
+    else 
+        while e.MoveNext() do ()
+        e.Current
+
+[<JavaScript>]
+[<Name "List.map3">]
+let ListMap3 f (l1: list<_>) (l2: list<_>) (l3: list<_>) =
+    Array.map2
+        ( <| )
+        (Array.map2 f (Array.ofSeq l1) (Array.ofSeq l2))
+        (Array.ofSeq l3)
+    |> List.ofArray
+
+[<JavaScript>]
+[<Name "Seq.contains">]
+let SeqContains (el: 'T) (s: seq<'T>) =
+    use e = Enumerator.Get s
+    let mutable r = false
+    while not r && e.MoveNext() do
+        r <- e.Current = el
+    r
+
+[<JavaScript>]
+[<Name "Seq.pairwise">]
+let SeqPairwise (s: seq<'T>) : seq<'T * 'T> =
+    Seq.windowed 2 s
+    |> Seq.map (fun x -> (x.[0], x.[1]))
+
+[<JavaScript>]
+[<Name "List.skipWhile">]
+let rec ListSkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> =
+    match list with
+    | head :: tail ->
+        if predicate head then
+            ListSkipWhile predicate tail
+        else
+            tail
+    | [] ->
+        []
+
+[<JavaScript>]
+[<Name "List.take">]
+let rec ListTake<'T> n (list: list<'T>) =
+    if n <= 0 then
+        []
+    else
+        match list with
+        | head :: tail ->
+            head :: ListTake (n - 1) tail
+        | [] ->
+            []
+
+[<JavaScript>]
+[<Name "List.takeWhile">]
+let rec ListTakeWhile<'T> (predicate : 'T -> bool) (list: list<'T>) =
+    match list with
+    | head :: tail ->
+        if predicate head then
+            head :: ListTakeWhile predicate tail
+        else
+            []
+    | [] ->
+        []
+
+[<JavaScript>]
+[<Name "List.truncate">]
+let rec ListTruncate<'T> n (list: list<'T>) =
+    if n <= 0 then
+        list
+    else
+        match list with
+        | head :: tail ->
+            ListTruncate (n - 1) tail
+        | [] ->
+            []

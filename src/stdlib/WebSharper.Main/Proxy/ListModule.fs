@@ -158,13 +158,9 @@ let Map2 f (l1: list<_>) (l2: list<_>) =
     List.ofArray (Array.map2 f (Array.ofSeq l1) (Array.ofSeq l2))
 
 [<JavaScript>]
-[<Name "map3">]
+[<Inline>]
 let Map3 f (l1: list<_>) (l2: list<_>) (l3: list<_>) =
-    Array.map2
-        ( <| )
-        (Array.map2 f (Array.ofSeq l1) (Array.ofSeq l2))
-        (Array.ofSeq l3)
-    |> List.ofArray
+    ListMap3 f l1 l2 l3
 
 [<JavaScript>]
 [<Name "mapi">]
@@ -440,3 +436,106 @@ let FindIndexBack p (s: list<_>) =
     match TryFindIndexBack p s with
     | Some x -> x
     | None   -> failwith "KeyNotFoundException"
+
+[<JavaScript>]
+[<Name "groupBy">]
+let GroupBy (f: 'T -> 'K when 'K : equality)
+            (l: list<'T>) : list<'K * list<'T>> =
+    SeqGroupBy f (List.toSeq l)
+    |> Seq.toList
+    |> List.map (fun (k, s) ->
+        (k, Seq.toList s)
+    )
+
+[<JavaScript>]
+[<Name "last">]
+let Last (list : list<'T>) : 'T =
+    SeqLast (List.toSeq list)
+
+[<JavaScript>]
+[<Name "contains">]
+let Contains (el: 'T) (l: list<'T>) =
+    SeqContains el (List.toSeq l)
+
+[<JavaScript>]
+[<Name "mapFold">]
+let MapFold f zero list =
+    ArrayMapFold f zero (List.toArray list)
+    |> (fun (x, y) ->
+        (Array.toList x, y)
+    )
+
+[<JavaScript>]
+[<Name "mapFoldBack">]
+let MapFoldBack f list zero =
+    ArrayMapFoldBack f (List.toArray list) zero
+    |> (fun (x, y) ->
+        (Array.toList x, y)
+    )
+
+[<JavaScript>]
+[<Name "pairwise">]
+let Pairwise (l: list<'T>) : list<'T * 'T> =
+    SeqPairwise (List.toSeq l)
+    |> Seq.toList
+
+[<JavaScript>]
+[<Name "indexed">]
+let Indexed (list : list<'T>) : list<int * 'T> =
+    List.mapi (fun a b -> (a, b)) list
+
+[<JavaScript>]
+[<Name "singleton">]
+let Singleton<'T> (x: 'T) =
+    x :: []
+
+[<JavaScript>]
+[<Inline>]
+let Skip<'T> i (l : list<'T>) = ListSkip i l
+
+[<JavaScript>]
+[<Inline>]
+let SkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> =
+    ListSkipWhile predicate list
+
+[<JavaScript>]
+[<Inline>]
+let Take<'T> n (list: list<'T>) =
+    ListTake n list
+
+[<JavaScript>]
+[<Inline>]
+let TakeWhile<'T> (predicate : 'T -> bool) (list: list<'T>) =
+    ListTakeWhile predicate list
+
+[<JavaScript>]
+[<Inline>]
+let Truncate<'T> n (list: list<'T>) =
+    ListTruncate n list
+
+[<JavaScript>]
+[<Name "tryHead">]
+let TryHead<'T> (list: list<'T>) =
+    match list with
+    | head :: _ ->
+        Some head
+    | [] ->
+        None
+
+[<JavaScript>]
+[<Name "tryItem">]
+let rec TryItem<'T> n (list: list<'T>) =
+    match list with
+    | head :: tail ->
+        if n = 0 then
+            Some head
+        else
+            TryItem (n - 1) tail
+    | [] ->
+        None
+
+[<JavaScript>]
+[<Name "tryLast">]
+let TryLast<'T> (list: list<'T>) =
+    List.rev list
+    |> TryHead
