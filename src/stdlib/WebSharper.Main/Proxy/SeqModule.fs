@@ -530,6 +530,10 @@ let Get index (s: seq<'T>) =
         pos <- pos + 1
     e.Current
 
+[<JavaScript>]
+[<Inline>]
+let Item index (s: seq<'T>) = Get index s
+
 [<Inline "$a">]
 [<Name "ofArray">]
 let OfArray (a: 'T[]) = X<seq<'T>>
@@ -729,6 +733,18 @@ let TryFind ok (s: seq<_>) =
 [<Inline>]
 let TryFindBack ok (s: seq<_>) =
     ArrayTryFindBack ok (Array.ofSeq s) 
+
+[<JavaScript>]
+[<Inline>]
+let TryHead (s: seq<'T>) = SeqTryHead s
+
+[<JavaScript>]
+[<Inline>]
+let TryItem i (s: seq<'T>) = SeqTryItem i s
+
+[<JavaScript>]
+[<Inline>]
+let TryLast (s: seq<'T>) =  SeqTryLast s
 
 [<JavaScript>]
 [<Name "findBack">]

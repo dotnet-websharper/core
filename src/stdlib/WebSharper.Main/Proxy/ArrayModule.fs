@@ -189,6 +189,11 @@ let ForAll2 f (arr1: _ []) (arr2: _ []) =
 let Get (arr: _ []) index =
     F.GetArray arr index
 
+[<Inline>]
+[<JavaScript>]
+let Item index (arr: _ []) =
+    F.GetArray arr index
+
 [<JavaScript>]
 [<Name "init">]
 let Initialize size f =
@@ -478,6 +483,22 @@ let TryFindIndex f (arr: _ []) =
 let TryFindIndexBack f (arr: _ []) = ArrayTryFindIndexBack f arr
 
 [<JavaScript>]
+[<Name "tryHead">]
+let TryHead (arr: 'T[]) =
+    if arr.Length = 0 then None else Some arr.JS.[0]
+
+[<JavaScript>]
+[<Name "tryItem">]
+let TryItem i (arr: 'T[]) =
+    if arr.Length <= i || i < 0 then None else Some arr.JS.[i]
+
+[<JavaScript>]
+[<Name "tryLast">]
+let TryLast (arr: 'T[]) =
+    let len = arr.Length
+    if len = 0 then None else Some arr.JS.[len - 1]
+
+[<JavaScript>]
 [<Name "tryPick">]
 let TryPick f (arr: _ []) =
     let mutable res = None
@@ -536,3 +557,4 @@ let Zip3 (arr1: _ [], arr2: _ [], arr3: _ []) =
     for i = 0 to Array.length arr1 - 1 do
         res.[i] <- (arr1.[i], arr2.[i], arr3.[i])
     res
+                                         

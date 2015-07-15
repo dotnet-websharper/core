@@ -197,6 +197,10 @@ let MinBy f (l: list<_>) =
 [<JavaScript>]
 let Get (l: list<_>) ix = Seq.nth ix l
 
+[<Inline>]
+[<JavaScript>]
+let Item ix (l: list<_>) = Seq.nth ix l
+
 [<JavaScript>]
 [<Name "ofArray">]
 let OfArray<'T> (arr: 'T []) =

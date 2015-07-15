@@ -104,3 +104,32 @@ let ArrayMapFoldBack (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) : 'R[] * 'S
 [<Name "Arrays.sortInPlaceByDescending">]
 let ArraySortInPlaceByDescending<'T,'U when 'U: comparison> (f: 'T -> 'U) (arr: 'T []) =
     As<unit> (arr.JS.Sort(fun (x, y) -> - compare (f x) (f y)))
+
+[<JavaScript>]
+[<Name "Seq.tryHead">]
+let SeqTryHead (s: seq<'T>) =
+    use e = Enumerator.Get s
+    if e.MoveNext() then Some e.Current else None
+
+[<JavaScript>]
+[<Name "Seq.tryItem">]
+let SeqTryItem i (s: seq<'T>) =
+    if i < 0 then None else
+    let mutable j = 0
+    use e = Enumerator.Get s
+    let mutable go = true
+    while go && j < i do
+        if e.MoveNext() then
+            j <- j + 1
+        else
+            go <- false
+    if go then Some e.Current else None
+
+[<JavaScript>]
+[<Name "Seq.tryLast">]
+let SeqTryLast (s: seq<'T>) =
+    use e = Enumerator.Get s
+    if e.MoveNext() then 
+        while e.MoveNext() do ()
+        Some e.Current 
+    else None
