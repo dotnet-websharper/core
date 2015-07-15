@@ -42,7 +42,7 @@ let CreateArray2D (rows : seq<#seq<'T>>) =
 let ToDouble<'T> (x: 'T) : double = X
 
 [<Inline "$f(function(x){return x;})">]
-let PrintFormatToString f = X
+let PrintFormatToString (f: Printf.StringFormat<'T>) = X<'T>
 
 [<Inline; JavaScript>]
 let PrintFormatToStringThen k f = Printf.ksprintf k f 

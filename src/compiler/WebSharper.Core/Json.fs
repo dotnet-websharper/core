@@ -1424,7 +1424,7 @@ type Provider(fo: FormatSettings) =
                 let x = box (System.Array.CreateInstance(ta.Type.GetElementType(), 0))
                 fun _ -> x)
             (fun dD i ta ->
-                let xs = FST.GetTupleElements ta.Type |> Array.map (fun t -> dD ta ta.Type)
+                let xs = FST.GetTupleElements ta.Type |> Array.map (fun t -> dD (TAttrs.Get(i, t)) t)
                 let x = FSV.MakeTuple(xs, ta.Type)
                 fun _ -> x)
             (fun dD i ta ->

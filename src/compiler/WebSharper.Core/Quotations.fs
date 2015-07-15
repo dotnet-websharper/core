@@ -876,6 +876,7 @@ let (|AddressSet         |_|) e = match e with IgnoreSourcePos(AddressSet(x, y) 
 let (|Application        |_|) e = match e with IgnoreSourcePos(Application(x, y)              ) -> Some (x, y)          | _ -> None
 let (|Call               |_|) e = match e with IgnoreSourcePos(Call(x, y)                     ) -> Some (x, y)          | _ -> None
 let (|CallModule         |_|) e = match e with IgnoreSourcePos(CallModule(x, y)               ) -> Some (x, y)          | _ -> None
+let (|CallOrCallModule   |_|) e = match e with IgnoreSourcePos(Call(x, y) | CallModule(x, y)  ) -> Some (x, y)          | _ -> None
 let (|Coerce             |_|) e = match e with IgnoreSourcePos(Coerce(x, y)                   ) -> Some (x, y)          | _ -> None
 let (|DefaultValue       |_|) e = match e with IgnoreSourcePos(DefaultValue x                 ) -> Some x               | _ -> None
 let (|FieldGetInstance   |_|) e = match e with IgnoreSourcePos(FieldGetInstance(x, y)         ) -> Some (x, y)          | _ -> None

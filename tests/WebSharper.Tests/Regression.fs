@@ -127,6 +127,18 @@ module Bug352 =
         inherit A()
         override this.Foo() = 2    
 
+[<JavaScript>]
+module Bug446 =
+    type A() =
+        abstract Foo : unit -> int
+        [<Inline>]
+        default this.Foo() = 1
+
+    type B() =
+        inherit A()
+        [<Inline>]
+        override this.Foo() = 2    
+
 // TODO : does not translate yet 
 
 //    [<JavaScript>]    
@@ -316,5 +328,9 @@ let Tests =
                         failwith ""
                 with _ -> ()
             isTrue !disposed 
+        }
+
+        Test "Bug #446" {
+            equal ((Bug446.B() :> Bug446.A).Foo()) 2
         }
     }

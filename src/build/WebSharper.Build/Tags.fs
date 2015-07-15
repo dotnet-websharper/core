@@ -37,16 +37,18 @@ module Tags =
     let Parse() =
         File.ReadAllLines(tagsFilePath)
         |> Array.map (fun line ->
-            let [|``type``; status; name; srcname|] = line.Split ','
-            (``type``, (status, (name, srcname))))
+            let [|``type``; status; isKeyword; name; srcname|] = line.Split ','
+            let isKeyword = if isKeyword = "keyword" then true else false
+            (``type``, (status, (isKeyword, name, srcname))))
         |> groupByFst
         |> Seq.map (fun (k, s) -> (k, groupByFst s |> Map.ofSeq))
         |> Map.ofSeq
 
     let start = Regex("^(\s*)// *{{ *([a-z]+)( *([a-z]+))*")
     let finish = Regex("// *}}")
+    let dash = Regex("-([a-z])")
 
-    let RunOn (path: string) (all: Map<string, Map<string, seq<string * string>>>) (f: string -> string -> string -> string[]) =
+    let RunOn (path: string) (all: Map<string, Map<string, seq<bool * string * string>>>) (f: string -> string -> string -> string -> string[]) =
         if NeedsBuilding tagsFilePath path then
             let e = (File.ReadAllLines(path) :> seq<_>).GetEnumerator()
             let newLines =
@@ -65,9 +67,12 @@ module Tags =
                                         | None -> ()
                                         | Some elts -> yield! elts
                                 }
-                                |> Seq.sortBy (snd >> fun s -> s.ToLower())
-                            for name, srcname in allType do
-                                for l in f ``type`` name srcname do
+                                |> Seq.sortBy (fun (_, _, s) -> s.ToLower())
+                            for isKeyword, name, upname in allType do
+                                let lowname = if isKeyword then sprintf "``%s``" name else name
+                                let lowname = dash.Replace(lowname, fun m ->
+                                    m.Groups.[1].Value.ToUpperInvariant())
+                                for l in f ``type`` name lowname upname do
                                     yield indent + l
                             yield e.Current
                 |]
@@ -75,36 +80,36 @@ module Tags =
 
     let Run() =
         let all = Parse()
-        RunOn "src/htmllib/WebSharper.Html.Server/Tags.fs" all <| fun _ name srcname ->
+        RunOn "src/htmllib/WebSharper.Html.Server/Tags.fs" all <| fun _ name lowname upname ->
             [|
-                sprintf """let %s x = Html.NewTag "%s" x""" srcname name
+                sprintf """let %s x = Html.NewTag "%s" x""" upname name
             |]
-        RunOn "src/htmllib/WebSharper.Html.Server/Attributes.fs" all <| fun _ name srcname ->
+        RunOn "src/htmllib/WebSharper.Html.Server/Attributes.fs" all <| fun _ name lowname upname ->
             [|
-                sprintf """let %s x = Html.NewAttr "%s" x""" srcname name
+                sprintf """let %s x = Html.NewAttr "%s" x""" upname name
             |]
-        RunOn "src/htmllib/WebSharper.Html.Client/Tag.fs" all <| fun _ name srcname ->
-            [|
-                "[<Inline>]"
-                "[<JavaScript>]"
-                sprintf """member this.%s x = this.NewTag "%s" x""" srcname name
-            |]
-        RunOn "src/htmllib/WebSharper.Html.Client/Attr.fs" all <| fun _ name srcname ->
+        RunOn "src/htmllib/WebSharper.Html.Client/Tag.fs" all <| fun _ name lowname upname ->
             [|
                 "[<Inline>]"
                 "[<JavaScript>]"
-                sprintf """member this.%s x = this.NewAttr "%s" x""" srcname name
+                sprintf """member this.%s x = this.NewTag "%s" x""" upname name
             |]
-        RunOn "src/htmllib/WebSharper.Html.Client/Html.fs" all <| fun ty name srcname ->
+        RunOn "src/htmllib/WebSharper.Html.Client/Attr.fs" all <| fun _ name lowname upname ->
+            [|
+                "[<Inline>]"
+                "[<JavaScript>]"
+                sprintf """member this.%s x = this.NewAttr "%s" x""" upname name
+            |]
+        RunOn "src/htmllib/WebSharper.Html.Client/Html.fs" all <| fun ty name lowname upname ->
             if ty = "tag" then
                 [|
                     "[<Inline>]"
                     "[<JavaScript>]"
-                    sprintf """let %s x = Tags.%s x""" srcname srcname
+                    sprintf """let %s x = Tags.%s x""" upname upname
                 |]
             else
                 [|
                     "[<Inline>]"
                     "[<JavaScript>]"
-                    sprintf """let %s x = Attr.%s x""" srcname srcname
+                    sprintf """let %s x = Attr.%s x""" upname upname
                 |]

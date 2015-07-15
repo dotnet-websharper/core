@@ -4,6 +4,7 @@
     <ProjectGuid>{4ef94364-b50f-4906-ab91-77bca8413d60}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.Collections</Name>
+    <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/WebSharper.Internal.targets" />

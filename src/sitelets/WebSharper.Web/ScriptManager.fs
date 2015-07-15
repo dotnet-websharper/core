@@ -85,11 +85,6 @@ type ScriptManager() =
 
     /// Renders the resources.
     override this.Render writer =
-        writer.WriteLine()
-        let content =
-            J.Encoded.Object [for kv in registry -> (kv.Key, kv.Value)]
-            |> Shared.Json.Pack
-            |> J.Stringify
         let encode (text: string) =
             let ev =
                 System.Text.RegularExpressions.MatchEvaluator(fun x ->
@@ -99,16 +94,22 @@ type ScriptManager() =
                     | ">" -> "&gt;"
                     | _ -> "&amp;")
             System.Text.RegularExpressions.Regex.Replace(text, @"['<>&]", ev)
-        writer.WriteLine("<meta id='{0}' name='{0}' content='{1}' />",
-            WebSharper.Html.Client.Activator.META_ID, encode content)
-        let ctx = this.ResourceContext
-        Shared.Metadata.GetDependencies(Seq.toList nodes)
-        |> Seq.iter (fun r -> r.Render ctx (fun _ -> writer))
-        writer.WriteLine()
-        writer.WriteLine("<script type='{0}'>", CT.Text.JavaScript.Text)
-        writer.WriteLine @"if (typeof IntelliFactory !=='undefined')"
-        writer.WriteLine @"  IntelliFactory.Runtime.Start();"
-        writer.WriteLine("</script>")
+        let resources = Shared.Metadata.GetDependencies(Seq.toList nodes)
+        if not (List.isEmpty resources) then
+            let content =
+                J.Encoded.Object [for kv in registry -> (kv.Key, kv.Value)]
+                |> Shared.Json.Pack
+                |> J.Stringify
+            let ctx = this.ResourceContext
+            writer.WriteLine()
+            writer.WriteLine("<meta id='{0}' name='{0}' content='{1}' />",
+                WebSharper.Html.Client.Activator.META_ID, encode content)
+            resources |> Seq.iter (fun r -> r.Render ctx (fun _ -> writer))
+            writer.WriteLine()
+            writer.WriteLine("<script type='{0}'>", CT.Text.JavaScript.Text)
+            writer.WriteLine @"if (typeof IntelliFactory !=='undefined')"
+            writer.WriteLine @"  IntelliFactory.Runtime.Start();"
+            writer.WriteLine("</script>")
 
     /// Searches the page for a ScriptManager.
     static member private TryFind(page: System.Web.UI.Page) =

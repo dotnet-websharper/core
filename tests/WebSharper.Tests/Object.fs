@@ -26,7 +26,6 @@ open WebSharper.Testing
 
 type T = { K : int }
 
-[<JavaScript>]
 type O [<Inline "{}">] () = 
     member this.P1 
         with [<Inline "$this.p1">] get() = X<int>

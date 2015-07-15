@@ -105,7 +105,11 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
     [<System.NonSerialized>]
     let bodyAndReqs =
         let declType, name, args, fReqs =
-            match elt :> Expr with
+            let elt =
+                match elt :> Expr with
+                | Coerce (e, _) -> e
+                | e -> e
+            match elt with
             | PropertyGet(None, p, args) ->
                 let rp = R.Property.Parse p
                 rp.DeclaringType, rp.Name, args, [M.TypeNode rp.DeclaringType]

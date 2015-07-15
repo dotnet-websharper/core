@@ -6,6 +6,7 @@
     <Name>Website</Name>
     <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
     <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
+    <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
   <Import Project="../../msbuild/FSharp.targets" />
   <Import Project="../../msbuild/WebSharper.Internal.targets" />
@@ -14,7 +15,6 @@
     <Compile Include="Dependencies.fs" />
     <Compile Include="Actions.fs" />
     <Compile Include="Client.fs" />
-    <Compile Include="Controls.fs" />
     <Compile Include="Skin.fs" />
     <Compile Include="Content.fs" />
     <Compile Include="Main.fs" />

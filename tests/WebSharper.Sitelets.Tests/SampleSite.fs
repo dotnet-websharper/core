@@ -54,7 +54,7 @@ module SampleSite =
         | Login of option<Action>
         | Logout
         | Echo of string
-        | Api of ActionEncoding.DecodeResult<Api.Action>
+        | Api of Api.Action
 
     /// A helper function to create a hyperlink
     let private ( => ) title href =

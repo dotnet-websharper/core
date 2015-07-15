@@ -1,0 +1,264 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>b492879f-0657-4830-8e77-4f243c3b1b44</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>WarpTest</RootNamespace>
+    <AssemblyName>WarpTest</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
+    <Name>WarpTest</Name>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <Tailcalls>false</Tailcalls>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>bin\Debug\WarpTest.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>bin\Release\WarpTest.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="IntelliFactory.Core">
+      <HintPath>..\..\build\Release\IntelliFactory.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin">
+      <HintPath>..\..\packages\Microsoft.Owin\lib\net45\Microsoft.Owin.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.FileSystems">
+      <HintPath>..\..\packages\Microsoft.Owin.FileSystems\lib\net45\Microsoft.Owin.FileSystems.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Host.HttpListener">
+      <HintPath>..\..\packages\Microsoft.Owin.Host.HttpListener\lib\net45\Microsoft.Owin.Host.HttpListener.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Hosting">
+      <HintPath>..\..\packages\Microsoft.Owin.Hosting\lib\net45\Microsoft.Owin.Hosting.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.StaticFiles">
+      <HintPath>..\..\packages\Microsoft.Owin.StaticFiles\lib\net45\Microsoft.Owin.StaticFiles.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.Cecil">
+      <HintPath>..\..\build\Release\Mono.Cecil.dll</HintPath>
+    </Reference>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Owin">
+      <HintPath>..\..\packages\Owin\lib\net40\Owin.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Web" />
+    <Reference Include="WebSharper.Collections">
+      <HintPath>..\..\build\Release\WebSharper.Collections.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.Compiler">
+      <HintPath>..\..\build\Release\WebSharper.Compiler.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.Control">
+      <HintPath>..\..\build\Release\WebSharper.Control.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.Core">
+      <HintPath>..\..\build\Release\WebSharper.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.Core.JavaScript">
+      <HintPath>..\..\build\Release\WebSharper.Core.JavaScript.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.Html.Client">
+      <HintPath>..\..\build\Release\WebSharper.Html.Client.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.Html.Server">
+      <HintPath>..\..\build\Release\WebSharper.Html.Server.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.InterfaceGenerator.Tests">
+      <HintPath>..\..\build\Release\WebSharper.InterfaceGenerator.Tests.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.JavaScript">
+      <HintPath>..\..\build\Release\WebSharper.JavaScript.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.JQuery">
+      <HintPath>..\..\build\Release\WebSharper.JQuery.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.Main">
+      <HintPath>..\..\build\Release\WebSharper.Main.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.Owin">
+      <HintPath>..\..\packages\WebSharper.Owin\lib\net45\WebSharper.Owin.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.Sitelets">
+      <HintPath>..\..\build\Release\WebSharper.Sitelets.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.Testing">
+      <HintPath>..\..\build\Release\WebSharper.Testing.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.Web">
+      <HintPath>..\..\build\Release\WebSharper.Web.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\WebSharper.Tests\Array.fs">
+      <Link>Array.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Array2D.fs">
+      <Link>Array2D.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Async.fs">
+      <Link>Async.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Basis.fs">
+      <Link>Basis.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Char.fs">
+      <Link>Char.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\DateTime.fs">
+      <Link>DateTime.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Double.fs">
+      <Link>Double.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Exception.fs">
+      <Link>Exception.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Int32.fs">
+      <Link>Int32.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\KeyValuePair.fs">
+      <Link>KeyValuePair.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Lazy.fs">
+      <Link>Lazy.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\List.fs">
+      <Link>List.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Macro.fs">
+      <Link>Macro.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Math.fs">
+      <Link>Math.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Object.fs">
+      <Link>Object.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Operators.fs">
+      <Link>Operators.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Option.fs">
+      <Link>Option.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Proxy.fs">
+      <Link>Proxy.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Queue.fs">
+      <Link>Queue.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Random.fs">
+      <Link>Random.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Ref.fs">
+      <Link>Ref.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Regression.fs">
+      <Link>Regression.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Seq.fs">
+      <Link>Seq.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Stack.fs">
+      <Link>Stack.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\String.fs">
+      <Link>String.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\TimeSpan.fs">
+      <Link>TimeSpan.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Printf.fs">
+      <Link>Printf.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\Tupled.fs">
+      <Link>Tupled.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Tests\WIG.fs">
+      <Link>WIG.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Collections.Tests\Dictionary.fs">
+      <Link>Dictionary.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Collections.Tests\Set.fs">
+      <Link>Set.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Collections.Tests\Map.fs">
+      <Link>Map.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Collections.Tests\ResizeArray.fs">
+      <Link>ResizeArray.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Collections.Tests\LinkedList.fs">
+      <Link>LinkedList.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Collections.Tests\HashSet.fs">
+      <Link>HashSet.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Html5.Tests\Tests.fs">
+      <Link>Tests.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Web.Tests\Remoting.fs">
+      <Link>Remoting.fs</Link>
+    </Compile>
+    <Compile Include="..\WebSharper.Web.Tests\HelloWorld.fs">
+      <Link>HelloWorld.fs</Link>
+    </Compile>
+    <Compile Include="..\..\build\Warp.fs">
+      <Link>Warp.fs</Link>
+    </Compile>
+    <Compile Include="Program.fs" />
+    <None Include="App.config" />
+  </ItemGroup>
+  <PropertyGroup>
+    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
+  </PropertyGroup>
+  <Choose>
+    <When Condition="'$(VisualStudioVersion)' == '11.0'">
+      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')">
+        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargetsPath>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets')">
+        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+  <Import Project="$(FSharpTargetsPath)" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

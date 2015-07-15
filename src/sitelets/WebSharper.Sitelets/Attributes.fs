@@ -25,8 +25,13 @@ type private A = System.Attribute
 type private T = System.AttributeTargets
 type private U = System.AttributeUsageAttribute
 
+/// Indicates the URL fragment parsed by this union case.
+/// Example: type Action = | [<EndPoint "/article">] GetArticle
+type EndPointAttribute = CompiledNameAttribute
+
 /// Indicates that a union case in an action type must only be mapped
 /// for requests that use the given HTTP method(s).
+/// Example: type Action = | [<Method "POST">] MyPostAction
 [<Sealed; U(T.Property, AllowMultiple = true)>]
 type MethodAttribute([<ParamArray>] methodName: string[]) =
     inherit A()
@@ -38,10 +43,12 @@ type JsonAttribute =
     inherit A
 
     /// Indicates that a field must be parsed from the request's body as JSON.
+    /// Example: type Action = { [<Json>] data : MyData }
     new() = { inherit A() }
 
     /// Indicates that the union case argument with the given name must be parsed
     /// from the request's body as JSON.
+    /// Example: type Action = | [<Json "data">] MyAction of data: MyData
     new(argumentName: string) = { inherit A() }
 
 /// Indicates that a field or union case argument must be parsed
@@ -52,10 +59,12 @@ type QueryAttribute =
     inherit A
 
     /// Indicates that a field must be parsed from the request's query parameters.
+    /// Example: type Action = { [<Query>] someField : string }
     new() = { inherit A() }
 
     /// Indicates that the union case arguments with the given names must be parsed
     /// from the request's query parameters.
+    /// Example: type Action = | [<Query "someField">] MyAction of someField: string
     new([<ParamArray>] argumentName: string[]) = { inherit A() }
 
 /// Indicates that a field or union case argument must be parsed
@@ -67,14 +76,17 @@ type FormDataAttribute =
     inherit A
 
     /// Indicates that a field must be parsed from the request's query parameters.
+    /// Example: type Action = { [<FormData>] someField: string }
     new() = { inherit A() }
 
     /// Indicates that the union case arguments with the given names must be parsed
     /// from the request's query parameters.
+    /// Example: type Action = | [<FormData "someField">] MyAction of someField: string
     new([<ParamArray>] argumentName: string[]) = { inherit A() }
 
 /// Indicates that the last field or union case argument parses all the remaining
 /// path segments into a list or an array.
+/// Example: type Action = | [<Wildcard>] MyAction of string * list<string>
 [<Sealed; U(T.Property ||| T.Class)>]
 type WildcardAttribute() =
     inherit A()

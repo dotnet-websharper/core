@@ -164,6 +164,7 @@ val (|AddressSet         |_|) : E -> (E * E                            ) option
 val (|Application        |_|) : E -> (E * E                            ) option
 val (|Call               |_|) : E -> (Concrete<R.Method> * list<E>     ) option
 val (|CallModule         |_|) : E -> (Concrete<R.Method> * list<E>     ) option
+val (|CallOrCallModule   |_|) : E -> (Concrete<R.Method> * list<E>     ) option
 val (|Coerce             |_|) : E -> (R.Type * E                       ) option
 val (|DefaultValue       |_|) : E -> (R.Type                           ) option
 val (|FieldGetInstance   |_|) : E -> (E * Concrete<R.Field>            ) option

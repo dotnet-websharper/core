@@ -240,35 +240,35 @@ type Action =
 // Returned Content:    (determined by Sitelet.Infer)
 ```
 
-* `[<CompiledName "string">]` on a union case indicates the identifying segment.
+* `[<EndPoint "/string">]` on a union case indicates the identifying segment.
 
 ```fsharp
 type Action =
-    | [<CompiledName "blog-article">] BlogArticle of id: int * slug: string
+    | [<EndPoint "/blog-article">] BlogArticle of id: int * slug: string
 
 // Accepted Request:    GET /blog-article/1423/some-article-slug
 // Parsed Action:       BlogArticle(id = 1423, slug = "some-article-slug")
 // Returned Content:    (determined by Sitelet.Infer)
 ```
 
-* A common trick is to use `[<CompiledName "">]` on an argument-less union case to indicate the home page.
+* A common trick is to use `[<EndPoint "/">]` on an argument-less union case to indicate the home page.
 
 ```fsharp
 type Action =
-    | [<CompiledName "">] Home
+    | [<EndPoint "/">] Home
 
 // Accepted Request:    GET /
 // Parsed Action:       Home
 // Returned Content:    (determined by Sitelet.Infer)
 ```
 
-* If several cases have the same `CompiledName`, then parsing tries them in the order in which they are declared until one of them matches:
+* If several cases have the same `EndPoint`, then parsing tries them in the order in which they are declared until one of them matches:
 
 ```fsharp
 type Action =
-  | [<CompiledName "blog">] AllArticles
-  | [<CompiledName "blog">] ArticleById of id: int
-  | [<CompiledName "blog">] ArticleBySlug of slug: string
+  | [<EndPoint "/blog">] AllArticles
+  | [<EndPoint "/blog">] ArticleById of id: int
+  | [<EndPoint "/blog">] ArticleBySlug of slug: string
 
 // Accepted Request:    GET /blog
 // Parsed Action:       AllArticles

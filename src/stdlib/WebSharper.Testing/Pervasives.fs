@@ -58,7 +58,7 @@ module internal Internal =
             member this.Translate(q, tr) =
                 match q with
                 // Property name f
-                | Q.CallModule({Generics = [t; _]}, [name; f]) ->
+                | Q.CallOrCallModule({Generics = [t; _]}, [name; f]) ->
                     cCallG ["WebSharper"; "Testing"; "Pervasives"] "PropertyWith" [tr name; mkGenerator t; tr f]
                 | _ -> tr q
 
@@ -119,9 +119,8 @@ type TestCategoryBuilder(name: string) =
     [<Inline>]
     member this.Zero() = ()
 
+    [<Inline "QUnit.module($s.name),$s.run(),$s">]
     member this.Run(s: TestCategory) =
-        QUnit.Module(s.name)
-        s.run()
         s
 
 [<JavaScript>]

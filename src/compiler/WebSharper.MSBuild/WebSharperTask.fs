@@ -66,6 +66,7 @@ module WebSharperTaskModule =
         | Html
         | Library
         | Website of webroot: string
+        | Ignore
 
     let GetWebRoot settings =
         match settings.WebProjectOutputDir with
@@ -81,10 +82,11 @@ module WebSharperTaskModule =
         match settings.WebSharperProject with
         | null | "" ->
             match GetWebRoot settings with
-            | None -> Library
+            | None -> Ignore
             | Some dir -> Website dir
         | proj ->
             match proj.ToLower() with
+            | "ignore" -> Ignore
             | "bundle" -> Bundle (GetWebRoot settings)
             | "extension" | "interfacegenerator" -> Extension
             | "html" -> Html
@@ -164,6 +166,7 @@ module WebSharperTaskModule =
         (r, sw.Elapsed)
 
     let Compile settings =
+        if GetProjectType settings = Ignore then true else
         match List.ofArray settings.ItemInput with
         | raw :: refs ->
             let rawInfo = FileInfo(raw.ItemSpec)
@@ -302,6 +305,8 @@ module WebSharperTaskModule =
             HtmlClean settings
             true
         | ProjectType.Library ->
+            true
+        | ProjectType.Ignore ->
             true
         | ProjectType.Website webRoot ->
             // clean what Unpack command generated:

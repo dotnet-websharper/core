@@ -97,17 +97,20 @@ module Content =
             controls
             |> Seq.collect (fun c -> c.Requires env.Meta)
             |> env.Meta.GetDependencies
-        // Meta tag encoding the client side controls
-        let mJson = metaJson env.Json controls
-        // Render meta
-        (tw Core.Resources.Meta).WriteLine(
-            "<meta id='{0}' name='{0}' content='{1}' />",
-            WebSharper.Html.Client.Activator.META_ID, 
-            escape mJson
-        )
-        // Render resources
-        for r in resources do
-            r.Render env.ResourceContext tw
+        let hasResources = not (List.isEmpty resources)
+        if hasResources then
+            // Meta tag encoding the client side controls
+            let mJson = metaJson env.Json controls
+            // Render meta
+            (tw Core.Resources.Meta).WriteLine(
+                "<meta id='{0}' name='{0}' content='{1}' />",
+                WebSharper.Html.Client.Activator.META_ID,
+                escape mJson
+            )
+            // Render resources
+            for r in resources do
+                r.Render env.ResourceContext tw
+        hasResources
 
     let writeStartScript (tw: UI.HtmlTextWriter) =
         tw.WriteLine(@"<script type='{0}'>", CT.Text.JavaScript.Text)
@@ -122,18 +125,19 @@ module Content =
         let stylesTw = new UI.HtmlTextWriter(stylesW, " ")
         use metaW = new StringWriter()
         let metaTw = new UI.HtmlTextWriter(metaW, " ")
-        writeResources env controls (function
-            | Core.Resources.Scripts -> scriptsTw
-            | Core.Resources.Styles -> stylesTw
-            | Core.Resources.Meta -> metaTw)
-        writeStartScript scriptsTw
+        let hasResources =
+            writeResources env controls (function
+                | Core.Resources.Scripts -> scriptsTw
+                | Core.Resources.Styles -> stylesTw
+                | Core.Resources.Meta -> metaTw)
+        if hasResources then writeStartScript scriptsTw
         scriptsW.ToString(), stylesW.ToString(), metaW.ToString()
 
     let getResourcesAndScripts env controls =
         use w = new StringWriter()
         use tw = new UI.HtmlTextWriter(w, " ")
-        writeResources env controls (fun _ -> tw)
-        writeStartScript tw
+        let hasResources = writeResources env controls (fun _ -> tw)
+        if hasResources then writeStartScript tw
         w.ToString()
 
     let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Async<Http.Response> =
@@ -146,11 +150,11 @@ module Content =
                     |> Seq.collect (fun elem ->
                         elem.CollectAnnotations ())
                 let renderHead (tw: UI.HtmlTextWriter) =
-                    writeResources (Env.Create context) controls (fun _ -> tw)
+                    let hasResources = writeResources (Env.Create context) controls (fun _ -> tw)
                     let writer = new H.Writer(tw)
                     for elem in htmlPage.Head do
                         writer.Write elem
-                    writeStartScript tw
+                    if hasResources then writeStartScript tw
                 let renderBody (tw: UI.HtmlTextWriter) =
                     let writer = new H.Writer(tw)
                     for elem in htmlPage.Body do

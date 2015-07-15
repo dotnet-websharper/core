@@ -55,12 +55,12 @@ module FrontEnd =
     type Compiler(errorLimit: int, log: Message -> unit, ctx: Context) =
 
         member this.Compile(quotation: Quotations.Expr, context: System.Reflection.Assembly, ?name) : option<CompiledAssembly> =
-            this.CompileAssembly(R.Dynamic.FromQuotation quotation context (defaultArg name "Example"), false)
+            this.CompileAssembly(R.Dynamic.FromQuotation quotation context (defaultArg name "Example"), false, false)
 
         member this.Compile(quotation: Quotations.Expr, ?name) : option<CompiledAssembly> =
             this.Compile(quotation, System.Reflection.Assembly.GetCallingAssembly(), ?name = name)
 
-        member this.CompileAssembly(assembly: R.AssemblyDefinition, sourceMap: bool) : option<CompiledAssembly> =
+        member this.CompileAssembly(assembly: R.AssemblyDefinition, sourceMap: bool, typeScript : bool) : option<CompiledAssembly> =
             let succ = ref true
             let err (m: Message) =
                 match m.Priority with
@@ -82,19 +82,29 @@ module FrontEnd =
                 if !succ then
                     let mInfo = M.Info.Create (rm :: ctx.AssemblyInfos)
                     let pkg = pkg.Value
-                    let tsDecls = TSE.ExportDeclarations joined va
+                    let tsDecls = 
+                        if typeScript then Some (TSE.ExportDeclarations joined va) else None
                     Some (CompiledAssembly.Create(ctx, assembly, local, rm, mInfo, pkg, tsDecls, sourceMap))
                 else None
             with ErrorLimitExceeded -> None
 
-        member this.CompileAndModify(assembly: Assembly, ?sourceMap: bool) : bool =
+        member this.CompileAndModify(assembly: Assembly, ?sourceMap: bool, ?typeScript : bool) : bool =
             this.Compile(assembly, modifyAssembly = true, ?sourceMap = sourceMap).IsSome
 
-        member this.Compile(assembly: Assembly, ?modifyAssembly: bool, ?sourceMap: bool) : option<CompiledAssembly> =
+        member this.GetInfo() =
+            M.Info.Create ctx.AssemblyInfos
+
+        member this.Compile(assembly: System.Reflection.Assembly, ?sourceMap: bool, ?typeScript : bool) : option<CompiledAssembly> =
             let sourceMap = defaultArg sourceMap false
+            let typeScript = defaultArg typeScript true
+            this.CompileAssembly(Reflection.AdaptAssembly assembly, sourceMap, typeScript)
+
+        member this.Compile(assembly: Assembly, ?modifyAssembly: bool, ?sourceMap: bool, ?typeScript : bool) : option<CompiledAssembly> =
+            let sourceMap = defaultArg sourceMap false
+            let typeScript = defaultArg typeScript true
             let modifyAssembly = defaultArg modifyAssembly false
             let asm = R.Cecil.AdaptAssembly assembly.Raw
-            let compiled = this.CompileAssembly(asm, sourceMap)
+            let compiled = this.CompileAssembly(asm, sourceMap, typeScript)
             match compiled with
             | Some a when modifyAssembly ->
                 a.WriteToCecilAssembly(assembly.Raw)

@@ -36,10 +36,10 @@ type PrintfFormat =
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private PrintfProxy =
     [<Inline "$f($k)">]
-    let PrintFormatToStringThen (k: string -> _) (f: Printf.StringFormat<_, _>) = X
+    let PrintFormatToStringThen (k: string -> 'R) (f: Printf.StringFormat<'T, 'R>) = X<'T>
 
     [<JavaScript; Inline>]
-    let PrintFormatLine (f: Printf.StringFormat<_>) = PrintFormatToStringThen (fun s -> Console.Log(s)) f  
+    let PrintFormatLine (f: Printf.TextWriterFormat<'T>) =  As<'T>(PrintFormatToStringThen (fun s -> Console.Log(s)) (As f))
 
     [<JavaScript; Inline>]
-    let PrintFormatToStringThenFail (f: Printf.StringFormat<_>) = PrintFormatToStringThen failwith f
+    let PrintFormatToStringThenFail (f: Printf.StringFormat<'T, 'R>) = PrintFormatToStringThen failwith f

@@ -23,7 +23,9 @@ module Website.Client
 
 open WebSharper
 open WebSharper.JavaScript
+open WebSharper.Html.Client
 
 [<JavaScript>]
 let EntryPoint () =
     Console.Log("Loaded OK")
+    Span []

@@ -123,7 +123,7 @@
       <Name>WebSharper.Web.Tests</Name>
     </ProjectReference>
     <ProjectReference Include="..\Website\Website.fsproj">
-      <Project>{00ba66c9-aba5-41bc-a668-2e39e9f437c5}</Project>
+      <Project>{2BF02FFF-1AB4-4725-A49E-73E81A91D50B}</Project>
       <Name>Website</Name>
     </ProjectReference>
   </ItemGroup>

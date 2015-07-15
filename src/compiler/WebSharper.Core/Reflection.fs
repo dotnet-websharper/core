@@ -340,7 +340,7 @@ type Type =
             if t.DeclaringMethod <> null then
                 let dT = t.DeclaringType
                 let k =
-                    if dT.IsGenericType then 0 else
+                    if not dT.IsGenericType then 0 else
                         dT.GetGenericArguments().Length
                 GenericType (k + t.GenericParameterPosition)
             else
@@ -512,6 +512,12 @@ type Constructor =
         | Constructor (_, s) -> Constructor (d, s)
 
     static member Create dT s = Constructor (dT, s)
+
+    static member Parse(m: System.Reflection.ConstructorInfo) =
+        let m = m.Module.ResolveMethod m.MetadataToken :?> System.Reflection.ConstructorInfo
+        let s = [for p in m.GetParameters() -> Type.FromType p.ParameterType]
+        let d = TypeDefinition.FromType m.DeclaringType
+        Constructor.Create d s
 
     override this.ToString() =
         System.String.Format(".ctor(..) [{0}]", this.DeclaringType)

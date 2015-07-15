@@ -59,6 +59,23 @@ let rec compareDates (a: obj) (b: obj) =
 /// Compares two values generically.
 [<JavaScript>]
 let Compare<'T> (a: 'T) (b: 'T) : int =
+    let objCompare (a: obj) (b: obj) =
+        let cmp = ref 0
+        JS.ForEach a (fun k ->
+            if not (JS.HasOwnProperty a k) then
+                false
+            elif not (JS.HasOwnProperty b k) then
+                cmp := 1; true
+            else
+                cmp := Unchecked.compare a?(k) b?(k); !cmp <> 0)
+        if !cmp = 0 then
+            JS.ForEach b (fun k ->
+                if not (JS.HasOwnProperty b k) then
+                    false
+                elif not (JS.HasOwnProperty a k) then
+                    cmp := -1; true
+                else false)
+        !cmp
     if a ===. b then 0 else
         match JS.TypeOf a with
         | JS.Undefined ->
@@ -69,13 +86,13 @@ let Compare<'T> (a: 'T) (b: 'T) : int =
             failwith "Cannot compare function values."
         | JS.Boolean | JS.Number | JS.String ->
             if a <. b then -1 else 1
-        | _ ->
+        | JS.Object ->
             if a ===. null then -1
             elif b ===. null then 1
             elif JS.In "CompareTo" a then compareTo a b
             elif isArray a && isArray b then compareArrays (As a) (As b)
             elif isDate a && isDate b then compareDates a b
-            else compareArrays (As (JS.GetFields a)) (As (JS.GetFields b))
+            else objCompare a b
 
 /// Produces an undefined value.
 [<Inline "undefined">]
@@ -103,16 +120,25 @@ let dateEquals a b =
 
 /// Tests if two values are equal.
 [<JavaScript>]
-let rec Equals (a: 'T) (b: 'T) : bool =
+let Equals (a: 'T) (b: 'T) : bool =
+    let objEquals (a: obj) (b: obj) =
+        let eqR = ref true
+        JS.ForEach a (fun k ->
+            eqR := not (JS.HasOwnProperty a k) || JS.HasOwnProperty b k && Unchecked.equals a?(k) b?(k)
+            not !eqR)
+        if !eqR then
+            JS.ForEach b (fun k ->
+                eqR := not (JS.HasOwnProperty b k) || JS.HasOwnProperty a k
+                not !eqR)
+        !eqR
     if a ===. b then true else
         match JS.TypeOf a with
         | JS.Object ->
-            if a ===. null then false
-            elif b ===. null then false
+            if a ===. null || a ===. JS.Undefined || b ===. null || b ===. JS.Undefined then false
             elif JS.In "Equals" a then equals a b
             elif isArray a && isArray b then arrayEquals (As a) (As b)
             elif isDate a && isDate b then dateEquals a b
-            else arrayEquals (As (JS.GetFields a)) (As (JS.GetFields b))
+            else objEquals a b
         | _ ->
             false
 
