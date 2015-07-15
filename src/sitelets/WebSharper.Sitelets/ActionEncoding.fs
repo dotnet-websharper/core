@@ -23,13 +23,20 @@ module WebSharper.Sitelets.ActionEncoding
 open System
 open System.Collections.Generic
 open WebSharper.Core
+module A = WebSharper.Core.Attributes
 
+[<A.NamedUnionCases "result">]
 type DecodeResult<'Action> =
-    | Success of 'Action
-    | InvalidMethod of 'Action * ``method``: string
-    | InvalidJson of 'Action
-    | MissingQueryParameter of 'Action * queryParam: string
-    | MissingFormData of 'Action * formFieldName: string
+    | [<CompiledName "success">]
+      Success of action: 'Action
+    | [<CompiledName "invalidMethod">]
+      InvalidMethod of action: 'Action * ``method``: string
+    | [<CompiledName "invalidJson">]
+      InvalidJson of action: 'Action
+    | [<CompiledName "missingQueryParameter">]
+      MissingQueryParameter of action: 'Action * queryParam: string
+    | [<CompiledName "missingFormData">]
+      MissingFormData of action: 'Action * formFieldName: string
 
     member this.Action =
         match this with
