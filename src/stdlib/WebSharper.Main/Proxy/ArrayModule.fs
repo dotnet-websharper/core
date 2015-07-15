@@ -574,3 +574,36 @@ let CompareWith  (f: 'T -> 'T -> int) (a1: 'T []) (a2: 'T []) : int =
 let CountBy (f: 'T -> 'K) (a: 'T []) : ('K * int) [] =
     SeqCountBy f (Array.toSeq a)
     |> Seq.toArray
+
+[<JavaScript>]
+[<Name "distinct">]
+let Distinct<'T when 'T : equality> (l: 'T []) : 'T [] =
+    SeqDistinct (Array.toSeq l)
+    |> Seq.toArray
+
+[<JavaScript>]
+[<Name "distinctBy">]
+let DistinctBy<'T,'K when 'K : equality>
+        (f: 'T -> 'K) (a: 'T []) : 'T [] =
+    SeqDistinctBy f (Array.toSeq a)
+    |> Seq.toArray
+
+[<JavaScript>]
+[<Name "except">]
+let Except (itemsToExclude: seq<'T>) (a: 'T []) =
+    SeqExcept itemsToExclude (Array.toSeq a)
+    |> Seq.toArray
+
+[<JavaScript>]
+[<Name "findBack">]
+let FindBack p (s: _ []) =
+    match TryFindBack p s with
+    | Some x -> x
+    | None   -> failwith "KeyNotFoundException"
+
+[<JavaScript>]
+[<Name "findIndexBack">]
+let FindIndexBack p (s: _ []) =
+    match TryFindIndexBack p s with
+    | Some x -> x
+    | None   -> failwith "KeyNotFoundException"

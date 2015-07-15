@@ -374,6 +374,7 @@ let Zip3 (l1: list<_>) (l2: list<_>) (l3: list<_>) =
 let ChunkBySize size list =
     SeqChunkBySize size (List.toSeq list)
     |> Seq.toList
+    |> List.map Array.toList
 
 [<JavaScript>]
 [<Name "compareWith">]
@@ -385,3 +386,53 @@ let CompareWith  (f: 'T -> 'T -> int) (l1: list<'T>) (l2: list<'T>) : int =
 let CountBy (f: 'T -> 'K) (l: list<'T>) : list<'K * int> =
     SeqCountBy f (List.toSeq l)
     |> Seq.toList
+
+[<JavaScript>]
+[<Name "distinct">]
+let Distinct<'T when 'T : equality> (l: list<'T>) : list<'T> =
+    SeqDistinct (List.toSeq l)
+    |> Seq.toList
+
+[<JavaScript>]
+[<Name "distinctBy">]
+let DistinctBy<'T,'K when 'K : equality>
+        (f: 'T -> 'K) (l: list<'T>) : list<'T> =
+    SeqDistinctBy f (List.toSeq l)
+    |> Seq.toList
+
+[<JavaScript>]
+[<Name "splitInto">]
+let SplitInto count (list: list<'T>) =
+    ArraySplitInto count (List.toArray list)
+    |> Array.toList
+    |> List.map Array.toList
+
+[<JavaScript>]
+[<Name "except">]
+let Except (itemsToExclude: seq<'T>) (l: list<'T>) =
+    SeqExcept itemsToExclude (List.toSeq l)
+    |> Seq.toList
+
+[<JavaScript>]
+[<Name "tryFindBack">]
+let TryFindBack ok (l: list<_>) =
+    ArrayTryFindBack ok (Array.ofList l)
+
+[<JavaScript>]
+[<Name "findBack">]
+let FindBack p (s: list<_>) =
+    match TryFindBack p s with
+    | Some x -> x
+    | None   -> failwith "KeyNotFoundException"
+
+[<JavaScript>]
+[<Inline>]
+let TryFindIndexBack ok (l: list<_>) =
+    ArrayTryFindIndexBack ok (Array.ofList l) 
+
+[<JavaScript>]
+[<Name "findIndexBack">]
+let FindIndexBack p (s: list<_>) =
+    match TryFindIndexBack p s with
+    | Some x -> x
+    | None   -> failwith "KeyNotFoundException"

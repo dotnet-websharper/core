@@ -186,3 +186,78 @@ let SeqCountBy (f: 'T -> 'K) (s: seq<'T>) : seq<'K * int> =
         keys.ToArray()
         |> Array.map (fun k -> (k, (?) d (As (hash k))))
         |> As<_>
+
+[<JavaScript>]
+[<Name "Seq.distinct">]
+let SeqDistinct<'T when 'T : equality> (s: seq<'T>) : seq<'T> =
+    Seq.distinctBy id s
+
+[<JavaScript>]
+[<Name "Seq.distinctBy">]
+let SeqDistinctBy<'T,'K when 'K : equality>
+        (f: 'T -> 'K) (s: seq<'T>) : seq<'T> =
+    Enumerable.Of <| fun () ->
+        let enum        = Enumerator.Get s
+        let seen        = Array<Array<'K>>()
+        let add c =
+            let k = f c
+            let h = hash k
+            let cont = seen.[h]
+            if cont = JS.Undefined then
+                seen.[h] <- [|k|].JS
+                true
+            else
+                if cont |> ArrayContains k then
+                    false
+                else
+                    cont.Push(k) |> ignore
+                    true         
+        Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
+            if enum.MoveNext() then
+                let mutable cur = enum.Current
+                let mutable has = add cur
+                while not has && enum.MoveNext() do
+                    cur <- enum.Current
+                    has <- add cur
+                if has then
+                    e.Current <- cur
+                    true
+                else
+                    false
+            else
+                false
+
+[<JavaScript>]
+[<Name "Seq.except">]
+let SeqExcept (itemsToExclude: seq<'T>) (s: seq<'T>) =
+    Enumerable.Of <| fun () ->
+        let enum        = Enumerator.Get s
+        let seen        = Array<Array<'T>>()
+        let add c =
+            let h = hash c
+            let cont = seen.[h]
+            if cont = JS.Undefined then
+                seen.[h] <- [|c|].JS
+                true
+            else
+                if cont |> ArrayContains c then
+                    false
+                else
+                    cont.Push(c) |> ignore
+                    true         
+        for i in itemsToExclude do
+            add i |> ignore
+        Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
+            if enum.MoveNext() then
+                let mutable cur = enum.Current
+                let mutable has = add cur
+                while not has && enum.MoveNext() do
+                    cur <- enum.Current
+                    has <- add cur
+                if has then
+                    e.Current <- cur
+                    true
+                else
+                    false
+            else
+                false

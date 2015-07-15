@@ -181,44 +181,15 @@ let Delay<'T> (f: unit -> seq<'T>) : seq<'T> =
     Enumerable.Of (fun () -> Enumerator.Get(f()))
 
 [<JavaScript>]
-[<Name "distinct">]
+[<Inline>]
 let Distinct<'T when 'T : equality> (s: seq<'T>) : seq<'T> =
-    Seq.distinctBy id s
+    SeqDistinct s
 
 [<JavaScript>]
-[<Name "distinctBy">]
+[<Inline>]
 let DistinctBy<'T,'K when 'K : equality>
         (f: 'T -> 'K) (s: seq<'T>) : seq<'T> =
-    Enumerable.Of <| fun () ->
-        let enum        = Enumerator.Get s
-        let seen        = Array<Array<'K>>()
-        let add c =
-            let k = f c
-            let h = hash k
-            let cont = seen.[h]
-            if cont = JS.Undefined then
-                seen.[h] <- [|k|].JS
-                true
-            else
-                if cont |> ArrayContains k then
-                    false
-                else
-                    cont.Push(k) |> ignore
-                    true         
-        Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
-            if enum.MoveNext() then
-                let mutable cur = enum.Current
-                let mutable has = add cur
-                while not has && enum.MoveNext() do
-                    cur <- enum.Current
-                    has <- add cur
-                if has then
-                    e.Current <- cur
-                    true
-                else
-                    false
-            else
-                false
+    SeqDistinctBy f s
 
 [<JavaScript>]
 [<Name "splitInto">]
@@ -230,39 +201,9 @@ let SplitInto count (s: seq<'T>) =
 let Empty<'T> : seq<'T> = [||] :> _
 
 [<JavaScript>]
-[<Name "except">]
+[<Inline>]
 let Except (itemsToExclude: seq<'T>) (s: seq<'T>) =
-    Enumerable.Of <| fun () ->
-        let enum        = Enumerator.Get s
-        let seen        = Array<Array<'T>>()
-        let add c =
-            let h = hash c
-            let cont = seen.[h]
-            if cont = JS.Undefined then
-                seen.[h] <- [|c|].JS
-                true
-            else
-                if cont |> ArrayContains c then
-                    false
-                else
-                    cont.Push(c) |> ignore
-                    true         
-        for i in itemsToExclude do
-            add i |> ignore
-        Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
-            if enum.MoveNext() then
-                let mutable cur = enum.Current
-                let mutable has = add cur
-                while not has && enum.MoveNext() do
-                    cur <- enum.Current
-                    has <- add cur
-                if has then
-                    e.Current <- cur
-                    true
-                else
-                    false
-            else
-                false
+    SeqExcept itemsToExclude s
 
 [<JavaScript>]
 [<Name "exists">]
@@ -789,3 +730,11 @@ let Zip (s1: seq<'T>) (s2: seq<'U>) =
 [<Name "zip3">]
 let Zip3 (s1: seq<'T>) (s2: seq<'U>) (s3: seq<'V>) : seq<'T * 'U * 'V> =
     Seq.map2 (fun x (y, z) -> (x, y, z)) s1 (Seq.zip s2 s3)
+
+[<JavaScript>]
+[<Name "fold2">]
+let Fold2<'T1,'T2,'S> (f: 'S -> 'T1 -> 'T2 -> 'S)
+                        (s: 'S)
+                        (s1: seq<'T1>)
+                        (s2: seq<'T2>) : 'S =
+    Array.fold2 f s (Array.ofSeq s1) (Array.ofSeq s2)
