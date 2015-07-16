@@ -25,8 +25,9 @@ open System
 module Config =
     let PackageId = "WebSharper"
     let CompilerPackageId = "WebSharper.Compiler"
-    let PackageVersion = "3.2"
-    let NumericVersion = Version(PackageVersion + ".0.0")
+    let PlainVersion = "3.2"
+    let PackageVersion = PlainVersion // + "-alpha"
+    let NumericVersion = Version(PlainVersion + ".0.0")
     let VersionSuffix = None
     let Company = "IntelliFactory"
     let Description = "F#-to-JavaScript compiler and web application framework"

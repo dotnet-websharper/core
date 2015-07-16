@@ -12,6 +12,7 @@
   <Import Project="../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
     <Compile Include="Remoting.fs" />
+    <Compile Include="ClientSideJson.fs" />
     <Compile Include="HelloWorld.fs" />
   </ItemGroup>
   <ItemGroup>
@@ -45,6 +46,11 @@
       <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.JQuery\WebSharper.JQuery.fsproj">
+      <Name>WebSharper.JQuery</Name>
+      <Project>{730ae40a-001c-4137-972d-898dc7c2bf0a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj">
       <Name>WebSharper.Main</Name>
       <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
@@ -53,6 +59,11 @@
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj">
       <Name>WebSharper.Testing</Name>
       <Project>{a7f7a74b-d0ee-4918-8a54-280fc7d2a30c}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj">
+      <Name>WebSharper.Sitelets.Tests</Name>
+      <Project>{bba692b3-ab48-4f2e-8a33-260b0dd09a9b}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

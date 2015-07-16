@@ -12,6 +12,7 @@
   <Import Project="../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
     <Compile Include="Api.fs" />
+    <Compile Include="Json.fs" />
     <Compile Include="SampleSite.fs" />
   </ItemGroup>
   <ItemGroup>

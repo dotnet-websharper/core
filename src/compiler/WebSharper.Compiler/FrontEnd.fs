@@ -97,7 +97,8 @@ module FrontEnd =
         member this.Compile(assembly: System.Reflection.Assembly, ?sourceMap: bool, ?typeScript : bool) : option<CompiledAssembly> =
             let sourceMap = defaultArg sourceMap false
             let typeScript = defaultArg typeScript true
-            this.CompileAssembly(Reflection.AdaptAssembly assembly, sourceMap, typeScript)
+            let an = Some (System.Reflection.AssemblyName("WebSharper.EntryPoint"))
+            this.CompileAssembly(Reflection.AdaptAssembly assembly an, sourceMap, typeScript)
 
         member this.Compile(assembly: Assembly, ?modifyAssembly: bool, ?sourceMap: bool, ?typeScript : bool) : option<CompiledAssembly> =
             let sourceMap = defaultArg sourceMap false
