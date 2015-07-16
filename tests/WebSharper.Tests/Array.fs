@@ -574,4 +574,214 @@ let Tests =
                 10
         }
 
+        #if FSHARP40
+
+        Test "Array.contains" {
+            isTrue (Array.contains 0 [| 0 .. 4 |])
+        }
+
+        Test "Array.chunkBySize" {
+            equal [| [| 1 .. 4 |]; [| 5 .. 8 |] |] (Array.chunkBySize 4 [| 1 .. 8 |])
+            equal [| [| 1 .. 4 |]; [| 5 .. 8 |]; [| 9; 10 |] |] (Array.chunkBySize 4 [| 1 .. 10 |])
+            raises (Array.chunkBySize 0)
+        }
+
+        Test "Array.compareWith" {
+            equal (Array.compareWith (fun _ -> failwith "Should not be evaluated") Array.empty Array.empty) 0
+            equal (Array.compareWith (fun _ -> failwith "Should not be evaluated") Array.empty [| 1 |]) -1
+            equal (Array.compareWith (fun _ _ -> 1) [| 0; 1 |] [| 0; 2 |]) 1
+        }
+
+        Test "Array.countBy" {
+            equal (Array.countBy (fun _ -> failwith "Should not be evaluated") Array.empty) [||]
+            equal (Array.countBy id [| 1; 2; 2; 3; 3; 3 |]) [| 1, 1; 2, 2; 3, 3 |]
+        }
+
+        Test "Array.distinct" {
+            equal (Array.distinct (fun _ -> failwith "Should not be evaluated") Array.empty) [||]
+            equal (Array.distinct id [| 1; 2; 2; 3; 3; 3 |]) [| 1; 2; 3 |]
+        }
+
+        Test "Array.distinctBy" {
+            equal (Array.distinctBy (fun _ -> failwith "Should not be evaluated") Array.empty) [||]
+            equal (Array.distinct Array.sum [| [| 0; 1 |]; [| 1; 0 |]; [| 1; 2 |] |]) [| [| 0; 1 |]; [| 1; 2 |] |]
+        }
+
+        Test "Array.splitInto" {
+            equal (Array.splitInto 2 Array.empty) Array.empty
+            raises ((Array.splitInto 0) Array.empty)
+        }
+
+        Test "Array.exactlyOne" {
+            equal (Array.exactlyOne [| 0 |]) 0
+            raises (Array.exactlyOne [| 0; 1 |])
+        }
+
+        Test "Array.except" {
+            equal (Array.except Array.empty [| 0; 1 |]) [| 0; 1 |]
+            equal (Array.except [| 0 |] [| 0; 1 |]) [| 1 |]
+        }
+
+        Test "Array.findBack" {
+            raises (Array.findBack (fun _ -> true) Array.empty)
+            equal (Array.findBack (fun x -> x % 5 = 0) [| 1 .. 10 |]) 10
+        }
+
+        Test "Array.findIndexBack" {
+            raises (Array.findIndexBack (fun _ -> true) Array.empty)
+            equal (Array.findIndexBack (fun x -> x % 5 = 0) [| 1 .. 10 |]) 9
+        }
+
+        Test "Array.groupBy" {
+            equal (Array.groupBy (fun (x : string) -> x.Length) [| "x"; "xx"; "xy"; "xyz" |]) [| 1, [| "x" |]; 2, [| "xx"; "xy" |]; 3, [| "xyz" |] |]
+        }
+
+        Test "Array.indexed" {
+            equal (Array.indexed [| 0 .. 4 |]) (Array.zip [| 0 .. 4 |] [| 0 .. 4 |])
+            equal (Array.indexed Array.empty) Array.empty
+        }
+
+        Test "Array.item" {
+            property (fun x -> Do {
+                let list = [| x |]
+
+                equal (Array.item 0 list) x
+            })
+        }
+
+        Test "Array.last" {
+            equal (Array.last [| 0 .. 4 |]) 4
+            raises (Array.last Array.empty)
+        }
+
+        Test "Array.mapFold" {
+            equal (Array.mapFold (fun s x -> (x + 1, s + x)) 0 [| 0 .. 4 |]) (Array.map ((+) 1) [| 0 .. 4 |], Array.sum [| 0 .. 4 |])
+        }
+
+        Test "Array.mapFoldBack" {
+            equal (Array.mapFoldBack (fun x s -> (x + 1, s + x)) [| 0 .. 4 |] 0) (Array.map ((+) 1) [| 0 .. 4 |], Array.sum [| 0 .. 4 |])
+        }
+
+        Test "Array.pairwise" {
+            equal (Array.pairwise Array.empty) Array.empty
+            equal (Array.pairwise [| 0 |]) Array.empty
+            equal (Array.pairwise [| 0; 1 |]) [| 0, 1 |]
+        }
+
+        Test "Array.singleton" {
+            property (fun x -> Do {
+                equal (Array.singleton x) [| x |]
+            })
+        }
+
+        Test "Array.skip" {
+            raises (Array.skip 1 Array.empty)
+            equal (Array.skip 3 [| 0 .. 4 |]) [| 3; 4 |]
+        }
+
+        Test "Array.skipWhile" {
+            raises (Array.skipWhile (fun _ -> true) Array.empty)
+            equal (Array.skipWhile (fun _ -> true) [| 0 .. 4 |]) Array.empty
+            equal (Array.skipWhile (fun x -> x % 5 > 0) [| 0 .. 9 |]) [| 5 .. 9 |]
+        }
+
+        Test "Array.sortDescending" {
+            equal (Array.sortDescending [| 0 .. 4 |]) [| 4 .. -1 .. 0 |]
+        }
+
+        Test "Array.sortByDescending" {
+            equal (Array.sortByDescending (fun (x : string) -> x.Length) [| ".."; "."; "....."; "..."; "...."; |]) [| "....."; "...."; "..."; ".."; "." |]
+        }
+
+        Test "Array.take" {
+            raises (Array.take 1 Array.empty)
+            equal (Array.take 2 [| 0 .. 4 |]) [| 0; 1 |]
+        }
+
+        Test "Array.takeWhile" {
+            raises (Array.takeWhile (fun _ -> true) Array.empty)
+            equal (Array.takeWhile (fun x -> x % 5 > 0) [| 1 .. 10 |]) [| 1 .. 4 |]
+        }
+
+        Test "Array.truncate" {
+            equal (Array.truncate 1 Array.empty) Array.empty
+            equal (Array.truncate 3 [| 0 .. 4 |]) [| 3; 4 |]
+        }
+
+        Test "Array.tryFindBack" {
+            equal (Array.tryFindBack (fun _ -> true) Array.empty) None
+            equal (Array.tryFindBack (fun x -> x % 5 = 0) [| 1 .. 10 |]) (Some 10)
+        }
+
+        Test "Array.tryFindIndexBack" {
+            equal (Array.tryFindIndexBack (fun _ -> true) Array.empty) None
+            equal (Array.tryFindIndexBack (fun x -> x % 5 = 0) [| 1 .. 10 |]) (Some 9)
+        }
+
+        Test "Array.tryHead" {
+            equal (Array.tryHead Array.empty) None
+            property (fun x -> Do {
+                equal (Array.tryHead [| x; 0 |]) (Some x)
+            })
+        }
+
+        Test "Array.tryItem" {
+            equal (Array.tryItem 0 Array.empty) None
+            property (fun x -> Do {
+                equal (Array.tryItem 0 [| x; 1 |]) (Some x)
+            })
+        }
+
+        Test "Array.tryLast" {
+            equal (Array.tryLast Array.empty) None
+            property (fun x -> Do {
+                equal (Array.tryLast [| 0; x |]) (Some x)
+            })
+        }
+
+        Test "Array.unfold" {
+            equal (Array.unfold (fun _ -> None) 0) Array.empty
+            equal (Array.unfold (fun x -> if x < 20 then Some (x + 1, 2 * x) else None) 1) [| 2; 3; 5; 9; 17 |]
+        }
+
+        Test "Array.where" {
+            equal (Array.where (fun x -> x % 2 = 0) [| 0 .. 4 |]) [| 0; 2; 4 |]
+            equal (Array.where (fun _ -> true) Array.empty) Array.empty
+        }
+
+        Test "Array.windowed" {
+            raises (Array.windowed 0 Array.empty)
+            equal (Array.windowed 1 [| 0 .. 4 |]) [| for x in [| 0 .. 4 |] do yield [| x |] |]
+        }
+
+        Test "Array.splitAt" {
+            raises (Array.splitAt -1 Array.empty)
+            equal (Array.splitAt 2 [| 0 .. 4 |]) ([| 0; 1 |], [| 2; 3; 4 |])
+        }
+
+        Test "Array.head" {
+            equal (Array.head [| 0; 1 |]) 0
+            raises (Array.head Array.empty)
+        }
+
+        Test "Array.map3" {
+            raises (Array.map3 id [| 0; 1 |] [| 0 .. 2 |] [| 0 .. 2 |])
+            equal (Array.map3 id [||] [||] [||]) Array.empty
+            equal (Array.map3 (fun x y z -> x + y + z) [| 0; 1 |] [| 2; 3 |] [| 4; 5 |]) [| 6; 9 |]
+        }
+
+        Test "Array.replicate" {
+            raises (Array.replicate -1 Array.empty)
+            equal (Array.replicate 100 0) [| for _ in [ 1 .. 100 ] do yield 0 |]
+        }
+
+        Test "Array.tail" {
+            raises (Array.tail Array.empty)
+            property (fun x -> Do {
+                isTrue (Array.length (Array.tail (Array.replicate x 0)) = x - 1)
+            })
+        }
+
+        #endif
+
     }

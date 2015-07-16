@@ -508,7 +508,7 @@ let Tests =
             equal fibonacci [2; 3; 5; 8; 13]
         }
 
-//        #if FSHARP40
+        #if FSHARP40
 
         Test "List.contains" {
             isTrue (List.contains 0 [ 0 .. 4 ])
@@ -693,6 +693,6 @@ let Tests =
             equal (List.splitAt 2 [ 0 .. 4 ]) ([ 0; 1 ], [ 2; 3; 4 ])
         }
 
-//        #endif
+        #endif
 
     }
