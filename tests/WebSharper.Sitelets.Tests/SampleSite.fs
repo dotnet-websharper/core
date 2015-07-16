@@ -85,33 +85,54 @@ module SampleSite =
                 ]
             }
 
+    type Template =
+        {
+            Title: string
+            Body: seq<Html.Element>
+            Menu: seq<Html.Element>
+            Login: seq<Html.Element>
+        }
+
+    let Tpl =
+        Content.Template.FromHtmlElement(
+            HTML [
+                Head [
+                    Tags.Title [Text "${title}"]
+                    Meta [Attr.Data "replace" "scripts"]
+                ]
+                Body [
+                    Div [Attr.Data "replace" "login"]
+                    Div [Attr.Data "replace" "menu"]
+                    Div [Attr.Data "replace" "body"]
+                ]
+            ])
+            .With("title", fun x -> x.Title)
+            .With("body", fun x -> x.Body)
+            .With("menu", fun x -> x.Menu)
+            .With("login", fun x -> x.Login)
+
     /// A template function that renders a page with a menu bar, based on the `Skin` template.
     let Template title main : Content<Action> =
-        let menu (ctx: Context<Action>)=
-            let ( ! ) x = ctx.Link x
-            [
-                    "Home" => !Action.Home
-                    "Contact" => !Action.Contact
-                    "Say Hello" => !(Action.Echo "Hello")
-                    "Protected" => (RandomizeUrl <| !Action.Protected)
-                    "ASPX Page" => ctx.ResolveUrl "http://www.nba.com/~joel/file.html"
-            ]
-            |> List.map (fun link ->
-                Label [Class "menu-item"] -< [link]
-            )
-        Content.PageContentAsync (fun ctx ->
+        Content.WithTemplateAsync Tpl (fun ctx ->
+            let menu =
+                let ( ! ) x = ctx.Link x
+                [
+                        "Home" => !Action.Home
+                        "Contact" => !Action.Contact
+                        "Say Hello" => !(Action.Echo "Hello")
+                        "Protected" => (RandomizeUrl <| !Action.Protected)
+                        "ASPX Page" => ctx.ResolveUrl "http://www.nba.com/~joel/file.html"
+                ]
+                |> List.map (fun link ->
+                    Label [Class "menu-item"] -< [link]
+                )
             async {
                 let! login = Widgets.LoginInfo ctx
-                let body =
-                    Div [
-                        Div login
-                        Div (menu ctx)
-                        Div (main ctx)
-                    ]
                 return {
-                    Page.Default with
-                        Title = Some title
-                        Body = [body]
+                    Title = title
+                    Menu = menu
+                    Login = login
+                    Body = main ctx
                 }
             })
 
