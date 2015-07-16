@@ -146,4 +146,15 @@ let Tests =
             equal Object.Prototype.Constructor.Length 1
         }
 
+        #if FSHARP40
+
+        Test "isNull" {
+            isTrue (isNull null)
+            property (fun (x : 'T when 'T : unmanaged) -> Do {
+                isFalse (isNull x)
+            })
+        }
+
+        #endif
+
     }

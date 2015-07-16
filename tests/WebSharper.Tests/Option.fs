@@ -126,6 +126,8 @@ let Tests =
             })
         }
 
+        #if FSHARP40
+
         Test "Option.ofObj" {
             equal (Option.ofObj null) None
             property (fun x -> Do {
@@ -147,5 +149,7 @@ let Tests =
                 equal (Option.filter (fun _ -> false) (Some x)) None
             })
         }
+
+        #endif
 
     }
