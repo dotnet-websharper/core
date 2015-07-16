@@ -248,16 +248,18 @@ type Definitions = list<Definition * Expression>
 
 /// Parses reflected definitions from their binary representation.
 val ReadStream :
-    System.Reflection.AssemblyName -> System.IO.Stream -> Definitions
+    System.Reflection.AssemblyName -> R.TypeDefinition[] -> System.IO.Stream -> Definitions
 
 /// Parses reflected definitions associated with an assembly by
 /// reading the dedicated embedded resource.  Fails when the assembly
 /// was not produced with F#.
+/// Warning: does not support F# 4.0+
 val ReadAssembly : System.Reflection.Assembly -> option<Definitions>
 
 /// Loads an F# assembly from a given path with
 /// ReflectionOnlyLoadFrom and reads its reflected definitions.
 /// Fails when the assembly was not produced with F#.
+/// Warning: does not support F# 4.0+
 val ReadAssemblyFile : Path -> option<Definitions>
 
 /// Maps over the immediate sub-expressions. Expression forms

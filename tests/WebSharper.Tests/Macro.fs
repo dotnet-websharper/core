@@ -24,6 +24,8 @@ open WebSharper.Core.Macros
 module C = WebSharper.Core.JavaScript.Core
 module S = WebSharper.Core.JavaScript.Syntax
 
+#if NOTFSHARP40
+
 [<Sealed>]
 type HelloQuotationGenerator() =
     interface IGenerator with
@@ -107,5 +109,5 @@ module Macro =
                 equal nameof<string> "System.String"
                 equal (add 1 2) 3
             }
-
         }
+#endif

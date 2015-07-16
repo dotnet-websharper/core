@@ -264,6 +264,9 @@ let error (log: Logger) loc text =
 
 let parseInlined log loc kind args definition =
     try
+        if String.IsNullOrEmpty definition then
+            "Empty inline string" |> error log loc
+        else
         let e = P.ParseExpression (P.Source.FromString definition)
         match C.Recognize e with
         | Some rE ->

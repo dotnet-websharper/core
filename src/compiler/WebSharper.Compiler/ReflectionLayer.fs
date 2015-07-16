@@ -58,6 +58,7 @@ and CustomAttributeArgument =
     | StringArgument of string
     | StringsArgument of list<string>
     | TypeArgument of TypeReference
+    | TypesArgument of TypeReference[]
 
 and [<AbstractClass>] FieldDefinition() =
     inherit Entity()
@@ -205,13 +206,19 @@ module Cecil =
             | "System.String[]" ->
                 let arr = x.Value :?> Mono.Cecil.CustomAttributeArgument[]
                 Some (StringsArgument [for x in arr -> x.Value :?> _])
+            | "System.Type" ->
+                Some (TypeArgument (Converter.TRef(x.Value :?> _)))
+            | "System.Type[]" ->
+                let arr = x.Value :?> Mono.Cecil.CustomAttributeArgument[]
+                Some (TypesArgument (arr |> Array.map (fun x -> Converter.TRef(x.Value :?> _))))
             | _ ->
                 match x.Value with
                 | :? Mono.Cecil.TypeReference as tR ->
                     Some (TypeArgument (Converter.TRef(tR)))
                 | :? int as i ->
                     Some (IntArgument i)
-                | _ -> None
+                | _ -> 
+                    None
 
         static member GetCustomAttributes(x: Mono.Cecil.ICustomAttributeProvider) : list<CustomAttribute> =
             if x.HasCustomAttributes then
@@ -450,11 +457,6 @@ module QuotationUtils =
             for t in ts ->
                 CR.Type.FromType(t)
         ]
-//
-//    let generalize (m: MethodInfo) =
-//        if m.IsGenericMethod && not m.IsGenericMethodDefinition then
-//            m.GetGenericMethodDefinition()
-//        else m
 
     let getProperTypeGenerics (t: System.Type) =
         if t.IsGenericType || t.IsGenericTypeDefinition then

@@ -53,7 +53,7 @@ let TestsPage =
             Div [
                 Testing.Runner.Run [
                     typeof<WebSharper.Collections.Tests.Dictionary.Foo>.Assembly
-                    typeof<WebSharper.Tests.AddMacro>.Assembly
+                    typeof<WebSharper.Tests.Object.O>.Assembly
                     typeof<WebSharper.Web.Tests.HelloWorld>.Assembly
                     typeof<WebSharper.Html5.Tests.Samples>.Assembly
                 ]

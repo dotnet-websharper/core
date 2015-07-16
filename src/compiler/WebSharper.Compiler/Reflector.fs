@@ -229,20 +229,30 @@ let getTypeKind (t: TypeDefinition) =
 /// Reads reflected definition data from an F# assembly.
 let getReflectedDefinitions (assembly: AssemblyDefinition) =
     let name = assembly.Name
-    let data =
+    let resOpt =
         assembly.EmbeddedResources
-        |> Seq.tryPick (fun (KeyValue (n, getStream)) ->
-            if n.ToUpper().StartsWith("REFLECTEDDEFINITIONS") then
-                use stream = getStream ()
-                let defs = Q.ReadStream name stream
-                let d = Dictionary()
-                defs
-                |> List.iter (fun (k, v) -> d.[k] <- v)
-                Some d
-            else None)
-    match data with
+        |> Seq.tryPick (fun (KeyValue (n, getStream)) -> 
+            if n.ToUpper().StartsWith("REFLECTEDDEFINITIONS") then Some (n, getStream) else None)
+    match resOpt with
+    | Some (resName, getStream) ->
+        let typeDefs =
+            assembly.CustomAttributes |>
+            Seq.tryPick (fun a -> 
+                if a.AttributeType.FullName = "Microsoft.FSharp.Core.CompilationMappingAttribute" then 
+                    match a.ConstructorArguments with
+                    | [ StringArgument n; TypesArgument ts ] when n = resName -> 
+                        Some (ts |> Array.map (parseTypeReference (failwithf "Error loading F# 4.0+ type reference table: %s")))
+                    | _ -> None
+                else None
+            ) 
+            |> function None -> [| |] | Some d -> d
+        use stream = getStream ()
+        let defs = Q.ReadStream name typeDefs stream
+        let d = Dictionary()
+        defs
+        |> List.iter (fun (k, v) -> d.[k] <- v)
+        d
     | None -> Dictionary()
-    | Some data -> data
 
 /// Maps Mono.Cecil method representations to QR definitions.
 let getMethodQuotationReaderDefinition (mD: MethodDefinition) =

@@ -345,9 +345,10 @@ let ReadObject read input =
 let ReadBool input =
     ReadByte input = 1
 
-let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
+let ReadStream (assemblyName: AssemblyName) (typeDefs: R.TypeDefinition[]) (stream: System.IO.Stream) =
     let localAssembly = assemblyName.FullName
     let assemblyName = assemblyName.Name
+    let isFSharp40Plus = not (Array.isEmpty typeDefs) 
     let readAssemblyReference input =
         match ReadString input with
         | "" -> typeof<int>.Assembly.FullName
@@ -356,7 +357,12 @@ let ReadStream (assemblyName: AssemblyName) (stream: System.IO.Stream) =
     let readTypeReference (input: Input) =
         let n = ReadString input
         let a = readAssemblyReference input
-        R.TypeDefinition.Parse(System.String.Format("{0}, {1}", n, a))
+        if isFSharp40Plus then
+            match System.Int32.TryParse(n) with
+            | true, i -> typeDefs.[i]
+            | _ -> R.TypeDefinition.Parse(System.String.Format("{0}, {1}", n, a))
+        else 
+            R.TypeDefinition.Parse(System.String.Format("{0}, {1}", n, a))
     let readModuleDefinition (input: Input) =
         let ty = readTypeReference input
         let name = ReadString input
@@ -722,7 +728,7 @@ let ReadAssembly (assembly: System.Reflection.Assembly) =
     |> Seq.tryPick (fun x ->
         if x.ToUpper().StartsWith ("REFLECTED" + "DEFINITIONS") then
             use s = assembly.GetManifestResourceStream x
-            Some (ReadStream (assembly.GetName()) s)
+            Some (ReadStream (assembly.GetName()) [||] s)
         else
             None)
 

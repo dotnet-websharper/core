@@ -34,10 +34,11 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=4.3.0.0" Condition="'$(PrivateFSharpCore)' == 'True'">
+    <Reference Include="FSharp.Core, Version=4.3.0.0" Condition=" '$(PrivateFSharpCore)' == 'True' ">
       <Private>True</Private>
     </Reference>
-    <Reference Include="FSharp.Core, Version=4.3.0.0" Condition="'$(PrivateFSharpCore)' != 'True'" />
+    <Reference Include="FSharp.Core, Version=4.3.0.0" Condition=" '$(PrivateFSharpCore)' != 'True' And '$(FSharp40)' != 'True' " />
+    <Reference Include="FSharp.Core, Version=4.4.0.0" Condition=" '$(FSharp40)' == 'True' " />
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
@@ -73,5 +74,6 @@
       <Compile Include="@(C)" />
     </ItemGroup>
   </Target>
-  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.1/Framework/v4.0/Microsoft.FSharp.targets" />
+  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/3.1/Framework/v4.0/Microsoft.FSharp.targets" Condition="'$(FSharp40)' != 'True'" />
+  <Import Project="$(MSBuildExtensionsPath32)/../Microsoft SDKs/F#/4.0/Framework/v4.0/Microsoft.FSharp.targets" Condition="'$(FSharp40)' == 'True'" />
 </Project>
