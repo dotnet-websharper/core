@@ -508,4 +508,191 @@ let Tests =
             equal fibonacci [2; 3; 5; 8; 13]
         }
 
+//        #if FSHARP40
+
+        Test "List.contains" {
+            isTrue (List.contains 0 [ 0 .. 4 ])
+        }
+
+        Test "List.chunkBySize" {
+            equal [ [ 1 .. 4 ]; [ 5 .. 8 ] ] (List.chunkBySize 4 [ 1 .. 8 ])
+            equal [ [ 1 .. 4 ]; [ 5 .. 8 ]; [ 9; 10 ] ] (List.chunkBySize 4 [ 1 .. 10 ])
+            raises (List.chunkBySize 0)
+        }
+
+        Test "List.compareWith" {
+            equal (List.compareWith (fun _ -> failwith "Should not be evaluated") List.empty List.empty) 0
+            equal (List.compareWith (fun _ -> failwith "Should not be evaluated") List.empty [ 1 ]) -1
+            equal (List.compareWith (fun _ _ -> 1) [ 0; 1 ] [ 0; 2 ]) 1
+        }
+
+        Test "List.countBy" {
+            equal (List.countBy (fun _ -> failwith "Should not be evaluated") List.empty) []
+            equal (List.countBy id [ 1; 2; 2; 3; 3; 3 ]) [ 1, 1; 2, 2; 3, 3 ]
+        }
+
+        Test "List.distinct" {
+            equal (List.distinct (fun _ -> failwith "Should not be evaluated") List.empty) []
+            equal (List.distinct id [ 1; 2; 2; 3; 3; 3 ]) [ 1; 2; 3 ]
+        }
+
+        Test "List.distinctBy" {
+            equal (List.distinctBy (fun _ -> failwith "Should not be evaluated") List.empty) []
+            equal (List.distinct List.sum [ [ 0; 1 ]; [ 1; 0 ]; [ 1; 2 ] ]) [ [ 0; 1 ]; [ 1; 2 ] ]
+        }
+
+        Test "List.splitInto" {
+            equal (List.splitInto 2 List.empty) List.empty
+            raises ((List.splitInto 0) List.empty)
+        }
+
+        Test "List.exactlyOne" {
+            equal (List.exactlyOne [ 0 ]) 0
+            raises (List.exactlyOne [ 0; 1 ])
+        }
+
+        Test "List.except" {
+            equal (List.except List.empty [ 0; 1 ]) [ 0; 1 ]
+            equal (List.except [ 0 ] [ 0; 1 ]) [ 1 ]
+        }
+
+        Test "List.findBack" {
+            raises (List.findBack (fun _ -> true) List.empty)
+            equal (List.findBack (fun x -> x % 5 = 0) [ 1 .. 10 ]) 10
+        }
+
+        Test "List.findIndexBack" {
+            raises (List.findIndexBack (fun _ -> true) List.empty)
+            equal (List.findIndexBack (fun x -> x % 5 = 0) [ 1 .. 10 ]) 9
+        }
+
+        Test "List.groupBy" {
+            equal (List.groupBy (fun (x : string) -> x.Length) [ "x"; "xx"; "xy"; "xyz" ]) [ 1, [ "x" ]; 2, [ "xx"; "xy" ]; 3, [ "xyz" ] ]
+        }
+
+        Test "List.indexed" {
+            equal (List.indexed [ 0 .. 4 ]) (List.zip [ 0 .. 4 ] [ 0 .. 4 ])
+            equal (List.indexed List.empty) List.empty
+        }
+
+        Test "List.item" {
+            property (fun x -> Do {
+                let list = [ x ]
+
+                equal (List.item 0 list) x
+            })
+        }
+
+        Test "List.last" {
+            equal (List.last [ 0 .. 4 ]) 4
+            raises (List.last List.empty)
+        }
+
+        Test "List.mapFold" {
+            equal (List.mapFold (fun s x -> (x + 1, s + x)) 0 [ 0 .. 4 ]) (List.map ((+) 1) [ 0 .. 4 ], List.sum [ 0 .. 4 ])
+        }
+
+        Test "List.mapFoldBack" {
+            equal (List.mapFoldBack (fun x s -> (x + 1, s + x)) [ 0 .. 4 ] 0) (List.map ((+) 1) [ 0 .. 4 ], List.sum [ 0 .. 4 ])
+        }
+
+        Test "List.pairwise" {
+            equal (List.pairwise List.empty) List.empty
+            equal (List.pairwise [ 0 ]) List.empty
+            equal (List.pairwise [ 0; 1 ]) [ 0, 1 ]
+        }
+
+        Test "List.singleton" {
+            property (fun x -> Do {
+                equal (List.singleton x) [ x ]
+            })
+        }
+
+        Test "List.skip" {
+            raises (List.skip 1 List.empty)
+            equal (List.skip 3 [ 0 .. 4 ]) [ 3; 4 ]
+        }
+
+        Test "List.skipWhile" {
+            raises (List.skipWhile (fun _ -> true) List.empty)
+            equal (List.skipWhile (fun _ -> true) [ 0 .. 4 ]) List.empty
+            equal (List.skipWhile (fun x -> x % 5 > 0) [ 0 .. 9 ]) [ 5 .. 9 ]
+        }
+
+        Test "List.sortDescending" {
+            equal (List.sortDescending [ 0 .. 4 ]) [ 4 .. -1 .. 0 ]
+        }
+
+        Test "List.sortByDescending" {
+            equal (List.sortByDescending (fun (x : string) -> x.Length) [ ".."; "."; "....."; "..."; "...."; ]) [ "....."; "...."; "..."; ".."; "." ]
+        }
+
+        Test "List.take" {
+            raises (List.take 1 List.empty)
+            equal (List.take 2 [ 0 .. 4 ]) [ 0; 1 ]
+        }
+
+        Test "List.takeWhile" {
+            raises (List.takeWhile (fun _ -> true) List.empty)
+            equal (List.takeWhile (fun x -> x % 5 > 0) [ 1 .. 10 ]) [ 1 .. 4 ]
+        }
+
+        Test "List.truncate" {
+            equal (List.truncate 1 List.empty) List.empty
+            equal (List.truncate 3 [ 0 .. 4 ]) [ 3; 4 ]
+        }
+
+        Test "List.tryFindBack" {
+            equal (List.tryFindBack (fun _ -> true) List.empty) None
+            equal (List.tryFindBack (fun x -> x % 5 = 0) [ 1 .. 10 ]) (Some 10)
+        }
+
+        Test "List.tryFindIndexBack" {
+            equal (List.tryFindIndexBack (fun _ -> true) List.empty) None
+            equal (List.tryFindIndexBack (fun x -> x % 5 = 0) [ 1 .. 10 ]) (Some 9)
+        }
+
+        Test "List.tryHead" {
+            equal (List.tryHead List.empty) None
+            property (fun x -> Do {
+                equal (List.tryHead [ x; 0 ]) (Some x)
+            })
+        }
+
+        Test "List.tryItem" {
+            equal (List.tryItem 0 List.empty) None
+            property (fun x -> Do {
+                equal (List.tryItem 0 [ x; 1 ]) (Some x)
+            })
+        }
+
+        Test "List.tryLast" {
+            equal (List.tryLast List.empty) None
+            property (fun x -> Do {
+                equal (List.tryLast [ 0; x ]) (Some x)
+            })
+        }
+
+        Test "List.unfold" {
+            equal (List.unfold (fun _ -> None) 0) List.empty
+            equal (List.unfold (fun x -> if x < 20 then Some (x + 1, 2 * x) else None) 1) [ 2; 3; 5; 9; 17 ]
+        }
+
+        Test "List.where" {
+            equal (List.where (fun x -> x % 2 = 0) [ 0 .. 4 ]) [ 0; 2; 4 ]
+            equal (List.where (fun _ -> true) List.empty) List.empty
+        }
+
+        Test "List.windowed" {
+            raises (List.windowed 0 List.empty)
+            equal (List.windowed 1 [ 0 .. 4 ]) [ for x in [ 0 .. 4 ] do yield [| x |] ]
+        }
+
+        Test "List.splitAt" {
+            raises (List.splitAt -1 List.empty)
+            equal (List.splitAt 2 [ 0 .. 4 ]) ([ 0; 1 ], [ 2; 3; 4 ])
+        }
+
+//        #endif
+
     }
