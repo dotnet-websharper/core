@@ -663,35 +663,14 @@ let TryPick f (s: seq<_>) =
     r
 
 [<JavaScript>]
-[<Name "unfold">]
+[<Inline>]
 let Unfold (f: 'S -> option<'T * 'S>) (s: 'S) : seq<'T> =
-    Enumerable.Of <| fun () ->
-        Enumerator.New s <| fun e ->
-            match f e.State with
-            | Some (t, s) ->
-                e.Current <- t
-                e.State  <- s
-                true
-            | None ->
-                false
+    SeqUnfold f s
 
 [<JavaScript>]
-[<Name "windowed">]
+[<Inline>]
 let Windowed (windowSize: int) (s: seq<'T>) : seq<'T []> =
-    if windowSize <= 0 then
-        failwith "The input must be non-negative."
-    seq {
-        use e = Enumerator.Get s
-        let q = new System.Collections.Generic.Queue<'T>()
-        while q.Count < windowSize && e.MoveNext() do
-            q.Enqueue e.Current
-        if q.Count = windowSize then
-            yield q.ToArray()
-            while e.MoveNext() do
-                ignore (q.Dequeue())
-                q.Enqueue e.Current
-                yield q.ToArray()
-    }
+    SeqWindowed windowSize s
 
 [<JavaScript>]
 [<Name "zip">]
@@ -796,3 +775,8 @@ let SortWith f (s: seq<_>) =
 let Tail<'T> (s : seq<'T>) : seq<'T> =
     List.tail (Seq.toList s)
     |> List.toSeq
+
+[<JavaScript>]
+[<Inline>]
+let Where (predicate : 'T -> bool) (s : seq<'T>) : seq<'T> =
+    Filter predicate s

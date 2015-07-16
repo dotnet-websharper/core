@@ -539,3 +539,34 @@ let rec TryItem<'T> n (list: list<'T>) =
 let TryLast<'T> (list: list<'T>) =
     List.rev list
     |> TryHead
+
+[<JavaScript>]
+[<Name "exactlyOne">]
+let ExactlyOne (list : 'T list) =
+    match list with
+    | head :: [] ->
+        head
+    | _ ->
+        failwith "The input does not have precisely one element."
+
+[<JavaScript>]
+[<Name "unfold">]
+let Unfold (f: 'S -> option<'T * 'S>) (s: 'S) : list<'T> =
+    SeqUnfold f s
+    |> Seq.toList
+
+[<JavaScript>]
+[<Inline>]
+let Where (predicate : 'T -> bool) (s : 'T list) : 'T list =
+    Filter predicate s
+
+[<JavaScript>]
+[<Name "windowed">]
+let Windowed (windowSize: int) (s: 'T list) : list<'T []> =
+    SeqWindowed windowSize (List.toSeq s)
+    |> Seq.toList
+
+[<JavaScript>]
+[<Name "splitAt">]
+let SplitAt (n: int) (list: 'T list) =
+    (Take n list, Truncate n list)

@@ -378,3 +378,34 @@ let rec ListTruncate<'T> n (list: list<'T>) =
             ListTruncate (n - 1) tail
         | [] ->
             []
+
+[<JavaScript>]
+[<Name "Seq.unfold">]
+let SeqUnfold (f: 'S -> option<'T * 'S>) (s: 'S) : seq<'T> =
+    Enumerable.Of <| fun () ->
+        Enumerator.New s <| fun e ->
+            match f e.State with
+            | Some (t, s) ->
+                e.Current <- t
+                e.State  <- s
+                true
+            | None ->
+                false
+
+[<JavaScript>]
+[<Name "Seq.windowed">]
+let SeqWindowed (windowSize: int) (s: seq<'T>) : seq<'T []> =
+    if windowSize <= 0 then
+        failwith "The input must be non-negative."
+    seq {
+        use e = Enumerator.Get s
+        let q = new System.Collections.Generic.Queue<'T>()
+        while q.Count < windowSize && e.MoveNext() do
+            q.Enqueue e.Current
+        if q.Count = windowSize then
+            yield q.ToArray()
+            while e.MoveNext() do
+                ignore (q.Dequeue())
+                q.Enqueue e.Current
+                yield q.ToArray()
+    }

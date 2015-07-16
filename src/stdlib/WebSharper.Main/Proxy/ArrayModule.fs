@@ -695,3 +695,33 @@ let TakeWhile<'T> (predicate : 'T -> bool) (ar: 'T []) =
 let Truncate<'T> n (ar: 'T []) =
     ListTruncate n (Array.toList ar)
     |> List.toArray
+
+[<JavaScript>]
+[<Name "exactlyOne">]
+let ExactlyOne (ar : 'T []) =
+    if ar.Length = 1 then
+        ar.[0]
+    else
+        failwith "The input does not have precisely one element."
+
+[<JavaScript>]
+[<Name "unfold">]
+let Unfold (f: 'S -> option<'T * 'S>) (s: 'S) : 'T [] =
+    SeqUnfold f s
+    |> Seq.toArray
+
+[<JavaScript>]
+[<Inline>]
+let Where (predicate : 'T -> bool) (s : 'T []) : 'T [] =
+    Filter predicate s
+
+[<JavaScript>]
+[<Name "windowed">]
+let Windowed (windowSize: int) (s: 'T []) : array<'T []> =
+    SeqWindowed windowSize (Array.toSeq s)
+    |> Seq.toArray
+
+[<JavaScript>]
+[<Name "splitAt">]
+let SplitAt (n: int) (ar: 'T []) =
+    (ar.[.. n - 1], ar.[n ..])
