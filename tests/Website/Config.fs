@@ -22,4 +22,4 @@ module Website.Config
 
 open WebSharper
 
-let Version = "3.2"
+let Version = "3.3"

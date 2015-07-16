@@ -25,8 +25,8 @@ open System
 module Config =
     let PackageId = "WebSharper"
     let CompilerPackageId = "WebSharper.Compiler"
-    let PlainVersion = "3.2"
-    let PackageVersion = PlainVersion // + "-alpha"
+    let PlainVersion = "3.3"
+    let PackageVersion = PlainVersion
     let NumericVersion = Version(PlainVersion + ".0.0")
     let VersionSuffix = None
     let Company = "IntelliFactory"
