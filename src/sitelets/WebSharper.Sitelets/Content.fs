@@ -461,7 +461,7 @@ module Content =
         e element
 
     [<Sealed>]
-    type Template<'T>(getBasicTemplate, getPageTemplate, holes: Map<string,Hole<'T>>) =
+    type Template<'T>(getBasicTemplate, getPageTemplate, holes: Map<string,Hole<'T>>, controls: Queue<_>) =
 
         static let basicTemplate holes =
             let t = ref (XT.CustomTemplate<HtmlElement,HtmlElement,'T>(CustomXml.Instance))
@@ -541,7 +541,7 @@ module Content =
                 memoize (fun root -> getTemplate freq (path root) (basicTemplate holes).ParseFragmentFile)
             let getPageTemplate holes =
                 memoize (fun root -> getTemplate freq (path root) (pageTemplate holes).Parse)
-            Template(getBasicTemplate, getPageTemplate, Map.empty)
+            Template(getBasicTemplate, getPageTemplate, Map.empty, Queue())
 
         new (path) = Template(path, Template.WhenChanged)
 
@@ -555,21 +555,24 @@ module Content =
                     | Some e -> (pageTemplate holes).ParseElement e
                     | None -> failwith "Template.FromHtmlElement: must pass an element, not a CData or Text node"
                 fun _ _ -> f
-            Template<'T>(getFragmentTemplate, getPageTemplate, Map.empty)
+            let controls = Queue()
+            rootElement.CollectAnnotations()
+            |> Seq.iter controls.Enqueue
+            Template<'T>(getFragmentTemplate, getPageTemplate, Map.empty, controls)
 
         member this.With(name: string, f: Func<'T,string>) =
-            Template(getBasicTemplate, getPageTemplate, Map.add name (SH (async.Return << f.Invoke)) holes)
+            Template(getBasicTemplate, getPageTemplate, Map.add name (SH (async.Return << f.Invoke)) holes, controls)
 
         member this.With(name: string, f: Func<'T,HtmlElement>) =
             let h = EH (fun x -> async.Return <| Seq.singleton (f.Invoke(x)))
-            Template(getBasicTemplate, getPageTemplate, Map.add name h holes)
+            Template(getBasicTemplate, getPageTemplate, Map.add name h holes, controls)
 
         member this.With(name: string, f: Func<'T,#seq<HtmlElement>>) =
             let h = EH (fun x -> async.Return <| Seq.cast(f.Invoke(x)))
-            Template(getBasicTemplate, getPageTemplate, Map.add name h holes)
+            Template(getBasicTemplate, getPageTemplate, Map.add name h holes, controls)
 
         member this.With(name: string, f: Func<'T,Async<string>>) =
-            Template(getBasicTemplate, getPageTemplate, Map.add name (SH f.Invoke) holes)
+            Template(getBasicTemplate, getPageTemplate, Map.add name (SH f.Invoke) holes, controls)
 
         member this.With(name: string, f: Func<'T,Async<HtmlElement>>) =
             let h = EH (fun x ->
@@ -577,7 +580,7 @@ module Content =
                     let! result = f.Invoke(x)
                     return Seq.singleton (result)
                 })
-            Template(getBasicTemplate, getPageTemplate, Map.add name h holes)
+            Template(getBasicTemplate, getPageTemplate, Map.add name h holes, controls)
 
         member this.With(name: string, f: Func<'T,Async<#seq<HtmlElement>>>) =
             let h = EH (fun x ->
@@ -585,7 +588,7 @@ module Content =
                     let! result = f.Invoke(x)
                     return Seq.cast(result)
                 })
-            Template(getBasicTemplate, getPageTemplate, Map.add name h holes)
+            Template(getBasicTemplate, getPageTemplate, Map.add name h holes, controls)
 
         member this.Compile(root) =
             getBasicTemplate'.Value (defaultArg root ".")
@@ -601,7 +604,7 @@ module Content =
 
         member this.Run(env: Env, x: Async<'T>, ?root: string) : Async<XS.Element> =
             let tpl = getPageTemplate'.Value (defaultArg root ".") ()
-            let controls = Queue()
+            let controls = Queue(controls)
             let extra = Dictionary()
             async {
             let! x = x

@@ -40,6 +40,10 @@ module Client =
         override this.Body =
             Div [Text ("LOGIN: " + link)] :> _
 
+    [<JavaScript>]
+    let Widget () =
+        Button [Text "click me!"]
+
 /// The website definition.
 module SampleSite =
     open WebSharper
@@ -104,6 +108,7 @@ module SampleSite =
                     Div [Attr.Data "replace" "login"]
                     Div [Attr.Data "replace" "menu"]
                     Div [Attr.Data "replace" "body"]
+                    Div [ClientSide <@ Client.Widget () @>]
                 ]
             ])
             .With("title", fun x -> x.Title)
