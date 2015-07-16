@@ -139,7 +139,7 @@ let SplitStrings (s: string) (sep: string[]) (opts: System.StringSplitOptions) =
 
 [<JavaScript>]
 let Filter f (s: string) =
-    System.String.Concat(s |> Seq.filter f |> Array.ofSeq)
+    System.String.Concat(s |> Seq.choose (fun c -> if f c then Some (string c) else None) |> Array.ofSeq)
 
 [<Proxy(typeof<string>)>]
 type private StringProxy =
