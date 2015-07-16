@@ -126,4 +126,26 @@ let Tests =
             })
         }
 
+        Test "Option.ofObj" {
+            equal (Option.ofObj null) None
+            property (fun x -> Do {
+                equal (Option.ofObj x) (Some x)
+            })
+        }
+
+        Test "Option.toObj" {
+            equal (Option.toObj None) null
+            property (fun x -> Do {
+                equal (Option.toObj (Some x)) x
+            })
+        }
+
+        Test "Option.filter" {
+            equal (Option.filter (fun _ -> true) None) None
+            property (fun x -> Do {
+                equal (Option.filter (fun _ -> true) (Some x)) (Some x)
+                equal (Option.filter (fun _ -> false) (Some x)) None
+            })
+        }
+
     }
