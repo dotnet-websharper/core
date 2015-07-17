@@ -29,10 +29,6 @@ open WebSharper.JavaScript
 open WebSharper.CollectionInternals
 
 [<JavaScript>]
-let private insufficient () =
-    failwith "The input sequence has an insufficient number of elements."
-
-[<JavaScript>]
 [<Inline>]
 let safeDispose (x: System.IDisposable) =
     if x <> null then x.Dispose()
@@ -190,6 +186,7 @@ let DistinctBy<'T,'K when 'K : equality>
 [<JavaScript>]
 [<Name "splitInto">]
 let SplitInto count (s: seq<'T>) =
+    if count <= 0 then failwith "Count must be positive"
     Seq.delay (fun () -> ArraySplitInto count (Array.ofSeq s) |> Seq.ofArray)   
 
 [<JavaScript>]
@@ -284,7 +281,7 @@ let GroupBy (f: 'T -> 'K when 'K : equality)
 [<Name "head">]
 let Head (s: seq<'T>) : 'T =
     use e = Enumerator.Get s
-    if e.MoveNext() then e.Current else insufficient()
+    if e.MoveNext() then e.Current else InsufficientElements()
 
 [<JavaScript>]
 [<Name "init">]
@@ -360,7 +357,7 @@ let MapIndexed (f: int -> 'T -> 'U) (s: seq<'T>) : seq<'U> =
     Seq.map2 f (Seq.initInfinite id) s
 
 [<JavaScript>]
-[<Name "mapi2">]
+[<Name "map2">]
 let Map2 (f: 'T -> 'U -> 'V) (s1: seq<'T>) (s2: seq<'U>) : seq<'V> =
     Enumerable.Of <| fun () ->
         let e1 = Enumerator.Get s1
@@ -401,7 +398,7 @@ let Get index (s: seq<'T>) =
     use e = Enumerator.Get s
     while pos < index do
         if not (e.MoveNext()) then
-            insufficient ()
+            InsufficientElements()
         pos <- pos + 1
     e.Current
 
@@ -470,33 +467,46 @@ let Singleton<'T> (x: 'T) = X<seq<'T>>
 [<Name "skip">]
 let Skip (n: int) (s: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->
-        let e = Enumerator.Get s
-        for i = 1 to n do
-            if not (e.MoveNext()) then
-                insufficient ()
-        e)
+        let enum = Enumerator.Get s
+        Enumerator.NewDisposing true (fun _ -> enum.Dispose()) (fun e ->
+            if e.State then
+                for i = 1 to n do
+                    if not (enum.MoveNext()) then
+                        InsufficientElements()
+                e.State <- false
+            if enum.MoveNext() then
+                e.Current <- enum.Current
+                true
+            else
+                false))
 
 [<JavaScript>]
 [<Name "skipWhile">]
 let SkipWhile (f: 'T -> bool) (s: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->
-        let e = Enumerator.Get s
-        let mutable empty = true
-        while e.MoveNext() && f e.Current do
-            empty <- false
-        if empty then
-            e.Dispose()
-            Seq.empty.GetEnumerator()
-        else
-            Enumerator.NewDisposing true (fun _ -> e.Dispose()) (fun x ->
-                if x.State then
-                    x.State <- false
-                    x.Current <- e.Current
+        let enum = Enumerator.Get s
+        Enumerator.NewDisposing true (fun _ -> enum.Dispose()) (fun e ->
+            if e.State then
+                let mutable go = true
+                let mutable empty = false
+                while go do
+                    if enum.MoveNext() then
+                        if not (f enum.Current) then go <- false 
+                    else 
+                        go <-false
+                        empty <- true
+                e.State <- false
+                if empty then 
+                    false 
+                else
+                    e.Current <- enum.Current
+                    true
+            else
+                if enum.MoveNext() then
+                    e.Current <- enum.Current
                     true
                 else
-                    let r = e.MoveNext()
-                    x.Current <- e.Current
-                    r))
+                    false))
 
 [<JavaScript>]
 [<Name "sort">]
@@ -540,14 +550,14 @@ let SumBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
 [<Name "take">]
 let Take (n: int) (s: seq<'T>) : seq<'T> =
     if n <= 0 then
-        failwith "The input must be non-negative."
+        InputMustBeNonNegative()
     Enumerable.Of (fun () ->
         let e = ref (Enumerator.Get s)
         Enumerator.NewDisposing 0 (fun _ -> safeDispose !e) (fun enum ->
             enum.State <- enum.State + 1
             if enum.State > n then false else
             let en = !e
-            if en = null then insufficient()
+            if en = null then InsufficientElements()
             elif en.MoveNext() then
                 enum.Current <- en.Current
                 if enum.State = n then
@@ -557,7 +567,7 @@ let Take (n: int) (s: seq<'T>) : seq<'T> =
             else
                 en.Dispose()
                 e := null
-                insufficient() 
+                InsufficientElements()
         )
     )
 
@@ -582,15 +592,9 @@ let ToArray (s: seq<'T>) =
 let ToList (s: seq<'T>) = List.ofSeq s
 
 [<JavaScript>]
-[<Name "truncate">]
+[<Inline>]
 let Truncate (n: int) (s: seq<'T>) : seq<'T> =
-    seq {
-        use e = Enumerator.Get s
-        let i = ref 0
-        while e.MoveNext() && !i < n do
-            incr i
-            yield e.Current
-    }
+    SeqTruncate n s
 
 [<JavaScript>]
 [<Name "tryFind">]
@@ -708,13 +712,21 @@ let IterateIndexed2 f (s1: seq<_>) (s2: seq<_>) =
 [<JavaScript>]
 [<Name "map3">]
 let Map3 f (s1: seq<_>) (s2: seq<_>) (s3: seq<_>) =
-    ListMap3 f (Seq.toList s1) (Seq.toList s2) (Seq.toList s3)
-    |> List.toSeq
+    Enumerable.Of <| fun () ->
+        let e1 = Enumerator.Get s1
+        let e2 = Enumerator.Get s2
+        let e3 = Enumerator.Get s3
+        Enumerator.NewDisposing () (fun _ -> e1.Dispose(); e2.Dispose(); e3.Dispose()) <| fun e ->
+            if e1.MoveNext() && e2.MoveNext() && e3.MoveNext() then
+                e.Current <- f e1.Current e2.Current e3.Current
+                true
+            else
+                false
 
 [<JavaScript>]
 [<Name "mapi2">]
 let MapIndexed2 f (s1: seq<_>) (s2: seq<_>) =
-    Seq.ofArray (Array.mapi2 f (Array.ofSeq s1) (Array.ofSeq s2))
+    Map3 f (Seq.initInfinite id) s1 s2
 
 [<JavaScript>]
 [<Name "mapFold">]
@@ -735,7 +747,7 @@ let MapFoldBack f s zero =
 [<JavaScript>]
 [<Name "permute">]
 let Permute f (s: seq<_>) =
-    Seq.ofArray (Array.permute f (Array.ofSeq s))
+    Seq.delay (fun () -> Seq.ofArray (Array.permute f (Array.ofSeq s)))
 
 [<JavaScript>]
 [<Name "reduceBack">]
@@ -745,18 +757,18 @@ let ReduceBack f (s: seq<_>) =
 [<JavaScript>]
 [<Name "replicate">]
 let Replicate size value =
-    Seq.ofArray (Array.create size value)
+    if size < 0 then InputMustBeNonNegative()
+    seq { for i in 0 .. size - 1 -> value }
 
 [<JavaScript>]
 [<Name "rev">]
 let Reverse (s: seq<'T>) =
-    List.rev (Seq.toList s)
-    |> List.toSeq
-
+    Seq.delay (fun () -> Array.rev (Seq.toArray s) |> Array.toSeq)
+    
 [<JavaScript>]
 [<Name "scanBack">]
 let ScanBack f (l: seq<_>) s =
-    Seq.ofArray (Array.scanBack f (Array.ofSeq l) s)
+    Seq.delay (fun () -> Seq.ofArray (Array.scanBack f (Array.ofSeq l) s))
 
 [<JavaScript>]
 [<Name "indexed">]
@@ -766,15 +778,15 @@ let Indexed (s : seq<'T>) : seq<int * 'T> =
 [<JavaScript>]
 [<Name "sortWith">]
 let SortWith f (s: seq<_>) =
-    let a = Array.ofSeq s
-    Array.sortInPlaceWith f a
-    Seq.ofArray a
+    Seq.delay (fun () -> 
+        let a = Array.ofSeq s
+        Array.sortInPlaceWith f a
+        Seq.ofArray a)
 
 [<JavaScript>]
 [<Name "tail">]
 let Tail<'T> (s : seq<'T>) : seq<'T> =
-    List.tail (Seq.toList s)
-    |> List.toSeq
+    Seq.skip 1 s
 
 [<JavaScript>]
 [<Inline>]

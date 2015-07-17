@@ -105,7 +105,7 @@ let ToList x =
 [<JavaScript>]
 [<Name "ofObj">]
 let OfObj o = 
-    if o = null then None else Some o
+    if o ==. null then None else Some o
 
 [<JavaScript>]
 [<Name "toObj">]

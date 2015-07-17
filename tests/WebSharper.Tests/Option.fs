@@ -135,7 +135,7 @@ let Tests =
         }
 
         Test "Option.toObj" {
-            equal (Option.toObj None) null
+            jsEqual (Option.toObj None) null
             let o = obj()
             equal (Option.toObj (Some o)) o
         }

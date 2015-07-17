@@ -517,7 +517,7 @@ let Tests =
         Test "List.chunkBySize" {
             equal [ [ 1 .. 4 ]; [ 5 .. 8 ] ] (List.chunkBySize 4 [ 1 .. 8 ])
             equal [ [ 1 .. 4 ]; [ 5 .. 8 ]; [ 9; 10 ] ] (List.chunkBySize 4 [ 1 .. 10 ])
-            raises (List.chunkBySize 0)
+            raises (List.chunkBySize 0 [])
         }
 
         Test "List.compareWith" {
@@ -614,9 +614,8 @@ let Tests =
         }
 
         Test "List.skipWhile" {
-            raises (List.skipWhile (fun _ -> true) List.empty)
-            equal (List.skipWhile (fun _ -> true) [ 0 .. 4 ]) List.empty
-            equal (List.skipWhile (fun x -> x % 5 > 0) [ 0 .. 9 ]) [ 5 .. 9 ]
+            equal (List.skipWhile (fun _ -> true) [ 0 .. 4 ]) []
+            equal (List.skipWhile (fun x -> x < 5) [ 0 .. 9 ]) [ 5 .. 9 ]
         }
 
         Test "List.sortDescending" {
@@ -628,18 +627,17 @@ let Tests =
         }
 
         Test "List.take" {
-            raises (List.take 1 List.empty)
+            raises (List.take 1 [])
             equal (List.take 2 [ 0 .. 4 ]) [ 0; 1 ]
         }
 
         Test "List.takeWhile" {
-            raises (List.takeWhile (fun _ -> true) List.empty)
             equal (List.takeWhile (fun x -> x % 5 > 0) [ 1 .. 10 ]) [ 1 .. 4 ]
         }
 
         Test "List.truncate" {
             equal (List.truncate 1 List.empty) List.empty
-            equal (List.truncate 3 [ 0 .. 4 ]) [ 3; 4 ]
+            equal (List.truncate 3 [ 0 .. 4 ]) [ 0; 1; 2 ]
         }
 
         Test "List.tryFindBack" {
@@ -685,11 +683,14 @@ let Tests =
 
         Test "List.windowed" {
             raises (List.windowed 0 List.empty)
-            equal (List.windowed 1 [ 0 .. 4 ]) [ for x in [ 0 .. 4 ] do yield [ x ] ]
+            equal (List.windowed 1 [ 0 .. 4 ]) [[0]; [1]; [2]; [3]; [4]]
+            equal (List.windowed 2 [ 0 .. 4 ]) [[0; 1]; [1; 2]; [2; 3]; [3; 4]]
+            equal (List.windowed 5 [ 0 .. 4 ]) [[0; 1; 2; 3; 4]]
+            equal (List.windowed 6 [ 0 .. 4 ]) []
         }
 
         Test "List.splitAt" {
-            raises (List.splitAt -1 List.empty)
+            raises (List.splitAt -1 [1])
             equal (List.splitAt 2 [ 0 .. 4 ]) ([ 0; 1 ], [ 2; 3; 4 ])
         }
 

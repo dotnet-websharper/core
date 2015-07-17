@@ -208,12 +208,12 @@ let OfArray<'T> (arr: 'T []) =
 [<JavaScript>]
 [<Name "ofSeq">]
 let OfSeq (s: seq<'T>) =
-    let res = New []
+    let res = [] : list<'T>
     let mutable last = res
     use e = Enumerator.Get s
     while e.MoveNext() do
         JS.Set last "$" 1
-        let next = New []
+        let next = [] : list<'T>
         JS.Set last "$0" e.Current 
         JS.Set last "$1" next
         last <- next
@@ -487,7 +487,7 @@ let Indexed (list : list<'T>) : list<int * 'T> =
 [<JavaScript>]
 [<Name "singleton">]
 let Singleton<'T> (x: 'T) =
-    x :: []
+    [x]
 
 [<JavaScript>]
 [<Inline>]
@@ -501,17 +501,17 @@ let SkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> =
 [<JavaScript>]
 [<Inline>]
 let Take<'T> n (list: list<'T>) =
-    ListTake n list
+    Seq.take n list |> List.ofSeq
 
 [<JavaScript>]
 [<Inline>]
 let TakeWhile<'T> (predicate : 'T -> bool) (list: list<'T>) =
-    ListTakeWhile predicate list
+    Seq.takeWhile predicate list |> List.ofSeq
 
 [<JavaScript>]
 [<Inline>]
 let Truncate<'T> n (list: list<'T>) =
-    ListTruncate n list
+    Seq.truncate n list |> List.ofSeq
 
 [<JavaScript>]
 [<Name "tryHead">]
@@ -525,20 +525,12 @@ let TryHead<'T> (list: list<'T>) =
 [<JavaScript>]
 [<Name "tryItem">]
 let rec TryItem<'T> n (list: list<'T>) =
-    match list with
-    | head :: tail ->
-        if n = 0 then
-            Some head
-        else
-            TryItem (n - 1) tail
-    | [] ->
-        None
+    SeqTryItem n list 
 
 [<JavaScript>]
 [<Name "tryLast">]
 let TryLast<'T> (list: list<'T>) =
-    List.rev list
-    |> TryHead
+    SeqTryLast list
 
 [<JavaScript>]
 [<Name "exactlyOne">]
@@ -562,11 +554,11 @@ let Where (predicate : 'T -> bool) (s : 'T list) : 'T list =
 
 [<JavaScript>]
 [<Name "windowed">]
-let Windowed (windowSize: int) (s: 'T list) : list<'T []> =
+let Windowed (windowSize: int) (s: 'T list) : list<list<'T>> =
     SeqWindowed windowSize (List.toSeq s)
-    |> Seq.toList
+    |> Seq.map List.ofArray |> Seq.toList
 
 [<JavaScript>]
 [<Name "splitAt">]
 let SplitAt (n: int) (list: 'T list) =
-    (Take n list, Truncate n list)
+    (Take n list, Skip n list)

@@ -118,7 +118,7 @@ let SeqTryItem i (s: seq<'T>) =
     let mutable j = 0
     use e = Enumerator.Get s
     let mutable go = true
-    while go && j < i do
+    while go && j <= i do
         if e.MoveNext() then
             j <- j + 1
         else
@@ -143,7 +143,7 @@ let SeqChunkBySize (size: int) (s: seq<'T>) =
         Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
             if enum.MoveNext() then
                 let res = [|enum.Current|]
-                while res.Length < size && e.MoveNext() do 
+                while res.Length < size && enum.MoveNext() do 
                     res.JS.Push enum.Current |> ignore
                 e.Current <- res
                 true
@@ -299,10 +299,15 @@ let SeqGroupBy (f: 'T -> 'K when 'K : equality)
         As<_> (Array.map (fun k -> (k, (?) d (As (hash k)))) keys))
 
 [<JavaScript>]
+[<Name "Seq.insufficient">]
+let InsufficientElements() =
+    failwith "The input sequence has an insufficient number of elements."
+
+[<JavaScript>]
 [<Name "Seq.last">]
 let SeqLast (s: seq<_>) =
     use e = Enumerator.Get s
-    if not <| e.MoveNext() then failwith "The input sequence has an insufficient number of elements."
+    if not <| e.MoveNext() then InsufficientElements()
     else 
         while e.MoveNext() do ()
         e.Current
@@ -334,50 +339,10 @@ let SeqPairwise (s: seq<'T>) : seq<'T * 'T> =
 [<JavaScript>]
 [<Name "List.skipWhile">]
 let rec ListSkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> =
-    match list with
-    | head :: tail ->
-        if predicate head then
-            ListSkipWhile predicate tail
-        else
-            tail
-    | [] ->
-        []
-
-[<JavaScript>]
-[<Name "List.take">]
-let rec ListTake<'T> n (list: list<'T>) =
-    if n <= 0 then
-        []
-    else
-        match list with
-        | head :: tail ->
-            head :: ListTake (n - 1) tail
-        | [] ->
-            []
-
-[<JavaScript>]
-[<Name "List.takeWhile">]
-let rec ListTakeWhile<'T> (predicate : 'T -> bool) (list: list<'T>) =
-    match list with
-    | head :: tail ->
-        if predicate head then
-            head :: ListTakeWhile predicate tail
-        else
-            []
-    | [] ->
-        []
-
-[<JavaScript>]
-[<Name "List.truncate">]
-let rec ListTruncate<'T> n (list: list<'T>) =
-    if n <= 0 then
-        list
-    else
-        match list with
-        | head :: tail ->
-            ListTruncate (n - 1) tail
-        | [] ->
-            []
+    let mutable rest = list
+    while not (List.isEmpty rest) && predicate (List.head rest) do
+        rest <- List.tail rest 
+    rest
 
 [<JavaScript>]
 [<Name "Seq.unfold">]
@@ -391,6 +356,22 @@ let SeqUnfold (f: 'S -> option<'T * 'S>) (s: 'S) : seq<'T> =
                 true
             | None ->
                 false
+
+[<JavaScript>]
+[<Name "Seq.truncate">]
+let SeqTruncate (n: int) (s: seq<'T>) : seq<'T> =
+    seq {
+        use e = Enumerator.Get s
+        let i = ref 0
+        while e.MoveNext() && !i < n do
+            incr i
+            yield e.Current
+    }
+
+[<JavaScript>]
+[<Name "Seq.nonNegative">]
+let InputMustBeNonNegative() =
+    failwith "The input must be non-negative."
 
 [<JavaScript>]
 [<Name "Seq.windowed">]

@@ -583,7 +583,7 @@ let Tests =
         Test "Array.chunkBySize" {
             equal [| [| 1 .. 4 |]; [| 5 .. 8 |] |] (Array.chunkBySize 4 [| 1 .. 8 |])
             equal [| [| 1 .. 4 |]; [| 5 .. 8 |]; [| 9; 10 |] |] (Array.chunkBySize 4 [| 1 .. 10 |])
-            raises (Array.chunkBySize 0)
+            raises (Array.chunkBySize 0 [||])
         }
 
         Test "Array.compareWith" {
@@ -680,9 +680,8 @@ let Tests =
         }
 
         Test "Array.skipWhile" {
-            raises (Array.skipWhile (fun _ -> true) Array.empty)
-            equal (Array.skipWhile (fun _ -> true) [| 0 .. 4 |]) Array.empty
-            equal (Array.skipWhile (fun x -> x % 5 > 0) [| 0 .. 9 |]) [| 5 .. 9 |]
+            equal (Array.skipWhile (fun _ -> true) [| 0 .. 4 |]) [||]
+            equal (Array.skipWhile (fun x -> x < 5) [| 0 .. 9 |]) [| 5 .. 9 |]
         }
 
         Test "Array.sortDescending" {
@@ -699,7 +698,6 @@ let Tests =
         }
 
         Test "Array.takeWhile" {
-            raises (Array.takeWhile (fun _ -> true) Array.empty)
             equal (Array.takeWhile (fun x -> x % 5 > 0) [| 1 .. 10 |]) [| 1 .. 4 |]
         }
 
@@ -750,8 +748,11 @@ let Tests =
         }
 
         Test "Array.windowed" {
-            raises (Array.windowed 0 Array.empty)
-            equal (Array.windowed 1 [| 0 .. 4 |]) [| for x in [| 0 .. 4 |] do yield [| x |] |]
+            raises (Array.windowed 0 [||])
+            equal (Array.windowed 1 [| 0 .. 4 |]) [|[|0|]; [|1|]; [|2|]; [|3|]; [|4|]|]
+            equal (Array.windowed 2 [| 0 .. 4 |]) [|[|0; 1|]; [|1; 2|]; [|2; 3|]; [|3; 4|]|]
+            equal (Array.windowed 5 [| 0 .. 4 |]) [|[|0; 1; 2; 3; 4|]|]
+            equal (Array.windowed 6 [| 0 .. 4 |]) [||]
         }
 
         Test "Array.splitAt" {
@@ -777,9 +778,7 @@ let Tests =
 
         Test "Array.tail" {
             raises (Array.tail Array.empty)
-            property (fun x -> Do {
-                isTrue (Array.length (Array.tail (Array.replicate x 0)) = x - 1)
-            })
+            equal (Array.tail [| 1 .. 3|]) [| 2; 3 |]
         }
 
         #endif

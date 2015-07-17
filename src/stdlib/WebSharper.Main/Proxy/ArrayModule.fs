@@ -663,38 +663,44 @@ let Singleton<'T> (x: 'T) =
 [<JavaScript>]
 [<Name "skip">]
 let Skip<'T> i (ar : 'T []) =
-    ListSkip i (Array.toList ar)
-    |> List.toArray
+    if i < 0 then InputMustBeNonNegative() else
+    if i > ar.Length then InsufficientElements() else
+    ar.JS.Slice(i)
 
 [<JavaScript>]
 [<Name "skipWhile">]
 let SkipWhile<'T> (predicate : 'T -> bool) (ar : 'T []) : 'T [] =
-    ListSkipWhile predicate (Array.toList ar)
-    |> List.toArray
+    let len = ar.Length
+    let mutable i = 0
+    while i < len && predicate ar.[i] do
+        i <- i + 1
+    ar.JS.Slice(i)
 
 [<JavaScript>]
 [<Name "tail">]
 let Tail<'T> (ar : 'T []) : 'T [] =
-    List.tail (Array.toList ar)
-    |> List.toArray
+    Skip 1 ar
 
 [<JavaScript>]
 [<Name "take">]
 let Take<'T> n (ar: 'T []) =
-    ListTake n (Array.toList ar)
-    |> List.toArray
+    if n < 0 then InputMustBeNonNegative() else
+    if n > ar.Length then InsufficientElements() else
+    ar.JS.Slice(0, n)
 
 [<JavaScript>]
 [<Name "takeWhile">]
 let TakeWhile<'T> (predicate : 'T -> bool) (ar: 'T []) =
-    ListTakeWhile predicate (Array.toList ar)
-    |> List.toArray
+    let len = ar.Length
+    let mutable i = 0
+    while i < len && predicate ar.[i] do
+        i <- i + 1
+    ar.JS.Slice(0, i)
 
 [<JavaScript>]
 [<Name "truncate">]
 let Truncate<'T> n (ar: 'T []) =
-    ListTruncate n (Array.toList ar)
-    |> List.toArray
+    ar.JS.Slice(n)
 
 [<JavaScript>]
 [<Name "exactlyOne">]
@@ -724,4 +730,4 @@ let Windowed (windowSize: int) (s: 'T []) : array<'T []> =
 [<JavaScript>]
 [<Name "splitAt">]
 let SplitAt (n: int) (ar: 'T []) =
-    (ar.[.. n - 1], ar.[n ..])
+    Take n ar, Skip n ar

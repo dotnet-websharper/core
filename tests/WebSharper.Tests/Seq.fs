@@ -553,14 +553,14 @@ let Tests =
         }
 
         Test "Seq.chunkBySize" {
-            equal (Seq.chunkBySize 4 { 1 .. 8 } |> Seq.map Array.ofSeq |> Array.ofSeq) [| [| 1 .. 4 |]; [| 5 .. 8 |] |] 
-            equal (Seq.chunkBySize 4 { 1 .. 10 } |> Seq.map Array.ofSeq |> Array.ofSeq) [| [| 1 .. 4 |]; [| 5 .. 8 |]; [| 9; 10 |] |]
+            equal (Seq.chunkBySize 4 { 1 .. 8 } |> Array.ofSeq) [| [| 1 .. 4 |]; [| 5 .. 8 |] |] 
+            equal (Seq.chunkBySize 4 { 1 .. 10 } |> Array.ofSeq) [| [| 1 .. 4 |]; [| 5 .. 8 |]; [| 9; 10 |] |]
             raises (Seq.chunkBySize 0 { 1 .. 2 })
         }
 
         Test "Seq.splitInto" {
-            equal (Seq.splitInto 2 Seq.empty |> Array.ofSeq) [||]
-            raises ((Seq.splitInto 0) Seq.empty)
+            equal (Seq.splitInto 2 Seq.empty<int> |> Array.ofSeq) [||]
+            raises (Seq.splitInto 0 Seq.empty<int> |> ignore)
         }
 
         Test "Seq.except" {
@@ -588,15 +588,19 @@ let Tests =
         }
 
         Test "Seq.mapFold" {
-            equal (Seq.mapFold (fun s x -> (x + 1, s + x)) 0 { 0 .. 4 }) (Seq.map ((+) 1) (seq { 0 .. 4 }), Seq.sum (seq { 0 .. 4 }))
+            let m, f = Seq.mapFold (fun s x -> (x + 1, s + x)) 0 { 0 .. 4 }
+            equal (Array.ofSeq m) [| 1 .. 5 |]
+            equal f 10
         }
 
         Test "Seq.mapFoldBack" {
-            equal (Seq.mapFoldBack (fun x s -> (x + 1, s + x)) { 0 .. 4 } 0) (Seq.map ((+) 1) (seq { 0 .. 4 }), Seq.sum (seq { 0 .. 4 }))
+            let m, f = Seq.mapFoldBack (fun s x -> (x + 1, s + x)) { 0 .. 4 } 0 
+            equal (Array.ofSeq m) [|11; 10; 8; 5; 1|]
+            equal f 10
         }
 
         Test "Seq.sortDescending" {
-            equal (Seq.sortDescending { 0 .. 4 }) (seq { 4 .. -1 .. 0 })
+            equal (Seq.sortDescending { 0 .. 4 } |> Array.ofSeq) [| 4 .. -1 .. 0  |]
         }
 
         Test "Seq.sortByDescending" {
@@ -635,26 +639,25 @@ let Tests =
         }
 
         Test "Seq.where" {
-            equal (Seq.where (fun x -> x % 2 = 0) (seq { 0 .. 4 })) ([ 0; 2; 4 ] |> Seq.ofList)
-            equal (Seq.where (fun _ -> true) Seq.empty) Seq.empty
+            equal (Seq.where (fun x -> x % 2 = 0) { 0 .. 4 } |> Array.ofSeq) [| 0; 2; 4 |]
+            equal (Seq.where (fun _ -> true) Seq.empty |> Array.ofSeq) [||]
         }
 
         Test "Seq.map3" {
-            raises (Seq.map3 (fun a b c -> ()) [ 0; 1 ] { 0 .. 2 } { 0 .. 2 })
             equal (Seq.map3 id Seq.empty Seq.empty Seq.empty |> Array.ofSeq) [||]
+            equal (Seq.map3 (fun a b c -> ()) [ 0; 1 ] { 0 .. 2 } { 0 .. 2 } |> Array.ofSeq) [| (); () |]
             equal (Seq.map3 (fun x y z -> x + y + z) { 0 .. 1 } { 2 .. 3 } { 4 .. 5 } |> Array.ofSeq) [| 6; 9 |]
         }
 
         Test "Seq.replicate" {
             raises (Seq.replicate -1 Seq.empty)
-            equal (Seq.replicate 100 0) (seq { for _ in [ 1 .. 100 ] do yield 0 })
+            equal (Seq.replicate 100 0 |> Array.ofSeq) ([| for _ in [ 1 .. 100 ] -> 0 |])
         }
 
         Test "Seq.tail" {
-            raises (Seq.tail Seq.empty)
-            property (fun x -> Do {
-                isTrue (Seq.length (Seq.tail (Seq.replicate x 0)) = x - 1)
-            })
+            raises (Seq.tail Seq.empty |> Array.ofSeq)
+            equal (Seq.tail Seq.empty |> ignore; ()) ()
+            equal (Seq.tail [ 1 .. 3] |> Array.ofSeq) [| 2; 3 |]
         }
 
         Test "Seq.fold2" {
@@ -677,15 +680,15 @@ let Tests =
 
             Seq.iteri2 action (seq { 1 .. 3 }) (seq { 1 .. 3 })
 
-            equal !cache 15
+            equal !cache 8
         }
 
         Test "Seq.mapi2" {
-            equal (Seq.mapi2 (fun _ -> failwith "Never happens") Seq.empty Seq.empty) Seq.empty
+            equal (Seq.mapi2 (fun _ -> failwith "Never happens") Seq.empty Seq.empty |> Array.ofSeq) [||]
         }
 
         Test "Seq.permute" {
-            equal (Seq.permute (fun x -> (x + 1) % 4) (seq { 1 .. 4 })) ([ 4; 1; 2; 3 ] |> Seq.ofList)
+            equal (Seq.permute (fun x -> (x + 1) % 4) (seq { 1 .. 4 }) |> Array.ofSeq) [| 4; 1; 2; 3 |]
         }
 
         Test "Seq.reduceBack" {
@@ -693,15 +696,15 @@ let Tests =
         }
 
         Test "Seq.rev" {
-            equal (Seq.rev (seq { 0 .. 4 })) (seq { 4 .. -1 .. 0 })
+            equal (Seq.rev (seq { 0 .. 4 }) |> Array.ofSeq) [| 4 .. -1 .. 0 |]
         }
 
         Test "Seq.scanBack" {
-            equal (Seq.scanBack (+) { 1 .. 10 } 9) (seq [ 64; 63; 61; 58; 54; 49; 43; 36; 28; 19; 9 ])
+            equal (Seq.scanBack (+) { 1 .. 10 } 9 |> Array.ofSeq) [| 64; 63; 61; 58; 54; 49; 43; 36; 28; 19; 9 |]
         }
 
-        Test "Seq.sortWith" {
-            equal (Seq.sortWith (fun a b -> compare (a % 3) (b % 3)) (seq { 0 .. 10 })) (seq [ 0; 3; 6; 9; 1; 4; 7; 10; 2; 5; 8 ])
+        Test "Seq.sortWith" {                                                                   
+            equal (Seq.sortWith (fun a b -> compare (a % 3) (b % 3)) { 0 .. 10 } |> Array.ofSeq) [| 0; 3; 6; 9; 1; 4; 7; 10; 2; 5; 8 |]
         }
 
         #endif
