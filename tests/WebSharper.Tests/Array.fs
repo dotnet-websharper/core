@@ -598,13 +598,13 @@ let Tests =
         }
 
         Test "Array.distinct" {
-            equal (Array.distinct (fun _ -> failwith "Should not be evaluated") Array.empty) [||]
-            equal (Array.distinct id [| 1; 2; 2; 3; 3; 3 |]) [| 1; 2; 3 |]
+            equal (Array.distinct Array.empty) [||]
+            equal (Array.distinct [| 1; 2; 2; 3; 3; 3 |]) [| 1; 2; 3 |]
         }
 
         Test "Array.distinctBy" {
             equal (Array.distinctBy (fun _ -> failwith "Should not be evaluated") Array.empty) [||]
-            equal (Array.distinct Array.sum [| [| 0; 1 |]; [| 1; 0 |]; [| 1; 2 |] |]) [| [| 0; 1 |]; [| 1; 2 |] |]
+            equal (Array.distinctBy Array.sum [| [| 0; 1 |]; [| 1; 0 |]; [| 1; 2 |] |]) [| [| 0; 1 |]; [| 1; 2 |] |]
         }
 
         Test "Array.splitInto" {
@@ -765,7 +765,7 @@ let Tests =
         }
 
         Test "Array.map3" {
-            raises (Array.map3 id [| 0; 1 |] [| 0 .. 2 |] [| 0 .. 2 |])
+            raises (Array.map3 (fun a b c -> ()) [| 0; 1 |] [| 0 .. 2 |] [| 0 .. 2 |])
             equal (Array.map3 id [||] [||] [||]) Array.empty
             equal (Array.map3 (fun x y z -> x + y + z) [| 0; 1 |] [| 2; 3 |] [| 4; 5 |]) [| 6; 9 |]
         }

@@ -130,24 +130,20 @@ let Tests =
 
         Test "Option.ofObj" {
             equal (Option.ofObj null) None
-            property (fun x -> Do {
-                equal (Option.ofObj x) (Some x)
-            })
+            let o = obj()
+            equal (Option.ofObj o) (Some o)
         }
 
         Test "Option.toObj" {
             equal (Option.toObj None) null
-            property (fun x -> Do {
-                equal (Option.toObj (Some x)) x
-            })
+            let o = obj()
+            equal (Option.toObj (Some o)) o
         }
 
         Test "Option.filter" {
             equal (Option.filter (fun _ -> true) None) None
-            property (fun x -> Do {
-                equal (Option.filter (fun _ -> true) (Some x)) (Some x)
-                equal (Option.filter (fun _ -> false) (Some x)) None
-            })
+            equal (Option.filter (fun _ -> true) (Some 3)) (Some 3)
+            equal (Option.filter (fun _ -> false) (Some 3)) None
         }
 
         #endif

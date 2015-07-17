@@ -532,13 +532,13 @@ let Tests =
         }
 
         Test "List.distinct" {
-            equal (List.distinct (fun _ -> failwith "Should not be evaluated") List.empty) []
-            equal (List.distinct id [ 1; 2; 2; 3; 3; 3 ]) [ 1; 2; 3 ]
+            equal (List.distinct List.empty) []
+            equal (List.distinct [ 1; 2; 2; 3; 3; 3 ]) [ 1; 2; 3 ]
         }
 
         Test "List.distinctBy" {
             equal (List.distinctBy (fun _ -> failwith "Should not be evaluated") List.empty) []
-            equal (List.distinct List.sum [ [ 0; 1 ]; [ 1; 0 ]; [ 1; 2 ] ]) [ [ 0; 1 ]; [ 1; 2 ] ]
+            equal (List.distinctBy List.sum [ [ 0; 1 ]; [ 1; 0 ]; [ 1; 2 ] ]) [ [ 0; 1 ]; [ 1; 2 ] ]
         }
 
         Test "List.splitInto" {
@@ -685,7 +685,7 @@ let Tests =
 
         Test "List.windowed" {
             raises (List.windowed 0 List.empty)
-            equal (List.windowed 1 [ 0 .. 4 ]) [ for x in [ 0 .. 4 ] do yield [| x |] ]
+            equal (List.windowed 1 [ 0 .. 4 ]) [ for x in [ 0 .. 4 ] do yield [ x ] ]
         }
 
         Test "List.splitAt" {

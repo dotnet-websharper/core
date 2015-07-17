@@ -66,6 +66,9 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>$(Root)\build\Release\$(Name).xml</DocumentationFile>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(FSharp40)' == 'True' ">
+    <DefineConstants>$(DefineConstants);FSHARP40</DefineConstants>
+  </PropertyGroup>
   <Target Name="IncludeVersionFile" BeforeTargets="CoreCompile">
     <ItemGroup>
       <C Include="@(Compile)" />

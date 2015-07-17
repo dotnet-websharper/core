@@ -150,9 +150,7 @@ let Tests =
 
         Test "isNull" {
             isTrue (isNull null)
-            property (fun (x : 'T when 'T : unmanaged) -> Do {
-                isFalse (isNull x)
-            })
+            isFalse (isNull (obj()))
         }
 
         #endif

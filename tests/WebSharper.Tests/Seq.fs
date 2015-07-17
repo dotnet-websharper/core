@@ -548,92 +548,89 @@ let Tests =
     #if FSHARP40
 
         Test "Seq.contains" {
-            isTrue (Seq.contains 0 seq { 0 .. 4 })
+            isTrue (Seq.contains 0 { 0 .. 4 })
+            isFalse (Seq.contains 5 { 0 .. 4 })
         }
 
         Test "Seq.chunkBySize" {
-            equal (seq { yield [| 1 .. 4 |]; yield [| 5 .. 8 |] }) (Seq.chunkBySize 4 seq { 1 .. 8 })
-            equal (seq { yield [| 1 .. 4 |]; yield [| 5 .. 8 |]; yield [| 9; 10 |] }) (Seq.chunkBySize 4 seq { 1 .. 10 })
-            raises (Seq.chunkBySize 0)
+            equal (Seq.chunkBySize 4 { 1 .. 8 } |> Seq.map Array.ofSeq |> Array.ofSeq) [| [| 1 .. 4 |]; [| 5 .. 8 |] |] 
+            equal (Seq.chunkBySize 4 { 1 .. 10 } |> Seq.map Array.ofSeq |> Array.ofSeq) [| [| 1 .. 4 |]; [| 5 .. 8 |]; [| 9; 10 |] |]
+            raises (Seq.chunkBySize 0 { 1 .. 2 })
         }
 
         Test "Seq.splitInto" {
-            equal (Seq.splitInto 2 Seq.empty) Seq.empty
+            equal (Seq.splitInto 2 Seq.empty |> Array.ofSeq) [||]
             raises ((Seq.splitInto 0) Seq.empty)
         }
 
         Test "Seq.except" {
-            equal (Seq.except Seq.empty seq { 0; 1 }) (seq { 0 .. 1 })
-            equal (Seq.except seq { 0 } seq { 0; 1 }) (seq { yield 1 })
+            equal (Seq.except Seq.empty [ 0; 1 ] |> Array.ofSeq) [| 0; 1 |]
+            equal (Seq.except [ 0 ] [ 0; 1 ] |> Array.ofSeq) [| 1 |]
         }
 
         Test "Seq.findBack" {
             raises (Seq.findBack (fun _ -> true) Seq.empty)
-            equal (Seq.findBack (fun x -> x % 5 = 0) seq { 1 .. 10 }) 10
+            equal (Seq.findBack (fun x -> x % 5 = 0) { 1 .. 10 }) 10
         }
 
         Test "Seq.findIndexBack" {
             raises (Seq.findIndexBack (fun _ -> true) Seq.empty)
-            equal (Seq.findIndexBack (fun x -> x % 5 = 0) seq { 1 .. 10 }) 9
+            equal (Seq.findIndexBack (fun x -> x % 5 = 0) { 1 .. 10 }) 9
         }
 
         Test "Seq.indexed" {
-            equal (Seq.indexed seq { 0 .. 4 }) (Seq.zip (seq { 0 .. 4 }) (seq { 0 .. 4 }))
-            equal (Seq.indexed Seq.empty) Seq.empty
+            equal (Seq.indexed { 1 .. 4 } |> Array.ofSeq) [| 0, 1; 1, 2; 2, 3; 3, 4 |]
+            equal (Seq.indexed Seq.empty |> Array.ofSeq) [||]
         }
 
         Test "Seq.item" {
-            property (fun x -> Do {
-                let list = seq { yield x }
-
-                equal (Seq.item 0 list) x
-            })
+            equal (Seq.item 2 [1; 2; 3]) 3
         }
 
         Test "Seq.mapFold" {
-            equal (Seq.mapFold (fun s x -> (x + 1, s + x)) 0 seq { 0 .. 4 }) (Seq.map ((+) 1) (seq { 0 .. 4 }), Seq.sum (seq { 0 .. 4 }))
+            equal (Seq.mapFold (fun s x -> (x + 1, s + x)) 0 { 0 .. 4 }) (Seq.map ((+) 1) (seq { 0 .. 4 }), Seq.sum (seq { 0 .. 4 }))
         }
 
         Test "Seq.mapFoldBack" {
-            equal (Seq.mapFoldBack (fun x s -> (x + 1, s + x)) seq { 0 .. 4 } 0) (Seq.map ((+) 1) (seq { 0 .. 4 }), Seq.sum (seq { 0 .. 4 }))
+            equal (Seq.mapFoldBack (fun x s -> (x + 1, s + x)) { 0 .. 4 } 0) (Seq.map ((+) 1) (seq { 0 .. 4 }), Seq.sum (seq { 0 .. 4 }))
         }
 
         Test "Seq.sortDescending" {
-            equal (Seq.sortDescending seq { 0 .. 4 }) (seq { 4 .. -1 .. 0 })
+            equal (Seq.sortDescending { 0 .. 4 }) (seq { 4 .. -1 .. 0 })
         }
 
         Test "Seq.sortByDescending" {
-            equal (Seq.sortByDescending (fun (x : string) -> x.Length) [ ".."; "."; "....."; "..."; "...."; ] |> Seq.ofList) ([ "....."; "...."; "..."; ".."; "." ] |> Seq.ofList)
+            equal (Seq.sortByDescending (fun (x : string) -> x.Length) [ ".."; "."; "....."; "..."; "...."; ] |> Array.ofSeq) [| "....."; "...."; "..."; ".."; "." |]
         }
 
         Test "Seq.tryFindBack" {
             equal (Seq.tryFindBack (fun _ -> true) Seq.empty) None
-            equal (Seq.tryFindBack (fun x -> x % 5 = 0) seq { 1 .. 10 }) (Some 10)
+            equal (Seq.tryFindBack (fun x -> x % 5 = 0) { 1 .. 10 }) (Some 10)
         }
 
         Test "Seq.tryFindIndexBack" {
             equal (Seq.tryFindIndexBack (fun _ -> true) Seq.empty) None
-            equal (Seq.tryFindIndexBack (fun x -> x % 5 = 0) seq { 1 .. 10 }) (Some 9)
+            equal (Seq.tryFindIndexBack (fun x -> x % 5 = 0) { 1 .. 10 }) (Some 9)
         }
 
         Test "Seq.tryHead" {
             equal (Seq.tryHead Seq.empty) None
             property (fun x -> Do {
-                equal (Seq.tryHead seq { x; 0 }) (Some x)
+                equal (Seq.tryHead [ x; 0 ]) (Some x)
             })
         }
 
         Test "Seq.tryItem" {
             equal (Seq.tryItem 0 Seq.empty) None
             property (fun x -> Do {
-                equal (Seq.tryItem 0 seq { yield x; yield 1 }) (Some x)
+                equal (Seq.tryItem 0 [ x; 1 ]) (Some x)
             })
         }
 
         Test "Seq.tryLast" {
             equal (Seq.tryLast Seq.empty) None
             property (fun x -> Do {
-                equal (Seq.tryLast seq { yield 0; yield x }) (Some x)
+                equal (Seq.tryLast [ 0; x ]) (Some x)
             })
         }
 
@@ -643,9 +640,9 @@ let Tests =
         }
 
         Test "Seq.map3" {
-            raises (Seq.map3 id seq { 0; 1 } seq { 0 .. 2 } seq { 0 .. 2 })
-            equal (Seq.map3 id Seq.empty Seq.empty Seq.empty) Seq.empty
-            equal (Seq.map3 (fun x y z -> x + y + z) seq { yield 0; yield 1 } seq { 2 .. 3 } seq { 4 .. 5 }) (seq { 6 .. 9 })
+            raises (Seq.map3 (fun a b c -> ()) [ 0; 1 ] { 0 .. 2 } { 0 .. 2 })
+            equal (Seq.map3 id Seq.empty Seq.empty Seq.empty |> Array.ofSeq) [||]
+            equal (Seq.map3 (fun x y z -> x + y + z) { 0 .. 1 } { 2 .. 3 } { 4 .. 5 } |> Array.ofSeq) [| 6; 9 |]
         }
 
         Test "Seq.replicate" {
