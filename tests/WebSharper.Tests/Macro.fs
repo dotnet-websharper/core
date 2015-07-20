@@ -24,8 +24,6 @@ open WebSharper.Core.Macros
 module C = WebSharper.Core.JavaScript.Core
 module S = WebSharper.Core.JavaScript.Syntax
 
-#if NOTFSHARP40
-
 [<Sealed>]
 type HelloQuotationGenerator() =
     interface IGenerator with
@@ -93,12 +91,10 @@ module Macro =
 
     [<Macro(typeof<AddMacro>)>]
     let add a b = a + b 
-
     [<JavaScript>]
     let Tests =
-
         TestCategory "Metaprogramming" {
-
+                    
             Test "Generated" {
                 equal (helloQuotation "world") "Hello world!"
                 equal (helloCore "world") "Hello world!"
@@ -110,4 +106,3 @@ module Macro =
                 equal (add 1 2) 3
             }
         }
-#endif
