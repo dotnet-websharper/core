@@ -37,6 +37,8 @@ module Content =
     open WebSharper
 
     type private Func<'A,'B> = System.Func<'A,'B>
+    type private IRequiresResources = WebSharper.Html.Client.IRequiresResources
+    type private IControl = WebSharper.Html.Client.IControl
 
     module Activator = WebSharper.Html.Client.Activator
     module M = WebSharper.Core.Metadata
@@ -46,11 +48,16 @@ module Content =
     module XT = IntelliFactory.Xml.Templating
     module H = WebSharper.Html.Server.Html
 
-    let metaJson<'T> (jP: Core.Json.Provider) (controls: seq<IControl>) =
-        let encode (c: IControl) =
+    let metaJson<'T> (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
+        let encode (c: IRequiresResources) =
             let encoder = jP.GetEncoder(c.GetType())
             encoder.Encode c
-        J.Encoded.Object [for c in controls -> (c.Id, encode c)]
+        [ for c in controls do
+            match c with
+            | :? IControl as c -> yield (c.Id, encode c)
+            | _ -> ()
+        ]
+        |> J.Encoded.Object
         |> jP.Pack
         |> J.Stringify
 
@@ -91,7 +98,7 @@ module Content =
                 ResourceContext = ctx.ResourceContext
             }
 
-    let writeResources (env: Env) (controls: seq<IControl>) (tw: Core.Resources.RenderLocation -> UI.HtmlTextWriter) =
+    let writeResources (env: Env) (controls: seq<IRequiresResources>) (tw: Core.Resources.RenderLocation -> UI.HtmlTextWriter) =
         // Resolve resources for the set of types and this assembly
         let resources =
             controls
@@ -355,6 +362,11 @@ module Content =
         | H.VerbatimContent x -> XS.CDataNode x :> _
         | H.CommentContent x -> XS.TextNode "" :> _
 
+    let toXmlElement (node: HtmlElement) : option<XS.Element> =
+        match (toXml node).Node with
+        | XS.ElementNode n -> Some n
+        | _ -> None
+
     [<Literal>]
     let SCRIPTS = "SCRIPTS"
     [<Literal>]
@@ -449,32 +461,29 @@ module Content =
         e element
 
     [<Sealed>]
-    type Template<'T>(pathSpec: string, freq: Template.LoadFrequency, holes: Map<string,Hole<'T>>) =
+    type Template<'T>(getBasicTemplate, getPageTemplate, holes: Map<string,Hole<'T>>, controls: Queue<_>) =
 
-        let path (root: string) =
-            if pathSpec.StartsWith("~/") then
-                Path.Combine(root, pathSpec.Substring(2))
-            else
-                pathSpec
-
-        let pageTemplate =
-            let mutable t = XT.Template<Wrapper<'T>>()
-            for (KeyValue (k, v)) in holes do
+        static let basicTemplate holes =
+            let t = ref (XT.CustomTemplate<HtmlElement,HtmlElement,'T>(CustomXml.Instance))
+            holes |> Seq.iter (fun (KeyValue (k, v)) ->
                 match v with
-                | SH f -> t <- t.WithAsync(k, fun x -> f x.value)
-                | EH f -> t <- t.With(k, fun x -> x.extra.[k])
+                | SH f -> t := (!t).WithAsync(k, f)
+                | EH f -> t := (!t).WithAsync(k, f))
+            !t
+
+        static let pageTemplate holes =
+            let t = ref (XT.Template<Wrapper<'T>>())
+            holes |> Seq.iter (fun (KeyValue (k, v)) ->
+                match v with
+                | SH f -> t := (!t).WithAsync(k, fun x -> f x.value)
+                | EH f -> t := (!t).With(k, fun x -> x.extra.[k]))
             for name in [|SCRIPTS; STYLES; META|] do
-                t <- t.With(name, fun x -> x.extra.[name])
-                t <- t.With(name.ToLower(Globalization.CultureInfo("en-US")), fun x -> x.extra.[name])
-            t
+                t := (!t).With(name, fun x -> x.extra.[name])
+                t := (!t).With(name.ToLower(Globalization.CultureInfo("en-US")), fun x -> x.extra.[name])
+            !t
 
-        let basicTemplate =
-            let mutable t = XT.CustomTemplate<HtmlElement,HtmlElement,'T>(CustomXml.Instance)
-            for (KeyValue (k, v)) in holes do
-                match v with
-                | SH f -> t <- t.WithAsync(k, f)
-                | EH f -> t <- t.WithAsync(k, f)
-            t
+        let getBasicTemplate' = lazy getBasicTemplate holes
+        let getPageTemplate' = lazy getPageTemplate holes
 
         static let memoize f =
             let d = Dictionary()
@@ -486,8 +495,7 @@ module Content =
                     d.[x] <- y
                     y
 
-        let getTemplate (root: string) (parse: string -> _) =
-            let path = path root
+        static let getTemplate freq (path: string) (parse: string -> _) =
             match freq with
             | Template.Once ->
                 let t = lazy parse path
@@ -523,28 +531,48 @@ module Content =
                             | Choice1Of2 x -> x
                             | Choice2Of2 exn -> raise exn
 
-        let getBasicTemplate =
-            memoize (fun (root: string) -> getTemplate root basicTemplate.ParseFragmentFile)
+        new (pathSpec: string, freq: Template.LoadFrequency) =
+            let path (root: string) =
+                if pathSpec.StartsWith("~/") then
+                    Path.Combine(root, pathSpec.Substring(2))
+                else
+                    pathSpec
+            let getBasicTemplate holes =
+                memoize (fun root -> getTemplate freq (path root) (basicTemplate holes).ParseFragmentFile)
+            let getPageTemplate holes =
+                memoize (fun root -> getTemplate freq (path root) (pageTemplate holes).Parse)
+            Template(getBasicTemplate, getPageTemplate, Map.empty, Queue())
 
-        let getPageTemplate =
-            memoize (fun (root: string) -> getTemplate root pageTemplate.Parse)
+        new (path) = Template(path, Template.WhenChanged)
 
-        new (path) = Template(path, Template.WhenChanged, Map.empty)
-        new (path, freq) = Template(path, freq, Map.empty)
+        static member FromHtmlElement (rootElement: HtmlElement) =
+            let getFragmentTemplate holes =
+                let f = (basicTemplate holes).ParseNodes [(toXml rootElement).Node]
+                fun _ _ -> f
+            let getPageTemplate holes =
+                let f =
+                    match toXmlElement rootElement with
+                    | Some e -> (pageTemplate holes).ParseElement e
+                    | None -> failwith "Template.FromHtmlElement: must pass an element, not a CData or Text node"
+                fun _ _ -> f
+            let controls = Queue()
+            rootElement.CollectAnnotations()
+            |> Seq.iter controls.Enqueue
+            Template<'T>(getFragmentTemplate, getPageTemplate, Map.empty, controls)
 
         member this.With(name: string, f: Func<'T,string>) =
-            Template(pathSpec, freq, Map.add name (SH (async.Return << f.Invoke)) holes)
+            Template(getBasicTemplate, getPageTemplate, Map.add name (SH (async.Return << f.Invoke)) holes, controls)
 
         member this.With(name: string, f: Func<'T,HtmlElement>) =
             let h = EH (fun x -> async.Return <| Seq.singleton (f.Invoke(x)))
-            Template(pathSpec, freq, Map.add name h holes)
+            Template(getBasicTemplate, getPageTemplate, Map.add name h holes, controls)
 
         member this.With(name: string, f: Func<'T,#seq<HtmlElement>>) =
             let h = EH (fun x -> async.Return <| Seq.cast(f.Invoke(x)))
-            Template(pathSpec, freq, Map.add name h holes)
+            Template(getBasicTemplate, getPageTemplate, Map.add name h holes, controls)
 
         member this.With(name: string, f: Func<'T,Async<string>>) =
-            Template(pathSpec, freq, Map.add name (SH f.Invoke) holes)
+            Template(getBasicTemplate, getPageTemplate, Map.add name (SH f.Invoke) holes, controls)
 
         member this.With(name: string, f: Func<'T,Async<HtmlElement>>) =
             let h = EH (fun x ->
@@ -552,7 +580,7 @@ module Content =
                     let! result = f.Invoke(x)
                     return Seq.singleton (result)
                 })
-            Template(pathSpec, freq, Map.add name h holes)
+            Template(getBasicTemplate, getPageTemplate, Map.add name h holes, controls)
 
         member this.With(name: string, f: Func<'T,Async<#seq<HtmlElement>>>) =
             let h = EH (fun x ->
@@ -560,23 +588,23 @@ module Content =
                     let! result = f.Invoke(x)
                     return Seq.cast(result)
                 })
-            Template(pathSpec, freq, Map.add name h holes)
+            Template(getBasicTemplate, getPageTemplate, Map.add name h holes, controls)
 
         member this.Compile(root) =
-            getBasicTemplate (defaultArg root ".")
+            getBasicTemplate'.Value (defaultArg root ".")
             |> ignore
             this
 
         member this.Run(value: 'T, ?root: string) : seq<HtmlElement> =
-            let t = getBasicTemplate (defaultArg root ".")
+            let t = getBasicTemplate'.Value (defaultArg root ".")
             t().Run(value)
 
         member this.CheckPageTemplate(root: string) =
-            ignore (getPageTemplate root ())
+            ignore (getPageTemplate'.Value root ())
 
         member this.Run(env: Env, x: Async<'T>, ?root: string) : Async<XS.Element> =
-            let tpl = getPageTemplate (defaultArg root ".") ()
-            let controls = Queue()
+            let tpl = getPageTemplate'.Value (defaultArg root ".") ()
+            let controls = Queue(controls)
             let extra = Dictionary()
             async {
             let! x = x

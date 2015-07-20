@@ -148,6 +148,9 @@ module Content =
         /// also specifying the load frequency (defaults to WhenChanged).
         new : path: string * freq: Template.LoadFrequency -> Template<'T>
 
+        /// Create a page from an <html> element.
+        static member FromHtmlElement : HtmlElement -> Template<'T>
+
         /// <summary>Adds a text-valued hole accessible in the
         /// template as <c>${name}</c>.</summary>
         member With : hole: string * def: Func<'T,string> -> Template<'T>

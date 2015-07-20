@@ -451,6 +451,7 @@ module QuotationUtils =
     open System.Reflection
     module RQ = Quotations.Patterns
     module CR = WebSharper.Core.Reflection
+    type FST = Microsoft.FSharp.Reflection.FSharpType
 
     let convertTypes (ts: System.Type[]) : list<CR.Type> =
         [
@@ -564,15 +565,21 @@ module QuotationUtils =
         ||| System.Reflection.BindingFlags.NonPublic
     
     let (|UnionProperty|_|) (info: PropertyInfo) : option<Q.Concrete<Re.UnionCase> * int> =
-        let case = info.DeclaringType
-        if not case.IsNested then None else
-        let sum = case.DeclaringType
-        if not (sum |> HasSourceConstructFlag SourceConstructFlags.SumType) then None else
-        match System.Attribute.GetCustomAttribute(info, typeof<CompilationMappingAttribute>) with
-        | :? CompilationMappingAttribute as attr -> 
-            let uC = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(sum, flags).[attr.VariantNumber]
-            Some (ConvertUnionCase uC, attr.SequenceNumber)
-        | _ -> None
+        let sum =
+            let case = info.DeclaringType
+            if FST.IsUnion(case, flags) then Some case
+            elif case.IsNested then
+                let parent = case.DeclaringType
+                if FST.IsUnion(parent, flags) then Some parent else None
+            else None
+        match sum with
+        | Some sum ->
+            match System.Attribute.GetCustomAttribute(info, typeof<CompilationMappingAttribute>) with
+            | :? CompilationMappingAttribute as attr -> 
+                let uC = FST.GetUnionCases(sum, flags).[attr.VariantNumber]
+                Some (ConvertUnionCase uC, attr.SequenceNumber)
+            | _ -> None
+        | None -> None
 
     let ConvertQuotation (q: Quotations.Expr) : Q.Expression =
         let ( !^ ) = CR.Type.FromType
@@ -604,6 +611,8 @@ module QuotationUtils =
                 Q.FieldGetInstance (!t, ConvertField fld)
             | RQ.FieldSet (None, fld, v) ->
                 Q.FieldSetStatic (ConvertField fld, !v)
+            | RQ.FieldSet (Some t, fld, v) ->
+                Q.FieldSetInstance (!t, ConvertField fld, !v)
             | RQ.ForIntegerRangeLoop (a, b, c, d) ->
                 Q.ForIntegerRangeLoop (!?a, !b, !c, !d)
             | RQ.IfThenElse (a, b, c) -> Q.IfThenElse (!a, !b, !c)
@@ -703,7 +712,11 @@ module Reflection =
                     |> Seq.toList
                     |> IntsArgument
                 typeof<string>, fun x -> StringArgument (unbox x)
-                typeof<string[]>, fun (x: obj) -> StringsArgument (Seq.toList (x :?> seq<string>))
+                typeof<string[]>, fun (x: obj) ->
+                    x :?> seq<CustomAttributeTypedArgument>
+                    |> Seq.map (fun x -> x.Value :?> string)
+                    |> Seq.toList
+                    |> StringsArgument
                 typeof<System.Type>, fun (x: obj) -> TypeArgument (convType (unbox x) :> TypeReference)
             |]
 
@@ -1011,7 +1024,7 @@ module Reflection =
         override this.Resolve() = this :> _
         override this.Shape = shape.Value
 
-    and [<Sealed>] RAssembly(conv: Converter, d: Assembly) =
+    and [<Sealed>] RAssembly(conv: Converter, d: Assembly, ?name: AssemblyName) =
         inherit AssemblyDefinition()
 
         let atts =
@@ -1020,7 +1033,7 @@ module Reflection =
                     |> conv.ConvertAttributes
                 with _ -> []
 
-        let name = lazy d.GetName()
+        let name = lazy match name with None -> d.GetName() | Some n -> n
 
         let embeddedResources =
             lazy
@@ -1044,8 +1057,8 @@ module Reflection =
         override this.Name = name.Value
         override this.Types = types.Value :> seq<_>
 
-    let AdaptAssembly (a: Assembly) : AssemblyDefinition =
-        RAssembly(Converter(), a) :> _
+    let AdaptAssembly (a: Assembly) (n: option<AssemblyName>) : AssemblyDefinition =
+        RAssembly(Converter(), a, ?name = n) :> _
 
 module Dynamic =
     open WebSharper
@@ -1146,7 +1159,7 @@ module Dynamic =
         let q = QuotationUtils.ConvertQuotation(q)
         let t = MockTypeDefinition(q, name) :> TypeDefinition
         let n = System.Reflection.AssemblyName("WebSharper.EntryPoint")
-        let a = Reflection.AdaptAssembly(ctx)
+        let a = Reflection.AdaptAssembly ctx (Some n)
         {
             new AssemblyDefinition() with
                 override this.CustomAttributes = a.CustomAttributes

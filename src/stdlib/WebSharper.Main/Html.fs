@@ -25,6 +25,11 @@ open WebSharper.JavaScript
 open WebSharper.JQuery
 module M = WebSharper.Core.Metadata
 
+/// An interface that has to be implemented by controls
+/// that depend on resources.
+type IRequiresResources =
+    abstract member Requires : M.Info -> seq<M.Node>
+
 /// HTML content that can be used as the Body of a web Control.
 /// Can be zero, one or many DOM nodes.
 type IControlBody =
@@ -35,11 +40,11 @@ type IControlBody =
 
 /// An interface that has to be implemented by controls that
 /// are subject to activation, ie. server-side controls that
-/// contain client-side code.
+/// contain client-side elements.
 type IControl =
+    inherit IRequiresResources
     abstract member Body : IControlBody
     abstract member Id : string
-    abstract member Requires : M.Info -> seq<M.Node>
 
 [<AutoOpen>]
 [<JavaScript>]

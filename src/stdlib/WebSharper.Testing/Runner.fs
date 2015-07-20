@@ -38,27 +38,33 @@ type private RunnerControlBody() =
             parent.ReplaceChild(fixture, e) |> ignore
             parent.InsertBefore(qunit, fixture) |> ignore
 
-type RunnerControl(assemblies: seq<System.Reflection.Assembly>) =
+type RunnerControl(reqs: list<M.Node>) =
     inherit Web.Control()
 
     static let ctrlReq = M.TypeNode (R.TypeDefinition.FromType typeof<RunnerControlBody>)
 
     [<System.NonSerialized>]
-    let assemblies = assemblies
-
-    [<System.NonSerialized>]
-    let reqs =
-        seq {
-            yield ctrlReq
-            for a in assemblies do
-                yield M.AssemblyNode (R.AssemblyName.FromAssembly a, M.AssemblyMode.CompiledAssembly)
-        }
+    let reqs = reqs
 
     [<JavaScript>]
     override this.Body = new RunnerControlBody() :> _
 
     interface Html.Client.IControl with
-        member this.Requires meta = reqs
+        member this.Requires meta =
+            (ctrlReq :: reqs) :> seq<_>
 
 let Run assemblies =
-    new RunnerControl(assemblies) :> Web.Control
+    let reqs =
+        [
+            for a in assemblies do
+                yield M.AssemblyNode (R.AssemblyName.FromAssembly a, M.AssemblyMode.CompiledAssembly)
+        ]
+    new RunnerControl(reqs) :> Web.Control
+
+let RunByAssemblyNames assemblyNames =
+    let reqs =
+        [
+            for a in assemblyNames do
+                yield M.AssemblyNode (R.AssemblyName.Parse a, M.AssemblyMode.CompiledAssembly)
+        ]
+    new RunnerControl(reqs) :> Web.Control

@@ -1,8 +1,26 @@
-# Server-side JSON API
+# JSON API
 
-WebSharper Sitelets can automatically [parse JSON requests](Sitelets.md#json-request), and [reply with JSON content](Sitelets.md#json-response). The structure of the JSON is inferred from the type, and can be customized using attributes.
+WebSharper provides a convenient and readable JSON serialization format for F# values. The structure of the JSON is inferred from the type, and can be customized using attributes. This format is usable both from the server and the client side.
 
-## Base types
+## Using JSON on the server
+
+WebSharper Sitelets provide facilities to both parse JSON from HTTP requests and write it to HTTP responses.
+
+* Parsing: [using the `[<Json>]` attribute](Sitelets.md#json-request).
+* Writing: [using Content.JsonContent](Sitelets.md#json-response).
+
+## Using JSON on the client
+
+Since WebSharper 3.3, JSON serialization is also available on the client. The module `WebSharper.Json` provides the following functions:
+
+* `Serialize : 'T -> string` serializes an F# value to string.
+* `Deserialize : string -> 'T` deserializes an F# value from a string.
+* `Encode : 'T -> obj` converts an F# value to an object, such that `Json.Stringify (Json.Encode x) = Json.Serialize x`.
+* `Decode : obj -> 'T` converts an object to an F# value, such that `Json.Decode (Json.Parse s) = Json.Deserialize s`.
+
+## Format
+
+### Base types
 
 The following base types are handled:
 
@@ -60,7 +78,7 @@ Content.JsonContent <| fun ctx ->
 // Output: true
 ```
 
-## Collections
+### Collections
 
 Values of type `list<'T>`, `'T[]` and `Set<'T>` are represented as JSON arrays:
 
@@ -85,7 +103,7 @@ Content.JsonContent <| fun ctx ->
 // Output: {"somekey": 12, "otherkey": 34}
 ```
 
-## Records
+### Records
 
 F# records are represented as flat JSON objects. The attribute `[<Name "name">]` can be used to customize the field name:
 
@@ -108,11 +126,11 @@ Content.JsonContent <| fun ctx ->
 // Output: {"name": {"first-name": "John", "LastName": "Doe"}, "age": 42}
 ```
 
-## Unions
+### Unions
 
 Union types intended for use in JSON serialization should bear the attribute `NamedUnionCases`. There are two ways to use it.
 
-### Explicit discriminator
+#### Explicit discriminator
 
 With `[<NamedUnionCases "field">]`, the union value is represented as a JSON object with a field called `"field"`, whose value is the name of the union case, and as many other fields as the union case has arguments. You can use `[<Name "name">]` to customize the name of a union case.
 
@@ -141,7 +159,7 @@ Content.JsonContent <| fun ctx ->
 
 Unnamed fields receive the names `Item1`, `Item2`, etc.
 
-### Implicit discriminator
+#### Implicit discriminator
 
 With an argumentless `[<NamedUnionCases>]`, no extra field is added to determine the union case; instead, it is inferred from the names of the fields present. This means that each case must have at least one mandatory field that no other case in the same type has, or a compile-time error will be thrown.
 
@@ -165,7 +183,7 @@ Content.JsonContent <| fun ctx ->
 //         ]
 ```
 
-### Record inside union
+#### Record inside union
 
 As a special case, if a union case has a single, unnamed argument which is a record, then the fields of this record are used as the fields of the output object.
 
@@ -195,7 +213,7 @@ Content.JsonContent <| fun ctx ->
 //         ]
 ```
 
-## Optional fields
+### Optional fields
 
 Fields with type `option<'T>` are represented as a field that may or may not be there. This is the case both for unions and records.
 
@@ -240,7 +258,23 @@ Content.JsonContent <| fun ctx ->
 
 When parsing JSON, `null` is also accepted as a `None` value.
 
-## DateTimes
+#### Constant cases
+
+Union cases annotated with the attribute `[<Constant c>]` are represented as the corresponding constant, which can be a string, int, float or bool. It is recommended to only use this attribute on argument-less cases. If all cases of a union are annotated with `[<Constant>]`, then `[<NamedUnionCases>]` is not necessary.
+
+```fsharp
+type Color =
+    | [<Constant "blue">] Blue
+	| [<Constant "red">] Red
+	| [<Constant "green">] Green
+
+Content.JsonContent <| fun ctx ->
+    [Blue; Red; Green]
+
+// Output: ["blue","red","green"]
+```
+
+### DateTimes
 
 Values of type `System.DateTime` are encoded using an ISO 8601 round-trip format string:
 
@@ -270,3 +304,5 @@ type Action =
 
 // Output: { dateOnly: "15.03.32" }
 ```
+
+Note however that `[<DateTimeFormat>]` is only available on the server side; this attribute is ignored by client-side serialization.

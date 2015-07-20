@@ -49,6 +49,12 @@ module Server =
             b : string
         }
 
+    type UnionWithConstants =
+        | [<Constant "itsastring">] UString
+        | [<Constant 1436>] UInt
+        | [<Constant true>] UBool
+        | UNotConst
+
     [<Remote>]
     let reset1 () =
         counter1 := 123
@@ -173,6 +179,10 @@ module Server =
     [<Remote>]
     let f16 (r: OptionsRecord) =
         async.Return { x = r.y; y = r.x }
+
+    [<Remote>]
+    let f19 (u: UnionWithConstants) (v: UnionWithConstants) =
+        async { return (v, u) }
 
     [<Remote>]
     let LoginAs (username: string) =
@@ -385,6 +395,11 @@ module Remoting =
 
             Test "{Some; None} -> {None; Some}" {
                 equalAsync (Server.f16 { x = Some 12; y = None }) { x = None; y = Some 12 }
+            }
+
+            Test "Union with constants" {
+                equalAsync (Server.f19 Server.UString Server.UInt) (Server.UInt, Server.UString)
+                equalAsync (Server.f19 Server.UBool Server.UNotConst) (Server.UNotConst, Server.UBool)
             }
 
             Test "Automatic field rename" {

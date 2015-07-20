@@ -64,6 +64,8 @@ printfn "Done."
 
 printf "Loading WebSharper.Web.Tests..."; stdout.Flush()
 #load "tests/WebSharper.Web.Tests/Remoting.fs"
+#load "tests/WebSharper.Sitelets.Tests/Json.fs"
+#load "tests/WebSharper.Web.Tests/ClientSideJson.fs"
 #load "tests/WebSharper.Web.Tests/HelloWorld.fs"
 printfn "Done."
 
@@ -111,18 +113,29 @@ do  download "https://raw.githubusercontent.com/intellifactory/websharper.warp/m
 // Run
 open WebSharper
 open WebSharper.Html.Server
+
+type Action =
+    | [<EndPoint "/">] Home
+    | [<EndPoint "/sitelet-tests">] SiteletTests of SiteletTests
+and SiteletTests =
+    | [<Method "POST">] Json of WebSharper.Sitelets.Tests.Json.Action
+
 let app =
-    Warp.CreateSPA(fun _ ->
-        [
-            Div [
-                Testing.Runner.Run [
-                    typeof<WebSharper.Collections.Tests.Dictionary.Foo>.Assembly
-                    typeof<WebSharper.Tests.AddMacro>.Assembly
-                    typeof<WebSharper.Web.Tests.HelloWorld>.Assembly
-                    typeof<WebSharper.Html5.Tests.Samples>.Assembly
-                ]
-            ]
-        ])
+    Warp.CreateApplication(fun ctx action ->
+        match action with
+        | Home ->
+            WebSharper.Sitelets.Content.PageContent <| fun _ ->
+                Warp.Page(
+                    Body =
+                        [
+                            Div [
+                                Testing.Runner.RunByAssemblyNames
+                                    ["WebSharper.EntryPoint"]
+                        ]
+                    ])
+        | SiteletTests (Json a) ->
+            WebSharper.Sitelets.Tests.Json.Content a
+    )
     |> Warp.Run
 printfn "Started."
 do System.Diagnostics.Process.Start("http://localhost:9000") |> ignore
