@@ -114,6 +114,15 @@ let ToObj o =
     | Some v -> v
     | None -> null
 
+
+[<JavaScript>]
+[<Inline>]
+let OfNullable o = OfObj o                         
+
+[<JavaScript>]
+[<Inline>]
+let ToNullable o = ToObj o 
+
 [<JavaScript>]
 [<Name "filter">]
 let Filter f o =

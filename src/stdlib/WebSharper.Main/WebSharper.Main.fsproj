@@ -43,7 +43,7 @@
     <Compile Include="Proxy/Enum.fs" />
     <Compile Include="Proxy/Exception.fs" />
     <Compile Include="Proxy/ExtraTopLevelOperators.fs" />
-    <Compile Include="Proxy\Func.fs" />
+    <Compile Include="Proxy/Func.fs" />
     <Compile Include="Proxy/Guid.fs" />
     <Compile Include="Proxy/IDisposable.fs" />
     <Compile Include="Proxy/IEnumerable.fs" />
@@ -57,6 +57,7 @@
     <Compile Include="Proxy/List.fs" />
     <Compile Include="Proxy/ListModule.fs" />
     <Compile Include="Proxy/Math.fs" />
+    <Compile Include="Proxy/Nullable.fs" />
     <Compile Include="Proxy/Object.fs" />
     <Compile Include="Proxy/Operators.fs" />
     <Compile Include="Proxy/OperatorIntrinsics.fs" />

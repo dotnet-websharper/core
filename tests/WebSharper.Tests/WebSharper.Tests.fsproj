@@ -26,6 +26,7 @@
     <Compile Include="List.fs" />
     <Compile Include="Macro.fs" />
     <Compile Include="Math.fs" />
+    <Compile Include="Nullable.fs" />
     <Compile Include="Object.fs" />
     <Compile Include="Operators.fs" />
     <Compile Include="Option.fs" />
@@ -83,5 +84,10 @@
       <Project>{4c826618-e150-40f7-b13a-9182f0c3eaca}</Project>
       <Private>True</Private>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="FSharp.Data.TypeProviders" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.Linq" />
   </ItemGroup>
 </Project>

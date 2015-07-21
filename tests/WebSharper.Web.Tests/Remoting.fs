@@ -234,6 +234,18 @@ module Server =
         }
 
     [<Remote>]
+    let OptionToNullable (x: int option) =
+        match x with
+        | Some v -> System.Nullable v
+        | _ -> System.Nullable() 
+        |> async.Return
+              
+    [<Remote>]
+    let NullableToOption (x: System.Nullable<int>) =
+        if x.HasValue then Some x.Value else None         
+        |> async.Return
+
+    [<Remote>]
     let reverse (x: string) =
         new System.String(Array.rev (x.ToCharArray()))
         |> async.Return
@@ -461,6 +473,13 @@ module Remoting =
                 equalAsync (Server.reverse "c#") "#c"
                 equalAsync (Server.reverse "\u00EF\u00BB\u00BF") "\u00BF\u00BB\u00EF"
                 equalAsync (Server.reverse "c\127\127\127#") "#\127\127\127c"
+            }
+
+            Test "Nullable" {
+                equalAsync (Server.NullableToOption (System.Nullable())) None
+                equalAsync (Server.NullableToOption (System.Nullable 3)) (Some 3)
+                jsEqualAsync (Server.OptionToNullable None) (System.Nullable())
+                equalAsync (Server.OptionToNullable (Some 3)) (System.Nullable 3)
             }
 
         }

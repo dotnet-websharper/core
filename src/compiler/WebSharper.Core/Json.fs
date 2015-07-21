@@ -1241,6 +1241,15 @@ let setEncoder dE (i: FormatSettings) (ta: TAttrs) =
             | _ -> raise EncoderException     
         let tr = fst (encNode (treeF.GetValue x))
         EncodedObject [ "tree", tr ] |> i.AddTag t
+        
+let unmakeNullable<'T when 'T: (new: unit -> 'T) and 'T: struct and 'T :> System.ValueType> (dV: obj -> Encoded) (x: obj) =
+    if obj.ReferenceEquals(x, null) then EncodedNull else dV x    
+           
+let nbleEncoder dE (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ unmakeNullable @> dE ta tg.[0]
 
 let makeSet<'T when 'T : comparison> (dV: Value -> obj) = function
     | Array vs ->
@@ -1276,6 +1285,17 @@ let setDecoder dD (i: FormatSettings) (ta: TAttrs) =
         | Object [ "tree", Object tr ] -> mk (walk tr)
         | _ -> raise DecoderException
 
+let makeNullable<'T when 'T: (new: unit -> 'T) and 'T: struct and 'T :> System.ValueType> (dV: Value -> obj) =
+    function
+        | Null -> null
+        | x -> box (System.Nullable(unbox<'T> (dV x)))
+
+let nbleDecoder dD (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ makeNullable @> dD ta tg.[0]
+
 let enumEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
     let uT = System.Enum.GetUnderlyingType t
@@ -1291,7 +1311,7 @@ let enumDecoder dD (i: FormatSettings) (ta: TAttrs) =
         let y : obj = uD x
         System.Enum.ToObject(t, y)
 
-let getEncoding scalar array tuple union record enu map set obj wrap (fo: FormatSettings)
+let getEncoding scalar array tuple union record enu map set nble obj wrap (fo: FormatSettings)
                 (cache: Dictionary<_,_>) =
     let recurse ta =
         lock cache <| fun () ->
@@ -1327,6 +1347,7 @@ let getEncoding scalar array tuple union record enu map set obj wrap (fo: Format
                     match tn with
                     | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> Choice1Of2 (map dD fo ta)
                     | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> Choice1Of2 (set dD fo ta)
+                    | Some "System.Nullable`1" -> Choice1Of2 (nble dD fo ta)
                     | _ -> 
                         recurse ta
                         Choice1Of2 (obj dD fo ta)
@@ -1562,6 +1583,9 @@ type Provider(fo: FormatSettings) =
             (fun dD i ta ->
                 let x = genLetMethod(<@ Set.empty @>, ta.Type.GetGenericArguments()).Invoke0()
                 fun _ -> x)
+            (fun dD i ta ->
+                fun _ -> null
+            )
             (fun _ _ _ _ -> null)
             id
             fo
@@ -1579,6 +1603,7 @@ type Provider(fo: FormatSettings) =
             enumDecoder
             mapDecoder
             setDecoder
+            nbleDecoder
             objectDecoder
             id
             fo
@@ -1596,6 +1621,7 @@ type Provider(fo: FormatSettings) =
             enumEncoder
             mapEncoder
             setEncoder
+            nbleEncoder
             objectEncoder
             (fun dE ta ->
                 if ta.Type.IsSealed || FST.IsUnion ta.Type then dE ta else
