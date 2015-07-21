@@ -124,15 +124,14 @@ let app =
     Warp.CreateApplication(fun ctx action ->
         match action with
         | Home ->
-            WebSharper.Sitelets.Content.PageContent <| fun _ ->
-                Warp.Page(
-                    Body =
-                        [
-                            Div [
-                                Testing.Runner.RunByAssemblyNames
-                                    ["WebSharper.EntryPoint"]
-                        ]
-                    ])
+            Warp.Page(
+                Body =
+                    [
+                        Div [
+                            Testing.Runner.RunByAssemblyNames
+                                ["WebSharper.EntryPoint"]
+                    ]
+                ])
         | SiteletTests (Json a) ->
             WebSharper.Sitelets.Tests.Json.Content a
     )
