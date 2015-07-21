@@ -151,9 +151,10 @@ module Content =
         async {
             let! htmlPage = genPage context
             let writeBody (stream: Stream) =
+                let body = Seq.cache htmlPage.Body
                 // Finds all the client side controls on the page.
                 let controls =
-                    htmlPage.Body
+                    body
                     |> Seq.collect (fun elem ->
                         elem.CollectAnnotations ())
                 let renderHead (tw: UI.HtmlTextWriter) =
@@ -164,7 +165,7 @@ module Content =
                     if hasResources then writeStartScript tw
                 let renderBody (tw: UI.HtmlTextWriter) =
                     let writer = new H.Writer(tw)
-                    for elem in htmlPage.Body do
+                    for elem in body do
                         writer.Write elem
                 // Create html writer from stream
                 use textWriter = new StreamWriter(stream)
