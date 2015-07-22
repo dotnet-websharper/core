@@ -21,6 +21,7 @@
 namespace WebSharper.Sitelets
 
 module CT = WebSharper.Core.ContentTypes
+module H = WebSharper.Html.Server.Html
 
 type Content<'Action> =
     | CustomContent of (Context<'Action> -> Http.Response)
@@ -46,7 +47,6 @@ module Content =
     module J = WebSharper.Core.Json
     module XS = IntelliFactory.Xml.SimpleXml
     module XT = IntelliFactory.Xml.Templating
-    module H = WebSharper.Html.Server.Html
 
     let metaJson<'T> (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
         let encode (c: IRequiresResources) =
@@ -661,3 +661,33 @@ module Content =
         (template: Template<'T>)
         (content: Context<'Action> -> 'T) : Content<'Action> =
         WithTemplateAsync template (fun ctx -> async.Return (content ctx))
+
+type Content<'T> with
+
+    static member Json x =
+        Content.JsonContent <| fun _ -> x
+
+    static member Page (?Body: #seq<H.Element>, ?Head:#seq<H.Element>, ?Title: string, ?Doctype: string) =
+        let page : Page =
+            {
+                Doctype = Doctype
+                Title = Title
+                Head = match Head with None -> Seq.empty | Some x -> x :> seq<_>
+                Body = match Body with None -> Seq.empty | Some x -> x :> seq<_>
+                Renderer = Page.Default.Renderer
+            }
+        Content.PageContent <| fun _ -> page
+
+    static member Page (page: H.Element) =
+        Content.WithTemplate (Content.Template.FromHtmlElement page) ignore
+
+    static member Text (text: string, ?encoding: System.Text.Encoding) =
+        let encoding = defaultArg encoding System.Text.Encoding.UTF8
+        Content.CustomContent <| fun _ ->
+            {
+                Headers = []
+                Status = Http.Status.Ok
+                WriteBody = fun s ->
+                    use w = new System.IO.StreamWriter(s, encoding)
+                    w.Write(text)
+            }

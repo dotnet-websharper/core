@@ -21,6 +21,7 @@
 namespace WebSharper.Sitelets
 
 open System
+module H = WebSharper.Html.Server.Html
 module XT = IntelliFactory.Xml.Templating
 
 /// Represents server responses to actions. The Page response is special-cased
@@ -30,6 +31,23 @@ type Content<'Action> =
     | CustomContentAsync of (Context<'Action> -> Async<Http.Response>)
     | PageContent of (Context<'Action> -> Page)
     | PageContentAsync of (Context<'Action> -> Async<Page>)
+
+    /// Creates a JSON content from the given object.
+    static member Json : 'U -> Content<'T>
+
+    /// Creates an HTML content.
+    static member Page
+        : ?Body: #seq<H.Element>
+        * ?Head: #seq<H.Element>
+        * ?Title: string
+        * ?Doctype: string
+        -> Content<'T>
+
+    /// Creates an HTML content from an <html> element.
+    static member Page : H.Element -> Content<'T>
+
+    /// Creates a plain text content.
+    static member Text : string * ?encoding: System.Text.Encoding -> Content<'T>
 
 /// Provides combinators for modifying content.
 module Content =
@@ -104,8 +122,6 @@ module Content =
 
     /// Constructs a 405 Method Not Allowed response.
     val MethodNotAllowed<'T> : Content<'T>
-
-    module H = WebSharper.Html.Server.Html
 
     /// HTML template utilities.
     module Template =
