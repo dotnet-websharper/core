@@ -80,7 +80,7 @@ type AjaxRemotingProvider =
     static member Send : string -> obj[] -> unit
 
 val private ajax : bool -> Url -> Headers -> Data -> (Data -> unit) ->
-    (exn -> unit) -> unit
+    (exn -> unit) -> (unit -> unit) -> unit
 val private makeHeaders : string -> obj
 val private makePayload : obj [] -> string
 val private ( ?<- ) : obj -> string -> obj -> unit

@@ -184,6 +184,8 @@ module private WebUtils =
             resp.Status <- response.Status.ToString()
             for header in response.Headers do
                 resp.AddHeader(header.Name, header.Value)
+            if req.Cookies.[RpcHandler.CsrfTokenKey] = null then
+                RpcHandler.SetCsrfCookie resp
             response.WriteBody resp.OutputStream
             resp.End()
         }
