@@ -183,16 +183,18 @@ module Content =
         member Run : value: 'T * ?root: string -> seq<HtmlElement>
 
     /// Asynchronously applies a template as a page template for sitelet content.
-    /// An extra placeholder called "scripts" is available with WebSharper-determined
-    /// dependencies.
+    /// Extra placeholders called "scripts", "styles" and "meta" are available
+    /// with WebSharper-determined dependencies. If only "scripts" is present,
+    /// then it will be filled with meta, styles and scripts, in this order.
     val WithTemplateAsync<'Action,'T> :
         template: Template<'T> ->
         content: (Context<'Action> -> Async<'T>) ->
         Content<'Action>
 
     /// Applies a template as a page template for sitelet content.
-    /// An extra placeholder called "scripts" is available with WebSharper-determined
-    /// dependencies.
+    /// Extra placeholders called "scripts", "styles" and "meta" are available
+    /// with WebSharper-determined dependencies. If only "scripts" is present,
+    /// then it will be filled with meta, styles and scripts, in this order.
     val WithTemplate<'Action,'T> :
         template: Template<'T> ->
         content: (Context<'Action> -> 'T) ->
