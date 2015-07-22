@@ -65,6 +65,22 @@ module Sitelet =
                 }
         }
 
+    module SPA =
+        type EndPoint =
+            | [<EndPoint "GET /">] Home
+
+    let SPA f =
+        {
+            Router = Router.Table [SPA.EndPoint.Home, "/"]
+            Controller =
+                { Handle = fun SPA.EndPoint.Home ->
+                    Content.CustomContentAsync <| fun ctx -> async {
+                        let x = f ctx
+                        return! Content.ToResponseAsync x ctx
+                    }
+                }
+        }
+
     /// Represents filters for protecting sitelets.
     type Filter<'Action> =
         {
