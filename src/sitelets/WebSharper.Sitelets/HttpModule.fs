@@ -177,9 +177,7 @@ module private WebUtils =
         let context = getContext site ctx req
         // Handle action
         async {
-            let! response =
-                (site.Controller.Handle action, context)
-                ||> Content.ToResponseAsync
+            let! response = Content.ToResponse (site.Controller.Handle action) context
             let resp = ctx.Response
             resp.Status <- response.Status.ToString()
             for header in response.Headers do

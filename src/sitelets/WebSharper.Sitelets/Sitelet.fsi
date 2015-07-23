@@ -20,6 +20,8 @@
 
 namespace WebSharper.Sitelets
 
+open System
+
 /// Represents a self-contained website parameterized by the type of actions.
 /// A sitelet combines a router, which is used to match incoming requests to
 /// actions and actions to URLs, and a controller, which is used to handle
@@ -46,7 +48,7 @@ module Sitelet =
 
     module SPA =
         type EndPoint =
-            | [<EndPoint "GET /">] Home
+            | [<EndPoint "/">] Home
 
     /// Constructs a sitelet for a single-page application.
     val SPA : (Context<SPA.EndPoint> -> Content<SPA.EndPoint>) -> Sitelet<SPA.EndPoint>
@@ -69,7 +71,7 @@ module Sitelet =
     val Content<'T when 'T : equality> :
         location: string ->
         action: 'T ->
-        cnt: Content<'T> ->
+        cnt: (Context<'T> -> Async<Content<'T>>) ->
         Sitelet<'T>
 
     /// Maps over the sitelet action type. Requires a bijection.
@@ -108,35 +110,18 @@ module Sitelet =
         sitelet: Sitelet<obj> -> Sitelet<'T>
 
     /// Constructs a sitelet with an inferred router and a given controller function.
-    val Infer<'T when 'T : equality> : ('T -> Content<'T>) -> Sitelet<'T>
-
-    /// Constructs a sitelet with an inferred router and a given controller function.
-    val InferAsync<'T when 'T : equality> : (Context<'T> -> 'T -> Async<Content<'T>>) -> Sitelet<'T>
+    val Infer<'T when 'T : equality> : (Context<'T> -> 'T -> Async<Content<'T>>) -> Sitelet<'T>
 
     /// Constructs a sitelet with an inferred router and a given controller function.
     val InferWithCustomErrors<'T when 'T : equality>
-        : (ActionEncoding.DecodeResult<'T> -> Content<'T>)
-        -> Sitelet<ActionEncoding.DecodeResult<'T>>
-
-    /// Constructs a sitelet with an inferred router and a given controller function.
-    val InferWithCustomErrorsAsync<'T when 'T : equality>
         : (Context<'T> -> ActionEncoding.DecodeResult<'T> -> Async<Content<'T>>)
         -> Sitelet<ActionEncoding.DecodeResult<'T>>
 
     /// Constructs a partial sitelet with an inferred router and a given controller function.
     val InferPartial<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
-        ('T1 -> 'T2) -> ('T2 -> 'T1 option) -> ('T1 -> Content<'T2>) -> Sitelet<'T2>
-
-    /// Constructs a partial sitelet with an inferred router and a given controller function.
-    val InferPartialAsync<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
         ('T1 -> 'T2) -> ('T2 -> 'T1 option) -> (Context<'T2> -> 'T1 -> Async<Content<'T2>>) -> Sitelet<'T2>
 
     /// Constructs a partial sitelet with an inferred router and a given controller function.
     /// The actions covered by this sitelet correspond to the given union case.
     val InferPartialInUnion<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
-        Expr<'T1 -> 'T2> -> ('T1 -> Content<'T2>) -> Sitelet<'T2>
-
-    /// Constructs a partial sitelet with an inferred router and a given controller function.
-    /// The actions covered by this sitelet correspond to the given union case.
-    val InferPartialInUnionAsync<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
         Expr<'T1 -> 'T2> -> (Context<'T2> -> 'T1 -> Async<Content<'T2>>) -> Sitelet<'T2>

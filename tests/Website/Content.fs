@@ -60,9 +60,9 @@ let TestsPage =
             ]
         ]
 
-let MainSite = function
-    | Actions.Home -> HomePage
-    | Actions.Tests -> TestsPage
+let MainSite ctx = function
+    | Actions.Home -> HomePage ctx
+    | Actions.Tests -> TestsPage ctx
 
 let Main =
     Sitelet.Sum [

@@ -113,26 +113,24 @@ module Json =
         | [<Json "x">] UnionConstants of x: Types.UnionWithConstants
         | [<Json "x">] DateTime of x: System.DateTime
 
-    let json x = Content.JsonContent (fun _ -> x)
-
     let Content = function
-        | Int x -> json x
-        | Float x -> json x
-        | String x -> json x
-        | Tuple2 x -> json x
-        | Tuple3 x -> json x
-        | Array x -> json x
-        | List x -> json x
-        | Set x -> json x
-        | Map x -> json x
-        | Dictionary x -> json x
-        | SimpleRecord x -> json x
-        | SimpleRecordArray x -> json x
-        | RecordOptions x -> json x
-        | SimpleUnion x -> json x
-        | ImplicitUnion x -> json x
-        | UnionInlineRecord x -> json x
-        | GenericUnionString x -> json x
-        | GenericUnionRecord x -> json x
-        | UnionConstants x -> json x
-        | DateTime x -> json x
+        | Int x -> Content.Json x
+        | Float x -> Content.Json x
+        | String x -> Content.Json x
+        | Tuple2 x -> Content.Json x
+        | Tuple3 x -> Content.Json x
+        | Array x -> Content.Json x
+        | List x -> Content.Json x
+        | Set x -> Content.Json x
+        | Map x -> Content.Json x
+        | Dictionary x -> Content.Json x
+        | SimpleRecord x -> Content.Json x
+        | SimpleRecordArray x -> Content.Json x
+        | RecordOptions x -> Content.Json x
+        | SimpleUnion x -> Content.Json x
+        | ImplicitUnion x -> Content.Json x
+        | UnionInlineRecord x -> Content.Json x
+        | GenericUnionString x -> Content.Json x
+        | GenericUnionRecord x -> Content.Json x
+        | UnionConstants x -> Content.Json x
+        | DateTime x -> Content.Json x

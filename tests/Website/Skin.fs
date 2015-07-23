@@ -74,11 +74,12 @@ let RenderFront (ctx: Context<_>) =
     let front = FrontTempalte.Compile(ctx.RootFolder)
     fun x -> front.Run(x, ctx.RootFolder)
 
-let WithTemplate title menu body : Content<_> =
-    Content.WithTemplate MainTemplate <| fun context ->
+let WithTemplate title menu body context =
+    Content.WithTemplate MainTemplate (
         let p = Page.Default title
         {
             p with
                 Menu = p.Menu @ menu context
                 Body = p.Body @ body context
         }
+    )

@@ -117,8 +117,8 @@ module SampleSite =
             .With("login", fun x -> x.Login)
 
     /// A template function that renders a page with a menu bar, based on the `Skin` template.
-    let Template title main : Content<Action> =
-        Content.WithTemplateAsync Tpl (fun ctx ->
+    let Template title main ctx =
+        Content.WithTemplateAsync Tpl <|
             let menu =
                 let ( ! ) x = ctx.Link x
                 [
@@ -139,13 +139,13 @@ module SampleSite =
                     Login = login
                     Body = main ctx
                 }
-            })
+            }
 
     /// The pages of this website.
     module Pages =
 
         /// The home page.
-        let HomePage : Content<Action> =
+        let HomePage =
             Template "Home" <| fun ctx ->
                 [
                     H1 [Text "Welcome to our site!"]
@@ -153,7 +153,7 @@ module SampleSite =
                  ]
 
         /// A page to collect contact information.
-        let ContactPage : Content<Action> =
+        let ContactPage =
             Template "Contact" <| fun ctx ->
                 [
                     H1 [Text "Contact Form"]
@@ -161,14 +161,14 @@ module SampleSite =
                 ]
 
         /// A simple page that echoes a parameter.
-        let EchoPage param : Content<Action> =
+        let EchoPage param =
             Template "Echo" <| fun ctx ->
                 [
                     H1 [Text param]
                 ]
 
         /// A simple login page.
-        let LoginPage (redirectAction: option<Action>): Content<Action> =
+        let LoginPage (redirectAction: option<Action>) =
             Template "Login" <| fun ctx ->
                 let redirectLink =
                     match redirectAction with
@@ -188,7 +188,7 @@ module SampleSite =
                 ]
 
         /// A simple page that users must log in to view.
-        let ProtectedPage : Content<Action> =
+        let ProtectedPage =
             Template "Protected" <| fun ctx ->
                 [
                     H1 [Text "This is protected content - thanks for logging in!"]
@@ -202,21 +202,20 @@ module SampleSite =
 
         // An automatically inferred sitelet created for the basic parts of the application.
         let basic =
-            Sitelet.Infer <| fun action ->
+            Sitelet.Infer <| fun ctx action ->
                 match action with
                 | Action.Contact ->
-                    Pages.ContactPage
+                    Pages.ContactPage ctx
                 | Action.Echo param ->
-                    Pages.EchoPage param
+                    Pages.EchoPage param ctx
                 | Action.Login action->
-                    Pages.LoginPage action
+                    Pages.LoginPage action ctx
                 | Action.Logout ->
                     // Logout user and redirect to home
-                    Content.CustomContentAsync <| fun ctx ->
-                        async {
-                            do! ctx.UserSession.Logout ()
-                            return! Content.ToResponseAsync (Content.RedirectTemporary Action.Home) ctx
-                        }
+                    async {
+                        do! ctx.UserSession.Logout ()
+                        return! Content.RedirectTemporary Action.Home
+                    }
                 | Action.Home ->
                     Content.RedirectPermanent Action.Home
                 | Action.Protected ->
@@ -226,7 +225,7 @@ module SampleSite =
                 | Action.Json (ActionEncoding.Success a) ->
                     WebSharper.Sitelets.Tests.Json.Content a
                 | Action.Json err ->
-                    Content.JsonContent (fun _ -> err)
+                    Content.Json err
                     |> Content.SetStatus Http.Status.NotFound
 
         // A sitelet for the protected content that requires users to log in first.

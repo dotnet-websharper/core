@@ -215,34 +215,32 @@ module Content =
                 }
             }
 
-    let ToResponseAsync<'T> (c: Content<'T>) (ctx: Context<'T>) : Async<Http.Response> =
+    let ToResponse<'T> (c: Content<'T>) (ctx: Context<'T>) : Async<Http.Response> =
         match c with
         | CustomContent x -> async { return x ctx }
         | CustomContentAsync x -> x ctx
         | PageContent genPage -> toCustomContentAsync (fun c -> async { return genPage c }) ctx
         | PageContentAsync genPage -> toCustomContentAsync genPage ctx
 
-    let ToResponse c ctx =
-        Async.RunSynchronously(ToResponseAsync c ctx)
+    let ToResponseAsync c ctx = ToResponse c ctx
 
     let FromAsync ac =
         CustomContentAsync <| fun ctx -> async {
             let! c = ac
-            return! ToResponseAsync c ctx
+            return! ToResponse c ctx
         }
 
     let delay1 f =
         fun arg -> async { return f arg }
 
-    [<Obsolete>]
     let ToCustomContent (c: Content<'T>) =
         match c with
         | CustomContent _ | CustomContentAsync _ -> c
         | PageContent genPage -> CustomContentAsync (toCustomContentAsync (delay1 genPage))
         | PageContentAsync genPageAsync -> CustomContentAsync (toCustomContentAsync genPageAsync)
 
-    let MapResponseAsync<'T> (f: Http.Response -> Async<Http.Response>) (content: Content<'T>) =
-        let genResp =
+    let MapResponseAsync<'T> (f: Http.Response -> Async<Http.Response>) (content: Async<Content<'T>>) =
+        let genResp content =
             match content with
             | CustomContent gen -> delay1 gen
             | CustomContentAsync x -> x
@@ -250,12 +248,14 @@ module Content =
             | PageContentAsync genPage -> toCustomContentAsync genPage
         CustomContentAsync <| fun context ->
             async {
-                let! result = genResp context
+                let! content = content
+                let! result = genResp content context
                 return! f result
             }
+        |> async.Return
 
-    let MapResponse<'T> (f: Http.Response -> Http.Response) (content: Content<'T>) =
-        let genResp =
+    let MapResponse<'T> (f: Http.Response -> Http.Response) (content: Async<Content<'T>>) =
+        let genResp content =
             match content with
             | CustomContent gen -> delay1 gen
             | CustomContentAsync x -> x
@@ -263,21 +263,30 @@ module Content =
             | PageContentAsync genPage -> toCustomContentAsync genPage
         CustomContentAsync <| fun context ->
             async {
-                let! result = genResp context
+                let! content = content
+                let! result = genResp content context
                 return f result
             }
+        |> async.Return
 
-    let WithHeaders<'T> (headers: seq<Http.Header>) (cont: Content<'T>) =
+    let SetHeaders<'T> (headers: seq<Http.Header>) (cont: Async<Content<'T>>) =
         cont
-        |> MapResponseAsync (fun resp ->
-            async {
-                let headers = (List.ofSeq headers) @ (List.ofSeq resp.Headers)
-                return {resp with Headers = headers}
-            })
+        |> MapResponse (fun resp -> { resp with Headers = headers })
 
-    let SetStatus<'T> (status: Http.Status) (cont: Content<'T>) =
+    let WithHeaders<'T> (headers: seq<Http.Header>) (cont: Async<Content<'T>>) =
         cont
-        |> MapResponse (fun resp -> {resp with Status = status})
+        |> MapResponse (fun resp ->
+            let headers = (List.ofSeq headers) @ (List.ofSeq resp.Headers)
+            { resp with Headers = headers }
+        )
+
+    let SetStatus<'T> (status: Http.Status) (cont: Async<Content<'T>>) =
+        cont
+        |> MapResponse (fun resp -> { resp with Status = status })
+
+    let SetBody<'T> (writeBody: System.IO.Stream -> unit) (cont: Async<Content<'T>>) =
+        cont
+        |> MapResponse (fun resp -> { resp with WriteBody = writeBody })
 
     /// Emits a 301 Moved Permanently response to a given URL.
     let RedirectToUrl<'T> (url: string) : Content<'T> =
@@ -290,49 +299,54 @@ module Content =
 
     /// Emits a 301 Moved Permanently response to a given action.
     let Redirect<'T> (action: 'T) =
-        CustomContent <| fun ctx ->
+        CustomContentAsync <| fun ctx ->
             let resp = RedirectToUrl (ctx.Link action)
             ToResponse resp ctx
 
-    let RedirectPermanentToUrl url = RedirectToUrl url
-    let RedirectPermanent url = Redirect url
+    let RedirectPermanentToUrl url = RedirectToUrl url |> async.Return
+    let RedirectPermanent url = Redirect url |> async.Return
 
     /// Emits a 307 Redirect Temporary response to a given url.
-    let RedirectTemporaryToUrl<'T> (url: string) : Content<'T> =
+    let RedirectTemporaryToUrl<'T> (url: string) : Async<Content<'T>> =
         CustomContent <| fun ctx ->
             {
                 Status = Http.Status.Custom 307 (Some "Temporary Redirect")
                 Headers = [Http.Header.Custom "Location" url]
                 WriteBody = ignore
             }
+        |> async.Return
 
     /// Emits a 307 Redirect Temporary response to a given url.
-    let RedirectTemporary<'T> (action: 'T) : Content<'T> =
-        CustomContent <| fun ctx ->
-            ToResponse (RedirectTemporaryToUrl (ctx.Link action)) ctx
+    let RedirectTemporary<'T> (action: 'T) : Async<Content<'T>> =
+        CustomContentAsync <| fun ctx -> async {
+            let! content = RedirectTemporaryToUrl (ctx.Link action)
+            return! ToResponse content ctx
+        }
+        |> async.Return
 
     /// Constructs a status code response.
-    let httpStatusContent<'T> status : Content<'T> =
+    let httpStatusContent<'T> status : Async<Content<'T>> =
         CustomContent <| fun ctx ->
             {
                 Status = status
                 Headers = []
                 WriteBody = ignore
             }
+        |> async.Return
 
-    let Unauthorized<'T> : Content<'T> =
+    let Unauthorized<'T> : Async<Content<'T>> =
         httpStatusContent Http.Status.Unauthorized
 
-    let Forbidden<'T> : Content<'T> =
+    let Forbidden<'T> : Async<Content<'T>> =
         httpStatusContent Http.Status.Forbidden
 
-    let NotFound<'T> : Content<'T> =
+    let NotFound<'T> : Async<Content<'T>> =
         httpStatusContent Http.Status.NotFound
 
-    let ServerError<'T> : Content<'T> =
+    let ServerError<'T> : Async<Content<'T>> =
         httpStatusContent Http.Status.InternalServerError
 
-    let MethodNotAllowed<'T> : Content<'T> =
+    let MethodNotAllowed<'T> : Async<Content<'T>> =
         httpStatusContent Http.Status.MethodNotAllowed
 
     type HtmlElement = H.Element
@@ -639,11 +653,11 @@ module Content =
 
     let WithTemplateAsync<'Action,'T>
         (template: Template<'T>)
-        (content: Context<'Action> -> Async<'T>) : Content<'Action> =
+        (content: Async<'T>) : Async<Content<'Action>> =
         CustomContentAsync (fun ctx ->
             async {
             template.CheckPageTemplate(ctx.RootFolder)
-            let! xml = template.Run(Env.Create ctx, content ctx, ctx.RootFolder)
+            let! xml = template.Run(Env.Create ctx, content, ctx.RootFolder)
             return {
                 Status = Http.Status.Ok
                 Headers =
@@ -656,38 +670,51 @@ module Content =
                     w.WriteLine("<!DOCTYPE html>")
                     XS.Node.RenderHtml w xml
             }})
+        |> async.Return
 
     let WithTemplate<'Action,'T>
         (template: Template<'T>)
-        (content: Context<'Action> -> 'T) : Content<'Action> =
-        WithTemplateAsync template (fun ctx -> async.Return (content ctx))
+        (content: 'T) : Async<Content<'Action>> =
+        WithTemplateAsync template (async.Return content)
 
 type Content<'Action> with
 
-    static member Json x : Content<'Action> =
+    static member Custom (response: Http.Response) : Async<Content<'Action>> =
+        Content.CustomContent <| fun _ -> response
+        |> async.Return
+
+    static member Custom (?Status: Http.Status, ?Headers: seq<Http.Header>, ?WriteBody: System.IO.Stream -> unit) : Async<Content<'Action>> =
+        ({
+            Status = defaultArg Status Http.Status.Ok
+            Headers = defaultArg Headers Seq.empty
+            WriteBody = defaultArg WriteBody ignore
+        } : Http.Response)
+        |> Content.Custom
+
+    static member Json x : Async<Content<'Action>> =
         Content.JsonContent <| fun _ -> x
+        |> async.Return
 
-    static member Page (?Body: #seq<H.Element>, ?Head:#seq<H.Element>, ?Title: string, ?Doctype: string) : Content<'Action> =
-        let page : Page =
-            {
-                Doctype = Doctype
-                Title = Title
-                Head = match Head with None -> Seq.empty | Some x -> x :> seq<_>
-                Body = match Body with None -> Seq.empty | Some x -> x :> seq<_>
-                Renderer = Page.Default.Renderer
-            }
+    static member Page (?Body: #seq<H.Element>, ?Head:#seq<H.Element>, ?Title: string, ?Doctype: string) : Async<Content<'Action>> =
+        Content.Page {
+            Doctype = Doctype
+            Title = Title
+            Head = match Head with None -> Seq.empty | Some x -> x :> seq<_>
+            Body = match Body with None -> Seq.empty | Some x -> x :> seq<_>
+            Renderer = Page.Default.Renderer
+        }
+
+    static member Page (page: Page) : Async<Content<'Action>> =
         Content.PageContent <| fun _ -> page
+        |> async.Return
 
-    static member Page (page: H.Element) : Content<'Action> =
+    static member Page (page: H.Element) : Async<Content<'Action>> =
         Content.WithTemplate (Content.Template.FromHtmlElement page) ignore
 
-    static member Text (text: string, ?encoding: System.Text.Encoding) : Content<'Action> =
+    static member Text (text: string, ?encoding: System.Text.Encoding) : Async<Content<'Action>> =
         let encoding = defaultArg encoding System.Text.Encoding.UTF8
-        Content.CustomContent <| fun _ ->
-            {
-                Headers = []
-                Status = Http.Status.Ok
-                WriteBody = fun s ->
-                    use w = new System.IO.StreamWriter(s, encoding)
-                    w.Write(text)
-            }
+        Content.Custom(
+            WriteBody = fun s ->
+                use w = new System.IO.StreamWriter(s, encoding)
+                w.Write(text)
+        )

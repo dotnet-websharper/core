@@ -20,6 +20,8 @@
 
 namespace WebSharper.Sitelets
 
+#nowarn "44" // Obsolete CustomContent, CustomContentAsync, PageContent, PageContentAsync
+
 open System
 open System.Collections.Generic
 open System.Web.UI
@@ -67,7 +69,7 @@ module Sitelet =
 
     module SPA =
         type EndPoint =
-            | [<EndPoint "GET /">] Home
+            | [<EndPoint "/">] Home
 
     let SPA f =
         {
@@ -76,7 +78,7 @@ module Sitelet =
                 { Handle = fun SPA.EndPoint.Home ->
                     Content.CustomContentAsync <| fun ctx -> async {
                         let x = f ctx
-                        return! Content.ToResponseAsync x ctx
+                        return! Content.ToResponse x ctx
                     }
                 }
         }
@@ -96,9 +98,10 @@ module Sitelet =
             Controller =
                 { Handle = fun action ->
                     let prot = filter
-                    let failure =
-                        Content.ToResponseAsync
-                        <| Content.RedirectTemporary (prot.LoginRedirect action)
+                    let failure ctx = async {
+                        let! c = Content.RedirectTemporary (prot.LoginRedirect action)
+                        return! Content.ToResponse c ctx
+                    }
                     Content.CustomContentAsync <| fun ctx ->
                         async {
                             try
@@ -107,7 +110,7 @@ module Sitelet =
                                 | Some user ->
                                     if prot.VerifyUser user then
                                         let content = site.Controller.Handle action
-                                        return! Content.ToResponseAsync content ctx
+                                        return! Content.ToResponse content ctx
                                     else
                                         return! failure ctx
                                 | None ->
@@ -123,10 +126,15 @@ module Sitelet =
 
     /// Constructs a singleton sitelet that contains exactly one action
     /// and serves a single content value at a given location.
-    let Content (location: string) (action: 'Action) (cnt: Content<'Action>) =
+    let Content (location: string) (action: 'Action) (cnt: Context<'Action> -> Async<Content<'Action>>) =
         {
             Router = Router.Table [action, location]
-            Controller = { Handle = fun _ -> cnt}
+            Controller = { Handle = fun _ ->
+                Content.CustomContentAsync <| fun ctx -> async {
+                    let! cnt = cnt ctx
+                    return! Content.ToResponse cnt ctx
+                }
+            }
         }
 
     /// Maps over the sitelet action type. Requires a bijection.
@@ -156,7 +164,7 @@ module Sitelet =
                 { Handle = fun a ->
                     match unembed a with
                     | Some ea -> C.CustomContentAsync <| fun ctx ->
-                        C.ToResponseAsync (sitelet.Controller.Handle ea) (Context.Map embed ctx)
+                        C.ToResponse (sitelet.Controller.Handle ea) (Context.Map embed ctx)
                     | None -> failwith "Invalid action in Sitelet.Embed" }
         }
 
@@ -208,55 +216,30 @@ module Sitelet =
 
     /// Constructs a sitelet with an inferred router and a given controller
     /// function.
-    let Infer<'T when 'T : equality> (handle : 'T -> Content<'T>) =
-        {
-            Router = Router.Infer()
-            Controller = { Handle = handle }
-        }
-
-    let InferAsync<'T when 'T : equality> (handle : Context<'T> -> 'T -> Async<Content<'T>>) =
+    let Infer<'T when 'T : equality> (handle : Context<'T> -> 'T -> Async<Content<'T>>) =
         {
             Router = Router.Infer()
             Controller = { Handle = fun x ->
                 C.CustomContentAsync <| fun ctx -> async {
                     let! content = handle ctx x
-                    return! C.ToResponseAsync content ctx
+                    return! C.ToResponse content ctx
                 }
             }
         }
 
-    let InferWithCustomErrors<'T when 'T : equality> (handle : ActionEncoding.DecodeResult<'T> -> Content<'T>) =
-        {
-            Router = Router.InferWithErrors<'T>()
-            Controller = { Handle = fun x ->
-                C.CustomContentAsync <| fun ctx ->
-                    C.ToResponseAsync (handle x) (Context.Map ActionEncoding.Success ctx)
-            }
-        }
-
-    let InferWithCustomErrorsAsync<'T when 'T : equality> (handle : Context<'T> -> ActionEncoding.DecodeResult<'T> -> Async<Content<'T>>) =
+    let InferWithCustomErrors<'T when 'T : equality> (handle : Context<'T> -> ActionEncoding.DecodeResult<'T> -> Async<Content<'T>>) =
         {
             Router = Router.InferWithErrors<'T>()
             Controller = { Handle = fun x ->
                 C.CustomContentAsync <| fun ctx -> async {
                     let ctx = (Context.Map ActionEncoding.Success ctx)
                     let! content = handle ctx x
-                    return! C.ToResponseAsync content ctx
+                    return! C.ToResponse content ctx
                 }
             }
         }
 
-    let InferPartial (embed: 'T1 -> 'T2) (unembed: 'T2 -> 'T1 option) (mkContent: 'T1 -> Content<'T2>) : Sitelet<'T2> =
-        {
-            Router = Router.Infer() |> Router.TryMap (Some << embed) unembed
-            Controller =
-                { Handle = fun p ->
-                    match unembed p with
-                    | Some e -> mkContent e
-                    | None -> failwith "Invalid action in Sitelet.InferPartial" }
-        }
-
-    let InferPartialAsync (embed: 'T1 -> 'T2) (unembed: 'T2 -> 'T1 option) (mkContent: Context<'T2> -> 'T1 -> Async<Content<'T2>>) : Sitelet<'T2> =
+    let InferPartial (embed: 'T1 -> 'T2) (unembed: 'T2 -> 'T1 option) (mkContent: Context<'T2> -> 'T1 -> Async<Content<'T2>>) : Sitelet<'T2> =
         {
             Router = Router.Infer() |> Router.TryMap (Some << embed) unembed
             Controller = { Handle = fun p ->
@@ -264,7 +247,7 @@ module Sitelet =
                     match unembed p with
                     | Some e ->
                         let! content = mkContent ctx e
-                        return! C.ToResponseAsync content ctx
+                        return! C.ToResponse content ctx
                     | None -> return failwith "Invalid action in Sitelet.InferPartial"
                 }
             }
@@ -273,11 +256,6 @@ module Sitelet =
     let InferPartialInUnion (case: Expr<'T1 -> 'T2>) mkContent =
         match tryGetEmbedFunctionsFromExpr case with
         | Some (embed, unembed) -> InferPartial embed unembed mkContent
-        | None -> failwith "Invalid union case in Sitelet.InferPartialInUnion"
-
-    let InferPartialInUnionAsync (case: Expr<'T1 -> 'T2>) mkContent =
-        match tryGetEmbedFunctionsFromExpr case with
-        | Some (embed, unembed) -> InferPartialAsync embed unembed mkContent
         | None -> failwith "Invalid union case in Sitelet.InferPartialInUnion"
 
 type Sitelet<'T> with

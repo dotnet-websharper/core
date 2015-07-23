@@ -99,16 +99,16 @@ module Api =
                     Success None
                 | false, _ -> Failure "Person not found."
 
-    let ApiContent (action: Action) : Content<Action> =
+    let ApiContent (ctx: Context<Action>) (action: Action) : Async<Content<Action>> =
         match action with
         | GetPerson id ->
-            Content.JsonContent <| fun ctx -> ApplicationLogic.getPerson id
+            Content.Json (ApplicationLogic.getPerson id)
         | PostPerson personData ->
-            Content.JsonContent <| fun ctx -> ApplicationLogic.postPerson personData
+            Content.Json (ApplicationLogic.postPerson personData)
         | PutPerson (id, personData) ->
-            Content.JsonContent <| fun ctx -> ApplicationLogic.putPerson id personData
+            Content.Json (ApplicationLogic.putPerson id personData)
         | DeletePerson id ->
-            Content.JsonContent <| fun ctx -> ApplicationLogic.deletePerson id
+            Content.Json (ApplicationLogic.deletePerson id)
 
     let Sitelet = Sitelet.Infer ApiContent
 

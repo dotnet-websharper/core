@@ -39,7 +39,7 @@ type SinglePageWebsite(page: Page, ?url: string) =
 
     let sitelet =
         Sitelet.Content (defaultArg url "/") SinglePageAction.Index
-            <| Content.PageContent (fun _ -> page)
+            (fun _ -> Content.Page page)
 
     interface IWebsite<SinglePageAction> with
         member this.Actions = [SinglePageAction.Index]

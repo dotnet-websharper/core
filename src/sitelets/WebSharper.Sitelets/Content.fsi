@@ -27,13 +27,17 @@ module XT = IntelliFactory.Xml.Templating
 /// Represents server responses to actions. The Page response is special-cased
 /// for combinators to have access to it.
 type Content<'Action> =
-    | CustomContent of (Context<'Action> -> Http.Response)
-    | CustomContentAsync of (Context<'Action> -> Async<Http.Response>)
-    | PageContent of (Context<'Action> -> Page)
-    | PageContentAsync of (Context<'Action> -> Async<Page>)
+    | [<Obsolete "Use Content.Custom">]
+      CustomContent of (Context<'Action> -> Http.Response)
+    | [<Obsolete "Use Content.Custom">]
+      CustomContentAsync of (Context<'Action> -> Async<Http.Response>)
+    | [<Obsolete "Use Content.Page">]
+      PageContent of (Context<'Action> -> Page)
+    | [<Obsolete "Use Content.Page">]
+      PageContentAsync of (Context<'Action> -> Async<Page>)
 
     /// Creates a JSON content from the given object.
-    static member Json : 'U -> Content<'Action>
+    static member Json : 'U -> Async<Content<'Action>>
 
     /// Creates an HTML content.
     static member Page
@@ -41,87 +45,102 @@ type Content<'Action> =
         * ?Head: #seq<H.Element>
         * ?Title: string
         * ?Doctype: string
-        -> Content<'Action>
+        -> Async<Content<'Action>>
+
+    /// Creates an HTML content.
+    static member Page : Page -> Async<Content<'Action>>
 
     /// Creates an HTML content from an <html> element.
-    static member Page : H.Element -> Content<'Action>
+    static member Page : H.Element -> Async<Content<'Action>>
 
     /// Creates a plain text content.
-    static member Text : string * ?encoding: System.Text.Encoding -> Content<'Action>
+    static member Text : string * ?encoding: System.Text.Encoding -> Async<Content<'Action>>
+
+    /// Creates a custom content.
+    static member Custom : Http.Response -> Async<Content<'Action>>
+
+    /// Creates a custom content.
+    static member Custom
+        : ?Status: Http.Status
+        * ?Headers: seq<Http.Header>
+        * ?WriteBody: (System.IO.Stream -> unit)
+        -> Async<Content<'Action>>
 
 /// Provides combinators for modifying content.
 module Content =
 
-    /// Generates an HTTP response. OBSOLETE - use the Async version.
-    val ToResponse<'T> : Content<'T> -> Context<'T> -> Http.Response
+    /// Generates an HTTP response.
+    val ToResponse<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>
 
     /// Generates an HTTP response.
+    [<Obsolete "Use ToResponse">]
     val ToResponseAsync<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>
 
     /// Wraps an asynchronous content.
     val FromAsync<'T> : Async<Content<'T>> -> Content<'T>
 
     /// Generates JSON content from the given object.
+    [<Obsolete "Use Content.Json">]
     val JsonContent<'T, 'U> : (Context<'T> -> 'U) -> Content<'T>
 
     /// Generates JSON content from the given object.
+    [<Obsolete "Use Content.Json">]
     val JsonContentAsync<'T, 'U> : (Context<'T> -> Async<'U>) -> Content<'T>
 
-    /// Eliminates the PageContent case. This member is obsolete.
-    /// Use ToResponse instead.
-    [<Obsolete>]
+    /// Eliminates the PageContent case.
+    [<Obsolete "Use ToResponse">]
     val ToCustomContent<'T> : Content<'T> -> Content<'T>
 
     /// Modify the response of a content. Transforms any
     /// content to 'CustomContent'.
-    val MapResponse<'T> : (Http.Response -> Http.Response) -> Content<'T> -> Content<'T>
+    val MapResponse<'T> : (Http.Response -> Http.Response) -> Async<Content<'T>> -> Async<Content<'T>>
 
     /// Modify the response of a content. Transforms any
     /// content to 'CustomContent'.
-    val MapResponseAsync<'T> : (Http.Response -> Async<Http.Response>) -> Content<'T> -> Content<'T>
+    val MapResponseAsync<'T> : (Http.Response -> Async<Http.Response>) -> Async<Content<'T>> -> Async<Content<'T>>
 
     /// Add headers to the generated response. Transforms any
     /// content to 'CustomContent'.
-    val WithHeaders<'T> : seq<Http.Header> -> Content<'T> -> Content<'T>
+    val WithHeaders<'T> : seq<Http.Header> -> Async<Content<'T>> -> Async<Content<'T>>
 
-    /// Sets the status of the generated response.
+    /// Replace the headers of the generated response. Transforms any
+    /// content to 'CustomContent'.
+    val SetHeaders<'T> : seq<Http.Header> -> Async<Content<'T>> -> Async<Content<'T>>
+
+    /// Set the status of the generated response.
     /// Transforms any content to 'CustomContent'.
-    val SetStatus<'T> : status: Http.Status -> Content<'T> -> Content<'T>
+    val SetStatus<'T> : status: Http.Status -> Async<Content<'T>> -> Async<Content<'T>>
+
+    /// Set the body writing function of the generated response.
+    /// Transforms any content to 'CustomContent'.
+    val SetBody<'T> : writeBody: (System.IO.Stream -> unit) -> Async<Content<'T>> -> Async<Content<'T>>
 
     /// Redirects permanently (301 Moved Permanently) to a given action.
-    [<Obsolete "Use RedirectPermanent">]
-    val Redirect<'T> : action: 'T -> Content<'T>
+    val RedirectPermanent<'T> : action: 'T -> Async<Content<'T>>
 
     /// Redirects permanently (301 Moved Permanently) to a given URL.
-    [<Obsolete "Use RedirectPermanentToUrl">]
-    val RedirectToUrl : url: string -> Content<'T>
-
-    /// Redirects permanently (301 Moved Permanently) to a given action.
-    val RedirectPermanent<'T> : action: 'T -> Content<'T>
-
-    /// Redirects permanently (301 Moved Permanently) to a given URL.
-    val RedirectPermanentToUrl : url: string -> Content<'T>
+    val RedirectPermanentToUrl : url: string -> Async<Content<'T>>
 
     /// Redirects temporarily (307 Redirect Temporary) to a given action.
-    val RedirectTemporary<'T> : action: 'T -> Content<'T>
+    val RedirectTemporary<'T> : action: 'T -> Async<Content<'T>>
 
     /// Redirects temporarily (307 Redirect Temporary) to a given URL.
-    val RedirectTemporaryToUrl : url: string -> Content<'T>
+    val RedirectTemporaryToUrl : url: string -> Async<Content<'T>>
 
     /// Constructs a 401 Unauthorized response.
-    val Unauthorized<'T> : Content<'T>
+    val Unauthorized<'T> : Async<Content<'T>>
 
     /// Constructs a 403 Forbidden response.
-    val Forbidden<'T> : Content<'T>
+    val Forbidden<'T> : Async<Content<'T>>
 
     /// Constructs a 404 Not Found response.
-    val NotFound<'T> : Content<'T>
+    val NotFound<'T> : Async<Content<'T>>
 
     /// Constructs a 500 Server Error response.
-    val ServerError<'T> : Content<'T>
+    val ServerError<'T> : Async<Content<'T>>
 
     /// Constructs a 405 Method Not Allowed response.
-    val MethodNotAllowed<'T> : Content<'T>
+    val MethodNotAllowed<'T> : Async<Content<'T>>
 
     /// HTML template utilities.
     module Template =
@@ -204,8 +223,8 @@ module Content =
     /// then it will be filled with meta, styles and scripts, in this order.
     val WithTemplateAsync<'Action,'T> :
         template: Template<'T> ->
-        content: (Context<'Action> -> Async<'T>) ->
-        Content<'Action>
+        content: Async<'T> ->
+        Async<Content<'Action>>
 
     /// Applies a template as a page template for sitelet content.
     /// Extra placeholders called "scripts", "styles" and "meta" are available
@@ -213,5 +232,5 @@ module Content =
     /// then it will be filled with meta, styles and scripts, in this order.
     val WithTemplate<'Action,'T> :
         template: Template<'T> ->
-        content: (Context<'Action> -> 'T) ->
-        Content<'Action>
+        content: 'T ->
+        Async<Content<'Action>>

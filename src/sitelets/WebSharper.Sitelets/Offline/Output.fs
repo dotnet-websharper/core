@@ -297,7 +297,7 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
             |> Array.filter (fun s -> s.Length > 0)
         parts.Length - 1
     let resContext = resourceContext st level
-    let genResp = C.ToResponseAsync content
+    let genResp = C.ToResponse content
     async {
         let! response =
             genResp {
