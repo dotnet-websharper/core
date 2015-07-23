@@ -662,12 +662,12 @@ module Content =
         (content: Context<'Action> -> 'T) : Content<'Action> =
         WithTemplateAsync template (fun ctx -> async.Return (content ctx))
 
-type Content<'T> with
+type Content<'Action> with
 
-    static member Json x =
+    static member Json x : Content<'Action> =
         Content.JsonContent <| fun _ -> x
 
-    static member Page (?Body: #seq<H.Element>, ?Head:#seq<H.Element>, ?Title: string, ?Doctype: string) =
+    static member Page (?Body: #seq<H.Element>, ?Head:#seq<H.Element>, ?Title: string, ?Doctype: string) : Content<'Action> =
         let page : Page =
             {
                 Doctype = Doctype
@@ -678,10 +678,10 @@ type Content<'T> with
             }
         Content.PageContent <| fun _ -> page
 
-    static member Page (page: H.Element) =
+    static member Page (page: H.Element) : Content<'Action> =
         Content.WithTemplate (Content.Template.FromHtmlElement page) ignore
 
-    static member Text (text: string, ?encoding: System.Text.Encoding) =
+    static member Text (text: string, ?encoding: System.Text.Encoding) : Content<'Action> =
         let encoding = defaultArg encoding System.Text.Encoding.UTF8
         Content.CustomContent <| fun _ ->
             {

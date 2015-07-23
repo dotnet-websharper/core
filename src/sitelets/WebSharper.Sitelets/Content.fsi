@@ -33,7 +33,7 @@ type Content<'Action> =
     | PageContentAsync of (Context<'Action> -> Async<Page>)
 
     /// Creates a JSON content from the given object.
-    static member Json : 'U -> Content<'T>
+    static member Json : 'U -> Content<'Action>
 
     /// Creates an HTML content.
     static member Page
@@ -41,13 +41,13 @@ type Content<'Action> =
         * ?Head: #seq<H.Element>
         * ?Title: string
         * ?Doctype: string
-        -> Content<'T>
+        -> Content<'Action>
 
     /// Creates an HTML content from an <html> element.
-    static member Page : H.Element -> Content<'T>
+    static member Page : H.Element -> Content<'Action>
 
     /// Creates a plain text content.
-    static member Text : string * ?encoding: System.Text.Encoding -> Content<'T>
+    static member Text : string * ?encoding: System.Text.Encoding -> Content<'Action>
 
 /// Provides combinators for modifying content.
 module Content =
