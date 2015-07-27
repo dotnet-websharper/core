@@ -414,6 +414,7 @@ let Tests =
 
         Test "Seq.take" {
             let s = seq { 1 .. 10 }
+            equal (Seq.toArray (Seq.take 0 s)) [||]
             equal (Seq.toArray (Seq.take 5 s)) [| 1; 2; 3; 4; 5 |]
             equal (Seq.toArray (Seq.take 10 s)) [| 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 |]
             raises (Seq.toArray (Seq.take -1 s))

@@ -377,7 +377,7 @@ let InputMustBeNonNegative() =
 [<Name "Seq.windowed">]
 let SeqWindowed (windowSize: int) (s: seq<'T>) : seq<'T []> =
     if windowSize <= 0 then
-        failwith "The input must be non-negative."
+        failwith "The input must be positive."
     seq {
         use e = Enumerator.Get s
         let q = new System.Collections.Generic.Queue<'T>()

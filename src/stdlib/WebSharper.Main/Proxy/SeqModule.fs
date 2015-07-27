@@ -549,7 +549,7 @@ let SumBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
 [<JavaScript>]
 [<Name "take">]
 let Take (n: int) (s: seq<'T>) : seq<'T> =
-    if n <= 0 then
+    if n < 0 then
         InputMustBeNonNegative()
     Enumerable.Of (fun () ->
         let e = ref (Enumerator.Get s)
