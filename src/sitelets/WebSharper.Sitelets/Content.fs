@@ -281,6 +281,9 @@ module Content =
             { resp with Headers = headers }
         )
 
+    let WithContentType<'T> (contentType: string) (cont: Async<Content<'T>>) =
+        cont |> WithHeaders [Http.Header.Custom "Content-Type" contentType]
+
     let SetStatus<'T> (status: Http.Status) (cont: Async<Content<'T>>) =
         cont
         |> MapResponse (fun resp -> { resp with Status = status })

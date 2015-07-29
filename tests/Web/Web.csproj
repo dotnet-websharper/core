@@ -36,6 +36,7 @@
     <Content Include="content\*.*" />
     <Content Include="downloads\*.*" />
     <Content Include="Front.html" />
+    <Content Include="logo-websharper-icon.png" />
     <Content Include="Scripts\*.*" />
     <Content Include="Main.html" />
     <Content Include="Web.config">

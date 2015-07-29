@@ -59,6 +59,7 @@ module SampleSite =
         | Logout
         | Echo of string
         | Api of Api.Action
+        | [<EndPoint "GET /test.png">] TestImage
         | [<Method "POST">] Json of ActionEncoding.DecodeResult<Json.Action>
 
     /// A helper function to create a hyperlink
@@ -227,6 +228,9 @@ module SampleSite =
                 | Action.Json err ->
                     Content.Json err
                     |> Content.SetStatus Http.Status.NotFound
+                | Action.TestImage ->
+                    Content.File "~/image.png"
+                    |> Content.WithContentType "image/png"
 
         // A sitelet for the protected content that requires users to log in first.
         let authenticated =
