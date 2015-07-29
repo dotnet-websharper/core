@@ -701,7 +701,7 @@ type Content<'Action> with
 
     static member Page (?Body: #seq<H.Element>, ?Head:#seq<H.Element>, ?Title: string, ?Doctype: string) : Async<Content<'Action>> =
         Content.Page {
-            Doctype = Doctype
+            Doctype = Some (match Doctype with Some d -> d | None -> "<!DOCTYPE html>")
             Title = Title
             Head = match Head with None -> Seq.empty | Some x -> x :> seq<_>
             Body = match Body with None -> Seq.empty | Some x -> x :> seq<_>
