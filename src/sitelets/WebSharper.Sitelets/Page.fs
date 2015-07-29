@@ -47,18 +47,17 @@ type Page =
             writer.RenderBeginTag HtmlTextWriterTag.Html
             // Head section
             writer.RenderBeginTag HtmlTextWriterTag.Head
-            writer.WriteLine()
-            writeHead writer
             match title with
             | Some t ->
-                writer.RenderBeginTag HtmlTextWriterTag.Title
+                writer.WriteFullBeginTag "title"
                 writer.Write t
-                writer.RenderEndTag ()
+                writer.WriteEndTag "title"
+                writer.WriteLine()
             | None -> ()
+            writeHead writer
             writer.RenderEndTag()
             // Body section
             writer.RenderBeginTag HtmlTextWriterTag.Body
-            writer.WriteLine()
             writeBody writer
             writer.RenderEndTag()
             writer.RenderEndTag()
