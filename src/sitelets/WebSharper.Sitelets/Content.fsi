@@ -56,6 +56,9 @@ type Content<'Action> =
     /// Creates a plain text content.
     static member Text : string * ?encoding: System.Text.Encoding -> Async<Content<'Action>>
 
+    /// Creates a content that serves a file from disk.
+    static member File : path: string * ?allowOutsideRootFoolder: bool -> Async<Content<'Action>>
+
     /// Creates a custom content.
     static member Custom : Http.Response -> Async<Content<'Action>>
 

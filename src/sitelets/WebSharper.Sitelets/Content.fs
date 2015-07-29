@@ -20,6 +20,7 @@
 
 namespace WebSharper.Sitelets
 
+open System.IO
 module CT = WebSharper.Core.ContentTypes
 module H = WebSharper.Html.Server.Html
 
@@ -718,3 +719,31 @@ type Content<'Action> with
                 use w = new System.IO.StreamWriter(s, encoding)
                 w.Write(text)
         )
+
+    static member File (path: string, ?allowOutsideRootFolder: bool) : Async<Content<'Action>> =
+        let allowOutsideRootFolder = defaultArg allowOutsideRootFolder false
+        Content.CustomContent <| fun ctx ->
+            if Path.IsPathRooted path && not allowOutsideRootFolder then
+                failwith "Cannot serve file from outside the application's root folder"
+            let rootFolder = DirectoryInfo(ctx.RootFolder).FullName
+            let path =
+                if path.StartsWith "~/" || path.StartsWith @"~\" then
+                    Path.Combine(rootFolder, path.[2..])
+                else
+                    Path.Combine(rootFolder, path)
+            let fi = System.IO.FileInfo(path)
+            if fi.FullName.StartsWith rootFolder || allowOutsideRootFolder then
+                {
+                    Status = Http.Status.Ok
+                    Headers = []
+                    WriteBody = fun out ->
+                        use inp = fi.OpenRead()
+                        let buffer = Array.zeroCreate (16 * 1024)
+                        let rec loop () =
+                            let read = inp.Read(buffer, 0, buffer.Length)
+                            if read > 0 then out.Write(buffer, 0, read); loop ()
+                        loop ()
+                }
+            else
+                failwith "Cannot serve file from outside the application's root folder"
+        |> async.Return
