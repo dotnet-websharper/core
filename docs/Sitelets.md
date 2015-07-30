@@ -30,7 +30,7 @@ module SampleSite =
     type EndPoint =
         | Index
 
-    let IndexContent context : Content<EndPoint> =
+    let IndexContent context : Async<Content<EndPoint>> =
         let time = System.DateTime.Now.ToString()
         Content.Page(
             Title = "Index",
@@ -67,7 +67,7 @@ Based on this, a Sitelet is a value that represents the following mappings:
 
 * Mapping from endpoints to URLs. This allows you to have internal links that are verified by the type system, instead of writing URLs by hand and being at the mercy of a typo or a change in the URL scheme. You can read more on this [in the "Context" section](#context).
 
-* Mapping from endpoints to content. Finally, once a request has been parsed, this determines what content (HTML or other) must be returned to the client.
+* Mapping from endpoints to content. Once a request has been parsed, this determines what content (HTML or other) must be returned to the client.
 
 A number of primitives are available to create and compose Sitelets.
 
@@ -120,7 +120,7 @@ Accepted Request:    GET /Stats/someUser
 Parsed Endpoint:     Stats (username = "someUser")
 Returned Content:    <!DOCTYPE html>
                      <html>
-                         <head><title></title></head>
+                         <head></head>
                          <body>
                              Stats for someUser
                          </body>
@@ -130,7 +130,7 @@ Accepted Request:    GET /BlogArticle/1423/some-article-slug
 Parsed Endpoint:     BlogArticle (id = 1423, slug = "some-article-slug")
 Returned Content:    <!DOCTYPE html>
                      <html>
-                         <head><title></title></head>
+                         <head></head>
                          <body>
                              Article id 1423, slug some-article-slug
                          </body>
@@ -630,53 +630,44 @@ Given a filter value and a sitelet, `Protect` returns a new sitelet that require
 <a name="content"></a>
 ## Content
 
-Content is conceptually a function from a context to an HTTP response. There are four main ways to create content, each with a synchronous and an asynchronous variant:
+Content describes the response to send back to the client: HTTP status, headers and body. Content is always worked with asynchronously: all the constructors and combinators described below take and return values of type `Async<Content<'EndPoint>>`.
+
+### Creating Content
+
+There are several functions that create different types of content: HTML Page, JSON, Text, or custom.
+
+#### Content.Text
+
+The simplest response is simply text content, created by passing a string to `Content.Text`.
 
 ```fsharp
-module Content =
-    open Http
-
-    val PageContent                       : (Context<'EndPoint> -> Page)            -> Content<'EndPoint>
-    val PageContentAsync                  : (Context<'EndPoint> -> Async<Page>)     -> Content<'EndPoint>
-
-    val WithTemplate      : Template<'T> -> (Context<'EndPoint> -> 'T)              -> Content<'EndPoint>
-    val WithTemplateAsync : Template<'T> -> (Context<'EndPoint> -> Async<'T>)       -> Content<'EndPoint>
-
-    val JsonContent                       : (Context<'EndPoint> -> 'T)              -> Content<'EndPoint>
-    val JsonContentAsync                  : (Context<'EndPoint> -> Async<'T>)       -> Content<'EndPoint>
-
-    val CustomContent                     : (Context<'EndPoint> -> Response)        -> Content<'EndPoint>
-    val CustomContentAsync                : (Context<'EndPoint> -> Async<Response>) -> Content<'EndPoint>
+let SimpleResponse =
+    Content.Text "This is the response body."
 ```
 
-Each of them receives as argument a callback from `Context<_>` to the type of content to return. The context contains various runtime information, notably on how to resolve links and authenticate users. [See here for more information about using the context.](#context)
+#### Content.Page
 
-### PageContent
-
-The first type of content you can return is HTML content, using `PageContent` or `PageContentAsync`. Here is a simple example:
+The first type of content you can return is HTML content, using `Content.Page`. Here is a simple example:
 
 ```fsharp
-let IndexPage : Content<EndPoint> =
-    PageContent <| fun context ->
-        { Page.Default with
-            Title = Some "Welcome!"
-            Head = [ Link [HRef "/css/style.css"; Rel "stylesheet"] ]
-            Body = [ H1 [Text "Welcome to my site."] ]
-        }
+let IndexPage =
+    Content.Page(
+        Title = "Welcome!",
+        Head = [ Link [HRef "/css/style.css"; Rel "stylesheet"] ],
+        Body = [ H1 [Text "Welcome to my site."] ]
+    )
 ```
 
-The value you must return from the content callback is of record type `Page`. It is recommended to use record update on the provided `Page.Default`, as shown above.
+The optional named arguments `Title`, `Head`, `Body` and `Doctype` set the corresponding elements of the HTML page. To learn how to create HTML elements for `Head` and `Body`, see [the HTML combinators documentation](HtmlCombinators.md).
 
-The fields `Head` and `Body` have type `seq<Html.Server.Element>`. [See here for more information about generating HTML content with `Html.Server`.](HtmlCombinators.md)
-
-### WithTemplate
+#### Content.WithTemplate
 
 Very often, most of a page is constant, and only parts of it need to be generated. Templates allow you to use a static HTML file for the main structure, with placeholders for generated content. [See here for more information about templates.](Templates.md)
 
 <a name="json-response"></a>
-### JsonContent
+#### Content.Json
 
-If you are creating a web API, then Sitelets can automatically generate JSON content for you based on the type of your data. Simply return your value from the content callback, and WebSharper will serialize it. The format is the same as when parsing requests. [See here for more information about the JSON format.](Json.md)
+If you are creating a web API, then Sitelets can automatically generate JSON content for you based on the type of your data. Simply pass your value to `Content.Json`, and WebSharper will serialize it. The format is the same as when parsing requests. [See here for more information about the JSON format.](Json.md)
 
 ```fsharp
 type BlogArticleResponse =
@@ -687,7 +678,7 @@ type BlogArticleResponse =
     }
 
 let content id =
-    Content.JsonContent <| fun context ->
+    Content.Json
         {
             id = id
             slug = "some-blog-article"
@@ -697,7 +688,8 @@ let content id =
 type EndPoint =
     | GetBlogArticle of id: int
 
-let sitelet = Sitelet.Infer <| function
+let sitelet = Sitelet.Infer <| fun context endpoint ->
+    match endpoint with
     | GetBlogArticle id -> content id
 
 // Accepted Request:    GET /GetBlogArticle/1423
@@ -705,19 +697,9 @@ let sitelet = Sitelet.Infer <| function
 // Returned Content:    {"id": 1423, "slug": "some-blog-article", "title": "Some blog article!"}
 ```
 
-### CustomContent
+#### Content.Custom
 
-CustomContent can be used to output any type of content. The value you must return from the content callback has the following record type:
-
-```fsharp
-module Http =
-    type Response =
-        {
-            Status : Status
-            Headers : seq<Header>
-            WriteBody : System.IO.Stream -> unit
-        }
-```
+`Content.Custom` can be used to output any type of content. It takes three optional named arguments that corresponds to the aforementioned elements of the response:
 
 * `Status` is the HTTP status code. It can be created using the function `Http.Status.Custom`, or you can use one of the predefined statuses such as `Http.Status.Forbidden`.
 
@@ -727,14 +709,13 @@ module Http =
 
 ```fsharp
 let content =
-    Content.CustomContent <| fun context ->
-        {
-            Status = Http.Status.Ok
-            Headers = [Http.Header.Custom "Content-Type" "text/plain"]
-            WriteBody = fun stream ->
-                use w = new System.IO.StreamWriter(stream)
-                w.Write("The contents of the text file.")
-        }
+    Content.Custom(
+        Status = Http.Status.Ok,
+        Headers = [Http.Header.Custom "Content-Type" "text/plain"],
+        WriteBody = fun stream ->
+            use w = new System.IO.StreamWriter(stream)
+            w.Write("The contents of the text file.")
+    )
 
 type EndPoint =
     | GetSomeTextFile
@@ -754,67 +735,43 @@ In addition to the four standard Content families above, the `Content` module co
 
 ```fsharp
 module Content =
-    /// Permanently redirect to an action. (HTTP status code 301)
-    val Redirect : 'EndPoint -> Content<'EndPoint>
+    /// Permanently redirect to an endpoint. (HTTP status code 301)
+    val RedirectPermanent : 'EndPoint -> Async<Content<'EndPoint>>
     /// Permanently redirect to a URL. (HTTP status code 301)
-    val RedirectToUrl : string -> Content<'EndPoint>
-    /// Temporarily redirect to an action. (HTTP status code 307)
-    val RedirectTemporary : 'EndPoint -> Content<'EndPoint>
+    val RedirectPermanentToUrl : string -> Async<Content<'EndPoint>>
+    /// Temporarily redirect to an endpoint. (HTTP status code 307)
+    val RedirectTemporary : 'EndPoint -> Async<Content<'EndPoint>>
     /// Temporarily redirect to a URL. (HTTP status code 307)
-    val RedirectTemporaryToUrl : string -> Content<'EndPoint>
+    val RedirectTemporaryToUrl : string -> Async<Content<'EndPoint>>
 ```
 
 * Response mapping: if you want to return HTML or JSON content, but further customize the HTTP response, then you can use one of the following:
 
 ```fsharp
 module Content =
-    val SetStatus : Http.Status -> Content<'T> -> Content<'T>
-    val WithHeaders : seq<Header> -> Content<'T> -> Content<'T>
-    val MapResponse : (Http.Response -> Http.Response)
+    /// Set the HTTP status of a response.
+    val SetStatus : Http.Status -> Async<Content<'T>> -> Async<Content<'T>>
+    /// Add headers to a response.
+    val WithHeaders : seq<Header> -> Async<Content<'T>> -> Async<Content<'T>>
+    /// Replace the headers of a response.
+    val SetHeaders : seq<Header> -> Async<Content<'T>> -> Async<Content<'T>>
 
 // Example use
 let customForbidden =
-    Content.PageContent <| fun context ->
-        { Page.Default with
-            Title = "No entrance!"
-            Body = [Text "Oops! You're not supposed to be here."] }
+    Content.Page(
+        Title = "No entrance!",
+        Body = [Text "Oops! You're not supposed to be here."] }
+    )
     // Set the HTTP status code to 403 Forbidden:
-    |> Content.MapResponse (fun response ->
-        { response with Status = Http.Status.Forbidden })
-    // Or equivalently:
     |> Content.SetStatus Http.Status.Forbidden
+    // Add an HTTP header:
+	|> Content.WithHeaders [Http.Header.Custom "Content-Language" "en"]
 ```
-
-* Converting a `Content<'T>` to a `Http.Response`:
-
-```fsharp
-module Content =
-    val ToResponseAsync : Content<'T> -> Context<'T> -> Async<Http.Response>
-```
-
-Sometimes it is necessary to access the context before even choosing what type of `Content` you want to return. For this purpose, you can use `Content.ToResponseAsync` inside `Content.CustomContentAsync`, like so:
-
-```fsharp
-let content =
-    Content.CustomContentAsync <| fun context ->
-        async {
-            let! loggedInUser = context.UserSession.GetLoggedInUser()
-            let content =
-                match loggedInUser with
-                | None -> Content.Redirect Index
-                | Some username -> Content.PageContent <| fun ctx ->
-                    { Page.Default with
-                        Body = [Text ("Welcome, " + username + "!")] }
-            return! Content.ToResponseAsync content context
-        }
-```
-
-Note that using the synchronous `Content.ToResponse` is obsolete and strongly discouraged, as it can lead to deadlocks in some situations.
 
 <a name="context"></a>
 ## Using the Context
 
-Regardless of which function you use to generate your Content, your callback is supplied with a context of type `Context<'T>`. This context can be used for several purposes; the most important are creating internal links and managing user sessions.
+The functions to create sitelets from content, namely `Sitelet.Infer` and `Sitelet.Content`, provide a context of type `Context<'T>`. This context can be used for several purposes; the most important are creating internal links and managing user sessions.
 
 <a name="linking"></a>
 ### Creating links
@@ -822,19 +779,17 @@ Regardless of which function you use to generate your Content, your callback is 
 Since every accepted URL is uniquely mapped to a strongly typed action value, it is also possible to generate internal links from an action value. For this, you can use the function `context.Link`.
 
 ```fsharp
-let HomePage =
-  PageContent <| fun context ->
-    {Page.Default with
-      Title = Some "Welcome!"
-      Body =
-        [
+let HomePage (context: Context<EndPoint>) =
+  Content.Page(
+      Title = "Welcome!",
+      Body = [
           H1 [Text "Index page"]
           A [HRef (context.Link (BlogArticle(1423, "some-article-slug")))]
             -< [Text "Go to some article"]
           Br []
           A [HRef (context.ResolveUrl "~/Page2.html")] -< [Text "Go to page 2"]
-        ]
-    }
+      ]
+  )
 ```
 
 Note how `context.Link` is used in order to resolve the URL to the `BlogArticle` action.  Action URLs are always constructed relative to the application root, whether the application is deployed as a standalone website or in a virtual folder.  `context.ResolveUrl` helps to manually construct application-relative URLs to resources that do not map to actions.
