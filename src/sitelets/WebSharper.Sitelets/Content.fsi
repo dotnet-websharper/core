@@ -106,6 +106,10 @@ module Content =
     /// content to 'CustomContent'.
     val WithHeaders<'T> : seq<Http.Header> -> Async<Content<'T>> -> Async<Content<'T>>
 
+    /// Add a header to the generated response. Transforms any
+    /// content to 'CustomContent'.
+    val WithHeader<'T> : name: string -> value: string -> Async<Content<'T>> -> Async<Content<'T>>
+
     /// Set the Content-Type header.
     val WithContentType<'T> : string -> Async<Content<'T>> -> Async<Content<'T>>
 

@@ -281,6 +281,9 @@ module Content =
             { resp with Headers = headers }
         )
 
+    let WithHeader<'T> (name: string) (value: string) (cont: Async<Content<'T>>) =
+        cont |> WithHeaders [Http.Header.Custom name value]
+
     let WithContentType<'T> (contentType: string) (cont: Async<Content<'T>>) =
         cont |> WithHeaders [Http.Header.Custom "Content-Type" contentType]
 
