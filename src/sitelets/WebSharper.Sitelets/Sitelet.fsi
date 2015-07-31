@@ -46,13 +46,6 @@ module Sitelet =
     /// Creates an empty sitelet.
     val Empty<'Action when 'Action : equality> : Sitelet<'Action>
 
-    module SPA =
-        type EndPoint =
-            | [<EndPoint "/">] Home
-
-    /// Constructs a sitelet for a single-page application.
-    val SPA : (Context<SPA.EndPoint> -> Content<SPA.EndPoint>) -> Sitelet<SPA.EndPoint>
-
     /// Represents filters for protecting sitelets.
     type Filter<'Action> =
         {
