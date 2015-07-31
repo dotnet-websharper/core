@@ -60,6 +60,18 @@ module Remoting =
     let RemoveAllowedOrigin (origin: string) =
         allowedOrigins <- Set.remove (origin.ToLowerInvariant()) allowedOrigins
 
+    let mutable internal csrfProtect = true
+
+    /// Enable Cross-Site Request Forgery protection on RPC calls.
+    /// It is enabled by default.
+    let EnableCsrfProtection() =
+        csrfProtect <- true
+
+    /// Disable Cross-Site Request Forgery protection on RPC calls.
+    /// It is enabled by default.
+    let DisableCsrfProtection() =
+        csrfProtect <- false
+
     /// Retrieve the current web context in an Rpc function. This function must be called
     /// from the thread from which the Rpc function is originally called. The returned
     /// object can be used throughout the Rpc function.

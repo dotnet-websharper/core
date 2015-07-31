@@ -109,7 +109,7 @@ type RpcHandler() =
             | "OPTIONS" ->
                 resp.AddHeader("Access-Control-Allow-Headers",
                     "x-websharper-rpc, content-type, x-csrftoken")
-            | _ when not (checkCsrf req resp) ->
+            | _ when Remoting.csrfProtect && not (checkCsrf req resp) ->
                 resp.StatusCode <- 403
                 resp.StatusDescription <- "Forbidden"
                 resp.Write "CSRF"
