@@ -7,7 +7,7 @@ WebSharper provides a convenient and readable JSON serialization format for F# v
 WebSharper Sitelets provide facilities to both parse JSON from HTTP requests and write it to HTTP responses.
 
 * Parsing: [using the `[<Json>]` attribute](Sitelets.md#json-request).
-* Writing: [using Content.JsonContent](Sitelets.md#json-response).
+* Writing: [using Content.Json](Sitelets.md#json-response).
 
 ## Using JSON on the client
 
@@ -27,8 +27,7 @@ The following base types are handled:
 * Integers: `int8`, `int16`, `int32` (aka `int`), `int64`
 
 ```fsharp
-Content.JsonContent <| fun ctx ->
-    12y
+Content.Json 12y
 
 // Output: 12
 ```
@@ -36,8 +35,7 @@ Content.JsonContent <| fun ctx ->
 * Unsigned integers: `uint8` (aka `byte`), `uint16`, `uint32`, `uint64`
 
 ```fsharp
-Content.JsonContent <| fun ctx ->
-    12ul
+Content.Json 12ul
 
 // Output: 12
 ```
@@ -45,8 +43,7 @@ Content.JsonContent <| fun ctx ->
 * Floats: `single`, `double` (aka `float`)
 
 ```fsharp
-Content.JsonContent <| fun ctx ->
-    12.34
+Content.Json 12.34
 
 // Output: 12.34
 ```
@@ -54,8 +51,7 @@ Content.JsonContent <| fun ctx ->
 * Decimals: `decimal`
 
 ```fsharp
-Content.JsonContent <| fun ctx ->
-    12.34m
+Content.Json 12.34m
 
 // Output: 12.34
 ```
@@ -63,8 +59,7 @@ Content.JsonContent <| fun ctx ->
 * Strings: `string`
 
 ```fsharp
-Content.JsonContent <| fun ctx ->
-    """A string with some "content" inside"""
+Content.Json """A string with some "content" inside"""
 
 // Output: "A string with some \"content\" inside"
 ```
@@ -72,8 +67,7 @@ Content.JsonContent <| fun ctx ->
 * Booleans: `bool`
 
 ```fsharp
-Content.JsonContent <| fun ctx ->
-    true
+Content.Json true
 
 // Output: true
 ```
@@ -83,13 +77,11 @@ Content.JsonContent <| fun ctx ->
 Values of type `list<'T>`, `'T[]` and `Set<'T>` are represented as JSON arrays:
 
 ```fsharp
-Content.JsonContent <| fun ctx ->
-    [|"a string"; "another string"|]
+Content.Json [|"a string"; "another string"|]
 
 // Output: ["a string", "another string"]
 
-Content.JsonContent <| fun ctx ->
-    Set ["a string"; "another string"]
+Content.Json (Set ["a string"; "another string"])
 
 // Output: ["another string", "a string"]
 ```
@@ -97,8 +89,7 @@ Content.JsonContent <| fun ctx ->
 Values of type `Map<string, 'T>` and `System.Collections.Generic.Dictionary<string, 'T>` are represented as flat JSON objects:
 
 ```fsharp
-Content.JsonContent <| fun ctx ->
-    Map [("somekey", 12); ("otherkey", 34)]
+Content.Json (Map [("somekey", 12); ("otherkey", 34)])
 
 // Output: {"somekey": 12, "otherkey": 34}
 ```
@@ -120,8 +111,7 @@ type User =
         age: int
     }
 
-Content.JsonContent <| fun ctx ->
-    {name = {FirstName = "John"; LastName = "Doe"}; age = 42}
+Content.Json {name = {FirstName = "John"; LastName = "Doe"}; age = 42}
 
 // Output: {"name": {"first-name": "John", "LastName": "Doe"}, "age": 42}
 ```
@@ -141,7 +131,7 @@ type Contact =
         Address of street: string * zip: string * city: string
     | Email of email: string
 
-Content.JsonContent <| fun ctx ->
+Content.Json
     [
         Address("12 Random St.", "15243", "Unknownville")
         Email "john.doe@example.com"
@@ -169,7 +159,7 @@ type Contact =
     | Address of street: string * zip: string * city: string
     | Email of email: string
 
-Content.JsonContent <| fun ctx ->
+Content.Json
     [
         Address("12 Random St.", "15243", "Unknownville")
         Email "john.doe@example.com"
@@ -195,7 +185,7 @@ type Contact =
     | Address of Address
     | Email of email: string
 
-Content.JsonContent <| fun ctx ->
+Content.Json
     [
         Address {
             street = "12 Random St."
@@ -230,7 +220,7 @@ type User =
         contact: Contact
     }
 
-Content.JsonContent <| fun ctx ->
+Content.Json
     [
         {
             fullName = "John Doe"
@@ -268,8 +258,7 @@ type Color =
 	| [<Constant "red">] Red
 	| [<Constant "green">] Green
 
-Content.JsonContent <| fun ctx ->
-    [Blue; Red; Green]
+Content.Json [Blue; Red; Green]
 
 // Output: ["blue","red","green"]
 ```
@@ -279,8 +268,7 @@ Content.JsonContent <| fun ctx ->
 Values of type `System.DateTime` are encoded using an ISO 8601 round-trip format string:
 
 ```fsharp
-Content.JsonContent <| fun ctx ->
-    System.DateTime.UtcNow
+Content.Json System.DateTime.UtcNow
 
 // Output: "2015-03-06T17:05:19.2077851Z"
 ```
@@ -293,8 +281,7 @@ type Action =
         [<DateTimeFormat "yyyy-MM-dd">] dateOnly: System.DateTime
     }
 
-Content.JsonContent <| fun ctx ->
-    { dateOnly = System.DateTime.UtcNow }
+Content.Json { dateOnly = System.DateTime.UtcNow }
 
 // Output: { dateOnly: "2015-03-24" }
 
@@ -302,7 +289,9 @@ Content.JsonContent <| fun ctx ->
 type Action =
     | [<DateTimeFormat("time", "HH.mm.ss")>] A of time: System.DateTime
 
-// Output: { dateOnly: "15.03.32" }
+Content.Json (A (time = System.DateTime.UtcNow))
+
+// Output: { time: "15.03.32" }
 ```
 
 Note however that `[<DateTimeFormat>]` is only available on the server side; this attribute is ignored by client-side serialization.

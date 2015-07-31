@@ -41,6 +41,25 @@ module Remoting =
     let internal context =
         new System.Threading.ThreadLocal<option<IContext>>(fun () -> None)
 
+    let mutable internal allowedOrigins = Set.empty
+
+    /// Set the HTTP origins that are allowed to perform RPC calls to this application.
+    /// The format is: "http://mydomain.com"
+    let SetAllowedOrigins (origins: seq<string>) =
+        allowedOrigins <- Set.ofSeq (origins |> Seq.map (fun s -> s.ToLowerInvariant()))
+
+    /// Add an HTTP origin that is allowed to perform RPC calls to this application.
+    /// Does nothing if this origin was already allowed.
+    /// The format is: "http://mydomain.com"
+    let AddAllowedOrigin (origin: string) =
+        allowedOrigins <- Set.add (origin.ToLowerInvariant()) allowedOrigins
+
+    /// Remove an HTTP origin that is allowed to perform RPC calls to this application.
+    /// Does nothing if this origin wasn't allowed.
+    /// The format is: "http://mydomain.com"
+    let RemoveAllowedOrigin (origin: string) =
+        allowedOrigins <- Set.remove (origin.ToLowerInvariant()) allowedOrigins
+
     /// Retrieve the current web context in an Rpc function. This function must be called
     /// from the thread from which the Rpc function is originally called. The returned
     /// object can be used throughout the Rpc function.
