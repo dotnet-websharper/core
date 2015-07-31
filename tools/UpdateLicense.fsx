@@ -4,25 +4,34 @@ open System.Text
 
 /// Replaces the copyright notice in a given file.
 let replaceCopyright file (newCopyright: string []) =
-    let lines = File.ReadLines file
-    let mutable hasChanges = false
-    let text =
-        use output = new StringWriter()
-        output.NewLine <- Environment.NewLine
-        let mutable skip = false
-        for line in lines do
-            if line.EndsWith "$begin{copyright}" then
-                skip <- true
-                hasChanges <- true
-                for c in newCopyright do
-                    output.WriteLine(c)
-            if not skip then
-                output.WriteLine line
-            if line.EndsWith "$end{copyright}" then
-                skip <- false
-        output.ToString()
-    if hasChanges then
-        File.WriteAllText(file, text)
+    let lines =
+        File.ReadAllText(file).Split '\n'
+    if lines.Length > 2 then
+        let lines =
+            if String.IsNullOrWhiteSpace lines.[lines.Length - 1] then
+                lines.[..lines.Length - 2]
+            else lines
+        let endsWithR (l: string) = not (l.Length = 0) && l.[l.Length-1] = '\r'
+        if endsWithR lines.[lines.Length - 2] && not (endsWithR lines.[lines.Length - 1]) then
+            lines.[lines.Length - 1] <- lines.[lines.Length - 1] + "\r"
+        let mutable hasChanges = false
+        let text =
+            use output = new StringWriter()
+            output.NewLine <- "\n"
+            let mutable skip = false
+            for line in lines do
+                if line.EndsWith "$begin{copyright}" then
+                    skip <- true
+                    hasChanges <- true
+                    for c in newCopyright do
+                        output.WriteLine(c)
+                if not skip then
+                    output.WriteLine line
+                if line.EndsWith "$end{copyright}" then
+                    skip <- false
+            output.ToString()
+        if hasChanges then
+            File.WriteAllText(file, text)
 
 /// Updates copyright notices in all F# files in a given folder.
 let updateLicense license dir =
@@ -54,3 +63,5 @@ let updateAllLicenses () =
     let s = __SOURCE_DIRECTORY__
     let ( ++ ) a b = Path.Combine(a, b)
     updateLicense (s ++ "LICENSE.txt") (s ++ "..")
+
+updateAllLicenses()
