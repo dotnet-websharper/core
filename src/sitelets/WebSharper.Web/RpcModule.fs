@@ -97,8 +97,12 @@ type RpcHandler() =
         async {
             // Manage "preflight" OPTIONS request
             // sent by the browser if the site is https or from another origin.
+            let isSameAuthority origin =
+                match Uri.TryCreate(origin, System.UriKind.Absolute) with
+                | true, origin -> origin.Authority = req.Url.Authority
+                | false, _ -> false
             let origin = req.Headers.["Origin"]
-            if origin <> null && (req.Url.Authority = Uri(origin).Authority || Remoting.allowedOrigins.Contains (origin.ToLowerInvariant())) then
+            if origin <> null && (isSameAuthority origin || Remoting.allowedOrigins.Contains (origin.ToLowerInvariant())) then
                 resp.AddHeader("Access-Control-Allow-Origin", origin)
                 resp.AddHeader("Access-Control-Allow-Credentials", "true")
             match req.HttpMethod with
