@@ -96,15 +96,15 @@ type RpcHandler() =
         let resp = ctx.Response
         async {
             // Manage "preflight" OPTIONS request
-            // sent by the browser if the site is https.
+            // sent by the browser if the site is https or from another origin.
             let origin = req.Headers.["Origin"]
-            if origin <> null && req.Url.Authority = Uri(origin).Authority then
+            if origin <> null && (req.Url.Authority = Uri(origin).Authority || Remoting.allowedOrigins.Contains (origin.ToLowerInvariant())) then
                 resp.AddHeader("Access-Control-Allow-Origin", origin)
                 resp.AddHeader("Access-Control-Allow-Credentials", "true")
             match req.HttpMethod with
             | "OPTIONS" ->
                 resp.AddHeader("Access-Control-Allow-Headers",
-                    "x-websharper-rpc, content-type")
+                    "x-websharper-rpc, content-type, x-csrftoken")
             | _ when not (checkCsrf req resp) ->
                 resp.StatusCode <- 403
                 resp.StatusDescription <- "Forbidden"
