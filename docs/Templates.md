@@ -59,21 +59,24 @@ module Skin =
             .With("body", fun x -> x.Body)
 ```
 
-With these definitions in place, you can easily define convenience
-functions for building `Content` objects required by sitelets:
+With these definitions in place, you can easily create [Sitelet content](Sitelets.md#content) with `Content.WithTemplate`:
 
 ```fsharp
-    let WithTemplate title body : Content<Action> =
-        Content.WithTemplate MainTemplate <| fun context ->
+    let MainPage (context: Context<EndPoint>) : Async<Content<EndPoint>> =
+        Content.WithTemplate MainTemplate
             {
-                Title = title
-                Body = body context
+                Title = "My page"
+                Body = [H1 [Text "Body of the page]]
             }
 ```
 
-A special placeholder named "scripts" is replaced with a series of
-JavaScript and CSS resource links to support the client-side part of
-your application.
+Three special placeholders are provided to include client-side content in the page:
+
+* `scripts` is replaced with the JavaScript files required by the client-side code included in the page.
+* `styles` is replaced with the CSS files required by the client-side code included in the page.
+* `meta` is replaced with a `<meta>` tag that contains initialization data for client-side controls.
+
+If neither `styles` nor `meta` is provided, then `scripts` is replaced with the normal content of `meta`, `styles` and `scripts`.
 
 ## Usage for a snippet
 
@@ -95,17 +98,20 @@ type Article =
         Content : list<Element>
     }
 
-let ArticleTemplate : Content.Template<Article> =
+let ArticleTemplate =
         Content.Template<Article>("~/Article.html")
             .With("title", fun x -> x.Title)
             .With("content", fun x -> x.Content)
 
-let MainPage : Content<Action> =
-    Skin.WithTemplate "My blog" <| fun context ->
-		let articles = GetArticles() // eg. from database
-		[
-			yield H1 [Text "Welcome to my blog!"]
-			for article in articles do
-				yield! ArticleTemplate.Run(article, context.RootFolder)
-		]
+let MainPage (context: Context<EndPoints>) =
+    let articles = GetArticles() // eg. from database
+    Content.WithTemplate MainTemplate
+		{
+			Title = "Welcome to my blog!"
+			Body = [
+				yield H1 [Text "Welcome to my blog!"]
+				for article in articles do
+					yield! ArticleTemplate.Run(article, context.RootFolder)
+			]
+		}
 ```
