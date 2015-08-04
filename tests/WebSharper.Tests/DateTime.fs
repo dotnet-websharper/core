@@ -177,6 +177,19 @@ let Tests =
             equal DateTime.Today DateTime.Now.Date
         }
 
+        Test "String" {
+            let d = DateTime(2010, 4, 8, 15, 5, 39)
+            Console.Log("DateTime.ToShortDateString", d.ToShortDateString())
+            Console.Log("DateTime.ToLongDateString", d.ToLongDateString())
+            equal (d.ToShortTimeString()) "15:05"
+            equal (d.ToLongTimeString()) "15:05:39"
+        }
+
+        Test "Parse" {
+            let d = DateTime(2010, 4, 8, 15, 5, 39)
+            raises (DateTime.Parse("not a date"))
+            equal (Date.Parse("Thu, 08 Apr 2010 13:05:39 GMT")) (As<int> d)
+        }
     }
 
 [<JavaScript>]

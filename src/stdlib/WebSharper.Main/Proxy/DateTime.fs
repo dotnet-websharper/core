@@ -96,6 +96,22 @@ module private DateTimeHelpers =
             e.getSeconds(),
             e.getMilliseconds()
         ).getTime()    
+
+    [<JavaScript>]
+    let Parse (s: string) =
+        let d = JavaScript.Date.Parse(s)   
+        if JS.IsNaN(d) then
+            failwith "Failed to parse date string."
+        else d
+
+    [<Direct "(new Date($d)).toLocaleDateString({}, {year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'})">]
+    let LongDate (d: obj) = X<string>
+     
+    [<Direct "(new Date($d)).toLocaleTimeString({}, {hour: '2-digit', minute: '2-digit', hour12: false})">]
+    let ShortTime (d: obj) = X<string>
+
+    [<Direct "(new Date($d)).toLocaleTimeString({}, {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})">]
+    let LongTime (d: obj) = X<string>
              
 [<Proxy(typeof<System.DateTime>)>]
 type private DateTimeProxy =
@@ -194,3 +210,21 @@ type private DateTimeProxy =
     [<Inline; JavaScript>]
     member this.AddTicks(ticks: int64) : D =
         this.Add (TS.FromTicks ticks)
+
+    [<Inline "new Date($this).toLocaleString()">]
+    override this.ToString() = X<string>
+
+    [<Inline "new Date($this).toLocaleDateString()">]
+    member this.ToShortDateString() = X<string>
+    
+    [<Inline; JavaScript>]
+    member this.ToLongDateString() = DateTimeHelpers.LongDate(this)
+    
+    [<Inline; JavaScript>]
+    member this.ToShortTimeString() = DateTimeHelpers.ShortTime(this)
+
+    [<Inline; JavaScript>]
+    member this.ToLongTimeString() = DateTimeHelpers.LongTime(this)
+
+    [<Inline; JavaScript>]
+    static member Parse(s) = As<D>(DateTimeHelpers.Parse(s))

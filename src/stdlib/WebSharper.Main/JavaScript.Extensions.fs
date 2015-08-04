@@ -81,7 +81,7 @@ module Extensions =
     [<Extension>]
     type System.DateTime with
         [<Extension; Inline "new Date($0)">]
-        [<System.Obsolete "Deprecated. Use ToJS property instead.">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Date>
         [<Extension; Inline "new Date($0)">]
         member this.JS = X<Date>
