@@ -26,8 +26,8 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 
 module A = WebSharper.Core.Attributes
-module P = WebSharper.Core.JavaScript.Packager
-module R = WebSharper.Core.Reflection
+//module P = WebSharper.Core.JavaScript.Packager
+//module AST = WebSharper.Core.AST
 module Re = WebSharper.Core.Resources
 
 [<Literal>]
@@ -328,7 +328,7 @@ type Encoded =
     | EncodedString of string
     | EncodedArray of list<Encoded>
     | EncodedObject of list<string * Encoded>
-    | EncodedInstance of P.Address * list<string * Encoded>
+    | EncodedInstance of AST.Address * list<string * Encoded>
 
     static member Lift json =
         let enc (x, y) = (x, Encoded.Lift y)
@@ -960,7 +960,7 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
 
 let recordEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
-    let mt = R.TypeDefinition.FromType t
+//    let mt = R.TypeDefinition.FromType t
     let fs =
         FST.GetRecordFields(t, flags)
         |> Array.map (fun f ->
@@ -983,7 +983,7 @@ let recordEncoder dE (i: FormatSettings) (ta: TAttrs) =
 
 let recordDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
-    let mt = R.TypeDefinition.FromType t
+//    let mt = R.TypeDefinition.FromType t
     let mk = FSV.PreComputeRecordConstructor(t, flags)
     let fs =
         FST.GetRecordFields(t, flags)
@@ -1400,14 +1400,14 @@ let defaultEncodeUnionTag _ (tag: int) =
 
 module TypedProviderInternals =
 
-    let addTag (i: M.Info) (t: System.Type) =
-        let mt = R.TypeDefinition.FromType t
-        match i.GetAddress mt with
-        | None -> id
-        | Some a ->
+    let addTag (i: M.Compilation) (t: System.Type) =
+        let mt = AST.TypeDefinition.fromType t
+        match i.Classes.TryFind mt with
+        | Some { Address = Some a } ->
             function
             | EncodedObject fs -> EncodedInstance (a, fs)
             | v -> v
+        | _ -> id
 
     let pack encoded =
         let dict = Dictionary()
@@ -1432,10 +1432,12 @@ module TypedProviderInternals =
         let data = pk encoded
         let rec encA acc x =
             match x with
-            | P.Global x -> Array (String x :: acc)
-            | P.Local (x, y) -> encA (String y :: acc) x
+            | [x] -> Array (String x :: acc)
+            | y :: x -> encA (String y :: acc) x
+//            | P.Global x -> Array (String x :: acc)
+//            | P.Local (x, y) -> encA (String y :: acc) x
         let types =
-            Array (List.ofSeq (Seq.map (encA []) dict.Keys))
+            Array (List.ofSeq (dict.Keys |> Seq.map (fun a -> a.Value |> encA [])))
         Object [
             TYPES, types
             DATA, data
@@ -1447,7 +1449,7 @@ module TypedProviderInternals =
         {
             AddTag = addTag info
             GetEncodedFieldName = fun t ->
-                info.GetFieldName (R.TypeDefinition.FromType t)
+                M.lookupField info (AST.TypeDefinition.fromType t)
             GetUnionTag = defaultGetUnionTag
             EncodeUnionTag = defaultEncodeUnionTag
             GetEncodedUnionFieldName = fun _ i -> "$" + string i
@@ -1635,7 +1637,7 @@ type Provider(fo: FormatSettings) =
     static member Create() =
         Provider PlainProviderInternals.format
 
-    static member CreateTyped (info: M.Info) =
+    static member CreateTyped (info: M.Compilation) =
         Provider (TypedProviderInternals.format info)
 
     member this.GetDecoder(t: System.Type) : Decoder =

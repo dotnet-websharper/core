@@ -62,8 +62,9 @@ type DirectAttribute(template: string) =
     inherit A()
 
 /// Marks methods, properties and constructors for compilation to JavaScript.
-type JavaScriptAttribute =
-    ReflectedDefinitionAttribute
+[<Sealed; U(T.Class|||T.Module|||T.Constructor|||T.Method|||T.Property)>]
+type JavaScriptAttribute() =
+    inherit A()
 
 /// Annotates methods an constructors with custom compilation rules.
 /// The supplied type should implement Macros.IMacro and a default constructor.
@@ -71,11 +72,15 @@ type JavaScriptAttribute =
 type MacroAttribute(def: System.Type) =
     inherit A()
 
+    new (def, o: obj) = MacroAttribute(def)
+
 /// Annotates methods with a generator type that provides the method body.
 /// The supplied type should implement Macros.IGenerator and a default constructor.
 [<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
 type GeneratedAttribute(def: System.Type) =
     inherit A()
+
+    new (def, o: obj) = GeneratedAttribute(def)
 
 /// Provides a runtime name for members when it differs from the F# name.
 /// The constructor accepts either an explicit array of parts,

@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// Converts mixed Core/Syntax packages to JavaScript.
-module WebSharper.Core.JavaScript.Packager
+module WebSharper.Core.JavaScript.OldPackager
 
 module C = WebSharper.Core.JavaScript.Core
 module S = WebSharper.Core.JavaScript.Syntax

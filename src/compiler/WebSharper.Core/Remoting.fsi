@@ -23,7 +23,7 @@ module WebSharper.Core.Remoting
 
 module A = WebSharper.Core.Attributes
 module M = WebSharper.Core.Metadata
-module R = WebSharper.Core.Reflection
+//module R = WebSharper.Core.Reflection
 
 /// Represents the response.
 type Response =
@@ -60,7 +60,7 @@ val SetHandlerFactory : IHandlerFactory -> unit
 type Server =
 
     /// Creates a new instance.
-    static member Create : option<IHandlerFactory> -> M.Info -> Server
+    static member Create : option<IHandlerFactory> -> M.Compilation -> Server
 
     /// Handles a request.
     member HandleRequest : Request -> Async<Response>

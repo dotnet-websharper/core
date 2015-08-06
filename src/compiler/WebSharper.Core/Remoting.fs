@@ -28,7 +28,7 @@ module A = WebSharper.Core.Attributes
 module FI = FastInvoke
 module J = WebSharper.Core.Json
 module M = WebSharper.Core.Metadata
-module R = WebSharper.Core.Reflection
+//module R = WebSharper.Core.Reflection
 
 type FST = Reflection.FSharpType
 type FSV = Reflection.FSharpValue
@@ -164,10 +164,10 @@ exception NoRemoteAttributeException
 type Server(mk, info) =
     let jP = J.Provider.CreateTyped info
     let d = Dictionary()
-    let getConverter m =
-        match info.GetRemoteMethod m with
+    let getConverter td m =
+        match info.RemoteMethods.TryFind m with
         | None -> raise NoRemoteAttributeException
-        | Some m -> toConverter mk jP (m.Load None)
+        | Some m -> toConverter mk jP (AST.Reflection.loadMethod td m)
     let getCachedConverter m =
         let v = lock d (fun () ->
             match d.TryGetValue m with

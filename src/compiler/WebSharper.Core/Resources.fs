@@ -24,7 +24,6 @@ open System
 open System.IO
 open System.Web
 open System.Web.UI
-module R = WebSharper.Core.Reflection
 module CT = ContentTypes
 
 type Rendering =
@@ -36,7 +35,7 @@ type Context =
     {
         DebuggingEnabled : bool
         DefaultToHttp : bool
-        GetAssemblyRendering : R.AssemblyName -> Rendering
+        GetAssemblyRendering : string -> Rendering
         GetSetting : string -> option<string>
         GetWebResourceRendering : Type -> string -> Rendering
     }

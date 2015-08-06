@@ -24,7 +24,6 @@ module WebSharper.Core.Resources
 open System
 open System.Web
 open System.Web.UI
-module R = WebSharper.Core.Reflection
 
 type MediaType =
     | Css
@@ -55,7 +54,7 @@ type Context =
 
         /// Constructs URLs to JavaScript-compiled assemblies.
         /// Assembly names are short, such as FSharp.Core.
-        GetAssemblyRendering : R.AssemblyName -> Rendering
+        GetAssemblyRendering : string -> Rendering
 
         /// Provides a configuration settings collection.
         GetSetting : string -> option<string>

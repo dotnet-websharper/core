@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <ProjectGuid>{bfb21b61-fda9-4814-a728-7d43038e0b57}</ProjectGuid>
+    <ProjectGuid>{dd9a6c54-5f07-4485-8907-ce1d9874d4d5}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <Name>WebSharper.Compiler</Name>
+    <Name>WebSharper.CompilerOld</Name>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
@@ -83,9 +83,9 @@
       <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj">
-      <Name>WebSharper.Core</Name>
-      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+    <ProjectReference Include="..\WebSharper.CoreOld\WebSharper.CoreOld.fsproj">
+      <Name>WebSharper.CoreOld</Name>
+      <Project>{11119969-cdf2-4125-971c-116550851a70}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

@@ -25,8 +25,8 @@
     <EmbeddedResource Include="Runtime.min.js" />
     <Compile Include="Core.fsi" />
     <Compile Include="Core.fs" />
-    <Compile Include="Packager.fsi" />
-    <Compile Include="Packager.fs" />
+    <Compile Include="OldPackager.fsi" />
+    <Compile Include="OldPackager.fs" />
     <Compile Include="Annotations.fs" />
   </ItemGroup>
   <ItemGroup>

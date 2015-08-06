@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module WebSharper.Core.JavaScript.Packager
+module WebSharper.Core.JavaScript.OldPackager
 
 #nowarn "40"
 
