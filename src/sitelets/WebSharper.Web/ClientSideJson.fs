@@ -414,20 +414,26 @@ module private MacroInternals =
                 fail (name + ": Type not supported: " + tt.FullName)
         match encode t with
         | Choice1Of2 x ->
-            J.LetRecursive(
-                [for KeyValue(_, (id, e)) in ctx do
-                    let xid = J.Id()
-                    yield xid, !~J.Null
-                    // function() { if (!xid) { xid = e() }; return xid; }
-                    yield id, J.Lambda(None, [],
-                        J.Sequential(
-                            J.IfThenElse(
-                                J.Unary(J.UnaryOperator.``!``, J.Var xid),
-                                J.VarSet(xid, J.Application(e, [])),
-                                !~J.Null),
-                            J.Var xid))
-                    ],
-                x)
+            match ctx.Count with
+            | 0 -> x
+            | 1 ->
+                let (KeyValue(_, (id, e))) = Seq.head ctx
+                J.Let(id, e, x)
+            | _ ->
+                J.LetRecursive(
+                    [for KeyValue(_, (id, e)) in ctx do
+                        let xid = J.Id()
+                        yield xid, !~J.Null
+                        // function() { if (!xid) { xid = e() }; return xid; }
+                        yield id, J.Lambda(None, [],
+                            J.Sequential(
+                                J.IfThenElse(
+                                    J.Unary(J.UnaryOperator.``!``, J.Var xid),
+                                    J.VarSet(xid, J.Application(e, [])),
+                                    !~J.Null),
+                                J.Var xid))
+                        ],
+                    x)
         | Choice2Of2 msg -> failwithf "%A: %s" t msg
 
 module Macro =
