@@ -206,15 +206,13 @@ module private Decode =
                 JS.ForEach o (fun k -> d.[k] <- o?(k); false)
                 d))
 
-[<AutoOpen>]
-module private Macro =
+module private MacroInternals =
 
     module Q = WebSharper.Core.Quotations
     module R = WebSharper.Core.Reflection
     module T = WebSharper.Core.Reflection.Type
     module J = WebSharper.Core.JavaScript.Core
     module JI = WebSharper.Core.Json.Internal
-    module M = WebSharper.Core.Macros
     type FST = Microsoft.FSharp.Reflection.FSharpType
     type T = WebSharper.Core.Reflection.Type
     type E = J.Expression
@@ -432,28 +430,66 @@ module private Macro =
                 x)
         | Choice2Of2 msg -> failwithf "%A: %s" t msg
 
+module Macro =
+
+    module J = WebSharper.Core.JavaScript.Core
+    module M = WebSharper.Core.Macros
+    module Q = WebSharper.Core.Quotations
+    open MacroInternals
+
+    let private encodeLambda name warn tr t =
+        J.Application(getEncoding name cCallE warn tr t, [])
+
+    let private encode name warn tr t arg =
+        J.Application(encodeLambda name warn tr t, [arg])
+
+    let Encode warn tr t arg =
+        // ENCODE()(arg)
+        encode "Encode" warn tr t (tr arg)
+
+    let EncodeLambda warn tr t =
+        // ENCODE()
+        encodeLambda "EncodeLambda" warn tr t
+
+    let Serialize warn tr t arg =
+        // JSON.stringify(ENCODE()(arg))
+        cCallG ["JSON"] "stringify" [encode "Serialize" warn tr t (tr arg)]
+
+    let SerializeLambda warn tr t =
+        let enc = J.Id()
+        let arg = J.Id()
+        // let enc = ENCODE() in fun arg -> JSON.stringify(enc(arg))
+        J.Let(enc, encodeLambda "SerializeLambda" warn tr t,
+            J.Lambda(None, [arg],
+                cCallG ["JSON"] "stringify" [J.Application(J.Var enc, [J.Var arg])]))
+
+    let private decodeLambda name warn tr t =
+        J.Application(getEncoding name cCallD warn tr t, [])
+
+    let private decode name warn tr t arg =
+        J.Application(decodeLambda name warn tr t, [arg])
+
+    let Decode warn tr t arg =
+        // DECODE()(arg)
+        decode "Decode" warn tr t (tr arg)
+
+    let DecodeLambda warn tr t =
+        // DECODE()
+        decodeLambda "DecodeLambda" warn tr t
+
+    let Deserialize warn tr t arg =
+        // DECODE()(JSON.parse(arg))
+        decode "Deserialize" warn tr t (cCallG ["JSON"] "parse" [tr arg])
+
+    let DeserializeLambda warn tr t =
+        // let dec = DECODE() in fun arg -> dec(JSON.parse(arg))
+        let dec = J.Id()
+        let arg = J.Id()
+        J.Let(dec, decodeLambda "DeserializeLambda" warn tr t,
+            J.Lambda(None, [arg],
+                J.Application(J.Var dec, [cCallG ["JSON"] "parse" [J.Var arg]])))
+
     type SerializeMacro() =
-
-        let encode name warn tr t arg =
-            let enc = getEncoding name cCallE warn tr t
-            J.Application(J.Application(enc, []), [arg])
-
-        let Encode warn tr t arg =
-            encode "Encode" warn tr t (tr arg)
-
-        let Serialize warn tr t arg =
-            cCallG ["JSON"] "stringify" [encode "Serialize" warn tr t (tr arg)]
-
-        let decode name warn tr t arg =
-            let dec = getEncoding name cCallD warn tr t
-            J.Application(J.Application(dec, []), [arg])
-
-        let Decode warn tr t arg =
-            decode "Decode" warn tr t (tr arg)
-
-        let Deserialize warn tr t arg =
-            decode "Deserialize" warn tr t (cCallG ["JSON"] "parse" [tr arg])
-
 
         interface M.IMacro with
             member this.Translate(q, tr) =
@@ -470,6 +506,8 @@ module private Macro =
                     | _ -> failwith "Invalid macro invocation")
                         warn tr t x
                 | _ -> failwith "Invalid macro invocation"
+
+open Macro
 
 /// Encodes an object in such a way that JSON stringification
 /// results in the same readable format as Sitelets.
