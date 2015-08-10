@@ -73,7 +73,11 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
         deps.Connect src dT
         for rT in c.Requirements do
             deps.Connect src (M.ResourceNode rT)
-        match c.Kind with
+        let kind =
+            match c.Kind with
+            | V.MacroConstructor (_, _, Some k) -> k
+            | k -> k
+        match kind with
         | V.InlineConstructor inl ->
             match inl.Quotation with
             | None -> ()
@@ -84,7 +88,11 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
     let visitMethod src (m: V.Method) =
         m.Requirements
         |> List.iter (fun rT -> deps.Connect src (M.ResourceNode rT))
-        match m.Kind with
+        let kind =
+            match m.Kind with
+            | V.MacroMethod (_, _, Some k) -> k
+            | k -> k
+        match kind with
         | V.InlineMethod inl ->
             match inl.Quotation with
             | None -> ()
