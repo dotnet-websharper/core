@@ -70,7 +70,7 @@ module private Encode =
                     | _ -> failwith "Invalid field option kind")
                 o))
 
-    let Union _ (discr: string) (cases: (string * (string * string * (unit -> obj -> obj))[])[]) =
+    let Union _ (discr: string) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) =
         box (fun () ->
             box (fun (x: obj) ->
                 if JS.TypeOf x ===. JS.Object then
@@ -78,13 +78,20 @@ module private Encode =
                     let tag = x?("$")
                     let tagName, fields = cases.[tag]
                     if JS.TypeOf discr = JS.Kind.String then o?(discr) <- tagName
-                    fields |> Array.iter (fun (from, ``to``, enc) ->
+                    fields |> Array.iter (fun (from, ``to``, enc, kind) ->
                         match from with
                         | null -> // inline record
                             let record = enc () (x?("$0"))
                             JS.ForEach record (fun f -> o?(f) <- record?(f); false)
                         | from -> // normal args
-                            o?(``to``) <- enc () (x?(from)))
+                            match kind with
+                            | OptionalFieldKind.NotOption ->
+                                o?(``to``) <- enc () (x?(from))
+                            | OptionalFieldKind.NormalOption ->
+                                match x?(from) with
+                                | Some x -> o?(``to``) <- enc () x
+                                | None -> ()
+                            | _ -> failwith "Invalid field option kind")
                     o
                 else x // [<Constant>]
             ))
@@ -146,22 +153,22 @@ module private Decode =
         box (fun () ->
             box (fun (x: obj) ->
                 let o = if t ===. JS.Undefined then New [] else JS.New t
-                fields |> Array.iter (fun (name, enc, kind) ->
+                fields |> Array.iter (fun (name, dec, kind) ->
                     match kind with
                     | OptionalFieldKind.NotOption ->
-                        o?(name) <- enc () x?(name)
+                        o?(name) <- dec () x?(name)
                     | OptionalFieldKind.NormalOption ->
                         o?(name) <-
                             if JS.HasOwnProperty x name
-                            then Some (enc () x?(name))
+                            then Some (dec () x?(name))
                             else None
                     | OptionalFieldKind.MarkedOption ->
                         if JS.HasOwnProperty x name then
-                            o?(name) <- (enc () x?(name))
+                            o?(name) <- (dec () x?(name))
                     | _ -> failwith "Invalid field option kind")
                 o))
 
-    let Union (t: obj) (discr: string) (cases: (string * (string * string * (unit -> obj -> obj))[])[]) =
+    let Union (t: obj) (discr: string) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) =
         box (fun () ->
             box (fun (x: obj) ->
                 if JS.TypeOf x ===. JS.Object then
@@ -177,12 +184,20 @@ module private Decode =
                                 if JS.HasOwnProperty x k then r := discr?(k); true else false)
                             !r
                     o?("$") <- tag
-                    cases.[tag] |> snd |> Array.iter (fun (from, ``to``, dec) ->
+                    cases.[tag] |> snd |> Array.iter (fun (from, ``to``, dec, kind) ->
                         match from with
                         | null -> // inline record
                             o?("$0") <- dec () x
                         | from -> // normal args
-                            o?(from) <- dec () (x?(``to``)))
+                            match kind with
+                            | OptionalFieldKind.NotOption ->
+                                o?(from) <- dec () (x?(``to``))
+                            | OptionalFieldKind.NormalOption ->
+                                o?(from) <-
+                                    if JS.HasOwnProperty x ``to``
+                                    then Some (dec () x?(``to``))
+                                    else None
+                            | _ -> failwith "Invalid field option kind")
                     o
                 else x // [<Constant>]
             ))
@@ -395,9 +410,13 @@ module private MacroInternals =
                                         Client-side JSON serialization does not support custom DateTime formatting. \
                                         This field will be serialized using ISO format."
                                         tt.FullName caseName argName)
+                                let argT, optionKind =
+                                    if argT.IsGenericType && argT.GetGenericTypeDefinition() = typedefof<option<_>> then
+                                        argT.GetGenericArguments().[0], cInt (int OptionalFieldKind.NormalOption)
+                                    else argT, cInt (int OptionalFieldKind.NotOption)
                                 j + 1, fun es ->
                                     encode (T.FromType argT) >>= fun e ->
-                                    k (J.NewArray [cString ("$" + string j); cString argName; e] :: es))
+                                    k (J.NewArray [cString ("$" + string j); cString argName; e; optionKind] :: es))
                             |> snd
                             <| []
                         | JI.InlineRecord(name, record) ->
