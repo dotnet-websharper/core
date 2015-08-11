@@ -363,6 +363,10 @@ type Encoder<'T>(enc: 'T -> Encoded) =
 type FST = Reflection.FSharpType
 type FSV = Reflection.FSharpValue
 
+let flags =
+    System.Reflection.BindingFlags.Public
+    ||| System.Reflection.BindingFlags.NonPublic
+
 type FormatSettings =
     {
         /// Tag the given encoded value with its type.
@@ -427,7 +431,7 @@ and TAttrs =
                     t.Constructor.DeclaringType = typeof<A.OptionalFieldAttribute>)))
         let isNullableUnion =
             i.ConciseRepresentation &&
-            FST.IsUnion t &&
+            FST.IsUnion(t, flags) &&
             mcad |> Seq.exists (fun cad ->
                 cad.Constructor.DeclaringType = typeof<CompilationRepresentationAttribute> &&
                 let flags = cad.ConstructorArguments.[0].Value :?> CompilationRepresentationFlags
@@ -626,10 +630,6 @@ let arrayDecoder dD (i: FormatSettings) (ta: TAttrs) =
         | _ ->
             raise DecoderException
 
-let flags =
-    System.Reflection.BindingFlags.Public
-    ||| System.Reflection.BindingFlags.NonPublic
-
 let table ts =
     let d = Dictionary()
     for (k, v) in ts do
@@ -691,7 +691,7 @@ let isInlinableRecordCase (uci: Reflection.UnionCaseInfo) =
     let fields = uci.GetFields()
     fields.Length = 1 &&
     fields.[0].Name = "Item" &&
-    FST.IsRecord fields.[0].PropertyType
+    FST.IsRecord(fields.[0].PropertyType, flags)
 
 /// Some (Some x) if tagged [<NameUnionCases x>];
 /// Some None if tagged [<NamedUnionCases>];
@@ -712,7 +712,7 @@ let inferredCasesTable t =
             let fields = c.GetFields()
             let fields =
                 if isInlinableRecordCase c then
-                    FST.GetRecordFields fields.[0].PropertyType
+                    FST.GetRecordFields(fields.[0].PropertyType, flags)
                 else fields
             let fields =
                 fields
@@ -794,7 +794,7 @@ module Internal =
             | Some None -> NoField (inferredCasesTable t)
             | Some (Some n) -> NamedField n
         let cases =
-            FST.GetUnionCases t
+            FST.GetUnionCases(t, flags)
             |> Array.mapi (fun i uci ->
                 let name =
                     match discr with
@@ -841,6 +841,8 @@ let unionEncoder dE (i: FormatSettings) (ta: TAttrs) =
     then
         t.GetGenericArguments().[0]
         |> callGeneric <@ unmakeList @> dE ta
+    elif t = typeof<Encoded> then
+        unbox
     else
     let tR = FSV.PreComputeUnionTagReader(t, flags)
     let cs =
@@ -903,6 +905,8 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
     then
         t.GetGenericArguments().[0]
         |> callGeneric <@ makeList @> dD ta
+    elif t = typeof<Encoded> then
+        Encoded.Lift >> box
     else
     let cases = FST.GetUnionCases(t, flags)
     let cs =
@@ -1488,7 +1492,7 @@ module PlainProviderInternals =
             GetEncodedFieldName = fun t ->
                 let d = Dictionary()
                 let fields =
-                    if FST.IsRecord t then
+                    if FST.IsRecord(t, flags) then
                         FST.GetRecordFields(t, flags)
                         |> Seq.cast<System.Reflection.MemberInfo>
                     else
@@ -1566,13 +1570,13 @@ type Provider(fo: FormatSettings) =
                 let x = FSV.MakeTuple(xs, ta.Type)
                 fun _ -> x)
             (fun dD i ta ->
-                let uci = FST.GetUnionCases(ta.Type).[0]
+                let uci = FST.GetUnionCases(ta.Type, flags).[0]
                 let xs = uci.GetFields() |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
-                let x = FSV.MakeUnion(uci, xs)
+                let x = FSV.MakeUnion(uci, xs, flags)
                 fun _ -> x)
             (fun dD i ta ->
-                let xs = FST.GetRecordFields ta.Type |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
-                let x = FSV.MakeRecord(ta.Type, xs)
+                let xs = FST.GetRecordFields(ta.Type, flags) |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
+                let x = FSV.MakeRecord(ta.Type, xs, flags)
                 fun _ -> x)
             (fun dD i ta ->
                 let x = defaultof ta.Type
@@ -1624,7 +1628,7 @@ type Provider(fo: FormatSettings) =
             nbleEncoder
             objectEncoder
             (fun dE ta ->
-                if ta.Type.IsSealed || FST.IsUnion ta.Type then dE ta else
+                if ta.Type.IsSealed || FST.IsUnion(ta.Type, flags) then dE ta else
                 fun x -> dE (if x = null then ta else { ta with Type = x.GetType() }) x)
             fo
             encoders

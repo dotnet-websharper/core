@@ -258,7 +258,8 @@ module private MacroInternals =
                             |"System.Int64" | "System.UInt64"
                             |"System.Single"| "System.Double"
                             |"System.Decimal"
-                            |"System.String"), []) ->
+                            |"System.String"
+                            |"WebSharper.Core.Json+Encoded"), []) ->
                 ok Funs.id
             | T.Concrete (T "Microsoft.FSharp.Collections.FSharpList`1", [t]) ->
                 encode t >>= fun e ->
@@ -533,3 +534,16 @@ let Decode<'T> (x: obj) = X<'T>
 /// For plain JSON parsing, see Json.Parse.
 [<Macro(typeof<SerializeMacro>)>]
 let Deserialize<'T> (x: string) = X<'T>
+
+let (|Object|Array|Number|String|Boolean|Undefined|) (o: WebSharper.Core.Json.Encoded) =
+    match JS.TypeOf o with
+    | JS.Kind.Boolean -> Boolean (As<bool> o)
+    | JS.Kind.Number -> Number (As<float> o)
+    | JS.Kind.String -> String (As<string> o)
+    | JS.Kind.Undefined -> Undefined o
+    | JS.Kind.Function -> failwith ""
+    | JS.Kind.Object ->
+        if JS.InstanceOf o JS.Window?Array then
+            Array (As<WebSharper.JavaScript.Array<WebSharper.Core.Json.Encoded>> o)
+        else
+            Object (As<WebSharper.JavaScript.Object<WebSharper.Core.Json.Encoded>> o)
