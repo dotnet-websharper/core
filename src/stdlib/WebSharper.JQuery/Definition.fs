@@ -129,8 +129,8 @@ module Definition =
             Required = []
             Optional =
                 [
-                    "top" , T<int>
-                    "left" , T<int>
+                    "top" , T<float>
+                    "left" , T<float>
                 ]
         }
 
