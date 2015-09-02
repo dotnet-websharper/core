@@ -613,7 +613,7 @@ module Content =
             Template(getBasicTemplate, getPageTemplate, Map.add name h holes, controls)
 
         member this.Compile(root) =
-            getBasicTemplate'.Value (defaultArg root ".")
+            getBasicTemplate holes (defaultArg root ".")
             |> ignore
             this
 
@@ -622,10 +622,9 @@ module Content =
             t().Run(value)
 
         member this.CheckPageTemplate(root: string) =
-            ignore (getPageTemplate'.Value root ())
+            ignore (getPageTemplate holes root ())
 
         member this.Run(env: Env, x: Async<'T>, ?root: string) : Async<XS.Element> =
-            let tpl = getPageTemplate'.Value (defaultArg root ".") ()
             let controls = Queue(controls)
             let extra = Dictionary()
             async {
@@ -643,6 +642,7 @@ module Content =
                         |> Seq.toArray
                         :> seq<_>
             let scripts, styles, meta = getSeparateResourcesAndScripts env controls
+            let tpl = getPageTemplate'.Value (defaultArg root ".") ()
             if tpl.Holes |> Seq.exists (fun h -> let h = h.ToUpperInvariant() in h = STYLES || h = META) then
                 extra.[SCRIPTS] <- Seq.singleton (XS.CDataNode scripts :> _)
                 extra.[STYLES] <- Seq.singleton (XS.CDataNode styles :> _)
