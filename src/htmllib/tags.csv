@@ -587,7 +587,7 @@ event,Event,normal,input,Input
 event,Event,normal,invalid,Invalid
 event,KeyboardEvent,normal,keydown,KeyDown
 event,KeyboardEvent,normal,keypress,KeyPress
-event,KeyboardEvent,normal,keyup,keyUp
+event,KeyboardEvent,normal,keyup,KeyUp
 event,Event,normal,languagechange,LanguageChange
 event,Event,normal,levelchange,LevelChange
 event,UIEvent,normal,load,Load
