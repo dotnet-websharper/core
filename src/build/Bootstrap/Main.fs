@@ -80,7 +80,7 @@ let RestorePackages () =
         nuget "install IntelliFactory.Xml -pre -o packages -excludeVersion -nocache"
         nuget "install FSharp.Core.3 -pre -o packages -excludeVersion -nocache"
         nuget "install sharpcompress -version 0.10.3 -o packages -excludeVersion"
-        nuget "install Mono.Cecil -version 0.9.5.4 -o packages -excludeVersion"
+        nuget "install Mono.Cecil -version 0.9.6.1 -o packages -excludeVersion"
         nuget "install AjaxMin -version 5.8.5172.27710 -o packages -excludeVersion"
         nuget "install FsNuGet -o packages -excludeVersion -nocache"
 
