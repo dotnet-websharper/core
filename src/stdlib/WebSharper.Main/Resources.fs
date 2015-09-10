@@ -38,4 +38,6 @@ type IResource = R.IResource
 
 [<assembly: System.Web.UI.WebResource("Json.js", "text/javascript")>]
 [<assembly: System.Web.UI.WebResource("Json.min.js", "text/javascript")>]
+[<assembly: System.Web.UI.WebResource("AnimFrame.js", "text/javascript")>]
+[<assembly: System.Web.UI.WebResource("AnimFrame.min.js", "text/javascript")>]
 do ()

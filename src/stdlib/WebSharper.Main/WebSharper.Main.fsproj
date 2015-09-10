@@ -8,6 +8,8 @@
     <Name>WebSharper.Main</Name>
     <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
+  <Import Project="../../../msbuild/FSharp.targets" />
+  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
     <Compile Include="JavaScript.fs" />
     <EmbeddedResource Include="Json.js" />
@@ -19,6 +21,7 @@
     <Compile Include="Macro.fsi" />
     <Compile Include="Macro.fs" />
     <Compile Include="Pervasives.fs" />
+    <EmbeddedResource Include="AnimFrame.js" />
     <Compile Include="JavaScript.Pervasives.fs" />
     <Compile Include="PrintfHelpers.fs" />
     <Compile Include="Concurrency.fs" />
@@ -95,12 +98,8 @@
       <Project>{730ae40a-001c-4137-972d-898dc7c2bf0a}</Project>
       <Private>True</Private>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Reference Include="FSharp.Data.TypeProviders" />
     <Reference Include="System.Data" />
     <Reference Include="System.Data.Linq" />
   </ItemGroup>
-  <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
 </Project>

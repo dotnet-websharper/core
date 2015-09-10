@@ -24,6 +24,17 @@
 module WebSharper.JavaScript.JS
 
 module A = WebSharper.Core.Attributes
+module Re = WebSharper.Core.Resources
+
+type AnimationFrameResource() =
+    interface Re.IResource with
+        member this.Render ctx html =
+            let html = html Re.Scripts
+            html.WriteLine "<!--[if lte IE 9.0]>"
+            let name = if ctx.DebuggingEnabled then "AnimFrame.js" else "AnimFrame.min.js"
+            let ren = ctx.GetWebResourceRendering typeof<AnimationFrameResource> name
+            ren.Emit(html, Re.Js)
+            html.WriteLine "<![endif]-->"
 
 /// Constructs a JavaScript "undefined" value.
 [<A.Inline "undefined">]
@@ -159,3 +170,13 @@ let Get<'T> (field: string) (target: obj) = X<'T>
 /// Sets a given field on an object.
 [<A.Inline "void ($target[$field] = $v)">]
 let Set (target: obj) (field: string) (v: obj) = X<unit>
+
+/// Requests a function to be called on the next animation frame.
+[<A.Require(typeof<AnimationFrameResource>)>]
+[<A.Inline "requestAnimationFrame($f)">]
+let RequestAnimationFrame (f: float -> unit) = X<Handle>
+
+/// Cancels an animation frame request.
+[<A.Require(typeof<AnimationFrameResource>)>]
+[<A.Inline "cancelAnimationFrame($handle)">]
+let CancelAnimationFrame (handle: Handle) = X<unit>
