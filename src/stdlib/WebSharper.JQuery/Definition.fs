@@ -982,6 +982,8 @@ module Definition =
 
                 "param" => T<obj> * !?T<bool>?traditional ^-> T<string>
 
+                "parseHTML" => T<string> ^-> Type.ArrayOf T<Dom.Element>
+
                 "parseJSON" => T<string->obj>
                 
                 "parseXML" => T<string -> Dom.Document>
