@@ -50,24 +50,29 @@ module internal SiteLoading =
         assembly.GetModules(false)
         |> Seq.collect (fun m ->
             try m.GetTypes() |> Seq.ofArray
-            with :? ReflectionTypeLoadException as e ->
-                e.Types |> Seq.filter (fun t -> not (obj.ReferenceEquals(t, null)))            
+            with
+            | :? ReflectionTypeLoadException as e ->
+                e.Types |> Seq.filter (fun t -> not (obj.ReferenceEquals(t, null)))
+            | _ -> Seq.empty
         )
         |> Seq.tryPick (fun ty ->
-            ty.GetProperties(BF.Static ||| BF.Public ||| BF.NonPublic)
-            |> Array.tryPick (fun p ->
-                match Attribute.GetCustomAttribute(p, aT) with
-                | :? WebsiteAttribute ->
-                    let sitelet = p.GetGetMethod().Invoke(null, [||])
-                    let upcastSitelet =
-                        sitelet.GetType()
-                            .GetProperty("Upcast", BF.Instance ||| BF.NonPublic)
-                            .GetGetMethod(nonPublic = true)
-                            .Invoke(sitelet, [||])
-                            :?> Sitelet<obj>
-                    Some (upcastSitelet, [])
-                | _ -> None
-            )
+            try
+                ty.GetProperties(BF.Static ||| BF.Public ||| BF.NonPublic)
+                |> Array.tryPick (fun p ->
+                    match Attribute.GetCustomAttribute(p, aT) with
+                    | :? WebsiteAttribute ->
+                        let sitelet = p.GetGetMethod().Invoke(null, [||])
+                        let upcastSitelet =
+                            sitelet.GetType()
+                                .GetProperty("Upcast", BF.Instance ||| BF.NonPublic)
+                                .GetGetMethod(nonPublic = true)
+                                .Invoke(sitelet, [||])
+                                :?> Sitelet<obj>
+                        Some (upcastSitelet, [])
+                    | _ -> None
+                )
+            with _ -> None
+
         )
 
     let TryLoadSite (assembly: Assembly) =
