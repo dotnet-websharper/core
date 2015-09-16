@@ -536,25 +536,49 @@ let createPrinter ts fs =
                             C.Lambda(None, [x], 
                                 FST.GetUnionCases(t, flags) |> Seq.map (fun c ->
                                     let fs = c.GetFields()
-                                    c.Tag,
-                                    match fs.Length with
-                                    | 0 -> cString c.Name
-                                    | 1 -> 
-                                        cString (c.Name + " ") + pp fs.[0].PropertyType (C.Var x).[cString "$0"]
-                                    | _ -> 
-                                        seq {
-                                            yield cString (c.Name + " (")
-                                            for i = 0 to fs.Length - 1 do
-                                                yield pp fs.[i].PropertyType (C.Var x).[cString ("$" + string i)]
-                                                if i < fs.Length - 1 then yield cString ", "
-                                            yield cString ")"
-                                        }
-                                        |> Seq.reduce (+)
+                                    let constant =  
+                                        c.GetCustomAttributesData()
+                                        |> Seq.tryPick (fun cad -> 
+                                            if cad.Constructor.DeclaringType = typeof<A.ConstantAttribute> then
+                                                let arg = cad.ConstructorArguments.[0]
+                                                if arg.ArgumentType = typeof<int> then
+                                                    cInt (unbox arg.Value)
+                                                elif arg.ArgumentType = typeof<float> then
+                                                    !~ (C.Double (unbox x))
+                                                elif arg.ArgumentType = typeof<bool> then
+                                                    if unbox arg.Value then !~ C.True else !~ C.False
+                                                elif arg.ArgumentType = typeof<string> then
+                                                    cString (unbox arg.Value)
+                                                else failwith "Invalid ConstantAttribute."
+                                                |> Some
+                                            else None)
+                                    match constant with
+                                    | Some cVal -> Choice1Of2 (cVal, cString c.Name)
+                                    | None -> 
+                                        Choice2Of2(
+                                            c.Tag,
+                                            match fs.Length with
+                                            | 0 -> cString c.Name
+                                            | 1 -> 
+                                                cString (c.Name + " ") + pp fs.[0].PropertyType (C.Var x).[cString "$0"]
+                                            | _ -> 
+                                                seq {
+                                                    yield cString (c.Name + " (")
+                                                    for i = 0 to fs.Length - 1 do
+                                                        yield pp fs.[i].PropertyType (C.Var x).[cString ("$" + string i)]
+                                                        if i < fs.Length - 1 then yield cString ", "
+                                                    yield cString ")"
+                                                }
+                                                |> Seq.reduce (+)
+                                        )
                                 )
-                                |> Seq.fold (fun s (tag, e) ->
+                                |> Seq.fold (fun s cInfo ->
                                     match s with
-                                    | None -> Some e
-                                    | Some s -> Some <| C.IfThenElse ((C.Var x).[cString "$"] &== cInt tag, e, s)
+                                    | None -> match cInfo with Choice1Of2 (_, e) | Choice2Of2 (_, e) -> Some e
+                                    | Some s -> 
+                                        match cInfo with
+                                        | Choice1Of2 (cVal, e) -> Some <| C.IfThenElse (C.Var x &== cVal, e, s)
+                                        | Choice2Of2 (tag, e) -> Some <| C.IfThenElse ((C.Var x).[cString "$"] &== cInt tag, e, s)
                                 ) None |> Option.get
                             )
                         )
