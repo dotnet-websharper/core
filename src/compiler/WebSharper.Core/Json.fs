@@ -1037,6 +1037,8 @@ let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
             match x with
             | :? System.DateTime as t -> i.EncodeDateTime ta t
             | _ -> raise EncoderException
+    elif t = typeof<unit> then
+        fun _ -> EncodedNull
     elif i.ConciseRepresentation &&
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> &&
@@ -1083,6 +1085,10 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
             match i.DecodeDateTime ta x with
             | Some d -> box d
             | None -> raise DecoderException
+    elif t = typeof<unit> then
+        function
+        | Null -> box ()
+        | _ -> raise DecoderException
     elif i.ConciseRepresentation &&
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> &&
