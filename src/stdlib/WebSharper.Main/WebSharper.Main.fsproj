@@ -22,6 +22,7 @@
     <Compile Include="Macro.fs" />
     <Compile Include="Pervasives.fs" />
     <EmbeddedResource Include="AnimFrame.js" />
+    <EmbeddedResource Include="AnimFrame.min.js" />
     <Compile Include="JavaScript.Pervasives.fs" />
     <Compile Include="PrintfHelpers.fs" />
     <Compile Include="Concurrency.fs" />
