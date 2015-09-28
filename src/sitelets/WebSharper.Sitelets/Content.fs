@@ -726,8 +726,8 @@ type Content<'Action> with
                 w.Write(text)
         )
 
-    static member File (path: string, ?allowOutsideRootFolder: bool) : Async<Content<'Action>> =
-        let allowOutsideRootFolder = defaultArg allowOutsideRootFolder false
+    static member File (path: string, ?AllowOutsideRootFolder: bool, ?ContentType) : Async<Content<'Action>> =
+        let allowOutsideRootFolder = defaultArg AllowOutsideRootFolder false
         Content.CustomContent <| fun ctx ->
             if Path.IsPathRooted path && not allowOutsideRootFolder then
                 failwith "Cannot serve file from outside the application's root folder"
@@ -741,7 +741,7 @@ type Content<'Action> with
             if fi.FullName.StartsWith rootFolder || allowOutsideRootFolder then
                 {
                     Status = Http.Status.Ok
-                    Headers = []
+                    Headers = [if ContentType.IsSome then yield Http.Header.Custom "Content-Type" ContentType.Value]
                     WriteBody = fun out ->
                         use inp = fi.OpenRead()
                         let buffer = Array.zeroCreate (16 * 1024)
