@@ -17,7 +17,7 @@ Alternatively, you can use the [F# Yeoman Generator](https://github.com/fsprojec
 
 If you are using any one of the available WebSharper project templates, they should compile and run without any modifications.
 
-If you are creating your project files manually, the following is a typical string of steps to get you up and running, although you should really consider starting off an existing WebSharper template:
+If you are creating your project files manually, the following is a typical string of steps to get you up and running, although you should really consider starting off of an existing WebSharper template:
 
  * Start from an ordinary F# library project
  * Install `WebSharper` using [paket](https://fsprojects.github.io/Paket/). This will include the main `WebSharper.targets` and the core references in your project file.
@@ -53,7 +53,7 @@ In the examples below, you will see how to create [WebSharper sitelets](http://w
    do Warp.RunAndWaitForInput(MySite) |> ignore
    ```
 
-  By default, sites are server on `http://localhost:9000`.
+  By default, sites are served on `http://localhost:9000`.
 
  * **As a Suave application**
 
@@ -119,7 +119,9 @@ Pages are a special type of content responses, and you can easily finetune them 
     )
 ```
 
-You can construct HTML via the (soon legacy) WebSharper 3.x markup combinators in `WebSharper.Html` and `WebSharper.Client.Html`, or using the next generation reactive HTML language from UI.Next (as above). A quick syntax guide to the HTML constructors in UI.Next:
+You can construct HTML via the (soon legacy) WebSharper 3.x markup combinators in `WebSharper.Html.Server` and `WebSharper.Html.Client` (for client-side markup, see the section below), or using the next generation reactive HTML language from UI.Next (as above and in the examples on this page). A quick syntax guide to the HTML constructors in UI.Next:
+
+(TBA)
 
 ### Custom responses
 
@@ -158,7 +160,7 @@ Content responses are asynchronous.  Next to full HTML pages, you can return:
  
 ## Multi-page applications
 
-Multi-page applications have multiple endpoints: pairs of HTTP verbs and paths, and can be represented as a **union type** we typically call `Endpoints`.  These are mapped to content to be served using `Application.MultiPage`.  Links to endpoints in your site can be calculated from the serving context, so you will never have invalid URLs.
+Multi-page applications have multiple endpoints: pairs of HTTP verbs and paths, and are represented as an annotated **union type** we typically call `Endpoints` (or `Action` in previous terminology).  The endpoints, as defined by this union type - given the various annotations on each union case - are mapped to content to be served using `Application.MultiPage`.  Links to endpoints in your site can be calculated from the serving context, so you will never have invalid URLs.
 
 ```fsharp
 module YourApp
@@ -199,7 +201,9 @@ let Main =
 
 ## Adding client-side functionality
 
-WebSharper applications can easily incorporate client-side content, expressed in F#, giving an absolute edge over any web development library. Just mark your client-side functions or modules with `[<JavaScript>]` and embed them into server side markup using `client`. Server-side RPC functions are annotated with `[<Rpc>]`. The example below is reimplemented from the blog entry [Deploying WebSharper apps to Azure via GitHub](http://websharper.com/blog-entry/4368), also available in the main WebSharper templates, and although it omits the more advanced templating in that approach (which is straightforward to add to this implementation), it should give you an recipe for adding client-side functionality to your sitelets easily.
+WebSharper applications can easily incorporate client-side content, expressed in F#, giving an absolute edge over any web development library. Just mark your client-side functions or modules with `[<JavaScript>]` and embed them into server side markup using `client`. Server-side RPC functions are annotated with `[<Rpc>]`.
+
+The example below is reimplemented from the blog entry [Deploying WebSharper apps to Azure via GitHub](http://websharper.com/blog-entry/4368), also available in the main WebSharper templates, and although it omits the more advanced templating in that approach (which is straightforward to add to this implementation), it should give you an recipe for adding client-side functionality to your sitelets easily.
 
 ```fsharp
 module YourApp
@@ -259,7 +263,7 @@ let MySite =
 ## Using JavaScript libraries
 WebSharper extensions bring JavaScript libraries to WebSharper.  You can [download](http://websharper.com/downloads) extensions or develop your own using [WIG](http://websharper.com/docs/wig), among others. Below is an example using [WebSharper.Charting](https://github.com/intellifactory/websharper.charting) and [chart.js](http://www.chartjs.org/) underneath.
 
-Note that these and any other dependencies you may be using will be automatically injected into a `Content.Page` or other sitelet HTML responses, and you will never have to deal with them manually.
+Note that these and any other dependencies you may be using will be automatically injected into a `Content.Page` or other sitelet HTML response, and you will never have to deal with them manually.
 
 ```fsharp
 module YourApp
