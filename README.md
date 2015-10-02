@@ -57,7 +57,25 @@ In the examples below, you will see how to create [WebSharper sitelets](http://w
 
  * **As a Suave application**
 
-   (TBD)
+   Suave is a light-weight web server built in F#.  You can easily use WebSharper in your existing Suave application, or host your WebSharper applications (which should be a console project) on Suave, by adding `WebSharper.Suave` to your project and calling the WebSharper adapter to convert your sitelet to a Suave `WebPart`:
+
+   ```fsharp
+module WebSharperOnSuave
+
+open WebSharper
+open WebSharper.Sitelets
+
+let MySite =
+    Application.Text (fun ctx -> "Hello World")
+
+open global.Suave
+open Suave.Web
+open WebSharper.Suave
+
+startWebServer defaultConfig
+    (WebSharperAdapter.ToWebPart(MySite, RootDirectory="../.."))
+   ```
+
     
 ## Hello World!
 
