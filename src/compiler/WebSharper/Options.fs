@@ -54,7 +54,7 @@ let version =
             |> FileVersionInfo.GetVersionInfo
         Version vn.FileVersion
     with _ ->
-        Version "3.4.0.0"
+        Version "3.5.0.0"
 
 let usage =
     String.Format("\

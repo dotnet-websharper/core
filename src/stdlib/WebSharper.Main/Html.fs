@@ -18,17 +18,19 @@
 //
 // $end{copyright}
 
-namespace WebSharper.Html.Client
+namespace WebSharper
 
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.JQuery
 module M = WebSharper.Core.Metadata
+module J = WebSharper.Core.Json
 
 /// An interface that has to be implemented by controls
 /// that depend on resources.
 type IRequiresResources =
-    abstract member Requires : M.Info -> seq<M.Node>
+    abstract member Requires : seq<M.Node>
+    abstract member Encode : M.Info * J.Provider -> list<string * J.Encoded>
 
 /// HTML content that can be used as the Body of a web Control.
 /// Can be zero, one or many DOM nodes.

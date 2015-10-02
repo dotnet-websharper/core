@@ -2,7 +2,6 @@
   <ItemGroup>
     <CP Include="../src/compiler/*/*.fsproj" />
     <SP Include="../src/stdlib/*/*.fsproj" />
-    <SP Include="../src/htmllib/*/*.fsproj" />
     <SP Include="../src/sitelets/*/*.fsproj" />
     <SP Include="../tests/*/*.fsproj" Exclude="../tests/*/WarpTest.fsproj" />
     <BP Include="../src/build/WebSharper.Build/*.fsproj" />

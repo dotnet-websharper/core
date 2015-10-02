@@ -147,7 +147,7 @@ module Main =
                             yield file "tools" (Path.Combine(fscore, "FSharp.Core.sigdata")) None
                             for (src, tgt) in searchDir (Path.Combine(root, "docs")) do
                                 yield fileAt src ("/docs" + tgt)
-                            yield fileAt (Path.Combine(root, "src", "htmllib", "tags.csv")) ("/tools/net40/tags.csv")
+                            //yield fileAt (Path.Combine(root, "src", "htmllib", "tags.csv")) ("/tools/net40/tags.csv")
                         }
             }
         let compilerNuPkg =
@@ -185,7 +185,7 @@ module Main =
             match Seq.toList args with
             | ["minify"] | ["prepare"] ->
                 Minify.Run()
-                Tags.Run()
+                //Tags.Run()
             | ["package"] -> Package ()
             | _ ->
                 printfn "Known commands:"

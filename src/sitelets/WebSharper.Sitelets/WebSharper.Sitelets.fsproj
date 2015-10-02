@@ -64,11 +64,6 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\htmllib\WebSharper.Html.Server\WebSharper.Html.Server.fsproj">
-      <Name>WebSharper.Html.Server</Name>
-      <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\stdlib\WebSharper.Main\WebSharper.Main.fsproj">
       <Name>WebSharper.Main</Name>
       <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>

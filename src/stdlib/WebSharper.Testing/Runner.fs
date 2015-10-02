@@ -28,7 +28,7 @@ module R = WebSharper.Core.Reflection
 
 [<JavaScript>]
 type private RunnerControlBody() =
-    interface WebSharper.Html.Client.IControlBody with
+    interface IControlBody with
         member this.ReplaceInDom(e) =
             let fixture = JS.Document.CreateElement("div")
             fixture.SetAttribute("id", "qunit-fixture")
@@ -49,8 +49,8 @@ type RunnerControl(reqs: list<M.Node>) =
     [<JavaScript>]
     override this.Body = new RunnerControlBody() :> _
 
-    interface Html.Client.IControl with
-        member this.Requires meta =
+    interface IControl with
+        member this.Requires =
             (ctrlReq :: reqs) :> seq<_>
 
 let Run assemblies =

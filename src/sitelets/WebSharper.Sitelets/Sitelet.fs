@@ -133,10 +133,6 @@ module Sitelet =
                             CustomContent (genResp << Context.Map f)
                         | Content.CustomContentAsync genResp ->
                             CustomContentAsync (genResp << Context.Map f)
-                        | Content.PageContent genPage ->
-                            PageContent (genPage << Context.Map f)
-                        | Content.PageContentAsync genPage ->
-                            PageContentAsync (genPage << Context.Map f)
                 }
         }
 

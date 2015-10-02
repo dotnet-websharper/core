@@ -21,7 +21,6 @@
 namespace WebSharper.Sitelets
 
 open System.Web.UI
-open WebSharper.Html.Server
 open WebSharper
 type private Writer = HtmlTextWriter -> unit
 
@@ -38,9 +37,9 @@ type Page =
         /// Head of the page, ie. contents of the <head> tag.
         /// WebSharper-generated tags, such as script dependencies,
         /// are appended to this head.
-        Head : seq<Element>
+        Head : seq<Web.INode>
         /// Body of the page, ie. contents of the <body> tag.
-        Body : seq<Element>
+        Body : seq<Web.INode>
     }
 
     /// A default, empty page.
