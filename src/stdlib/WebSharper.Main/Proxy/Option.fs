@@ -39,5 +39,5 @@ type private OptionProxy<'T> =
     [<Inline; JavaScript>]
     static member Some(v: 'T) = Some v
 
-    [<Inline; JavaScript>]
-    static member get_None = None
+    static member None 
+        with [<Inline; JavaScript>] get() = None
