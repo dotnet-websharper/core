@@ -22,17 +22,23 @@ namespace WebSharper.Web.Tests
 
 open WebSharper
 open WebSharper.JavaScript
-module A = WebSharper.Core.Attributes
-module H = WebSharper.Html.Client.Tags
+
+[<JavaScript>]
+type Text(txt) =
+    interface IControlBody with
+        member this.ReplaceInDom elt =
+            elt.ParentNode.ReplaceChild(
+                JS.Document.CreateTextNode(txt), elt)
+            |> ignore
 
 type HelloWorld() =
     inherit WebSharper.Web.Control()
 
-    [<A.JavaScript>]
+    [<JavaScript>]
     override this.Body =
         let o = obj ()
         JS.Set o "a" 1
         JS.Set o "b" 2
         let k = JS.Get<int> "b" o
         let t = string k
-        H.Div [H.Text t] :> _
+        Text t :> _

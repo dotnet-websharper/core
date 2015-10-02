@@ -22,47 +22,52 @@
 module Website.Content
 
 open WebSharper
-open WebSharper.Html.Server
 open WebSharper.Sitelets
+open WebSharper.Sitelets.Tests.Server
 module SampleSite = WebSharper.Sitelets.Tests.SampleSite
 
 type FullAction =
     | Site of Actions.Action
     | SiteletsTests of SampleSite.Action
 
-let ( => ) text url =
-    A [HRef url] -< [Text text]
-
-let Menu (ctx: Context<_>) =
-    [
-        LI ["Home" => ctx.Link (Site Actions.Home)]
-        LI ["Client and Remoting Tests" => ctx.Link (Site Actions.Tests)]
-        LI ["Sitelets Tests" => ctx.Link (SiteletsTests SampleSite.Home)]
-    ]
-
-let HomePage =
-    Skin.WithTemplate "Home" Menu <| fun ctx ->
-        let front = Skin.RenderFront ctx
-        [
-            yield! front (Skin.Page.Default "Home")
+let HomePage (ctx: Context<_>) =
+    Content.Page(
+        Title = "WebSharper tests",
+        Body = [
+            Elt("h1", Text "WebSharper tests")
+            Elt("ul",
+                Elt("li",
+                    Elt("a",
+                        Attr("href", ctx.Link (Site Actions.Tests)),
+                        Text "Client-side test suite"
+                    )
+                ),
+                Elt("li",
+                    Elt("a",
+                        Attr("href", ctx.Link (SiteletsTests SampleSite.Home)),
+                        Text "Sitelets test minisite"
+                    )
+                )
+            )
         ]
+    )
 
 let TestsPage =
-    Skin.WithTemplate "Tests" Menu <| fun ctx ->
-        [
-            Div [
-                Testing.Runner.Run [
-                    typeof<WebSharper.Collections.Tests.Dictionary.Foo>.Assembly
-                    typeof<WebSharper.Tests.Object.O>.Assembly
-                    typeof<WebSharper.Web.Tests.HelloWorld>.Assembly
-                    typeof<WebSharper.Html5.Tests.Samples>.Assembly
-                ]
+    Content.Page(
+        Title = "WebSharper client-side tests",
+        Body = [
+            Testing.Runner.Run [
+                typeof<WebSharper.Collections.Tests.Dictionary.Foo>.Assembly
+                typeof<WebSharper.Tests.Object.O>.Assembly
+                typeof<WebSharper.Web.Tests.HelloWorld>.Assembly
+                typeof<WebSharper.Html5.Tests.Elt>.Assembly
             ]
         ]
+    )
 
 let MainSite ctx = function
     | Actions.Home -> HomePage ctx
-    | Actions.Tests -> TestsPage ctx
+    | Actions.Tests -> TestsPage
 
 let Main =
     Sitelet.Sum [
