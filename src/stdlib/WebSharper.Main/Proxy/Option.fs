@@ -35,3 +35,9 @@ type private OptionProxy<'T> =
 
     [<Inline "$x.$ == 0">]
     static member get_IsNone(x: option<'T>) = false
+
+    [<Inline; JavaScript>]
+    static member Some(v: 'T) = Some v
+
+    [<Inline; JavaScript>]
+    static member get_None = None
