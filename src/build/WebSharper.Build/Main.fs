@@ -152,8 +152,8 @@ module Main =
             }
         let compilerNuPkg =
             let bt =
-                bt.PackageId(Config.CompilerPackageId)
-                |> PackageVersion.Full.Custom (Version(nuPkg.GetComputedVersion()))
+                bt.PackageId(Config.CompilerPackageId, Config.PackageVersion)
+                |> PackageVersion.Full.Custom (Version(nuPkg.GetComputedVersion().Split('-').[0]))
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {

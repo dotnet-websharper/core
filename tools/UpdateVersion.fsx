@@ -21,14 +21,17 @@ let UpdateAsmVersionAttr (filePath: string) (version: string) =
         else l
     )
 
-let UpdateConfigFs (filePath: string) (version: string) (suffix: string) =
+let UpdateConfigFs (filePath: string) (version: string) (suffix: option<string>) =
     ReplacePerLine filePath (fun l ->
         if l.Contains "let PlainVersion" then
             Regex("\"[0-9.]+\"")
                 .Replace(l, "\"" + version + "\"")
-        elif l.Contains "let PackageVersion" then
-            Regex("\".*\"")
-                .Replace(l, "\"" + suffix + "\"")
+        elif l.Contains "let VersionSuffix" then
+            Regex("None|Some \".*\"")
+                .Replace(l,
+                    match suffix with
+                    | None -> "None"
+                    | Some suffix -> "Some \"" + suffix + "\"")
         else l
     )
 
@@ -63,8 +66,8 @@ do
         UpdateWebsiteConfigFs (sln +/ "tests" +/ "Website" +/ "Config.fs") v
         UpdateOptionsFs (src +/ "compiler" +/ "WebSharper" +/ "Options.fs") v
     match fsi.CommandLineArgs with
-    | [| _fsx; v |] -> run v ""
-    | [| _fsx; v; s |] -> run v ("-" + s)
+    | [| _fsx; v |] -> run v None
+    | [| _fsx; v; s |] -> run v (Some ("-" + s))
     | args ->
         eprintfn "Usage: UpdateVersion VERSION [SUFFIX]"
         eprintfn "%A" args
