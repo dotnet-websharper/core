@@ -72,6 +72,9 @@ type Content<'Action> =
 /// Provides combinators for modifying content.
 module Content =
 
+    /// Creates Content that depends on the Sitelet context.
+    val FromContext : (Context<'T> -> Async<Content<'T>>) -> Async<Content<'T>>
+
     /// Generates an HTTP response.
     val ToResponse<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>
 
