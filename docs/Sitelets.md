@@ -634,20 +634,29 @@ Content describes the response to send back to the client: HTTP status, headers 
 
 ### Creating Content
 
-There are several functions that create different types of content: HTML Page, JSON, Text, or custom.
+There are several functions that create different types of content, including ordinary text (`Content.Text`), file (`Content.File`), HTML page (`Content.Page`), JSON (`Content.Json`), any custom content (`Content.Custom`), and HTTP error codes and redirects.
 
 #### Content.Text
 
-The simplest response is simply text content, created by passing a string to `Content.Text`.
+The simplest response is plain text content, created by passing a string to `Content.Text`.
 
 ```fsharp
-let SimpleResponse =
+let simpleResponse =
     Content.Text "This is the response body."
+```
+
+#### Content.File
+
+You can serve files using `Content.File`.  Optionally, you can set the content type returned for the file response and whether file access is allowed outside of the web root:
+
+```fsharp
+let fileResponse =
+    Content.File("../Main.fs", AllowOutsideRootFolder=true, ContentType="text/plain")
 ```
 
 #### Content.Page
 
-The first type of content you can return is HTML content, using `Content.Page`. Here is a simple example:
+You can return full HTML pages, with managed dependencies using `Content.Page`. Here is a simple example:
 
 ```fsharp
 let IndexPage =
@@ -659,10 +668,6 @@ let IndexPage =
 ```
 
 The optional named arguments `Title`, `Head`, `Body` and `Doctype` set the corresponding elements of the HTML page. To learn how to create HTML elements for `Head` and `Body`, see [the HTML combinators documentation](HtmlCombinators.md).
-
-#### Content.WithTemplate
-
-Very often, most of a page is constant, and only parts of it need to be generated. Templates allow you to use a static HTML file for the main structure, with placeholders for generated content. [See here for more information about templates.](Templates.md)
 
 <a name="json-response"></a>
 #### Content.Json
@@ -696,6 +701,10 @@ let sitelet = Sitelet.Infer <| fun context endpoint ->
 // Parsed Endpoint:     GetBlogArticle 1423
 // Returned Content:    {"id": 1423, "slug": "some-blog-article", "title": "Some blog article!"}
 ```
+
+#### Content.WithTemplate
+
+Very often, most of a page is constant, and only parts of it need to be generated. Templates allow you to use a static HTML file for the main structure, with placeholders for generated content. [See here for more information about templates.](Templates.md)
 
 #### Content.Custom
 
@@ -760,7 +769,7 @@ module Content =
 let customForbidden =
     Content.Page(
         Title = "No entrance!",
-        Body = [Text "Oops! You're not supposed to be here."] }
+        Body = [Text "Oops! You're not supposed to be here."]
     )
     // Set the HTTP status code to 403 Forbidden:
     |> Content.SetStatus Http.Status.Forbidden
