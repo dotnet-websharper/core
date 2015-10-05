@@ -184,10 +184,6 @@ module Content =
     let toCustomContent genPage context =
         Async.RunSynchronously(toCustomContentAsync genPage context)
 
-    let FromContent f =
-        Content.CustomContentAsync f
-        |> async.Return
-
     let JsonContent<'T, 'U> (f: Context<'T> -> 'U) =
         let encoder = ActionEncoding.JsonProvider.GetEncoder<'U>()
         Content.CustomContent <| fun ctx ->
@@ -226,6 +222,13 @@ module Content =
         | CustomContentAsync x -> x ctx
         | PageContent genPage -> toCustomContentAsync (fun c -> async { return genPage c }) ctx
         | PageContentAsync genPage -> toCustomContentAsync genPage ctx
+
+    let FromContext f =
+        Content.CustomContentAsync (fun ctx -> async {
+            let! content = f ctx
+            return! ToResponse content ctx
+        })
+        |> async.Return
 
     let ToResponseAsync c ctx = ToResponse c ctx
 
