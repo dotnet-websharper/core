@@ -44,9 +44,6 @@
     <Reference Include="IntelliFactory.Core">
       <HintPath>../../../packages/IntelliFactory.Core/lib/net40/IntelliFactory.Core.dll</HintPath>
     </Reference>
-    <Reference Include="IntelliFactory.Xml">
-      <HintPath>../../../packages/IntelliFactory.Xml/lib/net40/IntelliFactory.Xml.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">

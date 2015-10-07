@@ -89,7 +89,6 @@ module Main =
             lib "tools" "Mono.Cecil.Mdb"
             lib "tools" "Mono.Cecil.Pdb"
             lib "tools" "IntelliFactory.Core"
-            lib "lib"   "IntelliFactory.Xml"
         ]
         |> Seq.toList
         ,

@@ -77,7 +77,6 @@ let RestorePackages () =
         nuget "install NuGet.Core -version 2.8.6 -o packages -excludeVersion"
         nuget "install IntelliFactory.Core -pre -o packages -excludeVersion -nocache"
         nuget "install IntelliFactory.Build -pre -o packages -excludeVersion -nocache"
-        nuget "install IntelliFactory.Xml -pre -o packages -excludeVersion -nocache"
         nuget "install FSharp.Core.3 -pre -o packages -excludeVersion -nocache"
         nuget "install sharpcompress -version 0.10.3 -o packages -excludeVersion"
         nuget "install Mono.Cecil -version 0.9.5.4 -o packages -excludeVersion"
