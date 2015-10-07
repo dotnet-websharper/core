@@ -40,8 +40,6 @@ module Content =
     module M = WebSharper.Core.Metadata
     module R = WebSharper.Core.Reflection
     module J = WebSharper.Core.Json
-    module XS = IntelliFactory.Xml.SimpleXml
-    module XT = IntelliFactory.Xml.Templating
 
     let metaJson<'T> (m: M.Info) (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
         controls
