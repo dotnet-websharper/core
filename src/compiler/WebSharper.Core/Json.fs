@@ -1473,10 +1473,40 @@ module TypedProviderInternals =
             Pack = pack
         }
 
-module PlainProviderInternals =
+let culture = System.Globalization.CultureInfo.InvariantCulture
+let dtstyle = System.Globalization.DateTimeStyles.None
 
-    let culture = System.Globalization.CultureInfo.InvariantCulture
-    let dtstyle = System.Globalization.DateTimeStyles.None
+type FormatOptions =
+    {
+        EncodeDateTime : option<string> -> System.DateTime -> Encoded
+        DecodeDateTime : option<string> -> Value -> option<System.DateTime>
+    }
+
+let defaultFormatOptions =
+    {
+        EncodeDateTime = fun fmt ->
+            let fmt = defaultArg fmt "o"
+            fun d -> EncodedString (d.ToString(fmt, culture))
+        DecodeDateTime = fun fmt ->
+            let fmt =
+                match fmt with
+                | Some x -> [|x|]
+                // "o" only accepts 7 digits after the seconds,
+                // but JavaScript's Date.toISOString() only outputs 3.
+                // So we add a custom format to accept that too.
+                | None -> [|"o"; @"yyyy-MM-dd\THH:mm:ss.fff\Z"|]
+            function
+            | String s ->
+                match System.DateTime.TryParseExact(s, fmt, culture, dtstyle) with
+                | true, x -> Some x
+                | false, _ -> None
+            | _ -> None
+    }
+
+type FormatOptions with
+    static member Default = defaultFormatOptions
+
+module PlainProviderInternals =
 
     let rec flatten encoded =
         let rec pk = function
@@ -1536,35 +1566,25 @@ module PlainProviderInternals =
                     fun tag -> Some (n, tags.[tag])
             GetEncodedUnionFieldName = fun p -> let n = TAttrs.GetName p in fun _ -> n
             EncodeDateTime = fun ta ->
-                let fmt = defaultArg ta.DateTimeFormat "o"
-                fun d -> EncodedString (d.ToString(fmt, culture))
+                defaultFormatOptions.EncodeDateTime ta.DateTimeFormat
             DecodeDateTime = fun ta ->
-                let fmt =
-                    match ta.DateTimeFormat with
-                    | Some x -> [|x|]
-                    // "o" only accepts 7 digits after the seconds,
-                    // but JavaScript's Date.toISOString() only outputs 3.
-                    // So we add a custom format to accept that too.
-                    | None -> [|"o"; @"yyyy-MM-dd\THH:mm:ss.fff\Z"|]
-                function
-                | String s ->
-                    match System.DateTime.TryParseExact(s, fmt, culture, dtstyle) with
-                    | true, x -> Some x
-                    | false, _ -> None
-                | _ -> None
+                defaultFormatOptions.DecodeDateTime ta.DateTimeFormat
             ConciseRepresentation = true
             Pack = flatten
         }
 
 [<Sealed>]
 type Provider(fo: FormatSettings) =
+    [<System.NonSerialized>]
     let decoders = Dictionary()
+    [<System.NonSerialized>]
     let encoders = Dictionary()
 
     let defaultof (t: System.Type) =
         if t = typeof<string> then box "" else
         genLetMethod(<@ Unchecked.defaultof<_> @>, [|t|]).Invoke0()
 
+    [<System.NonSerialized>]
     let getDefaultBuilder =
         getEncoding
             (fun _ -> Some defaultof)
@@ -1604,6 +1624,7 @@ type Provider(fo: FormatSettings) =
             | Choice1Of2 x -> x
             | Choice2Of2 x -> raise (NoDecoderException x)
 
+    [<System.NonSerialized>]
     let getDecoder =
         getEncoding (fun {Decode=x} -> x)
             arrayDecoder
@@ -1622,6 +1643,7 @@ type Provider(fo: FormatSettings) =
             | Choice1Of2 x -> Decoder x
             | Choice2Of2 x -> raise (NoDecoderException x)
 
+    [<System.NonSerialized>]
     let getEncoder =
         getEncoding (fun {Encode=x} -> x)
             arrayEncoder
@@ -1644,6 +1666,13 @@ type Provider(fo: FormatSettings) =
 
     static member Create() =
         Provider PlainProviderInternals.format
+
+    static member Create (options: FormatOptions) =
+        Provider
+            { PlainProviderInternals.format with
+                EncodeDateTime = fun ta -> options.EncodeDateTime ta.DateTimeFormat
+                DecodeDateTime = fun ta -> options.DecodeDateTime ta.DateTimeFormat
+            }
 
     static member CreateTyped (info: M.Info) =
         Provider (TypedProviderInternals.format info)

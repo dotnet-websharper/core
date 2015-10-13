@@ -97,6 +97,14 @@ type Encoder =
 type Encoder<'T> =
     member Encode : 'T -> Encoded
 
+type FormatOptions =
+    {
+        EncodeDateTime : option<string> -> System.DateTime -> Encoded
+        DecodeDateTime : option<string> -> Value -> option<System.DateTime>
+    }
+
+    static member Default : FormatOptions
+
 /// Provides JSON encodings for arbitrary types.
 [<Sealed>]
 type Provider =
@@ -107,6 +115,13 @@ type Provider =
     /// It is the encoding used by Sitelets (Infer, JsonContent)
     /// and WebSharper.Json.Serialize/Deserialize.
     static member Create : unit -> Provider
+
+    /// Constructs a basic JSON encoding provider.
+    /// This provider uses an untyped encoding
+    /// and is suitable for use with external APIs.
+    /// It is the encoding used by Sitelets (Infer, JsonContent)
+    /// and WebSharper.Json.Serialize/Deserialize.
+    static member Create : FormatOptions -> Provider
 
     /// Constructs a typed JSON encoding provider.
     /// This provider uses a WebSharper-specific encoding of types
