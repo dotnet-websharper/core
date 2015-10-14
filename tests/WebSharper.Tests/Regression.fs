@@ -311,10 +311,9 @@ let Tests =
             equal (f 2) 6
         }
 
-        Test "Bug #352" {
-            equal (Bug352.B().Foo()) 2    
-        }
-                 
+//        Test "Bug #352" {
+//            equal (Bug352.B().Foo()) 2    
+//        }
 
         Test "Bug #396" {
             let disposed = ref false
@@ -330,7 +329,7 @@ let Tests =
             isTrue !disposed 
         }
 
-        Test "Bug #446" {
-            equal ((Bug446.B() :> Bug446.A).Foo()) 2
-        }
+//        Test "Bug #446" {
+//            equal ((Bug446.B() :> Bug446.A).Foo()) 2
+//        }
     }

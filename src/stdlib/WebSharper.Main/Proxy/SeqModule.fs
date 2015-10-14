@@ -154,7 +154,7 @@ let Concat (ss: seq<#seq<'T>>) : seq<'T> =
                     st.Current <- innerE.Current
                     true
                 else
-                    st.Dispose()
+                    (st :> System.IDisposable).Dispose()
                     st.State <- null
                     next st
         Enumerator.NewDisposing null (fun st -> 

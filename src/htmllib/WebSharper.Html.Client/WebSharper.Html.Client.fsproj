@@ -6,8 +6,6 @@
     <Name>WebSharper.Html.Client</Name>
     <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
-  <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
     <Compile Include="HtmlInterfaces.fs" />
     <Compile Include="Text.fs" />
@@ -41,4 +39,5 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
+  <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
 </Project>

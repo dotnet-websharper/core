@@ -104,8 +104,9 @@ let private NewFromList<'T> (fields: seq<string * obj>) : 'T =
     As r
 
 /// Constructs a new object as if an object literal was used.
-[<Macro(typeof<M.New>)>]
-let New<'T> (fields: seq<string * obj>) = X<'T>
+//[<Macro(typeof<M.New>)>]
+[<JavaScript>]
+let New<'T> (fields: seq<string * obj>) = NewFromList<'T> fields //X<'T>
 
 /// Constructs an proxy to a remote object instance.
 [<Inline "null">]

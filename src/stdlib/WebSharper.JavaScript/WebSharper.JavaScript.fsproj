@@ -8,8 +8,7 @@
     <Name>WebSharper.JavaScript</Name>
     <WebSharperProject>Extension</WebSharperProject>
   </PropertyGroup>
-  <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
+  <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>
     <Compile Include="Ecma.fs" />
     <Compile Include="Dom.fs" />

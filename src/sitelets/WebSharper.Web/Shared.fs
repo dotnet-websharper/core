@@ -22,7 +22,6 @@ module WebSharper.Web.Shared
 
 module J = WebSharper.Core.Json
 module M = WebSharper.Core.Metadata
-module R = WebSharper.Core.Reflection
 
 let private trace =
     System.Diagnostics.TraceSource("WebSharper",
@@ -30,18 +29,18 @@ let private trace =
 
 let private loadMetadata () =
     let before = System.DateTime.UtcNow
-    let value =
+    let metas =
         System.Web.Compilation.BuildManager.GetReferencedAssemblies()
         |> Seq.cast<System.Reflection.Assembly>
         |> Seq.toList
-        |> List.choose M.AssemblyInfo.LoadReflected
-        |> M.Info.Create
+        |> List.choose M.IO.LoadReflected
     let after = System.DateTime.UtcNow
     trace.TraceInformation("Initialized WebSharper in {0} seconds.",
         (after-before).TotalSeconds)
-    value
+    if List.isEmpty metas then M.empty else M.union metas
 
-let Metadata = loadMetadata ()
+let Metadata = loadMetadata () 
+let Dependencies = M.Graph.FromData Metadata.Dependencies
 
 let Json = J.Provider.CreateTyped Metadata
 

@@ -95,3 +95,4 @@ type BaseResource =
 type Runtime =
     new : unit -> Runtime
     interface IResource
+    static member Instance : IResource

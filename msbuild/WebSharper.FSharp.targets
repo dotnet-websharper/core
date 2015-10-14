@@ -1,0 +1,105 @@
+﻿<!--
+// $begin{copyright}
+// 
+// This file is part of WebSharper
+// 
+// Copyright (c) 2008-2014 IntelliFactory
+// 
+// GNU Affero General Public License Usage
+// WebSharper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU Affero General Public License, version 3, as published
+// by the Free Software Foundation.
+//
+// WebSharper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License
+// for more details at <http://www.gnu.org/licenses/>.
+//
+// If you are unsure which license is appropriate for your use, please contact
+// IntelliFactory at http://intellifactory.com/contact.
+//
+// $end{copyright}
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/net40/WebSharper.MSBuild.FSharp.dll</WebSharperTaskAssembly>
+  </PropertyGroup>
+  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.WebSharperTask" />
+  <!--Target Name="WebSharperBundle" AfterTargets="Build">
+    <WebSharperTask Command="Bundle" ItemInput="$(TargetPath);@(ReferencePath)"
+      Configuration="$(Configuration)"
+      DocumentationFile="$(DocumentationFile)"
+      EmbeddedResources="@(EmbeddedResource)"
+      KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
+      Name="$(AssemblyName)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
+      WebSharperSourceMap="$(WebSharperSourceMap)"          
+      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
+      WebSharperProject="$(WebSharperProject)" />
+  </Target>-->
+  <Target Name="WebSharperClean" AfterTargets="Clean">
+    <WebSharperTask Command="Clean" ItemInput="@(IntermediateAssembly)"
+      Configuration="$(Configuration)"
+      DocumentationFile="$(DocumentationFile)"
+      EmbeddedResources="@(EmbeddedResource)"
+      KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
+      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
+      Name="$(AssemblyName)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
+      WebSharperProject="$(WebSharperProject)" />
+  </Target>
+  <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
+    <WebSharperTask Command="Compile" ItemInput="@(IntermediateAssembly);@(ReferencePath)" ContinueOnError="false"
+      Configuration="$(Configuration)"
+      DocumentationFile="$(DocumentationFile)"
+      EmbeddedResources="@(EmbeddedResource)"
+      KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
+      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
+      Name="$(AssemblyName)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
+      WebSharperSourceMap="$(WebSharperSourceMap)"          
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
+      WebSharperProject="$(WebSharperProject)" />
+  </Target>
+  <Target Name="WebSharperHtml" AfterTargets="Build">
+    <WebSharperTask Command="Html" ItemInput="$(TargetPath);@(ReferencePath)"
+      Configuration="$(Configuration)"
+      DocumentationFile="$(DocumentationFile)"
+      EmbeddedResources="@(EmbeddedResource)"
+      KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
+      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
+      Name="$(AssemblyName)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
+      WebSharperSourceMap="$(WebSharperSourceMap)"          
+      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
+      WebSharperProject="$(WebSharperProject)" />
+  </Target>
+  <Target Name="WebSharperUnpack" AfterTargets="Build">
+    <WebSharperTask Command="Unpack" ItemInput="@(ReferencePath)"
+      Configuration="$(Configuration)"
+      DocumentationFile="$(DocumentationFile)"
+      EmbeddedResources="@(EmbeddedResource)"
+      KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
+      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
+      Name="$(AssemblyName)"
+      OutputPath="$(OutputPath)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
+      WebSharperSourceMap="$(WebSharperSourceMap)"          
+      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
+      WebSharperProject="$(WebSharperProject)" />
+  </Target>
+</Project>

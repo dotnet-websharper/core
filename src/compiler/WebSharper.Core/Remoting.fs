@@ -163,11 +163,12 @@ exception NoRemoteAttributeException
 [<Sealed>]
 type Server(mk, info) =
     let jP = J.Provider.CreateTyped info
+    let remote = M.getRemoteMethods info
     let d = Dictionary()
-    let getConverter td m =
-        match info.RemoteMethods.TryFind m with
+    let getConverter m =
+        match remote.TryFind m with
         | None -> raise NoRemoteAttributeException
-        | Some m -> toConverter mk jP (AST.Reflection.loadMethod td m)
+        | Some (td, m) -> toConverter mk jP (AST.Reflection.loadMethod td m)
     let getCachedConverter m =
         let v = lock d (fun () ->
             match d.TryGetValue m with

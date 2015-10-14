@@ -5,9 +5,8 @@
     <OutputType>Library</OutputType>
     <Name>WebSharper.Sitelets</Name>
   </PropertyGroup>
-  <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
-  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
+  <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>
     <Compile Include="Extensions.fs" />
     <Compile Include="Attributes.fs" />

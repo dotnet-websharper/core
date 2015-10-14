@@ -29,6 +29,7 @@
     <Compile Include="Interop.fs" />
     <Compile Include="JavaScript.Extensions.fs" />
     <Compile Include="CollectionInternals.fs" />
+    <Compile Include="Proxy/Object.fs" />
     <Compile Include="Proxy/IntrinsicFunctions.fs" />
     <Compile Include="Proxy/Array.fs" />
     <Compile Include="Proxy/ArrayModule.fs" />
@@ -45,6 +46,7 @@
     <Compile Include="Proxy/ExtraTopLevelOperators.fs" />
     <Compile Include="Proxy/Func.fs" />
     <Compile Include="Proxy/Guid.fs" />
+    <Compile Include="Proxy/IComparable.fs" />
     <Compile Include="Proxy/IDisposable.fs" />
     <Compile Include="Proxy/IEnumerable.fs" />
     <Compile Include="Proxy/IEnumerator.fs" />
@@ -58,7 +60,6 @@
     <Compile Include="Proxy/ListModule.fs" />
     <Compile Include="Proxy/Math.fs" />
     <Compile Include="Proxy/Nullable.fs" />
-    <Compile Include="Proxy/Object.fs" />
     <Compile Include="Proxy/Operators.fs" />
     <Compile Include="Proxy/OperatorIntrinsics.fs" />
     <Compile Include="Proxy/Option.fs" />
@@ -101,6 +102,5 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Data.Linq" />
   </ItemGroup>
-  <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
+  <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
 </Project>

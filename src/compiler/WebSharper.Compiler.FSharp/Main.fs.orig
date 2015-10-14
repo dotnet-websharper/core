@@ -1,0 +1,217 @@
+﻿namespace WebSharper.Compiler.FSharp
+
+open Microsoft.FSharp.Compiler.SourceCodeServices
+open Microsoft.FSharp.Compiler.SimpleSourceCodeServices
+
+open System.IO
+
+module M = WebSharper.Core.Metadata
+
+type internal FSIFD = FSharpImplementationFileDeclaration
+
+//let translateProject prevMeta (path: string) =
+//    async {
+//        let projectOptions = checker.GetProjectOptionsFromProjectFile path
+//        let! checkFileResults = 
+//            projectOptions
+//            |> checker.ParseAndCheckProject 
+//        checker.StartBackgroundCompile projectOptions
+//
+//        let decl = 
+//            checkFileResults.AssemblyContents.ImplementationFiles
+//            |> Seq.collect (fun f -> f.Declarations)
+//
+//        let meta = WebSharper.Compiler.FSharp.Translator.transformAssembly decl
+//
+//        for node in meta.Translated.Values do 
+//            let toJS = WebSharper.Compiler.Common.ToJavaScript.ToJavaScript(meta)
+//            node.Body <- toJS.TransformExpression node.Body 
+//
+//        checker.WaitForBackgroundCompile()
+//        return meta
+//    }
+//
+//    // TODO : better assembly resolve
+//    System.AppDomain.CurrentDomain.add_AssemblyResolve(fun _ a ->
+//        checkFileResults.ProjectContext.GetReferencedAssemblies()
+//        |> Seq.tryPick(fun ra -> 
+//            if ra.SimpleName = a.Name then
+//                ra.FileName
+//                |> Option.map System.Reflection.Assembly.LoadFile
+//            else None
+//        )
+//        |> Option.toObj   
+//    )
+
+open IntelliFactory.Core
+
+
+type WebSharperFSharpCompiler(logger) =
+    let checker = FSharpChecker.Create(keepAssemblyContents=true)
+    let service = SimpleSourceCodeServices()
+
+    member this.Compile (paths, references, argv, path: string) =
+
+        let started = System.DateTime.Now
+
+        let projectOptions =
+            try
+                checker.GetProjectOptionsFromCommandLineArgs(path, argv)
+            with e ->
+//                printfn "Error: %s" e.Message
+                failwithf "Error reading project options: %s" path
+
+        let ended = System.DateTime.Now
+        logger <| sprintf "Creating project options: %A" (ended - started)
+        let started = ended 
+
+
+//        printfn "Done. Checking..."
+
+        let checkFileResults = 
+            projectOptions
+            |> checker.ParseAndCheckProject 
+            |> Async.RunSynchronously
+
+        let ended = System.DateTime.Now
+        logger <| sprintf "Checking project: %A" (ended - started)
+        let started = ended 
+
+    
+//        printfn "Done."
+
+        if checkFileResults.HasCriticalErrors then
+            for err in checkFileResults.Errors do
+                printfn "%s" err.Message
+            failwith "FSharp compilation error"
+    
+//        printfn "No errors. Parsing..."
+
+        checker.StartBackgroundCompile projectOptions
+        logger "Done. Compiling..."
+        checker.WaitForBackgroundCompile()
+
+        let aR =
+            AssemblyResolution.AssemblyResolver.Create()
+                .SearchPaths(paths)
+        aR.Wrap <| fun () ->
+        let loader = WebSharper.Compiler.FrontEnd.Loader.Create aR (eprintfn "%s") //(fun msg -> out.Add(CompilerMessage.Warn msg))
+        let refs = [ for r in references -> loader.LoadFile(r) ]
+        let refMeta =
+            let metas = refs |> List.choose (fun r -> WebSharper.Compiler.FrontEnd.readFromAssembly r)
+            if List.isEmpty metas then None else Some (WebSharper.Core.Metadata.union metas)
+
+        let refMeta =   
+            match refMeta with
+            | None -> M.empty
+            | Some dep -> dep  
+        
+        let comp = 
+            WebSharper.Compiler.FSharp.Translator.transformAssembly refMeta
+                (Path.GetFileNameWithoutExtension path)
+                checkFileResults
+
+        let ended = System.DateTime.Now
+        logger <| sprintf "Parsing with FCS: %A" (ended - started)
+        let started = ended 
+
+//        let comp =
+//            match prevMeta with
+//            | None -> comp
+//            | Some dep -> WebSharper.Core.Metadata.union dep comp  
+
+
+        let ended = System.DateTime.Now
+        logger <| sprintf "Metadata union: %A" (ended - started)
+        let started = ended 
+
+
+
+        while comp.CompilingMethods.Count > 0 do
+            let toJS = WebSharper.Compiler.ToJavaScript.ToJavaScript(comp, None)
+            let (KeyValue((t, m), (i, e))) =  Seq.head comp.CompilingMethods
+            toJS.CompileMethod(i, e, t, m)
+        
+        while comp.CompilingConstructors.Count > 0 do
+            let toJS = WebSharper.Compiler.ToJavaScript.ToJavaScript(comp, None)
+            let (KeyValue((t, m), (i, e))) =  Seq.head comp.CompilingConstructors
+            toJS.CompileConstructor(i, e, t, m)
+
+        for t, a, e in comp.GetCompilingStaticConstructors() do
+            let toJS = WebSharper.Compiler.ToJavaScript.ToJavaScript(comp, comp.TryLookupClassInfo(t).Value.Address)
+            toJS.CompileStaticConstructor(a, e, t)
+
+        for t, it, m, i, e in comp.GetCompilingImplementations() do
+            let toJS = WebSharper.Compiler.ToJavaScript.ToJavaScript(comp, None)
+            toJS.CompileImplementation(i, e, t, it, m)
+            
+//        for address, node in M.getCurrentNodes comp do 
+//            let toJS = WebSharper.Compiler.ToJavaScript.ToJavaScript(comp, address)
+//            //let tr = toJS.TransformNodeExpression node.Body
+//            toJS.CompileNode(node)
+//            //node.Body <- tr  
+
+//        let initActions = Array.ofSeq comp.InitActions
+//        comp.InitActions.Clear()
+//        for i = 0 to comp.InitActions.Length - 1 do
+//            let toJS = WebSharper.Compiler.ToJavaScript.ToJavaScript(comp)
+//            comp.InitActions.[i] <- toJS.TransformStatement comp.InitActions.[i]             
+
+
+        let ended = System.DateTime.Now
+        logger <| sprintf "Transforming: %A" (ended - started)
+        let started = ended 
+
+//        printfn "Done."
+
+        comp
+
+    member this.CompileFSharp (argv, path: string) =
+//        use proc =
+//            new System.Diagnostics.Process(
+//                StartInfo = 
+//                    System.Diagnostics.ProcessStartInfo(
+//                        @"C:\Program Files (x86)\Microsoft SDKs\F#\3.0\Framework\v4.0\fsc.exe", 
+//                        argv |> Seq.map (fun a -> "\"" + a + "\"") |> String.concat " "
+//                    )
+//            )
+//        proc.Start() |> ignore
+//        proc.WaitForExit()
+//        if proc.ExitCode <> 0 then
+//            failwith "F# compilation error"
+        let dir = Path.GetDirectoryName path
+        Directory.CreateDirectory dir |> ignore
+        let messages, res = service.Compile(Array.append [| "fsc.exe" |] argv)
+        let errors = messages |> Array.filter (fun e -> e.Severity = Microsoft.FSharp.Compiler.FSharpErrorSeverity.Error)
+        if errors.Length > 0 then
+            eprintfn "%A" errors
+            failwith "F# compilation error"
+
+
+
+//        let projectOptions =
+//            try
+//                checker.GetProjectOptionsFromCommandLineArgs(path, args)
+//            with e ->
+////                printfn "Error: %s" e.Message
+//                failwithf "Error reading project options: %s" path
+//
+//        let checkFileResults = 
+//            projectOptions
+//            |> checker.ParseAndCheckProject 
+//            |> Async.RunSynchronously
+//    
+////        printfn "Done."
+//
+//        if checkFileResults.HasCriticalErrors then
+//            for err in checkFileResults.Errors do
+//                printfn "%s" err.Message
+//            failwith "FSharp compilation error"
+//    
+////        printfn "No errors. Parsing..."
+//
+//        checker.StartBackgroundCompile projectOptions
+//
+////        printfn "Done. Compiling..."
+//
+//        checker.WaitForBackgroundCompile()

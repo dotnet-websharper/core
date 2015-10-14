@@ -26,8 +26,10 @@ module A = WebSharper.Html.Server.Attr
 module H = WebSharper.Html.Server.Html
 module T = WebSharper.Html.Server.Tags
 module M = WebSharper.Core.Metadata
-module R = WebSharper.Core.Reflection
-module P = WebSharper.Core.JavaScript.Packager
+module R = WebSharper.Core.AST.Reflection
+//module P = WebSharper.Core.JavaScript.Packager
+
+open WebSharper.Core
 
 /// A base class for defining custom ASP.NET controls. Inherit from this class,
 /// override the Body property and use the new class as a Server ASP.NET
@@ -57,16 +59,22 @@ type Control() =
             let el = el |> H.Annotate this
             H.ContentNode el
 
+    [<JavaScript>]
     abstract member Body : Html.Client.IControlBody
+    [<JavaScript>]
     default this.Body = Unchecked.defaultof<_>
 
     interface Html.Client.IControl with
+        [<JavaScript>]
         member this.Body = this.Body
         member this.Id = this.ID
         member this.Requires meta =
             let t = this.GetType()
             let t = if t.IsGenericType then t.GetGenericTypeDefinition() else t
-            [M.TypeNode (R.TypeDefinition.FromType t)] :> seq<_>
+            let m = t.GetProperty("Body").GetGetMethod()
+            
+            [M.MethodNode (R.getTypeDefinition t, WebSharper.Core.Utilities.Hashed (R.getMethod m))] :> seq<_>
+//            [M.TypeNode (R.getTypeDefinition t)] :> seq<_>
 
     override this.Render writer =
         writer.WriteLine("<div id='{0}'></div>", this.ID)
@@ -100,33 +108,40 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
                 | _ -> None)
         defaultArg l "(no location)"
 
-    static let ctrlReq = M.TypeNode (R.TypeDefinition.FromType typeof<InlineControl<Html.Client.IControlBody>>)
+    static let ctrlReq = M.TypeNode (R.getTypeDefinition typeof<InlineControl<Html.Client.IControlBody>>)
 
     [<System.NonSerialized>]
     let bodyAndReqs =
-        let declType, name, args, fReqs =
+        let declType, meth, args, fReqs =
             let elt =
                 match elt :> Expr with
                 | Coerce (e, _) -> e
                 | e -> e
             match elt with
             | PropertyGet(None, p, args) ->
-                let rp = R.Property.Parse p
-                rp.DeclaringType, rp.Name, args, [M.TypeNode rp.DeclaringType]
+                //let rp = R.Property.Parse p
+                let m = p.GetGetMethod()
+                let dt = R.getTypeDefinition p.DeclaringType
+                let meth = Hashed (R.getMethod m)
+                dt, meth, args, [M.MethodNode (dt, meth)]
+//                rp.DeclaringType, rp.Name, args, [M.TypeNode rp.DeclaringType]
             | Call(None, m, args) ->
-                let rm = R.Method.Parse m
-                rm.DeclaringType, rm.Name, args, [M.MethodNode rm; M.TypeNode rm.DeclaringType]
+//                let rm = R.Method.Parse m
+                let dt = R.getTypeDefinition m.DeclaringType
+                let meth = Hashed (R.getMethod m)
+                dt, meth, args, [M.MethodNode (dt, meth)]
+//                rm.DeclaringType, rm.Name, args, [M.MethodNode rm; M.TypeNode rm.DeclaringType]
             | e -> failwithf "Wrong format for InlineControl at %s: expected global value or function access, got: %A" (getLocation()) e
         let args, argReqs =
             args
             |> List.mapi (fun i -> function
-                | Value (v, t) -> v, M.TypeNode (R.TypeDefinition.FromType t)
+                | Value (v, t) -> v, M.TypeNode (R.getTypeDefinition t)
                 | _ -> failwithf "Wrong format for InlineControl at %s: argument #%i is not a literal or a local variable" (getLocation()) (i+1)
             )
             |> List.unzip
         let args = Array.ofList args
         let reqs = ctrlReq :: fReqs @ argReqs :> seq<_>
-        args, (declType, name, reqs)
+        args, (declType, meth, reqs)
 
     let args = fst bodyAndReqs
     let mutable funcName = [||]
@@ -138,17 +153,15 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
 
     interface Html.Client.IControl with
         member this.Requires meta =
-            let declType, name, reqs = snd bodyAndReqs
+            let declType, meth, reqs = snd bodyAndReqs
             if funcName.Length = 0 then
-                match meta.GetAddress declType with
+                match meta.Classes.TryFind declType with
                 | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
-                | Some a ->
-                    let rec mk acc (a: P.Address) =
-                        let acc = a.LocalName :: acc
-                        match a.Parent with
-                        | None -> Array.ofList acc
-                        | Some p -> mk acc p
-                    funcName <- mk [name] a
+                | Some cls ->
+                    match cls.Methods.TryFind meth with
+                    | Some (M.Static a, _) ->
+                        funcName <- Array.ofList (List.rev a.Value)
+                    | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
             reqs
 
 namespace WebSharper

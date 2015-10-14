@@ -1,6 +1,7 @@
-﻿module WebSharper.Compiler.Common.ToJavaScriptSyntax
+﻿module WebSharper.Compiler.ToJavaScriptSyntax
 
 module J = WebSharper.Core.JavaScript.Syntax
+module I = WebSharper.Core.JavaScript.Identifier
 
 open WebSharper.Core
 open WebSharper.Core.AST
@@ -8,11 +9,15 @@ open WebSharper.Core.AST
 type Environment =
     {
 //        CaughtException : option<Expr<unit, unit>> // TODO
+        AssemblyName : string
+        Preference : WebSharper.Core.JavaScript.Preferences
         mutable ScopeVars : Set<string>
         mutable ScopeIds : Map<Id, string>
     }
-    static member New() =
+    static member New(name, pref) =
         {
+            AssemblyName = name
+            Preference = pref    
 //            CaughtException = None
             ScopeVars = Set.empty
             ScopeIds = Map.empty
@@ -20,7 +25,9 @@ type Environment =
 
     member this.Clone() =
         {
-//            CaughtException = this.    
+            AssemblyName = this.AssemblyName
+            Preference = this.Preference    
+//            CaughtException = this.CaughtException
             ScopeVars = this.ScopeVars
             ScopeIds = this.ScopeIds
         }
@@ -29,7 +36,9 @@ let undef = J.Var "undefined"
 let glob = J.Var "Global"
 
 let transformId (env: Environment) (id: Id) =
-    Map.find id env.ScopeIds
+    //TODO: investigate
+    try Map.find id env.ScopeIds
+    with _ -> "MISSINGVAR" + I.MakeValid (id.Name |> Option.fill "_")
 
 let defineId (env: Environment) (id: Id) =
     let vars = env.ScopeVars
@@ -40,7 +49,7 @@ let defineId (env: Environment) (id: Id) =
             env.ScopeVars <- vars |> Set.add name
             env.ScopeIds <- env.ScopeIds |> Map.add id name
             name
-    add (id.Name |> Option.fill "x")
+    add (I.MakeValid (id.Name |> Option.fill "x"))
        
 let invalidForm() =
     failwith "invalid form at writing JavaScript"
@@ -72,14 +81,24 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         |> J.Constant
     | Application (e, ps) -> J.Application (trE e, ps |> List.map trE)
     | VarSet (id, e) -> J.Binary(J.Var (trI id), J.BinaryOperator.``=``, trE e )  
-    | ExprSourcePos (_, e) -> trE e // TODO
+    | ExprSourcePos (pos, e) -> 
+        let jpos =
+            {
+                Assembly = env.AssemblyName
+                File = pos.FileName
+                Line = fst pos.Start
+                Column = snd pos.Start
+                EndLine = fst pos.End
+                EndColumn = snd pos.End
+            } : J.SourcePos
+        J.ExprPos (trE e, jpos)
     | Function (ids, b) ->
         let innerEnv = env.Clone()
         let args = ids |> List.map (defineId innerEnv) 
         let body =
             match b |> transformStatement innerEnv with
             | J.Block b -> b |> List.map J.Action
-            | b -> b |> J.Action |> List.singleton   
+            | b -> [ b |> J.Action ]
         J.Lambda(None, args, body)
     | ItemGet (x, y) -> (trE x).[trE y]
     | Binary (x, y, z) ->
@@ -150,22 +169,25 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingUnaryOperator.``++()`` -> J.Unary(J.UnaryOperator.``++``, trE y)
         | MutatingUnaryOperator.``--()`` -> J.Unary(J.UnaryOperator.``--``, trE y)
         | MutatingUnaryOperator.delete   -> J.Unary(J.UnaryOperator.delete, trE y)
-    | Hole _
+    | Hole i -> J.Constant (J.String "TODO: hole")
+    | Self
     | FieldGet _
     | FieldSet _
     | Let _
-    | LetRec _
     | StatementExpr _
     | Await _
     | NamedParameter _
     | RefOrOutParameter _
-    | Call _
     | Ctor _ 
-    | CCtor _ 
+//    | CCtor _ 
     | NewVar _ 
     | Coalesce _ 
     | LetRec _
     | TypeCheck _ -> invalidForm()
+    | Call (a, b, c, d) ->
+        let typ = b.Entity.Value
+        let meth = c.Entity.Value
+        invalidForm()    
 
 and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     let inline trE x = transformExpr env x
@@ -189,7 +211,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Throw(a) -> J.Throw (trE a)
     | Labeled(a, b) -> J.Labelled(a.Name.Value, trS b)
     | TryWith(a, b, c) -> 
-        J.TryWith(trS a, defineId env (b |> Option.fallback Id), trS c, None)
+        J.TryWith(trS a, defineId env (b |> Option.fallback Id.New), trS c, None)
     | TryFinally(a, b) ->
         J.TryFinally(trS a, trS b)
     | ForIn(a, b, c) -> J.ForVarIn(defineId env a, None, trE b, trS c)

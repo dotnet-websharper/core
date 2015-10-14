@@ -32,6 +32,8 @@ type A() =
     member this.C a b =
         let ab = a + b
         fun c -> ab + c 
+    member this.CT a (b, c) =
+        a + b + c
 
 [<JavaScript>]
 type B(a, b) =
@@ -126,6 +128,8 @@ let Tests =
             let fy = a.Y
             equal (fy (1, 2)) 3
             equal (callWithTuple fy) 3
+            let ct = a.CT
+            equal (ct 1 (2, 3)) 6
         }
 
         Test "Methods with tuple input" {

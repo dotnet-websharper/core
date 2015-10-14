@@ -57,6 +57,7 @@ let TestsPage =
                     typeof<WebSharper.Web.Tests.HelloWorld>.Assembly
                     typeof<WebSharper.Html5.Tests.Samples>.Assembly
                 ]
+                ClientSide <@ Client.RunAllTests() @> :> _
             ]
         ]
 

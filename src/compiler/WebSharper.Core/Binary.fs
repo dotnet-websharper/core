@@ -21,6 +21,8 @@
 module WebSharper.Core.Binary
 
 type Dictionary<'T1,'T2> = System.Collections.Generic.Dictionary<'T1,'T2>
+type IDictionary<'T1,'T2> = System.Collections.Generic.IDictionary<'T1,'T2>
+type ISet<'T> = System.Collections.Generic.ISet<'T>
 type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 type KeyValuePair<'T1,'T2> = System.Collections.Generic.KeyValuePair<'T1,'T2>
 
@@ -337,6 +339,11 @@ type UnionEncoder(t: System.Type, re: System.Type -> Encoder) =
     override this.Type = t
 
 [<AbstractClass>]
+type HashedProcessor() =
+    abstract member FromObject : obj -> obj
+    abstract member RunOnValue : (obj -> unit) -> obj -> unit
+
+[<AbstractClass>]
 type DictionaryProcessor() =
     abstract member FromArray : array<KeyValuePair<obj,obj>> -> obj
     abstract member GetLength : obj -> int
@@ -349,6 +356,14 @@ type SequenceProcessor() =
     abstract member Iterate : (obj -> unit) -> obj -> unit
 
 [<Sealed>]
+type HashedProcessor<'T when 'T : equality and 'T : comparison>() =
+    inherit HashedProcessor()
+    override this.FromObject x =  
+        Hashed(x :?> 'T) |> box
+    override this.RunOnValue f x =
+        (x :?> Hashed<'T>).Value |> f
+
+[<Sealed>]
 type DictionaryProcessor<'T1,'T2 when 'T1 : comparison>() =
     inherit DictionaryProcessor()
 
@@ -359,10 +374,10 @@ type DictionaryProcessor<'T1,'T2 when 'T1 : comparison>() =
         box d
 
     override this.GetLength(dict: obj) =
-        (dict :?> Dictionary<'T1,'T2>).Count
+        (dict :?> IDictionary<'T1,'T2>).Count
 
     override this.Iterate f x =
-        for KeyValue (k, v) in (x :?> Dictionary<'T1,'T2>) do
+        for KeyValue (k, v) in (x :?> IDictionary<'T1,'T2>) do
             f (box k) (box v)
 
 [<Sealed>]
@@ -370,13 +385,13 @@ type HashSetProcessor<'T when 'T : comparison>() =
     inherit SequenceProcessor()
 
     override this.FromArray(s: array<obj>) =
-        HashSet<'T>(Array.map unbox s) :> obj
+        HashSet<'T>(Array.map unbox s) |> box
 
     override this.GetLength(x: obj) =
-        (x :?> HashSet<'T>).Count
+        (x :?> ISet<'T>).Count
 
     override this.Iterate f x =
-        for e in (x :?> HashSet<'T>) do
+        for e in (x :?> ISet<'T>) do
             f (box x)
 
 [<Sealed>]
@@ -384,7 +399,7 @@ type ListProcessor<'T>() =
     inherit SequenceProcessor()
 
     override this.FromArray(x: array<obj>) =
-        List.ofArray<'T> (Array.map unbox x) :> obj
+        List.ofArray<'T> (Array.map unbox x) |> box
 
     override this.GetLength(x: obj) =
         (x :?> list<'T>).Length
@@ -426,6 +441,28 @@ type SetProcessor<'T when 'T : comparison>() =
     override this.Iterate f x =
         for e in (x :?> Set<'T>) do
             f (box e)
+
+[<Sealed>]
+type HashedEncoder<'T when 'T :> HashedProcessor>
+    (t: System.Type, derive: System.Type -> Encoder) =
+    inherit Encoder()
+    let args = t.GetGenericArguments()
+    let valueType = args.[0]
+    let value = derive valueType
+    
+    let hP : HashedProcessor =
+        typedefof<'T>.MakeGenericType(valueType)       
+        |> System.Activator.CreateInstance
+        |> unbox
+
+    override this.Decode r =
+        hP.FromObject (value.Decode r)     
+
+    override this.Encode (w, x) =
+        hP.RunOnValue (fun v -> value.Encode(w, v)) x
+
+    override this.Type = t
+
 
 [<Sealed>]
 type DictionaryEncoder<'T when 'T :> DictionaryProcessor>
@@ -487,9 +524,11 @@ type SequenceEncoder<'T when 'T :> SequenceProcessor>
 
 let getSpecializedEncoder (re: System.Type -> Encoder) (t: System.Type) =
     let d = t.GetGenericTypeDefinition()
-    if d = typedefof<Dictionary<_,_>> then
+    if d = typedefof<Hashed<_>> then
+        Some (HashedEncoder<HashedProcessor<_>>(t, re) :> Encoder)
+    elif d.IsAssignableFrom(typedefof<IDictionary<_,_>>) then
         Some (DictionaryEncoder<DictionaryProcessor<_,_>>(t, re) :> Encoder)
-    elif d = typedefof<HashSet<_>> then
+    elif d.IsAssignableFrom(typedefof<ISet<_>>) then
         Some (SequenceEncoder<HashSetProcessor<_>>(t, re) :> _)
     elif d = typedefof<List<_>> then
         Some (SequenceEncoder<ListProcessor<_>>(t, re) :> _)
@@ -513,6 +552,8 @@ let getEncoder (re: System.Type -> Encoder) (t: System.Type) =
         basicEncoders.[t]
     elif t = typeof<string> || t = typeof<decimal> then
         basicEncoders.[t]
+    elif t.IsEnum then 
+        basicEncoders.[System.Enum.GetUnderlyingType(t)]
     else
         match Custom.GetEncoder t with
         | Some e -> e
@@ -585,7 +626,11 @@ type Encoding(enc: Encoder) =
         let mode = System.IO.Compression.CompressionMode.Decompress
         use stream = new System.IO.Compression.GZipStream(stream, mode)
         use reader = new System.IO.BinaryReader(stream)
+#if DEBUG
+        let res =
+#else
         try
+#endif
             let aqn = enc.Type.AssemblyQualifiedName
             let s = reader.ReadString()
             if s <> aqn then
@@ -595,23 +640,34 @@ type Encoding(enc: Encoder) =
                 raise (EncodingException msg)
             use r = new InterningReader(stream, reader)
             enc.Decode r
+#if DEBUG
+        res
+#else
         with e ->
             let msg = System.String.Format("Failed to decode type: {0}", enc.Type)
             raise (EncodingException(msg, e))
+#endif
 
     member this.Encode(stream: System.IO.Stream)(value: obj) =
         let mode = System.IO.Compression.CompressionMode.Compress
         use stream = new System.IO.Compression.GZipStream(stream, mode)
         use memory = new System.IO.MemoryStream(8192)
         use writer = new System.IO.BinaryWriter(stream)
+#if DEBUG
+        do
+#else
         try
+#endif
             writer.Write enc.Type.AssemblyQualifiedName
             use w = new InterningWriter(memory)
             enc.Encode(w, value)
             w.WriteTo stream writer
+#if DEBUG
+#else
         with e ->
             let msg = "Failed to encode: " + string value
             raise (EncodingException(msg, e))
+#endif
 
     member this.Type = enc.Type
 

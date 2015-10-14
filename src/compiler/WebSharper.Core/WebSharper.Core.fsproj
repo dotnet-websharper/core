@@ -10,21 +10,22 @@
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
-    <Compile Include="utility/FastInvoke.fsi" />
-    <Compile Include="utility/FastInvoke.fs" />
+    <Compile Include="FastInvoke.fsi" />
+    <Compile Include="FastInvoke.fs" />
     <Compile Include="PathConventions.fsi" />
     <Compile Include="PathConventions.fs" />
     <Compile Include="ContentTypes.fs" />
     <Compile Include="Resources.fsi" />
     <Compile Include="Resources.fs" />
-    <Compile Include="Binary.fsi" />
     <Compile Include="Utilities.fs" />
+    <Compile Include="Graphs.fs" />
+    <Compile Include="Binary.fsi" />
+    <Compile Include="Binary.fs" />
     <Compile Include="ASTTypes.fs" />
     <Compile Include="AST.fs" />
     <Compile Include="ASTHelpers.fs" />
-    <Compile Include="Binary.fs" />
-    <Compile Include="Metadata.fs" />
     <Compile Include="Macros.fs" />
+    <Compile Include="Metadata.fs" />
     <Compile Include="Attributes.fs" />
     <Compile Include="Json.fsi" />
     <Compile Include="Json.fs" />

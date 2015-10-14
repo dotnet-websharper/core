@@ -26,7 +26,7 @@ namespace WebSharper.InterfaceGenerator
 module Pervasives =
     open System
     module Code = CodeModel
-    module R = WebSharper.Core.Reflection
+//    module R = WebSharper.Core.Reflection
 
     type IExtension =
         abstract Assembly : Code.Assembly
@@ -296,13 +296,13 @@ module Pervasives =
         p |> Code.Entity.Update (fun x -> x.IndexerType <- Some indexer)
 
     /// Constructs a new `Type`.
-    let T<'T> = Type.SystemType (R.Type.FromType typeof<'T>)
+    let T<'T> = Type.SystemType (WebSharper.Core.AST.Reflection.getTypeWithFullAsmNames typeof<'T>)
 
     /// Will be evaluated to the type the member is added to.
     let TSelf = Type.DefiningType
 
     /// Constructs a new `Type` from System.Type object.
-    let SystemType t = Type.SystemType (R.Type.FromType t)
+    let SystemType t = Type.SystemType (WebSharper.Core.AST.Reflection.getTypeWithFullAsmNames t)
 
     /// Adds a macro to method or constructor. Macro type must be defined in another assembly.
     let WithMacro (macroType: System.Type) (x: #Code.MethodBase) =

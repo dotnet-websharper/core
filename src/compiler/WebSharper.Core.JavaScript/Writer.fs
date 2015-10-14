@@ -852,3 +852,15 @@ let ProgramToString options program =
     let w = CodeWriter()
     WriteProgram options w program
     w.ToString()
+
+//module S = WebSharper.Core.JavaScript.Syntax
+//open WebSharper.Core.JavaScript
+//open WebSharper.Core.JavaScript.Writer
+//
+//let x =
+//    [
+//        S.Vars [ "x", Some (S.Binary(!~(S.String "a"), S.BinaryOperator.``,``, !~(S.String "b"))) ]
+//        |> S.Action 
+//    ]
+//
+//ProgramToString Preferences.Readable x

@@ -1,15 +1,4 @@
-﻿module RoslynTest.Main
-
-#if INTERACTIVE
-#r @"..\packages\System.Collections.Immutable.1.1.33-beta\lib\portable-net45+win8+wp8+wpa81\System.Collections.Immutable.dll"
-#r @"..\packages\System.Reflection.Metadata.1.0.18-beta\lib\portable-net45+win8\System.Reflection.Metadata.dll"
-#r @"..\packages\Microsoft.CodeAnalysis.CSharp.1.0.0-rc2\lib\net45\Microsoft.CodeAnalysis.CSharp.dll"
-#r @"..\packages\Microsoft.CodeAnalysis.Common.1.0.0-rc2\lib\net45\Microsoft.CodeAnalysis.dll"
-
-#load "TokenUnions.fs"
-#load "InnerTransformers.fs"
-#load "Transformer.fs"
-#endif
+﻿namespace WebSharper.Compiler.CSharp
 
 open System
 open System.Collections.Generic
@@ -20,6 +9,8 @@ open System.Threading.Tasks
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
+  
+module M = WebSharper.Core.Metadata
         
 //open WebSharper.Compiler
      
@@ -56,19 +47,84 @@ open Microsoft.CodeAnalysis.MSBuild
 
 //let runTask task = task |> Async.AwaitTask |> Async.RunSynchronously
 
-let translateProject prevMeta (path: string) =
-    Microsoft.CodeAnalysis.CSharp.Formatting.BinaryOperatorSpacingOptions.Single |> ignore
-    let workspace = MSBuildWorkspace.Create(LoadMetadataForReferencedProjects = true)
-    workspace.AssociateFileExtensionWithLanguage("csproj", LanguageNames.CSharp)
-    let project = workspace.OpenProjectAsync(path).Result
-    let compilation = project.GetCompilationAsync().Result
-//    compilation.type
-    let refMeta = ToMetadata.stringInlines compilation
-    let depMeta = 
-        match prevMeta with
-        | None -> refMeta
-        | Some m -> CommonAST.Metadata.union refMeta m
-    let currentMeta = ToMetadata.transformAssembly compilation.Assembly
-    let meta = CommonAST.Metadata.union depMeta currentMeta
-    Translator.translateAssembly compilation meta
-    meta //|> CommonAST.Packager.packageAssembly |> CommonAST.Packager.exprToString 
+type WebSharperCSharpCompiler(logger) =
+
+    member this.Compile (prevMeta, argv, path: string) =
+
+//        let cArgs = CSharpCommandLineParser.Default.Parse(argv, System.IO.Path.GetDirectoryName path, "")
+
+        let started = System.DateTime.Now
+
+        let workspace = MSBuildWorkspace.Create(LoadMetadataForReferencedProjects = true)
+        workspace.AssociateFileExtensionWithLanguage("csproj", LanguageNames.CSharp)
+        let project = workspace.OpenProjectAsync(path).Result
+        
+        let ended = System.DateTime.Now
+        logger <| sprintf "Loading project: %A" (ended - started)
+        let started = ended 
+        
+        let compilation = project.GetCompilationAsync().Result :?> CSharpCompilation
+        
+        let ended = System.DateTime.Now
+        logger <| sprintf "Creating compilation: %A" (ended - started)
+        let started = ended 
+
+        // TODO : errors
+//        if compilation. checkFileResults.HasCriticalErrors then
+//            for err in checkFileResults.Errors do
+//                printfn "%s" err.Message
+//            failwith "FSharp compilation error"
+    
+//        printfn "No errors. Parsing..."
+
+//        checker.StartBackgroundCompile projectOptions
+
+        let refMeta =   
+            match prevMeta with
+            | None -> M.empty
+            | Some dep -> dep  
+        
+        let comp = 
+            WebSharper.Compiler.CSharp.Translator.transformAssembly refMeta
+                compilation
+
+        let ended = System.DateTime.Now
+        logger <| sprintf "Parsing with FCS: %A" (ended - started)
+        let started = ended 
+
+//        let comp =
+//            match prevMeta with
+//            | None -> comp
+//            | Some dep -> WebSharper.Core.Metadata.union dep comp  
+
+
+        let ended = System.DateTime.Now
+        logger <| sprintf "Metadata union: %A" (ended - started)
+        let started = ended 
+
+//        printfn "Done. Compiling..."
+//        checker.WaitForBackgroundCompile()
+
+        WebSharper.Compiler.ToJavaScript.ToJavaScript.CompileFull comp
+            
+        let ended = System.DateTime.Now
+        logger <| sprintf "Transforming: %A" (ended - started)
+//        let started = ended 
+
+        comp
+
+//let translateProject prevMeta (path: string) =
+//    let workspace = MSBuildWorkspace.Create(LoadMetadataForReferencedProjects = true)
+//    workspace.AssociateFileExtensionWithLanguage("csproj", LanguageNames.CSharp)
+//    let project = workspace.OpenProjectAsync(path).Result
+//    let compilation = project.GetCompilationAsync().Result
+//
+//    let refMeta = ToMetadata.stringInlines compilation
+//    let depMeta = 
+//        match prevMeta with
+//        | None -> refMeta
+//        | Some m -> WebSharper.Core.Metadata.union refMeta m
+//    let currentMeta = ToMetadata.transformAssembly compilation.Assembly
+//    let meta = WebSharper.Core.Metadata.union depMeta currentMeta
+//    WebSharper.Compiler.Translator.translateAssembly compilation meta
+//    meta //|> CommonAST.Packager.packageAssembly |> CommonAST.Packager.exprToString 

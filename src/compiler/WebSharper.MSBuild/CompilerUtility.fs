@@ -36,6 +36,7 @@ type CompilerInput =
         DocumentationFile : option<string>
         EmbeddedResources : list<string>
         KeyOriginatorFile : string
+        ProjectFile : string
         ProjectDir : string
         References : list<string>
         RunInterfaceGenerator : bool
@@ -191,26 +192,35 @@ module CompilerJobModule =
             out.Save(input.AssemblyFile)
         }
 
-    let CompileWithWebSharper aR snk input =
-        Act {
-            let! out = Act.Out
-            let loader = FE.Loader.Create aR (fun msg -> out.Add(CompilerMessage.Warn msg))
-            let refs = [ for r in input.References -> loader.LoadFile(r) ]
-            let opts =
-                {
-                    FE.Options.Default with
-                        KeyPair = snk
-                        References = refs
-                }
-            let compiler = FE.Prepare opts (fun msg -> out.Add(CompilerMessage.Send msg))
-            let fileName = input.AssemblyFile
-            let assem = loader.LoadFile fileName
-            let ok = compiler.CompileAndModify(assem, input.IncludeSourceMap)
-            if ok then
-                assem.Write snk fileName
-            else
-                return! Act.Fail "Failed to compile assembly with WebSharper."
-        }
+//    let CompileWithWebSharper aR snk input =
+//        Act {
+//            let! out = Act.Out
+//            let loader = FE.Loader.Create aR (fun msg -> out.Add(CompilerMessage.Warn msg))
+//            let refs = [ for r in input.References -> loader.LoadFile(r) ]
+////            let opts =
+////                {
+////                    FE.Options.Default with
+////                        KeyPair = snk
+////                        References = refs
+////                }
+////            let compiler = FE.Prepare opts (fun msg -> out.Add(CompilerMessage.Send msg))
+//            let refMeta =
+//                let metas = refs |> List.choose (fun r -> WebSharper.Compiler.FrontEnd.readFromAssembly r)
+//                if List.isEmpty metas then None else Some (Seq.reduce WebSharper.Core.Metadata.union metas)
+//            let comp = WebSharper.Compiler.FSharp. .Main.translateProject refMeta input.ProjectFile
+//            let fileName = input.AssemblyFile
+//            let assem = Mono.Cecil.AssemblyDefinition.ReadAssembly fileName // loader.LoadFile fileName
+//            do
+//                try WebSharper.Compiler.FrontEnd.modifyAssembly comp assem
+//                with e ->
+//                    printfn "Could not write metadata because of %A" e
+//            if true then
+//                printfn "Writing into assembly: %s" fileName
+//                assem.Write fileName
+//                //assem.Write snk fileName
+//            else
+//                return! Act.Fail "Failed to compile assembly with WebSharper."
+//        }
 
 module CompilerUtility =
 
@@ -228,6 +238,7 @@ module CompilerUtility =
                 let snk = input.ReadStrongNameKeyPair()
                 if input.RunInterfaceGenerator then
                     do! RunInterfaceGenerator aR snk input
-                return! CompileWithWebSharper aR snk input
+//                else
+//                    return! CompileWithWebSharper aR snk input
             }
             |> Run

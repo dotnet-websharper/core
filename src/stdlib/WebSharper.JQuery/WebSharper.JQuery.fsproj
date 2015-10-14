@@ -6,8 +6,7 @@
     <OutputType>Library</OutputType>
     <WebSharperProject>Extension</WebSharperProject>
   </PropertyGroup>
-  <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
+  <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>
     <Compile Include="Definition.fs" />
   </ItemGroup>

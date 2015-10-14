@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{615aea64-16ec-49bc-afb4-36211f6354cc}</ProjectGuid>
+    <Name>WsFsc</Name>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <StartArguments>-o:obj\Release\WebSharper.Control.dll --debug:pdbonly --noframework --define:TRACE --doc:D:\repo\websharper.csharp\msbuild\\..\build\Release\WebSharper.Control.xml --optimize+ -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.3.0.0\FSharp.Core.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\mscorlib.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Configuration.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Core.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Numerics.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Web.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Xml.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Xml.Linq.dll" -r:D:\repo\websharper.csharp\build\Release\WebSharper.Collections.dll -r:D:\repo\websharper.csharp\build\Release\WebSharper.Core.dll -r:D:\repo\websharper.csharp\build\Release\WebSharper.JavaScript.dll -r:D:\repo\websharper.csharp\build\Release\WebSharper.Main.dll --target:library --warn:3 --warnaserror:76 --fullpaths --flaterrors --highentropyva- "C:\Users\András\AppData\Local\Temp\.NETFramework,Version=v4.0.AssemblyAttributes.fs" D:\repo\websharper.csharp\msbuild\/AssemblyInfo.fs Disposable.fs Observer.fs HotStream.fs IObserverProxy.fs IObservableProxy.fs Observable.fs ObservableModule.fs Event.fs FSharpEvent.fs EventModule.fs MailboxProcessor.fs --project:D:\repo\websharper.csharp\src\stdlib\WebSharper.Control\WebSharper.Control.fsproj --fsc:"C:\Program Files (x86)\Microsoft SDKs\F#\4.0\Framework\v4.0\fsc.exe"</StartArguments>
+    <StartWorkingDirectory>D:\repo\websharper.csharp\src\stdlib\WebSharper.Control</StartWorkingDirectory>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <StartArguments>
+    </StartArguments>
+    <StartWorkingDirectory>
+    </StartWorkingDirectory>
+  </PropertyGroup>
+  <Import Project="../../../msbuild/FSharp.targets" />
+  <Import Project="../../../msbuild/Mono.Cecil.targets" />
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj">
+      <Name>WebSharper.Compiler.FSharp</Name>
+      <Project>{d54ea1fd-f52f-4f07-921f-7b3d1b412cd0}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
+      <Name>WebSharper.Core.JavaScript</Name>
+      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Compiler\WebSharper.Compiler.fsproj">
+      <Name>WebSharper.Compiler</Name>
+      <Project>{bfb21b61-fda9-4814-a728-7d43038e0b57}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj">
+      <Name>WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj">
+      <Name>WebSharper.InterfaceGenerator</Name>
+      <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="IntelliFactory.Core">
+      <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

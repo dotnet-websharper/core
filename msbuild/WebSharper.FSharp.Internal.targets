@@ -1,0 +1,60 @@
+<!--
+// $begin{copyright}
+// 
+// This file is part of WebSharper
+// 
+// Copyright (c) 2008-2014 IntelliFactory
+// 
+// GNU Affero General Public License Usage
+// WebSharper is free software: you can redistribute it and/or modify it under
+// the terms of the GNU Affero General Public License, version 3, as published
+// by the Free Software Foundation.
+//
+// WebSharper is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License
+// for more details at <http://www.gnu.org/licenses/>.
+//
+// If you are unsure which license is appropriate for your use, please contact
+// IntelliFactory at http://intellifactory.com/contact.
+//
+// $end{copyright}
+-->
+
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == ''">v4.0</TargetFrameworkVersion>
+<!--
+    <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' != '' ">$(INTELLIFACTORY)/keys/IntelliFactory.snk</KeyOriginatorFile>
+    <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' == '' ">$(MSBuildThisFileDirectory)/../tools/WebSharper.snk</KeyOriginatorFile>
+-->
+	<WSMSBuildPath Condition="'$(WSMSBuildPath)' == ''">Release</WSMSBuildPath>
+	<WebSharperTaskAssembly>$(MSBuildThisFileDirectory)/../build/$(WSMSBuildPath)/WebSharper.MSBuild.FSharp.dll</WebSharperTaskAssembly>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+    <Root>$(MSBuildThisFileDirectory)\..</Root>
+    <AssemblyName>$(Name)</AssemblyName>
+    <RootNamespace>$(Name)</RootNamespace>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <Tailcalls>false</Tailcalls>
+    <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>$(Root)\build\Debug\$(Name).xml</DocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+    <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>$(Root)\build\Release\$(Name).xml</DocumentationFile>
+  </PropertyGroup>
+  <Import Project="FSharp.targets" />
+  <Import Project="WebSharper.FSharp.targets" />
+</Project>

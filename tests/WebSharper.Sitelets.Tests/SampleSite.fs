@@ -109,7 +109,7 @@ module SampleSite =
                     Div [Attr.Data "replace" "login"]
                     Div [Attr.Data "replace" "menu"]
                     Div [Attr.Data "replace" "body"]
-                    Div [ClientSide <@ Client.Widget () @>]
+//                    Div [ClientSide <@ Client.Widget () @>] // TODO
                 ]
             ])
             .With("title", fun x -> x.Title)

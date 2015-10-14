@@ -1,4 +1,4 @@
-﻿#r @"..\packages\FSharp.Compiler.Service.0.0.89\lib\net45\FSharp.Compiler.Service.dll"
+﻿#r @"..\..\..\packages\FSharp.Compiler.Service\lib\net45\FSharp.Compiler.Service.dll"
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
     
@@ -47,10 +47,8 @@ let abc (i: int) = 'a' + char i |> string
 typeof<FSharpExpr>.Assembly.GetType("Microsoft.FSharp.Compiler.SourceCodeServices.BasicPatterns").GetMembers()
 |> Seq.filter (fun m -> m.Name.StartsWith "|")
 |> Seq.map (fun m -> m.Name.[1 .. m.Name.Length - 4])
-|> Seq.iter (printfn "%s") 
+//|> Seq.iter (printfn "%s") 
 
-
-//
 |> Seq.iter (fun m -> 
     let m = m :?> System.Reflection.MethodInfo
     let name = m.Name.[1 .. m.Name.Length - 4]

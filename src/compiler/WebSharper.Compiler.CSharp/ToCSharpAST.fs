@@ -16,32 +16,27 @@ open System.Collections.Generic
 type Environment =
     {
         SemanticModel : SemanticModel 
-        GetSourcePos : Text.TextSpan -> SourcePos
         Vars : Dictionary<ILocalSymbol, Id>
         Parameters : IDictionary<IParameterSymbol, Id>
         Labels : Dictionary<ILabelSymbol, Id>
         Caught : option<Id>
+        Compilation : Metadata.Compilation
     }
-    static member New(model) = 
+    static member New(model, comp) = 
         { 
             SemanticModel = model
             Vars = Dictionary()
             Parameters = Dictionary()
             Labels = Dictionary()
-            GetSourcePos = fun _ ->
-                {   
-                    FileName = ""
-                    Start = 0, 0
-                    End = 0, 0
-                }
             Caught = None
+            Compilation = comp
         }      
 
     member this.GetLabelId(symbol) =
         match this.Labels.TryGetValue(symbol) with
         | true, id -> id
         | _ ->
-            let id = Id(symbol.Name)           
+            let id = Id.New(symbol.Name)           
             this.Labels.Add(symbol, id)
             id
 
@@ -98,11 +93,23 @@ type CSharpConstructor =
 let getConstantValue (env: Environment) x =
     env.SemanticModel.GetConstantValue(x).Value
 
-let withExprSourcePos (env: Environment) (x: CSharpSyntaxNode) expr =
-    ExprSourcePos (env.GetSourcePos x.Span, expr)
+let getSourcePos (x: CSharpSyntaxNode) =
+    let span = x.SyntaxTree.GetLineSpan(x.Span)
+    {   
+        FileName = span.Path
+        Start = 
+            let pos = span.StartLinePosition
+            pos.Line + 1, pos.Character + 1
+        End = 
+            let pos = span.EndLinePosition
+            pos.Line + 1, pos.Character + 1
+    }
 
-let withStatementSourcePos (env: Environment) (x: CSharpSyntaxNode) statement =
-    StatementSourcePos (env.GetSourcePos x.Span, statement)
+let withExprSourcePos (x: CSharpSyntaxNode) expr =
+    ExprSourcePos (getSourcePos x, expr)
+
+let withStatementSourcePos (x: CSharpSyntaxNode) statement =
+    StatementSourcePos (getSourcePos x, statement)
 
 exception TransformError of obj * message: string
     with
@@ -116,22 +123,40 @@ let inline TODO() = failwith "TODO"
 let rec getNamedTypeDefinition (x: INamedTypeSymbol) =
     let rec getNamespaceOrTypeAddress acc (symbol: INamespaceOrTypeSymbol) =
         match symbol.ContainingNamespace with
-        | null -> acc
+        | null -> acc |> String.concat "."
         | ns -> getNamespaceOrTypeAddress (symbol.Name :: acc) ns   
     
     let rec getTypeAddress acc (symbol: INamedTypeSymbol) =
         match symbol.ContainingType with
-        | null -> getNamespaceOrTypeAddress acc symbol
+        | null -> 
+            let ns = getNamespaceOrTypeAddress [] symbol
+            if List.isEmpty acc then ns else
+                ns :: acc |> String.concat "+" 
         | t -> getTypeAddress (symbol.Name :: acc) t           
 
     Hashed {
         Assembly = x.ContainingAssembly.Identity.Name
-        FullName = (getTypeAddress [] x |> String.concat ".") + (match x.Arity with 0 -> "" | a -> "`" + string a)
+        FullName = (getTypeAddress [] x) + (match x.Arity with 0 -> "" | a -> "`" + string a)
     }
 
 and getNamedType (x: INamedTypeSymbol) = 
     let ta = x.TypeArguments |> Seq.map  getType |> List.ofSeq
-    concrete (getNamedTypeDefinition x, ta)
+    let td = getNamedTypeDefinition x
+    concrete (td, ta)
+    
+and recognizeNamedType (x: INamedTypeSymbol) =
+    let ta = x.TypeArguments |> Seq.map getType |> List.ofSeq
+    let td = getNamedTypeDefinition x
+    let tName = td.Value.FullName
+    if tName.StartsWith "System.Tuple" then
+        TupleType ta
+    elif tName = "Microsoft.FSharp.Core.FSharpFunc`2" then
+        let [a; r] = ta
+        FSharpFuncType(a, r)
+    elif tName = "Microsoft.FSharp.Core.Unit" || tName = "System.Void" then
+        VoidType
+    else
+        ConcreteType (concrete (td, ta))
 
 and getType (x: ITypeSymbol) : Type =
     match x.TypeKind with
@@ -141,9 +166,10 @@ and getType (x: ITypeSymbol) : Type =
     | TypeKind.Class
     | TypeKind.Struct
     | TypeKind.Error
+    | TypeKind.Delegate
     | TypeKind.Interface ->
         let t = x :?> INamedTypeSymbol 
-        ConcreteType (getNamedType t)
+        recognizeNamedType t
 //        let tdef = getNamedType t
 //        let targs = t.TypeArguments |> Seq.map getType |> List.ofSeq
 //        concreteType (tdef, targs)
@@ -159,7 +185,7 @@ let getMethod (x: IMethodSymbol) =
         MethodName = x.Name
         Parameters = x.Parameters |> Seq.map (fun p -> getType p.Type) |> List.ofSeq
         ReturnType = x.ReturnType |> getType
-        Generics = x.TypeParameters.Length
+        Generics = x.Arity
     }
 
 let getConstructor (x: IMethodSymbol) =
@@ -175,27 +201,36 @@ let getMember (x: IMethodSymbol) =
         Member.Constructor <| Hashed {
             CtorParameters = getParams()
         }
-    | ".cctor" -> StaticConstructor
+    | ".cctor" -> Member.StaticConstructor
     | _ ->
-        Method <| Hashed {
-    //        DefinedBy = getNamedType x.ContainingType 
-            MethodName = x.Name
-            Parameters = getParams()
-            ReturnType = x.ReturnType |> getType
-            Generics = x.TypeParameters.Length
-        }
+        let meth =
+            Hashed {
+        //        DefinedBy = getNamedType x.ContainingType 
+                MethodName = x.Name
+                Parameters = getParams()
+                ReturnType = x.ReturnType |> getType
+                Generics = x.Arity
+            }
+        if x.IsOverride then
+            Member.Override(getNamedTypeDefinition x.OverriddenMethod.ContainingType, meth)
+        // TODO: more explicit implementations
+        // TODO: implicit interface implementations?
+        elif x.ExplicitInterfaceImplementations.Length > 0 then
+            Member.Implementation(getNamedTypeDefinition x.ExplicitInterfaceImplementations.[0].ContainingType, meth)
+        else
+            Member.Method (not x.IsStatic, meth)
 
-let getField (x: IFieldSymbol) =
-    Hashed {
-        FieldName = x.Name
-        Type      = x.Type |> getType
-    }
+//let getField (x: IFieldSymbol) =
+//    Hashed {
+//        FieldName = x.Name
+//        Type      = x.Type |> getType
+//    }
 
 let getParameter (x: IParameterSymbol) : CSharpParameter =
 //    let attributeLists = x.AttributeLists |> Seq.map (transformAttributeList env) |> List.ofSeq
     let typ = getType x.Type
     let default_ = None // TODO if x.HasExplicitDefaultValue then Some 
-    let id = Id x.Name
+    let id = Id.New x.Name
     {
         ParameterId = id
         Symbol = x
@@ -209,7 +244,7 @@ let getParameters (x: IMethodSymbol) =
 
 let hasSignature (s: Method) (x: IMethodSymbol) =
     let s = s.Value
-    x.TypeParameters.Length = s.Generics
+    x.Arity = s.Generics
     && (x.ReturnType |> getType) = s.ReturnType
     && x.Parameters |> Seq.map (fun p -> getType p.Type) |> Seq.equals s.Parameters     
   
@@ -218,46 +253,52 @@ let transformIdentifierName (env: Environment) (x: IdentifierNameData) : Express
     match symbol with
     | :? ILocalSymbol as s -> Var env.Vars.[s]
     | :? IParameterSymbol as p -> Var env.Parameters.[p]
-    | :? IFieldSymbol as f -> FieldGet(This, getNamedType f.ContainingType, getField f) 
-    | _ -> err x.Node "transformIdentifierName: Local variable not found"
+    | :? IFieldSymbol as f -> FieldGet(Some This, getNamedType f.ContainingType, f.Name) 
+    | _ -> 
+        err x.Node (sprintf "transformIdentifierName: Local variable not found, symbol type: %s, name: %s" 
+            (symbol.GetType().FullName) symbol.Name)
 
 let rec transformExpression (env: Environment) (x: ExpressionData) : Expression =
-    match x with
-    | ExpressionData.Type                              x -> transformType env x
-    | ExpressionData.InstanceExpression                x -> transformInstanceExpression env x
-    | ExpressionData.AnonymousFunctionExpression       x -> transformAnonymousFunctionExpression env x
-    | ExpressionData.ParenthesizedExpression           x -> transformParenthesizedExpression env x
-    | ExpressionData.PrefixUnaryExpression             x -> transformPrefixUnaryExpression env x
-    | ExpressionData.AwaitExpression                   x -> TODO() //transformAwaitExpression env x
-    | ExpressionData.PostfixUnaryExpression            x -> transformPostfixUnaryExpression env x
-    | ExpressionData.MemberAccessExpression            x -> transformMemberAccessExpression env x
-    | ExpressionData.ConditionalAccessExpression       x -> transformConditionalAccessExpression env x
-    | ExpressionData.MemberBindingExpression           x -> transformMemberBindingExpression env x
-    | ExpressionData.ElementBindingExpression          x -> TODO() //transformElementBindingExpression env x
-    | ExpressionData.ImplicitElementAccess             x -> TODO() //transformImplicitElementAccess env x
-    | ExpressionData.BinaryExpression                  x -> transformBinaryExpression env x
-    | ExpressionData.AssignmentExpression              x -> transformAssignmentExpression env x
-    | ExpressionData.ConditionalExpression             x -> transformConditionalExpression env x
-    | ExpressionData.LiteralExpression                 x -> transformLiteralExpression env x |> Value |> withExprSourcePos env x.Node
-    | ExpressionData.MakeRefExpression                 x -> TODO() //transformMakeRefExpression env x
-    | ExpressionData.RefTypeExpression                 x -> TODO() //transformRefTypeExpression env x
-    | ExpressionData.RefValueExpression                x -> TODO() //transformRefValueExpression env x
-    | ExpressionData.CheckedExpression                 x -> TODO() //transformCheckedExpression env x
-    | ExpressionData.DefaultExpression                 x -> TODO() //transformDefaultExpression env x
-    | ExpressionData.TypeOfExpression                  x -> TODO() //transformTypeOfExpression env x
-    | ExpressionData.SizeOfExpression                  x -> TODO() //transformSizeOfExpression env x
-    | ExpressionData.InvocationExpression              x -> transformInvocationExpression env x
-    | ExpressionData.ElementAccessExpression           x -> TODO() //transformElementAccessExpression env x
-    | ExpressionData.CastExpression                    x -> TODO() //transformCastExpression env x
-    | ExpressionData.InitializerExpression             x -> TODO() //transformInitializerExpression env x
-    | ExpressionData.ObjectCreationExpression          x -> transformObjectCreationExpression env x
-    | ExpressionData.AnonymousObjectCreationExpression x -> TODO() //transformAnonymousObjectCreationExpression env x
-    | ExpressionData.ArrayCreationExpression           x -> TODO() //transformArrayCreationExpression env x
-    | ExpressionData.ImplicitArrayCreationExpression   x -> TODO() //transformImplicitArrayCreationExpression env x
-    | ExpressionData.StackAllocArrayCreationExpression x -> TODO() //transformStackAllocArrayCreationExpression env x
-    | ExpressionData.QueryExpression                   x -> TODO() //transformQueryExpression env x
-    | ExpressionData.OmittedArraySizeExpression        x -> TODO() //transformOmittedArraySizeExpression env x
-    | ExpressionData.InterpolatedStringExpression      x -> TODO() //transformInterpolatedStringExpression env x
+    try
+        match x with
+        | ExpressionData.Type                              x -> transformType env x
+        | ExpressionData.InstanceExpression                x -> transformInstanceExpression env x
+        | ExpressionData.AnonymousFunctionExpression       x -> transformAnonymousFunctionExpression env x
+        | ExpressionData.ParenthesizedExpression           x -> transformParenthesizedExpression env x
+        | ExpressionData.PrefixUnaryExpression             x -> transformPrefixUnaryExpression env x
+        | ExpressionData.AwaitExpression                   x -> TODO() //transformAwaitExpression env x
+        | ExpressionData.PostfixUnaryExpression            x -> transformPostfixUnaryExpression env x
+        | ExpressionData.MemberAccessExpression            x -> transformMemberAccessExpression env x
+        | ExpressionData.ConditionalAccessExpression       x -> transformConditionalAccessExpression env x
+        | ExpressionData.MemberBindingExpression           x -> transformMemberBindingExpression env x
+        | ExpressionData.ElementBindingExpression          x -> TODO() //transformElementBindingExpression env x
+        | ExpressionData.ImplicitElementAccess             x -> TODO() //transformImplicitElementAccess env x
+        | ExpressionData.BinaryExpression                  x -> transformBinaryExpression env x
+        | ExpressionData.AssignmentExpression              x -> transformAssignmentExpression env x
+        | ExpressionData.ConditionalExpression             x -> transformConditionalExpression env x
+        | ExpressionData.LiteralExpression                 x -> transformLiteralExpression env x |> Value |> withExprSourcePos x.Node
+        | ExpressionData.MakeRefExpression                 x -> TODO() //transformMakeRefExpression env x
+        | ExpressionData.RefTypeExpression                 x -> TODO() //transformRefTypeExpression env x
+        | ExpressionData.RefValueExpression                x -> TODO() //transformRefValueExpression env x
+        | ExpressionData.CheckedExpression                 x -> TODO() //transformCheckedExpression env x
+        | ExpressionData.DefaultExpression                 x -> TODO() //transformDefaultExpression env x
+        | ExpressionData.TypeOfExpression                  x -> TODO() //transformTypeOfExpression env x
+        | ExpressionData.SizeOfExpression                  x -> TODO() //transformSizeOfExpression env x
+        | ExpressionData.InvocationExpression              x -> transformInvocationExpression env x
+        | ExpressionData.ElementAccessExpression           x -> TODO() //transformElementAccessExpression env x
+        | ExpressionData.CastExpression                    x -> TODO() //transformCastExpression env x
+        | ExpressionData.InitializerExpression             x -> TODO() //transformInitializerExpression env x
+        | ExpressionData.ObjectCreationExpression          x -> transformObjectCreationExpression env x
+        | ExpressionData.AnonymousObjectCreationExpression x -> TODO() //transformAnonymousObjectCreationExpression env x
+        | ExpressionData.ArrayCreationExpression           x -> transformArrayCreationExpression env x
+        | ExpressionData.ImplicitArrayCreationExpression   x -> transformImplicitArrayCreationExpression env x
+        | ExpressionData.StackAllocArrayCreationExpression x -> TODO() //transformStackAllocArrayCreationExpression env x
+        | ExpressionData.QueryExpression                   x -> TODO() //transformQueryExpression env x
+        | ExpressionData.OmittedArraySizeExpression        x -> TODO() //transformOmittedArraySizeExpression env x
+        | ExpressionData.InterpolatedStringExpression      x -> TODO() //transformInterpolatedStringExpression env x      
+    with e ->
+        env.Compilation.AddError(Some (getSourcePos x.Node), Metadata.SourceError("Error while reading C# code: " + e.Message))
+        WebSharper.Compiler.ToJavaScript.errorPlaceholder        
 
 and transformType (env: Environment) (x: TypeData) : Expression =
     match x with
@@ -276,7 +317,7 @@ and transformName (env: Environment) (x: NameData) : Expression =
 
 and transformSimpleName (env: Environment) (x: SimpleNameData) : Expression =
     match x with
-    | SimpleNameData.IdentifierName x -> transformIdentifierName env x |> withExprSourcePos env x.Node
+    | SimpleNameData.IdentifierName x -> transformIdentifierName env x |> withExprSourcePos x.Node
     | SimpleNameData.GenericName    x -> TODO() //transformGenericName env x
 
 and transformInvocationExpression (env: Environment) (x: InvocationExpressionData) : Expression =
@@ -287,10 +328,10 @@ and transformInvocationExpression (env: Environment) (x: InvocationExpressionDat
     let argumentList = x.ArgumentList |> transformArgumentList env
     if symbol.IsStatic then
         Call(None, typ, meth, argumentList)
-    else
+    else        
         let expression =  x.Expression |> transformExpression env
         Call(Some expression, typ, meth, argumentList)
-    |> withExprSourcePos env x.Node
+    |> withExprSourcePos x.Node
 
 and transformArgument (env: Environment) (x: ArgumentData) : Expression =
     let nameColon = 
@@ -330,34 +371,38 @@ and transformLiteralExpression (env: Environment) (x: LiteralExpressionData) : L
     | v -> errf x.Node "transformLiteralExpression: unrecognized literal type %O" (v.GetType().FullName)
 
 and transformStatement (env: Environment) (x: StatementData) : Statement =
-    match x with
-    | StatementData.Block                     x -> transformBlock env x
-    | StatementData.LocalDeclarationStatement x -> transformLocalDeclarationStatement env x
-    | StatementData.ExpressionStatement       x -> transformExpressionStatement env x
-    | StatementData.EmptyStatement            x -> transformEmptyStatement env x
-    | StatementData.LabeledStatement          x -> transformLabeledStatement env x
-    | StatementData.GotoStatement             x -> transformGotoStatement env x
-    | StatementData.BreakStatement            x -> transformBreakStatement env x
-    | StatementData.ContinueStatement         x -> TODO() //transformContinueStatement env x
-    | StatementData.ReturnStatement           x -> transformReturnStatement env x
-    | StatementData.ThrowStatement            x -> TODO() //transformThrowStatement env x
-    | StatementData.YieldStatement            x -> TODO() //transformYieldStatement env x
-    | StatementData.WhileStatement            x -> transformWhileStatement env x
-    | StatementData.DoStatement               x -> transformDoStatement env x
-    | StatementData.ForStatement              x -> transformForStatement env x
-    | StatementData.ForEachStatement          x -> transformForEachStatement env x
-    | StatementData.UsingStatement            x -> transformUsingStatement env x
-    | StatementData.FixedStatement            x -> TODO() //transformFixedStatement env x
-    | StatementData.CheckedStatement          x -> TODO() //transformCheckedStatement env x
-    | StatementData.UnsafeStatement           x -> TODO() //transformUnsafeStatement env x
-    | StatementData.LockStatement             x -> TODO() //transformLockStatement env x
-    | StatementData.IfStatement               x -> transformIfStatement env x
-    | StatementData.SwitchStatement           x -> transformSwitchStatement env x
-    | StatementData.TryStatement              x -> transformTryStatement env x
+    try
+        match x with
+        | StatementData.Block                     x -> transformBlock env x
+        | StatementData.LocalDeclarationStatement x -> transformLocalDeclarationStatement env x
+        | StatementData.ExpressionStatement       x -> transformExpressionStatement env x
+        | StatementData.EmptyStatement            x -> transformEmptyStatement env x
+        | StatementData.LabeledStatement          x -> transformLabeledStatement env x
+        | StatementData.GotoStatement             x -> transformGotoStatement env x
+        | StatementData.BreakStatement            x -> transformBreakStatement env x
+        | StatementData.ContinueStatement         x -> TODO() //transformContinueStatement env x
+        | StatementData.ReturnStatement           x -> transformReturnStatement env x
+        | StatementData.ThrowStatement            x -> TODO() //transformThrowStatement env x
+        | StatementData.YieldStatement            x -> TODO() //transformYieldStatement env x
+        | StatementData.WhileStatement            x -> transformWhileStatement env x
+        | StatementData.DoStatement               x -> transformDoStatement env x
+        | StatementData.ForStatement              x -> transformForStatement env x
+        | StatementData.ForEachStatement          x -> transformForEachStatement env x
+        | StatementData.UsingStatement            x -> transformUsingStatement env x
+        | StatementData.FixedStatement            x -> TODO() //transformFixedStatement env x
+        | StatementData.CheckedStatement          x -> TODO() //transformCheckedStatement env x
+        | StatementData.UnsafeStatement           x -> TODO() //transformUnsafeStatement env x
+        | StatementData.LockStatement             x -> TODO() //transformLockStatement env x
+        | StatementData.IfStatement               x -> transformIfStatement env x
+        | StatementData.SwitchStatement           x -> transformSwitchStatement env x
+        | StatementData.TryStatement              x -> transformTryStatement env x
+    with e ->
+        env.Compilation.AddError(Some (getSourcePos x.Node), Metadata.SourceError("Error while reading C# code: " + e.Message))
+        ExprStatement WebSharper.Compiler.ToJavaScript.errorPlaceholder        
 
 and transformBlock (env: Environment) (x: BlockData) : Statement =
     x.Statements |> Seq.map (transformStatement env) |> List.ofSeq |> Block
-    |> withStatementSourcePos env x.Node  
+    |> withStatementSourcePos x.Node  
 //    let rec varDecls acc vs =
 //        match vs with
 //        | [] -> acc
@@ -384,7 +429,7 @@ and transformLabeledStatement (env: Environment) (x: LabeledStatementData) : Sta
     let label = env.GetLabelId(symbol)
     let statement = x.Statement |> transformStatement env
     Labeled (label, statement)
-    |> withStatementSourcePos env x.Node
+    |> withStatementSourcePos x.Node
 
 and transformEqualsValueClause (env: Environment) (x: EqualsValueClauseData) : Expression =
     x.Value |> transformExpression env
@@ -403,14 +448,14 @@ and transformVariableDeclaration (env: Environment) (x: VariableDeclarationData)
 
 and transformLocalDeclarationStatement (env: Environment) (x: LocalDeclarationStatementData) : Statement =
     x.Declaration |> transformVariableDeclaration env |> List.map VarDeclaration |> Statements 
-    |> withStatementSourcePos env x.Node
+    |> withStatementSourcePos x.Node
 
 and transformExpressionStatement (env: Environment) (x: ExpressionStatementData) : Statement =
     x.Expression |> transformExpression env |> ExprStatement
 
 and transformVariableDeclarator (env: Environment) (x: VariableDeclaratorData) : Id * Expression =    
     let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node) :?> ILocalSymbol
-    let id = Id(symbol.Name)
+    let id = Id.New(symbol.Name)
     env.Vars.Add(symbol, id)
     let initializer = 
         match x.Initializer with
@@ -422,7 +467,7 @@ and transformSwitchStatement (env: Environment) (x: SwitchStatementData) : State
     let expression = x.Expression |> transformExpression env
     let sections = x.Sections |> Seq.map (transformSwitchSection env) |> List.ofSeq
     CSharpSwitch (expression, sections)
-    |> withStatementSourcePos env x.Node
+    |> withStatementSourcePos x.Node
 
 and transformSwitchSection (env: Environment) (x: SwitchSectionData) : list<option<Expression>> * Statement =
     let labels = x.Labels |> Seq.map (transformSwitchLabel env) |> List.ofSeq
@@ -436,7 +481,7 @@ and transformSwitchLabel (env: Environment) (x: SwitchLabelData) : option<Expres
 
 and transformCaseSwitchLabel (env: Environment) (x: CaseSwitchLabelData) : Expression =
     x.Value |> transformExpression env
-    |> withExprSourcePos env x.Node
+    |> withExprSourcePos x.Node
 
 and transformGotoStatement (env: Environment) (x: GotoStatementData) : Statement =
     match x.Kind with
@@ -449,11 +494,11 @@ and transformGotoStatement (env: Environment) (x: GotoStatementData) : Statement
         GotoCase expression
     | GotoStatementKind.GotoDefaultStatement -> 
         GotoCase None
-    |> withStatementSourcePos env x.Node
+    |> withStatementSourcePos x.Node
 
 and transformBreakStatement (env: Environment) (x: BreakStatementData) : Statement  =
     Break None
-    |> withStatementSourcePos env x.Node
+    |> withStatementSourcePos x.Node
 
 and transformIfStatement (env: Environment) (x: IfStatementData) =
     let condition = x.Condition |> transformExpression env
@@ -463,12 +508,30 @@ and transformIfStatement (env: Environment) (x: IfStatementData) =
         | Some e -> e |> transformElseClause env
         | _ -> Empty
     If (condition, statement, else_)
-    |> withStatementSourcePos env x.Node
+    |> withStatementSourcePos x.Node
 
 and transformElseClause (env: Environment) (x: ElseClauseData) : Statement =
     x.Statement |> transformStatement env
 
 and transformAssignmentExpression (env: Environment) (x: AssignmentExpressionData) : Expression =
+    let leftSymbol = env.SemanticModel.GetSymbolInfo(x.Left.Node).Symbol.OriginalDefinition
+    match leftSymbol with
+    | :? IPropertySymbol as symbol ->
+        let typ = getNamedType symbol.ContainingType
+        let setM = symbol.SetMethod
+        let ma = setM.TypeArguments |> Seq.map getType |> List.ofSeq
+        let meth = concrete (getMethod setM, ma)
+        let right = x.Right |> transformExpression env
+        if symbol.IsStatic then
+            Call(None, typ, meth, [right]) // TODO property indexers
+        else
+            let left = x.Left |> transformExpression env
+            // eliminate getter
+            match left with
+            | Call (Some v, _, _, []) ->
+                Call (Some v, typ, meth, [right])
+            | _ -> TODO()
+    | _ ->
     let left = x.Left |> transformExpression env
     let right = x.Right |> transformExpression env
     match x.Kind with
@@ -487,13 +550,13 @@ and transformAssignmentExpression (env: Environment) (x: AssignmentExpressionDat
     | AssignmentExpressionKind.OrAssignmentExpression -> TODO()
     | AssignmentExpressionKind.LeftShiftAssignmentExpression -> TODO()
     | AssignmentExpressionKind.RightShiftAssignmentExpression -> TODO()
-    |> withExprSourcePos env x.Node
+    |> withExprSourcePos x.Node
 
 and transformParenthesizedExpression (env: Environment) (x: ParenthesizedExpressionData) : Expression =
     x.Expression |> transformExpression env
 
 and transformBinaryExpression (env: Environment) (x: BinaryExpressionData) : Expression =
-    let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+    let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol.OriginalDefinition :?> IMethodSymbol
     let typ = getNamedType symbol.ContainingType
     let oa = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
     let operator = concrete (getMethod symbol, oa)
@@ -511,14 +574,14 @@ and transformBinaryExpression (env: Environment) (x: BinaryExpressionData) : Exp
 //    | BinaryExpressionKind.AsExpression -> TODO()
     | _ -> 
         Call(None, typ, operator, [left; right])
-    |> withExprSourcePos env x.Node
+    |> withExprSourcePos x.Node
 
 and transformConditionalExpression (env: Environment) (x: ConditionalExpressionData) : Expression =
     let condition = x.Condition |> transformExpression env
     let whenTrue = x.WhenTrue |> transformExpression env
     let whenFalse = x.WhenFalse |> transformExpression env
     Conditional(condition, whenTrue, whenFalse)
-    |> withExprSourcePos env x.Node
+    |> withExprSourcePos x.Node
 
 and transformMethodDeclaration (env: Environment) (x: MethodDeclarationData) : CSharpMethod =
     let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
@@ -556,7 +619,7 @@ and transformParameter (env: Environment) (x: ParameterData) : CSharpParameter =
     let default_ = x.Default |> Option.map (transformEqualsValueClause env)
     let id =
         match x.Identifier with
-        | ParameterIdentifier.IdentifierToken t -> Id t
+        | ParameterIdentifier.IdentifierToken t -> Id.New t
         | _ -> failwith "transformParameter: arglist__ not supported"
     {
         ParameterId = id
@@ -585,9 +648,9 @@ and transformInitializerExpression (env: Environment) (x: InitializerExpressionD
     match x.Kind with
     | InitializerExpressionKind.ObjectInitializerExpression -> TODO()
     | InitializerExpressionKind.CollectionInitializerExpression -> TODO()
-    | InitializerExpressionKind.ArrayInitializerExpression -> TODO()
+    | InitializerExpressionKind.ArrayInitializerExpression ->
+        NewArray expressions
     | InitializerExpressionKind.ComplexElementInitializerExpression -> TODO()
-    TODO()
 
 and transformConstructorDeclaration (env: Environment) (x: ConstructorDeclarationData) : _ =
 //    let attributeLists = x.AttributeLists |> Seq.map (transformAttributeList env) |> List.ofSeq
@@ -632,13 +695,13 @@ and transformWhileStatement (env: Environment) (x: WhileStatementData) : _ =
     let condition = x.Condition |> transformExpression env
     let statement = x.Statement |> transformStatement env
     While(condition, statement)
-    |> withStatementSourcePos env x.Node
+    |> withStatementSourcePos x.Node
 
 and transformDoStatement (env: Environment) (x: DoStatementData) : _ =
     let statement = x.Statement |> transformStatement env
     let condition = x.Condition |> transformExpression env
     DoWhile(statement, condition)
-    |> withStatementSourcePos env x.Node
+    |> withStatementSourcePos x.Node
 
 and transformForStatement (env: Environment) (x: ForStatementData) : _ =
     let declaration = x.Declaration |> Option.map (transformVariableDeclaration env)
@@ -662,7 +725,7 @@ and transformForStatement (env: Environment) (x: ForStatementData) : _ =
         Block ((d |> List.map VarDeclaration) @ [ loop ])
     | None -> 
         loop
-    |> withStatementSourcePos env x.Node
+    |> withStatementSourcePos x.Node
 
 and transformPostfixUnaryExpression (env: Environment) (x: PostfixUnaryExpressionData) : _ =
     let operand = x.Operand |> transformExpression env
@@ -670,12 +733,12 @@ and transformPostfixUnaryExpression (env: Environment) (x: PostfixUnaryExpressio
 //    | PostfixUnaryExpressionKind.PostIncrementExpression -> TODO()
 //    | PostfixUnaryExpressionKind.PostDecrementExpression -> TODO()
 //    TODO()
-    let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+    let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol.OriginalDefinition :?> IMethodSymbol
     let typ = getNamedType symbol.ContainingType
     let ma = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
     let meth = concrete (getMethod symbol, ma)
     Call(None, typ, meth, [ operand ])
-    |> withExprSourcePos env x.Node
+    |> withExprSourcePos x.Node
 
 and transformPrefixUnaryExpression (env: Environment) (x: PrefixUnaryExpressionData) : _ =
     let operand = x.Operand |> transformExpression env
@@ -689,12 +752,12 @@ and transformPrefixUnaryExpression (env: Environment) (x: PrefixUnaryExpressionD
 //    | PrefixUnaryExpressionKind.AddressOfExpression -> TODO()
 //    | PrefixUnaryExpressionKind.PointerIndirectionExpression -> TODO()
 //    TODO()
-    let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+    let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol.OriginalDefinition :?> IMethodSymbol
     let typ = getNamedType symbol.ContainingType
     let ma = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
     let meth = concrete (getMethod symbol, ma)
     Call(None, typ, meth, [ operand ])
-    |> withExprSourcePos env x.Node
+    |> withExprSourcePos x.Node
 
 and transformUsingStatement (env: Environment) (x: UsingStatementData) : _ =
     let declaration = x.Declaration |> Option.map (transformVariableDeclaration env)
@@ -704,7 +767,7 @@ and transformUsingStatement (env: Environment) (x: UsingStatementData) : _ =
 
 and transformTryStatement (env: Environment) (x: TryStatementData) : _ =
     let block = x.Block |> transformBlock env
-    let err = Id "err"
+    let err = Id.New "err"
     let catches = x.Catches |> Seq.map (transformCatchClause (env.WithCaught(err))) |> List.ofSeq
     let body =
         if List.isEmpty catches then None else
@@ -729,7 +792,7 @@ and transformTryStatement (env: Environment) (x: TryStatementData) : _ =
     match finally_ with
     | Some f -> TryFinally(f, tryWith)
     | None -> tryWith  
-    |> withStatementSourcePos env x.Node
+    |> withStatementSourcePos x.Node
 
 and transformCatchClause (env: Environment) (x: CatchClauseData) : _ =
     let declaration = x.Declaration |> Option.map (transformCatchDeclaration env)
@@ -774,24 +837,23 @@ and transformAnonymousFunctionExpression (env: Environment) (x: AnonymousFunctio
 
 and transformLambdaExpression (env: Environment) (x: LambdaExpressionData) : _ =
     match x with
-    | LambdaExpressionData.SimpleLambdaExpression        x -> TODO() transformSimpleLambdaExpression env x
-    | LambdaExpressionData.ParenthesizedLambdaExpression x -> TODO() transformParenthesizedLambdaExpression env x
+    | LambdaExpressionData.SimpleLambdaExpression        x -> transformSimpleLambdaExpression env x
+    | LambdaExpressionData.ParenthesizedLambdaExpression x -> transformParenthesizedLambdaExpression env x
 
 and transformSimpleLambdaExpression (env: Environment) (x: SimpleLambdaExpressionData) : _ =
     let parameter = x.Parameter |> transformParameter env
     // TODO ref and out params
-    let id = Id parameter.ParameterId.Name.Value              
+    let id = Id.New parameter.ParameterId.Name.Value              
     env.Parameters.Add(parameter.Symbol, id)
     let body = x.Body |> transformCSharpNode env
     Function([id], body)
     
-
 and transformParenthesizedLambdaExpression (env: Environment) (x: ParenthesizedLambdaExpressionData) : _ =
     let parameterList = x.ParameterList |> transformParameterList env
     // TODO ref and out params
     let ids =
         parameterList |> List.map (fun p -> 
-            let id = Id p.ParameterId.Name.Value
+            let id = Id.New p.ParameterId.Name.Value
             env.Parameters.Add(p.Symbol, id)
             id
         )              
@@ -800,7 +862,7 @@ and transformParenthesizedLambdaExpression (env: Environment) (x: ParenthesizedL
 
 and transformCSharpNode (env: Environment) (x: CSharpNodeData) : _ =
     match x with
-    | CSharpNodeData.Expression                      x -> TODO() //transformExpression env x
+    | CSharpNodeData.Expression                      x -> transformExpression env x |> Return
     | CSharpNodeData.BaseArgumentList                x -> TODO() //transformBaseArgumentList env x
     | CSharpNodeData.QueryClause                     x -> TODO() //transformQueryClause env x
     | CSharpNodeData.SelectOrGroupClause             x -> TODO() //transformSelectOrGroupClause env x
@@ -866,20 +928,49 @@ and transformInstanceExpression (env: Environment) (x: InstanceExpressionData) :
     | InstanceExpressionData.BaseExpression x -> TODO() //transformBaseExpression env x
 
 and transformMemberAccessExpression (env: Environment) (x: MemberAccessExpressionData) : _ =
+    let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol.OriginalDefinition
+    match symbol with
+    | :? IPropertySymbol as symbol ->
+        let typ = getNamedType symbol.ContainingType
+        let getM = symbol.GetMethod
+        let ma = getM.TypeArguments |> Seq.map getType |> List.ofSeq
+        let meth = concrete (getMethod getM, ma)
+        if symbol.IsStatic then
+            Call(None, typ, meth, []) // TODO property indexers
+        else
+            let expression = x.Expression |> transformExpression env
+            Call (Some expression, typ, meth, [])        
+    | :? IMethodSymbol as symbol ->
+        // TODO: this works for invocations but not always
+        let expression = x.Expression |> transformExpression env
+        expression
+    | _ ->      
     let expression = x.Expression |> transformExpression env
     let name = x.Name |> transformSimpleName env
     match x.Kind with
     | MemberAccessExpressionKind.SimpleMemberAccessExpression -> TODO()
     | MemberAccessExpressionKind.PointerMemberAccessExpression -> TODO()
-    TODO()
 
 and transformConditionalAccessExpression (env: Environment) (x: ConditionalAccessExpressionData) : _ =
     let expression = x.Expression |> transformExpression env
     let whenNotNull = x.WhenNotNull |> transformExpression env
-    let id = Id ()
+    let id = Id.New ()
 //    Let(id, expression, Conditional(id ))
     TODO()
 
 and transformMemberBindingExpression (env: Environment) (x: MemberBindingExpressionData) : _ =
     let name = x.Name |> transformSimpleName env
+    TODO()
+
+and transformArrayCreationExpression (env: Environment) (x: ArrayCreationExpressionData) : _ =
+//    let type_ = x.Type |> transformArrayType env
+    let initializer = x.Initializer |> Option.map (transformInitializerExpression env)
+    initializer |> Option.fill (NewArray [])
+
+and transformImplicitArrayCreationExpression (env: Environment) (x: ImplicitArrayCreationExpressionData) : _ =
+    let initializer = x.Initializer |> transformInitializerExpression env
+    initializer
+
+and transformTypeOfExpression (env: Environment) (x: TypeOfExpressionData) : _ =
+    let type_ = x.Type |> transformType env
     TODO()

@@ -109,10 +109,10 @@ type private FSharpSet<'T when 'T : comparison>
             && Seq.forall2 ( = ) this (As<FSharpSet<'T>> other)
 
         interface IEnumerable with
-            member this.GetEnumerator() = X<_>
+            member this.GetEnumerator() = this.GetEnumerator() :> _
 
         interface IEnumerable<'T> with
-            member this.GetEnumerator() = X<_>
+            member this.GetEnumerator() = this.GetEnumerator()
 
         interface System.IComparable with
             [<JavaScript>]

@@ -23,6 +23,7 @@
 /// sending/returning unions, lists, options, scalars and records.
 namespace WebSharper.Web.Tests
 
+#if TODO
 open System.Collections.Generic
 open WebSharper
 open WebSharper.JavaScript
@@ -418,3 +419,4 @@ module ClientSideJson =
             }
 
         }
+#endif

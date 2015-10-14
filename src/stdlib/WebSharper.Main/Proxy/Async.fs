@@ -123,9 +123,10 @@ type ActionProxy =
     [<Inline "$this()">]
     member this.Invoke() = ()
 
-[<Proxy(typeof<CTR>)>]
-type private CancellationTokenRegistrationProxy =
-    [<Stub>] abstract member Dispose : unit -> unit
+//[<Proxy(typeof<CTR>)>]
+//type private CancellationTokenRegistrationProxy =
+//    interface System.IDisposable with
+//        [<Stub>] member this.Dispose () = ()
 
 [<Proxy(typeof<CT>)>]
 type private CancellationTokenProxy =

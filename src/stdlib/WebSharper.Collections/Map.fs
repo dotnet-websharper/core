@@ -110,10 +110,10 @@ type internal FSharpMap<'K,'V when 'K : comparison>
                     (As<Map<'K,'V>> other)
 
         interface IEnumerable with
-            member this.GetEnumerator() = X<_>
+            member this.GetEnumerator() = this.GetEnumerator() :> _
 
         interface IEnumerable<KeyValuePair<'K,'V>> with
-            member this.GetEnumerator() = X<_>
+            member this.GetEnumerator() = this.GetEnumerator()
 
 
 

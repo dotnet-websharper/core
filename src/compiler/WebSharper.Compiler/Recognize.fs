@@ -1,4 +1,4 @@
-﻿module WebSharper.Compiler.Common.Recognize
+﻿module WebSharper.Compiler.Recognize
 
 open WebSharper.Core
 open WebSharper.Core.AST
@@ -8,40 +8,66 @@ type SB = WebSharper.Core.JavaScript.Syntax.BinaryOperator
 
 type Environment =
     {
-        Vars : Map<string, Expression>
+        Vars : list<IDictionary<string, Expression>>
         Labels : Map<string, Id>
         This : option<Id>
     }
-    static member New(vars) =
+//    static member New(vars) =
+//        {
+//            Vars =
+//                vars |> Seq.mapi (fun i n ->                    
+//                    let h = Hole i
+//                    [ 
+//                        "$" + string i, h
+//                        "$" + n, h  
+//                    ] 
+//                ) |> Seq.concat |> Map.ofSeq
+//            Labels = Map.empty
+//            This = None
+//        }
+
+    static member New(thisArg, isDirect, args) =
+        // TODO : add arguments to scope
+        let mainScope =
+            Option.toList thisArg @ args
+            //args
+            |> Seq.mapi (fun i (a: Id) ->                    
+                let isThis = Some a = thisArg
+                let v =
+                    if isDirect && isThis then This else Var a
+                [ 
+                    yield "$" + string i, v
+                    yield "$" + a.Name.Value, v
+                    if isThis then yield "$this", v
+                ] 
+            ) |> Seq.concat |> dict
         {
-            Vars =
-                vars |> Seq.mapi (fun i n ->                    
-                    let h = Hole i
-                    [ 
-                        "$" + string i, h
-                        "$" + n, h  
-                    ] 
-                ) |> Seq.concat |> Map.ofSeq
+            Vars = [ Dictionary(); mainScope ]
             Labels = Map.empty
             This = None
         }
 
-    static member NewDirect(args) =
-        {
-            Vars =
-                args |> Seq.mapi (fun i (a: Id) ->                    
-                    [ 
-                        "$" + string i, Var a
-                        "$" + a.Name.Value, Var a  
-                    ] 
-                ) |> Seq.concat |> Map.ofSeq
-            Labels = Map.empty
-            This = None
-        }
+    member this.WithNewScope (vars) =
+        { this with Vars = (Dictionary(dict vars) :> _) :: this.Vars }
 
-    member this.WithVar(name) =
-        let v = Id name
-        { this with Vars = this.Vars |> Map.add name (Var v) }, v
+    member this.NewVar(name) =
+        let v = Id.New name
+        match this.Vars with
+        | [] -> failwith "no scope"
+        | h :: t ->
+            h.Add(name, Var v)
+            v
+            //{ this with Vars = (h |> Map.add name (Var v)) :: t }, v
+
+    member this.TryFindVar(name) =
+        let rec findIn scope =
+            match scope with
+            | [] -> None
+            | (h : IDictionary<_,_>) :: t ->
+                match h.TryFind name with
+                | Some _ as res -> res
+                | _ -> findIn t
+        findIn this.Vars
 
 exception RecognitionError
 
@@ -113,12 +139,8 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
     | S.Lambda (a, b, c) ->
        match a with
        | None ->
-//            let this = Id()
-            let vars = b |> List.map (fun v -> Id v)
-            let env =
-                { env with
-                    Vars = (env.Vars, Seq.zip b vars) ||> Seq.fold (fun env (n, v) -> Map.add n (Var v) env)
-                }
+            let vars = b |> List.map (fun v -> Id.New v)
+            let env = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
             let body =
                 c
                 |> List.map (function
@@ -133,7 +155,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
     | S.New (a, b) -> New(trE a, List.map trE b)
     | S.NewArray a -> NewArray (a |> List.map (function Some i -> trE i | _ -> Undefined))
     | S.NewObject a -> Object(a |> List.map (fun (b, c) -> b, trE c))
-    | S.NewRegex a -> New (globalAccess ["Regex"], [Value (String a)])
+    | S.NewRegex a -> New (globalAccess ["RegExp"], [Value (String a)])
     | S.Postfix (a, b) ->
         match b with
         | S.PostfixOperator.``++`` -> MutatingUnary(MutatingUnaryOperator.``()++``, trE a)
@@ -151,7 +173,11 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | S.UnaryOperator.``void`` -> Unary(UnaryOperator.``void``, trE b)
         | S.UnaryOperator.``~`` -> Unary(UnaryOperator.``~``, trE b)
     | S.Var a ->
-        match env.Vars.TryFind a with
+        match a with
+        | "$global" -> globalAccess []
+        | "$wsruntime" -> globalAccess ["IntelliFactory"; "Runtime"]
+        | _ ->
+        match env.TryFindVar a with
         | Some e -> e
         | None -> globalAccess [a]
     | e ->     
@@ -164,7 +190,8 @@ and transformStatement (env: Environment) (statement: S.Statement) =
     let inline trE e = transformExpression env e
     let inline trS s = transformStatement env s
     match statement with
-    | S.Block a -> Block (a |> List.map trS)
+    | S.Block a ->
+        Block (a |> List.map trS)
     | S.Break a   -> Break (a |> Option.map (fun l -> env.Labels.[l]))
     | S.Continue a -> Continue (a |> Option.map (fun l -> env.Labels.[l]))
     | S.Debugger -> failwith "TODO"
@@ -177,15 +204,17 @@ and transformStatement (env: Environment) (statement: S.Statement) =
         match b with
         | Some b -> failwith "TODO"
         | _ ->
-        let env, v = env.WithVar a
-        ForIn(v, trE c, transformStatement env d)
+        let v = env.NewVar a
+        Statements [
+            VarDeclaration (v, Undefined)
+            ForIn(v, trE c, trS d)
+        ]
     | S.ForVars (a, b, c, d) -> 
-        let decls, env =
-            List.mapFold (fun (e: Environment) (i, v) ->
-                let e, id = e.WithVar i
-                VarDeclaration(id, match v with Some v -> trE v | _ -> Undefined), e
-            ) env a
-        let inline trE e = transformExpression env e
+        let decls =
+            a |> List.map (fun (i, v) ->
+                let id = env.NewVar i
+                VarDeclaration(id, match v with Some v -> trE v | _ -> Undefined)
+            )
         Statements (
             decls @
             [
@@ -202,39 +231,51 @@ and transformStatement (env: Environment) (statement: S.Statement) =
     | S.TryWith (a, b, c, d)   -> failwith "TODO"
     | S.Vars a ->
         match a with
-        | [var, value] -> VarDeclaration (Id var, match value with Some v -> trE v | None -> Undefined)
-        | _ -> Statements (a |> List.map (fun (var, value) -> VarDeclaration (Id var, match value with Some v -> trE v | None -> Undefined)))
+        | [var, value] -> 
+            VarDeclaration (env.NewVar var, match value with Some v -> trE v | None -> Undefined)
+        | _ -> 
+            Statements (a |> List.map (fun (var, value) -> VarDeclaration (env.NewVar var, match value with Some v -> trE v | None -> Undefined)))
     | S.While (a, b) -> While (trE a, trS b)
     | S.With (a, b) -> failwith "TODO"
 
-let createInline vars inlineString =        
+let createInline thisArg args inlineString =        
     let s = 
         inlineString 
         |> WebSharper.Core.JavaScript.Parser.Source.FromString
-    try
-        s
-        |> WebSharper.Core.JavaScript.Parser.ParseExpression 
-        |> transformExpression (Environment.New(vars)) 
-    with _ ->
-        s
-        |> WebSharper.Core.JavaScript.Parser.ParseProgram
-        |> List.map (function S.Action a -> a | _ -> failwith "TODO: function declarations in Imnline" )
-        |> S.Block
-        |> transformStatement (Environment.New(vars))
-        |> StatementExpr
+    let b =
+        try
+            s
+            |> WebSharper.Core.JavaScript.Parser.ParseExpression 
+            |> transformExpression (Environment.New(thisArg, false, args))
+        with _ ->
+            s
+            |> WebSharper.Core.JavaScript.Parser.ParseProgram
+            |> List.map (function S.Action a -> a | _ -> failwith "TODO: function declarations in Inline" )
+            |> S.Block
+            |> transformStatement (Environment.New(thisArg, false, args))
+            |> StatementExpr
+    List.foldBack (fun (v, h) body ->
+        Let (v, h, body)    
+    ) (Option.toList thisArg @ args |> List.mapi (fun i a -> a, Hole i)) b
 
-let parseDirect args jsString =
+let parseDirect thisArg args jsString =
     let s = 
         jsString 
         |> WebSharper.Core.JavaScript.Parser.Source.FromString
-    try
-        s
-        |> WebSharper.Core.JavaScript.Parser.ParseExpression 
-        |> transformExpression (Environment.NewDirect(args))
-        |> Return 
-    with _ ->
-        s
-        |> WebSharper.Core.JavaScript.Parser.ParseProgram
-        |> List.map (function S.Action a -> a | _ -> failwith "TODO: function declarations in Direct" )
-        |> S.Block
-        |> transformStatement (Environment.NewDirect(args))
+    let body =
+        try
+            s
+            |> WebSharper.Core.JavaScript.Parser.ParseExpression 
+            |> transformExpression (Environment.New(thisArg, true, args))
+            |> Return 
+        with _ ->
+            s
+            |> WebSharper.Core.JavaScript.Parser.ParseProgram
+            |> List.map (
+                function 
+                | S.Action a -> a 
+                | S.Function (id, args, body) -> S.Vars [ id, Some (S.Lambda(None, args, body)) ]
+            )
+            |> S.Block
+            |> transformStatement (Environment.New(thisArg, true, args))
+    Function(args, body)

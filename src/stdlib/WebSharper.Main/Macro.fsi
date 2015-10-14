@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2014 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -21,61 +21,65 @@
 /// Defines macros used by proxy definitions.
 module private WebSharper.Macro
 
-module M = WebSharper.Core.Macros
+open WebSharper.Core
+
+[<AbstractClass>]
+type Arith =
+    inherit Macro
 
 [<Sealed>]
 type Add =
     new : unit -> Add
-    interface M.IMacro
+    inherit Arith
 
 [<Sealed>]
 type Sub =
     new : unit -> Sub
-    interface M.IMacro
+    inherit Arith
 
 [<Sealed>]
-type Division =
-    new : unit -> Division
-    interface M.IMacro
+type Div =
+    new : unit -> Div
+    inherit Macro
 
 [<Sealed>]
 type Char =
     new : unit -> Char
-    interface M.IMacro
+    inherit Macro
 
 [<Sealed>]
 type String =
     new : unit -> String
-    interface M.IMacro
+    inherit Macro
 
-[<Sealed>]
-type New =
-    new : unit -> New
-    interface M.IMacro
+//[<Sealed>]
+//type New =
+//    new : unit -> New
+//    inherit Macro
 
 [<Sealed>]
 type FuncWithArgs =
     new : unit -> FuncWithArgs
-    interface M.IMacro
+    inherit Macro
 
 [<Sealed>]
 type FuncWithArgsRest =
     new : unit -> FuncWithArgsRest
-    interface M.IMacro
+    inherit Macro
 
 [<Sealed>]
 type FuncWithThis =
     new : unit -> FuncWithThis
-    interface M.IMacro
+    inherit Macro
 
 [<Sealed>]
 type PrintF =
     new : unit -> PrintF
-    interface M.IMacro
+    inherit Macro
 
 [<AbstractClass>]
 type CMP =
-    interface M.IMacro
+    inherit Macro
 
 [<Sealed>]
 type EQ =

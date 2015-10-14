@@ -159,6 +159,8 @@ type Runtime() =
     interface IResource with
         member this.Render ctx writer =
             let name = if ctx.DebuggingEnabled then "Runtime.js" else "Runtime.min.js"
-            let t = typeof<WebSharper.Core.JavaScript.Core.Id>
+            let t = typeof<WebSharper.Core.JavaScript.Syntax.Expression>
             let ren = ctx.GetWebResourceRendering t name
             ren.Emit(writer, Js, ctx.DefaultToHttp)
+
+    static member Instance = Runtime() :> IResource

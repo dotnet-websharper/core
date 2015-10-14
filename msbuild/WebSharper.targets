@@ -25,7 +25,7 @@
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/net40/WebSharper.MSBuild.dll</WebSharperTaskAssembly>
   </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.WebSharperTask" />
-  <Target Name="WebSharperBundle" AfterTargets="Build">
+  <!--Target Name="WebSharperBundle" AfterTargets="Build">
     <WebSharperTask Command="Bundle" ItemInput="$(TargetPath);@(ReferencePath)"
       Configuration="$(Configuration)"
       DocumentationFile="$(DocumentationFile)"
@@ -39,13 +39,14 @@
       WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
-  </Target>
+  </Target>-->
   <Target Name="WebSharperClean" AfterTargets="Clean">
     <WebSharperTask Command="Clean" ItemInput="@(IntermediateAssembly)"
       Configuration="$(Configuration)"
       DocumentationFile="$(DocumentationFile)"
       EmbeddedResources="@(EmbeddedResource)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(AssemblyName)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
@@ -54,11 +55,12 @@
       WebSharperProject="$(WebSharperProject)" />
   </Target>
   <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
-    <WebSharperTask Command="Compile" ItemInput="@(IntermediateAssembly);@(ReferencePath)"
+    <WebSharperTask Command="Compile" ItemInput="@(IntermediateAssembly);@(ReferencePath)" ContinueOnError="false"
       Configuration="$(Configuration)"
       DocumentationFile="$(DocumentationFile)"
       EmbeddedResources="@(EmbeddedResource)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(AssemblyName)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
@@ -73,6 +75,7 @@
       DocumentationFile="$(DocumentationFile)"
       EmbeddedResources="@(EmbeddedResource)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(AssemblyName)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
@@ -88,6 +91,7 @@
       DocumentationFile="$(DocumentationFile)"
       EmbeddedResources="@(EmbeddedResource)"
       KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(AssemblyName)"
       OutputPath="$(OutputPath)"

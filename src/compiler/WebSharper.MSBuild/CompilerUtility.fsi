@@ -28,6 +28,7 @@ type internal CompilerInput =
         DocumentationFile : option<string>
         EmbeddedResources : list<string>
         KeyOriginatorFile : string
+        ProjectFile : string
         ProjectDir : string
         References : list<string>
         RunInterfaceGenerator : bool

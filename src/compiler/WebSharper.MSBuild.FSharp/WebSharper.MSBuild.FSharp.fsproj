@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{3a0893dd-291a-4acf-aadc-bc2af7d098ea}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <Name>WebSharper.MSBuild.FSharp</Name>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+  </PropertyGroup>
+  <Import Project="../../../msbuild/FSharp.targets" />
+  <Import Project="../../../msbuild/Mono.Cecil.targets" />
+  <ItemGroup>
+    <Reference Include="FSharp.Compiler.Service">
+      <HintPath>..\..\..\packages\FSharp.Compiler.Service\lib\net45\FSharp.Compiler.Service.dll</HintPath>
+    </Reference>
+    <Reference Include="IntelliFactory.Core">
+      <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Build.Framework" />
+    <Reference Include="Microsoft.Build.Utilities.v4.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj">
+      <Name>WebSharper.Compiler.FSharp</Name>
+      <Project>{d54ea1fd-f52f-4f07-921f-7b3d1b412cd0}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Compiler\WebSharper.Compiler.fsproj">
+      <Name>WebSharper.Compiler</Name>
+      <Project>{bfb21b61-fda9-4814-a728-7d43038e0b57}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
+      <Name>WebSharper.Core.JavaScript</Name>
+      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj">
+      <Name>WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj">
+      <Name>WebSharper.InterfaceGenerator</Name>
+      <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="CompilerUtility.fsi" />
+    <Compile Include="CompilerUtility.fs" />
+    <Compile Include="WebSharperTask.fsi" />
+    <Compile Include="WebSharperTask.fs" />
+  </ItemGroup>
+</Project>

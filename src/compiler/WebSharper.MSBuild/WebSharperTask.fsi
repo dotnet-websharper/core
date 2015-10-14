@@ -51,6 +51,9 @@ type WebSharperTask =
     /// Path to an `.snk` strong name key file, if any.
     member KeyOriginatorFile : string with get, set
 
+    /// MSBuild $(MSBuildProjectFullPath) property.
+    member MSBuildProjectFullPath : string with get, set
+
     /// MSBuild $(MSBuildProjectDirectory) property.
     member MSBuildProjectDirectory : string with get, set
 

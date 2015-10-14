@@ -335,6 +335,10 @@ type private StringProxy =
     [<JavaScript>]
     member this.TrimEnd() = TrimEnd (As this)
 
+    [<Inline "$a + $b">]
+    static member (+) (a: string, b: string) = X<string>
+    
+
 [<JavaScript>]
 let protect (s : string) =
     if s = null then "" else s

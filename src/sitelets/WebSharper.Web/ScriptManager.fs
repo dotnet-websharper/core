@@ -24,7 +24,7 @@ module CT = WebSharper.Core.ContentTypes
 module J = WebSharper.Core.Json
 module M = WebSharper.Core.Metadata
 module P = WebSharper.PathConventions
-module R = WebSharper.Core.Reflection
+//module R = WebSharper.Core.Reflection
 module Re = WebSharper.Core.Resources
 
 type private Conf = System.Configuration.ConfigurationManager
@@ -60,7 +60,7 @@ type ScriptManager() =
                 | null -> None
                 | x -> Some x
             GetAssemblyRendering = fun name ->
-                let aid = P.AssemblyId.Create(name.FullName)
+                let aid = P.AssemblyId.Create(name)
                 let url = if isDebug then pu.JavaScriptPath(aid) else pu.MinifiedJavaScriptPath(aid)
                 Re.RenderLink url
             GetWebResourceRendering = fun ty resource ->
@@ -94,7 +94,7 @@ type ScriptManager() =
                     | ">" -> "&gt;"
                     | _ -> "&amp;")
             System.Text.RegularExpressions.Regex.Replace(text, @"['<>&]", ev)
-        let resources = Shared.Metadata.GetDependencies(Seq.toList nodes)
+        let resources = Shared.Dependencies.GetResources nodes
         if not (List.isEmpty resources) then
             let content =
                 J.Encoded.Object [for kv in registry -> (kv.Key, kv.Value)]

@@ -47,11 +47,12 @@ type ConstantAttribute private () =
 /// with placeholders of the form such as $0, $x, $this or $value
 /// directly at the place of invocation. See also DirectAttribute.
 [<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
-type InlineAttribute() =
+type InlineAttribute(template: string) =
     inherit A()
 
-    /// Constructs a new inlining annotation from a code template.
-    new (template: string) = InlineAttribute()
+    member this.Template = template
+
+    new () = InlineAttribute(null)
 
 /// Marks methods and constructors for direct compilation to a JavaScript function.
 /// Direct members work by expanding JavaScript code templates

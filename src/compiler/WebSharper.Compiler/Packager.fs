@@ -1,20 +1,16 @@
-﻿module WebSharper.Compiler.Common.Packager
+﻿module WebSharper.Compiler.Packager
 
 open System.Collections.Generic
 
-module M = WebSharper.Core.Metadata
+open WebSharper.Core
 open WebSharper.Core.AST
+module M = WebSharper.Core.Metadata
 
-//type AddressTransformer(tr) =
-//    inherit Transformer()
-//
-//    override this.TransformGlobalAccess a =
-
-let packageAssembly (assembly: M.Assembly) =
+let packageAssembly (merged: M.Metadata) (current: M.Metadata) =
     let addresses = Dictionary()
     let statements = ResizeArray()
 
-    let glob = Id "Global"
+    let glob = Id.New "Global"
     statements.Add <| VarDeclaration (glob, This)
     let glob = Var glob
 
@@ -30,7 +26,7 @@ let packageAssembly (assembly: M.Assembly) =
             match address.Value with
             | [] -> glob
             | [ name ] ->
-                let var = Id name
+                let var = Id.New name
                 let f = Value (String name)
                 statements.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f) |> safeObject))                
                 let res = Var var
@@ -40,7 +36,7 @@ let packageAssembly (assembly: M.Assembly) =
             | name :: r ->
                 let parent = getAddress (Hashed r)
                 let f = Value (String name)
-                let var = Id name
+                let var = Id.New name
                 statements.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f) |> safeObject))                
                 let res = Var var
                 addresses.Add(address, res)
@@ -52,14 +48,14 @@ let packageAssembly (assembly: M.Assembly) =
             getAddress (Hashed r), Value (String name)
         | _ -> failwith "packageAssembly: empty address"
 
-    let getField address =
-        let o, x = getFieldAddress address  
-        ItemGet(o, x)
+//    let getField address =
+//        let o, x = getFieldAddress address  
+//        ItemGet(o, x)
 
     let transformAddresses =
         { new Transformer() with
             override this.TransformGlobalAccess a =
-                if addresses.ContainsKey a then getAddress a else getField a        
+                if addresses.ContainsKey a then getAddress a else GlobalAccess a        
         }.TransformExpression
             
 //    let getCompiled c =
@@ -73,125 +69,89 @@ let packageAssembly (assembly: M.Assembly) =
     let package a expr =
 //        if packaged.Add a then
         let o, x = getFieldAddress a
+        statements.Add <| ExprStatement (ItemSet (o, x, transformAddresses expr))    
+
+    let packageCtor a expr =
+//        if packaged.Add a then
+        let o, x = getFieldAddress a
+        // TODO: this is a hack
+        let av = 
+            match getAddress a with
+            | Var v -> v
+            | _ -> failwith "packageCtor error"
+        statements.Add <| ExprStatement (VarSet (av, ItemSet (o, x, transformAddresses expr)))    
+
+    let packageGlobal a expr =
+//        if packaged.Add a then
+        let o, x = getFieldAddress a
         statements.Add <| ExprStatement (ItemSet (o, x, expr))    
 
-    let packageNode a (n: M.Node) =
-        if packaged.Add a then
-            match n.Info with
-            | M.Static _ -> package a n.Body
-            | M.Instance _ ->
-                match a.Value with
-                | _ :: p ->
-                    let p = Hashed p
-                    if packaged.Add p then
-                        let proto = Object []
-                        package p proto
-                    package a n.Body
-                    
-//    let rec package a t =
-//        if packaged.Add a then
-//            match t with 
-//            | M.Content (c, _, _) ->
-//                let o, x = getFieldAddress a
-//                statements.Add <| ExprStatement (ItemSet (o, x, getCompiled c))    
-//            | M.Prototype (t, p, _, _) ->
-//                let o, x = getFieldAddress a 
-//                let proto = 
-//                    Object (
-//                        p |> Seq.map (fun (KeyValue (k, v)) ->
-//                            k, getCompiled v
-//                        ) |> List.ofSeq
-//                    )
-//                let proto =
-//                    match assembly.Classes.[t].BaseClass with
-//                    | Some b ->
-//                        let bInfo = assembly.Classes.[b]
-//                        match bInfo.Address, bInfo.Prototype with
-//                        | Some a, Some pr ->
-//                            let paddr = Hashed (pr :: a.Value)
-//                            package paddr assembly.Translated.[paddr]
-//                            Application(builtin ["Object"; "create" ], [ getField paddr; proto ])
-//                        | _ -> proto
-//                    | None -> proto
-//                statements.Add <| ExprStatement (ItemSet (o, x, proto))    
+    for c in current.Classes.Values do
+        match c.StaticConstructor with
+        | Some (ccaddr, body) -> packageGlobal ccaddr <| Application (runtimeCctor, [ body ])
+        | _ -> ()
 
-//    let runtimeCtor =
-//        let ctor = Id "ctor"
-//        let proto = Id "proto"
-//        Function ([ctor; proto], 
-//            let f = Id "f"
-//            Block [
-//                ExprStatement <| ItemSet(Var ctor, Value (String "prototype"), Var proto)
-//                Return (Var ctor)
-//            ]
-//        )
-//        |> M.CompiledExpr
-//    package (Hashed ["Ctor"; "Runtime"]) (M.Content (ref runtimeCtor, null, null))
-//
-//    let runtimeCctor =
-//        let cctor = Id "cctor"
-//        Function([cctor],
-//            let init = Id "init"
-//            Return (
-//                Function ([],
-//                    Block [
-//                        VarDeclaration (init, Value (Bool true))
-//                        If (Var init,
-//                            Block [
-//                                ExprStatement (VarSet (init, Value (Bool false)))
-//                                ExprStatement (Application (Var cctor, []))        
-//                            ], Empty)    
-//                    ]
-//                )
-//            )
-//        )
-//    package (Hashed ["Cctor"; "Runtime"]) runtimeCctor
+        match c.Address with 
+        | None -> ()
+        | Some addr ->
+            
+            let prototype = 
+                Object [
+                    for info, body in Seq.append c.Methods.Values c.Implementations.Values do
+                        match info with
+                        | M.Instance mname ->
+                            if body <> Undefined then
+                                yield mname, body
+                        | _ -> ()
+                ]
+                            
+            let baseType =
+                match c.BaseClass |> Option.bind (M.tryLookupClass merged) |> Option.bind (fun b -> b.Address) with
+                | Some ba -> GlobalAccess ba
+                | _ -> Value Null
+             
+//            match prototype, c.BaseClass with
+//            | Object [], None -> ()
+//            | _ ->
+//                packageCtor addr <| Application (runtimeClass, [ prototype; baseType; GlobalAccess addr])
+            if not c.IsModule then
+                packageCtor addr <| Application (runtimeClass, [ prototype; baseType; GlobalAccess addr])
 
-    for (KeyValue (a, t)) in assembly.Translated do packageNode a t
+        for info, body in c.Methods.Values do
+            match info with
+            | M.Static maddr ->
+                if body <> Undefined then
+                    if body <> Undefined then
+                        package maddr body
+            | _ -> ()
 
-    Application(Function([], Block (List.ofSeq statements)), [])
-    
-//    let getCompiled c =
-//        match !c with
-//        | M.CompiledExpr e ->
-//            e
-//    let rec package x =
-//        match x with
-////        | M.Module o ->
-////            Object (
-////                o |> Seq.map (fun (KeyValue (k, v)) -> 
-////                    k, package v
-////                ) |> List.ofSeq            
-////            ) 
-//        | M.Content c -> getCompiled c
-//        | M.TypeFunction f ->
-//            let x = Common.Id.New()
-//            Sequential [
-//                VarSet(x, Function([], Empty))
-//                PropertySet(Var x, Value (String "prototype"), 
-//                    Object (
-//                        f |> Seq.map (fun (KeyValue (k, v)) ->
-//                            k, getCompiled v
-//                        ) |> List.ofSeq
-//                    )
-//                )
-//                Var x
-//            ]
-//
-//    Common.Block (
-//        Common.VarDeclaration (Common.Id.New "Global", JavaScript.This) :: (
-//            assembly.Translated |> Seq.map (fun (KeyValue (k, v)) ->
-//                Common.VarDeclaration (Common.Id.New k, package v)
-//            ) |> List.ofSeq  
-//        )
-//    )
-    //packageObject assembly.Translated
+        for info, body in c.Constructors.Values do
+            match info with
+            | M.Constructor caddr ->
+                if body <> Undefined then
+                    if Option.isSome c.Address then
+                        package caddr <| 
+                            match c.Address with
+                            | Some addr -> Application (runtimeCtor, [ body; GlobalAccess addr ])
+                            | _ -> body
+                    else
+                        package caddr body
+            | M.Static maddr ->
+                if body <> Undefined then
+                    package maddr body
+            | _ -> ()
+            
+    let statements = List.ofSeq statements 
+    if List.isEmpty statements then Undefined else
+        Application(Function([], Block (List.ofSeq statements)), [])
 
-let exprToString statement =
-    statement
-    |> ToJavaScriptSyntax.transformExpr (WebSharper.Compiler.Common.ToJavaScriptSyntax.Environment.New())
-    |> WebSharper.Core.JavaScript.Syntax.Ignore
-    |> WebSharper.Core.JavaScript.Syntax.Action
-    |> List.singleton
-    |> WebSharper.Core.JavaScript.Writer.ProgramToString
-        WebSharper.Core.JavaScript.Readable
+let exprToString asmName pref statement =
+    let program =
+        statement
+        |> ToJavaScriptSyntax.transformExpr (WebSharper.Compiler.ToJavaScriptSyntax.Environment.New(asmName, pref))
+        |> WebSharper.Core.JavaScript.Syntax.Ignore
+        |> WebSharper.Core.JavaScript.Syntax.Action
+        |> fun x -> [ x ]
+    let w = WebSharper.Core.JavaScript.Writer.CodeWriter()
+    WebSharper.Core.JavaScript.Writer.WriteProgram pref w program
+    w.GetCodeFile(), w.GetMapFile()

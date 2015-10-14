@@ -49,14 +49,18 @@ module internal Event =
             Disposable.Of (fun () -> this.RemoveHandler h)
 
         interface IDisposable with
-            member this.Dispose() = X<unit>
+            [<JavaScript>]
+            member this.Dispose() = ()
 
         interface IObservable<'T> with
-            member this.Subscribe observer = X<IDisposable>
+            [<JavaScript>]
+            member this.Subscribe observer = this.Subscribe observer
 
         interface IDelegateEvent<Handler<'T>> with
-            member this.AddHandler x = X<unit>
-            member this.RemoveHandler x = X<unit>
+            [<JavaScript>]
+            member this.AddHandler x = this.AddHandler x
+            [<JavaScript>]
+            member this.RemoveHandler x = this.RemoveHandler x
 
         interface IEvent<'T>
 

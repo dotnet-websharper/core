@@ -44,7 +44,7 @@ module Content =
 
     module Activator = WebSharper.Html.Client.Activator
     module M = WebSharper.Core.Metadata
-    module R = WebSharper.Core.Reflection
+//    module R = WebSharper.Core.Reflection
     module J = WebSharper.Core.Json
     module XS = IntelliFactory.Xml.SimpleXml
     module XT = IntelliFactory.Xml.Templating
@@ -87,7 +87,8 @@ module Content =
         {
             AppPath : string
             Json : Core.Json.Provider
-            Meta : Core.Metadata.Info
+            Meta : Core.Metadata.Metadata
+            Graph : Core.Metadata.Graph 
             ResourceContext : Core.Resources.Context
         }
 
@@ -96,6 +97,7 @@ module Content =
                 AppPath = ctx.ApplicationPath
                 Json = ctx.Json
                 Meta = ctx.Metadata
+                Graph = Core.Metadata.Graph.FromData ctx.Metadata.Dependencies
                 ResourceContext = ctx.ResourceContext
             }
 
@@ -104,7 +106,7 @@ module Content =
         let resources =
             controls
             |> Seq.collect (fun c -> c.Requires env.Meta)
-            |> env.Meta.GetDependencies
+            |> env.Graph.GetResources
         let hasResources = not (List.isEmpty resources)
         if hasResources then
             // Meta tag encoding the client side controls

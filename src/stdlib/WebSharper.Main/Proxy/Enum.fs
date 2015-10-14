@@ -20,7 +20,7 @@
 
 namespace WebSharper
 
-[<Proxy(typedefof<System.Enum>)>]
+[<Proxy(typeof<System.Enum>)>]
 type internal EnumProxy =
 
     [<Inline "($0 & $1) !== 0">]

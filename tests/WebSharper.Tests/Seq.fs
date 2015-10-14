@@ -588,17 +588,17 @@ let Tests =
             equal (Seq.item 2 [1; 2; 3]) 3
         }
 
-        Test "Seq.mapFold" {
-            let m, f = Seq.mapFold (fun s x -> (x + 1, s + x)) 0 { 0 .. 4 }
-            equal (Array.ofSeq m) [| 1 .. 5 |]
-            equal f 10
-        }
-
-        Test "Seq.mapFoldBack" {
-            let m, f = Seq.mapFoldBack (fun s x -> (x + 1, s + x)) { 0 .. 4 } 0 
-            equal (Array.ofSeq m) [|11; 10; 8; 5; 1|]
-            equal f 10
-        }
+//        Test "Seq.mapFold" {
+//            let m, f = Seq.mapFold (fun s x -> (x + 1, s + x)) 0 { 0 .. 4 }
+//            equal (Array.ofSeq m) [| 1 .. 5 |]
+//            equal f 10
+//        }
+//
+//        Test "Seq.mapFoldBack" {
+//            let m, f = Seq.mapFoldBack (fun s x -> (x + 1, s + x)) { 0 .. 4 } 0 
+//            equal (Array.ofSeq m) [|11; 10; 8; 5; 1|]
+//            equal f 10
+//        }
 
         Test "Seq.sortDescending" {
             equal (Seq.sortDescending { 0 .. 4 } |> Array.ofSeq) [| 4 .. -1 .. 0  |]

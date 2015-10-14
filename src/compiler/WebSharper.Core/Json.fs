@@ -1400,8 +1400,8 @@ let defaultEncodeUnionTag _ (tag: int) =
 
 module TypedProviderInternals =
 
-    let addTag (i: M.Compilation) (t: System.Type) =
-        let mt = AST.TypeDefinition.fromType t
+    let addTag (i: M.Metadata) (t: System.Type) =
+        let mt = AST.Reflection.getTypeDefinition t
         match i.Classes.TryFind mt with
         | Some { Address = Some a } ->
             function
@@ -1448,8 +1448,10 @@ module TypedProviderInternals =
     let format info =
         {
             AddTag = addTag info
-            GetEncodedFieldName = fun t ->
-                M.lookupField info (AST.TypeDefinition.fromType t)
+            GetEncodedFieldName = fun t f ->
+                match (M.lookupFieldM info (AST.Reflection.getTypeDefinition t) f) with
+                | M.InstanceField n -> n
+                | _ -> failwith "field must be non-optional instance field" // TODO: optional?
             GetUnionTag = defaultGetUnionTag
             EncodeUnionTag = defaultEncodeUnionTag
             GetEncodedUnionFieldName = fun _ i -> "$" + string i
@@ -1637,7 +1639,7 @@ type Provider(fo: FormatSettings) =
     static member Create() =
         Provider PlainProviderInternals.format
 
-    static member CreateTyped (info: M.Compilation) =
+    static member CreateTyped (info: M.Metadata) =
         Provider (TypedProviderInternals.format info)
 
     member this.GetDecoder(t: System.Type) : Decoder =

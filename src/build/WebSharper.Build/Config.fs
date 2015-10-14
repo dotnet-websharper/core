@@ -24,14 +24,16 @@ open System
 
 module Config =
     let PackageId = "WebSharper"
-    let CompilerPackageId = "WebSharper.Compiler"
-    let PlainVersion = "3.4"
+    let FSharpPackageId = "WebSharper.FSharp"
+    let CSharpPackageId = "WebSharper.CSharp"
+    let PlainVersion = "4.0"
     let PackageVersion = PlainVersion
     let NumericVersion = Version(PlainVersion + ".0.0")
-    let VersionSuffix = None
+    let VersionSuffix = Some "alpha"
     let Company = "IntelliFactory"
-    let Description = "F#-to-JavaScript compiler and web application framework"
-    let CompilerDescription = "F#-to-JavaScript compiler"
+    let Description = ".NET-to-JavaScript compiler and web application framework"
+    let FSharpDescription = "F#-to-JavaScript compiler"
+    let CSharpDescription = "C#-to-JavaScript compiler"
     let LicenseUrl = "http://websharper.com/licensing"
     let Tags = ["Web"; "JavaScript"; "F#"]
     let Website = "http://bitbucket.org/IntelliFactory/websharper"

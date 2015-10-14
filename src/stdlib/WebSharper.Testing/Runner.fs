@@ -24,7 +24,7 @@ module WebSharper.Testing.Runner
 open WebSharper
 open WebSharper.JavaScript
 module M = WebSharper.Core.Metadata
-module R = WebSharper.Core.Reflection
+//module R = WebSharper.Core.Reflection
 
 [<JavaScript>]
 type private RunnerControlBody() =
@@ -41,7 +41,7 @@ type private RunnerControlBody() =
 type RunnerControl(reqs: list<M.Node>) =
     inherit Web.Control()
 
-    static let ctrlReq = M.TypeNode (R.TypeDefinition.FromType typeof<RunnerControlBody>)
+    static let ctrlReq = M.TypeNode (WebSharper.Core.AST.Reflection.getTypeDefinition (typeof<RunnerControlBody>))
 
     [<System.NonSerialized>]
     let reqs = reqs
@@ -56,8 +56,8 @@ type RunnerControl(reqs: list<M.Node>) =
 let Run assemblies =
     let reqs =
         [
-            for a in assemblies do
-                yield M.AssemblyNode (R.AssemblyName.FromAssembly a, M.AssemblyMode.CompiledAssembly)
+            for a : System.Reflection.Assembly in assemblies do
+                yield M.AssemblyNode (a.FullName.Split(',').[0])
         ]
     new RunnerControl(reqs) :> Web.Control
 
@@ -65,6 +65,6 @@ let RunByAssemblyNames assemblyNames =
     let reqs =
         [
             for a in assemblyNames do
-                yield M.AssemblyNode (R.AssemblyName.Parse a, M.AssemblyMode.CompiledAssembly)
+                yield M.AssemblyNode a
         ]
     new RunnerControl(reqs) :> Web.Control

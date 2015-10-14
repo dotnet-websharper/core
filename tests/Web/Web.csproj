@@ -107,6 +107,10 @@
       <Project>{bb4817e7-12a1-4622-b8ce-29cb3c406851}</Project>
       <Name>WebSharper.Collections.Tests</Name>
     </ProjectReference>
+    <ProjectReference Include="..\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj">
+      <Project>{c78f4ffd-9c51-466b-8e35-99588a419d60}</Project>
+      <Name>WebSharper.CSharp.Tests</Name>
+    </ProjectReference>
     <ProjectReference Include="..\WebSharper.Html5.Tests\WebSharper.Html5.Tests.fsproj">
       <Project>{3958f5e1-dda2-4a22-bf29-794a25bb14f7}</Project>
       <Name>WebSharper.Html5.Tests</Name>

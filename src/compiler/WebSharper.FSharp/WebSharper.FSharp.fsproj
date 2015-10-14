@@ -1,0 +1,63 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{615aea64-16ec-49bc-afb4-36211f6354cc}</ProjectGuid>
+    <Name>WsFsc</Name>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <StartArguments>-o:obj\Release\WebSharper.Main.dll --debug:pdbonly --noframework --define:TRACE --doc:D:\repo\websharper.csharp\msbuild\\..\build\Release\WebSharper.Main.xml --optimize+ --resource:Json.js --resource:Json.min.js -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.3.0.0\FSharp.Core.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.3.0.0\Type Providers\FSharp.Data.TypeProviders.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\mscorlib.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Configuration.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Core.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Data.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Data.Linq.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Numerics.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Web.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Xml.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Xml.Linq.dll" -r:D:\repo\websharper.csharp\build\Release\WebSharper.Core.dll -r:D:\repo\websharper.csharp\build\Release\WebSharper.Core.JavaScript.dll -r:D:\repo\websharper.csharp\build\Release\WebSharper.JavaScript.dll -r:D:\repo\websharper.csharp\build\Release\WebSharper.JQuery.dll --target:library --warn:3 --warnaserror:76 --fullpaths --flaterrors --highentropyva- "C:\Users\András\AppData\Local\Temp\.NETFramework,Version=v4.0.AssemblyAttributes.fs" D:\repo\websharper.csharp\msbuild\/AssemblyInfo.fs JavaScript.fs Json.fsi Json.fs Remoting.fsi Remoting.fs Macro.fsi Macro.fs Pervasives.fs JavaScript.Pervasives.fs PrintfHelpers.fs Concurrency.fs Enumerator.fs Enumerable.fs Resources.fs Html.fs Interop.fs JavaScript.Extensions.fs CollectionInternals.fs Proxy/Object.fs Proxy/IntrinsicFunctions.fs Proxy/Array.fs Proxy/ArrayModule.fs Proxy/Array2DModule.fs Proxy/Async.fs Proxy/AsyncBuilder.fs Proxy/Char.fs Proxy/Choice.fs Proxy/CommonExtensions.fs Proxy/DateTime.fs Proxy/Double.fs Proxy/Enum.fs Proxy/Exception.fs Proxy/ExtraTopLevelOperators.fs Proxy/Func.fs Proxy/Guid.fs Proxy/IComparable.fs Proxy/IDisposable.fs Proxy/IEnumerable.fs Proxy/IEnumerator.fs Proxy/Int32.fs Proxy/IntrinsicOperators.fs Proxy/KeyValuePair.fs Proxy/LanguagePrimitives.fs Proxy/Lazy.fs Proxy/LazyExtensions.fs Proxy/List.fs Proxy/ListModule.fs Proxy/Math.fs Proxy/Nullable.fs Proxy/Operators.fs Proxy/OperatorIntrinsics.fs Proxy/Option.fs Proxy/OptionModule.fs Proxy/Queue.fs Proxy/Printf.fs Proxy/Random.fs Proxy/Ref.fs Proxy/RuntimeHelpers.fs Proxy/SeqModule.fs Proxy/Stack.fs Proxy/String.fs Proxy/TimeSpan.fs Proxy/Unchecked.fs --project:D:\repo\websharper.csharp\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj --fsc:"C:\Program Files (x86)\Microsoft SDKs\F#\4.0\Framework\v4.0\fsc.exe"</StartArguments>
+    <StartWorkingDirectory>D:\repo\websharper.csharp\src\stdlib\WebSharper.Main</StartWorkingDirectory>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <StartArguments>
+    </StartArguments>
+    <StartWorkingDirectory>
+    </StartWorkingDirectory>
+  </PropertyGroup>
+  <Import Project="../../../msbuild/FSharp.targets" />
+  <Import Project="../../../msbuild/Mono.Cecil.targets" />
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj">
+      <Name>WebSharper.Compiler.FSharp</Name>
+      <Project>{d54ea1fd-f52f-4f07-921f-7b3d1b412cd0}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
+      <Name>WebSharper.Core.JavaScript</Name>
+      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Compiler\WebSharper.Compiler.fsproj">
+      <Name>WebSharper.Compiler</Name>
+      <Project>{bfb21b61-fda9-4814-a728-7d43038e0b57}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj">
+      <Name>WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj">
+      <Name>WebSharper.InterfaceGenerator</Name>
+      <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="IntelliFactory.Core">
+      <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="App.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+</Project>

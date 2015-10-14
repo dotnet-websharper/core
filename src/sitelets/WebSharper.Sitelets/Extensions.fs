@@ -62,7 +62,7 @@ module internal ResourceContext =
     module Re = WebSharper.Core.Resources
     module P = WebSharper.PathConventions
 
-    let MetaData () : M.Info =
+    let MetaData () : M.Metadata =
         WebSharper.Web.Shared.Metadata
 
     let SharedJson () =
@@ -80,7 +80,7 @@ module internal ResourceContext =
                 | null -> None
                 | x -> Some x
             GetAssemblyRendering = fun name ->
-                let aid = P.AssemblyId.Create(name.FullName)
+                let aid = P.AssemblyId.Create(name)
                 let url = if isDebug then pu.JavaScriptPath(aid) else pu.MinifiedJavaScriptPath(aid)
                 Re.RenderLink url
             GetWebResourceRendering = fun ty resource ->

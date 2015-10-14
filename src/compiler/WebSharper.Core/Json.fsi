@@ -112,7 +112,7 @@ type Provider =
     /// This provider uses a WebSharper-specific encoding of types
     /// and is only suitable for internal uses.
     /// It is the encoding used for Remoting and Web.Control initialization.
-    static member CreateTyped : M.Compilation -> Provider
+    static member CreateTyped : M.Metadata -> Provider
 
     /// Derives a decoder for a given type.
     member GetDecoder : System.Type -> Decoder

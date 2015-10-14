@@ -35,17 +35,21 @@ and Expression =
     | Unary of UnaryOperator * Expression
     | MutatingUnary of MutatingUnaryOperator * Expression
     | ExprSourcePos of SourcePos * Expression
+    | Self
     | Call of option<Expression> * Concrete<TypeDefinition> * Concrete<Method> * list<Expression>
+    | CallNeedingMoreArgs of option<Expression> * Concrete<TypeDefinition> * Concrete<Method> * list<Expression>
     | CallInterface of Expression * Concrete<TypeDefinition> * Concrete<Method> * list<Expression>
     | Ctor of Concrete<TypeDefinition> * Constructor * list<Expression>
-    | CCtor of Concrete<TypeDefinition>
-    | FieldGet of Expression * Concrete<TypeDefinition> * string
-    | FieldSet of Expression * Concrete<TypeDefinition> * string * Expression
+    | NewObject of Concrete<TypeDefinition> * Expression
+    | Cctor of TypeDefinition
+    | FieldGet of option<Expression> * Concrete<TypeDefinition> * string
+    | FieldSet of option<Expression> * Concrete<TypeDefinition> * string * Expression
     | Let of Id * Expression * Expression
     | NewVar of Id * Expression
     | Coalesce of Expression * Type * Expression
     | TypeCheck of Expression * Type
     | MacroFallback
+    | WithVars of list<Id> * Expression
     | LetRec of list<Id * Expression> * Expression
     | StatementExpr of Statement
     | Await of Expression
@@ -56,28 +60,31 @@ and Expression =
     | New of Expression * list<Expression>
     | Hole of int
     with
-    static member (!==) (a, b) = Binary (a, BinaryOperator.``!==``, b)
-    static member (!=) (a, b) = Binary (a, BinaryOperator.``!=``, b)
-    static member (%) (a, b) = Binary (a, BinaryOperator.``%``, b)
+    static member (^!==) (a, b) = Binary (a, BinaryOperator.``!==``, b)
+    static member (^!=) (a, b) = Binary (a, BinaryOperator.``!=``, b)
+    static member (^%) (a, b) = Binary (a, BinaryOperator.``%``, b)
     static member (^&&) (a, b) = Binary (a, BinaryOperator.``&&``, b)
     static member (^&) (a, b) = Binary (a, BinaryOperator.``&``, b)
-    static member (*) (a, b) = Binary (a, BinaryOperator.``*``, b)
-    static member (+) (a, b) = Binary (a, BinaryOperator.``+``, b)
-    static member (-) (a, b) = Binary (a, BinaryOperator.``-``, b)
-    static member (/) (a, b) = Binary (a, BinaryOperator.``/``, b)
+    static member (^*) (a, b) = Binary (a, BinaryOperator.``*``, b)
+    static member (^+) (a, b) = Binary (a, BinaryOperator.``+``, b)
+    static member (^-) (a, b) = Binary (a, BinaryOperator.``-``, b)
+    static member (^.) (a, b) = Binary (a, BinaryOperator.``.``, b)
+    static member (^/) (a, b) = Binary (a, BinaryOperator.``/``, b)
     static member (^<<) (a, b) = Binary (a, BinaryOperator.``<<``, b)
     static member (^<=) (a, b) = Binary (a, BinaryOperator.``<=``, b)
     static member (^<) (a, b) = Binary (a, BinaryOperator.``<``, b)
-    static member (===) (a, b) = Binary (a, BinaryOperator.``===``, b)
-    static member (==) (a, b) = Binary (a, BinaryOperator.``==``, b)
+    static member (^===) (a, b) = Binary (a, BinaryOperator.``===``, b)
+    static member (^==) (a, b) = Binary (a, BinaryOperator.``==``, b)
     static member (^=) (a, b) = Binary (a, BinaryOperator.``=``, b)
     static member (^>=) (a, b) = Binary (a, BinaryOperator.``>=``, b)
-    static member (>>>) (a, b) = Binary (a, BinaryOperator.``>>>``, b)
+    static member (^>>>) (a, b) = Binary (a, BinaryOperator.``>>>``, b)
     static member (^>>) (a, b) = Binary (a, BinaryOperator.``>>``, b)
     static member (^>) (a, b) = Binary (a, BinaryOperator.``>``, b)
     static member (^^) (a, b) = Binary (a, BinaryOperator.``^``, b)
     static member (^|) (a, b) = Binary (a, BinaryOperator.``|``, b)
     static member (^||) (a, b) = Binary (a, BinaryOperator.``||``, b)
+    member a.Item b = ItemGet (a, b)
+    member a.Item b = Application (a, b)
 and Statement =
     | Empty
     | Break of option<Id>
@@ -108,15 +115,15 @@ type Transformer() =
     abstract TransformThis : unit -> Expression
     override this.TransformThis () = This 
     abstract TransformVar : Id -> Expression
-    override this.TransformVar a = Var (a)
+    override this.TransformVar a = Var (this.TransformId a)
     abstract TransformValue : Literal -> Expression
     override this.TransformValue a = Value (a)
     abstract TransformApplication : Expression * list<Expression> -> Expression
     override this.TransformApplication (a, b) = Application (this.TransformExpression a, List.map this.TransformExpression b)
     abstract TransformFunction : list<Id> * Statement -> Expression
-    override this.TransformFunction (a, b) = Function (a, this.TransformStatement b)
+    override this.TransformFunction (a, b) = Function (List.map this.TransformId a, this.TransformStatement b)
     abstract TransformVarSet : Id * Expression -> Expression
-    override this.TransformVarSet (a, b) = VarSet (a, this.TransformExpression b)
+    override this.TransformVarSet (a, b) = VarSet (this.TransformId a, this.TransformExpression b)
     abstract TransformSequential : list<Expression> -> Expression
     override this.TransformSequential a = Sequential (List.map this.TransformExpression a)
     abstract TransformNewArray : list<Expression> -> Expression
@@ -137,36 +144,44 @@ type Transformer() =
     override this.TransformMutatingUnary (a, b) = MutatingUnary (a, this.TransformExpression b)
     abstract TransformExprSourcePos : SourcePos * Expression -> Expression
     override this.TransformExprSourcePos (a, b) = ExprSourcePos (a, this.TransformExpression b)
+    abstract TransformSelf : unit -> Expression
+    override this.TransformSelf () = Self 
     abstract TransformCall : option<Expression> * Concrete<TypeDefinition> * Concrete<Method> * list<Expression> -> Expression
     override this.TransformCall (a, b, c, d) = Call (Option.map this.TransformExpression a, b, c, List.map this.TransformExpression d)
+    abstract TransformCallNeedingMoreArgs : option<Expression> * Concrete<TypeDefinition> * Concrete<Method> * list<Expression> -> Expression
+    override this.TransformCallNeedingMoreArgs (a, b, c, d) = CallNeedingMoreArgs (Option.map this.TransformExpression a, b, c, List.map this.TransformExpression d)
     abstract TransformCallInterface : Expression * Concrete<TypeDefinition> * Concrete<Method> * list<Expression> -> Expression
     override this.TransformCallInterface (a, b, c, d) = CallInterface (this.TransformExpression a, b, c, List.map this.TransformExpression d)
     abstract TransformCtor : Concrete<TypeDefinition> * Constructor * list<Expression> -> Expression
     override this.TransformCtor (a, b, c) = Ctor (a, b, List.map this.TransformExpression c)
-    abstract TransformCCtor : Concrete<TypeDefinition> -> Expression
-    override this.TransformCCtor a = CCtor (a)
-    abstract TransformFieldGet : Expression * Concrete<TypeDefinition> * string -> Expression
-    override this.TransformFieldGet (a, b, c) = FieldGet (this.TransformExpression a, b, c)
-    abstract TransformFieldSet : Expression * Concrete<TypeDefinition> * string * Expression -> Expression
-    override this.TransformFieldSet (a, b, c, d) = FieldSet (this.TransformExpression a, b, c, this.TransformExpression d)
+    abstract TransformNewObject : Concrete<TypeDefinition> * Expression -> Expression
+    override this.TransformNewObject (a, b) = NewObject (a, this.TransformExpression b)
+    abstract TransformCctor : TypeDefinition -> Expression
+    override this.TransformCctor a = Cctor (a)
+    abstract TransformFieldGet : option<Expression> * Concrete<TypeDefinition> * string -> Expression
+    override this.TransformFieldGet (a, b, c) = FieldGet (Option.map this.TransformExpression a, b, c)
+    abstract TransformFieldSet : option<Expression> * Concrete<TypeDefinition> * string * Expression -> Expression
+    override this.TransformFieldSet (a, b, c, d) = FieldSet (Option.map this.TransformExpression a, b, c, this.TransformExpression d)
     abstract TransformLet : Id * Expression * Expression -> Expression
-    override this.TransformLet (a, b, c) = Let (a, this.TransformExpression b, this.TransformExpression c)
+    override this.TransformLet (a, b, c) = Let (this.TransformId a, this.TransformExpression b, this.TransformExpression c)
     abstract TransformNewVar : Id * Expression -> Expression
-    override this.TransformNewVar (a, b) = NewVar (a, this.TransformExpression b)
+    override this.TransformNewVar (a, b) = NewVar (this.TransformId a, this.TransformExpression b)
     abstract TransformCoalesce : Expression * Type * Expression -> Expression
     override this.TransformCoalesce (a, b, c) = Coalesce (this.TransformExpression a, b, this.TransformExpression c)
     abstract TransformTypeCheck : Expression * Type -> Expression
     override this.TransformTypeCheck (a, b) = TypeCheck (this.TransformExpression a, b)
     abstract TransformMacroFallback : unit -> Expression
     override this.TransformMacroFallback () = MacroFallback 
+    abstract TransformWithVars : list<Id> * Expression -> Expression
+    override this.TransformWithVars (a, b) = WithVars (List.map this.TransformId a, this.TransformExpression b)
     abstract TransformLetRec : list<Id * Expression> * Expression -> Expression
-    override this.TransformLetRec (a, b) = LetRec (List.map (fun (a, b) -> a, this.TransformExpression b) a, this.TransformExpression b)
+    override this.TransformLetRec (a, b) = LetRec (List.map (fun (a, b) -> this.TransformId a, this.TransformExpression b) a, this.TransformExpression b)
     abstract TransformStatementExpr : Statement -> Expression
     override this.TransformStatementExpr a = StatementExpr (this.TransformStatement a)
     abstract TransformAwait : Expression -> Expression
     override this.TransformAwait a = Await (this.TransformExpression a)
     abstract TransformNamedParameter : Id * Expression -> Expression
-    override this.TransformNamedParameter (a, b) = NamedParameter (a, this.TransformExpression b)
+    override this.TransformNamedParameter (a, b) = NamedParameter (this.TransformId a, this.TransformExpression b)
     abstract TransformRefOrOutParameter : Expression -> Expression
     override this.TransformRefOrOutParameter a = RefOrOutParameter (this.TransformExpression a)
     abstract TransformObject : list<string * Expression> -> Expression
@@ -180,9 +195,9 @@ type Transformer() =
     abstract TransformEmpty : unit -> Statement
     override this.TransformEmpty () = Empty 
     abstract TransformBreak : option<Id> -> Statement
-    override this.TransformBreak a = Break (a)
+    override this.TransformBreak a = Break (Option.map this.TransformId a)
     abstract TransformContinue : option<Id> -> Statement
-    override this.TransformContinue a = Continue (a)
+    override this.TransformContinue a = Continue (Option.map this.TransformId a)
     abstract TransformExprStatement : Expression -> Statement
     override this.TransformExprStatement a = ExprStatement (this.TransformExpression a)
     abstract TransformReturn : Expression -> Statement
@@ -190,7 +205,7 @@ type Transformer() =
     abstract TransformBlock : list<Statement> -> Statement
     override this.TransformBlock a = Block (List.map this.TransformStatement a)
     abstract TransformVarDeclaration : Id * Expression -> Statement
-    override this.TransformVarDeclaration (a, b) = VarDeclaration (a, this.TransformExpression b)
+    override this.TransformVarDeclaration (a, b) = VarDeclaration (this.TransformId a, this.TransformExpression b)
     abstract TransformWhile : Expression * Statement -> Statement
     override this.TransformWhile (a, b) = While (this.TransformExpression a, this.TransformStatement b)
     abstract TransformDoWhile : Statement * Expression -> Statement
@@ -198,7 +213,7 @@ type Transformer() =
     abstract TransformFor : option<Expression> * option<Expression> * option<Expression> * Statement -> Statement
     override this.TransformFor (a, b, c, d) = For (Option.map this.TransformExpression a, Option.map this.TransformExpression b, Option.map this.TransformExpression c, this.TransformStatement d)
     abstract TransformForIn : Id * Expression * Statement -> Statement
-    override this.TransformForIn (a, b, c) = ForIn (a, this.TransformExpression b, this.TransformStatement c)
+    override this.TransformForIn (a, b, c) = ForIn (this.TransformId a, this.TransformExpression b, this.TransformStatement c)
     abstract TransformSwitch : Expression * list<option<Expression> * Statement> -> Statement
     override this.TransformSwitch (a, b) = Switch (this.TransformExpression a, List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformStatement b) b)
     abstract TransformIf : Expression * Statement * Statement -> Statement
@@ -206,15 +221,15 @@ type Transformer() =
     abstract TransformThrow : Expression -> Statement
     override this.TransformThrow a = Throw (this.TransformExpression a)
     abstract TransformTryWith : Statement * option<Id> * Statement -> Statement
-    override this.TransformTryWith (a, b, c) = TryWith (this.TransformStatement a, b, this.TransformStatement c)
+    override this.TransformTryWith (a, b, c) = TryWith (this.TransformStatement a, Option.map this.TransformId b, this.TransformStatement c)
     abstract TransformTryFinally : Statement * Statement -> Statement
     override this.TransformTryFinally (a, b) = TryFinally (this.TransformStatement a, this.TransformStatement b)
     abstract TransformLabeled : Id * Statement -> Statement
-    override this.TransformLabeled (a, b) = Labeled (a, this.TransformStatement b)
+    override this.TransformLabeled (a, b) = Labeled (this.TransformId a, this.TransformStatement b)
     abstract TransformStatementSourcePos : SourcePos * Statement -> Statement
     override this.TransformStatementSourcePos (a, b) = StatementSourcePos (a, this.TransformStatement b)
     abstract TransformGoto : Id -> Statement
-    override this.TransformGoto a = Goto (a)
+    override this.TransformGoto a = Goto (this.TransformId a)
     abstract TransformYield : Expression -> Statement
     override this.TransformYield a = Yield (this.TransformExpression a)
     abstract TransformCSharpSwitch : Expression * list<list<option<Expression>> * Statement> -> Statement
@@ -243,10 +258,13 @@ type Transformer() =
         | Unary (a, b) -> this.TransformUnary (a, b)
         | MutatingUnary (a, b) -> this.TransformMutatingUnary (a, b)
         | ExprSourcePos (a, b) -> this.TransformExprSourcePos (a, b)
+        | Self  -> this.TransformSelf ()
         | Call (a, b, c, d) -> this.TransformCall (a, b, c, d)
+        | CallNeedingMoreArgs (a, b, c, d) -> this.TransformCallNeedingMoreArgs (a, b, c, d)
         | CallInterface (a, b, c, d) -> this.TransformCallInterface (a, b, c, d)
         | Ctor (a, b, c) -> this.TransformCtor (a, b, c)
-        | CCtor a -> this.TransformCCtor a
+        | NewObject (a, b) -> this.TransformNewObject (a, b)
+        | Cctor a -> this.TransformCctor a
         | FieldGet (a, b, c) -> this.TransformFieldGet (a, b, c)
         | FieldSet (a, b, c, d) -> this.TransformFieldSet (a, b, c, d)
         | Let (a, b, c) -> this.TransformLet (a, b, c)
@@ -254,6 +272,7 @@ type Transformer() =
         | Coalesce (a, b, c) -> this.TransformCoalesce (a, b, c)
         | TypeCheck (a, b) -> this.TransformTypeCheck (a, b)
         | MacroFallback  -> this.TransformMacroFallback ()
+        | WithVars (a, b) -> this.TransformWithVars (a, b)
         | LetRec (a, b) -> this.TransformLetRec (a, b)
         | StatementExpr a -> this.TransformStatementExpr a
         | Await a -> this.TransformAwait a
@@ -289,3 +308,9 @@ type Transformer() =
         | CSharpSwitch (a, b) -> this.TransformCSharpSwitch (a, b)
         | GotoCase a -> this.TransformGotoCase a
         | Statements a -> this.TransformStatements a
+    abstract TransformId : Id -> Id
+    override this.TransformId x = x
+
+[<AutoOpen>]
+module ExtraForms =
+    let Lambda (a, b) = Function (a, Return b)

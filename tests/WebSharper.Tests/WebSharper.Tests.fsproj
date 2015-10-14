@@ -9,14 +9,13 @@
     <WebSharperProject>Library</WebSharperProject>
     <FSharp40 Condition="Exists('$(MSBuildExtensionsPath32)/../Reference Assemblies/Microsoft/FSharp/.NETFramework/v4.0/4.4.0.0/FSharp.Core.dll')">True</FSharp40>
   </PropertyGroup>
-  <Import Project="../../msbuild/FSharp.targets" />
-  <Import Project="../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
     <Compile Include="Array.fs" />
     <Compile Include="Array2D.fs" />
     <Compile Include="Async.fs" />
     <Compile Include="Basis.fs" />
     <Compile Include="Char.fs" />
+    <Compile Include="CSharp.fs" />
     <Compile Include="DateTime.fs" />
     <Compile Include="Double.fs" />
     <Compile Include="Exception.fs" />
@@ -42,6 +41,7 @@
     <Compile Include="Printf.fs" />
     <Compile Include="Tupled.fs" />
     <Compile Include="WIG.fs" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
@@ -79,6 +79,11 @@
       <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj">
+      <Name>WebSharper.CSharp.Tests</Name>
+      <Project>{c78f4ffd-9c51-466b-8e35-99588a419d60}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj">
       <Name>WebSharper.InterfaceGenerator.Tests</Name>
       <Project>{4c826618-e150-40f7-b13a-9182f0c3eaca}</Project>
@@ -87,7 +92,11 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Data.TypeProviders" />
+    <Reference Include="FSharp.Data.TypeProviders" />
+    <Reference Include="System.Data" />
     <Reference Include="System.Data" />
     <Reference Include="System.Data.Linq" />
+    <Reference Include="System.Data.Linq" />
   </ItemGroup>
+  <Import Project="../../msbuild/WebSharper.FSharp.Internal.targets" />
 </Project>

@@ -44,7 +44,7 @@ let private push arr item = X<int>
 let internal Register (ct: CT) (callback: unit -> unit) =
     let i = push ct.Registrations callback - 1
     New [
-        "Dispose" => fun () -> ct.Registrations.[i] <- ignore
+        "System-IDisposable-Dispose" => fun () -> ct.Registrations.[i] <- ignore
     ] : System.IDisposable
 
 type AsyncBody<'T> =

@@ -305,103 +305,100 @@ let private Choose (gens: Generator<'A>[]) (f: Generator<'A> -> Generator<'B>) :
             (f gen).Next()
     }
 
-module Q = WebSharper.Core.Quotations
-module R = WebSharper.Core.Reflection
-module T = WebSharper.Core.Reflection.Type
-module J = WebSharper.Core.JavaScript.Core
+//module Q = WebSharper.Core.Quotations
+//module R = WebSharper.Core.Reflection
+//module J = WebSharper.Core.JavaScript.Core
 
 module internal Internal =
+    open WebSharper.Core.AST
 
-    type E = J.Expression
+    type E = Expression
+    type T = Type
 
-    let cString s = !~ (J.String s)
-    let inline cInt i = !~ (J.Integer (int64 i))
-    let cCall t m x = J.Call (t, cString m, x)
-    let cCallG l m x = cCall (J.Global l) m x
-    let cCallR m x = cCallG ["WebSharper"; "Testing"; "Random"] m x
-    let (|T|) (t: R.TypeDefinition) = t.FullName
+//    let cString s = !~ (J.String s)
+    let inline cInt i = Value (Int i)
+    let cCall t m x = Application(ItemGet (t, Value (String m)), x)
+    let cCallG l x = Application(globalAccess l, x)
+    let cCallR m x = Application(globalAccess (["WebSharper"; "Testing"; "Random"] @ [m]), x)
+////    let (|T|) (t: R.TypeDefinition) = t.FullName                                   
     let (>>=) (wrap: (E -> E), m: Choice<E, string> as x) (f: (E -> E) -> E -> (E -> E) * Choice<E, string>) =
         match m with
         | Choice1Of2 e -> f wrap e
         | Choice2Of2 _ -> x
     let fail x = id, Choice2Of2 x : (E -> E) * Choice<E, string>
 
-    let mkGenerator t =
+    let mkGenerator (t: WebSharper.Core.AST.Type) =
         let rec mkGenerator wrap = function
-            | T.Array (t, 1) ->
+            | T.ArrayType (t, 1) ->
                 mkGenerator wrap t >>= fun wrap x ->
                 wrap, Choice1Of2 (cCallR "ArrayOf" [x])
-            | T.Array _ ->
+            | T.ArrayType _ ->
                 fail "Random generators for multidimensional arrays are not supported."
-            | T.Concrete (T "Microsoft.FSharp.Core.Unit", []) ->
-                wrap, Choice1Of2 (cCallR "Const" [!~J.Null])
-            | T.Concrete (T "System.Boolean", []) ->
+            | T.VoidType ->
+                wrap, Choice1Of2 (cCallR "Const" [Value Null])
+            | T.ConcreteType { Entity = e } when e.Value.FullName = "System.Boolean" ->
                 wrap, Choice1Of2 (cCallR "Boolean" [])
-            | T.Concrete (T "System.Double", []) ->
+            | T.ConcreteType { Entity = e } when e.Value.FullName = "System.Double" ->
                 wrap, Choice1Of2 (cCallR "Float" [])
-            | T.Concrete (T "System.Int32", []) ->
+            | T.ConcreteType { Entity = e } when e.Value.FullName = "System.Int32" ->
                 wrap, Choice1Of2 (cCallR "Int" [])
-            | T.Concrete (T "System.String", []) ->
+            | T.ConcreteType { Entity = e } when e.Value.FullName = "System.String" ->
                 wrap, Choice1Of2 (cCallR "String" [])
-            | T.Concrete (T "Microsoft.FSharp.Collections.FSharpList`1", [t]) ->
+            | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "Microsoft.FSharp.Collections.FSharpList`1" ->
                 mkGenerator wrap t >>= fun wrap x ->
                 wrap, Choice1Of2 (cCallR "ListOf" [x])
-            | T.Concrete (T "System.Tuple`2", [t1; t2]) ->
+            | T.TupleType [t1; t2] ->
                 mkGenerator wrap t1 >>= fun wrap x1 ->
                 mkGenerator wrap t2 >>= fun wrap x2 ->
                 wrap, Choice1Of2 (cCallR "Tuple2Of" [x1; x2])
-            | T.Concrete (T "System.Tuple`3", [t1; t2; t3]) ->
+            | T.TupleType [t1; t2; t3] ->
                 mkGenerator wrap t1 >>= fun wrap x1 ->
                 mkGenerator wrap t2 >>= fun wrap x2 ->
                 mkGenerator wrap t3 >>= fun wrap x3 ->
                 wrap, Choice1Of2 (cCallR "Tuple3Of" [x1; x2; x3])
-            | T.Concrete (T "System.Object", [])
-            | T.Generic _ ->
+            | T.ConcreteType { Entity = e } when e.Value.FullName = "System.Object" ->
                 wrap, Choice1Of2 (cCallR "Anything" [])
-            | T.Concrete (T "System.IComparable", []) ->
+            | T.GenericType _ ->
+                wrap, Choice1Of2 (cCallR "Anything" [])
+            | T.ConcreteType { Entity = e } when e.Value.FullName = "System.IComparable" ->
                 // We use Choose because it is necessary for a given generated value
                 // that all occurrences of this type are the same type.
                 // With Anything, we could get e.g for IComparable[]: [|1; "test"; (2.3, true)|]
-                let id = J.Id()
+                let id = Id.New()
                 let wrap' (e: E) =
                     cCallR "Choose" [
                         cCallR "allTypes" []
-                        J.Lambda(None, [id], e)
+                        Function([id], Return e)
                     ]
-                wrap' >> wrap, Choice1Of2 (J.Var id)
-            | T.Concrete (T "System.IEquatable`1", [t])
-            | T.Concrete (T "System.IComparable`1", [t]) ->
+                wrap' >> wrap, Choice1Of2 (Var id)
+            | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "System.IEquatable`1" ||  e.Value.FullName = "System.IComparable`1" ->
                 mkGenerator wrap t
-            | T.Concrete (T "System.Collections.IEnumerable", []) ->
-                mkGenerator wrap (T.Array (T.Generic 1, 1))
-            | T.Concrete (T "System.Collections.Generic.IEnumerable`1", [t]) ->
-                mkGenerator wrap (T.Array (t, 1))
-            | T.Concrete (t, targs) ->
-                fail ("Random generator not supported for type: " + t.FullName)
+            | T.ConcreteType { Entity = e } when e.Value.FullName = "System.Collections.IEnumerable" ->
+                mkGenerator wrap (T.ArrayType (T.GenericType 1, 1))
+            | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "System.Collections.Generic.IEnumerable`1" ->
+                mkGenerator wrap (T.ArrayType (t, 1))
+            | T.ConcreteType { Entity = t } ->
+                fail ("Random generator not supported for type: " + t.Value.FullName)
         match mkGenerator id t with
         | wrap, Choice1Of2 x -> wrap x
         | _, Choice2Of2 msg -> failwithf "%A: %s" t msg
 
     let mkSample g count =
-        cCallG ["WebSharper"; "Testing"; "Random"; "Sample"] "Make" [g; count]
+        cCallG ["WebSharper"; "Testing"; "Random"; "Sample"; "Make"]  [g; count]
 
     type AutoGeneratorMacro() =
-        interface Core.Macros.IMacro with
-            member this.Translate(q, tr) =
-                match q with
-                // Auto<'A>()
-                | Q.CallOrCallModule({Generics = [t]}, _) -> mkGenerator t
-                | _ -> tr q
+        inherit Core.Macro()
+
+        override this.TranslateCall(_,_,m,_,_) =
+            mkGenerator m.Generics.Head
 
     type SampleMacro() =
-        interface Core.Macros.IMacro with
-            member this.Translate(q, tr) =
-                match q with
-                // new Sample<'A>()
-                | Q.NewObject({Generics = [t]}, []) -> mkSample (mkGenerator t) (cInt 100)
-                // new Sample<'A>(count)
-                | Q.NewObject({Generics = [t]}, [count]) -> mkSample (mkGenerator t) (tr count)
-                | _ -> tr q
+        inherit Core.Macro()
+
+        override this.TranslateCtor(t,_,a,_) =
+            match a with
+            | [] -> mkSample (mkGenerator t.Generics.Head) (cInt 100) 
+            | [count] -> mkSample (mkGenerator t.Generics.Head) count
 
 [<Macro(typeof<Internal.AutoGeneratorMacro>)>]
 let Auto<'A>() : Generator<'A> =
@@ -411,6 +408,7 @@ let Auto<'A>() : Generator<'A> =
     }
 
 [<JavaScript>]
+[<Name "WebSharper.Testing.Random.Sample">]
 type Sample<'A> (data: list<'A>) =
 
     static member Make<'A> generator count =

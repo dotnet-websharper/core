@@ -23,12 +23,11 @@ namespace WebSharper.Html.Client
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.JQuery
-module M = WebSharper.Core.Metadata
 
 /// An interface that has to be implemented by controls
 /// that depend on resources.
 type IRequiresResources =
-    abstract member Requires : M.Info -> seq<M.Node>
+    abstract member Requires : WebSharper.Core.Metadata.Metadata -> seq<WebSharper.Core.Metadata.Node>
 
 /// HTML content that can be used as the Body of a web Control.
 /// Can be zero, one or many DOM nodes.
@@ -47,14 +46,15 @@ type IControl =
     abstract member Id : string
 
 [<AutoOpen>]
-[<JavaScript>]
 module HtmlContentExtensions =
 
+    [<JavaScript>]
     type private SingleNode(node: Dom.Node) =
         interface IControlBody with
             member this.ReplaceInDom(old) =
                 node.ParentNode.ReplaceChild(node, old) |> ignore
 
+    [<JavaScript>]
     type IControlBody with
         /// Create HTML content comprised of a single DOM node.
         static member SingleNode (node: Dom.Node) =

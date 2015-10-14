@@ -32,8 +32,22 @@ type T<'S,'T> [<JavaScript>] (s: 'S, c: 'T, n: T<'S,'T> -> bool, d: T<'S,'T> -> 
     member this.MoveNext() = n this
     member this.State with [<Inline; JavaScript>] get() = s and [<Inline; JavaScript>] set (v: 'S) = this?s <- v
     member this.Current with [<JavaScript>] get() = c and [<Inline; JavaScript>] set (v: 'T) = this?c <- v
-    [<JavaScript>] 
-    member this.Dispose() = d this
+
+    interface System.Collections.IEnumerator with
+        [<JavaScript>] 
+        member this.MoveNext() = n this
+        member this.Current with get() = box c
+//        [<JavaScript>] 
+        member this.Reset() = failwith "IEnumerator.Reset not supported"
+
+    interface System.Collections.Generic.IEnumerator<'T> with
+//        [<JavaScript>] 
+//        member this.MoveNext() = n this
+        member this.Current with [<JavaScript>] get() = c
+
+    interface System.IDisposable with
+        [<JavaScript>] 
+        member this.Dispose() = d this
 
 /// Constructs a new `IEnumerator` by unfolding a function.
 [<Inline>]

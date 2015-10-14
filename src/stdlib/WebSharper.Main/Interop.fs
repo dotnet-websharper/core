@@ -58,7 +58,8 @@ type FuncWithArgsProxy<'TArgs, 'TResult> =
 
 [<Proxy(typeof<FuncWithThis<_,_>>)>]
 type FuncWithThisProxy<'TThis, 'TFunc> =
-    [<Macro(typeof<WebSharper.Macro.FuncWithThis>)>]
+//    [<Macro(typeof<WebSharper.Macro.FuncWithThis>)>]
+    [<Inline "$wsruntime.CreateFuncWithThis($func)">]
     new (func: 'TThis -> 'TFunc) = {}
 
     member this.Length with [<Inline "$this.length">] get() = 0
@@ -134,7 +135,8 @@ type FuncWithRestProxy<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TArg6, 'TRest, '
 
 [<Proxy(typeof<FuncWithArgsRest<_,_,_>>)>]
 type FuncWithArgsRestProxy<'TArgs, 'TRest, 'TResult> =
-    [<Macro(typeof<WebSharper.Macro.FuncWithArgsRest>)>]
+//    [<Macro(typeof<WebSharper.Macro.FuncWithArgsRest>)>]
+    [<Inline "$wsruntime.CreateFuncWithArgsRest($func)">]
     new (func: 'TArgs * 'TRest[] -> 'TResult) = {}
 
     [<Inline "$this.apply(null, $args.concat($rest))">]

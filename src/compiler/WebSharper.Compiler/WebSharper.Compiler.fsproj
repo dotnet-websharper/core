@@ -1,0 +1,63 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{bfb21b61-fda9-4814-a728-7d43038e0b57}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <Name>WebSharper.Compiler</Name>
+  </PropertyGroup>
+  <Import Project="../../../msbuild/FSharp.targets" />
+  <Import Project="../../../msbuild/Mono.Cecil.targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
+      <Name>WebSharper.Core.JavaScript</Name>
+      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj">
+      <Name>WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="IntelliFactory.Core">
+      <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Abbreviations.fs" />
+    <Compile Include="Constants.fs" />
+    <Compile Include="Definitions.fs" />
+    <Compile Include="AttributeReader.fs" />
+    <Compile Include="Recognize.fs" />
+    <Compile Include="Reflector.fs" />
+    <Compile Include="ToJavaScript.fs" />
+    <Compile Include="ToJavaScriptSyntax.fs" />
+    <Compile Include="Packager.fs" />
+    <Compile Include="api/Symbols.fsi" />
+    <Compile Include="api/Symbols.fs" />
+    <Compile Include="api/EmbeddedFile.fsi" />
+    <Compile Include="api/EmbeddedFile.fs" />
+    <Compile Include="api/Assembly.fsi" />
+    <Compile Include="api/Assembly.fs" />
+    <Compile Include="api/Content.fsi" />
+    <Compile Include="api/Content.fs" />
+    <Compile Include="api/Loader.fsi" />
+    <Compile Include="api/Loader.fs" />
+    <Compile Include="api/Context.fsi" />
+    <Compile Include="api/Context.fs" />
+    <Compile Include="api/CompiledAssembly.fsi" />
+    <Compile Include="api/CompiledAssembly.fs" />
+    <Compile Include="bundling/Bundle.fsi" />
+    <Compile Include="bundling/Bundle.fs" />
+    <Compile Include="FrontEnd.fs" />
+    <Compile Include="commands/Commands.fsi" />
+    <Compile Include="commands/Commands.fs" />
+    <Compile Include="commands/BundleCommand.fsi" />
+    <Compile Include="commands/BundleCommand.fs" />
+    <Compile Include="commands/HtmlCommand.fsi" />
+    <Compile Include="commands/HtmlCommand.fs" />
+    <Compile Include="commands/UnpackCommand.fsi" />
+    <Compile Include="commands/UnpackCommand.fs" />
+  </ItemGroup>
+</Project>

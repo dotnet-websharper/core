@@ -33,3 +33,8 @@ type private IEnumerableProxy<'T> =
     [<JavaScript>]
     member this.GetEnumerator() : IEnumerator<'T> =
         Enumerator.Get (unbox<seq<'T>> this)
+
+[<Proxy(typeof<System.Collections.IEnumerable>)>]  
+type private IEnumerableProxy =
+    abstract GetEnumerator : unit -> System.Collections.IEnumerator
+    

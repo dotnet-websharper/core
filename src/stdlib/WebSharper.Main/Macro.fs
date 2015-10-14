@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2014 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -23,11 +23,13 @@ module WebSharper.Macro
 
 open System.Collections.Generic
 
-module C = WebSharper.Core.JavaScript.Core
+open WebSharper.Core
+open WebSharper.Core.AST
+
+//module C = WebSharper.Core.JavaScript.Core
 module A = WebSharper.Core.Attributes
-module M = WebSharper.Core.Macros
-module Q = WebSharper.Core.Quotations
-module R = WebSharper.Core.Reflection
+//module Q = WebSharper.Core.Quotations
+//module R = WebSharper.Core.Reflection
 
 let smallIntegralTypes =
     Set [
@@ -59,62 +61,60 @@ let scalarTypes =
         "System.DateTime"
     ]
 
-let isIn (s: string Set) (t: R.Type) = 
+let isIn (s: string Set) (t: Type) = 
     match t with
-    | R.Type.Concrete (d, _) ->
-        s.Contains d.FullName
+    | ConcreteType t ->
+        s.Contains t.Entity.Value.FullName
     | _ ->
         false
 
-let (|OptCoerce|) q =
-    match q with
-    | Q.Coerce (_, x)
-    | x -> x
+//let (|CallOrCM|_|) q =
+//    match q with 
+//    | Q.Call (m, l)
+//    | Q.CallModule (m, l) -> Some (m, l)
+//    | _ -> None
 
-let cString s = !~ (C.String s)
-let cCall t m x = C.Call (t, cString m, x)
-let cCallG l m x = cCall (C.Global l) m x
-let cInt x = !~ (C.Integer (int64 x))
+//let (|OptCoerce|) q =
+//    match q with
+//    | Q.Coerce (_, x)
+//    | x -> x
 
-let divisionMacro tr q =
-    match q with
-    | Q.CallOrCallModule (m, [x; y]) ->
-        match m.Generics with
-        | t :: _ -> if isIn smallIntegralTypes t
-                    then (tr x / tr y) &>> cInt 0
-                    elif isIn bigIntegralTypes t
-                    then cCallG ["Math"] "floor" [tr x / tr y]
-                    else tr x / tr y
-        | _      -> tr x / tr y
-    | _ ->
-        failwith "divisionMacro error"
 
-let arithMacro name def tr q =
-    match q with
-    | Q.CallOrCallModule (m, [x; y]) ->
-        match m.Generics with
-        | t :: _ ->
-            if isIn scalarTypes t
-                then def (tr x) (tr y)
-                else cCall (tr x) name [tr y]
-        | _ -> def (tr x) (tr y)
-    | _ ->
-        failwith "arithMacro error"
+let private TODO() = failwith "TODO: macro"
 
 [<Sealed>]
-type Add() =
-    interface M.IMacro with   
-        member this.Translate(q, tr) = arithMacro "add" ( + ) tr q
+type Div() =
+    inherit Macro()
+    override this.TranslateCall(_,_,m,a,_) =
+        match a with
+        | [x; y] ->
+            match m.Generics with
+            | t :: _ ->                                                                     
+                if isIn smallIntegralTypes t
+                then (x ^/ y) ^>> !~(Int 0)
+                elif isIn bigIntegralTypes t
+                then Application(globalAccess ["Math"; "floor"], [x ^/ y])
+                else x ^/ y 
+            | _ -> x ^/ y   
+        | _ -> failwith "divisionMacro error"
+
+[<AbstractClass>]
+type Arith(name, op) =
+    inherit Macro()
+    override this.TranslateCall(_,_,m,a,_) =
+        match a with
+        | [x; y] ->
+            match m.Generics with
+            | t :: _ when not (isIn scalarTypes t) ->
+                Application (ItemGet(x, Value (String name)), [y])
+            | _ -> Binary(x, op, y)
+        | _ -> failwith "divisionMacro error"
 
 [<Sealed>]
-type Sub() =
-    interface M.IMacro with
-        member this.Translate(q, tr) = arithMacro "sub" ( - ) tr q
+type Add() = inherit Arith("add", BinaryOperator.``+``) 
 
 [<Sealed>]
-type Division() =
-    interface M.IMacro with
-        member this.Translate(q, tr) = divisionMacro tr q
+type Sub() = inherit Arith("sub", BinaryOperator.``-``) 
 
 type Comparison =
     | ``<``  = 0
@@ -124,46 +124,42 @@ type Comparison =
     | ``=``  = 4
     | ``<>`` = 5
 
-type B = C.BinaryOperator
-
 let toBinaryOperator cmp =
     match cmp with
-    | Comparison.``<``  -> B.``<``
-    | Comparison.``<=`` -> B.``<=``
-    | Comparison.``>``  -> B.``>``
-    | Comparison.``>=`` -> B.``>=``
-    | Comparison.``=``  -> B.``===``
-    | _                 -> B.``!==``
+    | Comparison.``<``  -> BinaryOperator.``<``
+    | Comparison.``<=`` -> BinaryOperator.``<=``
+    | Comparison.``>``  -> BinaryOperator.``>``
+    | Comparison.``>=`` -> BinaryOperator.``>=``
+    | Comparison.``=``  -> BinaryOperator.``===``
+    | _                 -> BinaryOperator.``!==``
 
 let makeComparison cmp x y =
-    let f m x y = cCallG ["WebSharper"; "Unchecked"] m [x; y]
-    let c b i   = C.Binary (f "Compare" x y, b, cInt i)
+    let eq x y = Application(globalAccess ["WebSharper"; "Unchecked"; "Equals"], [x; y])
+    let c b i   = Binary (Application(globalAccess ["WebSharper"; "Unchecked"; "Compare"], [x; y]), b, Value(Int i))
     match cmp with
-    | Comparison.``<``  -> c B.``===`` -1
-    | Comparison.``<=`` -> c B.``<=`` 0
-    | Comparison.``>``  -> c B.``===`` 1
-    | Comparison.``>=`` -> c B.``>=`` 0
-    | Comparison.``=``  -> f "Equals" x y
-    | _                 -> !!(f "Equals" x y)
-
-let comparisonMacro cmp tr q =
-    match q with
-    | Q.CallOrCallModule (m, [x; y]) ->
-        match m.Generics with
-        | t :: _ ->
-            if isIn scalarTypes t then
-                C.Binary (tr x, toBinaryOperator cmp, tr y)
-            else
-                makeComparison cmp (tr x) (tr y)
-        | _ ->
-            failwith "comparisonMacro error"
-    | _ ->
-        failwith "comparisonMacro error"
+    | Comparison.``<``  -> c BinaryOperator.``===`` -1
+    | Comparison.``<=`` -> c BinaryOperator.``<=`` 0
+    | Comparison.``>``  -> c BinaryOperator.``===`` 1
+    | Comparison.``>=`` -> c BinaryOperator.``>=`` 0
+    | Comparison.``=``  -> eq x y
+    | _                 -> Unary (UnaryOperator.``!``, eq x y)
 
 [<AbstractClass>]
-type CMP(c: Comparison) =
-    interface M.IMacro with
-        member this.Translate(q, tr) = comparisonMacro c tr q
+type CMP(cmp) =
+    inherit Macro()
+    override this.TranslateCall(_,_,m,a,_) =
+        match a with
+        | [x; y] ->
+            match m.Generics with
+            | t :: _ ->
+                if isIn scalarTypes t then
+                    Binary (x, toBinaryOperator cmp, y)
+                else
+                    makeComparison cmp x y
+            | _ ->
+                failwith "comparisonMacro error"
+        | _ ->
+            failwith "comparisonMacro error"
 
 [<Sealed>] type EQ() = inherit CMP(Comparison.``=``)
 [<Sealed>] type NE() = inherit CMP(Comparison.``<>``)
@@ -172,144 +168,134 @@ type CMP(c: Comparison) =
 [<Sealed>] type LE() = inherit CMP(Comparison.``<=``)
 [<Sealed>] type GE() = inherit CMP(Comparison.``>=``)
 
-let charProxy = ["WebSharper"; "Char"]
-
-let charMacro tr q =
-    match q with
-    | Q.CallOrCallModule (m, [x]) ->
-        match m.Generics with
-        | t :: _ ->
-            if isIn integralTypes t then tr x else
-                match t with
-                | R.Type.Concrete (d, _) ->
-                    match d.FullName with
-                    | "System.String" -> cCallG charProxy "Parse" [tr x]
-                    | "System.Char"
-                    | "System.Double"
-                    | "System.Single" -> tr x
-                    | _               -> failwith "charMacro error"
-                | _ ->
-                    failwith "charMacro error"
-        | _ ->
-            failwith "charMacro error"
-    | _ ->
-        failwith "charMacro error"
-
 [<Sealed>]
 type Char() =
-    interface M.IMacro with
-        member this.Translate(q, tr) = charMacro tr q
-
-let stringMacro tr q =
-    match q with
-    | Q.CallOrCallModule (m, [x]) ->
-        match m.Generics with
-        | t :: _ ->
-            match t.FullName with
-            | "System.Char" -> cCallG ["String"] "fromCharCode" [tr x]
-            | _             -> cCallG [] "String" [tr x]
+    inherit Macro()
+    override this.TranslateCall(_,_,m,a,_) =
+        match a with
+        | [x] ->
+            match m.Generics with
+            | t :: _ ->
+                if isIn integralTypes t then x else
+                    match t with
+                    | ConcreteType d ->
+                        match d.Entity.Value.FullName with
+                        | "System.String" -> Application(globalAccess ["WebSharper"; "Char"; "Parse"], [x])
+                        | "System.Char"
+                        | "System.Double"
+                        | "System.Single" -> x
+                        | _               -> failwith "charMacro error"
+                    | _ ->
+                        failwith "charMacro error"
+            | _ ->
+                failwith "charMacro error"
         | _ ->
-            failwith "stringMacro error"
-    | _ ->
-        failwith "stringMacro error"
+            failwith "charMacro error"
 
 [<Sealed>]
 type String() =
-    interface M.IMacro with
-        member this.Translate(q, tr) = stringMacro tr q
-
-let getFieldsList q =
-    let ``is (=>)`` (m: R.Method) =
-        m.DeclaringType.FullName = "WebSharper.JavaScript.Pervasives"
-        && m.Name = "op_EqualsGreater"
-    let rec getFieldsListTC l q =
-        match q with
-        | Q.NewUnionCase (_, [Q.NewTuple [Q.Value (Q.String n); v]; t]) ->
-            getFieldsListTC ((n, v) :: l) t         
-        | Q.NewUnionCase (_, [Q.CallOrCallModule (m, [Q.Value (Q.String n); v]); t])
-            when m.Entity |> ``is (=>)`` ->
-            getFieldsListTC ((n, v) :: l) t         
-        | Q.NewUnionCase (_, []) -> Some (l |> List.rev) 
-        | Q.NewArray (_,  l) ->
-            l |> List.map (
-                function 
-                | Q.NewTuple [Q.Value (Q.String n); v] -> n, v 
-                | Q.CallOrCallModule (m, [Q.Value (Q.String n); v])
-                    when m.Entity |> ``is (=>)`` -> n, v
-                | _ -> failwith "Wrong type of array passed to New"
-            ) |> Some
-        | _ -> None
-    getFieldsListTC [] q
-
-let newMacro tr q =
-    match q with
-    | Q.CallOrCallModule (_, [OptCoerce x]) ->
-        match getFieldsList x with
-        | Some xl ->
-            C.NewObject (xl |> List.map (fun (n, v) -> n, tr v))
+    inherit Macro()
+    override this.TranslateCall(_,_,m,a,_) =
+        match a with
+        | [x] ->
+            match m.Generics with
+            | t :: _ ->
+                if t.AssemblyQualifiedName = "System.Char, mscorlib" then
+                    Application(globalAccess ["String"; "fromCharCode"], [x])    
+                else 
+                    Application(globalAccess ["String"], [x])    
+            | _ ->
+                failwith "stringMacro error"
         | _ ->
-            cCallG ["WebSharper"; "JavaScript"; "Pervasives"] "NewFromList" [tr x]
-    | _ ->
-        failwith "newMacro error"
+            failwith "stringMacro error"
 
-[<Sealed>]
-type New() =
-    interface M.IMacro with
-        member this.Translate(q, tr) = newMacro tr q
+//let getFieldsList q =
+//    let ``is (=>)`` (td: TypeDefinition) (m: Method) =
+//        td.Value.FullName = "WebSharper.JavaScript.Pervasives"
+//        && m.Value.MethodName = "op_EqualsGreater"
+//    let rec getFieldsListTC l q =
+//        match q with
+//        | Q.NewUnionCase (_, [Q.NewTuple [Q.Value (Q.String n); v]; t]) ->
+//            getFieldsListTC ((n, v) :: l) t         
+//        | Q.NewUnionCase (_, [Q.CallOrCallModule (m, [Q.Value (Q.String n); v]); t])
+//            when m.Entity |> ``is (=>)`` ->
+//            getFieldsListTC ((n, v) :: l) t         
+//        | Q.NewUnionCase (_, []) -> Some (l |> List.rev) 
+//        | Q.NewArray (_,  l) ->
+//            l |> List.map (
+//                function 
+//                | Q.NewTuple [Q.Value (Q.String n); v] -> n, v 
+//                | Q.CallOrCallModule (m, [Q.Value (Q.String n); v])
+//                    when m.Entity |> ``is (=>)`` -> n, v
+//                | _ -> failwith "Wrong type of array passed to New"
+//            ) |> Some
+//        | _ -> None
+//    getFieldsListTC [] q
+//
+//let newMacro tr q =
+//    match q with
+//    | Q.CallOrCallModule (_, [OptCoerce x]) ->
+//        match getFieldsList x with
+//        | Some xl ->
+//            C.NewObject (xl |> List.map (fun (n, v) -> n, tr v))
+//        | _ ->
+//            cCallG ["WebSharper"; "JavaScript"; "Pervasives"] "NewFromList" [tr x]
+//    | _ ->
+//        failwith "newMacro error"
+//
+//[<Sealed>]
+//type New() =
+//    interface M.IMacro with
+//        member this.Translate(q, tr) = newMacro tr q
 
-type FST = Reflection.FSharpType
-
-let funcWithArgsMacro tr q =
-    match q with
-    | Q.NewObject (c, [func]) ->
-        let tArgs = c.Generics.[0].Load(true)
-        if FST.IsTuple tArgs then
-            cCall C.Runtime "CreateFuncWithArgs" [ tr func ]
-        else
-            failwith "Wrong type argument on FuncWithArgs: 'TArgs must be a tuple"
-    | _ ->
-        failwith "funcWithArgsMacro error"
+//type FST = Reflection.FSharpType
 
 [<Sealed>]
 type FuncWithArgs() =
-    interface M.IMacro with
-        member this.Translate(q, tr) = funcWithArgsMacro tr q
-
-let funcWithArgsRestMacro tr q =
-    match q with
-    | Q.NewObject (c, [func]) ->
-        let tArgs = c.Generics.[0].Load(true)
-        if FST.IsTuple tArgs then
-            let length = FST.GetTupleElements tArgs |> Array.length |> int64
-            cCall C.Runtime "CreateFuncWithArgsRest" [ !~(C.Integer length); tr func ]
-        else
-            failwith "Wrong type argument on FuncWithArgsRest: 'TArgs must be a tuple"
-    | _ ->
-        failwith "funcWithArgsRestMacro error"
+    inherit Macro()
+    override this.TranslateCtor(t,_,a,_) =
+        match a with
+        | [func] ->
+            match t.Generics.[0] with
+            | TupleType _ ->
+                Application(globalAccess ["Runtime"; "CreateFuncWithArgs"], [ func ])
+            | _ ->
+                failwith "Wrong type argument on FuncWithArgs: 'TArgs must be a tuple"
+        | _ ->
+            failwith "funcWithArgsMacro error"
 
 [<Sealed>]
 type FuncWithArgsRest() =
-    interface M.IMacro with
-        member this.Translate(q, tr) = funcWithArgsRestMacro tr q
-
-let funcWithThisMacro tr q =
-    match q with
-    | Q.NewObject (c, [func]) ->
-        let tFunc = c.Generics.[1].Load(true)
-        if FST.IsFunction tFunc || 
-            (tFunc.Namespace = "WebSharper.JavaScript" && 
-                (tFunc.Name = "Function" || tFunc.Name.StartsWith "FuncWith"))
-        then
-            cCall C.Runtime "CreateFuncWithThis" [ tr func ]
-        else 
-            failwith "Wrong type argument on FuncWithThis: 'TFunc must be an F# function or JavaScript function type"
-    | _ ->
-        failwith "funcWithThisMacro error"
+    inherit Macro()
+    override this.TranslateCtor(t,_,a,_) =
+        match a with
+        | [func] ->
+            match t.Generics.[0] with
+            | TupleType ts ->
+                Application(globalAccess ["Runtime"; "CreateFuncWithArgsRest"], [ Value (Int (List.length ts)) ; func ])
+            | _ ->
+                failwith "Wrong type argument on FuncWithArgsRest: 'TArgs must be a tuple"
+        | _ ->
+            failwith "funcWithArgsMacro error"
 
 [<Sealed>]
 type FuncWithThis() =
-    interface M.IMacro with
-        member this.Translate(q, tr) = funcWithThisMacro tr q
+    inherit Macro()
+    override this.TranslateCtor(t,_,a,_) =
+        match a with
+        | [func] ->
+            match t.Generics.[0] with
+            | FSharpFuncType _ ->
+                Application(globalAccess ["Runtime"; "CreateFuncWithThis"], [ func ])
+            | ConcreteType td when (
+                    let n = td.Entity.Value.FullName
+                    n = "WebSharper.JavaScript.Function" || n.StartsWith "WebSharper.JavaScript.FuncWith" 
+                ) ->
+                Application(globalAccess ["Runtime"; "CreateFuncWithThis"], [ func ])
+            | _ ->
+                failwith "Wrong type argument on FuncWithThis: 'TFunc must be an F# function or JavaScript function type"
+        | _ ->
+            failwith "funcWithArgsMacro error"
 
 /// Set of helpers to parse format string
 /// Source: https://github.com/fsharp/fsharp/blob/master/src/fsharp/FSharp.Core/printf.fs
@@ -428,44 +414,51 @@ let flags =
     System.Reflection.BindingFlags.Public
     ||| System.Reflection.BindingFlags.NonPublic
 
-let printfHelpers = ["WebSharper"; "PrintfHelpers"] 
-let stringProxy = ["WebSharper"; "Strings"]
+let printfHelpers f args = Application (globalAccess ["WebSharper"; "PrintfHelpers"; f], args) 
+let stringProxy f args = Application (globalAccess ["WebSharper"; "Strings"; f], args)
+let cCall e f args = Application (ItemGet(e, !~ (Literal.String f)), args)
+let cCallG a args = Application (globalAccess a, args)
+
+type FST = Reflection.FSharpType
+
+let cInt i = Value (Int i)
+let cString s = Value (Literal.String s)
 
 let createPrinter ts fs =
     let parts = FormatString.parseAll fs
-    let args = ts |> Seq.map (fun t -> C.Id(), Some t) |> List.ofSeq
+    let args = ts |> List.map (fun t -> Id.New(), Some t)
         
     let rArgs = ref args
     let nextVar() =
         match !rArgs with
         | (a, t) :: r ->
             rArgs := r
-            C.Var a, t
-        | _ -> failwith "sprintfMacro error"   
+            Var a, t
+        | _ -> failwithf "wrong number of Printer type arguments found: %d" (List.length ts)  
         
     let withPadding (f: FormatString.FormatSpecifier) t =
         if f.IsWidthSpecified then
             let width = if f.IsStarWidth then nextVar() |> fst else cInt f.Width
             let s = t (nextVar())
             if FormatString.isLeftJustify f.Flags then
-                cCallG stringProxy "PadRight" [s; width]
+                stringProxy "PadRight" [s; width]
             else
                 if FormatString.isPadWithZeros f.Flags then
-                    cCallG printfHelpers "padNumLeft" [s; width]
+                    printfHelpers "padNumLeft" [s; width]
                 else
-                    cCallG stringProxy "PadLeft" [s; width]
+                    stringProxy "PadLeft" [s; width]
         else t (nextVar())
         
     let numberToString (f: FormatString.FormatSpecifier) t =
         withPadding f (fun (n, _) ->
-            if FormatString.isPlusForPositives f.Flags then cCallG printfHelpers "plusForPos" [n; t n]
-            elif FormatString.isSpaceForPositives f.Flags then cCallG printfHelpers "spaceForPos" [n; t n]
+            if FormatString.isPlusForPositives f.Flags then printfHelpers "plusForPos" [n; t n]
+            elif FormatString.isSpaceForPositives f.Flags then printfHelpers "spaceForPos" [n; t n]
             else t n
         )
 
     let prettyPrint t o = 
-        let d = Dictionary<System.Type, C.Id * C.Expression ref>()
-        let rec pp t (o: C.Expression) = 
+        let d = Dictionary<System.Type, Id * Expression ref>()
+        let rec pp t (o: Expression) = 
             if FST.IsTuple t then
                 seq {
                     yield cString "("
@@ -475,17 +468,17 @@ let createPrinter ts fs =
                         if i < ts.Length - 1 then yield cString ", "
                     yield cString ")"
                 }
-                |> Seq.reduce (+)
+                |> Seq.reduce (^+)
             elif FST.IsRecord t then
                 let pi = 
                     match d.TryGetValue t with
                     | false, _ ->
-                        let pi = C.Id()
-                        let pr = ref <| C.Runtime // placeholder
+                        let pi = Id.New()
+                        let pr = ref Undefined // placeholder
                         d.Add(t, (pi, pr))
                         pr := (
-                            let x = C.Id()
-                            C.Lambda(None, [x], 
+                            let x = Id.New()
+                            Lambda([x], 
                                 seq {
                                     yield cString "{"
                                     let fs = FST.GetRecordFields(t, flags)
@@ -497,24 +490,24 @@ let createPrinter ts fs =
                                                 then Some (a.ConstructorArguments.[0].Value :?> string)
                                                 else None
                                             ) |> function Some n -> n | _ -> f.Name
-                                        yield cString (f.Name + " = ") + pp f.PropertyType (C.Var x).[cString name]
+                                        yield cString (f.Name + " = ") ^+ pp f.PropertyType (Var x).[cString name]
                                         if i < fs.Length - 1 then yield cString "; "
                                     yield cString "}"
                                 }
-                                |> Seq.reduce (+)
+                                |> Seq.reduce (^+)
                             ) 
                         )
                         pi
                     | true, (pi, _) -> pi
-                (C.Var pi).[[o]]
+                (Var pi).[[o]]
             elif t.IsArray then
                 let r = t.GetArrayRank()
                 let a = t.GetElementType()
-                let x = C.Id()
+                let x = Id.New()
                 match r with 
-                | 1 -> cCallG printfHelpers "printArray" [ C.Lambda(None, [x], pp a (C.Var x)) ; o ]
-                | 2 -> cCallG printfHelpers "printArray2D" [ C.Lambda(None, [x], pp a (C.Var x)) ; o ]
-                | _ -> cCallG printfHelpers "prettyPrint" [o]
+                | 1 -> printfHelpers "printArray" [ Lambda([x], pp a (Var x)) ; o ]
+                | 2 -> printfHelpers "printArray2D" [ Lambda([x], pp a (Var x)) ; o ]
+                | _ -> printfHelpers "prettyPrint" [o]
             else
             let tn =
                 if t.IsGenericType 
@@ -522,49 +515,73 @@ let createPrinter ts fs =
                 else None
             if tn = Some "Microsoft.FSharp.Collections.FSharpList`1" then
                 let a = t.GetGenericArguments().[0]
-                let x = C.Id()
-                cCallG printfHelpers "printList" [ C.Lambda(None, [x], pp a (C.Var x)) ; o ]    
+                let x = Id.New()
+                printfHelpers "printList" [ Lambda([x], pp a (Var x)) ; o ]    
             elif FST.IsUnion t then
                 let pi =
                     match d.TryGetValue t with
                     | false, _ ->
-                        let pi = C.Id()
-                        let pr = ref <| C.Runtime // placeholder
+                        let pi = Id.New()
+                        let pr = ref Undefined // placeholder
                         d.Add(t, (pi, pr))
                         pr := (
-                            let x = C.Id()
-                            C.Lambda(None, [x], 
+                            let x = Id.New()
+                            Lambda([x], 
                                 FST.GetUnionCases(t, flags) |> Seq.map (fun c ->
                                     let fs = c.GetFields()
-                                    c.Tag,
-                                    match fs.Length with
-                                    | 0 -> cString c.Name
-                                    | 1 -> 
-                                        cString (c.Name + " ") + pp fs.[0].PropertyType (C.Var x).[cString "$0"]
-                                    | _ -> 
-                                        seq {
-                                            yield cString (c.Name + " (")
-                                            for i = 0 to fs.Length - 1 do
-                                                yield pp fs.[i].PropertyType (C.Var x).[cString ("$" + string i)]
-                                                if i < fs.Length - 1 then yield cString ", "
-                                            yield cString ")"
-                                        }
-                                        |> Seq.reduce (+)
+                                    let constant =  
+                                        c.GetCustomAttributesData()
+                                        |> Seq.tryPick (fun cad -> 
+                                            if cad.Constructor.DeclaringType = typeof<A.ConstantAttribute> then
+                                                let arg = cad.ConstructorArguments.[0]
+                                                if arg.ArgumentType = typeof<int> then
+                                                    cInt (unbox arg.Value)
+                                                elif arg.ArgumentType = typeof<float> then
+                                                    !~ (Double (unbox x))
+                                                elif arg.ArgumentType = typeof<bool> then
+                                                    !~ (Bool (unbox arg.Value))
+                                                elif arg.ArgumentType = typeof<string> then
+                                                    cString (unbox arg.Value)
+                                                else failwith "Invalid ConstantAttribute."
+                                                |> Some
+                                            else None)
+                                    match constant with
+                                    | Some cVal -> Choice1Of2 (cVal, cString c.Name)
+                                    | None -> 
+                                        Choice2Of2(
+                                            c.Tag,
+                                            match fs.Length with
+                                            | 0 -> cString c.Name
+                                            | 1 -> 
+                                                cString (c.Name + " ") ^+ pp fs.[0].PropertyType (Var x).[cString "$0"]
+                                            | _ -> 
+                                                seq {
+                                                    yield cString (c.Name + " (")
+                                                    for i = 0 to fs.Length - 1 do
+                                                        yield pp fs.[i].PropertyType (Var x).[cString ("$" + string i)]
+                                                        if i < fs.Length - 1 then yield cString ", "
+                                                    yield cString ")"
+                                                }
+                                                |> Seq.reduce (^+)
+                                        )
                                 )
-                                |> Seq.fold (fun s (tag, e) ->
+                                |> Seq.fold (fun s cInfo ->
                                     match s with
-                                    | None -> Some e
-                                    | Some s -> Some <| C.IfThenElse ((C.Var x).[cString "$"] &== cInt tag, e, s)
+                                    | None -> match cInfo with Choice1Of2 (_, e) | Choice2Of2 (_, e) -> Some e
+                                    | Some s -> 
+                                        match cInfo with
+                                        | Choice1Of2 (cVal, e) -> Some <| Conditional (Var x ^== cVal, e, s)
+                                        | Choice2Of2 (tag, e) -> Some <| Conditional ((Var x).[cString "$"] ^== cInt tag, e, s)
                                 ) None |> Option.get
                             )
                         )
                         pi
                     | true, (pi, _) -> pi
-                (C.Var pi).[[o]]
-            else cCallG printfHelpers "prettyPrint" [o]
+                (Var pi).[[o]]
+            else printfHelpers "prettyPrint" [o]
         let inner = pp t o
         if d.Count = 0 then inner else
-        C.LetRecursive (d |> Seq.map (fun (KeyValue(_, (pi, pr))) -> pi, !pr) |> List.ofSeq, inner)
+        LetRec (d |> Seq.map (fun (KeyValue(_, (pi, pr))) -> pi, !pr) |> List.ofSeq, inner)
 
     let inner = 
         parts
@@ -574,19 +591,19 @@ let createPrinter ts fs =
                 match f.TypeChar with
                 | 'b'
                 | 'O' -> 
-                    withPadding f (fun (o, _) -> cCallG [] "String" [o])
+                    withPadding f (fun (o, _) -> cCallG ["String"] [o])
                 | 'A' -> 
                     withPadding f (function 
                         | o, Some t -> 
                             prettyPrint t o
-                        | o, _ -> cCallG printfHelpers "prettyPrint" [o]
+                        | o, _ -> printfHelpers "prettyPrint" [o]
                     )
                 | 'c' -> 
-                    withPadding f (fun (s, _) -> cCallG ["String"] "fromCharCode" [s])   
+                    withPadding f (fun (s, _) -> cCallG ["String"; "fromCharCode"]  [s])   
                 | 's' -> 
-                    withPadding f (fun (s, _) -> cCallG printfHelpers "toSafe" [s])
+                    withPadding f (fun (s, _) -> printfHelpers "toSafe" [s])
                 | 'd' | 'i' ->
-                    numberToString f (fun n -> cCallG [] "String" [n])
+                    numberToString f (fun n -> cCallG ["String"] [n])
                 | 'x' ->                                           
                     numberToString f (fun n -> cCall n "toString" [cInt 16])
                 | 'X' ->                                           
@@ -607,27 +624,31 @@ let createPrinter ts fs =
                     )
                 | c -> failwithf "Failed to parse format string: '%%%c' is not supported." c
         )
-        |> Seq.reduce (+)
+        |> Seq.reduce (^+)
     
-    let k = C.Id() 
-    C.Lambda(None, [k],
-        args |> List.rev |> List.fold (fun c (a, _) -> C.Lambda(None, [a], c)) (C.Var k).[[inner]]
+    let k = Id.New() 
+    Lambda([k],
+        args |> List.rev |> List.fold (fun c (a, _) -> Lambda([a], c)) (Var k).[[inner]]
     )
     
-let printfMacro tr q =
-    match q with
-    | Q.NewObject (c, [Q.Value (Q.String fs)]) ->
-        let rec getFunctionArgs t =
-            if FST.IsFunction t then
-                let x, y = FST.GetFunctionElements t
-                x :: getFunctionArgs y
-            else []
-        let ts = c.Generics.[0].Load(true) |> getFunctionArgs
-        createPrinter ts fs
-    | _ ->
-        failwith "printfMacro error"
-
 [<Sealed>]
 type PrintF() =
-    interface M.IMacro with
-        member this.Translate(q, tr) = printfMacro tr q
+    inherit Macro()
+    override this.TranslateCtor(t,_,a,_) =
+//        let rec getFunctionArgs t =
+//            if FST.IsFunction t then
+//                let x, y = FST.GetFunctionElements t
+//                x :: getFunctionArgs y
+//            else []
+        let rec getFunctionArgs f =
+            match f with
+            | FSharpFuncType(a, r) -> 
+                a :: getFunctionArgs r
+            | _ -> 
+                []
+        match a with
+        | [IgnoreExprSourcePos (Value (Literal.String fs))] ->
+            let ts = //t.Generics.[0] |> Reflection.loadType |> getFunctionArgs
+                t.Generics.Head |> getFunctionArgs |> List.map Reflection.loadType
+            createPrinter ts fs
+        | _ -> failwith "printfMacro error"

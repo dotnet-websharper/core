@@ -66,7 +66,7 @@ let nodes, abstractNodes =
             let baseTy = n |> Xml.attr "Base"
             let node =
                 {
-                    Name = name
+                    Node.Name = name
                     Base = baseTy
                     Kinds = n |> getKinds
                     Fields =
@@ -76,7 +76,7 @@ let nodes, abstractNodes =
                                 | SyntaxList t -> t, true
                                 | t -> t, false
                             {
-                                Name = f |> Xml.attr "Name"
+                                Field.Name = f |> Xml.attr "Name"
                                 Type = t
                                 IsList = l
                                 Optional = f |> Xml.hasTrueAttr "Optional"

@@ -60,7 +60,7 @@ val SetHandlerFactory : IHandlerFactory -> unit
 type Server =
 
     /// Creates a new instance.
-    static member Create : option<IHandlerFactory> -> M.Compilation -> Server
+    static member Create : option<IHandlerFactory> -> M.Metadata -> Server
 
     /// Handles a request.
     member HandleRequest : Request -> Async<Response>

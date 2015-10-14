@@ -8,8 +8,6 @@
     <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
-  <Import Project="../../msbuild/FSharp.targets" />
-  <Import Project="../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
     <Compile Include="Tests.fs" />
   </ItemGroup>
@@ -55,4 +53,5 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
+  <Import Project="../../msbuild/WebSharper.FSharp.Internal.targets" />
 </Project>

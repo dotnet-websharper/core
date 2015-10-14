@@ -132,10 +132,10 @@ type HashSetProxy<'T when 'T : equality>
            (As<seq<'T>>(concat data)).GetEnumerator()
 
         interface IEnumerable with
-            member this.GetEnumerator() = X<IEnumerator>
+            member this.GetEnumerator() = this.GetEnumerator() :> _
         
         interface IEnumerable<'T> with
-            member this.GetEnumerator() = X<IEnumerator<'T>>
+            member this.GetEnumerator() = this.GetEnumerator()
 
         // TODO: optimize methods by checking if other collection
         // is a HashSet with the same IEqualityComparer

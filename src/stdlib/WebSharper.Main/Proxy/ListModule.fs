@@ -459,7 +459,7 @@ let Contains (el: 'T) (l: list<'T>) =
 
 [<JavaScript>]
 [<Name "mapFold">]
-let MapFold f zero list =
+let MapFold<'S, 'T, 'R> (f: 'S -> 'T -> 'R * 'S) zero list =
     ArrayMapFold f zero (List.toArray list)
     |> (fun (x, y) ->
         (Array.toList x, y)
@@ -467,7 +467,7 @@ let MapFold f zero list =
 
 [<JavaScript>]
 [<Name "mapFoldBack">]
-let MapFoldBack f list zero =
+let MapFoldBack<'S, 'T, 'R> f list zero =
     ArrayMapFoldBack f (List.toArray list) zero
     |> (fun (x, y) ->
         (Array.toList x, y)

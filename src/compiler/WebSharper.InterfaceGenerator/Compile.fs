@@ -35,7 +35,7 @@ open WebSharper.Core
 
 module Code = WebSharper.InterfaceGenerator.CodeModel
 module CT = WebSharper.Core.ContentTypes
-module R = WebSharper.Core.Reflection
+//module R = WebSharper.Core.Reflection
 module Ty = WebSharper.InterfaceGenerator.Type
 
 type T = Ty.Type
@@ -423,14 +423,14 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
     new (tB, types, genTypes) =
         TypeConverter(tB, types, genTypes, Array.empty, noGenerics)
 
-    member c.TypeReference(d: R.TypeDefinition) =
-        tB.Type(d.AssemblyName.FullName, d.FullName)
+    member c.TypeReference(d: AST.TypeDefinition) =
+        tB.Type(d.Value.Assembly, d.Value.FullName)
 
-    member c.TypeReference(t: R.Type) =
+    member c.TypeReference(t: AST.Type) =
         match t with
-        | R.Type.Array (t, rank) ->
+        | AST.ArrayType (t, rank) ->
             ArrayType(c.TypeReference t, rank) :> TypeReference
-        | R.Type.Concrete (def, args) ->
+        | AST.ConcreteType { Entity = def; Generics = args } ->
             if not args.IsEmpty then
                 let r = GenericInstanceType(c.TypeReference def)
                 for a in args do
@@ -438,8 +438,13 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
                 r :> TypeReference
             else
                 c.TypeReference def
-        | R.Type.Generic pos ->
+        | AST.GenericType pos ->
             genericsByPosition.[pos] :> _
+        | AST.TupleType ts ->            
+            tB.Tuple (ts |> Seq.map c.TypeReference)
+        | AST.FSharpFuncType (d, r) ->
+            tB.Function (c.TypeReference d) (c.TypeReference r)
+        | AST.VoidType -> tB.Void
 
     member private c.TypeReference(t: T, defT: Code.TypeDeclaration, allowGeneric: bool) =
         let tRef x = c.TypeReference(x, defT, false)
@@ -1356,6 +1361,11 @@ type Compiler() =
             EmbeddedResource(Path.GetFileName(f), ManifestResourceAttributes.Public, File.ReadAllBytes(f))
             |> def.MainModule.Resources.Add
         addResourceExports mB def
+        
+        // Add WebSharper metadata
+        let meta = WebSharper.Compiler.Reflector.transformAssembly def
+        WebSharper.Compiler.FrontEnd.modifyAssembly WebSharper.Core.Metadata.empty meta def |> ignore
+
         let doc = XmlDocGenerator(def, comments)
         let r = CompiledAssembly(def, doc, options)
         match originalAssembly with

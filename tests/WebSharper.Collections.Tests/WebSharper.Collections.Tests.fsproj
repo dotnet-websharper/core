@@ -10,8 +10,6 @@
     <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
-  <Import Project="../../msbuild/FSharp.targets" />
-  <Import Project="../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
     <Compile Include="Dictionary.fs" />
     <Compile Include="Set.fs" />
@@ -19,6 +17,7 @@
     <Compile Include="ResizeArray.fs" />
     <Compile Include="LinkedList.fs" />
     <Compile Include="HashSet.fs" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj">
@@ -47,4 +46,5 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
+  <Import Project="../../msbuild/WebSharper.FSharp.Internal.targets" />
 </Project>

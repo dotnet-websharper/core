@@ -148,10 +148,10 @@ let Tests =
 
         #if FSHARP40
 
-        Test "isNull" {
-            isTrue (isNull null)
-            isFalse (isNull (obj()))
-        }
+//        Test "isNull" {
+//            isTrue (isNull null)
+//            isFalse (isNull (obj()))
+//        }
 
         #endif
 

@@ -6,8 +6,6 @@
     <Name>WebSharper.Testing</Name>
     <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
-  <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
     <Compile Include="Random.fs" />
     <Compile Include="Pervasives.fs" />
@@ -51,4 +49,5 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
+  <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
 </Project>

@@ -48,6 +48,7 @@ module WebSharperTaskModule =
             KeyOriginatorFile : string
             Log : TaskLoggingHelper
             MSBuildProjectDirectory : string
+            MSBuildProjectFullPath : string
             Name : string
             OutputPath : string
             SetItemOutput : ITaskItem [] -> unit
@@ -123,29 +124,29 @@ module WebSharperTaskModule =
                 d
             | None -> failwith "WebSharperBundleOutputDir property is required"
         | dir -> dir
-
-    let Bundle settings =
-        match GetProjectType settings with
-        | Bundle webRoot ->
-            let outputDir = BundleOutputDir settings webRoot
-            let fileName =
-                match settings.Name with
-                | null | "" -> "Bundle"
-                | name -> name
-            match List.ofArray settings.ItemInput with
-            | raw :: refs ->
-                let cfg =
-                    {
-                        Compiler.BundleCommand.Config.Create() with
-                            AssemblyPaths = raw.ItemSpec :: [for r in refs -> r.ItemSpec]
-                            FileName = fileName
-                            OutputDirectory = outputDir
-                    }
-                let env = Compiler.Commands.Environment.Create()
-                Compiler.BundleCommand.Instance.Execute(env, cfg)
-                |> SendResult settings
-            | _ -> Fail settings "Invalid options for Bundle command"
-        | _ -> true
+//
+//    let Bundle settings =
+//        match GetProjectType settings with
+//        | Bundle webRoot ->
+//            let outputDir = BundleOutputDir settings webRoot
+//            let fileName =
+//                match settings.Name with
+//                | null | "" -> "Bundle"
+//                | name -> name
+//            match List.ofArray settings.ItemInput with
+//            | raw :: refs ->
+//                let cfg =
+//                    {
+//                        Compiler.BundleCommand.Config.Create() with
+//                            AssemblyPaths = raw.ItemSpec :: [for r in refs -> r.ItemSpec]
+//                            FileName = fileName
+//                            OutputDirectory = outputDir
+//                    }
+//                let env = Compiler.Commands.Environment.Create()
+//                Compiler.BundleCommand.Instance.Execute(env, cfg)
+//                |> SendResult settings
+//            | _ -> Fail settings "Invalid options for Bundle command"
+//        | _ -> true
 
     let BundleClean settings webRoot =
         let outputDir = BundleOutputDir settings webRoot
@@ -184,6 +185,7 @@ module WebSharperTaskModule =
                                         Path.Combine(settings.MSBuildProjectDirectory, r.ItemSpec)
                                 ]
                             References = [ for r in refs -> r.ItemSpec ]
+                            ProjectFile = settings.MSBuildProjectFullPath
                             ProjectDir = settings.MSBuildProjectDirectory
                             RunInterfaceGenerator =
                                 match GetProjectType settings with
@@ -319,7 +321,7 @@ module WebSharperTaskModule =
     let Execute settings =
         try
             match settings.Command with
-            | "Bundle" -> Bundle settings
+//            | "Bundle" -> Bundle settings
             | "Clean" -> Clean settings
             | "Compile" -> Compile settings
             | "Html" -> Html settings
@@ -330,6 +332,7 @@ module WebSharperTaskModule =
             false
 
 [<Sealed>]
+[<LoadInSeparateAppDomain>]
 type WebSharperTask() =
     inherit AppDomainIsolatedTask()
 
@@ -337,6 +340,7 @@ type WebSharperTask() =
     member val Configuration = "" with get, set
     member val ItemInput : ITaskItem [] = Array.empty with get, set
     member val KeyOriginatorFile = "" with get, set
+    member val MSBuildProjectFullPath = "" with get, set
     member val MSBuildProjectDirectory = "" with get, set
     member val Name = "" with get, set
     member val OutputPath = "" with get, set
@@ -373,6 +377,7 @@ type WebSharperTask() =
         )
 
     override this.Execute() =
+        printfn "WebSharper command executing: %s" this.Command
         this.AddProjectReferencesToAssemblyResolution()
         let bool s =
             match s with
@@ -389,6 +394,7 @@ type WebSharperTask() =
             KeyOriginatorFile = NotNull "" this.KeyOriginatorFile
             Log = this.Log
             MSBuildProjectDirectory = NotNull "." this.MSBuildProjectDirectory
+            MSBuildProjectFullPath = this.MSBuildProjectFullPath
             Name = NotNull "Project" this.Name
             OutputPath = NotNull "" this.OutputPath
             SetItemOutput = fun items -> this.ItemOutput <- items

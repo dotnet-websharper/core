@@ -45,6 +45,7 @@ type Data = string
 type Headers = obj
 type Url = string
 
+[<A.JavaScript>]
 type IAjaxProvider =
     abstract member Async : Url -> Headers -> Data -> (Data -> unit) ->
         (exn -> unit) -> unit
@@ -127,6 +128,7 @@ let makeHeaders (m: string) =
 let makePayload (data: obj []) =
     Json.Stringify data
 
+[<A.JavaScript>]
 type IRemotingProvider =
     abstract member Sync : string -> obj[] -> obj
     abstract member Async : string -> obj[] -> Async<obj>
@@ -134,6 +136,7 @@ type IRemotingProvider =
 
 [<A.JavaScript>]
 [<Sealed>]
+[<A.Name "WebSharper.Remoting.AjaxRemotingProvider">]
 type AjaxRemotingProvider =
 
     static member Sync m data : obj =
@@ -156,12 +159,12 @@ type AjaxRemotingProvider =
                 let ok (x: Data) = 
                     if !waiting then
                         waiting := false
-                        reg.Dispose()
+                        (reg :> System.IDisposable).Dispose()
                         ok (Json.Activate (Json.Parse x))
                 let err (e: exn) =
                     if !waiting then
                         waiting := false
-                        reg.Dispose()
+                        (reg :> System.IDisposable).Dispose()
                         err e
                 AjaxProvider.Async EndPoint headers payload ok err)
         }

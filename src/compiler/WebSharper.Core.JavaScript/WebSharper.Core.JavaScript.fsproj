@@ -21,13 +21,9 @@
     <Compile Include="Parser.fs" />
     <Compile Include="Writer.fsi" />
     <Compile Include="Writer.fs" />
+    <Compile Include="Annotations.fs" />
     <EmbeddedResource Include="Runtime.js" />
     <EmbeddedResource Include="Runtime.min.js" />
-    <Compile Include="Core.fsi" />
-    <Compile Include="Core.fs" />
-    <Compile Include="OldPackager.fsi" />
-    <Compile Include="OldPackager.fs" />
-    <Compile Include="Annotations.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Web" />

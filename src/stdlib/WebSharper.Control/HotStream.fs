@@ -20,6 +20,8 @@
 
 namespace WebSharper.Control
 
+open WebSharper
+
 module internal HotStream =
     open System
 
@@ -33,7 +35,7 @@ module internal HotStream =
                 Event   : Event<'T>
             }
         interface IObservable<'T> with
-            [<ReflectedDefinition>]
+            [<JavaScript>]
             member this.Subscribe(o) =
                 if this.Latest.Value.IsSome then
                     o.OnNext this.Latest.Value.Value
@@ -43,12 +45,12 @@ module internal HotStream =
                     )
                 disp
 
-        [<ReflectedDefinition>]
+        [<JavaScript>]
         member this.Trigger(v) =
             this.Latest := Some v
             this.Event.Trigger v
 
-        [<ReflectedDefinition>]
+        [<JavaScript>]
         static member New<'U>() : HotStream<'U> =
             {
                 Latest = ref None

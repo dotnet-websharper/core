@@ -6,8 +6,6 @@
     <Name>WebSharper.Web</Name>
     <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
-  <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
     <Compile Include="UserSession.fs" />
     <Compile Include="Context.fs" />
@@ -49,4 +47,5 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
+  <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
 </Project>

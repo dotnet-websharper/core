@@ -36,7 +36,7 @@ type Context<'Action> =
         Json : WebSharper.Core.Json.Provider
 
         /// WebSharper metadata required for serializing controls.
-        Metadata : WebSharper.Core.Metadata.Info
+        Metadata : WebSharper.Core.Metadata.Metadata
 
         // Generates a URL respecting the application path.
         ResolveUrl : string -> string

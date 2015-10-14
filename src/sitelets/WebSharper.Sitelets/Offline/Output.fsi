@@ -21,22 +21,22 @@
 /// Implements offline sitelet HTML generation.
 module internal WebSharper.Sitelets.Offline.Output
 
-open IntelliFactory.Core
-open WebSharper.Sitelets
-module H = WebSharper.Compiler.HtmlCommand
-
-/// The output mode, Debug or Release.
-type Mode = H.Mode
-
-/// Configuration options.
-type Config =
-    {
-        Actions : list<obj>
-        Options : H.Config
-        Sitelet : Sitelet<obj>
-        UnpackSourceMap : bool
-        UnpackTypeScript : bool
-    }
-
-/// Writes a site given the configuration options.
-val WriteSite : AssemblyResolver -> config: Config -> Async<unit>
+//open IntelliFactory.Core
+//open WebSharper.Sitelets
+//module H = WebSharper.Compiler.HtmlCommand
+//
+///// The output mode, Debug or Release.
+//type Mode = H.Mode
+//
+///// Configuration options.
+//type Config =
+//    {
+//        Actions : list<obj>
+//        Options : H.Config
+//        Sitelet : Sitelet<obj>
+//        UnpackSourceMap : bool
+//        UnpackTypeScript : bool
+//    }
+//
+///// Writes a site given the configuration options.
+//val WriteSite : AssemblyResolver -> config: Config -> Async<unit>

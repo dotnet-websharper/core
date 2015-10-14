@@ -20,64 +20,64 @@
 
 namespace WebSharper.Sitelets.Offline
 
-open System
-open System.IO
-open System.Reflection
-open IntelliFactory.Core
-open WebSharper.Core
-open WebSharper.Sitelets
-module C = WebSharper.Compiler.Commands
-module H = WebSharper.Compiler.HtmlCommand
-
-/// Implements the WebSharper executable plugin for generating
-/// offline pages with sitelets. To use, run `WebSharper.exe sitelets`.
-[<Sealed>]
-type HtmlCommand() =
-    interface H.IHtmlCommand with
-        member this.Execute(env, options) =
-            let baseDir = typeof<HtmlCommand>.Assembly.Location
-            let aR =
-                AssemblyResolver.Create()
-                    .WithBaseDirectory(baseDir)
-                    .SearchDirectories([baseDir])
-            // process extra.files
-            Extra.CopyFiles
-                options.ProjectDirectory
-                options.OutputDirectory
-            let scriptDir =
-                Path.Combine(options.OutputDirectory, "Scripts")
-                |> Directory.CreateDirectory
-            let aR =
-                let aR = aR.SearchPaths(options.ReferenceAssemblyPaths)
-                options.ReferenceAssemblyPaths
-                |> Seq.map Path.GetDirectoryName
-                |> Seq.append [Path.GetDirectoryName(options.MainAssemblyPath)]
-                |> aR.SearchDirectories
-            aR.Wrap <| fun () ->
-                // Load the sitelet
-                let loadSite (file: string) =
-                    let assemblyName = AssemblyName.GetAssemblyName(file)
-                    let assembly = aR.Resolve(assemblyName)
-                    match assembly with
-                    | None ->
-                        failwithf "Failed to load %s" file
-                    | Some assembly ->
-                        let aT = typeof<WebsiteAttribute>
-                        match Attribute.GetCustomAttribute(assembly, aT) with
-                        | :? WebsiteAttribute as attr ->
-                            attr.Run ()
-                        |_  ->
-                            failwithf "Failed to find WebSiteAttribute \
-                                on the processed assembly: %s"
-                                file
-                let (sitelet, actions) = loadSite options.MainAssemblyPath
-                // Write site content.
-                Output.WriteSite aR {
-                    Sitelet = sitelet
-                    Options = options
-                    Actions = actions
-                    UnpackSourceMap = options.UnpackSourceMap
-                    UnpackTypeScript = options.UnpackTypeScript
-                }
-                |> Async.RunSynchronously
-                C.Ok
+//open System
+//open System.IO
+//open System.Reflection
+//open IntelliFactory.Core
+//open WebSharper.Core
+//open WebSharper.Sitelets
+//module C = WebSharper.Compiler.Commands
+//module H = WebSharper.Compiler.HtmlCommand
+//
+///// Implements the WebSharper executable plugin for generating
+///// offline pages with sitelets. To use, run `WebSharper.exe sitelets`.
+//[<Sealed>]
+//type HtmlCommand() =
+//    interface H.IHtmlCommand with
+//        member this.Execute(env, options) =
+//            let baseDir = typeof<HtmlCommand>.Assembly.Location
+//            let aR =
+//                AssemblyResolver.Create()
+//                    .WithBaseDirectory(baseDir)
+//                    .SearchDirectories([baseDir])
+//            // process extra.files
+//            Extra.CopyFiles
+//                options.ProjectDirectory
+//                options.OutputDirectory
+//            let scriptDir =
+//                Path.Combine(options.OutputDirectory, "Scripts")
+//                |> Directory.CreateDirectory
+//            let aR =
+//                let aR = aR.SearchPaths(options.ReferenceAssemblyPaths)
+//                options.ReferenceAssemblyPaths
+//                |> Seq.map Path.GetDirectoryName
+//                |> Seq.append [Path.GetDirectoryName(options.MainAssemblyPath)]
+//                |> aR.SearchDirectories
+//            aR.Wrap <| fun () ->
+//                // Load the sitelet
+//                let loadSite (file: string) =
+//                    let assemblyName = AssemblyName.GetAssemblyName(file)
+//                    let assembly = aR.Resolve(assemblyName)
+//                    match assembly with
+//                    | None ->
+//                        failwithf "Failed to load %s" file
+//                    | Some assembly ->
+//                        let aT = typeof<WebsiteAttribute>
+//                        match Attribute.GetCustomAttribute(assembly, aT) with
+//                        | :? WebsiteAttribute as attr ->
+//                            attr.Run ()
+//                        |_  ->
+//                            failwithf "Failed to find WebSiteAttribute \
+//                                on the processed assembly: %s"
+//                                file
+//                let (sitelet, actions) = loadSite options.MainAssemblyPath
+//                // Write site content.
+//                Output.WriteSite aR {
+//                    Sitelet = sitelet
+//                    Options = options
+//                    Actions = actions
+//                    UnpackSourceMap = options.UnpackSourceMap
+//                    UnpackTypeScript = options.UnpackTypeScript
+//                }
+//                |> Async.RunSynchronously
+//                C.Ok

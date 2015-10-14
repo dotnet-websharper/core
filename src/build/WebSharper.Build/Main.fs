@@ -57,20 +57,21 @@ module Main =
         Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
         |> Seq.map (fun p -> (p, p.Substring(dir.Length).Replace("\\", "/")))
 
-    let private exports, compilerExports =
+    let private coreExports, fsExports, csExports =
         let lib kind name =
             Seq.concat [
                 Directory.EnumerateFiles(buildDir, name + ".dll")
                 Directory.EnumerateFiles(buildDir, name + ".xml")
             ]
             |> Seq.map (fun p -> (kind, p))
+        
         Seq.concat [
             // compiler:
             lib "lib"   "WebSharper.Core.JavaScript"
-            lib "tools" "WebSharper.Compiler"
+//            lib "tools" "WebSharper.Compiler"
             lib "lib"   "WebSharper.Core"
             lib "lib"   "WebSharper.InterfaceGenerator"
-            lib "tools" "WebSharper.MSBuild"
+//            lib "tools" "WebSharper.MSBuild.FSharp"
             // htmllib:
             lib "lib"   "WebSharper.Html.Server"
             lib "lib"   "WebSharper.Html.Client"
@@ -85,6 +86,21 @@ module Main =
             lib "lib"   "WebSharper.JQuery"
             lib "lib"   "WebSharper.Testing"
             // foreign:
+//            lib "tools" "FsNuGet"
+//            lib "tools" "NuGet.Core"
+//            lib "tools" "FSharp.Core"
+//            lib "tools" "Mono.Cecil"
+//            lib "tools" "Mono.Cecil.Mdb"
+//            lib "tools" "Mono.Cecil.Pdb"
+//            lib "tools" "IntelliFactory.Core"
+            lib "lib"   "IntelliFactory.Xml"
+        ] |> List.ofSeq
+        ,
+        Seq.concat [
+            lib "tools" "WebSharper.Compiler"
+            lib "tools" "WebSharper.Compiler.FSharp"
+            lib "tools" "WebSharper.MSBuild.FSharp"
+            // foreign:
             lib "tools" "FsNuGet"
             lib "tools" "NuGet.Core"
             lib "tools" "FSharp.Core"
@@ -92,19 +108,34 @@ module Main =
             lib "tools" "Mono.Cecil.Mdb"
             lib "tools" "Mono.Cecil.Pdb"
             lib "tools" "IntelliFactory.Core"
-            lib "lib"   "IntelliFactory.Xml"
-        ]
-        |> Seq.toList
+            lib "tools" "FSharp.Compiler.Service"
+        ] |> List.ofSeq
         ,
-        // compilerExports:
         Seq.concat [
-            lib "lib" "WebSharper.Compiler"
-            lib "lib" "IntelliFactory.Core"
-            lib "lib" "Mono.Cecil"
-            lib "lib" "Mono.Cecil.Mdb"
-            lib "lib" "Mono.Cecil.Pdb"
-        ]
-        |> Seq.toList
+            lib "tools" "WebSharper.Compiler"
+            lib "tools" "WebSharper.Compiler.CSharp"
+            lib "tools" "WebSharper.MSBuild.CSharp"
+            // foreign:
+            lib "tools" "FsNuGet"
+            lib "tools" "NuGet.Core"
+            lib "tools" "FSharp.Core"
+            lib "tools" "Mono.Cecil"
+            lib "tools" "Mono.Cecil.Mdb"
+            lib "tools" "Mono.Cecil.Pdb"
+            lib "tools" "IntelliFactory.Core"
+            lib "tools" "Microsoft.CodeAnalysis"
+            lib "tools" "Microsoft.CodeAnalysis.CSharp"
+            lib "tools" "Microsoft.CodeAnalysis.CSharp.Workspaces"
+            lib "tools" "Microsoft.CodeAnalysis.Workspaces"
+            lib "tools" "Microsoft.CodeAnalysis.Workspaces.Desktop"
+            lib "tools" "System.Collections.Immutable"
+            lib "tools" "System.Composition.AttributedModel"
+            lib "tools" "System.Composition.Convention"
+            lib "tools" "System.Composition.Hosting"
+            lib "tools" "System.Composition.Runtime"
+            lib "tools" "System.Composition.TypedParts"
+            lib "tools" "System.Reflection.Metadata"
+        ] |> List.ofSeq
 
     let private nuPkgs () =
         let nuPkg =
@@ -132,33 +163,24 @@ module Main =
                 new INuGetExportingProject with
                     member p.NuGetFiles =
                         seq {
-                            yield fileAt (Path.Combine(root, "msbuild", "WebSharper.targets"))
-                                "build/WebSharper.targets"
-                            yield file "tools" (out "WebSharper.exe") None
-                            yield file "tools" (out "WebSharper.exe") (Some "WebSharper31.exe")
-                            yield file "tools" (out "WebSharper.exe") (Some "WebSharper40.exe")
-                            yield file "tools" (out "WebSharper31.exe.config") None
-                            yield file "tools" (out "WebSharper40.exe.config") None
-                            yield file "tools" (out "WebSharper.exe.config") None
-                            for kind, src in exports do
+//                            yield fileAt (Path.Combine(root, "msbuild", "WebSharper.FSharp.targets")) "build/WebSharper.FSharp.targets"
+//                            yield fileAt (Path.Combine(root, "msbuild", "WebSharper.CSharp.targets")) "build/WebSharper.CSharp.targets"
+                            for kind, src in coreExports do
                                 yield file kind src None
-                            let fscore = Path.Combine(root, "packages", "FSharp.Core.3", "lib", "net40")
-                            yield file "tools" (Path.Combine(fscore, "FSharp.Core.optdata")) None
-                            yield file "tools" (Path.Combine(fscore, "FSharp.Core.sigdata")) None
                             for (src, tgt) in searchDir (Path.Combine(root, "docs")) do
                                 yield fileAt src ("/docs" + tgt)
                             yield fileAt (Path.Combine(root, "src", "htmllib", "tags.csv")) ("/tools/net40/tags.csv")
                         }
             }
-        let compilerNuPkg =
+        let fsharpNuPkg =
             let bt =
-                bt.PackageId(Config.CompilerPackageId)
+                bt.PackageId(Config.FSharpPackageId)
                 |> PackageVersion.Full.Custom (Version(nuPkg.GetComputedVersion()))
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
                         x with
-                            Description = Config.CompilerDescription
+                            Description = Config.FSharpDescription
                             ProjectUrl = Some Config.Website
                             LicenseUrl = Some Config.LicenseUrl
                             Authors = [ Config.Company ]
@@ -168,11 +190,35 @@ module Main =
                     new INuGetExportingProject with
                         member p.NuGetFiles =
                             seq {
-                                for kind, src in compilerExports do
+                                yield fileAt (Path.Combine(root, "msbuild", "WebSharper.FSharp.targets")) "build/WebSharper.FSharp.targets"
+                                for kind, src in fsExports do
                                     yield file kind src None
                             }
                 }
-        [ nuPkg; compilerNuPkg ]
+        let csharpNuPkg =
+            let bt =
+                bt.PackageId(Config.CSharpPackageId)
+                |> PackageVersion.Full.Custom (Version(nuPkg.GetComputedVersion()))
+            bt.NuGet.CreatePackage()
+                .Configure(fun x ->
+                    {
+                        x with
+                            Description = Config.CSharpDescription
+                            ProjectUrl = Some Config.Website
+                            LicenseUrl = Some Config.LicenseUrl
+                            Authors = [ Config.Company ]
+                    })
+                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
+                .AddNuGetExportingProject {
+                    new INuGetExportingProject with
+                        member p.NuGetFiles =
+                            seq {
+                                yield fileAt (Path.Combine(root, "msbuild", "WebSharper.CSharp.targets")) "build/WebSharper.CSharp.targets"
+                                for kind, src in csExports do
+                                    yield file kind src None
+                            }
+                }
+        [ nuPkg; fsharpNuPkg; csharpNuPkg ]
 
     let Package () =
         let nuPkgs = nuPkgs ()

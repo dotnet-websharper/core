@@ -70,7 +70,7 @@ let ( + ) (a: 'T1) (b: 'T2) = X<'T3>
 [<Macro(typeof<M.Sub>)>]
 let ( - ) (a: 'T1) (b: 'T2) = X<'T3>
 
-[<Macro(typeof<M.Division>)>]
+[<Macro(typeof<M.Div>)>]
 let ( / ) (x: 'T1) (y: 'T2) = X<'T3>
 
 [<Inline "void ($a[0] = $b)">]

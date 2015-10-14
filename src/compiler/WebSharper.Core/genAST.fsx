@@ -4,6 +4,7 @@
     | Option of Case
     | Expr
     | Statement
+    | Id
     | Object of string
     | Empty
     static member (*) (a, b) =
@@ -19,6 +20,7 @@ let rec shape c =
         | cl -> Some (Tuple cl)
     | List a ->
         shape a |> Option.map List
+    | Id -> Some Id 
     | Option a -> 
         shape a |> Option.map Option
     | Expr -> Some Expr
@@ -36,6 +38,7 @@ let rec toType c =
         "option<" + toType a + ">"
     | Expr -> "Expression"
     | Statement -> "Statement"
+    | Id -> "Id"
     | Object o -> o
     | Empty -> "unit"
 
@@ -52,10 +55,11 @@ let rec info c =
     | Object _ -> Some c
     | Expr -> None
     | Statement -> None
+    | Id -> None
     | Empty -> None
 
-let Id = Object "Id"
 let Literal = Object "Literal"
+let NonGenericTypeDefinition = Object "TypeDefinition"
 let TypeDefinition = Object "Concrete<TypeDefinition>"
 let Constructor = Object "Constructor"
 let Method = Object "Concrete<Method>"
@@ -84,19 +88,23 @@ let ExprDefs =
         "ExprSourcePos", Object "SourcePos" * Expr
         
         // .NET
+        "Self", Empty
         "Call", Option Expr * TypeDefinition * Method * List Expr
+        "CallNeedingMoreArgs", Option Expr * TypeDefinition * Method * List Expr
         "CallInterface", Expr * TypeDefinition * Method * List Expr
         "Ctor", TypeDefinition * Constructor * List Expr
-        "CCtor", TypeDefinition
+        "NewObject", TypeDefinition * Expr
+        "Cctor", NonGenericTypeDefinition
 //        "FieldGet", Expr * TypeDefinition * Field
 //        "FieldSet", Expr * TypeDefinition * Field * Expr
-        "FieldGet", Expr * TypeDefinition * Str
-        "FieldSet", Expr * TypeDefinition * Str * Expr
+        "FieldGet", Option Expr * TypeDefinition * Str
+        "FieldSet", Option Expr * TypeDefinition * Str * Expr
         "Let", Id * Expr * Expr
         "NewVar", Id * Expr
         "Coalesce", Expr * Type * Expr
         "TypeCheck", Expr * Type
         "MacroFallback", Empty
+        "WithVars", List Id * Expr
 
         // F#
         "LetRec", List (Id * Expr) * Expr
@@ -145,32 +153,29 @@ let StatementDefs =
 
 let binaryOps =
     [
-        "!==", "``!==``"       
-        "!=", "``!=``"        
-        "%", "``%``"         
-        "^&&", "``&&``"        
-        "^&", "``&``"         
-        "*", "``*``"         
-        "+", "``+``"         
-//        "", "``,``"         
-        "-", "``-``"         
-//        "", "``.``"         
-        "/", "``/``"        
-        "^<<", "``<<``"        
-        "^<=", "``<=``"        
-        "^<", "``<``"         
-        "===", "``===``"       
-        "==", "``==``"        
-        "^=", "``=``"         
-        "^>=", "``>=``"        
-        ">>>", "``>>>``"       
-        "^>>", "``>>``"        
-        "^>", "``>``"         
-        "^^", "``^``"         
-//        "", "``in``"        
-//        "", "``instanceof``"
-        "^|", "``|``"         
-        "^||", "``||``"            
+        "!=="
+        "!="     
+        "%"
+        "&&"
+        "&"  
+        "*"
+        "+"    
+        "-"     
+        "." 
+        "/" 
+        "<<"
+        "<="
+        "<"
+        "==="   
+        "=="
+        "="
+        ">="
+        ">>>" 
+        ">>"
+        ">"    
+        "^"  
+        "|"
+        "||"     
     ]
 
 let NL = System.Environment.NewLine
@@ -212,9 +217,10 @@ type Literal =
             cprintfn "    | %s%s" n args
         if t.Contains "Expression" then
             cprintfn "    with"
-            for opSym, binCase in binaryOps do
-                cprintfn "    static member (%s) (a, b) = Binary (a, BinaryOperator.%s, b)" opSym binCase
-
+            for opSym in binaryOps do
+                cprintfn "    static member (^%s) (a, b) = Binary (a, BinaryOperator.``%s``, b)" opSym opSym
+            cprintfn "    member a.Item b = ItemGet (a, b)"
+            cprintfn "    member a.Item b = Application (a, b)"
 
     let ExprAndStatementDefs =
         seq {
@@ -237,6 +243,10 @@ type Literal =
             | Option Expr -> "Option.map this.TransformExpression " + x
             | Expr -> "this.TransformExpression " + x 
             | Statement -> "this.TransformStatement " + x
+            | Id -> "this.TransformId " + x
+            | Option Id -> "Option.map this.TransformId " + x
+            | List Id -> "List.map this.TransformId " + x
+            | List (Tuple [Id; Expr]) -> "List.map (fun (a, b) -> this.TransformId a, this.TransformExpression b) " + x 
             | List Statement -> "List.map this.TransformStatement " + x
             | List (Tuple [Object _; Expr]) -> "List.map (fun (a, b) -> a, this.TransformExpression b) " + x
             | List (Tuple [Option Expr; Statement]) -> "List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformStatement b) " + x 
@@ -271,6 +281,15 @@ type Literal =
                 | Empty -> "()"
                 | _ -> "a"
             cprintfn "        | %s %s -> this.Transform%s %s" n args n trArgs
+
+    cprintfn "    abstract TransformId : Id -> Id"
+    cprintfn "    override this.TransformId x = x"
+
+    cprintfn """
+[<AutoOpen>]
+module ExtraForms =
+    let Lambda (a, b) = Function (a, Return b)
+"""
 
 //    cprintfn """type Breaker() =
 //    member this.BreakExpressionList l =

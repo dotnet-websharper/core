@@ -27,40 +27,41 @@ open WebSharper.JavaScript
 
 module internal Internal =
 
-    module Q = WebSharper.Core.Quotations
-    module J = WebSharper.Core.JavaScript.Core
+//    module Q = WebSharper.Core.Quotations
+//    module J = WebSharper.Core.JavaScript.Core
+    open WebSharper.Core.AST
+
     open WebSharper.Testing.Random.Internal
 
     type TestPropertyMacro() =
-        interface Core.Macros.IMacro with
-            member this.Translate(q, tr) =
-                match q with
-                // test.PropertyWith(runner, generator, attempt)
-                | Q.Call({Generics = [t; _; _]}, [this; runner; gen; attempt]) ->
-                    let id = J.Id()
-                    cCall (tr this) "PropertyWithSample" [
-                        tr runner
-                        J.Lambda(None, [id],
-                            mkSample (J.Application(tr gen, [J.Var id])) (cInt 100))
-                        tr attempt
-                    ]
-                // test.Property(runner, attempt)
-                | Q.Call({Generics = [t; _; _]}, [this; runner; attempt]) ->
-                    cCall (tr this) "PropertyWithSample" [
-                        tr runner
-                        J.Lambda(None, [], mkSample (mkGenerator t) (cInt 100))
-                        tr attempt
-                    ]
-                | _ -> tr q
+        inherit WebSharper.Core.Macro()
+
+        override this.TranslateCall(t,_,m,a,_) =
+            match t, a with  
+            | Some this, [runner; gen; attempt] ->
+                let id = Id.New()
+                cCall this "PropertyWithSample" [
+                    runner
+                    Function([id],
+                        Return (mkSample (Application(gen, [Var id])) (cInt 100)))
+                    attempt
+                ]
+            | Some this, [runner; attempt] ->
+                cCall this "PropertyWithSample" [
+                    runner
+                    Function([], Return (mkSample (mkGenerator m.Generics.Head) (cInt 100)))
+                    attempt
+                ]
+            | _ -> MacroFallback
 
     type PropertyMacro() =
-        interface Core.Macros.IMacro with
-            member this.Translate(q, tr) =
-                match q with
-                // Property name f
-                | Q.CallOrCallModule({Generics = [t; _]}, [name; f]) ->
-                    cCallG ["WebSharper"; "Testing"; "Pervasives"] "PropertyWith" [tr name; mkGenerator t; tr f]
-                | _ -> tr q
+        inherit WebSharper.Core.Macro()
+
+        override this.TranslateCall(_,_,m,a,_) =
+            match a with 
+            | [name; f] -> 
+                cCallG ["WebSharper"; "Testing"; "Pervasives"; "PropertyWith"] [name; mkGenerator m.Generics.Head; f]
+            | _ -> MacroFallback
 
 module QUnit =
 

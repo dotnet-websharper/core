@@ -97,6 +97,6 @@ let CreateEvent<'D, 'A when 'D : delegate<'A, unit> and 'D :> System.Delegate>
             fun (r: System.IObserver<'A>) ->
                 let h = create (fun _ args -> r?OnNext(args))
                 add h
-                New [ "Dispose" => fun () -> remove h ] 
+                New [ "System-IDisposable-Dispose" => fun () -> remove h ] 
     ]
     
