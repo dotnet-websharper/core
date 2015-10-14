@@ -96,8 +96,9 @@ type Loader(aR: AssemblyResolver, log: string -> unit) =
         let fP = Some (Path.GetFullPath path)
         try
             load fP bytes symbols aR
-        with :? InvalidOperationException ->
+        with _ ->
             if symbolsPath.IsSome then
                 "Failed to load symbols: " + symbolsPath.Value
                 |> log
-            load fP bytes None aR
+                load fP bytes None aR
+            else reraise()

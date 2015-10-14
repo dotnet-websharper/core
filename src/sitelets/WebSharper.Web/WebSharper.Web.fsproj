@@ -12,6 +12,7 @@
     <Compile Include="Shared.fs" />
     <Compile Include="RpcModule.fs" />
     <Compile Include="ScriptManager.fs" />
+    <Compile Include="Node.fs" />
     <Compile Include="Control.fs" />
     <Compile Include="ClientSideJson.fs" />
   </ItemGroup>
@@ -24,11 +25,6 @@
     <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj">
       <Name>WebSharper.Core</Name>
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\htmllib\WebSharper.Html.Server\WebSharper.Html.Server.fsproj">
-      <Name>WebSharper.Html.Server</Name>
-      <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\..\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj">

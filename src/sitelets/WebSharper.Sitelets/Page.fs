@@ -22,10 +22,9 @@ namespace WebSharper.Sitelets
 
 open System.Collections.Generic
 open System.Web.UI
-open WebSharper.Html.Server
 open WebSharper
+open WebSharper.Web
 type private Writer = HtmlTextWriter -> unit
-type private IControl = WebSharper.Html.Client.IControl
 
 type Page =
     {
@@ -33,8 +32,8 @@ type Page =
         Title : option<string>
         Renderer : option<string> -> option<string> -> Writer -> Writer ->
             HtmlTextWriter -> unit
-        Head : seq<Element>
-        Body : seq<Element>
+        Head : seq<INode>
+        Body : seq<INode>
     }
 
     static member Default =

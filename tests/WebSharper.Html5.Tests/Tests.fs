@@ -22,8 +22,29 @@ module WebSharper.Html5.Tests
 
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.Html.Client
 open WebSharper.JQuery
+
+[<JavaScript>]
+type Elt (name) =
+    let dom = JS.Document.CreateElement(name)
+    let mutable afterInsert = [||]
+
+    member this.Dom = dom
+
+    member this.OnAfterInsert(f : Dom.Element -> unit) =
+        afterInsert.JS.Push(f) |> ignore
+        this
+
+    member this.InsertInto (parent: Dom.Node) =
+        parent.AppendChild(dom) |> ignore
+        Array.iter (fun f -> f dom) afterInsert
+        afterInsert <- [||]
+
+    interface IControlBody with
+        member this.ReplaceInDom old =
+            old.ParentNode.ReplaceChild(dom, old) |> ignore
+            Array.iter (fun f -> f dom) afterInsert
+            afterInsert <- [||]
 
 module Utils =
     [<Inline "setInterval($x, $n)" >]
@@ -43,54 +64,12 @@ module SamplesInternals =
         )
 
     [<JavaScript>]
-    let GeolocationTest () =
-        Div [
-            H1 [Text "Geolocation Sample"]
-        ]
-        |>! OnAfterRender (fun elem ->
-            async {
-                let! position = GetPosition()
-                let coords = position.Coords
-                let coordsText = (coords.Latitude, coords.Longitude).ToString()
-                elem.Html <- elem.Html + "<h2>Your location is: (" + coordsText + ")</h2>"
-            }
-            |> Async.Start |> ignore
-        )
-
-    [<JavaScript>]
-    let LocalStorage () =
-        Div [
-            H1 [Text "LocalStorage Test"]
-        ]
-        |>! OnAfterRender (fun elem ->
-            let storage = JS.Window.LocalStorage
-            let key = "intReference"
-            let intReference = storage.GetItem(key)
-            if intReference = null || intReference = JS.Undefined then
-                storage.SetItem(key, "0")
-            else
-                let oldValue = int (intReference)
-                storage.SetItem(key, (oldValue + 1).ToString())
-            elem.Html <- elem.Html
-                         + "<h2>localStorage is now: ("
-                         + storage.GetItem(key) + ")</h2>"
-        )
-
-    [<JavaScript>]
     let Canvas (height: int, width: int) (f: CanvasRenderingContext2D -> unit) =
-        Div [
-            H1 [Text "Canvas Test"]
-        ]
-        |>! OnAfterRender (fun elem ->
-
-            let canvas = JQuery.Of("<canvas></canvas>")
-                               .Attr("height", string height)
-                               .Attr("width", string width)
-                               .Get().[0]
-            elem.Dom.AppendChild(canvas) |> ignore
-            let context = As<CanvasElement>(canvas).GetContext "2d"
+        Elt("canvas").OnAfterInsert(fun e ->
+            e.SetAttribute("height", string height)
+            e.SetAttribute("width", string width)
+            let context = As<CanvasElement>(e).GetContext "2d"
             f context
-            ()
         )
 
     [<JavaScript>]
@@ -216,18 +195,17 @@ module SamplesInternals =
 
     [<JavaScript>]
     let Example7 (ctx: CanvasRenderingContext2D) =
-        Img [ Src "backdrop.png" ]
-        |> fun x ->
-            let img = x.Dom
-            JQuery.Of(img).Load(fun _ _ ->
-                ctx.DrawImage(x.Dom, 0., 0.)
+        let img = Elt("img")
+        img.Dom.AddEventListener("load", (fun () ->
+            ctx.DrawImage(img.Dom, 0., 0.)
                 ctx.BeginPath()
                 ctx.MoveTo(30.,  96.)
                 ctx.LineTo(70.,  66.)
                 ctx.LineTo(103., 76.)
                 ctx.LineTo(170., 15.)
                 ctx.Stroke()
-            ).Ignore
+        ), false)
+        img.Dom.SetAttribute("src", "backdrop.png")
 
     [<JavaScript>]
     let Example8 (ctx: CanvasRenderingContext2D) =
@@ -322,26 +300,6 @@ module SamplesInternals =
             ctx.Restore()
         Utils.SetInterval paint 1000
 
-[<Sealed>]
-type Samples() =
-    inherit Web.Control()
-
-    [<JavaScript>]
-    override this.Body =
-        Div [
-            H1 [Text "HTML5 examples"]
-            SamplesInternals.GeolocationTest ()
-            SamplesInternals.LocalStorage ()
-            SamplesInternals.Canvas (100, 200) SamplesInternals.Example1
-            SamplesInternals.Canvas (150, 200) SamplesInternals.Example2
-            SamplesInternals.Canvas (150, 200) SamplesInternals.Example3
-            SamplesInternals.Canvas (150, 200) SamplesInternals.Example4
-            SamplesInternals.Canvas (150, 200) SamplesInternals.Example5
-            SamplesInternals.Canvas (150, 150) SamplesInternals.Example6
-            SamplesInternals.Canvas (180, 130) SamplesInternals.Example7
-            SamplesInternals.Canvas (200, 200) SamplesInternals.Example8
-        ] :> _
-
 open WebSharper.Testing
 
 type TestBuilder with
@@ -351,7 +309,7 @@ type TestBuilder with
     member this.Fixture<'A>
         (
             r: Runner<'A>,
-            [<ProjectionParameter>] el: 'A -> Element
+            [<ProjectionParameter>] el: 'A -> Elt
         ) : Runner<'A> =
         fun isTrueer ->
             let v = r isTrueer
@@ -362,9 +320,9 @@ type TestBuilder with
                     | Choice2Of2 args -> args
                 let el = el args
                 do! Async.FromContinuations (fun (ok, _, _) ->
-                    el |> OnAfterRender (fun el -> ok ())
-                    JQuery.Of("#qunit-fixture").Empty().Append(el.Dom).Ignore
-                    el.Render()
+                    let fixture = JQuery.Of("#qunit-fixture").Empty().Get(0)
+                    el.OnAfterInsert(fun _ -> ok())
+                        .InsertInto(fixture)
                 )
                 return args
             })

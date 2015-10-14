@@ -37,3 +37,4 @@ let Run () =
 
     minify "src/compiler/WebSharper.Core.JavaScript/Runtime.js"
     minify "src/stdlib/WebSharper.Main/Json.js"
+    minify "src/stdlib/WebSharper.Main/AnimFrame.js"

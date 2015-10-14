@@ -129,8 +129,8 @@ module Definition =
             Required = []
             Optional =
                 [
-                    "top" , T<int>
-                    "left" , T<int>
+                    "top" , T<float>
+                    "left" , T<float>
                 ]
         }
 
@@ -981,6 +981,8 @@ module Definition =
                 "noop" => T<unit->unit>
 
                 "param" => T<obj> * !?T<bool>?traditional ^-> T<string>
+
+                "parseHTML" => T<string> ^-> Type.ArrayOf T<Dom.Element>
 
                 "parseJSON" => T<string->obj>
                 

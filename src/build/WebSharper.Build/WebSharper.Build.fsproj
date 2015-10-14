@@ -21,7 +21,6 @@
   <ItemGroup>
     <Compile Include="Config.fs" />
     <Compile Include="Utils.fs" />
-    <Compile Include="Tags.fs" />
     <Compile Include="Minify.fs" />
     <Compile Include="Main.fs" />
     <None Include="WebSharper.exe.config">

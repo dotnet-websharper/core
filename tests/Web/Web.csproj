@@ -33,12 +33,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="content\*.*" />
-    <Content Include="downloads\*.*" />
-    <Content Include="Front.html" />
-    <Content Include="logo-websharper-icon.png" />
     <Content Include="Scripts\*.*" />
-    <Content Include="Main.html" />
     <Content Include="Web.config">
       <SubType>Designer</SubType>
     </Content>
@@ -62,14 +57,6 @@
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj">
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Name>WebSharper.Core</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\htmllib\WebSharper.Html.Server\WebSharper.Html.Server.fsproj">
-      <Project>{bf697d62-639d-47c7-9ab4-3b9b5b133694}</Project>
-      <Name>WebSharper.Html.Server</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\htmllib\WebSharper.Html.Client\WebSharper.Html.Client.fsproj">
-      <Project>{4a6bae18-3f58-4add-a7e8-b5380efdf0d1}</Project>
-      <Name>WebSharper.Html.Client</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\src\sitelets\WebSharper.Sitelets\WebSharper.Sitelets.fsproj">
       <Project>{d991329a-3aa3-4269-83ad-3597864855a0}</Project>

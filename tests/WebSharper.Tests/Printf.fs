@@ -39,6 +39,10 @@ type MyList<'T> =
     | Empty
     | Cons of 'T * MyList<'T>
 
+type Foo =
+    | [<Constant "A">] A
+    | [<Constant "B">] B
+
 //[<Direct "var orig = console.log; console.log = function (){window.lastLogged = arguments; orig.apply(console, arguments)}">]
 //let WatchConsole () = ()
 //
@@ -123,4 +127,7 @@ let Tests =
             equal (Printf.ksprintf (fun s -> s.Length) "Web%s" "Sharper") 10
         }
 
+        Test "Constant attribute" {
+            equal (sprintf "%A %A" A B) "A B"
+        }
     }

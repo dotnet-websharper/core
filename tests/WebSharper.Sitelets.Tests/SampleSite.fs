@@ -20,9 +20,19 @@
 
 namespace WebSharper.Sitelets.Tests
 
-module Client =
     open WebSharper
-    open WebSharper.Html.Client
+
+module Client =
+    open WebSharper.JavaScript
+
+    [<JavaScript>]
+    type Elt(name, text) =
+        let e = JS.Document.CreateElement(name)
+        do e.AppendChild(JS.Document.CreateTextNode(text)) |> ignore
+
+        interface IControlBody with
+            member this.ReplaceInDom x =
+                x.ParentNode.ReplaceChild(e, x) |> ignore
 
     [<Sealed>]
     type SignupSequenceControl() =
@@ -30,7 +40,7 @@ module Client =
 
         [<JavaScript>]
         override this.Body =
-            Div [Text "SIGNUP-SEQUENCE"] :> _
+            Elt("div", "SIGNUP-SEQUENCE") :> _
 
     [<Sealed>]
     type LoginControl(link: string) =
@@ -38,17 +48,57 @@ module Client =
 
         [<JavaScript>]
         override this.Body =
-            Div [Text ("LOGIN: " + link)] :> _
+            Elt("div", "LOGIN: " + link) :> _
 
     [<JavaScript>]
     let Widget () =
-        Button [Text "click me!"]
+        Elt("button", "click me!")
+
+/// A mini server-side HTML language
+module Server =
+    open WebSharper.Web
+
+    [<AbstractClass>]
+    type RequiresNoResources() =
+        interface IRequiresResources with
+            member this.Requires = Seq.empty
+            member this.Encode(_, _) = []
+
+    type Elt(name, [<System.ParamArray>] contents: INode[]) =
+        inherit RequiresNoResources()
+        let attributes, children =
+            contents |> Array.partition (fun n -> n.IsAttribute)
+        interface INode with
+            member this.Write(meta, w) =
+                w.WriteBeginTag(name)
+                attributes |> Array.iter (fun n -> n.Write(meta, w))
+                if Array.isEmpty children && System.Web.UI.HtmlTextWriter.IsSelfClosingTag(name) then
+                    w.Write(System.Web.UI.HtmlTextWriter.SelfClosingTagEnd)
+                else
+                    w.Write(System.Web.UI.HtmlTextWriter.TagRightChar)
+                    children |> Array.iter (fun n -> n.Write(meta, w))
+                    w.WriteEndTag(name)
+            member this.IsAttribute = false
+
+    type Attr(name, value) =
+        inherit RequiresNoResources()
+        interface INode with
+            member this.Write(meta, w) =
+                w.WriteAttribute(name, value)
+            member this.IsAttribute = true
+
+    type Text(txt) =
+        inherit RequiresNoResources()
+        interface INode with
+            member this.Write(meta, w) =
+                w.WriteEncodedText(txt)
+            member this.IsAttribute = false
 
 /// The website definition.
 module SampleSite =
-    open WebSharper
-    open WebSharper.Html.Server
+    open WebSharper.Web
     open WebSharper.Sitelets
+    open Server
 
     /// Actions that corresponds to the different pages in the site.
     type Action =
@@ -64,7 +114,7 @@ module SampleSite =
 
     /// A helper function to create a hyperlink
     let private ( => ) title href =
-        A [HRef href] -< [Text title]
+        Elt("a", Attr("style", "padding-right:5px"), Attr("href", href), Text title)
 
     /// A helper function to create a 'fresh' url with a random get parameter
     /// in order to make sure that browsers don't show a cached version.
@@ -93,33 +143,28 @@ module SampleSite =
     type Template =
         {
             Title: string
-            Body: seq<Html.Element>
-            Menu: seq<Html.Element>
-            Login: seq<Html.Element>
+            Body: seq<Web.INode>
+            Menu: seq<Web.INode>
+            Login: seq<Web.INode>
         }
 
-    let Tpl =
-        Content.Template.FromHtmlElement(
-            HTML [
-                Head [
-                    Tags.Title [Text "${title}"]
-                    Meta [Attr.Data "replace" "scripts"]
+    let Tpl (t: Async<Template>) =
+        async {
+            let! t = t
+            return! Content.Page(
+                Title = t.Title,
+                Body = [
+                    yield! t.Login
+                    yield! t.Menu
+                    yield! t.Body
+                    yield ClientSide <@ Client.Widget () @> :> _
                 ]
-                Body [
-                    Div [Attr.Data "replace" "login"]
-                    Div [Attr.Data "replace" "menu"]
-                    Div [Attr.Data "replace" "body"]
-//                    Div [ClientSide <@ Client.Widget () @>] // TODO
-                ]
-            ])
-            .With("title", fun x -> x.Title)
-            .With("body", fun x -> x.Body)
-            .With("menu", fun x -> x.Menu)
-            .With("login", fun x -> x.Login)
+            )
+        }
 
     /// A template function that renders a page with a menu bar, based on the `Skin` template.
     let Template title main ctx =
-        Content.WithTemplateAsync Tpl <|
+        Tpl <|
             let menu =
                 let ( ! ) x = ctx.Link x
                 [
@@ -127,17 +172,16 @@ module SampleSite =
                         "Contact" => !Action.Contact
                         "Say Hello" => !(Action.Echo "Hello")
                         "Protected" => (RandomizeUrl <| !Action.Protected)
-                        "ASPX Page" => ctx.ResolveUrl "http://www.nba.com/~joel/file.html"
                 ]
                 |> List.map (fun link ->
-                    Label [Class "menu-item"] -< [link]
+                    Elt("label", Attr("class", "menu-item"), link)
                 )
             async {
                 let! login = Widgets.LoginInfo ctx
                 return {
                     Title = title
-                    Menu = menu
-                    Login = login
+                    Menu = Seq.cast menu
+                    Login = Seq.cast login
                     Body = main ctx
                 }
             }
@@ -149,7 +193,7 @@ module SampleSite =
         let HomePage =
             Template "Home" <| fun ctx ->
                 [
-                    H1 [Text "Welcome to our site!"]
+                    Elt("h1", Text "Welcome to our site!")
                     "Let us know how we can contact you" => ctx.Link Action.Contact
                  ]
 
@@ -157,15 +201,15 @@ module SampleSite =
         let ContactPage =
             Template "Contact" <| fun ctx ->
                 [
-                    H1 [Text "Contact Form"]
-                    Div [new Client.SignupSequenceControl()]
+                    Elt("h1", Text "Contact Form")
+                    Elt("div", new Client.SignupSequenceControl())
                 ]
 
         /// A simple page that echoes a parameter.
         let EchoPage param =
             Template "Echo" <| fun ctx ->
                 [
-                    H1 [Text param]
+                    Elt("h1", Text param)
                 ]
 
         /// A simple login page.
@@ -177,22 +221,20 @@ module SampleSite =
                     | None -> Action.Home
                     |> ctx.Link
                 [
-                    H1 [Text "Login"]
-                    P [
-                        Text "Login with any username and password='"
-                        I [Text "password"]
+                    Elt("h1", Text "Login")
+                    Elt("p",
+                        Text "Login with any username and password='",
+                        Elt("i", Text "password"),
                         Text "'."
-                    ]
-                    Div [
+                    )
                         new Client.LoginControl(redirectLink)
                     ]
-                ]
 
         /// A simple page that users must log in to view.
         let ProtectedPage =
             Template "Protected" <| fun ctx ->
                 [
-                    H1 [Text "This is protected content - thanks for logging in!"]
+                    Elt("h1", Text "This is protected content - thanks for logging in!")
                 ]
 
     /// The sitelet that corresponds to the entire site.
@@ -254,13 +296,3 @@ module SampleSite =
             basic
         ]
         |> Sitelet.Sum
-
-///// Expose the main sitelet so that it can be served.
-///// This needs an IWebsite type and an assembly level annotation.
-//type SampleWebsite() =
-//    interface WebSharper.Sitelets.IWebsite<SampleSite.Action> with
-//        member this.Sitelet = SampleSite.EntireSite
-//        member this.Actions = []
-//
-//[<assembly: WebSharper.Sitelets.WebsiteAttribute(typeof<SampleWebsite>)>]
-//do ()

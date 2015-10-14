@@ -34,17 +34,6 @@ type IWebsite<'Action when 'Action : equality> =
 [<RequireQualifiedAccess>]
 type SinglePageAction = | Index
 
-/// Helper to create a Sitelets website consisting of a single page.
-type SinglePageWebsite(page: Page, ?url: string) =
-
-    let sitelet =
-        Sitelet.Content (defaultArg url "/") SinglePageAction.Index
-            (fun _ -> Content.Page page)
-
-    interface IWebsite<SinglePageAction> with
-        member this.Actions = [SinglePageAction.Index]
-        member this.Sitelet = sitelet
-
 type IHostedWebsite<'Action when 'Action : equality> =
     abstract Build : HttpApplication -> IWebsite<'Action>
 

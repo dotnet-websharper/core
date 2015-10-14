@@ -22,9 +22,6 @@ namespace WebSharper.Web
 
 open WebSharper
 
-module A = WebSharper.Html.Server.Attr
-module H = WebSharper.Html.Server.Html
-module T = WebSharper.Html.Server.Tags
 module M = WebSharper.Core.Metadata
 module R = WebSharper.Core.AST.Reflection
 //module P = WebSharper.Core.JavaScript.Packager
@@ -53,26 +50,30 @@ type Control() =
             ScriptManager.Find(base.Page).Register
                 (if isR then None else Some id) this
 
-    interface Html.Server.Html.INode with
-        member this.Node =
-            let el = T.Div [A.Id this.ID]
-            let el = el |> H.Annotate this
-            H.ContentNode el
+    interface INode with
+        member this.IsAttribute = false
+        member this.Write (meta, w) =
+            w.Write("""<div id="{0}"></div>""", this.ID)
 
     [<JavaScript>]
-    abstract member Body : Html.Client.IControlBody
+    abstract member Body : IControlBody
     [<JavaScript>]
     default this.Body = Unchecked.defaultof<_>
 
-    interface Html.Client.IControl with
+    interface IControl with
         [<JavaScript>]
         member this.Body = this.Body
         member this.Id = this.ID
-        member this.Requires meta =
+
+    interface IRequiresResources with
+        member this.Requires =
             let t = this.GetType()
             let t = if t.IsGenericType then t.GetGenericTypeDefinition() else t
+            [M.TypeNode (R.TypeDefinition.FromType t)] :> seq<_>
+        member this.Encode(meta, json) =
+            [this.ID, json.GetEncoder(this.GetType()).Encode this]
             let m = t.GetProperty("Body").GetGetMethod()
-            
+
             [M.MethodNode (R.getTypeDefinition t, WebSharper.Core.Utilities.Hashed (R.getMethod m))] :> seq<_>
 //            [M.TypeNode (R.getTypeDefinition t)] :> seq<_>
 
@@ -85,7 +86,7 @@ open Microsoft.FSharp.Quotations.Patterns
 
 /// Implements a web control based on a quotation-wrapped top-level body.
 /// Use the function ClientSide to create an InlineControl.
-type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
+type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
     inherit Control()
 
     [<System.NonSerialized>]
@@ -151,9 +152,13 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
         let f = Array.fold (?) JS.Window funcName
         As<Function>(f).ApplyUnsafe(null, args) :?> _
 
-    interface Html.Client.IControl with
-        member this.Requires meta =
-            let declType, meth, reqs = snd bodyAndReqs
+    interface INode with
+        member this.IsAttribute = false
+        member this.Write (meta, w) =
+            w.Write("""<div id="{0}"></div>""", this.ID)
+
+    interface IRequiresResources with
+        member this.Encode(meta, json) =
             if funcName.Length = 0 then
                 match meta.Classes.TryFind declType with
                 | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
@@ -161,7 +166,14 @@ type InlineControl<'T when 'T :> Html.Client.IControlBody>(elt: Expr<'T>) =
                     match cls.Methods.TryFind meth with
                     | Some (M.Static a, _) ->
                         funcName <- Array.ofList (List.rev a.Value)
-                    | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
+                | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
+                | Some a ->
+                    let rec mk acc (a: P.Address) =
+                        let acc = a.LocalName :: acc
+                        match a.Parent with
+                        | None -> Array.ofList acc
+                        | Some p -> mk acc p
+                    funcName <- mk [name] a
             reqs
 
 namespace WebSharper
@@ -170,7 +182,6 @@ namespace WebSharper
 module WebExtensions =
 
     open Microsoft.FSharp.Quotations
-    open WebSharper.Html.Client
 
     /// Embed the given client-side control body in a server-side control.
     /// The client-side control body must be either a module-bound or static value,

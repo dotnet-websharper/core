@@ -363,6 +363,10 @@ type Encoder<'T>(enc: 'T -> Encoded) =
 type FST = Reflection.FSharpType
 type FSV = Reflection.FSharpValue
 
+let flags =
+    System.Reflection.BindingFlags.Public
+    ||| System.Reflection.BindingFlags.NonPublic
+
 type FormatSettings =
     {
         /// Tag the given encoded value with its type.
@@ -427,7 +431,7 @@ and TAttrs =
                     t.Constructor.DeclaringType = typeof<A.OptionalFieldAttribute>)))
         let isNullableUnion =
             i.ConciseRepresentation &&
-            FST.IsUnion t &&
+            FST.IsUnion(t, flags) &&
             mcad |> Seq.exists (fun cad ->
                 cad.Constructor.DeclaringType = typeof<CompilationRepresentationAttribute> &&
                 let flags = cad.ConstructorArguments.[0].Value :?> CompilationRepresentationFlags
@@ -626,10 +630,6 @@ let arrayDecoder dD (i: FormatSettings) (ta: TAttrs) =
         | _ ->
             raise DecoderException
 
-let flags =
-    System.Reflection.BindingFlags.Public
-    ||| System.Reflection.BindingFlags.NonPublic
-
 let table ts =
     let d = Dictionary()
     for (k, v) in ts do
@@ -691,7 +691,7 @@ let isInlinableRecordCase (uci: Reflection.UnionCaseInfo) =
     let fields = uci.GetFields()
     fields.Length = 1 &&
     fields.[0].Name = "Item" &&
-    FST.IsRecord fields.[0].PropertyType
+    FST.IsRecord(fields.[0].PropertyType, flags)
 
 /// Some (Some x) if tagged [<NameUnionCases x>];
 /// Some None if tagged [<NamedUnionCases>];
@@ -712,7 +712,7 @@ let inferredCasesTable t =
             let fields = c.GetFields()
             let fields =
                 if isInlinableRecordCase c then
-                    FST.GetRecordFields fields.[0].PropertyType
+                    FST.GetRecordFields(fields.[0].PropertyType, flags)
                 else fields
             let fields =
                 fields
@@ -794,7 +794,7 @@ module Internal =
             | Some None -> NoField (inferredCasesTable t)
             | Some (Some n) -> NamedField n
         let cases =
-            FST.GetUnionCases t
+            FST.GetUnionCases(t, flags)
             |> Array.mapi (fun i uci ->
                 let name =
                     match discr with
@@ -841,6 +841,8 @@ let unionEncoder dE (i: FormatSettings) (ta: TAttrs) =
     then
         t.GetGenericArguments().[0]
         |> callGeneric <@ unmakeList @> dE ta
+    elif t = typeof<Encoded> then
+        unbox
     else
     let tR = FSV.PreComputeUnionTagReader(t, flags)
     let cs =
@@ -903,6 +905,8 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
     then
         t.GetGenericArguments().[0]
         |> callGeneric <@ makeList @> dD ta
+    elif t = typeof<Encoded> then
+        Encoded.Lift >> box
     else
     let cases = FST.GetUnionCases(t, flags)
     let cs =
@@ -960,7 +964,6 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
 
 let recordEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
-//    let mt = R.TypeDefinition.FromType t
     let fs =
         FST.GetRecordFields(t, flags)
         |> Array.map (fun f ->
@@ -983,7 +986,6 @@ let recordEncoder dE (i: FormatSettings) (ta: TAttrs) =
 
 let recordDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
-//    let mt = R.TypeDefinition.FromType t
     let mk = FSV.PreComputeRecordConstructor(t, flags)
     let fs =
         FST.GetRecordFields(t, flags)
@@ -1033,6 +1035,8 @@ let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
             match x with
             | :? System.DateTime as t -> i.EncodeDateTime ta t
             | _ -> raise EncoderException
+    elif t = typeof<unit> then
+        fun _ -> EncodedNull
     elif i.ConciseRepresentation &&
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> &&
@@ -1079,6 +1083,10 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
             match i.DecodeDateTime ta x with
             | Some d -> box d
             | None -> raise DecoderException
+    elif t = typeof<unit> then
+        function
+        | Null -> box ()
+        | _ -> raise DecoderException
     elif i.ConciseRepresentation &&
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> &&
@@ -1434,8 +1442,6 @@ module TypedProviderInternals =
             match x with
             | [x] -> Array (String x :: acc)
             | y :: x -> encA (String y :: acc) x
-//            | P.Global x -> Array (String x :: acc)
-//            | P.Local (x, y) -> encA (String y :: acc) x
         let types =
             Array (List.ofSeq (dict.Keys |> Seq.map (fun a -> a.Value |> encA [])))
         Object [
@@ -1467,10 +1473,40 @@ module TypedProviderInternals =
             Pack = pack
         }
 
-module PlainProviderInternals =
-
     let culture = System.Globalization.CultureInfo.InvariantCulture
     let dtstyle = System.Globalization.DateTimeStyles.None
+
+type FormatOptions =
+    {
+        EncodeDateTime : option<string> -> System.DateTime -> Encoded
+        DecodeDateTime : option<string> -> Value -> option<System.DateTime>
+    }
+
+let defaultFormatOptions =
+    {
+        EncodeDateTime = fun fmt ->
+            let fmt = defaultArg fmt "o"
+            fun d -> EncodedString (d.ToString(fmt, culture))
+        DecodeDateTime = fun fmt ->
+            let fmt =
+                match fmt with
+                | Some x -> [|x|]
+                // "o" only accepts 7 digits after the seconds,
+                // but JavaScript's Date.toISOString() only outputs 3.
+                // So we add a custom format to accept that too.
+                | None -> [|"o"; @"yyyy-MM-dd\THH:mm:ss.fff\Z"|]
+            function
+            | String s ->
+                match System.DateTime.TryParseExact(s, fmt, culture, dtstyle) with
+                | true, x -> Some x
+                | false, _ -> None
+            | _ -> None
+    }
+
+type FormatOptions with
+    static member Default = defaultFormatOptions
+
+module PlainProviderInternals =
 
     let rec flatten encoded =
         let rec pk = function
@@ -1492,7 +1528,7 @@ module PlainProviderInternals =
             GetEncodedFieldName = fun t ->
                 let d = Dictionary()
                 let fields =
-                    if FST.IsRecord t then
+                    if FST.IsRecord(t, flags) then
                         FST.GetRecordFields(t, flags)
                         |> Seq.cast<System.Reflection.MemberInfo>
                     else
@@ -1530,35 +1566,25 @@ module PlainProviderInternals =
                     fun tag -> Some (n, tags.[tag])
             GetEncodedUnionFieldName = fun p -> let n = TAttrs.GetName p in fun _ -> n
             EncodeDateTime = fun ta ->
-                let fmt = defaultArg ta.DateTimeFormat "o"
-                fun d -> EncodedString (d.ToString(fmt, culture))
+                defaultFormatOptions.EncodeDateTime ta.DateTimeFormat
             DecodeDateTime = fun ta ->
-                let fmt =
-                    match ta.DateTimeFormat with
-                    | Some x -> [|x|]
-                    // "o" only accepts 7 digits after the seconds,
-                    // but JavaScript's Date.toISOString() only outputs 3.
-                    // So we add a custom format to accept that too.
-                    | None -> [|"o"; @"yyyy-MM-dd\THH:mm:ss.fff\Z"|]
-                function
-                | String s ->
-                    match System.DateTime.TryParseExact(s, fmt, culture, dtstyle) with
-                    | true, x -> Some x
-                    | false, _ -> None
-                | _ -> None
+                defaultFormatOptions.DecodeDateTime ta.DateTimeFormat
             ConciseRepresentation = true
             Pack = flatten
         }
 
 [<Sealed>]
 type Provider(fo: FormatSettings) =
+    [<System.NonSerialized>]
     let decoders = Dictionary()
+    [<System.NonSerialized>]
     let encoders = Dictionary()
 
     let defaultof (t: System.Type) =
         if t = typeof<string> then box "" else
         genLetMethod(<@ Unchecked.defaultof<_> @>, [|t|]).Invoke0()
 
+    [<System.NonSerialized>]
     let getDefaultBuilder =
         getEncoding
             (fun _ -> Some defaultof)
@@ -1570,13 +1596,13 @@ type Provider(fo: FormatSettings) =
                 let x = FSV.MakeTuple(xs, ta.Type)
                 fun _ -> x)
             (fun dD i ta ->
-                let uci = FST.GetUnionCases(ta.Type).[0]
+                let uci = FST.GetUnionCases(ta.Type, flags).[0]
                 let xs = uci.GetFields() |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
-                let x = FSV.MakeUnion(uci, xs)
+                let x = FSV.MakeUnion(uci, xs, flags)
                 fun _ -> x)
             (fun dD i ta ->
-                let xs = FST.GetRecordFields ta.Type |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
-                let x = FSV.MakeRecord(ta.Type, xs)
+                let xs = FST.GetRecordFields(ta.Type, flags) |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
+                let x = FSV.MakeRecord(ta.Type, xs, flags)
                 fun _ -> x)
             (fun dD i ta ->
                 let x = defaultof ta.Type
@@ -1598,6 +1624,7 @@ type Provider(fo: FormatSettings) =
             | Choice1Of2 x -> x
             | Choice2Of2 x -> raise (NoDecoderException x)
 
+    [<System.NonSerialized>]
     let getDecoder =
         getEncoding (fun {Decode=x} -> x)
             arrayDecoder
@@ -1616,6 +1643,7 @@ type Provider(fo: FormatSettings) =
             | Choice1Of2 x -> Decoder x
             | Choice2Of2 x -> raise (NoDecoderException x)
 
+    [<System.NonSerialized>]
     let getEncoder =
         getEncoding (fun {Encode=x} -> x)
             arrayEncoder
@@ -1628,7 +1656,7 @@ type Provider(fo: FormatSettings) =
             nbleEncoder
             objectEncoder
             (fun dE ta ->
-                if ta.Type.IsSealed || FST.IsUnion ta.Type then dE ta else
+                if ta.Type.IsSealed || FST.IsUnion(ta.Type, flags) then dE ta else
                 fun x -> dE (if x = null then ta else { ta with Type = x.GetType() }) x)
             fo
             encoders
@@ -1638,6 +1666,13 @@ type Provider(fo: FormatSettings) =
 
     static member Create() =
         Provider PlainProviderInternals.format
+
+    static member Create (options: FormatOptions) =
+        Provider
+            { PlainProviderInternals.format with
+                EncodeDateTime = fun ta -> options.EncodeDateTime ta.DateTimeFormat
+                DecodeDateTime = fun ta -> options.DecodeDateTime ta.DateTimeFormat
+            }
 
     static member CreateTyped (info: M.Metadata) =
         Provider (TypedProviderInternals.format info)

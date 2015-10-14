@@ -75,8 +75,8 @@ type ScriptManager() =
         }
 
     /// Registers a pagelet with the manager.
-    member this.Register (id: option<string>) (c: WebSharper.Html.Client.IControl) =
-        Seq.iter nodes.Enqueue (c.Requires Shared.Metadata)
+    member this.Register (id: option<string>) (c: WebSharper.IRequiresResources) =
+        Seq.iter nodes.Enqueue c.Requires
         let t = c.GetType()
         let id  = getId id
         let enc = Shared.Json.GetEncoder t
@@ -103,7 +103,7 @@ type ScriptManager() =
             let ctx = this.ResourceContext
             writer.WriteLine()
             writer.WriteLine("<meta id='{0}' name='{0}' content='{1}' />",
-                WebSharper.Html.Client.Activator.META_ID, encode content)
+                WebSharper.Activator.META_ID, encode content)
             resources |> Seq.iter (fun r -> r.Render ctx (fun _ -> writer))
             writer.WriteLine()
             writer.WriteLine("<script type='{0}'>", CT.Text.JavaScript.Text)

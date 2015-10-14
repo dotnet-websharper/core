@@ -23,7 +23,7 @@ module Website.Client
 
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.Html.Client
+open WebSharper.Sitelets.Tests.Client
 
 [<JavaScript>]
 let EntryPoint () =
