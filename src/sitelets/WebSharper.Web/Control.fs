@@ -35,18 +35,14 @@ type Control() =
 
     static let gen = System.Random()
     [<System.NonSerialized>]
-    let mutable isR = true
-    [<System.NonSerialized>]
     let mutable id = System.String.Format("ws{0:x}", gen.Next().ToString())
 
     override this.ID
         with get () = id
-        and set x = id <- x; isR <- false
+        and set x = id <- x
 
     override this.OnLoad _ =
-        this.ID <-
-            ScriptManager.Find(base.Page).Register
-                (if isR then None else Some id) this
+        this.ID <- ScriptManager.Find(base.Page).Register (Some id) this
 
     interface INode with
         member this.IsAttribute = false
