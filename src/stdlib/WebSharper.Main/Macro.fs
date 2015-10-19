@@ -83,7 +83,7 @@ let divisionMacro tr q =
         | t :: _ -> if isIn smallIntegralTypes t
                     then (tr x / tr y) &>> cInt 0
                     elif isIn bigIntegralTypes t
-                    then cCallG ["Math"] "floor" [tr x / tr y]
+                    then cCallG ["Math"] "trunc" [tr x / tr y]
                     else tr x / tr y
         | _      -> tr x / tr y
     | _ ->

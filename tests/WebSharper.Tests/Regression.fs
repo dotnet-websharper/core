@@ -333,4 +333,8 @@ let Tests =
         Test "Bug #446" {
             equal ((Bug446.B() :> Bug446.A).Foo()) 2
         }
+
+        Test "Bug #480" {
+            equal (1445122700705L / 32L) 45160084397L
+        }
     }
