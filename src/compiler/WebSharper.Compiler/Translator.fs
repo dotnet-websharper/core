@@ -124,6 +124,105 @@ let (|ListLiteral|_|) q =
 
 #nowarn "25"
 
+type Var =
+    {
+        Id: C.Id
+        IsRef: bool
+    }
+
+    member this.Init(x) =
+        if this.IsRef then C.NewArray [x] else x
+
+    member this.Get =
+        if this.IsRef then
+            C.FieldGet(C.Var this.Id, !~(C.Integer 0L))
+        else
+            C.Var this.Id
+
+    member this.Set(x) =
+        if this.IsRef then
+            C.FieldSet(C.Var this.Id, !~(C.Integer 0L), x)
+        else
+            C.VarSet(this.Id, x)
+
+    static member SimpleVar v =
+        {
+            Id = v
+            IsRef = false
+        }
+
+    static member Ref (v: C.Id) =
+        assert v.IsMutable
+        {
+            Id = v
+            IsRef = true
+        }
+
+let rec containsInClosure (<?) (<!) checkVar (v: Q.Id) (q: Q.Expression) =
+    let (!?) e = v <? e
+    let (!??) = List.exists (!?)
+    let (!!) e = v <! e
+    let isNotV (v': Q.Id) = v.Name <> v'.Name
+    match q with
+    | Q.DefaultValue _
+    | Q.FieldGetStatic _
+    | Q.Hole _
+    | Q.Value _ ->
+        false
+    | Q.AddressOf x
+    | Q.Coerce (_, x)
+    | Q.FieldGetInstance (x, _)
+    | Q.FieldGetRecord (x, _)
+    | Q.FieldGetUnion (x, _, _)
+    | Q.FieldSetStatic (_, x)
+    | Q.NewDelegate (_, x)
+    | Q.Quote x
+    | Q.TupleGet (_, x)
+    | Q.TypeTest (_, x)
+    | Q.UnionCaseTest (_, x) ->
+        !?x
+    | Q.AddressSet (x, y)
+    | Q.Application (x, y)
+    | Q.FieldSetInstance (x, _, y)
+    | Q.FieldSetRecord (x, _, y)
+    | Q.Sequential (x, y)
+    | Q.TryFinally (x, y)
+    | Q.WhileLoop (x, y) ->
+        !?x || !?y
+    | Q.IfThenElse (x, y, z) ->
+        !?x || !?y || !?z
+    | Q.Call (_, xs)
+    | Q.CallModule (_, xs)
+    | Q.NewArray (_, xs)
+    | Q.NewObject (_, xs)
+    | Q.NewRecord (_, xs)
+    | Q.NewTuple xs
+    | Q.NewUnionCase (_, xs)
+    | Q.PropertyGet (_, xs)
+    | Q.PropertySet (_, xs) ->
+        !??xs
+    | Q.ForIntegerRangeLoop (v', x, y, z) ->
+        !?x || !?y || (isNotV v' && !?z)
+    | Q.Lambda (v', x) ->
+        isNotV v' && !!x
+    | Q.Let (v', x, y) ->
+        !?x || (isNotV v' && !?y)
+    | Q.LetRecursive (vs, x) ->
+        (
+            (vs |> List.forall (fun (v', _) -> isNotV v')) &&
+            (vs |> List.exists (fun (_, y) -> !?y))
+        ) || !?x
+    | Q.TryWith (x, vy, y, vz, z) ->
+        !?x || (isNotV vy && !?y) || (isNotV vz && !?z)
+    | Q.Var v' -> checkVar v'
+    | Q.VarSet (v', x) -> checkVar v' || !?x
+    | Q.SourcePos (q, _) -> !?q
+    | q -> failwithf "Unknown quotation: %A" q
+/// True if q contains a closed-over reference to v.
+and (<?) v q = containsInClosure (<?) (<!) (fun _ -> false) v q
+/// True if q contains any kind of reference to v.
+and (<!) v q = containsInClosure (<!) (<!) ((=) v) v q
+
 let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remotingProvider
     (meta: Metadata.T) (here: Location) (expr: Q.Expression) =
 
@@ -138,15 +237,35 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
     let error msg = log Error msg; undef
     let err msg x = error (System.String.Format("{0}: {1}.", msg, x))
 
-    let (!^) =
-        let d = Dictionary()
-        fun (x: Q.Id) ->
-            match d.TryGetValue x with
-            | true, y -> y
-            | _ ->
-                let y = C.Id (x.Name, x.Mutable)
-                d.[x] <- y
-                y
+    let d = Dictionary()
+    /// let-bound var, potentially mutable, transform to a ref if necessary
+    let mkVar (x: Q.Id) (e: Q.Expression) =
+        let isMutableToRef = x.Mutable && x <? e
+        let y =
+            C.Id(x.Name, x.Mutable)
+            |> if isMutableToRef then Var.Ref else Var.SimpleVar
+        d.Add(x, y)
+        y.Id, y.Init
+    /// other types of variable binding, can't be mutable
+    let simpleVar (x: Q.Id) =
+        match d.TryGetValue(x) with
+        | true, v -> v.Id
+        | false, _ ->
+            let v = C.Id(x.Name, x.Mutable)
+            d.Add(x, Var.SimpleVar v)
+            v
+    let varGet x =
+        match d.TryGetValue(x) with
+        | true, v -> v.Get
+        | false, _ ->
+            // should only happen when x is the "this" of a method being defined
+            let v = C.Id(x.Name, x.Mutable)
+            d.[x] <- Var.SimpleVar v
+            C.Var v
+    let varSet x =
+        match d.TryGetValue(x) with
+        | true, v -> v.Set
+        | false, _ -> fun _ -> err "Unknown id" x
 
     let rec tCall exn q methodKind args =
         let inline (!) q = tExpr exn true q
@@ -265,17 +384,18 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             let fn, opt = fieldNameOpt meta f.Entity.Name f.Entity.DeclaringType
             if opt then call C.Runtime "SetOptional" [!t; fn; !v] else C.FieldSet (!t, fn, !v)
         | Q.ForIntegerRangeLoop (v, min, max, body) ->
-            C.ForIntegerRangeLoop (!^v, !min, !max, !body)
+            C.ForIntegerRangeLoop (simpleVar v, !min, !max, !body)
         | Q.Hole _ ->
             error "Quotations holes are not supported."
         | Q.IfThenElse (c, t, e) ->
             C.IfThenElse (!c, !t, !e)
         | Q.Lambda (v, b) ->
-            C.Lambda (None, [!^v], !b)
+            C.Lambda (None, [simpleVar v], !b)
         | Q.Let (var, value, body) ->
-            C.Let (!^var, !value, !body)
+            let var, v = mkVar var body
+            C.Let (var, v !value, !body)
         | Q.LetRecursive (vs, b) ->
-            let f (var: Q.Id, value) = !^var, !value
+            let f (var: Q.Id, value) = simpleVar var, !value
             C.LetRecursive (List.map f vs, !b)
         | Q.NewArray (_, x) ->
             C.NewArray (List.map (!) x)
@@ -285,7 +405,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
                 | body -> (List.rev acc, body)
             match loop [] x with
             | (this :: vars, body) ->
-                C.Lambda (Some !^this, List.map (!^) vars, !body)
+                C.Lambda (Some (simpleVar this), List.map simpleVar vars, !body)
             | ([], Q.Application (f, Q.Value Q.Unit)) -> !f
             | _ -> err "Failed to translate delegate creation" t.FullName 
         | Q.NewObject (c, args) as q ->
@@ -427,7 +547,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
         | Q.TryFinally (x, y) ->
             C.TryFinally (!x, !y)
         | Q.TryWith (x, _, _, v, y) ->
-            let v = !^v
+            let v = simpleVar v
             C.TryWith (!x, v, tExpr (Some v) true y)
         | Q.TupleGet (i, e) ->
             (!e).[!~ (C.Integer (int64 i))]
@@ -508,8 +628,8 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             | Q.UInt32 x -> i (int64 x)
             | Q.Int64 x -> i (int64 x)
             | Q.UInt64 x -> i (int64 x)
-        | Q.Var x -> C.Var !^x
-        | Q.VarSet (x, y) -> C.VarSet (!^x, !y)
+        | Q.Var x -> varGet x
+        | Q.VarSet (x, y) -> varSet x !y
         | Q.WhileLoop (x, y) ->
             C.WhileLoop (!x, !y)
 

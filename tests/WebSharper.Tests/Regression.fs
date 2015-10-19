@@ -337,4 +337,13 @@ let Tests =
         Test "Bug #480" {
             equal (1445122700705L / 32L) 45160084397L
         }
+
+        Test "Bug #477 (mutable in closure)" {
+            let f, g =
+                let mutable x = 0
+                (fun () -> x <- 1), (fun () -> x)
+            equalMsg (g()) 0 "Before modifying (sanity check)"
+            do f()
+            equalMsg (g()) 1 "After modifying"
+        }
     }
