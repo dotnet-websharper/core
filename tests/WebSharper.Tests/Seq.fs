@@ -21,6 +21,7 @@
 module WebSharper.Tests.Seq
 
 open WebSharper
+open WebSharper.JavaScript
 open WebSharper.Testing
 module R = WebSharper.Testing.Random
       
@@ -34,6 +35,15 @@ type CustomHash(a: int, b: int) =
         | :? CustomHash as o ->
             this.A = o.A && this.B = o.B
         | _ -> false
+
+[<JavaScript>]
+let private isPermutation (xs: seq<'T>) (ys: seq<'T>) =
+    let xs = Array.ofSeq xs
+    ys |> Seq.forall (fun y ->
+        match xs |> Array.tryFindIndex (fun x -> x = y) with
+        | None -> false
+        | Some i -> xs.JS.Splice(i, 1) |> ignore; true
+    ) && Array.isEmpty xs
 
 [<JavaScript>]
 let Tests =
@@ -392,11 +402,22 @@ let Tests =
         Test "Seq.sort" {
             equal (Seq.sort [| 1; 8; -5; 2 |] |> Seq.toArray)
                 [| -5; 1; 2; 8 |]
+            property (fun x -> Do {
+                let s = Seq.sort x
+                isTrueMsg (isPermutation s x) "Result is a permutation of original"
+                isTrueMsg (s |> Seq.pairwise |> Seq.forall (fun (x, y) -> x <= y)) "Result is sorted"
+            })
         }
 
         Test "Seq.sortBy" {
-            let s = Seq.sortBy (fun x -> 10 - x) [6;7;8;9;10]
+            let f = fun x -> 10 - x
+            let s = Seq.sortBy f [6;7;8;9;10]
             equal (Seq.toArray s) [|10;9;8;7;6|]
+            property (fun x -> Do {
+                let s = Seq.sortBy f x
+                isTrueMsg (isPermutation s x) "Result is a permutation of original"
+                isTrueMsg (s |> Seq.pairwise |> Seq.forall (fun (x, y) -> f x <= f y)) "Result is sorted"
+            })
         }
 
         Test "Seq.sum" {
@@ -704,8 +725,13 @@ let Tests =
             equal (Seq.scanBack (+) { 1 .. 10 } 9 |> Array.ofSeq) [| 64; 63; 61; 58; 54; 49; 43; 36; 28; 19; 9 |]
         }
 
-        Test "Seq.sortWith" {                                                                   
-            equal (Seq.sortWith (fun a b -> compare (a % 3) (b % 3)) { 0 .. 10 } |> Array.ofSeq) [| 0; 3; 6; 9; 1; 4; 7; 10; 2; 5; 8 |]
+        Test "Seq.sortWith" {
+            let cmp a b = compare (a % 3) (b % 3)
+            property (fun x -> Do {
+                let s = Seq.sortWith cmp x
+                isTrueMsg (isPermutation s x) "Result is a permutation of original"
+                isTrueMsg (s |> Seq.pairwise |> Seq.forall (fun (x, y) -> cmp x y <= 0)) "Result is sorted"
+            })
         }
 
         #endif
