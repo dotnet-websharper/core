@@ -1474,7 +1474,7 @@ module TypedProviderInternals =
         }
 
 let culture = System.Globalization.CultureInfo.InvariantCulture
-let dtstyle = System.Globalization.DateTimeStyles.None
+let dtstyle = System.Globalization.DateTimeStyles.AdjustToUniversal ||| System.Globalization.DateTimeStyles.AssumeUniversal
 
 type FormatOptions =
     {
