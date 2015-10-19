@@ -338,6 +338,7 @@ let Tests =
             equal (1445122700705L / 32L) 45160084397L
         }
 
+#if FSHARP40
         Test "Bug #477 (mutable in closure)" {
             let f, g =
                 let mutable x = 0
@@ -346,4 +347,6 @@ let Tests =
             do f()
             equalMsg (g()) 1 "After modifying"
         }
+#endif
+
     }
