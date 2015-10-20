@@ -869,13 +869,14 @@ let Uncurry expression =
         | _ -> None
     let arities = Dictionary()
     let rec analyze = function
-        | CurriedApplication (k, Var f, _) ->
+        | CurriedApplication (k, Var f, xs) ->
             match arities.TryGetValue f with
             | true, n ->
                 if n <> k then
                     arities.[f] <- 0
             | false, _ ->
                 arities.[f] <- k
+            List.iter analyze xs
         | Var x ->
             arities.[x] <- 0
         | expr ->
