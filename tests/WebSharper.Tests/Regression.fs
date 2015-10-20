@@ -349,4 +349,19 @@ let Tests =
         }
 #endif
 
+        Test "Bug #479" {
+            let test () =
+                try
+                    let add (v:int) m = v + m
+                    let run func (c:int) (p:int) : int =
+                        func p c
+                    let x = add 2 3
+                    let y = run add 2 3
+                    x, y
+                with e ->
+                    Console.Log("#479", e)
+                    0, 0
+            equal (test()) (5, 5)
+        }
+
     }
