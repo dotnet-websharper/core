@@ -58,7 +58,9 @@ module RouterUtil =
             if uri.IsAbsoluteUri
             then uri.AbsolutePath
             else Uri.UnescapeDataString(uri.OriginalString) |> joinWithSlash "/"
-        p.TrimEnd('/')
+        match p.TrimEnd('/') with
+        | "" -> "/"
+        | p -> p
 
 type Router<'Action when 'Action : equality> =
     {
