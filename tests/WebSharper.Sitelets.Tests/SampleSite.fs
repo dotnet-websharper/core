@@ -79,6 +79,8 @@ module Server =
                     children |> Array.iter (fun n -> n.Write(meta, w))
                     w.WriteEndTag(name)
             member this.IsAttribute = false
+            member this.AttributeValue = None
+            member this.Name = Some name
 
     type Attr(name, value) =
         inherit RequiresNoResources()
@@ -86,6 +88,8 @@ module Server =
             member this.Write(meta, w) =
                 w.WriteAttribute(name, value)
             member this.IsAttribute = true
+            member this.AttributeValue = Some value
+            member this.Name = Some name
 
     type Text(txt) =
         inherit RequiresNoResources()
@@ -93,6 +97,8 @@ module Server =
             member this.Write(meta, w) =
                 w.WriteEncodedText(txt)
             member this.IsAttribute = false
+            member this.AttributeValue = None
+            member this.Name = None
 
 /// The website definition.
 module SampleSite =

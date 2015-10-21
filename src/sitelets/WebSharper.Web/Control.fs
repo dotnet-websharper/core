@@ -48,6 +48,8 @@ type Control() =
         member this.IsAttribute = false
         member this.Write (meta, w) =
             w.Write("""<div id="{0}"></div>""", this.ID)
+        member this.AttributeValue = None
+        member this.Name = None
 
     abstract member Body : IControlBody
     default this.Body = Unchecked.defaultof<_>
@@ -131,11 +133,6 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
     override this.Body =
         let f = Array.fold (?) JS.Window funcName
         As<Function>(f).ApplyUnsafe(null, args) :?> _
-
-    interface INode with
-        member this.IsAttribute = false
-        member this.Write (meta, w) =
-            w.Write("""<div id="{0}"></div>""", this.ID)
 
     interface IRequiresResources with
         member this.Encode(meta, json) =
