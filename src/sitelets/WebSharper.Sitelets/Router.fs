@@ -53,14 +53,16 @@ module RouterUtil =
     let isAbsoluteUri uri =
         (makeUri uri).IsAbsoluteUri
 
-    let path (uri: Uri) =
-        let p =
-            if uri.IsAbsoluteUri
-            then uri.AbsolutePath
-            else Uri.UnescapeDataString(uri.OriginalString) |> joinWithSlash "/"
-        match p.TrimEnd('/') with
+    let trimFinalSlash (s: string) =
+        match s.TrimEnd('/') with
         | "" -> "/"
-        | p -> p
+        | s -> s
+
+    let path (uri: Uri) =
+        if uri.IsAbsoluteUri
+        then uri.AbsolutePath
+        else Uri.UnescapeDataString(uri.OriginalString) |> joinWithSlash "/"
+        |> trimFinalSlash
 
 type Router<'Action when 'Action : equality> =
     {
@@ -104,7 +106,7 @@ module Router =
             mapping
             |> Seq.map (fun (k, v) ->
                 let v = if isAbsoluteUri v then v else joinWithSlash "/" v
-                (k, v.TrimEnd('/')))
+                (k, trimFinalSlash v))
         let sr = Dictionary()
         let sl = Dictionary()
         for (a, l) in mapping do
