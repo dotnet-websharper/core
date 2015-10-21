@@ -29,7 +29,7 @@ type INode =
 
     abstract member Write : M.Info * HtmlTextWriter -> unit
 
-    abstract member Name : string
+    abstract member Name : string option
 
     abstract member IsAttribute : bool
 
