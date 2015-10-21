@@ -215,7 +215,6 @@ module internal TypeScriptExporter =
 
     let convMethod ctx isInterfaceMethod staticGenerics (m: V.Method) =
         let isExported =
-            //m.Definition.IsPublic && 
             (
                 isInterfaceMethod ||
                 match m.Kind with
@@ -292,7 +291,6 @@ module internal TypeScriptExporter =
         seq {
             for c in ck.Constructors do
                 let isExported =
-                    //c.Definition.IsPublic && 
                     (
                         match c.Kind with
                         | V.JavaScriptConstructor _
@@ -379,27 +377,26 @@ module internal TypeScriptExporter =
                 for t in nT do
                     yield! exportType ctx t
             | _ -> ()
-            if t.ReflectorType.Definition.IsPublic || t.Proxy.IsSome then
-                let tgen = makeGenerics "T" t.ReflectorType.Definition.GenericArity
-                yield! exportStaticMethods ctx tgen t
-                yield! exportStaticProperties ctx tgen t
-                match t.Kind with
-                | V.TypeKind.Class c ->
-                    yield! exportConstructors ctx tgen t c
-                    yield exportNamedContract ctx tgen t false
-                        (Seq.append (Option.toList t.ReflectorType.Definition.BaseType) t.ReflectorType.Definition.Interfaces)
-                | V.TypeKind.Exception ->
-                    yield exportNamedContract ctx tgen t false []
-                | V.TypeKind.Interface ->
-                    yield exportNamedContract ctx tgen t true t.ReflectorType.Definition.Interfaces
-                | V.TypeKind.Module _ -> ()
-                | V.TypeKind.Record props ->
-                    yield exportNamedContract ctx tgen t false t.ReflectorType.Definition.Interfaces
-                | V.TypeKind.Resource _ -> ()
-                | V.TypeKind.Union ucs ->
-                    yield exportNamedContract ctx tgen t false t.ReflectorType.Definition.Interfaces
-                    yield exportUnionTags ctx t ucs
-                    yield! ucs |> List.mapi (exportUnionCase ctx tgen t) |> List.choose id  
+            let tgen = makeGenerics "T" t.ReflectorType.Definition.GenericArity
+            yield! exportStaticMethods ctx tgen t
+            yield! exportStaticProperties ctx tgen t
+            match t.Kind with
+            | V.TypeKind.Class c ->
+                yield! exportConstructors ctx tgen t c
+                yield exportNamedContract ctx tgen t false
+                    (Seq.append (Option.toList t.ReflectorType.Definition.BaseType) t.ReflectorType.Definition.Interfaces)
+            | V.TypeKind.Exception ->
+                yield exportNamedContract ctx tgen t false []
+            | V.TypeKind.Interface ->
+                yield exportNamedContract ctx tgen t true t.ReflectorType.Definition.Interfaces
+            | V.TypeKind.Module _ -> ()
+            | V.TypeKind.Record props ->
+                yield exportNamedContract ctx tgen t false t.ReflectorType.Definition.Interfaces
+            | V.TypeKind.Resource _ -> ()
+            | V.TypeKind.Union ucs ->
+                yield exportNamedContract ctx tgen t false t.ReflectorType.Definition.Interfaces
+                yield exportUnionTags ctx t ucs
+                yield! ucs |> List.mapi (exportUnionCase ctx tgen t) |> List.choose id  
         }
 
     let ExportDeclarations (cm: CM.T) (v: V.Assembly) =
