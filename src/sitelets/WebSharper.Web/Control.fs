@@ -118,7 +118,9 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
         let args, argReqs =
             args
             |> List.mapi (fun i -> function
-                | Value (v, t) -> v, M.TypeNode (R.TypeDefinition.FromType t)
+                | Value (v, t) ->
+                    let v = match v with null -> WebSharper.Core.Json.Internal.MakeTypedNull t | _ -> v
+                    v, M.TypeNode (R.TypeDefinition.FromType t)
                 | _ -> failwithf "Wrong format for InlineControl at %s: argument #%i is not a literal or a local variable" (getLocation()) (i+1)
             )
             |> List.unzip

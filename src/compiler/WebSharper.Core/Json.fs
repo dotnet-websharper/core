@@ -748,6 +748,12 @@ let inferredCasesTable t =
 
 module Internal =
 
+    type TypedNull<'T> = | TypedNull
+
+    let MakeTypedNull (t: System.Type) =
+        let t = typedefof<TypedNull<_>>.MakeGenericType(t)
+        FSV.MakeUnion(FST.GetUnionCases(t).[0], [||])
+
     let inline GetName x = TAttrs.GetName x
 
     type UnionDiscriminator =
@@ -835,6 +841,10 @@ let unmakeList<'T> (dV: obj -> Encoded) (x: obj) =
 
 let unionEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
+    let t, isTypedNull =
+        if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<TypedNull<_>> then
+            t.GetGenericArguments().[0], true
+        else t, false
     if i.ConciseRepresentation &&
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<list<_>>
@@ -869,11 +879,11 @@ let unionEncoder dE (i: FormatSettings) (ta: TAttrs) =
                 Choice2Of2 (r, fs))
     let encodeTag = i.EncodeUnionTag t
     let addTag = i.AddTag t
+    let nullValue = EncodedObject (Option.toList (encodeTag 0)) |> addTag
+    if isTypedNull then fun _ -> nullValue else
     fun (x: obj) ->
         match x with
-        | null ->
-            EncodedObject (Option.toList (encodeTag 0))
-            |> addTag
+        | null -> nullValue
         | o when t.IsAssignableFrom(o.GetType()) ->
             let tag = tR o
             match cs.[tag] with
