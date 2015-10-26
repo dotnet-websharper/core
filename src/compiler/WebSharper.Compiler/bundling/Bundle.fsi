@@ -29,6 +29,7 @@ type Bundle =
     member JavaScriptHeaders : Content
     member MinifiedJavaScript : Content
     member TypeScript : Content
+    member ContentFiles : seq<EmbeddedFile>
     member WithAssembly : assemblyFile: string -> Bundle
     member WithAssembly : assembly: Assembly -> Bundle
     member WithDefaultReferences : unit -> Bundle

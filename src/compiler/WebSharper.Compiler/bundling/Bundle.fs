@@ -158,6 +158,9 @@ type Bundle(set: list<Assembly>) =
     member b.MinifiedJavaScript = minifedJavaScript
     member b.TypeScript = typeScript
 
+    member b.ContentFiles =
+        set |> Seq.collect (fun a -> a.GetContents())
+
     member b.WithAssembly(assemblyFile) =
         let assem = loader.LoadFile(assemblyFile)
         b.WithAssembly(assem)

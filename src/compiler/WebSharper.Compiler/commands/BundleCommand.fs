@@ -21,6 +21,7 @@
 namespace WebSharper.Compiler
 
 module C = Commands
+type Binary = IntelliFactory.Core.FileSystem.Binary
 
 module BundleCommand =
 
@@ -84,6 +85,12 @@ module BundleCommand =
         write bundle.MinifiedJavaScript ".min.js"
         //write bundle.TypeScript ".d.ts"
         // TODO : correct .d.ts output for bundles (WIG types currenty not included)
+
+        let writeBinaryFile (output, bytes) =
+            Binary.FromBytes(bytes).WriteFile(output)
+        for r in bundle.ContentFiles do
+            writeBinaryFile (System.IO.Path.Combine(config.OutputDirectory, r.FileName), r.GetContentData())
+
         C.Ok
 
     let Description =
