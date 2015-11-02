@@ -41,11 +41,24 @@ type CT =
 let private push arr item = X<int>
 
 [<JavaScript>]
+let internal noneCT =           
+    { 
+        IsCancellationRequested = false
+        Registrations = [||]
+    }
+
+[<JavaScript>]
 let internal Register (ct: CT) (callback: unit -> unit) =
-    let i = push ct.Registrations callback - 1
-    New [
-        "System-IDisposable-Dispose" => fun () -> ct.Registrations.[i] <- ignore
-    ] : System.IDisposable
+    // TODO: rewrite with object ecpression
+    if ct ===. noneCT then
+        New [
+            "System_IDisposable$Dispose" => ignore
+        ] : System.IDisposable
+    else
+        let i = push ct.Registrations callback - 1
+        New [
+            "System_IDisposable$Dispose" => fun () -> ct.Registrations.[i] <- ignore
+        ] : System.IDisposable
 
 type AsyncBody<'T> =
     {
@@ -93,7 +106,7 @@ let internal defCTS = ref(new System.Threading.CancellationTokenSource())
 
 [<JavaScript>]
 [<Inline>]
-let private fork action = scheduler.Fork action
+let fork action = scheduler.Fork action
 
 [<JavaScript>]
 [<Inline>]
@@ -205,7 +218,7 @@ let Start (c: C<unit>, ctOpt) =
 #nowarn "40"
 
 [<JavaScript>]
-let AwaitEvent (e: IEvent<'T>) : C<'T> =
+let AwaitEvent (e: IEvent<'T>) (ca: option<unit -> unit>) : C<'T> =
     checkCancel <| fun c ->
         let rec sub : System.IDisposable =
             e.Subscribe (fun x -> 
@@ -215,10 +228,50 @@ let AwaitEvent (e: IEvent<'T>) : C<'T> =
             )
         and creg : System.IDisposable = 
             Register c.ct (fun () -> 
-                sub.Dispose()
-                fork (fun () -> cancel c)    
+                match ca with
+                | Some ca ->
+                    ca()
+                | _ ->
+                    sub.Dispose()
+                    fork (fun () -> cancel c)    
             ) 
         ()
+
+[<JavaScript>]
+let AwaitTask (t: System.Threading.Tasks.Task) : C<unit> =
+    FromContinuations (fun (ok, err, cc) ->
+        if t.Status = System.Threading.Tasks.TaskStatus.Created then
+            t.Start()
+        t.ContinueWith((fun t ->
+            if t.IsCanceled then
+                cc (OCE())
+            elif t.IsFaulted then
+                err t.Exception
+            else
+                ok()   
+        )) |> ignore
+    )
+
+[<JavaScript>]
+let AwaitTask1 (t: System.Threading.Tasks.Task<'T>) : C<'T> =
+    FromContinuations (fun (ok, err, cc) ->
+        if t.Status = System.Threading.Tasks.TaskStatus.Created then
+            t.Start()
+        t.ContinueWith((fun (t: System.Threading.Tasks.Task<'T>) ->
+            if t.IsCanceled then
+                cc (OCE())
+            elif t.IsFaulted then
+                err t.Exception
+            else
+                ok t.Result  
+        )) |> ignore
+    )
+
+[<JavaScript>]
+let StartAsTask (c: C<'T>, ctOpt) =
+    let tcs = System.Threading.Tasks.TaskCompletionSource<'T>()
+    StartWithContinuations (c, tcs.SetResult, tcs.SetException, (fun _ -> tcs.SetCanceled()), ctOpt)
+    tcs.Task
 
 [<JavaScript>]
 let Sleep (ms: Milliseconds) : C<unit> =
@@ -253,25 +306,63 @@ let Parallel (cs: seq<C<'T>>) : C<'T[]> =
             fork (fun () -> run { k = accept i; ct = c.ct }))
             cs
 
+//[<JavaScript>]
+//let StartChild (r : C<'T>) : C<C<'T>> =
+//    checkCancel <| fun c ->
+//        let cached = ref None
+//        let queue  = Queue()
+//        fork (fun _ ->
+//            r {
+//                k = fun res ->
+//                    cached := Some res
+//                    while queue.Count > 0 do
+//                        queue.Dequeue() res
+//                ct = c.ct
+//            }
+//        )
+//        let r2 =            
+//            checkCancel <| fun c2 ->
+//                match cached.Value with
+//                | Some x    -> c2.k x
+//                | None      -> queue.Enqueue c2.k
+//        c.k (Ok r2)
+
 [<JavaScript>]
-let StartChild (r : C<'T>) : C<C<'T>> =
+let StartChild (r : C<'T>, t: Milliseconds option) : C<C<'T>> =
     checkCancel <| fun c ->
+        let inTime = ref true
         let cached = ref None
         let queue  = Queue()
+        let tReg =
+            match t with
+            | Some timeout ->
+                JS.SetTimeout (fun () ->
+                    inTime := false
+                    let err = No (System.TimeoutException())
+                    while queue.Count > 0 do
+                        queue.Dequeue() err
+                ) timeout |> Some     
+            | _ -> None
         fork (fun _ ->
             r {
                 k = fun res ->
-                    cached := Some res
-                    while queue.Count > 0 do
-                        queue.Dequeue() res
+                    if !inTime then
+                        cached := Some res
+                        match tReg with
+                        | Some r -> JS.ClearTimeout r
+                        | _ -> ()
+                        while queue.Count > 0 do
+                            queue.Dequeue() res
                 ct = c.ct
             }
         )
         let r2 =            
             checkCancel <| fun c2 ->
-                match cached.Value with
-                | Some x    -> c2.k x
-                | None      -> queue.Enqueue c2.k
+                if !inTime then
+                    match cached.Value with
+                    | Some x    -> c2.k x
+                    | None      -> queue.Enqueue c2.k
+                else c2.k (No (System.TimeoutException()))
         c.k (Ok r2)
 
 [<JavaScript>]

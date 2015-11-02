@@ -28,3 +28,14 @@ type private Int32Proxy =
     [<Inline "parseInt($s)">]
     static member Parse(s: string) = X<int>
 
+    [<Inline "$a + $b">]
+    static member (+) (a: int, b: int) = X<int>
+
+    [<Inline "$a - $b">]
+    static member (-) (a: int, b: int) = X<int>
+
+    [<Inline "$a * $b">]
+    static member (*) (a: int, b: int) = X<int>
+
+    [<Inline "$a == $b">]
+    static member op_Equality (a: int, b: int) = X<bool>

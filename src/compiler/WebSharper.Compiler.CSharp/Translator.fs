@@ -145,6 +145,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                     match mdef.Value.ReturnType with
                     | VoidType -> RemoteSend
                     | ConcreteType { Entity = e } when e.Value.FullName = "Microsoft.FSharp.Control.FSharpAsync`1" -> RemoteAsync
+                    | ConcreteType { Entity = e } when e.Value.FullName.StartsWith "System.Threading.Tasks.Task" -> RemoteTask
                     | _ -> RemoteSync // TODO: warning
                 incr remotingCode
                 let methodHandle =
@@ -162,6 +163,23 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                     try
                         let syntax = meth.DeclaringSyntaxReferences.[0].GetSyntax()
                         let model = rcomp.GetSemanticModel(syntax.SyntaxTree, true)
+                        let fixMethod (m: ToCSharpAST.CSharpMethod) =
+                            if m.ReturnType.AssemblyQualifiedName.StartsWith "System.Collections.Generic.IEnumerable" then
+                                // check if has return or yield
+                                let b = m.Body |> Continuation.FreeNestedGotos().TransformStatement
+                                let labels = Continuation.CollectLabels.Collect b
+                                let b = Continuation.GeneratorTransformer(labels).TransformMethodBody(b)
+                                { m with Body = b }
+                            elif m.IsAsync then
+                                let b = 
+                                    m.Body 
+                                    |> Continuation.AwaitTransformer().TransformStatement 
+                                    |> breakStatement
+                                    |> Continuation.FreeNestedGotos().TransformStatement
+                                let labels = Continuation.CollectLabels.Collect b
+                                let b = Continuation.AsyncTransformer(labels).TransformMethodBody(b)
+                                { m with Body = b }
+                            else m
                         match syntax with
                         | :? MethodDeclarationSyntax as syntax ->
                             syntax
@@ -183,6 +201,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                                 IsAsync = false
                                 ReturnType = Unchecked.defaultof<Type>
                             } : ToCSharpAST.CSharpMethod
+                        |> fixMethod
                     with e ->
                         comp.AddError(None, SourceError(sprintf "Error reading member '%s': %s" meth.Name e.Message))
                         {

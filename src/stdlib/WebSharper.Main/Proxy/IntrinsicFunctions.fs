@@ -141,3 +141,9 @@ let GetLength<'T> (arr: System.Array) =
     match arr?dims with
     | 2 -> GetArray2DLength1 (As arr) * GetArray2DLength1 (As arr)
     | _ -> Array.length (As arr)
+
+[<JavaScript>]
+let CheckThis (this: 'T) =
+    if this = null then
+        invalidOp "The initialization of an object or value resulted in an object or value being accessed recursively before it was fully initialized."
+    else this

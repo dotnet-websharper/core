@@ -51,16 +51,22 @@ let setNext (node: LLN<'T>) (n: LLN<'T>) = ()
 type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
     let mutable c = l
 
-    [<JavaScript>]
-    member this.Current = c.Value
+    interface IEnumerator<'T> with
+        [<JavaScript>]
+        member this.Current = c.Value
+        
+        [<JavaScript>]
+        member this.Current = c.Value |> box
 
-    [<JavaScript>]
-    member this.MoveNext() =
-        c <- c.Next
-        c <> null
+        [<JavaScript>]
+        member this.MoveNext() =
+            c <- c.Next
+            c <> null
 
-    [<JavaScript>]
-    member this.Dispose() = ()
+        [<JavaScript>]
+        member this.Dispose() = ()
+
+        member this.Reset() = ()
 
 [<Proxy(typeof<LL<_>>)>]
 [<Name "T">]

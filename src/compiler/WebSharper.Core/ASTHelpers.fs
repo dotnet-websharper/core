@@ -64,6 +64,8 @@ type IdReplace(fromId, toId) =
     override this.TransformId i =
         if i = fromId then toId else i
 
+let breakTODO s = failwith ("TODO: break for " + s)
+
 let rec breakExpr expr =
     let inline br x = breakExpr x
     let brL l =
@@ -204,8 +206,8 @@ let rec breakExpr expr =
     | NewObject (a, b) ->
         br b |> Option.map (fun (bSt, bE) -> bSt, NewObject (a, bE))
     | Self -> None
-    | FieldGet(_, _, _) -> failwith "Not implemented yet"
-    | FieldSet(_, _, _, _) -> failwith "Not implemented yet"
+    | FieldGet(_, _, _) -> breakTODO "FieldGet"
+    | FieldSet(_, _, _, _) -> breakTODO "FieldSet"
 //    | Let(a, Var b, c) ->
 //        let ctr = IdReplace(a, b).TransformExpression(c)
 //        match br ctr with
@@ -242,21 +244,42 @@ let rec breakExpr expr =
         let names, values = List.unzip a
         brL values
         |> Option.map (fun (st, l) -> st, Object (List.zip names l)) 
-    | Coalesce(_, _, _) -> failwith "Not implemented yet"
+    | Coalesce(_, _, _) -> breakTODO "Coalesce"
     | TypeCheck(a, b) ->
         br a
         |> Option.map (fun (aSt, aE) -> aSt, TypeCheck (aE, b))
-    | LetRec _ -> //(a, b) ->
-        failwith "Not implemented yet"
+    | LetRec (a, b) ->
+        let brB = br b
+        Some (
+            [
+                for i, _ in a do 
+                    yield VarDeclaration(i, Undefined)
+                for i, v in a do 
+                    match br v with
+                    | Some (vSt, vE) -> 
+                        yield! vSt
+                        yield ExprStatement <| VarSet(i, vE)
+                    | _ -> yield ExprStatement <| VarSet(i, v)
+                match brB with
+                | Some (bSt, _) -> yield! bSt
+                | _ -> ()
+            ], 
+            match brB with
+            | Some (_, bE) -> bE
+            | _ -> b
+        )
+//
+//        breakTODO "LetRec"
 //        None // TODO
-    | Await(_) -> failwith "Not implemented yet"
+    | Await(_) -> breakTODO "Await"
     | New(a, b) -> 
         brL (a :: b)
         |> Option.map (fun (st, aE :: bE) -> st, New (aE, bE))
-    | NamedParameter(_, _) -> failwith "Not implemented yet"
-    | RefOrOutParameter(_) -> failwith "Not implemented yet"
+    | NamedParameter(_, _) -> breakTODO "NamedParameter"
+    | RefOrOutParameter(_) -> breakTODO "RefOrOutParameter"
     | GlobalAccess _ -> None
     | Hole _ -> None
+    | BaseCtor _ -> breakTODO "BaseCtor"
 
 and private breakSt statement =
     let inline brE x = breakExpr x
@@ -329,7 +352,7 @@ and private breakSt statement =
     | StatementSourcePos (a, b) ->
         brS b |> Option.map (fun bB -> StatementSourcePos (a, combine bB) |> Seq.singleton)
     | DoWhile(a, b) -> 
-        failwith "TODO"
+        failwith "TODO: break for DoWhile"
         // this is wrong because of VarDeclarations repeated
 //        match brE b with
 //        | Some (st, bB) ->
@@ -370,7 +393,7 @@ and private breakSt statement =
         else
 //        None // TODO
             if brCases |> List.exists (fst >> Option.isSome) then
-                failwith "Not implemented yet"
+                 breakTODO "Switch with breaking case"
             else
                 let cases = List.map2 (fun (c, d) (_, dB) -> c, combineOpt d dB) b brCases
                 match brA with
@@ -404,13 +427,13 @@ and private breakSt statement =
         //comb2 (fun ar br -> TryFinally (ar, br)) a b
     | Statements a ->
         let aB = a |> List.map brS 
-        if aB |> List.forall Option.isNone then None
+        if aB |> List.forall Option.isNone then Some (Seq.ofList a)
         else
             Seq.map2 (fun o b ->
                 match b with
                 | Some bs -> bs
                 | _ -> Seq.singleton o
-            ) a aB |> Seq.concat |> List.ofSeq |> Statements |> Seq.singleton |> Some
+            ) a aB |> Seq.concat |> Array.ofSeq |> Seq.ofArray |> Some
     | ForIn(a, b, c) -> 
         match brE b, brS c with
         | None, None -> None
@@ -420,11 +443,19 @@ and private breakSt statement =
             | None -> Seq.singleton (ForIn (a, b, c))
             | Some (st, bB) -> Seq.append st (Seq.singleton (ForIn (a, bB, c)))
             |> Some
-    | Yield(a) -> 
-        brE a |> Option.map (fun (st, aB) -> Seq.append st (Seq.singleton (Yield aB))) // TODO yield breakup
-    | Goto(a) -> failwith "Not implemented yet"
-    | CSharpSwitch(_, _) -> failwith "Not implemented yet"
-    | GotoCase(_) -> failwith "Not implemented yet"
+    | Yield _ -> None
+//    | Yield(a) -> 
+//        brE a |> Option.map (fun (st, aB) -> Seq.append st (Seq.singleton (Yield aB))) // TODO yield breakup
+    | Goto(a) -> None //failwith "Not implemented yet"
+    | CSharpSwitch(_, _) -> None // failwith "Not implemented yet"
+    | GotoCase(_) -> None //failwith "Not implemented yet"
+    | Continuation(a, b) ->
+        match brE b with
+        | Some (bSt, bE) ->
+           Some (Seq.append bSt (Seq.singleton (Continuation(a, bE))))
+        | None -> None     
+        
+    //breakTODO "Continuation"
 
 let breakStatement statement =
     match breakSt statement with
@@ -505,6 +536,10 @@ let runtimeCtor =   runtimeFunc "Ctor"
 let runtimeCctor =  runtimeFunc "Cctor"
 let runtimeGetOptional = runtimeFunc "GetOptional"
 let runtimeSetOptional = runtimeFunc "SetOptional"
+let runtimeDeleteEmptyFields = runtimeFunc "DeleteEmptyFields"
+let runtimeCreateFuncWithArgs = runtimeFunc "CreateFuncWithArgs"
+let runtimeCreateFuncWithArgsRest = runtimeFunc "CreateFuncWithArgsRest"
+let runtimeCreateFuncWithThis = runtimeFunc "CreateFuncWithThis"
 
 //let runtimeDefine = runtimeFunc "Define"
 

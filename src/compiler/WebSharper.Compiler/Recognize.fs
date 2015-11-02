@@ -103,7 +103,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
             match ignoreExprSourcePos (trE a) with
             | ItemGet (d, e) -> ItemSet(d, e, trE c)
             | Var d -> VarSet(d, trE c)
-            | a -> failwith "Not implemented yet"
+            | a -> failwith "TODO: recognize '='"
         | SB.``==``     -> Binary(trE a, BinaryOperator.``==``, trE c)
         | SB.``===``    -> Binary(trE a, BinaryOperator.``===``, trE c)
         | SB.``>``      -> Binary(trE a, BinaryOperator.``>``, trE c)
@@ -155,7 +155,10 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
     | S.New (a, b) -> New(trE a, List.map trE b)
     | S.NewArray a -> NewArray (a |> List.map (function Some i -> trE i | _ -> Undefined))
     | S.NewObject a -> Object(a |> List.map (fun (b, c) -> b, trE c))
-    | S.NewRegex a -> New (globalAccess ["RegExp"], [Value (String a)])
+    | S.NewRegex a -> 
+        let closingSlash = a.LastIndexOf '/'
+        let flags = a.[closingSlash + 1 ..] |> Seq.map (string >> String >> Value) |> List.ofSeq
+        New (globalAccess ["RegExp"], Value (String a.[1 .. closingSlash - 1]) :: flags)
     | S.Postfix (a, b) ->
         match b with
         | S.PostfixOperator.``++`` -> MutatingUnary(MutatingUnaryOperator.``()++``, trE a)

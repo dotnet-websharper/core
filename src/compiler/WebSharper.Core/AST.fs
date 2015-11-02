@@ -38,8 +38,8 @@ and Expression =
     | Self
     | Call of option<Expression> * Concrete<TypeDefinition> * Concrete<Method> * list<Expression>
     | CallNeedingMoreArgs of option<Expression> * Concrete<TypeDefinition> * Concrete<Method> * list<Expression>
-    | CallInterface of Expression * Concrete<TypeDefinition> * Concrete<Method> * list<Expression>
     | Ctor of Concrete<TypeDefinition> * Constructor * list<Expression>
+    | BaseCtor of Expression * Concrete<TypeDefinition> * Constructor * list<Expression>
     | NewObject of Concrete<TypeDefinition> * Expression
     | Cctor of TypeDefinition
     | FieldGet of option<Expression> * Concrete<TypeDefinition> * string
@@ -105,7 +105,8 @@ and Statement =
     | Labeled of Id * Statement
     | StatementSourcePos of SourcePos * Statement
     | Goto of Id
-    | Yield of Expression
+    | Continuation of Id * Expression
+    | Yield of option<Expression>
     | CSharpSwitch of Expression * list<list<option<Expression>> * Statement>
     | GotoCase of option<Expression>
     | Statements of list<Statement>
@@ -150,10 +151,10 @@ type Transformer() =
     override this.TransformCall (a, b, c, d) = Call (Option.map this.TransformExpression a, b, c, List.map this.TransformExpression d)
     abstract TransformCallNeedingMoreArgs : option<Expression> * Concrete<TypeDefinition> * Concrete<Method> * list<Expression> -> Expression
     override this.TransformCallNeedingMoreArgs (a, b, c, d) = CallNeedingMoreArgs (Option.map this.TransformExpression a, b, c, List.map this.TransformExpression d)
-    abstract TransformCallInterface : Expression * Concrete<TypeDefinition> * Concrete<Method> * list<Expression> -> Expression
-    override this.TransformCallInterface (a, b, c, d) = CallInterface (this.TransformExpression a, b, c, List.map this.TransformExpression d)
     abstract TransformCtor : Concrete<TypeDefinition> * Constructor * list<Expression> -> Expression
     override this.TransformCtor (a, b, c) = Ctor (a, b, List.map this.TransformExpression c)
+    abstract TransformBaseCtor : Expression * Concrete<TypeDefinition> * Constructor * list<Expression> -> Expression
+    override this.TransformBaseCtor (a, b, c, d) = BaseCtor (this.TransformExpression a, b, c, List.map this.TransformExpression d)
     abstract TransformNewObject : Concrete<TypeDefinition> * Expression -> Expression
     override this.TransformNewObject (a, b) = NewObject (a, this.TransformExpression b)
     abstract TransformCctor : TypeDefinition -> Expression
@@ -230,8 +231,10 @@ type Transformer() =
     override this.TransformStatementSourcePos (a, b) = StatementSourcePos (a, this.TransformStatement b)
     abstract TransformGoto : Id -> Statement
     override this.TransformGoto a = Goto (this.TransformId a)
-    abstract TransformYield : Expression -> Statement
-    override this.TransformYield a = Yield (this.TransformExpression a)
+    abstract TransformContinuation : Id * Expression -> Statement
+    override this.TransformContinuation (a, b) = Continuation (this.TransformId a, this.TransformExpression b)
+    abstract TransformYield : option<Expression> -> Statement
+    override this.TransformYield a = Yield (Option.map this.TransformExpression a)
     abstract TransformCSharpSwitch : Expression * list<list<option<Expression>> * Statement> -> Statement
     override this.TransformCSharpSwitch (a, b) = CSharpSwitch (this.TransformExpression a,  failwith "no transform")
     abstract TransformGotoCase : option<Expression> -> Statement
@@ -261,8 +264,8 @@ type Transformer() =
         | Self  -> this.TransformSelf ()
         | Call (a, b, c, d) -> this.TransformCall (a, b, c, d)
         | CallNeedingMoreArgs (a, b, c, d) -> this.TransformCallNeedingMoreArgs (a, b, c, d)
-        | CallInterface (a, b, c, d) -> this.TransformCallInterface (a, b, c, d)
         | Ctor (a, b, c) -> this.TransformCtor (a, b, c)
+        | BaseCtor (a, b, c, d) -> this.TransformBaseCtor (a, b, c, d)
         | NewObject (a, b) -> this.TransformNewObject (a, b)
         | Cctor a -> this.TransformCctor a
         | FieldGet (a, b, c) -> this.TransformFieldGet (a, b, c)
@@ -304,13 +307,371 @@ type Transformer() =
         | Labeled (a, b) -> this.TransformLabeled (a, b)
         | StatementSourcePos (a, b) -> this.TransformStatementSourcePos (a, b)
         | Goto a -> this.TransformGoto a
+        | Continuation (a, b) -> this.TransformContinuation (a, b)
         | Yield a -> this.TransformYield a
         | CSharpSwitch (a, b) -> this.TransformCSharpSwitch (a, b)
         | GotoCase a -> this.TransformGotoCase a
         | Statements a -> this.TransformStatements a
     abstract TransformId : Id -> Id
     override this.TransformId x = x
+type StatementTransformer() =
+    abstract TransformEmpty : unit -> Statement
+    override this.TransformEmpty () = Empty 
+    abstract TransformBreak : option<Id> -> Statement
+    override this.TransformBreak a = Break (a)
+    abstract TransformContinue : option<Id> -> Statement
+    override this.TransformContinue a = Continue (a)
+    abstract TransformExprStatement : Expression -> Statement
+    override this.TransformExprStatement a = ExprStatement (a)
+    abstract TransformReturn : Expression -> Statement
+    override this.TransformReturn a = Return (a)
+    abstract TransformBlock : list<Statement> -> Statement
+    override this.TransformBlock a = Block (List.map this.TransformStatement a)
+    abstract TransformVarDeclaration : Id * Expression -> Statement
+    override this.TransformVarDeclaration (a, b) = VarDeclaration (a, b)
+    abstract TransformWhile : Expression * Statement -> Statement
+    override this.TransformWhile (a, b) = While (a, this.TransformStatement b)
+    abstract TransformDoWhile : Statement * Expression -> Statement
+    override this.TransformDoWhile (a, b) = DoWhile (this.TransformStatement a, b)
+    abstract TransformFor : option<Expression> * option<Expression> * option<Expression> * Statement -> Statement
+    override this.TransformFor (a, b, c, d) = For (a, b, c, this.TransformStatement d)
+    abstract TransformForIn : Id * Expression * Statement -> Statement
+    override this.TransformForIn (a, b, c) = ForIn (a, b, this.TransformStatement c)
+    abstract TransformSwitch : Expression * list<option<Expression> * Statement> -> Statement
+    override this.TransformSwitch (a, b) = Switch (a, b)
+    abstract TransformIf : Expression * Statement * Statement -> Statement
+    override this.TransformIf (a, b, c) = If (a, this.TransformStatement b, this.TransformStatement c)
+    abstract TransformThrow : Expression -> Statement
+    override this.TransformThrow a = Throw (a)
+    abstract TransformTryWith : Statement * option<Id> * Statement -> Statement
+    override this.TransformTryWith (a, b, c) = TryWith (this.TransformStatement a, b, this.TransformStatement c)
+    abstract TransformTryFinally : Statement * Statement -> Statement
+    override this.TransformTryFinally (a, b) = TryFinally (this.TransformStatement a, this.TransformStatement b)
+    abstract TransformLabeled : Id * Statement -> Statement
+    override this.TransformLabeled (a, b) = Labeled (a, this.TransformStatement b)
+    abstract TransformStatementSourcePos : SourcePos * Statement -> Statement
+    override this.TransformStatementSourcePos (a, b) = StatementSourcePos (a, this.TransformStatement b)
+    abstract TransformGoto : Id -> Statement
+    override this.TransformGoto a = Goto (a)
+    abstract TransformContinuation : Id * Expression -> Statement
+    override this.TransformContinuation (a, b) = Continuation (a, b)
+    abstract TransformYield : option<Expression> -> Statement
+    override this.TransformYield a = Yield (a)
+    abstract TransformCSharpSwitch : Expression * list<list<option<Expression>> * Statement> -> Statement
+    override this.TransformCSharpSwitch (a, b) = CSharpSwitch (a,  failwith "no transform")
+    abstract TransformGotoCase : option<Expression> -> Statement
+    override this.TransformGotoCase a = GotoCase (a)
+    abstract TransformStatements : list<Statement> -> Statement
+    override this.TransformStatements a = Statements (List.map this.TransformStatement a)
+    abstract TransformStatement : Statement -> Statement
+    override this.TransformStatement x =
+        match x with
+        | Empty  -> this.TransformEmpty ()
+        | Break a -> this.TransformBreak a
+        | Continue a -> this.TransformContinue a
+        | ExprStatement a -> this.TransformExprStatement a
+        | Return a -> this.TransformReturn a
+        | Block a -> this.TransformBlock a
+        | VarDeclaration (a, b) -> this.TransformVarDeclaration (a, b)
+        | While (a, b) -> this.TransformWhile (a, b)
+        | DoWhile (a, b) -> this.TransformDoWhile (a, b)
+        | For (a, b, c, d) -> this.TransformFor (a, b, c, d)
+        | ForIn (a, b, c) -> this.TransformForIn (a, b, c)
+        | Switch (a, b) -> this.TransformSwitch (a, b)
+        | If (a, b, c) -> this.TransformIf (a, b, c)
+        | Throw a -> this.TransformThrow a
+        | TryWith (a, b, c) -> this.TransformTryWith (a, b, c)
+        | TryFinally (a, b) -> this.TransformTryFinally (a, b)
+        | Labeled (a, b) -> this.TransformLabeled (a, b)
+        | StatementSourcePos (a, b) -> this.TransformStatementSourcePos (a, b)
+        | Goto a -> this.TransformGoto a
+        | Continuation (a, b) -> this.TransformContinuation (a, b)
+        | Yield a -> this.TransformYield a
+        | CSharpSwitch (a, b) -> this.TransformCSharpSwitch (a, b)
+        | GotoCase a -> this.TransformGotoCase a
+        | Statements a -> this.TransformStatements a
+type Visitor() =
+    abstract VisitUndefined : unit -> unit
+    override this.VisitUndefined () = ()
+    abstract VisitThis : unit -> unit
+    override this.VisitThis () = ()
+    abstract VisitVar : Id -> unit
+    override this.VisitVar a = (this.VisitId a)
+    abstract VisitValue : Literal -> unit
+    override this.VisitValue a = (())
+    abstract VisitApplication : Expression * list<Expression> -> unit
+    override this.VisitApplication (a, b) = this.VisitExpression a; List.iter this.VisitExpression b
+    abstract VisitFunction : list<Id> * Statement -> unit
+    override this.VisitFunction (a, b) = List.iter this.VisitId a; this.VisitStatement b
+    abstract VisitVarSet : Id * Expression -> unit
+    override this.VisitVarSet (a, b) = this.VisitId a; this.VisitExpression b
+    abstract VisitSequential : list<Expression> -> unit
+    override this.VisitSequential a = (List.iter this.VisitExpression a)
+    abstract VisitNewArray : list<Expression> -> unit
+    override this.VisitNewArray a = (List.iter this.VisitExpression a)
+    abstract VisitConditional : Expression * Expression * Expression -> unit
+    override this.VisitConditional (a, b, c) = this.VisitExpression a; this.VisitExpression b; this.VisitExpression c
+    abstract VisitItemGet : Expression * Expression -> unit
+    override this.VisitItemGet (a, b) = this.VisitExpression a; this.VisitExpression b
+    abstract VisitItemSet : Expression * Expression * Expression -> unit
+    override this.VisitItemSet (a, b, c) = this.VisitExpression a; this.VisitExpression b; this.VisitExpression c
+    abstract VisitBinary : Expression * BinaryOperator * Expression -> unit
+    override this.VisitBinary (a, b, c) = this.VisitExpression a; (); this.VisitExpression c
+    abstract VisitMutatingBinary : Expression * MutatingBinaryOperator * Expression -> unit
+    override this.VisitMutatingBinary (a, b, c) = this.VisitExpression a; (); this.VisitExpression c
+    abstract VisitUnary : UnaryOperator * Expression -> unit
+    override this.VisitUnary (a, b) = (); this.VisitExpression b
+    abstract VisitMutatingUnary : MutatingUnaryOperator * Expression -> unit
+    override this.VisitMutatingUnary (a, b) = (); this.VisitExpression b
+    abstract VisitExprSourcePos : SourcePos * Expression -> unit
+    override this.VisitExprSourcePos (a, b) = (); this.VisitExpression b
+    abstract VisitSelf : unit -> unit
+    override this.VisitSelf () = ()
+    abstract VisitCall : option<Expression> * Concrete<TypeDefinition> * Concrete<Method> * list<Expression> -> unit
+    override this.VisitCall (a, b, c, d) = Option.iter this.VisitExpression a; (); (); List.iter this.VisitExpression d
+    abstract VisitCallNeedingMoreArgs : option<Expression> * Concrete<TypeDefinition> * Concrete<Method> * list<Expression> -> unit
+    override this.VisitCallNeedingMoreArgs (a, b, c, d) = Option.iter this.VisitExpression a; (); (); List.iter this.VisitExpression d
+    abstract VisitCtor : Concrete<TypeDefinition> * Constructor * list<Expression> -> unit
+    override this.VisitCtor (a, b, c) = (); (); List.iter this.VisitExpression c
+    abstract VisitBaseCtor : Expression * Concrete<TypeDefinition> * Constructor * list<Expression> -> unit
+    override this.VisitBaseCtor (a, b, c, d) = this.VisitExpression a; (); (); List.iter this.VisitExpression d
+    abstract VisitNewObject : Concrete<TypeDefinition> * Expression -> unit
+    override this.VisitNewObject (a, b) = (); this.VisitExpression b
+    abstract VisitCctor : TypeDefinition -> unit
+    override this.VisitCctor a = (())
+    abstract VisitFieldGet : option<Expression> * Concrete<TypeDefinition> * string -> unit
+    override this.VisitFieldGet (a, b, c) = Option.iter this.VisitExpression a; (); ()
+    abstract VisitFieldSet : option<Expression> * Concrete<TypeDefinition> * string * Expression -> unit
+    override this.VisitFieldSet (a, b, c, d) = Option.iter this.VisitExpression a; (); (); this.VisitExpression d
+    abstract VisitLet : Id * Expression * Expression -> unit
+    override this.VisitLet (a, b, c) = this.VisitId a; this.VisitExpression b; this.VisitExpression c
+    abstract VisitNewVar : Id * Expression -> unit
+    override this.VisitNewVar (a, b) = this.VisitId a; this.VisitExpression b
+    abstract VisitCoalesce : Expression * Type * Expression -> unit
+    override this.VisitCoalesce (a, b, c) = this.VisitExpression a; (); this.VisitExpression c
+    abstract VisitTypeCheck : Expression * Type -> unit
+    override this.VisitTypeCheck (a, b) = this.VisitExpression a; ()
+    abstract VisitMacroFallback : unit -> unit
+    override this.VisitMacroFallback () = ()
+    abstract VisitWithVars : list<Id> * Expression -> unit
+    override this.VisitWithVars (a, b) = List.iter this.VisitId a; this.VisitExpression b
+    abstract VisitLetRec : list<Id * Expression> * Expression -> unit
+    override this.VisitLetRec (a, b) = List.iter (fun (a, b) -> this.VisitId a; this.VisitExpression b) a; this.VisitExpression b
+    abstract VisitStatementExpr : Statement -> unit
+    override this.VisitStatementExpr a = (this.VisitStatement a)
+    abstract VisitAwait : Expression -> unit
+    override this.VisitAwait a = (this.VisitExpression a)
+    abstract VisitNamedParameter : Id * Expression -> unit
+    override this.VisitNamedParameter (a, b) = this.VisitId a; this.VisitExpression b
+    abstract VisitRefOrOutParameter : Expression -> unit
+    override this.VisitRefOrOutParameter a = (this.VisitExpression a)
+    abstract VisitObject : list<string * Expression> -> unit
+    override this.VisitObject a = (List.iter (fun (a, b) -> this.VisitExpression b) a)
+    abstract VisitGlobalAccess : Address -> unit
+    override this.VisitGlobalAccess a = (())
+    abstract VisitNew : Expression * list<Expression> -> unit
+    override this.VisitNew (a, b) = this.VisitExpression a; List.iter this.VisitExpression b
+    abstract VisitHole : int -> unit
+    override this.VisitHole a = (())
+    abstract VisitEmpty : unit -> unit
+    override this.VisitEmpty () = ()
+    abstract VisitBreak : option<Id> -> unit
+    override this.VisitBreak a = (Option.iter this.VisitId a)
+    abstract VisitContinue : option<Id> -> unit
+    override this.VisitContinue a = (Option.iter this.VisitId a)
+    abstract VisitExprStatement : Expression -> unit
+    override this.VisitExprStatement a = (this.VisitExpression a)
+    abstract VisitReturn : Expression -> unit
+    override this.VisitReturn a = (this.VisitExpression a)
+    abstract VisitBlock : list<Statement> -> unit
+    override this.VisitBlock a = (List.iter this.VisitStatement a)
+    abstract VisitVarDeclaration : Id * Expression -> unit
+    override this.VisitVarDeclaration (a, b) = this.VisitId a; this.VisitExpression b
+    abstract VisitWhile : Expression * Statement -> unit
+    override this.VisitWhile (a, b) = this.VisitExpression a; this.VisitStatement b
+    abstract VisitDoWhile : Statement * Expression -> unit
+    override this.VisitDoWhile (a, b) = this.VisitStatement a; this.VisitExpression b
+    abstract VisitFor : option<Expression> * option<Expression> * option<Expression> * Statement -> unit
+    override this.VisitFor (a, b, c, d) = Option.iter this.VisitExpression a; Option.iter this.VisitExpression b; Option.iter this.VisitExpression c; this.VisitStatement d
+    abstract VisitForIn : Id * Expression * Statement -> unit
+    override this.VisitForIn (a, b, c) = this.VisitId a; this.VisitExpression b; this.VisitStatement c
+    abstract VisitSwitch : Expression * list<option<Expression> * Statement> -> unit
+    override this.VisitSwitch (a, b) = this.VisitExpression a; List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitStatement b) b
+    abstract VisitIf : Expression * Statement * Statement -> unit
+    override this.VisitIf (a, b, c) = this.VisitExpression a; this.VisitStatement b; this.VisitStatement c
+    abstract VisitThrow : Expression -> unit
+    override this.VisitThrow a = (this.VisitExpression a)
+    abstract VisitTryWith : Statement * option<Id> * Statement -> unit
+    override this.VisitTryWith (a, b, c) = this.VisitStatement a; Option.iter this.VisitId b; this.VisitStatement c
+    abstract VisitTryFinally : Statement * Statement -> unit
+    override this.VisitTryFinally (a, b) = this.VisitStatement a; this.VisitStatement b
+    abstract VisitLabeled : Id * Statement -> unit
+    override this.VisitLabeled (a, b) = this.VisitId a; this.VisitStatement b
+    abstract VisitStatementSourcePos : SourcePos * Statement -> unit
+    override this.VisitStatementSourcePos (a, b) = (); this.VisitStatement b
+    abstract VisitGoto : Id -> unit
+    override this.VisitGoto a = (this.VisitId a)
+    abstract VisitContinuation : Id * Expression -> unit
+    override this.VisitContinuation (a, b) = this.VisitId a; this.VisitExpression b
+    abstract VisitYield : option<Expression> -> unit
+    override this.VisitYield a = (Option.iter this.VisitExpression a)
+    abstract VisitCSharpSwitch : Expression * list<list<option<Expression>> * Statement> -> unit
+    override this.VisitCSharpSwitch (a, b) = this.VisitExpression a;  failwith "no visit"
+    abstract VisitGotoCase : option<Expression> -> unit
+    override this.VisitGotoCase a = (Option.iter this.VisitExpression a)
+    abstract VisitStatements : list<Statement> -> unit
+    override this.VisitStatements a = (List.iter this.VisitStatement a)
+    abstract VisitExpression : Expression -> unit
+    override this.VisitExpression x =
+        match x with
+        | Undefined  -> this.VisitUndefined ()
+        | This  -> this.VisitThis ()
+        | Var a -> this.VisitVar a
+        | Value a -> this.VisitValue a
+        | Application (a, b) -> this.VisitApplication (a, b)
+        | Function (a, b) -> this.VisitFunction (a, b)
+        | VarSet (a, b) -> this.VisitVarSet (a, b)
+        | Sequential a -> this.VisitSequential a
+        | NewArray a -> this.VisitNewArray a
+        | Conditional (a, b, c) -> this.VisitConditional (a, b, c)
+        | ItemGet (a, b) -> this.VisitItemGet (a, b)
+        | ItemSet (a, b, c) -> this.VisitItemSet (a, b, c)
+        | Binary (a, b, c) -> this.VisitBinary (a, b, c)
+        | MutatingBinary (a, b, c) -> this.VisitMutatingBinary (a, b, c)
+        | Unary (a, b) -> this.VisitUnary (a, b)
+        | MutatingUnary (a, b) -> this.VisitMutatingUnary (a, b)
+        | ExprSourcePos (a, b) -> this.VisitExprSourcePos (a, b)
+        | Self  -> this.VisitSelf ()
+        | Call (a, b, c, d) -> this.VisitCall (a, b, c, d)
+        | CallNeedingMoreArgs (a, b, c, d) -> this.VisitCallNeedingMoreArgs (a, b, c, d)
+        | Ctor (a, b, c) -> this.VisitCtor (a, b, c)
+        | BaseCtor (a, b, c, d) -> this.VisitBaseCtor (a, b, c, d)
+        | NewObject (a, b) -> this.VisitNewObject (a, b)
+        | Cctor a -> this.VisitCctor a
+        | FieldGet (a, b, c) -> this.VisitFieldGet (a, b, c)
+        | FieldSet (a, b, c, d) -> this.VisitFieldSet (a, b, c, d)
+        | Let (a, b, c) -> this.VisitLet (a, b, c)
+        | NewVar (a, b) -> this.VisitNewVar (a, b)
+        | Coalesce (a, b, c) -> this.VisitCoalesce (a, b, c)
+        | TypeCheck (a, b) -> this.VisitTypeCheck (a, b)
+        | MacroFallback  -> this.VisitMacroFallback ()
+        | WithVars (a, b) -> this.VisitWithVars (a, b)
+        | LetRec (a, b) -> this.VisitLetRec (a, b)
+        | StatementExpr a -> this.VisitStatementExpr a
+        | Await a -> this.VisitAwait a
+        | NamedParameter (a, b) -> this.VisitNamedParameter (a, b)
+        | RefOrOutParameter a -> this.VisitRefOrOutParameter a
+        | Object a -> this.VisitObject a
+        | GlobalAccess a -> this.VisitGlobalAccess a
+        | New (a, b) -> this.VisitNew (a, b)
+        | Hole a -> this.VisitHole a
+    abstract VisitStatement : Statement -> unit
+    override this.VisitStatement x =
+        match x with
+        | Empty  -> this.VisitEmpty ()
+        | Break a -> this.VisitBreak a
+        | Continue a -> this.VisitContinue a
+        | ExprStatement a -> this.VisitExprStatement a
+        | Return a -> this.VisitReturn a
+        | Block a -> this.VisitBlock a
+        | VarDeclaration (a, b) -> this.VisitVarDeclaration (a, b)
+        | While (a, b) -> this.VisitWhile (a, b)
+        | DoWhile (a, b) -> this.VisitDoWhile (a, b)
+        | For (a, b, c, d) -> this.VisitFor (a, b, c, d)
+        | ForIn (a, b, c) -> this.VisitForIn (a, b, c)
+        | Switch (a, b) -> this.VisitSwitch (a, b)
+        | If (a, b, c) -> this.VisitIf (a, b, c)
+        | Throw a -> this.VisitThrow a
+        | TryWith (a, b, c) -> this.VisitTryWith (a, b, c)
+        | TryFinally (a, b) -> this.VisitTryFinally (a, b)
+        | Labeled (a, b) -> this.VisitLabeled (a, b)
+        | StatementSourcePos (a, b) -> this.VisitStatementSourcePos (a, b)
+        | Goto a -> this.VisitGoto a
+        | Continuation (a, b) -> this.VisitContinuation (a, b)
+        | Yield a -> this.VisitYield a
+        | CSharpSwitch (a, b) -> this.VisitCSharpSwitch (a, b)
+        | GotoCase a -> this.VisitGotoCase a
+        | Statements a -> this.VisitStatements a
+    abstract VisitId : Id -> unit
+    override this.VisitId x = ()
+type StatementVisitor() =
+    abstract VisitEmpty : unit -> unit
+    override this.VisitEmpty () = ()
+    abstract VisitBreak : option<Id> -> unit
+    override this.VisitBreak a = (())
+    abstract VisitContinue : option<Id> -> unit
+    override this.VisitContinue a = (())
+    abstract VisitExprStatement : Expression -> unit
+    override this.VisitExprStatement a = (())
+    abstract VisitReturn : Expression -> unit
+    override this.VisitReturn a = (())
+    abstract VisitBlock : list<Statement> -> unit
+    override this.VisitBlock a = (List.iter this.VisitStatement a)
+    abstract VisitVarDeclaration : Id * Expression -> unit
+    override this.VisitVarDeclaration (a, b) = (); ()
+    abstract VisitWhile : Expression * Statement -> unit
+    override this.VisitWhile (a, b) = (); this.VisitStatement b
+    abstract VisitDoWhile : Statement * Expression -> unit
+    override this.VisitDoWhile (a, b) = this.VisitStatement a; ()
+    abstract VisitFor : option<Expression> * option<Expression> * option<Expression> * Statement -> unit
+    override this.VisitFor (a, b, c, d) = (); (); (); this.VisitStatement d
+    abstract VisitForIn : Id * Expression * Statement -> unit
+    override this.VisitForIn (a, b, c) = (); (); this.VisitStatement c
+    abstract VisitSwitch : Expression * list<option<Expression> * Statement> -> unit
+    override this.VisitSwitch (a, b) = (); ()
+    abstract VisitIf : Expression * Statement * Statement -> unit
+    override this.VisitIf (a, b, c) = (); this.VisitStatement b; this.VisitStatement c
+    abstract VisitThrow : Expression -> unit
+    override this.VisitThrow a = (())
+    abstract VisitTryWith : Statement * option<Id> * Statement -> unit
+    override this.VisitTryWith (a, b, c) = this.VisitStatement a; (); this.VisitStatement c
+    abstract VisitTryFinally : Statement * Statement -> unit
+    override this.VisitTryFinally (a, b) = this.VisitStatement a; this.VisitStatement b
+    abstract VisitLabeled : Id * Statement -> unit
+    override this.VisitLabeled (a, b) = (); this.VisitStatement b
+    abstract VisitStatementSourcePos : SourcePos * Statement -> unit
+    override this.VisitStatementSourcePos (a, b) = (); this.VisitStatement b
+    abstract VisitGoto : Id -> unit
+    override this.VisitGoto a = (())
+    abstract VisitContinuation : Id * Expression -> unit
+    override this.VisitContinuation (a, b) = (); ()
+    abstract VisitYield : option<Expression> -> unit
+    override this.VisitYield a = (())
+    abstract VisitCSharpSwitch : Expression * list<list<option<Expression>> * Statement> -> unit
+    override this.VisitCSharpSwitch (a, b) = ();  failwith "no visit"
+    abstract VisitGotoCase : option<Expression> -> unit
+    override this.VisitGotoCase a = (())
+    abstract VisitStatements : list<Statement> -> unit
+    override this.VisitStatements a = (List.iter this.VisitStatement a)
+    abstract VisitStatement : Statement -> unit
+    override this.VisitStatement x =
+        match x with
+        | Empty  -> this.VisitEmpty ()
+        | Break a -> this.VisitBreak a
+        | Continue a -> this.VisitContinue a
+        | ExprStatement a -> this.VisitExprStatement a
+        | Return a -> this.VisitReturn a
+        | Block a -> this.VisitBlock a
+        | VarDeclaration (a, b) -> this.VisitVarDeclaration (a, b)
+        | While (a, b) -> this.VisitWhile (a, b)
+        | DoWhile (a, b) -> this.VisitDoWhile (a, b)
+        | For (a, b, c, d) -> this.VisitFor (a, b, c, d)
+        | ForIn (a, b, c) -> this.VisitForIn (a, b, c)
+        | Switch (a, b) -> this.VisitSwitch (a, b)
+        | If (a, b, c) -> this.VisitIf (a, b, c)
+        | Throw a -> this.VisitThrow a
+        | TryWith (a, b, c) -> this.VisitTryWith (a, b, c)
+        | TryFinally (a, b) -> this.VisitTryFinally (a, b)
+        | Labeled (a, b) -> this.VisitLabeled (a, b)
+        | StatementSourcePos (a, b) -> this.VisitStatementSourcePos (a, b)
+        | Goto a -> this.VisitGoto a
+        | Continuation (a, b) -> this.VisitContinuation (a, b)
+        | Yield a -> this.VisitYield a
+        | CSharpSwitch (a, b) -> this.VisitCSharpSwitch (a, b)
+        | GotoCase a -> this.VisitGotoCase a
+        | Statements a -> this.VisitStatements a
 
 [<AutoOpen>]
 module ExtraForms =
     let Lambda (a, b) = Function (a, Return b)
+

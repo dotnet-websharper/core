@@ -23,6 +23,7 @@ module WebSharper.Core.Remoting
 open System
 open System.Collections.Generic
 open System.Reflection
+open System.Threading.Tasks
 
 module A = WebSharper.Core.Attributes
 module FI = FastInvoke
@@ -52,6 +53,19 @@ type AsyncAdapter<'T>() =
             | _ ->
                 raise InvalidAsyncException
 
+[<Sealed>]
+type TaskAdapter<'T>() =
+    interface IAsyncAdapter with
+        member this.Box(x: obj) : Async<obj> =
+            match x with
+            | :? Task<'T> as a ->
+                async {
+                    let! x = Async.AwaitTask a
+                    return box x
+                }
+            | _ ->
+                raise InvalidAsyncException
+
 let getResultEncoder (jP: J.Provider) (m: MethodInfo) =
     let t = m.ReturnType
     let tD = if t.IsGenericType then t.GetGenericTypeDefinition() else t
@@ -59,6 +73,17 @@ let getResultEncoder (jP: J.Provider) (m: MethodInfo) =
         let eT = t.GetGenericArguments().[0]
         let aa =
             typedefof<AsyncAdapter<_>>.MakeGenericType(eT)
+            |> Activator.CreateInstance :?> IAsyncAdapter
+        let enc = jP.GetEncoder eT
+        fun (x: obj) ->
+            async {
+                let! x = aa.Box x
+                return jP.Pack (enc.Encode x)
+            }
+    elif t.IsGenericType && tD = typedefof<Task<_>> then
+        let eT = t.GetGenericArguments().[0]
+        let aa =
+            typedefof<TaskAdapter<_>>.MakeGenericType(eT)
             |> Activator.CreateInstance :?> IAsyncAdapter
         let enc = jP.GetEncoder eT
         fun (x: obj) ->

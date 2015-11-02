@@ -85,3 +85,6 @@ type WebSharperTask =
 
     /// Specifies if .d.ts files are unpacked along with the .js output.
     member WebSharperTypeScriptDeclaration : string with get, set
+
+    /// Source file list.
+    member Sources : ITaskItem [] with get, set

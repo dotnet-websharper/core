@@ -15,6 +15,7 @@
     <Compile Include="MapModule.fs" />
     <Compile Include="Set.fs" />
     <Compile Include="SetModule.fs" />
+    <Compile Include="ReadOnlyCollection.fs" />
     <Compile Include="ResizeArray.fs" />
     <Compile Include="LinkedList.fs" />
     <Compile Include="HashSet.fs" />

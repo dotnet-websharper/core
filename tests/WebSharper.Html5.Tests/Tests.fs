@@ -198,12 +198,12 @@ module SamplesInternals =
         let img = Elt("img")
         img.Dom.AddEventListener("load", (fun () ->
             ctx.DrawImage(img.Dom, 0., 0.)
-                ctx.BeginPath()
-                ctx.MoveTo(30.,  96.)
-                ctx.LineTo(70.,  66.)
-                ctx.LineTo(103., 76.)
-                ctx.LineTo(170., 15.)
-                ctx.Stroke()
+            ctx.BeginPath()
+            ctx.MoveTo(30.,  96.)
+            ctx.LineTo(70.,  66.)
+            ctx.LineTo(103., 76.)
+            ctx.LineTo(170., 15.)
+            ctx.Stroke()
         ), false)
         img.Dom.SetAttribute("src", "backdrop.png")
 

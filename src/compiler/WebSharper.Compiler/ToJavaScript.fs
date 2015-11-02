@@ -227,6 +227,7 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
             let name =
                 match kind with
                 | M.RemoteAsync -> "Async"
+                | M.RemoteTask -> "Task"
                 | M.RemoteSend -> "Send"
                 | M.RemoteSync -> "Sync"
             //let str x = !~ (C.String x)                    
@@ -311,6 +312,18 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
             comp.AddError (currentSourcePos, err)
             Application(errorPlaceholder, args |> List.map this.TransformExpression)
                   
+    override this.TransformBaseCtor(expr, typ, ctor, args) =
+        let norm = this.TransformCtor(typ, ctor, args)
+        match norm with
+        | New (func, a) ->
+            Application(ItemGet(func, !~(Literal.String "call")), expr :: a)
+        // TODO: not needing this workaround for inlines
+        | Let (i1, a1, New(func, [Var v1])) when i1 = v1 ->
+            Application(ItemGet(func, !~(Literal.String "call")), expr :: [a1])
+        | _ ->
+            comp.AddError (currentSourcePos, M.SourceError "base class constructor is not regular")
+            Application(errorPlaceholder, args |> List.map this.TransformExpression)
+
     override this.TransformCctor(typ) =
         this.AddDependency(M.TypeNode typ)
         Application(GlobalAccess (comp.LookupStaticConstructorAddress typ), [])
@@ -340,7 +353,7 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
             | M.StaticField faddr ->
                 GlobalAccess faddr   
             | M.OptionalField fname -> 
-                Application(runtimeGetOptional, [this.TransformExpression expr.Value; Value (String fname)])
+                Application(runtimeGetOptional, [ItemGet(this.TransformExpression expr.Value, Value (String fname))])
         | M.LookupFieldError err ->
             comp.AddError (currentSourcePos, err)
             match expr with

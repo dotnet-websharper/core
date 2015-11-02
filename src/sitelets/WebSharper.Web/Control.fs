@@ -69,13 +69,11 @@ type Control() =
         member this.Requires =
             let t = this.GetType()
             let t = if t.IsGenericType then t.GetGenericTypeDefinition() else t
-            [M.TypeNode (R.TypeDefinition.FromType t)] :> seq<_>
+            let m = t.GetProperty("Body").GetGetMethod()
+            [M.MethodNode (R.getTypeDefinition t, WebSharper.Core.Utilities.Hashed (R.getMethod m))] :> seq<_>
+
         member this.Encode(meta, json) =
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
-            let m = t.GetProperty("Body").GetGetMethod()
-
-            [M.MethodNode (R.getTypeDefinition t, WebSharper.Core.Utilities.Hashed (R.getMethod m))] :> seq<_>
-//            [M.TypeNode (R.getTypeDefinition t)] :> seq<_>
 
     override this.Render writer =
         writer.WriteLine("<div id='{0}'></div>", this.ID)
@@ -109,7 +107,7 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                 | _ -> None)
         defaultArg l "(no location)"
 
-    static let ctrlReq = M.TypeNode (R.getTypeDefinition typeof<InlineControl<Html.Client.IControlBody>>)
+    static let ctrlReq = M.TypeNode (R.getTypeDefinition typeof<InlineControl<IControlBody>>)
 
     [<System.NonSerialized>]
     let bodyAndReqs =
@@ -160,21 +158,49 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
     interface IRequiresResources with
         member this.Encode(meta, json) =
             if funcName.Length = 0 then
+                let declType, meth, reqs = snd bodyAndReqs
                 match meta.Classes.TryFind declType with
                 | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
                 | Some cls ->
                     match cls.Methods.TryFind meth with
                     | Some (M.Static a, _) ->
                         funcName <- Array.ofList (List.rev a.Value)
-                | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
-                | Some a ->
-                    let rec mk acc (a: P.Address) =
-                        let acc = a.LocalName :: acc
-                        match a.Parent with
-                        | None -> Array.ofList acc
-                        | Some p -> mk acc p
-                    funcName <- mk [name] a
+                    | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
+            [this.ID, json.GetEncoder(this.GetType()).Encode this]
+
+        member this.Requires =
+            let _, _, reqs = snd bodyAndReqs
             reqs
+                 
+//                    let rec mk acc (a: P.Address) =
+//                        let acc = a.LocalName :: acc
+//                        match a.Parent with
+//                        | None -> Array.ofList acc
+//                        | Some p -> mk acc p
+//                    funcName <- mk [name] a
+//            [this.ID, json.GetEncoder(this.GetType()).Encode this]
+//        member this.Requires =
+//            let _, _, reqs = snd bodyAndReqs
+//            reqs
+
+//    interface IRequiresResources with
+//        member this.Encode(meta, json) =
+//            if funcName.Length = 0 then
+//                match meta.Classes.TryFind declType with
+//                | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
+//                | Some cls ->
+//                    match cls.Methods.TryFind meth with
+//                    | Some (M.Static a, _) ->
+//                        funcName <- Array.ofList (List.rev a.Value)
+//                | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
+//                | Some a ->
+//                    let rec mk acc (a: P.Address) =
+//                        let acc = a.LocalName :: acc
+//                        match a.Parent with
+//                        | None -> Array.ofList acc
+//                        | Some p -> mk acc p
+//                    funcName <- mk [name] a
+//            reqs
 
 namespace WebSharper
 

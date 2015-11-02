@@ -51,8 +51,8 @@ let defineId (env: Environment) (id: Id) =
             name
     add (I.MakeValid (id.Name |> Option.fill "x"))
        
-let invalidForm() =
-    failwith "invalid form at writing JavaScript"
+let invalidForm c =
+    failwithf "invalid form at writing JavaScript: %s" c
     
 let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     let inline trE x = transformExpr env x
@@ -169,25 +169,32 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingUnaryOperator.``++()`` -> J.Unary(J.UnaryOperator.``++``, trE y)
         | MutatingUnaryOperator.``--()`` -> J.Unary(J.UnaryOperator.``--``, trE y)
         | MutatingUnaryOperator.delete   -> J.Unary(J.UnaryOperator.delete, trE y)
-    | Hole i -> J.Constant (J.String "TODO: hole")
-    | Self
-    | FieldGet _
-    | FieldSet _
-    | Let _
-    | StatementExpr _
-    | Await _
-    | NamedParameter _
-    | RefOrOutParameter _
-    | Ctor _ 
+    | Hole _ -> invalidForm "Hole" 
+    | Self -> invalidForm "Self"
+    | FieldGet _ -> invalidForm "FieldGet"
+    | FieldSet _ -> invalidForm "FieldSet"
+    | Let _ -> invalidForm "Let"
+    | StatementExpr _ -> invalidForm "StatementExpr"
+    | Await _ -> invalidForm "Await"
+    | NamedParameter _ -> invalidForm "NamedParameter"
+    | RefOrOutParameter _ -> invalidForm "RefOrOutParameter"
+    | Ctor _ -> invalidForm "Ctor"
 //    | CCtor _ 
-    | NewVar _ 
-    | Coalesce _ 
-    | LetRec _
-    | TypeCheck _ -> invalidForm()
+    | NewVar _ -> invalidForm "NewVar"
+    | Coalesce _ -> invalidForm "Coalesce"
+    | LetRec _ -> invalidForm "LetRec"
+    | TypeCheck _ -> invalidForm "TypeCheck"
+    | BaseCtor _ -> invalidForm "BaseCtor"  
+//    | CallInterface _ -> invalidForm "CallInterface"  
     | Call (a, b, c, d) ->
         let typ = b.Entity.Value
         let meth = c.Entity.Value
-        invalidForm()    
+        invalidForm "Call"
+    | CallNeedingMoreArgs(_, _, _, _) -> invalidForm "CallNeedingMoreArgs"
+    | NewObject(_, _) -> invalidForm "NewObject"
+    | Cctor(_) -> invalidForm "Cctor"
+    | MacroFallback -> invalidForm "MacroFallback"
+    | WithVars(_, _) -> invalidForm "WithVars"
 
 and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     let inline trE x = transformExpr env x
@@ -215,9 +222,11 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | TryFinally(a, b) ->
         J.TryFinally(trS a, trS b)
     | ForIn(a, b, c) -> J.ForVarIn(defineId env a, None, trE b, trS c)
-    | Goto(_) -> failwith "Not implemented yet"
-    | Yield(_) -> failwith "Not implemented yet"
-    | CSharpSwitch(_, _) -> failwith "Not implemented yet"
-    | GotoCase(_) -> failwith "Not implemented yet"
-    | Statements a -> J.Block (a |> List.map trS) // TODO //  "Not implemented yet"
+    | Statements a -> J.Block (a |> List.map trS) // TODO
+    | Goto(_) -> invalidForm "Goto" 
+    | Yield(_) -> invalidForm "Yield" 
+    | CSharpSwitch(_, _) -> invalidForm "CSharpSwitch" 
+    | GotoCase(_) -> invalidForm "GotoCase"
+    | Continuation(_, _) -> invalidForm "Continuation"
+  
         

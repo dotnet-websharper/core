@@ -85,8 +85,21 @@ let packageAssembly (merged: M.Metadata) (current: M.Metadata) =
 //        if packaged.Add a then
         let o, x = getFieldAddress a
         statements.Add <| ExprStatement (ItemSet (o, x, expr))    
+//    for c in current.Classes.Values do
 
-    for c in current.Classes.Values do
+    let classes = Dictionary(current.Classes)
+
+    let rec packageClass (c: M.ClassInfo) =
+
+        match c.BaseClass with
+        | Some b ->
+            match classes.TryFind b with
+            | Some bc ->
+                classes.Remove b |> ignore
+                packageClass bc
+            | _ -> ()
+        | _ -> ()
+
         match c.StaticConstructor with
         | Some (ccaddr, body) -> packageGlobal ccaddr <| Application (runtimeCctor, [ body ])
         | _ -> ()
@@ -141,6 +154,12 @@ let packageAssembly (merged: M.Metadata) (current: M.Metadata) =
                     package maddr body
             | _ -> ()
             
+    
+    while classes.Count > 0 do
+        let (KeyValue(t, c)) = classes |> Seq.head
+        classes.Remove t |> ignore
+        packageClass c
+
     let statements = List.ofSeq statements 
     if List.isEmpty statements then Undefined else
         Application(Function([], Block (List.ofSeq statements)), [])

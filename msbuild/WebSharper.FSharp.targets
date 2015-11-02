@@ -67,7 +67,8 @@
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
-      WebSharperProject="$(WebSharperProject)" />
+      WebSharperProject="$(WebSharperProject)" 
+	  Sources="@(CompileBefore);@(Compile);@(CompileAfter)" />
   </Target>
   <Target Name="WebSharperHtml" AfterTargets="Build">
     <WebSharperTask Command="Html" ItemInput="$(TargetPath);@(ReferencePath)"

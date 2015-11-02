@@ -18,27 +18,29 @@
 //
 // $end{copyright}
 
-module WebSharper.Tests.CSharp
+module private WebSharper.Collections.ReadOnlyCollection
 
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.Testing
 
-open WebSharper.CSharp.Tests
+open System.Collections.Generic
 
-[<JavaScript>]
-let Tests =
-    TestCategory "CSharp" {
-        Test "Hello world" {
-            equal (Class1().HelloWorld()) "Hello world!"
-        }
+[<Proxy(typeof<System.Collections.ObjectModel.ReadOnlyCollection<_>>)>]
+type ReadOnlyCollectionProxy<'T> =
+    [<Inline "WebSharper.Arrays.ofSeq($arr)">] 
+    new (arr: IList<'T>) = { }
+    
+    member this.Item with [<Inline "$this[$i]">] get (i: int) = X<'T>
 
-        Test "Generator" {
-            equal (Class1().Fibonacci() |> Seq.take 5 |> Array.ofSeq) [| 1; 1; 2; 3; 5 |]
-        }
+    [<Inline "$this.length">]
+    member this.Count = X<int>
 
-        Test "Async/Await" {
-            let! one = Class1().GetOneAsync() |> Async.AwaitTask
-            equal one 1 
-        }
-    }
+    interface seq<'T> with
+        [<Inline>]
+        member this.GetEnumerator() = As<System.Collections.IEnumerator>(((As<'T[]> this) :> seq<'T>).GetEnumerator())
+        [<Inline>]
+        member this.GetEnumerator() = ((As<'T[]> this) :> seq<'T>).GetEnumerator()
+
+
+    
+

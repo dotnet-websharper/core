@@ -28,7 +28,7 @@ open WebSharper.Sitelets.Tests.Client
 [<JavaScript>]
 let EntryPoint () =
     Console.Log("Loaded OK")
-    Span []
+    Elt("span", "")
 
 [<JavaScript>]
 let RunAllTests () =
@@ -37,4 +37,4 @@ let RunAllTests () =
     WebSharper.Collections.Tests.Main.RunTests()
     WebSharper.Html5.Tests.Tests |> ignore
     WebSharper.Web.Tests.Main.RunTests()
-    Span []
+    Elt("span", "")

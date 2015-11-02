@@ -10,6 +10,7 @@ type MemberScope =
 
 type RemotingKind =
     | RemoteAsync
+    | RemoteTask
     | RemoteSend
     | RemoteSync
 
@@ -615,6 +616,22 @@ type LookupFieldResult =
 
 type CompilationWarning =
     | PublicProxy of TypeDefinition
+    
+type MaybeBuilder() =
+
+    member this.Bind(x, f) = 
+        match x with
+        | None -> None
+        | Some a -> f a
+
+    member this.Return(x) = 
+        Some x
+
+    member this.ReturnFrom(x) = 
+        x
+
+   
+let maybe = new MaybeBuilder()
              
 type Compilation(meta: Metadata) =    
     let notResolvedInterfaces = Dictionary<TypeDefinition, NotResolvedInterface>()
@@ -639,6 +656,8 @@ type Compilation(meta: Metadata) =
     let errors = ResizeArray()
     let warnings = ResizeArray() 
 
+    let mutable hasMacroLoadError = false
+
     let macros = System.Collections.Generic.Dictionary<TypeDefinition, Macro option>()
 //    let generators = System.Collections.Generic.Dictionary<TypeDefinition, Generator>()
 
@@ -659,20 +678,59 @@ type Compilation(meta: Metadata) =
     member this.GetOrInitMacro(macro) =
         match macros.TryFind macro with
         | Some res -> res
-        | _ ->
+        | _ ->            
             let res =
-                try 
-                    let mt = System.Type.GetType(macro.Value.AssemblyQualifiedName)
-                    match mt.GetConstructor([|typeof<Compilation>|]) with
-                    | null -> mt.GetConstructor([||]).Invoke([||])
-                    | mctor -> mctor.Invoke([|this|])
-                    :?> WebSharper.Core.Macro
-                    |> Some
-                with _ ->                                                                      
-                    this.AddError(None, SourceError(sprintf "Failed to load macro type: '%s'" macro.Value.AssemblyQualifiedName))
-                    None 
+                maybe {
+                    let! mt =
+                        try                                                             
+                            match System.Type.GetType(macro.Value.AssemblyQualifiedName, true) with
+                            | null ->
+                                this.AddError(None, SourceError(sprintf "Failed to find macro type: '%s'" macro.Value.AssemblyQualifiedName))
+                                None
+                            | t -> Some t
+                        with e -> 
+                            this.AddError(None, SourceError(e.Message + e.StackTrace))
+                            this.AddError(None, SourceError(sprintf "Failed to load macro type: '%s'" macro.Value.AssemblyQualifiedName))
+                            None
+                    let! mctor, arg =
+                        match mt.GetConstructor([|typeof<Compilation>|]) with
+                        | null ->
+                            match mt.GetConstructor([||]) with
+                            | null -> 
+                                this.AddError(None, SourceError(sprintf "Macro does not have supported constructor: '%s'" macro.Value.AssemblyQualifiedName))
+                                None
+                            | mctor -> Some (mctor, [||]) 
+                        | mctor -> Some (mctor, [|box this|]) 
+                    let! inv =
+                        try mctor.Invoke(arg) |> Some
+                        with e ->
+                            this.AddError(None, SourceError(e.Message + e.StackTrace))
+                            this.AddError(None, SourceError(sprintf "Creating macro instance failed: '%s'" macro.Value.AssemblyQualifiedName))
+                            None
+                    return!
+                        try inv :?> WebSharper.Core.Macro |> Some
+                        with _ ->
+                            this.AddError(None, SourceError(sprintf "Macro type does not inherit from WebSharper.Core.Macro: '%s'" macro.Value.AssemblyQualifiedName))
+                            None 
+                } 
             macros.Add(macro, res)
             res
+//            let res =
+//                try 
+//                    let mt = System.Type.GetType(macro.Value.AssemblyQualifiedName)
+//                    match mt.GetConstructor([|typeof<Compilation>|]) with
+//                    | null -> mt.GetConstructor([||]).Invoke([||])
+//                    | mctor -> mctor.Invoke([|this|])
+//                    :?> WebSharper.Core.Macro
+//                    |> Some
+//                with e ->                                                                      
+//                    if not hasMacroLoadError then
+//                        this.AddError(None, SourceError(e.Message + e.StackTrace))
+//                        hasMacroLoadError <- true
+//                    this.AddError(None, SourceError(sprintf "Failed to load macro type: '%s'" macro.Value.AssemblyQualifiedName))
+//                    None 
+//            macros.Add(macro, res)
+//            res
 
     member this.DependencyMetadata = meta
 
@@ -776,7 +834,12 @@ type Compilation(meta: Metadata) =
         let typ = findProxied typ 
         compilingMethods.Remove(typ, meth) |> ignore
         let cls = classes.[typ]
-        cls.Methods.Add(meth, (info, comp))
+        match cls.Methods.TryFind meth with
+        | Some (_, Undefined)
+        | None ->    
+            cls.Methods.[meth] <- (info, comp)
+        | _ ->
+            failwith "Method already added"
 
     member this.AddCompiledConstructor(typ, ctor, info, comp) = 
         let typ = findProxied typ 
@@ -806,16 +869,24 @@ type Compilation(meta: Metadata) =
         let rec resolveInterface typ (nr: NotResolvedInterface) =
             let allMembers = HashSet()
             
+            let getInterface i =
+                match interfaces.TryFind i with
+                | Some i -> Some i
+                | _ ->
+                    if i <> sysObjDef then
+                        this.AddError(None, SourceError (sprintf "Failed to look up interface '%s'" i.Value.FullName)) 
+                    None
+
             let rec addInherited (n: InterfaceInfo) =
                 for i in n.Extends do
-                    addInherited interfaces.[i]
+                    getInterface i |> Option.iter addInherited
                 for m in n.Methods.Values do
                     if not (allMembers.Add m) then
                         failwith "Interface method name collision."
             
             for i in nr.Extends do
                 notResolvedInterfaces.TryFind i |> Option.iter (resolveInterface i)       
-                addInherited interfaces.[i]
+                getInterface i |> Option.iter addInherited
 //                match interfaces.TryFind i with
 //                | Some n -> addInherited n
 //                | _ -> failwith "Interface declaration or proxy not found."
@@ -830,7 +901,7 @@ type Compilation(meta: Metadata) =
                     resMethods.Add(m, n)
                 | _ -> ()
 
-            let intfName = typ.Value.FullName.Replace('.', '-').Replace('+', '-') + "-"
+            let intfName = typ.Value.FullName.Replace('.', '_').Replace('+', '_').Replace('`', '_') + "$"
 
             for m, n in nr.NotResolvedMethods do
                 match n with
@@ -909,12 +980,12 @@ type Compilation(meta: Metadata) =
                     match k with
                     | N.Override btyp ->
                         let mNode = graph.AddOrLookupNode(MethodNode(typ, meth))
-                        graph.AddEdge(mNode, AbstractMethodNode(btyp, meth))
+                        graph.AddEdge(mNode, AbstractMethodNode(findProxied btyp, meth))
                         graph.AddEdge(mNode, clsNodeIndex)
                         for req in reqs do
                             graph.AddEdge(mNode, ResourceNode req)
                     | N.Implementation intf ->
-                        let mNode = graph.AddOrLookupNode(ImplementationNode(typ, intf, meth))
+                        let mNode = graph.AddOrLookupNode(ImplementationNode(typ, findProxied intf, meth))
                         graph.AddEdge(mNode, clsNodeIndex)
                         for req in reqs do
                             graph.AddEdge(mNode, ResourceNode req)
@@ -1030,7 +1101,11 @@ type Compilation(meta: Metadata) =
                     | M.Constructor (cDef, nr) ->
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled then
-                            cc.Constructors.Add (cDef, (comp, addCctorCall typ cc nr.Body))
+                            try
+                                cc.Constructors.Add (cDef, (comp, addCctorCall typ cc nr.Body))
+                            with _ ->
+                                // TODO: report clashing proxies
+                                failwithf "duplicate definition for constructor of %s" typ.Value.FullName
                         else 
                             compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ cc nr.Body))      
                     | M.Method (mDef, nr) -> 
@@ -1039,14 +1114,23 @@ type Compilation(meta: Metadata) =
                             cc.Methods.Add (mDef, (comp, addCctorCall typ cc nr.Body))
                         else 
                             compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ cc nr.Body)) 
-                    | _ -> failwith "Fields ands static constructors are always named"     
+                    | _ -> failwith "Fields and static constructors are always named"     
                 | None, Some StaticMember ->
                     Dict.addToMulti remainingStaticMembers typ m
                 | None, Some InstanceMember ->
                     match m with
-                    | M.Method (mDef, { Kind = N.Override td }) ->
+                    | M.Method (mDef, ({ Kind = N.Override td } as nr)) ->
+                        let td, m = 
+                            match proxies.TryFind td with
+                            | Some p ->
+                                p, M.Method(mDef, { nr with Kind = N.Override p }) 
+                            | _ -> td, m
                         if td = sysObjDef then //|| td.Value.FullName = "WebSharper.Web.Control" then
-                            Dict.addToMulti namedInstanceMembers typ (m, mDef.Value.MethodName)
+                            let n = 
+                                match mDef.Value.MethodName with
+                                | "ToString" -> "toString"
+                                | n -> n
+                            Dict.addToMulti namedInstanceMembers typ (m, n)
                         else
                             Dict.addToMulti remainingInstanceMembers typ m
 //                        let n = 
@@ -1054,7 +1138,12 @@ type Compilation(meta: Metadata) =
 //                            | Instance n , _ -> n
 //                            | _ -> failwith "abstract methods must be Instance"
 //                        Dict.addToMulti namedInstanceMembers typ (m, n)
-                    | M.Method (mDef, { Kind = N.Implementation td }) ->
+                    | M.Method (mDef, ({ Kind = N.Implementation td } as nr)) ->
+                        let td, m = 
+                            match proxies.TryFind td with
+                            | Some p ->
+                                p, M.Method(mDef, { nr with Kind = N.Implementation p }) 
+                            | _ -> td, m
                         if td.Value.FullName = "System.Collections.Generic.IEnumerable`1" then
                             Dict.addToMulti namedInstanceMembers typ (m, "GetEnumerator")
                         else 
@@ -1138,7 +1227,11 @@ type Compilation(meta: Metadata) =
             nameStaticMember typ (Address addr) m
               
         for typ in remainingClasses do
-            let addr = typ.Value.FullName.Split('.') |> List.ofArray |> List.rev 
+            let removeGen (n: string) =
+                match n.LastIndexOf '`' with
+                | -1 -> n
+                | i -> n.[.. i - 1]
+            let addr = typ.Value.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
             r.ClassAddress(addr, Option.isSome classes.[typ].Address)
             |> setClassAddress typ
         
@@ -1221,14 +1314,25 @@ type Compilation(meta: Metadata) =
                         | M.Method (mDef, { Kind = N.Instance }) -> 
                             Resolve.getRenamed mDef.Value.MethodName pr
                         | M.Method (mDef, { Kind = N.Override td }) ->
-                            let tCls = classes.[td]
+                            // TODO : without exceptions
+                            let tCls = 
+                                try classes.[td]
+                                with _ ->
+//                                    System.IO.File.AppendAllLines (
+//                                        @"C:\repo\websharper.csharp\projectoptions.txt",
+//                                        [|
+//                                            yield sprintf "unable to find type: %s" td.Value.AssemblyQualifiedName
+//                                            for c in classes.Keys -> c.Value.AssemblyQualifiedName
+//                                        |]
+//                                    )
+                                    failwithf "Base type not found in compilation: %s" td.Value.AssemblyQualifiedName
                             let smi = 
                                 match tCls.Methods.TryFind mDef with
-                                | Some (smi, _) -> 
-                                    // remove abstract slot
-                                    if td = typ then tCls.Methods.Remove mDef |> ignore
-                                    smi
+                                | Some (smi, _) -> smi
                                 | _ ->
+                                let m = 
+                                    try compilingMethods.[td, mDef]
+                                    with _ -> failwithf "Abstract method not found in compilation: %s in %s" (Reflection.printMethod mDef.Value) td.Value.AssemblyQualifiedName
                                 match compilingMethods.[td, mDef] with
                                 | NotCompiled smi, _
                                 | NotGenerated (_, _, smi), _ -> smi

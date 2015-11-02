@@ -23,7 +23,6 @@
 /// sending/returning unions, lists, options, scalars and records.
 namespace WebSharper.Web.Tests
 
-#if TODO
 open System.Collections.Generic
 open WebSharper
 open WebSharper.JavaScript
@@ -33,7 +32,7 @@ open WebSharper.Sitelets.Tests.Json.Types
 
 [<JavaScript>]
 module ClientSideJson =
-
+(*
     let ClientTests =
         TestCategory "Client-side JSON" {
 
@@ -275,7 +274,7 @@ module ClientSideJson =
             }
 
         }
-
+*)
     let echo (url: string) (serializedArg: string) (decode: obj -> 't) : Async<'t> =
         Async.FromContinuations <| fun (ok, ko, _) ->
             JQuery.Ajax(
@@ -419,4 +418,3 @@ module ClientSideJson =
             }
 
         }
-#endif

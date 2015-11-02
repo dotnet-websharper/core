@@ -185,7 +185,7 @@ type AttributeReader<'A>() =
 //            | _ -> failwith "Incompatible attributes" // TODO : warning only, location
         let proxyOf = attrArr |> Array.tryPick (function A.Proxy p -> Some p | _ -> None) 
         {
-            ProxyOf = attrArr |> Array.tryPick (function A.Proxy p -> Some p | _ -> None)
+            ProxyOf = proxyOf
             IsJavaScript = Option.isSome proxyOf || attrArr |> Array.exists (function A.JavaScript -> true | _ -> false)
             IsStub = attrArr |> Array.exists (function A.Stub -> true | _ -> false)
             OptionalFields = attrArr |> Array.exists (function A.OptionalField -> true | _ -> false)

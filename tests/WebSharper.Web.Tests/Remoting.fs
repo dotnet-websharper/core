@@ -442,30 +442,31 @@ module Remoting =
                 equalAsync (Server.GetLoggedInUser()) None
             }
 
-            Test "M1" {
-                do! Server.resetM1()
-                do Remote<Server.IHandler>.M1()
-                do! Async.Sleep 200
-                equalAsync (Server.countM1()) 244
-            }
-
-            Test "M2" {
-                do! Server.resetM2()
-                do! Remote<Server.IHandler>.M2()
-                equalAsync (Server.countM2()) 368
-            }
-
-            Test "M3" {
-                equalAsync (Remote<Server.IHandler>.M3 40) 41
-            }
-
-            Test "M4" {
-                equalAsync (Remote<Server.IHandler>.M4 (1, 2)) 3
-            }
-
-            Test "M5" {
-                equalAsync (Remote<Server.IHandler>.M5 3 6) 9
-            }
+            // TODO : Remote interface methods
+//            Test "M1" {
+//                do! Server.resetM1()
+//                do Remote<Server.IHandler>.M1()
+//                do! Async.Sleep 200
+//                equalAsync (Server.countM1()) 244
+//            }
+//
+//            Test "M2" {
+//                do! Server.resetM2()
+//                do! Remote<Server.IHandler>.M2()
+//                equalAsync (Server.countM2()) 368
+//            }
+//
+//            Test "M3" {
+//                equalAsync (Remote<Server.IHandler>.M3 40) 41
+//            }
+//
+//            Test "M4" {
+//                equalAsync (Remote<Server.IHandler>.M4 (1, 2)) 3
+//            }
+//
+//            Test "M5" {
+//                equalAsync (Remote<Server.IHandler>.M5 3 6) 9
+//            }
 
             Test "reverse" {
                 equalAsync (Server.reverse "abc#quit;;") ";;tiuq#cba"
@@ -479,6 +480,10 @@ module Remoting =
                 equalAsync (Server.NullableToOption (System.Nullable 3)) (Some 3)
                 jsEqualAsync (Server.OptionToNullable None) (System.Nullable())
                 equalAsync (Server.OptionToNullable (Some 3)) (System.Nullable 3)
+            }
+
+            Test "Task remoting" {
+                isTrueAsync (WebSharper.CSharp.Tests.Class1().RemotingTest() |> Async.AwaitTask)
             }
 
         }

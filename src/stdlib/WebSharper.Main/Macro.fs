@@ -258,7 +258,7 @@ type FuncWithArgs() =
         | [func] ->
             match t.Generics.[0] with
             | TupleType _ ->
-                Application(globalAccess ["Runtime"; "CreateFuncWithArgs"], [ func ])
+                Application(runtimeCreateFuncWithArgs, [ func ])
             | _ ->
                 failwith "Wrong type argument on FuncWithArgs: 'TArgs must be a tuple"
         | _ ->
@@ -272,7 +272,7 @@ type FuncWithArgsRest() =
         | [func] ->
             match t.Generics.[0] with
             | TupleType ts ->
-                Application(globalAccess ["Runtime"; "CreateFuncWithArgsRest"], [ Value (Int (List.length ts)) ; func ])
+                Application(runtimeCreateFuncWithArgsRest, [ Value (Int (List.length ts)) ; func ])
             | _ ->
                 failwith "Wrong type argument on FuncWithArgsRest: 'TArgs must be a tuple"
         | _ ->
@@ -286,12 +286,12 @@ type FuncWithThis() =
         | [func] ->
             match t.Generics.[0] with
             | FSharpFuncType _ ->
-                Application(globalAccess ["Runtime"; "CreateFuncWithThis"], [ func ])
+                Application(runtimeCreateFuncWithThis, [ func ])
             | ConcreteType td when (
                     let n = td.Entity.Value.FullName
                     n = "WebSharper.JavaScript.Function" || n.StartsWith "WebSharper.JavaScript.FuncWith" 
                 ) ->
-                Application(globalAccess ["Runtime"; "CreateFuncWithThis"], [ func ])
+                Application(runtimeCreateFuncWithThis, [ func ])
             | _ ->
                 failwith "Wrong type argument on FuncWithThis: 'TFunc must be an F# function or JavaScript function type"
         | _ ->

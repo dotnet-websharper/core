@@ -27,4 +27,4 @@ module internal Disposable =
 
     [<JavaScript>]
     let Of (dispose: unit -> unit) : IDisposable =
-        New ["System-IDisposable-Dispose" => dispose]
+        New ["System_IDisposable$Dispose" => dispose]

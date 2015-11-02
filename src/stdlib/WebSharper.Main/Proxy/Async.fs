@@ -71,12 +71,22 @@ type private AsyncProxy =
     [<Inline>]
     [<JavaScript>]
     static member AwaitEvent(ev: IEvent<'D,'T>, ?t: unit -> unit) : Async<'T> =
-        As (C.AwaitEvent (As ev))
+        As (C.AwaitEvent (As ev) t)
+
+    [<Inline>]
+    [<JavaScript>]
+    static member AwaitTask(t : System.Threading.Tasks.Task) : Async<unit> =
+        As (C.AwaitTask t)
+
+    [<Inline>]
+    [<JavaScript>]
+    static member AwaitTask(t : System.Threading.Tasks.Task<'T>) : Async<'T> =
+        As (C.AwaitTask1 t)
 
     [<Inline>]
     [<JavaScript>]
     static member StartChild(a: Async<'T>, ?timeOut: int) : Async<Async<'T>> =
-        As (C.StartChild (As a))
+        As (C.StartChild (As a, timeOut))
 
     [<Inline>]
     [<JavaScript>]
@@ -87,6 +97,12 @@ type private AsyncProxy =
     [<JavaScript>]
     static member StartImmediate(c: Async<unit>, ?t: CT) : unit =
         C.Start (As c, As t)
+
+    [<Inline>]
+    [<JavaScript>]
+    static member StartAsTask (a: Async<'T>, ?opt :System.Threading.Tasks.TaskCreationOptions, ?t: CT) 
+        : System.Threading.Tasks.Task<'T> =
+        C.StartAsTask(As a, As t)        
 
     [<Inline>]
     [<JavaScript>]
@@ -137,6 +153,10 @@ type private CancellationTokenProxy =
     [<Inline>]
     member this.Register(callback: System.Action) =
         As<CTR> (C.Register (As this) callback.Invoke)
+
+    [<JavaScript>]
+    [<Inline>]
+    static member None = As<CT> C.noneCT
         
 [<Proxy(typeof<CTS>)>]
 [<Name "CancellationTokenSource">]

@@ -107,8 +107,8 @@ let normalAdd = Unchecked.defaultof<int * int -> int>
 [<Inline "function(){return function (a){ return a[0] + a[1]; }}">]
 let getTupledAdd = Unchecked.defaultof<unit -> int * int -> int>
 
-[<Inline "$f($x)">]
-let apply (f: 'T -> 'U) (x: 'T) = X<'U>
+//[<Inline "$f($x)">]
+//let apply (f: 'T -> 'U) (x: 'T) = X<'U>
 
 [<JavaScript>]
 let Tests =
@@ -192,7 +192,7 @@ let Tests =
         }
 
         Test "Inlines" {
-            equal (apply (getTupledAdd()) (1, 2)) 3
+            equal (getTupledAdd() (1, 2)) 3
             equal (addPair1 (1, 2)) 3
             equal (addPair2 (1, 2)) 3
             equal (addTriple1 (1, 2) 3) 6

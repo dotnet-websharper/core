@@ -33,6 +33,7 @@ type internal CompilerInput =
         References : list<string>
         RunInterfaceGenerator : bool
         IncludeSourceMap : bool
+        Sources : list<string> 
     }
 
 [<Sealed>]

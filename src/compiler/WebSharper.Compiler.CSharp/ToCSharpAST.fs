@@ -266,7 +266,7 @@ let rec transformExpression (env: Environment) (x: ExpressionData) : Expression 
         | ExpressionData.AnonymousFunctionExpression       x -> transformAnonymousFunctionExpression env x
         | ExpressionData.ParenthesizedExpression           x -> transformParenthesizedExpression env x
         | ExpressionData.PrefixUnaryExpression             x -> transformPrefixUnaryExpression env x
-        | ExpressionData.AwaitExpression                   x -> TODO() //transformAwaitExpression env x
+        | ExpressionData.AwaitExpression                   x -> transformAwaitExpression env x
         | ExpressionData.PostfixUnaryExpression            x -> transformPostfixUnaryExpression env x
         | ExpressionData.MemberAccessExpression            x -> transformMemberAccessExpression env x
         | ExpressionData.ConditionalAccessExpression       x -> transformConditionalAccessExpression env x
@@ -380,10 +380,10 @@ and transformStatement (env: Environment) (x: StatementData) : Statement =
         | StatementData.LabeledStatement          x -> transformLabeledStatement env x
         | StatementData.GotoStatement             x -> transformGotoStatement env x
         | StatementData.BreakStatement            x -> transformBreakStatement env x
-        | StatementData.ContinueStatement         x -> TODO() //transformContinueStatement env x
+        | StatementData.ContinueStatement         x -> transformContinueStatement env x
         | StatementData.ReturnStatement           x -> transformReturnStatement env x
-        | StatementData.ThrowStatement            x -> TODO() //transformThrowStatement env x
-        | StatementData.YieldStatement            x -> TODO() //transformYieldStatement env x
+        | StatementData.ThrowStatement            x -> transformThrowStatement env x
+        | StatementData.YieldStatement            x -> transformYieldStatement env x
         | StatementData.WhileStatement            x -> transformWhileStatement env x
         | StatementData.DoStatement               x -> transformDoStatement env x
         | StatementData.ForStatement              x -> transformForStatement env x
@@ -974,3 +974,24 @@ and transformImplicitArrayCreationExpression (env: Environment) (x: ImplicitArra
 and transformTypeOfExpression (env: Environment) (x: TypeOfExpressionData) : _ =
     let type_ = x.Type |> transformType env
     TODO()
+
+and transformAwaitExpression (env: Environment) (x: AwaitExpressionData) : _ =
+    let expression = x.Expression |> transformExpression env
+    Await expression
+
+and transformContinueStatement (env: Environment) (x: ContinueStatementData) : _ =
+    Continue None
+
+and transformThrowStatement (env: Environment) (x: ThrowStatementData) : _ =
+    let expression = x.Expression |> Option.map (transformExpression env)
+    match expression with
+    | Some e -> Throw e
+    | None -> Throw (Var env.Caught.Value)
+
+and transformYieldStatement (env: Environment) (x: YieldStatementData) : _ =
+    let expression = x.Expression |> Option.map (transformExpression env)
+    Yield expression
+//    match x.Kind with
+//    | YieldStatementKind.YieldReturnStatement -> TODO()
+//    | YieldStatementKind.YieldBreakStatement -> TODO()
+//    TODO()

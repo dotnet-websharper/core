@@ -8,6 +8,18 @@
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <TargetFrameworkProfile />
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <StartAction>Program</StartAction>
+    <StartProgram>C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild.exe</StartProgram>
+    <StartArguments>WebSharper.CSharp.Tests.csproj</StartArguments>
+    <StartWorkingDirectory>C:\repo\websharper.csharp\tests\WebSharper.CSharp.Tests</StartWorkingDirectory>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <StartAction>Program</StartAction>
+    <StartProgram>C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild.exe</StartProgram>
+    <StartArguments>WebSharper.CSharp.Tests.csproj</StartArguments>
+    <StartWorkingDirectory>C:\repo\websharper.csharp\tests\WebSharper.CSharp.Tests</StartWorkingDirectory>
+  </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>

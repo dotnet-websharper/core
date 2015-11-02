@@ -1456,8 +1456,9 @@ module TypedProviderInternals =
             AddTag = addTag info
             GetEncodedFieldName = fun t f ->
                 match (M.lookupFieldM info (AST.Reflection.getTypeDefinition t) f) with
-                | M.InstanceField n -> n
-                | _ -> failwith "field must be non-optional instance field" // TODO: optional?
+                | M.InstanceField n
+                | M.OptionalField n -> n
+                | _ -> failwith "field must be an instance field"
             GetUnionTag = defaultGetUnionTag
             EncodeUnionTag = defaultEncodeUnionTag
             GetEncodedUnionFieldName = fun _ i -> "$" + string i
@@ -1473,8 +1474,8 @@ module TypedProviderInternals =
             Pack = pack
         }
 
-    let culture = System.Globalization.CultureInfo.InvariantCulture
-    let dtstyle = System.Globalization.DateTimeStyles.None
+let culture = System.Globalization.CultureInfo.InvariantCulture
+let dtstyle = System.Globalization.DateTimeStyles.None
 
 type FormatOptions =
     {

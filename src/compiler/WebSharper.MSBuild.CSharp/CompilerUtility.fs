@@ -236,6 +236,7 @@ module CompilerJobModule =
                     assem.Write snk input.AssemblyFile
                     None
                 with e ->
+                    out.Add (CMErr1 (e.Message + e.StackTrace))
                     Some []
 
             match errors with

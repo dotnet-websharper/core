@@ -132,6 +132,7 @@ let makePayload (data: obj []) =
 type IRemotingProvider =
     abstract member Sync : string -> obj[] -> obj
     abstract member Async : string -> obj[] -> Async<obj>
+    abstract member Task : string -> obj[] -> System.Threading.Tasks.Task<obj>
     abstract member Send : string -> obj[] -> unit
 
 [<A.JavaScript>]
@@ -168,6 +169,9 @@ type AjaxRemotingProvider =
                         err e
                 AjaxProvider.Async EndPoint headers payload ok err)
         }
+
+    static member Task m data : System.Threading.Tasks.Task<obj> =
+        AjaxRemotingProvider.Async m data |> Async.StartAsTask   
 
     static member Send m data =
         Async.Start (Async.Ignore (AjaxRemotingProvider.Async m data))

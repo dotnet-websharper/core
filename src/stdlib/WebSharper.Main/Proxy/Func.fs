@@ -40,6 +40,11 @@ type private Action2Proxy<'T1, 'T2> =
     [<Inline "$this($x1, $x2)">]
     member this.Invoke(x1: 'T1, x2: 'T2) = ()
 
+[<Proxy(typeof<System.Func<_>>)>]
+type private Func1Proxy<'TResult> =
+    [<Inline "$this()">]
+    member this.Invoke() = X<'TResult>
+
 [<Proxy(typeof<System.Func<_,_>>)>]
 type private Func1Proxy<'T1, 'TResult> =
     [<Inline "$this($x1)">]

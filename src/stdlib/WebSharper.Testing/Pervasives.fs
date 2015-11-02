@@ -178,6 +178,12 @@ module private Runner =
                 return args
             })
 
+    let WithTimeout timeOut a = a // TODO: enable timeout
+//        async {
+//            let! child = Async.StartChild (a, timeOut)
+//            return! child
+//        }
+
 [<JavaScript>]
 type SubtestBuilder () =
 
@@ -230,7 +236,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
-            let! actual = actual args
+            let! actual = actual args 
             return asserter.Push((actual = expected), actual, expected)
         })
 
@@ -245,7 +251,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
-            let! actual = actual args
+            let! actual = actual args 
             return asserter.Push((actual = expected), actual, expected, message)
         })
 
@@ -288,7 +294,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
-            let! actual = actual args
+            let! actual = actual args 
             return asserter.Push((actual <> expected), actual, expected)
         })
 
@@ -303,7 +309,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
-            let! actual = actual args
+            let! actual = actual args 
             return asserter.Push((actual <> expected), actual, expected, message)
         })
 
@@ -342,7 +348,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
-            let! actual = actual args
+            let! actual = actual args 
             return asserter.Equal(actual, expected)
         })
 
@@ -357,7 +363,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
-            let! actual = actual args
+            let! actual = actual args 
             return asserter.Equal(actual, expected, message)
         })
 
@@ -396,7 +402,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
-            let! actual = actual args
+            let! actual = actual args 
             return asserter.DeepEqual(actual, expected)
         })
 
@@ -411,7 +417,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
-            let! actual = actual args
+            let! actual = actual args 
             return asserter.DeepEqual(actual, expected, message)
         })
 
@@ -454,7 +460,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
-            let! actual = actual args
+            let! actual = actual args 
             return asserter.Push(abs (actual - expected) < 0.0001, actual, expected)
         })
 
@@ -469,7 +475,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
-            let! actual = actual args
+            let! actual = actual args 
             return asserter.Push(abs (actual - expected) < 0.0001, actual, expected, message)
         })
 
@@ -512,7 +518,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
-            let! actual = actual args
+            let! actual = actual args 
             return asserter.Push(abs (actual - expected) > 0.0001, actual, expected)
         })
 
@@ -527,7 +533,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let expected = expected args
-            let! actual = actual args
+            let! actual = actual args 
             return asserter.Push(abs (actual - expected) > 0.0001, actual, expected, message)
         })
 
@@ -562,7 +568,7 @@ type SubtestBuilder () =
             [<ProjectionParameter>] value: 'A -> Async<bool>
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
-            let! value = value args
+            let! value = value args 
             return asserter.Ok(value)
         })
 
@@ -575,7 +581,7 @@ type SubtestBuilder () =
             message: string
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
-            let! value = value args
+            let! value = value args 
             return asserter.Ok(value, message)
         })
 
@@ -610,7 +616,7 @@ type SubtestBuilder () =
             [<ProjectionParameter>] value: 'A -> Async<bool>
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
-            let! value = value args
+            let! value = value args 
             return asserter.Ok(not value)
         })
 
@@ -623,7 +629,7 @@ type SubtestBuilder () =
             message: string
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
-            let! value = value args
+            let! value = value args 
             return asserter.Ok(not value, message)
         })
 
@@ -744,7 +750,7 @@ type SubtestBuilder () =
             [<ProjectionParameter>] value: 'A -> Async<'T>
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args ->
-            let value = value args
+            let value = value args 
             async {
                 try
                     let! _ = value
@@ -763,7 +769,7 @@ type SubtestBuilder () =
             message: string
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args ->
-            let value = value args
+            let value = value args 
             async {
                 try
                     let! _ = value
@@ -829,7 +835,7 @@ type TestBuilder (name: string) =
                     async {
                         try
                             try
-                                let! _ = asy
+                                let! _ = asy |> Runner.WithTimeout 1000 
                                 return ()
                             with e ->
                                 return asserter.Equal(e, null, "Test threw an unexpected asynchronous exception")

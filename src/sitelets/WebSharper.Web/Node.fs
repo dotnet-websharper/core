@@ -27,7 +27,7 @@ module M = WebSharper.Core.Metadata
 type INode =
     inherit IRequiresResources
 
-    abstract member Write : M.Info * HtmlTextWriter -> unit
+    abstract member Write : M.Metadata * HtmlTextWriter -> unit
 
     abstract member IsAttribute : bool
 

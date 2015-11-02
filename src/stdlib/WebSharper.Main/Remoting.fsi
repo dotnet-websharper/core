@@ -63,11 +63,14 @@ val mutable AjaxProvider : IAjaxProvider
 /// (see AjaxRemotingProvider)
 type IRemotingProvider =
 
-    /// Calls a remote method asynchronously.
+    /// Calls a remote method synchronously.
     abstract member Sync : string -> obj[] -> obj
 
-    /// Calls a remote method synchronously.
+    /// Calls a remote method asynchronously.
     abstract member Async : string -> obj[] -> Async<obj>
+
+    /// Calls a remote method asynchronously.
+    abstract member Task : string -> obj[] -> System.Threading.Tasks.Task<obj>
 
     /// Calls a remote method asynchronously and ignores the response.
     abstract member Send : string -> obj[] -> unit

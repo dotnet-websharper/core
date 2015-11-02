@@ -231,7 +231,6 @@ module Main =
             match Seq.toList args with
             | ["minify"] | ["prepare"] ->
                 Minify.Run()
-                Tags.Run()
             | ["package"] -> Package ()
             | _ ->
                 printfn "Known commands:"

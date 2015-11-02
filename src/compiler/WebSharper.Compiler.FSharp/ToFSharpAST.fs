@@ -52,6 +52,13 @@ type Environment =
 let rec getOrigDef (td: FSharpEntity) =
     if td.IsFSharpAbbreviation then getOrigDef td.AbbreviatedType.TypeDefinition else td 
 
+let mutable thisAssemblyName = "CurrentAssembly"
+
+let getSimpleName (a: FSharpAssembly) =
+    match a.FileName with
+    | None -> thisAssemblyName
+    | _ -> a.SimpleName
+
 let getTypeDefinition (td: FSharpEntity) =
     if td.IsArrayType then
         TypeDefinition {
@@ -62,7 +69,7 @@ let getTypeDefinition (td: FSharpEntity) =
     let td = getOrigDef td
     let res =
         {
-            Assembly = td.Assembly.SimpleName //td.Assembly.FileName |> Option.toObj
+            Assembly = getSimpleName td.Assembly 
             FullName = 
     //            try 
                     let res = td.QualifiedName.Split([|','|]).[0] 
@@ -106,7 +113,7 @@ module A = WebSharper.Compiler.AttributeReader
 
 type FSharpAttributeReader() =
     inherit A.AttributeReader<FSharpAttribute>()
-    override this.GetAssemblyName attr = attr.AttributeType.Assembly.SimpleName
+    override this.GetAssemblyName attr = getSimpleName attr.AttributeType.Assembly
     override this.GetName attr = attr.AttributeType.LogicalName
     override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map snd |> Array.ofSeq          
     override this.GetTypeDef o = getTypeDefinition (o :?> FSharpType).TypeDefinition
@@ -131,6 +138,9 @@ let isUnit (t: FSharpType) =
     let td = t.TypeDefinition
     if td.IsArrayType then false
     else td.FullName = "Microsoft.FSharp.Core.Unit" || td.FullName = "System.Void"
+
+let isOption (t: FSharpType) =
+    (getOrigType t).TypeDefinition.FullName.StartsWith "Microsoft.FSharp.Core.FSharpOption`1"
 
 let rec getType (tparams: Map<string, int>) (t: FSharpType) =
     if t.IsGenericParameter then
@@ -451,21 +461,20 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | BasicPatterns.LetRec(defs, body) ->
             let ids = defs |> List.map (fun (id, _) ->
                 let i = Id.New(id.DisplayName)
-            
                 env.AddVar(i, id)    
                 i      
             )
-            Sequential [ 
-                for i in ids -> NewVar(i, Undefined)
-                for i, (_, v) in Seq.zip ids defs -> VarSet(i, tr v)
-                yield tr body
-            ]
+//            Sequential [ 
+//                for i in ids -> NewVar(i, Undefined)
+//                for i, (_, v) in Seq.zip ids defs -> VarSet(i, tr v)
+//                yield tr body
+//            ]
 
-    //        LetRec (
-    //            Seq.zip ids defs 
-    //            |> Seq.map (fun (i, (_, value)) -> i, value |> transformExpression !env) |> List.ofSeq, 
-    //            body |> transformExpression !env
-    //        )
+            LetRec (
+                Seq.zip ids defs 
+                |> Seq.map (fun (i, (_, v)) -> i, tr v) |> List.ofSeq, 
+                tr body
+            )
         | BasicPatterns.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
             let td = getTypeDefinition meth.EnclosingEntity
             //let tparams = meth.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq        
@@ -543,14 +552,14 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 StatementExpr (TryFinally(ExprStatement(NewVar(res, tr body)), ExprStatement (tr final)))
                 Var res
             ]
-        | BasicPatterns.TryWith (body, var, filter, e, with_) ->
+        | BasicPatterns.TryWith (body, var, filter, e, catch) ->
             let err = Id.New e.DisplayName
             let res = Id.New ()
             Sequential [
                 StatementExpr (
                     TryWith(ExprStatement(NewVar(res, tr body)), 
                         Some err, 
-                        (ExprStatement (transformExpression (env.WithException(err, e)) with_))))
+                        (ExprStatement (VarSet(res, transformExpression (env.WithException(err, e)) catch)))))
                 Var res
             ]
         | BasicPatterns.NewArray (_, items) ->
@@ -626,14 +635,26 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 match getType env.TParams typ with
                 | ConcreteType ct -> ct
                 | _ -> failwith "Expected a record type"
-            NewObject (
-                t,
-                Seq.zip 
-                    // TODO : optional fields
-                    (typ.TypeDefinition.FSharpFields |> Seq.map (fun f -> f.Name))
-                    (items |> Seq.map tr)
+            
+            let fields =
+                typ.TypeDefinition.FSharpFields |> Seq.map (fun f -> 
+                    let typAnnot = attrReader.GetTypeAnnot(A.TypeAnnotation.Empty, typ.TypeDefinition.Attributes)
+                    let annot = attrReader.GetMemberAnnot(typAnnot, Seq.append f.FieldAttributes f.PropertyAttributes)
+                    
+                    match annot.Name with Some n -> n | _ -> f.Name
+                    , 
+                    annot.Kind = Some A.MemberKind.OptionalField && isOption f.FieldType
+                )
+                |> List.ofSeq
+            let obj = 
+                Seq.zip (fields) (items |> Seq.map tr)
+                |> Seq.map (fun ((name, opt), value) -> name, if opt then ItemGet(value, Value (String "$0")) else value)
                 |> List.ofSeq |> Object
-            )
+            let optFields = 
+                fields |> List.choose (fun (f, o) -> 
+                    if o then Some (Value (String f)) else None)
+            if List.isEmpty optFields then NewObject(t, obj) 
+            else Application (runtimeDeleteEmptyFields, [obj; NewArray optFields])
         | BasicPatterns.DecisionTree (matchValue, cases) ->
             let i = Id.New "matchIndex"
             let c = Id.New "matchCaptures"
@@ -744,3 +765,29 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         env.Compilation.AddError(Some (getSourcePos expr), Metadata.SourceError msg)
         WebSharper.Compiler.ToJavaScript.errorPlaceholder        
     |> withSourcePos expr
+
+let fixCtor expr =
+//    let errorId = ref None 
+    let rec trCtor inst =
+        match ignoreExprSourcePos inst with
+        | Ctor(t, c, a) ->
+            if t.Entity = sysObjDef then inst
+            // TODO: correct exception chaining
+            elif (let fn = t.Entity.Value.FullName in fn = "WebSharper.ExceptionProxy" || fn = "System.Exception") then 
+//                let e = Id.New "$error"
+//                errorId := Some e
+//                NewVar(e, Ctor(t, c, a) |> withSourcePosOfExpr inst)
+                match a with
+                | [] -> Undefined
+                | [msg] -> ItemSet(This, Value (String "message"), msg)
+                | _ -> failwith "Too many arguments for Error"
+            else
+                BaseCtor(This, t, c, a) |> withSourcePosOfExpr inst
+//        | Let (th, c, cc) when th.Name = Some "this" ->
+//            Sequential (c, cc)   
+        | e -> e 
+
+    match ignoreExprSourcePos expr with
+    | Sequential (inst :: rest) ->
+        Sequential (trCtor inst :: rest) |> withSourcePosOfExpr expr
+    | e -> trCtor e

@@ -59,6 +59,7 @@ module WebSharperTaskModule =
             WebSharperProject : string
             WebSharperSourceMap : bool
             WebSharperTypeScriptDeclaration : bool
+            Sources : ITaskItem []
         }
 
     type ProjectType =
@@ -196,6 +197,7 @@ module WebSharperTaskModule =
                                     None
                                 else Some settings.DocumentationFile
                             IncludeSourceMap = settings.WebSharperSourceMap
+                            Sources = [ for s in settings.Sources -> s.ItemSpec ]
                         }
                     for msg in out.Messages do
                         msg.SendTo(settings.Log)
@@ -351,6 +353,7 @@ type WebSharperTask() =
     member val WebSharperSourceMap = "" with get, set
     member val WebSharperTypeScriptDeclaration = "" with get, set
     member val DocumentationFile = "" with get, set
+    member val Sources : ITaskItem [] = Array.empty with get, set
 
     [<Required>]
     member val Command = "" with get, set
@@ -366,14 +369,33 @@ type WebSharperTask() =
             this.ItemInput
             |> Seq.map (fun i -> i.ItemSpec)
             |> Seq.append (Directory.GetFiles(BaseDir, "*.dll"))
-            |> Seq.map (fun i -> Path.GetFileNameWithoutExtension(i), i)
-            |> Seq.filter (fst >> (<>) this.Name)
+            |> Seq.map (fun i -> 
+                let n = Path.GetFileNameWithoutExtension(i)
+                if n = this.Name then
+                    File.Copy(i, i + ".orig", true)
+                    n, i + ".orig"
+                else
+                    n, i
+            )
+//            |> Seq.filter (fst >> (<>) this.Name)
             |> Map.ofSeq
+//        System.IO.File.AppendAllLines (
+//            @"C:\repo\websharper.csharp\projectoptions.txt",
+//            [|
+//                yield "referencedAsmNames:"
+//                for (KeyValue (n, f)) in referencedAsmNames -> n + " -> " + f
+//            |]
+//        )
         System.AppDomain.CurrentDomain.add_AssemblyResolve(fun sender e ->
             let assemblyName = AssemblyName(e.Name).Name
             match Map.tryFind assemblyName referencedAsmNames with
             | None -> null
-            | Some p -> System.Reflection.Assembly.LoadFrom(p)
+            | Some p -> 
+//                if assemblyName = this.Name then
+//                    System.Reflection.Assembly.LoadFrom(p + ".copy")
+//                else
+////                    printfn "Loaded: %s" p
+                    System.Reflection.Assembly.LoadFrom(p)
         )
 
     override this.Execute() =
@@ -410,5 +432,6 @@ type WebSharperTask() =
                 WebSharperProject = NotNull "" this.WebSharperProject
                 WebSharperSourceMap = bool this.WebSharperSourceMap
                 WebSharperTypeScriptDeclaration = bool this.WebSharperTypeScriptDeclaration
+                Sources = this.Sources
             }
         with _ -> true

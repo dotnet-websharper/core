@@ -20,7 +20,7 @@
 
 namespace WebSharper.Sitelets.Tests
 
-    open WebSharper
+open WebSharper
 
 module Client =
     open WebSharper.JavaScript
@@ -227,8 +227,8 @@ module SampleSite =
                         Elt("i", Text "password"),
                         Text "'."
                     )
-                        new Client.LoginControl(redirectLink)
-                    ]
+                    new Client.LoginControl(redirectLink)
+                ]
 
         /// A simple page that users must log in to view.
         let ProtectedPage =

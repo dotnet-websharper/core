@@ -28,7 +28,7 @@ module private WebSharper.UncheckedProxy
 
 open WebSharper.JavaScript
 
-[<Inline "$a.CompareTo($b)">]
+[<Inline "$a.System_IComparable$CompareTo($b)">]
 let compareTo (a: obj) (b: obj) = X<int>
 
 [<Inline "$a instanceof Array">]
@@ -89,7 +89,7 @@ let Compare<'T> (a: 'T) (b: 'T) : int =
         | JS.Object ->
             if a ===. null then -1
             elif b ===. null then 1
-            elif JS.In "CompareTo" a then compareTo a b
+            elif JS.In "System_IComparable$CompareTo" a then compareTo a b
             elif isArray a && isArray b then compareArrays (As a) (As b)
             elif isDate a && isDate b then compareDates a b
             else objCompare a b

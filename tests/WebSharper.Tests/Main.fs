@@ -53,6 +53,7 @@ let RunTests() =
         Seq.Tests
         Stack.Tests
         String.Tests
+        Task.Tests
         TimeSpan.Tests
 //        Printf.Tests
         Tupled.Tests

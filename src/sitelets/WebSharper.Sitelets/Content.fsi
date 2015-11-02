@@ -156,7 +156,8 @@ module Content =
         {
             AppPath : string
             Json : Core.Json.Provider
-            Meta : Core.Metadata.Info
+            Meta : Core.Metadata.Metadata
+            Graph : Core.Metadata.Graph 
             ResourceContext : Core.Resources.Context
         }
 

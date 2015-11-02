@@ -8,8 +8,6 @@
     <Name>WebSharper.Main</Name>
     <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
-  <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/WebSharper.Internal.targets" />
   <ItemGroup>
     <Compile Include="JavaScript.fs" />
     <EmbeddedResource Include="Json.js" />
@@ -76,6 +74,7 @@
     <Compile Include="Proxy/SeqModule.fs" />
     <Compile Include="Proxy/Stack.fs" />
     <Compile Include="Proxy/String.fs" />
+    <Compile Include="Proxy/Task.fs" />
     <Compile Include="Proxy/TimeSpan.fs" />
     <Compile Include="Proxy/Unchecked.fs" />
   </ItemGroup>

@@ -181,6 +181,8 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
         let methods = Dictionary()
         let constructors = Dictionary()
 
+        let mutable address = None
+
         for meth in typ.Methods do
             let inlAttr = 
                 meth.CustomAttributes |> 
@@ -213,6 +215,13 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
                     for req in getRequires meth.CustomAttributes do
                         graph.AddEdge(cNode, ResourceNode req)
                     constructors.Add(cdef, (Inline, parsed))
+                    
+                    // TODO: better recognise inlines
+                    if address = None then
+                        match parsed with
+                        | New (GlobalAccess a, []) -> address <- Some a
+                        | Let (i1, _, New (GlobalAccess a, [Var v1])) when i1 = v1 -> address <- Some a
+                        | _ -> ()
                 else 
                     let mdef =
                         Hashed {
@@ -232,7 +241,7 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
 
         Some (def, 
             {
-                Address = None
+                Address = address
                 BaseClass = baseDef
                 Constructors = constructors
                 Fields = Map.empty 

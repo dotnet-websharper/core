@@ -84,7 +84,7 @@ let RestorePackages () =
         nuget "install AjaxMin -version 5.8.5172.27710 -o packages -excludeVersion"
         nuget "install FsNuGet -o packages -excludeVersion -nocache"
         nuget "install Microsoft.CodeAnalysis.CSharp.Workspaces -version 1.0.0 -o packages -excludeVersion"
-        nuget "install FSharp.Compiler.Service -version 1.4.0.4 -o packages -excludeVersion"
+        nuget "install FSharp.Compiler.Service -version 1.4.2.1 -o packages -excludeVersion"
 
 [<EntryPoint>]
 let Start args =

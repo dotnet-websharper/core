@@ -388,7 +388,7 @@ type WebSharperTask() =
                 match s with
                 | null | "" -> false
                 | t when t.ToLower() = "true" -> true
-                | _ -> false
+                | _ -> false                                   
             Execute {
                 Command = this.Command
                 Configuration = NotNull "Release" this.Configuration

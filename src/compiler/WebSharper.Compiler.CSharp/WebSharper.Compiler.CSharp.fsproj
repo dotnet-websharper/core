@@ -61,6 +61,7 @@
     <Compile Include="Utilities.fs" />
     <Compile Include="RoslynHelpers.fs" />
     <Compile Include="ToCSharpAST.fs" />
+    <Compile Include="Continuation.fs" />
     <Compile Include="Translator.fs" />
     <Compile Include="Main.fs" />
     <None Include="genHelpers.fsx" />

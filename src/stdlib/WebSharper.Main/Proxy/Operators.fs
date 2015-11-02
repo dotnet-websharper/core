@@ -231,6 +231,9 @@ let Increment (x: ref<int>) = ()
 [<Inline "Infinity">]
 let Infinity = Unchecked.defaultof<double>
 
+[<JavaScript>]
+let InvalidOp (msg: string) : 'T = raise (System.InvalidOperationException(msg))
+
 [<Inline "($x << 0)">]
 let ToInt (x: 'T) = X<int>
 
@@ -286,7 +289,7 @@ let Pown<'T> (a: 'T) (n: int) =
             a * (p (n - 1))
     p n
 
-[<Direct "throw $e">]
+[<Inline "throw $e">]
 let Raise (e: exn) = X<'T>
 
 [<Inline "[$x]">]

@@ -16,8 +16,11 @@ type private StartupCode = ResizeArray<Statement> * HashSet<string>
 
 type private N = NotResolvedMemberKind
 
+type private SourceMemberOrEntity =
+    | SourceMember of FSMFV * list<list<FSMFV>> * FSharpExpr
+    | SourceEntity of FSharpEntity * ResizeArray<SourceMemberOrEntity>
+
 let transformInterface (intf: FSharpEntity) =
-    if not intf.IsInterface then None else
     let methodNames = ResizeArray()
     let annot =
         ToFSharpAST.attrReader.GetTypeAnnot(A.TypeAnnotation.Empty, intf.Attributes) // TODO inherited attributes
@@ -43,12 +46,12 @@ let transformInterface (intf: FSharpEntity) =
 
 let remotingCode = ref -1 
 
-let transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (cls: FSharpEntity) members =
-    if not (cls.IsClass || cls.IsFSharpExceptionDeclaration || cls.IsFSharpModule || cls.IsFSharpRecord || cls.IsFSharpUnion) then None else
+let isILClass (e: FSharpEntity) =
+    e.IsClass || e.IsFSharpExceptionDeclaration || e.IsFSharpModule || e.IsFSharpRecord || e.IsFSharpUnion
 
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) parentAnnot (cls: FSharpEntity) members =
     let annot = 
-        // TODO nested
-        ToFSharpAST.attrReader.GetTypeAnnot(A.TypeAnnotation.Empty, cls.Attributes)
+        ToFSharpAST.attrReader.GetTypeAnnot(parentAnnot, cls.Attributes)
 
     let clsMembers = ResizeArray()
 
@@ -103,165 +106,184 @@ let transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (cls: FSharpE
 
     let unionOrRecord = cls.IsFSharpUnion || cls.IsFSharpRecord
 
-    for (meth: FSMFV, args: list<list<FSMFV>>, expr: FSharpExpr) in members do
-        
-        if meth.IsProperty || (unionOrRecord && meth.IsCompilerGenerated) then () else
-        let mAnnot = ToFSharpAST.attrReader.GetMemberAnnot(annot, meth.Attributes)
+    for m in members do
+        match m with
+        | SourceMember (meth, args, expr) ->        
+            if meth.IsProperty || (unionOrRecord && meth.IsCompilerGenerated) then () else
+            let mAnnot = ToFSharpAST.attrReader.GetMemberAnnot(annot, meth.Attributes)
             
-        let getArgsAndThis() =
-            let a, t =
-                args |> List.concat
-                |> function
-                | t :: r when t.IsMemberThisValue || t.IsConstructorThisValue -> r, Some t
-                | a -> a, None
+            let getArgsAndThis() =
+                let a, t =
+                    args |> List.concat
+                    |> function
+                    | t :: r when (t.IsMemberThisValue || t.IsConstructorThisValue) && not meth.IsExtensionMember -> r, Some t
+                    | a -> a, None
 
-            a
-            |> function 
-            | [ u ] when ToFSharpAST.isUnit u.FullType -> []
-            | a -> a
-            , t
+                a
+                |> function 
+                | [ u ] when ToFSharpAST.isUnit u.FullType -> []
+                | a -> a
+                , t
 
-        let getVarsAndThis() =
-            let a, t = getArgsAndThis()
-            a |> List.map (fun p -> Id.New p.CompiledName),
-            t |> Option.map (fun p -> Id.New p.CompiledName)
-               
-        match mAnnot.Kind with
-        | Some A.MemberKind.Stub -> ()
-        | Some A.MemberKind.Remote -> 
-            let def = ToFSharpAST.getMember meth
-            match def with
-            | Member.Method (isInstance, mdef) ->
-                let memberScope =
-                    if isInstance then InstanceMember else StaticMember
-                let remotingKind =
-                    match mdef.Value.ReturnType with
-                    | VoidType -> RemoteSend
-                    | ConcreteType { Entity = e } when e.Value.FullName = "Microsoft.FSharp.Control.FSharpAsync`1" -> RemoteAsync
-                    | _ -> RemoteSync // TODO: warning
-                incr remotingCode
-                let methodHandle =
-                    {
-                        Assembly = comp.AssemblyName
-                        Code = !remotingCode
-                    }
-                addMethod mAnnot mdef (N.Remote(memberScope, remotingKind, methodHandle)) true Undefined
-            | _ -> failwith "Only methods can be defined Remote"
-        | Some kind ->
-            let def = ToFSharpAST.getMember meth
-//            let isModuleValue = ref false
-            let getBody isInline = 
+            let getVarsAndThis() =
                 let a, t = getArgsAndThis()
+                a |> List.map (fun p -> Id.New p.CompiledName),
+                t |> Option.map (fun p -> Id.New p.CompiledName)
+               
+            match mAnnot.Kind with
+            | Some A.MemberKind.Stub -> ()
+            | Some A.MemberKind.Remote -> 
+                match ToFSharpAST.getMember meth with
+                | Member.Method (isInstance, mdef) ->
+                    let memberScope =
+                        if isInstance then InstanceMember else StaticMember
+                    let remotingKind =
+                        match mdef.Value.ReturnType with
+                        | VoidType -> RemoteSend
+                        | ConcreteType { Entity = e } when e.Value.FullName = "Microsoft.FSharp.Control.FSharpAsync`1" -> RemoteAsync
+                        | ConcreteType { Entity = e } when e.Value.FullName.StartsWith "System.Threading.Tasks.Task" -> RemoteTask
+                        | _ -> RemoteSync // TODO: warning
+                    incr remotingCode
+                    let methodHandle =
+                        {
+                            Assembly = comp.AssemblyName
+                            Code = !remotingCode
+                        }
+                    addMethod mAnnot mdef (N.Remote(memberScope, remotingKind, methodHandle)) true Undefined
+                | _ -> failwith "Only methods can be defined Remote"
+            | Some kind ->
+                let memdef = ToFSharpAST.getMember meth
+    //            let isModuleValue = ref false
+                let getBody isInline = 
+                    let a, t = getArgsAndThis()
 
-                let argsAndVars = a |> List.map (fun p -> p, Id.New p.CompiledName)
-                let env = ToFSharpAST.Environment.New (argsAndVars, meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq, comp)  
-                let res =
-                    let b = ToFSharpAST.transformExpression env expr |> FixThisScope().Fix       
-                    //let fix b = b |> FixThisScope().TransformExpression
-                    // TODO : startupcode only for module values
-                    if List.isEmpty args then 
-//                        isModuleValue := true
-                        if isInline then
-                            b
+                    let argsAndVars = a |> List.map (fun p -> p, Id.New p.CompiledName)
+                    let env = ToFSharpAST.Environment.New (argsAndVars, meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq, comp)  
+                    let res =
+                        let b = ToFSharpAST.transformExpression env expr 
+                        let b = 
+                            match memdef with
+                            | Member.Constructor _ -> ToFSharpAST.fixCtor b
+                            | _ -> b
+                        let b = FixThisScope().Fix(b)      
+                        //let fix b = b |> FixThisScope().TransformExpression
+                        // TODO : startupcode only for module values
+                        if List.isEmpty args then 
+    //                        isModuleValue := true
+                            if isInline then
+                                b
+                            else
+                                let scDef, (scContent, scFields) = sc.Value   
+                                let name = Resolve.getRenamed meth.CompiledName scFields
+                                scContent.Add (ExprStatement (ItemSet(Self, Value (String name), b)))
+                                Function([],
+                                    Block [ 
+                                        ExprStatement(Cctor scDef)
+                                        Return (
+                                            if meth.IsMutable then
+                                                ToFSharpAST.makeByref (FieldGet(None, concrete(scDef, []), name)) (fun value -> FieldSet(None, concrete(scDef, []), name, value))
+                                            else
+                                                (FieldGet(None, concrete(scDef, []), name))
+                                        )
+                                    ]
+                                )
                         else
-                            let scDef, (scContent, scFields) = sc.Value   
-                            let name = Resolve.getRenamed meth.CompiledName scFields
-                            scContent.Add (ExprStatement (ItemSet(Self, Value (String name), b)))
-                            Function([],
-                                Block [ 
-                                    ExprStatement(Cctor scDef)
-                                    Return (
-                                        if meth.IsMutable then
-                                            ToFSharpAST.makeByref (FieldGet(None, concrete(scDef, []), name)) (fun value -> FieldSet(None, concrete(scDef, []), name, value))
-                                        else
-                                            (FieldGet(None, concrete(scDef, []), name))
-                                    )
-                                ]
-                            )
-                    else
-                        let vars = argsAndVars |> List.map snd
-                        let thisVar = t |> Option.map (fun p -> Id.New p.CompiledName)
-                        if isInline then
-                            List.foldBack (fun (v, h) body ->
-                                Let (v, h, body)    
-                            ) (Option.toList thisVar @ vars |> List.mapi (fun i a -> a, Hole i)) (ReplaceThisWithHole0().TransformExpression(b))
-                        else 
-                            Function(vars, Return b)
-                res
-            match def with
-            | Member.Method (_, mdef) 
-            | Member.Override (_, mdef) 
-            | Member.Implementation (_, mdef) ->
-                let getKind() =
-                    match def with
-                    | Member.Method (isInstance , _) ->
-                        if isInstance then N.Instance else N.Static  
-                    | Member.Override (t, _) -> N.Override t 
-                    | Member.Implementation (t, _) -> N.Implementation t
-                let jsMethod isInline =
-                    let kind = if isInline then N.Inline else getKind()
-                    let body = getBody isInline
-                    addMethod mAnnot mdef kind false body
-                    // TODO: only one definition added, this is a workaround for C# compatibility
-//                    if !isModuleValue then   
-                    if List.isEmpty args && meth.EnclosingEntity.IsFSharpModule then
-                        addMethod { mAnnot with Name = None } (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) kind false body    
-                let checkNotAbstract() =
-                    if meth.IsDispatchSlot then
-                        failwith "Asctract methods cannot be marked with Inline or Macro."
-                match kind with
-                | A.MemberKind.Macro (m, p, f) -> // TODO macro fallback
-                    checkNotAbstract()
-                    addMethod mAnnot mdef N.NoFallback true Undefined
-                | A.MemberKind.Inline js ->
-                    checkNotAbstract() 
-                    let vars, thisVar = getVarsAndThis()
-                    let parsed = WebSharper.Compiler.Recognize.createInline thisVar vars js
-                    addMethod mAnnot mdef N.Inline true parsed
-                    // TODO: only one definition added, this is a workaround for C# compatibility
-                    if List.isEmpty args && meth.EnclosingEntity.IsFSharpModule then
-                        addMethod mAnnot (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) N.Inline true parsed    
-                | A.MemberKind.Direct js ->
-                    let vars, thisVar = getVarsAndThis()
-                    let parsed = WebSharper.Compiler.Recognize.parseDirect thisVar vars js
-                    addMethod mAnnot mdef (getKind()) true parsed
-                | A.MemberKind.JavaScript ->
-                    jsMethod false
-                | A.MemberKind.InlineJavaScript ->
-                    checkNotAbstract()
-                    jsMethod true
-                | A.MemberKind.OptionalField ->
-                    if meth.IsPropertyGetterMethod then
-                        let i = ItemGet(This, Value (String meth.CompiledName.[4..]))   // TODO optional
-                        addMethod mAnnot mdef N.Inline true i
-                    elif meth.IsPropertySetterMethod then  
-                        let i = ItemSet(This, Value (String meth.CompiledName.[4..]), Hole 0)   // TODO optional
-                        addMethod mAnnot mdef N.Inline true i
-                    else failwith "OptionalField attribute not on property"
-                | _ -> failwith "invalid method kind"
-            | Member.Constructor cdef ->
-                let jsCtor isInline =   
-                        if isInline then 
-                            addConstructor mAnnot cdef N.Inline false (getBody true)
-                        else
-                            addConstructor mAnnot cdef N.Constructor false (getBody false)
-                match kind with
-                | A.MemberKind.Macro (m, p, f) ->
-                    addConstructor mAnnot cdef N.NoFallback true Undefined
-                | A.MemberKind.Inline js ->
-                    let vars, thisVar = getVarsAndThis()
-                    let parsed = WebSharper.Compiler.Recognize.createInline thisVar vars js
-                    addConstructor mAnnot cdef N.Inline true parsed 
-                | A.MemberKind.Direct js ->
-                    let vars, thisVar = getVarsAndThis()
-                    let parsed = WebSharper.Compiler.Recognize.parseDirect thisVar vars js
-                    addConstructor mAnnot cdef N.Static true parsed 
-                | A.MemberKind.JavaScript -> jsCtor false
-                | A.MemberKind.InlineJavaScript -> jsCtor true
-                | _ -> failwith "invalid method kind"
-            | Member.StaticConstructor ->
-                clsMembers.Add (NotResolvedMember.StaticConstructor (getBody false))
-        | _ -> ()
+                            let vars = argsAndVars |> List.map snd
+                            let thisVar = t |> Option.map (fun p -> Id.New p.CompiledName)
+                            if isInline then
+                                List.foldBack (fun (v, h) body ->
+                                    Let (v, h, body)    
+                                ) (Option.toList thisVar @ vars |> List.mapi (fun i a -> a, Hole i)) (ReplaceThisWithHole0().TransformExpression(b))
+                            else 
+                                Function(vars, Return b)
+                    res
+                match memdef with
+                | Member.Method (_, mdef) 
+                | Member.Override (_, mdef) 
+                | Member.Implementation (_, mdef) ->
+                    // remove abstract slot
+//                    let abstractOpt = 
+//                        clsMembers |> Seq.tryFind (fun m ->
+//                            match m with
+//                            | NotResolvedMember.Method (d, _) when d = mdef -> true
+//                            | _ -> false
+//                        )
+//                    abstractOpt |> Option.iter (clsMembers.Remove >> ignore)
+                    let getKind() =
+                        match memdef with
+                        | Member.Method (isInstance , _) ->
+                            if isInstance then N.Instance else N.Static  
+                        | Member.Override (t, _) -> N.Override t 
+                        | Member.Implementation (t, _) -> N.Implementation t
+                        | _ -> failwith "impossible"
+                    let jsMethod isInline =
+                        let kind = if isInline then N.Inline else getKind()
+                        let body = getBody isInline
+                        addMethod mAnnot mdef kind false body
+                        // TODO: only one definition added, this is a workaround for C# compatibility
+    //                    if !isModuleValue then   
+                        if List.isEmpty args && meth.EnclosingEntity.IsFSharpModule then
+                            addMethod { mAnnot with Name = None } (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) kind false body    
+                    let checkNotAbstract() =
+                        if meth.IsDispatchSlot then
+                            failwith "Asctract methods cannot be marked with Inline or Macro."
+                    match kind with
+                    | A.MemberKind.Macro (m, p, f) -> // TODO macro fallback
+                        checkNotAbstract()
+                        addMethod mAnnot mdef N.NoFallback true Undefined
+                    | A.MemberKind.Inline js ->
+                        checkNotAbstract() 
+                        let vars, thisVar = getVarsAndThis()
+                        let parsed = WebSharper.Compiler.Recognize.createInline thisVar vars js
+                        addMethod mAnnot mdef N.Inline true parsed
+                        // TODO: only one definition added, this is a workaround for C# compatibility
+                        if List.isEmpty args && meth.EnclosingEntity.IsFSharpModule then
+                            addMethod mAnnot (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) N.Inline true parsed    
+                    | A.MemberKind.Direct js ->
+                        let vars, thisVar = getVarsAndThis()
+                        let parsed = WebSharper.Compiler.Recognize.parseDirect thisVar vars js
+                        addMethod mAnnot mdef (getKind()) true parsed
+                    | A.MemberKind.JavaScript ->
+                        jsMethod false
+                    | A.MemberKind.InlineJavaScript ->
+                        checkNotAbstract()
+                        jsMethod true
+                    | A.MemberKind.OptionalField ->
+                        if meth.IsPropertyGetterMethod then
+                            let i = Application (runtimeGetOptional, [ItemGet(Hole 0, Value (String meth.CompiledName.[4..]))])
+                            //ItemGet(Hole 0, Value (String meth.CompiledName.[4..]))   // TODO optional
+                            addMethod mAnnot mdef N.Inline true i
+                        elif meth.IsPropertySetterMethod then  
+                            let i = Application (runtimeSetOptional, [Hole 0; Value (String meth.CompiledName.[4..]); Hole 1])
+//                            let i = ItemSet(Hole 0, Value (String meth.CompiledName.[4..]), Hole 1)   // TODO optional
+                            addMethod mAnnot mdef N.Inline true i
+                        else failwith "OptionalField attribute not on property"
+                    | _ -> failwith "invalid method kind"
+                | Member.Constructor cdef ->
+                    let jsCtor isInline =   
+                            if isInline then 
+                                addConstructor mAnnot cdef N.Inline false (getBody true)
+                            else
+                                addConstructor mAnnot cdef N.Constructor false (getBody false)
+                    match kind with
+                    | A.MemberKind.Macro (m, p, f) ->
+                        addConstructor mAnnot cdef N.NoFallback true Undefined
+                    | A.MemberKind.Inline js ->
+                        let vars, thisVar = getVarsAndThis()
+                        let parsed = WebSharper.Compiler.Recognize.createInline thisVar vars js
+                        addConstructor mAnnot cdef N.Inline true parsed 
+                    | A.MemberKind.Direct js ->
+                        let vars, thisVar = getVarsAndThis()
+                        let parsed = WebSharper.Compiler.Recognize.parseDirect thisVar vars js
+                        addConstructor mAnnot cdef N.Static true parsed 
+                    | A.MemberKind.JavaScript -> jsCtor false
+                    | A.MemberKind.InlineJavaScript -> jsCtor true
+                    | _ -> failwith "invalid method kind"
+                | Member.StaticConstructor ->
+                    clsMembers.Add (NotResolvedMember.StaticConstructor (getBody false))
+            | _ -> ()
+        | SourceEntity (ent, nmembers) ->
+            transformClass sc comp annot ent nmembers |> Option.iter comp.AddClass   
 
     for f in cls.FSharpFields do
         let mAnnot = ToFSharpAST.attrReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
@@ -269,7 +291,7 @@ let transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (cls: FSharpE
             {
                 StrongName = mAnnot.Name
                 IsStatic = f.IsStatic
-                IsOptional = mAnnot.Kind = Some A.MemberKind.OptionalField 
+                IsOptional = mAnnot.Kind = Some A.MemberKind.OptionalField && ToFSharpAST.isOption f.FieldType
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
 
@@ -299,7 +321,8 @@ let transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (cls: FSharpE
     )
 
 let transformAssembly (refMeta : Metadata) assemblyName (checkResults: FSharpCheckProjectResults) =   
-    
+    ToFSharpAST.thisAssemblyName <- assemblyName
+
     let comp = Compilation(refMeta)
 
     let asmAnnot = 
@@ -310,14 +333,15 @@ let transformAssembly (refMeta : Metadata) assemblyName (checkResults: FSharpChe
     comp.SiteletDefinition <- asmAnnot.SiteletDefinition
                                              
     for file in checkResults.AssemblyContents.ImplementationFiles do
+        let fileName =
+            lazy
+            match file.Declarations.Head with
+            | FSIFD.Entity (a, _) -> a.DeclarationLocation.FileName
+            | FSIFD.MemberOrFunctionOrValue (_, _, c) -> c.Range.FileName
+            | FSIFD.InitAction a -> a.Range.FileName
         let sc =
             lazy
-            let fileName =
-                match file.Declarations.Head with
-                | FSIFD.Entity (a, _) -> a.DeclarationLocation.FileName
-                | FSIFD.MemberOrFunctionOrValue (_, _, c) -> c.Range.FileName
-                | FSIFD.InitAction a -> a.Range.FileName
-            let name = "StartupCode$" + assemblyName.Replace('.', '_') + "$" + (System.IO.Path.GetFileNameWithoutExtension fileName).Replace('.', '_')
+            let name = "StartupCode$" + assemblyName.Replace('.', '_') + "$" + (System.IO.Path.GetFileNameWithoutExtension fileName.Value).Replace('.', '_')
             let def =
                 TypeDefinition {
                     Assembly = assemblyName
@@ -326,27 +350,43 @@ let transformAssembly (refMeta : Metadata) assemblyName (checkResults: FSharpChe
             def, 
             (ResizeArray(), HashSet() : StartupCode)
 
-        let typesWithMembers = Dictionary<FSharpEntity, ResizeArray<_>>()
-        let rec getTypesWithMembers (sc: Lazy<_ * StartupCode>) d =
+        let topLevelTypes = ResizeArray<FSharpEntity * ResizeArray<SourceMemberOrEntity>>()
+        let types = Dictionary<FSharpEntity, ResizeArray<SourceMemberOrEntity>>()
+        let interfaces = ResizeArray<FSharpEntity>()
+        let rec getTypesWithMembers parentMembers (sc: Lazy<_ * StartupCode>) d =
             match d with
             | FSIFD.Entity (a, b) ->
                 if not a.IsFSharpAbbreviation then
-                    typesWithMembers.Add (a, ResizeArray())
-                    b |> List.iter (getTypesWithMembers sc)
+                    if a.IsInterface then
+                        interfaces.Add a
+                    elif isILClass a then 
+                        let ms = ResizeArray()
+                        match parentMembers with
+                        | Some (pms: ResizeArray<_>) ->
+                            pms.Add (SourceEntity (a, ms))
+//                            printfn "nested type: %s" a.AccessPath
+                        | _ ->
+                            topLevelTypes.Add (a, ms) 
+//                            printfn "top level type: %s" a.AccessPath
+                        types.Add (a, ms)
+                        b |> List.iter (getTypesWithMembers (Some ms) sc)
+                    else
+                        b |> List.iter (getTypesWithMembers parentMembers sc)
             | FSIFD.MemberOrFunctionOrValue (a, b, c) -> 
-                    typesWithMembers.[a.EnclosingEntity].Add(a, b, c)
+                types.[a.EnclosingEntity].Add(SourceMember(a, b, c))
             | FSIFD.InitAction a ->
-                ()  
+                ()
+                // TODO : warn
+//                comp.AddError(Some (ToFSharpAST.getSourcePos a), SourceError "Top level expression")
                 // TODO: [<JavaScript>] on whole assembly.
-                // TOOD: module "do"-s if file contents structure would be exposed by FCS         
-//                let e = ToFSharpAST.transformExpression ToFSharpAST.Environment.Empty a
-//                (sc.Value |> snd |> fst).Add (ExprStatement e)
 
-        file.Declarations |> Seq.iter (getTypesWithMembers sc)
+        file.Declarations |> Seq.iter (getTypesWithMembers None sc)
 
-        for (KeyValue(c, m)) in typesWithMembers do
-            transformInterface c |> Option.iter comp.AddInterface
-            transformClass sc comp c m |> Option.iter comp.AddClass
+        for i in interfaces do
+            transformInterface i |> Option.iter comp.AddInterface
+
+        for c, m in topLevelTypes do
+            transformClass sc comp A.TypeAnnotation.Empty c m |> Option.iter comp.AddClass
             
         let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
             let statements, fields = sc            

@@ -24,7 +24,8 @@ open WebSharper.JavaScript
 
 [<Name "Exception">]
 [<Proxy(typeof<System.Exception>)>]
-type private ExceptionProxy [<Direct "new Error($message)">] (message: string) =
+type private ExceptionProxy (message: string) =
+    inherit Error(message)
 
     [<JavaScript>]
     new () = ExceptionProxy "Exception of type 'System.Exception' was thrown."
@@ -77,5 +78,20 @@ type private AggregateExceptionProxy(message: string, innerExceptions: exn[]) =
 
     new (innerExceptions: exn[]) = AggregateExceptionProxy("One or more errors occurred.", innerExceptions)
 
+    new (innerExceptions: seq<exn>) = AggregateExceptionProxy("One or more errors occurred.", Array.ofSeq innerExceptions)
+
+    new (message, innerExceptions: seq<exn>) = AggregateExceptionProxy(message, Array.ofSeq innerExceptions)
+
+    new (innerException: exn) = AggregateExceptionProxy("One or more errors occurred.", [| innerException |])
+
+    new (message, innerException: exn) = AggregateExceptionProxy(message, [| innerException |])
+
     member this.InnerExceptions 
         with [<Inline "$this.InnerExceptions">] get() = X<System.Collections.ObjectModel.ReadOnlyCollection<exn>>
+
+[<Proxy(typeof<System.TimeoutException>)>]
+[<Name "TimeoutException">]
+type private TimeoutExceptionProxy(message: string) =
+    inherit ExceptionProxy(message)
+    
+    new () = TimeoutExceptionProxy "The operation has timed out."
