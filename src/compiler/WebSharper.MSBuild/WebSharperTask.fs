@@ -150,15 +150,16 @@ module WebSharperTaskModule =
 
     let BundleClean settings webRoot =
         let outputDir = BundleOutputDir settings webRoot
-        let fileName =
-            match settings.Name with
-            | null | "" -> "Bundle"
-            | name -> name
-        let files =
-            Directory.EnumerateFiles(outputDir, "*.*")
-            |> Seq.filter (fun p -> Path.GetFileName(p).StartsWith(fileName))
-        for f in files do
-            File.Delete(f)
+        if Directory.Exists outputDir then
+            let fileName =
+                match settings.Name with
+                | null | "" -> "Bundle"
+                | name -> name
+            let files =
+                Directory.EnumerateFiles(outputDir, "*.*")
+                |> Seq.filter (fun p -> Path.GetFileName(p).StartsWith(fileName))
+            for f in files do
+                File.Delete(f)
 
     let Timed f =
         let sw = Stopwatch()

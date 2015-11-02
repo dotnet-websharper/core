@@ -37,23 +37,21 @@ type Control() =
 
     static let gen = System.Random()
     [<System.NonSerialized>]
-    let mutable isR = true
-    [<System.NonSerialized>]
     let mutable id = System.String.Format("ws{0:x}", gen.Next().ToString())
 
     override this.ID
         with get () = id
-        and set x = id <- x; isR <- false
+        and set x = id <- x
 
     override this.OnLoad _ =
-        this.ID <-
-            ScriptManager.Find(base.Page).Register
-                (if isR then None else Some id) this
+        this.ID <- ScriptManager.Find(base.Page).Register (Some id) this
 
     interface INode with
         member this.IsAttribute = false
         member this.Write (meta, w) =
             w.Write("""<div id="{0}"></div>""", this.ID)
+        member this.AttributeValue = None
+        member this.Name = None
 
     [<JavaScript>]
     abstract member Body : IControlBody
@@ -134,7 +132,9 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
         let args, argReqs =
             args
             |> List.mapi (fun i -> function
-                | Value (v, t) -> v, M.TypeNode (R.getTypeDefinition t)
+                | Value (v, t) ->
+                    let v = match v with null -> WebSharper.Core.Json.Internal.MakeTypedNull t | _ -> v
+                    v, M.TypeNode (R.TypeDefinition.FromType t)
                 | _ -> failwithf "Wrong format for InlineControl at %s: argument #%i is not a literal or a local variable" (getLocation()) (i+1)
             )
             |> List.unzip
@@ -150,11 +150,6 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
         let f = Array.fold (?) JS.Window funcName
         As<Function>(f).ApplyUnsafe(null, args) :?> _
 
-    interface INode with
-        member this.IsAttribute = false
-        member this.Write (meta, w) =
-            w.Write("""<div id="{0}"></div>""", this.ID)
-
     interface IRequiresResources with
         member this.Encode(meta, json) =
             if funcName.Length = 0 then
@@ -165,13 +160,13 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                     match cls.Methods.TryFind meth with
                     | Some (M.Static a, _) ->
                         funcName <- Array.ofList (List.rev a.Value)
-                    | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
+                | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
         member this.Requires =
             let _, _, reqs = snd bodyAndReqs
             reqs
-                 
+
 //                    let rec mk acc (a: P.Address) =
 //                        let acc = a.LocalName :: acc
 //                        match a.Parent with

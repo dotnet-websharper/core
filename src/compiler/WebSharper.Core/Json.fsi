@@ -153,6 +153,11 @@ module Internal =
     open System.Collections.Generic
     open System.Reflection
 
+    type TypedNull<'T> =
+        | TypedNull
+
+    val MakeTypedNull : System.Type -> obj
+
     /// Get the (potentially customized) name of a field or property.
     val inline GetName : ^T -> string
         when ^T : (member GetCustomAttributesData : unit -> IList<CustomAttributeData>)

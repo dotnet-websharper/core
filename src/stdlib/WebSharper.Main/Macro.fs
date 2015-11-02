@@ -88,12 +88,12 @@ type Div() =
     override this.TranslateCall(_,_,m,a,_) =
         match a with
         | [x; y] ->
-            match m.Generics with
+        match m.Generics with
             | t :: _ ->                                                                     
                 if isIn smallIntegralTypes t
                 then (x ^/ y) ^>> !~(Int 0)
-                elif isIn bigIntegralTypes t
-                then Application(globalAccess ["Math"; "floor"], [x ^/ y])
+                    elif isIn bigIntegralTypes t
+                then Application(globalAccess ["Math"; "trunc"], [x ^/ y])
                 else x ^/ y 
             | _ -> x ^/ y   
         | _ -> failwith "divisionMacro error"
@@ -104,7 +104,7 @@ type Arith(name, op) =
     override this.TranslateCall(_,_,m,a,_) =
         match a with
         | [x; y] ->
-            match m.Generics with
+        match m.Generics with
             | t :: _ when not (isIn scalarTypes t) ->
                 Application (ItemGet(x, Value (String name)), [y])
             | _ -> Binary(x, op, y)
@@ -150,16 +150,16 @@ type CMP(cmp) =
     override this.TranslateCall(_,_,m,a,_) =
         match a with
         | [x; y] ->
-            match m.Generics with
-            | t :: _ ->
-                if isIn scalarTypes t then
+        match m.Generics with
+        | t :: _ ->
+            if isIn scalarTypes t then
                     Binary (x, toBinaryOperator cmp, y)
-                else
+            else
                     makeComparison cmp x y
-            | _ ->
-                failwith "comparisonMacro error"
         | _ ->
             failwith "comparisonMacro error"
+    | _ ->
+        failwith "comparisonMacro error"
 
 [<Sealed>] type EQ() = inherit CMP(Comparison.``=``)
 [<Sealed>] type NE() = inherit CMP(Comparison.``<>``)
@@ -174,23 +174,23 @@ type Char() =
     override this.TranslateCall(_,_,m,a,_) =
         match a with
         | [x] ->
-            match m.Generics with
-            | t :: _ ->
+        match m.Generics with
+        | t :: _ ->
                 if isIn integralTypes t then x else
-                    match t with
+                match t with
                     | ConcreteType d ->
                         match d.Entity.Value.FullName with
                         | "System.String" -> Application(globalAccess ["WebSharper"; "Char"; "Parse"], [x])
-                        | "System.Char"
-                        | "System.Double"
+                    | "System.Char"
+                    | "System.Double"
                         | "System.Single" -> x
-                        | _               -> failwith "charMacro error"
-                    | _ ->
-                        failwith "charMacro error"
-            | _ ->
-                failwith "charMacro error"
+                    | _               -> failwith "charMacro error"
+                | _ ->
+                    failwith "charMacro error"
         | _ ->
             failwith "charMacro error"
+    | _ ->
+        failwith "charMacro error"
 
 [<Sealed>]
 type String() =
@@ -198,16 +198,16 @@ type String() =
     override this.TranslateCall(_,_,m,a,_) =
         match a with
         | [x] ->
-            match m.Generics with
-            | t :: _ ->
+        match m.Generics with
+        | t :: _ ->
                 if t.AssemblyQualifiedName = "System.Char, mscorlib" then
                     Application(globalAccess ["String"; "fromCharCode"], [x])    
                 else 
                     Application(globalAccess ["String"], [x])    
-            | _ ->
-                failwith "stringMacro error"
         | _ ->
             failwith "stringMacro error"
+    | _ ->
+        failwith "stringMacro error"
 
 //let getFieldsList q =
 //    let ``is (=>)`` (td: TypeDefinition) (m: Method) =
@@ -260,9 +260,9 @@ type FuncWithArgs() =
             | TupleType _ ->
                 Application(runtimeCreateFuncWithArgs, [ func ])
             | _ ->
-                failwith "Wrong type argument on FuncWithArgs: 'TArgs must be a tuple"
-        | _ ->
-            failwith "funcWithArgsMacro error"
+            failwith "Wrong type argument on FuncWithArgs: 'TArgs must be a tuple"
+    | _ ->
+        failwith "funcWithArgsMacro error"
 
 [<Sealed>]
 type FuncWithArgsRest() =
@@ -274,8 +274,8 @@ type FuncWithArgsRest() =
             | TupleType ts ->
                 Application(runtimeCreateFuncWithArgsRest, [ Value (Int (List.length ts)) ; func ])
             | _ ->
-                failwith "Wrong type argument on FuncWithArgsRest: 'TArgs must be a tuple"
-        | _ ->
+            failwith "Wrong type argument on FuncWithArgsRest: 'TArgs must be a tuple"
+    | _ ->
             failwith "funcWithArgsMacro error"
 
 [<Sealed>]
@@ -293,8 +293,8 @@ type FuncWithThis() =
                 ) ->
                 Application(runtimeCreateFuncWithThis, [ func ])
             | _ ->
-                failwith "Wrong type argument on FuncWithThis: 'TFunc must be an F# function or JavaScript function type"
-        | _ ->
+            failwith "Wrong type argument on FuncWithThis: 'TFunc must be an F# function or JavaScript function type"
+    | _ ->
             failwith "funcWithArgsMacro error"
 
 /// Set of helpers to parse format string

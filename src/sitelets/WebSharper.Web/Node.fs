@@ -29,7 +29,11 @@ type INode =
 
     abstract member Write : M.Metadata * HtmlTextWriter -> unit
 
+    abstract member Name : string option
+
     abstract member IsAttribute : bool
+
+    abstract member AttributeValue : string option
 
 [<AutoOpen>]
 module HtmlTextWriterExtensions =

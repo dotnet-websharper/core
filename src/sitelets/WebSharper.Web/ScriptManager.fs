@@ -77,10 +77,9 @@ type ScriptManager() =
     /// Registers a pagelet with the manager.
     member this.Register (id: option<string>) (c: WebSharper.IRequiresResources) =
         Seq.iter nodes.Enqueue c.Requires
-        let t = c.GetType()
         let id  = getId id
-        let enc = Shared.Json.GetEncoder t
-        registry.[id] <- enc.Encode c
+        c.Encode(Shared.Metadata, Shared.Json)
+        |> List.iter (fun (k, v) -> registry.[k] <- v)
         id
 
     /// Renders the resources.

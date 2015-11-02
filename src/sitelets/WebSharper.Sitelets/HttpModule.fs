@@ -56,11 +56,11 @@ module internal SiteLoading =
             | _ -> Seq.empty
         )
         |> Seq.tryPick (fun ty ->
-            try
-                ty.GetProperties(BF.Static ||| BF.Public ||| BF.NonPublic)
-                |> Array.tryPick (fun p ->
-                    match Attribute.GetCustomAttribute(p, aT) with
-                    | :? WebsiteAttribute ->
+            ty.GetProperties(BF.Static ||| BF.Public ||| BF.NonPublic)
+            |> Array.tryPick (fun p ->
+                match Attribute.GetCustomAttribute(p, aT) with
+                | :? WebsiteAttribute ->
+                    try
                         let sitelet = p.GetGetMethod().Invoke(null, [||])
                         let upcastSitelet =
                             sitelet.GetType()
@@ -69,10 +69,10 @@ module internal SiteLoading =
                                 .Invoke(sitelet, [||])
                                 :?> Sitelet<obj>
                         Some (upcastSitelet, [])
-                    | _ -> None
-                )
-            with _ -> None
-
+                    with e ->
+                        raise <| exn("Failed to initialize sitelet definition: " + ty.FullName + "." + p.Name, e)  
+                | _ -> None
+            )
         )
 
     let TryLoadSite (assembly: Assembly) =
