@@ -37,28 +37,25 @@ module WebSharperTaskModule =
     let NotNull (def: 'T) (x: 'T) =
         if Object.ReferenceEquals(x, null) then def else x
 
-    type Settings =
-        {
-            Command : string
-            Configuration : string
-            DocumentationFile : string
-            EmbeddedResources : ITaskItem []
-            ItemInput : ITaskItem []
-            ItemOutput : ITaskItem []
-            KeyOriginatorFile : string
-            Log : TaskLoggingHelper
-            MSBuildProjectDirectory : string
-            Name : string
-            OutputPath : string
-            SetItemOutput : ITaskItem [] -> unit
-            SetReferenceCopyLocalPaths : ITaskItem [] -> unit
-            WebProjectOutputDir : string
-            WebSharperBundleOutputDir : string
-            WebSharperHtmlDirectory : string
-            WebSharperProject : string
-            WebSharperSourceMap : bool
-            WebSharperTypeScriptDeclaration : bool
-        }
+    type Settings() =
+        inherit MarshalByRefObject()
+        member val Command : string = "" with get, set
+        member val Configuration : string = "" with get, set
+        member val DocumentationFile : string = "" with get, set
+        member val EmbeddedResources : string [] = [||] with get, set
+        member val ItemInput : string [] = [||] with get, set
+        member val ItemOutput : string [] = [||] with get, set
+        member val KeyOriginatorFile : string = "" with get, set
+        member val Log : TaskLoggingHelper = null with get, set
+        member val MSBuildProjectDirectory : string = "" with get, set
+        member val Name : string = "" with get, set
+        member val OutputPath : string = "" with get, set
+        member val WebProjectOutputDir : string = "" with get, set
+        member val WebSharperBundleOutputDir : string = "" with get, set
+        member val WebSharperHtmlDirectory : string = "" with get, set
+        member val WebSharperProject : string = "" with get, set
+        member val WebSharperSourceMap : bool = false with get, set
+        member val WebSharperTypeScriptDeclaration : bool = false with get, set
 
     type ProjectType =
         | Bundle of webroot: option<string>
@@ -68,7 +65,7 @@ module WebSharperTaskModule =
         | Website of webroot: string
         | Ignore
 
-    let GetWebRoot settings =
+    let GetWebRoot (settings: Settings) =
         match settings.WebProjectOutputDir with
         | "" ->
             let dir = settings.MSBuildProjectDirectory
@@ -78,7 +75,7 @@ module WebSharperTaskModule =
             if isWeb then Some dir else None
         | out -> Some out
 
-    let GetProjectType settings =
+    let GetProjectType (settings: Settings) =
         match settings.WebSharperProject with
         | null | "" ->
             match GetWebRoot settings with
@@ -97,13 +94,13 @@ module WebSharperTaskModule =
                 | Some dir -> Website dir
             | _ -> invalidArg "type" ("Invalid project type: " + proj)
 
-    let Fail settings fmt =
+    let Fail (settings: Settings) fmt =
         fmt
         |> Printf.ksprintf (fun msg ->
             settings.Log.LogError(msg)
             false)
 
-    let SendResult settings result =
+    let SendResult (settings: Settings) result =
         match result with
         | Compiler.Commands.Ok -> true
         | Compiler.Commands.Errors errors ->
@@ -111,7 +108,7 @@ module WebSharperTaskModule =
                 settings.Log.LogError(e)
             true
 
-    let BundleOutputDir settings webRoot =
+    let BundleOutputDir (settings: Settings) webRoot =
         match settings.WebSharperBundleOutputDir with
         | null | "" ->
             match webRoot with
@@ -137,7 +134,7 @@ module WebSharperTaskModule =
                 let cfg =
                     {
                         Compiler.BundleCommand.Config.Create() with
-                            AssemblyPaths = raw.ItemSpec :: [for r in refs -> r.ItemSpec]
+                            AssemblyPaths = raw :: refs
                             FileName = fileName
                             OutputDirectory = outputDir
                     }
@@ -170,21 +167,21 @@ module WebSharperTaskModule =
         if GetProjectType settings = Ignore then true else
         match List.ofArray settings.ItemInput with
         | raw :: refs ->
-            let rawInfo = FileInfo(raw.ItemSpec)
-            let temp = raw.ItemSpec + ".tmp"
+            let rawInfo = FileInfo(raw)
+            let temp = raw + ".tmp"
             let tempInfo = FileInfo(temp)
             if not tempInfo.Exists || tempInfo.LastWriteTimeUtc < rawInfo.LastWriteTimeUtc then
                 let main () =
                     let out =
                         CompilerUtility.Compile {
-                            AssemblyFile = raw.ItemSpec
+                            AssemblyFile = raw
                             KeyOriginatorFile = settings.KeyOriginatorFile
                             EmbeddedResources =
                                 [
                                     for r in settings.EmbeddedResources ->
-                                        Path.Combine(settings.MSBuildProjectDirectory, r.ItemSpec)
+                                        Path.Combine(settings.MSBuildProjectDirectory, r)
                                 ]
-                            References = [ for r in refs -> r.ItemSpec ]
+                            References = refs
                             ProjectDir = settings.MSBuildProjectDirectory
                             RunInterfaceGenerator =
                                 match GetProjectType settings with
@@ -250,7 +247,7 @@ module WebSharperTaskModule =
             |> SendResult settings
         | _ -> true
 
-    let HtmlOutputDirectory settings =
+    let HtmlOutputDirectory (settings: Settings) =
         match settings.WebSharperHtmlDirectory with
         | "" -> Path.Combine(settings.MSBuildProjectDirectory, "bin", "html")
         | dir -> dir
@@ -260,8 +257,7 @@ module WebSharperTaskModule =
         | Html ->
             match List.ofArray settings.ItemInput with
             | main :: refs ->
-                let main = main.ItemSpec
-                let refs = [for r in refs -> r.ItemSpec]
+                let main = main
                 let cfg =
                     {
                         Compiler.HtmlCommand.Config.Create(main) with
@@ -287,12 +283,12 @@ module WebSharperTaskModule =
         if d.Exists then
             d.Delete(``recursive`` = true)
 
-    let Clean settings =
+    let Clean (settings: Settings) =
         // clean temp file used during compilation
         do
             match settings.ItemInput with
             | [| intermAssembly |] ->
-                let tmp = FileInfo(intermAssembly.ItemSpec + ".tmp")
+                let tmp = FileInfo(intermAssembly + ".tmp")
                 if tmp.Exists then
                     tmp.Delete()
             | _ -> ()
@@ -317,7 +313,7 @@ module WebSharperTaskModule =
                     dir.Delete(``recursive`` = true)
             true
 
-    let Execute settings =
+    let Execute (settings: Settings) =
         try
             match settings.Command with
             | "Bundle" -> Bundle settings
@@ -330,9 +326,35 @@ module WebSharperTaskModule =
             settings.Log.LogErrorFromException(e)
             false
 
+    type Settings with
+
+        member private this.AddProjectReferencesToAssemblyResolution() =
+            let referencedAsmNames =
+                this.ItemInput
+                |> Seq.append (Directory.GetFiles(BaseDir, "*.dll"))
+                |> Seq.map (fun i -> Path.GetFileNameWithoutExtension(i), i)
+                |> Seq.filter (fst >> (<>) this.Name)
+                |> Map.ofSeq
+            System.AppDomain.CurrentDomain.add_AssemblyResolve(fun sender e ->
+                let assemblyName = AssemblyName(e.Name).Name
+                match Map.tryFind assemblyName referencedAsmNames with
+                | None -> null
+                | Some p -> System.Reflection.Assembly.LoadFrom(p)
+            )
+
+        member this.Execute() =
+            this.AddProjectReferencesToAssemblyResolution()
+            Execute this
+
 [<Sealed>]
 type WebSharperTask() =
     inherit AppDomainIsolatedTask()
+
+    do System.AppDomain.CurrentDomain.add_AssemblyResolve(fun sender e ->
+        let asm = typeof<WebSharperTask>.Assembly
+        if AssemblyName(e.Name).Name = asm.GetName().Name then
+            asm
+        else null)
 
     member val EmbeddedResources : ITaskItem [] = Array.empty with get, set
     member val Configuration = "" with get, set
@@ -348,6 +370,7 @@ type WebSharperTask() =
     member val WebSharperSourceMap = "" with get, set
     member val WebSharperTypeScriptDeclaration = "" with get, set
     member val DocumentationFile = "" with get, set
+    member val TargetFSharpCoreVersion = "" with get, set
 
     [<Required>]
     member val Command = "" with get, set
@@ -358,46 +381,56 @@ type WebSharperTask() =
     [<Output>]
     member val ReferenceCopyLocalPaths : ITaskItem [] = Array.empty with get, set
 
-    member private this.AddProjectReferencesToAssemblyResolution() =
-        let referencedAsmNames =
-            this.ItemInput
-            |> Seq.map (fun i -> i.ItemSpec)
-            |> Seq.append (Directory.GetFiles(BaseDir, "*.dll"))
-            |> Seq.map (fun i -> Path.GetFileNameWithoutExtension(i), i)
-            |> Seq.filter (fst >> (<>) this.Name)
-            |> Map.ofSeq
-        System.AppDomain.CurrentDomain.add_AssemblyResolve(fun sender e ->
-            let assemblyName = AssemblyName(e.Name).Name
-            match Map.tryFind assemblyName referencedAsmNames with
-            | None -> null
-            | Some p -> System.Reflection.Assembly.LoadFrom(p)
-        )
-
     override this.Execute() =
-        this.AddProjectReferencesToAssemblyResolution()
+        let taskRefdFsCore = typeof<option<_>>.Assembly.GetName().Version
+        let projRefdFsCore =
+            try Version(this.TargetFSharpCoreVersion)
+            with _ -> failwith ("Invalid TargetFSharpCoreVersion: " + this.TargetFSharpCoreVersion)
+        let settings, ad =
+            if taskRefdFsCore = projRefdFsCore then
+                Settings(), None
+            else
+                // The FSharp.Core that MSBuild is running is different
+                // from the FSharp.Core referenced by the project.
+                // We need to run in an AppDomain to reference the right one.
+                let config =
+                    match projRefdFsCore.Minor, projRefdFsCore.Build with
+                    | 3, 0 -> "WebSharper.exe.config"
+                    | 3, 1 -> "WebSharper31.exe.config"
+                    | 4, 0 -> "WebSharper40.exe.config"
+                    | _ -> failwith ("Unknown TargetFSharpCoreVersion: " + this.TargetFSharpCoreVersion + "; must be 4.3.0.0, 4.3.1.0 or 4.4.0.0")
+                let asm = Assembly.GetExecutingAssembly()
+                let loc = asm.Location
+                let dir = Path.GetDirectoryName(loc)
+                let setup = AppDomainSetup(ConfigurationFile = Path.Combine(dir, config))
+                let ad = AppDomain.CreateDomain("WebSharperBuild", null, setup)
+                let t = ad.CreateInstanceFromAndUnwrap(loc, typeof<Settings>.FullName, false, BindingFlags.CreateInstance, null, [||], null, null) :?> Settings
+                t, Some ad
+        let res = this.DoExecute settings
+        Option.iter AppDomain.Unload ad
+        res
+
+    member this.DoExecute(settings: Settings) =
         let bool s =
             match s with
             | null | "" -> false
             | t when t.ToLower() = "true" -> true
             | _ -> false
-        Execute {
-            Command = this.Command
-            Configuration = NotNull "Release" this.Configuration
-            DocumentationFile = NotNull "" this.DocumentationFile
-            EmbeddedResources = NotNull [||] this.EmbeddedResources
-            ItemInput = NotNull [||] this.ItemInput
-            ItemOutput = NotNull [||] this.ItemOutput
-            KeyOriginatorFile = NotNull "" this.KeyOriginatorFile
-            Log = this.Log
-            MSBuildProjectDirectory = NotNull "." this.MSBuildProjectDirectory
-            Name = NotNull "Project" this.Name
-            OutputPath = NotNull "" this.OutputPath
-            SetItemOutput = fun items -> this.ItemOutput <- items
-            SetReferenceCopyLocalPaths = fun items -> this.ReferenceCopyLocalPaths <- items
-            WebProjectOutputDir = NotNull "" this.WebProjectOutputDir
-            WebSharperBundleOutputDir = NotNull "" this.WebSharperBundleOutputDir
-            WebSharperHtmlDirectory = NotNull "" this.WebSharperHtmlDirectory
-            WebSharperProject = NotNull "" this.WebSharperProject
-            WebSharperSourceMap = bool this.WebSharperSourceMap
-            WebSharperTypeScriptDeclaration = bool this.WebSharperTypeScriptDeclaration
-        }
+        settings.Command <- this.Command
+        settings.Configuration <- NotNull "Release" this.Configuration
+        settings.DocumentationFile <- NotNull "" this.DocumentationFile
+        settings.EmbeddedResources <- NotNull [||] (this.EmbeddedResources |> Array.map (fun i -> i.ItemSpec))
+        settings.ItemInput <- NotNull [||] (this.ItemInput |> Array.map (fun i -> i.ItemSpec))
+        settings.ItemOutput <- NotNull [||] (this.ItemOutput |> Array.map (fun i -> i.ItemSpec))
+        settings.KeyOriginatorFile <- NotNull "" this.KeyOriginatorFile
+        settings.Log <- this.Log
+        settings.MSBuildProjectDirectory <- NotNull "." this.MSBuildProjectDirectory
+        settings.Name <- NotNull "Project" this.Name
+        settings.OutputPath <- NotNull "" this.OutputPath
+        settings.WebProjectOutputDir <- NotNull "" this.WebProjectOutputDir
+        settings.WebSharperBundleOutputDir <- NotNull "" this.WebSharperBundleOutputDir
+        settings.WebSharperHtmlDirectory <- NotNull "" this.WebSharperHtmlDirectory
+        settings.WebSharperProject <- NotNull "" this.WebSharperProject
+        settings.WebSharperSourceMap <- bool this.WebSharperSourceMap
+        settings.WebSharperTypeScriptDeclaration <- bool this.WebSharperTypeScriptDeclaration
+        settings.Execute()

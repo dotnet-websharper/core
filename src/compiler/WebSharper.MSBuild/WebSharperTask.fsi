@@ -63,6 +63,9 @@ type WebSharperTask =
     /// Copy-local file list.
     member ReferenceCopyLocalPaths : ITaskItem [] with get, set
 
+    /// Specifies the version of FSharp.Core used by the project.
+    member TargetFSharpCoreVersion : string with get, set
+
     /// Path to the directory containing Web.config, used by the "Unpack" command,
     /// and also to detect Web projects.
     member WebProjectOutputDir : string with get, set
