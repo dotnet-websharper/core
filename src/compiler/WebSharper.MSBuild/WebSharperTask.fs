@@ -387,7 +387,7 @@ type WebSharperTask() =
             try Version(this.TargetFSharpCoreVersion)
             with _ -> failwith ("Invalid TargetFSharpCoreVersion: " + this.TargetFSharpCoreVersion)
         let settings, ad =
-            if taskRefdFsCore = projRefdFsCore then
+            if taskRefdFsCore >= projRefdFsCore then
                 Settings(), None
             else
                 // The FSharp.Core that MSBuild is running is different
