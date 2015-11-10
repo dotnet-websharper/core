@@ -25,6 +25,7 @@ open System
 module Config =
     let PackageId = "WebSharper"
     let CompilerPackageId = "WebSharper.Compiler"
+    let TestingPackageId = "WebSharper.Testing"
     let PlainVersion = "3.5"
     let VersionSuffix = None
     let PackageVersion = PlainVersion + defaultArg VersionSuffix ""
@@ -32,6 +33,7 @@ module Config =
     let Company = "IntelliFactory"
     let Description = "F#-to-JavaScript compiler and web application framework"
     let CompilerDescription = "F#-to-JavaScript compiler"
+    let TestingDescription = "Testing framework for F#-to-JavaScript compiled libraries"
     let LicenseUrl = "http://websharper.com/licensing"
     let Tags = ["Web"; "JavaScript"; "F#"]
     let Website = "http://bitbucket.org/IntelliFactory/websharper"

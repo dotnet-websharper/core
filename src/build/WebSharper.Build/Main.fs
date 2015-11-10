@@ -57,7 +57,7 @@ module Main =
         Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
         |> Seq.map (fun p -> (p, p.Substring(dir.Length).Replace("\\", "/")))
 
-    let private exports, compilerExports =
+    let private exports, compilerExports, testingExports =
         let lib kind name =
             Seq.concat [
                 Directory.EnumerateFiles(buildDir, name + ".dll")
@@ -80,7 +80,6 @@ module Main =
             lib "lib"   "WebSharper.Control"
             lib "lib"   "WebSharper.JavaScript"
             lib "lib"   "WebSharper.JQuery"
-            lib "lib"   "WebSharper.Testing"
             // foreign:
             lib "tools" "FsNuGet"
             lib "tools" "NuGet.Core"
@@ -101,6 +100,9 @@ module Main =
             lib "lib" "Mono.Cecil.Pdb"
         ]
         |> Seq.toList
+        ,
+        // testingExports:
+        lib "lib" "WebSharper.Testing"
 
     let private nuPkgs () =
         let nuPkg =
@@ -146,10 +148,11 @@ module Main =
                             yield fileAt (Path.Combine(root, "src", "htmllib", "tags.csv")) ("/tools/net40/tags.csv")
                         }
             }
+        let v = Version(nuPkg.GetComputedVersion().Split('-').[0])
         let compilerNuPkg =
             let bt =
                 bt.PackageId(Config.CompilerPackageId, Config.PackageVersion)
-                |> PackageVersion.Full.Custom (Version(nuPkg.GetComputedVersion().Split('-').[0]))
+                |> PackageVersion.Full.Custom v
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -168,7 +171,29 @@ module Main =
                                     yield file kind src None
                             }
                 }
-        [ nuPkg; compilerNuPkg ]
+        let testingNuPkg =
+            let bt =
+                bt.PackageId(Config.TestingPackageId, Config.PackageVersion)
+                |> PackageVersion.Full.Custom v
+            bt.NuGet.CreatePackage()
+                .Configure(fun x ->
+                    {
+                        x with
+                            Description = Config.TestingDescription
+                            ProjectUrl = Some Config.Website
+                            LicenseUrl = Some Config.LicenseUrl
+                            Authors = [ Config.Company ]
+                    })
+                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
+                .AddNuGetExportingProject {
+                    new INuGetExportingProject with
+                        member p.NuGetFiles =
+                            seq {
+                                for kind, src in testingExports do
+                                    yield file kind src None
+                            }
+                }
+        [ nuPkg; compilerNuPkg; testingNuPkg ]
 
     let Package () =
         let nuPkgs = nuPkgs ()
