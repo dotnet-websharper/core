@@ -381,11 +381,20 @@ type WebSharperTask() =
     [<Output>]
     member val ReferenceCopyLocalPaths : ITaskItem [] = Array.empty with get, set
 
+    member this.InvalidTargetFSharpCoreVersion =
+        "Invalid TargetFSharpCoreVersion: \"" +
+        this.TargetFSharpCoreVersion +
+        "\"; should be \"4.3.0.0\", \"4.3.1.0\" or \"4.4.0.0\""
+
     override this.Execute() =
         let taskRefdFsCore = typeof<option<_>>.Assembly.GetName().Version
         let projRefdFsCore =
             try Version(this.TargetFSharpCoreVersion)
-            with _ -> failwith ("Invalid TargetFSharpCoreVersion: " + this.TargetFSharpCoreVersion)
+            with _ ->
+                match this.Command with
+                | "Compile" | "Html" -> this.Log.LogWarning this.InvalidTargetFSharpCoreVersion
+                | _ -> ()
+                taskRefdFsCore
         let settings, ad =
             if taskRefdFsCore >= projRefdFsCore then
                 Settings(), None
@@ -398,7 +407,7 @@ type WebSharperTask() =
                     | 3, 0 -> "WebSharper.exe.config"
                     | 3, 1 -> "WebSharper31.exe.config"
                     | 4, 0 -> "WebSharper40.exe.config"
-                    | _ -> failwith ("Unknown TargetFSharpCoreVersion: " + this.TargetFSharpCoreVersion + "; must be 4.3.0.0, 4.3.1.0 or 4.4.0.0")
+                    | _ -> failwith this.InvalidTargetFSharpCoreVersion
                 let asm = Assembly.GetExecutingAssembly()
                 let loc = asm.Location
                 let dir = Path.GetDirectoryName(loc)
