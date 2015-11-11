@@ -87,6 +87,7 @@ type T =
         properties : Dictionary<R.Property,PropertyKind>
         proxies : Dictionary<R.TypeDefinition,R.TypeDefinition>
         unions : Dictionary<R.UnionCase,UnionCaseKind>
+        typemacros : Dictionary<R.TypeDefinition, R.Type>
     }
 
     member this.Proxy(t: R.TypeDefinition) =
@@ -95,19 +96,38 @@ type T =
         | _ -> t
 
     member this.Constructor (c: R.Constructor) =
-        c.WithDeclaringType (this.Proxy c.DeclaringType)
-        |> Get this.constructors
+        let t = this.Proxy c.DeclaringType
+        let c = c.WithDeclaringType t |> Get this.constructors
+        match this.typemacros.TryGetValue t with
+        | true, tm -> Some (MacroConstructor(tm, c))
+        | false, _ -> c
 
     member this.DataType t =
         Get this.datatypes (this.Proxy t)
 
     member this.Method (m: R.Method) =
-        m.WithDeclaringType (this.Proxy m.DeclaringType)
-        |> Get this.methods
+        let t = this.Proxy m.DeclaringType
+        let m = m.WithDeclaringType t |> Get this.methods
+        match this.typemacros.TryGetValue t with
+        | true, tm -> Some (MacroMethod(tm, m))
+        | false, _ -> m
 
     member this.Property (p: R.Property) =
-        p.WithDeclaringType (this.Proxy p.DeclaringType)
-        |> Get this.properties
+        let t = this.Proxy p.DeclaringType
+        match p.WithDeclaringType t |> Get this.properties with
+        | Some (BasicProperty (get, set)) as x ->
+            match this.typemacros.TryGetValue t with
+            | true, tm ->
+                BasicProperty (Some (MacroMethod(tm, get)), Some (MacroMethod(tm, set)))
+                |> Some
+            | false, _ -> x
+        | None ->
+            match this.typemacros.TryGetValue t with
+            | true, tm ->
+                BasicProperty(Some (MacroMethod(tm, None)), Some (MacroMethod(tm, None)))
+                |> Some
+            | false, _ -> None
+        | x -> x
 
     member this.UnionCase (c: R.UnionCase) =
         c.WithDeclaringType (this.Proxy c.DeclaringType)
@@ -131,6 +151,7 @@ type T =
             properties = Dictionary()
             proxies = Dictionary()
             unions = Dictionary()
+            typemacros = Dictionary()
         }
 
 let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
@@ -143,6 +164,7 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
             properties = Dictionary()
             proxies = Dictionary()
             unions = Dictionary()
+            typemacros = Dictionary()
         }
 
     let Log p loc text =
@@ -232,6 +254,9 @@ let Parse (logger: Logger) (assembly: Validator.Assembly) : T =
         match ty.Proxy with
         | Some origin -> t.proxies.[origin] <- self
         | _ -> ()
+        match ty.Macro with
+        | Some m -> t.typemacros.[self] <- m
+        | None -> ()
         match ty.Kind with
         | V.Resource _ -> ()
         | V.Class c ->
@@ -290,6 +315,7 @@ let Union (logger: Logger) (ts: seq<T>) =
             properties = Dictionary()
             proxies = Dictionary()
             unions = Dictionary()
+            typemacros = Dictionary()
         }
     for t in ts do
         for KeyValue (k, v) in t.constructors do
@@ -314,6 +340,8 @@ let Union (logger: Logger) (ts: seq<T>) =
             r.proxies.[k] <- v
         for KeyValue (k, v) in t.unions do
             r.unions.[k] <- v
+        for KeyValue (k, v) in t.typemacros do
+            r.typemacros.[k] <- v
     r
 
 let Fields (t: T) (td: R.TypeDefinition) =

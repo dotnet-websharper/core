@@ -21,24 +21,47 @@
 namespace WebSharper
 
 open WebSharper.JavaScript
+module M = WebSharper.Core.Macros
+module Q = WebSharper.Core.Quotations
+module J = WebSharper.Core.JavaScript.Core
+module R = WebSharper.Core.Reflection
 
-[<Name "WebSharper.List.T">]
-[<Proxy(typeof<list<_>>)>]
-type private ListProxy<'T> =
-    | [<Name "Empty">] EmptyCase
-    | [<Name "Cons">]  ConsCase of 'T * List<'T>
+type private ListMacro() =
+    let str x = !~(J.String x)
+    let int x = !~(J.Integer (int64 x))
+    let (==) x y = J.Binary(x, J.BinaryOperator.``==``, y)
+    let (?) x f = J.FieldGet(x, str f)
+    interface M.IMacro with
+        member this.Translate(q, tr) =
+            let ctor name g args =
+                let t = R.TypeDefinition.FromType typeof<ListProxy<_>>
+                let uc : Q.Concrete<_> =
+                    { Entity = R.UnionCase.Create t name; Generics = g }
+                tr (Q.NewUnionCase(uc, args))
+            match q with
+            | Q.CallOrCallModule ({Entity = m; Generics = g}, args) ->
+                match m.Name with
+                | "Cons" -> ctor "Cons" g args
+                | "get_Empty" -> ctor "Empty" g args
+                | "get_IsEmpty" -> (tr args.[0])?("$") == int 0
+                | _ -> tr q
+            | Q.PropertyGet ({Entity = p; Generics = g}, args) ->
+                match p.Name with
+                | "Empty" -> ctor "Empty" g args
+                | "IsEmpty" -> (tr args.[0])?("$") == int 0
+                | _ -> tr q
+            | q -> tr q
 
-    [<Name "Construct">]
-    [<JavaScript>]
-    static member Cons(head: 'T, tail: list<'T>) = head :: tail
-
-    [<Name "Nil">]
-    [<JavaScript>]
-    static member Empty : list<'T> = []
+and [<Name "WebSharper.List.T">]
+    [<Proxy(typeof<list<_>>)>]
+    [<Macro(typeof<ListMacro>)>]
+    [<RequireQualifiedAccess>]
+    private ListProxy<'T> =
+    | Empty
+    | Cons of 'T * List<'T>
 
     member this.Head    with [<Inline "$this.$0">] get ()     = X<'T>
     member this.Tail    with [<Inline "$this.$1">] get ()     = X<list<'T>>
-    member this.IsEmpty with [<Inline "$this.$ == 0">] get () = X<bool>
 
     [<JavaScript>]
     member this.Length with get () = Seq.length (As this)

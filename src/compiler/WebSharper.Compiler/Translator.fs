@@ -267,12 +267,15 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
         | true, v -> v.Set
         | false, _ -> fun _ -> err "Unknown id" x
 
-    let rec tCall exn q methodKind args =
-        let inline (!) q = tExpr exn true q
+    let rec tCall exn allowMacro q methodKind args =
+        let inline (!) q = tExpr exn allowMacro q
         let inline (!!) q = List.map (!) q
         let invalidQuot() =
             printfn "Invalid quotation, method kind: %A" methodKind
             raise InvalidQuotation
+        let methodKind =
+            if allowMacro then methodKind else
+            match methodKind with M.MacroMethod(_, Some m) -> m | _ -> methodKind
         match methodKind with
         | M.BasicInstanceMethod x ->
             match args with
@@ -339,9 +342,9 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             match meta.Method m.Entity with
             | Some (M.MacroMethod (_, b)) when not allowMacro ->
                 match b with
-                | Some bkind -> tCall exn q bkind args
+                | Some bkind -> tCall exn true q bkind args
                 | None -> err "Failed to translate a method call with macro fallback." m.Entity 
-            | Some k -> tCall exn q k args
+            | Some k -> tCall exn true q k args
             | None -> err "Failed to translate a method call." m.Entity
         | Q.Coerce (t, x) ->
             match t with
@@ -479,7 +482,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             match meta.Property p.Entity with
             | Some (M.BasicProperty (getter, setter)) ->
                 match getter with
-                | Some g -> tCall exn q g xs
+                | Some g -> tCall exn false q g xs
                 | None -> invalidQuot()
             | Some (M.InstanceOptProperty x) ->
                 match xs with
@@ -507,7 +510,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
             match meta.Property p.Entity with
             | Some (M.BasicProperty (getter, setter)) ->
                 match setter with
-                | Some f -> tCall exn q f xs
+                | Some f -> tCall exn false q f xs
                 | None ->
                     match getter, xs with
                     | Some (M.BasicStaticMethod fn), [v] ->
