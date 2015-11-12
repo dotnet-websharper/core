@@ -428,9 +428,9 @@ type WebSharperTask() =
         settings.Command <- this.Command
         settings.Configuration <- NotNull "Release" this.Configuration
         settings.DocumentationFile <- NotNull "" this.DocumentationFile
-        settings.EmbeddedResources <- NotNull [||] (this.EmbeddedResources |> Array.map (fun i -> i.ItemSpec))
-        settings.ItemInput <- NotNull [||] (this.ItemInput |> Array.map (fun i -> i.ItemSpec))
-        settings.ItemOutput <- NotNull [||] (this.ItemOutput |> Array.map (fun i -> i.ItemSpec))
+        settings.EmbeddedResources <- (NotNull [||] this.EmbeddedResources) |> Array.map (fun i -> i.ItemSpec)
+        settings.ItemInput <- (NotNull [||] this.ItemInput) |> Array.map (fun i -> i.ItemSpec)
+        settings.ItemOutput <- (NotNull [||] this.ItemOutput) |> Array.map (fun i -> i.ItemSpec)
         settings.KeyOriginatorFile <- NotNull "" this.KeyOriginatorFile
         settings.Log <- this.Log
         settings.MSBuildProjectDirectory <- NotNull "." this.MSBuildProjectDirectory
