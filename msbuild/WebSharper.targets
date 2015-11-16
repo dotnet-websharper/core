@@ -26,7 +26,7 @@
   </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.WebSharperTask" />
   <Target Name="WebSharperBundle" AfterTargets="Build">
-    <WebSharperTask Command="Bundle" ItemInput="$(TargetPath);@(ReferencePath)"
+    <WebSharperTask Command="Bundle" ItemInput="$(TargetPath);@(WebSharperReference);@(ReferencePath)"
       Configuration="$(Configuration)"
       DocumentationFile="$(DocumentationFile)"
       EmbeddedResources="@(EmbeddedResource)"
@@ -56,7 +56,7 @@
       WebSharperProject="$(WebSharperProject)" />
   </Target>
   <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
-    <WebSharperTask Command="Compile" ItemInput="@(IntermediateAssembly);@(ReferencePath)"
+    <WebSharperTask Command="Compile" ItemInput="@(IntermediateAssembly);@(WebSharperReference);@(ReferencePath)"
       Configuration="$(Configuration)"
       DocumentationFile="$(DocumentationFile)"
       EmbeddedResources="@(EmbeddedResource)"
@@ -71,7 +71,7 @@
       WebSharperProject="$(WebSharperProject)" />
   </Target>
   <Target Name="WebSharperHtml" AfterTargets="Build">
-    <WebSharperTask Command="Html" ItemInput="$(TargetPath);@(ReferencePath)"
+    <WebSharperTask Command="Html" ItemInput="$(TargetPath);@(WebSharperReference);@(ReferencePath)"
       Configuration="$(Configuration)"
       DocumentationFile="$(DocumentationFile)"
       EmbeddedResources="@(EmbeddedResource)"
@@ -87,7 +87,7 @@
       WebSharperProject="$(WebSharperProject)" />
   </Target>
   <Target Name="WebSharperUnpack" AfterTargets="Build">
-    <WebSharperTask Command="Unpack" ItemInput="@(ReferencePath)"
+    <WebSharperTask Command="Unpack" ItemInput="@(WebSharperReference);@(ReferencePath)"
       Configuration="$(Configuration)"
       DocumentationFile="$(DocumentationFile)"
       EmbeddedResources="@(EmbeddedResource)"
