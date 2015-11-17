@@ -20,6 +20,7 @@
 
 namespace WebSharper.Compiler
 
+open System.Configuration
 module CT = WebSharper.Core.ContentTypes
 module JS = WebSharper.Core.JavaScript.Syntax
 module M = WebSharper.Core.Metadata
@@ -47,7 +48,7 @@ module BundleUtility =
         M.Node.AssemblyNode(name, M.AssemblyMode.CompiledAssembly)
 
 [<Sealed>]
-type Bundle(set: list<Assembly>) =
+type Bundle(set: list<Assembly>, appConfig: option<string>) =
     let logger = Logger.Create ignore 1000
     let resolver =
         let r = AssemblyResolver.Create()
@@ -106,6 +107,18 @@ type Bundle(set: list<Assembly>) =
             | CT.Css, BundleMode.CSS ->
                 writer.WriteLine(c)
             | _ -> ()
+        let getSetting =
+            match appConfig with
+            | None -> fun _ -> None
+            | Some p ->
+                let conf =
+                    ConfigurationManager.OpenMappedExeConfiguration(
+                        ExeConfigurationFileMap(ExeConfigFilename = p),
+                        ConfigurationUserLevel.PerUserRoamingAndLocal)
+                fun name ->
+                    match conf.AppSettings.Settings.[name] with
+                    | null -> None
+                    | x -> Some x.Value
         let ctx : Res.Context =
             {
                 DebuggingEnabled = debug
@@ -114,7 +127,7 @@ type Bundle(set: list<Assembly>) =
                     context.LookupAssembly(name)
                     |> Option.iter renderAssembly
                     Res.Skip
-                GetSetting = fun name -> None
+                GetSetting = getSetting
                 GetWebResourceRendering = fun ty name ->
                     let (c, cT) = Utility.ReadWebResource ty name
                     renderWebResource name cT c
@@ -166,7 +179,10 @@ type Bundle(set: list<Assembly>) =
         b.WithAssembly(assem)
 
     member b.WithAssembly(assem) =
-        Bundle(assem :: set)
+        Bundle(assem :: set, appConfig)
+
+    member b.WithAppConfig(f) =
+        Bundle(set, Some f)
 
     member b.WithDefaultReferences() =
         let wsHome = Path.GetDirectoryName(typeof<Bundle>.Assembly.Location)
@@ -195,8 +211,8 @@ type Bundle(set: list<Assembly>) =
         let completeSet =
             Algorithms.TopSort.Do(set, pred, comparer)
             |> Seq.toList
-        Bundle(completeSet)
+        Bundle(completeSet, appConfig)
 
-    static member Empty = Bundle([])
+    static member Empty = Bundle([], None)
     static member Create() = Bundle.Empty.WithDefaultReferences()
 

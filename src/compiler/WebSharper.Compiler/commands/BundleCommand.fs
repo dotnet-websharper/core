@@ -28,6 +28,7 @@ module BundleCommand =
     type Config =
         {
             AssemblyPaths : list<string>
+            AppConfigFile : option<string>
             FileName : string
             OutputDirectory : string
         }
@@ -35,6 +36,7 @@ module BundleCommand =
         static member Create() =
             {
                 AssemblyPaths = []
+                AppConfigFile = None
                 FileName = "Bundle"
                 OutputDirectory = "."
             }
@@ -57,6 +59,8 @@ module BundleCommand =
                 proc { opts with FileName = name } xs
             | "-o" :: f :: xs | "-out" :: f :: xs ->
                 proc { opts with OutputDirectory = f } xs
+            | "-appconfig" :: f :: xs ->
+                proc { opts with AppConfigFile = Some f } xs
             | x :: xs ->
                 proc { opts with AssemblyPaths = x :: opts.AssemblyPaths } xs
         match args with
