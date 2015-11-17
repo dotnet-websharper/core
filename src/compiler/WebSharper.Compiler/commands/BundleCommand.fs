@@ -76,6 +76,7 @@ module BundleCommand =
         C.MkDir config.OutputDirectory
         let bundle =
             Bundle.Create().WithDefaultReferences()
+                .WithAppConfig(?appConfigFile = config.AppConfigFile)
             |> (fun b ->
                 (b, config.AssemblyPaths)
                 ||> Seq.fold (fun b p -> b.WithAssembly(p)))

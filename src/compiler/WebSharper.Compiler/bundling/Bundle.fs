@@ -68,17 +68,14 @@ type Bundle(set: list<Assembly>, appConfig: option<string>) =
         let mInfo = context.CreateMetadataInfo()
         mInfo.GetDependencies [for a in set -> GetDependencyNodeForAssembly a]
 
-    let htmlHeadersContext : Res.Context =
+    let htmlHeadersContext getSetting : Res.Context =
         {
             DebuggingEnabled = false
             DefaultToHttp = false
-            GetSetting = fun _ -> None
+            GetSetting = getSetting
             GetAssemblyRendering = fun _ -> Res.Skip
             GetWebResourceRendering = fun _ _-> Res.Skip
         }
-
-    let renderHtmlHeaders (hw: HtmlTextWriter) (res: Res.IResource) =
-        res.Render htmlHeadersContext (fun _ -> hw)
 
     let render (mode: BundleMode) (writer: TextWriter) =
         resolver.Wrap <| fun () ->
@@ -114,7 +111,7 @@ type Bundle(set: list<Assembly>, appConfig: option<string>) =
                 let conf =
                     ConfigurationManager.OpenMappedExeConfiguration(
                         ExeConfigurationFileMap(ExeConfigFilename = p),
-                        ConfigurationUserLevel.PerUserRoamingAndLocal)
+                        ConfigurationUserLevel.None)
                 fun name ->
                     match conf.AppSettings.Settings.[name] with
                     | null -> None
@@ -134,9 +131,10 @@ type Bundle(set: list<Assembly>, appConfig: option<string>) =
                     Res.Skip
             }
         use htmlWriter = new HtmlTextWriter(TextWriter.Null)
+        let htmlHeadersContext = htmlHeadersContext getSetting
         for d in deps.Value do
             match mode with
-            | BundleMode.HtmlHeaders -> renderHtmlHeaders htmlHeadersWriter d
+            | BundleMode.HtmlHeaders -> d.Render htmlHeadersContext (fun _ -> htmlHeadersWriter)
             | _ -> d.Render ctx (fun _ -> htmlWriter)
         match mode with
         | BundleMode.JavaScript | BundleMode.MinifiedJavaScript ->
@@ -181,8 +179,8 @@ type Bundle(set: list<Assembly>, appConfig: option<string>) =
     member b.WithAssembly(assem) =
         Bundle(assem :: set, appConfig)
 
-    member b.WithAppConfig(f) =
-        Bundle(set, Some f)
+    member b.WithAppConfig(?f) =
+        Bundle(set, f)
 
     member b.WithDefaultReferences() =
         let wsHome = Path.GetDirectoryName(typeof<Bundle>.Assembly.Location)

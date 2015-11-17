@@ -63,6 +63,9 @@ type WebSharperTask =
     /// Copy-local file list.
     member ReferenceCopyLocalPaths : ITaskItem [] with get, set
 
+    /// The project's content files (MSBuild <Content>, <EmbeddedResource> and <None> items).
+    member ContentFiles : ITaskItem[] with get, set
+
     /// Specifies the version of FSharp.Core used by the project.
     member TargetFSharpCoreVersion : string with get, set
 

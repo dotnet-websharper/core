@@ -32,7 +32,7 @@ type Bundle =
     member ContentFiles : seq<EmbeddedFile>
     member WithAssembly : assemblyFile: string -> Bundle
     member WithAssembly : assembly: Assembly -> Bundle
-    member WithAppConfig : string -> Bundle
+    member WithAppConfig : ?appConfigFile: string -> Bundle
     member WithDefaultReferences : unit -> Bundle
     member WithTransitiveReferences : unit -> Bundle
     static member Empty : Bundle

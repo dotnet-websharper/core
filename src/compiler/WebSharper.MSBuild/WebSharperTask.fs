@@ -50,6 +50,7 @@ module WebSharperTaskModule =
         member val MSBuildProjectDirectory : string = "" with get, set
         member val Name : string = "" with get, set
         member val OutputPath : string = "" with get, set
+        member val ContentFiles : string [] = [||] with get, set
         member val WebProjectOutputDir : string = "" with get, set
         member val WebSharperBundleOutputDir : string = "" with get, set
         member val WebSharperHtmlDirectory : string = "" with get, set
@@ -121,10 +122,19 @@ module WebSharperTaskModule =
             | None -> failwith "WebSharperBundleOutputDir property is required"
         | dir -> dir
 
+    let AppConfigFile (settings: Settings) =
+        [|"web.config"; "app.config"|]
+        |> Array.tryPick (fun f ->
+            settings.ContentFiles
+            |> Array.tryFind (fun s ->
+                Path.GetFileName(s).ToLowerInvariant() = f))
+        |> Option.map (fun s -> Path.Combine(settings.MSBuildProjectDirectory, s))
+
     let Bundle settings =
         match GetProjectType settings with
         | Bundle webRoot ->
             let outputDir = BundleOutputDir settings webRoot
+            let appConfig = AppConfigFile settings
             let fileName =
                 match settings.Name with
                 | null | "" -> "Bundle"
@@ -135,6 +145,7 @@ module WebSharperTaskModule =
                     {
                         Compiler.BundleCommand.Config.Create() with
                             AssemblyPaths = raw :: refs
+                            AppConfigFile = appConfig
                             FileName = fileName
                             OutputDirectory = outputDir
                     }
@@ -363,6 +374,7 @@ type WebSharperTask() =
     member val MSBuildProjectDirectory = "" with get, set
     member val Name = "" with get, set
     member val OutputPath = "" with get, set
+    member val ContentFiles : ITaskItem [] = Array.empty with get, set
     member val WebProjectOutputDir = "" with get, set
     member val WebSharperBundleOutputDir = "" with get, set
     member val WebSharperHtmlDirectory = "" with get, set
@@ -436,6 +448,7 @@ type WebSharperTask() =
         settings.MSBuildProjectDirectory <- NotNull "." this.MSBuildProjectDirectory
         settings.Name <- NotNull "Project" this.Name
         settings.OutputPath <- NotNull "" this.OutputPath
+        settings.ContentFiles <- (NotNull [||] this.ContentFiles) |> Array.map (fun i -> i.ItemSpec)
         settings.WebProjectOutputDir <- NotNull "" this.WebProjectOutputDir
         settings.WebSharperBundleOutputDir <- NotNull "" this.WebSharperBundleOutputDir
         settings.WebSharperHtmlDirectory <- NotNull "" this.WebSharperHtmlDirectory
