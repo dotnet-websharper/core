@@ -12,3 +12,4 @@ IntelliFactory.WebSharper.JQuery/*.js
 /packages/
 /tools/packages/
 /tests/Web/downloads/
+/msbuild/AssemblyInfo.extra.fs

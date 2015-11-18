@@ -41,16 +41,15 @@ module Main =
         )
 
     let private bt =
-        let bt =
-            BuildTool()
-                .PackageId(Config.PackageId, Config.PackageVersion)
-                .Configure(fun bt ->
-                    let outDir = BuildConfig.OutputDir.Find bt
-                    bt
-                    |> BuildConfig.RootDir.Custom root
-                    |> FSharpConfig.OtherFlags.Custom ["--optimize+"]
-                    |> Logs.Config.Custom(Logs.Default.Verbose().ToConsole()))
-        BuildConfig.CurrentFramework.Custom bt.Framework.Net40 bt
+        BuildTool()
+            .PackageId(Config.PackageId, Config.PackageVersion)
+            .Configure(fun bt ->
+                let outDir = BuildConfig.OutputDir.Find bt
+                bt
+                |> BuildConfig.RootDir.Custom root
+                |> FSharpConfig.OtherFlags.Custom ["--optimize+"]
+                |> Logs.Config.Custom(Logs.Default.Verbose().ToConsole()))
+            .WithFramework(fun fw -> fw.Net40)
 
     let private searchDir (dir: string) =
         let dir =Path.GetFullPath(dir)
@@ -200,12 +199,26 @@ module Main =
         let sln = bt.Solution (Seq.cast nuPkgs)
         sln.Build()
 
+    let SetVersion () =
+        let v = PackageVersion.Full.Find bt
+        let outPath = Path.Combine(root, "msbuild", "AssemblyInfo.extra.fs")
+        let inPath = Path.Combine(root, "msbuild", "AssemblyInfo.extra.fs.in")
+        let oldFile =
+            try File.ReadAllLines outPath
+            with _ -> [||]
+        let newFile =
+            File.ReadAllLines inPath
+            |> Array.map (fun s -> s.Replace("{version}", v.ToString()))
+        if newFile <> oldFile then
+            File.WriteAllLines(outPath, newFile)
+
     [<EntryPoint>]
     let Start args =
         try
             match Seq.toList args with
             | ["minify"] | ["prepare"] ->
                 Minify.Run()
+                SetVersion()
             | ["package"] -> Package ()
             | _ ->
                 printfn "Known commands:"
