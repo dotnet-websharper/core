@@ -209,7 +209,11 @@ type Type = Re.TypeDefinition
 type AssemblyResource(name: Re.AssemblyName) =
     interface R.IResource with
         member this.Render ctx writer =
-            let r = ctx.GetAssemblyRendering name
+            let filename = name.Name + if ctx.DebuggingEnabled then ".js" else ".min.js"
+            let r =
+                match R.Rendering.TryGetCdn(ctx, name, filename) with
+                | Some r -> r
+                | None -> ctx.GetAssemblyRendering name
             r.Emit(writer R.Scripts, R.Js)
 
 let activate resource =
