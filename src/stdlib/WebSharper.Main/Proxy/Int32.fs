@@ -28,3 +28,9 @@ type private Int32Proxy =
     [<Inline "parseInt($s)">]
     static member Parse(s: string) = X<int>
 
+    static member MaxValue
+        with [<Inline "-2147483648">] get () = X<int>
+
+    static member MinValue
+        with [<Inline "2147483647">] get () = X<int>
+
