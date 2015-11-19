@@ -142,6 +142,7 @@ and Type =
     {
         Kind : TypeKind
         Location : Location
+        Macro : option<R.Type>
         Methods : list<Method>
         Name : Name
         Properties : list<Property>

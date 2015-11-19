@@ -149,6 +149,7 @@ and Type =
     {
         Kind : TypeKind
         Location : Location
+        Macro : Option<R.Type>
         Methods : list<Method>
         Name : Name
         Properties : list<Property>
@@ -236,6 +237,9 @@ let isCompiledType (t: Type) =
 
 let isStub (a: list<Re.Annotation>) =
     a |> List.exists (function Re.Stub -> true | _ -> false)
+
+let getMacro (a: list<Re.Annotation>) =
+    a |> List.tryPick (function Re.Macro t -> Some t | _ -> None)
 
 let ( % ) format arg = System.String.Format(format, [| arg |])
 
@@ -690,6 +694,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
         let loc = t.Location
         let rf = Adapter.AdaptTypeDefinition t.Definition
         let pStub = isStub t.Annotations
+        let pMacro = getMacro t.Annotations
         match t.Kind with
         | Re.Class cSlot ->
             let d = t.Definition
@@ -699,6 +704,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
                 Some {
                     Kind = Resource
                     Location = loc
+                    Macro = pMacro
                     Methods = []
                     Name = t.AddressSlot.Address
                     Properties = []
@@ -732,6 +738,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
                             FieldRenames = c (fun (on, rn, opt) -> rn |> Option.map (fun n -> on, n, opt)) fs
                         } 
                     Location = loc
+                    Macro = pMacro
                     Methods = ms
                     Name = t.AddressSlot.Address
                     Properties = ps
@@ -766,6 +773,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
             Some {
                 Kind = Exception
                 Location = loc
+                Macro = pMacro
                 Methods = ms
                 Name = t.AddressSlot.Address
                 Properties = ps
@@ -797,6 +805,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
             Some {
                 Kind = Interface
                 Location = loc
+                Macro = pMacro
                 Methods = ms
                 Name = t.AddressSlot.Address
                 Properties = ps
@@ -813,6 +822,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
             Some {
                 Kind = Module ns
                 Location = loc
+                Macro = pMacro
                 Methods = ms
                 Name = t.AddressSlot.Address
                 Properties = ps
@@ -847,6 +857,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
             Some {
                 Kind = Record fields
                 Location = loc
+                Macro = pMacro
                 Methods = ms
                 Name = t.AddressSlot.Address
                 Properties = ps
@@ -868,6 +879,7 @@ let Validate (logger: Logger) (pool: I.Pool) (macros: Re.Pool) (fields: R.TypeDe
             Some {
                 Kind = Union cases
                 Location = loc
+                Macro = pMacro
                 Methods = ms
                 Name = t.AddressSlot.Address
                 Properties = ps

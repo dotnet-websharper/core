@@ -229,7 +229,7 @@ let recUnionCase (acc: Map<_,_>) (p: R.UnionCase) =
         {
             Address  = p.Member.AddressSlot
             Annotations = p.Member.Annotations
-            Name = annot p.Member.Annotations
+            Name = None
             Location = p.Member.Location
         }
     let n   = name p.Name x.Name
