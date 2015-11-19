@@ -23,5 +23,5 @@ namespace WebSharper
 open System
 open System.Reflection
 
-[<assembly: AssemblyVersion("3.5.0.0")>]
+[<assembly: AssemblyVersion("3.6.0.0")>]
 do ()
