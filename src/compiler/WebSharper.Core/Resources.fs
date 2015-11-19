@@ -179,7 +179,7 @@ type BaseResource(kind: Kind) =
                     | Some url -> RenderLink url
                     | None ->
                         match tryFindWebResource self spec with
-                        | Some e -> Rendering.GetWebResourceRendering(ctx, self, spec)
+                        | Some e -> Rendering.GetWebResourceRendering(ctx, self, e)
                         | None -> RenderLink spec
                 r.Emit(writer, mt, dHttp)
             | Complex (b, xs) ->
