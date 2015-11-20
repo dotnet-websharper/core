@@ -268,7 +268,7 @@ let Translate (logger: Logger) (iP: Inlining.Pool) (mP: Reflector.Pool) remoting
         | false, _ -> fun _ -> err "Unknown id" x
 
     let rec tCall exn allowMacro q methodKind args =
-        let inline (!) q = tExpr exn allowMacro q
+        let inline (!) q = tExpr exn true q
         let inline (!!) q = List.map (!) q
         let invalidQuot() =
             printfn "Invalid quotation, method kind: %A" methodKind
