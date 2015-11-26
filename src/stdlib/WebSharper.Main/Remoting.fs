@@ -47,9 +47,11 @@ type Url = string
 
 [<A.JavaScript>]
 type IAjaxProvider =
+    [<A.Name "Async">]
     abstract member Async : Url -> Headers -> Data -> (Data -> unit) ->
         (exn -> unit) -> unit
 
+    [<A.Name "Sync">]
     abstract member Sync : Url -> Headers -> Data -> Data
 
 [<A.Direct @"

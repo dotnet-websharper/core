@@ -248,7 +248,8 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
                 StaticConstructor = None         
                 Methods = methods 
                 Implementations = Map.empty // TODO
-                IsModule = false
+                IsModule = true
+                Macros = []
             }
         )
 
@@ -257,6 +258,7 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
         Dependencies = graph.GetData()
         Interfaces = allTypes |> Seq.choose (fun t -> transformInterface t) |> dict
         Classes = allTypes |> Seq.choose (fun t -> transformClass asmName t) |> dict
+        EntryPoint = None
     }
 //        Assemblies = dict [asmName, asmNode]
 //        SiteletDefinition = None

@@ -40,11 +40,6 @@
     <Compile Include="Offline\HtmlCommand.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="IntelliFactory.Core">
-      <HintPath>../../../packages/IntelliFactory.Core/lib/net40/IntelliFactory.Core.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
       <Name>WebSharper.Core.JavaScript</Name>
       <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>

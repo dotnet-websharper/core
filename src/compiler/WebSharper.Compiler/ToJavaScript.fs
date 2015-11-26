@@ -6,6 +6,7 @@ open WebSharper.Core.AST
 let fail _ = failwith "Transform error: .NET common to Core"
 
 module M = WebSharper.Core.Metadata
+module A = WebSharper.Core.Attributes
 
 #if DEBUG
 type CheckNoInvalidJSForms(isInline) =
@@ -96,6 +97,14 @@ let removeSourcePosFromInlines info expr =
     
 let errorPlaceholder = Value (String "$$ERROR$$")
 
+let emptyConstructor = Hashed { CtorParameters = [] }
+
+let flags =
+    System.Reflection.BindingFlags.Public
+    ||| System.Reflection.BindingFlags.NonPublic
+
+let inline private getItem n x = ItemGet(x, Value (String n))
+
 type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
     inherit Transformer()
 
@@ -126,6 +135,26 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
 #else
         ()
 #endif
+     
+    member this.Generate(g, p) =
+        match comp.GetGeneratorInstance(g) with
+        | Some gen ->
+            let genResult = 
+                try gen.Generate(p)
+                with e -> GeneratorError e.Message
+            let rec getExpr gres = 
+                match gres with
+                | GeneratedQuotation q -> failwith "TODO: generators returning quotation"
+                | GeneratedAST resExpr -> resExpr
+//                | GeneratedString s -> Verbatim s
+//                | GeneratedJavaScript js -> VerbatimJS js 
+                | GeneratorError msg ->
+                    this.Error(M.SourceError (sprintf "Generator error in %s: %s" g.Value.FullName msg))
+                | GeneratorWarning (msg, gres) ->
+                    this.Warning (M.SourceWarning (sprintf "Generator warning in %s: %s" g.Value.FullName msg))
+                    getExpr gres
+            getExpr genResult
+        | None -> this.Error(M.SourceError ("Getting generator failed"))
             
     member this.CompileMethod(info, expr, typ, meth) =
         currentNode <- M.MethodNode(typ, meth)
@@ -135,7 +164,7 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
         | M.NotCompiled i -> 
             comp.AddCompiledMethod(typ, meth, i, res)
         | M.NotGenerated (g, p, i) ->
-            failwith "TODO generated"
+            comp.AddCompiledMethod(typ, meth, i, this.Generate (g, p))
 
     member this.CompileImplementation(info, expr, typ, intf, meth) =
         currentNode <- M.ImplementationNode(typ, intf, meth)
@@ -145,17 +174,17 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
         | M.NotCompiled i -> 
             comp.AddCompiledImplementation(typ, intf, meth, i, res)
         | M.NotGenerated (g, p, i) ->
-            failwith "TODO generated"
+            comp.AddCompiledImplementation(typ, intf, meth, i, this.Generate (g, p))
 
     member this.CompileConstructor(info, expr, typ, ctor) =
         currentNode <- M.ConstructorNode(typ, ctor)
-        let res = this.TransformExpression expr |> removeSourcePosFromInlines info |> breakExpr
-        this.CheckResult(info, res)
         match info with
         | M.NotCompiled i -> 
+            let res = this.TransformExpression expr |> removeSourcePosFromInlines info |> breakExpr
+            this.CheckResult(info, res)
             comp.AddCompiledConstructor(typ, ctor, i, res)
         | M.NotGenerated (g, p, i) ->
-            failwith "TODO generated"
+            comp.AddCompiledConstructor(typ, ctor, i, this.Generate (g, p))
 
     member this.CompileStaticConstructor(addr, expr, typ) =
         currentNode <- M.TypeNode typ
@@ -182,6 +211,12 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
             let toJS = ToJavaScript(comp)
             toJS.CompileImplementation(i, e, t, it, m)
 
+        match comp.EntryPoint with
+        | Some ep ->
+            let toJS = ToJavaScript(comp)
+            comp.EntryPoint <- Some (toJS.TransformStatement(ep))
+        | _ -> ()
+
     member this.AnotherNode() = ToJavaScript(comp, remotingProvider)    
 
     member this.AddDependency(dep: M.Node) =
@@ -192,14 +227,28 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
         comp.AddError(currentSourcePos, err)
         errorPlaceholder
 
-    member this.CompileCall (info, expr, thisObj, typ, meth, args) =
+    member this.Warning(wrn) =
+        comp.AddWarning(currentSourcePos, wrn)
+
+    member this.CompileCall (info, expr, thisObj, typ, meth, args, ?baseCall) =
+        match thisObj with
+        | Some ((IgnoreExprSourcePos Base) as tv) ->
+            this.CompileCall (info, expr, Some (This |> withSourcePosOfExpr tv), typ, meth, args, true)
+        | _ ->
         this.AddDependency(M.MethodNode (typ.Entity, meth.Entity))
         match info with
         | M.Instance name ->
-//            M.addDependency node.Id (M.ClassDep typ.Entity) meta
-            Application(ItemGet(this.TransformExpression (Option.get thisObj), Value (String name)), args |> List.map this.TransformExpression) 
+            match baseCall with
+            | Some true ->
+                let ba = comp.TryLookupClassInfo(typ.Entity).Value.Address.Value
+                Application(
+                    GlobalAccess ba |> getItem "prototype" |> getItem name |> getItem "call",
+                    This :: (args |> List.map this.TransformExpression))
+            | _ ->
+                Application(
+                    this.TransformExpression thisObj.Value |> getItem name,
+                    args |> List.map this.TransformExpression) 
         | M.Static address ->
-//            M.addDependency node.Id (M.StaticMethodDep (typ.Entity, meth.Entity)) meta
             Application(GlobalAccess address, args |> List.map this.TransformExpression)
         | M.Inline ->
             Substitution(args |> List.map this.TransformExpression, ?thisObj = thisObj).TransformExpression(expr)
@@ -207,22 +256,25 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
         // TODO : return dependencies/requires
         | M.Macro (macro, parameter, fallback) ->
             let macroResult = 
-                match comp.GetOrInitMacro(macro) with
+                match comp.GetMacroInstance(macro) with
                 | Some m ->
-                    try m.TranslateCall(thisObj, typ, meth, args, parameter |> Option.map M.ParameterObject.ToObj) 
-                    with e -> this.Error(M.SourceError (sprintf "Macro error in %s.TranslateCall error: %s" macro.Value.FullName e.Message))
-                | _ -> errorPlaceholder
-            match macroResult with
-            | MacroFallback ->
-                match fallback with
-                | None -> this.Error(M.SourceError (sprintf "No macro fallback found for '%s'" macro.Value.FullName))
-                | Some f -> this.CompileCall (f, expr, thisObj, typ, meth, args)      
-            | res -> this.TransformExpression res
-//        | M.NotCompiled info ->
-//            this.CompileNode(node, info)
-//            this.CompileCall(node, thisObj, typ, meth, args)
-//        | M.NotGenerated _ ->
-//            failwith "TODO: generators"
+                    try m.TranslateCall(thisObj, typ, meth, args, parameter |> Option.map M.ParameterObject.ToObj)
+                    with e -> MacroError e.Message 
+                | _ -> MacroError "Macro type failed to load"
+            let rec getExpr mres =
+                match mres with
+                | MacroOk resExpr -> this.TransformExpression resExpr
+                | MacroWarning (msg, mres) ->
+                    this.Warning (M.SourceWarning (sprintf "Macro warning in %s.TranslateCall: %s" macro.Value.FullName msg))
+                    getExpr mres
+                | MacroError msg ->
+                    this.Error(M.SourceError (sprintf "Macro error in %s.TranslateCall: %s" macro.Value.FullName msg))
+                | MacroFallback ->
+                    match fallback with
+                    | None -> this.Error(M.SourceError (sprintf "No macro fallback found for '%s'" macro.Value.FullName))
+                    | Some f -> this.CompileCall (f, expr, thisObj, typ, meth, args)      
+                | MacroNeedsResolvedTypeArg -> failwith "TODO: MacroNeedsResolvedTypeArg"
+            getExpr macroResult
         | M.Remote (scope, kind, handle) ->
             let name =
                 match kind with
@@ -235,7 +287,7 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
                 match scope, args with
                 | M.InstanceMember, _ :: args 
                 | _, args -> NewArray ( args |> List.map this.TransformExpression )
-            Application (ItemGet(remotingProvider, Value (String name)), [ Value (String (handle.Pack())); trArgs ])
+            Application (remotingProvider |> getItem name, [ Value (String (handle.Pack())); trArgs ])
     
     override this.TransformCall (thisObj, typ, meth, args) =
         match comp.LookupMethodInfo(typ.Entity, meth.Entity) with
@@ -272,29 +324,81 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
         | M.Macro (macro, parameter, fallback) ->
 //            fallback |> Option.iter (fun f -> this.Compile ({node with NodeInfo = f}, thisObj, args))
             let macroResult = 
-                match comp.GetOrInitMacro(macro) with
+                match comp.GetMacroInstance(macro) with
                 | Some m ->
                     try m.TranslateCtor(typ, ctor, args, parameter |> Option.map M.ParameterObject.ToObj)
-                    with e -> 
-                        this.Error(M.SourceError (sprintf "Macro error in %s.TranslateCtor error: %s" macro.Value.FullName e.Message))
-                | _ -> errorPlaceholder
-            match macroResult with
-            | MacroFallback ->
-                match fallback with
-                | None -> this.Error(M.SourceError (sprintf "No macro fallback found for '%s'" macro.Value.FullName))
-                | Some f -> this.CompileCtor (f, expr, typ, ctor, args)      
-            | res -> this.TransformExpression res
+                    with e -> MacroError e.Message 
+                | _ -> MacroError "Macro type failed to load"
+            let rec getExpr mres =
+                match mres with
+                | MacroOk resExpr -> this.TransformExpression resExpr
+                | MacroWarning (msg, mres) ->
+                    this.Warning (M.SourceWarning (sprintf "Macro warning in %s.TranslateCall: %s" macro.Value.FullName msg))
+                    getExpr mres
+                | MacroError msg ->
+                    this.Error(M.SourceError (sprintf "Macro error in %s.TranslateCall: %s" macro.Value.FullName msg))
+                | MacroFallback ->
+                    match fallback with
+                    | None -> this.Error(M.SourceError (sprintf "No macro fallback found for '%s'" macro.Value.FullName))
+                    | Some f -> this.CompileCtor (f, expr, typ, ctor, args)      
+                | MacroNeedsResolvedTypeArg -> failwith "TODO: MacroNeedsResolvedTypeArg"
+            getExpr macroResult
 //        | M.NotCompiled info ->
 //            this.CompileNode(node, info)
 //            this.CompileCtor(node, typ, ctor, args)
 //        | M.NotGenerated _ ->
 //            failwith "TODO: generators"
-        | _ -> this.Error(M.SourceError "invalid metadata for constructor")
+        | _ -> this.Error(M.SourceError "Invalid metadata for constructor.")
 
-    override this.TransformNewObject(typ, objExpr) =
-        match comp.TryLookupClassInfo typ.Entity |> Option.bind (fun c -> c.Address) with
+    override this.TransformCopyCtor(typ, objExpr) =
+        match comp.TryLookupClassInfo typ |> Option.bind (fun c -> c.Address) with
         | Some a -> New (GlobalAccess a, [ this.TransformExpression objExpr ])
         | _ -> this.TransformExpression objExpr
+
+    override this.TransformNewRecord(typ, fields) =
+        match comp.TryGetRecordConstructor typ.Entity with
+        | Some rctor ->
+            this.TransformCtor(typ, rctor, fields)
+        | _ ->
+            try
+                let t = Reflection.loadTypeDefinition typ.Entity
+
+                let fs =
+                    FSharp.Reflection.FSharpType.GetRecordFields(t, flags) |> Seq.map (fun f -> 
+                        let mutable name = f.Name
+                        let mutable isOpt = false
+
+                        for a in f.GetCustomAttributesData() do
+                            if a.Constructor.DeclaringType = typeof<A.NameAttribute> then
+                                name <- a.ConstructorArguments.[0].Value :?> string
+                            elif a.Constructor.DeclaringType = typeof<A.OptionalFieldAttribute> then
+                                isOpt <- 
+                                    f.PropertyType.IsGenericType 
+                                    && f.PropertyType.GetGenericTypeDefinition() = typedefof<option<_>>
+                    
+                        name, isOpt 
+                    )
+                    |> List.ofSeq
+                let trFields = fields |> List.map this.TransformExpression
+                let obj = 
+                    Seq.zip fs trFields
+                    |> Seq.map (fun ((name, opt), value) -> name, if opt then value |> getItem "$0" else value)
+                    |> List.ofSeq |> Object
+                let optFields = 
+                    fs |> List.choose (fun (f, o) -> 
+                        if o then Some (Value (String f)) else None)
+            
+                if List.isEmpty optFields then obj 
+                else Application (runtimeDeleteEmptyFields, [obj; NewArray optFields])
+            with _ -> this.Error(M.SourceError "Record creation by reflection failed.")
+            
+//        match comp.TryLookupClassInfo typ.Entity with
+//        | Some cls ->
+//            match cls.Constructors.Count with
+//            | 1 -> this.TransformCtor(typ, Seq.head cls.Constructors.Keys, fields)
+//            | 0 -> this.Error(M.SourceError "Record type constructor not found.")
+//            | _ -> this.Error(M.SourceError "Record type must have exacly one constructor.")
+//        | _ -> this.Error(M.SourceError "Record type not found in translation.")
 
     override this.TransformCtor(typ, ctor, args) =
         let node = comp.LookupConstructorInfo(typ.Entity, ctor)
@@ -316,10 +420,10 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
         let norm = this.TransformCtor(typ, ctor, args)
         match norm with
         | New (func, a) ->
-            Application(ItemGet(func, !~(Literal.String "call")), expr :: a)
+            Application(func |> getItem "call", expr :: a)
         // TODO: not needing this workaround for inlines
         | Let (i1, a1, New(func, [Var v1])) when i1 = v1 ->
-            Application(ItemGet(func, !~(Literal.String "call")), expr :: [a1])
+            Application(func |> getItem "call", expr :: [a1])
         | _ ->
             comp.AddError (currentSourcePos, M.SourceError "base class constructor is not regular")
             Application(errorPlaceholder, args |> List.map this.TransformExpression)
@@ -327,6 +431,16 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
     override this.TransformCctor(typ) =
         this.AddDependency(M.TypeNode typ)
         Application(GlobalAccess (comp.LookupStaticConstructorAddress typ), [])
+
+    override this.TransformOverrideName(typ, meth) =
+        match comp.LookupMethodInfo(typ, meth) with
+        | M.Compiled (M.Instance name, _) 
+        | M.Compiling ((M.NotCompiled (M.Instance name) | M.NotGenerated (_,_,M.Instance name)), _) ->
+            Value (String name)
+        | M.LookupMemberError err ->
+            this.Error err
+        | _ -> 
+            this.Error (M.SourceError "Could not get name of abstract method")
 
 //    member this.CompileCCtor (node: M.CompiledNode, typ) =
 //        match node.Info with
@@ -349,17 +463,39 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
         | M.CompiledField f ->
             match f with
             | M.InstanceField fname ->
-                ItemGet(this.TransformExpression expr.Value, Value (String fname)) 
+                this.TransformExpression expr.Value |> getItem fname
             | M.StaticField faddr ->
                 GlobalAccess faddr   
             | M.OptionalField fname -> 
-                Application(runtimeGetOptional, [ItemGet(this.TransformExpression expr.Value, Value (String fname))])
+                Application(runtimeGetOptional, [this.TransformExpression expr.Value |> getItem fname])
         | M.LookupFieldError err ->
-            comp.AddError (currentSourcePos, err)
             match expr with
             | Some expr ->
-                ItemGet(this.TransformExpression expr, errorPlaceholder)
-            | _ -> errorPlaceholder
+                try
+                    let t = Reflection.loadTypeDefinition typ.Entity
+                    FSharp.Reflection.FSharpType.GetRecordFields(t, flags) |> Seq.pick (fun f ->
+                        if f.Name = field then
+                            let mutable name = field
+                            let mutable isOpt = false
+                            for a in f.GetCustomAttributesData() do
+                                if a.Constructor.DeclaringType = typeof<A.NameAttribute> then
+                                    name <- a.ConstructorArguments.[0].Value :?> string
+                                elif a.Constructor.DeclaringType = typeof<A.OptionalFieldAttribute> then
+                                    isOpt <- 
+                                        f.PropertyType.IsGenericType 
+                                        && f.PropertyType.GetGenericTypeDefinition() = typedefof<option<_>>
+                            if isOpt then
+                                Application(runtimeGetOptional, [this.TransformExpression expr |> getItem name])
+                            else
+                                this.TransformExpression expr |> getItem name 
+                            |> Some
+                        else None
+                    )
+                with _ ->
+                    this.Warning(M.SourceWarning "Original field name used")
+                    this.TransformExpression expr |> getItem field
+            | _ -> 
+                this.Error(err)
 
     override this.TransformFieldSet (expr, typ, field, value) =
         this.AddDependency(M.TypeNode typ.Entity)
@@ -374,11 +510,33 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
             | M.OptionalField fname -> 
                 Application(runtimeSetOptional, [this.TransformExpression expr.Value; Value (String fname); this.TransformExpression value])
         | M.LookupFieldError err ->
-            comp.AddError (currentSourcePos, err)
             match expr with
             | Some expr ->
-                ItemSet(this.TransformExpression expr, errorPlaceholder, this.TransformExpression value)
+                try
+                    let t = Reflection.loadTypeDefinition typ.Entity
+                    FSharp.Reflection.FSharpType.GetRecordFields(t, flags) |> Seq.pick (fun f ->
+                        if f.Name = field then
+                            let mutable name = field
+                            let mutable isOpt = false
+                            for a in f.GetCustomAttributesData() do
+                                if a.Constructor.DeclaringType = typeof<A.NameAttribute> then
+                                    name <- a.ConstructorArguments.[0].Value :?> string
+                                elif a.Constructor.DeclaringType = typeof<A.OptionalFieldAttribute> then
+                                    isOpt <- 
+                                        f.PropertyType.IsGenericType 
+                                        && f.PropertyType.GetGenericTypeDefinition() = typedefof<option<_>>
+                            if isOpt then
+                                Application(runtimeSetOptional, [this.TransformExpression expr; Value (String name); this.TransformExpression value])
+                            else
+                                ItemSet(this.TransformExpression expr, Value (String name), this.TransformExpression value) 
+                            |> Some
+                        else None
+                    )
+                with _ ->
+                    this.Warning(M.SourceWarning "Original field name used")
+                    ItemSet(this.TransformExpression expr, Value (String field), this.TransformExpression value)
             | _ ->
+                comp.AddError (currentSourcePos, err)
                 ItemSet(errorPlaceholder, errorPlaceholder, this.TransformExpression value)
 
     override this.TransformTypeCheck(expr, typ) =
@@ -393,7 +551,7 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
         | ConcreteType { Entity = t; Generics = [] } ->
             match t.Value.FullName with
             | "Microsoft.FSharp.Core.Unit"
-            | "System.Void" ->
+            | "System.Void" ->                                                                
                 typeof "undefined"
             | "System.Boolean" ->
                 typeof "boolean"

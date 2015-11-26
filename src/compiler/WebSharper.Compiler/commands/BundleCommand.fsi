@@ -20,24 +20,24 @@
 
 namespace WebSharper.Compiler
 
-///// Performs bundling of JavaScript and CSS resources,
-///// producing linked artifacts for a set of WebSharper assemblies.
-//module BundleCommand =
-//
-//    /// Configuration for the bundle command.
-//    type Config =
-//        {
-//            /// Paths to WebSharper assemblies to consider.
-//            AssemblyPaths : list<string>
-//
-//            /// File name used for generated files.
-//            FileName : string
-//
-//            /// Output directory where generated files are placed.
-//            OutputDirectory : string
-//        }
-//
-//        static member Create : unit -> Config
-//
-//    /// The command instance.
-//    val Instance : Commands.ICommand<Config>
+/// Performs bundling of JavaScript and CSS resources,
+/// producing linked artifacts for a set of WebSharper assemblies.
+module BundleCommand =
+
+    /// Configuration for the bundle command.
+    type Config =
+        {
+            /// Paths to WebSharper assemblies to consider.
+            AssemblyPaths : list<string>
+
+            /// File name used for generated files.
+            FileName : string
+
+            /// Output directory where generated files are placed.
+            OutputDirectory : string
+        }
+
+        static member Create : unit -> Config
+
+    /// The command instance.
+    val Instance : Commands.ICommand<Config>

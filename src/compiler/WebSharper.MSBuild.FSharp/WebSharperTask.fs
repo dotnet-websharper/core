@@ -26,7 +26,6 @@ open System.IO
 open System.Reflection
 open Microsoft.Build.Framework
 open Microsoft.Build.Utilities
-open IntelliFactory.Core
 open WebSharper
 open WebSharper.Compiler
 module FE = FrontEnd
@@ -125,29 +124,29 @@ module WebSharperTaskModule =
                 d
             | None -> failwith "WebSharperBundleOutputDir property is required"
         | dir -> dir
-//
-//    let Bundle settings =
-//        match GetProjectType settings with
-//        | Bundle webRoot ->
-//            let outputDir = BundleOutputDir settings webRoot
-//            let fileName =
-//                match settings.Name with
-//                | null | "" -> "Bundle"
-//                | name -> name
-//            match List.ofArray settings.ItemInput with
-//            | raw :: refs ->
-//                let cfg =
-//                    {
-//                        Compiler.BundleCommand.Config.Create() with
-//                            AssemblyPaths = raw.ItemSpec :: [for r in refs -> r.ItemSpec]
-//                            FileName = fileName
-//                            OutputDirectory = outputDir
-//                    }
-//                let env = Compiler.Commands.Environment.Create()
-//                Compiler.BundleCommand.Instance.Execute(env, cfg)
-//                |> SendResult settings
-//            | _ -> Fail settings "Invalid options for Bundle command"
-//        | _ -> true
+
+    let Bundle settings =
+        match GetProjectType settings with
+        | Bundle webRoot ->
+            let outputDir = BundleOutputDir settings webRoot
+            let fileName =
+                match settings.Name with
+                | null | "" -> "Bundle"
+                | name -> name
+            match List.ofArray settings.ItemInput with
+            | raw :: refs ->
+                let cfg =
+                    {
+                        Compiler.BundleCommand.Config.Create() with
+                            AssemblyPaths = raw.ItemSpec :: [for r in refs -> r.ItemSpec]
+                            FileName = fileName
+                            OutputDirectory = outputDir
+                    }
+                let env = Compiler.Commands.Environment.Create()
+                Compiler.BundleCommand.Instance.Execute(env, cfg)
+                |> SendResult settings
+            | _ -> Fail settings "Invalid options for Bundle command"
+        | _ -> true
 
     let BundleClean settings webRoot =
         let outputDir = BundleOutputDir settings webRoot
@@ -323,7 +322,7 @@ module WebSharperTaskModule =
     let Execute settings =
         try
             match settings.Command with
-//            | "Bundle" -> Bundle settings
+            | "Bundle" -> Bundle settings
             | "Clean" -> Clean settings
             | "Compile" -> Compile settings
             | "Html" -> Html settings
@@ -371,11 +370,13 @@ type WebSharperTask() =
             |> Seq.append (Directory.GetFiles(BaseDir, "*.dll"))
             |> Seq.map (fun i -> 
                 let n = Path.GetFileNameWithoutExtension(i)
-                if n = this.Name then
-                    File.Copy(i, i + ".orig", true)
-                    n, i + ".orig"
-                else
-                    n, i
+//                if n = this.Name then 
+//                    let c = Path.Combine(Path.GetDirectoryName i, "raw", Path.GetFileName i)
+//                    File.Copy(i, c, true)
+//                    n, c
+//                else
+//                    n, i
+                n, i
             )
 //            |> Seq.filter (fst >> (<>) this.Name)
             |> Map.ofSeq
@@ -395,7 +396,13 @@ type WebSharperTask() =
 //                    System.Reflection.Assembly.LoadFrom(p + ".copy")
 //                else
 ////                    printfn "Loaded: %s" p
-                    System.Reflection.Assembly.LoadFrom(p)
+//                    System.Reflection.Assembly.LoadFrom(p)
+                if assemblyName = "FSharp.Core" then
+                    typeof<option<_>>.Assembly
+                elif assemblyName = this.Name then
+                    Assembly.Load(File.ReadAllBytes(p))
+                else
+                    Assembly.LoadFrom(p)
         )
 
     override this.Execute() =

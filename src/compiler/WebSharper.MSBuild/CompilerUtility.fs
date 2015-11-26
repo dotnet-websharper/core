@@ -25,7 +25,6 @@ open System.IO
 open System.Reflection
 open Microsoft.Build.Framework
 open Microsoft.Build.Utilities
-open IntelliFactory.Core
 open WebSharper
 open WebSharper.Compiler
 module FE = FrontEnd
@@ -231,7 +230,7 @@ module CompilerUtility =
                     for i in input.AssemblyFile :: input.References ->
                         Path.GetFullPath(i)
                 ]
-            AssemblyResolution.AssemblyResolver.Create()
+            AssemblyResolver.Create()
                 .SearchPaths(files)
         aR.Wrap <| fun () ->
             Act {

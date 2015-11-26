@@ -25,7 +25,7 @@
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/net40/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
   </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
-  <!--Target Name="WebSharperBundle" AfterTargets="Build">
+  <Target Name="WebSharperBundle" AfterTargets="Build">
     <WebSharperTask Command="Bundle" ItemInput="$(TargetPath);@(ReferencePath)"
       Configuration="$(Configuration)"
       DocumentationFile="$(DocumentationFile)"
@@ -39,7 +39,7 @@
       WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" />
-  </Target>-->
+  </Target>
   <Target Name="WebSharperClean" AfterTargets="Clean">
     <WebSharperTask Command="Clean" ItemInput="@(IntermediateAssembly)"
       Configuration="$(Configuration)"

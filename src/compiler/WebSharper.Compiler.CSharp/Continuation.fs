@@ -214,6 +214,13 @@ type ContinuationTransformer(labels) =
             )
         )
 
+let enumeratorTy =
+    TypeDefinition {
+        Assembly = "WebSharper.Main"
+        FullName = "WebSharper.Enumerator+T`2"
+    }
+
+
 type GeneratorTransformer(labels) =
     inherit ContinuationTransformer(labels)
 
@@ -233,19 +240,11 @@ type GeneratorTransformer(labels) =
         let inner =
             this.TransformMethodBodyInner s |> extract.TransformStatement
 
-        let enumeratorTy =
-            concrete(
-                TypeDefinition {
-                    Assembly = "WebSharper.Main"
-                    FullName = "WebSharper.Enumerator+T`2"
-                }, []
-            ) 
-
         Return <| Object [ 
             "GetEnumerator", 
                 Function ([],
                     Block [
-                        yield VarDeclaration(en, NewObject(enumeratorTy, Object ["d", Function ([], Empty)])) // TODO: disposing iterators
+                        yield VarDeclaration(en, CopyCtor(enumeratorTy, Object ["d", Function ([], Empty)])) // TODO: disposing iterators
                         yield VarDeclaration(this.StateVar, Value (Int 0))
                         for v in extract.Vars do
                             yield VarDeclaration(v, Undefined)
@@ -254,6 +253,13 @@ type GeneratorTransformer(labels) =
                     ]
                 )
         ]
+
+let taskTy =
+//    Reflection.getTypeDefinition(typeof<System.Threading.Tasks.Task<_>>)
+    TypeDefinition {
+        Assembly = "mscorlib"
+        FullName = "System.Threading.Tasks.Task`1"
+    }
 
 type AsyncTransformer(labels) =
     inherit ContinuationTransformer(labels)
@@ -283,12 +289,9 @@ type AsyncTransformer(labels) =
         let inner =
             this.TransformMethodBodyInner s |> extract.TransformStatement
 
-        let taskTy =
-            concrete (Reflection.getTypeDefinition(typeof<System.Threading.Tasks.Task<_>>), [])
-
         Block [
             yield VarDeclaration(task, 
-                NewObject (taskTy, 
+                CopyCtor (taskTy, 
                     Object [
                         "status", Value (Int (int System.Threading.Tasks.TaskStatus.Running))
                         "continuations", NewArray []

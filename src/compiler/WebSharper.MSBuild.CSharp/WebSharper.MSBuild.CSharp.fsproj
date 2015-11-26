@@ -7,6 +7,7 @@
     <Name>WebSharper.MSBuild.CSharp</Name>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <TargetFrameworkProfile />
+    <FSharp40 Condition="Exists('$(MSBuildExtensionsPath32)/../Reference Assemblies/Microsoft/FSharp/.NETFramework/v4.0/4.4.0.0/FSharp.Core.dll')">True</FSharp40>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <StartAction>Program</StartAction>
@@ -24,9 +25,6 @@
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
     <Reference Include="FSharp.Data.TypeProviders" />
-    <Reference Include="IntelliFactory.Core">
-      <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
-    </Reference>
     <Reference Include="Microsoft.Build.Framework" />
     <Reference Include="Microsoft.Build.Utilities.v4.0" />
     <Reference Include="System.Data" />

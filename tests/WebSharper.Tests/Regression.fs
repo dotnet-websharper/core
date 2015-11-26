@@ -94,8 +94,10 @@ module BugBB80 =
         |> Async.Start
 
 module Bug264 =
+    [<JavaScript>]
     type Y<'X> = | Y of int
 
+    [<JavaScript>]
     type X =
         {
             A : int

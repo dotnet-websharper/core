@@ -156,6 +156,11 @@ type private CancellationTokenProxy =
 
     [<JavaScript>]
     [<Inline>]
+    member this.ThrowIfCancellationRequested() =
+        if this.IsCancellationRequested then raise (OCE()) 
+
+    [<JavaScript>]
+    [<Inline>]
     static member None = As<CT> C.noneCT
         
 [<Proxy(typeof<CTS>)>]

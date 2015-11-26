@@ -6,7 +6,7 @@ open WebSharper.Core
 open WebSharper.Core.AST
 module M = WebSharper.Core.Metadata
 
-let packageAssembly (merged: M.Metadata) (current: M.Metadata) =
+let packageAssembly (merged: M.Metadata) (current: M.Metadata) isBundle =
     let addresses = Dictionary()
     let statements = ResizeArray()
 
@@ -154,13 +154,18 @@ let packageAssembly (merged: M.Metadata) (current: M.Metadata) =
                     package maddr body
             | _ -> ()
             
-    
     while classes.Count > 0 do
         let (KeyValue(t, c)) = classes |> Seq.head
         classes.Remove t |> ignore
         packageClass c
 
+    if isBundle then
+        match current.EntryPoint with
+        | Some ep -> statements.Add ep
+        | _ -> failwith "Missing entry point. Add an SPAEntryPoint attribute to a static method without arguments."
+    
     let statements = List.ofSeq statements 
+
     if List.isEmpty statements then Undefined else
         Application(Function([], Block (List.ofSeq statements)), [])
 

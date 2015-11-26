@@ -27,12 +27,16 @@ open WebSharper.Testing
 type Hi() =
     override this.ToString() = "Hello"
 
+[<JavaScript>]
 type A = { X : int } with override x.ToString() = "X"
 
+[<JavaScript>]
 type X = { A: int; B: int }
 
+[<JavaScript>]
 type Y = { C: int; D: Y option }
 
+[<JavaScript>]
 type Z = { [<Name "F">] E : int * Z option }
 
 type MyList<'T> =

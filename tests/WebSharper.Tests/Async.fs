@@ -24,15 +24,15 @@ open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
 
-//[<Inline "WebSharper.Concurrency.scheduler().tick()">]
-//let tick() = ()
-//
-//[<Inline "WebSharper.Concurrency.scheduler().idle">]
-//let isIdle() = true
-//
-//[<JavaScript>]
-//let forceAsync() =
-//    while not (isIdle()) do tick()
+[<Inline "WebSharper.Concurrency.scheduler().tick()">]
+let tick() = ()
+
+[<Inline "WebSharper.Concurrency.scheduler().idle">]
+let isIdle() = true
+
+[<JavaScript>]
+let forceAsync() =
+    while not (isIdle()) do tick()
 
 type Message =
     | Increment of int
@@ -106,22 +106,22 @@ let Tests =
             equal x "AF"
         }
 
-//        Test "Cancellation" {
-//            let ops = ref ""
-//            let a = async { ops := !ops + "A" }
-//            let cancelled = ref false
-//            let cts = new System.Threading.CancellationTokenSource()
-//            cts.Token.Register(fun () -> cancelled := true) |> ignore
-//            Async.Start (
-//                async {
-//                    do! a
-//                    cts.Cancel()
-//                    do! a
-//                }, cts.Token)
-//            forceAsync()
-//            equal !cancelled true
-//            equal !ops "A"
-//        }
+        Test "Cancellation" {
+            let ops = ref ""
+            let a = async { ops := !ops + "A" }
+            let cancelled = ref false
+            let cts = new System.Threading.CancellationTokenSource()
+            cts.Token.Register(fun () -> cancelled := true) |> ignore
+            Async.Start (
+                async {
+                    do! a
+                    cts.Cancel()
+                    do! a
+                }, cts.Token)
+            forceAsync()
+            equal !cancelled true
+            equal !ops "A"
+        }
 
         Test "MailboxProcessor" {
             let mb = 
@@ -178,11 +178,11 @@ let Tests =
             equal x [ 8; 5; 6; 1; 0 ] 
 
 //            // testing Error event
-//            let errorCatched = ref false
-//            mb.Error.Add (fun _ -> errorCatched := true)
-//            mb.Post(Die)
-//            forceAsync()
-//            equal !errorCatched true
+            let errorCatched = ref false
+            mb.Error.Add (fun _ -> errorCatched := true)
+            mb.Post(Die)
+            forceAsync()
+            equal !errorCatched true
         }
 
     }

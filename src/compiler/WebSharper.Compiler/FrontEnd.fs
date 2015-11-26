@@ -38,6 +38,15 @@ let readFromAssembly (a: Assembly) =
 #endif
             | _ -> None)
 
+let modifyWIGAssembly (current: M.Metadata) (a: Mono.Cecil.AssemblyDefinition) =
+    let pub = Mono.Cecil.ManifestResourceAttributes.Public
+    let meta =
+        use s = new MemoryStream(8 * 1024)
+        MetadataEncoding.Encode s current
+        s.ToArray()
+    Mono.Cecil.EmbeddedResource(EMBEDDED_METADATA, pub, meta)
+    |> a.MainModule.Resources.Add
+
 let modifyAssembly (merged: M.Metadata) (current: M.Metadata) (a: Mono.Cecil.AssemblyDefinition) =
 //    let current = M.toSingleMetadata comp 
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
@@ -46,7 +55,7 @@ let modifyAssembly (merged: M.Metadata) (current: M.Metadata) (a: Mono.Cecil.Ass
         MetadataEncoding.Encode s current
         s.ToArray()
     let pkg = 
-        WebSharper.Compiler.Packager.packageAssembly merged current
+        WebSharper.Compiler.Packager.packageAssembly merged current false
 //        |> Option.fill AST.Undefined 
 
 //    let prog = P.Package pkg

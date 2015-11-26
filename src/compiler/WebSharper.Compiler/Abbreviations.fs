@@ -27,7 +27,6 @@ module internal Abbreviations =
 
     type Activator = System.Activator
     type AssemblyName = Reflection.AssemblyName
-    type AssemblyResolver = IntelliFactory.Core.AssemblyResolution.AssemblyResolver
     type CustomAttributeData = Reflection.CustomAttributeData
     type IDictionary<'T1,'T2> = Generic.IDictionary<'T1,'T2>
     type Dictionary<'T1,'T2> = Generic.Dictionary<'T1,'T2>

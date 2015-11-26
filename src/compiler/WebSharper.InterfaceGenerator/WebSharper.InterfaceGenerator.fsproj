@@ -28,9 +28,4 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <Reference Include="IntelliFactory.Core">
-      <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
-    </Reference>
-  </ItemGroup>
 </Project>

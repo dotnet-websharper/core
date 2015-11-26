@@ -27,3 +27,25 @@ type private IComparableProxy =
 [<Proxy(typeof<System.IComparable<_>>)>]
 type private IComparableProxy<'T> =
     abstract CompareTo : 'T -> int
+
+[<Proxy(typeof<System.Collections.IEqualityComparer>)>]
+type private IEqualityComparerProxy =
+    abstract Equals : obj * obj -> bool 
+    abstract GetHashCode : obj -> int
+
+[<Proxy(typeof<System.Collections.IComparer>)>]
+type private IComparerProxy =
+    abstract Compare : obj * obj -> int
+
+[<Proxy(typeof<System.IEquatable<_>>)>]
+type private IEquatableProxy<'T> =
+    abstract Equals : 'T -> bool
+
+[<Proxy(typeof<System.Collections.IStructuralEquatable>)>]
+type private IStructuralEquatableProxy =
+    abstract Equals : obj * System.Collections.IEqualityComparer -> bool 
+    abstract GetHashCode : System.Collections.IEqualityComparer -> int
+
+[<Proxy(typeof<System.Collections.IStructuralComparable>)>]
+type private IStructuralComparableProxy =
+    abstract CompareTo : obj * System.Collections.IComparer -> int 

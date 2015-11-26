@@ -32,7 +32,6 @@ open WebSharper.Sitelets.Tests.Json.Types
 
 [<JavaScript>]
 module ClientSideJson =
-(*
     let ClientTests =
         TestCategory "Client-side JSON" {
 
@@ -274,7 +273,7 @@ module ClientSideJson =
             }
 
         }
-*)
+
     let echo (url: string) (serializedArg: string) (decode: obj -> 't) : Async<'t> =
         Async.FromContinuations <| fun (ok, ko, _) ->
             JQuery.Ajax(

@@ -1,7 +1,7 @@
 ﻿<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup>
     <CP Include="../src/compiler/*/*.fsproj" 
-        Exclude="../src/compiler/*/WebSharper.CoreOld.fsproj;../src/compiler/*/WebSharper.CompilerOld.fsproj;../src/compiler/*/WebSharper.fsproj;../src/compiler/*/WebSharper.FSharp.fsproj;../src/compiler/*/WebSharper.CSharp.fsproj" />
+        Exclude="../src/compiler/*/WebSharper.fsproj;../src/compiler/*/WebSharper.CSharp.fsproj" />
     <SP Include="../src/stdlib/*/*.fsproj" />
     <SP Include="../src/sitelets/*/*.fsproj" />
     <SP Include="../tests/*/*.fsproj" Exclude="../tests/*/WarpTest.fsproj;../tests/*/WebSharper.Core.JavaScript.Tests.fsproj" />

@@ -25,7 +25,6 @@ open System.IO
 open System.Reflection
 open Microsoft.Build.Framework
 open Microsoft.Build.Utilities
-open IntelliFactory.Core
 open WebSharper
 open WebSharper.Compiler
 module FE = FrontEnd
@@ -230,7 +229,14 @@ module CompilerJobModule =
                         |]   
 
                     let comp = 
-                        compiler.Compile(refMeta, args, input.ProjectFile, aR)
+                        compiler.Compile(refMeta, args, input.ProjectFile) //, aR)
+
+                    for pos, w in comp.Warnings do
+                        match pos with
+                        | Some pos ->
+                            out.Add(CMWarn2 (pos.FileName, fst pos.Start, snd pos.Start, fst pos.End, snd pos.End, string w))
+                        | _ ->
+                            out.Add(CMWarn1 (string w))
 
                     if not (List.isEmpty comp.Errors) then
                         for pos, e in comp.Errors do
@@ -307,7 +313,7 @@ module CompilerUtility =
 //                    yield! files 
 //                |]
 //            )
-            AssemblyResolution.AssemblyResolver.Create()
+            AssemblyResolver.Create()
                 .SearchPaths(files)
 ////        aR.Wrap <| fun () ->
 //        Act {

@@ -134,7 +134,7 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
             |> List.mapi (fun i -> function
                 | Value (v, t) ->
                     let v = match v with null -> WebSharper.Core.Json.Internal.MakeTypedNull t | _ -> v
-                    v, M.TypeNode (R.TypeDefinition.FromType t)
+                    v, M.TypeNode (R.getTypeDefinition t)
                 | _ -> failwithf "Wrong format for InlineControl at %s: argument #%i is not a literal or a local variable" (getLocation()) (i+1)
             )
             |> List.unzip
@@ -160,7 +160,7 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                     match cls.Methods.TryFind meth with
                     | Some (M.Static a, _) ->
                         funcName <- Array.ofList (List.rev a.Value)
-                | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
+                    | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
         member this.Requires =

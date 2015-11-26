@@ -47,74 +47,74 @@ let guard action =
 let pathToSelf = Assembly.GetExecutingAssembly().Location
 let baseDir = Path.GetDirectoryName pathToSelf
 
-let compile (aR: AssemblyResolver) (opts: Options.CompilationOptions) =
-    let sw = Stopwatch()
-    sw.Start()
-    let refPaths =
-        opts.Input :: opts.References
-        |> Seq.map Path.GetFullPath
-        |> Set.ofSeq
-    let aR = aR.SearchPaths(refPaths)
-    aR.Wrap <| fun () ->
-        let k =
-            let aLoader = FE.Loader.Create aR stderr.WriteLine
-            let assem = aLoader.LoadFile opts.Input
-            let snk =
-                opts.KeyPair
-                |> Option.map (fun x ->
-                    let bs = File.ReadAllBytes x
-                    StrongNameKeyPair(bs))
-            let refs = List.map aLoader.LoadFile opts.References
-            let options : FE.Options =
-                {
-                    ErrorLimit = opts.ErrorLimit
-                    KeyPair = snk
-                    References = refs
-                    IncludeSourceMap = opts.IncludeSourceMap
-                }
-            let compiler = FE.Prepare options stderr.WriteLine
-            let result = compiler.CompileAndModify assem
-            if result then
-                assem.Write snk opts.Output
-                match opts.OutputJavaScript with
-                | Some path ->
-                    match assem.ReadableJavaScript with
-                    | Some js -> writeTextFile (path, js)
-                    | None -> ()
-                | None -> ()
-                match opts.OutputMinified with
-                | Some path ->
-                    match assem.CompressedJavaScript with
-                    | Some js -> writeTextFile (path, js)
-                    | None -> ()
-                | None -> ()
-                match opts.OutputTypeScript with
-                | Some path ->
-                    match assem.TypeScriptDeclarations with
-                    | Some dts -> writeTextFile (path, dts)
-                    | None -> ()
-                | None -> ()
-                for (assem, k, v) in opts.Extraction do
-                    let a = Mono.Cecil.AssemblyDefinition.ReadAssembly assem
-                    for r in a.MainModule.Resources do
-                        match r with
-                        | :? Mono.Cecil.EmbeddedResource as r ->
-                            if r.Name = k then
-                                let data = r.GetResourceData()
-                                writeBinaryFile (v, data)
-                        | _ ->
-                            ()
-                0
-            else
-                1
-        sw.Stop()
-        if k = 0 then
-            stdout.WriteLine("Compilation succeeded in {0} seconds.",
-                sw.Elapsed.TotalSeconds)
-        else
-            stderr.WriteLine("Compilation failed in {0} seconds.",
-                sw.Elapsed.TotalSeconds)
-        k
+//let compile (aR: AssemblyResolver) (opts: Options.CompilationOptions) =
+//    let sw = Stopwatch()
+//    sw.Start()
+//    let refPaths =
+//        opts.Input :: opts.References
+//        |> Seq.map Path.GetFullPath
+//        |> Set.ofSeq
+//    let aR = aR.SearchPaths(refPaths)
+//    aR.Wrap <| fun () ->
+//        let k =
+//            let aLoader = FE.Loader.Create aR stderr.WriteLine
+//            let assem = aLoader.LoadFile opts.Input
+//            let snk =
+//                opts.KeyPair
+//                |> Option.map (fun x ->
+//                    let bs = File.ReadAllBytes x
+//                    StrongNameKeyPair(bs))
+//            let refs = List.map aLoader.LoadFile opts.References
+//            let options : FE.Options =
+//                {
+//                    ErrorLimit = opts.ErrorLimit
+//                    KeyPair = snk
+//                    References = refs
+//                    IncludeSourceMap = opts.IncludeSourceMap
+//                }
+//            let compiler = FE.Prepare options stderr.WriteLine
+//            let result = compiler.CompileAndModify assem
+//            if result then
+//                assem.Write snk opts.Output
+//                match opts.OutputJavaScript with
+//                | Some path ->
+//                    match assem.ReadableJavaScript with
+//                    | Some js -> writeTextFile (path, js)
+//                    | None -> ()
+//                | None -> ()
+//                match opts.OutputMinified with
+//                | Some path ->
+//                    match assem.CompressedJavaScript with
+//                    | Some js -> writeTextFile (path, js)
+//                    | None -> ()
+//                | None -> ()
+//                match opts.OutputTypeScript with
+//                | Some path ->
+//                    match assem.TypeScriptDeclarations with
+//                    | Some dts -> writeTextFile (path, dts)
+//                    | None -> ()
+//                | None -> ()
+//                for (assem, k, v) in opts.Extraction do
+//                    let a = Mono.Cecil.AssemblyDefinition.ReadAssembly assem
+//                    for r in a.MainModule.Resources do
+//                        match r with
+//                        | :? Mono.Cecil.EmbeddedResource as r ->
+//                            if r.Name = k then
+//                                let data = r.GetResourceData()
+//                                writeBinaryFile (v, data)
+//                        | _ ->
+//                            ()
+//                0
+//            else
+//                1
+//        sw.Stop()
+//        if k = 0 then
+//            stdout.WriteLine("Compilation succeeded in {0} seconds.",
+//                sw.Elapsed.TotalSeconds)
+//        else
+//            stderr.WriteLine("Compilation failed in {0} seconds.",
+//                sw.Elapsed.TotalSeconds)
+//        k
 
 let ShowResult (r: Compiler.Commands.Result) =
     match r with
@@ -124,12 +124,12 @@ let ShowResult (r: Compiler.Commands.Result) =
             stderr.WriteLine(e)
         1
 
-let Run (aR: AssemblyResolver) (opts: Options.T) =
-    match opts with
-    | Options.Compile opts ->
-        compile aR opts
-    | Options.Dependencies path ->
-        DependencyReporter.Run path
+//let Run (aR: AssemblyResolver) (opts: Options.T) =
+//    match opts with
+//    | Options.Compile opts ->
+//        compile aR opts
+//    | Options.Dependencies path ->
+//        DependencyReporter.Run path
 
 type private EA = InterfaceGenerator.Pervasives.ExtensionAttribute
 
@@ -190,8 +190,8 @@ let RunInterfaceGenerator path args =
 let Start argv =
     guard <| fun () ->
         match List.ofArray argv with
-        | Cmd BundleCommand.Instance r -> r
+//        | Cmd BundleCommand.Instance r -> r
         | Cmd HtmlCommand.Instance r -> r
         | Cmd UnpackCommand.Instance r -> r
         | "ig" :: path :: args -> RunInterfaceGenerator path args
-        | argv -> Options.Run (Run AR) argv
+//        | argv -> Options.Run (Run AR) argv

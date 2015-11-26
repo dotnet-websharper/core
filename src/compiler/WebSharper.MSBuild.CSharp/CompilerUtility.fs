@@ -25,7 +25,6 @@ open System.IO
 open System.Reflection
 open Microsoft.Build.Framework
 open Microsoft.Build.Utilities
-open IntelliFactory.Core
 open WebSharper
 open WebSharper.Compiler
 module FE = FrontEnd
@@ -52,40 +51,40 @@ type CompilerInput =
 
 type CompilerMessage =
     | CMErr1 of string
-    | CMErr2 of string * int * int * string
+    | CMErr2 of string * int * int * int * int * string
     | CMExn of exn
     | CMWarn1 of string
-    | CMWarn2 of string * int * int * string
+    | CMWarn2 of string * int * int * int * int * string
 
     member msg.SendTo(log: TaskLoggingHelper) =
         match msg with
         | CMErr1 msg ->
             log.LogError(msg)
-        | CMErr2 (file, line, col, msg) ->
+        | CMErr2 (file, line, col, eline, ecol, msg) ->
             log.LogError("WebSharper", "WebSharper", "WebSharper",
-                file, line, col, line, col, msg)
+                file, line, col, eline, ecol, msg)
         | CMWarn1 msg ->
             log.LogWarning(msg)
-        | CMWarn2 (file, line, col, msg) ->
+        | CMWarn2 (file, line, col, eline, ecol, msg) ->
             log.LogWarning("WebSharper", "WebSharper", "WebSharper",
-                file, line, col, line, col, msg)
+                file, line, col, eline, ecol, msg)
         | CMExn err ->
             log.LogErrorFromException(err)
 
     static member Report(e) =
         CMExn e
 
-    static member Send(msg) =
-        match msg.Priority with
-        | Priority.Critical
-        | Priority.Error ->
-            match msg.Location.SourceLocation with
-            | Some loc -> CMErr2(loc.File, loc.Line, loc.Column, msg.Text)
-            | None -> CMErr1(string msg)
-        | Priority.Warning ->
-            match msg.Location.SourceLocation with
-            | Some loc -> CMWarn2(loc.File, loc.Line, loc.Column, msg.Text)
-            | None -> CMWarn1(string msg)
+//    static member Send(msg) =
+//        match msg.Priority with
+//        | Priority.Critical
+//        | Priority.Error ->
+//            match msg.Location.SourceLocation with
+//            | Some loc -> CMErr2(loc.File, loc.Line, loc.Column, msg.Text)
+//            | None -> CMErr1(string msg)
+//        | Priority.Warning ->
+//            match msg.Location.SourceLocation with
+//            | Some loc -> CMWarn2(loc.File, loc.Line, loc.Column, msg.Text)
+//            | None -> CMWarn1(string msg)
 
     static member Warn(msg) =
         CMWarn1 msg
@@ -213,11 +212,18 @@ module CompilerJobModule =
                     let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(ignore) 
                     let comp = compiler.Compile(refMeta, [||], input.ProjectFile)
 
+                    for pos, w in comp.Warnings do
+                        match pos with
+                        | Some pos ->
+                            out.Add(CMWarn2 (pos.FileName, fst pos.Start, snd pos.Start, fst pos.End, snd pos.End, string w))
+                        | _ ->
+                            out.Add(CMWarn1 (string w))
+
                     if not (List.isEmpty comp.Errors) then
                         for pos, e in comp.Errors do
                             match pos with
                             | Some pos ->
-                                out.Add(CMErr2 (pos.FileName, fst pos.Start, snd pos.Start, string e))
+                                out.Add(CMErr2 (pos.FileName, fst pos.Start, snd pos.Start, fst pos.End, snd pos.End, string e))
                             | _ ->
                                 out.Add(CMErr1 (string e))
                         Some comp.Errors
@@ -267,7 +273,7 @@ module CompilerUtility =
                     for i in input.AssemblyFile :: input.References ->
                         Path.GetFullPath(i)
                 ]
-            AssemblyResolution.AssemblyResolver.Create()
+            AssemblyResolver.Create()
                 .SearchPaths(files)
         aR.Wrap <| fun () ->
             Act {

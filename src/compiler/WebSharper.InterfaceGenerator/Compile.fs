@@ -30,7 +30,6 @@ open System.Xml
 open System.Xml.Linq
 open Mono.Cecil
 open Mono.Cecil.Cil
-open IntelliFactory.Core
 open WebSharper.Core
 
 module Code = WebSharper.InterfaceGenerator.CodeModel
@@ -623,7 +622,7 @@ type CompilationKind =
 type CompilerOptions =
     {
         AssemblyName : string
-        AssemblyResolver : option<AssemblyResolver>
+        AssemblyResolver : option<WebSharper.Compiler.AssemblyResolver>
         AssemblyVersion : Version
         DocPath : option<string>
         EmbeddedResources : seq<string>
@@ -1182,7 +1181,7 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
                 | _ -> ()
 
 [<Sealed>]
-type Resolver(aR: AssemblyResolver) =
+type Resolver(aR: WebSharper.Compiler.AssemblyResolver) =
     let def = DefaultAssemblyResolver()
 
     let resolve (ref: string) (par: option<ReaderParameters>) =
@@ -1224,7 +1223,7 @@ type Compiler() =
         let aR =
             match opts.AssemblyResolver with
             | Some aR -> aR
-            | None -> AssemblyResolver.Create()
+            | None -> WebSharper.Compiler.AssemblyResolver.Create()
         let aR = aR.SearchPaths(opts.ReferencePaths)
         (aR, Resolver(aR) :> IAssemblyResolver)
 
@@ -1364,7 +1363,7 @@ type Compiler() =
         
         // Add WebSharper metadata
         let meta = WebSharper.Compiler.Reflector.transformAssembly def
-        WebSharper.Compiler.FrontEnd.modifyAssembly WebSharper.Core.Metadata.empty meta def |> ignore
+        WebSharper.Compiler.FrontEnd.modifyWIGAssembly meta def |> ignore
 
         let doc = XmlDocGenerator(def, comments)
         let r = CompiledAssembly(def, doc, options)
@@ -1383,7 +1382,7 @@ type Compiler() =
         let (aR, resolver) = createAssemblyResolvers options
         c.Compile(resolver, options, assembly, ?originalAssembly = originalAssembly)
 
-    member c.StartProgram(args, assembly, ?resolver: AssemblyResolver, ?originalAssembly: Assembly) =
+    member c.StartProgram(args, assembly, ?resolver: WebSharper.Compiler.AssemblyResolver, ?originalAssembly: Assembly) =
         let opts =
             let opts = CompilerOptions.Parse args
             match resolver with

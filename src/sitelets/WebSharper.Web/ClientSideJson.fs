@@ -226,7 +226,7 @@ module private MacroInternals =
 //    module Q = WebSharper.Core.Quotations
 //    module R = WebSharper.Core.Reflection
 //    module T = WebSharper.Core.Reflection.Type
-//    module J = WebSharper.Core.JavaScript.Core
+    module M = WebSharper.Core.Metadata
     open WebSharper.Core.AST
     module JI = WebSharper.Core.Json.Internal
     type FST = Microsoft.FSharp.Reflection.FSharpType
@@ -261,7 +261,7 @@ module private MacroInternals =
     module Funs =
         let id = globalAccess ["WebSharper"; "Json"; "Encode"; "Id"]
 
-    let getEncoding name call warn (t: Type) =
+    let getEncoding name call warn (comp: M.Compilation) (t: Type) =
         let ctx = System.Collections.Generic.Dictionary()
         let rec encode t =
             match t with
@@ -316,6 +316,7 @@ module private MacroInternals =
                     ||> List.fold (fun k t es ->
                         encode t >>= fun e -> k ((t, e) :: es))
                     <| []
+            // TODO: ByRefType
             | GenericType _ ->
                 fail (name + ": Cannot de/serialize a generic value. You must call this function with a concrete type.")
         // Encode a type that might be recursively defined
@@ -328,22 +329,10 @@ module private MacroInternals =
                         JI.GetName f, f, f.PropertyType)
                 ((fun es ->
                     let es, tts = List.unzip es
-                    // In order to construct a value of the right type, we need the
-                    // JS class corresponding to our type. To get it directly we would
-                    // need access to the metadata. For now the best way we have is
-                    // to compile a dummy object creation and extract the class from it.
-//                    let tn =
-//                        match tr (Q.NewRecord(t, List.map Q.DefaultValue tts)) with
-//                        // Runtime.New(rec, {...})
-//                        // Runtime.New(rec, Runtime.DeleteEmptyFields({...}, [...]))
-//                        | J.Call (_, J.Constant (J.String "New"), [x; _]) -> x
-//                        // Runtime.DeleteEmptyFields({...}, [...])
-//                        | J.Call (_, J.Constant (J.String "DeleteEmptyFields"), _) 
-//                        // {...}
-//                        | J.NewObject _ -> Undefined
-//                        | x -> failwithf "Invalid compiled record creation: %O" x
-                    // TODO : record creation
-                    let tn = Object []
+                    let tn = 
+                        match comp.TryLookupClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
+                        | Some a -> GlobalAccess a
+                        | _ -> failwithf "Cannot look up type address for: %s" t.AssemblyQualifiedName 
                     ok (call "Record" [tn; NewArray es])
                     ), fields)
                 ||> Array.fold (fun k (n, f, t) ->
@@ -377,29 +366,10 @@ module private MacroInternals =
                             |> Object
                         | JI.StandardField -> cString "$"
                         | JI.NamedField n -> cString n
-                    // In order to construct a value of the right type, we need the
-                    // JS class corresponding to our type. To get it directly we would
-                    // need access to the metadata. For now the best way we have is
-                    // to compile a dummy object creation and extract the class from it.
-                    // TODO : union creation
-                    let tn = Object []
-//                    let tn =
-//                        let c1 = FST.GetUnionCases(tt, flags).[0]
-//                        let uc : Q.Concrete<R.UnionCase> =
-//                            { Generics = targs
-//                              Entity = R.UnionCase.Create (R.TypeDefinition.FromType tt) c1.Name }
-//                        let args =
-//                            c1.GetFields()
-//                            |> Array.map (fun f -> Q.DefaultValue (T.FromType f.PropertyType))
-//                            |> List.ofArray
-//                        match tr (Q.NewUnionCase(uc, args)) with
-//                        // Runtime.New(union, {...})
-//                        | J.Call (_, J.Constant (J.String "New"), [x; _]) -> x
-//                        // {...}
-//                        | J.NewObject _
-//                        // [<Constant>]
-//                        | J.Constant _ -> !~J.Undefined
-//                        | x -> failwithf "Invalid compiled union creation: %O" x
+                    let tn =
+                        match comp.TryLookupClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
+                        | Some a -> GlobalAccess a
+                        | _ -> failwithf "Cannot look up type address for: %s" t.AssemblyQualifiedName 
                     ok (call "Union" [tn; discr; cases])
                     ), cases)
                 ||> Array.fold (fun (i, k) case ->
@@ -470,65 +440,68 @@ module Macro =
 //    module J = WebSharper.Core.JavaScript.Core
 //    module M = WebSharper.Core.Macros
 //    module Q = WebSharper.Core.Quotations
+    open WebSharper.Core
     open WebSharper.Core.AST
     open MacroInternals
 
-    let private encodeLambda name warn t =
-        Application(getEncoding name cCallE warn t, [])
+    let private encodeLambda name warn comp t =
+        Application(getEncoding name cCallE warn comp t, [])
 
-    let private encode name warn t arg =
-        Application(encodeLambda name warn t, [arg])
+    let private encode name warn comp t arg =
+        Application(encodeLambda name warn comp t, [arg])
 
     let Encode warn t arg =
         // ENCODE()(arg)
         encode "Encode" warn t arg
 
-    let EncodeLambda warn t =
+    let EncodeLambda warn comp t =
         // ENCODE()
-        encodeLambda "EncodeLambda" warn t
+        encodeLambda "EncodeLambda" warn comp t
 
-    let Serialize warn t arg =
+    let Serialize warn comp t arg =
         // JSON.stringify(ENCODE()(arg))
-        cCallG ["JSON"] "stringify" [encode "Serialize" warn t arg]
+        cCallG ["JSON"] "stringify" [encode "Serialize" warn comp t arg]
 
-    let SerializeLambda warn t =
+    let SerializeLambda warn comp t =
         let enc = Id.New()
         let arg = Id.New()
         // let enc = ENCODE() in fun arg -> JSON.stringify(enc(arg))
-        Let(enc, encodeLambda "SerializeLambda" warn t,
+        Let(enc, encodeLambda "SerializeLambda" warn comp t,
             Lambda([arg],
                 cCallG ["JSON"] "stringify" [Application(Var enc, [Var arg])]))
 
-    let private decodeLambda name warn t =
-        Application(getEncoding name cCallD warn t, [])
+    let private decodeLambda name warn comp t =
+        Application(getEncoding name cCallD warn comp t, [])
 
-    let private decode name warn t arg =
-        Application(decodeLambda name warn t, [arg])
+    let private decode name warn comp t arg =
+        Application(decodeLambda name warn comp t, [arg])
 
-    let Decode warn t arg =
+    let Decode warn comp t arg =
         // DECODE()(arg)
-        decode "Decode" warn t arg
+        decode "Decode" warn comp t arg
 
-    let DecodeLambda warn t =
+    let DecodeLambda warn comp t =
         // DECODE()
-        decodeLambda "DecodeLambda" warn t
+        decodeLambda "DecodeLambda" warn comp t
 
-    let Deserialize warn t arg =
+    let Deserialize warn comp t arg =
         // DECODE()(JSON.parse(arg))
-        decode "Deserialize" warn t (cCallG ["JSON"] "parse" [arg])
+        decode "Deserialize" warn comp t (cCallG ["JSON"] "parse" [arg])
 
-    let DeserializeLambda warn t =
+    let DeserializeLambda warn comp t =
         // let dec = DECODE() in fun arg -> dec(JSON.parse(arg))
         let dec = Id.New()
         let arg = Id.New()
-        Let(dec, decodeLambda "DeserializeLambda" warn t,
+        Let(dec, decodeLambda "DeserializeLambda" warn comp t,
             Lambda([arg],
                 Application(Var dec, [cCallG ["JSON"] "parse" [Var arg]])))
 
-    type SerializeMacro() =
+    module M = WebSharper.Core.Metadata
+
+    type SerializeMacro(comp : M.Compilation) =
         inherit WebSharper.Core.Macro()
         override this.TranslateCall(_,_,m,a,_) =
-            let warn = ignore // to change when we implement warn in macros
+            let warn msg = comp.AddWarning(None, M.SourceWarning msg)
             match a with
             | [x] ->
                 (match m.Entity.Value.MethodName with
@@ -537,7 +510,7 @@ module Macro =
                 | "Serialize" -> Serialize
                 | "Deserialize" -> Deserialize
                 | _ -> failwith "Invalid macro invocation")
-                    warn m.Generics.Head x
+                    warn comp m.Generics.Head x |> MacroOk
             | _ -> failwith "Invalid macro invocation"
 
 open Macro

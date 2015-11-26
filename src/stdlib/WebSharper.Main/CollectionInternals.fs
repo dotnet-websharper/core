@@ -78,7 +78,7 @@ let ArrayTryFindIndexBack f (arr: _ []) =
 
 [<JavaScript>]
 [<Name "Arrays.mapFold">]
-let ArrayMapFold (f: 'S -> 'T -> 'R * 'S) (zero: 'S) (arr: 'T[]) : 'R[] * 'S =
+let ArrayMapFold<'T, 'S, 'R> (f: 'S -> 'T -> 'R * 'S) (zero: 'S) (arr: 'T[]) : 'R[] * 'S =
     let r = Array.zeroCreate<'R>(Array.length arr)
     let mutable acc = zero
     for i = 0 to Array.length arr - 1 do
@@ -89,7 +89,7 @@ let ArrayMapFold (f: 'S -> 'T -> 'R * 'S) (zero: 'S) (arr: 'T[]) : 'R[] * 'S =
 
 [<JavaScript>]
 [<Name "Arrays.mapFoldBack">]
-let ArrayMapFoldBack (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) : 'R[] * 'S =
+let ArrayMapFoldBack<'T,'S,'R> (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) : 'R[] * 'S =
     let r = Array.zeroCreate<'R>(Array.length arr)
     let mutable acc = zero
     let len = Array.length arr
@@ -346,7 +346,7 @@ let rec ListSkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> 
 
 [<JavaScript>]
 [<Name "Seq.unfold">]
-let SeqUnfold (f: 'S -> option<'T * 'S>) (s: 'S) : seq<'T> =
+let SeqUnfold<'T, 'S> (f: 'S -> option<'T * 'S>) (s: 'S) : seq<'T> =
     Enumerable.Of <| fun () ->
         Enumerator.New s <| fun e ->
             match f e.State with

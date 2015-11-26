@@ -74,7 +74,7 @@ let RestorePackages () =
     if Directory.Exists("packages") |> not then
         let env = ["EnableNuGetPackageRestore", "true"]
         let nuget = Exec env "tools/NuGet/NuGet.exe"
-        nuget "install NuGet.Core -version 2.8.6 -o packages -excludeVersion"
+        nuget "install NuGet.Core -version 2.9.0 -o packages -excludeVersion"
         nuget "install IntelliFactory.Core -pre -o packages -excludeVersion -nocache"
         nuget "install IntelliFactory.Build -pre -o packages -excludeVersion -nocache"
         nuget "install IntelliFactory.Xml -pre -o packages -excludeVersion -nocache"

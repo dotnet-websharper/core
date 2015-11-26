@@ -17,14 +17,13 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-
+//
 /// The main entry-point module of WebSharper.
 module WebSharper.FSharp.Program
 
 open System
 open System.IO
 open System.Reflection
-open IntelliFactory.Core
 open WebSharper
 open WebSharper.Compiler
 
@@ -39,10 +38,10 @@ type WsConfig =
         SourceMap   : bool
         TypeScript  : bool
         ProjectType : ProjectType option
-        OutputPath  : string option
+//        OutputPath  : string option
         AssemblyFile : string
         References  : string[] 
-        FscPath     : string
+//        FscPath     : string
         FscArgs     : string[]        
         ProjectFile : string
         Documentation : string option
@@ -55,10 +54,10 @@ type WsConfig =
              SourceMap   = false
              TypeScript  = false
              ProjectType = None
-             OutputPath  = None
+//             OutputPath  = None
              AssemblyFile = null
              References  = [||]
-             FscPath     = null
+//             FscPath     = null
              FscArgs     = [||]
              ProjectFile = null
              Documentation = None
@@ -76,7 +75,8 @@ let LoadInterfaceGeneratorAssembly (aR: AssemblyResolver) (file: string) =
             failwith "No ExtensionAttribute set on the input assembly"
 
 let logf x = 
-    Printf.kprintf (fun s -> File.AppendAllLines(@"D:\wsfscruns.txt", [s])) x
+    Printf.kprintf ignore x
+//    Printf.kprintf (fun s -> File.AppendAllLines(@"C:\repo\websharper.csharp\wsfscruns.txt", [s])) x
 
 let RunInterfaceGenerator aR snk config =
         let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly aR config.AssemblyFile
@@ -102,63 +102,76 @@ let RunInterfaceGenerator aR snk config =
         WebSharper.Compiler.FrontEnd.modifyAssembly WebSharper.Core.Metadata.empty meta assem |> ignore
         assem.Write config.AssemblyFile
 
-let CompileFSharp config =
-    use proc =
-        new System.Diagnostics.Process(
-            StartInfo = 
-                System.Diagnostics.ProcessStartInfo(
-                    config.FscPath,
-                    config.FscArgs |> Seq.map (fun a -> "\"" + a + "\"") |> String.concat " ",
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                )
-        )
-//    proc.OutputDataReceived.Add(fun e ->
-//        printfn "%s" e.Data
-//    )
-//    proc.ErrorDataReceived.Add(fun e ->
-//        eprintfn "%s" e.Data
-//    )
-    Path.GetDirectoryName config.AssemblyFile |> Directory.CreateDirectory |> ignore
-    proc.Start() |> ignore
-    proc.WaitForExit()
-    proc.StandardOutput.ReadToEnd() |> printfn "%s"
-    let errors = proc.StandardError.ReadToEnd() 
-    if not (String.IsNullOrEmpty errors) then
-        logf "F# Errors:"
-        logf "%s" errors
-    eprintfn "%s" errors
-    if proc.ExitCode <> 0 then
-        Environment.Exit proc.ExitCode
-//        failwith "F# compilation error"   
+//let CompileFSharp config =
+//    use proc =
+//        new System.Diagnostics.Process(
+//            StartInfo = 
+//                System.Diagnostics.ProcessStartInfo(
+//                    config.FscPath,
+//                    config.FscArgs |> Seq.map (fun a -> "\"" + a + "\"") |> String.concat " ",
+//                    CreateNoWindow = true,
+//                    UseShellExecute = false,
+//                    RedirectStandardOutput = true,
+//                    RedirectStandardError = true
+//                )
+//        )
+////    proc.OutputDataReceived.Add(fun e ->
+////        printfn "%s" e.Data
+////    )
+////    proc.ErrorDataReceived.Add(fun e ->
+////        eprintfn "%s" e.Data
+////    )
+//    Path.GetDirectoryName config.AssemblyFile |> Directory.CreateDirectory |> ignore
+//    proc.Start() |> ignore
+//    proc.WaitForExit()
+//    proc.StandardOutput.ReadToEnd() |> printfn "%s"
+//    let errors = proc.StandardError.ReadToEnd() 
+//    if not (String.IsNullOrEmpty errors) then
+//        logf "F# Errors:"
+//        logf "%s" errors
+//    eprintfn "%s" errors
+//    if proc.ExitCode <> 0 then
+//        Environment.Exit proc.ExitCode
+////        failwith "F# compilation error"   
+
+open Microsoft.FSharp.Compiler.SimpleSourceCodeServices
 
 let Compile config =
     let started = System.DateTime.Now
-    
-    CompileFSharp config
+   
+    let errors, exitCode = SimpleSourceCodeServices().Compile(config.FscArgs)
+
+//    for error in errors do 
+////        if config.VSStyleErrors then
+////            eprintfn "%s" (error.ToString())
+////        else
+//            eprintfn "%s" (error.ToString())
+
+    if exitCode <> 0 then failwith "F# compilation failed"
+
+//    CompileFSharp config
     
     let ended = System.DateTime.Now
-    logf "F# compilation (with fsc.exe): %A" (ended - started)
+    logf "F# compilation: %A" (ended - started)
     let started = ended 
     
     //compiler.CompileFSharp(config.FscArgs, config.AssemblyFile)
-    if config.VSStyleErrors then () else
+//    if config.VSStyleErrors then () else
     if config.ProjectFile = null then
         failwith "You must provide project file path."
     if config.AssemblyFile = null then
         failwith "You must provide assembly output path."
-    let objPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, config.AssemblyFile)
-    let origPath = Path.ChangeExtension(objPath, ".orig" + Path.GetExtension objPath)
-    File.Copy(objPath, origPath, true)
+//    let objPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, config.AssemblyFile)
+//    File.AppendAllLines(@"C:\repo\websharper.csharp\builderrors.txt", [| "objPath: " + objPath |])
+//    let origPath = Path.ChangeExtension(objPath, ".orig" + Path.GetExtension objPath)
+//    File.Copy(objPath, origPath, true)
     let paths =
         [
             for r in config.References -> Path.GetFullPath r
-            yield origPath 
+            if File.Exists config.AssemblyFile then yield Path.GetFullPath config.AssemblyFile
         ]        
     let aR =
-        AssemblyResolution.AssemblyResolver.Create()
+        AssemblyResolver.Create()
             .SearchPaths(paths)
     aR.Wrap <| fun () ->
 //    let t2 = System.Type.GetType("WebSharper.Macro+LT, WebSharper.Main")
@@ -169,7 +182,7 @@ let Compile config =
         logf "WIG running time: %A" (ended - started)
 
     else    
-    let loader = WebSharper.Compiler.FrontEnd.Loader.Create aR (eprintfn "%s") //(fun msg -> out.Add(CompilerMessage.Warn msg))
+    let loader = WebSharper.Compiler.FrontEnd.Loader.Create aR (logf "%s") //(fun msg -> out.Add(CompilerMessage.Warn msg))
     let refs = [ for r in config.References -> loader.LoadFile(r) ]
     let refMeta =
         let metas = refs |> List.choose (fun r -> WebSharper.Compiler.FrontEnd.readFromAssembly r)
@@ -188,27 +201,79 @@ let Compile config =
 //    let classNames =
 //        refMeta|> Option.map (fun m -> m.Classes |> Seq.map (fun c -> c.Key.Value.AssemblyQualifiedName) |> List.ofSeq)
 
-    let assemblyResolveHandler = ResolveEventHandler(fun _ a ->
-        let withoutExtAndOrig p =
-            let n = Path.GetFileNameWithoutExtension p
-            if n.EndsWith ".orig" then n.[ .. n.Length - 6] else n
-        let r =
-            paths |> List.tryFind (fun p -> withoutExtAndOrig p = a.Name)
-        match r with
-        | Some r -> System.Reflection.Assembly.LoadFile r
-        | _ -> null
+    let referencedAsmNames =
+        paths
+//        |> Seq.append (Directory.GetFiles(BaseDir, "*.dll"))
+        |> Seq.map (fun i -> 
+            let n = Path.GetFileNameWithoutExtension(i)
+            n, i
+        )
+        |> Map.ofSeq
+
+    let thisName = Path.GetFileNameWithoutExtension config.AssemblyFile
+
+    let assemblyResolveHandler = ResolveEventHandler(fun _ e ->
+            let assemblyName = AssemblyName(e.Name).Name
+            match Map.tryFind assemblyName referencedAsmNames with
+            | None -> null
+            | Some p -> 
+                if assemblyName = "FSharp.Core" then
+                    typeof<option<_>>.Assembly
+                elif assemblyName = thisName then
+                    Assembly.Load(File.ReadAllBytes(p))
+                else
+                    Assembly.LoadFrom(p)
         )
 
     System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
     
     let comp =
-        compiler.CompileWithArgs(refMeta, config.FscArgs, config.ProjectFile)
+        compiler.Compile(refMeta, config.FscArgs, config.ProjectFile)
 
-    System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
+//    System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
 
     let ended = System.DateTime.Now
     logf "WebSharper compilation full: %A" (ended - started)
     let started = ended 
+
+//    for pos, w in comp.Warnings do
+//        match pos with
+//        | Some pos ->
+//            printfn "%s %d:%d %d:%d %O" pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End) w
+////            out.Add(CMWarn2 (pos.FileName, fst pos.Start, snd pos.Start, fst pos.End, snd pos.End, string w))
+//        | _ ->
+//            printfn "%O" w
+////            out.Add(CMWarn1 (string w))
+
+    if not (List.isEmpty comp.Errors) then
+        File.AppendAllLines(@"C:\repo\websharper.csharp\builderrors.txt", 
+            [| 
+                for pos, e in comp.Errors ->
+                    match pos with
+                    | Some pos ->
+                        sprintf "%s (%d,%d)-(%d,%d) WebSharper error %s" 
+                            pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End) (e.ToString())
+                    | _ ->
+                        sprintf "WebSharper error %s" (e.ToString())
+            |]
+        )
+        
+        for pos, e in comp.Errors do
+            match pos with
+            | Some pos ->
+
+                logf "%s (%d,%d)-(%d,%d) WebSharper error %s" 
+                    pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End) (e.ToString())
+                
+                //fileName (int s.Line) (s.Column + 1) (int e.Line) (e.Column + 1) subcategory (if severity=FSharpErrorSeverity.Warning then "warning" else "error")  message
+
+//                eprintfn "%s %d:%d %d:%d %O" pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End) e
+//                out.Add(CMErr2 (pos.FileName, fst pos.Start, snd pos.Start, fst pos.End, snd pos.End, string e))
+            | _ ->
+                logf "WebSharper error %s" (e.ToString())
+//                out.Add(CMErr1 (string e))
+        failwith "WebSharper errors"
+    else
 
     let thisMeta = comp.ToCurrentMetadata()
     let merged = 
@@ -218,7 +283,15 @@ let Compile config =
                 thisMeta
             ]
 
-    let assem = Mono.Cecil.AssemblyDefinition.ReadAssembly config.AssemblyFile
+    let rp = 
+        let mcAr = Mono.Cecil.DefaultAssemblyResolver()
+        config.References 
+        |> Seq.map System.IO.Path.GetDirectoryName
+        |> Seq.distinct
+        |> Seq.iter mcAr.AddSearchDirectory
+        Mono.Cecil.ReaderParameters(AssemblyResolver = mcAr)
+
+    let assem = Mono.Cecil.AssemblyDefinition.ReadAssembly(config.AssemblyFile, rp)
     let js = WebSharper.Compiler.FrontEnd.modifyAssembly merged thisMeta assem
             
     if config.PrintJS then
@@ -239,7 +312,7 @@ let Compile config =
 //
 //    tryWrite 0
 
-    assem.Write config.AssemblyFile
+    assem.Write(config.AssemblyFile, Mono.Cecil.WriterParameters())
 
     let ended = System.DateTime.Now
     logf "Serializing and writing metadata: %A" (ended - started)
@@ -251,17 +324,55 @@ let (|StartsWith|_|) start (input: string) =
         Some input.[start.Length ..]
     else None 
 
-[<EntryPoint>]
+let (|Cmd|_|) (cmd: Commands.ICommand) argv =
+    match cmd.Parse argv with
+    | Commands.NotRecognized -> None
+    | Commands.Parsed f ->
+        match f (Commands.Environment.Create()) with
+        | Commands.Ok -> Some 0
+        | Commands.Errors errors ->
+            for e in errors do
+                stderr.WriteLine(e)
+            Some 1
+    | Commands.ParseFailed err ->
+        for e in err do
+            stderr.WriteLine(e)
+        stderr.WriteLine()
+        stderr.WriteLine(cmd.Usage)
+        Some 1
+
+//[<EntryPoint>]
 let main argv =
 
     logf "%s" Environment.CommandLine            
     logf "Started at: %A" System.DateTime.Now
 
+    match List.ofArray argv with
+    | Cmd BundleCommand.Instance r -> r
+    | Cmd HtmlCommand.Instance r -> r
+    | Cmd UnpackCommand.Instance r -> r
+    | _ ->
+
     let wsArgs = ref WsConfig.Empty
     let refs = ResizeArray()
     let fscArgs = ResizeArray()
 
-    for a in argv do
+    let cArgv =
+        [|
+            let isRNext = ref false
+            for a in argv do
+                match a with
+                | "-r" ->
+                    isRNext := true
+                | _ ->
+                    if !isRNext then
+                        isRNext := false   
+                        yield "-r:" + a
+                    else
+                        yield a
+        |]
+
+    for a in cArgv do
         let setProjectType t =
             match (!wsArgs).ProjectType with
             | None -> wsArgs := { !wsArgs with ProjectType = Some t }
@@ -273,20 +384,32 @@ let main argv =
         | "--bundle" -> setProjectType Bundle
         | "--html" -> setProjectType Html
         | "--site" -> setProjectType WebSite
+        | StartsWith "--ws:" wsProjectType ->
+            match wsProjectType.ToLower() with
+            | "ignore" -> ()
+            | "bundle" -> setProjectType Bundle //(GetWebRoot settings)
+            | "extension" | "interfacegenerator" -> setProjectType WIG
+            | "html" -> setProjectType Html
+            | "library" -> ()
+            | "site" | "web" | "website" | "export" -> setProjectType WebSite
+//                match GetWebRoot settings with
+//                | None -> Library
+//                | Some dir -> Website dir
+            | _ -> invalidArg "type" ("Invalid project type: " + wsProjectType)
         | "--printjs" -> wsArgs := { !wsArgs with PrintJS = true }
         | "--vserrors" ->
             wsArgs := { !wsArgs with VSStyleErrors = true }
             fscArgs.Add a
-        | StartsWith "--wsoutput:" o ->
-            wsArgs := { !wsArgs with OutputPath = Some o }
-        | StartsWith "--fsc:" p ->
-            wsArgs := { !wsArgs with FscPath = p }
+//        | StartsWith "--wsoutput:" o ->
+//            wsArgs := { !wsArgs with OutputPath = Some o }
+//        | StartsWith "--fsc:" p ->
+//            wsArgs := { !wsArgs with FscPath = p }
         | StartsWith "--project:" p ->
             wsArgs := { !wsArgs with ProjectFile = p }
         | StartsWith "--doc:" d ->
             wsArgs := { !wsArgs with Documentation = Some d }
             fscArgs.Add a
-        | StartsWith "-o:" o ->
+        | StartsWith "-o:" o | StartsWith "--out:" o ->
             wsArgs := { !wsArgs with AssemblyFile = o }
             fscArgs.Add a
         | StartsWith "-r:" r | StartsWith "--reference:" r ->
@@ -305,8 +428,13 @@ let main argv =
         logf "Stopped at: %A" System.DateTime.Now
         0       
     with e ->
+//        File.AppendAllLines(@"C:\repo\websharper.csharp\builderrors.txt", [| argv |> String.concat " "; e.Message |])
         (!wsArgs).Documentation |> Option.iter (fun d -> if File.Exists d then File.Delete d)
-        logf "Failed at: %A" System.DateTime.Now
-        logf "Error: %A" e
-        1
+        let intermediaryOutput = (!wsArgs).AssemblyFile
+        if File.Exists intermediaryOutput then 
+            File.Move (intermediaryOutput, intermediaryOutput + ".failed")
+
+//        eprintfn "Failed at: %A" System.DateTime.Now
+//        eprintfn "Error: %A" e
+        reraise()
 #endif

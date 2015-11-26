@@ -390,7 +390,7 @@ module internal Internal =
         inherit Core.Macro()
 
         override this.TranslateCall(_,_,m,_,_) =
-            mkGenerator m.Generics.Head
+            mkGenerator m.Generics.Head |> Core.MacroOk
 
     type SampleMacro() =
         inherit Core.Macro()
@@ -399,6 +399,7 @@ module internal Internal =
             match a with
             | [] -> mkSample (mkGenerator t.Generics.Head) (cInt 100) 
             | [count] -> mkSample (mkGenerator t.Generics.Head) count
+            |> Core.MacroOk
 
 [<Macro(typeof<Internal.AutoGeneratorMacro>)>]
 let Auto<'A>() : Generator<'A> =
@@ -406,6 +407,14 @@ let Auto<'A>() : Generator<'A> =
         Base = [||]
         Next = fun () -> X<'A>
     }
+
+type ObjTest (x: int) =
+    
+    new () =
+        if true then
+            new ObjTest(0)
+        else
+            new ObjTest(3)
 
 [<JavaScript>]
 [<Name "WebSharper.Testing.Random.Sample">]

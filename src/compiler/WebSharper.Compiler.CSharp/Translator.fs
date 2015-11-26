@@ -88,10 +88,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
             {
                 Kind = kind
                 StrongName = mAnnot.Name
-                Macro = 
-                    match mAnnot.Kind with
-                    | Some (A.MemberKind.Macro (m, a, _)) -> Some (m, a)
-                    | _ -> None
+                Macros = mAnnot.Macros
                 Generator = 
                     match mAnnot.Kind with
                     | Some (A.MemberKind.Generated (g, p)) -> Some (g, p)
@@ -156,7 +153,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                 addMethod mAnnot mdef (N.Remote(memberScope, remotingKind, methodHandle)) true Undefined
             | _ -> failwith "Only methods can be defined Remote"
         | Some kind ->
-            let def = ToCSharpAST.getMember meth
+            let memdef = ToCSharpAST.getMember meth
             let getParsed() = 
                 let decl = meth.DeclaringSyntaxReferences
                 if decl.Length > 0 then
@@ -189,6 +186,10 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                             syntax
                             |> RoslynHelpers.AccessorDeclarationData.FromNode 
                             |> ToCSharpAST.transformAccessorDeclaration (ToCSharpAST.Environment.New (model, comp))   
+//                        | :? ArrowExpressionClauseSyntax as syntax ->
+//                            syntax
+//                            |> RoslynHelpers.ArrowExpressionClauseData.FromNode 
+//                            |> ToCSharpAST.transformArrowExpressionClause (ToCSharpAST.Environment.New (model, comp))   
                         | :? ConstructorDeclarationSyntax as syntax ->
                             let c =
                                 syntax
@@ -201,6 +202,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                                 IsAsync = false
                                 ReturnType = Unchecked.defaultof<Type>
                             } : ToCSharpAST.CSharpMethod
+                        | _ -> failwithf "Not recognized method syntax kind: %A" (syntax.Kind())
                         |> fixMethod
                     with e ->
                         comp.AddError(None, SourceError(sprintf "Error reading member '%s': %s" meth.Name e.Message))
@@ -274,12 +276,12 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                 let parsed = getParsed()
                 parsed.Parameters |> List.map (fun p -> p.ParameterId)
 
-            match def with
+            match memdef with
             | Member.Method (_, mdef) 
             | Member.Override (_, mdef) 
             | Member.Implementation (_, mdef) ->
                 let getKind() =
-                    match def with
+                    match memdef with
                     | Member.Method (isInstance , _) ->
                         if isInstance then N.Instance else N.Static  
                     | Member.Override (t, _) -> N.Override t 
@@ -290,7 +292,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                     if meth.IsAbstract then
                         failwith "Asctract methods cannot be marked with Inline or Macro."
                 match kind with
-                | A.MemberKind.Macro (m, p, f) -> // TODO macro fallback
+                | A.MemberKind.NoFallback ->
                     checkNotAbstract()
                     addMethod mAnnot mdef N.NoFallback true Undefined
                 | A.MemberKind.Inline js ->
@@ -315,6 +317,9 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
 //                        addMethod mAnnot mdef N.Inline true i
 //                    else failwith "OptionalField attribute not on property"
                 | _ -> failwith "invalid method kind"
+                if mAnnot.IsEntryPoint then
+                    let ep = ExprStatement <| Call(None, concrete(def, []), concrete(mdef, []), [])
+                    comp.SetEntryPoint(ep)
             | Member.Constructor cdef ->
                 let jsCtor isInline =   
                         if isInline then 
@@ -322,7 +327,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                         else
                             addConstructor mAnnot cdef N.Constructor false (getBody false)
                 match kind with
-                | A.MemberKind.Macro (m, p, f) ->
+                | A.MemberKind.NoFallback ->
                     addConstructor mAnnot cdef N.NoFallback true Undefined
                 | A.MemberKind.Inline js ->
                     let parsed = WebSharper.Compiler.Recognize.createInline None (getVars()) js
@@ -362,6 +367,8 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
             IsModule = cls.IsStatic // TODO: static classes
+            IsProxy = Option.isSome annot.ProxyOf
+            Macros = []
         }
     )
 

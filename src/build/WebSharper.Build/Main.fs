@@ -97,6 +97,10 @@ module Main =
         ] |> List.ofSeq
         ,
         Seq.concat [
+            lib "tools"   "WebSharper.Core.JavaScript"
+            lib "tools"   "WebSharper.Core"
+            lib "tools"   "WebSharper.InterfaceGenerator"
+
             lib "tools" "WebSharper.Compiler"
             lib "tools" "WebSharper.Compiler.FSharp"
             lib "tools" "WebSharper.MSBuild.FSharp"
@@ -107,7 +111,6 @@ module Main =
             lib "tools" "Mono.Cecil"
             lib "tools" "Mono.Cecil.Mdb"
             lib "tools" "Mono.Cecil.Pdb"
-            lib "tools" "IntelliFactory.Core"
             lib "tools" "FSharp.Compiler.Service"
         ] |> List.ofSeq
         ,
@@ -122,7 +125,6 @@ module Main =
             lib "tools" "Mono.Cecil"
             lib "tools" "Mono.Cecil.Mdb"
             lib "tools" "Mono.Cecil.Pdb"
-            lib "tools" "IntelliFactory.Core"
             lib "tools" "Microsoft.CodeAnalysis"
             lib "tools" "Microsoft.CodeAnalysis.CSharp"
             lib "tools" "Microsoft.CodeAnalysis.CSharp.Workspaces"
@@ -191,6 +193,9 @@ module Main =
                         member p.NuGetFiles =
                             seq {
                                 yield fileAt (Path.Combine(root, "msbuild", "WebSharper.FSharp.targets")) "build/WebSharper.FSharp.targets"
+                                yield file "tools" (out "WsFsc.exe") None
+                                yield file "tools" (out "WsFsc.exe.config") None
+//                                yield fileAt (Path.Combine(root, "tests", "Web", "bin", "FSharp.Core.dll")) ("/tools/net40/FSharp.Core.dll")
                                 for kind, src in fsExports do
                                     yield file kind src None
                             }

@@ -5,16 +5,13 @@
     <ProjectGuid>{3a0893dd-291a-4acf-aadc-bc2af7d098ea}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.MSBuild.FSharp</Name>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FSharp40 Condition="Exists('$(MSBuildExtensionsPath32)/../Reference Assemblies/Microsoft/FSharp/.NETFramework/v4.0/4.4.0.0/FSharp.Core.dll')">True</FSharp40>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
     <Reference Include="FSharp.Compiler.Service">
-      <HintPath>..\..\..\packages\FSharp.Compiler.Service\lib\net45\FSharp.Compiler.Service.dll</HintPath>
-    </Reference>
-    <Reference Include="IntelliFactory.Core">
-      <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
+      <HintPath>..\..\..\packages\FSharp.Compiler.Service\lib\net40\FSharp.Compiler.Service.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Build.Framework" />
     <Reference Include="Microsoft.Build.Utilities.v4.0" />

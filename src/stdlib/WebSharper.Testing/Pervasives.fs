@@ -29,12 +29,13 @@ module internal Internal =
 
 //    module Q = WebSharper.Core.Quotations
 //    module J = WebSharper.Core.JavaScript.Core
+    open WebSharper.Core
     open WebSharper.Core.AST
 
     open WebSharper.Testing.Random.Internal
 
     type TestPropertyMacro() =
-        inherit WebSharper.Core.Macro()
+        inherit Macro()
 
         override this.TranslateCall(t,_,m,a,_) =
             match t, a with  
@@ -46,21 +47,24 @@ module internal Internal =
                         Return (mkSample (Application(gen, [Var id])) (cInt 100)))
                     attempt
                 ]
+                |> MacroOk
             | Some this, [runner; attempt] ->
                 cCall this "PropertyWithSample" [
                     runner
                     Function([], Return (mkSample (mkGenerator m.Generics.Head) (cInt 100)))
                     attempt
                 ]
+                |> MacroOk
             | _ -> MacroFallback
 
     type PropertyMacro() =
-        inherit WebSharper.Core.Macro()
+        inherit Macro()
 
         override this.TranslateCall(_,_,m,a,_) =
             match a with 
             | [name; f] -> 
                 cCallG ["WebSharper"; "Testing"; "Pervasives"; "PropertyWith"] [name; mkGenerator m.Generics.Head; f]
+                |> MacroOk
             | _ -> MacroFallback
 
 module QUnit =

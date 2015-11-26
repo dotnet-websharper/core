@@ -24,7 +24,6 @@ namespace WebSharper.InterfaceGenerator
 open System
 open System.IO
 open System.Reflection
-open IntelliFactory.Core
 
 [<Sealed>]
 type CompilationKind =
@@ -35,7 +34,7 @@ type CompilationKind =
 type CompilerOptions =
     {
         AssemblyName : string
-        AssemblyResolver : option<AssemblyResolver>
+        AssemblyResolver : option<WebSharper.Compiler.AssemblyResolver>
         AssemblyVersion : Version
         DocPath : option<string>
         EmbeddedResources : seq<string>
@@ -59,6 +58,6 @@ type CompiledAssembly =
 [<Sealed>]
 type Compiler =
     member Compile : options: CompilerOptions * assembly: CodeModel.Assembly * ?original: Assembly -> CompiledAssembly
-    member Start : args: seq<string> * assembly: CodeModel.Assembly * ?resolver: AssemblyResolver -> int
-    member Start : args: seq<string> * assembly: CodeModel.Assembly * original: Assembly * ?resolver: AssemblyResolver -> int
+    member Start : args: seq<string> * assembly: CodeModel.Assembly * ?resolver: WebSharper.Compiler.AssemblyResolver -> int
+    member Start : args: seq<string> * assembly: CodeModel.Assembly * original: Assembly * ?resolver: WebSharper.Compiler.AssemblyResolver -> int
     static member Create : unit -> Compiler

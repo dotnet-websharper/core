@@ -20,13 +20,13 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="IntelliFactory.Core">
-      <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="Abbreviations.fs" />
+    <Compile Include="AssemblyResolution.fsi" />
+    <Compile Include="AssemblyResolution.fs" />
+    <Compile Include="FileSystem.fsi" />
+    <Compile Include="FileSystem.fs" />
     <Compile Include="Constants.fs" />
+    <Compile Include="Utility.fs" />
     <Compile Include="Definitions.fs" />
     <Compile Include="AttributeReader.fs" />
     <Compile Include="Recognize.fs" />
@@ -48,9 +48,9 @@
     <Compile Include="api/Context.fs" />
     <Compile Include="api/CompiledAssembly.fsi" />
     <Compile Include="api/CompiledAssembly.fs" />
+    <Compile Include="FrontEnd.fs" />
     <Compile Include="bundling/Bundle.fsi" />
     <Compile Include="bundling/Bundle.fs" />
-    <Compile Include="FrontEnd.fs" />
     <Compile Include="commands/Commands.fsi" />
     <Compile Include="commands/Commands.fs" />
     <Compile Include="commands/BundleCommand.fsi" />

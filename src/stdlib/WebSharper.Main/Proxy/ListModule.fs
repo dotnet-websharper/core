@@ -459,7 +459,7 @@ let Contains (el: 'T) (l: list<'T>) =
 
 [<JavaScript>]
 [<Name "mapFold">]
-let MapFold<'S, 'T, 'R> (f: 'S -> 'T -> 'R * 'S) zero list =
+let MapFold<'T, 'S, 'R> (f: 'S -> 'T -> 'R * 'S) zero list =
     ArrayMapFold f zero (List.toArray list)
     |> (fun (x, y) ->
         (Array.toList x, y)
@@ -467,8 +467,8 @@ let MapFold<'S, 'T, 'R> (f: 'S -> 'T -> 'R * 'S) zero list =
 
 [<JavaScript>]
 [<Name "mapFoldBack">]
-let MapFoldBack<'S, 'T, 'R> f list zero =
-    ArrayMapFoldBack f (List.toArray list) zero
+let MapFoldBack<'T, 'S, 'R> f list zero =
+    ArrayMapFoldBack<'T, 'S, 'R> f (List.toArray list) zero
     |> (fun (x, y) ->
         (Array.toList x, y)
     )
@@ -543,7 +543,7 @@ let ExactlyOne (list : 'T list) =
 
 [<JavaScript>]
 [<Name "unfold">]
-let Unfold (f: 'S -> option<'T * 'S>) (s: 'S) : list<'T> =
+let Unfold<'T, 'S> (f: 'S -> option<'T * 'S>) (s: 'S) : list<'T> =
     SeqUnfold f s
     |> Seq.toList
 

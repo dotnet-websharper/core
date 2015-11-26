@@ -84,7 +84,7 @@ type private T1 [<JavaScript>] () =
     [<JavaScript>]
     static member StaticProperty = "Initial Static Value"
 
-type private T2 = { [<Name "Y">] X : int }
+[<JavaScript>] type private T2 = { [<Name "Y">] X : int }
 
 [<Inline "isNaN($x)">]
 let private isNaN (x: double) = System.Double.IsNaN x

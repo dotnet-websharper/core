@@ -33,21 +33,24 @@ module Server =
     let counterM1 = ref 243
     let counterM2 = ref 367
 
+    [<JavaScript>]
     type OptionsRecord =
         {
             [<OptionalField>] x : option<int>
             y : option<int>
         }
 
+    [<JavaScript>]
     type RecordUnion =
         | Record of Record
 
-    and Record =
+    and [<JavaScript>] Record =
         {
             a : int
             b : string
         }
 
+    [<JavaScript>]
     type UnionWithConstants =
         | [<Constant "itsastring">] UString
         | [<Constant 1436>] UInt

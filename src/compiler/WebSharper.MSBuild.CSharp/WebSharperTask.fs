@@ -26,7 +26,6 @@ open System.IO
 open System.Reflection
 open Microsoft.Build.Framework
 open Microsoft.Build.Utilities
-open IntelliFactory.Core
 open WebSharper
 open WebSharper.Compiler
 module FE = FrontEnd
@@ -124,29 +123,29 @@ module WebSharperTaskModule =
                 d
             | None -> failwith "WebSharperBundleOutputDir property is required"
         | dir -> dir
-//
-//    let Bundle settings =
-//        match GetProjectType settings with
-//        | Bundle webRoot ->
-//            let outputDir = BundleOutputDir settings webRoot
-//            let fileName =
-//                match settings.Name with
-//                | null | "" -> "Bundle"
-//                | name -> name
-//            match List.ofArray settings.ItemInput with
-//            | raw :: refs ->
-//                let cfg =
-//                    {
-//                        Compiler.BundleCommand.Config.Create() with
-//                            AssemblyPaths = raw.ItemSpec :: [for r in refs -> r.ItemSpec]
-//                            FileName = fileName
-//                            OutputDirectory = outputDir
-//                    }
-//                let env = Compiler.Commands.Environment.Create()
-//                Compiler.BundleCommand.Instance.Execute(env, cfg)
-//                |> SendResult settings
-//            | _ -> Fail settings "Invalid options for Bundle command"
-//        | _ -> true
+
+    let Bundle settings =
+        match GetProjectType settings with
+        | Bundle webRoot ->
+            let outputDir = BundleOutputDir settings webRoot
+            let fileName =
+                match settings.Name with
+                | null | "" -> "Bundle"
+                | name -> name
+            match List.ofArray settings.ItemInput with
+            | raw :: refs ->
+                let cfg =
+                    {
+                        Compiler.BundleCommand.Config.Create() with
+                            AssemblyPaths = raw.ItemSpec :: [for r in refs -> r.ItemSpec]
+                            FileName = fileName
+                            OutputDirectory = outputDir
+                    }
+                let env = Compiler.Commands.Environment.Create()
+                Compiler.BundleCommand.Instance.Execute(env, cfg)
+                |> SendResult settings
+            | _ -> Fail settings "Invalid options for Bundle command"
+        | _ -> true
 
     let BundleClean settings webRoot =
         let outputDir = BundleOutputDir settings webRoot
@@ -321,7 +320,7 @@ module WebSharperTaskModule =
     let Execute settings =
         try
             match settings.Command with
-//            | "Bundle" -> Bundle settings
+            | "Bundle" -> Bundle settings
             | "Clean" -> Clean settings
             | "Compile" -> Compile settings
             | "Html" -> Html settings
@@ -371,6 +370,9 @@ type WebSharperTask() =
             |> Map.ofSeq
         System.AppDomain.CurrentDomain.add_AssemblyResolve(fun sender e ->
             let assemblyName = AssemblyName(e.Name).Name
+            if assemblyName = "FSharp.Core" then
+                typeof<option<_>>.Assembly
+            else
             match Map.tryFind assemblyName referencedAsmNames with
             | None -> null
             | Some p -> System.Reflection.Assembly.LoadFrom(p)

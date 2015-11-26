@@ -33,11 +33,15 @@ let withSourcePosOfStatement sourceStatement statement =
     | ExprSourcePos (pos, _) -> ExprSourcePos (pos, statement)
     | _ -> statement
     
-let combineStatements statements =
-    match statements with
-    | [] -> Empty
-    | [s] -> s
-    | _ -> Block statements
+let tryGetExprSourcePos expr =
+    match expr with
+    | ExprSourcePos (p, _) -> Some p
+    | _ -> None
+
+let tryGetStatementSourcePos expr =
+    match expr with
+    | StatementSourcePos (p, _) -> Some p
+    | _ -> None
 
 let getConstrantValue (value: obj) =
     match value with
@@ -58,7 +62,7 @@ let getConstrantValue (value: obj) =
     | _ -> failwith "F# constant value not recognized: %A" value
     |> Value
  
-type IdReplace(fromId, toId) =
+type ReplaceId(fromId, toId) =
     inherit Transformer()
     
     override this.TransformId i =
@@ -66,107 +70,342 @@ type IdReplace(fromId, toId) =
 
 let breakTODO s = failwith ("TODO: break for " + s)
 
-let rec breakExpr expr =
-    let inline br x = breakExpr x
-    let brL l =
-        let bb = l |> List.map br
-        if bb |> List.forall Option.isNone then None
-        else
-            let rec bL br (accSt, accE) ol bl =
-                match ol, bl with
-                | [], _ -> accSt, accE
-                | a :: oRest, None :: bRest ->
-                    if br then
-                        match a with
-                        | Undefined | Value _ 
-                        | Var _ ->
-                            bL true (accSt, a :: accE) oRest bRest
-                        | _ ->
-                            let aV = Id.New ()
-                            bL true (VarDeclaration (aV, a) :: accSt, Var aV :: accE) oRest bRest
-                    else
-                        bL false (accSt, a :: accE) oRest bRest
-                | _ :: oRest, Some (aSt, aE) :: bRest ->
-                    match aE with
-                    | Undefined | Value _ 
-                    | Var _ ->
-                        bL true (aSt @ accSt, aE :: accE) oRest bRest
-                    | _ ->
-                        let aV = Id.New()
-                        bL true (aSt @ VarDeclaration (aV, aE) :: accSt, Var aV :: accE) oRest bRest
-            bL false ([], []) (List.rev l) (List.rev bb) |> Some
+// has no side effect
+let rec isPureExpr expr =
+    match expr with
+    | Undefined
+    | This
+    | Base
+    | Var _
+    | Value _
+    | Function _ 
+    | FuncWithThis _
+    | GlobalAccess _
+    | Self
+        -> true
+    | Sequential a 
+    | NewArray a 
+        -> List.forall isPureExpr a 
+    | Conditional (a, b, c) 
+        -> isPureExpr a && isPureExpr b && isPureExpr c
+    | ItemGet(a, b) // TODO: be more careful, in JS it can have side effects
+    | Binary (a, _, b)
+    | Let (_, a, b)
+    | Coalesce(a, _, b) 
+        -> isPureExpr a && isPureExpr b 
+    | Unary (_, a) 
+    | ExprSourcePos (_, a)
+    | TypeCheck(a, _)
+        -> isPureExpr a     
+    | Object a 
+        -> List.forall (snd >> isPureExpr) a 
+    | LetRec (a, b) 
+        -> List.forall (snd >> isPureExpr) a && isPureExpr b
+    | _ -> false
+
+// has no side effect and value does not depend on execution order
+let rec isStronglyPureExpr expr =
+    match expr with
+    | Undefined
+    | This
+    | Base
+//    | Var _
+    | Value _
+//    | Function _ 
+//    | FuncWithThis _
+    | GlobalAccess _
+    | Self
+        -> true
+    | Sequential a 
+        -> 
+        match List.rev a with
+        | [] -> true
+        | h :: t -> isStronglyPureExpr h && List.forall isPureExpr t
+    | NewArray a 
+        -> List.forall isStronglyPureExpr a 
+    | Conditional (a, b, c) 
+        -> isStronglyPureExpr a && isStronglyPureExpr b && isStronglyPureExpr c
+//    | ItemGet(a, b)
+    | Binary (a, _, b)
+    | Let (_, a, b)
+    | Coalesce(a, _, b) 
+        -> isStronglyPureExpr a && isStronglyPureExpr b 
+    | Unary (op, a)
+        ->
+        match op with
+        | UnaryOperator.``void`` -> isPureExpr a
+        | _ -> isStronglyPureExpr a 
+    | ExprSourcePos (_, a)
+    | TypeCheck(a, _)
+        -> isStronglyPureExpr a     
+    | Object a 
+        -> List.forall (snd >> isStronglyPureExpr) a 
+    | LetRec (a, b) 
+        -> List.forall (snd >> isStronglyPureExpr) a && isStronglyPureExpr b
+    | _ -> false
+
+type NotMutatedOrCaptured(v) =
+    inherit Visitor()
+
+    let mutable scope = 0
+    let mutable ok = true
+
+    override this.VisitVarSet (a, b) =
+        if a = v then ok <- false
+        else this.VisitExpression b
+
+    override this.VisitMutatingUnary (_, a) =
+        match ignoreExprSourcePos a with
+        | Var av when av = v ->
+            ok <- false
+        | _ ->
+            this.VisitExpression a
+
+    override this.VisitMutatingBinary (a, _, b) =
+        match ignoreExprSourcePos a with
+        | Var av when av = v ->
+            ok <- false
+        | _ ->
+            this.VisitExpression a
+            this.VisitExpression b
+
+    override this.VisitFunction(a, b) =
+        scope <- scope + 1
+        base.VisitFunction(a, b)
+        scope <- scope - 1
+
+    override this.VisitFuncWithThis(a, b, c) =
+        scope <- scope + 1
+        base.VisitFuncWithThis(a, b, c)
+        scope <- scope - 1
+
+    override this.VisitId a =
+        if scope > 0 then ok <- false
+
+    member this.Check(a) =
+        this.VisitExpression(a)
+        ok
+
+let varEvalOrder (vars : Id list) expr =
+    let watchedVars = System.Collections.Generic.HashSet vars
+    let mutable vars = vars
+    let mutable ok = true 
+
+    let fail () =
+        vars <- []
+        ok <- false
     
-    let comb2 f a b =
-        match brL [a; b] with
-        | Some (st, [aE; bE]) -> Some (st, f (aE, bE))
-        | None -> None
-        | _ -> failwith "impossible"
-    let comb3 f a b c =
-        match brL [a; b; c] with
-        | Some (st, [aE; bE; cE]) -> Some (st, f (aE, bE, cE))
-        | None -> None
-        | _ -> failwith "impossible"
+    let rec eval e =
+        if ok then
+            match e with
+            | Undefined
+            | This
+            | Base
+            | Value _
+            | Self
+                -> ()
+            | Sequential a
+            | NewArray a ->
+                Seq.iter eval a
+            | Conditional (a, b, c) ->
+                eval a
+                let aVars = vars
+                eval b
+                if ok then
+                    let bVars = vars
+                    vars <- aVars
+                    eval c
+                    if ok && (bVars <> vars) then fail()
+            | ItemGet(a, b) 
+            | Binary (a, _, b)
+            | Let (_, a, b)
+                ->
+                eval a
+                eval b
+            | Unary (_, a) 
+            | ExprSourcePos (_, a)
+            | TypeCheck(a, _)
+                -> eval a
+            | Object a 
+                -> List.iter (snd >> eval) a 
+            | Var v ->
+                if watchedVars.Contains v then
+                    match vars with
+                    | [] -> fail()
+                    | hv :: tv ->
+                        if v = hv then
+                            vars <- tv
+                        else fail() 
+
+            | _ -> fail()
+               
+    eval expr
+    ok     
+
+let mkSequential e =
+    match List.rev e with
+    | [] -> Undefined
+    | [ s ] -> s
+    | h :: t -> Sequential (List.rev (h :: (t |> List.filter (isPureExpr >> not)))) 
+
+let combineStatements statements =
+    match statements with
+    | [] -> Empty
+    | [s] -> s
+    | _ -> Block statements
+
+type CountVarOccurence(v) =
+    inherit Visitor()
+
+    let mutable occ = 0
+
+    override this.VisitId(a) =
+        if a = v then 
+            occ <- occ + 1
+
+    member this.Get(e) =
+        this.VisitExpression(e) 
+        occ
+
+type SubstituteVar(v, e) =
+    inherit Transformer()
+
+    override this.TransformVar(a) = if a = v then e else Var a
+
+type SubstituteVars(sub : System.Collections.Generic.IDictionary<Id, Expression>) =
+    inherit Transformer()
+
+    override this.TransformVar(a) = 
+        match sub.TryGetValue(a) with
+        | true, e -> e
+        | _ -> Var a 
+
+type Broken<'a> =
+    {
+        Body : 'a
+        Statements : Statement list
+        Variables : Id list
+    }
+
+let broken b =
+    {
+        Body = b
+        Statements = []
+        Variables = []
+    }
+
+let mapBroken f b =
+    {
+        Body = f b.Body
+        Statements = b.Statements
+        Variables = b.Variables
+    }
+
+let toStatements f b =
+    seq {
+        for v in b.Variables -> VarDeclaration(v, Undefined)
+        yield! b.Statements 
+        yield f b.Body
+    }
+
+let toStatementsL f b =
+    seq {
+        for v in b.Variables -> VarDeclaration(v, Undefined)
+        yield! b.Statements 
+        yield! f b.Body
+    }
+
+let hasNoStatements b = List.isEmpty b.Statements
+let (|HasNoStatements|_|) b = if hasNoStatements b then Some b else None
+
+let rec breakExpr expr : Broken<Expression> =
+    let inline br x = breakExpr x
+
+    let brL l : Broken<Expression list> =
+        let bb = l |> List.map br
+        if bb |> List.forall hasNoStatements then
+            {
+                Body = bb |> List.map (fun b -> b.Body)
+                Statements = bb |> List.collect (fun b -> b.Statements)
+                Variables = bb |> List.collect (fun b -> b.Variables)
+            }
+        else
+            let rec bL br (accVar, accSt, accE) bl =
+                match bl with
+                | [] -> accVar, accSt, accE
+                | HasNoStatements b :: bRest ->
+                    if br then
+                        if isStronglyPureExpr b.Body then
+                            bL true (b.Variables @ accVar, accSt, b.Body :: accE) bRest
+                        else
+                            let v = Id.New "$x"
+                            bL true (b.Variables @ accVar, VarDeclaration (v, b.Body) :: accSt, Var v :: accE) bRest
+                    else
+                        bL false (b.Variables @ accVar, accSt, b.Body :: accE) bRest
+                | b :: bRest ->
+                    if isStronglyPureExpr b.Body then
+                        bL true (b.Variables @ accVar, b.Statements @ accSt, b.Body :: accE) bRest
+                    else
+                        let v = Id.New "$x"
+                        bL true (v :: b.Variables @ accVar, b.Statements @ VarDeclaration (v, b.Body) :: accSt, Var v :: accE) bRest
+                | _ -> failwith "impossible"
+            let vars, st, e = bL false ([], [], []) (List.rev bb)
+            {
+                Body = e
+                Statements = st
+                Variables = vars
+            }
+
+    let comb2 f a b : Broken<Expression> =
+        brL [a; b] |> mapBroken (fun [a; b] -> f(a, b))
+    let comb3 f a b c : Broken<Expression> =
+        brL [a; b; c] |> mapBroken (fun [a; b; c] -> f(a, b, c))
     
     match expr with
     | Undefined
     | This
+    | Base
     | Var _
-    | Value _ -> None 
+    | Value _ 
+    | Function _ 
+    | Self
+    | GlobalAccess _
+    | Hole _
+        -> broken expr 
     // generated for disposing iterators
     | Application (ItemGet(Let (x, Var y, Var x2), i), b) when x = x2 ->
-        Some ([], Application(ItemGet(Var y, i), b))   
+        broken (Application(ItemGet(Var y, i), b))
     | Application (ItemGet(a, b), c) ->
         brL (a :: b :: c)
-        |> Option.map (fun (st, aE :: bE :: cE) -> st, Application (ItemGet(aE, bE), cE))
+        |> mapBroken (fun (aE :: bE :: cE) -> Application (ItemGet(aE, bE), cE))
     | Application (a, b) -> 
-//        match a with
-//        | ItemGet(x, Value (String "System-IDisposable-Dispose")) ->
-//            let brA = br a
-//            ()
-//        | _ -> ()
-
         brL (a :: b)
-        |> Option.map (fun (st, aE :: bE) -> st, Application (aE, bE))
-//    | Access (a, b) ->
-//        breakList [a; b]
-//        |> Option.map (fun (st, [aE; bE]) -> st, Access (aE, bE))
-    | Function _ -> None
+        |> mapBroken (fun (aE :: bE) -> Application (aE, bE))
     | VarSet (a, b) ->
         br b
-        |> Option.map (fun (bSt, bE) -> bSt, VarSet (a, bE))
+        |> mapBroken (fun bE -> VarSet (a, bE))
     | Sequential a ->
-        brL a
-        |> Option.map (fun (st, l) -> st, 
-            match List.rev l with
-            | [] -> failwith "empty Sequential"
-            | [ e ] -> e
-            | h :: t -> h :: (t |> List.filter (function Undefined | Value _ | Var _ -> false | _ -> true)) |> List.rev |> Sequential
-        )
+        brL a |> mapBroken mkSequential
     | NewArray a ->
-        brL a
-        |> Option.map (fun (st, l) -> st, NewArray l)
+        brL a |> mapBroken NewArray
     | Conditional (a, b, c) ->
-        match br a, br b, br c with   
-        | None, None, None -> None
-        | Some (aSt, aE), None, None ->
-            Some (aSt, Conditional (aE, b, c))
-        | aBr, bBr, cBr ->
-            let res = Id.New ()
-            let setRes x brX =
-                match brX with
-                | None -> ExprStatement(VarSet(res, x))
-                | Some (xSt, xE) -> Block (xSt @ [ ExprStatement(VarSet(res, xE)) ]) 
-            Some (
-                [
-                    yield VarDeclaration(res, Undefined)
-                    match aBr with
-                    | None ->
-                        yield If (a, setRes b bBr, setRes c cBr)
-                    | Some (aSt, aE) ->
-                        yield! aSt
-                        yield If (aE, setRes b bBr, setRes c cBr)
-                ], Var res        
-            )
+        let brA = br a 
+        let brB = br b
+        let brC = br c
+        let vOpt, st, e =
+            if hasNoStatements brB && hasNoStatements brC then   
+                None, brA.Statements, Conditional (brA.Body, brB.Body, brC.Body)
+            else
+                let res = Id.New "$i"
+                let setRes x =
+                    if hasNoStatements x then ExprStatement(VarSet(res, x.Body))
+                    else Block (x.Statements @ [ ExprStatement(VarSet(res, x.Body)) ]) 
+                Some res, brA.Statements @ [If (brA.Body, setRes brB, setRes brC)], Var res        
+        {
+            Body = e
+            Statements = st
+            Variables = Option.toList vOpt @ brA.Variables @ brB.Variables @ brC.Variables
+        }
     | ItemGet (a, b) ->
         comb2 ItemGet a b
     | ItemSet (a, b, c) ->
@@ -183,109 +422,137 @@ let rec breakExpr expr =
         comb2 (fun (aE, cE) -> MutatingBinary(aE, b, cE)) a c
     | Unary (a, b) ->
         br b
-        |> Option.map (fun (bSt, bE) -> bSt, Unary (a, bE))
+        |> mapBroken (fun bE -> Unary (a, bE))
     | MutatingUnary (a, b) ->
         br b
-        |> Option.map (fun (bSt, bE) -> bSt, MutatingUnary (a, bE))
+        |> mapBroken (fun bE -> MutatingUnary (a, bE))
     | ExprSourcePos (a, b) -> 
         br b 
-        |> Option.map (fun (st, bB) -> st, ExprSourcePos(a, bB))
+        |> mapBroken (fun bB -> ExprSourcePos(a, bB))
     | StatementExpr st ->
-        Some ([ st ], Undefined)
+        {
+            Body = Undefined
+            Statements = [ st ]
+            Variables = [] // TODO : vars from statemen 
+        }
     | Call(a, b, c, d) ->
         brL (Option.toList a @ d)
-        |> Option.map (fun (st, l) ->
-            st,
+        |> mapBroken (fun l ->
             if Option.isSome a then
                 Call (Some l.Head, b, c, l.Tail)
             else Call (None, b, c, l)
         )
     | Ctor(a, b, c) ->
         brL c
-        |> Option.map (fun (st, l) -> st, Ctor(a, b, l))
-    | NewObject (a, b) ->
-        br b |> Option.map (fun (bSt, bE) -> bSt, NewObject (a, bE))
-    | Self -> None
+        |> mapBroken (fun l -> Ctor(a, b, l))
+    | CopyCtor (a, b) ->
+        br b |> mapBroken (fun bE -> CopyCtor (a, bE))
     | FieldGet(_, _, _) -> breakTODO "FieldGet"
     | FieldSet(_, _, _, _) -> breakTODO "FieldSet"
-//    | Let(a, Var b, c) ->
-//        let ctr = IdReplace(a, b).TransformExpression(c)
-//        match br ctr with
-//        | Some _ as bC -> bC
-//        | _ -> Some ([], ctr) 
+    | Let(a, IgnoreExprSourcePos(Var b), c) when NotMutatedOrCaptured(a).Check(c) && NotMutatedOrCaptured(a).Check(c) -> // TODO: maybe weaker check is enough
+        ReplaceId(a, b).TransformExpression(c) |> br    
     | Let(a, b, c) ->
-        match br b, br c with
-        | None, None -> 
-//            None
-            Some ([ VarDeclaration(a, b) ], c)
-        | Some (bSt, bE), None ->
-            Some (bSt @ [ VarDeclaration(a, bE) ], c)
-//            Some (bSt, Let(a, bE, c))
-        | None, Some (cSt, cE) ->
-            Some (VarDeclaration (a, b) :: cSt, cE)
-        | Some (bSt, bE), Some (cSt, cE) ->
-            Some (bSt @ (VarDeclaration(a, bE) :: cSt), cE)
+        let brB = br b
+        if hasNoStatements brB then
+            let inlined =
+                if isStronglyPureExpr brB.Body && NotMutatedOrCaptured(a).Check(c) then
+                    match CountVarOccurence(a).Get(c) with
+                    | 0 -> Some c
+                    | 1 -> Some (SubstituteVar(a, brB.Body).TransformExpression(c))
+                    | _ -> None
+                else None
+            match inlined with
+            | Some i -> br i
+            | _ ->
+                let brC = br c 
+                {
+                    Body = brC.Body
+                    Statements = VarDeclaration(a, brB.Body) :: brC.Statements 
+                    Variables = brB.Variables @ brC.Variables
+                }
+        else
+            let brC = br c 
+            {
+                Body = brC.Body
+                Statements = brB.Statements @ VarDeclaration(a, brB.Body) :: brC.Statements 
+                Variables = brB.Variables @ brC.Variables
+            }
     | NewVar(a, b) ->
-//        br b
-//        |> Option.map (fun (bSt, bE) -> bSt, NewVar (a, bE))
-        match br b with
-        | None ->
-            Some ([ VarDeclaration(a, b) ], Var a)   
-        | Some (bSt, bE) ->
-            Some (bSt @ [ VarDeclaration(a, bE) ], Var a)   
-
+        let brB = br b
+        { brB with
+            Body = VarSet (a, brB.Body)
+            Variables = a :: brB.Variables    
+        }
     | WithVars (a, b) ->
-        match br b with
-        | None ->
-            Some (a |> List.map (fun v -> VarDeclaration(v, Undefined)), b)
-        | Some (bSt, bE) ->
-            Some ((a |> List.map (fun v -> VarDeclaration(v, Undefined))) @ bSt, bE)
+        let brB = br b
+        { brB with
+            Variables = a @ brB.Variables    
+        }
     | Object a ->
         let names, values = List.unzip a
         brL values
-        |> Option.map (fun (st, l) -> st, Object (List.zip names l)) 
+        |> mapBroken (fun l -> Object (List.zip names l)) 
     | Coalesce(_, _, _) -> breakTODO "Coalesce"
     | TypeCheck(a, b) ->
         br a
-        |> Option.map (fun (aSt, aE) -> aSt, TypeCheck (aE, b))
-    | LetRec (a, b) ->
+        |> mapBroken (fun aE -> TypeCheck (aE, b))
+    | LetRec (a, b) -> // better support for mutually recursive functions and values
+        let brAs = a |> List.map (fun (i, v) -> i, br v)
         let brB = br b
-        Some (
-            [
-                for i, _ in a do 
-                    yield VarDeclaration(i, Undefined)
-                for i, v in a do 
-                    match br v with
-                    | Some (vSt, vE) -> 
-                        yield! vSt
-                        yield ExprStatement <| VarSet(i, vE)
-                    | _ -> yield ExprStatement <| VarSet(i, v)
-                match brB with
-                | Some (bSt, _) -> yield! bSt
-                | _ -> ()
-            ], 
-            match brB with
-            | Some (_, bE) -> bE
-            | _ -> b
-        )
+        {
+            Body = brB.Body
+            Statements =
+                [
+                    for i, _ in a do 
+                        yield VarDeclaration(i, Undefined)
+                    for i, v in brAs do 
+                        yield! v.Statements
+                        yield ExprStatement <| VarSet(i, v.Body)
+                    yield! brB.Statements
+                ]
+            Variables = brB.Variables 
+        }
+//        Some (
+//            [
+//                for i, _ in a do 
+//                    yield VarDeclaration(i, Undefined)
+//                for i, v in a do 
+//                    match br v with
+//                    | Some (vSt, vE) -> 
+//                        yield! vSt
+//                        yield ExprStatement <| VarSet(i, vE)
+//                    | _ -> yield ExprStatement <| VarSet(i, v)
+//                match brB with
+//                | Some (bSt, _) -> yield! bSt
+//                | _ -> ()
+//            ], 
+//            match brB with
+//            | Some (_, bE) -> bE
+//            | _ -> b
+//        )
 //
 //        breakTODO "LetRec"
 //        None // TODO
     | Await(_) -> breakTODO "Await"
     | New(a, b) -> 
         brL (a :: b)
-        |> Option.map (fun (st, aE :: bE) -> st, New (aE, bE))
+        |> mapBroken (fun (aE :: bE) -> New (aE, bE))
     | NamedParameter(_, _) -> breakTODO "NamedParameter"
     | RefOrOutParameter(_) -> breakTODO "RefOrOutParameter"
-    | GlobalAccess _ -> None
-    | Hole _ -> None
     | BaseCtor _ -> breakTODO "BaseCtor"
+    | FuncWithThis(_, _, _) -> breakTODO "FuncWithThis"
+    | CallNeedingMoreArgs(_, _, _, _) -> breakTODO "CallNeedingMoreArgs"
+    | Cctor(_) -> breakTODO "Cctor"
+    | OverrideName(_, _) -> breakTODO "OverrideName"
+    | NewRecord(_, _) -> breakTODO "NewRecord"
+    | NewUnionCase(_, _, _) -> breakTODO "NewUnionCase"
+    | UnionCaseGet(_, _, _, _) -> breakTODO "UnionCaseGet"
 
-and private breakSt statement =
+and private breakSt statement : Statement seq =
     let inline brE x = breakExpr x
     let inline brS x = breakSt x
     let inline combine x = x |> List.ofSeq |> combineStatements
-    let inline combineOpt x xB = match xB with Some xB -> combine xB | _ -> x
+//    let inline combineOpt x xB = match xB with Some xB -> combine xB | _ -> x
 //    let comb2 f a b =
 //        match brS a, brS b with
 //        | Some aB, Some bB -> f (combine aB) (combine bB) |> Seq.singleton |> Some
@@ -295,62 +562,47 @@ and private breakSt statement =
     match statement with
     | Empty
     | Break _ 
-    | Continue _ -> None
+    | Continue _ 
+    | Yield _ 
+//    | Yield(a) -> 
+//        brE a |> Option.map (fun (st, aB) -> Seq.append st (Seq.singleton (Yield aB))) // TODO yield breakup
+    | Goto _ //failwith "Not implemented yet"
+    | CSharpSwitch _ // failwith "Not implemented yet"
+    | GotoCase _ //failwith "Not implemented yet"
+        -> Seq.singleton statement
     | ExprStatement a ->
-        brE a |> Option.map (fun (st, aB) -> Seq.append st (Seq.singleton (ExprStatement aB)))
+        brE a |> toStatements ExprStatement
     | Return a ->
-        brE a |> Option.map (fun (st, aB) -> Seq.append st (Seq.singleton (Return aB)))
+        brE a |> toStatements Return
     | Block a ->
-        let aB = a |> List.map brS 
-        if aB |> List.forall Option.isNone then None
-        else
-            Seq.map2 (fun o b ->
-                match b with
-                | Some bs -> bs
-                | _ -> Seq.singleton o
-            ) a aB |> Seq.concat |> List.ofSeq |> Block |> Seq.singleton |> Some
+        Seq.collect brS a |> List.ofSeq |> Block |> Seq.singleton
     | Labeled (a, b) ->
-        brS b
-        |> Option.map (fun bB -> Labeled (a, combine bB) |> Seq.singleton)
+        Seq.singleton (Labeled (a, combine (brS b))) 
     | VarDeclaration (a, b) ->
-        brE b
-        |> Option.map (fun (st, bB) -> Seq.append st (Seq.singleton (VarDeclaration (a, bB))))
+        brE b |> toStatements (fun bE -> VarDeclaration (a, bE))
     | While (a, b) ->
-        match brE a with
-        | Some (st, aB) ->
-            let ok = Id.New "ok"
-            st @ [
-                VarDeclaration (ok, aB)
-                While (Var ok, 
-                    Block [
-                        yield combineOpt b (brS b) 
-                        for s in st do
-                            match s with
-                            | VarDeclaration (v, x) -> yield ExprStatement(VarSet(v, x))
-                            | _ -> yield s 
-                        yield ExprStatement(VarSet(ok, aB))
-                    ]
-                ) 
-            ] |> Seq.ofList |> Some
-//            let ok = Id.New "ok"
-//            [
-//                VarDeclaration (ok, Value (Bool true))
-//                While (Var ok, 
-//                    Block (
-//                        st @ [ 
-//                            If (VarSet (ok, aB), 
-//                                match brS b with
-//                                | None -> b
-//                                | Some bB -> combine bB
-//                            , Empty)  
-//                        ]
-//                    )
-//                ) 
-//            ] |> Seq.ofList |> Some
-        | None -> 
-            brS b |> Option.map (fun bB -> While (a, combine bB) |> Seq.singleton)
+        let brA = brE a
+        if hasNoStatements brA then
+            brA |> toStatements (fun aE -> While (aE, combine(brS b)))
+        else
+            let ok = Id.New "$w"
+            brA |> toStatementsL (fun aE -> 
+                [
+                    VarDeclaration (ok, aE)
+                    While (Var ok, 
+                        Block [
+                            yield combine (brS b) 
+                            for s in brA.Statements do
+                                match s with
+                                | VarDeclaration (v, x) -> yield ExprStatement(VarSet(v, x))
+                                | _ -> yield s 
+                            yield ExprStatement(VarSet(ok, aE))
+                        ]
+                    ) 
+                ]
+            )
     | StatementSourcePos (a, b) ->
-        brS b |> Option.map (fun bB -> StatementSourcePos (a, combine bB) |> Seq.singleton)
+        Seq.singleton (StatementSourcePos (a, combine (brS b)))
     | DoWhile(a, b) -> 
         failwith "TODO: break for DoWhile"
         // this is wrong because of VarDeclarations repeated
@@ -387,80 +639,56 @@ and private breakSt statement =
         //failwith "Not implemented yet"
     | Switch(a, b) -> 
         let brA = brE a
-        let brCases = b |> List.map (fun (c, d) -> Option.bind brE c, brS d)
-        if Option.isNone brA && brCases |> List.forall (fun (c, d) -> Option.isNone c && Option.isNone d) then 
-            None
+        let brCases = b |> List.map (fun (c, d) -> Option.map brE c, brS d)
+        if brCases |> List.forall (fst >> Option.forall hasNoStatements) then
+            let cases = List.map (fun (cB, cS) -> cB |> Option.map (fun x -> x.Body), combine cS) brCases
+            { brA with
+                Variables =
+                    [
+                        yield! brA.Variables
+                        for (cB, _) in brCases do
+                            match cB with
+                            | Some cB -> yield! cB.Variables
+                            | _ -> ()
+                    ]
+            } |> toStatements (fun aE -> Switch(aE, cases))
         else
-//        None // TODO
-            if brCases |> List.exists (fst >> Option.isSome) then
-                 breakTODO "Switch with breaking case"
-            else
-                let cases = List.map2 (fun (c, d) (_, dB) -> c, combineOpt d dB) b brCases
-                match brA with
-                | Some (st, aE) ->
-                    Seq.append st (Seq.singleton (Switch(aE, cases)))
-                | _ ->
-                    Seq.singleton (Switch(a, cases))
-                |> Some 
+            breakTODO "Switch with breaking case"
+
+//        if Option.isNone brA && brCases |> List.forall (fun (c, d) -> Option.isNone c && Option.isNone d) then 
+//            None
+//        else
+//            if brCases |> List.exists (fst >> Option.isSome) then
+//                 breakTODO "Switch with breaking case"
+//            else
+//                let cases = List.map2 (fun (c, d) (_, dB) -> c, combineOpt d dB) b brCases
+//                match brA with
+//                | Some (st, aE) ->
+//                    Seq.append st (Seq.singleton (Switch(aE, cases)))
+//                | _ ->
+//                    Seq.singleton (Switch(a, cases))
+//                |> Some 
     | If(a, b, c) ->
-        match brE a, brS b, brS c with
-        | None, None, None -> None
-        | Some (st, aB), bB, cB ->
-            Some (Seq.append st (Seq.singleton (If (aB, combineOpt b bB, combineOpt c cB))))
-        | None, bB, cB ->
-            Some (Seq.singleton (If (a, combineOpt b bB, combineOpt c cB)))     
-        //failwith "Not implemented yet"
+        brE a |> toStatements (fun aE -> If (aE, combine (brS b), combine (brS c)))
     | Throw(a) -> 
-        brE a
-        |> Option.map (fun (st, aB) -> Seq.append st (Seq.singleton (Throw aB)))
+        brE a |> toStatements Throw
     | TryWith (a, b, c) ->
-        match brS a, brS c with
-        | None, None -> None
-        | aB, cB ->
-            Some (Seq.singleton (TryWith (combineOpt a aB, b, combineOpt c cB))) 
-        //comb2 (fun ar cr -> TryWith (ar, b, cr)) a c
+        Seq.singleton (TryWith (combine (brS a), b, combine (brS c)))
     | TryFinally (a, b) ->           
-        match brS a, brS b with
-        | None, None -> None
-        | aB, bB ->
-            Some (Seq.singleton (TryFinally (combineOpt a aB, combineOpt b bB))) 
-        //comb2 (fun ar br -> TryFinally (ar, br)) a b
+        Seq.singleton (TryFinally (combine (brS a), combine (brS b)))
     | Statements a ->
-        let aB = a |> List.map brS 
-        if aB |> List.forall Option.isNone then Some (Seq.ofList a)
-        else
-            Seq.map2 (fun o b ->
-                match b with
-                | Some bs -> bs
-                | _ -> Seq.singleton o
-            ) a aB |> Seq.concat |> Array.ofSeq |> Seq.ofArray |> Some
+        List.map brS a |> Seq.concat
     | ForIn(a, b, c) -> 
-        match brE b, brS c with
-        | None, None -> None
-        | bB, cB ->
-            let c = match cB with Some cB -> combine cB | _ -> c
-            match bB with
-            | None -> Seq.singleton (ForIn (a, b, c))
-            | Some (st, bB) -> Seq.append st (Seq.singleton (ForIn (a, bB, c)))
-            |> Some
-    | Yield _ -> None
-//    | Yield(a) -> 
-//        brE a |> Option.map (fun (st, aB) -> Seq.append st (Seq.singleton (Yield aB))) // TODO yield breakup
-    | Goto(a) -> None //failwith "Not implemented yet"
-    | CSharpSwitch(_, _) -> None // failwith "Not implemented yet"
-    | GotoCase(_) -> None //failwith "Not implemented yet"
+        brE b |> toStatements (fun bE -> ForIn (a, bE, combine (brS c)))
     | Continuation(a, b) ->
-        match brE b with
-        | Some (bSt, bE) ->
-           Some (Seq.append bSt (Seq.singleton (Continuation(a, bE))))
-        | None -> None     
+        brE b |> toStatements (fun bE -> Continuation(a, bE))
         
     //breakTODO "Continuation"
 
 let breakStatement statement =
-    match breakSt statement with
-    | Some s -> Block (List.ofSeq s)
-    | None -> statement 
+    match breakSt statement |> List.ofSeq with
+    | [ s ] -> s
+    | st -> Block st
       
 open WebSharper.Core
 
@@ -495,6 +723,7 @@ type FixThisScope() =
     inherit Transformer()
     let mutable scope = 0
     let mutable thisVar = None
+    let mutable thisArgs = System.Collections.Generic.Dictionary<Id, int * bool ref>()
 
     override this.TransformFunction(args, body) =
         scope <- scope + 1
@@ -502,6 +731,17 @@ type FixThisScope() =
         scope <- scope - 1
         res
      
+    override this.TransformFuncWithThis (thisArg, args, body) =
+        scope <- scope + 1
+        let used = ref false
+        thisArgs.Add(thisArg, (scope, used))
+        let trBody = this.TransformStatement body
+        scope <- scope - 1
+        if !used then
+            Function(args, Statements [ VarDeclaration(thisArg, This); trBody ])
+        else
+            Function(args, trBody)
+    
     member this.Fix(expr) =
         let b = this.TransformExpression(expr)
         match thisVar with
@@ -513,15 +753,43 @@ type FixThisScope() =
             match thisVar with
             | Some t -> Var t
             | None ->
-                let t = Id.New "this"
+                let t = Id.New "$this"
                 thisVar <- Some t
                 Var t
         else This
 
-type ReplaceThisWithHole0() =
+    override this.TransformVar v =
+        match thisArgs.TryFind v with
+        | Some (funcScope, used) ->
+            if scope > funcScope then
+                used := true
+                Var v
+            else This
+        | _ -> Var v
+
+type ReplaceThisWithVar(v) =
     inherit Transformer()
 
-    override this.TransformThis () = Hole 0
+    override this.TransformThis () = Var v
+    override this.TransformBase () = failwith "base calls not allowed inside inlined members"
+
+let makeExprInline (vars: Id list) expr =
+    if varEvalOrder vars expr then
+        SubstituteVars(vars |> Seq.mapi (fun i a -> a, Hole i) |> dict).TransformExpression(expr)
+    else
+        List.foldBack (fun (v, h) body ->
+            Let (v, h, body)    
+        ) (vars |> List.mapi (fun i a -> a, Hole i)) expr
+
+type StatementTransformer() =
+    inherit Transformer()
+
+    override this.TransformExpression(a) = a
+
+type StatementVisitor() =
+    inherit Visitor()
+
+    override this.VisitExpression(_) = ()
 
 open WebSharper.Core
 

@@ -588,13 +588,13 @@ let Tests =
             raises (List.last List.empty)
         }
 
-//        Test "List.mapFold" {
-//            equal (List.mapFold (fun s x -> (x + 1, s + x)) 0 [ 0 .. 4 ]) (List.map ((+) 1) [ 0 .. 4 ], List.sum [ 0 .. 4 ])
-//        }
-//
-//        Test "List.mapFoldBack" {
-//            equal (List.mapFoldBack (fun x s -> (x + 1, s + x)) [ 0 .. 4 ] 0) (List.map ((+) 1) [ 0 .. 4 ], List.sum [ 0 .. 4 ])
-//        }
+        Test "List.mapFold" {
+            equal (List.mapFold (fun s x -> (x + 1, s + x)) 0 [ 0 .. 4 ]) (List.map ((+) 1) [ 0 .. 4 ], List.sum [ 0 .. 4 ])
+        }
+
+        Test "List.mapFoldBack" {
+            equal (List.mapFoldBack (fun x s -> (x + 1, s + x)) [ 0 .. 4 ] 0) (List.map ((+) 1) [ 0 .. 4 ], List.sum [ 0 .. 4 ])
+        }
 
         Test "List.pairwise" {
             equal (List.pairwise List.empty) List.empty
@@ -671,10 +671,10 @@ let Tests =
             })
         }
 
-//        Test "List.unfold" {
-//            equal (List.unfold (fun _ -> None) 0) List.empty
-//            equal (List.unfold (fun x -> if x < 20 then Some (x + 1, 2 * x) else None) 1) [ 2; 3; 5; 9; 17 ]
-//        }
+        Test "List.unfold" {
+            equal (List.unfold (fun _ -> None) 0) List.empty
+            equal (List.unfold (fun x -> if x < 20 then Some (x + 1, 2 * x) else None) 1) [ 2; 3; 5; 9; 17 ]
+        }
 
         Test "List.where" {
             equal (List.where (fun x -> x % 2 = 0) [ 0 .. 4 ]) [ 0; 2; 4 ]

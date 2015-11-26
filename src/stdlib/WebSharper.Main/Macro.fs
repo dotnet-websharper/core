@@ -79,24 +79,22 @@ let isIn (s: string Set) (t: Type) =
 //    | Q.Coerce (_, x)
 //    | x -> x
 
-
-let private TODO() = failwith "TODO: macro"
-
 [<Sealed>]
 type Div() =
     inherit Macro()
     override this.TranslateCall(_,_,m,a,_) =
         match a with
         | [x; y] ->
-        match m.Generics with
+            match m.Generics with
             | t :: _ ->                                                                     
                 if isIn smallIntegralTypes t
                 then (x ^/ y) ^>> !~(Int 0)
-                    elif isIn bigIntegralTypes t
+                elif isIn bigIntegralTypes t
                 then Application(globalAccess ["Math"; "trunc"], [x ^/ y])
                 else x ^/ y 
             | _ -> x ^/ y   
-        | _ -> failwith "divisionMacro error"
+            |> MacroOk
+        | _ -> MacroError "divisionMacro error"
 
 [<AbstractClass>]
 type Arith(name, op) =
@@ -104,11 +102,12 @@ type Arith(name, op) =
     override this.TranslateCall(_,_,m,a,_) =
         match a with
         | [x; y] ->
-        match m.Generics with
+            match m.Generics with
             | t :: _ when not (isIn scalarTypes t) ->
                 Application (ItemGet(x, Value (String name)), [y])
             | _ -> Binary(x, op, y)
-        | _ -> failwith "divisionMacro error"
+            |> MacroOk
+        | _ -> MacroError "divisionMacro error"
 
 [<Sealed>]
 type Add() = inherit Arith("add", BinaryOperator.``+``) 
@@ -150,16 +149,17 @@ type CMP(cmp) =
     override this.TranslateCall(_,_,m,a,_) =
         match a with
         | [x; y] ->
-        match m.Generics with
-        | t :: _ ->
-            if isIn scalarTypes t then
+            match m.Generics with
+            | t :: _ ->
+                if isIn scalarTypes t then
                     Binary (x, toBinaryOperator cmp, y)
-            else
+                else
                     makeComparison cmp x y
+                |> MacroOk
+            | _ ->
+                MacroError "comparisonMacro error"
         | _ ->
-            failwith "comparisonMacro error"
-    | _ ->
-        failwith "comparisonMacro error"
+            MacroError "comparisonMacro error"
 
 [<Sealed>] type EQ() = inherit CMP(Comparison.``=``)
 [<Sealed>] type NE() = inherit CMP(Comparison.``<>``)
@@ -174,23 +174,25 @@ type Char() =
     override this.TranslateCall(_,_,m,a,_) =
         match a with
         | [x] ->
-        match m.Generics with
-        | t :: _ ->
-                if isIn integralTypes t then x else
-                match t with
+            match m.Generics with
+            | t :: _ ->
+                if isIn integralTypes t then MacroOk x else
+                    match t with
                     | ConcreteType d ->
                         match d.Entity.Value.FullName with
-                        | "System.String" -> Application(globalAccess ["WebSharper"; "Char"; "Parse"], [x])
-                    | "System.Char"
-                    | "System.Double"
-                        | "System.Single" -> x
-                    | _               -> failwith "charMacro error"
-                | _ ->
-                    failwith "charMacro error"
+                        | "System.String" ->
+                            Application(globalAccess ["WebSharper"; "Char"; "Parse"], [x])
+                            |> MacroOk
+                        | "System.Char"
+                        | "System.Double"
+                        | "System.Single" -> MacroOk x
+                        | _               -> MacroError "charMacro error"
+                    | _ ->
+                        MacroError "charMacro error"
+            | _ ->
+                MacroError "charMacro error"
         | _ ->
-            failwith "charMacro error"
-    | _ ->
-        failwith "charMacro error"
+            MacroError "charMacro error"
 
 [<Sealed>]
 type String() =
@@ -198,16 +200,17 @@ type String() =
     override this.TranslateCall(_,_,m,a,_) =
         match a with
         | [x] ->
-        match m.Generics with
-        | t :: _ ->
+            match m.Generics with
+            | t :: _ ->
                 if t.AssemblyQualifiedName = "System.Char, mscorlib" then
                     Application(globalAccess ["String"; "fromCharCode"], [x])    
                 else 
-                    Application(globalAccess ["String"], [x])    
+                    Application(globalAccess ["String"], [x])   
+                |> MacroOk 
+            | _ ->
+                MacroError "stringMacro error"
         | _ ->
-            failwith "stringMacro error"
-    | _ ->
-        failwith "stringMacro error"
+            MacroError "stringMacro error"
 
 //let getFieldsList q =
 //    let ``is (=>)`` (td: TypeDefinition) (m: Method) =
@@ -258,11 +261,11 @@ type FuncWithArgs() =
         | [func] ->
             match t.Generics.[0] with
             | TupleType _ ->
-                Application(runtimeCreateFuncWithArgs, [ func ])
+                Application(runtimeCreateFuncWithArgs, [ func ]) |> MacroOk
             | _ ->
-            failwith "Wrong type argument on FuncWithArgs: 'TArgs must be a tuple"
-    | _ ->
-        failwith "funcWithArgsMacro error"
+                MacroError "Wrong type argument on FuncWithArgs: 'TArgs must be a tuple"
+        | _ ->
+            MacroError "funcWithArgsMacro error"
 
 [<Sealed>]
 type FuncWithArgsRest() =
@@ -273,10 +276,11 @@ type FuncWithArgsRest() =
             match t.Generics.[0] with
             | TupleType ts ->
                 Application(runtimeCreateFuncWithArgsRest, [ Value (Int (List.length ts)) ; func ])
+                |> MacroOk
             | _ ->
-            failwith "Wrong type argument on FuncWithArgsRest: 'TArgs must be a tuple"
-    | _ ->
-            failwith "funcWithArgsMacro error"
+                MacroError "Wrong type argument on FuncWithArgsRest: 'TArgs must be a tuple"
+        | _ ->
+            MacroError "funcWithArgsMacro error"
 
 [<Sealed>]
 type FuncWithThis() =
@@ -286,16 +290,16 @@ type FuncWithThis() =
         | [func] ->
             match t.Generics.[0] with
             | FSharpFuncType _ ->
-                Application(runtimeCreateFuncWithThis, [ func ])
+                Application(runtimeCreateFuncWithThis, [ func ]) |> MacroOk
             | ConcreteType td when (
                     let n = td.Entity.Value.FullName
                     n = "WebSharper.JavaScript.Function" || n.StartsWith "WebSharper.JavaScript.FuncWith" 
                 ) ->
-                Application(runtimeCreateFuncWithThis, [ func ])
+                Application(runtimeCreateFuncWithThis, [ func ]) |> MacroOk
             | _ ->
-            failwith "Wrong type argument on FuncWithThis: 'TFunc must be an F# function or JavaScript function type"
-    | _ ->
-            failwith "funcWithArgsMacro error"
+                MacroError "Wrong type argument on FuncWithThis: 'TFunc must be an F# function or JavaScript function type"
+        | _ ->
+            MacroError "funcWithArgsMacro error"
 
 /// Set of helpers to parse format string
 /// Source: https://github.com/fsharp/fsharp/blob/master/src/fsharp/FSharp.Core/printf.fs
@@ -650,5 +654,5 @@ type PrintF() =
         | [IgnoreExprSourcePos (Value (Literal.String fs))] ->
             let ts = //t.Generics.[0] |> Reflection.loadType |> getFunctionArgs
                 t.Generics.Head |> getFunctionArgs |> List.map Reflection.loadType
-            createPrinter ts fs
-        | _ -> failwith "printfMacro error"
+            createPrinter ts fs |> MacroOk
+        | _ -> MacroError "printfMacro error"

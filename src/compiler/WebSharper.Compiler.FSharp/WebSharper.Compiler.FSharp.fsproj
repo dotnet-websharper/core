@@ -4,7 +4,7 @@
     <ProjectGuid>d54ea1fd-f52f-4f07-921f-7b3d1b412cd0</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.Compiler.FSharp</Name>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FSharp40 Condition="Exists('$(MSBuildExtensionsPath32)/../Reference Assemblies/Microsoft/FSharp/.NETFramework/v4.0/4.4.0.0/FSharp.Core.dll')">True</FSharp40>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <ItemGroup>
@@ -26,14 +26,18 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Compiler.Service">
-      <HintPath>..\..\..\packages\FSharp.Compiler.Service\lib\net45\FSharp.Compiler.Service.dll</HintPath>
+      <HintPath>..\..\..\packages\FSharp.Compiler.Service\lib\net40\FSharp.Compiler.Service.dll</HintPath>
     </Reference>
+    <Reference Include="FSharp.Data.TypeProviders" />
     <Reference Include="IntelliFactory.Core">
       <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
     </Reference>
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.Linq" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ToFSharpAST.fs" />
+    <Compile Include="QuotationReader.fs" />
     <Compile Include="Translator.fs" />
     <Compile Include="Main.fs" />
     <None Include="genTransformer.fsx" />

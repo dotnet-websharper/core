@@ -26,6 +26,6 @@ open WebSharper
 let RunTests() =
     [|
         Remoting.Tests
-//        ClientSideJson.ClientTests // TODO
+        ClientSideJson.ClientTests
         ClientSideJson.SiteletRoundTripTests   
     |] |> ignore

@@ -62,6 +62,7 @@ let Literal = Object "Literal"
 let NonGenericTypeDefinition = Object "TypeDefinition"
 let TypeDefinition = Object "Concrete<TypeDefinition>"
 let Constructor = Object "Constructor"
+let NonGenericMethod = Object "Method"
 let Method = Object "Concrete<Method>"
 //let Field = Object "Field"
 let Str = Object "string"
@@ -88,13 +89,15 @@ let ExprDefs =
         "ExprSourcePos", Object "SourcePos" * Expr
         
         // .NET
+        "FuncWithThis", Id * List Id * Statement
         "Self", Empty
+        "Base", Empty
         "Call", Option Expr * TypeDefinition * Method * List Expr
         "CallNeedingMoreArgs", Option Expr * TypeDefinition * Method * List Expr
 //        "CallInterface", Expr * TypeDefinition * Method * List Expr
         "Ctor", TypeDefinition * Constructor * List Expr
         "BaseCtor", Expr * TypeDefinition * Constructor * List Expr
-        "NewObject", TypeDefinition * Expr
+        "CopyCtor", NonGenericTypeDefinition * Expr
         "Cctor", NonGenericTypeDefinition
 //        "FieldGet", Expr * TypeDefinition * Field
 //        "FieldSet", Expr * TypeDefinition * Field * Expr
@@ -104,12 +107,17 @@ let ExprDefs =
         "NewVar", Id * Expr
         "Coalesce", Expr * Type * Expr
         "TypeCheck", Expr * Type
-        "MacroFallback", Empty
+//        "MacroFallback", Empty
         "WithVars", List Id * Expr
+        "OverrideName", NonGenericTypeDefinition * NonGenericMethod
 
         // F#
         "LetRec", List (Id * Expr) * Expr
         "StatementExpr", Statement
+        "NewRecord", TypeDefinition * List Expr
+        "NewUnionCase", TypeDefinition * Str * List Expr
+//        "UnionCaseTest", Expr * TypeDefinition * Str
+        "UnionCaseGet", Expr * TypeDefinition * Str * Str
 
         // C#
         "Await", Expr
@@ -163,7 +171,6 @@ let binaryOps =
         "*"
         "+"    
         "-"     
-        "." 
         "/" 
         "<<"
         "<="
@@ -254,6 +261,7 @@ type Literal =
             | List Statement -> "List.map this.TransformStatement " + x
             | List (Tuple [Object _; Expr]) -> "List.map (fun (a, b) -> a, this.TransformExpression b) " + x
             | List (Tuple [Option Expr; Statement]) -> "List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformStatement b) " + x 
+            | List (Tuple [List (Option Expr); Statement]) -> "List.map (fun (a, b) -> List.map (Option.map this.TransformExpression) a, this.TransformStatement b) " + x
             | Object _ -> x
             | List (Object _) -> x
             | Option (Object _) -> x
@@ -291,58 +299,58 @@ type Literal =
 
     // StatementTransformer
 
-    cprintfn "type StatementTransformer() ="
-    for n, c in StatementDefs do
-        cprintfn "    abstract Transform%s : %s -> Statement" n (toType c)
-        let args =
-            match c with
-            | Tuple t ->
-                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-            | Empty -> "()"
-            | _ -> "a"
-        let rec tr c x =
-            match c with
-            | List Expr -> x
-            | Option Expr -> x
-            | Expr -> x
-            | Statement -> "this.TransformStatement " + x
-            | Id -> x
-            | Option Id -> x
-            | List Id -> x
-            | List (Tuple [Id; Expr]) -> x
-            | List Statement -> "List.map this.TransformStatement " + x
-            | List (Tuple [Object _; Expr]) -> x
-            | List (Tuple [Option Expr; Statement]) -> x 
-            | Object _ -> x
-            | List (Object _) -> x
-            | Option (Object _) -> x
-            | Empty -> ""
-            | _ -> " failwith \"no transform\""
-        let trArgs = 
-            match c with
-            | Tuple t ->
-                "(" + String.concat ", " (t |> Seq.mapi (fun j a -> tr a (letters.[j]))) + ")"  
-            | Empty -> ""
-            | _ -> "(" + tr c "a" + ")"
-        cprintfn "    override this.Transform%s %s = %s %s" n args n trArgs
-
-    cprintfn "    abstract TransformStatement : Statement -> Statement"
-    cprintfn "    override this.TransformStatement x ="
-    cprintfn "        match x with"
-    for n, c in StatementDefs do
-        let args =
-            match c with
-            | Tuple t ->
-                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-            | Empty -> ""
-            | _ -> "a"
-        let trArgs =
-            match c with
-            | Tuple t ->
-                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-            | Empty -> "()"
-            | _ -> "a"
-        cprintfn "        | %s %s -> this.Transform%s %s" n args n trArgs
+//    cprintfn "type StatementTransformer() ="
+//    for n, c in StatementDefs do
+//        cprintfn "    abstract Transform%s : %s -> Statement" n (toType c)
+//        let args =
+//            match c with
+//            | Tuple t ->
+//                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
+//            | Empty -> "()"
+//            | _ -> "a"
+//        let rec tr c x =
+//            match c with
+//            | List Expr -> x
+//            | Option Expr -> x
+//            | Expr -> x
+//            | Statement -> "this.TransformStatement " + x
+//            | Id -> x
+//            | Option Id -> x
+//            | List Id -> x
+//            | List (Tuple [Id; Expr]) -> x
+//            | List Statement -> "List.map this.TransformStatement " + x
+//            | List (Tuple [Object _; Expr]) -> x
+//            | List (Tuple [(Option Expr | List (Option Expr)); Statement]) -> "List.map (fun (a, b) -> a, this.TransformStatement b) " + x 
+//            | Object _ -> x
+//            | List (Object _) -> x
+//            | Option (Object _) -> x
+//            | Empty -> ""
+//            | _ -> " failwith \"no transform\""
+//        let trArgs = 
+//            match c with
+//            | Tuple t ->
+//                "(" + String.concat ", " (t |> Seq.mapi (fun j a -> tr a (letters.[j]))) + ")"  
+//            | Empty -> ""
+//            | _ -> "(" + tr c "a" + ")"
+//        cprintfn "    override this.Transform%s %s = %s %s" n args n trArgs
+//
+//    cprintfn "    abstract TransformStatement : Statement -> Statement"
+//    cprintfn "    override this.TransformStatement x ="
+//    cprintfn "        match x with"
+//    for n, c in StatementDefs do
+//        let args =
+//            match c with
+//            | Tuple t ->
+//                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
+//            | Empty -> ""
+//            | _ -> "a"
+//        let trArgs =
+//            match c with
+//            | Tuple t ->
+//                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
+//            | Empty -> "()"
+//            | _ -> "a"
+//        cprintfn "        | %s %s -> this.Transform%s %s" n args n trArgs
 
     // Visitor
 
@@ -368,6 +376,7 @@ type Literal =
             | List Statement -> "List.iter this.VisitStatement " + x
             | List (Tuple [Object _; Expr]) -> "List.iter (fun (a, b) -> this.VisitExpression b) " + x
             | List (Tuple [Option Expr; Statement]) -> "List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitStatement b) " + x 
+            | List (Tuple [List (Option Expr); Statement]) -> "List.iter (fun (a, b) -> List.iter (Option.iter this.VisitExpression) a; this.VisitStatement b) " + x
             | Object _ -> "()"
             | List (Object _) -> "()"
             | Option (Object _) -> "()"
@@ -405,58 +414,58 @@ type Literal =
 
     // StatementVisitor
 
-    cprintfn "type StatementVisitor() ="
-    for n, c in StatementDefs do
-        cprintfn "    abstract Visit%s : %s -> unit" n (toType c)
-        let args =
-            match c with
-            | Tuple t ->
-                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-            | Empty -> "()"
-            | _ -> "a"
-        let rec tr c x =
-            match c with
-            | List Expr -> "()"
-            | Option Expr -> "()"
-            | Expr -> "()"
-            | Statement -> "this.VisitStatement " + x
-            | Id -> "()"
-            | Option Id -> "()"
-            | List Id -> "()"
-            | List (Tuple [Id; Expr]) -> "()"
-            | List Statement -> "List.iter this.VisitStatement " + x
-            | List (Tuple [Object _; Expr]) -> "()"
-            | List (Tuple [Option Expr; Statement]) -> "()"
-            | Object _ -> "()"
-            | List (Object _) -> "()"
-            | Option (Object _) -> "()"
-            | Empty -> ""
-            | _ -> " failwith \"no visit\""
-        let trArgs = 
-            match c with
-            | Tuple t ->
-                String.concat "; " (t |> Seq.mapi (fun j a -> tr a (letters.[j])))
-            | Empty -> "()"
-            | _ -> "(" + tr c "a" + ")"
-        cprintfn "    override this.Visit%s %s = %s" n args trArgs
-
-    cprintfn "    abstract VisitStatement : Statement -> unit" 
-    cprintfn "    override this.VisitStatement x =" 
-    cprintfn "        match x with"
-    for n, c in StatementDefs do
-        let args =
-            match c with
-            | Tuple t ->
-                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-            | Empty -> ""
-            | _ -> "a"
-        let trArgs =
-            match c with
-            | Tuple t ->
-                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-            | Empty -> "()"
-            | _ -> "a"
-        cprintfn "        | %s %s -> this.Visit%s %s" n args n trArgs
+//    cprintfn "type StatementVisitor() ="
+//    for n, c in StatementDefs do
+//        cprintfn "    abstract Visit%s : %s -> unit" n (toType c)
+//        let args =
+//            match c with
+//            | Tuple t ->
+//                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
+//            | Empty -> "()"
+//            | _ -> "a"
+//        let rec tr c x =
+//            match c with
+//            | List Expr -> "()"
+//            | Option Expr -> "()"
+//            | Expr -> "()"
+//            | Statement -> "this.VisitStatement " + x
+//            | Id -> "()"
+//            | Option Id -> "()"
+//            | List Id -> "()"
+//            | List (Tuple [Id; Expr]) -> "()"
+//            | List Statement -> "List.iter this.VisitStatement " + x
+//            | List (Tuple [Object _; Expr]) -> "()"
+//            | List (Tuple [(Option Expr | List (Option Expr)); Statement]) -> "List.iter (fun (a, b) -> this.VisitStatement b) " + x 
+//            | Object _ -> "()"
+//            | List (Object _) -> "()"
+//            | Option (Object _) -> "()"
+//            | Empty -> ""
+//            | _ -> " failwith \"no visit\""
+//        let trArgs = 
+//            match c with
+//            | Tuple t ->
+//                String.concat "; " (t |> Seq.mapi (fun j a -> tr a (letters.[j])))
+//            | Empty -> "()"
+//            | _ -> "(" + tr c "a" + ")"
+//        cprintfn "    override this.Visit%s %s = %s" n args trArgs
+//
+//    cprintfn "    abstract VisitStatement : Statement -> unit" 
+//    cprintfn "    override this.VisitStatement x =" 
+//    cprintfn "        match x with"
+//    for n, c in StatementDefs do
+//        let args =
+//            match c with
+//            | Tuple t ->
+//                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
+//            | Empty -> ""
+//            | _ -> "a"
+//        let trArgs =
+//            match c with
+//            | Tuple t ->
+//                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
+//            | Empty -> "()"
+//            | _ -> "a"
+//        cprintfn "        | %s %s -> this.Visit%s %s" n args n trArgs
 
     // ExtraForms
 
@@ -464,6 +473,7 @@ type Literal =
 [<AutoOpen>]
 module ExtraForms =
     let Lambda (a, b) = Function (a, Return b)
+    let CurriedLambda (a, b) = List.foldBack (fun a b -> Function ([a], Return b)) a b
 """
 
 //    cprintfn """type Breaker() =

@@ -112,7 +112,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | BinaryOperator.``+``          -> J.Binary(trE x, J.BinaryOperator.``+``         , trE z)
         | BinaryOperator.``,``          -> J.Binary(trE x, J.BinaryOperator.``,``         , trE z)
         | BinaryOperator.``-``          -> J.Binary(trE x, J.BinaryOperator.``-``         , trE z)
-        | BinaryOperator.``.``          -> J.Binary(trE x, J.BinaryOperator.``.``         , trE z)
+//        | BinaryOperator.``.``          -> J.Binary(trE x, J.BinaryOperator.``.``         , trE z)
         | BinaryOperator.``/``          -> J.Binary(trE x, J.BinaryOperator.``/``         , trE z)
         | BinaryOperator.``<<``         -> J.Binary(trE x, J.BinaryOperator.``<<``        , trE z)
         | BinaryOperator.``<=``         -> J.Binary(trE x, J.BinaryOperator.``<=``        , trE z)
@@ -169,42 +169,42 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingUnaryOperator.``++()`` -> J.Unary(J.UnaryOperator.``++``, trE y)
         | MutatingUnaryOperator.``--()`` -> J.Unary(J.UnaryOperator.``--``, trE y)
         | MutatingUnaryOperator.delete   -> J.Unary(J.UnaryOperator.delete, trE y)
-    | Hole _ -> invalidForm "Hole" 
-    | Self -> invalidForm "Self"
-    | FieldGet _ -> invalidForm "FieldGet"
-    | FieldSet _ -> invalidForm "FieldSet"
-    | Let _ -> invalidForm "Let"
-    | StatementExpr _ -> invalidForm "StatementExpr"
-    | Await _ -> invalidForm "Await"
-    | NamedParameter _ -> invalidForm "NamedParameter"
-    | RefOrOutParameter _ -> invalidForm "RefOrOutParameter"
-    | Ctor _ -> invalidForm "Ctor"
-//    | CCtor _ 
-    | NewVar _ -> invalidForm "NewVar"
-    | Coalesce _ -> invalidForm "Coalesce"
-    | LetRec _ -> invalidForm "LetRec"
-    | TypeCheck _ -> invalidForm "TypeCheck"
-    | BaseCtor _ -> invalidForm "BaseCtor"  
-//    | CallInterface _ -> invalidForm "CallInterface"  
-    | Call (a, b, c, d) ->
-        let typ = b.Entity.Value
-        let meth = c.Entity.Value
-        invalidForm "Call"
-    | CallNeedingMoreArgs(_, _, _, _) -> invalidForm "CallNeedingMoreArgs"
-    | NewObject(_, _) -> invalidForm "NewObject"
-    | Cctor(_) -> invalidForm "Cctor"
-    | MacroFallback -> invalidForm "MacroFallback"
-    | WithVars(_, _) -> invalidForm "WithVars"
+    | _ -> 
+        invalidForm (fst (FSharp.Reflection.FSharpValue.GetUnionFields(expr, typeof<Expression>))).Name 
 
 and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     let inline trE x = transformExpr env x
     let inline trS x = transformStatement env x
+    let flatten s =
+        let res = ResizeArray()
+        let mutable decls = ResizeArray() 
+        let rec add a =
+            match ignoreStatementSourcePos a with 
+            | Block b
+            | Statements b -> b |> List.iter add
+            | VarDeclaration (id, e) ->
+                decls.Add (defineId env id, e)
+            | _ -> 
+                if decls.Count > 0 then
+                    res.Add (J.Vars (decls |> Seq.map (fun (i, e) -> i, match e with Undefined -> None | _ -> Some (trE e)) |> List.ofSeq))
+                    decls.Clear()
+                res.Add(trS a)
+        s |> List.iter add
+        if decls.Count > 0 then
+            res.Add (J.Vars (decls |> Seq.choose (fun (i, e) -> match e with Undefined -> None | _ -> Some (i, Some (trE e))) |> List.ofSeq))
+            decls.Clear()
+        List.ofSeq res    
+    let flattenS s =
+        match ignoreStatementSourcePos s with
+        | Block s 
+        | Statements s -> flatten s
+        | _ -> [ trS s ]
     match statement with
     | Empty -> J.Empty
     | Break(a) -> J.Break (a |> Option.map (fun l -> l.Name.Value))
     | Continue(a) -> J.Continue (a |> Option.map (fun l -> l.Name.Value))
     | ExprStatement e -> J.Ignore(trE e)
-    | Block s -> J.Block(s |> List.map trS)
+    | Block s -> J.Block (flatten s)
     | StatementSourcePos (_, s) -> trS s // TODO  
     | If(a, b, c) -> J.If(trE a, trS b, trS c)
     | Return a -> J.Return (match a with Undefined -> None | _ -> Some (trE a))
@@ -214,7 +214,13 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | DoWhile(a, b) -> J.Do (trS a, trE b)
     | For(a, b, c, d) -> J.For(Option.map trE a, Option.map trE b, Option.map trE c, trS d)
     | Switch(a, b) -> 
-        J.Switch(trE a, b |> List.map (fun (l, s) -> match l with Some l -> J.SwitchElement.Case (trE l, [trS s]) | _ -> J.SwitchElement.Default [trS s]))
+        J.Switch(trE a, 
+            b |> List.map (fun (l, s) -> 
+                match l with 
+                | Some l -> J.SwitchElement.Case (trE l, flattenS s) 
+                | _ -> J.SwitchElement.Default (flattenS s)
+            )
+        )
     | Throw(a) -> J.Throw (trE a)
     | Labeled(a, b) -> J.Labelled(a.Name.Value, trS b)
     | TryWith(a, b, c) -> 
@@ -223,10 +229,5 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         J.TryFinally(trS a, trS b)
     | ForIn(a, b, c) -> J.ForVarIn(defineId env a, None, trE b, trS c)
     | Statements a -> J.Block (a |> List.map trS) // TODO
-    | Goto(_) -> invalidForm "Goto" 
-    | Yield(_) -> invalidForm "Yield" 
-    | CSharpSwitch(_, _) -> invalidForm "CSharpSwitch" 
-    | GotoCase(_) -> invalidForm "GotoCase"
-    | Continuation(_, _) -> invalidForm "Continuation"
-  
-        
+    | _ -> 
+        invalidForm (fst (FSharp.Reflection.FSharpValue.GetUnionFields(statement, typeof<Statement>))).Name 

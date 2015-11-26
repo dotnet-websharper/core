@@ -52,6 +52,7 @@ module Utils =
 
 module SamplesInternals =
 
+    [<JavaScript>]
     exception NoGeoLocation of Geolocation.PositionError
 
     [<JavaScript>]

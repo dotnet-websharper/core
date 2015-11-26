@@ -74,7 +74,7 @@ type BinaryOperator =
     | ``+``          = 6
     | ``,``          = 7
     | ``-``          = 8
-    | ``.``          = 9
+//    | ``.``          = 9
     | ``/``          = 10
     | ``<<``         = 11
     | ``<=``         = 12
@@ -126,6 +126,7 @@ and Type =
     | ArrayType of Type * int
     | TupleType of list<Type>
     | FSharpFuncType of Type * Type
+    | ByRefType of Type
     | VoidType
 //    | ReferenceType of Type
 
@@ -140,6 +141,7 @@ and Type =
         | ArrayType (t, a) -> string t + "[" + String.replicate (a - 1) "," + "]"
         | TupleType ts -> "(" + (ts |> Seq.map string |> String.concat " * ") + ")"
         | FSharpFuncType (a, r) -> string a + " -> " + string r
+        | ByRefType t -> "byref<" + string t + ">"
         | VoidType -> "unit"
 
     member this.AssemblyQualifiedName =
@@ -171,8 +173,19 @@ and Type =
                 getName (List.length ts) ts, "mscorlib"
             | FSharpFuncType (a, r) ->
                 "Microsoft.FSharp.Core.FSharpFunc`2[[" + a.AssemblyQualifiedName + "],[" + r.AssemblyQualifiedName + "]]", "FSharp.Core"
+            | ByRefType t -> getNameAndAsm t
             | VoidType -> "System.Void", "mscorlib"
         getNameAndAsm this |> combine
+
+    member this.TypeDefinition =
+        match this with
+        | ConcreteType t -> t.Entity 
+        | GenericType _ -> invalidOp "Generic parameter has no TypeDefinition"
+        | ArrayType _ -> invalidOp "Array type has no TypeDefinition"
+        | TupleType _ -> invalidOp "Tuple type has no TypeDefinition"
+        | FSharpFuncType _ -> invalidOp "FSharpFunc type has no TypeDefinition"
+        | ByRefType t -> t.TypeDefinition
+        | VoidType -> invalidOp "Void type has no TypeDefinition"
         
 //module SpecialTypes =  
 //    let Unit = 
@@ -252,8 +265,22 @@ module Reflection =
         } 
 
     let getTypeDefinition (t: System.Type) =
-        if t.IsArray || FST.IsFunction t || FST.IsTuple t then
-            failwithf "Not a simple type: %A" t
+        if t.IsArray then
+            Hashed {
+                Assembly = "mscorlib"
+                FullName = "[]"
+            }    
+        elif FST.IsFunction t then
+            Hashed {
+                Assembly = "FSharp.Core"
+                FullName = "Microsoft.FSharp.Core.FSharpFunc`2"
+            }
+        elif FST.IsTuple t then
+            let g = t.GetGenericArguments().Length
+            Hashed {
+                Assembly = "mscorlib"
+                FullName = "System.Tuple`" + string (max g 8)
+            }
         else
             getTypeDefinitionUnchecked false t
 
@@ -268,8 +295,15 @@ module Reflection =
             FSharpFuncType(getType a, getType r)        
         elif FST.IsTuple t then
             TupleType(FST.GetTupleElements t |> Seq.map getType |> List.ofSeq) 
-        elif t.IsGenericParameter then
-            GenericType t.GenericParameterPosition
+        elif t.IsGenericParameter then  
+            if t.DeclaringMethod <> null then
+                let dT = t.DeclaringType
+                let k =
+                    if not dT.IsGenericType then 0 else
+                        dT.GetGenericArguments().Length
+                GenericType (k + t.GenericParameterPosition)
+            else
+                GenericType t.GenericParameterPosition
         elif t = voidTy || t = unitTy then
             VoidType
         else
@@ -281,7 +315,7 @@ module Reflection =
                 Entity = getTypeDefinitionUnchecked false t
             }
 
-    // used by WIG
+    // for use by WIG
     let rec getTypeWithFullAsmNames (t: System.Type) =
         if t.IsArray then
             ArrayType (getTypeWithFullAsmNames(t.GetElementType()), t.GetArrayRank())
@@ -291,7 +325,14 @@ module Reflection =
         elif FST.IsTuple t then
             TupleType(FST.GetTupleElements t |> Seq.map getTypeWithFullAsmNames |> List.ofSeq) 
         elif t.IsGenericParameter then
-            GenericType t.GenericParameterPosition
+            if t.DeclaringMethod <> null then
+                let dT = t.DeclaringType
+                let k =
+                    if not dT.IsGenericType then 0 else
+                        dT.GetGenericArguments().Length
+                GenericType (k + t.GenericParameterPosition)
+            else
+                GenericType t.GenericParameterPosition
         else
             ConcreteType {
                 Generics = 
@@ -301,12 +342,18 @@ module Reflection =
                 Entity = getTypeDefinitionUnchecked true t
             }
 
-    let getMethod (i : System.Reflection.MethodInfo) =
+    let getMethod (m : System.Reflection.MethodInfo) =
+        let i = m.Module.ResolveMethod m.MetadataToken :?> System.Reflection.MethodInfo
         {
             MethodName = i.Name
             Parameters = i.GetParameters() |> Seq.map (fun p -> getType p.ParameterType) |> List.ofSeq
             ReturnType = getType i.ReturnType 
             Generics   = if i.IsGenericMethod then i.GetGenericArguments().Length else 0
+        }
+
+    let getConstructor (i : System.Reflection.ConstructorInfo) =
+        {
+            CtorParameters = i.GetParameters() |> Seq.map (fun p -> getType p.ParameterType) |> List.ofSeq
         }
 
     let loadType (t: Type) =
@@ -345,4 +392,21 @@ module Reflection =
                 let mc = getMethod c
                 if mc.MethodName = m.MethodName then Some (printMethod mc) else None
             ) |> Array.ofSeq)
+
+    let loadConstructor td (c: Constructor) =
+        let c = c.Value
+        let ctorInfos = (loadTypeDefinition td).GetConstructors()
+        try
+            ctorInfos
+            |> Seq.find (fun i -> getConstructor i = c)
+        with _ ->
+            failwithf "Could not load constructor for type %s" td.Value.AssemblyQualifiedName
+//            failwithf "Could not load constructor %s candidates: %A" (printMethod m) (ctorInfos |> Seq.choose (fun c -> 
+//                let mc = getMethod c
+//                if mc.MethodName = m.MethodName then Some (printMethod mc) else None
+//            ) |> Array.ofSeq)
+
+
+
+        
         

@@ -25,6 +25,8 @@ open WebSharper.JavaScript
 open WebSharper.Testing
 module R = WebSharper.Testing.Random
 
+let inline ( !! ) (o: ^x) : ^a = (^x: (member Value: ^a with get) o)
+
 (* TODO: the coverage of the Operators module is far from complete. *)
 [<JavaScript>]
 let Tests =
@@ -118,5 +120,10 @@ let Tests =
                 |>! incr
             equal !a 2
         }
+
+//        Test "trait call" {
+//            let r = ref 3
+//            equal !!r 3
+//        }
 
     }

@@ -26,15 +26,15 @@ open System.Collections.Generic
 module R = WebSharper.Core.Resources
 module M = WebSharper.Core.Metadata
 
-/// Runs the dependency graph report generation.
-let Run (inFile: string) =
-    match M.AssemblyInfo.Load inFile with
-    | Some data ->
-        for (node, res) in data.Requirements do
-            stdout.WriteLine node
-            for key in res do
-                stdout.WriteLine("  {0}", key)
-        0
-    | None ->
-        stderr.WriteLine "Not a WebSharper-compiled assembly."
-        1
+///// Runs the dependency graph report generation.
+//let Run (inFile: string) =
+//    match M.AssemblyInfo.Load inFile with
+//    | Some data ->
+//        for (node, res) in data.Requirements do
+//            stdout.WriteLine node
+//            for key in res do
+//                stdout.WriteLine("  {0}", key)
+//        0
+//    | None ->
+//        stderr.WriteLine "Not a WebSharper-compiled assembly."
+//        1

@@ -25,6 +25,7 @@ open System.Collections.Generic
 open WebSharper
 open WebSharper.Testing
 
+[<JavaScript>]
 type Foo = {Foo:string}
 
 [<JavaScript>]

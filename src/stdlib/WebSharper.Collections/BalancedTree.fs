@@ -28,6 +28,7 @@ module internal BalancedTree =
 
     /// Represents a binary balanced search tree, preserving the balance
     /// invariant: the heights of the branches differ by at most 1.
+    [<JavaScript>]
     type Tree<'T when 'T : comparison> =
         private {
             Node    : 'T

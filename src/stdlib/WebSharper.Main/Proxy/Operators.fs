@@ -70,7 +70,7 @@ let ( + ) (a: 'T1) (b: 'T2) = X<'T3>
 [<Macro(typeof<M.Sub>)>]
 let ( - ) (a: 'T1) (b: 'T2) = X<'T3>
 
-[<Macro(typeof<M.Div>)>]
+[<Macro(typeof<M.Div>, [| 4; 3 |])>]
 let ( / ) (x: 'T1) (y: 'T2) = X<'T3>
 
 [<Inline "void ($a[0] = $b)">]
@@ -282,8 +282,8 @@ let Pown<'T> (a: 'T) (n: int) =
         match n with
         | 1 ->
             a
-        | n when n % 2 = 0 ->
-            let b = p (n / 2)
+        | m when m % 2 = 0 ->
+            let b = p (m / 2)
             b * b
         | n ->
             a * (p (n - 1))

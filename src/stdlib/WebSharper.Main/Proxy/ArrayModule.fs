@@ -272,7 +272,7 @@ let MapIndexed2 f (arr1: 'T1 []) (arr2: 'T2 []): 'U[] =
 
 [<JavaScript>]
 [<Inline>]
-let MapFold f zero arr = ArrayMapFold f zero arr
+let MapFold<'T,'S,'R> f zero arr = ArrayMapFold<'T, 'S, 'R> f zero arr
 
 [<JavaScript>]
 [<Inline>]
@@ -712,8 +712,8 @@ let ExactlyOne (ar : 'T []) =
 
 [<JavaScript>]
 [<Name "unfold">]
-let Unfold (f: 'S -> option<'T * 'S>) (s: 'S) : 'T [] =
-    SeqUnfold f s
+let Unfold<'T, 'S> (f: 'S -> option<'T * 'S>) (s: 'S) : 'T [] =
+    SeqUnfold<'T, 'S> f s
     |> Seq.toArray
 
 [<JavaScript>]

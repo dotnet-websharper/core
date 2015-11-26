@@ -31,6 +31,7 @@ type Result<'T> =
     | No of exn
     | Cc of OCE
   
+[<JavaScript>]
 type CT =
     { 
         [<Name "c">] mutable IsCancellationRequested : bool 
@@ -60,6 +61,7 @@ let internal Register (ct: CT) (callback: unit -> unit) =
             "System_IDisposable$Dispose" => fun () -> ct.Registrations.[i] <- ignore
         ] : System.IDisposable
 
+[<JavaScript>]
 type AsyncBody<'T> =
     {
         k  : Result<'T> -> unit

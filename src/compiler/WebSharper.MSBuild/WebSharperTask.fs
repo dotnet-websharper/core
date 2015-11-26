@@ -26,7 +26,6 @@ open System.IO
 open System.Reflection
 open Microsoft.Build.Framework
 open Microsoft.Build.Utilities
-open IntelliFactory.Core
 open WebSharper
 open WebSharper.Compiler
 module FE = FrontEnd
@@ -372,6 +371,9 @@ type WebSharperTask() =
             |> Map.ofSeq
         System.AppDomain.CurrentDomain.add_AssemblyResolve(fun sender e ->
             let assemblyName = AssemblyName(e.Name).Name
+            if assemblyName = "FSharp.Core" then
+                typeof<option<_>>.Assembly
+            else
             match Map.tryFind assemblyName referencedAsmNames with
             | None -> null
             | Some p -> System.Reflection.Assembly.LoadFrom(p)

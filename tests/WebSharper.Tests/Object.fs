@@ -24,7 +24,7 @@ open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
 
-type T = { K : int }
+[<JavaScript>] type T = { K : int }
 
 type O [<Inline "{}">] () = 
     member this.P1 
@@ -38,7 +38,10 @@ type O [<Inline "{}">] () =
         with get() = X<int option> 
         and  set (v: int option) = () 
 
+[<JavaScript>]
 type R = { [<OptionalField>] KO: int option }
+
+[<JavaScript>]
 type [<OptionalField>] R2 = { KO2: int option; K2 : int }
 
 [<JavaScript>]
@@ -51,6 +54,7 @@ type RN () =
         with get() = y
         and  set v = y <- v
 
+[<JavaScript>]
 type Abcde = { A: string; B: string; C: string; D: string; E: string }
 
 [<JavaScript>]

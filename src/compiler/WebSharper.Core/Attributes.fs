@@ -69,7 +69,7 @@ type JavaScriptAttribute() =
 
 /// Annotates methods an constructors with custom compilation rules.
 /// The supplied type should implement Macros.IMacro and a default constructor.
-[<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
+[<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property, AllowMultiple = true)>]
 type MacroAttribute(def: System.Type) =
     inherit A()
 
@@ -167,3 +167,8 @@ type DateTimeFormatAttribute =
 
     /// Defines the format used to de/serialize the union case argument with the given name.
     new (argumentName: string, format: string) = { inherit A() }
+
+/// Marks the entry point of a Single Page Application.
+[<Sealed; U(T.Method|||T.Property)>]
+type SPAEntryPointAttribute() = 
+    inherit A()

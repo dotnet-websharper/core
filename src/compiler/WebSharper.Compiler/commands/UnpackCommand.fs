@@ -20,7 +20,7 @@
 
 namespace WebSharper.Compiler
 
-open IntelliFactory.Core
+open FileSystem
 module PC = WebSharper.PathConventions
 module C = Commands
 

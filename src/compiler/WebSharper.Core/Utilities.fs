@@ -1,8 +1,8 @@
 ﻿[<AutoOpen>]
 module WebSharper.Core.Utilities
                   
-//[<CustomEquality; CustomComparison; Struct>]
-//[<System.Diagnostics.DebuggerDisplay("{Value}")>]
+[<CustomEquality; CustomComparison; Struct>]
+[<System.Diagnostics.DebuggerDisplay("{Value}")>]
 type Hashed<'T when 'T : equality and 'T : comparison> =
     val Value : 'T
     val Hash : int 
@@ -12,7 +12,7 @@ type Hashed<'T when 'T : equality and 'T : comparison> =
     override this.GetHashCode() =
         this.Hash
 
-//    override this.ToString() = this.Value.ToString()
+    override this.ToString() = this.Value.ToString()
     
     override this.Equals(other: obj) : bool =
         match other with
@@ -253,7 +253,7 @@ type MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDictionary<'TK
     member x.Keys: seq<'TKey> = 
         Seq.append orig.Keys current.Keys
 
-    member x.TryGetValue(key: 'TKey, value: 'TValue byref): bool = 
+    member x.TryGetValue(key: 'TKey, value: byref<'TValue>): bool = 
         orig.TryGetValue(key, &value) || current.TryGetValue(key, &value)
 
     member this.TryFind(key: 'TKey) =

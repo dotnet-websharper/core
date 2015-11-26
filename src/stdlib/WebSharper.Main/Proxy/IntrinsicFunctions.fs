@@ -143,6 +143,7 @@ let GetLength<'T> (arr: System.Array) =
     | _ -> Array.length (As arr)
 
 [<JavaScript>]
+[<Name "WebSharper.checkThis">]
 let CheckThis (this: 'T) =
     if this = null then
         invalidOp "The initialization of an object or value resulted in an object or value being accessed recursively before it was fully initialized."

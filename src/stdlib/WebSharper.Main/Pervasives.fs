@@ -93,6 +93,9 @@ type NamedUnionCasesAttribute = A.NamedUnionCasesAttribute
 /// and "yyyy-MM-dd-HH.mm.ss" for URL parsing.
 type DateTimeFormatAttribute = A.DateTimeFormatAttribute
 
+/// Marks the entry point of a Single Page Application.
+type SPAEntryPointAttribute = A.SPAEntryPointAttribute
+
 /// Re-exports Remoting.IRpcHandlerFactory.
 type IRpcHandlerFactory =
     WebSharper.Core.Remoting.IHandlerFactory

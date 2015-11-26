@@ -151,8 +151,9 @@ and recognizeNamedType (x: INamedTypeSymbol) =
     if tName.StartsWith "System.Tuple" then
         TupleType ta
     elif tName = "Microsoft.FSharp.Core.FSharpFunc`2" then
-        let [a; r] = ta
-        FSharpFuncType(a, r)
+        match ta with
+        | [a; r] -> FSharpFuncType(a, r)
+        | _ -> failwith "impossible"
     elif tName = "Microsoft.FSharp.Core.Unit" || tName = "System.Void" then
         VoidType
     else
@@ -642,6 +643,7 @@ and transformObjectCreationExpression (env: Environment) (x: ObjectCreationExpre
     let argumentList = x.ArgumentList |> Option.map (transformArgumentList env) |> Option.fill []
     let initializer = x.Initializer |> Option.map (transformInitializerExpression env)
     Ctor (typ, getConstructor symbol, argumentList)
+    |> withExprSourcePos x.Node
 
 and transformInitializerExpression (env: Environment) (x: InitializerExpressionData) : _ =
     let expressions = x.Expressions |> Seq.map (transformExpression env) |> List.ofSeq
@@ -651,6 +653,7 @@ and transformInitializerExpression (env: Environment) (x: InitializerExpressionD
     | InitializerExpressionKind.ArrayInitializerExpression ->
         NewArray expressions
     | InitializerExpressionKind.ComplexElementInitializerExpression -> TODO()
+    |> withExprSourcePos x.Node
 
 and transformConstructorDeclaration (env: Environment) (x: ConstructorDeclarationData) : _ =
 //    let attributeLists = x.AttributeLists |> Seq.map (transformAttributeList env) |> List.ofSeq
@@ -924,8 +927,9 @@ and transformCSharpNode (env: Environment) (x: CSharpNodeData) : _ =
 
 and transformInstanceExpression (env: Environment) (x: InstanceExpressionData) : _ =
     match x with
-    | InstanceExpressionData.ThisExpression x -> TODO() //transformThisExpression env x
-    | InstanceExpressionData.BaseExpression x -> TODO() //transformBaseExpression env x
+    | InstanceExpressionData.ThisExpression x -> This
+    | InstanceExpressionData.BaseExpression x -> Base
+    |> withExprSourcePos x.Node
 
 and transformMemberAccessExpression (env: Environment) (x: MemberAccessExpressionData) : _ =
     let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol.OriginalDefinition
@@ -945,11 +949,12 @@ and transformMemberAccessExpression (env: Environment) (x: MemberAccessExpressio
         let expression = x.Expression |> transformExpression env
         expression
     | _ ->      
-    let expression = x.Expression |> transformExpression env
-    let name = x.Name |> transformSimpleName env
-    match x.Kind with
-    | MemberAccessExpressionKind.SimpleMemberAccessExpression -> TODO()
-    | MemberAccessExpressionKind.PointerMemberAccessExpression -> TODO()
+        let expression = x.Expression |> transformExpression env
+        let name = x.Name |> transformSimpleName env
+        match x.Kind with
+        | MemberAccessExpressionKind.SimpleMemberAccessExpression -> TODO()
+        | MemberAccessExpressionKind.PointerMemberAccessExpression -> TODO()
+    |> withExprSourcePos x.Node
 
 and transformConditionalAccessExpression (env: Environment) (x: ConditionalAccessExpressionData) : _ =
     let expression = x.Expression |> transformExpression env
@@ -978,19 +983,24 @@ and transformTypeOfExpression (env: Environment) (x: TypeOfExpressionData) : _ =
 and transformAwaitExpression (env: Environment) (x: AwaitExpressionData) : _ =
     let expression = x.Expression |> transformExpression env
     Await expression
+    |> withExprSourcePos x.Node
 
 and transformContinueStatement (env: Environment) (x: ContinueStatementData) : _ =
     Continue None
+    |> withStatementSourcePos x.Node
 
 and transformThrowStatement (env: Environment) (x: ThrowStatementData) : _ =
     let expression = x.Expression |> Option.map (transformExpression env)
     match expression with
     | Some e -> Throw e
     | None -> Throw (Var env.Caught.Value)
+    |> withStatementSourcePos x.Node
 
 and transformYieldStatement (env: Environment) (x: YieldStatementData) : _ =
     let expression = x.Expression |> Option.map (transformExpression env)
     Yield expression
+    |> withStatementSourcePos x.Node
+
 //    match x.Kind with
 //    | YieldStatementKind.YieldReturnStatement -> TODO()
 //    | YieldStatementKind.YieldBreakStatement -> TODO()

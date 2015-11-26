@@ -25,6 +25,7 @@ open WebSharper
 [<JavaScript>]
 let RunTests() =
     [|
+        AddressOf.Tests
         Array.Tests
         Array2D.Tests
         Async.Tests
@@ -35,6 +36,7 @@ let RunTests() =
         DateTime.NativeTests
         Double.Tests
         Exception.Tests
+        Inheritance.Tests
         Int32.Tests
         KeyValuePair.Tests
         Lazy.Tests
@@ -43,6 +45,7 @@ let RunTests() =
         Math.Tests
         Nullable.Tests
         Object.Tests
+        ObjExpr.Tests
         Operators.Tests
         Option.Tests
         Proxy.Tests

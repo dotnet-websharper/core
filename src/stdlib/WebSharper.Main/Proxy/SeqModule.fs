@@ -730,16 +730,16 @@ let MapIndexed2 f (s1: seq<_>) (s2: seq<_>) =
 
 [<JavaScript>]
 [<Name "mapFold">]
-let MapFold f zero s =
-    ArrayMapFold f zero (Seq.toArray s)
+let MapFold<'T,'S,'R> f zero s =
+    ArrayMapFold<'T,'S,'R> f zero (Seq.toArray s)
     |> (fun (x, y) ->
         (Array.toSeq x, y)
     )
 
 [<JavaScript>]
 [<Name "mapFoldBack">]
-let MapFoldBack f s zero =
-    ArrayMapFoldBack f (Seq.toArray s) zero
+let MapFoldBack<'T,'S,'R> f s zero =
+    ArrayMapFoldBack<'T,'S,'R> f (Seq.toArray s) zero
     |> (fun (x, y) ->
         (Array.toSeq x, y)
     )

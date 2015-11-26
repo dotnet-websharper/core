@@ -8,8 +8,10 @@
     <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <WebSharperProject>Library</WebSharperProject>
     <FSharp40 Condition="Exists('$(MSBuildExtensionsPath32)/../Reference Assemblies/Microsoft/FSharp/.NETFramework/v4.0/4.4.0.0/FSharp.Core.dll')">True</FSharp40>
+	<TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="AddressOf.fs" />
     <Compile Include="Array.fs" />
     <Compile Include="Array2D.fs" />
     <Compile Include="Async.fs" />
@@ -19,6 +21,7 @@
     <Compile Include="DateTime.fs" />
     <Compile Include="Double.fs" />
     <Compile Include="Exception.fs" />
+    <Compile Include="Inheritance.fs" />
     <Compile Include="Int32.fs" />
     <Compile Include="KeyValuePair.fs" />
     <Compile Include="Lazy.fs" />
@@ -27,6 +30,7 @@
     <Compile Include="Math.fs" />
     <Compile Include="Nullable.fs" />
     <Compile Include="Object.fs" />
+    <Compile Include="ObjExpr.fs" />
     <Compile Include="Operators.fs" />
     <Compile Include="Option.fs" />
     <Compile Include="Proxy.fs" />

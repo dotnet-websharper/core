@@ -654,13 +654,13 @@ let Tests =
             raises (Array.last Array.empty)
         }
 
-//        Test "Array.mapFold" {
-//            equal (Array.mapFold (fun s x -> (x + 1, s + x)) 0 [| 0 .. 4 |]) (Array.map ((+) 1) [| 0 .. 4 |], Array.sum [| 0 .. 4 |])
-//        }
-//
-//        Test "Array.mapFoldBack" {
-//            equal (Array.mapFoldBack (fun x s -> (x + 1, s + x)) [| 0 .. 4 |] 0) (Array.map ((+) 1) [| 0 .. 4 |], Array.sum [| 0 .. 4 |])
-//        }
+        Test "Array.mapFold" {
+            equal (Array.mapFold (fun s x -> (x + 1, s + x)) 0 [| 0 .. 4 |]) (Array.map ((+) 1) [| 0 .. 4 |], Array.sum [| 0 .. 4 |])
+        }
+
+        Test "Array.mapFoldBack" {
+            equal (Array.mapFoldBack (fun x s -> (x + 1, s + x)) [| 0 .. 4 |] 0) (Array.map ((+) 1) [| 0 .. 4 |], Array.sum [| 0 .. 4 |])
+        }
 
         Test "Array.pairwise" {
             equal (Array.pairwise Array.empty) Array.empty
@@ -669,9 +669,10 @@ let Tests =
         }
 
         Test "Array.singleton" {
-            property (fun x -> Do {
-                equal (Array.singleton x) [| x |]
-            })
+            equal (Array.singleton 42) [| 42 |]
+//            property (fun x -> Do {
+//                equal (Array.singleton x) [| x |]
+//            })
         }
 
         Test "Array.skip" {
@@ -737,10 +738,10 @@ let Tests =
             })
         }
 
-//        Test "Array.unfold" {
-//            equal (Array.unfold (fun _ -> None) 0) Array.empty
-//            equal (Array.unfold (fun x -> if x < 20 then Some (x + 1, 2 * x) else None) 1) [| 2; 3; 5; 9; 17 |]
-//        }
+        Test "Array.unfold" {
+            equal (Array.unfold (fun _ -> None) 0) Array.empty
+            equal (Array.unfold (fun x -> if x < 20 then Some (x + 1, 2 * x) else None) 1) [| 2; 3; 5; 9; 17 |]
+        }
 
         Test "Array.where" {
             equal (Array.where (fun x -> x % 2 = 0) [| 0 .. 4 |]) [| 0; 2; 4 |]

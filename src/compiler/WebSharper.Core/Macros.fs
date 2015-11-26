@@ -29,24 +29,33 @@ open WebSharper.Core.AST
 //module R = WebSharper.Core.Reflection
 module S = WebSharper.Core.JavaScript.Syntax
 
+type MacroResult =
+    | MacroOk of Expression
+    | MacroWarning of string * MacroResult
+    | MacroError of string
+    | MacroFallback
+    | MacroNeedsResolvedTypeArg
+
 /// Represents method bodies, at either JavaScript core or syntax level.
-type GeneratedBody =
-    | QuotationBody of Microsoft.FSharp.Quotations.Expr
-    | CoreBody of Statement
-    | ParsedBody of string
-    | SyntaxBody of S.Expression
+type GeneratorResult =
+    | GeneratedQuotation of Microsoft.FSharp.Quotations.Expr
+    | GeneratedAST of Expression
+//    | GeneratedString of string
+//    | GeneratedJavaScript of S.Expression
+    | GeneratorError of string
+    | GeneratorWarning of string * GeneratorResult
 
 /// An abstract base class for macro definitions used with MacroAttribute.
 [<AbstractClass>]
-type Macro() = // meta : WebSharper.Core.Metadata.Assembly
-//    member this.Metadata = meta
-    abstract member TranslateCall: thisArg: option<Expression> * targetType: Concrete<TypeDefinition> * methodDef: Concrete<Method> * arguments: list<Expression> * parameter: option<obj> -> Expression
+type Macro() =
+    abstract member TranslateCall: thisArg: option<Expression> * targetType: Concrete<TypeDefinition> * methodDef: Concrete<Method> * arguments: list<Expression> * parameter: option<obj> -> MacroResult
     override this.TranslateCall(_,_,_,_,_) = failwithf "TranslateCall not implemented for macro %s" (this.GetType().FullName)
-    abstract member TranslateCtor: targetType: Concrete<TypeDefinition> * ctorDef: Constructor * arguments: list<Expression> * parameter: option<obj> -> Expression
+    
+    abstract member TranslateCtor: targetType: Concrete<TypeDefinition> * ctorDef: Constructor * arguments: list<Expression> * parameter: option<obj> -> MacroResult
     override this.TranslateCtor(_,_,_,_) = failwithf "TranslateCall not implemented for macro %s" (this.GetType().FullName)
 
 /// An abstract base class for code generation used with GeneratedAttribute.
 [<AbstractClass>]
-type Generator() = //(meta : WebSharper.Core.Metadata.Assembly) =
-//    member this.Metadata = meta
-    abstract member Generate : arguments: list<Id> * parameter: option<obj> -> GeneratedBody
+type Generator() =
+//    abstract member Generate : arguments: list<Id> * parameter: option<obj> -> GeneratorResult
+    abstract member Generate : parameter: option<obj> -> GeneratorResult

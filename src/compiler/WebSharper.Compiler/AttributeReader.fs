@@ -23,6 +23,7 @@ type private Attribute =
     | NamedUnionCases of option<string>
     | DateTimeFormat of option<string> * string
     | Website of TypeDefinition
+    | SPAEntryPoint
 
 type private A = Attribute
 
@@ -36,6 +37,7 @@ type TypeAnnotation =
         Requires : list<TypeDefinition>
         NamedUnionCases : option<option<string>>
         DateTimeFormat : list<option<string> * string>
+        Macros : list<TypeDefinition * option<obj>>
     }
 
     static member Empty =
@@ -48,6 +50,7 @@ type TypeAnnotation =
             Requires = []
             NamedUnionCases = None
             DateTimeFormat = []
+            Macros = []
         }
 
 type MemberKind = 
@@ -56,9 +59,8 @@ type MemberKind =
     | InlineJavaScript
     | JavaScript
     | Constant of Expression
-    | Macro of TypeDefinition * option<obj> * option<MemberKind>
+    | NoFallback
     | Generated of TypeDefinition * option<obj>
-    | InlineGenerated of TypeDefinition * option<obj>
     | Remote
     | Stub
     | OptionalField
@@ -66,9 +68,29 @@ type MemberKind =
 type MemberAnnotation =
     {
         Kind : option<MemberKind>
+        Macros : list<TypeDefinition * option<obj>> 
         Name : option<string>
         Requires : list<TypeDefinition>
+        IsEntryPoint : bool
     }
+
+    static member BasicJavaScript =
+        {
+            Kind = Some JavaScript
+            Macros = []
+            Name = None
+            Requires = []
+            IsEntryPoint = false
+        }
+
+    static member BasicInlineJavaScript =
+        {
+            Kind = Some InlineJavaScript
+            Macros = []
+            Name = None
+            Requires = []
+            IsEntryPoint = false
+        }
 
 type AssemblyAnnotation =
     {
@@ -141,12 +163,15 @@ type AttributeReader<'A>() =
             | _ -> failwith "invalid constructor arguments for DateTimeFormatAttribute"
         | "WebsiteAttribute" ->
             Some (A.Website (this.ReadTypeArg attr |> fst))
+        | "SPAEntryPointAttribute" ->
+            Some A.SPAEntryPoint
         | _ -> None        
 
     member private this.GetAttrs (parent: TypeAnnotation, attrs: seq<'A>) =
         let attrArr = ResizeArray()
         let mutable name = None
         let reqs = ResizeArray()
+        let macros = ResizeArray() 
         for a in attrs do
             if this.GetAssemblyName a = "WebSharper.Core" then
                 match this.Read a with
@@ -154,35 +179,19 @@ type AttributeReader<'A>() =
                     match ar with 
                     | A.Name n -> name <- Some n
                     | A.Require t -> reqs.Add t
+                    | A.Macro (m, p) -> macros.Add (m, p)
                     | _ -> attrArr.Add ar
                 | None -> ()
-        if parent.IsJavaScript then
+        if parent.IsJavaScript && macros.Count = 0 then
             if not (attrArr.Contains(A.JavaScript)) then attrArr.Add A.JavaScript
         if parent.IsStub then 
             if not (attrArr.Contains(A.Stub)) then attrArr.Add A.Stub
         if parent.OptionalFields then
             if not (attrArr.Contains(A.OptionalField)) then attrArr.Add A.OptionalField
-        attrArr.ToArray(), name, List.ofSeq reqs
+        attrArr.ToArray(), macros.ToArray(), name, List.ofSeq reqs
 
     member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, name, reqs = this.GetAttrs (parent, attrs)
-//        let kind =
-//            match attrArr with
-//            | [||] -> None
-//            | [| A.JavaScript |] -> Some Client
-//            | [| A.Remote |] -> Some Server
-//            | [| A.Stub |] -> Some StubType
-//            | [| A.Proxy p |]
-//            | [| A.Proxy p; A.JavaScript |] 
-//            | [| A.JavaScript; A.Proxy p |] -> Some (Proxy p)
-//            | [| A.OptionalField |]
-//            | [| A.OptionalField; A.JavaScript |]
-//            | [| A.JavaScript; A.OptionalField |] -> Some (OptionalFieldType)
-//            // TODO
-//            | [| A.NamedUnionCases _ |] -> None
-//            // TODO
-//            | [| A.DateTimeFormat _ |] -> None
-//            | _ -> failwith "Incompatible attributes" // TODO : warning only, location
+        let attrArr, macros, name, reqs = this.GetAttrs (parent, attrs)
         let proxyOf = attrArr |> Array.tryPick (function A.Proxy p -> Some p | _ -> None) 
         {
             ProxyOf = proxyOf
@@ -193,24 +202,19 @@ type AttributeReader<'A>() =
             Requires = reqs
             NamedUnionCases = attrArr |> Array.tryPick (function A.NamedUnionCases uc -> Some uc | _ -> None)
             DateTimeFormat = attrArr |> Seq.choose (function A.DateTimeFormat (a,b) -> Some (a,b) | _ -> None) |> List.ofSeq
+            Macros = macros |> List.ofArray
         }
 
     member this.GetMemberAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, name, reqs = this.GetAttrs (parent, attrs)
-        let rec getKind attrArr =
+        let attrArr, macros, name, reqs = this.GetAttrs (parent, attrs)
+        let isEp, attrArr =
+            if attrArr |> Array.exists ((=) A.SPAEntryPoint) then
+                true, attrArr |> Array.filter ((<>) A.SPAEntryPoint)
+            else
+                false, attrArr
+        let kind =
             match attrArr with
-            | [||] -> None
-            | _ ->
-            match attrArr |> Array.tryPick (function A.Macro (m, p) -> Some (m, p) | _ -> None) with
-            | Some (m, p) -> Some (Macro (m, p, getKind (attrArr |> Array.filter (function A.Macro _ -> false | _ -> true))))
-            | _ ->
-//            let (|IgnoreJavaScript|_|) a =
-//                match a with
-//                | [| x |]
-//                | [| x; A.JavaScript |]
-//                | [| A.JavaScript; x |] -> Some x
-//                | _ -> None
-            match attrArr with
+            | [||] -> if macros.Length = 0 then None else Some NoFallback
             | [| A.Remote |] -> Some Remote
             | [| A.JavaScript |] -> Some JavaScript 
             | [| A.Inline None |]
@@ -234,9 +238,11 @@ type AttributeReader<'A>() =
             | A.DateTimeFormat _ -> None
             | _ -> failwith "Incompatible attributes" // TODO : warning only, location
         {
-            Kind = getKind attrArr
+            Kind = kind
+            Macros = List.ofArray macros
             Name = name
             Requires = reqs
+            IsEntryPoint = isEp
         }
    
     member this.GetAssemblyAnnot (attrs: seq<'A>) =
@@ -258,4 +264,11 @@ type AttributeReader<'A>() =
             Requires = reqs |> List.ofSeq
         }        
            
-//type MetadataReader
+type ReflectionAttributeReader() =
+    inherit AttributeReader<System.Reflection.CustomAttributeData>()
+    override this.GetAssemblyName attr = attr.Constructor.DeclaringType.Assembly.FullName
+    override this.GetName attr = attr.Constructor.DeclaringType.Name
+    override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map (fun a -> a.Value) |> Array.ofSeq
+    override this.GetTypeDef o = Reflection.getTypeDefinition (o :?> System.Type) 
+
+let attrReader = ReflectionAttributeReader()

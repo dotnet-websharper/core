@@ -23,15 +23,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Minify.fs" />
     <Compile Include="Main.fs" />
-    <None Include="WebSharper.exe.config">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="WebSharper40.exe.config">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="WebSharper31.exe.config">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <Content Include="App.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="AjaxMin">

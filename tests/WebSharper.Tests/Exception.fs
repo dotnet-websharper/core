@@ -23,9 +23,9 @@ module WebSharper.Tests.Exception
 open WebSharper
 open WebSharper.Testing
 
-exception E0
-exception E1 of int
-exception E2 of int * string
+[<JavaScript>] exception E0
+[<JavaScript>] exception E1 of int
+[<JavaScript>] exception E2 of int * string
 
 type E3 [<JavaScript>] (message) =
     inherit exn(message)

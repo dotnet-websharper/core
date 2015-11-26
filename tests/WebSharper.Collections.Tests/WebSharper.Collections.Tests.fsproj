@@ -17,6 +17,7 @@
     <Compile Include="ResizeArray.fs" />
     <Compile Include="LinkedList.fs" />
     <Compile Include="HashSet.fs" />
+    <Compile Include="Interop.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
