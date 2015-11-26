@@ -42,6 +42,7 @@
     <Compile Include="Printf.fs" />
     <Compile Include="Tupled.fs" />
     <Compile Include="WIG.fs" />
+    <Compile Include="Cookies.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">

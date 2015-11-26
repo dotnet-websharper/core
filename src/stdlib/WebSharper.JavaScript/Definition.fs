@@ -76,6 +76,7 @@ let Assembly =
         yield! Ecma.Definition.Namespaces
         yield! Dom.Definition.Namespaces
         yield! Html5.Definition.Namespaces
+        yield! Cookies.Definition.Namespaces
         yield Global
     ]
 
