@@ -46,6 +46,9 @@ let Insert (x: string) (index: int) (s: string) = X<string>
 [<Direct "$x == null || $x == ''">]
 let IsNullOrEmpty (x: string) = X<bool>
 
+[<Direct """$x == null || /^\s*$/.test($x)""">]
+let IsNullOrWhiteSpace (x: string) = X<bool>
+
 [<Direct "$s.lastIndexOf(String.fromCharCode($c),$i)">]
 let LastIndexOf (s: string) (c: char) (i: int) = X<int>
 
@@ -211,6 +214,10 @@ type private StringProxy =
     [<Inline>]
     [<JavaScript>]
     static member IsNullOrEmpty(x: string) = IsNullOrEmpty x
+
+    [<Inline>]
+    [<JavaScript>]
+    static member IsNullOrWhiteSpace(x: string) = IsNullOrWhiteSpace x
 
     member this.Item
         with    [<Inline "$this.charCodeAt($pos)">]

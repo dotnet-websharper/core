@@ -27,6 +27,7 @@ module BundleCommand =
     type Config =
         {
             AssemblyPaths : list<string>
+            AppConfigFile : option<string>
             FileName : string
             OutputDirectory : string
         }
@@ -34,6 +35,7 @@ module BundleCommand =
         static member Create() =
             {
                 AssemblyPaths = []
+                AppConfigFile = None
                 FileName = "Bundle"
                 OutputDirectory = "."
             }
@@ -56,6 +58,8 @@ module BundleCommand =
                 proc { opts with FileName = name } xs
             | "-o" :: f :: xs | "-out" :: f :: xs ->
                 proc { opts with OutputDirectory = f } xs
+            | "-appconfig" :: f :: xs ->
+                proc { opts with AppConfigFile = Some f } xs
             | x :: xs ->
                 proc { opts with AssemblyPaths = x :: opts.AssemblyPaths } xs
         match args with
@@ -85,7 +89,7 @@ module BundleCommand =
 //                |> List.choose (loader.LoadFile >> WebSharper.Compiler.FrontEnd.readFromAssembly)
 //            if List.isEmpty metas then None else Some (WebSharper.Core.Metadata.union metas)
 
-        let bundle = Bundle((config.AssemblyPaths |> List.map loader.LoadFile), resolver)
+        let bundle = Bundle((config.AssemblyPaths |> List.map loader.LoadFile), resolver, ?appConfig = config.AppConfigFile)
         let write (c: Content) (ext: string) =
             c.WriteFile(Path.Combine(config.OutputDirectory, config.FileName + ext))
         write bundle.CSS ".css"

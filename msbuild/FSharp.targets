@@ -23,6 +23,8 @@
 
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
+    <TargetFSharpCoreVersion Condition=" '$(FSharp40)' == 'True' ">4.4.0.0</TargetFSharpCoreVersion>
+    <TargetFSharpCoreVersion Condition=" '$(FSharp40)' != 'True' ">4.3.0.0</TargetFSharpCoreVersion>
     <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == ''">v4.0</TargetFrameworkVersion>
 <!--
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' != '' ">$(INTELLIFACTORY)/keys/IntelliFactory.snk</KeyOriginatorFile>
@@ -87,6 +89,7 @@
       <C Include="@(Compile)" />
       <Compile Remove="@(C)" />
       <Compile Include="$(MSBuildThisFileDirectory)/AssemblyInfo.fs" />
+      <Compile Include="$(MSBuildThisFileDirectory)/AssemblyInfo.extra.fs" Condition="Exists('$(MSBuildThisFileDirectory)/AssemblyInfo.extra.fs')" />
       <Compile Include="@(C)" />
     </ItemGroup>
   </Target>

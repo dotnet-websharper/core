@@ -18,32 +18,10 @@
 //
 // $end{copyright}
 
-namespace WebSharper.MSBuild
+namespace WebSharper
 
-open Microsoft.Build.Utilities
+open System
+open System.Reflection
 
-type internal CompilerInput =
-    {
-        AssemblyFile : string
-        DocumentationFile : option<string>
-        EmbeddedResources : list<string>
-        KeyOriginatorFile : string
-        ProjectFile : string
-        ProjectDir : string
-        References : list<string>
-        RunInterfaceGenerator : bool
-        IncludeSourceMap : bool
-    }
-
-[<Sealed>]
-type internal CompilerMessage =
-    member SendTo : TaskLoggingHelper -> unit
-
-type internal CompilerOutput =
-    {
-        Messages : CompilerMessage []
-        Ok : bool
-    }
-
-module CompilerUtility =
-    val Compile : CompilerInput -> CompilerOutput
+[<assembly: AssemblyFileVersion("{version}")>]
+do ()

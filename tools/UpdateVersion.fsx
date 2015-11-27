@@ -61,6 +61,7 @@ do
         let wsbuild = src +/ "build" +/ "WebSharper.Build"
         UpdateExeConfig (wsbuild +/ "WebSharper.exe.config") v
         UpdateExeConfig (wsbuild +/ "WebSharper31.exe.config") v
+        UpdateExeConfig (wsbuild +/ "WebSharper40.exe.config") v
         UpdateAsmVersionAttr (sln +/ "msbuild" +/ "AssemblyInfo.fs") v
         UpdateConfigFs (wsbuild +/ "Config.fs") v s
         UpdateWebsiteConfigFs (sln +/ "tests" +/ "Website" +/ "Config.fs") v

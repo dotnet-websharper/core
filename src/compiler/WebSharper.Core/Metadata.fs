@@ -225,7 +225,19 @@ module R = Resources
 type AssemblyResource(name) =
     interface R.IResource with
         member this.Render ctx writer =
-            let r = ctx.GetAssemblyRendering name
+            let fullAsmName =
+                System.AppDomain.CurrentDomain.GetAssemblies()
+                |> Seq.tryPick (fun a -> 
+                    if a.FullName.StartsWith (name + ",") then Some (a.FullName) else None          
+                )
+            let r =
+                match fullAsmName with
+                | Some fullAsmName ->
+                    let filename = name + if ctx.DebuggingEnabled then ".js" else ".min.js"
+                    match R.Rendering.TryGetCdn(ctx, name, filename) with
+                    | Some r -> r
+                    | None -> ctx.GetAssemblyRendering name
+                | None -> ctx.GetAssemblyRendering name
             r.Emit(writer R.Scripts, R.Js)
 
 let activate resource =

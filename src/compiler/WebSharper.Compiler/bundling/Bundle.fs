@@ -20,6 +20,7 @@
 
 namespace WebSharper.Compiler
 
+open System.Configuration
 module CT = WebSharper.Core.ContentTypes
 module JS = WebSharper.Core.JavaScript.Syntax
 module M = WebSharper.Core.Metadata
@@ -46,7 +47,7 @@ module BundleUtility =
         M.Node.AssemblyNode a.FullName
 
 [<Sealed>]
-type Bundle(set: list<Assembly>, aR: AssemblyResolver) =
+type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
 //    let logger = Logger.Create ignore 1000
 //    let resolver =
 //        let r = AssemblyResolver.Create()
@@ -58,7 +59,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver) =
 //    let loader = Loader.Create resolver ignore
 
     let meta =
-        set 
+        set
         |> List.choose WebSharper.Compiler.FrontEnd.readFromAssembly
         |> WebSharper.Core.Metadata.union 
 
@@ -73,17 +74,14 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver) =
 //        let mInfo = context.CreateMetadataInfo()
 //        mInfo.GetDependencies [for a in set -> GetDependencyNodeForAssembly a]
 
-    let htmlHeadersContext : Res.Context =
+    let htmlHeadersContext getSetting : Res.Context =
         {
             DebuggingEnabled = false
             DefaultToHttp = false
-            GetSetting = fun _ -> None
+            GetSetting = getSetting
             GetAssemblyRendering = fun _ -> Res.Skip
             GetWebResourceRendering = fun _ _-> Res.Skip
         }
-
-    let renderHtmlHeaders (hw: HtmlTextWriter) (res: Res.IResource) =
-        res.Render htmlHeadersContext (fun _ -> hw)
 
     let render (mode: BundleMode) (writer: TextWriter) =
         aR.Wrap <| fun () ->
@@ -112,6 +110,18 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver) =
             | CT.Css, BundleMode.CSS ->
                 writer.WriteLine(c)
             | _ -> ()
+        let getSetting =
+            match appConfig with
+            | None -> fun _ -> None
+            | Some p ->
+                let conf =
+                    ConfigurationManager.OpenMappedExeConfiguration(
+                        ExeConfigurationFileMap(ExeConfigFilename = p),
+                        ConfigurationUserLevel.None)
+                fun name ->
+                    match conf.AppSettings.Settings.[name] with
+                    | null -> None
+                    | x -> Some x.Value
         let ctx : Res.Context =
             {
                 DebuggingEnabled = debug
@@ -120,16 +130,17 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver) =
 //                    context.LookupAssembly(name)
 //                    |> Option.iter renderAssembly
                     Res.Skip
-                GetSetting = fun name -> None
+                GetSetting = getSetting
                 GetWebResourceRendering = fun ty name ->
                     let (c, cT) = Utility.ReadWebResource ty name
                     renderWebResource name cT c
                     Res.Skip
             }
         use htmlWriter = new HtmlTextWriter(TextWriter.Null)
+        let htmlHeadersContext = htmlHeadersContext getSetting
         for d in graph.GetAllResources() do
             match mode with
-            | BundleMode.HtmlHeaders -> renderHtmlHeaders htmlHeadersWriter d
+            | BundleMode.HtmlHeaders -> d.Render htmlHeadersContext (fun _ -> htmlHeadersWriter)
             | _ -> d.Render ctx (fun _ -> htmlWriter)
 
         match mode with

@@ -32,7 +32,7 @@ type AnimationFrameResource() =
             let html = html Re.Scripts
             html.WriteLine "<!--[if lte IE 9.0]>"
             let name = if ctx.DebuggingEnabled then "AnimFrame.js" else "AnimFrame.min.js"
-            let ren = ctx.GetWebResourceRendering typeof<AnimationFrameResource> name
+            let ren = Re.Rendering.GetWebResourceRendering(ctx, typeof<AnimationFrameResource>, name)
             ren.Emit(html, Re.Js)
             html.WriteLine "<![endif]-->"
 

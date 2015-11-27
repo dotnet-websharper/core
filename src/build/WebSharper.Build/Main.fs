@@ -41,23 +41,22 @@ module Main =
         )
 
     let private bt =
-        let bt =
-            BuildTool()
-                .PackageId(Config.PackageId, Config.PackageVersion)
-                .Configure(fun bt ->
-                    let outDir = BuildConfig.OutputDir.Find bt
-                    bt
-                    |> BuildConfig.RootDir.Custom root
-                    |> FSharpConfig.OtherFlags.Custom ["--optimize+"]
-                    |> Logs.Config.Custom(Logs.Default.Verbose().ToConsole()))
-        BuildConfig.CurrentFramework.Custom bt.Framework.Net40 bt
+        BuildTool()
+            .PackageId(Config.PackageId, Config.PackageVersion)
+            .Configure(fun bt ->
+                let outDir = BuildConfig.OutputDir.Find bt
+                bt
+                |> BuildConfig.RootDir.Custom root
+                |> FSharpConfig.OtherFlags.Custom ["--optimize+"]
+                |> Logs.Config.Custom(Logs.Default.Verbose().ToConsole()))
+            .WithFramework(fun fw -> fw.Net40)
 
     let private searchDir (dir: string) =
         let dir =Path.GetFullPath(dir)
         Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
         |> Seq.map (fun p -> (p, p.Substring(dir.Length).Replace("\\", "/")))
 
-    let private coreExports, fsExports, csExports =
+    let private coreExports, fsExports, csExports, testingExports =
         let lib kind name =
             Seq.concat [
                 Directory.EnumerateFiles(buildDir, name + ".dll")
@@ -66,41 +65,24 @@ module Main =
             |> Seq.map (fun p -> (kind, p))
         
         Seq.concat [
-            // compiler:
             lib "lib"   "WebSharper.Core.JavaScript"
-//            lib "tools" "WebSharper.Compiler"
             lib "lib"   "WebSharper.Core"
             lib "lib"   "WebSharper.InterfaceGenerator"
-//            lib "tools" "WebSharper.MSBuild.FSharp"
-            // htmllib:
             lib "lib"   "WebSharper.Html.Server"
             lib "lib"   "WebSharper.Html.Client"
-            // sitelets:
             lib "lib"   "WebSharper.Sitelets"
             lib "lib"   "WebSharper.Web"
-            // stdlib:
             lib "lib"   "WebSharper.Main"
             lib "lib"   "WebSharper.Collections"
             lib "lib"   "WebSharper.Control"
             lib "lib"   "WebSharper.JavaScript"
             lib "lib"   "WebSharper.JQuery"
-            lib "lib"   "WebSharper.Testing"
-            // foreign:
-//            lib "tools" "FsNuGet"
-//            lib "tools" "NuGet.Core"
-//            lib "tools" "FSharp.Core"
-//            lib "tools" "Mono.Cecil"
-//            lib "tools" "Mono.Cecil.Mdb"
-//            lib "tools" "Mono.Cecil.Pdb"
-//            lib "tools" "IntelliFactory.Core"
-            lib "lib"   "IntelliFactory.Xml"
         ] |> List.ofSeq
         ,
         Seq.concat [
             lib "tools"   "WebSharper.Core.JavaScript"
             lib "tools"   "WebSharper.Core"
             lib "tools"   "WebSharper.InterfaceGenerator"
-
             lib "tools" "WebSharper.Compiler"
             lib "tools" "WebSharper.Compiler.FSharp"
             lib "tools" "WebSharper.MSBuild.FSharp"
@@ -138,6 +120,8 @@ module Main =
             lib "tools" "System.Composition.TypedParts"
             lib "tools" "System.Reflection.Metadata"
         ] |> List.ofSeq
+        ,
+        lib "lib" "WebSharper.Testing"
 
     let private nuPkgs () =
         let nuPkg =
@@ -174,10 +158,11 @@ module Main =
                             yield fileAt (Path.Combine(root, "src", "htmllib", "tags.csv")) ("/tools/net40/tags.csv")
                         }
             }
+        let v = Version(nuPkg.GetComputedVersion().Split('-').[0])
         let fsharpNuPkg =
             let bt =
                 bt.PackageId(Config.FSharpPackageId)
-                |> PackageVersion.Full.Custom (Version(nuPkg.GetComputedVersion()))
+                |> PackageVersion.Full.Custom v
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -203,7 +188,7 @@ module Main =
         let csharpNuPkg =
             let bt =
                 bt.PackageId(Config.CSharpPackageId)
-                |> PackageVersion.Full.Custom (Version(nuPkg.GetComputedVersion()))
+                |> PackageVersion.Full.Custom v
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -223,12 +208,47 @@ module Main =
                                     yield file kind src None
                             }
                 }
-        [ nuPkg; fsharpNuPkg; csharpNuPkg ]
+        let testingNuPkg =
+            let bt =
+                bt.PackageId(Config.TestingPackageId, Config.PackageVersion)
+                |> PackageVersion.Full.Custom v
+            bt.NuGet.CreatePackage()
+                .Configure(fun x ->
+                    {
+                        x with
+                            Description = Config.TestingDescription
+                            ProjectUrl = Some Config.Website
+                            LicenseUrl = Some Config.LicenseUrl
+                            Authors = [ Config.Company ]
+                    })
+                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
+                .AddNuGetExportingProject {
+                    new INuGetExportingProject with
+                        member p.NuGetFiles =
+                            seq {
+                                for kind, src in testingExports do
+                                    yield file kind src None
+                            }
+                }
+        [ nuPkg; fsharpNuPkg; csharpNuPkg; testingNuPkg ]
 
     let Package () =
         let nuPkgs = nuPkgs ()
         let sln = bt.Solution (Seq.cast nuPkgs)
         sln.Build()
+
+    let SetVersion () =
+        let v = PackageVersion.Full.Find bt
+        let outPath = Path.Combine(root, "msbuild", "AssemblyInfo.extra.fs")
+        let inPath = Path.Combine(root, "msbuild", "AssemblyInfo.extra.fs.in")
+        let oldFile =
+            try File.ReadAllLines outPath
+            with _ -> [||]
+        let newFile =
+            File.ReadAllLines inPath
+            |> Array.map (fun s -> s.Replace("{version}", v.ToString()))
+        if newFile <> oldFile then
+            File.WriteAllLines(outPath, newFile)
 
     [<EntryPoint>]
     let Start args =
@@ -236,6 +256,7 @@ module Main =
             match Seq.toList args with
             | ["minify"] | ["prepare"] ->
                 Minify.Run()
+                SetVersion()
             | ["package"] -> Package ()
             | _ ->
                 printfn "Known commands:"

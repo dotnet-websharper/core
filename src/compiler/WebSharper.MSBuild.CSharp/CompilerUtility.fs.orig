@@ -18,13 +18,14 @@
 //
 // $end{copyright}
 
-namespace WebSharper.MSBuild.FSharp
+namespace WebSharper.MSBuild.CSharp
 
 open System
 open System.IO
 open System.Reflection
 open Microsoft.Build.Framework
 open Microsoft.Build.Utilities
+open IntelliFactory.Core
 open WebSharper
 open WebSharper.Compiler
 module FE = FrontEnd
@@ -40,7 +41,6 @@ type CompilerInput =
         References : list<string>
         RunInterfaceGenerator : bool
         IncludeSourceMap : bool
-        Sources : list<string> 
     }
 
     member this.ReadStrongNameKeyPair() =
@@ -52,40 +52,40 @@ type CompilerInput =
 
 type CompilerMessage =
     | CMErr1 of string
-    | CMErr2 of string * int * int * int * int * string
+    | CMErr2 of string * int * int * string
     | CMExn of exn
     | CMWarn1 of string
-    | CMWarn2 of string * int * int * int * int * string
+    | CMWarn2 of string * int * int * string
 
     member msg.SendTo(log: TaskLoggingHelper) =
         match msg with
         | CMErr1 msg ->
             log.LogError(msg)
-        | CMErr2 (file, line, col, eline, ecol, msg) ->
+        | CMErr2 (file, line, col, msg) ->
             log.LogError("WebSharper", "WebSharper", "WebSharper",
-                file, line, col, eline, ecol, msg)
+                file, line, col, line, col, msg)
         | CMWarn1 msg ->
             log.LogWarning(msg)
-        | CMWarn2 (file, line, col, eline, ecol, msg) ->
+        | CMWarn2 (file, line, col, msg) ->
             log.LogWarning("WebSharper", "WebSharper", "WebSharper",
-                file, line, col, eline, ecol, msg)
+                file, line, col, line, col, msg)
         | CMExn err ->
             log.LogErrorFromException(err)
 
     static member Report(e) =
         CMExn e
 
-//    static member Send(msg) =
-//        match msg.Priority with
-//        | Priority.Critical
-//        | Priority.Error ->
-//            match msg.Location.SourceLocation with
-//            | Some loc -> CMErr2(loc.File, loc.Line, loc.Column, msg.Text)
-//            | None -> CMErr1(string msg)
-//        | Priority.Warning ->
-//            match msg.Location.SourceLocation with
-//            | Some loc -> CMWarn2(loc.File, loc.Line, loc.Column, msg.Text)
-//            | None -> CMWarn1(string msg)
+    static member Send(msg) =
+        match msg.Priority with
+        | Priority.Critical
+        | Priority.Error ->
+            match msg.Location.SourceLocation with
+            | Some loc -> CMErr2(loc.File, loc.Line, loc.Column, msg.Text)
+            | None -> CMErr1(string msg)
+        | Priority.Warning ->
+            match msg.Location.SourceLocation with
+            | Some loc -> CMWarn2(loc.File, loc.Line, loc.Column, msg.Text)
+            | None -> CMWarn1(string msg)
 
     static member Warn(msg) =
         CMWarn1 msg
@@ -208,55 +208,34 @@ module CompilerJobModule =
             let errors = 
                 try
                     let refMeta =
-                        let metas = refs |> List.choose (fun r -> WebSharper.Compiler.FrontEnd.readFromAssembly r)
+                        let optMetas = refs |> List.map (fun r -> r, WebSharper.Compiler.FrontEnd.readFromAssembly r)
+                        let metas = optMetas |> List.choose snd
+                        System.IO.File.WriteAllLines("references.txt",
+                            optMetas |> Seq.collect (fun (r, a) -> 
+                                seq {
+                                    yield r.FullName + (if Option.isSome a then " - loaded" else "")
+                                    match a with
+                                    | Some a ->
+                                        for c in a.Classes.Keys -> c.Value.FullName
+                                    | _ -> ()
+                                }
+                            )
+                        )
+                        //let metas = refs |> List.choose (fun r -> WebSharper.Compiler.FrontEnd.readFromAssembly r)
                         if List.isEmpty metas then None else Some (WebSharper.Core.Metadata.union metas)
-                    let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(ignore) 
-                    let args =
-                        [| 
-                            yield! [| 
-                                "--simpleresolution"; "--noframework"; 
-//                                "--out:" + Path.Combine(input.ProjectDir, input.AssemblyFile); 
-                                "--fullpaths"; "--flaterrors";    
-                                (if input.AssemblyFile.EndsWith ".dll" then "--target:library" else "--target:exe")
-                                "--define:TRACE";
-                                "--debug-"; "--optimize+"; "--tailcalls+"; "--debug:pdbonly";
-                                "--platform:anycpu";
-                            |]
-                            for r in input.References -> "-r:" + r
-                            for s in input.Sources do
-                                if not (s.Contains @"Temp\.NETFramework") then
-                                    yield Path.Combine(input.ProjectDir, s) 
-                        |]   
-
-                    let comp = 
-                        compiler.Compile(refMeta, args, input.ProjectFile) //, aR)
-
-                    for pos, w in comp.Warnings do
-                        match pos with
-                        | Some pos ->
-                            out.Add(CMWarn2 (pos.FileName, fst pos.Start, snd pos.Start, fst pos.End, snd pos.End, string w))
-                        | _ ->
-                            out.Add(CMWarn1 (string w))
+                    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(ignore) 
+                    let comp = compiler.Compile(refMeta, [||], input.ProjectFile)
 
                     if not (List.isEmpty comp.Errors) then
                         for pos, e in comp.Errors do
                             match pos with
                             | Some pos ->
-                                out.Add(CMErr2 (pos.FileName, fst pos.Start, snd pos.Start, fst pos.End, snd pos.End, string e))
+                                out.Add(CMErr2 (pos.FileName, fst pos.Start, snd pos.Start, string e))
                             | _ ->
                                 out.Add(CMErr1 (string e))
-//                        for r in refs do
-//                            printfn "Referenced: %s" r.FullName
-//                        match refMeta with
-//                        | Some rm -> 
-//                            printfn "Class names in references:"
-//                            for c in rm.Classes.Keys do
-//                                printfn "%s" c.Value.FullName
-//                        | _ -> printfn "No metadata in references."
                         Some comp.Errors
                     else
                     let thisMeta = comp.ToCurrentMetadata()
-//                    logf "F# translated classes: %A" (thisMeta.Classes.Keys |> Seq.map (fun c -> c.Value.FullName) |> Array.ofSeq)
                     let merged = 
                         WebSharper.Core.Metadata.union 
                             [
@@ -266,11 +245,6 @@ module CompilerJobModule =
 
                     let assem = loader.LoadFile input.AssemblyFile //Mono.Cecil.AssemblyDefinition.ReadAssembly input.AssemblyFile
                     let js = WebSharper.Compiler.FrontEnd.modifyWSAssembly merged thisMeta assem
-
-//                    match js with
-//                    | Some js ->
-//                        logf "C# translated: %s" js 
-//                    | _ -> logf "C# translation empty"
 
                     assem.Write snk input.AssemblyFile
                     None
@@ -306,24 +280,8 @@ module CompilerUtility =
                     for i in input.AssemblyFile :: input.References ->
                         Path.GetFullPath(i)
                 ]
-//            System.IO.File.AppendAllLines (
-//                @"C:\repo\websharper.csharp\projectoptions.txt",
-//                [|
-//                    yield "assemblies:"
-//                    yield! files 
-//                |]
-//            )
-            AssemblyResolver.Create()
+            AssemblyResolution.AssemblyResolver.Create()
                 .SearchPaths(files)
-////        aR.Wrap <| fun () ->
-//        Act {
-//            let snk = input.ReadStrongNameKeyPair()
-//            if input.RunInterfaceGenerator then
-//                do! aR.Wrap <| fun () -> RunInterfaceGenerator aR snk input
-//            else
-//            return! CompileWithWebSharper aR snk input
-//        }
-//        |> Run
         aR.Wrap <| fun () ->
             Act {
                 let snk = input.ReadStrongNameKeyPair()

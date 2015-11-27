@@ -46,6 +46,21 @@ type WebSharperFSharpCompiler(logger) =
         | :? System.IO.PathTooLongException 
         | :? System.Security.SecurityException -> p
 
+    member this.PrintErrors(errors : Microsoft.FSharp.Compiler.FSharpErrorInfo[], path) =
+        let projDir = Path.GetDirectoryName path
+        for err in errors do
+            let pos =
+                let fn = err.FileName
+                if fn <> "unknown" && fn <> "startup" && fn <> "commandLineArgs" then
+                    let file = (fullpath projDir fn).Replace("/","\\")
+                    sprintf "%s(%d,%d,%d,%d): " file err.StartLineAlternate err.StartColumn err.EndLineAlternate err.EndColumn
+                else ""
+            let info =
+                sprintf "%s %s FS%04d: " err.Subcategory 
+                    (if err.Severity = Microsoft.FSharp.Compiler.FSharpErrorSeverity.Warning then "warning" else "error") err.ErrorNumber
+                        
+            eprintfn "%s%s%s" pos info (NormalizeErrorString err.Message)
+
     member this.Compile (prevMeta, argv, path: string) = //, aR : IntelliFactory.Core.AssemblyResolution.AssemblyResolver) =
 
         let started = System.DateTime.Now

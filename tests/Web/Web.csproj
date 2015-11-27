@@ -152,7 +152,7 @@
     </When>
   </Choose>
   <Import Project="$(VSWebAppsPath)\Microsoft.WebApplication.targets" />
-  <Import Project="../../msbuild/WebSharper.Internal.targets" />
+  <Import Project="../../msbuild/WebSharper.CSharp.Internal.targets" />
   <ProjectExtensions>
     <VisualStudio>
       <FlavorProperties GUID="{349c5851-65df-11da-9384-00065b846f21}">

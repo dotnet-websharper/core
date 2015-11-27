@@ -31,7 +31,7 @@ type Resource() =
             let html = html Re.Scripts
             html.WriteLine "<!--[if lte IE 7.0]>"
             let name = if ctx.DebuggingEnabled then "Json.js" else "Json.min.js"
-            let ren = ctx.GetWebResourceRendering typeof<Resource> name
+            let ren = Re.Rendering.GetWebResourceRendering(ctx, typeof<Resource>, name)
             ren.Emit(html, Re.Js)
             html.WriteLine "<![endif]-->"
 

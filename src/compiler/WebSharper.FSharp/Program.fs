@@ -29,7 +29,7 @@ open WebSharper.Compiler
 
 type ProjectType =
     | Bundle
-    | WebSite
+    | Website
     | Html
     | WIG
 
@@ -38,7 +38,7 @@ type WsConfig =
         SourceMap   : bool
         TypeScript  : bool
         ProjectType : ProjectType option
-//        OutputPath  : string option
+        OutputDir  : string option
         AssemblyFile : string
         References  : string[] 
 //        FscPath     : string
@@ -54,7 +54,7 @@ type WsConfig =
              SourceMap   = false
              TypeScript  = false
              ProjectType = None
-//             OutputPath  = None
+             OutputDir  = None
              AssemblyFile = null
              References  = [||]
 //             FscPath     = null
@@ -65,6 +65,121 @@ type WsConfig =
              PrintJS  = false
         }
     
+module ExecuteCommands =
+    
+    let GetWebRoot settings =
+        match settings.OutputDir with
+        | None ->
+            let dir = Path.GetDirectoryName settings.ProjectFile
+            let isWeb =
+                File.Exists(Path.Combine(dir, "Web.config"))
+                || File.Exists(Path.Combine(dir, "web.config"))
+            if isWeb then Some dir else None
+        | Some out -> Some out
+
+    let BundleOutputDir settings webRoot =
+        match settings.OutputDir with
+        | None ->
+            match webRoot with
+            | Some webRoot ->
+                let d = Path.Combine(webRoot, "Content")
+                let di = DirectoryInfo(d)
+                if not di.Exists then
+                    di.Create()
+                d
+            | None -> failwith "WebSharperBundleOutputDir property is required"
+        | Some dir -> dir
+
+
+    let SendResult result =
+        match result with
+        | Compiler.Commands.Ok -> true
+        | Compiler.Commands.Errors errors ->
+            for e in errors do
+                eprintf "%s" e
+            true
+
+    let getWebRoot settings =
+        match settings.OutputDir with
+        | None ->
+            let dir = Path.GetDirectoryName settings.ProjectFile
+            let isWeb =
+                File.Exists(Path.Combine(dir, "Web.config"))
+                || File.Exists(Path.Combine(dir, "web.config"))
+            if isWeb then Some dir else None
+        | Some out -> Some out
+
+    let Bundle settings =
+        let outputDir = BundleOutputDir settings (getWebRoot settings)
+        let fileName = "Bundle"
+//            match settings.Name with
+//            | null | "" -> "Bundle"
+//            | name -> name
+        let cfg =
+            {
+                Compiler.BundleCommand.Config.Create() with
+                    AssemblyPaths = List.ofArray settings.References
+                    FileName = fileName
+                    OutputDirectory = outputDir
+            }
+        let env = Compiler.Commands.Environment.Create()
+        Compiler.BundleCommand.Instance.Execute(env, cfg)
+        |> SendResult
+
+    let Unpack settings =
+        let webRoot = getWebRoot settings |> Option.get
+        let assemblies =
+            let dir =
+                match settings.OutputDir with
+                | None -> Path.Combine(webRoot, "bin")
+                | Some p -> p
+//                sprintf "Unpacking with WebSharper: %s -> %s" dir webRoot
+            [
+                yield! Directory.EnumerateFiles(dir, "*.dll")
+                yield! Directory.EnumerateFiles(dir, "*.exe")
+            ]
+        for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
+            let dir = DirectoryInfo(Path.Combine(webRoot, d))
+            if not dir.Exists then
+                dir.Create()
+        let cfg =
+            {
+                Compiler.UnpackCommand.Config.Create() with
+                    Assemblies = assemblies
+                    RootDirectory = webRoot
+                    UnpackSourceMap = settings.SourceMap
+                    UnpackTypeScript = settings.TypeScript
+            }
+        let env = Compiler.Commands.Environment.Create()
+        Compiler.UnpackCommand.Instance.Execute(env, cfg)
+        |> SendResult
+
+    let HtmlOutputDirectory settings =
+        match settings.OutputDir with
+        | None -> Path.Combine(Path.GetDirectoryName settings.ProjectFile, "bin", "html")
+        | Some dir -> dir
+
+    let Html settings =
+        let main = settings.AssemblyFile
+        let refs = List.ofArray settings.References
+        let cfg =
+            {
+                Compiler.HtmlCommand.Config.Create(main) with
+                    Mode = Compiler.HtmlCommand.Release
+//                        match settings.Configuration with
+//                        | x when x.ToLower().Contains("debug") -> Compiler.HtmlCommand.Debug
+//                        | x when x.ToLower().Contains("release") -> Compiler.HtmlCommand.Release
+//                        | _ -> Compiler.HtmlCommand.Debug
+                    OutputDirectory = HtmlOutputDirectory settings
+                    ProjectDirectory = Path.GetDirectoryName settings.ProjectFile
+                    ReferenceAssemblyPaths = refs
+                    UnpackSourceMap = settings.SourceMap
+                    UnpackTypeScript = settings.TypeScript
+            }
+        let env = Compiler.Commands.Environment.Create()
+        Compiler.HtmlCommand.Instance.Execute(env, cfg)
+        |> SendResult
+
 let LoadInterfaceGeneratorAssembly (aR: AssemblyResolver) (file: string) =
         let asm = Assembly.Load(File.ReadAllBytes(file))
         let name = AssemblyName.GetAssemblyName(file)
@@ -147,7 +262,10 @@ let Compile config =
 ////        else
 //            eprintfn "%s" (error.ToString())
 
-    if exitCode <> 0 then failwith "F# compilation failed"
+    if exitCode <> 0 then 
+        WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(ignore).PrintErrors(errors, config.ProjectFile)
+
+        failwith "F# compilation failed"
 
 //    CompileFSharp config
     
@@ -317,6 +435,15 @@ let Compile config =
     let ended = System.DateTime.Now
     logf "Serializing and writing metadata: %A" (ended - started)
 
+    match config.ProjectType with
+    | Some Bundle ->
+        ExecuteCommands.Bundle config |> ignore
+    | Some Website ->
+        ExecuteCommands.Unpack config |> ignore
+    | Some Html ->
+        ExecuteCommands.Html config |> ignore
+    | _ -> ()
+
 //    printfn "WebSharper metadata written"
 
 let (|StartsWith|_|) start (input: string) =    
@@ -383,7 +510,7 @@ let main argv =
         | "--wig" -> setProjectType WIG
         | "--bundle" -> setProjectType Bundle
         | "--html" -> setProjectType Html
-        | "--site" -> setProjectType WebSite
+        | "--site" -> setProjectType Website
         | StartsWith "--ws:" wsProjectType ->
             match wsProjectType.ToLower() with
             | "ignore" -> ()
@@ -391,7 +518,7 @@ let main argv =
             | "extension" | "interfacegenerator" -> setProjectType WIG
             | "html" -> setProjectType Html
             | "library" -> ()
-            | "site" | "web" | "website" | "export" -> setProjectType WebSite
+            | "site" | "web" | "website" | "export" -> setProjectType Website
 //                match GetWebRoot settings with
 //                | None -> Library
 //                | Some dir -> Website dir
@@ -400,8 +527,8 @@ let main argv =
         | "--vserrors" ->
             wsArgs := { !wsArgs with VSStyleErrors = true }
             fscArgs.Add a
-//        | StartsWith "--wsoutput:" o ->
-//            wsArgs := { !wsArgs with OutputPath = Some o }
+        | StartsWith "--wsoutput:" o ->
+            wsArgs := { !wsArgs with OutputDir = Some o }
 //        | StartsWith "--fsc:" p ->
 //            wsArgs := { !wsArgs with FscPath = p }
         | StartsWith "--project:" p ->

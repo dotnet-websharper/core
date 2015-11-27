@@ -228,3 +228,9 @@ type private DateTimeProxy =
 
     [<Inline; JavaScript>]
     static member Parse(s) = As<D>(DateTimeHelpers.Parse(s))
+
+    static member MaxValue
+        with [<Inline "8640000000000000">] get () = X<int>
+
+    static member MinValue
+        with [<Inline "-8640000000000000">] get () = X<int>

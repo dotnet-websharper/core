@@ -23,6 +23,12 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' " >
 	<OtherFlags>$(OtherFlags) --ws:$(WebSharperProject) --project:$(MSBuildProjectFullPath)</OtherFlags>
+	<OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:$(WebProjectOutputDir)</OtherFlags>
+	<OtherFlags Condition=" '$(WebSharperBundleOutputDir)' != '' ">$(OtherFlags) --wsoutput:$(WebSharperBundleOutputDir)</OtherFlags>
+	<OtherFlags Condition=" '$(WebSharperHtmlDirectory)' != '' ">$(OtherFlags) --wsoutput:$(WebSharperHtmlDirectory)</OtherFlags>
+	<OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --webroot:$(WebProjectOutputDir)</OtherFlags>
+	<OtherFlags Condition=" '$(WebSharperSourceMap)' == 'True' ">$(OtherFlags) --jsmap</OtherFlags>
+	<OtherFlags Condition=" '$(WebSharperTypeScriptDeclaration)' == 'True' ">$(OtherFlags) --dts</OtherFlags>
 	<FscToolPath>$(MSBuildThisFileDirectory)/../build/$(Configuration)/</FscToolPath>
 	<FscToolExe>WsFsc.exe</FscToolExe>
   </PropertyGroup>

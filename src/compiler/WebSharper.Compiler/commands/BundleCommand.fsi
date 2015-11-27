@@ -30,6 +30,9 @@ module BundleCommand =
             /// Paths to WebSharper assemblies to consider.
             AssemblyPaths : list<string>
 
+            /// Path to the application configuration file to use.
+            AppConfigFile : option<string>
+
             /// File name used for generated files.
             FileName : string
 

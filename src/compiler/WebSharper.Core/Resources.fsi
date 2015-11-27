@@ -42,9 +42,12 @@ type Rendering =
 
     member Emit : HtmlTextWriter * MediaType * ?defaultToHttp: bool -> unit
     member Emit : (RenderLocation -> HtmlTextWriter) * MediaType * ?defaultToHttp: bool -> unit
+    static member TryGetCdn : ctx: Context * assemblyName: string * filename: string -> option<Rendering>
+    static member TryGetCdn : ctx: Context * assembly: System.Reflection.Assembly * filename: string -> option<Rendering>
+    static member GetWebResourceRendering : ctx: Context * resource: System.Type * filename: string -> Rendering
 
 /// Defines the context in which resources can be rendered.
-type Context =
+and Context =
     {
         /// A flag indicating if debugging is enabled or not.
         DebuggingEnabled : bool

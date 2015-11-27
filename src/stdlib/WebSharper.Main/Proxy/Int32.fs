@@ -39,3 +39,10 @@ type private Int32Proxy =
 
     [<Inline "$a == $b">]
     static member op_Equality (a: int, b: int) = X<bool>
+    
+    static member MaxValue
+        with [<Inline "-2147483648">] get () = X<int>
+
+    static member MinValue
+        with [<Inline "2147483647">] get () = X<int>
+

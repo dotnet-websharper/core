@@ -169,3 +169,36 @@ The resource dependency graphs are constructed for every WebSharper-processed
 assembly and are serialized to binary. They are stored within the
 assembly itself.  At runtime all the graphs of all the referenced assemblies
 are deserialized and merged into a single graph.
+
+## Overriding Resource URLs
+
+External resources implemented using `BaseResource` can have their URL
+overridden on a per-application basis. For example, you can force your
+application to use a different version of JQuery than the one used by default
+by WebSharper.
+
+This configuration is done in the application configuration file. As a
+standard, for self-hosted projects, that file is called `App.config`, and for
+other types of web projects, it's `Web.config`. WebSharper recognizes both, and
+uses `Web.config` if both are present.
+
+To override a given resource URL, simply add an appSetting whose key is the
+fully qualified name of the resource, and whose value is the URL you want to
+use. For example, to tell WebSharper to use a local copy of JQuery located at
+the root of your application, you can add the following to your application
+configuration file:
+
+```xml
+<configuration>
+  <appSettings>
+    <add key="WebSharper.JQuery.Resources.JQuery" value="/jquery.js" />
+    <!-- ... -->
+```
+
+Note that the fully qualified name is in IL format. This means that nested
+types and types located inside F# modules are separated by `+` instead of `.`.
+
+If you are a library author and have a resource declared by directly
+implementing the `IResource` interface, you can make it configurable by using
+the function `ctx.GetSetting`, which retrieves the setting with a given key
+from the application configuration file.

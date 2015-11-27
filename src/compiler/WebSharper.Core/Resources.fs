@@ -22,6 +22,7 @@ module WebSharper.Core.Resources
 
 open System
 open System.IO
+open System.Reflection
 open System.Web
 open System.Web.UI
 module CT = ContentTypes
@@ -78,6 +79,9 @@ let inlineScript (html: HtmlTextWriter) (text: string) =
     html.Write(text)
     html.RenderEndTag()
 
+let thisAssemblyToken = [| 0uy |] // TODO: strong signing
+//    typeof<Rendering>.Assembly.GetName().GetPublicKeyToken()
+
 type RenderLocation =
     | Scripts
     | Styles
@@ -105,6 +109,39 @@ type Rendering with
             | Css -> link dHttp html url
             | Js -> script dHttp html url
         | Rendering.Skip -> ()
+
+    static member TryGetCdn(ctx: Context, fullAsmName: string, filename: string) =
+        let shortName = fullAsmName.Split(',').[0]
+        match ctx.GetSetting ("WebSharper.CdnFormat." + shortName) with
+        | Some urlFormat -> Some urlFormat
+        | None ->
+            let isStdlib = AssemblyName(fullAsmName).GetPublicKeyToken() = thisAssemblyToken
+            if isStdlib &&
+                (defaultArg (ctx.GetSetting "WebSharper.StdlibUseCdn") "false").ToLowerInvariant() = "true"
+            then
+                let def = "//cdn.websharper.com/{assembly}/{version}/{filename}"
+                Some (defaultArg (ctx.GetSetting "WebSharper.StdlibCdnFormat") def)
+            else None
+        |> Option.map (fun urlFormat ->
+            let asm = Assembly.Load(fullAsmName)
+            let ver =
+                asm.GetCustomAttributes(typeof<AssemblyFileVersionAttribute>, false)
+                |> Array.tryPick (fun x ->
+                    Some (x :?> AssemblyFileVersionAttribute).Version)
+            urlFormat
+                .Replace("{assembly}", shortName)
+                .Replace("{filename}", filename)
+                .Replace("{version}", defaultArg ver "latest")
+            |> RenderLink
+        )
+
+    static member TryGetCdn(ctx: Context, asm: Assembly, filename: string) =
+        Rendering.TryGetCdn(ctx, asm.FullName, filename)
+
+    static member GetWebResourceRendering(ctx: Context, t: Type, filename: string) =
+        match Rendering.TryGetCdn(ctx, t.Assembly, filename) with
+        | Some r -> r
+        | None -> ctx.GetWebResourceRendering t filename
 
 type IResource =
     abstract member Render : Context -> (RenderLocation -> HtmlTextWriter) -> unit
@@ -134,17 +171,18 @@ type BaseResource(kind: Kind) =
             | Basic spec ->
                 let self = this.GetType()
                 let assem = self.Assembly
-                let aName = assem.GetName().Name
+                let assemName = assem.GetName()
+                let aName = assemName.Name
                 let id = self.FullName
                 let mt = if spec.EndsWith ".css" then Css else Js
-                match ctx.GetSetting id with
-                | Some url -> (RenderLink url).Emit(writer, mt, dHttp)
-                | None ->
-                    match tryFindWebResource self spec with
-                    | Some e ->
-                        (ctx.GetWebResourceRendering self e).Emit(writer, mt, dHttp)
+                let r =
+                    match ctx.GetSetting id with
+                    | Some url -> RenderLink url
                     | None ->
-                        (RenderLink spec).Emit(writer, mt, dHttp)
+                        match tryFindWebResource self spec with
+                        | Some e -> Rendering.GetWebResourceRendering(ctx, self, e)
+                        | None -> RenderLink spec
+                r.Emit(writer, mt, dHttp)
             | Complex (b, xs) ->
                 let id = this.GetType().FullName
                 let b = defaultArg (ctx.GetSetting id) b
@@ -160,7 +198,7 @@ type Runtime() =
         member this.Render ctx writer =
             let name = if ctx.DebuggingEnabled then "Runtime.js" else "Runtime.min.js"
             let t = typeof<WebSharper.Core.JavaScript.Syntax.Expression>
-            let ren = ctx.GetWebResourceRendering t name
+            let ren = Rendering.GetWebResourceRendering(ctx, t, name)
             ren.Emit(writer, Js, ctx.DefaultToHttp)
 
     static member Instance = Runtime() :> IResource

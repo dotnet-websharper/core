@@ -39,3 +39,9 @@ type private DoubleProxy =
 
     [<Inline "parseFloat($0)">]
     static member Parse(s: string) = X<double>
+
+    static member MaxValue
+        with [<Inline "Number.MAX_VALUE">] get () = X<int>
+
+    static member MinValue
+        with [<Inline "Number.MIN_VALUE">] get () = X<int>
