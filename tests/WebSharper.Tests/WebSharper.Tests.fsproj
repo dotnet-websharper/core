@@ -46,7 +46,7 @@
     <Compile Include="Printf.fs" />
     <Compile Include="Tupled.fs" />
     <Compile Include="WIG.fs" />
-    <Compile Include="Main.fs" />
+    <Compile Include="Cookies.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
@@ -97,10 +97,7 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Data.TypeProviders" />
-    <Reference Include="FSharp.Data.TypeProviders" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Data.Linq" />
     <Reference Include="System.Data.Linq" />
   </ItemGroup>
   <Import Project="../../msbuild/WebSharper.FSharp.Internal.targets" />
