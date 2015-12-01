@@ -33,7 +33,6 @@ open WebSharper.Sitelets
 open WebSharper.Web
 
 module C = WebSharper.Sitelets.Content
-module H = WebSharper.Compiler.HtmlCommand
 module Http = WebSharper.Sitelets.Http
 module J = WebSharper.Core.Json
 module M = WebSharper.Core.Metadata
@@ -56,23 +55,22 @@ let EMBEDDED_MINMAP = "WebSharper.min.map"
 [<Literal>]
 let EMBEDDED_DTS = "WebSharper.d.ts"
 
-type Mode = H.Mode
-
 type Config =
     {
         Actions : list<obj>
-        Options : H.Config
+        DebugMode : bool
+        MainAssemblyPath: string
+        OutputDirectory : string
+        ProjectDirectory : string
+        ReferenceAssemblyPaths: list<string>
         Sitelet : Sitelet<obj>
         UnpackSourceMap : bool
         UnpackTypeScript : bool
     }
 
-    member this.OutputDirectory =
-        this.Options.OutputDirectory
-
 /// Collects metadata from all assemblies in referenced folders.
 let getMetadata conf =
-    Seq.append [conf.Options.MainAssemblyPath] conf.Options.ReferenceAssemblyPaths
+    Seq.append [conf.MainAssemblyPath] conf.ReferenceAssemblyPaths
     |> Seq.distinctBy (fun assemblyFile ->
         AssemblyName.GetAssemblyName(assemblyFile).Name)
     |> Seq.choose M.AssemblyInfo.Load
@@ -130,28 +128,24 @@ type State(conf: Config) =
     member this.UseResource(res: EmbeddedResource) = usedResources.Add(res) |> ignore
 
 /// Gets the JavaScript filename of an assembly, for example `WebSharper.js`.
-let getAssemblyFileName (mode: Mode) (aN: Re.AssemblyName) =
-    match mode with
-    | H.Debug -> String.Format("{0}.js", aN.Name)
-    | H.Release -> String.Format("{0}.min.js", aN.Name)
+let getAssemblyFileName (debugMode: bool) (aN: Re.AssemblyName) =
+    String.Format((if debugMode then "{0}.js" else "{0}.min.js"), aN.Name)
 
 /// Gets the physical path to the assembly JavaScript.
 let getAssemblyJavaScriptPath (conf: Config) (aN: Re.AssemblyName) =
-    P.CreatePath ["Scripts"; aN.Name; getAssemblyFileName conf.Options.Mode aN]
+    P.CreatePath ["Scripts"; aN.Name; getAssemblyFileName conf.DebugMode aN]
 
 /// Gets the physical path to the TypeScript declaration.
 let getAssemblyTypeScriptPath (conf: Config) (aN: Re.AssemblyName) =
     P.CreatePath ["Scripts"; aN.Name; aN.Name + ".d.ts"]
 
 /// Gets the source map filename of an assembly, for example `WebSharper.map`.
-let getAssemblyMapFileName (mode: Mode) (aN: Re.AssemblyName) =
-    match mode with
-    | H.Debug -> String.Format("{0}.map", aN.Name)
-    | H.Release -> String.Format("{0}.min.map", aN.Name)
+let getAssemblyMapFileName (debugMode: bool) (aN: Re.AssemblyName) =
+    String.Format((if debugMode then "{0}.map" else "{0}.min.map"), aN.Name)
 
 /// Gets the physical path to the assembly source map.
 let getAssemblyMapPath (conf: Config) (aN: Re.AssemblyName) =
-    P.CreatePath ["Scripts"; aN.Name; getAssemblyMapFileName conf.Options.Mode aN]
+    P.CreatePath ["Scripts"; aN.Name; getAssemblyMapFileName conf.DebugMode aN]
 
 /// Gets the physical path to the assembly source map.
 let getSourceFilePath (conf: Config) (aN: Re.AssemblyName) (n: string) =
@@ -202,19 +196,15 @@ let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) (typeScr
         match assemblyPath with
         | Some aP ->
             let embeddedResourceName =
-                match st.Config.Options.Mode with
-                | H.Debug -> EMBEDDED_JS
-                | H.Release -> EMBEDDED_MINJS
+                if st.Config.DebugMode then EMBEDDED_JS else EMBEDDED_MINJS
             let p = getAssemblyJavaScriptPath st.Config aN
             writeEmbeddedResource st.Config aP embeddedResourceName p
             if sourceMap then
                 let sourceMapResourceName =
-                    match st.Config.Options.Mode with
-                    | H.Debug -> EMBEDDED_MAP
-                    | H.Release -> EMBEDDED_MINMAP
+                    if st.Config.DebugMode then EMBEDDED_MAP else EMBEDDED_MINMAP
                 let sp = getAssemblyMapPath st.Config aN
                 try writeEmbeddedResource st.Config aP sourceMapResourceName sp
-                    let mapFileName = getAssemblyMapFileName st.Config.Options.Mode aN
+                    let mapFileName = getAssemblyMapFileName st.Config.DebugMode aN
                     File.AppendAllText(P.ToAbsolute st.Config.OutputDirectory sp,
                         "\n//# sourceMappingURL=" + mapFileName)       
                 with _ -> ()
@@ -240,10 +230,7 @@ let resourceContext (st: State) (level: int) : R.Context =
         let url = String.Format("{0}Scripts/{1}/{2}", relPath, folder, file)
         R.RenderLink url
     {
-        DebuggingEnabled =
-            match st.Config.Options.Mode with
-            | H.Debug -> true
-            | H.Release -> false
+        DebuggingEnabled = st.Config.DebugMode
 
         DefaultToHttp = true
 
@@ -251,7 +238,7 @@ let resourceContext (st: State) (level: int) : R.Context =
 
         GetAssemblyRendering = fun aN ->
             st.UseAssembly(aN)
-            scriptsFile aN.Name (getAssemblyFileName st.Config.Options.Mode aN)
+            scriptsFile aN.Name (getAssemblyFileName st.Config.DebugMode aN)
 
         GetWebResourceRendering = fun ty name ->
             st.UseResource(EmbeddedResource.Create(name, ty))
@@ -360,8 +347,8 @@ let trimPath (path: string) =
 let WriteSite (aR: AssemblyResolver) (conf: Config) =
     let st = State(conf)
     let table = Dictionary()
-    let projectFolder = conf.Options.ProjectDirectory
-    let rootFolder = conf.Options.OutputDirectory
+    let projectFolder = conf.ProjectDirectory
+    let rootFolder = conf.OutputDirectory
     let contents () =
         async {
             let res = ResizeArray()

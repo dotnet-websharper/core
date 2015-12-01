@@ -23,16 +23,16 @@ module internal WebSharper.Sitelets.Offline.Output
 
 open IntelliFactory.Core
 open WebSharper.Sitelets
-module H = WebSharper.Compiler.HtmlCommand
-
-/// The output mode, Debug or Release.
-type Mode = H.Mode
 
 /// Configuration options.
 type Config =
     {
         Actions : list<obj>
-        Options : H.Config
+        DebugMode : bool
+        MainAssemblyPath: string
+        OutputDirectory : string
+        ProjectDirectory : string
+        ReferenceAssemblyPaths: list<string>
         Sitelet : Sitelet<obj>
         UnpackSourceMap : bool
         UnpackTypeScript : bool

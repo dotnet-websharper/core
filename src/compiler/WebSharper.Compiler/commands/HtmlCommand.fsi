@@ -59,11 +59,3 @@ module HtmlCommand =
 
     /// The command instance.
     val Instance : Commands.ICommand<Config>
-
-    /// The implementation of the command is deferred until
-    /// the Sitelts assembly, this interface works as plumbing for
-    /// the forward-declaration.
-    type IHtmlCommand =
-
-        /// Executes the command.
-        abstract Execute : Commands.Environment * Config -> Commands.Result

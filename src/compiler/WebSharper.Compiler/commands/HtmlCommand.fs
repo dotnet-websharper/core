@@ -63,13 +63,12 @@ module HtmlCommand =
                     yield "-ref parameter invalid (no such file): " + string r
         ]
 
-    type IHtmlCommand =
-        abstract Execute : C.Environment * Config -> C.Result
+    type BF = System.Reflection.BindingFlags
 
     let Exec env config =
         // this is a forward declaration - actual logic in the Sitelets assembly
         let baseDir =
-            typeof<IHtmlCommand>.Assembly.Location
+            typeof<Config>.Assembly.Location
             |> Path.GetDirectoryName
         // install resolution rules specifically to work on Mono
         let aR =
@@ -77,15 +76,26 @@ module HtmlCommand =
                 .WithBaseDirectory(baseDir)
                 .SearchDirectories([baseDir])
         let assemblyName =
-            let n = typeof<IHtmlCommand>.Assembly.GetName()
+            let n = typeof<Config>.Assembly.GetName()
             n.Name <- "WebSharper.Sitelets"
             n
         aR.Wrap <| fun () ->
             let asm = System.Reflection.Assembly.Load(assemblyName)
             let tN = "WebSharper.Sitelets.Offline.HtmlCommand"
             let t = asm.GetType(tN, throwOnError = true)
-            let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
-            cmd.Execute(env, config)
+            let m = t.GetMethod("Execute", BF.Public ||| BF.Static)
+            match m.Invoke(null,
+                            [|
+                                box config.ProjectDirectory
+                                box config.OutputDirectory
+                                box config.ReferenceAssemblyPaths
+                                box config.MainAssemblyPath
+                                box config.UnpackSourceMap
+                                box config.UnpackTypeScript
+                                box (config.Mode = Mode.Debug)
+                            |]) :?> option<list<string>> with
+            | None -> C.Ok
+            | Some errs -> C.Errors errs
 
     let Parse (args: list<string>) =
         let trim (s: string) =
