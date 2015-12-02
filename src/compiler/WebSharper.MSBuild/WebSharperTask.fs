@@ -90,9 +90,7 @@ module WebSharperTaskModule =
             | "html" -> Html
             | "library" -> Library
             | "site" | "web" | "website" | "export" ->
-                match GetWebRoot settings with
-                | None -> Library
-                | Some dir -> Website dir
+                Website (defaultArg (GetWebRoot settings) settings.MSBuildProjectDirectory)
             | _ -> invalidArg "type" ("Invalid project type: " + proj)
 
     let Fail (settings: Settings) fmt =
