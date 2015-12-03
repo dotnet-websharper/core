@@ -90,6 +90,10 @@
       WebSharperProject="$(WebSharperProject)" />
   </Target>
   <Target Name="WebSharperUnpack" AfterTargets="Build">
+    <PropertyGroup>
+      <WebSharperOutputPath>$(OutputPath)</WebSharperOutputPath>
+      <WebSharperOutputPath Condition="'$(OutDir)' != ''">$(OutDir)</WebSharperOutputPath>
+    </PropertyGroup>
     <WebSharperTask Command="Unpack" ItemInput="@(WebSharperReference);@(ReferencePath)"
       Configuration="$(Configuration)"
       DocumentationFile="$(DocumentationFile)"
@@ -99,7 +103,7 @@
       Name="$(AssemblyName)"
       ContentFiles="@(Content);@(None);@(EmbeddedResource)"
       TargetFSharpCoreVersion="$(TargetFSharpCoreVersion)"
-      OutputPath="$(OutputPath)"
+      OutputPath="$(WebSharperOutputPath)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
