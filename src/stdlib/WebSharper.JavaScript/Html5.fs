@@ -692,6 +692,7 @@ module General =
             |> WithGetterInline "window"
             |> ObsoleteWithMessage "Use JS.Window instead."
         ]
+        |+> Dom.Interfaces.QuerySelectorMixin
         |+> Instance [
             "history" =? History
             "document" =? Dom.Interfaces.Document
