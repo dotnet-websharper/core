@@ -686,6 +686,7 @@ module General =
     let Window = 
         let f = Dom.Interfaces.Event ^-> T<unit>
         WindowProxyType
+        |=> Inherits Dom.Interfaces.EventTarget
         |+> Static [
             "self" =? WindowProxyType
             |> WithGetterInline "window"
