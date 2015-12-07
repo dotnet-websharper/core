@@ -342,7 +342,11 @@ module Definition =
         |+> Static
             [
                 "parse" => T<string> * !?T<obj->obj->bool>?reviver ^-> T<obj>
-                "stringify" => T<obj>?value * !?(T<obj->obj> + (Type.ArrayOf T<obj>))?replacer * !?(T<string> + T<int>)?space ^-> T<string>
+                "stringify" => T<obj>?value * (T<string>*T<obj>^->T<obj>)?replacer ^-> T<string>
+                |> WithInteropInline (fun p -> sprintf "JSON.stringify(%s,%s)" (p"value") (p"replacer"))
+                "stringify" => T<obj>?value * (T<string>*T<obj>^->T<obj>)?replacer * (T<string> + T<int>)?space ^-> T<string>
+                |> WithInteropInline (fun p -> sprintf "JSON.stringify(%s,%s,%s)" (p"value") (p"replacer") (p "space"))
+                "stringify" => T<obj>?value * !?(Type.ArrayOf T<obj>)?replacer * !?(T<string> + T<int>)?space ^-> T<string>
             ]
 
     let Namespaces =
