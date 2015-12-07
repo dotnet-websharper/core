@@ -82,6 +82,7 @@ type private AggregateExceptionProxy(message: string, innerExceptions: exn[]) =
 
 [<Proxy(typeof<System.TimeoutException>)>]
 [<Name "TimeoutException">]
+[<JavaScript>]
 type private TimeoutExceptionProxy(message: string) =
     inherit ExceptionProxy(message)
     
