@@ -71,12 +71,12 @@ type private AsyncProxy =
     [<Inline>]
     [<JavaScript>]
     static member AwaitEvent(ev: IEvent<'D,'T>, ?t: unit -> unit) : Async<'T> =
-        As (C.AwaitEvent (As ev))
+        As (C.AwaitEvent (As ev, t))
 
     [<Inline>]
     [<JavaScript>]
     static member StartChild(a: Async<'T>, ?timeOut: int) : Async<Async<'T>> =
-        As (C.StartChild (As a))
+        As (C.StartChild (As a, timeOut))
 
     [<Inline>]
     [<JavaScript>]
