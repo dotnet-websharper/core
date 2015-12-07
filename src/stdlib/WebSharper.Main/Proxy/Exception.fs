@@ -79,3 +79,10 @@ type private AggregateExceptionProxy(message: string, innerExceptions: exn[]) =
 
     member this.InnerExceptions 
         with [<Inline "$this.InnerExceptions">] get() = X<System.Collections.ObjectModel.ReadOnlyCollection<exn>>
+
+[<Proxy(typeof<System.TimeoutException>)>]
+[<Name "TimeoutException">]
+type private TimeoutExceptionProxy(message: string) =
+    inherit ExceptionProxy(message)
+    
+    new () = TimeoutExceptionProxy "The operation has timed out."
