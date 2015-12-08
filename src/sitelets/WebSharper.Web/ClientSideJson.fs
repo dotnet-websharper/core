@@ -319,13 +319,16 @@ module Macro =
                     ok (call "DateTime" [])
                 | T.Concrete (td, args) ->
                     match ctx.TryGetValue td with
-                    | true, (id, _) -> ok (J.Var id)
+                    | true, (id, e, _) ->
+                        ctx.[td] <- (id, e, true)
+                        ok (J.Var id)
                     | false, _ ->
                         let id = J.Id()
-                        ctx.[td] <- (id, !~J.Null)
+                        ctx.[td] <- (id, !~J.Null, false)
                         ((fun es ->
                             encRecType t args es >>= fun e ->
-                            ctx.[td] <- (id, e)
+                            let _, _, multiple = ctx.[td]
+                            ctx.[td] <- (id, e, multiple)
                             ok (J.Var id)
                          ), args)
                         ||> List.fold (fun k t es ->
@@ -454,26 +457,37 @@ module Macro =
                     fail (name + ": Type not supported: " + tt.FullName)
             match encode t with
             | Choice1Of2 x ->
-                match ctx.Count with
-                | 0 -> x
-                | 1 ->
-                    let (KeyValue(_, (id, e))) = Seq.head ctx
-                    J.Let(id, e, x)
-                | _ ->
+                if ctx |> Seq.forall (fun (KeyValue(_, (_, _, multiple))) -> not multiple) then
+                    // Every type is present only once and non-recursive;
+                    // no need for "let"s at all, we can just have one big expression.
+                    let rec sub x =
+                        let res =
+                            x |> J.Substitute (fun id ->
+                                ctx
+                                |> Array.ofSeq
+                                |> Array.tryPick (fun (KeyValue(k, (id', e, _))) ->
+                                    if id = id' then
+                                        ctx.Remove(k) |> ignore
+                                        Some e
+                                    else None))
+                        if ctx.Count = 0 then res else sub res
+                    sub x
+                else
                     J.LetRecursive(
-                        [for KeyValue(_, (id, e)) in ctx do
+                        let fld = !~(J.String "x")
+                        [for KeyValue(_, (id, e, multiple)) in ctx do
                             let xid = J.Id()
-                            yield xid, !~J.Null
-                            // function() { if (!xid) { xid = e() }; return xid; }
+                            // xid = {}
+                            yield xid, J.NewObject []
+                            // id = function() { if (!xid.x) { xid.x = e() }; return xid.x; }
                             yield id, J.Lambda(None, [],
                                 J.Sequential(
                                     J.IfThenElse(
-                                        J.Unary(J.UnaryOperator.``!``, J.Var xid),
-                                        J.VarSet(xid, J.Application(e, [])),
+                                        J.Unary(J.UnaryOperator.``!``, J.FieldGet(J.Var xid, fld)),
+                                        J.FieldSet(J.Var xid, fld, J.Application(e, [])),
                                         !~J.Null),
-                                    J.Var xid))
-                            ],
-                        x)
+                                    J.FieldGet(J.Var xid, fld)))
+                        ], x)
             | Choice2Of2 msg -> failwithf "%A: %s" t msg
 
         let encodeLambda name param tr t =
