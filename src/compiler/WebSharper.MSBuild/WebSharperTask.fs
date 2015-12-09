@@ -423,13 +423,14 @@ type WebSharperTask() =
                 let dir = Path.GetDirectoryName(loc)
                 let setup = AppDomainSetup(ConfigurationFile = Path.Combine(dir, config))
                 let ad = AppDomain.CreateDomain("WebSharperBuild", null, setup)
-                let proxy =
-                    // Force loading the right FSharp.Core.dll.
-                    let fscore =
-                        this.ItemInput |> Array.find (fun x ->
-                            Path.GetFileNameWithoutExtension(x.ItemSpec)
-                                .ToLowerInvariant() = "fsharp.core")
+                // Force loading the right FSharp.Core.dll.
+                this.ItemInput
+                |> Array.tryFind (fun x ->
+                    Path.GetFileNameWithoutExtension(x.ItemSpec)
+                        .ToLowerInvariant() = "fsharp.core")
+                |> Option.iter (fun fscore ->
                     ad.CreateInstanceFrom(fscore.ItemSpec, typeof<StructAttribute>.FullName)
+                    |> ignore)
                 let t = ad.CreateInstanceFromAndUnwrap(loc, typeof<Settings>.FullName, false, BindingFlags.CreateInstance, null, [||], null, null) :?> Settings
                 t, Some ad
         let res = this.DoExecute settings
