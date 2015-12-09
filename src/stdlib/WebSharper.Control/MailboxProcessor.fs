@@ -30,11 +30,6 @@ type private ChannelProxy<'T> =
     [<Inline "$this($res)">]
     member this.Reply(res: 'T) = X<unit>
 
-[<Proxy(typeof<System.TimeoutException>)>]
-type TimeoutExceptionProxy =
-    [<Inline "new Error(\"TimeoutException\")">]
-    new () = {}
-
 [<JavaScript>]
 [<Proxy(typeof<MailboxProcessor<_>>)>]
 [<Name "MailboxProcessor">]
