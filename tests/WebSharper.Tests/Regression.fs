@@ -155,6 +155,14 @@ module Bug446 =
 //        new v = { inherit BaseClass(v + 1); x = v }
 //        member this.OriginalValue = this.x
 
+[<JavaScript>]
+module Bug512 =
+    [<NamedUnionCases>]
+    type TestType =
+        | Float of Float:float
+        | Prod of Prod1:TestType * TestType
+        | Sum of Sum1:TestType * TestType
+
 // for bug #328
 type System.Object with
     [<Inline "$0.test">]
@@ -362,6 +370,15 @@ let Tests =
                     Console.Log("#479", e)
                     0, 0
             equal (test()) (5, 5)
+        }
+
+        Test "Bug #512" {
+            let v = Bug512.Prod(Bug512.Float(1.0),Bug512.Float(1.0));
+            let str = WebSharper.Json.Serialize v
+            let data2 = WebSharper.Json.Deserialize<Bug512.TestType> str
+            let str2 = WebSharper.Json.Serialize data2
+            equal v data2
+            equal str str2
         }
 
     }
