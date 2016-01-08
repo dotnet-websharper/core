@@ -304,15 +304,18 @@ module private MacroInternals =
                 ok (call "DateTime" [])
             | C (td, args) ->
                 match ctx.TryGetValue td with
-                | true, (id, _) -> ok (Var id)
+                | true, (id, e, _) ->
+                    ctx.[td] <- (id, e, true)
+                    ok (Var id)
                 | false, _ ->
                     let id = Id.New()
-                    ctx.[td] <- (id, !~Null)
+                    ctx.[td] <- (id, Value Null, false)
                     ((fun es ->
                         encRecType t args es >>= fun e ->
-                        ctx.[td] <- (id, e)
+                        let _, _, multiple = ctx.[td]
+                        ctx.[td] <- (id, e, multiple)
                         ok (Var id)
-                     ), args)
+                        ), args)
                     ||> List.fold (fun k t es ->
                         encode t >>= fun e -> k ((t, e) :: es))
                     <| []
@@ -413,26 +416,44 @@ module private MacroInternals =
                 fail (name + ": Type not supported: " + tt.FullName)
         match encode t with
         | Choice1Of2 x ->
-            match ctx.Count with
-            | 0 -> x
-            | 1 ->
-                let (KeyValue(_, (id, e))) = Seq.head ctx
-                Let(id, e, x)
-            | _ ->
+            if ctx |> Seq.forall (fun (KeyValue(_, (_, _, multiple))) -> not multiple) then
+                // Every type is present only once and non-recursive;
+                // no need for "let"s at all, we can just have one big expression.
+                let trI =
+                    { new Transformer() with
+                        override this.TransformVar id = 
+                            let repl =
+                                ctx
+                                |> Array.ofSeq
+                                |> Array.tryPick (fun (KeyValue(k, (id', e, _))) ->
+                                    if id = id' then
+                                        ctx.Remove(k) |> ignore
+                                        Some e
+                                    else None)    
+                            match repl with
+                            | Some e -> e
+                            | _ -> Var id
+                    }
+                let rec sub x =
+                    let res = trI.TransformExpression x 
+                    if ctx.Count = 0 then res else sub res
+                sub x
+            else
                 LetRec(
-                    [for KeyValue(_, (id, e)) in ctx do
+                    let fld = !~(String "x")
+                    [for KeyValue(_, (id, e, multiple)) in ctx do
                         let xid = Id.New()
-                        yield xid, !~ Null
-                        // function() { if (!xid) { xid = e() }; return xid; }
+                        // xid = {}
+                        yield xid, Object []
+                        // id = function() { if (!xid.x) { xid.x = e() }; return xid.x; }
                         yield id, Lambda([],
                             Sequential [
                                 Conditional(
-                                    Unary(UnaryOperator.``!``, Var xid),
-                                    VarSet(xid, Application(e, [])),
-                                    !~Null)
-                                Var xid ])
-                        ],
-                    x)
+                                    Unary(UnaryOperator.``!``, ItemGet(Var xid, fld)),
+                                    ItemSet(Var xid, fld, Application(e, [])),
+                                    !~Null);
+                                ItemGet(Var xid, fld)])
+                    ], x)
         | Choice2Of2 msg -> failwithf "%A: %s" t msg
 
 module Macro =

@@ -211,6 +211,12 @@ module Interfaces =
                     T<bool>?useCapture ^-> T<unit>
             ]
 
+    let QuerySelectorMixin =
+        Instance [
+            "querySelector" => T<string> ^-> Element
+            "querySelectorAll" => T<string> ^-> NodeList
+        ]
+
     let Node =
         Class "Node"
         |=> Inherits EventTarget
@@ -306,6 +312,7 @@ module Interfaces =
     let Element =
         Element
         |=> Inherits Node
+        |+> QuerySelectorMixin
         |+> Instance [
                 "schemaTypeInfo" =@ TypeInfo
                 "tagName" =@ T<string>

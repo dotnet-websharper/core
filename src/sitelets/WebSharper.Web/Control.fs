@@ -28,6 +28,32 @@ module R = WebSharper.Core.AST.Reflection
 
 open WebSharper.Core
 
+/// A server-side control that adds a runtime dependency on a given resource.
+type Require (t: System.Type) =
+    inherit System.Web.UI.Control()
+
+    let t = WebSharper.Core.Reflection.TypeDefinition.FromType t
+    let req = [WebSharper.Core.Metadata.ResourceNode t]
+
+    interface INode with
+        member this.Write(_, _) = ()
+        member this.IsAttribute = false
+        member this.AttributeValue = None
+        member this.Name = None
+
+    interface IRequiresResources with
+        member this.Encode(_, _) = []
+        member this.Requires = req :> _
+
+    override this.OnLoad _ =
+        this.ID <- ScriptManager.Find(base.Page).Register None this
+
+    override this.Render _ = ()
+
+/// A server-side control that adds a runtime dependency on a given resource.
+type Require<'T when 'T :> Resources.IResource>() =
+    inherit Require(typeof<'T>)
+
 /// A base class for defining custom ASP.NET controls. Inherit from this class,
 /// override the Body property and use the new class as a Server ASP.NET
 /// control in your application.

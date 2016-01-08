@@ -706,7 +706,7 @@ let getDiscriminatorName (t: System.Type) =
         else None)
 
 let inferredCasesTable t =
-    let cases =
+    let allCases =
         FST.GetUnionCases(t, flags)
         |> Array.map (fun c ->
             let fields = c.GetFields()
@@ -727,7 +727,7 @@ let inferredCasesTable t =
         cases
         |> Map.tryPick (fun t fs ->
             let allOtherFields =
-                cases
+                allCases
                 |> Seq.choose (fun (KeyValue(t', fs)) ->
                     if t = t' then None else Some fs)
                 |> Set.unionMany
@@ -744,7 +744,7 @@ let inferredCasesTable t =
             buildTable
                 <| (name, tag) :: acc
                 <| Map.remove tag cases
-    buildTable [] cases
+    buildTable [] allCases
 
 module Internal =
 

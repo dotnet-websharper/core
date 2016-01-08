@@ -686,11 +686,13 @@ module General =
     let Window = 
         let f = Dom.Interfaces.Event ^-> T<unit>
         WindowProxyType
+        |=> Inherits Dom.Interfaces.EventTarget
         |+> Static [
             "self" =? WindowProxyType
             |> WithGetterInline "window"
             |> ObsoleteWithMessage "Use JS.Window instead."
         ]
+        |+> Dom.Interfaces.QuerySelectorMixin
         |+> Instance [
             "history" =? History
             "document" =? Dom.Interfaces.Document
