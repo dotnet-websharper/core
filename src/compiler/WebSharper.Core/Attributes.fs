@@ -169,6 +169,6 @@ type DateTimeFormatAttribute =
     new (argumentName: string, format: string) = { inherit A() }
 
 /// Marks the entry point of a Single Page Application.
-[<Sealed; U(T.Method|||T.Property)>]
+[<Sealed; U(T.Method)>]
 type SPAEntryPointAttribute() = 
     inherit A()

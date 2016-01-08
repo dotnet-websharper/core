@@ -1,6 +1,7 @@
 ﻿namespace WebSharper.Compiler.FSharp
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open WebSharper.Compiler.ErrorPrinting
 
 open System.IO
 
@@ -11,31 +12,6 @@ type internal FSIFD = FSharpImplementationFileDeclaration
 type WebSharperFSharpCompiler(logger) =
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
 //    let service = SimpleSourceCodeServices()
-
-    let stringThatIsAProxyForANewlineInFlatErrors = new System.String[|char 29 |]
-    let NormalizeErrorString (text : string) =    
-        if text = null then nullArg "text"
-        let text = text.Trim()
-
-        let buf = System.Text.StringBuilder()
-        let mutable i = 0
-        while i < text.Length do
-            let delta = 
-                match text.[i] with
-                | '\r' when i + 1 < text.Length && text.[i + 1] = '\n' ->
-                    // handle \r\n sequence - replace it with one single space
-                    buf.Append(stringThatIsAProxyForANewlineInFlatErrors) |> ignore
-                    2
-                | '\n' ->
-                    buf.Append(stringThatIsAProxyForANewlineInFlatErrors) |> ignore
-                    1
-                | c ->
-                    // handle remaining chars: control - replace with space, others - keep unchanged
-                    let c = if System.Char.IsControl(c) then ' ' else c
-                    buf.Append(c) |> ignore
-                    1
-            i <- i + delta
-        buf.ToString()
 
     let fullpath cwd nm = 
         let p = if Path.IsPathRooted(nm) then nm else Path.Combine(cwd,nm)
@@ -61,7 +37,7 @@ type WebSharperFSharpCompiler(logger) =
                         
             eprintfn "%s%s%s" pos info (NormalizeErrorString err.Message)
 
-    member this.Compile (prevMeta, argv, path: string) = //, aR : IntelliFactory.Core.AssemblyResolution.AssemblyResolver) =
+    member this.Compile (prevMeta, argv, path: string, warnOnly) = 
 
         let started = System.DateTime.Now
 
@@ -95,12 +71,22 @@ type WebSharperFSharpCompiler(logger) =
                 sprintf "%s %s FS%04d: " err.Subcategory 
                     (if err.Severity = Microsoft.FSharp.Compiler.FSharpErrorSeverity.Warning then "warning" else "error") err.ErrorNumber
                         
-            eprintfn "%s%s%s" pos info (NormalizeErrorString err.Message)
+            eprintfn "%s%s%s" pos info (WebSharper.Compiler.ErrorPrinting.NormalizeErrorString err.Message)
             //printfn "%s" err.Message
 
         if checkFileResults.HasCriticalErrors then
-            failwith "FSharp compilation error"
-    
+            let comp = M.Compilation(M.empty)
+            for err in checkFileResults.Errors do
+                let pos =
+                    let fn = err.FileName
+                    if fn <> "unknown" && fn <> "startup" && fn <> "commandLineArgs" then
+                        let file = (fullpath projDir fn).Replace("/","\\")
+                        sprintf "%s (%d,%d)-(%d,%d): " file err.StartLineAlternate err.StartColumn err.EndLineAlternate err.EndColumn
+                    else ""
+                comp.AddError(None, M.SourceError (pos + err.Message))
+            comp
+        else
+
         let refMeta =   
             match prevMeta with
             | None -> M.empty
@@ -115,12 +101,9 @@ type WebSharperFSharpCompiler(logger) =
         logger <| sprintf "Parsing with FCS: %A" (ended - started)
         let started = ended 
 
-        let ended = System.DateTime.Now
-        logger <| sprintf "Metadata union: %A" (ended - started)
-        let started = ended 
-
         WebSharper.Compiler.ToJavaScript.ToJavaScript.CompileFull comp
         
+        let winfo = "WebSharper warning: "
         for posOpt, err in comp.Warnings do
             let pos =
                 match posOpt with
@@ -128,9 +111,9 @@ type WebSharperFSharpCompiler(logger) =
                     let file = (fullpath projDir p.FileName).Replace("/","\\")
                     sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
                 | None -> ""
-            let info = "WebSharper warning: "
-            eprintfn "%s%s%s" pos info (NormalizeErrorString (err.ToString()))
+            eprintfn "%s%s%s" pos winfo (NormalizeErrorString (err.ToString()))
 
+        let einfo = if warnOnly then "WebSharper warning: ERROR " else "WebSharper error: "
         for posOpt, err in comp.Errors do
             let pos =
                 match posOpt with
@@ -138,8 +121,7 @@ type WebSharperFSharpCompiler(logger) =
                     let file = (fullpath projDir p.FileName).Replace("/","\\")
                     sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
                 | None -> ""
-            let info = "WebSharper error: "
-            eprintfn "%s%s%s" pos info (NormalizeErrorString (err.ToString()))
+            eprintfn "%s%s%s" pos einfo (NormalizeErrorString (err.ToString()))
             
         let ended = System.DateTime.Now
         logger <| sprintf "Transforming: %A" (ended - started)

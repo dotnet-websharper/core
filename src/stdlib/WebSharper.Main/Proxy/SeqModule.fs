@@ -67,7 +67,10 @@ let Average<'T> (s: seq<'T>) : 'T =
             (fun (n, s) x -> (n + 1, s + As<float> x))
             (0, 0.)
             s
-    As<'T> (sum / As<float> count)
+    if count = 0 then
+        invalidArg "source" "The input sequence was empty."
+    else
+        As<'T> (sum / As<float> count)
 
 [<JavaScript>]
 [<Name "averageBy">]
@@ -77,7 +80,10 @@ let AverageBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
             (fun (n, s) x -> (n + 1, s + As<float> (f x)))
             (0, 0.)
             s
-    As<'U> (sum / As<float> count)
+    if count = 0 then
+        invalidArg "source" "The input sequence was empty."
+    else
+        As<'U> (sum / As<float> count)
 
 [<JavaScript>]
 [<Name "cache">]
@@ -192,6 +198,17 @@ let SplitInto count (s: seq<'T>) =
 [<JavaScript>]
 [<Name "empty">]
 let Empty<'T> : seq<'T> = [||] :> _
+
+[<JavaScript>]
+[<Name "exactlyOne">]
+let ExactlyOne<'T> (s: seq<'T>) =
+    use e = Enumerator.Get s
+    if e.MoveNext() then
+        let x = e.Current
+        if e.MoveNext() then
+            invalidOp "Sequence contains more than one element"
+        else x
+    else invalidOp "Sequence contains no elements"
 
 [<JavaScript>]
 [<Inline>]

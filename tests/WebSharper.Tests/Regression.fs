@@ -172,6 +172,12 @@ type System.Object with
     member this.TestMethod2 (x: int, y: int) = X<int[]>
 
 [<JavaScript>]
+module LetLambda =
+    let f =
+        ()
+        fun a b -> a + b
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -365,4 +371,16 @@ let Tests =
             equal (test()) (5, 5)
         }
 
+        Test "Match with as/when" {
+            let get y = 
+                match y with
+                | Some x as asWhenTest when x <> 1 -> asWhenTest
+                | _ -> None
+            equal (get (Some 1)) None
+            equal (get (Some 2)) (Some 2)
+        }
+
+//        Test "Module let function value" {
+//            equal ([ 1, 2; 3, 4 ] |> List.map (fun (a, b) -> LetLambda.f a b)) [ 3; 7 ]
+//        }
     }

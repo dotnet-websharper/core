@@ -24,4 +24,5 @@ open WebSharper
 
 [<Proxy(typeof<System.IObservable<_>>)>]
 type private IObservableProxy<'T> =
+    [<Name "Subscribe">]
     abstract member Subscribe : System.IObserver<'T> -> System.IDisposable

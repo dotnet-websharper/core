@@ -25,8 +25,7 @@ namespace WebSharper.InterfaceGenerator
 /// The meta-objects are defined with overloaded operators and
 /// helper types to support an F#-embedded DSL.
 module Type =
-//    module R = WebSharper.Core.Reflection
-    open WebSharper.Core
+    module R = WebSharper.Core.Reflection
 
     /// Represents type identifiers that are used to match types to classes.
     [<Sealed>]
@@ -53,7 +52,7 @@ module Type =
         | FunctionType of Function
         | GenericType of Id
         | SpecializedType of Type * list<Type>
-        | SystemType of AST.Type
+        | SystemType of R.Type
         | TupleType of list<Type>
         | UnionType of Type * Type
         | InteropType of Type * InlineTransforms
@@ -140,7 +139,7 @@ module Type =
                     Variable = None
                     Arguments =
                         match this with
-                        | SystemType t when t.AssemblyQualifiedName.StartsWith "Microsoft.FSharp.Core.Unit" ->
+                        | SystemType t when t.FullName = "Microsoft.FSharp.Core.Unit" ->
                             []
                         | TupleType ts ->
                             [ for t in List.rev ts ->
@@ -260,7 +259,7 @@ module Type =
     /// Constructs a new `TupleType`.
     let Tuple (ts: list<#IType>) =
         match [for x in List.rev ts -> x.Type] with
-        | []  -> SystemType AST.VoidType //(AST.SpecialTypes.Unit)
+        | []  -> SystemType (R.Type.FromType typeof<unit>)
         | [t] -> t
         | ts  -> TupleType ts
 
@@ -327,22 +326,22 @@ module Type =
     let (|Unit|NonUnit|) (t: Type) =
         match t with
         | (InteropType (SystemType t, _) | NoInteropType (SystemType t) | SystemType t)
-            when t.AssemblyQualifiedName.StartsWith "Microsoft.FSharp.Core.Unit" -> Unit
+            when t.FullName = "Microsoft.FSharp.Core.Unit" -> Unit
         | _ -> NonUnit
 
-    let Unit = SystemType AST.VoidType
+    let Unit = SystemType (R.Type.FromType typeof<unit>)
 
     /// Recognize arrays, tuples, functions and convert them to WIG Type representation.
     let rec Normalize (t: Type) : Type =
-        let rec normSys (t: AST.Type) : Type =
+        let rec normSys (t: R.Type) : Type =
             match t with
-            | AST.ArrayType (eT, rank) ->
+            | R.Type.Array (eT, rank) ->
                 ArrayType (rank, normSys eT)
-            | AST.TupleType ts ->
+            | R.Type.Concrete (tD, ts) when tD.FullName.StartsWith "System.Tuple" ->
                 TupleType (List.rev (List.map normSys ts))
-            | AST.FSharpFuncType (d, r) ->
+            | R.Type.Concrete (tD, [d; r]) when tD.FullName.StartsWith "Microsoft.FSharp.Core.FSharpFunc" ->
                 let ps =
-                    if d.AssemblyQualifiedName.StartsWith "Microsoft.FSharp.Core.Unit" then [] else
+                    if d.FullName = "Microsoft.FSharp.Core.Unit" then [] else
                         ["x", normSys d]
                 FunctionType {
                     ParamArray = None
@@ -350,8 +349,8 @@ module Type =
                     ReturnType = normSys r
                     Parameters = ps
                 }
-            | AST.ConcreteType { Entity = tD; Generics = ((x :: _) as ts) } ->
-                let def = normSys (AST.ConcreteType { Entity = tD; Generics = [] })
+            | R.Type.Concrete (tD, ((x :: _) as ts)) ->
+                let def = normSys (R.Type.Concrete (tD, []))
                 SpecializedType (def, List.map normSys ts)
             | _ ->
                 SystemType t
@@ -384,8 +383,8 @@ module Type =
         | BasicOverload of Type
         | FunctionOverload of list<Type> * option<Type>
 
-    let private (|SysObj|_|) (t: AST.Type) =
-        if t.AssemblyQualifiedName.StartsWith "System.Object" then Some () else None   
+    let private (|SysObj|_|) (t: R.Type) =
+        if t.FullName = "System.Object" then Some () else None   
 
     /// Computes the distinct overloads of a function type, eliminating the Union case.
     /// The returned list is always non-empty.
@@ -612,7 +611,7 @@ module Type =
         | InteropType (t, _)
         | NoInteropType t -> GetJSType t
         | SystemType t ->
-            match t.AssemblyQualifiedName with
+            match t.FullName with
             | StartsWith "System." n ->
                 match n with
                 | "Guid"

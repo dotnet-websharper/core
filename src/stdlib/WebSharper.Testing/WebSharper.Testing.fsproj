@@ -10,6 +10,7 @@
     <Compile Include="Random.fs" />
     <Compile Include="Pervasives.fs" />
     <Compile Include="Runner.fs" />
+    <Compile Include="CSharp.fs" />
     <Compile Include="Resources.fs" />
   </ItemGroup>
   <ItemGroup>

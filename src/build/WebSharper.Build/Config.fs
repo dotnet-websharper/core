@@ -23,10 +23,11 @@ namespace WebSharper.Build
 open System
 
 module Config =
-    let PackageId = "WebSharper"
-    let FSharpPackageId = "WebSharper.FSharp"
-    let CSharpPackageId = "WebSharper.CSharp"
-    let TestingPackageId = "WebSharper.Testing"
+    let PackageId = "Zafir"
+    let FSharpPackageId = "Zafir.FSharp"
+    let CSharpPackageId = "Zafir.CSharp"
+    let CompilerPackageId = "Zafir.Compiler"
+    let TestingPackageId = "Zafir.Testing"
     let PlainVersion = "4.0"
     let PackageVersion = PlainVersion
     let NumericVersion = Version(PlainVersion + ".0.0")
@@ -36,6 +37,7 @@ module Config =
     let FSharpDescription = "F#-to-JavaScript compiler"
     let CSharpDescription = "C#-to-JavaScript compiler"
     let TestingDescription = "Testing framework for F#-to-JavaScript compiled libraries"
+    let CompilerDescription = "Compiler libraries for C#/F#-to-JavaScript translation"
     let LicenseUrl = "http://websharper.com/licensing"
     let Tags = ["Web"; "JavaScript"; "F#"]
     let Website = "http://bitbucket.org/IntelliFactory/websharper"

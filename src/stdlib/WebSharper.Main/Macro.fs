@@ -656,3 +656,96 @@ type PrintF() =
                 t.Generics.Head |> getFunctionArgs |> List.map Reflection.loadType
             createPrinter ts fs |> MacroOk
         | _ -> MacroError "printfMacro error"
+
+[<A.JavaScript>]
+type private EquatableEqualityComparer<'T when 'T :> System.IEquatable<'T>>() =
+    inherit System.Collections.Generic.EqualityComparer<'T>()
+    override this.Equals(x, y) = (x :> System.IEquatable<_>).Equals(y)
+    override this.GetHashCode(x) = (box x).GetHashCode()
+
+[<A.JavaScript>]
+type private BaseEqualityComparer<'T>() =
+    inherit System.Collections.Generic.EqualityComparer<'T>()
+    override this.Equals(x, y) = obj.Equals(box x, box y)
+    override this.GetHashCode(x) = (box x).GetHashCode()
+
+[<Sealed>]
+type EqualityComparer() =
+    inherit Macro()
+
+    static member Default(t: Type) =
+        match t with
+        | GenericType _ -> MacroNeedsResolvedTypeArg
+        | t ->
+            let isEquatable =
+                match (Reflection.loadType t).GetInterface("System.IEquatable`1") with
+                | null -> false
+                | _ -> true
+            let td : TypeDefinitionInfo =
+                { Assembly = "WebSharper.Main"
+                  FullName =
+                    if isEquatable then
+                        "WebSharper.IComparableMacros.EquatableEqualityComparer`1"
+                    else
+                        "WebSharper.IComparableMacros.BaseEqualityComparer`1" }
+            Ctor(
+                {Entity = Hashed td; Generics = [t]},
+                Hashed<ConstructorInfo> { CtorParameters = [] },
+                [])
+            |> MacroOk
+
+    override this.TranslateCall(_,t,m,_,_) =
+        match m.Entity.Value.MethodName with
+        | "get_Default" -> EqualityComparer.Default t.Generics.[0]
+        | _ -> MacroError "Not implemented"
+
+/// Returns 0 for number types, undefined for others.
+/// TODO: this is wrong for non-number value types!
+/// TODO: also always returns undefined when called generically.
+[<Sealed>]
+type DefaultOf() =
+    inherit Macro()
+
+    let isNumberType (t: AST.Type) =
+        match t with
+        | AST.ConcreteType td when
+            (td.Entity.Value.Assembly.StartsWith "mscorlib" &&
+                match td.Entity.Value.FullName with
+                | "System.SByte"
+                | "System.Byte"
+                | "System.Int16"
+                | "System.UInt16"
+                | "System.Int32"
+                | "System.UInt32"
+                | "System.Int64"
+                | "System.UInt64"
+                | "System.Decimal"
+                | "System.Single"
+                | "System.Double"
+                | "System.DateTime"
+                | "System.TimeSpan" -> true
+                | _ -> false)
+            -> true
+        | _ -> false
+
+    override __.TranslateCall(_, _, m, _, _) =
+        match m.Generics.[0] with
+        | AST.ConcreteType td when
+            (td.Entity.Value.Assembly.StartsWith "mscorlib" &&
+                match td.Entity.Value.FullName with
+                | "System.SByte"
+                | "System.Byte"
+                | "System.Int16"
+                | "System.UInt16"
+                | "System.Int32"
+                | "System.UInt32"
+                | "System.Int64"
+                | "System.UInt64"
+                | "System.Decimal"
+                | "System.Single"
+                | "System.Double"
+                | "System.DateTime"
+                | "System.TimeSpan" -> true
+                | _ -> false)
+            -> MacroOk (AST.Value (AST.Int 0))
+        | _ -> MacroOk AST.Undefined

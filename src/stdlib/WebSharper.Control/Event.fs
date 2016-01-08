@@ -30,7 +30,7 @@ module internal Event =
         [<JavaScript>]
         member this.Trigger(x: 'T) =
             for h in this.Handlers.ToArray() do
-                (As<'T -> unit> h) x
+                h.Invoke(null, x)
 
         [<JavaScript>]
         member this.AddHandler(h: Handler<'T>) =

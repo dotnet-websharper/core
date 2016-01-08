@@ -116,6 +116,13 @@ IntelliFactory = {
             return function () { return f([Array.prototype.slice.call(arguments, 0, length), Array.prototype.slice.call(arguments, length)]) };
         },
 
+        InvokeDelegate: function (del, args) {
+            var res;
+            for (var i = 0; i < del.length; i++)
+                res = del[i].apply(null, args);
+            return res;
+        },
+
         UnionByType: function (types, value, optional) {
             var vt = typeof value;
             for (var i = 0; i < types.length; i++) {

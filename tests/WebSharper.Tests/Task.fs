@@ -44,7 +44,10 @@ let Tests =
 
         Test "Failed" {
             let task = Task.Run(fun () -> failwith<unit> "error")
-            do! Async.AwaitTask task
+            do! async { 
+                try do! Async.AwaitTask task
+                with _ -> ()
+            }
             isTrue task.IsCompleted
             isTrue task.IsFaulted
             isFalse task.IsCanceled
@@ -54,13 +57,13 @@ let Tests =
         Test "StartAsTask" {
             let task = Async.StartAsTask (async {return 2 })
             let! taskRes = Async.AwaitTask task
-            equal task.Result 2
+            equal taskRes 2
 
             let task2 = Async.StartAsTask (async { failwith "error" })
             let! task2Error =
                 async {
                     try
-                        let! taskRes = Async.AwaitTask task
+                        let! _ = Async.AwaitTask task2
                         return Some "awaiting failing task should fail"
                     with 
                     | (:? System.AggregateException as e) ->                        

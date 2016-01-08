@@ -26,10 +26,8 @@
     <TargetFSharpCoreVersion Condition=" '$(FSharp40)' == 'True' ">4.4.0.0</TargetFSharpCoreVersion>
     <TargetFSharpCoreVersion Condition=" '$(FSharp40)' != 'True' ">4.3.0.0</TargetFSharpCoreVersion>
     <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == ''">v4.0</TargetFrameworkVersion>
-<!--
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' != '' ">$(INTELLIFACTORY)/keys/IntelliFactory.snk</KeyOriginatorFile>
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' == '' ">$(MSBuildThisFileDirectory)/../tools/WebSharper.snk</KeyOriginatorFile>
--->
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Root>$(MSBuildThisFileDirectory)\..</Root>
@@ -38,19 +36,12 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
-<!--
-    <Reference Include="FSharp.Core, Version=4.3.0.0" Condition=" '$(PrivateFSharpCore)' == 'True' ">
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="FSharp.Core, Version=4.3.0.0" Condition=" '$(PrivateFSharpCore)' != 'True' And '$(FSharp40)' != 'True' " />
-    <Reference Include="FSharp.Core, Version=4.4.0.0" Condition=" '$(FSharp40)' == 'True' ">
-      <Private>False</Private>
-    </Reference>
--->
     <Reference Include="FSharp.Core, Version=4.3.0.0" Condition=" '$(FSharp40)' != 'True' ">
+      <HintPath>..\packages\FSharp.Core.3.0.2\lib\net40\FSharp.Core.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="FSharp.Core, Version=4.4.0.0" Condition=" '$(FSharp40)' == 'True' ">
+      <HintPath>..\packages\FSharp.Core.4.0.0.1\lib\net40\FSharp.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
@@ -83,6 +74,7 @@
   <PropertyGroup Condition=" '$(FSharp40)' == 'True' ">
     <DefineConstants>$(DefineConstants);FSHARP40</DefineConstants>
 	<TargetFrameworkVersion Condition=" $(TargetFrameworkVersion) == '' ">v4.5</TargetFrameworkVersion>
+	<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <Target Name="IncludeVersionFile" BeforeTargets="CoreCompile">
     <ItemGroup>

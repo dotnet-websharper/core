@@ -62,6 +62,17 @@ type private ArgumentExceptionProxy(message: string) =
     
     new () = ArgumentExceptionProxy "Value does not fall within the expected range."
 
+    new (argumentName: string, message: string) =
+        ArgumentExceptionProxy (message + "\nParameter name: " + argumentName)
+
+[<Proxy(typeof<System.ArgumentOutOfRangeException>)>]
+[<Name "ArgumentOutOfRangeException">]
+[<JavaScript>]
+type private ArgumentOutOfRangeExceptionProxy(message: string) =
+    inherit ArgumentExceptionProxy(message)
+    
+    new () = ArgumentOutOfRangeExceptionProxy "Specified argument was out of the range of valid values."
+
 [<Proxy(typeof<System.InvalidOperationException>)>]
 [<Name "InvalidOperationException">]
 [<JavaScript>]
@@ -86,8 +97,9 @@ type private AggregateExceptionProxy(message: string, innerExceptions: exn[]) =
 
     new (message, innerException: exn) = AggregateExceptionProxy(message, [| innerException |])
 
+    [<Inline>]
     member this.InnerExceptions 
-        with [<Inline "$this.InnerExceptions">] get() = X<System.Collections.ObjectModel.ReadOnlyCollection<exn>>
+        with get() = As<System.Collections.ObjectModel.ReadOnlyCollection<exn>> innerExceptions
 
 [<Proxy(typeof<System.TimeoutException>)>]
 [<Name "TimeoutException">]

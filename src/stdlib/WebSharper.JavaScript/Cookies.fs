@@ -21,8 +21,7 @@ let Cookies =
     Class "Cookies"
     |=> Nested [Options]
     |+> Static [
-        "get" => T<string>?key ^-> T<option<string>>
-        |> WithInline "$wsruntime.GetOptional(Cookies.get($key))"
+        "get" => T<string>?key ^-> !?T<string>
         "set" => T<string>?key * T<string>?value * !?Options ^-> T<unit>
         "expire" => T<string>?key * !?Options ^-> T<unit>
         "defaults" =? Options

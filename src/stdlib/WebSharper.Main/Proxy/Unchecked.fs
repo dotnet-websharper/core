@@ -95,6 +95,7 @@ let Compare<'T> (a: 'T) (b: 'T) : int =
             else objCompare a b
 
 /// Produces an undefined value.
+[<Macro(typeof<Macro.DefaultOf>)>]
 [<Inline "undefined">]
 let DefaultOf<'T> = X<'T>
 

@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.23107.0
+VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}"
 EndProject
@@ -137,6 +137,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebSharper.CSharp.Tests", "tests\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj", "{C78F4FFD-9C51-466B-8E35-99588A419D60}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.MSBuild.CSharp", "src\compiler\WebSharper.MSBuild.CSharp\WebSharper.MSBuild.CSharp.fsproj", "{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.CSharp", "src\compiler\WebSharper.CSharp\WebSharper.CSharp.fsproj", "{46D8C7C3-43CA-465C-9714-20B22CF3E459}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Sitelets.Offline", "src\sitelets\WebSharper.Sitelets.Offline\WebSharper.Sitelets.Offline.fsproj", "{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -325,6 +329,18 @@ Global
 		{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}.DebugTests|Any CPU.Build.0 = Debug|Any CPU
 		{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{46D8C7C3-43CA-465C-9714-20B22CF3E459}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{46D8C7C3-43CA-465C-9714-20B22CF3E459}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{46D8C7C3-43CA-465C-9714-20B22CF3E459}.DebugTests|Any CPU.ActiveCfg = Debug|Any CPU
+		{46D8C7C3-43CA-465C-9714-20B22CF3E459}.DebugTests|Any CPU.Build.0 = Debug|Any CPU
+		{46D8C7C3-43CA-465C-9714-20B22CF3E459}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{46D8C7C3-43CA-465C-9714-20B22CF3E459}.Release|Any CPU.Build.0 = Release|Any CPU
+		{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}.DebugTests|Any CPU.ActiveCfg = Debug|Any CPU
+		{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}.DebugTests|Any CPU.Build.0 = Debug|Any CPU
+		{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -365,5 +381,7 @@ Global
 		{615AEA64-16EC-49BC-AFB4-36211F6354CC} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{C78F4FFD-9C51-466B-8E35-99588A419D60} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{B5503FD3-638E-4E54-96FC-1AFFD780E9E9} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
+		{46D8C7C3-43CA-465C-9714-20B22CF3E459} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
+		{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC} = {70FEE852-57E6-4910-B4A8-E1B6D0F159E3}
 	EndGlobalSection
 EndGlobal

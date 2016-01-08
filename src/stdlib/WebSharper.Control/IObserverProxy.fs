@@ -24,6 +24,9 @@ open WebSharper
 
 [<Proxy(typeof<System.IObserver<_>>)>]
 type private IObserverProxy<'T> =
+    [<Name "OnCompleted">]
     abstract member OnCompleted : unit -> unit
+    [<Name "OnError">]
     abstract member OnError : exn -> unit
+    [<Name "OnNext">]
     abstract member OnNext : 'T -> unit

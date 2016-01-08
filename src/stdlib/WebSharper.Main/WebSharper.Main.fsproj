@@ -10,18 +10,18 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="JavaScript.fs" />
+    <Compile Include="Macro.fsi" />
+    <Compile Include="Macro.fs" />
+    <Compile Include="Pervasives.fs" />
+    <Compile Include="JavaScript.Pervasives.fs" />
     <EmbeddedResource Include="Json.js" />
     <EmbeddedResource Include="Json.min.js" />
     <Compile Include="Json.fsi" />
     <Compile Include="Json.fs" />
     <Compile Include="Remoting.fsi" />
     <Compile Include="Remoting.fs" />
-    <Compile Include="Macro.fsi" />
-    <Compile Include="Macro.fs" />
-    <Compile Include="Pervasives.fs" />
     <EmbeddedResource Include="AnimFrame.js" />
     <EmbeddedResource Include="AnimFrame.min.js" />
-    <Compile Include="JavaScript.Pervasives.fs" />
     <Compile Include="PrintfHelpers.fs" />
     <Compile Include="Concurrency.fs" />
     <Compile Include="Enumerator.fs" />
@@ -42,6 +42,7 @@
     <Compile Include="Proxy/Choice.fs" />
     <Compile Include="Proxy/CommonExtensions.fs" />
     <Compile Include="Proxy/DateTime.fs" />
+    <Compile Include="Proxy/Delegate.fs" />
     <Compile Include="Proxy/Double.fs" />
     <Compile Include="Proxy/Enum.fs" />
     <Compile Include="Proxy/Exception.fs" />
@@ -99,7 +100,6 @@
       <Project>{730ae40a-001c-4137-972d-898dc7c2bf0a}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <Reference Include="FSharp.Data.TypeProviders" />
     <Reference Include="System.Data" />
     <Reference Include="System.Data.Linq" />
   </ItemGroup>

@@ -9,6 +9,7 @@
     <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <OutputType>Library</OutputType>
     <WebSharperProject>Library</WebSharperProject>
+    <WebSharperErrorsAsWarnings>True</WebSharperErrorsAsWarnings>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>WebSharper.CSharp.Tests</RootNamespace>
     <AssemblyName>WebSharper.CSharp.Tests</AssemblyName>
@@ -26,9 +27,12 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Arithmetic.cs" />
     <Compile Include="Class1.cs" />
     <Compile Include="Interop.cs" />
+    <Compile Include="Linq.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Tests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">

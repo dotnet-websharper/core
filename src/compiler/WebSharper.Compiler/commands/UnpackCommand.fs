@@ -91,6 +91,7 @@ module UnpackCommand =
             Content.Text(text).WriteFile(output)
         let writeBinaryFile (output, bytes) =
             Binary.FromBytes(bytes).WriteFile(output)
+        System.IO.Directory.CreateDirectory cmd.RootDirectory |> ignore
         let pc = PC.PathUtility.FileSystem(cmd.RootDirectory)
         let aR = aR.SearchPaths(cmd.Assemblies)
         let loader = Loader.Create aR stderr.WriteLine

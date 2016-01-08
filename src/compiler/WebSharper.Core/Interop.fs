@@ -26,67 +26,59 @@ open WebSharper.Core.Attributes
 exception ClientSideOnly
     with override this.Message = "This function is intended for client-side use only."
 
-[<AutoOpen>]
-module Pervasives =
-    /// Specifies a value intended for client-side use only, so that there is no
-    /// .NET implementation.
-    /// Raises a WebSharper.JavaScript.ClientSideOnly exception.
-    let X<'T> : 'T = 
-        raise ClientSideOnly
-
 type private PA = System.ParamArrayAttribute
 
 type Function([<System.ParamArray>] paramsAndBody: string[]) =
-    member this.Length = X<int>
-    member this.ApplyUnsafe(thisArg: obj) = X<obj>
-    member this.ApplyUnsafe(thisArg: obj, argsArray: obj[]) = X<obj>
-    member this.CallUnsafe(thisArg: obj, [<PA>] args: obj[]) = X<obj>
-    member this.BindUnsafe(thisArg: obj, [<PA>] args: obj[]) = X<Function>
+    member this.Length = raise ClientSideOnly : int
+    member this.ApplyUnsafe(thisArg: obj) = raise ClientSideOnly : obj
+    member this.ApplyUnsafe(thisArg: obj, argsArray: obj[]) = raise ClientSideOnly : obj
+    member this.CallUnsafe(thisArg: obj, [<PA>] args: obj[]) = raise ClientSideOnly : obj
+    member this.BindUnsafe(thisArg: obj, [<PA>] args: obj[]) = raise ClientSideOnly : Function
     
     /// Type cast.
     /// Warning: a tupled F# function is translated to JavaScript as a function with a single array argument.
-    static member Of<'T, 'U>(func: 'T -> 'U) = X<Function>
+    static member Of<'T, 'U>(func: 'T -> 'U) = raise ClientSideOnly : Function
 
 type FuncWithArgs<'TArgs, 'TResult>(func: 'TArgs -> 'TResult) =
     inherit Function()    
-    member this.Call(args: 'Args) = X<'TResult>
+    member this.Call(args: 'Args) = raise ClientSideOnly : 'TResult
 
 type FuncWithThis<'TThis, 'TFunc>(func: 'TThis -> 'TFunc) =
     inherit Function()
-    member this.Bind (thisArg: 'TThis) = X<'TFunc>
+    member this.Bind (thisArg: 'TThis) = raise ClientSideOnly : 'TFunc
 
 type FuncWithOnlyThis<'TThis, 'TResult>(func: 'TThis -> 'TResult) =
-    inherit FuncWithThis<'TThis, unit -> 'TResult>(X)
-    member this.Bind (thisArg: 'TThis) = X<'TFunc>
+    inherit FuncWithThis<'TThis, unit -> 'TResult>(raise ClientSideOnly)
+    member this.Bind (thisArg: 'TThis) = raise ClientSideOnly : 'TFunc
 
 type FuncWithRest<'TRest, 'TResult>(func: 'TRest[] -> 'TResult) =
     inherit Function()
-    member this.Call ([<PA>] rest: 'TRest[]) = X<'TResult>
+    member this.Call ([<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
 
 type FuncWithRest<'TArg, 'TRest, 'TResult>(func: 'TArg * 'TRest[] -> 'TResult) =
     inherit Function()
-    member this.Call (arg: 'TArg, [<PA>] rest: 'TRest[]) = X<'TResult>
+    member this.Call (arg: 'TArg, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
 
 type FuncWithRest<'TArg1, 'TArg2, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TRest[] -> 'TResult) =
     inherit Function()
-    member this.Call (arg1: 'TArg1, arg2: 'TArg2, [<PA>] rest: 'TRest[]) = X<'TResult>
+    member this.Call (arg1: 'TArg1, arg2: 'TArg2, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
 
 type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TRest[] -> 'TResult) =
     inherit Function()
-    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, [<PA>] rest: 'TRest[]) = X<'TResult>
+    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
 
 type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TRest[] -> 'TResult) =
     inherit Function()
-    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, [<PA>] rest: 'TRest[]) = X<'TResult>
+    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
 
 type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TArg5 * 'TRest[] -> 'TResult) =
     inherit Function()
-    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, [<PA>] rest: 'TRest[]) = X<'TResult>
+    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
 
 type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TArg6, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TArg5 * 'TArg6 * 'TRest[] -> 'TResult) =
     inherit Function()
-    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, arg6: 'TArg6, [<PA>] rest: 'TRest[]) = X<'TResult>
+    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, arg6: 'TArg6, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
 
 type FuncWithArgsRest<'TArgs, 'TRest, 'TResult>(func: 'TArgs * 'TRest[] -> 'TResult) =
     inherit Function()
-    member this.Call (args: 'TArgs, [<PA>] rest: 'TRest[]) = X<'TResult>
+    member this.Call (args: 'TArgs, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult

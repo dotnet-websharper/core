@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module WebSharper.Tests.Interop
+module WebSharper.Collections.Tests.Interop
 
 open WebSharper
 
@@ -36,6 +36,7 @@ type Record =
         match this with
         | {B = b} -> b
 
+[<JavaScript>]
 type Union =
     | A of int
     | B of string

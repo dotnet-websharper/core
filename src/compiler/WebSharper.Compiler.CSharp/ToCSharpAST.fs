@@ -62,8 +62,8 @@ type CSharpMethod =
     }  
 
 type CSharpConstructorInitializer =
-    | ThisInitializer of list<Expression>
-    | BaseInitializer of list<Expression>
+    | ThisInitializer of Constructor * list<Expression>
+    | BaseInitializer of Concrete<TypeDefinition> * Constructor * list<Expression>
 
 type CSharpConstructor =
     {
@@ -111,8 +111,7 @@ let withExprSourcePos (x: CSharpSyntaxNode) expr =
 let withStatementSourcePos (x: CSharpSyntaxNode) statement =
     StatementSourcePos (getSourcePos x, statement)
 
-exception TransformError of obj * message: string
-    with
+exception TransformError of obj * message: string with
     override this.Message = this.message    
 
 let inline err node message = raise (TransformError (node, message)) 
@@ -121,6 +120,9 @@ let inline errf node x = Printf.kprintf (err node) x
 let inline TODO() = failwith "TODO" 
 
 let rec getNamedTypeDefinition (x: INamedTypeSymbol) =
+    let arity (symbol: INamedTypeSymbol) =
+        match symbol.Arity with 0 -> "" | a -> "`" + string a    
+
     let rec getNamespaceOrTypeAddress acc (symbol: INamespaceOrTypeSymbol) =
         match symbol.ContainingNamespace with
         | null -> acc |> String.concat "."
@@ -129,14 +131,14 @@ let rec getNamedTypeDefinition (x: INamedTypeSymbol) =
     let rec getTypeAddress acc (symbol: INamedTypeSymbol) =
         match symbol.ContainingType with
         | null -> 
-            let ns = getNamespaceOrTypeAddress [] symbol
+            let ns = getNamespaceOrTypeAddress [] symbol + arity symbol
             if List.isEmpty acc then ns else
                 ns :: acc |> String.concat "+" 
-        | t -> getTypeAddress (symbol.Name :: acc) t           
+        | t -> getTypeAddress (symbol.Name + arity symbol :: acc) t           
 
     Hashed {
         Assembly = x.ContainingAssembly.Identity.Name
-        FullName = (getTypeAddress [] x) + (match x.Arity with 0 -> "" | a -> "`" + string a)
+        FullName = getTypeAddress [] x //) + arity x
     }
 
 and getNamedType (x: INamedTypeSymbol) = 
@@ -196,30 +198,31 @@ let getConstructor (x: IMethodSymbol) =
 
 let getMember (x: IMethodSymbol) =
     let name = x.Name
-    let getParams() = x.Parameters |> Seq.map (fun p -> getType p.Type) |> List.ofSeq
     match name with
     | ".ctor" ->
         Member.Constructor <| Hashed {
-            CtorParameters = getParams()
+            CtorParameters = x.Parameters |> Seq.map (fun p -> getType p.Type) |> List.ofSeq
         }
     | ".cctor" -> Member.StaticConstructor
     | _ ->
-        let meth =
+        let getMeth (x: IMethodSymbol) =
             Hashed {
-        //        DefinedBy = getNamedType x.ContainingType 
                 MethodName = x.Name
-                Parameters = getParams()
+                Parameters = x.Parameters |> Seq.map (fun p -> getType p.Type) |> List.ofSeq
                 ReturnType = x.ReturnType |> getType
                 Generics = x.Arity
             }
         if x.IsOverride then
-            Member.Override(getNamedTypeDefinition x.OverriddenMethod.ContainingType, meth)
+            let o = x.OverriddenMethod.OriginalDefinition
+            Member.Override(getNamedTypeDefinition o.ContainingType, getMeth o)
         // TODO: more explicit implementations
         // TODO: implicit interface implementations?
         elif x.ExplicitInterfaceImplementations.Length > 0 then
-            Member.Implementation(getNamedTypeDefinition x.ExplicitInterfaceImplementations.[0].ContainingType, meth)
+            let o = x.ExplicitInterfaceImplementations.[0].OriginalDefinition
+            Member.Implementation(getNamedTypeDefinition o.ContainingType, getMeth o)
         else
-            Member.Method (not x.IsStatic, meth)
+            let o = x.OriginalDefinition
+            Member.Method (not o.IsStatic, getMeth o)
 
 //let getField (x: IFieldSymbol) =
 //    Hashed {
@@ -250,11 +253,20 @@ let hasSignature (s: Method) (x: IMethodSymbol) =
     && x.Parameters |> Seq.map (fun p -> getType p.Type) |> Seq.equals s.Parameters     
   
 let transformIdentifierName (env: Environment) (x: IdentifierNameData) : Expression =
-    let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol 
+    let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol
     match symbol with
     | :? ILocalSymbol as s -> Var env.Vars.[s]
     | :? IParameterSymbol as p -> Var env.Parameters.[p]
     | :? IFieldSymbol as f -> FieldGet(Some This, getNamedType f.ContainingType, f.Name) 
+    | :? IMethodSymbol as m -> 
+        let conv = env.SemanticModel.GetConversion(x.Node)
+        if not conv.Exists || conv.IsIdentity then This
+        elif conv.IsMethodGroup then
+            let typ = getNamedType symbol.ContainingType
+            let ma = m.TypeArguments |> Seq.map getType |> List.ofSeq
+            let meth = concrete (getMethod m, ma)
+            NewDelegate(Some This, typ, meth)
+        else failwithf "transformIdentifierName: unhandled IMethodSymbol conversion: %A" conv 
     | _ -> 
         err x.Node (sprintf "transformIdentifierName: Local variable not found, symbol type: %s, name: %s" 
             (symbol.GetType().FullName) symbol.Name)
@@ -323,14 +335,21 @@ and transformSimpleName (env: Environment) (x: SimpleNameData) : Expression =
 
 and transformInvocationExpression (env: Environment) (x: InvocationExpressionData) : Expression =
     let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol.OriginalDefinition :?> IMethodSymbol
+    let symbol, isExtensionMethod =
+        match symbol.ReducedFrom with
+        | null -> symbol, false
+        | symbol -> symbol, true
     let typ = getNamedType symbol.ContainingType
     let ma = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
     let meth = concrete (getMethod symbol, ma)
     let argumentList = x.ArgumentList |> transformArgumentList env
-    if symbol.IsStatic then
+    if isExtensionMethod then
+        let expression = x.Expression |> transformExpression env
+        Call(None, typ, meth, expression :: argumentList)
+    elif symbol.IsStatic then
         Call(None, typ, meth, argumentList)
     else        
-        let expression =  x.Expression |> transformExpression env
+        let expression = x.Expression |> transformExpression env
         Call(Some expression, typ, meth, argumentList)
     |> withExprSourcePos x.Node
 
@@ -455,9 +474,16 @@ and transformExpressionStatement (env: Environment) (x: ExpressionStatementData)
     x.Expression |> transformExpression env |> ExprStatement
 
 and transformVariableDeclarator (env: Environment) (x: VariableDeclaratorData) : Id * Expression =    
-    let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node) :?> ILocalSymbol
-    let id = Id.New(symbol.Name)
-    env.Vars.Add(symbol, id)
+    let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node) //:?> ILocalSymbol
+    let id = 
+        match symbol with
+        | :? ILocalSymbol as s ->
+            let id = Id.New(s.Name)
+            env.Vars.Add(s, id)
+            id 
+        | :? IFieldSymbol as s ->
+            Id.New(s.Name)
+        | _ -> failwithf "transformVariableDeclarator: invalid symbol type %A" symbol
     let initializer = 
         match x.Initializer with
         | Some i -> i |> transformEqualsValueClause env
@@ -557,11 +583,16 @@ and transformParenthesizedExpression (env: Environment) (x: ParenthesizedExpress
     x.Expression |> transformExpression env
 
 and transformBinaryExpression (env: Environment) (x: BinaryExpressionData) : Expression =
-    let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol.OriginalDefinition :?> IMethodSymbol
-    let typ = getNamedType symbol.ContainingType
-    let oa = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
-    let operator = concrete (getMethod symbol, oa)
     let left = x.Left |> transformExpression env
+    match x.Kind with
+    | BinaryExpressionKind.IsExpression -> 
+        let rightType = env.SemanticModel.GetTypeInfo(x.Right.Node).ConvertedType |> getType
+        TypeCheck (left, rightType)
+    | BinaryExpressionKind.AsExpression -> 
+        let rightType = env.SemanticModel.GetTypeInfo(x.Right.Node).ConvertedType |> getType
+        let asVar = Id.New "$as"
+        Let (asVar, left, Conditional (TypeCheck (Var asVar, rightType), Var asVar, Value Null))
+    | _ ->
     let right = x.Right |> transformExpression env
     match x.Kind with
     | BinaryExpressionKind.LogicalOrExpression ->
@@ -571,9 +602,11 @@ and transformBinaryExpression (env: Environment) (x: BinaryExpressionData) : Exp
     | BinaryExpressionKind.CoalesceExpression ->
         let leftType = env.SemanticModel.GetTypeInfo(x.Left.Node).ConvertedType |> getType
         Coalesce(left, leftType, right)
-//    | BinaryExpressionKind.IsExpression -> TODO()
-//    | BinaryExpressionKind.AsExpression -> TODO()
     | _ -> 
+        let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol.OriginalDefinition :?> IMethodSymbol
+        let typ = getNamedType symbol.ContainingType
+        let oa = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
+        let operator = concrete (getMethod symbol, oa)
         Call(None, typ, operator, [left; right])
     |> withExprSourcePos x.Node
 
@@ -668,9 +701,12 @@ and transformConstructorDeclaration (env: Environment) (x: ConstructorDeclaratio
 
 and transformConstructorInitializer (env: Environment) (x: ConstructorInitializerData) : _ =
     let argumentList = x.ArgumentList |> transformArgumentList env
+    let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
     match x.Kind with
-    | ConstructorInitializerKind.BaseConstructorInitializer -> BaseInitializer argumentList
-    | ConstructorInitializerKind.ThisConstructorInitializer -> ThisInitializer argumentList
+    | ConstructorInitializerKind.BaseConstructorInitializer -> 
+        BaseInitializer (getNamedType symbol.ContainingType, getConstructor symbol, argumentList)
+    | ConstructorInitializerKind.ThisConstructorInitializer -> 
+        ThisInitializer (getConstructor symbol, argumentList)
 
 and transformAccessorDeclaration (env: Environment) (x: AccessorDeclarationData) : _ =
 //    let attributeLists = x.AttributeLists |> Seq.map (transformAttributeList env) |> List.ofSeq
@@ -849,7 +885,7 @@ and transformSimpleLambdaExpression (env: Environment) (x: SimpleLambdaExpressio
     let id = Id.New parameter.ParameterId.Name.Value              
     env.Parameters.Add(parameter.Symbol, id)
     let body = x.Body |> transformCSharpNode env
-    Function([id], body)
+    NewArray [ Function([id], body) ]
     
 and transformParenthesizedLambdaExpression (env: Environment) (x: ParenthesizedLambdaExpressionData) : _ =
     let parameterList = x.ParameterList |> transformParameterList env
@@ -861,7 +897,7 @@ and transformParenthesizedLambdaExpression (env: Environment) (x: ParenthesizedL
             id
         )              
     let body = x.Body |> transformCSharpNode env
-    Function(ids, body)
+    NewArray [ Function(ids, body) ]
 
 and transformCSharpNode (env: Environment) (x: CSharpNodeData) : _ =
     match x with
@@ -946,8 +982,19 @@ and transformMemberAccessExpression (env: Environment) (x: MemberAccessExpressio
             Call (Some expression, typ, meth, [])        
     | :? IMethodSymbol as symbol ->
         // TODO: this works for invocations but not always
-        let expression = x.Expression |> transformExpression env
-        expression
+        let expression = 
+            if symbol.IsStatic then None else 
+                x.Expression |> transformExpression env |> Some
+        let conv = env.SemanticModel.GetConversion(x.Node)
+        if not conv.Exists || conv.IsIdentity then 
+            // if its static, left side has no real expression information
+            expression |> Option.fill Undefined
+        elif conv.IsMethodGroup then
+            let typ = getNamedType symbol.ContainingType
+            let ma = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
+            let meth = concrete (getMethod symbol, ma)
+            NewDelegate(expression, typ, meth)
+        else failwithf "transformIdentifierName: unhandled IMethodSymbol conversion: %A" conv 
     | _ ->      
         let expression = x.Expression |> transformExpression env
         let name = x.Name |> transformSimpleName env

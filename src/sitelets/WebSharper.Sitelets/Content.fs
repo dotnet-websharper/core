@@ -41,7 +41,7 @@ module Content =
 //    module R = WebSharper.Core.Reflection
     module J = WebSharper.Core.Json
 
-    let metaJson<'T> (m: M.Metadata) (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
+    let metaJson<'T> (m: M.Info) (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
         controls
         |> List.ofSeq
         |> List.collect (fun c -> c.Encode(m, jP))
@@ -63,7 +63,7 @@ module Content =
         {
             AppPath : string
             Json : Core.Json.Provider
-            Meta : Core.Metadata.Metadata
+            Meta : Core.Metadata.Info
             Graph : Core.Metadata.Graph 
             ResourceContext : Core.Resources.Context
         }

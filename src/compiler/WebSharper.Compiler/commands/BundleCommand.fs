@@ -90,6 +90,7 @@ module BundleCommand =
 //            if List.isEmpty metas then None else Some (WebSharper.Core.Metadata.union metas)
 
         let bundle = Bundle((config.AssemblyPaths |> List.map loader.LoadFile), resolver, ?appConfig = config.AppConfigFile)
+        System.IO.Directory.CreateDirectory config.OutputDirectory |> ignore
         let write (c: Content) (ext: string) =
             c.WriteFile(Path.Combine(config.OutputDirectory, config.FileName + ext))
         write bundle.CSS ".css"

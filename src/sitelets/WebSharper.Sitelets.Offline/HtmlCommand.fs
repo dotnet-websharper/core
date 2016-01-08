@@ -35,11 +35,8 @@ module H = WebSharper.Compiler.HtmlCommand
 type HtmlCommand() =
     interface H.IHtmlCommand with
         member this.Execute(env, options) =
-            let baseDir = typeof<HtmlCommand>.Assembly.Location
-            let aR =
-                AssemblyResolver.Create()
-                    .WithBaseDirectory(baseDir)
-                    .SearchDirectories([baseDir])
+            let aR = AssemblyResolver.Create()
+            Directory.CreateDirectory options.OutputDirectory |> ignore
             // process extra.files
             Extra.CopyFiles
                 options.ProjectDirectory

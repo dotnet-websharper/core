@@ -20,89 +20,87 @@
 
 namespace WebSharper.Tests
 
-//open WebSharper.Core.Macros
-//module C = WebSharper.Core.JavaScript.Core
-//module S = WebSharper.Core.JavaScript.Syntax
-//
-//[<Sealed>]
-//type HelloQuotationGenerator() =
-//    interface IGenerator with
-//        member this.Body =
-//            <@@ fun w -> "Hello " + w + "!" @@>
-//            |> QuotationBody
-//
-//[<Sealed>]
-//type HelloCoreGenerator() =
-//    interface IGenerator with
-//        member this.Body =
-//            let w = C.Id "w"
-//            C.Lambda (None, [w], !~(C.String "Hello ") + C.Var w + !~(C.String "!"))
-//            |> CoreBody
-//
+open WebSharper.Core
+open WebSharper.Core.AST
+module S = WebSharper.Core.JavaScript.Syntax
+
+[<Sealed>]
+type HelloQuotationGenerator() =
+    inherit Generator()
+    override this.Generate (_,_) =
+        <@@ fun w -> "Hello " + w + "!" @@>
+        |> GeneratedQuotation
+
+[<Sealed>]
+type HelloASTGenerator() =
+    inherit Generator()
+    override this.Generate (_,_) =
+        let w = Id.New "w"
+        let (+) a b = Binary(a, BinaryOperator.``+``, b)
+        Lambda ([w], !~(String "Hello ") + Var w + !~(String "!"))
+        |> GeneratedAST
+
 //[<Sealed>]
 //type HelloJSGenerator() =
-//    interface IGenerator with
-//        member this.Body =
-//            S.Lambda (None, ["w"], [ S.Action (S.Return (Some (!~(S.String "Hello ") + S.Var "w" + !~(S.String "!")))) ])
-//            |> SyntaxBody
-//
+//    inherit Generator()
+//    member this.Body =
+//        S.Lambda (None, ["w"], [ S.Action (S.Return (Some (!~(S.String "Hello ") + S.Var "w" + !~(S.String "!")))) ])
+//        |> GeneratedJavaScript
+
 //module Q = WebSharper.Core.Quotations
-//
-//[<Sealed>]
-//type NameOfMacro() =
-//    interface IMacro with
-//        member this.Translate(q, _) =
-//            match q with
-//            | Q.CallOrCallModule (c, []) ->
-//                match c.Generics with
-//                | [t] -> !~(C.String t.FullName) 
-//                | _ -> failwith "NameOfMacro error"
-//            | _ -> failwith "NameOfMacro error"
-//
-//[<Sealed>]
-//type AddMacro() =
-//    interface IMacro with
-//        member this.Translate(q, tr) =
-//            match q with
-//            | Q.CallOrCallModule (_, [a; b]) ->
-//                match a, b with
-//                | Q.Value (Q.Int ai), Q.Value (Q.Int bi) ->
-//                    !~ (C.Integer (int64 (ai + bi)))
-//                | _ -> tr q
-//            | _ -> failwith "AddMacro error"
-//
-//module Macro =
-//
-//    open WebSharper
-//    open WebSharper.Testing
-//    open WebSharper.JavaScript
-//
-//    [<Generated(typeof<HelloQuotationGenerator>)>]
-//    let helloQuotation (w: string) = X<string>
-//
-//    [<Generated(typeof<HelloCoreGenerator>)>]
-//    let helloCore (w: string) = X<string>
-//
+
+[<Sealed>]
+type NameOfMacro() =
+    inherit Macro()
+    override this.TranslateCall(_, _, c, _, _) =
+        match c.Generics with
+        | [t] -> !~(String t.TypeDefinition.Value.FullName) |> MacroOk
+        | _ -> MacroError "NameOfMacro error"
+
+[<Sealed>]
+type AddMacro() =
+    inherit Macro()
+    override this.TranslateCall(_, _, _, args, _) =
+        match args with
+        | [a; b] ->
+            match ignoreExprSourcePos a, ignoreExprSourcePos b with
+            | Value (Int ai), Value (Int bi) ->
+                !~ (Int64 (int64 (ai + bi))) |> MacroOk
+            | _ -> MacroFallback
+        | _ -> MacroError "AddMacro error"
+            
+module Macro =
+
+    open WebSharper
+    open WebSharper.Testing
+    open WebSharper.JavaScript
+
+    [<Generated(typeof<HelloQuotationGenerator>)>]
+    let helloQuotation (w: string) = X<string>
+
+    [<Generated(typeof<HelloASTGenerator>)>]
+    let helloAST (w: string) = X<string>
+
 //    [<Generated(typeof<HelloJSGenerator>)>]
 //    let helloJS (w: string) = X<string>
-//
-//    [<Macro(typeof<NameOfMacro>)>]
-//    let nameof<'a> = X<string>
-//
-//    [<Macro(typeof<AddMacro>)>]
-//    let add a b = a + b 
-//    [<JavaScript>]
-//    let Tests =
-//        TestCategory "Metaprogramming" {
-//                    
-//            Test "Generated" {
-//                equal (helloQuotation "world") "Hello world!"
-//                equal (helloCore "world") "Hello world!"
+
+    [<Macro(typeof<NameOfMacro>)>]
+    let nameof<'a> = X<string>
+
+    [<Macro(typeof<AddMacro>)>]
+    let add a b = a + b 
+    [<JavaScript>]
+    let Tests =
+        TestCategory "Metaprogramming" {
+                    
+            Test "Generated" {
+                equal (helloQuotation "world") "Hello world!"
+                equal (helloAST "world") "Hello world!"
 //                equal (helloJS "world") "Hello world!"    
-//            }
-//
-//            Test "Macro" {
-//                equal nameof<string> "System.String"
-//                equal (add 1 2) 3
-//            }
-//        }
+            }
+
+            Test "Macro" {
+                equal nameof<string> "System.String"
+                equal (add 1 2) 3
+            }
+        }

@@ -30,7 +30,7 @@ module J = WebSharper.Core.Json
 /// that depend on resources.
 type IRequiresResources =
     abstract member Requires : seq<M.Node>
-    abstract member Encode : M.Metadata * J.Provider -> list<string * J.Encoded>
+    abstract member Encode : M.Info * J.Provider -> list<string * J.Encoded>
 
 /// HTML content that can be used as the Body of a web Control.
 /// Can be zero, one or many DOM nodes.
@@ -38,6 +38,7 @@ type IControlBody =
     /// Replace the given node with the HTML content.
     /// The node is guaranteed to be present in the DOM.
     /// Called exactly once on startup on an IControl's Body.
+    [<JavaScript>]
     abstract ReplaceInDom : Dom.Node -> unit
 
 /// An interface that has to be implemented by controls that
@@ -45,6 +46,7 @@ type IControlBody =
 /// contain client-side elements.
 type IControl =
     inherit IRequiresResources
+    [<JavaScript>]
     abstract member Body : IControlBody
     abstract member Id : string
 

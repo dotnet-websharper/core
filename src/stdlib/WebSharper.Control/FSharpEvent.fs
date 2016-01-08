@@ -35,5 +35,7 @@ type private FSharpEvent<'T> [<JavaScript>] () =
 
 [<Proxy(typeof<IDelegateEvent<_>>)>]
 type private IDelegateEventProxy<'D> =
+    [<Name "AddHandler">]
     abstract AddHandler : 'D -> unit
+    [<Name "RemoveHandler">]
     abstract RemoveHandler : 'D -> unit

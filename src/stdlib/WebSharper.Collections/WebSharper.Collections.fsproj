@@ -19,6 +19,7 @@
     <Compile Include="ResizeArray.fs" />
     <Compile Include="LinkedList.fs" />
     <Compile Include="HashSet.fs" />
+    <Compile Include="Linq.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj">

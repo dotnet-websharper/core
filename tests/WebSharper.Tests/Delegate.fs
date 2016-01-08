@@ -18,27 +18,23 @@
 //
 // $end{copyright}
 
-module WebSharper.Tests.CSharp
+module WebSharper.Tests.Delegate
 
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
 
-open WebSharper.CSharp.Tests
-
 [<JavaScript>]
 let Tests =
-    TestCategory "CSharp" {
-        Test "Hello world" {
-            equal (Class1().HelloWorld()) "Hello world!"
-        }
 
-        Test "Generator" {
-            equal (Class1().Fibonacci() |> Seq.take 5 |> Array.ofSeq) [| 1; 1; 2; 3; 5 |]
-        }
+    TestCategory "Delegate" {
 
-        Test "Async/Await" {
-            let! one = Class1().GetOneAsync() |> Async.AwaitTask
-            equal one 1 
+        Test "Create" {
+            let res = ref 0 
+            let a1 = System.Action<_>(fun x -> res := !res + x)
+            let a2 = System.Action<_>(fun x -> res := !res + 1)
+            let comb = System.Action<int>.Combine(a1, a2) :?> System.Action<int>
+            comb.Invoke(2)
+            equal !res 3 
         }
     }

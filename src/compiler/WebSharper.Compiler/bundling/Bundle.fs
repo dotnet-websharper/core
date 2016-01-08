@@ -44,7 +44,7 @@ module BundleUtility =
         |> W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact
 
     let GetDependencyNodeForAssembly (a: Assembly) : M.Node =
-        M.Node.AssemblyNode a.FullName
+        M.Node.AssemblyNode (a.FullName, true)
 
 [<Sealed>]
 type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =

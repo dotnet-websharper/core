@@ -20,6 +20,8 @@
 
 namespace WebSharper
 
+open WebSharper.JavaScript
+
 [<Proxy(typeof<System.IComparable>)>]
 type private IComparableProxy =
     abstract CompareTo : obj -> int
@@ -33,9 +35,34 @@ type private IEqualityComparerProxy =
     abstract Equals : obj * obj -> bool 
     abstract GetHashCode : obj -> int
 
+[<Proxy(typeof<System.Collections.Generic.IEqualityComparer<_>>)>]
+type private IEqualityComparerProxy<'T> =
+    abstract Equals : 'T * 'T -> bool 
+    abstract GetHashCode : 'T -> int
+
+[<Proxy(typeof<System.Collections.Generic.EqualityComparer<_>>)>]
+[<AbstractClass>]
+type private EqualityComparerProxy<'T>() =
+    abstract Equals : 'T * 'T -> bool 
+    abstract GetHashCode : 'T -> int
+    [<Macro(typeof<Macro.EqualityComparer>)>]
+    static member Default = X<System.Collections.Generic.EqualityComparer<'T>>
+
 [<Proxy(typeof<System.Collections.IComparer>)>]
 type private IComparerProxy =
     abstract Compare : obj * obj -> int
+
+[<Proxy(typeof<System.Collections.Generic.IComparer<_>>)>]
+type private IComparerProxy<'T> =
+    abstract Compare : 'T * 'T -> int
+
+[<Proxy(typeof<System.Collections.Generic.Comparer<_>>)>]
+[<AbstractClass>]
+type private ComparerProxy<'T> =
+    abstract Compare : 'T * 'T -> int
+    // TODO
+//    [<Macro(typeof<Macro.Comparer>)>]
+//    static member Default = X<System.Collections.Generic.Comparer<'T>>
 
 [<Proxy(typeof<System.IEquatable<_>>)>]
 type private IEquatableProxy<'T> =

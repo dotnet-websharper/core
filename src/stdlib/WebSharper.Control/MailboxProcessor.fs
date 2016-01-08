@@ -59,12 +59,12 @@ type private MailboxProcessorProxy<'T> (initial, ?token: CancellationToken) =
         mailbox.RemoveFirst()
         f
 
-    [<Inline>]
+    [<CLIEvent>]
     member this.Error = errorEvent.Publish
-    [<Inline>]
-    member this.add_Error handler = this.Error.AddHandler handler
-    [<Inline>]
-    member this.remove_Error handler = this.Error.RemoveHandler handler
+//    [<Inline>]
+//    member this.add_Error handler = this.Error.AddHandler handler
+//    [<Inline>]
+//    member this.remove_Error handler = this.Error.RemoveHandler handler
 
     member val DefaultTimeout = -1 with get, set    
 

@@ -95,5 +95,5 @@
             },
         stringOrInt: 0,
         jsStringOrNum: 0
-}
+    }
 }

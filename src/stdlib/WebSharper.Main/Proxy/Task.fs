@@ -146,6 +146,10 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
         res.Start()
         As<Task<'T>> res
 
+//    // TODO : return type System.Runtime.CompilerServices.YieldAwaitable 
+//    static member Yield() =
+//        Async.Sleep 0 |> Async.StartAsTask  
+
 and [<Proxy(typeof<Task<_>>); Name "Task1">] private TaskProxy<'T>(func: System.Func<'T>, token: CT, status, exc, result) =
     inherit TaskProxy(null, token, status, exc)
     

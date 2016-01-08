@@ -6,7 +6,7 @@ open WebSharper.Core
 open WebSharper.Core.AST
 module M = WebSharper.Core.Metadata
 
-let packageAssembly (merged: M.Metadata) (current: M.Metadata) isBundle =
+let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
     let addresses = Dictionary()
     let statements = ResizeArray()
 
@@ -51,13 +51,17 @@ let packageAssembly (merged: M.Metadata) (current: M.Metadata) isBundle =
 //    let getField address =
 //        let o, x = getFieldAddress address  
 //        ItemGet(o, x)
-
-    let transformAddresses =
+    
+    let globalAccessTransformer =
         { new Transformer() with
             override this.TransformGlobalAccess a =
-                if addresses.ContainsKey a then getAddress a else GlobalAccess a        
-        }.TransformExpression
+                if addresses.ContainsKey a 
+                then getAddress a 
+                else List.foldBack (fun f x -> ItemGet(x, Value (String f))) a.Value glob       
+        }
             
+    let inline trGA e = globalAccessTransformer.TransformExpression e
+
 //    let getCompiled c =
 //        match !c with
 //        | M.Static e ->
@@ -69,7 +73,7 @@ let packageAssembly (merged: M.Metadata) (current: M.Metadata) isBundle =
     let package a expr =
 //        if packaged.Add a then
         let o, x = getFieldAddress a
-        statements.Add <| ExprStatement (ItemSet (o, x, transformAddresses expr))    
+        statements.Add <| ExprStatement (ItemSet (o, x, trGA expr))    
 
     let packageCtor a expr =
 //        if packaged.Add a then
@@ -79,7 +83,7 @@ let packageAssembly (merged: M.Metadata) (current: M.Metadata) isBundle =
             match getAddress a with
             | Var v -> v
             | _ -> failwith "packageCtor error"
-        statements.Add <| ExprStatement (VarSet (av, ItemSet (o, x, transformAddresses expr)))    
+        statements.Add <| ExprStatement (VarSet (av, ItemSet (o, x, trGA expr)))    
 
     let packageGlobal a expr =
 //        if packaged.Add a then
@@ -167,7 +171,7 @@ let packageAssembly (merged: M.Metadata) (current: M.Metadata) isBundle =
     let statements = List.ofSeq statements 
 
     if List.isEmpty statements then Undefined else
-        Application(Function([], Block (List.ofSeq statements)), [])
+        Application(Function([], Block (List.ofSeq statements)), []) |> trGA
 
 let exprToString asmName pref statement =
     let program =

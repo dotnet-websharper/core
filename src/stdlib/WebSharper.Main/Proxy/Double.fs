@@ -40,8 +40,47 @@ type private DoubleProxy =
     [<Inline "parseFloat($0)">]
     static member Parse(s: string) = X<double>
 
+    [<Inline "$a + $b">]
+    static member (+) (a: double, b: double) = X<double>
+
+    [<Inline "$a - $b">]
+    static member (-) (a: double, b: double) = X<double>
+
+    [<Inline "$a * $b">]
+    static member (*) (a: double, b: double) = X<double>
+
+    [<Inline "$a / $b">]
+    static member (/) (a: double, b: double) = X<double>
+
+    [<Inline "$a % $b">]
+    static member (%) (a: double, b: double) = X<double>
+
+    [<Inline "-$a">]
+    static member (~-) (a: double) = X<double>
+
+    [<Inline "+$a">]
+    static member (~+) (a: double) = X<double>
+
+    [<Inline "$a == $b">]
+    static member op_Equality (a: double, b: double) = X<bool>
+
+    [<Inline "$a != $b">]
+    static member op_Inequality (a: double, b: double) = X<bool>
+
+    [<Inline "$a > $b">]
+    static member op_GreaterThan (a: double, b: double) = X<bool>
+
+    [<Inline "$a >= $b">]
+    static member op_GreaterThanOrEqual (a: double, b: double) = X<bool>
+
+    [<Inline "$a < $b">]
+    static member op_LessThan (a: double, b: double) = X<bool>
+
+    [<Inline "$a <= $b">]
+    static member op_LessThanOrEqual (a: double, b: double) = X<bool>
+
     static member MaxValue
-        with [<Inline "Number.MAX_VALUE">] get () = X<int>
+        with [<Inline "Number.MAX_VALUE">] get () = X<double>
 
     static member MinValue
-        with [<Inline "Number.MIN_VALUE">] get () = X<int>
+        with [<Inline "Number.MIN_VALUE">] get () = X<double>

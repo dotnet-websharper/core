@@ -9,6 +9,7 @@
     <Arguments Condition=" '$(Arguments)' =='' ">
     </Arguments>
     <Root>$(MSBuildThisFileDirectory)/../../..</Root>
+    <FSHARP40>True</FSHARP40>
   </PropertyGroup>
   <Import Project="$(Root)/msbuild/FSharp.targets" />
   <Target Name="BeforeBuild">

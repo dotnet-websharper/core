@@ -5,6 +5,7 @@ open Microsoft.CodeAnalysis.CSharp
 open System.Collections.Generic
 
 open WebSharper.Core.AST
+open WebSharper.Core.Utilities
 
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
@@ -64,6 +65,22 @@ let transformInterface (intf: INamedTypeSymbol) =
 
 let remotingCode = ref -1 
 
+let initDef =
+    Hashed {
+        MethodName = "$init"
+        Parameters = []
+        ReturnType = VoidType
+        Generics = 0
+    }
+
+let staticInitDef =
+    Hashed {
+        MethodName = "$staticInit"
+        Parameters = []
+        ReturnType = VoidType
+        Generics = 0
+    }
+
 let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTypeSymbol) =
     if cls.TypeKind <> TypeKind.Class then None else
 
@@ -103,6 +120,69 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
         
     let addConstructor mAnnot def kind compiled expr =
         clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mAnnot kind compiled expr)))
+
+    let inits = ResizeArray()                                               
+    let staticInits = ResizeArray()                                               
+            
+    for mem in members do
+        match mem with
+        | :? IPropertySymbol as p ->
+            let pAnnot = attrReader.GetMemberAnnot(annot, p.GetMethod.GetAttributes())
+            match pAnnot.Kind with
+            | Some A.MemberKind.JavaScript ->
+                let decls = p.DeclaringSyntaxReferences
+                if decls.Length = 0 then () else
+                let syntax = decls.[0].GetSyntax()
+                let model = rcomp.GetSemanticModel(syntax.SyntaxTree, true)
+                let data =
+                    syntax :?> PropertyDeclarationSyntax
+                    |> RoslynHelpers.PropertyDeclarationData.FromNode
+                match data.Initializer with
+                | Some i ->
+                    let b = i |> ToCSharpAST.transformEqualsValueClause (ToCSharpAST.Environment.New (model, comp))
+                    let setter = ToCSharpAST.getMethod p.SetMethod
+                    if p.IsStatic then
+                        staticInits.Add <| Call(None, concrete (def, []), concrete (setter, []), [ b ])
+                    else
+                        inits.Add <| Call(Some This, concrete (def, []), concrete (setter, []), [ b ])
+                | None -> ()
+            | _ -> ()
+        | :? IFieldSymbol as f -> 
+            let fAnnot = attrReader.GetMemberAnnot(annot, f.GetAttributes())
+            // TODO: check multiple declarations on the same line
+            match fAnnot.Kind with
+            | Some A.MemberKind.JavaScript ->
+                let decls = f.DeclaringSyntaxReferences
+                if decls.Length = 0 then () else
+                let syntax = decls.[0].GetSyntax()
+                let model = rcomp.GetSemanticModel(syntax.SyntaxTree, true)
+                match syntax with
+                | :? VariableDeclaratorSyntax as v ->
+                    let x, e =
+                        RoslynHelpers.VariableDeclaratorData.FromNode v
+                        |> ToCSharpAST.transformVariableDeclarator (ToCSharpAST.Environment.New (model, comp))
+                    
+                    if f.IsStatic then 
+                        staticInits.Add <| FieldSet(None, concrete (def, []), x.Name.Value, e)
+                    else
+                        inits.Add <| FieldSet(Some This, concrete (def, []), x.Name.Value, e)
+                | _ -> 
+//                    let _ = syntax :?> VariableDeclarationSyntax
+                    ()
+            | _ -> ()
+        | _ -> ()
+
+    let hasInit =
+        if inits.Count = 0 then false else 
+        Function([], ExprStatement (Sequential (inits |> List.ofSeq)))
+        |> addMethod A.MemberAnnotation.BasicJavaScript initDef N.Instance false
+        true
+
+    let hasStaticInit =
+        if staticInits.Count = 0 then false else
+        Function([], ExprStatement (Sequential (staticInits |> List.ofSeq)))
+        |> addMethod A.MemberAnnotation.BasicJavaScript staticInitDef N.Static false
+        true
 
     for meth in members.OfType<IMethodSymbol>() do
         let mAnnot = attrReader.GetMemberAnnot(annot, meth.GetAttributes())
@@ -161,49 +241,98 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                         let syntax = meth.DeclaringSyntaxReferences.[0].GetSyntax()
                         let model = rcomp.GetSemanticModel(syntax.SyntaxTree, true)
                         let fixMethod (m: ToCSharpAST.CSharpMethod) =
-                            if m.ReturnType.AssemblyQualifiedName.StartsWith "System.Collections.Generic.IEnumerable" then
-                                // check if has return or yield
-                                let b = m.Body |> Continuation.FreeNestedGotos().TransformStatement
-                                let labels = Continuation.CollectLabels.Collect b
-                                let b = Continuation.GeneratorTransformer(labels).TransformMethodBody(b)
-                                { m with Body = b }
-                            elif m.IsAsync then
-                                let b = 
-                                    m.Body 
-                                    |> Continuation.AwaitTransformer().TransformStatement 
-                                    |> breakStatement
-                                    |> Continuation.FreeNestedGotos().TransformStatement
-                                let labels = Continuation.CollectLabels.Collect b
-                                let b = Continuation.AsyncTransformer(labels).TransformMethodBody(b)
-                                { m with Body = b }
-                            else m
+                            let rec endsWithReturn s =
+                                match ignoreStatementSourcePos s with
+                                | Return _ -> true
+                                | (Block ss | Statements ss) -> endsWithReturn (List.last ss) 
+                                | _ -> false
+                            let addLastReturnIfNeeded s =
+                                if endsWithReturn s then s else
+                                    combineStatements [ m.Body; Return Undefined ]
+                            let b =
+                                if m.ReturnType.AssemblyQualifiedName.StartsWith "System.Collections.Generic.IEnumerable" then
+                                    // TODO: check if has return or yield
+                                    let b = m.Body |> Continuation.FreeNestedGotos().TransformStatement
+                                    let labels = Continuation.CollectLabels.Collect b
+                                    Continuation.GeneratorTransformer(labels).TransformMethodBody(b)
+                                elif m.IsAsync then
+                                    let b = 
+                                        m.Body |> addLastReturnIfNeeded
+                                        |> Continuation.AwaitTransformer().TransformStatement 
+                                        |> breakStatement
+                                        |> Continuation.FreeNestedGotos().TransformStatement
+                                    let labels = Continuation.CollectLabels.Collect b
+                                    Continuation.AsyncTransformer(labels).TransformMethodBody(b)
+                                else m.Body
+                            { m with Body = b |> FixThisScope().Fix }
                         match syntax with
                         | :? MethodDeclarationSyntax as syntax ->
                             syntax
                             |> RoslynHelpers.MethodDeclarationData.FromNode 
                             |> ToCSharpAST.transformMethodDeclaration (ToCSharpAST.Environment.New (model, comp))   
+                            |> fixMethod
                         | :? AccessorDeclarationSyntax as syntax ->
                             syntax
                             |> RoslynHelpers.AccessorDeclarationData.FromNode 
                             |> ToCSharpAST.transformAccessorDeclaration (ToCSharpAST.Environment.New (model, comp))   
-//                        | :? ArrowExpressionClauseSyntax as syntax ->
-//                            syntax
-//                            |> RoslynHelpers.ArrowExpressionClauseData.FromNode 
-//                            |> ToCSharpAST.transformArrowExpressionClause (ToCSharpAST.Environment.New (model, comp))   
+                            |> fixMethod
+                        | :? ArrowExpressionClauseSyntax as syntax ->
+                            let body =
+                                syntax
+                                |> RoslynHelpers.ArrowExpressionClauseData.FromNode 
+                                |> ToCSharpAST.transformArrowExpressionClause (ToCSharpAST.Environment.New (model, comp))   
+                            {
+                                IsStatic = meth.IsStatic
+                                Parameters = []
+                                Body = Return body
+                                IsAsync = meth.IsAsync
+                                ReturnType = ToCSharpAST.getType meth.ReturnType
+                            } : ToCSharpAST.CSharpMethod
+                            |> fixMethod
                         | :? ConstructorDeclarationSyntax as syntax ->
                             let c =
                                 syntax
                                 |> RoslynHelpers.ConstructorDeclarationData.FromNode 
                                 |> ToCSharpAST.transformConstructorDeclaration (ToCSharpAST.Environment.New (model, comp))   
+                            let b =
+                                match c.Initializer with
+                                | Some (ToCSharpAST.BaseInitializer (bTyp, bCtor, args)) ->
+                                    combineStatements [
+                                        ExprStatement <| BaseCtor(This, bTyp, bCtor, args)
+                                        c.Body
+                                    ]
+                                | Some (ToCSharpAST.ThisInitializer (bCtor, args)) ->
+                                    combineStatements [
+                                        ExprStatement <| BaseCtor(This, concrete(def, []), bCtor, args)
+                                        c.Body
+                                    ]
+                                | None -> c.Body
+                            let b = 
+                                if meth.IsStatic then
+                                    if hasStaticInit then
+                                        combineStatements [ 
+                                            ExprStatement <| Call(None, concrete (def, []), concrete (staticInitDef, []), [])
+                                            b
+                                        ]
+                                    else b
+                                else
+                                    match c.Initializer with
+                                    | Some (ToCSharpAST.ThisInitializer _) -> b
+                                    | _ ->
+                                    if hasInit then 
+                                        combineStatements [ 
+                                            ExprStatement <| Call(Some This, concrete (def, []), concrete (initDef, []), [])
+                                            b
+                                        ]
+                                    else b
                             {
                                 IsStatic = meth.IsStatic
-                                Parameters = []
-                                Body = c.Body
+                                Parameters = c.Parameters
+                                Body = b |> FixThisScope().Fix
                                 IsAsync = false
                                 ReturnType = Unchecked.defaultof<Type>
                             } : ToCSharpAST.CSharpMethod
                         | _ -> failwithf "Not recognized method syntax kind: %A" (syntax.Kind())
-                        |> fixMethod
                     with e ->
                         comp.AddError(None, SourceError(sprintf "Error reading member '%s': %s" meth.Name e.Message))
                         {
@@ -215,10 +344,14 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                         } : ToCSharpAST.CSharpMethod   
                 else
                     // implicit constructor
+                    let b = 
+                        if hasInit then 
+                            ExprStatement <| Call(Some This, concrete (def, []), concrete (initDef, []), [])
+                        else Empty
                     {
                         IsStatic = true
                         Parameters = []
-                        Body = Empty
+                        Body = b
                         IsAsync = false
                         ReturnType = Unchecked.defaultof<Type>
                     } : ToCSharpAST.CSharpMethod
@@ -286,11 +419,12 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                         if isInstance then N.Instance else N.Static  
                     | Member.Override (t, _) -> N.Override t 
                     | Member.Implementation (t, _) -> N.Implementation t
+                    | _ -> failwith "impossible"
                 let jsMethod isInline =
                     addMethod mAnnot mdef (if isInline then N.Inline else getKind()) false (getBody isInline)
                 let checkNotAbstract() =
                     if meth.IsAbstract then
-                        failwith "Asctract methods cannot be marked with Inline or Macro."
+                        failwith "Abstract methods cannot be marked with Inline or Macro."
                 match kind with
                 | A.MemberKind.NoFallback ->
                     checkNotAbstract()
@@ -299,6 +433,9 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                     checkNotAbstract() 
                     let parsed = WebSharper.Compiler.Recognize.createInline None (getVars()) js
                     addMethod mAnnot mdef N.Inline true parsed
+                | A.MemberKind.Constant c ->
+                    checkNotAbstract() 
+                    addMethod mAnnot mdef N.Inline true c                        
                 | A.MemberKind.Direct js ->
                     let parsed = WebSharper.Compiler.Recognize.parseDirect None (getVars()) js
                     addMethod mAnnot mdef (getKind()) true parsed
@@ -316,6 +453,8 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
 //                        let i = ItemSet(This, Value (String meth.CompiledName.[4..]), Hole 0)   // TODO optional
 //                        addMethod mAnnot mdef N.Inline true i
 //                    else failwith "OptionalField attribute not on property"
+                | A.MemberKind.Generated _ ->
+                    addMethod mAnnot mdef (getKind()) false Undefined
                 | _ -> failwith "invalid method kind"
                 if mAnnot.IsEntryPoint then
                     let ep = ExprStatement <| Call(None, concrete(def, []), concrete(mdef, []), [])
@@ -337,10 +476,18 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
                     addConstructor mAnnot cdef N.Static true parsed 
                 | A.MemberKind.JavaScript -> jsCtor false
                 | A.MemberKind.InlineJavaScript -> jsCtor true
-                | _ -> failwith "invalid method kind"
+                | A.MemberKind.Generated _ ->
+                    addConstructor mAnnot cdef N.Static false Undefined
+                | A.MemberKind.Remote _
+                | A.MemberKind.Stub -> failwith "impossible"
             | Member.StaticConstructor ->
                 clsMembers.Add (NotResolvedMember.StaticConstructor (getBody false))
-        | _ -> ()
+        | _ -> 
+            ()
+
+    if hasStaticInit && not (clsMembers |> Seq.exists (function NotResolvedMember.StaticConstructor _ -> true | _ -> false)) then
+        let b = Function ([], ExprStatement <| Call(None, concrete (def, []), concrete (staticInitDef, []), []))
+        clsMembers.Add (NotResolvedMember.StaticConstructor b)    
 
     for f in members.OfType<IFieldSymbol>() do
         let mAnnot = attrReader.GetMemberAnnot(annot, f.GetAttributes())
@@ -372,7 +519,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (cls: INamedTy
         }
     )
 
-let transformAssembly (refMeta : Metadata) (rcomp: CSharpCompilation) =   
+let transformAssembly (refMeta : Info) (rcomp: CSharpCompilation) =   
     let comp = Compilation(refMeta)
 
     let assembly = rcomp.Assembly

@@ -7,7 +7,6 @@ open WebSharper.Core.AST
 open WebSharper.Core.Metadata
 
 let getTypeDefinition (tR: Mono.Cecil.TypeReference) =
-    let name = tR.FullName.Split('<').[0]
     Hashed {
         Assembly =
             match tR.Scope.MetadataScopeType with
@@ -15,7 +14,7 @@ let getTypeDefinition (tR: Mono.Cecil.TypeReference) =
                 let anr = tR.Scope :?> Mono.Cecil.AssemblyNameReference
                 anr.FullName.Split(',').[0]
             | _ -> tR.Module.Assembly.FullName.Split(',').[0]
-        FullName = name
+        FullName = tR.FullName.Split('<').[0].Replace('/', '+')
     }
 
 let rec getType tgen (tR: Mono.Cecil.TypeReference) =
@@ -27,20 +26,6 @@ let rec getType tgen (tR: Mono.Cecil.TypeReference) =
         if tR.Owner.GenericParameterType = Mono.Cecil.GenericParameterType.Method then
             GenericType (tgen + tR.Position)
         else GenericType tR.Position
-//        tR.Owner.GenericParameterType = Mono.Cecil.GenericParameterType.M
-//        match tR.Owner with
-//        | :? Mono.Cecil.MethodReference as mR ->
-//            let tg = 
-//                let dt = mR.DeclaringType
-//                if dt.HasGenericParameters then dt.GenericParameters.Count else 0
-//            GenericType (tg + tR.Position)
-//        | _ -> GenericType tR.Position
-
-//    elif FST.IsTuple t then
-//        TupleType (FST.GetTupleElements t |> Seq.map getType |> List.ofSeq)
-//    elif FST.IsFunction t then
-//        let a, r = FST.GetFunctionElements t
-//        FSharpFuncType (getType a, getType r) 
     else
         let name = tR.FullName.Split('<').[0] 
         if name = "System.Void" || name = "Microsoft.FSharp.Core.Unit" then
@@ -51,7 +36,13 @@ let rec getType tgen (tR: Mono.Cecil.TypeReference) =
             FSharpFuncType(a, r)    
         elif name.StartsWith "System.Tuple" then
             let tR = tR :?> Mono.Cecil.GenericInstanceType
-            tR.GenericArguments |> Seq.map (getType tgen) |> List.ofSeq |> TupleType
+            let rec collect (ts: seq<Mono.Cecil.TypeReference>) =
+                let ts = Array.ofSeq ts  
+                if ts.Length = 8 then
+                    let rest = ts.[7] :?> Mono.Cecil.GenericInstanceType
+                    Array.append ts.[.. 6] (collect rest.GenericArguments) 
+                else ts
+            collect tR.GenericArguments |> Seq.map (getType tgen) |> List.ofSeq |> TupleType
         else
             concreteType (
                 Hashed {
@@ -61,7 +52,7 @@ let rec getType tgen (tR: Mono.Cecil.TypeReference) =
                             let anr = tR.Scope :?> Mono.Cecil.AssemblyNameReference
                             anr.FullName.Split(',').[0]
                         | _ -> tR.Module.Assembly.FullName.Split(',').[0]
-                    FullName = name
+                    FullName = name.Replace('/', '+')
                 },
                 if tR.IsGenericInstance then
                     let tR = tR :?> Mono.Cecil.GenericInstanceType
@@ -72,44 +63,37 @@ let rec getType tgen (tR: Mono.Cecil.TypeReference) =
 let getRequires attrs =
     attrs
     |> Seq.filter (fun (a: Mono.Cecil.CustomAttribute) -> 
-        let attrTy = a.AttributeType
-//            attrTy.Module.Assembly.Name = "WebSharper.Core" &&
-        attrTy.FullName = "WebSharper.Core.Attributes/RequireAttribute" 
+        a.AttributeType.FullName = "WebSharper.Core.Attributes/RequireAttribute" 
     )
     |> Seq.map (fun a ->
         a.ConstructorArguments.[0].Value :?> Mono.Cecil.TypeReference |> getTypeDefinition
     )
     |> List.ofSeq
 
+let isResourceType (e: Mono.Cecil.TypeDefinition) =
+    e.Interfaces |> Seq.exists (fun i ->
+        i.FullName = "WebSharper.Core.Resources+IResource"
+    )
+
 let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
-    let allTypes = assembly.MainModule.Types
+    let rec withNested (tD: Mono.Cecil.TypeDefinition) =
+        if tD.HasNestedTypes then
+            Seq.append (Seq.singleton tD) (Seq.collect withNested tD.NestedTypes)
+        else Seq.singleton tD
+
+    let allTypes = assembly.MainModule.Types |> Seq.collect withNested |> Array.ofSeq
         
     let asmName = assembly.FullName.Split(',').[0]
 
-//    let asmNode =
-//        {
-//            Id = getId()
-//            AssemblyName = asmName
-//        }
-
     let graph = Graph.Empty
     
-    // TODO: add resources
-//    let addResource (nodeId: int) resTy =
-//        graph.AddEdge(nodeId, ResourceNode resTy)
-
-    let asmNodeIndex = graph.AddOrLookupNode(AssemblyNode asmName)
+    let asmNodeIndex = graph.AddOrLookupNode(AssemblyNode (asmName, false))
     for req in getRequires assembly.CustomAttributes do
         graph.AddEdge(asmNodeIndex, ResourceNode req)
 
     let transformInterface (typ: Mono.Cecil.TypeDefinition) =
         if not typ.IsInterface then None else
-        let def =
-            getTypeDefinition typ 
-//            TypeDefinition {
-//                Assembly = asmName
-//                FullName = typ.FullName
-//            }
+        let def = getTypeDefinition typ 
 
         let reqs = typ.CustomAttributes |> getRequires
         if not reqs.IsEmpty then
@@ -137,73 +121,81 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
             }
         )    
     
-    let transformClass asmName (typ: Mono.Cecil.TypeDefinition) =
+    let transformClass (typ: Mono.Cecil.TypeDefinition) =
         if not typ.IsClass then None else
 
         let def = getTypeDefinition typ
-//            TypeDefinition {
-//                Assembly = asmName
-//                FullName = typ.FullName
-//            }
 
+        if isResourceType typ then
+            let thisRes = graph.AddOrLookupNode(ResourceNode def)
+            graph.AddEdge(thisRes, asmNodeIndex)
+            for req in getRequires typ.CustomAttributes do
+                graph.AddEdge(thisRes, ResourceNode req)
+            None
+        else
 
         let clsNodeIndex = graph.AddOrLookupNode(TypeNode def)
         graph.AddEdge(clsNodeIndex, asmNodeIndex)
         for req in getRequires typ.CustomAttributes do
-            graph.AddEdge(clsNodeIndex, TypeNode req)
-//        for m in cls.Members do
-//            match m with
-//            | M.Constructor (ctor, _) -> graph.AddEdge(ConstructorNode(typ, ctor), clsNodeIndex)
-//            | M.Method (meth, _) -> graph.AddEdge(MethodNode(typ, meth), clsNodeIndex)
-//            | _ -> ()
-
-        let reqs = typ.CustomAttributes |> getRequires
-        if not reqs.IsEmpty then
-            let i = graph.AddOrLookupNode(TypeNode def)
-            for r in reqs do
-                graph.AddEdge(i, ResourceNode r) 
+            graph.AddEdge(clsNodeIndex, ResourceNode req)
 
         let baseDef =
             let b = typ.BaseType
             if b = null then None else
-//                TypeDefinition {
-//                    Assembly = b.Scope.Name
-//                    FullName = b.FullName
-//                } 
                 getTypeDefinition b
                 |> ignoreSystemObject
 
         match baseDef with 
         | Some b ->
-            graph.AddEdge(graph.AddOrLookupNode (TypeNode def), TypeNode b)
+            graph.AddEdge(TypeNode def, TypeNode b)
         | _ -> ()
 
         let methods = Dictionary()
         let constructors = Dictionary()
 
         let mutable address = None
-
+         
         for meth in typ.Methods do
+            let macros =
+                meth.CustomAttributes |> 
+                Seq.filter (fun a -> 
+                    a.AttributeType.FullName = "WebSharper.Core.Attributes/MacroAttribute" 
+                )
+                |> Seq.map (fun a ->
+                    let ar = a.ConstructorArguments
+                    getTypeDefinition (ar.[0].Value :?> Mono.Cecil.TypeDefinition)
+                    ,
+                    if ar.Count > 1 then
+                        // Todo : System.Type parameter objects
+                        Some (ParameterObject.OfObj ar.[1].Value)
+                    else None 
+                ) |> List.ofSeq
             let inlAttr = 
                 meth.CustomAttributes |> 
                 Seq.tryFind (fun a -> 
-                    let attrTy = a.AttributeType
-    //                attrTy.Module.Assembly.Name = "WebSharper.Core" &&
-                    attrTy.FullName = "WebSharper.Core.Attributes/InlineAttribute" 
+                    a.AttributeType.FullName = "WebSharper.Core.Attributes/InlineAttribute" 
                 )
                 |> Option.map (fun a ->
                     a.ConstructorArguments.[0].Value :?> string
-                )    
-                    //S .GetCustomAttributes(typeof<InlineAttribute>, false)
-            match inlAttr with
-            | Some inl ->
+                )
+                                    
+            if Option.isSome inlAttr || not (List.isEmpty macros) then
                 let vars = meth.Parameters |> Seq.map (fun p -> Id.New p.Name) |> List.ofSeq
                 let thisArg =
                     if not (meth.IsStatic || meth.IsConstructor) then // || meth.HasThis then
                         Some (Id.New "this")    
                     else 
                         None
-                let parsed = WebSharper.Compiler.Recognize.createInline thisArg vars inl 
+                let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline thisArg vars) 
+
+                let kind =
+                    if List.isEmpty macros then Inline else
+                        if Option.isSome inlAttr then Some Inline else None 
+                        |> List.foldBack (fun (m, p) x -> Some (Macro(m, p, x))) macros 
+                        |> Option.get
+
+                let body = match parsed with | Some b -> b | _ -> Undefined
+
                 let tgen = if typ.HasGenericParameters then typ.GenericParameters.Count else 0
                 if meth.IsConstructor then 
                     let cdef =
@@ -214,11 +206,15 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
                     graph.AddEdge(cNode, clsNodeIndex)
                     for req in getRequires meth.CustomAttributes do
                         graph.AddEdge(cNode, ResourceNode req)
-                    constructors.Add(cdef, (Inline, parsed))
+                    
+                    try 
+                        constructors.Add(cdef, (kind, body))
+                    with _ ->
+                        failwithf "Duplicate definition for constructor of %s, arguments: %s" def.Value.FullName (Reflection.printCtorParams cdef.Value)
                     
                     // TODO: better recognise inlines
                     if address = None then
-                        match parsed with
+                        match body with
                         | New (GlobalAccess a, []) -> address <- Some a
                         | Let (i1, _, New (GlobalAccess a, [Var v1])) when i1 = v1 -> address <- Some a
                         | _ -> ()
@@ -234,8 +230,10 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
                     graph.AddEdge(mNode, clsNodeIndex)
                     for req in getRequires meth.CustomAttributes do
                         graph.AddEdge(mNode, ResourceNode req)
-                    methods.Add(mdef, (Inline, parsed))
-            | _ -> ()
+                    
+                    try methods.Add(mdef, (kind, body))
+                    with _ ->
+                        failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (Reflection.printMethod mdef.Value)
 
         if methods.Count = 0 && constructors.Count = 0 then None else
 
@@ -253,18 +251,16 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
             }
         )
 
+    let interfaces = allTypes |> Seq.choose (fun t -> transformInterface t) |> dict 
+    let classes = allTypes |> Seq.choose (fun t -> transformClass t) |> dict
+
     {
         SiteletDefinition = None
         Dependencies = graph.GetData()
-        Interfaces = allTypes |> Seq.choose (fun t -> transformInterface t) |> dict
-        Classes = allTypes |> Seq.choose (fun t -> transformClass asmName t) |> dict
+        Interfaces = interfaces
+        Classes = classes
         EntryPoint = None
     }
-//        Assemblies = dict [asmName, asmNode]
-//        SiteletDefinition = None
-//        Dependencies = dependencies
-//        ExternalDependencies = dict []
-//        Resources = resourceLookup.Values |> List.ofSeq
-//        Interfaces = allTypes |> Seq.choose (fun t -> transformInterface t) |> dict
-//        Classes = allTypes |> Seq.choose (fun t -> transformClass asmName t) |> dict
-//        Proxies = dict []
+
+let transformWSAssembly (assembly : WebSharper.Compiler.Assembly) =
+    transformAssembly assembly.Raw     

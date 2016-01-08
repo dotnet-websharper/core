@@ -135,7 +135,7 @@ type AttributeReader<'A>() =
         | "DirectAttribute" ->
             Some (A.Direct (Seq.head (this.GetCtorArgs(attr)) |> unbox))
         | "ConstantAttribute" ->
-            Some (A.Constant (Seq.head (this.GetCtorArgs(attr)) |> getConstrantValue))
+            Some (A.Constant (Seq.head (this.GetCtorArgs(attr)) |> getConstantValue))
         | "MacroAttribute" ->
             Some (A.Macro (this.ReadTypeArg attr))
         | "GeneratedAttribute" ->
@@ -188,7 +188,7 @@ type AttributeReader<'A>() =
             if not (attrArr.Contains(A.Stub)) then attrArr.Add A.Stub
         if parent.OptionalFields then
             if not (attrArr.Contains(A.OptionalField)) then attrArr.Add A.OptionalField
-        attrArr.ToArray(), macros.ToArray(), name, List.ofSeq reqs
+        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, List.ofSeq reqs
 
     member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
         let attrArr, macros, name, reqs = this.GetAttrs (parent, attrs)
@@ -226,7 +226,7 @@ type AttributeReader<'A>() =
                 | [| a |]
                 | [| a; A.JavaScript |]
                 | [| A.JavaScript; a |] -> a
-                | _ -> failwith "Incompatible attributes"
+                | _ -> failwithf "Incompatible attributes: %+A" attrArr
             match a with
             | A.Inline (Some i) -> Some (Inline i)
             | A.Direct s -> Some (Direct s)
@@ -236,7 +236,7 @@ type AttributeReader<'A>() =
             | A.OptionalField -> Some OptionalField
             // TODO
             | A.DateTimeFormat _ -> None
-            | _ -> failwith "Incompatible attributes" // TODO : warning only, location
+            | _ -> failwithf "Incompatible attributes: %+A" attrArr // TODO : warning only, location
         {
             Kind = kind
             Macros = List.ofArray macros

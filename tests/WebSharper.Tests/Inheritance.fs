@@ -50,6 +50,18 @@ type ClassB<'T, 'U>() =
     override this.Z x = x 
 
 [<JavaScript>]
+let mutable ThenTest = 0
+
+[<JavaScript>]
+type ClassC =
+    val x : int
+    val y : int
+
+    new() = { x = 1; y = 1 } 
+    
+    new(a) = ClassC() then ThenTest <- 1
+
+[<JavaScript>]
 let Tests =
     TestCategory "Inheritance" {
         Test "Overriding" {
@@ -74,4 +86,16 @@ let Tests =
         Test "Generic" {
             equal (ClassB().Z "hi") "hi"
         }
+
+        (* TODO
+        Test "No implicit constructor" {
+            let a = ClassC()
+            equal a.x 1
+            equal a.y 1
+            let b = ClassC(2)
+            equal b.x 1
+            equal b.y 1
+            equal ThenTest 1 
+        }
+        *)
     }

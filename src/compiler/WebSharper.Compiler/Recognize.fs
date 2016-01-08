@@ -257,9 +257,7 @@ let createInline thisArg args inlineString =
             |> S.Block
             |> transformStatement (Environment.New(thisArg, false, args))
             |> StatementExpr
-    List.foldBack (fun (v, h) body ->
-        Let (v, h, body)    
-    ) (Option.toList thisArg @ args |> List.mapi (fun i a -> a, Hole i)) b
+    makeExprInline (Option.toList thisArg @ args) b
 
 let parseDirect thisArg args jsString =
     let s = 

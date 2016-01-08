@@ -26,6 +26,12 @@ module WebSharper.JavaScript.Pervasives
 open WebSharper
 module M = WebSharper.Macro
 
+/// Specifies a value intended for client-side use only, so that there is no
+/// .NET implementation.
+/// Raises a WebSharper.JavaScript.ClientSideOnly exception.
+let X<'T> : 'T = 
+    raise ClientSideOnly
+
 /// Casts an object to the desired type.
 [<Inline "$x">]
 let As<'T> (x: obj) = X<'T>

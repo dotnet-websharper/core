@@ -128,7 +128,6 @@ and Type =
     | FSharpFuncType of Type * Type
     | ByRefType of Type
     | VoidType
-//    | ReferenceType of Type
 
     override this.ToString() =
         match this with
@@ -140,7 +139,7 @@ and Type =
         | GenericType i -> "'T" + string i
         | ArrayType (t, a) -> string t + "[" + String.replicate (a - 1) "," + "]"
         | TupleType ts -> "(" + (ts |> Seq.map string |> String.concat " * ") + ")"
-        | FSharpFuncType (a, r) -> string a + " -> " + string r
+        | FSharpFuncType (a, r) -> "(" + string a + " -> " + string r + ")"
         | ByRefType t -> "byref<" + string t + ">"
         | VoidType -> "unit"
 
@@ -374,6 +373,10 @@ module Reflection =
     let loadTypeDefinition (td: TypeDefinition) =
         System.Type.GetType(td.Value.AssemblyQualifiedName, true)   
 
+    let printCtorParams (c: ConstructorInfo) =
+        sprintf "%s"
+            (c.CtorParameters |> Seq.map string |> String.concat " * ") 
+
     let printMethod (m: MethodInfo) =
         sprintf "(%s%s : %s -> %O)"
             m.MethodName 
@@ -381,9 +384,15 @@ module Reflection =
             (m.Parameters |> Seq.map string |> String.concat " * ") 
             m.ReturnType
 
+    let flags = 
+        System.Reflection.BindingFlags.Instance
+        ||| System.Reflection.BindingFlags.Static
+        ||| System.Reflection.BindingFlags.Public
+        ||| System.Reflection.BindingFlags.NonPublic
+
     let loadMethod td (m: Method) =
         let m = m.Value
-        let methodInfos = (loadTypeDefinition td).GetMethods()
+        let methodInfos = (loadTypeDefinition td).GetMethods(flags)
         try
             methodInfos
             |> Seq.find (fun i -> i.Name = m.MethodName && getMethod i = m)

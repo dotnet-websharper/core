@@ -11,20 +11,18 @@ type VarKind =
     | LocalVar 
     | ByRefArg
     | ThisArg
-      
+         
 type Environment =
     {
-        Vars : System.Collections.Generic.Dictionary<FSharpMemberOrFunctionOrValue, Id * VarKind>
+        ScopeIds : list<FSharpMemberOrFunctionOrValue * Id * VarKind>
         TParams : Map<string, int>
         Exception : option<Id>
         MatchVars : option<Id * Id>
         Compilation : Metadata.Compilation
     }
     static member New(vars, tparams, comp) = 
-        let d = System.Collections.Generic.Dictionary()
-        for k, v in vars do d.Add(k, v)
         { 
-            Vars = d 
+            ScopeIds = vars |> Seq.map (fun (i, (v, k)) -> i, v, k) |> List.ofSeq 
             TParams = tparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
             Exception = None
             MatchVars = None
@@ -40,15 +38,18 @@ type Environment =
                 |> fst
         }
 
-    member this.AddVar (i: Id, v: FSharpMemberOrFunctionOrValue, ?k) =
-        this.Vars.[v] <- (i, defaultArg k LocalVar)
-        i
+    member this.WithVar(i: Id, v: FSharpMemberOrFunctionOrValue, ?k) =
+        { this with ScopeIds = (v, i, defaultArg k LocalVar) :: this.ScopeIds }
 
     member this.WithException (i: Id, v: FSharpMemberOrFunctionOrValue) =
-        { this with Exception = Some (this.AddVar(i, v)) }
+        { this with 
+            ScopeIds = (v, i, LocalVar) :: this.ScopeIds
+            Exception = Some i }
 
     member this.LookupVar (v: FSharpMemberOrFunctionOrValue) =
-        this.Vars.[v]
+        match this.ScopeIds |> List.tryPick (fun (sv, i, k) -> if sv = v then Some (i, k) else None) with
+        | Some var -> var
+        | _ -> failwithf "Variable lookup failed: %s" v.DisplayName
 
 let rec getOrigDef (td: FSharpEntity) =
     if td.IsFSharpAbbreviation then getOrigDef td.AbbreviatedType.TypeDefinition else td 
@@ -59,6 +60,8 @@ let getSimpleName (a: FSharpAssembly) =
     match a.FileName with
     | None -> thisAssemblyName
     | _ -> a.SimpleName
+
+module M = WebSharper.Core.Metadata
 
 let getTypeDefinition (td: FSharpEntity) =
     if td.IsArrayType then
@@ -71,14 +74,7 @@ let getTypeDefinition (td: FSharpEntity) =
     let res =
         {
             Assembly = getSimpleName td.Assembly 
-            FullName = 
-    //            try 
-                    let res = td.QualifiedName.Split([|','|]).[0] 
-    //                if not (res.Contains("+")) && res <> td.FullName then
-    //                    failwith "WTF"
-                    res
-    //            with _ -> 
-    //                td.FullName
+            FullName = if td.IsProvidedAndErased then td.LogicalName else td.QualifiedName.Split([|','|]).[0] 
         }
     // TODO: more measure types
     match res.Assembly with
@@ -138,10 +134,12 @@ let isUnit (t: FSharpType) =
     if t.IsTupleType || t.IsFunctionType then false else
     let td = t.TypeDefinition
     if td.IsArrayType || td.IsByRef then false
+    elif td.IsProvidedAndErased then false
     else td.FullName = "Microsoft.FSharp.Core.Unit" || td.FullName = "System.Void"
 
 let isOption (t: FSharpType) =
-    (getOrigType t).TypeDefinition.FullName.StartsWith "Microsoft.FSharp.Core.FSharpOption`1"
+    let td = (getOrigType t).TypeDefinition
+    not td.IsProvidedAndErased && td.FullName.StartsWith "Microsoft.FSharp.Core.FSharpOption`1"
 
 let isByRef (t: FSharpType) =
     if t.IsGenericParameter then
@@ -168,17 +166,6 @@ let rec getType (tparams: Map<string, int>) (t: FSharpType) =
         | [a; r] -> FSharpFuncType(a, r)
         | _ -> failwith "impossible: FSharpFunc must have 2 type parameters"
     if t.IsTupleType then
-//        let tupleTypeDef i =
-//            Hashed {
-//                Assembly = "mscorlib"
-//                FullName = "System.Tuple`" + string i
-//            }
-//        let rec getTupleTD (args: _[]) =
-//            match args.Length with
-//            | i when i < 8 ->
-//                concreteType (tupleTypeDef i, args |> List.ofArray)
-//            | i ->
-//                concreteType (tupleTypeDef i, Seq.append (args.[.. 6]) (Seq.singleton (getTupleTD args.[7 ..])) |> List.ofSeq)    
         t.GenericArguments |> Seq.map (getType tparams) |> List.ofSeq |> TupleType
     elif t.IsFunctionType then
 //        concreteType(funcDef, t.GenericArguments |> Seq.map (getType tparams) |> List.ofSeq)
@@ -191,14 +178,17 @@ let rec getType (tparams: Map<string, int>) (t: FSharpType) =
         ByRefType(getType tparams t.GenericArguments.[0])
     else
 //        let td = getTypeDefinition td
-        if td.FullName.StartsWith "System.Tuple" then
+        let fn = 
+            if td.IsProvidedAndErased then td.LogicalName else td.FullName
+        if fn.StartsWith "System.Tuple" then
             t.GenericArguments |> Seq.map (getType tparams) |> List.ofSeq |> TupleType
-        elif td.FullName = "Microsoft.FSharp.Core.FSharpFunc`2" then
+        elif fn = "Microsoft.FSharp.Core.FSharpFunc`2" then
             getFunc()
-        elif td.FullName = "Microsoft.FSharp.Core.Unit" || td.FullName = "System.Void" then
+        elif fn = "Microsoft.FSharp.Core.Unit" || fn = "System.Void" then
             VoidType
         else
             let td = getTypeDefinition td
+            // erase Measure parameters
             match td.Value.FullName with
             | "System.Byte" 
             | "System.SByte"            
@@ -213,12 +203,6 @@ let rec getType (tparams: Map<string, int>) (t: FSharpType) =
             | "System.Double" -> concreteType (td, [])  
             | _ ->
                 concreteType (td, t.GenericArguments |> Seq.map (getType tparams) |> List.ofSeq)
-
-//            concreteType (getTypeDefinition td, 
-//                t.GenericArguments |> Seq.choose (fun t -> 
-//                    if t.HasTypeDefinition && t.TypeDefinition.IsMeasure then None else Some (getType tparams t)
-//                ) |> List.ofSeq
-//            )
 
 let removeUnitParam (ps: list<Type>) =
     match ps with 
@@ -388,6 +372,32 @@ let getMember (x : FSharpMemberOrFunctionOrValue) : Member =
 //        Generics = x.GenericParameters.Count
 //    }
 
+let getAndRegisterTypeDefinition (comp: M.Compilation) (td: FSharpEntity) =
+    let res = getTypeDefinition td
+ 
+//    let tparams = 
+//        lazy
+//        td.GenericParameters
+//        |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
+
+//    if td.IsDelegate then 
+//        if not (comp.HasCustomType res) then
+//            let sign = 
+//                try
+//                    td.FSharpDelegateSignature
+//                with e ->
+//                    failwithf "%s: %s" e.Message res.Value.FullName
+//            let info =
+//                M.DelegateInfo {
+//                    DelegateArgs =
+//                        sign.DelegateArguments 
+//                        |> Seq.map (fun (n, t) -> n, getType tparams.Value t) |> List.ofSeq
+//                    ReturnType = getType tparams.Value sign.DelegateReturnType
+//                }
+//            comp.AddCustomType(res, info)
+//        comp.ReflectCustomType res
+    res
+
 type Capturing(var) =
     inherit Transformer()
 
@@ -433,6 +443,8 @@ let withSourcePos (x: FSharpExpr) (expr: Expression) =
 type FixCtorTransformer(?thisExpr) =
     inherit Transformer()
 
+    let mutable firstOcc = true
+
     let thisExpr = defaultArg thisExpr This
 
     override this.TransformSequential (es) =
@@ -452,20 +464,29 @@ type FixCtorTransformer(?thisExpr) =
     override this.TransformStatementExpr(a) = StatementExpr a
 
     override this.TransformCtor (t, c, a) =
-            if t.Entity = sysObjDef then thisExpr
+        if not firstOcc then Ctor (t, c, a) else
+        firstOcc <- false
+        if t.Entity = sysObjDef then thisExpr
 //            elif t.Entity.Value.FullName.Contains "FSharpRef" then
 //                failwithf "fixCtor: %A" expr
-            // TODO: correct exception chaining
-            elif (let fn = t.Entity.Value.FullName in fn = "WebSharper.ExceptionProxy" || fn = "System.Exception") then 
+        // TODO: correct exception chaining
+        elif (let fn = t.Entity.Value.FullName in fn = "WebSharper.ExceptionProxy" || fn = "System.Exception") then 
 //                let e = Id.New "$error"
 //                errorId := Some e
 //                NewVar(e, Ctor(t, c, a) |> withSourcePosOfExpr inst)
-                match a with
-                | [] -> Undefined
-                | [msg] -> ItemSet(thisExpr, Value (String "message"), msg)
-                | _ -> failwith "Too many arguments for Error"
-            else
-                BaseCtor(thisExpr, t, c, a) 
+            match a with
+            | [] -> Undefined
+            | [msg] -> ItemSet(thisExpr, Value (String "message"), msg)
+            | _ -> failwith "Too many arguments for Error"
+        else
+            BaseCtor(thisExpr, t, c, a) 
+
+//    override this.TransformNewRecord (typ, fieldVals) =
+//        if not firstOcc then NewRecord (typ, fields) else
+//        firstOcc <- false
+//        Sequential [
+//            FieldSet(Thism )
+//        ]
 
 let fixCtor expr =
     FixCtorTransformer().TransformExpression(expr)
@@ -476,7 +497,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         match expr with
         | BasicPatterns.Value(var) ->
             if var.IsModuleValueOrMember then
-                let td = getTypeDefinition var.EnclosingEntity
+                let td = getAndRegisterTypeDefinition env.Compilation var.EnclosingEntity
                 match getMember var with
                 | Member.Method (_, m) -> // TODO: instance methods represented as static
                     let ids = List.init var.CurriedParameterGroups.Count (fun _ -> Id.New "$x")  
@@ -500,13 +521,16 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     match k with
                     | LocalVar -> Var v  
                     | ByRefArg -> getByref (Var v)
-                        //if isByRef expr.Type then Var v else getByref (Var v)
                     | ThisArg -> This
         | BasicPatterns.Lambda(arg, body) ->
-            let lArg =
-                if isUnit arg.FullType then []
-                else [ env.AddVar(Id.New(arg.DisplayName), arg) ]
-            Lambda(lArg, (body |> transformExpression (env.WithTParams(arg.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq))))
+    
+            let lArg, env =
+                if isUnit arg.FullType then [], env
+                else 
+                    let v = Id.New(arg.DisplayName)
+                    [ v ], env.WithVar(v, arg)
+            let env = env.WithTParams(arg.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq)
+            Lambda(lArg, (body |> transformExpression env))
         | BasicPatterns.Application(func, types, args) ->
             let args =
                 match types with
@@ -518,22 +542,29 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | trFunc ->
                 Seq.fold (fun f a -> Application(f, [tr a])) trFunc args
         | BasicPatterns.Let((id, value), body) ->
-            let i = env.AddVar(Id.New(id.DisplayName), id, if isByRef id.FullType then ByRefArg else LocalVar)
+            let i = Id.New(id.DisplayName)
+            let trValue = tr value
+            let env = env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
+            let inline tr x = transformExpression env x
             if id.IsMutable then
-                Sequential [ NewVar(i, tr value); tr body ]
+                Sequential [ NewVar(i, trValue); tr body ]
             else
-                Let (i, tr value, tr body)
+                Let (i, trValue, tr body)
         | BasicPatterns.LetRec(defs, body) ->
+            let mutable env = env
             let ids = defs |> List.map (fun (id, _) ->
-                env.AddVar(Id.New(id.DisplayName), id, if isByRef id.FullType then ByRefArg else LocalVar)
+                let i = Id.New(id.DisplayName)
+                env <- env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
+                i
             )
+            let inline tr x = transformExpression env x
             LetRec (
                 Seq.zip ids defs 
                 |> Seq.map (fun (i, (_, v)) -> i, tr v) |> List.ofSeq, 
                 tr body
             )
         | BasicPatterns.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
-            let td = getTypeDefinition meth.EnclosingEntity
+            let td = getAndRegisterTypeDefinition env.Compilation meth.EnclosingEntity
             //let tparams = meth.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq        
             if td.Value.FullName = "Microsoft.FSharp.Core.Operators" && meth.CompiledName = "Reraise" then
                 StatementExpr (Throw (Var env.Exception.Value))    
@@ -556,10 +587,6 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 match getMember meth with
                 | Member.Method (isInstance, m) -> 
                     let mt = concrete (m, methodGenerics |> List.map (getType env.TParams))
-    //                if not mt.Generics.IsEmpty && mt.Generics.Head.AssemblyQualifiedName.Contains "float`1" then
-    //                    failwith "WTF"
-    //                if m.Value.MethodName = "get_IsNone" then
-    //                    ()
                     if isInstance then
                         Call (Option.map tr this, t, mt, args)
                     else 
@@ -605,7 +632,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | BasicPatterns.IfThenElse (cond, then_, else_) ->
             Conditional(tr cond, tr then_, tr else_)    
         | BasicPatterns.NewObject (ctor, typeGenerics, arguments) -> 
-            let td = getTypeDefinition ctor.EnclosingEntity
+            let td = getAndRegisterTypeDefinition env.Compilation ctor.EnclosingEntity
     //        let tparams = constructor_.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
             let t = concrete (td, typeGenerics |> List.map (getType env.TParams))
             let args = List.map tr arguments
@@ -636,7 +663,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             StatementExpr(While(tr cond, ExprStatement (tr body)))
         | BasicPatterns.ValueSet (var, value) ->
             if var.IsModuleValueOrMember then
-                let td = getTypeDefinition var.EnclosingEntity
+                let td = getAndRegisterTypeDefinition env.Compilation var.EnclosingEntity
                 match getMember var with
                 | Member.Method (_, m) -> // TODO: instance methods represented as static
                     let ids = List.init var.CurriedParameterGroups.Count (fun _ -> Id.New())  
@@ -654,7 +681,6 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | BasicPatterns.TupleGet (_, i, tuple) ->
             ItemGet(tr tuple, Value (Int i))   
         | BasicPatterns.FastIntegerForLoop (start, end_, body, up) ->
-    //        let i = Id.New "i"
             let j = Id.New "$j"
             let i, trBody =
                 match ignoreExprSourcePos (tr body) with
@@ -681,7 +707,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
 //                | ConcreteType ct -> ct
 //                | _ -> failwith "Expected a union type"
             CopyCtor(
-                getTypeDefinition typ.TypeDefinition,
+                getAndRegisterTypeDefinition env.Compilation typ.TypeDefinition,
                 Object (
                     ("$", Value (Int i)) ::
                     (exprs |> List.mapi (fun j e -> "$" + string j, tr e)) 
@@ -708,36 +734,23 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | BasicPatterns.DecisionTree (matchValue, cases) ->
             let i = Id.New "$i"
             let c = Id.New "$c"
-    //        let value = tr matchValue
-    //        let caseExprs = cases |> List.map (snd >> tr) 
             let r = Id.New "$r"
-//            let captures = cases |> Seq.collect fst |> List.ofSeq
-            let mutable env = { env with MatchVars = Some (i, c) }
-    //        let mutable captVars = []
-    //        for v in captures do
-    //            let i = Id.New v.LogicalName
-    //            env <- env.WithVar(i, v)
-    //            captVars <- i :: captVars
-            let env = env
-            let inline tr x = transformExpression env x
+            let env = { env with MatchVars = Some (i, c) }
             Sequential [
-    //            (captVars |> List.map (fun v -> NewVar(v, Undefined)))
-                NewVar(i, Undefined)
-                NewVar(c, Undefined)
-                NewVar(r, Undefined)
-                tr matchValue
+                WithVars([i; c; r], transformExpression env matchValue)
                 StatementExpr(
                     Switch(
                         Var i, 
                         cases |> List.mapi (fun j (ci, e) -> 
                             Some (Value (Int j)), 
-                            Block [ 
-                                let captIndex = ref 0
-                                for cv in ci do
-                                    let i = env.AddVar (Id.New cv.DisplayName, cv)
-                                    yield (VarDeclaration(i, ItemGet(Var c, Value (Int !captIndex))))
-                                    incr captIndex
-                                yield ExprStatement(VarSet(r, tr e)) 
+                            Block [
+                                let mutable env = env 
+                                yield! ci |> Seq.mapi (fun captIndex cv ->
+                                    let i = Id.New cv.DisplayName
+                                    env <- env.WithVar (i, cv)
+                                    (VarDeclaration(i, ItemGet(Var c, Value (Int captIndex))))
+                                )
+                                yield ExprStatement(VarSet(r, transformExpression env e)) 
                                 yield Break None 
                             ]
                         )
@@ -754,7 +767,6 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | matchCaptures -> yield VarSet (c, NewArray matchCaptures) 
             ]
         | BasicPatterns.ThisValue (typ) ->
-//            env.Compilation.AddWarning(Some (getSourcePos expr), Metadata.SourceWarning "Possibly unsafe this")
             This
         | BasicPatterns.FSharpFieldGet (thisOpt, typ, field) ->
             let t = 
@@ -799,21 +811,25 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | BasicPatterns.ObjectExpr (typ, expr, overrides, interfaces) ->
             let o = Id.New "$o"
             Sequential [
-                yield NewVar(o, CopyCtor(getTypeDefinition typ.TypeDefinition, Object []))
+                yield NewVar(o, CopyCtor(getAndRegisterTypeDefinition env.Compilation typ.TypeDefinition, Object []))
                 for ovr in Seq.append overrides (interfaces |> Seq.collect snd) do
-                    let i = getTypeDefinition ovr.Signature.DeclaringType.TypeDefinition
+                    let i = getAndRegisterTypeDefinition env.Compilation ovr.Signature.DeclaringType.TypeDefinition
                     let s = getAbstractSlot env.TParams ovr.Signature
+                    let mutable env = env
                     let thisVar, vars =
                         match ovr.CurriedParameterGroups with
                         | [t] :: a ->
-                            let thisVar = env.AddVar(Id.New(t.DisplayName), t)
+                            let thisVar = Id.New(t.DisplayName) //env.AddVar(Id.New(t.DisplayName), t)
+                            env <- env.WithVar(thisVar, t)
                             thisVar,
                             a |> Seq.concat |> Seq.map (fun v ->
-                                env.AddVar(Id.New(v.DisplayName), v)
+                                let vv = Id.New(v.DisplayName)
+                                env <- env.WithVar(vv, v)
+                                vv
                             ) |> List.ofSeq 
                         | _ ->
-                            failwith "wrong this argument in object expression override"
-                    let b = FuncWithThis (thisVar, vars, Return (tr ovr.Body)) 
+                            failwith "Wrong `this` argument in object expression override"
+                    let b = FuncWithThis (thisVar, vars, Return (transformExpression env ovr.Body)) 
                     yield ItemSet(Var o, OverrideName(i, s), b)
                 yield FixCtorTransformer(Var o).TransformExpression(tr expr)
                 yield Var o
@@ -821,12 +837,24 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | BasicPatterns.DefaultValue typ ->
             Value Null
         | BasicPatterns.NewDelegate (typ, arg) ->
-    //        NewArray [ tr arg ]    
-            match ignoreExprSourcePos (tr arg) with
-            // TODO: can arguments have useful info?
-            | Application (func, _) -> func
-            // TODO: find if this can happen
-            | res -> res
+            // TODO : loop for exact length of delegate type
+            let rec loop acc = function
+                | BasicPatterns.Lambda (var, body) -> loop (var :: acc) body
+                | body -> (List.rev acc, body)
+
+            match loop [] arg with
+            | ([], BasicPatterns.Application (f, _, [BasicPatterns.Const (null, _)])) ->
+                NewArray [ tr f ]
+            | vars, body ->
+                let mutable env = env
+                let args = 
+                    vars |> List.map (fun v -> 
+                        let vv = Id.New(v.DisplayName) 
+                        env <- env.WithVar(vv, v)
+                        vv
+                    )
+                NewArray [ Lambda (args, transformExpression env body) ]
+            | _ -> failwith "Failed to translate delegate creation"
         | BasicPatterns.TypeLambda (gen, expr) -> tr expr
         | BasicPatterns.Quote expr -> tr expr
         | BasicPatterns.BaseValue _ -> Base
@@ -852,7 +880,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         ReturnType = getType env.TParams expr.Type
                         Generics   = 0
                     } 
-                Call(Some (tr t), concrete(getTypeDefinition t.Type.TypeDefinition, []), concrete(meth, []), a |> List.map tr)  
+                Call(Some (tr t), concrete(getAndRegisterTypeDefinition env.Compilation t.Type.TypeDefinition, []), concrete(meth, []), a |> List.map tr)  
             | _ ->
                 failwith "Impossible: TraitCall must have a this argument"
 //            failwithf "TODO: TraitCall sourceTypes: %A traitName: %s typeArgs: %A typeInstantiation %A: argExprs: %A"
@@ -868,9 +896,3 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         env.Compilation.AddError(Some (getSourcePos expr), Metadata.SourceError msg)
         WebSharper.Compiler.ToJavaScript.errorPlaceholder        
     |> withSourcePos expr
-
-
-//    match ignoreExprSourcePos expr with
-//    | Sequential (inst :: rest) ->
-//        Sequential (trCtor inst :: rest) |> withSourcePosOfExpr expr
-//    | e -> trCtor e

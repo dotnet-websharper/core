@@ -5,9 +5,9 @@
     <ProjectGuid>{b5503fd3-638e-4e54-96fc-1affd780e9e9}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.MSBuild.CSharp</Name>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFrameworkProfile />
-    <FSharp40 Condition="Exists('$(MSBuildExtensionsPath32)/../Reference Assemblies/Microsoft/FSharp/.NETFramework/v4.0/4.4.0.0/FSharp.Core.dll')">True</FSharp40>
+    <FSharp40>True</FSharp40>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <StartAction>Program</StartAction>
@@ -24,7 +24,6 @@
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
-    <Reference Include="FSharp.Data.TypeProviders" />
     <Reference Include="Microsoft.Build.Framework" />
     <Reference Include="Microsoft.Build.Utilities.v4.0" />
     <Reference Include="System.Data" />
@@ -58,8 +57,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CompilerUtility.fsi" />
-    <Compile Include="CompilerUtility.fs" />
     <Compile Include="WebSharperTask.fsi" />
     <Compile Include="WebSharperTask.fs" />
   </ItemGroup>

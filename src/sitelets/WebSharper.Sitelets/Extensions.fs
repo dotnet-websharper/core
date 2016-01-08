@@ -62,7 +62,7 @@ module internal ResourceContext =
     module Re = WebSharper.Core.Resources
     module P = WebSharper.PathConventions
 
-    let MetaData () : M.Metadata =
+    let MetaData () : M.Info =
         WebSharper.Web.Shared.Metadata
 
     let SharedJson () =

@@ -43,7 +43,7 @@ let tryGetStatementSourcePos expr =
     | StatementSourcePos (p, _) -> Some p
     | _ -> None
 
-let getConstrantValue (value: obj) =
+let getConstantValue (value: obj) =
     match value with
     | x when obj.ReferenceEquals(x, null) -> Null      
     | :? bool   as x -> Bool   x
@@ -747,7 +747,13 @@ type FixThisScope() =
         match thisVar with
         | Some t -> Let (t, This, b)
         | _ -> b
-        
+
+    member this.Fix(statement) =
+        let b = this.TransformStatement(statement)
+        match thisVar with
+        | Some t -> combineStatements [ VarDeclaration(t, This); b ]
+        | _ -> b
+                
     override this.TransformThis () =
         if scope > 0 then
             match thisVar with
@@ -808,6 +814,7 @@ let runtimeDeleteEmptyFields = runtimeFunc "DeleteEmptyFields"
 let runtimeCreateFuncWithArgs = runtimeFunc "CreateFuncWithArgs"
 let runtimeCreateFuncWithArgsRest = runtimeFunc "CreateFuncWithArgsRest"
 let runtimeCreateFuncWithThis = runtimeFunc "CreateFuncWithThis"
+let runtimeInvokeDelegate = runtimeFunc "InvokeDelegate"
 
 //let runtimeDefine = runtimeFunc "Define"
 
@@ -817,6 +824,12 @@ let sysObjDef =
         FullName = "System.Object"    
     }
 
+let iResourceDef =
+    TypeDefinition {
+        Assembly = "WebSharper.Core"
+        FullName = "WebSharper.Core.Resources+IResource"    
+    }
+    
 let ignoreSystemObject td =
     if td = sysObjDef then None else Some td
 

@@ -88,6 +88,10 @@ namespace WebSharper.CSharp.Tests
 
         public string HelloWorld() { return "Hello " + "world!"; }
 
+        //public double Fail() { return 1.0 * 1.5; }
+
+        public string HelloWorldProp => "Hello " + "world!";
+
         //public async Task<string> AsyncHelloWorld() => await Task.Run(() => "Hello world!");
 
         //public string GetValue(FSharpOption<string> opt) { return opt.Value; }

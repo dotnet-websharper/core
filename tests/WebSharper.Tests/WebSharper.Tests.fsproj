@@ -7,8 +7,8 @@
     <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
     <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <WebSharperProject>Library</WebSharperProject>
-    <FSharp40 Condition="Exists('$(MSBuildExtensionsPath32)/../Reference Assemblies/Microsoft/FSharp/.NETFramework/v4.0/4.4.0.0/FSharp.Core.dll')">True</FSharp40>
-	<TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FSharp40>True</FSharp40>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AddressOf.fs" />
@@ -17,9 +17,10 @@
     <Compile Include="Async.fs" />
     <Compile Include="Basis.fs" />
     <Compile Include="Char.fs" />
-    <Compile Include="CSharp.fs" />
     <Compile Include="DateTime.fs" />
+    <Compile Include="Delegate.fs" />
     <Compile Include="Double.fs" />
+    <Compile Include="Event.fs" />
     <Compile Include="Exception.fs" />
     <Compile Include="Inheritance.fs" />
     <Compile Include="Int32.fs" />
@@ -37,6 +38,7 @@
     <Compile Include="Queue.fs" />
     <Compile Include="Random.fs" />
     <Compile Include="Ref.fs" />
+    <Compile Include="Reflected.fs" />
     <Compile Include="Regression.fs" />
     <Compile Include="Seq.fs" />
     <Compile Include="Stack.fs" />
@@ -47,6 +49,7 @@
     <Compile Include="Tupled.fs" />
     <Compile Include="WIG.fs" />
     <Compile Include="Cookies.fs" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
@@ -96,7 +99,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="FSharp.Data.TypeProviders" />
     <Reference Include="System.Data" />
     <Reference Include="System.Data.Linq" />
   </ItemGroup>

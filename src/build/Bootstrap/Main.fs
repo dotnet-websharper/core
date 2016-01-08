@@ -74,16 +74,17 @@ let RestorePackages () =
     if Directory.Exists("packages") |> not then
         let env = ["EnableNuGetPackageRestore", "true"]
         let nuget = Exec env "tools/NuGet/NuGet.exe"
-        nuget "install NuGet.Core -version 2.9.0 -o packages -excludeVersion"
+        nuget "install NuGet.Core -version 2.8.5 -o packages -excludeVersion"
         nuget "install IntelliFactory.Core -pre -o packages -excludeVersion -nocache"
         nuget "install IntelliFactory.Build -pre -o packages -excludeVersion -nocache"
-        nuget "install FSharp.Core -version 3.0.2 -o packages -excludeVersion"
+        nuget "install FSharp.Core -version 3.0.2 -o packages"
+        nuget "install FSharp.Core -version 4.0.0.1 -o packages"
         nuget "install sharpcompress -version 0.10.3 -o packages -excludeVersion"
-        nuget "install Mono.Cecil -version 0.9.6.1 -o packages -excludeVersion"
+        nuget "install Mono.Cecil -version 0.9.5.4 -o packages -excludeVersion"
         nuget "install AjaxMin -version 5.8.5172.27710 -o packages -excludeVersion"
         nuget "install FsNuGet -o packages -excludeVersion -nocache"
-        nuget "install Microsoft.CodeAnalysis.CSharp.Workspaces -version 1.0.0 -o packages -excludeVersion"
-        nuget "install FSharp.Compiler.Service -version 1.4.2.1 -o packages -excludeVersion"
+        nuget "install Microsoft.CodeAnalysis.CSharp -version 1.1.0 -o packages -excludeVersion"
+        nuget "install IntelliFactory.FSharp.Compiler.Service -version 2.0.0.2 -o packages -excludeVersion"
 
 [<EntryPoint>]
 let Start args =

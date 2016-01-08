@@ -78,7 +78,7 @@ module HtmlCommand =
                 .SearchDirectories([baseDir])
         let assemblyName =
             let n = typeof<IHtmlCommand>.Assembly.GetName()
-            n.Name <- "WebSharper.Sitelets"
+            n.Name <- "WebSharper.Sitelets.Offline"
             n
         aR.Wrap <| fun () ->
             let asm = System.Reflection.Assembly.Load(assemblyName)

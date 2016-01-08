@@ -6,12 +6,15 @@ module I = WebSharper.Core.JavaScript.Identifier
 open WebSharper.Core
 open WebSharper.Core.AST
 
+type P = WebSharper.Core.JavaScript.Preferences
+
 type Environment =
     {
 //        CaughtException : option<Expr<unit, unit>> // TODO
         AssemblyName : string
         Preference : WebSharper.Core.JavaScript.Preferences
         mutable ScopeVars : Set<string>
+        mutable CompactVars : int
         mutable ScopeIds : Map<Id, string>
     }
     static member New(name, pref) =
@@ -20,6 +23,7 @@ type Environment =
             Preference = pref    
 //            CaughtException = None
             ScopeVars = Set.empty
+            CompactVars = 0 
             ScopeIds = Map.empty
         }
 
@@ -29,6 +33,7 @@ type Environment =
             Preference = this.Preference    
 //            CaughtException = this.CaughtException
             ScopeVars = this.ScopeVars
+            CompactVars = this.CompactVars
             ScopeIds = this.ScopeIds
         }
 
@@ -36,20 +41,30 @@ let undef = J.Var "undefined"
 let glob = J.Var "Global"
 
 let transformId (env: Environment) (id: Id) =
-    //TODO: investigate
     try Map.find id env.ScopeIds
-    with _ -> "MISSINGVAR" + I.MakeValid (id.Name |> Option.fill "_")
+    with _ -> 
+        match id.Name with
+        | Some n -> failwithf "Undefined variable found: %s" n
+//        | Some n -> failwithf "Undefined variable found: %s, Scope vars: %s" n (env.ScopeVars |> String.concat " ")
+        | _ -> failwith "Undefined variable found"
+//        "MISSINGVAR" + I.MakeValid (id.Name |> Option.fill "_")
+
+let formatter = WebSharper.Core.JavaScript.Identifier.MakeFormatter()
 
 let defineId (env: Environment) (id: Id) =
-    let vars = env.ScopeVars
-    let rec add name =
-        if vars |> Set.contains name then
-            add (Resolve.newName name)
-        else
-            env.ScopeVars <- vars |> Set.add name
-            env.ScopeIds <- env.ScopeIds |> Map.add id name
-            name
-    add (I.MakeValid (id.Name |> Option.fill "x"))
+    if env.Preference = P.Compact then
+        let name = formatter env.CompactVars    
+        env.CompactVars <- env.CompactVars + 1   
+        env.ScopeIds <- env.ScopeIds |> Map.add id name
+        name 
+    else 
+        let vars = env.ScopeVars
+        let mutable name = (I.MakeValid (id.Name |> Option.fill "x"))
+        while vars |> Set.contains name do
+            name <- Resolve.newName name 
+        env.ScopeVars <- vars |> Set.add name
+        env.ScopeIds <- env.ScopeIds |> Map.add id name
+        name
        
 let invalidForm c =
     failwithf "invalid form at writing JavaScript: %s" c
@@ -146,7 +161,6 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingBinaryOperator.``>>=``  -> J.Binary(trE x, J.BinaryOperator.``>>=``  , trE z)
         | MutatingBinaryOperator.``>>>=`` -> J.Binary(trE x, J.BinaryOperator.``>>>=`` , trE z)
     | Object fs -> J.NewObject (fs |> List.map (fun (k, v) -> k, trE v))
-    | GlobalAccess x -> glob |> List.foldBack (fun n e -> e.[!~(J.String n)]) x.Value
     | New (x, y) -> J.New(trE x, y |> List.map trE)
     | Sequential x ->
         x |> List.map trE |> List.reduce (fun a b -> J.Binary(a, J.BinaryOperator.``,``, b))
@@ -177,22 +191,37 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     let inline trS x = transformStatement env x
     let flatten s =
         let res = ResizeArray()
+        let mutable emptyDecls = ResizeArray()
         let mutable decls = ResizeArray() 
+        let flushVars() =
+            if emptyDecls.Count > 0 || decls.Count > 0 then
+                if env.Preference = P.Compact then
+                    Seq.append
+                        (emptyDecls |> Seq.map (fun i -> i, None))
+                        (decls |> Seq.map (fun (i, e) -> i, Some (trE e))) 
+                    |> List.ofSeq |> J.Vars |> res.Add
+                else 
+                    res.Add (J.Vars (emptyDecls |> Seq.map (fun i -> i, None) |> List.ofSeq))
+                    for i, e in decls do
+                        res.Add (J.Vars [ i, Some (trE e) ])
+                emptyDecls.Clear()
+                decls.Clear()
+        
         let rec add a =
             match ignoreStatementSourcePos a with 
             | Block b
             | Statements b -> b |> List.iter add
             | VarDeclaration (id, e) ->
-                decls.Add (defineId env id, e)
+                match ignoreExprSourcePos e with
+                | Undefined ->   
+                    emptyDecls.Add (defineId env id)
+                | _ ->
+                    decls.Add (defineId env id, e)
             | _ -> 
-                if decls.Count > 0 then
-                    res.Add (J.Vars (decls |> Seq.map (fun (i, e) -> i, match e with Undefined -> None | _ -> Some (trE e)) |> List.ofSeq))
-                    decls.Clear()
+                flushVars()
                 res.Add(trS a)
         s |> List.iter add
-        if decls.Count > 0 then
-            res.Add (J.Vars (decls |> Seq.choose (fun (i, e) -> match e with Undefined -> None | _ -> Some (i, Some (trE e))) |> List.ofSeq))
-            decls.Clear()
+        flushVars()
         List.ofSeq res    
     let flattenS s =
         match ignoreStatementSourcePos s with

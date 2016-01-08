@@ -36,6 +36,18 @@ type MacroResult =
     | MacroFallback
     | MacroNeedsResolvedTypeArg
 
+    static member Map f m =
+        match m with
+        | MacroWarning (w, m) -> MacroWarning (w, MacroResult.Map f m)
+        | MacroOk e -> MacroOk (f e)
+        | m -> m
+
+    static member Bind f m =
+        match m with
+        | MacroWarning (w, m) -> MacroWarning (w, MacroResult.Bind f m)
+        | MacroOk e -> f e
+        | m -> m
+
 /// Represents method bodies, at either JavaScript core or syntax level.
 type GeneratorResult =
     | GeneratedQuotation of Microsoft.FSharp.Quotations.Expr
@@ -54,8 +66,13 @@ type Macro() =
     abstract member TranslateCtor: targetType: Concrete<TypeDefinition> * ctorDef: Constructor * arguments: list<Expression> * parameter: option<obj> -> MacroResult
     override this.TranslateCtor(_,_,_,_) = failwithf "TranslateCall not implemented for macro %s" (this.GetType().FullName)
 
+type GeneratedMember =
+    | GeneratedMethod of TypeDefinition * Method
+    | GeneratedConstructor of TypeDefinition * Constructor
+    | GeneratedImplementation of TypeDefinition * TypeDefinition * Method
+
 /// An abstract base class for code generation used with GeneratedAttribute.
 [<AbstractClass>]
 type Generator() =
 //    abstract member Generate : arguments: list<Id> * parameter: option<obj> -> GeneratorResult
-    abstract member Generate : parameter: option<obj> -> GeneratorResult
+    abstract member Generate : mem:GeneratedMember *  parameter: option<obj> -> GeneratorResult

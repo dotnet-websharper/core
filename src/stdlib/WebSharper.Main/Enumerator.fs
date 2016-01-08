@@ -88,3 +88,31 @@ let Get (x: seq<'T>) : IE<'T> =
     else
         getEnumerator x
 
+[<Inline "$x.GetEnumerator0()">]
+let getEnumerator0 (x: obj) : IE<'T> = X
+
+[<JavaScript>]
+let Get0 (x: seq<'T>) : IE<'T> =
+    if JS.InstanceOf x JS.Global?Array then
+        let s = As<obj[]> x
+        New 0 (fun e ->
+            let i = e.State
+            if i < s.Length then
+                e.Current <- As s.[i]
+                e.State <- i + 1
+                true
+            else
+                false)
+    elif JS.TypeOf x = JS.String then
+        let s = As<string> x
+        New 0 (fun e ->
+            let i = e.State
+            if i < s.Length then
+                e.Current <- As s.[i]
+                e.State <- i + 1
+                true
+            else
+                false)
+    else
+        getEnumerator0 x
+

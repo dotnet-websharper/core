@@ -27,7 +27,7 @@ type Context<'Action> =
         ApplicationPath : string
         Link : 'Action -> string
         Json : WebSharper.Core.Json.Provider
-        Metadata : WebSharper.Core.Metadata.Metadata
+        Metadata : WebSharper.Core.Metadata.Info
         ResolveUrl : string -> string
         ResourceContext : WebSharper.Core.Resources.Context
         Request : Http.Request

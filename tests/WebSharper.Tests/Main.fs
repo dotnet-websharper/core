@@ -21,9 +21,14 @@
 module WebSharper.Tests.Main
 
 open WebSharper
+open WebSharper.Testing
+
+[<Generated(typeof<TestGenerator>, "WebSharper.CSharp.Tests")>]
+let RunCSharpTests() = ()
 
 [<JavaScript>]
 let RunTests() =
+    RunCSharpTests()
     [|
         AddressOf.Tests
         Array.Tests
@@ -31,17 +36,18 @@ let RunTests() =
         Async.Tests
         Basis.Tests
         Char.Tests
-        CSharp.Tests
+//        CSharp.Tests
         DateTime.Tests
         DateTime.NativeTests
         Double.Tests
+        Event.Tests
         Exception.Tests
         Inheritance.Tests
         Int32.Tests
         KeyValuePair.Tests
         Lazy.Tests
         List.Tests
-//        Macro.Tests
+        Macro.Tests
         Math.Tests
         Nullable.Tests
         Object.Tests
@@ -52,13 +58,15 @@ let RunTests() =
         Queue.Tests
         Random.Tests
         Ref.Tests
+//        Reflected.Tests
         Regression.Tests
         Seq.Tests
         Stack.Tests
         String.Tests
         Task.Tests
         TimeSpan.Tests
-//        Printf.Tests
+        Printf.Tests
         Tupled.Tests
-//        WIG.Tests
+        WIG.Tests
+        Cookies.Tests
     |] |> ignore

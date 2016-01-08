@@ -234,6 +234,9 @@ let Infinity = Unchecked.defaultof<double>
 [<JavaScript>]
 let InvalidOp (msg: string) : 'T = raise (System.InvalidOperationException(msg))
 
+[<JavaScript>]
+let InvalidArg (arg: string) (msg: string) : 'T = raise (System.ArgumentException(arg, msg))
+
 [<Inline "($x << 0)">]
 let ToInt (x: 'T) = X<int>
 
@@ -282,8 +285,8 @@ let Pown<'T> (a: 'T) (n: int) =
         match n with
         | 1 ->
             a
-        | m when m % 2 = 0 ->
-            let b = p (m / 2)
+        | n when n % 2 = 0 ->
+            let b = p (n / 2)
             b * b
         | n ->
             a * (p (n - 1))

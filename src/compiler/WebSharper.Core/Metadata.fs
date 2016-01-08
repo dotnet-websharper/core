@@ -129,7 +129,7 @@ type Node =
     | AbstractMethodNode of TypeDefinition * Method
     | TypeNode of TypeDefinition
     | ResourceNode of TypeDefinition
-    | AssemblyNode of string 
+    | AssemblyNode of string * bool
 //    | External of Node
 
 let getDefiningTypeOfNode node =
@@ -205,6 +205,16 @@ type InterfaceInfo =
         Methods : IDictionary<Method, string>
     }
 
+type DelegateInfo =
+    {
+//        DelegateArgs : list<option<string> * Type> // TODO optional arguments
+        DelegateArgs : list<Type>
+        ReturnType : Type
+    }
+
+type CustomTypeInfo =
+    | DelegateInfo of DelegateInfo
+
 type NotResolvedInterface =
     {
         StrongName : option<string>
@@ -242,7 +252,7 @@ type AssemblyResource(name) =
 
 let activate resource =
     match resource with
-    | AssemblyNode name ->
+    | AssemblyNode (name, true) ->
         AssemblyResource name :> R.IResource
     | ResourceNode t ->
         try
@@ -260,6 +270,10 @@ let activate resource =
                         ()
             }
     | _ -> failwith "not a resource node"
+
+let jqRes =
+    ResourceNode <|
+        Hashed { Assembly = "WebSharper.JQuery"; FullName = "WebSharper.JQuery.Resources.JQuery" }
 
 type Graph =
     {
@@ -391,6 +405,8 @@ type Graph =
         let newTypes = HashSet()
         let newAbstractMembers = HashSet()
 
+        this.Lookup.TryFind jqRes |> Option.iter (allNodes.Add >> ignore)
+
         let graphAllNodeStrings =
             this.Nodes |> Seq.map (fun n ->
                 match n with
@@ -400,7 +416,7 @@ type Graph =
                 | AbstractMethodNode (td, m) -> sprintf "AbstractMethodNode (%s, %s)" td.Value.FullName m.Value.MethodName
                 | TypeNode td -> sprintf "TypeNode %s" td.Value.FullName 
                 | ResourceNode td -> sprintf "ResourceNode %s" td.Value.FullName 
-                | AssemblyNode a -> sprintf "AssemblyNode %s" a
+                | AssemblyNode (a, _) -> sprintf "AssemblyNode %s" a
             ) |> Array.ofSeq
 
         let addNode n i =
@@ -439,7 +455,7 @@ type Graph =
         
         let res = deps |> List.choose (fun n ->
             match n with
-            | AssemblyNode _
+            | AssemblyNode (_, true)
             | ResourceNode _ ->
                 let i = this.Lookup.[n]
                 match this.Resources.TryFind i with
@@ -451,18 +467,13 @@ type Graph =
             | _ -> None
         )
 
-        let jq =
-            Reflection.loadTypeDefinition (Hashed { Assembly = "WebSharper.JQuery"; FullName = "WebSharper.JQuery.Resources.JQuery" })
-            |> System.Activator.CreateInstance
-            |> unbox
-
-        Resources.Runtime.Instance :: jq :: res
+        Resources.Runtime.Instance :: res
 
     member this.GetAllResources() =
         let res =
             this.Nodes |> Seq.choose (fun n ->
                 match n with
-                | AssemblyNode _
+                | AssemblyNode (_, true)
                 | ResourceNode _ ->
                     let i = this.Lookup.[n]
                     match this.Resources.TryFind i with
@@ -474,12 +485,7 @@ type Graph =
                 | _ -> None
             ) |> List.ofSeq
 
-        let jq =
-            Reflection.loadTypeDefinition (Hashed { Assembly = "WebSharper.JQuery"; FullName = "WebSharper.JQuery.Resources.JQuery" })
-            |> System.Activator.CreateInstance
-            |> unbox
-
-        Resources.Runtime.Instance :: jq :: res
+        Resources.Runtime.Instance :: res
 
 //        this.GetDependencies(nodes) |> List.choose (fun n ->
 //            match n with
@@ -545,7 +551,7 @@ type Graph =
             NewNodes = ResizeArray()
         }
 
-type Metadata =
+type Info =
     {
         SiteletDefinition: option<TypeDefinition>
         Dependencies : GraphData
@@ -563,7 +569,43 @@ let empty =
         EntryPoint = None
     }
 
-let union (metas: seq<Metadata>) =
+type Refresher() =
+    inherit Transformer()
+    
+    let refresh = System.Collections.Generic.Dictionary()
+
+    override this.TransformId i =
+        match refresh.TryFind i with
+        | Some n -> n
+        | _ ->
+            let n = Id.New (?name = i.Name)
+            refresh.Add(i, n)
+            n
+
+let refreshAllIds (i: Info) =
+    let mapValues f d =
+        seq { for (KeyValue(k, v)) in d -> k, f v } |> dict    
+    
+    let r = Refresher()
+
+    { i with
+        Classes =
+            i.Classes |> mapValues (fun c ->
+                { c with
+                    Constructors = 
+                        c.Constructors |> mapValues (fun (x, b) -> x, r.TransformExpression b) 
+                    StaticConstructor = 
+                        c.StaticConstructor |> Option.map (fun (x, b) -> x, r.TransformExpression b) 
+                    Methods = 
+                        c.Methods |> mapValues (fun (x, b) -> x, r.TransformExpression b) 
+                    Implementations = 
+                        c.Implementations |> mapValues (fun (x, b) -> x, r.TransformExpression b) 
+                }
+            )
+        EntryPoint = i.EntryPoint |> Option.map r.TransformStatement 
+    }
+
+let union (metas: seq<Info>) =
     let metas = Array.ofSeq metas
     {
         SiteletDefinition = metas |> Seq.tryPick (fun m -> m.SiteletDefinition) // TODO 
@@ -577,7 +619,7 @@ let union (metas: seq<Metadata>) =
             | _ -> failwith "Multiple entry points found."
     }
 
-let getAllAddresses (meta: Metadata) =
+let getAllAddresses (meta: Info) =
     let r = Resolve.Resolver()
     for KeyValue(typ, cls) in meta.Classes do
         let hasPrototype = not cls.IsModule
@@ -620,9 +662,6 @@ let getAllAddresses (meta: Metadata) =
 
 module B = WebSharper.Core.Binary
 
-//exception CompilationError of message: string * position: SourcePos
-//    with override this.Message = this.message    
-
 type CompilationError =
     | SourceError of string
     | NameConflict of string * string
@@ -654,10 +693,12 @@ type CompilationError =
 type LookupMemberResult =
     | Compiled of CompiledMember * Expression
     | Compiling of CompilingMember * Expression
+    | CustomTypeMember of CustomTypeInfo
     | LookupMemberError of CompilationError 
 
 type LookupFieldResult =
     | CompiledField of CompiledField
+    | CustomTypeField of CustomTypeInfo
     | LookupFieldError of CompilationError 
 
 type CompilationWarning =
@@ -676,22 +717,31 @@ type MaybeBuilder() =
         | None -> None
         | Some a -> f a
 
-    member this.Return(x) = 
-        Some x
-
-    member this.ReturnFrom(x) = 
-        x
-
+    member this.Return(x) = Some x
+    member this.ReturnFrom(x) = x
+    member this.Zero() = None
    
 let maybe = new MaybeBuilder()
+ 
+let mdelTy = typeof<System.MulticastDelegate>
+let reflectCustomType (typ : TypeDefinition) =
+    let t = Reflection.loadTypeDefinition typ
+    if t.BaseType = mdelTy then
+        let inv = t.GetMethod("Invoke") |> Reflection.getMethod
+        DelegateInfo {
+            DelegateArgs = inv.Parameters 
+            ReturnType = inv.ReturnType
+        } |> Some
+    else None
              
-type Compilation(meta: Metadata) =    
+type Compilation(meta: Info) =    
     let notResolvedInterfaces = Dictionary<TypeDefinition, NotResolvedInterface>()
     let notResolvedClasses = Dictionary<TypeDefinition, NotResolvedClass>()
     let proxies = Dictionary<TypeDefinition, TypeDefinition>()
 
     let classes = MergedDictionary meta.Classes
     let interfaces = MergedDictionary meta.Interfaces
+    let customTypes = Dictionary<TypeDefinition, option<CustomTypeInfo>>()
 
     let graph = Graph.FromData(meta.Dependencies)
 
@@ -753,7 +803,7 @@ type Compilation(meta: Metadata) =
                                 None
                             | t -> Some t
                         with e -> 
-                            this.AddError(None, SourceError(sprintf "Failed to load macro type: '%s'" macro.Value.FullName))
+                            this.AddError(None, SourceError(sprintf "Failed to load macro type: '%s', Error: %s" macro.Value.FullName e.Message))
                             None
                     let! mctor, arg =
                         match mt.GetConstructor([|typeof<Compilation>|]) with
@@ -768,13 +818,12 @@ type Compilation(meta: Metadata) =
                         try mctor.Invoke(arg) |> Some
                         with e ->
 //                            this.AddError(None, SourceError(e.Message + e.StackTrace))
-                            this.AddError(None, SourceError(sprintf "Creating macro instance failed: '%s'" macro.Value.FullName))
+                            this.AddError(None, SourceError(sprintf "Creating macro instance failed: '%s', Error: %s" macro.Value.FullName e.Message))
                             None
-                    return!
-                        try inv :?> WebSharper.Core.Macro |> Some
-                        with _ ->
-                            this.AddError(None, SourceError(sprintf "Macro type does not inherit from WebSharper.Core.Macro: '%s'" macro.Value.FullName))
-                            None 
+                    match inv with 
+                    | :? WebSharper.Core.Macro as m -> return m
+                    | _ -> 
+                        this.AddError(None, SourceError(sprintf "Macro type does not inherit from WebSharper.Core.Macro: '%s'" macro.Value.FullName))
                 } 
             macros.Add(macro, res)
             res
@@ -793,7 +842,7 @@ type Compilation(meta: Metadata) =
                                 None
                             | t -> Some t
                         with e -> 
-                            this.AddError(None, SourceError(sprintf "Failed to load generator type: '%s'" gen.Value.FullName))
+                            this.AddError(None, SourceError(sprintf "Failed to load generator type: '%s', Error: %s" gen.Value.FullName e.Message))
                             None
                     let! mctor, arg =
                         match mt.GetConstructor([|typeof<Compilation>|]) with
@@ -808,13 +857,12 @@ type Compilation(meta: Metadata) =
                         try mctor.Invoke(arg) |> Some
                         with e ->
 //                            this.AddError(None, SourceError(e.Message + e.StackTrace))
-                            this.AddError(None, SourceError(sprintf "Creating generator instance failed: '%s'" gen.Value.FullName))
+                            this.AddError(None, SourceError(sprintf "Creating generator instance failed: '%s', Error: %s" gen.Value.FullName e.Message))
                             None
-                    return!
-                        try inv :?> WebSharper.Core.Generator |> Some
-                        with _ ->
-                            this.AddError(None, SourceError(sprintf "Generator type does not inherit from WebSharper.Core.Generator: '%s'" gen.Value.FullName))
-                            None 
+                    match inv with 
+                    | :? WebSharper.Core.Generator as g -> return g
+                    | _ -> 
+                        this.AddError(None, SourceError(sprintf "Generator type does not inherit from WebSharper.Core.Generator: '%s'" gen.Value.FullName))
                 } 
             generators.Add(gen, res)
             res
@@ -823,11 +871,12 @@ type Compilation(meta: Metadata) =
 
     member this.Graph = graph
 
-    member this.ToCurrentMetadata() =
-        if errors.Count > 0 then failwith "This compilation has errors" else
+    member this.ToCurrentMetadata(?ignoreErrors) =
+        if errors.Count > 0 && not (ignoreErrors = Some true) then 
+            failwith "This compilation has errors"
         {
             SiteletDefinition = this.SiteletDefinition 
-            Dependencies = graph.GetCurrentData() // TODO only current
+            Dependencies = graph.GetCurrentData()
             Interfaces = interfaces.Current
             Classes = classes.Current        
             EntryPoint = entryPoint
@@ -861,6 +910,29 @@ type Compilation(meta: Metadata) =
         with _ ->
             this.AddError(None, SourceError ("Multiple definitions found for type: " + typ.Value.FullName))
     
+//    member this.HasCustomType(typ) =
+//        customTypes.ContainsKey typ
+//    
+    member this.AddCustomType(typ, ct) =
+        customTypes.Add(typ, Some ct)
+
+//    member this.ReflectCustomType(typ) =
+//        if not (customTypes.ContainsKey typ) then
+//            match reflectCustomType typ with
+//            | Some ct -> customTypes.Add(typ, ct)
+//            | _ -> 
+//                this.AddError(None, SourceError ("Failed to reflect on type: " + typ.Value.FullName))
+
+    member this.TryGetCustomType(typ) = 
+        match customTypes.TryFind typ with
+        | Some res -> res
+        | _ -> 
+            let res = 
+                try reflectCustomType typ
+                with _ -> None
+            customTypes.Add(typ, res)
+            res
+
     member this.TryLookupClassInfo typ =   
         classes.TryFind(findProxied typ)
     
@@ -870,7 +942,16 @@ type Compilation(meta: Metadata) =
         | Some intf -> 
             match intf.Methods.TryFind meth with
             | Some m ->
-                Compiled (Instance m, Undefined) 
+                if typ.Value.Assembly = "mscorlib" then
+                    match typ.Value.FullName with
+                    | "System.Collections.IEnumerable" ->
+                        Compiled (Inline, Application(globalAccess ["WebSharper"; "Enumerator"; "Get0"], [Hole 0]))
+                    | "System.Collections.Generic.IEnumerable`1" ->
+                        Compiled (Inline, Application(globalAccess ["WebSharper"; "Enumerator"; "Get"], [Hole 0]))
+                    | _ -> 
+                        Compiled (Instance m, Undefined)
+                else
+                    Compiled (Instance m, Undefined)              
             | _ ->
                 let mName = meth.Value.MethodName
                 let candidates = 
@@ -903,6 +984,9 @@ type Compilation(meta: Metadata) =
                             List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros None |> Option.get
                         Compiled (info, Undefined)
                     else
+                        match this.TryGetCustomType typ with
+                        | Some i -> CustomTypeMember i
+                        | _ -> 
                         let mName = meth.Value.MethodName
                         let candidates = 
                             [
@@ -927,7 +1011,9 @@ type Compilation(meta: Metadata) =
                         else
                             LookupMemberError (MethodNotFound (typ, meth, candidates))
         | _ ->
-            LookupMemberError (TypeNotFound typ)
+            match this.TryGetCustomType typ with
+            | Some i -> CustomTypeMember i
+            | _ -> LookupMemberError (TypeNotFound typ)
 
     member this.LookupFieldInfo(typ, field) =
         let typ = findProxied typ
@@ -935,9 +1021,14 @@ type Compilation(meta: Metadata) =
         | Some cls ->
             match cls.Fields.TryFind field with
             | Some f -> CompiledField f
-            | _ -> LookupFieldError (FieldNotFound (typ, field))
+            | _ -> 
+                match this.TryGetCustomType typ with
+                | Some i -> CustomTypeField i
+                | _ -> LookupFieldError (FieldNotFound (typ, field))
         | _ ->
-            LookupFieldError (TypeNotFound typ)
+            match this.TryGetCustomType typ with
+            | Some i -> CustomTypeField i
+            | _ -> LookupFieldError (TypeNotFound typ)
 
     member this.LookupConstructorInfo(typ, ctor) =
         let typ = findProxied typ
@@ -954,9 +1045,13 @@ type Compilation(meta: Metadata) =
                             List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros None |> Option.get
                         Compiled (info, Undefined)
                     else
-                        LookupMemberError (ConstructorNotFound (typ, ctor))
+                        match this.TryGetCustomType typ with
+                        | Some i -> CustomTypeMember i
+                        | _ -> LookupMemberError (ConstructorNotFound (typ, ctor))
         | _ ->
-            LookupMemberError (TypeNotFound typ)
+            match this.TryGetCustomType typ with
+            | Some i -> CustomTypeMember i
+            | _ -> LookupMemberError (TypeNotFound typ)
     
     member this.LookupStaticConstructorAddress(typ) =
         let typ = findProxied typ
@@ -992,7 +1087,7 @@ type Compilation(meta: Metadata) =
         | None ->    
             cls.Methods.[meth] <- (info, comp)
         | _ ->
-            failwith "Method already added"
+            failwithf "Method already added: %s %s" typ.Value.FullName (Reflection.printMethod meth.Value)
 
     member this.AddCompiledConstructor(typ, ctor, info, comp) = 
         let typ = findProxied typ 
@@ -1088,7 +1183,7 @@ type Compilation(meta: Metadata) =
             | M.Method (_, { Kind = k }) -> isInstanceKind k 
             | _ -> false
 
-        let asmNodeIndex = graph.AddOrLookupNode(AssemblyNode this.AssemblyName)
+        let asmNodeIndex = graph.AddOrLookupNode(AssemblyNode (this.AssemblyName, true))
         for req in this.AssemblyRequires do
             graph.AddEdge(asmNodeIndex, ResourceNode req)
 
@@ -1546,11 +1641,11 @@ module IO =
     let MetadataEncoding =
         try
             let eP = B.EncodingProvider.Create()
-            eP.DeriveEncoding typeof<Metadata>
+            eP.DeriveEncoding typeof<Info>
         with B.NoEncodingException t ->
             failwith "Failed to create binary encoder for type %s" t.FullName
 
-    let Decode stream = MetadataEncoding.Decode stream :?> Metadata   
+    let Decode stream = MetadataEncoding.Decode stream :?> Info   
     let Encode stream (comp: Compilation) = MetadataEncoding.Encode stream comp
 
     let LoadReflected(a: System.Reflection.Assembly) =

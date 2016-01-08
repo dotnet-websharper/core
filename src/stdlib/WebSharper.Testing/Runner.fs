@@ -57,7 +57,7 @@ let Run assemblies =
     let reqs =
         [
             for a : System.Reflection.Assembly in assemblies do
-                yield M.AssemblyNode (a.FullName.Split(',').[0])
+                yield M.AssemblyNode (a.FullName.Split(',').[0], true)
         ]
     new RunnerControl(reqs) :> Web.Control
 

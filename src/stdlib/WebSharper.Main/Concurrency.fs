@@ -220,7 +220,7 @@ let Start (c: C<unit>, ctOpt) =
 #nowarn "40"
 
 [<JavaScript>]
-let AwaitEvent (e: IEvent<'T>) (ca: option<unit -> unit>) : C<'T> =
+let AwaitEvent (e: IEvent<'T>, ca: option<unit -> unit>) : C<'T> =
     checkCancel <| fun c ->
         let rec sub : System.IDisposable =
             e.Subscribe (fun x -> 
@@ -244,14 +244,14 @@ let AwaitTask (t: System.Threading.Tasks.Task) : C<unit> =
     FromContinuations (fun (ok, err, cc) ->
         if t.Status = System.Threading.Tasks.TaskStatus.Created then
             t.Start()
-        t.ContinueWith((fun t ->
+        t.ContinueWith(fun t ->
             if t.IsCanceled then
                 cc (OCE())
             elif t.IsFaulted then
                 err t.Exception
             else
                 ok()   
-        )) |> ignore
+        ) |> ignore
     )
 
 [<JavaScript>]
@@ -259,14 +259,14 @@ let AwaitTask1 (t: System.Threading.Tasks.Task<'T>) : C<'T> =
     FromContinuations (fun (ok, err, cc) ->
         if t.Status = System.Threading.Tasks.TaskStatus.Created then
             t.Start()
-        t.ContinueWith((fun (t: System.Threading.Tasks.Task<'T>) ->
+        t.ContinueWith(fun (t: System.Threading.Tasks.Task<'T>) ->
             if t.IsCanceled then
                 cc (OCE())
             elif t.IsFaulted then
                 err t.Exception
             else
                 ok t.Result  
-        )) |> ignore
+        ) |> ignore
     )
 
 [<JavaScript>]
@@ -307,27 +307,6 @@ let Parallel (cs: seq<C<'T>>) : C<'T[]> =
         Array.iteri (fun i run ->
             fork (fun () -> run { k = accept i; ct = c.ct }))
             cs
-
-//[<JavaScript>]
-//let StartChild (r : C<'T>) : C<C<'T>> =
-//    checkCancel <| fun c ->
-//        let cached = ref None
-//        let queue  = Queue()
-//        fork (fun _ ->
-//            r {
-//                k = fun res ->
-//                    cached := Some res
-//                    while queue.Count > 0 do
-//                        queue.Dequeue() res
-//                ct = c.ct
-//            }
-//        )
-//        let r2 =            
-//            checkCancel <| fun c2 ->
-//                match cached.Value with
-//                | Some x    -> c2.k x
-//                | None      -> queue.Enqueue c2.k
-//        c.k (Ok r2)
 
 [<JavaScript>]
 let StartChild (r : C<'T>, t: Milliseconds option) : C<C<'T>> =

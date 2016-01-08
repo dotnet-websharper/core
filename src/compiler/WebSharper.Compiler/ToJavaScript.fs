@@ -8,64 +8,46 @@ let fail _ = failwith "Transform error: .NET common to Core"
 module M = WebSharper.Core.Metadata
 module A = WebSharper.Core.Attributes
 
-#if DEBUG
-type CheckNoInvalidJSForms(isInline) =
+let errorPlaceholder = Value (String "$$ERROR$$")
+
+type CheckNoInvalidJSForms(comp: M.Compilation) =
     inherit Transformer()
 
-    let invalidForm() = failwith "invalid form"
+    let mutable currentSourcePos = None
+    let invalidForm f = 
+        comp.AddError(currentSourcePos, M.SourceError ("Invalid form after JS tranlation: " + f))
+        errorPlaceholder
 
-    let allVars = System.Collections.Generic.HashSet()
+    override this.TransformSelf () = invalidForm "Self"
+    override this.TransformHole _ = invalidForm "Hole"
+    override this.TransformFieldGet (_,_,_) = invalidForm "FieldGet"
+    override this.TransformFieldSet (_,_,_,_) = invalidForm "FieldSet"
+    override this.TransformLet (_,_,_) = invalidForm "Let"
+    override this.TransformLetRec (_,_) = invalidForm "LetRec"
+    override this.TransformStatementExpr _ = invalidForm "StatementExpr"
+    override this.TransformAwait _  = invalidForm "Await"
+    override this.TransformNamedParameter (_,_) = invalidForm "NamedParameter"
+    override this.TransformRefOrOutParameter _ = invalidForm "RefOrOutParamete"
+    override this.TransformCtor (_,_,_) = invalidForm "Ctor"
+    override this.TransformCoalesce (_,_,_) = invalidForm "Coalesce"
+    override this.TransformTypeCheck (_,_) = invalidForm "TypeCheck"
+    override this.TransformCall (_,_,_,_) = invalidForm "Call"
+    override this.TransformWithVars (_, _) = invalidForm "WithVars"
+    override this.TransformNewVar (_, _) = invalidForm "NewVar"
 
-    static let tr = CheckNoInvalidJSForms false 
-    static let inl = CheckNoInvalidJSForms true 
+    override this.TransformExprSourcePos (pos, expr) =
+        let p = currentSourcePos 
+        currentSourcePos <- Some pos
+        let res = this.TransformExpression expr
+        currentSourcePos <- p
+        res
 
-    override this.TransformSelf ()                = invalidForm()
-    override this.TransformHole i                = if not isInline then invalidForm() else base.TransformHole i
-    override this.TransformFieldGet (_,_,_)            = invalidForm()
-    override this.TransformFieldSet (_,_,_,_)            = invalidForm()
-    override this.TransformLet (a,b,c)                 = if not isInline then invalidForm() else base.TransformLet (a,b,c)
-    override this.TransformLetRec (_,_)             = invalidForm()
-    override this.TransformStatementExpr _       = invalidForm()
-    override this.TransformAwait _               = invalidForm()
-    override this.TransformNamedParameter (_,_)      = invalidForm()
-    override this.TransformRefOrOutParameter _   = invalidForm()
-    override this.TransformCtor (_,_,_)                = invalidForm()
-    override this.TransformCoalesce (_,_,_)           = invalidForm()
-    override this.TransformTypeCheck (_,_)           = invalidForm()
-    override this.TransformCall (_,_,_,_)                = invalidForm()
-
-    override this.TransformWithVars (vars, expr) =
-        if not isInline then invalidForm() else
-        vars |> List.iter (allVars.Add >> ignore)
-        base.TransformWithVars(vars, expr)
-
-    override this.TransformNewVar (var, expr) =
-        if not isInline then invalidForm() else
-        allVars.Add var |> ignore    
-        base.TransformNewVar(var, expr)
-
-    override this.TransformVarDeclaration (var, value) =
-        allVars.Add var |> ignore    
-        base.TransformVarDeclaration (var, value)
-
-    override this.TransformFunction (args, body) =
-        args |> List.iter (allVars.Add >> ignore)
-        base.TransformFunction (args, body)
-
-    override this.TransformTryWith(body, var, catch) =
-        var |> Option.iter (allVars.Add >> ignore)
-        base.TransformTryWith(body, var, catch)
-
-    override this.TransformId i =
-        if not isInline then
-            if allVars.Contains i then
-                i
-            else failwith "undefined variable found"
-        else base.TransformId i
-
-    static member Translated = tr
-    static member Inline = inl 
-#endif
+    override this.TransformStatementSourcePos (pos, statement) =
+        let p = currentSourcePos 
+        currentSourcePos <- Some pos
+        let res = this.TransformStatement statement
+        currentSourcePos <- p
+        res
 
 type RemoveSourcePositions() =
     inherit Transformer()
@@ -95,8 +77,6 @@ let removeSourcePosFromInlines info expr =
         removeSourcePos.TransformExpression expr
     | _ -> expr
     
-let errorPlaceholder = Value (String "$$ERROR$$")
-
 let emptyConstructor = Hashed { CtorParameters = [] }
 
 let flags =
@@ -113,7 +93,7 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
     let mutable selfAddress = None
 
 //    let mutable innerVars = [] : list<Id>
-    let mutable currentNode = M.AssemblyNode "" // placeholder
+    let mutable currentNode = M.AssemblyNode ("", false) // placeholder
     let mutable currentSourcePos = None
 
     // TODO : cache instances
@@ -126,26 +106,31 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
         | M.NotGenerated (_, _, M.Inline) -> true
         | _ -> false
 
-    member this.CheckResult (info, res) =
+    member this.CheckResult (res, isInline) =
 #if DEBUG
-        if isInline info then
-            CheckNoInvalidJSForms.Inline.TransformExpression res |> ignore
-        else
-            CheckNoInvalidJSForms.Translated.TransformExpression res |> ignore
+        if isInline then res else
+            CheckNoInvalidJSForms(comp).TransformExpression res
 #else
-        ()
+        res
 #endif
      
-    member this.Generate(g, p) =
+    member this.Generate(g, p, m) =
         match comp.GetGeneratorInstance(g) with
         | Some gen ->
             let genResult = 
-                try gen.Generate(p)
+                try gen.Generate(m, p)
                 with e -> GeneratorError e.Message
+            let verifyFunction gres =
+                match ignoreExprSourcePos gres with 
+                | Function _
+                | FuncWithThis _ -> gres
+                | _ -> this.Error(M.SourceError (sprintf "Generator not returning a function: %s" g.Value.FullName))
             let rec getExpr gres = 
                 match gres with
-                | GeneratedQuotation q -> failwith "TODO: generators returning quotation"
-                | GeneratedAST resExpr -> resExpr
+                | GeneratedQuotation q -> 
+                    QuotationReader.transformExpression (QuotationReader.Environment.New(comp)) q
+                    |> verifyFunction |> this.TransformExpression |> breakExpr
+                | GeneratedAST resExpr -> resExpr |> verifyFunction |> this.TransformExpression |> breakExpr
 //                | GeneratedString s -> Verbatim s
 //                | GeneratedJavaScript js -> VerbatimJS js 
                 | GeneratorError msg ->
@@ -155,41 +140,62 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
                     getExpr gres
             getExpr genResult
         | None -> this.Error(M.SourceError ("Getting generator failed"))
+    
+    member this.GetCustomTypeMethodInline (i : M.CustomTypeInfo, meth: Concrete<Method>) =
+        let me = meth.Entity.Value
+        match i with
+        | M.DelegateInfo di ->
+            match me.MethodName with
+            | "Invoke" ->
+                // TODO: optional arguments
+                let args = di.DelegateArgs |> List.mapi (fun i _ -> Hole (i + 1)) |> NewArray
+                Application(runtimeInvokeDelegate, [Hole 0; args])
+            | mn -> this.Error(M.SourceError ("Unrecognized delegate method: " + mn))
             
     member this.CompileMethod(info, expr, typ, meth) =
         currentNode <- M.MethodNode(typ, meth)
-        let res = this.TransformExpression expr |> removeSourcePosFromInlines info |> breakExpr
-        this.CheckResult(info, res)
         match info with
         | M.NotCompiled i -> 
+            let res = this.TransformExpression expr |> removeSourcePosFromInlines info |> breakExpr
+            let res = this.CheckResult(res, (i = M.Inline))
             comp.AddCompiledMethod(typ, meth, i, res)
         | M.NotGenerated (g, p, i) ->
-            comp.AddCompiledMethod(typ, meth, i, this.Generate (g, p))
+            let m = GeneratedMethod(typ, meth)
+            let res = this.Generate (g, p, m)
+            let res = this.CheckResult(res, false)
+            comp.AddCompiledMethod(typ, meth, i, res)
 
     member this.CompileImplementation(info, expr, typ, intf, meth) =
         currentNode <- M.ImplementationNode(typ, intf, meth)
-        let res = this.TransformExpression expr |> breakExpr
-        this.CheckResult(info, res)
         match info with
         | M.NotCompiled i -> 
+            let res = this.TransformExpression expr |> breakExpr
+            let res = this.CheckResult(res, (i = M.Inline))
             comp.AddCompiledImplementation(typ, intf, meth, i, res)
         | M.NotGenerated (g, p, i) ->
-            comp.AddCompiledImplementation(typ, intf, meth, i, this.Generate (g, p))
+            let m = GeneratedImplementation(typ, intf, meth)
+            let res = this.Generate (g, p, m)
+            let res = this.CheckResult(res, false)
+            comp.AddCompiledImplementation(typ, intf, meth, i, res)
 
     member this.CompileConstructor(info, expr, typ, ctor) =
         currentNode <- M.ConstructorNode(typ, ctor)
         match info with
         | M.NotCompiled i -> 
             let res = this.TransformExpression expr |> removeSourcePosFromInlines info |> breakExpr
-            this.CheckResult(info, res)
+            let res = this.CheckResult(res, (i = M.Inline))
             comp.AddCompiledConstructor(typ, ctor, i, res)
         | M.NotGenerated (g, p, i) ->
-            comp.AddCompiledConstructor(typ, ctor, i, this.Generate (g, p))
+            let m = GeneratedConstructor(typ, ctor)
+            let res = this.Generate (g, p, m)
+            let res = this.CheckResult(res, false)
+            comp.AddCompiledConstructor(typ, ctor, i, res)
 
     member this.CompileStaticConstructor(addr, expr, typ) =
         currentNode <- M.TypeNode typ
         selfAddress <- comp.TryLookupClassInfo(typ).Value.Address
         let res = this.TransformExpression expr |> breakExpr
+        let res = this.CheckResult(res, false)
         comp.AddCompiledStaticConstructor(typ, addr, res)
 
     static member CompileFull(comp: M.Compilation) =
@@ -220,8 +226,7 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
     member this.AnotherNode() = ToJavaScript(comp, remotingProvider)    
 
     member this.AddDependency(dep: M.Node) =
-        let graph = comp.Graph
-        graph.AddEdge(currentNode, dep)
+        comp.Graph.AddEdge(currentNode, dep)
 
     member this.Error(err) =
         comp.AddError(currentSourcePos, err)
@@ -300,6 +305,10 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
                 this.TransformCall (thisObj, typ, meth, args)
             | M.NotCompiled info | M.NotGenerated (_, _, info) ->
                 this.CompileCall(info, expr, thisObj, typ, meth, args)
+        | M.CustomTypeMember ct ->  
+            let inl = this.GetCustomTypeMethodInline(ct, meth)
+            Substitution(args |> List.map this.TransformExpression, ?thisObj = thisObj).TransformExpression(inl)
+            |> this.TransformExpression
         | M.LookupMemberError err ->
             comp.AddError (currentSourcePos, err)
             match thisObj with 
@@ -307,6 +316,27 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
                 Application(ItemGet(this.TransformExpression thisObj, errorPlaceholder), args |> List.map this.TransformExpression) 
             | _ ->
                 Application(errorPlaceholder, args |> List.map this.TransformExpression)
+
+    override this.TransformNewDelegate(thisObj, typ, meth) =
+        // TODO: CustomTypeMember
+        match comp.LookupMethodInfo(typ.Entity, meth.Entity) with
+        | M.Compiled (info, _)
+        | M.Compiling ((M.NotCompiled info | M.NotGenerated (_, _, info)), _) ->
+            match info with 
+            | M.Static address -> NewArray [ GlobalAccess address ]
+            | M.Abstract name
+            | M.Instance name -> 
+                match comp.TryLookupClassInfo typ.Entity with
+                | Some { Address = Some addr } ->
+                    let funcBind = GlobalAccess addr |> getItem "prototype" |> getItem name |> getItem "bind"
+                    NewArray [ Application (funcBind, [this.TransformExpression thisObj.Value]) ]
+                | _ -> this.Error (M.SourceError "Cannot look up prototype for delegate creating")
+            | M.Inline _ -> this.Error (M.SourceError "TODO : Cannot create delegate from inlined method")
+            | M.Macro _ -> this.Error (M.SourceError "Cannot create delegate from macroed method")
+            | M.Remote _ -> this.Error (M.SourceError "TODO : Cannot create delegate from remote method")
+            | M.Constructor _ -> failwith "impossible"
+        | M.CustomTypeMember _ -> this.Error (M.SourceError "TODO : Cannot create delegate from custom type members")
+        | M.LookupMemberError err -> this.Error err
 
     member this.CompileCtor(info, expr, typ, ctor, args) =
         this.AddDependency(M.ConstructorNode (typ.Entity, ctor))
@@ -316,11 +346,8 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
         | M.Static address ->
             Application(GlobalAccess address, args |> List.map this.TransformExpression)
         | M.Inline -> 
-            let res = Substitution(args |> List.map this.TransformExpression).TransformExpression(expr)
-            // TODO: no more recursive transform of inlines (do not use Let inside)
-            match res with
-            | WithVars(a, b) -> this.TransformWithVars(a, b)
-            | _ -> this.TransformExpression(res)
+            Substitution(args |> List.map this.TransformExpression).TransformExpression(expr)
+            |> this.TransformExpression
         | M.Macro (macro, parameter, fallback) ->
 //            fallback |> Option.iter (fun f -> this.Compile ({node with NodeInfo = f}, thisObj, args))
             let macroResult = 
@@ -505,7 +532,7 @@ type ToJavaScript private (comp: M.Compilation, ?remotingProvider) =
             | M.InstanceField fname ->
                 ItemSet(this.TransformExpression expr.Value, Value (String fname), this.TransformExpression value) 
             | M.StaticField faddr ->
-                let f :: a = faddr.Value
+                let f, a = List.head faddr.Value, List.tail faddr.Value
                 ItemSet(GlobalAccess (Hashed a), Value (String f), this.TransformExpression value)
             | M.OptionalField fname -> 
                 Application(runtimeSetOptional, [this.TransformExpression expr.Value; Value (String fname); this.TransformExpression value])

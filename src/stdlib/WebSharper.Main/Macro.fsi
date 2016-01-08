@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// Defines macros used by proxy definitions.
-module private WebSharper.Macro
+module WebSharper.Macro
 
 open WebSharper.Core
 
@@ -110,3 +110,14 @@ type LE =
 type GE =
     new : unit -> GE
     inherit CMP
+
+[<Sealed>]
+type EqualityComparer =
+    new : unit -> EqualityComparer
+    static member Default : AST.Type -> MacroResult
+    inherit Macro
+
+[<Sealed>]
+type DefaultOf =
+    new : unit -> DefaultOf
+    inherit Macro

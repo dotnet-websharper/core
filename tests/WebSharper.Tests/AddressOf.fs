@@ -49,9 +49,6 @@ type MutableRecord =
 module M =
     let mutable moduleValue = 0
 
-[<JavaScript; ReflectedDefinition>]
-let add1 (x: int) = x + 1
-
 [<JavaScript>]
 let Tests =
     TestCategory "AddressOf" {
@@ -115,8 +112,4 @@ let Tests =
 
             equal (AddressOfTests.OutOne()) 1
         }      
-
-        Test "Reflected definition" {
-            equal (add1 1) 2
-        } 
     }

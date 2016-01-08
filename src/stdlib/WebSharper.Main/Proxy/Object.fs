@@ -41,8 +41,11 @@ type private ObjectProxy =
     [<JavaScript>]
     static member Equals(a: obj, b: obj) = Unchecked.equals a b
 
-    [<Inline "$a === $b">]
+    [<Inline>]
     static member ReferenceEquals(a: obj, b: obj) = a ===. b
+
+    [<Inline>]
+    static member op_Equality(a: obj, b: obj) = a ===. b
 
     [<Inline "String($this)">]
     member this.ToString() = X<string>

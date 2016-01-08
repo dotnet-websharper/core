@@ -4,21 +4,10 @@
     <ProjectGuid>{bfb21b61-fda9-4814-a728-7d43038e0b57}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.Compiler</Name>
+    <FSharp40>True</FSharp40>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
-  <ItemGroup>
-    <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
-      <Name>WebSharper.Core.JavaScript</Name>
-      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj">
-      <Name>WebSharper.Core</Name>
-      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-  </ItemGroup>
   <ItemGroup>
     <Compile Include="Abbreviations.fs" />
     <Compile Include="AssemblyResolution.fsi" />
@@ -30,10 +19,11 @@
     <Compile Include="Definitions.fs" />
     <Compile Include="AttributeReader.fs" />
     <Compile Include="Recognize.fs" />
-    <Compile Include="Reflector.fs" />
+    <Compile Include="QuotationReader.fs" />
     <Compile Include="ToJavaScript.fs" />
     <Compile Include="ToJavaScriptSyntax.fs" />
     <Compile Include="Packager.fs" />
+    <Compile Include="ErrorPrinting.fs" />
     <Compile Include="api/Symbols.fsi" />
     <Compile Include="api/Symbols.fs" />
     <Compile Include="api/EmbeddedFile.fsi" />
@@ -48,7 +38,10 @@
     <Compile Include="api/Context.fs" />
     <Compile Include="api/CompiledAssembly.fsi" />
     <Compile Include="api/CompiledAssembly.fs" />
+    <Compile Include="Reflector.fs" />
     <Compile Include="FrontEnd.fs" />
+    <Compile Include="WIGCompile.fsi" />
+    <Compile Include="WIGCompile.fs" />
     <Compile Include="bundling/Bundle.fsi" />
     <Compile Include="bundling/Bundle.fs" />
     <Compile Include="commands/Commands.fsi" />
@@ -59,5 +52,22 @@
     <Compile Include="commands/HtmlCommand.fs" />
     <Compile Include="commands/UnpackCommand.fsi" />
     <Compile Include="commands/UnpackCommand.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
+      <Name>WebSharper.Core.JavaScript</Name>
+      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj">
+      <Name>WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj">
+      <Name>WebSharper.InterfaceGenerator</Name>
+      <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
 </Project>

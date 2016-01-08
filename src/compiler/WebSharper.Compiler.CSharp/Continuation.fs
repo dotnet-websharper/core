@@ -30,9 +30,12 @@ type AwaitTransformer() =
     override this.TransformAwait(a) =
         let awaited = Id.New "$await"
         let doneLabel = Id.New "$done"
+        let status = ItemGet(Var awaited, Value (String "exc"))
+        let start = Application(ItemGet(Var awaited, Value (String "Start")), [])
         let exc = ItemGet(Var awaited, Value (String "exc"))
         Sequential [
             NewVar(awaited, this.TransformExpression a)
+            Conditional (status ^= !~(Int 0), start, Undefined)
             StatementExpr <| Continuation(doneLabel, Var awaited)
             StatementExpr <| Labeled(doneLabel, Empty)
             StatementExpr <| If (exc, Throw exc, Empty)
@@ -274,15 +277,13 @@ type AsyncTransformer(labels) =
         ]
 
     override this.TransformReturn(a) =
-        match ignoreExprSourcePos a with
-        | Undefined -> Return (Value (Bool false))
-        | _ ->
-            Statements [
-                ExprStatement <| ItemSet(Var task, Value (String "result"), a)
-                ExprStatement <| ItemSet(Var task, Value (String "status"), Value (Int (int System.Threading.Tasks.TaskStatus.RanToCompletion)))
-                ExprStatement <| Application(ItemGet(Var task, Value (String "RunContinuations")), [])
-                Return (Value (Bool false))         
-            ]
+        Statements [
+            if ignoreExprSourcePos a <> Undefined then
+                yield ExprStatement <| ItemSet(Var task, Value (String "result"), a)
+            yield ExprStatement <| ItemSet(Var task, Value (String "status"), Value (Int (int System.Threading.Tasks.TaskStatus.RanToCompletion)))
+            yield ExprStatement <| Application(ItemGet(Var task, Value (String "RunContinuations")), [])
+            yield Return (Value (Bool false))         
+        ]
 
     member this.TransformMethodBody(s: Statement) =
         let extract = ExtractVarDeclarations()

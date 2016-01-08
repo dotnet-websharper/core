@@ -139,9 +139,10 @@ type Rendering with
         Rendering.TryGetCdn(ctx, asm.FullName, filename)
 
     static member GetWebResourceRendering(ctx: Context, t: Type, filename: string) =
-        match Rendering.TryGetCdn(ctx, t.Assembly, filename) with
-        | Some r -> r
-        | None -> ctx.GetWebResourceRendering t filename
+//        match Rendering.TryGetCdn(ctx, t.Assembly, filename) with
+//        | Some r -> r
+//        | None -> 
+        ctx.GetWebResourceRendering t filename
 
 type IResource =
     abstract member Render : Context -> (RenderLocation -> HtmlTextWriter) -> unit
@@ -170,9 +171,6 @@ type BaseResource(kind: Kind) =
             match kind with
             | Basic spec ->
                 let self = this.GetType()
-                let assem = self.Assembly
-                let assemName = assem.GetName()
-                let aName = assemName.Name
                 let id = self.FullName
                 let mt = if spec.EndsWith ".css" then Css else Js
                 let r =

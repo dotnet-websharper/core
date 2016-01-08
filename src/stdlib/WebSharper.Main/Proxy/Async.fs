@@ -71,7 +71,7 @@ type private AsyncProxy =
     [<Inline>]
     [<JavaScript>]
     static member AwaitEvent(ev: IEvent<'D,'T>, ?t: unit -> unit) : Async<'T> =
-        As (C.AwaitEvent (As ev) t)
+        As (C.AwaitEvent (As ev, t))
 
     [<Inline>]
     [<JavaScript>]
@@ -130,19 +130,6 @@ type private AsyncProxy =
     [<JavaScript>]
     static member TryCancelled(p: Async<'T>, f: OCE -> unit) : Async<'T> =
         As (C.TryCancelled(As p, f))
-
-[<Proxy(typeof<System.Action>)>]
-type ActionProxy =
-    [<Inline "$action">]
-    new (action: unit -> unit) = {}
-        
-    [<Inline "$this()">]
-    member this.Invoke() = ()
-
-//[<Proxy(typeof<CTR>)>]
-//type private CancellationTokenRegistrationProxy =
-//    interface System.IDisposable with
-//        [<Stub>] member this.Dispose () = ()
 
 [<Proxy(typeof<CT>)>]
 type private CancellationTokenProxy =

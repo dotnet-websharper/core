@@ -26,12 +26,12 @@ open Microsoft.Build.Utilities
 /// Implements MSBuild logic used in `WebSharper.targets`.
 [<Sealed>]
 type WebSharperTask =
-    inherit AppDomainIsolatedTask
+    inherit ToolTask
 
     new : unit -> WebSharperTask
-
-    /// Used to specify which "method" to call.
-    member Command : string with get, set
+//
+//    /// Used to specify which "method" to call.
+//    member Command : string with get, set
 
     /// MSBuild $(Configuration) property.
     member Configuration : string with get, set
@@ -42,8 +42,14 @@ type WebSharperTask =
     /// Propagating EmbeddedResource group from MSBuild.
     member EmbeddedResources : ITaskItem [] with get, set
 
+    member OutputAssembly : ITaskItem with get, set
+    member DefineConstants : string with get, set
+    member NoStandardLib : string with get, set
+    member Sources : ITaskItem [] with get, set
+    member CscCommandLineArgs : string with get, set
+    
     /// Item input for item commands.
-    member ItemInput : ITaskItem [] with get, set
+    member References : ITaskItem [] with get, set
 
     /// Item output for item commands.
     member ItemOutput : ITaskItem [] with get, set
@@ -63,8 +69,8 @@ type WebSharperTask =
     /// The output path of MSBuild compilation.
     member OutputPath : string with get, set
 
-    /// Copy-local file list.
-    member ReferenceCopyLocalPaths : ITaskItem [] with get, set
+//    /// Copy-local file list.
+//    member ReferenceCopyLocalPaths : ITaskItem [] with get, set
 
     /// Path to the directory containing Web.config, used by the "Unpack" command,
     /// and also to detect Web projects.
@@ -79,9 +85,14 @@ type WebSharperTask =
     /// Specifies which project type is being built.
     member WebSharperProject : string with get, set
 
+    /// Outputs all JS compilation errors as warnings if set to True.
+    member WebSharperErrorsAsWarnings : string with get, set
+
     /// Specifies if source map is generated and source files are included
     /// in the assembly as resources.
     member WebSharperSourceMap : string with get, set
 
     /// Specifies if .d.ts files are unpacked along with the .js output.
     member WebSharperTypeScriptDeclaration : string with get, set
+
+    member ZafirToolPath : string with get, set

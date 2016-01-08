@@ -40,9 +40,12 @@ module Main =
 #endif
         )
 
+    let private version =
+        Config.PackageVersion + match Config.VersionSuffix with Some s -> "-" + s | _ -> ""    
+
     let private bt =
         BuildTool()
-            .PackageId(Config.PackageId, Config.PackageVersion)
+            .PackageId(Config.PackageId, version)
             .Configure(fun bt ->
                 let outDir = BuildConfig.OutputDir.Find bt
                 bt
@@ -56,72 +59,74 @@ module Main =
         Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
         |> Seq.map (fun p -> (p, p.Substring(dir.Length).Replace("\\", "/")))
 
-    let private coreExports, fsExports, csExports, testingExports =
-        let lib kind name =
+    let private coreExports, fsExports, csExports, testingExports, compilerExports =
+        let lib name =
             Seq.concat [
                 Directory.EnumerateFiles(buildDir, name + ".dll")
                 Directory.EnumerateFiles(buildDir, name + ".xml")
             ]
-            |> Seq.map (fun p -> (kind, p))
+            |> Seq.map (fun p -> ("lib", p))
+
+        let tools name =
+            Directory.EnumerateFiles(buildDir, name + ".dll")
+            |> Seq.map (fun p -> ("tools", p))
         
         Seq.concat [
-            lib "lib"   "WebSharper.Core.JavaScript"
-            lib "lib"   "WebSharper.Core"
-            lib "lib"   "WebSharper.InterfaceGenerator"
-            lib "lib"   "WebSharper.Html.Server"
-            lib "lib"   "WebSharper.Html.Client"
-            lib "lib"   "WebSharper.Sitelets"
-            lib "lib"   "WebSharper.Web"
-            lib "lib"   "WebSharper.Main"
-            lib "lib"   "WebSharper.Collections"
-            lib "lib"   "WebSharper.Control"
-            lib "lib"   "WebSharper.JavaScript"
-            lib "lib"   "WebSharper.JQuery"
+            lib "WebSharper.Core.JavaScript"
+            lib "WebSharper.Core"
+            lib "WebSharper.InterfaceGenerator"
+            lib "WebSharper.Sitelets"
+            lib "WebSharper.Web"
+            lib "WebSharper.Main"
+            lib "WebSharper.Collections"
+            lib "WebSharper.Control"
+            lib "WebSharper.JavaScript"
+            lib "WebSharper.JQuery"
+        ] |> List.ofSeq
+        ,
+        Seq.concat [                        
+            tools "WebSharper.Compiler"
+            tools "WebSharper.Compiler.FSharp"
+            tools "WebSharper.Sitelets.Offline"
+            // shared with main package:
+            tools "WebSharper.Core"
+            tools "WebSharper.Core.JavaScript"
+            tools "WebSharper.InterfaceGenerator"
+            // foreign:
+            tools "FSharp.Core"
+            tools "Mono.Cecil"
+            tools "Mono.Cecil.Mdb"
+            tools "Mono.Cecil.Pdb"
+            tools "FSharp.Compiler.Service"
         ] |> List.ofSeq
         ,
         Seq.concat [
-            lib "tools"   "WebSharper.Core.JavaScript"
-            lib "tools"   "WebSharper.Core"
-            lib "tools"   "WebSharper.InterfaceGenerator"
-            lib "tools" "WebSharper.Compiler"
-            lib "tools" "WebSharper.Compiler.FSharp"
-            lib "tools" "WebSharper.MSBuild.FSharp"
+            tools "WebSharper.Compiler"
+            tools "WebSharper.Compiler.CSharp"
+//            tools "WebSharper.Sitelets.Offline" // TODO: Sitelets API for C#
+            tools "WebSharper.MSBuild.CSharp"
+            // shared with main package:
+            tools "WebSharper.Core"
+            tools "WebSharper.Core.JavaScript"
             // foreign:
-            lib "tools" "FsNuGet"
-            lib "tools" "NuGet.Core"
-            lib "tools" "FSharp.Core"
-            lib "tools" "Mono.Cecil"
-            lib "tools" "Mono.Cecil.Mdb"
-            lib "tools" "Mono.Cecil.Pdb"
-            lib "tools" "FSharp.Compiler.Service"
+            tools "FSharp.Core"
+            tools "Mono.Cecil"
+            tools "Mono.Cecil.Mdb"
+            tools "Mono.Cecil.Pdb"
+            tools "Microsoft.CodeAnalysis"
+            tools "Microsoft.CodeAnalysis.CSharp"
+            tools "System.Collections.Immutable"
+            tools "System.Reflection.Metadata"
         ] |> List.ofSeq
+        ,
+        lib "WebSharper.Testing"
         ,
         Seq.concat [
-            lib "tools" "WebSharper.Compiler"
-            lib "tools" "WebSharper.Compiler.CSharp"
-            lib "tools" "WebSharper.MSBuild.CSharp"
-            // foreign:
-            lib "tools" "FsNuGet"
-            lib "tools" "NuGet.Core"
-            lib "tools" "FSharp.Core"
-            lib "tools" "Mono.Cecil"
-            lib "tools" "Mono.Cecil.Mdb"
-            lib "tools" "Mono.Cecil.Pdb"
-            lib "tools" "Microsoft.CodeAnalysis"
-            lib "tools" "Microsoft.CodeAnalysis.CSharp"
-            lib "tools" "Microsoft.CodeAnalysis.CSharp.Workspaces"
-            lib "tools" "Microsoft.CodeAnalysis.Workspaces"
-            lib "tools" "Microsoft.CodeAnalysis.Workspaces.Desktop"
-            lib "tools" "System.Collections.Immutable"
-            lib "tools" "System.Composition.AttributedModel"
-            lib "tools" "System.Composition.Convention"
-            lib "tools" "System.Composition.Hosting"
-            lib "tools" "System.Composition.Runtime"
-            lib "tools" "System.Composition.TypedParts"
-            lib "tools" "System.Reflection.Metadata"
+            lib "WebSharper.Compiler"
+            lib "WebSharper.Compiler.FSharp"
+            lib "WebSharper.Compiler.CSharp"
+            lib "WebSharper.Sitelets.Offline"
         ] |> List.ofSeq
-        ,
-        lib "lib" "WebSharper.Testing"
 
     let private nuPkgs () =
         let nuPkg =
@@ -143,6 +148,9 @@ module Main =
         let file kind src tgt =
             sprintf "/%s/net40/%s" kind (defaultArg tgt (Path.GetFileName src))
             |> fileAt src
+        let file45 kind src tgt =
+            sprintf "/%s/net45/%s" kind (defaultArg tgt (Path.GetFileName src))
+            |> fileAt src
         let out f = Path.Combine(buildDir, f)
         let nuPkg = 
             nuPkg.AddNuGetExportingProject {
@@ -161,8 +169,7 @@ module Main =
         let v = Version(nuPkg.GetComputedVersion().Split('-').[0])
         let fsharpNuPkg =
             let bt =
-                bt.PackageId(Config.FSharpPackageId)
-                |> PackageVersion.Full.Custom v
+                bt.PackageId(Config.FSharpPackageId, version)
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -172,23 +179,24 @@ module Main =
                             LicenseUrl = Some Config.LicenseUrl
                             Authors = [ Config.Company ]
                     })
-                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
+//                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
                 .AddNuGetExportingProject {
                     new INuGetExportingProject with
                         member p.NuGetFiles =
                             seq {
-                                yield fileAt (Path.Combine(root, "msbuild", "WebSharper.FSharp.targets")) "build/WebSharper.FSharp.targets"
+                                yield fileAt (Path.Combine(root, "msbuild", "Zafir.FSharp.targets")) ("build/" + Config.FSharpPackageId + ".targets")
                                 yield file "tools" (out "WsFsc.exe") None
                                 yield file "tools" (out "WsFsc.exe.config") None
-//                                yield fileAt (Path.Combine(root, "tests", "Web", "bin", "FSharp.Core.dll")) ("/tools/net40/FSharp.Core.dll")
+                                let fscore = Path.Combine(root, "packages", "FSharp.Core.4.0.0.1", "lib", "net40")
+                                yield file "tools" (Path.Combine(fscore, "FSharp.Core.optdata")) None
+                                yield file "tools" (Path.Combine(fscore, "FSharp.Core.sigdata")) None
                                 for kind, src in fsExports do
                                     yield file kind src None
                             }
                 }
         let csharpNuPkg =
             let bt =
-                bt.PackageId(Config.CSharpPackageId)
-                |> PackageVersion.Full.Custom v
+                bt.PackageId(Config.CSharpPackageId, version)
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -198,20 +206,24 @@ module Main =
                             LicenseUrl = Some Config.LicenseUrl
                             Authors = [ Config.Company ]
                     })
-                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
+//                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
                 .AddNuGetExportingProject {
                     new INuGetExportingProject with
                         member p.NuGetFiles =
                             seq {
-                                yield fileAt (Path.Combine(root, "msbuild", "WebSharper.CSharp.targets")) "build/WebSharper.CSharp.targets"
+                                yield fileAt (Path.Combine(root, "msbuild", "Zafir.CSharp.targets")) ("build/" + Config.CSharpPackageId + ".targets")
+                                yield file45 "tools" (out "ZafirCs.exe") None
+                                yield file45 "tools" (out "ZafirCs.exe.config") None
+                                let fscore = Path.Combine(root, "packages", "FSharp.Core.4.0.0.1", "lib", "net40")
+                                yield file45 "tools" (Path.Combine(fscore, "FSharp.Core.optdata")) None
+                                yield file45 "tools" (Path.Combine(fscore, "FSharp.Core.sigdata")) None
                                 for kind, src in csExports do
-                                    yield file kind src None
+                                    yield file45 kind src None
                             }
                 }
         let testingNuPkg =
             let bt =
-                bt.PackageId(Config.TestingPackageId, Config.PackageVersion)
-                |> PackageVersion.Full.Custom v
+                bt.PackageId(Config.TestingPackageId, version)
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -230,7 +242,30 @@ module Main =
                                     yield file kind src None
                             }
                 }
-        [ nuPkg; fsharpNuPkg; csharpNuPkg; testingNuPkg ]
+        let compilerNuPkg =
+            let bt =
+                bt.PackageId(Config.CompilerPackageId, version)
+            bt.NuGet.CreatePackage()
+                .Configure(fun x ->
+                    {
+                        x with
+                            Description = Config.CompilerDescription
+                            ProjectUrl = Some Config.Website
+                            LicenseUrl = Some Config.LicenseUrl
+                            Authors = [ Config.Company ]
+                    })
+                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
+                .AddNuGetExportingProject {
+                    new INuGetExportingProject with
+                        member p.NuGetFiles =
+                            seq {
+                                for kind, src in compilerExports do
+                                    if not (src.Contains "CSharp") then
+                                        yield file kind src None
+                                    yield file45 kind src None
+                            }
+                }
+        [ nuPkg; fsharpNuPkg; csharpNuPkg; testingNuPkg; compilerNuPkg ]
 
     let Package () =
         let nuPkgs = nuPkgs ()

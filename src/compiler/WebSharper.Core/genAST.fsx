@@ -109,7 +109,9 @@ let ExprDefs =
         "TypeCheck", Expr * Type
 //        "MacroFallback", Empty
         "WithVars", List Id * Expr
+        "MethodName", NonGenericTypeDefinition * NonGenericMethod
         "OverrideName", NonGenericTypeDefinition * NonGenericMethod
+        "NewDelegate", Option Expr * TypeDefinition * Method
 
         // F#
         "LetRec", List (Id * Expr) * Expr

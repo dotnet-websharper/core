@@ -37,8 +37,50 @@ type private Int32Proxy =
     [<Inline "$a * $b">]
     static member (*) (a: int, b: int) = X<int>
 
+    [<Inline "$a / $b >> 0">]
+    static member (/) (a: int, b: int) = X<int>
+
+    [<Inline "$a % $b">]
+    static member (%) (a: int, b: int) = X<int>
+
+    [<Inline "$a | $b">]
+    static member (|||) (a: int, b: int) = X<int>
+
+    [<Inline "$a & $b">]
+    static member (&&&) (a: int, b: int) = X<int>
+
+    [<Inline "$a ^ $b">]
+    static member (^^^) (a: int, b: int) = X<int>
+
+    [<Inline "$a >> $b">]
+    static member (>>>) (a: int, b: int) = X<int>
+
+    [<Inline "$a << $b">]
+    static member (<<<) (a: int, b: int) = X<int>
+
+    [<Inline "-$a">]
+    static member (~-) (a: int) = X<int>
+
+    [<Inline "+$a">]
+    static member (~+) (a: int) = X<int>
+
     [<Inline "$a == $b">]
     static member op_Equality (a: int, b: int) = X<bool>
+
+    [<Inline "$a != $b">]
+    static member op_Inequality (a: int, b: int) = X<bool>
+
+    [<Inline "$a > $b">]
+    static member op_GreaterThan (a: int, b: int) = X<bool>
+
+    [<Inline "$a >= $b">]
+    static member op_GreaterThanOrEqual (a: int, b: int) = X<bool>
+
+    [<Inline "$a < $b">]
+    static member op_LessThan (a: int, b: int) = X<bool>
+
+    [<Inline "$a <= $b">]
+    static member op_LessThanOrEqual (a: int, b: int) = X<bool>
     
     static member MaxValue
         with [<Inline "-2147483648">] get () = X<int>

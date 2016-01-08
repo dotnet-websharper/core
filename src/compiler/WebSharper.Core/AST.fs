@@ -51,7 +51,9 @@ and Expression =
     | Coalesce of Expression * Type * Expression
     | TypeCheck of Expression * Type
     | WithVars of list<Id> * Expression
+    | MethodName of TypeDefinition * Method
     | OverrideName of TypeDefinition * Method
+    | NewDelegate of option<Expression> * Concrete<TypeDefinition> * Concrete<Method>
     | LetRec of list<Id * Expression> * Expression
     | StatementExpr of Statement
     | NewRecord of Concrete<TypeDefinition> * list<Expression>
@@ -181,8 +183,12 @@ type Transformer() =
     override this.TransformTypeCheck (a, b) = TypeCheck (this.TransformExpression a, b)
     abstract TransformWithVars : list<Id> * Expression -> Expression
     override this.TransformWithVars (a, b) = WithVars (List.map this.TransformId a, this.TransformExpression b)
+    abstract TransformMethodName : TypeDefinition * Method -> Expression
+    override this.TransformMethodName (a, b) = MethodName (a, b)
     abstract TransformOverrideName : TypeDefinition * Method -> Expression
     override this.TransformOverrideName (a, b) = OverrideName (a, b)
+    abstract TransformNewDelegate : option<Expression> * Concrete<TypeDefinition> * Concrete<Method> -> Expression
+    override this.TransformNewDelegate (a, b, c) = NewDelegate (Option.map this.TransformExpression a, b, c)
     abstract TransformLetRec : list<Id * Expression> * Expression -> Expression
     override this.TransformLetRec (a, b) = LetRec (List.map (fun (a, b) -> this.TransformId a, this.TransformExpression b) a, this.TransformExpression b)
     abstract TransformStatementExpr : Statement -> Expression
@@ -291,7 +297,9 @@ type Transformer() =
         | Coalesce (a, b, c) -> this.TransformCoalesce (a, b, c)
         | TypeCheck (a, b) -> this.TransformTypeCheck (a, b)
         | WithVars (a, b) -> this.TransformWithVars (a, b)
+        | MethodName (a, b) -> this.TransformMethodName (a, b)
         | OverrideName (a, b) -> this.TransformOverrideName (a, b)
+        | NewDelegate (a, b, c) -> this.TransformNewDelegate (a, b, c)
         | LetRec (a, b) -> this.TransformLetRec (a, b)
         | StatementExpr a -> this.TransformStatementExpr a
         | NewRecord (a, b) -> this.TransformNewRecord (a, b)
@@ -400,8 +408,12 @@ type Visitor() =
     override this.VisitTypeCheck (a, b) = this.VisitExpression a; ()
     abstract VisitWithVars : list<Id> * Expression -> unit
     override this.VisitWithVars (a, b) = List.iter this.VisitId a; this.VisitExpression b
+    abstract VisitMethodName : TypeDefinition * Method -> unit
+    override this.VisitMethodName (a, b) = (); ()
     abstract VisitOverrideName : TypeDefinition * Method -> unit
     override this.VisitOverrideName (a, b) = (); ()
+    abstract VisitNewDelegate : option<Expression> * Concrete<TypeDefinition> * Concrete<Method> -> unit
+    override this.VisitNewDelegate (a, b, c) = Option.iter this.VisitExpression a; (); ()
     abstract VisitLetRec : list<Id * Expression> * Expression -> unit
     override this.VisitLetRec (a, b) = List.iter (fun (a, b) -> this.VisitId a; this.VisitExpression b) a; this.VisitExpression b
     abstract VisitStatementExpr : Statement -> unit
@@ -510,7 +522,9 @@ type Visitor() =
         | Coalesce (a, b, c) -> this.VisitCoalesce (a, b, c)
         | TypeCheck (a, b) -> this.VisitTypeCheck (a, b)
         | WithVars (a, b) -> this.VisitWithVars (a, b)
+        | MethodName (a, b) -> this.VisitMethodName (a, b)
         | OverrideName (a, b) -> this.VisitOverrideName (a, b)
+        | NewDelegate (a, b, c) -> this.VisitNewDelegate (a, b, c)
         | LetRec (a, b) -> this.VisitLetRec (a, b)
         | StatementExpr a -> this.VisitStatementExpr a
         | NewRecord (a, b) -> this.VisitNewRecord (a, b)

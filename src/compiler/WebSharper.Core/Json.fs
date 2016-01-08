@@ -1418,7 +1418,7 @@ let defaultEncodeUnionTag _ (tag: int) =
 
 module TypedProviderInternals =
 
-    let addTag (i: M.Metadata) (t: System.Type) =
+    let addTag (i: M.Info) (t: System.Type) =
         let mt = AST.Reflection.getTypeDefinition t
         match i.Classes.TryFind mt with
         | Some { Address = Some a } ->
@@ -1685,7 +1685,7 @@ type Provider(fo: FormatSettings) =
                 DecodeDateTime = fun ta -> options.DecodeDateTime ta.DateTimeFormat
             }
 
-    static member CreateTyped (info: M.Metadata) =
+    static member CreateTyped (info: M.Info) =
         Provider (TypedProviderInternals.format info)
 
     member this.GetDecoder(t: System.Type) : Decoder =

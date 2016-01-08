@@ -55,6 +55,14 @@ type RN () =
         and  set v = y <- v
 
 [<JavaScript>]
+type RNWithStub() =
+    [<Stub; Name "x">]
+    member val y = 0 with get, set
+
+    [<Stub>]
+    member val x = 0 with get, set
+
+[<JavaScript>]
 type Abcde = { A: string; B: string; C: string; D: string; E: string }
 
 [<JavaScript>]
@@ -88,6 +96,12 @@ let Tests =
 
         Test "GetHashCode" {
             equal (JS.TypeOf (obj().GetHashCode())) JS.Kind.Number
+        }
+
+        Test "Unchecked.defaultof" {
+            equal Unchecked.defaultof<int> 0
+            equal Unchecked.defaultof<float> 0.
+            equal Unchecked.defaultof<Abcde> JS.Undefined
         }
 
         Test "Construction with properties" {
@@ -159,4 +173,14 @@ let Tests =
 
         #endif
 
+        Test "Stub property" {
+            let o = RN(Value = 1)
+            let c = As<RNWithStub> o
+            equal c.x 1
+            c.x <- 2
+            equal c.x 2
+            equal c.y 2
+            c.y <- 3
+            equal c.y 3
+        }
     }

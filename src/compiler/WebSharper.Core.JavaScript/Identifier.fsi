@@ -31,4 +31,4 @@ val IsValid : string -> bool
 val MakeValid : string -> string
 
 /// Constructs a compact numeric identifier formatter.
-val internal MakeFormatter : unit -> (int -> string)
+val MakeFormatter : unit -> (int -> string)

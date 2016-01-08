@@ -2,19 +2,25 @@
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProjectGuid>{46d8c7c3-43ca-465c-9714-20b22cf3e459}</ProjectGuid>
-    <Name>WsCsc</Name>
+    <Name>ZafirCs</Name>
     <OutputType>Exe</OutputType>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FSharp40>True</FSharp40>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
-    <Compile Include="Arguments.fs" />
-    <Compile Include="Options.fs" />
-    <Compile Include="DependencyReporter.fs" />
-    <Compile Include="ProxyReporter.fs" />
     <Compile Include="Program.fs" />
+    <Content Include="App.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\WebSharper.Compiler.CSharp\WebSharper.Compiler.CSharp.fsproj">
+      <Name>WebSharper.Compiler.CSharp</Name>
+      <Project>{8f188e8b-547e-4a8e-bd3b-257a13af9acd}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
       <Name>WebSharper.Core.JavaScript</Name>
       <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
@@ -35,8 +41,6 @@
       <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
       <Private>True</Private>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Reference Include="IntelliFactory.Core">
       <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
     </Reference>

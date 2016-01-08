@@ -5,7 +5,6 @@
     <OutputType>Library</OutputType>
     <Name>WebSharper.Sitelets</Name>
   </PropertyGroup>
-  <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>
     <Compile Include="Extensions.fs" />
@@ -31,23 +30,11 @@
     <Compile Include="HttpModule.fs" />
     <Compile Include="UrlHelpers.fsi" />
     <Compile Include="UrlHelpers.fs" />
-    <Compile Include="Offline\PathUtility.fsi" />
-    <Compile Include="Offline\PathUtility.fs" />
-    <Compile Include="Offline\Output.fsi" />
-    <Compile Include="Offline\Output.fs" />
-    <Compile Include="Offline\Extra.fsi" />
-    <Compile Include="Offline\Extra.fs" />
-    <Compile Include="Offline\HtmlCommand.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
       <Name>WebSharper.Core.JavaScript</Name>
       <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj">
-      <Name>WebSharper.Compiler</Name>
-      <Project>{bfb21b61-fda9-4814-a728-7d43038e0b57}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj">
