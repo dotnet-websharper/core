@@ -96,6 +96,8 @@ type AssemblyInfo =
         types : D<Re.TypeDefinition,P.Address>
     }
 
+    member this.HasRemoteMethods = this.remote.Count > 0
+
     member this.AddRemoteMethod(m: Re.Method) =
         match this.remote.TryGetValue m with
         | true, y -> y

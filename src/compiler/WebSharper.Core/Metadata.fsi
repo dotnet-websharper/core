@@ -65,6 +65,9 @@ type AssemblyInfo =
     /// Creates a new AssemblyInfo.
     static member Create : Re.AssemblyName -> AssemblyInfo
 
+    /// Tests whether the assembly contains any remote methods.
+    member HasRemoteMethods : bool
+
     /// Adds a method marked as remote.
     member AddRemoteMethod : Re.Method -> MethodHandle
 
