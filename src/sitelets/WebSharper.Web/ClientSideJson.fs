@@ -293,7 +293,7 @@ module Macro =
                                 |"System.Int64" | "System.UInt64"
                                 |"System.Single"| "System.Double"
                                 |"System.Decimal"
-                                |"System.String"
+                                |"System.String"| "System.Guid"
                                 |"WebSharper.Core.Json+Encoded"), []) ->
                     ok Funs.id
                 | T.Concrete (T "Microsoft.FSharp.Collections.FSharpList`1", [t]) ->
