@@ -23,6 +23,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Minify.fs" />
     <Compile Include="Main.fs" />
+    <None Include="App.config" />
     <None Include="WebSharper.exe.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
