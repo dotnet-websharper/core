@@ -318,17 +318,17 @@ module Macro =
                 | T.Concrete (T "System.DateTime", []) ->
                     ok (call "DateTime" [])
                 | T.Concrete (td, args) ->
-                    match ctx.TryGetValue td with
+                    match ctx.TryGetValue (t) with
                     | true, (id, e, _) ->
-                        ctx.[td] <- (id, e, true)
+                        ctx.[t] <- (id, e, true)
                         ok (J.Var id)
                     | false, _ ->
                         let id = J.Id()
-                        ctx.[td] <- (id, !~J.Null, false)
+                        ctx.[t] <- (id, !~J.Null, false)
                         ((fun es ->
                             encRecType t args es >>= fun e ->
-                            let _, _, multiple = ctx.[td]
-                            ctx.[td] <- (id, e, multiple)
+                            let _, _, multiple = ctx.[t]
+                            ctx.[t] <- (id, e, multiple)
                             ok (J.Var id)
                          ), args)
                         ||> List.fold (fun k t es ->
