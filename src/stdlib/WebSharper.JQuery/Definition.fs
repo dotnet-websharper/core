@@ -857,6 +857,34 @@ module Definition =
 
             ]
         |+> Static [
+                Constructor T<string>?selector
+                |> WithInline "jQuery($0)"
+                |> WithComment "Accepts a string containing a CSS selector which is then used to match a set of elements."
+
+                Constructor (T<string>?selector * Content?context)
+                |> WithInline "jQuery($0,$1)"
+                |> WithComment "Accepts a string containing a CSS selector and a DOM Element, Document, or jQuery to use as context."
+
+                Constructor (Type.ArrayOf T<Dom.Node>)?elementArray
+                |> WithInline "jQuery($0)"
+                |> WithComment "An array containing a set of DOM elements to wrap in a jQuery object."
+
+                Constructor T<Dom.Node>?node
+                |> WithInline "jQuery($0)"
+                |> WithComment "DOM node to wrap in a jQuery object."
+
+                Constructor (T<string>?html * T<Dom.Document>?ownerDocument)
+                |> WithInline "jQuery($0,$1)"
+                |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
+
+                Constructor (T<string>?html * T<Object<string>>?properties)
+                |> WithInline "jQuery($0,$1)"
+                |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
+
+                Constructor (T<unit> ^-> T<unit>)?callback
+                |> WithInline "jQuery($0)"
+                |> WithComment "Binds a function to be executed when the DOM has finished loading."
+
                 "of" => T<string>?selector ^-> JQ
                 |> WithInline "jQuery($0)"
                 |> WithComment "Accepts a string containing a CSS selector which is then used to match a set of elements."
@@ -869,7 +897,7 @@ module Definition =
                 |> WithInline "jQuery($0)"
                 |> WithComment "An array containing a set of DOM elements to wrap in a jQuery object."
 
-                "of" => T<Dom.Node>?node^-> JQ
+                "of" => T<Dom.Node>?node ^-> JQ
                 |> WithInline "jQuery($0)"
                 |> WithComment "DOM node to wrap in a jQuery object."
 
@@ -877,11 +905,11 @@ module Definition =
                 |> WithInline "jQuery($0,$1)"
                 |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
 
-                "of" => T<string>?html * T<Object<string>>?props ^-> JQ
+                "of" => T<string>?html * T<Object<string>>?properties ^-> JQ
                 |> WithInline "jQuery($0,$1)"
                 |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
 
-                "of" => (T<unit> ^-> T<unit>) ?callback ^-> JQ
+                "of" => (T<unit> ^-> T<unit>)?callback ^-> JQ
                 |> WithInline "jQuery($0)"
                 |> WithComment "Binds a function to be executed when the DOM has finished loading."
 
