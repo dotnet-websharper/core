@@ -339,6 +339,7 @@ module Macro =
             // Encode a type that might be recursively defined
             and encRecType t targs args =
                 let tt = t.Load(false)
+                if tt.IsEnum then ok Funs.id else
                 if FST.IsRecord(tt, flags) then
                     let fields =
                         FST.GetRecordFields(tt, flags)
