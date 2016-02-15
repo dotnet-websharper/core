@@ -12,7 +12,15 @@ ways to declare a resource). Such a resource is declared with an associated
 path. The path is resolved by WebSharper as follows:
 
 1. If the assembly contains an embedded resource file whose name
-corresponds to the resource's path, then WebSharper:
+corresponds to the resource's path, and the following assembly-wide
+attribute is present:
+
+    ```fsharp
+    [<assembly:System.Web.UI.WebResource("myfile.js", "mime/type")>]
+    do ()
+    ```
+
+    then WebSharper
 
     * extracts this file into the relevant subfolder of your application
       (`/Scripts/WebSharper/<path>` for JavaScript files,
