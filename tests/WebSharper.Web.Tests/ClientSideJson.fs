@@ -280,6 +280,10 @@ module ClientSideJson =
             Test "serialize enum" {
                 equal (Json.Serialize Enum.Case1) "1"
                 equal (Json.Serialize Enum.Case2) "2"
+                equal (Json.Serialize (enum<Enum> 3)) "3"
+            }
+
+            Test "deserialize enum" {
                 equal (Json.Deserialize "1") Enum.Case1
                 equal (Json.Deserialize "2") Enum.Case2
                 equal (Json.Deserialize "3") (enum<Enum> 3)
