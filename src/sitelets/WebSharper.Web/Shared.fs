@@ -45,5 +45,7 @@ let Metadata = loadMetadata ()
 
 let Json = J.Provider.CreateTyped Metadata
 
+let PlainJson = J.Provider.Create ()
+
 [<Literal>]
 let internal SCRIPT_MANAGER_ID = "WebSharperScriptManager"

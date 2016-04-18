@@ -591,42 +591,55 @@ open Macro
 
 /// Encodes an object in such a way that JSON stringification
 /// results in the same readable format as Sitelets.
+/// Client-side only.
 [<Macro(typeof<SerializeMacro>)>]
 let Encode<'T> (x: 'T) = X<obj>
 
 /// Encodes an object in such a way that JSON stringification
 /// results in the same readable format as Sitelets.
+/// Client-side only.
 [<Macro(typeof<SerializeMacro>)>]
 let EncodeWith<'T> (provider: Provider) (x: 'T) = X<obj>
 
 /// Serializes an object to JSON using the same readable format as Sitelets.
 /// For plain JSON stringification, see Json.Stringify.
 [<Macro(typeof<SerializeMacro>)>]
-let Serialize<'T> (x: 'T) = X<string>
+let Serialize<'T> (x: 'T) =
+    Web.Shared.PlainJson.GetEncoder<'T>().Encode x
+    |> Web.Shared.PlainJson.Pack
+    |> Core.Json.Stringify
 
 /// Serializes an object to JSON using the same readable format as Sitelets.
 /// For plain JSON stringification, see Json.Stringify.
+/// Client-side only.
 [<Macro(typeof<SerializeMacro>)>]
 let SerializeWith<'T> (provider: Provider) (x: 'T) = X<string>
 
 /// Decodes an object parsed from the same readable JSON format as Sitelets.
+/// Client-side only.
 [<Macro(typeof<SerializeMacro>)>]
 let Decode<'T> (x: obj) = X<'T>
 
 /// Decodes an object parsed from the same readable JSON format as Sitelets.
+/// Client-side only.
 [<Macro(typeof<SerializeMacro>)>]
 let DecodeWith<'T> (provider: Provider) (x: obj) = X<'T>
 
 /// Deserializes a JSON string using the same readable format as Sitelets.
 /// For plain JSON parsing, see Json.Parse.
 [<Macro(typeof<SerializeMacro>)>]
-let Deserialize<'T> (x: string) = X<'T>
+let Deserialize<'T> (x: string) =
+    Core.Json.Parse x
+    |> Web.Shared.PlainJson.GetDecoder<'T>().Decode
 
 /// Deserializes a JSON string using the same readable format as Sitelets.
 /// For plain JSON parsing, see Json.Parse.
+/// Client-side only.
 [<Macro(typeof<SerializeMacro>)>]
 let DeserializeWith<'T> (provider: Provider) (x: string) = X<'T>
 
+/// Test the shape of a JSON encoded value.
+/// Client-side only.
 let (|Object|Array|Number|String|Boolean|Undefined|) (o: WebSharper.Core.Json.Encoded) =
     match JS.TypeOf o with
     | JS.Kind.Boolean -> Boolean (As<bool> o)
