@@ -93,48 +93,76 @@ let readNumber (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
     w.Remove(0, w.Length) |> ignore
     Number text
 
-let readString (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
+let readStartedString (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
     let c (x: char) = w.Append x |> ignore
     let read () = tr.Read()
     let peek () = tr.Peek()
     let skip () = tr.Read() |> ignore
-    match read () with
+    let rec loop () =
+        match read() with
+        | 34 -> ()
+        | -1 -> raise ReadException
+        | 92 ->
+            match read () with
+            | 34 -> c '"'
+            | 92 -> c '\\'
+            | 47 -> c '/'
+            | 98 -> c '\b'
+            | 102 -> c '\f'
+            | 110 -> c '\n'
+            | 114 -> c '\r'
+            | 116 -> c '\t'
+            | 117 ->
+                let hex () =
+                    match read () with
+                    | n when n >= 97 && n <= 102 ->
+                        n - 97 + 10
+                    | n when n >= 65 && n <= 70 ->
+                        n - 65 + 10
+                    | n when n >= 48 && n <= 57 ->
+                        n - 48
+                    | _ ->
+                        raise ReadException
+                let inline ( * ) a b = (a <<< 4) + b
+                c (char (hex () * hex () * hex () * hex ()))
+            | _ ->
+                raise ReadException
+            loop ()
+        | x ->
+            let x = char x
+            c x
+            loop ()
+    loop ()
+    let text = w.ToString()
+    w.Remove(0, w.Length) |> ignore
+    text
+
+let readString w (tr: System.IO.TextReader) =
+    match tr.Read() with
     | 34 ->
-        let rec loop () =
-            match read() with
-            | 34 -> ()
-            | -1 -> raise ReadException
-            | 92 ->
-                match read () with
-                | 34 -> c '"'
-                | 92 -> c '\\'
-                | 47 -> c '/'
-                | 98 -> c '\b'
-                | 102 -> c '\f'
-                | 110 -> c '\n'
-                | 114 -> c '\r'
-                | 116 -> c '\t'
-                | 117 ->
-                    let hex () =
-                        match read () with
-                        | n when n >= 97 && n <= 102 ->
-                            n - 97 + 10
-                        | n when n >= 65 && n <= 70 ->
-                            n - 65 + 10
-                        | n when n >= 48 && n <= 57 ->
-                            n - 48
-                        | _ ->
-                            raise ReadException
-                    let inline ( * ) a b = (a <<< 4) + b
-                    c (char (hex () * hex () * hex () * hex ()))
-                | _ ->
-                    raise ReadException
-                loop ()
-            | x ->
-                let x = char x
-                c x
-                loop ()
-        loop ()
+        readStartedString w tr
+    | _ ->
+        raise ReadException
+
+let readIdent (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
+    let c (x: char) = w.Append x |> ignore
+    let read () = tr.Read()
+    let peek () = tr.Peek()
+    let skip () = tr.Read() |> ignore
+    let isStartChar chr =
+        (65 <= chr && chr <= 90)
+        || (97 <= chr && chr <= 122)
+        || chr = 95
+        || chr = 36
+    let isContChar chr =
+        isStartChar chr
+        || (48 <= chr && chr <= 57)
+    match read () with
+    | 34 -> readStartedString w tr
+    | chr when isStartChar chr ->
+        c (char chr)
+        while (isContChar (peek ())) do
+            c (read () |> char)
         let text = w.ToString()
         w.Remove(0, w.Length) |> ignore
         text
@@ -199,7 +227,7 @@ let rec readJson (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
             Object []
         | _ ->
             let readPair () =
-                let n = readString w tr
+                let n = readIdent w tr
                 readSpace tr
                 if not (read() = 58) then
                     raise ReadException
