@@ -747,7 +747,7 @@ let inferredCasesTable t =
                 |> Array.filter (fun f ->
                     let t = f.PropertyType
                     not (t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>>))
-                |> Array.map (fun f -> f.Name)
+                |> Array.map TAttrs.GetName
             c.Tag, Set fields
         )
         |> Map.ofArray

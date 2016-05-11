@@ -255,6 +255,7 @@ let primitiveValueHandlers =
     add System.Single.TryParse
     add System.Double.TryParse
     add System.Decimal.TryParse
+    add System.Guid.TryParse
     d.Add(typeof<string>,
         ((fun s ->
             let buf = System.Text.StringBuilder()
