@@ -334,6 +334,8 @@ let reflectCustomType (typ : TypeDefinition) =
                 DelegateArgs = inv.Parameters 
                 ReturnType = inv.ReturnType
             } 
+        elif t.IsEnum then
+            M.EnumInfo (Reflection.ReadTypeDefinition (t.GetEnumUnderlyingType()))
         elif FST.IsRecord(t, Reflection.AllMethodsFlags) then
             let tAnnot = attrReader.GetTypeAnnot(TypeAnnotation.Empty, t.GetCustomAttributesData())
         

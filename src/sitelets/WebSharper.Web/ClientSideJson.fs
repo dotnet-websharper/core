@@ -355,6 +355,7 @@ module Macro =
             // Encode a type that might be recursively defined
             and encRecType t targs args =
                 match comp.GetCustomTypeInfo t.TypeDefinition with
+                | M.EnumInfo _ -> ok ident
                 | M.FSharpRecordInfo fields ->
                     ((fun es ->
                         let es, tts = List.unzip es

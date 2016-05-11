@@ -247,7 +247,7 @@ let ToSingle (x: 'T) = X<'T>
 let ToInt32 (x: 'T) = X<int32>
 
 [<Inline "$x">]
-let ToEnum<'T> (x: 'T) = X<'T>
+let ToEnum<'T> (x: int) = X<'T>
 
 [<Inline "Math.floor($x)">]
 let ToInt64 (x: 'T) = X<int64>

@@ -199,6 +199,7 @@ type CustomTypeInfo =
     | FSharpUnionInfo of FSharpUnionInfo
     | FSharpUnionCaseInfo of FSharpUnionCaseInfo
     | NotCustomType
+    | EnumInfo of TypeDefinition
 
 type Node =
     | MethodNode of TypeDefinition * Method
