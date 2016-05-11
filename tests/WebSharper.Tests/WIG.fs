@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -40,16 +40,16 @@ let Tests =
 
             equal (WIGtest.ArgsFuncIn(fun (a, b) -> a + b)) 3
             equal (WIGtest.ArgsFuncIn2(fun (a, b) -> a + b)) 3
-            equal (WIGtest.ArgsFuncOut()(1, 2)) 3
+            equal (WIGtest.ArgsFuncOut().Invoke(1, 2)) 3
             let x = JustX(5)       
-            equal (WIGtest.GetGetThis()(x)) x
+            equal (WIGtest.GetGetThis().Call(x)) x
             equal (WIGtest.FuncInWithThis(fun (t: JustX) -> string t.X)) "0"
             equal (WIGtest.ArgFuncInWithThis(fun (t: JustX) a -> string t.X + string a)) "01"
             equal (WIGtest.ArgsFuncInWithThis(fun (t: JustX) (a, b) -> string t.X + string a + string b)) "012"
             equal (WIGtest.TupledFuncInWithThis(fun (t: JustX) (a, b) -> string t.X + string a + string b)) "012"
 
-            equal (WIGtest.CallWith1 id) 1
-            equal (WIGtest.CallWith1 ((+) 2)) 3
+            equal (WIGtest.CallWith1 (fun x -> x)) 1
+            equal (WIGtest.CallWith1 (fun x -> x + 2)) 3
             equal (WIGtest.CallWith2 (fun (a, b) -> a + b)) 3
             equal (WIGtest.CallWith10 (fun (a, b, c, d, e, f, g, h, i, j) -> a + b + c + d + e + f + g + h + i + j)) 55
 
@@ -62,7 +62,7 @@ let Tests =
 
         Test "Functions with ParamArray" {
             let doNotRun() = 
-                (WIGtest.TestCurriedSig 0 "" : obj) |> ignore
+                (WIGtest.TestCurriedSig(0).Invoke("") : obj) |> ignore
                 (WIGtest.TestIntOrStringReturned() : Choice<int, string>) |> ignore
                 (WIGtest.TestWithNoInterop : FuncWithArgs<int * int, int> -> obj) |> ignore
 
@@ -70,23 +70,25 @@ let Tests =
             equal (WIGtest.Sum(1, 2)) 3
             equal (WIGtest.Sum(1, 2, 3)) 6
             equal (WIGtest.SumBy((+) 1, 1)) 2
-            equal (WIGtest.SumBy((+) 1, 1, 2)) 5
-            equal (WIGtest.SumBy((+) 1, 1, 2, 3)) 9
-            equal (WIGtest.SumByThenMap((+) 1, (+) 2, 1)) 4
-            equal (WIGtest.SumByThenMap((+) 1, (+) 2, 1, 2)) 7
-            equal (WIGtest.SumByThenMap((+) 1, (+) 2, 1, 2, 3)) 11
+            equal (WIGtest.SumBy((fun x -> x + 1), 1, 2)) 5
+            equal (WIGtest.SumBy((fun x -> x + 1), 1, 2, 3)) 9
+            equal (WIGtest.SumByThenMap((fun x -> x + 1), (+) 2, 1)) 4
+            equal (WIGtest.SumByThenMap((fun x -> x + 1), (fun x -> x + 2), 1, 2)) 7
+            equal (WIGtest.SumByThenMap((fun x -> x + 1), (fun x -> x + 2), 1, 2, 3)) 11
 
-            equal (WIGtest.GetSum() [| 1 |]) 1
-            equal (WIGtest.GetSum() [| 1; 2 |]) 3
-            equal (WIGtest.GetSum() [| 1; 2; 3 |]) 6
-            equal (WIGtest.GetSumBy() ((+) 1, [| 1 |])) 2
-            equal (WIGtest.GetSumBy() ((+) 1, [| 1; 2 |])) 5
-            equal (WIGtest.GetSumBy() ((+) 1, [| 1; 2; 3 |])) 9
-            equal (WIGtest.GetSumByThenMap() ((+) 1, (+) 2, [| 1 |])) 4
-            equal (WIGtest.GetSumByThenMap() ((+) 1, (+) 2, [| 1; 2 |])) 7
-            equal (WIGtest.GetSumByThenMap() ((+) 1, (+) 2, [| 1; 2; 3 |])) 11
-        
-            equal (WIGtest.GetSum7AndRest() (1, 2, 3, 4, 5, 6, 7, [| 8; 9; 10 |])) 55
+            let add1Func = System.Func<_,_>((+) 1)
+            let add2Func = System.Func<_,_>((+) 2)
+            equal (WIGtest.GetSum().Call [| 1 |]) 1
+            equal (WIGtest.GetSum().Call [| 1; 2 |]) 3
+            equal (WIGtest.GetSum().Call [| 1; 2; 3 |]) 6
+            equal (WIGtest.GetSumBy().Call (add1Func, [| 1 |])) 2
+            equal (WIGtest.GetSumBy().Call (add1Func, [| 1; 2 |])) 5
+            equal (WIGtest.GetSumBy().Call (add1Func, [| 1; 2; 3 |])) 9
+            equal (WIGtest.GetSumByThenMap().Call (add1Func, add2Func, [| 1 |])) 4
+            equal (WIGtest.GetSumByThenMap().Call (add1Func, add2Func, [| 1; 2 |])) 7
+            equal (WIGtest.GetSumByThenMap().Call (add1Func, add2Func, [| 1; 2; 3 |])) 11
+
+            equal (WIGtest.GetSum7AndRest().CallUnsafe (null, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)) (box 55)
 
             equal (WIGtest.CallWithRest(fun r -> Array.sum r)) 55
             equal (WIGtest.CallWith1AndRest(fun (a, r) -> a + Array.sum r)) 55
@@ -96,14 +98,14 @@ let Tests =
 
         Test "Function property" {
             let x = WIGtest.Instance 
-            equal (x.AdderFunc(1, 2)) 3
-            x.AdderFunc <- fun (a, b) -> a + b + 1
-            equal (x.AdderFunc(1, 2)) 4 
-            equal (x.AdderFuncWithThis(x)(1, 2)) 3
+            equal (x.AdderFunc.Invoke(1, 2)) 3
+            x.AdderFunc <- fun a b -> a + b + 1
+            equal (x.AdderFunc.Invoke(1, 2)) 4 
+            equal (x.AdderFuncWithThis.Call(x, 1, 2)) 3
             x.X <- 1
-            equal (x.AdderFuncWithThis(x)(1, 2)) 4
-            x.AdderFuncWithThis <- fun t (a, b) -> t.X + a + b + 1
-            equal (x.AdderFuncWithThis(x)(1, 2)) 5
+            equal (x.AdderFuncWithThis.Call(x, 1, 2)) 4
+            x.AdderFuncWithThis <- ThisFunc<WIGtestInstance,_,_,_>(fun t a b -> t.X + a + b + 1)
+            equal (x.AdderFuncWithThis.Call(x, 1, 2)) 5
         }
 
         Test "Choice property" {
@@ -129,10 +131,10 @@ let Tests =
             equal (x.OptionalStringOrFunction) None
             x.OptionalStringOrFunction <- Some (Choice2Of2 "hi")
             equal (x.OptionalStringOrFunction) (Some (Choice2Of2 "hi"))
-            x.OptionalStringOrFunction <- Some (Choice1Of2 (FuncWithArgs(fun (a, b) -> a + b)))
+            x.OptionalStringOrFunction <- Some (Choice1Of2 (System.Func<_,_,_>(fun a b -> a + b)))
             equal (
                 match x.OptionalStringOrFunction with
-                | Some (Choice1Of2 f) -> f.Call(1, 2)
+                | Some (Choice1Of2 f) -> f.Invoke(1, 2)
                 | _ -> 0
             ) 3
             x.OptionalStringOrFunction <- None
@@ -144,9 +146,9 @@ let Tests =
                 ConfigObj(1, (fun (a, b) -> string a + string b), 
                     FirstOpt = 2, SecondOpt = (fun (a, b) -> string a + "," + string b))
             equal (c.FirstReq) 1
-            equal (c.SecondReq(1, 2)) "12"
+            equal (c.SecondReq.Invoke(1, 2)) "12"
             equal (c.FirstOpt) 2
-            equal (c.SecondOpt(1, 2)) "1,2"
+            equal (c.SecondOpt.Invoke(1, 2)) "1,2"
         }
 
         Test "Passing variadic" {

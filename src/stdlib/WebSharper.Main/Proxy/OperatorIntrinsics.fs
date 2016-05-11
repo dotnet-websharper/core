@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -18,8 +18,8 @@
 //
 // $end{copyright}
 
-[<WebSharper.Core.Attributes.Name "Slice">]
-[<WebSharper.Core.Attributes.Proxy
+[<WebSharper.Name "Slice">]
+[<WebSharper.Proxy
     "Microsoft.FSharp.Core.Operators+OperatorIntrinsics, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
@@ -77,10 +77,10 @@ let GetArraySlice2DFixed1 (arr: _[,]) fixed1 start2 finish2 =
     let start2  = (match start2 with None -> 0 | Some n -> n) 
     let finish2 = (match finish2 with None -> F.GetArray2DLength2 arr - 1 | Some n -> n) 
     let len2 = (finish2 - start2 + 1)
-    let dst = Array.zeroCreate len2
+    let dst = JavaScript.Array(len2)
     for j = 0 to len2 - 1 do 
-        F.SetArray dst j (F.GetArray2D arr fixed1 (start2+j))
-    dst
+        F.SetArray dst.Self j (F.GetArray2D arr fixed1 (start2+j))
+    dst.Self
 
 [<JavaScript>]
 [<Name "array2Dfix2">]
@@ -88,9 +88,9 @@ let GetArraySlice2DFixed2 (arr: _[,]) start1 finish1 fixed2 =
     let start1  = (match start1 with None -> 0 | Some n -> n) 
     let finish1 = (match finish1 with None -> F.GetArray2DLength1 arr - 1 | Some n -> n) 
     let len1 = (finish1 - start1 + 1)
-    let dst = Array.zeroCreate len1
+    let dst = JavaScript.Array(len1)
     for i = 0 to len1 - 1 do 
-        F.SetArray dst i (F.GetArray2D arr (start1+i) fixed2)
+        F.SetArray dst.Self i (F.GetArray2D arr (start1+i) fixed2)
     dst
 
 [<JavaScript>]

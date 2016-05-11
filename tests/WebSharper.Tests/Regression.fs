@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -129,33 +129,20 @@ module Bug352 =
         inherit A()
         override this.Foo() = 2    
 
-[<JavaScript>]
-module Bug446 =
-    type A() =
-        abstract Foo : unit -> int
-        [<Inline>]
-        default this.Foo() = 1
+module ExplicitConstructor =
+    [<JavaScript>]    
+    type BaseClass =
+        val x : int
+        new v = { x = v }
+        member this.Value = this.x
 
-    type B() =
-        inherit A()
-        [<Inline>]
-        override this.Foo() = 2    
+    [<JavaScript>]    
+    type DescendantClass =
+        inherit BaseClass
 
-// TODO : does not translate yet 
-
-//    [<JavaScript>]    
-//    type BaseClass2 =
-//        val x : int
-//        new v = { x = v }
-//        member this.Value = this.x
-//
-//    [<JavaScript>]    
-//    type DescendantClass2 =
-//        inherit BaseClass2
-//
-//        val x : int
-//        new v = { inherit BaseClass(v + 1); x = v }
-//        member this.OriginalValue = this.x
+        val x : int
+        new v = { inherit BaseClass(v + 1); x = v }
+        member this.OriginalValue = this.x
 
 [<JavaScript>]
 module Bug512 =
@@ -184,6 +171,27 @@ module LetLambda =
     let f =
         ()
         fun a b -> a + b
+
+//[<JavaScript>]
+//type IFoo<'T> =
+//    inherit System.Collections.Generic.IEnumerable<'T>
+//    inherit System.Collections.IEnumerable
+
+module SelfAlias =
+    [<JavaScript>]    
+    type BaseClass () as self =
+        let mutable value = 0
+        do self.Value <- self.Value * 10 + 1
+        
+        member this.Value 
+            with get () = value 
+            and set v = value <- v
+
+    [<JavaScript>]    
+    type DescendantClass() as self =
+        inherit BaseClass()
+
+        do self.Value <- self.Value * 10 + 2
 
 [<JavaScript>]
 let Tests =
@@ -327,9 +335,9 @@ let Tests =
             equal (f 2) 6
         }
 
-//        Test "Bug #352" {
-//            equal (Bug352.B().Foo()) 2    
-//        }
+        Test "Bug #352" {
+            equal (Bug352.B().Foo()) 2    
+        }
 
         Test "Bug #396" {
             let disposed = ref false
@@ -343,10 +351,6 @@ let Tests =
                         failwith ""
                 with _ -> ()
             isTrue !disposed 
-        }
-
-        Test "Bug #446" {
-            equal ((Bug446.B() :> Bug446.A).Foo()) 2
         }
 
         Test "Bug #480" {
@@ -388,9 +392,13 @@ let Tests =
             equal (get (Some 2)) (Some 2)
         }
 
-//        Test "Module let function value" {
-//            equal ([ 1, 2; 3, 4 ] |> List.map (fun (a, b) -> LetLambda.f a b)) [ 3; 7 ]
-//        }
+        Test "inheritance with self identifier" {
+            equal (SelfAlias.DescendantClass().Value) 12
+        }
+
+        Test "Module let function value" {
+            equal ([ 1, 2; 3, 4 ] |> List.map (fun (a, b) -> LetLambda.f a b)) [ 3; 7 ]
+        }
 
         Test "Bug #512" {
             let v = Bug512.Prod(Bug512.Float(1.0),Bug512.Float(1.0));

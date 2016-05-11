@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -25,12 +25,6 @@ module WebSharper.JavaScript.Pervasives
 
 open WebSharper
 module M = WebSharper.Macro
-
-/// Specifies a value intended for client-side use only, so that there is no
-/// .NET implementation.
-/// Raises a WebSharper.JavaScript.ClientSideOnly exception.
-let X<'T> : 'T = 
-    raise ClientSideOnly
 
 /// Casts an object to the desired type.
 [<Inline "$x">]
@@ -103,16 +97,15 @@ let ( ?<- ) (obj: obj) (key: string) (value: obj) = X<unit>
 let ( => ) (x: string) (y: obj) = (x, y)
 
 [<JavaScript>]
-let private NewFromList<'T> (fields: seq<string * obj>) : 'T =
+let private NewFromSeq<'T> (fields: seq<string * obj>) : 'T =
     let r = obj ()
     for (k, v) in fields do
         (?<-) r k v
     As r
 
 /// Constructs a new object as if an object literal was used.
-//[<Macro(typeof<M.New>)>]
-[<JavaScript>]
-let New<'T> (fields: seq<string * obj>) = NewFromList<'T> fields //X<'T>
+[<Macro(typeof<M.New>); Inline>]
+let New<'T> (fields: seq<string * obj>) = NewFromSeq<'T> fields
 
 /// Constructs an proxy to a remote object instance.
 [<Inline "null">]

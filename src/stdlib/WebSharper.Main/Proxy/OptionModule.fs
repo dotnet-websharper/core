@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -18,8 +18,8 @@
 //
 // $end{copyright}
 
-[<WebSharper.Core.Attributes.NameAttribute "Option">]
-[<WebSharper.Core.Attributes.Proxy
+[<WebSharper.NameAttribute "Option">]
+[<WebSharper.Proxy
     "Microsoft.FSharp.Core.OptionModule, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
@@ -34,7 +34,7 @@ let Bind f x =
     | Some x -> f x
     | None   -> None
 
-[<Inline "$x.$">]
+[<Inline "$x ? 1 : 0">]
 let Count (x: option<_>) = X<int>
 
 [<JavaScript>]
@@ -68,10 +68,10 @@ let ForAll p x =
 [<Inline "$x.$0">]
 let GetValue (x: option<'T>) = X<'T>
 
-[<Inline "$x.$==0">]
+[<Inline "$x==null">]
 let IsNone (x: option<'T>) = false
 
-[<Inline "$x.$==1">]
+[<Inline "$x!=null">]
 let IsSome (x: option<'T>) =  false
 
 [<JavaScript>]
@@ -114,14 +114,17 @@ let ToObj o =
     | Some v -> v
     | None -> null
 
+[<JavaScript>]
+[<Name "ofNullable">]
+let OfNullable (o: System.Nullable<'T>) =
+    if o ==. null then None else Some o.Value                   
 
 [<JavaScript>]
-[<Inline>]
-let OfNullable o = OfObj o                         
-
-[<JavaScript>]
-[<Inline>]
-let ToNullable o = ToObj o 
+[<Name "toNullable">]
+let ToNullable o =
+    match o with
+    | Some v -> System.Nullable(v)
+    | _ -> System.Nullable()
 
 [<JavaScript>]
 [<Name "filter">]

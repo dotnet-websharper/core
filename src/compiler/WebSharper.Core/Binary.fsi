@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -38,10 +38,10 @@ exception NoEncodingException of System.Type
 type Encoding =
 
     /// Decodes an object from a stream.
-    member Decode : System.IO.Stream -> obj
+    member Decode : System.IO.Stream * ?version: string -> obj
 
     /// Encodes an object to a stream.
-    member Encode : System.IO.Stream -> obj -> unit
+    member Encode : System.IO.Stream * obj * ?version: string -> unit
 
     /// The type for which operations are supported.
     member Type : System.Type

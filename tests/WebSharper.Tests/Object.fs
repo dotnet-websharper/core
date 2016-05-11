@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -62,6 +62,10 @@ type RNWithStub() =
     [<Stub>]
     member val x = 0 with get, set
 
+//[<JavaScript; Struct>]
+//type TestStruct(x: int) =
+//    member this.X = x
+
 [<JavaScript>]
 type Abcde = { A: string; B: string; C: string; D: string; E: string }
 
@@ -101,7 +105,7 @@ let Tests =
         Test "Unchecked.defaultof" {
             equal Unchecked.defaultof<int> 0
             equal Unchecked.defaultof<float> 0.
-            equal Unchecked.defaultof<Abcde> JS.Undefined
+            equal Unchecked.defaultof<Abcde> (As null)
         }
 
         Test "Construction with properties" {
@@ -166,10 +170,10 @@ let Tests =
 
         #if FSHARP40
 
-//        Test "isNull" {
-//            isTrue (isNull null)
-//            isFalse (isNull (obj()))
-//        }
+        Test "isNull" {
+            isTrue (isNull null)
+            isFalse (isNull (obj()))
+        }
 
         #endif
 
@@ -183,4 +187,8 @@ let Tests =
             c.y <- 3
             equal c.y 3
         }
+
+//        Test "Struct" {
+//            equal (TestStruct(1).X) 1
+//        }
     }

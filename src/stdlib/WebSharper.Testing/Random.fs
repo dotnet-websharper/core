@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -318,8 +318,8 @@ module internal Internal =
 //    let cString s = !~ (J.String s)
     let inline cInt i = Value (Int i)
     let cCall t m x = Application(ItemGet (t, Value (String m)), x)
-    let cCallG l x = Application(globalAccess l, x)
-    let cCallR m x = Application(globalAccess (["WebSharper"; "Testing"; "Random"] @ [m]), x)
+    let cCallG l x = Application(Global l, x)
+    let cCallR m x = Application(Global (["WebSharper"; "Testing"; "Random"] @ [m]), x)
 ////    let (|T|) (t: R.TypeDefinition) = t.FullName                                   
     let (>>=) (wrap: (E -> E), m: Choice<E, string> as x) (f: (E -> E) -> E -> (E -> E) * Choice<E, string>) =
         match m with
@@ -356,9 +356,10 @@ module internal Internal =
                 mkGenerator wrap t2 >>= fun wrap x2 ->
                 mkGenerator wrap t3 >>= fun wrap x3 ->
                 wrap, Choice1Of2 (cCallR "Tuple3Of" [x1; x2; x3])
+            | T.TupleType _ -> fail "Tuple types larger than 3 items are not supported"
             | T.ConcreteType { Entity = e } when e.Value.FullName = "System.Object" ->
                 wrap, Choice1Of2 (cCallR "Anything" [])
-            | T.GenericType _ ->
+            | T.TypeParameter _ ->
                 wrap, Choice1Of2 (cCallR "Anything" [])
             | T.ConcreteType { Entity = e } when e.Value.FullName = "System.IComparable" ->
                 // We use Choose because it is necessary for a given generated value
@@ -374,11 +375,11 @@ module internal Internal =
             | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "System.IEquatable`1" ||  e.Value.FullName = "System.IComparable`1" ->
                 mkGenerator wrap t
             | T.ConcreteType { Entity = e } when e.Value.FullName = "System.Collections.IEnumerable" ->
-                mkGenerator wrap (T.ArrayType (T.GenericType 1, 1))
+                mkGenerator wrap (T.ArrayType (T.TypeParameter 1, 1))
             | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "System.Collections.Generic.IEnumerable`1" ->
                 mkGenerator wrap (T.ArrayType (t, 1))
-            | T.ConcreteType { Entity = t } ->
-                fail ("Random generator not supported for type: " + t.Value.FullName)
+            | _ ->
+                fail ("Random generator not supported for type: " + t.AssemblyQualifiedName)
         match mkGenerator id t with
         | wrap, Choice1Of2 x -> wrap x
         | _, Choice2Of2 msg -> failwithf "%A: %s" t msg
@@ -389,16 +390,17 @@ module internal Internal =
     type AutoGeneratorMacro() =
         inherit Core.Macro()
 
-        override this.TranslateCall(_,_,m,_,_) =
-            mkGenerator m.Generics.Head |> Core.MacroOk
+        override this.TranslateCall(c) =
+            mkGenerator c.Method.Generics.Head |> Core.MacroOk
 
     type SampleMacro() =
         inherit Core.Macro()
 
-        override this.TranslateCtor(t,_,a,_) =
-            match a with
-            | [] -> mkSample (mkGenerator t.Generics.Head) (cInt 100) 
-            | [count] -> mkSample (mkGenerator t.Generics.Head) count
+        override this.TranslateCtor(c) =
+            match c.Arguments with
+            | [] -> mkSample (mkGenerator c.DefiningType.Generics.Head) (cInt 100) 
+            | [count] -> mkSample (mkGenerator c.DefiningType.Generics.Head) count
+            | _ -> failwith "Wrong number of arguments" 
             |> Core.MacroOk
 
 [<Macro(typeof<Internal.AutoGeneratorMacro>)>]

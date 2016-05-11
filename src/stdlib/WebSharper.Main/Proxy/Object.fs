@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -30,15 +30,12 @@ type private ObjectProxy =
     new () = {}
 
     [<Inline>]
-    [<JavaScript>]
-    member this.GetHashCode() = Unchecked.hash this
+    override this.GetHashCode() = Unchecked.hash this
 
     [<Inline>]
-    [<JavaScript>]
-    member this.Equals(obj: obj) = Unchecked.equals (this :> obj) obj
+    override this.Equals(obj: obj) = Unchecked.equals (this :> obj) obj
 
     [<Inline>]
-    [<JavaScript>]
     static member Equals(a: obj, b: obj) = Unchecked.equals a b
 
     [<Inline>]
@@ -47,5 +44,5 @@ type private ObjectProxy =
     [<Inline>]
     static member op_Equality(a: obj, b: obj) = a ===. b
 
-    [<Inline "String($this)">]
-    member this.ToString() = X<string>
+    [<Inline>]
+    override this.ToString() = string this

@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -115,9 +115,9 @@ let Tests =
             equal (d.AddMilliseconds 123.) (DateTime(2010, 4, 8, 15, 05, 39, 123))
         }
 
-    //    Test "AddTicks" {
-    //        d.AddTicks 1230000L =? DateTime(2010, 4, 8, 15, 05, 39, 123)
-    //    }
+        Test "AddTicks" {
+            equal (d.AddTicks 1230000L) (DateTime(2010, 4, 8, 15, 05, 39, 123))
+        }
 
         Test "Date" {
             approxEqual (As<float> d.Date) (As<float> (DateTime(2010, 4, 8)))

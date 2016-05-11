@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -25,6 +25,7 @@ open WebSharper.JavaScript
 open WebSharper.Testing
 module R = WebSharper.Testing.Random
 
+[<JavaScript; Inline>]
 let inline ( !! ) (o: ^x) : ^a = (^x: (member Value: ^a with get) o)
 
 (* TODO: the coverage of the Operators module is far from complete. *)
@@ -121,9 +122,8 @@ let Tests =
             equal !a 2
         }
 
-//        Test "trait call" {
-//            let r = ref 3
-//            equal !!r 3
-//        }
-
+        Test "trait call" {
+            let r = ref 3
+            equal !!r 3
+        }
     }

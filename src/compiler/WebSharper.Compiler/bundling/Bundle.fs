@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -21,10 +21,10 @@
 namespace WebSharper.Compiler
 
 open System.Configuration
+
 module CT = WebSharper.Core.ContentTypes
 module JS = WebSharper.Core.JavaScript.Syntax
 module M = WebSharper.Core.Metadata
-//module Re = WebSharper.Core.Reflection
 module Res = WebSharper.Core.Resources
 module W = WebSharper.Core.JavaScript.Writer
 
@@ -48,31 +48,13 @@ module BundleUtility =
 
 [<Sealed>]
 type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
-//    let logger = Logger.Create ignore 1000
-//    let resolver =
-//        let r = AssemblyResolver.Create()
-//        set
-//        |> Seq.choose (fun a -> Option.map Path.GetDirectoryName a.LoadPath)
-//        |> Seq.distinct
-//        |> r.SearchDirectories
-//
-//    let loader = Loader.Create resolver ignore
 
     let meta =
         set
-        |> List.choose WebSharper.Compiler.FrontEnd.readFromAssembly
-        |> WebSharper.Core.Metadata.union 
+        |> List.choose WebSharper.Compiler.FrontEnd.ReadFromAssembly
+        |> WebSharper.Core.DependencyGraph.Graph.UnionOfMetadata 
 
-    let graph = WebSharper.Core.Metadata.Graph.FromData meta.Dependencies
-
-//    let context = lazy Context.Get(set)
-
-//    let deps =
-//        lazy
-//        resolver.Wrap <| fun () ->
-//        let context = context.Value
-//        let mInfo = context.CreateMetadataInfo()
-//        mInfo.GetDependencies [for a in set -> GetDependencyNodeForAssembly a]
+    let graph = WebSharper.Core.DependencyGraph.Graph.FromData meta.Dependencies
 
     let htmlHeadersContext getSetting : Res.Context =
         {
@@ -93,14 +75,6 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
             match mode with
             | BundleMode.MinifiedJavaScript -> false
             | _ -> true
-//        let context = context.Value
-//        let renderAssembly (a: Assembly) =
-//            match mode with
-//            | BundleMode.JavaScript -> a.ReadableJavaScript
-//            | BundleMode.MinifiedJavaScript -> a.CompressedJavaScript
-//            | BundleMode.TypeScript -> a.TypeScriptDeclarations
-//            | _ -> None
-//            |> Option.iter (fun t -> writer.WriteLine(t))
         let renderWebResource (name: string) cType (c: string) =
             match cType, mode with
             | CT.JavaScript, BundleMode.JavaScript
@@ -138,7 +112,11 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
             }
         use htmlWriter = new HtmlTextWriter(TextWriter.Null)
         let htmlHeadersContext = htmlHeadersContext getSetting
-        for d in graph.GetAllResources() do
+        
+        let nodes = graph.GetDependencies [ M.EntryPointNode ]        
+        let current = trimMetadata meta nodes 
+
+        for d in graph.GetResourcesOf nodes do
             match mode with
             | BundleMode.HtmlHeaders -> d.Render htmlHeadersContext (fun _ -> htmlHeadersWriter)
             | _ -> d.Render ctx (fun _ -> htmlWriter)
@@ -147,9 +125,15 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
         | BundleMode.JavaScript | BundleMode.MinifiedJavaScript ->
             
             let pkg =   
-                Packager.packageAssembly meta meta true
+                Packager.packageAssembly current current true
 
-            let js, map = pkg |> WebSharper.Compiler.Packager.exprToString "Bundle" WebSharper.Core.JavaScript.Readable
+            let pref =
+                if mode = BundleMode.JavaScript then 
+                    WebSharper.Core.JavaScript.Readable
+                else 
+                    WebSharper.Core.JavaScript.Compact
+
+            let js, _ = pkg |> WebSharper.Compiler.Packager.exprToString "Bundle" pref false
 //            let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString a.Name.Name WebSharper.Core.JavaScript.Compact
 
             writer.WriteLine js
@@ -184,43 +168,3 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
     member b.JavaScriptHeaders = javaScriptHeaders
     member b.MinifiedJavaScript = minifedJavaScript
     member b.TypeScript = typeScript
-
-//    member b.WithAssembly(assemblyFile) =
-//        let assem = loader.LoadFile(assemblyFile)
-//        b.WithAssembly(assem)
-//
-//    member b.WithAssembly(assem) =
-//        Bundle(assem :: set)
-
-//    member b.WithDefaultReferences() =
-//        let wsHome = Path.GetDirectoryName(typeof<Bundle>.Assembly.Location)
-//        [|
-//            "WebSharper.Collections"
-//            "WebSharper.Control"
-//        |]
-//        |> Seq.map (fun n -> Path.Combine(wsHome, n + ".dll"))
-//        |> Seq.filter (fun x -> File.Exists(x))
-//        |> Seq.fold (fun (b: Bundle) x -> b.WithAssembly(x)) b
-//
-//    member b.WithTransitiveReferences() =
-//        let comparer =
-//            HashIdentity.FromFunctions<Assembly>
-//                (fun a -> hash a.Raw.FullName)
-//                (fun a b -> a.Raw.FullName = b.Raw.FullName)
-//        let pred (a: Assembly) =
-//            a.Raw.MainModule.AssemblyReferences
-//            |> Seq.choose (fun r ->
-//                let n = AssemblyName(r.FullName)
-//                match resolver.ResolvePath(n) with
-//                | None -> None
-//                | Some path ->
-//                    loader.LoadFile(path)
-//                    |> Some)
-//        let completeSet =
-//            Algorithms.TopSort.Do(set, pred, comparer)
-//            |> Seq.toList
-//        Bundle(completeSet)
-
-//    static member Empty = Bundle([])
-//    static member Create() = Bundle.Empty.WithDefaultReferences()
-

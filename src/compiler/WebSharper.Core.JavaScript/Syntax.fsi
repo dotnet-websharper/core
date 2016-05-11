@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -125,7 +125,7 @@ and Expression =
     | Unary       of UnaryOperator * E
     | Var         of Id
     | VarNamed    of Id * string
-    | ExprPos     of Expression * SourcePos
+    | ExprPos     of E * SourcePos
 
     static member ( + ) : E * E -> E
     static member ( - ) : E * E -> E
@@ -157,27 +157,28 @@ and Expression =
 
 /// JavaScript statements.
 and Statement =
-    | Block      of list<S>
-    | Break      of option<Label>
-    | Continue   of option<Label>
-    | Debugger
-    | Do         of S * E
-    | Empty
-    | For        of option<E> * option<E> * option<E> * S
-    | ForIn      of E * E * S
-    | ForVarIn   of Id * option<E> * E * S
-    | ForVars    of list<Id * option<E>> * option<E> * option<E> * S
-    | If         of E * S * S
-    | Ignore     of E
-    | Labelled   of Label * S
-    | Return     of option<E>
-    | Switch     of E * list<SwitchElement>
-    | Throw      of E
-    | TryFinally of S * S
-    | TryWith    of S * Id * S * option<S>
-    | Vars       of list<Id * option<E>>
-    | While      of E * S
-    | With       of E * S
+    | Block        of list<S>
+    | Break        of option<Label>
+    | Continue     of option<Label>
+    | Debugger     
+    | Do           of S * E
+    | Empty        
+    | For          of option<E> * option<E> * option<E> * S
+    | ForIn        of E * E * S
+    | ForVarIn     of Id * option<E> * E * S
+    | ForVars      of list<Id * option<E>> * option<E> * option<E> * S
+    | If           of E * S * S
+    | Ignore       of E
+    | Labelled     of Label * S
+    | Return       of option<E>
+    | Switch       of E * list<SwitchElement>
+    | Throw        of E
+    | TryFinally   of S * S
+    | TryWith      of S * Id * S * option<S>
+    | Vars         of list<Id * option<E>>
+    | While        of E * S
+    | With         of E * S
+    | StatementPos of S * SourcePos 
 
 /// Represents switch elements.
 and SwitchElement =
@@ -223,6 +224,52 @@ val Unary       : UnaryOperator * E                            -> E
 val Var         : Id                                           -> E
 val VarNamed    : Id * string                                  -> E
 val ExprPos     : Expression * SourcePos                       -> E
+                                                                           
+val (|Block       |_|) : S -> (list<S>                                         ) option                  
+val (|Break       |_|) : S -> (option<Label>                                   ) option                        
+val (|Continue    |_|) : S -> (option<Label>                                   ) option                        
+val (|Debugger    |_|) : S -> (unit                                            ) option           
+val (|Do          |_|) : S -> (S * E                                           ) option                
+val (|Empty       |_|) : S -> (unit                                            ) option           
+val (|For         |_|) : S -> (option<E> * option<E> * option<E> * S           ) option                                                
+val (|ForIn       |_|) : S -> (E * E * S                                       ) option                    
+val (|ForVarIn    |_|) : S -> (Id * option<E> * E * S                          ) option                                 
+val (|ForVars     |_|) : S -> (list<Id * option<E>> * option<E> * option<E> * S) option                                                           
+val (|If          |_|) : S -> (E * S * S                                       ) option                    
+val (|Ignore      |_|) : S -> (E                                               ) option            
+val (|Labelled    |_|) : S -> (Label * S                                       ) option                    
+val (|Return      |_|) : S -> (option<E>                                       ) option                    
+val (|Switch      |_|) : S -> (E * list<SwitchElement>                         ) option                                  
+val (|Throw       |_|) : S -> (E                                               ) option            
+val (|TryFinally  |_|) : S -> (S * S                                           ) option                
+val (|TryWith     |_|) : S -> (S * Id * S * option<S>                          ) option                                 
+val (|Vars        |_|) : S -> (list<Id * option<E>>                            ) option                               
+val (|While       |_|) : S -> (E * S                                           ) option                
+val (|With        |_|) : S -> (E * S                                           ) option                
+val (|StatementPos|_|) : S -> (S * SourcePos                                   ) option                         
+
+val Block        : list<S>                                          -> S
+val Break        : option<Label>                                    -> S
+val Continue     : option<Label>                                    -> S
+val Debugger     :                                                     S
+val Do           : S * E                                            -> S
+val Empty        :                                                     S
+val For          : option<E> * option<E> * option<E> * S            -> S
+val ForIn        : E * E * S                                        -> S
+val ForVarIn     : Id * option<E> * E * S                           -> S
+val ForVars      : list<Id * option<E>> * option<E> * option<E> * S -> S
+val If           : E * S * S                                        -> S
+val Ignore       : E                                                -> S
+val Labelled     : Label * S                                        -> S
+val Return       : option<E>                                        -> S
+val Switch       : E * list<SwitchElement>                          -> S
+val Throw        : E                                                -> S
+val TryFinally   : S * S                                            -> S
+val TryWith      : S * Id * S * option<S>                           -> S
+val Vars         : list<Id * option<E>>                             -> S
+val While        : E * S                                            -> S
+val With         : E * S                                            -> S
+val StatementPos : S * SourcePos                                    -> S
 
 /// Represents complete programs.
 type Program = list<ProgramElement>

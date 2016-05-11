@@ -19,17 +19,16 @@
 // $end{copyright}
 
 /// Defines macros used by proxy definitions.
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module WebSharper.Macro
 
+open System.Linq
 open System.Collections.Generic
+open System.Text.RegularExpressions
 
+open WebSharper
 open WebSharper.Core
 open WebSharper.Core.AST
-
-//module C = WebSharper.Core.JavaScript.Core
-module A = WebSharper.Core.Attributes
-//module Q = WebSharper.Core.Quotations
-//module R = WebSharper.Core.Reflection
 
 let smallIntegralTypes =
     Set [
@@ -43,7 +42,6 @@ let smallIntegralTypes =
 
 let bigIntegralTypes =
     Set [
-        "System.Decimal"
         "System.Int64"
         "System.UInt64" 
     ]
@@ -68,41 +66,30 @@ let isIn (s: string Set) (t: Type) =
     | _ ->
         false
 
-//let (|CallOrCM|_|) q =
-//    match q with 
-//    | Q.Call (m, l)
-//    | Q.CallModule (m, l) -> Some (m, l)
-//    | _ -> None
-
-//let (|OptCoerce|) q =
-//    match q with
-//    | Q.Coerce (_, x)
-//    | x -> x
-
 [<Sealed>]
 type Div() =
     inherit Macro()
-    override this.TranslateCall(_,_,m,a,_) =
-        match a with
+    override this.TranslateCall(c) =
+        match c.Arguments with
         | [x; y] ->
-            match m.Generics with
-            | t :: _ ->                                                                     
+            match c.Method.Generics with
+            | t :: _ ->
                 if isIn smallIntegralTypes t
                 then (x ^/ y) ^>> !~(Int 0)
                 elif isIn bigIntegralTypes t
-                then Application(globalAccess ["Math"; "trunc"], [x ^/ y])
-                else x ^/ y 
-            | _ -> x ^/ y   
+                then Application(Global ["Math"; "trunc"], [x ^/ y])
+                else x ^/ y
+            | _ -> x ^/ y
             |> MacroOk
         | _ -> MacroError "divisionMacro error"
 
 [<AbstractClass>]
 type Arith(name, op) =
     inherit Macro()
-    override this.TranslateCall(_,_,m,a,_) =
-        match a with
+    override this.TranslateCall(c) =
+        match c.Arguments with
         | [x; y] ->
-            match m.Generics with
+            match c.Method.Generics with
             | t :: _ when not (isIn scalarTypes t) ->
                 Application (ItemGet(x, Value (String name)), [y])
             | _ -> Binary(x, op, y)
@@ -132,9 +119,18 @@ let toBinaryOperator cmp =
     | Comparison.``=``  -> BinaryOperator.``===``
     | _                 -> BinaryOperator.``!==``
 
+let opUncheckedTy, equalsMeth, compareMeth =
+    match <@ Unchecked.equals 1 1 @> with
+    | FSharp.Quotations.Patterns.Call (_, mi, _) ->
+        let cmi = mi.DeclaringType.GetMethod("Compare")
+        Reflection.ReadTypeDefinition mi.DeclaringType,
+        Reflection.ReadMethod mi,
+        Reflection.ReadMethod cmi
+    | _ -> failwith "Expecting a Call pattern"
+
 let makeComparison cmp x y =
-    let eq x y = Application(globalAccess ["WebSharper"; "Unchecked"; "Equals"], [x; y])
-    let c b i   = Binary (Application(globalAccess ["WebSharper"; "Unchecked"; "Compare"], [x; y]), b, Value(Int i))
+    let eq x y = Call (None, NonGeneric opUncheckedTy, NonGeneric equalsMeth, [x; y]) 
+    let c b i = Binary (Call(None, NonGeneric opUncheckedTy, NonGeneric compareMeth, [x; y]), b, Value(Int i))
     match cmp with
     | Comparison.``<``  -> c BinaryOperator.``===`` -1
     | Comparison.``<=`` -> c BinaryOperator.``<=`` 0
@@ -146,10 +142,10 @@ let makeComparison cmp x y =
 [<AbstractClass>]
 type CMP(cmp) =
     inherit Macro()
-    override this.TranslateCall(_,_,m,a,_) =
-        match a with
+    override this.TranslateCall(c) =
+        match c.Arguments with
         | [x; y] ->
-            match m.Generics with
+            match c.Method.Generics with
             | t :: _ ->
                 if isIn scalarTypes t then
                     Binary (x, toBinaryOperator cmp, y)
@@ -168,20 +164,226 @@ type CMP(cmp) =
 [<Sealed>] type LE() = inherit CMP(Comparison.``<=``)
 [<Sealed>] type GE() = inherit CMP(Comparison.``>=``)
 
+let isComparison = function
+    | BinaryOperator.``<`` | BinaryOperator.``>`` | BinaryOperator.``<=`` 
+    | BinaryOperator.``>=`` | BinaryOperator.``==`` | BinaryOperator.``!=`` -> true
+    | _ -> false
+
+let isOperation = function
+    | BinaryOperator.``%`` | BinaryOperator.``*`` | BinaryOperator.``+``
+    | BinaryOperator.``-`` | BinaryOperator.``/``
+    | BinaryOperator.``<<`` | BinaryOperator.``>>`` | BinaryOperator.``|``
+    | BinaryOperator.``&`` | BinaryOperator.``^``
+    | BinaryOperator.``&&`` | BinaryOperator.``||`` -> true
+    | _ -> false
+
+let toComparison = function
+    | BinaryOperator.``<`` -> Comparison.``<``
+    | BinaryOperator.``>`` -> Comparison.``>``
+    | BinaryOperator.``<=`` -> Comparison.``<=``
+    | BinaryOperator.``>=`` -> Comparison.``>=``
+    | BinaryOperator.``==`` -> Comparison.``=``
+    | BinaryOperator.``!=`` -> Comparison.``<>``
+    | _ -> failwith "Operation wasn't a comparison"
+
+let binOpName = function
+    | BinaryOperator.``+`` -> "add"
+    | BinaryOperator.``-`` -> "sub"
+    | _ -> failwith "No binary operation name for this construct"
+
+// TODO unify these with the oeprations macros
+
+let translateComparison (t: Concrete<TypeDefinition>) a m cmp =
+    match a with
+    | [x; y] ->
+        if scalarTypes.Contains t.Entity.Value.FullName then
+            Binary (x, toBinaryOperator cmp, y)
+        else
+            makeComparison cmp x y
+        |> MacroOk
+    | _ -> MacroError "numericMacro error"
+
+let translateOperation (t: Concrete<TypeDefinition>) a m op =
+    match a with
+    | [x; y] ->
+        match op with
+        | BinaryOperator.``/`` ->
+            if smallIntegralTypes.Contains t.Entity.Value.FullName
+            then (x ^/ y) ^>> !~(Int 0)
+            elif bigIntegralTypes.Contains t.Entity.Value.FullName
+            then Application(Global ["Math"; "trunc"], [x ^/ y])
+            else x ^/ y
+        | _ ->
+            Binary (x, op, y)
+        |> MacroOk
+    | _ -> MacroError "numericMacro error"
+
+let translateToString a m =
+    match a with
+    | [x] ->
+        match m.Generics with
+        | t :: _ ->
+            if t.AssemblyQualifiedName = "System.Char, mscorlib" then
+                Application(Global ["String"; "fromCharCode"], [x])
+            else 
+                Application(Global ["String"], [x])
+            |> MacroOk 
+        | _ ->
+            MacroError "stringMacro error"
+    | _ ->
+        MacroError "stringMacro error"
+
+let formatExceptionTy, formatExceptionCtor =
+    match <@ new System.FormatException() @> with
+    | FSharp.Quotations.Patterns.NewObject (ci, _) ->
+        Reflection.ReadTypeDefinition ci.DeclaringType,
+        Reflection.ReadConstructor ci
+    | _ -> failwith "Expected constructor call"
+
+[<Sealed>]
+type NumericMacro() =
+    inherit Macro()
+
+    let exprParse parsed tru fls =
+        let id = Id.New()
+        Let (id, parsed,
+            Conditional(Var id ^=== Value (Double nan),
+                tru id,
+                fls id
+            )
+        )
+
+    override this.TranslateCall(c) =
+        let name = c.DefiningType.Entity.Value.FullName
+
+        let parseInt x =
+            Application(Global ["parseInt"], [x])
+        let parseFloat x =
+            Application(Global ["parseFloat"], [x])
+
+        let ex =
+            Ctor(
+                NonGeneric formatExceptionTy,
+                formatExceptionCtor,
+                [Value (String "Input string was not in a correct format.")]
+            )
+
+        match c.Method.Entity.Value.MethodName with
+        | BinaryOpName op when isOperation op ->
+            translateOperation c.DefiningType c.Arguments c.Method op
+        | BinaryOpName op when isComparison op ->
+            let cmp = toComparison op
+            translateComparison c.DefiningType c.Arguments c.Method cmp
+        | UnaryOpName op ->
+            match c.Arguments with
+            | [x] -> Unary (op, x) |> MacroOk
+            | _ -> MacroError "numericMacro error"
+        | "MaxValue" ->
+            match name with
+            | "System.Byte" -> MacroOk (Value (Byte 255uy))
+            | "System.SByte" -> MacroOk (Value (SByte 127y))
+            | "System.Int16" -> MacroOk (Value (Int16 32767s))
+            | "System.Int32" -> MacroOk (Value (Int 2147483647))
+            | "System.UInt16" -> MacroOk (Value (UInt16 65535us))
+            | "System.UInt32" -> MacroOk (Value (UInt32 4294967295u))
+            | "System.Single" -> MacroOk (Value (Single 3.40282347E+38f))
+            | "System.Double" -> MacroOk (Value (Double 1.7976931348623157E+308))
+            | _ -> MacroError "numericMacro error"
+        | "MinValue" ->
+            match name with
+            | "System.Byte" -> MacroOk (Value (Byte 0uy))
+            | "System.SByte" -> MacroOk (Value (SByte -128y))
+            | "System.Int16" -> MacroOk (Value (Int16 -32768s))
+            | "System.Int32" -> MacroOk (Value (Int -2147483648))
+            | "System.UInt16" -> MacroOk (Value (UInt16 0us))
+            | "System.UInt32" -> MacroOk (Value (UInt32 0u))
+            | "System.Single" -> MacroOk (Value (Single -3.402823e38f))
+            | "System.Double" -> MacroOk (Value (Double -1.7976931348623157E+308))
+            | _ -> MacroError "numericMacro error"
+        | "op_Increment" ->
+            match c.Arguments with
+            | [x] ->
+                MacroOk (Binary(x, BinaryOperator.``+``, Value (Int 1)))
+            | _ -> MacroError "numericMacro error"
+        | "op_Decrement" ->
+            match c.Arguments with
+            | [x] ->
+                MacroOk (Binary(x, BinaryOperator.``-``, Value (Int 1)))
+            | _ -> MacroError "numericMacro error"
+        | "ToString" ->
+            match c.This with
+            | Some self ->
+                // TODO refactor to separate method
+                if c.DefiningType.Entity.Value.AssemblyQualifiedName = "System.Char, mscorlib" then
+                    Application(Global ["String"; "fromCharCode"], [self])
+                else 
+                    Application(Global ["String"], [self])
+                |> MacroOk 
+            | _ -> MacroError "numericMacro error"
+        | "Parse" ->
+            match c.Arguments with
+            | [x] ->
+
+                if integralTypes.Contains name then
+                    exprParse
+                    <| parseInt x
+                    <| fun _ -> ex
+                    <| fun id -> Var id
+                    |> MacroOk
+                else if name = "System.Single" || name = "System.Double" then
+                    exprParse
+                    <| parseFloat x
+                    <| fun _ -> ex
+                    <| fun id -> Var id
+                    |> MacroOk
+                else MacroError "numericMacro error"
+            | _ -> MacroError "numericMacro error"
+        | "TryParse" ->
+            match c.Arguments with
+            | [x; y] ->
+                if integralTypes.Contains name then
+                    exprParse
+                    <| parseInt x
+                    <| fun _ -> Value (Bool false)
+                    <| fun id ->
+                        Expression.Sequential [
+                            SetRef y (Var id)
+                            Value (Bool true)
+                        ]
+                    |> MacroOk
+                else if name = "System.Single" || name = "System.Double" then
+                    exprParse
+                    <| parseFloat x
+                    <| fun _ -> Value (Bool false)
+                    <| fun id ->
+                        Expression.Sequential [
+                            SetRef y (Var id)
+                            Value (Bool true)
+                        ]
+                    |> MacroOk
+                else MacroError "numericMacro error"
+            | _ -> MacroError "numericMacro error"
+        | _ -> MacroFallback
+
+let charTy, charParse =
+    let t = typeof<System.Char>
+    Reflection.ReadTypeDefinition t,
+    Reflection.ReadMethod (t.GetMethod "Parse")
+
 [<Sealed>]
 type Char() =
     inherit Macro()
-    override this.TranslateCall(_,_,m,a,_) =
-        match a with
+    override this.TranslateCall(c) =
+        match c.Arguments with
         | [x] ->
-            match m.Generics with
+            match c.Method.Generics with
             | t :: _ ->
                 if isIn integralTypes t then MacroOk x else
                     match t with
                     | ConcreteType d ->
                         match d.Entity.Value.FullName with
                         | "System.String" ->
-                            Application(globalAccess ["WebSharper"; "Char"; "Parse"], [x])
+                            Call (None, NonGeneric charTy, NonGeneric charParse, [x])
                             |> MacroOk
                         | "System.Char"
                         | "System.Double"
@@ -197,69 +399,104 @@ type Char() =
 [<Sealed>]
 type String() =
     inherit Macro()
-    override this.TranslateCall(_,_,m,a,_) =
-        match a with
+    override this.TranslateCall(c) =
+        match c.Arguments with
         | [x] ->
-            match m.Generics with
+            match c.Method.Generics with
             | t :: _ ->
-                if t.AssemblyQualifiedName = "System.Char, mscorlib" then
-                    Application(globalAccess ["String"; "fromCharCode"], [x])    
-                else 
-                    Application(globalAccess ["String"], [x])   
+                match t with
+                | ConcreteType d ->
+                    match d.Entity.Value.FullName with
+                    | "System.Char" ->
+                        Application(Global ["String"; "fromCharCode"], [x])    
+                    | "System.DateTime" ->
+                        Application(ItemGet(New(Global [ "Date" ], [x]), Value (Literal.String "toLocaleString")), [])
+                    | _ ->
+                        Application(Global ["String"], [x])   
+                | _ -> 
+                    Application(Global ["String"], [x])   
                 |> MacroOk 
             | _ ->
                 MacroError "stringMacro error"
         | _ ->
             MacroError "stringMacro error"
 
-//let getFieldsList q =
-//    let ``is (=>)`` (td: TypeDefinition) (m: Method) =
-//        td.Value.FullName = "WebSharper.JavaScript.Pervasives"
-//        && m.Value.MethodName = "op_EqualsGreater"
-//    let rec getFieldsListTC l q =
-//        match q with
-//        | Q.NewUnionCase (_, [Q.NewTuple [Q.Value (Q.String n); v]; t]) ->
-//            getFieldsListTC ((n, v) :: l) t         
-//        | Q.NewUnionCase (_, [Q.CallOrCallModule (m, [Q.Value (Q.String n); v]); t])
-//            when m.Entity |> ``is (=>)`` ->
-//            getFieldsListTC ((n, v) :: l) t         
-//        | Q.NewUnionCase (_, []) -> Some (l |> List.rev) 
-//        | Q.NewArray (_,  l) ->
-//            l |> List.map (
-//                function 
-//                | Q.NewTuple [Q.Value (Q.String n); v] -> n, v 
-//                | Q.CallOrCallModule (m, [Q.Value (Q.String n); v])
-//                    when m.Entity |> ``is (=>)`` -> n, v
-//                | _ -> failwith "Wrong type of array passed to New"
-//            ) |> Some
-//        | _ -> None
-//    getFieldsListTC [] q
-//
-//let newMacro tr q =
-//    match q with
-//    | Q.CallOrCallModule (_, [OptCoerce x]) ->
-//        match getFieldsList x with
-//        | Some xl ->
-//            C.NewObject (xl |> List.map (fun (n, v) -> n, tr v))
-//        | _ ->
-//            cCallG ["WebSharper"; "JavaScript"; "Pervasives"] "NewFromList" [tr x]
-//    | _ ->
-//        failwith "newMacro error"
-//
-//[<Sealed>]
-//type New() =
-//    interface M.IMacro with
-//        member this.Translate(q, tr) = newMacro tr q
+let fsharpListDef =
+    TypeDefinition {
+        Assembly = "FSharp.Core"
+        FullName = "Microsoft.FSharp.Collections.FSharpList`1"  
+    }
+
+let listModuleDef =
+    TypeDefinition {
+        Assembly = "FSharp.Core"
+        FullName = "Microsoft.FSharp.Collections.ListModule"
+    }
+
+let listOfArrayDef =
+    Method {
+        MethodName = "OfArray"
+        Parameters = [ ArrayType (TypeParameter 0, 1) ]
+        ReturnType = GenericType fsharpListDef [ TypeParameter 0 ]
+        Generics = 1      
+    }
+
+module I = IgnoreSourcePos
+
+let getFieldsList q =
+    let ``is (=>)`` (td: TypeDefinition) (m: Method) =
+        td.Value.FullName = "WebSharper.JavaScript.Pervasives"
+        && m.Value.MethodName = "op_EqualsGreater"
+    let rec getFieldsListTC l q =
+        let trItem i =
+            match IgnoreExprSourcePos i with    
+            | NewArray [I.Value (String n); v] -> n, v 
+            | Call (_, td, m, [I.Value (String n); v])
+                when ``is (=>)`` td.Entity m.Entity -> n, v
+            | _ -> failwith "Wrong type of array passed to New"
+        match IgnoreExprSourcePos q with
+        | NewUnionCase (_, _, [I.NewArray [I.Value (String n); v]; t]) ->
+            getFieldsListTC ((n, v) :: l) t         
+        | NewUnionCase (_, _, [I.Call (_, td, m, [I.Value (String n); v]); t])
+            when ``is (=>)`` td.Entity m.Entity ->
+            getFieldsListTC ((n, v) :: l) t         
+        | NewUnionCase (_, _, []) -> Some (l |> List.rev) 
+        | Call(None, td, m, [ I.NewArray items ]) when td.Entity = listModuleDef && m.Entity = listOfArrayDef ->
+            items |> List.map trItem |> Some
+        | NewArray (items) ->
+            items |> List.map trItem |> Some
+        | _ -> None
+    getFieldsListTC [] q
+
+[<Sealed>]
+type New() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        match c.Arguments with
+        | [x] -> 
+            match getFieldsList x with
+            | Some xl ->
+                MacroOk <| Object (xl |> List.map (fun (n, v) -> n, v))
+            | _ -> MacroFallback
+        | _ -> MacroError "New macro Error"
 
 //type FST = Reflection.FSharpType
+
+let runtime = ["Runtime"; "IntelliFactory"]
+let runtimeFunc f = GlobalAccess (Address (f :: runtime))
+let runtimeCreateFuncWithArgs = runtimeFunc "CreateFuncWithArgs"
+let runtimeCreateFuncWithArgsRest = runtimeFunc "CreateFuncWithArgsRest"
+let runtimeCreateFuncWithThis = runtimeFunc "CreateFuncWithThis"
+let runtimeGetOptional = runtimeFunc "GetOptional"
+let runtimeSetOptional = runtimeFunc "SetOptional"
 
 [<Sealed>]
 type FuncWithArgs() =
     inherit Macro()
-    override this.TranslateCtor(t,_,a,_) =
-        match a with
+    override this.TranslateCtor(c) =
+        match c.Arguments with
         | [func] ->
-            match t.Generics.[0] with
+            match c.DefiningType.Generics.[0] with
             | TupleType _ ->
                 Application(runtimeCreateFuncWithArgs, [ func ]) |> MacroOk
             | _ ->
@@ -270,10 +507,10 @@ type FuncWithArgs() =
 [<Sealed>]
 type FuncWithArgsRest() =
     inherit Macro()
-    override this.TranslateCtor(t,_,a,_) =
-        match a with
+    override this.TranslateCtor(c) =
+        match c.Arguments with
         | [func] ->
-            match t.Generics.[0] with
+            match c.DefiningType.Generics.[0] with
             | TupleType ts ->
                 Application(runtimeCreateFuncWithArgsRest, [ Value (Int (List.length ts)) ; func ])
                 |> MacroOk
@@ -285,13 +522,14 @@ type FuncWithArgsRest() =
 [<Sealed>]
 type FuncWithThis() =
     inherit Macro()
-    override this.TranslateCtor(t,_,a,_) =
-        match a with
+    override this.TranslateCtor(c) =
+        match c.Arguments with
         | [func] ->
-            match t.Generics.[0] with
+            match c.DefiningType.Generics.[0] with
             | FSharpFuncType _ ->
                 Application(runtimeCreateFuncWithThis, [ func ]) |> MacroOk
-            | ConcreteType td when (
+            | ConcreteType td when 
+                (
                     let n = td.Entity.Value.FullName
                     n = "WebSharper.JavaScript.Function" || n.StartsWith "WebSharper.JavaScript.FuncWith" 
                 ) ->
@@ -300,6 +538,40 @@ type FuncWithThis() =
                 MacroError "Wrong type argument on FuncWithThis: 'TFunc must be an F# function or JavaScript function type"
         | _ ->
             MacroError "funcWithArgsMacro error"
+
+let ApplItem(on, item, args) = Application(ItemGet(on, Value (AST.String item)), args)
+
+[<Sealed>]
+type JSThisCall() =
+    inherit Macro()
+    override __.TranslateCall(c) =
+        match c.This with
+        | Some func ->
+            MacroOk (ApplItem(func, "call", c.Arguments))
+        | _ -> MacroError "JSCall macro error"
+
+[<Sealed>]
+type JSParamsCall() =
+    inherit Macro()
+    override __.TranslateCall(c) =
+        match c.This, List.rev c.Arguments with
+        | Some func, pars :: revArgs ->
+            let args = ApplItem(NewArray (List.rev revArgs), "concat", [pars])
+            MacroOk (ApplItem(func, "apply", [Undefined; args]))
+        | _ -> MacroError "JSParamsCall macro error"
+
+[<Sealed>]
+type JSThisParamsCall() =
+    inherit Macro()
+    override __.TranslateCall(c) =
+        match c.This, c.Arguments with
+        | Some func, this :: afterThis ->
+            match List.rev afterThis with
+            | pars :: revArgs ->    
+                let args = ApplItem(NewArray (List.rev revArgs), "concat", [pars])
+                MacroOk (ApplItem(func, "apply", [this; args]))
+            | _ -> MacroError "JSThisParamsCall macro error"
+        | _ -> MacroError "JSThisParamsCall macro error"
 
 /// Set of helpers to parse format string
 /// Source: https://github.com/fsharp/fsharp/blob/master/src/fsharp/FSharp.Core/printf.fs
@@ -418,17 +690,35 @@ let flags =
     System.Reflection.BindingFlags.Public
     ||| System.Reflection.BindingFlags.NonPublic
 
-let printfHelpers f args = Application (globalAccess ["WebSharper"; "PrintfHelpers"; f], args) 
-let stringProxy f args = Application (globalAccess ["WebSharper"; "Strings"; f], args)
-let cCall e f args = Application (ItemGet(e, !~ (Literal.String f)), args)
-let cCallG a args = Application (globalAccess a, args)
+module M = WebSharper.Core.Metadata
 
-type FST = Reflection.FSharpType
+let printfHelpersModule =
+    TypeDefinition {
+        FullName = "WebSharper.PrintfHelpers"
+        Assembly = "WebSharper.Main"
+    }
+let printfHelpers (comp: M.ICompilation) f args = 
+    let m = comp.GetClassInfo(printfHelpersModule).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
+    Call(None, NonGeneric printfHelpersModule, NonGeneric m, args)
+
+let stringModule = 
+    TypeDefinition {
+        FullName = "Microsoft.FSharp.Core.StringModule"
+        Assembly = "FSharp.Core"
+    }
+let stringProxy (comp: M.ICompilation) f args =
+    let m = comp.GetClassInfo(stringModule).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
+    Call(None, NonGeneric stringModule, NonGeneric m, args)
+
+let cCall e f args = Application (ItemGet(e, !~ (Literal.String f)), args)
+let cCallG a args = Application (Global a, args)
+
+//type FST = Reflection.FSharpType
 
 let cInt i = Value (Int i)
 let cString s = Value (Literal.String s)
 
-let createPrinter ts fs =
+let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
     let parts = FormatString.parseAll fs
     let args = ts |> List.map (fun t -> Id.New(), Some t)
         
@@ -445,144 +735,145 @@ let createPrinter ts fs =
             let width = if f.IsStarWidth then nextVar() |> fst else cInt f.Width
             let s = t (nextVar())
             if FormatString.isLeftJustify f.Flags then
-                stringProxy "PadRight" [s; width]
+                stringProxy comp "PadRight" [s; width]
             else
                 if FormatString.isPadWithZeros f.Flags then
-                    printfHelpers "padNumLeft" [s; width]
+                    printfHelpers comp "padNumLeft" [s; width]
                 else
-                    stringProxy "PadLeft" [s; width]
+                    stringProxy comp "PadLeft" [s; width]
         else t (nextVar())
         
     let numberToString (f: FormatString.FormatSpecifier) t =
         withPadding f (fun (n, _) ->
-            if FormatString.isPlusForPositives f.Flags then printfHelpers "plusForPos" [n; t n]
-            elif FormatString.isSpaceForPositives f.Flags then printfHelpers "spaceForPos" [n; t n]
+            if FormatString.isPlusForPositives f.Flags then printfHelpers comp "plusForPos" [n; t n]
+            elif FormatString.isSpaceForPositives f.Flags then printfHelpers comp "spaceForPos" [n; t n]
             else t n
         )
 
-    let prettyPrint t o = 
-        let d = Dictionary<System.Type, Id * Expression ref>()
-        let rec pp t (o: Expression) = 
-            if FST.IsTuple t then
+    let prettyPrint (t: Type) o = 
+        let d = Dictionary<Type, Id * Expression ref>()
+        let rec pp (t: Type) (o: Expression) = 
+            match t with
+            | TupleType ts ->
                 seq {
                     yield cString "("
-                    let ts = FST.GetTupleElements t
                     for i = 0 to ts.Length - 1 do 
                         yield pp ts.[i] o.[cInt i] 
                         if i < ts.Length - 1 then yield cString ", "
                     yield cString ")"
                 }
                 |> Seq.reduce (^+)
-            elif FST.IsRecord t then
-                let pi = 
-                    match d.TryGetValue t with
-                    | false, _ ->
-                        let pi = Id.New()
-                        let pr = ref Undefined // placeholder
-                        d.Add(t, (pi, pr))
-                        pr := (
-                            let x = Id.New()
-                            Lambda([x], 
-                                seq {
-                                    yield cString "{"
-                                    let fs = FST.GetRecordFields(t, flags)
-                                    for i = 0 to fs.Length - 1 do
-                                        let f = fs.[i]
-                                        let name = 
-                                            f.GetCustomAttributesData() |> Seq.tryPick (fun a ->
-                                                if a.Constructor.DeclaringType = typeof<A.NameAttribute>
-                                                then Some (a.ConstructorArguments.[0].Value :?> string)
-                                                else None
-                                            ) |> function Some n -> n | _ -> f.Name
-                                        yield cString (f.Name + " = ") ^+ pp f.PropertyType (Var x).[cString name]
-                                        if i < fs.Length - 1 then yield cString "; "
-                                    yield cString "}"
-                                }
-                                |> Seq.reduce (^+)
-                            ) 
-                        )
-                        pi
-                    | true, (pi, _) -> pi
-                (Var pi).[[o]]
-            elif t.IsArray then
-                let r = t.GetArrayRank()
-                let a = t.GetElementType()
+            | ArrayType (a, r) ->
                 let x = Id.New()
                 match r with 
-                | 1 -> printfHelpers "printArray" [ Lambda([x], pp a (Var x)) ; o ]
-                | 2 -> printfHelpers "printArray2D" [ Lambda([x], pp a (Var x)) ; o ]
-                | _ -> printfHelpers "prettyPrint" [o]
-            else
-            let tn =
-                if t.IsGenericType 
-                then Some (t.GetGenericTypeDefinition().FullName)
-                else None
-            if tn = Some "Microsoft.FSharp.Collections.FSharpList`1" then
-                let a = t.GetGenericArguments().[0]
-                let x = Id.New()
-                printfHelpers "printList" [ Lambda([x], pp a (Var x)) ; o ]    
-            elif FST.IsUnion t then
-                let pi =
-                    match d.TryGetValue t with
-                    | false, _ ->
-                        let pi = Id.New()
-                        let pr = ref Undefined // placeholder
-                        d.Add(t, (pi, pr))
-                        pr := (
-                            let x = Id.New()
-                            Lambda([x], 
-                                FST.GetUnionCases(t, flags) |> Seq.map (fun c ->
-                                    let fs = c.GetFields()
-                                    let constant =  
-                                        c.GetCustomAttributesData()
-                                        |> Seq.tryPick (fun cad -> 
-                                            if cad.Constructor.DeclaringType = typeof<A.ConstantAttribute> then
-                                                let arg = cad.ConstructorArguments.[0]
-                                                if arg.ArgumentType = typeof<int> then
-                                                    cInt (unbox arg.Value)
-                                                elif arg.ArgumentType = typeof<float> then
-                                                    !~ (Double (unbox x))
-                                                elif arg.ArgumentType = typeof<bool> then
-                                                    !~ (Bool (unbox arg.Value))
-                                                elif arg.ArgumentType = typeof<string> then
-                                                    cString (unbox arg.Value)
-                                                else failwith "Invalid ConstantAttribute."
-                                                |> Some
-                                            else None)
-                                    match constant with
-                                    | Some cVal -> Choice1Of2 (cVal, cString c.Name)
-                                    | None -> 
-                                        Choice2Of2(
-                                            c.Tag,
-                                            match fs.Length with
-                                            | 0 -> cString c.Name
-                                            | 1 -> 
-                                                cString (c.Name + " ") ^+ pp fs.[0].PropertyType (Var x).[cString "$0"]
-                                            | _ -> 
-                                                seq {
-                                                    yield cString (c.Name + " (")
-                                                    for i = 0 to fs.Length - 1 do
-                                                        yield pp fs.[i].PropertyType (Var x).[cString ("$" + string i)]
-                                                        if i < fs.Length - 1 then yield cString ", "
-                                                    yield cString ")"
-                                                }
-                                                |> Seq.reduce (^+)
-                                        )
-                                )
-                                |> Seq.fold (fun s cInfo ->
-                                    match s with
-                                    | None -> match cInfo with Choice1Of2 (_, e) | Choice2Of2 (_, e) -> Some e
-                                    | Some s -> 
-                                        match cInfo with
-                                        | Choice1Of2 (cVal, e) -> Some <| Conditional (Var x ^== cVal, e, s)
-                                        | Choice2Of2 (tag, e) -> Some <| Conditional ((Var x).[cString "$"] ^== cInt tag, e, s)
-                                ) None |> Option.get
+                | 1 -> printfHelpers comp "printArray" [ Lambda([x], pp a (Var x)) ; o ]
+                | 2 -> printfHelpers comp "printArray2D" [ Lambda([x], pp a (Var x)) ; o ]
+                | _ -> printfHelpers comp "prettyPrint" [o]
+            | VoidType -> cString "null" 
+            | FSharpFuncType _ -> cString "<fun>"
+            | ConcreteType ct ->
+                match comp.GetCustomTypeInfo ct.Entity with
+                | M.FSharpRecordInfo fields ->
+                    let pi = 
+                        match d.TryGetValue t with
+                        | false, _ ->
+                            let pi = Id.New()
+                            let pr = ref Undefined // placeholder
+                            d.Add(t, (pi, pr))
+                            pr := (
+                                let x = Id.New()
+                                Lambda([x], 
+                                    seq {
+                                        yield cString "{"
+                                        let fields = Array.ofList fields
+                                        let gs = ct.Generics |> Array.ofList
+                                        for i = 0 to fields.Length - 1 do
+//                                            let name, strongName, ftyp, isOpt = fields.[i]
+                                            let f = fields.[i]
+//                                            let jsName = match strongName with Some n -> n | _ -> f.Name
+                                            let ftypRes = f.RecordFieldType.SubstituteGenerics gs
+                                            let item =
+                                                if f.Optional then
+                                                    Application(runtimeGetOptional, [Var x; cString f.JSName])
+                                                else 
+                                                    (Var x).[cString f.JSName]
+                                            yield cString (f.Name + " = ") ^+ pp ftypRes item
+                                            if i < fields.Length - 1 then yield cString "; "
+                                        yield cString "}"
+                                    }
+                                    |> Seq.reduce (^+)
+                                ) 
                             )
-                        )
-                        pi
-                    | true, (pi, _) -> pi
-                (Var pi).[[o]]
-            else printfHelpers "prettyPrint" [o]
+                            pi
+                        | true, (pi, _) -> pi
+                    (Var pi).[[o]]
+                | M.FSharpUnionInfo u ->
+                    if ct.Entity.Value.FullName = "Microsoft.FSharp.Collections.FSharpList`1" then
+                        let x = Id.New()
+                        printfHelpers comp "printList" [ Lambda([x], pp ct.Generics.[0] (Var x)) ; o ]    
+                    else
+                        let pi =
+                            match d.TryGetValue t with
+                            | false, _ ->
+                                let pi = Id.New()
+                                let pr = ref Undefined // placeholder
+                                d.Add(t, (pi, pr))
+                                let gs = ct.Generics |> Array.ofList
+                                pr := (
+                                    let x = Id.New()
+                                    Lambda([x],                                         
+                                        let caseInfo =
+                                            u.Cases |> Seq.mapi (fun tag c ->
+                                                match c.Kind with
+                                                | M.ConstantFSharpUnionCase cVal -> 
+                                                    if cVal = Null then Choice3Of3 () 
+                                                    else Choice1Of3 (cVal, cString c.Name)
+                                                | M.NormalFSharpUnionCase fs -> 
+                                                    Choice2Of3(
+                                                        tag,
+                                                        match fs.Length with
+                                                        | 0 -> cString c.Name
+                                                        | 1 ->
+                                                            let ityRes = fs.[0].UnionFieldType.SubstituteGenerics gs 
+                                                            cString (c.Name + " ") ^+ pp ityRes (Var x).[cString "$0"]
+                                                        | _ -> 
+                                                            seq {
+                                                                yield cString (c.Name + " (")
+                                                                for i = 0 to fs.Length - 1 do
+                                                                    let ityRes = fs.[i].UnionFieldType.SubstituteGenerics gs
+                                                                    yield pp ityRes (Var x).[cString ("$" + string i)]
+                                                                    if i < fs.Length - 1 then yield cString ", "
+                                                                yield cString ")"
+                                                            }
+                                                            |> Seq.reduce (^+)
+                                                    )
+                                            )
+                                        let withoutNullCheck =
+                                            caseInfo
+                                            |> Seq.fold (fun s cInfo ->
+                                                match s with
+                                                | None -> 
+                                                    match cInfo with
+                                                    | Choice1Of3 (_, e) 
+                                                    | Choice2Of3 (_, e) -> Some e
+                                                    | Choice3Of3 () -> None
+                                                | Some s -> 
+                                                    match cInfo with
+                                                    | Choice1Of3 (cVal, e) -> Some <| Conditional (Var x ^== Value cVal, e, s)
+                                                    | Choice2Of3 (tag, e) -> Some <| Conditional ((Var x).[cString "$"] ^== cInt tag, e, s)
+                                                    | Choice3Of3 () -> Some s
+                                            ) None |> Option.get
+                                        if caseInfo |> Seq.exists (function Choice3Of3 () -> true | _ -> false) then
+                                            Conditional(Var x ^== Value Null, cString "null", withoutNullCheck)    
+                                        else withoutNullCheck    
+                                    )
+                                )
+                                pi
+                            | true, (pi, _) -> pi
+                        (Var pi).[[o]]
+                | _ ->
+                    printfHelpers comp "prettyPrint" [o]
+            | _ -> printfHelpers comp "prettyPrint" [o]
         let inner = pp t o
         if d.Count = 0 then inner else
         LetRec (d |> Seq.map (fun (KeyValue(_, (pi, pr))) -> pi, !pr) |> List.ofSeq, inner)
@@ -600,12 +891,12 @@ let createPrinter ts fs =
                     withPadding f (function 
                         | o, Some t -> 
                             prettyPrint t o
-                        | o, _ -> printfHelpers "prettyPrint" [o]
+                        | o, _ -> printfHelpers comp "prettyPrint" [o]
                     )
                 | 'c' -> 
                     withPadding f (fun (s, _) -> cCallG ["String"; "fromCharCode"]  [s])   
                 | 's' -> 
-                    withPadding f (fun (s, _) -> printfHelpers "toSafe" [s])
+                    withPadding f (fun (s, _) -> printfHelpers comp "toSafe" [s])
                 | 'd' | 'i' ->
                     numberToString f (fun n -> cCallG ["String"] [n])
                 | 'x' ->                                           
@@ -638,7 +929,7 @@ let createPrinter ts fs =
 [<Sealed>]
 type PrintF() =
     inherit Macro()
-    override this.TranslateCtor(t,_,a,_) =
+    override this.TranslateCtor(c) =
 //        let rec getFunctionArgs t =
 //            if FST.IsFunction t then
 //                let x, y = FST.GetFunctionElements t
@@ -650,53 +941,111 @@ type PrintF() =
                 a :: getFunctionArgs r
             | _ -> 
                 []
-        match a with
-        | [IgnoreExprSourcePos (Value (Literal.String fs))] ->
-            let ts = //t.Generics.[0] |> Reflection.loadType |> getFunctionArgs
-                t.Generics.Head |> getFunctionArgs |> List.map Reflection.loadType
-            createPrinter ts fs |> MacroOk
+        match c.Arguments with
+        | [I.Value (Literal.String fs)] ->
+            let ts = c.DefiningType.Generics.Head |> getFunctionArgs 
+            createPrinter c.Compilation ts fs |> MacroOk
         | _ -> MacroError "printfMacro error"
 
-[<A.JavaScript>]
+[<JavaScript>]
 type private EquatableEqualityComparer<'T when 'T :> System.IEquatable<'T>>() =
     inherit System.Collections.Generic.EqualityComparer<'T>()
     override this.Equals(x, y) = (x :> System.IEquatable<_>).Equals(y)
     override this.GetHashCode(x) = (box x).GetHashCode()
 
-[<A.JavaScript>]
+[<JavaScript>]
 type private BaseEqualityComparer<'T>() =
     inherit System.Collections.Generic.EqualityComparer<'T>()
     override this.Equals(x, y) = obj.Equals(box x, box y)
     override this.GetHashCode(x) = (box x).GetHashCode()
 
+let rec isImplementing (comp: M.ICompilation) typ intf =
+    comp.GetClassInfo typ
+    |> Option.map (fun cls ->
+        cls.Implementations |> Seq.exists (fun (KeyValue ((i, _), _)) -> i = intf)
+        || cls.BaseClass |> Option.exists (fun b -> isImplementing comp b intf |> Option.exists id) 
+    )
+
 [<Sealed>]
 type EqualityComparer() =
     inherit Macro()
 
-    static member Default(t: Type) =
-        match t with
-        | GenericType _ -> MacroNeedsResolvedTypeArg
-        | t ->
-            let isEquatable =
-                match (Reflection.loadType t).GetInterface("System.IEquatable`1") with
-                | null -> false
-                | _ -> true
-            let td : TypeDefinitionInfo =
-                { Assembly = "WebSharper.Main"
-                  FullName =
-                    if isEquatable then
-                        "WebSharper.IComparableMacros.EquatableEqualityComparer`1"
-                    else
-                        "WebSharper.IComparableMacros.BaseEqualityComparer`1" }
-            Ctor(
-                {Entity = Hashed td; Generics = [t]},
-                Hashed<ConstructorInfo> { CtorParameters = [] },
-                [])
-            |> MacroOk
+    static let ieqTy =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.IEquatable`1"
+        } 
 
-    override this.TranslateCall(_,t,m,_,_) =
-        match m.Entity.Value.MethodName with
-        | "get_Default" -> EqualityComparer.Default t.Generics.[0]
+    static member GetDefault(comp: M.ICompilation, t: Type) =
+        match t with
+        | TypeParameter _ -> MacroNeedsResolvedTypeArg
+        | ConcreteType ct ->
+            match isImplementing comp ct.Entity ieqTy with
+            | Some isEquatable ->
+                let td : TypeDefinitionInfo =
+                    { Assembly = "WebSharper.Main"
+                      FullName =
+                        if isEquatable then
+                            "WebSharper.MacroModule+EquatableEqualityComparer`1"
+                        else
+                            "WebSharper.MacroModule+BaseEqualityComparer`1" }
+                Ctor(
+                    {Entity = Hashed td; Generics = [t]},
+                    Hashed<ConstructorInfo> { CtorParameters = [] },
+                    [])
+                |> MacroOk
+            | _ -> MacroError ""
+        | _ -> MacroError "Type form not recognized"
+
+    override this.TranslateCall(c) =
+        match c.Method.Entity.Value.MethodName with
+        | "get_Default" -> EqualityComparer.GetDefault(c.Compilation, c.DefiningType.Generics.[0])
+        | _ -> MacroError "Not implemented"
+
+[<JavaScript>]
+type private ComparableComparer<'T when 'T :> System.IComparable<'T>>() =
+    inherit System.Collections.Generic.Comparer<'T>()
+    override this.Compare(x, y) = (x :> System.IComparable<'T>).CompareTo(y)
+
+[<JavaScript>]
+type private BaseComparer<'T when 'T : comparison>() =
+    inherit System.Collections.Generic.Comparer<'T>()
+    override this.Compare(x, y) = compare x y
+
+[<Sealed>]
+type Comparer() =
+    inherit Macro()
+
+    static let icmpTy =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.IComparable`1"
+        } 
+
+    static member GetDefault(comp: M.ICompilation, t: Type) =
+        match t with
+        | TypeParameter _ -> MacroNeedsResolvedTypeArg
+        | ConcreteType ct ->
+            match isImplementing comp ct.Entity icmpTy with
+            | Some isEquatable ->
+                let td : TypeDefinitionInfo =
+                    { Assembly = "WebSharper.Main"
+                      FullName =
+                        if isEquatable then
+                            "WebSharper.MacroModule+ComparableComparer`1"
+                        else
+                            "WebSharper.MacroModule+BaseComparer`1" }
+                Ctor(
+                    {Entity = Hashed td; Generics = [t]},
+                    Hashed<ConstructorInfo> { CtorParameters = [] },
+                    [])
+                |> MacroOk
+            | _ -> MacroError ""
+        | _ -> MacroError "Type form not recognized"
+
+    override this.TranslateCall(c) =
+        match c.Method.Entity.Value.MethodName with
+        | "get_Default" -> Comparer.GetDefault(c.Compilation, c.DefiningType.Generics.[0])
         | _ -> MacroError "Not implemented"
 
 /// Returns 0 for number types, undefined for others.
@@ -706,9 +1055,9 @@ type EqualityComparer() =
 type DefaultOf() =
     inherit Macro()
 
-    let isNumberType (t: AST.Type) =
-        match t with
-        | AST.ConcreteType td when
+    override __.TranslateCall(c) =
+        match c.Method.Generics.[0] with
+        | ConcreteType td when
             (td.Entity.Value.Assembly.StartsWith "mscorlib" &&
                 match td.Entity.Value.FullName with
                 | "System.SByte"
@@ -725,27 +1074,102 @@ type DefaultOf() =
                 | "System.DateTime"
                 | "System.TimeSpan" -> true
                 | _ -> false)
-            -> true
-        | _ -> false
+            -> MacroOk (Value (Int 0))
+        | TypeParameter _ -> MacroNeedsResolvedTypeArg
+        | _ -> MacroOk (Value (Null))
 
-    override __.TranslateCall(_, _, m, _, _) =
-        match m.Generics.[0] with
-        | AST.ConcreteType td when
-            (td.Entity.Value.Assembly.StartsWith "mscorlib" &&
-                match td.Entity.Value.FullName with
-                | "System.SByte"
-                | "System.Byte"
-                | "System.Int16"
-                | "System.UInt16"
-                | "System.Int32"
-                | "System.UInt32"
-                | "System.Int64"
-                | "System.UInt64"
-                | "System.Decimal"
-                | "System.Single"
-                | "System.Double"
-                | "System.DateTime"
-                | "System.TimeSpan" -> true
-                | _ -> false)
-            -> MacroOk (AST.Value (AST.Int 0))
-        | _ -> MacroOk AST.Undefined
+let stringTy, lengthMeth, padLeft, padRight =
+    let t = typeof<System.String>
+    Reflection.ReadTypeDefinition t,
+    Reflection.ReadMethod (t.GetMethod "get_Length"),
+    Reflection.ReadMethod (t.GetMethod("PadLeft", [|typeof<int>|])),
+    Reflection.ReadMethod (t.GetMethod("PadRight", [|typeof<int>|]))
+
+let objty, objArrTy =
+    let t = typeof<System.Object>
+    let arrt = typeof<System.Object []>
+    Reflection.ReadTypeDefinition t,
+    Reflection.ReadTypeDefinition arrt
+
+[<Sealed>]
+type StringFormat() =
+    inherit Macro()
+
+    let regExp = Regex("(?:(.*?){(0|[1-9]\d*)(?:,(-?[1-9]\d*|0))?(?::(.*?))?})|(.+)$", RegexOptions.Singleline)
+
+    let safeToString expr =
+        Conditional(
+            expr ^== (Value Literal.Null),
+            cString "",
+            cCallG ["String"] [expr]
+        )
+
+    override __.TranslateCall(c) =
+        match c.DefiningType.Entity.Value.FullName, c.Method.Entity.Value.MethodName with
+        | "System.String", "Format" ->
+            match c.Arguments with
+            | (Value (String format)) :: args when args.Length < 4 ->
+                let args =
+                    match c.Method.Entity.Value.Parameters with
+                    | [_; x] ->
+                        try 
+                            if x.TypeDefinition = objty then
+                                NewArray [args.[0]]
+                            else
+                                args.[0]
+                        with _ ->
+                            // Array type has no typedef
+                            args.[0]
+                    | [_; x1; x2] -> NewArray [args.[0]; args.[1]]
+                    | [_; x1; x2; x3] -> NewArray [args.[0]; args.[1]; args.[2]]
+                    | _ -> failwith "Wrong number of arguments for String.Format"
+
+                let warning = ref None
+                let argsId = Id.New()
+                
+                let mkExpr args =
+                    regExp.Matches(format)
+                    |> fun e -> (e :> System.Collections.IEnumerable).Cast<Match>()
+                    |> Seq.fold (fun s m ->
+                        if m.Groups.[5].Value <> "" then
+                            s ^+ Value (Literal.String m.Groups.[5].Value)
+                        else
+                            let prefix = m.Groups.[1].Value
+                            let prefix s = Value (Literal.String prefix) ^+ s
+                            let idx = int m.Groups.[2].Value
+
+                            let r =
+                                Application(Global ["WebSharper"; "Arrays"; "get"], [Var argsId; cInt idx])
+                                |> safeToString
+                                
+
+                            let spec = m.Groups.[4].Value
+                            if spec <> "" then
+                                warning := Some (sprintf "String format specifiers are not supported: %s" spec)
+
+                            if m.Groups.[3].Value <> "" then
+                                let w1 = int m.Groups.[3].Value
+                                let w2 = abs w1
+
+                                let expr =
+                                    Conditional(
+                                        cInt w2 ^> Call (None, NonGeneric stringTy, NonGeneric lengthMeth, [r]),
+                                        Conditional(
+                                            cInt w1 ^> cInt 0,
+                                            Call (None, NonGeneric stringTy, NonGeneric padLeft, [r; cInt w2]),
+                                            Call (None, NonGeneric stringTy, NonGeneric padRight, [r; cInt w2])
+                                        ),
+                                        r
+                                    )
+                                s ^+ prefix expr
+                            else s ^+ prefix r
+                    ) (cString "")
+
+                let result =
+                    Let(argsId, args, mkExpr argsId)
+
+                let warningRes = !warning |> Option.map (fun w -> MacroWarning(w, MacroOk result))
+
+                defaultArg warningRes (MacroOk result)
+            | _ -> MacroFallback
+        | _ -> MacroError "proxy is for System.String.Format"

@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -89,10 +89,10 @@ let Get (x: seq<'T>) : IE<'T> =
         getEnumerator x
 
 [<Inline "$x.GetEnumerator0()">]
-let getEnumerator0 (x: obj) : IE<'T> = X
+let getEnumerator0 (x: obj) : System.Collections.IEnumerator = X
 
 [<JavaScript>]
-let Get0 (x: seq<'T>) : IE<'T> =
+let Get0 (x: System.Collections.IEnumerable) : System.Collections.IEnumerator =
     if JS.InstanceOf x JS.Global?Array then
         let s = As<obj[]> x
         New 0 (fun e ->
@@ -102,7 +102,7 @@ let Get0 (x: seq<'T>) : IE<'T> =
                 e.State <- i + 1
                 true
             else
-                false)
+                false) :> _
     elif JS.TypeOf x = JS.String then
         let s = As<string> x
         New 0 (fun e ->
@@ -112,7 +112,7 @@ let Get0 (x: seq<'T>) : IE<'T> =
                 e.State <- i + 1
                 true
             else
-                false)
+                false) :> _
     else
         getEnumerator0 x
 

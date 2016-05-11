@@ -283,8 +283,8 @@ module ClientSideJson =
                     ContentType = "application/json",
                     DataType = JQuery.DataType.Json,
                     Data = serializedArg,
-                    Success = (fun (data, _, _) -> ok (decode data)),
-                    Error = (fun (jqXHR, _, _) -> ko (System.Exception(jqXHR.ResponseText)))
+                    Success = (fun data _ _ -> ok (decode data)),
+                    Error = (fun jqXHR _ _ -> ko (System.Exception(jqXHR.ResponseText)))
                 )
             )
             |> ignore

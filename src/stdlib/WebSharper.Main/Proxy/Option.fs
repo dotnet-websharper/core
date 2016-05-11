@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -24,20 +24,27 @@ open WebSharper.JavaScript
 
 [<Proxy(typeof<option<_>>)>]
 [<Name "WebSharper.Option.T">]
+[<CompilationRepresentation (CompilationRepresentationFlags.UseNullAsTrueValue)>]
+[<DefaultAugmentation(false)>]
+[<RequireQualifiedAccess>]
 type private OptionProxy<'T> =
-    | [<Name "None">] NoneCase
-    | [<Name "Some">] SomeCase of 'T
+    | None
+    | Some of 'T
 
+    [<CompilationRepresentation (CompilationRepresentationFlags.Instance)>]
     member this.Value with [<Inline "$this.$0">] get () = X<'T>
 
-    [<Inline "$x.$ == 1">]
+    [<Inline "$x != null">]
     static member get_IsSome(x: option<'T>) = false
 
-    [<Inline "$x.$ == 0">]
+    [<Inline "$x == null">]
     static member get_IsNone(x: option<'T>) = false
 
     [<Inline; JavaScript>]  
-    static member Some(v: 'T) = Some v  
+    static member Some(v: 'T) = As<'T option> (Some v)  
   
     [<Inline; JavaScript>]  
-    static member get_None<'T>() = None : 'T option  
+    static member get_None<'T>() = As<'T option> None
+
+    [<Inline "$x ? 1 : 0">]
+    static member GetTag(x: option<'T>) = 0

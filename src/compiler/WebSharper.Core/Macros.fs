@@ -23,28 +23,55 @@
 namespace WebSharper.Core
 
 open WebSharper.Core.AST
-//module D = CommonAST.DotNet
-//module J = CommonAST.JavaScript
-//module Q = WebSharper.Core.Quotations
-//module R = WebSharper.Core.Reflection
-module S = WebSharper.Core.JavaScript.Syntax
 
+/// Input for a TranslateCall method on a macro
+type MacroCall =
+    {
+         This : option<Expression>
+         DefiningType : Concrete<TypeDefinition>
+         Method : Concrete<Method>
+         Arguments: list<Expression>
+         Parameter: option<obj>
+         Compilation: Metadata.ICompilation
+    }
+
+/// Input for a TranslateCtor method on a macro
+type MacroCtor =
+    {
+         DefiningType : Concrete<TypeDefinition>
+         Constructor : Constructor
+         Arguments: list<Expression>
+         Parameter: option<obj>
+         Compilation: Metadata.ICompilation
+    }
+
+/// The return type of macro methods 
 type MacroResult =
+    /// An expression to inline at call point for macroed member.
+    /// Can contain JavaScript and .NET level AST nodes.
     | MacroOk of Expression
+    /// Add a source warning at the call point for macroed member.
     | MacroWarning of string * MacroResult
+    /// Add a source error at the call point for macroed member.
     | MacroError of string
+    /// Add code dependencies to the member containing the call for the macroed member.
+    | MacroDependencies of list<Metadata.Node> * MacroResult
+    /// Revert to next in chain tranlation stratedy for the call.
     | MacroFallback
+    /// 
     | MacroNeedsResolvedTypeArg
 
     static member Map f m =
         match m with
         | MacroWarning (w, m) -> MacroWarning (w, MacroResult.Map f m)
+        | MacroDependencies (d, m) -> MacroDependencies (d, MacroResult.Map f m)
         | MacroOk e -> MacroOk (f e)
         | m -> m
 
     static member Bind f m =
         match m with
         | MacroWarning (w, m) -> MacroWarning (w, MacroResult.Bind f m)
+        | MacroDependencies (d, m) -> MacroDependencies (d, MacroResult.Bind f m)
         | MacroOk e -> f e
         | m -> m
 
@@ -52,27 +79,37 @@ type MacroResult =
 type GeneratorResult =
     | GeneratedQuotation of Microsoft.FSharp.Quotations.Expr
     | GeneratedAST of Expression
-//    | GeneratedString of string
-//    | GeneratedJavaScript of S.Expression
+    | GeneratedString of string
+    | GeneratedJavaScript of JavaScript.Syntax.Expression
     | GeneratorError of string
     | GeneratorWarning of string * GeneratorResult
 
 /// An abstract base class for macro definitions used with MacroAttribute.
 [<AbstractClass>]
-type Macro() =
-    abstract member TranslateCall: thisArg: option<Expression> * targetType: Concrete<TypeDefinition> * methodDef: Concrete<Method> * arguments: list<Expression> * parameter: option<obj> -> MacroResult
-    override this.TranslateCall(_,_,_,_,_) = failwithf "TranslateCall not implemented for macro %s" (this.GetType().FullName)
-    
-    abstract member TranslateCtor: targetType: Concrete<TypeDefinition> * ctorDef: Constructor * arguments: list<Expression> * parameter: option<obj> -> MacroResult
-    override this.TranslateCtor(_,_,_,_) = failwithf "TranslateCall not implemented for macro %s" (this.GetType().FullName)
+type Macro() =    
+    /// This method is invoked every time a call to a method annotated with this macro type is being translated.
+    abstract TranslateCall : MacroCall -> MacroResult
+    default this.TranslateCall(call: MacroCall) = failwithf "TranslateCall not implemented for macro %s" (this.GetType().FullName)
 
+    /// This method is invoked every time a call to a constructor annotated with this macro type is being translated.
+    abstract TranslateCtor : MacroCtor -> MacroResult
+    default this.TranslateCtor(ctor: MacroCtor) = failwithf "TranslateCtor not implemented for macro %s" (this.GetType().FullName)
+
+/// The return type of Generate method of a generator 
 type GeneratedMember =
     | GeneratedMethod of TypeDefinition * Method
     | GeneratedConstructor of TypeDefinition * Constructor
     | GeneratedImplementation of TypeDefinition * TypeDefinition * Method
 
+/// Input for a Generate method on a generator
+type Generated =
+    {
+        Member : GeneratedMember
+        Parameter : option<obj>
+        Compilation : Metadata.ICompilation
+    }
+
 /// An abstract base class for code generation used with GeneratedAttribute.
 [<AbstractClass>]
 type Generator() =
-//    abstract member Generate : arguments: list<Id> * parameter: option<obj> -> GeneratorResult
-    abstract member Generate : mem:GeneratedMember *  parameter: option<obj> -> GeneratorResult
+    abstract Generate : gen:Generated -> GeneratorResult

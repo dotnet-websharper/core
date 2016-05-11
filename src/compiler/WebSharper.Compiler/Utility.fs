@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -76,16 +76,3 @@ module internal Utility =
         writer.WriteLine @"  IntelliFactory.Runtime.Start();"
         if withScript then
             writer.WriteLine("</script>")
-
-//    /// Reads Core.Metadata.AssemblyInfo from a Mono.Cecil assembly.
-//    let ReadAssemblyInfo (a: Mono.Cecil.AssemblyDefinition) =
-//        let key = M.AssemblyInfo.EmbeddedResourceName
-//        a.MainModule.Resources
-//        |> Seq.tryPick (function
-//            | :? Mono.Cecil.EmbeddedResource as r when r.Name = key ->
-//                use s = r.GetResourceStream()
-//                try
-//                    Some (M.AssemblyInfo.FromStream s)
-//                with e ->
-//                    failwithf "Failed to read assembly metadata for: %s" a.FullName
-//            | _ -> None)

@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -21,7 +21,6 @@
 /// Implements server-side remote procedure call support.
 module WebSharper.Core.Remoting
 
-module A = WebSharper.Core.Attributes
 module M = WebSharper.Core.Metadata
 //module R = WebSharper.Core.Reflection
 
@@ -46,21 +45,16 @@ type Request =
 /// WebSharper remote procedure call request.
 val IsRemotingRequest : Headers -> bool
 
-/// Constructs RPC handlers.
-type IHandlerFactory =
-
-    /// Creates a new handler based on its type.
-    abstract member Create : System.Type -> option<obj>
-
-/// Sets the default RPC handler factory.
-val SetHandlerFactory : IHandlerFactory -> unit
+/// Adds an RPC handler object for a given remoting type.
+/// You can only add one instance for each type.
+val AddHandler : System.Type -> obj -> unit
 
 /// Handles remote procedure call requests.
 [<Sealed>]
 type Server =
 
     /// Creates a new instance.
-    static member Create : option<IHandlerFactory> -> M.Info -> Server
+    static member Create : M.Info -> Server
 
     /// Handles a request.
     member HandleRequest : Request -> Async<Response>

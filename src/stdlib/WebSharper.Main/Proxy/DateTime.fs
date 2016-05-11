@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -211,8 +211,8 @@ type private DateTimeProxy =
     member this.AddTicks(ticks: int64) : D =
         this.Add (TS.FromTicks ticks)
 
-    [<Inline "new Date($this).toLocaleString()">]
-    override this.ToString() = X<string>
+//    [<Inline "new Date($this).toLocaleString()">]
+//    override this.ToString() = X<string>
 
     [<Inline "new Date($this).toLocaleDateString()">]
     member this.ToShortDateString() = X<string>

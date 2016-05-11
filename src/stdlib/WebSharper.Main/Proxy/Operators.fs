@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -18,8 +18,8 @@
 //
 // $end{copyright}
 
-[<WebSharper.Core.Attributes.Name "Operators">]
-[<WebSharper.Core.Attributes.Proxy
+[<WebSharper.Name "Operators">]
+[<WebSharper.Proxy
     "Microsoft.FSharp.Core.Operators, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
@@ -70,7 +70,7 @@ let ( + ) (a: 'T1) (b: 'T2) = X<'T3>
 [<Macro(typeof<M.Sub>)>]
 let ( - ) (a: 'T1) (b: 'T2) = X<'T3>
 
-[<Macro(typeof<M.Div>, [| 4; 3 |])>]
+[<Macro(typeof<M.Div>)>]
 let ( / ) (x: 'T1) (y: 'T2) = X<'T3>
 
 [<Inline "void ($a[0] = $b)">]
@@ -339,9 +339,9 @@ let inline Truncate<'T> (x: 'T) =
 [<Inline "$x">]
 let Unbox (x: obj) = X<'T>
 
-[<Inline>]
+[<Inline "$x == null">]
 [<JavaScript>]
-let IsNull (x: obj) = x = null
+let IsNull (x: 'T) = X<bool>
 
 [<JavaScript>]
 let Using t f =

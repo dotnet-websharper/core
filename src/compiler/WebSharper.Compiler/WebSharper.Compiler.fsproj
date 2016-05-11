@@ -16,12 +16,20 @@
     <Compile Include="FileSystem.fs" />
     <Compile Include="Constants.fs" />
     <Compile Include="Utility.fs" />
-    <Compile Include="Definitions.fs" />
+    <Compile Include="Helpers.fs" />
     <Compile Include="AttributeReader.fs" />
+    <Compile Include="CompilationHelpers.fs" />
+    <Compile Include="Breaker.fsi" />
+    <Compile Include="Breaker.fs" />
+    <Compile Include="Optimizations.fs" />
     <Compile Include="Recognize.fs" />
+    <Compile Include="Verifier.fs" />
+    <Compile Include="CompilationTypes.fs" />
+    <Compile Include="Compilation.fs" />
     <Compile Include="QuotationReader.fs" />
-    <Compile Include="ToJavaScript.fs" />
-    <Compile Include="ToJavaScriptSyntax.fs" />
+    <Compile Include="Translator.fsi" />
+    <Compile Include="Translator.fs" />
+    <Compile Include="JavaScriptWriter.fs" />
     <Compile Include="Packager.fs" />
     <Compile Include="ErrorPrinting.fs" />
     <Compile Include="api/Symbols.fsi" />
@@ -36,8 +44,7 @@
     <Compile Include="api/Loader.fs" />
     <Compile Include="api/Context.fsi" />
     <Compile Include="api/Context.fs" />
-    <Compile Include="api/CompiledAssembly.fsi" />
-    <Compile Include="api/CompiledAssembly.fs" />
+    <Compile Include="Reflector.fsi" />
     <Compile Include="Reflector.fs" />
     <Compile Include="FrontEnd.fs" />
     <Compile Include="WIGCompile.fsi" />
@@ -52,6 +59,7 @@
     <Compile Include="commands/HtmlCommand.fs" />
     <Compile Include="commands/UnpackCommand.fsi" />
     <Compile Include="commands/UnpackCommand.fs" />
+    <Compile Include="CommandTools.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">

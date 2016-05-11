@@ -8,7 +8,7 @@
     <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <WebSharperProject>Library</WebSharperProject>
     <FSharp40>True</FSharp40>
-	<TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Config.fs" />
@@ -62,6 +62,11 @@
     <ProjectReference Include="..\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj">
       <Name>WebSharper.Collections.Tests</Name>
       <Project>{bb4817e7-12a1-4622-b8ce-29cb3c406851}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.CSharp.Sitelets.Tests\WebSharper.CSharp.Sitelets.Tests.csproj">
+      <Name>WebSharper.CSharp.Sitelets.Tests</Name>
+      <Project>{91e8e3cc-b1f5-4d27-8daf-639ca5c76f63}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\WebSharper.Html5.Tests\WebSharper.Html5.Tests.fsproj">

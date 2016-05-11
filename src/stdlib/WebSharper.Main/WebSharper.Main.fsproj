@@ -8,6 +8,7 @@
     <Name>WebSharper.Main</Name>
     <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
+  <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>
     <Compile Include="JavaScript.fs" />
     <Compile Include="Macro.fsi" />
@@ -29,6 +30,8 @@
     <Compile Include="Resources.fs" />
     <Compile Include="Html.fs" />
     <Compile Include="Interop.fs" />
+    <None Include="genInterop.fsx" />
+    <Compile Include="FSharpConvert.fs" />
     <Compile Include="JavaScript.Extensions.fs" />
     <Compile Include="CollectionInternals.fs" />
     <Compile Include="Proxy/Object.fs" />
@@ -40,6 +43,7 @@
     <Compile Include="Proxy/AsyncBuilder.fs" />
     <Compile Include="Proxy/Char.fs" />
     <Compile Include="Proxy/Choice.fs" />
+    <Compile Include="Proxy/Console.fs" />
     <Compile Include="Proxy/CommonExtensions.fs" />
     <Compile Include="Proxy/DateTime.fs" />
     <Compile Include="Proxy/Delegate.fs" />
@@ -53,7 +57,6 @@
     <Compile Include="Proxy/IDisposable.fs" />
     <Compile Include="Proxy/IEnumerable.fs" />
     <Compile Include="Proxy/IEnumerator.fs" />
-    <Compile Include="Proxy/Int32.fs" />
     <Compile Include="Proxy/IntrinsicOperators.fs" />
     <Compile Include="Proxy/KeyValuePair.fs" />
     <Compile Include="Proxy/LanguagePrimitives.fs" />
@@ -76,8 +79,10 @@
     <Compile Include="Proxy/Stack.fs" />
     <Compile Include="Proxy/String.fs" />
     <Compile Include="Proxy/Task.fs" />
+    <Compile Include="Proxy/Tuple.fs" />
     <Compile Include="Proxy/TimeSpan.fs" />
     <Compile Include="Proxy/Unchecked.fs" />
+    <Compile Include="Proxy/Primitives.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
@@ -103,5 +108,4 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Data.Linq" />
   </ItemGroup>
-  <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
 </Project>

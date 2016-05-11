@@ -1,23 +1,46 @@
-﻿namespace WebSharper.Core.AST
+﻿// $begin{copyright}
+//
+// This file is part of WebSharper
+//
+// Copyright (c) 2008-2016 IntelliFactory
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you
+// may not use this file except in compliance with the License.  You may
+// obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.  See the License for the specific language governing
+// permissions and limitations under the License.
+//
+// $end{copyright}
+
+namespace WebSharper.Core.AST
 
 open WebSharper.Core
 
-module Ids =
-    let lastId = ref -1L
-    
+type private Ids() =
+    static let mutable lastId = -1L
+    static member New() =
+        System.Threading.Interlocked.Increment(&lastId)
+
 [<CustomComparison; CustomEquality>]
+/// An identifier for a variable or label.
 type Id =
-    {
-        Name : string option
+    private {
+        IdName : string option
         Id: int64
     }
 
+    member this.Name = this.IdName
+    
     static member New(?name) =
         {
-            Name = name
-            Id = 
-                Ids.lastId := !Ids.lastId + 1L
-                !Ids.lastId
+            IdName = name
+            Id = Ids.New()
         }
 
     override this.GetHashCode() = int this.Id
@@ -34,8 +57,9 @@ type Id =
             | _ -> invalidArg "other" "Invalid comparison."
 
     override this.ToString() =
-        Option.toObj this.Name + "$" + string this.Id
+        (match this.Name with Some n -> n | _ -> "") + "$" + string this.Id
 
+/// A range in original source code
 type SourcePos =
     {
         FileName : string
@@ -44,68 +68,123 @@ type SourcePos =
     }
 
 type MutatingBinaryOperator =
-    | ``=``    = 0
-    | ``+=``   = 1
-    | ``-=``   = 2
-    | ``*=``   = 3
-    | ``/=``   = 4
-    | ``%=``   = 5
-    | ``&=``   = 6
-    | ``^=``   = 7
-    | ``|=``   = 8
-    | ``<<=``  = 9
-    | ``>>=``  = 10
-    | ``>>>=`` = 11 //unsigned right shift - JS only
+    | Assign                   = 0
+    | AddAssign                = 1
+    | SubstractAssign          = 2
+    | MultiplyAssign           = 3
+    | DivideAssign             = 4
+    | ModuloAssign             = 5
+    | BitwiseAndAssign         = 6
+    | BitwiseXorAssign         = 7
+    | BitwiseOrAssign          = 8
+    | LeftShiftAssign          = 9
+    | RightShiftAssign         = 10
+    | UnsignedRightShiftAssign = 11
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]  
+module MutatingBinaryOperator =
+    let [<Literal>] ``=``    = MutatingBinaryOperator.Assign                  
+    let [<Literal>] ``+=``   = MutatingBinaryOperator.AddAssign               
+    let [<Literal>] ``-=``   = MutatingBinaryOperator.SubstractAssign         
+    let [<Literal>] ``*=``   = MutatingBinaryOperator.MultiplyAssign          
+    let [<Literal>] ``/=``   = MutatingBinaryOperator.DivideAssign            
+    let [<Literal>] ``%=``   = MutatingBinaryOperator.ModuloAssign            
+    let [<Literal>] ``&=``   = MutatingBinaryOperator.BitwiseAndAssign        
+    let [<Literal>] ``^=``   = MutatingBinaryOperator.BitwiseXorAssign        
+    let [<Literal>] ``|=``   = MutatingBinaryOperator.BitwiseOrAssign         
+    let [<Literal>] ``<<=``  = MutatingBinaryOperator.LeftShiftAssign         
+    let [<Literal>] ``>>=``  = MutatingBinaryOperator.RightShiftAssign        
+    let [<Literal>] ``>>>=`` = MutatingBinaryOperator.UnsignedRightShiftAssign
 
 type MutatingUnaryOperator =
-    | ``++()`` = 0
-    | ``()++`` = 1
-    | ``--()`` = 2
-    | ``()--`` = 3
-    | delete = 4
-
+    | PreIncrement  = 0
+    | PostIncrement = 1
+    | PreDecrement  = 2
+    | PostDecrement = 3
+    | Delete        = 4
+  
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]  
+module MutatingUnaryOperator =
+    let [<Literal>] ``++()`` = MutatingUnaryOperator.PreIncrement 
+    let [<Literal>] ``()++`` = MutatingUnaryOperator.PostIncrement
+    let [<Literal>] ``--()`` = MutatingUnaryOperator.PreDecrement 
+    let [<Literal>] ``()--`` = MutatingUnaryOperator.PostDecrement
+    let [<Literal>] delete   = MutatingUnaryOperator.Delete
+                                         
 type BinaryOperator =
-    | ``!==``        = 0
-    | ``!=``         = 1
-    | ``%``          = 2
-    | ``&&``         = 3
-    | ``&``          = 4
-    | ``*``          = 5
-    | ``+``          = 6
-    | ``,``          = 7
-    | ``-``          = 8
-//    | ``.``          = 9
-    | ``/``          = 10
-    | ``<<``         = 11
-    | ``<=``         = 12
-    | ``<``          = 13
-    | ``===``        = 14
-    | ``==``         = 15
-    | ``=``          = 16
-    | ``>=``         = 17
-    | ``>>>``        = 18
-    | ``>>``         = 19
-    | ``>``          = 20
-    | ``^``          = 21
-    | ``in``         = 22
-    | instanceof     = 23
-    | ``|``          = 24
-    | ``||``         = 25
+    | NotReferenceEquals = 0
+    | NotEquals          = 1
+    | Modulo             = 2
+    | And                = 3
+    | BitwiseAnd         = 4
+    | Multiply           = 5
+    | Add                = 6
+    | Substract          = 7
+    | Divide             = 8
+    | LeftShift          = 9
+    | LessOrEquals       = 10
+    | Less               = 11
+    | ReferenceEqualsOp  = 12
+    | EqualsOp           = 13
+    | GreaterOrEquals    = 14
+    | UnsignedRightShift = 15
+    | RightShift         = 16
+    | Greater            = 17
+    | BitwiseXor         = 18
+    | In                 = 29
+    | InstanceOf         = 20
+    | BitwiseOr          = 21
+    | Or                 = 22
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]  
+module BinaryOperator =
+    let [<Literal>] ``!==``    = BinaryOperator.NotReferenceEquals
+    let [<Literal>] ``!=``     = BinaryOperator.NotEquals         
+    let [<Literal>] ``%``      = BinaryOperator.Modulo            
+    let [<Literal>] ``&&``     = BinaryOperator.And               
+    let [<Literal>] ``&``      = BinaryOperator.BitwiseAnd        
+    let [<Literal>] ``*``      = BinaryOperator.Multiply          
+    let [<Literal>] ``+``      = BinaryOperator.Add               
+    let [<Literal>] ``-``      = BinaryOperator.Substract         
+    let [<Literal>] ``/``      = BinaryOperator.Divide            
+    let [<Literal>] ``<<``     = BinaryOperator.LeftShift         
+    let [<Literal>] ``<=``     = BinaryOperator.LessOrEquals      
+    let [<Literal>] ``<``      = BinaryOperator.Less              
+    let [<Literal>] ``===``    = BinaryOperator.ReferenceEqualsOp 
+    let [<Literal>] ``==``     = BinaryOperator.EqualsOp          
+    let [<Literal>] ``>=``     = BinaryOperator.GreaterOrEquals   
+    let [<Literal>] ``>>>``    = BinaryOperator.UnsignedRightShift
+    let [<Literal>] ``>>``     = BinaryOperator.RightShift        
+    let [<Literal>] ``>``      = BinaryOperator.Greater           
+    let [<Literal>] ``^``      = BinaryOperator.BitwiseXor        
+    let [<Literal>] ``in``     = BinaryOperator.In                
+    let [<Literal>] instanceof = BinaryOperator.InstanceOf            
+    let [<Literal>] ``|``      = BinaryOperator.BitwiseOr         
+    let [<Literal>] ``||``     = BinaryOperator.Or  
 
 type UnaryOperator =
-    | ``!`` = 0
-    | ``void`` = 1
-    | ``+`` = 2
-    | ``-`` = 3
-    | ``~`` = 4
-    | typeof = 5
+    | Not        = 0
+    | Void       = 1
+    | Promotion  = 2
+    | Inversion  = 3
+    | Complement = 4
+    | TypeOf     = 5
 
-//[<System.Diagnostics.DebuggerDisplay("{Assembly}.{FullName}")>]
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]  
+module UnaryOperator =
+    let [<Literal>] ``!``    = UnaryOperator.Not       
+    let [<Literal>] ``void`` = UnaryOperator.Void      
+    let [<Literal>] ``+``    = UnaryOperator.Promotion 
+    let [<Literal>] ``-``    = UnaryOperator.Inversion 
+    let [<Literal>] ``~``    = UnaryOperator.Complement
+    let [<Literal>] typeof   = UnaryOperator.TypeOf    
+
+/// Identifies a type definition by AssemblyName and FullName
+[<System.Diagnostics.DebuggerDisplay("{Assembly}.{FullName}")>]
 type TypeDefinitionInfo =
     {
         Assembly : string
         FullName : string
-//        IsInterface : bool
     }
     member this.AssemblyQualifiedName =
         this.FullName + ", " + this.Assembly
@@ -114,20 +193,31 @@ type TypeDefinitionInfo =
 
 type TypeDefinition = Hashed<TypeDefinitionInfo>
 
+/// Stores a definition and type parameter information
 type Concrete<'T> =
     {
         Generics : list<Type>
         Entity : 'T
     }
 
+/// Identifies a type by shape
 and Type =
+    /// A specific type not covered by other cases
     | ConcreteType of Concrete<TypeDefinition>
-    | GenericType of int
+    /// A class and method type parameters specified by index in the combined list
+    | TypeParameter of int
+    /// An array with the specified number of dimensions
     | ArrayType of Type * int
+    /// A Sytem.Tuple type, type parameters are in a straight list
     | TupleType of list<Type>
+    /// Identifies the FSharp.Core.FSharpFunc type
     | FSharpFuncType of Type * Type
+    /// The type of a ref or out parameter
     | ByRefType of Type
-    | VoidType
+    /// Unified case for FSharp.Core.Unit and System.Void
+    | VoidType 
+    /// used for F# statically resolved type parameters
+    | StaticTypeParameter of int
 
     override this.ToString() =
         match this with
@@ -136,12 +226,13 @@ and Type =
                 match t.Generics with
                 | [] -> ""
                 | gs -> "<" + (gs |> Seq.map string |> String.concat ", ") + ">"
-        | GenericType i -> "'T" + string i
+        | TypeParameter i -> "'T" + string i
         | ArrayType (t, a) -> string t + "[" + String.replicate (a - 1) "," + "]"
         | TupleType ts -> "(" + (ts |> Seq.map string |> String.concat " * ") + ")"
         | FSharpFuncType (a, r) -> "(" + string a + " -> " + string r + ")"
         | ByRefType t -> "byref<" + string t + ">"
         | VoidType -> "unit"
+        | StaticTypeParameter i -> "^T" + string i
 
     member this.AssemblyQualifiedName =
         let combine (n, a) = n + ", " + a
@@ -156,8 +247,9 @@ and Type =
                     | [] -> ""
                     | gs -> "[[" + String.concat "],[" (gs |> Seq.map (fun g -> g.AssemblyQualifiedName)) + "]]"
                 , ea
-            | GenericType _ ->
-                failwith "Cannot get AssemblyQualifiedName of a type parameter"
+            | StaticTypeParameter i
+            | TypeParameter i ->
+                "$" + string i, ""
             | ArrayType (t, i) ->
                 let tn, ta = getNameAndAsm t
                 tn + "[" + String.replicate (i - 1) "," + "]", ta
@@ -179,24 +271,24 @@ and Type =
     member this.TypeDefinition =
         match this with
         | ConcreteType t -> t.Entity 
-        | GenericType _ -> invalidOp "Generic parameter has no TypeDefinition"
+        | StaticTypeParameter _
+        | TypeParameter _ -> invalidOp "Generic parameter has no TypeDefinition"
         | ArrayType _ -> invalidOp "Array type has no TypeDefinition"
         | TupleType _ -> invalidOp "Tuple type has no TypeDefinition"
         | FSharpFuncType _ -> invalidOp "FSharpFunc type has no TypeDefinition"
         | ByRefType t -> t.TypeDefinition
         | VoidType -> invalidOp "Void type has no TypeDefinition"
-        
-//module SpecialTypes =  
-//    let Unit = 
-//        ConcreteType {
-//            Generics = []
-//            Entity = Hashed { Assembly = "FSharp.Core"; FullName = "Microsoft.FSharp.Core.Unit" }
-//        }
-
-//type Special =
-//    | SeqAppendWithDelay of 
-//    | SeqBreak of Id
-//    | SeqContinue of Id
+      
+    member this.SubstituteGenerics (gs : Type[]) =
+        match this with 
+        | ConcreteType t -> ConcreteType { t with Generics = t.Generics |> List.map (fun p -> p.SubstituteGenerics gs) }
+        | TypeParameter i -> gs.[i]
+        | ArrayType (t, i) -> ArrayType (t.SubstituteGenerics gs, i)
+        | TupleType ts -> TupleType (ts |> List.map (fun p -> p.SubstituteGenerics gs)) 
+        | FSharpFuncType (a, r) -> FSharpFuncType (a.SubstituteGenerics gs, r.SubstituteGenerics gs)
+        | ByRefType t -> ByRefType (t.SubstituteGenerics gs)
+        | VoidType -> VoidType
+        | StaticTypeParameter i -> StaticTypeParameter i
 
 type MethodInfo =
     {
@@ -205,6 +297,13 @@ type MethodInfo =
         ReturnType : Type
         Generics : int       
     }
+    
+    override m.ToString() =
+        sprintf "(%s%s : %s -> %O)"
+            m.MethodName 
+            (if m.Generics > 0 then "<" + (Seq.init m.Generics (fun _ -> "_") |> String.concat ",") + ">" else "")
+            (m.Parameters |> Seq.map string |> String.concat " * ") 
+            m.ReturnType
 
 type Method = Hashed<MethodInfo>
 
@@ -212,6 +311,9 @@ type ConstructorInfo =
     {
         CtorParameters : list<Type>    
     }
+    override c.ToString() =
+        sprintf "%s"
+            (c.CtorParameters |> Seq.map string |> String.concat " * ") 
 
 type Constructor = Hashed<ConstructorInfo>
 
@@ -222,31 +324,6 @@ type Member =
     | Override of TypeDefinition * Method
     | Constructor of Constructor
     | StaticConstructor
-
-//[<System.Diagnostics.DebuggerDisplay("{FieldName}")>]
-//type FieldInfo =
-//    {
-//        FieldName : string
-//        Type : Type
-//    }
-//
-//type Field = Hashed<FieldInfo>
-
-//type PropertyInfo =
-//    {
-//        PropertyName : string
-//        Type : Type
-//        Parameters : list<Type> 
-//    }
-//
-//type Property = Hashed<PropertyInfo>
-
-type UnionCaseInfo =
-    {
-        UnionCaseName : string 
-    }
-
-type UnionCase = Hashed<UnionCaseInfo>
 
 type Address = Hashed<list<string>>
 
@@ -263,7 +340,7 @@ module Reflection =
             FullName = getName t
         } 
 
-    let getTypeDefinition (t: System.Type) =
+    let ReadTypeDefinition (t: System.Type) =
         if t.IsArray then
             Hashed {
                 Assembly = "mscorlib"
@@ -283,139 +360,88 @@ module Reflection =
         else
             getTypeDefinitionUnchecked false t
 
-    let unitTy = typeof<unit>
-    let voidTy = typeof<System.Void>
+    let private unitTy = typeof<unit>
+    let private voidTy = typeof<System.Void>
 
-    let rec getType (t: System.Type) =        
+    let rec ReadType (t: System.Type) =        
         if t.IsArray then
-            ArrayType (getType(t.GetElementType()), t.GetArrayRank())
+            ArrayType (ReadType(t.GetElementType()), t.GetArrayRank())
         elif FST.IsFunction t then
             let a, r = FST.GetFunctionElements t
-            FSharpFuncType(getType a, getType r)        
+            FSharpFuncType(ReadType a, ReadType r)        
         elif FST.IsTuple t then
-            TupleType(FST.GetTupleElements t |> Seq.map getType |> List.ofSeq) 
+            TupleType(FST.GetTupleElements t |> Seq.map ReadType |> List.ofSeq) 
         elif t.IsGenericParameter then  
             if t.DeclaringMethod <> null then
                 let dT = t.DeclaringType
                 let k =
                     if not dT.IsGenericType then 0 else
                         dT.GetGenericArguments().Length
-                GenericType (k + t.GenericParameterPosition)
+                TypeParameter (k + t.GenericParameterPosition)
             else
-                GenericType t.GenericParameterPosition
+                TypeParameter t.GenericParameterPosition
         elif t = voidTy || t = unitTy then
             VoidType
         else
             ConcreteType {
                 Generics = 
                     if t.IsGenericType then 
-                        t.GetGenericArguments() |> Seq.map getType |> List.ofSeq 
+                        t.GetGenericArguments() |> Seq.map ReadType |> List.ofSeq 
                     else [] 
                 Entity = getTypeDefinitionUnchecked false t
             }
 
-    // for use by WIG
-    let rec getTypeWithFullAsmNames (t: System.Type) =
-        if t.IsArray then
-            ArrayType (getTypeWithFullAsmNames(t.GetElementType()), t.GetArrayRank())
-        elif FST.IsFunction t then
-            let a, r = FST.GetFunctionElements t
-            FSharpFuncType(getTypeWithFullAsmNames a, getTypeWithFullAsmNames r)        
-        elif FST.IsTuple t then
-            TupleType(FST.GetTupleElements t |> Seq.map getTypeWithFullAsmNames |> List.ofSeq) 
-        elif t.IsGenericParameter then
-            if t.DeclaringMethod <> null then
-                let dT = t.DeclaringType
-                let k =
-                    if not dT.IsGenericType then 0 else
-                        dT.GetGenericArguments().Length
-                GenericType (k + t.GenericParameterPosition)
-            else
-                GenericType t.GenericParameterPosition
-        else
-            ConcreteType {
-                Generics = 
-                    if t.IsGenericType then 
-                        t.GetGenericArguments() |> Seq.map getTypeWithFullAsmNames |> List.ofSeq 
-                    else [] 
-                Entity = getTypeDefinitionUnchecked true t
-            }
-
-    let getMethod (m : System.Reflection.MethodInfo) =
+    let private readMethodInfo (m : System.Reflection.MethodInfo) =
         let i = m.Module.ResolveMethod m.MetadataToken :?> System.Reflection.MethodInfo
         {
             MethodName = i.Name
-            Parameters = i.GetParameters() |> Seq.map (fun p -> getType p.ParameterType) |> List.ofSeq
-            ReturnType = getType i.ReturnType 
+            Parameters = i.GetParameters() |> Seq.map (fun p -> ReadType p.ParameterType) |> List.ofSeq
+            ReturnType = ReadType i.ReturnType 
             Generics   = if i.IsGenericMethod then i.GetGenericArguments().Length else 0
         }
 
-    let getConstructor (i : System.Reflection.ConstructorInfo) =
+    let ReadMethod m =
+        Method (readMethodInfo m)
+
+    let private readConstructorInfo (i : System.Reflection.ConstructorInfo) =
         {
-            CtorParameters = i.GetParameters() |> Seq.map (fun p -> getType p.ParameterType) |> List.ofSeq
+            CtorParameters = i.GetParameters() |> Seq.map (fun p -> ReadType p.ParameterType) |> List.ofSeq
         }
 
-    let loadType (t: Type) =
+    let ReadConstructor c =
+        Constructor (readConstructorInfo c)    
+
+    let LoadType (t: Type) =
         try System.Type.GetType(t.AssemblyQualifiedName, true)  
         with _ -> failwithf "Failed to load type '%s'" t.AssemblyQualifiedName
 
-    let loadTypeNonGeneric t = 
-        let rec checkNonGeneric t =
-            match t with
-            | ArrayType (t, _) -> checkNonGeneric t
-            | ConcreteType c ->
-                for t in c.Generics do checkNonGeneric t
-            | GenericType _ ->
-                failwith "Cannot load generic type"    
-        checkNonGeneric t
-        loadType t 
-
-    let loadTypeDefinition (td: TypeDefinition) =
+    let LoadTypeDefinition (td: TypeDefinition) =
         System.Type.GetType(td.Value.AssemblyQualifiedName, true)   
 
-    let printCtorParams (c: ConstructorInfo) =
-        sprintf "%s"
-            (c.CtorParameters |> Seq.map string |> String.concat " * ") 
-
-    let printMethod (m: MethodInfo) =
-        sprintf "(%s%s : %s -> %O)"
-            m.MethodName 
-            (if m.Generics > 0 then "<" + (Seq.init m.Generics (fun _ -> "_") |> String.concat ",") + ">" else "")
-            (m.Parameters |> Seq.map string |> String.concat " * ") 
-            m.ReturnType
-
-    let flags = 
+    let [<Literal>] AllMethodsFlags = 
         System.Reflection.BindingFlags.Instance
         ||| System.Reflection.BindingFlags.Static
         ||| System.Reflection.BindingFlags.Public
         ||| System.Reflection.BindingFlags.NonPublic
 
-    let loadMethod td (m: Method) =
+    let LoadMethod td (m: Method) =
         let m = m.Value
-        let methodInfos = (loadTypeDefinition td).GetMethods(flags)
+        let methodInfos = (LoadTypeDefinition td).GetMethods(AllMethodsFlags)
         try
             methodInfos
-            |> Seq.find (fun i -> i.Name = m.MethodName && getMethod i = m)
+            |> Seq.find (fun i -> i.Name = m.MethodName && readMethodInfo i = m)
         with _ ->
-            failwithf "Could not load method %s candidates: %A" (printMethod m) (methodInfos |> Seq.choose (fun c -> 
-                let mc = getMethod c
-                if mc.MethodName = m.MethodName then Some (printMethod mc) else None
+            failwithf "Could not load method %O candidates: %A" m (methodInfos |> Seq.choose (fun c -> 
+                let mc = readMethodInfo c
+                if mc.MethodName = m.MethodName then Some (string mc) else None
             ) |> Array.ofSeq)
 
-    let loadConstructor td (c: Constructor) =
+    let LoadConstructor td (c: Constructor) =
         let c = c.Value
-        let ctorInfos = (loadTypeDefinition td).GetConstructors()
+        let ctorInfos = (LoadTypeDefinition td).GetConstructors(AllMethodsFlags)
         try
             ctorInfos
-            |> Seq.find (fun i -> getConstructor i = c)
+            |> Seq.find (fun i -> readConstructorInfo i = c)
         with _ ->
             failwithf "Could not load constructor for type %s" td.Value.AssemblyQualifiedName
-//            failwithf "Could not load constructor %s candidates: %A" (printMethod m) (ctorInfos |> Seq.choose (fun c -> 
-//                let mc = getMethod c
-//                if mc.MethodName = m.MethodName then Some (printMethod mc) else None
-//            ) |> Array.ofSeq)
 
-
-
-        
-        

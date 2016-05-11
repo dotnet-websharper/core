@@ -1,4 +1,24 @@
-﻿type Case =
+﻿// $begin{copyright}
+//
+// This file is part of WebSharper
+//
+// Copyright (c) 2008-2016 IntelliFactory
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you
+// may not use this file except in compliance with the License.  You may
+// obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.  See the License for the specific language governing
+// permissions and limitations under the License.
+//
+// $end{copyright}
+
+type Case =
     | Tuple of list<Case>
     | List of Case
     | Option of Case
@@ -42,6 +62,13 @@ let rec toType c =
     | Object o -> o
     | Empty -> "unit"
 
+let capitalize (s: string) = s.[0 .. 0].ToUpper() + s.[1 ..]
+
+let toFields fs =
+    match fs with
+    | [] -> "unit"
+    | _ -> fs |> Seq.map (fun (t, n) -> capitalize n + ":" + toType t) |> String.concat " * "
+
 let rec info c =
     match c with
     | Tuple l ->
@@ -67,100 +94,168 @@ let Method = Object "Concrete<Method>"
 //let Field = Object "Field"
 let Str = Object "string"
 let Type = Object "Type"
+let Int = Object "int"
 
 let ExprDefs = 
     [
-        "Undefined", Empty
-        "This", Empty
-        "Var", Id
-        "Value", Literal
-        "Application", Expr * List Expr
-        "Function", List Id * Statement
-        "VarSet", Id * Expr
-        "Sequential", List Expr
-        "NewArray", List Expr
-        "Conditional", Expr * Expr * Expr  
-        "ItemGet", Expr * Expr
-        "ItemSet", Expr * Expr * Expr
-        "Binary", Expr * Object "BinaryOperator" * Expr
-        "MutatingBinary", Expr * Object "MutatingBinaryOperator" * Expr
-        "Unary", Object "UnaryOperator" * Expr
-        "MutatingUnary", Object "MutatingUnaryOperator" * Expr
-        "ExprSourcePos", Object "SourcePos" * Expr
-        
-        // .NET
-        "FuncWithThis", Id * List Id * Statement
-        "Self", Empty
-        "Base", Empty
-        "Call", Option Expr * TypeDefinition * Method * List Expr
-        "CallNeedingMoreArgs", Option Expr * TypeDefinition * Method * List Expr
-//        "CallInterface", Expr * TypeDefinition * Method * List Expr
-        "Ctor", TypeDefinition * Constructor * List Expr
-        "BaseCtor", Expr * TypeDefinition * Constructor * List Expr
-        "CopyCtor", NonGenericTypeDefinition * Expr
-        "Cctor", NonGenericTypeDefinition
-//        "FieldGet", Expr * TypeDefinition * Field
-//        "FieldSet", Expr * TypeDefinition * Field * Expr
-        "FieldGet", Option Expr * TypeDefinition * Str
-        "FieldSet", Option Expr * TypeDefinition * Str * Expr
-        "Let", Id * Expr * Expr
-        "NewVar", Id * Expr
-        "Coalesce", Expr * Type * Expr
-        "TypeCheck", Expr * Type
-//        "MacroFallback", Empty
-        "WithVars", List Id * Expr
-        "MethodName", NonGenericTypeDefinition * NonGenericMethod
-        "OverrideName", NonGenericTypeDefinition * NonGenericMethod
-        "NewDelegate", Option Expr * TypeDefinition * Method
-
-        // F#
-        "LetRec", List (Id * Expr) * Expr
-        "StatementExpr", Statement
-        "NewRecord", TypeDefinition * List Expr
-        "NewUnionCase", TypeDefinition * Str * List Expr
-//        "UnionCaseTest", Expr * TypeDefinition * Str
-        "UnionCaseGet", Expr * TypeDefinition * Str * Str
-
-        // C#
-        "Await", Expr
-        "NamedParameter", Id * Expr
-        "RefOrOutParameter", Expr
-
-        // JavaScript
-        "Object", List (Object "string" * Expr)
-        "GlobalAccess", Object "Address"
-        "New", Expr * List Expr
-        "Hole", Object "int"
+        "Undefined", []
+            , "JavaScript `undefined` value or `void` in .NET"
+        "This", []
+            , "The `this` value of current JavaScript function scope"
+        "Arguments", []
+            , "The `arguments` value of current JavaScript function scope"
+        "Var", [ Id, "variable"]
+            , "Gets the value of a variable"
+        "Value", [ Literal, "value" ]
+            , "Contains a literal value"
+        "Application", [ Expr, "func" ; List Expr, "arguments" ]
+            , "Function application"
+        "Function", [ List Id, "parameters"; Statement, "body" ]
+            , "Function declaration"
+        "VarSet", [ Id, "variable"; Expr, "value" ]
+            , "Variable set"
+        "Sequential", [ List Expr, "expressions" ]
+            , "Sequential evaluation of expressions, value is taken from the last"
+        "NewArray", [ List Expr, "items" ]
+            , "Creating a new array"
+        "Conditional", [ Expr, "condition"; Expr, "whenTrue"; Expr, "whenFalse" ]  
+            , "Conditional operation"
+        "ItemGet", [ Expr, "object";  Expr, "item" ]
+            , "Indexer get without side effects"
+        "ItemGetNonPure", [ Expr, "object";  Expr, "item" ]
+            , "Indexer get with possible side effects"
+        "ItemSet", [ Expr, "object"; Expr, "item"; Expr, "value" ]
+            , "Indexer set"
+        "Binary", [ Expr, "left"; Object "BinaryOperator", "operator"; Expr, "right" ]
+            , "Binary operation"
+        "MutatingBinary", [ Expr, "left"; Object "MutatingBinaryOperator", "operator"; Expr, "right" ]
+            , "Binary operation mutating right side"
+        "Unary", [ Object "UnaryOperator", "operator"; Expr, "expression" ]
+            , "Unary operation"
+        "MutatingUnary", [ Object "MutatingUnaryOperator", "operator"; Expr, "expression" ]
+            , "Unary operation mutating value"
+        "ExprSourcePos", [ Object "SourcePos", "range"; Expr, "expression" ]
+            , "Original source location for an expression"
+        "FuncWithThis", [ Id, "thisParam"; List Id, "parameters"; Statement, "body" ]
+            , "Temporary - Method of F# object expressions"
+        "Self", []
+            , "Temporary - Refers to the class from a static method"
+        "Base", []
+            , "Temporary - Refers to the base class from an instance method"
+        "Call", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method"; List Expr, "arguments" ]
+            , ".NET - Method call"
+        "CallNeedingMoreArgs", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method"; List Expr, "arguments" ]
+            , "Temporary - Partial application, workaround for FCS issue #414"
+        "Ctor", [ TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ] 
+            , ".NET - Constructor call"
+        "BaseCtor", [ Expr, "thisObject"; TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ]
+            , ".NET - Base constructor call"
+        "CopyCtor", [ NonGenericTypeDefinition, "typeDefinition"; Expr, "object" ]
+            , ".NET - Creating an object from a plain object"
+        "Cctor", [ NonGenericTypeDefinition, "typeDefinition" ]
+            , ".NET - Static constructor"
+        "FieldGet", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Str, "field"]
+            , ".NET - Field getter"
+        "FieldSet", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Str, "field"; Expr, "value" ]
+            , ".NET - Field setter"
+        "Let", [ Id, "identifier"; Expr, "value"; Expr, "body" ]
+            , ".NET - An immutable value definition used only in expression body"
+        "NewVar", [ Id, "variable"; Expr, "value" ]
+            , ".NET - An expression-level variable declaration"
+        "Coalesce", [ Expr, "expression"; Type, "type"; Expr, "whenNull" ]
+            , ".NET - Null-coalescing"
+        "TypeCheck", [ Expr, "expression"; Type, "type" ]
+            , ".NET - Type check, returns bool"
+        "OverrideName", [ NonGenericTypeDefinition, "typeDefinition"; NonGenericMethod, "method" ]
+            , ".NET - Looks up the JavaScript name of an override/implementation, used inside F# object expressions"
+        "NewDelegate", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method" ]
+            , ".NET - Creates a new delegate"
+        "StatementExpr", [ Statement, "statement"; Option Id, "result" ]
+            , ".NET - Statement inside an expression. Result can be an identifier for a variable which is not explicitly defined inside the statement"
+        "LetRec", [ List (Id * Expr), "bindings"; Expr, "body" ]
+            , ".NET - F# let rec"
+        "NewRecord", [ TypeDefinition, "typeDefinition"; List Expr, "fields" ]
+            , ".NET - F# record constructor"
+        "NewUnionCase", [ TypeDefinition, "typeDefinition"; Str, "unionCase"; List Expr, "fields" ]
+            , ".NET - F# union case constructor"
+        "UnionCaseTest", [ Expr, "expression"; TypeDefinition, "typeDefinition"; Str, "unionCase" ]
+            , ".NET - F# union case test"
+        "UnionCaseGet", [ Expr, "expression"; TypeDefinition, "typeDefinition"; Str, "unionCase"; Str, "field" ]
+            , ".NET - F# union case field getter"
+        "UnionCaseTag", [ Expr, "expression"; TypeDefinition, "typeDefinition" ]
+            , ".NET - F# union case tag getter"
+        "TraitCall", [ Expr, "thisObject"; Type, "objectType"; Method, "method"; List Expr, "arguments" ]
+            , ".NET - Method call"
+        "Await", [ Expr, "expression" ]
+            , "Temporary - C# await expression"
+        "NamedParameter", [ Int, "ordinal"; Expr, "expression" ]
+            , "Temporary - C# named parameter"
+        "RefOrOutParameter", [ Expr, "expression" ]
+            , "Temporary - C# ref or out parameter"
+        "ComplexElement", [ List Expr, "items" ]
+            , "Temporary - C# complex element in initializer expression"
+        "Object", [ List (Object "string" * Expr), "properties" ]
+            , "JavaSript object"
+        "GlobalAccess", [ Object "Address", "address" ]
+            , "A global value by path, list is reversed"
+        "New", [ Expr, "func"; List Expr, "arguments" ]
+            , "JavaScript 'new' call"
+        "Hole", [ Object "int", "index" ]
+            , "Temporary - A hole in an expression for inlining"
     ]    
 
 let StatementDefs =
     [
-        "Empty", Empty
-        "Break", Option Id
-        "Continue", Option Id
-        "ExprStatement", Expr
-        "Return", Expr
-        "Block", List Statement
-        "VarDeclaration", Id * Expr
-        "While", Expr * Statement
-        "DoWhile", Statement * Expr
-        "For", Option Expr * Option Expr * Option Expr * Statement
-        "ForIn", Id * Expr * Statement
-        "Switch", Expr * List (Option Expr * Statement)
-        "If", Expr * Statement * Statement
-        "Throw", Expr
-        "TryWith", Statement * Option Id * Statement
-        "TryFinally", Statement * Statement
-        "Labeled", Id * Statement
-        "StatementSourcePos", Object "SourcePos" * Statement
+        "Empty", []
+            , "Empty statement"
+        "Break", [ Option Id, "label" ]
+            , "JavaScript break statement"
+        "Continue", [ Option Id, "label" ]
+            , "JavaScript continue statement"
+        "ExprStatement", [ Expr, "expression" ]
+            , "Expression as statement"
+        "Return", [ Expr, "value" ]
+            , "Return a value"
+        "Block", [ List Statement, "statements" ]
+            , "Block of statements"
+        "VarDeclaration", [ Id, "variable"; Expr, "value" ]
+            , "Variable declaration"
+//        "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Statement, "body" ]
+        "While", [ Expr, "condition"; Statement, "body" ]
+            , "'while' loop"
+        "DoWhile", [ Statement, "body"; Expr, "condition" ]
+            , "'do..while' loop"
+        "For", [ Option Expr, "initializer"; Option Expr, "condition"; Option Expr, "step"; Statement, "body" ]
+            , "'for' loop"
+        "ForIn", [ Id, "variable"; Expr, "object"; Statement, "body" ]
+            , "JavaScript 'for .. in' loop"
+        "Switch", [ Expr, "expression"; List (Option Expr * Statement), "cases" ]
+            , "JavaScript 'switch' expression"
+        "If", [ Expr, "condition"; Statement, "thenStatement"; Statement, "elseStatement" ]
+            , "'if' statement"
+        "Throw", [ Expr, "expression" ]
+            , "'throw' statement"
+        "TryWith", [ Statement, "body"; Option Id, "variable"; Statement, "catchStatement" ]
+            , "'try..with' statement"
+        "TryFinally", [ Statement, "body"; Statement, "finallyStatement" ]
+            , "'try..finally' statement"
+        "Labeled", [ Id, "label"; Statement, "statement" ]
+            , "Statement with a label"
+        "StatementSourcePos", [ Object "SourcePos", "range"; Statement, "statement" ]
+            , "Original source location for a statement"
 
         // C#
-        "Goto", Id
-        "Continuation", Id * Expr
-        "Yield", Option Expr
-        "CSharpSwitch", Expr * List (List (Option Expr) * Statement)
-        "GotoCase", Option Expr
-        "Statements", List Statement
+        "Goto", [ Id, "label" ]
+            , "Temporary - C# 'goto' statement"
+        "Continuation", [ Id, "label"; Expr, "expression" ]
+            , "Temporary - go to next state in state-machine for iterators, async methods, or methods containing gotos"
+        "Yield", [ Option Expr, "value" ]
+            , "Temporary - C# 'yield return' statement"
+        "CSharpSwitch", [ Expr, "expression"; List (List (Option Expr) * Statement), "cases" ]
+            , "Temporary - C# 'switch' statement"
+        "GotoCase", [ Option Expr, "caseExpression" ]
+            , "Temporary - C# 'goto case' statement"
+//        "Statements", [ List Statement, "statements" ]
     ]
 
 let binaryOps =
@@ -179,7 +274,7 @@ let binaryOps =
         "<"
         "==="   
         "=="
-        "="
+//        "="
         ">="
         ">>>" 
         ">>"
@@ -194,37 +289,17 @@ let NL = System.Environment.NewLine
 let letters = [| "a"; "b"; "c"; "d" |]
 
 let code = 
-    let code = new System.Text.StringBuilder()
-    let inline cprintf x = Printf.bprintf code x 
-    let inline cprintfn x = Printf.kbprintf (code.AppendLine >> ignore) code x 
-
-    cprintfn """namespace WebSharper.Core.AST
-type Literal =
-    | Null
-    | Bool   of bool
-    | Byte   of byte
-    | Char   of char
-    | Double of double
-    | Int    of int
-    | Int16  of int16
-    | Int64  of int64
-    | SByte  of sbyte
-    | Single of single
-    | String of string
-    | UInt16 of uint16
-    | UInt32 of uint32
-    | UInt64 of uint64
-    with
-    static member (!~) a = Value a
-"""
+    let code = ResizeArray()
+    let inline cprintfn x = Printf.kprintf code.Add x 
 
     for t, tl in [ "and Expression =", ExprDefs; "and Statement =", StatementDefs ] do
         cprintfn "%s" t
-        for n, c in tl do
+        for n, c, comm in tl do
             let args =
                 match c with
-                | Empty -> ""
-                | _ -> " of " + toType c
+                | [] -> ""
+                | _ -> " of " + toFields c
+            cprintfn "    /// %s" comm
             cprintfn "    | %s%s" n args
         if t.Contains "Expression" then
             cprintfn "    with"
@@ -235,21 +310,24 @@ type Literal =
 
     let ExprAndStatementDefs =
         seq {
-            for n, c in ExprDefs -> "Expression", n, c
-            for n, c in StatementDefs -> "Statement", n, c
+            for n, c, comm in ExprDefs -> "Expression", n, c, comm
+            for n, c, comm in StatementDefs -> "Statement", n, c, comm
         }
     
     // Transformer
 
+    cprintfn "/// Base class for code transformers."
+    cprintfn "/// Provides virtual methods for transforming each AST case separately."
     cprintfn "type Transformer() ="
-    for t, n, c in ExprAndStatementDefs do
-        cprintfn "    abstract Transform%s : %s -> %s" n (toType c) t
+    for t, n, c, comm in ExprAndStatementDefs do
+        cprintfn "    /// %s" comm
+        cprintfn "    abstract Transform%s : %s -> %s" n (toFields c) t
         let args =
             match c with
-            | Tuple t ->
-                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-            | Empty -> "()"
-            | _ -> "a"
+            | [] -> "()"
+            | [_] -> "a"
+            | _ ->
+                "(" + String.concat ", " (Seq.take c.Length letters) + ")"
         let rec tr c x =
             match c with
             | List Expr -> "List.map this.TransformExpression " + x
@@ -271,100 +349,49 @@ type Literal =
             | _ -> " failwith \"no transform\""
         let trArgs = 
             match c with
-            | Tuple t ->
-                "(" + String.concat ", " (t |> Seq.mapi (fun j a -> tr a (letters.[j]))) + ")"  
-            | Empty -> ""
-            | _ -> "(" + tr c "a" + ")"
+            | [] -> ""
+            | [c, _] -> "(" + tr c "a" + ")"
+            | _ ->
+                "(" + String.concat ", " (c |> Seq.mapi (fun j (a, _) -> tr a (letters.[j]))) + ")"  
         cprintfn "    override this.Transform%s %s = %s %s" n args n trArgs
 
     for t, tl in [ "Expression", ExprDefs; "Statement", StatementDefs ] do
         cprintfn "    abstract Transform%s : %s -> %s" t t t
         cprintfn "    override this.Transform%s x =" t
         cprintfn "        match x with"
-        for n, c in tl do
+        for n, c, _ in tl do
             let args =
                 match c with
-                | Tuple t ->
-                    "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-                | Empty -> ""
-                | _ -> "a"
+                | [] -> ""
+                | [_] -> "a"
+                | _ ->
+                    "(" + String.concat ", " (Seq.take c.Length letters) + ")"
             let trArgs =
                 match c with
-                | Tuple t ->
-                    "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-                | Empty -> "()"
-                | _ -> "a"
+                | [] -> "()"
+                | [_] -> "a"
+                | _ ->
+                    "(" + String.concat ", " (Seq.take c.Length letters) + ")"
             cprintfn "        | %s %s -> this.Transform%s %s" n args n trArgs
 
+    cprintfn "    /// Identifier for variable or label"    
     cprintfn "    abstract TransformId : Id -> Id"
     cprintfn "    override this.TransformId x = x"
 
-    // StatementTransformer
-
-//    cprintfn "type StatementTransformer() ="
-//    for n, c in StatementDefs do
-//        cprintfn "    abstract Transform%s : %s -> Statement" n (toType c)
-//        let args =
-//            match c with
-//            | Tuple t ->
-//                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-//            | Empty -> "()"
-//            | _ -> "a"
-//        let rec tr c x =
-//            match c with
-//            | List Expr -> x
-//            | Option Expr -> x
-//            | Expr -> x
-//            | Statement -> "this.TransformStatement " + x
-//            | Id -> x
-//            | Option Id -> x
-//            | List Id -> x
-//            | List (Tuple [Id; Expr]) -> x
-//            | List Statement -> "List.map this.TransformStatement " + x
-//            | List (Tuple [Object _; Expr]) -> x
-//            | List (Tuple [(Option Expr | List (Option Expr)); Statement]) -> "List.map (fun (a, b) -> a, this.TransformStatement b) " + x 
-//            | Object _ -> x
-//            | List (Object _) -> x
-//            | Option (Object _) -> x
-//            | Empty -> ""
-//            | _ -> " failwith \"no transform\""
-//        let trArgs = 
-//            match c with
-//            | Tuple t ->
-//                "(" + String.concat ", " (t |> Seq.mapi (fun j a -> tr a (letters.[j]))) + ")"  
-//            | Empty -> ""
-//            | _ -> "(" + tr c "a" + ")"
-//        cprintfn "    override this.Transform%s %s = %s %s" n args n trArgs
-//
-//    cprintfn "    abstract TransformStatement : Statement -> Statement"
-//    cprintfn "    override this.TransformStatement x ="
-//    cprintfn "        match x with"
-//    for n, c in StatementDefs do
-//        let args =
-//            match c with
-//            | Tuple t ->
-//                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-//            | Empty -> ""
-//            | _ -> "a"
-//        let trArgs =
-//            match c with
-//            | Tuple t ->
-//                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-//            | Empty -> "()"
-//            | _ -> "a"
-//        cprintfn "        | %s %s -> this.Transform%s %s" n args n trArgs
-
     // Visitor
 
+    cprintfn "/// Base class for code visitors."
+    cprintfn "/// Provides virtual methods for visiting each AST case separately."
     cprintfn "type Visitor() ="
-    for t, n, c in ExprAndStatementDefs do
-        cprintfn "    abstract Visit%s : %s -> unit" n (toType c)
+    for t, n, c, comm in ExprAndStatementDefs do
+        cprintfn "    /// %s" comm
+        cprintfn "    abstract Visit%s : %s -> unit" n (toFields c)
         let args =
             match c with
-            | Tuple t ->
-                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-            | Empty -> "()"
-            | _ -> "a"
+            | [] -> "()"
+            | [_] -> "a"
+            | _ ->
+                "(" + String.concat ", " (Seq.take c.Length letters) + ")"
         let rec tr c x =
             match c with
             | List Expr -> "List.iter this.VisitExpression " + x
@@ -386,121 +413,72 @@ type Literal =
             | _ -> " failwith \"no visit\""
         let trArgs = 
             match c with
-            | Tuple t ->
-                String.concat "; " (t |> Seq.mapi (fun j a -> tr a (letters.[j])))
-            | Empty -> "()"
-            | _ -> "(" + tr c "a" + ")"
+            | [] -> "()"
+            | [c, _] -> "(" + tr c "a" + ")"
+            | _ ->
+                String.concat "; " (c |> Seq.mapi (fun j (a, _) -> tr a (letters.[j])))
         cprintfn "    override this.Visit%s %s = %s" n args trArgs
 
     for t, tl in [ "Expression", ExprDefs; "Statement", StatementDefs ] do
         cprintfn "    abstract Visit%s : %s -> unit" t t
         cprintfn "    override this.Visit%s x =" t
         cprintfn "        match x with"
-        for n, c in tl do
+        for n, c, _ in tl do
             let args =
                 match c with
-                | Tuple t ->
-                    "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-                | Empty -> ""
-                | _ -> "a"
+                | [] -> ""
+                | [_] -> "a"
+                | _ ->
+                    "(" + String.concat ", " (Seq.take c.Length letters) + ")"
             let trArgs =
                 match c with
-                | Tuple t ->
-                    "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-                | Empty -> "()"
-                | _ -> "a"
+                | [] -> "()"
+                | [_] -> "a"
+                | _ ->
+                    "(" + String.concat ", " (Seq.take c.Length letters) + ")"
             cprintfn "        | %s %s -> this.Visit%s %s" n args n trArgs
 
+    cprintfn "    /// Identifier for variable or label"    
     cprintfn "    abstract VisitId : Id -> unit"
     cprintfn "    override this.VisitId x = ()"
-
-    // StatementVisitor
-
-//    cprintfn "type StatementVisitor() ="
-//    for n, c in StatementDefs do
-//        cprintfn "    abstract Visit%s : %s -> unit" n (toType c)
-//        let args =
-//            match c with
-//            | Tuple t ->
-//                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-//            | Empty -> "()"
-//            | _ -> "a"
-//        let rec tr c x =
-//            match c with
-//            | List Expr -> "()"
-//            | Option Expr -> "()"
-//            | Expr -> "()"
-//            | Statement -> "this.VisitStatement " + x
-//            | Id -> "()"
-//            | Option Id -> "()"
-//            | List Id -> "()"
-//            | List (Tuple [Id; Expr]) -> "()"
-//            | List Statement -> "List.iter this.VisitStatement " + x
-//            | List (Tuple [Object _; Expr]) -> "()"
-//            | List (Tuple [(Option Expr | List (Option Expr)); Statement]) -> "List.iter (fun (a, b) -> this.VisitStatement b) " + x 
-//            | Object _ -> "()"
-//            | List (Object _) -> "()"
-//            | Option (Object _) -> "()"
-//            | Empty -> ""
-//            | _ -> " failwith \"no visit\""
-//        let trArgs = 
-//            match c with
-//            | Tuple t ->
-//                String.concat "; " (t |> Seq.mapi (fun j a -> tr a (letters.[j])))
-//            | Empty -> "()"
-//            | _ -> "(" + tr c "a" + ")"
-//        cprintfn "    override this.Visit%s %s = %s" n args trArgs
-//
-//    cprintfn "    abstract VisitStatement : Statement -> unit" 
-//    cprintfn "    override this.VisitStatement x =" 
-//    cprintfn "        match x with"
-//    for n, c in StatementDefs do
-//        let args =
-//            match c with
-//            | Tuple t ->
-//                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-//            | Empty -> ""
-//            | _ -> "a"
-//        let trArgs =
-//            match c with
-//            | Tuple t ->
-//                "(" + String.concat ", " (Seq.take t.Length letters) + ")"
-//            | Empty -> "()"
-//            | _ -> "a"
-//        cprintfn "        | %s %s -> this.Visit%s %s" n args n trArgs
-
-    // ExtraForms
-
-    cprintfn """
-[<AutoOpen>]
-module ExtraForms =
-    let Lambda (a, b) = Function (a, Return b)
-    let CurriedLambda (a, b) = List.foldBack (fun a b -> Function ([a], Return b)) a b
-"""
-
-//    cprintfn """type Breaker() =
-//    member this.BreakExpressionList l =
-//        let bb = l |> List.map this.BreakExpression 
-//        if bb |> List.forall Option.isNone then None
-//        else
-//            let rec bL br (accSt, accE) ol bl =
-//                match ol, bl with
-//                | [], _ -> accSt, accE
-//                | a :: oRest, None :: bRest ->
-//                    if br then
-//                        let aV = Id.New()
-//                        bL true (VarDeclaration (aV, a) :: accSt, Var aV :: accE) oRest bRest
-//                    else
-//                        bL false (accSt, a :: accE) oRest bRest
-//                | _ :: oRest, Some (aSt, aE) :: bRest ->
-//                    bL true (aSt @ accSt, aE :: accE) oRest bRest
-//            bL false ([], []) (List.rev l) (List.rev bb) |> Some"""
-//    cprintfn "    member this.BreakExpressionOpt e ="
-//    cprintfn "        match e with"
-//    for n, c in ExprDefs do
-//        cprintf "        | %s ->" n
     
-    string code
+    cprintfn "module IgnoreSourcePos ="
 
-System.IO.File.WriteAllText(__SOURCE_DIRECTORY__ + @"\AST.fs", code)
+    for t, tl in [ "Expr", ExprDefs; "Statement", StatementDefs ] do
+        cprintfn "    let ignore%sSourcePos expr =" t
+        cprintfn "        match expr with"
+        cprintfn "        | %sSourcePos (_, e) -> e" t
+        cprintfn "        | _ -> expr"
+        for n, c, _ in tl do
+            let args =
+                match c with
+                | [] -> ""
+                | [_] -> "a"
+                | _ ->
+                    "(" + String.concat ", " (Seq.take c.Length letters) + ")"
+            let trArgs =
+                match c with
+                | [] -> "()"
+                | [_] -> "a"
+                | _ ->
+                    "(" + String.concat ", " (Seq.take c.Length letters) + ")"
+            cprintfn "    let (|%s|_|) x = match ignore%sSourcePos x with %s %s -> Some %s | _ -> None" n t n args trArgs
 
+    code.ToArray()
+
+let allCode = 
+    [|
+        let mutable incl = true
+        for l in System.IO.File.ReadAllLines(__SOURCE_DIRECTORY__ + @"\AST.fs") do
+            if incl then yield l
+            if l.Contains "// {{"
+            then 
+                incl <- false 
+                yield! code
+            elif l.Contains "// }}"
+            then
+                incl <- true
+                yield l
+    |]
+
+System.IO.File.WriteAllLines(__SOURCE_DIRECTORY__ + @"\AST.fs", allCode)

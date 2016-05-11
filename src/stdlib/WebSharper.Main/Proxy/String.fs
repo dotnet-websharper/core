@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -18,14 +18,16 @@
 //
 // $end{copyright}
 
-[<WebSharper.Core.Attributes.Name "Strings">]
-[<WebSharper.Core.Attributes.Proxy
+[<WebSharper.Name "Strings">]
+[<WebSharper.Proxy
     "Microsoft.FSharp.Core.StringModule, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private WebSharper.StringProxy
 
 open WebSharper.JavaScript
+
+module M = WebSharper.Macro
 
 [<JavaScript>]
 let Compare (x: string) (y: string) = compare x y
@@ -143,6 +145,27 @@ let SplitStrings (s: string) (sep: string[]) (opts: System.StringSplitOptions) =
 [<JavaScript>]
 let Filter f (s: string) =
     System.String.Concat(s |> Seq.choose (fun c -> if f c then Some (string c) else None) |> Array.ofSeq)
+
+[<Inline "$text.replace($pattern, $replace)">]
+let ReplaceString (pattern: RegExp) (replace: 'obj) (text: string) = X<string>
+
+[<JavaScript>]
+let SFormat (format: string) (args: obj[]) =
+    let pattern = RegExp("{(0|[1-9]\d*)(?:,(-?[1-9]\d*|0))?(?::(.*?))?}", "g")
+    format
+    |> ReplaceString pattern (FuncWithArgs(fun (_, i, w) ->
+        let r = string args.[JS.Plus i]
+
+        if w <> JS.Undefined then
+            let w1 = JS.Plus w
+            let w2 = abs w1
+
+            if w2 > r.Length then
+                if w1 > 0 then r.PadLeft(w2)
+                else r.PadRight(w2)
+            else r
+        else r
+    ))
 
 [<Proxy(typeof<string>)>]
 type private StringProxy =
@@ -344,7 +367,28 @@ type private StringProxy =
 
     [<Inline "$a + $b">]
     static member (+) (a: string, b: string) = X<string>
-    
+
+    [<Inline "$a === $b">]
+    static member op_Equality(a: string, b: string) = X<bool>
+
+    [<Inline "$a !== $b">]
+    static member op_Inequality(a: string, b: string) = X<bool>
+
+    [<Macro(typeof<M.StringFormat>)>]
+    [<Inline>]
+    static member Format(format: string, [<System.ParamArray>] arguments: obj []) = SFormat format arguments
+
+    [<Macro(typeof<M.StringFormat>)>]
+    [<Inline>]
+    static member Format(format: string, arg0: obj): string = SFormat format [|arg0|]
+
+    [<Macro(typeof<M.StringFormat>)>]
+    [<Inline>]
+    static member Format(format: string, arg0: obj, arg1: obj): string = SFormat format [|arg0; arg1|]
+
+    [<Macro(typeof<M.StringFormat>)>]
+    [<Inline>]
+    static member Format(format: string, arg0: obj, arg1: obj, arg2: obj): string = SFormat format [|arg0; arg1; arg2|]
 
 [<JavaScript>]
 let protect (s : string) =

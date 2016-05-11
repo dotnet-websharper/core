@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -343,6 +343,8 @@ let rec Expression (buf: StringBuilder) expression =
 
 and Statement (buf: StringBuilder) statement =
     match statement with
+    | S.StatementPos (x, pos) -> 
+        SourceMapping pos ++ Statement buf x ++ SourceMappingEnd pos
     | S.Block ss ->
         BlockLayout (List.map (Statement buf) ss)
     | S.Break id ->
@@ -464,6 +466,8 @@ and Statement (buf: StringBuilder) statement =
         -- Indent (Statement buf s)
     | S.With (e, s) ->
         Word "with" ++ Parens (Expression buf e) ++ Statement buf s
+//    | _ ->
+//        failwith "Syntax.Statement not recognized"
 
 and Element (buf: StringBuilder) elem =
     match elem with
@@ -852,15 +856,3 @@ let ProgramToString options program =
     let w = CodeWriter()
     WriteProgram options w program
     w.ToString()
-
-//module S = WebSharper.Core.JavaScript.Syntax
-//open WebSharper.Core.JavaScript
-//open WebSharper.Core.JavaScript.Writer
-//
-//let x =
-//    [
-//        S.Vars [ "x", Some (S.Binary(!~(S.String "a"), S.BinaryOperator.``,``, !~(S.String "b"))) ]
-//        |> S.Action 
-//    ]
-//
-//ProgramToString Preferences.Readable x

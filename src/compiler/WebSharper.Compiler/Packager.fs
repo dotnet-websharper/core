@@ -1,4 +1,26 @@
-﻿module WebSharper.Compiler.Packager
+﻿// $begin{copyright}
+//
+// This file is part of WebSharper
+//
+// Copyright (c) 2008-2016 IntelliFactory
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you
+// may not use this file except in compliance with the License.  You may
+// obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.  See the License for the specific language governing
+// permissions and limitations under the License.
+//
+// $end{copyright}
+
+// Creates single .js files from WebSharper.Core.Metadata.Info
+// (possibly filtered by code path analysis) 
+module WebSharper.Compiler.Packager
 
 open System.Collections.Generic
 
@@ -8,16 +30,14 @@ module M = WebSharper.Core.Metadata
 
 let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
     let addresses = Dictionary()
+    let declarations = ResizeArray()
     let statements = ResizeArray()
 
     let glob = Id.New "Global"
-    statements.Add <| VarDeclaration (glob, This)
+    declarations.Add <| VarDeclaration (glob, This)
     let glob = Var glob
 
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
-//
-    let builtin address =
-        address |> List.fold (fun e n -> ItemGet(e, Value (String n))) glob
     
     let rec getAddress (address: Address) =
         match addresses.TryGetValue address with
@@ -28,7 +48,7 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
             | [ name ] ->
                 let var = Id.New name
                 let f = Value (String name)
-                statements.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f) |> safeObject))                
+                declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f) |> safeObject))                
                 let res = Var var
                 //topLevel.Add(name, res)
                 addresses.Add(address, res)
@@ -37,7 +57,7 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
                 let parent = getAddress (Hashed r)
                 let f = Value (String name)
                 let var = Id.New name
-                statements.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f) |> safeObject))                
+                declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f) |> safeObject))                
                 let res = Var var
                 addresses.Add(address, res)
                 res
@@ -47,49 +67,45 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
         | name :: r ->
             getAddress (Hashed r), Value (String name)
         | _ -> failwith "packageAssembly: empty address"
-
-//    let getField address =
-//        let o, x = getFieldAddress address  
-//        ItemGet(o, x)
     
+    let rec getOrImportAddress (full: bool) (address: Address) =
+        match addresses.TryGetValue address with
+        | true, v -> v
+        | _ ->
+            match address.Value with
+            | [] -> glob
+            | h :: t ->
+                let import = ItemGet(getOrImportAddress false (Address t), Value (String h))
+                if full then
+                    import
+                else
+                    let var = Id.New h
+                    declarations.Add <| VarDeclaration (var, import)                
+                    let res = Var var
+                    addresses.Add(address, res)
+                    res
+
     let globalAccessTransformer =
         { new Transformer() with
-            override this.TransformGlobalAccess a =
-                if addresses.ContainsKey a 
-                then getAddress a 
-                else List.foldBack (fun f x -> ItemGet(x, Value (String f))) a.Value glob       
+            override this.TransformGlobalAccess a = getOrImportAddress true a
         }
             
-    let inline trGA e = globalAccessTransformer.TransformExpression e
-
-//    let getCompiled c =
-//        match !c with
-//        | M.Static e ->
-//            e |> transformAddresses
-//        | _ -> failwith "packageAssembly: not compiled"
-    
-    let packaged = HashSet()
-
     let package a expr =
-//        if packaged.Add a then
         let o, x = getFieldAddress a
-        statements.Add <| ExprStatement (ItemSet (o, x, trGA expr))    
+        statements.Add <| ExprStatement (ItemSet (o, x, expr))    
 
     let packageCtor a expr =
-//        if packaged.Add a then
         let o, x = getFieldAddress a
         // TODO: this is a hack
         let av = 
             match getAddress a with
             | Var v -> v
             | _ -> failwith "packageCtor error"
-        statements.Add <| ExprStatement (VarSet (av, ItemSet (o, x, trGA expr)))    
+        statements.Add <| ExprStatement (VarSet (av, ItemSet (o, x, expr)))    
 
     let packageGlobal a expr =
-//        if packaged.Add a then
         let o, x = getFieldAddress a
         statements.Add <| ExprStatement (ItemSet (o, x, expr))    
-//    for c in current.Classes.Values do
 
     let classes = Dictionary(current.Classes)
 
@@ -105,7 +121,7 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
         | _ -> ()
 
         match c.StaticConstructor with
-        | Some (ccaddr, body) -> packageGlobal ccaddr <| Application (runtimeCctor, [ body ])
+        | Some (ccaddr, body) -> packageGlobal ccaddr <| Application (JSRuntime.Cctor, [ body ])
         | _ -> ()
 
         match c.Address with 
@@ -123,16 +139,12 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
                 ]
                             
             let baseType =
-                match c.BaseClass |> Option.bind (M.tryLookupClass merged) |> Option.bind (fun b -> b.Address) with
+                match c.BaseClass |> Option.bind merged.Classes.TryFind |> Option.bind (fun b -> b.Address) with
                 | Some ba -> GlobalAccess ba
                 | _ -> Value Null
              
-//            match prototype, c.BaseClass with
-//            | Object [], None -> ()
-//            | _ ->
-//                packageCtor addr <| Application (runtimeClass, [ prototype; baseType; GlobalAccess addr])
             if not c.IsModule then
-                packageCtor addr <| Application (runtimeClass, [ prototype; baseType; GlobalAccess addr])
+                packageCtor addr <| Application (JSRuntime.Class, [ prototype; baseType; GlobalAccess addr])
 
         for info, body in c.Methods.Values do
             match info with
@@ -149,7 +161,7 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
                     if Option.isSome c.Address then
                         package caddr <| 
                             match c.Address with
-                            | Some addr -> Application (runtimeCtor, [ body; GlobalAccess addr ])
+                            | Some addr -> Application (JSRuntime.Ctor, [ body; GlobalAccess addr ])
                             | _ -> body
                     else
                         package caddr body
@@ -168,18 +180,20 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
         | Some ep -> statements.Add ep
         | _ -> failwith "Missing entry point. Add an SPAEntryPoint attribute to a static method without arguments."
     
-    let statements = List.ofSeq statements 
+    let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq
 
-    if List.isEmpty statements then Undefined else
-        Application(Function([], Block (List.ofSeq statements)), []) |> trGA
+    let allStatements = List.ofSeq (Seq.append declarations trStatements) 
 
-let exprToString asmName pref statement =
+    if List.isEmpty allStatements then Undefined else
+        Application(Function([], Block allStatements), [])
+
+let exprToString asmName pref sourceMap statement =
     let program =
         statement
-        |> ToJavaScriptSyntax.transformExpr (WebSharper.Compiler.ToJavaScriptSyntax.Environment.New(asmName, pref))
+        |> JavaScriptWriter.transformExpr (WebSharper.Compiler.JavaScriptWriter.Environment.New(asmName, pref))
         |> WebSharper.Core.JavaScript.Syntax.Ignore
         |> WebSharper.Core.JavaScript.Syntax.Action
         |> fun x -> [ x ]
-    let w = WebSharper.Core.JavaScript.Writer.CodeWriter()
+    let w = WebSharper.Core.JavaScript.Writer.CodeWriter(?assemblyName = if sourceMap then Some asmName else None)
     WebSharper.Core.JavaScript.Writer.WriteProgram pref w program
     w.GetCodeFile(), w.GetMapFile()

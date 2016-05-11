@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -180,7 +180,13 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
                 
     [<JavaScript>]
     member this.GetEnumerator(): LinkedList<'T>.Enumerator =
-        As (EnumeratorProxy(As this))
+        As (new EnumeratorProxy<_>(As this))
+
+    interface IEnumerable with
+        member this.GetEnumerator() = this.GetEnumerator() :> _
+
+    interface IEnumerable<'T> with
+        member this.GetEnumerator() = this.GetEnumerator() :> _
 
     [<JavaScript>]
     member this.Remove(node: LLN<'T>) =

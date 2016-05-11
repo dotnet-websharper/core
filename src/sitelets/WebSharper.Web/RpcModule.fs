@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -74,7 +74,7 @@ type AspNetFormsUserSession(ctx: HttpContextBase) =
             }
 
 module private RpcUtil =
-    let server = R.Server.Create None Shared.Metadata
+    let server = R.Server.Create Shared.Metadata
     let [<Literal>] HttpContextKey = "HttpContext"
     let [<Literal>] CsrfTokenKey = "csrftoken"
     let [<Literal>] CsrfTokenHeader = "x-" + CsrfTokenKey

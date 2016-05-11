@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -81,7 +81,7 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
         this.ContinueWith(func, CT.None)
 
     member this.ContinueWith(func: System.Func<Task,'T>, ct) =
-        let res = TaskProxy<'T>((fun () -> func.Invoke (As<Task> this)), ct, TaskStatus.WaitingForActivation, null, Unchecked.defaultof<'T>)
+        let res = TaskProxy<'T>((fun () -> func.Invoke (As<Task> this)), ct, TaskStatus.WaitingForActivation, null, JS.Undefined)
         if this.IsCompleted then
             res.StartContinuation()     
         else
@@ -142,9 +142,79 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
         TaskProxy.Run(func, CT.None)
 
     static member Run(func : System.Func<'T>, ct) =
-        let res = TaskProxy<'T>(func, ct, TaskStatus.Created, null, Unchecked.defaultof<'T>)
+        let res = TaskProxy<'T>(func, ct, TaskStatus.Created, null, JS.Undefined)
         res.Start()
         As<Task<'T>> res
+
+    static member Delay(time: int) =        
+        Async.StartAsTask (Async.Sleep time)
+             
+    static member Delay(time: int, ct) =        
+        Async.StartAsTask (Async.Sleep time, cancellationToken = ct)
+
+    [<Inline>]
+    static member Delay(time: System.TimeSpan) =        
+        TaskProxy.Delay(As<int> time)
+             
+    [<Inline>]
+    static member Delay(time: System.TimeSpan, ct) =        
+        TaskProxy.Delay(As<int> time, ct)
+
+    static member WhenAny(tasks: Task[]) =
+        let tcs = System.Threading.Tasks.TaskCompletionSource<_>()
+        for t in tasks do t.ContinueWith (fun t -> tcs.TrySetResult t |> ignore) |> ignore
+        tcs.Task
+            
+    [<Inline>]                         
+    static member WhenAny(tasks: seq<Task>) = TaskProxy.WhenAny(Array.ofSeq tasks)
+
+    static member WhenAny(tasks: Task<'T>[]) =
+        let tcs = System.Threading.Tasks.TaskCompletionSource<'T>()
+        for t in tasks do t.ContinueWith (fun (t: Task<'T>) -> tcs.TrySetResult t.Result |> ignore) |> ignore
+        tcs.Task
+            
+    [<Inline>]                         
+    static member WhenAny(tasks: seq<Task<'T>>) = TaskProxy.WhenAny(Array.ofSeq tasks)
+
+    static member WhenAll(tasks: Task[]) =
+        let target = tasks.Length
+        let completed = ref 0
+        let tcs = System.Threading.Tasks.TaskCompletionSource<_>()
+        for i = 0 to target - 1 do
+            tasks.[i].ContinueWith (fun t -> 
+                if t.IsFaulted then
+                    tcs.TrySetException t.Exception |> ignore
+                elif t.IsCanceled then
+                    tcs.TrySetCanceled() |> ignore
+                else
+                    incr completed
+                    if !completed = target then tcs.TrySetResult() |> ignore 
+            ) |> ignore
+        tcs.Task :> Task
+
+    [<Inline>]                         
+    static member WhenAll(tasks: seq<Task>) = TaskProxy.WhenAll(Array.ofSeq tasks)
+
+    static member WhenAll(tasks: Task<'T>[]) =
+        let target = tasks.Length
+        let completed = ref 0
+        let results = JavaScript.Array(target)
+        let tcs = System.Threading.Tasks.TaskCompletionSource<_>()
+        for i = 0 to target - 1 do
+            tasks.[i].ContinueWith (fun (t: Task<'T>) -> 
+                if t.IsFaulted then
+                    tcs.TrySetException t.Exception |> ignore
+                elif t.IsCanceled then
+                    tcs.TrySetCanceled() |> ignore
+                else
+                    incr completed
+                    results.[i] <- t.Result
+                    if !completed = target then tcs.SetResult results.Self
+            ) |> ignore
+        tcs.Task
+
+    [<Inline>]                         
+    static member WhenAll(tasks: seq<Task<'T>>) = TaskProxy.WhenAll(Array.ofSeq tasks)
 
 //    // TODO : return type System.Runtime.CompilerServices.YieldAwaitable 
 //    static member Yield() =
@@ -179,7 +249,7 @@ and [<Proxy(typeof<Task<_>>); Name "Task1">] private TaskProxy<'T>(func: System.
 
 [<Proxy(typeof<TaskCompletionSource<_>>)>]
 type private TaskCompletionSourceProxy<'T>() =
-    let task = new TaskProxy<'T>(null, CT.None, TaskStatus.WaitingForActivation, null, Unchecked.defaultof<'T>)
+    let task = new TaskProxy<'T>(null, CT.None, TaskStatus.WaitingForActivation, null, JS.Undefined)
 
     member this.Task = As<Task<'T>> task
 
@@ -206,8 +276,36 @@ type private TaskCompletionSourceProxy<'T>() =
         task?result <- res 
         task.RunContinuations()
 
-    // TODO : Try... methods
+    member this.TrySetCanceled() =
+        if not task.IsCompleted then
+            task?status <- TaskStatus.Canceled
+            task.RunContinuations()
+            true
+        else false
 
+    member this.TrySetCanceled(ct: CT) =
+        if not task.IsCompleted then
+            task?status <- TaskStatus.Canceled
+            task.RunContinuations()
+            true
+        else false
 
+    member this.TrySetException(exc: exn) =
+        if not task.IsCompleted then
+            task?status <- TaskStatus.Faulted
+            task?exc <- System.AggregateException(exc)
+            task.RunContinuations()
+            true
+        else false
 
+    member this.TrySetException(exs : seq<exn>) =
+        this.TrySetException(System.AggregateException(exs))
+
+    member this.TrySetResult(res: 'T) =        
+        if not task.IsCompleted then
+            task?status <- TaskStatus.RanToCompletion
+            task?result <- res 
+            task.RunContinuations()
+            true
+        else false
     

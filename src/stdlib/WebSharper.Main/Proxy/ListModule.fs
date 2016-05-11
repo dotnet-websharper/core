@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -18,8 +18,8 @@
 //
 // $end{copyright}
 
-[<WebSharper.Core.Attributes.Name "List">]
-[<WebSharper.Core.Attributes.Proxy
+[<WebSharper.Name "List">]
+[<WebSharper.Proxy
     "Microsoft.FSharp.Collections.ListModule, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
@@ -201,8 +201,8 @@ let Item ix (l: list<_>) = Seq.nth ix l
 [<Name "ofArray">]
 let OfArray<'T> (arr: 'T []) =
     let mutable r = []
-    for i = 0 to arr.Length - 1 do
-        r <- arr.[arr.Length - i - 1] :: r
+    for i = arr.Length - 1 downto 0 do
+        r <- arr.[i] :: r
     r
 
 [<JavaScript>]

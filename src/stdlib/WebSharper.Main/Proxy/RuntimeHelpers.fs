@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-[<WebSharper.Core.Attributes.Proxy
+[<WebSharper.Proxy
     "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
@@ -90,6 +90,14 @@ let CreateEvent<'D, 'A when 'D : delegate<'A, unit> and 'D :> System.Delegate>
         (add: 'D -> unit) 
         (remove: 'D -> unit)
         (create: (obj -> 'A -> unit) -> 'D) : IEvent<'D, 'A> =
+//    { new IEvent<'D, 'A> with
+//        member this.AddHandler h = add h
+//        member this.RemoveHandler h = remove h
+//        member this.Subscribe (r: System.IObserver<'A>) =     
+//            let h = create (fun _ args -> r.OnNext(args))
+//            add h
+//            { new System.IDisposable with member this.Dispose() = remove h }
+//    }
     New [
         "AddHandler" => add
         "RemoveHandler" => remove
@@ -97,6 +105,6 @@ let CreateEvent<'D, 'A when 'D : delegate<'A, unit> and 'D :> System.Delegate>
             fun (r: System.IObserver<'A>) ->
                 let h = create (fun _ args -> r?OnNext(args))
                 add h
-                New [ "System_IDisposable$Dispose" => fun () -> remove h ] 
+                { new System.IDisposable with member this.Dispose() = remove h }
     ]
     

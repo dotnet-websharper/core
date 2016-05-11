@@ -1,4 +1,24 @@
-﻿module WebSharper.Compiler.Recognize
+﻿// $begin{copyright}
+//
+// This file is part of WebSharper
+//
+// Copyright (c) 2008-2016 IntelliFactory
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you
+// may not use this file except in compliance with the License.  You may
+// obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.  See the License for the specific language governing
+// permissions and limitations under the License.
+//
+// $end{copyright}
+
+module WebSharper.Compiler.Recognize
 
 open WebSharper.Core
 open WebSharper.Core.AST
@@ -9,28 +29,15 @@ type SB = WebSharper.Core.JavaScript.Syntax.BinaryOperator
 type Environment =
     {
         Vars : list<IDictionary<string, Expression>>
+        Inputs : list<Expression>
         Labels : Map<string, Id>
         This : option<Id>
     }
-//    static member New(vars) =
-//        {
-//            Vars =
-//                vars |> Seq.mapi (fun i n ->                    
-//                    let h = Hole i
-//                    [ 
-//                        "$" + string i, h
-//                        "$" + n, h  
-//                    ] 
-//                ) |> Seq.concat |> Map.ofSeq
-//            Labels = Map.empty
-//            This = None
-//        }
 
     static member New(thisArg, isDirect, args) =
-        // TODO : add arguments to scope
+        // TODO : add  `arguments` to scope
         let mainScope =
             Option.toList thisArg @ args
-            //args
             |> Seq.mapi (fun i (a: Id) ->                    
                 let isThis = Some a = thisArg
                 let v =
@@ -43,6 +50,17 @@ type Environment =
             ) |> Seq.concat |> dict
         {
             Vars = [ Dictionary(); mainScope ]
+            Inputs = 
+                if isDirect then [] 
+                else (if Option.isSome thisArg then [This] else []) @ (args |> List.map Var)
+            Labels = Map.empty
+            This = None
+        }
+
+    static member Empty =
+        {
+            Vars = []
+            Inputs = []
             Labels = Map.empty
             This = None
         }
@@ -69,10 +87,21 @@ type Environment =
                 | _ -> findIn t
         findIn this.Vars
 
+    member this.IsInput(expr) =
+        this.Inputs |> List.contains expr
+
 exception RecognitionError
 
 let rec transformExpression (env: Environment) (expr: S.Expression) =
     let inline trE e = transformExpression env e
+    let checkNotMutating a f =
+        if env.IsInput a then
+            failwith "arguments of inlined functions should not be mutated"
+        else f a
+    let mbin a op c =
+        checkNotMutating (trE a) (fun ta -> MutatingBinary(ta, op, trE c)) 
+    let mun a op =
+        checkNotMutating (trE a) (fun ta -> MutatingUnary(op, ta))
     match expr with
     | S.Application (a, b) ->
         Application (trE a, b |> List.map trE) 
@@ -81,44 +110,45 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | SB.``!=``     -> Binary(trE a, BinaryOperator.``!=``, trE c)
         | SB.``!==``    -> Binary(trE a, BinaryOperator.``!==``, trE c)
         | SB.``%``      -> Binary(trE a, BinaryOperator.``%``, trE c)
-        | SB.``%=``     -> MutatingBinary(trE a, MutatingBinaryOperator.``%=``, trE c)
+        | SB.``%=``     -> mbin a MutatingBinaryOperator.``%=`` c
         | SB.``&``      -> Binary(trE a, BinaryOperator.``&``, trE c)
         | SB.``&&``     -> Binary(trE a, BinaryOperator.``&&``, trE c)
-        | SB.``&=``     -> MutatingBinary(trE a, MutatingBinaryOperator.``&=``, trE c)
+        | SB.``&=``     -> mbin a MutatingBinaryOperator.``&=`` c
         | SB.``*``      -> Binary(trE a, BinaryOperator.``*``, trE c)
-        | SB.``*=``     -> MutatingBinary(trE a, MutatingBinaryOperator.``*=``, trE c)
+        | SB.``*=``     -> mbin a MutatingBinaryOperator.``*=`` c
         | SB.``+``      -> Binary(trE a, BinaryOperator.``+``, trE c)
-        | SB.``+=``     -> MutatingBinary(trE a, MutatingBinaryOperator.``+=``, trE c)
+        | SB.``+=``     -> mbin a MutatingBinaryOperator.``+=`` c
         | SB.``,``      -> Sequential [trE a; trE c]
         | SB.``-``      -> Binary(trE a, BinaryOperator.``-``, trE c)
-        | SB.``-=``     -> MutatingBinary(trE a, MutatingBinaryOperator.``-=``, trE c)
-        | SB.``.``      -> ItemGet(trE a, trE c)
+        | SB.``-=``     -> mbin a MutatingBinaryOperator.``-=`` c
+        | SB.``.``      -> ItemGetNonPure(trE a, trE c)
         | SB.``/``      -> Binary(trE a, BinaryOperator.``/``, trE c)
-        | SB.``/=``     -> MutatingBinary(trE a, MutatingBinaryOperator.``/=``, trE c)
+        | SB.``/=``     -> mbin a MutatingBinaryOperator.``/=`` c
         | SB.``<``      -> Binary(trE a, BinaryOperator.``<``, trE c)
         | SB.``<<``     -> Binary(trE a, BinaryOperator.``<<``, trE c)
-        | SB.``<<=``    -> MutatingBinary(trE a, MutatingBinaryOperator.``<<=``, trE c)
+        | SB.``<<=``    -> mbin a MutatingBinaryOperator.``<<=`` c
         | SB.``<=``     -> Binary(trE a, BinaryOperator.``<=``, trE c)
         | SB.``=``      ->
-            match ignoreExprSourcePos (trE a) with
-            | ItemGet (d, e) -> ItemSet(d, e, trE c)
-            | Var d -> VarSet(d, trE c)
-            | a -> failwith "TODO: recognize '='"
+            match trE a with
+            | ItemGetNonPure (d, e) -> ItemSet(d, e, trE c)
+            | Var d -> checkNotMutating (Var d) (fun _ -> VarSet(d, trE c))
+            | a -> failwith "invalid form at '='"
         | SB.``==``     -> Binary(trE a, BinaryOperator.``==``, trE c)
         | SB.``===``    -> Binary(trE a, BinaryOperator.``===``, trE c)
         | SB.``>``      -> Binary(trE a, BinaryOperator.``>``, trE c)
         | SB.``>>``     -> Binary(trE a, BinaryOperator.``>>``, trE c)
         | SB.``>=``     -> Binary(trE a, BinaryOperator.``>=``, trE c)
-        | SB.``>>=``    -> MutatingBinary(trE a, MutatingBinaryOperator.``>>=``, trE c)
+        | SB.``>>=``    -> mbin a MutatingBinaryOperator.``>>=`` c
         | SB.``>>>``    -> Binary(trE a, BinaryOperator.``>>>``, trE c)
-        | SB.``>>>=``   -> MutatingBinary(trE a, MutatingBinaryOperator.``>>>=``, trE c)
+        | SB.``>>>=``   -> mbin a MutatingBinaryOperator.``>>>=`` c
         | SB.``^``      -> Binary(trE a, BinaryOperator.``^``, trE c)
-        | SB.``^=``     -> MutatingBinary(trE a, MutatingBinaryOperator.``^=``, trE c)
+        | SB.``^=``     -> mbin a MutatingBinaryOperator.``^=`` c
         | SB.``in``     -> Binary(trE a, BinaryOperator.``in``, trE c)
         | SB.instanceof -> Binary(trE a, BinaryOperator.instanceof, trE c)
         | SB.``|``      -> Binary(trE a, BinaryOperator.``|``, trE c)
-        | SB.``|=``     -> MutatingBinary(trE a, MutatingBinaryOperator.``|=``, trE c)
+        | SB.``|=``     -> mbin a MutatingBinaryOperator.``|=`` c
         | SB.``||``     -> Binary(trE a, BinaryOperator.``||``, trE c)
+        | _ -> failwith "unrecognized binary operator"
     | S.Conditional (a, b, c) ->
         Conditional (trE a, trE b, trE c)
     | S.Constant a -> 
@@ -158,31 +188,33 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
     | S.NewRegex a -> 
         let closingSlash = a.LastIndexOf '/'
         let flags = a.[closingSlash + 1 ..] |> Seq.map (string >> String >> Value) |> List.ofSeq
-        New (globalAccess ["RegExp"], Value (String a.[1 .. closingSlash - 1]) :: flags)
+        New (Global ["RegExp"], Value (String a.[1 .. closingSlash - 1]) :: flags)
     | S.Postfix (a, b) ->
         match b with
-        | S.PostfixOperator.``++`` -> MutatingUnary(MutatingUnaryOperator.``()++``, trE a)
-        | S.PostfixOperator.``--`` -> MutatingUnary(MutatingUnaryOperator.``()--``, trE a)
+        | S.PostfixOperator.``++`` -> mun a MutatingUnaryOperator.``()++``
+        | S.PostfixOperator.``--`` -> mun a MutatingUnaryOperator.``()--``
+        | _ -> failwith "unrecognized postfix operator"
     | S.This -> This
     | S.Unary (a, b) ->
         match a with
         | S.UnaryOperator.``!`` -> Unary(UnaryOperator.``!``, trE b)
         | S.UnaryOperator.``+`` -> Unary(UnaryOperator.``+``, trE b)
-        | S.UnaryOperator.``++`` -> MutatingUnary(MutatingUnaryOperator.``++()``, trE b)
+        | S.UnaryOperator.``++`` -> mun b MutatingUnaryOperator.``++()``
         | S.UnaryOperator.``-`` -> Unary(UnaryOperator.``-``, trE b)
-        | S.UnaryOperator.``--`` -> MutatingUnary(MutatingUnaryOperator.``--()``, trE b)
-        | S.UnaryOperator.delete -> MutatingUnary(MutatingUnaryOperator.delete, trE b)
+        | S.UnaryOperator.``--`` -> mun b MutatingUnaryOperator.``--()``
+        | S.UnaryOperator.delete -> mun b MutatingUnaryOperator.delete
         | S.UnaryOperator.typeof -> Unary(UnaryOperator.typeof, trE b)
         | S.UnaryOperator.``void`` -> Unary(UnaryOperator.``void``, trE b)
         | S.UnaryOperator.``~`` -> Unary(UnaryOperator.``~``, trE b)
+        | _ -> failwith "unrecognized unary operator"
     | S.Var a ->
         match a with
-        | "$global" -> globalAccess []
-        | "$wsruntime" -> globalAccess ["IntelliFactory"; "Runtime"]
+        | "$global" -> Global []
+        | "$wsruntime" -> Global ["IntelliFactory"; "Runtime"]
         | _ ->
         match env.TryFindVar a with
         | Some e -> e
-        | None -> globalAccess [a]
+        | None -> ItemGetNonPure(Global [], Value (String a))
     | e ->     
         failwithf "Failed to recognize: %A" e
 //    | S.Postfix (a, b) ->
@@ -193,8 +225,9 @@ and transformStatement (env: Environment) (statement: S.Statement) =
     let inline trE e = transformExpression env e
     let inline trS s = transformStatement env s
     match statement with
+    | S.StatementPos(a, b) -> trS a
     | S.Block a ->
-        Block (a |> List.map trS)
+        a |> List.map trS |> CombineStatements
     | S.Break a   -> Break (a |> Option.map (fun l -> env.Labels.[l]))
     | S.Continue a -> Continue (a |> Option.map (fun l -> env.Labels.[l]))
     | S.Debugger -> failwith "TODO"
@@ -208,7 +241,7 @@ and transformStatement (env: Environment) (statement: S.Statement) =
         | Some b -> failwith "TODO"
         | _ ->
         let v = env.NewVar a
-        Statements [
+        Block [
             VarDeclaration (v, Undefined)
             ForIn(v, trE c, trS d)
         ]
@@ -218,7 +251,7 @@ and transformStatement (env: Environment) (statement: S.Statement) =
                 let id = env.NewVar i
                 VarDeclaration(id, match v with Some v -> trE v | _ -> Undefined)
             )
-        Statements (
+        Block (
             decls @
             [
                 For (None, Option.map trE b, Option.map trE c, trS d)
@@ -226,18 +259,18 @@ and transformStatement (env: Environment) (statement: S.Statement) =
         )
     | S.If (a, b, c) -> If (trE a, trS b, trS c)
     | S.Ignore a -> ExprStatement (trE a)    
-    | S.Labelled (a, b)  -> failwith "TODO"
+    | S.Labelled (a, b)  -> failwith "TODO: recognize labels"
     | S.Return a -> Return (match a with Some v -> trE v | _ -> Undefined)
-    | S.Switch (a, b)    -> failwith "TODO"
+    | S.Switch (a, b)    -> failwith "TODO: recognize switch"
     | S.Throw a -> Throw (trE a)
     | S.TryFinally (a, b) -> TryFinally (trS a, trS b)
-    | S.TryWith (a, b, c, d)   -> failwith "TODO"
+    | S.TryWith (a, b, c, d)   -> failwith "TODO: recognize try-with"
     | S.Vars a ->
         match a with
         | [var, value] -> 
             VarDeclaration (env.NewVar var, match value with Some v -> trE v | None -> Undefined)
         | _ -> 
-            Statements (a |> List.map (fun (var, value) -> VarDeclaration (env.NewVar var, match value with Some v -> trE v | None -> Undefined)))
+            Block (a |> List.map (fun (var, value) -> VarDeclaration (env.NewVar var, match value with Some v -> trE v | None -> Undefined)))
     | S.While (a, b) -> While (trE a, trS b)
     | S.With (a, b) -> failwith "TODO"
 
@@ -245,33 +278,34 @@ let createInline thisArg args inlineString =
     let s = 
         inlineString 
         |> WebSharper.Core.JavaScript.Parser.Source.FromString
+    let parsed = 
+        try s |> WebSharper.Core.JavaScript.Parser.ParseExpression |> Choice1Of2
+        with _ -> s |> WebSharper.Core.JavaScript.Parser.ParseProgram |> Choice2Of2 
     let b =
-        try
-            s
-            |> WebSharper.Core.JavaScript.Parser.ParseExpression 
-            |> transformExpression (Environment.New(thisArg, false, args))
-        with _ ->
-            s
-            |> WebSharper.Core.JavaScript.Parser.ParseProgram
+        match parsed with
+        | Choice1Of2 e ->
+            e |> transformExpression (Environment.New(thisArg, false, args))
+        | Choice2Of2 p ->
+            p
             |> List.map (function S.Action a -> a | _ -> failwith "TODO: function declarations in Inline" )
             |> S.Block
             |> transformStatement (Environment.New(thisArg, false, args))
-            |> StatementExpr
+            |> IgnoredStatementExpr
     makeExprInline (Option.toList thisArg @ args) b
 
 let parseDirect thisArg args jsString =
     let s = 
         jsString 
         |> WebSharper.Core.JavaScript.Parser.Source.FromString
+    let parsed = 
+        try s |> WebSharper.Core.JavaScript.Parser.ParseExpression |> Choice1Of2
+        with _ -> s |> WebSharper.Core.JavaScript.Parser.ParseProgram |> Choice2Of2 
     let body =
-        try
-            s
-            |> WebSharper.Core.JavaScript.Parser.ParseExpression 
-            |> transformExpression (Environment.New(thisArg, true, args))
-            |> Return 
-        with _ ->
-            s
-            |> WebSharper.Core.JavaScript.Parser.ParseProgram
+        match parsed with
+        | Choice1Of2 e ->
+            e |> transformExpression (Environment.New(thisArg, true, args)) |> Return 
+        | Choice2Of2 p ->
+            p
             |> List.map (
                 function 
                 | S.Action a -> a 
@@ -280,3 +314,12 @@ let parseDirect thisArg args jsString =
             |> S.Block
             |> transformStatement (Environment.New(thisArg, true, args))
     Function(args, body)
+
+let parseGeneratedJavaScript e =
+    e |> transformExpression Environment.Empty
+
+let parseGeneratedString s =
+    s |> WebSharper.Core.JavaScript.Parser.Source.FromString
+    |> WebSharper.Core.JavaScript.Parser.ParseExpression
+    |> parseGeneratedJavaScript
+

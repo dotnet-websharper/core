@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -22,13 +22,12 @@ module WebSharper.Remoting
 
 open WebSharper.JavaScript
 
-module A = WebSharper.Core.Attributes
 module R = WebSharper.Core.Remoting
 
-[<A.JavaScript>]
+[<JavaScript>]
 let mutable EndPoint = "?"
 
-[<A.JavaScript>]
+[<JavaScript>]
 let UseHttps() =
     try
         if not (JS.Window.Location.Href.StartsWith "https://") then
@@ -45,16 +44,16 @@ type Data = string
 type Headers = obj
 type Url = string
 
-[<A.JavaScript>]
+[<JavaScript>]
 type IAjaxProvider =
-    [<A.Name "Async">]
+    [<Name "Async">]
     abstract member Async : Url -> Headers -> Data -> (Data -> unit) ->
         (exn -> unit) -> unit
 
-    [<A.Name "Sync">]
+    [<Name "Sync">]
     abstract member Sync : Url -> Headers -> Data -> Data
 
-[<A.Direct @"
+[<Direct @"
     var xhr = new XMLHttpRequest();
     var csrf = document.cookie.replace(new RegExp('(?:(?:^|.*;)\\s*csrftoken\\s*\\=\\s*([^;]*).*$)|^.*$'), '$1');
     xhr.open('POST', $url, $async);
@@ -91,15 +90,15 @@ type IAjaxProvider =
 let private ajax (async: bool) (url: Url) (headers: Headers) (data: Data)
     (ok: Data -> unit) (err: exn -> unit) (csrf: unit -> unit) = ()
 
-type XhrProvider [<A.JavaScript>] () =
+type XhrProvider [<JavaScript>] () =
     interface IAjaxProvider with
 
-        [<A.JavaScript>]
+        [<JavaScript>]
         member this.Async url headers data ok err =
             ajax true url headers data ok err
                 (fun () -> ajax true url headers data ok err JS.Undefined)
 
-        [<A.JavaScript>]
+        [<JavaScript>]
         member this.Sync url headers data =
             let res = ref Unchecked.defaultof<_>
             ajax false url headers data
@@ -112,41 +111,40 @@ type XhrProvider [<A.JavaScript>] () =
                         JS.Undefined)
             !res
 
-[<A.JavaScript>]
+[<JavaScript>]
 let mutable AjaxProvider = XhrProvider() :> IAjaxProvider
 
-[<A.Inline "void ($obj[$key] = $value)">]
+[<Inline "void ($obj[$key] = $value)">]
 let ( ?<- ) (obj: obj) (key: string) (value: obj) =
     X<unit>
 
-[<A.JavaScript>]
+[<JavaScript>]
 let makeHeaders (m: string) =
     let headers = obj ()
     (?<-) headers "content-type" "application/json"
     (?<-) headers "x-websharper-rpc" m
     headers
 
-[<A.JavaScript>]
+[<JavaScript>]
 let makePayload (data: obj []) =
     Json.Stringify data
 
-[<A.JavaScript>]
+[<JavaScript>]
 type IRemotingProvider =
+    [<Name "Sync">]
     abstract member Sync : string -> obj[] -> obj
+    [<Name "Async">]
     abstract member Async : string -> obj[] -> Async<obj>
+    [<Name "Task">]
     abstract member Task : string -> obj[] -> System.Threading.Tasks.Task<obj>
+    [<Name "Send">]
     abstract member Send : string -> obj[] -> unit
 
-[<A.JavaScript>]
+[<JavaScript>]
 [<Sealed>]
-[<A.Name "WebSharper.Remoting.AjaxRemotingProvider">]
-type AjaxRemotingProvider =
-
-    static member Sync m data : obj =
-        let data = AjaxProvider.Sync EndPoint (makeHeaders m) (makePayload data)
-        Json.Activate (Json.Parse data)
-
-    static member Async m data : Async<obj> =
+[<Name "WebSharper.Remoting.AjaxRemotingProvider">]
+type AjaxRemotingProvider() =
+    member private this.AsyncBase m data = 
         let headers = makeHeaders m
         let payload = makePayload data
         async {
@@ -172,8 +170,16 @@ type AjaxRemotingProvider =
                 AjaxProvider.Async EndPoint headers payload ok err)
         }
 
-    static member Task m data : System.Threading.Tasks.Task<obj> =
-        AjaxRemotingProvider.Async m data |> Async.StartAsTask   
+    interface IRemotingProvider with
+        member this.Sync m data : obj =
+            let data = AjaxProvider.Sync EndPoint (makeHeaders m) (makePayload data)
+            Json.Activate (Json.Parse data)
 
-    static member Send m data =
-        Async.Start (Async.Ignore (AjaxRemotingProvider.Async m data))
+        member this.Async m data : Async<obj> =
+            this.AsyncBase m data
+
+        member this.Task m data : System.Threading.Tasks.Task<obj> =
+            this.AsyncBase m data |> Async.StartAsTask   
+
+        member this.Send m data =
+            Async.Start (Async.Ignore (this.AsyncBase m data))

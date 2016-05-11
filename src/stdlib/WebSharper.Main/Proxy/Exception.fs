@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -24,10 +24,10 @@ open WebSharper.JavaScript
 
 [<Name "Exception">]
 [<Proxy(typeof<System.Exception>)>]
-type private ExceptionProxy (message: string) =
-    inherit Error(message)
+type private ExceptionProxy =
+    [<Inline "Error($message)">]
+    new (message: string) = { }
 
-    [<JavaScript>]
     new () = ExceptionProxy "Exception of type 'System.Exception' was thrown."
 
     member this.Message with [<Inline "$this.message">] get () = X<string>
@@ -107,3 +107,11 @@ type private TimeoutExceptionProxy(message: string) =
     inherit ExceptionProxy(message)
     
     new () = TimeoutExceptionProxy "The operation has timed out."
+
+[<Proxy(typeof<System.FormatException>)>]
+[<Name "FormatException">]
+[<JavaScript>]
+type private FormatException(message: string) =
+    inherit ExceptionProxy(message)
+
+    new () = FormatException "One of the identified items was in an invalid format."

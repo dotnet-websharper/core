@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -296,23 +296,3 @@ let Tests =
         }
 
     }
-
-//module CoreTests =
-//    open WebSharper
-//    open WebSharper.Testing
-//
-//    [<JavaScript>]
-//    let TestIntEquality() =
-//        Assert.For 100 Random.Int (fun x -> x = x)
-//
-//    [<JavaScript>]
-//    let TestIntListEquality() =
-//        Assert.For 100 (Random.ListOf Random.Int) (fun x -> x = x)
-//
-//    [<JavaScript>]
-//    let TestIntArrayEquality() =
-//        Assert.For 100 (Random.ArrayOf Random.Int) (fun x -> x = x)
-//
-//    [<JavaScript>]
-//    let TestStringIntConversion() =
-//        Assert.For 100 Random.Int (fun x -> int (string x) = x)

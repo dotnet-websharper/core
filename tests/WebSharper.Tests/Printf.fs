@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -39,6 +39,7 @@ type Y = { C: int; D: Y option }
 [<JavaScript>]
 type Z = { [<Name "F">] E : int * Z option }
 
+[<JavaScript>]
 type MyList<'T> =
     | Empty
     | Cons of 'T * MyList<'T>
@@ -109,8 +110,8 @@ let Tests =
             equal (sprintf "%A" (Some 1)) "Some 1"
             equal (sprintf "%A" (Cons (1, Cons (2, Empty)))) "Cons (1, Cons (2, Empty))"
             equal (sprintf "%A" [|Some 1; Some 2|]) "[|Some 1; Some 2|]"
-            equal (sprintf "%A" {C = 1; D = Some {C = 2; D = None}}) "{C = 1; D = Some {C = 2; D = None}}"            
-            equal (sprintf "%A" {E = 1, Some {E = 2, None}}) "{E = (1, Some {E = (2, None)})}"            
+            equal (sprintf "%A" {C = 1; D = Some {C = 2; D = None}}) "{C = 1; D = Some {C = 2; D = null}}"            
+            equal (sprintf "%A" {E = 1, Some {E = 2, None}}) "{E = (1, Some {E = (2, null)})}"            
             equal (sprintf "%A" (Array2D.init 2 2 (fun r c -> 2 * r + c))) "[[0; 1][2; 3]]"  
             let pr (x: obj) = sprintf "%A" x
             notEqual (pr (Some 1)) "Some 1"

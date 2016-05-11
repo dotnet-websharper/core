@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -159,27 +159,28 @@ and Expression =
         Binary (e, B.``.``, Constant (String msg))
 
 and Statement =
-    | Block      of list<S>
-    | Break      of option<Label>
-    | Continue   of option<Label>
-    | Debugger
-    | Do         of S * E
-    | Empty
-    | For        of option<E> * option<E> * option<E> * S
-    | ForIn      of E * E * S
-    | ForVarIn   of Id * option<E> * E * S
-    | ForVars    of list<Id * option<E>> * option<E> * option<E> * S
-    | If         of E * S * S
-    | Ignore     of E
-    | Labelled   of Label * S
-    | Return     of option<E>
-    | Switch     of E * list<SwitchElement>
-    | Throw      of E
-    | TryFinally of S * S
-    | TryWith    of S * Id * S * option<S>
-    | Vars       of list<Id * option<E>>
-    | While      of E * S
-    | With       of E * S
+    | Block        of list<S>
+    | Break        of option<Label>
+    | Continue     of option<Label>
+    | Debugger     
+    | Do           of S * E
+    | Empty        
+    | For          of option<E> * option<E> * option<E> * S
+    | ForIn        of E * E * S
+    | ForVarIn     of Id * option<E> * E * S
+    | ForVars      of list<Id * option<E>> * option<E> * option<E> * S
+    | If           of E * S * S
+    | Ignore       of E
+    | Labelled     of Label * S
+    | Return       of option<E>
+    | Switch       of E * list<SwitchElement>
+    | Throw        of E
+    | TryFinally   of S * S
+    | TryWith      of S * Id * S * option<S>
+    | Vars         of list<Id * option<E>>
+    | While        of E * S
+    | With         of E * S
+    | StatementPos of S * SourcePos
 
 and SwitchElement =
     | Case of E * list<S>
@@ -247,6 +248,7 @@ let TransformStatement (!) (!^) stmt =
     | Continue _
     | Debugger
     | Empty -> stmt
+    | StatementPos (x, pos) -> StatementPos (!^x, pos)
 
 let Fold t fE fS init x =
     let state = ref init
@@ -358,24 +360,24 @@ let Optimize (expr: E) =
         WalkStatement tE tS Set.unionMany stmt
     snd (tE expr)
 
-let inline (|IgnorePos|) e =
+let inline (|IgnoreExprPos|) e =
     match e with ExprPos(e, _) | e -> e
 
-let (|Application|_|) e = match e with IgnorePos (Application(x, y)   ) -> Some (x, y)    | _ -> None 
-let (|Binary     |_|) e = match e with IgnorePos (Binary(x, y, z)     ) -> Some (x, y, z) | _ -> None 
-let (|Conditional|_|) e = match e with IgnorePos (Conditional(x, y, z)) -> Some (x, y, z) | _ -> None 
-let (|Constant   |_|) e = match e with IgnorePos (Constant x          ) -> Some x         | _ -> None 
-let (|Lambda     |_|) e = match e with IgnorePos (Lambda(x, y, z)     ) -> Some (x, y, z) | _ -> None 
-let (|New        |_|) e = match e with IgnorePos (New(x, y)           ) -> Some (x, y)    | _ -> None 
-let (|NewArray   |_|) e = match e with IgnorePos (NewArray x          ) -> Some x         | _ -> None 
-let (|NewObject  |_|) e = match e with IgnorePos (NewObject x         ) -> Some x         | _ -> None 
-let (|NewRegex   |_|) e = match e with IgnorePos (NewRegex x          ) -> Some x         | _ -> None 
-let (|Postfix    |_|) e = match e with IgnorePos (Postfix(x, y)       ) -> Some (x, y)    | _ -> None 
-let (|This       |_|) e = match e with IgnorePos (This                ) -> Some ()        | _ -> None 
-let (|Unary      |_|) e = match e with IgnorePos (Unary(x, y)         ) -> Some (x, y)    | _ -> None 
+let (|Application|_|) e = match e with IgnoreExprPos (Application(x, y)   ) -> Some (x, y)    | _ -> None 
+let (|Binary     |_|) e = match e with IgnoreExprPos (Binary(x, y, z)     ) -> Some (x, y, z) | _ -> None 
+let (|Conditional|_|) e = match e with IgnoreExprPos (Conditional(x, y, z)) -> Some (x, y, z) | _ -> None 
+let (|Constant   |_|) e = match e with IgnoreExprPos (Constant x          ) -> Some x         | _ -> None 
+let (|Lambda     |_|) e = match e with IgnoreExprPos (Lambda(x, y, z)     ) -> Some (x, y, z) | _ -> None 
+let (|New        |_|) e = match e with IgnoreExprPos (New(x, y)           ) -> Some (x, y)    | _ -> None 
+let (|NewArray   |_|) e = match e with IgnoreExprPos (NewArray x          ) -> Some x         | _ -> None 
+let (|NewObject  |_|) e = match e with IgnoreExprPos (NewObject x         ) -> Some x         | _ -> None 
+let (|NewRegex   |_|) e = match e with IgnoreExprPos (NewRegex x          ) -> Some x         | _ -> None 
+let (|Postfix    |_|) e = match e with IgnoreExprPos (Postfix(x, y)       ) -> Some (x, y)    | _ -> None 
+let (|This       |_|) e = match e with IgnoreExprPos (This                ) -> Some ()        | _ -> None 
+let (|Unary      |_|) e = match e with IgnoreExprPos (Unary(x, y)         ) -> Some (x, y)    | _ -> None 
 
-let (|Var        |_|) e = match e with IgnorePos (Var x | VarNamed(x, _)) -> Some x         | _ -> None 
-let (|VarNamed   |_|) e = match e with IgnorePos (VarNamed(x, y)        ) -> Some (x, y)    | _ -> None 
+let (|Var        |_|) e = match e with IgnoreExprPos (Var x | VarNamed(x, _)) -> Some x         | _ -> None 
+let (|VarNamed   |_|) e = match e with IgnoreExprPos (VarNamed(x, y)        ) -> Some (x, y)    | _ -> None 
 
 let (|ExprPos|_|) e = match e with ExprPos(x, y)  -> Some (x, y) | _ -> None 
 
@@ -393,4 +395,66 @@ let This                 = This
 let Unary(x, y)          = Unary(x, y)         
 let Var x                = Var x               
 let VarNamed(x, y)       = VarNamed(x, y)        
-let ExprPos(x, y)        = ExprPos(x, y)
+
+let rec RemoveOuterExprSourcePos e = 
+    match e with 
+    | ExprPos(e, _) -> RemoveOuterExprSourcePos e 
+    | e -> e
+
+let ExprPos(x, y) = ExprPos(RemoveOuterExprSourcePos x, y)
+
+let inline (|IgnoreStatementPos|) s =
+    match s with StatementPos(s, _) | s -> s
+
+let (|Block       |_|) s = match s with IgnoreStatementPos (Block      a        ) -> Some a         | _ -> None   
+let (|Break       |_|) s = match s with IgnoreStatementPos (Break      a        ) -> Some a         | _ -> None   
+let (|Continue    |_|) s = match s with IgnoreStatementPos (Continue   a        ) -> Some a         | _ -> None   
+let (|Debugger    |_|) s = match s with IgnoreStatementPos (Debugger            ) -> Some ()        | _ -> None   
+let (|Do          |_|) s = match s with IgnoreStatementPos (Do         (a,b)    ) -> Some (a,b)     | _ -> None   
+let (|Empty       |_|) s = match s with IgnoreStatementPos (Empty               ) -> Some ()        | _ -> None   
+let (|For         |_|) s = match s with IgnoreStatementPos (For        (a,b,c,d)) -> Some (a,b,c,d) | _ -> None   
+let (|ForIn       |_|) s = match s with IgnoreStatementPos (ForIn      (a,b,c)  ) -> Some (a,b,c)   | _ -> None   
+let (|ForVarIn    |_|) s = match s with IgnoreStatementPos (ForVarIn   (a,b,c,d)) -> Some (a,b,c,d) | _ -> None   
+let (|ForVars     |_|) s = match s with IgnoreStatementPos (ForVars    (a,b,c,d)) -> Some (a,b,c,d) | _ -> None   
+let (|If          |_|) s = match s with IgnoreStatementPos (If         (a,b,c)  ) -> Some (a,b,c)   | _ -> None   
+let (|Ignore      |_|) s = match s with IgnoreStatementPos (Ignore     a        ) -> Some a         | _ -> None   
+let (|Labelled    |_|) s = match s with IgnoreStatementPos (Labelled   (a,b)    ) -> Some (a,b)     | _ -> None   
+let (|Return      |_|) s = match s with IgnoreStatementPos (Return     a        ) -> Some a         | _ -> None   
+let (|Switch      |_|) s = match s with IgnoreStatementPos (Switch     (a,b)    ) -> Some (a,b)     | _ -> None   
+let (|Throw       |_|) s = match s with IgnoreStatementPos (Throw      a        ) -> Some a         | _ -> None   
+let (|TryFinally  |_|) s = match s with IgnoreStatementPos (TryFinally (a,b)    ) -> Some (a,b)     | _ -> None   
+let (|TryWith     |_|) s = match s with IgnoreStatementPos (TryWith    (a,b,c,d)) -> Some (a,b,c,d) | _ -> None   
+let (|Vars        |_|) s = match s with IgnoreStatementPos (Vars       a        ) -> Some a         | _ -> None   
+let (|While       |_|) s = match s with IgnoreStatementPos (While      (a,b)    ) -> Some (a,b)     | _ -> None   
+let (|With        |_|) s = match s with IgnoreStatementPos (With       (a,b)    ) -> Some (a,b)     | _ -> None   
+
+let (|StatementPos|_|) s = match s with StatementPos (a,b) -> Some (a,b) | _ -> None
+
+let Block      a         = Block      a        
+let Break      a         = Break      a        
+let Continue   a         = Continue   a        
+let Debugger             = Debugger            
+let Do         (a,b)     = Do         (a,b)    
+let Empty                = Empty               
+let For        (a,b,c,d) = For        (a,b,c,d)
+let ForIn      (a,b,c)   = ForIn      (a,b,c)  
+let ForVarIn   (a,b,c,d) = ForVarIn   (a,b,c,d)
+let ForVars    (a,b,c,d) = ForVars    (a,b,c,d)
+let If         (a,b,c)   = If         (a,b,c)  
+let Ignore     a         = Ignore     a        
+let Labelled   (a,b)     = Labelled   (a,b)    
+let Return     a         = Return     a        
+let Switch     (a,b)     = Switch     (a,b)    
+let Throw      a         = Throw      a        
+let TryFinally (a,b)     = TryFinally (a,b)    
+let TryWith    (a,b,c,d) = TryWith    (a,b,c,d)
+let Vars       a         = Vars       a        
+let While      (a,b)     = While      (a,b)    
+let With       (a,b)     = With       (a,b)   
+  
+let rec RemoveOuterStatementSourcePos s =
+    match s with 
+    | StatementPos(s, _) -> RemoveOuterStatementSourcePos s 
+    | s -> s
+
+let StatementPos (a,b) = StatementPos (RemoveOuterStatementSourcePos a,b)

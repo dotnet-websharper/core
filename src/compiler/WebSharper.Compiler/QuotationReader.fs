@@ -1,4 +1,25 @@
-﻿module WebSharper.Compiler.QuotationReader
+﻿// $begin{copyright}
+//
+// This file is part of WebSharper
+//
+// Copyright (c) 2008-2016 IntelliFactory
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you
+// may not use this file except in compliance with the License.  You may
+// obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.  See the License for the specific language governing
+// permissions and limitations under the License.
+//
+// $end{copyright}
+
+// Reads F# quotations and ReflectedDefinitions as WebSharper.Core.AST 
+module WebSharper.Compiler.QuotationReader
 
 open FSharp.Quotations
 
@@ -18,7 +39,7 @@ type Environment =
 //        TParams : Map<string, int>
         Exception : option<Id>
 //        MatchVars : option<Id * Id>
-        Compilation : Metadata.Compilation
+        Compilation : Compilation
     }
     static member New(comp) = 
         { 
@@ -76,20 +97,6 @@ let withOptSourcePos (expr: Expr) (e: Expression) =
     | Some p -> ExprSourcePos(p, e)
     | _ -> e
 
-// copied from ToFSharpAST, TODO refactor
-let getByref r =
-    Application(ItemGet (r, Value (String "get")), [])   
-
-let setByref r v =
-    Application(ItemGet (r, Value (String "set")), [v])   
-
-let makeByref getVal setVal =
-    let value = Id.New "v"
-    Object [
-        "get", (Function ([], Return getVal))
-        "set", (Function ([value], ExprStatement (setVal (Var value))))
-    ]
-
 exception ParseError of string
 let parsefailf x =
     Printf.kprintf (fun s -> raise <| ParseError s) x
@@ -130,11 +137,13 @@ let rec transformExpression (env: Environment) (expr: Expr) =
     let inline tr x = transformExpression env x
     let call this (meth: System.Reflection.MethodInfo) args =
         let td = 
-            concrete(Reflection.getTypeDefinition meth.DeclaringType,
-                meth.DeclaringType.GetGenericArguments() |> Seq.map Reflection.getType |> List.ofSeq)
+            Generic
+                (Reflection.ReadTypeDefinition meth.DeclaringType)
+                (meth.DeclaringType.GetGenericArguments() |> Seq.map Reflection.ReadType |> List.ofSeq)
         let md =
-            concrete (Reflection.getMethod meth |> Hashed,
-                meth.GetGenericArguments() |> Seq.map Reflection.getType |> List.ofSeq)
+            Generic
+                (Reflection.ReadMethod meth)
+                (meth.GetGenericArguments() |> Seq.map Reflection.ReadType |> List.ofSeq)
         Call(this |> Option.map tr, td, md, args |> List.map tr )
     try
         match expr with
@@ -142,7 +151,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             let v, k = env.LookupVar var 
             match k with
             | LocalVar -> Var v  
-            | ByRefArg -> getByref (Var v)
+            | ByRefArg -> GetRef (Var v)
             | ThisArg -> This
         | Patterns.Lambda (arg, body) ->
             let lArg =
@@ -209,37 +218,32 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             Conditional(tr cond, tr then_, tr else_)    
         | Patterns.NewObject (ctor, args) -> 
             let td = 
-                concrete(Reflection.getTypeDefinition ctor.DeclaringType,
-                    ctor.DeclaringType.GetGenericArguments() |> Seq.map Reflection.getType |> List.ofSeq)
-            let cd = Reflection.getConstructor ctor |> Hashed
+                Generic
+                    (Reflection.ReadTypeDefinition ctor.DeclaringType)
+                    (ctor.DeclaringType.GetGenericArguments() |> Seq.map Reflection.ReadType |> List.ofSeq)
+            let cd = Reflection.ReadConstructor ctor
             Ctor(td, cd, args |> List.map tr )
         | Patterns.TryFinally (body, final) ->
             let res = Id.New ()
-            Sequential [
-                StatementExpr (TryFinally(ExprStatement(NewVar(res, tr body)), ExprStatement (tr final)))
-                Var res
-            ]
+            StatementExpr (TryFinally(VarSetStatement(res, tr body), ExprStatement (tr final)), Some res)
         | Patterns.TryWith (body, var, filter, e, catch) -> // TODO: var, filter?
             let err = Id.New e.Name
             let res = Id.New ()
-            Sequential [
-                StatementExpr (
-                    TryWith(ExprStatement(NewVar(res, tr body)), 
-                        Some err, 
-                        (ExprStatement (VarSet(res, transformExpression (env.WithException(err, e)) catch)))))
-                Var res
-            ]
+            StatementExpr (
+                TryWith(VarSetStatement(res, tr body), 
+                    Some err, 
+                    (VarSetStatement(res, transformExpression (env.WithException(err, e)) catch))), Some res)
         | Patterns.NewArray (_, items) ->
             NewArray (items |> List.map tr)              
         | Patterns.NewTuple (items) ->
             NewArray (items |> List.map tr)              
         | Patterns.WhileLoop (cond, body) ->
-            StatementExpr(While(tr cond, ExprStatement (tr body)))
+            IgnoredStatementExpr(While(tr cond, ExprStatement (tr body)))
         | Patterns.VarSet (var, value) ->
             let v, k = env.LookupVar var
             match k with
             | LocalVar -> VarSet(v, tr value) 
-            | ByRefArg -> setByref (Var v) (tr value)
+            | ByRefArg -> SetRef (Var v) (tr value)
             | ThisArg -> parsefailf "'this' parameter cannot be set"
         | Patterns.TupleGet (tuple, i) ->
             ItemGet(tr tuple, Value (Int i))   
@@ -252,19 +256,19 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                 Some (Binary(Var i, BinaryOperator.``<=``, Var j)), 
                 Some (MutatingUnary(MutatingUnaryOperator.``()++``, Var i)), 
                 ExprStatement (Capturing(i).CaptureValueIfNeeded(tr body))
-            ) |> StatementExpr
+            ) |> IgnoredStatementExpr
         | Patterns.TypeTest (expr, typ) ->
-            TypeCheck (tr expr, Reflection.getType typ) //env.TParams typ)
+            TypeCheck (tr expr, Reflection.ReadType typ) //env.TParams typ)
         | Patterns.Coerce (expr, typ) ->
             tr expr // TODO: type check when possible
         | Patterns.NewUnionCase (case, exprs) ->
             let annot = A.attrReader.GetMemberAnnot(A.TypeAnnotation.Empty, case.GetCustomAttributesData()) 
             match annot.Kind with
-            | Some (A.MemberKind.Constant c) -> c
+            | Some (A.MemberKind.Constant c) -> Value c
             | _ ->
             let i = case.Tag
             CopyCtor(
-                Reflection.getTypeDefinition case.DeclaringType,
+                Reflection.ReadTypeDefinition case.DeclaringType,
                 Object (
                     ("$", Value (Int i)) ::
                     (exprs |> List.mapi (fun j e -> "$" + string j, tr e)) 
@@ -273,42 +277,42 @@ let rec transformExpression (env: Environment) (expr: Expr) =
         | Patterns.UnionCaseTest (expr, case) ->
             let annot = A.attrReader.GetMemberAnnot(A.TypeAnnotation.Empty, case.GetCustomAttributesData()) 
             match annot.Kind with
-            | Some (A.MemberKind.Constant c) -> Binary (tr expr, BinaryOperator.``==``, c)
+            | Some (A.MemberKind.Constant c) -> Binary (tr expr, BinaryOperator.``==``, Value c)
             | _ ->
             let i = case.Tag
             Binary(ItemGet(tr expr, Value (String "$")), BinaryOperator.``==``, Value (Int i))
         | Patterns.NewRecord (typ, items) ->
             let t =
-                match Reflection.getType typ with
+                match Reflection.ReadType typ with
                 | ConcreteType ct -> ct
                 | _ -> parsefailf "Expected a record type"
             NewRecord (t, List.map tr items)
         | Patterns.FieldGet (thisOpt, field) ->
             let t = 
-                match Reflection.getType field.DeclaringType with
+                match Reflection.ReadType field.DeclaringType with
                 | ConcreteType ct -> ct
                 | _ -> parsefailf "Expected a record type"
             FieldGet(thisOpt |> Option.map tr, t, field.Name)
         | Patterns.FieldSet (thisOpt, field, value) ->
             let t = 
-                match Reflection.getType field.DeclaringType with
+                match Reflection.ReadType field.DeclaringType with
                 | ConcreteType ct -> ct
                 | _ -> parsefailf "Expected a record type"
             FieldSet(thisOpt |> Option.map tr, t, field.Name, tr value)
         | Patterns.AddressOf expr ->
-            match ignoreExprSourcePos (tr expr) with
+            match IgnoreExprSourcePos (tr expr) with
             | Var v as e ->
-                makeByref e (fun value -> VarSet(v, value))
+                MakeRef e (fun value -> VarSet(v, value))
             | ItemGet(o, i) as e ->
-                makeByref e (fun value -> ItemSet(o, i, value))
+                MakeRef e (fun value -> ItemSet(o, i, value))
             | FieldGet(o, t, f) as e ->
-                makeByref e (fun value -> FieldSet(o, t, f, value))                
+                MakeRef e (fun value -> FieldSet(o, t, f, value))                
             | e -> parsefailf "AddressOf error" // not on a Var or ItemGet: %+A" e 
         | Patterns.AddressSet (addr, value) ->
             match addr with
             | Patterns.Var(var) ->
                 let v, _ = env.LookupVar var
-                setByref (Var v) (tr value)
+                SetRef (Var v) (tr value)
             | _ -> parsefailf "AddressSet not on a Value"
         | Patterns.DefaultValue typ ->
             Value Null
@@ -324,5 +328,5 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             match e with
             | ParseError m -> m
             | _ -> "Error while reading F# quotation: " + e.Message //+ " " + e.StackTrace
-        env.Compilation.AddError(getOptSourcePos expr, Metadata.SourceError msg)
+        env.Compilation.AddError(getOptSourcePos expr, SourceError msg)
         errorPlaceholder        

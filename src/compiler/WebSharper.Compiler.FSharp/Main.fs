@@ -1,4 +1,24 @@
-﻿namespace WebSharper.Compiler.FSharp
+﻿// $begin{copyright}
+//
+// This file is part of WebSharper
+//
+// Copyright (c) 2008-2016 IntelliFactory
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you
+// may not use this file except in compliance with the License.  You may
+// obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.  See the License for the specific language governing
+// permissions and limitations under the License.
+//
+// $end{copyright}
+
+namespace WebSharper.Compiler.FSharp
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open WebSharper.Compiler.ErrorPrinting
@@ -9,9 +29,9 @@ module M = WebSharper.Core.Metadata
 
 type internal FSIFD = FSharpImplementationFileDeclaration
 
+/// Creates WebSharper compilation for an F# project
 type WebSharperFSharpCompiler(logger) =
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
-//    let service = SimpleSourceCodeServices()
 
     let fullpath cwd nm = 
         let p = if Path.IsPathRooted(nm) then nm else Path.Combine(cwd,nm)
@@ -45,7 +65,6 @@ type WebSharperFSharpCompiler(logger) =
             try
                 checker.GetProjectOptionsFromCommandLineArgs(path, argv)
             with e ->
-//                printfn "Error: %s" e.Message
                 failwithf "Error reading project options: %s" path
 
         let checkFileResults = 
@@ -64,7 +83,6 @@ type WebSharperFSharpCompiler(logger) =
                 let fn = err.FileName
                 if fn <> "unknown" && fn <> "startup" && fn <> "commandLineArgs" then
                     let file = (fullpath projDir fn).Replace("/","\\")
-//                    let m = mkRange m.FileName (mkPos m.StartLine (m.StartColumn + 1)) (mkPos m.EndLine (m.EndColumn + 1) )
                     sprintf "%s(%d,%d,%d,%d): " file err.StartLineAlternate err.StartColumn err.EndLineAlternate err.EndColumn
                 else ""
             let info =
@@ -72,10 +90,9 @@ type WebSharperFSharpCompiler(logger) =
                     (if err.Severity = Microsoft.FSharp.Compiler.FSharpErrorSeverity.Warning then "warning" else "error") err.ErrorNumber
                         
             eprintfn "%s%s%s" pos info (WebSharper.Compiler.ErrorPrinting.NormalizeErrorString err.Message)
-            //printfn "%s" err.Message
 
         if checkFileResults.HasCriticalErrors then
-            let comp = M.Compilation(M.empty)
+            let comp = WebSharper.Compiler.Compilation(M.Info.Empty)
             for err in checkFileResults.Errors do
                 let pos =
                     let fn = err.FileName
@@ -83,17 +100,17 @@ type WebSharperFSharpCompiler(logger) =
                         let file = (fullpath projDir fn).Replace("/","\\")
                         sprintf "%s (%d,%d)-(%d,%d): " file err.StartLineAlternate err.StartColumn err.EndLineAlternate err.EndColumn
                     else ""
-                comp.AddError(None, M.SourceError (pos + err.Message))
+                comp.AddError(None, WebSharper.Compiler.SourceError (pos + err.Message))
             comp
         else
 
         let refMeta =   
             match prevMeta with
-            | None -> M.empty
+            | None -> M.Info.Empty
             | Some dep -> dep  
         
         let comp = 
-            WebSharper.Compiler.FSharp.Translator.transformAssembly refMeta
+            WebSharper.Compiler.FSharp.ProjectReader.transformAssembly refMeta
                 (Path.GetFileNameWithoutExtension path)
                 checkFileResults
 
@@ -101,8 +118,10 @@ type WebSharperFSharpCompiler(logger) =
         logger <| sprintf "Parsing with FCS: %A" (ended - started)
         let started = ended 
 
-        WebSharper.Compiler.ToJavaScript.ToJavaScript.CompileFull comp
+        WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
         
+        comp.VerifyRPCs()
+
         let winfo = "WebSharper warning: "
         for posOpt, err in comp.Warnings do
             let pos =

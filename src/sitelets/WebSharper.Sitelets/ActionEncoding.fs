@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -23,9 +23,9 @@ module WebSharper.Sitelets.ActionEncoding
 open System
 open System.Collections.Generic
 open WebSharper.Core
-module A = WebSharper.Core.Attributes
+type BF = System.Reflection.BindingFlags
 
-[<A.NamedUnionCases "result">]
+[<WebSharper.NamedUnionCases "result">]
 type DecodeResult<'Action> =
     | [<CompiledName "success">]
       Success of action: 'Action
@@ -182,17 +182,15 @@ type System.Text.StringBuilder with
 type Reflection.UnionCaseInfo with
     member this.CustomizedName =
         let s =
-            let aT = typeof<CompiledNameAttribute>
-            match this.GetCustomAttributes aT with
-            | [| :? CompiledNameAttribute as attr |] -> attr.CompiledName
-            | _ -> this.Name
+            match this.GetCustomAttributes typeof<EndPointAttribute> with
+            | [| :? EndPointAttribute as attr |] -> attr.EndPoint
+            | _ ->
+                match this.GetCustomAttributes typeof<CompiledNameAttribute> with
+                | [| :? CompiledNameAttribute as attr |] -> attr.CompiledName
+                | _ -> this.Name
         s.[s.IndexOf('/') + 1 ..]
 
-let flags =
-    System.Reflection.BindingFlags.Public
-    ||| System.Reflection.BindingFlags.NonPublic
-    ||| System.Reflection.BindingFlags.Static
-    ||| System.Reflection.BindingFlags.Instance
+let flags = BF.Public ||| BF.NonPublic ||| BF.Static ||| BF.Instance
 
 type ISequenceProcessor =
     abstract member ToSequence : obj -> seq<obj>
@@ -286,22 +284,33 @@ let isPrimitiveOption (t: System.Type) =
     t.GetGenericTypeDefinition() = typedefof<option<_>> &&
     isPrimitive (t.GetGenericArguments().[0])
 
+let isPrimitiveNullable (t: System.Type) =
+    t.IsGenericType &&
+    t.GetGenericTypeDefinition() = typedefof<Nullable<_>> &&
+    isPrimitive (t.GetGenericArguments().[0])
+
 type Field =
     | RecordField of System.Reflection.PropertyInfo * isLast: bool
     | UnionCaseField of Reflection.UnionCaseInfo * System.Reflection.PropertyInfo * isLast: bool
+    | ClassField of System.Reflection.FieldInfo * isLast: bool
 
-    member private this.Property =
+    member private this.Member =
         match this with
         | RecordField (pi, _)
-        | UnionCaseField (_, pi, _) -> pi
+        | UnionCaseField (_, pi, _) -> pi :> System.Reflection.MemberInfo
+        | ClassField (fi, _) -> fi :> System.Reflection.MemberInfo
 
-    member this.Type = this.Property.PropertyType
+    member this.Type =
+        match this with
+        | RecordField (pi, _)
+        | UnionCaseField (_, pi, _) -> pi.PropertyType
+        | ClassField (fi, _) -> fi.FieldType
 
-    member this.DeclaringType = this.Property.DeclaringType
+    member this.DeclaringType = this.Member.DeclaringType
 
     member this.Name =
-        let aT = typeof<WebSharper.Core.Attributes.NameAttribute>
-        let p = this.Property
+        let aT = typeof<WebSharper.NameAttribute>
+        let p = this.Member
         let customName =
             p.GetCustomAttributesData()
             |> Seq.tryPick (fun cad ->
@@ -314,7 +323,7 @@ let getDateTimeFormat = function
     | RecordField (f, _) ->
         if f.PropertyType = typeof<System.DateTime> || f.PropertyType = typeof<option<System.DateTime>> then
             f.GetCustomAttributesData() |> Seq.tryPick (fun cad ->
-                if cad.Constructor.DeclaringType = typeof<WebSharper.Core.Attributes.DateTimeFormatAttribute> &&
+                if cad.Constructor.DeclaringType = typeof<WebSharper.DateTimeFormatAttribute> &&
                    cad.ConstructorArguments.Count = 1 then
                     Some (cad.ConstructorArguments.[0].Value :?> string)
                 else None)
@@ -322,10 +331,18 @@ let getDateTimeFormat = function
     | UnionCaseField (uci, pi, _) ->
         if pi.PropertyType = typeof<System.DateTime> || pi.PropertyType = typeof<option<System.DateTime>> then
             uci.GetCustomAttributesData() |> Seq.tryPick (fun cad ->
-                if cad.Constructor.DeclaringType = typeof<WebSharper.Core.Attributes.DateTimeFormatAttribute> &&
+                if cad.Constructor.DeclaringType = typeof<WebSharper.DateTimeFormatAttribute> &&
                    cad.ConstructorArguments.Count = 2 &&
                    cad.ConstructorArguments.[0].Value :?> string = pi.Name then
                     Some (cad.ConstructorArguments.[1].Value :?> string)
+                else None)
+        else None
+    | ClassField (f, _) ->
+        if f.FieldType = typeof<System.DateTime> || f.FieldType = typeof<option<System.DateTime>> then
+            f.GetCustomAttributesData() |> Seq.tryPick (fun cad ->
+                if cad.Constructor.DeclaringType = typeof<WebSharper.DateTimeFormatAttribute> &&
+                   cad.ConstructorArguments.Count = 1 then
+                    Some (cad.ConstructorArguments.[0].Value :?> string)
                 else None)
         else None
 
@@ -342,6 +359,10 @@ let isFormData = function
             :?> System.Collections.ObjectModel.ReadOnlyCollection<
                     System.Reflection.CustomAttributeTypedArgument>
             |> Seq.exists (fun a -> a.Value :?> string = ff.Name))
+    | ClassField (f, _) ->
+        f.GetCustomAttributesData() |> Seq.exists (fun cad ->
+            cad.Constructor.DeclaringType = typeof<FormDataAttribute> &&
+            cad.ConstructorArguments.Count = 0)
 
 let isQueryParam = function
     | RecordField (f, _) ->
@@ -356,6 +377,10 @@ let isQueryParam = function
             :?> System.Collections.ObjectModel.ReadOnlyCollection<
                     System.Reflection.CustomAttributeTypedArgument>
             |> Seq.exists (fun a -> a.Value :?> string = ff.Name))
+    | ClassField (f, _) ->
+        f.GetCustomAttributesData() |> Seq.exists (fun cad ->
+            cad.Constructor.DeclaringType = typeof<QueryAttribute> &&
+            cad.ConstructorArguments.Count = 0)
 
 let isJson = function
     | RecordField (f, _) ->
@@ -367,6 +392,10 @@ let isJson = function
             cad.Constructor.DeclaringType = typeof<JsonAttribute> &&
             cad.ConstructorArguments.Count = 1 &&
             cad.ConstructorArguments.[0].Value :?> string = ff.Name)
+    | ClassField (f, _) ->
+        f.GetCustomAttributesData() |> Seq.exists (fun cad ->
+            cad.Constructor.DeclaringType = typeof<JsonAttribute> &&
+            cad.ConstructorArguments.Count = 0)
 
 [<RequireQualifiedAccess>]
 type Wildcard =
@@ -374,12 +403,12 @@ type Wildcard =
     | String
     | None
 
-let tryGetWildcardType f =
+let tryGetWildcardType (f: Field) =
     let mkSP (sP: System.Type) (eT: System.Type) =
         sP.MakeGenericType(eT)
         |> System.Activator.CreateInstance :?> ISequenceProcessor
-    let tryGetWildcardType (f: Reflection.PropertyInfo) =
-        let t = f.PropertyType
+    let tryGetWildcardType () =
+        let t = f.Type
         if t = typeof<string> then
             Wildcard.String
         elif t.IsArray then
@@ -392,10 +421,13 @@ let tryGetWildcardType f =
     match f with
     | RecordField (f, true)
         when (f.DeclaringType.GetCustomAttributes(typeof<WildcardAttribute>, false) |> Array.isEmpty |> not) ->
-        tryGetWildcardType f
+        tryGetWildcardType ()
     | UnionCaseField (uci, f, true)
         when (uci.GetCustomAttributes(typeof<WildcardAttribute>) |> Array.isEmpty |> not) ->
-        tryGetWildcardType f
+        tryGetWildcardType ()
+    | ClassField (f, true)
+        when (f.GetCustomAttributes(typeof<WildcardAttribute>, true) |> Array.isEmpty |> not) ->
+        tryGetWildcardType ()
     | _ -> Wildcard.None
 
 let (|Enum|Array|List|Tuple|Record|Union|Other|) (t: System.Type) =
@@ -424,16 +456,26 @@ let (|Enum|Array|List|Tuple|Record|Union|Other|) (t: System.Type) =
         Union (cs, (tR : obj -> int), (uR : _ -> obj -> obj[]), uC)
     else Other t
 
-let writePrimitiveType (t: System.Type) =
+let tryWritePrimitiveType (t: System.Type) =
     match primitiveValueHandlers.TryGetValue t with
-    | false, _ -> raise (NoFormatError t)
-    | true, (_, w) -> w
+    | false, _ -> None
+    | true, (_, w) -> Some w
+
+let writePrimitiveType (t: System.Type) =
+    match tryWritePrimitiveType t with
+    | None -> raise (NoFormatError t)
+    | Some w -> w
 
 /// ot is known to be option<X>
 let getSome (ot: System.Type) =
     let uci = Reflection.FSharpType.GetUnionCases(ot).[1]
     let r = Reflection.FSharpValue.PreComputeUnionReader(uci)
     fun x -> (r x).[0]
+
+/// nt is known to be Nullable<X>
+let getNullableValue (nt: System.Type) =
+    let m = nt.GetProperty("Value").GetGetMethod()
+    fun x -> m.Invoke(x, [||])
 
 let tryWritePrimitiveField (f: Field) acceptOption =
     let ft = f.Type
@@ -445,6 +487,11 @@ let tryWritePrimitiveField (f: Field) acceptOption =
         Some (writePrimitiveField ft >> Some)
     elif acceptOption && isPrimitiveOption ft then
         let w = getSome ft >> writePrimitiveField (ft.GetGenericArguments().[0])
+        Some <| function
+            | null -> None
+            | x -> Some (w x)
+    elif acceptOption && isPrimitiveNullable ft then
+        let w = getNullableValue ft >> writePrimitiveField (ft.GetGenericArguments().[0])
         Some <| function
             | null -> None
             | x -> Some (w x)
@@ -494,6 +541,42 @@ let writeField (getS: System.Type -> S) (f: Field) : S =
                         | Some t -> w.Add t; true
                         | None -> false)
                 | None -> getS f.Type
+
+let inline getOptNameAndMethods c =
+    let cad = (^T : (member GetCustomAttributesData : unit -> IList<System.Reflection.CustomAttributeData>)(c))
+    let meth =
+        match cad |> Seq.tryFind (fun cad -> cad.Constructor.DeclaringType = typeof<MethodAttribute>) with
+        | None -> Seq.singleton None
+        | Some cad ->
+            cad.ConstructorArguments.[0].Value
+            :?> System.Collections.ObjectModel.ReadOnlyCollection<
+                    System.Reflection.CustomAttributeTypedArgument>
+            |> Seq.map (fun a -> Some (a.Value :?> string |> Http.Method.OfString))
+    let customName =
+        match cad |> Seq.tryFind (fun cad -> cad.Constructor.DeclaringType = typeof<EndPointAttribute>) with
+        | Some cad -> Some (cad.ConstructorArguments.[0].Value :?> string)
+        | None ->
+            match cad |> Seq.tryFind (fun cad -> cad.Constructor.DeclaringType = typeof<CompiledNameAttribute>) with
+            | Some cad -> Some (cad.ConstructorArguments.[0].Value :?> string)
+            | None -> None
+    match customName with
+    | Some s ->
+        match s.IndexOf '/' with
+        | -1 -> None, meth
+        | i ->
+            let name = s.[i + 1..]
+            let meth =
+                match s.[..i - 1].Split([|',';' '|], StringSplitOptions.RemoveEmptyEntries) with
+                | [||] -> meth
+                | a -> Seq.map (Http.Method.OfString >> Some) a
+            Some name, meth
+    | None ->
+        None, meth
+
+let inline getNameAndMethods c =
+    match getOptNameAndMethods c with
+    | None, meth -> (^T : (member Name : string)(c)), meth
+    | Some name, meth -> name, meth
 
 let getS (getS: System.Type -> S) (t: System.Type) : S =
     let writeTuple r (prefixSlash: bool) (ss: S []) : S =
@@ -550,10 +633,8 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
         if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<DecodeResult<_>> then
             let s = getS (t.GetGenericArguments().[0])
             let getAction =
-                t.GetProperty("Action",
-                    System.Reflection.BindingFlags.NonPublic ||| 
-                    System.Reflection.BindingFlags.Instance
-                ).GetGetMethod(true)
+                t.GetProperty("Action", BF.NonPublic ||| BF.Instance)
+                    .GetGetMethod(true)
             S.Make(s.WritesToUrlPath, fun w q x ->
                 s.Write w q (getAction.Invoke(x, [||])))
         else
@@ -570,8 +651,22 @@ let getS (getS: System.Type -> S) (t: System.Type) : S =
             w.Add ns.[t]
             ss.[t].Write w q x)
     | Other t ->
-        let wt = writePrimitiveType t
-        S.Make(true, fun w q x -> w.Add(wt x); true)
+        match tryWritePrimitiveType t with
+        | Some wt -> S.Make(true, fun w q x -> w.Add(wt x); true)
+        | None ->
+            // C#-style class endpoint
+            let fs = t.GetFields(BF.Instance ||| BF.Public ||| BF.NonPublic)
+            let name, _ = getOptNameAndMethods t
+            let s =
+                writeTuple
+                    (function
+                        | null -> nullArg ("endpoint " + t.FullName)
+                        | o -> fs |> Array.map (fun f -> f.GetValue o))
+                    true
+                    (fs |> Array.mapi (fun i f -> writeField getS (ClassField(f, i = fs.Length - 1))))
+            S.Make(true, fun w q x ->
+                name |> Option.iter w.Add
+                s.Write w q x)
 
 type D =
     {
@@ -600,29 +695,17 @@ let ofOption (p: ReadParameters) (x: option<DecodeResult<obj>>) =
     | Some x -> Just p x
 
 let getUnionCaseMethods (c: Reflection.UnionCaseInfo) =
-    let s =
-        c.GetCustomAttributesData()
-        |> Seq.collect (fun cad ->
-            if cad.Constructor.DeclaringType = typeof<MethodAttribute> then
-                cad.ConstructorArguments.[0].Value
-                :?> System.Collections.ObjectModel.ReadOnlyCollection<
-                        System.Reflection.CustomAttributeTypedArgument>
-                |> Seq.map (fun a -> Some (a.Value :?> string))
-            elif cad.Constructor.DeclaringType = typeof<CompiledNameAttribute> then
-                let s = cad.ConstructorArguments.[0].Value :?> string
-                match s.IndexOf '/' with
-                | -1 -> Seq.empty
-                | i ->
-                    s.[..i - 1].Split([|',';' '|],
-                        StringSplitOptions.RemoveEmptyEntries)
-                    |> Seq.map Some
-            else Seq.empty)
-    if Seq.isEmpty s then Seq.singleton None else s
+    snd (getNameAndMethods c)
 
 let parsePrimitiveType (t: System.Type) =
     match primitiveValueHandlers.TryGetValue t with
     | false, _ -> raise (NoFormatError t)
     | true, (p, _) -> p
+
+let tryParsePrimitiveType (t: System.Type) =
+    match primitiveValueHandlers.TryGetValue t with
+    | false, _ -> None
+    | true, (p, _) -> Some p
 
 let JsonProvider = Json.Provider.Create()
 
@@ -631,6 +714,11 @@ let mkSome (ot: System.Type) =
     let someUci = Reflection.FSharpType.GetUnionCases(ot).[1]
     let ctor = Reflection.FSharpValue.PreComputeUnionConstructor(someUci)
     fun x -> ctor [| x |]
+
+/// "nt" isknown to be Nullable<X>
+let mkNullable (nt: System.Type) =
+    let ctor = nt.GetConstructor(nt.GetGenericArguments())
+    fun x -> ctor.Invoke([|x|])
 
 let tryParsePrimitiveField (f: Field) acceptOption =
     let ft = f.Type
@@ -648,6 +736,12 @@ let tryParsePrimitiveField (f: Field) acceptOption =
     elif acceptOption && isPrimitiveOption ft then
         let parse = parsePrimitiveField (ft.GetGenericArguments().[0])
         let some = mkSome ft
+        Some <| function
+            | None -> Some (Success null)
+            | Some v -> parse v |> Option.map (some >> Success)
+    elif acceptOption && isPrimitiveNullable ft then
+        let parse = parsePrimitiveField (ft.GetGenericArguments().[0])
+        let some = mkNullable ft
         Some <| function
             | None -> Some (Success null)
             | Some v -> parse v |> Option.map (some >> Success)
@@ -842,10 +936,8 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
             let d = getD ti
             let mkSuccess =
                 let unbox =
-                    typeof<DecodeResult>.GetMethod("unbox",
-                        System.Reflection.BindingFlags.NonPublic |||
-                        System.Reflection.BindingFlags.Static
-                    ).MakeGenericMethod(ti)
+                    typeof<DecodeResult>.GetMethod("unbox", BF.NonPublic ||| BF.Static)
+                        .MakeGenericMethod(ti)
                 fun x -> DecodeResult<obj>.Success(unbox.Invoke(null, [| x |]))
 
             D.Make(d.ReadsJson, d.QueryParams, fun p ->
@@ -862,8 +954,7 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                 d.[c.CustomizedName] <-
                     (existing, allowedMeths)
                     ||> Seq.fold (fun map m ->
-                        let k = (Option.map Http.Method.OfString m)
-                        Map.add k (defaultArg (map.TryFind k) [] @ [i]) map)
+                        Map.add m (defaultArg (map.TryFind m) [] @ [i]) map)
                 let fields = c.GetFields()
                 parseTuple t (uC c)
                     (fields |> Array.mapi (fun i f ->
@@ -904,14 +995,40 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
                             |> function None -> Nothing | Some s -> s)
             |> function None -> Nothing | Some s -> s)
     | Other t ->
-        let parse = parsePrimitiveType t
-        D.Make(false, Set.empty, fun (p: ReadParameters) ->
-            match p.Read () with
-            | Some (s, p) ->
-                match parse s with
-                | None -> Nothing
-                | Some s -> Just p (Success s)
-            | None -> Nothing)
+        match tryParsePrimitiveType t with
+        | Some parse ->
+            D.Make(false, Set.empty, fun (p: ReadParameters) ->
+                match p.Read () with
+                | Some (s, p) ->
+                    match parse s with
+                    | None -> Nothing
+                    | Some s -> Just p (Success s)
+                | None -> Nothing)
+        | None ->
+            // C#-style class endpoint
+            match t.GetConstructor([||]) with
+            | null -> raise (NoFormatError t)
+            | ctor ->
+                let fs = t.GetFields(BF.Instance ||| BF.Public ||| BF.NonPublic)
+                let name, allowedMeths = getOptNameAndMethods t
+                let d =
+                    parseTuple t
+                        (fun args ->
+                            let o = ctor.Invoke([||])
+                            (fs, args) ||> Array.iter2 (fun f a -> f.SetValue(o, a))
+                            o)
+                        (fs |> Array.mapi (fun i f ->
+                            parseField getD (ClassField (f, i = fs.Length - 1))))
+                D.Make(d.ReadsJson, d.QueryParams, fun (p: ReadParameters) ->
+                    let m = p.Request.Method
+                    if allowedMeths |> Seq.exists (function None -> true | Some m' -> m = m') then
+                        match name with
+                        | None -> d.Decode p
+                        | Some name ->
+                            match p.Read() with
+                            | Some (s, p) when s = name -> d.Decode p
+                            | _ -> Nothing
+                    else Nothing)
 
 let memoFix delay f =
     let cache = System.Collections.Generic.Dictionary()

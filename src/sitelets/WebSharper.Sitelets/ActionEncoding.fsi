@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -26,13 +26,11 @@
 /// to separate logical components.
 module WebSharper.Sitelets.ActionEncoding
 
-module A = WebSharper.Core.Attributes
-
 /// Thrown when a formatter cannot be derived for a certain type.
 exception NoFormatError of System.Type
 
 /// The result of trying to decode a request.
-[<A.NamedUnionCases "result">]
+[<WebSharper.NamedUnionCases "result">]
 type DecodeResult<'Action> =
     /// The request was correct and an action was decoded.
     | [<CompiledName "success">]

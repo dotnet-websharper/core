@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -79,18 +79,18 @@ let ArrayTryFindIndexBack f (arr: _ []) =
 [<JavaScript>]
 [<Name "Arrays.mapFold">]
 let ArrayMapFold<'T, 'S, 'R> (f: 'S -> 'T -> 'R * 'S) (zero: 'S) (arr: 'T[]) : 'R[] * 'S =
-    let r = Array.zeroCreate<'R>(Array.length arr)
+    let r = JavaScript.Array(Array.length arr)
     let mutable acc = zero
     for i = 0 to Array.length arr - 1 do
         let a, b = f acc arr.[i]
         r.[i] <- a
         acc <- b 
-    r, acc
+    r.Self, acc
 
 [<JavaScript>]
 [<Name "Arrays.mapFoldBack">]
 let ArrayMapFoldBack<'T,'S,'R> (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) : 'R[] * 'S =
-    let r = Array.zeroCreate<'R>(Array.length arr)
+    let r = JavaScript.Array<'R>(Array.length arr)
     let mutable acc = zero
     let len = Array.length arr
     for j = 1 to len do
@@ -98,7 +98,7 @@ let ArrayMapFoldBack<'T,'S,'R> (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) :
         let a, b = f arr.[i] acc
         r.[i] <- a
         acc <- b 
-    r, acc
+    r.Self, acc
 
 [<JavaScript>]
 [<Name "Arrays.sortInPlaceByDescending">]

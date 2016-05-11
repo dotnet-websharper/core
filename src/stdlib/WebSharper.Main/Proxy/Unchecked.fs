@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -19,17 +19,14 @@
 // $end{copyright}
 
 /// Implements generic comparison, equality and hashing.
-[<WebSharper.Core.Attributes.Name "Unchecked">]
-[<WebSharper.Core.Attributes.Proxy
+[<WebSharper.Name "Unchecked">]
+[<WebSharper.Proxy
     "Microsoft.FSharp.Core.Operators+Unchecked, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private WebSharper.UncheckedProxy
 
 open WebSharper.JavaScript
-
-[<Inline "$a.System_IComparable$CompareTo($b)">]
-let compareTo (a: obj) (b: obj) = X<int>
 
 [<Inline "$a instanceof Array">]
 let isArray (a: obj) = X<bool>
@@ -89,7 +86,7 @@ let Compare<'T> (a: 'T) (b: 'T) : int =
         | JS.Object ->
             if a ===. null then -1
             elif b ===. null then 1
-            elif JS.In "System_IComparable$CompareTo" a then compareTo a b
+            elif JS.In "System_IComparable$CompareTo" a then (As<System.IComparable> a).CompareTo(b)
             elif isArray a && isArray b then compareArrays (As a) (As b)
             elif isDate a && isDate b then compareDates a b
             else objCompare a b
@@ -98,9 +95,6 @@ let Compare<'T> (a: 'T) (b: 'T) : int =
 [<Macro(typeof<Macro.DefaultOf>)>]
 [<Inline "undefined">]
 let DefaultOf<'T> = X<'T>
-
-[<Inline "$a.Equals($b)">]
-let private equals (a: obj) (b: obj) = X<bool>
 
 [<JavaScript>]
 let arrayEquals (a: obj []) (b: obj []) =
@@ -118,6 +112,9 @@ let arrayEquals (a: obj []) (b: obj []) =
 [<JavaScript>]
 let dateEquals a b =
     getTime a ===. getTime b
+
+[<Inline "$a.Equals($b)">]
+let private equals (a: obj) (b: obj) = X<bool>
 
 /// Tests if two values are equal.
 [<JavaScript>]
@@ -140,15 +137,18 @@ let Equals (a: 'T) (b: 'T) : bool =
             elif isArray a && isArray b then arrayEquals (As a) (As b)
             elif isDate a && isDate b then dateEquals a b
             else objEquals a b
+        | JS.Function ->
+            if JS.In "$Func" a then
+                a?``$Func`` ===. b?``$Func`` && a?``$Target`` ===. b?``$Target``
+            elif JS.In "$Invokes" a && JS.In "$Invokes" b then
+                arrayEquals a?``$Invokes`` b?``$Invokes``  
+            else false
         | _ ->
             false
 
 [<JavaScript>]
 let hashMix (x: int) (y: int) : int =
     (x <<< 5) + x + y
-
-[<Inline "$o.GetHashCode()">]
-let getHashCode(o: obj) = X<int>
 
 [<JavaScript>]
 let hashArray (o: obj []) =
@@ -164,6 +164,9 @@ let hashString (s: string) : int =
         for i = 0 to s.Length - 1 do
             hash <- hashMix hash (int s.[i])
         hash
+
+[<Inline "$o.GetHashCode()">]
+let getHashCode(o: obj) = X<int>
 
 [<JavaScript>]
 let hashObject (o: obj) =

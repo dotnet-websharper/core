@@ -1,89 +1,84 @@
-﻿module WebSharper.Compiler.FrontEnd
+﻿// $begin{copyright}
+//
+// This file is part of WebSharper
+//
+// Copyright (c) 2008-2016 IntelliFactory
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you
+// may not use this file except in compliance with the License.  You may
+// obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.  See the License for the specific language governing
+// permissions and limitations under the License.
+//
+// $end{copyright}
+
+module WebSharper.Compiler.FrontEnd
 
 open WebSharper.Core
 module M = WebSharper.Core.Metadata
 module B = WebSharper.Core.Binary
 
 type Assembly = WebSharper.Compiler.Assembly
-//type Bundle = WebSharper.Compiler.Bundle
-//type CompiledAssembly = WebSharper.Compiler.CompiledAssembly
 type Content = WebSharper.Compiler.Content
 type EmbeddedFile = WebSharper.Compiler.EmbeddedFile
 type Loader = WebSharper.Compiler.Loader
-//type ResourceContent = WebSharper.Compiler.ResourceContent
-//type ResourceContext = WebSharper.Compiler.ResourceContext
 type Symbols = WebSharper.Compiler.Symbols
 
-let MetadataEncoding =
-    try
-        let eP = B.EncodingProvider.Create()
-        eP.DeriveEncoding typeof<M.Info>
-    with B.NoEncodingException t ->
-        failwith "Failed to create binary encoder for type %s" t.FullName
-
-let readFromAssembly (a: Assembly) =
+let ReadFromAssembly (a: Assembly) =
     a.Raw.MainModule.Resources
     |> Seq.tryPick (function
         | :? Mono.Cecil.EmbeddedResource as r when r.Name = EMBEDDED_METADATA ->
-#if DEBUG
-#else
             try
-#endif
                 use s = r.GetResourceStream()
-                Some (MetadataEncoding.Decode s :?> M.Info |> M.refreshAllIds)
-#if DEBUG
-#else
-            with _ ->
+                Some (M.IO.Decode s |> refreshAllIds)
+            with
+            | :? B.EncodingException as e ->
+                failwithf "Failed to deserialize metadata for: %s - %s" a.FullName e.Message
+            | _ ->
                 failwithf "Failed to deserialize metadata for: %s" a.FullName
-#endif
-            | _ -> None)
+        | _ -> None
+    )
 
-let getJSLookup (r: Assembly list, readable) =
+let GetJSLookup (r: Assembly list, readable) =
     r |> List.choose (fun a ->
         if readable then a.ReadableJavaScript else a.CompressedJavaScript
         |> Option.map (fun js -> a.FullName, js)
     )
     |> dict
 
-let modifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
+let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     let meta =
         use s = new MemoryStream(8 * 1024)
-        MetadataEncoding.Encode s current
+        M.IO.Encode s current
         s.ToArray()
     Mono.Cecil.EmbeddedResource(EMBEDDED_METADATA, pub, meta)
     |> a.MainModule.Resources.Add
 
-let modifyTSAssembly (current: M.Info) (a: Assembly) =
-    modifyWIGAssembly current a.Raw
+let ModifyTSAssembly (current: M.Info) (a: Assembly) =
+    ModifyWIGAssembly current a.Raw
 
-let modifyCecilAssembly (merged: M.Info) (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
-//    let current = M.toSingleMetadata comp 
+let ModifyCecilAssembly (merged: M.Info) (current: M.Info) sourceMap (a: Mono.Cecil.AssemblyDefinition) =
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     let meta =
         use s = new MemoryStream(8 * 1024)
-        MetadataEncoding.Encode s current
+        M.IO.Encode s current
         s.ToArray()
     let pkg = 
         WebSharper.Compiler.Packager.packageAssembly merged current false
-//        |> Option.fill AST.Undefined 
-
-//    let prog = P.Package pkg
-//    let rmdata =
-//        use s = new MemoryStream(8 * 1024)
-//        aInfo.ToStream(s)
-//        s.ToArray()
-//    let rmname = M.AssemblyInfo.EmbeddedResourceName
-//    Mono.Cecil.EmbeddedResource(rmname, pub, rmdata)
-//    |> a.MainModule.Resources.Add
 
     Mono.Cecil.EmbeddedResource(EMBEDDED_METADATA, pub, meta)
     |> a.MainModule.Resources.Add
     
     if pkg <> AST.Undefined then
-//        let pkg = WebSharper.Compiler.ToJavaScriptSyntax.RemoveSourcePositions().TransformExpression pkg
-        let js, map = pkg |> WebSharper.Compiler.Packager.exprToString a.Name.Name WebSharper.Core.JavaScript.Readable
-        let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString a.Name.Name WebSharper.Core.JavaScript.Compact
+        let js, map = pkg |> WebSharper.Compiler.Packager.exprToString a.Name.Name WebSharper.Core.JavaScript.Readable sourceMap
+        let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString a.Name.Name WebSharper.Core.JavaScript.Compact sourceMap
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
         Mono.Cecil.EmbeddedResource(EMBEDDED_MINJS, pub, getBytes minJs)
         |> a.MainModule.Resources.Add
@@ -97,23 +92,36 @@ let modifyCecilAssembly (merged: M.Info) (current: M.Info) (a: Mono.Cecil.Assemb
             |> a.MainModule.Resources.Add )
 
         Some js
-
     else None
 
-//    match typeScript with
-//    | Some tS ->
-//        Mono.Cecil.EmbeddedResource
-//            (
-//                EMBEDDED_DTS, pub,
-//                UTF8Encoding(false, true).GetBytes(tS)
-//            )
-//        |> a.MainModule.Resources.Add
-//    | _ -> ()
+let ModifyAssembly (merged: M.Info) (current: M.Info) sourceMap (assembly : Assembly) =
+    ModifyCecilAssembly merged current sourceMap assembly.Raw
 
-let modifyAssembly (merged: M.Info) (current: M.Info) (assembly : Assembly) =
-    modifyCecilAssembly merged current assembly.Raw
+/// Represents a resource content file.
+type ResourceContent =
+    {
+        Content : string
+        ContentType : ContentTypes.ContentType
+        Name : string
+    }
 
-let renderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf, selfJS, deps: Resources.IResource list, lookupAssemblyCode) =
+/// A reduced resource context for simplified dependency rendering.
+type ResourceContext =
+    {
+        /// Whether to emit readable JavaScript.
+        DebuggingEnabled : bool
+
+        /// Wheter to switch `//` links to `http://` links.
+        DefaultToHttp : bool
+
+        /// Reads environment settings.
+        GetSetting : string -> option<string>
+
+        /// Decides how to render a resource.
+        RenderResource : ResourceContent -> Resources.Rendering
+    }
+
+let RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf, selfJS, deps: Resources.IResource list, lookupAssemblyCode) =
     let pU = WebSharper.PathConventions.PathUtility.VirtualPaths("/")
     let cache = Dictionary()
     let getRendering (content: ResourceContent) =

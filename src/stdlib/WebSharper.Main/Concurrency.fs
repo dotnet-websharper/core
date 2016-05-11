@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -52,14 +52,14 @@ let internal noneCT =
 let internal Register (ct: CT) (callback: unit -> unit) =
     // TODO: rewrite with object ecpression
     if ct ===. noneCT then
-        New [
-            "System_IDisposable$Dispose" => ignore
-        ] : System.IDisposable
+        { new System.IDisposable with
+            member this.Dispose() = ()
+        }
     else
         let i = push ct.Registrations callback - 1
-        New [
-            "System_IDisposable$Dispose" => fun () -> ct.Registrations.[i] <- ignore
-        ] : System.IDisposable
+        { new System.IDisposable with
+            member this.Dispose() = ct.Registrations.[i] <- ignore
+        }
 
 [<JavaScript>]
 type AsyncBody<'T> =
@@ -297,7 +297,7 @@ let Parallel (cs: seq<C<'T>>) : C<'T[]> =
     checkCancel <| fun c ->
         let n = Array.length cs
         let o = ref n
-        let a = Array.create n Unchecked.defaultof<_>
+        let a = As<'T[]>(JavaScript.Array(n))
         let accept i x =
             match !o, x with
             | 0, _     -> ()

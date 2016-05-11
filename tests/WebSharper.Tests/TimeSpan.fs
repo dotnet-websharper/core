@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -33,8 +33,8 @@ let Tests =
         let ss = TimeSpan(0, 14, 12, 15, 545)
 
         Test "Construction" {
-    //        let s = TimeSpan(123L)
-    //        s.Ticks =? 123L
+            let s = TimeSpan(123L)
+            equal s.Ticks 123L
             let s = TimeSpan(10, 11, 12)
             equal (s.Hours) 10
             equal (s.Minutes) 11
@@ -89,9 +89,9 @@ let Tests =
             equal (s.Milliseconds) 545
         }
 
-    //    Test "Ticks" {
-    //        equal (s.Ticks) 634063327325450000L
-    //    }
+        Test "Ticks" {
+            equal (s.Ticks) 634063327325450000L
+        }
 
         Test "TotalDays" {
             approxEqual (s.TotalDays) 733869.5918

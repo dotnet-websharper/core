@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -33,7 +33,7 @@ type ClassA<'U>() =
     member this.Y = 1
 
     abstract Z : 'U -> 'U
-    override this.Z x = Unchecked.defaultof<_> 
+    override this.Z x = JS.Undefined
 
 [<JavaScript>]
 type ClassB<'T, 'U>() =
@@ -87,7 +87,6 @@ let Tests =
             equal (ClassB().Z "hi") "hi"
         }
 
-        (* TODO
         Test "No implicit constructor" {
             let a = ClassC()
             equal a.x 1
@@ -97,5 +96,4 @@ let Tests =
             equal b.y 1
             equal ThenTest 1 
         }
-        *)
     }

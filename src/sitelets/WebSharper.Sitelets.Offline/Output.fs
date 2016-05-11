@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -88,8 +88,9 @@ let getMetadata conf =
     |> Seq.distinctBy (fun assemblyFile ->
         AssemblyName.GetAssemblyName(assemblyFile).Name)
     |> Seq.map loader.LoadFile
-    |> Seq.choose FrontEnd.readFromAssembly
-    |> WebSharper.Core.Metadata.union 
+    |> Seq.choose FrontEnd.ReadFromAssembly
+    |> List.ofSeq
+    |> WebSharper.Core.DependencyGraph.Graph.UnionOfMetadata
 
 /// Generates unique file names.
 [<Sealed>]

@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -21,7 +21,7 @@
 /// Implements JSON encoding and decoding for client-server interaction.
 module WebSharper.Core.Json
 
-module M  = WebSharper.Core.Metadata
+module M = WebSharper.Core.Metadata
 module Re = WebSharper.Core.Resources
 
 /// Represents JSON values.
@@ -177,6 +177,7 @@ module Internal =
         | Int of int
         | Float of float
         | String of string
+        | Null
 
     type UnionCaseEncoding =
         | Normal of name: string * args: (string * System.Type * UnionCaseArgFlag[])[]

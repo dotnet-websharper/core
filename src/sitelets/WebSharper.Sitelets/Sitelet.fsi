@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -118,3 +118,16 @@ module Sitelet =
     /// The actions covered by this sitelet correspond to the given union case.
     val InferPartialInUnion<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
         Expr<'T1 -> 'T2> -> (Context<'T2> -> 'T1 -> Async<Content<'T2>>) -> Sitelet<'T2>
+
+open System.Threading.Tasks
+
+type SiteletBuilder =
+
+    new : unit -> SiteletBuilder
+
+    member With<'T> : Func<Context<obj>, 'T, Task<Content<'T>>> -> SiteletBuilder
+        when 'T : equality
+
+    member With : string * Func<Context<obj>, Task<Content<obj>>> -> SiteletBuilder
+
+    member Install : unit -> Sitelet<obj>

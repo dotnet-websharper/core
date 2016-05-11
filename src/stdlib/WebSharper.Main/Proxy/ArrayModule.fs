@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -18,8 +18,8 @@
 //
 // $end{copyright}
 
-[<WebSharper.Core.Attributes.Name "Arrays">]
-[<WebSharper.Core.Attributes.Proxy
+[<WebSharper.Name "Arrays">]
+[<WebSharper.Proxy
     "Microsoft.FSharp.Collections.ArrayModule, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
@@ -89,11 +89,11 @@ let Copy (x: 'T []) = X<'T []>
 
 [<JavaScript>]
 [<Name "create">]
-let Create size value =
-    let r = Array.zeroCreate size
+let Create (size: int) value =
+    let r = JavaScript.Array(size)
     for i = 0 to size - 1 do
         r.[i] <- value
-    r
+    r.Self
 
 [<Inline "[]">]
 let Empty () = X<'T []>
@@ -196,13 +196,13 @@ let Item index (arr: _ []) =
 
 [<JavaScript>]
 [<Name "init">]
-let Initialize size f =
+let Initialize (size: int) f =
     if size < 0 then
         failwith "Negative size given."
-    let r = Array.zeroCreate size
+    let r = JavaScript.Array(size)
     for i = 0 to size - 1 do
         r.[i] <- f i
-    r
+    r.Self
 
 [<Inline "$arr.length == 0">]
 let IsEmpty (arr: _ []) = X<bool>
@@ -239,36 +239,36 @@ let Length<'T> (arr: 'T []) = X<int>
 [<JavaScript>]
 [<Name "map">]
 let Map<'T1,'T2> (f: 'T1 -> 'T2) (arr: 'T1 []) : 'T2 [] =
-    let r = Array.zeroCreate<'T2>(Array.length arr)
+    let r = JavaScript.Array<'T2>(Array.length arr)
     for i = 0 to Array.length arr - 1 do
         r.[i] <- f arr.[i]
-    r
+    r.Self
 
 [<JavaScript>]
 [<Name "map2">]
 let Map2 (f: 'T1 -> 'T2 -> 'T3) (arr1: 'T1 []) (arr2: 'T2 []) : 'T3 [] =
     checkLength arr1 arr2
-    let r = Array.zeroCreate<'T3>(Array.length arr2)
+    let r = JavaScript.Array<'T3>(Array.length arr2)
     for i = 0 to Array.length arr2 - 1 do
         r.[i] <- f arr1.[i] arr2.[i]
-    r
+    r.Self
 
 [<JavaScript>]
 [<Name "mapi">]
 let MapIndexed f (arr: _ []) =
-    let y = Array.zeroCreate(Array.length arr)
+    let y = JavaScript.Array(Array.length arr)
     for i = 0 to Array.length arr - 1 do
         y.[i] <- f i arr.[i]
-    y
+    y.Self
 
 [<JavaScript>]
 [<Name "mapi2">]
 let MapIndexed2 f (arr1: 'T1 []) (arr2: 'T2 []): 'U[] =
     checkLength arr1 arr2
-    let res = Array.zeroCreate(Array.length arr1)
+    let res = JavaScript.Array(Array.length arr1)
     for i = 0 to Array.length arr1 - 1 do
         res.[i] <- f i arr1.[i] arr2.[i]
-    res
+    res.Self
 
 [<JavaScript>]
 [<Inline>]
@@ -324,10 +324,10 @@ let Partition f (arr: 'T []) : 'T [] * 'T [] =
 [<JavaScript>]
 [<Name "permute">]
 let Permute f (arr: 'T []) =
-    let ret = Array.zeroCreate (Array.length arr)
+    let ret = JavaScript.Array(Array.length arr)
     for i = 0 to Array.length arr - 1 do
         ret.[f i] <- arr.[i]
-    ret
+    ret.Self
 
 [<JavaScript>]
 [<Name "pick">]
@@ -367,21 +367,21 @@ let Reverse (x: 'T []) = X<'T []>
 [<JavaScript>]
 [<Name "scan">]
 let Scan<'T,'S> (f: 'S -> 'T -> 'S) (zero: 'S) (arr: 'T []) : 'S [] =
-    let ret = Array.zeroCreate (1 + Array.length arr)
+    let ret = JavaScript.Array(1 + Array.length arr)
     ret.[0] <- zero
     for i = 0 to Array.length arr - 1 do
         ret.[i + 1] <- f ret.[i] arr.[i]
-    ret
+    ret.Self
 
 [<JavaScript>]
 [<Name "scanBack">]
 let ScanBack (f: 'T -> 'S -> 'S) (arr: 'T []) (zero: 'S) : 'S [] =
     let len = Array.length arr
-    let ret = Array.zeroCreate (1 + len)
+    let ret = JavaScript.Array(1 + len)
     ret.[len] <- zero
     for i = 0 to len - 1 do
         ret.[len - i - 1] <- f arr.[len - i - 1] ret.[len - i]
-    ret
+    ret.Self
 
 [<Inline>]
 [<JavaScript>]
@@ -535,9 +535,10 @@ let Unzip3<'T1,'T2,'T3> (arr: ('T1 * 'T2 * 'T3) []) =
             push z c
     (x, y, z)
 
-[<Inline "Array($size)">]
+[<Inline>]
 [<Name "zeroCreate">]
-let ZeroCreate (size: int) = X<'T []>
+let ZeroCreate<'T> (size: int) =
+    Create size Unchecked.defaultof<'T>
 
 [<JavaScript>]
 [<Name "zip">]

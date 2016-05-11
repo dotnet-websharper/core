@@ -23,7 +23,7 @@ open System.Reflection
 module Implemetnation =
 
     let isCompatible (ref: AssemblyName) (def: AssemblyName) =
-        ref.Name = def.Name && (ref.Version = null || ref.Version = def.Version)
+        ref.Name = def.Name && (ref.Version = null || def.Version = null || ref.Version = def.Version)
 
     let tryFindAssembly (dom: AppDomain) (name: AssemblyName) =
         dom.GetAssemblies()
@@ -128,7 +128,6 @@ module Implemetnation =
     let inline ( ++ ) a b = combine a b
 
 /// An utility for resolving assemblies from non-standard contexts.
-/// TODO: this probably belongs in Core.
 [<Sealed>]
 type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution) =
 

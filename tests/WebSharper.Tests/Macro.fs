@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -27,43 +27,47 @@ module S = WebSharper.Core.JavaScript.Syntax
 [<Sealed>]
 type HelloQuotationGenerator() =
     inherit Generator()
-    override this.Generate (_,_) =
+    override this.Generate _ =
         <@@ fun w -> "Hello " + w + "!" @@>
         |> GeneratedQuotation
 
 [<Sealed>]
 type HelloASTGenerator() =
     inherit Generator()
-    override this.Generate (_,_) =
+    override this.Generate _ =
         let w = Id.New "w"
         let (+) a b = Binary(a, BinaryOperator.``+``, b)
         Lambda ([w], !~(String "Hello ") + Var w + !~(String "!"))
         |> GeneratedAST
 
-//[<Sealed>]
-//type HelloJSGenerator() =
-//    inherit Generator()
-//    member this.Body =
-//        S.Lambda (None, ["w"], [ S.Action (S.Return (Some (!~(S.String "Hello ") + S.Var "w" + !~(S.String "!")))) ])
-//        |> GeneratedJavaScript
+[<Sealed>]
+type HelloJSGenerator() =
+    inherit Generator()
+    override this.Generate _ =
+        S.Lambda (None, ["w"], [ S.Action (S.Return (Some (!~(S.String "Hello ") + S.Var "w" + !~(S.String "!")))) ])
+        |> GeneratedJavaScript
 
-//module Q = WebSharper.Core.Quotations
+[<Sealed>]
+type HelloStringGenerator() =
+    inherit Generator()
+    override this.Generate _ =
+        GeneratedString "function(w) { return  'Hello ' + w + '!'; }"
 
 [<Sealed>]
 type NameOfMacro() =
     inherit Macro()
-    override this.TranslateCall(_, _, c, _, _) =
-        match c.Generics with
+    override this.TranslateCall(c) =
+        match c.Method.Generics with
         | [t] -> !~(String t.TypeDefinition.Value.FullName) |> MacroOk
         | _ -> MacroError "NameOfMacro error"
 
 [<Sealed>]
 type AddMacro() =
     inherit Macro()
-    override this.TranslateCall(_, _, _, args, _) =
-        match args with
+    override this.TranslateCall(c) =
+        match c.Arguments with
         | [a; b] ->
-            match ignoreExprSourcePos a, ignoreExprSourcePos b with
+            match IgnoreExprSourcePos a, IgnoreExprSourcePos b with
             | Value (Int ai), Value (Int bi) ->
                 !~ (Int64 (int64 (ai + bi))) |> MacroOk
             | _ -> MacroFallback
@@ -81,8 +85,11 @@ module Macro =
     [<Generated(typeof<HelloASTGenerator>)>]
     let helloAST (w: string) = X<string>
 
-//    [<Generated(typeof<HelloJSGenerator>)>]
-//    let helloJS (w: string) = X<string>
+    [<Generated(typeof<HelloJSGenerator>)>]
+    let helloJS (w: string) = X<string>
+
+    [<Generated(typeof<HelloStringGenerator>)>]
+    let helloString (w: string) = X<string>
 
     [<Macro(typeof<NameOfMacro>)>]
     let nameof<'a> = X<string>
@@ -96,7 +103,8 @@ module Macro =
             Test "Generated" {
                 equal (helloQuotation "world") "Hello world!"
                 equal (helloAST "world") "Hello world!"
-//                equal (helloJS "world") "Hello world!"    
+                equal (helloJS "world") "Hello world!"    
+                equal (helloString "world") "Hello world!"    
             }
 
             Test "Macro" {

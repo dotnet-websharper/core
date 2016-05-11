@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -59,3 +59,11 @@ module HtmlCommand =
 
     /// The command instance.
     val Instance : Commands.ICommand<Config>
+
+    /// The implementation of the command is deferred until
+    /// the Sitelts assembly, this interface works as plumbing for
+    /// the forward-declaration.
+    type IHtmlCommand =
+
+        /// Executes the command.
+        abstract Execute : Commands.Environment * Config -> Commands.Result

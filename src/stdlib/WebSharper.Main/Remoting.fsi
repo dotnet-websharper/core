@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -78,9 +78,7 @@ type IRemotingProvider =
 /// Implements remote method calls via AJAX.
 [<Sealed>]
 type AjaxRemotingProvider =
-    static member Sync : string -> obj[] -> obj
-    static member Async : string -> obj[] -> Async<obj>
-    static member Send : string -> obj[] -> unit
+    interface IRemotingProvider
 
 val private ajax : bool -> Url -> Headers -> Data -> (Data -> unit) ->
     (exn -> unit) -> (unit -> unit) -> unit

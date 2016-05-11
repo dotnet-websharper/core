@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -21,19 +21,18 @@
 namespace WebSharper.Web
 
 open WebSharper
+open WebSharper.Core
 
 module M = WebSharper.Core.Metadata
 module R = WebSharper.Core.AST.Reflection
 //module P = WebSharper.Core.JavaScript.Packager
 
-open WebSharper.Core
-
 /// A server-side control that adds a runtime dependency on a given resource.
 type Require (t: System.Type) =
     inherit System.Web.UI.Control()
 
-    let t = WebSharper.Core.Reflection.TypeDefinition.FromType t
-    let req = [WebSharper.Core.Metadata.ResourceNode t]
+    let t = AST.Reflection.ReadTypeDefinition t
+    let req = [M.ResourceNode t]
 
     interface INode with
         member this.Write(_, _) = ()
@@ -94,7 +93,7 @@ type Control() =
             let t = this.GetType()
             let t = if t.IsGenericType then t.GetGenericTypeDefinition() else t
             let m = t.GetProperty("Body").GetGetMethod()
-            [M.MethodNode (R.getTypeDefinition t, WebSharper.Core.Utilities.Hashed (R.getMethod m))] :> seq<_>
+            [M.MethodNode (R.ReadTypeDefinition t, R.ReadMethod m)] :> seq<_>
 
         member this.Encode(meta, json) =
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
@@ -131,7 +130,7 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                 | _ -> None)
         defaultArg l "(no location)"
 
-    static let ctrlReq = M.TypeNode (R.getTypeDefinition typeof<InlineControl<IControlBody>>)
+    static let ctrlReq = M.TypeNode (R.ReadTypeDefinition typeof<InlineControl<IControlBody>>)
 
     [<System.NonSerialized>]
     let bodyAndReqs =
@@ -142,25 +141,21 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                 | e -> e
             match elt with
             | PropertyGet(None, p, args) ->
-                //let rp = R.Property.Parse p
                 let m = p.GetGetMethod()
-                let dt = R.getTypeDefinition p.DeclaringType
-                let meth = Hashed (R.getMethod m)
+                let dt = R.ReadTypeDefinition p.DeclaringType
+                let meth = R.ReadMethod m
                 dt, meth, args, [M.MethodNode (dt, meth)]
-//                rp.DeclaringType, rp.Name, args, [M.TypeNode rp.DeclaringType]
             | Call(None, m, args) ->
-//                let rm = R.Method.Parse m
-                let dt = R.getTypeDefinition m.DeclaringType
-                let meth = Hashed (R.getMethod m)
+                let dt = R.ReadTypeDefinition m.DeclaringType
+                let meth = R.ReadMethod m
                 dt, meth, args, [M.MethodNode (dt, meth)]
-//                rm.DeclaringType, rm.Name, args, [M.MethodNode rm; M.TypeNode rm.DeclaringType]
             | e -> failwithf "Wrong format for InlineControl at %s: expected global value or function access, got: %A" (getLocation()) e
         let args, argReqs =
             args
             |> List.mapi (fun i -> function
                 | Value (v, t) ->
                     let v = match v with null -> WebSharper.Core.Json.Internal.MakeTypedNull t | _ -> v
-                    v, M.TypeNode (R.getTypeDefinition t)
+                    v, M.TypeNode (R.ReadTypeDefinition t)
                 | _ -> failwithf "Wrong format for InlineControl at %s: argument #%i is not a literal or a local variable" (getLocation()) (i+1)
             )
             |> List.unzip
@@ -186,42 +181,13 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                     match cls.Methods.TryFind meth with
                     | Some (M.Static a, _) ->
                         funcName <- Array.ofList (List.rev a.Value)
+                    | Some _ -> failwithf "Error in InlineControl at %s: Method must be static and not inlined" (getLocation()) 
                     | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
         member this.Requires =
             let _, _, reqs = snd bodyAndReqs
             reqs
-
-//                    let rec mk acc (a: P.Address) =
-//                        let acc = a.LocalName :: acc
-//                        match a.Parent with
-//                        | None -> Array.ofList acc
-//                        | Some p -> mk acc p
-//                    funcName <- mk [name] a
-//            [this.ID, json.GetEncoder(this.GetType()).Encode this]
-//        member this.Requires =
-//            let _, _, reqs = snd bodyAndReqs
-//            reqs
-
-//    interface IRequiresResources with
-//        member this.Encode(meta, json) =
-//            if funcName.Length = 0 then
-//                match meta.Classes.TryFind declType with
-//                | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
-//                | Some cls ->
-//                    match cls.Methods.TryFind meth with
-//                    | Some (M.Static a, _) ->
-//                        funcName <- Array.ofList (List.rev a.Value)
-//                | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
-//                | Some a ->
-//                    let rec mk acc (a: P.Address) =
-//                        let acc = a.LocalName :: acc
-//                        match a.Parent with
-//                        | None -> Array.ofList acc
-//                        | Some p -> mk acc p
-//                    funcName <- mk [name] a
-//            reqs
 
 namespace WebSharper
 

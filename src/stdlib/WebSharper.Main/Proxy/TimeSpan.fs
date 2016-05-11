@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -27,6 +27,9 @@ type private TimeSpanProxy =
 
     [<Inline "0">]
     new () = {}
+
+    [<Inline "$ticks / 1E4">]
+    new (ticks: int64) = {}
 
     [<Inline "(($h * 60 + $m) * 60 + $s) * 1E3">]
     new (h: int, m: int, s: int) = {}

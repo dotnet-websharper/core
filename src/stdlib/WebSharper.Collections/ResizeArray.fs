@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -29,7 +29,7 @@ let push (arr: 'T []) (x: 'T) = ()
 [<Direct "Array.prototype.splice.apply($arr, [$index, $howMany].concat($items))">]
 let splice (arr: 'T []) (index: int) (howMany: int) (items: 'T[]) : 'T [] = items
 
-[<WebSharper.Pervasives.ProxyAttribute(typeof<System.Collections.Generic.List<_>>)>]
+[<Proxy(typeof<System.Collections.Generic.List<_>>)>]
 type ResizeArrayProxy<'T> [<JavaScript>] (arr: 'T []) =
 
     [<JavaScript>]
@@ -47,6 +47,10 @@ type ResizeArrayProxy<'T> [<JavaScript>] (arr: 'T []) =
     [<JavaScript>]
     member this.GetEnumerator() =
         (As<seq<obj>> arr).GetEnumerator()
+
+    interface 'T seq with
+        member this.GetEnumerator() = (As<System.Collections.IEnumerable> arr).GetEnumerator()
+        member this.GetEnumerator() = (As<seq<'T>> arr).GetEnumerator()
 
     [<JavaScript>]
     member this.Add(x: 'T) : unit =

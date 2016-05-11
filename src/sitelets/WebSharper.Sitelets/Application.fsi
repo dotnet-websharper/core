@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -18,18 +18,31 @@
 //
 // $end{copyright}
 
-module WebSharper.Application
-
-open WebSharper.Sitelets
-
-/// Create a multi-page application.
-val MultiPage : (Context<'EndPoint> -> 'EndPoint -> Async<Content<'EndPoint>>) -> Sitelet<'EndPoint>
+namespace WebSharper
 
 module SPA =
     type EndPoint
 
-/// Create a single-page HTML application.
-val SinglePage : (Context<SPA.EndPoint> -> Async<Content<SPA.EndPoint>>) -> Sitelet<SPA.EndPoint>
+namespace WebSharper
 
-/// Create a single-page application that returns text.
-val Text : (Context<SPA.EndPoint> -> string) -> Sitelet<SPA.EndPoint>
+open System
+open System.Runtime.CompilerServices
+open System.Threading.Tasks
+open WebSharper.Sitelets
+
+[<Class>]
+type Application =
+    /// Create a multi-page application.
+    static member MultiPage : (Context<'EndPoint> -> 'EndPoint -> Async<Content<'EndPoint>>) -> Sitelet<'EndPoint>
+
+    /// Create a single-page HTML application.
+    static member SinglePage : (Context<SPA.EndPoint> -> Async<Content<SPA.EndPoint>>) -> Sitelet<SPA.EndPoint>
+
+    /// Create a single-page application that returns text.
+    static member Text : (Context<SPA.EndPoint> -> string) -> Sitelet<SPA.EndPoint>
+
+    /// Create a multi-page application.
+    static member MultiPage : Func<Context<'EndPoint>, 'EndPoint, Task<Content<'EndPoint>>> -> Sitelet<'EndPoint>
+
+    /// Create a single-page HTML application.
+    static member SinglePage : Func<Context<SPA.EndPoint>, Task<Content<SPA.EndPoint>>> -> Sitelet<SPA.EndPoint>

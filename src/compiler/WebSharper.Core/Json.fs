@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -20,12 +20,12 @@
 
 module WebSharper.Core.Json
 
+open WebSharper
 open System.Collections.Generic
 open System.Reflection
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 
-module A = WebSharper.Core.Attributes
 //module P = WebSharper.Core.JavaScript.Packager
 //module AST = WebSharper.Core.AST
 module Re = WebSharper.Core.Resources
@@ -93,48 +93,76 @@ let readNumber (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
     w.Remove(0, w.Length) |> ignore
     Number text
 
-let readString (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
+let readStartedString (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
     let c (x: char) = w.Append x |> ignore
     let read () = tr.Read()
     let peek () = tr.Peek()
     let skip () = tr.Read() |> ignore
-    match read () with
+    let rec loop () =
+        match read() with
+        | 34 -> ()
+        | -1 -> raise ReadException
+        | 92 ->
+            match read () with
+            | 34 -> c '"'
+            | 92 -> c '\\'
+            | 47 -> c '/'
+            | 98 -> c '\b'
+            | 102 -> c '\f'
+            | 110 -> c '\n'
+            | 114 -> c '\r'
+            | 116 -> c '\t'
+            | 117 ->
+                let hex () =
+                    match read () with
+                    | n when n >= 97 && n <= 102 ->
+                        n - 97 + 10
+                    | n when n >= 65 && n <= 70 ->
+                        n - 65 + 10
+                    | n when n >= 48 && n <= 57 ->
+                        n - 48
+                    | _ ->
+                        raise ReadException
+                let inline ( * ) a b = (a <<< 4) + b
+                c (char (hex () * hex () * hex () * hex ()))
+            | _ ->
+                raise ReadException
+            loop ()
+        | x ->
+            let x = char x
+            c x
+            loop ()
+    loop ()
+    let text = w.ToString()
+    w.Remove(0, w.Length) |> ignore
+    text
+
+let readString w (tr: System.IO.TextReader) =
+    match tr.Read() with
     | 34 ->
-        let rec loop () =
-            match read() with
-            | 34 -> ()
-            | -1 -> raise ReadException
-            | 92 ->
-                match read () with
-                | 34 -> c '"'
-                | 92 -> c '\\'
-                | 47 -> c '/'
-                | 98 -> c '\b'
-                | 102 -> c '\f'
-                | 110 -> c '\n'
-                | 114 -> c '\r'
-                | 116 -> c '\t'
-                | 117 ->
-                    let hex () =
-                        match read () with
-                        | n when n >= 97 && n <= 102 ->
-                            n - 97 + 10
-                        | n when n >= 65 && n <= 70 ->
-                            n - 65 + 10
-                        | n when n >= 48 && n <= 57 ->
-                            n - 48
-                        | _ ->
-                            raise ReadException
-                    let inline ( * ) a b = (a <<< 4) + b
-                    c (char (hex () * hex () * hex () * hex ()))
-                | _ ->
-                    raise ReadException
-                loop ()
-            | x ->
-                let x = char x
-                c x
-                loop ()
-        loop ()
+        readStartedString w tr
+    | _ ->
+        raise ReadException
+
+let readIdent (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
+    let c (x: char) = w.Append x |> ignore
+    let read () = tr.Read()
+    let peek () = tr.Peek()
+    let skip () = tr.Read() |> ignore
+    let isStartChar chr =
+        (65 <= chr && chr <= 90)
+        || (97 <= chr && chr <= 122)
+        || chr = 95
+        || chr = 36
+    let isContChar chr =
+        isStartChar chr
+        || (48 <= chr && chr <= 57)
+    match read () with
+    | 34 -> readStartedString w tr
+    | chr when isStartChar chr ->
+        c (char chr)
+        while (isContChar (peek ())) do
+            c (read () |> char)
         let text = w.ToString()
         w.Remove(0, w.Length) |> ignore
         text
@@ -199,7 +227,7 @@ let rec readJson (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
             Object []
         | _ ->
             let readPair () =
-                let n = readString w tr
+                let n = readIdent w tr
                 readSpace tr
                 if not (read() = 58) then
                     raise ReadException
@@ -407,7 +435,7 @@ and TAttrs =
         let customName =
             (^T : (member GetCustomAttributesData : unit -> IList<CustomAttributeData>) (mi))
             |> Seq.tryPick (fun cad ->
-                if cad.Constructor.DeclaringType = typeof<A.NameAttribute> ||
+                if cad.Constructor.DeclaringType = typeof<NameAttribute> ||
                     cad.Constructor.DeclaringType = typeof<CompiledNameAttribute> then
                     Some (cad.ConstructorArguments.[0].Value :?> string)
                 else None)
@@ -428,7 +456,7 @@ and TAttrs =
             t.GetGenericTypeDefinition() = typedefof<option<_>> &&
             (i.ConciseRepresentation ||
                 (mcad |> Seq.exists (fun t ->
-                    t.Constructor.DeclaringType = typeof<A.OptionalFieldAttribute>)))
+                    t.Constructor.DeclaringType = typeof<OptionalFieldAttribute>)))
         let isNullableUnion =
             i.ConciseRepresentation &&
             FST.IsUnion(t, flags) &&
@@ -438,7 +466,7 @@ and TAttrs =
                 flags &&& CompilationRepresentationFlags.UseNullAsTrueValue <> enum 0)
         let dateTimeFormat =
             mcad |> Seq.tryPick (fun cad ->
-                if cad.Constructor.DeclaringType = typeof<A.DateTimeFormatAttribute> &&
+                if cad.Constructor.DeclaringType = typeof<DateTimeFormatAttribute> &&
                    cad.ConstructorArguments.Count = 1 then
                     Some (cad.ConstructorArguments.[0].Value :?> string)
                 else None)
@@ -447,7 +475,7 @@ and TAttrs =
             | Some f -> Some f
             | None ->
                 ucad |> Seq.tryPick (fun cad ->
-                    if cad.Constructor.DeclaringType = typeof<A.DateTimeFormatAttribute> &&
+                    if cad.Constructor.DeclaringType = typeof<DateTimeFormatAttribute> &&
                        cad.ConstructorArguments.Count = 2 &&
                        mi.IsSome &&
                        cad.ConstructorArguments.[0].Value :?> string = mi.Value.Name then
@@ -699,7 +727,7 @@ let isInlinableRecordCase (uci: Reflection.UnionCaseInfo) =
 let getDiscriminatorName (t: System.Type) =
     t.GetCustomAttributesData()
     |> Seq.tryPick (fun cad ->
-        if cad.Constructor.DeclaringType = typeof<A.NamedUnionCasesAttribute> then
+        if cad.Constructor.DeclaringType = typeof<NamedUnionCasesAttribute> then
             if cad.ConstructorArguments.Count = 1 then
                 Some (Some (cad.ConstructorArguments.[0].Value :?> string))
             else Some None
@@ -770,6 +798,7 @@ module Internal =
         | Int of int
         | Float of float
         | String of string
+        | Null
 
     type UnionCaseEncoding =
         | Normal of name: string * args: (string * System.Type * UnionCaseArgFlag[])[]
@@ -777,9 +806,18 @@ module Internal =
         | Constant of value: UnionCaseConstantEncoding
 
     let getUnionCaseConstantEncoding (uci: Reflection.UnionCaseInfo) =
+        let isNull = 
+            uci.DeclaringType.GetCustomAttributesData()
+            |> Seq.exists (fun a ->
+                a.Constructor.DeclaringType = typeof<CompilationRepresentationAttribute>
+                && obj.Equals(a.ConstructorArguments.[0].Value, CompilationRepresentationFlags.UseNullAsTrueValue)
+            )
+            && (FST.GetUnionCases uci.DeclaringType).Length < 4
+            && (FST.GetUnionCases uci.DeclaringType |> Seq.tryFind (fun c -> c.GetFields().Length = 0) = Some uci) 
+        if isNull then Some UnionCaseConstantEncoding.Null else
         uci.GetCustomAttributesData()
         |> Seq.tryPick (fun cad ->
-            if cad.Constructor.DeclaringType = typeof<A.ConstantAttribute> then
+            if cad.Constructor.DeclaringType = typeof<ConstantAttribute> then
                 let arg = cad.ConstructorArguments.[0]
                 if arg.ArgumentType = typeof<int> then
                     UnionCaseConstantEncoding.Int (unbox arg.Value)
@@ -816,7 +854,7 @@ module Internal =
                             uci.GetCustomAttributesData()
                             |> Array.ofSeq
                             |> Array.choose (fun cad ->
-                                if cad.Constructor.DeclaringType = typeof<A.DateTimeFormatAttribute> &&
+                                if cad.Constructor.DeclaringType = typeof<DateTimeFormatAttribute> &&
                                     cad.ConstructorArguments.Count = 2 then
                                     let args = cad.ConstructorArguments
                                     Some (args.[0].Value :?> string, args.[1].Value :?> string)
@@ -863,6 +901,7 @@ let unionEncoder dE (i: FormatSettings) (ta: TAttrs) =
             | Some (UnionCaseConstantEncoding.Float f) -> Choice1Of2 (EncodedNumber (string f))
             | Some (UnionCaseConstantEncoding.Bool b) -> Choice1Of2 (if b then EncodedTrue else EncodedFalse)
             | Some (UnionCaseConstantEncoding.String s) -> Choice1Of2 (EncodedString s)
+            | Some UnionCaseConstantEncoding.Null -> Choice1Of2 EncodedNull
             | None ->
                 let r = FSV.PreComputeUnionReader(c, flags)
                 let fields = c.GetFields()
@@ -879,11 +918,10 @@ let unionEncoder dE (i: FormatSettings) (ta: TAttrs) =
                 Choice2Of2 (r, fs))
     let encodeTag = i.EncodeUnionTag t
     let addTag = i.AddTag t
-    let nullValue = EncodedObject (Option.toList (encodeTag 0)) |> addTag
-    if isTypedNull then fun _ -> nullValue else
+    if isTypedNull then fun _ -> EncodedNull else
     fun (x: obj) ->
         match x with
-        | null -> nullValue
+        | null -> EncodedNull
         | o when t.IsAssignableFrom(o.GetType()) ->
             let tag = tR o
             match cs.[tag] with
@@ -948,6 +986,7 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
                     | UnionCaseConstantEncoding.Float f -> (Number (string f), mk())
                     | UnionCaseConstantEncoding.Bool b -> ((if b then True else False), mk())
                     | UnionCaseConstantEncoding.String s -> (String s, mk())
+                    | UnionCaseConstantEncoding.Null -> (Null, null)
                 )
             )
         let consts = Dictionary()
@@ -967,6 +1006,7 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
             fs
             |> Array.map (fun (f, e) -> e (get f))
             |> mk
+        | Null -> null
         | v ->
             match consts.TryGetValue v with
             | true, x -> x
@@ -1419,7 +1459,7 @@ let defaultEncodeUnionTag _ (tag: int) =
 module TypedProviderInternals =
 
     let addTag (i: M.Info) (t: System.Type) =
-        let mt = AST.Reflection.getTypeDefinition t
+        let mt = AST.Reflection.ReadTypeDefinition t
         match i.Classes.TryFind mt with
         | Some { Address = Some a } ->
             function
@@ -1450,6 +1490,7 @@ module TypedProviderInternals =
         let data = pk encoded
         let rec encA acc x =
             match x with
+            | [] -> failwith "types array must not be empty"
             | [x] -> Array (String x :: acc)
             | y :: x -> encA (String y :: acc) x
         let types =
@@ -1465,7 +1506,7 @@ module TypedProviderInternals =
         {
             AddTag = addTag info
             GetEncodedFieldName = fun t f ->
-                match (M.lookupFieldM info (AST.Reflection.getTypeDefinition t) f) with
+                match (M.Utilities.lookupField info (AST.Reflection.ReadTypeDefinition t) f) with
                 | M.InstanceField n
                 | M.OptionalField n -> n
                 | _ -> failwith "field must be an instance field"

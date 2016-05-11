@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -140,16 +140,16 @@ let Tests =
             equal (Option.toObj (Some o)) o
         }
 
-//        Test "Option.ofNullable" {
-//            equal (Option.ofNullable (System.Nullable())) None
-//            let o = System.Nullable(3)
-//            equal (Option.ofNullable o) (Some 3)
-//        }
-//
-//        Test "Option.toNullable" {
-//            jsEqual (Option.toNullable None) (System.Nullable())
-//            equal (Option.toNullable (Some 3)) (System.Nullable(3))
-//        }
+        Test "Option.ofNullable" {
+            equal (Option.ofNullable (System.Nullable())) None
+            let o = System.Nullable(3)
+            equal (Option.ofNullable o) (Some 3)
+        }
+
+        Test "Option.toNullable" {
+            jsEqual (Option.toNullable None) (System.Nullable())
+            equal (Option.toNullable (Some 3)) (System.Nullable(3))
+        }
 
         Test "Option.filter" {
             equal (Option.filter (fun _ -> true) None) None

@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -81,6 +81,17 @@ let Tests =
             d.Add(f1,1)
             isTrue (d.ContainsKey f1)
             isFalse (d.ContainsKey f2)
+        }
+
+        Test "TryGetValue" {
+            let d = Dictionary ()
+            let foo = ""
+            let f1 = {Foo = "1"}
+            let f2 = {Foo = "2"}
+            let f3 = f1
+            d.Add(f1,1)
+            equal (d.TryGetValue f1) (true, 1)
+            isFalse (d.TryGetValue f2 |> fst)
         }
 
         Test "GetEnumerator" {

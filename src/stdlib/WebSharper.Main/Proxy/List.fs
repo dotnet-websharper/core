@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -24,41 +24,40 @@ open WebSharper.JavaScript
 
 [<Name "WebSharper.List.T">]
 [<Proxy(typeof<list<_>>)>]
+[<DefaultAugmentation(false)>]
 type private ListProxy<'T> =
-    | [<Name "Empty">] EmptyCase
-    | [<Name "Cons">]  ConsCase of 'T * List<'T>
+    | Empty
+    | Cons of 'T * List<'T>
 
     [<Name "Construct">]
-    [<JavaScript>]
     static member Cons(head: 'T, tail: list<'T>) = head :: tail
 
     [<Name "Nil">]
-    [<JavaScript>]
     static member Empty : list<'T> = []
 
     member this.Head    with [<Inline "$this.$0">] get ()     = X<'T>
     member this.Tail    with [<Inline "$this.$1">] get ()     = X<list<'T>>
     member this.IsEmpty with [<Inline "$this.$ == 0">] get () = X<bool>
 
-    [<JavaScript>]
     member this.Length with get () = Seq.length (As this)
 
-    [<JavaScript>]
     member this.Item with get (x: int) : 'T = Seq.nth x (As this)
 
-    [<JavaScript>]
-    member this.GetEnumerator() =
-        let data = As<list<'T>> this
-        Enumerator.New data (fun e ->
-            match e.State with
-            | x :: xs ->
-                e.Current <- x
-                e.State <- xs
-                true
-            | [] ->
-                false)
+    interface System.Collections.IEnumerable with
+        member this.GetEnumerator() = (this :> _ seq).GetEnumerator() :> _
 
-    [<JavaScript>]
+    interface seq<'T> with
+        member this.GetEnumerator() =
+            let data = As<list<'T>> this
+            Enumerator.New data (fun e ->
+                match e.State with
+                | x :: xs ->
+                    e.Current <- x
+                    e.State <- xs
+                    true
+                | [] ->
+                    false)
+
     member this.GetSlice(start, finish) : list<'T> =
         match start, finish with
         | None, None -> As this

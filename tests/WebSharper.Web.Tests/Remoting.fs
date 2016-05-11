@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -252,7 +252,8 @@ module Server =
         new System.String(Array.rev (x.ToCharArray()))
         |> async.Return
 
-    type IHandler =
+    [<AbstractClass>]
+    type Handler() =
 
         [<Remote>]
         abstract member M1 : unit -> unit
@@ -269,34 +270,26 @@ module Server =
         [<Remote>]
         abstract member M5 : int -> int -> Async<int>
 
-    type Handler() =
-        interface IHandler with
+    type HandlerImpl() =
+        inherit Handler()
 
-            member this.M1() =
-                incr counterM1
+        override this.M1() =
+            incr counterM1
 
-            member this.M2() =
-                incr counterM2
-                async.Return ()
+        override this.M2() =
+            incr counterM2
+            async.Return ()
 
-            member this.M3 x =
-                async.Return (x + 1)
+        override this.M3 x =
+            async.Return (x + 1)
 
-            member this.M4 (a, b) =
-                async.Return (a + b)
+        override this.M4 (a, b) =
+            async.Return (a + b)
 
-            member this.M5 a b =
-                async.Return (a + b)
+        override this.M5 a b =
+            async.Return (a + b)
 
-    do
-        SetRpcHandlerFactory {
-            new IRpcHandlerFactory with
-                member this.Create t =
-                    if t = typeof<IHandler> then
-                        Some (Handler() :> obj)
-                    else
-                        None
-        }
+    do AddRpcHandler typeof<Handler> (HandlerImpl())
 
     [<Remote>]
     let count1 () = async.Return counter1.Value
@@ -445,31 +438,31 @@ module Remoting =
                 equalAsync (Server.GetLoggedInUser()) None
             }
 
-            // TODO : Remote interface methods
-//            Test "M1" {
-//                do! Server.resetM1()
-//                do Remote<Server.IHandler>.M1()
-//                do! Async.Sleep 200
-//                equalAsync (Server.countM1()) 244
-//            }
-//
-//            Test "M2" {
-//                do! Server.resetM2()
-//                do! Remote<Server.IHandler>.M2()
-//                equalAsync (Server.countM2()) 368
-//            }
-//
-//            Test "M3" {
-//                equalAsync (Remote<Server.IHandler>.M3 40) 41
-//            }
-//
-//            Test "M4" {
-//                equalAsync (Remote<Server.IHandler>.M4 (1, 2)) 3
-//            }
-//
-//            Test "M5" {
-//                equalAsync (Remote<Server.IHandler>.M5 3 6) 9
-//            }
+//             TODO : Remote interface methods
+            Test "M1" {
+                do! Server.resetM1()
+                do Remote<Server.Handler>.M1()
+                do! Async.Sleep 200
+                equalAsync (Server.countM1()) 244
+            }
+
+            Test "M2" {
+                do! Server.resetM2()
+                do! Remote<Server.Handler>.M2()
+                equalAsync (Server.countM2()) 368
+            }
+
+            Test "M3" {
+                equalAsync (Remote<Server.Handler>.M3 40) 41
+            }
+
+            Test "M4" {
+                equalAsync (Remote<Server.Handler>.M4 (1, 2)) 3
+            }
+
+            Test "M5" {
+                equalAsync (Remote<Server.Handler>.M5 3 6) 9
+            }
 
             Test "reverse" {
                 equalAsync (Server.reverse "abc#quit;;") ";;tiuq#cba"
@@ -484,9 +477,4 @@ module Remoting =
                 jsEqualAsync (Server.OptionToNullable None) (System.Nullable())
                 equalAsync (Server.OptionToNullable (Some 3)) (System.Nullable 3)
             }
-
-            Test "Task remoting" {
-                isTrueAsync (WebSharper.CSharp.Tests.Class1().RemotingTest() |> Async.AwaitTask)
-            }
-
         }

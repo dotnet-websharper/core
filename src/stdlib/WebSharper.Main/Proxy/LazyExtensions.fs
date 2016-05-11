@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -18,8 +18,8 @@
 //
 // $end{copyright}
 
-[<WebSharper.Core.Attributes.Name "Lazy">]
-[<WebSharper.Core.Attributes.Proxy
+[<WebSharper.Name "Lazy">]
+[<WebSharper.Proxy
     "Microsoft.FSharp.Control.LazyExtensions, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
@@ -31,7 +31,7 @@ open WebSharper.JavaScript
 let Create (f: unit -> 'T) : Lazy<'T> =
     let x =
         {
-            value    = Unchecked.defaultof<'T>
+            value    = JS.Undefined
             created  = false
             eval     = f
         }

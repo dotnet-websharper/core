@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -27,7 +27,11 @@ type private U = System.AttributeUsageAttribute
 
 /// Indicates the URL fragment parsed by this union case.
 /// Example: type Action = | [<EndPoint "/article">] GetArticle
-type EndPointAttribute = CompiledNameAttribute
+[<Sealed; U(T.Class ||| T.Property)>]
+type EndPointAttribute(endpoint: string) =
+    inherit A()
+
+    member this.EndPoint = endpoint
 
 /// Indicates that a union case in an action type must only be mapped
 /// for requests that use the given HTTP method(s).
@@ -38,7 +42,7 @@ type MethodAttribute([<ParamArray>] methodName: string[]) =
 
 /// Indicates that a field or a union case argument must be parsed
 /// from the request body as JSON, rather than from the URL path.
-[<Sealed; U(T.Property, AllowMultiple = false)>]
+[<Sealed; U(T.Property ||| T.Field, AllowMultiple = false)>]
 type JsonAttribute =
     inherit A
 
@@ -54,7 +58,7 @@ type JsonAttribute =
 /// Indicates that a field or union case argument must be parsed
 /// from the request's query parameters, rather than from the URL path.
 /// The value must be a primitive value, a DateTime, or an option thereof.
-[<Sealed; U(T.Property, AllowMultiple = true)>]
+[<Sealed; U(T.Property ||| T.Field, AllowMultiple = true)>]
 type QueryAttribute =
     inherit A
 
@@ -71,7 +75,7 @@ type QueryAttribute =
 /// from the request's body in form post syntax, ie. with the Content-Type
 /// being either application/x-www-form-urlencoded or multipart/form-data.
 /// The value must be a primitive value, a DateTime, or an option thereof.
-[<Sealed; U(T.Property, AllowMultiple = true)>]
+[<Sealed; U(T.Property ||| T.Field, AllowMultiple = true)>]
 type FormDataAttribute =
     inherit A
 
@@ -87,6 +91,6 @@ type FormDataAttribute =
 /// Indicates that the last field or union case argument parses all the remaining
 /// path segments into a list or an array.
 /// Example: type Action = | [<Wildcard>] MyAction of string * list<string>
-[<Sealed; U(T.Property ||| T.Class)>]
+[<Sealed; U(T.Property ||| T.Class ||| T.Field)>]
 type WildcardAttribute() =
     inherit A()

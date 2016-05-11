@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -35,11 +35,11 @@ type ReadOnlyCollectionProxy<'T> =
     [<Inline "$this.length">]
     member this.Count = X<int>
 
-    interface seq<'T> with
-        [<Inline>]
-        member this.GetEnumerator() = As<System.Collections.IEnumerator>(((As<'T[]> this) :> seq<'T>).GetEnumerator())
-        [<Inline>]
-        member this.GetEnumerator() = ((As<'T[]> this) :> seq<'T>).GetEnumerator()
+//    interface seq<'T> with
+//        [<Inline>]
+//        member this.GetEnumerator() = As<System.Collections.IEnumerator>(((As<'T[]> this) :> seq<'T>).GetEnumerator())
+//        [<Inline>]
+//        member this.GetEnumerator() = ((As<'T[]> this) :> seq<'T>).GetEnumerator()
 
 
     

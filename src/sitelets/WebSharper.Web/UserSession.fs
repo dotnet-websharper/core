@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -36,9 +36,11 @@ type IUserSession =
     /// Log out the current user.
     abstract Logout : unit -> Async<unit>
 
-[<AutoOpen>]
-module IUserSessionExtensions =
+open System.Runtime.CompilerServices
+open System.Runtime.InteropServices
 
+[<AutoOpen>]
+module FSharpIUserSessionExtension =
     type IUserSession with
         static member NotAvailable =
             { new IUserSession with
@@ -47,3 +49,27 @@ module IUserSessionExtensions =
                 member this.LoginUser(name, ?persistent) = async { return () }
                 member this.Logout() = async { return () }
             }
+
+[<Extension>]
+type IUserSessionExtensions =
+
+    [<Extension>]
+    static member GetLoggedInUserAsync(this: IUserSession) =
+        async { 
+            let! u = this.GetLoggedInUser() 
+            return
+                match u with
+                | Some u -> u
+                | None -> null
+        }
+        |> Async.StartAsTask
+
+    [<Extension>]
+    static member LoginUserAsync(this: IUserSession, name, [<Optional>] persistent) =
+        this.LoginUser(name, persistent) 
+        |> Async.StartAsTask :> System.Threading.Tasks.Task
+
+    [<Extension>]
+    static member LogoutAsync(this: IUserSession) =
+        this.Logout()
+        |> Async.StartAsTask :> System.Threading.Tasks.Task

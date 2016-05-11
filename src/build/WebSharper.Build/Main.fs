@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -98,6 +98,8 @@ module Main =
             tools "Mono.Cecil.Mdb"
             tools "Mono.Cecil.Pdb"
             tools "FSharp.Compiler.Service"
+            tools "System.Collections.Immutable"
+            tools "System.Reflection.Metadata"
         ] |> List.ofSeq
         ,
         Seq.concat [

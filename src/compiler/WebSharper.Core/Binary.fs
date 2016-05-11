@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -526,16 +526,16 @@ let getSpecializedEncoder (re: System.Type -> Encoder) (t: System.Type) =
     let d = t.GetGenericTypeDefinition()
     if d = typedefof<Hashed<_>> then
         Some (HashedEncoder<HashedProcessor<_>>(t, re) :> Encoder)
+    elif d = typedefof<Map<_,_>> then
+        Some (DictionaryEncoder<MapProcessor<_,_>>(t, re) :> _)
+    elif d = typedefof<Set<_>> then
+        Some (SequenceEncoder<SetProcessor<_>>(t, re) :> _)
     elif d.IsAssignableFrom(typedefof<IDictionary<_,_>>) then
         Some (DictionaryEncoder<DictionaryProcessor<_,_>>(t, re) :> Encoder)
     elif d.IsAssignableFrom(typedefof<ISet<_>>) then
         Some (SequenceEncoder<HashSetProcessor<_>>(t, re) :> _)
     elif d = typedefof<List<_>> then
         Some (SequenceEncoder<ListProcessor<_>>(t, re) :> _)
-    elif d = typedefof<Map<_,_>> then
-        Some (DictionaryEncoder<MapProcessor<_,_>>(t, re) :> _)
-    elif d = typedefof<Set<_>> then
-        Some (SequenceEncoder<SetProcessor<_>>(t, re) :> _)
     else None
 
 let getAlgebraicEncoder (re: System.Type -> Encoder) (t: System.Type) =
@@ -622,15 +622,17 @@ type InterningWriter(memory: System.IO.MemoryStream) =
 [<Sealed>]
 type Encoding(enc: Encoder) =
 
-    member this.Decode(stream: System.IO.Stream) : obj =
+    member this.Decode(stream: System.IO.Stream, ?version: string) : obj =
         let mode = System.IO.Compression.CompressionMode.Decompress
         use stream = new System.IO.Compression.GZipStream(stream, mode)
         use reader = new System.IO.BinaryReader(stream)
-#if DEBUG
-        let res =
-#else
         try
-#endif
+            match version with
+            | Some version ->
+                let ver = reader.ReadString()
+                if ver <> version then
+                    raise (EncodingException (sprintf "Binary format version mismatch, found '%s', expecting '%s'" ver version))    
+            | _ -> ()
             let aqn = enc.Type.AssemblyQualifiedName
             let s = reader.ReadString()
             if s <> aqn then
@@ -640,34 +642,26 @@ type Encoding(enc: Encoder) =
                 raise (EncodingException msg)
             use r = new InterningReader(stream, reader)
             enc.Decode r
-#if DEBUG
-        res
-#else
         with e ->
             let msg = System.String.Format("Failed to decode type: {0}", enc.Type)
-            raise (EncodingException(msg, e))
-#endif
+            raise (EncodingException(msg, e))        
 
-    member this.Encode(stream: System.IO.Stream)(value: obj) =
+    member this.Encode(stream: System.IO.Stream, value: obj, ?version: string) =
         let mode = System.IO.Compression.CompressionMode.Compress
         use stream = new System.IO.Compression.GZipStream(stream, mode)
         use memory = new System.IO.MemoryStream(8192)
         use writer = new System.IO.BinaryWriter(stream)
-#if DEBUG
-        do
-#else
         try
-#endif
+            match version with
+            | Some version -> writer.Write version
+            | _ -> ()
             writer.Write enc.Type.AssemblyQualifiedName
             use w = new InterningWriter(memory)
             enc.Encode(w, value)
             w.WriteTo stream writer
-#if DEBUG
-#else
         with e ->
             let msg = "Failed to encode: " + string value
             raise (EncodingException(msg, e))
-#endif
 
     member this.Type = enc.Type
 

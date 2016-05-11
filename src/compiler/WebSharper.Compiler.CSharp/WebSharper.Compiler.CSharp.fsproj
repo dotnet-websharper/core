@@ -6,7 +6,7 @@
     <Name>WebSharper.Compiler.CSharp</Name>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFrameworkProfile />
-	<FSharp40>True</FSharp40>
+    <FSharp40>True</FSharp40>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <ItemGroup>
@@ -37,9 +37,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="RoslynHelpers.fs" />
-    <Compile Include="ToCSharpAST.fs" />
+    <Compile Include="Scoping.fs" />
     <Compile Include="Continuation.fs" />
-    <Compile Include="Translator.fs" />
+    <Compile Include="CodeReader.fs" />
+    <Compile Include="ProjectReader.fs" />
     <Compile Include="Main.fs" />
     <None Include="genHelpers.fsx" />
   </ItemGroup>

@@ -41,8 +41,5 @@
       <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <Reference Include="IntelliFactory.Core">
-      <HintPath>..\..\..\packages\IntelliFactory.Core\lib\net40\IntelliFactory.Core.dll</HintPath>
-    </Reference>
   </ItemGroup>
 </Project>

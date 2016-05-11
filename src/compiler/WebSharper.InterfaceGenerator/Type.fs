@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -58,6 +58,7 @@ module Type =
         | InteropType of Type * InlineTransforms
         | NoInteropType of Type
         | FSFunctionType of Type * Type 
+        | DelegateType of list<Type> * option<Type>
         | ChoiceType of Type list
         | OptionType of Type
         | DefiningType
@@ -124,6 +125,7 @@ module Type =
             | InteropType (t, tr) -> InteropType (sub t, tr)
             | NoInteropType t -> NoInteropType (sub t)
             | FSFunctionType (a, r) -> FSFunctionType (sub a, sub r)
+            | DelegateType (a, r) -> DelegateType (a |> List.map sub, r)
             | ChoiceType ts -> ChoiceType (ts |> List.map sub)
             | OptionType t -> OptionType (sub t)
             | DefiningType -> toType 
@@ -381,7 +383,7 @@ module Type =
 
     type private Overload =
         | BasicOverload of Type
-        | FunctionOverload of list<Type> * option<Type>
+        | FunctionOverload of list<Type>
 
     let private (|SysObj|_|) (t: R.Type) =
         if t.FullName = "System.Object" then Some () else None   
@@ -483,6 +485,8 @@ module Type =
             | NoInteropType t -> t
             | FSFunctionType (a, r) ->
                 FSFunctionType (withoutInterop a, withoutInterop r)   
+            | DelegateType (a, r) ->
+                DelegateType (List.map withoutInterop a, Option.map withoutInterop r)   
             | ChoiceType ts ->
                 ChoiceType (List.map withoutInterop ts)
             | OptionType t ->
@@ -491,7 +495,13 @@ module Type =
         let key t = 
             match withoutInterop t with
             | FunctionType f ->
-                FunctionOverload (List.map snd f.Parameters, f.ParamArray)
+                FunctionOverload [
+                    for _, p in f.Parameters -> p
+                    match f.ParamArray with
+                    | Some pa ->
+                        yield ArrayType (1, pa)
+                    | None -> ()
+                ]
             | t -> BasicOverload t
         norm t
         |> Seq.groupBy key
@@ -570,8 +580,8 @@ module Type =
         {
             In = fun x -> x + ".$0"
             Out = fun x -> sprintf "$wsruntime.UnionByType([%s], %s%s)" (String.concat ", " typeStrings) x (if optional then ", true" else "")
-        }                  
-
+        } 
+        
     let (|UnionOf|_|) t =
         let rec getTypes t =
             match t with
@@ -606,7 +616,8 @@ module Type =
         | ArrayType _ -> Some "0"
         | TupleType ts -> Some (string ts.Length)
         | FunctionType _
-        | FSFunctionType _ -> Some "'function'"
+        | FSFunctionType _
+        | DelegateType _ -> Some "'function'"
         | SpecializedType (t, _)
         | InteropType (t, _)
         | NoInteropType t -> GetJSType t
@@ -640,9 +651,9 @@ module Type =
         | DefiningType -> Some "'object'"
         | _ -> None
 
-    let TransformValue opt t =
+    let TransformValue opt csharp t =
         match t with
-        | FunctionType f ->
+        | FunctionType f when not csharp ->
             let trFunc args tr = 
                 match f.This with
                 | None -> InteropType (FSFunctionType (args, f.ReturnType), tr)    
@@ -686,17 +697,41 @@ module Type =
             else t
         | _ -> t
 
-    let TransformOption t =
+    let TransformOption csharp t =
         match t with
-        | OptionType t -> OptionType (TransformValue true t)
-        | _ -> TransformValue false t
+        | OptionType t -> OptionType (TransformValue true csharp t)
+        | _ -> TransformValue false csharp t
+
+    let HasFSharpFuncOverload f =
+        seq {
+            for _, p in f.Parameters -> p
+            match f.ParamArray with
+            | Some p -> yield p
+            | None -> ()
+        }
+        |> Seq.exists (
+            function
+            | FunctionType { Parameters = ([] | [_]); This = None; ParamArray = None } -> false
+            | FunctionType _ -> true
+            | _ -> false
+        )
 
     let TransformArgs t =
         match t with 
         | FunctionType f ->
-            FunctionType 
-                { f with
-                    Parameters = f.Parameters |> List.map (fun (n, p) -> n, TransformValue false p)
-                    ReturnType = f.ReturnType |> TransformOption
-                }
-        | _ -> t
+            [
+                for c in (if HasFSharpFuncOverload f then [false; true] else [true]) ->
+                    FunctionType 
+                        { f with
+                            Parameters = f.Parameters |> List.map (fun (n, p) -> n, TransformValue false c p)
+                            ReturnType = f.ReturnType |> TransformOption c
+                        }
+                    , c
+            ]
+        | _ -> [t, false]
+
+    let WithFSharpOverloads t =
+        match t with 
+        | FunctionType f when HasFSharpFuncOverload f ->
+            [t, false; t, true]
+        | _ -> [t, true]

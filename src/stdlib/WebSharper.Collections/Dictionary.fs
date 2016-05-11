@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -33,15 +33,16 @@ module internal DictionaryUtil =
     let notPresent () =
         failwith "The given key was not present in the dictionary."
 
-    [<Inline "$c.Equals($x, $y)">]
+    [<JavaScript>]
     let equals (c: IEqualityComparer<'T>) x y =
         c.Equals(x, y)
 
-    [<Inline "$c.GetHashCode($x)">]
+    [<JavaScript>]
     let getHashCode (c: IEqualityComparer<'T>) x =
         c.GetHashCode x
 
 open DictionaryUtil
+open System.Runtime.InteropServices
 
 /// Implements a proxy for the .NET dictionary.
 [<Name "Dictionary">]
@@ -130,12 +131,28 @@ type internal Dictionary<'K,'V when 'K : equality>
             let s = JS.GetFieldValues data
             (As<seq<obj>> s).GetEnumerator()
 
+        interface System.Collections.IEnumerable with
+            member this.GetEnumerator() = this.GetEnumerator() :> _
+
+        interface IEnumerable<KeyValuePair<'K,'V>> with
+            member this.GetEnumerator() = As<IEnumerator<KeyValuePair<'K,'V>>> (this.GetEnumerator())
+
         [<JavaScript>]
         member this.Remove(k: 'K) =
             let h = h k
             if JS.HasOwnProperty data h then
                 JS.Delete data h
                 count <- count - 1
+                true
+            else
+                false
+
+        [<JavaScript>]
+        member this.TryGetValue(k: 'K, [<Out>] res : byref<'V>) =
+            let k = h k
+            if JS.HasOwnProperty data k then
+                let x : KVP<'K, 'V> = (?) data k
+                res <- x.Value
                 true
             else
                 false

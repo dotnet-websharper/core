@@ -49,8 +49,8 @@ module Json =
         [<NamedUnionCases "case">]
         type SimpleUnion =
             |                           Nullary
-            | [<CompiledName "un">]     Unary of x: int
-            | [<CompiledName "bin">]    Binary of y: string * z: float
+            | [<Name "un">]     Unary of x: int
+            | [<Name "bin">]    Binary of y: string * z: float
 
         [<NamedUnionCases>]
         type ImplicitUnion =
@@ -67,8 +67,8 @@ module Json =
 
         [<NamedUnionCases "result">]
         type GenericUnion<'T> =
-            | [<CompiledName "success">] Success of 'T
-            | [<CompiledName "failure">] Failure of message: string
+            | [<Name "success">] Success of 'T
+            | [<Name "failure">] Failure of message: string
 
             member this.Test() = 12
 

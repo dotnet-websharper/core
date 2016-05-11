@@ -19,6 +19,7 @@
 // $end{copyright}
 
 /// Defines macros used by proxy definitions.
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module WebSharper.Macro
 
 open WebSharper.Core
@@ -43,6 +44,12 @@ type Div =
     inherit Macro
 
 [<Sealed>]
+type NumericMacro =
+    inherit Macro
+
+    new : unit -> NumericMacro
+
+[<Sealed>]
 type Char =
     new : unit -> Char
     inherit Macro
@@ -52,10 +59,10 @@ type String =
     new : unit -> String
     inherit Macro
 
-//[<Sealed>]
-//type New =
-//    new : unit -> New
-//    inherit Macro
+[<Sealed>]
+type New =
+    new : unit -> New
+    inherit Macro
 
 [<Sealed>]
 type FuncWithArgs =
@@ -70,6 +77,21 @@ type FuncWithArgsRest =
 [<Sealed>]
 type FuncWithThis =
     new : unit -> FuncWithThis
+    inherit Macro
+
+[<Sealed>]
+type JSThisCall =
+    new : unit -> JSThisCall
+    inherit Macro
+
+[<Sealed>]
+type JSParamsCall =
+    new : unit -> JSParamsCall
+    inherit Macro
+
+[<Sealed>]
+type JSThisParamsCall =
+    new : unit -> JSThisParamsCall
     inherit Macro
 
 [<Sealed>]
@@ -114,10 +136,21 @@ type GE =
 [<Sealed>]
 type EqualityComparer =
     new : unit -> EqualityComparer
-    static member Default : AST.Type -> MacroResult
+    static member GetDefault : Metadata.ICompilation * AST.Type -> MacroResult
+    inherit Macro
+
+[<Sealed>]
+type Comparer =
+    new : unit -> Comparer
+    static member GetDefault : Metadata.ICompilation * AST.Type -> MacroResult
     inherit Macro
 
 [<Sealed>]
 type DefaultOf =
     new : unit -> DefaultOf
+    inherit Macro
+
+[<Sealed>]
+type StringFormat =
+    new : unit -> StringFormat
     inherit Macro

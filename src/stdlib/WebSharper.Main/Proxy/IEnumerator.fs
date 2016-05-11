@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -23,11 +23,15 @@ namespace WebSharper
 [<Proxy(typeof<System.Collections.IEnumerator>)>]
 [<Name "WebSharper.IEnumerator">]
 type private IEnumeratorProxy =
+    [<Name "Current0">]
     abstract member Current  : obj
+    [<Name "MoveNext">]
     abstract member MoveNext : unit -> bool
+    [<Name "Reset">]
     abstract member Reset    : unit -> unit
 
 [<Proxy(typeof<System.Collections.Generic.IEnumerator<_>>)>]
 [<Name "WebSharper.IEnumerator1">]
 type private IEnumeratorProxy<'T> =
+    [<Name "Current">]
     abstract member Current : 'T

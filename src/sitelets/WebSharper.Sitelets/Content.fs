@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -21,19 +21,20 @@
 namespace WebSharper.Sitelets
 
 open System.IO
+open WebSharper
 module CT = WebSharper.Core.ContentTypes
 
 type Content<'Action> =
     | CustomContent of (Context<'Action> -> Http.Response)
     | CustomContentAsync of (Context<'Action> -> Async<Http.Response>)
 
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Content =
     open System
     open System.Collections.Generic
     open System.IO
     open System.Text.RegularExpressions
     open System.Web
-    open WebSharper
 
     type private Func<'A,'B> = System.Func<'A,'B>
 
@@ -64,7 +65,7 @@ module Content =
             AppPath : string
             Json : Core.Json.Provider
             Meta : Core.Metadata.Info
-            Graph : Core.Metadata.Graph 
+            Graph : Core.DependencyGraph.Graph 
             ResourceContext : Core.Resources.Context
         }
 
@@ -73,7 +74,7 @@ module Content =
                 AppPath = ctx.ApplicationPath
                 Json = ctx.Json
                 Meta = ctx.Metadata
-                Graph = Core.Metadata.Graph.FromData ctx.Metadata.Dependencies
+                Graph = Core.DependencyGraph.Graph.FromData ctx.Metadata.Dependencies
                 ResourceContext = ctx.ResourceContext
             }
 
@@ -414,3 +415,166 @@ type Content<'Action> with
             else
                 failwith "Cannot serve file from outside the application's root folder"
         |> async.Return
+
+open System
+open System.Threading.Tasks
+open System.Runtime.InteropServices
+open System.Runtime.CompilerServices
+
+#nowarn "49" // allow uppercase parameter names
+
+[<CompiledName "Content"; Sealed; Extension>]
+type CSharpContent private () =
+
+    static let opt x =
+        match box x with
+        | null -> None
+        | _ -> Some x
+
+    static member Json<'T, 'U> (x: 'U) : Task<Content<'T>> =
+        Content.Json x
+        |> Async.StartAsTask
+
+    static member Page
+        (
+            [<Optional>] Body: Web.INode,
+            [<Optional>] Head: Web.INode,
+            [<Optional>] Title: string,
+            [<Optional>] Doctype: string
+        ) =
+        Content.Page(
+            ?Body = Option.map Seq.singleton (opt Body),
+            ?Head = Option.map Seq.singleton (opt Head),
+            ?Title = opt Title, ?Doctype = opt Doctype)
+        |> Async.StartAsTask
+
+    static member Page (page: Page) =
+        Content.Page(page)
+        |> Async.StartAsTask
+
+    static member Text (text: string, [<Optional>] encoding: System.Text.Encoding) =
+        Content.Text(text, ?encoding = opt encoding)
+        |> Async.StartAsTask
+
+    static member File (path: string, [<Optional>] AllowOutsideRootFolder: bool, [<Optional>] ContentType: string) =
+        Content.File(path, AllowOutsideRootFolder, ?ContentType = opt ContentType)
+        |> Async.StartAsTask
+
+    static member Custom (response: Http.Response) =
+        Content.Custom(response)
+        |> Async.StartAsTask
+
+    static member Custom
+        (
+            [<Optional>] Status: Http.Status,
+            [<Optional>] Headers: seq<Http.Header>,
+            [<Optional>] WriteBody: Action<Stream>
+        ) =
+        Content.Custom(?Status = opt Status, ?Headers = opt Headers, WriteBody = WriteBody.Invoke)
+        |> Async.StartAsTask
+
+    static member FromContext (f: Func<Context<'T>, Task<Content<'T>>>) =
+        Content.FromContext (fun x -> Async.AwaitTask (f.Invoke x))
+        |> Async.StartAsTask
+
+    [<Extension>]
+    static member ToResponse (content: Content<'T>, context: Context<'T>) =
+        Content.ToResponse content context
+        |> Async.StartAsTask
+
+    static member FromTask (content: Task<Content<'T>>) =
+        Content.FromAsync (Async.AwaitTask content)
+
+    static member FromAsync (content: Async<Content<'T>>) =
+        Content.FromAsync content
+
+    [<Extension>]
+    static member MapResponse (content: Task<Content<'T>>, f: Func<Http.Response, Http.Response>) =
+        Content.MapResponse f.Invoke (Async.AwaitTask content)
+        |> Async.StartAsTask
+
+    [<Extension>]
+    static member MapResponseAsync (content: Task<Content<'T>>, f: Func<Http.Response, Task<Http.Response>>) =
+        Content.MapResponseAsync (fun r -> Async.AwaitTask (f.Invoke r)) (Async.AwaitTask content)
+        |> Async.StartAsTask
+
+    [<Extension>]
+    static member WithHeaders (content: Task<Content<'T>>, headers: seq<Http.Header>) =
+        Content.WithHeaders headers (Async.AwaitTask content)
+        |> Async.StartAsTask
+
+    [<Extension>]
+    static member WithHeaders (content: Task<Content<'T>>, [<ParamArray>] headers: Http.Header[]) =
+        Content.WithHeaders headers (Async.AwaitTask content)
+        |> Async.StartAsTask
+
+    [<Extension>]
+    static member WithHeader (content: Task<Content<'T>>, name: string, value: string) =
+        Content.WithHeader name value (Async.AwaitTask content)
+        |> Async.StartAsTask
+
+    [<Extension>]
+    static member WithContentType (content: Task<Content<'T>>, contentType: string) =
+        Content.WithContentType contentType (Async.AwaitTask content)
+        |> Async.StartAsTask
+
+    [<Extension>]
+    static member SetHeaders (content: Task<Content<'T>>, headers: seq<Http.Header>) =
+        Content.SetHeaders headers (Async.AwaitTask content)
+        |> Async.StartAsTask
+
+    [<Extension>]
+    static member SetHeaders (content: Task<Content<'T>>, [<ParamArray>] headers: Http.Header[]) =
+        Content.SetHeaders headers (Async.AwaitTask content)
+        |> Async.StartAsTask
+
+    [<Extension>]
+    static member SetStatus (content: Task<Content<'T>>, status: Http.Status) =
+        Content.SetStatus status (Async.AwaitTask content)
+        |> Async.StartAsTask
+
+    [<Extension>]
+    static member SetStatus (content: Task<Content<'T>>, code: int, [<Optional>] message: string) =
+        Content.SetStatus (Http.Status.Custom code (opt message)) (Async.AwaitTask content)
+        |> Async.StartAsTask
+
+    [<Extension>]
+    static member SetBody (content: Task<Content<'T>>, writeBody: Action<Stream>) =
+        Content.SetBody writeBody.Invoke (Async.AwaitTask content)
+        |> Async.StartAsTask
+
+    static member RedirectPermanent (action: 'T) =
+        Content.RedirectPermanent action
+        |> Async.StartAsTask
+
+    static member RedirectPermanentToUrl (url: string) =
+        Content.RedirectPermanentToUrl url
+        |> Async.StartAsTask
+
+    static member RedirectTemporary (action: 'T) =
+        Content.RedirectTemporary action
+        |> Async.StartAsTask
+
+    static member RedirectTemporaryToUrl (url: string) =
+        Content.RedirectTemporaryToUrl url
+        |> Async.StartAsTask
+
+    static member Unauthorized() =
+        Content.Unauthorized
+        |> Async.StartAsTask
+
+    static member Forbidden() =
+        Content.Forbidden
+        |> Async.StartAsTask
+
+    static member NotFound() =
+        Content.NotFound
+        |> Async.StartAsTask
+
+    static member ServerError() =
+        Content.ServerError
+        |> Async.StartAsTask
+
+    static member MethodNotAllowed() =
+        Content.MethodNotAllowed
+        |> Async.StartAsTask

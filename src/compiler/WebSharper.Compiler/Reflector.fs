@@ -1,10 +1,33 @@
-﻿module WebSharper.Compiler.Reflector
+﻿// $begin{copyright}
+//
+// This file is part of WebSharper
+//
+// Copyright (c) 2008-2016 IntelliFactory
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you
+// may not use this file except in compliance with the License.  You may
+// obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.  See the License for the specific language governing
+// permissions and limitations under the License.
+//
+// $end{copyright}
+
+// Uses reflection to get inline and macro information.
+// Used by WebSharper Interface Generator and WebSharper.TypeScript
+module WebSharper.Compiler.Reflector
 
 open System.Collections.Generic
 
 open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Core.Metadata
+open WebSharper.Core.DependencyGraph
 
 let getTypeDefinition (tR: Mono.Cecil.TypeReference) =
     Hashed {
@@ -24,16 +47,17 @@ let rec getType tgen (tR: Mono.Cecil.TypeReference) =
     elif tR.IsGenericParameter then
         let tR = tR :?> Mono.Cecil.GenericParameter
         if tR.Owner.GenericParameterType = Mono.Cecil.GenericParameterType.Method then
-            GenericType (tgen + tR.Position)
-        else GenericType tR.Position
+            TypeParameter (tgen + tR.Position)
+        else TypeParameter tR.Position
     else
         let name = tR.FullName.Split('<').[0] 
         if name = "System.Void" || name = "Microsoft.FSharp.Core.Unit" then
             VoidType
         elif name = "Microsoft.FSharp.Core.FSharpFunc`2" then
             let tR = tR :?> Mono.Cecil.GenericInstanceType
-            let [a; r] = tR.GenericArguments |> Seq.map (getType tgen) |> List.ofSeq
-            FSharpFuncType(a, r)    
+            match tR.GenericArguments |> Seq.map (getType tgen) |> List.ofSeq with
+            | [a; r] -> FSharpFuncType(a, r)    
+            | _ -> failwith "FSharpFunc type must have two type arguments"
         elif name.StartsWith "System.Tuple" then
             let tR = tR :?> Mono.Cecil.GenericInstanceType
             let rec collect (ts: seq<Mono.Cecil.TypeReference>) =
@@ -44,26 +68,28 @@ let rec getType tgen (tR: Mono.Cecil.TypeReference) =
                 else ts
             collect tR.GenericArguments |> Seq.map (getType tgen) |> List.ofSeq |> TupleType
         else
-            concreteType (
-                Hashed {
-                    Assembly =
-                        match tR.Scope.MetadataScopeType with
-                        | Mono.Cecil.MetadataScopeType.AssemblyNameReference ->
-                            let anr = tR.Scope :?> Mono.Cecil.AssemblyNameReference
-                            anr.FullName.Split(',').[0]
-                        | _ -> tR.Module.Assembly.FullName.Split(',').[0]
-                    FullName = name.Replace('/', '+')
-                },
-                if tR.IsGenericInstance then
-                    let tR = tR :?> Mono.Cecil.GenericInstanceType
-                    tR.GenericArguments |> Seq.map (getType tgen) |> List.ofSeq 
-                else []
-            )
+            GenericType
+                (
+                    Hashed {
+                        Assembly =
+                            match tR.Scope.MetadataScopeType with
+                            | Mono.Cecil.MetadataScopeType.AssemblyNameReference ->
+                                let anr = tR.Scope :?> Mono.Cecil.AssemblyNameReference
+                                anr.FullName.Split(',').[0]
+                            | _ -> tR.Module.Assembly.FullName.Split(',').[0]
+                        FullName = name.Replace('/', '+')
+                    }
+                ) (
+                    if tR.IsGenericInstance then
+                        let tR = tR :?> Mono.Cecil.GenericInstanceType
+                        tR.GenericArguments |> Seq.map (getType tgen) |> List.ofSeq 
+                    else []
+                )
 
 let getRequires attrs =
     attrs
     |> Seq.filter (fun (a: Mono.Cecil.CustomAttribute) -> 
-        a.AttributeType.FullName = "WebSharper.Core.Attributes/RequireAttribute" 
+        a.AttributeType.FullName = "WebSharper.RequireAttribute" 
     )
     |> Seq.map (fun a ->
         a.ConstructorArguments.[0].Value :?> Mono.Cecil.TypeReference |> getTypeDefinition
@@ -75,7 +101,7 @@ let isResourceType (e: Mono.Cecil.TypeDefinition) =
         i.FullName = "WebSharper.Core.Resources+IResource"
     )
 
-let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
+let TransformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
     let rec withNested (tD: Mono.Cecil.TypeDefinition) =
         if tD.HasNestedTypes then
             Seq.append (Seq.singleton tD) (Seq.collect withNested tD.NestedTypes)
@@ -128,7 +154,6 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
 
         if isResourceType typ then
             let thisRes = graph.AddOrLookupNode(ResourceNode def)
-            graph.AddEdge(thisRes, asmNodeIndex)
             for req in getRequires typ.CustomAttributes do
                 graph.AddEdge(thisRes, ResourceNode req)
             None
@@ -159,7 +184,7 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
             let macros =
                 meth.CustomAttributes |> 
                 Seq.filter (fun a -> 
-                    a.AttributeType.FullName = "WebSharper.Core.Attributes/MacroAttribute" 
+                    a.AttributeType.FullName = "WebSharper.MacroAttribute" 
                 )
                 |> Seq.map (fun a ->
                     let ar = a.ConstructorArguments
@@ -173,7 +198,7 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
             let inlAttr = 
                 meth.CustomAttributes |> 
                 Seq.tryFind (fun a -> 
-                    a.AttributeType.FullName = "WebSharper.Core.Attributes/InlineAttribute" 
+                    a.AttributeType.FullName = "WebSharper.InlineAttribute" 
                 )
                 |> Option.map (fun a ->
                     a.ConstructorArguments.[0].Value :?> string
@@ -210,7 +235,7 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
                     try 
                         constructors.Add(cdef, (kind, body))
                     with _ ->
-                        failwithf "Duplicate definition for constructor of %s, arguments: %s" def.Value.FullName (Reflection.printCtorParams cdef.Value)
+                        failwithf "Duplicate definition for constructor of %s, arguments: %s" def.Value.FullName (string cdef.Value)
                     
                     // TODO: better recognise inlines
                     if address = None then
@@ -233,7 +258,7 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
                     
                     try methods.Add(mdef, (kind, body))
                     with _ ->
-                        failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (Reflection.printMethod mdef.Value)
+                        failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (string mdef.Value)
 
         if methods.Count = 0 && constructors.Count = 0 then None else
 
@@ -259,8 +284,9 @@ let transformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
         Dependencies = graph.GetData()
         Interfaces = interfaces
         Classes = classes
+        CustomTypes = Map.empty
         EntryPoint = None
     }
 
-let transformWSAssembly (assembly : WebSharper.Compiler.Assembly) =
-    transformAssembly assembly.Raw     
+let TransformWSAssembly (assembly : WebSharper.Compiler.Assembly) =
+    TransformAssembly assembly.Raw     

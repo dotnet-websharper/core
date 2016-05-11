@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -18,27 +18,43 @@
 //
 // $end{copyright}
 
-module WebSharper.Application
+namespace WebSharper
 
 open WebSharper.Sitelets
-
-let MultiPage f = Sitelet.Infer f
 
 module SPA =
     type EndPoint =
         | [<EndPoint "/">] Home
 
-let SinglePage f =
-    {
-        Router = Router.Table [SPA.EndPoint.Home, "/"]
-        Controller =
-            { Handle = fun SPA.EndPoint.Home ->
-                Content.CustomContentAsync <| fun ctx -> async {
-                    let! x = f ctx
-                    return! Content.ToResponse x ctx
-                }
-            }
-    }
+namespace WebSharper
 
-let Text t =
-    SinglePage (fun context -> Content.Text (t context))
+open System
+open System.Runtime.CompilerServices
+open System.Threading.Tasks
+open WebSharper.Sitelets
+
+[<Class>]
+type Application =
+
+    static member MultiPage f = Sitelet.Infer f
+
+    static member SinglePage (f: Context<SPA.EndPoint> -> Async<Content<SPA.EndPoint>>) =
+        {
+            Router = Router.Table [SPA.EndPoint.Home, "/"]
+            Controller =
+                { Handle = fun SPA.EndPoint.Home ->
+                    Content.CustomContentAsync <| fun ctx -> async {
+                        let! x = f ctx
+                        return! Content.ToResponse x ctx
+                    }
+                }
+        }
+
+    static member Text (t: Context<SPA.EndPoint> -> string) : Sitelet<SPA.EndPoint> =
+        Application.SinglePage (fun context -> Content.Text (t context))
+
+    static member SinglePage (f: Func<Context<SPA.EndPoint>, Task<Content<SPA.EndPoint>>>) : Sitelet<SPA.EndPoint> =
+        Application.SinglePage (fun ctx -> f.Invoke ctx |> Async.AwaitTask)
+
+    static member MultiPage (f: Func<Context<'EndPoint>, 'EndPoint, Task<Content<'EndPoint>>>) : Sitelet<'EndPoint> =
+        Application.MultiPage (fun ctx ep -> f.Invoke(ctx, ep) |> Async.AwaitTask)

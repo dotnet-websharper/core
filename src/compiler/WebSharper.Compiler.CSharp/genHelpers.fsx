@@ -103,12 +103,12 @@ let fieldName (fn: string) =
 
 let getStub (name: string) =
 
-    let name = if name.StartsWith "transform" then name.Replace("transform", "") else name 
+    let name = if name.StartsWith "Transform" then name.Replace("Transform", "") else name 
     let name = if name.EndsWith "Syntax" then name else name + "Syntax" 
 
     let stubCode = System.Text.StringBuilder()
 
-    let inline rappendl x = stubCode.AppendLine x |> ignore
+    let inline rappendl x = stubCode.AppendLine ("    " + x) |> ignore
     let inline rprintfn x = Printf.kprintf rappendl x
     let inline remptyl() = stubCode.AppendLine() |> ignore 
 
@@ -117,7 +117,7 @@ let getStub (name: string) =
         elif name.EndsWith "Statement" then "Statement"
         else "_"
 
-    rprintfn "and transform%s (env: Environment) (x: %s) : %s =" (short name) (data name) retTy
+    rprintfn "member this.Transform%s (x: %s) : %s =" (short name) (data name) retTy
     match nodes |> Map.tryFind name with
     | Some n ->
         for f in n.Fields do
@@ -126,17 +126,17 @@ let getStub (name: string) =
                 let fn = f.Name
                 let uncapitalize (s: string) = s
                 if f.IsList then 
-                    rprintfn "    let %s = x.%s |> Seq.map (transform%s env) |> List.ofSeq" (fieldName fn) fn (short ft)
+                    rprintfn "    let %s = x.%s |> Seq.map this.Transform%s |> List.ofSeq" (fieldName fn) fn (short ft)
                 elif f.Optional then
-                    rprintfn "    let %s = x.%s |> Option.map (transform%s env)" (fieldName fn) fn (short ft)
+                    rprintfn "    let %s = x.%s |> Option.map this.Transform%s" (fieldName fn) fn (short ft)
                 else
-                    rprintfn "    let %s = x.%s |> transform%s env" (fieldName fn) fn (short ft)
+                    rprintfn "    let %s = x.%s |> this.Transform%s" (fieldName fn) fn (short ft)
         if List.length n.Kinds > 1 then
             let unionName = short n.Name + "Kind"
             rprintfn "    match x.Kind with"
             for k in n.Kinds do
-                rprintfn "    | %s.%s -> TODO()" unionName k
-        rprintfn "    TODO()"     
+                rprintfn "    | %s.%s -> TODO x" unionName k
+        rprintfn "    TODO x"     
         if name.EndsWith "Expression" then
             rprintfn "    |> withExprSourcePos env x.Node"
         elif name.EndsWith "Statement" then
@@ -146,7 +146,7 @@ let getStub (name: string) =
         let descendants = abstractNodes |> Map.find name
         let longest = descendants |> Seq.map (fun d -> (short d).Length) |> Seq.max
         for d in descendants do
-            rprintfn "    | %s.%-*s x -> TODO() //transform%s env x" (data name) longest (short d) (short d)  
+            rprintfn "    | %s.%-*s x -> TODO x //this.Transform%s x" (data name) longest (short d) (short d)  
 
     System.Windows.Forms.Clipboard.SetText(string stubCode)
 

@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -20,65 +20,279 @@
 
 namespace WebSharper.JavaScript
 
-open WebSharper.Core.Attributes
-
 /// Thrown on the server when client-side code is being executed.
-exception ClientSideOnly
-    with override this.Message = "This function is intended for client-side use only."
+exception ClientSideOnly with
+    override this.Message = "This function is intended for client-side use only."
+
+[<AutoOpen>]
+module Interop =
+    /// Specifies a value intended for client-side use only, so that there is no
+    /// .NET implementation.
+    /// Raises a WebSharper.JavaScript.ClientSideOnly exception.
+    let X<'T> : 'T = 
+        raise ClientSideOnly
 
 type private PA = System.ParamArrayAttribute
 
 type Function([<System.ParamArray>] paramsAndBody: string[]) =
-    member this.Length = raise ClientSideOnly : int
-    member this.ApplyUnsafe(thisArg: obj) = raise ClientSideOnly : obj
-    member this.ApplyUnsafe(thisArg: obj, argsArray: obj[]) = raise ClientSideOnly : obj
-    member this.CallUnsafe(thisArg: obj, [<PA>] args: obj[]) = raise ClientSideOnly : obj
-    member this.BindUnsafe(thisArg: obj, [<PA>] args: obj[]) = raise ClientSideOnly : Function
+    member this.Length = X<int>
+    member this.ApplyUnsafe(thisArg: obj) = X<obj>
+    member this.ApplyUnsafe(thisArg: obj, argsArray: obj[]) = X<obj>
+    member this.CallUnsafe(thisArg: obj, [<PA>] args: obj[]) = X<obj>
+    member this.BindUnsafe(thisArg: obj, [<PA>] args: obj[]) = X<Function>
     
     /// Type cast.
     /// Warning: a tupled F# function is translated to JavaScript as a function with a single array argument.
-    static member Of<'T, 'U>(func: 'T -> 'U) = raise ClientSideOnly : Function
+    static member Of<'T, 'U>(func: 'T -> 'U) = X<Function>
+    
+    static member Of<'T when 'T :> System.Delegate>(func: 'T) = X<Function>
 
-type FuncWithArgs<'TArgs, 'TResult>(func: 'TArgs -> 'TResult) =
-    inherit Function()    
-    member this.Call(args: 'Args) = raise ClientSideOnly : 'TResult
+type FuncWithArgs<'TArgs, 'TResult> =
+    inherit Function      
+    new (func: 'TArgs -> 'TResult) = { }
+//    new (func: System.Func<'TArgs, 'TResult>) = { }
+    member this.Call(args: 'Args) = X<'TResult>
 
-type FuncWithThis<'TThis, 'TFunc>(func: 'TThis -> 'TFunc) =
-    inherit Function()
-    member this.Bind (thisArg: 'TThis) = raise ClientSideOnly : 'TFunc
+type FuncWithThis<'TThis, 'TFunc> =
+    inherit Function
+    new (func: 'TThis -> 'TFunc) = { }
+//    new (func: System.Func<'TThis, 'TFunc>) = { }
+    member this.Bind (thisArg: 'TThis) = X<'TFunc>
 
-type FuncWithOnlyThis<'TThis, 'TResult>(func: 'TThis -> 'TResult) =
-    inherit FuncWithThis<'TThis, unit -> 'TResult>(raise ClientSideOnly)
-    member this.Bind (thisArg: 'TThis) = raise ClientSideOnly : 'TFunc
+type FuncWithOnlyThis<'TThis, 'TResult> =
+    inherit FuncWithThis<'TThis, unit -> 'TResult>
+    new (func: 'TThis -> 'TResult) = { inherit FuncWithThis<_,_>(X<'TThis -> unit -> 'TResult>) }
+//    new (func: System.Func<'TThis, 'TResult>) = { inherit FuncWithThis<_,_>(X<'TThis -> unit -> 'TResult>) }
+    member this.Call (thisArg: 'TThis) = X<unit>
 
-type FuncWithRest<'TRest, 'TResult>(func: 'TRest[] -> 'TResult) =
-    inherit Function()
-    member this.Call ([<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
+type FuncWithArgsRest<'TArgs, 'TRest, 'TResult> =
+    inherit Function
+    new (func: 'TArgs * 'TRest[] -> 'TResult) = { }
+    member this.Call (args: 'TArgs, [<PA>] rest: 'TRest[]) = X<'TResult>
 
-type FuncWithRest<'TArg, 'TRest, 'TResult>(func: 'TArg * 'TRest[] -> 'TResult) =
-    inherit Function()
-    member this.Call (arg: 'TArg, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
-
-type FuncWithRest<'TArg1, 'TArg2, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TRest[] -> 'TResult) =
-    inherit Function()
-    member this.Call (arg1: 'TArg1, arg2: 'TArg2, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
-
-type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TRest[] -> 'TResult) =
-    inherit Function()
-    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
-
-type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TRest[] -> 'TResult) =
-    inherit Function()
-    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
-
-type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TArg5 * 'TRest[] -> 'TResult) =
-    inherit Function()
-    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
-
-type FuncWithRest<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TArg6, 'TRest, 'TResult>(func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TArg5 * 'TArg6 * 'TRest[] -> 'TResult) =
-    inherit Function()
-    member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, arg6: 'TArg6, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
-
-type FuncWithArgsRest<'TArgs, 'TRest, 'TResult>(func: 'TArgs * 'TRest[] -> 'TResult) =
-    inherit Function()
-    member this.Call (args: 'TArgs, [<PA>] rest: 'TRest[]) = raise ClientSideOnly : 'TResult
+// {{ generated by genInterop.fsx, do not modify
+type FuncWithRest<'TRest, 'TResult> =
+    inherit Function
+    new (func: 'TRest[] -> 'TResult) = { }
+    member this.Call ([<PA>] rest: 'TRest[]) = X<'TResult>
+type FuncWithRest<'TRest, 'T, 'TResult> =
+    inherit Function
+    new (func: 'T * 'TRest[] -> 'TResult) = { }
+    member this.Call (arg: 'T, [<PA>] rest: 'TRest[]) = X<'TResult>
+type FuncWithRest<'TRest, 'T1, 'T2, 'TResult> =
+    inherit Function
+    new (func: 'T1 * 'T2 * 'TRest[] -> 'TResult) = { }
+    member this.Call (arg1: 'T1, arg2: 'T2, [<PA>] rest: 'TRest[]) = X<'TResult>
+type FuncWithRest<'TRest, 'T1, 'T2, 'T3, 'TResult> =
+    inherit Function
+    new (func: 'T1 * 'T2 * 'T3 * 'TRest[] -> 'TResult) = { }
+    member this.Call (arg1: 'T1, arg2: 'T2, arg3: 'T3, [<PA>] rest: 'TRest[]) = X<'TResult>
+type FuncWithRest<'TRest, 'T1, 'T2, 'T3, 'T4, 'TResult> =
+    inherit Function
+    new (func: 'T1 * 'T2 * 'T3 * 'T4 * 'TRest[] -> 'TResult) = { }
+    member this.Call (arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, [<PA>] rest: 'TRest[]) = X<'TResult>
+type FuncWithRest<'TRest, 'T1, 'T2, 'T3, 'T4, 'T5, 'TResult> =
+    inherit Function
+    new (func: 'T1 * 'T2 * 'T3 * 'T4 * 'T5 * 'TRest[] -> 'TResult) = { }
+    member this.Call (arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, [<PA>] rest: 'TRest[]) = X<'TResult>
+type FuncWithRest<'TRest, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TResult> =
+    inherit Function
+    new (func: 'T1 * 'T2 * 'T3 * 'T4 * 'T5 * 'T6 * 'TRest[] -> 'TResult) = { }
+    member this.Call (arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6, [<PA>] rest: 'TRest[]) = X<'TResult>
+type ThisAction<'TThis> =
+    inherit Function
+    new (del: System.Action<'TThis>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Action>
+    member this.Call(thisArg: 'TThis) = X<unit>
+type ThisAction<'TThis, 'T> =
+    inherit Function
+    new (del: System.Action<'TThis, 'T>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Action<'T>>
+    member this.Call(thisArg: 'TThis, arg: 'T) = X<unit>
+type ThisAction<'TThis, 'T1, 'T2> =
+    inherit Function
+    new (del: System.Action<'TThis, 'T1, 'T2>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Action<'T1, 'T2>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2) = X<unit>
+type ThisAction<'TThis, 'T1, 'T2, 'T3> =
+    inherit Function
+    new (del: System.Action<'TThis, 'T1, 'T2, 'T3>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Action<'T1, 'T2, 'T3>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3) = X<unit>
+type ThisAction<'TThis, 'T1, 'T2, 'T3, 'T4> =
+    inherit Function
+    new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'T4>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Action<'T1, 'T2, 'T3, 'T4>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4) = X<unit>
+type ThisAction<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5> =
+    inherit Function
+    new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Action<'T1, 'T2, 'T3, 'T4, 'T5>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5) = X<unit>
+type ThisAction<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6> =
+    inherit Function
+    new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Action<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6) = X<unit>
+type ThisFunc<'TThis, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Func<'TResult>>
+    member this.Call(thisArg: 'TThis) = X<'TResult>
+type ThisFunc<'TThis, 'T, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'T, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Func<'T, 'TResult>>
+    member this.Call(thisArg: 'TThis, arg: 'T) = X<'TResult>
+type ThisFunc<'TThis, 'T1, 'T2, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'T1, 'T2, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Func<'T1, 'T2, 'TResult>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2) = X<'TResult>
+type ThisFunc<'TThis, 'T1, 'T2, 'T3, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Func<'T1, 'T2, 'T3, 'TResult>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3) = X<'TResult>
+type ThisFunc<'TThis, 'T1, 'T2, 'T3, 'T4, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'T4, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Func<'T1, 'T2, 'T3, 'T4, 'TResult>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4) = X<'TResult>
+type ThisFunc<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Func<'T1, 'T2, 'T3, 'T4, 'T5, 'TResult>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5) = X<'TResult>
+type ThisFunc<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<System.Func<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TResult>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6) = X<'TResult>
+type ParamsAction<'TParams> =
+    inherit Function
+    new (del: System.Action<'TParams>) = { }
+    member this.Call([<PA>] rest: 'TParams[]) = X<unit>
+type ParamsAction<'T, 'TParams> =
+    inherit Function
+    new (del: System.Action<'T, 'TParams>) = { }
+    member this.Call(arg: 'T, [<PA>] rest: 'TParams[]) = X<unit>
+type ParamsAction<'T1, 'T2, 'TParams> =
+    inherit Function
+    new (del: System.Action<'T1, 'T2, 'TParams>) = { }
+    member this.Call(arg1: 'T1, arg2: 'T2, [<PA>] rest: 'TParams[]) = X<unit>
+type ParamsAction<'T1, 'T2, 'T3, 'TParams> =
+    inherit Function
+    new (del: System.Action<'T1, 'T2, 'T3, 'TParams>) = { }
+    member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, [<PA>] rest: 'TParams[]) = X<unit>
+type ParamsAction<'T1, 'T2, 'T3, 'T4, 'TParams> =
+    inherit Function
+    new (del: System.Action<'T1, 'T2, 'T3, 'T4, 'TParams>) = { }
+    member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, [<PA>] rest: 'TParams[]) = X<unit>
+type ParamsAction<'T1, 'T2, 'T3, 'T4, 'T5, 'TParams> =
+    inherit Function
+    new (del: System.Action<'T1, 'T2, 'T3, 'T4, 'T5, 'TParams>) = { }
+    member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, [<PA>] rest: 'TParams[]) = X<unit>
+type ParamsAction<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams> =
+    inherit Function
+    new (del: System.Action<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams>) = { }
+    member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6, [<PA>] rest: 'TParams[]) = X<unit>
+type ParamsFunc<'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TParams, 'TResult>) = { }
+    member this.Call([<PA>] rest: 'TParams[]) = X<'TResult>
+type ParamsFunc<'T, 'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'T, 'TParams, 'TResult>) = { }
+    member this.Call(arg: 'T, [<PA>] rest: 'TParams[]) = X<'TResult>
+type ParamsFunc<'T1, 'T2, 'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'T1, 'T2, 'TParams, 'TResult>) = { }
+    member this.Call(arg1: 'T1, arg2: 'T2, [<PA>] rest: 'TParams[]) = X<'TResult>
+type ParamsFunc<'T1, 'T2, 'T3, 'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'T1, 'T2, 'T3, 'TParams, 'TResult>) = { }
+    member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, [<PA>] rest: 'TParams[]) = X<'TResult>
+type ParamsFunc<'T1, 'T2, 'T3, 'T4, 'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'T1, 'T2, 'T3, 'T4, 'TParams, 'TResult>) = { }
+    member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, [<PA>] rest: 'TParams[]) = X<'TResult>
+type ParamsFunc<'T1, 'T2, 'T3, 'T4, 'T5, 'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'T1, 'T2, 'T3, 'T4, 'T5, 'TParams, 'TResult>) = { }
+    member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, [<PA>] rest: 'TParams[]) = X<'TResult>
+type ParamsFunc<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult>) = { }
+    member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6, [<PA>] rest: 'TParams[]) = X<'TResult>
+type ThisParamsAction<'TThis, 'TParams> =
+    inherit Function
+    new (del: System.Action<'TThis, 'TParams>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsAction<'TParams>>
+    member this.Call(thisArg: 'TThis, [<PA>] rest: 'TParams[]) = X<unit>
+type ThisParamsAction<'TThis, 'T, 'TParams> =
+    inherit Function
+    new (del: System.Action<'TThis, 'T, 'TParams>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsAction<'T, 'TParams>>
+    member this.Call(thisArg: 'TThis, arg: 'T, [<PA>] rest: 'TParams[]) = X<unit>
+type ThisParamsAction<'TThis, 'T1, 'T2, 'TParams> =
+    inherit Function
+    new (del: System.Action<'TThis, 'T1, 'T2, 'TParams>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsAction<'T1, 'T2, 'TParams>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, [<PA>] rest: 'TParams[]) = X<unit>
+type ThisParamsAction<'TThis, 'T1, 'T2, 'T3, 'TParams> =
+    inherit Function
+    new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'TParams>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsAction<'T1, 'T2, 'T3, 'TParams>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, [<PA>] rest: 'TParams[]) = X<unit>
+type ThisParamsAction<'TThis, 'T1, 'T2, 'T3, 'T4, 'TParams> =
+    inherit Function
+    new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'T4, 'TParams>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsAction<'T1, 'T2, 'T3, 'T4, 'TParams>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, [<PA>] rest: 'TParams[]) = X<unit>
+type ThisParamsAction<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TParams> =
+    inherit Function
+    new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TParams>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsAction<'T1, 'T2, 'T3, 'T4, 'T5, 'TParams>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, [<PA>] rest: 'TParams[]) = X<unit>
+type ThisParamsAction<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams> =
+    inherit Function
+    new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsAction<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6, [<PA>] rest: 'TParams[]) = X<unit>
+type ThisParamsFunc<'TThis, 'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'TParams, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'TParams, 'TResult>>
+    member this.Call(thisArg: 'TThis, [<PA>] rest: 'TParams[]) = X<'TResult>
+type ThisParamsFunc<'TThis, 'T, 'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'T, 'TParams, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T, 'TParams, 'TResult>>
+    member this.Call(thisArg: 'TThis, arg: 'T, [<PA>] rest: 'TParams[]) = X<'TResult>
+type ThisParamsFunc<'TThis, 'T1, 'T2, 'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'T1, 'T2, 'TParams, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T1, 'T2, 'TParams, 'TResult>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, [<PA>] rest: 'TParams[]) = X<'TResult>
+type ThisParamsFunc<'TThis, 'T1, 'T2, 'T3, 'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'TParams, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T1, 'T2, 'T3, 'TParams, 'TResult>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, [<PA>] rest: 'TParams[]) = X<'TResult>
+type ThisParamsFunc<'TThis, 'T1, 'T2, 'T3, 'T4, 'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'T4, 'TParams, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T1, 'T2, 'T3, 'T4, 'TParams, 'TResult>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, [<PA>] rest: 'TParams[]) = X<'TResult>
+type ThisParamsFunc<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TParams, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T1, 'T2, 'T3, 'T4, 'T5, 'TParams, 'TResult>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, [<PA>] rest: 'TParams[]) = X<'TResult>
+type ThisParamsFunc<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult> =
+    inherit Function
+    new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult>) = { }
+    member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult>>
+    member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6, [<PA>] rest: 'TParams[]) = X<'TResult>
+// }}

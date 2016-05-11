@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// Defines custom attributes used by WebSharper projects.
-module WebSharper.Core.Attributes
+namespace WebSharper
 
 type private A = System.Attribute
 type private T = System.AttributeTargets
@@ -63,25 +63,33 @@ type DirectAttribute(template: string) =
     inherit A()
 
 /// Marks methods, properties and constructors for compilation to JavaScript.
-[<Sealed; U(T.Class|||T.Module|||T.Constructor|||T.Method|||T.Property)>]
+[<Sealed; U(T.Assembly|||T.Class|||T.Module|||T.Constructor|||T.Method|||T.Property)>]
 type JavaScriptAttribute() =
     inherit A()
+
+    new (enabled: bool) = JavaScriptAttribute()
 
 /// Annotates methods an constructors with custom compilation rules.
 /// The supplied type should implement Macros.IMacro and a default constructor.
 [<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property, AllowMultiple = true)>]
-type MacroAttribute(def: System.Type) =
+type MacroAttribute private () =
     inherit A()
 
-    new (def, o: obj) = MacroAttribute(def)
+    new (macroType: System.Type) = MacroAttribute()
+    new (macroType: System.Type, parameter: obj) = MacroAttribute()
+    new (assemblyQualifiedName: string) = MacroAttribute() 
+    new (assemblyQualifiedName: string, parameter: obj) = MacroAttribute() 
 
 /// Annotates methods with a generator type that provides the method body.
 /// The supplied type should implement Macros.IGenerator and a default constructor.
 [<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
-type GeneratedAttribute(def: System.Type) =
+type GeneratedAttribute private () =
     inherit A()
 
-    new (def, o: obj) = GeneratedAttribute(def)
+    new (generatorType: System.Type) = GeneratedAttribute()
+    new (generatorType: System.Type, parameter: obj) = GeneratedAttribute()
+    new (assemblyQualifiedName: string) = GeneratedAttribute() 
+    new (assemblyQualifiedName: string, parameter: obj) = GeneratedAttribute() 
 
 /// Provides a runtime name for members when it differs from the F# name.
 /// The constructor accepts either an explicit array of parts,
@@ -102,11 +110,11 @@ type NameAttribute private () =
 type ProxyAttribute private () =
     inherit A()
 
-    /// Constructs a new proxy link using an assembly-qualified name.
-    new (assemblyQualifiedName: string) = ProxyAttribute()
-
     /// Constructs a new proxy link using a type directly.
     new (proxiedType: System.Type) = ProxyAttribute()
+
+    /// Constructs a new proxy link using an assembly-qualified name.
+    new (assemblyQualifiedName: string) = ProxyAttribute()
 
 /// Marks a server-side function to be invokable remotely from the client-side.
 [<Sealed; U(T.Method)>]
@@ -117,8 +125,11 @@ type RemoteAttribute() =
 /// must implement Resources.IResourceDefinition and a default constructor.
 [<Sealed; U(T.Assembly|||T.Class|||T.Constructor|||T.Method,
             AllowMultiple=true)>]
-type RequireAttribute(def: System.Type) =
-    inherit A()
+type RequireAttribute private () =
+
+    new (resourceType: System.Type) = RequireAttribute()
+
+    new (assemblyQualifiedName: string) = RequireAttribute()
 
 /// Marks members that should be compiled by-name.
 [<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property)>]
@@ -129,9 +140,13 @@ type StubAttribute() =
 /// by remote function calls in this assembly. The type passed to the
 /// constructor must have three static methods as described by the
 /// interface Remoting.IRemotingProvider.
-[<Sealed; U(T.Assembly)>]
-type RemotingProviderAttribute(provider: System.Type) =
+[<Sealed; U(T.Assembly|||T.Class|||T.Method)>]
+type RemotingProviderAttribute private () =
     inherit A()
+
+    new (remotingProviderType: System.Type) = RemotingProviderAttribute()
+
+    new (assemblyQualifiedName: string) = RemotingProviderAttribute()
 
 /// Adds automatic inlines to a property so that a missing JavaScript field
 /// is converted to None, otherwise Some fieldValue.

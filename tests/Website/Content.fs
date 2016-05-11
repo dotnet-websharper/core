@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -26,9 +26,11 @@ open WebSharper.Sitelets
 open WebSharper.Sitelets.Tests.Server
 module SampleSite = WebSharper.Sitelets.Tests.SampleSite
 
+[<NoComparison>]
 type FullAction =
     | Site of Actions.Action
     | SiteletsTests of SampleSite.Action
+    | CSharpSiteletsTests of obj
 
 let HomePage (ctx: Context<_>) =
     Content.Page(
@@ -75,4 +77,7 @@ let Main =
         Sitelet.InferPartialInUnion <@ FullAction.Site @> MainSite
         Sitelet.Shift "sitelet-tests" <|
             Sitelet.EmbedInUnion <@ FullAction.SiteletsTests @> SampleSite.EntireSite
+        Sitelet.Shift "csharp-tests" <|
+            Sitelet.EmbedInUnion <@ FullAction.CSharpSiteletsTests @>
+                WebSharper.CSharp.Sitelets.Tests.SiteletTest.Main
     ]

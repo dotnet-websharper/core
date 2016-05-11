@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -25,7 +25,7 @@ open WebSharper.JavaScript
 module M = Macro
 
 [<Proxy(typeof<PrintfFormat<_,_,_,_,_>>)>]
-type PrintfFormat = 
+type internal PrintfFormat = 
     [<Macro(typeof<M.PrintF>)>]
     new (value: string) = {}
 

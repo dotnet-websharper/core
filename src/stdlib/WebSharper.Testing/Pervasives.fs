@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -37,8 +37,8 @@ module internal Internal =
     type TestPropertyMacro() =
         inherit Macro()
 
-        override this.TranslateCall(t,_,m,a,_) =
-            match t, a with  
+        override this.TranslateCall(c) =
+            match c.This, c.Arguments with  
             | Some this, [runner; gen; attempt] ->
                 let id = Id.New()
                 cCall this "PropertyWithSample" [
@@ -51,7 +51,7 @@ module internal Internal =
             | Some this, [runner; attempt] ->
                 cCall this "PropertyWithSample" [
                     runner
-                    Function([], Return (mkSample (mkGenerator m.Generics.Head) (cInt 100)))
+                    Function([], Return (mkSample (mkGenerator c.Method.Generics.Head) (cInt 100)))
                     attempt
                 ]
                 |> MacroOk
@@ -60,10 +60,10 @@ module internal Internal =
     type PropertyMacro() =
         inherit Macro()
 
-        override this.TranslateCall(_,_,m,a,_) =
-            match a with 
+        override this.TranslateCall(c) =
+            match c.Arguments with 
             | [name; f] -> 
-                cCallG ["WebSharper"; "Testing"; "Pervasives"; "PropertyWith"] [name; mkGenerator m.Generics.Head; f]
+                cCallG ["WebSharper"; "Testing"; "Pervasives"; "PropertyWith"] [name; mkGenerator c.Method.Generics.Head; f]
                 |> MacroOk
             | _ -> MacroFallback
 
@@ -108,14 +108,14 @@ module QUnit =
     // it is not suitable in this case.
 
     [<Inline "QUnit.test($name, $callback)">]
-    let Test (name: string) (callback: Asserter -> unit) = Unchecked.defaultof<unit>
+    let Test (name: string) (callback: Asserter -> unit) = ()
 
     [<Inline "QUnit.module($name)">]
-    let Module (name: string) = Unchecked.defaultof<unit>
+    let Module (name: string) = ()
 
 type TestCategory = internal { name : string; run : (unit -> unit) }
 
-[<JavaScript>]
+[<JavaScript>]                   
 type TestCategoryBuilder(name: string) =
 
     [<Inline>]
@@ -688,7 +688,7 @@ type SubtestBuilder () =
                 | e :: l ->
                     let r = f e
                     loop (acc |> Runner.Bind (fun _ -> r asserter)) l
-            loop (Choice1Of2 Unchecked.defaultof<'B>) sample.Data
+            loop (Choice1Of2 JS.Undefined) sample.Data
 
     /// Runs a test for 100 occurrences of a random generator.
     [<CustomOperation("propertyWith", MaintainsVariableSpace = true)>]
@@ -806,7 +806,7 @@ type SubtestBuilder () =
 
     member this.Return(x) = fun asserter -> Choice1Of2 x
 
-    member this.Zero() = fun asserter -> Choice1Of2 Unchecked.defaultof<_>
+    member this.Zero() = fun asserter -> Choice1Of2 JS.Undefined
 
     member this.For
         (

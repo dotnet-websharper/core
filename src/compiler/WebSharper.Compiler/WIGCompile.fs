@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -173,7 +173,7 @@ type InlineGenerator() =
                 match t with
                 | Type.InteropType (_, tr) -> 
                     if opt 
-                    then "$value.$?{$: 1, $0: " + tr.In "$value.$0" + "}:{$: 0}"
+                    then "$value?{$: 1, $0: " + tr.In "$value.$0" + "}:null"
                     else tr.In "$value"
                 | _ -> "$value"
             t, opt, value
@@ -202,7 +202,7 @@ type InlineGenerator() =
                 match t with
                 | Type.InteropType (_, tr) -> 
                     if opt 
-                    then "$value.$?{$: 1, $0: " + tr.In "$value.$0" + "}:{$: 0}"
+                    then "$value?{$: 1, $0: " + tr.In "$value.$0" + "}:null"
                     else tr.In "$value"
                 | _ -> "$value"
             let prop() =
@@ -250,8 +250,9 @@ type InlineGenerator() =
 [<Sealed>]
 type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName: string) =
     let mscorlib = aR.Resolve(typeof<int>.Assembly.FullName)
+    let syscore = aR.Resolve(typeof<System.Linq.Enumerable>.Assembly.FullName)
     let fscore = aR.Resolve(fsCoreFullName)
-    let wsCore = aR.Resolve(typeof<WebSharper.Core.Attributes.InlineAttribute>.Assembly.FullName)
+    let wsCore = aR.Resolve(typeof<WebSharper.InlineAttribute>.Assembly.FullName)
     let sysWeb = aR.Resolve(typeof<System.Web.UI.WebResourceAttribute>.Assembly.FullName)
     let main = out.MainModule
 
@@ -305,8 +306,9 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
             | 0 -> baseName
             | k -> baseName + "`" + string k
         let tDef =
-            assembly.MainModule.GetType(ns, name)
-            |> main.Import
+            let t = assembly.MainModule.GetType(ns, name)
+            if isNull t then failwithf "Type not found: %s.%s in assembly %s" ns name assembly.Name.FullName
+            main.Import t
         genericInstance tDef ts
 
     let paramArray = fromSystem "ParamArrayAttribute"
@@ -317,8 +319,8 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         wsCore.MainModule.GetType("WebSharper.Core", "Attributes")
 
     let findWsAttr (name: string) =
-        attributes.NestedTypes
-        |> Seq.find (fun t -> t.Name = name)
+        wsCore.MainModule.Types
+        |> Seq.find (fun t -> t.Namespace = "WebSharper" && t.Name = name)
         |> main.Import
 
     let inlineAttr = findWsAttr "InlineAttribute"
@@ -392,6 +394,21 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     member b.FuncWithArgsRest args rest result =
         genericInstance funcWithArgsRest [args; rest; result]        
 
+    member b.Delegate args res =
+        let tn =
+            if Option.isSome res then "Func" else "Action" 
+        commonType (if List.length args <= 8 then mscorlib else syscore) "System" tn (args @ Option.toList res)
+
+    member b.InteropDelegate this args pars res =
+        let tn =
+            if Option.isSome this then "This" else ""
+            + if Option.isSome pars then "Params" else ""
+            + if Option.isSome res then "Func" else "Action"
+        if List.length args <= 6 then
+            commonType wsCore "WebSharper.JavaScript" tn (Option.toList this @ args @ Option.toList pars @ Option.toList res)
+        else
+            b.Type(typeof<WebSharper.JavaScript.Function>)
+
     member b.Attribute = attributeType
     member b.BaseResource = baseResourceType
     member b.Inline = inlineAttr
@@ -440,8 +457,8 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
         | R.Type.Generic pos ->
             genericsByPosition.[pos] :> _
 
-    member private c.TypeReference(t: T, defT: Code.TypeDeclaration, allowGeneric: bool) =
-        let tRef x = c.TypeReference(x, defT, false)
+    member private c.TypeReference(t: T, defT: Code.TypeDeclaration, allowGeneric: bool, isCSharp: bool) =
+        let tRef x = c.TypeReference(x, defT, false, isCSharp)
         let tres =
             match t with
             | Type.ArrayType (rank, t) ->
@@ -449,29 +466,40 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
             | Type.DeclaredType id ->
                 byId id
             | Type.FunctionType f ->
-                let ret = tRef f.ReturnType
                 let args = f.Parameters |> List.map (snd >> tRef)
-                let func =
-                    match f.ParamArray with
-                    | None ->
-                        match args with
-                        | [] -> tB.Function (tB.Type<unit>()) ret
-                        | [a] -> tB.Function a ret
-                        | _ -> tB.FuncWithArgs (tB.Tuple args) ret                
-                    | Some p ->
-                        let pa = tRef p
-                        if args.Length <= 6 then
-                            tB.FuncWithRest args pa ret
-                        else
-                            tB.FuncWithArgsRest (tB.Tuple args) pa ret        
-                match f.This with
-                | None -> func
-                | Some this -> 
-                    match f.ParamArray, args with
-                    | None, [] ->
-                        tB.FuncWithOnlyThis (tRef this) ret
-                    | _ -> 
-                        tB.FuncWithThis (tRef this) func
+                if isCSharp then
+                    let ret = 
+                        match f.ReturnType with
+                        | Type.Unit -> None
+                        | r -> Some (tRef r)
+                    match f.This, f.ParamArray with
+                    | None, None -> tB.Delegate args ret
+                    | _ -> tB.InteropDelegate (Option.map tRef f.This) args (Option.map tRef f.ParamArray) ret
+                else
+                    let ret = tRef f.ReturnType
+                    let func =
+                        match f.ParamArray with
+                        | None ->
+                            match args with
+                            | [] -> tB.Function (tB.Type<unit>()) ret
+                            | [a] -> tB.Function a ret
+                            | _ -> tB.FuncWithArgs (tB.Tuple args) ret                
+                        | Some p ->
+                            let pa = tRef p
+                            if args.Length <= 6 then
+                                tB.FuncWithRest args pa ret
+                            else
+                                tB.FuncWithArgsRest (tB.Tuple args) pa ret        
+                    match f.This with
+                    | None -> func
+                    | Some this -> 
+                        match f.ParamArray, args with
+                        | None, [] ->
+                            tB.FuncWithOnlyThis (tRef this) ret
+                        | _ -> 
+                            tB.FuncWithThis (tRef this) func
+            | Type.DelegateType(a, r) ->
+                tB.Delegate (List.map tRef a) (Option.map tRef r)
             | Type.FSFunctionType (a, r) ->
                 tB.Function (tRef a) (tRef r)
             | Type.GenericType i ->
@@ -490,7 +518,7 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
                 let args = xs |> Seq.map tRef
                 tB.GenericInstanceType(t, args)
             | Type.SpecializedType (x, xs) ->
-                let t = c.TypeReference(x, defT, true)
+                let t = c.TypeReference(x, defT, true, isCSharp)
                 let gen = 
                     match t with
                     | :? GenericInstanceType as t -> t.GenericArguments.Count
@@ -526,7 +554,10 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
         tres
 
     member c.TypeReference(t: T, defT: Code.TypeDeclaration) =
-        c.TypeReference(t, defT, false)
+        c.TypeReference(t, defT, false, true)
+
+    member c.TypeReference(t: T, defT: Code.TypeDeclaration, isCSharp) =
+        c.TypeReference(t, defT, false, isCSharp)
 
     member c.WithGenerics(gs: seq<GenericParameter>, byId: Type.Id -> GenericParameter option) =
         let gbi i =
@@ -713,14 +744,14 @@ type MemberConverter
         | CodeModel.Obsolete None -> attrs.Add obsoleteAttribute
         | CodeModel.Obsolete (Some msg) -> attrs.Add (obseleteAttributeWithMsg msg)
 
-    let makeParameters (f: Type.Function, defT) =
+    let makeParameters (f: Type.Function, defT, isCSharp) =
         Seq.ofArray [|
             for (n, t) in f.Parameters do
-                yield ParameterDefinition(n, ParameterAttributes.None, tC.TypeReference (t, defT))
+                yield ParameterDefinition(n, ParameterAttributes.None, tC.TypeReference (t, defT, isCSharp))
             match f.ParamArray with
             | None -> ()
             | Some pa ->
-                yield mB.BuildParamArrayParameter(tC.TypeReference (pa, defT))
+                yield mB.BuildParamArrayParameter(tC.TypeReference (pa, defT, isCSharp))
         |]
 
     let staticMethodAttributes = MethodAttributes.Static ||| MethodAttributes.Public
@@ -742,9 +773,9 @@ type MemberConverter
             |> Type.GetOverloads
         let overloads = 
             match x.Inline with
-            | Some (Code.BasicInline _) -> overloads
-            | _ -> overloads |> List.map Type.TransformArgs
-        for t in overloads do
+            | Some (Code.BasicInline _) -> overloads |> List.collect Type.WithFSharpOverloads
+            | _ -> overloads |> List.collect Type.TransformArgs
+        for t, isCSharp in overloads do
             match t with
             | Type.NoInteropType (Type.FunctionType f)
             | Type.FunctionType f ->
@@ -759,7 +790,7 @@ type MemberConverter
                     iG.GetMethodBaseInline(td, t, x)
                     |> inlineAttribute
                     |> cD.CustomAttributes.Add
-                for p in makeParameters (f, td) do
+                for p in makeParameters (f, td, isCSharp) do
                     cD.Parameters.Add p
                 setObsoleteAttribute x cD.CustomAttributes
                 dT.Methods.Add(cD)
@@ -774,7 +805,7 @@ type MemberConverter
             match p.GetterInline, p.SetterInline with
             | Some (Code.BasicInline _), _
             | _, Some (Code.BasicInline _) -> Type.Normalize p.Type
-            | _ -> Type.TransformOption (Type.Normalize p.Type)
+            | _ -> Type.TransformOption true (Type.Normalize p.Type)
         let ty = tC.TypeReference (t, td)
         //let name = iG.GetPropertySourceName p
         let attrs = PropertyAttributes.None
@@ -855,9 +886,9 @@ type MemberConverter
             |> Type.GetOverloads
         let overloads = 
             match x.Inline with
-            | Some (Code.BasicInline _) -> overloads
-            | _ -> overloads |> List.map Type.TransformArgs
-        for t in overloads do
+            | Some (Code.BasicInline _) -> overloads |> List.collect Type.WithFSharpOverloads
+            | _ -> overloads |> List.collect Type.TransformArgs
+        for t, isCSharp in overloads do
             match t with
             | Type.NoInteropType (Type.FunctionType f)
             | Type.FunctionType f ->
@@ -869,15 +900,15 @@ type MemberConverter
                     | None -> ()
                     | Some c -> comments.[mD] <- c
                 let c = withGenerics (x.Generics, td, mD)
-                c.AddMethod(dT, td, x, mD, t, f)
+                c.AddMethod(dT, td, x, mD, t, f, isCSharp)
             | _ -> ()
 
-    member private c.AddMethod(dT: TypeDefinition, td: Code.TypeDeclaration, x: Code.Method, mD: MethodDefinition, t: Type.Type, f: Type.Function) =
+    member private c.AddMethod(dT: TypeDefinition, td: Code.TypeDeclaration, x: Code.Method, mD: MethodDefinition, t: Type.Type, f: Type.Function, isCSharp: bool) =
         mD.ReturnType <-
             match f.ReturnType with
             | Type.Unit -> tB.Void
-            | Type.NonUnit -> tC.TypeReference (f.ReturnType, td)
-        for p in makeParameters (f, td) do
+            | Type.NonUnit -> tC.TypeReference (f.ReturnType, td, isCSharp)
+        for p in makeParameters (f, td, isCSharp) do
             mD.Parameters.Add p
         if not dT.IsInterface then
             mB.AddBody mD
@@ -1357,8 +1388,8 @@ type Compiler() =
         addResourceExports mB def
         
         // Add WebSharper metadata
-        let meta = WebSharper.Compiler.Reflector.transformAssembly def
-        WebSharper.Compiler.FrontEnd.modifyWIGAssembly meta def |> ignore
+        let meta = WebSharper.Compiler.Reflector.TransformAssembly def
+        WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def |> ignore
 
         let doc = XmlDocGenerator(def, comments)
         let r = CompiledAssembly(def, doc, options)

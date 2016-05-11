@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -25,7 +25,6 @@ open System.Collections.Generic
 open System.Reflection
 open System.Threading.Tasks
 
-module A = WebSharper.Core.Attributes
 module FI = FastInvoke
 module J = WebSharper.Core.Json
 module M = WebSharper.Core.Metadata
@@ -91,6 +90,13 @@ let getResultEncoder (jP: J.Provider) (m: MethodInfo) =
                 let! x = aa.Box x
                 return jP.Pack (enc.Encode x)
             }
+    elif tD = typeof<Task> then
+        fun (x: obj) ->
+            let enc = jP.GetEncoder<unit>()
+            async {
+                let! x = Async.AwaitIAsyncResult (unbox<Task> x)
+                return jP.Pack (enc.Encode ())
+            }
     elif t = typeof<Void> || t = typeof<unit> then
         let enc = jP.GetEncoder typeof<unit>
         fun (x: obj) ->
@@ -135,32 +141,25 @@ let getParameterDecoder (jP: J.Provider) (m: MethodInfo) =
 
 exception InvalidHandlerException
 
-type IHandlerFactory =
-    abstract member Create : Type -> option<obj>
+let handlers = Dictionary<System.Type, obj>()
 
-let locker = obj ()
+let AddHandler (t: System.Type) (h: obj) =
+    lock handlers (fun () -> handlers.Add(t, h))
 
-let mutable factory =
-    {
-        new IHandlerFactory with
-            member this.Create _ = None
-    }
-
-let SetHandlerFactory rhf =
-    lock locker (fun () -> factory <- rhf)
-
-let toConverter (mk: option<IHandlerFactory>) (jP: J.Provider) (m: MethodInfo) =
+let toConverter (jP: J.Provider) (m: MethodInfo) =
     let enc = getResultEncoder jP m
     let dec = getParameterDecoder jP m
     let run = FI.Compile m
-    let factory = defaultArg mk factory
     if m.IsStatic then
         fun j ->
-            run.InvokeN(dec j) |> enc
+            let v = dec j
+            run.InvokeN(v) |> enc
     else
         fun j ->
             let t = m.DeclaringType
-            match factory.Create t with
+            match handlers.TryFind t with
+            | None -> 
+                raise InvalidHandlerException
             | Some inst ->
                 let args = dec j
                 let ps = Array.zeroCreate (args.Length + 1)
@@ -168,8 +167,6 @@ let toConverter (mk: option<IHandlerFactory>) (jP: J.Provider) (m: MethodInfo) =
                     ps.[i] <- args.[i - 1]
                 ps.[0] <- inst
                 run.InvokeN(ps) |> enc
-            | None ->
-                raise InvalidHandlerException
 
 [<Literal>]
 let HEADER_NAME = "x-websharper-rpc"
@@ -186,14 +183,14 @@ exception InvalidHeadersException
 exception NoRemoteAttributeException
 
 [<Sealed>]
-type Server(mk, info) =
+type Server(info) =
     let jP = J.Provider.CreateTyped info
-    let remote = M.getRemoteMethods info
+    let remote = M.Utilities.getRemoteMethods info
     let d = Dictionary()
     let getConverter m =
         match remote.TryFind m with
         | None -> raise NoRemoteAttributeException
-        | Some (td, m) -> toConverter mk jP (AST.Reflection.loadMethod td m)
+        | Some (td, m) -> toConverter jP (AST.Reflection.LoadMethod td m)
     let getCachedConverter m =
         let v = lock d (fun () ->
             match d.TryGetValue m with
@@ -225,4 +222,4 @@ type Server(mk, info) =
 
     member this.JsonProvider = jP
 
-    static member Create mk info = Server(mk, info)
+    static member Create info = Server(info)

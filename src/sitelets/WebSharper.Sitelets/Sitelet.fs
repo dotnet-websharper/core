@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2015 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -241,3 +241,34 @@ module Sitelet =
 type Sitelet<'T> with
     member internal this.Upcast =
         Sitelet.Upcast this
+
+open System.Threading.Tasks
+
+type SiteletBuilder() =
+
+    let mutable sitelets = []
+
+    member this.With<'T when 'T : equality>(content: Func<Context<obj>, 'T, Task<Content<'T>>>) =
+        let sitelet =
+            Sitelet.InferPartial
+                box
+                (function :? 'T as x -> Some x | _ -> None)
+                (fun ctx action -> async {
+                    let! content =
+                        content.Invoke(ctx, action)
+                        |> Async.AwaitTask
+                    return
+                        match content with
+                        | CustomContent f -> CustomContent (f << Context.Map box)
+                        | CustomContentAsync f -> CustomContentAsync (f << Context.Map box)
+                })
+        sitelets <- sitelet :: sitelets
+        this
+
+    member this.With(path: string, content: Func<Context<obj>, Task<Content<obj>>>) =
+        let content ctx = content.Invoke(ctx) |> Async.AwaitTask
+        sitelets <- Sitelet.Content path (box path) content :: sitelets
+        this
+
+    member this.Install() =
+        Sitelet.Sum (List.rev sitelets)
