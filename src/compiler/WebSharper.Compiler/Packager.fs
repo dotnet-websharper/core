@@ -75,12 +75,15 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
             match address.Value with
             | [] -> glob
             | h :: t ->
-                let import = ItemGet(getOrImportAddress false (Address t), Value (String h))
+                let parent = getOrImportAddress false (Address t)
+                let import = ItemGet(parent, Value (String h))
                 if full then
                     import
                 else
                     let var = Id.New h
-                    declarations.Add <| VarDeclaration (var, import)                
+                    let importWithCheck =
+                        if List.isEmpty t then import else parent ^&& import
+                    declarations.Add <| VarDeclaration (var, importWithCheck)                
                     let res = Var var
                     addresses.Add(address, res)
                     res
