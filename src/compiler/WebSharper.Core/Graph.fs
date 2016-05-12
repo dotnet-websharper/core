@@ -180,6 +180,7 @@ type Graph =
                 |> Array.ofSeq
         } 
     
+    /// Get all code dependencies unordered
     member this.GetDependencies (nodes : seq<Node>) =
         let allNodes = HashSet()
         let newNodes = HashSet()
@@ -187,11 +188,6 @@ type Graph =
         let newTypesWithOverrides = HashSet()
         let allAbstractMembers = HashSet()
         let newAbstractMembers = HashSet()
-
-//        let jqRes =
-//            ResourceNode <|
-//                Hashed { Assembly = "WebSharper.JQuery"; FullName = "WebSharper.JQuery.Resources.JQuery" }
-//        this.Lookup.TryFind jqRes |> Option.iter (allNodes.Add >> ignore)
 
         let addTypeWithOverride i =
             if this.Overrides.ContainsKey i then newTypesWithOverrides.Add i |> ignore  
@@ -233,6 +229,8 @@ type Graph =
         
         allNodes |> Seq.map (fun n -> this.Nodes.[n]) |> List.ofSeq
 
+    /// Get all resource nodes directly used by a graph node or by code path analysis.
+    /// Does not gather further dependencies of assembly and resource nodes. 
     member private this.GetRequires (node: int) =
         let allNodes = HashSet()
         let newNodes = HashSet()
@@ -241,11 +239,6 @@ type Graph =
         let allAbstractMembers = HashSet()
         let newAbstractMembers = HashSet()
         let resNodes = HashSet()
-
-//        let jqRes =
-//            ResourceNode <|
-//                Hashed { Assembly = "WebSharper.JQuery"; FullName = "WebSharper.JQuery.Resources.JQuery" }
-//        this.Lookup.TryFind jqRes |> Option.iter (allNodes.Add >> ignore)
 
         let addTypeWithOverride i =
             if this.Overrides.ContainsKey i then newTypesWithOverrides.Add i |> ignore  
@@ -300,30 +293,11 @@ type Graph =
         
         resNodes :> _ seq
 
-//    member private this.GetCachedRequires stack (node: int) =
-//        match this.Requires.TryFind node with
-//        | Some cached -> 
-//            if obj.ReferenceEquals(cached, null) then
-//                failwithf "Looped resource nodes: %s"
-//                    (node :: stack |> List.map (fun n -> sprintf "%+A" this.Nodes.[n]) |> String.concat "<-") 
-//            else cached
-//        | _ ->
-//            let directReqs = this.GetRequires(node)
-//            this.Requires.[node] <- null 
-//            let res =
-//                directReqs
-//                |> Seq.collect (this.GetCachedRequires (node :: stack))
-//                |> Seq.append directReqs
-//                |> Seq.distinct
-//                |> Array.ofSeq
-//            this.Requires.[node] <- res
-//            res
-
     member private this.GetCachedRequires (node: int) =
         match this.Requires.TryFind node with
         | Some cached -> 
             if obj.ReferenceEquals(cached, null) then
-                failwithf "Looped resource node: %+A" this.Nodes.[node]
+                failwithf "Invalid loop on resource node: %+A" this.Nodes.[node]
             else cached
         | _ ->
             let directReqs = this.GetRequires(node)
@@ -333,6 +307,8 @@ type Graph =
             this.Requires.[node] <- res
             res
 
+    /// Gets all resource class instances for a set of graph nodes.
+    /// Resource nodes are ordered by graph edges, assembly nodes by assembly dependencies.
     member this.GetResources (nodes : seq<Node>) =
         let activate resource =
             match resource with
@@ -355,14 +331,20 @@ type Graph =
                     }
             | _ -> failwith "not a resource node"
         
+        let getSortIndex i n =
+            match n with
+            | AssemblyNode _ -> i
+            | ResourceNode _ -> -1
+            | _ -> failwith "not a resource node"
+
         let res = 
             nodes |> Seq.collect (fun n ->
                 match this.Lookup.TryFind n with
                 | None -> Seq.empty
                 | Some i ->
-                    this.GetCachedRequires i |> Seq.ofArray
+                    Seq.append (this.GetCachedRequires i) (Seq.singleton i)
             )
-            |> Seq.distinct |> Seq.sort
+            |> Seq.distinct
             |> Seq.choose (fun i ->
                 let n = this.Nodes.[i]
                 match n with
@@ -370,17 +352,21 @@ type Graph =
                 | ResourceNode _ ->
                     let i = this.Lookup.[n]
                     match this.Resources.TryFind i with
-                    | Some _ as found -> found
+                    | Some found -> Some (getSortIndex i n, found)
                     | _ ->
                         let res = activate n
                         this.Resources.Add(i, res)
-                        Some res
+                        Some (getSortIndex i n, res)
                 | _ -> None
             ) 
+            |> Seq.sortBy fst
+            |> Seq.map snd
             |> List.ofSeq
 
         Resources.Runtime.Instance :: res
    
+     /// Gets the resource nodes of a set of already explored graph nodes.
+     /// Used for minimal bundling.
      member this.GetResourcesOf (nodes : seq<Node>) =
         nodes |> Seq.filter (fun n ->
             match n with

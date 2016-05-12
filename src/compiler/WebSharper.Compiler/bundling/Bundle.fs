@@ -75,7 +75,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
             match mode with
             | BundleMode.MinifiedJavaScript -> false
             | _ -> true
-        let renderWebResource (name: string) cType (c: string) =
+        let renderWebResource cType (c: string) =
             match cType, mode with
             | CT.JavaScript, BundleMode.JavaScript
             | CT.JavaScript, BundleMode.MinifiedJavaScript ->
@@ -100,14 +100,11 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
             {
                 DebuggingEnabled = debug
                 DefaultToHttp = false // TODO make configurable
-                GetAssemblyRendering = fun name ->
-//                    context.LookupAssembly(name)
-//                    |> Option.iter renderAssembly
-                    Res.Skip
+                GetAssemblyRendering = fun _ -> Res.Skip
                 GetSetting = getSetting
                 GetWebResourceRendering = fun ty name ->
                     let (c, cT) = Utility.ReadWebResource ty name
-                    renderWebResource name cT c
+                    renderWebResource cT c
                     Res.Skip
             }
         use htmlWriter = new HtmlTextWriter(TextWriter.Null)

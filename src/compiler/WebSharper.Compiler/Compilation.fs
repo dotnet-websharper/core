@@ -1116,7 +1116,8 @@ type Compilation(meta: Info) =
             graph.AddEdge(objHashIndex, uchHashIndex)
             graph.AddEdge(uchHashIndex, objHashIndex)
 
-        // Add graph edges for GetEnumerator and Object methods redirection
+        // Add graph edge needed for Sitelets: Web.Controls will be looked up
+        // and initialized on client-side by Activator.Activate
         if this.AssemblyName = "WebSharper.Web" then
             let activate =
                 MethodNode(
