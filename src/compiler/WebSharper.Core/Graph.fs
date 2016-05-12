@@ -58,7 +58,6 @@ type Graph =
         Overrides : IDictionary<int, IDictionary<int, int>>
         Lookup : IDictionary<Node, int>
         Resources : IDictionary<int, Resources.IResource>
-        Requires : IDictionary<int, int[]> 
         NewNodes : ResizeArray<int>
     }
 
@@ -77,7 +76,6 @@ type Graph =
             Overrides = overrides
             Lookup = lookup
             Resources = Dictionary()
-            Requires = Dictionary()
             NewNodes = ResizeArray()
         }
 
@@ -121,7 +119,6 @@ type Graph =
             Overrides = overrides
             Lookup = lookup
             Resources = Dictionary()
-            Requires = Dictionary()
             NewNodes = ResizeArray()
         }
 
@@ -229,9 +226,8 @@ type Graph =
         
         allNodes |> Seq.map (fun n -> this.Nodes.[n]) |> List.ofSeq
 
-    /// Get all resource nodes directly used by a graph node or by code path analysis.
-    /// Does not gather further dependencies of assembly and resource nodes. 
-    member private this.GetRequires (node: int) =
+    /// Get all resource nodes used by a graph node.
+    member private this.GetRequires (nodes : seq<Node>) =
         let allNodes = HashSet()
         let newNodes = HashSet()
         let allTypesWithOverrides = HashSet()
@@ -249,22 +245,14 @@ type Graph =
                 | ResourceNode _ 
                 | AssemblyNode _ ->
                     resNodes.Add i |> ignore
-                | _ ->
+                | _ -> ()
                 newNodes.Add i |> ignore
                 match n with
                 | AbstractMethodNode (td, m) -> this.Lookup.TryFind (AbstractMethodNode (td, m)) |> Option.iter (newAbstractMembers.Add >> ignore) 
                 | TypeNode td -> this.Lookup.TryFind (TypeNode td) |> Option.iter addTypeWithOverride
                 | _ -> ()
 
-        let addFirstNode n i =
-            if allNodes.Add i then
-                newNodes.Add i |> ignore
-                match n with
-                | AbstractMethodNode (td, m) -> this.Lookup.TryFind (AbstractMethodNode (td, m)) |> Option.iter (newAbstractMembers.Add >> ignore) 
-                | TypeNode td -> this.Lookup.TryFind (TypeNode td) |> Option.iter addTypeWithOverride
-                | _ -> ()
-        
-        addFirstNode this.Nodes.[node] node
+        nodes |> Seq.iter (fun n -> this.Lookup.TryFind n |> Option.iter (addNode n))
 
         while newNodes.Count > 0 do
             let currentNodes = Array.ofSeq newNodes
@@ -291,21 +279,7 @@ type Graph =
                     for mem in currentOrAllAbstractMembers do
                         ors.TryFind mem |> Option.iter (fun i -> addNode this.Nodes.[i] i)
         
-        resNodes :> _ seq
-
-    member private this.GetCachedRequires (node: int) =
-        match this.Requires.TryFind node with
-        | Some cached -> 
-            if obj.ReferenceEquals(cached, null) then
-                failwithf "Invalid loop on resource node: %+A" this.Nodes.[node]
-            else cached
-        | _ ->
-            let directReqs = this.GetRequires(node)
-            this.Requires.[node] <- null 
-            let otherReqs = directReqs |> Seq.collect this.GetCachedRequires
-            let res = Seq.append otherReqs directReqs |> Seq.distinct |> Array.ofSeq
-            this.Requires.[node] <- res
-            res
+        resNodes |> Array.ofSeq
 
     /// Gets all resource class instances for a set of graph nodes.
     /// Resource nodes are ordered by graph edges, assembly nodes by assembly dependencies.
@@ -338,12 +312,8 @@ type Graph =
             | _ -> failwith "not a resource node"
 
         let res = 
-            nodes |> Seq.collect (fun n ->
-                match this.Lookup.TryFind n with
-                | None -> Seq.empty
-                | Some i ->
-                    Seq.append (this.GetCachedRequires i) (Seq.singleton i)
-            )
+            nodes 
+            |> this.GetRequires
             |> Seq.distinct
             |> Seq.choose (fun i ->
                 let n = this.Nodes.[i]
@@ -435,7 +405,6 @@ type Graph =
             Overrides = Dictionary()
             Lookup = Dictionary()
             Resources = Dictionary()
-            Requires = Dictionary()
             NewNodes = ResizeArray()
         }
 

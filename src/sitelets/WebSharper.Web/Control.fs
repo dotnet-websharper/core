@@ -88,12 +88,15 @@ type Control() =
         member this.Body = this.Body
         member this.Id = this.ID
 
+    member this.GetBodyNode() =
+        let t = this.GetType()
+        let t = if t.IsGenericType then t.GetGenericTypeDefinition() else t
+        let m = t.GetProperty("Body").GetGetMethod()
+        M.MethodNode (R.ReadTypeDefinition t, R.ReadMethod m)
+
     interface IRequiresResources with
         member this.Requires =
-            let t = this.GetType()
-            let t = if t.IsGenericType then t.GetGenericTypeDefinition() else t
-            let m = t.GetProperty("Body").GetGetMethod()
-            [M.MethodNode (R.ReadTypeDefinition t, R.ReadMethod m)] :> seq<_>
+            this.GetBodyNode() |> Seq.singleton
 
         member this.Encode(meta, json) =
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
@@ -160,7 +163,7 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
             )
             |> List.unzip
         let args = Array.ofList args
-        let reqs = ctrlReq :: fReqs @ argReqs :> seq<_>
+        let reqs = ctrlReq :: fReqs @ argReqs
         args, (declType, meth, reqs)
 
     let args = fst bodyAndReqs
@@ -186,8 +189,8 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
         member this.Requires =
-            let _, _, reqs = snd bodyAndReqs
-            reqs
+            let _, _, reqs = snd bodyAndReqs 
+            this.GetBodyNode() :: reqs |> Seq.ofList
 
 namespace WebSharper
 
