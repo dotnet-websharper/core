@@ -591,11 +591,10 @@
       </PropertyComment>
     </Field>
     <Field Name="ColonToken" Type="SyntaxToken">
-      <Kind Name="ColonToken">
-        <PropertyComment>
-          <summary>SyntaxToken representing the colon.</summary>
-        </PropertyComment>
-      </Kind>
+      <Kind Name="ColonToken"/>
+      <PropertyComment>
+        <summary>SyntaxToken representing the colon.</summary>
+      </PropertyComment>
     </Field>
     <Field Name="WhenFalse" Type="ExpressionSyntax">
       <PropertyComment>

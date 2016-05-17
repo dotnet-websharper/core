@@ -1,29 +1,19 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <ProjectGuid>{46d8c7c3-43ca-465c-9714-20b22cf3e459}</ProjectGuid>
-    <Name>ZafirCs</Name>
-    <OutputType>Exe</OutputType>
+    <ProjectGuid>055CF3AD-BDAF-4441-989B-D764B80FBDEE</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <Name>WebSharper.CSharp.Analyzer</Name>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
     <FSharp40>True</FSharp40>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
-    <Compile Include="Program.fs" />
-    <Content Include="App.config">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.CSharp\WebSharper.Compiler.CSharp.fsproj">
       <Name>WebSharper.Compiler.CSharp</Name>
       <Project>{8f188e8b-547e-4a8e-bd3b-257a13af9acd}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
-      <Name>WebSharper.Core.JavaScript</Name>
-      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\WebSharper.Compiler\WebSharper.Compiler.fsproj">
@@ -36,14 +26,22 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj">
-      <Name>WebSharper.InterfaceGenerator</Name>
-      <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
-      <Private>True</Private>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Microsoft.CodeAnalysis" />
-    <Reference Include="Microsoft.CodeAnalysis.CSharp" />
+    <Reference Include="Microsoft.CodeAnalysis">
+      <HintPath>..\..\..\packages\Microsoft.CodeAnalysis.Common\lib\net45\Microsoft.CodeAnalysis.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp">
+      <HintPath>..\..\..\packages\Microsoft.CodeAnalysis.CSharp\lib\net45\Microsoft.CodeAnalysis.CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Collections.Immutable">
+      <HintPath>..\..\..\packages\System.Collections.Immutable\lib\portable-net45+win8+wp8+wpa81\System.Collections.Immutable.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Reflection.Metadata">
+      <HintPath>..\..\..\packages\System.Reflection.Metadata\lib\portable-net45+win8\System.Reflection.Metadata.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Analyzer.fs" />
   </ItemGroup>
 </Project>

@@ -15,3 +15,4 @@ IntelliFactory.WebSharper.JQuery/*.js
 /msbuild/AssemblyInfo.extra.fs
 /.hg
 /.vs/config
+/msbuild.log

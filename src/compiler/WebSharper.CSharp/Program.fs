@@ -233,6 +233,9 @@ let compileMain argv =
         | StartsWith "/reference:" r ->
             refs.Add r
             cscArgs.Add a
+        | StartsWith "/resource:" r ->
+            resources.Add r
+            cscArgs.Add a
         | StartsWith "/keyfile:" k ->
             wsArgs := { !wsArgs with KeyFile = Some k }
         | _ -> 

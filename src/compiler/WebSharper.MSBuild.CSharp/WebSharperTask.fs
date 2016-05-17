@@ -51,20 +51,14 @@ type WebSharperTask() =
     member val WebSharperTypeScriptDeclaration = "" with get, set
     member val WebSharperErrorsAsWarnings = "" with get, set
     member val DocumentationFile = "" with get, set
-    member val CscCommandLineArgs : string = null with get, set
-
     member val ZafirToolPath = "zafircs.exe" with get, set
-
     member val DefineConstants = "" with get, set
     member val NoStandardLib = "" with get, set
     member val Sources : ITaskItem [] = Array.empty with get, set
-
-
-    [<Output>]
-    member val ItemOutput : ITaskItem [] = Array.empty with get, set
-
-    [<Output>]
-    member val ReferenceCopyLocalPaths : ITaskItem [] = Array.empty with get, set
+    member val TargetType = "" with get, set 
+    member val NoConfig = "" with get, set 
+    member val DebugType = "" with get, set 
+    member val SubsystemVersion = "" with get, set 
 
     override this.ToolName = "zafircs.exe" 
 
@@ -73,8 +67,17 @@ type WebSharperTask() =
     override this.GenerateCommandLineCommands() =
         let builder = CommandLineBuilder()
                 
+        if bool.TryParse this.NoConfig ||> (&&) then
+            builder.AppendSwitch "/noconfig"
+
         if bool.TryParse this.NoStandardLib ||> (&&) then
             builder.AppendSwitch "/nostdlib+"
+
+        builder.AppendSwitchIfNotNull("/target:", this.TargetType) 
+
+        builder.AppendSwitchIfNotNull("/debug:", this.DebugType) 
+
+        builder.AppendSwitchIfNotNull("/subsystemversion:", this.SubsystemVersion) 
 
         builder.AppendSwitchIfNotNull("/doc:", this.DocumentationFile) 
 

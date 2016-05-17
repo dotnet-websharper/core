@@ -28,55 +28,12 @@ open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Compiler.CompilationHelpers
 open WebSharper.Compiler.Breaker
+
+module A = WebSharper.Compiler.AttributeReader
             
 open WebSharper.Compiler.CSharp.RoslynHelpers
 
 open System.Collections.Generic
-
-type Environment =
-    {
-        SemanticModel : SemanticModel 
-        Vars : IDictionary<ILocalSymbol, Id>
-        Parameters : IDictionary<IParameterSymbol, Id * bool>
-        Labels : IDictionary<ILabelSymbol, Id>
-        Caught : option<Id>
-        Conditional : option<Id>
-        Initializing : option<Id>
-        Compilation : WebSharper.Compiler.Compilation
-        RangeVars : IDictionary<IRangeVariableSymbol, Id * option<int>>
-    }
-    static member New(model, comp) = 
-        { 
-            SemanticModel = model
-            Vars = Dictionary()
-            Parameters = Dictionary()
-            Labels = Dictionary()
-            Caught = None
-            Conditional = None
-            Initializing = None
-            Compilation = comp
-            RangeVars = Dictionary()
-        }      
-
-    member this.GetLabelId(symbol) =
-        match this.Labels.TryGetValue(symbol) with
-        | true, id -> id
-        | _ ->
-            let id = Id.New(symbol.Name)           
-            this.Labels.Add(symbol, id)
-            id
-
-    member this.WithCaught(c) =
-        { this with Caught = Some c }
-
-    member this.WithConditional(c) =
-        { this with Conditional = Some c }
-
-    member this.WithInitializing(i) =
-        { this with Initializing = Some i }
-
-    member this.WithNotInitializing() =
-        { this with Initializing = None }
 
 type CSharpParameter =
     {
@@ -112,26 +69,30 @@ type CSharpConstructor =
         Initializer : option<CSharpConstructorInitializer>
     }
 
-let getConstantValueOfExpression (env: Environment) x =
-    env.SemanticModel.GetConstantValue(x).Value
-    |> ReadLiteral |> Value
+let textSpans =
+    System.Runtime.CompilerServices.ConditionalWeakTable()
 
-let getSourcePosOfSpan (span: FileLinePositionSpan) =
-    {   
-        FileName = span.Path
-        Start = 
-            let pos = span.StartLinePosition
-            pos.Line + 1, pos.Character + 1
-        End = 
-            let pos = span.EndLinePosition
-            pos.Line + 1, pos.Character + 1
-    }
+let getSourcePosOfSpan (ts: Text.TextSpan) (span: FileLinePositionSpan) =
+    let res =
+        {   
+            FileName = span.Path
+            Start = 
+                let pos = span.StartLinePosition
+                pos.Line + 1, pos.Character + 1
+            End = 
+                let pos = span.EndLinePosition
+                pos.Line + 1, pos.Character + 1
+        }
+    textSpans.Add(res, ref ts)
+    res
 
 let getSourcePos (x: CSharpSyntaxNode) =
-    getSourcePosOfSpan (x.SyntaxTree.GetLineSpan(x.Span))
+    let ts = x.Span
+    getSourcePosOfSpan ts (x.SyntaxTree.GetLineSpan ts)
 
 let getSourcePosOfSyntaxReference (x: SyntaxReference) =
-    getSourcePosOfSpan (x.SyntaxTree.GetLineSpan(x.Span))
+    let ts = x.Span
+    getSourcePosOfSpan ts (x.SyntaxTree.GetLineSpan ts)
 
 let withExprSourcePos (x: CSharpSyntaxNode) expr =
     ExprSourcePos (getSourcePos x, IgnoreExprSourcePos expr)
@@ -152,247 +113,340 @@ let inline TODO x =
 let inline NotSupported x = 
     failwithf "Syntax not supported for JavaScript: %s" x
 
-let rec getNamedTypeDefinition (x: INamedTypeSymbol) =
-    let arity (symbol: INamedTypeSymbol) =
-        match symbol.Arity with 0 -> "" | a -> "`" + string a    
+module M = Metadata
 
-    let rec getNamespaceOrTypeAddress acc (symbol: INamespaceOrTypeSymbol) =
-        match symbol.ContainingNamespace with
-        | null -> acc |> String.concat "."
-        | ns -> getNamespaceOrTypeAddress (symbol.Name :: acc) ns   
-    
-    let rec getTypeAddress acc (symbol: INamedTypeSymbol) =
-        match symbol.ContainingType with
-        | null -> 
-            let ns = getNamespaceOrTypeAddress [] symbol + arity symbol
-            if List.isEmpty acc then ns else
-                ns :: acc |> String.concat "+" 
-        | t -> getTypeAddress (symbol.Name + arity symbol :: acc) t           
+type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
-    Hashed {
-        Assembly = x.ContainingAssembly.Identity.Name
-        FullName = getTypeAddress [] x //) + arity x
-    }
-
-and getNamedType (x: INamedTypeSymbol) = 
-    if isNull x then
-        // TODO: handle dynamic by cheking symbol.ContainingSymbol before calling getNamedType
-        NonGeneric Definitions.Dynamic     
-    else
-    let ta = x.TypeArguments |> Seq.map  getType |> List.ofSeq
-    let td = getNamedTypeDefinition x
-    Generic td ta
-    
-and recognizeNamedType (x: INamedTypeSymbol) =
-    let ta = x.TypeArguments |> Seq.map getType |> List.ofSeq
-    let td = getNamedTypeDefinition x
-    let tName = td.Value.FullName
-    if tName.StartsWith "System.Tuple" then
-        if tName.EndsWith "8" then
-            match ta.[7] with
-            | TupleType rest -> TupleType (ta.[.. 6] @ rest)
-            | _ -> failwith "invalid big tuple type" 
-        else TupleType ta
-    elif tName = "Microsoft.FSharp.Core.FSharpFunc`2" then
-        match ta with
-        | [a; r] -> FSharpFuncType(a, r)
-        | _ -> failwith "impossible"
-    elif tName = "Microsoft.FSharp.Core.Unit" || tName = "System.Void" then
-        VoidType
-    else
-        GenericType td ta
-
-and getType (x: ITypeSymbol) : Type =
-    match x.TypeKind with
-    | TypeKind.Array ->
-        let t = x :?> IArrayTypeSymbol
-        ArrayType (getType t.ElementType, t.Rank)
-    | TypeKind.Class
-    | TypeKind.Struct
-    | TypeKind.Error
-    | TypeKind.Enum
-    | TypeKind.Delegate
-    | TypeKind.Interface ->
-        let t = x :?> INamedTypeSymbol 
-        recognizeNamedType t
-    | TypeKind.Dynamic ->
-        ConcreteType (NonGeneric Definitions.Obj)    
-    | TypeKind.TypeParameter ->
-        let t = x :?> ITypeParameterSymbol 
-        if t.TypeParameterKind = TypeParameterKind.Method then
-            TypeParameter (t.Ordinal + t.DeclaringMethod.ContainingType.TypeParameters.Length)
-        else 
-            TypeParameter t.Ordinal        
-    | _ ->
-        errf x "transformType: typekind %O not suppported" x.TypeKind
-
-let getAsyncReturnKind (x: IMethodSymbol) =
-    if x.ReturnsVoid then
-        Continuation.ReturnsVoid
-    elif (x.ReturnType :?> INamedTypeSymbol).IsGenericType then
-        Continuation.ReturnsResultTask
-    else Continuation.ReturnsTask
-
-let getMethod (x: IMethodSymbol) =
-    let x  = x.OriginalDefinition
-    Hashed {
-        MethodName = x.Name
-        Parameters = x.Parameters |> Seq.map (fun p -> getType p.Type) |> List.ofSeq
-        ReturnType = x.ReturnType |> getType
-        Generics = x.Arity
-    }
-
-let setterOf (getter : Concrete<Method>) =
-    let m = getter.Entity.Value
-    if not (m.MethodName.StartsWith "get_") then
-        failwithf "Invalid getter method: %s" m.MethodName
-    { getter with
-        Entity = 
-            Method {
-                MethodName = "set" + m.MethodName.[3 ..]
-                ReturnType = VoidType
-                Parameters = m.Parameters @ [ m.ReturnType ]
-                Generics = m.Generics
-            }
-    }                
-
-let getConstructor (x: IMethodSymbol) =
-    Hashed {
-        CtorParameters = x.Parameters |> Seq.map (fun p -> getType p.Type) |> List.ofSeq
-    }
-
-let getMember (x: IMethodSymbol) =
-    let name = x.Name
-    match name with
-    | ".ctor" ->
-        Member.Constructor <| Hashed {
-            CtorParameters = x.Parameters |> Seq.map (fun p -> getType p.Type) |> List.ofSeq
+    let attrReader =
+        { new A.AttributeReader<Microsoft.CodeAnalysis.AttributeData>() with
+            override this.GetAssemblyName attr = attr.AttributeClass.ContainingAssembly.Name
+            override this.GetName attr = attr.AttributeClass.Name
+            override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map (fun a -> a.Value) |> Array.ofSeq          
+            override this.GetTypeDef o = self.ReadNamedTypeDefinition (o :?> INamedTypeSymbol)
         }
-    | ".cctor" -> Member.StaticConstructor
-    | _ ->
-        let getMeth (x: IMethodSymbol) =
+
+    member this.RegisterCustomType def (td: INamedTypeSymbol) =
+        if not (comp.HasCustomTypeInfo def) then
+            let inv = td.DelegateInvokeMethod
+            if not (isNull inv) then
+                let info =
+                    M.DelegateInfo {
+                        DelegateArgs =                                
+                            inv.Parameters |> Seq.map (fun p -> this.ReadType p.Type) |> List.ofSeq
+                        ReturnType = this.ReadType inv.ReturnType
+                    }
+                comp.AddCustomType(def, info)
+
+    member this.ReadNamedTypeDefinition (x: INamedTypeSymbol) =
+        let arity (symbol: INamedTypeSymbol) =
+            match symbol.Arity with 0 -> "" | a -> "`" + string a    
+
+        let rec getNamespaceOrTypeAddress acc (symbol: INamespaceOrTypeSymbol) =
+            match symbol.ContainingNamespace with
+            | null -> acc |> String.concat "."
+            | ns -> getNamespaceOrTypeAddress (symbol.Name :: acc) ns   
+    
+        let rec getTypeAddress acc (symbol: INamedTypeSymbol) =
+            match symbol.ContainingType with
+            | null -> 
+                let ns = getNamespaceOrTypeAddress [] symbol + arity symbol
+                if List.isEmpty acc then ns else
+                    ns :: acc |> String.concat "+" 
+            | t -> getTypeAddress (symbol.Name + arity symbol :: acc) t           
+
+        let res =
             Hashed {
-                MethodName = x.Name
-                Parameters = x.Parameters |> Seq.map (fun p -> getType p.Type) |> List.ofSeq
-                ReturnType = x.ReturnType |> getType
-                Generics = x.Arity
+                Assembly = x.ContainingAssembly.Identity.Name
+                FullName = getTypeAddress [] x //) + arity x
             }
-        if x.IsOverride then
-            let o = x.OverriddenMethod.OriginalDefinition
-            Member.Override(getNamedTypeDefinition o.ContainingType, getMeth o)
-        elif x.ExplicitInterfaceImplementations.Length > 0 then
-            let o = x.ExplicitInterfaceImplementations.[0].OriginalDefinition
-            Member.Implementation(getNamedTypeDefinition o.ContainingType, getMeth o)
+
+        this.RegisterCustomType res x
+
+        res
+
+    member this.ReadNamedType (x: INamedTypeSymbol) = 
+        if isNull x then
+            // TODO: handle dynamic by cheking symbol.ContainingSymbol before calling sr.ReadNamedType
+            NonGeneric Definitions.Dynamic     
         else
-            let o = x.OriginalDefinition
-            Member.Method (not o.IsStatic, getMeth o)
-
-let getParameter (x: IParameterSymbol) : CSharpParameter =
-    let typ = getType x.Type
-    let defValue = 
-        if x.HasExplicitDefaultValue then 
-            Some (ReadLiteral x.ExplicitDefaultValue |> Value) 
-        elif x.IsOptional then
-            Some (DefaultValueOf typ)
-        elif x.IsParams then
-            Some (NewArray [])
-        else None
-
-    let id = Id.New x.Name
-    {
-        ParameterId = id
-        Symbol = x
-        DefaultValue = defValue
-        Type = typ
-        RefOrOut = x.RefKind <> RefKind.None
-    }
-
-let getParameters (x: IMethodSymbol) =
-    x.Parameters |> Seq.map getParameter |> List.ofSeq   
-
-let fixParamArray (symbol: IMethodSymbol) (env: Environment) (args: ArgumentListData) argumentList  =
-    let ps = symbol.Parameters
-    let paramCount = ps.Length
-    let fixSingleArg pa =
-        let rec arrayDepth (t: ITypeSymbol) =
-            if t.TypeKind = TypeKind.Array then
-                let t = t :?> IArrayTypeSymbol
-                1 + arrayDepth t.ElementType
-            else 0                
-        let paTy = 
-            env.SemanticModel.GetTypeInfo((args.Arguments |> Seq.last).Expression.Node).Type
-        let paTyArrayDepth =
-            if paTy = null then 0 else arrayDepth paTy
-        if arrayDepth (ps.[paramCount - 1].Type) = paTyArrayDepth then pa else NewArray [ pa ] 
-
-    if paramCount > 0 && ps.[paramCount - 1].IsParams then                
-        if List.length argumentList >= paramCount - 1 
-            && argumentList |> Seq.forall (fst >> Option.isNone) then
-            let normal, toArr = argumentList |> List.map snd |> List.splitAt (paramCount - 1)                
-            match toArr with
-            | [ pa ] -> normal @ [ fixSingleArg pa ]
-            | _ ->
-                normal @ [ NewArray toArr ]  
-            |> List.map (fun a -> None, a)  
+        let ta = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
+        let td = this.ReadNamedTypeDefinition x
+        Generic td ta
+    
+    member this.RecognizeNamedType (x: INamedTypeSymbol) =
+        let ta = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
+        let td = this.ReadNamedTypeDefinition x
+        let tName = td.Value.FullName
+        if tName.StartsWith "System.Tuple" then
+            if tName.EndsWith "8" then
+                match ta.[7] with
+                | TupleType rest -> TupleType (ta.[.. 6] @ rest)
+                | _ -> failwith "invalid big tuple type" 
+            else TupleType ta
+        elif tName = "Microsoft.FSharp.Core.FSharpFunc`2" then
+            match ta with
+            | [a; r] -> FSharpFuncType(a, r)
+            | _ -> failwith "impossible"
+        elif tName = "Microsoft.FSharp.Core.Unit" || tName = "System.Void" then
+            VoidType
         else
-        let psInd = Some (paramCount - 1)
-        if argumentList |> Seq.map fst |> Seq.contains psInd then
-            argumentList |> List.map (fun (i, v) ->
-                i, if i = psInd then fixSingleArg v else v 
-            )
-        else argumentList
-    else argumentList
+            GenericType td ta
 
-let getReorderedParams args =
-    if args |> List.forall (fst >> Option.isNone) then [], args |> List.map snd else
-    let needsParamReorder =
-        args |> List.fold (fun bo (i, _) ->
-            bo |> Option.bind (fun b -> 
-                match i with
-                | None -> Some 0
-                | Some i -> if i < b then None else Some i    
-            )   
-        ) (Some 0)
-        |> Option.isNone
-    let lastIndex = args |> Seq.choose fst |> Seq.max 
-    let argsWithIndexes =
-        args |> List.mapi (fun i (j, e) -> i, defaultArg j i, e, Id.New())
-    if needsParamReorder then
-        let byOrdinal = argsWithIndexes |> Seq.map (fun (_, i, _, v) -> i, v) |> Map.ofSeq
-        let inOrder = argsWithIndexes |> List.sortBy (fun (_, i, _, _) -> i) |> List.map (fun (_, _, e, v) -> v, e)
-        let fargs = 
-            List.init (lastIndex + 1) (fun i ->
-                match byOrdinal |> Map.tryFind i with
-                | Some v -> Var v
-                | _ -> Undefined
-            ) 
-        inOrder, fargs
-    else 
-        let byOrdinal = argsWithIndexes |> Seq.map (fun (_, i, e, _) -> i, e) |> Map.ofSeq
-        let fargs =
-            List.init (lastIndex + 1) (fun i ->
-                match byOrdinal |> Map.tryFind i with
-                | Some e -> e
-                | _ -> Undefined
-            ) 
-        [], fargs 
+    member this.ReadType (x: ITypeSymbol) : Type =
+        match x.TypeKind with
+        | TypeKind.Array ->
+            let t = x :?> IArrayTypeSymbol
+            ArrayType (this.ReadType t.ElementType, t.Rank)
+        | TypeKind.Class
+        | TypeKind.Struct
+        | TypeKind.Error
+        | TypeKind.Enum
+        | TypeKind.Delegate
+        | TypeKind.Interface ->
+            let t = x :?> INamedTypeSymbol 
+            this.RecognizeNamedType t
+        | TypeKind.Dynamic ->
+            ConcreteType (NonGeneric Definitions.Obj)    
+        | TypeKind.TypeParameter ->
+            let t = x :?> ITypeParameterSymbol 
+            if t.TypeParameterKind = TypeParameterKind.Method then
+                TypeParameter (t.Ordinal + t.DeclaringMethod.ContainingType.TypeParameters.Length)
+            else 
+                TypeParameter t.Ordinal        
+        | _ ->
+            errf x "transformType: typekind %O not suppported" x.TypeKind
 
-let hasSignature (s: Method) (x: IMethodSymbol) =
-    let s = s.Value
-    x.Arity = s.Generics
-    && (x.ReturnType |> getType) = s.ReturnType
-    && x.Parameters |> Seq.map (fun p -> getType p.Type) |> Seq.equals s.Parameters     
+    member this.ReadAsyncReturnKind (x: IMethodSymbol) =
+        if x.ReturnsVoid then
+            Continuation.ReturnsVoid
+        elif (x.ReturnType :?> INamedTypeSymbol).IsGenericType then
+            Continuation.ReturnsResultTask
+        else Continuation.ReturnsTask
+
+    member this.ReadMethod (x: IMethodSymbol) =
+        let x  = x.OriginalDefinition
+        Hashed {
+            MethodName = x.Name
+            Parameters = x.Parameters |> Seq.map (fun p -> this.ReadType p.Type) |> List.ofSeq
+            ReturnType = x.ReturnType |> this.ReadType
+            Generics = x.Arity
+        }
+
+    member this.ReadConstructor (x: IMethodSymbol) =
+        Hashed {
+            CtorParameters = x.Parameters |> Seq.map (fun p -> this.ReadType p.Type) |> List.ofSeq
+        }
+
+    member this.ReadMember (x: IMethodSymbol) =
+        let name = x.Name
+        match name with
+        | ".ctor" ->
+            Member.Constructor <| Hashed {
+                CtorParameters = x.Parameters |> Seq.map (fun p -> this.ReadType p.Type) |> List.ofSeq
+            }
+        | ".cctor" -> Member.StaticConstructor
+        | _ ->
+            let getMeth (x: IMethodSymbol) =
+                Hashed {
+                    MethodName = x.Name
+                    Parameters = x.Parameters |> Seq.map (fun p -> this.ReadType p.Type) |> List.ofSeq
+                    ReturnType = x.ReturnType |> this.ReadType
+                    Generics = x.Arity
+                }
+            if x.IsOverride then
+                let o = x.OverriddenMethod.OriginalDefinition
+                Member.Override(this.ReadNamedTypeDefinition o.ContainingType, getMeth o)
+            elif x.ExplicitInterfaceImplementations.Length > 0 then
+                let o = x.ExplicitInterfaceImplementations.[0].OriginalDefinition
+                Member.Implementation(this.ReadNamedTypeDefinition o.ContainingType, getMeth o)
+            else
+                let o = x.OriginalDefinition
+                Member.Method (not o.IsStatic, getMeth o)
+
+    member this.ReadParameter (x: IParameterSymbol) : CSharpParameter =
+        let typ = this.ReadType x.Type
+        let defValue = 
+            if x.HasExplicitDefaultValue then 
+                Some (ReadLiteral x.ExplicitDefaultValue |> Value) 
+            elif x.IsOptional then
+                Some (DefaultValueOf typ)
+            elif x.IsParams then
+                Some (NewArray [])
+            else None
+
+        let id = Id.New x.Name
+        {
+            ParameterId = id
+            Symbol = x
+            DefaultValue = defValue
+            Type = typ
+            RefOrOut = x.RefKind <> RefKind.None
+        }
+
+    member this.ReadParameters (x: IMethodSymbol) =
+        x.Parameters |> Seq.map this.ReadParameter |> List.ofSeq   
+
+    //let hasSignature (comp: WebSharper.Compiler.Compilation) (s: Method) (x: IMethodSymbol) =
+    //    let s = s.Value
+    //    x.Arity = s.Generics
+    //    && (x.ReturnType |> sr.ReadType) = s.ReturnType
+    //    && x.Parameters |> Seq.map (fun p -> sr.ReadType p.Type) |> Seq.equals s.Parameters     
   
-let jsCall expr item args =
-    Application(ItemGet(expr, Value (String item)), args)
+    member this.AttributeReader = attrReader
 
-let queryCall (symbol: IMethodSymbol) args =
-    let qtyp = getNamedType symbol.ContainingType
-    let ma = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
-    let meth = Generic (getMethod symbol.ReducedFrom) ma
-    Call (None, qtyp, meth, args)
+type Environment =
+    {
+        SemanticModel : SemanticModel 
+        Vars : IDictionary<ILocalSymbol, Id>
+        Parameters : IDictionary<IParameterSymbol, Id * bool>
+        Labels : IDictionary<ILabelSymbol, Id>
+        Caught : option<Id>
+        Conditional : option<Id>
+        Initializing : option<Id>
+        Compilation : WebSharper.Compiler.Compilation
+        SymbolReader : SymbolReader
+        RangeVars : IDictionary<IRangeVariableSymbol, Id * option<int>>
+    }
+    static member New(model, comp, sr) = 
+        { 
+            SemanticModel = model
+            Vars = Dictionary()
+            Parameters = Dictionary()
+            Labels = Dictionary()
+            Caught = None
+            Conditional = None
+            Initializing = None
+            Compilation = comp
+            SymbolReader = sr
+            RangeVars = Dictionary()
+        }      
+
+    member this.GetLabelId(symbol) =
+        match this.Labels.TryGetValue(symbol) with
+        | true, id -> id
+        | _ ->
+            let id = Id.New(symbol.Name)           
+            this.Labels.Add(symbol, id)
+            id
+
+    member this.WithCaught(c) =
+        { this with Caught = Some c }
+
+    member this.WithConditional(c) =
+        { this with Conditional = Some c }
+
+    member this.WithInitializing(i) =
+        { this with Initializing = Some i }
+
+    member this.WithNotInitializing() =
+        { this with Initializing = None }
 
 type RoslynTransformer(env: Environment) = 
+    let getConstantValueOfExpression x =
+        env.SemanticModel.GetConstantValue(x).Value
+        |> ReadLiteral |> Value
+
+    let sr = env.SymbolReader
+
+    let fixParamArray (symbol: IMethodSymbol) (args: ArgumentListData) argumentList  =
+        let ps = symbol.Parameters
+        let paramCount = ps.Length
+        let fixSingleArg pa =
+            let rec arrayDepth (t: ITypeSymbol) =
+                if t.TypeKind = TypeKind.Array then
+                    let t = t :?> IArrayTypeSymbol
+                    1 + arrayDepth t.ElementType
+                else 0                
+            let paTy = 
+                env.SemanticModel.GetTypeInfo((args.Arguments |> Seq.last).Expression.Node).Type
+            let paTyArrayDepth =
+                if paTy = null then 0 else arrayDepth paTy
+            if arrayDepth (ps.[paramCount - 1].Type) = paTyArrayDepth then pa else NewArray [ pa ] 
+
+        if paramCount > 0 && ps.[paramCount - 1].IsParams then                
+            if List.length argumentList >= paramCount - 1 
+                && argumentList |> Seq.forall (fst >> Option.isNone) then
+                let normal, toArr = argumentList |> List.map snd |> List.splitAt (paramCount - 1)                
+                match toArr with
+                | [ pa ] -> normal @ [ fixSingleArg pa ]
+                | _ ->
+                    normal @ [ NewArray toArr ]  
+                |> List.map (fun a -> None, a)  
+            else
+            let psInd = Some (paramCount - 1)
+            if argumentList |> Seq.map fst |> Seq.contains psInd then
+                argumentList |> List.map (fun (i, v) ->
+                    i, if i = psInd then fixSingleArg v else v 
+                )
+            else argumentList
+        else argumentList
+
+    let readReorderedParams args =
+        if args |> List.forall (fst >> Option.isNone) then [], args |> List.map snd else
+        let needsParamReorder =
+            args |> List.fold (fun bo (i, _) ->
+                bo |> Option.bind (fun b -> 
+                    match i with
+                    | None -> Some 0
+                    | Some i -> if i < b then None else Some i    
+                )   
+            ) (Some 0)
+            |> Option.isNone
+        let lastIndex = args |> Seq.choose fst |> Seq.max 
+        let argsWithIndexes =
+            args |> List.mapi (fun i (j, e) -> i, defaultArg j i, e, Id.New())
+        if needsParamReorder then
+            let byOrdinal = argsWithIndexes |> Seq.map (fun (_, i, _, v) -> i, v) |> Map.ofSeq
+            let inOrder = argsWithIndexes |> List.sortBy (fun (_, i, _, _) -> i) |> List.map (fun (_, _, e, v) -> v, e)
+            let fargs = 
+                List.init (lastIndex + 1) (fun i ->
+                    match byOrdinal |> Map.tryFind i with
+                    | Some v -> Var v
+                    | _ -> Undefined
+                ) 
+            inOrder, fargs
+        else 
+            let byOrdinal = argsWithIndexes |> Seq.map (fun (_, i, e, _) -> i, e) |> Map.ofSeq
+            let fargs =
+                List.init (lastIndex + 1) (fun i ->
+                    match byOrdinal |> Map.tryFind i with
+                    | Some e -> e
+                    | _ -> Undefined
+                ) 
+            [], fargs 
+
+    let setterOf (getter : Concrete<Method>) =
+        let m = getter.Entity.Value
+        if not (m.MethodName.StartsWith "get_") then
+            failwithf "Invalid getter method: %s" m.MethodName
+        { getter with
+            Entity = 
+                Method {
+                    MethodName = "set" + m.MethodName.[3 ..]
+                    ReturnType = VoidType
+                    Parameters = m.Parameters @ [ m.ReturnType ]
+                    Generics = m.Generics
+                }
+        }                
+
+    let jsCall expr item args =
+        Application(ItemGet(expr, Value (String item)), args)
+
+    let queryCall (symbol: IMethodSymbol) args =
+        let qtyp = sr.ReadNamedType symbol.ContainingType
+        let ma = symbol.TypeArguments |> Seq.map (sr.ReadType) |> List.ofSeq
+        let meth = Generic (sr.ReadMethod symbol.ReducedFrom) ma
+        Call (None, qtyp, meth, args)
+
+    let getTypeAndMethod (symbol: IMethodSymbol) =
+        let typ = sr.ReadNamedType symbol.ContainingType
+        let ma = symbol.TypeArguments |> Seq.map (sr.ReadType) |> List.ofSeq
+        let meth = Generic (sr.ReadMethod symbol) ma
+        typ, meth
+
+    let call (symbol: IMethodSymbol) thisOpt args =
+        let typ, meth = getTypeAndMethod symbol
+        Call(thisOpt, typ, meth, args)
 
     member this.TransformIdentifierName (x: IdentifierNameData) : Expression =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol
@@ -411,19 +465,15 @@ type RoslynTransformer(env: Environment) =
             match env.RangeVars.[v] with
             | v, None -> Var v
             | v, Some i -> ItemGet(Var v, Value (Int i))
-        | :? IFieldSymbol as f -> FieldGet((getTarget()), getNamedType f.ContainingType, f.Name) 
-        | :? IEventSymbol as e -> FieldGet((getTarget()), getNamedType e.ContainingType, e.Name)
+        | :? IFieldSymbol as f -> FieldGet((getTarget()), sr.ReadNamedType f.ContainingType, f.Name) 
+        | :? IEventSymbol as e -> FieldGet((getTarget()), sr.ReadNamedType e.ContainingType, e.Name)
         | :? IPropertySymbol as p ->
-            let ma = p.GetMethod.TypeArguments |> Seq.map getType |> List.ofSeq
-            let meth = Generic (getMethod p.GetMethod) ma
-            Call(getTarget(), getNamedType p.ContainingType, meth, []) // TODO: indexed properties
+            call p.GetMethod (getTarget()) [] // TODO: indexed properties?
         | :? IMethodSymbol as m -> 
             let conv = env.SemanticModel.GetConversion(x.Node)
             if not conv.Exists || conv.IsIdentity then This
             elif conv.IsMethodGroup then
-                let typ = getNamedType symbol.ContainingType
-                let ma = m.TypeArguments |> Seq.map getType |> List.ofSeq
-                let meth = Generic (getMethod m) ma
+                let typ, meth = getTypeAndMethod m
                 NewDelegate(Some This, typ, meth)
             else failwithf "transformIdentifierName: unhandled IMethodSymbol conversion: %A" conv 
         | _ -> 
@@ -472,9 +522,9 @@ type RoslynTransformer(env: Environment) =
                 let conversion = env.SemanticModel.GetConversion(x.Node)
                 if conversion.IsUserDefined then
                     let symbol = conversion.MethodSymbol
-                    let typ = getNamedType symbol.ContainingType
-                    let ma = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
-                    let meth = Generic (getMethod symbol) ma
+                    let typ = sr.ReadNamedType symbol.ContainingType
+                    let ma = symbol.TypeArguments |> Seq.map (sr.ReadType) |> List.ofSeq
+                    let meth = Generic (sr.ReadMethod symbol) ma
                     Call(None, typ, meth, [ expr ])
                 else expr
         with e ->
@@ -503,22 +553,30 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformInvocationExpression (x: InvocationExpressionData) : Expression =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+//        let symbol =
+//            if isNull symbol then
+//                env.SemanticModel.GetSymbolInfo(x.Expression.Node).Symbol :?> IMethodSymbol
+//            else symbol
+//        if isNull symbol then
+//            env.SemanticModel.GetSyntaxDiagnostics(System.Nullable x.Node.Parent.Span) 
+//            |> Seq.map (fun d -> d.GetMessage()) |> String.concat " / "
+//            |> failwithf "Parent errors: %s"
         let eSymbol, isExtensionMethod =
             match symbol.ReducedFrom with
             | null -> symbol, false
             | symbol -> symbol, true
-        let typ = getNamedType eSymbol.ContainingType
-        let ma = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
-        let meth = Generic (getMethod eSymbol) ma
+        let typ = sr.ReadNamedType eSymbol.ContainingType
+        let ma = symbol.TypeArguments |> Seq.map sr.ReadType |> List.ofSeq
+        let meth = Generic (sr.ReadMethod eSymbol) ma
         let argumentList = x.ArgumentList |> this.TransformArgumentList
-        let argumentListWithParamsFix = fixParamArray eSymbol env x.ArgumentList argumentList
+        let argumentListWithParamsFix = fixParamArray eSymbol x.ArgumentList argumentList
         let argumentListWithThis =
             if isExtensionMethod || not symbol.IsStatic then
                 (None, (x.Expression |> this.TransformExpression)) 
                 :: (argumentListWithParamsFix |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e))   
             else argumentListWithParamsFix 
 
-        let tempVars, args = getReorderedParams argumentListWithThis
+        let tempVars, args = readReorderedParams argumentListWithThis
 
         if isExtensionMethod || symbol.IsStatic then
             Call(None, typ, meth, args)
@@ -543,12 +601,7 @@ type RoslynTransformer(env: Environment) =
             // TODO: make setter possible for 2-dim arrays
             List.fold (fun e a -> ItemGet(e, a)) expression argumentList
         else
-            let symbol = symbol
-            let typ = getNamedType symbol.ContainingType
-            let getM = symbol.GetMethod
-            let ma = getM.TypeArguments |> Seq.map getType |> List.ofSeq
-            let meth = Generic (getMethod getM) ma
-            Call (Some expression, typ, meth, argumentList)        
+            call symbol.GetMethod (Some expression) argumentList
 
     member this.TransformElementAccessExpression (x: ElementAccessExpressionData) : _ =
         this.TransformElementAccess(x.Node, Some x.Expression, x.ArgumentList)
@@ -597,7 +650,7 @@ type RoslynTransformer(env: Environment) =
         x.Arguments |> Seq.map this.TransformArgument |> Seq.map snd |> List.ofSeq
  
     member this.TransformLiteralExpression (x: LiteralExpressionData) =
-        getConstantValueOfExpression env x.Node
+        getConstantValueOfExpression x.Node
 
     member this.TransformStatement (x: StatementData) : Statement =
         try
@@ -738,10 +791,7 @@ type RoslynTransformer(env: Environment) =
             else this
         match leftSymbol with
         | :? IPropertySymbol as leftSymbol ->
-            let typ = getNamedType leftSymbol.ContainingType
-            let setM = leftSymbol.SetMethod
-            let ma = setM.TypeArguments |> Seq.map getType |> List.ofSeq
-            let setter = Generic (getMethod setM) ma
+            let typ, setter = getTypeAndMethod leftSymbol.SetMethod
             //if leftSymbol.IsIndexer // TODO property indexers
             
             match x.Kind with
@@ -760,9 +810,7 @@ type RoslynTransformer(env: Environment) =
                 let left = x.Left |> this.TransformExpression
                 let right = x.Right |> trR.TransformExpression
                 let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-                let opTyp = getNamedType symbol.ContainingType
-                let oa = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
-                let operator = Generic (getMethod symbol) oa
+                let opTyp, operator = getTypeAndMethod symbol
                 if leftSymbol.IsStatic then
                     Call(None, typ, setter, [Call(None, opTyp, operator, [left; right])]) 
                 else
@@ -790,9 +838,7 @@ type RoslynTransformer(env: Environment) =
             | _ -> TODO x
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-            let opTyp = getNamedType symbol.ContainingType
-            let oa = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
-            let operator = Generic (getMethod symbol) oa
+            let opTyp, operator = getTypeAndMethod symbol
             match IgnoreExprSourcePos left with
             | Var id -> VarSet(id, Call(None, opTyp, operator, [left; right]))
             | FieldGet (obj, ty, f) -> 
@@ -826,10 +872,10 @@ type RoslynTransformer(env: Environment) =
         let left = x.Left |> this.TransformExpression
         match x.Kind with
         | BinaryExpressionKind.IsExpression -> 
-            let rightType = env.SemanticModel.GetTypeInfo(x.Right.Node).ConvertedType |> getType
+            let rightType = env.SemanticModel.GetTypeInfo(x.Right.Node).ConvertedType |> sr.ReadType
             TypeCheck (left, rightType)
         | BinaryExpressionKind.AsExpression -> 
-            let rightType = env.SemanticModel.GetTypeInfo(x.Right.Node).ConvertedType |> getType
+            let rightType = env.SemanticModel.GetTypeInfo(x.Right.Node).ConvertedType |> sr.ReadType
             let asVar = Id.New ()
             Let (asVar, left, Conditional (TypeCheck (Var asVar, rightType), Var asVar, Value Null))
         | _ ->
@@ -840,14 +886,11 @@ type RoslynTransformer(env: Environment) =
         | BinaryExpressionKind.LogicalAndExpression ->
             Conditional(left, right, Value (Bool false))
         | BinaryExpressionKind.CoalesceExpression ->
-            let leftType = env.SemanticModel.GetTypeInfo(x.Left.Node).ConvertedType |> getType
+            let leftType = env.SemanticModel.GetTypeInfo(x.Left.Node).ConvertedType |> sr.ReadType
             Coalesce(left, leftType, right)
         | _ -> 
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-            let typ = getNamedType symbol.ContainingType
-            let oa = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
-            let operator = Generic (getMethod symbol) oa
-            Call(None, typ, operator, [left; right])
+            call symbol None [left; right]
         |> withExprSourcePos x.Node
 
     member this.TransformConditionalExpression (x: ConditionalExpressionData) : Expression =
@@ -858,7 +901,7 @@ type RoslynTransformer(env: Environment) =
         |> withExprSourcePos x.Node
 
     member this.TransformMethodDeclarationBase (symbol: IMethodSymbol, parameterList, stBody, exprBody) : CSharpMethod =
-        let returnType = getType symbol.ReturnType
+        let returnType = sr.ReadType symbol.ReturnType
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
         let body = 
@@ -897,7 +940,7 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformParameter (x: ParameterData) : CSharpParameter =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
-        let typ = getType symbol.Type
+        let typ = sr.ReadType symbol.Type
         let defValue = 
             match x.Default with
             | Some defExpr -> Some (this.TransformEqualsValueClause defExpr)
@@ -934,15 +977,15 @@ type RoslynTransformer(env: Environment) =
             | _ -> failwith "Delegate constructor must have a single argument"
         else
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-        let typ = getNamedType symbol.ContainingType
+        let typ = sr.ReadNamedType symbol.ContainingType
         let argumentList = defaultArg (x.ArgumentList |> Option.map (this.TransformArgumentList)) []
         let argumentListWithParamsFix = 
             match x.ArgumentList with
-            | Some a -> fixParamArray symbol env a argumentList
+            | Some a -> fixParamArray symbol a argumentList
             | _-> argumentList
-        let tempVars, args = getReorderedParams argumentListWithParamsFix
+        let tempVars, args = readReorderedParams argumentListWithParamsFix
         let ctor =
-            Ctor (typ, getConstructor symbol, args)
+            Ctor (typ, sr.ReadConstructor symbol, args)
             |> List.foldBack (fun (v, e) b -> Let (v, e, b)) tempVars
         match x.Initializer with
         | Some init ->
@@ -958,26 +1001,14 @@ type RoslynTransformer(env: Environment) =
         | InitializerExpressionKind.ObjectInitializerExpression -> 
             Sequential expressions
         | InitializerExpressionKind.CollectionInitializerExpression -> 
-            let cSymbol = env.SemanticModel.GetSymbolInfo(x.Node.Parent).Symbol :?> IMethodSymbol
-            let cTyp = getNamedType cSymbol.ContainingType
-            let addMethods =
-                cSymbol.ContainingType.GetMembers("Add").OfType<IMethodSymbol>()
-            let addM i = 
-                let candidates = 
-                    addMethods
-                    |> Seq.filter (fun m -> m.Parameters.Length = i) 
-                    |> Array.ofSeq
-                if candidates.Length > 1 then 
-                    failwith "TODO: overloaded Add method on collection initialization"
-                elif candidates.Length = 0 then
-                    failwithf "Add method with %d parameters not found for collection initialization" i
-                else
-                    candidates.[0] |> getMethod |> NonGeneric
+            let addSymbol =
+                env.SemanticModel.GetCollectionInitializerSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+            let cTyp, addM = getTypeAndMethod addSymbol
             expressions |> List.map (fun item -> 
                 match IgnoreExprSourcePos item with
                 | ComplexElement cItem ->
-                    Call(Some (Var env.Initializing.Value), cTyp, addM (List.length cItem), cItem)
-                | _ -> Call(Some (Var env.Initializing.Value), cTyp, addM 1, [item])
+                    Call(Some (Var env.Initializing.Value), cTyp, addM, cItem)
+                | _ -> Call(Some (Var env.Initializing.Value), cTyp, addM, [item])
             ) |> Sequential
         | InitializerExpressionKind.ArrayInitializerExpression ->
             // TODO: 2-dimensional
@@ -1013,19 +1044,19 @@ type RoslynTransformer(env: Environment) =
     member this.TransformConstructorInitializer (x: ConstructorInitializerData) : _ =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         let argumentList = x.ArgumentList |> this.TransformArgumentList
-        let argumentListWithParamsFix = fixParamArray symbol env x.ArgumentList argumentList
-        let tempVars, args = getReorderedParams argumentListWithParamsFix
+        let argumentListWithParamsFix = fixParamArray symbol x.ArgumentList argumentList
+        let tempVars, args = readReorderedParams argumentListWithParamsFix
         let initTempVars = List.foldBack (fun (v, e) b -> Let (v, e, b)) tempVars
         match x.Kind with
         | ConstructorInitializerKind.BaseConstructorInitializer -> 
-            BaseInitializer (getNamedType symbol.ContainingType, getConstructor symbol, args, initTempVars)
+            BaseInitializer (sr.ReadNamedType symbol.ContainingType, sr.ReadConstructor symbol, args, initTempVars)
         | ConstructorInitializerKind.ThisConstructorInitializer -> 
-            ThisInitializer (getConstructor symbol, args, initTempVars)
+            ThisInitializer (sr.ReadConstructor symbol, args, initTempVars)
 
     member this.TransformAccessorDeclaration (x: AccessorDeclarationData) : _ =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
-        let returnType = getType symbol.ReturnType
-        let parameterList = getParameters symbol
+        let returnType = sr.ReadType symbol.ReturnType
+        let parameterList = sr.ReadParameters symbol
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
         let body = x.Body |> Option.map (this.TransformBlock)
@@ -1110,10 +1141,8 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformIncrOrDecr (node : ExpressionSyntax, operand) =
         let symbol = env.SemanticModel.GetSymbolInfo(node).Symbol :?> IMethodSymbol
-        let typ = getNamedType symbol.ContainingType
-        let ma = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
-        let meth = Generic (getMethod symbol) ma
-        
+        let typ, meth = getTypeAndMethod symbol
+
         let e = IgnoreExprSourcePos operand
         let callOp v = Call(None, typ, meth, [ v ])
         match e with
@@ -1149,9 +1178,9 @@ type RoslynTransformer(env: Environment) =
             this.TransformIncrOrDecr(x.Node, operand)
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-            let typ = getNamedType symbol.ContainingType
-            let ma = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
-            let meth = Generic (getMethod symbol) ma
+            let typ = sr.ReadNamedType symbol.ContainingType
+            let ma = symbol.TypeArguments |> Seq.map (sr.ReadType) |> List.ofSeq
+            let meth = Generic (sr.ReadMethod symbol) ma
             Call(None, typ, meth, [ operand ])
             |> withExprSourcePos x.Node
     
@@ -1230,7 +1259,7 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformCatchDeclaration (x: CatchDeclarationData) : _ =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
-        let typ = getType symbol.Type
+        let typ = sr.ReadType symbol.Type
         symbol, typ
 
     member this.TransformCatchFilterClause (x: CatchFilterClauseData) : _ =
@@ -1242,7 +1271,7 @@ type RoslynTransformer(env: Environment) =
     member this.TransformForEachStatement (x: ForEachStatementData) : _ =
         let expression = x.Expression |> this.TransformExpression
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
-        let typ = getType symbol.Type
+        let typ = sr.ReadType symbol.Type
         let v = Id.New symbol.Name
         env.Vars.Add(symbol, v)
         let statement = x.Statement |> this.TransformStatement
@@ -1323,7 +1352,7 @@ type RoslynTransformer(env: Environment) =
                 |> BreakStatement
                 |> Continuation.FreeNestedGotos().TransformStatement
             let labels = Continuation.CollectLabels.Collect b
-            Function([id], Continuation.AsyncTransformer(labels, getAsyncReturnKind symbol).TransformMethodBody(b))
+            Function([id], Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
         else
             Function([id], body)
     
@@ -1344,7 +1373,7 @@ type RoslynTransformer(env: Environment) =
                 |> BreakStatement
                 |> Continuation.FreeNestedGotos().TransformStatement
             let labels = Continuation.CollectLabels.Collect b
-            Function(ids, Continuation.AsyncTransformer(labels, getAsyncReturnKind symbol).TransformMethodBody(b))
+            Function(ids, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
         else
             Function(ids, body)
 
@@ -1431,11 +1460,7 @@ type RoslynTransformer(env: Environment) =
             if symbol.ContainingType.IsAnonymousType then
                 ItemGet(getExpression().Value, Value (String (symbol.Name)))
             else
-                let typ = getNamedType symbol.ContainingType
-                let getM = symbol.GetMethod
-                let ma = getM.TypeArguments |> Seq.map getType |> List.ofSeq
-                let meth = Generic (getMethod getM) ma
-                Call(getExpression(), typ, meth, []) // TODO property indexers
+                call symbol.GetMethod (getExpression()) [] // TODO property indexers
         | :? IMethodSymbol as symbol ->
             // TODO: this works for invocations but not always
             let expression = getExpression()
@@ -1444,19 +1469,17 @@ type RoslynTransformer(env: Environment) =
                 // if its static, left side has no real expression information
                 defaultArg expression Undefined
             elif conv.IsMethodGroup then
-                let typ = getNamedType symbol.ContainingType
-                let ma = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
-                let meth = Generic (getMethod symbol) ma
+                let typ, meth = getTypeAndMethod symbol
                 NewDelegate(expression, typ, meth)
             else failwithf "this.TransformIdentifierName: unhandled IMethodSymbol conversion: %A" conv 
         | :? IFieldSymbol as symbol ->
             let expression = getExpression()
-            let typ = getNamedType symbol.ContainingType
+            let typ = sr.ReadNamedType symbol.ContainingType
             let f = symbol.Name
             FieldGet(expression, typ, f)
         | :? IEventSymbol as symbol ->
             let expression = getExpression()
-            let typ = getNamedType symbol.ContainingType
+            let typ = sr.ReadNamedType symbol.ContainingType
             let f = symbol.Name
             FieldGet(expression, typ, f)
         | _ ->
@@ -1521,21 +1544,18 @@ type RoslynTransformer(env: Environment) =
         TODO x
 
     member this.TransformDefaultExpression (x: DefaultExpressionData) : _ =
-        let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> getType
+        let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
         DefaultValueOf typ
 
     member this.TransformCastExpression (x: CastExpressionData) : _ =
         // TODO type check
-//        let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> getType
+//        let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
         let expression = x.Expression |> this.TransformExpression
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         if isNull symbol then 
             expression
         else
-            let typ = getNamedType symbol.ContainingType
-            let ma = symbol.TypeArguments |> Seq.map getType |> List.ofSeq
-            let meth = Generic (getMethod symbol) ma
-            Call(None, typ, meth, [ expression ])
+            call symbol None [ expression ]
 
     member this.TransformQueryExpression (x: QueryExpressionData) : _ =
         let expression = x.FromClause.Expression |> this.TransformExpression

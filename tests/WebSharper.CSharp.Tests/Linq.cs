@@ -315,7 +315,7 @@ namespace WebSharper.CSharp.Tests
         public void Range()
         {
             Equal(Enumerable.Range(1, 6).ToArray(), arr, "Non-empty");
-            Equal(Enumerable.Range(1, 0).ToArray(), empty, "Empty");
+            Equal(System.Linq.Enumerable.Range(1, 0).ToArray(), empty, "Empty");
             Raises((() => Enumerable.Range(1, -1)), "Negative count raises");
         }
 

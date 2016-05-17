@@ -13,8 +13,8 @@ namespace WebSharper.CSharp.Tests
     [JavaScript, Test("C# Basic tests")]
     public class Tests : TestCategory
     {
-        [Generated(typeof(TestGenerator))]
-        public static void RunTests() { }
+        //[Generated(typeof(TestGenerator))]
+        //public static void RunTests() { }
 
         public string GetHelloWorld() { return "Hello " + "world!"; }
         public string HelloWorldProp => "Hello " + "world!";
@@ -105,6 +105,7 @@ namespace WebSharper.CSharp.Tests
             IsTrue(SeqDisposed);
         }
 
+//        [JavaScript(false)]
         public async Task<int> GetOneAsync()
         {
             var o = Task.FromResult(1);
@@ -157,10 +158,10 @@ namespace WebSharper.CSharp.Tests
             Equal(InlineWithReturn(false), 2);
         }
 
-        [Test]
-        public async Task VariableScopingAsync()
-        {
-            //var res = 0;
+        //[Test]
+        //public async Task VariableScopingAsync()
+        //{
+        //    //var res = 0;
             //var adders = new List<System.Action>();
             //for (var i = 0; i <= 5; i++)
             //{
@@ -169,7 +170,7 @@ namespace WebSharper.CSharp.Tests
             //}
             //foreach (var adder in adders) adder();
             //Equal(res, 21, "variable inside loop");
-        } 
+        //}
 
         [Test]
         public void VariableScoping()
@@ -196,34 +197,34 @@ namespace WebSharper.CSharp.Tests
             Equal(res, 15, "variable inside loop");
         }
 
-        [Test]
-        public void VariableScopingGoto()
-        {
-            //var res = 0;
-            //var adders = new List<System.Action>();
-            //for (var i = 0; i <= 10; i++)
-            //{
-            //    if (i == 6) goto outOfLoop;
-            //    var b = i;
-            //    adders.Add(() => res += b);
-            //}
-            //outOfLoop: foreach (var adder in adders) adder();
-            //Equal(res, 15, "goto from inside loop");
-        }
+        //[Test]
+        //public void VariableScopingGoto()
+        //{
+        //    //var res = 0;
+        //    //var adders = new List<System.Action>();
+        //    //for (var i = 0; i <= 10; i++)
+        //    //{
+        //    //    if (i == 6) goto outOfLoop;
+        //    //    var b = i;
+        //    //    adders.Add(() => res += b);
+        //    //}
+        //    //outOfLoop: foreach (var adder in adders) adder();
+        //    //Equal(res, 15, "goto from inside loop");
+        //}
 
-        [Test]
-        public void VariableScopingBreak()
-        {
-            //var res = 0;
-            //var adders = new List<System.Action>();
-            //for (var i = 0; i <= 10; i++)
-            //{
-            //    if (i == 6) break;
-            //    var b = i;
-            //    adders.Add(() => res += b);
-            //}
-            //foreach (var adder in adders) adder();
-            //Equal(res, 15, "break inside loop");
-        }
+        //[Test]
+        //public void VariableScopingBreak()
+        //{
+        //    //var res = 0;
+        //    //var adders = new List<System.Action>();
+        //    //for (var i = 0; i <= 10; i++)
+        //    //{
+        //    //    if (i == 6) break;
+        //    //    var b = i;
+        //    //    adders.Add(() => res += b);
+        //    //}
+        //    //foreach (var adder in adders) adder();
+        //    //Equal(res, 15, "break inside loop");
+        //}
     }
 }

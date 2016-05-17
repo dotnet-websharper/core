@@ -33,23 +33,16 @@ open WebSharper.Compiler
 open WebSharper.Compiler.NotResolved
 
 module A = WebSharper.Compiler.AttributeReader
+module R = CodeReader
+
 type private N = NotResolvedMemberKind
-
-type CSharpAttributeReader() =
-    inherit A.AttributeReader<AttributeData>()
-    override this.GetAssemblyName attr = attr.AttributeClass.ContainingAssembly.Name
-    override this.GetName attr = attr.AttributeClass.Name
-    override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map (fun a -> a.Value) |> Array.ofSeq          
-    override this.GetTypeDef o = CodeReader.getNamedTypeDefinition (o :?> INamedTypeSymbol)
-
-let attrReader = CSharpAttributeReader()
 
 type TypeWithAnnotation =
     | TypeWithAnnotation of INamedTypeSymbol * A.TypeAnnotation
 
-let rec getAllTypeMembers rootAnnot (n: INamespaceSymbol) =
+let rec private getAllTypeMembers (sr: R.SymbolReader) rootAnnot (n: INamespaceSymbol) =
     let rec withNested a (t: INamedTypeSymbol) =
-        let annot = attrReader.GetTypeAnnot(a, t.GetAttributes())
+        let annot = sr.AttributeReader.GetTypeAnnot(a, t.GetAttributes())
         seq {
             yield TypeWithAnnotation (t, annot)
             for nt in t.GetTypeMembers() do
@@ -57,26 +50,26 @@ let rec getAllTypeMembers rootAnnot (n: INamespaceSymbol) =
         }        
     Seq.append 
         (n.GetTypeMembers() |> Seq.collect (withNested rootAnnot))
-        (n.GetNamespaceMembers() |> Seq.collect (getAllTypeMembers rootAnnot))
+        (n.GetNamespaceMembers() |> Seq.collect (getAllTypeMembers sr rootAnnot))
 
-let transformInterface (annot: A.TypeAnnotation) (intf: INamedTypeSymbol) =
+let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (intf: INamedTypeSymbol) =
     if intf.TypeKind <> TypeKind.Interface then None else
     let methodNames = ResizeArray()
     let def =
         match annot.ProxyOf with
         | Some d -> d 
-        | _ -> CodeReader.getNamedTypeDefinition intf
+        | _ -> sr.ReadNamedTypeDefinition intf
     for m in intf.GetMembers() do
-        let mAnnot = attrReader.GetMemberAnnot(annot, m.GetAttributes())
+        let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, m.GetAttributes())
         let md = 
-            match CodeReader.getMember (m :?> IMethodSymbol) with
+            match sr.ReadMember (m :?> IMethodSymbol) with
             | Member.Method (_, md) -> md
             | _ -> failwith "invalid interface member"
         methodNames.Add(md, mAnnot.Name)
     Some (def, 
         {
             StrongName = annot.Name
-            Extends = intf.Interfaces |> Seq.map (fun i -> CodeReader.getNamedTypeDefinition i) |> List.ofSeq
+            Extends = intf.Interfaces |> Seq.map (fun i -> sr.ReadNamedTypeDefinition i) |> List.ofSeq
             NotResolvedMethods = List.ofSeq methodNames 
         }
     )
@@ -110,9 +103,9 @@ let hasYield st =
     visitor.VisitStatement st
     visitor.Found
 
-let isResourceType (c: INamedTypeSymbol) =
+let private isResourceType (sr: R.SymbolReader) (c: INamedTypeSymbol) =
     c.AllInterfaces |> Seq.exists (fun i ->
-        CodeReader.getNamedTypeDefinition i = Definitions.IResource
+        sr.ReadNamedTypeDefinition i = Definitions.IResource
     )
 
 let delegateTy, delRemove =
@@ -122,12 +115,14 @@ let delegateTy, delRemove =
         Reflection.ReadMethod mi
     | _ -> failwith "Expecting a Call pattern"
 
-let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.TypeAnnotation) (cls: INamedTypeSymbol) =
+let textSpans = R.textSpans
+
+let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp: Compilation) (annot: A.TypeAnnotation) (cls: INamedTypeSymbol) =
     if cls.TypeKind <> TypeKind.Class then None else
 
-    let thisDef = CodeReader.getNamedTypeDefinition cls
+    let thisDef = sr.ReadNamedTypeDefinition cls
 
-    if isResourceType cls then
+    if isResourceType sr cls then
         let thisRes = comp.Graph.AddOrLookupNode(ResourceNode thisDef)
         for req in annot.Requires do
             comp.Graph.AddEdge(thisRes, ResourceNode req)
@@ -135,7 +130,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
     else    
 
     let inline cs model =
-        CodeReader.RoslynTransformer(CodeReader.Environment.New(model, comp))
+        CodeReader.RoslynTransformer(CodeReader.Environment.New(model, comp, sr))
 
     let clsMembers = ResizeArray()
 
@@ -183,7 +178,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
         match mem with
         | :? IPropertySymbol as p ->
             if p.IsAbstract then () else
-            let pAnnot = attrReader.GetMemberAnnot(annot, p.GetMethod.GetAttributes())
+            let pAnnot = sr.AttributeReader.GetMemberAnnot(annot, p.GetMethod.GetAttributes())
             match pAnnot.Kind with
             | Some A.MemberKind.JavaScript ->
                 let decls = p.DeclaringSyntaxReferences
@@ -210,14 +205,14 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
                     else
                         inits.Add <| ItemSet(This, Value (String ("$" + p.Name)), b )
                 | setMeth ->
-                    let setter = CodeReader.getMethod setMeth
+                    let setter = sr.ReadMethod setMeth
                     if p.IsStatic then
                         staticInits.Add <| Call(None, cdef, NonGeneric setter, [ b ])
                     else
                         inits.Add <| Call(Some This, cdef, NonGeneric setter, [ b ])
             | _ -> ()
         | :? IFieldSymbol as f -> 
-            let fAnnot = attrReader.GetMemberAnnot(annot, f.GetAttributes())
+            let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, f.GetAttributes())
             // TODO: check multiple declarations on the same line
             match fAnnot.Kind with
             | Some A.MemberKind.JavaScript ->
@@ -264,7 +259,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
             | MethodKind.EventRemove ->
                 Seq.append (meth.AssociatedSymbol.GetAttributes()) (meth.GetAttributes()) 
             | _ -> meth.GetAttributes() :> _
-        let mAnnot = attrReader.GetMemberAnnot(annot, attrs)
+        let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, attrs)
 
 //        let syntaxAndModel = 
 //            lazy
@@ -294,7 +289,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
         match mAnnot.Kind with
         | Some A.MemberKind.Stub -> ()
         | Some (A.MemberKind.Remote rp) -> 
-            let def = CodeReader.getMember meth
+            let def = sr.ReadMember meth
             match def with
             | Member.Method (isInstance, mdef) ->
                 let remotingKind =
@@ -308,7 +303,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
                 addMethod mAnnot mdef (N.Remote(remotingKind, comp.GetRemoteHandle(), rp)) true Undefined
             | _ -> error "Only methods can be defined Remote"
         | Some kind ->
-            let memdef = CodeReader.getMember meth
+            let memdef = sr.ReadMember meth
             let getParsed() = 
                 let decl = meth.DeclaringSyntaxReferences
                 if decl.Length > 0 then
@@ -349,7 +344,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
                                         |> Scoping.fix
                                         |> Continuation.FreeNestedGotos().TransformStatement
                                     let labels = Continuation.CollectLabels.Collect b
-                                    Continuation.AsyncTransformer(labels, CodeReader.getAsyncReturnKind meth).TransformMethodBody(b)
+                                    Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind meth).TransformMethodBody(b)
                                 else b1 |> Scoping.fix |> Continuation.eliminateGotos
                             { m with Body = b2 |> FixThisScope().Fix }
                         match syntax with
@@ -373,7 +368,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
                                 Parameters = []
                                 Body = Return body
                                 IsAsync = meth.IsAsync
-                                ReturnType = CodeReader.getType meth.ReturnType
+                                ReturnType = sr.ReadType meth.ReturnType
                             } : CodeReader.CSharpMethod
                             |> fixMethod
                         | :? ConstructorDeclarationSyntax as syntax ->
@@ -440,7 +435,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
                             ReturnType = Unchecked.defaultof<Type>
                         } : CodeReader.CSharpMethod   
                 elif meth.MethodKind = MethodKind.EventAdd then
-                    let args = meth.Parameters |> Seq.map CodeReader.getParameter |> List.ofSeq
+                    let args = meth.Parameters |> Seq.map sr.ReadParameter |> List.ofSeq
                     let getEv, setEv =
                         let on = if meth.IsStatic then None else Some This
                         FieldGet(on, NonGeneric def, meth.AssociatedSymbol.Name)
@@ -452,10 +447,10 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
                         Parameters = args
                         Body = ExprStatement b
                         IsAsync = false
-                        ReturnType = CodeReader.getType meth.ReturnType
+                        ReturnType = sr.ReadType meth.ReturnType
                     } : CodeReader.CSharpMethod   
                 elif meth.MethodKind = MethodKind.EventRemove then
-                    let args = meth.Parameters |> Seq.map CodeReader.getParameter |> List.ofSeq
+                    let args = meth.Parameters |> Seq.map sr.ReadParameter |> List.ofSeq
                     let getEv, setEv =
                         let on = if meth.IsStatic then None else Some This
                         FieldGet(on, NonGeneric def, meth.AssociatedSymbol.Name)
@@ -467,7 +462,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
                         Parameters = args
                         Body = ExprStatement b
                         IsAsync = false
-                        ReturnType = CodeReader.getType meth.ReturnType
+                        ReturnType = sr.ReadType meth.ReturnType
                     } : CodeReader.CSharpMethod   
                 else
                     match meth.MethodKind with
@@ -582,7 +577,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
                 match implicitImplementations.TryFind meth with
                 | Some impls ->
                     for impl in impls do
-                        let idef = CodeReader.getNamedTypeDefinition impl
+                        let idef = sr.ReadNamedTypeDefinition impl
                         let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
                         // TODO : correct generics
                         Lambda(vars, Call(Some This, NonGeneric def, NonGeneric mdef, vars |> List.map Var))
@@ -628,7 +623,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
         clsMembers.Add (NotResolvedMember.StaticConstructor b)  
 
     for f in members.OfType<IFieldSymbol>() do
-        let mAnnot = attrReader.GetMemberAnnot(annot, f.GetAttributes())
+        let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, f.GetAttributes())
         let nr =
             {
                 StrongName = mAnnot.Name
@@ -638,7 +633,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
     
     for f in members.OfType<IEventSymbol>() do
-        let mAnnot = attrReader.GetMemberAnnot(annot, f.GetAttributes())
+        let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, f.GetAttributes())
         let nr =
             {
                 StrongName = mAnnot.Name
@@ -660,7 +655,7 @@ let transformClass (rcomp: CSharpCompilation) (comp: Compilation) (annot: A.Type
         def,
         {
             StrongName = strongName
-            BaseClass = cls.BaseType |> CodeReader.getNamedTypeDefinition |> ignoreSystemObject
+            BaseClass = cls.BaseType |> sr.ReadNamedTypeDefinition |> ignoreSystemObject
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
             IsModule = cls.IsStatic // TODO: static classes
@@ -674,8 +669,10 @@ let transformAssembly (refMeta : Info) (rcomp: CSharpCompilation) =
 
     let assembly = rcomp.Assembly
 
+    let sr = CodeReader.SymbolReader(comp)
+
     let asmAnnot = 
-        attrReader.GetAssemblyAnnot(assembly.GetAttributes())
+        sr.AttributeReader.GetAssemblyAnnot(assembly.GetAttributes())
 
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
 
@@ -683,11 +680,11 @@ let transformAssembly (refMeta : Info) (rcomp: CSharpCompilation) =
     comp.AssemblyRequires <- asmAnnot.Requires
     comp.SiteletDefinition <- asmAnnot.SiteletDefinition
 
-    comp.CustomTypesReflector <- Some A.reflectCustomType
+    comp.CustomTypesReflector <- Some (fun _ -> CustomTypeInfo.NotCustomType)
 
-    for TypeWithAnnotation(t, a) in getAllTypeMembers rootTypeAnnot assembly.GlobalNamespace do
-        transformInterface a t |> Option.iter comp.AddInterface
-        transformClass rcomp comp a t |> Option.iter comp.AddClass
+    for TypeWithAnnotation(t, a) in getAllTypeMembers sr rootTypeAnnot assembly.GlobalNamespace do
+        transformInterface sr a t |> Option.iter comp.AddInterface
+        transformClass rcomp sr comp a t |> Option.iter comp.AddClass
     
     comp.Resolve()
 

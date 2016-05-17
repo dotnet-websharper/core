@@ -96,6 +96,18 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System" />
   </ItemGroup>
+  <ItemGroup>
+    <Analyzer Include="..\..\build\Release\FSharp.Core.dll" />
+    <Analyzer Include="..\..\build\Release\Mono.Cecil.dll" />
+    <Analyzer Include="..\..\build\Release\Mono.Cecil.Mdb.dll" />
+    <Analyzer Include="..\..\build\Release\Mono.Cecil.Pdb.dll" />
+    <Analyzer Include="..\..\build\Release\WebSharper.Compiler.CSharp.dll" />
+    <Analyzer Include="..\..\build\Release\WebSharper.Compiler.dll" />
+    <Analyzer Include="..\..\build\Release\WebSharper.Core.dll" />
+    <Analyzer Include="..\..\build\Release\WebSharper.Core.JavaScript.dll" />
+    <Analyzer Include="..\..\build\Release\WebSharper.CSharp.Analyzer.dll" />
+    <Analyzer Include="..\..\build\Release\WebSharper.InterfaceGenerator.dll" />
+  </ItemGroup>
   <Import Project="../../msbuild/WebSharper.CSharp.Internal.targets" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -29,8 +29,7 @@
     <WebSharperTask 
 	  DefineConstants="$(DefineConstants)"
 	  NoStandardLib="$(NoCompilerStandardLib)"
-	  Sources="@(Compile)"
-	  CscCommandLineArgs="@(CscCommandLineArgs)"	  
+	  Sources="@(Compile)"  
 	  OutputAssembly="@(IntermediateAssembly)"
 	  References="@(ReferencePath)"
       Configuration="$(Configuration)"
@@ -49,6 +48,10 @@
       WebSharperProject="$(WebSharperProject)" 
 	  WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
 	  ZafirToolPath="$(MSBuildThisFileDirectory)/../build/$(Configuration)/zafircs.exe"
+	  TargetType="$(OutputType)"
+	  NoConfig="true"
+	  DebugType="$(DebugType)"
+	  SubsystemVersion="$(SubsystemVersion)"
 	/>
   </Target>
 </Project>

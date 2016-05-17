@@ -142,6 +142,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Sitelets.Offline
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebSharper.CSharp.Sitelets.Tests", "tests\WebSharper.CSharp.Sitelets.Tests\WebSharper.CSharp.Sitelets.Tests.csproj", "{91E8E3CC-B1F5-4D27-8DAF-639CA5C76F63}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.CSharp.Analyzer", "src\compiler\WebSharper.CSharp.Analyzer\WebSharper.CSharp.Analyzer.fsproj", "{055CF3AD-BDAF-4441-989B-D764B80FBDEE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -341,6 +343,12 @@ Global
 		{91E8E3CC-B1F5-4D27-8DAF-639CA5C76F63}.DebugTests|Any CPU.Build.0 = DebugTests|Any CPU
 		{91E8E3CC-B1F5-4D27-8DAF-639CA5C76F63}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{91E8E3CC-B1F5-4D27-8DAF-639CA5C76F63}.Release|Any CPU.Build.0 = Release|Any CPU
+		{055CF3AD-BDAF-4441-989B-D764B80FBDEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{055CF3AD-BDAF-4441-989B-D764B80FBDEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{055CF3AD-BDAF-4441-989B-D764B80FBDEE}.DebugTests|Any CPU.ActiveCfg = Debug|Any CPU
+		{055CF3AD-BDAF-4441-989B-D764B80FBDEE}.DebugTests|Any CPU.Build.0 = Debug|Any CPU
+		{055CF3AD-BDAF-4441-989B-D764B80FBDEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{055CF3AD-BDAF-4441-989B-D764B80FBDEE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -383,5 +391,6 @@ Global
 		{46D8C7C3-43CA-465C-9714-20B22CF3E459} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC} = {70FEE852-57E6-4910-B4A8-E1B6D0F159E3}
 		{91E8E3CC-B1F5-4D27-8DAF-639CA5C76F63} = {7C8FF043-B608-42BD-930B-2249675BA666}
+		{055CF3AD-BDAF-4441-989B-D764B80FBDEE} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 	EndGlobalSection
 EndGlobal

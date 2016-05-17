@@ -46,13 +46,12 @@ type WebSharperTask =
     member DefineConstants : string with get, set
     member NoStandardLib : string with get, set
     member Sources : ITaskItem [] with get, set
-    member CscCommandLineArgs : string with get, set
     
     /// Item input for item commands.
     member References : ITaskItem [] with get, set
 
-    /// Item output for item commands.
-    member ItemOutput : ITaskItem [] with get, set
+//    /// Item output for item commands.
+//    member ItemOutput : ITaskItem [] with get, set
 
     /// Path to an `.snk` strong name key file, if any.
     member KeyOriginatorFile : string with get, set
@@ -96,3 +95,11 @@ type WebSharperTask =
     member WebSharperTypeScriptDeclaration : string with get, set
 
     member ZafirToolPath : string with get, set
+
+    member TargetType : string with get, set
+
+    member NoConfig : string with get, set
+
+    member DebugType : string with get, set
+
+    member SubsystemVersion : string with get, set

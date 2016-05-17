@@ -371,6 +371,7 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public void Conversions()
         {
+            Console.WriteLine("Running Conversions test..");
             int intFromChar = 'a';
             Equal(intFromChar, 97, "char to int implicit");
             Equal((int)'a', 97, "char to int explicit");
@@ -382,7 +383,8 @@ namespace WebSharper.CSharp.Tests
             Equal(val, 13.0, "Custom implicit conversion out");
             Equal((double)custom, 13.0, "Custom explicit conversion out");
             MyNumber addTest = custom + 1;
-            Equal(addTest.Value, 14.0, "Operator overloading");        
+            Equal(addTest.Value, 14.0, "Operator overloading");
+            JavaScript.Console.Log("Conversions test", "finished");
         }
 
         [Test]
