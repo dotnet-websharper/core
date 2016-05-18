@@ -19,12 +19,15 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'DebugTests|AnyCPU'">
     <Prefer32Bit>false</Prefer32Bit>
+    <CodeAnalysisRuleSet>WebSharper.CSharp.Tests.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <Prefer32Bit>false</Prefer32Bit>
+    <CodeAnalysisRuleSet>WebSharper.CSharp.Tests.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <Prefer32Bit>false</Prefer32Bit>
+    <CodeAnalysisRuleSet>WebSharper.CSharp.Tests.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Arithmetic.cs" />
@@ -107,6 +110,9 @@
     <Analyzer Include="..\..\build\Release\WebSharper.Core.JavaScript.dll" />
     <Analyzer Include="..\..\build\Release\WebSharper.CSharp.Analyzer.dll" />
     <Analyzer Include="..\..\build\Release\WebSharper.InterfaceGenerator.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="WebSharper.CSharp.Tests.ruleset" />
   </ItemGroup>
   <Import Project="../../msbuild/WebSharper.CSharp.Internal.targets" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

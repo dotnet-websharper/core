@@ -54,5 +54,5 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>$(Root)\build\Release\$(Name).xml</DocumentationFile>
   </PropertyGroup>
-  <!--<Import Project="WebSharper.CSharp.targets" />-->
+  <Import Project="WebSharper.CSharp.targets" />
 </Project>

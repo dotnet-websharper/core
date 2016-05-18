@@ -45,6 +45,11 @@ let ReadFromAssembly (a: Assembly) =
         | _ -> None
     )
 
+let ReadFromFile (path: string) =
+    let aR = AssemblyResolver.Create().SearchPaths([path])
+    let loader = Loader.Create aR ignore
+    loader.LoadFile(path) |> ReadFromAssembly
+
 let GetJSLookup (r: Assembly list, readable) =
     r |> List.choose (fun a ->
         if readable then a.ReadableJavaScript else a.CompressedJavaScript

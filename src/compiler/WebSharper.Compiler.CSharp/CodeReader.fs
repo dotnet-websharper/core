@@ -1003,6 +1003,8 @@ type RoslynTransformer(env: Environment) =
         | InitializerExpressionKind.CollectionInitializerExpression -> 
             let addSymbol =
                 env.SemanticModel.GetCollectionInitializerSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+            if isNull addSymbol then
+                failwith "Failed to look up Add method symbol for collection initializer"
             let cTyp, addM = getTypeAndMethod addSymbol
             expressions |> List.map (fun item -> 
                 match IgnoreExprSourcePos item with

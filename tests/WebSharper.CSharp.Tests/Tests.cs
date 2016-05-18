@@ -13,8 +13,8 @@ namespace WebSharper.CSharp.Tests
     [JavaScript, Test("C# Basic tests")]
     public class Tests : TestCategory
     {
-        //[Generated(typeof(TestGenerator))]
-        //public static void RunTests() { }
+        [Generated(typeof(TestGenerator))]
+        public static void RunTests() { }
 
         public string GetHelloWorld() { return "Hello " + "world!"; }
         public string HelloWorldProp => "Hello " + "world!";

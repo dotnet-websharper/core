@@ -23,40 +23,54 @@ type WebSharperCSharpAnalyzer () =
     static let wsError = 
         new DiagnosticDescriptor ("WebSharperError", "WebSharper errors", "{0}", "WebSharper", DiagnosticSeverity.Error, true, null, null)
 
-    let mutable cachedRefMeta = None
+    let cachedRefMeta = Dictionary() 
+
+    member this.GetRefMeta(path) =
+        lock cachedRefMeta <| fun () ->
+        match cachedRefMeta.TryGetValue path with
+        | true, m -> m
+        | _ ->
+            let m = WebSharper.Compiler.FrontEnd.ReadFromFile(path)
+
+            let watcher = new FileSystemWatcher(Path.GetDirectoryName path, Path.GetFileName path)
+            let onChange (_: FileSystemEventArgs) =
+                lock cachedRefMeta <| fun () ->
+                cachedRefMeta.Remove(path) |> ignore
+                watcher.Dispose() 
+
+            watcher.Changed |> Event.add onChange
+            watcher.Renamed |> Event.add onChange
+            watcher.Deleted |> Event.add onChange
+
+            cachedRefMeta.Add(path, m)    
+            m        
 
     override this.SupportedDiagnostics =
         ImmutableArray.Create(wsWarning, wsError)
 
     override this.Initialize(initCtx) =
-        let mutable count = 0
+        initCtx.RegisterCompilationStartAction(fun startCtx ->
+            let compilation = startCtx.Compilation :?> CSharpCompilation
 
-//        initCtx.RegisterCompilationStartAction(fun startCtx ->
-//            startCtx.RegisterCompilationEndAction(fun endCtx ->
-//            )
-//        )
+            let refPaths =
+                compilation.ExternalReferences |> Seq.choose (fun r -> 
+                    match r with
+                    | :? PortableExecutableReference as cr -> Some cr.FilePath
+                    | _ -> None
+                )
+                |> List.ofSeq
+                
+            let metas = refPaths |> List.choose this.GetRefMeta
+            let refMeta =
+                if List.isEmpty metas then None 
+                else Some (WebSharper.Core.DependencyGraph.Graph.UnionOfMetadata metas)
 
-        initCtx.RegisterCompilationAction(fun compCtx ->
-            
-            try
-                let compilation = compCtx.Compilation :?> CSharpCompilation
-            
-                let refMeta =
-                    match cachedRefMeta with
-                    | Some res -> res
-                    | _ ->
-                    let refPaths =
-                        compilation.ExternalReferences |> Seq.choose (fun r -> 
-                            match r with
-                            | :? PortableExecutableReference as cr -> Some cr.FilePath
-                            | _ -> None
-                        )
-                    let aR =
-                        AssemblyResolver.Create()
-                            .SearchPaths(refPaths)
-                    let loader = WebSharper.Compiler.FrontEnd.Loader.Create aR ignore
-                    let refs = [ for r in refPaths -> loader.LoadFile(r) ]
-                    let metas = refs |> List.choose (fun r -> WebSharper.Compiler.FrontEnd.ReadFromAssembly r)
+            startCtx.RegisterCompilationEndAction(fun endCtx ->
+                try
+                    let compilation = endCtx.Compilation :?> CSharpCompilation
+
+                    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(ignore)
+
                     let referencedAsmNames =
                         refPaths
                         |> Seq.map (fun i -> 
@@ -77,53 +91,31 @@ type WebSharperCSharpAnalyzer () =
                         )
 
                     System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
-                    
-                    let res =
-                        if List.isEmpty metas then None 
-                        else Some (WebSharper.Core.DependencyGraph.Graph.UnionOfMetadata metas)
-                    
-                    cachedRefMeta <- Some res
-                    res
 
-                if compCtx.CancellationToken.IsCancellationRequested then () else
+                    let comp = compiler.Compile(refMeta, compilation)
 
-                let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(ignore)
+                    if endCtx.CancellationToken.IsCancellationRequested then () else
 
-                let comp =
-                    compiler.Compile(refMeta, compilation)
+                    let loc (pos: WebSharper.Core.AST.SourcePos option) =
+                        match pos with
+                        | None -> Location.None
+                        | Some p -> 
+                            match WebSharper.Compiler.CSharp.ProjectReader.textSpans.TryGetValue(p) with
+                            | true, textSpan ->
+                                let syntaxTree =
+                                    compilation.SyntaxTrees |> Seq.find (fun t -> t.FilePath = p.FileName)
+                                Location.Create(syntaxTree, !textSpan)
+                            | _ ->
+                                Location.None
 
-                if compCtx.CancellationToken.IsCancellationRequested then () else
+                    for pos, wrn in comp.Warnings do
+                        endCtx.ReportDiagnostic(Diagnostic.Create(wsWarning, loc pos, string wrn))
 
-                let loc (pos: WebSharper.Core.AST.SourcePos option) =
-                    match pos with
-                    | None -> Location.None
-                    | Some p -> 
-//                        Text.TextSpan(snd p.Start - 1, snd p.End - 1)
-//                        let lp (line, col) = Text.LinePosition(line - 1, col - 1) 
-//                        let lineSpan = Text.LinePositionSpan(lp p.Start, lp p.End)
-                        match WebSharper.Compiler.CSharp.ProjectReader.textSpans.TryGetValue(p) with
-                        | true, textSpan ->
-                            let syntaxTree =
-                                compilation.SyntaxTrees |> Seq.find (fun t -> t.FilePath = p.FileName)
-                            Location.Create(syntaxTree, !textSpan)
-                        | _ ->
-                            Location.None
+                    for pos, err in comp.Errors do
+                        endCtx.ReportDiagnostic(Diagnostic.Create(wsError, loc pos, string err))
 
-                for pos, wrn in comp.Warnings do
-                    compCtx.ReportDiagnostic(Diagnostic.Create(wsWarning, loc pos, string wrn))
-
-                for pos, err in comp.Errors do
-                    compCtx.ReportDiagnostic(Diagnostic.Create(wsError, loc pos, string err))
-
-//                let files =
-//                    compilation.SyntaxTrees |> Seq.map (fun t -> System.IO.Path.GetFileNameWithoutExtension t.FilePath)
-//                    |> String.concat " "
-
-                count <- count + 1
-                compCtx.ReportDiagnostic(Diagnostic.Create(wsWarning, Location.None, sprintf "WebSharper analyzer finished (%d): %d errors, %d warnings" count comp.Errors.Length comp.Warnings.Length))
-                compCtx.ReportDiagnostic(Diagnostic.Create(wsWarning, Location.None, sprintf "Another diagnostic"))
-            with e ->
-                count <- count + 1
-                compCtx.ReportDiagnostic(Diagnostic.Create(wsWarning, Location.None, sprintf "WebSharper analyzer failed (%d): %s at %s" count e.Message e.StackTrace))            
+                with e ->
+                    endCtx.ReportDiagnostic(Diagnostic.Create(wsWarning, Location.None, sprintf "WebSharper analyzer failed: %s at %s" e.Message e.StackTrace))            
+            )
         )
 
