@@ -201,7 +201,7 @@ let rec breakExpr expr : Broken<BreakResult> =
         broken (Function (args, BreakStatement body)) 
     | Application (I.Function (args, I.Return body), xs) 
         when List.length args = List.length xs 
-            && Seq.zip args xs |> Seq.forall (fun (a, e) -> isStronglyPureExpr e || NotMutatedOrCaptured(a).Check(body)) ->
+            && args |> Seq.forall (fun a -> NotMutatedOrCaptured(a).Check(body)) ->
         let bind key value body = Let (key, value, body)
         List.foldBack2 bind args xs body |> br
     | Application (I.Let (var, value, body), xs) ->
@@ -401,11 +401,16 @@ let rec breakExpr expr : Broken<BreakResult> =
             let brB = toBrExpr brB
             if hasNoStatements brB then
                 let inlined =
-                    if isStronglyPureExpr brB.Body && NotMutatedOrCaptured(a).Check(c) then
+                    if isStronglyPureExpr brB.Body then
                         match CountVarOccurence(a).Get(c) with
                         | 0 -> Some c
-                        | 1 -> Some (SubstituteVar(a, brB.Body).TransformExpression(c))
+                        | 1 -> 
+                            if NotMutatedOrCaptured(a).Check(c) then
+                                Some (SubstituteVar(a, brB.Body).TransformExpression(c))
+                            else None
                         | _ -> None
+                    elif isPureExpr brB.Body && CountVarOccurence(a).Get(c) = 0 then
+                        Some c    
                     else None
                 match inlined with
                 | Some i -> br i

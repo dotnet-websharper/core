@@ -44,7 +44,9 @@ type Environment =
                     if isDirect && isThis then This else Var a
                 [ 
                     yield "$" + string i, v
-                    yield "$" + a.Name.Value, v
+                    match a.Name with
+                    | Some n -> yield "$" + n, v
+                    | _ -> ()
                     if isThis then yield "$this", v
                 ] 
             ) |> Seq.concat |> dict

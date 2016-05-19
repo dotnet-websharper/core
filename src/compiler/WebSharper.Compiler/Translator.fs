@@ -270,7 +270,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                 | M.ConstantFSharpUnionCase v -> Hole 0 ^== Value v
                 | _ ->                 
                     if u.HasNull then 
-                        let v = Id.New()
+                        let v = Id.New(mut = false)
                         Let (v, Hole 0, (Var v ^!= Value Null) ^&& (Var v).[Value (String "$")] ^== Value (Int i)) 
                     else
                         if u.Cases.Length = 2 then Hole 0 ^!= Value Null
@@ -603,7 +603,7 @@ type DotNetToJavaScript private (comp: Compilation) =
     override this.TransformNewDelegate(thisObj, typ, meth) =
         // TODO: CustomTypeMember
         let inlined() =
-            let args = meth.Entity.Value.Parameters |> List.map (fun _ -> Id.New())
+            let args = meth.Entity.Value.Parameters |> List.map (fun _ -> Id.New(mut = false))
             let call = 
                 Lambda(args, Call(thisObj, typ, meth, args |> List.map Var))
                 |> this.TransformExpression
@@ -729,7 +729,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                 this.TransformExpression expr ^== Value v
             | _ -> 
                 if u.HasNull then
-                    let v = Id.New()
+                    let v = Id.New(mut = false)
                     Let (v, this.TransformExpression expr, 
                         (Var v ^!= Value Null) ^&& (ItemGet(Var v, Value (String "$")) ^== Value (Int i)) 
                     )
@@ -746,7 +746,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                 ItemGet(this.TransformExpression expr, Value (String "$"))
             else 
                 // TODO: no default tag when all cases are constant valued
-                let ev = Id.New ()
+                let ev = Id.New (mut = false)
                 let b = 
                     (constantCases, ItemGet(Var ev, Value (String "$")))
                     ||> List.foldBack (fun (i, c) e -> 
@@ -955,7 +955,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                         let nestedIn = tN.[.. tN.LastIndexOf '+' - 1]
                         let uTyp = { Entity = TypeDefinition { t.Value with FullName = nestedIn } ; Generics = [] } 
                         let trE = this.TransformExpression expr
-                        let i = Id.New ()
+                        let i = Id.New (mut = false)
                         Let (i, trE, this.TransformTypeCheck(Var i, ConcreteType uTyp) ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
                     | _ -> 
                         this.Error(SourceError (sprintf "Failed to compile a type check for type '%s'" tname))

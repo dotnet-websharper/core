@@ -75,6 +75,8 @@ let rec isStronglyPureExpr expr =
     | GlobalAccess _
     | Self
         -> true
+    | Var v ->
+        not v.IsMutable
     | Sequential a 
         -> 
         match List.rev a with

@@ -233,8 +233,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
 
             let getVarsAndThis() =
                 let a, t = getArgsAndThis()
-                a |> List.map (fun p -> Id.New p.CompiledName),
-                t |> Option.map (fun p -> Id.New p.CompiledName)
+                a |> List.map (fun p -> CodeReader.namedId p.CompiledName),
+                t |> Option.map (fun p -> CodeReader.namedId p.CompiledName)
                
             let error m = 
                 comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError m)
@@ -274,11 +274,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                         [
                             match t with
                             | Some t ->
-                                yield t, (Id.New t.CompiledName, CodeReader.ThisArg)
+                                yield t, (CodeReader.namedId t.CompiledName, CodeReader.ThisArg)
                             | _ -> ()
                             for p in a ->    
                                 p, 
-                                (Id.New p.CompiledName, 
+                                (CodeReader.namedId p.CompiledName, 
                                     if CodeReader.isByRef p.FullType then CodeReader.ByRefArg else CodeReader.LocalVar)
                         ]
                     let tparams = clsTparams @ (meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq)
@@ -390,7 +390,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                                 let setb =
                                     match body with
                                     | Function([], Return (FieldGet(None, {Entity = scDef; Generics = []}, name))) ->
-                                        let value = Id.New "v"                                    
+                                        let value = CodeReader.namedId "v"                                    
                                         Function ([value], (ExprStatement <| FieldSet(None, NonGeneric scDef, name, Var value)))
                                     | _ -> failwith "unexpected form in module let body"
                                 addMethod { mAnnot with Name = None } setm kind false setb    
@@ -584,7 +584,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
             }
         let body =
             let vars =
-                cls.FSharpFields |> Seq.map (fun f -> Id.New f.Name) |> List.ofSeq
+                cls.FSharpFields |> Seq.map (fun f -> CodeReader.namedId f.Name) |> List.ofSeq
             let fields =
                 cls.FSharpFields |> Seq.map (fun f -> 
                     let fAnnot = CodeReader.attrReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
@@ -600,7 +600,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                     |> Seq.choose (fun ((name, opt), v) -> if opt then None else Some (name, Var v))
                     |> List.ofSeq |> Object
                 if fields |> List.exists snd then
-                    let o = Id.New()
+                    let o = CodeReader.newId()
                     Let(o, normalFields, 
                         Sequential [
                             for (name, opt), v in Seq.zip fields vars do

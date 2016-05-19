@@ -33,14 +33,17 @@ type Id =
     private {
         IdName : string option
         Id: int64
+        Mutable : bool
     }
 
     member this.Name = this.IdName
+    member this.IsMutable = this.Mutable
     
-    static member New(?name) =
+    static member New(?name, ?mut) =
         {
             IdName = name
             Id = Ids.New()
+            Mutable = defaultArg mut true
         }
 
     override this.GetHashCode() = int this.Id

@@ -25,7 +25,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Compiler
- 
+
 type VarKind =
     | LocalVar 
     | ByRefArg
@@ -344,7 +344,7 @@ type Capturing(var) =
             match captVal with
             | Some c -> c
             | _ ->
-                let c = Id.New(?name = var.Name)
+                let c = Id.New(?name = var.Name, mut = var.IsMutable)
                 captVal <- Some c
                 c
         else i
@@ -441,6 +441,13 @@ let listOfArrayDef =
         Generics = 1      
     }
 
+let newId() = Id.New(mut = false)
+let namedId n =
+    match n with
+    | "tupledArg" -> Id.New("a", false)
+    | "( builder@ )" -> newId()
+    | _ -> if n.StartsWith "_arg" then newId() else Id.New(n, false) 
+
 let rec transformExpression (env: Environment) (expr: FSharpExpr) =
     let inline tr x = transformExpression env x
     try
@@ -463,16 +470,16 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 let lArg, env =
                     if isUnit arg.FullType then [], env
                     else 
-                        let v = Id.New(arg.DisplayName)
+                        let v = namedId arg.DisplayName
                         [ v ], env.WithVar(v, arg)
                 let env = env.WithTParams(arg.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq)
                 Lambda(lArg, (body |> transformExpression env))
             | args, body ->
                 let vars, env =
                     (env, args) ||> List.mapFold (fun env arg ->
-                        if isUnit arg.FullType then Id.New("_"), env
+                        if isUnit arg.FullType then namedId "_", env
                         else 
-                            let v = Id.New(arg.DisplayName)
+                            let v = namedId arg.DisplayName
                             v, env.WithVar(v, arg)
                     ) 
                 Application(JSRuntime.Curried, [ Lambda(vars, (body |> transformExpression env)) ])
@@ -490,7 +497,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | _ ->
                     Application(JSRuntime.Apply, [trFunc; NewArray (args |> List.map tr) ])
         | BasicPatterns.Let((id, value), body) ->
-            let i = Id.New(id.DisplayName)
+            let i = Id.New(id.DisplayName, id.IsMutable)
             let trValue = tr value
             let env = env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
             let inline tr x = transformExpression env x
@@ -501,7 +508,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | BasicPatterns.LetRec(defs, body) ->
             let mutable env = env
             let ids = defs |> List.map (fun (id, _) ->
-                let i = Id.New(id.DisplayName)
+                let i = Id.New(id.DisplayName, id.IsMutable)
                 env <- env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
                 i
             )
@@ -572,11 +579,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | Member.Constructor c -> Ctor (t, c, args)
             | _ -> parsefailf "Expected a constructor call"
         | BasicPatterns.TryFinally (body, final) ->
-            let res = Id.New()
+            let res = newId()
             StatementExpr (TryFinally(VarSetStatement(res, tr body), ExprStatement (tr final)), Some res)
         | BasicPatterns.TryWith (body, var, filter, e, catch) -> // TODO: var, filter?
-            let err = Id.New e.DisplayName
-            let res = Id.New()
+            let err = namedId e.DisplayName
+            let res = newId()
             StatementExpr (
                 TryWith(VarSetStatement(res, tr body), 
                     Some err, 
@@ -612,7 +619,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | BasicPatterns.TupleGet (_, i, tuple) ->
             ItemGet(tr tuple, Value (Int i))   
         | BasicPatterns.FastIntegerForLoop (start, end_, body, up) ->
-            let j = Id.New()
+            let j = newId()
             let i, trBody =
                 match IgnoreExprSourcePos (tr body) with
                 | Function ([i], Return b) -> i, b
@@ -685,8 +692,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             FieldSet(Some This, t, f.Name, tr a)
                     ]
         | BasicPatterns.DecisionTree (matchValue, cases) ->
-            let c = Id.New()
-            let r = Id.New()
+            let c = newId()
+            let r = newId()
             let env = { env with MatchCaptures = Some c }
             Sequential [
                 NewVar(c, Undefined)
@@ -698,7 +705,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             Block [
                                 let mutable env = env 
                                 yield! ci |> Seq.mapi (fun captIndex cv ->
-                                    let i = Id.New cv.DisplayName
+                                    let i = namedId cv.DisplayName
                                     env <- env.WithVar (i, cv)
                                     (VarDeclaration(i, ItemGet(Var c, Value (Int captIndex))))
                                 )
@@ -738,13 +745,13 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | Var v ->
                 MakeRef e (fun value -> VarSet(v, value))
             | ItemGet(o, i) ->
-                let ov = Id.New ()
-                let iv = Id.New ()
+                let ov = newId()
+                let iv = newId()
                 Let (ov, o, Let(iv, i, MakeRef (ItemGet(Var ov, Var iv)) (fun value -> ItemSet(Var ov, Var iv, value))))
             | FieldGet(o, t, f) ->
                 match o with
                 | Some o ->
-                    let ov = Id.New ()
+                    let ov = newId()
                     Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)))     
                 | _ ->
                     MakeRef e (fun value -> FieldSet(None, t, f, value))  
@@ -768,7 +775,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 SetRef (Var v) (tr value)
             | _ -> failwith "AddressSet not on a Value"
         | BasicPatterns.ObjectExpr (typ, expr, overrides, interfaces) ->
-            let o = Id.New ()
+            let o = newId()
 //            let objTParams =
 //                (getOrigDef typ.TypeDefinition).GenericParameters
 //                |> Seq.mapi (fun i p -> p.Name, i)
@@ -782,11 +789,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     let thisVar, vars =
                         match ovr.CurriedParameterGroups with
                         | [t] :: a ->
-                            let thisVar = Id.New(t.DisplayName)
+                            let thisVar = namedId t.DisplayName
                             env <- env.WithVar(thisVar, t)
                             thisVar,
                             a |> Seq.concat |> Seq.map (fun v ->
-                                let vv = Id.New(v.DisplayName)
+                                let vv = namedId v.DisplayName
                                 env <- env.WithVar(vv, v)
                                 vv
                             ) |> List.ofSeq 
@@ -813,7 +820,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 let mutable env = env
                 let args = 
                     vars |> List.map (fun v -> 
-                        let vv = Id.New(v.DisplayName) 
+                        let vv = namedId v.DisplayName
                         env <- env.WithVar(vv, v)
                         vv
                     )
@@ -823,8 +830,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | BasicPatterns.Quote expr -> tr expr
         | BasicPatterns.BaseValue _ -> Base
         | BasicPatterns.ILAsm("[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, null)],TypeVar 0us)]", _, [ arr; i ]) ->
-            let arrId = Id.New ()
-            let iId = Id.New ()
+            let arrId = newId()
+            let iId = newId()
             Let (arrId, tr arr, Let(iId, tr i, MakeRef (ItemGet(Var arrId, Var iId)) (fun value -> ItemSet(Var arrId, Var iId, value))))
         | BasicPatterns.ILAsm (s, _, _) ->
              parsefailf "Unrecognized ILAsm: %s" s

@@ -245,7 +245,7 @@ type NumericMacro() =
     inherit Macro()
 
     let exprParse parsed tru fls =
-        let id = Id.New()
+        let id = Id.New(mut = false)
         Let (id, parsed,
             Conditional(Var id ^=== Value (Double nan),
                 tru id,
@@ -720,7 +720,7 @@ let cString s = Value (Literal.String s)
 
 let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
     let parts = FormatString.parseAll fs
-    let args = ts |> List.map (fun t -> Id.New(), Some t)
+    let args = ts |> List.map (fun t -> Id.New(mut = false), Some t)
         
     let rArgs = ref args
     let nextVar() =
@@ -764,7 +764,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                 }
                 |> Seq.reduce (^+)
             | ArrayType (a, r) ->
-                let x = Id.New()
+                let x = Id.New(mut = false)
                 match r with 
                 | 1 -> printfHelpers comp "printArray" [ Lambda([x], pp a (Var x)) ; o ]
                 | 2 -> printfHelpers comp "printArray2D" [ Lambda([x], pp a (Var x)) ; o ]
@@ -777,11 +777,11 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                     let pi = 
                         match d.TryGetValue t with
                         | false, _ ->
-                            let pi = Id.New()
+                            let pi = Id.New(mut = false)
                             let pr = ref Undefined // placeholder
                             d.Add(t, (pi, pr))
                             pr := (
-                                let x = Id.New()
+                                let x = Id.New(mut = false)
                                 Lambda([x], 
                                     seq {
                                         yield cString "{"
@@ -809,18 +809,18 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                     (Var pi).[[o]]
                 | M.FSharpUnionInfo u ->
                     if ct.Entity.Value.FullName = "Microsoft.FSharp.Collections.FSharpList`1" then
-                        let x = Id.New()
+                        let x = Id.New(mut = false)
                         printfHelpers comp "printList" [ Lambda([x], pp ct.Generics.[0] (Var x)) ; o ]    
                     else
                         let pi =
                             match d.TryGetValue t with
                             | false, _ ->
-                                let pi = Id.New()
+                                let pi = Id.New(mut = false)
                                 let pr = ref Undefined // placeholder
                                 d.Add(t, (pi, pr))
                                 let gs = ct.Generics |> Array.ofList
                                 pr := (
-                                    let x = Id.New()
+                                    let x = Id.New(mut = false)
                                     Lambda([x],                                         
                                         let caseInfo =
                                             u.Cases |> Seq.mapi (fun tag c ->
@@ -921,7 +921,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
         )
         |> Seq.reduce (^+)
     
-    let k = Id.New() 
+    let k = Id.New(mut = false) 
     Lambda([k],
         args |> List.rev |> List.fold (fun c (a, _) -> Lambda([a], c)) (Var k).[[inner]]
     )
@@ -1125,7 +1125,7 @@ type StringFormat() =
                     | _ -> failwith "Wrong number of arguments for String.Format"
 
                 let warning = ref None
-                let argsId = Id.New()
+                let argsId = Id.New(mut = false)
                 
                 let mkExpr args =
                     regExp.Matches(format)

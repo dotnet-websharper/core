@@ -19,6 +19,13 @@
 // $end{copyright}
 
 namespace WebSharper.Core.AST
+
+type ApplicationInfo =
+    {
+        Pure : bool
+        KnownLength : int option
+    }
+
 type Literal =
     | Null
     | Bool    of Value:bool
