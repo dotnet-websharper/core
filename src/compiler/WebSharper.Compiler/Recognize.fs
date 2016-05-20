@@ -106,7 +106,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         checkNotMutating (trE a) (fun ta -> MutatingUnary(op, ta))
     match expr with
     | S.Application (a, b) ->
-        Application (trE a, b |> List.map trE) 
+        Application (trE a, b |> List.map trE, false, None) 
     | S.Binary (a, b, c) ->
         match b with    
         | SB.``!=``     -> Binary(trE a, BinaryOperator.``!=``, trE c)

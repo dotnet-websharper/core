@@ -541,23 +541,23 @@ module Macro =
                                 Sequential [
                                     Conditional(
                                         Unary(UnaryOperator.``!``, ItemGet(Var xid, fld)),
-                                        ItemSet(Var xid, fld, Application(e, [])),
+                                        ItemSet(Var xid, fld, Application(e, [], true, Some 0)),
                                         !~Null);
                                     ItemGet(Var xid, fld)])
                         ], x)
             | Choice2Of2 msg -> failwithf "%A: %s" t msg
 
         let encodeLambda name param warn comp t =
-            Application(getEncoding name true param warn comp t, [])
+            Application(getEncoding name true param warn comp t, [], true, Some 0)
 
         let encode name param warn comp t arg =
-            Application(encodeLambda name param warn comp t, [arg])
+            Application(encodeLambda name param warn comp t, [arg], true, Some 1)
 
         let decodeLambda name param warn comp t =
-            Application(getEncoding name false param warn comp t, [])
+            Application(getEncoding name false param warn comp t, [], true, Some 0)
 
         let decode name param warn comp t arg =
-            Application(decodeLambda name param warn comp t, [arg])
+            Application(decodeLambda name param warn comp t, [arg], true, Some 1)
 
     type Parameters with
 
@@ -592,7 +592,7 @@ module Macro =
         // let enc = ENCODE() in fun arg -> JSON.stringify(enc(arg))
         Let(enc, encodeLambda "SerializeLambda" param warn comp t,
             Lambda([arg],
-                mJson comp "Stringify" [Application(Var enc, [Var arg])]))
+                mJson comp "Stringify" [Application(Var enc, [Var arg], true, Some 1)]))
 
     let Decode param warn comp t arg =
         // DECODE()(arg)
@@ -612,7 +612,7 @@ module Macro =
         let arg = Id.New()
         Let(dec, decodeLambda "DeserializeLambda" param warn comp t,
             Lambda([arg],
-                Application(Var dec, [mJson comp "Parse" [Var arg]])))
+                Application(Var dec, [mJson comp "Parse" [Var arg]], true, Some 1)))
 
     type SerializeMacro() =
         inherit WebSharper.Core.Macro()

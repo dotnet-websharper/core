@@ -635,10 +635,10 @@ let Map3 f (l1: _ []) (l2: _ []) (l3: _ []) =
     ListMap3 f (Array.toList l1) (Array.toList l2) (Array.toList l3)
     |> List.toArray
 
+[<Inline>]
 [<JavaScript>]
-[<Name "contains">]
 let Contains (el: 'T) (a: 'T []) =
-    SeqContains el (Array.toSeq a)
+    ArrayContains el a
 
 [<JavaScript>]
 [<Name "pairwise">]

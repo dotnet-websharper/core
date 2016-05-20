@@ -117,6 +117,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                     | Some (A.MemberKind.Generated (g, p)) -> Some (g, p)
                     | _ -> None
                 Compiled = compiled 
+                Pure = mAnnot.Pure
                 Body = expr
                 Requires = mAnnot.Requires
             }
@@ -452,10 +453,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                         jsMethod true
                     | A.MemberKind.OptionalField ->
                         if meth.IsPropertyGetterMethod then
-                            let i = Application (JSRuntime.GetOptional, [ItemGet(Hole 0, Value (String meth.CompiledName.[4..]))])
+                            let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String meth.CompiledName.[4..])))
                             addMethod mAnnot mdef N.Inline true i
                         elif meth.IsPropertySetterMethod then  
-                            let i = Application (JSRuntime.SetOptional, [Hole 0; Value (String meth.CompiledName.[4..]); Hole 1])
+                            let i = JSRuntime.SetOptional (Hole 0) (Value (String meth.CompiledName.[4..])) (Hole 1)
                             addMethod mAnnot mdef N.Inline true i
                         else error "OptionalField attribute not on property"
                     | A.MemberKind.Generated _ ->
@@ -604,7 +605,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                     Let(o, normalFields, 
                         Sequential [
                             for (name, opt), v in Seq.zip fields vars do
-                                if opt then yield Application(JSRuntime.SetOptional, [Var o; Value (String name); Var v])
+                                if opt then yield JSRuntime.SetOptional (Var o) (Value (String name)) (Var v)
                             yield Var o
                         ]
                     )

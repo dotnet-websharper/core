@@ -126,10 +126,10 @@ type ClassInfo =
     {
         Address : option<Address>
         BaseClass : option<TypeDefinition>
-        Constructors : IDictionary<Constructor, CompiledMember * Expression>
+        Constructors : IDictionary<Constructor, CompiledMember * bool * Expression>
         Fields : IDictionary<string, CompiledField>
         StaticConstructor : option<Address * Expression>
-        Methods : IDictionary<Method, CompiledMember * Expression>
+        Methods : IDictionary<Method, CompiledMember * bool * Expression>
         Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
         IsModule : bool
         Macros : list<TypeDefinition * option<ParameterObject>>
@@ -272,7 +272,7 @@ module internal Utilities =
     let getRemoteMethods meta =
         let remotes = Dictionary()
         for KeyValue(cDef, c) in meta.Classes do
-            for KeyValue(mDef, (m, _)) in c.Methods do
+            for KeyValue(mDef, (m, _, _)) in c.Methods do
                 match ignoreMacro m with
                 | Remote (_, handle, _) ->
                     remotes.Add(handle, (cDef, mDef))

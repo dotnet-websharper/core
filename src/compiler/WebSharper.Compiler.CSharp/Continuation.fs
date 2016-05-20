@@ -46,7 +46,7 @@ type AwaitTransformer() =
         let awaited = Id.New "$await"
         let doneLabel = Id.New "$done"
         let setStatus s = ItemSet(Var awaited, Value (String "exc"), !~(Int s))
-        let start = Application(ItemGet(Var awaited, Value (String "Start")), [])
+        let start = Application(ItemGet(Var awaited, Value (String "Start")), [], false, Some 0)
         let exc = ItemGet(Var awaited, Value (String "exc"))
         Sequential [
             NewVar(awaited, this.TransformExpression a)
@@ -433,7 +433,7 @@ type AsyncTransformer(labels, returns) =
 
     override this.Yield(v) =
         Block [
-            ExprStatement <| Application(ItemGet(v, Value (String "OnCompleted")), [ Var run ])
+            ExprStatement <| Application(ItemGet(v, Value (String "OnCompleted")), [ Var run ], false, Some 1)
             Return (Value (Bool true))         
         ]
 
@@ -442,7 +442,7 @@ type AsyncTransformer(labels, returns) =
             if IgnoreExprSourcePos a <> Undefined then
                 yield ExprStatement <| ItemSet(Var task, Value (String "result"), a)
             yield ExprStatement <| ItemSet(Var task, Value (String "status"), Value (Int (int System.Threading.Tasks.TaskStatus.RanToCompletion)))
-            yield ExprStatement <| Application(ItemGet(Var task, Value (String "RunContinuations")), [])
+            yield ExprStatement <| Application(ItemGet(Var task, Value (String "RunContinuations")), [], false, Some 0)
             yield Return (Value (Bool false))         
         ]
 
@@ -463,7 +463,7 @@ type AsyncTransformer(labels, returns) =
             for v in extract.Vars do
                 yield VarDeclaration(v, Undefined)
             yield ExprStatement <| VarSet(run, Function ([], inner))
-            yield ExprStatement <| Application (Var run, [])
+            yield ExprStatement <| Application (Var run, [], false, Some 0)
             if returns <> ReturnsVoid then 
                 yield Return (Var task)
         ]

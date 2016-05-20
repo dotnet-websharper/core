@@ -154,6 +154,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | Some (A.MemberKind.Generated (g, p)) -> Some (g, p)
                     | _ -> None
                 Compiled = compiled 
+                Pure = mAnnot.Pure
                 Body = expr
                 Requires = mAnnot.Requires
             }
@@ -441,7 +442,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         FieldGet(on, NonGeneric def, meth.AssociatedSymbol.Name)
                         , fun x -> FieldSet(on, NonGeneric def, meth.AssociatedSymbol.Name, x)
                     let b =
-                        Application (JSRuntime.CombineDelegates, [ NewArray [ getEv; Var args.[0].ParameterId ] ]) |> setEv    
+                        JSRuntime.CombineDelegates (NewArray [ getEv; Var args.[0].ParameterId ]) |> setEv    
                     {
                         IsStatic = meth.IsStatic
                         Parameters = args
@@ -498,7 +499,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | Some t -> ReplaceThisWithVar(t).TransformExpression(b)
                         | _ -> b
                     let allVars = Option.toList thisVar @ args
-                    makeExprInline allVars (Application (b, allVars |> List.map Var))
+                    makeExprInline allVars (Application (b, allVars |> List.map Var, false, None))
                 else
                     Function(args, parsed.Body)
 
@@ -559,10 +560,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.OptionalField ->
                     let mN = mdef.Value.MethodName
                     if mN.StartsWith "get_" then
-                        let i = Application (JSRuntime.GetOptional, [ItemGet(Hole 0, Value (String mN.[4..]))])
+                        let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String mN.[4..])))
                         addMethod mAnnot mdef N.Inline true i
                     elif mN.StartsWith "set_" then  
-                        let i = Application (JSRuntime.SetOptional, [Hole 0; Value (String mN.[4..]); Hole 1])
+                        let i = JSRuntime.SetOptional (Hole 0) (Value (String mN.[4..])) (Hole 1)
                         addMethod mAnnot mdef N.Inline true i
                     else error "OptionalField attribute not on property"
                 | A.MemberKind.Generated _ ->

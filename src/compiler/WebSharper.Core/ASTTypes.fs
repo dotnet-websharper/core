@@ -31,12 +31,15 @@ type private Ids() =
 /// An identifier for a variable or label.
 type Id =
     private {
-        IdName : string option
+        mutable IdName : string option
         Id: int64
         Mutable : bool
     }
 
-    member this.Name = this.IdName
+    member this.Name 
+        with get () = this.IdName
+        and set n = this.IdName <- n
+
     member this.IsMutable = this.Mutable
     
     static member New(?name, ?mut) =

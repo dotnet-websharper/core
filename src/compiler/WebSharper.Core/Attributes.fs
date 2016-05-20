@@ -62,6 +62,12 @@ type InlineAttribute(template: string) =
 type DirectAttribute(template: string) =
     inherit A()
 
+/// Marks methods and constructors as pure, so the call may be erased by optimizer
+/// or applied in different execution order. 
+[<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
+type PureAttribute(template: string) =
+    inherit A()
+
 /// Marks methods, properties and constructors for compilation to JavaScript.
 [<Sealed; U(T.Assembly|||T.Class|||T.Module|||T.Constructor|||T.Method|||T.Property)>]
 type JavaScriptAttribute() =

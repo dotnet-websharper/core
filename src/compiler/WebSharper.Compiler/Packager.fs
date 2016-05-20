@@ -33,7 +33,7 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
     let declarations = ResizeArray()
     let statements = ResizeArray()
 
-    let glob = Id.New "Global"
+    let glob = Id.New("Global", false)
     declarations.Add <| VarDeclaration (glob, This)
     let glob = Var glob
 
@@ -46,7 +46,7 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
             match address.Value with
             | [] -> glob
             | [ name ] ->
-                let var = Id.New name
+                let var = Id.New (if name.StartsWith "StartupCode$" then "SC$" else name)
                 let f = Value (String name)
                 declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f) |> safeObject))                
                 let res = Var var
@@ -124,7 +124,7 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
         | _ -> ()
 
         match c.StaticConstructor with
-        | Some (ccaddr, body) -> packageGlobal ccaddr <| Application (JSRuntime.Cctor, [ body ])
+        | Some (ccaddr, body) -> packageGlobal ccaddr <| JSRuntime.Cctor body
         | _ -> ()
 
         match c.Address with 
@@ -132,12 +132,22 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
         | Some addr ->
             
             let prototype = 
+                let prop info body =
+                    match info with
+                    | M.Instance mname ->
+                        if body <> Undefined then
+                            Some (mname, body)
+                        else None
+                    | _ -> None
+                    
                 Object [
-                    for info, body in Seq.append c.Methods.Values c.Implementations.Values do
-                        match info with
-                        | M.Instance mname ->
-                            if body <> Undefined then
-                                yield mname, body
+                    for info, _, body in c.Methods.Values do
+                        match prop info body with
+                        | Some p -> yield p 
+                        | _ -> ()
+                    for info, body in c.Implementations.Values do
+                        match prop info body with
+                        | Some p -> yield p 
                         | _ -> ()
                 ]
                             
@@ -147,9 +157,9 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
                 | _ -> Value Null
              
             if not c.IsModule then
-                packageCtor addr <| Application (JSRuntime.Class, [ prototype; baseType; GlobalAccess addr])
+                packageCtor addr <| JSRuntime.Class prototype baseType (GlobalAccess addr)
 
-        for info, body in c.Methods.Values do
+        for info, _, body in c.Methods.Values do
             match info with
             | M.Static maddr ->
                 if body <> Undefined then
@@ -157,14 +167,14 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
                         package maddr body
             | _ -> ()
 
-        for info, body in c.Constructors.Values do
+        for info, _, body in c.Constructors.Values do
             match info with
             | M.Constructor caddr ->
                 if body <> Undefined then
                     if Option.isSome c.Address then
                         package caddr <| 
                             match c.Address with
-                            | Some addr -> Application (JSRuntime.Ctor, [ body; GlobalAccess addr ])
+                            | Some addr -> JSRuntime.Ctor body (GlobalAccess addr)
                             | _ -> body
                     else
                         package caddr body
@@ -188,7 +198,7 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
     let allStatements = List.ofSeq (Seq.append declarations trStatements) 
 
     if List.isEmpty allStatements then Undefined else
-        Application(Function([], Block allStatements), [])
+        Application(Function([], Block allStatements), [], false, Some 0)
 
 let exprToString asmName pref sourceMap statement =
     let program =

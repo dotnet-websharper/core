@@ -429,8 +429,8 @@ type RoslynTransformer(env: Environment) =
                 }
         }                
 
-    let jsCall expr item args =
-        Application(ItemGet(expr, Value (String item)), args)
+    let jsConcat expr args =
+        Application(ItemGet(expr, Value (String "concat")), args, true, None)
 
     let queryCall (symbol: IMethodSymbol) args =
         let qtyp = sr.ReadNamedType symbol.ContainingType
@@ -635,8 +635,8 @@ type RoslynTransformer(env: Environment) =
                         Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)))     
                     | _ ->
                         MakeRef e (fun value -> FieldSet(None, t, f, value))  
-                | Application(ItemGet (r, Value (String "get")), []) ->
-                    MakeRef e (fun value -> Application(ItemGet (r, Value (String "set")), [value]))        
+                | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+                    r
                 | Call (thisOpt, typ, getter, args) ->
                     MakeRef e (fun value -> (Call (thisOpt, typ, setterOf getter, args @ [value])))
                 | _ -> failwithf "ref argument has unexpected form: %+A" e     
@@ -831,8 +831,8 @@ type RoslynTransformer(env: Environment) =
             | Var id -> VarSet(id, right)
             | FieldGet (obj, ty, f) -> FieldSet (obj, ty, f, right)
             | ItemGet(obj, i) -> ItemSet (obj, i, right)
-            | Application(ItemGet (r, Value (String "get")), []) ->
-                Application(ItemGet (r, Value (String "set")), [right])
+            | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+                SetRef r right
             | Call (thisOpt, typ, getter, args) ->
                 Call (thisOpt, typ, setterOf getter, args @ [right])
             | _ -> TODO x
@@ -857,8 +857,8 @@ type RoslynTransformer(env: Environment) =
                 let j = Id.New ()
                 let leftWithM = ItemGet (Var m, Var j)
                 Let (m, obj, Let (j, i, ItemSet(Var m, Var j, Call(None, opTyp, operator, [leftWithM; right]))))
-            | Application(ItemGet (r, Value (String "get")), []) ->
-                Application(ItemGet (r, Value (String "set")), [Call(None, opTyp, operator, [left; right])])
+            | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+                SetRef r (Call(None, opTyp, operator, [left; right]))
             | Call (thisOpt, typ, getter, args) ->
                 Call (thisOpt, typ, setterOf getter, args @ [Call(None, opTyp, operator, [left; right])])
             | _ -> TODO x
@@ -1161,8 +1161,8 @@ type RoslynTransformer(env: Environment) =
                 Let (ov, o, FieldSet(Some (Var ov), t, f, callOp (FieldGet(Some (Var ov), t, f))))
             | _ ->
                 FieldSet(None, t, f, callOp operand)
-        | Application(ItemGet (r, Value (String "get")), []) ->
-            Application(ItemGet (r, Value (String "set")), [callOp operand])
+        | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+            SetRef r (callOp operand)
         | Call (thisOpt, typ, getter, args) ->
             Call (thisOpt, typ, setterOf getter, args @ [ callOp operand ])
         | _ -> failwithf "ref argument has unexpected form: %+A" e     
@@ -1612,7 +1612,7 @@ type RoslynTransformer(env: Environment) =
                     env.RangeVars.[ri] <- (a, Some 0) 
                     Lambda([a; b], NewArray [Var a; Var b])
                 | _ ->
-                    Lambda([a; b], jsCall (Var a) "concat" [NewArray [Var b]])
+                    Lambda([a; b], jsConcat (Var a) [NewArray [Var b]])
             let inclSelect expr =
                 match ri with
                 | Choice1Of2 ri ->
@@ -1642,7 +1642,7 @@ type RoslynTransformer(env: Environment) =
                     env.RangeVars.[ri] <- (a, Some 0) 
                     NewArray [Var a; expression]               
                 | _ ->
-                    jsCall (Var a) "concat" [NewArray [expression]]  
+                    jsConcat (Var a) [NewArray [expression]]  
             queryCall querySymbol [on; Lambda([a], res)], Choice2Of2 (a, num, None)    
 
     member this.TransformJoinClause (x: JoinClauseData) : _ =
@@ -1672,7 +1672,7 @@ type RoslynTransformer(env: Environment) =
                     env.RangeVars.[ri] <- (a, Some 0) 
                     Lambda([a; b], NewArray [Var a; Var b])
                 | _ ->
-                    Lambda([a; b], jsCall (Var a) "concat" [NewArray [Var b]])
+                    Lambda([a; b], jsConcat (Var a) [NewArray [Var b]])
             let inclSelect expr =
                 match ri with
                 | Choice1Of2 ri ->

@@ -83,7 +83,7 @@ let defineId (env: Environment) (id: Id) =
        
 let invalidForm c =
     failwithf "invalid form at writing JavaScript: %s" c
-    
+
 let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     let inline trE x = transformExpr env x
     let inline trI x = transformId env x
@@ -110,8 +110,8 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | UInt64 v -> J.Number (string v)
         | Decimal v -> J.Number (string v)
         |> J.Constant
-    | Application (e, ps) -> J.Application (trE e, ps |> List.map trE)
-    | VarSet (id, e) -> J.Binary(J.Var (trI id), J.BinaryOperator.``=``, trE e )  
+    | Application (e, ps, _, _) -> J.Application (trE e, ps |> List.map trE)
+    | VarSet (id, e) -> J.Binary(J.Var (trI id), J.BinaryOperator.``=``, trE e)   
     | ExprSourcePos (pos, e) -> 
         let jpos =
             {
@@ -215,12 +215,12 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 if env.Preference = P.Compact then
                     Seq.append
                         (emptyDecls |> Seq.map (fun i -> i, None))
-                        (decls |> Seq.map (fun (i, e) -> i, Some (trE e))) 
+                        (decls |> Seq.map (fun (i, e) -> i, Some e)) 
                     |> List.ofSeq |> J.Vars |> res.Add
                 else 
                     res.Add (J.Vars (emptyDecls |> Seq.map (fun i -> i, None) |> List.ofSeq))
                     for i, e in decls do
-                        res.Add (J.Vars [ i, Some (trE e) ])
+                        res.Add (J.Vars [ i, Some e])
                 emptyDecls.Clear()
                 decls.Clear()
         
@@ -232,7 +232,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 | Undefined ->   
                     emptyDecls.Add (defineId env id)
                 | _ ->
-                    decls.Add (defineId env id, e)
+                    decls.Add (defineId env id, trE e)
             | Empty 
             | ExprStatement IgnoreSourcePos.Undefined -> ()
             | _ -> 

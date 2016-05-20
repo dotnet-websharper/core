@@ -44,7 +44,7 @@ module internal Internal =
                 cCall this "PropertyWithSample" [
                     runner
                     Function([id],
-                        Return (mkSample (Application(gen, [Var id])) (cInt 100)))
+                        Return (mkSample (Application(gen, [Var id], true, Some 1)) (cInt 100)))
                     attempt
                 ]
                 |> MacroOk

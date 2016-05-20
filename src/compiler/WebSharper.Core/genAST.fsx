@@ -108,7 +108,7 @@ let ExprDefs =
             , "Gets the value of a variable"
         "Value", [ Literal, "value" ]
             , "Contains a literal value"
-        "Application", [ Expr, "func" ; List Expr, "arguments" ]
+        "Application", [ Expr, "func" ; List Expr, "arguments"; Object "bool", "pure"; Option Int, "knownLength" ]
             , "Function application"
         "Function", [ List Id, "parameters"; Statement, "body" ]
             , "Function declaration"
@@ -184,6 +184,8 @@ let ExprDefs =
             , ".NET - F# union case field getter"
         "UnionCaseTag", [ Expr, "expression"; TypeDefinition, "typeDefinition" ]
             , ".NET - F# union case tag getter"
+        "MatchSuccess", [ Int, "index"; List Expr, "captures" ]
+            , ".NET - F# successful match" 
         "TraitCall", [ Expr, "thisObject"; Type, "objectType"; Method, "method"; List Expr, "arguments" ]
             , ".NET - Method call"
         "Await", [ Expr, "expression" ]
@@ -306,7 +308,7 @@ let code =
             for opSym in binaryOps do
                 cprintfn "    static member (^%s) (a, b) = Binary (a, BinaryOperator.``%s``, b)" opSym opSym
             cprintfn "    member a.Item b = ItemGet (a, b)"
-            cprintfn "    member a.Item b = Application (a, b)"
+            cprintfn "    member a.Item b = Application (a, b, false, None)"
 
     let ExprAndStatementDefs =
         seq {
@@ -322,6 +324,16 @@ let code =
     for t, n, c, comm in ExprAndStatementDefs do
         cprintfn "    /// %s" comm
         cprintfn "    abstract Transform%s : %s -> %s" n (toFields c) t
+        match n with
+        | "ExprSourcePos" ->
+            cprintfn "    override this.TransformExprSourcePos (a, b) ="
+            cprintfn "        match this.TransformExpression b with"
+            cprintfn "        | ExprSourcePos (_, bt) | bt -> ExprSourcePos (a, bt)"    
+        | "StatementSourcePos" ->
+            cprintfn "    override this.TransformStatementSourcePos (a, b) ="
+            cprintfn "        match this.TransformStatement b with"
+            cprintfn "        | StatementSourcePos (_, bt) | bt -> StatementSourcePos (a, bt)"    
+        | _ ->
         let args =
             match c with
             | [] -> "()"

@@ -34,6 +34,7 @@ type private Attribute =
     | Proxy of TypeDefinition
     | Inline of option<string>
     | Direct of string
+    | Pure
     | Constant of Literal
     | Generated of TypeDefinition * option<obj>
     | Require of TypeDefinition
@@ -99,6 +100,7 @@ type MemberAnnotation =
         Requires : list<TypeDefinition>
         IsEntryPoint : bool
         DateTimeFormat : list<option<string> * string>
+        Pure : bool
     }
 
     static member BasicJavaScript =
@@ -109,6 +111,7 @@ type MemberAnnotation =
             Requires = []
             IsEntryPoint = false
             DateTimeFormat = []
+            Pure = false
         }
 
     static member BasicInlineJavaScript =
@@ -119,6 +122,7 @@ type MemberAnnotation =
             Requires = []
             IsEntryPoint = false
             DateTimeFormat = []
+            Pure = false
         }
 
 /// Contains information from all WebSharper-specific attributes for an assembly
@@ -173,6 +177,8 @@ type AttributeReader<'A>() =
             A.Inline (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.map unbox)
         | "DirectAttribute" ->
             A.Direct (Seq.head (this.GetCtorArgs(attr)) |> unbox)
+        | "PureAttribute" ->
+            A.Pure
         | "ConstantAttribute" ->
             A.Constant (Seq.head (this.GetCtorArgs(attr)) |> ReadLiteral)
         | "MacroAttribute" ->
@@ -249,12 +255,13 @@ type AttributeReader<'A>() =
     member this.GetMemberAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
         let attrArr, macros, name, reqs = this.GetAttrs (parent, attrs)
         let isEp = attrArr |> Array.contains A.SPAEntryPoint
+        let isPure = attrArr |> Array.contains A.Pure
         let rp = 
             attrArr |> Array.tryPick (function A.RemotingProvider p -> Some p | _ -> None) 
             |> function Some x -> Some x | None -> parent.RemotingProvider
         let attrArr = 
             attrArr |> Array.filter (function 
-                | A.SPAEntryPoint | A.DateTimeFormat _ | A.RemotingProvider _ | A.JavaScript false -> false 
+                | A.SPAEntryPoint | A.Pure | A.DateTimeFormat _ | A.RemotingProvider _ | A.JavaScript false -> false 
                 | _ -> true)
         let kind =
             match attrArr with
@@ -287,6 +294,7 @@ type AttributeReader<'A>() =
             Requires = reqs
             IsEntryPoint = isEp
             DateTimeFormat = attrArr |> Seq.choose (function A.DateTimeFormat (a,b) -> Some (a,b) | _ -> None) |> List.ofSeq
+            Pure = isPure
         }
    
     member this.GetAssemblyAnnot (attrs: seq<'A>) =

@@ -203,6 +203,12 @@ let TransformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
                 |> Option.map (fun a ->
                     a.ConstructorArguments.[0].Value :?> string
                 )
+
+            let isPure =
+                meth.CustomAttributes |> 
+                Seq.exists (fun a -> 
+                    a.AttributeType.FullName = "WebSharper.PureAttribute" 
+                )
                                     
             if Option.isSome inlAttr || not (List.isEmpty macros) then
                 let vars = meth.Parameters |> Seq.map (fun p -> Id.New p.Name) |> List.ofSeq
@@ -233,7 +239,7 @@ let TransformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
                         graph.AddEdge(cNode, ResourceNode req)
                     
                     try 
-                        constructors.Add(cdef, (kind, body))
+                        constructors.Add(cdef, (kind, isPure, body))
                     with _ ->
                         failwithf "Duplicate definition for constructor of %s, arguments: %s" def.Value.FullName (string cdef.Value)
                     
@@ -256,7 +262,7 @@ let TransformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
                     for req in getRequires meth.CustomAttributes do
                         graph.AddEdge(mNode, ResourceNode req)
                     
-                    try methods.Add(mdef, (kind, body))
+                    try methods.Add(mdef, (kind, isPure, body))
                     with _ ->
                         failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (string mdef.Value)
 

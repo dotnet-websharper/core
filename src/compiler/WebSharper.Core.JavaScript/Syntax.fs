@@ -124,6 +124,7 @@ and Expression =
     | Var         of Id
     | VarNamed    of Id * string
     | ExprPos     of Expression * SourcePos
+    | ExprComment of E * string
 
     static member ( + ) (a, b) = Binary (a, B.``+``, b)
     static member ( - ) (a, b) = Binary (a, B.``-``, b)
@@ -181,6 +182,7 @@ and Statement =
     | While        of E * S
     | With         of E * S
     | StatementPos of S * SourcePos
+    | StatementComment of S * string
 
 and SwitchElement =
     | Case of E * list<S>
@@ -360,8 +362,11 @@ let Optimize (expr: E) =
         WalkStatement tE tS Set.unionMany stmt
     snd (tE expr)
 
-let inline (|IgnoreExprPos|) e =
-    match e with ExprPos(e, _) | e -> e
+let rec (|IgnoreExprPos|) e =
+    match e with 
+    | ExprComment(IgnoreExprPos e, _)
+    | ExprPos(IgnoreExprPos e, _) 
+    | e -> e
 
 let (|Application|_|) e = match e with IgnoreExprPos (Application(x, y)   ) -> Some (x, y)    | _ -> None 
 let (|Binary     |_|) e = match e with IgnoreExprPos (Binary(x, y, z)     ) -> Some (x, y, z) | _ -> None 
@@ -380,6 +385,7 @@ let (|Var        |_|) e = match e with IgnoreExprPos (Var x | VarNamed(x, _)) ->
 let (|VarNamed   |_|) e = match e with IgnoreExprPos (VarNamed(x, y)        ) -> Some (x, y)    | _ -> None 
 
 let (|ExprPos|_|) e = match e with ExprPos(x, y)  -> Some (x, y) | _ -> None 
+let (|ExprComment|_|) e = match e with ExprComment(x, y)  -> Some (x, y) | _ -> None 
 
 let Application(x, y)    = Application(x, y)   
 let Binary(x, y, z)      = Binary(x, y, z)     
@@ -402,9 +408,13 @@ let rec RemoveOuterExprSourcePos e =
     | e -> e
 
 let ExprPos(x, y) = ExprPos(RemoveOuterExprSourcePos x, y)
+let ExprComment(x, y) = ExprComment(x, y)
 
-let inline (|IgnoreStatementPos|) s =
-    match s with StatementPos(s, _) | s -> s
+let rec (|IgnoreStatementPos|) s =
+    match s with 
+    | StatementComment(IgnoreStatementPos s, _)
+    | StatementPos(IgnoreStatementPos s, _) 
+    | s -> s
 
 let (|Block       |_|) s = match s with IgnoreStatementPos (Block      a        ) -> Some a         | _ -> None   
 let (|Break       |_|) s = match s with IgnoreStatementPos (Break      a        ) -> Some a         | _ -> None   
@@ -429,6 +439,7 @@ let (|While       |_|) s = match s with IgnoreStatementPos (While      (a,b)    
 let (|With        |_|) s = match s with IgnoreStatementPos (With       (a,b)    ) -> Some (a,b)     | _ -> None   
 
 let (|StatementPos|_|) s = match s with StatementPos (a,b) -> Some (a,b) | _ -> None
+let (|StatementComment|_|) s = match s with StatementComment (a,b) -> Some (a,b) | _ -> None
 
 let Block      a         = Block      a        
 let Break      a         = Break      a        
@@ -458,3 +469,4 @@ let rec RemoveOuterStatementSourcePos s =
     | s -> s
 
 let StatementPos (a,b) = StatementPos (RemoveOuterStatementSourcePos a,b)
+let StatementComment (a,b) = StatementComment (a,b)

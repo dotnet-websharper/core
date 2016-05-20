@@ -55,7 +55,7 @@ let containsVar v expr =
 
 let sliceFromArguments slice =
     Application (Global [ "Array"; "prototype"; "slice"; "call" ], 
-        Arguments :: [ for a in slice -> !~ (Int a) ])
+        Arguments :: [ for a in slice -> !~ (Int a) ], true, None)
 
 let (|TupledLambda|_|) expr =
     match expr with
@@ -123,7 +123,7 @@ let (|Runtime|_|) e =
     
 let (|AppItem|_|) e =
     match e with
-    | Application (ItemGet (obj, Value (String item)), args) -> Some (obj, item, args)
+    | Application (ItemGet (obj, Value (String item)), args, _, _) -> Some (obj, item, args)
     | _ -> None
 
 let (|Lambda|_|) e = 
@@ -132,28 +132,36 @@ let (|Lambda|_|) e =
     | _ -> None
 
 let AppItem (obj, item, args) =
-    Application(ItemGet(obj, Value (String item)), args)
+    Application(ItemGet(obj, Value (String item)), args, true, None)
 
 let cleanRuntime expr =
 //    let tr = Transform clean
     match expr with
-    | Application (Application (Runtime "Bind", [f; obj]), args) -> 
+    | Application (Application (Runtime "Bind", [f; obj], _, _), args, _, _) -> 
         AppItem(f, "call", obj :: args)
-    | AppItem(Application (Runtime "Bind", [f; obj]), "apply", [args]) ->
+    | AppItem(Application (Runtime "Bind", [f; obj], _, _), "apply", [args]) ->
         AppItem(f, "apply", [obj; args])
-    | Application(Runtime rtFunc, xs) ->
+    | Application(Runtime rtFunc, xs, _, _) ->
         match rtFunc, xs with
-        | "Apply", [ Application(Runtime "Curried", [Lambda(vars, _) as f]); NewArray args ] 
+        | "Apply", [ Application(Runtime "Curried", [Lambda(vars, _) as f], _, _); NewArray args ] 
             when vars.Length = args.Length ->
-            Application(f, args)   
+            Application(f, args, false, Some vars.Length) // TODO: pure function  
         | "CreateFuncWithArgs", [ TupledLambda (vars, body) as f ] ->
             Lambda(vars, body) |> WithSourcePosOfExpr f
         | "CreateFuncWithOnlyThis", [ Lambda ([obj], body) as f ] ->
             ThisLambda (obj, [], body) |> WithSourcePosOfExpr f
         | "CreateFuncWithThis", [ Lambda ([obj], Lambda (args, body)) as f ] ->
             ThisLambda (obj, args, body) |> WithSourcePosOfExpr f   
+        | "CreateFuncWithThis", [ Application(Runtime "Curried", [Lambda([obj; arg], body) as f], _, _) ] ->
+            ThisLambda (obj, [arg], body) |> WithSourcePosOfExpr f   
         | "CreateFuncWithThisArgs", [ Lambda ([obj], TupledLambda (vars, body)) as f ] ->
             ThisLambda (obj, vars, body) |> WithSourcePosOfExpr f
+        | "CreateFuncWithThisArgs", [ Application(Runtime "Curried", [Lambda([obj; arg], body) as f], _, _) ] ->
+            match Lambda([arg], body) with
+            | TupledLambda(vars, body) ->
+                ThisLambda (obj, vars, body) |> WithSourcePosOfExpr f
+            | _ ->
+                ThisLambda (obj, [arg], body) |> WithSourcePosOfExpr f
         | "CreateFuncWithRest", [ Value (Int length); TupledLambda (vars, body) as f ] ->
             let rest :: fixRev = List.rev vars
             let fix = List.rev fixRev
@@ -205,8 +213,7 @@ let cleanRuntime expr =
                 if toDelete.Count = 0 then
                     obj
                 else                  
-                    let names = NewArray [for f in toDelete -> !~(String f)]
-                    Application (JSRuntime.DeleteEmptyFields, [obj; names; Value Null])
+                    JSRuntime.DeleteEmptyFields obj [for f in toDelete -> !~(String f)]
             else expr
         | _ -> expr
     | Let (var, value, body) ->
@@ -214,7 +221,7 @@ let cleanRuntime expr =
         let transformIfAlwaysInterop rtFunc getJsFunc =
             let (|WithInterop|_|) e =
                 match e with
-                | Application (Runtime f, [ Var v ]) when f = rtFunc && v = var -> Some ()
+                | Application (Runtime f, [ Var v ], _, _) when f = rtFunc && v = var -> Some ()
                 | _ -> None
             let rec isWithInterop e =
                 match e with
@@ -237,7 +244,7 @@ let cleanRuntime expr =
         | _ ->
             expr
     //used by functions with rest argument
-    | Application (ItemGet(NewArray arr, Value (String "concat")), [ NewArray rest ]) ->
+    | Application (ItemGet(NewArray arr, Value (String "concat")), [ NewArray rest ], _, _) ->
         NewArray (arr @ rest)    
     | ItemGet (Object fs, Value (String fieldName)) ->
         let mutable nonPureBefore = []

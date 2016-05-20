@@ -105,16 +105,17 @@ type Compilation(meta: Info) =
             interfaces.TryFind (findProxied typ)
 
         member this.GetClassInfo typ = 
+            let fstOf3 (x, _, _) = x
             match classes.TryFind (findProxied typ) with
             | None -> None
             | Some cls ->
                 Some { new IClassInfo with
                     member this.Address = cls.Address
                     member this.BaseClass = cls.BaseClass
-                    member this.Constructors = MappedDictionary(cls.Constructors, fst) :> _
+                    member this.Constructors = MappedDictionary(cls.Constructors, fstOf3) :> _
                     member this.Fields = cls.Fields
                     member this.StaticConstructor = cls.StaticConstructor |> Option.map fst
-                    member this.Methods = MappedDictionary(cls.Methods, fst) :> _
+                    member this.Methods = MappedDictionary(cls.Methods, fstOf3) :> _
                     member this.Implementations = MappedDictionary(cls.Implementations, fst) :> _
                     member this.IsModule = cls.IsModule
                     member this.Macros = cls.Macros
@@ -318,13 +319,13 @@ type Compilation(meta: Info) =
                 if typ.Value.Assembly = "mscorlib" then
                     match typ.Value.FullName with
                     | "System.Collections.IEnumerable" ->
-                        Compiled (Inline, Application(Global ["WebSharper"; "Enumerator"; "Get0"], [Hole 0]))
+                        Compiled (Inline, false, Application(Global ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], false, Some 1))
                     | "System.Collections.Generic.IEnumerable`1" ->
-                        Compiled (Inline, Application(Global ["WebSharper"; "Enumerator"; "Get"], [Hole 0]))
+                        Compiled (Inline, false, Application(Global ["WebSharper"; "Enumerator"; "Get"], [Hole 0], false, Some 1))
                     | _ -> 
-                        Compiled (Instance m, Undefined)
+                        Compiled (Instance m, false, Undefined)
                 else
-                    Compiled (Instance m, Undefined)              
+                    Compiled (Instance m, false, Undefined)              
             | _ ->
                 let mName = meth.Value.MethodName
                 let candidates = 
@@ -355,7 +356,7 @@ type Compilation(meta: Info) =
                     if not (List.isEmpty cls.Macros) then
                         let info =
                             List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros None |> Option.get
-                        Compiled (info, Undefined)
+                        Compiled (info, false, Undefined)
                     else
                         match this.GetCustomType typ with
                         | NotCustomType -> 
@@ -416,7 +417,7 @@ type Compilation(meta: Info) =
                     if not (List.isEmpty cls.Macros) then
                         let info =
                             List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros None |> Option.get
-                        Compiled (info, Undefined)
+                        Compiled (info, false, Undefined)
                     else
                         match this.GetCustomType typ with
                         | NotCustomType -> LookupMemberError (ConstructorNotFound (typ, ctor))
@@ -450,22 +451,22 @@ type Compilation(meta: Info) =
     member this.CompilingMethods = compilingMethods  
     member this.CompilingConstructors = compilingConstructors
 
-    member this.AddCompiledMethod(typ, meth, info, comp) =
+    member this.AddCompiledMethod(typ, meth, info, isPure, comp) =
         let typ = findProxied typ 
         compilingMethods.Remove(typ, meth) |> ignore
         let cls = classes.[typ]
         match cls.Methods.TryFind meth with
-        | Some (_, Undefined)
+        | Some (_, _, Undefined)
         | None ->    
-            cls.Methods.[meth] <- (info, comp)
+            cls.Methods.[meth] <- (info, isPure, comp)
         | _ ->
             failwithf "Method already added: %s %s" typ.Value.FullName (string meth.Value)
 
-    member this.AddCompiledConstructor(typ, ctor, info, comp) = 
+    member this.AddCompiledConstructor(typ, ctor, info, isPure, comp) = 
         let typ = findProxied typ 
         compilingConstructors.Remove(typ, ctor) |> ignore
         let cls = classes.[typ]
-        cls.Constructors.Add(ctor, (info, comp))
+        cls.Constructors.Add(ctor, (info, isPure, comp))
 
     member this.GetCompilingStaticConstructors() =
         compilingStaticConstructors |> Seq.map (fun (KeyValue(t, (a, c))) -> t, a, c) |> Array.ofSeq
@@ -736,7 +737,7 @@ type Compilation(meta: Info) =
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled then
                             try
-                                cc.Constructors.Add (cDef, (comp, addCctorCall typ cc nr.Body))
+                                cc.Constructors.Add (cDef, (comp, nr.Pure, addCctorCall typ cc nr.Body))
                             with _ ->
                                 printerrf "Duplicate definition for constructor of %s" typ.Value.FullName
                         else 
@@ -744,7 +745,7 @@ type Compilation(meta: Info) =
                     | M.Method (mDef, nr) -> 
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled then
-                            cc.Methods.Add (mDef, (comp, addCctorCall typ cc nr.Body))
+                            cc.Methods.Add (mDef, (comp, nr.Pure, addCctorCall typ cc nr.Body))
                         else 
                             compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ cc nr.Body)) 
                     | _ -> failwith "Fields and static constructors are always named"     
@@ -804,7 +805,7 @@ type Compilation(meta: Info) =
             | M.Constructor (cDef, nr) ->
                 let comp = compiledStaticMember addr nr
                 if nr.Compiled then
-                    res.Constructors.Add(cDef, (comp, addCctorCall typ res nr.Body))
+                    res.Constructors.Add(cDef, (comp, nr.Pure, addCctorCall typ res nr.Body))
                 else
                     compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.Field (fName, _) ->
@@ -812,7 +813,7 @@ type Compilation(meta: Info) =
             | M.Method (mDef, nr) ->
                 let comp = compiledStaticMember addr nr
                 if nr.Compiled then 
-                    res.Methods.Add(mDef, (comp, addCctorCall typ res nr.Body))
+                    res.Methods.Add(mDef, (comp, nr.Pure, addCctorCall typ res nr.Body))
                 else
                     compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.StaticConstructor expr ->                
@@ -836,7 +837,7 @@ type Compilation(meta: Info) =
                         compilingImplementations.Add((typ, intf, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
                 | _ ->
                     if nr.Compiled then 
-                        res.Methods.Add(mDef, (comp, addCctorCall typ res nr.Body))
+                        res.Methods.Add(mDef, (comp, nr.Pure, addCctorCall typ res nr.Body))
                     else
                         compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | _ -> failwith "Invalid instance member kind"   
@@ -947,7 +948,7 @@ type Compilation(meta: Info) =
                             | Some tCls -> 
                                 let smi = 
                                     match tCls.Methods.TryFind mDef with
-                                    | Some (smi, _) -> Some smi
+                                    | Some (smi, _, _) -> Some smi
                                     | _ ->
                                     match compilingMethods.TryFind (td, mDef) with
                                     | Some ((NotCompiled smi | NotGenerated (_, _, smi)), _) -> Some smi
@@ -1176,7 +1177,7 @@ type Compilation(meta: Info) =
         let jP = Json.Provider.CreateTyped(info)
         let st = Verifier.State(jP)
         for KeyValue(t, cls) in classes.Current do
-            for KeyValue(m, (mi, _)) in cls.Methods do
+            for KeyValue(m, (mi, _, _)) in cls.Methods do
                 match mi with
                 | Remote _ ->
                     match st.VerifyRemoteMethod(t, m) with
@@ -1187,7 +1188,7 @@ type Compilation(meta: Info) =
                     | _ -> ()
                 | _ -> ()
             if isWebControl cls then
-                if cls.Methods |> Seq.exists (fun (KeyValue(m, (mi, _))) -> m = getBody && mi = Instance "get_Body") |> not then
+                if cls.Methods |> Seq.exists (fun (KeyValue(m, (mi, _, _))) -> m = getBody && mi = Instance "get_Body") |> not then
                     this.AddError (None, SourceError ("Web.Control type must override the Body property: " + t.Value.FullName))
                 else
                     match st.VerifyWebControl(t) with 

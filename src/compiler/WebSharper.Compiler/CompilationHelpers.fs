@@ -42,6 +42,7 @@ let rec isPureExpr expr =
     | Value _
     | Function _ 
     | GlobalAccess _
+    | Hole _
     | Self
         -> true
     | Sequential a 
@@ -62,6 +63,25 @@ let rec isPureExpr expr =
         -> List.forall (snd >> isPureExpr) a 
     | LetRec (a, b) 
         -> List.forall (snd >> isPureExpr) a && isPureExpr b
+    | Application(a, b, true, _) ->
+        isPureExpr a && List.forall isPureExpr b    
+    | _ -> false
+
+let isPureFunction expr =
+    match IgnoreExprSourcePos expr with
+    | Function (_, IgnoreSourcePos.Return body) -> isPureExpr body
+    | _ -> false
+
+let rec isTrivialValue expr =
+    match expr with
+    | Undefined
+    | Value _
+    | GlobalAccess _
+        -> true
+    | Var v  ->
+        not v.IsMutable
+    | ExprSourcePos (_, a) ->
+        isTrivialValue a
     | _ -> false
 
 /// Determine if expression has no side effect and value does not depend on execution order
@@ -103,6 +123,8 @@ let rec isStronglyPureExpr expr =
         -> List.forall (snd >> isStronglyPureExpr) a 
     | LetRec (a, b) 
         -> List.forall (snd >> isStronglyPureExpr) a && isStronglyPureExpr b
+    | Application(a, b, true, _) ->
+        isStronglyPureExpr a && List.forall isStronglyPureExpr b    
     | _ -> false
 
 /// Checks if a specific Id is mutated or accessed within a function body
@@ -228,10 +250,10 @@ let varEvalOrder (vars : Id list) expr =
                 eval a
                 eval c
                 stop()                 
-            | Application(a, b) ->
+            | Application(a, b, c, _) ->
                 eval a
                 List.iter eval b
-                stop()
+                if not c then stop()
             | Call(a, _, _, b) ->
                 Option.iter eval a
                 List.iter eval b
@@ -407,18 +429,19 @@ let makeExprInline (vars: Id list) expr =
 
 module JSRuntime =
     let private runtime = ["Runtime"; "IntelliFactory"]
-    let private runtimeFunc f = GlobalAccess (Address (f :: runtime))
-    let Class = runtimeFunc "Class"
-    let Ctor = runtimeFunc "Ctor"
-    let Cctor = runtimeFunc "Cctor"
-    let GetOptional = runtimeFunc "GetOptional"
-    let SetOptional = runtimeFunc "SetOptional"
-    let DeleteEmptyFields = runtimeFunc "DeleteEmptyFields"
-    let CombineDelegates = runtimeFunc "CombineDelegates"    
-    let BindDelegate = runtimeFunc "BindDelegate"    
-    let DelegateEqual = runtimeFunc "DelegateEqual"
-    let Curried = runtimeFunc "Curried"
-    let Apply = runtimeFunc "Apply"
+    let private runtimeFunc f p args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some (List.length args))
+    let private runtimeFuncI f p i args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some i)
+    let Class members basePrototype statics = runtimeFunc "Class" true [members; basePrototype; statics]
+    let Ctor ctor typeFunction = runtimeFunc "Ctor" true [ctor; typeFunction]
+    let Cctor cctor = runtimeFunc "Cctor" true [cctor]
+    let GetOptional value = runtimeFunc "GetOptional" true [value]
+    let SetOptional obj field value = runtimeFunc "SetOptional" false [obj; field; value]
+    let DeleteEmptyFields obj fields = runtimeFunc "DeleteEmptyFields" false [obj; NewArray fields] 
+    let CombineDelegates dels = runtimeFunc "CombineDelegates" true [dels]  
+    let BindDelegate func obj = runtimeFunc "BindDelegate" true [func; obj]    
+    let DelegateEqual d1 d2 = runtimeFunc "DelegateEqual" true [d1; d2]
+    let Curried f = runtimeFuncI "Curried" true 3 [f]
+    let Apply f args = runtimeFunc "Apply" false [f; NewArray args]
 
 module Definitions =
     let Obj =
@@ -557,14 +580,14 @@ let getAllAddresses (meta: Info) =
             | Constructor a -> r.ExactStaticAddress a.Value |> ignore
             | Macro (_, _, Some m) -> addMember m
             | _ -> ()
-        for m, _ in cls.Constructors.Values do addMember m
+        for m, _, _ in cls.Constructors.Values do addMember m
         for f in cls.Fields.Values do
             match f with
             | InstanceField n 
             | OptionalField n -> pr.Value.Add n |> ignore
             | StaticField a -> r.ExactStaticAddress a.Value |> ignore
         for m, _ in cls.Implementations.Values do addMember m
-        for m, _ in cls.Methods.Values do addMember m
+        for m, _, _ in cls.Methods.Values do addMember m
         match cls.StaticConstructor with
         | Some (a, _) -> r.ExactStaticAddress a.Value |> ignore  
         | _ -> ()
@@ -609,11 +632,11 @@ let refreshAllIds (i: Info) =
             i.Classes |> mapValues (fun c ->
                 { c with
                     Constructors = 
-                        c.Constructors |> mapValues (fun (x, b) -> x, r.TransformExpression b) 
+                        c.Constructors |> mapValues (fun (x, p, b) -> x, p, r.TransformExpression b) 
                     StaticConstructor = 
                         c.StaticConstructor |> Option.map (fun (x, b) -> x, r.TransformExpression b) 
                     Methods = 
-                        c.Methods |> mapValues (fun (x, b) -> x, r.TransformExpression b) 
+                        c.Methods |> mapValues (fun (x, p, b) -> x, p, r.TransformExpression b) 
                     Implementations = 
                         c.Implementations |> mapValues (fun (x, b) -> x, r.TransformExpression b) 
                 }
@@ -662,3 +685,43 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                 getOrAddClass td |> ignore 
         | _ -> ()
     { meta with Classes = classes}
+
+type Capturing(var) =
+    inherit Transformer()
+
+    let mutable captVal = None
+    let mutable scope = 0
+
+    override this.TransformId i =
+        if scope > 0 && i = var then
+            match captVal with
+            | Some c -> c
+            | _ ->
+                let c = Id.New(?name = var.Name, mut = var.IsMutable)
+                captVal <- Some c
+                c
+        else i
+
+    override this.TransformFunction (args, body) =
+        scope <- scope + 1
+        let res = base.TransformFunction (args, body)
+        scope <- scope - 1
+        res
+
+    member this.CaptureValueIfNeeded expr =
+        let res = this.TransformExpression expr  
+        match captVal with
+        | None -> res
+        | Some c ->
+            Application (Function ([c], Return res), [Var var], false, Some 1)        
+
+type HasNoThisVisitor() =
+    inherit Visitor()
+
+    let mutable ok = true
+
+    override this.VisitThis() = ok <- false
+
+    member this.Check(e) =
+        this.VisitExpression e
+        ok

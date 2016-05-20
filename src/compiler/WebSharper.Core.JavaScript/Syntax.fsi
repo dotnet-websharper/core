@@ -126,6 +126,7 @@ and Expression =
     | Var         of Id
     | VarNamed    of Id * string
     | ExprPos     of E * SourcePos
+    | ExprComment of E * string
 
     static member ( + ) : E * E -> E
     static member ( - ) : E * E -> E
@@ -179,6 +180,7 @@ and Statement =
     | While        of E * S
     | With         of E * S
     | StatementPos of S * SourcePos 
+    | StatementComment of S * string
 
 /// Represents switch elements.
 and SwitchElement =
@@ -208,6 +210,7 @@ val (|Unary      |_|) : E -> (UnaryOperator * E                           ) opti
 val (|Var        |_|) : E -> (Id                                          ) option
 val (|VarNamed   |_|) : E -> (Id * string                                 ) option
 val (|ExprPos    |_|) : E -> (Expression * SourcePos                      ) option
+val (|ExprComment |_|) : E -> (Expression * string) option
 
 val Application : E * list<E>                                  -> E
 val Binary      : E * BinaryOperator * E                       -> E
@@ -224,6 +227,7 @@ val Unary       : UnaryOperator * E                            -> E
 val Var         : Id                                           -> E
 val VarNamed    : Id * string                                  -> E
 val ExprPos     : Expression * SourcePos                       -> E
+val ExprComment     : Expression * string                       -> E
                                                                            
 val (|Block       |_|) : S -> (list<S>                                         ) option                  
 val (|Break       |_|) : S -> (option<Label>                                   ) option                        
@@ -247,6 +251,7 @@ val (|Vars        |_|) : S -> (list<Id * option<E>>                            )
 val (|While       |_|) : S -> (E * S                                           ) option                
 val (|With        |_|) : S -> (E * S                                           ) option                
 val (|StatementPos|_|) : S -> (S * SourcePos                                   ) option                         
+val (|StatementComment|_|) : S -> (S * string) option                         
 
 val Block        : list<S>                                          -> S
 val Break        : option<Label>                                    -> S
@@ -270,6 +275,7 @@ val Vars         : list<Id * option<E>>                             -> S
 val While        : E * S                                            -> S
 val With         : E * S                                            -> S
 val StatementPos : S * SourcePos                                    -> S
+val StatementComment : S * string                                    -> S
 
 /// Represents complete programs.
 type Program = list<ProgramElement>

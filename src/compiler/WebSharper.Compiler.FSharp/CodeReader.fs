@@ -36,7 +36,6 @@ type Environment =
         ScopeIds : list<FSharpMemberOrFunctionOrValue * Id * VarKind>
         TParams : Map<string, int>
         Exception : option<Id>
-        MatchCaptures : option<Id>
         Compilation : Compilation
     }
     static member New(vars, tparams, comp) = 
@@ -44,7 +43,6 @@ type Environment =
             ScopeIds = vars |> Seq.map (fun (i, (v, k)) -> i, v, k) |> List.ofSeq 
             TParams = tparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
             Exception = None
-            MatchCaptures = None
             Compilation = comp
         }
 
@@ -333,35 +331,6 @@ let getAndRegisterTypeDefinition (comp: Compilation) (td: FSharpEntity) =
             comp.AddCustomType(res, info)
     res
 
-type Capturing(var) =
-    inherit Transformer()
-
-    let mutable captVal = None
-    let mutable scope = 0
-
-    override this.TransformId i =
-        if scope > 0 && i = var then
-            match captVal with
-            | Some c -> c
-            | _ ->
-                let c = Id.New(?name = var.Name, mut = var.IsMutable)
-                captVal <- Some c
-                c
-        else i
-
-    override this.TransformFunction (args, body) =
-        scope <- scope + 1
-        let res = base.TransformFunction (args, body)
-        scope <- scope - 1
-        res
-
-    member this.CaptureValueIfNeeded expr =
-        let res = this.TransformExpression expr  
-        match captVal with
-        | None -> res
-        | Some c ->
-            Application (Function ([c], Return res), [Var var])        
-
 let getRange (range: Microsoft.FSharp.Compiler.Range.range) =
     {   
         FileName = range.FileName
@@ -373,7 +342,7 @@ let getSourcePos (x: FSharpExpr) =
     getRange x.Range
 
 let withSourcePos (x: FSharpExpr) (expr: Expression) =
-    ExprSourcePos (getSourcePos x, expr)
+    ExprSourcePos (getSourcePos x, IgnoreExprSourcePos expr)
 
 type FixCtorTransformer(?thisExpr) =
     inherit Transformer()
@@ -448,6 +417,37 @@ let namedId n =
     | "( builder@ )" -> newId()
     | _ -> if n.StartsWith "_arg" then newId() else Id.New(n, false) 
 
+let namedIdM (n: string) m =
+    if n.StartsWith "_arg" then Id.New(mut = m) else Id.New(n, m) 
+
+type MatchValueVisitor(okToInline: int[]) =
+    inherit Visitor()
+
+    override this.VisitMatchSuccess(i, _) =
+        let ok = okToInline.[i] 
+        if ok >= 0 then
+            okToInline.[i] <- okToInline.[i] + 1               
+
+type MatchValueTransformer(c) =
+    inherit Transformer()
+
+    override this.TransformMatchSuccess(index, results) =
+        Sequential [
+            match results with
+            | [] -> ()
+            | matchCaptures -> yield VarSet (c, NewArray matchCaptures) 
+            yield Value (Int index)
+        ]
+
+type InlineMatchValueTransformer(cases : (Id list * Expression) list) =
+    inherit Transformer()
+
+    let cases = Array.ofList cases
+
+    override this.TransformMatchSuccess(index, results) =
+        let captures, body = cases.[index]    
+        body |> List.foldBack (fun (c, r) body -> Let (c, r, body)) (List.zip captures results)
+
 let rec transformExpression (env: Environment) (expr: FSharpExpr) =
     let inline tr x = transformExpression env x
     try
@@ -482,7 +482,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             let v = namedId arg.DisplayName
                             v, env.WithVar(v, arg)
                     ) 
-                Application(JSRuntime.Curried, [ Lambda(vars, (body |> transformExpression env)) ])
+                JSRuntime.Curried (Lambda(vars, (body |> transformExpression env)))
         | BasicPatterns.Application(func, types, args) ->
             match IgnoreExprSourcePos (tr func) with
             | CallNeedingMoreArgs(thisObj, td, m, ca) ->
@@ -492,12 +492,12 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | [a] ->
                     let trA = tr a
                     match IgnoreExprSourcePos trA with
-                    | Undefined | Value Null -> Application (trFunc, [])
-                    | _ -> Application (trFunc, [trA])  
+                    | Undefined | Value Null -> Application (trFunc, [], false, Some 0)
+                    | _ -> Application (trFunc, [trA], false, Some 1)  
                 | _ ->
-                    Application(JSRuntime.Apply, [trFunc; NewArray (args |> List.map tr) ])
+                    JSRuntime.Apply trFunc (args |> List.map tr)
         | BasicPatterns.Let((id, value), body) ->
-            let i = Id.New(id.DisplayName, id.IsMutable)
+            let i = namedIdM id.DisplayName id.IsMutable
             let trValue = tr value
             let env = env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
             let inline tr x = transformExpression env x
@@ -508,7 +508,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | BasicPatterns.LetRec(defs, body) ->
             let mutable env = env
             let ids = defs |> List.map (fun (id, _) ->
-                let i = Id.New(id.DisplayName, id.IsMutable)
+                let i = namedIdM id.DisplayName id.IsMutable
                 env <- env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
                 i
             )
@@ -529,7 +529,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         let ta = tr a
                         if isByRef a.Type then
                             match IgnoreExprSourcePos ta with
-                            | Application(ItemGet (r, Value (String "get")), []) -> r
+                            | Application(ItemGet (r, Value (String "get")), [], _, _) -> r
                             | _ -> ta
                         else ta
                     )
@@ -692,39 +692,48 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             FieldSet(Some This, t, f.Name, tr a)
                     ]
         | BasicPatterns.DecisionTree (matchValue, cases) ->
-            let c = newId()
-            let r = newId()
-            let env = { env with MatchCaptures = Some c }
-            Sequential [
-                NewVar(c, Undefined)
-                StatementExpr(
-                    Switch(
-                        transformExpression env matchValue, 
-                        cases |> List.mapi (fun j (ci, e) -> 
-                            Some (Value (Int j)), 
-                            Block [
-                                let mutable env = env 
-                                yield! ci |> Seq.mapi (fun captIndex cv ->
-                                    let i = namedId cv.DisplayName
-                                    env <- env.WithVar (i, cv)
-                                    (VarDeclaration(i, ItemGet(Var c, Value (Int captIndex))))
-                                )
-                                yield VarSetStatement(r, transformExpression env e) 
-                                yield Break None 
-                            ]
+            let trMatchVal = transformExpression env matchValue
+            let trCases =
+                cases |> List.map (fun (ci, e) ->
+                    let mutable env = env 
+                    let captures =
+                        ci |> List.map (fun cv ->
+                            let i = namedId cv.DisplayName
+                            env <- env.WithVar (i, cv)
+                            i
                         )
-                    )
-                    , Some r
+                    captures,
+                    transformExpression env e
                 )
-            ]
+            let okToInline = Array.create cases.Length 0  
+            trCases |> List.iteri (fun i (_, e) -> if isTrivialValue e then okToInline.[i] <- -1)
+            MatchValueVisitor(okToInline).VisitExpression(trMatchVal)
+
+            if okToInline |> Array.forall (fun i -> i <= 1) then
+                InlineMatchValueTransformer(trCases).TransformExpression(trMatchVal)    
+            else
+                let c = newId()
+                let res = newId()
+                Sequential [
+                    NewVar(c, Undefined)
+                    StatementExpr(
+                        Switch(
+                            MatchValueTransformer(c).TransformExpression(trMatchVal), 
+                            trCases |> List.mapi (fun j (captures, body) ->
+                                let e =
+                                    body |> List.foldBack (fun (i, id) body -> Let(id, ItemGet(Var c, Value (Int i)), body)) (List.indexed captures)
+                                Some (Value (Int j)), 
+                                Block [
+                                    VarSetStatement(res, e) 
+                                    Break None 
+                                ]
+                            )
+                        )
+                        , Some res
+                    )
+                ]
         | BasicPatterns.DecisionTreeSuccess (index, results) ->
-            let c = env.MatchCaptures.Value
-            Sequential [
-                match results |> List.map tr with
-                | [] -> ()
-                | matchCaptures -> yield VarSet (c, NewArray matchCaptures) 
-                yield Value (Int index)
-            ]
+            MatchSuccess (index, results |> List.map tr)
         | BasicPatterns.ThisValue (typ) ->
             This
         | BasicPatterns.FSharpFieldGet (thisOpt, typ, field) ->
@@ -755,8 +764,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)))     
                 | _ ->
                     MakeRef e (fun value -> FieldSet(None, t, f, value))  
-            | Application(ItemGet (r, Value (String "get")), []) ->
-                MakeRef e (fun value -> Application(ItemGet (r, Value (String "set")), [value]))        
+            | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+                r   
             | Call(None, td, m, []) ->
                 let me = m.Entity.Value
                 let setm =

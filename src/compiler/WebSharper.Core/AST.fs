@@ -20,12 +20,6 @@
 
 namespace WebSharper.Core.AST
 
-type ApplicationInfo =
-    {
-        Pure : bool
-        KnownLength : int option
-    }
-
 type Literal =
     | Null
     | Bool    of Value:bool
@@ -76,7 +70,7 @@ and Expression =
     /// Contains a literal value
     | Value of Value:Literal
     /// Function application
-    | Application of Func:Expression * Arguments:list<Expression>
+    | Application of Func:Expression * Arguments:list<Expression> * Pure:bool * KnownLength:option<int>
     /// Function declaration
     | Function of Parameters:list<Id> * Body:Statement
     /// Variable set
@@ -151,6 +145,8 @@ and Expression =
     | UnionCaseGet of Expression:Expression * TypeDefinition:Concrete<TypeDefinition> * UnionCase:string * Field:string
     /// .NET - F# union case tag getter
     | UnionCaseTag of Expression:Expression * TypeDefinition:Concrete<TypeDefinition>
+    /// .NET - F# successful match
+    | MatchSuccess of Index:int * Captures:list<Expression>
     /// .NET - Method call
     | TraitCall of ThisObject:Expression * ObjectType:Type * Method:Concrete<Method> * Arguments:list<Expression>
     /// Temporary - C# await expression
@@ -192,7 +188,7 @@ and Expression =
     static member (^|) (a, b) = Binary (a, BinaryOperator.``|``, b)
     static member (^||) (a, b) = Binary (a, BinaryOperator.``||``, b)
     member a.Item b = ItemGet (a, b)
-    member a.Item b = Application (a, b)
+    member a.Item b = Application (a, b, false, None)
 and Statement =
     /// Empty statement
     | Empty
@@ -259,8 +255,8 @@ type Transformer() =
     abstract TransformValue : Value:Literal -> Expression
     override this.TransformValue a = Value (a)
     /// Function application
-    abstract TransformApplication : Func:Expression * Arguments:list<Expression> -> Expression
-    override this.TransformApplication (a, b) = Application (this.TransformExpression a, List.map this.TransformExpression b)
+    abstract TransformApplication : Func:Expression * Arguments:list<Expression> * Pure:bool * KnownLength:option<int> -> Expression
+    override this.TransformApplication (a, b, c, d) = Application (this.TransformExpression a, List.map this.TransformExpression b, c, d)
     /// Function declaration
     abstract TransformFunction : Parameters:list<Id> * Body:Statement -> Expression
     override this.TransformFunction (a, b) = Function (List.map this.TransformId a, this.TransformStatement b)
@@ -299,7 +295,9 @@ type Transformer() =
     override this.TransformMutatingUnary (a, b) = MutatingUnary (a, this.TransformExpression b)
     /// Original source location for an expression
     abstract TransformExprSourcePos : Range:SourcePos * Expression:Expression -> Expression
-    override this.TransformExprSourcePos (a, b) = ExprSourcePos (a, this.TransformExpression b)
+    override this.TransformExprSourcePos (a, b) =
+        match this.TransformExpression b with
+        | ExprSourcePos (_, bt) | bt -> ExprSourcePos (a, bt)
     /// Temporary - Method of F# object expressions
     abstract TransformFuncWithThis : ThisParam:Id * Parameters:list<Id> * Body:Statement -> Expression
     override this.TransformFuncWithThis (a, b, c) = FuncWithThis (this.TransformId a, List.map this.TransformId b, this.TransformStatement c)
@@ -372,6 +370,9 @@ type Transformer() =
     /// .NET - F# union case tag getter
     abstract TransformUnionCaseTag : Expression:Expression * TypeDefinition:Concrete<TypeDefinition> -> Expression
     override this.TransformUnionCaseTag (a, b) = UnionCaseTag (this.TransformExpression a, b)
+    /// .NET - F# successful match
+    abstract TransformMatchSuccess : Index:int * Captures:list<Expression> -> Expression
+    override this.TransformMatchSuccess (a, b) = MatchSuccess (a, List.map this.TransformExpression b)
     /// .NET - Method call
     abstract TransformTraitCall : ThisObject:Expression * ObjectType:Type * Method:Concrete<Method> * Arguments:list<Expression> -> Expression
     override this.TransformTraitCall (a, b, c, d) = TraitCall (this.TransformExpression a, b, c, List.map this.TransformExpression d)
@@ -452,7 +453,9 @@ type Transformer() =
     override this.TransformLabeled (a, b) = Labeled (this.TransformId a, this.TransformStatement b)
     /// Original source location for a statement
     abstract TransformStatementSourcePos : Range:SourcePos * Statement:Statement -> Statement
-    override this.TransformStatementSourcePos (a, b) = StatementSourcePos (a, this.TransformStatement b)
+    override this.TransformStatementSourcePos (a, b) =
+        match this.TransformStatement b with
+        | StatementSourcePos (_, bt) | bt -> StatementSourcePos (a, bt)
     /// Temporary - C# 'goto' statement
     abstract TransformGoto : Label:Id -> Statement
     override this.TransformGoto a = Goto (this.TransformId a)
@@ -476,7 +479,7 @@ type Transformer() =
         | Arguments  -> this.TransformArguments ()
         | Var a -> this.TransformVar a
         | Value a -> this.TransformValue a
-        | Application (a, b) -> this.TransformApplication (a, b)
+        | Application (a, b, c, d) -> this.TransformApplication (a, b, c, d)
         | Function (a, b) -> this.TransformFunction (a, b)
         | VarSet (a, b) -> this.TransformVarSet (a, b)
         | Sequential a -> this.TransformSequential a
@@ -514,6 +517,7 @@ type Transformer() =
         | UnionCaseTest (a, b, c) -> this.TransformUnionCaseTest (a, b, c)
         | UnionCaseGet (a, b, c, d) -> this.TransformUnionCaseGet (a, b, c, d)
         | UnionCaseTag (a, b) -> this.TransformUnionCaseTag (a, b)
+        | MatchSuccess (a, b) -> this.TransformMatchSuccess (a, b)
         | TraitCall (a, b, c, d) -> this.TransformTraitCall (a, b, c, d)
         | Await a -> this.TransformAwait a
         | NamedParameter (a, b) -> this.TransformNamedParameter (a, b)
@@ -571,8 +575,8 @@ type Visitor() =
     abstract VisitValue : Value:Literal -> unit
     override this.VisitValue a = (())
     /// Function application
-    abstract VisitApplication : Func:Expression * Arguments:list<Expression> -> unit
-    override this.VisitApplication (a, b) = this.VisitExpression a; List.iter this.VisitExpression b
+    abstract VisitApplication : Func:Expression * Arguments:list<Expression> * Pure:bool * KnownLength:option<int> -> unit
+    override this.VisitApplication (a, b, c, d) = this.VisitExpression a; List.iter this.VisitExpression b; (); ()
     /// Function declaration
     abstract VisitFunction : Parameters:list<Id> * Body:Statement -> unit
     override this.VisitFunction (a, b) = List.iter this.VisitId a; this.VisitStatement b
@@ -684,6 +688,9 @@ type Visitor() =
     /// .NET - F# union case tag getter
     abstract VisitUnionCaseTag : Expression:Expression * TypeDefinition:Concrete<TypeDefinition> -> unit
     override this.VisitUnionCaseTag (a, b) = this.VisitExpression a; ()
+    /// .NET - F# successful match
+    abstract VisitMatchSuccess : Index:int * Captures:list<Expression> -> unit
+    override this.VisitMatchSuccess (a, b) = (); List.iter this.VisitExpression b
     /// .NET - Method call
     abstract VisitTraitCall : ThisObject:Expression * ObjectType:Type * Method:Concrete<Method> * Arguments:list<Expression> -> unit
     override this.VisitTraitCall (a, b, c, d) = this.VisitExpression a; (); (); List.iter this.VisitExpression d
@@ -788,7 +795,7 @@ type Visitor() =
         | Arguments  -> this.VisitArguments ()
         | Var a -> this.VisitVar a
         | Value a -> this.VisitValue a
-        | Application (a, b) -> this.VisitApplication (a, b)
+        | Application (a, b, c, d) -> this.VisitApplication (a, b, c, d)
         | Function (a, b) -> this.VisitFunction (a, b)
         | VarSet (a, b) -> this.VisitVarSet (a, b)
         | Sequential a -> this.VisitSequential a
@@ -826,6 +833,7 @@ type Visitor() =
         | UnionCaseTest (a, b, c) -> this.VisitUnionCaseTest (a, b, c)
         | UnionCaseGet (a, b, c, d) -> this.VisitUnionCaseGet (a, b, c, d)
         | UnionCaseTag (a, b) -> this.VisitUnionCaseTag (a, b)
+        | MatchSuccess (a, b) -> this.VisitMatchSuccess (a, b)
         | TraitCall (a, b, c, d) -> this.VisitTraitCall (a, b, c, d)
         | Await a -> this.VisitAwait a
         | NamedParameter (a, b) -> this.VisitNamedParameter (a, b)
@@ -874,7 +882,7 @@ module IgnoreSourcePos =
     let (|Arguments|_|) x = match ignoreExprSourcePos x with Arguments  -> Some () | _ -> None
     let (|Var|_|) x = match ignoreExprSourcePos x with Var a -> Some a | _ -> None
     let (|Value|_|) x = match ignoreExprSourcePos x with Value a -> Some a | _ -> None
-    let (|Application|_|) x = match ignoreExprSourcePos x with Application (a, b) -> Some (a, b) | _ -> None
+    let (|Application|_|) x = match ignoreExprSourcePos x with Application (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|Function|_|) x = match ignoreExprSourcePos x with Function (a, b) -> Some (a, b) | _ -> None
     let (|VarSet|_|) x = match ignoreExprSourcePos x with VarSet (a, b) -> Some (a, b) | _ -> None
     let (|Sequential|_|) x = match ignoreExprSourcePos x with Sequential a -> Some a | _ -> None
@@ -912,6 +920,7 @@ module IgnoreSourcePos =
     let (|UnionCaseTest|_|) x = match ignoreExprSourcePos x with UnionCaseTest (a, b, c) -> Some (a, b, c) | _ -> None
     let (|UnionCaseGet|_|) x = match ignoreExprSourcePos x with UnionCaseGet (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|UnionCaseTag|_|) x = match ignoreExprSourcePos x with UnionCaseTag (a, b) -> Some (a, b) | _ -> None
+    let (|MatchSuccess|_|) x = match ignoreExprSourcePos x with MatchSuccess (a, b) -> Some (a, b) | _ -> None
     let (|TraitCall|_|) x = match ignoreExprSourcePos x with TraitCall (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|Await|_|) x = match ignoreExprSourcePos x with Await a -> Some a | _ -> None
     let (|NamedParameter|_|) x = match ignoreExprSourcePos x with NamedParameter (a, b) -> Some (a, b) | _ -> None

@@ -101,36 +101,6 @@ exception ParseError of string
 let parsefailf x =
     Printf.kprintf (fun s -> raise <| ParseError s) x
 
-type Capturing(var) =
-    inherit Transformer()
-
-    let mutable captVal = None
-    let mutable scope = 0
-
-    override this.TransformId i =
-        if scope > 0 && i = var then
-            match captVal with
-            | Some c -> c
-            | _ ->
-                let c = Id.New(?name = var.Name)
-                captVal <- Some c
-                c
-        else i
-
-    override this.TransformFunction (args, body) =
-        scope <- scope + 1
-        let res = base.TransformFunction (args, body)
-        scope <- scope - 1
-        res
-
-    member this.CaptureValueIfNeeded expr =
-        let res = this.TransformExpression expr  
-        match captVal with
-        | None -> res
-        | Some c ->
-            Application (Function ([c], Return res), [Var var])        
-// end of copy
-
 let errorPlaceholder = Value (String "$$ERROR$$")
 
 let rec transformExpression (env: Environment) (expr: Expr) =
@@ -163,7 +133,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                     [i]
             Lambda(lArg, (tr body))
         | Patterns.Application(func, arg) ->
-            Application(tr func, [tr arg])
+            Application(tr func, [tr arg], false, Some 1) // TODO: pure functions
         | Patterns.Let(id, value, body) ->
             let i = Id.New(id.Name)
             env.AddVar(i, id, if id.Type.IsByRef then ByRefArg else LocalVar)

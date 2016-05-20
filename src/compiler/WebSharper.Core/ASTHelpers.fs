@@ -129,11 +129,11 @@ let MakeRef getVal setVal =
 
 /// Gets the value from a by-address value proxy
 let GetRef r =
-    Application(ItemGet (r, Value (String "get")), [])
+    Application(ItemGet (r, Value (String "get")), [], true, Some 0)
 
 /// Sets the value of a by-address value proxy
 let SetRef r v =
-    Application(ItemGet (r, Value (String "set")), [v])
+    Application(ItemGet (r, Value (String "set")), [v], false, Some 1)
 
 /// recognizes .NET names for binary operators
 let (|BinaryOpName|_|) = function

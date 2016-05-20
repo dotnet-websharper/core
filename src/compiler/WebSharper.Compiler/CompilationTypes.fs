@@ -52,6 +52,7 @@ module NotResolved =
             Macros: list<TypeDefinition * option<obj>>
             Generator : option<TypeDefinition * option<obj>>
             Compiled : bool
+            Pure : bool
             Body : Expression
             Requires : list<TypeDefinition>
         }
@@ -394,7 +395,7 @@ type CompilationError =
         | FieldNotFound (typ, field) -> sprintf "Field not found in JavaScript compilation: %s.%s" typ.Value.FullName field
 
 type LookupMemberResult =
-    | Compiled of CompiledMember * Expression
+    | Compiled of CompiledMember * bool * Expression
     | Compiling of CompilingMember * Expression
     | CustomTypeMember of CustomTypeInfo
     | LookupMemberError of CompilationError 

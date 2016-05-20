@@ -182,7 +182,7 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                 | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
                 | Some cls ->
                     match cls.Methods.TryFind meth with
-                    | Some (M.Static a, _) ->
+                    | Some (M.Static a, _, _) ->
                         funcName <- Array.ofList (List.rev a.Value)
                     | Some _ -> failwithf "Error in InlineControl at %s: Method must be static and not inlined" (getLocation()) 
                     | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())

@@ -24,7 +24,7 @@ module internal WebSharper.CollectionInternals
 open WebSharper.JavaScript
 
 [<JavaScript>]
-[<Name "Arrays.splitInto">]
+[<Name "WebSharper.Arrays.splitInto">]
 let ArraySplitInto count (arr: 'T[]) =
     if count <= 0 then failwith "Count must be positive"
     let len = arr.Length
@@ -44,8 +44,8 @@ let ArraySplitInto count (arr: 'T[]) =
         res
 
 [<JavaScript>]
-[<Name "Arrays.contains">]
-let ArrayContains (item: 'T) (arr: Array<'T>)  =
+[<Name "WebSharper.Arrays.contains">]
+let ArrayContains (item: 'T) (arr: 'T[])  =
     let mutable c = true
     let mutable i = 0
     let l = arr.Length
@@ -57,7 +57,7 @@ let ArrayContains (item: 'T) (arr: Array<'T>)  =
     not c
 
 [<JavaScript>]
-[<Name "Arrays.tryFindBack">]
+[<Name "WebSharper.Arrays.tryFindBack">]
 let ArrayTryFindBack f (arr: _ []) =
     let mutable res = None
     let mutable i = Array.length arr - 1
@@ -67,7 +67,7 @@ let ArrayTryFindBack f (arr: _ []) =
     res
 
 [<JavaScript>]
-[<Name "Arrays.tryFindIndexBack">]
+[<Name "WebSharper.Arrays.tryFindIndexBack">]
 let ArrayTryFindIndexBack f (arr: _ []) =
     let mutable res = None
     let mutable i = Array.length arr - 1
@@ -77,7 +77,7 @@ let ArrayTryFindIndexBack f (arr: _ []) =
     res
 
 [<JavaScript>]
-[<Name "Arrays.mapFold">]
+[<Name "WebSharper.Arrays.mapFold">]
 let ArrayMapFold<'T, 'S, 'R> (f: 'S -> 'T -> 'R * 'S) (zero: 'S) (arr: 'T[]) : 'R[] * 'S =
     let r = JavaScript.Array(Array.length arr)
     let mutable acc = zero
@@ -88,7 +88,7 @@ let ArrayMapFold<'T, 'S, 'R> (f: 'S -> 'T -> 'R * 'S) (zero: 'S) (arr: 'T[]) : '
     r.Self, acc
 
 [<JavaScript>]
-[<Name "Arrays.mapFoldBack">]
+[<Name "WebSharper.Arrays.mapFoldBack">]
 let ArrayMapFoldBack<'T,'S,'R> (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) : 'R[] * 'S =
     let r = JavaScript.Array<'R>(Array.length arr)
     let mutable acc = zero
@@ -101,18 +101,18 @@ let ArrayMapFoldBack<'T,'S,'R> (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) :
     r.Self, acc
 
 [<JavaScript>]
-[<Name "Arrays.sortInPlaceByDescending">]
+[<Name "WebSharper.Arrays.sortInPlaceByDescending">]
 let ArraySortInPlaceByDescending<'T,'U when 'U: comparison> (f: 'T -> 'U) (arr: 'T []) =
     As<unit> (arr.JS.Sort(fun (x, y) -> - compare (f x) (f y)))
 
 [<JavaScript>]
-[<Name "Seq.tryHead">]
+[<Name "WebSharper.Seq.tryHead">]
 let SeqTryHead (s: seq<'T>) =
     use e = Enumerator.Get s
     if e.MoveNext() then Some e.Current else None
 
 [<JavaScript>]
-[<Name "Seq.tryItem">]
+[<Name "WebSharper.Seq.tryItem">]
 let SeqTryItem i (s: seq<'T>) =
     if i < 0 then None else
     let mutable j = 0
@@ -126,7 +126,7 @@ let SeqTryItem i (s: seq<'T>) =
     if go then Some e.Current else None
 
 [<JavaScript>]
-[<Name "Seq.tryLast">]
+[<Name "WebSharper.Seq.tryLast">]
 let SeqTryLast (s: seq<'T>) =
     use e = Enumerator.Get s
     if e.MoveNext() then 
@@ -135,7 +135,7 @@ let SeqTryLast (s: seq<'T>) =
     else None
 
 [<JavaScript>]
-[<Name "Seq.chunkBySize">]
+[<Name "WebSharper.Seq.chunkBySize">]
 let SeqChunkBySize (size: int) (s: seq<'T>) =
     if size <= 0 then failwith "Chunk size must be positive"
     Enumerable.Of <| fun () ->
@@ -150,7 +150,7 @@ let SeqChunkBySize (size: int) (s: seq<'T>) =
             else false
 
 [<JavaScript>]
-[<Name "Seq.compareWith">]
+[<Name "WebSharper.Seq.compareWith">]
 let SeqCompareWith  (f: 'T -> 'T -> int) (s1: seq<'T>) (s2: seq<'T>) : int =
     use e1 = Enumerator.Get s1
     use e2 = Enumerator.Get s2
@@ -169,7 +169,7 @@ let SeqCompareWith  (f: 'T -> 'T -> int) (s1: seq<'T>) (s2: seq<'T>) : int =
     r
 
 [<JavaScript>]
-[<Name "Seq.countBy">]
+[<Name "WebSharper.Seq.countBy">]
 let SeqCountBy (f: 'T -> 'K) (s: seq<'T>) : seq<'K * int> =
     Seq.delay <| fun () ->
         let d = new obj()
@@ -188,12 +188,12 @@ let SeqCountBy (f: 'T -> 'K) (s: seq<'T>) : seq<'K * int> =
         |> As<_>
 
 [<JavaScript>]
-[<Name "Seq.distinct">]
+[<Name "WebSharper.Seq.distinct">]
 let SeqDistinct<'T when 'T : equality> (s: seq<'T>) : seq<'T> =
     Seq.distinctBy id s
 
 [<JavaScript>]
-[<Name "Seq.distinctBy">]
+[<Name "WebSharper.Seq.distinctBy">]
 let SeqDistinctBy<'T,'K when 'K : equality>
         (f: 'T -> 'K) (s: seq<'T>) : seq<'T> =
     Enumerable.Of <| fun () ->
@@ -207,7 +207,7 @@ let SeqDistinctBy<'T,'K when 'K : equality>
                 seen.[h] <- [|k|].JS
                 true
             else
-                if cont |> ArrayContains k then
+                if ArrayContains k (As cont) then
                     false
                 else
                     cont.Push(k) |> ignore
@@ -228,7 +228,7 @@ let SeqDistinctBy<'T,'K when 'K : equality>
                 false
 
 [<JavaScript>]
-[<Name "Seq.except">]
+[<Name "WebSharper.Seq.except">]
 let SeqExcept (itemsToExclude: seq<'T>) (s: seq<'T>) =
     Enumerable.Of <| fun () ->
         let enum        = Enumerator.Get s
@@ -240,7 +240,7 @@ let SeqExcept (itemsToExclude: seq<'T>) (s: seq<'T>) =
                 seen.[h] <- [|c|].JS
                 true
             else
-                if cont |> ArrayContains c then
+                if ArrayContains c (As cont) then
                     false
                 else
                     cont.Push(c) |> ignore
@@ -263,7 +263,7 @@ let SeqExcept (itemsToExclude: seq<'T>) (s: seq<'T>) =
                 false
 
 [<JavaScript>]
-[<Name "List.skip">]
+[<Name "WebSharper.List.skip">]
 let ListSkip i (l : list<'T>) =
     let mutable res = l
     for j = 1 to i do
@@ -277,7 +277,7 @@ let ListSkip i (l : list<'T>) =
 let arrayPush (x: obj) (y: obj) = ()
 
 [<JavaScript>]
-[<Name "Seq.groupBy">]
+[<Name "WebSharper.Seq.groupBy">]
 let SeqGroupBy (f: 'T -> 'K when 'K : equality)
             (s: seq<'T>) : seq<'K * seq<'T>> =
     Seq.delay (fun () ->
@@ -299,12 +299,12 @@ let SeqGroupBy (f: 'T -> 'K when 'K : equality)
         As<_> (Array.map (fun k -> (k, (?) d (As (hash k)))) keys))
 
 [<JavaScript>]
-[<Name "Seq.insufficient">]
+[<Name "WebSharper.Seq.insufficient">]
 let InsufficientElements() =
     failwith "The input sequence has an insufficient number of elements."
 
 [<JavaScript>]
-[<Name "Seq.last">]
+[<Name "WebSharper.Seq.last">]
 let SeqLast (s: seq<_>) =
     use e = Enumerator.Get s
     if not <| e.MoveNext() then InsufficientElements()
@@ -313,7 +313,7 @@ let SeqLast (s: seq<_>) =
         e.Current
 
 [<JavaScript>]
-[<Name "List.map3">]
+[<Name "WebSharper.List.map3">]
 let ListMap3 f (l1: list<_>) (l2: list<_>) (l3: list<_>) =
     Array.map2
         ( <| )
@@ -322,7 +322,7 @@ let ListMap3 f (l1: list<_>) (l2: list<_>) (l3: list<_>) =
     |> List.ofArray
 
 [<JavaScript>]
-[<Name "Seq.contains">]
+[<Name "WebSharper.Seq.contains">]
 let SeqContains (el: 'T) (s: seq<'T>) =
     use e = Enumerator.Get s
     let mutable r = false
@@ -331,13 +331,13 @@ let SeqContains (el: 'T) (s: seq<'T>) =
     r
 
 [<JavaScript>]
-[<Name "Seq.pairwise">]
+[<Name "WebSharper.Seq.pairwise">]
 let SeqPairwise (s: seq<'T>) : seq<'T * 'T> =
     Seq.windowed 2 s
     |> Seq.map (fun x -> (x.[0], x.[1]))
 
 [<JavaScript>]
-[<Name "List.skipWhile">]
+[<Name "WebSharper.List.skipWhile">]
 let rec ListSkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> =
     let mutable rest = list
     while not (List.isEmpty rest) && predicate (List.head rest) do
@@ -345,7 +345,7 @@ let rec ListSkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> 
     rest
 
 [<JavaScript>]
-[<Name "Seq.unfold">]
+[<Name "WebSharper.Seq.unfold">]
 let SeqUnfold<'T, 'S> (f: 'S -> option<'T * 'S>) (s: 'S) : seq<'T> =
     Enumerable.Of <| fun () ->
         Enumerator.New s <| fun e ->
@@ -358,7 +358,7 @@ let SeqUnfold<'T, 'S> (f: 'S -> option<'T * 'S>) (s: 'S) : seq<'T> =
                 false
 
 [<JavaScript>]
-[<Name "Seq.truncate">]
+[<Name "WebSharper.Seq.truncate">]
 let SeqTruncate (n: int) (s: seq<'T>) : seq<'T> =
     seq {
         use e = Enumerator.Get s
@@ -369,12 +369,12 @@ let SeqTruncate (n: int) (s: seq<'T>) : seq<'T> =
     }
 
 [<JavaScript>]
-[<Name "Seq.nonNegative">]
+[<Name "WebSharper.Seq.nonNegative">]
 let InputMustBeNonNegative() =
     failwith "The input must be non-negative."
 
 [<JavaScript>]
-[<Name "Seq.windowed">]
+[<Name "WebSharper.Seq.windowed">]
 let SeqWindowed (windowSize: int) (s: seq<'T>) : seq<'T []> =
     if windowSize <= 0 then
         failwith "The input must be positive."

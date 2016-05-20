@@ -77,7 +77,7 @@ type Div() =
                 if isIn smallIntegralTypes t
                 then (x ^/ y) ^>> !~(Int 0)
                 elif isIn bigIntegralTypes t
-                then Application(Global ["Math"; "trunc"], [x ^/ y])
+                then Application(Global ["Math"; "trunc"], [x ^/ y], true, Some 1)
                 else x ^/ y
             | _ -> x ^/ y
             |> MacroOk
@@ -91,7 +91,7 @@ type Arith(name, op) =
         | [x; y] ->
             match c.Method.Generics with
             | t :: _ when not (isIn scalarTypes t) ->
-                Application (ItemGet(x, Value (String name)), [y])
+                Application (ItemGet(x, Value (String name)), [y], true, Some 1)
             | _ -> Binary(x, op, y)
             |> MacroOk
         | _ -> MacroError "divisionMacro error"
@@ -211,7 +211,7 @@ let translateOperation (t: Concrete<TypeDefinition>) a m op =
             if smallIntegralTypes.Contains t.Entity.Value.FullName
             then (x ^/ y) ^>> !~(Int 0)
             elif bigIntegralTypes.Contains t.Entity.Value.FullName
-            then Application(Global ["Math"; "trunc"], [x ^/ y])
+            then Application(Global ["Math"; "trunc"], [x ^/ y], true, Some 1)
             else x ^/ y
         | _ ->
             Binary (x, op, y)
@@ -224,9 +224,9 @@ let translateToString a m =
         match m.Generics with
         | t :: _ ->
             if t.AssemblyQualifiedName = "System.Char, mscorlib" then
-                Application(Global ["String"; "fromCharCode"], [x])
+                Application(Global ["String"; "fromCharCode"], [x], true, Some 1)
             else 
-                Application(Global ["String"], [x])
+                Application(Global ["String"], [x], true, Some 1)
             |> MacroOk 
         | _ ->
             MacroError "stringMacro error"
@@ -257,9 +257,9 @@ type NumericMacro() =
         let name = c.DefiningType.Entity.Value.FullName
 
         let parseInt x =
-            Application(Global ["parseInt"], [x])
+            Application(Global ["parseInt"], [x], true, Some 1)
         let parseFloat x =
-            Application(Global ["parseFloat"], [x])
+            Application(Global ["parseFloat"], [x], true, Some 1)
 
         let ex =
             Ctor(
@@ -315,9 +315,9 @@ type NumericMacro() =
             | Some self ->
                 // TODO refactor to separate method
                 if c.DefiningType.Entity.Value.AssemblyQualifiedName = "System.Char, mscorlib" then
-                    Application(Global ["String"; "fromCharCode"], [self])
+                    Application(Global ["String"; "fromCharCode"], [self], true, Some 1)
                 else 
-                    Application(Global ["String"], [self])
+                    Application(Global ["String"], [self], true, Some 1)
                 |> MacroOk 
             | _ -> MacroError "numericMacro error"
         | "Parse" ->
@@ -408,13 +408,13 @@ type String() =
                 | ConcreteType d ->
                     match d.Entity.Value.FullName with
                     | "System.Char" ->
-                        Application(Global ["String"; "fromCharCode"], [x])    
+                        Application(Global ["String"; "fromCharCode"], [x], true, Some 1)    
                     | "System.DateTime" ->
-                        Application(ItemGet(New(Global [ "Date" ], [x]), Value (Literal.String "toLocaleString")), [])
+                        Application(ItemGet(New(Global [ "Date" ], [x]), Value (Literal.String "toLocaleString")), [], true, None)
                     | _ ->
-                        Application(Global ["String"], [x])   
+                        Application(Global ["String"], [x], true, Some 1)   
                 | _ -> 
-                    Application(Global ["String"], [x])   
+                    Application(Global ["String"], [x], true, Some 1)   
                 |> MacroOk 
             | _ ->
                 MacroError "stringMacro error"
@@ -482,13 +482,14 @@ type New() =
 
 //type FST = Reflection.FSharpType
 
-let runtime = ["Runtime"; "IntelliFactory"]
-let runtimeFunc f = GlobalAccess (Address (f :: runtime))
-let runtimeCreateFuncWithArgs = runtimeFunc "CreateFuncWithArgs"
-let runtimeCreateFuncWithArgsRest = runtimeFunc "CreateFuncWithArgsRest"
-let runtimeCreateFuncWithThis = runtimeFunc "CreateFuncWithThis"
-let runtimeGetOptional = runtimeFunc "GetOptional"
-let runtimeSetOptional = runtimeFunc "SetOptional"
+module JSRuntime =
+    let private runtime = ["Runtime"; "IntelliFactory"]
+    let private runtimeFunc f p args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some (List.length args))
+    let GetOptional value = runtimeFunc "GetOptional" true [value]
+    let SetOptional obj field value = runtimeFunc "SetOptional" false [obj; field; value]
+    let CreateFuncWithArgs f = runtimeFunc "CreateFuncWithArgs" true [f]
+    let CreateFuncWithArgsRest length f = runtimeFunc "CreateFuncWithArgsRest" true [length; f]
+    let CreateFuncWithThis f = runtimeFunc "CreateFuncWithThis" true [f]
 
 [<Sealed>]
 type FuncWithArgs() =
@@ -498,7 +499,7 @@ type FuncWithArgs() =
         | [func] ->
             match c.DefiningType.Generics.[0] with
             | TupleType _ ->
-                Application(runtimeCreateFuncWithArgs, [ func ]) |> MacroOk
+                JSRuntime.CreateFuncWithArgs func |> MacroOk
             | _ ->
                 MacroError "Wrong type argument on FuncWithArgs: 'TArgs must be a tuple"
         | _ ->
@@ -512,8 +513,7 @@ type FuncWithArgsRest() =
         | [func] ->
             match c.DefiningType.Generics.[0] with
             | TupleType ts ->
-                Application(runtimeCreateFuncWithArgsRest, [ Value (Int (List.length ts)) ; func ])
-                |> MacroOk
+                JSRuntime.CreateFuncWithArgsRest (Value (Int (List.length ts))) func |> MacroOk
             | _ ->
                 MacroError "Wrong type argument on FuncWithArgsRest: 'TArgs must be a tuple"
         | _ ->
@@ -527,19 +527,19 @@ type FuncWithThis() =
         | [func] ->
             match c.DefiningType.Generics.[0] with
             | FSharpFuncType _ ->
-                Application(runtimeCreateFuncWithThis, [ func ]) |> MacroOk
+                JSRuntime.CreateFuncWithThis func |> MacroOk
             | ConcreteType td when 
                 (
                     let n = td.Entity.Value.FullName
                     n = "WebSharper.JavaScript.Function" || n.StartsWith "WebSharper.JavaScript.FuncWith" 
                 ) ->
-                Application(runtimeCreateFuncWithThis, [ func ]) |> MacroOk
+                JSRuntime.CreateFuncWithThis func |> MacroOk
             | _ ->
                 MacroError "Wrong type argument on FuncWithThis: 'TFunc must be an F# function or JavaScript function type"
         | _ ->
             MacroError "funcWithArgsMacro error"
 
-let ApplItem(on, item, args) = Application(ItemGet(on, Value (AST.String item)), args)
+let ApplItem(on, item, args) = Application(ItemGet(on, Value (AST.String item)), args, false, None)
 
 [<Sealed>]
 type JSThisCall() =
@@ -710,8 +710,8 @@ let stringProxy (comp: M.ICompilation) f args =
     let m = comp.GetClassInfo(stringModule).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
     Call(None, NonGeneric stringModule, NonGeneric m, args)
 
-let cCall e f args = Application (ItemGet(e, !~ (Literal.String f)), args)
-let cCallG a args = Application (Global a, args)
+let cCall e f args = Application (ItemGet(e, !~ (Literal.String f)), args, true, None)
+let cCallG a args = Application (Global a, args, true, None)
 
 //type FST = Reflection.FSharpType
 
@@ -794,7 +794,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                                             let ftypRes = f.RecordFieldType.SubstituteGenerics gs
                                             let item =
                                                 if f.Optional then
-                                                    Application(runtimeGetOptional, [Var x; cString f.JSName])
+                                                    JSRuntime.GetOptional (ItemGet(Var x, cString f.JSName))
                                                 else 
                                                     (Var x).[cString f.JSName]
                                             yield cString (f.Name + " = ") ^+ pp ftypRes item
@@ -1139,9 +1139,8 @@ type StringFormat() =
                             let idx = int m.Groups.[2].Value
 
                             let r =
-                                Application(Global ["WebSharper"; "Arrays"; "get"], [Var argsId; cInt idx])
+                                Application(Global ["WebSharper"; "Arrays"; "get"], [Var argsId; cInt idx], true, Some 2)
                                 |> safeToString
-                                
 
                             let spec = m.Groups.[4].Value
                             if spec <> "" then

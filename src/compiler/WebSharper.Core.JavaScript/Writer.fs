@@ -249,6 +249,8 @@ let rec Expression (buf: StringBuilder) expression =
     match expression with
     | S.ExprPos (x, pos) -> 
         SourceMapping pos ++ Expression buf x ++ SourceMappingEnd pos
+    | S.ExprComment (x, c) ->
+        Expression buf x ++ Word ("/*" + c +  "*/")
     | S.Application (f, xs) ->
         MemberExpression buf f
         ++ Parens (CommaSeparated (AssignmentExpression buf) xs)
@@ -345,6 +347,8 @@ and Statement (buf: StringBuilder) statement =
     match statement with
     | S.StatementPos (x, pos) -> 
         SourceMapping pos ++ Statement buf x ++ SourceMappingEnd pos
+    | S.StatementComment (x, c) ->
+        Statement buf x ++ Word ("/*" + c +  "*/")
     | S.Block ss ->
         BlockLayout (List.map (Statement buf) ss)
     | S.Break id ->
@@ -466,8 +470,8 @@ and Statement (buf: StringBuilder) statement =
         -- Indent (Statement buf s)
     | S.With (e, s) ->
         Word "with" ++ Parens (Expression buf e) ++ Statement buf s
-//    | _ ->
-//        failwith "Syntax.Statement not recognized"
+    | _ ->
+        failwith "Syntax.Statement not recognized"
 
 and Element (buf: StringBuilder) elem =
     match elem with
