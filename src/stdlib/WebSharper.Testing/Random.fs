@@ -317,8 +317,8 @@ module internal Internal =
 
 //    let cString s = !~ (J.String s)
     let inline cInt i = Value (Int i)
-    let cCall t m x = Application(ItemGet (t, Value (String m)), x, true, None)
-    let cCallG l x = Application(Global l, x, true, None)
+    let cCall t m x = Application(ItemGet (t, Value (String m)), x, false, None)
+    let cCallG l x = Application(Global l, x, false, None)
     let cCallR m x = Application(Global (["WebSharper"; "Testing"; "Random"] @ [m]), x, true, None)
 ////    let (|T|) (t: R.TypeDefinition) = t.FullName                                   
     let (>>=) (wrap: (E -> E), m: Choice<E, string> as x) (f: (E -> E) -> E -> (E -> E) * Choice<E, string>) =

@@ -692,6 +692,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                 origName.[.. origName.LastIndexOf '.'] + n
         )   
 
+    let ckind = 
+        if cls.IsFSharpModule then NotResolvedClassKind.Static
+        elif cls.IsFSharpRecord || cls.IsFSharpUnion || cls.IsFSharpExceptionDeclaration then NotResolvedClassKind.FSharpType
+        else NotResolvedClassKind.Class
+
     Some (
         def,
         {
@@ -699,7 +704,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
             BaseClass = cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> CodeReader.getTypeDefinition |> ignoreSystemObject)
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
-            IsModule = cls.IsFSharpModule
+            Kind = ckind
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
         }
@@ -798,7 +803,7 @@ let transformAssembly (refMeta : Info) assemblyName (checkResults: FSharpCheckPr
                 BaseClass = None
                 Requires = [] //annot.Requires
                 Members = members
-                IsModule = true
+                Kind = NotResolvedClassKind.Static
                 IsProxy = false
                 Macros = []
             }

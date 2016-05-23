@@ -99,7 +99,6 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
 
     let packageCtor a expr =
         let o, x = getFieldAddress a
-        // TODO: this is a hack
         let av = 
             match getAddress a with
             | Var v -> v
@@ -156,7 +155,7 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
                 | Some ba -> GlobalAccess ba
                 | _ -> Value Null
              
-            if not c.IsModule then
+            if not c.IsStatic then
                 packageCtor addr <| JSRuntime.Class prototype baseType (GlobalAccess addr)
 
         for info, _, body in c.Methods.Values do

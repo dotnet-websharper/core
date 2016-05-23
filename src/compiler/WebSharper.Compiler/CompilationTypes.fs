@@ -71,13 +71,19 @@ module NotResolved =
         | StaticConstructor of Expression
         | Method of Method * NotResolvedMethod
 
+    [<RequireQualifiedAccess>]
+    type NotResolvedClassKind =
+        | Static
+        | Class
+        | FSharpType
+
     type NotResolvedClass =
         {
             StrongName : option<string>
             BaseClass : option<TypeDefinition>
             Requires : list<TypeDefinition> 
             Members : list<NotResolvedMember>
-            IsModule : bool
+            Kind : NotResolvedClassKind
             IsProxy : bool
             Macros : list<TypeDefinition * option<obj>> 
         }

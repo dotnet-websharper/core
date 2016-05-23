@@ -26,36 +26,36 @@ module M = WebSharper.Macro
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Byte>)>]
-type internal NB() = class end
+type internal NB = class end
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.SByte>)>]
-type internal NSB() = class end
+type internal NSB = class end
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int16>)>]
-type internal NI16() = class end
+type internal NI16 = class end
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int32>)>]
-type internal NI32() = class end
+type internal NI32 = class end
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt16>)>]
-type internal NUI16() = class end
+type internal NUI16 = class end
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt32>)>]
-type internal NUI32() = class end
+type internal NUI32 = class end
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int64>)>]
-type internal NI64() = class end
+type internal NI64 = class end
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Single>)>]
-type internal NS() = class end
+type internal NS = class end
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Double>)>]
-type internal ND() = class end
+type internal ND = class end

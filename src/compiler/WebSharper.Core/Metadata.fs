@@ -131,7 +131,7 @@ type ClassInfo =
         StaticConstructor : option<Address * Expression>
         Methods : IDictionary<Method, CompiledMember * bool * Expression>
         Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
-        IsModule : bool
+        IsStatic : bool
         Macros : list<TypeDefinition * option<ParameterObject>>
     }
 

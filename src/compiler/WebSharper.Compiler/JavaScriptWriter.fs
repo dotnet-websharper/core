@@ -128,7 +128,12 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         let args = ids |> List.map (defineId innerEnv) 
         let body =
             match b |> transformStatement innerEnv with
-            | J.Block b -> b |> List.map J.Action
+            | J.Block b -> 
+                match List.rev b with
+                | J.Return None :: more -> List.rev more
+                | _ -> b
+                |> List.map J.Action
+            | J.Return None -> []
             | b -> [ b |> J.Action ]
         J.Lambda(None, args, body)
     | ItemGet (x, y) 
@@ -179,6 +184,12 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     | Object fs -> J.NewObject (fs |> List.map (fun (k, v) -> k, trE v))
     | New (x, y) -> J.New(trE x, y |> List.map trE)
     | Sequential x ->
+        let x =
+            match List.rev x with 
+            | [] | [_] -> x
+            | h :: t ->
+                h :: (t |> List.map (function (IgnoreSourcePos.Unary(UnaryOperator.``void``, a)) | a -> a))  
+                |> List.rev
         x |> List.map trE |> List.reduce (fun a b -> J.Binary(a, J.BinaryOperator.``,``, b))
     | Conditional (cond, then_, else_) ->
         J.Conditional(trE cond, trE then_, trE else_)
@@ -263,9 +274,11 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             } : J.SourcePos
         J.StatementPos (trS s, jpos)
     | If(a, b, c) -> J.If(trE a, trS b, trS c)
-    | Return a -> J.Return (match a with Undefined -> None | _ -> Some (trE a))
+    | Return (IgnoreSourcePos.Unary(UnaryOperator.``void``, a)) -> J.Ignore(trE a)
+    | Return IgnoreSourcePos.Undefined -> J.Return None
+    | Return a -> J.Return (Some (trE a))
     | VarDeclaration (id, e) ->
-        J.Vars ([defineId env id, match e with Undefined -> None | _ -> Some (trE e)])
+        J.Vars ([defineId env id, match e with IgnoreSourcePos.Undefined -> None | _ -> Some (trE e)])
     | While(a, b) -> J.While (trE a, trS b)
     | DoWhile(a, b) -> J.Do (trS a, trE b)
     | For(a, b, c, d) -> J.For(Option.map trE a, Option.map trE b, Option.map trE c, trS d)

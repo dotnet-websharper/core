@@ -751,6 +751,7 @@ type private LinqProxy =
     static member Sum(this: seq<int64>) : int64 =
         Seq.sum this
 
+    [<Inline>]
     static member Sum(this: seq<Nullable<int64>>) : Nullable<int64> =
         As(LinqProxy.Sum(Seq.cast<Nullable<float>> this))
 
@@ -762,6 +763,7 @@ type private LinqProxy =
         let s = this |> Seq.choose (fun x -> if x.HasValue then Some x.Value else None)
         if Seq.isEmpty s then Nullable() else Nullable(Seq.sum s)
 
+    [<Inline>]
     static member Sum(this: seq<Nullable<int>>) : Nullable<int> =
         As(LinqProxy.Sum(Seq.cast<Nullable<float>> this))
 

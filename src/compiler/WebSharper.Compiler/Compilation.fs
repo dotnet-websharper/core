@@ -117,7 +117,7 @@ type Compilation(meta: Info) =
                     member this.StaticConstructor = cls.StaticConstructor |> Option.map fst
                     member this.Methods = MappedDictionary(cls.Methods, fstOf3) :> _
                     member this.Implementations = MappedDictionary(cls.Implementations, fst) :> _
-                    member this.IsModule = cls.IsModule
+                    member this.IsModule = cls.IsStatic
                     member this.Macros = cls.Macros
                 }
 
@@ -569,6 +569,25 @@ type Compilation(meta: Info) =
                     let b = findProxied b
                     if classes.ContainsKey b || notResolvedClasses.ContainsKey b then Some b else None
                 )
+            let isStatic =                
+                match cls.Kind with
+                | NotResolvedClassKind.Static -> true
+                | NotResolvedClassKind.FSharpType -> false
+                | _ ->
+                    cls.Members
+                    |> Seq.forall (
+                        function
+                        | M.Constructor (_, nr)
+                        | M.Method (_, nr) ->
+                            match nr.Kind with
+                            | N.Instance 
+                            | N.Constructor 
+                            | N.Override _
+                            | N.Implementation _ -> false
+                            | _ -> true
+                        | M.Field (_, f) -> f.IsStatic
+                        | _ -> true
+                    )
             classes.Add (typ,
                 {
                     Address = if hasPrototype then someEmptyAddress else None
@@ -578,7 +597,7 @@ type Compilation(meta: Info) =
                     StaticConstructor = if Option.isSome cctor then unresolvedCctor else None 
                     Methods = Dictionary()
                     Implementations = Dictionary()
-                    IsModule = cls.IsModule
+                    IsStatic = isStatic
                     Macros = cls.Macros |> List.map (fun (m, p) -> m, p |> Option.map ParameterObject.OfObj)
                 }
             ) 
@@ -795,7 +814,7 @@ type Compilation(meta: Info) =
                     ["$$ERROR$$"]
                 | a -> List.ofArray a
                 |> List.rev
-            if not (r.ExactClassAddress(addr, not classes.[typ].IsModule)) then
+            if not (r.ExactClassAddress(addr, not classes.[typ].IsStatic)) then
                 this.AddError(None, NameConflict ("Class name conflict", sn))
             setClassAddress typ (Address addr)
 
@@ -862,7 +881,7 @@ type Compilation(meta: Info) =
                 | -1 -> n
                 | i -> n.[.. i - 1]
             let addr = typ.Value.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
-            r.ClassAddress(addr, not classes.[typ].IsModule)
+            r.ClassAddress(addr, not classes.[typ].IsStatic)
             |> setClassAddress typ
         
         let extraClassAddresses = Dictionary()

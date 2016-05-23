@@ -435,7 +435,8 @@ type MatchValueTransformer(c) =
         Sequential [
             match results with
             | [] -> ()
-            | matchCaptures -> yield VarSet (c, NewArray matchCaptures) 
+            | [ capt ] -> yield VarSet (c, capt) 
+            | _ -> yield VarSet (c, NewArray results) 
             yield Value (Int index)
         ]
 
@@ -482,7 +483,10 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             let v = namedId arg.DisplayName
                             v, env.WithVar(v, arg)
                     ) 
-                JSRuntime.Curried (Lambda(vars, (body |> transformExpression env)))
+                if args.Length < 4 then
+                    body |> transformExpression env |> List.foldBack (fun v body -> Lambda([v], body)) vars 
+                else
+                    JSRuntime.Curried (Lambda(vars, (body |> transformExpression env)))
         | BasicPatterns.Application(func, types, args) ->
             match IgnoreExprSourcePos (tr func) with
             | CallNeedingMoreArgs(thisObj, td, m, ca) ->
@@ -495,7 +499,10 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     | Undefined | Value Null -> Application (trFunc, [], false, Some 0)
                     | _ -> Application (trFunc, [trA], false, Some 1)  
                 | _ ->
-                    JSRuntime.Apply trFunc (args |> List.map tr)
+                    if args.Length < 4 then
+                        Seq.fold (fun f a -> Application(f, [tr a], false, Some 1)) trFunc args
+                    else
+                        JSRuntime.Apply trFunc (args |> List.map tr)
         | BasicPatterns.Let((id, value), body) ->
             let i = namedIdM id.DisplayName id.IsMutable
             let trValue = tr value
@@ -721,7 +728,13 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             MatchValueTransformer(c).TransformExpression(trMatchVal), 
                             trCases |> List.mapi (fun j (captures, body) ->
                                 let e =
-                                    body |> List.foldBack (fun (i, id) body -> Let(id, ItemGet(Var c, Value (Int i)), body)) (List.indexed captures)
+                                    match captures with
+                                    | [] -> body
+                                    | [capt] ->
+                                        ReplaceId(capt, c).TransformExpression(body)
+                                    | _ ->
+                                        body |> List.foldBack (fun (i, id) body -> 
+                                            Let(id, ItemGet(Var c, Value (Int i)), body)) (List.indexed captures)
                                 Some (Value (Int j)), 
                                 Block [
                                     VarSetStatement(res, e) 

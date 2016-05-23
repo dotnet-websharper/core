@@ -277,7 +277,7 @@ let TransformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
                 StaticConstructor = None         
                 Methods = methods 
                 Implementations = Map.empty // TODO
-                IsModule = true
+                IsStatic = true
                 Macros = []
             }
         )

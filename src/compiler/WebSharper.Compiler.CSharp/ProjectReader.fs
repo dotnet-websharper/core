@@ -659,7 +659,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             BaseClass = cls.BaseType |> sr.ReadNamedTypeDefinition |> ignoreSystemObject
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
-            IsModule = cls.IsStatic // TODO: static classes
+            Kind = if cls.IsStatic then NotResolvedClassKind.Static else NotResolvedClassKind.Class
             IsProxy = Option.isSome annot.ProxyOf
             Macros = []
         }
