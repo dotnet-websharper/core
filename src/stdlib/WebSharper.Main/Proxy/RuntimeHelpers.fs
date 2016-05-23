@@ -30,12 +30,10 @@ open WebSharper.JavaScript
 
 type IE<'T> = System.Collections.Generic.IEnumerator<'T>
 
-[<JavaScript>]
 [<Inline>]
 let safeDispose (x: System.IDisposable) =
     if x <> null then x.Dispose()
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.enumFinally">]
 let EnumerateThenFinally (s: seq<'T>) (f: unit -> unit) : seq<'T> =
     Enumerable.Of <| fun () ->
@@ -47,7 +45,6 @@ let EnumerateThenFinally (s: seq<'T>) (f: unit -> unit) : seq<'T> =
             else
                 false
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.enumUsing">]
 let EnumerateUsing<'T1,'T2,'T3 when 'T1 :> System.IDisposable
                                 and 'T2 :> seq<'T3>>
@@ -62,7 +59,6 @@ let EnumerateUsing<'T1,'T2,'T3 when 'T1 :> System.IDisposable
             else
                 false
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.enumWhile">]
 let EnumerateWhile (f: unit -> bool) (s: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->
@@ -84,7 +80,6 @@ let EnumerateWhile (f: unit -> bool) (s: seq<'T>) : seq<'T> =
                     next en
         Enumerator.NewDisposing null (fun en -> safeDispose en.State) next)
 
-[<JavaScript>]
 [<Name "WebSharper.Control.createEvent">]
 let CreateEvent<'D, 'A when 'D : delegate<'A, unit> and 'D :> System.Delegate> 
         (add: 'D -> unit) 

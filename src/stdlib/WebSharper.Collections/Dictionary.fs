@@ -27,17 +27,15 @@ open System.Collections.Generic
 type private KVP<'K,'V> = KeyValuePair<'K,'V>
 type private D<'K,'V> = Dictionary<'K,'V>
 
+[<JavaScript>]
 module internal DictionaryUtil =
 
-    [<JavaScript>]
     let notPresent () =
         failwith "The given key was not present in the dictionary."
 
-    [<JavaScript>]
     let equals (c: IEqualityComparer<'T>) x y =
         c.Equals(x, y)
 
-    [<JavaScript>]
     let getHashCode (c: IEqualityComparer<'T>) x =
         c.GetHashCode x
 
@@ -49,7 +47,6 @@ open System.Runtime.InteropServices
 [<Proxy(typeof<D<_,_>>)>]
 type internal Dictionary<'K,'V when 'K : equality>
 
-    [<JavaScript>]
     private (init   : seq<KVP<'K,'V>>,
              equals : 'K -> 'K -> bool,
              hash   : 'K -> int) =
@@ -58,31 +55,24 @@ type internal Dictionary<'K,'V when 'K : equality>
         let mutable data  = obj ()
 
         [<Inline>]
-        [<JavaScript>]
         let h x = As<string> (hash x)
 
         do for x in init do
             (?<-) data (h x.Key) x.Value
 
-        [<JavaScript>]
         new () = new Dictionary<'K,'V>([||], (=), hash)
 
-        [<JavaScript>]
         new (capacity: int) = new Dictionary<'K,'V>()
 
-        [<JavaScript>]
         new (comparer: IEqualityComparer<'K>) =
             new Dictionary<'K,'V>([||], equals comparer, getHashCode comparer)
 
-        [<JavaScript>]
         new (capacity: int, comparer: IEqualityComparer<'K>) =
             new Dictionary<'K,'V>(comparer)
 
-        [<JavaScript>]
         new (dictionary: IDictionary<'K,'V>) =
             new Dictionary<'K,'V>(dictionary, (=), hash)
 
-        [<JavaScript>]
         new (dictionary: IDictionary<'K,'V>, comparer: IEqualityComparer<'K>) =
             new Dictionary<'K,'V>(
                 dictionary,
@@ -90,7 +80,6 @@ type internal Dictionary<'K,'V when 'K : equality>
                 getHashCode comparer
             )
 
-        [<JavaScript>]
         member this.Add(k: 'K, v: 'V) =
             let h = h k
             if JS.HasOwnProperty data h then
@@ -99,19 +88,15 @@ type internal Dictionary<'K,'V when 'K : equality>
                 (?<-) data h (new KVP<'K,'V>(k, v))
                 count <- count + 1
 
-        [<JavaScript>]
         member this.Clear() =
             data <- obj ()
             count <- 0
 
-        [<JavaScript>]
         member this.ContainsKey(k: 'K) =
             JS.HasOwnProperty data (h k)
 
-        [<JavaScript>]
         member this.Count with [<Inline>] get () = count
 
-        [<JavaScript>]
         member this.Item
             with get (k: 'K) : 'V =
                 let k = h k
@@ -126,7 +111,6 @@ type internal Dictionary<'K,'V when 'K : equality>
                     count <- count + 1
                 (?<-) data h (new KVP<'K,'V>(k, v))
 
-        [<JavaScript>]
         member this.GetEnumerator() =
             let s = JS.GetFieldValues data
             (As<seq<obj>> s).GetEnumerator()
@@ -137,7 +121,6 @@ type internal Dictionary<'K,'V when 'K : equality>
         interface IEnumerable<KeyValuePair<'K,'V>> with
             member this.GetEnumerator() = As<IEnumerator<KeyValuePair<'K,'V>>> (this.GetEnumerator())
 
-        [<JavaScript>]
         member this.Remove(k: 'K) =
             let h = h k
             if JS.HasOwnProperty data h then
@@ -147,7 +130,6 @@ type internal Dictionary<'K,'V when 'K : equality>
             else
                 false
 
-        [<JavaScript>]
         member this.TryGetValue(k: 'K, [<Out>] res : byref<'V>) =
             let k = h k
             if JS.HasOwnProperty data k then

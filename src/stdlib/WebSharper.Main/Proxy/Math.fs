@@ -72,7 +72,6 @@ type private MathProxy =
     static member Cos(d: double) = X<double>
 
     [<Inline>]
-    [<JavaScript>]
     static member Cosh(value: double) = cosh value
 
     static member E with [<Inline "Math.E">] get () = 0.
@@ -173,38 +172,30 @@ type private MathProxy =
     static member Round(d: decimal) = X<decimal>
 
     [<Inline>]
-    [<JavaScript>]
     static member Sign(value: sbyte) = sign value
 
     [<Inline>]
-    [<JavaScript>]
     static member Sign(value: int16) = sign value
 
     [<Inline>]
-    [<JavaScript>]
     static member Sign(value: int) = sign value
 
     [<Inline>]
-    [<JavaScript>]
     static member Sign(value: int64) = sign value
 
     [<Inline>]
-    [<JavaScript>]
     static member Sign(value: single) = sign value
 
     [<Inline>]
-    [<JavaScript>]
     static member Sign(value: double) = sign value
 
     [<Inline>]
-    [<JavaScript>]
     static member Sign(value: decimal) = sign value
 
     [<Inline "Math.sin($a)">]
     static member Sin(a: double) = X<double>
 
     [<Inline>]
-    [<JavaScript>]
     static member Sinh(value: double) = sinh value
 
     [<Inline "Math.sqrt($d)">]
@@ -214,14 +205,11 @@ type private MathProxy =
     static member Tan(a: double) = X<double>
 
     [<Inline>]
-    [<JavaScript>]
     static member Tanh(value: double) = tanh value
 
     [<Inline>]
-    [<JavaScript>]
     static member Truncate(d: decimal) = truncate d
 
     [<Inline>]
-    [<JavaScript>]
     static member Truncate(d: double) = truncate d
 

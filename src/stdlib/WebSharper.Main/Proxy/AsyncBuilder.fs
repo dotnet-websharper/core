@@ -32,55 +32,44 @@ module C = WebSharper.Concurrency
 type private AsyncBuilderProxy [<Inline "null">]() =
 
     [<Inline>]
-    [<JavaScript>]
     member this.Bind(x: Async<'T1>, f: 'T1 -> Async<'T2>) : Async<'T2> =
         As (C.Bind (As x, As f))
 
     [<Inline>]
-    [<JavaScript>]
     member this.Delay(f: unit -> Async<'T>) : Async<'T> =
         As (C.Delay (As f))
 
     [<Inline>]
-    [<JavaScript>]
     member this.Return(x: 'T) : Async<'T> = As (C.Return x)
 
     [<Inline>]
-    [<JavaScript>]
     member this.ReturnFrom(x: Async<'T>) : Async<'T> = x
 
     [<Inline>]
-    [<JavaScript>]
     member this.Combine(a: Async<unit>, b: Async<'T>) : Async<'T> =
         As (C.Combine (As a, As b))
 
     [<Inline>]
-    [<JavaScript>]
     member this.TryFinally(a: Async<'T>, f: unit -> unit) : Async<'T> =
         As (C.TryFinally (As a, f))
 
     [<Inline>]
-    [<JavaScript>]
     member this.TryWith(a: Async<'T>, f: exn -> Async<'T>) : Async<'T> =
         As (C.TryWith (As a, As f))
 
     [<Inline>]
-    [<JavaScript>]
     member this.Using<'T, 'TResult when 'T :> System.IDisposable>
                      (x: 'T, f: 'T -> Async<'TResult>) : Async<'TResult> =
         As (C.Using (x, As f))
 
     [<Inline>]
-    [<JavaScript>]
     member this.Zero() : Async<unit> =
         this.Return()
 
     [<Inline>]
-    [<JavaScript>]
     member this.While(g: unit -> bool, b:Async<unit>) : Async<unit> = 
         As (C.While (g, As b))
 
     [<Inline>]
-    [<JavaScript>]
     member this.For(s: seq<'T>, b: 'T -> Async<unit>) : Async<unit> =
         As (C.For (s, As b))

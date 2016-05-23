@@ -27,10 +27,8 @@ type private FSharpEvent<'T> [<JavaScript>] () =
     let event = Event.New ()
 
     [<Inline>]
-    [<JavaScript>]
     member this.Trigger(x: 'T) = event.Trigger x
 
-    [<JavaScript>]
     member this.Publish with [<Inline>] get () = event :> IEvent<_>
 
 [<Proxy(typeof<IDelegateEvent<_>>)>]

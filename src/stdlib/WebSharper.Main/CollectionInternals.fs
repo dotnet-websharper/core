@@ -19,11 +19,11 @@
 // $end{copyright}
 
 /// Provides seq/list/array proxies
+[<JavaScript>]
 module internal WebSharper.CollectionInternals
 
 open WebSharper.JavaScript
 
-[<JavaScript>]
 [<Name "WebSharper.Arrays.splitInto">]
 let ArraySplitInto count (arr: 'T[]) =
     if count <= 0 then failwith "Count must be positive"
@@ -43,7 +43,6 @@ let ArraySplitInto count (arr: 'T[]) =
             startIndex <- startIndex + minChunkSize
         res
 
-[<JavaScript>]
 [<Name "WebSharper.Arrays.contains">]
 let ArrayContains (item: 'T) (arr: 'T[])  =
     let mutable c = true
@@ -56,7 +55,6 @@ let ArrayContains (item: 'T) (arr: 'T[])  =
             i <- i + 1
     not c
 
-[<JavaScript>]
 [<Name "WebSharper.Arrays.tryFindBack">]
 let ArrayTryFindBack f (arr: _ []) =
     let mutable res = None
@@ -66,7 +64,6 @@ let ArrayTryFindBack f (arr: _ []) =
         i <- i - 1
     res
 
-[<JavaScript>]
 [<Name "WebSharper.Arrays.tryFindIndexBack">]
 let ArrayTryFindIndexBack f (arr: _ []) =
     let mutable res = None
@@ -76,7 +73,6 @@ let ArrayTryFindIndexBack f (arr: _ []) =
         i <- i - 1
     res
 
-[<JavaScript>]
 [<Name "WebSharper.Arrays.mapFold">]
 let ArrayMapFold<'T, 'S, 'R> (f: 'S -> 'T -> 'R * 'S) (zero: 'S) (arr: 'T[]) : 'R[] * 'S =
     let r = JavaScript.Array(Array.length arr)
@@ -87,7 +83,6 @@ let ArrayMapFold<'T, 'S, 'R> (f: 'S -> 'T -> 'R * 'S) (zero: 'S) (arr: 'T[]) : '
         acc <- b 
     r.Self, acc
 
-[<JavaScript>]
 [<Name "WebSharper.Arrays.mapFoldBack">]
 let ArrayMapFoldBack<'T,'S,'R> (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) : 'R[] * 'S =
     let r = JavaScript.Array<'R>(Array.length arr)
@@ -100,18 +95,15 @@ let ArrayMapFoldBack<'T,'S,'R> (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) :
         acc <- b 
     r.Self, acc
 
-[<JavaScript>]
 [<Name "WebSharper.Arrays.sortInPlaceByDescending">]
 let ArraySortInPlaceByDescending<'T,'U when 'U: comparison> (f: 'T -> 'U) (arr: 'T []) =
     As<unit> (arr.JS.Sort(fun (x, y) -> - compare (f x) (f y)))
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.tryHead">]
 let SeqTryHead (s: seq<'T>) =
     use e = Enumerator.Get s
     if e.MoveNext() then Some e.Current else None
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.tryItem">]
 let SeqTryItem i (s: seq<'T>) =
     if i < 0 then None else
@@ -125,7 +117,6 @@ let SeqTryItem i (s: seq<'T>) =
             go <- false
     if go then Some e.Current else None
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.tryLast">]
 let SeqTryLast (s: seq<'T>) =
     use e = Enumerator.Get s
@@ -134,7 +125,6 @@ let SeqTryLast (s: seq<'T>) =
         Some e.Current 
     else None
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.chunkBySize">]
 let SeqChunkBySize (size: int) (s: seq<'T>) =
     if size <= 0 then failwith "Chunk size must be positive"
@@ -149,7 +139,6 @@ let SeqChunkBySize (size: int) (s: seq<'T>) =
                 true
             else false
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.compareWith">]
 let SeqCompareWith  (f: 'T -> 'T -> int) (s1: seq<'T>) (s2: seq<'T>) : int =
     use e1 = Enumerator.Get s1
@@ -168,7 +157,6 @@ let SeqCompareWith  (f: 'T -> 'T -> int) (s1: seq<'T>) (s2: seq<'T>) : int =
             r <- f e1.Current e2.Current
     r
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.countBy">]
 let SeqCountBy (f: 'T -> 'K) (s: seq<'T>) : seq<'K * int> =
     Seq.delay <| fun () ->
@@ -187,12 +175,10 @@ let SeqCountBy (f: 'T -> 'K) (s: seq<'T>) : seq<'K * int> =
         |> Array.map (fun k -> (k, (?) d (As (hash k))))
         |> As<_>
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.distinct">]
 let SeqDistinct<'T when 'T : equality> (s: seq<'T>) : seq<'T> =
     Seq.distinctBy id s
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.distinctBy">]
 let SeqDistinctBy<'T,'K when 'K : equality>
         (f: 'T -> 'K) (s: seq<'T>) : seq<'T> =
@@ -227,7 +213,6 @@ let SeqDistinctBy<'T,'K when 'K : equality>
             else
                 false
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.except">]
 let SeqExcept (itemsToExclude: seq<'T>) (s: seq<'T>) =
     Enumerable.Of <| fun () ->
@@ -262,7 +247,6 @@ let SeqExcept (itemsToExclude: seq<'T>) (s: seq<'T>) =
             else
                 false
 
-[<JavaScript>]
 [<Name "WebSharper.List.skip">]
 let ListSkip i (l : list<'T>) =
     let mutable res = l
@@ -276,7 +260,6 @@ let ListSkip i (l : list<'T>) =
 [<Inline "$x.push($y)">]
 let arrayPush (x: obj) (y: obj) = ()
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.groupBy">]
 let SeqGroupBy (f: 'T -> 'K when 'K : equality)
             (s: seq<'T>) : seq<'K * seq<'T>> =
@@ -298,12 +281,10 @@ let SeqGroupBy (f: 'T -> 'K when 'K : equality)
                 (?<-) d h [| c |]
         As<_> (Array.map (fun k -> (k, (?) d (As (hash k)))) keys))
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.insufficient">]
 let InsufficientElements() =
     failwith "The input sequence has an insufficient number of elements."
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.last">]
 let SeqLast (s: seq<_>) =
     use e = Enumerator.Get s
@@ -312,7 +293,6 @@ let SeqLast (s: seq<_>) =
         while e.MoveNext() do ()
         e.Current
 
-[<JavaScript>]
 [<Name "WebSharper.List.map3">]
 let ListMap3 f (l1: list<_>) (l2: list<_>) (l3: list<_>) =
     Array.map2
@@ -321,7 +301,6 @@ let ListMap3 f (l1: list<_>) (l2: list<_>) (l3: list<_>) =
         (Array.ofSeq l3)
     |> List.ofArray
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.contains">]
 let SeqContains (el: 'T) (s: seq<'T>) =
     use e = Enumerator.Get s
@@ -330,13 +309,11 @@ let SeqContains (el: 'T) (s: seq<'T>) =
         r <- e.Current = el
     r
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.pairwise">]
 let SeqPairwise (s: seq<'T>) : seq<'T * 'T> =
     Seq.windowed 2 s
     |> Seq.map (fun x -> (x.[0], x.[1]))
 
-[<JavaScript>]
 [<Name "WebSharper.List.skipWhile">]
 let rec ListSkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> =
     let mutable rest = list
@@ -344,7 +321,6 @@ let rec ListSkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> 
         rest <- List.tail rest 
     rest
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.unfold">]
 let SeqUnfold<'T, 'S> (f: 'S -> option<'T * 'S>) (s: 'S) : seq<'T> =
     Enumerable.Of <| fun () ->
@@ -357,7 +333,6 @@ let SeqUnfold<'T, 'S> (f: 'S -> option<'T * 'S>) (s: 'S) : seq<'T> =
             | None ->
                 false
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.truncate">]
 let SeqTruncate (n: int) (s: seq<'T>) : seq<'T> =
     seq {
@@ -368,12 +343,10 @@ let SeqTruncate (n: int) (s: seq<'T>) : seq<'T> =
             yield e.Current
     }
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.nonNegative">]
 let InputMustBeNonNegative() =
     failwith "The input must be non-negative."
 
-[<JavaScript>]
 [<Name "WebSharper.Seq.windowed">]
 let SeqWindowed (windowSize: int) (s: seq<'T>) : seq<'T []> =
     if windowSize <= 0 then

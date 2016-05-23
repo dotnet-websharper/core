@@ -29,10 +29,8 @@ open WebSharper.JavaScript
 
 module M = WebSharper.Macro
 
-[<JavaScript>]
 let Compare (x: string) (y: string) = compare x y
 
-[<JavaScript>]
 let CopyTo (s: string) (o: int) (d: char []) (off: int) (ct: int) =
     Array.blit (s.ToCharArray()) o d off ct
 
@@ -57,14 +55,12 @@ let LastIndexOf (s: string) (c: char) (i: int) = X<int>
 [<Direct "$n>$s.length?Array($n-$s.length+1).join(String.fromCharCode($c))+$s:$s">]
 let PadLeftWith (s: string) (n: int) (c: char) = X<string>
 
-[<JavaScript>]
 let PadLeft (s: string) (n: int) =
     PadLeftWith s n ' '
 
 [<Direct "$n>$s.length?$s+Array($n-$s.length+1).join(String.fromCharCode($c)):$s">]
 let PadRightWith (s: string) (n: int) (c: char) = X<string>
 
-[<JavaScript>]
 let PadRight (s: string) (n: int) =
     PadRightWith s n ' '
 
@@ -74,7 +70,6 @@ let Remove (x: string) (ix: int) (ct: int) = X<string>
 [<Direct "$string.replace($search,$replace)">]
 let ReplaceOnce string search replace = X<string>
 
-[<JavaScript>]
 let Replace (subject: string) (search: string) (replace: string) =
     let rec replaceLoop (subj: string) =
         let index = subj.IndexOf(search)
@@ -86,7 +81,6 @@ let Replace (subject: string) (search: string) (replace: string) =
         else subj
     replaceLoop subject
 
-[<JavaScript>]
 let ReplaceChar (s: string) (oldC: char) (newC: char) =
     Replace s (string oldC) (string newC)
 
@@ -96,10 +90,8 @@ let Substring (s: string) (ix: int) (ct: int) = X<string>
 [<Direct "$t.substring(0,$s.length) == $s">]
 let StartsWith (t: string) (s: string) = X<bool>
 
-[<JavaScript>]
 let ToCharArray (s: string) = Array.init s.Length (fun x -> s.[x])
 
-[<JavaScript>]
 let ToCharArrayRange (s: string) (startIndex: int) (length: int) =
     Array.init length (fun i -> s.[startIndex + i])
 
@@ -124,7 +116,6 @@ let MakeRegexp (pat: string) = X<obj>
 [<Direct @"$s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')">]
 let RegexEscape (s: string) = X<string>
 
-[<JavaScript>]
 let Split (s: string) (pat: obj) (opts: System.StringSplitOptions) =
     let res = SplitWith s pat
     if opts ===. System.StringSplitOptions.RemoveEmptyEntries then
@@ -132,24 +123,20 @@ let Split (s: string) (pat: obj) (opts: System.StringSplitOptions) =
     else
         res
 
-[<JavaScript>]
 let SplitChars (s: string) (sep: char[]) (opts: System.StringSplitOptions) =
     let re = "[" + RegexEscape (new System.String(sep)) + "]"
     Split s (MakeRegexp re) opts
 
-[<JavaScript>]
 let SplitStrings (s: string) (sep: string[]) (opts: System.StringSplitOptions) =
     let re = String.concat "|" (Array.map RegexEscape sep)
     Split s (MakeRegexp re) opts
 
-[<JavaScript>]
 let Filter f (s: string) =
     System.String.Concat(s |> Seq.choose (fun c -> if f c then Some (string c) else None) |> Array.ofSeq)
 
 [<Inline "$text.replace($pattern, $replace)">]
 let ReplaceString (pattern: RegExp) (replace: 'obj) (text: string) = X<string>
 
-[<JavaScript>]
 let SFormat (format: string) (args: obj[]) =
     let pattern = RegExp("{(0|[1-9]\d*)(?:,(-?[1-9]\d*|0))?(?::(.*?))?}", "g")
     format
@@ -183,17 +170,14 @@ type private StringProxy =
     member this.Clone() = this
 
     [<Inline>]
-    [<JavaScript>]
     static member Compare(x: string, y: string) =
         Unchecked.compare x y
 
     [<Inline>]
-    [<JavaScript>]
     member this.CompareTo(s: string) =
         Unchecked.compare (this :> obj) (s :> obj)
 
     [<Inline>]
-    [<JavaScript>]
     static member Concat(strings: string seq) =
         Join "" (Array.ofSeq strings)
 
@@ -204,21 +188,18 @@ type private StringProxy =
     member this.Contains(s: string) = X<bool>
 
     [<Inline>]
-    [<JavaScript>]
     member this.CopyTo(s: int, d: char [], off: int, ct: int) =
         CopyTo (As this) s d off ct
 
     static member Empty with [<Inline "''">] get () = X<string>
 
     [<Inline>]
-    [<JavaScript>]
     member this.EndsWith(other: string) = EndsWith (As this) other
 
     [<Inline "$x === $y">]
     static member Equals(x: string, y: string) = X<bool>
 
     [<Inline>]
-    [<JavaScript>]
     member this.GetEnumerator() = Enumerator.Get (unbox<seq<char>> this)
 
     [<Inline "$this.indexOf($s)">]
@@ -231,15 +212,12 @@ type private StringProxy =
     member this.IndexOf(s: string, i: int) = X<int>
 
     [<Inline>]
-    [<JavaScript>]
     member this.IndexOf(c: char, i: int) = IndexOf (As this) c i
 
     [<Inline>]
-    [<JavaScript>]
     static member IsNullOrEmpty(x: string) = IsNullOrEmpty x
 
     [<Inline>]
-    [<JavaScript>]
     static member IsNullOrWhiteSpace(x: string) = IsNullOrWhiteSpace x
 
     member this.Item
@@ -247,12 +225,10 @@ type private StringProxy =
                 get (pos: int) = X<char>
 
     [<Inline>]
-    [<JavaScript>]
     static member Join(sep: string, values: string seq) =
         Join sep (Array.ofSeq values)
 
     [<Inline>]
-    [<JavaScript>]
     static member Join(sep: string, [<System.ParamArray>] values: string[]) =
         Join sep values
 
@@ -266,7 +242,6 @@ type private StringProxy =
     member this.LastIndexOf(s: string, i: int) = X<int>
 
     [<Inline>]
-    [<JavaScript>]
     member this.LastIndexOf(c: char, i: int) =
         LastIndexOf (As this) c i
 
@@ -274,22 +249,18 @@ type private StringProxy =
                             get () = X<int>
 
     [<Inline>]
-    [<JavaScript>]
     member this.PadLeft(i: int) =
         PadLeft (As this) i
 
     [<Inline>]
-    [<JavaScript>]
     member this.PadLeft(i: int, c: char) =
         PadLeftWith (As this) i c
 
     [<Inline>]
-    [<JavaScript>]
     member this.PadRight(i: int) =
         PadRight (As this) i
 
     [<Inline>]
-    [<JavaScript>]
     member this.PadRight(i: int, c: char) =
         PadRightWith (As this) i c
 
@@ -297,40 +268,32 @@ type private StringProxy =
     member this.Remove(ix: int) = X<string>
 
     [<Inline>]
-    [<JavaScript>]
     member this.Remove(ix: int, count: int) = Remove (As this) ix count
 
     [<Inline>]
-    [<JavaScript>]
     member this.ToCharArray() = ToCharArray (As this)
 
     [<Inline>]
-    [<JavaScript>]
     member this.Replace(subj: string, repl: string) =
         Replace (As this) subj repl
 
     [<Inline>]
-    [<JavaScript>]
     member this.Replace(subj: char, repl: char) =
         ReplaceChar (As this) subj repl
 
     [<Inline>]
-    [<JavaScript>]
     member this.Split([<System.ParamArray>] sep: char[]) =
         SplitChars (As this) sep  System.StringSplitOptions.RemoveEmptyEntries
 
     [<Inline>]
-    [<JavaScript>]
     member this.Split(sep: char[], opts: System.StringSplitOptions) =
         SplitChars (As this) sep opts
 
     [<Inline>]
-    [<JavaScript>]
     member this.Split(sep: string[], opts: System.StringSplitOptions) =
         SplitStrings (As this) sep opts
 
     [<Inline>]
-    [<JavaScript>]
     member this.StartsWith(s: string) =
         StartsWith (As this) s
 
@@ -338,12 +301,10 @@ type private StringProxy =
     member this.Substring(ix: int) = X<string>
 
     [<Inline>]
-    [<JavaScript>]
     member this.Substring(ix: int, ct: int) =
         Substring (As this) ix ct
 
     [<Inline>]
-    [<JavaScript>]
     member this.ToCharArray(i: int, l: int) =
         ToCharArrayRange (As this) i l
 
@@ -354,15 +315,12 @@ type private StringProxy =
     member this.ToUpper() = X<string>
 
     [<Inline>]
-    [<JavaScript>]
     member this.Trim() = Trim (As this)
 
     [<Inline>]
-    [<JavaScript>]
     member this.TrimStart() = TrimStart (As this)
 
     [<Inline>]
-    [<JavaScript>]
     member this.TrimEnd() = TrimEnd (As this)
 
     [<Inline "$a + $b">]
@@ -390,64 +348,52 @@ type private StringProxy =
     [<Inline>]
     static member Format(format: string, arg0: obj, arg1: obj, arg2: obj): string = SFormat format [|arg0; arg1; arg2|]
 
-[<JavaScript>]
 let protect (s : string) =
     if s = null then "" else s
 
 [<Inline "$strings.join($sep)">]
 let join (strings: string[]) (sep: string) = X<string>
 
-[<JavaScript>]
 [<Name "collect">]
 let Collect (f: char -> string) (s: string) : string =
     System.String.Concat(Array.init s.Length (fun i -> f s.[i]))
 
-[<JavaScript>]
 [<Name "concat">]
 let Concat (separator: string) (strings: seq<string>) : string =
     join (Seq.toArray strings) separator
 
-[<JavaScript>]
 [<Name "exists">]
 let Exists (f: char -> bool) (s: string) : bool =
     Seq.exists f (protect s)
 
-[<JavaScript>]
 [<Name "forall">]
 let ForAll (f: char -> bool) (s: string) : bool =
     Seq.forall f (protect s)
 
-[<JavaScript>]
 [<Name "init">]
 let Initialize (count: int) (f: int -> string) : string =
     System.String.Concat(Array.init count f)
 
-[<JavaScript>]
 [<Name "iter">]
 let Iterate (f: char -> unit) (s: string) : unit =
     Seq.iter f (protect s)
 
-[<JavaScript>]
 [<Name "iteri">]
 let IterateIndexed (f: int -> char -> unit) (s: string) : unit =
     Seq.iteri f (protect s)
 
-[<JavaScript>]
 [<Name "length">]
 let Length (s: string) : int =
     (protect s).Length
 
-[<JavaScript>]
 [<Name "map">]
 let Map (f: char -> char) (s: string) : string =
     Collect (fun x -> string (f x)) (protect s)
 
-[<JavaScript>]
 [<Name "mapi">]
 let MapIndexed (f: int -> char -> char) (s: string) : string =
     System.String.Concat (Seq.toArray (Seq.mapi (fun i x -> string (f i x)) s))
 
-[<JavaScript>]
 [<Name "replicate">]
 let Replicate (count: int) (s: string) : string =
     Initialize count (fun _ -> s)

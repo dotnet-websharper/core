@@ -26,20 +26,18 @@ open WebSharper
 /// ignoring the value and using only the key.
 [<CustomComparison>]
 [<CustomEquality>]
+[<JavaScript>]
 type internal Pair<'K,'V when 'K : comparison> =
     {
         Key     : 'K
         Value   : 'V
     }
 
-    [<JavaScript>]
     override this.GetHashCode() = hash this.Key
 
-    [<JavaScript>]
     override this.Equals(other: obj) =
         this.Key = (other :?> Pair<'K,'V>).Key
 
     interface System.IComparable with
-        [<JavaScript>]
         member this.CompareTo(other: obj) =
             compare this.Key (other :?> Pair<'K,'V>).Key

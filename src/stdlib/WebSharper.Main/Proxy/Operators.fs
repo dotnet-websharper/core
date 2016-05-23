@@ -31,14 +31,12 @@ open WebSharper.JavaScript
 
 module M = WebSharper.Macro
 
-[<JavaScript>]
 [<Name "range">]
 let ( .. ) (min: 'T) (max: 'T) : seq<'T> =
     let count = 1 + As max - As min
     if count <= 0 then Seq.empty
     else Seq.init count (fun x -> As (x + As min))
 
-[<JavaScript>]
 [<Name "step">]
 let ( .. .. ) (min: 'T1) (step: 'T2) (max: 'T1) : seq<'T1> =
     let s = sign (As<int> step)
@@ -117,7 +115,6 @@ let ( >> ) (f: 'T1 -> 'T2) (g: 'T2 -> 'T3) = X<'T1->'T3>
 let inline ( >>> ) (a: 'T) (b: int) : 'T = a >>> b
 
 [<Inline>]
-[<JavaScript>]
 let ( @ ) a b = List.append a b
 
 [<Inline "$a + $b">]
@@ -174,7 +171,6 @@ let Ceiling (x: 'T) = X<'T>
 [<Macro(typeof<M.Char>)>]
 let ToChar (x: 'T) = X<char>
 
-[<JavaScript>]
 let Compare<'T> (a: 'T) (b: 'T) = Unchecked.compare a b
 
 [<Inline "Math.cos($x)">]
@@ -187,7 +183,6 @@ let Cosh<'T> (x: 'T) = X<'T>
 [<Name "WebSharper.Ref.decr">]
 let Decrement (x: ref<int>) = ()
 
-[<JavaScript>]
 let DefaultArg x d =
     match x with
     | Some x -> x
@@ -202,7 +197,6 @@ let ToDouble (x: 'T) = X<double>
 [<Inline "Math.exp($x)">]
 let inline Exp (x: 'T) = X<'T>
 
-[<JavaScript>]
 let FailWith (msg: string) : 'T = raise (exn msg)
 
 [<Inline "Number($x)">]
@@ -215,7 +209,6 @@ let Floor (x: 'T) = X<'T>
 let Fst (x: System.Tuple<'T1,'T2>) = X<'T1>
 
 [<Inline>]
-[<JavaScript>]
 let Hash<'T when 'T : equality> (x: 'T) = Unchecked.hash x
 
 [<Inline "$x">]
@@ -231,10 +224,8 @@ let Increment (x: ref<int>) = ()
 [<Inline "Infinity">]
 let Infinity = Unchecked.defaultof<double>
 
-[<JavaScript>]
 let InvalidOp (msg: string) : 'T = raise (System.InvalidOperationException(msg))
 
-[<JavaScript>]
 let InvalidArg (arg: string) (msg: string) : 'T = raise (System.ArgumentException(arg, msg))
 
 [<Inline "($x << 0)">]
@@ -258,11 +249,9 @@ let Log (x: 'T) = X<'T>
 [<Inline "Math.log($x)/Math.log(10)">]
 let Log10 (x: 'T) = X<'T>
 
-[<JavaScript>]
 let Max<'T when 'T : comparison> (a: 'T) (b: 'T) =
     if a > b then a else b
 
-[<JavaScript>]
 let Min<'T when 'T : comparison> (a: 'T) (b: 'T) =
     if a < b then a else b
 
@@ -278,7 +267,6 @@ let NaN = nan
 [<Inline "!$x">]
 let Not (x: bool) = X<bool>
 
-[<JavaScript>]
 let Pown<'T> (a: 'T) (n: int) =
     let a = box a :?> double
     let rec p n =
@@ -304,7 +292,6 @@ let Round (x: 'T) = X<'T>
 [<Inline "$x">]
 let CreateSequence (x: seq<'T>) = X<seq<'T>>
 
-[<JavaScript>]
 let Sign<'T> (x: 'T) =
     match As<int> x with
     | 0            -> 0
@@ -332,7 +319,6 @@ let inline Tan (x: 'T) = X<'T>
 [<Inline "(Math.exp(2*$x)-1)/(Math.exp(2*$x)+1)">]
 let Tanh (x: 'T) = X<'T>
 
-[<JavaScript>]
 let inline Truncate<'T> (x: 'T) =
     if x <. 0 then Ceiling x else Floor x
 
@@ -340,14 +326,11 @@ let inline Truncate<'T> (x: 'T) =
 let Unbox (x: obj) = X<'T>
 
 [<Inline "$x == null">]
-[<JavaScript>]
 let IsNull (x: 'T) = X<bool>
 
-[<JavaScript>]
 let Using t f =
     try f t finally (t :> System.IDisposable).Dispose()
 
-[<JavaScript>]
 [<Name "KeyValue">]
 let KeyValuePattern (kvp: System.Collections.Generic.KeyValuePair<_,_>) =
     (kvp.Key, kvp.Value)

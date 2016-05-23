@@ -49,15 +49,12 @@ type private QueueProxy<'T when 'T : equality>
     member this.Count with [<Inline "$this.length">] get () = X<int>
 
     [<Inline>]
-    [<JavaScript>]
     member this.Clear() = Clear this
 
     [<Inline>]
-    [<JavaScript>]
     member this.Contains(x: 'T) = Contains this x
 
     [<Inline>]
-    [<JavaScript>]
     member this.CopyTo(array: 'T [], index: int) = CopyTo this array index
 
     [<Inline "$this[0]">]

@@ -52,18 +52,14 @@ type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
     let mutable c = l
 
     interface IEnumerator<'T> with
-        [<JavaScript>]
         member this.Current = c.Value
         
-        [<JavaScript>]
         member this.Current = c.Value |> box
 
-        [<JavaScript>]
         member this.MoveNext() =
             c <- c.Next
             c <> null
 
-        [<JavaScript>]
         member this.Dispose() = ()
 
         member this.Reset() = ()
@@ -86,22 +82,17 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
             p <- node
             c <- c + 1
             
-    [<JavaScript>]
     new () = ListProxy(Seq.empty)          
 
     [<Inline>]
-    [<JavaScript>]
     member this.Count = c
 
     [<Inline>]
-    [<JavaScript>]
     member this.First = n
 
     [<Inline>]
-    [<JavaScript>]
     member this.Last = p
 
-    [<JavaScript>]
     member this.AddAfter(after: LLN<'T>, value) =
         let before = after.Next
         let node = newNode after before value
@@ -111,7 +102,6 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
         c <- c + 1
         node
 
-    [<JavaScript>]
     member this.AddBefore(before: LLN<'T>, value) =
         let after = before.Previous
         let node = newNode after before value
@@ -121,7 +111,6 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
         c <- c + 1
         node
 
-    [<JavaScript>]
     member this.AddFirst(value) =
         if c = 0 then
             let node = newNode null null value
@@ -131,7 +120,6 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
             node
         else this.AddBefore(n, value)
 
-    [<JavaScript>]
     member this.AddLast(value) =
         if c = 0 then
             let node = newNode null null value
@@ -141,13 +129,11 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
             node
         else this.AddAfter(p, value)
 
-    [<JavaScript>]
     member this.Clear() =
         c <- 0
         n <- null
         p <- null
 
-    [<JavaScript>]
     member this.Contains(value: 'T) =
         let mutable found = false
         let mutable node = n
@@ -156,7 +142,6 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
             else node <- node.Next
         found
             
-    [<JavaScript>]
     member this.Find(value: 'T) =
         let mutable node = n
         let mutable notFound = true
@@ -167,7 +152,6 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
                 node <- node.Next
         if notFound then null else node
 
-    [<JavaScript>]
     member this.FindLast(value: 'T) = 
         let mutable node = p
         let mutable notFound = true
@@ -178,7 +162,6 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
                 node <- node.Previous
         if notFound then null else node
                 
-    [<JavaScript>]
     member this.GetEnumerator(): LinkedList<'T>.Enumerator =
         As (new EnumeratorProxy<_>(As this))
 
@@ -188,7 +171,6 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
     interface IEnumerable<'T> with
         member this.GetEnumerator() = this.GetEnumerator() :> _
 
-    [<JavaScript>]
     member this.Remove(node: LLN<'T>) =
         let before = node.Previous
         let after = node.Next
@@ -196,7 +178,6 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
         if after = null then p <- before else setPrev after before
         c <- c - 1
         
-    [<JavaScript>]
     member this.Remove(value) = 
         let node = this.Find(value)
         if node = null then false
@@ -204,9 +185,7 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
             this.Remove(node)
             true
 
-    [<JavaScript>]
     member this.RemoveFirst() = this.Remove(n)
 
-    [<JavaScript>]
     member this.RemoveLast() = this.Remove(p)
                

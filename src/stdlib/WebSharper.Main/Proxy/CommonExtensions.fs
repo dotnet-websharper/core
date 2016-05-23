@@ -31,7 +31,6 @@ open WebSharper.JavaScript
 let subscribe (event: System.IObservable<'T>) (obs: System.IObserver<'T>) =
     X<System.IDisposable>
 
-[<JavaScript>]
 let observer (h: 'T -> unit) : System.IObserver<'T> =
     New [
         "OnCompleted" => ignore
@@ -39,12 +38,10 @@ let observer (h: 'T -> unit) : System.IObserver<'T> =
         "OnNext" => h
     ]
 
-[<JavaScript>]
 [<Name "addListener">]
 let AddToObservable<'T> (event: System.IObservable<'T>) (h: 'T -> unit) =
     ignore (subscribe event (observer h))
 
-[<JavaScript>]
 [<Name "subscribeTo">]
 let SubscribeToObservable<'T> (event: System.IObservable<'T>) (h: 'T -> unit) =
     subscribe event (observer h)

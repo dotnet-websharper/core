@@ -47,7 +47,6 @@ type private TimeSpanProxy =
     member this.Subtract(t: System.TimeSpan) = X<System.TimeSpan>
 
     [<Inline>]
-    [<JavaScript>]
     member this.CompareTo(t: System.TimeSpan) =
         Unchecked.compare (this :> obj) (t :> obj)
 
@@ -91,7 +90,6 @@ type private TimeSpanProxy =
     member this.Duration() = X<System.TimeSpan>
 
     [<Inline>]
-    [<JavaScript>]
     static member Compare(t1: System.TimeSpan, t2: System.TimeSpan) =
         Unchecked.compare t1 t2
 

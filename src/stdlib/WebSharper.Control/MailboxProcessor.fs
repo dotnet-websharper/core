@@ -30,7 +30,6 @@ type private ChannelProxy<'T> =
     [<Inline "$this($res)">]
     member this.Reply(res: 'T) = X<unit>
 
-[<JavaScript>]
 [<Proxy(typeof<MailboxProcessor<_>>)>]
 [<Name "MailboxProcessor">]
 type private MailboxProcessorProxy<'T> (initial, ?token: CancellationToken) =

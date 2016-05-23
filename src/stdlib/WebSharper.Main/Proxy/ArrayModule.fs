@@ -30,7 +30,6 @@ open WebSharper.CollectionInternals
 
 module F = WebSharper.IntrinsicFunctionProxy
 
-[<JavaScript>]
 let checkLength (arr1: 'T1[]) (arr2: 'T2[]) =
     if Array.length arr1 <> Array.length arr2 then
         failwith "Arrays differ in length."
@@ -41,15 +40,12 @@ let push (x: obj) (y: obj) = ()
 [<Inline "$arr1.concat($arr2)">]
 let Append<'T> (arr1: 'T []) (arr2: 'T []) : 'T [] = arr1
 
-[<JavaScript>]
 [<Name "average">]
 let inline Average (arr: 'T []): 'T = As (float (Array.sum arr) / float (Array.length arr))
 
-[<JavaScript>]
 [<Name "averageBy">]
 let inline AverageBy (f: 'T -> 'U) (arr: 'T []) : 'U = As (float (Array.sumBy f arr) / float (Array.length arr))
 
-[<JavaScript>]
 [<Name "blit">]
 let CopyTo<'T> (arr1: 'T [], start1, arr2: 'T [], start2, length) =
     F.checkRange arr1 start1 length
@@ -57,7 +53,6 @@ let CopyTo<'T> (arr1: 'T [], start1, arr2: 'T [], start2, length) =
     for i = 0 to length - 1 do
         arr2.[start2 + i] <- arr1.[start1 + i]
 
-[<JavaScript>]
 [<Name "choose">]
 let Choose<'T,'U> (f: 'T -> option<'U>) (arr: 'T []) : 'U [] =
     let q : 'U [] = [||]
@@ -70,24 +65,20 @@ let Choose<'T,'U> (f: 'T -> option<'U>) (arr: 'T []) : 'U [] =
 [<Inline "Array.prototype.concat.apply([], $x)">]
 let concatArray (x: 'T[][]) = X<'T[]>
 
-[<JavaScript>]
 [<Name "collect">]
 let Collect<'T,'U> (f: 'T -> 'U[]) (x: 'T []) : 'U[] =
     concatArray (Array.map f x)
 
-[<JavaScript>]
 [<Name "concat">]
 let Concat<'T> (xs: seq<'T []>) : 'T [] =
     concatArray (Array.ofSeq xs)
 
-[<JavaScript>]
 [<Inline>]
 let SplitInto count (arr: 'T[]) = ArraySplitInto count arr
 
 [<Inline "$x.slice()">]
 let Copy (x: 'T []) = X<'T []>
 
-[<JavaScript>]
 [<Name "create">]
 let Create (size: int) value =
     let r = JavaScript.Array(size)
@@ -99,23 +90,19 @@ let Create (size: int) value =
 let Empty () = X<'T []>
 
 [<Inline>]
-[<JavaScript>]
 let Exists<'T> (f: 'T -> bool) (arr: 'T []) = Seq.exists f arr
 
-[<JavaScript>]
 [<Name "exists2">]
 let Exists2 f (arr1: _ []) (arr2: _ []) =
     checkLength arr1 arr2
     Seq.exists2 f arr1 arr2
 
-[<JavaScript>]
 [<Name "fill">]
 let Fill<'T> (arr: 'T []) (start: int) (length: int) (value: 'T) =
     F.checkRange arr start length
     for i = start to start + length - 1 do
         arr.[i] <- value
 
-[<JavaScript>]
 [<Name "filter">]
 let Filter<'T> f (arr: 'T []) : 'T [] =
     let r : 'T [] = [||]
@@ -124,21 +111,18 @@ let Filter<'T> f (arr: 'T []) : 'T [] =
             push r arr.[i]
     r
 
-[<JavaScript>]
 [<Name "find">]
 let Find f (arr: _ []) =
     match Array.tryFind f arr with
     | Some x -> x
     | None   -> failwith "KeyNotFoundException"
 
-[<JavaScript>]
 [<Name "findINdex">]
 let FindIndex f (arr: _ []) =
     match Array.tryFindIndex f arr with
     | Some x -> x
     | None   -> failwith "KeyNotFoundException"
 
-[<JavaScript>]
 [<Name "fold">]
 let Fold<'T,'S> (f: 'S -> 'T -> 'S) (zero: 'S) (arr: 'T []) : 'S =
     let mutable acc = zero
@@ -146,7 +130,6 @@ let Fold<'T,'S> (f: 'S -> 'T -> 'S) (zero: 'S) (arr: 'T []) : 'S =
         acc <- f acc arr.[i]
     acc
 
-[<JavaScript>]
 [<Name "fold2">]
 let Fold2<'T1,'T2,'S> f (zero: 'S) (arr1: 'T1 []) (arr2: 'T2 []) : 'S =
     checkLength arr1 arr2
@@ -155,7 +138,6 @@ let Fold2<'T1,'T2,'S> f (zero: 'S) (arr1: 'T1 []) (arr2: 'T2 []) : 'S =
         accum <- f accum arr1.[i] arr2.[i]
     accum
 
-[<JavaScript>]
 [<Name "foldBack">]
 let FoldBack f (arr: _ []) zero =
     let mutable acc = zero
@@ -164,7 +146,6 @@ let FoldBack f (arr: _ []) zero =
         acc <- f arr.[len - i] acc
     acc
 
-[<JavaScript>]
 [<Name "foldBack2">]
 let FoldBack2 f (arr1: _ []) (arr2: _ []) zero =
     checkLength arr1 arr2
@@ -175,26 +156,21 @@ let FoldBack2 f (arr1: _ []) (arr2: _ []) zero =
     accum
 
 [<Inline>]
-[<JavaScript>]
 let ForAll f (arr: _ []) = Seq.forall f arr
 
-[<JavaScript>]
 [<Name "forall2">]
 let ForAll2 f (arr1: _ []) (arr2: _ []) =
     checkLength arr1 arr2
     Seq.forall2 f arr1 arr2
 
 [<Inline>]
-[<JavaScript>]
 let Get (arr: _ []) index =
     F.GetArray arr index
 
 [<Inline>]
-[<JavaScript>]
 let Item index (arr: _ []) =
     F.GetArray arr index
 
-[<JavaScript>]
 [<Name "init">]
 let Initialize (size: int) f =
     if size < 0 then
@@ -207,26 +183,22 @@ let Initialize (size: int) f =
 [<Inline "$arr.length == 0">]
 let IsEmpty (arr: _ []) = X<bool>
 
-[<JavaScript>]
 [<Name "iter">]
 let Iterate f (arr: 'T []) =
     for i = 0 to Array.length arr - 1 do
         f arr.[i]
 
-[<JavaScript>]
 [<Name "iter2">]
 let Iterate2 f (arr1: _ []) (arr2: _ []) =
     checkLength arr1 arr2
     for i = 0 to Array.length arr1 - 1 do
         f arr1.[i] arr2.[i]
 
-[<JavaScript>]
 [<Name "iteri">]
 let IterateIndexed f (arr: 'T []) =
     for i = 0 to Array.length arr - 1 do
         f i arr.[i]
 
-[<JavaScript>]
 [<Name "iteri2">]
 let IterateIndexed2 f (arr1: _ []) (arr2: _ []) =
     checkLength arr1 arr2
@@ -236,7 +208,6 @@ let IterateIndexed2 f (arr1: _ []) (arr2: _ []) =
 [<Inline "$arr.length">]
 let Length<'T> (arr: 'T []) = X<int>
 
-[<JavaScript>]
 [<Name "map">]
 let Map<'T1,'T2> (f: 'T1 -> 'T2) (arr: 'T1 []) : 'T2 [] =
     let r = JavaScript.Array<'T2>(Array.length arr)
@@ -244,7 +215,6 @@ let Map<'T1,'T2> (f: 'T1 -> 'T2) (arr: 'T1 []) : 'T2 [] =
         r.[i] <- f arr.[i]
     r.Self
 
-[<JavaScript>]
 [<Name "map2">]
 let Map2 (f: 'T1 -> 'T2 -> 'T3) (arr1: 'T1 []) (arr2: 'T2 []) : 'T3 [] =
     checkLength arr1 arr2
@@ -253,7 +223,6 @@ let Map2 (f: 'T1 -> 'T2 -> 'T3) (arr1: 'T1 []) (arr2: 'T2 []) : 'T3 [] =
         r.[i] <- f arr1.[i] arr2.[i]
     r.Self
 
-[<JavaScript>]
 [<Name "mapi">]
 let MapIndexed f (arr: _ []) =
     let y = JavaScript.Array(Array.length arr)
@@ -261,7 +230,6 @@ let MapIndexed f (arr: _ []) =
         y.[i] <- f i arr.[i]
     y.Self
 
-[<JavaScript>]
 [<Name "mapi2">]
 let MapIndexed2 f (arr1: 'T1 []) (arr2: 'T2 []): 'U[] =
     checkLength arr1 arr2
@@ -270,37 +238,29 @@ let MapIndexed2 f (arr1: 'T1 []) (arr2: 'T2 []): 'U[] =
         res.[i] <- f i arr1.[i] arr2.[i]
     res.Self
 
-[<JavaScript>]
 [<Inline>]
 let MapFold<'T,'S,'R> f zero arr = ArrayMapFold<'T, 'S, 'R> f zero arr
 
-[<JavaScript>]
 [<Inline>]
 let MapFoldBack f arr zero = ArrayMapFoldBack f arr zero
 
-[<JavaScript>]
 [<Name "max">]
 let Max x = Array.reduce max x
 
-[<JavaScript>]
 [<Name "maxBy">]
 let MaxBy (f, arr) =
     Array.reduce (fun x y -> if f x > f y then x else y) arr
 
-[<JavaScript>]
 [<Name "min">]
 let Min x = Array.reduce min x
 
-[<JavaScript>]
 [<Name "minBy">]
 let MinBy f arr =
     Array.reduce (fun x y -> if f x < f y then x else y) arr
 
 [<Inline>]
-[<JavaScript>]
 let OfList<'T> (xs: list<'T>) = Array.ofSeq xs
 
-[<JavaScript>]
 [<Name "ofSeq">]
 let OfSeq<'T> (xs: seq<'T>) : 'T [] =
     let q : 'T [] = [||]
@@ -309,7 +269,6 @@ let OfSeq<'T> (xs: seq<'T>) : 'T [] =
         push q enum.Current
     q
 
-[<JavaScript>]
 [<Name "partition">]
 let Partition f (arr: 'T []) : 'T [] * 'T [] =
     let ret1 : 'T [] = [||]
@@ -321,7 +280,6 @@ let Partition f (arr: 'T []) : 'T [] * 'T [] =
             push ret2 arr.[i]
     (ret1, ret2)
 
-[<JavaScript>]
 [<Name "permute">]
 let Permute f (arr: 'T []) =
     let ret = JavaScript.Array(Array.length arr)
@@ -329,19 +287,16 @@ let Permute f (arr: 'T []) =
         ret.[f i] <- arr.[i]
     ret.Self
 
-[<JavaScript>]
 [<Name "pick">]
 let Pick f (arr: _ []) =
     match Array.tryPick f arr with
     | Some x -> x
     | None   -> failwith "KeyNotFoundException"
 
-[<JavaScript>]
 let private nonEmpty (arr: _ []) =
     if Array.length arr = 0 then
         failwith "The input array was empty."
 
-[<JavaScript>]
 [<Name "reduce">]
 let Reduce f (arr: _ []) =
     nonEmpty arr
@@ -350,7 +305,6 @@ let Reduce f (arr: _ []) =
         acc <- f acc arr.[i]
     acc
 
-[<JavaScript>]
 [<Name "reduceBack">]
 let ReduceBack f (arr: _ []) =
     nonEmpty arr
@@ -364,7 +318,6 @@ let ReduceBack f (arr: _ []) =
 [<Name "rev">]
 let Reverse (x: 'T []) = X<'T []>
 
-[<JavaScript>]
 [<Name "scan">]
 let Scan<'T,'S> (f: 'S -> 'T -> 'S) (zero: 'S) (arr: 'T []) : 'S [] =
     let ret = JavaScript.Array(1 + Array.length arr)
@@ -373,7 +326,6 @@ let Scan<'T,'S> (f: 'S -> 'T -> 'S) (zero: 'S) (arr: 'T []) : 'S [] =
         ret.[i + 1] <- f ret.[i] arr.[i]
     ret.Self
 
-[<JavaScript>]
 [<Name "scanBack">]
 let ScanBack (f: 'T -> 'S -> 'S) (arr: 'T []) (zero: 'S) : 'S [] =
     let len = Array.length arr
@@ -384,49 +336,40 @@ let ScanBack (f: 'T -> 'S -> 'S) (arr: 'T []) (zero: 'S) : 'S [] =
     ret.Self
 
 [<Inline>]
-[<JavaScript>]
 let Set (arr: _ []) i v =
     F.SetArray arr i v
 
 [<Inline "$x.sort($wsruntime.CreateFuncWithArgs($f))">]
 let private sortArray (x: 'T[]) (f: 'T * 'T -> int) = X<'T[]>
 
-[<JavaScript>]
 [<Name "sort">]
 let Sort<'T when 'T: comparison> (arr: 'T []) : 'T [] =
     Array.sortBy id arr
 
-[<JavaScript>]
 [<Name "sortBy">]
 let SortBy<'T,'U when 'U: comparison> (f: 'T -> 'U) (arr: 'T []) : 'T [] =
     sortArray (Array.copy arr) (fun (x, y) -> compare (f x) (f y))
 
-[<JavaScript>]
 [<Name "sortInPlace">]
 let SortInPlace<'T when 'T: comparison> (arr: 'T []) =
     Array.sortInPlaceBy id arr
 
-[<JavaScript>]
 [<Name "sortInPlaceBy">]
 let SortInPlaceBy<'T,'U when 'U: comparison> (f: 'T -> 'U) (arr: 'T []) =
     As<unit> (sortArray arr (fun (x, y) -> compare (f x) (f y)))
 
-[<JavaScript>]
 [<Name "sortInPlaceWith">]
 let SortInPlaceWith<'T> (comparer: 'T -> 'T -> int) (arr: 'T []) =
     As<unit> (sortArray arr (fun (x, y) -> comparer x y))
 
-[<JavaScript>]
 [<Name "sortWith">]
 let SortWith<'T> (comparer: 'T -> 'T -> int) (arr: 'T []) : 'T [] =
     sortArray (Array.copy arr) (fun (x, y) -> comparer x y)
 
-[<JavaScript>]
 [<Name "sortByDescending">]
 let SortByDescending<'T,'U when 'U: comparison> (f: 'T -> 'U) (arr: 'T []) : 'T [] =
     sortArray (Array.copy arr) (fun (x, y) -> - compare (f x) (f y))
 
-[<JavaScript>]
 [<Name "sortDescending">]
 let SortDescending<'T when 'T: comparison> (arr: 'T []) : 'T [] =
     SortByDescending id arr
@@ -435,7 +378,6 @@ let SortDescending<'T when 'T: comparison> (arr: 'T []) : 'T [] =
 let private subArray (x: 'T) start length = X<'T>
 
 [<Inline>]
-[<JavaScript>]
 let GetSubArray (arr: 'T []) (start: int) (length: int) : 'T []=
     F.GetArraySub arr start length
 
@@ -447,14 +389,12 @@ let Sum (arr: 'T []) : 'T = X<'T>
 [<Name "sumBy">]
 let SumBy (f: 'T -> 'U) (arr: 'T []) : 'U =  X<'U>
 
-[<JavaScript>]
 [<Inline>]
 let ToList arr = List.ofArray arr
 
 [<Inline "$arr">]
 let ToSeq (arr: _ []) = arr :> seq<_>
 
-[<JavaScript>]
 [<Name "tryFind">]
 let TryFind f (arr: _ []) =
     let mutable res = None
@@ -464,11 +404,9 @@ let TryFind f (arr: _ []) =
         i <- i + 1
     res
 
-[<JavaScript>]
 [<Inline>]
 let TryFindBack f (arr: _ []) = ArrayTryFindBack f arr
 
-[<JavaScript>]
 [<Name "tryFindIndex">]
 let TryFindIndex f (arr: _ []) =
     let mutable res = None
@@ -478,27 +416,22 @@ let TryFindIndex f (arr: _ []) =
         i <- i + 1
     res
 
-[<JavaScript>]
 [<Inline>]
 let TryFindIndexBack f (arr: _ []) = ArrayTryFindIndexBack f arr
 
-[<JavaScript>]
 [<Name "tryHead">]
 let TryHead (arr: 'T[]) =
     if arr.Length = 0 then None else Some arr.JS.[0]
 
-[<JavaScript>]
 [<Name "tryItem">]
 let TryItem i (arr: 'T[]) =
     if arr.Length <= i || i < 0 then None else Some arr.JS.[i]
 
-[<JavaScript>]
 [<Name "tryLast">]
 let TryLast (arr: 'T[]) =
     let len = arr.Length
     if len = 0 then None else Some arr.JS.[len - 1]
 
-[<JavaScript>]
 [<Name "tryPick">]
 let TryPick f (arr: _ []) =
     let mutable res = None
@@ -510,7 +443,6 @@ let TryPick f (arr: _ []) =
         i <- i + 1
     res
 
-[<JavaScript>]
 [<Name "unzip">]
 let Unzip<'T1,'T2> (arr: ('T1 * 'T2) []) : 'T1 [] * 'T2 [] =
     let x : 'T1 [] = [||]
@@ -521,7 +453,6 @@ let Unzip<'T1,'T2> (arr: ('T1 * 'T2) []) : 'T1 [] * 'T2 [] =
         push y b
     (x, y)
 
-[<JavaScript>]
 [<Name "unzip3">]
 let Unzip3<'T1,'T2,'T3> (arr: ('T1 * 'T2 * 'T3) []) =
     let x : 'T1 [] = [||]
@@ -540,7 +471,6 @@ let Unzip3<'T1,'T2,'T3> (arr: ('T1 * 'T2 * 'T3) []) =
 let ZeroCreate<'T> (size: int) =
     Create size Unchecked.defaultof<'T>
 
-[<JavaScript>]
 [<Name "zip">]
 let Zip (arr1: 'T1 []) (arr2: 'T2 []) =
     checkLength arr1 arr2
@@ -549,7 +479,6 @@ let Zip (arr1: 'T1 []) (arr2: 'T2 []) =
         res.[i] <- (arr1.[i], arr2.[i])
     res
 
-[<JavaScript>]
 [<Name "zip3">]
 let Zip3 (arr1: _ [], arr2: _ [], arr3: _ []) =
     checkLength arr1 arr2
@@ -559,57 +488,51 @@ let Zip3 (arr1: _ [], arr2: _ [], arr3: _ []) =
         res.[i] <- (arr1.[i], arr2.[i], arr3.[i])
     res
         
-[<JavaScript>]
+
 [<Name "chunkBySize">]
 let ChunkBySize size array =
     SeqChunkBySize size (Array.toSeq array)
     |> Seq.toArray
     
-[<JavaScript>]
+
 [<Name "compareWith">]
 let CompareWith  (f: 'T -> 'T -> int) (a1: 'T []) (a2: 'T []) : int =
     SeqCompareWith f (Array.toSeq a1) (Array.toSeq a2)
         
-[<JavaScript>]
+
 [<Name "countBy">]
 let CountBy (f: 'T -> 'K) (a: 'T []) : ('K * int) [] =
     SeqCountBy f (Array.toSeq a)
     |> Seq.toArray
 
-[<JavaScript>]
 [<Name "distinct">]
 let Distinct<'T when 'T : equality> (l: 'T []) : 'T [] =
     SeqDistinct (Array.toSeq l)
     |> Seq.toArray
 
-[<JavaScript>]
 [<Name "distinctBy">]
 let DistinctBy<'T,'K when 'K : equality>
         (f: 'T -> 'K) (a: 'T []) : 'T [] =
     SeqDistinctBy f (Array.toSeq a)
     |> Seq.toArray
 
-[<JavaScript>]
 [<Name "except">]
 let Except (itemsToExclude: seq<'T>) (a: 'T []) =
     SeqExcept itemsToExclude (Array.toSeq a)
     |> Seq.toArray
 
-[<JavaScript>]
 [<Name "findBack">]
 let FindBack p (s: _ []) =
     match TryFindBack p s with
     | Some x -> x
     | None   -> failwith "KeyNotFoundException"
 
-[<JavaScript>]
 [<Name "findIndexBack">]
 let FindIndexBack p (s: _ []) =
     match TryFindIndexBack p s with
     | Some x -> x
     | None   -> failwith "KeyNotFoundException"
 
-[<JavaScript>]
 [<Name "groupBy">]
 let GroupBy (f: 'T -> 'K when 'K : equality)
             (a: 'T []) : ('K * 'T []) [] =
@@ -619,56 +542,46 @@ let GroupBy (f: 'T -> 'K when 'K : equality)
         (k, Seq.toArray s)
     )
 
-[<JavaScript>]
 [<Name "head">]
 let Head (ar : 'T []) : 'T =
     List.head (Array.toList ar)
 
-[<JavaScript>]
 [<Name "last">]
 let Last (ar : 'T []) : 'T =
     SeqLast (Array.toSeq ar)
 
-[<JavaScript>]
 [<Name "map3">]
 let Map3 f (l1: _ []) (l2: _ []) (l3: _ []) =
     ListMap3 f (Array.toList l1) (Array.toList l2) (Array.toList l3)
     |> List.toArray
 
 [<Inline>]
-[<JavaScript>]
 let Contains (el: 'T) (a: 'T []) =
     ArrayContains el a
 
-[<JavaScript>]
 [<Name "pairwise">]
 let Pairwise (a: 'T []) : ('T * 'T) [] =
     SeqPairwise (Array.toSeq a)
     |> Seq.toArray
 
-[<JavaScript>]
 [<Name "replicate">]
 let Replicate size value =
     Array.create size value
 
-[<JavaScript>]
 [<Name "indexed">]
 let Indexed (ar : 'T []) : (int * 'T) [] =
     Array.mapi (fun a b -> (a, b)) ar
 
-[<JavaScript>]
 [<Inline>]
 let Singleton<'T> (x: 'T) =
     [| x |]
 
-[<JavaScript>]
 [<Name "skip">]
 let Skip<'T> i (ar : 'T []) =
     if i < 0 then InputMustBeNonNegative() else
     if i > ar.Length then InsufficientElements() else
     ar.JS.Slice(i)
 
-[<JavaScript>]
 [<Name "skipWhile">]
 let SkipWhile<'T> (predicate : 'T -> bool) (ar : 'T []) : 'T [] =
     let len = ar.Length
@@ -677,19 +590,16 @@ let SkipWhile<'T> (predicate : 'T -> bool) (ar : 'T []) : 'T [] =
         i <- i + 1
     ar.JS.Slice(i)
 
-[<JavaScript>]
 [<Name "tail">]
 let Tail<'T> (ar : 'T []) : 'T [] =
     Skip 1 ar
 
-[<JavaScript>]
 [<Name "take">]
 let Take<'T> n (ar: 'T []) =
     if n < 0 then InputMustBeNonNegative() else
     if n > ar.Length then InsufficientElements() else
     ar.JS.Slice(0, n)
 
-[<JavaScript>]
 [<Name "takeWhile">]
 let TakeWhile<'T> (predicate : 'T -> bool) (ar: 'T []) =
     let len = ar.Length
@@ -698,12 +608,10 @@ let TakeWhile<'T> (predicate : 'T -> bool) (ar: 'T []) =
         i <- i + 1
     ar.JS.Slice(0, i)
 
-[<JavaScript>]
 [<Name "truncate">]
 let Truncate<'T> n (ar: 'T []) =
     ar.JS.Slice(n)
 
-[<JavaScript>]
 [<Name "exactlyOne">]
 let ExactlyOne (ar : 'T []) =
     if ar.Length = 1 then
@@ -711,24 +619,20 @@ let ExactlyOne (ar : 'T []) =
     else
         failwith "The input does not have precisely one element."
 
-[<JavaScript>]
 [<Name "unfold">]
 let Unfold<'T, 'S> (f: 'S -> option<'T * 'S>) (s: 'S) : 'T [] =
     SeqUnfold<'T, 'S> f s
     |> Seq.toArray
 
-[<JavaScript>]
 [<Inline>]
 let Where (predicate : 'T -> bool) (s : 'T []) : 'T [] =
     Filter predicate s
 
-[<JavaScript>]
 [<Name "windowed">]
 let Windowed (windowSize: int) (s: 'T []) : array<'T []> =
     SeqWindowed windowSize (Array.toSeq s)
     |> Seq.toArray
 
-[<JavaScript>]
 [<Name "splitAt">]
 let SplitAt (n: int) (ar: 'T []) =
     Take n ar, Skip n ar

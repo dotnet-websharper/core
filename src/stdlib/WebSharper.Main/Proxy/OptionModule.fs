@@ -27,7 +27,6 @@ module private WebSharper.OptionModuleProxy
 
 open WebSharper.JavaScript
 
-[<JavaScript>]
 [<Name "bind">]
 let Bind f x =
     match x with
@@ -37,28 +36,24 @@ let Bind f x =
 [<Inline "$x ? 1 : 0">]
 let Count (x: option<_>) = X<int>
 
-[<JavaScript>]
 [<Name "exists">]
 let Exists p x =
     match x with
     | Some x -> p x
     | None   -> false
 
-[<JavaScript>]
 [<Name "fold">]
 let Fold<'T,'S> (f: 'S -> 'T -> 'S) (s: 'S) (x: option<'T>) : 'S =
     match x with
     | Some x -> f s x
     | None   -> s
 
-[<JavaScript>]
 [<Name "foldBack">]
 let FoldBack f x s =
     match x with
     | Some x -> f x s
     | None   -> s
 
-[<JavaScript>]
 [<Name "forall">]
 let ForAll p x =
     match x with
@@ -74,59 +69,50 @@ let IsNone (x: option<'T>) = false
 [<Inline "$x!=null">]
 let IsSome (x: option<'T>) =  false
 
-[<JavaScript>]
 [<Name "iter">]
 let Iterate p x =
     match x with
     | Some x -> p x
     | None   -> ()
 
-[<JavaScript>]
 [<Name "map">]
 let Map f x =
     match x with
     | Some x    -> Some (f x)
     | None      -> None
 
-[<JavaScript>]
 [<Name "toArray">]
 let ToArray x =
     match x with
     | Some x -> [|x|]
     | None   -> [||]
 
-[<JavaScript>]
 [<Name "toList">]
 let ToList x =
     match x with
     | Some x -> [x]
     | None   -> []
 
-[<JavaScript>]
 [<Name "ofObj">]
 let OfObj o = 
     if o ==. null then None else Some o
 
-[<JavaScript>]
 [<Name "toObj">]
 let ToObj o = 
     match o with
     | Some v -> v
     | None -> null
 
-[<JavaScript>]
 [<Name "ofNullable">]
 let OfNullable (o: System.Nullable<'T>) =
     if o ==. null then None else Some o.Value                   
 
-[<JavaScript>]
 [<Name "toNullable">]
 let ToNullable o =
     match o with
     | Some v -> System.Nullable(v)
     | _ -> System.Nullable()
 
-[<JavaScript>]
 [<Name "filter">]
 let Filter f o =
     match o with

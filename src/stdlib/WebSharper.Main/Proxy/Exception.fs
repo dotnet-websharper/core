@@ -34,13 +34,11 @@ type private ExceptionProxy =
 
 [<Proxy(typeof<MatchFailureException>)>]
 [<Name "MatchFailureException">]
-[<JavaScript>]
 type private MatchFailureExceptionProxy (message: string, line: int, column: int) =
     inherit ExceptionProxy (message + " at " + string line + ":" + string column)
 
 [<Proxy(typeof<System.IndexOutOfRangeException>)>]
 [<Name "IndexOutOfRangeException">]
-[<JavaScript>]
 type private IndexOutOfRangeExceptionProxy(message: string) =
     inherit ExceptionProxy(message)
 
@@ -48,7 +46,6 @@ type private IndexOutOfRangeExceptionProxy(message: string) =
 
 [<Proxy(typeof<System.OperationCanceledException>)>]
 [<Name "OperationCanceledException">]
-[<JavaScript>]
 type private OperationCanceledExceptionProxy(message: string) =
     inherit ExceptionProxy(message)
 
@@ -56,7 +53,6 @@ type private OperationCanceledExceptionProxy(message: string) =
 
 [<Proxy(typeof<System.ArgumentException>)>]
 [<Name "ArgumentException">]
-[<JavaScript>]
 type private ArgumentExceptionProxy(message: string) =
     inherit ExceptionProxy(message)
     
@@ -67,7 +63,6 @@ type private ArgumentExceptionProxy(message: string) =
 
 [<Proxy(typeof<System.ArgumentOutOfRangeException>)>]
 [<Name "ArgumentOutOfRangeException">]
-[<JavaScript>]
 type private ArgumentOutOfRangeExceptionProxy(message: string) =
     inherit ArgumentExceptionProxy(message)
     
@@ -75,7 +70,6 @@ type private ArgumentOutOfRangeExceptionProxy(message: string) =
 
 [<Proxy(typeof<System.InvalidOperationException>)>]
 [<Name "InvalidOperationException">]
-[<JavaScript>]
 type private InvalidOperationExceptionProxy(message: string) =
     inherit ExceptionProxy(message)
     
@@ -83,7 +77,6 @@ type private InvalidOperationExceptionProxy(message: string) =
 
 [<Proxy(typeof<System.AggregateException>)>]
 [<Name "AggregateException">]
-[<JavaScript>]
 type private AggregateExceptionProxy(message: string, innerExceptions: exn[]) =
     inherit ExceptionProxy(message)
 
@@ -110,7 +103,6 @@ type private TimeoutExceptionProxy(message: string) =
 
 [<Proxy(typeof<System.FormatException>)>]
 [<Name "FormatException">]
-[<JavaScript>]
 type private FormatException(message: string) =
     inherit ExceptionProxy(message)
 

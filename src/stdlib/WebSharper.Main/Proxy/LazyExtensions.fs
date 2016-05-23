@@ -27,7 +27,6 @@ module private WebSharper.LazyExtensionsProxy
 
 open WebSharper.JavaScript
 
-[<JavaScript>]
 let Create (f: unit -> 'T) : Lazy<'T> =
     let x =
         {
@@ -45,7 +44,6 @@ let Create (f: unit -> 'T) : Lazy<'T> =
     x.eval <- get
     As x
 
-[<JavaScript>]
 let CreateFromValue (v: 'T) : Lazy<'T> =
     let x =
         {
@@ -56,6 +54,5 @@ let CreateFromValue (v: 'T) : Lazy<'T> =
     x.eval <- fun () -> v
     As x
 
-[<JavaScript>]
 let Force (x: Lazy<'T>) : 'T =
     As<LazyProxy<'T>>(x).eval()

@@ -32,7 +32,6 @@ module RandomHelpers =
 
 [<Name "Random">]
 [<Proxy(typeof<System.Random>)>]
-[<JavaScript>]
 type internal RandomProxy() =
     member this.Next() = Next()
 

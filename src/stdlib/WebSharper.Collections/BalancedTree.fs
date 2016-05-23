@@ -20,15 +20,15 @@
 
 namespace WebSharper.Collections
 
+open WebSharper
 open WebSharper.JavaScript
 
 /// Provides balanced binary search tree operations.
+[<JavaScript>]
 module internal BalancedTree =
-    open WebSharper
 
     /// Represents a binary balanced search tree, preserving the balance
     /// invariant: the heights of the branches differ by at most 1.
-    [<JavaScript>]
     type Tree<'T when 'T : comparison> =
         private {
             Node    : 'T
@@ -59,7 +59,6 @@ module internal BalancedTree =
     [<Inline "$t.Node">]
     let Node (t: Tree<'T>) = X<'T>
 
-    [<JavaScript>]
     let Branch node left right =
         {
             Node    = node
@@ -69,7 +68,6 @@ module internal BalancedTree =
             Count   = 1 + Count left + Count right
         }
 
-    [<JavaScript>]
     let Enumerate flip (t: Tree<'T>) : seq<'T> =
         let rec gen (t, spine: list<'T * Tree<'T>>) =
             if IsEmpty t then
@@ -84,17 +82,14 @@ module internal BalancedTree =
 
     /// Traverses the tree in ascending order.
     [<Inline>]
-    [<JavaScript>]
     let Ascend t = Enumerate false t
 
     /// Traverses the tree in descending order.
     [<Inline>]
-    [<JavaScript>]
     let Descend t = Enumerate true t
 
     /// Builds a tree from sorted input and the indices of the
     /// first and the last elements to include.
-    [<JavaScript>]
     let rec private Build (data: 'T []) min max : Tree<'T> =
         let sz = max - min + 1
         if sz <= 0 then
@@ -107,11 +102,9 @@ module internal BalancedTree =
 
     /// Quickly constructs a tree from a sorted, distinct array.
     [<Inline>]
-    [<JavaScript>]
     let OfSorted (data: 'T []) : Tree<'T> =
         Build data 0 (Array.length data - 1)
 
-    [<JavaScript>]
     let OfSeq (data: seq<'T>) : Tree<'T> =
         OfSorted (Array.sort (Seq.toArray (Seq.distinct data)))
 
@@ -119,7 +112,6 @@ module internal BalancedTree =
     let private unshift (x: 'T) y = X<unit>
 
     /// Unzips a tree into a matching node and a spine.
-    [<JavaScript>]
     let Lookup (k: 'T) (t: Tree<'T>) =
         let mutable spine = [||]
         let mutable t = t
@@ -138,7 +130,6 @@ module internal BalancedTree =
 
     /// Rebuilds an unzipped tree by going up the spine and performing
     /// rotations where necessary for balance.
-    [<JavaScript>]
     let private Rebuild<'T when 'T : comparison>
             (spine: (bool * 'T * Tree<'T>) []) (t: Tree<'T>) : Tree<'T> =
         let h (x: Tree<'T>) = Height x
@@ -183,7 +174,6 @@ module internal BalancedTree =
 
     /// Inserts or updates a node in the tree. If a matching node is found,
     /// it is replaced with the value of "combine old new".
-    [<JavaScript>]
     let Put<'T when 'T : comparison> combine k (t: Tree<'T>) : Tree<'T> =
         let (t, spine) = Lookup k t
         if IsEmpty t then
@@ -192,7 +182,6 @@ module internal BalancedTree =
             Rebuild spine (Branch (combine t.Node k) t.Left t.Right)
 
     /// Removes a node from the tree.
-    [<JavaScript>]
     let Remove k (src: Tree<'T>) =
         let (t, spine) = Lookup k src
         if IsEmpty t then
@@ -209,17 +198,14 @@ module internal BalancedTree =
                 |> Rebuild spine
 
     /// Adds a node into the tree, replacing an existing one if found.
-    [<JavaScript>]
     let Add<'T when 'T : comparison> (x: 'T) (t: Tree<'T>) : Tree<'T> =
         Put (fun _ x -> x) x t
 
     /// Checks if a tree contains a given key.
-    [<JavaScript>]
     let rec Contains (v: 'T) (t: Tree<'T>) : bool =
         not (IsEmpty (fst (Lookup v t)))
 
     /// Looks up a node by key.
-    [<JavaScript>]
     let TryFind (v: 'T) (t: Tree<'T>) =
         let x = fst (Lookup v t)
         if IsEmpty x then None else Some x.Node

@@ -25,26 +25,20 @@
 module private WebSharper.LanguagePrimitivesProxy
 
 [<Inline>]
-[<JavaScript>]
 let GenericEquality<'T> (a: 'T) (b: 'T) = Unchecked.equals a b
 
 [<Inline>]
-[<JavaScript>]
 let GenericEqualityER<'T> (a: 'T) (b: 'T) = Unchecked.equals a b
 
 [<Inline>]
-[<JavaScript>]
 let GenericComparison<'T> (a: 'T) (b: 'T) = Unchecked.compare a b
 
 [<Inline>]
-[<JavaScript>]
 let GenericHash<'T> (x: 'T) = Unchecked.hash x
 
 [<Inline>]
-[<JavaScript>]
 let GenericComparisonWithComparer<'T> (c: System.Collections.IComparer) (a: 'T) (b: 'T) = c.Compare(a, b)
 
 [<Inline>]
-[<JavaScript>]
 let GenericEqualityWithComparer<'T> (c: System.Collections.IEqualityComparer) (a: 'T) (b: 'T) = c.Equals(a, b)
 

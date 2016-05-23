@@ -36,7 +36,6 @@ open DictionaryUtil
 [<Proxy(typeof<HashSet<_>>)>]
 type internal HashSetProxy<'T when 'T : equality>
 
-    [<JavaScript>]
     private (init   : seq<'T>,
              equals : 'T -> 'T -> bool,
              hash   : 'T -> int) =
@@ -44,7 +43,6 @@ type internal HashSetProxy<'T when 'T : equality>
         let mutable data  = Array<Array<'T>>()
         let mutable count = 0
 
-        [<JavaScript>]
         let arrContains (item: 'T) (arr: Array<'T>)  =
             let mutable c = true
             let mutable i = 0
@@ -56,7 +54,6 @@ type internal HashSetProxy<'T when 'T : equality>
                     i <- i + 1
             not c
 
-        [<JavaScript>]
         let arrRemove (item: 'T) (arr: Array<'T>)  =
             let mutable c = true
             let mutable i = 0
@@ -69,7 +66,6 @@ type internal HashSetProxy<'T when 'T : equality>
                     i <- i + 1
             not c
 
-        [<JavaScript>]
         let add (item: 'T) =
             let h = hash item
             let arr = data.[h]
@@ -85,49 +81,38 @@ type internal HashSetProxy<'T when 'T : equality>
 
         do for x in init do add x |> ignore
 
-        [<JavaScript>]
         new () = HashSetProxy<'T>(Seq.empty, (=), hash)
 
-        [<JavaScript>]
         new (init: seq<'T>) = new HashSetProxy<'T>(init, (=), hash)
 
-        [<JavaScript>]
         new (comparer: IEqualityComparer<'T>) =
             new HashSetProxy<'T>(Seq.empty, equals comparer, getHashCode comparer)
 
-        [<JavaScript>]
         new (init: seq<'T>, comparer: IEqualityComparer<'T>) =
             new HashSetProxy<'T>(init, equals comparer, getHashCode comparer)
 
-        [<JavaScript>]
         member this.Add(item: 'T) = add item
 
-        [<JavaScript>]
         member this.Clear() =
             data <- Array()
             count <- 0
 
-        [<JavaScript>]
         member x.Contains(item: 'T) =
             let arr = data.[hash item]
             if arr ==. null then false else arrContains item arr
 
-        [<JavaScript>]
         member x.CopyTo(arr: 'T[]) =
             let mutable i = 0
             let all = concat data 
             for i = 0 to all.Length - 1 do 
                 arr.[i] <- all.[i]
 
-        [<JavaScript>]
         member x.Count = count
 
-        [<JavaScript>]
         member x.ExceptWith(xs: seq<'T>) =
             for item in xs do
                 x.Remove(item) |> ignore
 
-        [<JavaScript>]
         member this.GetEnumerator() =
            (As<seq<'T>>(concat data)).GetEnumerator()
 
@@ -140,7 +125,6 @@ type internal HashSetProxy<'T when 'T : equality>
         // TODO: optimize methods by checking if other collection
         // is a HashSet with the same IEqualityComparer
         
-        [<JavaScript>]
         member x.IntersectWith(xs: seq<'T>) =
             let other = HashSetProxy(xs, equals, hash) 
             let all = concat data
@@ -149,30 +133,24 @@ type internal HashSetProxy<'T when 'T : equality>
                 if other.Contains(item) |> not then
                     x.Remove(item) |> ignore
 
-        [<JavaScript>]
         member x.IsProperSubsetOf(xs: seq<'T>) =
             let other = xs |> Array.ofSeq
             count < other.Length && x.IsSubsetOf(other)
 
-        [<JavaScript>]
         member x.IsProperSupersetOf(xs: seq<'T>) =
             let other = xs |> Array.ofSeq
             count > other.Length && x.IsSupersetOf(other)
 
-        [<JavaScript>]
         member x.IsSubsetOf(xs: seq<'T>) =
             let other = HashSetProxy(xs, equals, hash)
             As<_[]>(concat data) |> Array.forall other.Contains
 
-        [<JavaScript>]
         member x.IsSupersetOf(xs: seq<'T>) =
             xs |> Seq.forall x.Contains
 
-        [<JavaScript>]
         member x.Overlaps(xs: seq<'T>) =
             xs |> Seq.exists x.Contains
 
-        [<JavaScript>]
         member x.Remove(item: 'T) =
             let h = hash item
             let arr = data.[h]
@@ -182,7 +160,6 @@ type internal HashSetProxy<'T when 'T : equality>
                     true
                 else false
 
-        [<JavaScript>]
         member x.RemoveWhere(cond: 'T -> bool) =
             let all = concat data
             for i = 0 to all.Length - 1 do
@@ -190,12 +167,10 @@ type internal HashSetProxy<'T when 'T : equality>
                 if cond item then
                     x.Remove(item) |> ignore
 
-        [<JavaScript>]
         member x.SetEquals(xs: seq<'T>) =
             let other = HashSetProxy(xs, equals, hash)
             x.Count = other.Count && x.IsSupersetOf(other)
 
-        [<JavaScript>]
         member x.SymmetricExceptWith(xs: seq<'T>) =
             for item in xs do
                 if x.Contains item then
@@ -203,7 +178,6 @@ type internal HashSetProxy<'T when 'T : equality>
                 else
                     x.Add(item) |> ignore
 
-        [<JavaScript>]
         member x.UnionWith(xs: seq<'T>) =
             for item in xs do
                 x.Add(item) |> ignore

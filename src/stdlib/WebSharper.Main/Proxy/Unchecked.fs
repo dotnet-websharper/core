@@ -34,7 +34,6 @@ let isArray (a: obj) = X<bool>
 [<Inline "$a instanceof Date">]
 let isDate (a: obj) = X<bool>
 
-[<JavaScript>]
 let rec compareArrays (a: obj []) (b: obj []) =
     if a.Length < b.Length   then -1
     elif a.Length > b.Length then 1
@@ -49,12 +48,10 @@ let rec compareArrays (a: obj []) (b: obj []) =
 [<Inline "$d.getTime()">]
 let getTime (d: obj) : int = X
 
-[<JavaScript>]
 let rec compareDates (a: obj) (b: obj) =
     compare (getTime a) (getTime b)
 
 /// Compares two values generically.
-[<JavaScript>]
 let Compare<'T> (a: 'T) (b: 'T) : int =
     let objCompare (a: obj) (b: obj) =
         let cmp = ref 0
@@ -96,7 +93,6 @@ let Compare<'T> (a: 'T) (b: 'T) : int =
 [<Inline "undefined">]
 let DefaultOf<'T> = X<'T>
 
-[<JavaScript>]
 let arrayEquals (a: obj []) (b: obj []) =
     if a.Length = b.Length then
         let mutable eq = true
@@ -109,7 +105,6 @@ let arrayEquals (a: obj []) (b: obj []) =
     else
         false
 
-[<JavaScript>]
 let dateEquals a b =
     getTime a ===. getTime b
 
@@ -117,7 +112,6 @@ let dateEquals a b =
 let private equals (a: obj) (b: obj) = X<bool>
 
 /// Tests if two values are equal.
-[<JavaScript>]
 let Equals (a: 'T) (b: 'T) : bool =
     let objEquals (a: obj) (b: obj) =
         let eqR = ref true
@@ -146,18 +140,15 @@ let Equals (a: 'T) (b: 'T) : bool =
         | _ ->
             false
 
-[<JavaScript>]
 let hashMix (x: int) (y: int) : int =
     (x <<< 5) + x + y
 
-[<JavaScript>]
 let hashArray (o: obj []) =
     let mutable h = -34948909
     for i in 0 .. o.Length - 1 do
         h <- hashMix h (Unchecked.hash o.[i])
     h
 
-[<JavaScript>]
 let hashString (s: string) : int =
     if s ===. null then 0 else
         let mutable hash = 5381
@@ -168,7 +159,6 @@ let hashString (s: string) : int =
 [<Inline "$o.GetHashCode()">]
 let getHashCode(o: obj) = X<int>
 
-[<JavaScript>]
 let hashObject (o: obj) =
     if JS.In "GetHashCode" o then getHashCode o else
         let (++) = hashMix
@@ -179,7 +169,6 @@ let hashObject (o: obj) =
         !h
 
 /// Computes the hash of an object.
-[<JavaScript>]
 let Hash<'T> (o: 'T) : int =
     match JS.TypeOf o with
     | JS.Undefined -> 0

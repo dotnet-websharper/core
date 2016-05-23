@@ -33,7 +33,7 @@ let Clear (stack: obj) =
 [<JavaScript>]
 let Contains (stack: obj) (el: 'T) =
     Seq.exists ((=) el) (stack :?> 'T[])
-
+    
 [<JavaScript>]
 let CopyTo (stack: obj) (array: 'T[]) (index: int) =
     Array.blit array 0 array index (stack :?> 'T[]).Length
@@ -50,15 +50,12 @@ type private StackProxy<'T when 'T : equality> =
     member this.Count with [<Inline "$this.length">] get () = X<int>
 
     [<Inline>]
-    [<JavaScript>]
     member this.Clear() = Clear this
 
     [<Inline>]
-    [<JavaScript>]
     member this.Contains(x: 'T) : bool = Contains this x
 
     [<Inline>]
-    [<JavaScript>]
     member this.CopyTo(array: 'T [], index) = CopyTo this array index
 
     [<Inline "$this[0]">]

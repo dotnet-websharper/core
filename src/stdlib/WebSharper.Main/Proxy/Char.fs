@@ -26,32 +26,25 @@ open WebSharper.JavaScript
 [<Proxy(typeof<System.Char>)>]
 type private CharProxy =
 
-    [<JavaScript>]
     static member GetNumericValue(c: char) : float =
         if c >= '0' && c <= '9' then float c - float '0' else -1.
 
-    [<JavaScript>]
     static member IsControl(c: char) : bool =
         c >= '\u0000' && c <= '\u001f'
         || c >= '\u0080' && c <= '\u009f'
 
-    [<JavaScript>]
     static member IsDigit(c: char) : bool =
         c >= '0' && c <= '9'
 
-    [<JavaScript>]
     static member IsLetter(c: char) : bool =
         c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z'
 
-    [<JavaScript>]
     static member IsLetterOrDigit(c: char) : bool =
         System.Char.IsLetter c || System.Char.IsDigit c
 
-    [<JavaScript>]
     static member IsLower(c: char) : bool =
         c >= 'a' && c <= 'z'
 
-    [<JavaScript>]
     static member IsUpper(c: char) : bool =
         c >= 'A' && c <= 'Z'
 
@@ -61,7 +54,6 @@ type private CharProxy =
     [<Inline "$s.charCodeAt(0)">]
     static member CharCodeAt0(s: string) = X<char>
 
-    [<JavaScript>]
     static member Parse(s: string) =
         if s.Length = 1 then CharProxy.CharCodeAt0(s) else
             failwith "String must be exactly one character long."

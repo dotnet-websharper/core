@@ -25,6 +25,6 @@ module internal Disposable =
     open WebSharper
     open WebSharper.JavaScript
 
-    [<JavaScript>]
+    [<JavaScript; Inline>]
     let Of (dispose: unit -> unit) : IDisposable =
         { new System.IDisposable with member this.Dispose() = dispose() }

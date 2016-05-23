@@ -50,8 +50,9 @@ type private E =
     [<Stub>] abstract member getMilliseconds : unit -> int
     [<Stub>] abstract member getDay          : unit -> int
 
+[<JavaScript>]
+[<Name "DateUtil">]
 module private DateTimeHelpers =
-    [<JavaScript>]
     let DatePortion d =
         let e = E.FromDateTime(d)
         E.Create3(       
@@ -60,7 +61,6 @@ module private DateTimeHelpers =
             e.getDate()
         ).getTime()        
 
-    [<JavaScript>]
     let TimePortion d =
         let e = E.FromDateTime(d)
         TS(
@@ -71,7 +71,6 @@ module private DateTimeHelpers =
             e.getMilliseconds()
         )        
 
-    [<JavaScript>]
     let AddYears(d, years) : D =
         let e = E.FromDateTime(d)
         E.Create7(   
@@ -84,7 +83,6 @@ module private DateTimeHelpers =
             e.getMilliseconds()
         ).getTime()
 
-    [<JavaScript>]
     let AddMonths(d, months: int) : D =
         let e = E.FromDateTime(d)
         E.Create7(   
@@ -97,7 +95,6 @@ module private DateTimeHelpers =
             e.getMilliseconds()
         ).getTime()    
 
-    [<JavaScript>]
     let Parse (s: string) =
         let d = JavaScript.Date.Parse(s)   
         if JS.IsNaN(d) then

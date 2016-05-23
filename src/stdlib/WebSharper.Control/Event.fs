@@ -25,47 +25,39 @@ module internal Event =
     open WebSharper
     open WebSharper.JavaScript
 
+    [<JavaScript>]
     type Event<'T> = private { Handlers : ResizeArray<Handler<'T>> } with
 
-        [<JavaScript>]
         member this.Trigger(x: 'T) =
             for h in this.Handlers.ToArray() do
                 h.Invoke(null, x)
 
-        [<JavaScript>]
         member this.AddHandler(h: Handler<'T>) =
             this.Handlers.Add h
 
-        [<JavaScript>]
         member this.RemoveHandler(h: Handler<'T>) =
             this.Handlers
             |> Seq.tryFindIndex ((=) h)
             |> Option.iter this.Handlers.RemoveAt
 
-        [<JavaScript>]
         member this.Subscribe(observer: IObserver<'T>) =
             let h = new Handler<'T>(fun _ x -> observer.OnNext x)
             this.AddHandler h
             Disposable.Of (fun () -> this.RemoveHandler h)
 
         interface IDisposable with
-            [<JavaScript>]
-            member this.Dispose() = ()
+                member this.Dispose() = ()
 
         interface IObservable<'T> with
-            [<JavaScript>]
-            member this.Subscribe observer = this.Subscribe observer
+                member this.Subscribe observer = this.Subscribe observer
 
         interface IDelegateEvent<Handler<'T>> with
-            [<JavaScript>]
-            member this.AddHandler x = this.AddHandler x
-            [<JavaScript>]
-            member this.RemoveHandler x = this.RemoveHandler x
+                member this.AddHandler x = this.AddHandler x
+                member this.RemoveHandler x = this.RemoveHandler x
 
         interface IEvent<'T>
 
     [<Inline>]
-    [<JavaScript>]
     let New () = { Handlers = ResizeArray() }
 
 

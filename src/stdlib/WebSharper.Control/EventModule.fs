@@ -29,10 +29,8 @@ open WebSharper
 module private EventModule =
 
     [<Inline>]
-    [<JavaScript>]
     let Add f (e: IEvent<_,_>) = e.Add f
 
-    [<JavaScript>]
     let Choose c (e: IEvent<_,_>) : IEvent<_> =
         // let r = Event.New ()
         let r = Event<_>()
@@ -42,19 +40,16 @@ module private EventModule =
             | None      -> ())
         r.Publish :> _
 
-    [<JavaScript>]
     let Filter ok (e: IEvent<_,_>) : IEvent<_> =
         let r = Event.New ()
         e.Add (fun x -> if ok x then r.Trigger x)
         r :> _
 
-    [<JavaScript>]
     let Map f (e: IEvent<_,_>) : IEvent<_> =
         let r = Event.New ()
         e.Add (fun x -> r.Trigger (f x))
         r :> _
 
-    [<JavaScript>]
     let Merge<'D1,'T,'D2 when 'D1 :> Delegate
                           and 'D1 :  delegate<'T,unit>
                           and 'D2 :> Delegate
@@ -65,7 +60,6 @@ module private EventModule =
         e2.Add r.Trigger
         r :> _
 
-    [<JavaScript>]
     let Pairwise (e: IEvent<_,_>) : IEvent<_> =
         let buf = ref None
         let ev  = Event.New ()
@@ -78,11 +72,9 @@ module private EventModule =
                 ev.Trigger(old, x))
         ev :> _
 
-    [<JavaScript>]
     let Partition f e =
         (Event.filter f e, Event.filter (f >> not) e)
 
-    [<JavaScript>]
     let Scan fold seed e =
         let state = ref seed
         let f value =
@@ -90,7 +82,6 @@ module private EventModule =
             !state
         Event.map f e
 
-    [<JavaScript>]
     let Split (f: 'T -> Choice<'U1,'U2>) (e: IEvent<'Del,'T>) =
         (
             e |> Event.choose (fun x ->

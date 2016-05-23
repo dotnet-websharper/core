@@ -28,6 +28,7 @@ module internal HotStream =
     /// Implementation for "hot stream".
     /// Subscribers to hot streams will only observe the latest
     /// and future values.
+    [<JavaScript>]
     type HotStream<'T> =
         internal
             {
@@ -35,7 +36,6 @@ module internal HotStream =
                 Event   : Event<'T>
             }
         interface IObservable<'T> with
-            [<JavaScript>]
             member this.Subscribe(o) =
                 if this.Latest.Value.IsSome then
                     o.OnNext this.Latest.Value.Value
@@ -45,12 +45,10 @@ module internal HotStream =
                     )
                 disp
 
-        [<JavaScript>]
         member this.Trigger(v) =
             this.Latest := Some v
             this.Event.Trigger v
 
-        [<JavaScript>]
         static member New<'U>() : HotStream<'U> =
             {
                 Latest = ref None

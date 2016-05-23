@@ -28,32 +28,26 @@ open WebSharper
     PublicKeyToken=b03f5f7f11d50a3a">]
 module private ObservableModule =
 
-    [<JavaScript>]
     [<Inline>]
     let Add (f: 'T -> unit) (o: IObservable<'T>) =
         ignore (o.Subscribe (Observer.Of f))
 
-    [<JavaScript>]
     [<Inline>]
     let Choose (c: 'T -> option<'U>) (e: IObservable<'T>) =
         Observable.Choose c e
 
-    [<JavaScript>]
     [<Inline>]
     let Filter (ok: 'T -> bool) (e: IObservable<'T>) : IObservable<'T> =
         Observable.Filter ok e
 
-    [<JavaScript>]
     [<Inline>]
     let Map (f: 'T -> 'U) (e: IObservable<'T>) : IObservable<'U> =
         Observable.Map f e
 
-    [<JavaScript>]
     [<Inline>]
     let Merge (e1: IObservable<'T>) (e2: IObservable<'T>) =
         Observable.Merge e1 e2
 
-    [<JavaScript>]
     let Pairwise (e: IObservable<'T>) : IObservable<'T * 'T> =
         Observable.New <| fun o1 ->
             let last = ref None
@@ -64,12 +58,10 @@ module private ObservableModule =
                 last := Some v
             e.Subscribe <| Observer.New(on, o1.OnError, o1.OnCompleted)  
 
-    [<JavaScript>]
     let Partition (f: 'T -> bool) (e: IObservable<'T>) :
             IObservable<'T> * IObservable<'T> =
         (Observable.Filter f e, Observable.filter (f >> not) e)
 
-    [<JavaScript>]
     let Scan (fold: 'U -> 'T -> 'U) (seed: 'U) (e: IObservable<'T>) : IObservable<'U> =
         Observable.New <| fun o1 ->
             let state = ref seed
@@ -78,7 +70,6 @@ module private ObservableModule =
                     (fun s -> state := s; o1.OnNext s) o1.OnError
             e.Subscribe <| Observer.New(on, o1.OnError, o1.OnCompleted)  
 
-    [<JavaScript>]
     let Split (f: 'T -> Core.Choice<'U1,'U2>) (e: IObservable<'T>) :
             IObservable<'U1> * IObservable<'U2> =
         let left =
@@ -95,7 +86,6 @@ module private ObservableModule =
                 | _ -> None)
         (left, right)
 
-    [<JavaScript>]
     [<Inline>]
     let Subscribe (f: 'T -> unit) (e: IObservable<'T>) =
         e.Subscribe f

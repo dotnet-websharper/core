@@ -32,19 +32,15 @@ let splice (arr: 'T []) (index: int) (howMany: int) (items: 'T[]) : 'T [] = item
 [<Proxy(typeof<System.Collections.Generic.List<_>>)>]
 type ResizeArrayProxy<'T> [<JavaScript>] (arr: 'T []) =
 
-    [<JavaScript>]
     new () =
         new ResizeArrayProxy<'T>([||])
 
-    [<JavaScript>]
     new (size: int) =
         new ResizeArrayProxy<'T>([||])
 
-    [<JavaScript>]
     new (el: seq<'T>) =
         new ResizeArrayProxy<'T>(Seq.toArray el)
 
-    [<JavaScript>]
     member this.GetEnumerator() =
         (As<seq<obj>> arr).GetEnumerator()
 
@@ -52,42 +48,32 @@ type ResizeArrayProxy<'T> [<JavaScript>] (arr: 'T []) =
         member this.GetEnumerator() = (As<System.Collections.IEnumerable> arr).GetEnumerator()
         member this.GetEnumerator() = (As<seq<'T>> arr).GetEnumerator()
 
-    [<JavaScript>]
     member this.Add(x: 'T) : unit =
         push arr x
 
-    [<JavaScript>]
     member this.AddRange(x: seq<'T>) : unit =
         Seq.iter this.Add x
 
-    [<JavaScript>]
     member this.Clear() : unit =
         splice arr 0 arr.Length [||] |> ignore
 
-    [<JavaScript>]
     member this.CopyTo(arr: 'T[]) : unit =
         this.CopyTo(arr, 0)
 
-    [<JavaScript>]
     member this.CopyTo(arr: 'T[], offset: int) : unit =
         this.CopyTo(0, arr, offset, this.Count)
 
-    [<JavaScript>]
     member this.CopyTo(index: int, target: 'T[], offset: int, count: int) : unit =
         Array.blit arr index target offset count
 
-    [<JavaScript>]
     member this.Count : int = arr.Length
 
-    [<JavaScript>]
     member this.GetRange(index: int, count: int) : ResizeArray<'T> =
         As (ResizeArrayProxy<'T>(Array.sub arr index count))
 
-    [<JavaScript>]
     member this.Insert(index: int, items: 'T) : unit =
         splice arr index 0 [| items |] |> ignore
 
-    [<JavaScript>]
     member this.InsertRange(index: int, items: seq<'T>) : unit =
         splice arr index 0 (Seq.toArray items) |> ignore
 
@@ -95,22 +81,17 @@ type ResizeArrayProxy<'T> [<JavaScript>] (arr: 'T []) =
         with [<JavaScript>] get (x: int) : 'T = arr.[x]
         and [<JavaScript>] set (x: int) (v: 'T) = arr.[x] <- v
 
-    [<JavaScript>]
     member this.RemoveAt(x: int) : unit =
         splice arr x 1 [||] |> ignore
 
-    [<JavaScript>]
     member this.RemoveRange(index: int, count: int) : unit =
         splice arr index count [||] |> ignore
 
-    [<JavaScript>]
     member this.Reverse() : unit =
         System.Array.Reverse(arr)
 
-    [<JavaScript>]
     member this.Reverse(index: int, count: int) : unit =
         System.Array.Reverse(arr, index, count)
 
-    [<JavaScript>]
     member this.ToArray() : 'T [] =
         Array.copy arr

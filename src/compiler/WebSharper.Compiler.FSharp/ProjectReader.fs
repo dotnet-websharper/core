@@ -47,7 +47,7 @@ type private SourceMemberOrEntity =
 let transformInterface parentAnnot (intf: FSharpEntity) =
     let methodNames = ResizeArray()
     let annot =
-        CodeReader.attrReader.GetTypeAnnot(parentAnnot, intf.Attributes) // TODO inherited attributes
+        CodeReader.attrReader.GetTypeAnnot(parentAnnot, intf.Attributes)
     let def =
         match annot.ProxyOf with
         | Some d -> d 
@@ -200,7 +200,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                         | VoidType -> RemoteSend
                         | ConcreteType { Entity = e } when e = Definitions.Async -> RemoteAsync
                         | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> RemoteTask
-                        | _ -> RemoteSync // TODO: warning
+                        | _ -> RemoteSync
                     let isCsrfProtected t = true // TODO
                     let rp = rp |> Option.map (fun t -> t, isCsrfProtected t)
                     addMethod mAnnot mdef (N.Remote(remotingKind, comp.GetRemoteHandle(), rp)) true Undefined

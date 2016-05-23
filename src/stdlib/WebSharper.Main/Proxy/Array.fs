@@ -29,11 +29,10 @@ type private ArrayProxy =
     [<Inline "$array.reverse()">]
     static member Reverse(array: System.Array) = X<unit>
 
-    [<JavaScript>]
     [<Name "WebSharper.Arrays.reverse">]
     static member Reverse(array: System.Array, offset: int, length: int) =
         let a = Array.rev (Array.sub (As array) offset length)
         Array.blit a 0 (As array) offset a.Length
 
     member this.Length
-        with [<Inline; JavaScript>] get() = F.GetLength (As this)            
+        with [<Inline>] get() = F.GetLength (As this)            

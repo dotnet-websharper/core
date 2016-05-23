@@ -26,7 +26,6 @@ open Microsoft.CodeAnalysis.CSharp.Syntax
 
 open WebSharper.Core
 open WebSharper.Core.AST
-//open WebSharper.Compiler.Utility
 open WebSharper.Core.Metadata
 
 open WebSharper.Compiler
@@ -261,28 +260,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 Seq.append (meth.AssociatedSymbol.GetAttributes()) (meth.GetAttributes()) 
             | _ -> meth.GetAttributes() :> _
         let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, attrs)
-
-//        let syntaxAndModel = 
-//            lazy
-//            let syntax = meth.DeclaringSyntaxReferences.[0].GetSyntax()
-//            syntax, rcomp.GetSemanticModel(syntax.SyntaxTree, true)
-
-
-//        let getVarsAndThis() =
-//            let a, t =
-//                args |> List.concat
-//                |> function
-//                | t :: r when t.IsMemberThisValue || t.IsConstructorThisValue -> r, Some t
-//                | a -> a, None
-//
-//            let a = 
-//                a
-//                |> function 
-//                | [ u ] when ToFSharpAST.isUnit u.FullType -> []
-//                | a -> a
-//
-//            a |> List.map (fun p -> Id.New p.CompiledName),
-//            t |> Option.map (fun p -> Id.New p.CompiledName)
 
         let error m = 
             comp.AddError(Some (CodeReader.getSourcePosOfSyntaxReference meth.DeclaringSyntaxReferences.[0]), SourceError m)
