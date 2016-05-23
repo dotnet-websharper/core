@@ -622,7 +622,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                     normalFields
             Lambda (vars, CopyCtor(def, obj))
 
-        addConstructor A.MemberAnnotation.BasicJavaScript cdef N.Static false body
+        let ckind = if isAugmentedFSharpType cls then N.Static else N.Inline 
+        addConstructor A.MemberAnnotation.BasicJavaScript cdef ckind false body
 
         // properties
 

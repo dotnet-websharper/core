@@ -149,8 +149,16 @@ let isUnit (t: FSharpType) =
     else td.FullName = "Microsoft.FSharp.Core.Unit" || td.FullName = "System.Void"
 
 let isOption (t: FSharpType) =
-    let td = (getOrigType t).TypeDefinition
-    not td.IsProvidedAndErased && td.FullName.StartsWith "Microsoft.FSharp.Core.FSharpOption`1"
+    let t = getOrigType t
+    t.HasTypeDefinition &&
+        let td = t.TypeDefinition
+        not td.IsProvidedAndErased && td.TryFullName = Some "Microsoft.FSharp.Core.FSharpOption`1"
+
+let isSeq (t: FSharpType) = 
+    let t = getOrigType t
+    t.HasTypeDefinition &&
+        let td = t.TypeDefinition
+        not td.IsProvidedAndErased && td.TryFullName = Some "System.Collections.Generic.IEnumerable`1"
 
 let isByRef (t: FSharpType) =
     if t.IsGenericParameter then
@@ -158,7 +166,7 @@ let isByRef (t: FSharpType) =
     else
     let t = getOrigType t
     if t.IsTupleType || t.IsFunctionType then false else
-    t.TypeDefinition.IsByRef
+    t.HasTypeDefinition && t.TypeDefinition.IsByRef
 
 exception ParseError of message: string with
     override this.Message = this.message 
@@ -449,6 +457,17 @@ type InlineMatchValueTransformer(cases : (Id list * Expression) list) =
         let captures, body = cases.[index]    
         body |> List.foldBack (fun (c, r) body -> Let (c, r, body)) (List.zip captures results)
 
+let removeListOfArray (argType: FSharpType) (expr: Expression) =
+    if isSeq argType then
+        match IgnoreExprSourcePos expr with
+        | Call (None, td, meth, [ NewArray _ as arr ]) 
+            when td.Entity = listModuleDef && meth.Entity = listOfArrayDef  ->
+                arr
+        | NewUnionCase(td, "Empty", []) when td.Entity = fsharpListDef ->
+            NewArray []
+        | _ -> expr
+    else expr
+
 let rec transformExpression (env: Environment) (expr: FSharpExpr) =
     let inline tr x = transformExpression env x
     try
@@ -494,15 +513,16 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | trFunc ->
                 match args with
                 | [a] ->
-                    let trA = tr a
+                    let trA = tr a |> removeListOfArray a.Type
                     match IgnoreExprSourcePos trA with
                     | Undefined | Value Null -> Application (trFunc, [], false, Some 0)
                     | _ -> Application (trFunc, [trA], false, Some 1)  
                 | _ ->
+                    let trArgs = args |> List.map (fun a -> tr a |> removeListOfArray a.Type)
                     if args.Length < 4 then
-                        Seq.fold (fun f a -> Application(f, [tr a], false, Some 1)) trFunc args
+                        Seq.fold (fun f a -> Application(f, [a], false, Some 1)) trFunc trArgs
                     else
-                        JSRuntime.Apply trFunc (args |> List.map tr)
+                        JSRuntime.Apply trFunc trArgs
         | BasicPatterns.Let((id, value), body) ->
             let i = namedIdM id.DisplayName id.IsMutable
             let trValue = tr value
@@ -538,7 +558,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             match IgnoreExprSourcePos ta with
                             | Application(ItemGet (r, Value (String "get")), [], _, _) -> r
                             | _ -> ta
-                        else ta
+                        else ta |> removeListOfArray a.Type
                     )
                 let args =
                     match args with

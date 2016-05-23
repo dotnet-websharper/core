@@ -65,7 +65,7 @@ type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
         member this.Reset() = ()
 
 [<Proxy(typeof<LL<_>>)>]
-[<Name "T">]
+[<Name "WebSharper.Collections.LinkedList">]
 type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
     let mutable c = 0
     let mutable n = null

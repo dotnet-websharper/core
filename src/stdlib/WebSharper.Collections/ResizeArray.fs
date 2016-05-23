@@ -30,6 +30,7 @@ let push (arr: 'T []) (x: 'T) = ()
 let splice (arr: 'T []) (index: int) (howMany: int) (items: 'T[]) : 'T [] = items
 
 [<Proxy(typeof<System.Collections.Generic.List<_>>)>]
+[<Name "WebSharper.Collections.List">]
 type ResizeArrayProxy<'T> [<JavaScript>] (arr: 'T []) =
 
     new () =

@@ -27,6 +27,7 @@ open WebSharper.JavaScript
 [<Proxy "Microsoft.FSharp.Collections.MapModule, \
     FSharp.Core, Culture=neutral, \
     PublicKeyToken=b03f5f7f11d50a3a">]
+[<Name "Map">]
 module internal MapModule =
     module T = BalancedTree
 

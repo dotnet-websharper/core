@@ -39,6 +39,7 @@ let CopyTo (a: obj) (array: 'T[]) (index: int) =
     Array.blit (a :?> 'T []) 0 array index (a :?> 'T[]).Length
 
 [<Proxy(typeof<System.Collections.Generic.Queue<_>>)>]
+[<WebSharper.Name "WebSharper.Queue">]
 type private QueueProxy<'T when 'T : equality>
 
     [<Inline "$data">] (data: 'T []) =

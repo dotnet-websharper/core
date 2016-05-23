@@ -179,8 +179,8 @@ let SplitInto count (s: seq<'T>) =
     if count <= 0 then failwith "Count must be positive"
     Seq.delay (fun () -> ArraySplitInto count (Array.ofSeq s) |> Seq.ofArray)   
 
-[<Name "empty">]
-let Empty<'T> : seq<'T> = [||] :> _
+[<Inline>]
+let Empty<'T> : seq<'T> = As [||]
 
 [<Name "exactlyOne">]
 let ExactlyOne<'T> (s: seq<'T>) =

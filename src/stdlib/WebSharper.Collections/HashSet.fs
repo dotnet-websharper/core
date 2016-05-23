@@ -34,6 +34,7 @@ module private HashSetUtil =
 open DictionaryUtil
 
 [<Proxy(typeof<HashSet<_>>)>]
+[<Name "HashSet">]
 type internal HashSetProxy<'T when 'T : equality>
 
     private (init   : seq<'T>,

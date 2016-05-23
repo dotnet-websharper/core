@@ -39,6 +39,7 @@ let CopyTo (stack: obj) (array: 'T[]) (index: int) =
     Array.blit array 0 array index (stack :?> 'T[]).Length
 
 [<Proxy(typeof<System.Collections.Generic.Stack<_>>)>]
+[<Name "WebSharper.Stack">]
 type private StackProxy<'T when 'T : equality> =
 
     [<Inline "[].concat($s).reverse()">]

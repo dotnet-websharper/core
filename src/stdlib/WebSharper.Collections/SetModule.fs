@@ -27,6 +27,7 @@ open WebSharper.JavaScript
 [<Proxy "Microsoft.FSharp.Collections.SetModule, \
     FSharp.Core, Culture=neutral, \
     PublicKeyToken=b03f5f7f11d50a3a">]
+[<Name "Set">]
 module internal SetModule =
     module T = BalancedTree
 

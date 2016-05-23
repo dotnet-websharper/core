@@ -83,8 +83,8 @@ let RestorePackages () =
         nuget "install Mono.Cecil -version 0.9.6.1 -o packages -excludeVersion" // newer: 0.9.6.1
         nuget "install AjaxMin -version 5.14.5506.26202 -o packages -excludeVersion"
         nuget "install FsNuGet -o packages -excludeVersion -nocache"
-        nuget "install Microsoft.CodeAnalysis.CSharp -version 1.2.1 -o packages -excludeVersion"
-        nuget "install FSharp.Compiler.Service -version 3.0.0.0 -o packages -excludeVersion"
+        nuget "install Microsoft.CodeAnalysis.CSharp -version 1.2.2 -o packages -excludeVersion"
+        nuget "install FSharp.Compiler.Service -version 3.0.0 -o packages -excludeVersion"
 
 [<EntryPoint>]
 let Start args =
