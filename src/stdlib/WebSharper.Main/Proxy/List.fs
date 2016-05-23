@@ -22,7 +22,6 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 
-[<Name "WebSharper.List.T">]
 [<Proxy(typeof<list<_>>)>]
 [<DefaultAugmentation(false)>]
 type private ListProxy<'T> =

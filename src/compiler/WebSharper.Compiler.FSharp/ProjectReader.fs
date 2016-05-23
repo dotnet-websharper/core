@@ -76,6 +76,15 @@ let isResourceType (e: FSharpEntity) =
         CodeReader.getTypeDefinition i.TypeDefinition = Definitions.IResource
     )
 
+let isAugmentedFSharpType (e: FSharpEntity) =
+    (e.IsFSharpRecord || e.IsFSharpUnion || e.IsFSharpExceptionDeclaration)
+    && not (
+        e.Attributes |> Seq.exists (fun a ->
+            a.AttributeType.FullName = "Microsoft.FSharp.Core.DefaultAugmentationAttribute"
+            && not (snd a.ConstructorArguments.[0] :?> bool)
+        )
+    )
+
 let basicInstanceField =
     { 
         StrongName = None
@@ -694,7 +703,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
 
     let ckind = 
         if cls.IsFSharpModule then NotResolvedClassKind.Static
-        elif cls.IsFSharpRecord || cls.IsFSharpUnion || cls.IsFSharpExceptionDeclaration then NotResolvedClassKind.FSharpType
+        elif isAugmentedFSharpType cls then NotResolvedClassKind.FSharpType
         else NotResolvedClassKind.Class
 
     Some (

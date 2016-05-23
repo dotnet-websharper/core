@@ -687,7 +687,7 @@ type DotNetToJavaScript private (comp: Compilation) =
         | _ -> this.Error(SourceError "Invalid metadata for constructor.")
 
     override this.TransformCopyCtor(typ, objExpr) =
-        match comp.TryLookupClassInfo typ |> Option.bind (fun c -> c.Address) with
+        match comp.TryLookupClassInfo typ |> Option.bind (fun c -> if c.IsStatic then None else c.Address) with
         | Some a ->
             this.AddTypeDependency typ
             New (GlobalAccess a, [ this.TransformExpression objExpr ])
@@ -696,7 +696,6 @@ type DotNetToJavaScript private (comp: Compilation) =
     override this.TransformNewRecord(typ, fields) =
         match comp.TryGetRecordConstructor typ.Entity with
         | Some rctor ->
-            
             this.AddDependency(M.ConstructorNode (comp.FindProxied typ.Entity, rctor))
             this.TransformCtor(typ, rctor, fields)
         | _ ->
@@ -715,7 +714,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                 let objExpr =
                     Object (
                         ("$", Value (Int i)) ::
-                        (args |> List.mapi (fun j e -> "$" + string j, this.TransformExpression e)) 
+                        (args |> List.mapi (fun j e -> "$" + string j, e)) 
                     )
                 this.TransformCopyCtor(typ.Entity, objExpr)
         | _ -> this.Error(SourceError "Failed to translate union case creation.")
@@ -944,7 +943,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                 match comp.TryLookupClassInfo t with
                 | Some c ->
                     match c.Address with
-                    | Some a ->
+                    | Some a when not c.IsStatic ->
                         Binary(this.TransformExpression expr, BinaryOperator.instanceof, GlobalAccess a)
                     | _ ->
                         this.Error(SourceError "Type test cannot be translated because client-side class does not have a prototype")

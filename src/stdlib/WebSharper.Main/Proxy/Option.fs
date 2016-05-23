@@ -23,7 +23,6 @@ namespace WebSharper
 open WebSharper.JavaScript
 
 [<Proxy(typeof<option<_>>)>]
-[<Name "WebSharper.Option.T">]
 [<CompilationRepresentation (CompilationRepresentationFlags.UseNullAsTrueValue)>]
 [<DefaultAugmentation(false)>]
 [<RequireQualifiedAccess>]
@@ -40,10 +39,10 @@ type private OptionProxy<'T> =
     [<Inline "$x == null">]
     static member get_IsNone(x: option<'T>) = false
 
-    [<Inline; JavaScript>]  
+    [<Inline>]  
     static member Some(v: 'T) = As<'T option> (Some v)  
   
-    [<Inline; JavaScript>]  
+    [<Inline>]  
     static member get_None<'T>() = As<'T option> None
 
     [<Inline "$x ? 1 : 0">]
