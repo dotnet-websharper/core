@@ -36,6 +36,13 @@ type private Enum =
 
 [<JavaScript>]
 module ClientSideJson =
+
+    [<Inline>]
+    let InlineSerialize x = "x" + Json.Serialize x
+
+    [<Inline>]
+    let InlineDeserialize<'T> (x: string) = Json.Deserialize x.[1..] : 'T
+
     let ClientTests =
         TestCategory "Client-side JSON" {
 
@@ -286,6 +293,14 @@ module ClientSideJson =
                 equal (Json.Deserialize "1") Enum.Case1
                 equal (Json.Deserialize "2") Enum.Case2
                 equal (Json.Deserialize "3") (enum<Enum> 3)
+            }
+
+            Test "serialize: defer type resolution in inline function" {
+                equal (InlineSerialize 42) "x42"
+            }
+
+            Test "deserialize: defer type resolution in inline function" {
+                equal (InlineDeserialize "x42") 42
             }
 
         }

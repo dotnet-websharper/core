@@ -272,20 +272,22 @@ module Macro =
             let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
             Call(Some x, NonGeneric providerType, NonGeneric m, args)
 
-        type EncodeResult = Choice<Expression, string>
+        type EncodeResult = Choice<Expression, string, unit>
 
-        let (>>=) (m as x: EncodeResult) (f: Expression -> EncodeResult) =
-            match m with
-            | Choice1Of2 e -> f e
-            | Choice2Of2 _ -> x
-        let ok x = Choice1Of2 x : EncodeResult
-        let fail x = Choice2Of2 x : EncodeResult
+        let (>>=) (x: EncodeResult) (f: Expression -> EncodeResult) =
+            match x with
+            | Choice1Of3 e -> f e
+            | _ -> x
+        let ok x = Choice1Of3 x : EncodeResult
+        let fail x = Choice2Of3 x : EncodeResult
+        let generic = Choice3Of3 () : EncodeResult
 
         let ident = 
             let x = Id.New()
             Lambda([], Lambda ([x], Var x))
 
-        let getEncoding name isEnc param warn (comp: M.ICompilation) (t: Type) =
+        /// Returns None if MacroNeedsResolvedTypeArg.
+        let getEncoding name isEnc param warn (comp: M.ICompilation) (t: Type) : option<Expression> =
             let ctx = System.Collections.Generic.Dictionary()
             let call = invoke comp param.Provider isEnc
             let rec encode t =
@@ -351,7 +353,7 @@ module Macro =
                 | ByRefType _ ->
                     fail (name + ": Cannot de/serialize a byref value.")
                 | TypeParameter _ ->
-                    fail (name + ": Cannot de/serialize a generic value. You must call this function with a concrete type.")
+                    generic
             // Encode a type that might be recursively defined
             and encRecType t targs args =
                 match comp.GetCustomTypeInfo t.TypeDefinition with
@@ -506,7 +508,7 @@ module Macro =
                 | _ -> 
                     fail (name + ": Type not supported: " + t.TypeDefinition.Value.FullName)
             match encode t with
-            | Choice1Of2 x ->
+            | Choice1Of3 x ->
                 if ctx |> Seq.forall (fun (KeyValue(_, (_, _, multiple))) -> not multiple) then
                     // Every type is present only once and non-recursive;
                     // no need for "let"s at all, we can just have one big expression.
@@ -528,7 +530,7 @@ module Macro =
                     let rec sub x =
                         let res = trI.TransformExpression x 
                         if ctx.Count = 0 then res else sub res
-                    sub x
+                    sub x |> Some
                 else
                     LetRec(
                         let fld = !~(String "x")
@@ -545,19 +547,25 @@ module Macro =
                                         !~Null);
                                     ItemGet(Var xid, fld)])
                         ], x)
-            | Choice2Of2 msg -> failwithf "%A: %s" t msg
+                    |> Some
+            | Choice2Of3 msg -> failwithf "%A: %s" t msg
+            | Choice3Of3 () -> None
 
         let encodeLambda name param warn comp t =
-            Application(getEncoding name true param warn comp t, [], true, Some 0)
+            getEncoding name true param warn comp t
+            |> Option.map (fun x -> Application(x, [], true, Some 0))
 
         let encode name param warn comp t arg =
-            Application(encodeLambda name param warn comp t, [arg], true, Some 1)
+            encodeLambda name param warn comp t
+            |> Option.map (fun x -> Application(x, [arg], true, Some 1))
 
         let decodeLambda name param warn comp t =
-            Application(getEncoding name false param warn comp t, [], true, Some 0)
+            getEncoding name false param warn comp t
+            |> Option.map (fun x -> Application(x, [], true, Some 0))
 
         let decode name param warn comp t arg =
-            Application(decodeLambda name param warn comp t, [arg], true, Some 1)
+            decodeLambda name param warn comp t
+            |> Option.map (fun x -> Application(x, [arg], true, Some 1))
 
     type Parameters with
 
@@ -584,15 +592,18 @@ module Macro =
 
     let Serialize param warn comp t arg =
         // JSON.stringify(ENCODE()(arg))
-        mJson comp "Stringify" [encode "Serialize" param warn comp t arg]
+        encode "Serialize" param warn comp t arg
+        |> Option.map (fun x -> mJson comp "Stringify" [x])
 
     let SerializeLambda param warn comp t =
-        let enc = Id.New()
-        let arg = Id.New()
-        // let enc = ENCODE() in fun arg -> JSON.stringify(enc(arg))
-        Let(enc, encodeLambda "SerializeLambda" param warn comp t,
-            Lambda([arg],
-                mJson comp "Stringify" [Application(Var enc, [Var arg], true, Some 1)]))
+        encodeLambda "SerializeLambda" param warn comp t
+        |> Option.map (fun x ->
+            let enc = Id.New()
+            let arg = Id.New()
+            // let enc = ENCODE() in fun arg -> JSON.stringify(enc(arg))
+            Let(enc, x,
+                Lambda([arg],
+                    mJson comp "Stringify" [Application(Var enc, [Var arg], true, Some 1)])))
 
     let Decode param warn comp t arg =
         // DECODE()(arg)
@@ -607,12 +618,14 @@ module Macro =
         decode "Deserialize" param warn comp t (mJson comp "Parse" [arg])
 
     let DeserializeLambda param warn comp t =
-        // let dec = DECODE() in fun arg -> dec(JSON.parse(arg))
-        let dec = Id.New()
-        let arg = Id.New()
-        Let(dec, decodeLambda "DeserializeLambda" param warn comp t,
-            Lambda([arg],
-                Application(Var dec, [mJson comp "Parse" [Var arg]], true, Some 1)))
+        decodeLambda "DeserializeLambda" param warn comp t
+        |> Option.map (fun x ->
+            let dec = Id.New()
+            let arg = Id.New()
+            // let dec = DECODE() in fun arg -> dec(JSON.parse(arg))
+            Let(dec, x,
+                Lambda([arg],
+                    Application(Var dec, [mJson comp "Parse" [Var arg]], true, Some 1))))
 
     type SerializeMacro() =
         inherit WebSharper.Core.Macro()
@@ -640,8 +653,11 @@ module Macro =
                 | _ -> failwith "Invalid macro invocation"
             let id = Id.New()
             let res =
-                Let(id, provider, f {param with Provider = Var id} warn c.Compilation c.Method.Generics.Head (last c.Arguments))
-                |> WebSharper.Core.MacroOk
+                match f {param with Provider = Var id} warn c.Compilation c.Method.Generics.Head (last c.Arguments) with
+                | Some x ->
+                    Let(id, provider, x)
+                    |> WebSharper.Core.MacroOk
+                | None -> WebSharper.Core.MacroNeedsResolvedTypeArg
             match !warning with
             | None -> res
             | Some msg -> WebSharper.Core.MacroWarning(msg, res)
