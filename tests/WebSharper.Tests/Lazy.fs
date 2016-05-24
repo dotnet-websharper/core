@@ -44,4 +44,9 @@ let Tests =
             isTrue c.IsValueCreated
         }
 
+        Test "Constructor" {
+            let l2 = System.Lazy<int>(fun () -> 1 + 1)
+            isFalse l2.IsValueCreated
+            equal l2.Value 2
+        }
     }

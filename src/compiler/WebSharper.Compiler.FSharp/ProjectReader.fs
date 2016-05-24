@@ -522,161 +522,161 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
 
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 
-    if cls.IsFSharpUnion then
-        let usesNull =
-            cls.UnionCases.Count < 4 // see TaggingThresholdFixedConstant in visualfsharp/src/ilx/EraseUnions.fs
-            && cls.Attributes |> CodeReader.hasCompilationRepresentation CompilationRepresentationFlags.UseNullAsTrueValue
-            && cls.UnionCases |> Seq.exists (fun c -> c.UnionCaseFields.Count = 0)
+    if annot.IsJavaScript then
+        if cls.IsFSharpUnion then
+            let usesNull =
+                cls.UnionCases.Count < 4 // see TaggingThresholdFixedConstant in visualfsharp/src/ilx/EraseUnions.fs
+                && cls.Attributes |> CodeReader.hasCompilationRepresentation CompilationRepresentationFlags.UseNullAsTrueValue
+                && cls.UnionCases |> Seq.exists (fun c -> c.UnionCaseFields.Count = 0)
 
-        let tparamsMap =
-            clsTparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
+            let tparamsMap =
+                clsTparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
 
-        let mutable nullCase = usesNull 
+            let mutable nullCase = usesNull 
 
-        let cases =
-            cls.UnionCases
-            |> Seq.map (fun case ->
-                let cAnnot = CodeReader.attrReader.GetMemberAnnot(annot, case.Attributes)
-                let kind =
-                    if nullCase && case.UnionCaseFields.Count = 0 then
-                        nullCase <- false
-                        ConstantFSharpUnionCase Null
-                    else
-                    // TODO: error on null case having another constant
-                    // TODO: error on same constant on multiple cases 
-                    match cAnnot.Kind with
-                    | Some (A.MemberKind.Constant v) -> ConstantFSharpUnionCase v
-                    | _ ->
-                        NormalFSharpUnionCase (
-//                            cAnnot.Name,
-                            case.UnionCaseFields
-                            |> Seq.map (fun f ->
-                                {
-                                    Name = f.Name
-                                    UnionFieldType = CodeReader.getType tparamsMap f.FieldType
-                                    DateTimeFormat = 
-                                        cAnnot.DateTimeFormat 
-                                        |> List.tryPick (fun (target, format) -> if target = Some f.Name then Some format else None)
-                                }
+            let cases =
+                cls.UnionCases
+                |> Seq.map (fun case ->
+                    let cAnnot = CodeReader.attrReader.GetMemberAnnot(annot, case.Attributes)
+                    let kind =
+                        if nullCase && case.UnionCaseFields.Count = 0 then
+                            nullCase <- false
+                            ConstantFSharpUnionCase Null
+                        else
+                        // TODO: error on null case having another constant
+                        // TODO: error on same constant on multiple cases 
+                        match cAnnot.Kind with
+                        | Some (A.MemberKind.Constant v) -> ConstantFSharpUnionCase v
+                        | _ ->
+                            NormalFSharpUnionCase (
+    //                            cAnnot.Name,
+                                case.UnionCaseFields
+                                |> Seq.map (fun f ->
+                                    {
+                                        Name = f.Name
+                                        UnionFieldType = CodeReader.getType tparamsMap f.FieldType
+                                        DateTimeFormat = 
+                                            cAnnot.DateTimeFormat 
+                                            |> List.tryPick (fun (target, format) -> if target = Some f.Name then Some format else None)
+                                    }
+                                )
+                                |> List.ofSeq
                             )
-                            |> List.ofSeq
+                    let staticIs =
+                        not usesNull || not (
+                            case.Attributes
+                            |> CodeReader.hasCompilationRepresentation CompilationRepresentationFlags.Instance
                         )
-                let staticIs =
-                    not usesNull || not (
-                        case.Attributes
-                        |> CodeReader.hasCompilationRepresentation CompilationRepresentationFlags.Instance
-                    )
-                {
-                    Name = case.Name
-                    JsonName = cAnnot.Name
-                    Kind = kind
-                    StaticIs = staticIs
-                }
-            )
-            |> List.ofSeq
-        
-        let i =
-            FSharpUnionInfo {
-                Cases = cases
-                NamedUnionCases = annot.NamedUnionCases
-                HasNull = usesNull && not nullCase
-            }
-
-        comp.AddCustomType(def, i)
-
-    if cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration then
-        let tparamsMap =
-            clsTparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
-        let cdef =
-            Hashed {
-                CtorParameters =
-                    cls.FSharpFields |> Seq.map (fun f -> CodeReader.getType tparamsMap f.FieldType) |> List.ofSeq
-            }
-        let body =
-            let vars =
-                cls.FSharpFields |> Seq.map (fun f -> CodeReader.namedId f.Name) |> List.ofSeq
-            let fields =
-                cls.FSharpFields |> Seq.map (fun f -> 
-                    let fAnnot = CodeReader.attrReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
-                    
-                    match fAnnot.Name with Some n -> n | _ -> f.Name
-                    , 
-                    fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                    {
+                        Name = case.Name
+                        JsonName = cAnnot.Name
+                        Kind = kind
+                        StaticIs = staticIs
+                    }
                 )
                 |> List.ofSeq
-            let obj = 
-                let normalFields =
-                    Seq.zip (fields) vars
-                    |> Seq.choose (fun ((name, opt), v) -> if opt then None else Some (name, Var v))
-                    |> List.ofSeq |> Object
-                if fields |> List.exists snd then
-                    let o = CodeReader.newId()
-                    Let(o, normalFields, 
-                        Sequential [
-                            for (name, opt), v in Seq.zip fields vars do
-                                if opt then yield JSRuntime.SetOptional (Var o) (Value (String name)) (Var v)
-                            yield Var o
-                        ]
-                    )
-                else 
-                    normalFields
-            Lambda (vars, CopyCtor(def, obj))
-
-        let ckind = if isAugmentedFSharpType cls then N.Static else N.Inline 
-        addConstructor A.MemberAnnotation.BasicJavaScript cdef ckind false body
-
-        // properties
-
-        for f in cls.FSharpFields do
-            let recTyp = Generic def (List.init cls.GenericParameters.Count TypeParameter)
-            let fTyp = CodeReader.getType tparamsMap f.FieldType
-            
-            let getDef =
-                Hashed {
-                    MethodName = "get_" + f.Name
-                    Parameters = []
-                    ReturnType = fTyp
-                    Generics = 0
+        
+            let i =
+                FSharpUnionInfo {
+                    Cases = cases
+                    NamedUnionCases = annot.NamedUnionCases
+                    HasNull = usesNull && not nullCase
                 }
 
-            let getBody = FieldGet(Some (Hole 0), recTyp, f.Name)
-                
-            addMethod A.MemberAnnotation.BasicInlineJavaScript getDef N.Inline false getBody
+            comp.AddCustomType(def, i)
 
-            if f.IsMutable then
-                let setDef =
+        if cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration then
+            let tparamsMap =
+                clsTparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
+            let cdef =
+                Hashed {
+                    CtorParameters =
+                        cls.FSharpFields |> Seq.map (fun f -> CodeReader.getType tparamsMap f.FieldType) |> List.ofSeq
+                }
+            let body =
+                let vars =
+                    cls.FSharpFields |> Seq.map (fun f -> CodeReader.namedId f.Name) |> List.ofSeq
+                let fields =
+                    cls.FSharpFields |> Seq.map (fun f -> 
+                        let fAnnot = CodeReader.attrReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
+                    
+                        match fAnnot.Name with Some n -> n | _ -> f.Name
+                        , 
+                        fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                    )
+                    |> List.ofSeq
+                let obj = 
+                    let normalFields =
+                        Seq.zip (fields) vars
+                        |> Seq.choose (fun ((name, opt), v) -> if opt then None else Some (name, Var v))
+                        |> List.ofSeq |> Object
+                    if fields |> List.exists snd then
+                        let o = CodeReader.newId()
+                        Let(o, normalFields, 
+                            Sequential [
+                                for (name, opt), v in Seq.zip fields vars do
+                                    if opt then yield JSRuntime.SetOptional (Var o) (Value (String name)) (Var v)
+                                yield Var o
+                            ]
+                        )
+                    else 
+                        normalFields
+                Lambda (vars, CopyCtor(def, obj))
+
+            addConstructor A.MemberAnnotation.BasicJavaScript cdef N.Static false body
+
+            // properties
+
+            for f in cls.FSharpFields do
+                let recTyp = Generic def (List.init cls.GenericParameters.Count TypeParameter)
+                let fTyp = CodeReader.getType tparamsMap f.FieldType
+            
+                let getDef =
                     Hashed {
-                        MethodName = "set_" + f.Name
-                        Parameters = [ fTyp ]
-                        ReturnType = VoidType
+                        MethodName = "get_" + f.Name
+                        Parameters = []
+                        ReturnType = fTyp
                         Generics = 0
                     }
 
-                let setBody = FieldSet(Some (Hole 0), recTyp, f.Name, Hole 1)
+                let getBody = FieldGet(Some (Hole 0), recTyp, f.Name)
+                
+                addMethod A.MemberAnnotation.BasicInlineJavaScript getDef N.Inline false getBody
+
+                if f.IsMutable then
+                    let setDef =
+                        Hashed {
+                            MethodName = "set_" + f.Name
+                            Parameters = [ fTyp ]
+                            ReturnType = VoidType
+                            Generics = 0
+                        }
+
+                    let setBody = FieldSet(Some (Hole 0), recTyp, f.Name, Hole 1)
             
-                addMethod A.MemberAnnotation.BasicInlineJavaScript setDef N.Inline false setBody
+                    addMethod A.MemberAnnotation.BasicInlineJavaScript setDef N.Inline false setBody
 
-    if cls.IsFSharpRecord then
-        let tparamsMap =
-            clsTparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
+        if cls.IsFSharpRecord then
+            let tparamsMap =
+                clsTparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
 
-        let i = 
-            cls.FSharpFields |> Seq.map (fun f ->
-                let fAnnot = CodeReader.attrReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
-                let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
-                let fTyp = CodeReader.getType tparamsMap f.FieldType
+            let i = 
+                cls.FSharpFields |> Seq.map (fun f ->
+                    let fAnnot = CodeReader.attrReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
+                    let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                    let fTyp = CodeReader.getType tparamsMap f.FieldType
 
-                {
-                    Name = f.Name
-                    JSName = match fAnnot.Name with Some n -> n | _ -> f.Name // TODO : set in resolver instead
-                    RecordFieldType = fTyp
-                    DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
-                    Optional = isOpt
-                }
-            )
-            |> List.ofSeq |> FSharpRecordInfo    
+                    {
+                        Name = f.Name
+                        JSName = match fAnnot.Name with Some n -> n | _ -> f.Name // TODO : set in resolver instead
+                        RecordFieldType = fTyp
+                        DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
+                        Optional = isOpt
+                    }
+                )
+                |> List.ofSeq |> FSharpRecordInfo    
 
-        comp.AddCustomType(def, i)
+            comp.AddCustomType(def, i)
 
     for f in cls.FSharpFields do
         let fAnnot = CodeReader.attrReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
@@ -688,13 +688,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
 
-//    let notTranslated =
-//        not annot.IsJavaScript 
-////        && not (cls.IsFSharpExceptionDeclaration || cls.IsFSharpRecord || cls.IsFSharpUnion)
-//        && clsMembers |> Seq.forall (function NotResolvedMember.Field _ -> true | _ -> false)
-//
-//    if notTranslated then None else
-
     let strongName =
         annot.Name |> Option.map (fun n ->
             if n.Contains "." then n else 
@@ -704,7 +697,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
 
     let ckind = 
         if cls.IsFSharpModule then NotResolvedClassKind.Static
-        elif isAugmentedFSharpType cls then NotResolvedClassKind.FSharpType
+        elif annot.IsJavaScript && isAugmentedFSharpType cls then NotResolvedClassKind.FSharpType
         else NotResolvedClassKind.Class
 
     Some (

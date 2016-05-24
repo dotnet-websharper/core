@@ -197,6 +197,14 @@ namespace WebSharper.CSharp.Tests
             Equal(res, 15, "variable inside loop");
         }
 
+        [Test]
+        public void Lazy()
+        {
+            var l2 = new Lazy<int>(() => 1 + 1);
+            Equal(l2.IsValueCreated, false);
+            Equal(l2.Value, 2);
+        }
+
         //[Test]
         //public void VariableScopingGoto()
         //{

@@ -380,7 +380,7 @@ type CompilationError =
     | TypeNotFound of TypeDefinition
     | MethodNotFound of TypeDefinition * Method * list<Method>
     | MethodNameNotFound of TypeDefinition * Method * list<string>
-    | ConstructorNotFound of TypeDefinition * Constructor
+    | ConstructorNotFound of TypeDefinition * Constructor * list<Constructor>
     | FieldNotFound of TypeDefinition * string 
 //    | MacroError of TypeDefinition * string
   
@@ -397,7 +397,10 @@ type CompilationError =
             sprintf "Method name not found in JavaScript compilation: %s, Members: %s" 
                 (string meth.Value) 
                 (candidates |> String.concat ", ")
-        | ConstructorNotFound (typ, _) -> sprintf "Constructor not found in JavaScript compilation for: %s" typ.Value.FullName
+        | ConstructorNotFound (typ, ctor, candidates) ->
+            sprintf "Constructor not found in JavaScript compilation: %s, Candidates: %s" 
+                (string ctor.Value) 
+                (candidates |> Seq.map (fun c -> string c.Value) |> String.concat ", ")
         | FieldNotFound (typ, field) -> sprintf "Field not found in JavaScript compilation: %s.%s" typ.Value.FullName field
 
 type LookupMemberResult =

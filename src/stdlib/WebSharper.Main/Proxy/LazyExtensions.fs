@@ -55,4 +55,4 @@ let CreateFromValue (v: 'T) : Lazy<'T> =
     As x
 
 let Force (x: Lazy<'T>) : 'T =
-    As<LazyProxy<'T>>(x).eval()
+    As<LazyRecord<'T>>(x).eval()

@@ -31,7 +31,6 @@ type Result<'T> =
     | No of exn
     | Cc of OCE
   
-[<JavaScript>]
 type CT =
     { 
         [<Name "c">] mutable IsCancellationRequested : bool 
@@ -50,7 +49,6 @@ let internal noneCT =
 
 [<JavaScript>]
 let internal Register (ct: CT) (callback: unit -> unit) =
-    // TODO: rewrite with object ecpression
     if ct ===. noneCT then
         { new System.IDisposable with
             member this.Dispose() = ()

@@ -280,7 +280,7 @@ let getMember (x : FSharpMemberOrFunctionOrValue) : Member =
                 (List.init x.LogicalEnclosingEntity.GenericParameters.Count (fun i -> TypeParameter i)) :: ps
         else ps
 
-    if name = ".ctor" then
+    if name = ".ctor" || name = "CtorProxy" then
         Member.Constructor <| Constructor {
             CtorParameters = getPars()
         }  

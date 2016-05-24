@@ -238,9 +238,15 @@ type AttributeReader<'A>() =
     member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
         let attrArr, macros, name, reqs = this.GetAttrs (parent, attrs)
         let proxyOf = attrArr |> Array.tryPick (function A.Proxy p -> Some p | _ -> None) 
+        let isJavaScript =
+            match proxyOf, attrArr |> Array.tryPick (function A.JavaScript j -> Some j | _ -> None) with
+            | Some _, Some false -> false
+            | Some _, _
+            | _, Some true -> true
+            | _ -> false
         {
             ProxyOf = proxyOf
-            IsJavaScript = Option.isSome proxyOf || attrArr |> Array.exists (function A.JavaScript true -> true | _ -> false)
+            IsJavaScript = isJavaScript
             IsStub = attrArr |> Array.exists (function A.Stub -> true | _ -> false)
             OptionalFields = attrArr |> Array.exists (function A.OptionalField -> true | _ -> false)
             Name = name

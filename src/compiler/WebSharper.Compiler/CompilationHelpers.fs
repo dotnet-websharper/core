@@ -575,7 +575,7 @@ let getAllAddresses (meta: Info) =
         let pr = if hasPrototype then Some (r.LookupPrototype typ) else None 
         let rec addMember (m: CompiledMember) =
             match m with
-            | Instance n -> pr.Value.Add n |> ignore
+            | Instance n -> pr |> Option.iter (fun p -> p.Add n |> ignore)
             | Static a 
             | Constructor a -> r.ExactStaticAddress a.Value |> ignore
             | Macro (_, _, Some m) -> addMember m
@@ -584,7 +584,7 @@ let getAllAddresses (meta: Info) =
         for f in cls.Fields.Values do
             match f with
             | InstanceField n 
-            | OptionalField n -> pr.Value.Add n |> ignore
+            | OptionalField n -> pr |> Option.iter (fun p -> p.Add n |> ignore)
             | StaticField a -> r.ExactStaticAddress a.Value |> ignore
         for m, _ in cls.Implementations.Values do addMember m
         for m, _, _ in cls.Methods.Values do addMember m

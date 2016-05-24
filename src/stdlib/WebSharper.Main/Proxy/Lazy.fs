@@ -22,19 +22,29 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 
-[<Proxy(typeof<System.Lazy<_>>)>]
-[<Name "WebSharper.Lazy.T">]
-type private LazyProxy<'T> =
+type private LazyRecord<'T> =
     {
-        mutable value   : 'T
-        mutable created : bool
-        mutable eval    : unit -> 'T
+        [<Name "v">] mutable value   : 'T
+        [<Name "c">] mutable created : bool
+        [<Name "e">] mutable eval    : unit -> 'T
     }
 
+[<Proxy(typeof<System.Lazy<_>>)>]
+[<Name "WebSharper.Lazy">]
+type private LazyProxy<'T> =
+
+    [<Inline; JavaScript>]
+    static member CtorProxy(valueFactory: System.Func<'T>) =
+        {
+            value    = JS.Undefined
+            created  = false
+            eval     = As valueFactory
+        }
+
     member this.IsValueCreated
-        with [<Inline "$this.created">] get () = X<bool>
+        with [<Inline "$this.c">] get () = X<bool>
 
     member this.Value
-        with [<Inline "$this.eval()">] get () = X<'T>
+        with [<Inline "$this.e()">] get () = X<'T>
 
 

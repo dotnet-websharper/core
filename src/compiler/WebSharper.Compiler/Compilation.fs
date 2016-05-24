@@ -420,7 +420,15 @@ type Compilation(meta: Info) =
                         Compiled (info, false, Undefined)
                     else
                         match this.GetCustomType typ with
-                        | NotCustomType -> LookupMemberError (ConstructorNotFound (typ, ctor))
+                        | NotCustomType -> 
+                            let candidates = 
+                                [
+                                    yield! cls.Constructors.Keys
+                                    for t, m in compilingConstructors.Keys do
+                                        if typ = t then
+                                            yield m
+                                ]
+                            LookupMemberError (ConstructorNotFound (typ, ctor, candidates))
                         | i -> CustomTypeMember i
         | _ ->
             match this.GetCustomType typ with
@@ -585,7 +593,7 @@ type Compilation(meta: Info) =
                             | N.Override _
                             | N.Implementation _ -> false
                             | _ -> true
-                        | M.Field (_, f) -> f.IsStatic
+//                        | M.Field (_, f) -> f.IsStatic
                         | _ -> true
                     )
             classes.Add (typ,

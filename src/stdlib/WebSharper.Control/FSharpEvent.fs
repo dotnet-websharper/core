@@ -23,6 +23,7 @@ namespace WebSharper.Control
 open WebSharper
 
 [<Proxy(typeof<Event<_>>)>]
+[<Name "WebSharper.Control.FSharpEvent">]
 type private FSharpEvent<'T> [<JavaScript>] () =
     let event = Event.New ()
 
