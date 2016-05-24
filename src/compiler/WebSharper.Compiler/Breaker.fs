@@ -418,7 +418,7 @@ let rec breakExpr expr : Broken<BreakResult> =
         when NotMutatedOrCaptured(a).Check(c) && NotMutatedOrCaptured(b).Check(c) -> // TODO: maybe weaker check is enough
             ReplaceId(a, b).TransformExpression(c) |> br            
     | Let(var, value, I.Application(func, [I.Var v], p, l))
-        when v = var && isStronglyPureExpr func ->
+        when v = var && isStronglyPureExpr func && CountVarOccurence(var).Get(func) = 0 ->
             Application(func, [value], p, l) |> br
     | Let(a, b, c) ->
         let brB = br b

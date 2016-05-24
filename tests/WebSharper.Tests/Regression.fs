@@ -177,6 +177,10 @@ module LetLambda =
 //    inherit System.Collections.Generic.IEnumerable<'T>
 //    inherit System.Collections.IEnumerable
 
+[<JavaScript>]
+[<Inline>]
+let inlinedIf a b c = if a() then b() else c()
+
 module SelfAlias =
     [<JavaScript>]    
     type BaseClass () as self =
@@ -407,5 +411,20 @@ let Tests =
             let str2 = WebSharper.Json.Serialize data2
             equal v data2
             equal str str2
+        }
+
+        Test "Pipe optimization" {
+            let f x y = x + y
+            let res1 =
+                let x = 2
+                (f x) x
+            let res2 =
+                2 |> (f 2) 
+            equal res1 4
+            equal res2 4
+        }
+
+        Test "Inlining function arguments" {
+            equal (inlinedIf (fun () -> true) (fun () -> 1) (fun () -> 2)) 1 
         }
     }
