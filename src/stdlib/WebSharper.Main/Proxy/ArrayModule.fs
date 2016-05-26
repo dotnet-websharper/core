@@ -264,9 +264,9 @@ let OfList<'T> (xs: list<'T>) = Array.ofSeq xs
 [<Name "ofSeq">]
 let OfSeq<'T> (xs: seq<'T>) : 'T [] =
     let q : 'T [] = [||]
-    use enum = Enumerator.Get xs
-    while enum.MoveNext() do
-        push q enum.Current
+    use o = Enumerator.Get xs
+    while o.MoveNext() do
+        push q o.Current
     q
 
 [<Name "partition">]

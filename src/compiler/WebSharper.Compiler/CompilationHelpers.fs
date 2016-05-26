@@ -303,6 +303,19 @@ type CountVarOccurence(v) =
         this.VisitStatement(s) 
         occ
 
+type VarsNotUsed(vs) =
+    inherit Visitor()
+
+    let mutable ok = true
+
+    override this.VisitId(a) =
+        if vs |> List.contains a then 
+            ok <- false
+
+    member this.Get(e) =
+        this.VisitExpression(e) 
+        ok
+
 /// Substitutes every access to an Id to a given expression
 type SubstituteVar(v, e) =
     inherit Transformer()

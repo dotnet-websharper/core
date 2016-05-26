@@ -946,7 +946,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                     | Some a when not c.IsStatic ->
                         Binary(this.TransformExpression expr, BinaryOperator.instanceof, GlobalAccess a)
                     | _ ->
-                        this.Error(SourceError "Type test cannot be translated because client-side class does not have a prototype")
+                        this.Error(SourceError ("Type test cannot be translated because client-side class does not have a prototype: " + t.Value.FullName))
                 | None -> 
                     match comp.GetCustomType t with
                     | M.FSharpUnionCaseInfo c ->

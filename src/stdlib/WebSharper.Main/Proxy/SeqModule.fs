@@ -84,7 +84,7 @@ let AverageBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
 [<Name "cache">]
 let Cache<'T> (s: seq<'T>) : seq<'T> =
     let cache = new System.Collections.Generic.Queue<'T>()
-    let enum  = ref (Enumerator.Get s)
+    let o  = ref (Enumerator.Get s)
     Enumerable.Of <| fun () ->
         let next (e: Enumerator.T<_,_>) =
             if e.State + 1 < cache.Count then
@@ -92,7 +92,7 @@ let Cache<'T> (s: seq<'T>) : seq<'T> =
                 e.Current <- (?) cache (As e.State)
                 true
             else
-                let en = !enum
+                let en = !o
                 if en = null then false
                 elif en.MoveNext() then
                     e.State   <- e.State + 1
@@ -101,7 +101,7 @@ let Cache<'T> (s: seq<'T>) : seq<'T> =
                     true
                 else
                     en.Dispose()
-                    enum := null
+                    o := null
                     false
         Enumerator.New 0 next
 
@@ -216,10 +216,10 @@ let Exists2 p (s1: seq<_>) (s2: seq<_>) =
 [<Name "filter">]
 let Filter (f: 'T -> bool) (s: seq<'T>) =
     Enumerable.Of <| fun () ->
-        let enum = Enumerator.Get s
-        Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
-            let mutable loop = enum.MoveNext()
-            let mutable c    = enum.Current
+        let o = Enumerator.Get s
+        Enumerator.NewDisposing () (fun _ -> o.Dispose()) <| fun e ->
+            let mutable loop = o.MoveNext()
+            let mutable c    = o.Current
             let mutable res  = false
             while loop do
                 if f c then
@@ -227,8 +227,8 @@ let Filter (f: 'T -> bool) (s: seq<'T>) =
                     res       <- true
                     loop      <- false
                 else
-                    if enum.MoveNext() then
-                        c <- enum.Current
+                    if o.MoveNext() then
+                        c <- o.Current
                     else
                         loop <- false
             res
@@ -432,15 +432,15 @@ let Singleton<'T> (x: 'T) = X<seq<'T>>
 [<Name "skip">]
 let Skip (n: int) (s: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->
-        let enum = Enumerator.Get s
-        Enumerator.NewDisposing true (fun _ -> enum.Dispose()) (fun e ->
+        let o = Enumerator.Get s
+        Enumerator.NewDisposing true (fun _ -> o.Dispose()) (fun e ->
             if e.State then
                 for i = 1 to n do
-                    if not (enum.MoveNext()) then
+                    if not (o.MoveNext()) then
                         InsufficientElements()
                 e.State <- false
-            if enum.MoveNext() then
-                e.Current <- enum.Current
+            if o.MoveNext() then
+                e.Current <- o.Current
                 true
             else
                 false))
@@ -448,14 +448,14 @@ let Skip (n: int) (s: seq<'T>) : seq<'T> =
 [<Name "skipWhile">]
 let SkipWhile (f: 'T -> bool) (s: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->
-        let enum = Enumerator.Get s
-        Enumerator.NewDisposing true (fun _ -> enum.Dispose()) (fun e ->
+        let o = Enumerator.Get s
+        Enumerator.NewDisposing true (fun _ -> o.Dispose()) (fun e ->
             if e.State then
                 let mutable go = true
                 let mutable empty = false
                 while go do
-                    if enum.MoveNext() then
-                        if not (f enum.Current) then go <- false 
+                    if o.MoveNext() then
+                        if not (f o.Current) then go <- false 
                     else 
                         go <-false
                         empty <- true
@@ -463,11 +463,11 @@ let SkipWhile (f: 'T -> bool) (s: seq<'T>) : seq<'T> =
                 if empty then 
                     false 
                 else
-                    e.Current <- enum.Current
+                    e.Current <- o.Current
                     true
             else
-                if enum.MoveNext() then
-                    e.Current <- enum.Current
+                if o.MoveNext() then
+                    e.Current <- o.Current
                     true
                 else
                     false))
@@ -510,14 +510,14 @@ let Take (n: int) (s: seq<'T>) : seq<'T> =
         InputMustBeNonNegative()
     Enumerable.Of (fun () ->
         let e = ref (Enumerator.Get s)
-        Enumerator.NewDisposing 0 (fun _ -> safeDispose !e) (fun enum ->
-            enum.State <- enum.State + 1
-            if enum.State > n then false else
+        Enumerator.NewDisposing 0 (fun _ -> safeDispose !e) (fun o ->
+            o.State <- o.State + 1
+            if o.State > n then false else
             let en = !e
             if en = null then InsufficientElements()
             elif en.MoveNext() then
-                enum.Current <- en.Current
-                if enum.State = n then
+                o.Current <- en.Current
+                if o.State = n then
                     en.Dispose()
                     e := null
                 true

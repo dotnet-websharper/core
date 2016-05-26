@@ -217,7 +217,7 @@ let rec breakExpr expr : Broken<BreakResult> =
     | Hole _
         -> broken expr 
     | Function (vars, I.Return (I.Application (f, args, _, Some i)))
-        when List.length args = i && sameVars vars args ->
+        when List.length args = i && sameVars vars args && VarsNotUsed(vars).Get(f) ->
             br f
     | Function (args, body) ->
         broken (Function (args, BreakStatement body)) 

@@ -197,6 +197,12 @@ module SelfAlias =
 
         do self.Value <- self.Value * 10 + 2
 
+[<Pure; Direct "void($x[0]++)">]
+let fakePureFunc (x: int ref) = () 
+
+[<Direct "void($x[0]++)">]
+let nonPureFunc (x: int ref) = ()  
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -420,11 +426,22 @@ let Tests =
                 (f x) x
             let res2 =
                 2 |> (f 2) 
+            let res3 =
+                2 |> (fun x -> f x x)
             equal res1 4
             equal res2 4
+            equal res3 4
         }
 
         Test "Inlining function arguments" {
             equal (inlinedIf (fun () -> true) (fun () -> 1) (fun () -> 2)) 1 
+        }
+
+        Test "Pure attribute" {
+            let r = ref 0
+            fakePureFunc r
+            equal !r 0
+            nonPureFunc r
+            equal !r 1
         }
     }

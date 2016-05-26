@@ -129,12 +129,12 @@ let SeqTryLast (s: seq<'T>) =
 let SeqChunkBySize (size: int) (s: seq<'T>) =
     if size <= 0 then failwith "Chunk size must be positive"
     Enumerable.Of <| fun () ->
-        let enum = Enumerator.Get s
-        Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
-            if enum.MoveNext() then
-                let res = [|enum.Current|]
-                while res.Length < size && enum.MoveNext() do 
-                    res.JS.Push enum.Current |> ignore
+        let o = Enumerator.Get s
+        Enumerator.NewDisposing () (fun _ -> o.Dispose()) <| fun e ->
+            if o.MoveNext() then
+                let res = [|o.Current|]
+                while res.Length < size && o.MoveNext() do 
+                    res.JS.Push o.Current |> ignore
                 e.Current <- res
                 true
             else false
@@ -183,7 +183,7 @@ let SeqDistinct<'T when 'T : equality> (s: seq<'T>) : seq<'T> =
 let SeqDistinctBy<'T,'K when 'K : equality>
         (f: 'T -> 'K) (s: seq<'T>) : seq<'T> =
     Enumerable.Of <| fun () ->
-        let enum        = Enumerator.Get s
+        let o        = Enumerator.Get s
         let seen        = Array<Array<'K>>()
         let add c =
             let k = f c
@@ -198,12 +198,12 @@ let SeqDistinctBy<'T,'K when 'K : equality>
                 else
                     cont.Push(k) |> ignore
                     true         
-        Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
-            if enum.MoveNext() then
-                let mutable cur = enum.Current
+        Enumerator.NewDisposing () (fun _ -> o.Dispose()) <| fun e ->
+            if o.MoveNext() then
+                let mutable cur = o.Current
                 let mutable has = add cur
-                while not has && enum.MoveNext() do
-                    cur <- enum.Current
+                while not has && o.MoveNext() do
+                    cur <- o.Current
                     has <- add cur
                 if has then
                     e.Current <- cur
@@ -216,7 +216,7 @@ let SeqDistinctBy<'T,'K when 'K : equality>
 [<Name "WebSharper.Seq.except">]
 let SeqExcept (itemsToExclude: seq<'T>) (s: seq<'T>) =
     Enumerable.Of <| fun () ->
-        let enum        = Enumerator.Get s
+        let o        = Enumerator.Get s
         let seen        = Array<Array<'T>>()
         let add c =
             let h = hash c
@@ -232,12 +232,12 @@ let SeqExcept (itemsToExclude: seq<'T>) (s: seq<'T>) =
                     true         
         for i in itemsToExclude do
             add i |> ignore
-        Enumerator.NewDisposing () (fun _ -> enum.Dispose()) <| fun e ->
-            if enum.MoveNext() then
-                let mutable cur = enum.Current
+        Enumerator.NewDisposing () (fun _ -> o.Dispose()) <| fun e ->
+            if o.MoveNext() then
+                let mutable cur = o.Current
                 let mutable has = add cur
-                while not has && enum.MoveNext() do
-                    cur <- enum.Current
+                while not has && o.MoveNext() do
+                    cur <- o.Current
                     has <- add cur
                 if has then
                     e.Current <- cur
