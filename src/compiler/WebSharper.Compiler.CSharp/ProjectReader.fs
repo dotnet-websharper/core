@@ -515,7 +515,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Inline js ->
                     checkNotAbstract() 
                     try 
-                        let parsed = WebSharper.Compiler.Recognize.createInline None (getVars()) js
+                        let parsed = WebSharper.Compiler.Recognize.createInline None (getVars()) mAnnot.Pure js
                         addMethod mAnnot mdef N.Inline true parsed
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
@@ -572,7 +572,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     addConstructor mAnnot cdef N.NoFallback true Undefined
                 | A.MemberKind.Inline js ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.createInline None (getVars()) js
+                        let parsed = WebSharper.Compiler.Recognize.createInline None (getVars()) mAnnot.Pure js
                         addConstructor mAnnot cdef N.Inline true parsed 
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)

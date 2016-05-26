@@ -264,12 +264,14 @@ module CodeModel =
     and [<AbstractClass>] MethodBase =
         inherit Member
         val mutable Inline : option<Inline>
+        val mutable IsPure : bool
         val mutable Macro : option<T>
 
         internal new (name, t) =
             {
                 inherit Member(name, t)
                 Inline = None
+                IsPure = false
                 Macro = None
             }
 

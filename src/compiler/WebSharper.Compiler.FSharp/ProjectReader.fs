@@ -439,7 +439,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                         checkNotAbstract() 
                         let vars, thisVar = getVarsAndThis()
                         try 
-                            let parsed = WebSharper.Compiler.Recognize.createInline thisVar vars js
+                            let parsed = WebSharper.Compiler.Recognize.createInline thisVar vars mAnnot.Pure js
                             addMethod mAnnot mdef N.Inline true parsed
                             // TODO: only one definition added, this is a workaround for C# compatibility
                             addModuleValueProp N.Inline parsed
@@ -489,7 +489,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                     | A.MemberKind.Inline js ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.createInline thisVar vars js
+                            let parsed = WebSharper.Compiler.Recognize.createInline thisVar vars mAnnot.Pure js
                             addConstructor mAnnot cdef N.Inline true parsed 
                         with e ->
                             error ("Error parsing inline JavaScript: " + e.Message)

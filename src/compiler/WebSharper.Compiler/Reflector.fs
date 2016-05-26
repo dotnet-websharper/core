@@ -217,7 +217,7 @@ let TransformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
                         Some (Id.New "this")    
                     else 
                         None
-                let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline thisArg vars) 
+                let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline thisArg vars isPure) 
 
                 let kind =
                     if List.isEmpty macros then Inline else

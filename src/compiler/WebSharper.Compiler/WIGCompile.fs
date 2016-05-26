@@ -326,6 +326,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     let inlineAttr = findWsAttr "InlineAttribute"
     let macroAttr = findWsAttr "MacroAttribute"
     let requireAttr = findWsAttr "RequireAttribute"
+    let pureAttr = findWsAttr "PureAttribute"
 
     let fromInterop (name: string) =
         wsCore.MainModule.GetType("WebSharper.JavaScript", name)
@@ -418,6 +419,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     member b.ParamArray = paramArray
     member b.Require = requireAttr
     member b.Obsolete = obsolete
+    member b.Pure = pureAttr
     member b.String = stringType
     member b.SystemType = systemType
     member b.Void = voidType
@@ -598,6 +600,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     let requireAttributeConstructor = findTypedConstructor tB.Require [tB.SystemType.Name]
     let obsoleteAttributeConstructor = findDefaultConstructor tB.Obsolete 
     let obsoleteAttributeWithMsgConstructor = findTypedConstructor tB.Obsolete [tB.String.Name]
+    let pureAttributeConstructor = findDefaultConstructor tB.Pure 
 
     member c.AddBody(m: MethodDefinition) =
         let body = MethodBody(m)
@@ -635,6 +638,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     member c.RequireAttributeConstructor = requireAttributeConstructor
     member c.ObsoleteAttributeConstructor = obsoleteAttributeConstructor
     member c.ObsoleteAttributeWithMsgConstructor = obsoleteAttributeWithMsgConstructor
+    member c.PureAttributeConstructor = pureAttributeConstructor
 
 type CompilationKind =
     | LibraryKind
@@ -744,6 +748,11 @@ type MemberConverter
         | CodeModel.Obsolete None -> attrs.Add obsoleteAttribute
         | CodeModel.Obsolete (Some msg) -> attrs.Add (obseleteAttributeWithMsg msg)
 
+    let pureAttribute = CustomAttribute(mB.PureAttributeConstructor)
+
+    let setPureAttribute (x: CodeModel.MethodBase) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+        if x.IsPure then attrs.Add pureAttribute
+
     let makeParameters (f: Type.Function, defT, isCSharp) =
         Seq.ofArray [|
             for (n, t) in f.Parameters do
@@ -793,6 +802,7 @@ type MemberConverter
                 for p in makeParameters (f, td, isCSharp) do
                     cD.Parameters.Add p
                 setObsoleteAttribute x cD.CustomAttributes
+                setPureAttribute x cD.CustomAttributes
                 dT.Methods.Add(cD)
                 do
                     match x.Comment with
@@ -922,6 +932,7 @@ type MemberConverter
             |> inlineAttribute
             |> mD.CustomAttributes.Add
         setObsoleteAttribute x mD.CustomAttributes
+        setPureAttribute x mD.CustomAttributes
         dT.Methods.Add mD
 
     member private c.AddTypeMembers<'T when 'T :> Code.TypeDeclaration and 'T :> Code.IResourceDependable<'T>>

@@ -200,6 +200,9 @@ module SelfAlias =
 [<Pure; Direct "void($x[0]++)">]
 let fakePureFunc (x: int ref) = () 
 
+[<Pure; Inline "WebSharper.Tests.Regression.fakePureFunc($x)">]
+let fakePureFuncInline (x: int ref) = () 
+
 [<Direct "void($x[0]++)">]
 let nonPureFunc (x: int ref) = ()  
 
@@ -442,6 +445,8 @@ let Tests =
             fakePureFunc r
             equal !r 0
             nonPureFunc r
+            equal !r 1
+            fakePureFuncInline r
             equal !r 1
         }
     }

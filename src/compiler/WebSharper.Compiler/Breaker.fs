@@ -187,7 +187,6 @@ let rec breakExpr expr : Broken<BreakResult> =
                         else
                             let v = Id.New()
                             bL true (v :: b.Variables @ accVar, b.Statements @ VarSetStatement (v, getExpr b.Body) :: accSt, ResultVar v :: accE) bRest
-                | _ -> failwith "impossible"
             let vars, st, e = bL false ([], [], []) (List.rev bb)
             {
                 Body = e

@@ -32,9 +32,10 @@ type Environment =
         Inputs : list<Expression>
         Labels : Map<string, Id>
         This : option<Id>
+        IsPure : bool
     }
 
-    static member New(thisArg, isDirect, args) =
+    static member New(thisArg, isDirect, isPure, args) =
         // TODO : add  `arguments` to scope
         let mainScope =
             Option.toList thisArg @ args
@@ -57,6 +58,7 @@ type Environment =
                 else (if Option.isSome thisArg then [This] else []) @ (args |> List.map Var)
             Labels = Map.empty
             This = None
+            IsPure = isPure
         }
 
     static member Empty =
@@ -65,10 +67,14 @@ type Environment =
             Inputs = []
             Labels = Map.empty
             This = None
+            IsPure = false
         }
 
     member this.WithNewScope (vars) =
-        { this with Vars = (Dictionary(dict vars) :> _) :: this.Vars }
+        { this with 
+            Vars = (Dictionary(dict vars) :> _) :: this.Vars 
+            IsPure = false
+        }
 
     member this.NewVar(name) =
         let v = Id.New name
@@ -106,7 +112,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         checkNotMutating (trE a) (fun ta -> MutatingUnary(op, ta))
     match expr with
     | S.Application (a, b) ->
-        Application (trE a, b |> List.map trE, false, None) 
+        Application (trE a, b |> List.map trE, env.IsPure, None) 
     | S.Binary (a, b, c) ->
         match b with    
         | SB.``!=``     -> Binary(trE a, BinaryOperator.``!=``, trE c)
@@ -123,7 +129,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | SB.``,``      -> Sequential [trE a; trE c]
         | SB.``-``      -> Binary(trE a, BinaryOperator.``-``, trE c)
         | SB.``-=``     -> mbin a MutatingBinaryOperator.``-=`` c
-        | SB.``.``      -> ItemGetNonPure(trE a, trE c)
+        | SB.``.``      -> if env.IsPure then ItemGet(trE a, trE c) else ItemGetNonPure(trE a, trE c)
         | SB.``/``      -> Binary(trE a, BinaryOperator.``/``, trE c)
         | SB.``/=``     -> mbin a MutatingBinaryOperator.``/=`` c
         | SB.``<``      -> Binary(trE a, BinaryOperator.``<``, trE c)
@@ -132,6 +138,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | SB.``<=``     -> Binary(trE a, BinaryOperator.``<=``, trE c)
         | SB.``=``      ->
             match trE a with
+            | ItemGet (d, e)
             | ItemGetNonPure (d, e) -> ItemSet(d, e, trE c)
             | Var d -> checkNotMutating (Var d) (fun _ -> VarSet(d, trE c))
             | a -> failwith "invalid form at '='"
@@ -216,7 +223,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | _ ->
         match env.TryFindVar a with
         | Some e -> e
-        | None -> ItemGetNonPure(Global [], Value (String a))
+        | None -> if env.IsPure then ItemGet(Global [], Value (String a)) else ItemGetNonPure(Global [], Value (String a))
     | e ->     
         failwithf "Failed to recognize: %A" e
 //    | S.Postfix (a, b) ->
@@ -276,7 +283,7 @@ and transformStatement (env: Environment) (statement: S.Statement) =
     | S.While (a, b) -> While (trE a, trS b)
     | S.With (a, b) -> failwith "TODO"
 
-let createInline thisArg args inlineString =        
+let createInline thisArg args isPure inlineString =        
     let s = 
         inlineString 
         |> WebSharper.Core.JavaScript.Parser.Source.FromString
@@ -286,12 +293,12 @@ let createInline thisArg args inlineString =
     let b =
         match parsed with
         | Choice1Of2 e ->
-            e |> transformExpression (Environment.New(thisArg, false, args))
+            e |> transformExpression (Environment.New(thisArg, false, isPure, args))
         | Choice2Of2 p ->
             p
             |> List.map (function S.Action a -> a | _ -> failwith "TODO: function declarations in Inline" )
             |> S.Block
-            |> transformStatement (Environment.New(thisArg, false, args))
+            |> transformStatement (Environment.New(thisArg, false, isPure, args))
             |> IgnoredStatementExpr
     makeExprInline (Option.toList thisArg @ args) b
 
@@ -305,7 +312,7 @@ let parseDirect thisArg args jsString =
     let body =
         match parsed with
         | Choice1Of2 e ->
-            e |> transformExpression (Environment.New(thisArg, true, args)) |> Return 
+            e |> transformExpression (Environment.New(thisArg, true, false, args)) |> Return 
         | Choice2Of2 p ->
             p
             |> List.map (
@@ -314,7 +321,7 @@ let parseDirect thisArg args jsString =
                 | S.Function (id, args, body) -> S.Vars [ id, Some (S.Lambda(None, args, body)) ]
             )
             |> S.Block
-            |> transformStatement (Environment.New(thisArg, true, args))
+            |> transformStatement (Environment.New(thisArg, true, false, args))
     Function(args, body)
 
 let parseGeneratedJavaScript e =
