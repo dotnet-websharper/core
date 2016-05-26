@@ -24,8 +24,6 @@ module private WebSharper.Enumerable
 open WebSharper.JavaScript
 
 /// Constructs an `IEnumerable`.
-[<JavaScript>]
+[<JavaScript; Inline>]
 let Of (getEnumerator: unit -> System.Collections.Generic.IEnumerator<'T>) =
-    let r = obj ()
-    r?GetEnumerator <- getEnumerator
-    As<seq<'T>> r
+    New [ "GetEnumerator" => getEnumerator ] : seq<'T>

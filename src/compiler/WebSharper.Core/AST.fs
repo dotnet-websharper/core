@@ -69,7 +69,7 @@ and Expression =
     | Var of Variable:Id
     /// Contains a literal value
     | Value of Value:Literal
-    /// Function application
+    /// Function application with extra information. The `pure` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
     | Application of Func:Expression * Arguments:list<Expression> * Pure:bool * KnownLength:option<int>
     /// Function declaration
     | Function of Parameters:list<Id> * Body:Statement
@@ -254,7 +254,7 @@ type Transformer() =
     /// Contains a literal value
     abstract TransformValue : Value:Literal -> Expression
     override this.TransformValue a = Value (a)
-    /// Function application
+    /// Function application with extra information. The `pure` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
     abstract TransformApplication : Func:Expression * Arguments:list<Expression> * Pure:bool * KnownLength:option<int> -> Expression
     override this.TransformApplication (a, b, c, d) = Application (this.TransformExpression a, List.map this.TransformExpression b, c, d)
     /// Function declaration
@@ -574,7 +574,7 @@ type Visitor() =
     /// Contains a literal value
     abstract VisitValue : Value:Literal -> unit
     override this.VisitValue a = (())
-    /// Function application
+    /// Function application with extra information. The `pure` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
     abstract VisitApplication : Func:Expression * Arguments:list<Expression> * Pure:bool * KnownLength:option<int> -> unit
     override this.VisitApplication (a, b, c, d) = this.VisitExpression a; List.iter this.VisitExpression b; (); ()
     /// Function declaration

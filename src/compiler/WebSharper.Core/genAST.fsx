@@ -109,7 +109,11 @@ let ExprDefs =
         "Value", [ Literal, "value" ]
             , "Contains a literal value"
         "Application", [ Expr, "func" ; List Expr, "arguments"; Object "bool", "pure"; Option Int, "knownLength" ]
-            , "Function application"
+            , "Function application with extra information. \
+               The `pure` field should be true only when the function called has no side effects, so the side effects of \
+               the expression is the same as evaluating `func` then the expressions in the `arguments` list. \
+               The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments \
+               and does not use the `this` value."
         "Function", [ List Id, "parameters"; Statement, "body" ]
             , "Function declaration"
         "VarSet", [ Id, "variable"; Expr, "value" ]
