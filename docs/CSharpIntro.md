@@ -9,6 +9,7 @@ Additional features:
 * Transparent asynchronous remoting. 
 Just mark a `static async` method with `[Remote]` and you will be able to call it from
 `JavaScript` annotated methods, no extra plumbing required.
+The async call makes it clean to write responsive user interface with client-server communication.
 * Type-safe site maps and links.
 With the Sitelets API, you can define the pages of your website with a class hierarchy and URLs will be inferred for you, or you can customize the mapping.
 * Efficient JavaScript code with type erasure.

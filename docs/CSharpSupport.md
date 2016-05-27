@@ -9,7 +9,7 @@
 * ref and out parameters
 * optional parameters, default value
 * delegates (including Combine, Remove, Target)
-* implicit and explicit casts (including user-defined implicit/explicit operators) - missing: numeric explicit casts (see planned) properly transforming value - to be consistent, F# should check it better too, for example `byte 256` evaluating to `0` on the client-side too
+* implicit and explicit casts (including user-defined implicit/explicit operators) missing numeric explicit casts (see planned) properly downsizing value
 * collection initializers (including dictionary initializers)
 * anonymous objects
 * query expressions - `from ... select ...`

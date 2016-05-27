@@ -68,6 +68,13 @@ have any other WebSharper transation defined.
 
 See macro documentation for details.
 
+### Pure
+
+Signifies that an Inline or Direct method does not have any side effects.
+Use only when a call to the method has no other effects than evaluating its arguments and computing a return value.
+This attribute is used for optimizations, the call to the function is erased when the result is not used.
+If used wrongly, this can alter program behavior by erasing a desired effect.
+
 ### Generated
 
 The `Generated` attribute takes a type (or assembly-qualified name) as argument and can annotate methods and constructors.

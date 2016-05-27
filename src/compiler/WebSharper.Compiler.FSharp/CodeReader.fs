@@ -154,11 +154,17 @@ let isOption (t: FSharpType) =
         let td = t.TypeDefinition
         not td.IsProvidedAndErased && td.TryFullName = Some "Microsoft.FSharp.Core.FSharpOption`1"
 
-let isSeq (t: FSharpType) = 
+let rec isSeq (t: FSharpType) = 
     let t = getOrigType t
-    t.HasTypeDefinition &&
-        let td = t.TypeDefinition
-        not td.IsProvidedAndErased && td.TryFullName = Some "System.Collections.Generic.IEnumerable`1"
+    (
+        t.HasTypeDefinition &&
+            let td = t.TypeDefinition
+            not td.IsProvidedAndErased && td.TryFullName = Some "System.Collections.Generic.IEnumerable`1"
+    ) || (
+        t.IsGenericParameter && 
+            t.GenericParameter.Constraints
+            |> Seq.exists (fun c -> c.IsCoercesToConstraint && isSeq c.CoercesToTarget)
+    )
 
 let isByRef (t: FSharpType) =
     if t.IsGenericParameter then

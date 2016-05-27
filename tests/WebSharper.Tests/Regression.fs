@@ -105,7 +105,7 @@ module Bug264 =
         }
 
     [<JavaScript>]
-    let Make (f: unit -> X) : Y<X> = Y (f().A)
+    let Make f : Y<_> = Y (f().A)
 
 module Bug323 =
     [<JavaScript>]
