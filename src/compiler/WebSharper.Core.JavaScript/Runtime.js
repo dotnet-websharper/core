@@ -210,9 +210,9 @@ IntelliFactory = {
             };
         },
 
-        Curried: function (f, args, n) {
-            args = args || [];
+        Curried: function (f, n, args) {
             n = n || f.length;
+            args = args || [];
             var res = function () {
                 var newArgs = Array.prototype.slice.call(arguments);
                 if (newArgs.length == 0)
@@ -222,20 +222,56 @@ IntelliFactory = {
                 if (m == 0)
                     return f.apply(undefined, allArgs);
                 if (m > 0)
-                    return IntelliFactory.Runtime.Curried(f, allArgs, m);
-                return IntelliFactory.Runtime.Apply(f.apply(undefined, allArgs.slice(0, m)), allArgs.slice(m))
+                    return IntelliFactory.Runtime.Curried(f, m, allArgs);
+                return IntelliFactory.Runtime.Apply(f.apply(undefined, allArgs.slice(0, m)), allArgs.slice(m));
             }
-            res.$Fast = true;
+            res.$F = true;
+            return res;
+        },
+
+        Curried2: function (f) {
+            var res = function (a, b) {
+                if (b === undefined)
+                    return function (b) { return f(a, b); }
+                return f(a, b);
+            }
+            res.$F = true;
+            return res;
+        },
+
+        Curried3: function (f) {
+            var res = function (a, b, c) {
+                if (b === undefined)
+                    return IntelliFactory.Runtime.Curried2(function (b, c) { return f(a, b, c); })
+                if (c === undefined)
+                    return function (c) { return f(a, b, c); }
+                return f(a, b, c);
+            }
+            res.$F = true;
             return res;
         },
 
         Apply: function (f, args) {
             while (args.length > 0) {
-                if (f.$Fast)
+                if (f.$F)
                     return f.apply(undefined, args);
                 f = f.call(undefined, args.shift());
             }
             return f;
+        },
+
+        Apply2: function (f, a, b) {
+            if (f.$F) {
+                return f(a, b);
+            }
+            return f(a)(b);
+        },
+
+        Apply3: function (f, a, b, c) {
+            if (f.$F) {
+                return f(a, b, c);
+            }
+            return f(a)(b)(c);
         },
 
         UnionByType: function (types, value, optional) {

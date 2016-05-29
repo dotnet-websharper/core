@@ -46,6 +46,14 @@ let private isPermutation (xs: seq<'T>) (ys: seq<'T>) =
     ) && Array.isEmpty xs
 
 [<JavaScript>]
+let filterWithHashSeq f (s : #seq<_>) =
+    Seq.filter f s
+
+[<JavaScript>]
+let filterWithSeqConstraint f (s : 'T  when 'T :> _ seq) =
+    Seq.filter f s
+
+[<JavaScript>]
 let Tests =
 
     TestCategory "Seq" {
@@ -188,6 +196,7 @@ let Tests =
             equal (Seq.filter f xs |> Seq.toArray) [| 1 .. 5 |]
             equal (Seq.filter ffalse xs |> Seq.length) 0
             equal (Seq.filter ftrue xs |> Seq.length) (Seq.length xs)
+            equal (filterWithSeqConstraint f [ 1 .. 10 ] |> Seq.toArray) [| 1 .. 5 |]
         }
 
         Test "Seq.find" {
@@ -566,6 +575,13 @@ let Tests =
             isTrue (seq { 1 .. -1 } |> Seq.isEmpty)
             isTrue (seq { 1 .. -1 .. 3 } |> Seq.isEmpty)
         }
+
+        Test "Passing list as seq" {
+            let f x = x <= 5
+            equal (Seq.filter f [ 1; 2; 3; 10; 4; 5; 6; 7 ] |> Seq.toArray) [| 1 .. 5 |]
+            equal (filterWithHashSeq f [ 1; 2; 3; 10; 4; 5; 6; 7 ] |> Seq.toArray) [| 1 .. 5 |]        
+            equal (filterWithSeqConstraint f [ 1; 2; 3; 10; 4; 5; 6; 7 ] |> Seq.toArray) [| 1 .. 5 |]        
+        }       
 
     #if FSHARP40
 
