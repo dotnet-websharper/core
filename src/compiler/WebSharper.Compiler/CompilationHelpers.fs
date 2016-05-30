@@ -496,6 +496,18 @@ module Definitions =
             Assembly = "mscorlib"
             FullName = "System.Threading.Tasks.Task`1"
         }
+
+    let IRemotingProvider =
+        TypeDefinition {
+            Assembly = "WebSharper.Main"
+            FullName = "WebSharper.Remoting.IRemotingProvider"
+        } 
+
+    let String =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.String"
+        }
     
 let ignoreSystemObject td =
     if td = Definitions.Obj then None else Some td

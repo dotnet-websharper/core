@@ -138,6 +138,21 @@ type GenericInlineResolver (generics) =
             args |> List.map this.TransformExpression
         )
 
+let private objTy = NonGenericType Definitions.Obj
+
+let rpcMethodNode name ret =
+    M.AbstractMethodNode (Definitions.IRemotingProvider, Method {
+        MethodName = name
+        Parameters = [ NonGenericType Definitions.String; ArrayType (objTy, 1) ]
+        ReturnType = ret
+        Generics = 0       
+    })
+
+let private syncRpcMethodNode = rpcMethodNode "Sync" objTy
+let private asyncRpcMethodNode = rpcMethodNode "Async" (GenericType Definitions.Async [objTy])
+let private taskRpcMethodNode = rpcMethodNode "Task" (GenericType Definitions.Task1 [objTy])
+let private sendRpcMethodNode = rpcMethodNode "Send" VoidType
+
 type DotNetToJavaScript private (comp: Compilation) =
     inherit Transformer()
 
@@ -505,12 +520,12 @@ type DotNetToJavaScript private (comp: Compilation) =
                         this.Error(SourceError (sprintf "Macro '%s' requires a resolved type argument." macro.Value.FullName))
             getExpr macroResult
         | M.Remote (kind, handle, rh) ->
-            let name =
+            let name, mnode =
                 match kind with
-                | M.RemoteAsync -> "Async"
-                | M.RemoteTask -> "Task"
-                | M.RemoteSend -> "Send"
-                | M.RemoteSync -> "Sync"
+                | M.RemoteAsync -> "Async", asyncRpcMethodNode
+                | M.RemoteTask -> "Task", taskRpcMethodNode
+                | M.RemoteSend -> "Send", sendRpcMethodNode
+                | M.RemoteSync -> "Sync", syncRpcMethodNode
             let trArgs =
                 NewArray ( args |> List.map this.TransformExpression )
             let remotingProvider =
@@ -519,6 +534,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                     | Some (rp, _) -> rp
                     | _ -> defaultRemotingProvider   
                 this.TransformCtor(NonGeneric td, emptyConstructor, []) 
+            this.AddDependency(mnode)
             Application (remotingProvider |> getItem name, [ Value (String (handle.Pack())); trArgs ], isPure, Some 2)
         | M.Constructor _ -> failwith "Not a valid method info: Constructor"
 
