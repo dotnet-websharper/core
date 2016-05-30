@@ -491,24 +491,29 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let rec loop acc = function
                 | BasicPatterns.Lambda (var, body) -> loop (var :: acc) body
                 | body -> (List.rev acc, body)
+            
+            let lam vars body isUnitReturn =
+                if isUnitReturn then
+                    Function(vars, ExprStatement body)
+                else
+                    Lambda(vars, body)   
             match loop [] expr with
             | [arg], body ->
-                let lArg, env =
-                    if isUnit arg.FullType then [], env
-                    else 
-                        let v = namedId arg.DisplayName
-                        [ v ], env.WithVar(v, arg)
-                let env = env.WithTParams(arg.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq)
-                Lambda(lArg, (body |> transformExpression env))
+                if isUnit arg.FullType then 
+                    lam [] (tr body) (isUnit body.Type)
+                else 
+                    let v = namedId arg.DisplayName
+                    let env = env.WithTParams(arg.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq).WithVar(v, arg)
+                    lam [v] (body |> transformExpression env) (isUnit body.Type)
             | args, body ->
                 let vars, env =
                     (env, args) ||> List.mapFold (fun env arg ->
                         if isUnit arg.FullType then namedId "_", env
                         else 
                             let v = namedId arg.DisplayName
-                            v, env.WithVar(v, arg)
+                            v, env.WithTParams(arg.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq).WithVar(v, arg)
                     ) 
-                let f = Lambda(vars, body |> transformExpression env)
+                let f = lam vars (body |> transformExpression env) (isUnit body.Type)
                 match vars.Length with
                 | 2 -> JSRuntime.Curried2 f
                 | 3 -> JSRuntime.Curried3 f
@@ -518,19 +523,20 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | CallNeedingMoreArgs(thisObj, td, m, ca) ->
                 Call(thisObj, td, m, ca @ (args |> List.map tr))
             | trFunc ->
+                let appl f x = Application (f, [x], false, Some 1)
                 match args with
                 | [a] ->
                     let trA = tr a |> removeListOfArray a.Type
                     match IgnoreExprSourcePos trA with
                     | Undefined | Value Null -> Application (trFunc, [], false, Some 0)
-                    | _ -> Application (trFunc, [trA], false, Some 1)  
+                    | _ -> appl trFunc trA
                 | _ ->
                     let trArgs = args |> List.map (fun a -> tr a |> removeListOfArray a.Type)
                     match trArgs with
                     | [ a; b ] ->
-                        JSRuntime.Apply2 trFunc a b
+                        appl (appl trFunc a) b
                     | [ a; b; c ] ->
-                        JSRuntime.Apply3 trFunc a b c
+                        appl (appl (appl trFunc a) b) c
                     | _ ->
                         JSRuntime.Apply trFunc trArgs
         | BasicPatterns.Let((id, value), body) ->
@@ -659,7 +665,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let j = newId()
             let i, trBody =
                 match IgnoreExprSourcePos (tr body) with
-                | Function ([i], Return b) -> i, b
+                | Function ([i], ExprStatement b) -> i, b
                 | _ -> parsefailf "Unexpected form of consumeExpr in FastIntegerForLoop pattern"     
             For (
                 Some (Sequential [NewVar(i, tr start); NewVar (j, tr end_)]), 

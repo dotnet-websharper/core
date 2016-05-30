@@ -184,7 +184,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 let decls = p.DeclaringSyntaxReferences
                 if decls.Length = 0 then () else
                 let syntax = decls.[0].GetSyntax()
-                let model = rcomp.GetSemanticModel(syntax.SyntaxTree, true)
+                let model = rcomp.GetSemanticModel(syntax.SyntaxTree, false)
                 let data =
                     syntax :?> PropertyDeclarationSyntax
                     |> RoslynHelpers.PropertyDeclarationData.FromNode
@@ -219,7 +219,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 let decls = f.DeclaringSyntaxReferences
                 if decls.Length = 0 then () else
                 let syntax = decls.[0].GetSyntax()
-                let model = rcomp.GetSemanticModel(syntax.SyntaxTree, true)
+                let model = rcomp.GetSemanticModel(syntax.SyntaxTree, false)
                 match syntax with
                 | :? VariableDeclaratorSyntax as v ->
                     let x, e =
@@ -287,7 +287,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 if decl.Length > 0 then
                     try
                         let syntax = meth.DeclaringSyntaxReferences.[0].GetSyntax()
-                        let model = rcomp.GetSemanticModel(syntax.SyntaxTree, true)
+                        let model = rcomp.GetSemanticModel(syntax.SyntaxTree, false)
                         let fixMethod (m: CodeReader.CSharpMethod) =
                             let b1 = 
                                 let defValues = 

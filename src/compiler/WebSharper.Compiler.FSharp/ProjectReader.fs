@@ -363,7 +363,17 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
 //                                    Let (v, h, body)    
 //                                ) (Option.toList thisVar @ vars |> List.mapi (fun i a -> a, Hole i)) (ReplaceThisWithHole0().TransformExpression(b))
                             else 
-                                Function(vars, Return b)
+                                let returnsUnit =
+                                    match memdef with
+                                    | Member.Method (_, mdef)  
+                                    | Member.Override (_, mdef) 
+                                    | Member.Implementation (_, mdef) ->
+                                        mdef.Value.ReturnType = VoidType
+                                    | _ -> true
+                                if returnsUnit then
+                                    Function(vars, ExprStatement b)
+                                else
+                                    Lambda(vars, b)
                     res
                 match memdef with
                 | Member.Method (_, mdef) 

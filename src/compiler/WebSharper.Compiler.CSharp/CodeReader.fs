@@ -476,9 +476,11 @@ type RoslynTransformer(env: Environment) =
                 let typ, meth = getTypeAndMethod m
                 NewDelegate(Some This, typ, meth)
             else failwithf "transformIdentifierName: unhandled IMethodSymbol conversion: %A" conv 
+        | null -> 
+            err x.Node "transformIdentifierName: Symbol is null"
         | _ -> 
-            err x.Node (sprintf "transformIdentifierName: Local variable not found, symbol type: %s, name: %s" 
-                (symbol.GetType().FullName) symbol.Name)
+            err x.Node (sprintf "transformIdentifierName: Local variable not found, symbol type: %s" 
+                (symbol.GetType().FullName))
 
     member this.TransformExpression (x: ExpressionData) : Expression =
         try
@@ -553,14 +555,6 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformInvocationExpression (x: InvocationExpressionData) : Expression =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-//        let symbol =
-//            if isNull symbol then
-//                env.SemanticModel.GetSymbolInfo(x.Expression.Node).Symbol :?> IMethodSymbol
-//            else symbol
-//        if isNull symbol then
-//            env.SemanticModel.GetSyntaxDiagnostics(System.Nullable x.Node.Parent.Span) 
-//            |> Seq.map (fun d -> d.GetMessage()) |> String.concat " / "
-//            |> failwithf "Parent errors: %s"
         let eSymbol, isExtensionMethod =
             match symbol.ReducedFrom with
             | null -> symbol, false
@@ -1004,14 +998,37 @@ type RoslynTransformer(env: Environment) =
             let addSymbol =
                 env.SemanticModel.GetCollectionInitializerSymbolInfo(x.Node).Symbol :?> IMethodSymbol
             if isNull addSymbol then
-                failwith "Failed to look up Add method symbol for collection initializer"
-            let cTyp, addM = getTypeAndMethod addSymbol
-            expressions |> List.map (fun item -> 
-                match IgnoreExprSourcePos item with
-                | ComplexElement cItem ->
-                    Call(Some (Var env.Initializing.Value), cTyp, addM, cItem)
-                | _ -> Call(Some (Var env.Initializing.Value), cTyp, addM, [item])
-            ) |> Sequential
+                // for some reason GetCollectionInitializerSymbolInfo does not always returns the .Add method
+                // then we try to look it up on the type by name and arity
+                let cSymbol = env.SemanticModel.GetSymbolInfo(x.Node.Parent).Symbol :?> IMethodSymbol
+                let cTyp = sr.ReadNamedType cSymbol.ContainingType
+                let addMethods =
+                    cSymbol.ContainingType.GetMembers("Add").OfType<IMethodSymbol>()
+                let addM i = 
+                    let candidates = 
+                        addMethods
+                        |> Seq.filter (fun m -> m.Parameters.Length = i) 
+                        |> Array.ofSeq
+                    if candidates.Length > 1 then 
+                        failwith "Could not look up unique Add method on collection initialization"
+                    elif candidates.Length = 0 then
+                        failwithf "Add method with %d parameters not found for collection initialization" i
+                    else
+                        candidates.[0] |> sr.ReadMethod |> NonGeneric
+                expressions |> List.map (fun item -> 
+                    match IgnoreExprSourcePos item with
+                    | ComplexElement cItem ->
+                        Call(Some (Var env.Initializing.Value), cTyp, addM (List.length cItem), cItem)
+                    | _ -> Call(Some (Var env.Initializing.Value), cTyp, addM 1, [item])
+                ) |> Sequential
+            else
+                let cTyp, addM = getTypeAndMethod addSymbol
+                expressions |> List.map (fun item -> 
+                    match IgnoreExprSourcePos item with
+                    | ComplexElement cItem ->
+                        Call(Some (Var env.Initializing.Value), cTyp, addM, cItem)
+                    | _ -> Call(Some (Var env.Initializing.Value), cTyp, addM, [item])
+                ) |> Sequential
         | InitializerExpressionKind.ArrayInitializerExpression ->
             // TODO: 2-dimensional
             NewArray expressions

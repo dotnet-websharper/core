@@ -61,6 +61,8 @@ type WebSharperCSharpCompiler(logger) =
                 CSharpSyntaxTree.ParseText(File.ReadAllText s.Path, path = s.Path)
             )
         
+        let refs = ResizeArray()
+
         let references = 
             argv
             |> Seq.choose (fun a ->
@@ -68,7 +70,8 @@ type WebSharperCSharpCompiler(logger) =
                 if a.StartsWith "/reference:" then Some a.[11 ..] else None
             ) 
             |> Seq.map (fun r ->
-                MetadataReference.CreateFromFile(r, MetadataReferenceProperties.Assembly) :> MetadataReference
+                refs.Add r
+                MetadataReference.CreateFromFile(r) :> MetadataReference
             )
 
         let compilation = 
@@ -99,6 +102,9 @@ type WebSharperCSharpCompiler(logger) =
         let comp = 
             WebSharper.Compiler.CSharp.ProjectReader.transformAssembly refMeta
                 compilation
+
+        for r in refs do
+            comp.AddWarning(None, WebSharper.Compiler.SourceWarning("added reference: " + r))
 
         let ended = System.DateTime.Now
         logger <| sprintf "Parsing with Roslyn: %A" (ended - started)

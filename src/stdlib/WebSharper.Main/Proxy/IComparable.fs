@@ -23,25 +23,27 @@ namespace WebSharper
 open WebSharper.JavaScript
 
 [<Proxy(typeof<System.IComparable>)>]
-[<Name "IComparable0">]
 type private IComparableProxy =
+    [<Name "CompareTo0">]
     abstract CompareTo : obj -> int
 
 [<Proxy(typeof<System.IComparable<_>>)>]
-[<Name "IComparable">]
 type private IComparableProxy<'T> =
+    [<Name "CompareTo">]
     abstract CompareTo : 'T -> int
 
 [<Proxy(typeof<System.Collections.IEqualityComparer>)>]
-[<Name "IEqualityComparer0">]
 type private IEqualityComparerProxy =
+    [<Name "CEquals0">]
     abstract Equals : obj * obj -> bool 
+    [<Name "CGetHashCode0">]
     abstract GetHashCode : obj -> int
 
 [<Proxy(typeof<System.Collections.Generic.IEqualityComparer<_>>)>]
-[<Name "IEqualityComparer">]
 type private IEqualityComparerProxy<'T> =
+    [<Name "CEquals">]
     abstract Equals : 'T * 'T -> bool 
+    [<Name "CGetHashCode">]
     abstract GetHashCode : 'T -> int
 
 [<Proxy(typeof<System.Collections.Generic.EqualityComparer<_>>)>]
@@ -60,13 +62,13 @@ type private EqualityComparerProxy<'T>() =
     static member Default = X<System.Collections.Generic.EqualityComparer<'T>>
 
 [<Proxy(typeof<System.Collections.IComparer>)>]
-[<Name "IComparer0">]
 type private IComparerProxy =
+    [<Name "Compare0">]
     abstract Compare : obj * obj -> int
 
 [<Proxy(typeof<System.Collections.Generic.IComparer<_>>)>]
-[<Name "IComparer">]
 type private IComparerProxy<'T> =
+    [<Name "Compare">]
     abstract Compare : 'T * 'T -> int
 
 [<Proxy(typeof<System.Collections.Generic.Comparer<_>>)>]
@@ -82,17 +84,18 @@ type private ComparerProxy<'T>() =
     static member Default = X<System.Collections.Generic.Comparer<'T>>
 
 [<Proxy(typeof<System.IEquatable<_>>)>]
-[<Name "IEquatable">]
 type private IEquatableProxy<'T> =
+    [<Name "EEquals">]
     abstract Equals : 'T -> bool
 
 [<Proxy(typeof<System.Collections.IStructuralEquatable>)>]
-[<Name "IStructuralEquatable">]
 type private IStructuralEquatableProxy =
+    [<Name "SEquals">]
     abstract Equals : obj * System.Collections.IEqualityComparer -> bool 
+    [<Name "SGetHashCode">]
     abstract GetHashCode : System.Collections.IEqualityComparer -> int
 
 [<Proxy(typeof<System.Collections.IStructuralComparable>)>]
-[<Name "IStructuralComparable">]
 type private IStructuralComparableProxy =
+    [<Name "SCompareTo">]
     abstract CompareTo : obj * System.Collections.IComparer -> int 

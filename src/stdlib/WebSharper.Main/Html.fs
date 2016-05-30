@@ -38,7 +38,7 @@ type IControlBody =
     /// Replace the given node with the HTML content.
     /// The node is guaranteed to be present in the DOM.
     /// Called exactly once on startup on an IControl's Body.
-    [<JavaScript>]
+    [<JavaScript; Name "ReplaceInDom">]
     abstract ReplaceInDom : Dom.Node -> unit
 
 /// An interface that has to be implemented by controls that
@@ -46,7 +46,7 @@ type IControlBody =
 /// contain client-side elements.
 type IControl =
     inherit IRequiresResources
-    [<JavaScript>]
+    [<JavaScript; Name "Body">]
     abstract member Body : IControlBody
     abstract member Id : string
 

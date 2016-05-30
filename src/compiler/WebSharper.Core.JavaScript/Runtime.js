@@ -69,14 +69,14 @@ IntelliFactory = {
             function (obj, fields) {
                 for (var i = 0; i < fields.length; i++) {
                     var f = fields[i];
-                    if (obj[f] === void(0)) { delete obj[f]; }
+                    if (obj[f] === void (0)) { delete obj[f]; }
                 }
                 return obj;
             },
 
         GetOptional:
             function (value) {
-                return (value === void(0)) ? null : { $: 1, $0: value };
+                return (value === void (0)) ? null : { $: 1, $0: value };
             },
 
         SetOptional:
@@ -160,14 +160,14 @@ IntelliFactory = {
             for (var i = 0; i < i1.length; i++) {
                 var e1 = i1[i];
                 var e2 = i2[i];
-                if (! (e1 === e2 || ("$Func" in e1 && "$Func" in e2 && e1.$Func === e2.$Func && e1.$Target == e2.$Target)))
+                if (!(e1 === e2 || ("$Func" in e1 && "$Func" in e2 && e1.$Func === e2.$Func && e1.$Target == e2.$Target)))
                     return false;
             }
             return true;
         },
 
         ThisFunc: function (d) {
-            return function() {
+            return function () {
                 var args = Array.prototype.slice.call(arguments);
                 args.unshift(this);
                 return d.apply(null, args);
@@ -215,11 +215,11 @@ IntelliFactory = {
             n = n || f.length;
             args = args || [];
             var res = function (a) {
-                var allArgs = args.concat([a === void(0) ? null : a]);
+                var allArgs = args.concat([a === void (0) ? null : a]);
                 if (n == 1)
                     return f.apply(null, allArgs);
                 if (n == 2)
-                    return function (a) { return f.apply(null, allArgs.concat([a === void(0) ? null : a])); }
+                    return function (a) { return f.apply(null, allArgs.concat([a === void (0) ? null : a])); }
                 return IntelliFactory.Runtime.Curried(f, n - 1, allArgs);
             }
             res.$A = args;
@@ -230,24 +230,13 @@ IntelliFactory = {
         },
 
         Curried2: function (f) {
-            if (f.$C) return f.$C;
-            var res = function (a) { return function (b) { return f(a, b); } }
-            res.$A = [];
-            res.$L = 2;
-            res.$F = f;
-            f.$C = res;
-            return res;
+            return function (a) { return function (b) { return f(a, b); } }
         },
 
         Curried3: function (f) {
-            if (f.$C) return f.$C;
-            var res = function (a) { return function (b) { return function (c) { return f(a, b, c); } } }
-            res.$A = [];
-            res.$L = 3;
-            res.$F = f;
-            f.$C = res;
-            return res;
+            return function (a) { return function (b) { return function (c) { return f(a, b, c); } } }
         },
+
         Apply: function (f, args) {
             while (args.length > 0) {
                 if (f.$L) {
@@ -261,24 +250,6 @@ IntelliFactory = {
                 else f = f(args.shift());
             }
             return f;
-        },
-
-        Apply2: function (f, a, b) {
-            if (f.$L == 2) {
-                if (f.$A.length)
-                    return IntelliFactory.Runtime.Apply(f, [a, b])
-                return f.$F(a, b);
-            }
-            return f(a)(b);
-        },
-
-        Apply3: function (f, a, b, c) {
-            if (f.$L == 3) {
-                if (f.$A.length)
-                    return IntelliFactory.Runtime.Apply(f, [a, b, c])
-                return f.$F(a, b, c);
-            }
-            return f(a)(b)(c);
         },
 
         UnionByType: function (types, value, optional) {
