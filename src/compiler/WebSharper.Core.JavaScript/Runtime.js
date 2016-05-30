@@ -69,14 +69,14 @@ IntelliFactory = {
             function (obj, fields) {
                 for (var i = 0; i < fields.length; i++) {
                     var f = fields[i];
-                    if (obj[f] === undefined) { delete obj[f]; }
+                    if (obj[f] === void(0)) { delete obj[f]; }
                 }
                 return obj;
             },
 
         GetOptional:
             function (value) {
-                return (value === undefined) ? null : { $: 1, $0: value };
+                return (value === void(0)) ? null : { $: 1, $0: value };
             },
 
         SetOptional:
@@ -170,7 +170,7 @@ IntelliFactory = {
             return function() {
                 var args = Array.prototype.slice.call(arguments);
                 args.unshift(this);
-                return d.apply(undefined, args);
+                return d.apply(null, args);
             };
         },
 
@@ -184,14 +184,14 @@ IntelliFactory = {
         ParamsFunc: function (length, d) {
             return function () {
                 var args = Array.prototype.slice.call(arguments);
-                return d.apply(undefined, args.slice(0, length).concat([args.slice(length)]));
+                return d.apply(null, args.slice(0, length).concat([args.slice(length)]));
             };
         },
 
         ParamsFuncOut: function (length, f) {
             return function () {
                 var args = Array.prototype.slice.call(arguments);
-                return f.apply(undefined, args.slice(0, length).concat(args[length]));
+                return f.apply(null, args.slice(0, length).concat(args[length]));
             };
         },
 
@@ -199,7 +199,7 @@ IntelliFactory = {
             return function () {
                 var args = Array.prototype.slice.call(arguments);
                 args.unshift(this);
-                return d.apply(undefined, args.slice(0, length + 1).concat([args.slice(length + 1)]));
+                return d.apply(null, args.slice(0, length + 1).concat([args.slice(length + 1)]));
             };
         },
 
@@ -211,85 +211,72 @@ IntelliFactory = {
         },
 
         Curried: function (f, n, args) {
-            if (n && f.$C) return f.$C;
+            if (!n && f.$C) return f.$C;
             n = n || f.length;
             args = args || [];
-            var res = function () {
-                var newArgs = Array.prototype.slice.call(arguments);
-                if (newArgs.length == 0)
-                    newArgs.push(null);
-                var allArgs = Array.prototype.concat(args, newArgs);
-                var m = n - newArgs.length;
-                if (m == 0)
-                    return f.apply(undefined, allArgs);
-                if (m > 0)
-                    return IntelliFactory.Runtime.Curried(f, m, allArgs);
-                return IntelliFactory.Runtime.Apply(f.apply(undefined, allArgs.slice(0, m)), allArgs.slice(m));
+            var res = function (a) {
+                var allArgs = args.concat([a === void(0) ? null : a]);
+                if (n == 1)
+                    return f.apply(null, allArgs);
+                if (n == 2)
+                    return function (a) { return f.apply(null, allArgs.concat([a === void(0) ? null : a])); }
+                return IntelliFactory.Runtime.Curried(f, n - 1, allArgs);
             }
-            res.$F = true;
+            res.$A = args;
+            res.$L = n;
+            res.$F = f;
             f.$C = res;
             return res;
         },
 
         Curried2: function (f) {
             if (f.$C) return f.$C;
-            var res = function (a, b) {
-                switch (arguments.length) {
-                    case 0:
-                        return function (b) { return f(null, b); }
-                    case 1:
-                        return function (b) { return f(a, b); }
-                    case 2:
-                        return f(a, b);
-                    default:
-                        IntelliFactory.Runtime.Apply(f(a, b), Array.prototype.slice.call(arguments, 2));               
-                }
-            }
-            res.$F = true;
+            var res = function (a) { return function (b) { return f(a, b); } }
+            res.$A = [];
+            res.$L = 2;
+            res.$F = f;
             f.$C = res;
             return res;
         },
 
         Curried3: function (f) {
             if (f.$C) return f.$C;
-            var res = function (a, b, c) {
-                switch (arguments.length) {
-                    case 0:
-                        return IntelliFactory.Runtime.Curried2(function (b, c) { return f(null, b, c); })
-                    case 1:
-                        return IntelliFactory.Runtime.Curried2(function (b, c) { return f(a, b, c); })
-                    case 2:
-                        return function (c) { return f(a, b, c); }
-                    case 3:
-                        return f(a, b, c);
-                    default:
-                        IntelliFactory.Runtime.Apply(f(a, b, c), Array.prototype.slice.call(arguments, 3));
-                }
-            }
-            res.$F = true;
+            var res = function (a) { return function (b) { return function (c) { return f(a, b, c); } } }
+            res.$A = [];
+            res.$L = 3;
+            res.$F = f;
             f.$C = res;
             return res;
         },
-
         Apply: function (f, args) {
             while (args.length > 0) {
-                if (f.$F)
-                    return f.apply(undefined, args);
-                f = f.call(undefined, args.shift());
+                if (f.$L) {
+                    var m = f.$L - args.length;
+                    if (m == 0)
+                        return f.$F.apply(null, f.$A.concat(args));
+                    if (m > 0)
+                        return IntelliFactory.Runtime.Curried(f.$F, m, f.$A.concat(args));
+                    f = f.$F.apply(null, f.$A.concat(args.splice(0, f.$L)));
+                }
+                else f = f(args.shift());
             }
             return f;
         },
 
         Apply2: function (f, a, b) {
-            if (f.$F) {
-                return f(a, b);
+            if (f.$L == 2) {
+                if (f.$A.length)
+                    return IntelliFactory.Runtime.Apply(f, [a, b])
+                return f.$F(a, b);
             }
             return f(a)(b);
         },
 
         Apply3: function (f, a, b, c) {
-            if (f.$F) {
-                return f(a, b, c);
+            if (f.$L == 3) {
+                if (f.$A.length)
+                    return IntelliFactory.Runtime.Apply(f, [a, b, c])
+                return f.$F(a, b, c);
             }
             return f(a)(b)(c);
         },
@@ -341,7 +328,7 @@ IntelliFactory = {
 }
 
 IntelliFactory.Runtime.OnLoad(function () {
-    if (typeof WebSharper !== 'undefined' && WebSharper.Activator && WebSharper.Activator.Activate)
+    if (window.WebSharper && WebSharper.Activator && WebSharper.Activator.Activate)
         WebSharper.Activator.Activate()
 });
 

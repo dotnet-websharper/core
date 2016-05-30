@@ -311,6 +311,7 @@ namespace WebSharper.CSharp.Tests
         public void OptionalArgument()
         {
             Equal(OptionalTest(1), 3);
+            Equal(OptionalTest(1, 0), 1);
             Equal(OptionalTest(1, 5), 6);
             Equal(OptionalTest(1, 5, 2), 8);
             Equal(DefaultOptionalTest(1), 1);
