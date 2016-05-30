@@ -535,6 +535,15 @@ type DotNetToJavaScript private (comp: Compilation) =
                     | _ -> defaultRemotingProvider   
                 this.TransformCtor(NonGeneric td, emptyConstructor, []) 
             this.AddDependency(mnode)
+            let rec addTypeDeps (t: Type) =
+                match t with
+                | ConcreteType c ->
+                    this.AddDependency(M.TypeNode c.Entity)
+                    c.Generics |> List.iter addTypeDeps
+                | ArrayType(t, _) -> addTypeDeps t
+                | TupleType ts -> ts |> List.iter addTypeDeps
+                | _ -> ()
+            addTypeDeps meth.Entity.Value.ReturnType
             Application (remotingProvider |> getItem name, [ Value (String (handle.Pack())); trArgs ], isPure, Some 2)
         | M.Constructor _ -> failwith "Not a valid method info: Constructor"
 
