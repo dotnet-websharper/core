@@ -220,6 +220,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         match a with
         | "$global" -> Global []
         | "$wsruntime" -> Global ["IntelliFactory"; "Runtime"]
+        | "undefined" -> Undefined
         | _ ->
         match env.TryFindVar a with
         | Some e -> e

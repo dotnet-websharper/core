@@ -56,7 +56,7 @@ type Environment =
             ScopeIds = this.ScopeIds
         }
 
-let undef = J.Var "undefined"
+let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 let glob = J.Var "Global"
 
 let transformId (env: Environment) (id: Id) =
