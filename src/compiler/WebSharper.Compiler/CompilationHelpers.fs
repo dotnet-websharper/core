@@ -454,7 +454,11 @@ module JSRuntime =
     let BindDelegate func obj = runtimeFunc "BindDelegate" true [func; obj]    
     let DelegateEqual d1 d2 = runtimeFunc "DelegateEqual" true [d1; d2]
     let Curried f = runtimeFuncI "Curried" true 3 [f]
+    let Curried2 f = runtimeFuncI "Curried2" true 3 [f]
+    let Curried3 f = runtimeFuncI "Curried3" true 3 [f]
     let Apply f args = runtimeFunc "Apply" false [f; NewArray args]
+    let Apply2 f a b = runtimeFunc "Apply2" false [f; a; b]
+    let Apply3 f a b c = runtimeFunc "Apply3" false [f; a; b; c]
 
 module Definitions =
     let Obj =

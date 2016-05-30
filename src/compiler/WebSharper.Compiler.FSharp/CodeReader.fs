@@ -508,10 +508,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             let v = namedId arg.DisplayName
                             v, env.WithVar(v, arg)
                     ) 
-                if args.Length < 4 then
-                    body |> transformExpression env |> List.foldBack (fun v body -> Lambda([v], body)) vars 
-                else
-                    JSRuntime.Curried (Lambda(vars, (body |> transformExpression env)))
+                let f = Lambda(vars, body |> transformExpression env)
+                match vars.Length with
+                | 2 -> JSRuntime.Curried2 f
+                | 3 -> JSRuntime.Curried3 f
+                | _ -> JSRuntime.Curried f
         | BasicPatterns.Application(func, types, args) ->
             match IgnoreExprSourcePos (tr func) with
             | CallNeedingMoreArgs(thisObj, td, m, ca) ->
@@ -525,9 +526,12 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     | _ -> Application (trFunc, [trA], false, Some 1)  
                 | _ ->
                     let trArgs = args |> List.map (fun a -> tr a |> removeListOfArray a.Type)
-                    if args.Length < 4 then
-                        Seq.fold (fun f a -> Application(f, [a], false, Some 1)) trFunc trArgs
-                    else
+                    match trArgs with
+                    | [ a; b ] ->
+                        JSRuntime.Apply2 trFunc a b
+                    | [ a; b; c ] ->
+                        JSRuntime.Apply3 trFunc a b c
+                    | _ ->
                         JSRuntime.Apply trFunc trArgs
         | BasicPatterns.Let((id, value), body) ->
             let i = namedIdM id.DisplayName id.IsMutable

@@ -211,6 +211,7 @@ IntelliFactory = {
         },
 
         Curried: function (f, n, args) {
+            if (n && f.$C) return f.$C;
             n = n || f.length;
             args = args || [];
             var res = function () {
@@ -226,28 +227,47 @@ IntelliFactory = {
                 return IntelliFactory.Runtime.Apply(f.apply(undefined, allArgs.slice(0, m)), allArgs.slice(m));
             }
             res.$F = true;
+            f.$C = res;
             return res;
         },
 
         Curried2: function (f) {
+            if (f.$C) return f.$C;
             var res = function (a, b) {
-                if (b === undefined)
-                    return function (b) { return f(a, b); }
-                return f(a, b);
+                switch (arguments.length) {
+                    case 0:
+                        return function (b) { return f(null, b); }
+                    case 1:
+                        return function (b) { return f(a, b); }
+                    case 2:
+                        return f(a, b);
+                    default:
+                        IntelliFactory.Runtime.Apply(f(a, b), Array.prototype.slice.call(arguments, 2));               
+                }
             }
             res.$F = true;
+            f.$C = res;
             return res;
         },
 
         Curried3: function (f) {
+            if (f.$C) return f.$C;
             var res = function (a, b, c) {
-                if (b === undefined)
-                    return IntelliFactory.Runtime.Curried2(function (b, c) { return f(a, b, c); })
-                if (c === undefined)
-                    return function (c) { return f(a, b, c); }
-                return f(a, b, c);
+                switch (arguments.length) {
+                    case 0:
+                        return IntelliFactory.Runtime.Curried2(function (b, c) { return f(null, b, c); })
+                    case 1:
+                        return IntelliFactory.Runtime.Curried2(function (b, c) { return f(a, b, c); })
+                    case 2:
+                        return function (c) { return f(a, b, c); }
+                    case 3:
+                        return f(a, b, c);
+                    default:
+                        IntelliFactory.Runtime.Apply(f(a, b, c), Array.prototype.slice.call(arguments, 3));
+                }
             }
             res.$F = true;
+            f.$C = res;
             return res;
         },
 
