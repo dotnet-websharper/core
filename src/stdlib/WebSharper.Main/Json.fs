@@ -64,7 +64,10 @@ let lookup<'T> (x: string []) : obj =
             r <- rn
             i <- i + 1
         else
-            failwith ("Invalid server reply. Failed to find type: " + n)
+            // The class is not present on the client,
+            // it could have been pruned by the bundling.
+            r <- JS.Undefined
+            i <- k
     r
 
 /// Does a shallow generic mapping over an object.
@@ -84,7 +87,7 @@ let shallowMap (f: obj -> obj) (x: obj) : obj =
 [<JavaScript>]
 [<Require(typeof<Resource>)>]
 let Activate<'T> (json: obj) : 'T =
-    let types = As<obj[]> ((?) json "$TYPES")
+    let types : obj[] = json?("$TYPES")
     for i = 0 to types.Length - 1 do
         types.[i] <- lookup (As types.[i])
     let rec decode (x: obj) : obj =
@@ -94,13 +97,16 @@ let Activate<'T> (json: obj) : 'T =
                 if JS.InstanceOf x JS.Global?Array then
                     shallowMap decode x
                 else
-                    let o  = shallowMap decode ((?) x "$V")
-                    let ti = (?) x "$T"
-                    if JS.TypeOf ti = JS.Kind.Undefined then o else
-                        let r = JS.New types.[ti]
-                        JS.ForEach o (fun k -> (?<-) r k ((?) o k); false)
+                    let o = shallowMap decode (x?("$V"))
+                    let ti = x?("$T")
+                    if ti ===. JS.Undefined
+                        || (As<Array<obj>> types).[ti] ===. JS.Undefined
+                    then o
+                    else
+                        let r = JS.New (As<Array<obj>> types).[ti]
+                        JS.ForEach o (fun k -> r?(k) <- o?(k); false)
                         r
             | _ ->
                 x
-    As (decode ((?) json "$DATA"))
+    As (decode (json?("$DATA")))
 

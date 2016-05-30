@@ -283,7 +283,7 @@ type private StringProxy =
 
     [<Inline>]
     member this.Split([<System.ParamArray>] sep: char[]) =
-        SplitChars (As this) sep  System.StringSplitOptions.RemoveEmptyEntries
+        SplitChars (As this) sep  System.StringSplitOptions.None
 
     [<Inline>]
     member this.Split(sep: char[], opts: System.StringSplitOptions) =
