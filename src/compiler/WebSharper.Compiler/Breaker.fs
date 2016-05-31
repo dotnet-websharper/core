@@ -252,6 +252,11 @@ let rec breakExpr expr : Broken<BreakResult> =
             && args |> Seq.forall (fun a -> NotMutatedOrCaptured(a).Check(body)) ->
         let bind key value body = Let (key, value, body)
         List.foldBack2 bind args xs body |> br
+    | Application (I.Function (args, I.ExprStatement body), xs, _, _) 
+        when List.length args = List.length xs 
+            && args |> Seq.forall (fun a -> NotMutatedOrCaptured(a).Check(body)) ->
+        let bind key value body = Let (key, value, body)
+        List.foldBack2 bind args xs body |> br
     | Application (I.Let (var, value, body), xs, p, l) ->
         Let (var, value, Application (body, xs, p, l)) |> br
     // generated for disposing iterators

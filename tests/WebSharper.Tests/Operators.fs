@@ -76,6 +76,8 @@ let Tests =
         Test "|>" {
             equal ((1, 2) |> add) 3
             equal (0 |> add1 |> twice |> add1) 3   
+            let x = ref 0
+            equal ((1 |> fun a -> x := a); !x) 1
         }
 
         Test "<|" {
@@ -125,5 +127,13 @@ let Tests =
         Test "trait call" {
             let r = ref 3
             equal !!r 3
+        }
+
+        Test "taking unit" {
+            let x = ref 0
+            let f() = x := !x + 1
+            f()
+            f()
+            equal !x 2 
         }
     }

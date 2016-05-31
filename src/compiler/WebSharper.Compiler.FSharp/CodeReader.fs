@@ -527,9 +527,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 match args with
                 | [a] ->
                     let trA = tr a |> removeListOfArray a.Type
-                    match IgnoreExprSourcePos trA with
-                    | Undefined | Value Null -> Application (trFunc, [], false, Some 0)
-                    | _ -> appl trFunc trA
+                    if isUnit a.Type then
+                        match IgnoreExprSourcePos trA with
+                        | Undefined | Value Null -> Application (trFunc, [], false, Some 0)
+                        | _ -> Sequential [ trA; Application (trFunc, [], false, Some 0) ]
+                    else appl trFunc trA
                 | _ ->
                     let trArgs = args |> List.map (fun a -> tr a |> removeListOfArray a.Type)
                     match trArgs with
@@ -576,29 +578,36 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             | _ -> ta
                         else ta |> removeListOfArray a.Type
                     )
-                let args =
+                let args, before =
                     match args with
-                    | [ Undefined | Value Null ] -> []
-                    | _ -> args
-                match getMember meth with
-                | Member.Method (isInstance, m) -> 
-                    let mt = Generic m (methodGenerics |> List.map (getType env.TParams))
-                    if isInstance then
-                        Call (Option.map tr this, t, mt, args)
-                    else 
-                        if meth.IsInstanceMember && not meth.IsExtensionMember then
-                            CallNeedingMoreArgs (None, t, mt, Option.toList (Option.map tr this) @ args)
+                    | [ a ] when isUnit arguments.[0].Type ->
+                        match IgnoreExprSourcePos a with
+                        | Undefined | Value Null -> [], None
+                        | _ -> [], Some a     
+                    | _ -> args, None
+                let call =
+                    match getMember meth with
+                    | Member.Method (isInstance, m) -> 
+                        let mt = Generic m (methodGenerics |> List.map (getType env.TParams))
+                        if isInstance then
+                            Call (Option.map tr this, t, mt, args)
                         else 
-                            Call (None, t, mt, Option.toList (Option.map tr this) @ args)
-                | Member.Implementation (i, m) ->
-                    let t = Generic i (typeGenerics |> List.map (getType env.TParams))
-                    let mt = Generic m (methodGenerics |> List.map (getType env.TParams))
-                    Call (Option.map tr this, t, mt, args)
-                | Member.Override (_, m) ->
-                    let mt = Generic m (methodGenerics |> List.map (getType env.TParams))
-                    Call (Option.map tr this, t, mt, args)
-                | Member.Constructor c -> Ctor (t, c, args)
-                | Member.StaticConstructor -> parsefailf "Invalid: direct call to static constructor" //CCtor t 
+                            if meth.IsInstanceMember && not meth.IsExtensionMember then
+                                CallNeedingMoreArgs (None, t, mt, Option.toList (Option.map tr this) @ args)
+                            else 
+                                Call (None, t, mt, Option.toList (Option.map tr this) @ args)
+                    | Member.Implementation (i, m) ->
+                        let t = Generic i (typeGenerics |> List.map (getType env.TParams))
+                        let mt = Generic m (methodGenerics |> List.map (getType env.TParams))
+                        Call (Option.map tr this, t, mt, args)
+                    | Member.Override (_, m) ->
+                        let mt = Generic m (methodGenerics |> List.map (getType env.TParams))
+                        Call (Option.map tr this, t, mt, args)
+                    | Member.Constructor c -> Ctor (t, c, args)
+                    | Member.StaticConstructor -> parsefailf "Invalid: direct call to static constructor" //CCtor t 
+                match before with
+                | None -> call
+                | Some a -> Sequential [a; call]
         | BasicPatterns.Sequential _ ->
             let rec getSeq acc expr =
                 match expr with            
@@ -614,13 +623,20 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let td = getAndRegisterTypeDefinition env.Compilation ctor.EnclosingEntity
             let t = Generic td (typeGenerics |> List.map (getType env.TParams))
             let args = List.map tr arguments
-            let args =
+            let args, before =
                 match args with
-                | [ Undefined | Value Null ] -> []
-                | _ -> args
-            match getMember ctor with
-            | Member.Constructor c -> Ctor (t, c, args)
-            | _ -> parsefailf "Expected a constructor call"
+                | [ a ] when isUnit arguments.[0].Type ->
+                    match IgnoreExprSourcePos a with
+                    | Undefined | Value Null -> [], None
+                    | _ -> [], Some a     
+                | _ -> args, None
+            let call =
+                match getMember ctor with
+                | Member.Constructor c -> Ctor (t, c, args)
+                | _ -> parsefailf "Expected a constructor call"
+            match before with
+            | None -> call
+            | Some a -> Sequential [a; call]
         | BasicPatterns.TryFinally (body, final) ->
             let res = newId()
             StatementExpr (TryFinally(VarSetStatement(res, tr body), ExprStatement (tr final)), Some res)
