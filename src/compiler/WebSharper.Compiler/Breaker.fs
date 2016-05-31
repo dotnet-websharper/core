@@ -156,6 +156,33 @@ let toStatementExpr b =
 
 let hasNoStatements b = List.isEmpty b.Statements
 
+let rec (|PropSet|_|) expr =
+    match IgnoreExprSourcePos expr with
+    | Unary (UnaryOperator.``void``, I.ItemSet (I.Var objVar, I.Value (String field), value))
+    | ItemSet (I.Var objVar, I.Value (String field), value) 
+        when CountVarOccurence(objVar).Get(value) = 0 ->
+        Some (objVar, (field, value))
+    | Let (var, value, PropSet ((objVar, (field, I.Var v)))) 
+        when v = var && CountVarOccurence(objVar).Get(value) = 0 ->
+        Some (objVar, (field, value))
+    | _ -> None
+
+let (|PropSetters|_|) p =
+    match List.rev p with
+    | (I.Var objVar) :: setters ->
+        List.rev setters |> List.fold (fun acc e ->
+            match acc with
+            | None -> None
+            | Some accv ->
+            match IgnoreExprSourcePos e with
+            | e when isPureExpr e -> acc
+            | PropSet (v, fv) when v = objVar -> 
+                Some (fv :: accv)
+            | _ -> 
+                None
+        ) (Some []) |> Option.map (fun setters -> setters, objVar)
+    | _ -> None
+
 let rec breakExpr expr : Broken<BreakResult> =
     let inline br x = breakExpr x
 
@@ -419,6 +446,8 @@ let rec breakExpr expr : Broken<BreakResult> =
     | Let(var, value, I.Application(func, [I.Var v], p, l))
         when v = var && isStronglyPureExpr func && CountVarOccurence(var).Get(func) = 0 ->
             Application(func, [value], p, l) |> br
+    | Let (objVar, I.Object objFields, I.Sequential (PropSetters (setters, v))) when v = objVar ->
+        objFields @ setters |> Object |> br
     | Let(a, b, c) ->
         let brB = br b
         match brB.Body with

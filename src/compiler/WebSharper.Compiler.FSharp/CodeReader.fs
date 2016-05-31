@@ -834,34 +834,31 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | _ -> failwith "AddressSet not on a Value"
         | BasicPatterns.ObjectExpr (typ, expr, overrides, interfaces) ->
             let o = newId()
-//            let objTParams =
-//                (getOrigDef typ.TypeDefinition).GenericParameters
-//                |> Seq.mapi (fun i p -> p.Name, i)
-//                |> Map.ofSeq 
-            Sequential [
-                yield NewVar(o, CopyCtor(getAndRegisterTypeDefinition env.Compilation typ.TypeDefinition, Object []))
-                for ovr in Seq.append overrides (interfaces |> Seq.collect snd) do
-                    let i = getAndRegisterTypeDefinition env.Compilation ovr.Signature.DeclaringType.TypeDefinition
-                    let s = getAbstractSlot env.TParams ovr.Signature
-                    let mutable env = env
-                    let thisVar, vars =
-                        match ovr.CurriedParameterGroups with
-                        | [t] :: a ->
-                            let thisVar = namedId t.DisplayName
-                            env <- env.WithVar(thisVar, t)
-                            thisVar,
-                            a |> Seq.concat |> Seq.map (fun v ->
-                                let vv = namedId v.DisplayName
-                                env <- env.WithVar(vv, v)
-                                vv
-                            ) |> List.ofSeq 
-                        | _ ->
-                            failwith "Wrong `this` argument in object expression override"
-                    let b = FuncWithThis (thisVar, vars, Return (transformExpression env ovr.Body)) 
-                    yield ItemSet(Var o, OverrideName(i, s), b)
-                yield FixCtorTransformer(Var o).TransformExpression(tr expr)
-                yield Var o
-            ]
+            Let(o, CopyCtor(getAndRegisterTypeDefinition env.Compilation typ.TypeDefinition, Object []),
+                Sequential [
+                    for ovr in Seq.append overrides (interfaces |> Seq.collect snd) do
+                        let i = getAndRegisterTypeDefinition env.Compilation ovr.Signature.DeclaringType.TypeDefinition
+                        let s = getAbstractSlot env.TParams ovr.Signature
+                        let mutable env = env
+                        let thisVar, vars =
+                            match ovr.CurriedParameterGroups with
+                            | [t] :: a ->
+                                let thisVar = namedId t.DisplayName
+                                env <- env.WithVar(thisVar, t)
+                                thisVar,
+                                a |> Seq.concat |> Seq.map (fun v ->
+                                    let vv = namedId v.DisplayName
+                                    env <- env.WithVar(vv, v)
+                                    vv
+                                ) |> List.ofSeq 
+                            | _ ->
+                                failwith "Wrong `this` argument in object expression override"
+                        let b = FuncWithThis (thisVar, vars, Return (transformExpression env ovr.Body)) 
+                        yield ItemSet(Var o, OverrideName(i, s), b)
+                    yield FixCtorTransformer(Var o).TransformExpression(tr expr)
+                    yield Var o
+                ]
+            )
         | BasicPatterns.DefaultValue typ ->
             Value Null
 //            getDefaultOf (getType env.TParams typ) // this would need Unchecked.defaulof macro with type parameter constraint `: null`
