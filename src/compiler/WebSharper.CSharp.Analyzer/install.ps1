@@ -1,0 +1,12 @@
+﻿param($installPath, $toolsPath, $package, $project)
+
+$project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "net45/FSharp.Core.dll"))
+$project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "net45/Mono.Cecil.dll"))
+$project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "net45/Mono.Cecil.Mdb.dll"))
+$project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "net45/Mono.Cecil.Pdb.dll"))
+$project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "net45/WebSharper.Core.JavaScript.dll"))
+$project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "net45/WebSharper.Core.dll"))
+$project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "net45/WebSharper.InterfaceGenerator.dll"))
+$project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "net45/WebSharper.Compiler.dll"))
+$project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "net45/WebSharper.Compiler.CSharp.dll"))
+$project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "net45/WebSharper.CSharp.Analyzer.dll"))

@@ -642,9 +642,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         }
     )
 
-let transformAssembly (refMeta : Info) (rcomp: CSharpCompilation) =   
-    let comp = Compilation(refMeta)
-
+let transformAssembly (comp : Compilation) (rcomp: CSharpCompilation) =   
     let assembly = rcomp.Assembly
 
     let sr = CodeReader.SymbolReader(comp)

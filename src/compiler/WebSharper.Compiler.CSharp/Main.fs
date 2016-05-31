@@ -93,7 +93,8 @@ type WebSharperCSharpCompiler(logger) =
             | Some dep -> dep  
         
         let comp = 
-            WebSharper.Compiler.CSharp.ProjectReader.transformAssembly refMeta
+            WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
+                (WebSharper.Compiler.Compilation(refMeta))
                 compilation
 
         let ended = System.DateTime.Now
@@ -138,7 +139,8 @@ type WebSharperCSharpCompiler(logger) =
             | Some dep -> dep  
         
         let comp = 
-            WebSharper.Compiler.CSharp.ProjectReader.transformAssembly refMeta
+            WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
+                (WebSharper.Compiler.Compilation(refMeta, UseMacros = false))
                 compilation
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp

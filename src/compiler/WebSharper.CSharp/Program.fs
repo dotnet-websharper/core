@@ -42,8 +42,7 @@ let Compile config =
     if config.AssemblyFile = null then
         failwith "You must provide assembly output path."
 
-    if not (File.Exists config.AssemblyFile) then
-        failwith "Output assembly not found"
+    if not (File.Exists config.AssemblyFile) then () else
 
     let paths =
         [
@@ -60,7 +59,6 @@ let Compile config =
 
         let ended = System.DateTime.Now
         logf "WIG running time: %A" (ended - started)
-        0
     else    
     
     let loader = WebSharper.Compiler.FrontEnd.Loader.Create aR (logf "%s")
@@ -122,7 +120,7 @@ let Compile config =
                 logf "WebSharper error %s" (e.ToString())
         if not config.WarnOnly then hasErrors <- true
         
-    if hasErrors then 1 else
+    if hasErrors then () else
 
     let thisMeta = comp.ToCurrentMetadata(config.WarnOnly)
     let merged = 
@@ -157,7 +155,6 @@ let Compile config =
     | Some Html ->
         ExecuteCommands.Html config |> ignore
     | _ -> ()
-    0
 
 let compileMain argv =
 
@@ -165,9 +162,9 @@ let compileMain argv =
     logf "Started at: %A" System.DateTime.Now
 
     match List.ofArray argv with
-    | Cmd BundleCommand.Instance r -> r
-    | Cmd HtmlCommand.Instance r -> r
-    | Cmd UnpackCommand.Instance r -> r
+    | Cmd BundleCommand.Instance r -> r |> ignore
+    | Cmd HtmlCommand.Instance r -> r |> ignore
+    | Cmd UnpackCommand.Instance r -> r |> ignore
     | _ ->
 
     let wsArgs = ref WsConfig.Empty
@@ -227,6 +224,8 @@ let compileMain argv =
         | StartsWith "/doc:" d ->
             wsArgs := { !wsArgs with Documentation = Some d }
             cscArgs.Add a
+        | StartsWith "/analyzer:" _ ->
+            ()
         | StartsWith "/out:" o ->
             wsArgs := { !wsArgs with AssemblyFile = o }
             cscArgs.Add a
@@ -252,9 +251,8 @@ let compileMain argv =
         if (!wsArgs).VSStyleErrors then logf x else Printf.kprintf System.Console.WriteLine x
 
     try
-        let exitCode = Compile !wsArgs
+        Compile !wsArgs
         logf "Stopped at: %A" System.DateTime.Now
-        exitCode
     with e ->
         let intermediaryOutput = (!wsArgs).AssemblyFile
         if File.Exists intermediaryOutput then 
@@ -265,14 +263,9 @@ let compileMain argv =
         sprintf "Global error '%s' at %s" e.Message e.StackTrace
         |> WebSharper.Compiler.ErrorPrinting.NormalizeErrorString
         |> eprintf "WebSharper error: %s" 
-        1
 
 [<EntryPoint>]
 let main argv =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
-    try compileMain argv
-    with e ->
-        sprintf "Global error '%s' at %s" e.Message e.StackTrace
-        |> WebSharper.Compiler.ErrorPrinting.NormalizeErrorString
-        |> eprintf "WebSharper error: %s" 
-        1
+    compileMain argv
+    0

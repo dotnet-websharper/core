@@ -11,6 +11,11 @@
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
+    <Compile Include="Analyzer.fs" />
+    <None Include="install.ps1" />
+    <None Include="uninstall.ps1" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.CSharp\WebSharper.Compiler.CSharp.fsproj">
       <Name>WebSharper.Compiler.CSharp</Name>
       <Project>{8f188e8b-547e-4a8e-bd3b-257a13af9acd}</Project>
@@ -26,8 +31,6 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Reference Include="Microsoft.CodeAnalysis">
       <HintPath>..\..\..\packages\Microsoft.CodeAnalysis.Common\lib\net45\Microsoft.CodeAnalysis.dll</HintPath>
     </Reference>
@@ -40,8 +43,5 @@
     <Reference Include="System.Reflection.Metadata">
       <HintPath>..\..\..\packages\System.Reflection.Metadata\lib\portable-net45+win8\System.Reflection.Metadata.dll</HintPath>
     </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Analyzer.fs" />
   </ItemGroup>
 </Project>

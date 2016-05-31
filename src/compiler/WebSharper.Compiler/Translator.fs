@@ -214,7 +214,12 @@ type DotNetToJavaScript private (comp: Compilation) =
                     this.Warning (SourceWarning (sprintf "Generator warning in %s: %s" g.Value.FullName msg))
                     getExpr gres
             getExpr genResult
-        | None -> this.Error(SourceError "Getting generator failed")
+        | None ->
+            if comp.UseMacros then
+                this.Error(SourceError "Getting generator failed")
+            else
+                this.Warning(SourceWarning "Could not run generator in code service.")
+                Undefined       
 
     member this.GetCustomTypeConstructorInline (i : M.CustomTypeInfo, ctor: Constructor) =
         match i with
@@ -495,7 +500,18 @@ type DotNetToJavaScript private (comp: Compilation) =
                              Compilation = comp
                         }
                     with e -> MacroError e.Message 
-                | _ -> MacroError "Macro type failed to load"
+                | _ -> 
+                    if comp.UseMacros then
+                        MacroError "Macro type failed to load"
+                    else
+                        MacroWarning(
+                            "Cannot run macro in code service, consider moving it to another assembly.",
+                            (
+                                thisObj |> Option.map this.TransformExpression |> ignore    
+                                args |> List.map this.TransformExpression |> ignore    
+                                MacroOk Undefined
+                            )
+                        )
             let rec getExpr mres =
                 match mres with
                 | MacroOk resExpr -> this.TransformExpression resExpr

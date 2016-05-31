@@ -105,11 +105,13 @@ module Main =
         Seq.concat [
             tools "WebSharper.Compiler"
             tools "WebSharper.Compiler.CSharp"
-//            tools "WebSharper.Sitelets.Offline" // TODO: Sitelets API for C#
             tools "WebSharper.MSBuild.CSharp"
+            tools "WebSharper.CSharp.Analyzer"
+//            tools "WebSharper.Sitelets.Offline" // TODO: Sitelets API for C#
             // shared with main package:
             tools "WebSharper.Core"
             tools "WebSharper.Core.JavaScript"
+            tools "WebSharper.InterfaceGenerator"
             // foreign:
             tools "FSharp.Core"
             tools "Mono.Cecil"
@@ -153,6 +155,10 @@ module Main =
         let file45 kind src tgt =
             sprintf "/%s/net45/%s" kind (defaultArg tgt (Path.GetFileName src))
             |> fileAt src
+        let fileTools src =
+            sprintf "/tools/%s" (Path.GetFileName src)
+            |> fileAt src
+
         let out f = Path.Combine(buildDir, f)
         let nuPkg = 
             nuPkg.AddNuGetExportingProject {
@@ -221,6 +227,8 @@ module Main =
                                 yield file45 "tools" (Path.Combine(fscore, "FSharp.Core.sigdata")) None
                                 for kind, src in csExports do
                                     yield file45 kind src None
+                                yield fileTools (Path.Combine(root, "src/compiler/WebSharper.CSharp.Analyzer/install.ps1"))
+                                yield fileTools (Path.Combine(root, "src/compiler/WebSharper.CSharp.Analyzer/uninstall.ps1"))
                             }
                 }
         let testingNuPkg =

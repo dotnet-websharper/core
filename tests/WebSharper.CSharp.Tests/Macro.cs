@@ -28,15 +28,15 @@ namespace WebSharper.CSharp.Tests
     [JavaScript]
     public class MacroTest : TestCategory
     {
-        //[Macro(typeof(AddMacro))]
-        //public static int Add(int a, int b) => a + b;
+        [Macro(typeof(AddMacro))]
+        public static int Add(int a, int b) => a + b;
 
-        //[Test]
-        //public void AddMacro()
-        //{
-        //    Equal(MacroTest.Add(1, 2), 3, "transformed");
-        //    var x = 1;
-        //    Equal(MacroTest.Add(x, 2), 3, "fallback");
-        //}
+        [Test]
+        public void AddMacro()
+        {
+            Equal(MacroTest.Add(1, 2), 3, "transformed");
+            var x = 1;
+            Equal(MacroTest.Add(x, 2), 3, "fallback");
+        }
     }
 }
