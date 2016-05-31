@@ -39,6 +39,7 @@ module private MapUtil =
         T.OfSorted a
 
 /// Implements a proxy for the F# Map type.
+[<Name "FSharpMap">]
 [<Proxy(typeof<Map<_,_>>)>]
 type internal FSharpMap<'K,'V when 'K : comparison>
 

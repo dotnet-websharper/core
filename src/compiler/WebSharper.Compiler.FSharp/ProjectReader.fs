@@ -397,7 +397,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                     
                     let addModuleValueProp kind body =
                         if List.isEmpty args && meth.EnclosingEntity.IsFSharpModule then
-                            addMethod { mAnnot with Name = None } (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) kind false body    
+                            let iBody = Call(None, NonGeneric def, Generic mdef (List.init mdef.Value.Generics TypeParameter), [])
+                            addMethod mAnnot (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) N.Inline false iBody    
                             if meth.IsMutable then 
                                 let setm = 
                                     let me = mdef.Value
@@ -420,16 +421,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                         let body = getBody isInline
                         addMethod mAnnot mdef kind false body
                         addModuleValueProp kind body
-                        // TODO: only one definition added, this is a workaround for C# compatibility
-    //                    if !isModuleValue then   
-//                        if List.isEmpty args && meth.EnclosingEntity.IsFSharpModule then
-//                            addMethod { mAnnot with Name = None } (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) kind false body    
-//                            if meth.IsMutable then 
-//                                let setb =
-//                                    {}
-//
-//                                let setm = 
-//                                addMethod { mAnnot with Name = None } (Method { mdef.Value with MethodName = "set_" + mdef.Value.MethodName }) kind false body    
+
                     let checkNotAbstract() =
                         if meth.IsDispatchSlot then
                             error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
@@ -451,7 +443,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                         try 
                             let parsed = WebSharper.Compiler.Recognize.createInline thisVar vars mAnnot.Pure js
                             addMethod mAnnot mdef N.Inline true parsed
-                            // TODO: only one definition added, this is a workaround for C# compatibility
                             addModuleValueProp N.Inline parsed
                         with e ->
                             error ("Error parsing inline JavaScript: " + e.Message)

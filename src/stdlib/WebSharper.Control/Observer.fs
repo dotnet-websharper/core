@@ -31,28 +31,16 @@ module internal Observer =
         | Error of exn
         | Completed
 
-    type private Observer<'T> =
-        {
-            onNext : 'T -> unit
-            onError : exn -> unit
-            onCompleted : unit -> unit
-        }
-
-        interface IObserver<'T> with
-            member __.OnNext x = __.onNext x
-            member __.OnError e = __.onError e
-            member __.OnCompleted() = __.onCompleted ()
-
     let Of f : IObserver<_> =
-        upcast {
-            onNext = fun x -> f x
-            onError = fun x -> raise x
-            onCompleted = fun () -> ()
+        { new IObserver<'T> with
+            member __.OnNext x = f x
+            member __.OnError x = raise x
+            member __.OnCompleted() = ()
         }
 
     let New (f, e, c) : IObserver<_> =
-        upcast {
-            onNext = f
-            onError = e
-            onCompleted = c
+        { new IObserver<'T> with
+            member __.OnNext x = f x
+            member __.OnError x = e x
+            member __.OnCompleted() = c()
         }

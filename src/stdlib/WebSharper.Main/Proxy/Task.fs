@@ -248,6 +248,7 @@ and [<Proxy(typeof<Task<_>>); Name "Task1">] private TaskProxy<'T>(func: System.
         this.ContinueWith(As<System.Func<Task, 'R>> func, ct) 
 
 [<Proxy(typeof<TaskCompletionSource<_>>)>]
+[<Name "TaskCompletionSource">]
 type private TaskCompletionSourceProxy<'T>() =
     let task = new TaskProxy<'T>(null, CT.None, TaskStatus.WaitingForActivation, null, JS.Undefined)
 

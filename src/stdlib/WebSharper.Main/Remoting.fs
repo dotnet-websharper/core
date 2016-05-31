@@ -144,6 +144,9 @@ type IRemotingProvider =
 [<Sealed>]
 [<Name "WebSharper.Remoting.AjaxRemotingProvider">]
 type AjaxRemotingProvider() =
+    abstract EndPoint : string
+    default this.EndPoint = EndPoint
+
     member private this.AsyncBase m data = 
         let headers = makeHeaders m
         let payload = makePayload data
@@ -167,12 +170,12 @@ type AjaxRemotingProvider() =
                         waiting := false
                         (reg :> System.IDisposable).Dispose()
                         err e
-                AjaxProvider.Async EndPoint headers payload ok err)
+                AjaxProvider.Async this.EndPoint headers payload ok err)
         }
 
     interface IRemotingProvider with
         member this.Sync m data : obj =
-            let data = AjaxProvider.Sync EndPoint (makeHeaders m) (makePayload data)
+            let data = AjaxProvider.Sync this.EndPoint (makeHeaders m) (makePayload data)
             Json.Activate (Json.Parse data)
 
         member this.Async m data : Async<obj> =

@@ -36,6 +36,7 @@ module private SetUtil =
         T.OfSorted a
 
 /// Implements a proxy for the F# Set type.
+[<Name "FSharpSet">]
 [<Proxy(typeof<Set<_>>)>]
 type private FSharpSet<'T when 'T : comparison>
 

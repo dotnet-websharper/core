@@ -24,17 +24,8 @@ module internal WebSharper.Control.Observable
 open System
 open WebSharper
 
-type private Observable<'T> =
-    internal {
-        Subscribe : IObserver<'T> -> IDisposable
-    }
-
-    interface IObservable<'T> with
-
-        member this.Subscribe observer =
-            this.Subscribe observer
-
-let New f : IObservable<_> = upcast { Subscribe = f }
+[<Inline>]
+let New f : IObservable<'T> = { new IObservable<'T> with member __.Subscribe o = f o }
 
 let Of (f: ('T -> unit) -> (unit -> unit)) : IObservable<_> =
     New (fun o -> Disposable.Of (f (fun x -> o.OnNext x)))
