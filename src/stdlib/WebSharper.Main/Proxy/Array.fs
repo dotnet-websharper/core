@@ -35,4 +35,7 @@ type private ArrayProxy =
         Array.blit a 0 (As array) offset a.Length
 
     member this.Length
-        with [<Inline>] get() = F.GetLength (As this)            
+        with [<Inline>] get() = F.GetLength (As this)   
+        
+    [<Inline>]
+    member this.GetEnumerator() = Enumerator.Get0 (As this)         

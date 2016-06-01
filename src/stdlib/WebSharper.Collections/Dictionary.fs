@@ -113,7 +113,7 @@ type internal Dictionary<'K,'V when 'K : equality>
 
         member this.GetEnumerator() =
             let s = JS.GetFieldValues data
-            (As<seq<obj>> s).GetEnumerator()
+            (As<seq<KeyValuePair<'K,'V>>> s).GetEnumerator()
 
         interface System.Collections.IEnumerable with
             member this.GetEnumerator() = this.GetEnumerator() :> _

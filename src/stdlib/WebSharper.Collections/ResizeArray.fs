@@ -29,6 +29,33 @@ let push (arr: 'T []) (x: 'T) = ()
 [<Direct "Array.prototype.splice.apply($arr, [$index, $howMany].concat($items))">]
 let splice (arr: 'T []) (index: int) (howMany: int) (items: 'T[]) : 'T [] = items
 
+[<Proxy(typeof<System.Collections.Generic.List.Enumerator<_>>)>]
+type ResizeArrayEnumeratorProxy<'T> [<JavaScript>] (arr: 'T[]) =
+    let mutable i = 0
+
+    [<JavaScript>] 
+    member this.MoveNext() =
+        i <- i + 1
+        i < arr.Length
+
+    [<JavaScript>] 
+    member this.Current with get() = arr.[i]
+
+    interface System.Collections.IEnumerator with
+        [<JavaScript>] 
+        member this.MoveNext() = this.MoveNext()
+        [<JavaScript>]
+        member this.Current with get() = box (arr.[i])
+        member this.Reset() = failwith "IEnumerator.Reset not supported"
+
+    interface System.Collections.Generic.IEnumerator<'T> with
+        [<JavaScript>]
+        member this.Current with get() = arr.[i]
+
+    interface System.IDisposable with
+        [<JavaScript>] 
+        member this.Dispose() = ()
+
 [<Proxy(typeof<System.Collections.Generic.List<_>>)>]
 [<Name "WebSharper.Collections.List">]
 type ResizeArrayProxy<'T> [<JavaScript>] (arr: 'T []) =
@@ -42,8 +69,9 @@ type ResizeArrayProxy<'T> [<JavaScript>] (arr: 'T []) =
     new (el: seq<'T>) =
         new ResizeArrayProxy<'T>(Seq.toArray el)
 
+    [<Inline>]
     member this.GetEnumerator() =
-        (As<seq<obj>> arr).GetEnumerator()
+        As<System.Collections.Generic.List.Enumerator<'T>>(new ResizeArrayEnumeratorProxy<'T>(arr))
 
     interface 'T seq with
         member this.GetEnumerator() = (As<System.Collections.IEnumerable> arr).GetEnumerator()

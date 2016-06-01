@@ -114,6 +114,7 @@ type internal HashSetProxy<'T when 'T : equality>
             for item in xs do
                 x.Remove(item) |> ignore
 
+        [<Inline>]
         member this.GetEnumerator() =
            (As<seq<'T>>(concat data)).GetEnumerator()
 
