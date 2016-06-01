@@ -276,13 +276,26 @@ let Tests =
             ) 4
         }
 
-        Test "Bug #109" {
+        Test "Capturing range variable value" {
             let n = ResizeArray()
             do
                 for i in 1 .. 10 do
                     for j in 1 .. 10 do
                         n.Add(fun k -> k + i + j)
             equal (Seq.sum [for x in n -> x 5]) 1600
+        }
+
+        Test "Capturing value in loop" {
+            let arr = [| 1 .. 10 |]
+            let funcs = ResizeArray()
+            let res = ResizeArray()
+            do
+                for i in [| 0 .. 9 |] do
+                    let j = arr.[i]
+                    funcs.Add(fun () -> res.Add j)
+                for f in funcs do
+                    f()
+            equal (res.ToArray()) arr
         }
 
         Test "Bug #231" {
