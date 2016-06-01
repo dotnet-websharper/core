@@ -285,7 +285,16 @@ let Tests =
             equal (Seq.sum [for x in n -> x 5]) 1600
         }
 
-        Test "Capturing value in loop" {
+        Test "Capturing enumeration variable value" {
+            let n = ResizeArray()
+            do
+                for i in [ 1 .. 10 ] do
+                    for j in [ 1 .. 10 ] do
+                        n.Add(fun k -> k + i + j)
+            equal (Seq.sum [for x in n -> x 5]) 1600
+        }
+
+        Test "Capturing value inside loop" {
             let arr = [| 1 .. 10 |]
             let funcs = ResizeArray()
             let res = ResizeArray()

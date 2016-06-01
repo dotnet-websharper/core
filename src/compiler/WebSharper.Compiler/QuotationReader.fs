@@ -208,7 +208,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
         | Patterns.NewTuple (items) ->
             NewArray (items |> List.map tr)              
         | Patterns.WhileLoop (cond, body) ->
-            IgnoredStatementExpr(While(tr cond, ExprStatement (tr body)))
+            IgnoredStatementExpr(While(tr cond, ExprStatement (Capturing().CaptureValueIfNeeded(tr body))))
         | Patterns.VarSet (var, value) ->
             let v, k = env.LookupVar var
             match k with

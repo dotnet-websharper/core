@@ -653,7 +653,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | BasicPatterns.NewTuple (_, items) ->
             NewArray (items |> List.map tr)              
         | BasicPatterns.WhileLoop (cond, body) ->
-            IgnoredStatementExpr(While(tr cond, ExprStatement (tr body)))
+            IgnoredStatementExpr(While(tr cond, ExprStatement (Capturing().CaptureValueIfNeeded(tr body))))
         | BasicPatterns.ValueSet (var, value) ->
             if var.IsModuleValueOrMember then
                 let td = getAndRegisterTypeDefinition env.Compilation var.EnclosingEntity

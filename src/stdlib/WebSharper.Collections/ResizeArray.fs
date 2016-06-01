@@ -31,7 +31,7 @@ let splice (arr: 'T []) (index: int) (howMany: int) (items: 'T[]) : 'T [] = item
 
 [<Proxy(typeof<System.Collections.Generic.List.Enumerator<_>>)>]
 type ResizeArrayEnumeratorProxy<'T> [<JavaScript>] (arr: 'T[]) =
-    let mutable i = 0
+    let mutable i = -1
 
     [<JavaScript>] 
     member this.MoveNext() =

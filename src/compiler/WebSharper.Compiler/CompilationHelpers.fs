@@ -129,7 +129,7 @@ let rec isStronglyPureExpr expr =
 
 /// Checks if a specific Id is mutated or accessed within a function body
 /// (captured) inside an Expression
-type NotMutatedOrCaptured(v) =
+type private NotMutatedOrCaptured(v) =
     inherit Visitor()
 
     let mutable scope = 0
@@ -168,6 +168,9 @@ type NotMutatedOrCaptured(v) =
     member this.Check(a) =
         this.VisitExpression(a)
         ok
+
+let notMutatedOrCaptured (v: Id) expr =
+    NotMutatedOrCaptured(v).Check(expr)   
 
 /// Optimization for inlining: if arguments are always accessed in
 /// the same order as they are provided, and there are no side effects
@@ -715,35 +718,115 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
         | _ -> ()
     { meta with Classes = classes}
 
-type Capturing(var) =
+type Capturing(?var) =
     inherit Transformer()
 
+    let defined = HashSet()
+    let mutable capture = false
     let mutable captVal = None
     let mutable scope = 0
 
+    override this.TransformNewVar(var, value) =
+        if scope = 0 then
+            defined.Add var |> ignore
+        NewVar(var, this.TransformExpression value)
+
+    override this.TransformVarDeclaration(var, value) =
+        if scope = 0 then
+            defined.Add var |> ignore
+        VarDeclaration(var, this.TransformExpression value)
+
+    override this.TransformLet(var, value, body) =
+        if scope = 0 then
+            defined.Add var |> ignore
+        Let(var, this.TransformExpression value, this.TransformExpression body)
+
+    override this.TransformLetRec(defs, body) = 
+        if scope = 0 then
+            for var, _ in defs do
+                defined.Add var |> ignore
+        LetRec (defs |> List.map (fun (a, b) -> a, this.TransformExpression b), body |> this.TransformExpression)
+    
     override this.TransformId i =
-        if scope > 0 && i = var then
-            match captVal with
-            | Some c -> c
+        if scope > 0 then
+            match var with
+            | Some v when v = i ->
+                capture <- true
+                match captVal with
+                | Some c -> c
+                | _ ->
+                    let c = Id.New(?name = v.Name, mut = v.IsMutable)
+                    captVal <- Some c
+                    c
             | _ ->
-                let c = Id.New(?name = var.Name, mut = var.IsMutable)
-                captVal <- Some c
-                c
+                if defined.Contains i then 
+                    capture <- true
+                i
         else i
 
     override this.TransformFunction (args, body) =
         scope <- scope + 1
-        let res = base.TransformFunction (args, body)
+        let res = Function (args, this.TransformStatement body)
         scope <- scope - 1
         res
 
     member this.CaptureValueIfNeeded expr =
         let res = this.TransformExpression expr  
-        match captVal with
-        | None -> res
-        | Some c ->
-            Application (Function ([c], Return res), [Var var], false, Some 1)        
+        if capture then
+            match captVal with
+            | None -> Application (Function ([], Return res), [], false, Some 0)
+            | Some c -> Application (Function ([c], Return res), [Var var.Value], false, Some 1)        
+        else expr
 
+type NeedsScoping() =
+    inherit Visitor()
+
+    let defined = HashSet()
+    let mutable needed = false
+    let mutable scope = 0
+
+    override this.VisitNewVar(var, value) =
+        if scope = 0 then
+            defined.Add var |> ignore
+        this.VisitExpression value
+
+    override this.VisitVarDeclaration(var, value) =
+        if scope = 0 then
+            defined.Add var |> ignore
+        this.VisitExpression value
+
+    override this.VisitLet(var, value, body) =
+        if scope = 0 then
+            defined.Add var |> ignore
+        this.VisitExpression value
+        this.VisitExpression body
+
+    override this.VisitLetRec(defs, body) = 
+        if scope = 0 then
+            for var, _ in defs do
+                defined.Add var |> ignore
+        for _, value in defs do
+            this.VisitExpression value
+        this.VisitExpression body         
+    
+    override this.VisitId i =
+        if scope > 0 && defined.Contains i then 
+            needed <- true
+
+    override this.VisitFunction (args, body) =
+        scope <- scope + 1
+        this.VisitStatement body
+        scope <- scope - 1
+
+    member this.Check(args, expr) =
+        for a in args do
+            defined.Add a |> ignore
+        this.VisitExpression expr  
+        needed
+
+let needsScoping args body =
+    NeedsScoping().Check(args, body)    
+    
 type HasNoThisVisitor() =
     inherit Visitor()
 

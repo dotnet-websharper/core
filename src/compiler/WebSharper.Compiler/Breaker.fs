@@ -248,13 +248,13 @@ let rec breakExpr expr : Broken<BreakResult> =
     | Function (args, body) ->
         broken (Function (args, BreakStatement body)) 
     | Application (I.Function (args, I.Return body), xs, _, _) 
-        when List.length args = List.length xs 
-            && args |> Seq.forall (fun a -> NotMutatedOrCaptured(a).Check(body)) ->
+        when List.length args = List.length xs && not (needsScoping args body)
+            && args |> Seq.forall (fun a -> notMutatedOrCaptured a body) ->
         let bind key value body = Let (key, value, body)
         List.foldBack2 bind args xs body |> br
     | Application (I.Function (args, I.ExprStatement body), xs, _, _) 
-        when List.length args = List.length xs 
-            && args |> Seq.forall (fun a -> NotMutatedOrCaptured(a).Check(body)) ->
+        when List.length args = List.length xs && not (needsScoping args body)
+            && args |> Seq.forall (fun a -> notMutatedOrCaptured a body) ->
         let bind key value body = Let (key, value, body)
         List.foldBack2 bind args xs body |> br
     | Application (I.Let (var, value, body), xs, p, l) ->
@@ -446,7 +446,7 @@ let rec breakExpr expr : Broken<BreakResult> =
     | Let (var, value, I.Function ([x], I.Return(I.Application (I.Var f, [I.Var y], _, _)))) when f = var && x = y ->
         br value
     | Let(a, IgnoreSourcePos.Var b, c) 
-        when NotMutatedOrCaptured(a).Check(c) && NotMutatedOrCaptured(b).Check(c) -> // TODO: maybe weaker check is enough
+        when (not b.IsMutable) || (notMutatedOrCaptured a c && notMutatedOrCaptured b c) -> // TODO: maybe weaker check is enough
             ReplaceId(a, b).TransformExpression(c) |> br            
     | Let(var, value, I.Application(func, [I.Var v], p, l))
         when v = var && isStronglyPureExpr func && CountVarOccurence(var).Get(func) = 0 ->
@@ -468,7 +468,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                         match CountVarOccurence(a).Get(c) with
                         | 0 -> Some c
                         | 1 -> 
-                            if isTrivialValue brB.Body || NotMutatedOrCaptured(a).Check(c) then
+                            if isTrivialValue brB.Body || notMutatedOrCaptured a c then
                                 Some (SubstituteVar(a, brB.Body).TransformExpression(c))
                             else None
                         | _ -> None
