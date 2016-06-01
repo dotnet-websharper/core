@@ -141,11 +141,15 @@ let cleanRuntime expr =
         AppItem(f, "call", obj :: args)
     | AppItem(Application (Runtime "Bind", [f; obj], _, _), "apply", [args]) ->
         AppItem(f, "apply", [obj; args])
+    | Application(Application(Application(Runtime "Curried2", [Lambda([_; _], _) as f], _, _), [ a ], _, _), [ b ], isPure, _) ->
+        Application(f, [ a; b ], isPure, Some 2)
+    | Application(Application(Application(Application(Runtime "Curried3", [Lambda([_; _; _], _) as f], _, _), [ a ], _, _), [ b ], _, _), [ c ], isPure, _) ->
+        Application(f, [ a; b; c ], isPure, Some 3)
     | Application(Runtime rtFunc, xs, _, _) ->
         match rtFunc, xs with
-        | "Apply", [ Application(Runtime "Curried", [Lambda(vars, _) as f], _, _); NewArray args ] 
+        | "Apply", [ Application(Runtime "Curried", [Lambda(vars, _) as f], isPure, _); NewArray args ] 
             when vars.Length = args.Length ->
-            Application(f, args, false, Some vars.Length) // TODO: pure function  
+            Application(f, args, isPure, Some vars.Length) // TODO: pure function  
         | "CreateFuncWithArgs", [ TupledLambda (vars, body) as f ] ->
             Lambda(vars, body) |> WithSourcePosOfExpr f
         | "CreateFuncWithOnlyThis", [ Lambda ([obj], body) as f ] ->
