@@ -246,15 +246,15 @@ let rec breakExpr expr : Broken<BreakResult> =
         when List.length args = i && sameVars vars args && VarsNotUsed(vars).Get(f) ->
             br f
     | Function (args, body) ->
+        let args =
+            args |> List.rev |> List.skipWhile (fun a -> CountVarOccurence(a).GetForStatement(body) = 0) |> List.rev
         broken (Function (args, BreakStatement body)) 
     | Application (I.Function (args, I.Return body), xs, _, _) 
-        when List.length args = List.length xs && not (needsScoping args body)
-            && args |> Seq.forall (fun a -> notMutatedOrCaptured a body) ->
+        when List.length args = List.length xs && not (needsScoping args body) ->
         let bind key value body = Let (key, value, body)
         List.foldBack2 bind args xs body |> br
     | Application (I.Function (args, I.ExprStatement body), xs, _, _) 
-        when List.length args = List.length xs && not (needsScoping args body)
-            && args |> Seq.forall (fun a -> notMutatedOrCaptured a body) ->
+        when List.length args = List.length xs && not (needsScoping args body) ->
         let bind key value body = Let (key, value, body)
         List.foldBack2 bind args xs body |> br
     | Application (I.Let (var, value, body), xs, p, l) ->
