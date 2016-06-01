@@ -206,6 +206,11 @@ let fakePureFuncInline (x: int ref) = ()
 [<Direct "void($x[0]++)">]
 let nonPureFunc (x: int ref) = ()  
 
+//[<JavaScript>]
+//let rec moduleFuncValue =
+//    ()
+//    fun x -> if x < 5 then moduleFuncValue (x + 1) else x
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -449,4 +454,8 @@ let Tests =
             fakePureFuncInline r
             equal !r 1
         }
+
+//        Test "Recursive module value" {
+//            equal (moduleFuncValue 0) 5
+//        }
     }

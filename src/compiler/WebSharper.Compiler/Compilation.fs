@@ -782,7 +782,10 @@ type Compilation(meta: Info) =
                     | M.Method (mDef, nr) -> 
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled then
-                            cc.Methods.Add (mDef, (comp, nr.Pure, addCctorCall typ cc nr.Body))
+                            try
+                                cc.Methods.Add (mDef, (comp, nr.Pure, addCctorCall typ cc nr.Body))
+                            with _ ->
+                                printerrf "Duplicate definition for method %s.%s" typ.Value.FullName mDef.Value.MethodName
                         else 
                             compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ cc nr.Body)) 
                     | _ -> failwith "Fields and static constructors are always named"     
