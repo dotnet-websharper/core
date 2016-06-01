@@ -500,7 +500,7 @@ module Definitions =
     let IRemotingProvider =
         TypeDefinition {
             Assembly = "WebSharper.Main"
-            FullName = "WebSharper.Remoting.IRemotingProvider"
+            FullName = "WebSharper.Remoting+IRemotingProvider"
         } 
 
     let String =
