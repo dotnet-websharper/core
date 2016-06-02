@@ -1228,10 +1228,7 @@ type Compilation(meta: Info) =
                     | _ -> ()
                 | _ -> ()
             if isWebControl cls then
-                if cls.Methods |> Seq.exists (fun (KeyValue(m, (mi, _, _))) -> m = getBody && mi = Instance "get_Body") |> not then
-                    this.AddError (None, SourceError ("Web.Control type must override the Body property: " + t.Value.FullName))
-                else
-                    match st.VerifyWebControl(t) with 
-                    | Verifier.CriticallyIncorrect msg ->
-                        this.AddError (None, SourceError msg)
-                    | _ -> ()
+                match st.VerifyWebControl(t) with 
+                | Verifier.CriticallyIncorrect msg ->
+                    this.AddError (None, SourceError msg)
+                | _ -> ()

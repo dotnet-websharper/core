@@ -80,8 +80,6 @@ type Control() =
 
     [<JavaScript>]
     abstract member Body : IControlBody
-    [<JavaScript>]
-    default this.Body = Unchecked.defaultof<_>
 
     interface IControl with
         [<JavaScript>]

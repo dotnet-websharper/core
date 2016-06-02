@@ -33,6 +33,9 @@ You can specify the JavaScript-compiled name at the interface or abstract method
 
 Module-bound `let` values are no more initialized on page load, but on the first access of any value in the same source file (as in .NET).
 
+### Namespace changes
+Attribute types are now in `WebSharper` namespace, not `WebSharper.Pervasives` module.
+
 ### Single Page Application changes
 
 Bundling now creates minimal code using code path exploration.
