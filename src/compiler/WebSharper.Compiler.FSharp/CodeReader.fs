@@ -517,7 +517,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 match vars.Length with
                 | 2 -> JSRuntime.Curried2 f
                 | 3 -> JSRuntime.Curried3 f
-                | _ -> JSRuntime.Curried f
+                | n -> JSRuntime.Curried f n
         | BasicPatterns.Application(func, types, args) ->
             match IgnoreExprSourcePos (tr func) with
             | CallNeedingMoreArgs(thisObj, td, m, ca) ->

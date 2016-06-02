@@ -477,6 +477,12 @@ let Tests =
             equal !r 1
         }
 
+        Test "Long curried function" {
+            let f a b c d e = a + b + c + d
+            equal (f 1 1 1 1 1) 4
+            equal (f 1 1 1 1 2) 4
+        }
+
 //        Test "Recursive module value" {
 //            equal (moduleFuncValue 0) 5
 //        }
