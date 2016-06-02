@@ -2,7 +2,8 @@ Introducing WebSharper for C#
 
 WebSharper is a web development framework for the C# and F# languages.
 Write full stack web applications in a single language or mixing the two .NET languages.
-Client-side JavaScript code are generated from the original C# and F# source.
+Client-side JavaScript code are generated from the original C# source where annotated.
+Calling the server asynchronously is as simple as calling a Rpc-annotated method from client-side code.
 
 Additional features:
 

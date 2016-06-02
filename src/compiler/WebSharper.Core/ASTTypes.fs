@@ -272,9 +272,7 @@ and Type =
                 "Microsoft.FSharp.Core.FSharpFunc`2[[" + a.AssemblyQualifiedName + "],[" + r.AssemblyQualifiedName + "]]", "FSharp.Core"
             | ByRefType t -> getNameAndAsm t
             | VoidType -> "Microsoft.FSharp.Core.Unit", "FSharp.Core"
-        match this with
-        | VoidType -> "System.Void, mscorlib"
-        | _ -> getNameAndAsm this |> combine
+        getNameAndAsm this |> combine
 
     member this.TypeDefinition =
         match this with

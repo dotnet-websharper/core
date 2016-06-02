@@ -55,12 +55,13 @@ Previously delegates were a shortcut to create multiple-argument JavaScript func
 
 C#-friendly overloads (using delegates and new function wrapper types) has been added to all libraries created by the WebSharper Interface Generator.
 In some cases where the overloads would be ambigous with the F# versions (function with 0 or 1 arguments), the F# style overload has been removed.
-You may need to convert to a delegate explicitly when using these methods. 
+You may need to convert to a delegate when using these methods, you can do this implicitly by having a lambda as the argument.
+If the argument was previously an F# function value, you have to write a lambda for calling it.
 
 ### Macros and generators
 
 As the compiler pipeline of WebSharper has been replaced, the intermediate AST representation has changed.
-Macros and generators also gained new features.
+Macros and generators also gained new features, they get more info as input and has more options for output.
 Full API documentation will be available later.
 
 ### Macros relying on type information
