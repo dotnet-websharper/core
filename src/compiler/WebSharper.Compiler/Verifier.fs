@@ -62,7 +62,9 @@ type State(jP: J.Provider) =
             try
                 let enc = jP.GetEncoder(t)
                 true
-            with WebSharper.Core.Json.NoEncoderException _ ->
+// TODO: check that no other kinds of errors can happen
+//            with WebSharper.Core.Json.NoEncoderException _ ->
+            with _ ->
                 false
 
     let canDecodeFromJson =
@@ -71,7 +73,8 @@ type State(jP: J.Provider) =
             try
                 let enc = jP.GetDecoder(t)
                 true
-            with WebSharper.Core.Json.NoDecoderException _ ->
+//            with WebSharper.Core.Json.NoDecoderException _ ->
+            with _ ->
                 false
    
     let getRemoteContractError (td: TypeDefinition) (m: Method) : Status =

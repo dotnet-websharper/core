@@ -279,15 +279,20 @@ module internal Utilities =
                 | _ -> ()
         remotes :> RemoteMethods
 
-    let lookupClass meta typ =                                 
-        try meta.Classes.[typ]
-        with _ -> 
-            failwithf "Failed to find translation or proxy for class: %s" typ.Value.FullName          
-
     let lookupField meta typ field =
-        let t = lookupClass meta typ
-        try t.Fields.[field]                                          
+        try
+            match meta.Classes.TryGetValue typ with
+            | true, t -> t.Fields.[field]                                          
+            | _ ->
+                match meta.CustomTypes.[typ] with
+                | FSharpRecordInfo fs -> 
+                    fs |> List.pick (fun f -> 
+                        if f.Name = field then 
+                            Some (if f.Optional then OptionalField f.JSName else InstanceField f.JSName) 
+                        else None)
+                | _ -> failwith "not a record"
         with _ -> failwithf "Failed to find translation or proxy of field: %s.%s" typ.Value.FullName field
+            
 
 type ICompilation =
     abstract GetCustomTypeInfo : TypeDefinition -> CustomTypeInfo
