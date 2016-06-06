@@ -418,6 +418,9 @@ type String() =
                 |> MacroOk 
             | _ ->
                 MacroError "stringMacro error"
+        | [] ->
+            // when unit argument is erased
+            MacroOk (Value (Literal.String ""))
         | _ ->
             MacroError "stringMacro error"
 
