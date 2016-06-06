@@ -179,4 +179,7 @@ let Tests =
             equal (b) (New [| |])
         }
 
+        Test "Resource ordering" {
+            equal WIGtest2.SumTest 6    
+        }
     }

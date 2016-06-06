@@ -1117,8 +1117,7 @@ module Definition =
                  XmlHttpRequest
             ]
             Namespace "WebSharper.JQuery.Resources" [
-                Resource "JQuery" "http://code.jquery.com/jquery-1.11.2.min.js"
-                |> fun r -> r.AssemblyWide()
+                Resource "JQuery" "http://code.jquery.com/jquery-1.11.2.min.js" |> AssemblyWide
             ]
         ]
 

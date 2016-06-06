@@ -8,9 +8,11 @@
     <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
     <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
   </PropertyGroup>
+  <Import Project="../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>
-    <EmbeddedResource Include="WIGtest.js" />
     <Compile Include="Main.fs" />
+    <EmbeddedResource Include="WIGtest.js" />
+    <EmbeddedResource Include="WIGtest2.js" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj">
@@ -29,5 +31,4 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-  <Import Project="../../msbuild/WebSharper.FSharp.Internal.targets" />
 </Project>

@@ -64,6 +64,12 @@ module Definition =
             "TestWithNoInterop" => ((Int * Int ^-> Int) ^-> (Int + String) |> WithNoInterop)
         ]
 
+    let WIGtest2 =
+        Class "WIGtest2"
+        |+> Static [
+            "SumTest" =? Int
+        ]
+
     let WIGtestGeneric =
         Generic + [ "T"; "U" ] - fun a b ->
             Class "WIGtestGeneric"
@@ -121,16 +127,19 @@ module Definition =
         ] 
 
     let Assembly =
+        let res1 = Resource "WIGTestJs" "WIGtest.js"
         Assembly [
             Namespace "WebSharper.InterfaceGenerator.Tests" [
                  JustX
                  WIGtestInstance
                  WIGtest
+                 WIGtest2
                  WIGtestGeneric
                  ConfigObj
                  OneBasedArr
                  ObjWithOptionalFields
-                 Resource "WIGTestJs" "WIGtest.js" |> AssemblyWide
+                 res1 |> AssemblyWide
+                 Resource "WIGTestJs2" "WIGtest2.js" |> Requires [ res1 ] |> AssemblyWide
             ]
         ]
 

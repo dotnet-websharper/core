@@ -97,9 +97,8 @@ let getRequires attrs =
     |> List.ofSeq
 
 let isResourceType (e: Mono.Cecil.TypeDefinition) =
-    e.Interfaces |> Seq.exists (fun i ->
-        i.FullName = "WebSharper.Core.Resources+IResource"
-    )
+    let b = e.BaseType
+    not (isNull b) && b.FullName = "WebSharper.Core.Resources/BaseResource"
 
 let TransformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
     let rec withNested (tD: Mono.Cecil.TypeDefinition) =
@@ -166,7 +165,7 @@ let TransformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
 
         let baseDef =
             let b = typ.BaseType
-            if b = null then None else
+            if isNull b then None else
                 getTypeDefinition b
                 |> ignoreSystemObject
 
