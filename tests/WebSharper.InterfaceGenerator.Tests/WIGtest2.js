@@ -1,3 +1,3 @@
 ﻿var WIGtest2 = {
-    SumTest: WIGTest.Sum(1, 2, 3)
+    SumTest: WIGtest.Sum(1, 2, 3)
 }
