@@ -1520,7 +1520,7 @@ module TypedProviderInternals =
                             if rf.Name = f then 
                                 Some rf.JSName
                             else None)
-                    | _ -> failwithf "Could not find metadata information about field: %s.%s" t.FullName f
+                    | _ -> f
             GetUnionTag = defaultGetUnionTag
             EncodeUnionTag = defaultEncodeUnionTag
             GetEncodedUnionFieldName = fun _ i -> "$" + string i
