@@ -284,56 +284,71 @@ type Graph =
     /// Gets all resource class instances for a set of graph nodes.
     /// Resource nodes are ordered by graph edges, assembly nodes by assembly dependencies.
     member this.GetResources (nodes : seq<Node>) =
-        let activate resource =
-            match resource with
-            | AssemblyNode (name, true) ->
-                AssemblyResource name :> R.IResource
-            | ResourceNode t ->
-                try
-                    Reflection.LoadTypeDefinition t
-                    |> System.Activator.CreateInstance
-                    |> unbox
-                with e ->
-                    {
-                        new R.IResource with
-                            member this.Render ctx writer =
-                                let writer = writer R.Scripts
-                                writer.Write("<-- ")
-                                writer.Write("Failed to load: {0}; because of: {1}", t, e.Message)
-                                writer.WriteLine(" -->")
-                                ()
-                    }
-            | _ -> failwith "not a resource node"
-        
-        let getSortIndex i n =
-            match n with
-            | AssemblyNode _ -> i
-            | ResourceNode _ -> -1
-            | _ -> failwith "not a resource node"
+        let activate i n =
+            match this.Resources.TryFind i with
+            | Some found -> found
+            | _ ->
+            let res =
+                match n with
+                | AssemblyNode (name, true) ->
+                    AssemblyResource name :> R.IResource
+                | ResourceNode t ->
+                    try
+                        Reflection.LoadTypeDefinition t
+                        |> System.Activator.CreateInstance
+                        |> unbox
+                    with e ->
+                        {
+                            new R.IResource with
+                                member this.Render ctx writer =
+                                    let writer = writer R.Scripts
+                                    writer.Write("<-- ")
+                                    writer.Write("Failed to load: {0}; because of: {1}", t, e.Message)
+                                    writer.WriteLine(" -->")
+                                    ()
+                        }
+                | _ -> failwith "not a resource node"
+            this.Resources.Add(i, res)
+            res
 
-        let res = 
+        let asmNodes, resNodes =
             nodes 
             |> this.GetRequires
             |> Seq.distinct
             |> Seq.choose (fun i ->
                 let n = this.Nodes.[i]
                 match n with
-                | AssemblyNode (_, true)
+                | AssemblyNode (_, true) ->
+                    Some (true, (i, n))
                 | ResourceNode _ ->
-                    let i = this.Lookup.[n]
-                    match this.Resources.TryFind i with
-                    | Some found -> Some (getSortIndex i n, found)
-                    | _ ->
-                        let res = activate n
-                        this.Resources.Add(i, res)
-                        Some (getSortIndex i n, res)
+                    Some (false, (i, n))
                 | _ -> None
-            ) 
-            |> Seq.sortBy fst
+            )    
+            |> List.ofSeq
+            |> List.partition fst
+
+        let asmNodes = 
+            asmNodes
             |> Seq.map snd
+            |> Seq.sortBy fst    
             |> List.ofSeq
 
-        Resources.Runtime.Instance :: res
+        let resNodesOrdered = ResizeArray()
+        let registeredResNodes = HashSet()
+
+        let rec registerResNode i n =
+            if registeredResNodes.Add i then
+                for d in this.Edges.[i] do
+                    registerResNode d this.Nodes.[d]    
+                resNodesOrdered.Add (i, n)    
+
+        for _, (i, n) in resNodes do registerResNode i n
+
+        [
+            yield Resources.Runtime.Instance
+            for i, n in resNodesOrdered -> activate i n
+            for i, n in asmNodes -> activate i n
+        ]
    
      /// Gets the resource nodes of a set of already explored graph nodes.
      /// Used for minimal bundling.
