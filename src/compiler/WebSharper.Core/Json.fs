@@ -1506,10 +1506,21 @@ module TypedProviderInternals =
         {
             AddTag = addTag info
             GetEncodedFieldName = fun t f ->
-                match (M.Utilities.lookupField info (AST.Reflection.ReadTypeDefinition t) f) with
-                | M.InstanceField n
-                | M.OptionalField n -> n
-                | _ -> failwith "field must be an instance field"
+                let typ = AST.Reflection.ReadTypeDefinition t
+                match info.Classes.TryGetValue typ with
+                | true, cls -> 
+                    match cls.Fields.[f] with
+                    | M.InstanceField n
+                    | M.OptionalField n -> n
+                    | _ -> failwithf "A static field not serializable: %s.%s" t.FullName f                                          
+                | _ ->
+                    match info.CustomTypes.TryGetValue typ with
+                    | true, M.FSharpRecordInfo fs -> 
+                        fs |> List.pick (fun rf -> 
+                            if rf.Name = f then 
+                                Some rf.JSName
+                            else None)
+                    | _ -> failwithf "Could not find metadata information about field: %s.%s" t.FullName f
             GetUnionTag = defaultGetUnionTag
             EncodeUnionTag = defaultEncodeUnionTag
             GetEncodedUnionFieldName = fun _ i -> "$" + string i
