@@ -44,36 +44,36 @@ type private SourceMemberOrEntity =
     | SourceEntity of FSharpEntity * ResizeArray<SourceMemberOrEntity>
     | SourceInterface of FSharpEntity 
 
-let transformInterface parentAnnot (intf: FSharpEntity) =
+let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: FSharpEntity) =
     let methodNames = ResizeArray()
     let annot =
-        CodeReader.attrReader.GetTypeAnnot(parentAnnot, intf.Attributes)
+       sr.AttributeReader.GetTypeAnnot(parentAnnot, intf.Attributes)
     let def =
         match annot.ProxyOf with
         | Some d -> d 
-        | _ -> CodeReader.getTypeDefinition intf
+        | _ -> sr.ReadTypeDefinition intf
     for m in intf.MembersFunctionsAndValues do
         if not m.IsProperty then
-            let mAnnot = CodeReader.attrReader.GetMemberAnnot(annot, m.Attributes)
+            let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, m.Attributes)
             let md = 
-                match CodeReader.getMember m with
+                match sr.ReadMember m with
                 | Member.Method (_, md) -> md
                 | _ -> failwith "invalid interface member"
             methodNames.Add(md, mAnnot.Name)
     Some (def, 
         {
             StrongName = annot.Name 
-            Extends = intf.DeclaredInterfaces |> Seq.map (fun i -> CodeReader.getTypeDefinition i.TypeDefinition) |> List.ofSeq
+            Extends = intf.DeclaredInterfaces |> Seq.map (fun i -> sr.ReadTypeDefinition i.TypeDefinition) |> List.ofSeq
             NotResolvedMethods = List.ofSeq methodNames 
         }
     )
 
-let isILClass (e: FSharpEntity) =
+let private isILClass (e: FSharpEntity) =
     e.IsClass || e.IsFSharpExceptionDeclaration || e.IsFSharpModule || e.IsFSharpRecord || e.IsFSharpUnion || e.IsValueType
 
-let isResourceType (e: FSharpEntity) =
+let private isResourceType (sr: CodeReader.SymbolReader) (e: FSharpEntity) =
     e.AllInterfaces |> Seq.exists (fun i ->
-        CodeReader.getTypeDefinition i.TypeDefinition = Definitions.IResource
+        sr.ReadTypeDefinition i.TypeDefinition = Definitions.IResource
     )
 
 let isAugmentedFSharpType (e: FSharpEntity) =
@@ -92,13 +92,13 @@ let basicInstanceField =
         IsOptional = false 
     }
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) parentAnnot (cls: FSharpEntity) members =
-    let thisDef = CodeReader.getTypeDefinition cls
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
+    let thisDef = sr.ReadTypeDefinition cls
     
     let annot = 
-        CodeReader.attrReader.GetTypeAnnot(parentAnnot, cls.Attributes)
+        sr.AttributeReader.GetTypeAnnot(parentAnnot, cls.Attributes)
 
-    if isResourceType cls then
+    if isResourceType sr cls then
         let thisRes = comp.Graph.AddOrLookupNode(ResourceNode thisDef)
         for req in annot.Requires do
             comp.Graph.AddEdge(thisRes, ResourceNode req)
@@ -147,7 +147,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
         match annotations.TryFind (x: FSharpMemberOrFunctionOrValue) with
         | Some a -> a
         | _ -> 
-            let a = CodeReader.attrReader.GetMemberAnnot(annot, x.Attributes)
+            let a = sr.AttributeReader.GetMemberAnnot(annot, x.Attributes)
             let a =
                 if x.IsPropertySetterMethod then
                     match propertiesWithSetter |> List.tryFind (fun p -> p.SetterMethod = x) with
@@ -177,7 +177,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
             comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError m)
 
         if isStub || (meth.IsDispatchSlot && mAnnot.Kind = Some A.MemberKind.JavaScript) then
-            match CodeReader.getMember meth with
+            match sr.ReadMember meth with
             | Member.Method (isInstance, mdef) as memdef ->
                 let getItem() =
                     match mAnnot.Name with
@@ -202,7 +202,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
         else
             match mAnnot.Kind with
             | Some (A.MemberKind.Remote rp) ->
-                match CodeReader.getMember meth with
+                match sr.ReadMember meth with
                 | Member.Method (isInstance, mdef) ->
                     let remotingKind =
                         match mdef.Value.ReturnType with
@@ -253,7 +253,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
             | Some A.MemberKind.Stub
             | Some (A.MemberKind.Remote _) -> ()
             | Some kind ->
-                let memdef = CodeReader.getMember meth
+                let memdef = sr.ReadMember meth
 
                 if stubs.Contains memdef then () else
     //            let isModuleValue = ref false
@@ -292,7 +292,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                                     if CodeReader.isByRef p.FullType then CodeReader.ByRefArg else CodeReader.LocalVar)
                         ]
                     let tparams = clsTparams @ (meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq)
-                    let env = CodeReader.Environment.New (argsAndVars, tparams, comp)  
+                    let env = CodeReader.Environment.New (argsAndVars, tparams, comp, sr)  
                     let res =
                         let b = CodeReader.transformExpression env expr 
                         let b = 
@@ -340,7 +340,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                                         Some (i,
                                             match d with
                                             | Some v -> v
-                                            | _ -> DefaultValueOf (CodeReader.getType env.TParams p.Type)
+                                            | _ -> DefaultValueOf (sr.ReadType env.TParams p.Type)
                                         )
                                     else None
                                 )
@@ -515,9 +515,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
             | None 
             | _ -> ()
         | SourceEntity (ent, nmembers) ->
-            transformClass sc comp annot ent nmembers |> Option.iter comp.AddClass   
+            transformClass sc comp sr annot ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
-            transformInterface annot i |> Option.iter comp.AddInterface
+            transformInterface sr annot i |> Option.iter comp.AddInterface
 
 //    let translated = annot.IsJavaScript || clsMembers.Count > 0
 
@@ -538,7 +538,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
             let cases =
                 cls.UnionCases
                 |> Seq.map (fun case ->
-                    let cAnnot = CodeReader.attrReader.GetMemberAnnot(annot, case.Attributes)
+                    let cAnnot = sr.AttributeReader.GetMemberAnnot(annot, case.Attributes)
                     let kind =
                         if nullCase && case.UnionCaseFields.Count = 0 then
                             nullCase <- false
@@ -555,7 +555,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
                                 |> Seq.map (fun f ->
                                     {
                                         Name = f.Name
-                                        UnionFieldType = CodeReader.getType tparamsMap f.FieldType
+                                        UnionFieldType = sr.ReadType tparamsMap f.FieldType
                                         DateTimeFormat = 
                                             cAnnot.DateTimeFormat 
                                             |> List.tryPick (fun (target, format) -> if target = Some f.Name then Some format else None)
@@ -592,14 +592,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
             let cdef =
                 Hashed {
                     CtorParameters =
-                        cls.FSharpFields |> Seq.map (fun f -> CodeReader.getType tparamsMap f.FieldType) |> List.ofSeq
+                        cls.FSharpFields |> Seq.map (fun f -> sr.ReadType tparamsMap f.FieldType) |> List.ofSeq
                 }
             let body =
                 let vars =
                     cls.FSharpFields |> Seq.map (fun f -> CodeReader.namedId f.Name) |> List.ofSeq
                 let fields =
                     cls.FSharpFields |> Seq.map (fun f -> 
-                        let fAnnot = CodeReader.attrReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
+                        let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
                     
                         match fAnnot.Name with Some n -> n | _ -> f.Name
                         , 
@@ -630,7 +630,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
 
             for f in cls.FSharpFields do
                 let recTyp = Generic def (List.init cls.GenericParameters.Count TypeParameter)
-                let fTyp = CodeReader.getType tparamsMap f.FieldType
+                let fTyp = sr.ReadType tparamsMap f.FieldType
             
                 let getDef =
                     Hashed {
@@ -663,9 +663,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
 
             let i = 
                 cls.FSharpFields |> Seq.map (fun f ->
-                    let fAnnot = CodeReader.attrReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
+                    let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
                     let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
-                    let fTyp = CodeReader.getType tparamsMap f.FieldType
+                    let fTyp = sr.ReadType tparamsMap f.FieldType
 
                     {
                         Name = f.Name
@@ -680,7 +680,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
             comp.AddCustomType(def, i)
 
     for f in cls.FSharpFields do
-        let fAnnot = CodeReader.attrReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
+        let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
         let nr =
             {
                 StrongName = fAnnot.Name
@@ -705,7 +705,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
         def,
         {
             StrongName = strongName
-            BaseClass = cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> CodeReader.getTypeDefinition |> ignoreSystemObject)
+            BaseClass = cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
             Kind = ckind
@@ -714,17 +714,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) p
         }
     )
 
-let transformAssembly (refMeta : Info) assemblyName (checkResults: FSharpCheckProjectResults) =   
-    CodeReader.thisAssemblyName <- assemblyName
-
-    let comp = Compilation(refMeta)
-
-    let asmAnnot = 
-        CodeReader.attrReader.GetAssemblyAnnot(checkResults.AssemblySignature.Attributes)
+let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpCheckProjectResults) =   
+    comp.AssemblyName <- assemblyName
+    let sr = CodeReader.SymbolReader(comp)    
+    
+    let asmAnnot = sr.AttributeReader.GetAssemblyAnnot(checkResults.AssemblySignature.Attributes)
 
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
 
-    comp.AssemblyName <- assemblyName
     comp.AssemblyRequires <- asmAnnot.Requires
     comp.SiteletDefinition <- asmAnnot.SiteletDefinition
 
@@ -781,9 +778,9 @@ let transformAssembly (refMeta : Info) assemblyName (checkResults: FSharpCheckPr
             match t with
             | SourceMember _ -> failwith "impossible: top level member"
             | SourceEntity (c, m) ->
-                transformClass sc comp rootTypeAnnot c m |> Option.iter comp.AddClass
+                transformClass sc comp sr rootTypeAnnot c m |> Option.iter comp.AddClass
             | SourceInterface i ->
-                transformInterface rootTypeAnnot i |> Option.iter comp.AddInterface
+                transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
             
         let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
             let statements, fields = sc            

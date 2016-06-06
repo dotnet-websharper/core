@@ -110,7 +110,8 @@ type WebSharperFSharpCompiler(logger) =
             | Some dep -> dep  
         
         let comp = 
-            WebSharper.Compiler.FSharp.ProjectReader.transformAssembly refMeta
+            WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
+                (WebSharper.Compiler.Compilation(refMeta))
                 (Path.GetFileNameWithoutExtension path)
                 checkFileResults
 
@@ -147,3 +148,18 @@ type WebSharperFSharpCompiler(logger) =
 
         comp
 
+    member this.Compile (prevMeta, assemblyName, checkFileResults: FSharpCheckProjectResults) =
+        let refMeta =   
+            match prevMeta with
+            | None -> M.Info.Empty
+            | Some dep -> dep  
+        
+        let comp = 
+            WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
+                (WebSharper.Compiler.Compilation(refMeta, UseMacros = false))
+                assemblyName
+                checkFileResults
+
+        WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
+            
+        comp

@@ -6,7 +6,7 @@
     <OutputType>Exe</OutputType>
     <FSharp40>True</FSharp40>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-	<Signed>False</Signed>
+    <Signed>False</Signed>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <StartArguments>-o:obj\Release\WebSharper.Main.dll --debug:pdbonly --noframework --define:TRACE --doc:C:\repo\websharper.csharp\msbuild\\..\build\Release\WebSharper.Main.xml --optimize+ --resource:Json.js --resource:Json.min.js -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.3.0.0\FSharp.Core.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.3.0.0\Type Providers\FSharp.Data.TypeProviders.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\mscorlib.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Configuration.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Core.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Data.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Data.Linq.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Numerics.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Web.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Xml.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Xml.Linq.dll" -r:C:\repo\websharper.csharp\build\Release\WebSharper.Core.dll -r:C:\repo\websharper.csharp\build\Release\WebSharper.Core.JavaScript.dll -r:C:\repo\websharper.csharp\build\Release\WebSharper.JavaScript.dll -r:C:\repo\websharper.csharp\build\Release\WebSharper.JQuery.dll --target:library --warn:3 --warnaserror:76 --fullpaths --flaterrors --highentropyva- "C:\Users\András\AppData\Local\Temp\.NETFramework,Version=v4.0.AssemblyAttributes.fs" C:\repo\websharper.csharp\msbuild\/AssemblyInfo.fs JavaScript.fs Json.fsi Json.fs Remoting.fsi Remoting.fs Macro.fsi Macro.fs Pervasives.fs JavaScript.Pervasives.fs PrintfHelpers.fs Concurrency.fs Enumerator.fs Enumerable.fs Resources.fs Html.fs Interop.fs JavaScript.Extensions.fs CollectionInternals.fs Proxy/Object.fs Proxy/IntrinsicFunctions.fs Proxy/Array.fs Proxy/ArrayModule.fs Proxy/Array2DModule.fs Proxy/Async.fs Proxy/AsyncBuilder.fs Proxy/Char.fs Proxy/Choice.fs Proxy/CommonExtensions.fs Proxy/DateTime.fs Proxy/Double.fs Proxy/Enum.fs Proxy/Exception.fs Proxy/ExtraTopLevelOperators.fs Proxy/Func.fs Proxy/Guid.fs Proxy/IComparable.fs Proxy/IDisposable.fs Proxy/IEnumerable.fs Proxy/IEnumerator.fs Proxy/Int32.fs Proxy/IntrinsicOperators.fs Proxy/KeyValuePair.fs Proxy/LanguagePrimitives.fs Proxy/Lazy.fs Proxy/LazyExtensions.fs Proxy/List.fs Proxy/ListModule.fs Proxy/Math.fs Proxy/Nullable.fs Proxy/Operators.fs Proxy/OperatorIntrinsics.fs Proxy/Option.fs Proxy/OptionModule.fs Proxy/Queue.fs Proxy/Printf.fs Proxy/Random.fs Proxy/Ref.fs Proxy/RuntimeHelpers.fs Proxy/SeqModule.fs Proxy/Stack.fs Proxy/String.fs Proxy/Task.fs Proxy/TimeSpan.fs Proxy/Unchecked.fs</StartArguments>
@@ -21,9 +21,7 @@
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
     <Compile Include="Program.fs" />
-    <Content Include="App.config">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <Content Include="App.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj">

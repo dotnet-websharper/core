@@ -31,108 +31,12 @@ type VarKind =
     | ByRefArg
     | ThisArg
          
-type Environment =
-    {
-        ScopeIds : list<FSharpMemberOrFunctionOrValue * Id * VarKind>
-        TParams : Map<string, int>
-        Exception : option<Id>
-        Compilation : Compilation
-    }
-    static member New(vars, tparams, comp) = 
-        { 
-            ScopeIds = vars |> Seq.map (fun (i, (v, k)) -> i, v, k) |> List.ofSeq 
-            TParams = tparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
-            Exception = None
-            Compilation = comp
-        }
-
-    member this.WithTParams tparams =
-        if List.isEmpty tparams then this else
-        { this with 
-            TParams = 
-                ((this.TParams, this.TParams.Count), tparams) 
-                ||> List.fold (fun (m, i) p -> m |> Map.add p i, i + 1) 
-                |> fst
-        }
-
-    member this.WithVar(i: Id, v: FSharpMemberOrFunctionOrValue, ?k) =
-        { this with ScopeIds = (v, i, defaultArg k LocalVar) :: this.ScopeIds }
-
-    member this.WithException (i: Id, v: FSharpMemberOrFunctionOrValue) =
-        { this with 
-            ScopeIds = (v, i, LocalVar) :: this.ScopeIds
-            Exception = Some i }
-
-    member this.LookupVar (v: FSharpMemberOrFunctionOrValue) =
-        match this.ScopeIds |> List.tryPick (fun (sv, i, k) -> if sv = v then Some (i, k) else None) with
-        | Some var -> var
-        | _ -> failwithf "Variable lookup failed: %s" v.DisplayName
-
 let rec getOrigDef (td: FSharpEntity) =
     if td.IsFSharpAbbreviation then getOrigDef td.AbbreviatedType.TypeDefinition else td 
 
-let mutable thisAssemblyName = "CurrentAssembly"
-
-let getSimpleName (a: FSharpAssembly) =
-    match a.FileName with
-    | None -> thisAssemblyName
-    | _ -> a.SimpleName
-
 module M = WebSharper.Core.Metadata
 
-let getTypeDefinition (td: FSharpEntity) =
-    if td.IsArrayType then
-        TypeDefinition {
-            Assembly = "mscorlib"
-            FullName = "System.Array`1"
-        }
-    else
-    let td = getOrigDef td
-    let res =
-        {
-            Assembly = getSimpleName td.Assembly 
-            FullName = if td.IsProvidedAndErased then td.LogicalName else td.QualifiedName.Split([|','|]).[0] 
-        }
-    // TODO: more measure types
-    match res.Assembly with
-    | "FSharp.Core" ->
-        match res.FullName with
-        | "Microsoft.FSharp.Core.byte`1" -> 
-            { Assembly = "mscorlib"; FullName = "System.Byte" }   
-        | "Microsoft.FSharp.Core.syte`1" -> 
-            { Assembly = "mscorlib"; FullName = "System.SByte" }   
-        | "Microsoft.FSharp.Core.int16`1" -> 
-            { Assembly = "mscorlib"; FullName = "System.Int16" }   
-        | "Microsoft.FSharp.Core.int`1" -> 
-            { Assembly = "mscorlib"; FullName = "System.Int32" }   
-        | "Microsoft.FSharp.Core.uint16`1" ->
-            { Assembly = "mscorlib"; FullName = "System.UInt16" }   
-        | "Microsoft.FSharp.Core.uint32`1" -> 
-            { Assembly = "mscorlib"; FullName = "System.UInt32" }   
-        | "Microsoft.FSharp.Core.decimal`1" -> 
-            { Assembly = "mscorlib"; FullName = "System.Decimal" }   
-        | "Microsoft.FSharp.Core.int64`1" -> 
-            { Assembly = "mscorlib"; FullName = "System.Int64" }   
-        | "Microsoft.FSharp.Core.uint64`1" -> 
-            { Assembly = "mscorlib"; FullName = "System.UInt64" }   
-        | "Microsoft.FSharp.Core.float32`1" ->
-            { Assembly = "mscorlib"; FullName = "System.Single" }   
-        | "Microsoft.FSharp.Core.float`1" ->
-            { Assembly = "mscorlib"; FullName = "System.Double" }   
-        | _ -> res
-    | _ -> res
-    |> fun x -> TypeDefinition x
-
 module A = WebSharper.Compiler.AttributeReader
-
-type FSharpAttributeReader() =
-    inherit A.AttributeReader<FSharpAttribute>()
-    override this.GetAssemblyName attr = getSimpleName attr.AttributeType.Assembly
-    override this.GetName attr = attr.AttributeType.LogicalName
-    override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map snd |> Array.ofSeq          
-    override this.GetTypeDef o = getTypeDefinition (o :?> FSharpType).TypeDefinition
-
-let attrReader = FSharpAttributeReader()
 
 let rec getOrigType (t: FSharpType) =
     if t.IsAbbreviation then getOrigType t.AbbreviatedType else t
@@ -180,60 +84,6 @@ exception ParseError of message: string with
 let parsefailf x =
     Printf.kprintf (fun s -> raise <| ParseError s) x
 
-let rec getTypeR markStaticTP (tparams: Map<string, int>) (t: FSharpType) =
-    if t.IsGenericParameter then
-        
-        match tparams.TryFind t.GenericParameter.Name with
-        | Some i -> 
-            if markStaticTP && t.GenericParameter.IsSolveAtCompileTime then StaticTypeParameter i else TypeParameter i
-        | _ ->
-            parsefailf "Failed to resolve generic parameter: %s, found: %s" 
-                t.GenericParameter.Name (tparams |> Map.toSeq |> Seq.map fst |> String.concat ", ")
-    else
-    let t = getOrigType t
-    let getFunc() =
-        match t.GenericArguments |> Seq.map (getTypeR markStaticTP tparams) |> List.ofSeq with
-        | [a; r] -> FSharpFuncType(a, r)
-        | _ -> failwith "impossible: FSharpFunc must have 2 type parameters"
-    if t.IsTupleType then
-        t.GenericArguments |> Seq.map (getTypeR markStaticTP tparams) |> List.ofSeq |> TupleType
-    elif t.IsFunctionType then
-        getFunc()
-    else
-    let td = t.TypeDefinition
-    if td.IsArrayType then
-        ArrayType(getTypeR markStaticTP tparams t.GenericArguments.[0], td.DisplayName.Length - 1)
-    elif td.IsByRef then
-        ByRefType(getTypeR markStaticTP tparams t.GenericArguments.[0])
-    else
-        let fn = 
-            if td.IsProvidedAndErased then td.LogicalName else td.FullName
-        if fn.StartsWith "System.Tuple" then
-            t.GenericArguments |> Seq.map (getTypeR markStaticTP tparams) |> List.ofSeq |> TupleType
-        elif fn = "Microsoft.FSharp.Core.FSharpFunc`2" then
-            getFunc()
-        elif fn = "Microsoft.FSharp.Core.Unit" || fn = "System.Void" then
-            VoidType
-        else
-            let td = getTypeDefinition td
-            // erase Measure parameters
-            match td.Value.FullName with
-            | "System.Byte" 
-            | "System.SByte"            
-            | "System.Int16" 
-            | "System.Int32" 
-            | "System.UInt16" 
-            | "System.UInt32" 
-            | "System.Decimal"
-            | "System.Int64" 
-            | "System.UInt64" 
-            | "System.Single" 
-            | "System.Double" -> NonGenericType td
-            | _ ->
-                GenericType td (t.GenericArguments |> Seq.map (getTypeR markStaticTP tparams) |> List.ofSeq)
-
-let getType tparams t = getTypeR false tparams t
-
 let removeUnitParam (ps: list<Type>) =
     match ps with 
     | [ VoidType ] -> []
@@ -244,106 +94,6 @@ let hasCompilationRepresentation (cr: CompilationRepresentationFlags) attrs =
         a.AttributeType.FullName = "Microsoft.FSharp.Core.CompilationRepresentationAttribute"
         && obj.Equals(snd a.ConstructorArguments.[0], int cr)
     )
-
-let getAbstractSlot tparams (x: FSharpAbstractSignature) : Method =
-    let tparams =
-        Seq.append 
-            (Map.toSeq tparams)
-            (x.DeclaringTypeGenericParameters |> Seq.mapi (fun i p -> p.Name, i)) 
-        |> Map.ofSeq
-    Method {
-        MethodName = x.Name
-        Parameters = x.AbstractArguments |> Seq.concat |> Seq.map (fun p -> getType tparams p.Type) |> List.ofSeq |> removeUnitParam
-        ReturnType = getType tparams x.AbstractReturnType
-        Generics   = x.MethodGenericParameters.Count
-    } 
-
-let getMember (x : FSharpMemberOrFunctionOrValue) : Member =
-    let name = x.CompiledName
-
-    if name = ".cctor" then Member.StaticConstructor else
-
-    let tparams = 
-        Seq.append x.EnclosingEntity.GenericParameters x.GenericParameters
-        |> Seq.distinctBy (fun p -> p.Name)
-        |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
-
-    let isInstance = x.IsInstanceMember
-
-    let compiledAsStatic =
-        isInstance && (
-            x.IsExtensionMember || (
-                not (x.Attributes |> hasCompilationRepresentation CompilationRepresentationFlags.Instance) &&
-                x.EnclosingEntity.Attributes |> hasCompilationRepresentation CompilationRepresentationFlags.UseNullAsTrueValue
-            ) 
-        )    
-
-    let getPars() =
-        let ps =  
-            x.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> getType tparams p.Type) |> List.ofSeq |> removeUnitParam  
-        if compiledAsStatic then
-            GenericType (getTypeDefinition x.LogicalEnclosingEntity) 
-                (List.init x.LogicalEnclosingEntity.GenericParameters.Count (fun i -> TypeParameter i)) :: ps
-        else ps
-
-    if name = ".ctor" || name = "CtorProxy" then
-        Member.Constructor <| Constructor {
-            CtorParameters = getPars()
-        }  
-    else
-        if x.IsOverrideOrExplicitInterfaceImplementation then
-            let s = x.ImplementedAbstractSignatures |> Seq.head
-
-            let iTparams = 
-                Seq.append s.DeclaringTypeGenericParameters s.MethodGenericParameters
-                |> Seq.distinctBy (fun p -> p.Name)
-                |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
-            
-            let i = getTypeDefinition s.DeclaringType.TypeDefinition
-
-            let meth = getAbstractSlot iTparams s
-
-            if x.IsExplicitInterfaceImplementation then
-                Member.Implementation(i, meth)    
-            else
-                Member.Override(i, meth)    
-        else 
-        
-            Member.Method(
-                isInstance && not compiledAsStatic,
-                Method {
-                    MethodName = name
-                    Parameters = getPars()
-                    ReturnType = getType tparams x.ReturnParameter.Type
-                    Generics   = tparams.Count - x.EnclosingEntity.GenericParameters.Count
-                } 
-            )
-
-let getAndRegisterTypeDefinition (comp: Compilation) (td: FSharpEntity) =
-    let res = getTypeDefinition td
-
-    if td.IsDelegate then 
-        if not (comp.HasCustomTypeInfo res) then
-            let tparams = 
-                td.GenericParameters
-                |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
-            let info =
-                try 
-                    let sign = td.FSharpDelegateSignature
-                    M.DelegateInfo {
-                        DelegateArgs =
-                            sign.DelegateArguments |> Seq.map (snd >> getType tparams) |> List.ofSeq
-                        ReturnType = getType tparams sign.DelegateReturnType
-                    }
-                with _ ->
-                    let inv = td.MembersFunctionsAndValues |> Seq.find(fun m -> m.CompiledName = "Invoke")
-                    M.DelegateInfo {
-                        DelegateArgs =
-                            inv.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> getType tparams p.Type) |> List.ofSeq
-                        ReturnType = getType tparams inv.ReturnParameter.Type
-                    }
-            comp.AddCustomType(res, info)
-    res
 
 let getRange (range: Microsoft.FSharp.Compiler.Range.range) =
     {   
@@ -474,8 +224,263 @@ let removeListOfArray (argType: FSharpType) (expr: Expression) =
         | _ -> expr
     else expr
 
+type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
+
+    let attrReader =
+        { new A.AttributeReader<FSharpAttribute>() with
+            override this.GetAssemblyName attr = self.ReadSimpleName attr.AttributeType.Assembly
+            override this.GetName attr = attr.AttributeType.LogicalName
+            override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map snd |> Array.ofSeq          
+            override this.GetTypeDef o = self.ReadTypeDefinition (o :?> FSharpType).TypeDefinition
+        }
+
+    member this.ReadSimpleName (a: FSharpAssembly) =
+        match a.FileName with
+        | None -> comp.AssemblyName
+        | _ -> a.SimpleName
+
+    member this.ReadTypeDefinition (td: FSharpEntity) =
+        if td.IsArrayType then
+            TypeDefinition {
+                Assembly = "mscorlib"
+                FullName = "System.Array`1"
+            }
+        else
+        let td = getOrigDef td
+        let res =
+            {
+                Assembly = this.ReadSimpleName td.Assembly 
+                FullName = if td.IsProvidedAndErased then td.LogicalName else td.QualifiedName.Split([|','|]).[0] 
+            }
+        // TODO: more measure types
+        match res.Assembly with
+        | "FSharp.Core" ->
+            match res.FullName with
+            | "Microsoft.FSharp.Core.byte`1" -> 
+                { Assembly = "mscorlib"; FullName = "System.Byte" }   
+            | "Microsoft.FSharp.Core.syte`1" -> 
+                { Assembly = "mscorlib"; FullName = "System.SByte" }   
+            | "Microsoft.FSharp.Core.int16`1" -> 
+                { Assembly = "mscorlib"; FullName = "System.Int16" }   
+            | "Microsoft.FSharp.Core.int`1" -> 
+                { Assembly = "mscorlib"; FullName = "System.Int32" }   
+            | "Microsoft.FSharp.Core.uint16`1" ->
+                { Assembly = "mscorlib"; FullName = "System.UInt16" }   
+            | "Microsoft.FSharp.Core.uint32`1" -> 
+                { Assembly = "mscorlib"; FullName = "System.UInt32" }   
+            | "Microsoft.FSharp.Core.decimal`1" -> 
+                { Assembly = "mscorlib"; FullName = "System.Decimal" }   
+            | "Microsoft.FSharp.Core.int64`1" -> 
+                { Assembly = "mscorlib"; FullName = "System.Int64" }   
+            | "Microsoft.FSharp.Core.uint64`1" -> 
+                { Assembly = "mscorlib"; FullName = "System.UInt64" }   
+            | "Microsoft.FSharp.Core.float32`1" ->
+                { Assembly = "mscorlib"; FullName = "System.Single" }   
+            | "Microsoft.FSharp.Core.float`1" ->
+                { Assembly = "mscorlib"; FullName = "System.Double" }   
+            | _ -> res
+        | _ -> res
+        |> fun x -> TypeDefinition x
+
+    member this.ReadTypeSt markStaticTP (tparams: Map<string, int>) (t: FSharpType) =
+        if t.IsGenericParameter then
+        
+            match tparams.TryFind t.GenericParameter.Name with
+            | Some i -> 
+                if markStaticTP && t.GenericParameter.IsSolveAtCompileTime then StaticTypeParameter i else TypeParameter i
+            | _ ->
+                parsefailf "Failed to resolve generic parameter: %s, found: %s" 
+                    t.GenericParameter.Name (tparams |> Map.toSeq |> Seq.map fst |> String.concat ", ")
+        else
+        let t = getOrigType t
+        let getFunc() =
+            match t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq with
+            | [a; r] -> FSharpFuncType(a, r)
+            | _ -> failwith "impossible: FSharpFunc must have 2 type parameters"
+        if t.IsTupleType then
+            t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq |> TupleType
+        elif t.IsFunctionType then
+            getFunc()
+        else
+        let td = t.TypeDefinition
+        if td.IsArrayType then
+            ArrayType(this.ReadTypeSt markStaticTP tparams t.GenericArguments.[0], td.DisplayName.Length - 1)
+        elif td.IsByRef then
+            ByRefType(this.ReadTypeSt markStaticTP tparams t.GenericArguments.[0])
+        else
+            let fn = 
+                if td.IsProvidedAndErased then td.LogicalName else td.FullName
+            if fn.StartsWith "System.Tuple" then
+                t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq |> TupleType
+            elif fn = "Microsoft.FSharp.Core.FSharpFunc`2" then
+                getFunc()
+            elif fn = "Microsoft.FSharp.Core.Unit" || fn = "System.Void" then
+                VoidType
+            else
+                let td = this.ReadTypeDefinition td
+                // erase Measure parameters
+                match td.Value.FullName with
+                | "System.Byte" 
+                | "System.SByte"            
+                | "System.Int16" 
+                | "System.Int32" 
+                | "System.UInt16" 
+                | "System.UInt32" 
+                | "System.Decimal"
+                | "System.Int64" 
+                | "System.UInt64" 
+                | "System.Single" 
+                | "System.Double" -> NonGenericType td
+                | _ ->
+                    GenericType td (t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq)
+
+    member this.ReadType tparams t = this.ReadTypeSt false tparams t
+
+    member this.ReadAbstractSlot tparams (x: FSharpAbstractSignature) : Method =
+        let tparams =
+            Seq.append 
+                (Map.toSeq tparams)
+                (x.DeclaringTypeGenericParameters |> Seq.mapi (fun i p -> p.Name, i)) 
+            |> Map.ofSeq
+        Method {
+            MethodName = x.Name
+            Parameters = x.AbstractArguments |> Seq.concat |> Seq.map (fun p -> this.ReadType tparams p.Type) |> List.ofSeq |> removeUnitParam
+            ReturnType = this.ReadType tparams x.AbstractReturnType
+            Generics   = x.MethodGenericParameters.Count
+        } 
+
+    member this.ReadMember (x : FSharpMemberOrFunctionOrValue) : Member =
+        let name = x.CompiledName
+
+        if name = ".cctor" then Member.StaticConstructor else
+
+        let tparams = 
+            Seq.append x.EnclosingEntity.GenericParameters x.GenericParameters
+            |> Seq.distinctBy (fun p -> p.Name)
+            |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
+
+        let isInstance = x.IsInstanceMember
+
+        let compiledAsStatic =
+            isInstance && (
+                x.IsExtensionMember || (
+                    not (x.Attributes |> hasCompilationRepresentation CompilationRepresentationFlags.Instance) &&
+                    x.EnclosingEntity.Attributes |> hasCompilationRepresentation CompilationRepresentationFlags.UseNullAsTrueValue
+                ) 
+            )    
+
+        let getPars() =
+            let ps =  
+                x.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> this.ReadType tparams p.Type) |> List.ofSeq |> removeUnitParam  
+            if compiledAsStatic then
+                GenericType (this.ReadTypeDefinition x.LogicalEnclosingEntity) 
+                    (List.init x.LogicalEnclosingEntity.GenericParameters.Count (fun i -> TypeParameter i)) :: ps
+            else ps
+
+        if name = ".ctor" || name = "CtorProxy" then
+            Member.Constructor <| Constructor {
+                CtorParameters = getPars()
+            }  
+        else
+            if x.IsOverrideOrExplicitInterfaceImplementation then
+                let s = x.ImplementedAbstractSignatures |> Seq.head
+
+                let iTparams = 
+                    Seq.append s.DeclaringTypeGenericParameters s.MethodGenericParameters
+                    |> Seq.distinctBy (fun p -> p.Name)
+                    |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
+            
+                let i = this.ReadTypeDefinition s.DeclaringType.TypeDefinition
+
+                let meth = this.ReadAbstractSlot iTparams s
+
+                if x.IsExplicitInterfaceImplementation then
+                    Member.Implementation(i, meth)    
+                else
+                    Member.Override(i, meth)    
+            else 
+        
+                Member.Method(
+                    isInstance && not compiledAsStatic,
+                    Method {
+                        MethodName = name
+                        Parameters = getPars()
+                        ReturnType = this.ReadType tparams x.ReturnParameter.Type
+                        Generics   = tparams.Count - x.EnclosingEntity.GenericParameters.Count
+                    } 
+                )
+
+    member this.ReadAndRegisterTypeDefinition (comp: Compilation) (td: FSharpEntity) =
+        let res = this.ReadTypeDefinition td
+
+        if td.IsDelegate then 
+            if not (comp.HasCustomTypeInfo res) then
+                let tparams = 
+                    td.GenericParameters
+                    |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
+                let info =
+                    try 
+                        let sign = td.FSharpDelegateSignature
+                        M.DelegateInfo {
+                            DelegateArgs =
+                                sign.DelegateArguments |> Seq.map (snd >> this.ReadType tparams) |> List.ofSeq
+                            ReturnType = this.ReadType tparams sign.DelegateReturnType
+                        }
+                    with _ ->
+                        let inv = td.MembersFunctionsAndValues |> Seq.find(fun m -> m.CompiledName = "Invoke")
+                        M.DelegateInfo {
+                            DelegateArgs =
+                                inv.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> this.ReadType tparams p.Type) |> List.ofSeq
+                            ReturnType = this.ReadType tparams inv.ReturnParameter.Type
+                        }
+                comp.AddCustomType(res, info)
+        res
+    
+    member this.AttributeReader = attrReader
+
+type Environment =
+    {
+        ScopeIds : list<FSharpMemberOrFunctionOrValue * Id * VarKind>
+        TParams : Map<string, int>
+        Exception : option<Id>
+        Compilation : Compilation
+        SymbolReader : SymbolReader
+    }
+    static member New(vars, tparams, comp, sr) = 
+        { 
+            ScopeIds = vars |> Seq.map (fun (i, (v, k)) -> i, v, k) |> List.ofSeq 
+            TParams = tparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
+            Exception = None
+            Compilation = comp
+            SymbolReader = sr 
+        }
+
+    member this.WithTParams tparams =
+        if List.isEmpty tparams then this else
+        { this with 
+            TParams = 
+                ((this.TParams, this.TParams.Count), tparams) 
+                ||> List.fold (fun (m, i) p -> m |> Map.add p i, i + 1) 
+                |> fst
+        }
+
+    member this.WithVar(i: Id, v: FSharpMemberOrFunctionOrValue, ?k) =
+        { this with ScopeIds = (v, i, defaultArg k LocalVar) :: this.ScopeIds }
+
+    member this.WithException (i: Id, v: FSharpMemberOrFunctionOrValue) =
+        { this with 
+            ScopeIds = (v, i, LocalVar) :: this.ScopeIds
+            Exception = Some i }
+
+    member this.LookupVar (v: FSharpMemberOrFunctionOrValue) =
+        match this.ScopeIds |> List.tryPick (fun (sv, i, k) -> if sv = v then Some (i, k) else None) with
+        | Some var -> var
+        | _ -> failwithf "Variable lookup failed: %s" v.DisplayName
+    
+
 let rec transformExpression (env: Environment) (expr: FSharpExpr) =
     let inline tr x = transformExpression env x
+    let sr = env.SymbolReader
     try
         match expr with
         | BasicPatterns.Value(var) ->
@@ -564,11 +569,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 tr body
             )
         | BasicPatterns.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
-            let td = getAndRegisterTypeDefinition env.Compilation meth.EnclosingEntity
+            let td = sr.ReadAndRegisterTypeDefinition env.Compilation meth.EnclosingEntity
             if td.Value.FullName = "Microsoft.FSharp.Core.Operators" && meth.CompiledName = "Reraise" then
                 IgnoredStatementExpr (Throw (Var env.Exception.Value))    
             else
-                let t = Generic td (typeGenerics |> List.map (getType env.TParams))
+                let t = Generic td (typeGenerics |> List.map (sr.ReadType env.TParams))
                 let args = 
                     arguments |> List.map (fun a ->
                         let ta = tr a
@@ -586,9 +591,9 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         | _ -> [], Some a     
                     | _ -> args, None
                 let call =
-                    match getMember meth with
+                    match sr.ReadMember meth with
                     | Member.Method (isInstance, m) -> 
-                        let mt = Generic m (methodGenerics |> List.map (getType env.TParams))
+                        let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams))
                         if isInstance then
                             Call (Option.map tr this, t, mt, args)
                         else 
@@ -597,11 +602,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             else 
                                 Call (None, t, mt, Option.toList (Option.map tr this) @ args)
                     | Member.Implementation (i, m) ->
-                        let t = Generic i (typeGenerics |> List.map (getType env.TParams))
-                        let mt = Generic m (methodGenerics |> List.map (getType env.TParams))
+                        let t = Generic i (typeGenerics |> List.map (sr.ReadType env.TParams))
+                        let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams))
                         Call (Option.map tr this, t, mt, args)
                     | Member.Override (_, m) ->
-                        let mt = Generic m (methodGenerics |> List.map (getType env.TParams))
+                        let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams))
                         Call (Option.map tr this, t, mt, args)
                     | Member.Constructor c -> Ctor (t, c, args)
                     | Member.StaticConstructor -> parsefailf "Invalid: direct call to static constructor" //CCtor t 
@@ -620,8 +625,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | BasicPatterns.IfThenElse (cond, then_, else_) ->
             Conditional(tr cond, tr then_, tr else_)    
         | BasicPatterns.NewObject (ctor, typeGenerics, arguments) -> 
-            let td = getAndRegisterTypeDefinition env.Compilation ctor.EnclosingEntity
-            let t = Generic td (typeGenerics |> List.map (getType env.TParams))
+            let td = sr.ReadAndRegisterTypeDefinition env.Compilation ctor.EnclosingEntity
+            let t = Generic td (typeGenerics |> List.map (sr.ReadType env.TParams))
             let args = List.map tr arguments
             let args, before =
                 match args with
@@ -631,7 +636,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     | _ -> [], Some a     
                 | _ -> args, None
             let call =
-                match getMember ctor with
+                match sr.ReadMember ctor with
                 | Member.Constructor c -> Ctor (t, c, args)
                 | _ -> parsefailf "Expected a constructor call"
             match before with
@@ -656,8 +661,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             IgnoredStatementExpr(While(tr cond, ExprStatement (Capturing().CaptureValueIfNeeded(tr body))))
         | BasicPatterns.ValueSet (var, value) ->
             if var.IsModuleValueOrMember then
-                let td = getAndRegisterTypeDefinition env.Compilation var.EnclosingEntity
-                match getMember var with
+                let td = sr.ReadAndRegisterTypeDefinition env.Compilation var.EnclosingEntity
+                match sr.ReadMember var with
                 | Member.Method (_, m) ->
                     let me = m.Value
                     let setm =
@@ -690,12 +695,12 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 ExprStatement (Capturing(i).CaptureValueIfNeeded(trBody))
             ) |> IgnoredStatementExpr
         | BasicPatterns.TypeTest (typ, expr) ->
-            TypeCheck (tr expr, getType env.TParams typ)
+            TypeCheck (tr expr, sr.ReadType env.TParams typ)
         | BasicPatterns.Coerce (typ, expr) ->
             tr expr // TODO: type check when possible
         | BasicPatterns.NewUnionCase (typ, case, exprs) ->
             let t =
-                match getType env.TParams typ with
+                match sr.ReadType env.TParams typ with
                 | ConcreteType ct -> ct
                 | _ -> parsefailf "Expected a union type"
             if t.Entity = fsharpListDef then
@@ -723,20 +728,20 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             ItemGet(tr expr, Value (String ("$" + string i)))   
         | BasicPatterns.UnionCaseTest (expr, typ, case) ->
             let t =
-                match getType env.TParams typ with
+                match sr.ReadType env.TParams typ with
                 | ConcreteType ct -> ct
                 | _ -> parsefailf "Expected a union type"
             UnionCaseTest(tr expr, t, case.CompiledName)
         | BasicPatterns.UnionCaseTag (expr, typ) ->
             let t =
-                match getType env.TParams typ with
+                match sr.ReadType env.TParams typ with
                 | ConcreteType ct -> ct
                 | _ -> parsefailf "Expected a union type"
             UnionCaseTag(tr expr, t)
         | BasicPatterns.NewRecord (typ, items) ->
             let td = typ.TypeDefinition 
             let t =
-                match getType env.TParams typ with
+                match sr.ReadType env.TParams typ with
                 | ConcreteType ct -> ct
                 | _ -> parsefailf "Expected a named type"
             if td.IsFSharpRecord || td.IsFSharpExceptionDeclaration then
@@ -803,13 +808,13 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             This
         | BasicPatterns.FSharpFieldGet (thisOpt, typ, field) ->
             let t = 
-                match getType env.TParams typ with
+                match sr.ReadType env.TParams typ with
                 | ConcreteType ct -> ct
                 | _ -> parsefailf "Expected a record type"
             FieldGet(thisOpt |> Option.map tr, t, field.Name)
         | BasicPatterns.FSharpFieldSet (thisOpt, typ, field, value) ->
             let t = 
-                match getType env.TParams typ with
+                match sr.ReadType env.TParams typ with
                 | ConcreteType ct -> ct
                 | _ -> parsefailf "Expected a record type"
             FieldSet(thisOpt |> Option.map tr, t, field.Name, tr value)
@@ -855,8 +860,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 Let (o, Object [],
                     Sequential [
                         for ovr in Seq.append overrides (interfaces |> Seq.collect snd) do
-                            let i = getAndRegisterTypeDefinition env.Compilation ovr.Signature.DeclaringType.TypeDefinition
-                            let s = getAbstractSlot env.TParams ovr.Signature
+                            let i = sr.ReadAndRegisterTypeDefinition env.Compilation ovr.Signature.DeclaringType.TypeDefinition
+                            let s = sr.ReadAbstractSlot env.TParams ovr.Signature
                             let mutable env = env
                             let thisVar, vars =
                                 match ovr.CurriedParameterGroups with
@@ -876,7 +881,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         yield Var o
                     ]
                 )
-            Let(r, CopyCtor(getAndRegisterTypeDefinition env.Compilation typ.TypeDefinition, plainObj),
+            Let(r, CopyCtor(sr.ReadAndRegisterTypeDefinition env.Compilation typ.TypeDefinition, plainObj),
                 Sequential [
                     yield FixCtorTransformer(Var r).TransformExpression(tr expr)
                     yield Var r
@@ -922,11 +927,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 let meth =
                     Method {
                         MethodName = traitName
-                        Parameters = typeInstantiation |> List.map (getTypeR true env.TParams)
-                        ReturnType = getTypeR true env.TParams expr.Type
+                        Parameters = typeInstantiation |> List.map (sr.ReadTypeSt true env.TParams)
+                        ReturnType = sr.ReadTypeSt true env.TParams expr.Type
                         Generics   = 0
                     } 
-                TraitCall(tr t, getType env.TParams sourceTypes.[0], NonGeneric meth, a |> List.map tr)  
+                TraitCall(tr t, sr.ReadType env.TParams sourceTypes.[0], NonGeneric meth, a |> List.map tr)  
             | _ ->
                 failwith "Impossible: TraitCall must have a this argument"
         | BasicPatterns.UnionCaseSet _ ->
