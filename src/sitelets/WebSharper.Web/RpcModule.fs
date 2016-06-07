@@ -79,17 +79,43 @@ module private RpcUtil =
     let [<Literal>] CsrfTokenKey = "csrftoken"
     let [<Literal>] CsrfTokenHeader = "x-" + CsrfTokenKey
 
+type CorsAndCsrfCheckResult =
+    | Ok of headers : list<string * string>
+    | Preflight of headers : list<string * string>
+    | Error of httpStatusCode: int * httpStatusMessage: string
+
 [<Sealed>]
 type RpcHandler() =
 
-    let checkCsrf (req: HttpRequestBase) (resp: HttpResponseBase) =
-        let cookie = req.Cookies.[RpcUtil.CsrfTokenKey]
-        let header = req.Headers.[RpcUtil.CsrfTokenHeader]
-        if cookie = null then
-            RpcHandler.SetCsrfCookie resp
-            false
-        else
-            header = cookie.Value
+    static let corsAndCsrfCheck (reqMethod: string) (reqUrl: Uri) (getCookie: string -> option<string>) (getHeader: string -> option<string>) (setInfiniteCookie: string -> string -> unit) =
+        let checkCsrf() =
+            match getCookie RpcUtil.CsrfTokenKey with
+            | None ->
+                setInfiniteCookie RpcHandler.CsrfTokenKey (RpcHandler.MakeCsrfCookie())
+                false
+            | Some c ->
+                match getHeader RpcUtil.CsrfTokenHeader with
+                | None -> false
+                | Some h -> h = c
+        let isSameAuthority origin =
+            match Uri.TryCreate(origin, System.UriKind.Absolute) with
+            | true, origin -> origin.Authority = reqUrl.Authority
+            | false, _ -> false
+        let origin = getHeader "Origin"
+        let headers =
+            if origin.IsSome && (isSameAuthority origin.Value || Remoting.allowedOrigins.Contains (origin.Value.ToLowerInvariant())) then
+                [
+                    "Access-Control-Allow-Origin", origin.Value
+                    "Access-Control-Allow-Credentials", "true"
+                ]
+            else []
+        match reqMethod with
+        | "OPTIONS" ->
+            Preflight (("Access-Control-Allow-Headers", "x-websharper-rpc, content-type, x-csrftoken") :: headers)
+        | _ when Remoting.csrfProtect && not (checkCsrf()) ->
+            Error (403, "Forbidden")
+        | _ ->
+            Ok headers
 
     let work (ctx: HttpContextBase) =
         let req = ctx.Request
@@ -97,23 +123,18 @@ type RpcHandler() =
         async {
             // Manage "preflight" OPTIONS request
             // sent by the browser if the site is https or from another origin.
-            let isSameAuthority origin =
-                match Uri.TryCreate(origin, System.UriKind.Absolute) with
-                | true, origin -> origin.Authority = req.Url.Authority
-                | false, _ -> false
-            let origin = req.Headers.["Origin"]
-            if origin <> null && (isSameAuthority origin || Remoting.allowedOrigins.Contains (origin.ToLowerInvariant())) then
-                resp.AddHeader("Access-Control-Allow-Origin", origin)
-                resp.AddHeader("Access-Control-Allow-Credentials", "true")
-            match req.HttpMethod with
-            | "OPTIONS" ->
-                resp.AddHeader("Access-Control-Allow-Headers",
-                    "x-websharper-rpc, content-type, x-csrftoken")
-            | _ when Remoting.csrfProtect && not (checkCsrf req resp) ->
-                resp.StatusCode <- 403
-                resp.StatusDescription <- "Forbidden"
-                resp.Write "CSRF"
-            | _ ->
+            match corsAndCsrfCheck req.HttpMethod req.Url
+                    (fun k -> match req.Cookies.[k] with null -> None | c -> Some c.Value)
+                    (fun k -> match req.Headers.[k] with null -> None | h -> Some h)
+                    (fun k v -> HttpCookie(k, v, Expires = System.DateTime.UtcNow.AddYears(1000)) |> resp.SetCookie)
+                    with
+            | Error (code, descr) ->
+                resp.StatusCode <- code
+                resp.StatusDescription <- descr
+            | Preflight headers ->
+                headers |> List.iter (fun (k, v) -> resp.AddHeader(k, v))
+            | Ok headers ->
+                headers |> List.iter (fun (k, v) -> resp.AddHeader(k, v))
                 let getHeader (x: string) =
                     match req.Headers.[x] with
                     | null -> None
@@ -161,13 +182,19 @@ type RpcHandler() =
 
     static member CsrfTokenKey = RpcUtil.CsrfTokenKey
 
-    static member SetCsrfCookie (resp: HttpResponseBase) =
+    static member MakeCsrfCookie() =
         use rng = new RNGCryptoServiceProvider()
         let bytes = Array.zeroCreate 32
         rng.GetBytes(bytes)
-        HttpCookie(RpcUtil.CsrfTokenKey, Convert.ToBase64String bytes,
+        Convert.ToBase64String bytes
+
+    static member SetCsrfCookie (resp: HttpResponseBase) =
+        HttpCookie(RpcUtil.CsrfTokenKey, RpcHandler.MakeCsrfCookie(),
             Expires = System.DateTime.UtcNow.AddYears(1000))
         |> resp.SetCookie
+
+    static member CorsAndCsrfCheck reqMethod reqUrl getCookie getHeader setInfiniteCookie =
+        corsAndCsrfCheck reqMethod reqUrl getCookie getHeader setInfiniteCookie
 
 
 /// The WebSharper RPC HttpModule. Handles RPC requests.
