@@ -71,6 +71,10 @@ For example `WebSharper.Json.Encode` is a function that previously could be call
 Now, you can use it in a generic function if you mark that function `[<Inline>]`.
 In general, tranlation that relies on type information is delayed within inlines until the type arguments has been resolved at the call point.
 
+### JSON APIs
+
+Instead of using the `CompiledName` attribute to specify JSON-serialized name of an F# union case, use WebSharper's `Name` attribute.
+ 
 ## Missing features in first alpha release compared to WebSharper 3 (to be added)
 
 * TypeScript definition output

@@ -364,7 +364,7 @@ module Macro =
                         let tn = 
                             match comp.GetClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
                             | Some a -> GlobalAccess a
-                            | _ -> failwithf "Cannot look up type address for: %s" t.AssemblyQualifiedName 
+                            | _ -> Undefined
                         ok (call "Record" [tn; NewArray es])
                         ), fields)
                     ||> List.fold (fun k f es -> // f                        
@@ -461,7 +461,7 @@ module Macro =
                         let tn =
                             match comp.GetClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
                             | Some a -> GlobalAccess a
-                            | _ -> failwithf "Cannot look up type address for: %s" t.AssemblyQualifiedName 
+                            | _ -> Undefined
                         ok (call "Union" [tn; discr; cases])
                         ), cases)
                     ||> List.fold (fun (i, k) case ->
