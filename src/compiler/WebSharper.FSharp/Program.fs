@@ -163,10 +163,10 @@ let Compile (config : WsConfig) =
     match config.ProjectType with
     | Some Bundle ->
         ExecuteCommands.Bundle config |> ignore
-    | Some Website ->
-        ExecuteCommands.Unpack config |> ignore
     | Some Html ->
         ExecuteCommands.Html config |> ignore
+    | _ when Option.isSome config.OutputDir ->
+        ExecuteCommands.Unpack config |> ignore
     | _ -> ()
 
     System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
