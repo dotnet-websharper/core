@@ -34,6 +34,8 @@ type OptionalFieldKind =
 
 [<JavaScript>]
 type Provider() =
+    let i () = id 
+    member this.Id () = i
 
     abstract EncodeTuple : (unit -> obj -> obj)[] -> (unit -> obj[] -> obj)
     default this.EncodeTuple encs =
@@ -271,6 +273,9 @@ module Macro =
             let f = (if isEnc then "Encode" else "Decode") + n
             let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
             Call(Some x, NonGeneric providerType, NonGeneric m, args)
+        let invokeId (comp: M.ICompilation) x = 
+            let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = "Id")
+            Call(Some x, NonGeneric providerType, NonGeneric m, [])
 
         type EncodeResult = Choice<Expression, string, unit>
 
@@ -282,14 +287,11 @@ module Macro =
         let fail x = Choice2Of3 x : EncodeResult
         let generic = Choice3Of3 () : EncodeResult
 
-        let ident = 
-            let x = Id.New()
-            Lambda([], Lambda ([x], Var x))
-
         /// Returns None if MacroNeedsResolvedTypeArg.
         let getEncoding name isEnc param warn (comp: M.ICompilation) (t: Type) : option<Expression> =
             let ctx = System.Collections.Generic.Dictionary()
             let call = invoke comp param.Provider isEnc
+            let ident = invokeId comp param.Provider 
             let rec encode t =
                 match t with
                 | ArrayType (t, 1) ->
@@ -359,15 +361,9 @@ module Macro =
                 match comp.GetCustomTypeInfo t.TypeDefinition with
                 | M.EnumInfo _ -> ok ident
                 | M.FSharpRecordInfo fields ->
-                    ((fun es ->
-                        let es, tts = List.unzip es
-                        let tn = 
-                            match comp.GetClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
-                            | Some a -> GlobalAccess a
-                            | _ -> Undefined
-                        ok (call "Record" [tn; NewArray es])
-                        ), fields)
-                    ||> List.fold (fun k f es -> // f                        
+                    let fieldEncoders =
+                        fields
+                        |> List.map (fun f ->
                             if Option.isSome f.DateTimeFormat then
                                 warn (sprintf "Warning: This record field has a custom DateTime format: %s.%s. \
                                     Client-side JSON serialization does not support custom DateTime formatting. \
@@ -376,16 +372,32 @@ module Macro =
                             let t, optionKind =
                                 match f.RecordFieldType with
                                 | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "Microsoft.FSharp.Core.FSharpOption`1" ->
-                                    let kind =
-                                        if f.Optional then
-                                            OptionalFieldKind.MarkedOption    
-                                        else OptionalFieldKind.NormalOption 
-                                    p, cInt (int kind)
+                                    if f.Optional then p, OptionalFieldKind.MarkedOption    
+                                    else p, OptionalFieldKind.NormalOption 
                                 | t ->    
-                                    t, cInt (int OptionalFieldKind.NotOption)
-                            encode (t.SubstituteGenerics (Array.ofList targs)) >>= fun e ->
-                            k ((NewArray [cString f.Name; e; optionKind], t) :: es))
-                    <| []
+                                    t, OptionalFieldKind.NotOption
+                            f.JSName, optionKind, encode (t.SubstituteGenerics (Array.ofList targs))
+                        )  
+                    if fieldEncoders |> List.forall (fun (_, fo, fe) ->
+                        fo <> OptionalFieldKind.NormalOption &&
+                            match fe with 
+                            | Choice1Of3 e when obj.ReferenceEquals(e, ident) -> true
+                            | _ -> false
+                    )
+                    then ok ident
+                    else
+                        ((fun es ->
+                            let es, tts = List.unzip es
+                            let tn = 
+                                match comp.GetClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
+                                | Some a -> GlobalAccess a
+                                | _ -> Undefined
+                            ok (call "Record" [tn; NewArray es])
+                            ), fieldEncoders)
+                        ||> List.fold (fun k (fn, fo, fe) es ->                     
+                                fe >>= fun e ->
+                                k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
+                        <| []
                 // TODO: handle nested case type (possible when using from C#)
                 | M.FSharpUnionInfo u ->
                     let tryGetInlinableRecordInfo (uci: M.FSharpUnionCaseInfo) =
@@ -416,7 +428,7 @@ module Macro =
                                                 e.Value.FullName = "Microsoft.FSharp.Core.FSharpOption`1" -> false
                                             | _ -> true
                                         )
-                                        |> Seq.map (fun rf -> rf.Name) |> Set.ofSeq
+                                        |> Seq.map (fun rf -> rf.JSName) |> Set.ofSeq
                                     | _ -> 
                                         match uci.Kind with 
                                         | M.NormalFSharpUnionCase fs ->
