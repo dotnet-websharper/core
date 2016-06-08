@@ -900,8 +900,10 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let arrId = newId()
             let iId = newId()
             Let (arrId, tr arr, Let(iId, tr i, MakeRef (ItemGet(Var arrId, Var iId)) (fun value -> ItemSet(Var arrId, Var iId, value))))
+        | BasicPatterns.ILAsm ("[I_ldarg 0us]", [], []) ->
+            This
         | BasicPatterns.ILAsm (s, _, _) ->
-             parsefailf "Unrecognized ILAsm: %s" s
+            parsefailf "Unrecognized ILAsm: %s" s
         | BasicPatterns.ILFieldGet _ -> parsefailf "F# pattern not handled: ILFieldGet"
         | BasicPatterns.ILFieldSet _ -> parsefailf "F# pattern not handled: ILFieldSet"
         | BasicPatterns.TraitCall(sourceTypes, traitName, typeArgs, typeInstantiation, argExprs) ->

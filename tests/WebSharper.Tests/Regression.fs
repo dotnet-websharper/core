@@ -157,7 +157,17 @@ module Bug552 =
 module Bug553 =
 
     type C(x: int) as this =
-        new() = C(0)
+        let mutable x = x 
+        
+        do this.AddDigit(0)
+
+        new() = C(1)
+
+        new (a, b) as this = C(a) then this.AddDigit(b)
+
+        member this.X = x
+        member this.AddDigit y =
+            x <- 10 * x + y
 
 [<JavaScript>]
 module Bug512 =
@@ -446,7 +456,9 @@ let Tests =
 
         Test "Bug #553" {
             let a = Bug553.C()
-            expect 0
+            equal a.X 10
+            let b = Bug553.C(2, 3)
+            equal b.X 203
         }
 
         Test "Match with as/when" {
