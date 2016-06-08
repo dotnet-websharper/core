@@ -440,7 +440,7 @@ let Tests =
 
         Test "Bug #552" {
             let a = Bug552.C<int>()
-            let b = Bug552.C<int>.Create()
+            let b = Bug552.C<int>.Create<string>()
             expect 0
         }
 

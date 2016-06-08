@@ -359,20 +359,10 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             |> Seq.distinctBy (fun p -> p.Name)
             |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
 
-        let isInstance = x.IsInstanceMember
-
-        let compiledAsStatic =
-            isInstance && (
-                x.IsExtensionMember || (
-                    not (x.Attributes |> hasCompilationRepresentation CompilationRepresentationFlags.Instance) &&
-                    x.EnclosingEntity.Attributes |> hasCompilationRepresentation CompilationRepresentationFlags.UseNullAsTrueValue
-                ) 
-            )    
-
         let getPars() =
             let ps =  
                 x.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> this.ReadType tparams p.Type) |> List.ofSeq |> removeUnitParam  
-            if compiledAsStatic then
+            if x.IsInstanceMember && not x.IsInstanceMemberInCompiledCode then
                 GenericType (this.ReadTypeDefinition x.LogicalEnclosingEntity) 
                     (List.init x.LogicalEnclosingEntity.GenericParameters.Count (fun i -> TypeParameter i)) :: ps
             else ps
@@ -401,7 +391,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             else 
         
                 Member.Method(
-                    isInstance && not compiledAsStatic,
+                    x.IsInstanceMemberInCompiledCode,
                     Method {
                         MethodName = name
                         Parameters = getPars()
@@ -447,21 +437,15 @@ type Environment =
         SymbolReader : SymbolReader
     }
     static member New(vars, tparams, comp, sr) = 
+//        let tparams = Array.ofSeq tparams
+//        if tparams |> Array.distinct |> Array.length <> tparams.Length then
+//            failwithf "Repeating type parameter names: %A" tparams
         { 
             ScopeIds = vars |> Seq.map (fun (i, (v, k)) -> i, v, k) |> List.ofSeq 
             TParams = tparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
             Exception = None
             Compilation = comp
             SymbolReader = sr 
-        }
-
-    member this.WithTParams tparams =
-        if List.isEmpty tparams then this else
-        { this with 
-            TParams = 
-                ((this.TParams, this.TParams.Count), tparams) 
-                ||> List.fold (fun (m, i) p -> m |> Map.add p i, i + 1) 
-                |> fst
         }
 
     member this.WithVar(i: Id, v: FSharpMemberOrFunctionOrValue, ?k) =
@@ -508,7 +492,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     lam [] (tr body) (isUnit body.Type)
                 else 
                     let v = namedId arg.DisplayName
-                    let env = env.WithTParams(arg.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq).WithVar(v, arg)
+                    let env = env.WithVar(v, arg)
                     lam [v] (body |> transformExpression env) (isUnit body.Type)
             | args, body ->
                 let vars, env =
@@ -516,7 +500,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         if isUnit arg.FullType then namedId "_", env
                         else 
                             let v = namedId arg.DisplayName
-                            v, env.WithTParams(arg.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq).WithVar(v, arg)
+                            v, env.WithVar(v, arg)
                     ) 
                 let f = lam vars (body |> transformExpression env) (isUnit body.Type)
                 match vars.Length with
@@ -609,7 +593,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams))
                         Call (Option.map tr this, t, mt, args)
                     | Member.Constructor c -> Ctor (t, c, args)
-                    | Member.StaticConstructor -> parsefailf "Invalid: direct call to static constructor" //CCtor t 
+                    | Member.StaticConstructor -> parsefailf "Invalid: direct call to static constructor" 
                 match before with
                 | None -> call
                 | Some a -> Sequential [a; call]

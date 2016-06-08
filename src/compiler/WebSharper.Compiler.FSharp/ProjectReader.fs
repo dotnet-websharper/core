@@ -219,7 +219,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let fsharpSpecific = cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration
 
     let clsTparams =
-        cls.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq    
+        lazy 
+        cls.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
 
     for m in members do
         match m with
@@ -258,123 +259,123 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 if stubs.Contains memdef then () else
     //            let isModuleValue = ref false
                 let getBody isInline = 
-                    let hasRD =
-                        false
-//                        meth.Attributes |> Seq.exists (fun a -> a.AttributeType.FullName = "Microsoft.FSharp.Core.ReflectedDefinitionAttribute")
-                    if hasRD then
-                        let info =
-                            match memdef with
-                            | Member.Method (_, mdef) 
-                            | Member.Override (_, mdef) 
-                            | Member.Implementation (_, mdef) ->
-                                Reflection.LoadMethod def mdef :> System.Reflection.MethodBase
-                            | Member.Constructor cdef ->
-                                Reflection.LoadConstructor def cdef :> _
-                            | _ -> failwith "static constructor with a reflected definition"
-                        match FSharp.Quotations.Expr.TryGetReflectedDefinition(info) with
-                        | Some q ->
-                            comp.AddWarning(Some (CodeReader.getRange expr.Range), SourceWarning "Compiling from reflected definition")
-                            QR.transformExpression (QR.Environment.New(comp)) q
-                        | _ ->
-                            comp.AddError(Some (CodeReader.getRange expr.Range), SourceError "Failed to get reflected definition")
-                            WebSharper.Compiler.Translator.errorPlaceholder
-                    else
-                    let a, t = getArgsAndThis()
-                    let argsAndVars = 
-                        [
-                            match t with
-                            | Some t ->
-                                yield t, (CodeReader.namedId t.CompiledName, CodeReader.ThisArg)
-                            | _ -> ()
-                            for p in a ->    
-                                p, 
-                                (CodeReader.namedId p.CompiledName, 
-                                    if CodeReader.isByRef p.FullType then CodeReader.ByRefArg else CodeReader.LocalVar)
-                        ]
-                    let tparams = clsTparams @ (meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq)
-                    let env = CodeReader.Environment.New (argsAndVars, tparams, comp, sr)  
-                    let res =
-                        let b = CodeReader.transformExpression env expr 
-                        let b = 
-                            match memdef with
-                            | Member.Constructor _ -> 
-                                try CodeReader.fixCtor b
-                                with e ->
-                                    let tryGetExprSourcePos expr =
-                                        match expr with
-                                        | ExprSourcePos (p, _) -> Some p
-                                        | _ -> None
-                                    comp.AddError(tryGetExprSourcePos b, SourceError e.Message)
-                                    WebSharper.Compiler.Translator.errorPlaceholder
-                            | _ -> b
-                        let b = FixThisScope().Fix(b)      
-                        // TODO : startupcode only for module values
-                        if List.isEmpty args then 
-    //                        isModuleValue := true
-                            if isInline then
-                                b
-                            else
-                                let scDef, (scContent, scFields) = sc.Value   
-                                let name = Resolve.getRenamed meth.CompiledName scFields
-                                scContent.Add (ExprStatement (ItemSet(Self, Value (String name), b)))
-                                Lambda([], FieldGet(None, NonGeneric scDef, name))
-//                                    if meth.IsMutable then
-//                                        makeByref (FieldGet(None, concrete(scDef, []), name)) (fun value -> FieldSet(None, concrete(scDef, []), name, value))
-//                                    else
-//                                        ()
-//                                )
+                    try
+                        let hasRD =
+                            false
+    //                        meth.Attributes |> Seq.exists (fun a -> a.AttributeType.FullName = "Microsoft.FSharp.Core.ReflectedDefinitionAttribute")
+                        if hasRD then
+                            let info =
+                                match memdef with
+                                | Member.Method (_, mdef) 
+                                | Member.Override (_, mdef) 
+                                | Member.Implementation (_, mdef) ->
+                                    Reflection.LoadMethod def mdef :> System.Reflection.MethodBase
+                                | Member.Constructor cdef ->
+                                    Reflection.LoadConstructor def cdef :> _
+                                | _ -> failwith "static constructor with a reflected definition"
+                            match FSharp.Quotations.Expr.TryGetReflectedDefinition(info) with
+                            | Some q ->
+                                comp.AddWarning(Some (CodeReader.getRange expr.Range), SourceWarning "Compiling from reflected definition")
+                                QR.transformExpression (QR.Environment.New(comp)) q
+                            | _ ->
+                                comp.AddError(Some (CodeReader.getRange expr.Range), SourceError "Failed to get reflected definition")
+                                WebSharper.Compiler.Translator.errorPlaceholder
                         else
-                            let thisVar, vars =
-                                match argsAndVars with 
-                                | (_, (t, CodeReader.ThisArg)) :: a -> Some t, a |> List.map (snd >> fst)  
-                                | a -> None, a |> List.map (snd >> fst) 
-                            let defValues = 
-                                Seq.zip (Seq.concat meth.CurriedParameterGroups) vars |> Seq.choose (fun (p, i) ->
-                                    if p.Attributes |> Seq.exists (fun pa -> pa.AttributeType.FullName = "System.Runtime.InteropServices.OptionalAttribute") then
-                                        let d =
-                                            p.Attributes |> Seq.tryPick (fun pa -> 
-                                                if pa.AttributeType.FullName = "System.Runtime.InteropServices.DefaultParameterValueAttribute" then
-                                                    Some (ReadLiteral (snd pa.ConstructorArguments.[0]) |> Value) 
-                                                else None
-                                            )
-                                        Some (i,
-                                            match d with
-                                            | Some v -> v
-                                            | _ -> DefaultValueOf (sr.ReadType env.TParams p.Type)
-                                        )
-                                    else None
-                                )
-                                |> List.ofSeq
-                            let b =
-                                if List.isEmpty defValues then b else
-                                    Sequential [
-                                        for i, v in defValues -> VarSet(i, Conditional (Var i ^== Undefined, v, Var i))
-                                        yield b
-                                    ]
-                            if isInline then
-//                                let iv = Option.toList thisVar @ vars |> List.mapi (fun i a -> a, Hole i)
-//                                let ib = ReplaceThisWithHole0().TransformExpression(b)
-                                let b = 
-                                    match thisVar with
-                                    | Some t -> ReplaceThisWithVar(t).TransformExpression(b)
-                                    | _ -> b
-                                makeExprInline (Option.toList thisVar @ vars) b
-//                                List.foldBack (fun (v, h) body ->
-//                                    Let (v, h, body)    
-//                                ) (Option.toList thisVar @ vars |> List.mapi (fun i a -> a, Hole i)) (ReplaceThisWithHole0().TransformExpression(b))
-                            else 
-                                let returnsUnit =
-                                    match memdef with
-                                    | Member.Method (_, mdef)  
-                                    | Member.Override (_, mdef) 
-                                    | Member.Implementation (_, mdef) ->
-                                        mdef.Value.ReturnType = VoidType
-                                    | _ -> true
-                                if returnsUnit then
-                                    Function(vars, ExprStatement b)
+                        let a, t = getArgsAndThis()
+                        let argsAndVars = 
+                            [
+                                match t with
+                                | Some t ->
+                                    yield t, (CodeReader.namedId t.CompiledName, CodeReader.ThisArg)
+                                | _ -> ()
+                                for p in a ->    
+                                    p, 
+                                    (CodeReader.namedId p.CompiledName, 
+                                        if CodeReader.isByRef p.FullType then CodeReader.ByRefArg else CodeReader.LocalVar)
+                            ]
+                        let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
+                        let env = CodeReader.Environment.New (argsAndVars, tparams, comp, sr)  
+                        let res =
+                            let b = CodeReader.transformExpression env expr 
+                            let b = 
+                                match memdef with
+                                | Member.Constructor _ -> 
+                                    try CodeReader.fixCtor b
+                                    with e ->
+                                        let tryGetExprSourcePos expr =
+                                            match expr with
+                                            | ExprSourcePos (p, _) -> Some p
+                                            | _ -> None
+                                        comp.AddError(tryGetExprSourcePos b, SourceError e.Message)
+                                        WebSharper.Compiler.Translator.errorPlaceholder
+                                | _ -> b
+                            let b = FixThisScope().Fix(b)      
+                            // TODO : startupcode only for module values
+                            if List.isEmpty args then 
+        //                        isModuleValue := true
+                                if isInline then
+                                    b
                                 else
-                                    Lambda(vars, b)
-                    res
+                                    let scDef, (scContent, scFields) = sc.Value   
+                                    let name = Resolve.getRenamed meth.CompiledName scFields
+                                    scContent.Add (ExprStatement (ItemSet(Self, Value (String name), b)))
+                                    Lambda([], FieldGet(None, NonGeneric scDef, name))
+                            else
+                                let thisVar, vars =
+                                    match argsAndVars with 
+                                    | (_, (t, CodeReader.ThisArg)) :: a -> Some t, a |> List.map (snd >> fst)  
+                                    | a -> None, a |> List.map (snd >> fst) 
+                                let defValues = 
+                                    Seq.zip (Seq.concat meth.CurriedParameterGroups) vars |> Seq.choose (fun (p, i) ->
+                                        if p.Attributes |> Seq.exists (fun pa -> pa.AttributeType.FullName = "System.Runtime.InteropServices.OptionalAttribute") then
+                                            let d =
+                                                p.Attributes |> Seq.tryPick (fun pa -> 
+                                                    if pa.AttributeType.FullName = "System.Runtime.InteropServices.DefaultParameterValueAttribute" then
+                                                        Some (ReadLiteral (snd pa.ConstructorArguments.[0]) |> Value) 
+                                                    else None
+                                                )
+                                            Some (i,
+                                                match d with
+                                                | Some v -> v
+                                                | _ -> DefaultValueOf (sr.ReadType env.TParams p.Type)
+                                            )
+                                        else None
+                                    )
+                                    |> List.ofSeq
+                                let b =
+                                    if List.isEmpty defValues then b else
+                                        Sequential [
+                                            for i, v in defValues -> VarSet(i, Conditional (Var i ^== Undefined, v, Var i))
+                                            yield b
+                                        ]
+                                if isInline then
+    //                                let iv = Option.toList thisVar @ vars |> List.mapi (fun i a -> a, Hole i)
+    //                                let ib = ReplaceThisWithHole0().TransformExpression(b)
+                                    let b = 
+                                        match thisVar with
+                                        | Some t -> ReplaceThisWithVar(t).TransformExpression(b)
+                                        | _ -> b
+                                    makeExprInline (Option.toList thisVar @ vars) b
+    //                                List.foldBack (fun (v, h) body ->
+    //                                    Let (v, h, body)    
+    //                                ) (Option.toList thisVar @ vars |> List.mapi (fun i a -> a, Hole i)) (ReplaceThisWithHole0().TransformExpression(b))
+                                else 
+                                    let returnsUnit =
+                                        match memdef with
+                                        | Member.Method (_, mdef)  
+                                        | Member.Override (_, mdef) 
+                                        | Member.Implementation (_, mdef) ->
+                                            mdef.Value.ReturnType = VoidType
+                                        | _ -> true
+                                    if returnsUnit then
+                                        Function(vars, ExprStatement b)
+                                    else
+                                        Lambda(vars, b)
+                        res
+                    with e ->
+                        error (sprintf "Error reading definition: %s" e.Message)
+                        WebSharper.Compiler.Translator.errorPlaceholder
+
                 match memdef with
                 | Member.Method (_, mdef) 
                 | Member.Override (_, mdef) 
@@ -530,9 +531,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 && cls.Attributes |> CodeReader.hasCompilationRepresentation CompilationRepresentationFlags.UseNullAsTrueValue
                 && cls.UnionCases |> Seq.exists (fun c -> c.UnionCaseFields.Count = 0)
 
-            let tparamsMap =
-                clsTparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
-
             let mutable nullCase = usesNull 
 
             let cases =
@@ -555,7 +553,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 |> Seq.map (fun f ->
                                     {
                                         Name = f.Name
-                                        UnionFieldType = sr.ReadType tparamsMap f.FieldType
+                                        UnionFieldType = sr.ReadType clsTparams.Value f.FieldType
                                         DateTimeFormat = 
                                             cAnnot.DateTimeFormat 
                                             |> List.tryPick (fun (target, format) -> if target = Some f.Name then Some format else None)
@@ -587,12 +585,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             comp.AddCustomType(def, i)
 
         if cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration then
-            let tparamsMap =
-                clsTparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
             let cdef =
                 Hashed {
                     CtorParameters =
-                        cls.FSharpFields |> Seq.map (fun f -> sr.ReadType tparamsMap f.FieldType) |> List.ofSeq
+                        cls.FSharpFields |> Seq.map (fun f -> sr.ReadType clsTparams.Value f.FieldType) |> List.ofSeq
                 }
             let body =
                 let vars =
@@ -630,7 +626,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
             for f in cls.FSharpFields do
                 let recTyp = Generic def (List.init cls.GenericParameters.Count TypeParameter)
-                let fTyp = sr.ReadType tparamsMap f.FieldType
+                let fTyp = sr.ReadType clsTparams.Value f.FieldType
             
                 let getDef =
                     Hashed {
@@ -658,14 +654,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     addMethod A.MemberAnnotation.BasicInlineJavaScript setDef N.Inline false setBody
 
         if cls.IsFSharpRecord then
-            let tparamsMap =
-                clsTparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
 
             let i = 
                 cls.FSharpFields |> Seq.map (fun f ->
                     let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
                     let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
-                    let fTyp = sr.ReadType tparamsMap f.FieldType
+                    let fTyp = sr.ReadType clsTparams.Value f.FieldType
 
                     {
                         Name = f.Name
