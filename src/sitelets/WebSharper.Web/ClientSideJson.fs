@@ -378,7 +378,11 @@ module Macro =
                                     t, OptionalFieldKind.NotOption
                             f.JSName, optionKind, encode (t.SubstituteGenerics (Array.ofList targs))
                         )  
-                    if fieldEncoders |> List.forall (fun (_, fo, fe) ->
+                    let pr =
+                        match comp.GetClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
+                        | Some a -> GlobalAccess a
+                        | _ -> Undefined
+                    if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->
                         fo <> OptionalFieldKind.NormalOption &&
                             match fe with 
                             | Choice1Of3 e when obj.ReferenceEquals(e, ident) -> true
@@ -388,11 +392,7 @@ module Macro =
                     else
                         ((fun es ->
                             let es, tts = List.unzip es
-                            let tn = 
-                                match comp.GetClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
-                                | Some a -> GlobalAccess a
-                                | _ -> Undefined
-                            ok (call "Record" [tn; NewArray es])
+                            ok (call "Record" [pr; NewArray es])
                             ), fieldEncoders)
                         ||> List.fold (fun k (fn, fo, fe) es ->                     
                                 fe >>= fun e ->
