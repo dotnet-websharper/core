@@ -145,6 +145,15 @@ module ExplicitConstructor =
         member this.OriginalValue = this.x
 
 [<JavaScript>]
+module Bug552 =
+
+    type C<'T>(f: 'T -> obj) =
+        [<Inline>]
+        new() = C(Json.Encode)
+        [<Inline>]
+        static member Create() = C(Json.Encode)
+
+[<JavaScript>]
 module Bug512 =
     [<NamedUnionCases>]
     type TestType =
@@ -421,6 +430,12 @@ let Tests =
                     Console.Log("#479", e)
                     0, 0
             equal (test()) (5, 5)
+        }
+
+        Test "Bug #552" {
+            let a = Bug552.C<int>()
+            let b = Bug552.C<int>.Create()
+            expect 0
         }
 
         Test "Match with as/when" {
