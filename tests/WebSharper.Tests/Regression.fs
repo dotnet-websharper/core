@@ -154,6 +154,12 @@ module Bug552 =
         static member Create() = C(Json.Encode)
 
 [<JavaScript>]
+module Bug553 =
+
+    type C(x: int) as this =
+        new() = C(0)
+
+[<JavaScript>]
 module Bug512 =
     [<NamedUnionCases>]
     type TestType =
@@ -435,6 +441,11 @@ let Tests =
         Test "Bug #552" {
             let a = Bug552.C<int>()
             let b = Bug552.C<int>.Create()
+            expect 0
+        }
+
+        Test "Bug #553" {
+            let a = Bug553.C()
             expect 0
         }
 
