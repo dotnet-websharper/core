@@ -270,8 +270,6 @@ module Main =
                         member p.NuGetFiles =
                             seq {
                                 for kind, src in compilerExports do
-                                    if not (src.Contains "CSharp") then
-                                        yield file kind src None
                                     yield file45 kind src None
                             }
                 }
