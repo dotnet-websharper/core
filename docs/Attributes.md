@@ -15,9 +15,6 @@ If a class is marked, it is automatically inherited to nested classes and all me
 `[JavaScript(false)]` can exclude a class or member.
 If a class is marked with `[JavaScript(false)]`, you can re-include a member with `[JavaScript]`.
 
-The `Proxy` attribute also marks a class for JavaScript translation,
-using the `JavaScript` attribute in addition is allowed but has no extra effect.
-
 ### Constant
 
 Compiles all calls to a property getter to a constant `bool`, `double`, `int` or `string` value.
@@ -118,7 +115,17 @@ Annotates members with dependencies. The type (or assembly-qualified name) passe
 must implement Resources.IResourceDefinition and a default constructor.
 
 ### Stub
-Marks members that should be compiled by-name.
+Creates a default inline for the member.
+Type and member names are acquired from `Name` attribute or if missing, then takes the .NET name.
+The default inlines are such:
+
+* Instance property getter: `$this.PropName`
+* Instance property setter: `$this.PropName = $value`
+* Instance method: `$this.MethodName($arguments)`
+* Constructor: `new TypeName($arguments)` or if `Name` is specified for the constuctor itself: `new ConstructorName($arguments)`
+* Static property getter `TypeName.PropName`
+* Static property setter `TypeName.PropName = $value`
+* Static method: `TypeName.MethodName($arguments)`, or if a composite `Name` is specified for the method: `MethodPath($arguments)`
 
 ### RemotingProvider
 Indicates the client-side remoting provider that should be used by calls to this RPC method.
@@ -167,3 +174,11 @@ The value must be a primitive value, or an `FSharpOption` of it.
 ### Wildcard
 Indicates that the last field or property parses all the remaining
 path segments into an array.
+
+## Attribute interactions
+
+The effect of `Stub` and `JavaScript` attributes are inherited to nested types and members.
+`JavaScript` takes precedence, unless it is only inherited and `Stub` is defined explicitly.
+Using `Proxy` on a type also marks it for JavaScript translation.
+If a member has a `Macro` attribute(s) and not specifies `JavaScript` explicitly, then inherited JavaScript translation won't occur. (Tranlating the method itself is only necessary when all of the macros possibly returns `MacroFallback` result.)
+Specifying a method as `Remote` also removes it from the scope of JavaScript translation.

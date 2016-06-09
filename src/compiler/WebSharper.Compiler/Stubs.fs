@@ -41,8 +41,12 @@ let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstan
             | _ -> mname
             |> String |> Value
         if isGet then
+            if List.length mdef.Value.Parameters <> 0 then
+                error <- Some "Stub property cannot take arguments"
             ItemGet(Hole 0, item)    
         elif isSet then
+            if List.length mdef.Value.Parameters <> 1 then
+                error <- Some "Stub property cannot take arguments"
             ItemSet(Hole 0, item, Hole 1)    
         else 
             let l = mdef.Value.Parameters.Length
