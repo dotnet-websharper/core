@@ -163,58 +163,50 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let stubs = HashSet()
 
-    let addStub memdef mAnnot def expr = 
-        stubs.Add memdef |> ignore
-        addMethod mAnnot def N.Inline true expr
 
     for meth in cls.MembersFunctionsAndValues do
         if meth.IsProperty then () else
         let mAnnot = getAnnot meth
         
-        let isStub = mAnnot.Kind = Some A.MemberKind.Stub
-
         let error m = 
             comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError m)
 
-        if isStub || (meth.IsDispatchSlot && mAnnot.Kind = Some A.MemberKind.JavaScript) then
-            match sr.ReadMember meth with
-            | Member.Method (isInstance, mdef) as memdef ->
-                let getItem() =
-                    match mAnnot.Name with
-                    | Some n -> n 
-                    | _ -> mdef.Value.MethodName.[4 ..]
-                    |> String |> Value
-                if isInstance then                                 
-                    if isStub && meth.IsPropertyGetterMethod then
-                        addStub memdef mAnnot mdef (ItemGet(Hole 0, (getItem())))    
-                    elif isStub && meth.IsPropertySetterMethod then
-                        addStub memdef mAnnot mdef (ItemSet(Hole 0, (getItem()), Hole 1))    
-                    else 
-                        addMethod mAnnot mdef N.Instance true Undefined
-                else
-                    if isStub && (meth.IsPropertyGetterMethod || meth.IsPropertySetterMethod) then
-                        error "Static property can't have Stub attribute"
-                    else 
-                        addMethod mAnnot mdef N.Static true Undefined
-            | Member.Constructor cdef -> // Todo stub constructors
-                addConstructor mAnnot cdef N.Constructor true Undefined
-            | _ -> error "Static method can't have Stub attribute"
-        else
-            match mAnnot.Kind with
-            | Some (A.MemberKind.Remote rp) ->
-                match sr.ReadMember meth with
-                | Member.Method (isInstance, mdef) ->
-                    let remotingKind =
-                        match mdef.Value.ReturnType with
-                        | VoidType -> RemoteSend
-                        | ConcreteType { Entity = e } when e = Definitions.Async -> RemoteAsync
-                        | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> RemoteTask
-                        | _ -> RemoteSync
-                    let isCsrfProtected t = true // TODO
-                    let rp = rp |> Option.map (fun t -> t, isCsrfProtected t)
-                    addMethod mAnnot mdef (N.Remote(remotingKind, comp.GetRemoteHandle(), rp)) true Undefined
-                | _ -> error "Only methods can be defined Remote"
-            | _ -> ()
+        let memdef = sr.ReadMember meth
+        
+        match mAnnot.Kind with
+        | Some A.MemberKind.Stub ->
+            match memdef with
+            | Member.Method (isInstance, mdef) ->
+                let expr, err = Stubs.GetMethodInline annot mAnnot isInstance mdef
+                err |> Option.iter error
+                stubs.Add memdef |> ignore
+                addMethod mAnnot mdef N.Inline true expr
+            | Member.Constructor cdef ->
+                let expr, err = Stubs.GetConstructorInline annot mAnnot cdef
+                err |> Option.iter error
+                addConstructor mAnnot cdef N.Inline true expr
+            | Member.Implementation(_, _) -> error "Implementation method can't have Stub attribute"
+            | Member.Override(_, _) -> error "Override method can't have Stub attribute"
+            | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
+        | Some A.MemberKind.JavaScript when meth.IsDispatchSlot -> 
+            match memdef with
+            | Member.Method (isInstance, mdef) ->
+                addMethod mAnnot mdef (if isInstance then N.Instance else N.Static) true Undefined
+            | _ -> failwith "Member kind not expected for astract method"
+        | Some (A.MemberKind.Remote rp) ->
+            match memdef with
+            | Member.Method (isInstance, mdef) ->
+                let remotingKind =
+                    match mdef.Value.ReturnType with
+                    | VoidType -> RemoteSend
+                    | ConcreteType { Entity = e } when e = Definitions.Async -> RemoteAsync
+                    | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> RemoteTask
+                    | _ -> RemoteSync
+                let isCsrfProtected t = true // TODO
+                let rp = rp |> Option.map (fun t -> t, isCsrfProtected t)
+                addMethod mAnnot mdef (N.Remote(remotingKind, comp.GetRemoteHandle(), rp)) true Undefined
+            | _ -> error "Only methods can be defined Remote"
+        | _ -> ()
 
     let fsharpSpecific = cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration
 

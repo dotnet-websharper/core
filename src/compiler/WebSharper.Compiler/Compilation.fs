@@ -603,7 +603,6 @@ type Compilation(meta: Info) =
                             | N.Override _
                             | N.Implementation _ -> false
                             | _ -> true
-//                        | M.Field (_, f) -> f.IsStatic
                         | _ -> true
                     )
             classes.Add (typ,
@@ -704,7 +703,6 @@ type Compilation(meta: Info) =
         let remainingClasses = ResizeArray()
         let remainingNamedStaticMembers = Dictionary()
         let namedInstanceMembers = Dictionary() // includes implementations
-//        let abstractInstanceMembers = Dictionary()
         let remainingStaticMembers = Dictionary()
         let remainingInstanceMembers = Dictionary() // includes overrides
 
@@ -725,12 +723,9 @@ type Compilation(meta: Info) =
                 | _ -> 
                     remainingClasses.Add typ
                     false
-
-//            let getStrongNameIsStatic m =
             
             let cc = classes.[typ]
 
-            // TODO: fail on named overrides and implementations
             for m in cls.Members do
                 
                 let strongName, isStatic, isError =  
@@ -930,7 +925,6 @@ type Compilation(meta: Info) =
         for KeyValue(typ, ms) in namedInstanceMembers do
             let pr = r.LookupPrototype typ
             for m, n in ms do
-                // TODO: fail on clashes, not on Stubs?
                 pr.Add n |> ignore
 //                if not (pr.Add n) then
 //                    failwith "instance member name collision"

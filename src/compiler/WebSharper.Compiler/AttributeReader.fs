@@ -192,7 +192,10 @@ type AttributeReader<'A>() =
         | "StubAttribute" ->
             A.Stub
         | "NameAttribute" ->
-            A.Name (Seq.head (this.GetCtorArgs(attr)) |> unbox)
+            match Seq.head (this.GetCtorArgs(attr)) with
+            | :? string as n -> A.Name n
+            | :? (string[]) as p -> A.Name (p |> String.concat ".")
+            | _ -> failwith "Unrecognized constructor parameters for Name attribute"
         | "JavaScriptAttribute" ->
             A.JavaScript (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.forall unbox)
         | "OptionalFieldAttribute" ->
@@ -218,6 +221,9 @@ type AttributeReader<'A>() =
         let mutable name = None
         let reqs = ResizeArray()
         let macros = ResizeArray() 
+        let mutable js = None
+        let mutable stub = false
+        let mutable proxy = None
         for a in attrs do
             match this.GetAssemblyName a with
             | "WebSharper.Core" ->
@@ -225,29 +231,40 @@ type AttributeReader<'A>() =
                 | A.Name n -> name <- Some n
                 | A.Require t -> reqs.Add t
                 | A.Macro (m, p) -> macros.Add (m, p)
+                | A.JavaScript j -> js <- Some j
+                | A.Stub -> stub <- true
+                | A.Proxy t -> proxy <- Some t
                 | ar -> attrArr.Add ar
             | _ -> ()
-        if parent.IsJavaScript && macros.Count = 0 then
-            if not (attrArr |> Seq.exists (function A.JavaScript _ -> true | _ -> false)) then attrArr.Add (A.JavaScript true)
-        if parent.IsStub then 
-            if not (attrArr.Contains(A.Stub)) then attrArr.Add A.Stub
+        if Option.isNone js && not stub && Option.isSome proxy then 
+            js <- Some true
+        let isJavaScript, isStub =
+            if parent.IsJavaScript then
+                match js, stub with
+                | (None | Some false), true -> false, true
+                | Some false, false -> false, false
+                | _ -> macros.Count = 0, false
+            elif parent.IsStub then
+                match js, stub with
+                | Some false, false -> false, false
+                | Some true, _ -> true, false
+                | _ -> false, macros.Count = 0
+            else 
+                match js, stub with
+                | (None | Some false), true -> false, true
+                | Some true, _ -> true, false
+                | _ -> false, false
+
         if parent.OptionalFields then
             if not (attrArr.Contains(A.OptionalField)) then attrArr.Add A.OptionalField
-        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, List.ofSeq reqs
+        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, isJavaScript, isStub, List.ofSeq reqs
 
     member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, reqs = this.GetAttrs (parent, attrs)
-        let proxyOf = attrArr |> Array.tryPick (function A.Proxy p -> Some p | _ -> None) 
-        let isJavaScript =
-            match proxyOf, attrArr |> Array.tryPick (function A.JavaScript j -> Some j | _ -> None) with
-            | Some _, Some false -> false
-            | Some _, _
-            | _, Some true -> true
-            | _ -> false
+        let attrArr, macros, name, proxyOf, isJavaScript, isStub, reqs = this.GetAttrs (parent, attrs)
         {
             ProxyOf = proxyOf
             IsJavaScript = isJavaScript
-            IsStub = attrArr |> Array.exists (function A.Stub -> true | _ -> false)
+            IsStub = isStub
             OptionalFields = attrArr |> Array.exists (function A.OptionalField -> true | _ -> false)
             Name = name
             Requires = reqs
@@ -259,7 +276,7 @@ type AttributeReader<'A>() =
         }
 
     member this.GetMemberAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, reqs = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, _, isJavaScript, isStub, reqs = this.GetAttrs (parent, attrs)
         let isEp = attrArr |> Array.contains A.SPAEntryPoint
         let isPure = attrArr |> Array.contains A.Pure
         let rp = 
@@ -267,29 +284,22 @@ type AttributeReader<'A>() =
             |> function Some x -> Some x | None -> parent.RemotingProvider
         let attrArr = 
             attrArr |> Array.filter (function 
-                | A.SPAEntryPoint | A.Pure | A.DateTimeFormat _ | A.RemotingProvider _ | A.JavaScript false -> false 
+                | A.SPAEntryPoint | A.Pure | A.DateTimeFormat _ | A.RemotingProvider _ -> false 
                 | _ -> true)
         let kind =
             match attrArr with
-            | [||] -> if macros.Length = 0 then None else Some NoFallback
+            | [||] -> 
+                if isJavaScript then Some JavaScript 
+                elif isStub then Some Stub 
+                elif macros.Length = 0 then None else Some NoFallback
             | [| A.Remote |] -> Some (Remote rp)
-            | [| A.JavaScript _ |] -> Some JavaScript 
-            | _ ->
-            let ao =
-                match attrArr with
-                | [| a |]
-                | [| a; A.JavaScript _ |]
-                | [| A.JavaScript _; a |] -> Some a
-                | _ -> None
-            match ao with
-            | Some a ->
+            | [| a |] ->
                 match a with   
                 | A.Inline None -> Some InlineJavaScript
                 | A.Inline (Some i) -> Some (Inline i)
                 | A.Direct s -> Some (Direct s)
                 | A.Constant x -> Some (Constant x)
                 | A.Generated (g, p) -> Some (Generated (g, p))
-                | A.Stub -> Some Stub
                 | A.OptionalField -> Some OptionalField
                 | _ -> Some (AttributeConflict (sprintf "Unexpected attribute: %s" (GetUnionCaseName a)))
             | _ -> Some (AttributeConflict (sprintf "Incompatible attributes: %s" (attrArr |> Seq.map GetUnionCaseName |> String.concat ", ")))  

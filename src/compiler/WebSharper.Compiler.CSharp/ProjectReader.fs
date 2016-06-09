@@ -265,7 +265,19 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             comp.AddError(Some (CodeReader.getSourcePosOfSyntaxReference meth.DeclaringSyntaxReferences.[0]), SourceError m)
         
         match mAnnot.Kind with
-        | Some A.MemberKind.Stub -> ()
+        | Some A.MemberKind.Stub ->
+            match sr.ReadMember meth with
+            | Member.Method (isInstance, mdef) ->
+                let expr, err = Stubs.GetMethodInline annot mAnnot isInstance mdef
+                err |> Option.iter error
+                addMethod mAnnot mdef N.Inline true expr
+            | Member.Constructor cdef ->
+                let expr, err = Stubs.GetConstructorInline annot mAnnot cdef
+                err |> Option.iter error
+                addConstructor mAnnot cdef N.Inline true expr
+            | Member.Implementation(_, _) -> error "Implementation method can't have Stub attribute"
+            | Member.Override(_, _) -> error "Override method can't have Stub attribute"
+            | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
         | Some (A.MemberKind.Remote rp) -> 
             let def = sr.ReadMember meth
             match def with
