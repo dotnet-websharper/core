@@ -41,13 +41,13 @@ Overrides and interface implementations can't be inlined.
 
 Example:
 
-	// using static WebSharper.JavaScript.Pervasives;
-	[Inline("$a + $b")]
-	public static int Add(int a, int b) => X<int>();
+    // using static WebSharper.JavaScript.Pervasives;
+    [Inline("$a + $b")]
+    public static int Add(int a, int b) => X<int>();
 
     // alternative:
-	[Inline("$0 + $1")]
-	public static int Add(int a, int b) => X<int>();
+    [Inline("$0 + $1")]
+    public static int Add(int a, int b) => X<int>();
 
 ### Direct
 
@@ -122,7 +122,8 @@ The default inlines are such:
 * Instance property getter: `$this.PropName`
 * Instance property setter: `$this.PropName = $value`
 * Instance method: `$this.MethodName($arguments)`
-* Constructor: `new TypeName($arguments)` or if `Name` is specified for the constuctor itself: `new ConstructorName($arguments)`
+* Constructor: `new TypeName($arguments)` or if `Name` is specified for the constuctor itself: `new ConstructorName($arguments)`.
+If no `Name` is specified and the constructor takes no arguments then `{}` (empty JavaScript object).
 * Static property getter `TypeName.PropName`
 * Static property setter `TypeName.PropName = $value`
 * Static method: `TypeName.MethodName($arguments)`, or if a composite `Name` is specified for the method: `MethodPath($arguments)`
