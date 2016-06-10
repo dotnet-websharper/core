@@ -63,14 +63,25 @@ let Compile config =
     
     let loader = WebSharper.Compiler.FrontEnd.Loader.Create aR (logf "%s")
     let refs = [ for r in config.References -> loader.LoadFile(r) ]
+    let refErrors = ResizeArray()
     let refMeta =
-        let metas = refs |> List.choose (fun r -> WebSharper.Compiler.FrontEnd.ReadFromAssembly r)
-        if List.isEmpty metas then None 
+        let metas = refs |> List.choose (fun r -> 
+            try WebSharper.Compiler.FrontEnd.ReadFromAssembly r
+            with e ->
+                refErrors.Add e.Message
+                None
+        )
+        if refErrors.Count > 0 || List.isEmpty metas then None 
         else Some (WebSharper.Core.DependencyGraph.Graph.UnionOfMetadata metas)
 
     let ended = System.DateTime.Now
     logf "Loading referenced metadata: %A" (ended - started)
     let started = ended 
+
+    if refErrors.Count > 0 then
+        for err in refErrors do 
+            logf "WebSharper error %s" err
+    else
 
     let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(logf "%s")
 
@@ -105,7 +116,9 @@ let Compile config =
     let comp =
         compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile, config.WarnOnly)
 
-    let started = System.DateTime.Now 
+    let ended = System.DateTime.Now
+    logf "WebSharper translation: %A" (ended - started)
+    let started = ended
 
     let mutable hasErrors = false
 

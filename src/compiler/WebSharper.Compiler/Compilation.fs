@@ -524,7 +524,7 @@ type Compilation(meta: Info) =
                     getInterface i |> Option.iter addInherited
                 for m in n.Methods.Values do
                     if not (allMembers.Add m) then
-                        failwith "Interface method name collision."
+                        failwithf "Interface method name collision: %s" m
             
             for i in nr.Extends do
                 notResolvedInterfaces.TryFind i |> Option.iter (resolveInterface i)       
@@ -536,7 +536,7 @@ type Compilation(meta: Info) =
                 match n with
                 | Some n -> 
                     if not (allMembers.Add n) then
-                        failwith "Explicitly declared interface method name collision."
+                        failwithf "Explicitly declared interface method name collision: %s" n
                     resMethods.Add(m, n)
                 | _ -> ()
 

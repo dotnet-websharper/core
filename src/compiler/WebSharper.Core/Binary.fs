@@ -626,21 +626,21 @@ type Encoding(enc: Encoder) =
         let mode = System.IO.Compression.CompressionMode.Decompress
         use stream = new System.IO.Compression.GZipStream(stream, mode)
         use reader = new System.IO.BinaryReader(stream)
+        match version with
+        | Some version ->
+            let ver = reader.ReadString()
+            if ver <> version then
+                raise (EncodingException (sprintf "Binary format version mismatch, found '%s', expecting '%s'" ver version))    
+        | _ -> ()
+        let aqn = enc.Type.AssemblyQualifiedName
+        let s = reader.ReadString()
+        if s <> aqn then
+            let msg =
+                System.String.Format("Unexpected: {0}. Expecting: {1}",
+                    s, aqn)
+            raise (EncodingException msg)
+        use r = new InterningReader(stream, reader)
         try
-            match version with
-            | Some version ->
-                let ver = reader.ReadString()
-                if ver <> version then
-                    raise (EncodingException (sprintf "Binary format version mismatch, found '%s', expecting '%s'" ver version))    
-            | _ -> ()
-            let aqn = enc.Type.AssemblyQualifiedName
-            let s = reader.ReadString()
-            if s <> aqn then
-                let msg =
-                    System.String.Format("Unexpected: {0}. Expecting: {1}",
-                        s, aqn)
-                raise (EncodingException msg)
-            use r = new InterningReader(stream, reader)
             enc.Decode r
         with e ->
             let msg = System.String.Format("Failed to decode type: {0}", enc.Type)

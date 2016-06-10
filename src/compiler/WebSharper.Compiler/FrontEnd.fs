@@ -38,10 +38,8 @@ let ReadFromAssembly (a: Assembly) =
                 use s = r.GetResourceStream()
                 Some (M.IO.Decode s |> refreshAllIds)
             with
-            | :? B.EncodingException as e ->
-                failwithf "Failed to deserialize metadata for: %s - %s" a.FullName e.Message
-            | _ ->
-                failwithf "Failed to deserialize metadata for: %s" a.FullName
+            | e ->
+                failwithf "Failed to deserialize metadata for %s. Error: %s" a.FullName e.Message
         | _ -> None
     )
 

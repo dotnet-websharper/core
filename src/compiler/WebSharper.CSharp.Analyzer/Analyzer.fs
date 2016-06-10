@@ -28,9 +28,14 @@ type WebSharperCSharpAnalyzer () =
     member this.GetRefMeta(path) =
         lock cachedRefMeta <| fun () ->
         match cachedRefMeta.TryGetValue path with
-        | true, m -> m
+        | true, res -> res
         | _ ->
-            let m = WebSharper.Compiler.FrontEnd.ReadFromFile(path)
+            let mutable err = None
+            let m = 
+                try WebSharper.Compiler.FrontEnd.ReadFromFile(path)
+                with e ->
+                    err <- Some e.Message
+                    None
 
             let watcher = new FileSystemWatcher(Path.GetDirectoryName path, Path.GetFileName path)
             let onChange (_: FileSystemEventArgs) =
@@ -42,8 +47,8 @@ type WebSharperCSharpAnalyzer () =
             watcher.Renamed |> Event.add onChange
             watcher.Deleted |> Event.add onChange
 
-            cachedRefMeta.Add(path, m)    
-            m        
+            cachedRefMeta.Add(path, (m, err))    
+            m, err        
 
     override this.SupportedDiagnostics =
         ImmutableArray.Create(wsWarning, wsError)
@@ -60,12 +65,18 @@ type WebSharperCSharpAnalyzer () =
                 )
                 |> List.ofSeq
                 
-            let metas = refPaths |> List.choose this.GetRefMeta
+            let metas = refPaths |> List.map this.GetRefMeta
+            let errors = metas |> List.choose snd
+
             let refMeta =
-                if List.isEmpty metas then None 
-                else Some (WebSharper.Core.DependencyGraph.Graph.UnionOfMetadata metas)
+                if List.isEmpty metas || not (List.isEmpty errors) then None 
+                else Some (WebSharper.Core.DependencyGraph.Graph.UnionOfMetadata (metas |> List.choose fst))
 
             startCtx.RegisterCompilationEndAction(fun endCtx ->
+                if not (List.isEmpty errors) then
+                    for err in errors do    
+                        endCtx.ReportDiagnostic(Diagnostic.Create(wsError, Location.None, err))
+                else
                 try
                     let compilation = endCtx.Compilation :?> CSharpCompilation
 
