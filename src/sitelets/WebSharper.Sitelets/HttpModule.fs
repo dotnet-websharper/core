@@ -152,29 +152,29 @@ module private WebUtils =
         }
 
     /// Constructs the sitelet context object.
-    let getContext (site: Sitelet<obj>) (ctx: HttpContextBase) (request: Http.Request) : Context<obj> =
+    let getContext (site: Sitelet<obj>) (ctx: HttpContextBase) (request: Http.Request) =
         let appPath = ctx.Request.ApplicationPath
-        {
-            ApplicationPath = appPath
-            ResolveUrl = fun url ->
+        new Context<obj>(
+            ApplicationPath = appPath,
+            ResolveUrl = (fun url ->
                 if url.StartsWith("~") then
                     joinWithSlash appPath (url.Substring(1))
                 else
-                    url
-            Json = ResourceContext.SharedJson()
-            Link = fun action ->
+                    url),
+            Json = ResourceContext.SharedJson(),
+            Link = (fun action ->
                 match site.Router.Link action with
                 | Some loc ->
                     if loc.IsAbsoluteUri then string loc else
                         joinWithSlash appPath (string loc)
-                | None -> failwith "Failed to link to action"
-            Metadata = ResourceContext.MetaData()
-            ResourceContext = ResourceContext.ResourceContext appPath
-            Request = request
-            RootFolder = ctx.Server.MapPath("~")
-            UserSession = new AspNetFormsUserSession(ctx)
+                | None -> failwith "Failed to link to action"),
+            Metadata = ResourceContext.MetaData(),
+            ResourceContext = ResourceContext.ResourceContext appPath,
+            Request = request,
+            RootFolder = ctx.Server.MapPath("~"),
+            UserSession = new AspNetFormsUserSession(ctx),
             Environment = Map [HttpContextKey, box ctx]
-        }
+        )
 
     /// Writes a response.
     let respond (site: Sitelet<obj>) (ctx: HttpContextBase) (req: Http.Request) (action: obj) =

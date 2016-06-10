@@ -23,41 +23,51 @@ namespace WebSharper.Sitelets
 open System.Collections.Generic
 
 /// Provides services available to handlers at run-time.
+[<Sealed>]
 type Context<'Action> =
-    {
-
-        /// Virtual application root path on the server.
-        ApplicationPath : string
-
-        /// Generates a (possibly relative) URL to a given action.
-        Link : 'Action -> string
-
-        /// The typed JSON provider for interacting with the client.
-        Json : WebSharper.Core.Json.Provider
-
-        /// WebSharper metadata required for serializing controls.
-        Metadata : WebSharper.Core.Metadata.Info
-
-        // Generates a URL respecting the application path.
-        ResolveUrl : string -> string
-
-        /// WebSharper resource rendering context required for resources.
-        ResourceContext : WebSharper.Core.Resources.Context
-
-        /// HTTP Request object
-        Request : Http.Request
-
-        /// The full path to the root application folder.
-        RootFolder : string
-
-        /// Manage user login sessions.
-        UserSession : WebSharper.Web.IUserSession
-
-        /// Environment-specific information (e.g. the ASP.NET or OWIN context).
-        Environment : IDictionary<string, obj>
-    }
-
     interface WebSharper.Web.IContext
+
+    /// Virtual application root path on the server.
+    member ApplicationPath : string
+
+    /// Generates a (possibly relative) URL to a given action.
+    member Link : 'Action -> string
+
+    /// The typed JSON provider for interacting with the client.
+    member Json : WebSharper.Core.Json.Provider
+
+    /// WebSharper metadata required for serializing controls.
+    member Metadata : WebSharper.Core.Metadata.Info
+
+    // Generates a URL respecting the application path.
+    member ResolveUrl : string -> string
+
+    /// WebSharper resource rendering context required for resources.
+    member ResourceContext : WebSharper.Core.Resources.Context
+
+    /// HTTP Request object
+    member Request : Http.Request
+
+    /// The full path to the application's root folder.
+    member RootFolder : string
+
+    /// Manage user login sessions.
+    member UserSession : WebSharper.Web.IUserSession
+
+    /// Environment-specific information (e.g. the ASP.NET or OWIN context)
+    member Environment : IDictionary<string,obj>
+
+    new : ApplicationPath : string
+        * Link : ('Action -> string)
+        * Json : WebSharper.Core.Json.Provider
+        * Metadata : WebSharper.Core.Metadata.Info
+        * ResolveUrl : (string -> string)
+        * ResourceContext : WebSharper.Core.Resources.Context
+        * Request : Http.Request
+        * RootFolder : string
+        * UserSession : WebSharper.Web.IUserSession
+        * Environment : IDictionary<string, obj>
+        -> Context<'Action>
 
 module Context =
 
