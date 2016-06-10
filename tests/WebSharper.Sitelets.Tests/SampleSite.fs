@@ -169,7 +169,7 @@ module SampleSite =
         }
 
     /// A template function that renders a page with a menu bar, based on the `Skin` template.
-    let Template title main ctx =
+    let Template title main (ctx: Context<Action>) =
         Tpl <|
             let menu =
                 let ( ! ) x = ctx.Link x

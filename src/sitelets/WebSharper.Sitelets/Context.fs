@@ -22,38 +22,50 @@ namespace WebSharper.Sitelets
 
 open System.Collections.Generic
 
-type Context<'Action> =
-    {
-        ApplicationPath : string
-        Link : 'Action -> string
-        Json : WebSharper.Core.Json.Provider
-        Metadata : WebSharper.Core.Metadata.Info
-        ResolveUrl : string -> string
-        ResourceContext : WebSharper.Core.Resources.Context
-        Request : Http.Request
-        RootFolder : string
-        UserSession : WebSharper.Web.IUserSession
+[<Sealed>]
+type Context<'Action>
+    (
+        ApplicationPath : string,
+        Link : 'Action -> string,
+        Json : WebSharper.Core.Json.Provider,
+        Metadata : WebSharper.Core.Metadata.Info,
+        ResolveUrl : string -> string,
+        ResourceContext : WebSharper.Core.Resources.Context,
+        Request : Http.Request,
+        RootFolder : string,
+        UserSession : WebSharper.Web.IUserSession,
         Environment : IDictionary<string, obj>
-    }
+    ) =
 
     interface WebSharper.Web.IContext with
-        member this.RequestUri = this.Request.Uri
-        member this.RootFolder = this.RootFolder
-        member this.UserSession = this.UserSession
-        member this.Environment = this.Environment
+        member this.RequestUri = Request.Uri
+        member this.RootFolder = RootFolder
+        member this.UserSession = UserSession
+        member this.Environment = Environment
+
+    member this.ApplicationPath = ApplicationPath
+    member this.Link(e) = Link e
+    member this.Json = Json
+    member this.Metadata = Metadata
+    member this.ResolveUrl p = ResolveUrl p
+    member this.ResourceContext = ResourceContext
+    member this.Request = Request
+    member this.RootFolder = RootFolder
+    member this.UserSession = UserSession
+    member this.Environment = Environment
 
 module Context =
 
     let Map (f: 'T2 -> 'T1) (ctx: Context<'T1>) : Context<'T2> =
-        {
-            ApplicationPath = ctx.ApplicationPath
-            Link = ctx.Link << f
-            Json = ctx.Json
-            Metadata = ctx.Metadata
-            ResolveUrl = ctx.ResolveUrl
-            ResourceContext = ctx.ResourceContext
-            Request = ctx.Request
-            RootFolder = ctx.RootFolder
-            UserSession = ctx.UserSession
+        Context<'T2>(
+            ApplicationPath = ctx.ApplicationPath,
+            Link = (ctx.Link << f),
+            Json = ctx.Json,
+            Metadata = ctx.Metadata,
+            ResolveUrl = ctx.ResolveUrl,
+            ResourceContext = ctx.ResourceContext,
+            Request = ctx.Request,
+            RootFolder = ctx.RootFolder,
+            UserSession = ctx.UserSession,
             Environment = ctx.Environment
-        }
+        )

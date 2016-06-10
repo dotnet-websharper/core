@@ -314,18 +314,19 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
     let genResp = C.ToResponse content
     async {
         let! response =
-            genResp {
-                Json = st.Json
-                Link = fun _ -> ""
-                ApplicationPath = "."
-                ResolveUrl = fun x -> x
-                Metadata = st.Metadata
-                ResourceContext = resContext
-                Request = emptyRequest locationString
-                RootFolder = projectFolder
-                UserSession = IUserSession.NotAvailable
+            new Context<_>(
+                Json = st.Json,
+                Link = (fun _ -> ""),
+                ApplicationPath = ".",
+                ResolveUrl = id,
+                Metadata = st.Metadata,
+                ResourceContext = resContext,
+                Request = emptyRequest locationString,
+                RootFolder = projectFolder,
+                UserSession = IUserSession.NotAvailable,
                 Environment = Map []
-            }
+            )
+            |> genResp
         let path =
             let ext =
                 response.Headers
@@ -394,12 +395,12 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
         let! results = contents ()
         for rC in results do
             // Define context
-            let context : Context<obj> =
-                {
-                    ApplicationPath = "."
-                    ResolveUrl = fun x -> x
-                    Json = st.Json
-                    Link = fun action ->
+            let context =
+                new Context<_>(
+                    ApplicationPath = ".",
+                    ResolveUrl = id,
+                    Json = st.Json,
+                    Link = (fun action ->
                         // First try to find from url table.
                         if table.ContainsKey(action) then
                             rC.RelativePath + P.ShowPath table.[action]
@@ -411,14 +412,14 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                             | None ->
                                 let msg = "Failed to link to action from " + P.ShowPath rC.Path
                                 stdout.WriteLine("Warning: " + msg)
-                                "#"
-                    Metadata = st.Metadata
-                    ResourceContext = rC.ResourceContext
-                    Request = emptyRequest (P.ShowPath rC.Path)
-                    RootFolder = projectFolder
-                    UserSession = IUserSession.NotAvailable
+                                "#"),
+                    Metadata = st.Metadata,
+                    ResourceContext = rC.ResourceContext,
+                    Request = emptyRequest (P.ShowPath rC.Path),
+                    RootFolder = projectFolder,
+                    UserSession = IUserSession.NotAvailable,
                     Environment = Map []
-                }
+                )
             let! response = rC.Respond context
             use stream = createFile conf rC.Path
             return response.WriteBody(stream)

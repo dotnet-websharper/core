@@ -1,9 +1,4 @@
-﻿using Microsoft.FSharp.Core;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System;
 using WebSharper;
 using WebSharper.Sitelets;
 using Elt = WebSharper.Sitelets.Tests.Server.Elt;
@@ -21,10 +16,10 @@ namespace WebSharper.CSharp.Sitelets.Tests
                         Body:
                             Elt("div",
                                 Elt("div",
-                                    Elt("a", Attr("href", ctx.Link.Invoke(JohnDoe)),
+                                    Elt("a", Attr("href", ctx.Link(JohnDoe)),
                                         Text("Go to John Doe's page"))),
                                 Elt("form",
-                                    Attr("action", ctx.Link.Invoke(EmptyQueryPerson)),
+                                    Attr("action", ctx.Link(EmptyQueryPerson)),
                                     Elt("input", Attr("name", "first"), Attr("value", "Jane")),
                                     Elt("input", Attr("name", "last"), Attr("value", "Smith")),
                                     Elt("input", Attr("name", "age"), Attr("type", "number"), Attr("value", "42")),
@@ -35,7 +30,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
                             Elt("div",
                                 Text(String.Format("{0} {1} is {2} years old. ",
                                     person.name.first, person.name.last, person.age)),
-                                Elt("a", Attr("href", ctx.Link.Invoke("/")),
+                                Elt("a", Attr("href", ctx.Link("/")),
                                     Text("Go back to C# sitelets tests home")))))
                 .With<QueryPerson>((ctx, person) =>
                     Content.Page<QueryPerson>(
@@ -46,7 +41,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                         person.name.first, person.name.last, person.age.Value)) :
                                     Text(String.Format("{0} {1} won't tell their age.",
                                         person.name.first, person.name.last)),
-                                Elt("a", Attr("href", ctx.Link.Invoke("/")),
+                                Elt("a", Attr("href", ctx.Link("/")),
                                     Text("Go back to C# sitelets tests home")))))
                 .Install();
 
