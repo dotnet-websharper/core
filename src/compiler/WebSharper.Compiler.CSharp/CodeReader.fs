@@ -1492,10 +1492,13 @@ type RoslynTransformer(env: Environment) =
                 NewDelegate(expression, typ, meth)
             else failwithf "this.TransformIdentifierName: unhandled IMethodSymbol conversion: %A" conv 
         | :? IFieldSymbol as symbol ->
-            let expression = getExpression()
-            let typ = sr.ReadNamedType symbol.ContainingType
-            let f = symbol.Name
-            FieldGet(expression, typ, f)
+            if Option.isSome expr && symbol.IsConst then
+                getConstantValueOfExpression node 
+            else
+                let expression = getExpression()
+                let typ = sr.ReadNamedType symbol.ContainingType
+                let f = symbol.Name
+                FieldGet(expression, typ, f)
         | :? IEventSymbol as symbol ->
             let expression = getExpression()
             let typ = sr.ReadNamedType symbol.ContainingType

@@ -25,7 +25,7 @@ open WebSharper
 [<JavaScript>]
 type Record =
     {
-        A : int
+        mutable A : int
         [<OptionalField>]
         B : option<string>
     }
@@ -39,7 +39,7 @@ type Record =
 [<JavaScript>]
 type Union =
     | A of int
-    | B of string
+    | B of name: string
 
     member this.X () =
         match this with
@@ -85,6 +85,10 @@ module Module =
     let ReturnsFunc2 () =
         ()
         fun x y -> x + y
+
+    let InvokeFunc f x = f x
+
+    let InvokeFunc2 f x y = f x y
 
     let BigTuple() = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 

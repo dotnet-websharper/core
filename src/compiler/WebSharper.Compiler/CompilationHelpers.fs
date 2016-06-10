@@ -511,6 +511,18 @@ module Definitions =
             Assembly = "mscorlib"
             FullName = "System.String"
         }
+
+    let Int =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.Int32"
+        }
+
+    let Bool =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.Boolean"
+        }
     
 let ignoreSystemObject td =
     if td = Definitions.Obj then None else Some td

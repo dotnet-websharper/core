@@ -2,7 +2,7 @@
 
 * anonymous functions
 * operators (including user-defined operator overloading)
-* await on `Task`, `Task<_>`
+* await on `Task`, `Task<TResult>`
 * conditional access (`?.` operator)
 * assignments (including composite assignment operators)
 * literals
@@ -16,7 +16,7 @@
 * string interpolation (missing padding)
 * control flow: variable declarations with block scoping, labels/goto, break, continue, return, throw, yield return, while, do/while, for, foreach, using, if, switch, try/catch/finally
 * generator methods (with limitations: see planned)
-* async methods returning Task, Task`1 (with limitations: see planned)
+* async methods returning `Task`, `Task<TResult>` (with limitations: see planned)
 
 ### C# features planned:
 * struct definitions

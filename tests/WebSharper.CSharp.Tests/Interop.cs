@@ -28,8 +28,10 @@ namespace WebSharper.CSharp.Tests
             Equal(FSharpOption<int>.GetTag(FSharpOption<int>.None), 0);
             Equal(FSharpOption<int>.GetTag(FSharpOption<int>.Some(2)), 1);
             Equal(FSharpOption<int>.Some(3).Value, 3);
+            Equal(FSharpOption<int>.Some(1), FSharpConvert.Some(1));
+            Equal(FSharpConvert.Option((int?)1), FSharpOption<int>.Some(1));
         }
-    
+
         [Test]
         public void OptionConditionalAccess()
         {
@@ -44,6 +46,17 @@ namespace WebSharper.CSharp.Tests
         public void Union()
         {
             IsTrue(I.Union.NewA(1).IsA);
+            var x = I.Union.NewA(1);
+            var res = 0;
+            switch (x.Tag)
+            {
+                case I.Union.Tags.A:
+                    res = ((I.Union.A)x).Item;
+                    break;
+            }
+            Equal(res, 1);
+            Equal(I.Union.NewA(1).X(), 1);
+            Equal(((I.Union.B)I.Union.NewB("XY")).name, "XY");
         }
 
         [Test]
@@ -52,6 +65,9 @@ namespace WebSharper.CSharp.Tests
             var x = new I.Record(1, null);
             Equal(x.A, 1);
             Equal(x.B, null);
+            x.A = 2;
+            Equal(x.A, 2);
+            Equal(x.X(), 3);
         }
 
         [Test]
@@ -146,6 +162,20 @@ namespace WebSharper.CSharp.Tests
             Equal(I.Module.ReturnsFunc2().Invoke(1).Invoke(2), 3);
             Func<int, int> f = I.Module.ReturnsFunc().Invoke;
             Equal(f(3), 3);
+            Equal(I.Module.InvokeFunc(FSharpConvert.Fun((int x) => x + 1), 1), 2);
+            Equal(I.Module.InvokeFunc2(FSharpConvert.Fun((int x, int y) => x + y), 1, 2), 3);
+        }
+
+        [Test]
+        public void FSharpRef()
+        {
+            var x = FSharpConvert.Ref<int>();
+            Equal(x.contents, 0);
+            Equal(x.Value, 0);
+            x.Value++;
+            Equal(x.Value, 1);
+            var y = FSharpConvert.Ref<int>(5);
+            Equal(y.Value, 5);
         }
 
         public void Increment(ref int x)

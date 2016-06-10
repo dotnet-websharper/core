@@ -295,6 +295,23 @@ type DotNetToJavaScript private (comp: Compilation) =
                     else
                         if u.Cases.Length = 2 then Hole 0 ^!= Value Null
                         else (Hole 0).[Value (String "$")] ^== Value (Int i)
+            elif mN = "get_Tag" then
+                if u.Cases |> List.forall (function { Kind = M.NormalFSharpUnionCase _ } -> true | _ -> false) then
+                    (Hole 0).[Value (String "$")]
+                else
+                    let v = Id.New(mut = false)
+                    let afterNullCheck = 
+                        if u.Cases |> List.forall (function { Kind = M.NormalFSharpUnionCase _ | M.ConstantFSharpUnionCase Null } -> true | _ -> false) then
+                            (Var v).[Value (String "$")]
+                        else    
+                            u.Cases |> List.indexed 
+                            |> List.choose (function (i, { Kind = M.ConstantFSharpUnionCase v }) -> (if v <> Null then Some (i, v) else None) | _ -> None)  
+                            |> List.fold (fun rest (i, c) -> Conditional (Var v ^== Value c, Value (Int i), rest)) ((Var v).[Value (String "$")])  
+                    if u.HasNull then 
+                        let ui = u.Cases |> List.findIndex (function { Kind = M.ConstantFSharpUnionCase Null } -> true | _ -> false)
+                        Let (v, Hole 0, Conditional((Var v ^!= Value Null), Value (Int ui), afterNullCheck))
+                    else
+                        Let (v, Hole 0, afterNullCheck)
             elif mN.StartsWith "New" then 
                 let cN = mN.[3 ..]
                 let i, c = u.Cases |> Seq.indexed |> Seq.find (fun (i, c) -> c.Name = cN)

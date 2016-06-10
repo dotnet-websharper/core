@@ -1073,23 +1073,11 @@ type Compilation(meta: Info) =
             graph.AddEdge(AbstractMethodNode(seq0Ty, getEnumerator0), MethodNode(wsEnumeratorModule, wsGetEnumerator0))
             graph.AddEdge(AbstractMethodNode(seqTy, getEnumerator), MethodNode(wsEnumeratorModule, wsGetEnumerator))
 
-            let boolTy =
-                TypeDefinition {
-                    FullName = "System.Boolean"
-                    Assembly = "mscorlib"
-                } |> NonGeneric |> ConcreteType
-
-            let intTy =
-                TypeDefinition {
-                    FullName = "System.Int32"
-                    Assembly = "mscorlib"
-                } |> NonGeneric |> ConcreteType
-
             let equals =
                 Method {
                     MethodName = "Equals"
                     Parameters = [ ConcreteType (NonGeneric Definitions.Obj) ]
-                    ReturnType = boolTy
+                    ReturnType = NonGenericType Definitions.Bool
                     Generics = 0
                 }
 
@@ -1097,7 +1085,7 @@ type Compilation(meta: Info) =
                 Method {
                     MethodName = "GetHashCode"
                     Parameters = []
-                    ReturnType = intTy
+                    ReturnType = NonGenericType Definitions.Int
                     Generics = 0
                 } 
 
@@ -1105,11 +1093,7 @@ type Compilation(meta: Info) =
                 Method {
                     MethodName = "ToString"
                     Parameters = []
-                    ReturnType =
-                        TypeDefinition {
-                            FullName = "System.String"
-                            Assembly = "mscorlib"
-                        } |> NonGeneric |> ConcreteType
+                    ReturnType = NonGenericType Definitions.String
                     Generics = 0
                 } 
 
@@ -1123,7 +1107,7 @@ type Compilation(meta: Info) =
                 Method {
                     MethodName = "Equals"
                     Parameters = [ TypeParameter 0; TypeParameter 0 ]
-                    ReturnType = boolTy
+                    ReturnType = NonGenericType Definitions.Bool
                     Generics = 1
                 }
 
@@ -1131,7 +1115,7 @@ type Compilation(meta: Info) =
                 Method { 
                     MethodName = "Hash"
                     Parameters = [ TypeParameter 0 ]
-                    ReturnType = intTy
+                    ReturnType = NonGenericType Definitions.Int
                     Generics = 1
                 }
 

@@ -566,7 +566,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     }
                 )
                 |> List.ofSeq
-        
+            
             let i =
                 FSharpUnionInfo {
                     Cases = cases

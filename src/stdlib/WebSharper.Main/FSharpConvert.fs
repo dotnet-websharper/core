@@ -21,6 +21,7 @@
 namespace WebSharper
 
 open System
+open WebSharper.JavaScript
 
 [<JavaScript; Sealed>]
 type FSharpConvert =
@@ -61,10 +62,20 @@ type FSharpConvert =
     [<Inline>]
     static member Fun(del: Func<_,_,_,_,_,_,_,_,_>) = fun a b c d e f g h -> del.Invoke(a, b, c, d, e, f, g, h)            
     [<Inline>]
-    static member Option(value) = if obj.ReferenceEquals(value, null) then None else Some value
+    static member Option<'T >(value: 'T) = if obj.ReferenceEquals(value, null) then None else Some value
     [<Inline>]
-    static member Option(value: Nullable<_>) = if value.HasValue then None else Some value.Value
+    static member Option<'T when 'T : (new: unit -> 'T) and 'T : struct and 'T :> ValueType>(value: Nullable<'T>) = if value.HasValue then Some value.Value else None
+    [<Inline>]
+    static member Some<'T>(value: 'T) = Some value
     [<Inline>]
     static member List([<ParamArray>] elems) = List.ofArray elems
     [<Inline>]
     static member List(elems) = List.ofSeq elems
+    [<Inline>]
+    static member Ref<'T>() = ref Unchecked.defaultof<'T>
+    [<Inline>]
+    static member Ref<'T>(value) = ref<'T> value
+    [<Inline>]
+    static member Async(task: System.Threading.Tasks.Task) = As<Async<unit>> (Concurrency.AwaitTask task)
+    [<Inline>]
+    static member Async(task: System.Threading.Tasks.Task<'T>) = As<Async<'T>> (Concurrency.AwaitTask1 task)
