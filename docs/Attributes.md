@@ -63,7 +63,7 @@ Macros allow a custom compilation logic to be applied in every place a method or
 If you annotate a class, macros will execute on calls to any method or constructor of the class which does not
 have any other WebSharper transation defined.
 
-See macro documentation for details.
+Macro documentation upcoming.
 
 ### Pure
 
@@ -106,7 +106,6 @@ You can define multiple proxies for the same single type, but only if the first 
 All following proxies must have only static methods.
 
 ### Remote
-
 Marks a server-side function to be invokable remotely from the client-side.
 See remoting documentation.
 
@@ -146,7 +145,8 @@ Marks the entry point of a Single Page Application.
 Must be a static method without arguments.
 
 ### NamedUnionCases
-This is an F# only attribute, 
+This is an F# only attribute, usable for a union type to customize JSON serialization.
+See [JSON API](http://websharper.com/docs/json) documentation for details.
 
 ## Attributes in `WebSharper.Sitelets` namespace
 
