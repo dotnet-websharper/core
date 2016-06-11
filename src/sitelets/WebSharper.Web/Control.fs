@@ -108,6 +108,8 @@ open Microsoft.FSharp.Quotations.Patterns
 
 /// Implements a web control based on a quotation-wrapped top-level body.
 /// Use the function ClientSide to create an InlineControl.
+
+[<CompiledName "FSharpInlineControl">]
 type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
     inherit Control()
 
@@ -198,6 +200,7 @@ open System.Linq.Expressions
 // open System.Runtime.CompilerServices
 //[<CallerFilePath; Optional>] sourceFilePath 
 //[<CallerLineNumber; Optional>] sourceLineNumber
+[<CompiledName "InlineControl">]
 type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBody>>) =
     inherit Control()
 

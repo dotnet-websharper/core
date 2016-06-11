@@ -39,7 +39,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                     Elt("input", Attr("name", "age"), Attr("type", "number"), Attr("value", "42")),
                                     Elt("input", Attr("type", "submit"))),
                                 new TestControl(),
-                                new WebSharper.Web.CSharpInlineControl(() => SayHello())                                
+                                new WebSharper.Web.InlineControl(() => SayHello())                                
                                 )))
                 .With<Person>((ctx, person) =>
                     Content.Page<Person>(
