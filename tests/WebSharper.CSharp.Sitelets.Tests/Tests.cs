@@ -7,8 +7,22 @@ using Text = WebSharper.Sitelets.Tests.Server.Text;
 
 namespace WebSharper.CSharp.Sitelets.Tests
 {
+    public class TestControl : Web.Control
+    {
+        [JavaScript]
+        public override IControlBody Body =>
+            new WebSharper.Sitelets.Tests.Client.Elt("div", "Hello from a web control class!");
+    }
+
     public class SiteletTest
     {
+        [JavaScript]
+        static WebSharper.Sitelets.Tests.Client.Elt SayHello()
+        {
+            System.Console.WriteLine("Hello world!");
+            return new WebSharper.Sitelets.Tests.Client.Elt("div", "Hello from an inline control!");
+        }
+
         public static Sitelet<object> Main =>
             new SiteletBuilder()
                 .With("/", ctx =>
@@ -23,7 +37,10 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                     Elt("input", Attr("name", "first"), Attr("value", "Jane")),
                                     Elt("input", Attr("name", "last"), Attr("value", "Smith")),
                                     Elt("input", Attr("name", "age"), Attr("type", "number"), Attr("value", "42")),
-                                    Elt("input", Attr("type", "submit"))))))
+                                    Elt("input", Attr("type", "submit"))),
+                                new TestControl(),
+                                new WebSharper.Web.CSharpInlineControl(() => SayHello())                                
+                                )))
                 .With<Person>((ctx, person) =>
                     Content.Page<Person>(
                         Body:

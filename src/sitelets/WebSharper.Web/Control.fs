@@ -190,6 +190,80 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
             let _, _, reqs = snd bodyAndReqs 
             this.GetBodyNode() :: reqs |> Seq.ofList
 
+open System
+open System.Reflection
+open System.Linq.Expressions
+
+// TODO: test in arguments: needs .NET 4.5
+// open System.Runtime.CompilerServices
+//[<CallerFilePath; Optional>] sourceFilePath 
+//[<CallerLineNumber; Optional>] sourceLineNumber
+type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBody>>) =
+    inherit Control()
+
+    [<System.NonSerialized>]
+    let elt = elt
+
+    static let ctrlReq = M.TypeNode (R.ReadTypeDefinition typeof<InlineControl<IControlBody>>)
+
+    [<System.NonSerialized>]
+    let bodyAndReqs =
+        let declType, meth, args, fReqs =
+            match elt.Body with
+            | :? MemberExpression as e ->
+                match e.Member with
+                | :? PropertyInfo as p ->
+                    let m = p.GetGetMethod()
+                    let dt = R.ReadTypeDefinition p.DeclaringType
+                    let meth = R.ReadMethod m
+                    dt, meth, [], [M.MethodNode (dt, meth)]
+                | _ -> failwith "member must be a property"
+            | :? MethodCallExpression as e -> 
+                let m = e.Method
+                let dt = R.ReadTypeDefinition m.DeclaringType
+                let meth = R.ReadMethod m
+                dt, meth, e.Arguments |> List.ofSeq, [M.MethodNode (dt, meth)]
+            | e -> failwithf "Wrong format for InlineControl: expected global value or function access, got: %A"  e
+        let args, argReqs =
+            args
+            |> List.mapi (fun i a -> 
+                match a with
+                | :? ConstantExpression as e ->
+                    let v = match e.Value with null -> WebSharper.Core.Json.Internal.MakeTypedNull e.Type | _ -> e.Value
+                    v, M.TypeNode (R.ReadTypeDefinition e.Type)
+                | _ -> failwithf "Wrong format for InlineControl: argument #%i is not a literal or a local variable" (i+1)
+            )
+            |> List.unzip
+        let args = Array.ofList args
+        let reqs = ctrlReq :: fReqs @ argReqs
+        args, (declType, meth, reqs)
+
+    let args = fst bodyAndReqs
+    let mutable funcName = [||]
+
+    [<JavaScript>]
+    override this.Body =
+        let f = Array.fold (?) JS.Window funcName
+        As<Function>(f).ApplyUnsafe(null, args) :?> _
+
+    interface IRequiresResources with
+        member this.Encode(meta, json) =
+            if funcName.Length = 0 then
+                let declType, meth, reqs = snd bodyAndReqs
+                match meta.Classes.TryFind declType with
+                | None -> failwithf "Error in InlineControl: Couldn't find address for method"
+                | Some cls ->
+                    match cls.Methods.TryFind meth with
+                    | Some (M.Static a, _, _) ->
+                        funcName <- Array.ofList (List.rev a.Value)
+                    | Some _ -> failwithf "Error in InlineControl: Method must be static and not inlined" 
+                    | None -> failwithf "Error in InlineControl: Couldn't find address for method" 
+            [this.ID, json.GetEncoder(this.GetType()).Encode this]
+
+        member this.Requires =
+            let _, _, reqs = snd bodyAndReqs 
+            this.GetBodyNode() :: reqs |> Seq.ofList
+
 namespace WebSharper
 
 [<AutoOpen>]
