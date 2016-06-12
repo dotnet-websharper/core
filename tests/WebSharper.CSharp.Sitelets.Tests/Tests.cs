@@ -17,11 +17,21 @@ namespace WebSharper.CSharp.Sitelets.Tests
     public class SiteletTest
     {
         [JavaScript]
-        static WebSharper.Sitelets.Tests.Client.Elt SayHello()
+        public static WebSharper.Sitelets.Tests.Client.Elt SayHello()
         {
             System.Console.WriteLine("Hello world!");
             return new WebSharper.Sitelets.Tests.Client.Elt("div", "Hello from an inline control!");
         }
+
+        [JavaScript]
+        public static WebSharper.Sitelets.Tests.Client.Elt SayHello(string msg)
+        {
+            return new WebSharper.Sitelets.Tests.Client.Elt("div", $"Hello from an inline control with message: {msg}!");
+        }
+
+        [JavaScript]
+        public static WebSharper.Sitelets.Tests.Client.Elt Hello =>
+            new WebSharper.Sitelets.Tests.Client.Elt("div", $"Hello from an inline control calling a static property!");
 
         public static Sitelet<object> Main =>
             new SiteletBuilder()
@@ -38,8 +48,10 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                     Elt("input", Attr("name", "last"), Attr("value", "Smith")),
                                     Elt("input", Attr("name", "age"), Attr("type", "number"), Attr("value", "42")),
                                     Elt("input", Attr("type", "submit"))),
-                                new TestControl(),
-                                new WebSharper.Web.InlineControl(() => SayHello())                                
+                                //new TestControl(),
+                                new WebSharper.Web.InlineControl(() => SayHello()),
+                                new WebSharper.Web.InlineControl(() => SayHello("ok")),
+                                new WebSharper.Web.InlineControl(() => Hello)
                                 )))
                 .With<Person>((ctx, person) =>
                     Content.Page<Person>(

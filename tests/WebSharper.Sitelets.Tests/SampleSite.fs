@@ -65,7 +65,6 @@ module Server =
             member this.Encode(_, _) = []
 
     type Elt(name, [<System.ParamArray>] contents: INode[]) =
-        inherit RequiresNoResources()
         let attributes, children =
             contents |> Array.partition (fun n -> n.IsAttribute)
         interface INode with
@@ -78,9 +77,11 @@ module Server =
                     w.Write(System.Web.UI.HtmlTextWriter.TagRightChar)
                     children |> Array.iter (fun n -> n.Write(meta, w))
                     w.WriteEndTag(name)
+            member this.Requires = children |> Seq.collect (fun c -> c.Requires)
             member this.IsAttribute = false
             member this.AttributeValue = None
             member this.Name = Some name
+            member this.Encode(meta, json) =  children |> Seq.collect (fun c -> c.Encode(meta, json)) |> List.ofSeq
 
     type Attr(name, value) =
         inherit RequiresNoResources()
