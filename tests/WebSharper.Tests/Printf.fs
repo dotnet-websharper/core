@@ -120,6 +120,8 @@ let Tests =
         Test "Console" {
     //        WatchConsole()
             printfn "Printing to console %s" "ok"
+            System.Console.WriteLine("With System.Console too")
+            System.Console.WriteLine("Using inlined String.Format: {0}", "ok")
             equal 1 1
     //        GetLastLogged() =? [| "Printing to console ok" |]
         }

@@ -26,40 +26,40 @@ type C = JavaScript.Console
 type ConsoleProxy =
 
     [<Inline>]
-    member this.WriteLine() = C.Log("")
+    static member WriteLine() = C.Log("")
     [<Inline>]
-    member this.WriteLine(x: bool) = C.Log(x)
+    static member WriteLine(x: bool) = C.Log(x)
     [<Inline>]
-    member this.WriteLine(x: char) = C.Log(string x)
+    static member WriteLine(x: char) = C.Log(string x)
     [<Inline>]
-    member this.WriteLine(x: char[]) = C.Log(System.String(x))
+    static member WriteLine(x: char[]) = C.Log(System.String(x))
     [<Inline>]
-    member this.WriteLine(x: char[], s: int, c: int) = C.Log(System.String(Array.sub x s c))
+    static member WriteLine(x: char[], s: int, c: int) = C.Log(System.String(Array.sub x s c))
     [<Inline>]
-    member this.WriteLine(x: decimal) = C.Log(x)
+    static member WriteLine(x: decimal) = C.Log(x)
     [<Inline>]
-    member this.WriteLine(x: float) = C.Log(x)
+    static member WriteLine(x: float) = C.Log(x)
     [<Inline>]
-    member this.WriteLine(x: int) = C.Log(x)
+    static member WriteLine(x: int) = C.Log(x)
     [<Inline>]
-    member this.WriteLine(x: int64) = C.Log(x)
+    static member WriteLine(x: int64) = C.Log(x)
     [<Inline>]
-    member this.WriteLine(x: obj) = C.Log(string x)
+    static member WriteLine(x: obj) = C.Log(string x)
     [<Inline>]
-    member this.WriteLine(x: single) = C.Log(x)
+    static member WriteLine(x: single) = C.Log(x)
     [<Inline>]
-    member this.WriteLine(x: string) = C.Log(x)
+    static member WriteLine(x: string) = C.Log(x)
     [<Inline>]
-    member this.WriteLine(x: string, o1: obj) = C.Log(System.String.Format(x, o1))
+    static member WriteLine(x: string, o1: obj) = C.Log(System.String.Format(x, o1))
     [<Inline>]
-    member this.WriteLine(x: string, o1: obj, o2: obj) = C.Log(System.String.Format(x, o1, o2))
+    static member WriteLine(x: string, o1: obj, o2: obj) = C.Log(System.String.Format(x, o1, o2))
     [<Inline>]
-    member this.WriteLine(x: string, o1: obj, o2: obj, o3: obj) = C.Log(System.String.Format(x, o1, o2, o3))
+    static member WriteLine(x: string, o1: obj, o2: obj, o3: obj) = C.Log(System.String.Format(x, o1, o2, o3))
     [<Inline>]
-    member this.WriteLine(x: string, o1: obj, o2: obj, o3: obj, o4: obj) = C.Log(System.String.Format(x, o1, o2, o3, o4))
+    static member WriteLine(x: string, o1: obj, o2: obj, o3: obj, o4: obj) = C.Log(System.String.Format(x, o1, o2, o3, o4))
     [<Inline>]
-    member this.WriteLine(x: string, o: obj[]) =  C.Log(System.String.Format(x, o))
+    static member WriteLine(x: string, o: obj[]) =  C.Log(System.String.Format(x, o))
     [<Inline>]
-    member this.WriteLine(x: uint32) = C.Log(x)
+    static member WriteLine(x: uint32) = C.Log(x)
     [<Inline>]
-    member this.WriteLine(x: uint64) = C.Log(x)
+    static member WriteLine(x: uint64) = C.Log(x)

@@ -19,7 +19,8 @@ namespace WebSharper.CSharp.Sitelets.Tests
         [JavaScript]
         public static WebSharper.Sitelets.Tests.Client.Elt SayHello()
         {
-            System.Console.WriteLine("Hello world!");
+            Console.WriteLine("Hello world from System.Console!");
+            JavaScript.Console.Log("Hello world from WebSharper.JavaScript.Console!");
             return new WebSharper.Sitelets.Tests.Client.Elt("div", "Hello from an inline control!");
         }
 
@@ -31,7 +32,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
 
         [JavaScript]
         public static WebSharper.Sitelets.Tests.Client.Elt Hello =>
-            new WebSharper.Sitelets.Tests.Client.Elt("div", $"Hello from an inline control calling a static property!");
+            new WebSharper.Sitelets.Tests.Client.Elt("div", "Hello from an inline control calling a static property!");
 
         public static Sitelet<object> Main =>
             new SiteletBuilder()
