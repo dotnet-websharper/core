@@ -94,8 +94,9 @@ module Macro =
     [<Macro(typeof<NameOfMacro>)>]
     let nameof<'a> = X<string>
 
-    [<Macro(typeof<AddMacro>)>]
-    let add a b = a + b 
+    [<Macro(typeof<AddMacro>); JavaScript>]
+    let add a b = a + b
+
     [<JavaScript>]
     let Tests =
         TestCategory "Metaprogramming" {
@@ -110,5 +111,6 @@ module Macro =
             Test "Macro" {
                 equal nameof<string> "System.String"
                 equal (add 1 2) 3
+                equal (add 1 (1 + 1)) 3
             }
         }

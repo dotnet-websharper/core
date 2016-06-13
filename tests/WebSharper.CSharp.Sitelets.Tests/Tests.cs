@@ -7,6 +7,7 @@ using Text = WebSharper.Sitelets.Tests.Server.Text;
 
 namespace WebSharper.CSharp.Sitelets.Tests
 {
+    [Serializable]
     public class TestControl : Web.Control
     {
         [JavaScript]
@@ -49,7 +50,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                     Elt("input", Attr("name", "last"), Attr("value", "Smith")),
                                     Elt("input", Attr("name", "age"), Attr("type", "number"), Attr("value", "42")),
                                     Elt("input", Attr("type", "submit"))),
-                                //new TestControl(),
+                                new TestControl(),
                                 new WebSharper.Web.InlineControl(() => SayHello()),
                                 new WebSharper.Web.InlineControl(() => SayHello("ok")),
                                 new WebSharper.Web.InlineControl(() => Hello)

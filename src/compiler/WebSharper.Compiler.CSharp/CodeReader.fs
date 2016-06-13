@@ -108,10 +108,10 @@ let inline errf node x = Printf.kprintf (err node) x
 
 let inline TODO x = 
     let xn = x.GetType().Name
-    failwithf "TODO: handle %sSyntax" (xn.[.. xn.Length - 5])  
+    failwithf "Syntax currently not supported for client side: %s" (xn.[.. xn.Length - 5])  
 
 let inline NotSupported x = 
-    failwithf "Syntax not supported for JavaScript: %s" x
+    failwithf "Syntax not supported for client side: %s" x
 
 module M = Metadata
 
@@ -233,6 +233,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         }
 
     member this.ReadConstructor (x: IMethodSymbol) =
+        let x  = x.OriginalDefinition
         Hashed {
             CtorParameters = x.Parameters |> Seq.map (fun p -> this.ReadType p.Type) |> List.ofSeq
         }
@@ -1773,6 +1774,6 @@ type RoslynTransformer(env: Environment) =
         | InterpolatedStringContentData.InterpolatedStringText x -> 
             Value (String x.Node.TextToken.ValueText)
         | InterpolatedStringContentData.Interpolation x -> 
-            if Option.isSome x.AlignmentClause then failwith "TODO: interpolated string alignment"
-            if Option.isSome x.FormatClause then failwith "TODO: interpolated string formatting"
+            if Option.isSome x.AlignmentClause then failwith "Syntax currently not supported for client side: interpolated string alignment"
+            if Option.isSome x.FormatClause then failwith "Syntax currently not supported for client side: interpolated string formatting"
             x.Expression |> this.TransformExpression

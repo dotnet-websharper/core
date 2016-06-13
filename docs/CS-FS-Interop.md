@@ -19,6 +19,7 @@ The `WebSharper.FSharpConvert` static class contains static members to create va
 Everything works as in .NET, there are no extra helpers provided by WebSharper.
 
 * To call an `FSharpFunc` function, use its `Invoke` method. When calling curried F# functions, you have to chain calling `Invoke` to pass all arguments separately.
-* Create F# union values using the `.New...` static methods in the union type.
+* Create F# union values using the `.New...` static method in the union type (or property for a union case with no fields).
 * Create F# record values by using its constructor.
 * Separate union cases by using the `Is...` methods, or the `Tag` property. Whenever a union has `null` as possible value, these methods are static.
+* For the `FSharpOption` type, you can use `x?.Value`) to get the value or null.

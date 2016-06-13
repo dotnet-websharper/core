@@ -37,7 +37,6 @@ namespace WebSharper.CSharp.Tests
         {
             var o = FSharpOption<int>.Some(3);
             Equal(o?.Value, 3);
-            Equal(o?.ToString(), "3");
             var o2 = FSharpOption<FSharpOption<int>>.Some(FSharpOption<int>.Some(4));
             Equal(o2?.Value.Value, 4);
         }
@@ -57,6 +56,8 @@ namespace WebSharper.CSharp.Tests
             Equal(res, 1);
             Equal(I.Union.NewA(1).X(), 1);
             Equal(((I.Union.B)I.Union.NewB("XY")).name, "XY");
+            IsTrue(I.Union.C.IsC);
+            Equal(I.Union.C.Tag, I.Union.Tags.C);
         }
 
         [Test]

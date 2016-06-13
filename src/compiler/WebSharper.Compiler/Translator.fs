@@ -164,7 +164,13 @@ type DotNetToJavaScript private (comp: Compilation) =
     let mutable currentSourcePos = None
 
     let modifyDelayedInlineInfo (info: M.CompiledMember) =
-        if hasDelayedTransform then M.NotCompiledInline else info
+        if hasDelayedTransform then 
+            let rec m info =
+                match info with 
+                | M.Macro (t, p, fb) -> M.Macro(t, p, fb |> Option.map m)
+                | _ -> M.NotCompiledInline 
+            m info
+        else info
 
     let isInline info =
         let rec ii m =
@@ -314,7 +320,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                         Let (v, Hole 0, afterNullCheck)
             elif mN.StartsWith "New" then 
                 let cN = mN.[3 ..]
-                let i, c = u.Cases |> Seq.indexed |> Seq.find (fun (i, c) -> c.Name = cN)
+                let i, c = u.Cases |> Seq.indexed |> Seq.find (fun (_, c) -> c.Name = cN)
 
                 match c.Kind with
                 | M.ConstantFSharpUnionCase v -> Value v
@@ -326,6 +332,15 @@ type DotNetToJavaScript private (comp: Compilation) =
                             (args |> List.mapi (fun j e -> "$" + string j, this.TransformExpression e)) 
                         )
                     this.TransformCopyCtor(typ.Entity, objExpr)
+            elif mN.StartsWith "get_" then
+                let cN = mN.[4 ..]
+                let i, c = u.Cases |> Seq.indexed |> Seq.find (fun (_, c) -> c.Name = cN)
+
+                match c.Kind with
+                | M.ConstantFSharpUnionCase v -> Value v
+                | M.NormalFSharpUnionCase [] -> 
+                    this.TransformCopyCtor(typ.Entity, Object [ "$", Value (Int i) ])
+                | _ -> failwith "A union case with a property getter should not have fields"
             else
                 match mN with
                 | "ToString" -> Value (String typ.Entity.Value.FullName)
@@ -614,12 +629,13 @@ type DotNetToJavaScript private (comp: Compilation) =
         | Compiled (info, isPure, expr) ->
             this.CompileCall(info, isPure, expr, thisObj, typ, meth, args)
         | Compiling (info, expr) ->
-            match info with
-            | NotCompiled M.Inline | NotGenerated (_, _, M.Inline) ->
+            if isInline info then
                 this.AnotherNode().CompileMethod(info, expr, typ.Entity, meth.Entity)
                 this.TransformCall (thisObj, typ, meth, args)
-            | NotCompiled info | NotGenerated (_, _, info) ->
-                this.CompileCall(info, false, expr, thisObj, typ, meth, args)
+            else
+                match info with
+                | NotCompiled info | NotGenerated (_, _, info) ->
+                    this.CompileCall(info, false, expr, thisObj, typ, meth, args)
         | CustomTypeMember ct ->  
             let inl = this.GetCustomTypeMethodInline(typ, ct, meth)
             Substitution(args |> List.map this.TransformExpression, ?thisObj = (thisObj |> Option.map this.TransformExpression)).TransformExpression(inl)
@@ -822,12 +838,13 @@ type DotNetToJavaScript private (comp: Compilation) =
         | Compiled (info, isPure, expr) -> 
             this.CompileCtor(info, isPure, expr, typ, ctor, args)
         | Compiling (info, expr) ->
-            match info with
-            | NotCompiled M.Inline | NotGenerated (_, _, M.Inline) ->
+            if isInline info then
                 this.AnotherNode().CompileConstructor(info, expr, typ.Entity, ctor)
                 this.TransformCtor(typ, ctor, args)
-            | NotCompiled info | NotGenerated (_, _, info) ->
-                this.CompileCtor(info, false, expr, typ, ctor, args)
+            else 
+                match info with
+                | NotCompiled info | NotGenerated (_, _, info) ->
+                    this.CompileCtor(info, false, expr, typ, ctor, args)
         | CustomTypeMember ct ->  
             let inl = this.GetCustomTypeConstructorInline(ct, ctor)
             Substitution(args |> List.map this.TransformExpression).TransformExpression(inl)

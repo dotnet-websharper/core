@@ -243,6 +243,7 @@ type AttributeReader<'A>() =
                 match js, stub with
                 | (None | Some false), true -> false, true
                 | Some false, false -> false, false
+                | Some true, _ -> true, false
                 | _ -> macros.Count = 0, false
             elif parent.IsStub then
                 match js, stub with

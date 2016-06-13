@@ -25,10 +25,10 @@ namespace WebSharper.CSharp.Tests
         }
     }
 
-    [JavaScript]
+    [JavaScript, Test("C# macro")]
     public class MacroTest : TestCategory
     {
-        [Macro(typeof(AddMacro))]
+        [Macro(typeof(AddMacro)), JavaScript]
         public static int Add(int a, int b) => a + b;
 
         [Test]

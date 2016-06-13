@@ -40,6 +40,7 @@ type Record =
 type Union =
     | A of int
     | B of name: string
+    | C
 
     member this.X () =
         match this with

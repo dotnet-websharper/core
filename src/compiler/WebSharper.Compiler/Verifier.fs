@@ -28,12 +28,10 @@ module J = WebSharper.Core.Json
 
 let (|AsyncOrTask|_|) (t: Type) =
     match t with
-    | ConcreteType { Generics = [ x ]; Entity = td } ->
-        if td = Definitions.Async || td = Definitions.Task1 then
-            Some (Some x)
-        elif td = Definitions.Task then
-            Some None
-        else None        
+    | ConcreteType { Generics = []; Entity = td } when td = Definitions.Task ->
+        Some None
+    | ConcreteType { Generics = [ x ]; Entity = td } when td = Definitions.Async || td = Definitions.Task1 ->
+        Some (Some x)
     | _ ->
         None
 
@@ -62,8 +60,6 @@ type State(jP: J.Provider) =
             try
                 let enc = jP.GetEncoder(t)
                 true
-// TODO: check that no other kinds of errors can happen
-//            with WebSharper.Core.Json.NoEncoderException _ ->
             with _ ->
                 false
 
@@ -73,7 +69,6 @@ type State(jP: J.Provider) =
             try
                 let enc = jP.GetDecoder(t)
                 true
-//            with WebSharper.Core.Json.NoDecoderException _ ->
             with _ ->
                 false
    
@@ -100,13 +95,12 @@ type State(jP: J.Provider) =
                     | Some t ->
                         if canEncodeToJson t
                             then Correct
-                            else CriticallyIncorrect "Cannot encode the return type to JSON"
+                            else CriticallyIncorrect (sprintf "Cannot encode return type '%s' to JSON" (string t))
                     | _ -> Correct
                 | t ->
                     if canEncodeToJson t
-                        then "Synchronous remote methods are strongly advised against, consider returning an Async<'T>"
-                        else "Cannot encode the return type to JSON"
-                    |> Incorrect
+                        then Incorrect "Synchronous RPC is deprecated, consider returning an Async or Task"
+                        else CriticallyIncorrect (sprintf "Cannot encode return type '%s' to JSON. Also, synchronous RPC is deprecated, consider returning an Async or Task" (string t))
 
     let getWebControlError (t: TypeDefinition) : Status =
         if not (canEncodeToJson (ConcreteType (NonGeneric t))) then

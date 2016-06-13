@@ -48,7 +48,7 @@ setting in Developer Tools Settings (cog icon in F12 panel).
 
 In the Sources tab of Developer Tools, open a generated `.js` file in 
 the `Scripts/WebSharper` folder to make Chrome load its source mappings.
-A folder named `FSharpSources` will appear with the original `.fs` files used
+A folder named `Source` will appear with the original `.fs` files used
 for WebSharper translation.
 You can use this to set breakpoints in original code.
 

@@ -738,7 +738,7 @@ type CodeWriter(?assemblyName: string) =
 
         mapN "{"
         mapN "\"version\": 3,"
-        mapN "\"sourceRoot\": \"FSharpSource\","
+        mapN "\"sourceRoot\": \"Source\","
         mapS "\"sources\": [\""
         let im = sources.Count - 1
         for i = 0 to im do

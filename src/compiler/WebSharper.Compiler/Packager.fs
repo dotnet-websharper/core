@@ -111,6 +111,11 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
 
     let classes = Dictionary(current.Classes)
 
+    let rec withoutMacros info =
+        match info with
+        | M.Macro (_, _, Some fb) -> withoutMacros fb
+        | _ -> info 
+
     let rec packageClass (c: M.ClassInfo) =
 
         match c.BaseClass with
@@ -132,7 +137,7 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
             
             let prototype = 
                 let prop info body =
-                    match info with
+                    match withoutMacros info with
                     | M.Instance mname ->
                         if body <> Undefined then
                             Some (mname, body)
@@ -159,7 +164,7 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
                 packageCtor addr <| JSRuntime.Class prototype baseType (GlobalAccess addr)
 
         for info, _, body in c.Methods.Values do
-            match info with
+            match withoutMacros info with
             | M.Static maddr ->
                 if body <> Undefined then
                     if body <> Undefined then
@@ -167,7 +172,7 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
             | _ -> ()
 
         for info, _, body in c.Constructors.Values do
-            match info with
+            match withoutMacros info with
             | M.Constructor caddr ->
                 if body <> Undefined then
                     if Option.isSome c.Address then
