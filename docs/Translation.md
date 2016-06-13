@@ -22,7 +22,7 @@ This parsed expression will be used as a function body, `return` is automaticall
 added for the last value.
 
 If you don't want the use function from .NET, the `X<'T>` type function in
-`WebSharper.JavaScript` throws an error with the message
+`WebSharper.JavaScript` throws an exception of type `WebSharper.JavaScript.ClientSideOnly` with the message
 "This function is intended for client-side use only.".
 
 You can use placeholders for the function or method arguments.
