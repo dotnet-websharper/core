@@ -69,7 +69,7 @@ type PureAttribute() =
     inherit A()
 
 /// Marks methods, properties and constructors for compilation to JavaScript.
-[<Sealed; U(T.Assembly|||T.Class|||T.Module|||T.Constructor|||T.Method|||T.Property)>]
+[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property)>]
 type JavaScriptAttribute() =
     inherit A()
 
@@ -77,7 +77,7 @@ type JavaScriptAttribute() =
 
 /// Annotates methods an constructors with custom compilation rules.
 /// The supplied type should implement Macros.IMacro and a default constructor.
-[<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property, AllowMultiple = true)>]
+[<Sealed; U(T.Class|||T.Interface|||T.Constructor|||T.Method|||T.Property, AllowMultiple = true)>]
 type MacroAttribute private () =
     inherit A()
 
@@ -100,7 +100,7 @@ type GeneratedAttribute private () =
 /// Provides a runtime name for members when it differs from the F# name.
 /// The constructor accepts either an explicit array of parts,
 /// or a single string, in which case it is assumed to be dot-separated.
-[<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property|||T.Field)>]
+[<Sealed; U(T.Class|||T.Interface|||T.Constructor|||T.Method|||T.Property|||T.Field)>]
 type NameAttribute private () =
     inherit A()
 
@@ -112,7 +112,7 @@ type NameAttribute private () =
 
 /// Declares a type to be a proxy for another type, identified directly or
 /// by using an assembly-qualified name.
-[<Sealed; U(T.Class)>]
+[<Sealed; U(T.Class|||T.Interface)>]
 type ProxyAttribute private () =
     inherit A()
 

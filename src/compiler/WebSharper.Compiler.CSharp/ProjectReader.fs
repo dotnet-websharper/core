@@ -58,10 +58,10 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
         match annot.ProxyOf with
         | Some d -> d 
         | _ -> sr.ReadNamedTypeDefinition intf
-    for m in intf.GetMembers() do
+    for m in intf.GetMembers().OfType<IMethodSymbol>() do
         let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, m.GetAttributes())
         let md = 
-            match sr.ReadMember (m :?> IMethodSymbol) with
+            match sr.ReadMember m with
             | Member.Method (_, md) -> md
             | _ -> failwith "invalid interface member"
         methodNames.Add(md, mAnnot.Name)
@@ -169,7 +169,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             
     let implicitImplementations = System.Collections.Generic.Dictionary()
     for intf in cls.Interfaces do
-        for meth in intf.GetMembers() do
+        for meth in intf.GetMembers().OfType<IMethodSymbol>() do
             let impl = cls.FindImplementationForInterfaceMember(meth) :?> IMethodSymbol
             if impl <> null && impl.ExplicitInterfaceImplementations.Length = 0 then 
                 Dict.addToMulti implicitImplementations impl intf
@@ -247,8 +247,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         Function([], ExprStatement (Sequential (staticInits |> List.ofSeq)))
         |> addMethod A.MemberAnnotation.BasicJavaScript staticInitDef N.Static false
         true
-
-//    let mutableHasExplicitCctor = false
 
     for meth in members.OfType<IMethodSymbol>() do
         let attrs =

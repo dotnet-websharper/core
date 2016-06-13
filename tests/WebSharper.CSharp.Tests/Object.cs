@@ -108,5 +108,29 @@ namespace WebSharper.CSharp.Tests
             Equal(new SubClass().BaseCall(), 1, "Base method call");
             Equal(new SubClass(3).Value, 5, "Chained constructor");
         }
+
+        interface ISomething
+        {
+            int Foo();
+
+            string Bar { get; }
+        }
+
+        class Something : ISomething
+        {
+            public string Bar => "Bar";
+
+            public int Foo() => 42;
+        }
+
+        [Test]
+        public void InterfaceImplementations()
+        {
+            var o = new Something();
+            Equal(o.Bar, "Bar");
+            Equal(((ISomething)o).Bar, "Bar");
+            Equal(o.Foo(), 42);
+            Equal(((ISomething)o).Foo(), 42);
+        }
     }
 }
