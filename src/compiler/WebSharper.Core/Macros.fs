@@ -32,6 +32,7 @@ type MacroCall =
          Method : Concrete<Method>
          Arguments: list<Expression>
          Parameter: option<obj>
+         IsInline: bool
          Compilation: Metadata.ICompilation
     }
 
@@ -42,6 +43,7 @@ type MacroCtor =
          Constructor : Constructor
          Arguments: list<Expression>
          Parameter: option<obj>
+         IsInline: bool
          Compilation: Metadata.ICompilation
     }
 

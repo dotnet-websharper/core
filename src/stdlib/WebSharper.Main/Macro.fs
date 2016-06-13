@@ -1173,5 +1173,6 @@ type StringFormat() =
                 let warningRes = !warning |> Option.map (fun w -> MacroWarning(w, MacroOk result))
 
                 defaultArg warningRes (MacroOk result)
-            | _ -> MacroFallback
+            
+            | _ -> if c.IsInline then MacroNeedsResolvedTypeArg else MacroFallback
         | _ -> MacroError "proxy is for System.String.Format"

@@ -502,7 +502,6 @@ type DotNetToJavaScript private (comp: Compilation) =
                 else expr
             Substitution(args |> List.map this.TransformExpression, ?thisObj = (thisObj |> Option.map this.TransformExpression)).TransformExpression(ge)
             |> this.TransformExpression
-        // TODO : return dependencies/requires
         | M.Macro (macro, parameter, fallback) ->
             let macroResult = 
                 match comp.GetMacroInstance(macro) with
@@ -514,6 +513,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                              Method = meth
                              Arguments = args
                              Parameter = parameter |> Option.map M.ParameterObject.ToObj
+                             IsInline = currentIsInline
                              Compilation = comp
                         }
                     with e -> MacroError e.Message 
@@ -715,6 +715,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                              Constructor = ctor
                              Arguments = args
                              Parameter = parameter |> Option.map M.ParameterObject.ToObj
+                             IsInline = currentIsInline
                              Compilation = comp
                         }
                     with e -> MacroError e.Message 
