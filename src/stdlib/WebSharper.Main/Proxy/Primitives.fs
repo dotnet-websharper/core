@@ -59,3 +59,8 @@ type internal NS = class end
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Double>)>]
 type internal ND = class end
+
+[<Proxy(typeof<System.Boolean>)>]
+type internal B = 
+    [<Inline>]
+    static member op_LogicalNot(a: bool) = not a

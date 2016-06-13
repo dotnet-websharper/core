@@ -45,4 +45,7 @@ type private ObjectProxy =
     static member op_Equality(a: obj, b: obj) = a ===. b
 
     [<Inline>]
+    static member op_Inequality(a: obj, b: obj) = a !==. b
+
+    [<Inline>]
     override this.ToString() = string this

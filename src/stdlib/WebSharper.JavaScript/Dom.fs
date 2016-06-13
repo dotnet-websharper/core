@@ -843,6 +843,7 @@ module Interfaces =
         |=> Inherits Node
         |+> Instance [
                 "cookie" =@ T<string>
+                "body" =@ Element
                 "doctype" =@ DocumentType
                 "documentElement" =@ Element
                 "documentURI" =@ T<string>
