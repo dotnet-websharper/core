@@ -1,5 +1,6 @@
 ﻿using System;
 using WebSharper;
+using WebSharper.Web;
 using WebSharper.Sitelets;
 using Elt = WebSharper.Sitelets.Tests.Server.Elt;
 using Attr = WebSharper.Sitelets.Tests.Server.Attr;
@@ -50,9 +51,9 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                     Elt("input", Attr("name", "age"), Attr("type", "number"), Attr("value", "42")),
                                     Elt("input", Attr("type", "submit"))),
                                 //new TestControl(),
-                                new WebSharper.Web.InlineControl(() => SayHello()),
-                                new WebSharper.Web.InlineControl(() => SayHello("ok")),
-                                new WebSharper.Web.InlineControl(() => Hello)
+                                new InlineControl(() => SayHello()),
+                                new InlineControl(() => SayHello("ok")),
+                                new InlineControl(() => Hello)
                                 )))
                 .With<Person>((ctx, person) =>
                     Content.Page(

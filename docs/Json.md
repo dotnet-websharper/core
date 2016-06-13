@@ -1,6 +1,6 @@
 # JSON API
 
-WebSharper provides a convenient and readable JSON serialization format for F# values. The structure of the JSON is inferred from the type, and can be customized using attributes. This format is usable both from the server and the client side.
+WebSharper provides a convenient and readable JSON serialization format for F# values as well as C# classes. The structure of the JSON is inferred from the type, and can be customized using attributes. This format is usable both from the server and the client side.
 
 ## Using JSON on the server
 
@@ -13,10 +13,10 @@ WebSharper Sitelets provide facilities to both parse JSON from HTTP requests and
 
 Since WebSharper 3.3, JSON serialization is also available on the client. The module `WebSharper.Json` provides the following functions:
 
-* `Serialize : 'T -> string` serializes an F# value to string.
-* `Deserialize : string -> 'T` deserializes an F# value from a string.
-* `Encode : 'T -> obj` converts an F# value to an object, such that `Json.Stringify (Json.Encode x) = Json.Serialize x`.
-* `Decode : obj -> 'T` converts an object to an F# value, such that `Json.Decode (Json.Parse s) = Json.Deserialize s`.
+* `Serialize : 'T -> string` serializes a value to string.
+* `Deserialize : string -> 'T` deserializes a value from a string.
+* `Encode : 'T -> obj` converts a value to a JavaScript object, such that `Json.Stringify (Json.Encode x) = Json.Serialize x`.
+* `Decode : obj -> 'T` converts a JavaScript object to a value, such that `Json.Decode (Json.Parse s) = Json.Deserialize s`.
 
 ## Format
 
@@ -94,7 +94,8 @@ Content.Json (Map [("somekey", 12); ("otherkey", 34)])
 // Output: {"somekey": 12, "otherkey": 34}
 ```
 
-### Records
+<a name="fs-records"></a>
+### F# Records
 
 F# records are represented as flat JSON objects. The attribute `[<Name "name">]` can be used to customize the field name:
 
@@ -116,7 +117,7 @@ Content.Json {name = {FirstName = "John"; LastName = "Doe"}; age = 42}
 // Output: {"name": {"first-name": "John", "LastName": "Doe"}, "age": 42}
 ```
 
-### Unions
+### F# Unions
 
 Union types intended for use in JSON serialization should bear the attribute `NamedUnionCases`. There are two ways to use it.
 
@@ -261,6 +262,41 @@ type Color =
 Content.Json [Blue; Red; Green]
 
 // Output: ["blue","red","green"]
+```
+
+### Classes
+
+In order to be serializable to/from JSON, a class must be annotated with the `[<System.Serializable>]` attribute. Then, it is serialized based on its fields, similarly to F# records [as mentioned above](#fs-records). Here is an example in C#:
+
+```csharp
+[Serializable]
+public class User
+{
+    Name name;
+    int age;
+    
+    public User(Name name, int age)
+    {
+        this.name = name;
+        this.age = age;
+    }
+}
+
+public class Name
+{
+    [Name("first-name")] string firstName;
+    string lastName;
+    
+    public Name(string firstName, string lastName)
+    {
+        this.firstName = firstName;
+        this.lastName = lastName;
+    }
+}
+
+Content.Json(new User(new Name("John", "Doe"), 36));
+
+// Output: {"name": {"firstName": "John", "last-name": "Doe"}, "age": 36}
 ```
 
 ### DateTimes
