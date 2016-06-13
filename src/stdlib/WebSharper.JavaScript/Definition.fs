@@ -25,31 +25,26 @@ open WebSharper.JavaScript
 
 /// The JavaScript global properties and functions can be used with all the built-in JavaScript objects.
 let Global =
-    let CheckConsole =
-        T<unit> |> WithInterop {
-            In = id
-            Out = fun s -> "console?" + s + ":undefined"
-        }   
     Namespace "WebSharper.JavaScript" [
         Class "console"
         |+> Static [
-            "count" => !? T<string> ^-> CheckConsole
-            "dir" => T<obj> ^-> CheckConsole
-            Generic - fun t -> "error" => t ^-> CheckConsole
-            Generic - fun t -> "error" => t *+ T<obj> ^-> CheckConsole
-            "group" => T<string> *+ T<obj> ^-> CheckConsole
-            "groupEnd" => T<unit> ^-> CheckConsole
-            Generic - fun t -> "info" => t ^-> CheckConsole
-            Generic - fun t -> "info" => t *+ T<obj> ^-> CheckConsole
-            Generic - fun t -> "log" => t ^-> CheckConsole
-            Generic - fun t -> "log" => t *+ T<obj> ^-> CheckConsole
-            "profile" => T<string> ^-> CheckConsole
-            "profileEnd" => T<unit> ^-> CheckConsole
-            "time" => T<string> ^-> CheckConsole
-            "timeEnd" => T<string> ^-> CheckConsole
-            "trace" => T<unit> ^-> CheckConsole
-            Generic - fun t -> "warn" => t ^-> CheckConsole
-            Generic - fun t -> "warn" => t *+ T<obj> ^-> CheckConsole
+            "count" => !? T<string> ^-> T<unit>
+            "dir" => T<obj> ^-> T<unit>
+            Generic - fun t -> "error" => t ^-> T<unit>
+            Generic - fun t -> "error" => t *+ T<obj> ^-> T<unit>
+            "group" => T<string> *+ T<obj> ^-> T<unit>
+            "groupEnd" => T<unit> ^-> T<unit>
+            Generic - fun t -> "info" => t ^-> T<unit>
+            Generic - fun t -> "info" => t *+ T<obj> ^-> T<unit>
+            Generic - fun t -> "log" => t ^-> T<unit>
+            Generic - fun t -> "log" => t *+ T<obj> ^-> T<unit>
+            "profile" => T<string> ^-> T<unit>
+            "profileEnd" => T<unit> ^-> T<unit>
+            "time" => T<string> ^-> T<unit>
+            "timeEnd" => T<string> ^-> T<unit>
+            "trace" => T<unit> ^-> T<unit>
+            Generic - fun t -> "warn" => t ^-> T<unit>
+            Generic - fun t -> "warn" => t *+ T<obj> ^-> T<unit>
         ]
 
         Class "JS"

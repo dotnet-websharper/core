@@ -315,3 +315,23 @@ if (!Math.trunc) {
         return x < 0 ? Math.ceil(x) : Math.floor(x);
     }
 }
+
+function ignore() { };
+
+if (!console) {
+    console = {
+        count: ignore,
+        dir: ignore,
+        error: ignore,
+        group: ignore,
+        groupEnd: ignore,
+        info: ignore,
+        log: ignore,
+        profile: ignore,
+        profileEnd: ignore,
+        time: ignore,
+        timeEnd: ignore,
+        trace: ignore,
+        warn: ignore
+    }
+}
