@@ -125,9 +125,9 @@ type SiteletBuilder =
 
     new : unit -> SiteletBuilder
 
-    member With<'T> : Func<Context<obj>, 'T, Task<Content<'T>>> -> SiteletBuilder
+    member With<'T> : Func<Context, 'T, Task<CSharpContent>> -> SiteletBuilder
         when 'T : equality
 
-    member With : string * Func<Context<obj>, Task<Content<obj>>> -> SiteletBuilder
+    member With : string * Func<Context, Task<CSharpContent>> -> SiteletBuilder
 
     member Install : unit -> Sitelet<obj>

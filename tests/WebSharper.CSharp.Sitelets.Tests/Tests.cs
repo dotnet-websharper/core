@@ -1,5 +1,6 @@
 ﻿using System;
 using WebSharper;
+using WebSharper.Web;
 using WebSharper.Sitelets;
 using Elt = WebSharper.Sitelets.Tests.Server.Elt;
 using Attr = WebSharper.Sitelets.Tests.Server.Attr;
@@ -38,7 +39,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
         public static Sitelet<object> Main =>
             new SiteletBuilder()
                 .With("/", ctx =>
-                    Content.Page<object>(
+                    Content.Page(
                         Body:
                             Elt("div",
                                 Elt("div",
@@ -56,7 +57,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                 new WebSharper.Web.InlineControl(() => Hello)
                                 )))
                 .With<Person>((ctx, person) =>
-                    Content.Page<Person>(
+                    Content.Page(
                         Body:
                             Elt("div",
                                 Text(String.Format("{0} {1} is {2} years old. ",
@@ -64,7 +65,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                 Elt("a", Attr("href", ctx.Link("/")),
                                     Text("Go back to C# sitelets tests home")))))
                 .With<QueryPerson>((ctx, person) =>
-                    Content.Page<QueryPerson>(
+                    Content.Page(
                         Body:
                             Elt("div",
                                 person.age.HasValue ?

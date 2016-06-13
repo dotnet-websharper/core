@@ -23,7 +23,7 @@ namespace WebSharper.Sitelets
 open System.Collections.Generic
 
 /// Provides services available to handlers at run-time.
-[<Sealed>]
+[<Class>]
 type Context<'Action> =
     interface WebSharper.Web.IContext
 
@@ -69,7 +69,11 @@ type Context<'Action> =
         * Environment : IDictionary<string, obj>
         -> Context<'Action>
 
-module Context =
+[<Class>]
+type Context =
+    inherit Context<obj>
+
+    new : Context<obj> -> Context
 
     /// Map a context to a wrapping type.
-    val Map : ('T2 -> 'T1) -> Context<'T1> -> Context<'T2>
+    static member Map : ('T2 -> 'T1) -> Context<'T1> -> Context<'T2>

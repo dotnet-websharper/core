@@ -22,7 +22,6 @@ namespace WebSharper.Sitelets
 
 open System.Collections.Generic
 
-[<Sealed>]
 type Context<'Action>
     (
         ApplicationPath : string,
@@ -54,9 +53,11 @@ type Context<'Action>
     member this.UserSession = UserSession
     member this.Environment = Environment
 
-module Context =
+type Context(ctx: Context<obj>) =
+    inherit Context<obj>(ctx.ApplicationPath, ctx.Link, ctx.Json, ctx.Metadata, ctx.ResolveUrl,
+        ctx.ResourceContext, ctx.Request, ctx.RootFolder, ctx.UserSession, ctx.Environment)
 
-    let Map (f: 'T2 -> 'T1) (ctx: Context<'T1>) : Context<'T2> =
+    static member Map (f: 'T2 -> 'T1) (ctx: Context<'T1>) : Context<'T2> =
         Context<'T2>(
             ApplicationPath = ctx.ApplicationPath,
             Link = (ctx.Link << f),

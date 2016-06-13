@@ -1,5 +1,7 @@
 # Developing With Sitelets
 
+[Click here for the C# version of this documentation.](Sitelets-CSharp.md)
+
 Sitelets are WebSharper's primary way to create server-side content. They provide facilities to route requests and generate HTML pages or JSON responses.
 
 Sitelets allow you to:
@@ -217,7 +219,7 @@ type EndPoint = System.DateTime
 
 It is possible to annotate your endpoint type with attributes to customize `Sitelet.Infer`'s request inference. Here are the available attributes:
 
-* `[<Method("GET", "POST", ...)>]` on a union case indicates which methods are parsed by this endpoint.
+* `[<Method("GET", "POST", ...)>]` on a union case indicates which methods are parsed by this endpoint. Without this attribute, all methods are accepted.
 
 ```fsharp
 type EndPoint =
@@ -250,7 +252,7 @@ type EndPoint =
 // Returned Content:    (determined by Sitelet.Infer)
 ```
 
-* A common trick is to use `[<EndPoint "/">]` on an argument-less union case to indicate the home page.
+* A common trick is to use `[<EndPoint "GET /">]` on an argument-less union case to indicate the home page.
 
 ```fsharp
 type EndPoint =
@@ -813,7 +815,7 @@ Since `Context<'T>` implements the interface `WebSharper.Web.IContext`, it can b
 
 * `context.Request` returns the `Http.Request` being responded to. This is useful to access elements such as HTTP headers, posted files or cookies.
 
-* `context.ResolveUrl` resolves links to static pages in your application. A leading `~` character is translated to the `ApplicationPath` described above.
+* `context.ResolveUrl` resolves links to static pages in your application. A leading `~/` character is translated to the `ApplicationPath` described above.
 
 * `context.RootFolder` returns the physical folder on the server machine from which the application is running.
 
