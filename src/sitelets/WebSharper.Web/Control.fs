@@ -144,7 +144,7 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                 | e -> e
             match elt with
             | PropertyGet(None, p, args) ->
-                let m = p.GetGetMethod()
+                let m = p.GetGetMethod(true)
                 let dt = R.ReadTypeDefinition p.DeclaringType
                 let meth = R.ReadMethod m
                 dt, meth, args, [M.MethodNode (dt, meth)]
@@ -216,7 +216,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
             | :? MemberExpression as e ->
                 match e.Member with
                 | :? PropertyInfo as p ->
-                    let m = p.GetGetMethod()
+                    let m = p.GetGetMethod(true)
                     let dt = R.ReadTypeDefinition p.DeclaringType
                     let meth = R.ReadMethod m
                     dt, meth, [], [M.MethodNode (dt, meth)]
