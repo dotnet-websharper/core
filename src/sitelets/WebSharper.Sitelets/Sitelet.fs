@@ -248,25 +248,28 @@ type SiteletBuilder() =
 
     let mutable sitelets = []
 
-    member this.With<'T when 'T : equality>(content: Func<Context<obj>, 'T, Task<Content<'T>>>) =
+    member this.With<'T when 'T : equality>(content: Func<Context, 'T, Task<CSharpContent>>) =
         let sitelet =
             Sitelet.InferPartial
                 box
                 (function :? 'T as x -> Some x | _ -> None)
                 (fun ctx action -> async {
                     let! content =
-                        content.Invoke(ctx, action)
+                        content.Invoke(Context(ctx), action)
                         |> Async.AwaitTask
                     return
-                        match content with
+                        match content.AsContent with
                         | CustomContent f -> CustomContent (f << Context.Map box)
                         | CustomContentAsync f -> CustomContentAsync (f << Context.Map box)
                 })
         sitelets <- sitelet :: sitelets
         this
 
-    member this.With(path: string, content: Func<Context<obj>, Task<Content<obj>>>) =
-        let content ctx = content.Invoke(ctx) |> Async.AwaitTask
+    member this.With(path: string, content: Func<Context, Task<CSharpContent>>) =
+        let content ctx =
+            content.Invoke(Context(ctx))
+                .ContinueWith(fun (t: Task<CSharpContent>) -> t.Result.AsContent)
+            |> Async.AwaitTask
         sitelets <- Sitelet.Content path (box path) content :: sitelets
         this
 

@@ -172,204 +172,203 @@ open System.Runtime.InteropServices
 open System.Runtime.CompilerServices
 open System.Threading.Tasks
 
-[<CompiledName "Content"; Sealed; Extension>]
+[<CompiledName "Content"; Struct; Extension; NoEquality; NoComparison>]
 type CSharpContent =
 
+    val private c: Content<obj>
+
+    member AsContent : Content<obj>
+
     /// Creates a JSON content from the given object.
-    static member Json<'T, 'U>
+    static member Json<'U>
         : 'U
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Creates an HTML content.
-    static member Page<'T>
+    static member Page
         : [<Optional>] Body: Web.INode
         * [<Optional>] Head: Web.INode
         * [<Optional>] Title: string
         * [<Optional>] Doctype: string
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Creates an HTML content.
-    static member Page<'T>
+    static member Page
         : Page
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Creates a plain text content.
-    static member Text<'T>
+    static member Text
         : string
         * [<Optional>] Encoding: System.Text.Encoding
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Creates a content that serves a file from disk.
-    static member File<'T>
+    static member File
         : path: string
         * [<Optional>] AllowOutsideRootFolder: bool
         * [<Optional>] ContentType: string
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Creates a custom content.
-    static member Custom<'T>
+    static member Custom
         : Http.Response
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Creates a custom content.
-    static member Custom<'T>
+    static member Custom
         : [<Optional>] Status: Http.Status
         * [<Optional>] Headers: seq<Http.Header>
         * [<Optional>] WriteBody: Action<IO.Stream>
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Creates Content that depends on the Sitelet context.
-    static member FromContext<'T>
-        : Func<Context<'T>, Task<Content<'T>>>
-        -> Task<Content<'T>>
+    static member FromContext
+        : Func<Context, Task<CSharpContent>>
+        -> Task<CSharpContent>
 
     /// Generates an HTTP response.
     [<Extension>]
-    static member ToResponse<'T>
-        : Content<'T>
-        * Context<'T>
+    static member ToResponse
+        : CSharpContent
+        * Context
         -> Task<Http.Response>
 
     /// Wraps an asynchronous content.
-    static member FromTask<'T>
-        : Task<Content<'T>>
-        -> Content<'T>
-
-    /// Wraps an asynchronous content.
-    static member FromAsync<'T>
-        : Async<Content<'T>>
-        -> Content<'T>
+    static member FromTask
+        : Task<CSharpContent>
+        -> CSharpContent
 
     /// Modify the response of a content. Transforms any
     /// content to 'CustomContent'.
     [<Extension>]
-    static member MapResponse<'T>
-        : Task<Content<'T>>
+    static member MapResponse
+        : Task<CSharpContent>
         * Func<Http.Response, Http.Response>
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Modify the response of a content. Transforms any
     /// content to 'CustomContent'.
     [<Extension>]
-    static member MapResponseAsync<'T>
-        : Task<Content<'T>>
+    static member MapResponseAsync
+        : Task<CSharpContent>
         * Func<Http.Response, Task<Http.Response>>
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Add headers to the generated response. Transforms any
     /// content to 'CustomContent'.
     [<Extension>]
-    static member WithHeaders<'T>
-        : Task<Content<'T>>
+    static member WithHeaders
+        : Task<CSharpContent>
         * seq<Http.Header>
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Add headers to the generated response. Transforms any
     /// content to 'CustomContent'.
     [<Extension>]
-    static member WithHeaders<'T>
-        : Task<Content<'T>>
+    static member WithHeaders
+        : Task<CSharpContent>
         * [<ParamArray>] headers: Http.Header[]
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Add a header to the generated response. Transforms any
     /// content to 'CustomContent'.
     [<Extension>]
-    static member WithHeader<'T>
-        : Task<Content<'T>>
+    static member WithHeader
+        : Task<CSharpContent>
         * name: string
         * value: string
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Set the Content-Type header.
     [<Extension>]
-    static member WithContentType<'T>
-        : Task<Content<'T>>
+    static member WithContentType
+        : Task<CSharpContent>
         * contentType: string
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Replace the headers of the generated response. Transforms any
     /// content to 'CustomContent'.
     [<Extension>]
-    static member SetHeaders<'T>
-        : Task<Content<'T>>
+    static member SetHeaders
+        : Task<CSharpContent>
         * seq<Http.Header>
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Replace the headers of the generated response. Transforms any
     /// content to 'CustomContent'.
     [<Extension>]
-    static member SetHeaders<'T>
-        : Task<Content<'T>>
+    static member SetHeaders
+        : Task<CSharpContent>
         * [<ParamArray>] headers: Http.Header[]
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Set the status of the generated response.
     /// Transforms any content to 'CustomContent'.
     [<Extension>]
-    static member SetStatus<'T>
-        : Task<Content<'T>>
+    static member SetStatus
+        : Task<CSharpContent>
         * Http.Status
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Set the status of the generated response.
     /// Transforms any content to 'CustomContent'.
     [<Extension>]
-    static member SetStatus<'T>
-        : Task<Content<'T>>
+    static member SetStatus
+        : Task<CSharpContent>
         * code: int
         * [<Optional>] message: string
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Set the body writing function of the generated response.
     /// Transforms any content to 'CustomContent'.
     [<Extension>]
-    static member SetBody<'T>
-        : Task<Content<'T>>
+    static member SetBody
+        : Task<CSharpContent>
         * Action<IO.Stream>
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
-    /// Redirects permanently (301 Moved Permanently) to a given action.
-    static member RedirectPermanent<'T>
-        : 'T
-        -> Task<Content<'T>>
+    /// Redirects permanently (301 Moved Permanently) to a given endpoint.
+    static member RedirectPermanent
+        : obj
+        -> Task<CSharpContent>
 
     /// Redirects permanently (301 Moved Permanently) to a given URL.
-    static member RedirectPermanentToUrl<'T>
+    static member RedirectPermanentToUrl
         : string
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
-    /// Redirects temporarily (307 Redirect Temporary) to a given action.
-    static member RedirectTemporary<'T>
-        : 'T
-        -> Task<Content<'T>>
+    /// Redirects temporarily (307 Redirect Temporary) to a given endpoint.
+    static member RedirectTemporary
+        : obj
+        -> Task<CSharpContent>
 
     /// Redirects temporarily (307 Redirect Temporary) to a given URL.
-    static member RedirectTemporaryToUrl<'T>
+    static member RedirectTemporaryToUrl
         : string
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Constructs a 401 Unauthorized response.
-    static member Unauthorized<'T>
+    static member Unauthorized
         : unit
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Constructs a 403 Forbidden response.
-    static member Forbidden<'T>
+    static member Forbidden
         : unit
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Constructs a 404 Not Found response.
-    static member NotFound<'T>
+    static member NotFound
         : unit
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Constructs a 500 Server Error response.
-    static member ServerError<'T>
+    static member ServerError
         : unit
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>
 
     /// Constructs a 405 Method Not Allowed response.
-    static member MethodNotAllowed<'T>
+    static member MethodNotAllowed
         : unit
-        -> Task<Content<'T>>
+        -> Task<CSharpContent>

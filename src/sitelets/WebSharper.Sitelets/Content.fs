@@ -423,17 +423,37 @@ open System.Runtime.CompilerServices
 
 #nowarn "49" // allow uppercase parameter names
 
-[<CompiledName "Content"; Sealed; Extension>]
-type CSharpContent private () =
+[<AutoOpen>]
+module Internal =
 
-    static let opt x =
+    type Task<'A> with
+        member t.Map (f: 'A -> 'B) =
+            t.ContinueWith(fun (t: Task<'A>) -> f t.Result)
+
+[<CompiledName "Content"; Struct; Extension; NoEquality; NoComparison>]
+type CSharpContent =
+
+    val private c: Content<obj>
+
+    new(c) = { c = c }
+
+    static member ToContent (c: Async<Content<obj>>) : Task<CSharpContent> =
+        Async.StartAsTask(c)
+            .ContinueWith(fun (t: Task<Content<obj>>) -> CSharpContent t.Result)
+
+    static member Opt x =
         match box x with
         | null -> None
         | _ -> Some x
 
-    static member Json<'T, 'U> (x: 'U) : Task<Content<'T>> =
+    member this.AsContent = this.c
+
+    static member TaskAsContent (t: Task<CSharpContent>) =
+        t.Map(fun c -> c.AsContent)
+
+    static member Json<'U> (x: 'U) : Task<CSharpContent> =
         Content.Json x
-        |> Async.StartAsTask
+        |> CSharpContent.ToContent
 
     static member Page
         (
@@ -443,26 +463,26 @@ type CSharpContent private () =
             [<Optional>] Doctype: string
         ) =
         Content.Page(
-            ?Body = Option.map Seq.singleton (opt Body),
-            ?Head = Option.map Seq.singleton (opt Head),
-            ?Title = opt Title, ?Doctype = opt Doctype)
-        |> Async.StartAsTask
+            ?Body = Option.map Seq.singleton (CSharpContent.Opt Body),
+            ?Head = Option.map Seq.singleton (CSharpContent.Opt Head),
+            ?Title = CSharpContent.Opt Title, ?Doctype = CSharpContent.Opt Doctype)
+        |> CSharpContent.ToContent
 
     static member Page (page: Page) =
         Content.Page(page)
-        |> Async.StartAsTask
+        |> CSharpContent.ToContent
 
     static member Text (text: string, [<Optional>] encoding: System.Text.Encoding) =
-        Content.Text(text, ?encoding = opt encoding)
-        |> Async.StartAsTask
+        Content.Text(text, ?encoding = CSharpContent.Opt encoding)
+        |> CSharpContent.ToContent
 
     static member File (path: string, [<Optional>] AllowOutsideRootFolder: bool, [<Optional>] ContentType: string) =
-        Content.File(path, AllowOutsideRootFolder, ?ContentType = opt ContentType)
-        |> Async.StartAsTask
+        Content.File(path, AllowOutsideRootFolder, ?ContentType = CSharpContent.Opt ContentType)
+        |> CSharpContent.ToContent
 
     static member Custom (response: Http.Response) =
         Content.Custom(response)
-        |> Async.StartAsTask
+        |> CSharpContent.ToContent
 
     static member Custom
         (
@@ -470,111 +490,145 @@ type CSharpContent private () =
             [<Optional>] Headers: seq<Http.Header>,
             [<Optional>] WriteBody: Action<Stream>
         ) =
-        Content.Custom(?Status = opt Status, ?Headers = opt Headers, WriteBody = WriteBody.Invoke)
-        |> Async.StartAsTask
+        Content.Custom(?Status = CSharpContent.Opt Status, ?Headers = CSharpContent.Opt Headers, WriteBody = WriteBody.Invoke)
+        |> CSharpContent.ToContent
 
-    static member FromContext (f: Func<Context<'T>, Task<Content<'T>>>) =
-        Content.FromContext (fun x -> Async.AwaitTask (f.Invoke x))
-        |> Async.StartAsTask
-
-    [<Extension>]
-    static member ToResponse (content: Content<'T>, context: Context<'T>) =
-        Content.ToResponse content context
-        |> Async.StartAsTask
-
-    static member FromTask (content: Task<Content<'T>>) =
-        Content.FromAsync (Async.AwaitTask content)
-
-    static member FromAsync (content: Async<Content<'T>>) =
-        Content.FromAsync content
+    static member FromContext (f: Func<Context, Task<CSharpContent>>) =
+        Content.FromContext (fun x -> Async.AwaitTask (f.Invoke(Context x).Map(fun c -> c.AsContent)))
+        |> CSharpContent.ToContent
 
     [<Extension>]
-    static member MapResponse (content: Task<Content<'T>>, f: Func<Http.Response, Http.Response>) =
-        Content.MapResponse f.Invoke (Async.AwaitTask content)
+    static member ToResponse (content: CSharpContent, context: Context) =
+        Content.ToResponse content.AsContent context
         |> Async.StartAsTask
+
+    static member FromTask (content: Task<CSharpContent>) =
+        content
+        |> CSharpContent.TaskAsContent
+        |> Async.AwaitTask
+        |> Content.FromAsync
+        |> CSharpContent
 
     [<Extension>]
-    static member MapResponseAsync (content: Task<Content<'T>>, f: Func<Http.Response, Task<Http.Response>>) =
-        Content.MapResponseAsync (fun r -> Async.AwaitTask (f.Invoke r)) (Async.AwaitTask content)
-        |> Async.StartAsTask
+    static member MapResponse (content: Task<CSharpContent>, f: Func<Http.Response, Http.Response>) =
+        content
+        |> CSharpContent.TaskAsContent
+        |> Async.AwaitTask
+        |> Content.MapResponse f.Invoke
+        |> CSharpContent.ToContent
 
     [<Extension>]
-    static member WithHeaders (content: Task<Content<'T>>, headers: seq<Http.Header>) =
-        Content.WithHeaders headers (Async.AwaitTask content)
-        |> Async.StartAsTask
+    static member MapResponseAsync (content: Task<CSharpContent>, f: Func<Http.Response, Task<Http.Response>>) =
+        content
+        |> CSharpContent.TaskAsContent
+        |> Async.AwaitTask
+        |> Content.MapResponseAsync (fun r -> Async.AwaitTask (f.Invoke r))
+        |> CSharpContent.ToContent
 
     [<Extension>]
-    static member WithHeaders (content: Task<Content<'T>>, [<ParamArray>] headers: Http.Header[]) =
-        Content.WithHeaders headers (Async.AwaitTask content)
-        |> Async.StartAsTask
+    static member WithHeaders (content: Task<CSharpContent>, headers: seq<Http.Header>) =
+        content
+        |> CSharpContent.TaskAsContent
+        |> Async.AwaitTask
+        |> Content.WithHeaders headers
+        |> CSharpContent.ToContent
 
     [<Extension>]
-    static member WithHeader (content: Task<Content<'T>>, name: string, value: string) =
-        Content.WithHeader name value (Async.AwaitTask content)
-        |> Async.StartAsTask
+    static member WithHeaders (content: Task<CSharpContent>, [<ParamArray>] headers: Http.Header[]) =
+        content
+        |> CSharpContent.TaskAsContent
+        |> Async.AwaitTask
+        |> Content.WithHeaders headers
+        |> CSharpContent.ToContent
 
     [<Extension>]
-    static member WithContentType (content: Task<Content<'T>>, contentType: string) =
-        Content.WithContentType contentType (Async.AwaitTask content)
-        |> Async.StartAsTask
+    static member WithHeader (content: Task<CSharpContent>, name: string, value: string) =
+        content
+        |> CSharpContent.TaskAsContent
+        |> Async.AwaitTask
+        |> Content.WithHeader name value
+        |> CSharpContent.ToContent
 
     [<Extension>]
-    static member SetHeaders (content: Task<Content<'T>>, headers: seq<Http.Header>) =
-        Content.SetHeaders headers (Async.AwaitTask content)
-        |> Async.StartAsTask
+    static member WithContentType (content: Task<CSharpContent>, contentType: string) =
+        content
+        |> CSharpContent.TaskAsContent
+        |> Async.AwaitTask
+        |> Content.WithContentType contentType
+        |> CSharpContent.ToContent
 
     [<Extension>]
-    static member SetHeaders (content: Task<Content<'T>>, [<ParamArray>] headers: Http.Header[]) =
-        Content.SetHeaders headers (Async.AwaitTask content)
-        |> Async.StartAsTask
+    static member SetHeaders (content: Task<CSharpContent>, headers: seq<Http.Header>) =
+        content
+        |> CSharpContent.TaskAsContent
+        |> Async.AwaitTask
+        |> Content.SetHeaders headers
+        |> CSharpContent.ToContent
 
     [<Extension>]
-    static member SetStatus (content: Task<Content<'T>>, status: Http.Status) =
-        Content.SetStatus status (Async.AwaitTask content)
-        |> Async.StartAsTask
+    static member SetHeaders (content: Task<CSharpContent>, [<ParamArray>] headers: Http.Header[]) =
+        content
+        |> CSharpContent.TaskAsContent
+        |> Async.AwaitTask
+        |> Content.SetHeaders headers
+        |> CSharpContent.ToContent
 
     [<Extension>]
-    static member SetStatus (content: Task<Content<'T>>, code: int, [<Optional>] message: string) =
-        Content.SetStatus (Http.Status.Custom code (opt message)) (Async.AwaitTask content)
-        |> Async.StartAsTask
+    static member SetStatus (content: Task<CSharpContent>, status: Http.Status) =
+        content
+        |> CSharpContent.TaskAsContent
+        |> Async.AwaitTask
+        |> Content.SetStatus status
+        |> CSharpContent.ToContent
 
     [<Extension>]
-    static member SetBody (content: Task<Content<'T>>, writeBody: Action<Stream>) =
-        Content.SetBody writeBody.Invoke (Async.AwaitTask content)
-        |> Async.StartAsTask
+    static member SetStatus (content: Task<CSharpContent>, code: int, [<Optional>] message: string) =
+        content
+        |> CSharpContent.TaskAsContent
+        |> Async.AwaitTask
+        |> Content.SetStatus (Http.Status.Custom code (CSharpContent.Opt message))
+        |> CSharpContent.ToContent
 
-    static member RedirectPermanent (action: 'T) =
+    [<Extension>]
+    static member SetBody (content: Task<CSharpContent>, writeBody: Action<Stream>) =
+        content
+        |> CSharpContent.TaskAsContent
+        |> Async.AwaitTask
+        |> Content.SetBody writeBody.Invoke
+        |> CSharpContent.ToContent
+
+    static member RedirectPermanent (action: obj) =
         Content.RedirectPermanent action
-        |> Async.StartAsTask
+        |> CSharpContent.ToContent
 
     static member RedirectPermanentToUrl (url: string) =
         Content.RedirectPermanentToUrl url
-        |> Async.StartAsTask
+        |> CSharpContent.ToContent
 
-    static member RedirectTemporary (action: 'T) =
+    static member RedirectTemporary (action: obj) =
         Content.RedirectTemporary action
-        |> Async.StartAsTask
+        |> CSharpContent.ToContent
 
     static member RedirectTemporaryToUrl (url: string) =
         Content.RedirectTemporaryToUrl url
-        |> Async.StartAsTask
+        |> CSharpContent.ToContent
 
     static member Unauthorized() =
         Content.Unauthorized
-        |> Async.StartAsTask
+        |> CSharpContent.ToContent
 
     static member Forbidden() =
         Content.Forbidden
-        |> Async.StartAsTask
+        |> CSharpContent.ToContent
 
     static member NotFound() =
         Content.NotFound
-        |> Async.StartAsTask
+        |> CSharpContent.ToContent
 
     static member ServerError() =
         Content.ServerError
-        |> Async.StartAsTask
+        |> CSharpContent.ToContent
 
     static member MethodNotAllowed() =
         Content.MethodNotAllowed
-        |> Async.StartAsTask
+        |> CSharpContent.ToContent
