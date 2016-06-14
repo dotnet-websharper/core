@@ -28,7 +28,7 @@ type WebSharperCSharpAnalyzer () =
     member this.GetRefMeta(path) =
         lock cachedRefMeta <| fun () ->
         match cachedRefMeta.TryGetValue path with
-        | true, res -> res
+        | true, (m, err, _) -> m, err
         | _ ->
             let mutable err = None
             let m = 
@@ -47,8 +47,15 @@ type WebSharperCSharpAnalyzer () =
             watcher.Renamed |> Event.add onChange
             watcher.Deleted |> Event.add onChange
 
-            cachedRefMeta.Add(path, (m, err))    
+            cachedRefMeta.Add(path, (m, err, watcher))    
             m, err        
+
+    interface IDisposable with
+        member this.Dispose() =
+            lock cachedRefMeta <| fun () ->
+                for _, _, watcher in cachedRefMeta.Values do
+                    watcher.Dispose()
+                cachedRefMeta.Clear()
 
     override this.SupportedDiagnostics =
         ImmutableArray.Create(wsWarning, wsError)
@@ -79,6 +86,8 @@ type WebSharperCSharpAnalyzer () =
                 else
                 try
                     let compilation = endCtx.Compilation :?> CSharpCompilation
+
+                    if compilation.GetDiagnostics() |> Seq.exists (fun d -> d.Severity = DiagnosticSeverity.Error) then () else
 
                     let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(ignore)
 
