@@ -7,6 +7,7 @@ using Microsoft.FSharp.Core;
 using WebSharper.Testing;
 using I = WebSharper.Collections.Tests.Interop;
 using Microsoft.FSharp.Control;
+using WebSharper.JavaScript;
 
 namespace WebSharper.CSharp.Tests
 {
@@ -191,6 +192,15 @@ namespace WebSharper.CSharp.Tests
             Equal(I.Module.ValueB, 2);
             I.Module.ValueB = 3;
             Equal(I.Module.ValueB, 3);
+        }
+
+        [Test]
+        public void JSInterop()
+        {
+            var a = new { x = new { y = 2 } };
+            Equal(a.GetJS<int>("x", "y"), 2);
+            var i = new[] { "x", "y" };
+            Equal(a.GetJS<int>(i), 2);
         }
     }
 }

@@ -110,3 +110,11 @@ let New<'T> (fields: seq<string * obj>) = NewFromSeq<'T> fields
 /// Constructs an proxy to a remote object instance.
 [<Inline "null">]
 let Remote<'T> = X<'T>
+
+/// Gets JavaScript properties in sequence dynamically from an object.
+[<JavaScript; Macro(typeof<M.GetJS>)>]
+let GetJS<'T> (x: obj) (items: seq<string>) =
+    let mutable x = x
+    for i in items do
+        x <- x?(i)
+    As<'T> x    

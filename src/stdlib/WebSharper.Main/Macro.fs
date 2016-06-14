@@ -576,6 +576,19 @@ type JSThisParamsCall() =
             | _ -> MacroError "JSThisParamsCall macro error"
         | _ -> MacroError "JSThisParamsCall macro error"
 
+[<Sealed>]
+type GetJS() =
+    inherit Macro()
+    override __.TranslateCall(c) =
+        match c.Arguments with
+        | [ obj ] -> MacroOk obj
+        | [ obj; I.NewArray items ] ->
+            if items |> List.forall (function I.Value _ -> true | _ -> false) then
+                items |> List.fold (fun x i -> ItemGetNonPure(x, i)) obj |> MacroOk
+            else MacroFallback
+        | [ _; _ ] -> MacroFallback
+        | _ -> MacroError (sprintf "GetJS macro error, arguments: %+A" c.Arguments)
+
 /// Set of helpers to parse format string
 /// Source: https://github.com/fsharp/fsharp/blob/master/src/fsharp/FSharp.Core/printf.fs
 module private FormatString =

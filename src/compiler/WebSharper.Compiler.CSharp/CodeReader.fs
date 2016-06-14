@@ -564,12 +564,15 @@ type RoslynTransformer(env: Environment) =
         let ma = symbol.TypeArguments |> Seq.map sr.ReadType |> List.ofSeq
         let meth = Generic (sr.ReadMethod eSymbol) ma
         let argumentList = x.ArgumentList |> this.TransformArgumentList
-        let argumentListWithParamsFix = fixParamArray eSymbol x.ArgumentList argumentList
+        let argumentListWithParamsFix() = fixParamArray eSymbol x.ArgumentList argumentList
         let argumentListWithThis =
-            if isExtensionMethod || not symbol.IsStatic then
-                (None, (x.Expression |> this.TransformExpression)) 
-                :: (argumentListWithParamsFix |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e))   
-            else argumentListWithParamsFix 
+            if isExtensionMethod then
+                fixParamArray eSymbol x.ArgumentList ((None, (x.Expression |> this.TransformExpression)) :: argumentList)
+                |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e)    
+            elif not symbol.IsStatic then
+                (None, (x.Expression |> this.TransformExpression)) :: (argumentListWithParamsFix() 
+                |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e))   
+            else argumentListWithParamsFix() 
 
         let tempVars, args = readReorderedParams argumentListWithThis
 
@@ -715,7 +718,7 @@ type RoslynTransformer(env: Environment) =
         let id = 
             match symbol with
             | :? ILocalSymbol as s ->
-                let id = Id.New(s.Name)
+                let id = Id.New(s.Name, not s.IsConst)
                 env.Vars.Add(s, id)
                 id 
             | :? IFieldSymbol as s ->

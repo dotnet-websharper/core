@@ -95,6 +95,11 @@ type JSThisParamsCall =
     inherit Macro
 
 [<Sealed>]
+type GetJS =
+    new : unit -> GetJS
+    inherit Macro
+
+[<Sealed>]
 type PrintF =
     new : unit -> PrintF
     inherit Macro
