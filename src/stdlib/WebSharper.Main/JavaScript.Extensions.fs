@@ -22,169 +22,203 @@ namespace WebSharper.JavaScript
 
 open System.Runtime.CompilerServices
 
-[<AutoOpen; Extension>]
+open WebSharper
+
+[<Extension>]
+type JavaScriptExtensions =
+    [<Extension; Inline "$0">]
+    static member ToJS(x: obj) = X<Object>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: 'T[]) = X<Array<'T>>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: string) = X<String>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: exn) = X<Error>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: bool) = X<Boolean>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: System.DateTime) = X<Date>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: byte) = X<Number>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: sbyte) = X<Number>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: int16) = X<Number>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: int32) = X<Number>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: int64) = X<Number>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: uint16) = X<Number>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: uint32) = X<Number>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: uint64) = X<Number>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: single) = X<Number>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: double) = X<Number>
+
+    [<Extension; Inline "$0">]
+    static member ToJS(x: decimal) = X<Number>
+
+[<AutoOpen>]
 module Extensions =
     open WebSharper
 
-    [<Extension>]
     type System.Object with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Object>
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         member this.JS = X<Object>
 
-    [<Extension>]
     type ``[]``<'T> with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Array<'T>>
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         member this.JS = X<Array<'T>>
 
-    [<Extension>]
     type System.String with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<String>
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         member this.JS = X<String>
 
-    [<Extension>]
     type System.Exception with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Error>
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         member this.JS = X<Error>
 
-    [<Extension>]
     type Boolean with
         [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use Self property instead.">]
         member this.ToDotNet() = X<bool>
 
-    [<Extension>]
     type System.Boolean with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use ToJS extension method instead.">]
         member this.ToEcma() = X<Boolean>   
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         member this.ToJS() = X<Boolean>   
 
-    [<Extension>]
     type Date with
-        [<Extension; Inline "$0.getTime()">]
+        [<Inline "$0.getTime()">]
         [<System.Obsolete "Deprecated. Use Self property instead.">]
         member this.ToDotNet() = X<System.DateTime>
 
-    [<Extension>]
     type System.DateTime with
-        [<Extension; Inline "new Date($0)">]
+        [<Inline "new Date($0)">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Date>
-        [<Extension; Inline "new Date($0)">]
+        [<Inline "new Date($0)">]
         member this.JS = X<Date>
 
-    [<Extension>]
     type Function with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Unsafe.">]
         member this.ToDotNet<'T, 'R>() = X<'T -> 'R>
 
-    [<Extension>]
     type Number with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use Self property instead.">]
         member this.ToDotNet<'T when 'T: struct>() = X<'T>
 
-    [<Extension>]
     type System.Byte    with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         member this.JS = X<Number>
 
-    [<Extension>]
     type System.SByte   with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         member this.JS = X<Number>
 
-    [<Extension>]
     type System.Int16   with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         member this.JS = X<Number>
 
-    [<Extension>]
     type System.Int32   with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>      
-        [<Extension; Inline "$0">]                       
+        [<Inline "$0">]                       
         member this.JS = X<Number>            
 
-    [<Extension>]
     type System.Int64   with                  
-        [<Extension; Inline "$0">]                       
+        [<Inline "$0">]                       
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>      
-        [<Extension; Inline "$0">]                       
+        [<Inline "$0">]                       
         member this.JS = X<Number>            
 
-    [<Extension>]
     type System.UInt16  with                  
-        [<Extension; Inline "$0">]                       
+        [<Inline "$0">]                       
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>      
-        [<Extension; Inline "$0">]                       
+        [<Inline "$0">]                       
         member this.JS = X<Number>            
 
-    [<Extension>]
     type System.UInt32  with                  
-        [<Extension; Inline "$0">]                       
+        [<Inline "$0">]                       
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         member this.JS = X<Number>
 
-    [<Extension>]
     type System.UInt64  with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         member this.JS = X<Number>
 
-    [<Extension>]
     type System.Single  with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         member this.JS = X<Number>
 
-    [<Extension>]
     type System.Double  with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         member this.JS = X<Number>
 
-    [<Extension>]
     type System.Decimal with
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>
-        [<Extension; Inline "$0">]
+        [<Inline "$0">]
         member this.JS = X<Number>
 
-    [<assembly: Extension>]
-    do ()
+[<assembly: Extension>]
+do ()
