@@ -197,10 +197,16 @@ module LetLambda =
         ()
         fun a b -> a + b
 
-//[<JavaScript>]
-//type IFoo<'T> =
-//    inherit System.Collections.Generic.IEnumerable<'T>
-//    inherit System.Collections.IEnumerable
+[<JavaScript>]
+type IBar = 
+    abstract member DoBar: unit -> unit
+
+[<JavaScript>]
+type IFoo<'T> =
+    inherit System.Collections.Generic.IEnumerable<'T>
+    inherit System.Collections.IEnumerable
+    inherit IBar
+    abstract member DoBar: unit -> unit
 
 [<JavaScript>]
 [<Inline>]

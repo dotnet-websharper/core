@@ -69,7 +69,7 @@ type PureAttribute() =
     inherit A()
 
 /// Marks methods, properties and constructors for compilation to JavaScript.
-[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property)>]
+[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event)>]
 type JavaScriptAttribute() =
     inherit A()
 
@@ -77,7 +77,7 @@ type JavaScriptAttribute() =
 
 /// Annotates methods an constructors with custom compilation rules.
 /// The supplied type should implement Macros.IMacro and a default constructor.
-[<Sealed; U(T.Class|||T.Interface|||T.Constructor|||T.Method|||T.Property, AllowMultiple = true)>]
+[<Sealed; U(T.Class|||T.Interface|||T.Constructor|||T.Method|||T.Property|||T.Event, AllowMultiple = true)>]
 type MacroAttribute private () =
     inherit A()
 
@@ -100,7 +100,7 @@ type GeneratedAttribute private () =
 /// Provides a runtime name for members when it differs from the F# name.
 /// The constructor accepts either an explicit array of parts,
 /// or a single string, in which case it is assumed to be dot-separated.
-[<Sealed; U(T.Class|||T.Interface|||T.Constructor|||T.Method|||T.Property|||T.Field)>]
+[<Sealed; U(T.Class|||T.Interface|||T.Constructor|||T.Method|||T.Property|||T.Field|||T.Event)>]
 type NameAttribute private () =
     inherit A()
 
@@ -129,7 +129,7 @@ type RemoteAttribute() =
 
 /// Annotates members with dependencies. The type passed to the constructor
 /// must implement Resources.IResourceDefinition and a default constructor.
-[<Sealed; U(T.Assembly|||T.Class|||T.Constructor|||T.Method,
+[<Sealed; U(T.Assembly|||T.Class|||T.Constructor|||T.Method|||T.Property|||T.Event,
             AllowMultiple=true)>]
 type RequireAttribute private () =
 

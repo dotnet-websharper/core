@@ -508,8 +508,9 @@ type Compilation(meta: Info) =
         
         let printerrf x = Printf.kprintf (fun s -> this.AddError (None, SourceError s)) x
 
-        let rec resolveInterface typ (nr: NotResolvedInterface) =
+        let rec resolveInterface (typ: TypeDefinition) (nr: NotResolvedInterface) =
             let allMembers = HashSet()
+            let allNames = HashSet()
             
             let getInterface i =
                 match interfaces.TryFind i with
@@ -519,24 +520,25 @@ type Compilation(meta: Info) =
                         printerrf "Failed to look up interface '%s'" i.Value.FullName 
                     None
 
-            let rec addInherited (n: InterfaceInfo) =
+            let rec addInherited i (n: InterfaceInfo) =
                 for i in n.Extends do
-                    getInterface i |> Option.iter addInherited
-                for m in n.Methods.Values do
-                    if not (allMembers.Add m) then
-                        failwithf "Interface method name collision: %s" m
+                    getInterface i |> Option.iter (addInherited i)
+                for KeyValue(m, n) in n.Methods do
+                    if not (allMembers.Add (i, m)) then
+                        if not (allNames.Add n) then
+                            printerrf "Interface method name collision: %s on %s" n typ.Value.FullName
             
             for i in nr.Extends do
                 notResolvedInterfaces.TryFind i |> Option.iter (resolveInterface i)       
-                getInterface i |> Option.iter addInherited
+                getInterface i |> Option.iter (addInherited i)
             
             let resMethods = Dictionary()
                             
             for m, n in nr.NotResolvedMethods do
                 match n with
                 | Some n -> 
-                    if not (allMembers.Add n) then
-                        failwithf "Explicitly declared interface method name collision: %s" n
+                    if not (allNames.Add n) then
+                        printerrf "Explicitly declared interface method name collision: %s on %s" n typ.Value.FullName
                     resMethods.Add(m, n)
                 | _ -> ()
 
@@ -545,7 +547,7 @@ type Compilation(meta: Info) =
             for m, n in nr.NotResolvedMethods do
                 match n with
                 | None ->
-                    let n = Resolve.getRenamed (intfName + m.Value.MethodName) allMembers
+                    let n = Resolve.getRenamed (intfName + m.Value.MethodName) allNames
                     resMethods.Add(m, n)
                 | _ -> ()
 
