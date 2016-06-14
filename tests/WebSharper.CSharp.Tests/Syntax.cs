@@ -393,8 +393,14 @@ namespace WebSharper.CSharp.Tests
         {
             dynamic a = 1;
             Equal(a + 1, 2);
+            Equal(a.toExponential(), "1e+0");
+            Equal(a.toFixed(2), "1.00");
             a = "1";
             Equal(a + "1", "11");
+            a = new { x = 1 };
+            Equal(a.x, 1);
+            a = new[] { 2 };
+            Equal(a[0], 2);
         }
     }
 }

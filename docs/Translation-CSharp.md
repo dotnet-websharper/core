@@ -6,7 +6,8 @@ values are compiled to JavaScript:
 * [Directly providing JavaScript code](#javascript);
 * [Customizing the compiled name of the value](#name);
 * [Classes that directly represent JavaScipt build-in types](#types);
-* [Transforming the F# code](#meta) during compilation, a concept
+* [Access JavaScipt properties dynamically](#dynamic);
+* [Transforming the code](#meta) during compilation, a concept
   known as metaprogramming.
 
 <a name="javascript"></a>
@@ -83,6 +84,9 @@ For example:
 
 There are classes in the `WebSharper.JavaScript` namespace that are direct representations of ECMA standard
 library JavaScipt types.
+The `WebSharper.JavaScript` namespace declares a `.ToJS()` extension method on all .NET types to safely
+convert them to their JavaScipt representation.
+
 For JavaScipt functions, the `Function` class is an untyped representation, but if you know the signature of
 the JavaScipt function, there are more strongly typed alternatives:
 
@@ -94,6 +98,21 @@ They have a constructor that takes a delegate, for which the first argument will
 
 * For functions taking variadic arguments, use `ParamsAction` and `ParamsFunc` classes.
 * Finally for functions using the `this` value and have variadic arguments, use `ThisParamsAction` and `ThisParamsFunc`
+
+<a name="dynamic"></a>
+## Access JavaScipt properties dynamically
+
+The `WebSharper.JavaScript` namespace declares a `.GetJS` extension method, that can be used to get JavaScipt properties dynamically.
+Example: `x.GetJS<int>("size", "width")` is translated to `x.size.width` and usable as an `int` value.
+You can use `x.GetJS<T>()` to just use the value of `x` exposed as another .NET type `T`.
+
+### C# dynamic
+You can use the `dynamic` type to access JavaScipt properties and functions without any extra helpers:
+
+    dynamic d = names;
+	d.getItems()[3].name; // translates directly to `d.getItems()[3].name`
+	
+Also, operators on dynamic values are translated directly if there is a JavaScipt equivalent.
 
 <a name="meta"></a>
 ## Metaprogramming

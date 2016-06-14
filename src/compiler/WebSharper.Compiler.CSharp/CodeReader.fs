@@ -556,6 +556,10 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformInvocationExpression (x: InvocationExpressionData) : Expression =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        if isNull symbol then
+            // for dynamic
+            Application(x.Expression |> this.TransformExpression, x.ArgumentList |> this.TransformArgumentList |> List.map snd, false, None)
+        else
         let eSymbol, isExtensionMethod =
             match symbol.ReducedFrom with
             | null -> symbol, false
@@ -1468,7 +1472,7 @@ type RoslynTransformer(env: Environment) =
         | InstanceExpressionData.BaseExpression x -> Base
         |> withExprSourcePos x.Node
 
-    member this.TransformMemberAccess (node: ExpressionSyntax, expr: option<ExpressionData>) =
+    member this.TransformMemberAccess (node: ExpressionSyntax, expr: option<ExpressionData>, name: SimpleNameData) =
         let symbol = env.SemanticModel.GetSymbolInfo(node).Symbol
         let getExpression() =
             if symbol.IsStatic then
@@ -1508,12 +1512,18 @@ type RoslynTransformer(env: Environment) =
             let typ = sr.ReadNamedType symbol.ContainingType
             let f = symbol.Name
             FieldGet(expression, typ, f)
+        | null ->
+            let expression =
+                match expr with
+                | Some e -> this.TransformExpression e
+                | _ -> Var env.Conditional.Value
+            ItemGetNonPure(expression, Value (String name.Node.Identifier.Text))
         | _ ->
             failwith "member access not handled: not property, event, method or field"      
         |> withExprSourcePos node
 
     member this.TransformMemberAccessExpression (x: MemberAccessExpressionData) : _ =
-        this.TransformMemberAccess(x.Node, Some x.Expression)
+        this.TransformMemberAccess(x.Node, Some x.Expression, x.Name)
 
     member this.TransformConditionalAccessExpression (x: ConditionalAccessExpressionData) : _ =
         let expression = x.Expression |> this.TransformExpression
@@ -1522,7 +1532,7 @@ type RoslynTransformer(env: Environment) =
         Let (id, expression, Conditional(Var id ^== Value Null, Value Null, whenNotNull))
 
     member this.TransformMemberBindingExpression (x: MemberBindingExpressionData) : _ =
-        this.TransformMemberAccess(x.Node, None)
+        this.TransformMemberAccess(x.Node, None, x.Name)
 
     member this.TransformElementBindingExpression (x: ElementBindingExpressionData) : _ =
         this.TransformElementAccess(x.Node, None, x.ArgumentList)
