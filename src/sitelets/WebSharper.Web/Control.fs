@@ -211,8 +211,9 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
 
     [<System.NonSerialized>]
     let bodyAndReqs =
+        let reduce (e: Expression) = if e.CanReduce then e.Reduce() else e
         let declType, meth, args, fReqs =
-            match elt.Body with
+            match reduce elt.Body with
             | :? MemberExpression as e ->
                 match e.Member with
                 | :? PropertyInfo as p ->
@@ -230,11 +231,26 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
         let args, argReqs =
             args
             |> List.mapi (fun i a -> 
-                match a with
-                | :? ConstantExpression as e ->
-                    let v = match e.Value with null -> WebSharper.Core.Json.Internal.MakeTypedNull e.Type | _ -> e.Value
-                    v, M.TypeNode (R.ReadTypeDefinition e.Type)
-                | _ -> failwithf "Wrong format for InlineControl: argument #%i is not a literal or a local variable" (i+1)
+                let rec get needType (a: Expression) =
+                    match reduce a with
+                    | :? ConstantExpression as e ->
+                        let v = match e.Value with null -> WebSharper.Core.Json.Internal.MakeTypedNull e.Type | _ -> e.Value
+                        v, if needType then M.TypeNode (R.ReadTypeDefinition e.Type) else M.EntryPointNode
+                    | :? MemberExpression as e ->
+                        let o = 
+                            match e.Expression with
+                            | null -> null
+                            | ee -> fst (get false ee)
+                        match e.Member with
+                        | :? FieldInfo as f ->
+                            f.GetValue(o), if needType then M.TypeNode (R.ReadTypeDefinition f.FieldType) else M.EntryPointNode
+                        | :? PropertyInfo as p ->
+                            if p.GetIndexParameters().Length > 0 then
+                                failwithf "Wrong format for InlineControl in argument #%i, indexed property not allowed" (i+1)
+                            p.GetValue(o, null), if needType then M.TypeNode (R.ReadTypeDefinition p.PropertyType) else M.EntryPointNode
+                        | m -> failwithf "Wrong format for InlineControl in argument #%i, member access not allowed: %s" (i+1) (m.GetType().Name)
+                    | a -> failwithf "Wrong format for InlineControl in argument #%i, expression type: %s" (i+1) (a.GetType().Name)
+                get true a
             )
             |> List.unzip
         let args = Array.ofList args
