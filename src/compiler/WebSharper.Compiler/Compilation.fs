@@ -27,7 +27,7 @@ open WebSharper.Core.Metadata
 open WebSharper.Core.DependencyGraph
 open NotResolved
     
-type Compilation(meta: Info) =    
+type Compilation(meta: Info, ?hasGraph) =    
     let notResolvedInterfaces = Dictionary<TypeDefinition, NotResolvedInterface>()
     let notResolvedClasses = Dictionary<TypeDefinition, NotResolvedClass>()
     let proxies = Dictionary<TypeDefinition, TypeDefinition>()
@@ -37,7 +37,8 @@ type Compilation(meta: Info) =
     let notAnnotatedCustomTypes = Dictionary()
     let customTypes = MergedDictionary meta.CustomTypes
 
-    let graph = Graph.FromData(meta.Dependencies)
+    let hasGraph = defaultArg hasGraph true
+    let graph = if hasGraph then Graph.FromData(meta.Dependencies) else Unchecked.defaultof<_>
 
     let compilingMethods = Dictionary<TypeDefinition * Method, CompilingMember * Expression>()
     let compilingImplementations = Dictionary<TypeDefinition * TypeDefinition * Method, CompilingMember * Expression>()
@@ -207,6 +208,7 @@ type Compilation(meta: Info) =
 
     member this.DependencyMetadata = meta
 
+    member this.HasGraph = hasGraph
     member this.Graph = graph
 
     member this.ToCurrentMetadata(?ignoreErrors) =
@@ -214,7 +216,7 @@ type Compilation(meta: Info) =
             failwith "This compilation has errors"
         {
             SiteletDefinition = this.SiteletDefinition 
-            Dependencies = graph.GetCurrentData()
+            Dependencies = if hasGraph then graph.GetCurrentData() else GraphData.Empty
             Interfaces = interfaces.Current
             Classes = classes.Current        
             CustomTypes = 
@@ -576,9 +578,11 @@ type Compilation(meta: Info) =
             | M.Method (_, { Kind = k }) -> isInstanceKind k 
             | _ -> false
 
-        let asmNodeIndex = graph.AddOrLookupNode(AssemblyNode (this.AssemblyName, true))
-        for req in this.AssemblyRequires do
-            graph.AddEdge(asmNodeIndex, ResourceNode req)
+        let asmNodeIndex = 
+            if hasGraph then graph.AddOrLookupNode(AssemblyNode (this.AssemblyName, true)) else 0
+        if hasGraph then
+            for req in this.AssemblyRequires do
+                graph.AddEdge(asmNodeIndex, ResourceNode req)
 
         // initialize all class entries
         for KeyValue(typ, cls) in notResolvedClasses do
@@ -621,45 +625,46 @@ type Compilation(meta: Info) =
                 }
             ) 
             // set up dependencies
-            let clsNodeIndex = graph.AddOrLookupNode(TypeNode typ)
-            graph.AddEdge(clsNodeIndex, asmNodeIndex)
-            for req in cls.Requires do
-                graph.AddEdge(clsNodeIndex, ResourceNode req)
-            cls.BaseClass |> Option.iter (fun b -> graph.AddEdge(clsNodeIndex, TypeNode (findProxied b)))
-            for m in cls.Members do
-                match m with
-                | M.Constructor (ctor, { Kind = k; Requires = reqs }) -> 
-                    match k with
-                    | N.NoFallback -> ()
-                    | _ ->
-                        let cNode = graph.AddOrLookupNode(ConstructorNode(typ, ctor))
-                        graph.AddEdge(cNode, clsNodeIndex)
-                        for req in reqs do
-                            graph.AddEdge(cNode, ResourceNode req)
-                | M.Method (meth, { Kind = k; Requires = reqs }) -> 
-                    match k with
-                    | N.Override btyp ->
-                        let btyp = findProxied btyp  
-                        let mNode = graph.AddOrLookupNode(MethodNode(typ, meth))
-                        graph.AddEdge(mNode, AbstractMethodNode(btyp, meth))
-                        graph.AddOverride(typ, btyp, meth)
-                        graph.AddEdge(mNode, clsNodeIndex)
-                        for req in reqs do
-                            graph.AddEdge(mNode, ResourceNode req)
-                    | N.Implementation intf ->
-                        let intf = findProxied intf 
-                        let mNode = graph.AddOrLookupNode(ImplementationNode(typ, intf, meth))
-                        graph.AddImplementation(typ, intf, meth)
-                        graph.AddEdge(mNode, clsNodeIndex)
-                        for req in reqs do
-                            graph.AddEdge(mNode, ResourceNode req)
-                    | N.NoFallback -> ()
-                    | _ -> 
-                        let mNode = graph.AddOrLookupNode(MethodNode(typ, meth))
-                        graph.AddEdge(mNode, clsNodeIndex)
-                        for req in reqs do
-                            graph.AddEdge(mNode, ResourceNode req)
-                | _ -> ()
+            if hasGraph then
+                let clsNodeIndex = graph.AddOrLookupNode(TypeNode typ)
+                graph.AddEdge(clsNodeIndex, asmNodeIndex)
+                for req in cls.Requires do
+                    graph.AddEdge(clsNodeIndex, ResourceNode req)
+                cls.BaseClass |> Option.iter (fun b -> graph.AddEdge(clsNodeIndex, TypeNode (findProxied b)))
+                for m in cls.Members do
+                    match m with
+                    | M.Constructor (ctor, { Kind = k; Requires = reqs }) -> 
+                        match k with
+                        | N.NoFallback -> ()
+                        | _ ->
+                            let cNode = graph.AddOrLookupNode(ConstructorNode(typ, ctor))
+                            graph.AddEdge(cNode, clsNodeIndex)
+                            for req in reqs do
+                                graph.AddEdge(cNode, ResourceNode req)
+                    | M.Method (meth, { Kind = k; Requires = reqs }) -> 
+                        match k with
+                        | N.Override btyp ->
+                            let btyp = findProxied btyp  
+                            let mNode = graph.AddOrLookupNode(MethodNode(typ, meth))
+                            graph.AddEdge(mNode, AbstractMethodNode(btyp, meth))
+                            graph.AddOverride(typ, btyp, meth)
+                            graph.AddEdge(mNode, clsNodeIndex)
+                            for req in reqs do
+                                graph.AddEdge(mNode, ResourceNode req)
+                        | N.Implementation intf ->
+                            let intf = findProxied intf 
+                            let mNode = graph.AddOrLookupNode(ImplementationNode(typ, intf, meth))
+                            graph.AddImplementation(typ, intf, meth)
+                            graph.AddEdge(mNode, clsNodeIndex)
+                            for req in reqs do
+                                graph.AddEdge(mNode, ResourceNode req)
+                        | N.NoFallback -> ()
+                        | _ -> 
+                            let mNode = graph.AddOrLookupNode(MethodNode(typ, meth))
+                            graph.AddEdge(mNode, clsNodeIndex)
+                            for req in reqs do
+                                graph.AddEdge(mNode, ResourceNode req)
+                    | _ -> ()
 
         let withMacros (nr : NotResolvedMethod) woMacros =
             if List.isEmpty nr.Macros then woMacros else
@@ -1009,7 +1014,7 @@ type Compilation(meta: Info) =
             resolveRemainingInstanceMembers typ classes.[typ] ms    
 
         // Add graph edges for GetEnumerator and Object methods redirection
-        if this.AssemblyName = "WebSharper.Main" then
+        if hasGraph && this.AssemblyName = "WebSharper.Main" then
             let wsEnumeratorModule =
                 TypeDefinition {
                     Assembly = "WebSharper.Main"
@@ -1139,7 +1144,7 @@ type Compilation(meta: Info) =
 
         // Add graph edge needed for Sitelets: Web.Controls will be looked up
         // and initialized on client-side by Activator.Activate
-        if this.AssemblyName = "WebSharper.Web" then
+        if hasGraph && this.AssemblyName = "WebSharper.Web" then
             let activate =
                 MethodNode(
                     TypeDefinition {

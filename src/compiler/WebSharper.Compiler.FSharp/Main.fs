@@ -42,6 +42,10 @@ type WebSharperFSharpCompiler(logger) =
         | :? System.IO.PathTooLongException 
         | :? System.Security.SecurityException -> p
 
+    member val PrintEnabled = true with get, set
+    member val UseGraphs = true with get, set
+    member val UseVerifier = true with get, set
+
     member this.PrintErrors(errors : Microsoft.FSharp.Compiler.FSharpErrorInfo[], path) =
         let projDir = Path.GetDirectoryName path
         for err in errors do
@@ -78,29 +82,31 @@ type WebSharperFSharpCompiler(logger) =
 
         let projDir = Path.GetDirectoryName path
 
-        for err in checkFileResults.Errors do
-            let pos =
-                let fn = err.FileName
-                if fn <> "unknown" && fn <> "startup" && fn <> "commandLineArgs" then
-                    let file = (fullpath projDir fn).Replace("/","\\")
-                    sprintf "%s(%d,%d,%d,%d): " file err.StartLineAlternate err.StartColumn err.EndLineAlternate err.EndColumn
-                else ""
-            let info =
-                sprintf "%s %s FS%04d: " err.Subcategory 
-                    (if err.Severity = Microsoft.FSharp.Compiler.FSharpErrorSeverity.Warning then "warning" else "error") err.ErrorNumber
-                        
-            eprintfn "%s%s%s" pos info (WebSharper.Compiler.ErrorPrinting.NormalizeErrorString err.Message)
-
-        if checkFileResults.HasCriticalErrors then
-            let comp = WebSharper.Compiler.Compilation(M.Info.Empty)
+        if this.PrintEnabled then
             for err in checkFileResults.Errors do
                 let pos =
                     let fn = err.FileName
                     if fn <> "unknown" && fn <> "startup" && fn <> "commandLineArgs" then
                         let file = (fullpath projDir fn).Replace("/","\\")
-                        sprintf "%s (%d,%d)-(%d,%d): " file err.StartLineAlternate err.StartColumn err.EndLineAlternate err.EndColumn
+                        sprintf "%s(%d,%d,%d,%d): " file err.StartLineAlternate err.StartColumn err.EndLineAlternate err.EndColumn
                     else ""
-                comp.AddError(None, WebSharper.Compiler.SourceError (pos + err.Message))
+                let info =
+                    sprintf "%s %s FS%04d: " err.Subcategory 
+                        (if err.Severity = Microsoft.FSharp.Compiler.FSharpErrorSeverity.Warning then "warning" else "error") err.ErrorNumber
+                        
+                eprintfn "%s%s%s" pos info (WebSharper.Compiler.ErrorPrinting.NormalizeErrorString err.Message)
+
+        if checkFileResults.HasCriticalErrors then
+            let comp = WebSharper.Compiler.Compilation(M.Info.Empty)
+            if this.PrintEnabled then
+                for err in checkFileResults.Errors do
+                    let pos =
+                        let fn = err.FileName
+                        if fn <> "unknown" && fn <> "startup" && fn <> "commandLineArgs" then
+                            let file = (fullpath projDir fn).Replace("/","\\")
+                            sprintf "%s (%d,%d)-(%d,%d): " file err.StartLineAlternate err.StartColumn err.EndLineAlternate err.EndColumn
+                        else ""
+                    comp.AddError(None, WebSharper.Compiler.SourceError (pos + err.Message))
             comp
         else
 
@@ -111,7 +117,7 @@ type WebSharperFSharpCompiler(logger) =
         
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
-                (WebSharper.Compiler.Compilation(refMeta))
+                (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs))
                 (Path.GetFileNameWithoutExtension path)
                 checkFileResults
 
@@ -123,25 +129,26 @@ type WebSharperFSharpCompiler(logger) =
         
         comp.VerifyRPCs()
 
-        let winfo = "WebSharper warning: "
-        for posOpt, err in comp.Warnings do
-            let pos =
-                match posOpt with
-                | Some p ->
-                    let file = (fullpath projDir p.FileName).Replace("/","\\")
-                    sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
-                | None -> ""
-            eprintfn "%s%s%s" pos winfo (NormalizeErrorString (err.ToString()))
+        if this.PrintEnabled then
+            let winfo = "WebSharper warning: "
+            for posOpt, err in comp.Warnings do
+                let pos =
+                    match posOpt with
+                    | Some p ->
+                        let file = (fullpath projDir p.FileName).Replace("/","\\")
+                        sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
+                    | None -> ""
+                eprintfn "%s%s%s" pos winfo (NormalizeErrorString (err.ToString()))
 
-        let einfo = if warnOnly then "WebSharper warning: ERROR " else "WebSharper error: "
-        for posOpt, err in comp.Errors do
-            let pos =
-                match posOpt with
-                | Some p ->
-                    let file = (fullpath projDir p.FileName).Replace("/","\\")
-                    sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
-                | None -> ""
-            eprintfn "%s%s%s" pos einfo (NormalizeErrorString (err.ToString()))
+            let einfo = if warnOnly then "WebSharper warning: ERROR " else "WebSharper error: "
+            for posOpt, err in comp.Errors do
+                let pos =
+                    match posOpt with
+                    | Some p ->
+                        let file = (fullpath projDir p.FileName).Replace("/","\\")
+                        sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
+                    | None -> ""
+                eprintfn "%s%s%s" pos einfo (NormalizeErrorString (err.ToString()))
             
         let ended = System.DateTime.Now
         logger <| sprintf "Transforming: %A" (ended - started)

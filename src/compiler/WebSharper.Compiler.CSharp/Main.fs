@@ -40,6 +40,10 @@ type WebSharperCSharpCompiler(logger) =
         | :? System.IO.PathTooLongException 
         | :? System.Security.SecurityException -> p
 
+    member val PrintEnabled = true with get, set
+    member val UseGraphs = true with get, set
+    member val UseVerifier = true with get, set
+
     member this.Compile (prevMeta, argv: seq<string>, path: string, warnOnly) =
 
         let started = System.DateTime.Now
@@ -103,29 +107,31 @@ type WebSharperCSharpCompiler(logger) =
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
             
-        comp.VerifyRPCs()
+        if this.UseVerifier then
+            comp.VerifyRPCs()
 
         let projDir = Path.GetDirectoryName path
 
-        let winfo = "WebSharper warning: "
-        for posOpt, err in comp.Warnings do
-            let pos =
-                match posOpt with
-                | Some p ->
-                    let file = (fullpath projDir p.FileName).Replace("/","\\")
-                    sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
-                | None -> ""
-            eprintfn "%s%s%s" pos winfo (NormalizeErrorString (err.ToString()))
+        if this.PrintEnabled then
+            let winfo = "WebSharper warning: "
+            for posOpt, err in comp.Warnings do
+                let pos =
+                    match posOpt with
+                    | Some p ->
+                        let file = (fullpath projDir p.FileName).Replace("/","\\")
+                        sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
+                    | None -> ""
+                eprintfn "%s%s%s" pos winfo (NormalizeErrorString (err.ToString()))
 
-        let einfo = if warnOnly then "WebSharper warning: ERROR " else "WebSharper error: "
-        for posOpt, err in comp.Errors do
-            let pos =
-                match posOpt with
-                | Some p ->
-                    let file = (fullpath projDir p.FileName).Replace("/","\\")
-                    sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
-                | None -> ""
-            eprintfn "%s%s%s" pos einfo (NormalizeErrorString (err.ToString()))
+            let einfo = if warnOnly then "WebSharper warning: ERROR " else "WebSharper error: "
+            for posOpt, err in comp.Errors do
+                let pos =
+                    match posOpt with
+                    | Some p ->
+                        let file = (fullpath projDir p.FileName).Replace("/","\\")
+                        sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
+                    | None -> ""
+                eprintfn "%s%s%s" pos einfo (NormalizeErrorString (err.ToString()))
 
         let ended = System.DateTime.Now
         logger <| sprintf "Transforming: %A" (ended - started)
@@ -140,7 +146,7 @@ type WebSharperCSharpCompiler(logger) =
         
         let comp = 
             WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
-                (WebSharper.Compiler.Compilation(refMeta, UseMacros = false))
+                (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs, UseMacros = false))
                 compilation
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp

@@ -122,9 +122,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     let thisDef = sr.ReadNamedTypeDefinition cls
 
     if isResourceType sr cls then
-        let thisRes = comp.Graph.AddOrLookupNode(ResourceNode thisDef)
-        for req in annot.Requires do
-            comp.Graph.AddEdge(thisRes, ResourceNode req)
+        if comp.HasGraph then
+            let thisRes = comp.Graph.AddOrLookupNode(ResourceNode thisDef)
+            for req in annot.Requires do
+                comp.Graph.AddEdge(thisRes, ResourceNode req)
         None
     else    
 
@@ -560,7 +561,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Stub -> failwith "should be handled previously"
                 if mAnnot.IsEntryPoint then
                     let ep = ExprStatement <| Call(None, NonGeneric def, NonGeneric mdef, [])
-                    comp.Graph.AddEdge(EntryPointNode, MethodNode (def, mdef))
+                    if comp.HasGraph then
+                        comp.Graph.AddEdge(EntryPointNode, MethodNode (def, mdef))
                     comp.SetEntryPoint(ep)
                 match implicitImplementations.TryFind meth with
                 | Some impls ->

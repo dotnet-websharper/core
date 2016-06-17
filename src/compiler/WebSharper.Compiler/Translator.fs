@@ -491,7 +491,8 @@ type DotNetToJavaScript private (comp: Compilation) =
         | Some (IgnoreSourcePos.Base as tv) ->
             this.CompileCall (info, isPure, expr, Some (This |> WithSourcePosOfExpr tv), typ, meth, args, true)
         | _ ->
-        this.AddMethodDependency(typ.Entity, meth.Entity)
+        if comp.HasGraph then
+            this.AddMethodDependency(typ.Entity, meth.Entity)
         match info with
         | M.Abstract name 
         | M.Instance name ->
@@ -553,7 +554,8 @@ type DotNetToJavaScript private (comp: Compilation) =
                 | MacroError msg ->
                     this.Error(SourceError (sprintf "Macro error in %s.TranslateCall: %s" macro.Value.FullName msg))
                 | MacroDependencies (nodes, mres) ->
-                    nodes |> List.iter this.AddDependency
+                    if comp.HasGraph then
+                        nodes |> List.iter this.AddDependency
                     getExpr mres
                 | MacroFallback ->
                     match fallback with
@@ -582,16 +584,17 @@ type DotNetToJavaScript private (comp: Compilation) =
                     | Some (rp, _) -> rp
                     | _ -> defaultRemotingProvider   
                 this.TransformCtor(NonGeneric td, emptyConstructor, []) 
-            this.AddDependency(mnode)
-            let rec addTypeDeps (t: Type) =
-                match t with
-                | ConcreteType c ->
-                    this.AddDependency(M.TypeNode c.Entity)
-                    c.Generics |> List.iter addTypeDeps
-                | ArrayType(t, _) -> addTypeDeps t
-                | TupleType ts -> ts |> List.iter addTypeDeps
-                | _ -> ()
-            addTypeDeps meth.Entity.Value.ReturnType
+            if comp.HasGraph then
+                this.AddDependency(mnode)
+                let rec addTypeDeps (t: Type) =
+                    match t with
+                    | ConcreteType c ->
+                        this.AddDependency(M.TypeNode c.Entity)
+                        c.Generics |> List.iter addTypeDeps
+                    | ArrayType(t, _) -> addTypeDeps t
+                    | TupleType ts -> ts |> List.iter addTypeDeps
+                    | _ -> ()
+                addTypeDeps meth.Entity.Value.ReturnType
             Application (remotingProvider |> getItem name, [ Value (String (handle.Pack())); trArgs ], isPure, Some 2)
         | M.Constructor _ -> failwith "Not a valid method info: Constructor"
 
@@ -705,7 +708,8 @@ type DotNetToJavaScript private (comp: Compilation) =
         | LookupMemberError err -> this.Error err
 
     member this.CompileCtor(info, isPure, expr, typ, ctor, args) =
-        this.AddDependency(M.ConstructorNode (comp.FindProxied typ.Entity, ctor))
+        if comp.HasGraph then
+            this.AddConstructorDependency(typ.Entity, ctor)
         match info with
         | M.Constructor address ->
             New(GlobalAccess address, args |> List.map this.TransformExpression)
@@ -745,7 +749,8 @@ type DotNetToJavaScript private (comp: Compilation) =
                 | MacroError msg ->
                     this.Error(SourceError (sprintf "Macro error in %s.TranslateCall: %s" macro.Value.FullName msg))
                 | MacroDependencies (nodes, mres) ->
-                    nodes |> List.iter this.AddDependency
+                    if comp.HasGraph then
+                        nodes |> List.iter this.AddDependency
                     getExpr mres
                 | MacroFallback ->
                     match fallback with
@@ -764,14 +769,16 @@ type DotNetToJavaScript private (comp: Compilation) =
     override this.TransformCopyCtor(typ, objExpr) =
         match comp.TryLookupClassInfo typ |> Option.bind (fun c -> if c.IsStatic then None else c.Address) with
         | Some a ->
-            this.AddTypeDependency typ
+            if comp.HasGraph then
+                this.AddTypeDependency typ
             New (GlobalAccess a, [ this.TransformExpression objExpr ])
         | _ -> this.TransformExpression objExpr
 
     override this.TransformNewRecord(typ, fields) =
         match comp.TryGetRecordConstructor typ.Entity with
         | Some rctor ->
-            this.AddDependency(M.ConstructorNode (comp.FindProxied typ.Entity, rctor))
+            if comp.HasGraph then
+                this.AddDependency(M.ConstructorNode (comp.FindProxied typ.Entity, rctor))
             this.TransformCtor(typ, rctor, fields)
         | _ ->
             let inl = this.GetCustomTypeConstructorInline(comp.GetCustomType typ.Entity, emptyConstructor)
@@ -865,7 +872,8 @@ type DotNetToJavaScript private (comp: Compilation) =
             Application(errorPlaceholder, args |> List.map this.TransformExpression, false, None)
 
     override this.TransformCctor(typ) =
-        this.AddTypeDependency typ
+        if comp.HasGraph then
+            this.AddTypeDependency typ
         Application(GlobalAccess (comp.LookupStaticConstructorAddress typ), [], false, Some 0)
 
     override this.TransformOverrideName(typ, meth) =
@@ -884,7 +892,8 @@ type DotNetToJavaScript private (comp: Compilation) =
         | _ -> this.Error (SourceError "Self address missing")
 
     override this.TransformFieldGet (expr, typ, field) =
-        this.AddTypeDependency typ.Entity
+        if comp.HasGraph then
+            this.AddTypeDependency typ.Entity
         match comp.LookupFieldInfo (typ.Entity, field) with
         | CompiledField f ->
             match f with
@@ -923,7 +932,8 @@ type DotNetToJavaScript private (comp: Compilation) =
             this.Error(err)
 
     override this.TransformFieldSet (expr, typ, field, value) =
-        this.AddTypeDependency typ.Entity
+        if comp.HasGraph then
+            this.AddTypeDependency typ.Entity
         match comp.LookupFieldInfo (typ.Entity, field) with
         | CompiledField f ->
             match f with
@@ -961,7 +971,8 @@ type DotNetToJavaScript private (comp: Compilation) =
     override this.TransformTypeCheck(expr, typ) =
         match typ with
         | ConcreteType td ->
-            this.AddTypeDependency td.Entity
+            if comp.HasGraph then
+                this.AddTypeDependency td.Entity
         | _ -> ()
         let typeof x = 
             Binary (

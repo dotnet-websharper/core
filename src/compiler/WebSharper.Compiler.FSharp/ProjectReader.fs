@@ -99,9 +99,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         sr.AttributeReader.GetTypeAnnot(parentAnnot, cls.Attributes)
 
     if isResourceType sr cls then
-        let thisRes = comp.Graph.AddOrLookupNode(ResourceNode thisDef)
-        for req in annot.Requires do
-            comp.Graph.AddEdge(thisRes, ResourceNode req)
+        if comp.HasGraph then
+            let thisRes = comp.Graph.AddOrLookupNode(ResourceNode thisDef)
+            for req in annot.Requires do
+                comp.Graph.AddEdge(thisRes, ResourceNode req)
         None
     else    
     
@@ -469,7 +470,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Stub -> failwith "should be handled previously"
                     if mAnnot.IsEntryPoint then
                         let ep = ExprStatement <| Call(None, NonGeneric def, NonGeneric mdef, [])
-                        comp.Graph.AddEdge(EntryPointNode, MethodNode (def, mdef))
+                        if comp.HasGraph then
+                            comp.Graph.AddEdge(EntryPointNode, MethodNode (def, mdef))
                         comp.SetEntryPoint(ep)
                 | Member.Constructor cdef ->
                     let jsCtor isInline =   

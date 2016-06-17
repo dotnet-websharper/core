@@ -77,7 +77,7 @@ type WebSharperCSharpAnalyzer () =
 
             let refMeta =
                 if List.isEmpty metas || not (List.isEmpty errors) then None 
-                else Some (WebSharper.Core.DependencyGraph.Graph.UnionOfMetadata (metas |> List.choose fst))
+                else Some (WebSharper.Core.Metadata.Info.UnionWithoutDependencies (metas |> List.choose fst))
 
             startCtx.RegisterCompilationEndAction(fun endCtx ->
                 if not (List.isEmpty errors) then
@@ -89,7 +89,7 @@ type WebSharperCSharpAnalyzer () =
 
                     if compilation.GetDiagnostics() |> Seq.exists (fun d -> d.Severity = DiagnosticSeverity.Error) then () else
 
-                    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(ignore)
+                    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(ignore, UseGraphs = false)
 
                     let referencedAsmNames =
                         refPaths
