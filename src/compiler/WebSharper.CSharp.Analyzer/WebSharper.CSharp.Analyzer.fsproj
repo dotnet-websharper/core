@@ -12,7 +12,6 @@
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
     <Compile Include="Analyzer.fs" />
-    <Content Include="App.config" />
     <None Include="install.ps1" />
     <None Include="uninstall.ps1" />
   </ItemGroup>
