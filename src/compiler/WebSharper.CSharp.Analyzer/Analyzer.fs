@@ -23,11 +23,14 @@ type WebSharperCSharpAnalyzer () =
     static let wsError = 
         new DiagnosticDescriptor ("WebSharperError", "WebSharper errors", "{0}", "WebSharper", DiagnosticSeverity.Error, true, null, null)
 
-    do  System.AppDomain.CurrentDomain.remove_AssemblyResolve(fun _ e ->
+    let mutable assemblyResolveHandler =
+        ResolveEventHandler(fun _ e ->
             if AssemblyName(e.Name).Name = "FSharp.Core" then
                 typeof<option<_>>.Assembly
             else null
         )
+
+    do  System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
 
     let mutable assemblyResolveHandler = null
     let mutable lastRefPaths = [ "" ]
@@ -96,14 +99,16 @@ type WebSharperCSharpAnalyzer () =
                         )
                         |> Map.ofSeq
 
-                    if not <| isNull assemblyResolveHandler then
-                        System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
+                    System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
 
                     assemblyResolveHandler <- ResolveEventHandler(fun _ e ->
                             let assemblyName = AssemblyName(e.Name).Name
-                            match Map.tryFind assemblyName referencedAsmNames with
-                            | None -> null
-                            | Some p -> Assembly.LoadFrom(p)
+                            if assemblyName = "FSharp.Core" then
+                                typeof<option<_>>.Assembly
+                            else
+                                match Map.tryFind assemblyName referencedAsmNames with
+                                | None -> null
+                                | Some p -> Assembly.LoadFrom(p)
                         )
 
                     System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
