@@ -23,6 +23,10 @@ type WebSharperCSharpAnalyzer () =
     static let wsError = 
         new DiagnosticDescriptor ("WebSharperError", "WebSharper errors", "{0}", "WebSharper", DiagnosticSeverity.Error, true, null, null)
 
+    let mutable assemblyResolveHandler = null
+    let mutable lastRefPaths = [ "" ]
+    let mutable cachedRefErrorsAndMeta = None
+
     let cachedRefMeta = Dictionary() 
 
     member this.GetRefMeta(path) =
@@ -40,8 +44,9 @@ type WebSharperCSharpAnalyzer () =
             let watcher = new FileSystemWatcher(Path.GetDirectoryName path, Path.GetFileName path)
             let onChange (_: FileSystemEventArgs) =
                 lock cachedRefMeta <| fun () ->
-                cachedRefMeta.Remove(path) |> ignore
-                watcher.Dispose() 
+                    lastRefPaths <- [ "" ]
+                    cachedRefMeta.Remove(path) |> ignore
+                    watcher.Dispose() 
 
             watcher.Changed |> Event.add onChange
             watcher.Renamed |> Event.add onChange
@@ -71,26 +76,12 @@ type WebSharperCSharpAnalyzer () =
                     | _ -> None
                 )
                 |> List.ofSeq
-                
-            let metas = refPaths |> List.map this.GetRefMeta
-            let errors = metas |> List.choose snd
-
-            let refMeta =
-                if List.isEmpty metas || not (List.isEmpty errors) then None 
-                else Some (WebSharper.Core.Metadata.Info.UnionWithoutDependencies (metas |> List.choose fst))
-
-            startCtx.RegisterCompilationEndAction(fun endCtx ->
-                if not (List.isEmpty errors) then
-                    for err in errors do    
-                        endCtx.ReportDiagnostic(Diagnostic.Create(wsError, Location.None, err))
+            
+            let refErrors, refMeta =
+                if refPaths = lastRefPaths then
+                    cachedRefErrorsAndMeta.Value
                 else
-                try
-                    let compilation = endCtx.Compilation :?> CSharpCompilation
-
-                    if compilation.GetDiagnostics() |> Seq.exists (fun d -> d.Severity = DiagnosticSeverity.Error) then () else
-
-                    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(ignore, UseGraphs = false)
-
+                
                     let referencedAsmNames =
                         refPaths
                         |> Seq.map (fun i -> 
@@ -99,7 +90,10 @@ type WebSharperCSharpAnalyzer () =
                         )
                         |> Map.ofSeq
 
-                    let assemblyResolveHandler = ResolveEventHandler(fun _ e ->
+                    if not <| isNull assemblyResolveHandler then
+                        System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
+
+                    assemblyResolveHandler <- ResolveEventHandler(fun _ e ->
                             let assemblyName = AssemblyName(e.Name).Name
                             match Map.tryFind assemblyName referencedAsmNames with
                             | None -> null
@@ -111,6 +105,28 @@ type WebSharperCSharpAnalyzer () =
                         )
 
                     System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
+
+                    let metas = refPaths |> List.map this.GetRefMeta
+                    let refErrors = metas |> List.choose snd
+
+                    let refMeta =
+                        if List.isEmpty metas || not (List.isEmpty refErrors) then None 
+                        else Some (WebSharper.Core.Metadata.Info.UnionWithoutDependencies (metas |> List.choose fst))
+
+                    cachedRefErrorsAndMeta <- Some (refErrors, refMeta)
+                    cachedRefErrorsAndMeta.Value
+
+            startCtx.RegisterCompilationEndAction(fun endCtx ->
+                if not (List.isEmpty refErrors) then
+                    for err in refErrors do    
+                        endCtx.ReportDiagnostic(Diagnostic.Create(wsError, Location.None, err))
+                else
+                try
+                    let compilation = endCtx.Compilation :?> CSharpCompilation
+
+                    if compilation.GetDiagnostics() |> Seq.exists (fun d -> d.Severity = DiagnosticSeverity.Error) then () else
+
+                    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(ignore, UseGraphs = false)
 
                     let comp = compiler.Compile(refMeta, compilation)
 
