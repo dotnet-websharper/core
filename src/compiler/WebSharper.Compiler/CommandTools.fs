@@ -116,18 +116,8 @@ module ExecuteCommands =
                 eprintf "%s" e
             true
 
-    let getWebRoot settings =
-        match TryGetOutputDir settings with
-        | None ->
-            let dir = settings.ProjectDir
-            let isWeb =
-                File.Exists(Path.Combine(dir, "Web.config"))
-                || File.Exists(Path.Combine(dir, "web.config"))
-            if isWeb then Some dir else None
-        | Some out -> Some out
-
     let Bundle settings =
-        let outputDir = BundleOutputDir settings (getWebRoot settings)
+        let outputDir = BundleOutputDir settings (GetWebRoot settings)
         let fileName = Path.GetFileNameWithoutExtension settings.AssemblyFile
         let cfg =
             {
@@ -141,7 +131,7 @@ module ExecuteCommands =
         |> SendResult
 
     let Unpack settings =
-        let webRoot = getWebRoot settings |> Option.get
+        let webRoot = GetWebRoot settings |> Option.get
         printfn "unpacking into %s" webRoot
         for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
             let dir = DirectoryInfo(Path.Combine(webRoot, d))

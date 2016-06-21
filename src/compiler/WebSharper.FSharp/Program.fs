@@ -179,6 +179,8 @@ let Compile (config : WsConfig) =
         ExecuteCommands.Bundle config |> ignore
     | Some Html ->
         ExecuteCommands.Html config |> ignore
+    | Some Website ->
+        ExecuteCommands.Unpack config |> ignore
     | _ when Option.isSome config.OutputDir ->
         ExecuteCommands.Unpack config |> ignore
     | _ -> ()

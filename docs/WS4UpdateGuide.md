@@ -58,6 +58,12 @@ In some cases where the overloads would be ambigous with the F# versions (functi
 You may need to convert to a delegate when using these methods, you can do this implicitly by having a lambda as the argument.
 If the argument was previously an F# function value, you have to write a lambda for calling it.
 
+### Project settings
+
+WebSharper compiler now replaces `fsc.exe` and does the .NET and JavaScript translation, as well as unpacking resources in a single pass.
+For sitelet projects, previously all dlls available in bin folder when the WebSharper build task ran was unpacked to Scripts and Content folders.
+Now only explicit references are searched for WebSharper resources and scripts to unpack.
+
 ### Macros and generators
 
 As the compiler pipeline of WebSharper has been replaced, the intermediate AST representation has changed.
