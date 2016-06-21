@@ -78,13 +78,11 @@ type WebSharperCSharpAnalyzer () =
 
     override this.Initialize(initCtx) =
         initCtx.RegisterCompilationAction(fun startCtx ->
-            System.IO.File.AppendAllLines(@"C:\repo\analyzertest.txt", [| "WebSharper compiler started" |])    
             compiling <- true
         )
         initCtx.RegisterSemanticModelAction(fun ctx ->
             if compiling then () else
 
-            System.IO.File.AppendAllLines(@"C:\repo\analyzertest.txt", [| "WebSharper analyzer started" |])    
             let compilation = ctx.SemanticModel.Compilation :?> CSharpCompilation
 
             let refPaths =
@@ -165,7 +163,5 @@ type WebSharperCSharpAnalyzer () =
 
             with e ->
                 ctx.ReportDiagnostic(Diagnostic.Create(wsWarning, Location.None, sprintf "WebSharper analyzer failed: %s at %s" e.Message e.StackTrace))            
-
-            System.IO.File.AppendAllLines(@"C:\repo\analyzertest.txt", [| "WebSharper analyzer finished" |])    
         )
 
