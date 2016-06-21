@@ -30,6 +30,8 @@ type WebSharperCSharpAnalyzer () =
             else null
         )
 
+    let mutable compiling = false;
+
     do  System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
 
     let mutable assemblyResolveHandler = null
@@ -75,8 +77,15 @@ type WebSharperCSharpAnalyzer () =
         ImmutableArray.Create(wsWarning, wsError)
 
     override this.Initialize(initCtx) =
-        initCtx.RegisterCompilationStartAction(fun startCtx ->
-            let compilation = startCtx.Compilation :?> CSharpCompilation
+        initCtx.RegisterCompilationAction(fun startCtx ->
+            System.IO.File.AppendAllLines(@"C:\repo\analyzertest.txt", [| "WebSharper compiler started" |])    
+            compiling <- true
+        )
+        initCtx.RegisterSemanticModelAction(fun ctx ->
+            if compiling then () else
+
+            System.IO.File.AppendAllLines(@"C:\repo\analyzertest.txt", [| "WebSharper analyzer started" |])    
+            let compilation = ctx.SemanticModel.Compilation :?> CSharpCompilation
 
             let refPaths =
                 compilation.ExternalReferences |> Seq.choose (fun r -> 
@@ -123,42 +132,40 @@ type WebSharperCSharpAnalyzer () =
                     cachedRefErrorsAndMeta <- Some (refErrors, refMeta)
                     cachedRefErrorsAndMeta.Value
 
-            startCtx.RegisterCompilationEndAction(fun endCtx ->
-                if not (List.isEmpty refErrors) then
-                    for err in refErrors do    
-                        endCtx.ReportDiagnostic(Diagnostic.Create(wsError, Location.None, err))
-                else
-                try
-                    let compilation = endCtx.Compilation :?> CSharpCompilation
+            if not (List.isEmpty refErrors) then
+                for err in refErrors do    
+                    ctx.ReportDiagnostic(Diagnostic.Create(wsError, Location.None, err))
+            else
+            try
+                if compilation.GetDiagnostics() |> Seq.exists (fun d -> d.Severity = DiagnosticSeverity.Error) then () else
 
-                    if compilation.GetDiagnostics() |> Seq.exists (fun d -> d.Severity = DiagnosticSeverity.Error) then () else
+                let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(ignore, UseGraphs = false)
 
-                    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(ignore, UseGraphs = false)
+                let comp = compiler.Compile(refMeta, compilation)
 
-                    let comp = compiler.Compile(refMeta, compilation)
+                if ctx.CancellationToken.IsCancellationRequested then () else
 
-                    if endCtx.CancellationToken.IsCancellationRequested then () else
+                let loc (pos: WebSharper.Core.AST.SourcePos option) =
+                    match pos with
+                    | None -> Location.None
+                    | Some p -> 
+                        match WebSharper.Compiler.CSharp.ProjectReader.textSpans.TryGetValue(p) with
+                        | true, textSpan ->
+                            let syntaxTree =
+                                compilation.SyntaxTrees |> Seq.find (fun t -> t.FilePath = p.FileName)
+                            Location.Create(syntaxTree, !textSpan)
+                        | _ ->
+                            Location.None
 
-                    let loc (pos: WebSharper.Core.AST.SourcePos option) =
-                        match pos with
-                        | None -> Location.None
-                        | Some p -> 
-                            match WebSharper.Compiler.CSharp.ProjectReader.textSpans.TryGetValue(p) with
-                            | true, textSpan ->
-                                let syntaxTree =
-                                    compilation.SyntaxTrees |> Seq.find (fun t -> t.FilePath = p.FileName)
-                                Location.Create(syntaxTree, !textSpan)
-                            | _ ->
-                                Location.None
+                for pos, wrn in comp.Warnings do
+                    ctx.ReportDiagnostic(Diagnostic.Create(wsWarning, loc pos, string wrn))
 
-                    for pos, wrn in comp.Warnings do
-                        endCtx.ReportDiagnostic(Diagnostic.Create(wsWarning, loc pos, string wrn))
+                for pos, err in comp.Errors do
+                    ctx.ReportDiagnostic(Diagnostic.Create(wsError, loc pos, string err))
 
-                    for pos, err in comp.Errors do
-                        endCtx.ReportDiagnostic(Diagnostic.Create(wsError, loc pos, string err))
+            with e ->
+                ctx.ReportDiagnostic(Diagnostic.Create(wsWarning, Location.None, sprintf "WebSharper analyzer failed: %s at %s" e.Message e.StackTrace))            
 
-                with e ->
-                    endCtx.ReportDiagnostic(Diagnostic.Create(wsWarning, Location.None, sprintf "WebSharper analyzer failed: %s at %s" e.Message e.StackTrace))            
-            )
+            System.IO.File.AppendAllLines(@"C:\repo\analyzertest.txt", [| "WebSharper analyzer finished" |])    
         )
 

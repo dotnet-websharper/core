@@ -14,6 +14,7 @@
     <Compile Include="Analyzer.fs" />
     <None Include="install.ps1" />
     <None Include="uninstall.ps1" />
+    <Content Include="app.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.CSharp\WebSharper.Compiler.CSharp.fsproj">
