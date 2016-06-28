@@ -221,7 +221,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                     getExpr gres
             getExpr genResult
         | None ->
-            if comp.UseMacros then
+            if comp.UseLocalMacros then
                 this.Error(SourceError "Getting generator failed")
             else
                 this.Warning(SourceWarning "Could not run generator in code service.")
@@ -534,7 +534,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                         }
                     with e -> MacroError e.Message 
                 | _ -> 
-                    if comp.UseMacros then
+                    if comp.UseLocalMacros then
                         MacroError "Macro type failed to load"
                     else
                         MacroWarning(

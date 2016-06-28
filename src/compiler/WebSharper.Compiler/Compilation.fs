@@ -59,7 +59,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let macros = System.Collections.Generic.Dictionary<TypeDefinition, Macro option>()
     let generators = System.Collections.Generic.Dictionary<TypeDefinition, Generator option>()
 
-    member val UseMacros = true with get, set
+    member val UseLocalMacros = true with get, set
     member val SiteletDefinition: option<TypeDefinition> = None with get, set
     member val AssemblyName = "EntryPoint" with get, set
     member val AssemblyRequires = [] : list<TypeDefinition> with get, set
@@ -132,32 +132,32 @@ type Compilation(meta: Info, ?hasGraph) =
                         try                                                             
                             match System.Type.GetType(macro.Value.AssemblyQualifiedName, true) with
                             | null ->
-                                if this.UseMacros then
+                                if this.UseLocalMacros then
                                     this.AddError(None, SourceError(sprintf "Failed to find macro type: '%s'" macro.Value.FullName))
                                 None
                             | t -> Some t
                         with e -> 
-                            if this.UseMacros then
+                            if this.UseLocalMacros then
                                 this.AddError(None, SourceError(sprintf "Failed to load macro type: '%s', Error: %s" macro.Value.FullName e.Message))
                             None
                     let! mctor, arg =
                         match mt.GetConstructor([||]) with
                         | null -> 
-                            if this.UseMacros then
+                            if this.UseLocalMacros then
                                 this.AddError(None, SourceError(sprintf "Macro does not have supported constructor: '%s'" macro.Value.FullName))
                             None
                         | mctor -> Some (mctor, [||]) 
                     let! inv =
                         try mctor.Invoke(arg) |> Some
                         with e ->
-                            if this.UseMacros then
+                            if this.UseLocalMacros then
                                 this.AddError(None, SourceError(sprintf "Creating macro instance failed: '%s', Error: %s" macro.Value.FullName e.Message))
                             None
                     match inv with 
                     | :? WebSharper.Core.Macro as m -> 
                         return m
                     | _ -> 
-                        if this.UseMacros then
+                        if this.UseLocalMacros then
                             this.AddError(None, SourceError(sprintf "Macro type does not inherit from WebSharper.Core.Macro: '%s'" macro.Value.FullName))
                 } 
             macros.Add(macro, res)
@@ -173,12 +173,12 @@ type Compilation(meta: Info, ?hasGraph) =
                         try                                                             
                             match System.Type.GetType(gen.Value.AssemblyQualifiedName, true) with
                             | null ->
-                                if this.UseMacros then
+                                if this.UseLocalMacros then
                                     this.AddError(None, SourceError(sprintf "Failed to find generator type: '%s'" gen.Value.FullName))
                                 None
                             | t -> Some t
                         with e -> 
-                            if this.UseMacros then
+                            if this.UseLocalMacros then
                                 this.AddError(None, SourceError(sprintf "Failed to load generator type: '%s', Error: %s" gen.Value.FullName e.Message))
                             None
                     let! mctor, arg =
@@ -186,7 +186,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         | null ->
                             match mt.GetConstructor([||]) with
                             | null -> 
-                                if this.UseMacros then  
+                                if this.UseLocalMacros then  
                                     this.AddError(None, SourceError(sprintf "Generator does not have supported constructor: '%s'" gen.Value.FullName))
                                 None
                             | mctor -> Some (mctor, [||]) 
@@ -194,13 +194,13 @@ type Compilation(meta: Info, ?hasGraph) =
                     let! inv =
                         try mctor.Invoke(arg) |> Some
                         with e ->
-                            if this.UseMacros then
+                            if this.UseLocalMacros then
                                 this.AddError(None, SourceError(sprintf "Creating generator instance failed: '%s', Error: %s" gen.Value.FullName e.Message))
                             None
                     match inv with 
                     | :? WebSharper.Core.Generator as g -> return g
                     | _ -> 
-                        if this.UseMacros then
+                        if this.UseLocalMacros then
                             this.AddError(None, SourceError(sprintf "Generator type does not inherit from WebSharper.Core.Generator: '%s'" gen.Value.FullName))
                 } 
             generators.Add(gen, res)

@@ -71,7 +71,7 @@ type WebSharperFSharpCompiler(logger) =
             with e ->
                 failwithf "Error reading project options: %s" path
 
-        let checkFileResults = 
+        let checkProjectResults = 
             projectOptions
             |> checker.ParseAndCheckProject 
             |> Async.RunSynchronously
@@ -83,7 +83,7 @@ type WebSharperFSharpCompiler(logger) =
         let projDir = Path.GetDirectoryName path
 
         if this.PrintEnabled then
-            for err in checkFileResults.Errors do
+            for err in checkProjectResults.Errors do
                 let pos =
                     let fn = err.FileName
                     if fn <> "unknown" && fn <> "startup" && fn <> "commandLineArgs" then
@@ -96,10 +96,10 @@ type WebSharperFSharpCompiler(logger) =
                         
                 eprintfn "%s%s%s" pos info (WebSharper.Compiler.ErrorPrinting.NormalizeErrorString err.Message)
 
-        if checkFileResults.HasCriticalErrors then
+        if checkProjectResults.HasCriticalErrors then
             let comp = WebSharper.Compiler.Compilation(M.Info.Empty)
             if this.PrintEnabled then
-                for err in checkFileResults.Errors do
+                for err in checkProjectResults.Errors do
                     let pos =
                         let fn = err.FileName
                         if fn <> "unknown" && fn <> "startup" && fn <> "commandLineArgs" then
@@ -119,7 +119,7 @@ type WebSharperFSharpCompiler(logger) =
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
                 (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs))
                 (Path.GetFileNameWithoutExtension path)
-                checkFileResults
+                checkProjectResults
 
         let ended = System.DateTime.Now
         logger <| sprintf "Parsing with FCS: %A" (ended - started)
@@ -155,7 +155,8 @@ type WebSharperFSharpCompiler(logger) =
 
         comp
 
-    member this.Compile (prevMeta, assemblyName, checkFileResults: FSharpCheckProjectResults) =
+    static member Compile (prevMeta, assemblyName, checkProjectResults: FSharpCheckProjectResults, ?useGraphs) =
+        let useGraphs = defaultArg useGraphs true
         let refMeta =   
             match prevMeta with
             | None -> M.Info.Empty
@@ -163,9 +164,9 @@ type WebSharperFSharpCompiler(logger) =
         
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
-                (WebSharper.Compiler.Compilation(refMeta, UseMacros = false))
+                (WebSharper.Compiler.Compilation(refMeta, useGraphs, UseLocalMacros = false))
                 assemblyName
-                checkFileResults
+                checkProjectResults
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
             

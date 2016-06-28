@@ -137,11 +137,9 @@ type WebSharperCSharpAnalyzer () =
             try
                 if compilation.GetDiagnostics() |> Seq.exists (fun d -> d.Severity = DiagnosticSeverity.Error) then () else
 
-                let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(ignore, UseGraphs = false)
-
                 WebSharper.Compiler.CSharp.ProjectReader.SaveTextSpans()
 
-                let comp = compiler.Compile(refMeta, compilation)
+                let comp = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler.Compile(refMeta, compilation, false)
 
                 if ctx.CancellationToken.IsCancellationRequested then () else
 

@@ -138,7 +138,8 @@ type WebSharperCSharpCompiler(logger) =
 
         comp
 
-    member this.Compile (prevMeta, compilation: CSharpCompilation) =
+    static member Compile (prevMeta, compilation: CSharpCompilation, ?useGraphs) =
+        let useGraphs = defaultArg useGraphs true
         let refMeta =   
             match prevMeta with
             | None -> M.Info.Empty
@@ -146,7 +147,7 @@ type WebSharperCSharpCompiler(logger) =
         
         let comp = 
             WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
-                (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs, UseMacros = false))
+                (WebSharper.Compiler.Compilation(refMeta, useGraphs, UseLocalMacros = false))
                 compilation
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
