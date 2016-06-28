@@ -139,6 +139,8 @@ type WebSharperCSharpAnalyzer () =
 
                 let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(ignore, UseGraphs = false)
 
+                WebSharper.Compiler.CSharp.ProjectReader.SaveTextSpans()
+
                 let comp = compiler.Compile(refMeta, compilation)
 
                 if ctx.CancellationToken.IsCancellationRequested then () else
@@ -147,7 +149,7 @@ type WebSharperCSharpAnalyzer () =
                     match pos with
                     | None -> Location.None
                     | Some p -> 
-                        match WebSharper.Compiler.CSharp.ProjectReader.textSpans.TryGetValue(p) with
+                        match WebSharper.Compiler.CSharp.ProjectReader.TextSpans.TryGetValue(p) with
                         | true, textSpan ->
                             let syntaxTree =
                                 compilation.SyntaxTrees |> Seq.find (fun t -> t.FilePath = p.FileName)

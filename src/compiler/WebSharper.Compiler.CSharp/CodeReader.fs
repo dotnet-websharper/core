@@ -69,8 +69,10 @@ type CSharpConstructor =
         Initializer : option<CSharpConstructorInitializer>
     }
 
-let textSpans =
-    System.Runtime.CompilerServices.ConditionalWeakTable()
+let mutable textSpans = null 
+
+let saveTextSpans() = 
+    textSpans <- System.Runtime.CompilerServices.ConditionalWeakTable()
 
 let getSourcePosOfSpan (ts: Text.TextSpan) (span: FileLinePositionSpan) =
     let res =
@@ -83,7 +85,8 @@ let getSourcePosOfSpan (ts: Text.TextSpan) (span: FileLinePositionSpan) =
                 let pos = span.EndLinePosition
                 pos.Line + 1, pos.Character + 1
         }
-    textSpans.Add(res, ref ts)
+    if not (isNull textSpans) then
+        textSpans.Add(res, ref ts)
     res
 
 let getSourcePos (x: CSharpSyntaxNode) =

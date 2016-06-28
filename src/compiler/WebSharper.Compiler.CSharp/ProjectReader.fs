@@ -114,7 +114,9 @@ let delegateTy, delRemove =
         Reflection.ReadMethod mi
     | _ -> failwith "Expecting a Call pattern"
 
-let textSpans = R.textSpans
+let TextSpans = R.textSpans
+
+let SaveTextSpans() = R.saveTextSpans()
 
 let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp: Compilation) (annot: A.TypeAnnotation) (cls: INamedTypeSymbol) =
     if cls.TypeKind <> TypeKind.Class then None else
