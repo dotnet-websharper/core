@@ -74,7 +74,7 @@ module Content =
                 AppPath = ctx.ApplicationPath
                 Json = ctx.Json
                 Meta = ctx.Metadata
-                Graph = Web.Shared.Dependencies // it is assumed that ctx is using Shared static values too
+                Graph = ctx.Dependencies
                 ResourceContext = ctx.ResourceContext
             }
 

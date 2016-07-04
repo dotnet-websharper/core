@@ -28,7 +28,7 @@ open WebSharper.Core
 open WebSharper.Core.AST
 module M = WebSharper.Core.Metadata
 
-let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
+let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
     let addresses = Dictionary()
     let declarations = ResizeArray()
     let statements = ResizeArray()
@@ -156,7 +156,11 @@ let packageAssembly (merged: M.Info) (current: M.Info) isBundle =
                 ]
                             
             let baseType =
-                match c.BaseClass |> Option.bind merged.Classes.TryFind |> Option.bind (fun b -> b.Address) with
+                let tryFindClass c =
+                    match refMeta.Classes.TryFind c with
+                    | Some _ as res -> res
+                    | _ -> current.Classes.TryFind c
+                match c.BaseClass |> Option.bind tryFindClass |> Option.bind (fun b -> b.Address) with
                 | Some ba -> GlobalAccess ba
                 | _ -> Value Null
              

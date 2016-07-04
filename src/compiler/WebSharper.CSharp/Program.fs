@@ -141,16 +141,10 @@ let Compile config =
         
     if hasErrors then () else
 
-    let thisMeta = comp.ToCurrentMetadata(config.WarnOnly)
-    let merged = 
-        WebSharper.Core.Metadata.Info.UnionWithoutDependencies 
-            [
-                (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty)
-                thisMeta
-            ]
-
     let assem = loader.LoadFile config.AssemblyFile
-    let js = WebSharper.Compiler.FrontEnd.ModifyAssembly merged thisMeta config.SourceMap assem
+    let js =
+        WebSharper.Compiler.FrontEnd.ModifyAssembly (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap assem
             
     if config.PrintJS then
         match js with 

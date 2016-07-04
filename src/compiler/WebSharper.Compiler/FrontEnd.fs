@@ -79,14 +79,14 @@ let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
 let ModifyTSAssembly (current: M.Info) (a: Assembly) =
     ModifyWIGAssembly current a.Raw
 
-let ModifyCecilAssembly (merged: M.Info) (current: M.Info) sourceMap (a: Mono.Cecil.AssemblyDefinition) =
+let ModifyCecilAssembly (refMeta: M.Info) (current: M.Info) sourceMap (a: Mono.Cecil.AssemblyDefinition) =
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     let meta =
         use s = new MemoryStream(8 * 1024)
         M.IO.Encode s current
         s.ToArray()
     let pkg = 
-        WebSharper.Compiler.Packager.packageAssembly merged current false
+        WebSharper.Compiler.Packager.packageAssembly refMeta current false
 
     Mono.Cecil.EmbeddedResource(EMBEDDED_METADATA, pub, meta)
     |> a.MainModule.Resources.Add
@@ -109,8 +109,8 @@ let ModifyCecilAssembly (merged: M.Info) (current: M.Info) sourceMap (a: Mono.Ce
         Some js
     else None
 
-let ModifyAssembly (merged: M.Info) (current: M.Info) sourceMap (assembly : Assembly) =
-    ModifyCecilAssembly merged current sourceMap assembly.Raw
+let ModifyAssembly (refMeta: M.Info) (current: M.Info) sourceMap (assembly : Assembly) =
+    ModifyCecilAssembly refMeta current sourceMap assembly.Raw
 
 /// Represents a resource content file.
 type ResourceContent =
