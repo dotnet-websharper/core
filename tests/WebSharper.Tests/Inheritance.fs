@@ -24,7 +24,7 @@ open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
 
-[<JavaScript>]
+[<JavaScript; AbstractClass>]
 type ClassA<'U>() =
     [<Name "x">]
     abstract X : int
@@ -34,6 +34,11 @@ type ClassA<'U>() =
 
     abstract Z : 'U -> 'U
     override this.Z x = JS.Undefined
+
+    [<Name "a">]
+    abstract A : unit -> int
+    
+    abstract B : unit -> int
 
 [<JavaScript>]
 type ClassB<'T, 'U>() =
@@ -48,6 +53,10 @@ type ClassB<'T, 'U>() =
     member this.BaseY = base.Y
 
     override this.Z x = x 
+
+    override this.A () = 3
+
+    override this.B () = 3
 
 [<JavaScript>]
 let mutable ThenTest = 0
@@ -66,11 +75,16 @@ let Tests =
     TestCategory "Inheritance" {
         Test "Overriding" {
             equal (ClassB().X) 2   
-            equal ((ClassB() :> ClassA<_>).X) 2   
+            equal ((ClassB() :> ClassA<_>).X) 2  
+            equal (ClassB().A()) 3   
+            equal ((ClassB() :> ClassA<_>).A()) 3   
+            equal (ClassB().B()) 3   
+            equal ((ClassB() :> ClassA<_>).B()) 3   
         }
 
         Test "Naming" {
             equal (ClassB()?x()) 2    
+            equal (ClassB()?a()) 3    
         }
 
         Test "Hiding" {

@@ -30,23 +30,35 @@ type EmbeddedFile = WebSharper.Compiler.EmbeddedFile
 type Loader = WebSharper.Compiler.Loader
 type Symbols = WebSharper.Compiler.Symbols
 
-let ReadFromAssembly (a: Assembly) =
+type ReadOptions =
+    | FullMetadata
+    | DiscardExpressions
+    | DiscardInlineExpressions
+    | DiscardNotInlineExpressions
+
+let ReadFromAssembly options (a: Assembly) =
     a.Raw.MainModule.Resources
     |> Seq.tryPick (function
         | :? Mono.Cecil.EmbeddedResource as r when r.Name = EMBEDDED_METADATA ->
             try
                 use s = r.GetResourceStream()
-                Some (M.IO.Decode s |> refreshAllIds)
+                let m = M.IO.Decode s
+                match options with
+                | FullMetadata -> refreshAllIds m
+                | DiscardExpressions -> m.DiscardExpressions() 
+                | DiscardInlineExpressions -> refreshAllIds (m.DiscardInlineExpressions())
+                | DiscardNotInlineExpressions -> m.DiscardNotInlineExpressions()
+                |> Some
             with
             | e ->
                 failwithf "Failed to deserialize metadata for %s. Error: %s" a.FullName e.Message
         | _ -> None
     )
 
-let ReadFromFile (path: string) =
+let ReadFromFile options (path: string) =
     let aR = AssemblyResolver.Create().SearchPaths([path])
     let loader = Loader.Create aR ignore
-    loader.LoadFile(path) |> ReadFromAssembly
+    loader.LoadFile(path) |> ReadFromAssembly options
 
 let GetJSLookup (r: Assembly list, readable) =
     r |> List.choose (fun a ->

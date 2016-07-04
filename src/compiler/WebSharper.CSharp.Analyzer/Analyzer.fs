@@ -13,6 +13,8 @@ open Microsoft.CodeAnalysis.Diagnostics
 open System.IO
 open WebSharper.Compiler
 
+module FE = WebSharper.Compiler.FrontEnd
+
 [<DiagnosticAnalyzer(LanguageNames.CSharp)>]
 type WebSharperCSharpAnalyzer () =
     inherit DiagnosticAnalyzer()
@@ -47,7 +49,7 @@ type WebSharperCSharpAnalyzer () =
         | _ ->
             let mutable err = None
             let m = 
-                try WebSharper.Compiler.FrontEnd.ReadFromFile(path)
+                try path |> FE.ReadFromFile FE.DiscardNotInlineExpressions
                 with e ->
                     err <- Some e.Message
                     None

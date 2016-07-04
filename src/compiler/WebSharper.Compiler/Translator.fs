@@ -467,14 +467,7 @@ type DotNetToJavaScript private (comp: Compilation) =
             if comp.IsInterface typ then
                 comp.Graph.AddEdge(currentNode, M.AbstractMethodNode (typ, meth))
             else
-                match comp.Graph.Lookup.TryFind (M.AbstractMethodNode (typ, meth)) with
-                | Some m -> 
-                    comp.Graph.AddEdge(currentNode, m)
-                | _ -> ()
-                match comp.Graph.Lookup.TryFind (M.MethodNode (typ, meth)) with
-                | Some m -> 
-                    comp.Graph.AddEdge(currentNode, m)
-                | _ -> ()
+                comp.Graph.AddEdge(currentNode, M.MethodNode (typ, meth))
         else
             if comp.TryLookupClassInfo typ |> Option.isSome then
                 comp.Graph.AddEdge(currentNode, M.TypeNode typ)

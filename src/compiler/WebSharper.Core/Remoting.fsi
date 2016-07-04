@@ -54,7 +54,7 @@ val AddHandler : System.Type -> obj -> unit
 type Server =
 
     /// Creates a new instance.
-    static member Create : M.Info -> Server
+    static member Create : M.Info -> Json.Provider -> Server
 
     /// Handles a request.
     member HandleRequest : Request -> Async<Response>

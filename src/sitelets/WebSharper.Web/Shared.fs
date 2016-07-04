@@ -33,8 +33,9 @@ let private loadMetadata () =
     let metas =
         System.Web.Compilation.BuildManager.GetReferencedAssemblies()
         |> Seq.cast<System.Reflection.Assembly>
+        |> Seq.choose M.IO.LoadReflected
+        |> Seq.map (fun m -> m.DiscardExpressions())
         |> Seq.toList
-        |> List.choose M.IO.LoadReflected
     let after = System.DateTime.UtcNow
     trace.TraceInformation("Initialized WebSharper in {0} seconds.",
         (after-before).TotalSeconds)

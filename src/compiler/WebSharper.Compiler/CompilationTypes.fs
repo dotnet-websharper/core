@@ -36,7 +36,7 @@ module NotResolved =
     [<RequireQualifiedAccess>]
     type NotResolvedMemberKind = 
         | Instance
-    //    | Abstract
+        | Abstract
         | Static
         | Constructor
         | Override of TypeDefinition

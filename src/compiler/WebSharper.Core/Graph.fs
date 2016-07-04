@@ -58,7 +58,7 @@ type Graph =
         Overrides : IDictionary<int, IDictionary<int, int>>
         Lookup : IDictionary<Node, int>
         Resources : IDictionary<int, Resources.IResource>
-        NewNodes : ResizeArray<int>
+//        NewNodes : ResizeArray<int>
     }
 
     /// Create a mutable graph from parsed immutable graph data
@@ -76,7 +76,31 @@ type Graph =
             Overrides = overrides
             Lookup = lookup
             Resources = Dictionary()
-            NewNodes = ResizeArray()
+//            NewNodes = ResizeArray()
+        }
+
+    static member NewWithDependencyAssemblies (data: seq<GraphData>) =            
+        let nodes = ResizeArray()
+        let edges = ResizeArray() 
+        let lookup = Dictionary()
+        
+        for g in data do
+            for n in g.Nodes do
+                match n with
+                | AssemblyNode (_, true) ->
+                    if not (lookup.ContainsKey n) then
+                        let i = nodes.Count
+                        nodes.Add(n) 
+                        edges.Add(HashSet())  
+                        lookup.Add(n, i)
+                | _ -> ()
+
+        {
+            Nodes = nodes
+            Edges = edges
+            Overrides = Dictionary()
+            Lookup = lookup
+            Resources = Dictionary()
         }
 
     /// Create a mutable graph from a sequence of parsed immutable graph data
@@ -119,49 +143,7 @@ type Graph =
             Overrides = overrides
             Lookup = lookup
             Resources = Dictionary()
-            NewNodes = ResizeArray()
-        }
-
-    member this.GetCurrentData() =
-        let allNodes = SortedSet(this.NewNodes)
-        // adding all assembly nodes cause them to be correctly ordered on unioning 
-        this.Nodes |> Seq.iteri (fun i n ->
-            match n with
-            | AssemblyNode _ -> allNodes.Add i |> ignore
-            | _ -> ()        
-        )
-        for n in this.NewNodes do
-            for d in this.Edges.[n] do 
-                allNodes.Add d |> ignore
-            match this.Overrides.TryFind n with
-            | Some td ->
-                for KeyValue(a, m) in td do
-                    allNodes.Add a |> ignore
-                    allNodes.Add m |> ignore                   
-            | _ -> ()
-        let r = Dictionary() // redirects
-        let nodes = ResizeArray()
-        for i in allNodes do
-            r.Add(i, nodes.Count)
-            nodes.Add(this.Nodes.[i])            
-        {
-            GraphData.Nodes = nodes.ToArray()
-            Edges =
-                allNodes |> Seq.map (fun i ->
-                    if this.NewNodes.Contains i then
-                        this.Edges.[i] |> Seq.map (fun d -> r.[d]) |> Array.ofSeq  
-                    else [||] 
-                ) |> Array.ofSeq
-            Overrides =
-                this.NewNodes |> Seq.choose (fun tn ->
-                    match this.Overrides.TryFind tn with
-                    | Some td ->
-                        Some (
-                            r.[tn],
-                            td |> Seq.map (fun (KeyValue (td, m)) -> r.[td], r.[m]) |> Array.ofSeq
-                        )
-                    | _ -> None
-                ) |> Array.ofSeq
+//            NewNodes = ResizeArray()
         }
 
     member this.GetData() =
@@ -371,7 +353,6 @@ type Graph =
             this.Nodes.Add n
             this.Edges.Add(HashSet())
             this.Lookup.Add(n, i)
-            this.NewNodes.Add i
             i  
 
     member this.GetNodeDeps n =
@@ -408,11 +389,6 @@ type Graph =
             | Some o -> o
         ovr.Add(abstractMethodNode, implementationNode)
 
-    static member UnionOfMetadata (metas: seq<Info>) =
-        { Info.UnionWithoutDependencies metas with
-            Dependencies = Graph.FromData(metas |> Seq.map (fun m -> m.Dependencies)).GetData()    
-        }
-
     static member Empty : Graph =
         {
             Nodes = ResizeArray()
@@ -420,6 +396,5 @@ type Graph =
             Overrides = Dictionary()
             Lookup = Dictionary()
             Resources = Dictionary()
-            NewNodes = ResizeArray()
         }
 

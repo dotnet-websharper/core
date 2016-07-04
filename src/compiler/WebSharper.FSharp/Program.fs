@@ -28,6 +28,8 @@ open WebSharper.Compiler
 
 open WebSharper.Compile.CommandTools
 
+module FE = WebSharper.Compiler.FrontEnd
+
 let logf x = 
     Printf.kprintf ignore x
 
@@ -80,13 +82,17 @@ let Compile (config : WsConfig) =
     let refErrors = ResizeArray()
     let refMeta =
         let metas = refs |> List.choose (fun r -> 
-            try WebSharper.Compiler.FrontEnd.ReadFromAssembly r
+            try FE.ReadFromAssembly FE.DiscardNotInlineExpressions r
             with e ->
                 refErrors.Add e.Message
                 None
         )
         if refErrors.Count > 0 || List.isEmpty metas then None 
-        else Some (WebSharper.Core.DependencyGraph.Graph.UnionOfMetadata metas)
+        else
+            Some { 
+                WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
+                    Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
+            }
 
     let ended = System.DateTime.Now
     logf "Loading referenced metadata: %A" (ended - started)
@@ -279,6 +285,11 @@ let compileMain argv =
     let logf x =
         if (!wsArgs).VSStyleErrors then logf x else Printf.kprintf System.Console.WriteLine x
     
+#if DEBUG 
+    let exitCode = Compile !wsArgs
+    logf "Stopped at: %A" System.DateTime.Now
+    exitCode       
+#else
     try 
         let exitCode = Compile !wsArgs
         logf "Stopped at: %A" System.DateTime.Now
@@ -290,6 +301,7 @@ let compileMain argv =
             if File.Exists failedOutput then File.Delete failedOutput
             File.Move (intermediaryOutput, failedOutput)
         reraise()
+#endif
 
 open Microsoft.FSharp.Compiler.ErrorLogger
 
@@ -298,7 +310,11 @@ let main(argv) =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
     use unwindBuildPhase = PushThreadBuildPhaseUntilUnwind (BuildPhase.Parameter)    
 
+#if DEBUG
+    compileMain(Array.append [| "fsc.exe" |] argv); 
+#else
     try compileMain(Array.append [| "fsc.exe" |] argv); 
     with e -> 
         errorRecovery e Microsoft.FSharp.Compiler.Range.range0; 
         1
+#endif

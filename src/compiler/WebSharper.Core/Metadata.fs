@@ -260,6 +260,56 @@ type Info =
                 | _ -> failwith "Multiple entry points found."
         }
 
+    member this.DiscardExpressions() =
+        { this with
+            Classes =
+                this.Classes |> Dict.map (fun ci ->
+                    { ci with
+                        Constructors = ci.Constructors |> Dict.map (fun (a, b, _) -> a, b, Undefined)
+                        StaticConstructor = ci.StaticConstructor |> Option.map (fun (a, _) -> a, Undefined)
+                        Methods = ci.Methods |> Dict.map (fun (a, b, _) -> a, b, Undefined)
+                        Implementations = ci.Implementations |> Dict.map (fun (a, _) -> a, Undefined)
+                    } 
+                )
+            EntryPoint = this.EntryPoint |> Option.map (fun _ -> Empty)
+        }
+
+    member this.DiscardInlineExpressions() =
+        let rec discardInline i e =
+            match i with
+            | Inline
+            | NotCompiledInline -> Undefined
+            | Macro (_, _, Some f) -> discardInline f e
+            | _ -> e
+        { this with
+            Classes =
+                this.Classes |> Dict.map (fun ci ->
+                    { ci with
+                        Constructors = ci.Constructors |> Dict.map (fun (i, p, e) -> i, p, e |> discardInline i)
+                        Methods = ci.Methods |> Dict.map (fun (i, p, e) -> i, p, e |> discardInline i)
+                    } 
+                )
+            EntryPoint = this.EntryPoint |> Option.map (fun _ -> Empty)
+        }
+
+    member this.DiscardNotInlineExpressions() =
+        let rec discardNotInline i e =
+            match i with
+            | Inline
+            | NotCompiledInline -> e
+            | Macro (_, _, Some f) -> discardNotInline f e
+            | _ -> Undefined
+        { this with
+            Classes =
+                this.Classes |> Dict.map (fun ci ->
+                    { ci with
+                        Constructors = ci.Constructors |> Dict.map (fun (i, p, e) -> i, p, e |> discardNotInline i)
+                        Methods = ci.Methods |> Dict.map (fun (i, p, e) -> i, p, e |> discardNotInline i)
+                    } 
+                )
+            EntryPoint = this.EntryPoint |> Option.map (fun _ -> Empty)
+        }
+
 module internal Utilities = 
  
     let ignoreMacro m =

@@ -161,14 +161,15 @@ module private WebUtils =
                     joinWithSlash appPath (url.Substring(1))
                 else
                     url),
-            Json = ResourceContext.SharedJson(),
+            Json = Shared.Json,
             Link = (fun action ->
                 match site.Router.Link action with
                 | Some loc ->
                     if loc.IsAbsoluteUri then string loc else
                         joinWithSlash appPath (string loc)
                 | None -> failwith "Failed to link to action"),
-            Metadata = ResourceContext.MetaData(),
+            Metadata = Shared.Metadata,
+            Dependencies = Shared.Dependencies,
             ResourceContext = ResourceContext.ResourceContext appPath,
             Request = request,
             RootFolder = ctx.Server.MapPath("~"),

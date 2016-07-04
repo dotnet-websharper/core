@@ -28,6 +28,8 @@ open WebSharper.Compiler
 
 open WebSharper.Compile.CommandTools
 
+module FE = WebSharper.Compiler.FrontEnd
+
 let logf x = 
     Printf.kprintf ignore x
 
@@ -66,13 +68,17 @@ let Compile config =
     let refErrors = ResizeArray()
     let refMeta =
         let metas = refs |> List.choose (fun r -> 
-            try WebSharper.Compiler.FrontEnd.ReadFromAssembly r
+            try FE.ReadFromAssembly FE.DiscardNotInlineExpressions r
             with e ->
                 refErrors.Add e.Message
                 None
         )
         if refErrors.Count > 0 || List.isEmpty metas then None 
-        else Some (WebSharper.Core.DependencyGraph.Graph.UnionOfMetadata metas)
+        else 
+            Some { 
+                WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
+                    Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
+            }
 
     let ended = System.DateTime.Now
     logf "Loading referenced metadata: %A" (ended - started)

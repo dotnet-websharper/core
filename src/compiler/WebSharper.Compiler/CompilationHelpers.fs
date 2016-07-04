@@ -666,23 +666,27 @@ type Refresher() =
             n
 
 let refreshAllIds (i: Info) =
-    let mapValues f d =
-        seq { for (KeyValue(k, v)) in d -> k, f v } |> dict    
-    
     let r = Refresher()
+
+    let rec refreshNotInline (i, p, e) =
+        match i with
+        | Inline
+        | NotCompiledInline -> i, p, e
+        | Macro (_, _, Some f) -> refreshNotInline (f, p, e)
+        | _ -> i, p, r.TransformExpression e
 
     { i with
         Classes =
-            i.Classes |> mapValues (fun c ->
+            i.Classes |> Dict.map (fun c ->
                 { c with
                     Constructors = 
-                        c.Constructors |> mapValues (fun (x, p, b) -> x, p, r.TransformExpression b) 
+                        c.Constructors |> Dict.map refreshNotInline
                     StaticConstructor = 
                         c.StaticConstructor |> Option.map (fun (x, b) -> x, r.TransformExpression b) 
                     Methods = 
-                        c.Methods |> mapValues (fun (x, p, b) -> x, p, r.TransformExpression b) 
+                        c.Methods |> Dict.map refreshNotInline
                     Implementations = 
-                        c.Implementations |> mapValues (fun (x, b) -> x, r.TransformExpression b) 
+                        c.Implementations |> Dict.map (fun (x, b) -> x, r.TransformExpression b) 
                 }
             )
         EntryPoint = i.EntryPoint |> Option.map r.TransformStatement 

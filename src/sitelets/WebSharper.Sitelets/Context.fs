@@ -28,6 +28,7 @@ type Context<'Action>
         Link : 'Action -> string,
         Json : WebSharper.Core.Json.Provider,
         Metadata : WebSharper.Core.Metadata.Info,
+        Dependencies : WebSharper.Core.DependencyGraph.Graph,
         ResolveUrl : string -> string,
         ResourceContext : WebSharper.Core.Resources.Context,
         Request : Http.Request,
@@ -46,6 +47,7 @@ type Context<'Action>
     member this.Link(e) = Link e
     member this.Json = Json
     member this.Metadata = Metadata
+    member this.Dependencies = Dependencies
     member this.ResolveUrl p = ResolveUrl p
     member this.ResourceContext = ResourceContext
     member this.Request = Request
@@ -54,7 +56,7 @@ type Context<'Action>
     member this.Environment = Environment
 
 type Context(ctx: Context<obj>) =
-    inherit Context<obj>(ctx.ApplicationPath, ctx.Link, ctx.Json, ctx.Metadata, ctx.ResolveUrl,
+    inherit Context<obj>(ctx.ApplicationPath, ctx.Link, ctx.Json, ctx.Metadata, ctx.Dependencies, ctx.ResolveUrl,
         ctx.ResourceContext, ctx.Request, ctx.RootFolder, ctx.UserSession, ctx.Environment)
 
     static member Map (f: 'T2 -> 'T1) (ctx: Context<'T1>) : Context<'T2> =
@@ -63,6 +65,7 @@ type Context(ctx: Context<obj>) =
             Link = (ctx.Link << f),
             Json = ctx.Json,
             Metadata = ctx.Metadata,
+            Dependencies = ctx.Dependencies,
             ResolveUrl = ctx.ResolveUrl,
             ResourceContext = ctx.ResourceContext,
             Request = ctx.Request,

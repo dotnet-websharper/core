@@ -74,7 +74,7 @@ type AspNetFormsUserSession(ctx: HttpContextBase) =
             }
 
 module private RpcUtil =
-    let server = R.Server.Create Shared.Metadata
+    let server = R.Server.Create Shared.Metadata Shared.Json
     let [<Literal>] HttpContextKey = "HttpContext"
     let [<Literal>] CsrfTokenKey = "csrftoken"
     let [<Literal>] CsrfTokenHeader = "x-" + CsrfTokenKey

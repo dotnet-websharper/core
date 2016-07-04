@@ -27,6 +27,7 @@ module JS = WebSharper.Core.JavaScript.Syntax
 module M = WebSharper.Core.Metadata
 module Res = WebSharper.Core.Resources
 module W = WebSharper.Core.JavaScript.Writer
+module FE = WebSharper.Compiler.FrontEnd
 
 [<AutoOpen>]
 module BundleUtility =
@@ -49,12 +50,13 @@ module BundleUtility =
 [<Sealed>]
 type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
 
-    let meta =
+    let metas =
         set
-        |> List.choose WebSharper.Compiler.FrontEnd.ReadFromAssembly
-        |> WebSharper.Core.DependencyGraph.Graph.UnionOfMetadata 
+        |> List.choose (FE.ReadFromAssembly FE.DiscardInlineExpressions)
 
-    let graph = WebSharper.Core.DependencyGraph.Graph.FromData meta.Dependencies
+    let graph = WebSharper.Core.DependencyGraph.Graph.FromData (metas |> Seq.map (fun m -> m.Dependencies))
+    
+    let meta = WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
 
     let htmlHeadersContext getSetting : Res.Context =
         {

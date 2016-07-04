@@ -39,6 +39,9 @@ type Context<'Action> =
     /// WebSharper metadata required for serializing controls.
     member Metadata : WebSharper.Core.Metadata.Info
 
+    /// WebSharper code dependency graph required for looking up resources.
+    member Dependencies : WebSharper.Core.DependencyGraph.Graph
+
     // Generates a URL respecting the application path.
     member ResolveUrl : string -> string
 
@@ -61,6 +64,7 @@ type Context<'Action> =
         * Link : ('Action -> string)
         * Json : WebSharper.Core.Json.Provider
         * Metadata : WebSharper.Core.Metadata.Info
+        * Dependencies : WebSharper.Core.DependencyGraph.Graph
         * ResolveUrl : (string -> string)
         * ResourceContext : WebSharper.Core.Resources.Context
         * Request : Http.Request

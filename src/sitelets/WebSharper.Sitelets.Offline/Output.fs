@@ -84,13 +84,15 @@ let getMetadata conf =
 
     let loader = Loader.Create resolver ignore
 
-    Seq.append [conf.Options.MainAssemblyPath] conf.Options.ReferenceAssemblyPaths
-    |> Seq.distinctBy (fun assemblyFile ->
-        AssemblyName.GetAssemblyName(assemblyFile).Name)
-    |> Seq.map loader.LoadFile
-    |> Seq.choose FrontEnd.ReadFromAssembly
-    |> List.ofSeq
-    |> WebSharper.Core.DependencyGraph.Graph.UnionOfMetadata
+    let metas =
+        Seq.append [conf.Options.MainAssemblyPath] conf.Options.ReferenceAssemblyPaths
+        |> Seq.distinctBy (fun assemblyFile ->
+            AssemblyName.GetAssemblyName(assemblyFile).Name)
+        |> Seq.map loader.LoadFile
+        |> Seq.choose (FrontEnd.ReadFromAssembly FrontEnd.DiscardExpressions)
+        |> List.ofSeq
+    WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas,
+    WebSharper.Core.DependencyGraph.Graph.FromData (metas |> List.map (fun m -> m.Dependencies))
 
 /// Generates unique file names.
 [<Sealed>]
@@ -129,7 +131,7 @@ type EmbeddedResource =
 /// The mutable state of the processing.
 [<Sealed>]
 type State(conf: Config) =
-    let metadata = getMetadata conf
+    let metadata, dependencies = getMetadata conf
     let json = J.Provider.CreateTyped(metadata)
     let unique = UniqueFileNameGenerator()
     let usedAssemblies = HashSet<string>()
@@ -137,6 +139,7 @@ type State(conf: Config) =
     member this.Config = conf
     member this.Json = json
     member this.Metadata = metadata
+    member this.Dependencies = dependencies
     member this.Unique = unique
     member this.Assemblies = usedAssemblies :> seq<_>
     member this.Resources = usedResources :> seq<_>
@@ -320,6 +323,7 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
                 ApplicationPath = ".",
                 ResolveUrl = id,
                 Metadata = st.Metadata,
+                Dependencies = st.Dependencies,
                 ResourceContext = resContext,
                 Request = emptyRequest locationString,
                 RootFolder = projectFolder,
@@ -414,6 +418,7 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                                 stdout.WriteLine("Warning: " + msg)
                                 "#"),
                     Metadata = st.Metadata,
+                    Dependencies = st.Dependencies,
                     ResourceContext = rC.ResourceContext,
                     Request = emptyRequest (P.ShowPath rC.Path),
                     RootFolder = projectFolder,

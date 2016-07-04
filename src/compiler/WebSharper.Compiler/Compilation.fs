@@ -216,7 +216,7 @@ type Compilation(meta: Info, ?hasGraph) =
             failwith "This compilation has errors"
         {
             SiteletDefinition = this.SiteletDefinition 
-            Dependencies = if hasGraph then graph.GetCurrentData() else GraphData.Empty
+            Dependencies = if hasGraph then graph.GetData() else GraphData.Empty
             Interfaces = interfaces.Current
             Classes = classes.Current        
             CustomTypes = 
@@ -570,7 +570,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let someEmptyAddress = Some (Address [])
         let unresolvedCctor = Some (Address [], Undefined)
 
-        let isInstanceKind k = match k with N.Instance | N.Override _ | N.Implementation _ -> true | _ -> false
+        let isInstanceKind k = match k with N.Instance | N.Abstract | N.Override _ | N.Implementation _ -> true | _ -> false
 
         let isInstanceMember m =
             match m with
@@ -605,6 +605,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         | M.Method (_, nr) ->
                             match nr.Kind with
                             | N.Instance 
+                            | N.Abstract
                             | N.Constructor 
                             | N.Override _
                             | N.Implementation _ -> false
@@ -658,6 +659,12 @@ type Compilation(meta: Info, ?hasGraph) =
                             graph.AddEdge(mNode, clsNodeIndex)
                             for req in reqs do
                                 graph.AddEdge(mNode, ResourceNode req)
+                        | N.Abstract ->
+                            let mNode = graph.AddOrLookupNode(MethodNode(typ, meth))
+                            graph.AddEdge(mNode, AbstractMethodNode(typ, meth))
+                            graph.AddEdge(mNode, clsNodeIndex)
+                            for req in reqs do
+                                graph.AddEdge(mNode, ResourceNode req)
                         | N.NoFallback -> ()
                         | _ -> 
                             let mNode = graph.AddOrLookupNode(MethodNode(typ, meth))
@@ -690,6 +697,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let compiledInstanceMember (name: string) (nr: NotResolvedMethod) =
             match nr.Kind with
             | N.Instance  
+            | N.Abstract
             | N.Override _  
             | N.Implementation _ -> Instance name
             | _ -> failwith "Invalid instance member kind"
@@ -750,6 +758,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                 None, None, true
                             else 
                                 None, Some false, false
+                        | N.Abstract
                         | N.Instance -> sn, Some false, false
                         | N.Static
                         | N.Constructor -> sn, Some true, false
@@ -982,7 +991,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     let name = 
                         match m with
                         | M.Field (fName, _) -> Resolve.getRenamed fName pr |> Some
-                        | M.Method (mDef, { Kind = N.Instance }) -> 
+                        | M.Method (mDef, { Kind = N.Instance | N.Abstract }) -> 
                             Resolve.getRenamed mDef.Value.MethodName pr |> Some
                         | M.Method (mDef, { Kind = N.Override td }) ->
                             match classes.TryFind td with
@@ -1166,10 +1175,9 @@ type Compilation(meta: Info, ?hasGraph) =
                     }
                 )   
             
-            let activateIndex = graph.Lookup.[activate]
             let controlIndex = graph.Lookup.[control] 
 
-            graph.AddEdge(controlIndex, activateIndex)
+            graph.AddEdge(controlIndex, activate)
 
     member this.VerifyRPCs () =
         let rec isWebControl (cls: ClassInfo) =

@@ -62,12 +62,6 @@ module internal ResourceContext =
     module Re = WebSharper.Core.Resources
     module P = WebSharper.PathConventions
 
-    let MetaData () : M.Info =
-        WebSharper.Web.Shared.Metadata
-
-    let SharedJson () =
-        WebSharper.Web.Shared.Json
-
     let ResourceContext (appPath: string) : Re.Context =
         let page = new UI.Page()
         let isDebug = HttpContext.Current.IsDebuggingEnabled

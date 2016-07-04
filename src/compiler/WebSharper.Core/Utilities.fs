@@ -107,6 +107,13 @@ module Dict =
             if predicate k v then r.Add(k, v)
         r 
     
+    /// Map values of an IDictionary
+    let map mapping (d: IDictionary<_,_>) =
+        let r = Dictionary() :> IDictionary<_,_>
+        for KeyValue(k, v) in d do   
+            r.Add(k, mapping v)
+        r 
+
     // Union of multiple IDictionary objects
     let union (dicts: seq<IDictionary<_,_>>) =
         let d = Dictionary() :> IDictionary<_,_>

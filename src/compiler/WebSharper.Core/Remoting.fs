@@ -183,8 +183,7 @@ exception InvalidHeadersException
 exception NoRemoteAttributeException
 
 [<Sealed>]
-type Server(info) =
-    let jP = J.Provider.CreateTyped info
+type Server(info, jP) =
     let remote = M.Utilities.getRemoteMethods info
     let d = Dictionary()
     let getConverter m =
@@ -222,4 +221,4 @@ type Server(info) =
 
     member this.JsonProvider = jP
 
-    static member Create info = Server(info)
+    static member Create info jP = Server(info, jP)

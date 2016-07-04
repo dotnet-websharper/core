@@ -192,7 +192,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         | Some A.MemberKind.JavaScript when meth.IsDispatchSlot -> 
             match memdef with
             | Member.Method (isInstance, mdef) ->
-                addMethod mAnnot mdef (if isInstance then N.Instance else N.Static) true Undefined
+                if not isInstance then failwith "Abstract method should not be static" 
+                addMethod mAnnot mdef N.Abstract true Undefined
             | _ -> failwith "Member kind not expected for astract method"
         | Some (A.MemberKind.Remote rp) ->
             match memdef with
