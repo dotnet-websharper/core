@@ -16,6 +16,7 @@ namespace WebSharper.Compiler
 
 open System
 open System.Collections.Generic
+open System.Collections.Concurrent
 open System.IO
 open System.Reflection
 
@@ -105,22 +106,13 @@ module Implemetnation =
                 |> first
         }
 
-    let memoize (root: obj) getKey f =
-        let cache = Dictionary()
-        let g x =
-            lock root <| fun () ->
-                let key = getKey x
-                match cache.TryGetValue key with
-                | true, y -> y
-                | _ ->
-                    let y = f x
-                    cache.[key] <- y
-                    y
-        g
+    let memoize getKey f =
+        let cache = ConcurrentDictionary()
+        fun x -> cache.GetOrAdd(getKey x, valueFactory = Func<_,_>(fun _ -> f x))
 
-    let memoizeResolution (root: obj) (r: AssemblyResolution) =
+    let memoizeResolution (r: AssemblyResolution) =
         let key (n: AssemblyName) = (n.Name, string n.Version)
-        { ResolvePath = memoize root key r.ResolvePath }
+        { ResolvePath = memoize key r.ResolvePath }
 
     let zero =
         { ResolvePath = fun name -> None }
@@ -131,8 +123,7 @@ module Implemetnation =
 [<Sealed>]
 type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution) =
 
-    let root = obj ()
-    let reso = memoizeResolution root reso
+    let reso = memoizeResolution reso
 
     static let get (x: AssemblyResolver) : AssemblyResolution = x.Resolution
 

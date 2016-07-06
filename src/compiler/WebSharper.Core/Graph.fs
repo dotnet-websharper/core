@@ -21,6 +21,7 @@
 namespace WebSharper.Core.DependencyGraph
 
 open System.Collections.Generic
+open System.Collections.Concurrent
 
 open WebSharper.Core
 
@@ -57,7 +58,7 @@ type Graph =
         /// Nested dictionary lookup order: TypeNode -> AbstractMethodNode -> ImplementationNode 
         Overrides : IDictionary<int, IDictionary<int, int>>
         Lookup : IDictionary<Node, int>
-        Resources : IDictionary<int, Resources.IResource>
+        Resources : ConcurrentDictionary<int, Resources.IResource>
 //        NewNodes : ResizeArray<int>
     }
 
@@ -75,7 +76,7 @@ type Graph =
             Edges = ResizeArray(data.Edges |> Array.map (fun e -> HashSet(e)))
             Overrides = overrides
             Lookup = lookup
-            Resources = Dictionary()
+            Resources = ConcurrentDictionary()
 //            NewNodes = ResizeArray()
         }
 
@@ -100,7 +101,7 @@ type Graph =
             Edges = edges
             Overrides = Dictionary()
             Lookup = lookup
-            Resources = Dictionary()
+            Resources = ConcurrentDictionary()
         }
 
     /// Create a mutable graph from a sequence of parsed immutable graph data
@@ -142,7 +143,7 @@ type Graph =
             Edges = edges
             Overrides = overrides
             Lookup = lookup
-            Resources = Dictionary()
+            Resources = ConcurrentDictionary()
 //            NewNodes = ResizeArray()
         }
 
@@ -267,10 +268,7 @@ type Graph =
     /// Resource nodes are ordered by graph edges, assembly nodes by assembly dependencies.
     member this.GetResources (nodes : seq<Node>) =
         let activate i n =
-            match this.Resources.TryFind i with
-            | Some found -> found
-            | _ ->
-            let res =
+            this.Resources.GetOrAdd(i, fun _ ->
                 match n with
                 | AssemblyNode (name, true) ->
                     AssemblyResource name :> R.IResource
@@ -290,8 +288,7 @@ type Graph =
                                     ()
                         }
                 | _ -> failwith "not a resource node"
-            this.Resources.Add(i, res)
-            res
+            )
 
         let asmNodes, resNodes =
             nodes 
@@ -395,6 +392,6 @@ type Graph =
             Edges = ResizeArray()
             Overrides = Dictionary()
             Lookup = Dictionary()
-            Resources = Dictionary()
+            Resources = ConcurrentDictionary()
         }
 
