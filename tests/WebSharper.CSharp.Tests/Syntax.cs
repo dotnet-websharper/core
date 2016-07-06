@@ -403,4 +403,17 @@ namespace WebSharper.CSharp.Tests
             Equal(a[0], 2);
         }
     }
+
+    // this already has JavaScript attribute
+    public partial class PartialClass
+    {
+        public int Field2 = 2;
+
+        partial void PartialMethod() { Value = 3; }
+
+        public void SetValueTo4()
+        {
+            Value = 4;
+        }
+    }
 }

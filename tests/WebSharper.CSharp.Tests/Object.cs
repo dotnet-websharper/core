@@ -86,10 +86,12 @@ namespace WebSharper.CSharp.Tests
             public SubClass(int v) : this() { Value += v; }
         }
 
-        class BaseClass
+        class BaseClass : AbstractBaseClass
         {
             public virtual int VirtualMethod() { return 1; }
 
+            public override int AbstractMethod() { return 2; }
+        
             public BaseClass() { }
 
             public BaseClass(int v) { Value = v; }
@@ -97,11 +99,18 @@ namespace WebSharper.CSharp.Tests
             public int Value = 1;
         }
 
+        abstract class AbstractBaseClass
+        {
+            public abstract int AbstractMethod();
+        }
+
         [Test]
         public void Inheritance()
         {
             Equal(new BaseClass().Value, 1, "Field initialization");
             Equal(new BaseClass().VirtualMethod(), 1, "Virtual method");
+            Equal(new BaseClass().AbstractMethod(), 2, "Abstract method");
+            Equal((new BaseClass() as AbstractBaseClass).AbstractMethod(), 2, "Abstract method called on base class");
             Equal(new BaseClass(3).Value, 3, "Overloaded constructor");
             Equal(new SubClass().Value, 2, "Base call on constructor");
             Equal(new SubClass().VirtualMethod(), 2, "Overridden method");
@@ -131,6 +140,34 @@ namespace WebSharper.CSharp.Tests
             Equal(((ISomething)o).Bar, "Bar");
             Equal(o.Foo(), 42);
             Equal(((ISomething)o).Foo(), 42);
+        }
+
+        [Test]
+        public void PartialClasses()
+        {
+            var o = new PartialClass();
+            Equal(o.Field1, 1);
+            Equal(o.Field2, 2);
+            Equal(o.Value, 0);
+            o.SetValueTo3ByPartialMethod();
+            Equal(o.Value, 3);
+            o.SetValueTo4();
+            Equal(o.Value, 4);
+        }
+    }
+
+    [JavaScript]
+    public partial class PartialClass
+    {
+        public int Field1 = 1;
+
+        public int Value { get; set; }
+
+        partial void PartialMethod();
+
+        public void SetValueTo3ByPartialMethod()
+        {
+            PartialMethod();
         }
     }
 }

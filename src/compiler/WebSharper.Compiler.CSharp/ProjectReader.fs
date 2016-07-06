@@ -199,7 +199,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     match data.Initializer with
                     | Some i ->
                         i |> (cs model).TransformEqualsValueClause
-                    | None -> DefaultValueOf (ConcreteType cdef)
+                    | None -> 
+                        DefaultValueOf (sr.ReadType p.Type)
                 match p.SetMethod with
                 | null ->
                     if p.IsStatic then
@@ -293,12 +294,16 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 addMethod mAnnot mdef (N.Remote(remotingKind, comp.GetRemoteHandle(), rp)) true Undefined
             | _ -> error "Only methods can be defined Remote"
         | Some kind ->
+            let meth = 
+                match meth.PartialImplementationPart with
+                | null -> meth
+                | impl -> impl 
             let memdef = sr.ReadMember meth
             let getParsed() = 
-                let decl = meth.DeclaringSyntaxReferences
-                if decl.Length > 0 then
+                let decls = meth.DeclaringSyntaxReferences
+                if decls.Length > 0 then
                     try
-                        let syntax = meth.DeclaringSyntaxReferences.[0].GetSyntax()
+                        let syntax = decls.[0].GetSyntax()
                         let model = rcomp.GetSemanticModel(syntax.SyntaxTree, false)
                         let fixMethod (m: CodeReader.CSharpMethod) =
                             let b1 = 
