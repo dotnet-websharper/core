@@ -62,6 +62,7 @@ module NotResolved =
             StrongName : option<string>
             IsStatic : bool
             IsOptional : bool   
+            FieldType : Type
         }
 
     [<RequireQualifiedAccess>]

@@ -85,13 +85,6 @@ let isAugmentedFSharpType (e: FSharpEntity) =
         )
     )
 
-let basicInstanceField =
-    { 
-        StrongName = None
-        IsStatic = false
-        IsOptional = false 
-    }
-
 let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
     let thisDef = sr.ReadTypeDefinition cls
     
@@ -675,6 +668,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 StrongName = fAnnot.Name
                 IsStatic = f.IsStatic
                 IsOptional = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                FieldType = sr.ReadType clsTparams.Value f.FieldType
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
 
@@ -782,6 +776,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                                 StrongName = None
                                 IsStatic = true
                                 IsOptional = false
+                                FieldType = VoidType // field types are only needed for adding code dependencies for activator
                             } 
                         )
                     yield NotResolvedMember.StaticConstructor cctor

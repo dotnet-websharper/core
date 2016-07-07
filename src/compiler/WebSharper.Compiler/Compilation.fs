@@ -671,6 +671,16 @@ type Compilation(meta: Info, ?hasGraph) =
                             graph.AddEdge(mNode, clsNodeIndex)
                             for req in reqs do
                                 graph.AddEdge(mNode, ResourceNode req)
+                    | M.Field (_, f) ->
+                        let rec addTypeDeps (t: Type) =
+                            match t with
+                            | ConcreteType c ->
+                                graph.AddEdge(clsNodeIndex, TypeNode(c.Entity))
+                                c.Generics |> List.iter addTypeDeps
+                            | ArrayType(t, _) -> addTypeDeps t
+                            | TupleType ts -> ts |> List.iter addTypeDeps
+                            | _ -> ()
+                        addTypeDeps f.FieldType
                     | _ -> ()
 
         let withMacros (nr : NotResolvedMethod) woMacros =

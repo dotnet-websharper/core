@@ -625,6 +625,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 StrongName = mAnnot.Name
                 IsStatic = f.IsStatic
                 IsOptional = mAnnot.Kind = Some A.MemberKind.OptionalField 
+                FieldType = sr.ReadType f.Type 
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
     
@@ -635,6 +636,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 StrongName = mAnnot.Name
                 IsStatic = f.IsStatic
                 IsOptional = false
+                FieldType = sr.ReadType f.Type 
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
 
