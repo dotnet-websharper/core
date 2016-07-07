@@ -68,7 +68,7 @@ let Compile config =
     let refErrors = ResizeArray()
     let refMeta =
         let metas = refs |> List.choose (fun r -> 
-            try FE.ReadFromAssembly FE.DiscardNotInlineExpressions r
+            try FE.ReadFromAssembly FE.FullMetadata r
             with e ->
                 refErrors.Add e.Message
                 None

@@ -89,7 +89,7 @@ let getMetadata conf =
         |> Seq.distinctBy (fun assemblyFile ->
             AssemblyName.GetAssemblyName(assemblyFile).Name)
         |> Seq.map loader.LoadFile
-        |> Seq.choose (FrontEnd.ReadFromAssembly FrontEnd.DiscardExpressions)
+        |> Seq.choose (FrontEnd.ReadFromAssembly FrontEnd.FullMetadata)
         |> List.ofSeq
     WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas,
     WebSharper.Core.DependencyGraph.Graph.FromData (metas |> List.map (fun m -> m.Dependencies))

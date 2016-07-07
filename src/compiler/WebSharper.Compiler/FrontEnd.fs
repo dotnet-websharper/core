@@ -44,9 +44,9 @@ let ReadFromAssembly options (a: Assembly) =
                 use s = r.GetResourceStream()
                 let m = M.IO.Decode s
                 match options with
-                | FullMetadata -> refreshAllIds m
+                | FullMetadata -> m
                 | DiscardExpressions -> m.DiscardExpressions() 
-                | DiscardInlineExpressions -> refreshAllIds (m.DiscardInlineExpressions())
+                | DiscardInlineExpressions -> m.DiscardInlineExpressions()
                 | DiscardNotInlineExpressions -> m.DiscardNotInlineExpressions()
                 |> Some
             with
