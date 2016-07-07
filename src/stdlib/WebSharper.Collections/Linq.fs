@@ -202,7 +202,7 @@ type private LinqProxy =
 
     static member Average(this: seq<Nullable<float>>) : Nullable<float> =
         let mutable x = [||]
-        use mutable e = this.GetEnumerator()
+        use e = this.GetEnumerator()
         while e.MoveNext() do
             if e.Current.HasValue then
                 x.JS.Push e.Current.Value |> ignore
