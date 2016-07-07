@@ -683,6 +683,30 @@ type Compilation(meta: Info, ?hasGraph) =
                         addTypeDeps f.FieldType
                     | _ -> ()
 
+        if hasGraph then
+            for KeyValue(ct, cti) in Seq.append customTypes notAnnotatedCustomTypes do
+                let clsNodeIndex = lazy graph.AddOrLookupNode(TypeNode ct)
+                let rec addTypeDeps (t: Type) =
+                    match t with
+                    | ConcreteType c ->
+                        graph.AddEdge(clsNodeIndex.Value, TypeNode(c.Entity))
+                        c.Generics |> List.iter addTypeDeps
+                    | ArrayType(t, _) -> addTypeDeps t
+                    | TupleType ts -> ts |> List.iter addTypeDeps
+                    | _ -> ()
+                let unionCase (uci: FSharpUnionCaseInfo) =
+                    match uci.Kind with
+                    | NormalFSharpUnionCase fs ->
+                        for f in fs do addTypeDeps f.UnionFieldType
+                    | _ -> ()
+                match cti with
+                | FSharpRecordInfo fs ->
+                    for f in fs do addTypeDeps f.RecordFieldType
+                | FSharpUnionInfo ui ->
+                    for uci in ui.Cases do unionCase uci
+                | FSharpUnionCaseInfo uci -> unionCase uci
+                | _ -> ()
+
         let withMacros (nr : NotResolvedMethod) woMacros =
             if List.isEmpty nr.Macros then woMacros else
                 if nr.Kind = N.NoFallback then None else Some woMacros
