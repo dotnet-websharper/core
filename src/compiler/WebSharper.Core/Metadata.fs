@@ -289,7 +289,7 @@ type Info =
                         Methods = ci.Methods |> Dict.map (fun (i, p, e) -> i, p, e |> discardInline i)
                     } 
                 )
-            EntryPoint = this.EntryPoint |> Option.map (fun _ -> Empty)
+            EntryPoint = this.EntryPoint
         }
 
     member this.DiscardNotInlineExpressions() =

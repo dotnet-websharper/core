@@ -52,7 +52,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
 
     let metas =
         set
-        |> List.choose (FE.ReadFromAssembly FE.DiscardInlineExpressions)
+        |> List.choose (FE.ReadFromAssembly FE.FullMetadata)
 
     let graph = WebSharper.Core.DependencyGraph.Graph.FromData (metas |> Seq.map (fun m -> m.Dependencies))
     
