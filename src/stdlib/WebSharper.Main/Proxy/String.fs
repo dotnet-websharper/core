@@ -99,10 +99,36 @@ let ToCharArrayRange (s: string) (startIndex: int) (length: int) =
 let Trim (s: string) = X<string>
 
 [<Direct @"$s.replace(/^\s+/,'')">]
-let TrimStart (s: string) = X<string>
+let TrimStartWS (s: string) = X<string>
+
+let TrimStart (s: string) (t: char[]) =
+    if t = null || Array.isEmpty t then
+        TrimStartWS s
+    else
+        let mutable i = 0
+        let mutable go = true
+        while i < s.Length && go do
+            let c = s.[i]
+            if t |> Array.exists ((=) c) then
+                i <- i + 1 
+            else go <- false
+        s.Substring(i)
 
 [<Direct @"$s.replace(/\s+$/,'')">]
-let TrimEnd (s: string) = X<string>
+let TrimEndWS (s: string) = X<string>
+
+let TrimEnd (s: string) (t: char[]) =
+    if t = null || Array.isEmpty t then
+        TrimEndWS s
+    else 
+        let mutable i = s.Length - 1
+        let mutable go = true
+        while i >= 0 && go do
+            let c = s.[i]
+            if t |> Array.exists ((=) c) then
+                i <- i - 1 
+            else go <- false
+        s.Substring(0, i + 1)
 
 [<Direct "$values.join($sep)">]
 let Join (sep: string) (values: string []) = X<string>
@@ -167,7 +193,7 @@ type private StringProxy =
                             get (pos: int) = X<char>
 
     [<Inline "$this">]
-    member this.Clone() = this
+    member this.Clone() = this :> obj
 
     [<Inline>]
     static member Compare(x: string, y: string) =
@@ -200,7 +226,7 @@ type private StringProxy =
     static member Equals(x: string, y: string) = X<bool>
 
     [<Inline>]
-    member this.GetEnumerator() = Enumerator.Get (unbox<seq<char>> this)
+    member this.GetEnumerator() = Enumerator.Get (unbox<seq<char>> this) |> As<System.CharEnumerator>
 
     [<Inline "$this.indexOf($s)">]
     member this.IndexOf(s: string) = X<int>
@@ -318,10 +344,10 @@ type private StringProxy =
     member this.Trim() = Trim (As this)
 
     [<Inline>]
-    member this.TrimStart() = TrimStart (As this)
+    member this.TrimStart(t: char[]) = TrimStart (As this) t
 
     [<Inline>]
-    member this.TrimEnd() = TrimEnd (As this)
+    member this.TrimEnd(t: char[]) = TrimEnd (As this) t
 
     [<Inline "$a + $b">]
     static member (+) (a: string, b: string) = X<string>

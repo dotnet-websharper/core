@@ -175,6 +175,7 @@ type private CancellationTokenSourceProxy [<JavaScript>] () =
     static member CreateLinkedTokenSource(tokens: CT[]) =
         let cts = new CTS()
         tokens |> Array.iter (fun t -> t.Register(fun () -> cts.Cancel()) |> ignore)
+        cts
 
     static member CreateLinkedTokenSource(t1: CT, t2: CT) =
         CancellationTokenSourceProxy.CreateLinkedTokenSource [| t1; t2 |]

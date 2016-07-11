@@ -118,7 +118,7 @@ let inline ( >>> ) (a: 'T) (b: int) : 'T = a >>> b
 let ( @ ) a b = List.append a b
 
 [<Inline "$a + $b">]
-let ( ^ ) (a: string) (b: string) = a + b
+let ( ^ ) (a: string) (b: string) : string = a + b
 
 [<Inline "$a ^ $b">]
 let ( ^^^ ) (a: 'T) (b: 'T) = X<'T>
@@ -232,7 +232,7 @@ let InvalidArg (arg: string) (msg: string) : 'T = raise (System.ArgumentExceptio
 let ToInt (x: 'T) = X<int>
 
 [<Inline "Number($x)">]
-let ToSingle (x: 'T) = X<'T>
+let ToSingle (x: 'T) = X<single>
 
 [<Inline "($x << 0)">]
 let ToInt32 (x: 'T) = X<int32>

@@ -48,7 +48,7 @@ type internal DelegateProxy =
         DelegateProxy.DelegateTarget this
 
     [<Inline "$wsruntime.CreateDelegate($0)">]
-    static member CreateDelegate(invokes: Delegate[]) = X<Delegate>
+    static member JSCreateDelegate(invokes: Delegate[]) = X<Delegate>
 
     [<Inline "$wsruntime.CombineDelegates([$0, $1])">]
     static member Combine(a: Delegate, b: Delegate) = X<Delegate>
@@ -71,13 +71,13 @@ type internal DelegateProxy =
                 found <- true
             else
                 resInv.JS.Unshift(it) |> ignore
-        DelegateProxy.CreateDelegate(resInv)         
+        DelegateProxy.JSCreateDelegate(resInv)         
 
     static member RemoveAll(source:Delegate, value: Delegate) =
         let sourceInv = source.GetInvocationList()
         if value.GetInvocationList().Length > 1 then
             failwith "TODO: Remove multicast delegates"
-        DelegateProxy.CreateDelegate(sourceInv |> Array.filter (fun i -> not (i.Equals(value))))         
+        DelegateProxy.JSCreateDelegate(sourceInv |> Array.filter (fun i -> not (i.Equals(value))))         
 
 [<Proxy(typeof<MulticastDelegate>)>]
 type internal MulticastDelegateProxy =

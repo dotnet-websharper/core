@@ -53,4 +53,12 @@ let Tests =
             isTrue ((HS [ 1 .. 5]).IsSubsetOf(HS [ 0 .. 7 ]))
         }
 
+//        Test "GetEnumerator" {
+//            let s = HS [ "a"; "b"; "c"; "a" ]
+//            let first = 
+//                let mutable e = s.GetEnumerator()
+//                e.MoveNext() |> ignore
+//                e.Current
+//            equal first "a"
+//        }
     }

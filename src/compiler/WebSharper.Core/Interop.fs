@@ -75,27 +75,27 @@ type FuncWithRest<'TRest, 'TResult> =
     inherit Function
     new (func: 'TRest[] -> 'TResult) = { }
     member this.Call ([<PA>] rest: 'TRest[]) = X<'TResult>
-type FuncWithRest<'TRest, 'T, 'TResult> =
+type FuncWithRest<'T, 'TRest, 'TResult> =
     inherit Function
     new (func: 'T * 'TRest[] -> 'TResult) = { }
     member this.Call (arg: 'T, [<PA>] rest: 'TRest[]) = X<'TResult>
-type FuncWithRest<'TRest, 'T1, 'T2, 'TResult> =
+type FuncWithRest<'T1, 'T2, 'TRest, 'TResult> =
     inherit Function
     new (func: 'T1 * 'T2 * 'TRest[] -> 'TResult) = { }
     member this.Call (arg1: 'T1, arg2: 'T2, [<PA>] rest: 'TRest[]) = X<'TResult>
-type FuncWithRest<'TRest, 'T1, 'T2, 'T3, 'TResult> =
+type FuncWithRest<'T1, 'T2, 'T3, 'TRest, 'TResult> =
     inherit Function
     new (func: 'T1 * 'T2 * 'T3 * 'TRest[] -> 'TResult) = { }
     member this.Call (arg1: 'T1, arg2: 'T2, arg3: 'T3, [<PA>] rest: 'TRest[]) = X<'TResult>
-type FuncWithRest<'TRest, 'T1, 'T2, 'T3, 'T4, 'TResult> =
+type FuncWithRest<'T1, 'T2, 'T3, 'T4, 'TRest, 'TResult> =
     inherit Function
     new (func: 'T1 * 'T2 * 'T3 * 'T4 * 'TRest[] -> 'TResult) = { }
     member this.Call (arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, [<PA>] rest: 'TRest[]) = X<'TResult>
-type FuncWithRest<'TRest, 'T1, 'T2, 'T3, 'T4, 'T5, 'TResult> =
+type FuncWithRest<'T1, 'T2, 'T3, 'T4, 'T5, 'TRest, 'TResult> =
     inherit Function
     new (func: 'T1 * 'T2 * 'T3 * 'T4 * 'T5 * 'TRest[] -> 'TResult) = { }
     member this.Call (arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, [<PA>] rest: 'TRest[]) = X<'TResult>
-type FuncWithRest<'TRest, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TResult> =
+type FuncWithRest<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TRest, 'TResult> =
     inherit Function
     new (func: 'T1 * 'T2 * 'T3 * 'T4 * 'T5 * 'T6 * 'TRest[] -> 'TResult) = { }
     member this.Call (arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6, [<PA>] rest: 'TRest[]) = X<'TResult>

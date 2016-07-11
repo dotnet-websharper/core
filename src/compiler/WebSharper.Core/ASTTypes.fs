@@ -372,6 +372,8 @@ module Reflection =
     let rec ReadType (t: System.Type) =        
         if t.IsArray then
             ArrayType (ReadType(t.GetElementType()), t.GetArrayRank())
+        elif t.IsByRef then
+            ByRefType (ReadType(t.GetElementType()))
         elif FST.IsFunction t then
             let a, r = FST.GetFunctionElements t
             FSharpFuncType(ReadType a, ReadType r)        
@@ -417,6 +419,23 @@ module Reflection =
     let ReadConstructor c =
         Constructor (readConstructorInfo c)    
 
+    let ReadMember (m: System.Reflection.MemberInfo) =
+        match m with
+        | :? System.Reflection.ConstructorInfo as c ->
+            if c.IsStatic then Member.StaticConstructor
+            else Member.Constructor (ReadConstructor c)    
+            |> Some
+        | :? System.Reflection.MethodInfo as m ->
+            if m.IsVirtual then
+                let b = m.GetBaseDefinition()
+                let typ = b.DeclaringType 
+                let info = ReadTypeDefinition typ, ReadMethod b 
+                if typ.IsInterface then Member.Implementation info
+                else Member.Override info
+            else Member.Method (not m.IsStatic, ReadMethod m)    
+            |> Some
+        | _ -> None
+
     let LoadType (t: Type) =
         try System.Type.GetType(t.AssemblyQualifiedName, true)  
         with _ -> failwithf "Failed to load type '%s'" t.AssemblyQualifiedName
@@ -429,6 +448,11 @@ module Reflection =
         ||| System.Reflection.BindingFlags.Static
         ||| System.Reflection.BindingFlags.Public
         ||| System.Reflection.BindingFlags.NonPublic
+
+    let [<Literal>] AllPublicMethodsFlags = 
+        System.Reflection.BindingFlags.Instance
+        ||| System.Reflection.BindingFlags.Static
+        ||| System.Reflection.BindingFlags.Public
 
     let LoadMethod td (m: Method) =
         let m = m.Value

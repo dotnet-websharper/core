@@ -171,12 +171,14 @@ let cleanRuntime expr =
             | _ ->
                 thisFunc obj [arg] body isReturn |> WithSourcePosOfExpr f
         | "CreateFuncWithRest", [ Value (Int length); TupledLambda (vars, body, isReturn) as f ] ->
-            let rest :: fixRev = List.rev vars
-            let fix = List.rev fixRev
-            if containsVar rest body then
-                func fix (Let (rest, sliceFromArguments [ length ], body)) isReturn |> WithSourcePosOfExpr f
-            else
-                func fix body isReturn |> WithSourcePosOfExpr f
+            match List.rev vars with
+            | rest :: fixRev ->
+                let fix = List.rev fixRev
+                if containsVar rest body then
+                    func fix (Let (rest, sliceFromArguments [ length ], body)) isReturn |> WithSourcePosOfExpr f
+                else
+                    func fix body isReturn |> WithSourcePosOfExpr f
+            | _ -> expr
         | "SetOptional", [obj; field; optValue] ->
             match optValue with
             | Object ["$", Value (Int 0)] ->

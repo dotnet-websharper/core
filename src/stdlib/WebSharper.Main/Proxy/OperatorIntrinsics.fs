@@ -85,7 +85,7 @@ let GetArraySlice2DFixed2 (arr: _[,]) start1 finish1 fixed2 =
     let dst = JavaScript.Array(len1)
     for i = 0 to len1 - 1 do 
         F.SetArray dst.Self i (F.GetArray2D arr (start1+i) fixed2)
-    dst
+    dst.Self
 
 [<Name "setArray2Dfix1">]
 let SetArraySlice2DFixed1 (dst: _[,]) fixed1 start2 finish2 (src:_[]) = 

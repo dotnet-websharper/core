@@ -36,6 +36,6 @@ type private ArrayProxy =
 
     member this.Length
         with [<Inline>] get() = F.GetLength (As this)   
-        
+
     [<Inline>]
     member this.GetEnumerator() = Enumerator.Get0 (As this)         

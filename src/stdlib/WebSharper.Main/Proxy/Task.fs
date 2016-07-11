@@ -122,15 +122,15 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
     static member FromCanceled ct = 
         As<Task> (TaskProxy(null, ct, TaskStatus.Canceled, null)) 
 
-    static member FromException exc =
-        As<Task> (TaskProxy(null, CT.None, TaskStatus.Faulted, exc))
+    static member FromException (exc: exn) =
+        As<Task> (TaskProxy(null, CT.None, TaskStatus.Faulted, System.AggregateException(exc)))
 
     static member FromResult (res: 'T) = 
         As<Task<'T>> (TaskProxy<'T>(null, CT.None, TaskStatus.RanToCompletion, null, res)) 
 
     [<Inline>]
     static member Run(action : System.Action) =
-       TaskProxy.Run(action, CT.None)      
+       TaskProxy.Run(action, CT.None)
         
     static member Run(action : System.Action, ct) =
         let res = TaskProxy(action, ct, TaskStatus.Created, null)
@@ -144,13 +144,13 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
     static member Run(func : System.Func<'T>, ct) =
         let res = TaskProxy<'T>(func, ct, TaskStatus.Created, null, JS.Undefined)
         res.Start()
-        As<Task<'T>> res
+        As<Task<'T>> res   
 
-    static member Delay(time: int) =        
-        Async.StartAsTask (Async.Sleep time)
+    static member Delay(time: int) =   
+        Async.StartAsTask (Async.Sleep time) :> Task
              
     static member Delay(time: int, ct) =        
-        Async.StartAsTask (Async.Sleep time, cancellationToken = ct)
+        Async.StartAsTask (Async.Sleep time, cancellationToken = ct) :> Task
 
     [<Inline>]
     static member Delay(time: System.TimeSpan) =        
@@ -169,8 +169,8 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
     static member WhenAny(tasks: seq<Task>) = TaskProxy.WhenAny(Array.ofSeq tasks)
 
     static member WhenAny(tasks: Task<'T>[]) =
-        let tcs = System.Threading.Tasks.TaskCompletionSource<'T>()
-        for t in tasks do t.ContinueWith (fun (t: Task<'T>) -> tcs.TrySetResult t.Result |> ignore) |> ignore
+        let tcs = System.Threading.Tasks.TaskCompletionSource<Task<'T>>()
+        for t in tasks do t.ContinueWith (fun t -> tcs.TrySetResult t |> ignore) |> ignore
         tcs.Task
             
     [<Inline>]                         

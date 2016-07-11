@@ -43,7 +43,7 @@ let CopyTo (stack: obj) (array: 'T[]) (index: int) =
 type private StackProxy<'T when 'T : equality> =
 
     [<Inline "[].concat($s).reverse()">]
-    new (s: 'T []) = {}
+    private new (s: 'T []) = {}
 
     [<Inline "[]">]
     new () = {}

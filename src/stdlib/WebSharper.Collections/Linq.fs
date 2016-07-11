@@ -299,9 +299,10 @@ type private LinqProxy =
 
     [<Inline>]
     static member ElementAtOrDefault<'T>(this: seq<'T>, index: int) =
-        LinqProxy.ElementAtOrDefault(this, index, Unchecked.defaultof<'T>)
+        LinqProxy.JSElementAtOrDefault(this, index, Unchecked.defaultof<'T>)
 
-    static member ElementAtOrDefault<'T>(this: seq<'T>, index: int, defaultValue: 'T) : 'T =
+    [<Name "ElementAtOrDefault">]
+    static member JSElementAtOrDefault<'T>(this: seq<'T>, index: int, defaultValue: 'T) : 'T =
         try Seq.nth index this
         with _ -> defaultValue
 
@@ -328,17 +329,19 @@ type private LinqProxy =
 
     [<Inline>]
     static member FirstOrDefault<'T>(this: seq<'T>) : 'T =
-        LinqProxy.FirstOrDefault(this, Unchecked.defaultof<'T>)
+        LinqProxy.JSFirstOrDefault(this, Unchecked.defaultof<'T>)
 
-    static member FirstOrDefault<'T>(this: seq<'T>, defaultValue: 'T) : 'T =
+    [<Name "FirstOrDefault">]
+    static member JSFirstOrDefault<'T>(this: seq<'T>, defaultValue: 'T) : 'T =
         use e = this.GetEnumerator()
         if e.MoveNext() then e.Current else defaultValue
 
     [<Inline>]
     static member FirstOrDefault<'T>(this: seq<'T>, predicate: Func<'T, bool>) : 'T =
-        LinqProxy.FirstOrDefault(this, predicate, Unchecked.defaultof<'T>)
+        LinqProxy.JSFirstOrDefault(this, predicate, Unchecked.defaultof<'T>)
 
-    static member FirstOrDefault<'T>(this: seq<'T>, predicate: Func<'T, bool>, defaultValue: 'T) : 'T =
+    [<Name "FirstOrDefault$1">]
+    static member JSFirstOrDefault<'T>(this: seq<'T>, predicate: Func<'T, bool>, defaultValue: 'T) : 'T =
         match Seq.tryFind predicate.Invoke this with
         | Some x -> x
         | None -> defaultValue
@@ -480,9 +483,10 @@ type private LinqProxy =
 
     [<Inline>]
     static member LastOrDefault<'T>(this: seq<'T>, predicate: Func<'T, bool>) : 'T =
-        LinqProxy.LastOrDefault(this, predicate, Unchecked.defaultof<'T>)
+        LinqProxy.JSLastOrDefault(this, predicate, Unchecked.defaultof<'T>)
 
-    static member LastOrDefault<'T>(this: seq<'T>, predicate: Func<'T, bool>, defaultValue: 'T) : 'T =
+    [<Name "LastOrDefault">]
+    static member JSLastOrDefault<'T>(this: seq<'T>, predicate: Func<'T, bool>, defaultValue: 'T) : 'T =
         match LinqProxy.LastPred(this, predicate) with
         | Some x -> x
         | None -> defaultValue
@@ -698,9 +702,10 @@ type private LinqProxy =
 
     [<Inline>]
     static member SingleOrDefault<'T>(this: seq<'T>, predicate: Func<'T, bool>) : 'T =
-        LinqProxy.SingleOrDefault(this, predicate, Unchecked.defaultof<'T>)
+        LinqProxy.JSSingleOrDefault(this, predicate, Unchecked.defaultof<'T>)
 
-    static member SingleOrDefault<'T>(this: seq<'T>, predicate: Func<'T, bool>, defaultValue: 'T) : 'T =
+    [<Name "SingleOrDefault">]
+    static member JSSingleOrDefault<'T>(this: seq<'T>, predicate: Func<'T, bool>, defaultValue: 'T) : 'T =
         use e = this.GetEnumerator()
         let mutable found = None
         while e.MoveNext() do

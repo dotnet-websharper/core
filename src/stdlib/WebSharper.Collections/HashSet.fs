@@ -162,11 +162,11 @@ type internal HashSetProxy<'T when 'T : equality>
                     true
                 else false
 
-        member x.RemoveWhere(cond: 'T -> bool) =
+        member x.RemoveWhere(cond: System.Predicate<'T>) =
             let all = concat data
             for i = 0 to all.Length - 1 do
                 let item = all.[i]
-                if cond item then
+                if cond.Invoke item then
                     x.Remove(item) |> ignore
 
         member x.SetEquals(xs: seq<'T>) =

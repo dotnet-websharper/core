@@ -229,7 +229,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         let x  = x.OriginalDefinition
         Hashed {
             MethodName = x.Name
-            Parameters = x.Parameters |> Seq.map (fun p -> this.ReadType p.Type) |> List.ofSeq
+            Parameters = this.ReadParameterTypes x
             ReturnType = x.ReturnType |> this.ReadType
             Generics = x.Arity
         }
@@ -237,7 +237,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
     member this.ReadConstructor (x: IMethodSymbol) =
         let x  = x.OriginalDefinition
         Hashed {
-            CtorParameters = x.Parameters |> Seq.map (fun p -> this.ReadType p.Type) |> List.ofSeq
+            CtorParameters = this.ReadParameterTypes x
         }
 
     member this.ReadMember (x: IMethodSymbol) =
@@ -245,14 +245,14 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         match name with
         | ".ctor" ->
             Member.Constructor <| Hashed {
-                CtorParameters = x.Parameters |> Seq.map (fun p -> this.ReadType p.Type) |> List.ofSeq
+                CtorParameters = this.ReadParameterTypes x
             }
         | ".cctor" -> Member.StaticConstructor
         | _ ->
             let getMeth (x: IMethodSymbol) =
                 Hashed {
                     MethodName = x.Name
-                    Parameters = x.Parameters |> Seq.map (fun p -> this.ReadType p.Type) |> List.ofSeq
+                    Parameters = this.ReadParameterTypes x
                     ReturnType = x.ReturnType |> this.ReadType
                     Generics = x.Arity
                 }
@@ -289,11 +289,13 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
     member this.ReadParameters (x: IMethodSymbol) =
         x.Parameters |> Seq.map this.ReadParameter |> List.ofSeq   
 
-    //let hasSignature (comp: WebSharper.Compiler.Compilation) (s: Method) (x: IMethodSymbol) =
-    //    let s = s.Value
-    //    x.Arity = s.Generics
-    //    && (x.ReturnType |> sr.ReadType) = s.ReturnType
-    //    && x.Parameters |> Seq.map (fun p -> sr.ReadType p.Type) |> Seq.equals s.Parameters     
+    member this.ReadParameterType (x: IParameterSymbol) =
+        if x.RefKind = RefKind.None then
+            this.ReadType x.Type 
+        else ByRefType (this.ReadType x.Type)   
+
+    member this.ReadParameterTypes (x: IMethodSymbol) =
+        x.Parameters |> Seq.map this.ReadParameterType |> List.ofSeq   
   
     member this.AttributeReader = attrReader
 

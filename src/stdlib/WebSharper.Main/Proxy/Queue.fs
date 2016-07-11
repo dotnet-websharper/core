@@ -42,10 +42,10 @@ let CopyTo (a: obj) (array: 'T[]) (index: int) =
 [<WebSharper.Name "WebSharper.Queue">]
 type private QueueProxy<'T when 'T : equality>
 
-    [<Inline "$data">] (data: 'T []) =
+    [<Inline "$data">] private (data: 'T []) =
 
     [<Inline "[]">]
-    new () = QueueProxy [||]
+    private new () = QueueProxy [||]
 
     member this.Count with [<Inline "$this.length">] get () = X<int>
 

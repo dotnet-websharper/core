@@ -86,8 +86,6 @@ type private AggregateExceptionProxy(message: string, innerExceptions: exn[]) =
 
     new (message, innerExceptions: seq<exn>) = AggregateExceptionProxy(message, Array.ofSeq innerExceptions)
 
-    new (innerException: exn) = AggregateExceptionProxy("One or more errors occurred.", [| innerException |])
-
     new (message, innerException: exn) = AggregateExceptionProxy(message, [| innerException |])
 
     [<Inline>]

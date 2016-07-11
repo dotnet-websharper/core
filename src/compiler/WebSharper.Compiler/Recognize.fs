@@ -283,6 +283,7 @@ and transformStatement (env: Environment) (statement: S.Statement) =
             Block (a |> List.map (fun (var, value) -> VarDeclaration (env.NewVar var, match value with Some v -> trE v | None -> Undefined)))
     | S.While (a, b) -> While (trE a, trS b)
     | S.With (a, b) -> failwith "TODO"
+    | S.StatementComment _ -> failwith "impossible, comments are not parsed"
 
 let createInline thisArg args isPure inlineString =        
     let s = 

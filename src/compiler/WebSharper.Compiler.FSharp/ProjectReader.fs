@@ -99,36 +99,91 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         None
     else    
     
-    let def =
+    let def, proxied =
         match annot.ProxyOf with
         | Some p -> 
             comp.AddProxy(thisDef, p)
             if cls.Accessibility.IsPublic then
                 comp.AddWarning(Some (CodeReader.getRange cls.DeclarationLocation), SourceWarning "Proxy type should not be public")
-            p
-        | _ -> thisDef
+            let proxied =
+                let t = Reflection.LoadTypeDefinition p
+                t.GetMembers(Reflection.AllPublicMethodsFlags) |> Seq.choose Reflection.ReadMember
+                |> Seq.collect (fun m ->
+                    match m with
+                    | Member.Override (_, me) -> [ Member.Method (true, me); m ]
+                    | _ -> [ m ]
+                ) |> HashSet
+            p, Some proxied
+        | _ -> thisDef, None
 
     let clsMembers = ResizeArray()
     
     let getUnresolved (mAnnot: A.MemberAnnotation) kind compiled expr = 
-            {
-                Kind = kind
-                StrongName = mAnnot.Name
-                Macros = mAnnot.Macros
-                Generator = 
-                    match mAnnot.Kind with
-                    | Some (A.MemberKind.Generated (g, p)) -> Some (g, p)
-                    | _ -> None
-                Compiled = compiled 
-                Pure = mAnnot.Pure
-                Body = expr
-                Requires = mAnnot.Requires
-            }
+        {
+            Kind = kind
+            StrongName = mAnnot.Name
+            Macros = mAnnot.Macros
+            Generator = 
+                match mAnnot.Kind with
+                | Some (A.MemberKind.Generated (g, p)) -> Some (g, p)
+                | _ -> None
+            Compiled = compiled 
+            Pure = mAnnot.Pure
+            Body = expr
+            Requires = mAnnot.Requires
+        }
 
-    let addMethod mAnnot def kind compiled expr =
+    let addMethod (mem: option<FSMFV * Member>) mAnnot (def: Method) kind compiled expr =
+        match proxied, mem with
+        | Some ms, Some (mem, memdef) ->
+            if not <| ms.Contains memdef then
+                let candidates =
+                    let n = def.Value.MethodName
+                    match memdef with
+                    | Member.Method (i, _) ->
+                        ms |> Seq.choose (fun m ->
+                            match m with
+                            | Member.Method (mi, m) -> if mi = i && m.Value.MethodName = n then Some (string m.Value) else None
+                            | Member.Override (_, m) -> if i && m.Value.MethodName = n then Some (string m.Value) else None 
+                            | _ -> None 
+                        )    
+                    | Member.Override _ ->
+                        ms |> Seq.choose (fun m ->
+                            match m with
+                            | Member.Method (true, m) -> if m.Value.MethodName = n then Some (string m.Value) else None
+                            | Member.Override (_, m) -> if m.Value.MethodName = n then Some (string m.Value) else None 
+                            | _ -> None 
+                        )    
+                    | Member.Implementation (intf, _) ->
+                        ms |> Seq.choose (fun m ->
+                            match m with
+                            | Member.Implementation (i, m) -> if i = intf && m.Value.MethodName = n then Some (i.Value.FullName + string m.Value) else None 
+                            | _ -> None 
+                        )  
+                    | _ -> Seq.empty  
+                    |> List.ofSeq
+                if List.isEmpty candidates then
+                    if not (mem.Accessibility.IsPrivate || mem.Accessibility.IsInternal) then
+                        let msg = "Proxy member do not match any member names of target class."
+                        comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
+                else 
+                    let msg = sprintf "Proxy member do not match any member signatures of target class. Current: %s, candidates: %s" (string def.Value) (String.concat ", " candidates)
+                    comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
+        | _ -> ()
         clsMembers.Add (NotResolvedMember.Method (def, (getUnresolved mAnnot kind compiled expr)))
         
-    let addConstructor mAnnot def kind compiled expr =
+    let addConstructor (mem: option<FSMFV * Member>) mAnnot (def: Constructor) kind compiled expr =
+        match proxied, mem with
+        | Some ms, Some (mem, memdef) ->
+//            if mem.Accessibility.IsPublic then
+                if def.Value.CtorParameters.Length > 0 && not (ms.Contains memdef) then
+                    let candidates = 
+                        ms |> Seq.choose (function Member.Constructor c -> Some c | _ -> None)
+                        |> Seq.map (fun m -> string m.Value) |> List.ofSeq
+                    if not (mem.Accessibility.IsPrivate || mem.Accessibility.IsInternal) then
+                        let msg = sprintf "Proxy constructor do not match any constructor signatures of target class. Current: %s, candidates: %s" (string def.Value) (String.concat ", " candidates)
+                        comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
+        | _ -> ()
         clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mAnnot kind compiled expr)))
 
     let annotations = Dictionary ()
@@ -157,7 +212,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let stubs = HashSet()
 
-
     for meth in cls.MembersFunctionsAndValues do
         if meth.IsProperty then () else
         let mAnnot = getAnnot meth
@@ -174,11 +228,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 let expr, err = Stubs.GetMethodInline annot mAnnot isInstance mdef
                 err |> Option.iter error
                 stubs.Add memdef |> ignore
-                addMethod mAnnot mdef N.Inline true expr
+                addMethod (Some (meth, memdef)) mAnnot mdef N.Inline true expr
             | Member.Constructor cdef ->
                 let expr, err = Stubs.GetConstructorInline annot mAnnot cdef
                 err |> Option.iter error
-                addConstructor mAnnot cdef N.Inline true expr
+                addConstructor (Some (meth, memdef)) mAnnot cdef N.Inline true expr
             | Member.Implementation(_, _) -> error "Implementation method can't have Stub attribute"
             | Member.Override(_, _) -> error "Override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
@@ -186,7 +240,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             match memdef with
             | Member.Method (isInstance, mdef) ->
                 if not isInstance then failwith "Abstract method should not be static" 
-                addMethod mAnnot mdef N.Abstract true Undefined
+                addMethod (Some (meth, memdef)) mAnnot mdef N.Abstract true Undefined
             | _ -> failwith "Member kind not expected for astract method"
         | Some (A.MemberKind.Remote rp) ->
             match memdef with
@@ -199,7 +253,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | _ -> RemoteSync
                 let isCsrfProtected t = true // TODO
                 let rp = rp |> Option.map (fun t -> t, isCsrfProtected t)
-                addMethod mAnnot mdef (N.Remote(remotingKind, comp.GetRemoteHandle(), rp)) true Undefined
+                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, comp.GetRemoteHandle(), rp)) true Undefined
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
 
@@ -386,7 +440,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     let addModuleValueProp kind body =
                         if List.isEmpty args && meth.EnclosingEntity.IsFSharpModule then
                             let iBody = Call(None, NonGeneric def, Generic mdef (List.init mdef.Value.Generics TypeParameter), [])
-                            addMethod mAnnot (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) N.Inline false iBody    
+                            // TODO : check proxy targets for module values
+                            addMethod None mAnnot (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) N.Inline false iBody    
                             if meth.IsMutable then 
                                 let setm = 
                                     let me = mdef.Value
@@ -402,13 +457,18 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         let value = CodeReader.namedId "v"                                    
                                         Function ([value], (ExprStatement <| FieldSet(None, NonGeneric scDef, name, Var value)))
                                     | _ -> failwith "unexpected form in module let body"
-                                addMethod { mAnnot with Name = None } setm kind false setb    
+                                addMethod None { mAnnot with Name = None } setm kind false setb    
+                            true
+                        else false
+
+                    let addM = addMethod (Some (meth, memdef)) mAnnot mdef
 
                     let jsMethod isInline =
                         let kind = if isInline then N.Inline else getKind()
-                        let body = getBody isInline
-                        addMethod mAnnot mdef kind false body
-                        addModuleValueProp kind body
+                        let body = getBody isInline                        
+                        if addModuleValueProp kind body then
+                            addMethod None mAnnot mdef kind false body  
+                        else addM kind false body
 
                     let checkNotAbstract() =
                         if meth.IsDispatchSlot then
@@ -424,24 +484,25 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     match kind with
                     | A.MemberKind.NoFallback ->
                         checkNotAbstract()
-                        addMethod mAnnot mdef N.NoFallback true Undefined
+                        addM N.NoFallback true Undefined
                     | A.MemberKind.Inline js ->
                         checkNotAbstract() 
                         let vars, thisVar = getVarsAndThis()
                         try 
                             let parsed = WebSharper.Compiler.Recognize.createInline thisVar vars mAnnot.Pure js
-                            addMethod mAnnot mdef N.Inline true parsed
-                            addModuleValueProp N.Inline parsed
+                            if addModuleValueProp N.Inline parsed then
+                                addMethod None mAnnot mdef N.Inline true parsed   
+                            else addM N.Inline true parsed
                         with e ->
                             error ("Error parsing inline JavaScript: " + e.Message)
                     | A.MemberKind.Constant c ->
                         checkNotAbstract() 
-                        addMethod mAnnot mdef N.Inline true (Value c)                        
+                        addM N.Inline true (Value c)                        
                     | A.MemberKind.Direct js ->
                         let vars, thisVar = getVarsAndThis()
                         try
                             let parsed = WebSharper.Compiler.Recognize.parseDirect thisVar vars js
-                            addMethod mAnnot mdef (getKind()) true parsed
+                            addM (getKind()) true parsed
                         with e ->
                             error ("Error parsing direct JavaScript: " + e.Message)
                     | A.MemberKind.JavaScript ->
@@ -452,13 +513,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.OptionalField ->
                         if meth.IsPropertyGetterMethod then
                             let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String meth.CompiledName.[4..])))
-                            addMethod mAnnot mdef N.Inline true i
+                            addM N.Inline true i
                         elif meth.IsPropertySetterMethod then  
                             let i = JSRuntime.SetOptional (Hole 0) (Value (String meth.CompiledName.[4..])) (Hole 1)
-                            addMethod mAnnot mdef N.Inline true i
+                            addM N.Inline true i
                         else error "OptionalField attribute not on property"
                     | A.MemberKind.Generated _ ->
-                        addMethod mAnnot mdef (getKind()) false Undefined
+                        addM (getKind()) false Undefined
                     | A.MemberKind.AttributeConflict m -> error m
                     | A.MemberKind.Remote _ 
                     | A.MemberKind.Stub -> failwith "should be handled previously"
@@ -468,32 +529,33 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             comp.Graph.AddEdge(EntryPointNode, MethodNode (def, mdef))
                         comp.SetEntryPoint(ep)
                 | Member.Constructor cdef ->
+                    let addC = addConstructor (Some (meth, memdef)) mAnnot cdef
                     let jsCtor isInline =   
                         if isInline then 
-                            addConstructor mAnnot cdef N.Inline false (getBody true)
+                            addC N.Inline false (getBody true)
                         else
-                            addConstructor mAnnot cdef N.Constructor false (getBody false)
+                            addC N.Constructor false (getBody false)
                     match kind with
                     | A.MemberKind.NoFallback ->
-                        addConstructor mAnnot cdef N.NoFallback true Undefined
+                        addC N.NoFallback true Undefined
                     | A.MemberKind.Inline js ->
                         let vars, thisVar = getVarsAndThis()
                         try
                             let parsed = WebSharper.Compiler.Recognize.createInline thisVar vars mAnnot.Pure js
-                            addConstructor mAnnot cdef N.Inline true parsed 
+                            addC N.Inline true parsed 
                         with e ->
                             error ("Error parsing inline JavaScript: " + e.Message)
                     | A.MemberKind.Direct js ->
                         let vars, thisVar = getVarsAndThis()
                         try
                             let parsed = WebSharper.Compiler.Recognize.parseDirect thisVar vars js
-                            addConstructor mAnnot cdef N.Static true parsed 
+                            addC N.Static true parsed 
                         with e ->
                             error ("Error parsing direct JavaScript: " + e.Message)
                     | A.MemberKind.JavaScript -> jsCtor false
                     | A.MemberKind.InlineJavaScript -> jsCtor true
                     | A.MemberKind.Generated _ ->
-                        addConstructor mAnnot cdef N.Static false Undefined
+                        addC N.Static false Undefined
                     | A.MemberKind.AttributeConflict m -> error m
                     | A.MemberKind.Remote _
                     | A.MemberKind.Stub -> failwith "should be handled previously"
@@ -608,7 +670,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         normalFields
                 Lambda (vars, CopyCtor(def, obj))
 
-            addConstructor A.MemberAnnotation.BasicJavaScript cdef N.Static false body
+            addConstructor None A.MemberAnnotation.BasicJavaScript cdef N.Static false body
 
             // properties
 
@@ -626,7 +688,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
                 let getBody = FieldGet(Some (Hole 0), recTyp, f.Name)
                 
-                addMethod A.MemberAnnotation.BasicInlineJavaScript getDef N.Inline false getBody
+                addMethod None A.MemberAnnotation.BasicInlineJavaScript getDef N.Inline false getBody
 
                 if f.IsMutable then
                     let setDef =
@@ -639,7 +701,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
                     let setBody = FieldSet(Some (Hole 0), recTyp, f.Name, Hole 1)
             
-                    addMethod A.MemberAnnotation.BasicInlineJavaScript setDef N.Inline false setBody
+                    addMethod None A.MemberAnnotation.BasicInlineJavaScript setDef N.Inline false setBody
 
         if cls.IsFSharpRecord then
 

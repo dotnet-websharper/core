@@ -74,8 +74,8 @@ type FuncWithOnlyThisProxy<'TThis, 'TResult> =
 
     member this.Length with [<Inline "$this.length">] get() = 0
 
-    [<Inline "$wsruntime.Bind($this, $thisArg)">]
-    member this.Bind (thisArg: 'TThis) = X<unit -> 'TResult>
+    [<Inline "$this.call($thisArg)">]
+    member this.Call (thisArg: 'TThis) = X<unit>
 
 [<Proxy(typeof<FuncWithRest<_,_>>)>]
 type FuncWithRestProxy<'TRest, 'TResult> =
