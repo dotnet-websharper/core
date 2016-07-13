@@ -105,7 +105,6 @@ namespace WebSharper.CSharp.Tests
             IsTrue(SeqDisposed);
         }
 
-//        [JavaScript(false)]
         public async Task<int> GetOneAsync()
         {
             var o = Task.FromResult(1);
@@ -117,6 +116,18 @@ namespace WebSharper.CSharp.Tests
         {
             var one = await GetOneAsync();
             Equal(one, 1);
+        }
+
+        [Test("loop inside Async")]
+        public async Task AsyncLoop()
+        {
+            var i = 0;
+            while (i < 10)
+            {
+                await Task.Delay(0);
+                i++;
+            }
+            Equal(i, 10);
         }
 
         public string First { get; set; }

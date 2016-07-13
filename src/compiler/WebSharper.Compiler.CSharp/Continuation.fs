@@ -69,8 +69,17 @@ type HasGotos() =
     override this.VisitContinue(a) =
         if Option.isSome a then found <- true
 
+    override this.VisitContinuation(_,_) =
+        found <- true
+
     override this.VisitYield(_) =
         found <- true
+
+    override this.VisitStatement(s) =
+        if not found then base.VisitStatement(s)
+
+    override this.VisitExpression(e) =
+        if not found then base.VisitExpression(e)
         
     static member Check s =
         let vis = HasGotos()
