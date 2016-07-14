@@ -994,7 +994,7 @@ type EqualityComparer() =
 
     static member GetDefault(comp: M.ICompilation, t: Type) =
         match t with
-        | TypeParameter _ -> MacroNeedsResolvedTypeArg
+        | TypeParameter _ | StaticTypeParameter _ -> MacroNeedsResolvedTypeArg
         | ConcreteType ct ->
             match isImplementing comp ct.Entity ieqTy with
             | Some isEquatable ->
@@ -1040,7 +1040,7 @@ type Comparer() =
 
     static member GetDefault(comp: M.ICompilation, t: Type) =
         match t with
-        | TypeParameter _ -> MacroNeedsResolvedTypeArg
+        | TypeParameter _ | StaticTypeParameter _ -> MacroNeedsResolvedTypeArg
         | ConcreteType ct ->
             match isImplementing comp ct.Entity icmpTy with
             | Some isEquatable ->
@@ -1091,8 +1091,15 @@ type DefaultOf() =
                 | "System.TimeSpan" -> true
                 | _ -> false)
             -> MacroOk (Value (Int 0))
-        | TypeParameter _ -> MacroNeedsResolvedTypeArg
+        | TypeParameter _ | StaticTypeParameter _ -> MacroNeedsResolvedTypeArg
         | _ -> MacroOk (Value (Null))
+
+[<Sealed>]
+type TypeTest() =
+    inherit Macro()
+
+    override __.TranslateCall(c) =
+        TypeCheck(c.Arguments.Head, c.Method.Generics.Head) |> MacroOk
 
 let stringTy, lengthMeth, padLeft, padRight =
     let t = typeof<System.String>

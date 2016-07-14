@@ -156,6 +156,11 @@ type DefaultOf =
     inherit Macro
 
 [<Sealed>]
+type TypeTest =
+    new : unit -> TypeTest
+    inherit Macro
+
+[<Sealed>]
 type StringFormat =
     new : unit -> StringFormat
     inherit Macro

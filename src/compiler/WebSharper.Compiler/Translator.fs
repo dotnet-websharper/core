@@ -1023,7 +1023,7 @@ type DotNetToJavaScript private (comp: Compilation) =
                 match comp.TryLookupClassInfo t with
                 | Some c ->
                     match c.Address with
-                    | Some a when not c.IsStatic ->
+                    | Some a ->
                         Binary(this.TransformExpression expr, BinaryOperator.instanceof, GlobalAccess a)
                     | _ ->
                         this.Error(SourceError ("Type test cannot be translated because client-side class does not have a prototype: " + t.Value.FullName))
@@ -1038,6 +1038,12 @@ type DotNetToJavaScript private (comp: Compilation) =
                         Let (i, trE, this.TransformTypeCheck(Var i, ConcreteType uTyp) ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
                     | _ -> 
                         this.Error(SourceError (sprintf "Failed to compile a type check for type '%s'" tname))
+        | TypeParameter _ | StaticTypeParameter _ -> 
+            if currentIsInline then
+                hasDelayedTransform <- true
+                TypeCheck(this.TransformExpression expr, typ)
+            else 
+                this.Error(SourceError "Using a type test on a type parameter requires the Inline attribute.")
         | _ -> this.Error(SourceError "Type tests do not support generic and array types.")
 
     override this.TransformExprSourcePos (pos, expr) =
