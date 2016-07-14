@@ -182,4 +182,9 @@ let Tests =
         Test "Resource ordering" {
             equal WIGtest2.SumTest 6    
         }
+
+        Test "Type test" {
+            let el = WebSharper.JavaScript.JS.Document.CreateElement("div") |> box
+            isTrue (el :? Dom.Element)
+        }
     }

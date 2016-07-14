@@ -100,7 +100,7 @@ let isResourceType (e: Mono.Cecil.TypeDefinition) =
     let b = e.BaseType
     not (isNull b) && b.FullName = "WebSharper.Core.Resources/BaseResource"
 
-let TransformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
+let TransformAssembly (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.AssemblyDefinition) =
     let rec withNested (tD: Mono.Cecil.TypeDefinition) =
         if tD.HasNestedTypes then
             Seq.append (Seq.singleton tD) (Seq.collect withNested tD.NestedTypes)
@@ -176,8 +176,7 @@ let TransformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
 
         let methods = Dictionary()
         let constructors = Dictionary()
-
-        let mutable address = None
+        let mutable hasInstanceMethod = false
          
         for meth in typ.Methods do
             let macros =
@@ -242,12 +241,6 @@ let TransformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
                     with _ ->
                         failwithf "Duplicate definition for constructor of %s, arguments: %s" def.Value.FullName (string cdef.Value)
                     
-                    // TODO: better recognise inlines
-                    if address = None then
-                        match body with
-                        | New (GlobalAccess a, []) -> address <- Some a
-                        | Let (i1, _, New (GlobalAccess a, [Var v1])) when i1 = v1 -> address <- Some a
-                        | _ -> ()
                 else 
                     let mdef =
                         Hashed {
@@ -261,22 +254,24 @@ let TransformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
                     for req in getRequires meth.CustomAttributes do
                         graph.AddEdge(mNode, ResourceNode req)
                     
+                    if not meth.IsStatic then hasInstanceMethod <- true
+
                     try methods.Add(mdef, (kind, isPure, body))
                     with _ ->
                         failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (string mdef.Value)
-
-        if methods.Count = 0 && constructors.Count = 0 then None else
-
+        
+        if constructors.Count = 0 && methods.Count = 0 then None else
+                           
         Some (def, 
             {
-                Address = address
+                Address = prototypes.TryFind(def.Value.FullName) |> Option.map (fun s -> s.Split('.') |> List.ofArray |> List.rev |> Address)
                 BaseClass = baseDef
                 Constructors = constructors
                 Fields = Map.empty 
                 StaticConstructor = None         
                 Methods = methods 
                 Implementations = Map.empty // TODO
-                IsStatic = true
+                IsStatic = constructors.Count = 0 && not hasInstanceMethod
                 Macros = []
             }
         )
@@ -293,5 +288,5 @@ let TransformAssembly (assembly : Mono.Cecil.AssemblyDefinition) =
         EntryPoint = None
     }
 
-let TransformWSAssembly (assembly : WebSharper.Compiler.Assembly) =
-    TransformAssembly assembly.Raw     
+let TransformWSAssembly prototypes (assembly : WebSharper.Compiler.Assembly) =
+    TransformAssembly prototypes assembly.Raw     

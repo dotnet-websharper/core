@@ -22,6 +22,6 @@
 // Used by WebSharper Interface Generator and WebSharper.TypeScript
 module WebSharper.Compiler.Reflector
 
-val TransformAssembly : Mono.Cecil.AssemblyDefinition -> WebSharper.Core.Metadata.Info
+val TransformAssembly : prototypes: IDictionary<string, string> -> Mono.Cecil.AssemblyDefinition -> WebSharper.Core.Metadata.Info
 
-val TransformWSAssembly : WebSharper.Compiler.Assembly -> WebSharper.Core.Metadata.Info
+val TransformWSAssembly : prototypes: IDictionary<string, string> -> WebSharper.Compiler.Assembly -> WebSharper.Core.Metadata.Info
