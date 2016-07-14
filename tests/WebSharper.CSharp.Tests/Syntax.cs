@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using WebSharper.Testing;
+using System.Collections;
 
 namespace WebSharper.CSharp.Tests
 {
@@ -255,6 +256,25 @@ namespace WebSharper.CSharp.Tests
             public string Name { get; set; }
         }
 
+        class MyCollection : IEnumerable<int>
+        {
+            public List<int> Values = new List<int>();
+
+            public void Add(int x) { Values.Add(x); }
+
+            public void Add(string x) { Values.Add(int.Parse(x)); }
+
+            public IEnumerator<int> GetEnumerator()
+            {
+                return ((IEnumerable<int>)Values).GetEnumerator();
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return ((IEnumerable<int>)Values).GetEnumerator();
+            }
+        }
+
         [Test]
         public void Initializers()
         {
@@ -287,6 +307,9 @@ namespace WebSharper.CSharp.Tests
 
             Equal(numbers2.Count, 3);
             Equal(numbers2[13], "thirteen");
+
+            var coll = new MyCollection() { 1, "2", 3 };
+            Equal(coll.ToArray(), new[] { 1, 2, 3 });
         }
 
         public int field = 4;

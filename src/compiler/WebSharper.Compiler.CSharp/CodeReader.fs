@@ -1002,50 +1002,24 @@ type RoslynTransformer(env: Environment) =
         |> withExprSourcePos x.Node
 
     member this.TransformInitializerExpression (x: InitializerExpressionData) : _ =
-        let expressions = x.Expressions |> Seq.map (this.TransformExpression) |> List.ofSeq
         match x.Kind with
         | InitializerExpressionKind.ObjectInitializerExpression -> 
-            Sequential expressions
+            x.Expressions |> Seq.map this.TransformExpression |> List.ofSeq |> Sequential
         | InitializerExpressionKind.CollectionInitializerExpression -> 
-            let addSymbol =
-                env.SemanticModel.GetCollectionInitializerSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-            if isNull addSymbol then
-                // for some reason GetCollectionInitializerSymbolInfo does not always returns the .Add method
-                // then we try to look it up on the type by name and arity
-                let cSymbol = env.SemanticModel.GetSymbolInfo(x.Node.Parent).Symbol :?> IMethodSymbol
-                let cTyp = sr.ReadNamedType cSymbol.ContainingType
-                let addMethods =
-                    cSymbol.ContainingType.GetMembers("Add").OfType<IMethodSymbol>()
-                let addM i = 
-                    let candidates = 
-                        addMethods
-                        |> Seq.filter (fun m -> m.Parameters.Length = i) 
-                        |> Array.ofSeq
-                    if candidates.Length > 1 then 
-                        failwith "Could not look up unique Add method on collection initialization"
-                    elif candidates.Length = 0 then
-                        failwithf "Add method with %d parameters not found for collection initialization" i
-                    else
-                        candidates.[0] |> sr.ReadMethod |> NonGeneric
-                expressions |> List.map (fun item -> 
-                    match IgnoreExprSourcePos item with
-                    | ComplexElement cItem ->
-                        Call(Some (Var env.Initializing.Value), cTyp, addM (List.length cItem), cItem)
-                    | _ -> Call(Some (Var env.Initializing.Value), cTyp, addM 1, [item])
-                ) |> Sequential
-            else
+            x.Expressions |> Seq.map (fun e -> 
+                let item = this.TransformExpression e
+                let addSymbol = env.SemanticModel.GetCollectionInitializerSymbolInfo(e.Node).Symbol :?> IMethodSymbol
                 let cTyp, addM = getTypeAndMethod addSymbol
-                expressions |> List.map (fun item -> 
-                    match IgnoreExprSourcePos item with
-                    | ComplexElement cItem ->
-                        Call(Some (Var env.Initializing.Value), cTyp, addM, cItem)
-                    | _ -> Call(Some (Var env.Initializing.Value), cTyp, addM, [item])
-                ) |> Sequential
+                match IgnoreExprSourcePos item with
+                | ComplexElement cItem ->
+                    Call(Some (Var env.Initializing.Value), cTyp, addM, cItem)
+                | _ -> Call(Some (Var env.Initializing.Value), cTyp, addM, [item])
+            ) |> List.ofSeq |> Sequential
         | InitializerExpressionKind.ArrayInitializerExpression ->
             // TODO: 2-dimensional
-            NewArray expressions
+            x.Expressions |> Seq.map this.TransformExpression |> List.ofSeq |> NewArray
         | InitializerExpressionKind.ComplexElementInitializerExpression -> 
-            ComplexElement expressions
+            x.Expressions |> Seq.map this.TransformExpression |> List.ofSeq |> ComplexElement
         |> withExprSourcePos x.Node
 
     member this.TransformAnonymousObjectCreationExpression (x: AnonymousObjectCreationExpressionData) : _ =
