@@ -62,6 +62,10 @@ type FSharpConvert =
     [<Inline>]
     static member Fun(del: Func<_,_,_,_,_,_,_,_,_>) = fun a b c d e f g h -> del.Invoke(a, b, c, d, e, f, g, h)            
     [<Inline>]
+    static member Fun(del: Predicate<_>) = del.Invoke            
+    [<Inline>]
+    static member Fun(del: Converter<_,_>) = del.Invoke            
+    [<Inline>]
     static member Option<'T >(value: 'T) = if obj.ReferenceEquals(value, null) then None else Some value
     [<Inline>]
     static member Option<'T when 'T : (new: unit -> 'T) and 'T : struct and 'T :> ValueType>(value: Nullable<'T>) = if value.HasValue then Some value.Value else None
