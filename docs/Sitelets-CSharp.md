@@ -1,7 +1,5 @@
 # Developing with Sitelets in C# #
 
-[Click here for the F# version of this documentation.](Sitelets.md)
-
 Sitelets are WebSharper's primary way to create server-side content. They provide facilities to route requests and generate HTML pages or JSON responses.
 
 Sitelets allow you to:
