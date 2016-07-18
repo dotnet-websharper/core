@@ -5,8 +5,8 @@ The three main WebSharper application types are:
  1. **Client-Server Application** - a full client-server application implemented as a WebSharper [sitelet](Sitelets.md).
 
     The sitelet uses a dynamic HTML template and placeholders that are instantiated by the sitelet. See the [HTML templates](Templates.md) page for more information on dynamic templating.
-
-    These applications exist in two flavors: a **Client-Server Web Application** runs as an ASP.NET module, while a **Self-Hosted Client-Server Web Application** runs as a self-contained executable using an OWIN self-host container.
+	
+    These applications exist in two kinds: a **Client-Server Web Application** runs as an ASP.NET module, while a **Self-Hosted Client-Server Web Application** runs as a self-contained executable using an OWIN self-host container.
 
  2. **HTML Application** - a multi-page HTML/JavaScript application.
 

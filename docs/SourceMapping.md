@@ -9,16 +9,7 @@ in a WebSharper assembly, by adding the
 
 property to your project file.
 
-It is also recommended to set
-
-    <OtherFlags>--quotations-debug</OtherFlags>
-
-to have source position information inside reflected definitions available 
-for WebSharper. Otherwise only the starting lines of functions can be mapped.
-
-If you build with `WebSharper.exe` directly, add `-sm` to the command line.
-
-WebSharper itself is built with source map embedding, so you can debug into
+WebSharper itself and all publix  is built with source map embedding, so you can debug into
 WebSharper library code.
 
 ## Outputting source maps for WebSharper web projects
@@ -40,6 +31,8 @@ Use this to jump between generated and original source code.
 You can set breakpoints in the original code.
 
 ![IE source mapping](images/ExplorerSourceMap.PNG)
+
+### Microsoft Edge
 
 ### Google Chrome
 
@@ -64,8 +57,6 @@ don't work correctly as of version 37.0.1.
 
 ### Limitations
 
-* Single-Page Application projects are currently not supported.
-
-* Can not have multiple source files with the same file name in a single project.
+* You cannot have multiple source files with the same file name in a single project.
 
 * Inlines are not mapped.
