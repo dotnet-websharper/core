@@ -20,10 +20,11 @@ the source map files.
 
 ## Usage
 
-### Internet Explorer
+### Internet Explorer & Microsoft Edge
 
 You need to have Internet Explorer 11 on Windows 8.1 Update 1 or newer
 for source map support.
+Edge has inherited the debugging tool from IE11, works similarly.
 
 In the Debugger tab of F12 tools, the last icon in the toolbar says
 "Load the sources mapped to this generated file".
@@ -31,8 +32,6 @@ Use this to jump between generated and original source code.
 You can set breakpoints in the original code.
 
 ![IE source mapping](images/ExplorerSourceMap.PNG)
-
-### Microsoft Edge
 
 ### Google Chrome
 

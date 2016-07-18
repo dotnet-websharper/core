@@ -94,7 +94,7 @@ the JavaScipt function, there are more strongly typed alternatives:
 * For functions that work with the `this` argument, use `ThisAction` and `ThisFunc` classes.
 They have a constructor that takes a delegate, for which the first argument will have the `this` value.
 
-    var logger = new ThisAction<object>(x => WebSharper.JavaScript.Console.Log(x));
+        var logger = new ThisAction<object>(x => WebSharper.JavaScript.Console.Log(x));
 
 * For functions taking variadic arguments, use `ParamsAction` and `ParamsFunc` classes.
 * Finally for functions using the `this` value and have variadic arguments, use `ThisParamsAction` and `ThisParamsFunc`
@@ -110,8 +110,8 @@ You can use `x.GetJS<T>()` to just use the value of `x` exposed as another .NET 
 You can use the `dynamic` type to access JavaScipt properties and functions without any extra helpers:
 
     dynamic d = names;
-	d.getItems()[3].name; // translates directly to `d.getItems()[3].name`
-	
+    var name = d.getItems()[3].name; // translates directly to: d.getItems()[3].name
+    
 Also, operators on dynamic values are translated directly if there is a JavaScipt equivalent.
 
 <a name="meta"></a>
