@@ -501,7 +501,7 @@ type EndPoint =
     | [<Method "GET"; Query "page">] Articles of page: int
 
 let MySitelet = Sitelet.InferWithErrors <| fun context endpoint ->
-	match endpoint with
+    match endpoint with
     | Success (Articles page) ->
         Content.Text ("serving page " + string page)
     | InvalidMethod (_, m) ->
@@ -774,7 +774,7 @@ let customForbidden =
     // Set the HTTP status code to 403 Forbidden:
     |> Content.SetStatus Http.Status.Forbidden
     // Add an HTTP header:
-	|> Content.WithHeaders [Http.Header.Custom "Content-Language" "en"]
+    |> Content.WithHeaders [Http.Header.Custom "Content-Language" "en"]
 ```
 
 <a name="context"></a>

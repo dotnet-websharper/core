@@ -1,4 +1,4 @@
-# Getting Started with WebSharper
+# Getting Started with WebSharper for F# #
 
 This article will walk you through getting a "hello world" WebSharper
 example up and running.
