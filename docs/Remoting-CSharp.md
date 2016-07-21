@@ -2,9 +2,9 @@
 
 ## Remoting
 
-The simplest way to implement client-server communication with Zafir is by remote method calls.
+The simplest way to implement client-server communication with WebSharper is by remote method calls.
 Add the `[Remote]` attibute on a static method and you will be able to call it from
-JavaScript-translated code, all serialization will be handled automatically by the Zafir runtime.
+JavaScript-translated code, all serialization will be handled automatically by the WebSharper runtime.
 Customization of the remoting mechanism are possible for both the server and client side.
 
 Remote calls can fall into three categories, depending on their return type. 

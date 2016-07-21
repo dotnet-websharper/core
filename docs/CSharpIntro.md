@@ -18,6 +18,5 @@ You still get the power of type safety and generics while producing performant c
 * Useful abstractions for reactive forms and UI.
 * Metaprogramming with macros and generators: modify translation of specific calls by custom logic or generate JavaScript function bodies programmatically.
 
-The codename for the related C#/F#-to-JavaScript compilers is Zafir.
-To use WebSharper 4 in your C# project, add the `Zafir` and `Zafir.CSharp` NuGet packages.
+To use WebSharper 4 (beta codename Zafir) in your C# project, add the `Zafir` and `Zafir.CSharp` NuGet packages.
 It is also recommended to download a [vsix installer](...) which adds WebSharper 4 project templates in Visual Studio (under the section Zafir).
