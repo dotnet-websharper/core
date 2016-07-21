@@ -263,7 +263,7 @@ class T
 SiteletBuilder().With<T>(/* ... */)
 
 // Accepted Request:    GET /2015-03-24
-// Parsed Endpoint:     System.DateTime(2015,3,24,15,5,32)
+// Parsed Endpoint:     System.DateTime(2015,3,24)
 // Returned Content:    (determined by .With())
 ```
 
