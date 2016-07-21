@@ -181,5 +181,7 @@ path segments into an array.
 The effect of `Stub` and `JavaScript` attributes are inherited to nested types and members.
 `JavaScript` takes precedence, unless it is only inherited and `Stub` is defined explicitly.
 Using `Proxy` on a type also marks it for JavaScript translation.
-If a member has a `Macro` attribute(s) and not specifies `JavaScript` explicitly, then inherited JavaScript translation won't occur. (Tranlating the method itself is only necessary when all of the macros possibly returns `MacroFallback` result.)
+
+If a member has a `Macro` attribute(s) and not specifies `JavaScript` explicitly, then inherited JavaScript translation won't occur.
+(Tranlating the method itself is only necessary when all of the macros possibly returns `MacroFallback` result.)
 Specifying a method as `Remote` also removes it from the scope of JavaScript translation.

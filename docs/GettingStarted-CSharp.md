@@ -1,6 +1,6 @@
 # Getting started with WebSharper for C# #
 
-This article will walk you through getting a "hello world" WebSharper
+This article will walk you through getting a WebSharper
 example up and running.
 
 ## Creating a project
@@ -12,13 +12,9 @@ After completing [the installation](Install.md), open Visual Studio and create a
     File > New Project > Templates > Visual C# >
     WebSharper > UI.Next Client-Server Web Application
 
-![New Project Screenshot](images/GettingStarted-1.png)
-
 This project defines a simple website, with both server and
 client-side components.  To try it out, simply "Run" (F5) - you should
 now see the code in action:
-
-![Sample App Screenshot](images/GettingStarted-2.png)
 
 ### With MonoDevelop / Xamarin Studio
 
@@ -27,13 +23,9 @@ After completing [the installation](http://websharper.com/docs/install-xs), open
     File > New > Solution... >
     WebSharper > UI.Next Client-Server Web Application
 
-![New Project Screenshot](images/GettingStarted-1.xs.png)
-
 This project defines a simple website, with both server and
 client-side components.  To try it out, simply "Run" (F5) - you should
 now see the code in action:
-
-![Sample App Screenshot](images/GettingStarted-2.png)
 
 ## The project files
 

@@ -1,5 +1,7 @@
 # Overview of WebSharper
 
+(This documentation is for WebSharper 4, which is currently in [open beta](#beta).)
+
 WebSharper is a framework and toolset for developing web/mobile applications and web services 
 entirely in C# or F# (of a mix of the two languages) with strongly-typed client-server 
 communication and site navigation. 
@@ -16,8 +18,8 @@ Here is an overview of WebSharper's capabilities.
 
 ## Sitelets: server-side functionality
 
-WebSharper Sitelets provide server-side functionality to parse HTTP requests
-and serve content. HTTP endpoints are represented by values of a user-defined
+WebSharper Sitelets is an API to parse HTTP requests and serve content in a strongly typed and functional way.
+HTTP endpoints are represented by values of a user-defined
 EndPoint type, which are parsed from requests based on their shape and some
 attributes. With Sitelets, you can:
 
@@ -53,7 +55,7 @@ so safe and swift.
   [WebSharper.Formlets](Formlets.md). (Currently available for F# only)
 * Develop libraries with self-contained client and/or server functionality to reuse in multiple projects.
 * Many JavaScript libraries has typed interfaces for WebSharper available on NuGet, 
-  or write your own using a concise [F# DSL](InterfaceGenerator.md).
+  or write your own using a concise and easily readable [F# DSL](InterfaceGenerator.md).
 
 ## Client-server interaction facilities
 
@@ -84,3 +86,20 @@ between the client and the server has never been easier.
 * Analyzer for C#, showing WebSharper-specific translation errors as you code.
 * Metaprogramming: translate calls to specific methods with your custom logic or 
 easily include JavaScript code generated at compile-time.
+
+<a name="beta"/>
+## WebSharper 4 beta warning
+
+WebSharper 4 is currently released as open beta.
+We plan to change NuGet package versioning scheme for the stable release, so all preview
+NuGet packages are using the codename Zafir ("sapphire" in Hungarian).
+
+Although most planned changes for the stable release involve fixes, new and returning features,
+compiler, server and client runtime performance improvements, breaking changes are possible
+to streamline APIs for cleaner use from one or both languages.
+
+## Contributing
+WebSharper is open-source with [Apache 3.0 license](https://github.com/intellifactory/websharper/blob/master/LICENSE.md).
+WebSharper 4.0 is currently on a branch [websharper4](https://github.com/intellifactory/websharper/tree/websharper4).
+The source of these documentation pages are found in the [docs](https://github.com/intellifactory/websharper/tree/websharper4/docs) folder.
+Issue reports and pull requests are welcome to both code and documentation.
