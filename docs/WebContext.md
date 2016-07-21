@@ -6,13 +6,14 @@ Both in Sitelets and Rpc functions, WebSharper provides a value of type `WebShar
 
 ### Sitelets
 
-In Sitelets, the context provided by [content-generating functions](Sitelets.md#content) such as `PageContent` or `CustomContent` implements `Web.IContext`, so you can use it directly.
+In Sitelets, the context provided by [content-generating functions](Sitelets.md#content) such as `PageContent` or `CustomContent` and by [`SiteletBuilder.With()`](Sitelets-CSharp.md) implements `Web.IContext`, so you can use it directly.
 
 ### Rpc functions
 
-In Rpc functions, the context can be retrieved using the function `WebSharper.Web.Remoting.GetContext()`. Be careful to only call it from the thread from which your function was called. A typical Rpc has the following structure:
+In Rpc functions, the context can be retrieved using the function `WebSharper.Web.Remoting.GetContext()`. A typical Rpc has the following structure:
 
 ```fsharp
+// F#:
 open WebSharper
 open WebSharper.Web
 
@@ -22,9 +23,27 @@ let MyRpcFunction () =
     let context = Remoting.GetContext()
     async {
         // Once retrieved, use the context at will here.
+        do! Async.Sleep 1000
         return System.IO.File.ReadAllText(context.RootFolder + "/someContent.txt")
     }
 ```
+```csharp
+// C#:
+using WebSharper;
+using WebSharper.Web;
+
+[Rpc]
+public static async Task<string> MyRpcFunction ()
+{
+    // Retrieve the context before using await.
+    var context = Remoting.GetContext();
+    // Once retrieved, use the context at will here.
+    await Task.Delay(1000);
+    return System.IO.File.ReadAllText(context.RootFolder + "/someContent.txt");
+}
+```
+
+Be careful to only call `Remoting.GetContext()` from the thread from which your function was called. In F#, this means calling it before entering `async {}`. In C#, this means calling it before any `await`.
 
 <a name="user-sessions"></a>
 ## User Sessions
