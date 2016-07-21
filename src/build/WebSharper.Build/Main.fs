@@ -65,11 +65,9 @@ module Main =
                 Directory.EnumerateFiles(buildDir, name + ".dll")
                 Directory.EnumerateFiles(buildDir, name + ".xml")
             ]
-            |> Seq.map (fun p -> ("lib", p))
 
         let tools name =
             Directory.EnumerateFiles(buildDir, name + ".dll")
-            |> Seq.map (fun p -> ("tools", p))
         
         Seq.concat [
             lib "WebSharper.Core.JavaScript"
@@ -107,7 +105,7 @@ module Main =
             tools "WebSharper.Compiler.CSharp"
             tools "WebSharper.MSBuild.CSharp"
             tools "WebSharper.CSharp.Analyzer"
-//            tools "WebSharper.Sitelets.Offline" // TODO: Sitelets API for C#
+            tools "WebSharper.Sitelets.Offline"
             // shared with main package:
             tools "WebSharper.Core"
             tools "WebSharper.Core.JavaScript"
@@ -149,11 +147,11 @@ module Main =
                     member x.Read() = File.OpenRead(Path.Combine(root, src)) :> _
                     member x.TargetPath = tgt
             }
-        let file kind src tgt =
-            sprintf "/%s/net40/%s" kind (defaultArg tgt (Path.GetFileName src))
+        let fileLib src =
+            sprintf "/lib/net40/%s" (Path.GetFileName src)
             |> fileAt src
-        let file45 kind src tgt =
-            sprintf "/%s/net45/%s" kind (defaultArg tgt (Path.GetFileName src))
+        let fileLib45 src =
+            sprintf "/lib/net45/%s" (Path.GetFileName src)
             |> fileAt src
         let fileTools src =
             sprintf "/tools/%s" (Path.GetFileName src)
@@ -165,10 +163,8 @@ module Main =
                 new INuGetExportingProject with
                     member p.NuGetFiles =
                         seq {
-//                            yield fileAt (Path.Combine(root, "msbuild", "WebSharper.FSharp.targets")) "build/WebSharper.FSharp.targets"
-//                            yield fileAt (Path.Combine(root, "msbuild", "WebSharper.CSharp.targets")) "build/WebSharper.CSharp.targets"
-                            for kind, src in coreExports do
-                                yield file kind src None
+                            for src in coreExports do
+                                yield fileLib src
                             for (src, tgt) in searchDir (Path.Combine(root, "docs")) do
                                 yield fileAt src ("/docs" + tgt)
                             yield fileAt (Path.Combine(root, "src", "htmllib", "tags.csv")) ("/tools/net40/tags.csv")
@@ -187,19 +183,20 @@ module Main =
                             LicenseUrl = Some Config.LicenseUrl
                             Authors = [ Config.Company ]
                     })
-//                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
+                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
                 .AddNuGetExportingProject {
                     new INuGetExportingProject with
                         member p.NuGetFiles =
                             seq {
+//                                yield fileAt (Path.Combine(root, "msbuild", "Zafir.FSharp.Readme.txt")) "content/Zafir.FSharp.Readme.txt"
                                 yield fileAt (Path.Combine(root, "msbuild", "Zafir.FSharp.targets")) ("build/" + Config.FSharpPackageId + ".targets")
-                                yield file "tools" (out "WsFsc.exe") None
-                                yield file "tools" (out "WsFsc.exe.config") None
+                                yield fileTools (out "WsFsc.exe")
+                                yield fileTools (out "WsFsc.exe.config")
                                 let fscore = Path.Combine(root, "packages", "FSharp.Core.4.0.0.1", "lib", "net40")
-                                yield file "tools" (Path.Combine(fscore, "FSharp.Core.optdata")) None
-                                yield file "tools" (Path.Combine(fscore, "FSharp.Core.sigdata")) None
-                                for kind, src in fsExports do
-                                    yield file kind src None
+                                yield fileTools (Path.Combine(fscore, "FSharp.Core.optdata"))
+                                yield fileTools (Path.Combine(fscore, "FSharp.Core.sigdata"))
+                                for src in fsExports do
+                                    yield fileTools src
                             }
                 }
         let csharpNuPkg =
@@ -214,19 +211,20 @@ module Main =
                             LicenseUrl = Some Config.LicenseUrl
                             Authors = [ Config.Company ]
                     })
-//                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
+                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
                 .AddNuGetExportingProject {
                     new INuGetExportingProject with
                         member p.NuGetFiles =
                             seq {
+//                                yield fileAt (Path.Combine(root, "msbuild", "Zafir.CSharp.Readme.txt")) "content/Zafir.CSharp.Readme.txt"
                                 yield fileAt (Path.Combine(root, "msbuild", "Zafir.CSharp.targets")) ("build/" + Config.CSharpPackageId + ".targets")
-                                yield file45 "tools" (out "ZafirCs.exe") None
-                                yield file45 "tools" (out "ZafirCs.exe.config") None
+                                yield fileTools (out "ZafirCs.exe")
+                                yield fileTools (out "ZafirCs.exe.config")
                                 let fscore = Path.Combine(root, "packages", "FSharp.Core.4.0.0.1", "lib", "net40")
-                                yield file45 "tools" (Path.Combine(fscore, "FSharp.Core.optdata")) None
-                                yield file45 "tools" (Path.Combine(fscore, "FSharp.Core.sigdata")) None
-                                for kind, src in csExports do
-                                    yield file45 kind src None
+                                yield fileTools (Path.Combine(fscore, "FSharp.Core.optdata"))
+                                yield fileTools (Path.Combine(fscore, "FSharp.Core.sigdata"))
+                                for src in csExports do
+                                    yield fileTools src
                                 yield fileTools (Path.Combine(root, "src/compiler/WebSharper.CSharp.Analyzer/install.ps1"))
                                 yield fileTools (Path.Combine(root, "src/compiler/WebSharper.CSharp.Analyzer/uninstall.ps1"))
                             }
@@ -248,8 +246,8 @@ module Main =
                     new INuGetExportingProject with
                         member p.NuGetFiles =
                             seq {
-                                for kind, src in testingExports do
-                                    yield file kind src None
+                                for src in testingExports do
+                                    yield fileLib src
                             }
                 }
         let compilerNuPkg =
@@ -269,8 +267,8 @@ module Main =
                     new INuGetExportingProject with
                         member p.NuGetFiles =
                             seq {
-                                for kind, src in compilerExports do
-                                    yield file45 kind src None
+                                for src in compilerExports do
+                                    yield fileLib45 src
                             }
                 }
         [ nuPkg; fsharpNuPkg; csharpNuPkg; testingNuPkg; compilerNuPkg ]
