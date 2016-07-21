@@ -78,7 +78,7 @@ To send collections through remoting, convert them to arrays.
 
 Remote methods are exposed as http endpoints, so any security measures have to be integrated into the method body itself.
 `WebSharper.Web.Remoting.GetContext().UserSession` exposes some utilities for tracking users.
-This uses `System.Web.Security.FormsAuthentication` on the server and cookies in the browser.
+This uses `System.Web.Security.FormsAuthentication` on the server and cookies in the browser. [See here](WebContext.md) for more information.
 
 ```csharp
 [Remote]
