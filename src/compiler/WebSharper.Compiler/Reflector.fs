@@ -271,7 +271,7 @@ let TransformAssembly (prototypes: IDictionary<string, string>) (assembly : Mono
                 StaticConstructor = None         
                 Methods = methods 
                 Implementations = Map.empty // TODO
-                IsStatic = constructors.Count = 0 && not hasInstanceMethod
+                HasWSPrototype = false // do not overwrite external prototype
                 Macros = []
             }
         )

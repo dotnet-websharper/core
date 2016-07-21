@@ -614,9 +614,7 @@ open System.Collections.Generic
 let getAllAddresses (meta: Info) =
     let r = Resolve.Resolver()
     for KeyValue(typ, cls) in meta.Classes do
-        let hasPrototype = not cls.IsStatic
-//        let clAddr = cls.Address |> Option.map (fun a -> r.ExactClassAddress(a.Value, hasPrototype))
-        let pr = if hasPrototype then Some (r.LookupPrototype typ) else None 
+        let pr = if cls.HasWSPrototype then Some (r.LookupPrototype typ) else None 
         let rec addMember (m: CompiledMember) =
             match m with
             | Instance n -> pr |> Option.iter (fun p -> p.Add n |> ignore)

@@ -1461,7 +1461,7 @@ module TypedProviderInternals =
     let addTag (i: M.Info) (t: System.Type) =
         let mt = AST.Reflection.ReadTypeDefinition t
         match i.Classes.TryFind mt with
-        | Some { Address = Some a; IsStatic = false } ->
+        | Some { Address = Some a; HasWSPrototype = true } ->
             function
             | EncodedObject fs -> EncodedInstance (a, fs)
             | v -> v

@@ -118,7 +118,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     member this.StaticConstructor = cls.StaticConstructor |> Option.map fst
                     member this.Methods = MappedDictionary(cls.Methods, fstOf3) :> _
                     member this.Implementations = MappedDictionary(cls.Implementations, fst) :> _
-                    member this.IsModule = cls.IsStatic
+                    member this.HasWSPrototype = cls.HasWSPrototype
                     member this.Macros = cls.Macros
                 }
 
@@ -593,13 +593,13 @@ type Compilation(meta: Info, ?hasGraph) =
                     let b = findProxied b
                     if classes.ContainsKey b || notResolvedClasses.ContainsKey b then Some b else None
                 )
-            let isStatic =                
+            let hasWSPrototype =                
                 match cls.Kind with
-                | NotResolvedClassKind.Static -> true
-                | NotResolvedClassKind.FSharpType -> false
+                | NotResolvedClassKind.Static -> false
+                | NotResolvedClassKind.FSharpType -> true
                 | _ ->
                     cls.Members
-                    |> Seq.forall (
+                    |> Seq.exists (
                         function
                         | M.Constructor (_, nr)
                         | M.Method (_, nr) ->
@@ -608,9 +608,9 @@ type Compilation(meta: Info, ?hasGraph) =
                             | N.Abstract
                             | N.Constructor 
                             | N.Override _
-                            | N.Implementation _ -> false
-                            | _ -> true
-                        | _ -> true
+                            | N.Implementation _ -> true
+                            | _ -> false
+                        | _ -> false
                     )
             classes.Add (typ,
                 {
@@ -621,7 +621,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     StaticConstructor = if Option.isSome cctor then unresolvedCctor else None 
                     Methods = Dictionary()
                     Implementations = Dictionary()
-                    IsStatic = isStatic
+                    HasWSPrototype = hasWSPrototype
                     Macros = cls.Macros |> List.map (fun (m, p) -> m, p |> Option.map ParameterObject.OfObj)
                 }
             ) 
@@ -880,7 +880,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     ["$$ERROR$$"]
                 | a -> List.ofArray a
                 |> List.rev
-            if not (r.ExactClassAddress(addr, not classes.[typ].IsStatic)) then
+            if not (r.ExactClassAddress(addr, classes.[typ].HasWSPrototype)) then
                 this.AddError(None, NameConflict ("Class name conflict", sn))
             setClassAddress typ (Address addr)
 
@@ -947,7 +947,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 | -1 -> n
                 | i -> n.[.. i - 1]
             let addr = typ.Value.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
-            r.ClassAddress(addr, not classes.[typ].IsStatic)
+            r.ClassAddress(addr, classes.[typ].HasWSPrototype)
             |> setClassAddress typ
         
         let extraClassAddresses = Dictionary()

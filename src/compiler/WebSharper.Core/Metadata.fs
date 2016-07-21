@@ -131,7 +131,7 @@ type ClassInfo =
         StaticConstructor : option<Address * Expression>
         Methods : IDictionary<Method, CompiledMember * bool * Expression>
         Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
-        IsStatic : bool
+        HasWSPrototype : bool // is the class defined in WS so it has Runtime.Class created prototype
         Macros : list<TypeDefinition * option<ParameterObject>>
     }
 
@@ -143,7 +143,7 @@ type IClassInfo =
     abstract member StaticConstructor : option<Address>
     abstract member Methods : IDictionary<Method, CompiledMember>
     abstract member Implementations : IDictionary<TypeDefinition * Method, CompiledMember>
-    abstract member IsModule : bool
+    abstract member HasWSPrototype : bool
     abstract member Macros : list<TypeDefinition * option<ParameterObject>>
 
 type InterfaceInfo =

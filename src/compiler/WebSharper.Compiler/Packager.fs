@@ -164,7 +164,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                 | Some ba -> GlobalAccess ba
                 | _ -> Value Null
              
-            if not c.IsStatic then
+            if c.HasWSPrototype then
                 packageCtor addr <| JSRuntime.Class prototype baseType (GlobalAccess addr)
 
         for info, _, body in c.Methods.Values do

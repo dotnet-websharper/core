@@ -760,7 +760,7 @@ type DotNetToJavaScript private (comp: Compilation) =
         | _ -> this.Error(SourceError "Invalid metadata for constructor.")
 
     override this.TransformCopyCtor(typ, objExpr) =
-        match comp.TryLookupClassInfo typ |> Option.bind (fun c -> if c.IsStatic then None else c.Address) with
+        match comp.TryLookupClassInfo typ |> Option.bind (fun c -> if c.HasWSPrototype then c.Address else None) with
         | Some a ->
             if comp.HasGraph then
                 this.AddTypeDependency typ
