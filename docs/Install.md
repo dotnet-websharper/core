@@ -31,9 +31,15 @@ or add WebSharper extensions to your existing Visual Studio projects
 by using the NuGet package manager, as you would with any other Nuget
 package.
 
-* While WebSharper 4 is in beta, NuGet packages are named `Zafir.*`.*
+* While WebSharper 4 is in beta, NuGet packages are named `Zafir.*`
 To have C# compiler support, also install `Zafir.CSharp`.
 To have F# compiler support, also install `Zafir.FSharp`.
 
 [downloads]: http://websharper.com/downloads
 [vs]: http://www.microsoft.com/visualstudio/eng/downloads
+
+## Using NGen.exe for faster compilation on Windows
+
+Run the script `runngen.ps1` in PowerShell with administrator permissions to call `ngen.exe` on the compiler.
+It can be found in the `tools` folder of both `Zafir.CSharp` and `Zafir.FSharp` packages.
+This creates a cached native image that can speedup compiler tool running time.

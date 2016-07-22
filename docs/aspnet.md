@@ -42,7 +42,43 @@ retrieved from the server asynchronously. Such content then is integrated into t
 presentation layer (on the client) once it becomes available after the call.
 
 WebSharper makes it even easier to communicate with the server by enabling clients to make
-RPC calls seamlessly, as easily as making a client-side call. Here is a short snippet to illustrate:
+RPC calls seamlessly, as easily as making a client-side call.
+Here is a snippet to illustrate this in both languages:
+
+* Define a remote method and a client-side `Web.Control` in C#
+
+```csharp
+public static class Server
+{
+    [Remote]
+    public static Task<int[]> GetData()
+    {
+        return Task.FromResult(new[] { 1, 2, 3});
+    }
+}
+
+[Serializable]
+public class SimpleClientServerControl : WebSharper.Web.Control
+{
+    [JavaScript]
+    public override IControlBody Body
+    {
+        get
+        {
+            var model = new ListModel<int, int>(x => x);
+            var l = ul(model.View.DocSeqCached((int x) => li("Value= ", x)));
+            Task.Run(async () =>
+            {
+                foreach (var n in await Server.GetData())
+                    model.Add(n);
+            });
+            return l;
+        }
+    }
+}
+```
+
+* Define a remote method and a client-side `Web.Control` in F#
 
 ``` fsharp
 namespace WebSharperProject
@@ -93,7 +129,7 @@ that it can be included directly in an ASPX page. Here are the necessary steps:
 
     * The second entry declares that there is a `WebSharperProject` assembly with a namespace with the same name. This is what the default WebSharper ASP.NET and other ASP.NET-based Visual Studio project templates write by default. If you change the name of your WebSharper assemblies, or the namespaces they contain, you should update this entry or add further entries to cover those namespaces.
 
-* In the `<head>` of your ASPX page itself, add the WebSharper ScriptManager:
+* In the `<head>` of your ASPX page (or `Site.Master` if you use one), add the WebSharper ScriptManager:
 
     ``` xml
     <head runat="server">
