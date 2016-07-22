@@ -105,31 +105,6 @@ namespace WebSharper.CSharp.Tests
             IsTrue(SeqDisposed);
         }
 
-        public async Task<int> GetOneAsync()
-        {
-            var o = Task.FromResult(1);
-            return await o;
-        }
-
-        [Test("Async/Await")]
-        public async Task AsyncAwait()
-        {
-            var one = await GetOneAsync();
-            Equal(one, 1);
-        }
-
-        [Test("loop inside Async")]
-        public async Task AsyncLoop()
-        {
-            var i = 0;
-            while (i < 10)
-            {
-                await Task.Delay(0);
-                i++;
-            }
-            Equal(i, 10);
-        }
-
         public string First { get; set; }
         public string Second { get; set; } = "Hello";
 
