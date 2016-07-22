@@ -66,13 +66,13 @@ public class SimpleClientServerControl : WebSharper.Web.Control
         get
         {
             var model = new ListModel<int, int>(x => x);
-            var l = ul(model.View.DocSeqCached((int x) => li("Value= ", x)));
+            // call the server-side asynchronously, insert response items to ListModel
             Task.Run(async () =>
             {
                 foreach (var n in await Server.GetData())
                     model.Add(n);
             });
-            return l;
+            return ul(model.View.DocSeqCached((int x) => li("Value= ", x)));
         }
     }
 }
@@ -87,16 +87,21 @@ open WebSharper
 
 module Server =
     [<Rpc>]
-    let GetData () = [1; 2; 3]
+    let GetData () = async { return [1; 2; 3] }
 
 module Client =
     open WebSharper.Html.Client
 
     [<JavaScript>]
     let Main () =
-        Server.GetData ()
-        |> List.map (fun i -> LI [Text ("Value= " + i)])
-        |> UL
+        let ul = UL
+        // call the server-side asynchronously, insert response items to DOM
+        async {
+            let! data = Server.GetData ()
+            for i in data do
+                ul.Append(LI [Text ("Value= " + i)])
+        } |> Async.Start
+        ul
     
 type SimpleClientServerControl() =
     inherit Web.Control()

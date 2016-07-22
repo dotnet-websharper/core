@@ -11,8 +11,9 @@ with an exception.  The limitations on the client are:
   You have to yield control inside a
   workflow to let other workflows execute.
   Yielding of control happens implicitly every time whenever F# inserts
-  a call to an `AsyncBuilder` call, including where you use a `let` or `let!`
-  operator or has consecutive statements on the top level of an async block.
+  a call to an `AsyncBuilder` call.
+  This includes where you use a `let` or `let!`, every iteration of a `for` or `while` loop, 
+  or between consecutive statements on the top level of an async block.
 
 * There is no way to use `Async.RunSynchronously`.
 

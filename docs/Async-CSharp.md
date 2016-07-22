@@ -10,18 +10,20 @@ or finished operation. The limitations on the client are:
   You have to yield control inside a
   task to let other workflows execute.
   The current supported way is to use `await Task.Delay(0)` to yield control
-  at periodically when you are defining a CPU-heavy computation that .
+  periodically when you are defining a CPU-heavy computation for the client-side.
   `Task.Yield` is currently unavailable but planned.
   For example: 
   
+```
 	public async void LotsOfHelloWorld(int n)
 	{
-		for(int i = 0; i<n; i++)
+		for(int i = 0; i < n; i++)
 		{
 			Console.WriteLine("Hello world!"); // prints to JavaScript console
 			if (i % 1000 == 0) await Task.Delay(0); // yield control regularly  
 		}
 	}
+```
 
 * Parallelization is possible with `WhenAny` and `WaitAll` methods.
 	
