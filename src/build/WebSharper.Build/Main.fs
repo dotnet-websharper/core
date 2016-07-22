@@ -188,7 +188,6 @@ module Main =
                     new INuGetExportingProject with
                         member p.NuGetFiles =
                             seq {
-//                                yield fileAt (Path.Combine(root, "msbuild", "Zafir.FSharp.Readme.txt")) "content/Zafir.FSharp.Readme.txt"
                                 yield fileAt (Path.Combine(root, "msbuild", "Zafir.FSharp.targets")) ("build/" + Config.FSharpPackageId + ".targets")
                                 yield fileTools (out "WsFsc.exe")
                                 yield fileTools (out "WsFsc.exe.config")
@@ -197,6 +196,7 @@ module Main =
                                 yield fileTools (Path.Combine(fscore, "FSharp.Core.sigdata"))
                                 for src in fsExports do
                                     yield fileTools src
+                                yield fileTools (Path.Combine(root, "src/compiler/WebSharper.FSharp/runngen.ps1"))
                             }
                 }
         let csharpNuPkg =
@@ -216,7 +216,7 @@ module Main =
                     new INuGetExportingProject with
                         member p.NuGetFiles =
                             seq {
-//                                yield fileAt (Path.Combine(root, "msbuild", "Zafir.CSharp.Readme.txt")) "content/Zafir.CSharp.Readme.txt"
+                                yield fileAt (Path.Combine(root, "msbuild", "Zafir.CSharp.Readme.txt")) "content/Zafir.CSharp.Readme.txt"
                                 yield fileAt (Path.Combine(root, "msbuild", "Zafir.CSharp.targets")) ("build/" + Config.CSharpPackageId + ".targets")
                                 yield fileTools (out "ZafirCs.exe")
                                 yield fileTools (out "ZafirCs.exe.config")
@@ -225,6 +225,7 @@ module Main =
                                 yield fileTools (Path.Combine(fscore, "FSharp.Core.sigdata"))
                                 for src in csExports do
                                     yield fileTools src
+                                yield fileTools (Path.Combine(root, "src/compiler/WebSharper.CSharp/runngen.ps1"))
                                 yield fileTools (Path.Combine(root, "src/compiler/WebSharper.CSharp.Analyzer/install.ps1"))
                                 yield fileTools (Path.Combine(root, "src/compiler/WebSharper.CSharp.Analyzer/uninstall.ps1"))
                             }
