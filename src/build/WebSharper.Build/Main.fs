@@ -216,7 +216,6 @@ module Main =
                     new INuGetExportingProject with
                         member p.NuGetFiles =
                             seq {
-                                yield fileAt (Path.Combine(root, "msbuild", "Zafir.CSharp.Readme.txt")) "content/Zafir.CSharp.Readme.txt"
                                 yield fileAt (Path.Combine(root, "msbuild", "Zafir.CSharp.targets")) ("build/" + Config.CSharpPackageId + ".targets")
                                 yield fileTools (out "ZafirCs.exe")
                                 yield fileTools (out "ZafirCs.exe.config")
