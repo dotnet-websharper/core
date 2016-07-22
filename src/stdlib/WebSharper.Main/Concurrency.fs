@@ -110,7 +110,7 @@ let fork action = scheduler.Fork action
 
 [<JavaScript>]
 [<Inline>]
-let private cancel c = c.k (Cc (new OCE()))
+let private cancel c = c.k (Cc (new OCE(As<System.Threading.CancellationToken> c.ct)))
 
 [<JavaScript>]
 let private checkCancel r =

@@ -153,11 +153,11 @@ let private asyncRpcMethodNode = rpcMethodNode "Async" (GenericType Definitions.
 let private taskRpcMethodNode = rpcMethodNode "Task" (GenericType Definitions.Task1 [objTy])
 let private sendRpcMethodNode = rpcMethodNode "Send" VoidType
 
-type DotNetToJavaScript private (comp: Compilation) =
+type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     inherit Transformer()
 
+    let inProgress = defaultArg inProgress []
     let mutable selfAddress = None
-
     let mutable currentNode = M.AssemblyNode ("", false) // placeholder
     let mutable currentIsInline = false
     let mutable hasDelayedTransform = false
@@ -364,6 +364,11 @@ type DotNetToJavaScript private (comp: Compilation) =
      
     member this.CompileMethod(info, expr, typ, meth) =
         currentNode <- M.MethodNode(typ, meth)
+        if inProgress |> List.contains currentNode then
+            let msg = sprintf "Inline loop found at method %s.%s" typ.Value.FullName meth.Value.MethodName
+            comp.AddError(None, SourceError msg)
+            comp.FailedCompiledMethod(typ, meth)
+        else
         // for C# static auto-properties
         selfAddress <- 
             comp.TryLookupClassInfo(typ) |> Option.bind (fun cls ->
@@ -397,6 +402,11 @@ type DotNetToJavaScript private (comp: Compilation) =
 
     member this.CompileConstructor(info, expr, typ, ctor) =
         currentNode <- M.ConstructorNode(typ, ctor)
+        if inProgress |> List.contains currentNode then
+            let msg = sprintf "inline loop found at constructor of %s" typ.Value.FullName
+            comp.AddError(None, SourceError msg)
+            comp.FailedCompiledConstructor(typ, ctor)
+        else
         currentIsInline <- isInline info
         match info with
         | NotCompiled i -> 
@@ -444,7 +454,7 @@ type DotNetToJavaScript private (comp: Compilation) =
             comp.EntryPoint <- Some (toJS.TransformStatement(ep))
         | _ -> ()
 
-    member this.AnotherNode() = DotNetToJavaScript(comp)    
+    member this.AnotherNode() = DotNetToJavaScript(comp, currentNode :: inProgress)    
 
     member this.AddDependency(dep: M.Node) =
         comp.Graph.AddEdge(currentNode, dep)

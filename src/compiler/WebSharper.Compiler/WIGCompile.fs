@@ -1405,7 +1405,6 @@ type Compiler() =
                     parentFullName + 
                     (match c.SourceName with Some n -> n | _ -> c.Name.[c.Name.LastIndexOf('.') + 1 ..]) +
                     (match c.Generics with [] -> "" | g -> "`" + string (List.length g))
-                printfn "WIG class: %s -> %s" sn c.Name
                 assemblyPrototypes.Add(sn, c.Name)
                 for nc in c.NestedClasses do addClass (sn + "+") nc
             for c in ns.Classes do addClass (ns.Name + ".") c

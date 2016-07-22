@@ -124,7 +124,7 @@ type private CancellationTokenProxy =
 
     [<Inline>]
     member this.ThrowIfCancellationRequested() =
-        if this.IsCancellationRequested then raise (OCE()) 
+        if this.IsCancellationRequested then raise (OCE(As<CT> this)) 
 
     [<Inline>]
     static member None = As<CT> C.noneCT

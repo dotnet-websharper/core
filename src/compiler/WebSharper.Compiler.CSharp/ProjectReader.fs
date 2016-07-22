@@ -644,6 +644,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     let strongName =
         annot.Name |> Option.map (fun n ->
+            if n.StartsWith "." then n.TrimStart('.') else
             if n.Contains "." then n else 
                 let origName = thisDef.Value.FullName
                 origName.[.. origName.LastIndexOf '.'] + n

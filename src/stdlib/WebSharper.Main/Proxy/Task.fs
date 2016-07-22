@@ -111,7 +111,13 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
                 try
                     this.Execute()
                     status <- TaskStatus.RanToCompletion
-                with e ->
+                with
+                | :? OCE as e when e.CancellationToken = token ->
+                    Console.Log("Task cancellation caught:", e)
+                    exc <- System.AggregateException(e)
+                    status <- TaskStatus.Canceled
+                | e ->
+                    Console.Log("Task error caught:", e)
                     exc <- System.AggregateException(e)
                     status <- TaskStatus.Faulted
                 this.RunContinuations()
@@ -122,8 +128,14 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
     static member FromCanceled ct = 
         As<Task> (TaskProxy(null, ct, TaskStatus.Canceled, null)) 
 
+    static member FromCanceled(ct: CT) = 
+        As<Task<_>> (TaskProxy<_>(null, ct, TaskStatus.Canceled, null, As null)) 
+
     static member FromException (exc: exn) =
         As<Task> (TaskProxy(null, CT.None, TaskStatus.Faulted, System.AggregateException(exc)))
+
+    static member FromException (exc: exn) =
+        As<Task<_>> (TaskProxy<_>(null, CT.None, TaskStatus.Faulted, System.AggregateException(exc), As null))
 
     static member FromResult (res: 'T) = 
         As<Task<'T>> (TaskProxy<'T>(null, CT.None, TaskStatus.RanToCompletion, null, res)) 
@@ -138,6 +150,17 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
         As<Task> res
 
     [<Inline>]
+    static member Run(func : System.Func<Task>) =
+        TaskProxy.Run(func, CT.None)
+
+    static member Run(func : System.Func<Task>, ct: CT) =
+        let task = func.Invoke()
+        if ct.IsCancellationRequested then TaskProxy.FromCanceled ct : Task else
+        if task.Status = TaskStatus.Created then
+            task.Start()
+        task
+
+    [<Inline>]
     static member Run(func : System.Func<'T>) =
         TaskProxy.Run(func, CT.None)
 
@@ -145,6 +168,17 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
         let res = TaskProxy<'T>(func, ct, TaskStatus.Created, null, JS.Undefined)
         res.Start()
         As<Task<'T>> res   
+
+    [<Inline>]
+    static member Run(func : System.Func<Task<'T>>) =
+        TaskProxy.Run(func, CT.None)
+
+    static member Run(func : System.Func<Task<'T>>, ct: CT) =
+        let task = func.Invoke()
+        if ct.IsCancellationRequested then TaskProxy.FromCanceled<'T> ct else
+        if task.Status = TaskStatus.Created then
+            task.Start()
+        task
 
     static member Delay(time: int) =   
         Async.StartAsTask (Async.Sleep time) :> Task

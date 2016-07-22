@@ -22,12 +22,16 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 
-[<Name "Exception">]
+[<Name [| "Error" |]>]
 [<Proxy(typeof<System.Exception>)>]
 type private ExceptionProxy =
     [<Inline "Error($message)">]
     new (message: string) = { }
 
+    [<Inline "var e = Error($message); e.inner = $inner; return e">]
+    new (message: string, inner: exn) = { }
+
+    [<Inline>]
     new () = ExceptionProxy "Exception of type 'System.Exception' was thrown."
 
     member this.Message with [<Inline "$this.message">] get () = X<string>
@@ -35,26 +39,38 @@ type private ExceptionProxy =
 [<Proxy(typeof<MatchFailureException>)>]
 [<Name "MatchFailureException">]
 type private MatchFailureExceptionProxy (message: string, line: int, column: int) =
-    inherit ExceptionProxy (message + " at " + string line + ":" + string column)
+    inherit exn(message + " at " + string line + ":" + string column)
 
 [<Proxy(typeof<System.IndexOutOfRangeException>)>]
 [<Name "IndexOutOfRangeException">]
 type private IndexOutOfRangeExceptionProxy(message: string) =
-    inherit ExceptionProxy(message)
+    inherit exn(message)
 
     new () = IndexOutOfRangeExceptionProxy "Index was outside the bounds of the array."
 
 [<Proxy(typeof<System.OperationCanceledException>)>]
 [<Name "OperationCanceledException">]
-type private OperationCanceledExceptionProxy(message: string) =
-    inherit ExceptionProxy(message)
+type private OperationCanceledExceptionProxy(message: string, inner: exn, ct: CT) =
+    inherit exn(message)
 
-    new () = OperationCanceledExceptionProxy "The operation was canceled."
+    new (ct) = OperationCanceledExceptionProxy ("The operation was canceled.", null, ct)
+    
+    [<Inline>]
+    new () = OperationCanceledExceptionProxy (CT.None)
+    [<Inline>]
+    new (message) = OperationCanceledExceptionProxy (message, null, CT.None)
+    [<Inline>]
+    new (message, ct) = OperationCanceledExceptionProxy (message, null, ct)
+    [<Inline>]
+    new (message, inner) = OperationCanceledExceptionProxy (message, inner, CT.None)
+
+    [<Inline>]
+    member this.CancellationToken = ct
 
 [<Proxy(typeof<System.ArgumentException>)>]
 [<Name "ArgumentException">]
 type private ArgumentExceptionProxy(message: string) =
-    inherit ExceptionProxy(message)
+    inherit exn(message)
     
     new () = ArgumentExceptionProxy "Value does not fall within the expected range."
 
@@ -64,21 +80,21 @@ type private ArgumentExceptionProxy(message: string) =
 [<Proxy(typeof<System.ArgumentOutOfRangeException>)>]
 [<Name "ArgumentOutOfRangeException">]
 type private ArgumentOutOfRangeExceptionProxy(message: string) =
-    inherit ArgumentExceptionProxy(message)
+    inherit exn(message)
     
     new () = ArgumentOutOfRangeExceptionProxy "Specified argument was out of the range of valid values."
 
 [<Proxy(typeof<System.InvalidOperationException>)>]
 [<Name "InvalidOperationException">]
 type private InvalidOperationExceptionProxy(message: string) =
-    inherit ExceptionProxy(message)
+    inherit exn(message)
     
     new () = InvalidOperationExceptionProxy "Operation is not valid due to the current state of the object."
 
 [<Proxy(typeof<System.AggregateException>)>]
 [<Name "AggregateException">]
 type private AggregateExceptionProxy(message: string, innerExceptions: exn[]) =
-    inherit ExceptionProxy(message)
+    inherit exn(message)
 
     new (innerExceptions: exn[]) = AggregateExceptionProxy("One or more errors occurred.", innerExceptions)
 
@@ -95,13 +111,13 @@ type private AggregateExceptionProxy(message: string, innerExceptions: exn[]) =
 [<Proxy(typeof<System.TimeoutException>)>]
 [<Name "TimeoutException">]
 type private TimeoutExceptionProxy(message: string) =
-    inherit ExceptionProxy(message)
+    inherit exn(message)
     
     new () = TimeoutExceptionProxy "The operation has timed out."
 
 [<Proxy(typeof<System.FormatException>)>]
 [<Name "FormatException">]
 type private FormatException(message: string) =
-    inherit ExceptionProxy(message)
+    inherit exn(message)
 
     new () = FormatException "One of the identified items was in an invalid format."

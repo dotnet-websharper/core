@@ -482,11 +482,19 @@ type Compilation(meta: Info, ?hasGraph) =
         | _ ->
             failwithf "Method already added: %s %s" typ.Value.FullName (string meth.Value)
 
+    member this.FailedCompiledMethod(typ, meth) =
+        let typ = findProxied typ 
+        compilingMethods.Remove(typ, meth) |> ignore
+
     member this.AddCompiledConstructor(typ, ctor, info, isPure, comp) = 
         let typ = findProxied typ 
         compilingConstructors.Remove(typ, ctor) |> ignore
         let cls = classes.[typ]
         cls.Constructors.Add(ctor, (info, isPure, comp))
+
+    member this.FailedCompiledConstructor(typ, ctor) =
+        let typ = findProxied typ 
+        compilingConstructors.Remove(typ, ctor) |> ignore
 
     member this.GetCompilingStaticConstructors() =
         compilingStaticConstructors |> Seq.map (fun (KeyValue(t, (a, c))) -> t, a, c) |> Array.ofSeq

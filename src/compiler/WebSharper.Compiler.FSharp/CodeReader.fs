@@ -139,6 +139,11 @@ type FixCtorTransformer(?thisExpr) =
             match a with
             | [] -> Undefined
             | [msg] -> ItemSet(thisExpr, Value (String "message"), msg)
+            | [msg; inner] -> 
+                Sequential [
+                    ItemSet(thisExpr, Value (String "message"), msg)
+                    ItemSet(thisExpr, Value (String "inner"), inner)
+                ]
             | _ -> failwith "Too many arguments for Error"
         else
             BaseCtor(thisExpr, t, c, a) 
