@@ -1,6 +1,16 @@
 # Using HTML Combinators
 
-WebSharper introduces a syntax to create HTML markup directly in F#. This syntax is available in two flavors with distinct types and purposes:
+With WebSharper, there are two main ways to write HTML content directly in your code.
+
+* `WebSharper.Html` is the older but still supported method. It has a slightly imperative style, and uses different types (with similar syntax) for server-side and client-side markup. It is only supported in F#.
+
+* `WebSharper.UI.Next`, the functional and reactive library, comes with its own markup syntax for both C# and F#.
+
+This page presents WebSharper.Html. [You can click here](UINext.md) for a tour of the more recent and recommended `UI.Next`.
+
+<hr>
+
+WebSharper.Html introduces a syntax to create HTML markup directly in F#. This syntax is available in two flavors with distinct types and purposes:
 
 * Server-side combinators from the `WebSharper.Html.Server` namespace are used to generate the markup of the served HTML page.
 
