@@ -62,7 +62,6 @@ module RouterUtil =
         if uri.IsAbsoluteUri
         then uri.AbsolutePath
         else Uri.UnescapeDataString(uri.OriginalString) |> joinWithSlash "/"
-        |> trimFinalSlash
 
 type Router<'Action when 'Action : equality> =
     {
@@ -78,7 +77,7 @@ type Router<'Action when 'Action : equality> =
         | _ -> this.DynamicLink(action)
 
     member this.Route(req: Http.Request) =
-        match this.StaticRoutes.TryGetValue(path req.Uri) with
+        match this.StaticRoutes.TryGetValue(path req.Uri |> trimFinalSlash) with
         | true, r -> Some r
         | _ -> this.DynamicRoute(req)
 
@@ -201,7 +200,7 @@ module Router =
         let prefix = joinWithSlash "/" prefix
         let shift (loc: Location) =
             if loc.IsAbsoluteUri then loc else
-                makeUri (joinWithSlash prefix (path loc))
+                makeUri (joinWithSlash prefix (path loc |> trimFinalSlash))
         {
             StaticRoutes =
                 let d = Dictionary()
