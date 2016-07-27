@@ -163,6 +163,7 @@ module Http =
 
         let forbidden = def 403 "Forbidden"
         let internalServerError = def 500 "Internal Error"
+        let notImplemented = def 501 "Not Implemented"
         let notFound = def 404 "Not Found"
         let ok = def 200 "Ok"
         let unauthorized = def 401 "Unauthorized"
@@ -178,6 +179,9 @@ module Http =
 
         /// 500 Internal Error.
         static member InternalServerError = internalServerError
+
+        /// 501 Not Implemented.
+        static member NotImplemented = notImplemented
 
         /// 404 Not Found.
         static member NotFound = notFound

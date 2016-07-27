@@ -343,6 +343,9 @@ module Content =
     let NotFound<'T> : Async<Content<'T>> =
         httpStatusContent Http.Status.NotFound
 
+    let NotImplemented<'T> : Async<Content<'T>> =
+        httpStatusContent Http.Status.NotImplemented
+
     let ServerError<'T> : Async<Content<'T>> =
         httpStatusContent Http.Status.InternalServerError
 

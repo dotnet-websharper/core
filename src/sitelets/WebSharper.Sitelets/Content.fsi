@@ -138,6 +138,9 @@ module Content =
     /// Constructs a 404 Not Found response.
     val NotFound<'T> : Async<Content<'T>>
 
+    /// Constructs a 501 Not Implemented response.
+    val NotImplemented<'T> : Async<Content<'T>>
+
     /// Constructs a 500 Server Error response.
     val ServerError<'T> : Async<Content<'T>>
 
