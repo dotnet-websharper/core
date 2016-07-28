@@ -288,8 +288,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 a |> List.map (fun p -> CodeReader.namedId p.CompiledName),
                 t |> Option.map (fun p -> CodeReader.namedId p.CompiledName)
                
-            let error m = 
-                comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError m)
+            let error m = comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError m)
+            let warn m = comp.AddWarning(Some (CodeReader.getRange meth.DeclarationLocation), SourceWarning m)
 
             match mAnnot.Kind with
             | Some A.MemberKind.Stub
@@ -298,12 +298,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 let memdef = sr.ReadMember meth
 
                 if stubs.Contains memdef then () else
-    //            let isModuleValue = ref false
                 let getBody isInline = 
                     try
+                        // currently throws error at TryGetReflectedDefinition 
                         let hasRD =
                             false
-    //                        meth.Attributes |> Seq.exists (fun a -> a.AttributeType.FullName = "Microsoft.FSharp.Core.ReflectedDefinitionAttribute")
+//                            meth.Attributes |> Seq.exists (fun a -> a.AttributeType.FullName = "Microsoft.FSharp.Core.ReflectedDefinitionAttribute")
                         if hasRD then
                             let info =
                                 match memdef with
@@ -313,13 +313,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                     Reflection.LoadMethod def mdef :> System.Reflection.MethodBase
                                 | Member.Constructor cdef ->
                                     Reflection.LoadConstructor def cdef :> _
-                                | _ -> failwith "static constructor with a reflected definition"
+                                | _ -> failwith "unexpected: static constructor with a reflected definition"
                             match FSharp.Quotations.Expr.TryGetReflectedDefinition(info) with
                             | Some q ->
-                                comp.AddWarning(Some (CodeReader.getRange expr.Range), SourceWarning "Compiling from reflected definition")
+                                warn "Compiling from reflected definition"
                                 QR.transformExpression (QR.Environment.New(comp)) q
                             | _ ->
-                                comp.AddError(Some (CodeReader.getRange expr.Range), SourceError "Failed to get reflected definition")
+                                error "Failed to get reflected definition"
                                 WebSharper.Compiler.Translator.errorPlaceholder
                         else
                         let a, t = getArgsAndThis()
@@ -353,7 +353,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             let b = FixThisScope().Fix(b)      
                             // TODO : startupcode only for module values
                             if List.isEmpty args then 
-        //                        isModuleValue := true
                                 if isInline then
                                     b
                                 else
@@ -390,16 +389,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                             yield b
                                         ]
                                 if isInline then
-    //                                let iv = Option.toList thisVar @ vars |> List.mapi (fun i a -> a, Hole i)
-    //                                let ib = ReplaceThisWithHole0().TransformExpression(b)
                                     let b = 
                                         match thisVar with
                                         | Some t -> ReplaceThisWithVar(t).TransformExpression(b)
                                         | _ -> b
                                     makeExprInline (Option.toList thisVar @ vars) b
-    //                                List.foldBack (fun (v, h) body ->
-    //                                    Let (v, h, body)    
-    //                                ) (Option.toList thisVar @ vars |> List.mapi (fun i a -> a, Hole i)) (ReplaceThisWithHole0().TransformExpression(b))
                                 else 
                                     let returnsUnit =
                                         match memdef with
@@ -414,21 +408,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         Lambda(vars, b)
                         res
                     with e ->
-                        error (sprintf "Error reading definition: %s" e.Message)
+                        error (sprintf "Error reading definition: %s at %s" e.Message e.StackTrace)
                         WebSharper.Compiler.Translator.errorPlaceholder
 
                 match memdef with
                 | Member.Method (_, mdef) 
                 | Member.Override (_, mdef) 
                 | Member.Implementation (_, mdef) ->
-                    // remove abstract slot
-//                    let abstractOpt = 
-//                        clsMembers |> Seq.tryFind (fun m ->
-//                            match m with
-//                            | NotResolvedMember.Method (d, _) when d = mdef -> true
-//                            | _ -> false
-//                        )
-//                    abstractOpt |> Option.iter (clsMembers.Remove >> ignore)
                     let getKind() =
                         match memdef with
                         | Member.Method (isInstance , _) ->
@@ -569,8 +555,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             transformClass sc comp sr annot ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
             transformInterface sr annot i |> Option.iter comp.AddInterface
-
-//    let translated = annot.IsJavaScript || clsMembers.Count > 0
 
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 
