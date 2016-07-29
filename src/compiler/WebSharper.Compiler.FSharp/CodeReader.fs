@@ -911,7 +911,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             parsefailf "Unrecognized ILAsm: %s" s
         | BasicPatterns.ILFieldGet _ -> parsefailf "F# pattern not handled: ILFieldGet"
         | BasicPatterns.ILFieldSet _ -> parsefailf "F# pattern not handled: ILFieldSet"
-        | BasicPatterns.TraitCall(sourceTypes, traitName, typeArgs, typeInstantiation, argExprs) ->
+        | BasicPatterns.TraitCall(sourceTypes, traitName, memberFlags, typeArgs, typeInstantiation, argExprs) ->
             if sourceTypes.Length <> 1 then parsefailf "TODO: TraitCall with multiple source types" 
             match argExprs with
             | t :: a -> 
