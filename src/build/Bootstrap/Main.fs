@@ -84,6 +84,7 @@ let RestorePackages () =
         nuget "install AjaxMin -version 5.14.5506.26202 -o packages -excludeVersion"
         nuget "install FsNuGet -o packages -excludeVersion -nocache"
         nuget "install Microsoft.CodeAnalysis.CSharp -version 1.3.2 -o packages -excludeVersion"
+        Directory.Delete("packages/System.Collections.Immutable", true)
         nuget "install FSharp.Compiler.Service -pre -version 6.0.1 -o packages -excludeVersion"
 
 [<EntryPoint>]
