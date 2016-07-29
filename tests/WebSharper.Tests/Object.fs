@@ -70,6 +70,21 @@ type RNWithStub() =
 type Abcde = { A: string; B: string; C: string; D: string; E: string }
 
 [<JavaScript>]
+let mutable TestValue = 0
+
+[<JavaScript>]
+module RunThisOnClient =
+    do TestValue <- 1
+
+    [<JavaScript(false)>]
+    module DontRunThisOnClient =
+        do TestValue <- 2
+
+    do TestValue <- TestValue + 2
+
+do TestValue <- TestValue + 4
+
+[<JavaScript>]
 let Tests =
     TestCategory "Object" {
 
@@ -186,6 +201,10 @@ let Tests =
             equal c.y 2
             c.y <- 3
             equal c.y 3
+        }
+
+        Test "Module do" {
+            equal TestValue 3
         }
 
 //        Test "Struct" {
