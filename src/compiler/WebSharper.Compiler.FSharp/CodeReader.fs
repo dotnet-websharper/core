@@ -309,7 +309,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         else
         let td = t.TypeDefinition
         if td.IsArrayType then
-            ArrayType(this.ReadTypeSt markStaticTP tparams t.GenericArguments.[0], td.DisplayName.Length - 1)
+            ArrayType(this.ReadTypeSt markStaticTP tparams t.GenericArguments.[0], td.ArrayRank)
         elif td.IsByRef then
             ByRefType(this.ReadTypeSt markStaticTP tparams t.GenericArguments.[0])
         else

@@ -43,6 +43,7 @@ type private SourceMemberOrEntity =
     | SourceMember of FSMFV * list<list<FSMFV>> * FSharpExpr
     | SourceEntity of FSharpEntity * ResizeArray<SourceMemberOrEntity>
     | SourceInterface of FSharpEntity 
+    | InitAction of FSharpExpr
 
 let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: FSharpEntity) =
     let methodNames = ResizeArray()
@@ -84,6 +85,12 @@ let isAugmentedFSharpType (e: FSharpEntity) =
             && not (snd a.ConstructorArguments.[0] :?> bool)
         )
     )
+
+let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) (sr: CodeReader.SymbolReader) (annot: A.TypeAnnotation) a =
+    if annot.IsJavaScript then
+        let _, (statements, _) = sc.Value
+        let env = CodeReader.Environment.New ([], [], comp, sr)  
+        statements.Add (CodeReader.transformExpression env a |> ExprStatement)
 
 let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
     let thisDef = sr.ReadTypeDefinition cls
@@ -555,6 +562,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             transformClass sc comp sr annot ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
             transformInterface sr annot i |> Option.iter comp.AddInterface
+        | InitAction expr ->
+            transformInitAction sc comp sr annot expr    
 
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 
@@ -778,7 +787,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
         let topLevelTypes = ResizeArray<SourceMemberOrEntity>()
         let types = Dictionary<FSharpEntity, ResizeArray<SourceMemberOrEntity>>()
 //        let interfaces = ResizeArray<FSharpEntity>()
-        let rec getTypesWithMembers (parentMembers: ResizeArray<_>) (sc: Lazy<_ * StartupCode>) d =
+        let rec getTypesWithMembers (parentMembers: ResizeArray<_>) d =
             match d with
             | FSIFD.Entity (a, b) ->
                 if not a.IsFSharpAbbreviation then
@@ -791,22 +800,21 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                             types.Add (a, ms)
                         with _ ->
                             comp.AddError(Some (CodeReader.getRange a.DeclarationLocation), SourceError "Duplicate type definition")
-                        b |> List.iter (getTypesWithMembers ms sc)
+                        b |> List.iter (getTypesWithMembers ms)
                     else
-                        b |> List.iter (getTypesWithMembers parentMembers sc)
+                        b |> List.iter (getTypesWithMembers parentMembers)
             | FSIFD.MemberOrFunctionOrValue (a, b, c) -> 
                 types.[a.EnclosingEntity].Add(SourceMember(a, b, c))
             | FSIFD.InitAction a ->
-                ()
-                // TODO : warn
-//                comp.AddError(Some (ToFSharpAST.getSourcePos a), SourceError "Top level expression")
-                // TODO: [<JavaScript>] on whole assembly.
+                parentMembers.Add (InitAction a)
 
-        file.Declarations |> Seq.iter (getTypesWithMembers topLevelTypes sc)
+        file.Declarations |> Seq.iter (getTypesWithMembers topLevelTypes)
 
         for t in topLevelTypes do
             match t with
             | SourceMember _ -> failwith "impossible: top level member"
+            | InitAction _ -> failwith "impossible: top level init action"
+//                transformInitAction sc comp sr rootTypeAnnot a
             | SourceEntity (c, m) ->
                 transformClass sc comp sr rootTypeAnnot c m |> Option.iter comp.AddClass
             | SourceInterface i ->
