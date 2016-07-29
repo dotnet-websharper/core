@@ -33,3 +33,6 @@ let AddRpcHandler (t: System.Type) (h: obj) =
 /// Implements piping with mutation.
 [<Inline "($f($x), $x)">]
 let ( |>! ) x f = f x; x
+
+[<Constant true>]
+let IsClient = false

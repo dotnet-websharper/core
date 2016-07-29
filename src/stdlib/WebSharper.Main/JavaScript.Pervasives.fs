@@ -108,7 +108,7 @@ let private NewFromSeq<'T> (fields: seq<string * obj>) : 'T =
 let New<'T> (fields: seq<string * obj>) = NewFromSeq<'T> fields
 
 /// Constructs an proxy to a remote object instance.
-[<Inline "null">]
+[<Constant null>]
 let Remote<'T> = X<'T>
 
 /// Gets JavaScript properties in sequence dynamically from an object.
