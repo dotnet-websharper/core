@@ -85,7 +85,7 @@ let RestorePackages () =
         nuget "install FsNuGet -o packages -excludeVersion -nocache"
         nuget "install Microsoft.CodeAnalysis.CSharp -version 1.3.2 -o packages -excludeVersion"
         Directory.Delete("packages/System.Collections.Immutable", true)
-        nuget "install FSharp.Compiler.Service -pre -version 6.0.1 -o packages -excludeVersion"
+        nuget "install FSharp.Compiler.Service -pre -version 6.0.2-alpha -o packages -excludeVersion"
 
 [<EntryPoint>]
 let Start args =
