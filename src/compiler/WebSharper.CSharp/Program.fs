@@ -89,7 +89,7 @@ let Compile config =
             logf "WebSharper error %s" err
     else
 
-    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(logf "%s")
+    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(logf "%s", UseVerifier = false)
 
     let referencedAsmNames =
         paths

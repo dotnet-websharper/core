@@ -109,6 +109,33 @@ let ModifyCecilAssembly (refMeta: M.Info) (current: M.Info) sourceMap (a: Mono.C
         Some js
     else None
 
+let CreateResources (refMeta: M.Info) (current: M.Info) sourceMap assemblyName =
+    let meta =
+        use s = new MemoryStream(8 * 1024)
+        M.IO.Encode s current
+        s.ToArray()
+    let pkg = 
+        WebSharper.Compiler.Packager.packageAssembly refMeta current false
+
+    let res = ResizeArray()
+
+    res.Add(EMBEDDED_METADATA, meta)
+    
+    if pkg <> AST.Undefined then
+        let js, map = pkg |> WebSharper.Compiler.Packager.exprToString assemblyName WebSharper.Core.JavaScript.Readable sourceMap
+        let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString assemblyName WebSharper.Core.JavaScript.Compact sourceMap
+        let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
+        res.Add(EMBEDDED_MINJS, getBytes minJs)
+        minMap |> Option.iter (fun m ->
+            res.Add(EMBEDDED_MINMAP, getBytes m))
+        res.Add(EMBEDDED_JS, getBytes js)
+        map |> Option.iter (fun m ->
+            res.Add(EMBEDDED_MAP, getBytes m))
+
+        Some (js, res)
+    else None
+
+
 let ModifyAssembly (refMeta: M.Info) (current: M.Info) sourceMap (assembly : Assembly) =
     ModifyCecilAssembly refMeta current sourceMap assembly.Raw
 

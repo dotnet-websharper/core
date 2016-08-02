@@ -139,7 +139,6 @@ let Compile (config : WsConfig) =
 
     let ended = System.DateTime.Now
     logf "WebSharper translation: %A" (ended - started)
-    let started = ended
 
     let mutable hasErrors = false
 
@@ -155,22 +154,71 @@ let Compile (config : WsConfig) =
         
     if hasErrors then 1 else
 
-    let assem = loader.LoadFile config.AssemblyFile
-    let js = 
-        WebSharper.Compiler.FrontEnd.ModifyAssembly (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
-            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap assem
+    let started = System.DateTime.Now
+//    let assem = loader.LoadFile config.AssemblyFile
+    
+    let ended = System.DateTime.Now
+    logf "Loading output assembly: %A" (ended - started)
+    let started = ended 
+    
+//    let js = 
+//        WebSharper.Compiler.FrontEnd.ModifyAssembly (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+//            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap assem
+    let jsResOpt = 
+        WebSharper.Compiler.FrontEnd.CreateResources (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap thisName
             
+    let ended = System.DateTime.Now
+    logf "Packaging and serializing metadata: %A" (ended - started)
+    let started = ended 
+
     if config.PrintJS then
-        match js with 
-        | Some js ->
+        match jsResOpt with 
+        | Some (js, _) ->
             printfn "%s" js
             logf "%s" js
         | _ -> ()
 
-    assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
+//    assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
+
+    match jsResOpt with
+    | Some (_, res) ->
+        
+        let resFolder =
+            let path = Path.Combine(Path.GetDirectoryName(config.AssemblyFile), "WebSharper")
+            Directory.CreateDirectory(path) |> ignore
+            path
+
+        let resPaths =
+            [|
+                for name, content in res do
+                    let p = Path.Combine(resFolder, name)
+                    File.WriteAllBytes(p, content)
+                    logf "Writing resource to temp: %s" p
+                    yield p
+            |]
+
+        let configWithRes =
+            { config with
+                CompilerArgs =
+                    [| 
+                        yield! config.CompilerArgs
+                        for p in resPaths do
+                            yield "--resource:" + p
+                    
+                    |]
+            }
+
+        let errors, exitCode = SimpleSourceCodeServices().Compile(configWithRes.CompilerArgs)
+
+        if exitCode <> 0 then 
+            WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(ignore).PrintErrors(errors, config.ProjectFile)
+            failwith "Writing resources failed"
+
+    | _ -> ()
 
     let ended = System.DateTime.Now
-    logf "Serializing and writing metadata: %A" (ended - started)
+    logf "Writing resources: %A" (ended - started)
 
     logf "WebSharper compilation full: %A" (ended - startedWS)
 

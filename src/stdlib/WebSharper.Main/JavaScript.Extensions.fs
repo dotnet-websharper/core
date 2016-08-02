@@ -24,7 +24,7 @@ open System.Runtime.CompilerServices
 
 open WebSharper
 
-[<Extension>]
+[<Extension; Sealed>]
 type JavaScriptExtensions =
     [<Extension; Inline "$0">]
     static member ToJS(x: obj) = X<Object>
