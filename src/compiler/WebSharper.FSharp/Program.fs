@@ -155,15 +155,11 @@ let Compile (config : WsConfig) =
     if hasErrors then 1 else
 
     let started = System.DateTime.Now
-//    let assem = loader.LoadFile config.AssemblyFile
     
     let ended = System.DateTime.Now
     logf "Loading output assembly: %A" (ended - started)
     let started = ended 
     
-//    let js = 
-//        WebSharper.Compiler.FrontEnd.ModifyAssembly (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
-//            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap assem
     let jsResOpt = 
         WebSharper.Compiler.FrontEnd.CreateResources (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
             (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap thisName
@@ -178,8 +174,6 @@ let Compile (config : WsConfig) =
             printfn "%s" js
             logf "%s" js
         | _ -> ()
-
-//    assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
 
     match jsResOpt with
     | Some (_, res) ->
@@ -205,7 +199,9 @@ let Compile (config : WsConfig) =
                         yield! config.CompilerArgs
                         for p in resPaths do
                             yield "--resource:" + p
-                    
+                        match config.KeyFile with
+                        | Some k -> yield "--keyfile:" + k
+                        | _ -> ()
                     |]
             }
 
