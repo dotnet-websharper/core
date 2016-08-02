@@ -122,6 +122,11 @@ module Server =
         |> async.Return
 
     [<Remote>]
+    let f9_1 (x: list<Record>) =
+        List.rev x
+        |> async.Return
+
+    [<Remote>]
     let f10 (x: System.DateTime) =
         x.AddDays 1.0
         |> async.Return
@@ -358,8 +363,22 @@ module Remoting =
             }
 
             Test "list<int> -> Async<list<int>>" {
-                let! x = (Server.f9 [1;2;3])
-                equal (Array.ofSeq x) [| 3; 2; 1 |]
+                let! x = Server.f9 [1;2;3]
+                equal x [ 3; 2; 1 ]
+            }
+
+            Test "list<record> -> Async<list<record>>" {
+                let! x =
+                    Server.f9_1 [
+                        { a = 1; b = "4" }
+                        { a = 2; b = "5" }
+                        { a = 3; b = "6" }
+                    ]
+                equal x [
+                    { a = 3; b = "6" }
+                    { a = 2; b = "5" }
+                    { a = 1; b = "4" }
+                ]
             }
 
             Test "DateTime -> Async<DateTime>" {

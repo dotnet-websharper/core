@@ -357,6 +357,7 @@ type Encoded =
     | EncodedArray of list<Encoded>
     | EncodedObject of list<string * Encoded>
     | EncodedInstance of AST.Address * list<string * Encoded>
+    | EncodedArrayInstance of AST.Address * list<Encoded>
 
     static member Lift json =
         let enc (x, y) = (x, Encoded.Lift y)
@@ -883,12 +884,12 @@ let unionEncoder dE (i: FormatSettings) (ta: TAttrs) =
         if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<TypedNull<_>> then
             t.GetGenericArguments().[0], true
         else t, false
-    if i.ConciseRepresentation &&
-        t.IsGenericType &&
-        t.GetGenericTypeDefinition() = typedefof<list<_>>
+    if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<list<_>>
     then
-        t.GetGenericArguments().[0]
-        |> callGeneric <@ unmakeList @> dE ta
+        let x =
+            t.GetGenericArguments().[0]
+            |> callGeneric <@ unmakeList @> dE ta
+        if i.ConciseRepresentation then x else x >> i.AddTag t
     elif t = typeof<Encoded> then
         unbox
     else
@@ -1464,6 +1465,7 @@ module TypedProviderInternals =
         | Some { Address = Some a; HasWSPrototype = true } ->
             function
             | EncodedObject fs -> EncodedInstance (a, fs)
+            | EncodedArray xs -> EncodedArrayInstance (a, xs)
             | v -> v
         | _ -> id
 
@@ -1485,6 +1487,7 @@ module TypedProviderInternals =
             | EncodedArray xs -> Array (List.map pk xs)
             | EncodedObject xs -> Object [VALUE, pko xs]
             | EncodedInstance (a, x) -> Object [TYPE, encT a; VALUE, pko x]
+            | EncodedArrayInstance (a, xs) -> Object [TYPE, encT a; VALUE, Array (List.map pk xs)]
         and pko xs =
             Object (xs |> List.map (fun (a, b) -> (a, pk b)))
         let data = pk encoded
@@ -1578,8 +1581,9 @@ module PlainProviderInternals =
             | EncodedFalse -> False
             | EncodedNumber x -> Number x
             | EncodedString x -> String x
-            | EncodedArray xs -> Array (List.map pk xs)
-            | EncodedObject xs -> pko xs
+            | EncodedArray xs
+            | EncodedArrayInstance (_, xs) -> Array (List.map pk xs)
+            | EncodedObject xs
             | EncodedInstance (_, xs) -> pko xs
         and pko xs =
             Object (xs |> List.map (fun (a, b) -> (a, pk b)))

@@ -97,9 +97,13 @@ let Activate<'T> (json: obj) : 'T =
                     let o  = shallowMap decode ((?) x "$V")
                     let ti = (?) x "$T"
                     if JS.TypeOf ti = JS.Kind.Undefined then o else
-                        let r = JS.New types.[ti]
-                        JS.ForEach o (fun k -> (?<-) r k ((?) o k); false)
-                        r
+                        let t = types.[ti]
+                        if t ===. JS.Global?WebSharper?List?T then
+                            box (List.ofArray (As<obj[]> o))
+                        else
+                            let r = JS.New types.[ti]
+                            JS.ForEach o (fun k -> (?<-) r k ((?) o k); false)
+                            r
             | _ ->
                 x
     As (decode ((?) json "$DATA"))
