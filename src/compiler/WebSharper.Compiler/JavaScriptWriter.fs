@@ -218,6 +218,10 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
 and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     let inline trE x = transformExpr env x
     let inline trS x = transformStatement env x
+    let sequential s effect =
+        match List.rev s with
+        | h :: t -> effect h :: List.map ExprStatement t |> List.rev          
+        | [] -> []
     let flatten s =
         let res = ResizeArray()
         let mutable emptyDecls = ResizeArray()
@@ -247,6 +251,12 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                     decls.Add (defineId env id, trE e)
             | Empty 
             | ExprStatement IgnoreSourcePos.Undefined -> ()
+            | ExprStatement (IgnoreSourcePos.Sequential s) ->
+                sequential s ExprStatement |> List.iter add
+            | Return (IgnoreSourcePos.Sequential s) ->
+                sequential s Return |> List.iter add
+            | Throw (IgnoreSourcePos.Sequential s) ->
+                sequential s Throw |> List.iter add
             | _ -> 
                 flushVars()
                 res.Add(trS a)
@@ -261,6 +271,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Empty -> J.Empty
     | Break(a) -> J.Break (a |> Option.map (fun l -> l.Name.Value))
     | Continue(a) -> J.Continue (a |> Option.map (fun l -> l.Name.Value))
+    | ExprStatement (IgnoreSourcePos.Sequential s) -> J.Block (sequential s ExprStatement |> List.map trS)
     | ExprStatement e -> J.Ignore(trE e)
     | Block s -> J.Block (flatten s)
     | StatementSourcePos (pos, s) -> 
@@ -276,6 +287,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         J.StatementPos (trS s, jpos)
     | If(a, b, c) -> J.If(trE a, trS b, trS c)
     | Return (IgnoreSourcePos.Unary(UnaryOperator.``void``, a)) -> J.Ignore(trE a)
+    | Return (IgnoreSourcePos.Sequential s) -> J.Block (sequential s Return |> List.map trS)
     | Return IgnoreSourcePos.Undefined -> J.Return None
     | Return a -> J.Return (Some (trE a))
     | VarDeclaration (id, e) ->
@@ -291,6 +303,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 | _ -> J.SwitchElement.Default (flattenS s)
             )
         )
+    | Throw (IgnoreSourcePos.Sequential s) -> J.Block (sequential s Throw |> List.map trS)
     | Throw(a) -> J.Throw (trE a)
     | Labeled(a, b) -> J.Labelled(a.Name.Value, trS b)
     | TryWith(a, b, c) -> 
