@@ -317,6 +317,7 @@ if (!Math.trunc) {
 }
 
 function ignore() { };
+function id(x) { return x };
 
 if (!console) {
     console = {

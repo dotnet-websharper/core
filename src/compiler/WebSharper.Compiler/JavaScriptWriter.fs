@@ -57,7 +57,6 @@ type Environment =
         }
 
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
-let glob = J.Var "Global"
 
 let transformId (env: Environment) (id: Id) =
     try Map.find id env.ScopeIds
@@ -222,6 +221,8 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         match List.rev s with
         | h :: t -> effect h :: List.map ExprStatement t |> List.rev          
         | [] -> []
+    let sequentialE s =
+        sequential s (function IgnoreSourcePos.Unary(UnaryOperator.``void``, e) | e -> ExprStatement e)    
     let flatten s =
         let res = ResizeArray()
         let mutable emptyDecls = ResizeArray()
@@ -252,7 +253,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             | Empty 
             | ExprStatement IgnoreSourcePos.Undefined -> ()
             | ExprStatement (IgnoreSourcePos.Sequential s) ->
-                sequential s ExprStatement |> List.iter add
+                sequentialE s |> List.iter add
             | Return (IgnoreSourcePos.Sequential s) ->
                 sequential s Return |> List.iter add
             | Throw (IgnoreSourcePos.Sequential s) ->
@@ -271,7 +272,9 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Empty -> J.Empty
     | Break(a) -> J.Break (a |> Option.map (fun l -> l.Name.Value))
     | Continue(a) -> J.Continue (a |> Option.map (fun l -> l.Name.Value))
-    | ExprStatement (IgnoreSourcePos.Sequential s) -> J.Block (sequential s ExprStatement |> List.map trS)
+    | ExprStatement (IgnoreSourcePos.Unary(UnaryOperator.``void``, (IgnoreSourcePos.Sequential s)))
+    | ExprStatement (IgnoreSourcePos.Sequential s) -> J.Block (sequentialE s |> List.map trS)
+    | ExprStatement (IgnoreSourcePos.Unary(UnaryOperator.``void``, e))
     | ExprStatement e -> J.Ignore(trE e)
     | Block s -> J.Block (flatten s)
     | StatementSourcePos (pos, s) -> 

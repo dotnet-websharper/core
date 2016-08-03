@@ -123,6 +123,14 @@ let (|Runtime|_|) e =
         | [ r; "Runtime"; "IntelliFactory" ] -> Some r
         | _ -> None
     | _ -> None
+
+let (|Global|_|) e = 
+    match e with 
+    | GlobalAccess a ->
+        match a.Value with
+        | [ r ] -> Some r
+        | _ -> None
+    | _ -> None
     
 let (|AppItem|_|) e =
     match e with
@@ -141,6 +149,10 @@ let thisFunc this vars body isReturn =
 let cleanRuntime expr =
 //    let tr = Transform clean
     match expr with
+    | Application (Global "id", [ x ], _, _) -> 
+        x
+    | Application (Global "ignore", [ x ], _, _) -> 
+        Unary(UnaryOperator.``void``, x)
     | Application (Application (Runtime "Bind", [f; obj], _, _), args, _, _) -> 
         AppItem(f, "call", obj :: args)
     | AppItem(Application (Runtime "Bind", [f; obj], _, _), "apply", [args]) ->
