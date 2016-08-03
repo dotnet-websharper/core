@@ -1177,6 +1177,20 @@ type Compilation(meta: Info, ?hasGraph) =
                     Generics = 1
                 }
 
+            let operatorsMdl =
+                TypeDefinition {
+                    FullName = "Microsoft.FSharp.Core.Operators"
+                    Assembly = "FSharp.Core"
+                }
+
+            let operatorsToString = 
+                Method {
+                    MethodName = "ToString"
+                    Parameters = [ TypeParameter 0 ]
+                    ReturnType = NonGenericType Definitions.String
+                    Generics = 1
+                } 
+
             graph.AddOverride(Definitions.Obj, Definitions.Obj, equals)
             graph.AddOverride(Definitions.Obj, Definitions.Obj, getHashCode)
             graph.AddOverride(Definitions.Obj, Definitions.Obj, toString)
@@ -1192,6 +1206,10 @@ type Compilation(meta: Info, ?hasGraph) =
 
             graph.AddEdge(objHashIndex, uchHashIndex)
             graph.AddEdge(uchHashIndex, objHashIndex)
+
+            let objToStringIndex = graph.Lookup.[AbstractMethodNode(Definitions.Obj, toString)]
+            let oprToString = MethodNode (operatorsMdl, operatorsToString)
+            graph.AddEdge(oprToString, objToStringIndex)
 
         // Add graph edge needed for Sitelets: Web.Controls will be looked up
         // and initialized on client-side by Activator.Activate
