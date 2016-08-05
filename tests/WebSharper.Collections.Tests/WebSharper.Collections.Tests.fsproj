@@ -9,6 +9,7 @@
     <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
     <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <WebSharperProject>Library</WebSharperProject>
+    <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Dictionary.fs" />

@@ -27,20 +27,23 @@
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' != '' ">$(INTELLIFACTORY)/keys/IntelliFactory.snk</KeyOriginatorFile>
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' == '' ">$(MSBuildThisFileDirectory)/../tools/WebSharper.snk</KeyOriginatorFile>
 	<WSMSBuildPath Condition="'$(WSMSBuildPath)' == ''">Release</WSMSBuildPath>
-	<WebSharperTaskAssembly>$(MSBuildThisFileDirectory)/../build/$(WSMSBuildPath)/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+	<WebSharperTaskAssembly>$(MSBuildThisFileDirectory)/../build/$(WSMSBuildPath)/CSharp/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Root>$(MSBuildThisFileDirectory)\..</Root>
     <AssemblyName>$(Name)</AssemblyName>
     <RootNamespace>$(Name)</RootNamespace>
     <WebSharperSourceMap>True</WebSharperSourceMap>
+    <OutputPath Condition=" '$(OutputPath)' == '' And '$(CSharpTool)' == 'True' ">$(Root)\build\$(Configuration)\CSharp</OutputPath>
+    <OutputPath Condition=" '$(OutputPath)' == '' And '$(FSharpTool)' == 'True' ">$(Root)\build\$(Configuration)\FSharp</OutputPath>
+    <OutputPath Condition=" '$(OutputPath)' == '' And '$(Tests)' == 'True' ">$(Root)\build\$(Configuration)\Tests</OutputPath>
+    <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\$(Configuration)\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>$(Root)\build\Debug\$(Name).xml</DocumentationFile>
@@ -49,10 +52,21 @@
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
-    <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>$(Root)\build\Release\$(Name).xml</DocumentationFile>
   </PropertyGroup>
+  <ItemGroup Condition=" '$(Tests)' == 'True' ">
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\FSharp.Core.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\Mono.Cecil.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\Mono.Cecil.Mdb.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\Mono.Cecil.Pdb.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.Compiler.CSharp.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.Compiler.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.Core.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.Core.JavaScript.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.CSharp.Analyzer.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.InterfaceGenerator.dll" />
+  </ItemGroup>
   <Import Project="WebSharper.CSharp.targets" />
 </Project>

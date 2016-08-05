@@ -33,6 +33,10 @@
     <Root>$(MSBuildThisFileDirectory)\..</Root>
     <AssemblyName>$(Name)</AssemblyName>
     <RootNamespace>$(Name)</RootNamespace>
+    <OutputPath Condition=" '$(OutputPath)' == '' And '$(CSharpTool)' == 'True' ">$(Root)\build\$(Configuration)\CSharp</OutputPath>
+    <OutputPath Condition=" '$(OutputPath)' == '' And '$(FSharpTool)' == 'True' ">$(Root)\build\$(Configuration)\FSharp</OutputPath>
+    <OutputPath Condition=" '$(OutputPath)' == '' And '$(Tests)' == 'True' ">$(Root)\build\$(Configuration)\Tests</OutputPath>
+    <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\$(Configuration)\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -57,7 +61,6 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>$(Root)\build\Debug\$(Name).xml</DocumentationFile>
@@ -66,7 +69,6 @@
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
-    <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>$(Root)\build\Release\$(Name).xml</DocumentationFile>

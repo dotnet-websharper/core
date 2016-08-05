@@ -40,6 +40,13 @@ module Main =
 #endif
         )
 
+    let private fsharpBuildDir = 
+        let p = Path.Combine(buildDir, "FSharp")
+        if Directory.Exists p then p else buildDir
+    let private csharpBuildDir = 
+        let p = Path.Combine(buildDir, "CSharp")
+        if Directory.Exists p then p else buildDir
+
     let private version =
         Config.PackageVersion + match Config.VersionSuffix with Some s -> "-" + s | _ -> ""    
 
@@ -66,8 +73,9 @@ module Main =
                 Directory.EnumerateFiles(buildDir, name + ".xml")
             ]
 
-        let tools name =
-            Directory.EnumerateFiles(buildDir, name + ".dll")
+        let tools name = Directory.EnumerateFiles(buildDir, name + ".dll")
+        let toolsFSharp name = Directory.EnumerateFiles(fsharpBuildDir, name + ".dll")
+        let toolsCSharp name = Directory.EnumerateFiles(csharpBuildDir, name + ".dll")
         
         Seq.concat [
             lib "WebSharper.Core.JavaScript"
@@ -83,42 +91,42 @@ module Main =
         ] |> List.ofSeq
         ,
         Seq.concat [                        
-            tools "WebSharper.Compiler"
-            tools "WebSharper.Compiler.FSharp"
-            tools "WebSharper.Sitelets.Offline"
+            toolsFSharp "WebSharper.Compiler"
+            toolsFSharp "WebSharper.Compiler.FSharp"
+            toolsFSharp "WebSharper.Sitelets.Offline"
             // shared with main package:
-            tools "WebSharper.Core"
-            tools "WebSharper.Core.JavaScript"
-            tools "WebSharper.InterfaceGenerator"
+            toolsFSharp "WebSharper.Core"
+            toolsFSharp "WebSharper.Core.JavaScript"
+            toolsFSharp "WebSharper.InterfaceGenerator"
             // foreign:
-            tools "FSharp.Core"
-            tools "Mono.Cecil"
-            tools "Mono.Cecil.Mdb"
-            tools "Mono.Cecil.Pdb"
-            tools "FSharp.Compiler.Service"
-            tools "System.Collections.Immutable"
-            tools "System.Reflection.Metadata"
+            toolsFSharp "FSharp.Core"
+            toolsFSharp "Mono.Cecil"
+            toolsFSharp "Mono.Cecil.Mdb"
+            toolsFSharp "Mono.Cecil.Pdb"
+            toolsFSharp "FSharp.Compiler.Service"
+            toolsFSharp "System.Collections.Immutable"
+            toolsFSharp "System.Reflection.Metadata"
         ] |> List.ofSeq
         ,
         Seq.concat [
-            tools "WebSharper.Compiler"
-            tools "WebSharper.Compiler.CSharp"
-            tools "WebSharper.MSBuild.CSharp"
-            tools "WebSharper.CSharp.Analyzer"
-            tools "WebSharper.Sitelets.Offline"
+            toolsCSharp "WebSharper.Compiler"
+            toolsCSharp "WebSharper.Compiler.CSharp"
+            toolsCSharp "WebSharper.MSBuild.CSharp"
+            toolsCSharp "WebSharper.CSharp.Analyzer"
+            toolsCSharp "WebSharper.Sitelets.Offline"
             // shared with main package:
-            tools "WebSharper.Core"
-            tools "WebSharper.Core.JavaScript"
-            tools "WebSharper.InterfaceGenerator"
+            toolsCSharp "WebSharper.Core"
+            toolsCSharp "WebSharper.Core.JavaScript"
+            toolsCSharp "WebSharper.InterfaceGenerator"
             // foreign:
-            tools "FSharp.Core"
-            tools "Mono.Cecil"
-            tools "Mono.Cecil.Mdb"
-            tools "Mono.Cecil.Pdb"
-            tools "Microsoft.CodeAnalysis"
-            tools "Microsoft.CodeAnalysis.CSharp"
-            tools "System.Collections.Immutable"
-            tools "System.Reflection.Metadata"
+            toolsCSharp "FSharp.Core"
+            toolsCSharp "Mono.Cecil"
+            toolsCSharp "Mono.Cecil.Mdb"
+            toolsCSharp "Mono.Cecil.Pdb"
+            toolsCSharp "Microsoft.CodeAnalysis"
+            toolsCSharp "Microsoft.CodeAnalysis.CSharp"
+            toolsCSharp "System.Collections.Immutable"
+            toolsCSharp "System.Reflection.Metadata"
         ] |> List.ofSeq
         ,
         lib "WebSharper.Testing"
@@ -189,8 +197,8 @@ module Main =
                         member p.NuGetFiles =
                             seq {
                                 yield fileAt (Path.Combine(root, "msbuild", "Zafir.FSharp.targets")) ("build/" + Config.FSharpPackageId + ".targets")
-                                yield fileTools (out "WsFsc.exe")
-                                yield fileTools (out "WsFsc.exe.config")
+                                yield fileTools (out "FSharp/WsFsc.exe")
+                                yield fileTools (out "FSharp/WsFsc.exe.config")
                                 let fscore = Path.Combine(root, "packages", "FSharp.Core.4.0.0.1", "lib", "net40")
                                 yield fileTools (Path.Combine(fscore, "FSharp.Core.optdata"))
                                 yield fileTools (Path.Combine(fscore, "FSharp.Core.sigdata"))
@@ -217,11 +225,8 @@ module Main =
                         member p.NuGetFiles =
                             seq {
                                 yield fileAt (Path.Combine(root, "msbuild", "Zafir.CSharp.targets")) ("build/" + Config.CSharpPackageId + ".targets")
-                                yield fileTools (out "ZafirCs.exe")
-                                yield fileTools (out "ZafirCs.exe.config")
-                                let fscore = Path.Combine(root, "packages", "FSharp.Core.4.0.0.1", "lib", "net40")
-                                yield fileTools (Path.Combine(fscore, "FSharp.Core.optdata"))
-                                yield fileTools (Path.Combine(fscore, "FSharp.Core.sigdata"))
+                                yield fileTools (out "CSharp/ZafirCs.exe")
+                                yield fileTools (out "CSharp/ZafirCs.exe.config")
                                 for src in csExports do
                                     yield fileTools src
                                 yield fileTools (Path.Combine(root, "src/compiler/WebSharper.CSharp/runngen.ps1"))

@@ -9,6 +9,7 @@
     <WebSharperProject>Library</WebSharperProject>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFrameworkProfile />
+    <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Remoting.fs" />

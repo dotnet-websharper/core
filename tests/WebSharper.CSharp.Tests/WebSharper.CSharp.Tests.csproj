@@ -16,6 +16,7 @@
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
+    <Tests>True</Tests>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'DebugTests|AnyCPU'">
     <Prefer32Bit>false</Prefer32Bit>
@@ -99,18 +100,6 @@
     </Reference>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System" />
-  </ItemGroup>
-  <ItemGroup>
-    <Analyzer Include="..\..\build\Release\FSharp.Core.dll" />
-    <Analyzer Include="..\..\build\Release\Mono.Cecil.dll" />
-    <Analyzer Include="..\..\build\Release\Mono.Cecil.Mdb.dll" />
-    <Analyzer Include="..\..\build\Release\Mono.Cecil.Pdb.dll" />
-    <Analyzer Include="..\..\build\Release\WebSharper.Compiler.CSharp.dll" />
-    <Analyzer Include="..\..\build\Release\WebSharper.Compiler.dll" />
-    <Analyzer Include="..\..\build\Release\WebSharper.Core.dll" />
-    <Analyzer Include="..\..\build\Release\WebSharper.Core.JavaScript.dll" />
-    <Analyzer Include="..\..\build\Release\WebSharper.CSharp.Analyzer.dll" />
-    <Analyzer Include="..\..\build\Release\WebSharper.InterfaceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
     <None Include="WebSharper.CSharp.Tests.ruleset" />

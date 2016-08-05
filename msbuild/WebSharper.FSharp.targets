@@ -30,7 +30,7 @@
 	<OtherFlags Condition=" '$(WebSharperSourceMap)' == 'True' ">$(OtherFlags) --jsmap</OtherFlags>
 	<OtherFlags Condition=" '$(WebSharperTypeScriptDeclaration)' == 'True' ">$(OtherFlags) --dts</OtherFlags>
 	<OtherFlags Condition=" '$(WebSharperErrorsAsWarnings)' == 'True' ">$(OtherFlags) --wswarnonly</OtherFlags>
-	<FscToolPath>$(MSBuildThisFileDirectory)/../build/$(Configuration)/</FscToolPath>
+	<FscToolPath>$(Root)/build/$(Configuration)/FSharp/</FscToolPath>
 	<FscToolExe>WsFsc.exe</FscToolExe>
   </PropertyGroup>
 </Project>

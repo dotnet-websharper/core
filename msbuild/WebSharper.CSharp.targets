@@ -22,7 +22,7 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../build/$(Configuration)/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(Root)/build/$(Configuration)/CSharp/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
   </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
   <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
@@ -47,7 +47,7 @@
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" 
 	  WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
-	  ZafirToolPath="$(MSBuildThisFileDirectory)/../build/$(Configuration)/zafircs.exe"
+	  ZafirToolPath="$(Root)/build/$(Configuration)/CSharp/zafircs.exe"
 	  TargetType="$(OutputType)"
 	  NoConfig="true"
 	  DebugType="$(DebugType)"
