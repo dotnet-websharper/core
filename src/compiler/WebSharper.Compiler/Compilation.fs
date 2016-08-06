@@ -64,7 +64,9 @@ type Compilation(meta: Info, ?hasGraph) =
     member val AssemblyName = "EntryPoint" with get, set
     member val AssemblyRequires = [] : list<TypeDefinition> with get, set
     
-    member val CustomTypesReflector = None : option<TypeDefinition -> CustomTypeInfo> with get, set 
+    member val CustomTypesReflector = fun _ -> NotCustomType with get, set 
+    member val LookupTypeAttributes = fun _ -> None with get, set
+    member val LookupFieldAttributes = fun _ _ -> None with get, set
 
     member this.FindProxied typ =
         match proxies.TryFind typ with
@@ -122,6 +124,9 @@ type Compilation(meta: Info, ?hasGraph) =
                     member this.Macros = cls.Macros
                 }
 
+        member this.GetTypeAttributes(typ) = this.LookupTypeAttributes typ
+        member this.GetFieldAttributes(typ, field) = this.LookupFieldAttributes typ field
+        
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
         | Some res -> res
@@ -280,15 +285,12 @@ type Compilation(meta: Info, ?hasGraph) =
         match customTypes.TryFind typ with
         | Some res -> res
         | _ ->
-        match notAnnotatedCustomTypes.TryFind typ with
-        | Some res ->
-            // TODO unions with cases 
-            customTypes.Add (typ, res)
-            res
-        | _ ->
-            let res = this.CustomTypesReflector.Value typ
-            customTypes.Add(typ, res)
-            res
+        let res =
+            match notAnnotatedCustomTypes.TryFind typ with
+            | Some res -> res // TODO unions with cases 
+            | _ -> this.CustomTypesReflector typ
+        customTypes.Add(typ, res)
+        res
 
     member this.TryLookupClassInfo typ =   
         classes.TryFind(findProxied typ)

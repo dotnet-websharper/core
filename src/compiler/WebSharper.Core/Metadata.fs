@@ -333,11 +333,13 @@ type ICompilation =
     abstract GetCustomTypeInfo : TypeDefinition -> CustomTypeInfo
     abstract GetInterfaceInfo : TypeDefinition -> option<InterfaceInfo>
     abstract GetClassInfo : TypeDefinition -> option<IClassInfo>
+    abstract GetTypeAttributes : TypeDefinition -> option<list<TypeDefinition * ParameterObject[]>>
+    abstract GetFieldAttributes : TypeDefinition * string -> option<Type * list<TypeDefinition * ParameterObject[]>>
+
 // planned functionality:    
 //    abstract AddNewJSClass : string list -> string list
 //    abstract AddNewJSMethod : TypeDefinition * string * Expression -> string
 //    abstract AddNewJSMethod : string list * Expression -> string list     
-//    abstract GetAttributes : TypeDefinition -> 
               
 module IO =
     module B = Binary

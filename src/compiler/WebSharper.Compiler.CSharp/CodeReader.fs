@@ -117,13 +117,19 @@ let inline NotSupported x =
 
 module M = Metadata
 
+let rec getTypedConstantValue (c: TypedConstant) =
+    match c.Kind with
+    | TypedConstantKind.Array ->
+        c.Values |> Seq.map getTypedConstantValue |> Array.ofSeq |> box
+    | _ -> c.Value 
+
 type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
     let attrReader =
         { new A.AttributeReader<Microsoft.CodeAnalysis.AttributeData>() with
             override this.GetAssemblyName attr = attr.AttributeClass.ContainingAssembly.Name
             override this.GetName attr = attr.AttributeClass.Name
-            override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map (fun a -> a.Value) |> Array.ofSeq          
+            override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map getTypedConstantValue |> Array.ofSeq          
             override this.GetTypeDef o = self.ReadNamedTypeDefinition (o :?> INamedTypeSymbol)
         }
 

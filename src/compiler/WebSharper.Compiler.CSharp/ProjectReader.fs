@@ -677,7 +677,34 @@ let transformAssembly (comp : Compilation) (rcomp: CSharpCompilation) =
     comp.AssemblyRequires <- asmAnnot.Requires
     comp.SiteletDefinition <- asmAnnot.SiteletDefinition
 
-    comp.CustomTypesReflector <- Some (fun _ -> CustomTypeInfo.NotCustomType)
+    let lookupTypeDefinition (typ: TypeDefinition) =
+        rcomp.GetTypeByMetadataName(typ.Value.FullName) |> Option.ofObj
+
+    let lookupTypeAttributes (typ: TypeDefinition) =
+        lookupTypeDefinition typ |> Option.map (fun s ->
+            s.GetAttributes() |> Seq.map (fun a ->
+                sr.ReadNamedTypeDefinition a.AttributeClass,
+                a.ConstructorArguments |> Seq.map (CodeReader.getTypedConstantValue >> ParameterObject.OfObj) |> Array.ofSeq
+            )
+            |> List.ofSeq
+        )
+
+    let lookupFieldAttributes (typ: TypeDefinition) (field: string) =
+        lookupTypeDefinition typ |> Option.bind (fun s ->
+            match s.GetMembers(field).OfType<IFieldSymbol>() |> List.ofSeq with
+            | [ f ] ->
+                Some (
+                    sr.ReadType f.Type,
+                    f.GetAttributes() |> Seq.map (fun a ->
+                        sr.ReadNamedTypeDefinition a.AttributeClass,
+                        a.ConstructorArguments |> Seq.map (CodeReader.getTypedConstantValue >> ParameterObject.OfObj) |> Array.ofSeq
+                    ) |> List.ofSeq
+                )
+            | _ -> None
+        )
+
+    comp.LookupTypeAttributes <- lookupTypeAttributes
+    comp.LookupFieldAttributes <- lookupFieldAttributes 
 
     for TypeWithAnnotation(t, a) in getAllTypeMembers sr rootTypeAnnot assembly.GlobalNamespace do
         transformInterface sr a t |> Option.iter comp.AddInterface

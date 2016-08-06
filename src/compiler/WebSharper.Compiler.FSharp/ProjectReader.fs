@@ -764,7 +764,48 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
     comp.AssemblyRequires <- asmAnnot.Requires
     comp.SiteletDefinition <- asmAnnot.SiteletDefinition
 
-    comp.CustomTypesReflector <- Some A.reflectCustomType
+    comp.CustomTypesReflector <- A.reflectCustomType
+    
+    let lookupAssembly =
+        lazy
+        Map [
+            yield assemblyName, checkResults.AssemblySignature
+            for r in checkResults.ProjectContext.GetReferencedAssemblies() do
+                yield r.SimpleName, r.Contents 
+        ]
+
+    let lookupTypeDefinition (typ: TypeDefinition) =
+        let t = typ.Value
+        let path = t.FullName.Split('+')
+        let mutable res =
+            lookupAssembly.Value.[t.Assembly].Entities |> Seq.tryFind (fun e ->
+                e.FullName = path.[0]
+            )
+        for i = 1 to path.Length - 1 do
+            if res.IsSome then
+                res <- res.Value.NestedEntities |> Seq.tryFind (fun e -> e.CompiledName = path.[i])
+        res 
+
+    let readAttribute (a: FSharpAttribute) =
+        sr.ReadTypeDefinition a.AttributeType,
+        a.ConstructorArguments |> Seq.map (snd >> ParameterObject.OfObj) |> Array.ofSeq
+
+    let lookupTypeAttributes (typ: TypeDefinition) =
+        lookupTypeDefinition typ |> Option.map (fun e ->
+            e.Attributes |> Seq.map readAttribute |> List.ofSeq
+        )
+
+    let lookupFieldAttributes (typ: TypeDefinition) (field: string) =
+        lookupTypeDefinition typ |> Option.bind (fun e -> 
+            e.FSharpFields |> Seq.tryFind (fun f -> f.Name = field) |> Option.map (fun f ->
+                let tparams = e.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
+                sr.ReadType tparams f.FieldType,
+                Seq.append f.FieldAttributes f.PropertyAttributes |> Seq.map readAttribute |> List.ofSeq
+            ) 
+        )
+
+    comp.LookupTypeAttributes <- lookupTypeAttributes
+    comp.LookupFieldAttributes <- lookupFieldAttributes 
                                              
     for file in checkResults.AssemblyContents.ImplementationFiles do
         let fileName =

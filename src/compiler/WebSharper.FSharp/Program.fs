@@ -188,7 +188,6 @@ let Compile (config : WsConfig) =
                 for name, content in res do
                     let p = Path.Combine(resFolder, name)
                     File.WriteAllBytes(p, content)
-                    logf "Writing resource to temp: %s" p
                     yield p
             |]
 
