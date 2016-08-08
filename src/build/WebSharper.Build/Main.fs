@@ -132,9 +132,9 @@ module Main =
         lib "WebSharper.Testing"
         ,
         Seq.concat [
-            lib "WebSharper.Compiler"
-            lib "WebSharper.Compiler.FSharp"
-            lib "WebSharper.Compiler.CSharp"
+            toolsFSharp "WebSharper.Compiler"
+            toolsFSharp "WebSharper.Compiler.FSharp"
+            toolsCSharp "WebSharper.Compiler.CSharp"
             lib "WebSharper.Sitelets.Offline"
         ] |> List.ofSeq
 

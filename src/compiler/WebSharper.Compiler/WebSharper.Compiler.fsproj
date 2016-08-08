@@ -5,6 +5,7 @@
     <OutputType>Library</OutputType>
     <Name>WebSharper.Compiler</Name>
     <FSharp40>True</FSharp40>
+    <FSharpTool>True</FSharpTool>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
