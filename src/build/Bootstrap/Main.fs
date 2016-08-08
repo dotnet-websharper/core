@@ -86,7 +86,7 @@ let RestorePackages () =
         nuget "install Microsoft.CodeAnalysis.CSharp -version 1.3.2 -o packages -excludeVersion"
         Directory.Move("packages/System.Collections.Immutable", "packages/System.Collections.Immutable.Roslyn")
         Directory.Move("packages/System.Reflection.Metadata", "packages/System.Reflection.Metadata.Roslyn")
-        nuget "install FSharp.Compiler.Service -pre -version 6.0.2-alpha2 -o packages -excludeVersion -nocache"
+        nuget "install FSharp.Compiler.Service -pre -version 6.0.2-alpha3 -o packages -excludeVersion -nocache"
 
 [<EntryPoint>]
 let Start args =
