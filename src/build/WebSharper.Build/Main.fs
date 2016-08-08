@@ -93,7 +93,7 @@ module Main =
         Seq.concat [                        
             toolsFSharp "WebSharper.Compiler"
             toolsFSharp "WebSharper.Compiler.FSharp"
-            toolsFSharp "WebSharper.Sitelets.Offline"
+            tools "WebSharper.Sitelets.Offline"
             // shared with main package:
             toolsFSharp "WebSharper.Core"
             toolsFSharp "WebSharper.Core.JavaScript"
@@ -113,7 +113,7 @@ module Main =
             toolsCSharp "WebSharper.Compiler.CSharp"
             toolsCSharp "WebSharper.MSBuild.CSharp"
             toolsCSharp "WebSharper.CSharp.Analyzer"
-            toolsCSharp "WebSharper.Sitelets.Offline"
+            tools "WebSharper.Sitelets.Offline"
             // shared with main package:
             toolsCSharp "WebSharper.Core"
             toolsCSharp "WebSharper.Core.JavaScript"
