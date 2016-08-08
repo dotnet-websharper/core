@@ -24,6 +24,7 @@ open System
 open System.Collections.Generic
 open System.Reflection
 open System.Threading.Tasks
+open System.Collections.Concurrent
 
 module FI = FastInvoke
 module J = WebSharper.Core.Json
@@ -144,7 +145,7 @@ exception InvalidHandlerException
 let handlers = Dictionary<System.Type, obj>()
 
 let AddHandler (t: System.Type) (h: obj) =
-    lock handlers (fun () -> handlers.Add(t, h))
+    handlers.[t] <- h
 
 let toConverter (jP: J.Provider) (m: MethodInfo) =
     let enc = getResultEncoder jP m
@@ -185,22 +186,13 @@ exception NoRemoteAttributeException
 [<Sealed>]
 type Server(info, jP) =
     let remote = M.Utilities.getRemoteMethods info
-    let d = Dictionary()
+    let d = ConcurrentDictionary()
     let getConverter m =
         match remote.TryFind m with
         | None -> raise NoRemoteAttributeException
         | Some (td, m) -> toConverter jP (AST.Reflection.LoadMethod td m)
     let getCachedConverter m =
-        let v = lock d (fun () ->
-            match d.TryGetValue m with
-            | true, x -> Some x
-            | _ -> None)
-        match v with
-        | Some x -> x
-        | None ->
-            let y = getConverter m
-            lock d (fun () -> d.[m] <- y)
-            y
+        d.GetOrAdd(m, valueFactory = Func<_,_>(getConverter))
 
     member this.HandleRequest(req: Request) =
         match req.Headers HEADER_NAME with
