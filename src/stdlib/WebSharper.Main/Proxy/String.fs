@@ -352,6 +352,12 @@ type private StringProxy =
     [<Inline "$a + $b">]
     static member (+) (a: string, b: string) = X<string>
 
+    [<Inline>]
+    static member (+) (a: obj, b: string) = string a + b 
+
+    [<Inline>]
+    static member (+) (a: string, b: obj) = a + string b
+
     [<Inline "$a === $b">]
     static member op_Equality(a: string, b: string) = X<bool>
 

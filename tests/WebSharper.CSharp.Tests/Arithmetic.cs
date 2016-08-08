@@ -146,6 +146,8 @@ namespace WebSharper.CSharp.Tests
             Equal("foo" + "bar", "foobar", "Concatenation");
             IsTrue("foo" == "foo", "Equality");
             IsTrue("foo" != "bar", "Inequality");
+            Equal("foo" + 1, "foo1");
+            Equal(1 + "foo", "1foo");
         }
     }
 }
