@@ -130,15 +130,13 @@ let getParameterDecoder (jP: J.Provider) (m: MethodInfo) =
         fun x ->
             match x with
             | J.Array [j] -> [| decoder.Decode j |]
-            | _ -> raise J.DecoderException
+            | _ -> failwith "RPC parameter not received a single element array"
     | _ ->
-        let tt =
-            m.GetParameters()
-            |> Array.map (fun p -> p.ParameterType)
-            |> FST.MakeTupleType
-        let tR = FSV.PreComputeTupleReader tt
-        let decoder = jP.GetDecoder tt
-        fun v -> tR (decoder.Decode v)
+        let decoders = par |> Array.map (fun p -> jP.GetDecoder p.ParameterType)
+        fun x ->
+            match x with
+            | J.Array a -> Array.map2 (fun (d: J.Decoder) i -> d.Decode i) decoders (Array.ofList a)
+            | _ -> failwith "RPC parameters not received as an array"
 
 exception InvalidHandlerException
 

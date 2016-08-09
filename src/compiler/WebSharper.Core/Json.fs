@@ -96,8 +96,6 @@ let readNumber (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
 let readStartedString (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
     let c (x: char) = w.Append x |> ignore
     let read () = tr.Read()
-    let peek () = tr.Peek()
-    let skip () = tr.Read() |> ignore
     let rec loop () =
         match read() with
         | 34 -> ()
@@ -148,7 +146,6 @@ let readIdent (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
     let c (x: char) = w.Append x |> ignore
     let read () = tr.Read()
     let peek () = tr.Peek()
-    let skip () = tr.Read() |> ignore
     let isStartChar chr =
         (65 <= chr && chr <= 90)
         || (97 <= chr && chr <= 122)
@@ -180,7 +177,6 @@ let readSpace (tr: System.IO.TextReader) =
     loop ()
 
 let rec readJson (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
-    let c (x: char) = w.Append x |> ignore
     let read () = tr.Read()
     let peek () = tr.Peek()
     let skip () = tr.Read() |> ignore
@@ -337,16 +333,30 @@ let Read (tr: System.IO.TextReader) : Value =
     let w = new System.Text.StringBuilder()
     readJson w tr
 
-exception DecoderException
+let Parse s =
+    use r = new System.IO.StringReader(s)
+    Read r
+
+let Stringify v =
+    use w = new System.IO.StringWriter()
+    Write w v
+    w.ToString()
+
+exception Inner
+
+exception DecoderException of value:Value * typ:System.Type with
+    override this.Message =
+        "Failed to deserialize value \"" + Stringify this.value + "\" as type " + string this.typ  
+
 exception EncoderException
 
-exception NoDecoderException of System.Type with
+exception NoDecoderException of typ:System.Type with
     override this.Message =
-        "No JSON decoder for " + string this.Data0
+        "No JSON decoder for " + string this.typ
 
-exception NoEncoderException of System.Type with
+exception NoEncoderException of typ:System.Type with
     override this.Message =
-        "No JSON encoder for " + string this.Data0
+        "No JSON encoder for " + string this.typ
 
 type Encoded =
     | EncodedNull
@@ -443,7 +453,6 @@ and TAttrs =
         defaultArg customName (^T : (member Name : string) (mi))
 
     static member Get(i: FormatSettings, t: System.Type, ?mi: #System.Reflection.MemberInfo, ?uci: Reflection.UnionCaseInfo) =
-        let tcad = t.GetCustomAttributesData()
         let mcad =
             match mi with
             | Some mi -> mi.GetCustomAttributesData()
@@ -513,8 +522,8 @@ let numeric<'T> dec =
         | Number x ->
             match dec x with
             | true, (x: 'T) -> box x
-            | _ -> raise DecoderException
-        | _ -> raise DecoderException
+            | _ -> raise (DecoderException(Number x, typeof<'T>))
+        | x -> raise (DecoderException(x, typeof<'T>))
     simple enc dec
 
 let addNumeric<'T> (dec: string -> bool * 'T) (d: Dictionary<_,_>) =
@@ -565,7 +574,7 @@ let serializers =
     let decBool = function
         | True -> true
         | False -> false
-        | _ -> raise DecoderException
+        | x -> raise (DecoderException(x, typeof<bool>))
     add encBool decBool d
     let encChar (c: char) =
         EncodedNumber (string (int c))
@@ -573,12 +582,12 @@ let serializers =
         | Number x ->
             match System.Int32.TryParse x with
             | true, i when i >= 0 ->char i
-            | _ -> raise DecoderException
-        | _ -> raise DecoderException
+            | _ -> raise (DecoderException(Number x, typeof<char>))
+        | x -> raise (DecoderException(x, typeof<char>))
     add encChar decChar d
     let decString = function
         | String x -> x
-        | _ -> raise DecoderException
+        | x -> raise (DecoderException(x, typeof<string>))
     add EncodedString decString d
     let encTimeSpan (t: System.TimeSpan) =
         EncodedNumber (string t.TotalMilliseconds)
@@ -586,8 +595,8 @@ let serializers =
         | Number x ->
             match tryParseDouble x with
             | true, x -> System.TimeSpan.FromMilliseconds x
-            | _ -> raise DecoderException
-        | _ -> raise DecoderException
+            | _ -> raise (DecoderException(Number x, typeof<System.TimeSpan>))
+        | x -> raise (DecoderException(x, typeof<System.TimeSpan>))
     add encTimeSpan decTimeSpan d
     let encGuid (g: System.Guid) =
         EncodedString (string g)
@@ -595,8 +604,8 @@ let serializers =
         | String g -> 
             match System.Guid.TryParse g with
             | true, g -> g
-            | _ -> raise DecoderException
-        | _ -> raise DecoderException  
+            | _ -> raise (DecoderException(String g, typeof<System.Guid>))
+        | x -> raise (DecoderException(x, typeof<System.Guid>))
     add encGuid decGuid d   
     d
 
@@ -622,9 +631,9 @@ let tupleDecoder dD (i: FormatSettings) (ta: TAttrs) =
             if xs.Length = e.Length then
                 c (Array.map2 (fun e x -> e x) e xs)
             else
-                raise DecoderException
+                raise (DecoderException(x, ta.Type))
         | _ ->
-            raise DecoderException
+            raise (DecoderException(x, ta.Type))
 
 let arrayEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let e = dE (TAttrs.Get(i, ta.Type.GetElementType()))
@@ -657,7 +666,7 @@ let arrayDecoder dD (i: FormatSettings) (ta: TAttrs) =
             System.Array.Copy(data, r, k)
             r :> obj
         | _ ->
-            raise DecoderException
+            raise (DecoderException(x, ta.Type))
 
 let table ts =
     let d = Dictionary()
@@ -714,7 +723,7 @@ let decodeOptionalField dD ta : option<Value> -> obj =
         function Some v -> dec v | None -> null
     else
         let dec = dD ta
-        function Some v -> dec v | None -> raise DecoderException
+        function Some v -> dec v | None -> raise (DecoderException(Null, ta.Type))
 
 let isInlinableRecordCase (uci: Reflection.UnionCaseInfo) =
     let fields = uci.GetFields()
@@ -944,7 +953,7 @@ let unionEncoder dE (i: FormatSettings) (ta: TAttrs) =
 
 let makeList<'T> (dV: Value -> obj) = function
     | Array vs -> vs |> List.map (unbox<'T> << dV) |> box
-    | _ -> raise DecoderException
+    | x -> raise (DecoderException(x, typeof<list<'T>>))
 
 let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
@@ -993,7 +1002,6 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
         let consts = Dictionary()
         for k, v in c do consts.Add(k, v)
         consts
-    let k = cs.Length
     let getTag = i.GetUnionTag t
     fun (x: Value) ->
         match x with
@@ -1002,7 +1010,7 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
             let tag =
                 match getTag get with
                 | Some tag -> tag
-                | None -> raise DecoderException
+                | None -> raise (DecoderException(x, ta.Type))
             let (mk, fs) = cs.[tag]
             fs
             |> Array.map (fun (f, e) -> e (get f))
@@ -1011,7 +1019,7 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
         | v ->
             match consts.TryGetValue v with
             | true, x -> x
-            | false, _ -> raise DecoderException
+            | false, _ -> raise (DecoderException(v, ta.Type))
 
 let recordEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
@@ -1051,7 +1059,7 @@ let recordDecoder dD (i: FormatSettings) (ta: TAttrs) =
             |> Array.map (fun (n, dec) -> dec (get n))
             |> mk
         | _ ->
-            raise DecoderException
+            raise (DecoderException(x, ta.Type))
 
 let fieldFlags =
     System.Reflection.BindingFlags.Instance
@@ -1125,7 +1133,7 @@ let makeDictionary<'T> (dD: Value -> obj) = function
         let d = Dictionary<string, 'T>()
         for k, v in vs do d.Add(k, unbox<'T>(dD v))
         box d
-    | _ -> raise DecoderException
+    | x -> raise (DecoderException(x, typeof<Dictionary<string,'T>>))
 
 let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
@@ -1133,11 +1141,11 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
         fun (x: Value) ->
             match i.DecodeDateTime ta x with
             | Some d -> box d
-            | None -> raise DecoderException
+            | None -> raise (DecoderException(x, typeof<System.DateTime>))
     elif t = typeof<unit> then
         function
         | Null -> box ()
-        | _ -> raise DecoderException
+        | x -> raise (DecoderException(x, typeof<unit>))
     elif i.ConciseRepresentation &&
         t.IsGenericType &&
         t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> &&
@@ -1169,8 +1177,8 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
                    dec (get n))
                 |> Seq.toArray
             FS.PopulateObjectMembers(obj, ms, data)
-        | _ ->
-            raise DecoderException
+        | x ->
+            raise (DecoderException(x, ta.Type))
 
 let btree node left right height count = 
     EncodedObject [
@@ -1232,12 +1240,11 @@ let makeMap<'T> (dV: Value -> obj) = function
             vs |> List.map (fun (k, v) -> k, unbox<'T> (dV v))
         )
         |> box
-    | _ -> raise DecoderException
+    | x -> raise (DecoderException(x, typeof<Map<string, 'T>>))
 
 let mapDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
     let tg = t.GetGenericArguments()
-    if tg.Length <> 2 then raise DecoderException
     if i.ConciseRepresentation && tg.[0] = typeof<string> then
         callGeneric <@ makeMap @> dD ta tg.[1]
     else
@@ -1263,7 +1270,7 @@ let mapDecoder dD (i: FormatSettings) (ta: TAttrs) =
             let tEls = System.Array.CreateInstance(tt, els.Length)
             System.Array.Copy(els, tEls, els.Length)
             System.Activator.CreateInstance(t, tEls)
-        | _ -> raise DecoderException
+        | _ -> raise (DecoderException(x, ta.Type))
 
 let unmakeSet<'T when 'T : comparison> (dV: obj -> Encoded) (x: obj) =
     EncodedArray [for v in unbox<Set<'T>> x -> dV v]
@@ -1314,7 +1321,7 @@ let makeSet<'T when 'T : comparison> (dV: Value -> obj) = function
     | Array vs ->
         Set.ofList<'T>(vs |> List.map (unbox<'T> << dV))
         |> box
-    | _ -> raise DecoderException
+    | x -> raise (DecoderException(x, typeof<Set<'T>>))
 
 let makeSet'<'T when 'T : comparison> (dV: Value -> obj) (xs: seq<obj>) =
     Set.ofSeq (Seq.cast<'T> xs)
@@ -1342,7 +1349,7 @@ let setDecoder dD (i: FormatSettings) (ta: TAttrs) =
     function
         | Null -> mk Seq.empty
         | Object [ "tree", Object tr ] -> mk (walk tr)
-        | _ -> raise DecoderException
+        | x -> raise (DecoderException(x, ta.Type))
 
 let makeNullable<'T when 'T: (new: unit -> 'T) and 'T: struct and 'T :> System.ValueType> (dV: Value -> obj) =
     function
@@ -1752,10 +1759,7 @@ type Provider(fo: FormatSettings) =
 
     member this.GetDecoder<'T>() : Decoder<'T> =
         let d = this.GetDecoder typeof<'T>
-        Decoder<'T>(fun x ->
-            match d.Decode x with
-            | (:? 'T as x) -> x
-            | _ -> raise DecoderException)
+        Decoder<'T>(fun x -> d.Decode x :?> 'T)
 
     member this.GetEncoder<'T>() : Encoder<'T> =
         let e = this.GetEncoder typeof<'T>
@@ -1765,17 +1769,6 @@ type Provider(fo: FormatSettings) =
         getDefaultBuilder (TAttrs.Get(fo, t)) t
 
     member this.BuildDefaultValue<'T>() =
-        match this.BuildDefaultValue typeof<'T> with
-        | :? 'T as x -> x
-        | _ -> raise DecoderException
+        this.BuildDefaultValue typeof<'T> :?> 'T
 
     member this.Pack x = fo.Pack x
-
-let Parse s =
-    use r = new System.IO.StringReader(s)
-    Read r
-
-let Stringify v =
-    use w = new System.IO.StringWriter()
-    Write w v
-    w.ToString()

@@ -53,16 +53,16 @@ val Write : System.IO.TextWriter -> Value -> unit
 val Stringify : Value -> string
 
 /// Thrown when the decoder fails to reconstruct a value from JSON.
-exception DecoderException
+exception DecoderException of value:Value * typ:System.Type
 
 /// Thrown when the encoder is given a value it cannot encode.
 exception EncoderException
 
 /// Thrown when no decoder can be derived for a given type.
-exception NoDecoderException of System.Type
+exception NoDecoderException of typ:System.Type
 
 /// Thrown when no encoder can be derived for a given type.
-exception NoEncoderException of System.Type
+exception NoEncoderException of typ:System.Type
 
 /// Represents an object encoded to JSON.
 [<Sealed>]

@@ -803,7 +803,7 @@ let getJsonParser (f: Field) =
                 Success (decoder.Decode (Json.Read tr))
             with
                 | Json.ReadException
-                | Json.DecoderException -> InvalidJson defaultValue
+                | Json.DecoderException _ -> InvalidJson defaultValue
             |> Just p)
         |> Some
     else None
