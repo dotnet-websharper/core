@@ -880,6 +880,7 @@ module Internal =
         discr, cases
 
 open Internal
+open System.Collections.Concurrent
 
 let unmakeList<'T> (dV: obj -> Encoded) (x: obj) =
     EncodedArray [
@@ -1378,68 +1379,51 @@ let enumDecoder dD (i: FormatSettings) (ta: TAttrs) =
         System.Enum.ToObject(t, y)
 
 let getEncoding scalar array tuple union record enu map set nble obj wrap (fo: FormatSettings)
-                (cache: Dictionary<_,_>) =
-    let recurse ta =
-        lock cache <| fun () ->
-            cache.[ta] <-
-                Choice1Of2 (fun v ->
-                    let ct = lock cache <| fun () -> cache.[ta]
-                    match ct with
-                    | Choice1Of2 f -> f v
-                    | Choice2Of2 d -> raise (NoEncodingException d)
-                )
+                (cache: ConcurrentDictionary<_,_>) =
     let rec get (ta: TAttrs) =
         let derive dD =
             try
                 if ta.Type.IsArray then
                     if ta.Type.GetArrayRank() = 1 then
-                        Choice1Of2 (array dD fo ta)
-                    else Choice2Of2 ta.Type
+                        array dD fo ta
+                    else raise (NoEncodingException ta.Type)
                 elif FST.IsTuple ta.Type then
-                    Choice1Of2 (tuple dD fo ta)
+                    tuple dD fo ta
                 elif FST.IsUnion (ta.Type, flags) then
-                    recurse ta
-                    Choice1Of2 (union dD fo ta)
+                    union dD fo ta
                 elif FST.IsRecord (ta.Type, flags) then
-                    recurse ta
-                    Choice1Of2 (record dD fo ta)
+                    record dD fo ta
                 elif ta.Type.IsEnum then
-                    Choice1Of2 (enu dD fo ta)
+                    enu dD fo ta
                 else
                     let tn =
                         if ta.Type.IsGenericType 
                         then Some (ta.Type.GetGenericTypeDefinition().FullName)
                         else None
                     match tn with
-                    | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> Choice1Of2 (map dD fo ta)
-                    | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> Choice1Of2 (set dD fo ta)
-                    | Some "System.Nullable`1" -> Choice1Of2 (nble dD fo ta)
+                    | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> map dD fo ta
+                    | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> set dD fo ta
+                    | Some "System.Nullable`1" -> nble dD fo ta
                     | _ -> 
-                        recurse ta
-                        Choice1Of2 (obj dD fo ta)
-            with NoEncodingException t ->
-                Choice2Of2 t
-        if ta.Type = null then Choice2Of2 ta.Type else
+                        obj dD fo ta
+            with e -> fun _ -> raise e
+        if ta.Type = null then raise (NoEncodingException ta.Type) else
             match serializers.TryGetValue ta.Type with
             | true, x when Option.isSome (scalar x) ->
-                Choice1Of2 (scalar x).Value
+                (scalar x).Value
             | _ ->
-                let d =
-                    lock cache <| fun () ->
-                        match cache.TryGetValue ta with
-                        | true, d -> Some d
-                        | _ -> None
-                match d with
-                | Some d -> d
-                | None ->
-                    let dD ta =
-                        match get ta with
-                        | Choice1Of2 d -> d
-                        | Choice2Of2 d -> raise (NoEncodingException d)
-                    let d = derive (wrap dD)
-                    lock cache <| fun () ->
-                        cache.[ta] <- d
+                let newRef = ref Unchecked.defaultof<_>
+                let r = cache.GetOrAdd(ta, newRef)
+                if System.Object.ReferenceEquals(r, newRef) then
+                    let d = derive (wrap get)
+                    r := d
                     d
+                else
+                    let d = !r
+                    // inside recursive types, delay the lookup of the function
+                    if System.Object.ReferenceEquals(d, null) then
+                        fun x -> (!r) x
+                    else d
     get
 
 module M = WebSharper.Core.Metadata
@@ -1650,13 +1634,14 @@ module PlainProviderInternals =
 [<Sealed>]
 type Provider(fo: FormatSettings) =
     [<System.NonSerialized>]
-    let decoders = Dictionary()
+    let decoders = ConcurrentDictionary()
     [<System.NonSerialized>]
-    let encoders = Dictionary()
+    let encoders = ConcurrentDictionary()
 
     let defaultof (t: System.Type) =
-        if t = typeof<string> then box "" else
-        genLetMethod(<@ Unchecked.defaultof<_> @>, [|t|]).Invoke0()
+        if t.IsValueType then
+            System.Activator.CreateInstance(t)
+        else null
 
     [<System.NonSerialized>]
     let getDefaultBuilder =
@@ -1693,10 +1678,7 @@ type Provider(fo: FormatSettings) =
             (fun _ _ _ _ -> null)
             id
             fo
-            (Dictionary<_,_>())
-        >> function
-            | Choice1Of2 x -> x
-            | Choice2Of2 x -> raise (NoDecoderException x)
+            (ConcurrentDictionary<_,_>())
 
     [<System.NonSerialized>]
     let getDecoder =
@@ -1713,9 +1695,7 @@ type Provider(fo: FormatSettings) =
             id
             fo
             decoders
-        >> function
-            | Choice1Of2 x -> Decoder x
-            | Choice2Of2 x -> raise (NoDecoderException x)
+        >> Decoder
 
     [<System.NonSerialized>]
     let getEncoder =
@@ -1734,9 +1714,7 @@ type Provider(fo: FormatSettings) =
                 fun x -> dE (if x = null then ta else { ta with Type = x.GetType() }) x)
             fo
             encoders
-        >> function
-            | Choice1Of2 x -> Encoder x
-            | Choice2Of2 x -> raise (NoEncoderException x)
+        >> Encoder
 
     static member Create() =
         Provider PlainProviderInternals.format
