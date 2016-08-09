@@ -410,9 +410,49 @@ type Compilation(meta: Info, ?hasGraph) =
             match cls.Fields.TryFind field with
             | Some f -> CompiledField f
             | _ -> 
-                match this.GetCustomType typ with
-                | NotCustomType -> LookupFieldError (FieldNotFound (typ, field))
-                | i -> CustomTypeField i
+                let gname = "get_" + field
+                let getter =
+                    cls.Methods |> Seq.tryPick (fun (KeyValue (m, i)) ->
+                        if m.Value.MethodName = gname && List.isEmpty m.Value.Parameters then
+                            Some m
+                        else None
+                    )
+                let getter = 
+                    match getter with
+                    | Some _ -> getter
+                    | _ ->
+                        compilingMethods |> Seq.tryPick (fun (KeyValue ((td, m), i)) ->
+                            if td = typ then
+                                if m.Value.MethodName = gname && List.isEmpty m.Value.Parameters then
+                                    Some m
+                                else None
+                            else None
+                        )
+                let sname = "set_" + field
+                let setter =
+                    cls.Methods |> Seq.tryPick (fun (KeyValue (m, i)) ->
+                        if m.Value.MethodName = sname && List.length m.Value.Parameters = 1 then
+                            Some m
+                        else None
+                    )
+                let setter = 
+                    match setter with
+                    | Some _ -> setter
+                    | _ ->
+                        compilingMethods |> Seq.tryPick (fun (KeyValue ((td, m), i)) ->
+                            if td = typ then
+                                if m.Value.MethodName = sname && List.length m.Value.Parameters = 1 then
+                                    Some m
+                                else None
+                            else None
+                        )
+                match getter, setter with
+                | None, None ->
+                    match this.GetCustomType typ with
+                    | NotCustomType -> LookupFieldError (FieldNotFound (typ, field))
+                    | i -> CustomTypeField i
+                | _ -> 
+                    PropertyField (getter, setter)
         | _ ->
             match this.GetCustomType typ with
             | NotCustomType -> LookupFieldError (TypeNotFound typ)

@@ -931,6 +931,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | _ -> this.Error(SourceError (sprintf "Could not find field of F# record type: %s.%s" typ.Entity.Value.FullName field))
             | M.FSharpUnionInfo _ -> failwith "Union base type should not have fields"   
             | _ -> failwith "CustomTypeField error"          
+        | PropertyField (getter, _) ->
+            match getter with
+            | Some m -> 
+                this.TransformCall (expr, typ, NonGeneric m, [])   
+            | _ -> this.Error(SourceError (sprintf "Could not getter of F# field: %s.%s" typ.Entity.Value.FullName field))
         | LookupFieldError err ->
             this.Error(err)
 
@@ -967,6 +972,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.FSharpUnionCaseInfo _ -> failwith "Union case field should not be set" 
             | M.FSharpUnionInfo _ -> failwith "Union base type should not have fields"   
             | _ -> failwith "CustomTypeField error"          
+        | PropertyField (_, setter) ->
+            match setter with
+            | Some m -> 
+                this.TransformCall (expr, typ, NonGeneric m, [value])   
+            | _ -> this.Error(SourceError (sprintf "Could not setter of F# field: %s.%s" typ.Entity.Value.FullName field))
         | LookupFieldError err ->
             comp.AddError (currentSourcePos, err)
             ItemSet(errorPlaceholder, errorPlaceholder, this.TransformExpression value)

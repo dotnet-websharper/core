@@ -412,6 +412,7 @@ type LookupMemberResult =
 
 type LookupFieldResult =
     | CompiledField of CompiledField
+    | PropertyField of option<Method> * option<Method>
     | CustomTypeField of CustomTypeInfo
     | LookupFieldError of CompilationError 
 
