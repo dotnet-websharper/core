@@ -21,6 +21,7 @@
 module WebSharper.Tests.Ref
 
 open WebSharper
+open WebSharper.JavaScript
 open WebSharper.Testing
 
 [<JavaScript>]
@@ -41,5 +42,4 @@ let Tests =
             r.contents <- 4
             equal r.contents 4
         }
-
     }

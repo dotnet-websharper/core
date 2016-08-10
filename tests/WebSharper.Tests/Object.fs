@@ -44,6 +44,16 @@ type R = { [<OptionalField>] KO: int option }
 [<JavaScript>]
 type [<OptionalField>] R2 = { KO2: int option; K2 : int }
 
+type I = 
+    abstract Get: unit -> int
+
+type R3 =
+    { R3A : int }
+    
+    interface I with
+        [<JavaScript>]
+        member this.Get() = this.R3A
+
 [<JavaScript>]
 type RN () =
     [< Name "x" >]
@@ -205,6 +215,11 @@ let Tests =
 
         Test "Module do" {
             equal TestValue 3
+        }
+
+        Test "Record with interface" {
+            let r = { R3A = 4 }
+            equal ((r :> I).Get()) 4
         }
 
 //        Test "Struct" {

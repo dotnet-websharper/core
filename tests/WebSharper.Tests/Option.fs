@@ -21,6 +21,7 @@
 module WebSharper.Tests.Option
 
 open WebSharper
+open WebSharper.JavaScript
 open WebSharper.Testing
 module R = WebSharper.Testing.Random
 
@@ -158,5 +159,9 @@ let Tests =
         }
 
         #endif
+
+        Test "Does not have prototype" {
+            jsEqual ((Some 1).JS.Constructor) (JS.Global?Object)
+        }
 
     }

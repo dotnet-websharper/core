@@ -567,7 +567,32 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 
-    if annot.IsJavaScript then
+    let ckind = 
+        if cls.IsFSharpModule then NotResolvedClassKind.Static
+        elif annot.IsJavaScript && isAugmentedFSharpType cls then NotResolvedClassKind.FSharpType
+        else NotResolvedClassKind.Class
+
+    let hasWSPrototype =                
+        match ckind with
+        | NotResolvedClassKind.Static -> false
+        | NotResolvedClassKind.FSharpType -> true
+        | _ ->
+            clsMembers
+            |> Seq.exists (
+                function
+                | M.Constructor (_, nr)
+                | M.Method (_, nr) ->
+                    match nr.Kind with
+                    | N.Instance 
+                    | N.Abstract
+                    | N.Constructor 
+                    | N.Override _
+                    | N.Implementation _ -> true
+                    | _ -> false
+                | _ -> false
+            )
+
+    if annot.IsJavaScript || hasWSPrototype then
         if cls.IsFSharpUnion then
             let usesNull =
                 cls.UnionCases.Count < 4 // see TaggingThresholdFixedConstant in visualfsharp/src/ilx/EraseUnions.fs
@@ -734,11 +759,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 let origName = thisDef.Value.FullName
                 origName.[.. origName.LastIndexOf '.'] + n
         )   
-
-    let ckind = 
-        if cls.IsFSharpModule then NotResolvedClassKind.Static
-        elif annot.IsJavaScript && isAugmentedFSharpType cls then NotResolvedClassKind.FSharpType
-        else NotResolvedClassKind.Class
 
     Some (
         def,

@@ -620,14 +620,6 @@ type Compilation(meta: Info, ?hasGraph) =
         let someEmptyAddress = Some (Address [])
         let unresolvedCctor = Some (Address [], Undefined)
 
-        let isInstanceKind k = match k with N.Instance | N.Abstract | N.Override _ | N.Implementation _ -> true | _ -> false
-
-        let isInstanceMember m =
-            match m with
-            | M.Constructor (_, { Kind = k })
-            | M.Method (_, { Kind = k }) -> isInstanceKind k 
-            | _ -> false
-
         let asmNodeIndex = 
             if hasGraph then graph.AddOrLookupNode(AssemblyNode (this.AssemblyName, true)) else 0
         if hasGraph then
@@ -636,7 +628,6 @@ type Compilation(meta: Info, ?hasGraph) =
 
         // initialize all class entries
         for KeyValue(typ, cls) in notResolvedClasses do
-            let hasPrototype = cls.Members |> Seq.exists isInstanceMember
             let cctor = cls.Members |> Seq.tryPick (function M.StaticConstructor e -> Some e | _ -> None)
             let baseCls =
                 cls.BaseClass |> Option.bind (fun b ->
@@ -664,7 +655,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     )
             classes.Add (typ,
                 {
-                    Address = if hasPrototype then someEmptyAddress else None
+                    Address = if hasWSPrototype then someEmptyAddress else None
                     BaseClass = baseCls
                     Constructors = Dictionary() 
                     Fields = Dictionary() 
