@@ -38,3 +38,13 @@ type private IDelegateEventProxy<'D> =
     abstract AddHandler : 'D -> unit
     [<Name "RemoveHandler">]
     abstract RemoveHandler : 'D -> unit
+
+[<Proxy(typeof<DelegateEvent<_>>)>]
+[<Name "WebSharper.Control.FSharpDelegateEvent">]
+type private FSharpDelegateEvent<'T when 'T :> System.Delegate and 'T: equality> [<JavaScript>] () =
+    let event = DelegateEvent.New ()
+
+    [<Inline>]
+    member this.Trigger(args: obj[]) = event.Trigger args
+
+    member this.Publish with [<Inline>] get () = event :> IDelegateEvent<'T>

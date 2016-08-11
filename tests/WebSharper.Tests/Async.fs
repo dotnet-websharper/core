@@ -185,4 +185,18 @@ let Tests =
             equal !errorCatched true
         }
 
+        Test "AwaitEvent" {
+            let e = Event<int>()
+            let res = ref 0
+            async {
+                let! c = Async.StartChild <| async {
+                    let! r = Async.AwaitEvent e.Publish
+                    res := r
+                }
+                e.Trigger(3)
+            }
+            |> Async.Start
+            forceAsync()
+            equal !res 3
+        }
     }

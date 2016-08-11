@@ -28,7 +28,10 @@ type internal DelegateProxy =
 //    member this.GetLastInvoke() =
 //        let inv = As<Delegate[]> this?``$Invokes``
 //        if As inv then inv.[inv.Length - 1] else As this
-    
+
+    [<Inline "$this.apply(null, $args)">]
+    member this.DynamicInvoke(args: obj[]) = X<obj>
+
     [<Direct "$0.$Invokes || [$0]">]
     static member InvocationList(del: Delegate) = X<Delegate[]> 
     [<Inline>]

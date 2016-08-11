@@ -53,7 +53,7 @@ open System.Runtime.InteropServices
 [<JavaScript>]
 type Class() =
     let ev = Event<int>() 
-//    let dev = DelegateEvent<Action<int>>() 
+    let dev = DelegateEvent<Action<int>>() 
 
     member this.ParamsSum([<ParamArray>] ps: int[]) = Array.sum ps
     
@@ -71,9 +71,9 @@ type Class() =
     member this.Event = ev.Publish
     member this.TriggerEvent x = ev.Trigger x
 
-//    [<CLIEvent>]
-//    member this.DelEvent = dev.Publish
-//    member this.TriggerDelEvent x = dev.Trigger x
+    [<CLIEvent>]
+    member this.DelEvent = dev.Publish
+    member this.TriggerDelEvent (x: int) = dev.Trigger [|x|]
 
 [<JavaScript>]
 module Module =

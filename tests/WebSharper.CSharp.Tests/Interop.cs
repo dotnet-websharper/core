@@ -157,6 +157,26 @@ namespace WebSharper.CSharp.Tests
             Equal(TestInt, 8, "removing one handler then triggering");
         }
 
+        public void AddToTestInt(int x)
+        {
+            TestInt += x;
+        }
+
+        [Test]
+        public void DelegateEvent()
+        {
+            var c = new I.Class();
+            c.DelEvent += AddToTestInt;
+            c.TriggerDelEvent(1);
+            Equal(TestInt, 1, "adding handler then triggering");
+            c.DelEvent += AddToTestInt;
+            c.TriggerDelEvent(2);
+            Equal(TestInt, 5, "adding another handler then triggering");
+            c.DelEvent -= AddToTestInt;
+            c.TriggerDelEvent(3);
+            Equal(TestInt, 8, "removing one handler then triggering");
+        }
+
         [Test]
         public void FSharpFunc()
         {

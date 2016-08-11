@@ -60,4 +60,32 @@ module internal Event =
     [<Inline>]
     let New () = { Handlers = ResizeArray() }
 
+module internal DelegateEvent =
+    open System
+    open WebSharper
+    open WebSharper.JavaScript
 
+    [<JavaScript>]
+    type DelegateEvent<'T when 'T :> System.Delegate and 'T: equality> = private { Handlers : ResizeArray<'T> } with
+
+        member this.Trigger(x: obj[]) =
+            for h in this.Handlers.ToArray() do
+                h.DynamicInvoke(x) |> ignore
+
+        member this.AddHandler(h: 'T) =
+            this.Handlers.Add h
+
+        member this.RemoveHandler(h: 'T) =
+            this.Handlers
+            |> Seq.tryFindIndex ((=) h)
+            |> Option.iter this.Handlers.RemoveAt
+
+        interface IDisposable with
+                member this.Dispose() = ()
+
+        interface IDelegateEvent<'T> with
+                member this.AddHandler x = this.AddHandler x
+                member this.RemoveHandler x = this.RemoveHandler x
+
+    [<Inline>]
+    let New () = { Handlers = ResizeArray() }
