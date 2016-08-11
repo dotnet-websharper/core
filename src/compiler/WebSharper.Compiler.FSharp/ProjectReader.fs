@@ -226,10 +226,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         let error m = 
             comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError m)
 
-        let memdef = sr.ReadMember meth
-        
         match mAnnot.Kind with
         | Some A.MemberKind.Stub ->
+            let memdef = sr.ReadMember meth
             match memdef with
             | Member.Method (isInstance, mdef) ->
                 let expr, err = Stubs.GetMethodInline annot mAnnot isInstance mdef
@@ -244,12 +243,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | Member.Override(_, _) -> error "Override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
         | Some A.MemberKind.JavaScript when meth.IsDispatchSlot -> 
+            let memdef = sr.ReadMember meth
             match memdef with
             | Member.Method (isInstance, mdef) ->
                 if not isInstance then failwith "Abstract method should not be static" 
                 addMethod (Some (meth, memdef)) mAnnot mdef N.Abstract true Undefined
             | _ -> failwith "Member kind not expected for astract method"
         | Some (A.MemberKind.Remote rp) ->
+            let memdef = sr.ReadMember meth
             match memdef with
             | Member.Method (isInstance, mdef) ->
                 let remotingKind =

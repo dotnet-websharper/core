@@ -378,7 +378,10 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             }  
         else
             if x.IsOverrideOrExplicitInterfaceImplementation then
-                let s = x.ImplementedAbstractSignatures |> Seq.head
+                let s = 
+                    match x.ImplementedAbstractSignatures |> Seq.tryHead with
+                    | Some s -> s
+                    | _ -> failwithf "Failed to read abstract signature of %s" x.FullName
 
                 let iTparams = 
                     Seq.append s.DeclaringTypeGenericParameters s.MethodGenericParameters
