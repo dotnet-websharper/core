@@ -32,13 +32,6 @@ type private FSharpEvent<'T> [<JavaScript>] () =
 
     member this.Publish with [<Inline>] get () = event :> IEvent<_>
 
-[<Proxy(typeof<IDelegateEvent<_>>)>]
-type private IDelegateEventProxy<'D> =
-    [<Name "AddHandler">]
-    abstract AddHandler : 'D -> unit
-    [<Name "RemoveHandler">]
-    abstract RemoveHandler : 'D -> unit
-
 [<Proxy(typeof<DelegateEvent<_>>)>]
 [<Name "WebSharper.Control.FSharpDelegateEvent">]
 type private FSharpDelegateEvent<'T when 'T :> System.Delegate and 'T: equality> [<JavaScript>] () =

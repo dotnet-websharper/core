@@ -85,21 +85,11 @@ let CreateEvent<'D, 'A when 'D : delegate<'A, unit> and 'D :> System.Delegate>
         (add: 'D -> unit) 
         (remove: 'D -> unit)
         (create: (obj -> 'A -> unit) -> 'D) : IEvent<'D, 'A> =
-//    { new IEvent<'D, 'A> with
-//        member this.AddHandler h = add h
-//        member this.RemoveHandler h = remove h
-//        member this.Subscribe (r: System.IObserver<'A>) =     
-//            let h = create (fun _ args -> r.OnNext(args))
-//            add h
-//            { new System.IDisposable with member this.Dispose() = remove h }
-//    }
-    New [
-        "AddHandler" => add
-        "RemoveHandler" => remove
-        "Subscribe" => 
-            fun (r: System.IObserver<'A>) ->
-                let h = create (fun _ args -> r?OnNext(args))
-                add h
-                { new System.IDisposable with member this.Dispose() = remove h }
-    ]
-    
+    { new IEvent<'D, 'A> with
+        member this.AddHandler h = add h
+        member this.RemoveHandler h = remove h
+        member this.Subscribe (r: System.IObserver<'A>) =     
+            let h = create (fun _ args -> r.OnNext(args))
+            add h
+            { new System.IDisposable with member this.Dispose() = remove h }
+    }

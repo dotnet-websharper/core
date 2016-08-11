@@ -11,8 +11,6 @@
     <Compile Include="Disposable.fs" />
     <Compile Include="Observer.fs" />
     <Compile Include="HotStream.fs" />
-    <Compile Include="IObserverProxy.fs" />
-    <Compile Include="IObservableProxy.fs" />
     <Compile Include="Observable.fs" />
     <Compile Include="ObservableModule.fs" />
     <Compile Include="Event.fs" />

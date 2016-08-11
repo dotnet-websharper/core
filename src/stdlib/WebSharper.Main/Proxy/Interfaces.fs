@@ -99,3 +99,58 @@ type private IStructuralEquatableProxy =
 type private IStructuralComparableProxy =
     [<Name "SCompareTo">]
     abstract CompareTo : obj * System.Collections.IComparer -> int 
+
+[<Proxy(typeof<System.IDisposable>)>]
+type private IDisposableProxy =
+    [<Name "Dispose">]
+    abstract member Dispose : unit -> unit
+
+[<Proxy(typeof<System.Collections.IEnumerable>)>]  
+type private IEnumerableProxy =
+
+    [<Name "GetEnumerator0">]
+    abstract GetEnumerator : unit -> System.Collections.IEnumerator
+
+[<Proxy(typeof<seq<_>>)>]  
+type private IEnumerableProxy<'T> =
+    inherit System.Collections.IEnumerable 
+    
+    [<Name "GetEnumerator">]
+    abstract GetEnumerator : unit -> System.Collections.Generic.IEnumerator<'T>
+    
+[<Proxy(typeof<System.Collections.IEnumerator>)>]
+[<Name "WebSharper.IEnumerator">]
+type private IEnumeratorProxy =
+    [<Name "Current0">]
+    abstract member Current  : obj
+    [<Name "MoveNext">]
+    abstract member MoveNext : unit -> bool
+    [<Name "Reset">]
+    abstract member Reset    : unit -> unit
+
+[<Proxy(typeof<System.Collections.Generic.IEnumerator<_>>)>]
+[<Name "WebSharper.IEnumerator1">]
+type private IEnumeratorProxy<'T> =
+    [<Name "Current">]
+    abstract member Current : 'T
+
+[<Proxy(typeof<System.IObservable<_>>)>]
+type private IObservableProxy<'T> =
+    [<Name "Subscribe">]
+    abstract member Subscribe : System.IObserver<'T> -> System.IDisposable
+
+[<Proxy(typeof<System.IObserver<_>>)>]
+type private IObserverProxy<'T> =
+    [<Name "OnCompleted">]
+    abstract member OnCompleted : unit -> unit
+    [<Name "OnError">]
+    abstract member OnError : exn -> unit
+    [<Name "OnNext">]
+    abstract member OnNext : 'T -> unit
+
+[<Proxy(typeof<IDelegateEvent<_>>)>]
+type private IDelegateEventProxy<'D> =
+    [<Name "AddHandler">]
+    abstract AddHandler : 'D -> unit
+    [<Name "RemoveHandler">]
+    abstract RemoveHandler : 'D -> unit

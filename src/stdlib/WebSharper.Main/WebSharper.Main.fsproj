@@ -53,10 +53,7 @@
     <Compile Include="Proxy/ExtraTopLevelOperators.fs" />
     <Compile Include="Proxy/Func.fs" />
     <Compile Include="Proxy/Guid.fs" />
-    <Compile Include="Proxy/IComparable.fs" />
-    <Compile Include="Proxy/IDisposable.fs" />
-    <Compile Include="Proxy/IEnumerable.fs" />
-    <Compile Include="Proxy/IEnumerator.fs" />
+    <Compile Include="Proxy\Interfaces.fs" />
     <Compile Include="Proxy/IntrinsicOperators.fs" />
     <Compile Include="Proxy/KeyValuePair.fs" />
     <Compile Include="Proxy/LanguagePrimitives.fs" />

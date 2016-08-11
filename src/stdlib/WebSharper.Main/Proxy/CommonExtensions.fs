@@ -27,21 +27,17 @@ module private WebSharper.CommonExtensionsProxy
 
 open WebSharper.JavaScript
 
-[<Inline "$event.Subscribe($obs)">]
-let subscribe (event: System.IObservable<'T>) (obs: System.IObserver<'T>) =
-    X<System.IDisposable>
-
 let observer (h: 'T -> unit) : System.IObserver<'T> =
-    New [
-        "OnCompleted" => ignore
-        "OnError" => ignore
-        "OnNext" => h
-    ]
+    { new System.IObserver<'T> with 
+        member this.OnCompleted() = ()
+        member this.OnError _ = ()
+        member this.OnNext args = h args
+    }
 
 [<Name "addListener">]
 let AddToObservable<'T> (event: System.IObservable<'T>) (h: 'T -> unit) =
-    ignore (subscribe event (observer h))
+    event.Subscribe(observer h) |> ignore
 
 [<Name "subscribeTo">]
 let SubscribeToObservable<'T> (event: System.IObservable<'T>) (h: 'T -> unit) =
-    subscribe event (observer h)
+    event.Subscribe(observer h)
