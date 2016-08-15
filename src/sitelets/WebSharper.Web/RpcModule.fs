@@ -74,7 +74,6 @@ type AspNetFormsUserSession(ctx: HttpContextBase) =
             }
 
 module private RpcUtil =
-    let server = R.Server.Create Shared.Metadata Shared.Json
     let [<Literal>] HttpContextKey = "HttpContext"
     let [<Literal>] CsrfTokenKey = "csrftoken"
     let [<Literal>] CsrfTokenHeader = "x-" + CsrfTokenKey
@@ -117,6 +116,8 @@ type RpcHandler() =
         | _ ->
             Ok headers
 
+    let server = R.Server.Create Shared.Metadata Shared.Json
+
     let work (ctx: HttpContextBase) =
         let req = ctx.Request
         let resp = ctx.Response
@@ -152,7 +153,7 @@ type RpcHandler() =
                         member this.UserSession = session :> _ 
                         member this.Environment = upcast Map.ofList [(RpcUtil.HttpContextKey, ctx :> obj)] }
                 let! response =
-                    RpcUtil.server.HandleRequest({ Headers = getHeader; Body = body }, ctx)
+                    server.HandleRequest({ Headers = getHeader; Body = body }, ctx)
                 resp.ContentType <- response.ContentType
                 resp.Write response.Content
             return resp.End()
