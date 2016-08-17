@@ -44,6 +44,12 @@ type R = { [<OptionalField>] KO: int option }
 [<JavaScript>]
 type [<OptionalField>] R2 = { KO2: int option; K2 : int }
 
+/// non JS-annotated version of R
+type R4 = { [<OptionalField>] KO4: int option }
+
+/// non JS-annotated version of R2
+type [<OptionalField>] R5 = { KO5: int option; K5 : int }
+
 type I = 
     abstract Get: unit -> int
 
@@ -145,6 +151,7 @@ let Tests =
             o.P3 <- Some 1
             equal o?P3 1
             equal o.P3 (Some 1)
+
             let r = { KO = Some 2 }
             equal r.KO (Some 2)
             equal r?KO 2
@@ -158,6 +165,21 @@ let Tests =
             equal r4.KO2 None
             equal r4.K2 2
             equal r4 (New [ "K2" => 2 ])
+
+            // non JS-annotated versions
+            let r = { KO4 = Some 2 }
+            equal r.KO4 (Some 2)
+            equal r?KO4 2
+            let r2 = { KO4 = None }
+            equal r2 (New [])
+            let r3 = { KO5 = Some 1; K5 = 2 }
+            equal r3.KO5 (Some 1)
+            equal r3.K5 2
+            equal r3 (New [ "KO5" => 1; "K5" => 2 ])
+            let r4 = { KO5 = None; K5 = 2 }
+            equal r4.KO5 None
+            equal r4.K5 2
+            equal r4 (New [ "K5" => 2 ])
         }
 
         Test "Optimized field access" {

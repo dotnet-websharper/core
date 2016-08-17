@@ -267,9 +267,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | "get" ->
                 let fn = me.MethodName.[4 ..]
                 let resOpt =
-                    fields |> List.tryPick (fun f -> //(n, na, _, o) -> // TODO: optional
+                    fields |> List.tryPick (fun f ->
                         if f.Name = fn then
-                            ItemGet(Hole 0, Value (String f.JSName))
+                            if f.Optional then 
+                                JSRuntime.GetOptional(ItemGet(Hole 0, Value (String f.JSName)))
+                            else
+                                ItemGet(Hole 0, Value (String f.JSName))
                             |> Some
                         else None
                     )
@@ -281,7 +284,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 let resOpt =
                     fields |> List.tryPick (fun f ->
                         if f.Name = fn then
-                            ItemSet(Hole 0, Value (String f.JSName), Hole 1)
+                            if f.Optional then
+                                JSRuntime.SetOptional (Hole 0) (Value (String f.JSName)) (Hole 1)
+                            else
+                                ItemSet(Hole 0, Value (String f.JSName), Hole 1)                                
                             |> Some
                         else None
                     )
