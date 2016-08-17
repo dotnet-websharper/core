@@ -233,7 +233,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let obj = 
                 fields
                 |> Seq.mapi (fun i f -> 
-                    f.JSName, if f.Optional then ItemGet(Hole i, Value (String "$0")) else Hole i)
+                    f.JSName,
+                        if f.Optional then
+                            let id = Id.New()
+                            Let(id, Hole i,
+                                Conditional(Var id, ItemGet(Var id, Value (String "$0")), Undefined))
+                        else Hole i)
                 |> List.ofSeq |> Object
             let optFields = 
                 fields |> List.choose (fun f -> 
