@@ -100,6 +100,18 @@ type Environment =
 
 exception RecognitionError
 
+let checkNotMutating (env: Environment) a f =
+    if env.IsInput a then
+        failwith "arguments of inlined functions should not be mutated"
+    else f a
+
+let setValue (env: Environment) expr value =
+    match expr with
+    | ItemGet (d, e)
+    | ItemGetNonPure (d, e) -> ItemSet(d, e, value)
+    | Var d -> checkNotMutating env (Var d) (fun _ -> VarSet(d, value))
+    | _ -> failwith "invalid form for setter"
+
 let rec transformExpression (env: Environment) (expr: S.Expression) =
     let inline trE e = transformExpression env e
     let checkNotMutating a f =
@@ -136,12 +148,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | SB.``<<``     -> Binary(trE a, BinaryOperator.``<<``, trE c)
         | SB.``<<=``    -> mbin a MutatingBinaryOperator.``<<=`` c
         | SB.``<=``     -> Binary(trE a, BinaryOperator.``<=``, trE c)
-        | SB.``=``      ->
-            match trE a with
-            | ItemGet (d, e)
-            | ItemGetNonPure (d, e) -> ItemSet(d, e, trE c)
-            | Var d -> checkNotMutating (Var d) (fun _ -> VarSet(d, trE c))
-            | a -> failwith "invalid form at '='"
+        | SB.``=``      -> setValue env (trE a) (trE c)
         | SB.``==``     -> Binary(trE a, BinaryOperator.``==``, trE c)
         | SB.``===``    -> Binary(trE a, BinaryOperator.``===``, trE c)
         | SB.``>``      -> Binary(trE a, BinaryOperator.``>``, trE c)
@@ -240,19 +247,22 @@ and transformStatement (env: Environment) (statement: S.Statement) =
         a |> List.map trS |> CombineStatements
     | S.Break a   -> Break (a |> Option.map (fun l -> env.Labels.[l]))
     | S.Continue a -> Continue (a |> Option.map (fun l -> env.Labels.[l]))
-    | S.Debugger -> failwith "TODO"
+    | S.Debugger -> failwith "Currently unsupported: JS debugger"
     | S.Do (a, b) -> DoWhile (trS a, trE b)
     | S.Empty -> Empty
     | S.For (a, b, c, d) -> 
-        For (Option.map trE a, Option.map trE b, Option.map trE c, trS d) // TODO: var declarations (?)
-    | S.ForIn (a, b, c) -> failwith "TODO" //
+        For (Option.map trE a, Option.map trE b, Option.map trE c, trS d)
+    | S.ForIn (a, b, c) ->
+        let i = env.NewVar "i"
+        ForIn(i, trE b, Block [ ExprStatement (setValue env (trE a) (Var i)); trS c ])
     | S.ForVarIn (a, b, c, d) -> 
-        match b with
-        | Some b -> failwith "TODO"
-        | _ ->
         let v = env.NewVar a
+        let bv =
+            match b with
+            | Some b ->  trE b
+            | _ -> Undefined        
         Block [
-            VarDeclaration (v, Undefined)
+            VarDeclaration (v, bv)
             ForIn(v, trE c, trS d)
         ]
     | S.ForVars (a, b, c, d) -> 
@@ -269,12 +279,21 @@ and transformStatement (env: Environment) (statement: S.Statement) =
         )
     | S.If (a, b, c) -> If (trE a, trS b, trS c)
     | S.Ignore a -> ExprStatement (trE a)    
-    | S.Labelled (a, b)  -> failwith "TODO: recognize labels"
+    | S.Labelled (a, b)  -> 
+        failwith "Currently unsupported: JS labels"
     | S.Return a -> Return (match a with Some v -> trE v | _ -> Undefined)
-    | S.Switch (a, b)    -> failwith "TODO: recognize switch"
+    | S.Switch (a, b) -> 
+        Switch(trE a, b |> List.map (function 
+            | S.Case (c, cs) -> Some (trE c), Block (cs |> List.map trS) 
+            | S.Default d -> None, Block (d |> List.map trS)
+        ))
     | S.Throw a -> Throw (trE a)
     | S.TryFinally (a, b) -> TryFinally (trS a, trS b)
-    | S.TryWith (a, b, c, d)   -> failwith "TODO: recognize try-with"
+    | S.TryWith (a, b, c, d) -> 
+        let tw = TryWith (trS a, Some (env.NewVar b), trS c)
+        match d with
+        | None -> tw
+        | Some d -> TryFinally (tw, trS d)
     | S.Vars a ->
         match a with
         | [var, value] -> 
@@ -282,7 +301,7 @@ and transformStatement (env: Environment) (statement: S.Statement) =
         | _ -> 
             Block (a |> List.map (fun (var, value) -> VarDeclaration (env.NewVar var, match value with Some v -> trE v | None -> Undefined)))
     | S.While (a, b) -> While (trE a, trS b)
-    | S.With (a, b) -> failwith "TODO"
+    | S.With (a, b) -> failwith "Unsupported: JS with statement"
     | S.StatementComment _ -> failwith "impossible, comments are not parsed"
 
 let createInline thisArg args isPure inlineString =        
@@ -298,7 +317,7 @@ let createInline thisArg args isPure inlineString =
             e |> transformExpression (Environment.New(thisArg, false, isPure, args))
         | Choice2Of2 p ->
             p
-            |> List.map (function S.Action a -> a | _ -> failwith "TODO: function declarations in Inline" )
+            |> List.map (function S.Action a -> a | _ -> failwith "Currently unsupported: function declarations in Inline" )
             |> S.Block
             |> transformStatement (Environment.New(thisArg, false, isPure, args))
             |> IgnoredStatementExpr
