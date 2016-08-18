@@ -243,6 +243,10 @@ let nonPureFunc (x: int ref) = ()
 //    fun x -> if x < 5 then moduleFuncValue (x + 1) else x
 
 [<JavaScript>]
+type Bug590 =
+    static member Curried5 (a: string) b c d e = a + b + c + d + e
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -522,9 +526,18 @@ let Tests =
         }
 
         Test "Long curried function" {
-            let f a b c d e = a + b + c + d
-            equal (f 1 1 1 1 1) 4
-            equal (f 1 1 1 1 2) 4
+            let f a b c d e = a + b + c + d + e
+            equal (f 1 1 1 1 1) 5
+            equal (f 1 1 1 1 2) 6
+            let g a b c d e = a + b + c + d + e
+            equal ("a" |> g "a" "a" "a" "a") "aaaaa"
+            equal ("b" |> g "b" "b" "b" "b") "bbbbb"
+            let h = Bug590.Curried5
+            equal (h "a" "a" "a" "a" "a") "aaaaa"
+            equal (h "b" "b" "b" "b" "b") "bbbbb"
+            let i = Bug590.Curried5 "x"
+            equal ("a" |> i "a" "a" "a") "xaaaa"
+            equal ("b" |> i "b" "b" "b") "xbbbb"
         }
 
 //        Test "Recursive module value" {

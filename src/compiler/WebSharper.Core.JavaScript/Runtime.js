@@ -211,7 +211,6 @@ IntelliFactory = {
         },
 
         Curried: function (f, n, args) {
-            if (f.$C && f.$C.$L == n) return f.$C;
             args = args || [];
             var res = function (a) {
                 var allArgs = args.concat([a === void (0) ? null : a]);
@@ -224,7 +223,6 @@ IntelliFactory = {
             res.$A = args;
             res.$L = n;
             res.$F = f;
-            f.$C = res;
             return res;
         },
 
