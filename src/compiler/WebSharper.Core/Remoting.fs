@@ -138,7 +138,7 @@ let getParameterDecoder (jP: J.Provider) (m: MethodInfo) =
             | J.Array a -> Array.map2 (fun (d: J.Decoder) i -> d.Decode i) decoders (Array.ofList a)
             | _ -> failwith "RPC parameters not received as an array"
 
-exception InvalidHandlerException
+exception InvalidHandlerException of Type
 
 let handlers = Dictionary<System.Type, obj>()
 
@@ -158,7 +158,7 @@ let toConverter (jP: J.Provider) (m: MethodInfo) =
             let t = m.DeclaringType
             match handlers.TryFind t with
             | None -> 
-                raise InvalidHandlerException
+                raise (InvalidHandlerException t)
             | Some inst ->
                 let args = dec j
                 let ps = Array.zeroCreate (args.Length + 1)
