@@ -1084,7 +1084,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                 | Some (Instance n) -> Some n
                                 | None -> None
                                 | _ -> 
-                                    printerrf "Abstract methods must be Instance"
+                                    printerrf "Abstract method must be compiled as instance member: %s in %s" (string mDef.Value) td.Value.FullName
                                     None
                             | _ ->
                                 printerrf "Base type not found in compilation: %s" td.Value.FullName
