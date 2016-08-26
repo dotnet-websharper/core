@@ -108,7 +108,7 @@ let getParameterDecoder (jP: J.Provider) (m: MethodInfo) =
         let decoder = jP.GetDecoder tt
         fun v -> tR (decoder.Decode v)
 
-exception InvalidHandlerException
+exception InvalidHandlerException of Type
 
 type IHandlerFactory =
     abstract member Create : Type -> option<obj>
@@ -144,7 +144,7 @@ let toConverter (mk: option<IHandlerFactory>) (jP: J.Provider) (m: MethodInfo) =
                 ps.[0] <- inst
                 run.InvokeN(ps) |> enc
             | None ->
-                raise InvalidHandlerException
+                raise (InvalidHandlerException t)
 
 [<Literal>]
 let HEADER_NAME = "x-websharper-rpc"
