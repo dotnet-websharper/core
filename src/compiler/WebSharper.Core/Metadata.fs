@@ -334,6 +334,7 @@ type ICompilation =
     abstract GetClassInfo : TypeDefinition -> option<IClassInfo>
     abstract GetTypeAttributes : TypeDefinition -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetFieldAttributes : TypeDefinition * string -> option<Type * list<TypeDefinition * ParameterObject[]>>
+    abstract ParseJSInline : string * list<Expression> -> Expression
 
 // planned functionality:    
 //    abstract AddNewJSClass : string list -> string list

@@ -107,6 +107,11 @@ let private NewFromSeq<'T> (fields: seq<string * obj>) : 'T =
 [<Macro(typeof<M.New>); Inline>]
 let New<'T> (fields: seq<string * obj>) = NewFromSeq<'T> fields
 
+type JS =
+    /// Parses and inlines JavaScript code
+    [<Macro(typeof<M.InlineJS>)>]
+    static member Inline<'T> (inlineString: string, [<System.ParamArray>] args: obj[]) = X<'T>
+
 /// Constructs an proxy to a remote object instance.
 [<Constant null>]
 let Remote<'T> = X<'T>

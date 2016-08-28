@@ -126,7 +126,12 @@ type Compilation(meta: Info, ?hasGraph) =
 
         member this.GetTypeAttributes(typ) = this.LookupTypeAttributes typ
         member this.GetFieldAttributes(typ, field) = this.LookupFieldAttributes typ field
-        
+
+        member this.ParseJSInline(inl: string, args: Expression list): Expression = 
+            let vars = args |> List.map (fun _ -> Id.New())
+            let parsed = Recognize.createInline None vars false inl
+            Substitution(args).TransformExpression(parsed)
+                
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
         | Some res -> res

@@ -183,21 +183,19 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | S.True -> Bool true
         |> Value
     | S.Lambda (a, b, c) ->
-       match a with
-       | None ->
-            let vars = b |> List.map (fun v -> Id.New v)
-            let env = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
-            let body =
-                c
-                |> List.map (function
-                    | S.Action s -> s
-                    | _ -> raise RecognitionError)
-                |> S.Block
-            Function (
-                vars,
-                transformStatement env body
-            )
-       | _ -> failwith "TODO" 
+        let vars = b |> List.map (fun v -> Id.New v)
+        let env = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
+        let body =
+            c
+            |> List.map (function
+                | S.Action s -> s
+                | _ -> raise RecognitionError)
+            |> S.Block
+        match a with
+        | None -> Function (vars, transformStatement env body)
+        | Some a -> 
+            let f = Id.New a
+            StatementExpr(FuncDeclaration(f, vars, transformStatement env body), Some f)
     | S.New (a, b) -> New(trE a, List.map trE b)
     | S.NewArray a -> NewArray (a |> List.map (function Some i -> trE i | _ -> Undefined))
     | S.NewObject a -> Object(a |> List.map (fun (b, c) -> b, trE c))
@@ -317,7 +315,12 @@ let createInline thisArg args isPure inlineString =
             e |> transformExpression (Environment.New(thisArg, false, isPure, args))
         | Choice2Of2 p ->
             p
-            |> List.map (function S.Action a -> a | _ -> failwith "Currently unsupported: function declarations in Inline" )
+            |> List.map (function 
+                | S.Action a -> a
+                | S.Function (f, args, body) ->
+                    // ignore is just temporary, transformExpression should transform it to FuncDeclaration
+                    S.Ignore(S.Lambda(Some f, args, body)) 
+            )
             |> S.Block
             |> transformStatement (Environment.New(thisArg, false, isPure, args))
             |> IgnoredStatementExpr
