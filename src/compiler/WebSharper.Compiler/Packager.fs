@@ -116,14 +116,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
         | M.Macro (_, _, Some fb) -> withoutMacros fb
         | _ -> info 
 
-    let rec packageClass (c: M.ClassInfo) =
+    let rec packageClass (c: M.ClassInfo) name =
 
         match c.BaseClass with
         | Some b ->
             match classes.TryFind b with
             | Some bc ->
                 classes.Remove b |> ignore
-                packageClass bc
+                packageClass bc b.Value.FullName
             | _ -> ()
         | _ -> ()
 
@@ -165,7 +165,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                 | _ -> Value Null
              
             if c.HasWSPrototype then
-                packageCtor addr <| JSRuntime.Class prototype baseType (GlobalAccess addr)
+                packageCtor addr <| JSRuntime.Class prototype baseType (GlobalAccess addr) name
 
         for info, _, body in c.Methods.Values do
             match withoutMacros info with
@@ -194,7 +194,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
     while classes.Count > 0 do
         let (KeyValue(t, c)) = classes |> Seq.head
         classes.Remove t |> ignore
-        packageClass c
+        packageClass c t.Value.FullName
 
     if isBundle then
         match current.EntryPoint with
@@ -209,12 +209,15 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
         Application(Function([], Block allStatements), [], false, Some 0)
 
 let exprToString asmName pref sourceMap statement =
+    let env = WebSharper.Compiler.JavaScriptWriter.Environment.New(asmName, pref)
     let program =
         statement
         |> JavaScriptWriter.transformExpr (WebSharper.Compiler.JavaScriptWriter.Environment.New(asmName, pref))
         |> WebSharper.Core.JavaScript.Syntax.Ignore
         |> WebSharper.Core.JavaScript.Syntax.Action
         |> fun x -> [ x ]
+    if env.ScopeFuncs.Count > 0 then
+        failwith "Unexpected top level function declaration found"
     let w = WebSharper.Core.JavaScript.Writer.CodeWriter(?assemblyName = if sourceMap then Some asmName else None)
     WebSharper.Core.JavaScript.Writer.WriteProgram pref w program
     w.GetCodeFile(), w.GetMapFile()

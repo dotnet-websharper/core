@@ -226,7 +226,8 @@ let StatementDefs =
             , "Block of statements"
         "VarDeclaration", [ Id, "variable"; Expr, "value" ]
             , "Variable declaration"
-//        "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Statement, "body" ]
+        "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Statement, "body" ]
+            , "Function declaration"
         "While", [ Expr, "condition"; Statement, "body" ]
             , "'while' loop"
         "DoWhile", [ Statement, "body"; Expr, "condition" ]

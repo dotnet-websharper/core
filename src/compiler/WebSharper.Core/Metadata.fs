@@ -109,7 +109,6 @@ type ParameterObject =
 
 type CompiledMember =
     | Instance of string
-    | Abstract of string
     | Static of Address
     | Constructor of Address
     | Inline

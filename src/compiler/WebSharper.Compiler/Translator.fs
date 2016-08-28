@@ -508,7 +508,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         if comp.HasGraph then
             this.AddMethodDependency(typ.Entity, meth.Entity)
         match info with
-        | M.Abstract name 
         | M.Instance name ->
             match baseCall with
             | Some true ->
@@ -706,7 +705,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match info with 
             | M.Static address -> 
                 GlobalAccess address
-            | M.Abstract name
             | M.Instance name -> 
                 match comp.TryLookupClassInfo typ.Entity with
                 | Some { Address = Some addr } ->

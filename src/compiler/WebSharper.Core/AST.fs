@@ -204,6 +204,8 @@ and Statement =
     | Block of Statements:list<Statement>
     /// Variable declaration
     | VarDeclaration of Variable:Id * Value:Expression
+    /// Function declaration
+    | FuncDeclaration of FuncId:Id * Parameters:list<Id> * Body:Statement
     /// 'while' loop
     | While of Condition:Expression * Body:Statement
     /// 'do..while' loop
@@ -421,6 +423,9 @@ type Transformer() =
     /// Variable declaration
     abstract TransformVarDeclaration : Variable:Id * Value:Expression -> Statement
     override this.TransformVarDeclaration (a, b) = VarDeclaration (this.TransformId a, this.TransformExpression b)
+    /// Function declaration
+    abstract TransformFuncDeclaration : FuncId:Id * Parameters:list<Id> * Body:Statement -> Statement
+    override this.TransformFuncDeclaration (a, b, c) = FuncDeclaration (this.TransformId a, List.map this.TransformId b, this.TransformStatement c)
     /// 'while' loop
     abstract TransformWhile : Condition:Expression * Body:Statement -> Statement
     override this.TransformWhile (a, b) = While (this.TransformExpression a, this.TransformStatement b)
@@ -537,6 +542,7 @@ type Transformer() =
         | Return a -> this.TransformReturn a
         | Block a -> this.TransformBlock a
         | VarDeclaration (a, b) -> this.TransformVarDeclaration (a, b)
+        | FuncDeclaration (a, b, c) -> this.TransformFuncDeclaration (a, b, c)
         | While (a, b) -> this.TransformWhile (a, b)
         | DoWhile (a, b) -> this.TransformDoWhile (a, b)
         | For (a, b, c, d) -> this.TransformFor (a, b, c, d)
@@ -739,6 +745,9 @@ type Visitor() =
     /// Variable declaration
     abstract VisitVarDeclaration : Variable:Id * Value:Expression -> unit
     override this.VisitVarDeclaration (a, b) = this.VisitId a; this.VisitExpression b
+    /// Function declaration
+    abstract VisitFuncDeclaration : FuncId:Id * Parameters:list<Id> * Body:Statement -> unit
+    override this.VisitFuncDeclaration (a, b, c) = this.VisitId a; List.iter this.VisitId b; this.VisitStatement c
     /// 'while' loop
     abstract VisitWhile : Condition:Expression * Body:Statement -> unit
     override this.VisitWhile (a, b) = this.VisitExpression a; this.VisitStatement b
@@ -853,6 +862,7 @@ type Visitor() =
         | Return a -> this.VisitReturn a
         | Block a -> this.VisitBlock a
         | VarDeclaration (a, b) -> this.VisitVarDeclaration (a, b)
+        | FuncDeclaration (a, b, c) -> this.VisitFuncDeclaration (a, b, c)
         | While (a, b) -> this.VisitWhile (a, b)
         | DoWhile (a, b) -> this.VisitDoWhile (a, b)
         | For (a, b, c, d) -> this.VisitFor (a, b, c, d)
@@ -941,6 +951,7 @@ module IgnoreSourcePos =
     let (|Return|_|) x = match ignoreStatementSourcePos x with Return a -> Some a | _ -> None
     let (|Block|_|) x = match ignoreStatementSourcePos x with Block a -> Some a | _ -> None
     let (|VarDeclaration|_|) x = match ignoreStatementSourcePos x with VarDeclaration (a, b) -> Some (a, b) | _ -> None
+    let (|FuncDeclaration|_|) x = match ignoreStatementSourcePos x with FuncDeclaration (a, b, c) -> Some (a, b, c) | _ -> None
     let (|While|_|) x = match ignoreStatementSourcePos x with While (a, b) -> Some (a, b) | _ -> None
     let (|DoWhile|_|) x = match ignoreStatementSourcePos x with DoWhile (a, b) -> Some (a, b) | _ -> None
     let (|For|_|) x = match ignoreStatementSourcePos x with For (a, b, c, d) -> Some (a, b, c, d) | _ -> None
