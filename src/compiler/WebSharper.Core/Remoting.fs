@@ -179,15 +179,22 @@ let IsRemotingRequest (h: Headers) =
         | _ -> false
 
 exception InvalidHeadersException
-exception NoRemoteAttributeException
+exception RemotingException of message: string with
+    override this.Message = this.message
 
 [<Sealed>]
 type Server(info, jP) =
     let remote = M.Utilities.getRemoteMethods info
+    let withoutHash = 
+        remote.Keys |> Seq.map (fun h -> h.Assembly, h.Path) |> HashSet
     let d = ConcurrentDictionary()
     let getConverter m =
         match remote.TryFind m with
-        | None -> raise NoRemoteAttributeException
+        | None ->
+            if withoutHash.Contains (m.Assembly, m.Path) then
+                raise (RemotingException ("Remote method signature incompatible: " + m.Path + ", " + m.Assembly))
+            else
+                raise (RemotingException ("Remote method not found: " + m.Path + ", " + m.Assembly))
         | Some (td, m) -> toConverter jP (AST.Reflection.LoadMethod td m)
     let getCachedConverter m =
         d.GetOrAdd(m, valueFactory = Func<_,_>(getConverter))

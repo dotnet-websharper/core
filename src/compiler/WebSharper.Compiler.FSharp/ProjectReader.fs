@@ -261,7 +261,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | _ -> RemoteSync
                 let isCsrfProtected t = true // TODO
                 let rp = rp |> Option.map (fun t -> t, isCsrfProtected t)
-                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, comp.GetRemoteHandle(), rp)) true Undefined
+                let handle = 
+                    comp.GetRemoteHandle(
+                        def.Value.FullName + "." + mdef.Value.MethodName,
+                        mdef.Value.Parameters,
+                        mdef.Value.ReturnType
+                    )
+                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, rp)) true Undefined
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
 

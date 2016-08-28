@@ -35,17 +35,16 @@ type RemotingKind =
 type MethodHandle =
     {
         Assembly : string
-        Code : int
+        Path : string
+        SignatureHash : int
     }
     member this.Pack() =
-        string this.Assembly + ":" + string this.Code
+        this.Assembly + ":" + this.Path + ":" + string this.SignatureHash
 
     static member Unpack(s: string) =
         try
-            let i = s.LastIndexOf ':'
-            let code = int (s.Substring(i + 1))
-            let assembly = s.Substring(0, i)
-            { Assembly = assembly; Code = code }
+            let p = s.Split(':')
+            { Assembly = p.[0]; Path = p.[1]; SignatureHash = int p.[2] }
         with _ ->
             failwith "Failed to deserialize method handle"
 

@@ -54,7 +54,6 @@ type Compilation(meta: Info, ?hasGraph) =
     let warnings = ResizeArray() 
 
     let mutable entryPoint = None
-    let mutable remotingCode = -1
 
     let macros = System.Collections.Generic.Dictionary<TypeDefinition, Macro option>()
     let generators = System.Collections.Generic.Dictionary<TypeDefinition, Generator option>()
@@ -73,11 +72,11 @@ type Compilation(meta: Info, ?hasGraph) =
         | Some p -> p 
         | _ -> typ
     
-    member this.GetRemoteHandle() =
-        remotingCode <- remotingCode + 1
+    member this.GetRemoteHandle(path: string, args: Type list, ret: Type) =
         {
             Assembly = this.AssemblyName
-            Code = remotingCode
+            Path = path
+            SignatureHash = hash (args, ret)
         }
 
     member this.AddError (pos : SourcePos option, error : CompilationError) =
