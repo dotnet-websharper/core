@@ -55,7 +55,7 @@ let Metadata, Dependencies = loadMetadata ()
 
 let Json = J.Provider.CreateTyped Metadata
 
-let PlainJson = J.Provider.Create ()
+let PlainJson = WebSharper.Json.ServerSideProvider
 
 [<Literal>]
 let internal SCRIPT_MANAGER_ID = "WebSharperScriptManager"

@@ -9,12 +9,12 @@
   <ItemGroup>
     <Compile Include="UserSession.fs" />
     <Compile Include="Context.fs" />
+    <Compile Include="ClientSideJson.fs" />
     <Compile Include="Shared.fs" />
     <Compile Include="RpcModule.fs" />
     <Compile Include="ScriptManager.fs" />
     <Compile Include="Node.fs" />
     <Compile Include="Control.fs" />
-    <Compile Include="ClientSideJson.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">

@@ -32,6 +32,8 @@ type OptionalFieldKind =
     /// The field has type option<'T> and is marked [<OptionalField>]
     | MarkedOption = 2
 
+let ServerSideProvider = WebSharper.Core.Json.Provider.Create ()
+
 [<JavaScript>]
 type Provider() =
     let i () = id 
@@ -692,8 +694,8 @@ let EncodeWith<'T> (provider: Provider) (x: 'T) = X<obj>
 /// For plain JSON stringification, see Json.Stringify.
 [<Macro(typeof<SerializeMacro>)>]
 let Serialize<'T> (x: 'T) =
-    Web.Shared.PlainJson.GetEncoder<'T>().Encode x
-    |> Web.Shared.PlainJson.Pack
+    ServerSideProvider.GetEncoder<'T>().Encode x
+    |> ServerSideProvider.Pack
     |> Core.Json.Stringify
 
 /// Serializes an object to JSON using the same readable format as Sitelets.
@@ -717,7 +719,7 @@ let DecodeWith<'T> (provider: Provider) (x: obj) = X<'T>
 [<Macro(typeof<SerializeMacro>)>]
 let Deserialize<'T> (x: string) =
     Core.Json.Parse x
-    |> Web.Shared.PlainJson.GetDecoder<'T>().Decode
+    |> ServerSideProvider.GetDecoder<'T>().Decode
 
 /// Deserializes a JSON string using the same readable format as Sitelets.
 /// For plain JSON parsing, see Json.Parse.
