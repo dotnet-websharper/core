@@ -23,8 +23,6 @@ module WebSharper.Core.Resources
 open System
 open System.IO
 open System.Reflection
-open System.Web
-open System.Web.UI
 module CT = ContentTypes
 
 type Rendering =
@@ -50,7 +48,7 @@ let cleanLink dHttp (url: string) =
         then "http:" + url
         else url
 
-let link dHttp (html: HtmlTextWriter) (url: string) =
+let link dHttp (html: System.Web.UI.HtmlTextWriter) (url: string) =
     html.AddAttribute("type", CT.Text.Css.Text)
     html.AddAttribute("rel", "stylesheet")
     html.AddAttribute("href", cleanLink dHttp url)
@@ -58,21 +56,21 @@ let link dHttp (html: HtmlTextWriter) (url: string) =
     html.RenderEndTag()
     html.WriteLine()
 
-let inlineStyle (html: HtmlTextWriter) (text: string) =
+let inlineStyle (html: System.Web.UI.HtmlTextWriter) (text: string) =
     html.AddAttribute("type", CT.Text.Css.Text)
     html.RenderBeginTag "style"
     html.Write(text)
     html.RenderEndTag()
     html.WriteLine()
 
-let script dHttp (html: HtmlTextWriter) (url: string) =
+let script dHttp (html: System.Web.UI.HtmlTextWriter) (url: string) =
     html.AddAttribute("src", cleanLink dHttp url)
     html.AddAttribute("type", CT.Text.JavaScript.Text)
     html.AddAttribute("charset", "UTF-8")
     html.RenderBeginTag "script"
     html.RenderEndTag()
 
-let inlineScript (html: HtmlTextWriter) (text: string) =
+let inlineScript (html: System.Web.UI.HtmlTextWriter) (text: string) =
     html.AddAttribute("type", CT.Text.JavaScript.Text)
     html.AddAttribute("charset", "UTF-8")
     html.RenderBeginTag "script"
@@ -94,10 +92,10 @@ type RenderLocation =
 
 type Rendering with
 
-    member r.Emit(mkHtml: RenderLocation -> HtmlTextWriter, mt, ?defaultToHttp) =
+    member r.Emit(mkHtml: RenderLocation -> System.Web.UI.HtmlTextWriter, mt, ?defaultToHttp) =
         r.Emit(mkHtml (RenderLocation.ForMediaType mt), mt, ?defaultToHttp = defaultToHttp)
 
-    member r.Emit(html: HtmlTextWriter, mt, ?defaultToHttp) =
+    member r.Emit(html: System.Web.UI.HtmlTextWriter, mt, ?defaultToHttp) =
         let dHttp = defaultArg defaultToHttp false
         match r with
         | Rendering.RenderInline text ->
@@ -145,7 +143,7 @@ type Rendering with
         ctx.GetWebResourceRendering t filename
 
 type IResource =
-    abstract member Render : Context -> (RenderLocation -> HtmlTextWriter) -> unit
+    abstract member Render : Context -> (RenderLocation -> System.Web.UI.HtmlTextWriter) -> unit
 
 type Kind =
     | Basic of string

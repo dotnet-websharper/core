@@ -26,7 +26,6 @@ open System.IO
 open System.Reflection
 open System.Text
 open System.Text.RegularExpressions
-open System.Web
 open Mono.Cecil
 open WebSharper.Compiler
 open WebSharper.Sitelets
@@ -283,7 +282,7 @@ let emptyRequest (uri: string) : Http.Request =
         Headers = Seq.empty
         Post = Http.ParameterCollection(Seq.empty)
         Get = Http.ParameterCollection(Seq.empty)
-        Cookies = HttpCookieCollection()
+        Cookies = System.Web.HttpCookieCollection()
         ServerVariables = Http.ParameterCollection(Seq.empty)
         Body = Stream.Null
         Files = Seq.empty

@@ -24,7 +24,6 @@ module PathConventions =
     open System
     open System.IO
     open System.Reflection
-    open System.Web
 
     type AssemblyId =
         {
@@ -114,5 +113,5 @@ module PathConventions =
                 | "" | null -> "/"
                 | _ -> root
             PathUtility(root, fun a b ->
-                let a = VirtualPathUtility.AppendTrailingSlash(a)
-                VirtualPathUtility.Combine(a, b))
+                let a = System.Web.VirtualPathUtility.AppendTrailingSlash(a)
+                System.Web.VirtualPathUtility.Combine(a, b))

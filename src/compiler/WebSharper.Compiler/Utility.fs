@@ -22,8 +22,6 @@ namespace WebSharper.Compiler
 
 open System
 open System.IO
-open System.Web
-open System.Web.UI
 module CT = WebSharper.Core.ContentTypes
 module M = WebSharper.Core.Metadata
 
@@ -49,7 +47,7 @@ module internal Utility =
                 let explicit =
                     CustomAttributeData.GetCustomAttributes(ty.Assembly)
                     |> Seq.tryPick (fun attr ->
-                        if attr.Constructor.DeclaringType = typeof<WebResourceAttribute> then
+                        if attr.Constructor.DeclaringType = typeof<System.Web.UI.WebResourceAttribute> then
                             match [for a in attr.ConstructorArguments -> a.Value] with
                             | [(:? string as n); (:? string as contentType)] ->
                                 if n.Contains(name) // TODO: better checking here.

@@ -34,9 +34,9 @@ module Content =
     open System.Collections.Generic
     open System.IO
     open System.Text.RegularExpressions
-    open System.Web
 
     type private Func<'A,'B> = System.Func<'A,'B>
+    type private HtmlWriter = System.Web.UI.HtmlTextWriter
 
     module M = WebSharper.Core.Metadata
 //    module R = WebSharper.Core.Reflection
@@ -78,7 +78,7 @@ module Content =
                 ResourceContext = ctx.ResourceContext
             }
 
-    let writeResources (env: Env) (controls: seq<#IRequiresResources>) (tw: Core.Resources.RenderLocation -> UI.HtmlTextWriter) =
+    let writeResources (env: Env) (controls: seq<#IRequiresResources>) (tw: Core.Resources.RenderLocation -> HtmlWriter) =
         // Resolve resources for the set of types and this assembly
         let resources =
             controls
@@ -99,7 +99,7 @@ module Content =
                 r.Render env.ResourceContext tw
         hasResources
 
-    let writeStartScript (tw: UI.HtmlTextWriter) =
+    let writeStartScript (tw: HtmlWriter) =
         tw.WriteLine(@"<script type='{0}'>", CT.Text.JavaScript.Text)
         tw.WriteLine @"if (typeof IntelliFactory !=='undefined')"
         tw.WriteLine @"  IntelliFactory.Runtime.Start();"
@@ -122,11 +122,11 @@ module Content =
 
     let getSeparateResourcesAndScripts env controls : RenderedResources =
         use scriptsW = new StringWriter()
-        let scriptsTw = new UI.HtmlTextWriter(scriptsW, " ")
+        let scriptsTw = new HtmlWriter(scriptsW, " ")
         use stylesW = new StringWriter()
-        let stylesTw = new UI.HtmlTextWriter(stylesW, " ")
+        let stylesTw = new HtmlWriter(stylesW, " ")
         use metaW = new StringWriter()
-        let metaTw = new UI.HtmlTextWriter(metaW, " ")
+        let metaTw = new HtmlWriter(metaW, " ")
         let hasResources =
             writeResources env controls (function
                 | Core.Resources.Scripts -> scriptsTw
@@ -142,7 +142,7 @@ module Content =
 
     let getResourcesAndScripts env controls =
         use w = new StringWriter()
-        use tw = new UI.HtmlTextWriter(w, " ")
+        use tw = new HtmlWriter(w, " ")
         let hasResources = writeResources env controls (fun _ -> tw)
         if hasResources then writeStartScript tw
         w.ToString()
@@ -158,18 +158,18 @@ module Content =
             let! htmlPage = genPage context
             let writeBody (stream: Stream) =
                 let body = Seq.cache htmlPage.Body
-                let renderHead (tw: UI.HtmlTextWriter) =
+                let renderHead (tw: HtmlWriter) =
                     let hasResources = writeResources (Env.Create context) body (fun _ -> tw)
                     for elem in htmlPage.Head do
                         elem.Write(context.Metadata, tw)
                     if hasResources then writeStartScript tw
-                let renderBody (tw: UI.HtmlTextWriter) =
+                let renderBody (tw: HtmlWriter) =
                     for elem in body do
                         elem.Write(context.Metadata, tw)
                 // Create html writer from stream
                 use textWriter = new StreamWriter(stream)
                 textWriter.AutoFlush <- true
-                use htmlWriter = new System.Web.UI.HtmlTextWriter(textWriter, " ")
+                use htmlWriter = new HtmlWriter(textWriter, " ")
                 htmlPage.Renderer htmlPage.Doctype htmlPage.Title
                     renderHead renderBody htmlWriter
             return {

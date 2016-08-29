@@ -21,17 +21,16 @@
 namespace WebSharper.Sitelets
 
 open System.Collections.Generic
-open System.Web.UI
 open WebSharper
 open WebSharper.Web
-type private Writer = HtmlTextWriter -> unit
+type private Writer = System.Web.UI.HtmlTextWriter -> unit
 
 type Page =
     {
         Doctype : option<string>
         Title : option<string>
         Renderer : option<string> -> option<string> -> Writer -> Writer ->
-            HtmlTextWriter -> unit
+            System.Web.UI.HtmlTextWriter -> unit
         Head : seq<INode>
         Body : seq<INode>
     }
@@ -43,9 +42,9 @@ type Page =
             match doctype with
             | Some dt -> writer.WriteLine dt
             | None -> ()
-            writer.RenderBeginTag HtmlTextWriterTag.Html
+            writer.RenderBeginTag System.Web.UI.HtmlTextWriterTag.Html
             // Head section
-            writer.RenderBeginTag HtmlTextWriterTag.Head
+            writer.RenderBeginTag System.Web.UI.HtmlTextWriterTag.Head
             match title with
             | Some t ->
                 writer.WriteFullBeginTag "title"
@@ -56,7 +55,7 @@ type Page =
             writeHead writer
             writer.RenderEndTag()
             // Body section
-            writer.RenderBeginTag HtmlTextWriterTag.Body
+            writer.RenderBeginTag System.Web.UI.HtmlTextWriterTag.Body
             writeBody writer
             writer.RenderEndTag()
             writer.RenderEndTag()

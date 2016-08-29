@@ -20,14 +20,13 @@
 
 namespace WebSharper.Web
 
-open System.Web.UI
 open WebSharper
 module M = WebSharper.Core.Metadata
 
 type INode =
     inherit IRequiresResources
 
-    abstract member Write : M.Info * HtmlTextWriter -> unit
+    abstract member Write : M.Info * System.Web.UI.HtmlTextWriter -> unit
 
     abstract member Name : string option
 
@@ -38,7 +37,7 @@ type INode =
 [<AutoOpen>]
 module HtmlTextWriterExtensions =
 
-    type HtmlTextWriter with
+    type System.Web.UI.HtmlTextWriter with
 
         /// Checks whether an element should be rendered as self-closing,
         /// ie. <x /> instead of <x></x>

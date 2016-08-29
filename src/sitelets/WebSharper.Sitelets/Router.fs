@@ -23,7 +23,6 @@ namespace WebSharper.Sitelets
 open System
 open System.Collections.Generic
 open System.Text.RegularExpressions
-open System.Web.UI
 open WebSharper
 
 type Location = Uri

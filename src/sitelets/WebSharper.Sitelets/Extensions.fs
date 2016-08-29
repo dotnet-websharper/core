@@ -55,16 +55,13 @@ module internal ResourceContext =
     open System.Diagnostics
     open System.IO
     open System.Reflection
-    open System.Web
-    open System.Web.Hosting
     module M = WebSharper.Core.Metadata
     module R = WebSharper.Core.Remoting
     module Re = WebSharper.Core.Resources
     module P = WebSharper.PathConventions
 
     let ResourceContext (appPath: string) : Re.Context =
-        let page = new UI.Page()
-        let isDebug = HttpContext.Current.IsDebuggingEnabled
+        let isDebug = System.Web.HttpContext.Current.IsDebuggingEnabled
         let pu = P.PathUtility.VirtualPaths(appPath)
         {
             DebuggingEnabled = isDebug

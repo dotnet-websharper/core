@@ -22,7 +22,6 @@ namespace WebSharper.Sitelets
 
 open System
 open System.Reflection
-open System.Web
 
 /// Define a Sitelets website. This interface must be
 /// implemented by the type passed to WebsiteAttribute.
@@ -35,7 +34,7 @@ type IWebsite<'Action when 'Action : equality> =
 type SinglePageAction = | Index
 
 type IHostedWebsite<'Action when 'Action : equality> =
-    abstract Build : HttpApplication -> IWebsite<'Action>
+    abstract Build : System.Web.HttpApplication -> IWebsite<'Action>
 
 module internal Specialization =
     open System
@@ -61,7 +60,7 @@ module private Utils =
 
     let GetSitelet : Type -> _ -> _ =
         S.Specialize {
-            new S.IGeneric<obj * option<HttpApplication>,Sitelet<obj> * list<obj>> with
+            new S.IGeneric<obj * option<System.Web.HttpApplication>,Sitelet<obj> * list<obj>> with
                 member this.Run<'T when 'T : equality>((website, app)) =
                     let website =
                         match app, website with
@@ -104,7 +103,7 @@ type WebsiteAttribute private (arg: option<System.Type * obj>) =
         | Some (t, website) -> Utils.GetSitelet t (website, None)
         | None -> failwith "Cannot Run() an argumentless WebsiteAttribute"
 
-    member this.Run(app: HttpApplication) =
+    member this.Run(app: System.Web.HttpApplication) =
         match arg with
         | Some (t, website) -> Utils.GetSitelet t (website, Some app)
         | None -> failwith "Cannot Run() an argumentless WebsiteAttribute"
