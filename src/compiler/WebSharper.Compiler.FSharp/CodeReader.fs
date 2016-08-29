@@ -197,7 +197,7 @@ type MatchValueVisitor(okToInline: int[]) =
         if ok >= 0 then
             okToInline.[i] <- okToInline.[i] + 1               
 
-type MatchValueTransformer(c) =
+type MatchValueTransformer(c, twoCase) =
     inherit Transformer()
 
     override this.TransformMatchSuccess(index, results) =
@@ -206,7 +206,10 @@ type MatchValueTransformer(c) =
             | [] -> ()
             | [ capt ] -> yield VarSet (c, capt) 
             | _ -> yield VarSet (c, NewArray results) 
-            yield Value (Int index)
+            if twoCase then
+                yield Value (Bool (index = 0))
+            else
+                yield Value (Int index)
         ]
 
 type InlineMatchValueTransformer(cases : (Id list * Expression) list) =
@@ -769,29 +772,37 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 InlineMatchValueTransformer(trCases).TransformExpression(trMatchVal)    
             else
                 let c = newId()
-                let res = newId()
+                let mv = MatchValueTransformer(c, trCases.Length = 2).TransformExpression(trMatchVal)
+                let cs = 
+                    trCases |> List.map (fun (captures, body) ->
+                        match captures with
+                        | [] -> body
+                        | [capt] ->
+                            ReplaceId(capt, c).TransformExpression(body)
+                        | _ ->
+                            body |> List.foldBack (fun (i, id) body -> 
+                                Let(id, ItemGet(Var c, Value (Int i)), body)) (List.indexed captures)
+                    )
+                
                 Sequential [
                     NewVar(c, Undefined)
-                    StatementExpr(
-                        Switch(
-                            MatchValueTransformer(c).TransformExpression(trMatchVal), 
-                            trCases |> List.mapi (fun j (captures, body) ->
-                                let e =
-                                    match captures with
-                                    | [] -> body
-                                    | [capt] ->
-                                        ReplaceId(capt, c).TransformExpression(body)
-                                    | _ ->
-                                        body |> List.foldBack (fun (i, id) body -> 
-                                            Let(id, ItemGet(Var c, Value (Int i)), body)) (List.indexed captures)
-                                Some (Value (Int j)), 
-                                Block [
-                                    VarSetStatement(res, e) 
-                                    Break None 
-                                ]
-                            )
-                        )
-                        , Some res
+                    (
+                        match cs with
+                        | [c1] ->
+                            Sequential [mv; c1]
+                        | [c1; c2] ->
+                            Conditional(mv, c1, c2)
+                        | _ ->
+                            let res = newId()
+                            let css =
+                                cs |> List.mapi (fun j e ->
+                                    Some (Value (Int j)),
+                                    Block [
+                                        VarSetStatement(res, e) 
+                                        Break None 
+                                    ]
+                                )
+                            StatementExpr(Switch(mv, css), Some res)
                     )
                 ]
         | BasicPatterns.DecisionTreeSuccess (index, results) ->
