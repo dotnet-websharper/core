@@ -65,6 +65,9 @@ module PathConventions =
 
     [<Sealed>]
     type PathUtility(root: string, combine: string -> string -> string) =
+        static let addSlash (s: string) =
+            if s.EndsWith "/" then s else s + "/"
+
         let ( ++ ) = combine
         let content = root ++  "Content" ++ "WebSharper"
         let scripts = root ++ "Scripts" ++ "WebSharper"
@@ -110,8 +113,8 @@ module PathConventions =
         static member VirtualPaths(root) =
             let root =
                 match root with
-                | "" | null -> "/"
-                | _ -> root
+                | null -> "/"
+                | _ -> addSlash root
             PathUtility(root, fun a b ->
-                let a = System.Web.VirtualPathUtility.AppendTrailingSlash(a)
-                System.Web.VirtualPathUtility.Combine(a, b))
+                // Assumes that b is a simple path component that doesn't start with / or ~.
+                addSlash a + b)
