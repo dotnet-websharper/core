@@ -27,7 +27,6 @@ module Http =
     open System.Collections.Specialized
     open System.IO
     open System.Web
-    open System.Web.UI
 
     /// Represents HTTP methods.
     /// See: http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html.
@@ -130,6 +129,41 @@ module Http =
             }
             |> Seq.toList
 
+    [<RequireQualifiedAccess>]
+    type CookieDuration =
+        | Session
+        | PersistentUntil of expires: System.DateTime
+        | PersistentFor of duration: System.TimeSpan
+
+    [<CLIMutable>]
+    type Cookie =
+        {
+            Name : string
+            Value : string
+            Domain : option<string>
+            Path : option<string>
+            Duration : CookieDuration
+            Secure : bool
+            HttpOnly : bool
+        }
+
+        static member Create name value =
+            {
+                Name = name
+                Value = value
+                Domain = None
+                Path = None
+                Duration = CookieDuration.Session
+                Secure = false
+                HttpOnly = false
+            }
+
+    type CookieCollection =
+        abstract Item : name: string -> option<string>
+        abstract All : seq<string * string>
+        abstract Set : Cookie -> unit
+        abstract Clear : unit -> unit
+
     /// Represents HTTP requests.
     type Request =
         {
@@ -138,7 +172,7 @@ module Http =
             Headers : seq<Header>
             Post : ParameterCollection
             Get : ParameterCollection
-            Cookies : HttpCookieCollection
+            Cookies : CookieCollection
             ServerVariables : ParameterCollection
             Body : Stream
             Files : seq<HttpPostedFileBase>

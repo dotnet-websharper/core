@@ -282,7 +282,13 @@ let emptyRequest (uri: string) : Http.Request =
         Headers = Seq.empty
         Post = Http.ParameterCollection(Seq.empty)
         Get = Http.ParameterCollection(Seq.empty)
-        Cookies = System.Web.HttpCookieCollection()
+        Cookies =
+            { new Http.CookieCollection with
+                member this.Item(name) = None
+                member this.All = Seq.empty
+                member this.Set(c) = ()
+                member this.Clear() = ()
+            }
         ServerVariables = Http.ParameterCollection(Seq.empty)
         Body = Stream.Null
         Files = Seq.empty

@@ -141,7 +141,31 @@ module private WebUtils =
             Body = req.InputStream
             Post = new Http.ParameterCollection(req.Form)
             Get  = new Http.ParameterCollection(req.QueryString)
-            Cookies = req.Cookies
+            Cookies =
+                { new Http.CookieCollection with
+                    member this.Item(key) =
+                        match req.Cookies.Get(key) with
+                        | null -> None
+                        | c -> Some c.Value
+                    member this.All =
+                        seq {
+                            let e = req.Cookies.GetEnumerator()
+                            while e.MoveNext() do
+                                match e.Current with
+                                | :? HttpCookie as c -> yield c.Name, c.Value
+                                | _ -> ()
+                        }
+                    member this.Set(c) =
+                        let c' = HttpCookie(c.Name, c.Value, HttpOnly = c.HttpOnly, Secure = c.Secure)
+                        if c.Domain.IsSome then c'.Domain <- c.Domain.Value
+                        if c.Path.IsSome then c'.Path <- c.Path.Value
+                        match c.Duration with
+                        | Http.CookieDuration.Session -> ()
+                        | Http.CookieDuration.PersistentUntil(expires) -> c'.Expires <- expires
+                        | Http.CookieDuration.PersistentFor(duration) -> c'.Expires <- System.DateTime.UtcNow.Add(duration)
+                        req.Cookies.Set c'
+                    member this.Clear() = req.Cookies.Clear()
+                }
             ServerVariables = new Http.ParameterCollection(req.ServerVariables)
             Files =
                 let fs = req.Files
@@ -188,7 +212,7 @@ module private WebUtils =
             resp.Status <- response.Status.ToString()
             for header in response.Headers do
                 resp.AddHeader(header.Name, header.Value)
-            if req.Cookies.[RpcHandler.CsrfTokenKey] = null then
+            if req.Cookies.[RpcHandler.CsrfTokenKey].IsNone then
                 RpcHandler.SetCsrfCookie resp
             response.WriteBody resp.OutputStream
             resp.End()
