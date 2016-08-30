@@ -285,13 +285,17 @@ let emptyRequest (uri: string) : Http.Request =
         Cookies =
             { new Http.CookieCollection with
                 member this.Item(name) = None
-                member this.All = Seq.empty
+                member this.ToList() = []
                 member this.Set(c) = ()
                 member this.Clear() = ()
             }
         ServerVariables = Http.ParameterCollection(Seq.empty)
         Body = Stream.Null
-        Files = Seq.empty
+        Files =
+            { new Http.MultiCollection<Http.PostedFile> with
+                member this.Item(k) = []
+                member this.ToList() = []
+            }
     }
 
 /// Represents an action that was partially resolved to some content.

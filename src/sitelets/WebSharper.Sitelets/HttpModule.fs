@@ -147,14 +147,14 @@ module private WebUtils =
                         match req.Cookies.Get(key) with
                         | null -> None
                         | c -> Some c.Value
-                    member this.All =
-                        seq {
+                    member this.ToList() =
+                        [
                             let e = req.Cookies.GetEnumerator()
                             while e.MoveNext() do
                                 match e.Current with
                                 | :? HttpCookie as c -> yield c.Name, c.Value
                                 | _ -> ()
-                        }
+                        ]
                     member this.Set(c) =
                         let c' = HttpCookie(c.Name, c.Value, HttpOnly = c.HttpOnly, Secure = c.Secure)
                         if c.Domain.IsSome then c'.Domain <- c.Domain.Value
@@ -169,9 +169,30 @@ module private WebUtils =
             ServerVariables = new Http.ParameterCollection(req.ServerVariables)
             Files =
                 let fs = req.Files
-                seq {
-                    for i = 1 to fs.Count do
-                        yield fs.[i-1]
+                let files =
+                    lazy
+                    req.Files.AllKeys
+                    |> Array.mapi (fun i k ->
+                        let f = req.Files.[i]
+                        let f =
+                            { new Http.PostedFile with
+                                member this.ContentLength = f.ContentLength
+                                member this.ContentType = f.ContentType
+                                member this.FileName = f.FileName
+                                member this.InputStream = f.InputStream
+                                member this.SaveAs(p) = f.SaveAs(p)
+                            }
+                        k, f
+                    )
+                    |> Seq.groupBy fst
+                    |> List.ofSeq
+                    |> List.map (fun (k, fs) -> k, fs |> List.ofSeq |> List.map snd)
+                { new Http.MultiCollection<Http.PostedFile> with
+                    member this.Item(key) =
+                        match files.Value |> List.tryFind (fun (k, _) -> k = key) with
+                        | None -> []
+                        | Some (_, files) -> files
+                    member this.ToList() = files.Value
                 }
         }
 

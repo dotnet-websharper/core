@@ -26,7 +26,6 @@ module Http =
     open System.Collections.Generic
     open System.Collections.Specialized
     open System.IO
-    open System.Web
 
     /// Represents HTTP methods.
     /// See: http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html.
@@ -129,6 +128,11 @@ module Http =
             }
             |> Seq.toList
 
+    /// Represents collections with multiple items associated with each key.
+    type MultiCollection<'T> =
+        abstract Item : name: string -> list<'T>
+        abstract ToList : unit -> list<string * list<'T>>
+
     [<RequireQualifiedAccess>]
     type CookieDuration =
         | Session
@@ -160,9 +164,16 @@ module Http =
 
     type CookieCollection =
         abstract Item : name: string -> option<string>
-        abstract All : seq<string * string>
+        abstract ToList : unit -> list<string * string>
         abstract Set : Cookie -> unit
         abstract Clear : unit -> unit
+
+    type PostedFile =
+        abstract ContentLength : int
+        abstract ContentType : string
+        abstract FileName : string
+        abstract InputStream : Stream
+        abstract SaveAs : path: string -> unit
 
     /// Represents HTTP requests.
     type Request =
@@ -175,7 +186,7 @@ module Http =
             Cookies : CookieCollection
             ServerVariables : ParameterCollection
             Body : Stream
-            Files : seq<HttpPostedFileBase>
+            Files : MultiCollection<PostedFile>
         }
 
     /// Represents the status of HTTP responses.

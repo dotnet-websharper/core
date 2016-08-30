@@ -118,6 +118,7 @@ module SampleSite =
         | Api of Api.Action
         | [<EndPoint "GET /test.png">] TestImage
         | [<Method "POST">] Json of ActionEncoding.DecodeResult<Json.Action>
+        | [<EndPoint "POST /files">] Files
 
     /// A helper function to create a hyperlink
     let private ( => ) title href =
@@ -164,6 +165,7 @@ module SampleSite =
                     yield! t.Login
                     yield! t.Menu
                     yield! t.Body
+                    yield Elt("h1", Text "Client-side control:") :> _
                     yield ClientSide <@ Client.Widget () @> :> _
                 ]
             )
@@ -202,6 +204,15 @@ module SampleSite =
                 [
                     Elt("h1", Text "Welcome to our site!")
                     "Let us know how we can contact you" => ctx.Link Action.Contact
+                    Elt("h2", Text "Multiple file upload")
+                    Elt("form",
+                        Attr("action", ctx.Link Action.Files),
+                        Attr("method", "post"),
+                        Attr("enctype", "multipart/form-data"),
+                        Elt("input", Attr("type", "file"), Attr("name", "input_1"), Attr("multiple", "multiple")),
+                        Elt("input", Attr("type", "file"), Attr("name", "input_2"), Attr("multiple", "multiple")),
+                        Elt("input", Attr("type", "submit"))
+                    )
                 ]
 
         /// A page to collect contact information.
@@ -280,6 +291,19 @@ module SampleSite =
                 | Action.TestImage ->
                     Content.File "~/image.png"
                     |> Content.WithContentType "image/png"
+                | Action.Files ->
+                    Content.Page(
+                        Body = [
+                            Elt("h1", Text "Posted files:")
+                            Elt("ol",
+                                [|
+                                    for k, fs in ctx.Request.Files.ToList() do
+                                        for f in fs do
+                                            yield Elt("li", Text(sprintf "key = %s, filename = %s, length = %i, type = %s" k f.FileName f.ContentLength f.ContentType)) :> INode
+                                |]
+                            )
+                        ]
+                    )
 
         // A sitelet for the protected content that requires users to log in first.
         let authenticated =
