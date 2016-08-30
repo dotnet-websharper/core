@@ -48,7 +48,7 @@ module internal Extensions =
         | false, false -> a + "/" + b
         | _ -> a + b
 
-module internal ResourceContext =
+module ResourceContext =
     open System
     open System.Collections.Generic
     open System.Configuration
@@ -60,8 +60,7 @@ module internal ResourceContext =
     module Re = WebSharper.Core.Resources
     module P = WebSharper.PathConventions
 
-    let ResourceContext (appPath: string) : Re.Context =
-        let isDebug = System.Web.HttpContext.Current.IsDebuggingEnabled
+    let ResourceContext (appPath: string) (isDebug: bool) : Re.Context =
         let pu = P.PathUtility.VirtualPaths(appPath)
         {
             DebuggingEnabled = isDebug

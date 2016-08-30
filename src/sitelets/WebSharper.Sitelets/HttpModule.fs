@@ -215,7 +215,7 @@ module private WebUtils =
                 | None -> failwith "Failed to link to action"),
             Metadata = Shared.Metadata,
             Dependencies = Shared.Dependencies,
-            ResourceContext = ResourceContext.ResourceContext appPath,
+            ResourceContext = ResourceContext.ResourceContext appPath ctx.IsDebuggingEnabled,
             Request = request,
             RootFolder = ctx.Server.MapPath("~"),
             UserSession = new AspNetFormsUserSession(ctx),
