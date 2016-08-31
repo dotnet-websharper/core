@@ -304,4 +304,17 @@ let Tests =
                 !r
             equal (JS.Inline("$0 + $1 + $1", next(), next())) 5
         }
+
+        Test "simplified match" {
+            let res =
+                let mutable r = 0
+                match 1 + 1 with
+                | 0 -> r <- 1
+                | 1
+                | 2 -> r <- 3
+                | 5 -> r <- 6
+                | _ -> ()
+                r
+            equal res 3
+        }
     }

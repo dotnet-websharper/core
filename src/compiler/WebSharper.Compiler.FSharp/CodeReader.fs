@@ -35,8 +35,8 @@ let rec getOrigDef (td: FSharpEntity) =
     if td.IsFSharpAbbreviation then getOrigDef td.AbbreviatedType.TypeDefinition else td 
 
 module M = WebSharper.Core.Metadata
-
 module A = WebSharper.Compiler.AttributeReader
+module I = IgnoreSourcePos
 
 let rec getOrigType (t: FSharpType) =
     if t.IsAbbreviation then getOrigType t.AbbreviatedType else t
@@ -201,16 +201,15 @@ type MatchValueTransformer(c, twoCase) =
     inherit Transformer()
 
     override this.TransformMatchSuccess(index, results) =
-        Sequential [
-            match results with
-            | [] -> ()
-            | [ capt ] -> yield VarSet (c, capt) 
-            | _ -> yield VarSet (c, NewArray results) 
+        let resVal = 
             if twoCase then
-                yield Value (Bool (index = 0))
+                Value (Bool (index = 0))
             else
-                yield Value (Int index)
-        ]
+                Value (Int index)
+        match results with
+        | [] -> resVal
+        | [ capt ] -> Sequential [ VarSet (c, capt); resVal ] 
+        | _ -> Sequential [ VarSet (c, NewArray results); resVal ] 
 
 type InlineMatchValueTransformer(cases : (Id list * Expression) list) =
     inherit Transformer()
@@ -752,6 +751,26 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     ]
         | BasicPatterns.DecisionTree (matchValue, cases) ->
             let trMatchVal = transformExpression env matchValue
+            let simpleMatchCases = System.Collections.Generic.Dictionary()
+            let rec isSimpleMatch mv expr =
+                match IgnoreExprSourcePos expr with 
+                | Conditional(I.Call(None, td, m, [I.Var c; I.Value v]), I.MatchSuccess (succ, []), elseExpr)
+                    when td.Entity.Value.FullName = "Microsoft.FSharp.Core.Operators" && m.Entity.Value.MethodName = "op_Equality" ->
+                        Dict.addToMulti simpleMatchCases succ (Some v)
+                        match mv with
+                        | Some mc -> if mc = c then isSimpleMatch mv elseExpr else None
+                        | None -> isSimpleMatch (Some c) elseExpr       
+                | MatchSuccess(succ, []) ->
+                    Dict.addToMulti simpleMatchCases succ None
+                    mv
+                | _ -> None
+            let simpleMatchValue = 
+                match trMatchVal with
+                | I.Let (mv, mvalue, expr) -> 
+                    isSimpleMatch (Some mv) expr |> Option.map (fun _ -> mvalue)
+                | _ -> 
+                    isSimpleMatch None trMatchVal |> Option.map Var
+
             let trCases =
                 cases |> List.map (fun (ci, e) ->
                     let mutable env = env 
@@ -794,17 +813,30 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             Conditional(mv, c1, c2)
                         | _ ->
                             let res = newId()
-                            let css =
-                                cs |> List.mapi (fun j e ->
-                                    Some (Value (Int j)),
-                                    Block [
-                                        VarSetStatement(res, e) 
-                                        Break None 
-                                    ]
-                                )
-                            StatementExpr(Switch(mv, css), Some res)
+                            match simpleMatchValue with
+                            | None ->
+                                let css =
+                                    cs |> List.mapi (fun j e ->
+                                        Some (Value (Int j)),
+                                        Block [
+                                            VarSetStatement(res, e) 
+                                            Break None 
+                                        ]
+                                    )
+                                StatementExpr(Switch(mv, css), Some res)
+                            | Some smv ->
+                                let css =
+                                    cs |> List.mapi (fun j e ->
+                                        simpleMatchCases.[j] |> List.map (Option.map Value),
+                                        Block [
+                                            VarSetStatement(res, e) 
+                                            Break None 
+                                        ]
+                                    )
+                                StatementExpr(CSharpSwitch(smv, css), Some res)    
                     )
                 ]
+
         | BasicPatterns.DecisionTreeSuccess (index, results) ->
             MatchSuccess (index, results |> List.map tr)
         | BasicPatterns.ThisValue (typ) ->
