@@ -20,9 +20,11 @@
 
 module WebSharper.Tests.Reflected
 
-(*
 open WebSharper
 open WebSharper.Testing
+
+[<JavaScript; ReflectedDefinition>]
+let add0 () = 1 + 1
 
 [<JavaScript; ReflectedDefinition>]
 let add1 (x: int) = x + 1
@@ -38,6 +40,7 @@ let add4 (x: int, y: int) (z: int) = x + y + z
 
 [<JavaScript; ReflectedDefinition>]
 type Inst(a: int) =
+    member this.Add0 () = a + 1
     member this.Add1 (x: int) = a + x
     member this.Add2 (x: int, y: int) = a + x + y
     member this.Add3 (x: int) (y: int) = a + x + y
@@ -47,6 +50,10 @@ type Inst(a: int) =
 let Tests =
 
     TestCategory "ReflectedDefinition" {
+
+        Test "Zero argument" {
+            equal (add0()) 2
+        } 
 
         Test "One argument" {
             equal (add1 1) 2
@@ -66,10 +73,10 @@ let Tests =
 
         Test "Instance methods" {
             let i = Inst(1)
+            equal (i.Add0()) 2
             equal (i.Add1 1) 2
             equal (i.Add2 (1, 2)) 4
             equal (i.Add3 1 2) 4
             equal (i.Add4 (1, 2) 3) 7
         }
     }
-*)

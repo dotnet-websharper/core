@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-// Reads F# quotations and ReflectedDefinitions as WebSharper.Core.AST 
+// Reads F# quotations as WebSharper.Core.AST 
 module WebSharper.Compiler.QuotationReader
 
 open FSharp.Quotations
@@ -36,28 +36,15 @@ type VarKind =
 type Environment =
     {
         Vars : System.Collections.Generic.Dictionary<Var, Id * VarKind>
-//        TParams : Map<string, int>
         Exception : option<Id>
-//        MatchVars : option<Id * Id>
         Compilation : Compilation
     }
     static member New(comp) = 
         { 
             Vars = System.Collections.Generic.Dictionary() 
-//            TParams = tparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
             Exception = None
-//            MatchVars = None
             Compilation = comp
         }
-
-//    member this.WithTParams tparams =
-//        if List.isEmpty tparams then this else
-//        { this with 
-//            TParams = 
-//                ((this.TParams, this.TParams.Count), tparams) 
-//                ||> List.fold (fun (m, i) p -> m |> Map.add p i, i + 1) 
-//                |> fst
-//        }
 
     member this.AddVar (i: Id, v: Var, ?k) =
         if not (this.Vars.ContainsKey v) then 
@@ -300,3 +287,6 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             | _ -> "Error while reading F# quotation: " + e.Message //+ " " + e.StackTrace
         env.Compilation.AddError(getOptSourcePos expr, SourceError msg)
         errorPlaceholder        
+
+let readExpression (comp: Compilation) expr =
+    transformExpression (Environment.New(comp)) expr

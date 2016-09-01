@@ -314,28 +314,26 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 if stubs.Contains memdef then () else
                 let getBody isInline = 
                     try
-                        // currently throws error at TryGetReflectedDefinition 
-                        let hasRD =
-                            false
-//                            meth.Attributes |> Seq.exists (fun a -> a.AttributeType.FullName = "Microsoft.FSharp.Core.ReflectedDefinitionAttribute")
-                        if hasRD then
-                            let info =
-                                match memdef with
-                                | Member.Method (_, mdef) 
-                                | Member.Override (_, mdef) 
-                                | Member.Implementation (_, mdef) ->
-                                    Reflection.LoadMethod def mdef :> System.Reflection.MethodBase
-                                | Member.Constructor cdef ->
-                                    Reflection.LoadConstructor def cdef :> _
-                                | _ -> failwith "unexpected: static constructor with a reflected definition"
-                            match FSharp.Quotations.Expr.TryGetReflectedDefinition(info) with
-                            | Some q ->
-                                warn "Compiling from reflected definition"
-                                QR.transformExpression (QR.Environment.New(comp)) q
-                            | _ ->
-                                error "Failed to get reflected definition"
-                                WebSharper.Compiler.Translator.errorPlaceholder
-                        else
+                        let fromRD = 
+                            let hasRD =
+                                meth.Attributes |> Seq.exists (fun a -> a.AttributeType.FullName = "Microsoft.FSharp.Core.ReflectedDefinitionAttribute")
+                            if hasRD then
+                                let info =
+                                    match memdef with
+                                    | Member.Method (_, mdef) 
+                                    | Member.Override (_, mdef) 
+                                    | Member.Implementation (_, mdef) ->
+                                        Reflection.LoadMethod def mdef :> System.Reflection.MethodBase
+                                    | Member.Constructor cdef ->
+                                        Reflection.LoadConstructor def cdef :> _
+                                    | Member.StaticConstructor ->
+                                        (Reflection.LoadTypeDefinition def).GetConstructors(System.Reflection.BindingFlags.Static).[0] :> _
+                                WebSharper.Compiler.ReflectedDefinitionReader.readReflected comp info 
+                            else None
+                        match fromRD with
+                        | Some rd ->
+                            FixThisScope().Fix(rd)
+                        | _ ->
                         let a, t = getArgsAndThis()
                         let argsAndVars = 
                             [
@@ -456,7 +454,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                     | Function([], Return (FieldGet(None, {Entity = scDef; Generics = []}, name))) ->
                                         let value = CodeReader.namedId "v"                                    
                                         Function ([value], (ExprStatement <| FieldSet(None, NonGeneric scDef, name, Var value)))
-                                    | _ -> failwith "unexpected form in module let body"
+                                    | _ -> 
+                                        error "unexpected form in module let body"
+                                        Undefined
+                                        //failwith "unexpected form in module let body"
                                 addMethod None { mAnnot with Name = None } setm kind false setb    
                             true
                         else false
