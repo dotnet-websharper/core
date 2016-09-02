@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module internal WebSharper.Compiler.Optimizations
+module WebSharper.Compiler.Optimizations
 
 open System.Collections.Generic
 
@@ -81,7 +81,7 @@ let (|TupledLambda|_|) expr =
                 Some (
                     [ for i in 0 .. (acc |> Seq.map fst |> Seq.max) -> 
                         match m |> Map.tryFind i with
-                        | None -> Id.New()
+                        | None -> Id.New(mut = false)
                         | Some v -> v 
                     ], body)
         match loop [] b with
@@ -286,7 +286,7 @@ let cleanRuntime expr =
         if List.isEmpty nonPureAfter then
             result 
         else 
-            let resVar = Id.New fieldName
+            let resVar = Id.New (fieldName, false)
             Let (resVar, result, 
                 Sequential (List.rev (Var resVar :: nonPureAfter))
             )
@@ -310,7 +310,7 @@ let cleanRuntime expr =
         if List.isEmpty nonPureAfter then
             result 
         else 
-            let resVar = Id.New ("item" + string index)
+            let resVar = Id.New ("item" + string index, false)
             Let (resVar, result, 
                 Sequential (List.rev (Var resVar :: nonPureAfter))
             )

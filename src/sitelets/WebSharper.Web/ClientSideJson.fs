@@ -338,7 +338,7 @@ module Macro =
                         ctx.[td] <- (id, e, true)
                         ok (Var id)
                     | false, _ ->
-                        let id = Id.New()
+                        let id = Id.New(mut = false)
                         ctx.[td] <- (id, Value Null, false)
                         ((fun es ->
                             encRecType t args es >>= fun e ->
@@ -547,7 +547,7 @@ module Macro =
                     LetRec(
                         let fld = !~(String "x")
                         [for KeyValue(_, (id, e, multiple)) in ctx do
-                            let xid = Id.New()
+                            let xid = Id.New(mut = false)
                             // xid = {}
                             yield xid, Object []
                             // id = function() { if (!xid.x) { xid.x = e() }; return xid.x; }
@@ -610,8 +610,8 @@ module Macro =
     let SerializeLambda param warn comp t =
         encodeLambda "SerializeLambda" param warn comp t
         |> Option.map (fun x ->
-            let enc = Id.New()
-            let arg = Id.New()
+            let enc = Id.New(mut = false)
+            let arg = Id.New(mut = false)
             // let enc = ENCODE() in fun arg -> JSON.stringify(enc(arg))
             Let(enc, x,
                 Lambda([arg],
@@ -632,8 +632,8 @@ module Macro =
     let DeserializeLambda param warn comp t =
         decodeLambda "DeserializeLambda" param warn comp t
         |> Option.map (fun x ->
-            let dec = Id.New()
-            let arg = Id.New()
+            let dec = Id.New(mut = false)
+            let arg = Id.New(mut = false)
             // let dec = DECODE() in fun arg -> dec(JSON.parse(arg))
             Let(dec, x,
                 Lambda([arg],
@@ -663,7 +663,7 @@ module Macro =
                 | "SerializeWith" -> Serialize, List.head c.Arguments
                 | "DeserializeWith" -> Deserialize, List.head c.Arguments
                 | _ -> failwith "Invalid macro invocation"
-            let id = Id.New()
+            let id = Id.New(mut = false)
             let res =
                 match f {param with Provider = Var id} warn c.Compilation c.Method.Generics.Head (last c.Arguments) with
                 | Some x ->

@@ -371,7 +371,7 @@ type Substitution(args, ?thisObj) =
         match refresh.TryFind i with
         | Some n -> n
         | _ ->
-            let n = Id.New (?name = i.Name)
+            let n = i.Clone()
             refresh.Add(i, n)
             n
    
@@ -415,7 +415,7 @@ type FixThisScope() =
             match thisVar with
             | Some t -> Var t
             | None ->
-                let t = Id.New "$this"
+                let t = Id.New ("$this", mut = false)
                 thisVar <- Some t
                 Var t
         else This
@@ -659,7 +659,7 @@ type Refresher() =
         match refresh.TryFind i with
         | Some n -> n
         | _ ->
-            let n = Id.New (?name = i.Name)
+            let n = i.Clone()
             refresh.Add(i, n)
             n
 
@@ -769,7 +769,7 @@ type Capturing(?var) =
                 match captVal with
                 | Some c -> c
                 | _ ->
-                    let c = Id.New(?name = v.Name, mut = v.IsMutable)
+                    let c = i.Clone()
                     captVal <- Some c
                     c
             | _ ->

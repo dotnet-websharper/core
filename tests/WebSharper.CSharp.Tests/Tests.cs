@@ -137,25 +137,26 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public void InlineTest()
         {
-            Expect(4);
             Equal(InlinedAdd(1, 2), 3);
             Equal(InlinedAdd("1", 2), "12");
             Equal(InlineWithReturn(true), 1);
             Equal(InlineWithReturn(false), 2);
+            Equal(JS.Inline<int>("1 + 1"), 2);
+            Equal(JS.Inline<int>("1 + $0", 2), 3);
         }
 
         //[Test]
         //public async Task VariableScopingAsync()
         //{
         //    //var res = 0;
-            //var adders = new List<System.Action>();
-            //for (var i = 0; i <= 5; i++)
-            //{
-            //    var b = i + await GetOneAsync();
-            //    adders.Add(() => res += b);
-            //}
-            //foreach (var adder in adders) adder();
-            //Equal(res, 21, "variable inside loop");
+        //var adders = new List<System.Action>();
+        //for (var i = 0; i <= 5; i++)
+        //{
+        //    var b = i + await GetOneAsync();
+        //    adders.Add(() => res += b);
+        //}
+        //foreach (var adder in adders) adder();
+        //Equal(res, 21, "variable inside loop");
         //}
 
         [Test]

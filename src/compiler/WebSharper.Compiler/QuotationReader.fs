@@ -115,14 +115,14 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                 if arg.Type = typeof<unit> then
                     []
                 else
-                    let i = Id.New(arg.Name)  
+                    let i = Id.New(arg.Name, false)  
                     env.AddVar(i, arg)
                     [i]
             Lambda(lArg, (tr body))
         | Patterns.Application(func, arg) ->
             Application(tr func, [tr arg], false, Some 1) // TODO: pure functions
         | Patterns.Let(id, value, body) ->
-            let i = Id.New(id.Name)
+            let i = Id.New(id.Name, id.IsMutable)
             env.AddVar(i, id, if id.Type.IsByRef then ByRefArg else LocalVar)
             if id.IsMutable then
                 Sequential [ NewVar(i, tr value); tr body ]
@@ -130,7 +130,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                 Let (i, tr value, tr body)
         | Patterns.LetRecursive(defs, body) ->
             let ids = defs |> List.map (fun (id, _) ->
-                let i = Id.New(id.Name)
+                let i = Id.New(id.Name, id.IsMutable)
                 env.AddVar(i, id, if id.Type.IsByRef then ByRefArg else LocalVar)
                 i      
             )

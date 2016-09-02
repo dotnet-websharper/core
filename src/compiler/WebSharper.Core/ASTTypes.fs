@@ -49,6 +49,13 @@ type Id =
             Mutable = defaultArg mut true
         }
 
+    member this.Clone() =
+        {
+            IdName = this.IdName
+            Id = Ids.New()
+            Mutable = this.Mutable
+        }
+
     override this.GetHashCode() = int this.Id
     
     override this.Equals other =
@@ -63,7 +70,7 @@ type Id =
             | _ -> invalidArg "other" "Invalid comparison."
 
     override this.ToString() =
-        (match this.Name with Some n -> n | _ -> "") + "$" + string this.Id
+        (match this.Name with Some n -> n | _ -> "") + "$" + string this.Id + (if this.Mutable then "M" else "")
 
 /// A range in original source code
 type SourcePos =

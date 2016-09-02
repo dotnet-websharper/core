@@ -121,7 +121,7 @@ let Global a = GlobalAccess (Address (List.rev a))
 
 /// Make a proxy for a by-address value, having two functions for get/set.
 let MakeRef getVal setVal =
-    let value = Id.New "v"
+    let value = Id.New("v", false)
     Object [
         "get", (Function ([], Return getVal))
         "set", (Function ([value], ExprStatement (setVal (Var value))))

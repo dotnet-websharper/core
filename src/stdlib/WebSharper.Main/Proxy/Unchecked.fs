@@ -87,7 +87,7 @@ let Compare<'T> (a: 'T) (b: 'T) : int =
             elif JS.In "CompareTo0" a then (As<System.IComparable> a).CompareTo(b)
             elif isArray a && isArray b then compareArrays (As a) (As b)
             elif isDate a && isDate b then compareDates a b
-            else objCompare a b
+            else objCompare (As a) (As b)
 
 /// Produces an undefined value.
 [<Macro(typeof<Macro.DefaultOf>)>]
@@ -131,7 +131,7 @@ let Equals (a: 'T) (b: 'T) : bool =
             elif JS.In "Equals" a then equals a b
             elif isArray a && isArray b then arrayEquals (As a) (As b)
             elif isDate a && isDate b then dateEquals a b
-            else objEquals a b
+            else objEquals (As a) (As b)
         | JS.Function ->
             if JS.In "$Func" a then
                 a?``$Func`` ===. b?``$Func`` && a?``$Target`` ===. b?``$Target``

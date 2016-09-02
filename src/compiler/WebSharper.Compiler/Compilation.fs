@@ -127,7 +127,7 @@ type Compilation(meta: Info, ?hasGraph) =
         member this.GetFieldAttributes(typ, field) = this.LookupFieldAttributes typ field
 
         member this.ParseJSInline(inl: string, args: Expression list): Expression = 
-            let vars = args |> List.map (fun _ -> Id.New())
+            let vars = args |> List.map (fun _ -> Id.New(mut = false))
             let parsed = Recognize.createInline None vars false inl
             Substitution(args).TransformExpression(parsed)
                 

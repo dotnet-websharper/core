@@ -40,7 +40,7 @@ module internal Internal =
         override this.TranslateCall(c) =
             match c.This, c.Arguments with  
             | Some this, [runner; gen; attempt] ->
-                let id = Id.New()
+                let id = Id.New(mut = false)
                 cCall this "PropertyWithSample" [
                     runner
                     Function([id],
