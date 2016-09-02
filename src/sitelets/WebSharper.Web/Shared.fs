@@ -20,6 +20,7 @@
 
 module WebSharper.Web.Shared
 
+open System.Collections.Generic
 module J = WebSharper.Core.Json
 module M = WebSharper.Core.Metadata
 open WebSharper.Core.DependencyGraph
@@ -27,6 +28,29 @@ open WebSharper.Core.DependencyGraph
 let private trace =
     System.Diagnostics.TraceSource("WebSharper",
         System.Diagnostics.SourceLevels.All)
+
+let private allReferencedAssemblies() =
+    let d = Dictionary<string, System.Reflection.Assembly>()
+    let rec loop (asm: System.Reflection.Assembly) =
+        asm.GetReferencedAssemblies()
+        |> Array.iter (fun asmName ->
+            if not (d.ContainsKey asmName.Name) then
+                try
+                    let asm = System.AppDomain.CurrentDomain.Load(asmName)
+                    if not asm.IsDynamic then
+                        d.Add(asmName.Name, asm)
+                        loop asm
+                with _ ->
+                    trace.TraceEvent(System.Diagnostics.TraceEventType.Warning, 1,
+                        "Failed to load referenced assembly for metadata: ", asmName.FullName))
+    let asms =
+        System.AppDomain.CurrentDomain.GetAssemblies()
+        |> Array.filter (fun asm -> not asm.IsDynamic)
+    asms |> Array.iter (fun asm -> d.Add(asm.GetName().Name, asm))
+    asms |> Array.iter loop
+    d
+    |> Seq.map (fun (KeyValue(_, v)) -> v)
+    |> List.ofSeq
 
 let private loadMetadata () =
     let before = System.DateTime.UtcNow
@@ -37,7 +61,7 @@ let private loadMetadata () =
         | "Full" -> id
         | _ -> fun m -> m.DiscardExpressions()
     let metas =
-        System.Web.Compilation.BuildManager.GetReferencedAssemblies()
+        allReferencedAssemblies()
         |> Seq.cast<System.Reflection.Assembly>
         |> Seq.choose M.IO.LoadReflected
         |> Seq.map filterExpressions

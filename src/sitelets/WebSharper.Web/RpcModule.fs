@@ -95,7 +95,10 @@ type RpcHandler() =
             | Some c ->
                 match getHeader RpcUtil.CsrfTokenHeader with
                 | None -> false
-                | Some h -> h = c
+                | Some h ->
+                    // The CSRF token is a Base64 string,
+                    // so potential double percent-decoding is not an issue.
+                    System.Uri.UnescapeDataString h = System.Uri.UnescapeDataString c
         let isSameAuthority origin =
             match Uri.TryCreate(origin, System.UriKind.Absolute) with
             | true, origin -> origin.Authority = reqUrl.Authority
