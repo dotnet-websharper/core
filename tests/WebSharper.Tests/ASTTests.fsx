@@ -325,15 +325,8 @@ module M
 open WebSharper
 
 [<JavaScript>]
-let matchTest =
-    let mutable r = 0
-    match 1 + 1 with
-    | 0 -> r <- 1
-    | 1
-    | 2 -> r <- 3
-    | 5 -> r <- 6
-    | _ -> ()
-    r
+let g f x =
+    f x |> ignore
 
     """
     File.WriteAllText(fileName1, fileSource1)

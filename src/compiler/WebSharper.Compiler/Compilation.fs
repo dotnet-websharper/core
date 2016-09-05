@@ -864,7 +864,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled then
                             try
-                                cc.Constructors.Add (cDef, (comp, nr.Pure, addCctorCall typ cc nr.Body))
+                                cc.Constructors.Add (cDef, (comp, nr.Pure || isPureFunction nr.Body, addCctorCall typ cc nr.Body))
                             with _ ->
                                 printerrf "Duplicate definition for constructor of %s" typ.Value.FullName
                         else 
@@ -873,7 +873,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled then
                             try
-                                cc.Methods.Add (mDef, (comp, nr.Pure, addCctorCall typ cc nr.Body))
+                                cc.Methods.Add (mDef, (comp, nr.Pure || isPureFunction nr.Body, addCctorCall typ cc nr.Body))
                             with _ ->
                                 printerrf "Duplicate definition for method %s.%s" typ.Value.FullName mDef.Value.MethodName
                         else 
@@ -935,7 +935,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Constructor (cDef, nr) ->
                 let comp = compiledStaticMember addr nr
                 if nr.Compiled then
-                    res.Constructors.Add(cDef, (comp, nr.Pure, addCctorCall typ res nr.Body))
+                    res.Constructors.Add(cDef, (comp, nr.Pure || isPureFunction nr.Body, addCctorCall typ res nr.Body))
                 else
                     compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.Field (fName, _) ->
@@ -943,7 +943,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Method (mDef, nr) ->
                 let comp = compiledStaticMember addr nr
                 if nr.Compiled then 
-                    res.Methods.Add(mDef, (comp, nr.Pure, addCctorCall typ res nr.Body))
+                    res.Methods.Add(mDef, (comp, nr.Pure || isPureFunction nr.Body, addCctorCall typ res nr.Body))
                 else
                     compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.StaticConstructor expr ->                
@@ -967,7 +967,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         compilingImplementations.Add((typ, intf, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
                 | _ ->
                     if nr.Compiled then 
-                        res.Methods.Add(mDef, (comp, nr.Pure, addCctorCall typ res nr.Body))
+                        res.Methods.Add(mDef, (comp, nr.Pure || isPureFunction nr.Body, addCctorCall typ res nr.Body))
                     else
                         compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | _ -> failwith "Invalid instance member kind"   

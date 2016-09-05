@@ -273,6 +273,8 @@ let rec breakExpr expr : Broken<BreakResult> =
         when List.length args = List.length xs && not (needsScoping args body) ->
         let bind key value body = Let (key, value, body)
         List.foldBack2 bind args xs body |> br
+    | Application (I.Function (_, (I.Empty | I.Block [])), xs, _, _) ->
+        Sequential xs |> br
     | Application (I.Let (var, value, body), xs, p, l) ->
         Let (var, value, Application (body, xs, p, l)) |> br
     // generated for disposing iterators
@@ -287,6 +289,8 @@ let rec breakExpr expr : Broken<BreakResult> =
     | VarSet (a, b) ->
         br b |> toBrExpr
         |> mapBroken (fun bE -> VarSet (a, bE))
+    | Sequential [a] ->
+        br a
     | Sequential a ->
         let rec collect a =
             a |> List.collect (
@@ -322,6 +326,8 @@ let rec breakExpr expr : Broken<BreakResult> =
                     @ (extraExprs |> List.map ExprStatement)
                 Variables = brA.Variables |> List.filter (fun (v, _) -> removeVars |> List.contains v |> not)
             }
+    | NewArray [ a ] ->
+        br a |> mapBroken (fun a -> NewArray [getExpr a])
     | NewArray a ->
         brL a |> mapBroken NewArray
     | Conditional (a, b, c) ->
@@ -418,12 +424,20 @@ let rec breakExpr expr : Broken<BreakResult> =
     | StatementExpr (I.ExprStatement a, None) ->
         br a   
     | StatementExpr (I.ExprStatement a, Some b) ->
-        let brA = br a |> toBrExpr
-        {
-            Body = ResultExpr (Sequential [brA.Body; Var b])
-            Statements = brA.Statements
-            Variables = (b, None) :: brA.Variables
-        }
+        let brA = br a
+        match brA.Body with
+        | ResultVar _ ->
+            {
+                Body = ResultVar b
+                Statements = brA.Statements
+                Variables = brA.Variables
+            }
+        | ResultExpr ae ->
+            {
+                Body = ResultExpr (Sequential [ae; Var b])
+                Statements = brA.Statements
+                Variables = (b, None) :: brA.Variables
+            }
     | StatementExpr (st, v) ->
         {
             Body = match v with Some v -> ResultVar v | _ -> ResultExpr Undefined
@@ -508,11 +522,18 @@ let rec breakExpr expr : Broken<BreakResult> =
                     let brC = br c 
                     if hasNoStatements brC then
                         let brC = toBrExpr brC
-                        {
-                            Body = ResultExpr(Sequential [VarSet (a, brB.Body); brC.Body ])
-                            Statements = []
-                            Variables = (a, None) :: brB.Variables @ brC.Variables
-                        }
+                        if varEvalOrder [a] brC.Body then 
+                            {
+                                Body = ResultExpr(SubstituteVar(a, brB.Body).TransformExpression(brC.Body))
+                                Statements = []
+                                Variables = brB.Variables @ brC.Variables
+                            }
+                        else
+                            {
+                                Body = ResultExpr(Sequential [VarSet (a, brB.Body); brC.Body ])
+                                Statements = []
+                                Variables = (a, None) :: brB.Variables @ brC.Variables
+                            }
                     else
                         {
                             Body = brC.Body
@@ -564,6 +585,8 @@ let rec breakExpr expr : Broken<BreakResult> =
                 Statements = brB.Statements |> List.map (TransformVarSets(v, fun e -> VarSet(a, e)).TransformStatement)
                 Variables = brB.Variables    
             }
+    | Object [n, a] ->
+        br a |> mapBroken (fun a -> Object [n, getExpr a])
     | Object a ->
         let names, values = List.unzip a
         brL values

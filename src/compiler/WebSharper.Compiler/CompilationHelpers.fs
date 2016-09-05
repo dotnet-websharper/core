@@ -25,6 +25,8 @@ module WebSharper.Compiler.CompilationHelpers
 open WebSharper.Core
 open WebSharper.Core.AST
 
+module I = IgnoreSourcePos
+
 /// Change every occurence of one Id to another
 type ReplaceId(fromId, toId) =
     inherit Transformer()
@@ -69,7 +71,8 @@ let rec isPureExpr expr =
 
 let isPureFunction expr =
     match IgnoreExprSourcePos expr with
-    | Function (_, IgnoreSourcePos.Return body) -> isPureExpr body
+    | Function (_, (I.Return body | I.ExprStatement body)) -> isPureExpr body
+    | Function (_, (I.Empty | I.Block [])) -> true
     | _ -> false
 
 let rec isTrivialValue expr =
@@ -246,8 +249,8 @@ let varEvalOrder (vars : Id list) expr =
             | MutatingBinary(a, _, c) ->
                 match IgnoreExprSourcePos a with
                 | Var v
-                | ItemGet(IgnoreSourcePos.Var v, _)
-                | ItemGetNonPure(IgnoreSourcePos.Var v, _)
+                | ItemGet(I.Var v, _)
+                | ItemGetNonPure(I.Var v, _)
                     -> if watchedVars.Contains v then fail()
                 | _ -> ()   
                 eval a
