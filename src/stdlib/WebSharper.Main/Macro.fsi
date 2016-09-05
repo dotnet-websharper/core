@@ -161,6 +161,11 @@ type TypeTest =
     inherit Macro
 
 [<Sealed>]
+type InlineJS =
+    new : unit -> InlineJS
+    inherit Macro
+
+[<Sealed>]
 type StringFormat =
     new : unit -> StringFormat
     inherit Macro

@@ -35,17 +35,16 @@ type RemotingKind =
 type MethodHandle =
     {
         Assembly : string
-        Code : int
+        Path : string
+        SignatureHash : int
     }
     member this.Pack() =
-        string this.Assembly + ":" + string this.Code
+        this.Assembly + ":" + this.Path + ":" + string this.SignatureHash
 
     static member Unpack(s: string) =
         try
-            let i = s.LastIndexOf ':'
-            let code = int (s.Substring(i + 1))
-            let assembly = s.Substring(0, i)
-            { Assembly = assembly; Code = code }
+            let p = s.Split(':')
+            { Assembly = p.[0]; Path = p.[1]; SignatureHash = int p.[2] }
         with _ ->
             failwith "Failed to deserialize method handle"
 
@@ -109,7 +108,6 @@ type ParameterObject =
 
 type CompiledMember =
     | Instance of string
-    | Abstract of string
     | Static of Address
     | Constructor of Address
     | Inline
@@ -335,6 +333,7 @@ type ICompilation =
     abstract GetClassInfo : TypeDefinition -> option<IClassInfo>
     abstract GetTypeAttributes : TypeDefinition -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetFieldAttributes : TypeDefinition * string -> option<Type * list<TypeDefinition * ParameterObject[]>>
+    abstract ParseJSInline : string * list<Expression> -> Expression
 
 // planned functionality:    
 //    abstract AddNewJSClass : string list -> string list

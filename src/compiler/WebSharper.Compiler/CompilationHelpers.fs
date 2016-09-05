@@ -25,6 +25,8 @@ module WebSharper.Compiler.CompilationHelpers
 open WebSharper.Core
 open WebSharper.Core.AST
 
+module I = IgnoreSourcePos
+
 /// Change every occurence of one Id to another
 type ReplaceId(fromId, toId) =
     inherit Transformer()
@@ -69,7 +71,8 @@ let rec isPureExpr expr =
 
 let isPureFunction expr =
     match IgnoreExprSourcePos expr with
-    | Function (_, IgnoreSourcePos.Return body) -> isPureExpr body
+    | Function (_, (I.Return body | I.ExprStatement body)) -> isPureExpr body
+    | Function (_, (I.Empty | I.Block [])) -> true
     | _ -> false
 
 let rec isTrivialValue expr =
@@ -246,8 +249,8 @@ let varEvalOrder (vars : Id list) expr =
             | MutatingBinary(a, _, c) ->
                 match IgnoreExprSourcePos a with
                 | Var v
-                | ItemGet(IgnoreSourcePos.Var v, _)
-                | ItemGetNonPure(IgnoreSourcePos.Var v, _)
+                | ItemGet(I.Var v, _)
+                | ItemGetNonPure(I.Var v, _)
                     -> if watchedVars.Contains v then fail()
                 | _ -> ()   
                 eval a
@@ -371,7 +374,7 @@ type Substitution(args, ?thisObj) =
         match refresh.TryFind i with
         | Some n -> n
         | _ ->
-            let n = Id.New (?name = i.Name)
+            let n = i.Clone()
             refresh.Add(i, n)
             n
    
@@ -415,7 +418,7 @@ type FixThisScope() =
             match thisVar with
             | Some t -> Var t
             | None ->
-                let t = Id.New "$this"
+                let t = Id.New ("$this", mut = false)
                 thisVar <- Some t
                 Var t
         else This
@@ -447,7 +450,7 @@ module JSRuntime =
     let private runtime = ["Runtime"; "IntelliFactory"]
     let private runtimeFunc f p args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some (List.length args))
     let private runtimeFuncI f p i args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some i)
-    let Class members basePrototype statics = runtimeFunc "Class" true [members; basePrototype; statics]
+    let Class members basePrototype statics name = runtimeFunc "Class" true [members; basePrototype; statics; Value (String name)]
     let Ctor ctor typeFunction = runtimeFunc "Ctor" true [ctor; typeFunction]
     let Cctor cctor = runtimeFunc "Cctor" true [cctor]
     let GetOptional value = runtimeFunc "GetOptional" true [value]
@@ -659,7 +662,7 @@ type Refresher() =
         match refresh.TryFind i with
         | Some n -> n
         | _ ->
-            let n = Id.New (?name = i.Name)
+            let n = i.Clone()
             refresh.Add(i, n)
             n
 
@@ -769,7 +772,7 @@ type Capturing(?var) =
                 match captVal with
                 | Some c -> c
                 | _ ->
-                    let c = Id.New(?name = v.Name, mut = v.IsMutable)
+                    let c = i.Clone()
                     captVal <- Some c
                     c
             | _ ->

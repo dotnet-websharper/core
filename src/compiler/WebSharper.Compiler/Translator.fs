@@ -74,7 +74,7 @@ type Breaker() =
     inherit Transformer()
 
     override this.TransformStatement (a) =
-        BreakStatement a
+        BreakStatement (BreakStatement a)
 
 let private breaker = Breaker()
 
@@ -235,7 +235,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 |> Seq.mapi (fun i f -> 
                     f.JSName,
                         if f.Optional then
-                            let id = Id.New()
+                            let id = Id.New(mut = false)
                             Let(id, Hole i,
                                 Conditional(Var id, ItemGet(Var id, Value (String "$0")), Undefined))
                         else Hole i)
@@ -465,6 +465,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.EntryPoint <- Some (toJS.TransformStatement(ep))
         | _ -> ()
 
+    static member CompileExpression (comp, expr) =
+        DotNetToJavaScript(comp).TransformExpression(expr)
+
     member this.AnotherNode() = DotNetToJavaScript(comp, currentNode :: inProgress)    
 
     member this.AddDependency(dep: M.Node) =
@@ -508,7 +511,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         if comp.HasGraph then
             this.AddMethodDependency(typ.Entity, meth.Entity)
         match info with
-        | M.Abstract name 
         | M.Instance name ->
             match baseCall with
             | Some true ->
@@ -706,7 +708,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match info with 
             | M.Static address -> 
                 GlobalAccess address
-            | M.Abstract name
             | M.Instance name -> 
                 match comp.TryLookupClassInfo typ.Entity with
                 | Some { Address = Some addr } ->

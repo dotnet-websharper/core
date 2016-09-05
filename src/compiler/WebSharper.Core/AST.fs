@@ -204,6 +204,8 @@ and Statement =
     | Block of Statements:list<Statement>
     /// Variable declaration
     | VarDeclaration of Variable:Id * Value:Expression
+    /// Function declaration
+    | FuncDeclaration of FuncId:Id * Parameters:list<Id> * Body:Statement
     /// 'while' loop
     | While of Condition:Expression * Body:Statement
     /// 'do..while' loop
@@ -421,6 +423,9 @@ type Transformer() =
     /// Variable declaration
     abstract TransformVarDeclaration : Variable:Id * Value:Expression -> Statement
     override this.TransformVarDeclaration (a, b) = VarDeclaration (this.TransformId a, this.TransformExpression b)
+    /// Function declaration
+    abstract TransformFuncDeclaration : FuncId:Id * Parameters:list<Id> * Body:Statement -> Statement
+    override this.TransformFuncDeclaration (a, b, c) = FuncDeclaration (this.TransformId a, List.map this.TransformId b, this.TransformStatement c)
     /// 'while' loop
     abstract TransformWhile : Condition:Expression * Body:Statement -> Statement
     override this.TransformWhile (a, b) = While (this.TransformExpression a, this.TransformStatement b)
@@ -537,6 +542,7 @@ type Transformer() =
         | Return a -> this.TransformReturn a
         | Block a -> this.TransformBlock a
         | VarDeclaration (a, b) -> this.TransformVarDeclaration (a, b)
+        | FuncDeclaration (a, b, c) -> this.TransformFuncDeclaration (a, b, c)
         | While (a, b) -> this.TransformWhile (a, b)
         | DoWhile (a, b) -> this.TransformDoWhile (a, b)
         | For (a, b, c, d) -> this.TransformFor (a, b, c, d)
@@ -739,6 +745,9 @@ type Visitor() =
     /// Variable declaration
     abstract VisitVarDeclaration : Variable:Id * Value:Expression -> unit
     override this.VisitVarDeclaration (a, b) = this.VisitId a; this.VisitExpression b
+    /// Function declaration
+    abstract VisitFuncDeclaration : FuncId:Id * Parameters:list<Id> * Body:Statement -> unit
+    override this.VisitFuncDeclaration (a, b, c) = this.VisitId a; List.iter this.VisitId b; this.VisitStatement c
     /// 'while' loop
     abstract VisitWhile : Condition:Expression * Body:Statement -> unit
     override this.VisitWhile (a, b) = this.VisitExpression a; this.VisitStatement b
@@ -853,6 +862,7 @@ type Visitor() =
         | Return a -> this.VisitReturn a
         | Block a -> this.VisitBlock a
         | VarDeclaration (a, b) -> this.VisitVarDeclaration (a, b)
+        | FuncDeclaration (a, b, c) -> this.VisitFuncDeclaration (a, b, c)
         | While (a, b) -> this.VisitWhile (a, b)
         | DoWhile (a, b) -> this.VisitDoWhile (a, b)
         | For (a, b, c, d) -> this.VisitFor (a, b, c, d)
@@ -941,6 +951,7 @@ module IgnoreSourcePos =
     let (|Return|_|) x = match ignoreStatementSourcePos x with Return a -> Some a | _ -> None
     let (|Block|_|) x = match ignoreStatementSourcePos x with Block a -> Some a | _ -> None
     let (|VarDeclaration|_|) x = match ignoreStatementSourcePos x with VarDeclaration (a, b) -> Some (a, b) | _ -> None
+    let (|FuncDeclaration|_|) x = match ignoreStatementSourcePos x with FuncDeclaration (a, b, c) -> Some (a, b, c) | _ -> None
     let (|While|_|) x = match ignoreStatementSourcePos x with While (a, b) -> Some (a, b) | _ -> None
     let (|DoWhile|_|) x = match ignoreStatementSourcePos x with DoWhile (a, b) -> Some (a, b) | _ -> None
     let (|For|_|) x = match ignoreStatementSourcePos x with For (a, b, c, d) -> Some (a, b, c, d) | _ -> None
@@ -957,6 +968,89 @@ module IgnoreSourcePos =
     let (|Yield|_|) x = match ignoreStatementSourcePos x with Yield a -> Some a | _ -> None
     let (|CSharpSwitch|_|) x = match ignoreStatementSourcePos x with CSharpSwitch (a, b) -> Some (a, b) | _ -> None
     let (|GotoCase|_|) x = match ignoreStatementSourcePos x with GotoCase a -> Some a | _ -> None
+module Debug =
+    let private PrintObject x = sprintf "%A" x
+    let rec PrintExpression x =
+        match x with
+        | Undefined  -> "Undefined" + ""
+        | This  -> "This" + ""
+        | Arguments  -> "Arguments" + ""
+        | Var a -> "Var" + "(" + string a + ")"
+        | Value a -> "Value" + "(" + PrintObject a.Value + ")"
+        | Application (a, b, c, d) -> "Application" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ", " + PrintObject c + ", " + defaultArg (Option.map PrintObject d) "_" + ")"
+        | Function (a, b) -> "Function" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + PrintStatement b + ")"
+        | VarSet (a, b) -> "VarSet" + "(" + string a + ", " + PrintExpression b + ")"
+        | Sequential a -> "Sequential" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
+        | NewArray a -> "NewArray" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
+        | Conditional (a, b, c) -> "Conditional" + "(" + PrintExpression a + ", " + PrintExpression b + ", " + PrintExpression c + ")"
+        | ItemGet (a, b) -> "ItemGet" + "(" + PrintExpression a + ", " + PrintExpression b + ")"
+        | ItemGetNonPure (a, b) -> "ItemGetNonPure" + "(" + PrintExpression a + ", " + PrintExpression b + ")"
+        | ItemSet (a, b, c) -> "ItemSet" + "(" + PrintExpression a + ", " + PrintExpression b + ", " + PrintExpression c + ")"
+        | Binary (a, b, c) -> "Binary" + "(" + PrintExpression a + ", " + PrintObject b + ", " + PrintExpression c + ")"
+        | MutatingBinary (a, b, c) -> "MutatingBinary" + "(" + PrintExpression a + ", " + PrintObject b + ", " + PrintExpression c + ")"
+        | Unary (a, b) -> "Unary" + "(" + PrintObject a + ", " + PrintExpression b + ")"
+        | MutatingUnary (a, b) -> "MutatingUnary" + "(" + PrintObject a + ", " + PrintExpression b + ")"
+        | ExprSourcePos (_, b) -> PrintExpression b
+        | FuncWithThis (a, b, c) -> "FuncWithThis" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + PrintStatement c + ")"
+        | Self  -> "Self" + ""
+        | Base  -> "Base" + ""
+        | Call (a, b, c, d) -> "Call" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + b.Entity.Value.FullName + ", " + c.Entity.Value.MethodName + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
+        | CallNeedingMoreArgs (a, b, c, d) -> "CallNeedingMoreArgs" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + b.Entity.Value.FullName + ", " + c.Entity.Value.MethodName + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
+        | Ctor (a, b, c) -> "Ctor" + "(" + a.Entity.Value.FullName + ", " + ".ctor" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
+        | BaseCtor (a, b, c, d) -> "BaseCtor" + "(" + PrintExpression a + ", " + b.Entity.Value.FullName + ", " + ".ctor" + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
+        | CopyCtor (a, b) -> "CopyCtor" + "(" + a.Value.FullName + ", " + PrintExpression b + ")"
+        | Cctor a -> "Cctor" + "(" + a.Value.FullName + ")"
+        | FieldGet (a, b, c) -> "FieldGet" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + b.Entity.Value.FullName + ", " + PrintObject c + ")"
+        | FieldSet (a, b, c, d) -> "FieldSet" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + b.Entity.Value.FullName + ", " + PrintObject c + ", " + PrintExpression d + ")"
+        | Let (a, b, c) -> "Let" + "(" + string a + ", " + PrintExpression b + ", " + PrintExpression c + ")"
+        | NewVar (a, b) -> "NewVar" + "(" + string a + ", " + PrintExpression b + ")"
+        | Coalesce (a, b, c) -> "Coalesce" + "(" + PrintExpression a + ", " + PrintObject b + ", " + PrintExpression c + ")"
+        | TypeCheck (a, b) -> "TypeCheck" + "(" + PrintExpression a + ", " + PrintObject b + ")"
+        | OverrideName (a, b) -> "OverrideName" + "(" + a.Value.FullName + ", " + PrintObject b + ")"
+        | NewDelegate (a, b, c) -> "NewDelegate" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + b.Entity.Value.FullName + ", " + c.Entity.Value.MethodName + ")"
+        | StatementExpr (a, b) -> "StatementExpr" + "(" + PrintStatement a + ", " + defaultArg (Option.map string b) "_" + ")"
+        | LetRec (a, b) -> "LetRec" + "(" + "[" + String.concat "; " (List.map (fun (a, b) -> string a + ", " + PrintExpression b) a) + "]" + ", " + PrintExpression b + ")"
+        | NewRecord (a, b) -> "NewRecord" + "(" + a.Entity.Value.FullName + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ")"
+        | NewUnionCase (a, b, c) -> "NewUnionCase" + "(" + a.Entity.Value.FullName + ", " + PrintObject b + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
+        | UnionCaseTest (a, b, c) -> "UnionCaseTest" + "(" + PrintExpression a + ", " + b.Entity.Value.FullName + ", " + PrintObject c + ")"
+        | UnionCaseGet (a, b, c, d) -> "UnionCaseGet" + "(" + PrintExpression a + ", " + b.Entity.Value.FullName + ", " + PrintObject c + ", " + PrintObject d + ")"
+        | UnionCaseTag (a, b) -> "UnionCaseTag" + "(" + PrintExpression a + ", " + b.Entity.Value.FullName + ")"
+        | MatchSuccess (a, b) -> "MatchSuccess" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ")"
+        | TraitCall (a, b, c, d) -> "TraitCall" + "(" + PrintExpression a + ", " + PrintObject b + ", " + c.Entity.Value.MethodName + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
+        | Await a -> "Await" + "(" + PrintExpression a + ")"
+        | NamedParameter (a, b) -> "NamedParameter" + "(" + PrintObject a + ", " + PrintExpression b + ")"
+        | RefOrOutParameter a -> "RefOrOutParameter" + "(" + PrintExpression a + ")"
+        | ComplexElement a -> "ComplexElement" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
+        | Object a -> "Object" + "(" + "[" + String.concat "; " (List.map (fun (a, b) -> PrintObject a + ", " + PrintExpression b) a) + "]" + ")"
+        | GlobalAccess a -> "GlobalAccess" + "(" + PrintObject a + ")"
+        | New (a, b) -> "New" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ")"
+        | Hole a -> "Hole" + "(" + PrintObject a + ")"
+    and PrintStatement x =
+        match x with
+        | Empty  -> "Empty" + ""
+        | Break a -> "Break" + "(" + defaultArg (Option.map string a) "_" + ")"
+        | Continue a -> "Continue" + "(" + defaultArg (Option.map string a) "_" + ")"
+        | ExprStatement a -> "ExprStatement" + "(" + PrintExpression a + ")"
+        | Return a -> "Return" + "(" + PrintExpression a + ")"
+        | Block a -> "Block" + "(" + "[" + String.concat "; " (List.map PrintStatement a) + "]" + ")"
+        | VarDeclaration (a, b) -> "VarDeclaration" + "(" + string a + ", " + PrintExpression b + ")"
+        | FuncDeclaration (a, b, c) -> "FuncDeclaration" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + PrintStatement c + ")"
+        | While (a, b) -> "While" + "(" + PrintExpression a + ", " + PrintStatement b + ")"
+        | DoWhile (a, b) -> "DoWhile" + "(" + PrintStatement a + ", " + PrintExpression b + ")"
+        | For (a, b, c, d) -> "For" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + defaultArg (Option.map PrintExpression c) "_" + ", " + PrintStatement d + ")"
+        | ForIn (a, b, c) -> "ForIn" + "(" + string a + ", " + PrintExpression b + ", " + PrintStatement c + ")"
+        | Switch (a, b) -> "Switch" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) "_" + ", " + PrintStatement b) b) + "]" + ")"
+        | If (a, b, c) -> "If" + "(" + PrintExpression a + ", " + PrintStatement b + ", " + PrintStatement c + ")"
+        | Throw a -> "Throw" + "(" + PrintExpression a + ")"
+        | TryWith (a, b, c) -> "TryWith" + "(" + PrintStatement a + ", " + defaultArg (Option.map string b) "_" + ", " + PrintStatement c + ")"
+        | TryFinally (a, b) -> "TryFinally" + "(" + PrintStatement a + ", " + PrintStatement b + ")"
+        | Labeled (a, b) -> "Labeled" + "(" + string a + ", " + PrintStatement b + ")"
+        | StatementSourcePos (_, b) -> PrintStatement b
+        | Goto a -> "Goto" + "(" + string a + ")"
+        | Continuation (a, b) -> "Continuation" + "(" + string a + ", " + PrintExpression b + ")"
+        | Yield a -> "Yield" + "(" + defaultArg (Option.map PrintExpression a) "_" + ")"
+        | CSharpSwitch (a, b) -> "CSharpSwitch" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> "[" + String.concat "; " (List.map (fun aa -> defaultArg (Option.map PrintExpression aa) "_") a) + "], " + PrintStatement b) b) + "]" + ")"
+        | GotoCase a -> "GotoCase" + "(" + defaultArg (Option.map PrintExpression a) "_" + ")"
 // }}
 
 /// A transformer base class that skips expression forms

@@ -54,7 +54,6 @@ type Compilation(meta: Info, ?hasGraph) =
     let warnings = ResizeArray() 
 
     let mutable entryPoint = None
-    let mutable remotingCode = -1
 
     let macros = System.Collections.Generic.Dictionary<TypeDefinition, Macro option>()
     let generators = System.Collections.Generic.Dictionary<TypeDefinition, Generator option>()
@@ -73,11 +72,11 @@ type Compilation(meta: Info, ?hasGraph) =
         | Some p -> p 
         | _ -> typ
     
-    member this.GetRemoteHandle() =
-        remotingCode <- remotingCode + 1
+    member this.GetRemoteHandle(path: string, args: Type list, ret: Type) =
         {
             Assembly = this.AssemblyName
-            Code = remotingCode
+            Path = path
+            SignatureHash = hash (args, ret)
         }
 
     member this.AddError (pos : SourcePos option, error : CompilationError) =
@@ -126,7 +125,12 @@ type Compilation(meta: Info, ?hasGraph) =
 
         member this.GetTypeAttributes(typ) = this.LookupTypeAttributes typ
         member this.GetFieldAttributes(typ, field) = this.LookupFieldAttributes typ field
-        
+
+        member this.ParseJSInline(inl: string, args: Expression list): Expression = 
+            let vars = args |> List.map (fun _ -> Id.New(mut = false))
+            let parsed = Recognize.createInline None vars false inl
+            Substitution(args).TransformExpression(parsed)
+                
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
         | Some res -> res
@@ -860,7 +864,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled then
                             try
-                                cc.Constructors.Add (cDef, (comp, nr.Pure, addCctorCall typ cc nr.Body))
+                                cc.Constructors.Add (cDef, (comp, nr.Pure || isPureFunction nr.Body, addCctorCall typ cc nr.Body))
                             with _ ->
                                 printerrf "Duplicate definition for constructor of %s" typ.Value.FullName
                         else 
@@ -869,7 +873,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled then
                             try
-                                cc.Methods.Add (mDef, (comp, nr.Pure, addCctorCall typ cc nr.Body))
+                                cc.Methods.Add (mDef, (comp, nr.Pure || isPureFunction nr.Body, addCctorCall typ cc nr.Body))
                             with _ ->
                                 printerrf "Duplicate definition for method %s.%s" typ.Value.FullName mDef.Value.MethodName
                         else 
@@ -931,7 +935,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Constructor (cDef, nr) ->
                 let comp = compiledStaticMember addr nr
                 if nr.Compiled then
-                    res.Constructors.Add(cDef, (comp, nr.Pure, addCctorCall typ res nr.Body))
+                    res.Constructors.Add(cDef, (comp, nr.Pure || isPureFunction nr.Body, addCctorCall typ res nr.Body))
                 else
                     compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.Field (fName, _) ->
@@ -939,7 +943,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Method (mDef, nr) ->
                 let comp = compiledStaticMember addr nr
                 if nr.Compiled then 
-                    res.Methods.Add(mDef, (comp, nr.Pure, addCctorCall typ res nr.Body))
+                    res.Methods.Add(mDef, (comp, nr.Pure || isPureFunction nr.Body, addCctorCall typ res nr.Body))
                 else
                     compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.StaticConstructor expr ->                
@@ -963,7 +967,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         compilingImplementations.Add((typ, intf, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
                 | _ ->
                     if nr.Compiled then 
-                        res.Methods.Add(mDef, (comp, nr.Pure, addCctorCall typ res nr.Body))
+                        res.Methods.Add(mDef, (comp, nr.Pure || isPureFunction nr.Body, addCctorCall typ res nr.Body))
                     else
                         compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | _ -> failwith "Invalid instance member kind"   

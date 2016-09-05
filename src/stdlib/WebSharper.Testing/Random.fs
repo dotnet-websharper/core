@@ -365,7 +365,7 @@ module internal Internal =
                 // We use Choose because it is necessary for a given generated value
                 // that all occurrences of this type are the same type.
                 // With Anything, we could get e.g for IComparable[]: [|1; "test"; (2.3, true)|]
-                let id = Id.New()
+                let id = Id.New(mut = false)
                 let wrap' (e: E) =
                     cCallR "Choose" [
                         cCallR "allTypes" []

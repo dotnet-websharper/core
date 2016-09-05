@@ -37,6 +37,7 @@ type Environment =
         mutable ScopeVars : Set<string>
         mutable CompactVars : int
         mutable ScopeIds : Map<Id, string>
+        ScopeFuncs : ResizeArray<J.ProgramElement>
     }
     static member New(name, pref) =
         {
@@ -44,16 +45,18 @@ type Environment =
             Preference = pref    
             ScopeVars = Set.empty
             CompactVars = 0 
-            ScopeIds = Map.empty
+            ScopeIds = Map.empty   
+            ScopeFuncs = ResizeArray()
         }
 
-    member this.Clone() =
+    member this.NewInner() =
         {
             AssemblyName = this.AssemblyName
             Preference = this.Preference    
             ScopeVars = this.ScopeVars
             CompactVars = this.CompactVars
             ScopeIds = this.ScopeIds
+            ScopeFuncs = ResizeArray()
         }
 
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
@@ -89,7 +92,6 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     match expr with
     | Undefined -> undef
     | This -> J.This
-//        | Global -> glob
     | Var id -> J.Var (trI id)
     | Value v ->
         match v with
@@ -123,7 +125,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
             } : J.SourcePos
         J.ExprPos (trE e, jpos)
     | Function (ids, b) ->
-        let innerEnv = env.Clone()
+        let innerEnv = env.NewInner()
         let args = ids |> List.map (defineId innerEnv) 
         let body =
             match b |> transformStatement innerEnv with
@@ -132,9 +134,10 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 | J.Return None :: more -> List.rev more
                 | _ -> b
                 |> List.map J.Action
+            | J.Empty
             | J.Return None -> []
             | b -> [ b |> J.Action ]
-        J.Lambda(None, args, body)
+        J.Lambda(None, args, List.ofSeq innerEnv.ScopeFuncs @ body)
     | ItemGet (x, y) 
     | ItemGetNonPure (x, y) 
         -> (trE x).[trE y]
@@ -250,6 +253,8 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                     emptyDecls.Add (defineId env id)
                 | _ ->
                     decls.Add (defineId env id, trE e)
+            | FuncDeclaration _ ->
+                trS a |> ignore    
             | Empty 
             | ExprStatement IgnoreSourcePos.Undefined -> ()
             | ExprStatement (IgnoreSourcePos.Sequential s) ->
@@ -295,6 +300,22 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Return a -> J.Return (Some (trE a))
     | VarDeclaration (id, e) ->
         J.Vars ([defineId env id, match e with IgnoreSourcePos.Undefined -> None | _ -> Some (trE e)])
+    | FuncDeclaration (x, ids, b) ->
+        let id = defineId env x
+        let innerEnv = env.NewInner()
+        let args = ids |> List.map (defineId innerEnv) 
+        let body =
+            match b |> transformStatement innerEnv with
+            | J.Block b -> 
+                match List.rev b with
+                | J.Return None :: more -> List.rev more
+                | _ -> b
+                |> List.map J.Action
+            | J.Empty
+            | J.Return None -> []
+            | b -> [ b |> J.Action ]
+        J.Function(id, args, List.ofSeq innerEnv.ScopeFuncs @ body) |> env.ScopeFuncs.Add
+        J.Empty
     | While(a, b) -> J.While (trE a, trS b)
     | DoWhile(a, b) -> J.Do (trS a, trE b)
     | For(a, b, c, d) -> J.For(Option.map trE a, Option.map trE b, Option.map trE c, trS d)

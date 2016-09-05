@@ -39,7 +39,7 @@ IntelliFactory = {
             };
         },
 
-        Class: function (members, base, statics) {
+        Class: function (members, base, statics, name) {
             var proto = base ? new base() : {};
             var typeFunction = function (copyFrom) {
                 if (copyFrom) {
@@ -48,6 +48,7 @@ IntelliFactory = {
             }
             for (var m in members) { proto[m] = members[m] }
             typeFunction.prototype = proto;
+            typeFunction.name = name;
             if (statics) {
                 for (var f in statics) { typeFunction[f] = statics[f] }
             }
@@ -247,6 +248,10 @@ IntelliFactory = {
                 else f = f(args.shift());
             }
             return f;
+        },
+
+        PipeApply: function (x, f, args) {
+            return IntelliFactory.Runtime.Apply(f, args?args.concat([x]):[x]);
         },
 
         UnionByType: function (types, value, optional) {

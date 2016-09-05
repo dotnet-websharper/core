@@ -226,7 +226,8 @@ let StatementDefs =
             , "Block of statements"
         "VarDeclaration", [ Id, "variable"; Expr, "value" ]
             , "Variable declaration"
-//        "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Statement, "body" ]
+        "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Statement, "body" ]
+            , "Function declaration"
         "While", [ Expr, "condition"; Statement, "body" ]
             , "'while' loop"
         "DoWhile", [ Statement, "body"; Expr, "condition" ]
@@ -480,6 +481,58 @@ let code =
                     "(" + String.concat ", " (Seq.take c.Length letters) + ")"
             cprintfn "    let (|%s|_|) x = match ignore%sSourcePos x with %s %s -> Some %s | _ -> None" n t n args trArgs
 
+    cprintfn "module Debug =" 
+    cprintfn "    let private PrintObject x = sprintf \"%%A\" x" 
+    for isExrps, tl in [ true, ExprDefs; false, StatementDefs ] do
+        if isExrps then 
+            cprintfn "    let rec PrintExpression x =" 
+        else 
+            cprintfn "    and PrintStatement x =" 
+        cprintfn "        match x with"
+        for n, c, _ in tl do
+            let args =
+                match c with
+                | [] -> ""
+                | [_] -> "a"
+                | _ ->
+                    "(" + String.concat ", " (Seq.take c.Length letters) + ")"
+            let rec tr c x =
+                match c with
+                | List Expr -> "\"[\" + String.concat \"; \" (List.map PrintExpression " + x + ") + \"]\""
+                | Option Expr -> "defaultArg (Option.map PrintExpression " + x + ") \"_\""
+                | Expr -> "PrintExpression " + x 
+                | Statement -> "PrintStatement " + x
+                | Id -> "string " + x
+                | Option Id -> "defaultArg (Option.map string " + x + ") \"_\""
+                | List Id -> "\"[\" + String.concat \"; \" (List.map string " + x + ") + \"]\""
+                | List (Tuple [Id; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> string a + \", \" + PrintExpression b) " + x + ") + \"]\"" 
+                | List Statement -> "\"[\" + String.concat \"; \" (List.map PrintStatement " + x + ") + \"]\""
+                | List (Tuple [Object _; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> PrintObject a + \", \" + PrintExpression b) " + x + ") + \"]\""
+                | List (Tuple [Option Expr; Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) \"_\" + \", \" + PrintStatement b) " + x + ") + \"]\"" 
+                | List (Tuple [List (Option Expr); Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> \"[\" + String.concat \"; \" (List.map (fun aa -> defaultArg (Option.map PrintExpression aa) \"_\") a) + \"], \" + PrintStatement b) " + x + ") + \"]\""
+                | Object "TypeDefinition" -> x + ".Value.FullName"
+                | Object "Concrete<TypeDefinition>" -> x + ".Entity.Value.FullName"
+                | Object "Concrete<Method>" -> x + ".Entity.Value.MethodName"
+                | Object "Constructor" -> "\".ctor\""
+                | Object "Literal" -> "PrintObject " + x + ".Value"
+                | Object _ -> "PrintObject " + x
+                | List (Object _) -> "\"[\" + String.concat \"; \" (List.map PrintObject " + x + ") + \"]\""
+                | Option (Object _) -> "defaultArg (Option.map PrintObject " + x + ") \"_\""
+                | Empty -> ""
+                | _ -> "TODOprinter"
+            match c with
+            | [ Object "SourcePos", _; Expr, _ ] ->
+                cprintfn "        | %s (_, b) -> PrintExpression b" n
+            | [ Object "SourcePos", _; Statement, _ ] ->
+                cprintfn "        | %s (_, b) -> PrintStatement b" n
+            | _ ->
+            let trArgs = 
+                match c with
+                | [] -> "\"\""
+                | [c, _] -> "\"(\" + " + tr c "a" + " + \")\""
+                | _ ->
+                    "\"(\" + " + String.concat " + \", \" + " (c |> Seq.mapi (fun j (a, _) -> tr a (letters.[j]))) + " + \")\""
+            cprintfn "        | %s %s -> \"%s\" + %s" n args n trArgs 
     code.ToArray()
 
 let allCode = 

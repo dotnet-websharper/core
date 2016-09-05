@@ -295,4 +295,26 @@ let Tests =
             isTrueMsg (o8?a = "1" && o8?b = 2) "Sequence of (=>) calls"
         }
 
+        Test "JS.Inline" {
+            equal (JS.Inline "1 + 2") 3
+            equal (JS.Inline("$0 + $1", 1, 2)) 3
+            let r = ref 0
+            let next() =
+                incr r 
+                !r
+            equal (JS.Inline("$0 + $1 + $1", next(), next())) 5
+        }
+
+        Test "simplified match" {
+            let res =
+                let mutable r = 0
+                match 1 + 1 with
+                | 0 -> r <- 1
+                | 1
+                | 2 -> r <- 3
+                | 5 -> r <- 6
+                | _ -> ()
+                r
+            equal res 3
+        }
     }

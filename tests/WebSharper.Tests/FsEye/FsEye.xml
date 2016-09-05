@@ -1,0 +1,937 @@
+<?xml version="1.0" encoding="utf-8"?>
+<doc>
+<assembly><name>FsEye</name></assembly>
+<members>
+<member name="">
+
+</member>
+<member name="M:Swensen.FsEye.IPlugin.IsWatchable(System.Object,System.Type)">
+<summary>
+Returns true or false depending on whether the given instance and its type (which we may need if 
+the instance is null) are watchable: if false, then FsEye will not allow creating a watch for a value 
+of the given type. Plugin authors should be mindful of the performance impact this method may have.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.IPlugin.CreateWatchViewer">
+<summary>
+Create an instance of this plugin&apos;s watch viewer
+</summary>
+</member>
+<member name="T:Swensen.FsEye.IPlugin">
+<summary>
+Specificies a watch view plugin, capable of creating watch viewer instances
+</summary>
+</member>
+<member name="P:Swensen.FsEye.IWatchViewer.Control">
+<summary>
+The underlying watch viewer control. Exists as a property of IWatchViewer 
+since you may or may not own the control (i.e. you cannot directly implement IWatchViewer on the control).
+</summary>
+</member>
+<member name="M:Swensen.FsEye.IWatchViewer.Watch(System.String,System.Object,System.Type)">
+<summary>
+Add or update a watch with the given label, value, and type. Note: you can choose to 
+disregard the label and type if desired, but will almost certainly need the value.
+</summary>
+</member>
+<member name="T:Swensen.FsEye.IWatchViewer">
+<summary>
+Specifies a watch viewer interface, an instance which can add or update one or more watches with 
+a custom watch viewer control
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Swensen.FsEye.IconResource">
+<summary>
+Icon resource used to identify tree view node member classifications and provide FsEye form icon.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Swensen.FsEye.ImageResource">
+<summary>
+Image resource used to identify tree view node member classifications and provide FsEye form icon.
+</summary>
+</member>
+<member name="F:Swensen.FsEye.Swensen.FsEye.ManagedPlugin.PluginManager">
+<summary>
+The owning plugin manager
+</summary>
+</member>
+<member name="F:Swensen.FsEye.Swensen.FsEye.ManagedPlugin.Plugin">
+<summary>
+The plugin being managed
+</summary>
+</member>
+<member name="P:Swensen.FsEye.ManagedPlugin.ManagedWatchViewers">
+<summary>
+The list of active watch viewers (i.e. watch viewers may be added and removed by the plugin manager)
+</summary>
+</member>
+<member name="T:Swensen.FsEye.ManagedPlugin">
+<summary>
+Represents a plugin being managed by the PluginManager
+</summary>
+</member>
+<member name="F:Swensen.FsEye.Swensen.FsEye.ManagedWatchViewer.ManagedPlugin">
+<summary>
+The owning ManagedPlugin
+</summary>
+</member>
+<member name="F:Swensen.FsEye.Swensen.FsEye.ManagedWatchViewer.WatchViewer">
+<summary>
+The watch viewer instance which is being managed
+</summary>
+</member>
+<member name="F:Swensen.FsEye.Swensen.FsEye.ManagedWatchViewer.ID">
+<summary>
+The unique ID of the watch viewer instance 
+</summary>
+</member>
+<member name="T:Swensen.FsEye.ManagedWatchViewer">
+<summary>
+Represents a plugin watch viewer being managed by the PluginManager
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="F:Swensen.FsEye.Swensen.FsEye.PluginManager.absoluteCounts">
+<summary>
+absolute number of watch viewer instances created for the given plugin
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Swensen.FsEye.PluginManager.SendTo(Swensen.FsEye.ManagedWatchViewer,System.String,System.Object,System.Type)">
+<summary>
+Send the given label, value and type to the given, existing managed watch viewer.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.PluginManager.SendTo(Swensen.FsEye.ManagedPlugin,System.String,System.Object,System.Type)">
+<summary>
+Create a new watch viewer for the given managed plugin, sending the given label, value and type.
+Returns the ManagedWatchViewer which wraps the created watch viewer.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.PluginManager.RemoveManagedWatchViewer(System.String)">
+<summary>
+Remove the managed watch viewer by id, disposing the watch viewer&apos;s Control.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.PluginManager.RemoveManagedWatchViewer(Swensen.FsEye.ManagedWatchViewer)">
+<summary>
+Remove the given managed watch viewer, disposing the watch viewer&apos;s Control.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.PluginManager.RemoveManagedPlugin(System.String)">
+<summary>
+Remove the managed plugin (and all of its managed watch viewers) by name.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.PluginManager.RemoveManagedPlugin(Swensen.FsEye.ManagedPlugin)">
+<summary>
+Remove the given managed plugin (and all of its managed watch viewers).
+</summary>
+</member>
+<member name="M:Swensen.FsEye.PluginManager.RegisterPlugin(Swensen.FsEye.IPlugin)">
+<summary>
+Register the given plugin and return the managed plugin wrapping it. If a managed plugin wrapping a plugin of the same name exists, 
+removes it (and all of its associated managed watch viewers).
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="T:Swensen.FsEye.PluginManager">
+<summary>
+Manages FsEye watch viewer plugins
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Swensen.FsEye.Forms.EyeForm.PluginManager">
+<summary>
+Manages plugins and plugin watch viewers
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyeForm.Watch``1(System.String,``0)">
+<summary>
+Add or update a watch with the given name and value (where the type is derived from the type paramater of the value).
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyeForm.Watch(System.String,System.Object,System.Type)">
+<summary>
+Add or update a watch with the given name, value, and type.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyeForm.ClearWatches">
+<summary>
+Clear all watches (doesn&apos;t include archive nodes).
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyeForm.ClearArchives">
+<summary>
+Clear all archives and reset the archive count.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyeForm.ClearAll">
+<summary>
+Clear all archives (reseting archive count) and watches.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyeForm.AsyncContinue">
+<summary>
+Continue from an AsyncBreak()
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyeForm.AsyncBreak">
+<summary>
+Use this in an async block with do! to pause execution and activate the watch viewer, e.g.
+<para></para>
+<para>async { </para>
+<para>&#160;&#160;&#160;&#160;for i in 1..100 do</para>
+<para>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;watch.Watch("i", i, typeof&lt;int&gt;)</para>
+<para>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;watch.Archive()</para>
+<para>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;if i = 50 then</para>
+<para>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;do! watch.AsyncBreak()</para>
+<para>} |> Async.StartImmediate</para>
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyeForm.Archive">
+<summary>
+Take archival snap shot of all current watches using a default label based on an archive count.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyeForm.Archive(System.String)">
+<summary>
+Take archival snap shot of all current watches using the given label.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Swensen.FsEye.Forms.EyePanel.PluginManager">
+<summary>
+Manages plugins and plugin watch viewers
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyePanel.Watch``1(System.String,``0)">
+<summary>
+Add or update a watch with the given name and value (where the type is derived from the type paramater of the value).
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyePanel.Watch(System.String,System.Object,System.Type)">
+<summary>
+Add or update a watch with the given name, value, and type.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyePanel.ClearWatches">
+<summary>
+Clear all watches (doesn&apos;t include archive nodes).
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyePanel.ClearArchives">
+<summary>
+Clear all archives and reset the archive count.        
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyePanel.ClearAll">
+<summary>
+Clear all archives (reseting archive count) and watches.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyePanel.AsyncContinue">
+<summary>
+Continue from an AsyncBreak()
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyePanel.AsyncBreak">
+<summary>
+Use this in a sync block with do!, e.g.
+<para></para>
+<para>async { </para>
+<para>&#160;&#160;&#160;&#160;for i in 1..100 do</para>
+<para>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;watch.Watch("i", i, typeof&lt;int&gt;)</para>
+<para>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;watch.Archive()</para>
+<para>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;if i = 50 then</para>
+<para>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;do! watch.AsyncBreak()</para>
+<para>} |> Async.StartImmediate</para>
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyePanel.Archive">
+<summary>
+Take archival snap shot of all current watches using a default label based on an archive count.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.EyePanel.Archive(System.String)">
+<summary>
+Take archival snap shot of all current watches using the given label.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Swensen.FsEye.Forms.EyeSplitContainer.TreeView">
+<summary>
+The left panel control
+</summary>
+</member>
+<member name="P:Swensen.FsEye.Forms.EyeSplitContainer.TabControl">
+<summary>
+The right panel control
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="T:Swensen.FsEye.Forms.EyeSplitContainer">
+<summary>
+A vertical split container which manages the interaction between the left WatchTreeView and the right PluginTabControl.
+When no plugin watch viewers are active, the right panel is hidden, otherwise it is shown, reacting to tabs as they 
+are added and remove. By default the size of each is 50% on each size, but it persists the percentage set by the
+user scaling on resize. This internal component is used by the EyePanel.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Swensen.FsEye.Forms.PluginTabControl.remove_TabRemoved(Microsoft.FSharp.Control.FSharpHandler{System.Windows.Forms.TabPage})">
+<summary>
+Fires when a plugin tab has been removed (but not if you manually add a tab)
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.PluginTabControl.remove_TabAdded(Microsoft.FSharp.Control.FSharpHandler{System.Windows.Forms.TabPage})">
+<summary>
+Fires when a plugin tab has been added (but not if you manually add a tab)
+</summary>
+</member>
+<member name="P:Swensen.FsEye.Forms.PluginTabControl.TabRemoved">
+<summary>
+Fires when a plugin tab has been removed (but not if you manually add a tab)
+</summary>
+</member>
+<member name="P:Swensen.FsEye.Forms.PluginTabControl.TabAdded">
+<summary>
+Fires when a plugin tab has been added (but not if you manually add a tab)
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.PluginTabControl.add_TabRemoved(Microsoft.FSharp.Control.FSharpHandler{System.Windows.Forms.TabPage})">
+<summary>
+Fires when a plugin tab has been removed (but not if you manually add a tab)
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.PluginTabControl.add_TabAdded(Microsoft.FSharp.Control.FSharpHandler{System.Windows.Forms.TabPage})">
+<summary>
+Fires when a plugin tab has been added (but not if you manually add a tab)
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="T:Swensen.FsEye.Forms.PluginTabControl">
+<summary>
+The tab-based visual surface of the PluginManager. Exposes TabAdded and TabRemoved events
+which are fired when plugin watch view tabs are added and removed (do not directly add / remove
+tab pages, this is initiated via tab right-click context menu calls which do add / remove ops 
+on the tab plugin itself. This decoupling always direct, programatic calls to add / remove
+plugin manager watch views to propagate events that are handled by this and higher up visual components.
+This internal component is used by the WatchPluginSplitContainer which in turn is used by the EyePanel.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="F:Swensen.FsEye.Forms.Swensen.FsEye.Forms.WatchTreeView.dummyText">
+<summary>
+The text used for constructing &quot;dummy&quot; TreeNodes used as a place-holder until childnodes are 
+loaded lazily.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Swensen.FsEye.Forms.WatchTreeView.Watch``1(System.String,``0)">
+<summary>
+Add or update a watch with the given name and value (where the type is derived from the type paramater of the value).
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.WatchTreeView.Watch(System.String,System.Object,System.Type)">
+<summary>
+Add or update a watch with the given name, value, and type.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="M:Swensen.FsEye.Forms.WatchTreeView.ClearWatches">
+<summary>
+Clear all watches (doesn&apos;t include archive nodes).
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.WatchTreeView.ClearArchives">
+<summary>
+Clear all archives and reset the archive count.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.WatchTreeView.ClearAll">
+<summary>
+Clear all archives (reseting archive count) and watches.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.WatchTreeView.ClearAll(Microsoft.FSharp.Core.FSharpFunc`2{System.Windows.Forms.TreeNode,System.Boolean})">
+<summary>
+Clear all nodes satisfying the given predicate.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.WatchTreeView.Archive">
+<summary>
+Take archival snap shot of all current watches using a default label based on an archive count.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Forms.WatchTreeView.Archive(System.String)">
+<summary>
+Take archival snap shot of all current watches using the given label.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="M:Swensen.FsEye.Forms.WatchTreeView.#ctor">
+<summary>
+Initialize an instance of a WatchTreeView without a PluginManager (e.g. when a WatchTreeView is used as the basis for a plugin!).
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Swensen.FsEye.Forms.WatchTreeView">
+<summary>
+A TreeView which binds to and manipulates a Watch model.
+The PluginManager argument is only used for the primary FsEye WatchTreeView,
+it should be None for WatchTreeViews hosted as plugins.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="F:Swensen.FsEye.Fsi.Swensen.FsEye.Fsi.Eye.listen">
+<summary>
+prevent form from disposing when closing
+Indicates whether or not FSI session listening is turned on
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Swensen.FsEye.Fsi.Eye.Listen(System.Boolean)">
+<summary>
+Indicates whether or not FSI session listening is turned on.
+</summary>
+</member>
+<member name="P:Swensen.FsEye.Fsi.Eye.PluginManager">
+<summary>
+Manages plugins and plugin watch viewers
+</summary>
+</member>
+<member name="P:Swensen.FsEye.Fsi.Eye.Listener">
+<summary>
+The listener to attached to FSI.
+</summary>
+</member>
+<member name="P:Swensen.FsEye.Fsi.Eye.Listen">
+<summary>
+Indicates whether or not FSI session listening is turned on.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Fsi.Eye.Watch``1(System.String,``0)">
+<summary>
+Add or update a watch with the given name and value (where the type is derived from the type paramater of the value).
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Fsi.Eye.Watch(System.String,System.Object,System.Type)">
+<summary>
+Add or update a watch with the given name, value, and type.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Fsi.Eye.Show">
+<summary>
+Show the Watch form.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Fsi.Eye.Hide">
+<summary>
+Hide the Watch form.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Fsi.Eye.ClearWatches">
+<summary>
+Clear all watches (doesn&apos;t include archive nodes).
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Fsi.Eye.ClearArchives">
+<summary>
+Clear all watches (doesn&apos;t include archive nodes).
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Fsi.Eye.ClearAll">
+<summary>
+Clear all archives (reseting archive count) and watches.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Fsi.Eye.AsyncContinue">
+<summary>
+Continue from an AsyncBreak()
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Fsi.Eye.AsyncBreak">
+<summary>
+Use this in a sync block with do!, e.g.
+<para></para>
+<para>async { </para>
+<para>&#160;&#160;&#160;&#160;for i in 1..100 do</para>
+<para>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;watch.Watch("i", i, typeof&lt;int&gt;)</para>
+<para>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;watch.Archive()</para>
+<para>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;if i = 50 then</para>
+<para>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;do! watch.AsyncBreak()</para>
+<para>} |> Async.StartImmediate</para>
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Fsi.Eye.Archive">
+<summary>
+Take archival snap shot of all current watches using a default label based on an archive count.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.Fsi.Eye.Archive(System.String)">
+<summary>
+Take archival snap shot of all current watches using the given label.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="T:Swensen.FsEye.Fsi.Eye">
+<summary>
+Manages a EyeForm in the context of an FSI session listening for watch additions and updates and reflecting those in the EyeForm.
+</summary>
+</member>
+<member name="P:Swensen.FsEye.Fsi.EyeModule.eye">
+<summary>
+The Eye singleton for the active FSI session
+</summary>
+</member>
+<member name="T:Swensen.FsEye.Fsi.EyeModule">
+<summary>
+Holds the Eye singleton for the active FSI session
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="T:Swensen.FsEye.Fsi.SessionQueries">
+<summary>
+Queries against the active FSI session
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="T:Swensen.FsEye.IconResourceModule">
+<summary>
+Icon resource used to identify tree view node member classifications and provide FsEye form icon.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Swensen.FsEye.ImageResourceModule">
+<summary>
+Image resource used to identify tree view node member classifications and provide FsEye form icon.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Swensen.FsEye.WatchModel.Watch.ValueInfo">
+<summary>
+Returns the value info for this watch if a) the watch is fully initialized (it is not forced), b) it is even supported
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Swensen.FsEye.WatchModel.Watch.DefaultText">
+<summary>
+Get the &quot;default text&quot; of this Watch (i.e. the text which is displayed when a watch node is first created which may or may not be updated later).
+</summary>
+</member>
+<member name="P:Swensen.FsEye.WatchModel.Watch.Children">
+<summary>
+Get the children of this Watch. If the children are taken from a Lazy property,
+evaluation is forced.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Swensen.FsEye.WatchModel.createRootWatch(System.String,System.Object,System.Type)">
+<summary>
+Create a watch root. If value is not null, then value.GetType() is used as the watch Type instead of
+ty. Else if ty is not null ty is used. Else typeof&lt;obj&gt; is used.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.WatchModel.createChildren(System.Object,System.Type)">
+<summary>
+Create lazy seq of children s for a typical valued 
+</summary>
+</member>
+<member name="M:Swensen.FsEye.WatchModel.sprintValue(System.Object,System.Type)">
+<summary>
+Sprint the given value with the given Type. Precondition: Type cannot be null.
+</summary>
+</member>
+<member name="M:Swensen.FsEye.WatchModel.|CreatedValue|_|``1(System.Lazy{``0})">
+<summary>
+let l be the lazy:&apos;a arg, returns Some(l.Value) if l.IsValueCreated, else returns None.
+</summary>
+</member>
+<member name="T:Swensen.FsEye.WatchModel">
+
+</member>
+</members>
+</doc>

@@ -54,7 +54,7 @@ let RunTests() =
         Queue.Tests
         Random.Tests
         Ref.Tests
-//        Reflected.Tests
+        Reflected.Tests
         Regression.Tests
         Seq.Tests
         Stack.Tests

@@ -100,6 +100,45 @@ type Environment =
 
 exception RecognitionError
 
+/// Checks if a specific Id is mutated
+type private IsImmutable(v) =
+    inherit Visitor()
+
+    let mutable scope = 0
+    let mutable notMutated = true
+
+    override this.VisitVarSet (a, b) =
+        if a = v then notMutated <- false
+        else this.VisitExpression b
+
+    override this.VisitMutatingUnary (_, a) =
+        match IgnoreExprSourcePos a with
+        | Var av when av = v ->
+            notMutated <- false
+        | _ ->
+            this.VisitExpression a
+
+    override this.VisitMutatingBinary (a, _, b) =
+        match IgnoreExprSourcePos a with
+        | Var av when av = v ->
+            notMutated <- false
+        | _ ->
+            this.VisitExpression a
+            this.VisitExpression b
+
+    override this.VisitExpression(a) =
+        if notMutated then base.VisitExpression(a)
+
+    member this.Check(a) =
+        this.VisitExpression(a)
+        notMutated
+
+let makePossiblyImmutable expr (v: Id) =
+    if IsImmutable(v).Check(expr) then 
+        let vi = Id.New(?name = v.Name, mut = false)
+        ReplaceId(v, vi).TransformExpression(expr)
+    else expr         
+
 let checkNotMutating (env: Environment) a f =
     if env.IsInput a then
         failwith "arguments of inlined functions should not be mutated"
@@ -183,21 +222,22 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | S.True -> Bool true
         |> Value
     | S.Lambda (a, b, c) ->
-       match a with
-       | None ->
-            let vars = b |> List.map (fun v -> Id.New v)
-            let env = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
-            let body =
-                c
-                |> List.map (function
-                    | S.Action s -> s
-                    | _ -> raise RecognitionError)
-                |> S.Block
-            Function (
-                vars,
-                transformStatement env body
-            )
-       | _ -> failwith "TODO" 
+        let vars = b |> List.map (fun v -> Id.New v)
+        let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
+        let body =
+            c
+            |> List.map (function
+                | S.Action s -> s
+                | _ -> raise RecognitionError)
+            |> S.Block
+        let fres =
+            match a with
+            | None -> Function (vars, transformStatement innerEnv body)
+            | Some a -> 
+                let f = env.NewVar a
+                StatementExpr(FuncDeclaration(f, vars, transformStatement innerEnv body), Some f)
+        innerEnv.Vars.Head.Values |> Seq.choose (function Var i -> Some i | _ -> None)
+        |> Seq.fold makePossiblyImmutable fres
     | S.New (a, b) -> New(trE a, List.map trE b)
     | S.NewArray a -> NewArray (a |> List.map (function Some i -> trE i | _ -> Undefined))
     | S.NewObject a -> Object(a |> List.map (fun (b, c) -> b, trE c))
@@ -317,7 +357,12 @@ let createInline thisArg args isPure inlineString =
             e |> transformExpression (Environment.New(thisArg, false, isPure, args))
         | Choice2Of2 p ->
             p
-            |> List.map (function S.Action a -> a | _ -> failwith "Currently unsupported: function declarations in Inline" )
+            |> List.map (function 
+                | S.Action a -> a
+                | S.Function (f, args, body) ->
+                    // ignore is just temporary, transformExpression should transform it to FuncDeclaration
+                    S.Ignore(S.Lambda(Some f, args, body)) 
+            )
             |> S.Block
             |> transformStatement (Environment.New(thisArg, false, isPure, args))
             |> IgnoredStatementExpr

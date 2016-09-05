@@ -280,8 +280,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             | Member.Override(_, _) -> error "Override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
         | Some (A.MemberKind.Remote rp) -> 
-            let def = sr.ReadMember meth
-            match def with
+            let memdef = sr.ReadMember meth
+            match memdef with
             | Member.Method (isInstance, mdef) ->
                 let remotingKind =
                     match mdef.Value.ReturnType with
@@ -291,7 +291,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | _ -> RemoteSync // TODO: warning
                 let isCsrfProtected t = true // TODO
                 let rp = rp |> Option.map (fun t -> t, isCsrfProtected t)
-                addMethod mAnnot mdef (N.Remote(remotingKind, comp.GetRemoteHandle(), rp)) true Undefined
+                let handle = 
+                    comp.GetRemoteHandle(
+                        def.Value.FullName + "." + mdef.Value.MethodName,
+                        mdef.Value.Parameters,
+                        mdef.Value.ReturnType
+                    )
+                addMethod mAnnot mdef (N.Remote(remotingKind, handle, rp)) true Undefined
             | _ -> error "Only methods can be defined Remote"
         | Some kind ->
             let meth = 

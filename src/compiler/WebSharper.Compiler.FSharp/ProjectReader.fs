@@ -261,7 +261,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | _ -> RemoteSync
                 let isCsrfProtected t = true // TODO
                 let rp = rp |> Option.map (fun t -> t, isCsrfProtected t)
-                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, comp.GetRemoteHandle(), rp)) true Undefined
+                let handle = 
+                    comp.GetRemoteHandle(
+                        def.Value.FullName + "." + mdef.Value.MethodName,
+                        mdef.Value.Parameters,
+                        mdef.Value.ReturnType
+                    )
+                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, rp)) true Undefined
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
 
@@ -293,8 +299,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
             let getVarsAndThis() =
                 let a, t = getArgsAndThis()
-                a |> List.map (fun p -> CodeReader.namedId p.CompiledName),
-                t |> Option.map (fun p -> CodeReader.namedId p.CompiledName)
+                a |> List.map (fun p -> CodeReader.namedId p),
+                t |> Option.map (fun p -> CodeReader.namedId p)
                
             let error m = comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError m)
             let warn m = comp.AddWarning(Some (CodeReader.getRange meth.DeclarationLocation), SourceWarning m)
@@ -308,38 +314,36 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 if stubs.Contains memdef then () else
                 let getBody isInline = 
                     try
-                        // currently throws error at TryGetReflectedDefinition 
-                        let hasRD =
-                            false
-//                            meth.Attributes |> Seq.exists (fun a -> a.AttributeType.FullName = "Microsoft.FSharp.Core.ReflectedDefinitionAttribute")
-                        if hasRD then
-                            let info =
-                                match memdef with
-                                | Member.Method (_, mdef) 
-                                | Member.Override (_, mdef) 
-                                | Member.Implementation (_, mdef) ->
-                                    Reflection.LoadMethod def mdef :> System.Reflection.MethodBase
-                                | Member.Constructor cdef ->
-                                    Reflection.LoadConstructor def cdef :> _
-                                | _ -> failwith "unexpected: static constructor with a reflected definition"
-                            match FSharp.Quotations.Expr.TryGetReflectedDefinition(info) with
-                            | Some q ->
-                                warn "Compiling from reflected definition"
-                                QR.transformExpression (QR.Environment.New(comp)) q
-                            | _ ->
-                                error "Failed to get reflected definition"
-                                WebSharper.Compiler.Translator.errorPlaceholder
-                        else
+                        let fromRD = 
+                            let hasRD =
+                                meth.Attributes |> Seq.exists (fun a -> a.AttributeType.FullName = "Microsoft.FSharp.Core.ReflectedDefinitionAttribute")
+                            if hasRD then
+                                let info =
+                                    match memdef with
+                                    | Member.Method (_, mdef) 
+                                    | Member.Override (_, mdef) 
+                                    | Member.Implementation (_, mdef) ->
+                                        Reflection.LoadMethod def mdef :> System.Reflection.MethodBase
+                                    | Member.Constructor cdef ->
+                                        Reflection.LoadConstructor def cdef :> _
+                                    | Member.StaticConstructor ->
+                                        (Reflection.LoadTypeDefinition def).GetConstructors(System.Reflection.BindingFlags.Static).[0] :> _
+                                WebSharper.Compiler.ReflectedDefinitionReader.readReflected comp info 
+                            else None
+                        match fromRD with
+                        | Some rd ->
+                            FixThisScope().Fix(rd)
+                        | _ ->
                         let a, t = getArgsAndThis()
                         let argsAndVars = 
                             [
                                 match t with
                                 | Some t ->
-                                    yield t, (CodeReader.namedId t.CompiledName, CodeReader.ThisArg)
+                                    yield t, (CodeReader.namedId t, CodeReader.ThisArg)
                                 | _ -> ()
                                 for p in a ->    
                                     p, 
-                                    (CodeReader.namedId p.CompiledName, 
+                                    (CodeReader.namedId p, 
                                         if CodeReader.isByRef p.FullType then CodeReader.ByRefArg else CodeReader.LocalVar)
                             ]
                         let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
@@ -448,9 +452,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 let setb =
                                     match body with
                                     | Function([], Return (FieldGet(None, {Entity = scDef; Generics = []}, name))) ->
-                                        let value = CodeReader.namedId "v"                                    
+                                        let value = CodeReader.newId()                          
                                         Function ([value], (ExprStatement <| FieldSet(None, NonGeneric scDef, name, Var value)))
-                                    | _ -> failwith "unexpected form in module let body"
+                                    | _ -> 
+                                        error "unexpected form in module let body"
+                                        Undefined
+                                        //failwith "unexpected form in module let body"
                                 addMethod None { mAnnot with Name = None } setm kind false setb    
                             true
                         else false
@@ -661,7 +668,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 }
             let body =
                 let vars =
-                    cls.FSharpFields |> Seq.map (fun f -> CodeReader.namedId f.Name) |> List.ofSeq
+                    cls.FSharpFields |> Seq.map (fun f -> Id.New(f.Name, mut = false)) |> List.ofSeq
                 let fields =
                     cls.FSharpFields |> Seq.map (fun f -> 
                         let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)

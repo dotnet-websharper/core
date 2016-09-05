@@ -1101,6 +1101,21 @@ type TypeTest() =
     override __.TranslateCall(c) =
         TypeCheck(c.Arguments.Head, c.Method.Generics.Head) |> MacroOk
 
+[<Sealed>]
+type InlineJS() =
+    inherit Macro()
+
+    override __.TranslateCall(c) =
+        match c.Arguments.Head with
+        | I.Value (String inl) ->
+            let args =
+                match c.Arguments with
+                | [_] -> [] 
+                | [_; I.NewArray args] -> args
+                | _ -> failwith "InlineJS error: arguments cannot be passed as an array"
+            c.Compilation.ParseJSInline(inl, args) |> MacroOk
+        | _ -> failwith "InlineJS error: first argument must be a constant string"
+
 let stringTy, lengthMeth, padLeft, padRight =
     let t = typeof<System.String>
     Reflection.ReadTypeDefinition t,

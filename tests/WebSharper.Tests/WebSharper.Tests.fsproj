@@ -11,6 +11,7 @@
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <Tests>True</Tests>
   </PropertyGroup>
+  <Import Project="../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>
     <Compile Include="AddressOf.fs" />
     <Compile Include="Array.fs" />
@@ -51,6 +52,7 @@
     <Compile Include="WIG.fs" />
     <Compile Include="Cookies.fs" />
     <Compile Include="Main.fs" />
+    <None Include="ASTTests.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
@@ -103,10 +105,7 @@
       <Project>{4c826618-e150-40f7-b13a-9182f0c3eaca}</Project>
       <Private>True</Private>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Reference Include="System.Data" />
     <Reference Include="System.Data.Linq" />
   </ItemGroup>
-  <Import Project="../../msbuild/WebSharper.FSharp.Internal.targets" />
 </Project>

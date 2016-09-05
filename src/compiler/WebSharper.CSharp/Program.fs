@@ -75,10 +75,14 @@ let Compile config =
         )
         if refErrors.Count > 0 || List.isEmpty metas then None 
         else 
-            Some { 
-                WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
-                    Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
-            }
+            try
+                Some { 
+                    WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
+                        Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
+                }
+            with e ->
+                refErrors.Add <| "Error merging WebSharper metadata: " + e.Message
+                None
 
     let ended = System.DateTime.Now
     logf "Loading referenced metadata: %A" (ended - started)
@@ -256,7 +260,7 @@ let compileMain argv =
             cscArgs.Add a  
     wsArgs := 
         { !wsArgs with 
-            References = refs.ToArray() 
+            References = refs |> Seq.distinct |> Array.ofSeq
             Resources = resources.ToArray()
             CompilerArgs = cscArgs.ToArray() 
             VSStyleErrors = true

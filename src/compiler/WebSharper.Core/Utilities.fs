@@ -118,7 +118,9 @@ module Dict =
     let union (dicts: seq<IDictionary<_,_>>) =
         let d = Dictionary() :> IDictionary<_,_>
         for s in dicts do
-            for i in s do d.Add(i)
+            for i in s do 
+                try d.Add(i)
+                with _ -> failwithf "Error merging dictionaries on key: %A" i.Key
         d
         
     /// IDictionary union, allowing exact duplicates
@@ -129,7 +131,7 @@ module Dict =
                 match d.TryGetValue k with
                 | true, ov ->
                     if v = ov then () else
-                        failwith "Different values found for the same key"
+                        failwithf "Different values found for the same key: %A" k
                 | _ -> d.Add(i)
         d
   

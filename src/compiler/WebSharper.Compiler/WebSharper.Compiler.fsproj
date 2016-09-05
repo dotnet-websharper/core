@@ -28,6 +28,7 @@
     <Compile Include="CompilationTypes.fs" />
     <Compile Include="Compilation.fs" />
     <Compile Include="QuotationReader.fs" />
+    <Compile Include="ReflectedDefinitionReader.fs" />
     <Compile Include="Translator.fsi" />
     <Compile Include="Translator.fs" />
     <Compile Include="Stubs.fs" />
