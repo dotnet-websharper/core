@@ -273,6 +273,8 @@ let resourceContext (st: State) (level: int) : R.Context =
         GetWebResourceRendering = fun ty name ->
             st.UseResource(EmbeddedResource.Create(name, ty))
             scriptsFile (ty.Assembly.GetName().Name) name
+
+        RenderingCache = System.Collections.Concurrent.ConcurrentDictionary()
     }
 
 /// Creates a dummy request.
