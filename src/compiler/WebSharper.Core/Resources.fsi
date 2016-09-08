@@ -25,6 +25,8 @@ open System
 open System.Web
 open System.Web.UI
 
+val AllReferencedAssemblies : list<System.Reflection.Assembly>
+
 type MediaType =
     | Css
     | Js
@@ -45,6 +47,7 @@ type Rendering =
     static member TryGetCdn : ctx: Context * assemblyName: string * filename: string -> option<Rendering>
     static member TryGetCdn : ctx: Context * assembly: System.Reflection.Assembly * filename: string -> option<Rendering>
     static member GetWebResourceRendering : ctx: Context * resource: System.Type * filename: string -> Rendering
+    static member RenderCached : ctx: Context * resource: IResource * getWriter : (RenderLocation -> HtmlTextWriter) -> unit
 
 /// Defines the context in which resources can be rendered.
 and Context =
@@ -64,13 +67,16 @@ and Context =
 
         /// Constructs URLs to point to embedded resources.
         GetWebResourceRendering : Type -> string -> Rendering
+
+        /// Cache for resolved rendering of resources
+        RenderingCache : System.Collections.Concurrent.ConcurrentDictionary<IResource, (RenderLocation -> HtmlTextWriter) -> unit>
     }
 
 /// An interface for resource-defining types.
-type IResource =
+and IResource =
 
     /// Renders the resource to a given TextWriter.
-    abstract member Render : Context -> (RenderLocation -> HtmlTextWriter) -> unit
+    abstract member Render : Context -> ((RenderLocation -> HtmlTextWriter) -> unit)
 
 /// A helper base class for resource-defining types.
 [<AbstractClass>]

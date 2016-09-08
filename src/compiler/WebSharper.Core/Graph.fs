@@ -33,22 +33,16 @@ module R = Resources
 /// A resource class for including the compiled .js for an assembly in Sitelets
 [<Sealed>]
 type AssemblyResource(name) =
+    member this.Name = name
+    
     interface R.IResource with
-        member this.Render ctx writer =
-            let fullAsmName =
-                System.AppDomain.CurrentDomain.GetAssemblies()
-                |> Seq.tryPick (fun a -> 
-                    if a.FullName.StartsWith (name + ",") then Some (a.FullName) else None          
-                )
+        member this.Render ctx =
             let r =
-                match fullAsmName with
-                | Some fullAsmName ->
-                    let filename = name + if ctx.DebuggingEnabled then ".js" else ".min.js"
-                    match R.Rendering.TryGetCdn(ctx, name, filename) with
-                    | Some r -> r
-                    | None -> ctx.GetAssemblyRendering name
+                let filename = name + if ctx.DebuggingEnabled then ".js" else ".min.js"
+                match R.Rendering.TryGetCdn(ctx, name, filename) with
+                | Some r -> r
                 | None -> ctx.GetAssemblyRendering name
-            r.Emit(writer R.Scripts, R.Js)
+            fun writer -> r.Emit(writer R.Scripts, R.Js)
 
 /// The compilation-time mutable representation of a code dependency graph
 type Graph =
@@ -280,12 +274,12 @@ type Graph =
                     with e ->
                         {
                             new R.IResource with
-                                member this.Render ctx writer =
-                                    let writer = writer R.Scripts
-                                    writer.Write("<-- ")
-                                    writer.Write("Failed to load: {0}; because of: {1}", t, e.Message)
-                                    writer.WriteLine(" -->")
-                                    ()
+                                member this.Render ctx =
+                                    fun writer ->
+                                        let writer = writer R.Scripts
+                                        writer.Write("<-- ")
+                                        writer.Write("Failed to load: {0}; because of: {1}", t, e.Message)
+                                        writer.WriteLine(" -->")
                         }
                 | _ -> failwith "not a resource node"
             )

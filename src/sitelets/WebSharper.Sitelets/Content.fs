@@ -96,7 +96,7 @@ module Content =
             )
             // Render resources
             for r in resources do
-                r.Render env.ResourceContext tw
+                Core.Resources.Rendering.RenderCached(env.ResourceContext, r, tw)
         hasResources
 
     let writeStartScript (tw: UI.HtmlTextWriter) =

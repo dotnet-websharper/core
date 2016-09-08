@@ -28,13 +28,14 @@ module Re = WebSharper.Core.Resources
 
 type AnimationFrameResource() =
     interface Re.IResource with
-        member this.Render ctx html =
-            let html = html Re.Scripts
-            html.WriteLine "<!--[if lte IE 9.0]>"
+        member this.Render ctx =
             let name = if ctx.DebuggingEnabled then "AnimFrame.js" else "AnimFrame.min.js"
             let ren = Re.Rendering.GetWebResourceRendering(ctx, typeof<AnimationFrameResource>, name)
-            ren.Emit(html, Re.Js)
-            html.WriteLine "<![endif]-->"
+            fun html ->
+                let html = html Re.Scripts
+                html.WriteLine "<!--[if lte IE 9.0]>"
+                ren.Emit(html, Re.Js)
+                html.WriteLine "<![endif]-->"
 
 /// Constructs a JavaScript "undefined" value.
 [<Inline "undefined">]

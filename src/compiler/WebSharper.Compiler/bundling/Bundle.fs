@@ -65,6 +65,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
             GetSetting = getSetting
             GetAssemblyRendering = fun _ -> Res.Skip
             GetWebResourceRendering = fun _ _-> Res.Skip
+            RenderingCache = null
         }
 
     let render (mode: BundleMode) (writer: TextWriter) =
@@ -108,6 +109,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
                     let (c, cT) = Utility.ReadWebResource ty name
                     renderWebResource cT c
                     Res.Skip
+                RenderingCache = null
             }
         use htmlWriter = new HtmlTextWriter(TextWriter.Null)
         let htmlHeadersContext = htmlHeadersContext getSetting

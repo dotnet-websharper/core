@@ -203,6 +203,7 @@ let RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf,
                     ContentType = cT
                     Name = name
                 }
+            RenderingCache = null
         }
     for d in deps do
         d.Render ctx (fun _ -> writer)

@@ -63,7 +63,6 @@ module internal ResourceContext =
     module P = WebSharper.PathConventions
 
     let ResourceContext (appPath: string) : Re.Context =
-        let page = new UI.Page()
         let isDebug = HttpContext.Current.IsDebuggingEnabled
         let pu = P.PathUtility.VirtualPaths(appPath)
         {
@@ -86,4 +85,5 @@ module internal ResourceContext =
                 P.EmbeddedResource.Create(kind, id, resource)
                 |> pu.EmbeddedPath
                 |> Re.RenderLink
+            RenderingCache = System.Collections.Concurrent.ConcurrentDictionary()
         }

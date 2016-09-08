@@ -72,6 +72,7 @@ type ScriptManager() =
                 P.EmbeddedResource.Create(kind, id, resource)
                 |> pu.EmbeddedPath
                 |> Re.RenderLink
+            RenderingCache = System.Collections.Concurrent.ConcurrentDictionary()
         }
 
     /// Registers a pagelet with the manager.

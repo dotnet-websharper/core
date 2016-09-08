@@ -152,8 +152,7 @@ module private WebUtils =
         }
 
     /// Constructs the sitelet context object.
-    let getContext (site: Sitelet<obj>) (ctx: HttpContextBase) (request: Http.Request) =
-        let appPath = ctx.Request.ApplicationPath
+    let getContext (site: Sitelet<obj>) (ctx: HttpContextBase) resCtx appPath rootFolder (request: Http.Request) =
         new Context<obj>(
             ApplicationPath = appPath,
             ResolveUrl = (fun url ->
@@ -170,17 +169,17 @@ module private WebUtils =
                 | None -> failwith "Failed to link to action"),
             Metadata = Shared.Metadata,
             Dependencies = Shared.Dependencies,
-            ResourceContext = ResourceContext.ResourceContext appPath,
+            ResourceContext = resCtx,
             Request = request,
-            RootFolder = ctx.Server.MapPath("~"),
+            RootFolder = rootFolder,
             UserSession = new AspNetFormsUserSession(ctx),
             Environment = Map [HttpContextKey, box ctx]
         )
 
     /// Writes a response.
-    let respond (site: Sitelet<obj>) (ctx: HttpContextBase) (req: Http.Request) (action: obj) =
+    let respond (site: Sitelet<obj>) (ctx: HttpContextBase) resCtx appPath rootFolder (req: Http.Request) (action: obj) =
         // Create a context
-        let context = getContext site ctx req
+        let context = getContext site ctx resCtx appPath rootFolder req
         // Handle action
         async {
             let! response = Content.ToResponse (site.Controller.Handle action) context
@@ -196,8 +195,8 @@ module private WebUtils =
 
 /// The ISS handler for WebSharper applications.
 [<Sealed>]
-type HttpHandler(request: Http.Request, action: obj, site: Sitelet<obj>) =
-    let processRequest ctx = WebUtils.respond site ctx request action
+type HttpHandler(request: Http.Request, action: obj, site: Sitelet<obj>, resCtx, appPath, rootFolder) =
+    let processRequest ctx = WebUtils.respond site ctx resCtx appPath rootFolder request action
     let (beginAction, endAction, cancelAction) = Async.AsBeginEnd (fun ctx -> processRequest ctx)
 
     interface SessionState.IRequiresSessionState
@@ -216,21 +215,27 @@ type HttpHandler(request: Http.Request, action: obj, site: Sitelet<obj>) =
 [<Sealed>]
 type HttpModule() =
 
-    let siteAndActions = ref None
+    let mutable runtime = None
 
     let tryGetHandler (ctx: HttpContextBase) =
-        !siteAndActions
-        |> Option.bind (fun (site, actions) ->
+        runtime
+        |> Option.bind (fun (site, resCtx, appPath, rootFolder) ->
             let request = WebUtils.convertRequest ctx
             site.Router.Route(request)
             |> Option.map (fun action ->
-                HttpHandler(request, action, site)))
+                HttpHandler(request, action, site, resCtx, appPath, rootFolder)))
 
     interface IHttpModule with
         member this.Init app =
-            siteAndActions := Some (SiteLoading.LoadFromAssemblies(app))
+            let appPath = HttpRuntime.AppDomainAppVirtualPath
+            runtime <- Some (
+                SiteLoading.LoadFromAssemblies(app) |> fst,
+                ResourceContext.ResourceContext appPath,
+                appPath,
+                HttpRuntime.AppDomainAppPath
+            )
             let handler =
-                new EventHandler(fun x e ->
+                new EventHandler(fun x _ ->
                     let app = (x :?> HttpApplication)
                     let ctx = HttpContextWrapper(app.Context)
                     if not (RpcHandler.IsRemotingRequest(ctx.Request)) then
@@ -248,11 +253,3 @@ type HttpModule() =
     member this.TryProcessRequest(ctx: HttpContextBase) : option<Async<unit>> =
         tryGetHandler ctx
         |> Option.map (fun h -> h.ProcessRequest(ctx))
-
-    static member DiscoverSitelet(assemblies: seq<Assembly>) =
-        let assemblies = Seq.cache assemblies
-        match Seq.tryPick SiteLoading.TryLoadSiteA assemblies with
-        | Some (s, _) -> Some s
-        | _ ->
-            Seq.tryPick SiteLoading.TryLoadSiteB assemblies
-            |> Option.map fst

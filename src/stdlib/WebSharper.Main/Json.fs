@@ -26,13 +26,14 @@ module Re = WebSharper.Core.Resources
 
 type Resource() =
     interface Re.IResource with
-        member this.Render ctx html =
-            let html = html Re.Scripts
-            html.WriteLine "<!--[if lte IE 7.0]>"
+        member this.Render ctx =
             let name = if ctx.DebuggingEnabled then "Json.js" else "Json.min.js"
             let ren = Re.Rendering.GetWebResourceRendering(ctx, typeof<Resource>, name)
-            ren.Emit(html, Re.Js)
-            html.WriteLine "<![endif]-->"
+            fun html ->
+                let html = html Re.Scripts
+                html.WriteLine "<!--[if lte IE 7.0]>"
+                ren.Emit(html, Re.Js)
+                html.WriteLine "<![endif]-->"
 
 [<Inline "$obj[$field]">]
 let ( ? ) (obj: obj) (field: string) = X<'T>
