@@ -79,37 +79,15 @@ let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
 let ModifyTSAssembly (current: M.Info) (a: Assembly) =
     ModifyWIGAssembly current a.Raw
 
-let ModifyCecilAssembly (refMeta: M.Info) (current: M.Info) sourceMap (a: Mono.Cecil.AssemblyDefinition) =
-    let pub = Mono.Cecil.ManifestResourceAttributes.Public
-    let meta =
-        use s = new MemoryStream(8 * 1024)
-        M.IO.Encode s current
-        s.ToArray()
-    let pkg = 
-        WebSharper.Compiler.Packager.packageAssembly refMeta current false
-
-    Mono.Cecil.EmbeddedResource(EMBEDDED_METADATA, pub, meta)
-    |> a.MainModule.Resources.Add
-    
-    if pkg <> AST.Undefined then
-        let js, map = pkg |> WebSharper.Compiler.Packager.exprToString a.Name.Name WebSharper.Core.JavaScript.Readable sourceMap
-        let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString a.Name.Name WebSharper.Core.JavaScript.Compact sourceMap
-        let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
-        Mono.Cecil.EmbeddedResource(EMBEDDED_MINJS, pub, getBytes minJs)
-        |> a.MainModule.Resources.Add
-        minMap |> Option.iter (fun m ->
-            Mono.Cecil.EmbeddedResource(EMBEDDED_MINMAP, pub, getBytes m)
-            |> a.MainModule.Resources.Add )
-        Mono.Cecil.EmbeddedResource(EMBEDDED_JS, pub, getBytes js)
-        |> a.MainModule.Resources.Add
-        map |> Option.iter (fun m ->
-            Mono.Cecil.EmbeddedResource(EMBEDDED_MAP, pub, getBytes m)
-            |> a.MainModule.Resources.Add )
-
-        Some js
-    else None
-
 let CreateResources (refMeta: M.Info) (current: M.Info) sourceMap assemblyName =
+    let current, sources =
+        if sourceMap then
+            let current, fileNames = transformAllSourcePositionsInMetadata assemblyName current
+            let sources = fileNames |> Array.map (fun (fn, key) -> key, File.ReadAllText fn)
+            current, sources
+        else
+            removeSourcePositionFromMetadata current, [||]
+    
     let meta =
         use s = new MemoryStream(8 * 1024)
         M.IO.Encode s current
@@ -122,8 +100,14 @@ let CreateResources (refMeta: M.Info) (current: M.Info) sourceMap assemblyName =
     res.Add(EMBEDDED_METADATA, meta)
     
     if pkg <> AST.Undefined then
-        let js, map = pkg |> WebSharper.Compiler.Packager.exprToString assemblyName WebSharper.Core.JavaScript.Readable sourceMap
-        let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString assemblyName WebSharper.Core.JavaScript.Compact sourceMap
+        
+        let codeWriter = 
+            if sourceMap then
+                WebSharper.Core.JavaScript.Writer.CodeWriter(sources)
+            else WebSharper.Core.JavaScript.Writer.CodeWriter()    
+
+        let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable codeWriter
+        let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact codeWriter
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
         res.Add(EMBEDDED_MINJS, getBytes minJs)
         minMap |> Option.iter (fun m ->
@@ -132,9 +116,18 @@ let CreateResources (refMeta: M.Info) (current: M.Info) sourceMap assemblyName =
         map |> Option.iter (fun m ->
             res.Add(EMBEDDED_MAP, getBytes m))
 
-        Some (js, res)
+        Some (js, res.ToArray())
     else None
 
+let ModifyCecilAssembly (refMeta: M.Info) (current: M.Info) sourceMap (a: Mono.Cecil.AssemblyDefinition) =
+    match CreateResources refMeta current sourceMap a.Name.Name with
+    | Some (js, res) -> 
+        let pub = Mono.Cecil.ManifestResourceAttributes.Public
+        for name, contents in res do
+            Mono.Cecil.EmbeddedResource(name, pub, contents)
+            |> a.MainModule.Resources.Add
+        Some js
+    | None -> None
 
 let ModifyAssembly (refMeta: M.Info) (current: M.Info) sourceMap (assembly : Assembly) =
     ModifyCecilAssembly refMeta current sourceMap assembly.Raw
@@ -204,6 +197,7 @@ let RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf,
                     Name = name
                 }
             RenderingCache = null
+            ResourceDependencyCache = null
         }
     for d in deps do
         d.Render ctx (fun _ -> writer)

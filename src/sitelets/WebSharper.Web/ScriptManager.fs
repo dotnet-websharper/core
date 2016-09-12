@@ -73,6 +73,7 @@ type ScriptManager() =
                 |> pu.EmbeddedPath
                 |> Re.RenderLink
             RenderingCache = System.Collections.Concurrent.ConcurrentDictionary()
+            ResourceDependencyCache = System.Collections.Concurrent.ConcurrentDictionary()
         }
 
     /// Registers a pagelet with the manager.
@@ -94,17 +95,20 @@ type ScriptManager() =
                     | ">" -> "&gt;"
                     | _ -> "&amp;")
             System.Text.RegularExpressions.Regex.Replace(text, @"['<>&]", ev)
-        let resources = Shared.Dependencies.GetResources nodes
+        let ctx = this.ResourceContext
+        let resources = 
+            ctx.ResourceDependencyCache.GetOrAdd(Set nodes, fun nodes ->
+                Shared.Dependencies.GetResources nodes
+            )
         if not (List.isEmpty resources) then
             let content =
                 J.Encoded.Object [for kv in registry -> (kv.Key, kv.Value)]
                 |> Shared.Json.Pack
                 |> J.Stringify
-            let ctx = this.ResourceContext
             writer.WriteLine()
             writer.WriteLine("<meta id='{0}' name='{0}' content='{1}' />",
                 WebSharper.Activator.META_ID, encode content)
-            resources |> Seq.iter (fun r -> r.Render ctx (fun _ -> writer))
+            resources |> Seq.iter (fun r -> Re.Rendering.RenderCached(ctx, r, (fun _ -> writer)))
             writer.WriteLine()
             writer.WriteLine("<script type='{0}'>", CT.Text.JavaScript.Text)
             writer.WriteLine @"if (typeof IntelliFactory !=='undefined')"

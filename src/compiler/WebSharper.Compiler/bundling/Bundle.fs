@@ -48,7 +48,7 @@ module BundleUtility =
         M.Node.AssemblyNode (a.FullName, true)
 
 [<Sealed>]
-type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
+type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, ?appConfig: string) =
 
     let metas =
         set
@@ -66,9 +66,13 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
             GetAssemblyRendering = fun _ -> Res.Skip
             GetWebResourceRendering = fun _ _-> Res.Skip
             RenderingCache = null
+            ResourceDependencyCache = null
         }
 
-    let render (mode: BundleMode) (writer: TextWriter) =
+    let mutable map = None
+    let mutable minmap = None
+
+    let render (mode: BundleMode) (writer: StringWriter) =
         aR.Wrap <| fun () ->
         use htmlHeadersWriter =
             match mode with
@@ -110,6 +114,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
                     renderWebResource cT c
                     Res.Skip
                 RenderingCache = null
+                ResourceDependencyCache = null
             }
         use htmlWriter = new HtmlTextWriter(TextWriter.Null)
         let htmlHeadersContext = htmlHeadersContext getSetting
@@ -134,8 +139,27 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
                 else 
                     WebSharper.Core.JavaScript.Compact
 
-            let js, _ = pkg |> WebSharper.Compiler.Packager.exprToString "Bundle" pref false
-//            let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString a.Name.Name WebSharper.Core.JavaScript.Compact
+            let codeWriter =
+                if sourceMap then
+                    let mapFileSources = 
+                        set |> List.collect (fun a ->
+                            match a.MapFileForReadable with
+                            | Some mapFile -> WebSharper.Compiler.Packager.readMapFileSources mapFile
+                            | _-> []
+                        )  
+                        |> Array.ofList 
+                    WebSharper.Core.JavaScript.Writer.CodeWriter(
+                        sources = mapFileSources,
+                        offset = writer.ToString().Length
+                    )
+                else WebSharper.Core.JavaScript.Writer.CodeWriter()    
+
+            let js, m = pkg |> WebSharper.Compiler.Packager.exprToString pref codeWriter
+            if sourceMap then
+                if mode = BundleMode.JavaScript then
+                    map <- m
+                else
+                    minmap <- m
 
             writer.WriteLine js
 
@@ -169,3 +193,5 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, ?appConfig: string) =
     member b.JavaScriptHeaders = javaScriptHeaders
     member b.MinifiedJavaScript = minifedJavaScript
     member b.TypeScript = typeScript
+    member b.Mapping = map |> Option.map (fun s -> Content.Create (lazy s))
+    member b.MinifiedMapping = minmap |> Option.map (fun s -> Content.Create (lazy s))

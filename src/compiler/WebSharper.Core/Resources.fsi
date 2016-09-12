@@ -70,6 +70,8 @@ and Context =
 
         /// Cache for resolved rendering of resources
         RenderingCache : System.Collections.Concurrent.ConcurrentDictionary<IResource, (RenderLocation -> HtmlTextWriter) -> unit>
+
+        ResourceDependencyCache : System.Collections.Concurrent.ConcurrentDictionary<Metadata.Node Set, IResource list>
     }
 
 /// An interface for resource-defining types.

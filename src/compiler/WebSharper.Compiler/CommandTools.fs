@@ -125,6 +125,7 @@ module ExecuteCommands =
                     AssemblyPaths = settings.AssemblyFile :: List.ofArray settings.References
                     FileName = fileName
                     OutputDirectory = outputDir
+                    SourceMap = settings.SourceMap
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.BundleCommand.Instance.Execute(env, cfg)

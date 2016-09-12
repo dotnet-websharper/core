@@ -208,16 +208,26 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
     if List.isEmpty allStatements then Undefined else
         Application(Function([], Block allStatements), [], false, Some 0)
 
-let exprToString asmName pref sourceMap statement =
-    let env = WebSharper.Compiler.JavaScriptWriter.Environment.New(asmName, pref)
+let readMapFileSources mapFile =
+    match Json.Parse mapFile with
+    | Json.Object fields ->
+        let getString j = match j with Json.String s -> s | _ -> failwith "string expected in map file"
+        let sources = fields |> List.pick (function "sources", Json.Array s -> Some (s |> List.map getString) | _ -> None)  
+        let sourcesContent = fields |> List.pick (function "sourcesContent", Json.Array s -> Some (s |> List.map getString) | _ -> None)  
+        List.zip sources sourcesContent
+    | _ -> failwith "map file JSON should be an object"
+
+let exprToString pref (writer: WebSharper.Core.JavaScript.Writer.CodeWriter) statement =
+    let env = WebSharper.Compiler.JavaScriptWriter.Environment.New(pref)
     let program =
         statement
-        |> JavaScriptWriter.transformExpr (WebSharper.Compiler.JavaScriptWriter.Environment.New(asmName, pref))
+        |> JavaScriptWriter.transformExpr env
         |> WebSharper.Core.JavaScript.Syntax.Ignore
         |> WebSharper.Core.JavaScript.Syntax.Action
         |> fun x -> [ x ]
     if env.ScopeFuncs.Count > 0 then
         failwith "Unexpected top level function declaration found"
-    let w = WebSharper.Core.JavaScript.Writer.CodeWriter(?assemblyName = if sourceMap then Some asmName else None)
-    WebSharper.Core.JavaScript.Writer.WriteProgram pref w program
-    w.GetCodeFile(), w.GetMapFile()
+
+//    let w = WebSharper.Core.JavaScript.Writer.CodeWriter(?sources = sources, ?offset = offset)
+    WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program
+    writer.GetCodeFile(), writer.GetMapFile()

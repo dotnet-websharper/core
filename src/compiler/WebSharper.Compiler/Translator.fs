@@ -94,8 +94,6 @@ let defaultRemotingProvider =
         FullName =  "WebSharper.Remoting+AjaxRemotingProvider"
     }
 
-let private removeSourcePos = RemoveSourcePositions()
-
 let removeSourcePosFromInlines info expr =
     let rec ii m =
         match m with 

@@ -30,6 +30,7 @@ module BundleCommand =
             AppConfigFile : option<string>
             FileName : string
             OutputDirectory : string
+            SourceMap : bool
         }
 
         static member Create() =
@@ -38,6 +39,7 @@ module BundleCommand =
                 AppConfigFile = None
                 FileName = "Bundle"
                 OutputDirectory = "."
+                SourceMap = false
             }
 
     let GetErrors config =
@@ -82,22 +84,26 @@ module BundleCommand =
             |> r.SearchDirectories
 
         let loader = Loader.Create resolver ignore
-//
-//        let meta =
-//            let metas = 
-//                config.AssemblyPaths 
-//                |> List.choose (loader.LoadFile >> WebSharper.Compiler.FrontEnd.readFromAssembly)
-//            if List.isEmpty metas then None else Some (WebSharper.Core.Metadata.union metas)
 
-        let bundle = Bundle((config.AssemblyPaths |> List.map loader.LoadFile), resolver, ?appConfig = config.AppConfigFile)
+        let bundle = Bundle((config.AssemblyPaths |> List.map loader.LoadFile), resolver, config.SourceMap, ?appConfig = config.AppConfigFile)
         System.IO.Directory.CreateDirectory config.OutputDirectory |> ignore
         let write (c: Content) (ext: string) =
             c.WriteFile(Path.Combine(config.OutputDirectory, config.FileName + ext))
+        let writeMapped (c: Content) m (ext: string) =
+            write c ext
+            m |> Option.iter (fun mc ->
+                let mapExt = ext.Replace(".js", ".map")
+                write mc mapExt
+                File.AppendAllLines(
+                    Path.Combine(config.OutputDirectory, config.FileName + ext),
+                    [| "//# sourceMappingURL=" + config.FileName + mapExt |]
+                )
+            )
         write bundle.CSS ".css"
         write bundle.HtmlHeaders ".head.html"
         write bundle.JavaScriptHeaders ".head.js"
-        write bundle.JavaScript ".js"
-        write bundle.MinifiedJavaScript ".min.js"
+        writeMapped bundle.JavaScript bundle.Mapping ".js"
+        writeMapped bundle.MinifiedJavaScript bundle.MinifiedMapping ".min.js"
         //write bundle.TypeScript ".d.ts"
         // TODO : correct .d.ts output for bundles (WIG types currenty not included)
         C.Ok

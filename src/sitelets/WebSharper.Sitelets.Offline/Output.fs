@@ -275,6 +275,7 @@ let resourceContext (st: State) (level: int) : R.Context =
             scriptsFile (ty.Assembly.GetName().Name) name
 
         RenderingCache = System.Collections.Concurrent.ConcurrentDictionary()
+        ResourceDependencyCache = System.Collections.Concurrent.ConcurrentDictionary()
     }
 
 /// Creates a dummy request.

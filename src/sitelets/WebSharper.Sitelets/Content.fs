@@ -81,9 +81,13 @@ module Content =
     let writeResources (env: Env) (controls: seq<#IRequiresResources>) (tw: Core.Resources.RenderLocation -> UI.HtmlTextWriter) =
         // Resolve resources for the set of types and this assembly
         let resources =
-            controls
-            |> Seq.collect (fun c -> c.Requires)
-            |> env.Graph.GetResources
+            let nodeSet =
+                controls
+                |> Seq.collect (fun c -> c.Requires)
+                |> Set
+            env.ResourceContext.ResourceDependencyCache.GetOrAdd(nodeSet, fun nodes ->
+                env.Graph.GetResources nodes
+            )
         let hasResources = not (List.isEmpty resources)
         if hasResources then
             // Meta tag encoding the client side controls

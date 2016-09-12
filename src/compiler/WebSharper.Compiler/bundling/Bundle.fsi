@@ -23,16 +23,12 @@ namespace WebSharper.Compiler
 /// Experimental API for bundling WebSharper file sets into application packages.
 [<Sealed>]
 type Bundle =
-    new : list<Assembly> * AssemblyResolver * ?appConfig:string -> Bundle
+    new : list<Assembly> * AssemblyResolver * bool * ?appConfig:string -> Bundle
     member CSS : Content
     member HtmlHeaders : Content
     member JavaScript : Content
     member JavaScriptHeaders : Content
     member MinifiedJavaScript : Content
     member TypeScript : Content
-//    member WithAssembly : assemblyFile: string -> Bundle
-//    member WithAssembly : assembly: Assembly -> Bundle
-//    member WithDefaultReferences : unit -> Bundle
-//    member WithTransitiveReferences : unit -> Bundle
-//    static member Empty : Bundle
-//    static member Create : unit -> Bundle
+    member Mapping : Content option
+    member MinifiedMapping : Content option

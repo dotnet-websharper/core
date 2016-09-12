@@ -22,7 +22,7 @@
 module WebSharper.Core.JavaScript.Writer
 
 type CodeWriter =
-    new : ?assemblyName : string -> CodeWriter 
+    new : ?sources: (string * string)[] * ?offset: int -> CodeWriter 
     member GetMapFile : unit -> string option
     member GetCodeFile : unit -> string
 

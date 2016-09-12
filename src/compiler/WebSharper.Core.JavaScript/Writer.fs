@@ -642,14 +642,14 @@ let encodeBase64VLQ value (builder: StringBuilder) =
             digit <- digit ||| 0b00100000
         builder.Append base64Digits.[digit] |> ignore
 
-type CodeWriter(?assemblyName: string) =
+type CodeWriter(?sources: (string * string)[], ?offset) =
     let code = StringBuilder()
     let mappings = StringBuilder()
-    let sourceMap = Option.isSome assemblyName
+    let sourceMap = Option.isSome sources
+    let sources = defaultArg sources [||]  
+    let sourcesDict = sources |> Seq.mapi (fun i (n, _) -> n, i) |> dict 
     let mutable insertComma = false
-    let mutable colFromLastMapping = 0
-    let sources = ResizeArray()
-    let sourcesDict = System.Collections.Generic.Dictionary()
+    let mutable colFromLastMapping = defaultArg offset 0
     let names = ResizeArray()
     let namesDict = System.Collections.Generic.Dictionary()
 
@@ -690,15 +690,7 @@ type CodeWriter(?assemblyName: string) =
             if lastFileName = fileName then
                 mappings.Append 'A' |> ignore
             else
-                let fileIndex =
-                    match sourcesDict.TryGetValue fileName with
-                    | true, i ->  i
-                    | _ ->
-                        let i = sources.Count
-                        sources.Add(fileName, pos.Assembly)
-                        sourcesDict.Add(fileName, i)   
-                        i
-        
+                let fileIndex = sourcesDict.[fileName]
                 mappings |> encodeBase64VLQ (fileIndex - lastFileIndex)   
                 lastFileIndex <- fileIndex   
                 lastFileName <- fileName
@@ -730,7 +722,7 @@ type CodeWriter(?assemblyName: string) =
     override this.ToString() = string code
 
     member this.GetMapFile() =
-        if sources.Count = 0 then None else
+        if sources.Length = 0 then None else
         let mapFile = StringBuilder()
         let inline mapC (c: char) = mapFile.Append c |> ignore 
         let inline mapS (s: string) = mapFile.Append s |> ignore 
@@ -740,30 +732,25 @@ type CodeWriter(?assemblyName: string) =
         mapN "\"version\": 3,"
         mapN "\"sourceRoot\": \"Source\","
         mapS "\"sources\": [\""
-        let im = sources.Count - 1
+        let im = sources.Length - 1
         for i = 0 to im do
-            let file, assembly = sources.[i]
-            mapS assembly
-            mapC '/'
-            mapS (System.IO.Path.GetFileName file)
+            let key, _ = sources.[i]
+            mapS key
             if i < im then
                 mapS "\", \""
         mapN "\"],"
         mapS "\"sourcesContent\": ["
         for i = 0 to im do
-            let file, assembly = sources.[i]
-            if Some assembly = assemblyName then
-                mapC '"'
-                for c in System.IO.File.ReadAllText file do
-                    match c with
-                    | '\\' -> mapS "\\\\"
-                    | '"' ->  mapS "\\\""
-                    | '\n' -> mapS "\\n"
-                    | '\r' -> ()
-                    | _ -> mapC c
-                mapC '"'
-            else 
-                mapS "null"
+            let _, content = sources.[i]
+            mapC '"'
+            for c in content do
+                match c with
+                | '\\' -> mapS "\\\\"
+                | '"' ->  mapS "\\\""
+                | '\n' -> mapS "\\n"
+                | '\r' -> ()
+                | _ -> mapC c
+            mapC '"'
             if i < im then
                 mapS ", "
         mapN "],"

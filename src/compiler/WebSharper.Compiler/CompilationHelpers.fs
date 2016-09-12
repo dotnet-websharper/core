@@ -356,6 +356,8 @@ type RemoveSourcePositions() =
     override this.TransformStatementSourcePos(_, s) =
         this.TransformStatement s
 
+let removeSourcePos = RemoveSourcePositions()
+
 type Substitution(args, ?thisObj) =
     inherit Transformer()
     
@@ -734,6 +736,63 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                 getOrAddClass td |> ignore 
         | _ -> ()
     { meta with Classes = classes}
+
+let removeSourcePositionFromMetadata (meta: Info) =
+    { meta with 
+        Classes = 
+            meta.Classes |> Dict.map (fun c ->
+                { c with 
+                    Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> i, p, removeSourcePos.TransformExpression e)    
+                    StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> a, removeSourcePos.TransformExpression e)
+                    Methods = c.Methods |> Dict.map (fun (i, p, e) -> i, p, removeSourcePos.TransformExpression e)
+                    Implementations = c.Implementations |> Dict.map (fun (i, e) -> i, removeSourcePos.TransformExpression e)
+                }
+            )
+        EntryPoint = meta.EntryPoint |> Option.map removeSourcePos.TransformStatement
+    }
+
+type TransformSourcePositions(asmName) =
+    inherit Transformer()
+    
+    let fileMap = Dictionary()
+
+    let trFileName fn =
+        match fileMap.TryFind fn with
+        | Some res -> res
+        | None ->
+            let res = asmName + "/" + Path.GetFileName(fn)
+            fileMap.Add(fn, res)
+            res
+
+    member this.FileMap = fileMap |> Seq.map (fun (KeyValue pair) -> pair) |> Array.ofSeq
+
+    override this.TransformExprSourcePos(p, e) =
+        ExprSourcePos (
+            { p with FileName = trFileName p.FileName },
+            this.TransformExpression e
+        )
+
+    override this.TransformStatementSourcePos(p, s) =
+        StatementSourcePos (
+            { p with FileName = trFileName p.FileName },
+            this.TransformStatement s
+        )
+
+let transformAllSourcePositionsInMetadata asmName (meta: Info) =
+    let tr = TransformSourcePositions(asmName)
+    { meta with 
+        Classes = 
+            meta.Classes |> Dict.map (fun c ->
+                { c with 
+                    Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> i, p, tr.TransformExpression e)    
+                    StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> a, tr.TransformExpression e)
+                    Methods = c.Methods |> Dict.map (fun (i, p, e) -> i, p, tr.TransformExpression e)
+                    Implementations = c.Implementations |> Dict.map (fun (i, e) -> i, tr.TransformExpression e)
+                }
+            )
+        EntryPoint = meta.EntryPoint |> Option.map tr.TransformStatement
+    },
+    tr.FileMap
 
 type Capturing(?var) =
     inherit Transformer()

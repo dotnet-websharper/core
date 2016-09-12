@@ -54,6 +54,7 @@ type Context =
         GetSetting : string -> option<string>
         GetWebResourceRendering : Type -> string -> Rendering
         RenderingCache : System.Collections.Concurrent.ConcurrentDictionary<IResource, (RenderLocation -> HtmlTextWriter) -> unit>
+        ResourceDependencyCache : System.Collections.Concurrent.ConcurrentDictionary<Metadata.Node Set, IResource list>
     }
 
 and IResource =

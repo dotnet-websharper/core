@@ -38,6 +38,8 @@ module BundleCommand =
 
             /// Output directory where generated files are placed.
             OutputDirectory : string
+
+            SourceMap : bool
         }
 
         static member Create : unit -> Config

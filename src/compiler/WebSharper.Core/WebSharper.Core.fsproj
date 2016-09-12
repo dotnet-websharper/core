@@ -15,8 +15,6 @@
     <Compile Include="PathConventions.fsi" />
     <Compile Include="PathConventions.fs" />
     <Compile Include="ContentTypes.fs" />
-    <Compile Include="Resources.fsi" />
-    <Compile Include="Resources.fs" />
     <Compile Include="Utilities.fs" />
     <Compile Include="Binary.fsi" />
     <Compile Include="Binary.fs" />
@@ -26,6 +24,8 @@
     <Compile Include="ASTHelpers.fs" />
     <Compile Include="Attributes.fs" />
     <Compile Include="Metadata.fs" />
+    <Compile Include="Resources.fsi" />
+    <Compile Include="Resources.fs" />
     <Compile Include="Macros.fs" />
     <Compile Include="Graph.fs" />
     <Compile Include="Json.fsi" />

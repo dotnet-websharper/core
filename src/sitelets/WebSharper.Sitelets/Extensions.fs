@@ -86,4 +86,5 @@ module internal ResourceContext =
                 |> pu.EmbeddedPath
                 |> Re.RenderLink
             RenderingCache = System.Collections.Concurrent.ConcurrentDictionary()
+            ResourceDependencyCache = System.Collections.Concurrent.ConcurrentDictionary()
         }

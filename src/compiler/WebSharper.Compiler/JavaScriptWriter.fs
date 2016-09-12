@@ -32,16 +32,14 @@ type P = WebSharper.Core.JavaScript.Preferences
 
 type Environment =
     {
-        AssemblyName : string
         Preference : WebSharper.Core.JavaScript.Preferences
         mutable ScopeVars : Set<string>
         mutable CompactVars : int
         mutable ScopeIds : Map<Id, string>
         ScopeFuncs : ResizeArray<J.ProgramElement>
     }
-    static member New(name, pref) =
+    static member New(pref) =
         {
-            AssemblyName = name
             Preference = pref    
             ScopeVars = Set.empty
             CompactVars = 0 
@@ -51,7 +49,6 @@ type Environment =
 
     member this.NewInner() =
         {
-            AssemblyName = this.AssemblyName
             Preference = this.Preference    
             ScopeVars = this.ScopeVars
             CompactVars = this.CompactVars
@@ -116,7 +113,6 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     | ExprSourcePos (pos, e) -> 
         let jpos =
             {
-                Assembly = env.AssemblyName
                 File = pos.FileName
                 Line = fst pos.Start
                 Column = snd pos.Start
@@ -285,7 +281,6 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | StatementSourcePos (pos, s) -> 
         let jpos =
             {
-                Assembly = env.AssemblyName
                 File = pos.FileName
                 Line = fst pos.Start
                 Column = snd pos.Start
