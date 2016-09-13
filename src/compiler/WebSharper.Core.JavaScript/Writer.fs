@@ -645,6 +645,7 @@ type CodeWriter(?sources: (string * string)[], ?offset) =
     let sourcesDict = sources |> Seq.mapi (fun i (n, _) -> n, i) |> dict 
     let mutable insertComma = false
     let mutable colFromLastMapping = 0
+    let mutable mappingOn = false
     let names = ResizeArray()
     let namesDict = System.Collections.Generic.Dictionary()
 
@@ -674,17 +675,30 @@ type CodeWriter(?sources: (string * string)[], ?offset) =
     member this.WriteLine() =
         code.AppendLine() |> ignore
         if sourceMap then
+            if insertComma then
+                this.WriteMappingSkip()
             mappings.Append ';' |> ignore
             insertComma <- false
             colFromLastMapping <- 0
 
+    member this.WriteMappingComma() =
+        if insertComma then
+            mappings.Append ',' |> ignore
+        else
+            insertComma <- true
+
+    member this.WriteMappingSkip() =
+        if not mappingOn then
+            if colFromLastMapping > 0 then
+                this.WriteMappingComma()
+                mappings |> encodeBase64VLQ colFromLastMapping
+                colFromLastMapping <- 0
+
     member this.AddCodeMapping(pos : S.SourcePos, start: bool, ?name : string) =
         if sourceMap then
-            if insertComma then
-                mappings.Append ',' |> ignore
-            else
-                mappings.Append "A," |> ignore
-                insertComma <- true
+            this.WriteMappingSkip()
+            this.WriteMappingComma()
+            mappingOn <- start
 
             mappings |> encodeBase64VLQ colFromLastMapping
             colFromLastMapping <- 0

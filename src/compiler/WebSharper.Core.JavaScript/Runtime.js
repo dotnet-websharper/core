@@ -18,10 +18,6 @@
 //
 // $end{copyright}
 
-//try {
-//    Object.defineProperty(Error.prototype, 'message', { enumerable: true });
-//} catch (e) { }
-
 IntelliFactory = {
     Runtime: {
         Ctor: function (ctor, typeFunction) {
