@@ -756,11 +756,14 @@ type TransformSourcePositions(asmName) =
     
     let fileMap = Dictionary()
 
+    let fileNames = HashSet()
+
     let trFileName fn =
         match fileMap.TryFind fn with
         | Some res -> res
         | None ->
-            let res = asmName + "/" + Path.GetFileName(fn)
+            let name = Resolve.getRenamed (Path.GetFileNameWithoutExtension(fn)) fileNames
+            let res = asmName + "/" + name + Path.GetExtension(fn)
             fileMap.Add(fn, res)
             res
 

@@ -119,11 +119,6 @@ let (|QualifiedName|_|) expression =
             None
     loop [] expression
 
-let BuildString (buf: StringBuilder) =
-    let s = buf.ToString()
-    buf.Remove(0, s.Length) |> ignore
-    s
-
 let Keywords =
     System.Collections.Generic.HashSet [|
         "break"
@@ -175,7 +170,8 @@ let WriteUnicodeEscape (buf: StringBuilder) (c: char) =
     buf.AppendFormat(@"\u{0:x4}", int c)
     |> ignore
 
-let EscapeId (buf: StringBuilder) (id: string) =
+let EscapeId (id: string) =
+    let buf = StringBuilder()
     if System.String.IsNullOrEmpty id then
         invalidArg "id" "Cannot escape null and empty identifiers."
     let isFirst = function
@@ -198,9 +194,10 @@ let EscapeId (buf: StringBuilder) (id: string) =
     | _ ->
         for i in 0 .. id.Length - 1 do
             writeChar i
-    BuildString buf
+    string buf
 
-let QuoteString (buf: StringBuilder) (s: string) =
+let QuoteString (s: string) =
+    let buf = StringBuilder()
     buf.Append '"' |> ignore
     for c in s do
         match c with
@@ -217,7 +214,7 @@ let QuoteString (buf: StringBuilder) (s: string) =
             else
                 WriteUnicodeEscape buf c
     buf.Append '"' |> ignore
-    BuildString buf
+    string buf
 
 let ListLayout separator brush items =
     match items with
@@ -231,8 +228,8 @@ let CommaSeparated brush items =
 let Parens layout =
     Token "(" ++ layout ++ Token ")"
 
-let Id (buf: StringBuilder) (id: string) =
-    Word (EscapeId buf id)
+let Id (id: string) =
+    Word (EscapeId id)
 
 let Optional f layout =
     match layout with
@@ -244,24 +241,24 @@ let BlockLayout items =
     -- ListLayout (fun a b -> a -- b) Indent items
     -- Token "}"
 
-let rec Expression (buf: StringBuilder) expression =
+let rec Expression expression =
     match expression with
     | S.ExprPos (x, pos) -> 
-        SourceMapping pos ++ Expression buf x ++ SourceMappingEnd pos
+        SourceMapping pos ++ Expression x ++ SourceMappingEnd pos
     | S.ExprComment (x, c) ->
-        Expression buf x ++ Word ("/*" + c +  "*/")
+        Expression x ++ Word ("/*" + c +  "*/")
     | S.Application (f, xs) ->
-        MemberExpression buf f
-        ++ Parens (CommaSeparated (AssignmentExpression buf) xs)
+        MemberExpression f
+        ++ Parens (CommaSeparated (AssignmentExpression) xs)
     | S.NewArray xs ->
         let element = function
             | None -> Token ","
-            | Some x -> AssignmentExpression buf x
+            | Some x -> AssignmentExpression x
         Token "[" ++ CommaSeparated element xs ++ Token "]"
     | S.Binary (x, op, y) ->
         match op, y with
         | B.``.``, S.Constant (S.String y) when Identifier.IsValid y ->
-            let e = Expression buf x
+            let e = Expression x
             let eL =
                 match x with
                 | S.Constant (S.Number _) -> Parens e
@@ -275,8 +272,8 @@ let rec Expression (buf: StringBuilder) expression =
                 | _ -> Parens e
             eL ++ Token "." ++ Word y
         | B.``.``, _ ->
-            MemberExpression buf x ++
-            Token "[" ++ Expression buf y ++ Token "]"
+            MemberExpression x ++
+            Token "[" ++ Expression y ++ Token "]"
         | _ ->
             let p = BinaryOperatorPrecedence op
             let (pL, pR) =
@@ -284,49 +281,49 @@ let rec Expression (buf: StringBuilder) expression =
                 | LeftAssociative -> (p + 1, p)
                 | RightAssociative -> (p, p + 1)
                 | NonAssociative -> (p, p)
-            ParensExpression buf pL x
+            ParensExpression pL x
             ++ match op with
                | B.``in`` | B.``instanceof`` -> Word (string op)
                | _ -> Token (string op)
-            ++ ParensExpression buf pR y
+            ++ ParensExpression pR y
     | S.Constant x ->
         match x with
         | S.Null -> Word "null"
         | S.True -> Word "true"
         | S.False -> Word "false"
         | S.Number x -> Word x
-        | S.String x -> Token (QuoteString buf x)
+        | S.String x -> Token (QuoteString x)
     | S.Conditional (a, b, c) ->
-        LogicalOrExpression buf a
+        LogicalOrExpression a
         ++ Token "?"
-        ++ AssignmentExpression buf b
+        ++ AssignmentExpression b
         ++ Token ":"
-        ++ AssignmentExpression buf c
+        ++ AssignmentExpression c
     | S.VarNamed (x, n) ->
-        SourceName n ++ Word (EscapeId buf x)
+        SourceName n ++ Word (EscapeId x)
     | S.Var x ->
-        Word (EscapeId buf x)
+        Word (EscapeId x)
     | S.Lambda (name, formals, body) ->
         Word "function"
-        ++ Optional (Id buf) name
-        ++ Parens (CommaSeparated (Id buf) formals)
-        -- BlockLayout (List.map (Element buf) body)
+        ++ Optional Id name
+        ++ Parens (CommaSeparated Id formals)
+        -- BlockLayout (List.map Element body)
     | S.New (x, xs) ->
         Word "new"
-        ++ MemberExpression buf x
-        ++ Parens (CommaSeparated (AssignmentExpression buf) xs)
+        ++ MemberExpression x
+        ++ Parens (CommaSeparated AssignmentExpression xs)
     | S.NewObject [] ->
         Token "{}"
     | S.NewObject fields ->
         let pair (k, v) =
-            Token (if Identifier.IsValid k then k else QuoteString buf k)
+            Token (if Identifier.IsValid k then k else QuoteString k)
             ++ Token ":"
-            ++ AssignmentExpression buf v
+            ++ AssignmentExpression v
         Token "{"
         -- Indent (ListLayout (fun a b -> a ++ Token "," -- b) pair fields)
         -- Token "}"
     | S.Postfix (x, op) ->
-        ParensExpression buf PostfixOperatorPrecedence x
+        ParensExpression PostfixOperatorPrecedence x
         ++ Token (string op)
     | S.Unary (op, x) ->
         match op with
@@ -334,7 +331,7 @@ let rec Expression (buf: StringBuilder) expression =
         | S.UnaryOperator.``typeof``
         | S.UnaryOperator.``void`` -> Word (string op)
         | _ -> Token (string op)
-        ++ ParensExpression buf PrefixOperatorPrecedence x
+        ++ ParensExpression PrefixOperatorPrecedence x
     | S.NewRegex x ->
         Token (string x)
     | S.This ->
@@ -342,25 +339,25 @@ let rec Expression (buf: StringBuilder) expression =
     | _ ->
         failwith "Syntax.Expression not recognized"
 
-and Statement (buf: StringBuilder) statement =
+and Statement statement =
     match statement with
     | S.StatementPos (x, pos) -> 
-        SourceMapping pos ++ Statement buf x ++ SourceMappingEnd pos
+        SourceMapping pos ++ Statement x ++ SourceMappingEnd pos
     | S.StatementComment (x, c) ->
-        Statement buf x ++ Word ("/*" + c +  "*/")
+        Statement x ++ Word ("/*" + c +  "*/")
     | S.Block ss ->
-        BlockLayout (List.map (Statement buf) ss)
+        BlockLayout (List.map Statement ss)
     | S.Break id ->
-        Word "break" ++ Optional (Id buf) id ++ Token ";"
+        Word "break" ++ Optional Id id ++ Token ";"
     | S.Continue id ->
-        Word "continue" ++ Optional (Id buf) id ++ Token ";"
+        Word "continue" ++ Optional Id id ++ Token ";"
     | S.Debugger ->
         Word "debugger" ++ Token ";"
     | S.Do (s, e) ->
         Word "do"
-        ++ Statement buf s
+        ++ Statement s
         ++ Word "while"
-        ++ Parens (Expression buf e)
+        ++ Parens (Expression e)
         ++ Token ";"
     | S.Empty ->
         Token ";"
@@ -373,45 +370,45 @@ and Statement (buf: StringBuilder) statement =
             | S.Postfix (x, _) -> dangerous x
             | _ -> false
         if dangerous e then
-            Parens (Expression buf e) ++ Token ";"
+            Parens (Expression e) ++ Token ";"
         else
-            Expression buf e ++ Token ";"
+            Expression e ++ Token ";"
     | S.For (e1, e2, e3, body) ->
         Word "for"
-        ++ Parens (Optional (ExpressionNoIn buf) e1
+        ++ Parens (Optional ExpressionNoIn e1
                    ++ Token ";"
-                   ++ Optional (Expression buf) e2
+                   ++ Optional Expression e2
                    ++ Token ";"
-                   ++ Optional (Expression buf) e3)
-        ++ Statement buf body
+                   ++ Optional Expression e3)
+        ++ Statement body
     | S.ForVars (vs, e1, e2, body) ->
         Word "for"
         ++ Parens (Word "var"
-                   ++ VarsNoIn buf vs
+                   ++ VarsNoIn vs
                    ++ Token ";"
-                   ++ Optional (Expression buf) e1
+                   ++ Optional Expression e1
                    ++ Token ";"
-                   ++ Optional (Expression buf) e2)
-        ++ Statement buf body
+                   ++ Optional Expression e2)
+        ++ Statement  body
     | S.ForIn (e1, e2, body) ->
         Word "for"
-        ++ Parens (LeftHandSideExpression buf e1
+        ++ Parens (LeftHandSideExpression e1
                    ++ Word "in"
-                   ++ Expression buf e2)
-        ++ Statement buf body
+                   ++ Expression e2)
+        ++ Statement body
     | S.ForVarIn (id, e1, e2, body) ->
         Word "for"
         ++ Parens (Word "var"
-                   ++ Id buf id
+                   ++ Id id
                    ++ (e1 |> Optional (fun x ->
-                       Token "=" ++ AssignmentExpressionNoIn buf x))
+                       Token "=" ++ AssignmentExpressionNoIn x))
                    ++ Word "in"
-                   ++ Expression buf e2)
-        ++ Statement buf body
+                   ++ Expression e2)
+        ++ Statement body
     | S.If (e, s, S.Empty) ->
         Word "if"
-        ++ Parens (Expression buf e)
-        -- Indent (Statement buf s)
+        ++ Parens (Expression e)
+        -- Indent (Statement s)
     | S.If (e, s1, s2) ->
         let rec isEmpty s =
             match s with
@@ -421,116 +418,116 @@ and Statement (buf: StringBuilder) statement =
         let s2L =
             if isEmpty s2 then Empty else
                 Word "else"
-                -- Indent (Statement buf s2)
+                -- Indent (Statement s2)
         Word "if"
-        ++ Parens (Expression buf e)
-        -- Indent (Statement buf s1)
+        ++ Parens (Expression e)
+        -- Indent (Statement s1)
         -- s2L
     | S.Labelled (label, s) ->
-        Id buf label ++ Token ":" ++ Statement buf s
+        Id label ++ Token ":" ++ Statement s
     | S.Return e ->
         Word "return"
-        ++ Optional (Expression buf) e
+        ++ Optional Expression e
         ++ Token ";"
     | S.Switch (e, cases) ->
         Word "switch"
-        ++ Parens (Expression buf e)
+        ++ Parens (Expression e)
         -- BlockLayout [
             for c in cases do
                 match c with
                 | S.Default ss ->
                     yield Word "default" ++ Token ":"
                     for s in ss do
-                        yield Indent (Statement buf s)
+                        yield Indent (Statement s)
                 | S.Case (e, ss)->
-                    yield Word "case" ++ Expression buf e ++ Token ":"
+                    yield Word "case" ++ Expression e ++ Token ":"
                     for s in ss do
-                        yield Indent (Statement buf s)
+                        yield Indent (Statement s)
            ]
     | S.Throw e ->
-        Word "throw" ++ Expression buf e ++ Token ";"
+        Word "throw" ++ Expression e ++ Token ";"
     | S.TryWith (s1, id, s2, f) ->
         Word "try"
-        -- Block buf s1
-        -- Word "catch" ++ Parens (Id buf id)
-        -- Block buf s2
-        -- Optional (fun x -> Word "finally" ++ Block buf x) f
+        -- Block s1
+        -- Word "catch" ++ Parens (Id id)
+        -- Block s2
+        -- Optional (fun x -> Word "finally" ++ Block x) f
     | S.TryFinally (s1, s2) ->
         Word "try"
-        -- Block buf s1
+        -- Block s1
         -- Word "finally"
-        -- Block buf s2
+        -- Block s2
     | S.Vars [] ->
         Empty
     | S.Vars vs ->
-        Word "var" ++ Vars buf vs ++ Token ";"
+        Word "var" ++ Vars vs ++ Token ";"
     | S.While (e, s) ->
-        Word "while" ++ Parens (Expression buf e)
-        -- Indent (Statement buf s)
+        Word "while" ++ Parens (Expression e)
+        -- Indent (Statement s)
     | S.With (e, s) ->
-        Word "with" ++ Parens (Expression buf e) ++ Statement buf s
+        Word "with" ++ Parens (Expression e) ++ Statement s
     | _ ->
         failwith "Syntax.Statement not recognized"
 
-and Element (buf: StringBuilder) elem =
+and Element elem =
     match elem with
     | S.Function (name, formals, body) ->
         Word "function"
-        ++ Id buf name
-        ++ Parens (CommaSeparated (Id buf) formals)
-        -- BlockLayout (List.map (Element buf) body)
+        ++ Id name
+        ++ Parens (CommaSeparated Id formals)
+        -- BlockLayout (List.map Element body)
     | S.Action s ->
-        Statement buf s
+        Statement s
 
-and Block buf statement =
+and Block statement =
     match statement with
-    | S.Block ss -> List.map (Statement buf) (Seq.toList ss)
-    | s -> [Statement buf s]
+    | S.Block ss -> List.map Statement (Seq.toList ss)
+    | s -> [Statement s]
     |> BlockLayout
 
-and AssignmentExpression buf expression =
+and AssignmentExpression expression =
     let prec = BinaryOperatorPrecedence B.``,``
-    ParensExpression buf prec expression
+    ParensExpression prec expression
 
-and LeftHandSideExpression buf expression =
+and LeftHandSideExpression expression =
     match expression with
     | S.Application _
     | S.New _
     | _ when Precedence expression <= BinaryOperatorPrecedence B.``.`` ->
-        Expression buf expression
+        Expression expression
     | _ ->
-        Parens (Expression buf expression)
+        Parens (Expression expression)
 
-and LogicalOrExpression buf expression =
+and LogicalOrExpression expression =
     let prec = BinaryOperatorPrecedence B.``||``
-    ParensExpression buf (prec + 1) expression
+    ParensExpression (prec + 1) expression
 
-and MemberExpression buf expression =
+and MemberExpression expression =
     let prec = BinaryOperatorPrecedence B.``.``
-    ParensExpression buf (prec + 1) expression
+    ParensExpression (prec + 1) expression
 
-and ParensExpression buf level expression =
+and ParensExpression level expression =
     if Precedence expression >= level then
-        Parens (Expression buf expression)
+        Parens (Expression expression)
     else
-        Expression buf expression
+        Expression expression
 
-and VarsGeneric expr buf vars =
-    let init x = Token "=" ++ expr buf x
-    let var (x, y) = Id buf x ++ Optional init y
+and VarsGeneric expr vars =
+    let init x = Token "=" ++ expr x
+    let var (x, y) = Id x ++ Optional init y
     CommaSeparated var vars
 
-and AssignmentExpressionNoIn buf expression =
+and AssignmentExpressionNoIn expression =
     if HasIn expression then
-        Parens (Expression buf expression)
+        Parens (Expression expression)
     else
-        AssignmentExpression buf expression
+        AssignmentExpression expression
 
-and ExpressionNoIn buf expression =
+and ExpressionNoIn expression =
     if HasIn expression then
-        Parens (Expression buf expression)
+        Parens (Expression expression)
     else
-        Expression buf expression
+        Expression expression
 
 and HasIn expression =
     match expression with
@@ -609,13 +606,6 @@ let ToLines mode layout =
             append level (N n) tail
     lines 0 [] (Simplify layout)
 
-type CodeMapping =
-    {
-        OutputLine : int
-        OutputColumn : int
-        SourcePos : S.SourcePos
-    }
-
 let base64Digits =
     lazy [|
         yield! { 'A' .. 'Z' }
@@ -636,11 +626,16 @@ let encodeBase64VLQ value (builder: StringBuilder) =
     builder.Append base64Digits.[digit] |> ignore
 
     while v > 0 do
-        let mutable digit = v &&& 0b00011111    
+        digit <- v &&& 0b00011111    
         v <- v >>> 5
         if v > 0 then
             digit <- digit ||| 0b00100000
         builder.Append base64Digits.[digit] |> ignore
+
+let testEncode value =
+    let b = StringBuilder()
+    encodeBase64VLQ value b
+    string b
 
 type CodeWriter(?sources: (string * string)[], ?offset) =
     let code = StringBuilder()
@@ -649,9 +644,16 @@ type CodeWriter(?sources: (string * string)[], ?offset) =
     let sources = defaultArg sources [||]  
     let sourcesDict = sources |> Seq.mapi (fun i (n, _) -> n, i) |> dict 
     let mutable insertComma = false
-    let mutable colFromLastMapping = defaultArg offset 0
+    let mutable colFromLastMapping = 0
     let names = ResizeArray()
     let namesDict = System.Collections.Generic.Dictionary()
+
+    do
+        match offset with
+        | Some o ->
+            for i = 1 to o do
+                mappings.Append ';' |> ignore    
+        | None -> ()
 
     let mutable lastFileName = ""
     let mutable lastFileIndex = 0
@@ -681,6 +683,7 @@ type CodeWriter(?sources: (string * string)[], ?offset) =
             if insertComma then
                 mappings.Append ',' |> ignore
             else
+                mappings.Append "A," |> ignore
                 insertComma <- true
 
             mappings |> encodeBase64VLQ colFromLastMapping
@@ -699,7 +702,7 @@ type CodeWriter(?sources: (string * string)[], ?offset) =
             mappings |> encodeBase64VLQ (sourceLine - lastSourceLine)
             lastSourceLine <- sourceLine
         
-            let sourceColumn = if start then pos.Column else pos.EndColumn
+            let sourceColumn = if start then pos.Column - 1 else pos.EndColumn - 1
             mappings |> encodeBase64VLQ (sourceColumn - lastSourceColumn)
             lastSourceColumn <- sourceColumn
 
@@ -777,21 +780,36 @@ let Render mode (out: CodeWriter) layout =
         | E _ :: ys
         | N _ :: ys -> (|O|_|) ys
         | y :: _ -> Some y
-    let (|FirstP|_|) xs =
-        let rec skipP xs =
+//    let (|FirstP|_|) xs =
+//        let rec skipP xs =
+//            match xs with
+//            | N n :: ys -> 
+//                let ys, _ = skipP ys
+//                ys, Some n 
+//            | P _ :: ys -> skipP ys
+//            | _ -> xs, None
+//        match xs with
+//        | P p :: ys -> Some (p, skipP ys)
+//        | _ -> None
+//    let rec (|LastE|_|) xs =
+//        match xs with
+//        | E _ :: LastE pys -> Some pys
+//        | E p :: ys -> Some (p, ys)
+//        | _ -> None
+//    let rec renderAtoms xs =
+    let (|FirstE|_|) xs =
+        let rec skipE xs =
             match xs with
-            | N n :: ys -> 
-                let ys, _ = skipP ys
-                ys, Some n 
-            | P _ :: ys -> skipP ys
-            | _ -> xs, None
+            | E _ :: ys -> skipE ys
+            | _ -> xs
         match xs with
-        | P p :: ys -> Some (p, skipP ys)
+        | E p :: ys -> Some (p, skipE ys)
         | _ -> None
-    let rec (|LastE|_|) xs =
+    let rec (|LastP|_|) xs =
         match xs with
-        | E _ :: LastE pys -> Some pys
-        | E p :: ys -> Some (p, ys)
+        | P _ :: LastP pys -> Some pys
+        | P p :: ys -> Some (p, None, ys)
+        | N n :: LastP (p , _, ys) -> Some (p, Some n, ys)
         | _ -> None
     let rec renderAtoms xs =
         match xs with
@@ -804,13 +822,13 @@ let Render mode (out: CodeWriter) layout =
                 out.Write ' '   
             | _ -> () 
             renderAtoms ys
-        | FirstP (p, (ys, n)) ->
+        | LastP (p, n, ys) ->
             out.AddCodeMapping(p, true, ?name = n)
             renderAtoms ys   
-        | LastE (p, ys) ->
+        | FirstE (p, ys) ->
             out.AddCodeMapping(p, false)
             renderAtoms ys   
-        | N n :: ys ->
+        | N _ :: ys ->
             renderAtoms ys   
         | _ -> failwith "wrong source position tokens"            
     let renderLine line =
@@ -827,14 +845,12 @@ let Render mode (out: CodeWriter) layout =
     |> Seq.iter renderLine
 
 let WriteExpression options writer expression =
-    let buf = StringBuilder 32
-    Expression buf expression
+    Expression expression
     |> Render options writer
 
 let WriteProgram options writer (program: S.Program) =
-    let buf = StringBuilder 32
     for elem in program do
-        Element buf elem
+        Element elem
         |> Render options writer
 
 let ExpressionToString options expression =

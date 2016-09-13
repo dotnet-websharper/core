@@ -58,6 +58,16 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, ?appConfig: st
     
     let meta = WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
 
+    let mapFileSources = 
+        if sourceMap then
+            set |> List.collect (fun a ->
+                match a.MapFileForReadable with
+                | Some mapFile -> WebSharper.Compiler.Packager.readMapFileSources mapFile
+                | _-> []
+            )  
+            |> Array.ofList 
+        else [||]
+
     let htmlHeadersContext getSetting : Res.Context =
         {
             DebuggingEnabled = false
@@ -141,16 +151,9 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, ?appConfig: st
 
             let codeWriter =
                 if sourceMap then
-                    let mapFileSources = 
-                        set |> List.collect (fun a ->
-                            match a.MapFileForReadable with
-                            | Some mapFile -> WebSharper.Compiler.Packager.readMapFileSources mapFile
-                            | _-> []
-                        )  
-                        |> Array.ofList 
                     WebSharper.Core.JavaScript.Writer.CodeWriter(
                         sources = mapFileSources,
-                        offset = writer.ToString().Length
+                        offset = (writer.ToString() |> Seq.sumBy (function '\n' -> 1 | _ -> 0))
                     )
                 else WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
@@ -187,11 +190,29 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, ?appConfig: st
     let minifedJavaScript = content None BundleMode.MinifiedJavaScript
     let typeScript = content None BundleMode.TypeScript // (Some domFix.Value) BundleMode.TypeScript
 
+    let mapping =
+        if sourceMap then 
+            let t = 
+                lazy
+                javaScript.Text |> ignore
+                map.Value
+            Some (Content.Create(t))
+        else None
+
+    let minmapping =
+        if sourceMap then 
+            let t = 
+                lazy
+                minifedJavaScript.Text |> ignore
+                minmap.Value
+            Some (Content.Create(t))
+        else None
+
     member b.CSS = css
     member b.HtmlHeaders = htmlHeaders
     member b.JavaScript = javaScript
     member b.JavaScriptHeaders = javaScriptHeaders
     member b.MinifiedJavaScript = minifedJavaScript
     member b.TypeScript = typeScript
-    member b.Mapping = map |> Option.map (fun s -> Content.Create (lazy s))
-    member b.MinifiedMapping = minmap |> Option.map (fun s -> Content.Create (lazy s))
+    member b.Mapping = mapping
+    member b.MinifiedMapping = minmapping

@@ -228,6 +228,5 @@ let exprToString pref (writer: WebSharper.Core.JavaScript.Writer.CodeWriter) sta
     if env.ScopeFuncs.Count > 0 then
         failwith "Unexpected top level function declaration found"
 
-//    let w = WebSharper.Core.JavaScript.Writer.CodeWriter(?sources = sources, ?offset = offset)
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program
     writer.GetCodeFile(), writer.GetMapFile()
