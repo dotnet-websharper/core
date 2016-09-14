@@ -51,8 +51,6 @@ IntelliFactory = {
             return typeFunction;
         },
 
-        // adressOf -> { get: function() { return x }; set: function(v) { x = v; } }
-
         NewObject:
             function (kv) {
                 var o = {};
