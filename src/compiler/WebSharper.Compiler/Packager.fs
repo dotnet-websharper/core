@@ -217,7 +217,7 @@ let readMapFileSources mapFile =
         List.zip sources sourcesContent
     | _ -> failwith "map file JSON should be an object"
 
-let exprToString pref (writer: WebSharper.Core.JavaScript.Writer.CodeWriter) statement =
+let exprToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.CodeWriter) statement =
     let env = WebSharper.Compiler.JavaScriptWriter.Environment.New(pref)
     let program =
         statement
@@ -228,5 +228,6 @@ let exprToString pref (writer: WebSharper.Core.JavaScript.Writer.CodeWriter) sta
     if env.ScopeFuncs.Count > 0 then
         failwith "Unexpected top level function declaration found"
 
+    let writer = getWriter()
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program
     writer.GetCodeFile(), writer.GetMapFile()

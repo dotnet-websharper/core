@@ -149,7 +149,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, ?appConfig: st
                 else 
                     WebSharper.Core.JavaScript.Compact
 
-            let codeWriter =
+            let getCodeWriter() =
                 if sourceMap then
                     WebSharper.Core.JavaScript.Writer.CodeWriter(
                         sources = mapFileSources,
@@ -157,7 +157,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, ?appConfig: st
                     )
                 else WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
-            let js, m = pkg |> WebSharper.Compiler.Packager.exprToString pref codeWriter
+            let js, m = pkg |> WebSharper.Compiler.Packager.exprToString pref getCodeWriter
             if sourceMap then
                 if mode = BundleMode.JavaScript then
                     map <- m

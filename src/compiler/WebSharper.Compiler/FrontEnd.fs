@@ -101,13 +101,13 @@ let CreateResources (refMeta: M.Info) (current: M.Info) sourceMap assemblyName =
     
     if pkg <> AST.Undefined then
         
-        let codeWriter = 
+        let getCodeWriter() = 
             if sourceMap then
                 WebSharper.Core.JavaScript.Writer.CodeWriter(sources)
             else WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
-        let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable codeWriter
-        let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact codeWriter
+        let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
+        let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
         res.Add(EMBEDDED_MINJS, getBytes minJs)
         minMap |> Option.iter (fun m ->
