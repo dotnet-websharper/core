@@ -25,7 +25,7 @@ open System
 open System.Web
 open System.Web.UI
 
-val AllReferencedAssemblies : list<System.Reflection.Assembly>
+val AllReferencedAssemblies : Lazy<list<System.Reflection.Assembly>>
 
 type MediaType =
     | Css

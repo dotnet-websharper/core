@@ -38,7 +38,7 @@ let private loadMetadata () =
         | "Full" -> id
         | _ -> fun m -> m.DiscardExpressions()
     let metas =
-        WebSharper.Core.Resources.AllReferencedAssemblies
+        WebSharper.Core.Resources.AllReferencedAssemblies.Value
         |> Seq.choose M.IO.LoadReflected
         |> Seq.map filterExpressions
         |> Seq.toList

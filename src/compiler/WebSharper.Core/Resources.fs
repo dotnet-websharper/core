@@ -98,6 +98,12 @@ let thisAssemblyToken =
     typeof<Rendering>.Assembly.GetName().GetPublicKeyToken()
 
 let AllReferencedAssemblies = 
+    lazy
+    try
+        System.Web.Compilation.BuildManager.GetReferencedAssemblies()
+        |> Seq.cast<System.Reflection.Assembly>
+        |> Seq.toList
+    with _ ->
     let trace =
         System.Diagnostics.TraceSource("WebSharper",
             System.Diagnostics.SourceLevels.All)
@@ -148,7 +154,7 @@ type Rendering with
                 Some assemblyName, assemblyName.Split(',').[0]
             else
                 let fullAsmName =
-                    AllReferencedAssemblies
+                    AllReferencedAssemblies.Value
                     |> List.tryPick (fun a -> 
                         if a.FullName.StartsWith (assemblyName + ",") then Some (a.FullName) else None          
                     )
