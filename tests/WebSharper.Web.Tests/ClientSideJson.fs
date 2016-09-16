@@ -164,6 +164,7 @@ module ClientSideJson =
                     }
                 equal (Json.Deserialize (Json.Stringify (r 12))) (r 12)
                 equal (Json.Deserialize (Json.Stringify [|r 13; r 42|])) [|r 13; r 42|]
+                raisesMsg (Json.Deserialize<SimpleRecord> """{"x":1,"y":43,"t":[]}""") "Missing mandatory field raises exception"
             }
 
             Test "serialize record with options" {

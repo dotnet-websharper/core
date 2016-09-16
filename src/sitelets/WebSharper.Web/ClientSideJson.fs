@@ -158,7 +158,9 @@ type Provider() =
         fields |> Array.iter (fun (name, dec, kind) ->
             match kind with
             | OptionalFieldKind.NotOption ->
-                o?(name) <- dec () x?(name)
+                if JS.HasOwnProperty x name then
+                    o?(name) <- dec () x?(name)
+                else failwith ("Missing mandatory field: " + name)
             | OptionalFieldKind.NormalOption ->
                 o?(name) <-
                     if JS.HasOwnProperty x name
