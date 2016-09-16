@@ -1413,6 +1413,7 @@ let getEncoding scalar array tuple union record enu map set nble obj wrap (fo: F
                 (scalar x).Value
             | _ ->
                 let newRef = ref Unchecked.defaultof<_>
+                lock newRef <| fun () ->
                 let r = cache.GetOrAdd(ta, newRef)
                 if System.Object.ReferenceEquals(r, newRef) then
                     let d = derive (wrap get)
@@ -1422,7 +1423,14 @@ let getEncoding scalar array tuple union record enu map set nble obj wrap (fo: F
                     let d = !r
                     // inside recursive types, delay the lookup of the function
                     if System.Object.ReferenceEquals(d, null) then
-                        fun x -> (!r) x
+                        fun x -> 
+                            let d = !r
+                            // another thread might be running derive for the type
+                            // we wait for the lock to release only in this case
+                            if System.Object.ReferenceEquals(d, null) then
+                                let d = lock r <| fun () -> !r
+                                d x 
+                            else d x    
                     else d
     get
 
