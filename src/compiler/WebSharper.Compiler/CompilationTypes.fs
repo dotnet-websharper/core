@@ -29,8 +29,8 @@ open WebSharper.Core.Metadata
 open WebSharper.Core.DependencyGraph
 
 type CompilingMember =
-    | NotCompiled of CompiledMember
-    | NotGenerated of TypeDefinition * option<obj> * CompiledMember
+    | NotCompiled of CompiledMember * notVirtual: bool
+    | NotGenerated of TypeDefinition * option<obj> * CompiledMember * notVirtual: bool
 
 module NotResolved =
     [<RequireQualifiedAccess>]

@@ -177,8 +177,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.Macro(_, _, Some f) -> ii f
             | _ -> false
         match info with        
-        | NotCompiled m 
-        | NotGenerated (_, _, m) -> ii m
+        | NotCompiled (m, _) 
+        | NotGenerated (_, _, m, _) -> ii m
 
     member this.CheckResult (res) =
 #if DEBUG
@@ -385,25 +385,25 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             )
         currentIsInline <- isInline info
         match info with
-        | NotCompiled i -> 
+        | NotCompiled (i, notVirtual) -> 
             let res = this.TransformExpression expr |> removeSourcePosFromInlines i |> breakExpr
             let res = this.CheckResult(res)
-            comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, isPureFunction res, res)
-        | NotGenerated (g, p, i) ->
+            comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, notVirtual && isPureFunction res, res)
+        | NotGenerated (g, p, i, notVirtual) ->
             let m = GeneratedMethod(typ, meth)
             let res = this.Generate (g, p, m)
             let res = this.CheckResult(res)
-            comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, isPureFunction res, res)
+            comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, notVirtual && isPureFunction res, res)
 
     member this.CompileImplementation(info, expr, typ, intf, meth) =
         currentNode <- M.ImplementationNode(typ, intf, meth)
         currentIsInline <- isInline info // TODO: implementations should not be inlined
         match info with
-        | NotCompiled i -> 
+        | NotCompiled (i, _) -> 
             let res = this.TransformExpression expr |> breakExpr
             let res = this.CheckResult(res)
             comp.AddCompiledImplementation(typ, intf, meth, i, res)
-        | NotGenerated (g, p, i) ->
+        | NotGenerated (g, p, i, _) ->
             let m = GeneratedImplementation(typ, intf, meth)
             let res = this.Generate (g, p, m)
             let res = this.CheckResult(res)
@@ -418,11 +418,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         else
         currentIsInline <- isInline info
         match info with
-        | NotCompiled i -> 
+        | NotCompiled (i, _) -> 
             let res = this.TransformExpression expr |> removeSourcePosFromInlines i |> breakExpr
             let res = this.CheckResult(res)
             comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, isPureFunction res, res)
-        | NotGenerated (g, p, i) ->
+        | NotGenerated (g, p, i, _) ->
             let m = GeneratedConstructor(typ, ctor)
             let res = this.Generate (g, p, m)
             let res = this.CheckResult(res)
@@ -651,7 +651,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.TransformCall (thisObj, typ, meth, args)
             else
                 match info with
-                | NotCompiled info | NotGenerated (_, _, info) ->
+                | NotCompiled (info, _) | NotGenerated (_, _, info, _) ->
                     this.CompileCall(info, false, expr, thisObj, typ, meth, args)
         | CustomTypeMember ct ->  
             let inl = this.GetCustomTypeMethodInline(typ, ct, meth)
@@ -702,7 +702,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             call        
         match comp.LookupMethodInfo(typ.Entity, meth.Entity) with
         | Compiled (info, _, _)
-        | Compiling ((NotCompiled info | NotGenerated (_, _, info)), _) ->
+        | Compiling ((NotCompiled (info, _) | NotGenerated (_, _, info, _)), _) ->
             match info with 
             | M.Static address -> 
                 GlobalAccess address
@@ -863,7 +863,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.TransformCtor(typ, ctor, args)
             else 
                 match info with
-                | NotCompiled info | NotGenerated (_, _, info) ->
+                | NotCompiled (info, _) | NotGenerated (_, _, info, _) ->
                     this.CompileCtor(info, false, expr, typ, ctor, args)
         | CustomTypeMember ct ->  
             let inl = this.GetCustomTypeConstructorInline(ct, ctor)
@@ -892,7 +892,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     override this.TransformOverrideName(typ, meth) =
         match comp.LookupMethodInfo(typ, meth) with
         | Compiled (M.Instance name, _, _) 
-        | Compiling ((NotCompiled (M.Instance name) | NotGenerated (_,_,M.Instance name)), _) ->
+        | Compiling ((NotCompiled ((M.Instance name), _) | NotGenerated (_,_,M.Instance name, _)), _) ->
             Value (String name)
         | LookupMemberError err ->
             this.Error err
