@@ -53,10 +53,26 @@ type [<OptionalField>] R5 = { KO5: int option; K5 : int }
 type I = 
     abstract Get: unit -> int
 
+[<Name "I2">]
+type I2 = 
+    abstract Get: unit -> int
+
+[<Name "">]
+type I3 = 
+    abstract Get: unit -> int
+
 type R3 =
     { R3A : int }
     
     interface I with
+        [<JavaScript>]
+        member this.Get() = this.R3A
+
+    interface I2 with
+        [<JavaScript>]
+        member this.Get() = this.R3A
+
+    interface I3 with
         [<JavaScript>]
         member this.Get() = this.R3A
 
@@ -242,6 +258,8 @@ let Tests =
         Test "Record with interface" {
             let r = { R3A = 4 }
             equal ((r :> I).Get()) 4
+            equal ((r :> I2)?``I2$Get``()) 4
+            equal ((r :> I3)?Get()) 4
         }
 
 //        Test "Struct" {

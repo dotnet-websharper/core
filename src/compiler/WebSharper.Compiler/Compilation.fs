@@ -597,8 +597,13 @@ type Compilation(meta: Info, ?hasGraph) =
                         printerrf "Explicitly declared interface method name collision: %s on %s" n typ.Value.FullName
                     resMethods.Add(m, n)
                 | _ -> ()
-
-            let intfName = typ.Value.FullName.Replace('.', '_').Replace('+', '_').Replace('`', '_') + "$"
+            
+            let intfName = 
+                match nr.StrongName with
+                | Some "" -> ""
+                | Some sn -> sn + "$"
+                | _ ->                     
+                    typ.Value.FullName.Replace('.', '_').Replace('+', '_').Replace('`', '_') + "$"
 
             for m, n in nr.NotResolvedMethods do
                 match n with
