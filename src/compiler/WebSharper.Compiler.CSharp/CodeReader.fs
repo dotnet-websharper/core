@@ -729,18 +729,21 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformVariableDeclarator (x: VariableDeclaratorData) : Id * Expression =    
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node) //:?> ILocalSymbol
-        let id = 
+        let id, ftyp = 
             match symbol with
             | :? ILocalSymbol as s ->
                 let id = Id.New(s.Name, not s.IsConst)
                 env.Vars.Add(s, id)
-                id 
+                id, None
             | :? IFieldSymbol as s ->
-                Id.New(s.Name)
+                Id.New(s.Name), Some s.Type
             | _ -> failwithf "this.TransformVariableDeclarator: invalid symbol type %A" symbol
         let initializer = 
             match x.Initializer with
             | Some i -> i |> this.TransformEqualsValueClause
+            | _ -> 
+            match ftyp with
+            | Some t -> DefaultValueOf (sr.ReadType t)
             | _ -> Undefined
         id, initializer
 

@@ -313,7 +313,18 @@ namespace WebSharper.CSharp.Tests
         }
 
         public int field = 4;
+        public int fieldDefVal;
         public int Prop { get; set; } = 5;
+        public int PropDefVal { get; set; }
+
+        [Test]
+        public void Initialization()
+        {
+            Equal(field, 4);
+            Equal(fieldDefVal, 0);
+            Equal(Prop, 5);
+            Equal(PropDefVal, 0);
+        }
 
         [Test]
         public void AnonymousObject()
