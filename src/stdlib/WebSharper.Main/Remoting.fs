@@ -141,7 +141,6 @@ type IRemotingProvider =
     abstract member Send : string -> obj[] -> unit
 
 [<JavaScript>]
-[<Sealed>]
 [<Name "WebSharper.Remoting.AjaxRemotingProvider">]
 type AjaxRemotingProvider() =
     abstract EndPoint : string

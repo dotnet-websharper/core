@@ -227,6 +227,11 @@ module Server =
         let mutable x = 1
         member this.One = x
 
+    [<JavaScript>]
+    [<System.Serializable>]
+    type AutoProperty() =
+        member val X = 0 with get, set
+
     [<Remote>]
     let f17 (x: DescendantClass) =
         if x.Zero = 0 && x.One = 1
@@ -238,6 +243,13 @@ module Server =
     let f18 (Record x) =
         async {
             return Record { a = x.a + 1; b = x.b + "_" }
+        }
+
+    [<Remote>]
+    let f20 (x: AutoProperty) =
+        async {
+            x.X <- x.X + 1
+            return x
         }
 
     [<Remote>]
@@ -431,6 +443,13 @@ module Remoting =
             Test "Automatic field rename" {
                 let! x = Server.f17 (Server.DescendantClass())
                 isTrue (x |> Option.exists (fun x -> x.Zero = 0 && x.One = 1))
+            }
+
+            Test "Auto property" {
+                let x = Server.AutoProperty()
+                x.X <- 5;
+                let! y = Server.f20 x
+                equal y.X 6
             }
 
             Test "Single record in union" {

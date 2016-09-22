@@ -18,6 +18,13 @@ namespace WebSharper.CSharp.Tests
     //    public int y : int;
     //}
 
+    [JavaScript, Serializable]
+    public class TestClass
+    {
+        public int X = 0;
+        public int Y { get; set; }
+    }
+
     public static class Server
     {
         [Remote]
@@ -44,9 +51,10 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Remote]
-        public static async Task SetAsync(int key, int value)
+        public static Task SetAsync(int key, int value)
         {
             Set(key, value);
+            return Task.FromResult<object>(null); // .NET 4.6 has Task.CompletedTask;
         }
 
         [Remote]
@@ -78,6 +86,14 @@ namespace WebSharper.CSharp.Tests
         {
             var ctx = WebSharper.Web.Remoting.GetContext();
             await ctx.UserSession.LogoutAsync();
+        }
+
+        [Remote]
+        public static Task<TestClass> IncrementXY(TestClass o)
+        {
+            o.X++;
+            o.Y++;
+            return Task.FromResult(o);
         }
 
         static Server()
@@ -174,6 +190,17 @@ namespace WebSharper.CSharp.Tests
             await Remote<Handler>().Reset();
             Equal(await Remote<Handler>().Increment(5), 5);
             Equal(await Remote<Handler>().Increment(5), 10);
+        }
+
+        [Test]
+        public async Task CustomClass()
+        {
+            var o = new TestClass();
+            o.X = 1;
+            o.Y = 1;
+            o = await Server.IncrementXY(o);
+            Equal(o.X, 2);
+            Equal(o.Y, 2);
         }
     }
 }

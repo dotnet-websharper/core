@@ -625,10 +625,22 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         clsMembers.Add (NotResolvedMember.StaticConstructor b)  
 
     for f in members.OfType<IFieldSymbol>() do
-        let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, f.GetAttributes())
+        let backingForProp =
+            match f.AssociatedSymbol with
+            | :? IPropertySymbol as p -> Some p
+            | _ -> None
+        let attrs =
+            match backingForProp with
+            | Some p -> p.GetAttributes() 
+            | _ -> f.GetAttributes() 
+        let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, attrs)
+        let jsName =
+            match backingForProp with
+            | Some p -> Some ("$" + p.Name)
+            | None -> mAnnot.Name                       
         let nr =
             {
-                StrongName = mAnnot.Name
+                StrongName = jsName
                 IsStatic = f.IsStatic
                 IsOptional = mAnnot.Kind = Some A.MemberKind.OptionalField 
                 FieldType = sr.ReadType f.Type 

@@ -76,7 +76,7 @@ type IRemotingProvider =
     abstract member Send : string -> obj[] -> unit
 
 /// Implements remote method calls via AJAX.
-[<Sealed; Class>]
+[<Class>]
 type AjaxRemotingProvider =
     abstract EndPoint : string
     interface IRemotingProvider
