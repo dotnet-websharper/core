@@ -23,6 +23,33 @@ module internal WebSharper.Compiler.CSharp.Continuation
 open WebSharper.Core.AST
 open WebSharper.Compiler
 
+module TaskMethod =
+    let Start =  
+        Method {
+            MethodName = "Start"
+            Parameters = []
+            ReturnType = VoidType
+            Generics = 0
+        } |> NonGeneric 
+
+    // This is a method on the Task proxy only
+    let OnCompleted =
+        Method {
+            MethodName = "OnCompleted"
+            Parameters = [FSharpFuncType (VoidType, VoidType)]
+            ReturnType = VoidType
+            Generics = 0
+        } |> NonGeneric 
+        
+    // This is a method on the Task proxy only
+    let RunContinuations =
+        Method {
+            MethodName = "RunContinuations"
+            Parameters = []
+            ReturnType = VoidType
+            Generics = 0
+        } |> NonGeneric 
+    
 type CollectLabels() =
     inherit StatementVisitor()
 
@@ -46,7 +73,7 @@ type AwaitTransformer() =
         let awaited = Id.New "$await"
         let doneLabel = Id.New "$done"
         let setStatus s = ItemSet(Var awaited, Value (String "exc"), !~(Int s))
-        let start = Application(ItemGet(Var awaited, Value (String "Start")), [], false, Some 0)
+        let start = Call(Some (Var awaited), NonGeneric Definitions.Task, TaskMethod.Start, [])
         let exc = ItemGet(Var awaited, Value (String "exc"))
         Sequential [
             NewVar(awaited, this.TransformExpression a)
@@ -442,7 +469,7 @@ type AsyncTransformer(labels, returns) =
 
     override this.Yield(v) =
         Block [
-            ExprStatement <| Application(ItemGet(v, Value (String "OnCompleted")), [ Var run ], false, Some 1)
+            ExprStatement <| Call(Some v, NonGeneric Definitions.Task, TaskMethod.OnCompleted, [ Var run ])
             Return (Value (Bool true))         
         ]
 
@@ -451,7 +478,7 @@ type AsyncTransformer(labels, returns) =
             if IgnoreExprSourcePos a <> Undefined then
                 yield ExprStatement <| ItemSet(Var task, Value (String "result"), a)
             yield ExprStatement <| ItemSet(Var task, Value (String "status"), Value (Int (int System.Threading.Tasks.TaskStatus.RanToCompletion)))
-            yield ExprStatement <| Application(ItemGet(Var task, Value (String "RunContinuations")), [], false, Some 0)
+            yield ExprStatement <| Call(Some (Var task), NonGeneric Definitions.Task, TaskMethod.RunContinuations, [])
             yield Return (Value (Bool false))         
         ]
 
