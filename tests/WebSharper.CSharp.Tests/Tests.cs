@@ -108,8 +108,10 @@ namespace WebSharper.CSharp.Tests
         public string First { get; set; }
         public string Second { get; set; } = "Hello";
 
-        public string FirstField;
-        public string SecondField;
+        public int FirstField;
+        public int SecondField;
+        public int FirstProp { get; set; }
+        public int SecondProp { get; set; }
 
         [Test("Auto properties")]
         public void AutoProperty()
@@ -122,12 +124,37 @@ namespace WebSharper.CSharp.Tests
         [Test("Chained setters")]
         public void ChainedSetters()
         {
-            SecondField = FirstField = "Hi";
-            Equal(FirstField, "Hi");
-            Equal(SecondField, "Hi");
-            Second = First = "Hi";
-            Equal(First, "Hi");
-            Equal(Second, "Hi");
+            SecondField = FirstField = 1;
+            Equal(FirstField, 1);
+            Equal(SecondField, 1);
+
+            SecondField = FirstField++;
+            Equal(FirstField, 2);
+            Equal(SecondField, 1);
+
+            SecondField = --FirstField;
+            Equal(FirstField, 1);
+            Equal(SecondField, 1);
+
+            SecondField = FirstField += 4;
+            Equal(FirstField, 5);
+            Equal(SecondField, 5);
+
+            SecondProp = FirstProp = 1;
+            Equal(FirstProp, 1);
+            Equal(SecondProp, 1);
+
+            SecondProp = FirstProp++;
+            Equal(FirstProp, 2);
+            Equal(SecondProp, 1);
+
+            SecondProp = --FirstProp;
+            Equal(FirstProp, 1);
+            Equal(SecondProp, 1);
+
+            SecondProp = FirstProp += 4;
+            Equal(FirstProp, 5);
+            Equal(SecondProp, 5);
         }
 
         [Test]

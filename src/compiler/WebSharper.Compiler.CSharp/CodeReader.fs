@@ -123,6 +123,18 @@ let rec getTypedConstantValue (c: TypedConstant) =
         c.Values |> Seq.map getTypedConstantValue |> Array.ofSeq |> box
     | _ -> c.Value 
 
+let numericTypes =
+    HashSet [
+        "System.Byte" 
+        "System.SByte"
+        "System.Int16"
+        "System.Int32"
+        "System.UInt16" 
+        "System.UInt32" 
+        "System.Single" 
+        "System.Double" 
+    ]
+
 type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
     let attrReader =
@@ -495,51 +507,52 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformExpression (x: ExpressionData) : Expression =
         try
-            match x with
-            | ExpressionData.Type                              x -> this.TransformType x
-            | ExpressionData.InstanceExpression                x -> this.TransformInstanceExpression x
-            | ExpressionData.AnonymousFunctionExpression       x -> this.TransformAnonymousFunctionExpression x
-            | ExpressionData.ParenthesizedExpression           x -> this.TransformParenthesizedExpression x
-            | ExpressionData.PrefixUnaryExpression             x -> this.TransformPrefixUnaryExpression x
-            | ExpressionData.AwaitExpression                   x -> this.TransformAwaitExpression x
-            | ExpressionData.PostfixUnaryExpression            x -> this.TransformPostfixUnaryExpression x
-            | ExpressionData.MemberAccessExpression            x -> this.TransformMemberAccessExpression x
-            | ExpressionData.ConditionalAccessExpression       x -> this.TransformConditionalAccessExpression x
-            | ExpressionData.MemberBindingExpression           x -> this.TransformMemberBindingExpression x
-            | ExpressionData.ElementBindingExpression          x -> this.TransformElementBindingExpression x
-            | ExpressionData.ImplicitElementAccess             x -> this.TransformImplicitElementAccess x
-            | ExpressionData.BinaryExpression                  x -> this.TransformBinaryExpression x
-            | ExpressionData.AssignmentExpression              x -> this.TransformAssignmentExpression x
-            | ExpressionData.ConditionalExpression             x -> this.TransformConditionalExpression x
-            | ExpressionData.LiteralExpression                 x -> this.TransformLiteralExpression x
-            | ExpressionData.MakeRefExpression                 _ -> NotSupported "__makeref"
-            | ExpressionData.RefTypeExpression                 _ -> NotSupported "__reftype"
-            | ExpressionData.RefValueExpression                _ -> NotSupported "__refvalue"
-            | ExpressionData.CheckedExpression                 _ -> NotSupported "checked"
-            | ExpressionData.DefaultExpression                 x -> this.TransformDefaultExpression x
-            | ExpressionData.TypeOfExpression                  _ -> NotSupported "typeof"
-            | ExpressionData.SizeOfExpression                  _ -> NotSupported "sizeof"
-            | ExpressionData.InvocationExpression              x -> this.TransformInvocationExpression x
-            | ExpressionData.ElementAccessExpression           x -> this.TransformElementAccessExpression x
-            | ExpressionData.CastExpression                    x -> this.TransformCastExpression x
-            | ExpressionData.InitializerExpression             x -> this.TransformInitializerExpression x
-            | ExpressionData.ObjectCreationExpression          x -> this.TransformObjectCreationExpression x
-            | ExpressionData.AnonymousObjectCreationExpression x -> this.TransformAnonymousObjectCreationExpression x
-            | ExpressionData.ArrayCreationExpression           x -> this.TransformArrayCreationExpression x
-            | ExpressionData.ImplicitArrayCreationExpression   x -> this.TransformImplicitArrayCreationExpression x
-            | ExpressionData.StackAllocArrayCreationExpression _ -> NotSupported "stackalloc"
-            | ExpressionData.QueryExpression                   x -> this.TransformQueryExpression x
-            | ExpressionData.OmittedArraySizeExpression        x -> failwith "not a general expression: OmittedArraySizeExpression"
-            | ExpressionData.InterpolatedStringExpression      x -> this.TransformInterpolatedStringExpression x      
-            |> fun expr ->
-                let conversion = env.SemanticModel.GetConversion(x.Node)
-                if conversion.IsUserDefined then
-                    let symbol = conversion.MethodSymbol
-                    let typ = sr.ReadNamedType symbol.ContainingType
-                    let ma = symbol.TypeArguments |> Seq.map (sr.ReadType) |> List.ofSeq
-                    let meth = Generic (sr.ReadMethod symbol) ma
-                    Call(None, typ, meth, [ expr ])
-                else expr
+            let expr =
+                match x with
+                | ExpressionData.Type                              x -> this.TransformType x
+                | ExpressionData.InstanceExpression                x -> this.TransformInstanceExpression x
+                | ExpressionData.AnonymousFunctionExpression       x -> this.TransformAnonymousFunctionExpression x
+                | ExpressionData.ParenthesizedExpression           x -> this.TransformParenthesizedExpression x
+                | ExpressionData.PrefixUnaryExpression             x -> this.TransformPrefixUnaryExpression x
+                | ExpressionData.AwaitExpression                   x -> this.TransformAwaitExpression x
+                | ExpressionData.PostfixUnaryExpression            x -> this.TransformPostfixUnaryExpression x
+                | ExpressionData.MemberAccessExpression            x -> this.TransformMemberAccessExpression x
+                | ExpressionData.ConditionalAccessExpression       x -> this.TransformConditionalAccessExpression x
+                | ExpressionData.MemberBindingExpression           x -> this.TransformMemberBindingExpression x
+                | ExpressionData.ElementBindingExpression          x -> this.TransformElementBindingExpression x
+                | ExpressionData.ImplicitElementAccess             x -> this.TransformImplicitElementAccess x
+                | ExpressionData.BinaryExpression                  x -> this.TransformBinaryExpression x
+                | ExpressionData.AssignmentExpression              x -> this.TransformAssignmentExpression x
+                | ExpressionData.ConditionalExpression             x -> this.TransformConditionalExpression x
+                | ExpressionData.LiteralExpression                 x -> this.TransformLiteralExpression x
+                | ExpressionData.MakeRefExpression                 _ -> NotSupported "__makeref"
+                | ExpressionData.RefTypeExpression                 _ -> NotSupported "__reftype"
+                | ExpressionData.RefValueExpression                _ -> NotSupported "__refvalue"
+                | ExpressionData.CheckedExpression                 _ -> NotSupported "checked"
+                | ExpressionData.DefaultExpression                 x -> this.TransformDefaultExpression x
+                | ExpressionData.TypeOfExpression                  _ -> NotSupported "typeof"
+                | ExpressionData.SizeOfExpression                  _ -> NotSupported "sizeof"
+                | ExpressionData.InvocationExpression              x -> this.TransformInvocationExpression x
+                | ExpressionData.ElementAccessExpression           x -> this.TransformElementAccessExpression x
+                | ExpressionData.CastExpression                    x -> this.TransformCastExpression x
+                | ExpressionData.InitializerExpression             x -> this.TransformInitializerExpression x
+                | ExpressionData.ObjectCreationExpression          x -> this.TransformObjectCreationExpression x
+                | ExpressionData.AnonymousObjectCreationExpression x -> this.TransformAnonymousObjectCreationExpression x
+                | ExpressionData.ArrayCreationExpression           x -> this.TransformArrayCreationExpression x
+                | ExpressionData.ImplicitArrayCreationExpression   x -> this.TransformImplicitArrayCreationExpression x
+                | ExpressionData.StackAllocArrayCreationExpression _ -> NotSupported "stackalloc"
+                | ExpressionData.QueryExpression                   x -> this.TransformQueryExpression x
+                | ExpressionData.OmittedArraySizeExpression        x -> failwith "not a general expression: OmittedArraySizeExpression"
+                | ExpressionData.InterpolatedStringExpression      x -> this.TransformInterpolatedStringExpression x      
+
+            let conversion = env.SemanticModel.GetConversion(x.Node)
+            if conversion.IsUserDefined then
+                let symbol = conversion.MethodSymbol
+                let typ = sr.ReadNamedType symbol.ContainingType
+                let ma = symbol.TypeArguments |> Seq.map (sr.ReadType) |> List.ofSeq
+                let meth = Generic (sr.ReadMethod symbol) ma
+                Call(None, typ, meth, [ expr ])
+            else expr
         with e ->
             env.Compilation.AddError(Some (getSourcePos x.Node), WebSharper.Compiler.SourceError("Error while reading C# code: " + e.Message + " at " + e.StackTrace))
             WebSharper.Compiler.Translator.errorPlaceholder       
@@ -799,6 +812,13 @@ type RoslynTransformer(env: Environment) =
         x.Statement |> this.TransformStatement
 
     member this.TransformAssignmentExpression (x: AssignmentExpressionData) : Expression =
+        let withResultValue right makeExpr =
+            let isValueNeeded = not (x.Node.Parent :? ExpressionStatementSyntax)
+            if isValueNeeded then
+                let rv = Id.New () // right side value stored for chaining
+                Sequential [ makeExpr (NewVar (rv, right)); Var rv ]
+            else
+                makeExpr right   
         let leftSymbol = env.SemanticModel.GetSymbolInfo(x.Left.Node).Symbol
         let trR =
             if Option.isSome env.Initializing then 
@@ -813,13 +833,13 @@ type RoslynTransformer(env: Environment) =
             | AssignmentExpressionKind.SimpleAssignmentExpression ->
                 let right = x.Right |> trR.TransformExpression
                 if leftSymbol.IsStatic then
-                    Call(None, typ, setter, [right]) 
+                    withResultValue right <| fun rv -> Call(None, typ, setter, [rv])
                 else
                     let left = x.Left |> this.TransformExpression
                     // eliminate getter
                     match IgnoreExprSourcePos left with
                     | Call (Some v, _, _, args) ->
-                        Call (Some v, typ, setter, args @ [right])
+                        withResultValue right <| fun rv -> Call (Some v, typ, setter, args @ [rv])
                     | _ -> failwithf "this.TransformAssignmentExpression: getter expression not recognized for creating assigment"
             | _ ->
                 let left = x.Left |> this.TransformExpression
@@ -827,7 +847,8 @@ type RoslynTransformer(env: Environment) =
                 let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
                 let opTyp, operator = getTypeAndMethod symbol
                 if leftSymbol.IsStatic then
-                    Call(None, typ, setter, [Call(None, opTyp, operator, [left; right])]) 
+                    withResultValue (Call(None, opTyp, operator, [left; right])) <| fun rv -> 
+                        Call(None, typ, setter, [rv]) 
                 else
                     let left = x.Left |> this.TransformExpression
                     // eliminate getter
@@ -835,7 +856,8 @@ type RoslynTransformer(env: Environment) =
                     | Call (Some v, _, getter, []) ->
                         let m = Id.New ()
                         let leftWithM = Call (Some (Var m), typ, getter, [])
-                        Let (m, v, Call (Some (Var m), typ, setter, [Call(None, opTyp, operator, [leftWithM; right])])) 
+                        withResultValue (Call(None, opTyp, operator, [leftWithM; right])) <| fun rv ->
+                            Let (m, v, Call (Some (Var m), typ, setter, [rv])) 
                     | _ -> failwith "this.TransformAssignmentExpression: getter expression not recognized for creating compound assigment"
         | _ ->
         let left = x.Left |> this.TransformExpression
@@ -847,13 +869,50 @@ type RoslynTransformer(env: Environment) =
             | FieldGet (obj, ty, f) -> FieldSet (obj, ty, f, right)
             | ItemGet(obj, i) -> ItemSet (obj, i, right)
             | Application(ItemGet (r, Value (String "get")), [], _, _) ->
-                SetRef r right
+                withResultValue right <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
-                Call (thisOpt, typ, setterOf getter, args @ [right])
+                withResultValue right <| fun rv -> Call (thisOpt, typ, setterOf getter, args @ [rv])
             | _ -> TODO x
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
             let opTyp, operator = getTypeAndMethod symbol
+            let e = IgnoreExprSourcePos left
+            let direct = 
+                if numericTypes.Contains opTyp.Entity.Value.FullName then
+                    match e with
+                    | Var _ 
+                    | ItemGet _ 
+                    | FieldGet _ ->
+                        let op =
+                            match x.Kind with
+                            | AssignmentExpressionKind.SimpleAssignmentExpression ->
+                                failwith "impossible"    
+                            | AssignmentExpressionKind.AddAssignmentExpression ->
+                                MutatingBinaryOperator.``+=``
+                            | AssignmentExpressionKind.SubtractAssignmentExpression ->  
+                                MutatingBinaryOperator.``-=``
+                            | AssignmentExpressionKind.MultiplyAssignmentExpression ->   
+                                MutatingBinaryOperator.``*=``
+                            | AssignmentExpressionKind.DivideAssignmentExpression ->    
+                                MutatingBinaryOperator.``/=``
+                            | AssignmentExpressionKind.ModuloAssignmentExpression ->     
+                                MutatingBinaryOperator.``%=``
+                            | AssignmentExpressionKind.AndAssignmentExpression ->        
+                                MutatingBinaryOperator.``&=``
+                            | AssignmentExpressionKind.ExclusiveOrAssignmentExpression ->
+                                MutatingBinaryOperator.``^=``
+                            | AssignmentExpressionKind.OrAssignmentExpression ->         
+                                MutatingBinaryOperator.``|=``
+                            | AssignmentExpressionKind.LeftShiftAssignmentExpression ->  
+                                MutatingBinaryOperator.``<<=``
+                            | AssignmentExpressionKind.RightShiftAssignmentExpression -> 
+                                MutatingBinaryOperator.``>>=``
+                        MutatingBinary(left, op, right) |> Some
+                    | _ -> None
+                else None
+            match direct with
+            | Some d -> d
+            | _ ->
             match IgnoreExprSourcePos left with
             | Var id -> VarSet(id, Call(None, opTyp, operator, [left; right]))
             | FieldGet (obj, ty, f) -> 
@@ -873,9 +932,10 @@ type RoslynTransformer(env: Environment) =
                 let leftWithM = ItemGet (Var m, Var j)
                 Let (m, obj, Let (j, i, ItemSet(Var m, Var j, Call(None, opTyp, operator, [leftWithM; right]))))
             | Application(ItemGet (r, Value (String "get")), [], _, _) ->
-                SetRef r (Call(None, opTyp, operator, [left; right]))
+                withResultValue (Call(None, opTyp, operator, [left; right])) <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
-                Call (thisOpt, typ, setterOf getter, args @ [Call(None, opTyp, operator, [left; right])])
+                withResultValue (Call(None, opTyp, operator, [left; right])) <| fun rv ->
+                    Call (thisOpt, typ, setterOf getter, args @ [rv])
             | _ -> TODO x
             
         |> withExprSourcePos x.Node
@@ -1153,43 +1213,80 @@ type RoslynTransformer(env: Environment) =
             loop
         |> withStatementSourcePos x.Node
 
-    member this.TransformIncrOrDecr (node : ExpressionSyntax, operand) =
+    member this.TransformIncrOrDecr (node : ExpressionSyntax, operand, isPostfix) =
         let symbol = env.SemanticModel.GetSymbolInfo(node).Symbol :?> IMethodSymbol
         let typ, meth = getTypeAndMethod symbol
-
         let e = IgnoreExprSourcePos operand
+        let direct =
+            let getOp() =
+                if meth.Entity.Value.MethodName = "op_Increment" then
+                    if isPostfix then 
+                        MutatingUnaryOperator.``()++``
+                    else
+                        MutatingUnaryOperator.``++()``
+                else
+                    if isPostfix then 
+                        MutatingUnaryOperator.``()--``
+                    else
+                        MutatingUnaryOperator.``--()``
+            if numericTypes.Contains typ.Entity.Value.FullName then
+                match e with
+                | Var _ 
+                | ItemGet _ 
+                | FieldGet _ ->
+                    MutatingUnary(getOp(), operand) |> Some
+                | _ -> None
+            else None
+        match direct with
+        | Some d -> d |> withExprSourcePos node
+        | _ ->
         let callOp v = Call(None, typ, meth, [ v ])
+        let withResultValue alwaysSaveValue right makeExpr =
+            let isValueNeeded = not (node.Parent :? ExpressionStatementSyntax)
+            let rv = Id.New () // right side value stored for chaining
+            if isValueNeeded then
+                if isPostfix then
+                    Sequential [ makeExpr (callOp (NewVar (rv, right))); Var rv ]
+                elif alwaysSaveValue then
+                    Sequential [ makeExpr (NewVar (rv, callOp right)); Var rv ]
+                else
+                    makeExpr (callOp right)
+            else
+                makeExpr (callOp right)   
         match e with
         | Var v ->
-            VarSet(v, callOp operand)
+            withResultValue false operand <| fun rv -> VarSet(v, rv)
         | ItemGet(o, i) ->
             let ov = Id.New ()
             let iv = Id.New ()
-            ItemSet(Var ov, Var iv, callOp (ItemGet(Var ov, Var iv)))
+            withResultValue false (ItemGet(Var ov, Var iv)) <| fun rv -> 
+                ItemSet(Var ov, Var iv, rv)
         | FieldGet(o, t, f) ->
             match o with
             | Some o ->
                 let ov = Id.New ()
-                Let (ov, o, FieldSet(Some (Var ov), t, f, callOp (FieldGet(Some (Var ov), t, f))))
+                withResultValue false (FieldGet(Some (Var ov), t, f)) <| fun rv ->
+                    Let (ov, o, FieldSet(Some (Var ov), t, f, rv))
             | _ ->
-                FieldSet(None, t, f, callOp operand)
+                withResultValue false operand <| fun rv -> FieldSet(None, t, f, rv)
         | Application(ItemGet (r, Value (String "get")), [], _, _) ->
-            SetRef r (callOp operand)
+            withResultValue true operand <| SetRef r
         | Call (thisOpt, typ, getter, args) ->
-            Call (thisOpt, typ, setterOf getter, args @ [ callOp operand ])
+            withResultValue true operand <| fun rv ->
+                Call (thisOpt, typ, setterOf getter, args @ [rv])
         | _ -> failwithf "ref argument has unexpected form: %+A" e     
         |> withExprSourcePos node
                                                    
     member this.TransformPostfixUnaryExpression (x: PostfixUnaryExpressionData) : _ =
         let operand = x.Operand |> this.TransformExpression
-        this.TransformIncrOrDecr(x.Node, operand)
+        this.TransformIncrOrDecr(x.Node, operand, true)
 
     member this.TransformPrefixUnaryExpression (x: PrefixUnaryExpressionData) : _ =
         let operand = x.Operand |> this.TransformExpression
         match x.Kind with
         | PrefixUnaryExpressionKind.PreIncrementExpression 
         | PrefixUnaryExpressionKind.PreDecrementExpression ->
-            this.TransformIncrOrDecr(x.Node, operand)
+            this.TransformIncrOrDecr(x.Node, operand, false)
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
             let typ = sr.ReadNamedType symbol.ContainingType
