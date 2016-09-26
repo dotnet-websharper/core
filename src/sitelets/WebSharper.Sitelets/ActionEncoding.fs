@@ -612,7 +612,7 @@ let getUnionCaseMethods (c: Reflection.UnionCaseInfo) =
             elif cad.Constructor.DeclaringType = typeof<CompiledNameAttribute> then
                 let s = cad.ConstructorArguments.[0].Value :?> string
                 match s.IndexOf '/' with
-                | -1 -> Seq.empty
+                | -1 | 0 -> Seq.empty
                 | i ->
                     s.[..i - 1].Split([|',';' '|],
                         StringSplitOptions.RemoveEmptyEntries)
@@ -876,13 +876,21 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
             let tryDecode p ks : ReadResult<obj> =
                 ks |> Seq.collect (fun k ->
                     ds.[k].Decode p)
+            let oldP = p
             if p.IsAtEnd then
                 Some ("", p)
             else p.Read ()
             |> Option.map (fun (name, p) ->
-                match d.TryGetValue name with
-                | false, _ -> Nothing
-                | true, m ->
+                let pAndParsedPrefix =
+                    match d.TryGetValue name with
+                    | false, _ ->
+                        match d.TryGetValue "" with
+                        | false, _ -> None
+                        | true, m -> Some (oldP, m)
+                    | true, m -> Some (p, m)
+                match pAndParsedPrefix with
+                | None -> Nothing
+                | Some (p, m) ->
                     // Try to find a union case for the exact method searched
                     match m.TryFind (Some p.Request.Method) with
                     | Some ks -> tryDecode p ks
