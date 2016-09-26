@@ -14,10 +14,10 @@
   <Import Project="$(Root)/msbuild/FSharp.targets" />
   <Target Name="BeforeBuild">
     <MSBuild Projects="$(Root)/src/build/Bootstrap/Bootstrap.fsproj" Properties="Configuration=$(Configuration)" />
-    <Exec Command="&quot;$(Root)/build/Bootstrap/Bootstrap.exe&quot;" WorkingDirectory="$(Root)" ContinueOnError="False" />
+    <Exec Command="$(MonoPrefix) &quot;$(Root)/build/Bootstrap/Bootstrap.exe&quot;" WorkingDirectory="$(Root)" ContinueOnError="False" />
   </Target>
   <Target Name="AfterBuild">
-    <Exec Command="&quot;$(OutputPath)/$(Name).exe&quot; $(Arguments)" WorkingDirectory="$(Root)" ContinueOnError="False" />
+    <Exec Command="$(MonoPrefix) &quot;$(OutputPath)/$(Name).exe&quot; $(Arguments)" WorkingDirectory="$(Root)" ContinueOnError="False" />
   </Target>
   <ItemGroup>
     <Compile Include="Config.fs" />
@@ -37,7 +37,7 @@
       <HintPath>..\..\..\packages\IntelliFactory.Build\lib\net45\IntelliFactory.Build.dll</HintPath>
     </Reference>
     <Reference Include="NuGet.Core">
-      <HintPath>..\..\..\packages\Nuget.Core\lib\net40-Client\NuGet.Core.dll</HintPath>
+      <HintPath>..\..\..\packages\NuGet.Core\lib\net40-Client\NuGet.Core.dll</HintPath>
     </Reference>
     <Reference Include="SharpCompress">
       <HintPath>..\..\..\packages\sharpcompress\lib\net40\SharpCompress.dll</HintPath>

@@ -218,21 +218,6 @@ let translateOperation (t: Concrete<TypeDefinition>) a m op =
         |> MacroOk
     | _ -> MacroError "numericMacro error"
 
-let translateToString a m =
-    match a with
-    | [x] ->
-        match m.Generics with
-        | t :: _ ->
-            if t.AssemblyQualifiedName = "System.Char, mscorlib" then
-                Application(Global ["String"; "fromCharCode"], [x], true, Some 1)
-            else 
-                Application(Global ["String"], [x], true, Some 1)
-            |> MacroOk 
-        | _ ->
-            MacroError "stringMacro error"
-    | _ ->
-        MacroError "stringMacro error"
-
 let formatExceptionTy, formatExceptionCtor =
     match <@ new System.FormatException() @> with
     | FSharp.Quotations.Patterns.NewObject (ci, _) ->

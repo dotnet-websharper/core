@@ -51,7 +51,7 @@ type WebSharperTask() =
     member val WebSharperTypeScriptDeclaration = "" with get, set
     member val WebSharperErrorsAsWarnings = "" with get, set
     member val DocumentationFile = "" with get, set
-    member val ZafirToolPath = "zafircs.exe" with get, set
+    member val ZafirToolPath = "ZafirCs.exe" with get, set
     member val DefineConstants = "" with get, set
     member val NoStandardLib = "" with get, set
     member val Sources : ITaskItem [] = Array.empty with get, set
@@ -60,7 +60,7 @@ type WebSharperTask() =
     member val DebugType = "" with get, set 
     member val SubsystemVersion = "" with get, set 
 
-    override this.ToolName = "zafircs.exe" 
+    override this.ToolName = "ZafirCs.exe"
 
     override this.GenerateFullPathToTool() = this.ZafirToolPath
 
