@@ -118,6 +118,7 @@ module SampleSite =
         | Api of Api.Action
         | [<EndPoint "GET /test.png">] TestImage
         | [<Method "POST">] Json of ActionEncoding.DecodeResult<Json.Action>
+        | [<EndPoint "/"; Wildcard>] AnythingElse of string
 
     /// A helper function to create a hyperlink
     let private ( => ) title href =
@@ -280,6 +281,9 @@ module SampleSite =
                 | Action.TestImage ->
                     Content.File "~/image.png"
                     |> Content.WithContentType "image/png"
+                | Action.AnythingElse p ->
+                    Content.Text ("Unmatched path: " + p)
+                    |> Content.SetStatus Http.Status.NotFound
 
         // A sitelet for the protected content that requires users to log in first.
         let authenticated =

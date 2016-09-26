@@ -563,7 +563,7 @@ let inline getOptNameAndMethods c =
     match customName with
     | Some s ->
         match s.IndexOf '/' with
-        | -1 -> None, meth
+        | -1 | 0 -> None, meth
         | i ->
             let name = s.[i + 1..]
             let meth =
@@ -967,13 +967,21 @@ let getD (getD: System.Type -> D) (t: System.Type) : D =
             let tryDecode p ks : ReadResult<obj> =
                 ks |> Seq.collect (fun k ->
                     ds.[k].Decode p)
+            let oldP = p
             if p.IsAtEnd then
                 Some ("", p)
             else p.Read ()
             |> Option.map (fun (name, p) ->
-                match d.TryGetValue name with
-                | false, _ -> Nothing
-                | true, m ->
+                let pAndParsedPrefix =
+                    match d.TryGetValue name with
+                    | false, _ ->
+                        match d.TryGetValue "" with
+                        | false, _ -> None
+                        | true, m -> Some (oldP, m)
+                    | true, m -> Some (p, m)
+                match pAndParsedPrefix with
+                | None -> Nothing
+                | Some (p, m) ->
                     // Try to find a union case for the exact method searched
                     match m.TryFind (Some p.Request.Method) with
                     | Some ks -> tryDecode p ks
