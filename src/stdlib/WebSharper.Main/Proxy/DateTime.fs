@@ -21,6 +21,7 @@
 namespace WebSharper
 
 open WebSharper.JavaScript
+open System.Runtime.InteropServices
 
 type private D = System.DateTime
 type private K = System.DateTimeKind
@@ -95,11 +96,17 @@ module private DateTimeHelpers =
             e.getMilliseconds()
         ).getTime()    
 
-    let Parse (s: string) =
+    let TryParse (s: string) =
         let d = JavaScript.Date.Parse(s)   
         if JS.IsNaN(d) then
+            None
+        else Some d
+
+    let Parse (s: string) =
+        match TryParse s with
+        | Some d -> d
+        | _ ->
             failwith "Failed to parse date string."
-        else d
 
     [<Direct "(new Date($d)).toLocaleDateString({}, {year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'})">]
     let LongDate (d: obj) = X<string>
@@ -225,6 +232,14 @@ type private DateTimeProxy =
 
     [<Inline; JavaScript>]
     static member Parse(s) = As<D>(DateTimeHelpers.Parse(s))
+
+    [<Inline; JavaScript>]
+    static member TryParse(s, [<Out>] res: byref<D>) =
+        match DateTimeHelpers.TryParse s with
+        | Some d ->
+            res <- As<D> d   
+            true
+        | _ -> false    
 
     static member MaxValue
         with [<Inline "8640000000000000">] get () = X<int>
