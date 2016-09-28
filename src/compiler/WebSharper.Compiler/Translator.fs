@@ -693,6 +693,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     
     override this.TransformNewDelegate(thisObj, typ, meth) =
         // TODO: CustomTypeMember
+        if comp.HasGraph then
+            this.AddMethodDependency(typ.Entity, meth.Entity)
         let inlined() =
             let args = meth.Entity.Value.Parameters |> List.map (fun _ -> Id.New(mut = false))
             let call = 
