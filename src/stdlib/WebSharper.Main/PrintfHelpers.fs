@@ -47,14 +47,16 @@ let padNumLeft (s: string, l) =
 
 [<JavaScript>]
 let printList (p: obj -> string, o: obj list) =
-     "[" + (o |> Seq.map p |> String.concat "; ") + "]" 
+    "[" + (o |> Seq.map p |> String.concat "; ") + "]" 
 
 [<JavaScript>]
 let printArray (p: obj -> string, o: obj[]) =
-     "[|" + (o |> Array.map p |> String.concat "; ") + "|]" 
+    if o ===. null then "null" else
+    "[|" + (o |> Array.map p |> String.concat "; ") + "|]" 
 
 [<JavaScript>]
 let printArray2D (p: obj -> string, o: obj[,]) =
+    if o ===. null then "null" else
      "[[" + (
         seq {
             let l2 = Array2D.length2 o
@@ -72,6 +74,7 @@ let rec prettyPrint (o: obj) =
         if s = "[object Object]" then
             "{" + (JS.GetFields o |> Array.map (fun (k, v) -> k + " = " + prettyPrint v) |> String.concat "; ") + "}"
         else s
+    if o ===. null then "null" else
     let t = JS.TypeOf o
     if t  ==. JS.String then
         "\"" + As o + "\""

@@ -45,6 +45,9 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingConstructors = Dictionary<TypeDefinition * Constructor, CompilingMember * Expression>()
     let compilingStaticConstructors = Dictionary<TypeDefinition, Address * Expression>()
 
+    let mutable generatedClass = None
+    let generatedNames = HashSet<string>()
+
     let findProxied typ = 
         match proxies.TryFind typ with
         | Some p -> p 
@@ -99,6 +102,33 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.Warnings = List.ofSeq warnings
 
+    member this.GetGeneratedClass() =
+        match generatedClass with
+        | Some cls -> cls
+        | _ ->
+            let name = "Generated$" + this.AssemblyName.Replace('.', '_')
+            let td = 
+                TypeDefinition { 
+                    FullName = name
+                    Assembly = this.AssemblyName 
+                }
+            let a = [name]
+            classes.Add (td,
+                {
+                    Address = Some (Address a)
+                    BaseClass = None
+                    Constructors = Dictionary() 
+                    Fields = Dictionary() 
+                    StaticConstructor = None 
+                    Methods = Dictionary()
+                    Implementations = Dictionary()
+                    HasWSPrototype = false
+                    Macros = []
+                }
+            ) 
+            generatedClass <- Some (td, a)
+            td, a
+
     interface ICompilation with
         member this.GetCustomTypeInfo typ = 
             this.GetCustomType typ
@@ -131,6 +161,23 @@ type Compilation(meta: Info, ?hasGraph) =
             let parsed = Recognize.createInline None vars false inl
             Substitution(args).TransformExpression(parsed)
                 
+        member this.NewGeneratedJSMember name =
+            let resolved = generatedNames |> Resolve.getRenamed name   
+            let td, _ = this.GetGeneratedClass()
+            let meth = 
+                Method {
+                    MethodName = resolved
+                    Parameters = []
+                    ReturnType = VoidType
+                    Generics = 0       
+                }
+            td, meth
+
+        member this.AddGeneratedCode(meth: Method, body: Expression) =
+            let td, a = this.GetGeneratedClass()
+            let addr = Address (meth.Value.MethodName :: a) 
+            compilingMethods.Add((td, meth),(NotCompiled (Static addr, true), body))
+
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
         | Some res -> res
@@ -514,8 +561,10 @@ type Compilation(meta: Info, ?hasGraph) =
         | _ ->
             None
 
+    member this.GetCompilingConstructors() = 
+        compilingConstructors |> Seq.map (fun (KeyValue((t, c), (i, e))) -> t, c, i, e) |> Array.ofSeq
+    
     member this.CompilingMethods = compilingMethods  
-    member this.CompilingConstructors = compilingConstructors
 
     member this.AddCompiledMethod(typ, meth, info, isPure, comp) =
         let typ = findProxied typ 

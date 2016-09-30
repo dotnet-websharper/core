@@ -334,10 +334,11 @@ type ICompilation =
     abstract GetTypeAttributes : TypeDefinition -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetFieldAttributes : TypeDefinition * string -> option<Type * list<TypeDefinition * ParameterObject[]>>
     abstract ParseJSInline : string * list<Expression> -> Expression
+    abstract NewGeneratedJSMember : string -> TypeDefinition * Method
+    abstract AddGeneratedCode : Method * Expression -> unit
 
 // planned functionality:    
-//    abstract AddNewJSClass : string list -> string list
-//    abstract AddNewJSMethod : TypeDefinition * string * Expression -> string
+//    abstract AddNewJSClass : string -> TypeDefinition
 //    abstract AddNewJSMethod : string list * Expression -> string list     
               
 module IO =

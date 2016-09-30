@@ -439,15 +439,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         comp.AddCompiledStaticConstructor(typ, addr, res)
 
     static member CompileFull(comp: Compilation) =
-        while comp.CompilingMethods.Count > 0 do
+        for t, c, i, e in comp.GetCompilingConstructors() do
             let toJS = DotNetToJavaScript(comp)
-            let (KeyValue((t, m), (i, e))) =  Seq.head comp.CompilingMethods
-            toJS.CompileMethod(i, e, t, m)
-        
-        while comp.CompilingConstructors.Count > 0 do
-            let toJS = DotNetToJavaScript(comp)
-            let (KeyValue((t, m), (i, e))) =  Seq.head comp.CompilingConstructors
-            toJS.CompileConstructor(i, e, t, m)
+            toJS.CompileConstructor(i, e, t, c)
 
         for t, a, e in comp.GetCompilingStaticConstructors() do
             let toJS = DotNetToJavaScript(comp)
@@ -462,6 +456,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let toJS = DotNetToJavaScript(comp)
             comp.EntryPoint <- Some (toJS.TransformStatement(ep))
         | _ -> ()
+
+        while comp.CompilingMethods.Count > 0 do
+            let toJS = DotNetToJavaScript(comp)
+            let (KeyValue((t, m), (i, e))) =  Seq.head comp.CompilingMethods
+            toJS.CompileMethod(i, e, t, m)
 
     static member CompileExpression (comp, expr) =
         DotNetToJavaScript(comp).TransformExpression(expr)

@@ -719,7 +719,7 @@ let cCallG a args = Application (Global a, args, true, None)
 let cInt i = Value (Int i)
 let cString s = Value (Literal.String s)
 
-let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
+let createPrinter (comp: M.ICompilation) (d: Dictionary<Type, TypeDefinition * Method>) (ts: Type list) fs =
     let parts = FormatString.parseAll fs
     let args = ts |> List.map (fun t -> Id.New(mut = false), Some t)
         
@@ -752,7 +752,6 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
         )
 
     let prettyPrint (t: Type) o = 
-        let d = Dictionary<Type, Id * Expression ref>()
         let rec pp (t: Type) (o: Expression) = 
             match t with
             | TupleType ts ->
@@ -775,13 +774,13 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
             | ConcreteType ct ->
                 match comp.GetCustomTypeInfo ct.Entity with
                 | M.FSharpRecordInfo fields ->
-                    let pi = 
+                    let td, m = 
                         match d.TryGetValue t with
                         | false, _ ->
-                            let pi = Id.New(mut = false)
-                            let pr = ref Undefined // placeholder
-                            d.Add(t, (pi, pr))
-                            pr := (
+                            let name = "printer" + string (d.Count + 1)
+                            let gen = comp.NewGeneratedJSMember(name)
+                            d.Add(t, gen)
+                            let body = 
                                 let x = Id.New(mut = false)
                                 Lambda([x], 
                                     seq {
@@ -804,23 +803,23 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                                     }
                                     |> Seq.reduce (^+)
                                 ) 
-                            )
-                            pi
-                        | true, (pi, _) -> pi
-                    (Var pi).[[o]]
+                            comp.AddGeneratedCode(snd gen, body) |> ignore
+                            gen
+                        | true, gen -> gen
+                    Call(None, NonGeneric td, NonGeneric m, [o])
                 | M.FSharpUnionInfo u ->
                     if ct.Entity.Value.FullName = "Microsoft.FSharp.Collections.FSharpList`1" then
                         let x = Id.New(mut = false)
                         printfHelpers comp "printList" [ Lambda([x], pp ct.Generics.[0] (Var x)) ; o ]    
                     else
-                        let pi =
+                        let td, m =
                             match d.TryGetValue t with
                             | false, _ ->
-                                let pi = Id.New(mut = false)
-                                let pr = ref Undefined // placeholder
-                                d.Add(t, (pi, pr))
+                                let name = "printer" + string (d.Count + 1)
+                                let gen = comp.NewGeneratedJSMember(name)
+                                d.Add(t, gen)
                                 let gs = ct.Generics |> Array.ofList
-                                pr := (
+                                let body =
                                     let x = Id.New(mut = false)
                                     Lambda([x],                                         
                                         let caseInfo =
@@ -868,16 +867,14 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                                             Conditional(Var x ^== Value Null, cString "null", withoutNullCheck)    
                                         else withoutNullCheck    
                                     )
-                                )
-                                pi
-                            | true, (pi, _) -> pi
-                        (Var pi).[[o]]
+                                comp.AddGeneratedCode(snd gen, body) |> ignore
+                                gen
+                            | true, gen -> gen
+                        Call(None, NonGeneric td, NonGeneric m, [o])
                 | _ ->
                     printfHelpers comp "prettyPrint" [o]
             | _ -> printfHelpers comp "prettyPrint" [o]
-        let inner = pp t o
-        if d.Count = 0 then inner else
-        LetRec (d |> Seq.map (fun (KeyValue(_, (pi, pr))) -> pi, !pr) |> List.ofSeq, inner)
+        pp t o
 
     let inner = 
         parts
@@ -930,6 +927,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
 [<Sealed>]
 type PrintF() =
     inherit Macro()
+    let d = Dictionary()
     override this.TranslateCtor(c) =
 //        let rec getFunctionArgs t =
 //            if FST.IsFunction t then
@@ -945,7 +943,7 @@ type PrintF() =
         match c.Arguments with
         | [I.Value (Literal.String fs)] ->
             let ts = c.DefiningType.Generics.Head |> getFunctionArgs 
-            createPrinter c.Compilation ts fs |> MacroOk
+            createPrinter c.Compilation d ts fs |> MacroOk
         | _ -> MacroError "printfMacro error"
 
 [<JavaScript>]

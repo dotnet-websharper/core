@@ -46,7 +46,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             match address.Value with
             | [] -> glob
             | [ name ] ->
-                let var = Id.New (if name.StartsWith "StartupCode$" then "SC$" else name)
+                let var = Id.New (if name.StartsWith "StartupCode$" then "SC$1" else name)
                 let f = Value (String name)
                 declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f) |> safeObject))                
                 let res = Var var
