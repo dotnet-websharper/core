@@ -223,6 +223,14 @@ type GraphData =
             Overrides = [||]
         }
 
+type MetadataEntry =
+    | StringEntry of string
+    | TypeEntry of Type
+    | TypeDefinitionEntry of TypeDefinition
+    | MethodEntry of Method
+    | ConstructorEntry of Constructor
+    | CompositeEntry of list<MetadataEntry>
+
 type Info =
     {
         SiteletDefinition: option<TypeDefinition>
@@ -231,6 +239,7 @@ type Info =
         Classes : IDictionary<TypeDefinition, ClassInfo>
         CustomTypes : IDictionary<TypeDefinition, CustomTypeInfo>
         EntryPoint : option<Statement>
+        MacroEntries : IDictionary<MetadataEntry, MetadataEntry>
     }
 
     static member Empty =
@@ -241,6 +250,7 @@ type Info =
             Classes = Map.empty
             CustomTypes = Map.empty
             EntryPoint = None
+            MacroEntries = Map.empty
         }
 
     static member UnionWithoutDependencies (metas: seq<Info>) = 
@@ -256,6 +266,7 @@ type Info =
                 | [||] -> None
                 | [| ep |] -> Some ep
                 | _ -> failwith "Multiple entry points found."
+            MacroEntries = Dict.union (metas |> Seq.map (fun m -> m.MacroEntries))
         }
 
     member this.DiscardExpressions() =
@@ -334,8 +345,11 @@ type ICompilation =
     abstract GetTypeAttributes : TypeDefinition -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetFieldAttributes : TypeDefinition * string -> option<Type * list<TypeDefinition * ParameterObject[]>>
     abstract ParseJSInline : string * list<Expression> -> Expression
-    abstract NewGeneratedJSMember : string -> TypeDefinition * Method
+    abstract NewGenerated : string list -> TypeDefinition * Method * Address
     abstract AddGeneratedCode : Method * Expression -> unit
+    abstract AssemblyName : string with get
+    abstract GetMetadataEntry : MetadataEntry -> option<MetadataEntry>
+    abstract AddMetadataEntry : MetadataEntry * MetadataEntry -> unit
 
 // planned functionality:    
 //    abstract AddNewJSClass : string -> TypeDefinition

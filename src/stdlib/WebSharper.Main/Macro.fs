@@ -777,9 +777,8 @@ let createPrinter (comp: M.ICompilation) (d: Dictionary<Type, TypeDefinition * M
                     let td, m = 
                         match d.TryGetValue t with
                         | false, _ ->
-                            let name = "printer" + string (d.Count + 1)
-                            let gen = comp.NewGeneratedJSMember(name)
-                            d.Add(t, gen)
+                            let gtd, gm, _ = comp.NewGenerated([ "GeneratedPrintf"; "p"])
+                            d.Add(t, (gtd, gm))
                             let body = 
                                 let x = Id.New(mut = false)
                                 Lambda([x], 
@@ -803,8 +802,8 @@ let createPrinter (comp: M.ICompilation) (d: Dictionary<Type, TypeDefinition * M
                                     }
                                     |> Seq.reduce (^+)
                                 ) 
-                            comp.AddGeneratedCode(snd gen, body) |> ignore
-                            gen
+                            comp.AddGeneratedCode(gm, body) |> ignore
+                            gtd, gm
                         | true, gen -> gen
                     Call(None, NonGeneric td, NonGeneric m, [o])
                 | M.FSharpUnionInfo u ->
@@ -815,9 +814,8 @@ let createPrinter (comp: M.ICompilation) (d: Dictionary<Type, TypeDefinition * M
                         let td, m =
                             match d.TryGetValue t with
                             | false, _ ->
-                                let name = "printer" + string (d.Count + 1)
-                                let gen = comp.NewGeneratedJSMember(name)
-                                d.Add(t, gen)
+                                let gtd, gm, _ = comp.NewGenerated(["GeneratedPrintf"; "p" ])
+                                d.Add(t, (gtd, gm))
                                 let gs = ct.Generics |> Array.ofList
                                 let body =
                                     let x = Id.New(mut = false)
@@ -867,8 +865,8 @@ let createPrinter (comp: M.ICompilation) (d: Dictionary<Type, TypeDefinition * M
                                             Conditional(Var x ^== Value Null, cString "null", withoutNullCheck)    
                                         else withoutNullCheck    
                                     )
-                                comp.AddGeneratedCode(snd gen, body) |> ignore
-                                gen
+                                comp.AddGeneratedCode(gm, body) |> ignore
+                                gtd, gm
                             | true, gen -> gen
                         Call(None, NonGeneric td, NonGeneric m, [o])
                 | _ ->

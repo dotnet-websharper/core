@@ -286,6 +286,7 @@ let TransformAssembly (prototypes: IDictionary<string, string>) (assembly : Mono
         Classes = classes
         CustomTypes = Map.empty
         EntryPoint = None
+        MacroEntries = Map.empty
     }
 
 let TransformWSAssembly prototypes (assembly : WebSharper.Compiler.Assembly) =

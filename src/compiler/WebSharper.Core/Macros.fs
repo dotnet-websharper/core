@@ -97,6 +97,9 @@ type Macro() =
     abstract TranslateCtor : MacroCtor -> MacroResult
     default this.TranslateCtor(ctor: MacroCtor) = failwithf "TranslateCtor not implemented for macro %s" (this.GetType().FullName)
 
+    abstract Close : Metadata.ICompilation -> unit
+    default this.Close _ = ()
+
 /// The return type of Generate method of a generator 
 type GeneratedMember =
     | GeneratedMethod of TypeDefinition * Method

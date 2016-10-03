@@ -36,6 +36,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let interfaces = MergedDictionary meta.Interfaces
     let notAnnotatedCustomTypes = Dictionary()
     let customTypes = MergedDictionary meta.CustomTypes
+    let macroEntries = MergedDictionary meta.MacroEntries
 
     let hasGraph = defaultArg hasGraph true
     let graph = if hasGraph then Graph.FromData(meta.Dependencies) else Unchecked.defaultof<_>
@@ -46,7 +47,8 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingStaticConstructors = Dictionary<TypeDefinition, Address * Expression>()
 
     let mutable generatedClass = None
-    let generatedNames = HashSet<string>()
+    let mutable resolver = None : option<Resolve.Resolver>
+    let generatedMethodAddresses = Dictionary()
 
     let findProxied typ = 
         match proxies.TryFind typ with
@@ -112,10 +114,9 @@ type Compilation(meta: Info, ?hasGraph) =
                     FullName = name
                     Assembly = this.AssemblyName 
                 }
-            let a = [name]
             classes.Add (td,
                 {
-                    Address = Some (Address a)
+                    Address = None
                     BaseClass = None
                     Constructors = Dictionary() 
                     Fields = Dictionary() 
@@ -126,8 +127,8 @@ type Compilation(meta: Info, ?hasGraph) =
                     Macros = []
                 }
             ) 
-            generatedClass <- Some (td, a)
-            td, a
+            generatedClass <- Some td
+            td
 
     interface ICompilation with
         member this.GetCustomTypeInfo typ = 
@@ -161,22 +162,31 @@ type Compilation(meta: Info, ?hasGraph) =
             let parsed = Recognize.createInline None vars false inl
             Substitution(args).TransformExpression(parsed)
                 
-        member this.NewGeneratedJSMember name =
-            let resolved = generatedNames |> Resolve.getRenamed name   
-            let td, _ = this.GetGeneratedClass()
+        member this.NewGenerated addr =
+            let resolved = resolver.Value.StaticAddress (List.rev addr)
+            let td = this.GetGeneratedClass()
             let meth = 
                 Method {
-                    MethodName = resolved
+                    MethodName = resolved.Value |> List.rev |> String.concat "."
                     Parameters = []
                     ReturnType = VoidType
                     Generics = 0       
                 }
-            td, meth
+            generatedMethodAddresses.Add(meth, resolved)
+            td, meth, resolved
 
         member this.AddGeneratedCode(meth: Method, body: Expression) =
-            let td, a = this.GetGeneratedClass()
-            let addr = Address (meth.Value.MethodName :: a) 
+            let td = this.GetGeneratedClass()
+            let addr = generatedMethodAddresses.[meth]
             compilingMethods.Add((td, meth),(NotCompiled (Static addr, true), body))
+
+        member this.AssemblyName = this.AssemblyName
+
+        member this.GetMetadataEntry key =
+            macroEntries.TryFind key
+
+        member this.AddMetadataEntry(key, value) =
+            macroEntries.[key] <- value
 
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
@@ -218,6 +228,10 @@ type Compilation(meta: Info, ?hasGraph) =
                 } 
             macros.Add(macro, res)
             res
+
+    member this.CloseMacros() =
+        for m in macros.Values do
+            m |> Option.iter (fun m -> m.Close this)         
 
     member this.GetGeneratorInstance(gen) =
         match generators.TryFind gen with
@@ -278,6 +292,7 @@ type Compilation(meta: Info, ?hasGraph) =
             CustomTypes = 
                 customTypes.Current |> Dict.filter (fun _ v -> v <> NotCustomType)
             EntryPoint = entryPoint
+            MacroEntries = macroEntries.Current
         }    
 
     member this.AddProxy(tProxy, tTarget) =
@@ -674,6 +689,7 @@ type Compilation(meta: Info, ?hasGraph) =
             resolveInterface typ nr
 
         let r = getAllAddresses meta
+        resolver <- Some r
 
         let someEmptyAddress = Some (Address [])
         let unresolvedCctor = Some (Address [], Undefined)
@@ -1372,6 +1388,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 CustomTypes = 
                     customTypes |> Dict.filter (fun _ v -> v <> NotCustomType)
                 EntryPoint = None
+                MacroEntries = macroEntries
             }    
         let jP = Json.Provider.CreateTyped(info)
         let st = Verifier.State(jP)

@@ -35,30 +35,31 @@ type OptionalFieldKind =
 let ServerSideProvider = WebSharper.Core.Json.Provider.Create ()
 
 [<JavaScript>]
-type Provider() =
-    let i () = id 
-    member this.Id () = i
+module Provider =
+    let Id () = 
+        ()
+        fun () -> id
 
-    abstract EncodeTuple : (unit -> obj -> obj)[] -> (unit -> obj[] -> obj)
-    default this.EncodeTuple encs =
+    let EncodeTuple (encs: (unit -> obj -> obj)[]) : (unit -> obj[] -> obj) =
+        ()
         fun () args ->
             box (Array.map2 (fun f x -> f () x) encs args)
 
-    abstract EncodeDateTime : unit -> (unit -> System.DateTime -> obj)
-    default this.EncodeDateTime () =
-        fun () x ->
+    let EncodeDateTime () =
+        ()
+        fun () (x: System.DateTime) ->
             box (x.JS.ToISOString())
 
-    abstract EncodeList : (unit -> 'T -> obj) -> (unit -> list<'T> -> obj)
-    default this.EncodeList encEl =
+    let EncodeList encEl =
+        ()
         fun () (l: list<'T>) ->
             let a : obj[] = [||]
-            let encEl = encEl()
-            l |> List.iter (fun x -> a.JS.Push (encEl x) |> ignore)
+            let e = encEl()
+            l |> List.iter (fun x -> a.JS.Push (e x) |> ignore)
             box a
 
-    abstract EncodeRecord : obj -> (string * (unit -> obj -> obj) * OptionalFieldKind)[] -> (unit -> 'T -> obj)
-    default this.EncodeRecord _ fields =
+    let EncodeRecord (_: obj) (fields: (string * (unit -> obj -> obj) * OptionalFieldKind)[]) : (unit -> 'T -> obj) =
+        ()
         fun () x ->
             let o = New []
             fields |> Array.iter (fun (name, enc, kind) ->
@@ -75,8 +76,8 @@ type Provider() =
                 | _ -> failwith "Invalid field option kind")
             o
 
-    abstract EncodeUnion : obj -> string -> (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[] -> (unit -> 'T -> obj)
-    default this.EncodeUnion _ discr cases =
+    let EncodeUnion (_: obj) (discr: string) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> 'T -> obj) =
+        ()
         fun () x ->
             if JS.TypeOf x ===. JS.Object then
                 let o = New []
@@ -100,80 +101,79 @@ type Provider() =
                 o
             else box x // [<Constant>]
 
-    abstract EncodeArray : (unit -> 'T -> obj) -> (unit -> 'T[] -> obj)
-    default this.EncodeArray encEl =
+    let EncodeArray (encEl: (unit -> 'T -> obj)) : (unit -> 'T[] -> obj) =
+        ()
         fun () (a: 'T[]) ->
             let encEl = encEl()
             box (Array.map encEl a)
 
-    abstract EncodeSet : (unit -> 'T -> obj) -> (unit -> Set<'T> -> obj)
-    default this.EncodeSet encEl =
+    let EncodeSet (encEl: (unit -> 'T -> obj)) : (unit -> Set<'T> -> obj) =
+        ()
         fun () (s: Set<'T>) ->
             let a : obj[] = [||]
-            let encEl = encEl()
-            s |> Set.iter (fun x -> a.JS.Push (encEl x) |> ignore)
+            let e = encEl()
+            s |> Set.iter (fun x -> a.JS.Push (e x) |> ignore)
             box a
 
-    abstract EncodeStringMap : (unit -> 'T -> obj) -> (unit -> Map<string, 'T> -> obj)
-    default this.EncodeStringMap encEl =
+    let EncodeStringMap (encEl:(unit -> 'T -> obj)) : (unit -> Map<string, 'T> -> obj) =
+        ()
         fun () (m: Map<string, 'T>) ->
             let o = New []
             let encEl = encEl()
             m |> Map.iter (fun k v -> o?(k) <- encEl v)
             o
 
-    abstract EncodeStringDictionary : (unit -> 'T -> obj) -> (unit -> Dictionary<string, 'T> -> obj)
-    default this.EncodeStringDictionary encEl =
+    let EncodeStringDictionary (encEl:(unit -> 'T -> obj)) : (unit -> Dictionary<string, 'T> -> obj) =
+        ()
         fun () (d: Dictionary<string, 'T>) ->
             let o = New []
             let encEl = encEl()
             for KeyValue(k, v) in d :> seq<_> do o?(k) <- encEl v
             o
 
-    abstract DecodeTuple : (unit -> obj -> obj)[] -> (unit -> obj -> obj[])
-    default this.DecodeTuple decs =
-        As (this.EncodeTuple decs)
+    let DecodeTuple (decs: (unit -> obj -> obj)[]) : (unit -> obj -> obj[]) =
+        As (EncodeTuple decs)
 
-    abstract DecodeDateTime : unit -> (unit -> obj -> System.DateTime)
-    default this.DecodeDateTime() =
-        fun () x ->
+    let DecodeDateTime() =
+        ()
+        fun () (x: obj) ->
             Date(x :?> string).Self
 
-    abstract DecodeList : (unit -> obj -> 'T) -> (unit -> obj -> list<'T>)
-    default this.DecodeList decEl =
-        fun () a ->
+    let DecodeList (decEl: (unit -> obj -> 'T)) : (unit -> obj -> list<'T>) =
+        ()
+        fun () (a : obj) ->
             let decEl = decEl()
             List.init (a :?> obj[]).Length (fun i -> decEl (a :?> obj[]).[i])
 
-    abstract DecodeSet : (unit -> obj -> 'T) -> (unit -> obj -> Set<'T>)
-    default this.DecodeSet (decEl: unit -> obj -> 'T) : (unit -> obj -> Set<'T>) =
-        fun () a ->
+    let DecodeSet (decEl: unit -> obj -> 'T) : (unit -> obj -> Set<'T>) =
+        ()
+        fun () (a : obj) ->
             let decEl = decEl()
             Set.ofArray(Array.map decEl (a :?> obj[]))
 
-    abstract DecodeRecord : obj -> (string * (unit -> obj -> obj) * OptionalFieldKind)[] -> (unit -> obj -> 'T)
-    default this.DecodeRecord t fields =
+    let DecodeRecord (t: obj) (fields: (string * (unit -> obj -> obj) * OptionalFieldKind)[]) : (unit -> obj -> 'T) =
+        ()
         fun () (x: obj) ->
-        let o = if t ===. JS.Undefined then New [] else JS.New t
-        fields |> Array.iter (fun (name, dec, kind) ->
-            match kind with
-            | OptionalFieldKind.NotOption ->
-                if JS.HasOwnProperty x name then
-                    o?(name) <- dec () x?(name)
-                else failwith ("Missing mandatory field: " + name)
-            | OptionalFieldKind.NormalOption ->
-                o?(name) <-
-                    if JS.HasOwnProperty x name
-                    then Some (dec () x?(name))
-                    else None
-            | OptionalFieldKind.MarkedOption ->
-                if JS.HasOwnProperty x name then
-                    o?(name) <- (dec () x?(name))
-            | _ -> failwith "Invalid field option kind")
-        o
+            let o = if t ===. JS.Undefined then New [] else JS.New t
+            fields |> Array.iter (fun (name, dec, kind) ->
+                match kind with
+                | OptionalFieldKind.NotOption ->
+                    if JS.HasOwnProperty x name then
+                        o?(name) <- dec () x?(name)
+                    else failwith ("Missing mandatory field: " + name)
+                | OptionalFieldKind.NormalOption ->
+                    o?(name) <-
+                        if JS.HasOwnProperty x name
+                        then Some (dec () x?(name))
+                        else None
+                | OptionalFieldKind.MarkedOption ->
+                    if JS.HasOwnProperty x name then
+                        o?(name) <- (dec () x?(name))
+                | _ -> failwith "Invalid field option kind")
+            o
 
-    abstract DecodeUnion : obj -> string -> (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[] -> (unit -> obj -> 'T)
-    default this.DecodeUnion t discr cases =
+    let DecodeUnion (t: obj) (discr: string) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> obj -> 'T) =
+        ()
         fun () (x: obj) ->
             if JS.TypeOf x ===. JS.Object && x !=. null then
                 let o = if t ===. JS.Undefined then New [] else JS.New t
@@ -205,34 +205,24 @@ type Provider() =
                 o
             else x :?> 'T // [<Constant>]
 
-    abstract DecodeArray : (unit -> obj -> 'T) -> (unit -> obj -> 'T[])
-    default this.DecodeArray decEl =
-        As (this.EncodeArray (As decEl))
+    let DecodeArray (decEl :(unit -> obj -> 'T)) : (unit -> obj -> 'T[]) =
+        As (EncodeArray (As decEl))
 
-    abstract DecodeStringMap : (unit -> obj -> 'T) -> (unit -> obj -> Map<string, 'T>)
-    default this.DecodeStringMap decEl =
+    let DecodeStringMap (decEl :(unit -> obj -> 'T)) : (unit -> obj -> Map<string, 'T>) =
+        ()
         fun () (o: obj) ->
             let m = ref Map.empty
             let decEl = decEl ()
             JS.ForEach o (fun k -> m := Map.add k o?(k) !m; false)
             !m
 
-    abstract DecodeStringDictionary : (unit -> obj -> 'T) -> (unit -> obj -> Dictionary<string, 'T>)
-    default this.DecodeStringDictionary (decEl: unit -> obj -> 'T) : (unit -> obj -> Dictionary<string, 'T>) =
+    let DecodeStringDictionary (decEl: unit -> obj -> 'T) : (unit -> obj -> Dictionary<string, 'T>) =
+        ()
         fun () (o: obj) ->
             let d = System.Collections.Generic.Dictionary()
             let decEl = decEl ()
             JS.ForEach o (fun k -> d.[k] <- o?(k); false)
             d
-
-[<JavaScript>]
-module private Internals =
-
-    let Provider = Provider()
-
-type Provider with
-    [<JavaScript; Inline>]
-    static member Default = Internals.Provider
 
 module Macro =
 
@@ -273,13 +263,13 @@ module Macro =
                 FullName = "WebSharper.Json+Provider"
                 Assembly = "WebSharper.Web"
             }
-        let invoke (comp: M.ICompilation) x isEnc n args = 
+        let invoke (comp: M.ICompilation) isEnc n args = 
             let f = (if isEnc then "Encode" else "Decode") + n
             let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
-            Call(Some x, NonGeneric providerType, NonGeneric m, args)
-        let invokeId (comp: M.ICompilation) x = 
+            Call(None, NonGeneric providerType, NonGeneric m, args)
+        let invokeId (comp: M.ICompilation) = 
             let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = "Id")
-            Call(Some x, NonGeneric providerType, NonGeneric m, [])
+            Call(None, NonGeneric providerType, NonGeneric m, [])
 
         type EncodeResult = Choice<Expression, string, unit>
 
@@ -292,10 +282,9 @@ module Macro =
         let generic = Choice3Of3 () : EncodeResult
 
         /// Returns None if MacroNeedsResolvedTypeArg.
-        let getEncoding name isEnc param warn (comp: M.ICompilation) (t: Type) : option<Expression> =
-            let ctx = System.Collections.Generic.Dictionary()
-            let call = invoke comp param.Provider isEnc
-            let ident = invokeId comp param.Provider 
+        let getEncoding name isEnc warn (comp: M.ICompilation) (t: Type) : option<Expression> =
+            let call = invoke comp isEnc
+            let ident = invokeId comp 
             let rec encode t =
                 match t with
                 | ArrayType (t, 1) ->
@@ -336,19 +325,25 @@ module Macro =
                     <| []
                 | C (T "System.DateTime", []) ->
                     ok (call "DateTime" [])
-                | C (td, args) ->
-                    match ctx.TryGetValue td with
-                    | true, (id, e, _) ->
-                        ctx.[td] <- (id, e, true)
-                        ok (Var id)
-                    | false, _ ->
-                        let id = Id.New(mut = false)
-                        ctx.[td] <- (id, Value Null, false)
+                | C (td, args) ->                    
+                    let top = if isEnc then "JsonEncoder" else "JsonDecoder"
+                    let key = M.CompositeEntry [ M.StringEntry top; M.TypeDefinitionEntry td ]
+                    match comp.GetMetadataEntry key with
+                    | Some (M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ]) ->
+                        Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
+                    | _ ->
+                        let name = td.Value.FullName.Replace(".", "_").Replace("+", "$").Replace("`", "$")
+                        let gtd, gm, _ = comp.NewGenerated([top; name])
+                        let _, gv, va = comp.NewGenerated([top; "_" + name])
+                        comp.AddGeneratedCode(gv, Undefined)
+                        comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                         ((fun es ->
                             encRecType t args es >>= fun e ->
-                            let _, _, multiple = ctx.[td]
-                            ctx.[td] <- (id, e, multiple)
-                            ok (Var id)
+                            let v = Lambda([], Call (None, NonGeneric gtd, NonGeneric gv, []))
+                            let vn = Value (String va.Value.Head)
+                            let b = Lambda ([], Conditional(v, v, ItemSet(Global [top], vn, Application(e, [], true, Some 0))))
+                            comp.AddGeneratedCode(gm, b)
+                            Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                          ), args)
                         ||> List.fold (fun k t es ->
                             encode t >>= fun e -> k ((t, e) :: es))
@@ -525,94 +520,41 @@ module Macro =
                     fail (name + ": Type not supported: " + t.TypeDefinition.Value.FullName)
             match encode t with
             | Choice1Of3 x ->
-                if ctx |> Seq.forall (fun (KeyValue(_, (_, _, multiple))) -> not multiple) then
-                    // Every type is present only once and non-recursive;
-                    // no need for "let"s at all, we can just have one big expression.
-                    let trI =
-                        { new Transformer() with
-                            override this.TransformVar id = 
-                                let repl =
-                                    ctx
-                                    |> Array.ofSeq
-                                    |> Array.tryPick (fun (KeyValue(k, (id', e, _))) ->
-                                        if id = id' then
-                                            ctx.Remove(k) |> ignore
-                                            Some e
-                                        else None)    
-                                match repl with
-                                | Some e -> e
-                                | _ -> Var id
-                        }
-                    let rec sub x =
-                        let res = trI.TransformExpression x 
-                        if ctx.Count = 0 then res else sub res
-                    sub x |> Some
-                else
-                    LetRec(
-                        let fld = !~(String "x")
-                        [for KeyValue(_, (id, e, multiple)) in ctx do
-                            let xid = Id.New(mut = false)
-                            // xid = {}
-                            yield xid, Object []
-                            // id = function() { if (!xid.x) { xid.x = e() }; return xid.x; }
-                            yield id, Lambda([],
-                                Sequential [
-                                    Conditional(
-                                        Unary(UnaryOperator.``!``, ItemGet(Var xid, fld)),
-                                        ItemSet(Var xid, fld, Application(e, [], true, Some 0)),
-                                        !~Null);
-                                    ItemGet(Var xid, fld)])
-                        ], x)
-                    |> Some
+                Some x
             | Choice2Of3 msg -> failwithf "%A: %s" t msg
             | Choice3Of3 () -> None
 
-        let encodeLambda name param warn comp t =
-            getEncoding name true param warn comp t
+        let encodeLambda name warn comp t =
+            getEncoding name true warn comp t
             |> Option.map (fun x -> Application(x, [], true, Some 0))
 
-        let encode name param warn comp t arg =
-            encodeLambda name param warn comp t
+        let encode name warn comp t arg =
+            encodeLambda name warn comp t
             |> Option.map (fun x -> Application(x, [arg], true, Some 1))
 
-        let decodeLambda name param warn comp t =
-            getEncoding name false param warn comp t
+        let decodeLambda name warn comp t =
+            getEncoding name false warn comp t
             |> Option.map (fun x -> Application(x, [], true, Some 0))
 
-        let decode name param warn comp t arg =
-            decodeLambda name param warn comp t
+        let decode name warn comp t arg =
+            decodeLambda name warn comp t
             |> Option.map (fun x -> Application(x, [arg], true, Some 1))
 
-    type Parameters with
-
-        static member Default =
-            {
-                Warn = ignore
-                Provider =
-                    let prTyp = typeof<Provider>
-                    Call(
-                        None, 
-                        NonGeneric (Reflection.ReadTypeDefinition prTyp),
-                        NonGeneric (Reflection.ReadMethod (prTyp.GetProperty("Default", BF.Static ||| BF.Public).GetGetMethod())),
-                        []
-                    )
-            }
-
-    let Encode param warn comp t arg =
+    let Encode warn comp t arg =
         // ENCODE()(arg)
-        encode "Encode" param warn comp t arg
+        encode "Encode" warn comp t arg
 
-    let EncodeLambda param warn t =
+    let EncodeLambda warn t =
         // ENCODE()
-        encodeLambda "EncodeLambda" param warn t
+        encodeLambda "EncodeLambda" warn t
 
-    let Serialize param warn comp t arg =
+    let Serialize warn comp t arg =
         // JSON.stringify(ENCODE()(arg))
-        encode "Serialize" param warn comp t arg
+        encode "Serialize" warn comp t arg
         |> Option.map (fun x -> mJson comp "Stringify" [x])
 
-    let SerializeLambda param warn comp t =
-        encodeLambda "SerializeLambda" param warn comp t
+    let SerializeLambda warn comp t =
+        encodeLambda "SerializeLambda" warn comp t
         |> Option.map (fun x ->
             let enc = Id.New(mut = false)
             let arg = Id.New(mut = false)
@@ -621,20 +563,20 @@ module Macro =
                 Lambda([arg],
                     mJson comp "Stringify" [Application(Var enc, [Var arg], true, Some 1)])))
 
-    let Decode param warn comp t arg =
+    let Decode warn comp t arg =
         // DECODE()(arg)
-        decode "Decode" param warn comp t arg
+        decode "Decode" warn comp t arg
 
-    let DecodeLambda param warn comp t =
+    let DecodeLambda warn comp t =
         // DECODE()
-        decodeLambda "DecodeLambda" param warn comp t
+        decodeLambda "DecodeLambda" warn comp t
 
-    let Deserialize param warn comp t arg =
+    let Deserialize warn comp t arg =
         // DECODE()(JSON.parse(arg))
-        decode "Deserialize" param warn comp t (mJson comp "Parse" [arg])
+        decode "Deserialize" warn comp t (mJson comp "Parse" [arg])
 
-    let DeserializeLambda param warn comp t =
-        decodeLambda "DeserializeLambda" param warn comp t
+    let DeserializeLambda warn comp t =
+        decodeLambda "DeserializeLambda" warn comp t
         |> Option.map (fun x ->
             let dec = Id.New(mut = false)
             let arg = Id.New(mut = false)
@@ -655,24 +597,18 @@ module Macro =
             let warning = ref None
             let warn msg = 
                 warning := Some msg
-            let param = Parameters.Default
-            let f, provider =
+            let f =
                 match c.Method.Entity.Value.MethodName with
-                | "Encode" -> Encode, param.Provider
-                | "Decode" -> Decode, param.Provider
-                | "Serialize" -> Serialize, param.Provider
-                | "Deserialize" -> Deserialize, param.Provider
-                | "EncodeWith" -> Encode, List.head c.Arguments
-                | "DecodeWith" -> Decode, List.head c.Arguments
-                | "SerializeWith" -> Serialize, List.head c.Arguments
-                | "DeserializeWith" -> Deserialize, List.head c.Arguments
+                | "Encode" -> Encode
+                | "Decode" -> Decode
+                | "Serialize" -> Serialize
+                | "Deserialize" -> Deserialize
                 | _ -> failwith "Invalid macro invocation"
             let id = Id.New(mut = false)
             let res =
-                match f {param with Provider = Var id} warn c.Compilation c.Method.Generics.Head (last c.Arguments) with
+                match f warn c.Compilation c.Method.Generics.Head (last c.Arguments) with
                 | Some x ->
-                    Let(id, provider, x)
-                    |> WebSharper.Core.MacroOk
+                    WebSharper.Core.MacroOk x
                 | None -> WebSharper.Core.MacroNeedsResolvedTypeArg
             match !warning with
             | None -> res
@@ -686,12 +622,6 @@ open Macro
 [<Macro(typeof<SerializeMacro>)>]
 let Encode<'T> (x: 'T) = X<obj>
 
-/// Encodes an object in such a way that JSON stringification
-/// results in the same readable format as Sitelets.
-/// Client-side only.
-[<Macro(typeof<SerializeMacro>)>]
-let EncodeWith<'T> (provider: Provider) (x: 'T) = X<obj>
-
 /// Serializes an object to JSON using the same readable format as Sitelets.
 /// For plain JSON stringification, see Json.Stringify.
 [<Macro(typeof<SerializeMacro>)>]
@@ -700,21 +630,10 @@ let Serialize<'T> (x: 'T) =
     |> ServerSideProvider.Pack
     |> Core.Json.Stringify
 
-/// Serializes an object to JSON using the same readable format as Sitelets.
-/// For plain JSON stringification, see Json.Stringify.
-/// Client-side only.
-[<Macro(typeof<SerializeMacro>)>]
-let SerializeWith<'T> (provider: Provider) (x: 'T) = X<string>
-
 /// Decodes an object parsed from the same readable JSON format as Sitelets.
 /// Client-side only.
 [<Macro(typeof<SerializeMacro>)>]
 let Decode<'T> (x: obj) = X<'T>
-
-/// Decodes an object parsed from the same readable JSON format as Sitelets.
-/// Client-side only.
-[<Macro(typeof<SerializeMacro>)>]
-let DecodeWith<'T> (provider: Provider) (x: obj) = X<'T>
 
 /// Deserializes a JSON string using the same readable format as Sitelets.
 /// For plain JSON parsing, see Json.Parse.
@@ -722,12 +641,6 @@ let DecodeWith<'T> (provider: Provider) (x: obj) = X<'T>
 let Deserialize<'T> (x: string) =
     Core.Json.Parse x
     |> ServerSideProvider.GetDecoder<'T>().Decode
-
-/// Deserializes a JSON string using the same readable format as Sitelets.
-/// For plain JSON parsing, see Json.Parse.
-/// Client-side only.
-[<Macro(typeof<SerializeMacro>)>]
-let DeserializeWith<'T> (provider: Provider) (x: string) = X<'T>
 
 /// Test the shape of a JSON encoded value.
 /// Client-side only.

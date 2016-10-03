@@ -619,6 +619,7 @@ open System.Collections.Generic
 let getAllAddresses (meta: Info) =
     let r = Resolve.Resolver()
     for KeyValue(typ, cls) in meta.Classes do
+        if typ.Value.FullName.StartsWith "Generated$" then () else
         let pr = if cls.HasWSPrototype then Some (r.LookupPrototype typ) else None 
         let rec addMember (m: CompiledMember) =
             match m with

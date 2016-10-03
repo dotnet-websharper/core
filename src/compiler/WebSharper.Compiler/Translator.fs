@@ -457,10 +457,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.EntryPoint <- Some (toJS.TransformStatement(ep))
         | _ -> ()
 
-        while comp.CompilingMethods.Count > 0 do
-            let toJS = DotNetToJavaScript(comp)
-            let (KeyValue((t, m), (i, e))) =  Seq.head comp.CompilingMethods
-            toJS.CompileMethod(i, e, t, m)
+        let compileMethods() =
+            while comp.CompilingMethods.Count > 0 do
+                let toJS = DotNetToJavaScript(comp)
+                let (KeyValue((t, m), (i, e))) =  Seq.head comp.CompilingMethods
+                toJS.CompileMethod(i, e, t, m)
+
+        compileMethods()
+        comp.CloseMacros()
+        compileMethods()
 
     static member CompileExpression (comp, expr) =
         DotNetToJavaScript(comp).TransformExpression(expr)
