@@ -719,7 +719,7 @@ let cCallG a args = Application (Global a, args, true, None)
 let cInt i = Value (Int i)
 let cString s = Value (Literal.String s)
 
-let createPrinter (comp: M.ICompilation) (d: Dictionary<Type, TypeDefinition * Method>) (ts: Type list) fs =
+let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
     let parts = FormatString.parseAll fs
     let args = ts |> List.map (fun t -> Id.New(mut = false), Some t)
         
@@ -775,10 +775,13 @@ let createPrinter (comp: M.ICompilation) (d: Dictionary<Type, TypeDefinition * M
                 match comp.GetCustomTypeInfo ct.Entity with
                 | M.FSharpRecordInfo fields ->
                     let td, m = 
-                        match d.TryGetValue t with
-                        | false, _ ->
+                        let key = M.CompositeEntry [ M.StringEntry "Printf"; M.TypeEntry t ]
+                        match comp.GetMetadataEntry key with
+                        | Some (M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ]) ->
+                            gtd, gm
+                        | _ ->
                             let gtd, gm, _ = comp.NewGenerated([ "GeneratedPrintf"; "p"])
-                            d.Add(t, (gtd, gm))
+                            comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                             let body = 
                                 let x = Id.New(mut = false)
                                 Lambda([x], 
@@ -787,9 +790,7 @@ let createPrinter (comp: M.ICompilation) (d: Dictionary<Type, TypeDefinition * M
                                         let fields = Array.ofList fields
                                         let gs = ct.Generics |> Array.ofList
                                         for i = 0 to fields.Length - 1 do
-//                                            let name, strongName, ftyp, isOpt = fields.[i]
                                             let f = fields.[i]
-//                                            let jsName = match strongName with Some n -> n | _ -> f.Name
                                             let ftypRes = f.RecordFieldType.SubstituteGenerics gs
                                             let item =
                                                 if f.Optional then
@@ -804,7 +805,6 @@ let createPrinter (comp: M.ICompilation) (d: Dictionary<Type, TypeDefinition * M
                                 ) 
                             comp.AddGeneratedCode(gm, body) |> ignore
                             gtd, gm
-                        | true, gen -> gen
                     Call(None, NonGeneric td, NonGeneric m, [o])
                 | M.FSharpUnionInfo u ->
                     if ct.Entity.Value.FullName = "Microsoft.FSharp.Collections.FSharpList`1" then
@@ -812,10 +812,13 @@ let createPrinter (comp: M.ICompilation) (d: Dictionary<Type, TypeDefinition * M
                         printfHelpers comp "printList" [ Lambda([x], pp ct.Generics.[0] (Var x)) ; o ]    
                     else
                         let td, m =
-                            match d.TryGetValue t with
-                            | false, _ ->
+                            let key = M.CompositeEntry [ M.StringEntry "Printf"; M.TypeEntry t ]
+                            match comp.GetMetadataEntry key with
+                            | Some (M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ]) ->
+                                gtd, gm
+                            | _ ->
                                 let gtd, gm, _ = comp.NewGenerated([ comp.AssemblyName.Replace(".","$") + "_GeneratedPrintf"; "p" ])
-                                d.Add(t, (gtd, gm))
+                                comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                                 let gs = ct.Generics |> Array.ofList
                                 let body =
                                     let x = Id.New(mut = false)
@@ -867,7 +870,6 @@ let createPrinter (comp: M.ICompilation) (d: Dictionary<Type, TypeDefinition * M
                                     )
                                 comp.AddGeneratedCode(gm, body) |> ignore
                                 gtd, gm
-                            | true, gen -> gen
                         Call(None, NonGeneric td, NonGeneric m, [o])
                 | _ ->
                     printfHelpers comp "prettyPrint" [o]
@@ -921,17 +923,17 @@ let createPrinter (comp: M.ICompilation) (d: Dictionary<Type, TypeDefinition * M
     Lambda([k],
         args |> List.rev |> List.fold (fun c (a, _) -> Lambda([a], c)) (Var k).[[inner]]
     )
-    
+  
+let objty, objArrTy =
+    let t = typeof<System.Object>
+    let arrt = typeof<System.Object []>
+    Reflection.ReadTypeDefinition t,
+    Reflection.ReadTypeDefinition arrt
+  
 [<Sealed>]
 type PrintF() =
     inherit Macro()
-    let d = Dictionary()
     override this.TranslateCtor(c) =
-//        let rec getFunctionArgs t =
-//            if FST.IsFunction t then
-//                let x, y = FST.GetFunctionElements t
-//                x :: getFunctionArgs y
-//            else []
         let rec getFunctionArgs f =
             match f with
             | FSharpFuncType(a, r) -> 
@@ -940,8 +942,8 @@ type PrintF() =
                 []
         match c.Arguments with
         | [I.Value (Literal.String fs)] ->
-            let ts = c.DefiningType.Generics.Head |> getFunctionArgs 
-            createPrinter c.Compilation d ts fs |> MacroOk
+            let ts = c.DefiningType.Generics.Head |> getFunctionArgs |> List.map (fun t -> t.SubstituteGenericsToSame(NonGenericType objty))
+            createPrinter c.Compilation ts fs |> MacroOk
         | _ -> MacroError "printfMacro error"
 
 [<JavaScript>]
@@ -1103,12 +1105,6 @@ let stringTy, lengthMeth, padLeft, padRight =
     Reflection.ReadMethod (t.GetMethod "get_Length"),
     Reflection.ReadMethod (t.GetMethod("PadLeft", [|typeof<int>|])),
     Reflection.ReadMethod (t.GetMethod("PadRight", [|typeof<int>|]))
-
-let objty, objArrTy =
-    let t = typeof<System.Object>
-    let arrt = typeof<System.Object []>
-    Reflection.ReadTypeDefinition t,
-    Reflection.ReadTypeDefinition arrt
 
 [<Sealed>]
 type StringFormat() =

@@ -303,6 +303,17 @@ and Type =
         | VoidType -> VoidType
         | StaticTypeParameter i -> StaticTypeParameter i
 
+    member this.SubstituteGenericsToSame(o : Type) =
+        match this with 
+        | ConcreteType t -> ConcreteType { t with Generics = t.Generics |> List.map (fun p -> p.SubstituteGenericsToSame(o)) }
+        | TypeParameter _ -> o
+        | ArrayType (t, i) -> ArrayType (t.SubstituteGenericsToSame(o), i)
+        | TupleType ts -> TupleType (ts |> List.map (fun p -> p.SubstituteGenericsToSame(o))) 
+        | FSharpFuncType (a, r) -> FSharpFuncType (a.SubstituteGenericsToSame(o), r.SubstituteGenericsToSame(o))
+        | ByRefType t -> ByRefType (t.SubstituteGenericsToSame(o))
+        | VoidType -> VoidType
+        | StaticTypeParameter i -> StaticTypeParameter i
+
 type MethodInfo =
     {
         MethodName : string
