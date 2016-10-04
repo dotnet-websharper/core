@@ -35,7 +35,7 @@ IntelliFactory = {
             };
         },
 
-        Class: function (members, base, statics, name) {
+        Class: function (members, base, statics) {
             var proto = base ? new base() : {};
             var typeFunction = function (copyFrom) {
                 if (copyFrom) {
@@ -44,7 +44,6 @@ IntelliFactory = {
             }
             for (var m in members) { proto[m] = members[m] }
             typeFunction.prototype = proto;
-            typeFunction.name = name;
             if (statics) {
                 for (var f in statics) { typeFunction[f] = statics[f] }
             }
