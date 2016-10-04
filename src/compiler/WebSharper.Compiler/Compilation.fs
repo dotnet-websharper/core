@@ -182,11 +182,17 @@ type Compilation(meta: Info, ?hasGraph) =
 
         member this.AssemblyName = this.AssemblyName
 
-        member this.GetMetadataEntry key =
-            macroEntries.TryFind key
+        member this.GetMetadataEntries key =
+            match macroEntries.TryFind key with
+            | Some l -> l
+            | _ -> []
 
         member this.AddMetadataEntry(key, value) =
-            macroEntries.[key] <- value
+            match macroEntries.TryFind key with
+            | Some l ->
+                macroEntries.[key] <- value :: l
+            | _ -> 
+                macroEntries.[key] <- [value]
 
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with

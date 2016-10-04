@@ -776,8 +776,8 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                 | M.FSharpRecordInfo fields ->
                     let td, m = 
                         let key = M.CompositeEntry [ M.StringEntry "Printf"; M.TypeEntry t ]
-                        match comp.GetMetadataEntry key with
-                        | Some (M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ]) ->
+                        match comp.GetMetadataEntries key with
+                        | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
                             gtd, gm
                         | _ ->
                             let gtd, gm, _ = comp.NewGenerated([ "GeneratedPrintf"; "p"])
@@ -813,8 +813,8 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                     else
                         let td, m =
                             let key = M.CompositeEntry [ M.StringEntry "Printf"; M.TypeEntry t ]
-                            match comp.GetMetadataEntry key with
-                            | Some (M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ]) ->
+                            match comp.GetMetadataEntries key with
+                            | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
                                 gtd, gm
                             | _ ->
                                 let gtd, gm, _ = comp.NewGenerated([ comp.AssemblyName.Replace(".","$") + "_GeneratedPrintf"; "p" ])

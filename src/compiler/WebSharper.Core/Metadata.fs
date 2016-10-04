@@ -239,7 +239,7 @@ type Info =
         Classes : IDictionary<TypeDefinition, ClassInfo>
         CustomTypes : IDictionary<TypeDefinition, CustomTypeInfo>
         EntryPoint : option<Statement>
-        MacroEntries : IDictionary<MetadataEntry, MetadataEntry>
+        MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
     }
 
     static member Empty =
@@ -266,7 +266,7 @@ type Info =
                 | [||] -> None
                 | [| ep |] -> Some ep
                 | _ -> failwith "Multiple entry points found."
-            MacroEntries = Dict.union (metas |> Seq.map (fun m -> m.MacroEntries))
+            MacroEntries = Dict.unionAppend (metas |> Seq.map (fun m -> m.MacroEntries))
         }
 
     member this.DiscardExpressions() =
@@ -348,7 +348,7 @@ type ICompilation =
     abstract NewGenerated : string list -> TypeDefinition * Method * Address
     abstract AddGeneratedCode : Method * Expression -> unit
     abstract AssemblyName : string with get
-    abstract GetMetadataEntry : MetadataEntry -> option<MetadataEntry>
+    abstract GetMetadataEntries : MetadataEntry -> list<MetadataEntry>
     abstract AddMetadataEntry : MetadataEntry * MetadataEntry -> unit
 
 // planned functionality:    

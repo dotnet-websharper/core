@@ -123,6 +123,18 @@ module Dict =
                 with _ -> failwithf "Error merging dictionaries on key: %A" i.Key
         d
         
+    // Union of multiple IDictionary objects, appending lists on key merges
+    let unionAppend (dicts: seq<IDictionary<_,_>>) =
+        let d = Dictionary() :> IDictionary<_,_>
+        for s in dicts do
+            for KeyValue(k, v) in s do 
+                match d.TryFind k with
+                | Some l ->
+                    d.Add(k, List.append v l)
+                | _ ->
+                    d.Add(k, v)
+        d
+
     /// IDictionary union, allowing exact duplicates
     let unionDupl (dicts: seq<IDictionary<_,_>>) =
         let d = Dictionary() :> IDictionary<_,_>

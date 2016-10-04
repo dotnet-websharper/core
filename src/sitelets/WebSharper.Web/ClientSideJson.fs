@@ -328,8 +328,8 @@ module Macro =
                 | C (td, args) ->                    
                     let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
                     let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
-                    match comp.GetMetadataEntry key with
-                    | Some (M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ]) ->
+                    match comp.GetMetadataEntries key with
+                    | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
                         Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                     | _ ->
                         let gtd, gm, _ = comp.NewGenerated([top; "j"])
