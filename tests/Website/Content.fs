@@ -49,6 +49,18 @@ let HomePage (ctx: Context<_>) =
                         Attr("href", ctx.Link (SiteletsTests SampleSite.Home)),
                         Text "Sitelets test minisite"
                     )
+                ),
+                Elt("li",
+                    Elt("a",
+                        Attr("href", ctx.Link (CSharpSiteletsTests "/")),
+                        Text "C# Sitelets test minisite"
+                    )
+                ),
+                Elt("li",
+                    Elt("a",
+                        Attr("href", ctx.Link (CSharpSiteletsTests WebSharper.CSharp.Sitelets.Tests.SiteletTest.JohnDoe)),
+                        Text "C# Sitelets test minisite - John Doe"
+                    )
                 )
             )
         ]

@@ -50,7 +50,7 @@ module Provider =
         fun () (x: System.DateTime) ->
             box (x.JS.ToISOString())
 
-    let EncodeList encEl =
+    let EncodeList (encEl: unit -> 'T -> obj) : (unit -> list<'T> -> obj) =
         ()
         fun () (l: list<'T>) ->
             let a : obj[] = [||]
@@ -104,8 +104,8 @@ module Provider =
     let EncodeArray (encEl: (unit -> 'T -> obj)) : (unit -> 'T[] -> obj) =
         ()
         fun () (a: 'T[]) ->
-            let encEl = encEl()
-            box (Array.map encEl a)
+            let e = encEl()
+            box (Array.map e a)
 
     let EncodeSet (encEl: (unit -> 'T -> obj)) : (unit -> Set<'T> -> obj) =
         ()
@@ -119,16 +119,16 @@ module Provider =
         ()
         fun () (m: Map<string, 'T>) ->
             let o = New []
-            let encEl = encEl()
-            m |> Map.iter (fun k v -> o?(k) <- encEl v)
+            let e = encEl()
+            m |> Map.iter (fun k v -> o?(k) <- e v)
             o
 
     let EncodeStringDictionary (encEl:(unit -> 'T -> obj)) : (unit -> Dictionary<string, 'T> -> obj) =
         ()
         fun () (d: Dictionary<string, 'T>) ->
             let o = New []
-            let encEl = encEl()
-            for KeyValue(k, v) in d :> seq<_> do o?(k) <- encEl v
+            let e = encEl()
+            for KeyValue(k, v) in d :> seq<_> do o?(k) <- e v
             o
 
     let DecodeTuple (decs: (unit -> obj -> obj)[]) : (unit -> obj -> obj[]) =
@@ -142,14 +142,14 @@ module Provider =
     let DecodeList (decEl: (unit -> obj -> 'T)) : (unit -> obj -> list<'T>) =
         ()
         fun () (a : obj) ->
-            let decEl = decEl()
-            List.init (a :?> obj[]).Length (fun i -> decEl (a :?> obj[]).[i])
+            let e = decEl()
+            List.init (a :?> obj[]).Length (fun i -> e (a :?> obj[]).[i])
 
     let DecodeSet (decEl: unit -> obj -> 'T) : (unit -> obj -> Set<'T>) =
         ()
         fun () (a : obj) ->
-            let decEl = decEl()
-            Set.ofArray(Array.map decEl (a :?> obj[]))
+            let e = decEl()
+            Set.ofArray(Array.map e (a :?> obj[]))
 
     let DecodeRecord (t: obj) (fields: (string * (unit -> obj -> obj) * OptionalFieldKind)[]) : (unit -> obj -> 'T) =
         ()
@@ -212,7 +212,7 @@ module Provider =
         ()
         fun () (o: obj) ->
             let m = ref Map.empty
-            let decEl = decEl ()
+//            let decEl = decEl ()
             JS.ForEach o (fun k -> m := Map.add k o?(k) !m; false)
             !m
 
@@ -220,7 +220,7 @@ module Provider =
         ()
         fun () (o: obj) ->
             let d = System.Collections.Generic.Dictionary()
-            let decEl = decEl ()
+//            let decEl = decEl ()
             JS.ForEach o (fun k -> d.[k] <- o?(k); false)
             d
 
@@ -326,22 +326,21 @@ module Macro =
                 | C (T "System.DateTime", []) ->
                     ok (call "DateTime" [])
                 | C (td, args) ->                    
-                    let top = if isEnc then "JsonEncoder" else "JsonDecoder"
-                    let key = M.CompositeEntry [ M.StringEntry top; M.TypeDefinitionEntry td ]
+                    let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
+                    let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
                     match comp.GetMetadataEntry key with
                     | Some (M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ]) ->
                         Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                     | _ ->
-                        let name = td.Value.FullName.Replace(".", "_").Replace("+", "$").Replace("`", "$")
-                        let gtd, gm, _ = comp.NewGenerated([top; name])
-                        let _, gv, va = comp.NewGenerated([top; "_" + name])
+                        let gtd, gm, _ = comp.NewGenerated([top; "j"])
+                        let _, gv, va = comp.NewGenerated([top; "_" + "v"])
                         comp.AddGeneratedCode(gv, Undefined)
                         comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                         ((fun es ->
                             encRecType t args es >>= fun e ->
                             let v = Lambda([], Call (None, NonGeneric gtd, NonGeneric gv, []))
                             let vn = Value (String va.Value.Head)
-                            let b = Lambda ([], Conditional(v, v, ItemSet(Global [top], vn, Application(e, [], true, Some 0))))
+                            let b = Lambda ([], Conditional(v, v, ItemSet(Global [top], vn, Application(e, [], false, Some 0))))
                             comp.AddGeneratedCode(gm, b)
                             Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                          ), args)
@@ -353,6 +352,7 @@ module Macro =
                     fail (name + ": Cannot de/serialize a function value.")
                 | ByRefType _ ->
                     fail (name + ": Cannot de/serialize a byref value.")
+                | StaticTypeParameter _ 
                 | TypeParameter _ ->
                     generic
             // Encode a type that might be recursively defined

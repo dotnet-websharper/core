@@ -78,20 +78,20 @@ namespace WebSharper.CSharp.Sitelets.Tests
                 .Install();
 
         [EndPoint("/person")]
-        private class Person
+        public class Person
         {
             public Name name;
             public int age;
         }
 
-        private class Name
+        public class Name
         {
             public string first;
             public string last;
         }
 
         [EndPoint("/person")]
-        private class QueryPerson
+        public class QueryPerson
         {
             public QueryName name;
 
@@ -99,7 +99,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
             public int? age;
         }
 
-        private class QueryName
+        public class QueryName
         {
             [Query]
             public string first;
@@ -111,7 +111,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
         private static Elt Elt(string name, params Web.INode[] children) => new Elt(name, children);
         private static Attr Attr(string name, string value) => new Attr(name, value);
         private static Text Text(string text) => new Text(text);
-        private static Person JohnDoe => new Person { name = new Name { first = "John", last = "Doe" }, age = 30 };
+        public static Person JohnDoe => new Person { name = new Name { first = "John", last = "Doe" }, age = 30 };
         private static QueryPerson EmptyQueryPerson => new QueryPerson { name = new QueryName() };
     }
 }

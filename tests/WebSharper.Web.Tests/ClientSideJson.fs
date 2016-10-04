@@ -241,6 +241,8 @@ module ClientSideJson =
                     (New ["result" => "success"; "rx" => 9; "ry" => "o"])
                 equal (Json.Serialize (Failure "it failed" : GenericUnion<string>) |> Json.Parse)
                     (New ["result" => "failure"; "message" => "it failed"])
+                equal (Json.Serialize ((Success "x", Success { rx = 9; ry = "o" })) |> Json.Parse)
+                    (box [| New ["result" => "success"; "Item" => "x"]; New ["result" => "success"; "rx" => 9; "ry" => "o"] |])
             }
 
             Test "deserialize generic union" {

@@ -814,7 +814,7 @@ let createPrinter (comp: M.ICompilation) (d: Dictionary<Type, TypeDefinition * M
                         let td, m =
                             match d.TryGetValue t with
                             | false, _ ->
-                                let gtd, gm, _ = comp.NewGenerated(["GeneratedPrintf"; "p" ])
+                                let gtd, gm, _ = comp.NewGenerated([ comp.AssemblyName.Replace(".","$") + "_GeneratedPrintf"; "p" ])
                                 d.Add(t, (gtd, gm))
                                 let gs = ct.Generics |> Array.ofList
                                 let body =
