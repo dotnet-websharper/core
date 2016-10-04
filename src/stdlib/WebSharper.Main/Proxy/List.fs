@@ -35,13 +35,13 @@ type private ListProxy<'T> =
     [<Name "Nil">]
     static member Empty : list<'T> = []
 
-    member this.Head    with [<Inline "$this.$0">] get ()     = X<'T>
-    member this.Tail    with [<Inline "$this.$1">] get ()     = X<list<'T>>
+    member this.Head with [<Inline>] get () = List.head (As this) : 'T
+    member this.Tail with [<Inline>] get () = List.tail (As this) : list<'T>
     member this.IsEmpty with [<Inline "$this.$ == 0">] get () = X<bool>
 
-    member this.Length with get () = Seq.length (As this)
+    member this.Length with get () = List.length (As this)
 
-    member this.Item with get (x: int) : 'T = Seq.nth x (As this)
+    member this.Item with get (x: int) : 'T = List.nth (As this) x
 
     interface System.Collections.IEnumerable with
         member this.GetEnumerator() = (this :> _ seq).GetEnumerator() :> _

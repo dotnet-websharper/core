@@ -28,8 +28,45 @@ module private WebSharper.ListModuleProxy
 open WebSharper.JavaScript
 open WebSharper.CollectionInternals
 
+let badLengths() =
+    failwith "The lists have different lengths."
+
+let listEmpty() =
+    failwith "The input list was empty."
+
+[<Inline "$l.$0">]
+let unsafeHead (l: list<'T>) = X<'T> 
+
+[<Inline "$l.$1">]
+let unsafeTail (l: list<'T>) = X<list<'T>> 
+
+let setValue (l: list<'T>) (v: 'T) =
+    JS.Set l "$" 1
+    JS.Set l "$0" v
+
+let setTail (l: list<'T>) (t: list<'T>) =
+    JS.Set l "$1" t
+    t
+
+[<Inline "$l.$ == 1">]
+let notEmpty (l: list<_>) = X<bool>
+
 [<Name "append">]
-let Append (x: list<_>) (y: list<_>) = List.ofSeq (Seq.append x y)
+let Append (x: list<'T>) (y: list<'T>) = 
+    if List.isEmpty x then y else
+    let res = [] : 'T list
+    let mutable r = res
+    let mutable l = x
+    let mutable go = true
+    while go do
+        setValue r (unsafeHead l)
+        l <- unsafeTail l
+        if List.isEmpty l then
+            go <- false
+        else
+            r <- setTail r [] 
+    setTail r y |> ignore
+    res
 
 [<Inline>]
 let inline Average (l: list<_>) = Seq.average l
@@ -56,7 +93,7 @@ let Exists<'T> (p: 'T -> bool) (l: list<'T>) = Seq.exists p l
 let Exists2<'T1,'T2> (p : 'T1 -> 'T2 -> bool)
                         (l1: list<'T1>)
                         (l2: list<'T2>) =
-    Array.exists2 p (Array.ofSeq l1) (Array.ofSeq l2)
+    Array.exists2 p (Array.ofList l1) (Array.ofList l2)
 
 [<Name "filter">]
 let Filter<'T> (p: 'T -> bool) (l: list<'T>) =
@@ -77,28 +114,28 @@ let Fold2<'T1,'T2,'S> (f: 'S -> 'T1 -> 'T2 -> 'S)
                         (s: 'S)
                         (l1: list<'T1>)
                         (l2: list<'T2>) : 'S =
-    Array.fold2 f s (Array.ofSeq l1) (Array.ofSeq l2)
+    Array.fold2 f s (Array.ofList l1) (Array.ofList l2)
 
 [<Name "foldBack">]
 let FoldBack f (l: list<_>) s =
-    Array.foldBack f (Array.ofSeq l) s
+    Array.foldBack f (Array.ofList l) s
 
 [<Name "foldBack2">]
 let FoldBack2 f (l1: list<_>) (l2: list<_>) s =
-    Array.foldBack2 f (Array.ofSeq l1) (Array.ofSeq l2) s
+    Array.foldBack2 f (Array.ofList l1) (Array.ofList l2) s
 
 [<Inline>]
 let ForAll p (l: list<_>) = Seq.forall p l
 
 [<Name "forall2">]
 let ForAll2 p (l1: list<_>) (l2: list<_>) =
-    Array.forall2 p (Array.ofSeq l1) (Array.ofSeq l2)
+    Array.forall2 p (Array.ofList l1) (Array.ofList l2)
 
 [<Name "head">]
 let Head (l: list<'T>) =
     match l with 
     | h :: _ -> h
-    | _ -> failwith "The input list was empty."
+    | _ -> listEmpty()
 
 [<Name "init">]
 let Initialize s f = List.ofArray (Array.init s f)
@@ -106,29 +143,65 @@ let Initialize s f = List.ofArray (Array.init s f)
 [<Inline "$l.$ == 0">]
 let IsEmpty (l: list<_>) = X<bool>
 
-[<Inline>]
-let Iterate f (l: list<_>) = Seq.iter f l
+[<Name "iter">]
+let Iterate f (l: list<_>) =
+    let mutable r = l
+    while notEmpty r do
+        f r.Head
+        r <- r.Tail
 
 [<Name "iter2">]
 let Iterate2 f (l1: list<_>) (l2: list<_>) =
-    Array.iter2 f (Array.ofSeq l1) (Array.ofSeq l2)
+    let mutable r1 = l1
+    let mutable r2 = l2
+    while notEmpty r1 do
+        if List.isEmpty r2 then
+            badLengths()
+        f r1.Head r2.Head
+        r1 <- r1.Tail
+        r2 <- r2.Tail
+    if notEmpty r2 then
+        badLengths()
 
-[<Inline>]
-let IterateIndexed f (l: list<_>) = Seq.iteri f l
+[<Name "iteri">]
+let IterateIndexed f (l: list<_>) =
+    let mutable r = l
+    let mutable i = 0
+    while notEmpty r do
+        f i r.Head
+        r <- r.Tail
+        i <- i + 1
 
 [<Name "iteri2">]
 let IterateIndexed2 f (l1: list<_>) (l2: list<_>) =
-    Array.iteri2 f (Array.ofSeq l1) (Array.ofSeq l2)
+    let mutable r1 = l1
+    let mutable r2 = l2
+    let mutable i = 0
+    while notEmpty r1 do
+        if List.isEmpty r2 then
+            badLengths()
+        f i r1.Head r2.Head
+        r1 <- r1.Tail
+        r2 <- r2.Tail
+        i <- i + 1
+    if notEmpty r2 then
+        badLengths()
 
 [<Inline>]
-let Length (l: list<_>) = Seq.length l
+let Length (l: list<_>) =
+    let mutable r = l
+    let mutable i = 0
+    while notEmpty r do
+        r <- r.Tail
+        i <- i + 1
+    i
 
 [<Name "map">]
 let Map f (l: list<_>) = List.ofSeq (Seq.map f l)
 
 [<Name "map2">]
 let Map2 f (l1: list<_>) (l2: list<_>) =
-    List.ofArray (Array.map2 f (Array.ofSeq l1) (Array.ofSeq l2))
+    List.ofArray (Array.map2 f (Array.ofList l1) (Array.ofList l2))
 
 [<Inline>]
 let Map3 f (l1: list<_>) (l2: list<_>) (l3: list<_>) =
@@ -139,7 +212,7 @@ let MapIndexed f (l: list<_>) = List.ofSeq (Seq.mapi f l)
 
 [<Name "mapi2">]
 let MapIndexed2 f (l1: list<_>) (l2: list<_>) =
-    List.ofArray (Array.mapi2 f (Array.ofSeq l1) (Array.ofSeq l2))
+    List.ofArray (Array.mapi2 f (Array.ofList l1) (Array.ofList l2))
 
 [<Name "max">]
 let Max (l: list<_>) = Seq.reduce max l
@@ -174,22 +247,19 @@ let OfSeq (s: seq<'T>) =
     let mutable last = res
     use e = Enumerator.Get s
     while e.MoveNext() do
-        JS.Set last "$" 1
-        let next = [] : list<'T>
-        JS.Set last "$0" e.Current 
-        JS.Set last "$1" next
-        last <- next
+        setValue last e.Current
+        last <- setTail last []
     JS.Set last "$" 0
     res
 
 [<Name "partition">]
 let Partition p (l: list<_>) =
-    let (a, b) = Array.partition p (Array.ofSeq l)
+    let (a, b) = Array.partition p (Array.ofList l)
     (List.ofArray a, List.ofArray b)
 
 [<Name "permute">]
 let Permute f (l: list<_>) =
-    List.ofArray (Array.permute f (Array.ofSeq l))
+    List.ofArray (Array.permute f (Array.ofList l))
 
 [<Inline>]
 let Pick f (l: list<_>) = Seq.pick f l
@@ -200,7 +270,7 @@ let Reduce (f: 'T -> 'T -> 'T) (list: list<'T>) : 'T =
 
 [<Name "reduceBack">]
 let ReduceBack f (l: list<_>) =
-    Array.reduceBack f (Array.ofSeq l)
+    Array.reduceBack f (Array.ofList l)
 
 [<Name "replicate">]
 let Replicate size value =
@@ -208,9 +278,12 @@ let Replicate size value =
 
 [<Name "rev">]
 let Reverse (l: list<'T>) =
-    let a = Array.ofSeq l
-    System.Array.Reverse a
-    List.ofArray a
+    let mutable res = []
+    let mutable r = l
+    while notEmpty r do
+        res <- unsafeHead r :: res
+        r <- unsafeTail r
+    res
 
 [<Name "scan">]
 let Scan<'T,'S> (f: 'S -> 'T -> 'S) (s: 'S) (l: list<'T>) : list<'S> =
@@ -218,11 +291,11 @@ let Scan<'T,'S> (f: 'S -> 'T -> 'S) (s: 'S) (l: list<'T>) : list<'S> =
 
 [<Name "scanBack">]
 let ScanBack f (l: list<_>) s =
-    List.ofArray (Array.scanBack f (Array.ofSeq l) s)
+    List.ofArray (Array.scanBack f (Array.ofList l) s)
 
 [<Name "sort">]
 let Sort (l: list<_>) =
-    let a = Array.ofSeq l
+    let a = Array.ofList l
     Array.sortInPlace a
     List.ofArray a
 
@@ -236,13 +309,13 @@ let SortByDescending f (l: list<_>) =
 
 [<Name "sortDescending">]
 let SortDescending (l: list<_>) =
-    let a = Array.ofSeq l
+    let a = Array.ofList l
     ArraySortInPlaceByDescending id a
     List.ofArray a
 
 [<Name "sortWith">]
 let SortWith f (l: list<_>) =
-    let a = Array.ofSeq l
+    let a = Array.ofList l
     Array.sortInPlaceWith f a
     List.ofArray a
 
@@ -256,10 +329,10 @@ let inline SumBy (f: 'T -> 'U) (l: list<'T>) : 'U = Seq.sumBy f l
 let Tail (l: list<'T>) = 
     match l with 
     | _ :: t -> t
-    | _ -> failwith "The input list was empty."
+    | _ -> listEmpty()
 
 [<Inline>]
-let ToArray (l: list<_>) = Array.ofSeq l
+let ToArray (l: list<_>) = Array.ofList l
 
 [<Inline "$x">]
 let ToSeq<'T> (x: list<'T>) : seq<'T> = x :> _
@@ -299,12 +372,12 @@ let Unzip3 (l: list<_>) =
 
 [<Name "zip">]
 let Zip (l1: list<_>) (l2: list<_>) =
-    List.ofArray (Array.zip (Array.ofSeq l1) (Array.ofSeq l2))
+    List.ofArray (Array.zip (Array.ofList l1) (Array.ofList l2))
 
 [<Name "zip3">]
 let Zip3 (l1: list<_>) (l2: list<_>) (l3: list<_>) =
-    List.ofArray (Array.zip3 (Array.ofSeq l1)
-        (Array.ofSeq l2) (Array.ofSeq l3))
+    List.ofArray (Array.zip3 (Array.ofList l1)
+        (Array.ofList l2) (Array.ofList l3))
 
 [<Name "chunkBySize">]
 let ChunkBySize size list =
@@ -374,7 +447,14 @@ let GroupBy (f: 'T -> 'K when 'K : equality)
 
 [<Name "last">]
 let Last (list : list<'T>) : 'T =
-    SeqLast (List.toSeq list)
+    if List.isEmpty list then
+        listEmpty()
+    let mutable r = list
+    let mutable t = unsafeTail r
+    while notEmpty t do
+        r <- t
+        t <- unsafeTail r
+    unsafeHead r
 
 [<Name "contains">]
 let Contains (el: 'T) (l: list<'T>) =

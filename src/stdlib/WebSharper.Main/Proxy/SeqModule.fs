@@ -536,13 +536,11 @@ let TakeWhile (f: 'T -> bool) (s: seq<'T>) : seq<'T> =
             yield e.Current
     }
 
-[<Name "toArray">]
+[<Inline>]
 let ToArray (s: seq<'T>) =
-    let q = new System.Collections.Generic.Queue<'T>()
-    for e in s do q.Enqueue e
-    q.ToArray()
+    Array.ofSeq s
 
-[<Name "toList">]
+[<Inline>]
 let ToList (s: seq<'T>) = List.ofSeq s
 
 [<Inline>]

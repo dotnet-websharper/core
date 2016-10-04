@@ -297,8 +297,8 @@ let SeqLast (s: seq<_>) =
 let ListMap3 f (l1: list<_>) (l2: list<_>) (l3: list<_>) =
     Array.map2
         ( <| )
-        (Array.map2 f (Array.ofSeq l1) (Array.ofSeq l2))
-        (Array.ofSeq l3)
+        (Array.map2 f (Array.ofList l1) (Array.ofList l2))
+        (Array.ofList l3)
     |> List.ofArray
 
 [<Name "WebSharper.Seq.contains">]
