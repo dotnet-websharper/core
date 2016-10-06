@@ -1072,6 +1072,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         let trE = this.TransformExpression expr
                         let i = Id.New (mut = false)
                         Let (i, trE, this.TransformTypeCheck(Var i, ConcreteType uTyp) ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
+                    | M.DelegateInfo _ ->
+                        this.Error(SourceError "Type tests do not support delegate type, check against WebSharper.JavaScript.Function.")   
                     | _ -> 
                         this.Error(SourceError (sprintf "Failed to compile a type check for type '%s'" tname))
         | TypeParameter _ | StaticTypeParameter _ -> 
@@ -1080,7 +1082,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 TypeCheck(this.TransformExpression expr, typ)
             else 
                 this.Error(SourceError "Using a type test on a type parameter requires the Inline attribute.")
-        | _ -> this.Error(SourceError "Type tests do not support generic and array types.")
+        | ArrayType _ -> this.Error(SourceError "Type tests do not support generic array type, check against System.Array.")
+        | FSharpFuncType _ -> this.Error(SourceError "Type tests do not support F# function type, check against WebSharper.JavaScript.Function.")   
+        | _ ->  this.Error(SourceError "Failed to compile a type check.")
 
     override this.TransformExprSourcePos (pos, expr) =
         let p = currentSourcePos 
