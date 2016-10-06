@@ -179,13 +179,19 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
             if funcName.Length = 0 then
                 let declType, meth, reqs = snd bodyAndReqs
                 match meta.Classes.TryFind declType with
-                | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
+                | None -> 
+                    failwithf "Error in InlineControl at %s: Couldn't find translation of method %s.%s, it should have JavaScript attribute" 
+                        (getLocation()) declType.Value.FullName meth.Value.MethodName
                 | Some cls ->
                     match cls.Methods.TryFind meth with
                     | Some (M.Static a, _, _) ->
                         funcName <- Array.ofList (List.rev a.Value)
-                    | Some _ -> failwithf "Error in InlineControl at %s: Method must be static and not inlined" (getLocation()) 
-                    | None -> failwithf "Error in InlineControl at %s: Couldn't find address for method" (getLocation())
+                    | Some _ ->
+                        failwithf "Error in InlineControl at %s: Method %s.%s must be static and not inlined"
+                            (getLocation()) declType.Value.FullName meth.Value.MethodName
+                    | None -> 
+                        failwithf "Error in InlineControl at %s: Couldn't find translation of method %s.%s, it should have JavaScript attribute" 
+                            (getLocation()) declType.Value.FullName meth.Value.MethodName
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
         member this.Requires =
@@ -270,13 +276,19 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
             if funcName.Length = 0 then
                 let declType, meth, reqs = snd bodyAndReqs
                 match meta.Classes.TryFind declType with
-                | None -> failwithf "Error in InlineControl: Couldn't find address for method"
+                | None -> 
+                    failwithf "Error in InlineControl: Couldn't find translation of method %s.%s, it should have JavaScript attribute" 
+                        declType.Value.FullName meth.Value.MethodName
                 | Some cls ->
                     match cls.Methods.TryFind meth with
                     | Some (M.Static a, _, _) ->
                         funcName <- Array.ofList (List.rev a.Value)
-                    | Some _ -> failwithf "Error in InlineControl: Method must be static and not inlined" 
-                    | None -> failwithf "Error in InlineControl: Couldn't find address for method" 
+                    | Some _ -> 
+                        failwithf "Error in InlineControl: Method %s.%s must be static and not inlined"
+                            declType.Value.FullName meth.Value.MethodName
+                    | None -> 
+                        failwithf "Error in InlineControl: Couldn't find translation of method %s.%s, it should have JavaScript attribute" 
+                            declType.Value.FullName meth.Value.MethodName
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
         member this.Requires =
