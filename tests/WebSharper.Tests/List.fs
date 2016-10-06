@@ -296,7 +296,9 @@ let Tests =
         }
 
         Test "List.ofSeq" {
+            equal (List.ofSeq (seq { 1 .. 3 })) [1; 2; 3]
             equal (List.ofSeq [| 1; 2; 3 |]) [1; 2; 3]
+            equal (List.ofSeq [ 1; 2; 3 ]) [1; 2; 3]
         }
 
         Test "List.partition" {

@@ -269,11 +269,16 @@ let OfList<'T> (xs: list<'T>) =
 
 [<Name "ofSeq">]
 let OfSeq<'T> (xs: seq<'T>) : 'T [] =
-    let q : 'T [] = [||]
-    use o = Enumerator.Get xs
-    while o.MoveNext() do
-        push q o.Current
-    q
+    if xs :? System.Array then
+        Array.copy (As<'T[]> xs)
+    elif xs :? _ list then
+        Array.ofList (As<'T list> xs)
+    else
+        let q : 'T [] = [||]
+        use o = Enumerator.Get xs
+        while o.MoveNext() do
+            push q o.Current
+        q
 
 [<Name "partition">]
 let Partition f (arr: 'T []) : 'T [] * 'T [] =
@@ -344,15 +349,6 @@ let ScanBack (f: 'T -> 'S -> 'S) (arr: 'T []) (zero: 'S) : 'S [] =
 [<Inline>]
 let Set (arr: _ []) i v =
     F.SetArray arr i v
-
-let mapInPlace (f: 'T1 -> 'T2) (arr: 'T1 []) =
-    for i = 0 to Array.length arr - 1 do
-        arr.JS.[i] <- As (f arr.JS.[i])
-
-let mapiInPlace (f: int -> 'T1 -> 'T2) (arr: 'T1 []) : 'T2[] =
-    for i = 0 to Array.length arr - 1 do
-        arr.JS.[i] <- As (f i arr.JS.[i])
-    As arr
 
 [<Name "sort">]
 let Sort<'T when 'T: comparison> (arr: 'T []) : 'T [] =

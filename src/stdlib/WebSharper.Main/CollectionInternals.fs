@@ -95,9 +95,20 @@ let ArrayMapFoldBack<'T,'S,'R> (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) :
         acc <- b 
     r.Self, acc
 
+[<Name "WebSharper.Arrays.mapInPlace">]
+let mapInPlace (f: 'T1 -> 'T2) (arr: 'T1 []) =
+    for i = 0 to Array.length arr - 1 do
+        arr.JS.[i] <- As (f arr.JS.[i])
+
+[<Name "WebSharper.Arrays.mapiInPlace">]
+let mapiInPlace (f: int -> 'T1 -> 'T2) (arr: 'T1 []) : 'T2[] =
+    for i = 0 to Array.length arr - 1 do
+        arr.JS.[i] <- As (f i arr.JS.[i])
+    As arr
+
 [<Name "WebSharper.Arrays.sortInPlaceByDescending">]
 let ArraySortInPlaceByDescending<'T,'U when 'U: comparison> (f: 'T -> 'U) (arr: 'T []) =
-    As<unit> (arr.JS.Sort(fun (x, y) -> - compare (f x) (f y)))
+    (mapiInPlace (fun i x -> x, (f x, i)) arr).JS.Sort(fun (x, y) -> - compare (snd x) (snd y)) |> mapInPlace fst 
 
 [<Name "WebSharper.Seq.tryHead">]
 let SeqTryHead (s: seq<'T>) =

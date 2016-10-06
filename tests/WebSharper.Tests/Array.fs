@@ -348,7 +348,9 @@ let Tests =
         }
 
         Test "Array.ofSeq" {
+            equal (Array.ofSeq (seq {1 ..3 })) [|1; 2; 3|]
             equal (Array.ofSeq [1;2;3]) [|1; 2; 3|]
+            equal (Array.ofSeq [|1;2;3|]) [|1; 2; 3|]
         }
 
         Test "Array.partition" {

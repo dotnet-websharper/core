@@ -290,7 +290,9 @@ let IsEmpty (s: seq<'T>) : bool =
 
 [<Name "iter">]
 let Iterate p (s: seq<_>) =
-    Seq.iteri (fun _ x -> p x) s
+    use e = Enumerator.Get s
+    while e.MoveNext() do
+        p e.Current
 
 [<Name "iter2">]
 let Iterate2 p (s1: seq<_>) (s2: seq<_>) =
@@ -640,7 +642,12 @@ let FoldBack2 f (s1: seq<_>) (s2: seq<_>) s =
 
 [<Name "iteri2">]
 let IterateIndexed2 f (s1: seq<_>) (s2: seq<_>) =
-    Array.iteri2 f (Array.ofSeq s1) (Array.ofSeq s2)
+    let mutable i = 0
+    use e1 = Enumerator.Get s1
+    use e2 = Enumerator.Get s2
+    while e1.MoveNext() && e2.MoveNext() do
+        f i e1.Current e2.Current
+        i <- i + 1
 
 [<Name "map3">]
 let Map3 f (s1: seq<_>) (s2: seq<_>) (s3: seq<_>) =

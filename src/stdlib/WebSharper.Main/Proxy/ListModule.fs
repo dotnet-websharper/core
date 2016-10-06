@@ -93,7 +93,7 @@ let Exists<'T> (p: 'T -> bool) (l: list<'T>) = Seq.exists p l
 let Exists2<'T1,'T2> (p : 'T1 -> 'T2 -> bool)
                         (l1: list<'T1>)
                         (l2: list<'T2>) =
-    Array.exists2 p (Array.ofList l1) (Array.ofList l2)
+    Seq.exists2 p (Seq.ofList l1) (Seq.ofList l2)
 
 [<Name "filter">]
 let Filter<'T> (p: 'T -> bool) (l: list<'T>) =
@@ -243,14 +243,19 @@ let OfArray<'T> (arr: 'T []) =
 
 [<Name "ofSeq">]
 let OfSeq (s: seq<'T>) =
-    let res = [] : list<'T>
-    let mutable last = res
-    use e = Enumerator.Get s
-    while e.MoveNext() do
-        setValue last e.Current
-        last <- setTail last []
-    JS.Set last "$" 0
-    res
+    if s :? _ list then
+        As<'T list> s
+    elif s :? System.Array then
+        List.ofArray (As<'T[]> s)
+    else
+        let res = [] : list<'T>
+        let mutable last = res
+        use e = Enumerator.Get s
+        while e.MoveNext() do
+            setValue last e.Current
+            last <- setTail last []
+        JS.Set last "$" 0
+        res
 
 [<Name "partition">]
 let Partition p (l: list<_>) =
