@@ -556,9 +556,13 @@ let Last (ar : 'T []) : 'T =
     SeqLast (Array.toSeq ar)
 
 [<Name "map3">]
-let Map3 f (l1: _ []) (l2: _ []) (l3: _ []) =
-    ListMap3 f (Array.toList l1) (Array.toList l2) (Array.toList l3)
-    |> List.toArray
+let Map3 (f: 'T1 -> 'T2 -> 'T3 -> 'T4) (arr1: 'T1 []) (arr2: 'T2 []) (arr3: 'T3 []) : 'T4 [] =
+    checkLength arr1 arr2
+    checkLength arr1 arr3
+    let r = JavaScript.Array<'T4>(Array.length arr3)
+    for i = 0 to Array.length arr3 - 1 do
+        r.[i] <- f arr1.JS.[i] arr2.JS.[i] arr3.JS.[i]
+    r.Self
 
 [<Inline>]
 let Contains (el: 'T) (a: 'T []) =

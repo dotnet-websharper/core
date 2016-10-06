@@ -197,22 +197,77 @@ let Length (l: list<_>) =
     i
 
 [<Name "map">]
-let Map f (l: list<_>) = List.ofSeq (Seq.map f l)
+let Map (f: 'T1 -> 'T2) (x: list<'T1>) = 
+    let res = [] : list<'T2>
+    let mutable r = res
+    let mutable l = x
+    while notEmpty l do
+        setValue r (f (unsafeHead l))
+        r <- setTail r []
+        l <- unsafeTail l
+    res
 
 [<Name "map2">]
-let Map2 f (l1: list<_>) (l2: list<_>) =
-    List.ofArray (Array.map2 f (Array.ofList l1) (Array.ofList l2))
+let Map2 (f: 'T1 -> 'T2 -> 'T3) (x1: list<'T1>) (x2: list<'T2>) =
+    let res = [] : list<'T3>
+    let mutable r = res
+    let mutable l1 = x1
+    let mutable l2 = x2
+    while notEmpty l1 && notEmpty l2 do
+        setValue r (f (unsafeHead l1) (unsafeHead l2))
+        r <- setTail r []
+        l1 <- unsafeTail l1
+        l2 <- unsafeTail l2
+    if notEmpty l1 || notEmpty l2 then
+        badLengths()
+    res
 
 [<Inline>]
-let Map3 f (l1: list<_>) (l2: list<_>) (l3: list<_>) =
-    ListMap3 f l1 l2 l3
+let Map3 (f: 'T1 -> 'T2 -> 'T3 -> 'T4) (x1: list<'T1>) (x2: list<'T2>) (x3: list<'T3>) =
+    let res = [] : list<'T4> 
+    let mutable r = res
+    let mutable l1 = x1
+    let mutable l2 = x2
+    let mutable l3 = x3
+    while notEmpty l1 && notEmpty l2 && notEmpty l3 do
+        setValue r (f (unsafeHead l1) (unsafeHead l2) (unsafeHead l3))
+        r <- setTail r []
+        l1 <- unsafeTail l1
+        l2 <- unsafeTail l2
+        l3 <- unsafeTail l3
+    if notEmpty l1 || notEmpty l2 || notEmpty l3 then
+        badLengths()
+    res
 
 [<Name "mapi">]
-let MapIndexed f (l: list<_>) = List.ofSeq (Seq.mapi f l)
+let MapIndexed (f: int -> 'T1 -> 'T2) (x: list<'T1>) =
+    let res = [] : list<'T2>
+    let mutable r = res
+    let mutable l = x
+    let mutable i = 0
+    while notEmpty l do
+        setValue r (f i (unsafeHead l))
+        r <- setTail r []
+        l <- unsafeTail l
+        i <- i + 1
+    res
 
 [<Name "mapi2">]
-let MapIndexed2 f (l1: list<_>) (l2: list<_>) =
-    List.ofArray (Array.mapi2 f (Array.ofList l1) (Array.ofList l2))
+let MapIndexed2 (f: int -> 'T1 -> 'T2 -> 'T3) (x1: list<'T1>) (x2: list<'T2>) =
+    let res = [] : list<'T3>
+    let mutable r = res
+    let mutable l1 = x1
+    let mutable l2 = x2
+    let mutable i = 0
+    while notEmpty l1 && notEmpty l2 do
+        setValue r (f i (unsafeHead l1) (unsafeHead l2))
+        r <- setTail r []
+        l1 <- unsafeTail l1
+        l2 <- unsafeTail l2
+        i <- i + 1
+    if notEmpty l1 || notEmpty l2 then
+        badLengths()
+    res
 
 [<Name "max">]
 let Max (l: list<_>) = Seq.reduce max l
