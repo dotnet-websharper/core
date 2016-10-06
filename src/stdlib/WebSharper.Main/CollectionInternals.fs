@@ -304,14 +304,6 @@ let SeqLast (s: seq<_>) =
         while e.MoveNext() do ()
         e.Current
 
-[<Name "WebSharper.List.map3">]
-let ListMap3 f (l1: list<_>) (l2: list<_>) (l3: list<_>) =
-    Array.map2
-        ( <| )
-        (Array.map2 f (Array.ofList l1) (Array.ofList l2))
-        (Array.ofList l3)
-    |> List.ofArray
-
 [<Name "WebSharper.Seq.contains">]
 let SeqContains (el: 'T) (s: seq<'T>) =
     use e = Enumerator.Get s

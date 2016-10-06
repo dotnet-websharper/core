@@ -429,15 +429,15 @@ let TryFindIndexBack f (arr: _ []) = ArrayTryFindIndexBack f arr
 
 [<Name "tryHead">]
 let TryHead (arr: 'T[]) =
-    if arr.Length = 0 then None else Some arr.JS.[0]
+    if Array.length arr = 0 then None else Some arr.JS.[0]
 
 [<Name "tryItem">]
 let TryItem i (arr: 'T[]) =
-    if arr.Length <= i || i < 0 then None else Some arr.JS.[i]
+    if Array.length arr <= i || i < 0 then None else Some arr.JS.[i]
 
 [<Name "tryLast">]
 let TryLast (arr: 'T[]) =
-    let len = arr.Length
+    let len = Array.length arr
     if len = 0 then None else Some arr.JS.[len - 1]
 
 [<Name "tryPick">]
@@ -548,12 +548,14 @@ let GroupBy (f: 'T -> 'K when 'K : equality)
     )
 
 [<Name "head">]
-let Head (ar : 'T []) : 'T =
-    List.head (Array.toList ar)
+let Head (arr : 'T []) : 'T =
+    nonEmpty arr
+    arr.JS.[0]
 
 [<Name "last">]
-let Last (ar : 'T []) : 'T =
-    SeqLast (Array.toSeq ar)
+let Last (arr : 'T []) : 'T =
+    nonEmpty arr
+    arr.JS.[Array.length arr - 1]
 
 [<Name "map3">]
 let Map3 (f: 'T1 -> 'T2 -> 'T3 -> 'T4) (arr1: 'T1 []) (arr2: 'T2 []) (arr3: 'T3 []) : 'T4 [] =
@@ -588,12 +590,12 @@ let Singleton<'T> (x: 'T) =
 [<Name "skip">]
 let Skip<'T> i (ar : 'T []) =
     if i < 0 then InputMustBeNonNegative() else
-    if i > ar.Length then InsufficientElements() else
+    if i > Array.length ar then InsufficientElements() else
     ar.JS.Slice(i)
 
 [<Name "skipWhile">]
 let SkipWhile<'T> (predicate : 'T -> bool) (ar : 'T []) : 'T [] =
-    let len = ar.Length
+    let len = Array.length ar
     let mutable i = 0
     while i < len && predicate ar.JS.[i] do
         i <- i + 1
@@ -606,12 +608,12 @@ let Tail<'T> (ar : 'T []) : 'T [] =
 [<Name "take">]
 let Take<'T> n (ar: 'T []) =
     if n < 0 then InputMustBeNonNegative() else
-    if n > ar.Length then InsufficientElements() else
+    if n > Array.length ar then InsufficientElements() else
     ar.JS.Slice(0, n)
 
 [<Name "takeWhile">]
 let TakeWhile<'T> (predicate : 'T -> bool) (ar: 'T []) =
-    let len = ar.Length
+    let len = Array.length ar
     let mutable i = 0
     while i < len && predicate ar.JS.[i] do
         i <- i + 1
@@ -623,7 +625,7 @@ let Truncate<'T> n (ar: 'T []) =
 
 [<Name "exactlyOne">]
 let ExactlyOne (ar : 'T []) =
-    if ar.Length = 1 then
+    if Array.length ar = 1 then
         ar.JS.[0]
     else
         failwith "The input does not have precisely one element."
