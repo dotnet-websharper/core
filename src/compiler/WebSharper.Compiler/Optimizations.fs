@@ -157,13 +157,13 @@ let cleanRuntime expr =
         AppItem(f, "call", obj :: args)
     | AppItem(Application (Runtime "Bind", [f; obj], _, _), "apply", [args]) ->
         AppItem(f, "apply", [obj; args])
-    | Application(Application(Application(Runtime "Curried2", [Function([_; _], _) as f], _, _), [ a ], _, _), [ b ], isPure, _) ->
+    | Application(Application(Application(Runtime "Curried2", [ f ], _, _), [ a ], _, _), [ b ], isPure, _) ->
         Application(f, [ a; b ], isPure, Some 2)
-    | Application(Application(Application(Application(Runtime "Curried3", [Function([_; _; _], _) as f], _, _), [ a ], _, _), [ b ], _, _), [ c ], isPure, _) ->
+    | Application(Application(Application(Application(Runtime "Curried3", [ f ], _, _), [ a ], _, _), [ b ], _, _), [ c ], isPure, _) ->
         Application(f, [ a; b; c ], isPure, Some 3)
     | Application(Runtime rtFunc, xs, _, _) ->
         match rtFunc, xs with
-        | "Apply", [ Application(Runtime "Curried", [Function(_, _) as f; Value (Int l)], isPure, _); NewArray args ] 
+        | "Apply", [ Application(Runtime "Curried", [f; Value (Int l)], isPure, _); NewArray args ] 
             when args.Length = l ->
                 Application(f, args, isPure, Some l)
         | "CreateFuncWithArgs", [ TupledLambda (vars, body, isReturn) as f ] ->
