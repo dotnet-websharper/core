@@ -180,6 +180,20 @@ let listOfArrayDef =
         Generics = 1      
     }
 
+let sysArrayDef =
+    TypeDefinition {
+        Assembly = "mscorlib"
+        FullName = "System.Array"
+    }
+
+let arrayLengthDef =
+    Method {
+        MethodName = "get_Length"
+        Parameters = []
+        ReturnType = NonGenericType Definitions.Int
+        Generics = 0        
+    }
+
 let newId() = Id.New(mut = false)
 let namedId (i: FSharpMemberOrFunctionOrValue) =
     match i.DisplayName with
@@ -962,6 +976,10 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             Let (arrId, tr arr, Let(iId, tr i, MakeRef (ItemGet(Var arrId, Var iId)) (fun value -> ItemSet(Var arrId, Var iId, value))))
         | P.ILAsm ("[I_ldarg 0us]", [], []) ->
             This
+        | P.ILAsm ("[AI_ldnull; AI_cgt_un]", [], [ arr ]) ->
+            tr arr  
+        | P.ILAsm ("[I_ldlen; AI_conv DT_I4]", [], [ arr ]) ->
+            Call(Some (tr arr), NonGeneric sysArrayDef, NonGeneric arrayLengthDef, [])
         | P.ILAsm (s, _, _) ->
             parsefailf "Unrecognized ILAsm: %s" s
         | P.ILFieldGet _ -> parsefailf "F# pattern not handled: ILFieldGet"

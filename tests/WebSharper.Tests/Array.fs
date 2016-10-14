@@ -578,6 +578,34 @@ let Tests =
                 10
         }
 
+        Test "Array is null" {
+            let arr = [| 0; 1; 2; 3 |]
+            isFalse (isNull arr)
+            let x =
+                match arr with
+                | null -> true
+                | _ -> false
+            isFalse x   
+            let nullArr = null : int[]
+            isTrue (isNull nullArr)
+            let x =
+                match nullArr with
+                | null -> true
+                | _ -> false
+            isTrue x   
+        }
+
+        Test "Pattern matching" {
+            let arr = [| 0; 1; 2; 3 |]
+            let x =
+                match arr with
+                | null -> -1
+                | [| _; _; _ |] -> 4
+                | [| _; _; a; _ |] -> a 
+                | _ -> 5
+            equal x 2 
+        }
+
         #if FSHARP40
 
         Test "Array.contains" {
