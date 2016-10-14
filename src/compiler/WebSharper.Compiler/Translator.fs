@@ -353,7 +353,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             else
                 match mN with
                 | "ToString" -> Value (String typ.Entity.Value.FullName)
-                | _ -> this.Error(SourceError ("Unhandled F# compiler generated method for union: " + mN))                 
+                | _ -> this.Error(SourceError ("Unrecognized F# compiler generated method for union: " + mN))                 
         | M.FSharpUnionCaseInfo c ->
             let mN = me.MethodName
             if mN.StartsWith "get_" then
@@ -368,8 +368,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     | _ ->
                         this.Error(SourceError ("Could not find item of union case: " + fN))        
             else 
-                this.Error(SourceError ("Unhandled F# compiler generated method for union case: " + me.MethodName))    
-        | _ -> this.Error(SourceError ("Unhandled F# compiler generated method: " + me.MethodName))
+                this.Error(SourceError ("Unrecognized F# compiler generated method for union case: " + me.MethodName))    
+        | _ -> this.Error(SourceError ("Unrecognized F# compiler generated method: " + me.MethodName))
      
     member this.CompileMethod(info, expr, typ, meth) =
         currentNode <- M.MethodNode(typ, meth)
@@ -658,8 +658,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | NotCompiled (info, _) | NotGenerated (_, _, info, _) ->
                     this.CompileCall(info, false, expr, thisObj, typ, meth, args)
         | CustomTypeMember ct ->  
-            let inl = this.GetCustomTypeMethodInline(typ, ct, meth)
-            Substitution(args |> List.map this.TransformExpression, ?thisObj = (thisObj |> Option.map this.TransformExpression)).TransformExpression(inl)
+            try
+                let inl = this.GetCustomTypeMethodInline(typ, ct, meth)
+                Substitution(args |> List.map this.TransformExpression, ?thisObj = (thisObj |> Option.map this.TransformExpression)).TransformExpression(inl)
+            with _ ->
+                this.Error(SourceError ("Failed to translate compiler generated method: " + meth.Entity.Value.MethodName))
         | LookupMemberError err ->
             comp.AddError (currentSourcePos, err)
             match thisObj with 
@@ -800,8 +803,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.AddDependency(M.ConstructorNode (comp.FindProxied typ.Entity, rctor))
             this.TransformCtor(typ, rctor, fields)
         | _ ->
-            let inl = this.GetCustomTypeConstructorInline(comp.GetCustomType typ.Entity, emptyConstructor)
-            Substitution(fields |> List.map this.TransformExpression).TransformExpression(inl)
+            try 
+                let inl = this.GetCustomTypeConstructorInline(comp.GetCustomType typ.Entity, emptyConstructor)
+                Substitution(fields |> List.map this.TransformExpression).TransformExpression(inl)
+            with _ -> this.Error(SourceError "Failed to translate F# record creation.")
 
     override this.TransformNewUnionCase(typ, case, args) = 
         let t = typ.Entity
@@ -872,8 +877,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | NotCompiled (info, _) | NotGenerated (_, _, info, _) ->
                     this.CompileCtor(info, false, expr, typ, ctor, args)
         | CustomTypeMember ct ->  
-            let inl = this.GetCustomTypeConstructorInline(ct, ctor)
-            Substitution(args |> List.map this.TransformExpression).TransformExpression(inl)
+            try
+                let inl = this.GetCustomTypeConstructorInline(ct, ctor)
+                Substitution(args |> List.map this.TransformExpression).TransformExpression(inl)
+            with _ ->
+                this.Error(SourceError "Failed to translate compiler generated constructor")
         | LookupMemberError err ->
             comp.AddError (currentSourcePos, err)
             Application(errorPlaceholder, args |> List.map this.TransformExpression, false, None)
