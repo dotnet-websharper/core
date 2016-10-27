@@ -317,4 +317,24 @@ let Tests =
                 r
             equal res 3
         }
+
+        Test "Let rec initialization" {
+            let res =
+                let rec a = b() + 1
+                and b() = 2
+                a
+            equal res 3 
+            let res2 =
+                let rec a = b + 1
+                and b = 2
+                a
+            equal res2 3           
+        }
+
+        Test "Local function" {
+            let res =
+                let f x = x + 1
+                f 1, f 2
+            equal res (2, 3)
+        }
     }

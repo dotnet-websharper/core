@@ -607,8 +607,25 @@ let rec breakExpr expr : Broken<BreakResult> =
     | TypeCheck(a, b) ->
         br a |> toBrExpr
         |> mapBroken (fun aE -> TypeCheck (aE, b))
-    | LetRec (a, b) -> // better support for mutually recursive functions and values
-        let brAs = a |> List.map (fun (i, v) -> i, br v |> toBrExpr)
+    | LetRec (a, b) ->
+        let brAs = 
+            a |> List.map (fun (i, v) -> 
+                i, 
+                let brA = br v |> toBrExpr
+                match brA.Body with
+                | I.Function(args, body) when not i.IsMutable ->
+                    { 
+                        Body = None 
+                        Statements = brA.Statements
+                        Variables = (i, Some (FuncDeclaration(i, args, body))) :: brA.Variables
+                    }
+                | _ -> 
+                    { 
+                        Body = Some brA.Body 
+                        Statements = brA.Statements
+                        Variables = (i, None) :: brA.Variables
+                    }
+            )
         let brB = br b |> toBrExpr
         {
             Body = ResultExpr brB.Body
@@ -616,10 +633,13 @@ let rec breakExpr expr : Broken<BreakResult> =
                 [
                     for i, v in brAs do 
                         yield! v.Statements
-                        yield VarSetStatement(i, v.Body)
+                        match v.Body with
+                        | Some b ->
+                            yield VarSetStatement(i, b)
+                        | _ -> ()
                     yield! brB.Statements
                 ]
-            Variables = (brAs |> List.collect (fun (v, ba) -> (v, None) :: ba.Variables)) @ brB.Variables 
+            Variables = (brAs |> List.collect (fun (_, ba) -> ba.Variables)) @ brB.Variables 
         }
     | New(a, b) -> 
         brL (a :: b)

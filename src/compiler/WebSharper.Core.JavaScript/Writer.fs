@@ -339,14 +339,14 @@ let rec Expression expression =
     | _ ->
         failwith "Syntax.Expression not recognized"
 
-and Statement statement =
+and Statement canBeEmpty statement =
     match statement with
     | S.StatementPos (x, pos) -> 
-        SourceMapping pos ++ Statement x ++ SourceMappingEnd pos
+        SourceMapping pos ++ Statement canBeEmpty x ++ SourceMappingEnd pos
     | S.StatementComment (x, c) ->
-        Statement x ++ Word ("/*" + c +  "*/")
+        Statement canBeEmpty x ++ Word ("/*" + c +  "*/")
     | S.Block ss ->
-        BlockLayout (List.map Statement ss)
+        BlockLayout (List.map (Statement true) ss)
     | S.Break id ->
         Word "break" ++ Optional Id id ++ Token ";"
     | S.Continue id ->
@@ -355,12 +355,12 @@ and Statement statement =
         Word "debugger" ++ Token ";"
     | S.Do (s, e) ->
         Word "do"
-        ++ Statement s
+        ++ Statement false s
         ++ Word "while"
         ++ Parens (Expression e)
         ++ Token ";"
     | S.Empty ->
-        Token ";"
+        if canBeEmpty then Empty else Token ";"
     | S.Ignore e ->
         let rec dangerous = function
             | S.Lambda _ | S.NewObject _ -> true
@@ -380,7 +380,7 @@ and Statement statement =
                    ++ Optional Expression e2
                    ++ Token ";"
                    ++ Optional Expression e3)
-        ++ Statement body
+        ++ Statement false body
     | S.ForVars (vs, e1, e2, body) ->
         Word "for"
         ++ Parens (Word "var"
@@ -389,13 +389,13 @@ and Statement statement =
                    ++ Optional Expression e1
                    ++ Token ";"
                    ++ Optional Expression e2)
-        ++ Statement  body
+        ++ Statement false body
     | S.ForIn (e1, e2, body) ->
         Word "for"
         ++ Parens (LeftHandSideExpression e1
                    ++ Word "in"
                    ++ Expression e2)
-        ++ Statement body
+        ++ Statement false body
     | S.ForVarIn (id, e1, e2, body) ->
         Word "for"
         ++ Parens (Word "var"
@@ -404,11 +404,11 @@ and Statement statement =
                        Token "=" ++ AssignmentExpressionNoIn x))
                    ++ Word "in"
                    ++ Expression e2)
-        ++ Statement body
+        ++ Statement false body
     | S.If (e, s, S.Empty) ->
         Word "if"
         ++ Parens (Expression e)
-        -- Indent (Statement s)
+        -- Indent (Statement false s)
     | S.If (e, s1, s2) ->
         let rec isEmpty s =
             match s with
@@ -418,13 +418,13 @@ and Statement statement =
         let s2L =
             if isEmpty s2 then Empty else
                 Word "else"
-                -- Indent (Statement s2)
+                -- Indent (Statement false s2)
         Word "if"
         ++ Parens (Expression e)
-        -- Indent (Statement s1)
+        -- Indent (Statement false s1)
         -- s2L
     | S.Labelled (label, s) ->
-        Id label ++ Token ":" ++ Statement s
+        Id label ++ Token ":" ++ Statement canBeEmpty s
     | S.Return e ->
         Word "return"
         ++ Optional Expression e
@@ -438,11 +438,11 @@ and Statement statement =
                 | S.Default ss ->
                     yield Word "default" ++ Token ":"
                     for s in ss do
-                        yield Indent (Statement s)
+                        yield Indent (Statement true s)
                 | S.Case (e, ss)->
                     yield Word "case" ++ Expression e ++ Token ":"
                     for s in ss do
-                        yield Indent (Statement s)
+                        yield Indent (Statement true s)
            ]
     | S.Throw e ->
         Word "throw" ++ Expression e ++ Token ";"
@@ -463,9 +463,9 @@ and Statement statement =
         Word "var" ++ Vars vs ++ Token ";"
     | S.While (e, s) ->
         Word "while" ++ Parens (Expression e)
-        -- Indent (Statement s)
+        -- Indent (Statement false s)
     | S.With (e, s) ->
-        Word "with" ++ Parens (Expression e) ++ Statement s
+        Word "with" ++ Parens (Expression e) ++ Statement false s
     | _ ->
         failwith "Syntax.Statement not recognized"
 
@@ -477,12 +477,12 @@ and Element elem =
         ++ Parens (CommaSeparated Id formals)
         -- BlockLayout (List.map Element body)
     | S.Action s ->
-        Statement s
+        Statement true s
 
 and Block statement =
     match statement with
-    | S.Block ss -> List.map Statement (Seq.toList ss)
-    | s -> [Statement s]
+    | S.Block ss -> List.map (Statement true) (Seq.toList ss)
+    | s -> [Statement true s]
     |> BlockLayout
 
 and AssignmentExpression expression =
