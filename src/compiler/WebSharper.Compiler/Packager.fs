@@ -223,10 +223,7 @@ let exprToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.Code
         statement
         |> JavaScriptWriter.transformExpr env
         |> WebSharper.Core.JavaScript.Syntax.Ignore
-        |> WebSharper.Core.JavaScript.Syntax.Action
-        |> fun x -> [ x ]
-    if env.ScopeFuncs.Count > 0 then
-        failwith "Unexpected top level function declaration found"
+        |> List.singleton
 
     let writer = getWriter()
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program

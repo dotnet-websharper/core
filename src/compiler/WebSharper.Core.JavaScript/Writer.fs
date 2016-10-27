@@ -241,7 +241,7 @@ let BlockLayout items =
     -- ListLayout (fun a b -> a -- b) Indent items
     -- Token "}"
 
-let rec Expression expression =
+let rec Expression (expression) =
     match expression with
     | S.ExprPos (x, pos) -> 
         SourceMapping pos ++ Expression x ++ SourceMappingEnd pos
@@ -307,7 +307,7 @@ let rec Expression expression =
         Word "function"
         ++ Optional Id name
         ++ Parens (CommaSeparated Id formals)
-        -- BlockLayout (List.map Element body)
+        -- BlockLayout (List.map (Statement true) body)
     | S.New (x, xs) ->
         Word "new"
         ++ MemberExpression x
@@ -466,18 +466,13 @@ and Statement canBeEmpty statement =
         -- Indent (Statement false s)
     | S.With (e, s) ->
         Word "with" ++ Parens (Expression e) ++ Statement false s
-    | _ ->
-        failwith "Syntax.Statement not recognized"
-
-and Element elem =
-    match elem with
     | S.Function (name, formals, body) ->
         Word "function"
         ++ Id name
         ++ Parens (CommaSeparated Id formals)
-        -- BlockLayout (List.map Element body)
-    | S.Action s ->
-        Statement true s
+        -- BlockLayout (List.map (Statement true) body)
+    | _ ->
+        failwith "Syntax.Statement not recognized"
 
 and Block statement =
     match statement with
@@ -864,7 +859,7 @@ let WriteExpression options writer expression =
 
 let WriteProgram options writer (program: S.Program) =
     for elem in program do
-        Element elem
+        Statement true elem
         |> Render options writer
 
 let ExpressionToString options expression =

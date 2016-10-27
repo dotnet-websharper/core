@@ -710,7 +710,7 @@ and funBody i =
         match (peek i).Lexeme with
         | L.ReservedWord Kw.``function`` -> skipRx i; loop (funDecl i :: acc)
         | L.Punctuator Sy.``}`` -> skipRx i; List.rev acc
-        | _ -> loop (S.Action (stmt i) :: acc)
+        | _ -> loop ((stmt i) :: acc)
     loop []
 
 and program i =
@@ -718,7 +718,7 @@ and program i =
         match (peek i).Lexeme with
         | L.EndOfInput -> List.rev acc
         | L.ReservedWord Kw.``function`` -> skipRx i; loop (funDecl i :: acc)
-        | _ -> loop (S.Action (stmt i) :: acc)
+        | _ -> loop ((stmt i) :: acc)
     loop []
 
 let ParseExpression i =

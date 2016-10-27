@@ -114,7 +114,7 @@ and Expression =
     | Binary      of E * BinaryOperator * E
     | Conditional of E * E * E
     | Constant    of Literal
-    | Lambda      of option<Id> * list<Id> * list<ProgramElement>
+    | Lambda      of option<Id> * list<Id> * list<S>
     | New         of E * list<E>
     | NewArray    of list<option<E>>
     | NewObject   of list<Id * E>
@@ -178,6 +178,7 @@ and Statement =
     | Vars         of list<Id * option<E>>
     | While        of E * S
     | With         of E * S
+    | Function     of Id * list<Id> * list<S>
     | StatementPos of S * SourcePos 
     | StatementComment of S * string
 
@@ -188,45 +189,40 @@ and SwitchElement =
 
 and private E = Expression
 and private S = Statement
-
-/// Represents program elements.
-and ProgramElement =
-    | Action of S
-    | Function of Id * list<Id> * list<ProgramElement>
      
-val (|Application|_|) : E -> (E * list<E>                                 ) option
-val (|Binary     |_|) : E -> (E * BinaryOperator * E                      ) option
-val (|Conditional|_|) : E -> (E * E * E                                   ) option
-val (|Constant   |_|) : E -> (Literal                                     ) option
-val (|Lambda     |_|) : E -> (option<Id> * list<Id> * list<ProgramElement>) option
-val (|New        |_|) : E -> (E * list<E>                                 ) option
-val (|NewArray   |_|) : E -> (list<option<E>>                             ) option
-val (|NewObject  |_|) : E -> (list<Id * E>                                ) option
-val (|NewRegex   |_|) : E -> (Regex                                       ) option
-val (|Postfix    |_|) : E -> (E * PostfixOperator                         ) option
-val (|This       |_|) : E -> (unit                                        ) option
-val (|Unary      |_|) : E -> (UnaryOperator * E                           ) option
-val (|Var        |_|) : E -> (Id                                          ) option
-val (|VarNamed   |_|) : E -> (Id * string                                 ) option
-val (|ExprPos    |_|) : E -> (Expression * SourcePos                      ) option
+val (|Application|_|) : E -> (E * list<E>                    ) option
+val (|Binary     |_|) : E -> (E * BinaryOperator * E         ) option
+val (|Conditional|_|) : E -> (E * E * E                      ) option
+val (|Constant   |_|) : E -> (Literal                        ) option
+val (|Lambda     |_|) : E -> (option<Id> * list<Id> * list<S>) option
+val (|New        |_|) : E -> (E * list<E>                    ) option
+val (|NewArray   |_|) : E -> (list<option<E>>                ) option
+val (|NewObject  |_|) : E -> (list<Id * E>                   ) option
+val (|NewRegex   |_|) : E -> (Regex                          ) option
+val (|Postfix    |_|) : E -> (E * PostfixOperator            ) option
+val (|This       |_|) : E -> (unit                           ) option
+val (|Unary      |_|) : E -> (UnaryOperator * E              ) option
+val (|Var        |_|) : E -> (Id                             ) option
+val (|VarNamed   |_|) : E -> (Id * string                    ) option
+val (|ExprPos    |_|) : E -> (Expression * SourcePos         ) option
 val (|ExprComment |_|) : E -> (Expression * string) option
 
-val Application : E * list<E>                                  -> E
-val Binary      : E * BinaryOperator * E                       -> E
-val Conditional : E * E * E                                    -> E
-val Constant    : Literal                                      -> E
-val Lambda      : option<Id> * list<Id> * list<ProgramElement> -> E
-val New         : E * list<E>                                  -> E
-val NewArray    : list<option<E>>                              -> E
-val NewObject   : list<Id * E>                                 -> E
-val NewRegex    : Regex                                        -> E
-val Postfix     : E * PostfixOperator                          -> E
-val This        :                                                 E
-val Unary       : UnaryOperator * E                            -> E
-val Var         : Id                                           -> E
-val VarNamed    : Id * string                                  -> E
-val ExprPos     : Expression * SourcePos                       -> E
-val ExprComment     : Expression * string                       -> E
+val Application : E * list<E>                     -> E
+val Binary      : E * BinaryOperator * E          -> E
+val Conditional : E * E * E                       -> E
+val Constant    : Literal                         -> E
+val Lambda      : option<Id> * list<Id> * list<S> -> E
+val New         : E * list<E>                     -> E
+val NewArray    : list<option<E>>                 -> E
+val NewObject   : list<Id * E>                    -> E
+val NewRegex    : Regex                           -> E
+val Postfix     : E * PostfixOperator             -> E
+val This        :                                    E
+val Unary       : UnaryOperator * E               -> E
+val Var         : Id                              -> E
+val VarNamed    : Id * string                     -> E
+val ExprPos     : Expression * SourcePos          -> E
+val ExprComment : Expression * string             -> E
                                                                            
 val (|Block       |_|) : S -> (list<S>                                         ) option                  
 val (|Break       |_|) : S -> (option<Label>                                   ) option                        
@@ -249,6 +245,7 @@ val (|TryWith     |_|) : S -> (S * Id * S * option<S>                          )
 val (|Vars        |_|) : S -> (list<Id * option<E>>                            ) option                               
 val (|While       |_|) : S -> (E * S                                           ) option                
 val (|With        |_|) : S -> (E * S                                           ) option                
+val (|Function    |_|) : S -> (Id * list<Id> * list<S>                         ) option                
 val (|StatementPos|_|) : S -> (S * SourcePos                                   ) option                         
 val (|StatementComment|_|) : S -> (S * string) option                         
 
@@ -273,11 +270,12 @@ val TryWith      : S * Id * S * option<S>                           -> S
 val Vars         : list<Id * option<E>>                             -> S
 val While        : E * S                                            -> S
 val With         : E * S                                            -> S
+val Function     : Id * list<Id> * list<S>                          -> S
 val StatementPos : S * SourcePos                                    -> S
-val StatementComment : S * string                                    -> S
+val StatementComment : S * string                                   -> S
 
 /// Represents complete programs.
-type Program = list<ProgramElement>
+type Program = list<S>
 
 /// Maps over the immediate sub-nodes of an expression.
 val TransformExpression : (E -> E) -> (S -> S) -> E -> E

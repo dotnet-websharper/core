@@ -112,7 +112,7 @@ and Expression =
     | Binary      of E * BinaryOperator * E
     | Conditional of E * E * E
     | Constant    of Literal
-    | Lambda      of option<Id> * list<Id> * list<ProgramElement>
+    | Lambda      of option<Id> * list<Id> * list<S>
     | New         of E * list<E>
     | NewArray    of list<option<E>>
     | NewObject   of list<Id * E>
@@ -180,6 +180,7 @@ and Statement =
     | Vars         of list<Id * option<E>>
     | While        of E * S
     | With         of E * S
+    | Function     of Id * list<Id> * list<S>
     | StatementPos of S * SourcePos
     | StatementComment of S * string
 
@@ -190,22 +191,15 @@ and SwitchElement =
 and E = Expression
 and S = Statement
 
-and ProgramElement =
-    | Action of S
-    | Function of Id * list<Id> * list<ProgramElement>
-
-type Program = list<ProgramElement>
+type Program = list<S>
 
 let TransformExpression (!) (!^) expr =
     let (!!) = List.map (!)
-    let rec tE = function Action s -> Action (!^ s)
-                        | Function (n, f, b) -> Function (n, f, tB b)
-    and tB x = List.map tE x
     match expr with
     | Application (x, xs) -> Application (!x, !!xs)
     | Binary (x, o, y) -> Binary (!x, o, !y)
     | Conditional (x, y, z) -> Conditional (!x, !y, !z)
-    | Lambda (name, vars, body) -> Lambda (name, vars, tB body)
+    | Lambda (name, vars, body) -> Lambda (name, vars, List.map (!^) body)
     | New (x, xs) -> New (!x, !!xs)
     | NewArray xs -> NewArray (List.map (Option.map (!)) xs)
     | NewObject xs -> NewObject [for (k,v) in xs -> (k,!v)]
@@ -217,6 +211,7 @@ let TransformExpression (!) (!^) expr =
     | Var _ 
     | VarNamed _ -> expr
     | ExprPos (x, pos) -> ExprPos (!x, pos)
+    | ExprComment (x, comment) -> ExprComment (!x, comment)
 
 let TransformStatement (!) (!^) stmt =
     let (!?) = Option.map (!)
@@ -245,11 +240,13 @@ let TransformStatement (!) (!^) stmt =
     | Vars vs -> Vars [for (k, v) in vs -> (k, !?v)]
     | While (x, y) -> While (!x, !^y)
     | With (x, y) -> With (!x, !^y)
+    | Function (x, y, z) -> Function (x, y, !^+z)
     | Break _
     | Continue _
     | Debugger
     | Empty -> stmt
     | StatementPos (x, pos) -> StatementPos (!^x, pos)
+    | StatementComment (x, comment) -> StatementComment (x, comment)
 
 let Fold t fE fS init x =
     let state = ref init
@@ -265,7 +262,7 @@ let FoldStatement fE fS init stmt =
     Fold TransformStatement fE fS init stmt
 
 /// Gets all locally scoped variables.
-let GetLocals (body: list<ProgramElement>) (bound: Set<Id>) =
+let GetLocals (body: list<S>) (bound: Set<Id>) =
     let res = ref bound
     let rec visitStmt s : unit =
         match s with
@@ -274,14 +271,11 @@ let GetLocals (body: list<ProgramElement>) (bound: Set<Id>) =
                 res := Set.add v !res
         | ForVarIn (v, _, _, _) ->
             res := Set.add v !res
-        | _ -> ()
-        FoldStatement (fun () _ -> ()) (fun () s -> visitStmt s) () s
-    and visitElem e =
-        match e with
-        | Action s -> visitStmt s
         | Function (v, _, _) ->
             res := Set.add v !res
-    List.iter visitElem body
+        | _ -> ()
+        FoldStatement (fun () _ -> ()) (fun () s -> visitStmt s) () s
+    List.iter visitStmt body
     !res
 
 /// Closes an expression by rewiring global variables to be
@@ -303,7 +297,7 @@ let Close (glob: Id) (expr: E) =
         | Function (name, vars, body) ->
             let bound = GetLocals body (Set.add name bound + Set.ofList vars)
             Function (name, vars, tP bound body)
-        | Action s -> Action (tS bound s)
+        | s -> tS bound s
     and tP scope prog = List.map (tPE scope) prog
     and tS scope stmt = TransformStatement (tE scope) (tS scope) stmt
     tE Set.empty expr
@@ -344,16 +338,16 @@ let Optimize (expr: E) =
             (Set.singleton x, expr)
         | _ ->
             WalkExpression tE tS Set.unionMany expr
-    and tPE e : Set<Id> * ProgramElement =
+    and tPE e : Set<Id> * S =
         match e with
         | Function (name, vars, body) ->
             let (free, newBody) = tP body
             let newFree = Set.difference free (Set.ofList vars)
             let newVars = List.rev (removeVars free (List.rev vars))
             (newFree, Function (name, newVars, newBody))
-        | Action s ->
+        | s ->
             let (free, newS) = WalkStatement tE tS Set.unionMany s
-            (free, Action newS)
+            (free, newS)
     and tP prog : Set<Id> * Program =
         let (sets, prog) = List.unzip (List.map tPE prog)
         (Set.unionMany sets, prog)
@@ -436,6 +430,7 @@ let (|TryWith     |_|) s = match s with IgnoreStatementPos (TryWith    (a,b,c,d)
 let (|Vars        |_|) s = match s with IgnoreStatementPos (Vars       a        ) -> Some a         | _ -> None   
 let (|While       |_|) s = match s with IgnoreStatementPos (While      (a,b)    ) -> Some (a,b)     | _ -> None   
 let (|With        |_|) s = match s with IgnoreStatementPos (With       (a,b)    ) -> Some (a,b)     | _ -> None   
+let (|Function    |_|) s = match s with IgnoreStatementPos (Function   (a,b,c)  ) -> Some (a,b,c)   | _ -> None   
 
 let (|StatementPos|_|) s = match s with StatementPos (a,b) -> Some (a,b) | _ -> None
 let (|StatementComment|_|) s = match s with StatementComment (a,b) -> Some (a,b) | _ -> None
@@ -461,6 +456,7 @@ let TryWith    (a,b,c,d) = TryWith    (a,b,c,d)
 let Vars       a         = Vars       a        
 let While      (a,b)     = While      (a,b)    
 let With       (a,b)     = With       (a,b)   
+let Function   (a,b,c)   = Function   (a,b,c)
   
 let rec RemoveOuterStatementSourcePos s =
     match s with 

@@ -224,12 +224,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
     | S.Lambda (a, b, c) ->
         let vars = b |> List.map (fun v -> Id.New v)
         let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
-        let body =
-            c
-            |> List.map (function
-                | S.Action s -> s
-                | _ -> raise RecognitionError)
-            |> S.Block
+        let body = S.Block c
         let fres =
             match a with
             | None -> Function (vars, transformStatement innerEnv body)
@@ -342,6 +337,12 @@ and transformStatement (env: Environment) (statement: S.Statement) =
             Block (a |> List.map (fun (var, value) -> VarDeclaration (env.NewVar var, match value with Some v -> trE v | None -> Undefined)))
     | S.While (a, b) -> While (trE a, trS b)
     | S.With (a, b) -> failwith "Unsupported: JS with statement"
+    | S.Function (a, b, c) ->
+        let f = env.NewVar a
+        let vars = b |> List.map (fun v -> Id.New v)
+        let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
+        let body = S.Block c
+        FuncDeclaration(f, vars, transformStatement innerEnv body)
     | S.StatementComment _ -> failwith "impossible, comments are not parsed"
 
 let createInline thisArg args isPure inlineString =        
@@ -357,12 +358,6 @@ let createInline thisArg args isPure inlineString =
             e |> transformExpression (Environment.New(thisArg, false, isPure, args))
         | Choice2Of2 p ->
             p
-            |> List.map (function 
-                | S.Action a -> a
-                | S.Function (f, args, body) ->
-                    // ignore is just temporary, transformExpression should transform it to FuncDeclaration
-                    S.Ignore(S.Lambda(Some f, args, body)) 
-            )
             |> S.Block
             |> transformStatement (Environment.New(thisArg, false, isPure, args))
             |> IgnoredStatementExpr
@@ -381,11 +376,6 @@ let parseDirect thisArg args jsString =
             e |> transformExpression (Environment.New(thisArg, true, false, args)) |> Return 
         | Choice2Of2 p ->
             p
-            |> List.map (
-                function 
-                | S.Action a -> a 
-                | S.Function (id, args, body) -> S.Vars [ id, Some (S.Lambda(None, args, body)) ]
-            )
             |> S.Block
             |> transformStatement (Environment.New(thisArg, true, false, args))
     Function(args, body)

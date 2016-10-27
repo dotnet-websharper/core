@@ -36,7 +36,6 @@ type Environment =
         mutable ScopeNames : Set<string>
         mutable CompactVars : int
         mutable ScopeIds : Map<Id, string>
-        ScopeFuncs : ResizeArray<J.ProgramElement>
         ScopeVars : ResizeArray<J.Id>
     }
     static member New(pref) =
@@ -45,7 +44,6 @@ type Environment =
             ScopeNames = Set.empty
             CompactVars = 0 
             ScopeIds = Map.empty   
-            ScopeFuncs = ResizeArray()
             ScopeVars = ResizeArray()
         }
 
@@ -55,14 +53,12 @@ type Environment =
             ScopeNames = this.ScopeNames
             CompactVars = this.CompactVars
             ScopeIds = this.ScopeIds
-            ScopeFuncs = ResizeArray()
             ScopeVars = ResizeArray()
         }
 
     member this.Declarations =
         if this.ScopeVars.Count = 0 then [] else
-            [ J.Action (J.Vars (this.ScopeVars |> Seq.map (fun v -> v, None) |> List.ofSeq)) ]
-        @ List.ofSeq this.ScopeFuncs
+            [ J.Vars (this.ScopeVars |> Seq.map (fun v -> v, None) |> List.ofSeq) ]
         
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 
@@ -150,10 +146,9 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 match List.rev b with
                 | J.Return None :: more -> List.rev more
                 | _ -> b
-                |> List.map J.Action
             | J.Empty
             | J.Return None -> []
-            | b -> [ b |> J.Action ]
+            | b -> [ b ]
         J.Lambda(None, args, innerEnv.Declarations @ body)
     | ItemGet (x, y) 
     | ItemGetNonPure (x, y) 
@@ -234,7 +229,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         failwithf "Not in JavaScript form: %A" (RemoveSourcePositions().TransformExpression(expr))
         invalidForm (GetUnionCaseName expr)
 
-and transformStatement (env: Environment) (statement: Statement) : J.Statement =
+and private transformStatement (env: Environment) (statement: Statement) : J.Statement =
     let inline trE x = transformExpr env x
     let inline trS x = transformStatement env x
     let sequential s effect =
@@ -248,8 +243,6 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         let rec add a =
             match IgnoreStatementSourcePos a with 
             | Block b -> b |> List.iter add
-            | FuncDeclaration _ ->
-                trS a |> ignore    
             | Empty 
             | ExprStatement IgnoreSourcePos.Undefined -> ()
             | ExprStatement (IgnoreSourcePos.Sequential s) ->
@@ -305,12 +298,10 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 match List.rev b with
                 | J.Return None :: more -> List.rev more
                 | _ -> b
-                |> List.map J.Action
             | J.Empty
             | J.Return None -> []
-            | b -> [ b |> J.Action ]
-        J.Function(id, args, innerEnv.Declarations @ body) |> env.ScopeFuncs.Add
-        J.Empty
+            | b -> [ b ]
+        J.Function(id, args, innerEnv.Declarations @ body)
     | While(a, b) -> J.While (trE a, trS b)
     | DoWhile(a, b) -> J.Do (trS a, trE b)
     | For(a, b, c, d) -> J.For(Option.map trE a, Option.map trE b, Option.map trE c, trS d)
