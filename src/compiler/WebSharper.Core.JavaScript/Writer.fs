@@ -560,7 +560,10 @@ let Simplify layout =
         | Horizontal (a, b) -> pair Horizontal (simp a) (simp b)
         | Vertical (a, b) -> pair Vertical (simp a) (simp b)
         | Indent Empty -> Empty
-        | Indent x -> Indent (simp x)
+        | Indent x -> 
+            match simp x with
+            | Empty -> Empty
+            | sx -> Indent sx 
         | x -> x
     simp layout
 

@@ -70,12 +70,12 @@ let transformId (env: Environment) (id: Id) =
 
 let formatter = WebSharper.Core.JavaScript.Identifier.MakeFormatter()
 
-let defineId (env: Environment) (id: Id) =
+let defineId (env: Environment) addToDecl (id: Id) =
     if env.Preference = P.Compact then
         let name = formatter env.CompactVars    
         env.CompactVars <- env.CompactVars + 1   
         env.ScopeIds <- env.ScopeIds |> Map.add id name
-        env.ScopeVars.Add(name)
+        if addToDecl then env.ScopeVars.Add(name)
         name 
     else 
         let vars = env.ScopeNames
@@ -84,7 +84,7 @@ let defineId (env: Environment) (id: Id) =
             name <- Resolve.newName name 
         env.ScopeNames <- vars |> Set.add name
         env.ScopeIds <- env.ScopeIds |> Map.add id name
-        env.ScopeVars.Add(name)
+        if addToDecl then env.ScopeVars.Add(name)
         name
        
 let invalidForm c =
@@ -94,10 +94,10 @@ type CollectVariables(env: Environment) =
     inherit StatementVisitor()
 
     override this.VisitFuncDeclaration(f, _, _) =
-        defineId env f |> ignore    
+        defineId env false f |> ignore    
 
     override this.VisitVarDeclaration(v, _) =
-        defineId env v |> ignore
+        defineId env true v |> ignore
 
 let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     let inline trE x = transformExpr env x
@@ -138,7 +138,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         J.ExprPos (trE e, jpos)
     | Function (ids, b) ->
         let innerEnv = env.NewInner()
-        let args = ids |> List.map (defineId innerEnv) 
+        let args = ids |> List.map (defineId innerEnv false) 
         CollectVariables(innerEnv).VisitStatement(b)
         let body =
             match b |> transformStatement innerEnv with
@@ -290,7 +290,7 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
     | FuncDeclaration (x, ids, b) ->
         let id = transformId env x
         let innerEnv = env.NewInner()
-        let args = ids |> List.map (defineId innerEnv) 
+        let args = ids |> List.map (defineId innerEnv false) 
         CollectVariables(innerEnv).VisitStatement(b)
         let body =
             match b |> transformStatement innerEnv with
@@ -317,10 +317,10 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
     | Throw(a) -> J.Throw (trE a)
     | Labeled(a, b) -> J.Labelled(a.Name.Value, trS b)
     | TryWith(a, b, c) -> 
-        J.TryWith(trS a, defineId env (match b with Some b -> b | _ -> Id.New()), trS c, None)
+        J.TryWith(trS a, defineId env false (match b with Some b -> b | _ -> Id.New()), trS c, None)
     | TryFinally(a, b) ->
         J.TryFinally(trS a, trS b)
-    | ForIn(a, b, c) -> J.ForVarIn(defineId env a, None, trE b, trS c)
+    | ForIn(a, b, c) -> J.ForVarIn(defineId env false a, None, trE b, trS c)
     | _ -> 
         failwithf "Not in JavaScript form: %A" (RemoveSourcePositions().TransformStatement(statement))
         invalidForm (GetUnionCaseName statement)
