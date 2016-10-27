@@ -61,8 +61,12 @@ type I2 =
 type I3 = 
     abstract Get: unit -> int
 
+type I4 = 
+    [<Name "I4Value">]
+    abstract Value: int with get, set
+
 type R3 =
-    { R3A : int }
+    { mutable R3A : int }
     
     interface I with
         [<JavaScript>]
@@ -76,10 +80,21 @@ type R3 =
         [<JavaScript>]
         member this.Get() = this.R3A
 
+    interface I4 with
+        [<JavaScript>]
+        member this.Value
+            with get() = this.R3A
+            and set v  = this.R3A <- v
+
 [<JavaScript>]
 type RN () =
     [< Name "x" >]
     let mutable y = 0
+
+    [<Name "X">]
+    member this.RNValue 
+        with get() = y
+        and  set v = y <- v
 
     [<Inline>]
     member this.Value 
@@ -226,6 +241,14 @@ let Tests =
             equal o?x 1
         }
 
+        Test "Property rename" {
+            let o = RN()
+            equal (o?X()) 0
+            o.Value <- 1
+            equal (o?X()) 1
+            equal o.RNValue 1
+        }
+
         Test "Extensions" {
             isTrue ((New [ "a" => 1 ]).JS.HasOwnProperty("a"))
             equal Object.Prototype.Constructor.Length 1
@@ -260,6 +283,9 @@ let Tests =
             equal ((r :> I).Get()) 4
             equal ((r :> I2)?``I2$Get``()) 4
             equal ((r :> I3)?Get()) 4
+            equal ((r :> I4)?I4Value()) 4
+            (r :> I4).Value <- 5
+            equal ((r :> I4)?I4Value()) 5
         }
 
 //        Test "Struct" {

@@ -316,6 +316,9 @@ namespace WebSharper.CSharp.Tests
         public int fieldDefVal;
         public int Prop { get; set; } = 5;
         public int PropDefVal { get; set; }
+        public int RenamedProp { [Name("RnProp")] get; [Name("setRnProp")] set; } = 6;
+        [Name("RnProp2")]
+        public int RenamedProp2 { get; set; } = 8;
 
         [Test]
         public void Initialization()
@@ -324,6 +327,12 @@ namespace WebSharper.CSharp.Tests
             Equal(fieldDefVal, 0);
             Equal(Prop, 5);
             Equal(PropDefVal, 0);
+            Equal(RenamedProp, 6);
+            RenamedProp = 7;
+            Equal(RenamedProp, 7);
+            Equal(RenamedProp2, 8);
+            RenamedProp2 = 9;
+            Equal(RenamedProp2, 9);
         }
 
         [Test]

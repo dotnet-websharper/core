@@ -51,6 +51,28 @@ let rec private getAllTypeMembers (sr: R.SymbolReader) rootAnnot (n: INamespaceS
         (n.GetTypeMembers() |> Seq.collect (withNested rootAnnot))
         (n.GetNamespaceMembers() |> Seq.collect (getAllTypeMembers sr rootAnnot))
 
+let private fixMemberAnnot (sr: R.SymbolReader) (annot: A.TypeAnnotation) (m: IMethodSymbol) (mAnnot: A.MemberAnnotation) =
+    match mAnnot.Name with
+    | Some mn as smn -> 
+        match m.MethodKind with
+        | MethodKind.PropertySet ->
+            let p = m.AssociatedSymbol :?> IPropertySymbol
+            if isNull p.GetMethod then mAnnot else
+            let a = sr.AttributeReader.GetMemberAnnot(annot, p.GetAttributes())
+            if a.Kind = Some A.MemberKind.Stub then
+                { mAnnot with Kind = a.Kind; Name = a.Name }
+            elif a.Name = smn then
+                { mAnnot with Name = Some ("set_" + mn) } 
+            else mAnnot
+        | MethodKind.EventRemove ->
+            let e = m.AssociatedSymbol
+            let a = sr.AttributeReader.GetMemberAnnot(annot, e.GetAttributes())
+            if a.Name = smn then
+                { mAnnot with Name = Some ("remove_" + mn) } 
+            else mAnnot
+        | _ -> mAnnot
+    | _ -> mAnnot
+
 let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (intf: INamedTypeSymbol) =
     if intf.TypeKind <> TypeKind.Interface then None else
     let methodNames = ResizeArray()
@@ -59,7 +81,9 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
         | Some d -> d 
         | _ -> sr.ReadNamedTypeDefinition intf
     for m in intf.GetMembers().OfType<IMethodSymbol>() do
-        let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, m.GetAttributes())
+        let mAnnot =
+            sr.AttributeReader.GetMemberAnnot(annot, m.GetAttributes())
+            |> fixMemberAnnot sr annot m
         let md = 
             match sr.ReadMember m with
             | Member.Method (_, md) -> md
@@ -260,7 +284,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             | MethodKind.EventRemove ->
                 Seq.append (meth.AssociatedSymbol.GetAttributes()) (meth.GetAttributes()) 
             | _ -> meth.GetAttributes() :> _
-        let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, attrs)
+        let mAnnot =
+            sr.AttributeReader.GetMemberAnnot(annot, attrs)
+            |> fixMemberAnnot sr annot meth
 
         let error m = 
             comp.AddError(Some (CodeReader.getSourcePosOfSyntaxReference meth.DeclaringSyntaxReferences.[0]), SourceError m)

@@ -45,6 +45,26 @@ type private SourceMemberOrEntity =
     | SourceInterface of FSharpEntity 
     | InitAction of FSharpExpr
 
+// fixes annotation for property setters, we don't want name coflicts
+let fixMemberAnnot (getAnnot: _ -> A.MemberAnnotation) (x: FSharpEntity) (m: FSMFV) (a: A.MemberAnnotation) =
+    if m.IsPropertySetterMethod then
+        let po = 
+            x.MembersFunctionsAndValues 
+            |> Seq.tryFind (fun p -> p.IsProperty && p.HasSetterMethod && p.SetterMethod = m)
+        match po with
+        | Some p ->
+            let pa = getAnnot p
+            if pa.Kind = Some A.MemberKind.Stub then
+                { a with Kind = pa.Kind; Name = pa.Name }
+            else  
+                let name =
+                    match a.Name with
+                    | Some n as an when an <> pa.Name || not p.HasGetterMethod -> Some n
+                    | _ -> pa.Name |> Option.map (fun n -> if p.HasGetterMethod then "set_" + n else n)
+                { a with Name = name }
+        | _ -> a
+    else a
+
 let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: FSharpEntity) =
     let methodNames = ResizeArray()
     let annot =
@@ -53,9 +73,12 @@ let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: 
         match annot.ProxyOf with
         | Some d -> d 
         | _ -> sr.ReadTypeDefinition intf
+
     for m in intf.MembersFunctionsAndValues do
         if not m.IsProperty then
-            let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, m.Attributes)
+            let mAnnot =
+                sr.AttributeReader.GetMemberAnnot(annot, m.Attributes)
+                |> fixMemberAnnot (fun a -> sr.AttributeReader.GetMemberAnnot(annot, a.Attributes)) intf m
             let md = 
                 match sr.ReadMember m with
                 | Member.Method (_, md) -> md
@@ -194,26 +217,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mAnnot kind compiled expr)))
 
     let annotations = Dictionary ()
-
-    let propertiesWithSetter = 
-        cls.MembersFunctionsAndValues |> Seq.filter (fun x -> x.IsProperty && x.HasSetterMethod)
-        |> List.ofSeq
         
     let rec getAnnot x : A.MemberAnnotation =
         match annotations.TryFind (x: FSharpMemberOrFunctionOrValue) with
         | Some a -> a
         | _ -> 
-            let a = sr.AttributeReader.GetMemberAnnot(annot, x.Attributes)
-            let a =
-                if x.IsPropertySetterMethod then
-                    match propertiesWithSetter |> List.tryFind (fun p -> p.SetterMethod = x) with
-                    | None -> a
-                    | Some p ->
-                        let pa = getAnnot p
-                        if pa.Kind = Some A.MemberKind.Stub then
-                            { a with Kind = pa.Kind; Name = pa.Name }
-                        else a
-                else a
+            let a = 
+                sr.AttributeReader.GetMemberAnnot(annot, x.Attributes)
+                |> fixMemberAnnot getAnnot cls x
             annotations.Add(x, a)
             a
 
