@@ -58,9 +58,7 @@ type IAjaxProvider =
 /// XMLHttpRequest implementation. Can be reset.
 val mutable AjaxProvider : IAjaxProvider
 
-/// This interface only exists for documentation purposes.
-/// A remoting provider must implement its members as *static* members.
-/// (see AjaxRemotingProvider)
+/// All RPC calls are handled with one of these methods
 type IRemotingProvider =
 
     /// Calls a remote method synchronously.
@@ -76,9 +74,16 @@ type IRemotingProvider =
     abstract member Send : string -> obj[] -> unit
 
 /// Implements remote method calls via AJAX.
+/// All methods of IRemotingProvider are implemented through AsyncBase.
 [<Class>]
 type AjaxRemotingProvider =
+    new: unit -> AjaxRemotingProvider
+    /// Override this to change base URL of RPC calls
     abstract EndPoint : string
+    override  EndPoint : string
+    /// Override this implement custom remoting
+    abstract AsyncBase : target: string * data: obj[] -> Async<obj>
+    override  AsyncBase : string * obj[] -> Async<obj>
     interface IRemotingProvider
 
 val private ajax : bool -> Url -> Headers -> Data -> (Data -> unit) ->

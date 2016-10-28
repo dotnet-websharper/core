@@ -19,7 +19,6 @@
     <EmbeddedResource Include="Json.min.js" />
     <Compile Include="Json.fsi" />
     <Compile Include="Json.fs" />
-    <Compile Include="Remoting.fsi" />
     <Compile Include="Remoting.fs" />
     <EmbeddedResource Include="AnimFrame.js" />
     <EmbeddedResource Include="AnimFrame.min.js" />

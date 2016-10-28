@@ -269,6 +269,15 @@ module Server =
         new System.String(Array.rev (x.ToCharArray()))
         |> async.Return
 
+    [<JavaScript>]
+    type MyRemotingProvider() =
+        inherit Remoting.AjaxRemotingProvider()
+
+        override this.AsyncBase(m, data) =
+            Console.Log("Calling RPC with MyRemotingProvider:", m, data)
+            base.AsyncBase(m, data)
+
+    [<RemotingProvider(typeof<MyRemotingProvider>)>]
     [<AbstractClass>]
     type Handler() =
 

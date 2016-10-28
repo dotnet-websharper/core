@@ -115,18 +115,18 @@ type XhrProvider [<JavaScript>] () =
 let mutable AjaxProvider = XhrProvider() :> IAjaxProvider
 
 [<Inline "void ($obj[$key] = $value)">]
-let ( ?<- ) (obj: obj) (key: string) (value: obj) =
+let private ( ?<- ) (obj: obj) (key: string) (value: obj) =
     X<unit>
 
 [<JavaScript>]
-let makeHeaders (m: string) =
+let private makeHeaders (m: string) =
     let headers = obj ()
     (?<-) headers "content-type" "application/json"
     (?<-) headers "x-websharper-rpc" m
     headers
 
 [<JavaScript>]
-let makePayload (data: obj []) =
+let private makePayload (data: obj []) =
     Json.Stringify data
 
 [<JavaScript>]
@@ -144,12 +144,13 @@ type IRemotingProvider =
 [<Name "WebSharper.Remoting.AjaxRemotingProvider">]
 type AjaxRemotingProvider() =
     abstract EndPoint : string
-    default this.EndPoint = EndPoint
+    override this.EndPoint = EndPoint
 
-    member private this.AsyncBase m data = 
-        let headers = makeHeaders m
-        let payload = makePayload data
+    abstract AsyncBase : string * obj[] -> Async<obj> 
+    override this.AsyncBase(m, data) = 
         async {
+            let headers = makeHeaders m
+            let payload = makePayload data
             let! token = Async.CancellationToken
             return! Async.FromContinuations (fun (ok, err, cc) ->
                 let waiting = ref true
@@ -178,10 +179,10 @@ type AjaxRemotingProvider() =
             Json.Activate (Json.Parse data)
 
         member this.Async m data : Async<obj> =
-            this.AsyncBase m data
+            this.AsyncBase(m, data)
 
         member this.Task m data : System.Threading.Tasks.Task<obj> =
-            this.AsyncBase m data |> Async.StartAsTask   
+            this.AsyncBase(m, data) |> Async.StartAsTask   
 
         member this.Send m data =
-            Async.Start (Async.Ignore (this.AsyncBase m data))
+            Async.Start (Async.Ignore (this.AsyncBase(m, data)))

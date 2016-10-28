@@ -35,6 +35,12 @@ type ClassA<'U>() =
     abstract Z : 'U -> 'U
     override this.Z x = JS.Undefined
 
+    abstract Get1 : unit -> int
+    default this.Get1() = 1
+
+    abstract Add1 : int -> int
+    default this.Add1 x = x + 1
+
     [<Name "a">]
     abstract A : unit -> int
     
@@ -51,6 +57,12 @@ type ClassB<'T, 'U>() =
     member this.BaseX = base.X
 
     member this.BaseY = base.Y
+
+    override this.Get1() =
+        base.Get1() 
+
+    override this.Add1 x =
+        base.Add1 x 
 
     override this.Z x = x 
 
@@ -95,6 +107,8 @@ let Tests =
         Test "Base call" {
             equal (ClassB().BaseX) 1    
             equal (ClassB().BaseY) 1    
+            equal (ClassB().Get1()) 1    
+            equal (ClassB().Add1(4)) 5    
         }
 
         Test "Generic" {
