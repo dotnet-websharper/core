@@ -357,6 +357,8 @@ let main(argv) =
 #else
     try compileMain(Array.append [| "fsc.exe" |] argv); 
     with e -> 
-        errorRecovery e Microsoft.FSharp.Compiler.Range.range0; 
+        sprintf "Global error '%s' at %s" e.Message e.StackTrace
+        |> WebSharper.Compiler.ErrorPrinting.NormalizeErrorString
+        |> eprintf "WebSharper error: %s" 
         1
 #endif

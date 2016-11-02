@@ -105,6 +105,7 @@ let removeSourcePosFromInlines info expr =
 let emptyConstructor = Hashed { CtorParameters = [] }
 
 let inline private getItem n x = ItemGet(x, Value (String n))
+let inline private getIndex n x = ItemGet(x, Value (Int n))
 
 type GenericInlineResolver (generics) =
     inherit Transformer()
@@ -937,6 +938,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     GlobalAccess faddr   
             | M.OptionalField fname -> 
                 JSRuntime.GetOptional (this.TransformExpression expr.Value |> getItem fname)
+            | M.IndexedField i ->
+                this.TransformExpression expr.Value |> getIndex i
         | CustomTypeField ct ->
             match ct with
             | M.FSharpUnionCaseInfo case ->
@@ -983,6 +986,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     ItemSet(GlobalAccess (Hashed a), Value (String f), this.TransformExpression value)
             | M.OptionalField fname -> 
                 JSRuntime.SetOptional (this.TransformExpression expr.Value) (Value (String fname)) (this.TransformExpression value)
+            | M.IndexedField i ->
+                ItemSet(this.TransformExpression expr.Value, Value (Int i), this.TransformExpression value) 
         | CustomTypeField ct ->
             match ct with
             | M.FSharpRecordInfo fields ->

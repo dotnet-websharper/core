@@ -119,6 +119,7 @@ type CompiledField =
     | InstanceField of string
     | OptionalField of string
     | StaticField of Address
+    | IndexedField of int
 
 type ClassInfo =
     {

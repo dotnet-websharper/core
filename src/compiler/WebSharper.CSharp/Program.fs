@@ -181,9 +181,9 @@ let compileMain argv =
     logf "Started at: %A" System.DateTime.Now
 
     match List.ofArray argv with
-    | Cmd BundleCommand.Instance r -> r |> ignore
-    | Cmd HtmlCommand.Instance r -> r |> ignore
-    | Cmd UnpackCommand.Instance r -> r |> ignore
+    | Cmd BundleCommand.Instance r -> r 
+    | Cmd HtmlCommand.Instance r -> r
+    | Cmd UnpackCommand.Instance r -> r
     | _ ->
 
     let wsArgs = ref WsConfig.Empty
@@ -272,6 +272,7 @@ let compileMain argv =
     try
         Compile !wsArgs
         logf "Stopped at: %A" System.DateTime.Now
+        0
     with e ->
         let intermediaryOutput = (!wsArgs).AssemblyFile
         if File.Exists intermediaryOutput then 
@@ -282,9 +283,9 @@ let compileMain argv =
         sprintf "Global error '%s' at %s" e.Message e.StackTrace
         |> WebSharper.Compiler.ErrorPrinting.NormalizeErrorString
         |> eprintf "WebSharper error: %s" 
+        1
 
 [<EntryPoint>]
 let main argv =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
     compileMain argv
-    0

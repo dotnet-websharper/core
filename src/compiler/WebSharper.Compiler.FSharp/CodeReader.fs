@@ -955,8 +955,10 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 ]
             )
         | P.DefaultValue typ ->
-            Value Null
-//            getDefaultOf (getType env.TParams typ) // this would need Unchecked.defaulof macro with type parameter constraint `: null`
+            if typ.IsGenericParameter && typ.GenericParameter.Constraints |> Seq.exists (fun c -> c.IsReferenceTypeConstraint || c.IsSupportsNullConstraint) then
+                Value Null
+            else
+                DefaultValueOf (sr.ReadType env.TParams typ)
         | P.NewDelegate (typ, arg) ->
             // TODO : loop for exact length of delegate type
             let rec loop acc = function

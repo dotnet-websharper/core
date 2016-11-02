@@ -634,6 +634,7 @@ let getAllAddresses (meta: Info) =
             | InstanceField n 
             | OptionalField n -> pr |> Option.iter (fun p -> p.Add n |> ignore)
             | StaticField a -> r.ExactStaticAddress a.Value |> ignore
+            | IndexedField _ -> ()
         for m, _ in cls.Implementations.Values do addMember m
         for m, _, _ in cls.Methods.Values do addMember m
         match cls.StaticConstructor with

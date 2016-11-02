@@ -26,7 +26,7 @@ open WebSharper.JavaScript
 [<DefaultAugmentation(false)>]
 type private RefProxy<'T> =
     {
-        [<Name "0">]
+        [<Name 0>]
         mutable contents : 'T    
     } 
     member this.Value

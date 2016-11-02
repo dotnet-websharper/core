@@ -774,8 +774,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     DefaultValueOf (sr.ReadType clsTparams.Value f.FieldType)
                 )
                 |> List.ofSeq
-            let body = Lambda([], Object fields)
-            addConstructor None A.MemberAnnotation.BasicJavaScript cdef N.Static false body
+//            let body = Lambda([], Object fields)
+            let body = Lambda([], Sequential (fields |> List.map (fun (n, v) -> ItemSet(This, Value (String n), v))))
+            addConstructor None A.MemberAnnotation.BasicJavaScript cdef N.Constructor false body
             let info = StructInfo
             comp.AddCustomType(def, info)
 

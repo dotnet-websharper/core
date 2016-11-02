@@ -107,6 +107,9 @@ type NameAttribute private () =
     /// Constructs a qualified name from a dot-separated string.
     new (name: string) = NameAttribute()
 
+    /// Constructs an indexed field.
+    new (index: int) = NameAttribute()
+
     /// Constructs a qualified name from an explicit array of parts.
     new ([<System.ParamArray>] names: string []) = NameAttribute()
 

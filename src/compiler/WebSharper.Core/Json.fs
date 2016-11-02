@@ -1514,6 +1514,7 @@ module TypedProviderInternals =
                     match cls.Fields.[f] with
                     | M.InstanceField n
                     | M.OptionalField n -> n
+                    | M.IndexedField i -> string i
                     | _ -> failwithf "A static field not serializable: %s.%s" t.FullName f                                          
                 | _ ->
                     match info.CustomTypes.TryGetValue typ with

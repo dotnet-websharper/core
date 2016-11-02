@@ -195,6 +195,7 @@ type AttributeReader<'A>() =
             match Seq.head (this.GetCtorArgs(attr)) with
             | :? string as n -> A.Name n
             | :? System.Array as p -> A.Name ("." + String.concat "." (Seq.cast<string> p))                       
+            | :? int as i -> A.Name (string i)
             | x -> failwithf "Unrecognized constructor parameter type for Name attribute: %s" (x.GetType().FullName)
         | "JavaScriptAttribute" ->
             A.JavaScript (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.forall unbox)

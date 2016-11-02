@@ -1047,7 +1047,14 @@ type Compilation(meta: Info, ?hasGraph) =
             let res = classes.[typ]
             match m with
             | M.Field (fName, f) ->
-                res.Fields.Add(fName, if f.IsOptional then OptionalField name else InstanceField name)
+                let fi =
+                    if f.IsOptional then 
+                        OptionalField name
+                    else
+                        match System.Int32.TryParse name with
+                        | true, i -> IndexedField i
+                        | _ -> InstanceField name
+                res.Fields.Add(fName, fi)
             | M.Method (mDef, nr) ->
                 let comp = compiledInstanceMember name nr
                 match nr.Kind with
