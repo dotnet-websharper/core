@@ -109,9 +109,29 @@ type RNWithStub() =
     [<Stub>]
     member val x = 0 with get, set
 
-//[<JavaScript; Struct>]
-//type TestStruct(x: int) =
-//    member this.X = x
+[<JavaScript; Struct>]
+type TestStruct =
+    val X : int
+    val Y : string
+    new (x, y) = { X = x; Y = y }
+
+    member this.X2 = this.X
+
+#if FSHARP41
+[<JavaScript; Struct>]
+type StructUnion = SU of int
+
+[<JavaScript; Struct>]
+type StructUnion2 = SU2 of int * string
+
+[<JavaScript; Struct>]
+type StructRecord =
+    { SR : int }
+
+[<JavaScript; Struct>]
+type StructRecord2 =
+    { SR2 : int; SR2b : string }
+#endif
 
 [<JavaScript>]
 type Abcde = { A: string; B: string; C: string; D: string; E: string }
@@ -288,7 +308,32 @@ let Tests =
             equal ((r :> I4)?I4Value()) 5
         }
 
-//        Test "Struct" {
-//            equal (TestStruct(1).X) 1
-//        }
+        Test "Struct" {
+            equal (TestStruct().X) 0
+            equal (TestStruct(1, "").X) 1
+        }
+        
+        #if FSHARP41
+        Test "Struct union" {
+            let f x =
+                Console.Log "deconstructing struct union"
+                match x with
+                | SU a -> a
+            equal (f(SU 1)) 1
+            let g x =
+                Console.Log "deconstructing struct union 2"
+                match x with
+                | SU2 (a, b) -> (a, b)
+            equal (g(SU2 (1, "a"))) (1, "a")
+        }
+
+        Test "Struct record" {
+            let x = { SR = 1 }
+            equal x.SR 1
+            let y = { SR2 = 1; SR2b = "a" }
+            equal y.SR2 1
+            equal y.SR2b "a"
+        }
+        #endif
+
     }

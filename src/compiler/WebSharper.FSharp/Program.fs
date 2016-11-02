@@ -316,6 +316,7 @@ let compileMain argv =
             wsArgs := { !wsArgs with KeyFile = Some k }
         | _ -> 
             fscArgs.Add a  
+    fscArgs.Add "--define:FSHARP41"
     wsArgs := 
         { !wsArgs with 
             References = refs |> Seq.distinct |> Array.ofSeq

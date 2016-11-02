@@ -1075,7 +1075,15 @@ type DefaultOf() =
                 | _ -> false)
             -> MacroOk (Value (Int 0))
         | TypeParameter _ | StaticTypeParameter _ -> MacroNeedsResolvedTypeArg
-        | _ -> MacroOk (Value (Null))
+        | ConcreteType td -> 
+            match c.Compilation.GetCustomTypeInfo td.Entity with
+            | M.StructInfo ->
+                let cdef = Hashed { CtorParameters = [] }
+                MacroOk (Ctor(td, cdef, []))
+            | _ ->
+                MacroOk (Value (Null))
+        | _ ->
+            MacroOk (Value (Null))
 
 [<Sealed>]
 type TypeTest() =

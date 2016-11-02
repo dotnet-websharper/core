@@ -282,7 +282,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
 
-    let fsharpSpecific = cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration
+    let fsharpSpecific = cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration || cls.IsValueType
 
     let clsTparams =
         lazy 
@@ -758,7 +758,26 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 )
                 |> List.ofSeq |> FSharpRecordInfo    
 
-            comp.AddCustomType(def, i)
+            if comp.HasCustomTypeInfo def then
+                printfn "Already has custom type info: %s" def.Value.FullName
+            else
+                comp.AddCustomType(def, i)
+
+        if cls.IsValueType && not (cls.IsFSharpRecord || cls.IsFSharpUnion) then
+            let cdef = Hashed { CtorParameters = [] }
+            let fields =
+                cls.FSharpFields |> Seq.map (fun f -> 
+                    let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
+                    
+                    match fAnnot.Name with Some n -> n | _ -> f.Name
+                    , 
+                    DefaultValueOf (sr.ReadType clsTparams.Value f.FieldType)
+                )
+                |> List.ofSeq
+            let body = Lambda([], Object fields)
+            addConstructor None A.MemberAnnotation.BasicJavaScript cdef N.Static false body
+            let info = StructInfo
+            comp.AddCustomType(def, info)
 
     for f in cls.FSharpFields do
         let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)

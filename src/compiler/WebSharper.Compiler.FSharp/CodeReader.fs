@@ -499,7 +499,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
     let sr = env.SymbolReader
     try
         match expr with
-        | P.Value(var) ->
+        | P.Value(var) ->                
             if isUnit var.FullType then
                 Undefined
             else
@@ -877,6 +877,15 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | _ -> parsefailf "Expected a record type"
             FieldSet(thisOpt |> Option.map tr, t, field.Name, tr value)
         | P.AddressOf expr ->
+            let isStructUnionGet =
+                let t = expr.Type
+                t.HasTypeDefinition && (
+                    let td = t.TypeDefinition
+                    td.IsFSharpUnion && td.IsValueType
+                )    
+            if isStructUnionGet then
+                tr expr     
+            else
             let e = IgnoreExprSourcePos (tr expr)
             match e with
             | Var v ->
