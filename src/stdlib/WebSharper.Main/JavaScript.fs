@@ -181,3 +181,6 @@ let RequestAnimationFrame (f: float -> unit) = raise ClientSideOnly : Handle
 [<Require(typeof<AnimationFrameResource>)>]
 [<Inline "cancelAnimationFrame($handle)">]
 let CancelAnimationFrame (handle: Handle) = raise ClientSideOnly : unit
+
+[<Inline "this">]
+let This<'T> = X<'T>

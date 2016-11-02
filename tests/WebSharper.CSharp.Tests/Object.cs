@@ -10,6 +10,8 @@ namespace WebSharper.CSharp.Tests
     [JavaScript, Test("C# classes")]
     class ObjectTests : TestCategory
     {
+        public static bool StaticConstructorRan = false;
+
         class CctorTest
         {
             public static int TestStatic = 0;
@@ -17,12 +19,17 @@ namespace WebSharper.CSharp.Tests
             static CctorTest()
             {
                 TestStatic = 1;
+                StaticConstructorRan = true;
             }
+
+            public static void RunCctor() { }
         }
 
         [Test]
         public void StaticConstructor()
         {
+            CctorTest.RunCctor();
+            IsTrue(StaticConstructorRan);
             Equal(CctorTest.TestStatic, 1);
         }
 
