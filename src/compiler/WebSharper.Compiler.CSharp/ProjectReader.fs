@@ -105,14 +105,6 @@ let initDef =
         Generics = 0
     }
 
-let staticInitDef =
-    Hashed {
-        MethodName = "$staticInit"
-        Parameters = []
-        ReturnType = VoidType
-        Generics = 0
-    }
-
 type HasYieldVisitor() =
     inherit StatementVisitor()
     let mutable found = false
@@ -269,11 +261,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         |> addMethod A.MemberAnnotation.BasicJavaScript initDef N.Instance false
         true
 
-    let hasStaticInit =
-        if staticInits.Count = 0 then false else
-        Function([], ExprStatement (Sequential (staticInits |> List.ofSeq)))
-        |> addMethod A.MemberAnnotation.BasicJavaScript staticInitDef N.Static false
-        true
+    let staticInit =
+        if staticInits.Count = 0 then None else
+        ExprStatement (Sequential (staticInits |> List.ofSeq)) |> Some
 
     for meth in members.OfType<IMethodSymbol>() do
         let attrs =
@@ -418,12 +408,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 | None -> c.Body
                             let b = 
                                 if meth.IsStatic then
-                                    if hasStaticInit then
-                                        CombineStatements [ 
-                                            ExprStatement <| Call(None, NonGeneric def, NonGeneric staticInitDef, [])
-                                            b
-                                        ]
-                                    else b
+                                    match staticInit with
+                                    | Some si -> 
+                                        CombineStatements [ si; b ]
+                                    | _ -> b
                                 else
                                     match c.Initializer with
                                     | Some (CodeReader.ThisInitializer _) -> b
@@ -499,9 +487,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     // implicit constructor
                     let b = 
                         if meth.IsStatic then
-                            if hasStaticInit then
-                                ExprStatement <| Call(None, NonGeneric def, NonGeneric staticInitDef, [])
-                            else Empty
+                            match staticInit with
+                            | Some si -> si
+                            | _ -> Empty
                         else
                             if hasInit then 
                                 ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
@@ -645,10 +633,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 clsMembers.Add (NotResolvedMember.StaticConstructor (getBody false))
         | _ -> 
             ()
-
-    if hasStaticInit && not (clsMembers |> Seq.exists (function NotResolvedMember.StaticConstructor _ -> true | _ -> false)) then
-        let b = Function ([], ExprStatement <| Call(None, NonGeneric def, NonGeneric staticInitDef, []))
+    
+    match staticInit with
+    | Some si when not (clsMembers |> Seq.exists (function NotResolvedMember.StaticConstructor _ -> true | _ -> false)) ->
+        let b = Function ([], si)
         clsMembers.Add (NotResolvedMember.StaticConstructor b)  
+    | _ -> ()
 
     for f in members.OfType<IFieldSymbol>() do
         let backingForProp =

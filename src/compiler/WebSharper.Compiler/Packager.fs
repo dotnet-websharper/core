@@ -48,6 +48,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             | [ name ] ->
                 let var = Id.New (if name.StartsWith "StartupCode$" then "SC$1" else name)
                 let f = Value (String name)
+//                if isBundle then
+//                    declarations.Add <| VarDeclaration (var, ItemGet(glob, f) |> safeObject)                
+//                else
                 declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f) |> safeObject))                
                 let res = Var var
                 //topLevel.Add(name, res)
@@ -57,6 +60,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                 let parent = getAddress (Hashed r)
                 let f = Value (String name)
                 let var = Id.New name
+//                if isBundle then
+//                    declarations.Add <| VarDeclaration (var, ItemGet(parent, f) |> safeObject)                
+//                else
                 declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f) |> safeObject))                
                 let res = Var var
                 addresses.Add(address, res)
@@ -105,9 +111,15 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             | _ -> failwith "packageCtor error"
         statements.Add <| ExprStatement (VarSet (av, ItemSet (o, x, expr)))    
 
-    let packageGlobal a expr =
+    let packageCctor a expr =
         let o, x = getFieldAddress a
-        statements.Add <| ExprStatement (ItemSet (o, x, expr))    
+        match expr with
+        | Function ([], body) ->
+            let rem = ExprStatement (ItemSet (o, x, ItemGet(glob, Value (String "ignore"))))    
+            let expr = JSRuntime.Cctor <| Function([], Block [body; rem])
+            statements.Add <| ExprStatement (ItemSet (o, x, expr))    
+        | _ ->
+            failwith "Static constructor must be a function"
 
     let classes = Dictionary(current.Classes)
 
@@ -128,7 +140,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
         | _ -> ()
 
         match c.StaticConstructor with
-        | Some (ccaddr, body) -> packageGlobal ccaddr <| JSRuntime.Cctor body
+        | Some (ccaddr, body) -> 
+            packageCctor ccaddr body
         | _ -> ()
 
         match c.Address with 
