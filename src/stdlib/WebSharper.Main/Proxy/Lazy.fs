@@ -24,7 +24,6 @@ open WebSharper.JavaScript
 
 type private LazyRecord<'T> =
     {
-        [<Name "v">] mutable value   : 'T
         [<Name "c">] mutable created : bool
         [<Name "e">] mutable eval    : unit -> 'T
     }
@@ -35,11 +34,7 @@ type private LazyProxy<'T> =
 
     [<Inline; JavaScript>]
     static member CtorProxy(valueFactory: System.Func<'T>) =
-        {
-            value    = JS.Undefined
-            created  = false
-            eval     = As valueFactory
-        }
+        Lazy.Create valueFactory.Invoke
 
     member this.IsValueCreated
         with [<Inline "$this.c">] get () = X<bool>
