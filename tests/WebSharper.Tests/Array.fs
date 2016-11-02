@@ -736,7 +736,8 @@ let Tests =
 
         Test "Array.truncate" {
             equal (Array.truncate 1 Array.empty) Array.empty
-            equal (Array.truncate 3 [| 0 .. 4 |]) [| 3; 4 |]
+            equal (Array.truncate 3 [| 0; 1 |]) [| 0; 1 |]
+            equal (Array.truncate 3 [| 0 .. 4 |]) [| 0 .. 2 |]
         }
 
         Test "Array.tryFindBack" {

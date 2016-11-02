@@ -621,7 +621,7 @@ let TakeWhile<'T> (predicate : 'T -> bool) (ar: 'T []) =
 
 [<Name "truncate">]
 let Truncate<'T> n (ar: 'T []) =
-    ar.JS.Slice(n)
+    ar.JS.Slice(0, n)
 
 [<Name "exactlyOne">]
 let ExactlyOne (ar : 'T []) =
