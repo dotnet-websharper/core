@@ -131,12 +131,20 @@ type private CancellationTokenProxy =
         
 [<Proxy(typeof<CTS>)>]
 [<Name "CancellationTokenSource">]
-type private CancellationTokenSourceProxy [<JavaScript>] () =
+type private CancellationTokenSourceProxy () =
     let mutable c = false
 
     let mutable pending = None
 
     let r = [||] : (unit -> unit)[]
+
+    [<Inline>]
+    new (delay: int) as this = 
+        CancellationTokenSourceProxy() then this.CancelAfter(delay)
+
+    [<Inline>]
+    new (delay: System.TimeSpan) as this = 
+        CancellationTokenSourceProxy() then this.CancelAfter(delay)
 
     [<Inline>]
     member this.IsCancellationRequested = c
