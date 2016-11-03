@@ -764,9 +764,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 comp.AddCustomType(def, i)
 
         if cls.IsValueType && not (cls.IsFSharpRecord || cls.IsFSharpUnion) then
+            // add default constructor for structs
             let cdef = Hashed { CtorParameters = [] }
             let fields =
                 cls.FSharpFields |> Seq.map (fun f -> 
+                    if f.IsMutable then
+                        comp.AddError(Some (CodeReader.getRange f.DeclarationLocation), SourceError "Mutable structs are not supported for JavaScript translation")
                     let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
                     
                     match fAnnot.Name with Some n -> n | _ -> f.Name
@@ -774,11 +777,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     DefaultValueOf (sr.ReadType clsTparams.Value f.FieldType)
                 )
                 |> List.ofSeq
-//            let body = Lambda([], Object fields)
             let body = Lambda([], Sequential (fields |> List.map (fun (n, v) -> ItemSet(This, Value (String n), v))))
             addConstructor None A.MemberAnnotation.BasicJavaScript cdef N.Constructor false body
-            let info = StructInfo
-            comp.AddCustomType(def, info)
+            comp.AddCustomType(def, StructInfo)
 
     for f in cls.FSharpFields do
         let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)

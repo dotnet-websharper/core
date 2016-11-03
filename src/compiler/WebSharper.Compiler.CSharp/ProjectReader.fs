@@ -134,7 +134,8 @@ let TextSpans = R.textSpans
 let SaveTextSpans() = R.saveTextSpans <- true
 
 let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp: Compilation) (annot: A.TypeAnnotation) (cls: INamedTypeSymbol) =
-    if cls.TypeKind <> TypeKind.Class then None else
+    let isStruct = cls.TypeKind = TypeKind.Struct
+    if cls.TypeKind <> TypeKind.Class && not isStruct then None else
 
     let thisDef = sr.ReadNamedTypeDefinition cls
 
@@ -639,8 +640,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         let b = Function ([], si)
         clsMembers.Add (NotResolvedMember.StaticConstructor b)  
     | _ -> ()
-
+    
     for f in members.OfType<IFieldSymbol>() do
+        if isStruct && not f.IsReadOnly then
+            comp.AddError(Some (CodeReader.getSourcePosOfSyntaxReference f.DeclaringSyntaxReferences.[0]), SourceError "Mutable structs are not supported for JavaScript translation")
         let backingForProp =
             match f.AssociatedSymbol with
             | :? IPropertySymbol as p -> Some p
@@ -675,6 +678,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
 
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
+
+    if isStruct then
+        comp.AddCustomType(def, StructInfo)
 
     let strongName =
         annot.Name |> Option.map (fun n ->

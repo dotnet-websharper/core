@@ -149,6 +149,33 @@ namespace WebSharper.CSharp.Tests
             Equal(((ISomething)o).Foo(), 42);
         }
 
+        struct StructTest
+        {
+            public readonly int X;
+            public readonly string Y;
+
+            public StructTest(int x, string y)
+            {
+                X = x;
+                Y = y;
+            }
+
+            public int X2 => X + 1;
+        }
+
+        StructTest DefStruct;
+
+        [Test]
+        public void Struct()
+        {
+            Equal(new StructTest().X, 0);
+            Equal(new StructTest().Y, null);
+            Equal(DefStruct.X, 0);
+            Equal(DefStruct.Y, null);
+            Equal(new StructTest(1, "").X, 1);
+            Equal(new StructTest(1, "").X2, 2);
+        }
+
         [Test]
         public void PartialClasses()
         {

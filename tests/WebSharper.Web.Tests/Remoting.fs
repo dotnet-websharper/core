@@ -252,6 +252,19 @@ module Server =
             return x
         }
 
+    [<JavaScript; Struct; System.Serializable>]
+    type Struct =
+        val X : int
+        [<Name "yy">]
+        val Y : string
+        new (x, y) = { X = x; Y = y }
+
+    [<Remote>]
+    let f21 (x: Struct) =
+        async {
+            return Struct(x.X + 1, x.Y + "a")
+        }
+
     [<Remote>]
     let OptionToNullable (x: int option) =
         match x with
@@ -459,6 +472,13 @@ module Remoting =
                 x.X <- 5;
                 let! y = Server.f20 x
                 equal y.X 6
+            }
+
+            // currently failing
+            Test "Struct" {
+                let x = Server.Struct(1, "h")
+                let! y = Server.f21 x
+                equal y (Server.Struct(2, "ha"))
             }
 
             Test "Single record in union" {

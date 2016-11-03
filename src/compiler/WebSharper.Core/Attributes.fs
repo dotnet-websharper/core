@@ -69,7 +69,7 @@ type PureAttribute() =
     inherit A()
 
 /// Marks methods, properties and constructors for compilation to JavaScript.
-[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event)>]
+[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct)>]
 type JavaScriptAttribute() =
     inherit A()
 
@@ -77,7 +77,7 @@ type JavaScriptAttribute() =
 
 /// Annotates methods an constructors with custom compilation rules.
 /// The supplied type should implement Macros.IMacro and a default constructor.
-[<Sealed; U(T.Class|||T.Interface|||T.Constructor|||T.Method|||T.Property|||T.Event, AllowMultiple = true)>]
+[<Sealed; U(T.Class|||T.Interface|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct, AllowMultiple = true)>]
 type MacroAttribute private () =
     inherit A()
 
@@ -100,7 +100,7 @@ type GeneratedAttribute private () =
 /// Provides a runtime name for members when it differs from the F# name.
 /// The constructor accepts either an explicit array of parts,
 /// or a single string, in which case it is assumed to be dot-separated.
-[<Sealed; U(T.Class|||T.Interface|||T.Constructor|||T.Method|||T.Property|||T.Field|||T.Event)>]
+[<Sealed; U(T.Class|||T.Interface|||T.Constructor|||T.Method|||T.Property|||T.Field|||T.Event|||T.Struct)>]
 type NameAttribute private () =
     inherit A()
 
@@ -115,7 +115,7 @@ type NameAttribute private () =
 
 /// Declares a type to be a proxy for another type, identified directly or
 /// by using an assembly-qualified name.
-[<Sealed; U(T.Class|||T.Interface)>]
+[<Sealed; U(T.Class|||T.Interface|||T.Struct)>]
 type ProxyAttribute private () =
     inherit A()
 
@@ -132,7 +132,7 @@ type RemoteAttribute() =
 
 /// Annotates members with dependencies. The type passed to the constructor
 /// must implement Resources.IResourceDefinition and a default constructor.
-[<Sealed; U(T.Assembly|||T.Class|||T.Constructor|||T.Method|||T.Property|||T.Event,
+[<Sealed; U(T.Assembly|||T.Class|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct,
             AllowMultiple=true)>]
 type RequireAttribute private () =
 
@@ -141,7 +141,7 @@ type RequireAttribute private () =
     new (assemblyQualifiedName: string) = RequireAttribute()
 
 /// Marks members that should be compiled by-name.
-[<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property)>]
+[<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property|||T.Struct)>]
 type StubAttribute() =
     inherit A()
 
@@ -149,7 +149,7 @@ type StubAttribute() =
 /// by remote function calls in this assembly. The type passed to the
 /// constructor must have three static methods as described by the
 /// interface Remoting.IRemotingProvider.
-[<Sealed; U(T.Assembly|||T.Class|||T.Method)>]
+[<Sealed; U(T.Assembly|||T.Class|||T.Method|||T.Struct)>]
 type RemotingProviderAttribute private () =
     inherit A()
 
@@ -159,7 +159,7 @@ type RemotingProviderAttribute private () =
 
 /// Adds automatic inlines to a property so that a missing JavaScript field
 /// is converted to None, otherwise Some fieldValue.
-[<Sealed; U(T.Class|||T.Property|||T.Field)>]
+[<Sealed; U(T.Class|||T.Property|||T.Field|||T.Struct)>]
 type OptionalFieldAttribute() =
     inherit A()
 

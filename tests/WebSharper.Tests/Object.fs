@@ -115,17 +115,7 @@ type TestStruct =
     val Y : string
     new (x, y) = { X = x; Y = y }
 
-    member this.X2 = this.X
-
-[<JavaScript; Struct>]
-type TestStructM =
-    val mutable X : int
-    val mutable Y : string
-    new (x, y) = { X = x; Y = y }
-
-    member this.IncrX() = 
-        this.X <- this.X + 1
-        this.X
+    member this.X2 = this.X + 1
 
 #if FSHARP41
 [<JavaScript; Struct>]
@@ -320,28 +310,14 @@ let Tests =
 
         Test "Struct" {
             equal (TestStruct().X) 0
+            equal (TestStruct().Y) null
             equal (TestStruct(1, "").X) 1
+            equal (TestStruct(1, "").X2) 2
+            equal (TestStruct(1, "a").X) (TestStruct(1, "a").X)
+            notEqual (TestStruct(1, "a")) (TestStruct(2, "a"))
+            notEqual (TestStruct(1, "a")) (TestStruct(1, "b"))
         }
         
-        Test "Mutable struct" {
-            equal (TestStructM().X) 0
-            equal (TestStructM(1, "").X) 1
-            let res = 
-                let mutable a = TestStructM()
-                let b = a
-                a.X <- 4
-                a.IncrX() |> ignore
-                a.X, b.X
-            equal res (5, 0)
-            let boxTest =
-                let mutable a = TestStructM()
-                let b = box a
-                a.X <- 2
-                let c = (b :?> TestStructM).IncrX()
-                a.X, (b :?> TestStructM).X, c 
-            equal boxTest (2, 0, 1)
-        }
-
         #if FSHARP41
         Test "Struct union" {
             let f x =
