@@ -233,8 +233,9 @@ module Macro =
 
     type Parameters =
         {
-            Warn : string -> unit
-            Provider : Expression
+            Warnings : ResizeArray<string>
+            Dependencies : ResizeArray<M.Node>
+            Compilation : M.ICompilation
         }
 
     [<AutoOpen>]
@@ -282,7 +283,10 @@ module Macro =
         let generic = Choice3Of3 () : EncodeResult
 
         /// Returns None if MacroNeedsResolvedTypeArg.
-        let getEncoding name isEnc warn (comp: M.ICompilation) (t: Type) : option<Expression> =
+        let getEncoding name isEnc param (t: Type) : option<Expression> =
+            let warn msg = param.Warnings.Add msg
+            let addTypeDep td = param.Dependencies.Add (M.TypeNode td)
+            let comp = param.Compilation
             let call = invoke comp isEnc
             let ident = invokeId comp 
             let rec encode t =
@@ -379,7 +383,9 @@ module Macro =
                         )  
                     let pr =
                         match comp.GetClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
-                        | Some a -> GlobalAccess a
+                        | Some a -> 
+                            addTypeDep t.TypeDefinition 
+                            GlobalAccess a
                         | _ -> Undefined
                     if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->
                         fo <> OptionalFieldKind.NormalOption &&
@@ -471,7 +477,9 @@ module Macro =
                             | JI.NamedField n -> cString n
                         let tn =
                             match comp.GetClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
-                            | Some a -> GlobalAccess a
+                            | Some a -> 
+                                addTypeDep t.TypeDefinition
+                                GlobalAccess a
                             | _ -> Undefined
                         ok (call "Union" [tn; discr; cases])
                         ), cases)
@@ -524,66 +532,66 @@ module Macro =
             | Choice2Of3 msg -> failwithf "%A: %s" t msg
             | Choice3Of3 () -> None
 
-        let encodeLambda name warn comp t =
-            getEncoding name true warn comp t
+        let encodeLambda name param t =
+            getEncoding name true param t
             |> Option.map (fun x -> Application(x, [], true, Some 0))
 
-        let encode name warn comp t arg =
-            encodeLambda name warn comp t
+        let encode name param t arg =
+            encodeLambda name param t
             |> Option.map (fun x -> Application(x, [arg], true, Some 1))
 
-        let decodeLambda name warn comp t =
-            getEncoding name false warn comp t
+        let decodeLambda name param t =
+            getEncoding name false param t
             |> Option.map (fun x -> Application(x, [], true, Some 0))
 
-        let decode name warn comp t arg =
-            decodeLambda name warn comp t
+        let decode name param t arg =
+            decodeLambda name param t
             |> Option.map (fun x -> Application(x, [arg], true, Some 1))
 
-    let Encode warn comp t arg =
+    let Encode param t arg =
         // ENCODE()(arg)
-        encode "Encode" warn comp t arg
+        encode "Encode" param t arg
 
     let EncodeLambda warn t =
         // ENCODE()
         encodeLambda "EncodeLambda" warn t
 
-    let Serialize warn comp t arg =
+    let Serialize param t arg =
         // JSON.stringify(ENCODE()(arg))
-        encode "Serialize" warn comp t arg
-        |> Option.map (fun x -> mJson comp "Stringify" [x])
+        encode "Serialize" param t arg
+        |> Option.map (fun x -> mJson param.Compilation "Stringify" [x])
 
-    let SerializeLambda warn comp t =
-        encodeLambda "SerializeLambda" warn comp t
+    let SerializeLambda param t =
+        encodeLambda "SerializeLambda" param t
         |> Option.map (fun x ->
             let enc = Id.New(mut = false)
             let arg = Id.New(mut = false)
             // let enc = ENCODE() in fun arg -> JSON.stringify(enc(arg))
             Let(enc, x,
                 Lambda([arg],
-                    mJson comp "Stringify" [Application(Var enc, [Var arg], true, Some 1)])))
+                    mJson param.Compilation "Stringify" [Application(Var enc, [Var arg], true, Some 1)])))
 
-    let Decode warn comp t arg =
+    let Decode param t arg =
         // DECODE()(arg)
-        decode "Decode" warn comp t arg
+        decode "Decode" param t arg
 
-    let DecodeLambda warn comp t =
+    let DecodeLambda param t =
         // DECODE()
-        decodeLambda "DecodeLambda" warn comp t
+        decodeLambda "DecodeLambda" param t
 
-    let Deserialize warn comp t arg =
+    let Deserialize param t arg =
         // DECODE()(JSON.parse(arg))
-        decode "Deserialize" warn comp t (mJson comp "Parse" [arg])
+        decode "Deserialize" param t (mJson param.Compilation "Parse" [arg])
 
-    let DeserializeLambda warn comp t =
-        decodeLambda "DeserializeLambda" warn comp t
+    let DeserializeLambda param t =
+        decodeLambda "DeserializeLambda" param t
         |> Option.map (fun x ->
             let dec = Id.New(mut = false)
             let arg = Id.New(mut = false)
             // let dec = DECODE() in fun arg -> dec(JSON.parse(arg))
             Let(dec, x,
                 Lambda([arg],
-                    Application(Var dec, [mJson comp "Parse" [Var arg]], true, Some 1))))
+                    Application(Var dec, [mJson param.Compilation "Parse" [Var arg]], true, Some 1))))
 
     type SerializeMacro() =
         inherit WebSharper.Core.Macro()
@@ -594,9 +602,6 @@ module Macro =
             | _ -> failwith ""
 
         override this.TranslateCall(c) =
-            let warning = ref None
-            let warn msg = 
-                warning := Some msg
             let f =
                 match c.Method.Entity.Value.MethodName with
                 | "Encode" -> Encode
@@ -604,16 +609,25 @@ module Macro =
                 | "Serialize" -> Serialize
                 | "Deserialize" -> Deserialize
                 | _ -> failwith "Invalid macro invocation"
-            let id = Id.New(mut = false)
+            let param = 
+                {
+                    Compilation = c.Compilation
+                    Warnings = ResizeArray()
+                    Dependencies = ResizeArray()
+                }
             let res =
-                match f warn c.Compilation c.Method.Generics.Head (last c.Arguments) with
+                match f param c.Method.Generics.Head (last c.Arguments) with
                 | Some x ->
                     WebSharper.Core.MacroOk x
                 | None -> WebSharper.Core.MacroNeedsResolvedTypeArg
-            match !warning with
-            | None -> res
-            | Some msg -> WebSharper.Core.MacroWarning(msg, res)
-
+            let resWithWarnings =
+                if param.Warnings.Count > 0 then
+                    param.Warnings |> Seq.fold (fun res msg -> 
+                        WebSharper.Core.MacroWarning (msg, res)) res
+                else res
+            if param.Dependencies.Count > 0 then
+                WebSharper.Core.MacroDependencies (List.ofSeq param.Dependencies, resWithWarnings)
+            else resWithWarnings    
 open Macro
 
 /// Encodes an object in such a way that JSON stringification
