@@ -763,7 +763,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             else
                 comp.AddCustomType(def, i)
 
-        if cls.IsValueType && not (cls.IsFSharpRecord || cls.IsFSharpUnion) then
+        if cls.IsValueType && not (cls.IsFSharpRecord || cls.IsFSharpUnion || cls.IsEnum) then
             // add default constructor for structs
             let cdef = Hashed { CtorParameters = [] }
             let fields =

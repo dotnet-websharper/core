@@ -85,22 +85,26 @@ let ReadLiteral (value: obj) =
     | :? decimal as x -> Decimal x
     | _ -> failwithf "Literal value not recognized: %A" value
 
+let private uncheckedOps =
+    TypeDefinition {
+        Assembly = "FSharp.Core"
+        FullName = "Microsoft.FSharp.Core.Operators+Unchecked"
+    }
+
+let private defaultOf =
+    Method {
+        MethodName = "DefaultOf"
+        Parameters = []
+        ReturnType = TypeParameter 0
+        Generics = 1
+    }
+
 /// Creates a call to a macro that generates default value for type
 let DefaultValueOf (typ : Type) =
-    Call(
-        None, 
-        NonGeneric (TypeDefinition {
-            Assembly = "FSharp.Core"
-            FullName = "Microsoft.FSharp.Core.Operators+Unchecked"
-        }),
-        Generic (Method {
-            MethodName = "DefaultOf"
-            Parameters = []
-            ReturnType = TypeParameter 0
-            Generics = 1
-        }) [typ],
-        []
-    )
+    Call(None, NonGeneric uncheckedOps, Generic defaultOf [typ], [])
+
+let IsDefaultValue td meth =
+    td = uncheckedOps && meth = defaultOf
 
 /// Combines a list of AST.Statements into a single AST.Statement
 let CombineStatements statements =

@@ -123,3 +123,6 @@ let GetJS<'T> (x: obj) (items: seq<string>) =
     for i in items do
         x <- x?(i)
     As<'T> x    
+
+[<Macro(typeof<M.DefaultToUndefined>)>]
+let DefaultToUndefined<'T> (x: 'T) = x

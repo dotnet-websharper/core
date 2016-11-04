@@ -156,6 +156,11 @@ type DefaultOf =
     inherit Macro
 
 [<Sealed>]
+type DefaultToUndefined =
+    new : unit -> DefaultToUndefined
+    inherit Macro
+
+[<Sealed>]
 type TypeTest =
     new : unit -> TypeTest
     inherit Macro

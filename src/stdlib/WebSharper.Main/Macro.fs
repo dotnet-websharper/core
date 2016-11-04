@@ -1086,6 +1086,22 @@ type DefaultOf() =
             MacroOk (Value (Null))
 
 [<Sealed>]
+type DefaultToUndefined() =
+    inherit Macro()
+
+    static let tr =
+        { new Transformer() with
+            override this.TransformCall(thisObj, typ, meth, args) =
+                if Option.isNone thisObj && IsDefaultValue typ.Entity meth.Entity && List.isEmpty args then
+                    Undefined
+                else
+                    base.TransformCall(thisObj, typ, meth, args)  
+        }.TransformExpression
+
+    override __.TranslateCall(c) =
+        MacroOk <| tr c.Arguments.[0]
+
+[<Sealed>]
 type TypeTest() =
     inherit Macro()
 
