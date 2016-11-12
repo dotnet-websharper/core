@@ -7,10 +7,10 @@
     <Stage>compiler</Stage>
     <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
     <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <TargetFrameworkProfile />
-    <FSharp40>True</FSharp40>
     <Tests>True</Tests>
+    <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <Import Project="../../msbuild/FSharp.targets" />
   <ItemGroup>
@@ -19,7 +19,9 @@
     <Compile Include="ParserTests.fs" />
     <Compile Include="CompilerTests.fs" />
     <Compile Include="Main.fs" />
-    <Content Include="App.config" />
+    <Content Include="App.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj">
@@ -42,14 +44,16 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\compiler\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj">
-      <Name>WebSharper.InterfaceGenerator</Name>
-      <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <Reference Include="FSharp.Compiler.Service">
-      <HintPath>..\..\packages\FSharp.Compiler.Service\lib\net45\FSharp.Compiler.Service.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Runtime.Remoting" />
   </ItemGroup>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.0' Or $(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6')">
+      <ItemGroup>
+        <Reference Include="FSharp.Core">
+          <HintPath>..\..\packages\fsharp3\FSharp.Core\lib\net40\FSharp.Core.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
 </Project>

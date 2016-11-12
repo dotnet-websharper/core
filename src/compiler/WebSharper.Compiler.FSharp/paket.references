@@ -1,0 +1,4 @@
+﻿FSharp.Compiler.Service
+
+group fsharp4
+    FSharp.Core

@@ -26,8 +26,8 @@
     <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == ''">v4.6</TargetFrameworkVersion>
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' != '' ">$(INTELLIFACTORY)/keys/IntelliFactory.snk</KeyOriginatorFile>
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' == '' ">$(MSBuildThisFileDirectory)/../tools/WebSharper.snk</KeyOriginatorFile>
-	<WSMSBuildPath Condition="'$(WSMSBuildPath)' == ''">Release</WSMSBuildPath>
-	<WebSharperTaskAssembly>$(MSBuildThisFileDirectory)/../build/$(WSMSBuildPath)/CSharp/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+    <WSMSBuildPath Condition="'$(WSMSBuildPath)' == ''">Release</WSMSBuildPath>
+    <WebSharperTaskAssembly>$(MSBuildThisFileDirectory)/../build/$(WSMSBuildPath)/CSharp/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Root>$(MSBuildThisFileDirectory)\..</Root>

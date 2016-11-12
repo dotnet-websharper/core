@@ -24,7 +24,7 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == ''">v4.0</TargetFrameworkVersion>
-	<WSMSBuildPath Condition="'$(WSMSBuildPath)' == ''">Release</WSMSBuildPath>
+    <WSMSBuildPath Condition="'$(WSMSBuildPath)' == ''">Release</WSMSBuildPath>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Root>$(MSBuildThisFileDirectory)\..</Root>

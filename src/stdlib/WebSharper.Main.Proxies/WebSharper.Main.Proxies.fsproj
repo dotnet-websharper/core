@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{7001e2b2-61f4-4770-ba7c-86f07f657678}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <Name>WebSharper.Main.Proxies</Name>
+    <WebSharperProject>Library</WebSharperProject>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <SkipCopyBuildProduct>true</SkipCopyBuildProduct>
+  </PropertyGroup>
+  <Target Name="CoreCompile" />
+  <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
+  <ItemGroup>
+    <Compile Include="../WebSharper.Main/JavaScript.fs" />
+    <Compile Include="../WebSharper.Main/Macro.fsi" />
+    <Compile Include="../WebSharper.Main/Macro.fs" />
+    <Compile Include="../WebSharper.Main/Pervasives.fs" />
+    <Compile Include="../WebSharper.Main/JavaScript.Pervasives.fs" />
+    <EmbeddedResource Include="../WebSharper.Main/Json.js" />
+    <EmbeddedResource Include="../WebSharper.Main/Json.min.js" />
+    <Compile Include="../WebSharper.Main/Json.fsi" />
+    <Compile Include="../WebSharper.Main/Json.fs" />
+    <Compile Include="../WebSharper.Main/Remoting.fs" />
+    <EmbeddedResource Include="../WebSharper.Main/AnimFrame.js" />
+    <EmbeddedResource Include="../WebSharper.Main/AnimFrame.min.js" />
+    <Compile Include="../WebSharper.Main/PrintfHelpers.fs" />
+    <Compile Include="../WebSharper.Main/Concurrency.fs" />
+    <Compile Include="../WebSharper.Main/Enumerator.fs" />
+    <Compile Include="../WebSharper.Main/Enumerable.fs" />
+    <Compile Include="../WebSharper.Main/Resources.fs" />
+    <Compile Include="../WebSharper.Main/Html.fs" />
+    <Compile Include="../WebSharper.Main/FSharpConvert.fs" />
+    <Compile Include="../WebSharper.Main/JavaScript.Extensions.fs" />
+    <Compile Include="../WebSharper.Main/ProxyHelpers.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Interop.fs" />
+    <None Include="../WebSharper.Main.Proxies/genInterop.fsx" />
+    <Compile Include="../WebSharper.Main.Proxies/CollectionInternals.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Object.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/IntrinsicFunctions.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Array.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/ArrayModule.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Array2DModule.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Async.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/AsyncBuilder.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Char.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Choice.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Console.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/CommonExtensions.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/DateTime.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Delegate.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Dictionary.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Enum.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Exception.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/ExtraTopLevelOperators.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Func.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Guid.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/HashSet.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Interfaces.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/IntrinsicOperators.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/KeyValuePair.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/LanguagePrimitives.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Lazy.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/LazyExtensions.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/List.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/ListModule.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Math.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Nullable.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Operators.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/OperatorIntrinsics.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Option.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/OptionModule.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Queue.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Printf.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Random.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Ref.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Result.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/ResultModule.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/RuntimeHelpers.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/SeqModule.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Stack.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/String.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Task.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Tuple.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/TimeSpan.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Unchecked.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Primitives.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
+      <Name>WebSharper.Core.JavaScript</Name>
+      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj">
+      <Name>WebSharper.Core</Name>
+      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.JavaScript\WebSharper.JavaScript.fsproj">
+      <Name>WebSharper.JavaScript</Name>
+      <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.JQuery\WebSharper.JQuery.fsproj">
+      <Name>WebSharper.JQuery</Name>
+      <Project>{730ae40a-001c-4137-972d-898dc7c2bf0a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.Linq" />
+  </ItemGroup>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.0'">
+      <ItemGroup>
+        <Reference Include="FSharp.Core">
+          <HintPath>..\..\..\packages\fsharp4\FSharp.Core\lib\net40\FSharp.Core.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6')">
+      <ItemGroup>
+        <Reference Include="FSharp.Core">
+          <HintPath>..\..\..\packages\fsharp4\FSharp.Core\lib\net45\FSharp.Core.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6')">
+      <ItemGroup>
+        <Reference Include="System.ValueTuple">
+          <HintPath>..\..\..\packages\fsharp4\System.ValueTuple\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.0'">
+      <ItemGroup>
+        <Reference Include="System.ValueTuple">
+          <HintPath>..\..\..\packages\fsharp4\System.ValueTuple\lib\portable-net40+sl4+win8+wp8\System.ValueTuple.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+</Project>
