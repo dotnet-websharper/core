@@ -15,15 +15,15 @@
     <DefineConstants>TRACE;DEBUG</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <StartArguments>--project:"H:\websharper.ui.next\WebSharper.UI.Next\WebSharper.UI.Next.fsproj" --jsmap --target:library --define:TRACE --noframework --out:"H:\websharper.ui.next\build\net40\WebSharper.UI.Next.dll" --doc:"H:\websharper.ui.next\build\net40\WebSharper.UI.Next.xml" -r H:\websharper.ui.next\packages\Zafir.4.0.155.0-beta6\lib\net40\WebSharper.Collections.dll -r H:\websharper.ui.next\packages\Zafir.4.0.155.0-beta6\lib\net40\WebSharper.Control.dll -r H:\websharper.ui.next\packages\Zafir.4.0.155.0-beta6\lib\net40\WebSharper.Core.dll -r H:\websharper.ui.next\packages\Zafir.4.0.155.0-beta6\lib\net40\WebSharper.Core.JavaScript.dll -r H:\websharper.ui.next\packages\Zafir.4.0.155.0-beta6\lib\net40\WebSharper.InterfaceGenerator.dll -r H:\websharper.ui.next\packages\Zafir.4.0.155.0-beta6\lib\net40\WebSharper.JavaScript.dll -r H:\websharper.ui.next\packages\Zafir.4.0.155.0-beta6\lib\net40\WebSharper.JQuery.dll -r H:\websharper.ui.next\packages\Zafir.4.0.155.0-beta6\lib\net40\WebSharper.Main.dll -r H:\websharper.ui.next\packages\Zafir.4.0.155.0-beta6\lib\net40\WebSharper.Sitelets.dll -r H:\websharper.ui.next\packages\Zafir.4.0.155.0-beta6\lib\net40\WebSharper.Web.dll -r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Web.dll" -r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Numerics.dll" -r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Core.dll" -r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\mscorlib.dll" -r "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.dll" -r "C:\Program Files (x86)\Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.3.0.0\FSharp.Core.dll" --resource:H:\websharper.ui.next\WebSharper.UI.Next\h5f.js --define:ZAFIR H:\websharper.ui.next\WebSharper.UI.Next\Utility\Abbrev.fs H:\websharper.ui.next\WebSharper.UI.Next\Utility\AppendList.fsi H:\websharper.ui.next\WebSharper.UI.Next\Utility\AppendList.fs H:\websharper.ui.next\WebSharper.UI.Next\Utility\DomUtility.fs H:\websharper.ui.next\WebSharper.UI.Next\Utility\Trie.fsi H:\websharper.ui.next\WebSharper.UI.Next\Utility\Trie.fs H:\websharper.ui.next\WebSharper.UI.Next\Utility\Resources.fs H:\websharper.ui.next\WebSharper.UI.Next\Snap.fsi H:\websharper.ui.next\WebSharper.UI.Next\Snap.fs H:\websharper.ui.next\WebSharper.UI.Next\Reactive.fsi H:\websharper.ui.next\WebSharper.UI.Next\Reactive.fs H:\websharper.ui.next\WebSharper.UI.Next\Models.fsi H:\websharper.ui.next\WebSharper.UI.Next\Models.fs H:\websharper.ui.next\WebSharper.UI.Next\ReactiveExtensions.fsi H:\websharper.ui.next\WebSharper.UI.Next\ReactiveExtensions.fs H:\websharper.ui.next\WebSharper.UI.Next\Animation.fsi H:\websharper.ui.next\WebSharper.UI.Next\Animation.fs H:\websharper.ui.next\WebSharper.UI.Next\Attr.fsi H:\websharper.ui.next\WebSharper.UI.Next\Attr.fs H:\websharper.ui.next\WebSharper.UI.Next\Attr.Client.fsi H:\websharper.ui.next\WebSharper.UI.Next\Attr.Client.fs H:\websharper.ui.next\WebSharper.UI.Next\Doc.fsi H:\websharper.ui.next\WebSharper.UI.Next\Doc.fs H:\websharper.ui.next\WebSharper.UI.Next\Doc.Server.fsi H:\websharper.ui.next\WebSharper.UI.Next\Doc.Server.fs H:\websharper.ui.next\WebSharper.UI.Next\Doc.Client.fsi H:\websharper.ui.next\WebSharper.UI.Next\Doc.Client.fs H:\websharper.ui.next\WebSharper.UI.Next\Flow.fsi H:\websharper.ui.next\WebSharper.UI.Next\Flow.fs H:\websharper.ui.next\WebSharper.UI.Next\HTML.fs H:\websharper.ui.next\WebSharper.UI.Next\HTML.Client.fs H:\websharper.ui.next\WebSharper.UI.Next\Notation.fsi H:\websharper.ui.next\WebSharper.UI.Next\Notation.fs H:\websharper.ui.next\WebSharper.UI.Next\TypeProviderHelpers.fs H:\websharper.ui.next\WebSharper.UI.Next\Routing.fsi H:\websharper.ui.next\WebSharper.UI.Next\Routing.fs H:\websharper.ui.next\WebSharper.UI.Next\Input.fsi H:\websharper.ui.next\WebSharper.UI.Next\Input.fs</StartArguments>
-    <StartWorkingDirectory>H:\websharper.ui.next\WebSharper.UI.Next</StartWorkingDirectory>
+    <StartArguments>-o:obj\Release\WebSharper.Main.dll --debug:pdbonly --noframework --define:TRACE --doc:C:\repo\websharper4\msbuild\\..\build\Release\WebSharper.Main.xml --keyfile:"C:\Users\András\Documents\IntelliFactory/keys/IntelliFactory.snk" --optimize+ --resource:Json.js --resource:Json.min.js --resource:AnimFrame.js --resource:AnimFrame.min.js -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.3.0.0\FSharp.Core.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\mscorlib.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Configuration.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Core.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Data.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Data.Linq.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Numerics.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Web.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Xml.dll" -r:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Xml.Linq.dll" -r:C:\repo\websharper4\build\Release\WebSharper.Core.dll -r:C:\repo\websharper4\build\Release\WebSharper.Core.JavaScript.dll -r:C:\repo\websharper4\build\Release\WebSharper.JavaScript.dll -r:C:\repo\websharper4\build\Release\WebSharper.JQuery.dll --target:library --warn:3 --warnaserror:76 --fullpaths --flaterrors --highentropyva-  --ws:Library --project:"C:\repo\websharper4\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj" --jsmap "C:\Users\András\AppData\Local\Temp\.NETFramework,Version=v4.0.AssemblyAttributes.fs" C:\repo\websharper4\msbuild\/AssemblyInfo.fs C:\repo\websharper4\msbuild\/AssemblyInfo.extra.fs JavaScript.fs Macro.fsi Macro.fs Pervasives.fs JavaScript.Pervasives.fs Json.fsi Json.fs Remoting.fsi Remoting.fs PrintfHelpers.fs Concurrency.fs Enumerator.fs Enumerable.fs Resources.fs Html.fs Interop.fs FSharpConvert.fs JavaScript.Extensions.fs CollectionInternals.fs Proxy/Object.fs Proxy/IntrinsicFunctions.fs Proxy/Array.fs Proxy/ArrayModule.fs Proxy/Array2DModule.fs Proxy/Async.fs Proxy/AsyncBuilder.fs Proxy/Char.fs Proxy/Choice.fs Proxy/Console.fs Proxy/CommonExtensions.fs Proxy/DateTime.fs Proxy/Delegate.fs Proxy/Double.fs Proxy/Enum.fs Proxy/Exception.fs Proxy/ExtraTopLevelOperators.fs Proxy/Func.fs Proxy/Guid.fs Proxy/IComparable.fs Proxy/IDisposable.fs Proxy/IEnumerable.fs Proxy/IEnumerator.fs Proxy/IntrinsicOperators.fs Proxy/KeyValuePair.fs Proxy/LanguagePrimitives.fs Proxy/Lazy.fs Proxy/LazyExtensions.fs Proxy/List.fs Proxy/ListModule.fs Proxy/Math.fs Proxy/Nullable.fs Proxy/Operators.fs Proxy/OperatorIntrinsics.fs Proxy/Option.fs Proxy/OptionModule.fs Proxy/Queue.fs Proxy/Printf.fs Proxy/Random.fs Proxy/Ref.fs Proxy/RuntimeHelpers.fs Proxy/SeqModule.fs Proxy/Stack.fs Proxy/String.fs Proxy/Task.fs Proxy/Tuple.fs Proxy/TimeSpan.fs Proxy/Unchecked.fs Proxy/Primitives.fs</StartArguments>
+    <StartWorkingDirectory>C:\repo\websharper4\src\stdlib\WebSharper.Main\</StartWorkingDirectory>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
     <Compile Include="ErrorPrinting.fs" />
     <Compile Include="Program.fs" />
     <Content Include="App.config" />
+    <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj">
@@ -51,9 +51,84 @@
       <Project>{a05b0b61-a2ef-4c88-b9a3-00e888777798}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <Reference Include="FSharp.Compiler.Service">
-      <HintPath>..\..\..\packages\FSharp.Compiler.Service\lib\net45\FSharp.Compiler.Service.dll</HintPath>
-    </Reference>
     <Reference Include="System.Runtime.Remoting" />
   </ItemGroup>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
+      <ItemGroup>
+        <Reference Include="FSharp.Compiler.Service.MSBuild.v12">
+          <HintPath>..\..\..\packages\FSharp.Compiler.Service\lib\net45\FSharp.Compiler.Service.MSBuild.v12.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="FSharp.Compiler.Service">
+          <HintPath>..\..\..\packages\FSharp.Compiler.Service\lib\net45\FSharp.Compiler.Service.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.0'">
+      <ItemGroup>
+        <Reference Include="Mono.Cecil.Mdb">
+          <HintPath>..\..\..\packages\Mono.Cecil\lib\net40\Mono.Cecil.Mdb.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Mono.Cecil.Pdb">
+          <HintPath>..\..\..\packages\Mono.Cecil\lib\net40\Mono.Cecil.Pdb.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Mono.Cecil">
+          <HintPath>..\..\..\packages\Mono.Cecil\lib\net40\Mono.Cecil.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
+      <ItemGroup>
+        <Reference Include="Mono.Cecil.Mdb">
+          <HintPath>..\..\..\packages\Mono.Cecil\lib\net45\Mono.Cecil.Mdb.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Mono.Cecil.Pdb">
+          <HintPath>..\..\..\packages\Mono.Cecil\lib\net45\Mono.Cecil.Pdb.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="Mono.Cecil">
+          <HintPath>..\..\..\packages\Mono.Cecil\lib\net45\Mono.Cecil.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
+      <ItemGroup>
+        <Reference Include="System.Collections.Immutable">
+          <HintPath>..\..\..\packages\System.Collections.Immutable\lib\netstandard1.0\System.Collections.Immutable.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
+      <ItemGroup>
+        <Reference Include="System.Reflection.Metadata">
+          <HintPath>..\..\..\packages\System.Reflection.Metadata\lib\netstandard1.1\System.Reflection.Metadata.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
 </Project>

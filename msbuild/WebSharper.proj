@@ -4,18 +4,16 @@
         Exclude="../src/compiler/*/WebSharper.fsproj" />
     <SP Include="../src/stdlib/*/*.fsproj" />
     <SP Include="../src/sitelets/*/*.fsproj" />
-    <SP Include="../tests/*/*.fsproj" Exclude="../tests/*/WarpTest.fsproj;../tests/*/WebSharper.Core.JavaScript.Tests.fsproj" />
-    <SP Include="../tests/*/*.csproj" />
-	<BP Include="../src/build/WebSharper.Build/*.fsproj" />
+    <!--<SP Include="../tests/*/*.fsproj" Exclude="../tests/*/WarpTest.fsproj;../tests/*/WebSharper.Core.JavaScript.Tests.fsproj" />
+    <SP Include="../tests/*/*.csproj" />-->
+    <BP Include="../src/build/WebSharper.Build/*.fsproj" />
   </ItemGroup>
   <Target Name="Dispatch" Condition="'$(Arguments)' != ''">
     <MSBuild Projects="@(BP)" Properties="Arguments=$(Arguments)"/>
   </Target>
   <Target Name="FullBuild" Condition="'$(Arguments)' == ''">
-    <MSBuild Projects="@(BP)" Properties="Arguments=prepare"/>
     <MSBuild Projects="@(CP)" />
     <MSBuild Projects="@(SP)" />
-    <MSBuild Projects="@(BP)" Properties="Arguments=package"/>
   </Target>
   <Target Name="Build" DependsOnTargets="Dispatch;FullBuild" />
   <Target Name="Clean">

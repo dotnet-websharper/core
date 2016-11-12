@@ -1,0 +1,14 @@
+type file
+id WebSharper.Testing
+authors IntelliFactory
+licenseUrl http:/websharper.com/licensing
+projectUrl http:/websharper.com
+description
+    Testing framework for C#/F#-to-JavaScript compiled libraries
+tags
+    Web JavaScript F# C#
+dependencies
+    WebSharper == CURRENTVERSION
+files
+    ../build/Release/WebSharper.Testing.dll ==> lib/net40
+    ../build/Release/WebSharper.Testing.xml ==> lib/net40

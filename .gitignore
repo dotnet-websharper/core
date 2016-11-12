@@ -10,9 +10,13 @@ IntelliFactory.WebSharper.JQuery/*.js
 **/Content/WebSharper/
 /build/
 /packages/
+/paket-files/
 /tools/packages/
 /tests/Web/downloads/
-/msbuild/AssemblyInfo.extra.fs
+/msbuild/AssemblyInfo.fs
 /.hg
+/.fake
+/.paket/paket.exe
 /.vs/config
+/.vscode/
 /msbuild.log

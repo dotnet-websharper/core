@@ -27,11 +27,11 @@
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
   <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
     <WebSharperTask 
-	  DefineConstants="$(DefineConstants)"
-	  NoStandardLib="$(NoCompilerStandardLib)"
-	  Sources="@(Compile)"  
-	  OutputAssembly="@(IntermediateAssembly)"
-	  References="@(ReferencePath)"
+      DefineConstants="$(DefineConstants)"
+      NoStandardLib="$(NoCompilerStandardLib)"
+      Sources="@(Compile)"
+      OutputAssembly="@(IntermediateAssembly)"
+      References="@(ReferencePath)"
       Configuration="$(Configuration)"
       DocumentationFile="$(DocumentationFile)"
       EmbeddedResources="@(EmbeddedResource)"
@@ -40,18 +40,18 @@
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(AssemblyName)"
       OutputPath="$(OutputPath)"
-	  WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
       WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" 
-	  WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
-	  ZafirToolPath="$(Root)/build/$(Configuration)/CSharp/ZafirCs.exe"
-	  TargetType="$(OutputType)"
-	  NoConfig="true"
-	  DebugType="$(DebugType)"
-	  SubsystemVersion="$(SubsystemVersion)"
-	/>
+      WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
+      ZafirToolPath="$(Root)/build/$(Configuration)/CSharp/ZafirCs.exe"
+      TargetType="$(OutputType)"
+      NoConfig="true"
+      DebugType="$(DebugType)"
+      SubsystemVersion="$(SubsystemVersion)"
+  />
   </Target>
 </Project>

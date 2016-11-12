@@ -75,15 +75,14 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(FSharp40)' == 'True' ">
     <DefineConstants>$(DefineConstants);FSHARP40</DefineConstants>
-	<TargetFrameworkVersion Condition=" $(TargetFrameworkVersion) == '' ">v4.5</TargetFrameworkVersion>
-	<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  <TargetFrameworkVersion Condition=" $(TargetFrameworkVersion) == '' ">v4.5</TargetFrameworkVersion>
+  <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <Target Name="IncludeVersionFile" BeforeTargets="CoreCompile">
     <ItemGroup>
       <C Include="@(Compile)" />
       <Compile Remove="@(C)" />
-      <Compile Include="$(MSBuildThisFileDirectory)/AssemblyInfo.fs" />
-      <Compile Include="$(MSBuildThisFileDirectory)/AssemblyInfo.extra.fs" Condition="Exists('$(MSBuildThisFileDirectory)/AssemblyInfo.extra.fs')" />
+      <Compile Include="$(MSBuildThisFileDirectory)/AssemblyInfo.fs" Condition="Exists('$(MSBuildThisFileDirectory)/AssemblyInfo.fs')" />
       <Compile Include="@(C)" />
     </ItemGroup>
   </Target>
