@@ -347,15 +347,21 @@ let compileMain argv =
 
 open Microsoft.FSharp.Compiler.ErrorLogger
 
+let formatArgv (argv: string[]) =
+    match argv with
+    | [| a |] when a.StartsWith "@" -> File.ReadAllLines a.[1..]
+    | _ -> argv
+    |> Array.append [| "fsc.exe" |]
+
 [<EntryPoint>]
 let main(argv) =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
-    use unwindBuildPhase = PushThreadBuildPhaseUntilUnwind (BuildPhase.Parameter)    
-
+    use unwindBuildPhase = PushThreadBuildPhaseUntilUnwind (BuildPhase.Parameter)
+    
 #if DEBUG
-    compileMain(Array.append [| "fsc.exe" |] argv); 
+    compileMain (formatArgv argv)
 #else
-    try compileMain(Array.append [| "fsc.exe" |] argv); 
+    try compileMain (formatArgv argv)
     with e -> 
         sprintf "Global error '%s' at %s" e.Message e.StackTrace
         |> WebSharper.Compiler.ErrorPrinting.NormalizeErrorString
