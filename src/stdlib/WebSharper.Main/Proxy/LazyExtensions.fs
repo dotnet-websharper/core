@@ -27,21 +27,29 @@ module private WebSharper.LazyExtensionsProxy
 
 open WebSharper.JavaScript
 
+let cachedLazy<'T> () =
+    JS.This.evalOrVal
+
+let forceLazy<'T> () =
+    let v = (As JS.This.evalOrVal)()
+    JS.This.created <- true
+    JS.This.evalOrVal <- v
+    JS.This.force <- As cachedLazy
+    v
+
 let Create (f: unit -> 'T) : Lazy<'T> =
     As {
         created = false
-        eval = fun () ->
-            let v = f()
-            JS.This.created <- true
-            JS.This.eval <- fun () -> v
-            v
+        evalOrVal = f
+        force = As forceLazy
     }
 
 let CreateFromValue (v: 'T) : Lazy<'T> =
     As {
         created = true
-        eval    = fun () -> v
+        evalOrVal = v
+        force = As cachedLazy
     }
 
 let Force (x: Lazy<'T>) : 'T =
-    As<LazyRecord<'T>>(x).eval()
+    As<LazyRecord<'T>>(x).force()

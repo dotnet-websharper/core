@@ -60,7 +60,7 @@ let ForAll p x =
     | Some x -> p x
     | None   -> true
 
-[<Inline "$x.$0">]
+[<Inline "$x.$0"; Pure>]
 let GetValue (x: option<'T>) = X<'T>
 
 [<Inline "$x==null">]

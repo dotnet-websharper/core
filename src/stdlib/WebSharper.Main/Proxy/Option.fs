@@ -31,7 +31,7 @@ type private OptionProxy<'T> =
     | Some of 'T
 
     [<CompilationRepresentation (CompilationRepresentationFlags.Instance)>]
-    member this.Value with [<Inline "$this.$0">] get () = X<'T>
+    member this.Value with [<Inline "$this.$0"; Pure>] get () = X<'T>
 
     [<Inline "$x != null">]
     static member get_IsSome(x: option<'T>) = false
@@ -39,7 +39,7 @@ type private OptionProxy<'T> =
     [<Inline "$x == null">]
     static member get_IsNone(x: option<'T>) = false
 
-    [<Inline>]  
+    [<Inline; Pure>]  
     static member Some(v: 'T) = As<'T option> (Some v)  
   
     [<Inline>]  

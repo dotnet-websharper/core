@@ -25,7 +25,8 @@ open WebSharper.JavaScript
 type private LazyRecord<'T> =
     {
         [<Name "c">] mutable created : bool
-        [<Name "e">] mutable eval    : unit -> 'T
+        [<Name "v">] mutable evalOrVal : obj
+        [<Name "f">] mutable force : unit -> 'T
     }
 
 [<Proxy(typeof<System.Lazy<_>>)>]
@@ -40,6 +41,6 @@ type private LazyProxy<'T> =
         with [<Inline "$this.c">] get () = X<bool>
 
     member this.Value
-        with [<Inline "$this.e()">] get () = X<'T>
+        with [<Inline "$this.f()">] get () = X<'T>
 
 
