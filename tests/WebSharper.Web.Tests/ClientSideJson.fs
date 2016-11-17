@@ -125,12 +125,16 @@ module ClientSideJson =
             })
 
             Property "serialize dictionary" (fun (x: (string * int)[]) -> Do {
+                let m = Map.ofArray x
+                let x = Map.toArray m
                 let d = Dictionary()
                 do for k, v in x :> seq<_> do d.[k] <- v
                 equal (Json.Parse (Json.Serialize d)) (New (As x))
             })
 
             Property "deserialize dictionary" (fun (x: (string * int)[]) -> Do {
+                let m = Map.ofArray x
+                let x = Map.toArray m
                 let d = Dictionary()
                 do for k, v in x :> seq<_> do d.[k] <- v
                 let ser = New (As x)
@@ -366,6 +370,8 @@ module ClientSideJson =
             })
 
             Property "dictionary" (fun (x: (string * int)[]) -> Do {
+                let m = Map.ofArray x
+                let x = Map.toArray m
                 let d = Dictionary()
                 do for k, v in x :> seq<_> do d.[k] <- v
                 let! (r : Dictionary<string, int>) =

@@ -116,4 +116,13 @@ let Tests =
             equal (Array.map (fun o -> o.Foo) kArr) [| "1"; "2" |]
         }
 
+        Test "Hashing keys" {
+            let d = Dictionary<Map<int,int>, string>()
+            let m1 = Map [ 0, 2; 3, 1; 4, 1 ]
+            let m2 = Map [ 0, 1; 3, 1; 5, 1 ]
+            d.Add(m1, "foo");
+            isFalse (m1 = m2)
+            isFalse (d.ContainsKey m2)
+        }
+
     }

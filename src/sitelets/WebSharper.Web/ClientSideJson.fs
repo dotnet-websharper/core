@@ -221,7 +221,7 @@ module Provider =
         fun () (o: obj) ->
             let d = System.Collections.Generic.Dictionary()
 //            let decEl = decEl ()
-            JS.ForEach o (fun k -> d.[k] <- o?(k); false)
+            JS.ForEach o (fun k -> d.Add(k, o?(k)); false)
             d
 
 module Macro =

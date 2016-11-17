@@ -33,6 +33,9 @@ module internal DictionaryUtil =
     let notPresent () =
         failwith "The given key was not present in the dictionary."
 
+    let alreadyAdded () =
+        failwith "An item with the same key has already been added."
+
     let equals (c: IEqualityComparer<'T>) x y =
         c.Equals(x, y)
 
@@ -52,13 +55,50 @@ type internal Dictionary<'K,'V when 'K : equality>
              hash   : 'K -> int) =
 
         let mutable count = 0
-        let mutable data  = obj ()
+        let mutable data  = As<Array<Array<KVP<'K, 'V>>>> [||]
 
-        [<Inline>]
-        let h x = As<string> (hash x)
+        let get k =
+            let h = hash k
+            let d = data.[h]
+            if As<bool> d then
+                d.Self |> Array.pick (fun (KeyValue(dk, v)) -> 
+                    if equals dk k then Some v else None
+                ) 
+            else
+                notPresent()
+
+        let add k v =
+            let h = hash k
+            let d = data.[h]
+            if As<bool> d then
+                if d.Self |> Array.exists (fun (KeyValue(dk, _)) -> equals dk k) then
+                    alreadyAdded()                    
+                count <- count + 1
+                d.Push(KVP(k, v)) |> ignore
+            else
+                count <- count + 1
+                data.[h] <- Array(KVP(k, v))
+                    
+        let remove k =
+            let h = hash k 
+            let d = data.[h]
+            if As<bool> d then
+                let r = d.Self |> Array.filter (fun (KeyValue(dk, _)) -> not (equals dk k))
+                if r.Length = 0 then
+                    count <- count - 1
+                    data.[h] <- JS.Undefined
+                    true
+                elif r.Length < d.Length then                  
+                    count <- count - 1
+                    data.[h] <- r.JS
+                    true
+                else
+                    false
+            else
+                false
 
         do for x in init do
-            (?<-) data (h x.Key) x.Value
+            add x.Key x.Value
 
         new () = new Dictionary<'K,'V>([||], (=), hash)
 
@@ -81,60 +121,51 @@ type internal Dictionary<'K,'V when 'K : equality>
             )
 
         member this.Add(k: 'K, v: 'V) =
-            let h = h k
-            if JS.HasOwnProperty data h then
-                failwith "An item with the same key has already been added."
-            else
-                (?<-) data h (new KVP<'K,'V>(k, v))
-                count <- count + 1
+            add k v
 
         member this.Clear() =
-            data <- obj ()
+            data <- Array()
             count <- 0
 
         member this.ContainsKey(k: 'K) =
-            JS.HasOwnProperty data (h k)
+            let h = hash k
+            let d = data.[h]
+            if As<bool> d then
+                d.Self |> Array.exists (fun (KeyValue(dk, _)) -> 
+                    equals dk k
+                ) 
+            else
+                false
 
         member this.Count with [<Inline>] get () = count
 
         member this.Item
-            with get (k: 'K) : 'V =
-                let k = h k
-                if JS.HasOwnProperty data k then
-                    let x : KVP<'K, 'V> = (?) data k
-                    x.Value
-                else
-                    notPresent ()
-            and set (k: 'K) (v: 'V) =
-                let h = h k
-                if not (JS.HasOwnProperty data h) then
-                    count <- count + 1
-                (?<-) data h (new KVP<'K,'V>(k, v))
-
-        member this.GetEnumerator() =
-            let s = JS.GetFieldValues data
-            (As<seq<KeyValuePair<'K,'V>>> s).GetEnumerator()
+            with get (k: 'K) : 'V = get k
+            and set (k: 'K) (v: 'V) = add k v
 
         interface System.Collections.IEnumerable with
-            member this.GetEnumerator() = this.GetEnumerator() :> _
-
+            member this.GetEnumerator() = 
+                let s = JS.GetFieldValues data
+                (As<KeyValuePair<'K,'V>[][]> s |> Array.concat).GetEnumerator()
+            
         interface IEnumerable<KeyValuePair<'K,'V>> with
-            member this.GetEnumerator() = As<IEnumerator<KeyValuePair<'K,'V>>> (this.GetEnumerator())
+            member this.GetEnumerator() = As<IEnumerator<KeyValuePair<'K,'V>>> ((this :> System.Collections.IEnumerable).GetEnumerator())
 
         member this.Remove(k: 'K) =
-            let h = h k
-            if JS.HasOwnProperty data h then
-                JS.Delete data h
-                count <- count - 1
-                true
-            else
-                false
+            remove k
 
         member this.TryGetValue(k: 'K, [<Out>] res : byref<'V>) =
-            let k = h k
-            if JS.HasOwnProperty data k then
-                let x : KVP<'K, 'V> = (?) data k
-                res <- x.Value
-                true
+            let h = hash k
+            let d = data.[h]
+            if As<bool> d then
+                let v =
+                    d.Self |> Array.tryPick (fun (KeyValue(dk, v)) -> 
+                        if equals dk k then Some v else None
+                    ) 
+                match v with 
+                | Some v -> 
+                    res <- v
+                    true
+                | _ -> false
             else
                 false
