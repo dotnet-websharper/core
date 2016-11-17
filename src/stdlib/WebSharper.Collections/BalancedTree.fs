@@ -106,7 +106,9 @@ module internal BalancedTree =
         Build data 0 (Array.length data - 1)
 
     let OfSeq (data: seq<'T>) : Tree<'T> =
-        OfSorted (Array.sort (Seq.toArray (Seq.distinct data)))
+        let a = Seq.toArray (Seq.distinct data)
+        Array.sortInPlace a
+        OfSorted a
 
     [<Inline "$x.unshift($y)">]
     let private unshift (x: 'T) y = X<unit>

@@ -26,15 +26,6 @@ open WebSharper
 open WebSharper.JavaScript
 module T = BalancedTree
 
-[<AutoOpen>]
-[<JavaScript>]
-module private SetUtil =
-
-    let ofSeq(s: seq<_>) =
-        let a = Seq.toArray s
-        Array.sortInPlace a
-        T.OfSorted a
-
 /// Implements a proxy for the F# Set type.
 [<Name "FSharpSet">]
 [<Proxy(typeof<Set<_>>)>]
@@ -42,7 +33,7 @@ type private FSharpSet<'T when 'T : comparison>
 
     internal (tree: T.Tree<'T>) =
 
-        new (s: seq<'T>) = new FSharpSet<'T>(ofSeq s)
+        new (s: seq<'T>) = new FSharpSet<'T>(T.OfSeq s)
 
         member this.add(x: Set<'T>) =
             Set.union (As this) x

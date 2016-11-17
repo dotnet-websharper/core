@@ -69,11 +69,17 @@ let Tests =
         }
 
         Test "NoDuplicates" {
-            let t (x: list<int>) = Set.toArray (Set.ofList x)
-            equal (t SevenDS) (t SevenS)
-            equal (t SevenS) (t DoubleSS)
+            let ctor (x: list<int>) = Set.toArray (Set x)
+            equal (ctor SevenDS) (ctor SevenS)
+            equal (ctor SevenS) (ctor DoubleSS)
             property (fun x -> Do {
-                equal (t x) (Seq.toArray (Seq.sort (Seq.distinct x)))
+                equal (ctor x) (Seq.toArray (Seq.sort (Seq.distinct x)))
+            })
+            let ofList (x: list<int>) = Set.toArray (Set.ofList x)
+            equal (ofList SevenDS) (ofList SevenS)
+            equal (ofList SevenS) (ofList DoubleSS)
+            property (fun x -> Do {
+                equal (ofList x) (Seq.toArray (Seq.sort (Seq.distinct x)))
             })
         }
 
