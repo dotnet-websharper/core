@@ -247,6 +247,19 @@ type Bug590 =
     static member Curried5 (a: string) b c d e = a + b + c + d + e
 
 [<JavaScript>]
+module Bug625 =
+    let mutable w = "Wrong"
+    
+    [<Inline>]
+    let ignore x = ()
+    
+    let f () = 
+        w <- "Correct"
+        1
+    
+    let g() = ignore (f ())        
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -538,6 +551,11 @@ let Tests =
             let i = Bug590.Curried5 "x"
             equal ("a" |> i "a" "a" "a") "xaaaa"
             equal ("b" |> i "b" "b" "b") "xbbbb"
+        }
+
+        Test "Bug #625: Inlined ignore" {
+            Bug625.g()
+            equal Bug625.w "Correct"
         }
 
 //        Test "Recursive module value" {

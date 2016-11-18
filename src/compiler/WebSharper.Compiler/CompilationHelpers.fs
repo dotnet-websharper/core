@@ -44,7 +44,6 @@ let rec isPureExpr expr =
     | Value _
     | Function _ 
     | GlobalAccess _
-    | Hole _
     | Self
         -> true
     | Sequential a 
@@ -288,7 +287,7 @@ let varEvalOrder (vars : Id list) expr =
         | _ -> fail()
                
     eval expr
-    ok     
+    ok && List.isEmpty vars   
 
 /// Counts the number of occurrences of a single Id within an
 /// expression or statement. Useful for Let optimization.
