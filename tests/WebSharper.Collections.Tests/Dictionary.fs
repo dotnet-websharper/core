@@ -51,6 +51,9 @@ let Tests =
             let d = Dictionary()
             d.Add(1,"a")
             equal d.[1] "a"
+            raises (d.Add(1,"b"))
+            d.[1] <- "c"
+            equal d.[1] "c"
         }
 
         Test "Clear" {

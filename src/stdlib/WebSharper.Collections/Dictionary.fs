@@ -67,6 +67,20 @@ type internal Dictionary<'K,'V when 'K : equality>
             else
                 notPresent()
 
+        let set k v =
+            let h = hash k
+            let d = data.[h]
+            if As<bool> d then
+                match d.Self |> Array.tryFindIndex (fun (KeyValue(dk, _)) -> equals dk k) with
+                | Some i ->
+                    d.[i] <- KVP(k, v) 
+                | None ->
+                    count <- count + 1
+                    d.Push(KVP(k, v)) |> ignore
+            else
+                count <- count + 1
+                data.[h] <- Array(KVP(k, v))
+                    
         let add k v =
             let h = hash k
             let d = data.[h]
@@ -98,7 +112,7 @@ type internal Dictionary<'K,'V when 'K : equality>
                 false
 
         do for x in init do
-            add x.Key x.Value
+            set x.Key x.Value
 
         new () = new Dictionary<'K,'V>([||], (=), hash)
 
@@ -141,7 +155,7 @@ type internal Dictionary<'K,'V when 'K : equality>
 
         member this.Item
             with get (k: 'K) : 'V = get k
-            and set (k: 'K) (v: 'V) = add k v
+            and set (k: 'K) (v: 'V) = set k v
 
         interface System.Collections.IEnumerable with
             member this.GetEnumerator() = 
