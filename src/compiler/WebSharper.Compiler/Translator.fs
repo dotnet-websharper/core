@@ -478,7 +478,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     member this.AddTypeDependency(typ) =
         let typ = comp.FindProxied typ
-        if comp.TryLookupClassInfo typ |> Option.isSome then
+        if comp.HasType typ then
             comp.Graph.AddEdge(currentNode, M.TypeNode typ)
 
     member this.AddConstructorDependency(typ, ctor) =
@@ -496,7 +496,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             else
                 comp.Graph.AddEdge(currentNode, M.MethodNode (typ, meth))
         else
-            if comp.TryLookupClassInfo typ |> Option.isSome then
+            if comp.HasType typ then
                 comp.Graph.AddEdge(currentNode, M.TypeNode typ)
 
     member this.Error(err) =
@@ -675,13 +675,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     override this.TransformTraitCall(thisObj, typ, meth, args) =
         match typ with
         | ConcreteType ct ->
-            match comp.TryLookupClassInfo ct.Entity with
-            | None -> this.Error (TypeNotFound ct.Entity)
-            | Some cls ->
+            let tr (methods: seq<Method>) =
                 let mi = meth.Entity.Value
                 let mName = mi.MethodName
                 let ms =                    
-                    cls.Methods.Keys |> Seq.choose (fun m ->
+                    methods |> Seq.choose (fun m ->
                         // TODO: check compatility with signature better
                         if m.Value.MethodName = mName then Some m else None
                     ) 
@@ -691,7 +689,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     this.TransformCall(Some thisObj, ct, Generic m meth.Generics, args)
                 | [] -> this.Error(SourceError (sprintf "Could not find method for trait call: %s" mName))
                 | _ -> this.Error(SourceError (sprintf "Ambiguity at translating trait call: %s" mName))
-
+            match comp.TryLookupClassInfo ct.Entity with
+            | None -> 
+                match comp.TryLookupInterfaceInfo ct.Entity with
+                | Some intf -> tr intf.Methods.Keys
+                | None -> this.Error (TypeNotFound ct.Entity)
+            | Some cls -> tr cls.Methods.Keys
         | _ ->
             if currentIsInline then
                 hasDelayedTransform <- true

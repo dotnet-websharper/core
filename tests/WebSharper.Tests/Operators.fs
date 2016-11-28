@@ -25,6 +25,10 @@ open WebSharper.JavaScript
 open WebSharper.Testing
 module R = WebSharper.Testing.Random
 
+[<JavaScript>]
+type IValue<'T> =
+    abstract member Value : 'T with get
+
 [<JavaScript; Inline>]
 let inline ( !! ) (o: ^x) : ^a = (^x: (member Value: ^a with get) o)
 
@@ -127,6 +131,8 @@ let Tests =
         Test "trait call" {
             let r = ref 3
             equal !!r 3
+            let i = { new IValue<int> with member this.Value = 4 }
+            equal !!i 4
         }
 
         Test "taking unit" {

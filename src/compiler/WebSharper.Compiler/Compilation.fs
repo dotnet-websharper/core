@@ -367,12 +367,19 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.TryLookupClassInfo typ =   
         classes.TryFind(findProxied typ)
     
+    member this.TryLookupInterfaceInfo typ =   
+        interfaces.TryFind(findProxied typ)
+    
     member this.IsImplementing (typ, intf) : bool option =
         classes.TryFind(findProxied typ)
         |> Option.map (fun cls ->
             cls.Implementations |> Seq.exists (fun (KeyValue ((i, _), _)) -> i = intf)
             || cls.BaseClass |> Option.exists (fun b -> this.IsImplementing(b, intf) |> Option.exists id) 
         )
+
+    member this.HasType(typ) =
+        let typ = findProxied typ
+        classes.ContainsKey typ || interfaces.ContainsKey typ
 
     member this.IsInterface(typ) =
         let typ = findProxied typ
