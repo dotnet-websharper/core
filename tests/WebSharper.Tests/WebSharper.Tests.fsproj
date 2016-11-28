@@ -22,6 +22,7 @@
     <Compile Include="DateTime.fs" />
     <Compile Include="Delegate.fs" />
     <Compile Include="Double.fs" />
+    <Compile Include="Enum.fs" />
     <Compile Include="Event.fs" />
     <Compile Include="Exception.fs" />
     <Compile Include="Inheritance.fs" />

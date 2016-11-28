@@ -23,5 +23,5 @@ namespace WebSharper
 [<Proxy(typeof<System.Enum>)>]
 type internal EnumProxy =
 
-    [<Inline "($0 & $1) !== 0">]
+    [<Inline "($0 & $1) === $1">]
     member p.HasFlag (flag: System.Enum) = false

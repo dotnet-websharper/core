@@ -36,6 +36,7 @@ let RunTests() =
         DateTime.Tests
         DateTime.NativeTests
         Double.Tests
+        Enum.Tests
         Event.Tests
         Exception.Tests
         Inheritance.Tests
