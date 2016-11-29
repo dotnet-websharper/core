@@ -418,6 +418,11 @@ module Macro =
                                 | _ -> None
                             inl f.UnionFieldType
                         | _ -> None
+                    let isOption (t: Type) =
+                        match t with
+                        | ConcreteType { Entity = e } ->
+                            e.Value.FullName = "Microsoft.FSharp.Core.FSharpOption`1"
+                        | _ -> false
                     let discr =
                         match u.NamedUnionCases with
                         | None -> JI.StandardField
@@ -427,17 +432,15 @@ module Macro =
                                     i,
                                     match tryGetInlinableRecordInfo uci with
                                     | Some (_, fRec) ->
-                                        fRec |> Seq.filter (fun rf ->
-                                            match rf.RecordFieldType with
-                                            | ConcreteType { Entity = e } when 
-                                                e.Value.FullName = "Microsoft.FSharp.Core.FSharpOption`1" -> false
-                                            | _ -> true
-                                        )
+                                        fRec |> Seq.filter (fun rf -> not (isOption rf.RecordFieldType))
                                         |> Seq.map (fun rf -> rf.JSName) |> Set.ofSeq
-                                    | _ -> 
+                                    | None ->
                                         match uci.Kind with 
                                         | M.NormalFSharpUnionCase fs ->
-                                            fs |> Seq.map ( fun f -> f.Name) |> Set.ofSeq
+                                            fs
+                                            |> List.choose (fun f ->
+                                                if isOption f.UnionFieldType then None else Some f.Name)
+                                            |> Set.ofList
                                         | _ -> Set.empty
                                 )
                                 |> Map.ofSeq
