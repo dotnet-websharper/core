@@ -33,6 +33,16 @@ module private HashSetUtil =
     
 open DictionaryUtil
 
+// not really used, an array enumerator is cast to this type instead
+// proxy is needed so calls against it compile
+// TODO: lazy iterating
+[<Proxy(typeof<HashSet<_>.Enumerator>)>]
+[<Stub>]
+type private EnumeratorProxy<'T> [<JavaScript(false)>] () =
+    member this.get_Current() = As<'T> 0        
+    member this.MoveNext() = false
+    member this.Dispose() = ()
+
 [<Proxy(typeof<HashSet<_>>)>]
 [<Name "HashSet">]
 type internal HashSetProxy<'T when 'T : equality>
@@ -116,13 +126,13 @@ type internal HashSetProxy<'T when 'T : equality>
 
         [<Inline>]
         member this.GetEnumerator() =
-           (As<seq<'T>>(concat data)).GetEnumerator()
+           As<HashSet<'T>.Enumerator>((As<seq<'T>>(concat data)).GetEnumerator())
 
         interface IEnumerable with
             member this.GetEnumerator() = this.GetEnumerator() :> _
         
         interface IEnumerable<'T> with
-            member this.GetEnumerator() = this.GetEnumerator()
+            member this.GetEnumerator() = this.GetEnumerator() :> _
 
         // TODO: optimize methods by checking if other collection
         // is a HashSet with the same IEqualityComparer
@@ -164,10 +174,13 @@ type internal HashSetProxy<'T when 'T : equality>
 
         member x.RemoveWhere(cond: System.Predicate<'T>) =
             let all = concat data
+            let mutable res = 0
             for i = 0 to all.Length - 1 do
                 let item = all.[i]
                 if cond.Invoke item then
-                    x.Remove(item) |> ignore
+                    if x.Remove(item) then
+                        res <- res + 1
+            res
 
         member x.SetEquals(xs: seq<'T>) =
             let other = HashSetProxy(xs, equals, hash)

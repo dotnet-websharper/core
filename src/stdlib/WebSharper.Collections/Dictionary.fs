@@ -22,6 +22,7 @@ namespace WebSharper.Collections
 
 open WebSharper
 open WebSharper.JavaScript
+open System.Collections
 open System.Collections.Generic
 
 type private KVP<'K,'V> = KeyValuePair<'K,'V>
@@ -44,6 +45,50 @@ module internal DictionaryUtil =
 
 open DictionaryUtil
 open System.Runtime.InteropServices
+
+// not really used, a sequence enumerator is cast to this type instead
+// proxy is needed so calls against it compile
+// TODO: lazy iterating
+[<Proxy(typeof<D<_,_>.KeyCollection.Enumerator>)>]
+[<Stub>]
+type private KeyCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
+    member this.get_Current() = As<'K> 0        
+    member this.MoveNext() = false
+    member this.Dispose() = ()
+
+// not really used, a sequence enumerator is cast to this type instead
+// proxy is needed so calls against it compile
+// TODO: lazy iterating
+[<Proxy(typeof<D<_,_>.ValueCollection.Enumerator>)>]
+[<Stub>]
+type private ValueCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
+    member this.get_Current() = As<'V> 0        
+    member this.MoveNext() = false
+    member this.Dispose() = ()
+
+[<Proxy(typeof<D<_,_>.KeyCollection>)>]
+type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
+    member this.Count = d.Count 
+
+    member this.GetEnumerator() =
+        As<D<'K,'V>.KeyCollection.Enumerator>(
+            (d |> Seq.map(fun kvp -> kvp.Key)).GetEnumerator())
+            
+    interface IEnumerable<'K> with
+        member this.GetEnumerator() = As<IEnumerator<'K>>(this.GetEnumerator())
+        member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
+
+[<Proxy(typeof<D<_,_>.ValueCollection>)>]
+type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
+    member this.Count = d.Count 
+
+    member this.GetEnumerator() =
+        As<D<'K,'V>.ValueCollection.Enumerator>(
+            (d |> Seq.map(fun kvp -> kvp.Value)).GetEnumerator())
+            
+    interface IEnumerable<'V> with
+        member this.GetEnumerator() = As<IEnumerator<'V>>(this.GetEnumerator())
+        member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
 
 /// Implements a proxy for the .NET dictionary.
 [<Name "Dictionary">]
@@ -98,11 +143,7 @@ type internal Dictionary<'K,'V when 'K : equality>
             let d = data.[h]
             if As<bool> d then
                 let r = d.Self |> Array.filter (fun (KeyValue(dk, _)) -> not (equals dk k))
-                if r.Length = 0 then
-                    count <- count - 1
-                    data.[h] <- JS.Undefined
-                    true
-                elif r.Length < d.Length then                  
+                if r.Length < d.Length then                  
                     count <- count - 1
                     data.[h] <- r.JS
                     true
@@ -183,3 +224,9 @@ type internal Dictionary<'K,'V when 'K : equality>
                 | _ -> false
             else
                 false
+
+        member this.Values =
+            As<D<'K,'V>.ValueCollection>(ValueCollectionProxy(As<D<'K,'V>>this))
+
+        member this.Keys =
+            As<D<'K,'V>.KeyCollection>(KeyCollectionProxy(As<D<'K,'V>>this))

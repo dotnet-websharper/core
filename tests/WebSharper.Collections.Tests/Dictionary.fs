@@ -114,6 +114,7 @@ let Tests =
             let f3 = f1
             d.Add(f1,1)
             d.Add(f2,2)
+            equal (Seq.length d) 2
             let enum = (d :> seq<_>).GetEnumerator()
             let kArr = Array.zeroCreate d.Count
             let vArr = Array.zeroCreate d.Count
@@ -126,6 +127,24 @@ let Tests =
                     ix <- ix + 1
             equal vArr [| 1; 2 |]
             equal (Array.map (fun o -> o.Foo) kArr) [| "1"; "2" |]
+            d.Remove(f1) |> ignore
+            equal (Seq.length d) 1
+            d.Remove(f2) |> ignore
+            equal (Array.ofSeq d) [||]
+        }
+
+        Test "Keys" {
+            let d = Dictionary()
+            d.Add(1, 5)
+            d.Add(3, 7)
+            equal (Array.ofSeq d.Keys) [| 1; 3 |]
+        }
+
+        Test "Values" {
+            let d = Dictionary()
+            d.Add(1, 5)
+            d.Add(3, 7)
+            equal (Array.ofSeq d.Values) [| 5; 7 |]
         }
 
         Test "Hashing keys" {

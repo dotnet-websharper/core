@@ -53,12 +53,19 @@ let Tests =
             isTrue ((HS [ 1 .. 5]).IsSubsetOf(HS [ 0 .. 7 ]))
         }
 
-//        Test "GetEnumerator" {
-//            let s = HS [ "a"; "b"; "c"; "a" ]
+        Test "GetEnumerator" {
+            let s = HS [ "a"; "b"; "c"; "a" ]
 //            let first = 
 //                let mutable e = s.GetEnumerator()
 //                e.MoveNext() |> ignore
 //                e.Current
 //            equal first "a"
-//        }
+            equal (Seq.length s) 3
+            s.Remove "a" |> ignore
+            equal (Seq.length s) 2
+            s.Remove "c" |> ignore
+            equal (Seq.length s) 1
+            s.Remove "b" |> ignore
+            equal (Array.ofSeq s) [||]
+        }
     }
