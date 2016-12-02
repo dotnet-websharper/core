@@ -104,17 +104,24 @@ type RpcHandler() =
             | true, origin -> origin.Authority = reqUrl.Authority
             | false, _ -> false
         let origin = getHeader "Origin"
+        let explicitlyAcceptedOrigin =
+            match origin with
+            | Some origin when isSameAuthority origin || Remoting.allowedOrigins.Contains (origin.ToLowerInvariant()) -> Some origin
+            | _ -> None
         let headers =
-            if origin.IsSome && (isSameAuthority origin.Value || Remoting.allowedOrigins.Contains (origin.Value.ToLowerInvariant())) then
+            match explicitlyAcceptedOrigin with
+            | Some origin ->
                 [
-                    "Access-Control-Allow-Origin", origin.Value
+                    "Access-Control-Allow-Origin", origin
                     "Access-Control-Allow-Credentials", "true"
                 ]
-            else []
+            | None -> []
         match reqMethod with
         | "OPTIONS" ->
-            Preflight (("Access-Control-Allow-Headers", "x-websharper-rpc, content-type, x-csrftoken") :: headers)
-        | _ when Remoting.csrfProtect && not (checkCsrf()) ->
+            ("Access-Control-Allow-Headers", "x-websharper-rpc, content-type, x-csrftoken")
+            :: headers
+            |> Preflight
+        | _ when Remoting.csrfProtect && not (explicitlyAcceptedOrigin.IsSome || checkCsrf()) ->
             Error (403, "Forbidden")
         | _ ->
             Ok headers
