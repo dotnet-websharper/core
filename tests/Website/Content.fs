@@ -67,6 +67,7 @@ let HomePage (ctx: Context<_>) =
     )
 
 let TestsPage =
+    let t12 = (1, 2)
     Content.Page(
         Title = "WebSharper client-side tests",
         Body = [
@@ -77,6 +78,7 @@ let TestsPage =
                 typeof<WebSharper.Html5.Tests.Elt>.Assembly
             ]
             ClientSide <@ Client.RunAllTests() @> :> _
+            ClientSide <@ Client.ClientSideTupleTest t12 @> :> _
         ]
     )
 

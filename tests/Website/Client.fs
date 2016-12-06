@@ -26,15 +26,18 @@ open WebSharper.JavaScript
 open WebSharper.Sitelets.Tests.Client
 
 [<JavaScript>]
-let EntryPoint () =
-    Console.Log("Loaded OK")
-    Elt("span", "")
-
-[<JavaScript>]
 let RunAllTests () =
     Console.Log("Running Tests...")
     WebSharper.Tests.Main.RunTests()
     WebSharper.Collections.Tests.Main.RunTests()
     WebSharper.Html5.Tests.Tests |> ignore
     WebSharper.Web.Tests.Main.RunTests()
+    Elt("span", "")
+
+[<JavaScript>]
+let ClientSideTupleTest (x, y) =
+    if x = 1 && y = 2 then 
+        Console.Log("ClientSide test passing tuple: OK")
+    else
+        Console.Log("ClientSide test passing tuple: failed")
     Elt("span", "")

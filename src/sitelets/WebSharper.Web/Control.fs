@@ -109,6 +109,8 @@ open Microsoft.FSharp.Quotations.Patterns
 /// Implements a web control based on a quotation-wrapped top-level body.
 /// Use the function ClientSide to create an InlineControl.
 
+type private FSV = Reflection.FSharpValue
+
 [<CompiledName "FSharpInlineControl">]
 type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
     inherit Control()
@@ -137,29 +139,41 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
 
     [<System.NonSerialized>]
     let bodyAndReqs =
-        let declType, meth, args, fReqs =
+        let declType, meth, args, fReqs, subs =
             let elt =
                 match elt :> Expr with
                 | Coerce (e, _) -> e
                 | e -> e
-            match elt with
-            | PropertyGet(None, p, args) ->
-                let m = p.GetGetMethod(true)
-                let dt = R.ReadTypeDefinition p.DeclaringType
-                let meth = R.ReadMethod m
-                dt, meth, args, [M.MethodNode (dt, meth)]
-            | Call(None, m, args) ->
-                let dt = R.ReadTypeDefinition m.DeclaringType
-                let meth = R.ReadMethod m
-                dt, meth, args, [M.MethodNode (dt, meth)]
-            | e -> failwithf "Wrong format for InlineControl at %s: expected global value or function access, got: %A" (getLocation()) e
+            let rec get subs expr =
+                match expr with
+                | PropertyGet(None, p, args) ->
+                    let m = p.GetGetMethod(true)
+                    let dt = R.ReadTypeDefinition p.DeclaringType
+                    let meth = R.ReadMethod m
+                    dt, meth, args, [M.MethodNode (dt, meth)], subs
+                | Call(None, m, args) ->
+                    let dt = R.ReadTypeDefinition m.DeclaringType
+                    let meth = R.ReadMethod m
+                    dt, meth, args, [M.MethodNode (dt, meth)], subs
+                | Let(var, value, body) ->
+                    get (subs |> Map.add var value) body
+                | e -> failwithf "Wrong format for InlineControl at %s: expected global value or function access, got: %A" (getLocation()) e
+            get Map.empty elt
         let args, argReqs =
             args
-            |> List.mapi (fun i -> function
-                | Value (v, t) ->
-                    let v = match v with null -> WebSharper.Core.Json.Internal.MakeTypedNull t | _ -> v
-                    v, M.TypeNode (R.ReadTypeDefinition t)
-                | _ -> failwithf "Wrong format for InlineControl at %s: argument #%i is not a literal or a local variable" (getLocation()) (i+1)
+            |> List.mapi (fun i value ->
+                let rec get expr =
+                    match expr with
+                    | Value (v, t) ->
+                        let v = match v with null -> WebSharper.Core.Json.Internal.MakeTypedNull t | _ -> v
+                        v, M.TypeNode (R.ReadTypeDefinition t)
+                    | TupleGet(v, i) ->
+                        let v, n = get v
+                        FSV.GetTupleField(v, i), n
+                    | Var v when subs.ContainsKey v ->
+                        get subs.[v]   
+                    | _ -> failwithf "Wrong format for InlineControl at %s: argument #%i is not a literal or a local variable" (getLocation()) (i+1)
+                get value
             )
             |> List.unzip
         let args = Array.ofList args
@@ -178,10 +192,11 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
         member this.Encode(meta, json) =
             if funcName.Length = 0 then
                 let declType, meth, reqs = snd bodyAndReqs
-                match meta.Classes.TryFind declType with
-                | None -> 
-                    failwithf "Error in InlineControl at %s: Couldn't find translation of method %s.%s, it should have JavaScript attribute" 
+                let fail() =
+                    failwithf "Error in InlineControl at %s: Couldn't find translation of method %s.%s. The method or type should have JavaScript attribute or a proxy, and the assembly needs to be compiled with WsFsc.exe" 
                         (getLocation()) declType.Value.FullName meth.Value.MethodName
+                match meta.Classes.TryFind declType with
+                | None -> fail()
                 | Some cls ->
                     match cls.Methods.TryFind meth with
                     | Some (M.Static a, _, _) ->
@@ -189,9 +204,7 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                     | Some _ ->
                         failwithf "Error in InlineControl at %s: Method %s.%s must be static and not inlined"
                             (getLocation()) declType.Value.FullName meth.Value.MethodName
-                    | None -> 
-                        failwithf "Error in InlineControl at %s: Couldn't find translation of method %s.%s, it should have JavaScript attribute" 
-                            (getLocation()) declType.Value.FullName meth.Value.MethodName
+                    | None -> fail()
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
         member this.Requires =
@@ -275,10 +288,11 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
         member this.Encode(meta, json) =
             if funcName.Length = 0 then
                 let declType, meth, reqs = snd bodyAndReqs
-                match meta.Classes.TryFind declType with
-                | None -> 
-                    failwithf "Error in InlineControl: Couldn't find translation of method %s.%s, it should have JavaScript attribute" 
+                let fail() =
+                    failwithf "Error in InlineControl: Couldn't find translation of method %s.%s. The method or type should have JavaScript attribute or a proxy, and the project file needs to include Zafir.CSharp.targets" 
                         declType.Value.FullName meth.Value.MethodName
+                match meta.Classes.TryFind declType with
+                | None -> fail()
                 | Some cls ->
                     match cls.Methods.TryFind meth with
                     | Some (M.Static a, _, _) ->
@@ -286,9 +300,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                     | Some _ -> 
                         failwithf "Error in InlineControl: Method %s.%s must be static and not inlined"
                             declType.Value.FullName meth.Value.MethodName
-                    | None -> 
-                        failwithf "Error in InlineControl: Couldn't find translation of method %s.%s, it should have JavaScript attribute" 
-                            declType.Value.FullName meth.Value.MethodName
+                    | None -> fail()
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
         member this.Requires =
