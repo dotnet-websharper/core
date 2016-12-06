@@ -212,16 +212,16 @@ module Provider =
         ()
         fun () (o: obj) ->
             let m = ref Map.empty
-//            let decEl = decEl ()
-            JS.ForEach o (fun k -> m := Map.add k o?(k) !m; false)
+            let decEl = decEl ()
+            JS.ForEach o (fun k -> m := Map.add k (decEl o?(k)) !m; false)
             !m
 
     let DecodeStringDictionary (decEl: unit -> obj -> 'T) : (unit -> obj -> Dictionary<string, 'T>) =
         ()
         fun () (o: obj) ->
             let d = System.Collections.Generic.Dictionary()
-//            let decEl = decEl ()
-            JS.ForEach o (fun k -> d.Add(k, o?(k)); false)
+            let decEl = decEl ()
+            JS.ForEach o (fun k -> d.Add(k, decEl o?(k)); false)
             d
 
 module Macro =
