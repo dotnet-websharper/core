@@ -30,8 +30,14 @@ open WebSharper.JavaScript
 [<Inline "$value">]
 let UnboxGeneric<'T> (value: obj) = X<'T>
 
+[<Inline "$value">]
+let UnboxFast<'T> (value: obj) = X<'T>
+
 [<Macro(typeof<Macro.TypeTest>)>]
 let TypeTestGeneric<'T> (value: obj) = X<bool>
+
+[<Macro(typeof<Macro.TypeTest>)>]
+let TypeTestFast<'T> (value: obj) = X<bool>
 
 [<Inline "$arr.length">]
 let GetArray2DLength1 (arr: 'T[,]) = X<int>

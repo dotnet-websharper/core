@@ -48,7 +48,7 @@ type FuncHelper =
 
 [<Proxy(typeof<FuncHelper>)>]
 [<JavaScript>]
-type FuncHelperProxy =
+type internal FuncHelperProxy =
     [<Inline>]
     static member Compose f g x = g(f(x))
 
