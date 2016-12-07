@@ -187,4 +187,10 @@ let Tests =
             let el = WebSharper.JavaScript.JS.Document.CreateElement("div") |> box
             isTrue (el :? Dom.Element)
         }
+
+        Test "Interface" {
+            let x = WIGtest.Instance 
+            equal (x.Add(1, 2)) 3
+            equal ((x :> IWIGTest).Add(1, 2)) 3 
+        }
     }

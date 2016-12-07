@@ -86,6 +86,14 @@ let rec getType tgen (tR: Mono.Cecil.TypeReference) =
                     else []
                 )
 
+let getName attrs =
+    attrs
+    |> Seq.tryPick (fun (a: Mono.Cecil.CustomAttribute) -> 
+        if a.AttributeType.FullName = "WebSharper.NameAttribute" then
+            Some (a.ConstructorArguments.[0].Value :?> string)
+        else None
+    )
+
 let getRequires attrs =
     attrs
     |> Seq.filter (fun (a: Mono.Cecil.CustomAttribute) -> 
@@ -140,8 +148,11 @@ let TransformAssembly (prototypes: IDictionary<string, string>) (assembly : Mono
                                     ReturnType = getType tgen meth.ReturnType
                                     Generics   = meth.GenericParameters |> Seq.length
                                 }
-                            yield mdef, meth.Name // TODO: Name attribute
-                        
+                            let name =
+                                match getName meth.CustomAttributes with
+                                | Some n -> n
+                                | _ -> failwith "WIG interface member missing Name attribute"
+                            yield mdef, name
                     ]
             }
         )    

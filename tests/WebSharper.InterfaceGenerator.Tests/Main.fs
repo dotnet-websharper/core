@@ -16,8 +16,15 @@ module Definition =
             Optional = []
         }
 
+    let IWIGTest =
+        Interface "IWIGTest"
+        |+> [
+            "add" => Int * Int ^-> Int
+        ]
+
     let WIGtestInstance =
         Class "WIGtestInstance"
+        |=> Implements [ IWIGTest ]
         |+> Instance [
             "x" =@ Int
             "adderFunc" =@ Int * Int ^-> Int
@@ -131,6 +138,7 @@ module Definition =
         Assembly [
             Namespace "WebSharper.InterfaceGenerator.Tests" [
                  JustX
+                 IWIGTest
                  WIGtestInstance
                  WIGtest
                  WIGtest2

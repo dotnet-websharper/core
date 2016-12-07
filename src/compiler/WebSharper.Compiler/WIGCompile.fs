@@ -323,6 +323,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         |> Seq.find (fun t -> t.Namespace = "WebSharper" && t.Name = name)
         |> main.Import
 
+    let nameAttr = findWsAttr "NameAttribute"
     let inlineAttr = findWsAttr "InlineAttribute"
     let macroAttr = findWsAttr "MacroAttribute"
     let requireAttr = findWsAttr "RequireAttribute"
@@ -412,6 +413,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
 
     member b.Attribute = attributeType
     member b.BaseResource = baseResourceType
+    member b.Name = nameAttr
     member b.Inline = inlineAttr
     member b.Macro = macroAttr
     member b.NotImplemented = notImpl
@@ -595,6 +597,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     let notImplementedConstructor = findDefaultConstructor tB.NotImplemented
     let baseResourceCtor1 = findTypedConstructor tB.BaseResource [tB.String.Name]
     let baseResourceCtorN = findConstructorByArity tB.BaseResource 3
+    let nameAttributeConstructor = findTypedConstructor tB.Name [tB.String.Name]
     let inlineAttributeConstructor = findTypedConstructor tB.Inline [tB.String.Name]
     let macroAttributeConstructor = findTypedConstructor tB.Macro [tB.SystemType.Name]
     let requireAttributeConstructor = findTypedConstructor tB.Require [tB.SystemType.Name]
@@ -633,6 +636,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
 
     member c.BaseResourceConstructor1 = baseResourceCtor1
     member c.BaseResourceConstructorN = baseResourceCtorN
+    member c.NameAttributeConstructor = nameAttributeConstructor
     member c.InlineAttributeConstructor = inlineAttributeConstructor
     member c.MacroAttributeConstructor = macroAttributeConstructor
     member c.RequireAttributeConstructor = requireAttributeConstructor
@@ -721,6 +725,11 @@ type MemberConverter
             compilerOptions: CompilerOptions,
             genParamNames: string list
         ) =
+
+    let nameAttribute (code: string) =
+        let attr = CustomAttribute(mB.NameAttributeConstructor)
+        attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, code))
+        attr
 
     let inlineAttribute (code: string) =
         let attr = CustomAttribute(mB.InlineAttributeConstructor)
@@ -826,11 +835,15 @@ type MemberConverter
             | Some c -> comments.[pD] <- c
         if p.HasGetter then
             let mD = MethodDefinition("get_" + name, methodAttributes dT p, ty)
-            if not dT.IsInterface then
+            if dT.IsInterface then
+                p.Name 
+                |> nameAttribute
+                |> mD.CustomAttributes.Add
+            else
                 mB.AddBody mD
-            iG.GetPropertyGetterInline(td, t, p)
-            |> inlineAttribute
-            |> mD.CustomAttributes.Add
+                iG.GetPropertyGetterInline(td, t, p)
+                |> inlineAttribute
+                |> mD.CustomAttributes.Add
             match p.IndexerType with
             | None -> ()
             | Some it ->
@@ -839,18 +852,20 @@ type MemberConverter
             pD.GetMethod <- mD
         if p.HasSetter then
             let mD = MethodDefinition("set_" + name, methodAttributes dT p, tB.Void)
-            if not dT.IsInterface then
+            if dT.IsInterface then
+                if p.HasGetter then "set_" + p.Name else p.Name 
+                |> nameAttribute
+                |> mD.CustomAttributes.Add
+            else
                 mB.AddBody mD
-            iG.GetPropertySetterInline(td, t, p)
-            |> inlineAttribute
-            |> mD.CustomAttributes.Add
+                iG.GetPropertySetterInline(td, t, p)
+                |> inlineAttribute
+                |> mD.CustomAttributes.Add
             match p.IndexerType with
             | None -> ()
             | Some it ->
                 mD.Parameters.Add(ParameterDefinition("index", ParameterAttributes.None, tC.TypeReference (it, td)))         
             mD.Parameters.Add(ParameterDefinition("value", ParameterAttributes.None, ty))
-            if not dT.IsInterface then
-                mB.AddBody mD
             dT.Methods.Add mD
             pD.SetMethod <- mD
         setObsoleteAttribute p pD.CustomAttributes
@@ -920,19 +935,23 @@ type MemberConverter
             | Type.NonUnit -> tC.TypeReference (f.ReturnType, td, isCSharp)
         for p in makeParameters (f, td, isCSharp) do
             mD.Parameters.Add p
-        if not dT.IsInterface then
+        if dT.IsInterface then
+            x.Name
+            |> nameAttribute
+            |> mD.CustomAttributes.Add
+        else
             mB.AddBody mD
-        match x.Macro with
-        | Some macro ->
-            tC.TypeReference (macro, td)
-            |> macroAttribute
-            |> mD.CustomAttributes.Add
-        | _ -> 
-            iG.GetMethodBaseInline(td, t, x)
-            |> inlineAttribute
-            |> mD.CustomAttributes.Add
+            match x.Macro with
+            | Some macro ->
+                tC.TypeReference (macro, td)
+                |> macroAttribute
+                |> mD.CustomAttributes.Add
+            | _ -> 
+                iG.GetMethodBaseInline(td, t, x)
+                |> inlineAttribute
+                |> mD.CustomAttributes.Add
+            setPureAttribute x mD.CustomAttributes
         setObsoleteAttribute x mD.CustomAttributes
-        setPureAttribute x mD.CustomAttributes
         dT.Methods.Add mD
 
     member private c.AddTypeMembers<'T when 'T :> Code.TypeDeclaration and 'T :> Code.IResourceDependable<'T>>

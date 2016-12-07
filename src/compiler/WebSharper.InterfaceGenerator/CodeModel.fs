@@ -184,7 +184,7 @@ module CodeModel =
             }
 
         /// Applies updates.
-        static member ( |+> ) (this: Interface, xs: list<IInterfaceMember>) =
+        static member ( |+> ) (this: Interface, xs: list<#IInterfaceMember>) =
             (this, xs)
             ||> List.fold (fun x y -> y.AddTo x)
 

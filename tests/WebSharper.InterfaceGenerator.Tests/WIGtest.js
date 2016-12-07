@@ -85,6 +85,10 @@
 
     Instance: {
         x: 0,
+        add:
+            function (a, b) {
+                return a + b;
+            },
         adderFunc:
             function (a, b) {
                 return a + b;
