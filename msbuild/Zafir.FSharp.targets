@@ -22,10 +22,10 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' " >
-	<OtherFlags>$(OtherFlags) --ws:$(WebSharperProject.Replace(@"\",@"\\")) --project:$(MSBuildProjectFullPath.Replace(@"\",@"\\"))</OtherFlags>
-	<OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:$(WebProjectOutputDir.Replace(@"\",@"\\"))</OtherFlags>
-	<OtherFlags Condition=" '$(WebSharperBundleOutputDir)' != '' ">$(OtherFlags) --wsoutput:$(WebSharperBundleOutputDir.Replace(@"\",@"\\"))</OtherFlags>
-	<OtherFlags Condition=" '$(WebSharperHtmlDirectory)' != '' ">$(OtherFlags) --wsoutput:$(WebSharperHtmlDirectory.Replace(@"\",@"\\"))</OtherFlags>
+	<OtherFlags>$(OtherFlags) --ws:"$(WebSharperProject)" --project:"$(MSBuildProjectFullPath)"</OtherFlags>
+	<OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebProjectOutputDir)"</OtherFlags>
+	<OtherFlags Condition=" '$(WebSharperBundleOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperBundleOutputDir)"</OtherFlags>
+	<OtherFlags Condition=" '$(WebSharperHtmlDirectory)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperHtmlDirectory)"</OtherFlags>
 	<OtherFlags Condition=" '$(WebSharperSourceMap)' == 'True' ">$(OtherFlags) --jsmap</OtherFlags>
 	<OtherFlags Condition=" '$(WebSharperTypeScriptDeclaration)' == 'True' ">$(OtherFlags) --dts</OtherFlags>
 	<OtherFlags Condition=" '$(WebSharperErrorsAsWarnings)' == 'True' ">$(OtherFlags) --wswarnonly</OtherFlags>
