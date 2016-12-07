@@ -996,7 +996,7 @@ module Definition =
 
                 "makeArray" => T<obj> ^-> Type.ArrayOf T<obj>
 
-                Generic -   ( fun t u ->
+                Generic --  ( fun t u ->
                                 Method "map" (Type.ArrayOf t * (t * T<int> ^-> u ) ^-> Type.ArrayOf u)
                             )
 

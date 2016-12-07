@@ -401,37 +401,37 @@ module Pervasives =
         static member ( - ) (this: GenericHelper, f) =
             this.Entity 1 (fun [ a ] -> f a)
 
-        static member ( - ) (this: GenericHelper, f) =
+        static member ( -- ) (this: GenericHelper, f) =
             this.Entity 2 (fun [ a; b ] -> f a b)
 
-        static member ( - ) (this: GenericHelper, f) =
+        static member ( --- ) (this: GenericHelper, f) =
             this.Entity 3 (fun [ a; b; c ] -> f a b c)
 
-        static member ( - ) (this: GenericHelper, f) =
+        static member ( ---- ) (this: GenericHelper, f) =
             this.Entity 4 (fun [ a; b; c; d ] -> f a b c d)
 
         static member ( % ) (this: GenericHelper, f) =
             this.MemberList 1 (fun [ a ] -> f a)
 
-        static member ( % ) (this: GenericHelper, f) =
+        static member ( %% ) (this: GenericHelper, f) =
             this.MemberList 2 (fun [ a; b ] -> f a b)
 
-        static member ( % ) (this: GenericHelper, f) =
+        static member ( %%% ) (this: GenericHelper, f) =
             this.MemberList 3 (fun [ a; b; c ] -> f a b c)
 
-        static member ( % ) (this: GenericHelper, f) =
+        static member ( %%%% ) (this: GenericHelper, f) =
             this.MemberList 4 (fun [ a; b; c; d ] -> f a b c d)
 
         static member ( * ) (this: GenericHelper, f) =
             this.ClassMembers 1 (fun [ a ] -> f a)
 
-        static member ( * ) (this: GenericHelper, f) =
+        static member ( ** ) (this: GenericHelper, f) =
             this.ClassMembers 2 (fun [ a; b ] -> f a b)
 
-        static member ( * ) (this: GenericHelper, f) =
+        static member ( *** ) (this: GenericHelper, f) =
             this.ClassMembers 3 (fun [ a; b; c ] -> f a b c)
 
-        static member ( * ) (this: GenericHelper, f) =
+        static member ( **** ) (this: GenericHelper, f) =
             this.ClassMembers 4 (fun [ a; b; c; d ] -> f a b c d)
 
         static member ( + ) (this: GenericHelper, names) =
