@@ -151,7 +151,7 @@ let TransformAssembly (prototypes: IDictionary<string, string>) (assembly : Mono
                             let name =
                                 match getName meth.CustomAttributes with
                                 | Some n -> n
-                                | _ -> failwith "WIG interface member missing Name attribute"
+                                | _ -> meth.Name // TODO: correct interfaces for WS.TypeScript
                             yield mdef, name
                     ]
             }
