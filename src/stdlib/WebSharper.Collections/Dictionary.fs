@@ -52,6 +52,7 @@ open System.Runtime.InteropServices
 [<Proxy(typeof<D<_,_>.KeyCollection.Enumerator>)>]
 [<Stub>]
 type private KeyCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
+    [<Inline "$this.Current()">]
     member this.get_Current() = As<'K> 0        
     member this.MoveNext() = false
     member this.Dispose() = ()
@@ -62,6 +63,7 @@ type private KeyCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
 [<Proxy(typeof<D<_,_>.ValueCollection.Enumerator>)>]
 [<Stub>]
 type private ValueCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
+    [<Inline "$this.Current()">]
     member this.get_Current() = As<'V> 0        
     member this.MoveNext() = false
     member this.Dispose() = ()
@@ -89,6 +91,14 @@ type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
     interface IEnumerable<'V> with
         member this.GetEnumerator() = As<IEnumerator<'V>>(this.GetEnumerator())
         member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
+
+[<Proxy(typeof<D<_,_>.Enumerator>)>]
+[<Stub>]
+type private DictionaryEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
+    [<Inline "$this.Current()">]
+    member this.get_Current() = As<KVP<'K,'V>> 0        
+    member this.MoveNext() = false
+    member this.Dispose() = ()
 
 /// Implements a proxy for the .NET dictionary.
 [<Name "Dictionary">]
@@ -197,6 +207,8 @@ type internal Dictionary<'K,'V when 'K : equality>
         member this.Item
             with get (k: 'K) : 'V = get k
             and set (k: 'K) (v: 'V) = set k v
+
+        member this.GetEnumerator() = As<D<'K,'V>.Enumerator> ((this :> System.Collections.IEnumerable).GetEnumerator())
 
         interface System.Collections.IEnumerable with
             member this.GetEnumerator() = 

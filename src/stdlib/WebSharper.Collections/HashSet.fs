@@ -38,7 +38,8 @@ open DictionaryUtil
 // TODO: lazy iterating
 [<Proxy(typeof<HashSet<_>.Enumerator>)>]
 [<Stub>]
-type private EnumeratorProxy<'T> [<JavaScript(false)>] () =
+type private HashSetEnumeratorProxy<'T> [<JavaScript(false)>] () =
+    [<Inline "$this.Current()">]
     member this.get_Current() = As<'T> 0        
     member this.MoveNext() = false
     member this.Dispose() = ()

@@ -55,11 +55,11 @@ let Tests =
 
         Test "GetEnumerator" {
             let s = HS [ "a"; "b"; "c"; "a" ]
-//            let first = 
-//                let mutable e = s.GetEnumerator()
-//                e.MoveNext() |> ignore
-//                e.Current
-//            equal first "a"
+            let first = 
+                let mutable e = s.GetEnumerator()
+                e.MoveNext() |> ignore
+                e.Current
+            equal first "a"
             equal (Seq.length s) 3
             s.Remove "a" |> ignore
             equal (Seq.length s) 2

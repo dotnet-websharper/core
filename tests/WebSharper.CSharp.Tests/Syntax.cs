@@ -240,16 +240,6 @@ namespace WebSharper.CSharp.Tests
             Equal(f, 1);
         }
 
-        [Test]
-        public void DictionaryTryGetValue()
-        {
-            var d = new Dictionary<int, string>() { { 1, "one" }, { 2, "two" } };
-            string res = null;
-            IsTrue(d.TryGetValue(2, out res));
-            Equal(res, "two");
-            IsFalse(d.TryGetValue(3, out res));
-        }
-
         class Cat
         {
             public int Age { get; set; }

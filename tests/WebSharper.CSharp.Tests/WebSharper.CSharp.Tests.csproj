@@ -32,6 +32,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Arithmetic.cs" />
+    <Compile Include="Collections.cs" />
     <Compile Include="Delegate.cs" />
     <Compile Include="Macro.cs" />
     <Compile Include="Object.cs" />

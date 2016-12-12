@@ -115,10 +115,24 @@ let Tests =
             d.Add(f1,1)
             d.Add(f2,2)
             equal (Seq.length d) 2
-            let enum = (d :> seq<_>).GetEnumerator()
+            //check with IEnumerator.GetEnumerator()
             let kArr = Array.zeroCreate d.Count
             let vArr = Array.zeroCreate d.Count
             do
+                let enum = (d :> seq<_>).GetEnumerator()
+                let mutable ix = 0
+                while enum.MoveNext() do
+                    let kvp = enum.Current
+                    vArr.[ix] <- kvp.Value
+                    kArr.[ix] <- kvp.Key
+                    ix <- ix + 1
+            equal vArr [| 1; 2 |]
+            equal (Array.map (fun o -> o.Foo) kArr) [| "1"; "2" |]
+            //check with Dictionary.GetEnumerator()
+            let kArr = Array.zeroCreate d.Count
+            let vArr = Array.zeroCreate d.Count
+            do
+                let mutable enum = d.GetEnumerator()
                 let mutable ix = 0
                 while enum.MoveNext() do
                     let kvp = enum.Current
@@ -138,6 +152,9 @@ let Tests =
             d.Add(1, 5)
             d.Add(3, 7)
             equal (Array.ofSeq d.Keys) [| 1; 3 |]
+            let arr = ResizeArray()
+            do for k in d.Keys do arr.Add(k)
+            equal (Array.ofSeq arr) [| 1; 3 |]
         }
 
         Test "Values" {
@@ -145,6 +162,9 @@ let Tests =
             d.Add(1, 5)
             d.Add(3, 7)
             equal (Array.ofSeq d.Values) [| 5; 7 |]
+            let arr = ResizeArray()
+            do for v in d.Values do arr.Add(v)
+            equal (Array.ofSeq arr) [| 5; 7 |]
         }
 
         Test "Hashing keys" {
