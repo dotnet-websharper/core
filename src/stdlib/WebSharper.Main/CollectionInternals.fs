@@ -59,7 +59,7 @@ let ArrayContains (item: 'T) (arr: 'T[])  =
 let ArrayTryFindBack f (arr: _ []) =
     let mutable res = None
     let mutable i = Array.length arr - 1
-    while i > 0 && Option.isNone res do
+    while i >= 0 && Option.isNone res do
         if f arr.[i] then res <- Some arr.[i]
         i <- i - 1
     res
@@ -68,7 +68,7 @@ let ArrayTryFindBack f (arr: _ []) =
 let ArrayTryFindIndexBack f (arr: _ []) =
     let mutable res = None
     let mutable i = Array.length arr - 1
-    while i > 0 && Option.isNone res do
+    while i >= 0 && Option.isNone res do
         if f arr.[i] then res <- Some i
         i <- i - 1
     res

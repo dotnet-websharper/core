@@ -490,23 +490,31 @@ let Tests =
         }
 
         Test "Array.tryFind" {
-            let finder elem =
-                match elem with
-                | Some x -> x = 4
-                | _      -> false
-            equal (Array.tryFind finder [| None; None; Some 4; None |]) (Some (Some 4))
-            equal (Array.tryFind (fun _ -> false) [| None; None; Some 4; None |]) None
+            equalMsg (Array.tryFind (fun x -> x % 5 = 0) [| 1 .. 3 |]) None "not found"
+            equalMsg (Array.tryFind (fun x -> true) Array.empty) None "not found empty"
+            equalMsg (Array.tryFind (fun x -> x % 3 = 0) [| 1 .. 10 |]) (Some 3) "found basic"
+            equalMsg (Array.tryFind (fun x -> x = 10) [| 1 .. 10 |]) (Some 10) "found last"
+            equalMsg (Array.tryFind (fun x -> x = 1) [| 1 .. 10 |]) (Some 1) "found first"
+            equalMsg (Array.tryFind (fun x -> x = 1) [| 1 |]) (Some 1) "found single"
         }
 
         Test "Array.tryFindIndex" {
-            equal (Array.tryFindIndex (fun x -> x = 5) [| 1 .. 10 |]) (Some 4)
-            equal (Array.tryFindIndex (fun x -> x = 5) [| 1 .. 3 |]) None
+            equalMsg (Array.tryFindIndex (fun x -> x % 5 = 0) [| 1 .. 3 |]) None "not found"
+            equalMsg (Array.tryFindIndex (fun x -> true) Array.empty) None "not found empty"
+            equalMsg (Array.tryFindIndex (fun x -> x % 3 = 0) [| 1 .. 10 |]) (Some 2) "found basic"
+            equalMsg (Array.tryFindIndex (fun x -> x = 10) [| 1 .. 10 |]) (Some 9) "found last"
+            equalMsg (Array.tryFindIndex (fun x -> x = 1) [| 1 .. 10 |]) (Some 0) "found first"
+            equalMsg (Array.tryFindIndex (fun x -> x = 1) [| 1 |]) (Some 0) "found single"
         }
 
         Test "Array.tryPick" {
-            let f x = if x = 5 then Some (x + 1) else None
-            equal (Array.tryPick f [| 1 .. 10 |]) (Some 6)
-            equal (Array.tryPick f [| 1 .. 3 |]) None
+            let f x c = if c then Some (x + 10) else None
+            equalMsg (Array.tryPick (fun x -> f x (x % 5 = 0)) [| 1 .. 3 |]) None "not found"
+            equalMsg (Array.tryPick (fun x -> Some x) Array.empty) None "not found empty"
+            equalMsg (Array.tryPick (fun x -> f x (x % 3 = 0)) [| 1 .. 10 |]) (Some 13) "found basic"
+            equalMsg (Array.tryPick (fun x -> f x (x = 10)) [| 1 .. 10 |]) (Some 20) "found last"
+            equalMsg (Array.tryPick (fun x -> f x (x = 1)) [| 1 .. 10 |]) (Some 11) "found first"
+            equalMsg (Array.tryPick (fun x -> f x (x = 1)) [| 1 |]) (Some 11) "found single"
         }
 
         Property "Array.unzip" (fun arr -> Do {
@@ -702,9 +710,9 @@ let Tests =
 
         Test "Array.singleton" {
             equal (Array.singleton 42) [| 42 |]
-//            property (fun x -> Do {
-//                equal (Array.singleton x) [| x |]
-//            })
+            property (fun x -> Do {
+                equal (Array.singleton x) [| x |]
+            })
         }
 
         Test "Array.skip" {
@@ -741,13 +749,21 @@ let Tests =
         }
 
         Test "Array.tryFindBack" {
-            equal (Array.tryFindBack (fun _ -> true) Array.empty) None
-            equal (Array.tryFindBack (fun x -> x % 5 = 0) [| 1 .. 10 |]) (Some 10)
+            equalMsg (Array.tryFindBack (fun x -> x % 5 = 0) [| 1 .. 3 |]) None "not found"
+            equalMsg (Array.tryFindBack (fun x -> true) Array.empty) None "not found empty"
+            equalMsg (Array.tryFindBack (fun x -> x % 3 = 0) [| 1 .. 10 |]) (Some 9) "found basic"
+            equalMsg (Array.tryFindBack (fun x -> x = 10) [| 1 .. 10 |]) (Some 10) "found last"
+            equalMsg (Array.tryFindBack (fun x -> x = 1) [| 1 .. 10 |]) (Some 1) "found first"
+            equalMsg (Array.tryFindBack (fun x -> x = 1) [| 1 |]) (Some 1) "found single"
         }
 
         Test "Array.tryFindIndexBack" {
-            equal (Array.tryFindIndexBack (fun _ -> true) Array.empty) None
-            equal (Array.tryFindIndexBack (fun x -> x % 5 = 0) [| 1 .. 10 |]) (Some 9)
+            equalMsg (Array.tryFindIndexBack (fun x -> x % 5 = 0) [| 1 .. 3 |]) None "not found"
+            equalMsg (Array.tryFindIndexBack (fun x -> true) Array.empty) None "not found empty"
+            equalMsg (Array.tryFindIndexBack (fun x -> x % 3 = 0) [| 1 .. 10 |]) (Some 8) "found basic"
+            equalMsg (Array.tryFindIndexBack (fun x -> x = 10) [| 1 .. 10 |]) (Some 9) "found last"
+            equalMsg (Array.tryFindIndexBack (fun x -> x = 1) [| 1 .. 10 |]) (Some 0) "found first"
+            equalMsg (Array.tryFindIndexBack (fun x -> x = 1) [| 1 |]) (Some 0) "found single"
         }
 
         Test "Array.tryHead" {
