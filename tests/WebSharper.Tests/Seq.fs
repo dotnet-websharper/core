@@ -145,6 +145,8 @@ let Tests =
                 [| (2, 2) ; (1, 1) |]
             let xs : list<int> = []
             equal (Seq.countBy id xs |> Seq.toArray) [||]
+            let ys = [| CustomHash(0, 0); CustomHash(0, 1) |]
+            equal (ys |> Seq.countBy id |> Seq.map snd |> Seq.toArray) [| 1; 1 |]
         }
 
         Test "Seq.delay" {
@@ -257,6 +259,8 @@ let Tests =
                 |> Seq.map (fun (k,xs) -> k, Seq.toArray xs)
                 |> Seq.toArray
             equal gs [| (2, [| 2; 2 |]); (1, [| 1 |]) |]
+            let ys = [| CustomHash(0, 0); CustomHash(0, 1) |]
+            equal (ys |> Seq.groupBy id |> Seq.map (snd >> Seq.length) |> Seq.toArray) [| 1; 1 |]
         }
 
         Test "Seq.head" {
@@ -604,6 +608,8 @@ let Tests =
         Test "Seq.except" {
             equal (Seq.except Seq.empty [ 0; 1 ] |> Array.ofSeq) [| 0; 1 |]
             equal (Seq.except [ 0 ] [ 0; 1 ] |> Array.ofSeq) [| 1 |]
+            let ys = [| CustomHash(0, 0) |]
+            equal (Seq.except [| CustomHash(0, 1) |] ys |> Seq.toArray) ys
         }
 
         Test "Seq.findBack" {

@@ -8,7 +8,6 @@
   </PropertyGroup>
   <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>
-    <Compile Include="Dictionary.fs" />
     <Compile Include="BalancedTree.fs" />
     <Compile Include="Pair.fs" />
     <Compile Include="Map.fs" />
@@ -18,7 +17,6 @@
     <Compile Include="ReadOnlyCollection.fs" />
     <Compile Include="ResizeArray.fs" />
     <Compile Include="LinkedList.fs" />
-    <Compile Include="HashSet.fs" />
     <Compile Include="Linq.fs" />
   </ItemGroup>
   <ItemGroup>

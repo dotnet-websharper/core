@@ -127,9 +127,23 @@ let ChunkBySize (size: int) (s: seq<'T>) = SeqChunkBySize size s
 [<Name "collect">]
 let Collect f s = Seq.concat (Seq.map f s)
 
-[<Inline>]
+[<Name "compareWith">]
 let CompareWith  (f: 'T -> 'T -> int) (s1: seq<'T>) (s2: seq<'T>) : int =
-    SeqCompareWith f s1 s2
+    use e1 = Enumerator.Get s1
+    use e2 = Enumerator.Get s2
+    let mutable r = 0
+    let mutable loop = true
+    while loop && r = 0 do
+        match e1.MoveNext(), e2.MoveNext() with
+        | true, false ->
+            r <- 1
+        | false, true ->
+            r <- -1
+        | false, false ->
+            loop <- false
+        | true, true ->
+            r <- f e1.Current e2.Current
+    r
 
 [<Name "concat">]
 let Concat (ss: seq<#seq<'T>>) : seq<'T> =
@@ -157,22 +171,39 @@ let Concat (ss: seq<#seq<'T>>) : seq<'T> =
             safeDispose outerE) 
             next)
 
-[<Inline>]
+[<Name "countBy">]
 let CountBy (f: 'T -> 'K) (s: seq<'T>) : seq<'K * int> =
-    SeqCountBy f s
+    Seq.delay <| fun () ->
+        ArrayCountBy f (Array.ofSeq s) |> Seq.ofArray
 
 [<Name "delay">]
 let Delay<'T> (f: unit -> seq<'T>) : seq<'T> =
     Enumerable.Of (fun () -> Enumerator.Get(f()))
 
-[<Inline>]
+[<Name "distinct">]
 let Distinct<'T when 'T : equality> (s: seq<'T>) : seq<'T> =
-    SeqDistinct s
+    Seq.distinctBy id s
 
-[<Inline>]
+[<Name "distinctBy">]
 let DistinctBy<'T,'K when 'K : equality>
         (f: 'T -> 'K) (s: seq<'T>) : seq<'T> =
-    SeqDistinctBy f s
+    Enumerable.Of <| fun () ->
+        let o  = Enumerator.Get s
+        let seen = System.Collections.Generic.HashSet<'K>()
+        Enumerator.NewDisposing () (fun _ -> o.Dispose()) <| fun e ->
+            if o.MoveNext() then
+                let mutable cur = o.Current
+                let mutable has = seen.Add(f cur)
+                while not has && o.MoveNext() do
+                    cur <- o.Current
+                    has <- seen.Add(f cur)
+                if has then
+                    e.Current <- cur
+                    true
+                else
+                    false
+            else
+                false
 
 [<Name "splitInto">]
 let SplitInto count (s: seq<'T>) =
@@ -261,10 +292,10 @@ let ForAll p s =
 let ForAll2 p s1 s2 =
     not (Seq.exists2 (fun x y -> not (p x y)) s1 s2)
 
-[<Inline>]
-let GroupBy (f: 'T -> 'K when 'K : equality)
-            (s: seq<'T>) : seq<'K * seq<'T>> =
-    SeqGroupBy f s
+[<Name "groupBy">]
+let GroupBy (f: 'T -> 'K when 'K : equality) (s: seq<'T>) : seq<'K * seq<'T>> =
+    Seq.delay <| fun () ->
+        ArrayGroupBy f (Array.ofSeq s) |> As
 
 [<Name "head">]
 let Head (s: seq<'T>) : 'T =
@@ -387,9 +418,10 @@ let OfArray (a: 'T[]) = X<seq<'T>>
 [<Name "ofList">]
 let OfList (l: list<'T>) = X<seq<'T>>
 
-[<Inline>]
+[<Name "pairwise">]
 let Pairwise (s: seq<'T>) : seq<'T * 'T> =
-    SeqPairwise s
+    Seq.windowed 2 s
+    |> Seq.map (fun x -> (x.[0], x.[1]))
 
 [<Name "pick">]
 let Pick p (s: seq<_>) =
@@ -545,9 +577,15 @@ let ToArray (s: seq<'T>) =
 [<Inline>]
 let ToList (s: seq<'T>) = List.ofSeq s
 
-[<Inline>]
+[<Name "truncate">]
 let Truncate (n: int) (s: seq<'T>) : seq<'T> =
-    SeqTruncate n s
+    seq {
+        use e = Enumerator.Get s
+        let i = ref 0
+        while e.MoveNext() && !i < n do
+            incr i
+            yield e.Current
+    }
 
 [<Name "tryFind">]
 let TryFind ok (s: seq<_>) =
@@ -609,13 +647,34 @@ let TryPick f (s: seq<_>) =
         r <- f e.Current
     r
 
-[<Inline>]
-let Unfold (f: 'S -> option<'T * 'S>) (s: 'S) : seq<'T> =
-    SeqUnfold f s
+[<Name "unfold">]
+let Unfold<'S, 'T> (f: 'S -> option<'T * 'S>) (s: 'S) : seq<'T> =
+    Enumerable.Of <| fun () ->
+        Enumerator.New s <| fun e ->
+            match f e.State with
+            | Some (t, s) ->
+                e.Current <- t
+                e.State  <- s
+                true
+            | None ->
+                false
 
-[<Inline>]
+[<Name "windowed">]
 let Windowed (windowSize: int) (s: seq<'T>) : seq<'T []> =
-    SeqWindowed windowSize s
+    if windowSize <= 0 then
+        failwith "The input must be positive."
+    seq {
+        use e = Enumerator.Get s
+        let q = new System.Collections.Generic.Queue<'T>()
+        while q.Count < windowSize && e.MoveNext() do
+            q.Enqueue e.Current
+        if q.Count = windowSize then
+            yield q.ToArray()
+            while e.MoveNext() do
+                ignore (q.Dequeue())
+                q.Enqueue e.Current
+                yield q.ToArray()
+    }
 
 [<Name "zip">]
 let Zip (s1: seq<'T>) (s2: seq<'U>) =

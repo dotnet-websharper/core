@@ -36,10 +36,10 @@ let ArraySplitInto count (arr: 'T[]) =
         let minChunkSize = len / count
         let mutable startIndex = 0
         for i = 0 to len % count - 1 do
-            res.[i] <- Array.sub arr startIndex (minChunkSize + 1)
+            res.JS.[i] <- Array.sub arr startIndex (minChunkSize + 1)
             startIndex <- startIndex + minChunkSize + 1
         for i = len % count to count - 1 do
-            res.[i] <-  Array.sub arr startIndex minChunkSize
+            res.JS.[i] <-  Array.sub arr startIndex minChunkSize
             startIndex <- startIndex + minChunkSize
         res
 
@@ -49,7 +49,7 @@ let ArrayContains (item: 'T) (arr: 'T[])  =
     let mutable i = 0
     let l = arr.Length
     while c && i < l do
-        if arr.[i] = item then
+        if arr.JS.[i] = item then
             c <- false
         else
             i <- i + 1
@@ -60,7 +60,8 @@ let ArrayTryFindBack f (arr: _ []) =
     let mutable res = None
     let mutable i = Array.length arr - 1
     while i >= 0 && Option.isNone res do
-        if f arr.[i] then res <- Some arr.[i]
+        let r = arr.JS.[i]
+        if f r then res <- Some r
         i <- i - 1
     res
 
@@ -78,7 +79,7 @@ let ArrayMapFold<'T, 'S, 'R> (f: 'S -> 'T -> 'R * 'S) (zero: 'S) (arr: 'T[]) : '
     let r = JavaScript.Array(Array.length arr)
     let mutable acc = zero
     for i = 0 to Array.length arr - 1 do
-        let a, b = f acc arr.[i]
+        let a, b = f acc arr.JS.[i]
         r.[i] <- a
         acc <- b 
     r.Self, acc
@@ -90,7 +91,7 @@ let ArrayMapFoldBack<'T,'S,'R> (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) :
     let len = Array.length arr
     for j = 1 to len do
         let i = len - j
-        let a, b = f arr.[i] acc
+        let a, b = f arr.JS.[i] acc
         r.[i] <- a
         acc <- b 
     r.Self, acc
@@ -150,106 +151,33 @@ let SeqChunkBySize (size: int) (s: seq<'T>) =
                 true
             else false
 
-[<Name "WebSharper.Seq.compareWith">]
-let SeqCompareWith  (f: 'T -> 'T -> int) (s1: seq<'T>) (s2: seq<'T>) : int =
-    use e1 = Enumerator.Get s1
-    use e2 = Enumerator.Get s2
-    let mutable r = 0
-    let mutable loop = true
-    while loop && r = 0 do
-        match e1.MoveNext(), e2.MoveNext() with
-        | true, false ->
-            r <- 1
-        | false, true ->
-            r <- -1
-        | false, false ->
-            loop <- false
-        | true, true ->
-            r <- f e1.Current e2.Current
-    r
-
-[<Name "WebSharper.Seq.countBy">]
-let SeqCountBy (f: 'T -> 'K) (s: seq<'T>) : seq<'K * int> =
-    Seq.delay <| fun () ->
-        let d = new obj()
-        use e = Enumerator.Get s
-        let keys = System.Collections.Generic.Queue<_>()
-        while e.MoveNext() do
-            let k = f e.Current
-            let h = As<string> (Unchecked.hash k)
-            if JS.HasOwnProperty d (As h) then
-                (?<-) d h ((?) d h + 1)
-            else
-                keys.Enqueue k
-                (?<-) d h 1
-        keys.ToArray()
-        |> Array.map (fun k -> (k, (?) d (As (hash k))))
-        |> As<_>
-
-[<Name "WebSharper.Seq.distinct">]
-let SeqDistinct<'T when 'T : equality> (s: seq<'T>) : seq<'T> =
-    Seq.distinctBy id s
-
-[<Name "WebSharper.Seq.distinctBy">]
-let SeqDistinctBy<'T,'K when 'K : equality>
-        (f: 'T -> 'K) (s: seq<'T>) : seq<'T> =
-    Enumerable.Of <| fun () ->
-        let o        = Enumerator.Get s
-        let seen        = Array<Array<'K>>()
-        let add c =
-            let k = f c
-            let h = hash k
-            let cont = seen.[h]
-            if cont = JS.Undefined then
-                seen.[h] <- [|k|].JS
-                true
-            else
-                if ArrayContains k (As cont) then
-                    false
-                else
-                    cont.Push(k) |> ignore
-                    true         
-        Enumerator.NewDisposing () (fun _ -> o.Dispose()) <| fun e ->
-            if o.MoveNext() then
-                let mutable cur = o.Current
-                let mutable has = add cur
-                while not has && o.MoveNext() do
-                    cur <- o.Current
-                    has <- add cur
-                if has then
-                    e.Current <- cur
-                    true
-                else
-                    false
-            else
-                false
+[<Name "WebSharper.Arrays.countBy">]
+let ArrayCountBy (f: 'T -> 'K) (a: 'T[]) : ('K * int)[] =
+    let d = System.Collections.Generic.Dictionary<'K, int>()
+    let keys = JavaScript.Array()
+    for i = 0 to a.Length - 1 do
+        let c = a.JS.[i]
+        let k = f c
+        if d.ContainsKey(k) then
+            d.[k] <- d.[k] + 1 
+        else
+            keys.Push(k) |> ignore
+            d.Add(k, 1)
+    As<'K[]> keys |> mapInPlace (fun k -> (k, d.[k]))
+    As keys
 
 [<Name "WebSharper.Seq.except">]
 let SeqExcept (itemsToExclude: seq<'T>) (s: seq<'T>) =
     Enumerable.Of <| fun () ->
-        let o        = Enumerator.Get s
-        let seen        = Array<Array<'T>>()
-        let add c =
-            let h = hash c
-            let cont = seen.[h]
-            if cont = JS.Undefined then
-                seen.[h] <- [|c|].JS
-                true
-            else
-                if ArrayContains c (As cont) then
-                    false
-                else
-                    cont.Push(c) |> ignore
-                    true         
-        for i in itemsToExclude do
-            add i |> ignore
+        let o  = Enumerator.Get s
+        let seen = System.Collections.Generic.HashSet(itemsToExclude)
         Enumerator.NewDisposing () (fun _ -> o.Dispose()) <| fun e ->
             if o.MoveNext() then
                 let mutable cur = o.Current
-                let mutable has = add cur
+                let mutable has = seen.Add(cur)
                 while not has && o.MoveNext() do
                     cur <- o.Current
-                    has <- add cur
+                    has <- seen.Add(cur)
                 if has then
                     e.Current <- cur
                     true
@@ -268,29 +196,20 @@ let ListSkip i (l : list<'T>) =
         | [] -> failwith "Input list too short."
     res
 
-[<Inline "$x.push($y)">]
-let arrayPush (x: obj) (y: obj) = ()
-
-[<Name "WebSharper.Seq.groupBy">]
-let SeqGroupBy (f: 'T -> 'K when 'K : equality)
-            (s: seq<'T>) : seq<'K * seq<'T>> =
-    Seq.delay (fun () ->
-        let d  = obj ()
-        let d1 = obj ()
-        let keys : obj [] = [||]
-        use e = Enumerator.Get s
-        while e.MoveNext() do
-            let c = e.Current
-            let k = f c
-            let h = As<string> (hash k)
-            if not (JS.HasOwnProperty d h) then
-                arrayPush keys k
-            (?<-) d1 h k
-            if JS.HasOwnProperty d h then
-                arrayPush ((?) d h) c
-            else
-                (?<-) d h [| c |]
-        As<_> (Array.map (fun k -> (k, (?) d (As (hash k)))) keys))
+[<Name "WebSharper.Arrays.groupBy">]
+let ArrayGroupBy (f: 'T -> 'K when 'K : equality) (a: 'T[]) : ('K * 'T[])[] =
+    let d = System.Collections.Generic.Dictionary<'K, 'T[]>()
+    let keys = JavaScript.Array()
+    for i = 0 to a.Length - 1 do
+        let c = a.JS.[i]
+        let k = f c
+        if d.ContainsKey(k) then
+            d.[k].JS.Push(c) |> ignore
+        else
+            keys.Push(k) |> ignore
+            d.Add(k, [| c |])
+    As<'K[]> keys |> mapInPlace (fun k -> (k, d.[k]))
+    As keys
 
 [<Name "WebSharper.Seq.insufficient">]
 let InsufficientElements() =
@@ -312,11 +231,6 @@ let SeqContains (el: 'T) (s: seq<'T>) =
         r <- e.Current = el
     r
 
-[<Name "WebSharper.Seq.pairwise">]
-let SeqPairwise (s: seq<'T>) : seq<'T * 'T> =
-    Seq.windowed 2 s
-    |> Seq.map (fun x -> (x.[0], x.[1]))
-
 [<Name "WebSharper.List.skipWhile">]
 let rec ListSkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> =
     let mutable rest = list
@@ -324,45 +238,6 @@ let rec ListSkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> 
         rest <- List.tail rest 
     rest
 
-[<Name "WebSharper.Seq.unfold">]
-let SeqUnfold<'T, 'S> (f: 'S -> option<'T * 'S>) (s: 'S) : seq<'T> =
-    Enumerable.Of <| fun () ->
-        Enumerator.New s <| fun e ->
-            match f e.State with
-            | Some (t, s) ->
-                e.Current <- t
-                e.State  <- s
-                true
-            | None ->
-                false
-
-[<Name "WebSharper.Seq.truncate">]
-let SeqTruncate (n: int) (s: seq<'T>) : seq<'T> =
-    seq {
-        use e = Enumerator.Get s
-        let i = ref 0
-        while e.MoveNext() && !i < n do
-            incr i
-            yield e.Current
-    }
-
 [<Name "WebSharper.Seq.nonNegative">]
 let InputMustBeNonNegative() =
     failwith "The input must be non-negative."
-
-[<Name "WebSharper.Seq.windowed">]
-let SeqWindowed (windowSize: int) (s: seq<'T>) : seq<'T []> =
-    if windowSize <= 0 then
-        failwith "The input must be positive."
-    seq {
-        use e = Enumerator.Get s
-        let q = new System.Collections.Generic.Queue<'T>()
-        while q.Count < windowSize && e.MoveNext() do
-            q.Enqueue e.Current
-        if q.Count = windowSize then
-            yield q.ToArray()
-            while e.MoveNext() do
-                ignore (q.Dequeue())
-                q.Enqueue e.Current
-                yield q.ToArray()
-    }
