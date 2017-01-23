@@ -286,12 +286,14 @@ module ClientSideJson =
                 equal (Json.Serialize Foo |> Json.Parse |> unbox) "foo"
                 equal (Json.Serialize Bar |> Json.Parse |> unbox) "bar"
                 equal (Json.Serialize Twelve |> Json.Parse |> unbox) 12
+                equal (Json.Serialize Null |> Json.Parse |> unbox) null
             }
 
             Test "deserialize union with constants" {
                 equal (Json.Deserialize (Json.Stringify "foo")) Foo
                 equal (Json.Deserialize (Json.Stringify "bar")) Bar
                 equal (Json.Deserialize (Json.Stringify 12)) Twelve
+                equal (Json.Deserialize (Json.Stringify null)) Null
             }
 
             Test "serialize System.DateTime" {
@@ -462,6 +464,7 @@ module ClientSideJson =
                 equalAsync (f Foo) Foo
                 equalAsync (f Bar) Bar
                 equalAsync (f Twelve) Twelve
+                equalAsync (f Null) Null
             }
 
             let now = System.DateTime.Now

@@ -79,7 +79,7 @@ module Provider =
     let EncodeUnion (_: obj) (discr: string) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> 'T -> obj) =
         ()
         fun () x ->
-            if JS.TypeOf x ===. JS.Object then
+            if JS.TypeOf x ===. JS.Object && x !=. null then
                 let o = New []
                 let tag = x?("$")
                 let tagName, fields = cases.[tag]
