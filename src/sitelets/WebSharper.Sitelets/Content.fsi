@@ -25,6 +25,7 @@ open WebSharper
 
 /// Represents server responses to actions. The Page response is special-cased
 /// for combinators to have access to it.
+[<CompiledName "FSharpContent">]
 type Content<'Action> =
     | [<Obsolete "Use Content.Custom">]
       CustomContent of (Context<'Action> -> Http.Response)

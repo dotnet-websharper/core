@@ -24,6 +24,7 @@ open System.IO
 open WebSharper
 module CT = WebSharper.Core.ContentTypes
 
+[<CompiledName "FSharpContent">]
 type Content<'Action> =
     | CustomContent of (Context<'Action> -> Http.Response)
     | CustomContentAsync of (Context<'Action> -> Async<Http.Response>)
