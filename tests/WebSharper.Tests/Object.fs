@@ -133,6 +133,25 @@ type StructRecord2 =
     { SR2 : int; SR2b : string }
 #endif
 
+[<CompilationRepresentation (CompilationRepresentationFlags.UseNullAsTrueValue)>]
+type U =
+    | U0
+    | U1 of int 
+    | U2 of string
+
+[<JavaScript>]
+type UJ =
+    | [<Constant null>] UJ0
+    | UJ1 of int 
+    | UJ2 of string
+
+[<JavaScript>]
+[<CompilationRepresentation (CompilationRepresentationFlags.UseNullAsTrueValue)>]
+type UN =
+    | UN0
+    | UN1 of int 
+    | UN2 of string
+
 [<JavaScript>]
 type Abcde = { A: string; B: string; C: string; D: string; E: string }
 
@@ -316,6 +335,50 @@ let Tests =
             equal (TestStruct(1, "a").X) (TestStruct(1, "a").X)
             notEqual (TestStruct(1, "a")) (TestStruct(2, "a"))
             notEqual (TestStruct(1, "a")) (TestStruct(1, "b"))
+        }
+
+        Test "Union with Constant null" {
+            let o = ref ""
+            let f u =
+                match u with
+                | U0 -> ()
+                | U1 x -> o := string x
+                | U2 x -> o := x
+            notEqual (box U0) null 
+            f U0 
+            equal !o ""
+            f (U1 3) 
+            equal !o "3"
+            f (U2 "hi") 
+            equal !o "hi"
+
+            let fj u =
+                match u with
+                | UJ0 -> ()
+                | UJ1 x -> o := string x
+                | UJ2 x -> o := x
+            jsEqual (box UJ0) null
+            o := ""
+            fj UJ0
+            equal !o ""
+            fj (UJ1 3)
+            equal !o "3"
+            fj (UJ2 "hi")
+            equal !o "hi"
+
+            let fn u =
+                match u with
+                | UN0 -> ()
+                | UN1 x -> o := string x
+                | UN2 x -> o := x
+            jsEqual (box UN0) null
+            o := ""
+            fn UN0
+            equal !o ""
+            fn (UN1 3)
+            equal !o "3"
+            fn (UN2 "hi")
+            equal !o "hi"
         }
         
         #if FSHARP41
