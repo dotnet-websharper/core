@@ -82,7 +82,7 @@ module private RpcUtil =
 type CorsAndCsrfCheckResult =
     | Ok of headers : list<string * string>
     | Preflight of headers : list<string * string>
-    | Error of httpStatusCode: int * httpStatusMessage: string
+    | Error of httpStatusCode: int * httpStatusMessage: string * responseText: string
 
 [<Sealed>]
 type RpcHandler() =
@@ -105,18 +105,28 @@ type RpcHandler() =
             | true, origin -> origin.Authority = reqUrl.Authority
             | false, _ -> false
         let origin = getHeader "Origin"
+        let explicitlyAcceptedOrigin =
+            match origin with
+            | Some origin when isSameAuthority origin || Remoting.allowedOrigins.Contains (origin.ToLowerInvariant()) -> Some origin
+            | _ -> None
+        let acceptedOrigin =
+            if Remoting.allowedOrigins.Contains "*" then Some "*" else explicitlyAcceptedOrigin
         let headers =
-            if origin.IsSome && (isSameAuthority origin.Value || Remoting.allowedOrigins.Contains (origin.Value.ToLowerInvariant())) then
-                [
-                    "Access-Control-Allow-Origin", origin.Value
+            match acceptedOrigin with
+            | Some origin ->
+                (if origin = "*" then [] else ["Vary", "Origin"])
+                @ [
+                    "Access-Control-Allow-Origin", origin
                     "Access-Control-Allow-Credentials", "true"
                 ]
-            else []
+            | _ -> []
         match reqMethod with
         | "OPTIONS" ->
-            Preflight (("Access-Control-Allow-Headers", "x-websharper-rpc, content-type, x-csrftoken") :: headers)
-        | _ when Remoting.csrfProtect && not (checkCsrf()) ->
-            Error (403, "Forbidden")
+            ("Access-Control-Allow-Headers", "x-websharper-rpc, content-type, x-csrftoken")
+            :: headers
+            |> Preflight
+        | _ when Remoting.csrfProtect && not (explicitlyAcceptedOrigin.IsSome || checkCsrf()) ->
+            Error (403, "Forbidden", "CSRF")
         | _ ->
             Ok headers
 
@@ -131,9 +141,10 @@ type RpcHandler() =
                     (fun k -> match req.Headers.[k] with null -> None | h -> Some h)
                     (fun k v -> HttpCookie(k, v, Expires = System.DateTime.UtcNow.AddYears(1000)) |> resp.SetCookie)
                     with
-            | Error (code, descr) ->
+            | Error (code, descr, text) ->
                 resp.StatusCode <- code
                 resp.StatusDescription <- descr
+                resp.Write(text)
             | Preflight headers ->
                 headers |> List.iter (fun (k, v) -> resp.AddHeader(k, v))
             | Ok headers ->
