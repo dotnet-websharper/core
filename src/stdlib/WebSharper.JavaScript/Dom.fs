@@ -841,6 +841,7 @@ module Interfaces =
     let Document =
         Document
         |=> Inherits Node
+        |+> QuerySelectorMixin
         |+> Instance [
                 "cookie" =@ T<string>
                 "body" =@ Element
