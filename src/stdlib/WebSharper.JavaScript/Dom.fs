@@ -489,10 +489,22 @@ module Interfaces =
                     T<obj>?detailArg ^-> T<unit>
             ]
 
+    let EventInit =
+        Pattern.Config "EventInit" {
+            Required = []
+            Optional =
+                [
+                    "bubbles", T<bool>
+                    "cancelable", T<bool>
+                    "scoped", T<bool>
+                    "composed", T<bool>
+                ]
+        }
+
     let Event =
         Event
         |+> Static [
-                Constructor T<unit>
+                Constructor (T<string> * !? EventInit)
             ]
         |+> Instance [
                 "bubbles" =@ T<bool>
@@ -927,6 +939,7 @@ module Definition =
                 I.TypeInfo
                 I.UserDataHandler
                 I.Event
+                I.EventInit
                 I.EventTarget
                 I.CustomEvent
                 I.FocusEvent
