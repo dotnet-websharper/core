@@ -21,14 +21,15 @@
 module WebSharper.Collections.Tests.Main
 
 open WebSharper
+open WebSharper.Testing
 
 [<JavaScript>]
 let RunTests() =
-    [|
+    Runner.RunTests [|
         Dictionary.Tests
         Set.Tests
         Map.Tests
         ResizeArray.Tests
         LinkedList.Tests
         HashSet.Tests
-    |] |> ignore
+    |]

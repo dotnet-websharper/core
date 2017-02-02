@@ -129,8 +129,6 @@ type TestAttribute(name: string) =
     new() = TestAttribute(null)
     member this.Name = name
 
-type Res = Choice<Expr<unit> * list<string>, string>
-
 [<AutoOpen>]
 module private Internals =
 
@@ -160,7 +158,7 @@ type TestGenerator() =
                     Some (m, name)
                 | _ -> None))
 
-    let genTestCategory' (t: Type) (category: string) : Res =
+    let genTestCategory' (t: Type) =
         match t.GetConstructor([||]) with
         | null -> Choice2Of2 (t.FullName + " must have a default constructor.")
         | ctor ->
@@ -199,7 +197,7 @@ type TestGenerator() =
                         and return either void or Task. It will not be run."
                     return! Choice2Of2 msg
             }
-            ((<@ QUnit.Module category @>, []), methods)
+            ((<@ () @>, []), methods)
             ||> Array.fold (fun (pred, w) (m, name) ->
                 let var = Var("x", t)
                 let v = Expr.Var var
@@ -233,18 +231,18 @@ type TestGenerator() =
                         | 1 -> Some (t, cad.ConstructorArguments.[0].Value :?> string)
                         | _ -> failwith "Impossible"
                     else None))
-            |> Array.fold (fun (x: Res) (t, category) ->
+            |> Array.fold (fun x (t, category) ->
                 match x with
                 | Choice1Of2 (e, w) ->
-                    match genTestCategory' t category : Res with
+                    match genTestCategory' t with
                     | Choice1Of2 (e', w') ->
-                        Choice1Of2 (<@ %e; %e' @>, w @ w')
+                        Choice1Of2 (<@ { name = category; run = fun () -> %e' } :: %e @>, w @ w')
                     | Choice2Of2 err -> Choice2Of2 err
                 | Choice2Of2 err -> Choice2Of2 err
-            ) (Choice1Of2 (<@ () @>, []))
+            ) (Choice1Of2 (<@ [] @>, []))
             |> function
             | Choice1Of2 (e, warnings) ->
-                (GeneratedQuotation <@@ fun () -> %e @@>, warnings)
+                (GeneratedQuotation <@@ fun () -> Runner.RunTests %e @@>, warnings)
                 ||> List.fold (fun r w -> GeneratorWarning (w, r))
             | Choice2Of2 err -> GeneratorError err
         with e -> GeneratorError ("TestGenerator error:" + e.Message)

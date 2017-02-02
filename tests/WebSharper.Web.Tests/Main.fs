@@ -21,11 +21,12 @@
 module WebSharper.Web.Tests.Main
 
 open WebSharper
+open WebSharper.Testing
 
 [<JavaScript>]
 let RunTests() =
-    [|
+    Runner.RunTests [|
         Remoting.Tests
         ClientSideJson.ClientTests
-        ClientSideJson.SiteletRoundTripTests   
-    |] |> ignore
+        ClientSideJson.SiteletRoundTripTests
+    |]

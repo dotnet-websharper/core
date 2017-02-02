@@ -71,14 +71,12 @@ let TestsPage =
     Content.Page(
         Title = "WebSharper client-side tests",
         Body = [
-            Testing.Runner.Run [
-                typeof<WebSharper.Collections.Tests.Dictionary.Foo>.Assembly
-                typeof<WebSharper.Tests.Object.O>.Assembly
-                typeof<WebSharper.Web.Tests.HelloWorld>.Assembly
-                typeof<WebSharper.Html5.Tests.Elt>.Assembly
-            ]
-            ClientSide <@ Client.RunAllTests() @> :> _
-            ClientSide <@ Client.ClientSideTupleTest t12 @> :> _
+            ClientSide <@ WebSharper.Tests.Main.RunTests() @>
+            ClientSide <@ WebSharper.Collections.Tests.Main.RunTests() @>
+            ClientSide <@ WebSharper.Html5.Tests.Main.RunTests() @>
+            ClientSide <@ WebSharper.Web.Tests.Main.RunTests() @>
+            ClientSide <@ WebSharper.CSharp.Tests.Tests.RunTests() @>
+            ClientSide <@ Client.ClientSideTupleTest t12 @>
         ]
     )
 

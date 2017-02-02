@@ -69,6 +69,11 @@
       <Project>{91e8e3cc-b1f5-4d27-8daf-639ca5c76f63}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj">
+      <Name>WebSharper.CSharp.Tests</Name>
+      <Project>{c78f4ffd-9c51-466b-8e35-99588a419d60}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\WebSharper.Html5.Tests\WebSharper.Html5.Tests.fsproj">
       <Name>WebSharper.Html5.Tests</Name>
       <Project>{3958f5e1-dda2-4a22-bf29-794a25bb14f7}</Project>

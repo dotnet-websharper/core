@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module WebSharper.Html5.Tests
+module WebSharper.Html5.Tests.Main
 
 open WebSharper
 open WebSharper.JavaScript
@@ -394,3 +394,6 @@ let Tests =
         }
 
     }
+
+[<JavaScript>]
+let RunTests() = Runner.RunTests [| Tests |]

@@ -14,7 +14,7 @@ namespace WebSharper.CSharp.Tests
     public class Tests : TestCategory
     {
         [Generated(typeof(TestGenerator))]
-        public static void RunTests() { }
+        public static IControlBody RunTests() { return null; }
 
         public string GetHelloWorld() { return "Hello " + "world!"; }
         public string HelloWorldProp => "Hello " + "world!";

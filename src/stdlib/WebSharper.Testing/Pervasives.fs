@@ -124,7 +124,7 @@ type TestCategoryBuilder(name: string) =
     [<Inline>]
     member this.Zero() = ()
 
-    [<Inline "QUnit.module($s.name),$s.run(),$s">]
+    [<Inline "QUnit.module($s.name),$s">]
     member this.Run(s: TestCategory) =
         s
 

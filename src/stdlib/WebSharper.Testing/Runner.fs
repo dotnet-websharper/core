@@ -27,44 +27,25 @@ module M = WebSharper.Core.Metadata
 //module R = WebSharper.Core.Reflection
 
 [<JavaScript>]
-type private RunnerControlBody() =
+type private RunnerControlBody(run) =
     interface IControlBody with
         member this.ReplaceInDom(e) =
-            let fixture = JS.Document.CreateElement("div")
-            fixture.SetAttribute("id", "qunit-fixture")
-            let qunit = JS.Document.CreateElement("div")
-            qunit.SetAttribute("id", "qunit")
-            let parent = e.ParentNode
-            parent.ReplaceChild(fixture, e) |> ignore
-            parent.InsertBefore(qunit, fixture) |> ignore
+            match JS.Document.QuerySelector "#qunit" with
+            | null ->
+                let fixture = JS.Document.CreateElement("div")
+                fixture.SetAttribute("id", "qunit-fixture")
+                let qunit = JS.Document.CreateElement("div")
+                qunit.SetAttribute("id", "qunit")
+                let parent = e.ParentNode
+                parent.ReplaceChild(fixture, e) |> ignore
+                parent.InsertBefore(qunit, fixture) |> ignore
+            | _ -> ()
+            run()
 
-type RunnerControl(reqs: list<M.Node>) =
-    inherit Web.Control()
-
-    static let ctrlReq = M.TypeNode (WebSharper.Core.AST.Reflection.ReadTypeDefinition (typeof<RunnerControlBody>))
-
-    [<System.NonSerialized>]
-    let reqs = reqs
-
-    [<JavaScript>]
-    override this.Body = new RunnerControlBody() :> _
-
-    interface IControl with
-        member this.Requires =
-            (ctrlReq :: reqs) :> seq<_>
-
-let Run assemblies =
-    let reqs =
-        [
-            for a : System.Reflection.Assembly in assemblies do
-                yield M.AssemblyNode (a.FullName.Split(',').[0], true)
-        ]
-    new RunnerControl(reqs) :> Web.Control
-
-let RunByAssemblyNames assemblyNames =
-    let reqs =
-        [
-            for a in assemblyNames do
-                yield M.AssemblyNode a
-        ]
-    new RunnerControl(reqs) :> Web.Control
+[<JavaScript>]
+let RunTests (tests: seq<TestCategory>) =
+    new RunnerControlBody(fun () ->
+        for t in tests do
+            Pervasives.QUnit.Module t.name
+            t.run()
+    ) :> IControlBody

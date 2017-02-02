@@ -25,8 +25,7 @@ open WebSharper.Testing
 
 [<JavaScript>]
 let RunTests() =
-    WebSharper.CSharp.Tests.Tests.RunTests()
-    [|
+    Runner.RunTests [|
         AddressOf.Tests
         Array.Tests
         Array2D.Tests
@@ -66,4 +65,4 @@ let RunTests() =
         Tupled.Tests
         WIG.Tests
         Cookies.Tests
-    |] |> ignore
+    |]
