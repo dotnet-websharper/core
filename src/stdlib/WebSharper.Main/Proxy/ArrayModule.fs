@@ -503,22 +503,21 @@ let ChunkBySize size array =
 
 [<Name "compareWith">]
 let CompareWith  (f: 'T -> 'T -> int) (a1: 'T []) (a2: 'T []) : int =
-    SeqCompareWith f (Array.toSeq a1) (Array.toSeq a2)
+    Seq.compareWith f (Array.toSeq a1) (Array.toSeq a2)
 
-[<Name "countBy">]
+[<Inline>]
 let CountBy (f: 'T -> 'K) (a: 'T []) : ('K * int) [] =
-    SeqCountBy f (Array.toSeq a)
-    |> Seq.toArray
+    ArrayCountBy f a
 
 [<Name "distinct">]
 let Distinct<'T when 'T : equality> (l: 'T []) : 'T [] =
-    SeqDistinct (Array.toSeq l)
+    Seq.distinct (Array.toSeq l)
     |> Seq.toArray
 
 [<Name "distinctBy">]
 let DistinctBy<'T,'K when 'K : equality>
         (f: 'T -> 'K) (a: 'T []) : 'T [] =
-    SeqDistinctBy f (Array.toSeq a)
+    Seq.distinctBy f (Array.toSeq a)
     |> Seq.toArray
 
 [<Name "except">]
@@ -538,14 +537,10 @@ let FindIndexBack p (s: _ []) =
     | Some x -> x
     | None   -> failwith "KeyNotFoundException"
 
-[<Name "groupBy">]
+[<Inline>]
 let GroupBy (f: 'T -> 'K when 'K : equality)
             (a: 'T []) : ('K * 'T []) [] =
-    SeqGroupBy f (Array.toSeq a)
-    |> Seq.toArray
-    |> Array.map (fun (k, s) ->
-        (k, Seq.toArray s)
-    )
+    ArrayGroupBy f a
 
 [<Name "head">]
 let Head (arr : 'T []) : 'T =
@@ -572,7 +567,7 @@ let Contains (el: 'T) (a: 'T []) =
 
 [<Name "pairwise">]
 let Pairwise (a: 'T []) : ('T * 'T) [] =
-    SeqPairwise (Array.toSeq a)
+    Seq.pairwise (Array.toSeq a)
     |> Seq.toArray
 
 [<Name "replicate">]
@@ -632,7 +627,7 @@ let ExactlyOne (ar : 'T []) =
 
 [<Name "unfold">]
 let Unfold<'T, 'S> (f: 'S -> option<'T * 'S>) (s: 'S) : 'T [] =
-    SeqUnfold<'T, 'S> f s
+    Seq.unfold f s
     |> Seq.toArray
 
 [<Inline>]
@@ -641,7 +636,7 @@ let Where (predicate : 'T -> bool) (s : 'T []) : 'T [] =
 
 [<Name "windowed">]
 let Windowed (windowSize: int) (s: 'T []) : array<'T []> =
-    SeqWindowed windowSize (Array.toSeq s)
+    Seq.windowed windowSize (Array.toSeq s)
     |> Seq.toArray
 
 [<Name "splitAt">]

@@ -76,6 +76,7 @@ module Json =
             | [<Constant "foo">] Foo
             | [<Constant "bar">] Bar
             | [<Constant 12>] Twelve
+            | [<Constant null>] Null
 
         type GenericUnion() =
 

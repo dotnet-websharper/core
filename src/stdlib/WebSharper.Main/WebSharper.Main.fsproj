@@ -46,13 +46,15 @@
     <Compile Include="Proxy/CommonExtensions.fs" />
     <Compile Include="Proxy/DateTime.fs" />
     <Compile Include="Proxy/Delegate.fs" />
+    <Compile Include="Proxy/Dictionary.fs" />
     <Compile Include="Proxy/Double.fs" />
     <Compile Include="Proxy/Enum.fs" />
     <Compile Include="Proxy/Exception.fs" />
     <Compile Include="Proxy/ExtraTopLevelOperators.fs" />
     <Compile Include="Proxy/Func.fs" />
     <Compile Include="Proxy/Guid.fs" />
-    <Compile Include="Proxy\Interfaces.fs" />
+    <Compile Include="Proxy/HashSet.fs" />
+    <Compile Include="Proxy/Interfaces.fs" />
     <Compile Include="Proxy/IntrinsicOperators.fs" />
     <Compile Include="Proxy/KeyValuePair.fs" />
     <Compile Include="Proxy/LanguagePrimitives.fs" />

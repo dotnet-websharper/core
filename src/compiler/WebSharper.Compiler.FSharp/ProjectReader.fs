@@ -620,19 +620,27 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
             let mutable nullCase = usesNull 
 
+            let constants = HashSet() 
+
             let cases =
                 cls.UnionCases
                 |> Seq.map (fun case ->
+                    let constantCase v =
+                        if constants.Add(v) then
+                            ConstantFSharpUnionCase v
+                        else
+                            comp.AddError(Some (CodeReader.getRange case.DeclarationLocation), 
+                                SourceError "Union case translated constant value is a duplicate")
+                            ConstantFSharpUnionCase (String "$$ERROR$$")
                     let cAnnot = sr.AttributeReader.GetMemberAnnot(annot, case.Attributes)
                     let kind =
                         if nullCase && case.UnionCaseFields.Count = 0 then
                             nullCase <- false
-                            ConstantFSharpUnionCase Null
+                            constantCase Null
                         else
-                        // TODO: error on null case having another constant
-                        // TODO: error on same constant on multiple cases 
                         match cAnnot.Kind with
-                        | Some (A.MemberKind.Constant v) -> ConstantFSharpUnionCase v
+                        | Some (A.MemberKind.Constant v) -> 
+                            constantCase v
                         | _ ->
                             NormalFSharpUnionCase (
     //                            cAnnot.Name,
@@ -666,7 +674,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 FSharpUnionInfo {
                     Cases = cases
                     NamedUnionCases = annot.NamedUnionCases
-                    HasNull = usesNull && not nullCase
+                    HasNull = constants.Contains(Null)
                 }
 
             comp.AddCustomType(def, i)

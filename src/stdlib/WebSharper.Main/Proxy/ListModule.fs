@@ -447,22 +447,22 @@ let ChunkBySize size list =
 
 [<Name "compareWith">]
 let CompareWith  (f: 'T -> 'T -> int) (l1: list<'T>) (l2: list<'T>) : int =
-    SeqCompareWith f (List.toSeq l1) (List.toSeq l2)
+    Seq.compareWith f (List.toSeq l1) (List.toSeq l2)
 
 [<Name "countBy">]
 let CountBy (f: 'T -> 'K) (l: list<'T>) : list<'K * int> =
-    SeqCountBy f (List.toSeq l)
-    |> Seq.toList
+    ArrayCountBy f (List.toArray l)
+    |> Array.toList
 
 [<Name "distinct">]
 let Distinct<'T when 'T : equality> (l: list<'T>) : list<'T> =
-    SeqDistinct (List.toSeq l)
+    Seq.distinct (List.toSeq l)
     |> Seq.toList
 
 [<Name "distinctBy">]
 let DistinctBy<'T,'K when 'K : equality>
         (f: 'T -> 'K) (l: list<'T>) : list<'T> =
-    SeqDistinctBy f (List.toSeq l)
+    Seq.distinctBy f (List.toSeq l)
     |> Seq.toList
 
 [<Name "splitInto">]
@@ -499,11 +499,9 @@ let FindIndexBack p (s: list<_>) =
 [<Name "groupBy">]
 let GroupBy (f: 'T -> 'K when 'K : equality)
             (l: list<'T>) : list<'K * list<'T>> =
-    SeqGroupBy f (List.toSeq l)
-    |> Seq.toList
-    |> List.map (fun (k, s) ->
-        (k, Seq.toList s)
-    )
+    let arr = ArrayGroupBy f (List.toArray l)
+    arr |> mapInPlace (fun (k, s) -> (k, Array.toList s))
+    Array.toList (As arr)
 
 [<Name "last">]
 let Last (list : list<'T>) : 'T =
@@ -536,7 +534,7 @@ let MapFoldBack<'T, 'S, 'R> f list zero =
 
 [<Name "pairwise">]
 let Pairwise (l: list<'T>) : list<'T * 'T> =
-    SeqPairwise (List.toSeq l)
+    Seq.pairwise (List.toSeq l)
     |> Seq.toList
 
 [<Name "indexed">]
@@ -592,7 +590,7 @@ let ExactlyOne (list : 'T list) =
 
 [<Name "unfold">]
 let Unfold<'T, 'S> (f: 'S -> option<'T * 'S>) (s: 'S) : list<'T> =
-    SeqUnfold f s
+    Seq.unfold f s
     |> Seq.toList
 
 [<Inline>]
@@ -601,7 +599,7 @@ let Where (predicate : 'T -> bool) (s : 'T list) : 'T list =
 
 [<Name "windowed">]
 let Windowed (windowSize: int) (s: 'T list) : list<list<'T>> =
-    SeqWindowed windowSize (List.toSeq s)
+    Seq.windowed windowSize (List.toSeq s)
     |> Seq.map List.ofArray |> Seq.toList
 
 [<Name "splitAt">]
