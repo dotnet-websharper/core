@@ -318,8 +318,8 @@ module Interfaces =
                 "tagName" =@ T<string>
 
                 // CSSOM
-                "scrollTop" =? T<double>
-                "scrollLeft" =? T<double>
+                "scrollTop" =@ T<double>
+                "scrollLeft" =@ T<double>
                 "scrollWidth" =? T<double>
                 "scrollHeight" =? T<double>
                 "clientTop" =? T<double>
