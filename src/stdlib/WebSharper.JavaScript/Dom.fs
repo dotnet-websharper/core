@@ -117,13 +117,14 @@ module Interfaces =
     let DOMException =
         Class "DomException"
         |+> Static [
-                "code" =@ DOMExceptionType
+                "code" =? DOMExceptionType
+                "name" =? T<string>
             ]
 
     let DOMStringList =
         Class "DomStringList"
         |+> Instance [
-                "length" =@ T<int>
+                "length" =? T<int>
                 "contains" => T<string->bool>
                 "item" => T<int->string>
             ]
@@ -131,7 +132,7 @@ module Interfaces =
     let NameList =
         Class "NameList"
         |+> Instance [
-                "length" =@ T<int>
+                "length" =? T<int>
                 "getName" => T<int->string>
                 "getNamespaceURI" => T<int->string>
                 "contains" => T<string->bool>
@@ -151,14 +152,15 @@ module Interfaces =
                     T<string>?namespaceURI *
                     T<string>?qualifiedName *
                     DocumentType ^-> Document
-                "getFeature" => T<string>?feature * T<string>?version ^-> T<obj>
+                "createHTMLDocument" =>
+                    !?T<string>?title ^-> Document
             ]
 
     let DOMImplementationList =
         Class "DomImplementationList"
         |+> Instance [
                 "item" => T<int> ^-> DOMImplementation
-                "length" =@ T<int>
+                "length" =? T<int>
             ]
 
     let DOMImpementationSource =
@@ -222,26 +224,31 @@ module Interfaces =
         |=> Inherits EventTarget
         |+> Instance [
                 "attributes" =@ NamedNodeMap
-                "baseURI" =@ T<string>
-                "childNodes" =@ NodeList
+                "baseURI" =? T<string>
+                "childNodes" =? NodeList
                 "firstChild" =? TSelf
-                "lastChild" =@ TSelf
-                "localName" =@ T<string>
-                "namespaceURI" =@ T<string>
-                "nextSibling" =@ TSelf
-                "nodeName" =@ T<string>
-                "nodeType" =@ NodeType
+                "lastChild" =? TSelf
+                "localName" =? T<string>
+                "namespaceURI" =? T<string>
+                "nextSibling" =? TSelf
+                "nodeName" =? T<string>
+                "nodeType" =? NodeType
                 "nodeValue" =@ T<string>
-                "ownerDocument" =@ Document
-                "parentNode" =@ TSelf
-                "prefix" =@ T<string>
-                "previousSibling" =@ TSelf
+                "ownerDocument" =? Document
+                "parentNode" =? TSelf
+                "parentElement" =? Element
+                "prefix" =? T<string>
+                "previousSibling" =? TSelf
+                "rootNode" =? TSelf
                 "textContent" =@ T<string>
                 "appendChild" => TSelf?newChild ^-> TSelf
-                "cloneNode" => T<bool>?deep ^-> TSelf
+                "cloneNode" => !?T<bool>?deep ^-> TSelf
+                "contains" => TSelf ^-> T<bool>
                 "compareDocumentPosition" => TSelf ^-> DocumentPosition
                 "getFeature" => T<string>?feature * T<string>?version ^-> T<obj>
-                "getUserData" => T<string>?key ^-> T<obj>
+                "getRootNode" => !?T<obj>?options ^-> TSelf
+                "getUserData" => 
+                    T<string>?key ^-> T<obj> |> Obsolete
                 "hasAttributes" => T<unit->bool>
                 "hasChildNodes" => T<unit->bool>
                 "insertBefore" => TSelf?newChild * TSelf?refChild ^-> TSelf
@@ -267,19 +274,10 @@ module Interfaces =
                 "item" => T<int>?index ^-> Node
                 |> WithInline "$this[$index]"
                 "length" =@ T<int>
-            ]
-
-    let NamedNodeMap =
-        NamedNodeMap
-        |+> Instance [
-                "getNamedItem" => T<string> ^-> Node
-                "setNamedItem" => Node ^-> Node
-                "removeNamedItem" => T<string> ^-> Node
-                "item" => T<int> ^-> Node
-                "length" =@ T<int>
-                "getNamedItemNS" => GetNS ^-> Node
-                "setNamedItemNS" => Node ^-> Node
-                "removeNamedItemNS" => GetNS ^-> Node
+//                "entries" => T<unit -> unit> this returns an iterator same as values and keys
+                "forEach" =>
+                    (Node * T<int> * TSelf * T<obj> ^-> T<unit>) *
+                    T<obj> ^-> T<unit>
             ]
 
     let CharacterData =
@@ -287,7 +285,7 @@ module Interfaces =
         |=> Inherits Node
         |+> Instance [
                 "data" =@ T<string>
-                "length" =@ T<int>
+                "length" =? T<int>
                 "substringData" =>
                     T<int>?offset * T<int>?count ^-> T<string>
                 "appendData" => T<string->unit>
@@ -299,14 +297,27 @@ module Interfaces =
 
     let Attr =
         Class "Attr"
-        |=> Inherits Node
         |+> Instance [
-                "name" =@ T<string>
-                "specified" =@ T<bool>
+                "name" =? T<string>
+                "specified" =? T<bool>
                 "value" =@ T<string>
-                "ownerElement" =@ Element
-                "schemaTypeInfo" =@ TypeInfo
-                "isId" =@ T<bool>
+                "ownerElement" =? Element
+                "namespaceUri" =? T<string>
+                "localName" =? T<string>
+                "prefix" =? T<string>
+            ]
+
+    let NamedNodeMap =
+        NamedNodeMap
+        |+> Instance [
+                "length" =? T<int>
+                "getNamedItem" => T<string> ^-> Attr
+                "setNamedItem" => Attr ^-> Attr
+                "removeNamedItem" => T<string> ^-> Attr
+                "item" => T<int> ^-> Attr
+                "getNamedItemNS" => GetNS ^-> Attr
+                "setNamedItemNS" => Attr ^-> Attr
+                "removeNamedItemNS" => GetNS ^-> Attr
             ]
 
     let Element =
@@ -316,6 +327,17 @@ module Interfaces =
         |+> Instance [
                 "schemaTypeInfo" =@ TypeInfo
                 "tagName" =@ T<string>
+                "attributes" =? NamedNodeMap
+//                "classList" =? DOMTokenList
+                "className" =@ T<string>
+                "id" =@ T<string>
+                "innerHTML" =@ T<string>
+                "localName" =? T<string>
+                "namespaceURI" =? T<string>
+                "outerHTML" =? T<string>
+                "prefix" =? T<string>
+
+
 
                 // CSSOM
                 "scrollTop" =@ T<double>
@@ -326,11 +348,13 @@ module Interfaces =
                 "clientLeft" =? T<double>
                 "clientWidth" =? T<double>
                 "clientHeight" =? T<double>
-
+                
                 "getClientRects" => T<unit> ^-> Type.ArrayOf DOMRect
                 "getBoundingClientRect" => T<unit> ^-> DOMRect
                 // CSSOM
 
+                "hasAttributes" => T<unit -> bool>
+                "getAttributeNames" => T<unit -> string[]>
                 "getAttribute" => T<string->string>
                 "setAttribute" => T<string> * T<string> ^-> T<unit>
                 "removeAttribute" => T<string->unit>
@@ -349,16 +373,22 @@ module Interfaces =
                 "setIdAttribute" => T<string> * T<bool>?isId ^-> T<unit>
                 "setIdAttributeNS" => GetNS * T<bool>?isId ^-> T<unit>
                 "setIdAttributeNode" => Attr * T<bool>?isId ^-> T<unit>
+                "getElementsByClassName" => T<string> ^-> NodeList
+
+                "closest" => T<string>?selectors ^-> TSelf
+                "matches" => T<string>?selectors ^-> T<bool>
+                
             ]
 
     let Text =
         Class "Text"
         |=> Inherits CharacterData
         |+> Instance [
+                "wholeText" =? T<string>
+                "isElementContentWhiteSpace" =? T<bool> |> Obsolete
+
                 "splitText" => T<int> ^-> TSelf
-                "isElementContentWhiteSpace" =@ T<bool>
-                "wholeText" =@ T<string>
-                "replaceWholeText" => T<string> ^-> TSelf
+                "replaceWholeText" => T<string> ^-> TSelf |> Obsolete
             ]
 
     let Comment =
@@ -368,13 +398,14 @@ module Interfaces =
     let TypeInfo =
         TypeInfo
         |+> Instance [
-                "typeName" =@ T<string>
-                "typeNamespace" =@ T<string>
+                "typeName" =? T<string>
+                "typeNamespace" =? T<string>
                 "isDerivedFrom" =>
                     T<string>?typeNamespace *
                     T<string>?typeName *
                     DerivationMethod?derivationMethod ^-> T<bool>
             ]
+        |> Obsolete
 
     let UserDataHandler =
         Class "UserDataHandler"
@@ -383,16 +414,13 @@ module Interfaces =
                     NodeOperation * T<string>?key * T<obj>?data *
                     Node?src * Node?dst ^-> T<unit>
             ]
+        |> Obsolete
 
     let DOMError =
         Class "DOMError"
         |+> Instance [
-                "severity" =@ ErrorSeverity
-                "message" =@ T<string>
-                "type" =@ T<string>
-                "relatedException" =@ T<obj>
-                "relatedData" =@ T<obj>
-                "location" =@ DOMLocator
+                "name" =? T<string>
+                "message" =? T<string>
             ]
 
     let DOMErrorHandler =
@@ -400,17 +428,19 @@ module Interfaces =
         |+> Instance [
                 "handleError" => DOMError ^-> T<bool>
             ]
+        |> Obsolete
 
     let DOMLocator =
         DOMLocator
         |+> Instance [
-                "lineNumber" =@ T<int>
-                "columnNumber" =@ T<int>
-                "byteOffset" =@ T<int>
-                "utf16Offset" =@ T<int>
-                "relatedNode" =@ Node
-                "uri" =@ T<string>
+                "lineNumber" =? T<int>
+                "columnNumber" =? T<int>
+                "byteOffset" =? T<int>
+                "utf16Offset" =? T<int>
+                "relatedNode" =? Node
+                "uri" =? T<string>
             ]
+        |> Obsolete
 
     let DOMConfiguration =
         Class "DOMConfiguration"
@@ -427,44 +457,48 @@ module Interfaces =
 
     let DocumentType =
         DocumentType
+        |=> Inherits Node
         |+> Instance [
-                "name" =@ T<string>
-                "entities" =@ NamedNodeMap
-                "notations" =@ NamedNodeMap
-                "publicId" =@ T<string>
-                "systemId" =@ T<string>
-                "internalSubset" =@ T<string>
+                "name" =? T<string>
+                "entities" =? NamedNodeMap
+                "notations" =? NamedNodeMap
+                "publicId" =? T<string>
+                "systemId" =? T<string>
+                "internalSubset" =? T<string>
             ]
 
     let Notation =
         Class "Notation"
         |=> Inherits Node
         |+> Instance [
-                "publicId" =@ T<string>
-                "systemId" =@ T<string>
+                "publicId" =? T<string>
+                "systemId" =? T<string>
             ]
+        |> Obsolete
 
     let Entity =
         Class "Entity"
         |=> Inherits Node
         |+> Instance [
-                "publicId" =@ T<string>
-                "systemId" =@ T<string>
-                "notationName" =@ T<string>
-                "inputEncoding" =@ T<string>
-                "xmlEncoding" =@ T<string>
-                "xmlVersion" =@ T<string>
+                "publicId" =? T<string>
+                "systemId" =? T<string>
+                "notationName" =? T<string>
+                "inputEncoding" =? T<string>
+                "xmlEncoding" =? T<string>
+                "xmlVersion" =? T<string>
             ]
+        |> Obsolete
 
     let EntityReference =
         Class "EntityReference"
         |=> Inherits Node
+        |> Obsolete
 
     let ProcessingInstruction =
         Class "ProcessingInstruction"
         |=> Inherits Node
         |+> Instance [
-                "target" =@ T<string>
+                "target" =? T<string>
                 "data" =@ T<string>
             ]
 
@@ -472,22 +506,6 @@ module Interfaces =
         Class "DocumentFragment"
         |=> Inherits Node
 
-    let CustomEvent  =
-        Class "CustomEvent"
-        |+> Instance [
-                "detail" =@ T<obj>
-                "initCustomEvent" =>
-                    T<string>?typeArg *
-                    T<bool>?canBubbleArg *
-                    T<bool>?cancelableArg *
-                    T<obj>?detailArg ^-> T<unit>
-                "initCustomEventNS" =>
-                    T<string>?namespaceURIArg *
-                    T<string>?typeArg *
-                    T<bool>?canBubbleArg *
-                    T<bool>?cancelableArg *
-                    T<obj>?detailArg ^-> T<unit>
-            ]
 
     let EventInit =
         Pattern.Config "EventInit" {
@@ -507,27 +525,49 @@ module Interfaces =
                 Constructor (T<string> * !? EventInit)
             ]
         |+> Instance [
-                "bubbles" =@ T<bool>
-                "cancelable" =@ T<bool>
-                "currentTarget" =@ EventTarget
-                "defaultPrevented" =@ T<bool>
-                "eventPhase" =@ PhaseType
+                "bubbles" =? T<bool>
+                "cancelable" =? T<bool>
+                "composed" =? T<bool>
+                "currentTarget" =? EventTarget
+                "defaultPrevented" =? T<bool>
+                "eventPhase" =? PhaseType
                 "namespaceURI" =@ T<string>
-                "target" =@ EventTarget
-                "timeStamp" =@ DOMTimeStamp
+                "target" =? EventTarget
+                "timeStamp" =? DOMTimeStamp
                 "time" =@ T<string>
-                "initEvent" =>
-                    T<string>?eventTypeArg *
-                    T<bool>?canBubbleArg *
-                    T<bool>?cancelableArg ^-> T<unit>
-                "initEventNS" =>
-                    T<string>?namespaceURIArg *
-                    T<string>?eventTypeArg *
-                    T<bool>?canBubbleArg *
-                    T<bool>?cancelableArg ^-> T<unit>
+                "type" =? T<string>
+                "isTrusted" =? T<bool>
+//                deprecated
+//                "initEvent" =>
+//                    T<string>?eventTypeArg *
+//                    T<bool>?canBubbleArg *
+//                    T<bool>?cancelableArg ^-> T<unit>
+//                "initEventNS" =>
+//                    T<string>?namespaceURIArg *
+//                    T<string>?eventTypeArg *
+//                    T<bool>?canBubbleArg *
+//                    T<bool>?cancelableArg ^-> T<unit>
                 "preventDefault" => T<unit->unit>
                 "stopImmediatePropagation" => T<unit->unit>
                 "stopPropagation" => T<unit->unit>
+            ]
+
+    let CustomEvent  =
+        Class "CustomEvent"
+        |+> Instance [
+                "detail" =? T<obj>
+//                deprecated
+//                "initCustomEvent" =>
+//                    T<string>?typeArg *
+//                    T<bool>?canBubbleArg *
+//                    T<bool>?cancelableArg *
+//                    T<obj>?detailArg ^-> T<unit>
+//                "initCustomEventNS" =>
+//                    T<string>?namespaceURIArg *
+//                    T<string>?typeArg *
+//                    T<bool>?canBubbleArg *
+//                    T<bool>?cancelableArg *
+//                    T<obj>?detailArg ^-> T<unit>
             ]
 
     let DocumentView =
@@ -546,14 +586,15 @@ module Interfaces =
         Class "UIEvent"
         |=> Inherits Event
         |+> Instance [
-                "detail" =@ T<int>
-                "view" =@ AbstractView
+                "detail" =? T<int>
+                "view" =? AbstractView
                 "initUIEvent" =>
                     T<string>?typeArg *
                     T<bool>?canBubbleArg *
                     T<bool>?cancelableArg *
                     AbstractView?viewArg *
                     T<int>?detailArg ^-> T<unit>
+                    |> Obsolete
                 "initUIEventNS" =>
                     T<string>?namespaceURIArg *
                     T<string>?typeArg *
@@ -561,29 +602,30 @@ module Interfaces =
                     T<bool>?cancelableArg *
                     AbstractView?viewArg *
                     T<int>?detailArg ^-> T<unit>
+                    |> Obsolete
             ]
 
     let FocusEvent =
         Class "FocusEvent"
         |=> Inherits UIEvent
         |+> Instance [
-            "relatedTarget" =@ EventTarget
+            "relatedTarget" =? EventTarget
         ]
 
     let MouseEvent =
         Class "MouseEvent"
         |=> Inherits UIEvent
         |+> Instance [
-                "altKey" =@ T<bool>
-                "button" =@ T<int> // short
-                "clientX" =@ T<int>
-                "clientY" =@ T<int>
-                "ctrlKey" =@ T<bool>
-                "metaKey" =@ T<bool>
-                "relatedTarget" =@ EventTarget
-                "screenX" =@ T<int>
-                "screenY" =@ T<int>
-                "shiftKey" =@ T<bool>
+                "altKey" =? T<bool>
+                "button" =? T<int> // short
+                "clientX" =? T<int>
+                "clientY" =? T<int>
+                "ctrlKey" =? T<bool>
+                "metaKey" =? T<bool>
+                "relatedTarget" =? EventTarget
+                "screenX" =? T<int>
+                "screenY" =? T<int>
+                "shiftKey" =? T<bool>
                 "getModifierState" => T<string>?keyIdentifierArg ^-> T<bool>
                 "initMouseEvent" =>
                     T<string>?typeArg *
@@ -601,6 +643,7 @@ module Interfaces =
                     T<bool>?metaKeyArg *
                     T<int>?button *
                     Node?relatedTargetArg ^-> T<unit>
+                    |> Obsolete
                 "initMouseEventNS" =>
                     T<string>?namespaceURIArg *
                     T<string>?typeArg *
@@ -615,6 +658,7 @@ module Interfaces =
                     T<int>?button *
                     Node?relatedTargetArg *
                     T<string>?modifiersListArg ^-> T<unit>
+                    |> Obsolete
             ]
 
     let MouseWheelEvent =
@@ -652,15 +696,16 @@ module Interfaces =
                     T<string>?modifiersListArg *
                     T<int>?wheelDeltaArg ^-> T<unit>
             ]
+        |> Obsolete
 
     let WheelEvent =
         Class "WheelEvent"
         |=> Inherits MouseEvent
         |+> Instance [
-                "deltaX" =@ T<int>
-                "deltaY" =@ T<int>
-                "deltaZ" =@ T<int>
-                "deltaMode" =@ DeltaModeCode
+                "deltaX" =? T<int>
+                "deltaY" =? T<int>
+                "deltaZ" =? T<int>
+                "deltaMode" =? DeltaModeCode
                 "initWheelEvent" =>
                     T<string>?typeArg *
                     T<bool>?canBubbleArg *
@@ -679,6 +724,7 @@ module Interfaces =
                     T<int>?deltaY *
                     T<int>?deltaZ *
                     DeltaModeCode ^-> T<unit>
+                    |> Obsolete  
                 "initWheelEventNS" =>
                     T<string>?namespaceURIArg *
                     T<string>?typeArg *
@@ -698,42 +744,24 @@ module Interfaces =
                     T<int>?deltaY *
                     T<int>?deltaZ *
                     DeltaModeCode ^-> T<unit>
-            ]
-
-    let TextEvent =
-        Class "TextEvent"
-        |=> Inherits Event
-        |+> Instance [
-                "data" =@ T<string>
-                "inputMode" =@ InputModeCode
-                "initTextEvent" =>
-                    T<string>?typeArg *
-                    T<bool>?canBubbleArg *
-                    T<bool>?cancelableArg *
-                    AbstractView *
-                    T<string>?dataArg *
-                    InputModeCode ^-> T<unit>
-                "initTextEventNS" =>
-                    T<string>?namespaceURIArg *
-                    T<string>?typeArg *
-                    T<bool>?canBubbleArg *
-                    T<bool>?cancelableArg *
-                    AbstractView *
-                    T<string>?dataArg *
-                    InputModeCode ^-> T<unit>
+                    |> Obsolete
             ]
 
     let KeyboardEvent =
         Class "KeyboardEvent"
         |=> Inherits UIEvent
         |+> Instance [
-                "altKey" =@ T<bool>
-                "ctrlKey" =@ T<bool>
-                "keyIdentifier" =@ T<string>
-                "keyLocation" =@ KeyLocationCode
-                "metaKey" =@ T<bool>
-                "shiftKey" =@ T<bool>
-                "repeat" =@ T<bool>
+                "altKey" =? T<bool>
+                "code" =? T<string>
+                "ctrlKey" =? T<bool>
+                "isComposing" =? T<bool>
+                "key" =? T<string>
+                "keyIdentifier" =? T<string> |> Obsolete
+                "keyLocation" =@ KeyLocationCode |> Obsolete
+                "location" =? T<int>
+                "metaKey" =? T<bool>
+                "repeat" =? T<bool>
+                "shiftKey" =? T<bool>
                 "getModifierState" => T<string>?keyIdentifierArg ^-> T<bool>
                 "initKeyboardEvent" =>
                     T<string>?typeArg *
@@ -743,6 +771,7 @@ module Interfaces =
                     T<string>?keyIdentifierArg *
                     KeyLocationCode *
                     T<string>?modifiersListArg ^-> T<unit>
+                    |> Obsolete
                 "initKeyboardEventNS" =>
                     T<string>?namespaceURIArg *
                     T<string>?typeArg *
@@ -752,18 +781,21 @@ module Interfaces =
                     T<string>?keyIdentifierArg *
                     KeyLocationCode *
                     T<string>?modifiersListArg ^-> T<unit>
+                    |> Obsolete
             ]
     let CompositionEvent =
         Class "CompositionEvent"
         |=> Inherits UIEvent
         |+> Instance [
-                "data" =@ T<string>
+                "data" =? T<string>
+                "locale" =? T<string>
                 "initCompositionEvent" =>
                     T<string>?typeArg *
                     T<bool>?canBubbleArg *
                     T<bool>?cancelableArg *
                     AbstractView *
                     T<string>?dataArg ^-> T<unit>
+                    |> Obsolete
                 "initCompositionEventNS" =>
                     T<string>?namespaceURIArg *
                     T<string>?typeArg *
@@ -771,6 +803,7 @@ module Interfaces =
                     T<bool>?cancelableArg *
                     AbstractView *
                     T<string>?dataArg ^-> T<unit>
+                    |> Obsolete
             ]
 
     let MutationEvent =
@@ -802,6 +835,7 @@ module Interfaces =
                     T<string>?attrNameArg *
                     attrChangeType ^-> T<unit>
             ]
+        |> Obsolete
 
     let MutationNameEvent =
         Class "MutationNameEvent"
@@ -838,8 +872,6 @@ module Interfaces =
                 |> WithInline "$0.createEvent(\"MouseEvent\")"
                 "createMouseWheelEvent" => T<unit> ^-> MouseWheelEvent
                 |> WithInline "$0.createEvent(\"MouseWheelEvent\")"
-                "createTextEvent" => T<unit> ^-> TextEvent
-                |> WithInline "$0.createEvent(\"TextEvent\")"
                 "createKeyboardEvent" => T<unit> ^-> KeyboardEvent
                 |> WithInline "$0.createEvent(\"TextEvent\")"
                 "createCompositionEvent" => T<unit> ^-> CompositionEvent
@@ -855,15 +887,38 @@ module Interfaces =
         |=> Inherits Node
         |+> QuerySelectorMixin
         |+> Instance [
+                "activeElement" =? Element
                 "cookie" =@ T<string>
                 "body" =@ Element
-                "doctype" =@ DocumentType
-                "documentElement" =@ Element
-                "documentURI" =@ T<string>
-                "domConfig" =@ DOMConfiguration
-                "inputEncoding" =@ T<string>
+                "dir" =@ T<string>
+                "doctype" =? DocumentType
+                "documentElement" =? Element
+                "documentURI" =? T<string>
+                "domain" =@ T<string>
+                "domConfig" =@ DOMConfiguration |> Obsolete
+                "embeds" =? T<obj []>
+                "forms" =? NodeList
+                "head" =? Element
+                "hidden" =? T<bool>
+                "images" =? NodeList
                 "implementation" =@ DOMImplementation
+                "inputEncoding" =? T<string> |> Obsolete
+                "lastModified" =? T<string>
+                "links" =? NodeList
+                "lastStyleSheetSet" =? T<string>
+                "plugins" =? NodeList
+                "preferredStyleSheetSet" =? T<string>
+                "readyState" =? T<string>
+                "referrer" =? T<string>
+                "scripts" =? NodeList
+                "selectedStyleSheetSet" =@ T<string>
                 "strictErrorChecking" =@ T<bool>
+                "styleSheets" =? T<obj> // StyleSheetList
+                "styleSheetSets" =? T<obj>
+                "timeline" =? T<obj>
+                "title" =@ T<string>
+                "URL" =? T<string>
+                "visibilityState" =? T<string>
                 "xmlEncoding" =@ T<string>
                 "xmlStandalone" =@ T<bool>
                 "xmlVersion" =@ T<string>
@@ -875,15 +930,20 @@ module Interfaces =
                 "createCDATASection" => T<string> ^-> CDATASection
                 "createComment" => T<string> ^-> Comment
                 "createDocumentFragment" => T<unit> ^-> DocumentFragment
-                "createElement" => T<string> ^-> Element
+                "createElement" =>
+                    T<string> *
+                    !?T<obj>?elementCreationOptions ^-> Element
                 "createElementNS" =>
                     T<string>?namespaceURI *
-                    T<string>?qualifiedName ^-> Element
-                "createEntityReference" => T<string> ^-> EntityReference
+                    T<string>?qualifiedName *
+                    !?T<obj>?elementCreationOptions ^-> Element
+                "createEntityReference" => T<string> ^-> EntityReference |> Obsolete
                 "createProcessingInstruction" =>
                     T<string>?target *
                     T<string>?data ^-> ProcessingInstruction
                 "createTextNode" => T<string> ^-> Text
+                "enableStyleSheetForSet" => T<string -> unit>
+                "getElementsByClassName" => T<string> ^-> NodeList
                 "getElementById" => T<string>?id ^-> Element
                 "getElementsByTagName" => T<string> ^-> NodeList
                 "getElementsByTagNameNS" =>
@@ -895,6 +955,18 @@ module Interfaces =
                     Node *
                     T<string>?namespaceURI *
                     T<string>?qualifiedName ^-> Node
+
+                "close" => T<unit -> unit>
+                "open" => T<unit -> unit>
+                "write" => T<string -> unit>
+                "writeln" => T<string -> unit>
+
+                "execCommand" => T<string -> bool -> string -> bool>
+                "getElementsByName" => T<string> ^-> NodeList
+                "getSelection" => T<unit -> obj>
+                "hasFocus" => T<unit -> bool>
+                "queryCommandEnabled" => T<string -> bool>
+                "queryCommandSupported" => T<string -> bool>
             ]
         |+> Static [
                 "Current" =? Document
@@ -950,7 +1022,6 @@ module Definition =
                 I.MouseEvent
                 I.MouseWheelEvent
                 I.WheelEvent
-                I.TextEvent
                 I.KeyboardEvent
                 I.CompositionEvent
                 I.MutationEvent
