@@ -396,4 +396,4 @@ let Tests =
     }
 
 [<JavaScript>]
-let RunTests() = Runner.RunTests [| Tests |]
+let RunTests() = Runner.RunTests [| Tests; JSBindings.Tests |]

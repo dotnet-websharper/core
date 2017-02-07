@@ -273,7 +273,7 @@ module Interfaces =
         |+> Instance [
                 "item" => T<int>?index ^-> Node
                 |> WithInline "$this[$index]"
-                "length" =@ T<int>
+                "length" =? T<int>
 //                "entries" => T<unit -> unit> this returns an iterator same as values and keys
                 "forEach" =>
                     (Node * T<int> * TSelf * T<obj> ^-> T<unit>) *
@@ -355,6 +355,7 @@ module Interfaces =
 
                 "hasAttributes" => T<unit -> bool>
                 "getAttributeNames" => T<unit -> string[]>
+                    |> WithComment "Warning: This method is not available in every browser, but it's part of the specification."
                 "getAttribute" => T<string->string>
                 "setAttribute" => T<string> * T<string> ^-> T<unit>
                 "removeAttribute" => T<string->unit>
@@ -383,6 +384,10 @@ module Interfaces =
     let Text =
         Class "Text"
         |=> Inherits CharacterData
+        |+> Static [
+                Constructor T<unit>
+                Constructor T<string>
+            ]
         |+> Instance [
                 "wholeText" =? T<string>
                 "isElementContentWhiteSpace" =? T<bool> |> Obsolete
@@ -534,19 +539,19 @@ module Interfaces =
                 "namespaceURI" =@ T<string>
                 "target" =? EventTarget
                 "timeStamp" =? DOMTimeStamp
-                "time" =@ T<string>
                 "type" =? T<string>
                 "isTrusted" =? T<bool>
-//                deprecated
-//                "initEvent" =>
-//                    T<string>?eventTypeArg *
-//                    T<bool>?canBubbleArg *
-//                    T<bool>?cancelableArg ^-> T<unit>
-//                "initEventNS" =>
-//                    T<string>?namespaceURIArg *
-//                    T<string>?eventTypeArg *
-//                    T<bool>?canBubbleArg *
-//                    T<bool>?cancelableArg ^-> T<unit>
+                "initEvent" =>
+                    T<string>?eventTypeArg *
+                    T<bool>?canBubbleArg *
+                    T<bool>?cancelableArg ^-> T<unit>
+                    |> Obsolete
+                "initEventNS" =>
+                    T<string>?namespaceURIArg *
+                    T<string>?eventTypeArg *
+                    T<bool>?canBubbleArg *
+                    T<bool>?cancelableArg ^-> T<unit>
+                    |> Obsolete
                 "preventDefault" => T<unit->unit>
                 "stopImmediatePropagation" => T<unit->unit>
                 "stopPropagation" => T<unit->unit>
@@ -556,18 +561,19 @@ module Interfaces =
         Class "CustomEvent"
         |+> Instance [
                 "detail" =? T<obj>
-//                deprecated
-//                "initCustomEvent" =>
-//                    T<string>?typeArg *
-//                    T<bool>?canBubbleArg *
-//                    T<bool>?cancelableArg *
-//                    T<obj>?detailArg ^-> T<unit>
-//                "initCustomEventNS" =>
-//                    T<string>?namespaceURIArg *
-//                    T<string>?typeArg *
-//                    T<bool>?canBubbleArg *
-//                    T<bool>?cancelableArg *
-//                    T<obj>?detailArg ^-> T<unit>
+                "initCustomEvent" =>
+                    T<string>?typeArg *
+                    T<bool>?canBubbleArg *
+                    T<bool>?cancelableArg *
+                    T<obj>?detailArg ^-> T<unit>
+                    |> Obsolete
+                "initCustomEventNS" =>
+                    T<string>?namespaceURIArg *
+                    T<string>?typeArg *
+                    T<bool>?canBubbleArg *
+                    T<bool>?cancelableArg *
+                    T<obj>?detailArg ^-> T<unit>
+                    |> Obsolete
             ]
 
     let DocumentView =
@@ -896,7 +902,7 @@ module Interfaces =
                 "documentURI" =? T<string>
                 "domain" =@ T<string>
                 "domConfig" =@ DOMConfiguration |> Obsolete
-                "embeds" =? T<obj []>
+                "embeds" =? NodeList
                 "forms" =? NodeList
                 "head" =? Element
                 "hidden" =? T<bool>
@@ -916,6 +922,7 @@ module Interfaces =
                 "styleSheets" =? T<obj> // StyleSheetList
                 "styleSheetSets" =? T<obj>
                 "timeline" =? T<obj>
+                    |> WithComment "Warning: This method is not supported in every browser."
                 "title" =@ T<string>
                 "URL" =? T<string>
                 "visibilityState" =? T<string>

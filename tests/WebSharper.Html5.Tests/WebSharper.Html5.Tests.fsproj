@@ -10,6 +10,7 @@
     <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="JSBindings.fs" />
     <Compile Include="Tests.fs" />
   </ItemGroup>
   <ItemGroup>
