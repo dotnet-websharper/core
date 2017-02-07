@@ -25,6 +25,28 @@ open WebSharper.JavaScript
 open WebSharper.JQuery
 open WebSharper.Testing
 
+[<JavaScript>]
+let isIE () =
+    let ua = JS.Window.Navigator?userAgent
+    let ua = ua.ToString()
+    let regexstr = "(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)"
+    let regexp = new RegExp(regexstr, "i")
+    let m = regexp.Exec(ua)
+    let m1, m2 =
+        if Array.length m >= 3
+            then m.[1], m.[2]
+            else if Array.length m >= 2
+                then m.[1], ""
+                else "", ""
+    if (new RegExp("trident", "i")).Test(m1) then
+        let version = "\\brv[ :]+(\d+)"
+        let iregexp = new RegExp(version, "g")
+        let res = iregexp.Exec(ua)
+        let ver = if Array.length res >= 2 then res.[1] else ""
+        Some ("IE", ver)
+    else
+        None
+
 
 [<JavaScript>]
 let Tests =
@@ -50,32 +72,31 @@ let Tests =
             isTrueMsg (elem.NamespaceURI <> "") "Checking namespace emptiness"
             notEqualMsg (elem.GetElementsByClassName("child-example-class").Length) 0 "Childs by name count"
             //        IE doesn't support the methods below
-            equalMsg (elem.Closest("div")) elem "Checking closest div"
-            equalMsg (elem.Closest("input")) null "Checking closest input"
-            isTrueMsg (elem.Matches("div")) "Matching for div"
-            isFalseMsg (elem.Matches("input")) "Matching for input"
-        }
-
-//        IE doesn't support constructing the object like this
-        Test "Text" {
-            let exampleText = Dom.Text("example-text")
-            equalMsg (exampleText.WholeText) "example-text" "Check for initial value"
-            let splitRemained = exampleText.SplitText(7)
-            equalMsg (exampleText.WholeText) "example" "Check splitted value"
-            equalMsg (splitRemained.WholeText) "-text" "Check remaining value after splitting"
+            equalMsg (try elem.Closest("div") with e -> As e) elem "Checking closest div"
+            equalMsg (try elem.Closest("input") with e -> As e) null "Checking closest input"
+            equalMsg (try elem.Matches("div") with e -> As e) true "Matching for div"
+            equalMsg (try elem.Matches("input") with e -> As e) false "Matching for input"
         }
 
 
-//        IE doesn't support constructing the object like this
-        Test "Event" {
-            let event = new Dom.Event("click")
-            isFalseMsg event.Composed "Is composed (click)"
-            isFalseMsg event.IsTrusted "Is trusted (click)"
-            notEqualMsg event.CurrentTarget JS.Undefined "Checking current target"
-            notEqualMsg event.Target JS.Undefined "Checking target"
-            notEqualMsg event.TimeStamp JS.Undefined "Checking timestamp"
-            equalMsg event.Type "click" "Checking type"
-        }
+        do if Option.isNone (isIE()) then
+            Test "Text" {
+                let exampleText = Dom.Text("example-text")
+                equalMsg (exampleText.WholeText) "example-text" "Check for initial value"
+                let splitRemained = exampleText.SplitText(7)
+                equalMsg (exampleText.WholeText) "example" "Check splitted value"
+                equalMsg (splitRemained.WholeText) "-text" "Check remaining value after splitting"
+            }
+
+            Test "Event" {
+                let event = new Dom.Event("click")
+                isFalseMsg event.Composed "Is composed (click)"
+                isFalseMsg event.IsTrusted "Is trusted (click)"
+                notEqualMsg event.CurrentTarget JS.Undefined "Checking current target"
+                notEqualMsg event.Target JS.Undefined "Checking target"
+                notEqualMsg event.TimeStamp JS.Undefined "Checking timestamp"
+                equalMsg event.Type "click" "Checking type"
+            }
 
         Test "Document" {
             let doc = JS.Document
@@ -90,7 +111,7 @@ let Tests =
             equalMsg doc.Dir "ltr" "Checking ltr (current ltr)"
             notEqualMsg doc.Doctype JS.Undefined "Checking doctype"
             notEqualMsg doc.DocumentElement JS.Undefined "Checking documentElement"
-            notEqualMsg doc.DocumentURI JS.Undefined "Checking documentURI"
+//            equalMsg doc.DocumentURI (JS.Window.Location.Href) "Checking documentURI"
             notEqualMsg doc.Domain JS.Undefined "Checking domain"
             notEqualMsg doc.Embeds JS.Undefined "Checking for embeds"
             notEqualMsg doc.Forms JS.Undefined "Checking for forms"
@@ -102,11 +123,83 @@ let Tests =
             notEqualMsg doc.ReadyState JS.Undefined "Checking for readystate"
             notEqualMsg doc.Referrer JS.Undefined "Checking for referrer"
             notEqualMsg doc.Scripts JS.Undefined "Checking for scripts"
-            notEqualMsg doc.Timeline JS.Undefined "Checking for timeline"
             notEqualMsg doc.Title JS.Undefined "Checking for title"
             notEqualMsg doc.URL JS.Undefined "Checking for URL"
             notEqualMsg doc.VisibilityState JS.Undefined "Checking for visibility"
         }
 
+        Console.Log(isIE())
+        Console.Log(JS.Window.Navigator?userAgent)
+        do if Option.isNone (isIE()) then
+            Test "EcmaObject" {
+                let e = new JavaScript.Object()
+                let o1assign = New ( [ ("a",5 :> obj) ] )
+                let o2assign = New ( [ ("a",6 :> obj); ("b", 10 :> obj) ] )
+                let o1 = JavaScript.Object.Assign(e,o1assign)
+                isTrueMsg (JS.Undefined <> o1?a && o1?a = 5) "Checking assign without merging"
+                let e2 = new JavaScript.Object()
+                let o2 = JavaScript.Object.Assign(e2, o2assign, o1assign)
+                isTrueMsg (JS.Undefined <> o2?a && JS.Undefined <> o2?b && o2?a = 5 && o2?b = 10) "Checking assign with merging"
+                isFalseMsg (JavaScript.Object.Is(o1, o2)) "Checking equality with is() /not true "
+                isTrueMsg (JavaScript.Object.Is(o1, o1)) "Checking equality with is()"
+            }
+
+        do if (Option.isNone (isIE())) then
+                Test "EcmaMath" {
+                    equalMsg (Math.Cbrt 27.) 3. "Math.cbrt"
+                    equalMsg (Math.Clz32 1.) 31. "Math.clz32"
+                    equalMsg (Math.Expm1 0.) 0. "Math.expm1"
+                    equalMsg (Math.Hypot (3., 4.)) 5. "Math.hypot"
+                    equalMsg (Math.Imul (2., 4.)) 8. "Math.imul"
+                    equalMsg (Math.Fround(1.5)) 1.5 "Math.fround"
+                    equalMsg (Math.Atanh(1.)) JS.Infinity "Math.atanh"
+                    equalMsg (Math.Atanh(0.)) 0. "Math.atanh"
+                    equalMsg (Math.Asinh(0.)) (0.) "Math.asinh"
+                    equalMsg (Math.Log1p(Math.E - 1.)) 1. "Math.log1p"
+                    equalMsg (Math.Log10(1000.)) 3. "Math.log10"
+                    equalMsg (Math.Log2(16.)) 4. "Math.log2"
+                    equalMsg (Math.Sign(0.)) 0. "Math.sign of 0"
+                    equalMsg (Math.Sign(2.)) 1. "Math.sign of 2"
+                    equalMsg (Math.Sign(-5.)) -1. "Math.sign of -5"
+                    equalMsg (Math.Trunc(3.14)) 3. "Math.trunc"
+                }
+            else 
+                Test "EcmaMath" {
+                    equalMsg (Math.Trunc(3.14)) 3. "Math.trunc"
+                }
+
+        do if (Option.isNone (isIE())) then
+            Test "EcmaNumber" {
+                equalMsg (Number.ParseFloat("3.14")) 3.14 "Number.parseFloat"
+                equalMsg (Number.ParseInt("3.14")) 3 "Number.parseInt failed"
+                equalMsg (Number.ParseInt("3")) 3 "Number.parseInt"
+                isTrueMsg (Number.IsNaN(Number.ParseFloat("not-a-number"))) "Number.isNan"
+                isTrueMsg (Number.IsFinite(5)) "Number.isFinite"
+                isFalseMsg (Number.IsFinite(JS.Infinity)) "Number.isFinite infinity"
+            }
+
+            Test "EcmaString" {
+                let exampleString = new String("example-string")
+                let repeatable = new String("rpt")
+                isTrueMsg (exampleString.EndsWith("in", 13)) "String.endsWith"
+                isFalseMsg (exampleString.EndsWith("asd")) "String.endsWith failed"
+                isTrueMsg (exampleString.Includes("ple")) "String.includes"
+                isFalseMsg (exampleString.Includes("ple", 8)) "String.includes"
+                equalMsg (repeatable.Repeat(3)) "rptrptrpt" "String.repeat"
+                equalMsg (exampleString.Substr(-5,3)) "tri" "String.substr"
+                isTrueMsg (exampleString.StartsWith("amp", 2)) "String.startsWith"
+            }
+
+            Test "EcmaRegexp" {
+                let regexp = new RegExp("a", "g")
+                equalMsg regexp.Flags "g" ".flags"
+                isFalseMsg regexp.Unicode ".unicode"
+                isFalseMsg regexp.Sticky ".sticky"
+                let teststr = "abacad"
+                equalMsg (Array.length (regexp.Match(teststr))) 3 ".match()"
+                equalMsg (regexp.Replace(teststr, "x")) "xbxcxd" ".replace()"
+                equalMsg (regexp.Split(teststr)) [| ""; "b"; "c"; "d" |] ".split()"
+                equalMsg (regexp.Search(teststr)) 0 ".search()"
+            }
     }
 

@@ -968,7 +968,7 @@ module Interfaces =
                 "write" => T<string -> unit>
                 "writeln" => T<string -> unit>
 
-                "execCommand" => T<string -> bool -> string -> bool>
+                "execCommand" => T<string * bool * string -> bool>
                 "getElementsByName" => T<string> ^-> NodeList
                 "getSelection" => T<unit -> obj>
                 "hasFocus" => T<unit -> bool>
