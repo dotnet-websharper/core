@@ -37,14 +37,16 @@ type Environment =
         mutable CompactVars : int
         mutable ScopeIds : Map<Id, string>
         ScopeVars : ResizeArray<J.Id>
+        OuterScope : bool
     }
     static member New(pref) =
         {
             Preference = pref    
-            ScopeNames = Set.empty
+            ScopeNames = Set [ "window" ]
             CompactVars = 0 
-            ScopeIds = Map.empty   
+            ScopeIds = Map [ Id.Global(), "window" ] 
             ScopeVars = ResizeArray()
+            OuterScope = true
         }
 
     member this.NewInner() =
@@ -54,6 +56,7 @@ type Environment =
             CompactVars = this.CompactVars
             ScopeIds = this.ScopeIds
             ScopeVars = ResizeArray()
+            OuterScope = false
         }
 
     member this.Declarations =
@@ -149,7 +152,11 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
             | J.Empty
             | J.Return None -> []
             | b -> [ b ]
-        J.Lambda(None, args, innerEnv.Declarations @ body)
+        let useStrict =
+            if env.OuterScope then
+                [ J.Ignore (J.Constant (J.String "use strict")) ]
+            else []
+        J.Lambda(None, args, useStrict @ innerEnv.Declarations @ body)
     | ItemGet (x, y) 
     | ItemGetNonPure (x, y) 
         -> (trE x).[trE y]

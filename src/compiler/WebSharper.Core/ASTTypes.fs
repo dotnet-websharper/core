@@ -49,6 +49,13 @@ type Id =
             Mutable = defaultArg mut true
         }
 
+    static member Global() =
+        {
+            IdName = Some "window"
+            Id = -1L
+            Mutable = false
+        }
+
     member this.Clone() =
         {
             IdName = this.IdName
