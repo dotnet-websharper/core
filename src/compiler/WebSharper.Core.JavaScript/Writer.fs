@@ -410,6 +410,10 @@ and Statement canBeEmpty statement =
         ++ Parens (Expression e)
         -- Indent (Statement false s)
     | S.If (e, s1, s2) ->
+        let s1L =
+            match s1 with
+            | S.If (_,_,_) -> BlockLayout [ Statement true s1 ]
+            | _ -> Indent (Statement false s1)
         let rec isEmpty s =
             match s with
             | S.Empty -> true
@@ -421,7 +425,7 @@ and Statement canBeEmpty statement =
                 -- Indent (Statement false s2)
         Word "if"
         ++ Parens (Expression e)
-        -- Indent (Statement false s1)
+        -- s1L
         -- s2L
     | S.Labelled (label, s) ->
         Id label ++ Token ":" ++ Statement canBeEmpty s
