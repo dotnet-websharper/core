@@ -104,6 +104,13 @@ module Canvas =
             "round"
             "square"
         ]
+
+    let TextDirection =
+        Pattern.EnumStrings "TextDirection" [
+            "ltr"
+            "rtl"
+            "inherit"
+        ]
     
     let LineJoin = 
         Pattern.EnumStrings "LineJoin" [
@@ -181,6 +188,10 @@ module Canvas =
             "lineCap" =@ LineCap  
             // "round", "bevel", "miter" (default "miter")
             "lineJoin" =@ LineJoin
+            "getLineDash" => T<unit> ^-> T<float []>
+            "setLineDash" => T<float []> ^-> T<unit>
+            // (default 0.0)
+            "lineDashOffset" =@ T<float>
             // (default 10)            
             "miterLimit" =@ T<float>
             // (default 0)
@@ -210,7 +221,10 @@ module Canvas =
             "fill" => T<unit> ^-> T<unit>
             "stroke" => T<unit> ^-> T<unit>
             "clip" => T<unit> ^-> T<unit>
+            "drawFocusIfNeeded" => Dom.Interfaces.Element ^-> T<unit>
+            "scrollPathIntoView" => T<unit> ^-> T<unit>
             "isPointInPath" => (T<float> * T<float>) ^-> T<bool>
+            "isPointInStroke" => (T<float> * T<float>) ^-> T<bool>
 
             // focus management
             "drawFocusRing" => (Dom.Interfaces.Element?el * T<float>?x * T<float>?y * !? T<bool>) ^-> T<bool>
@@ -220,6 +234,8 @@ module Canvas =
             "font" =@ T<string>
             "textAlign" =@ TextAlign
             "textBaseline" =@ TextBaseline
+            // (default inherit)
+            "direction" =@ TextDirection
 
             "fillText" => T<string> * T<float> * T<float> ^-> T<unit>
             "fillText" => T<string> * T<float> * T<float> * T<float> ^-> T<unit>
@@ -340,6 +356,13 @@ module AudioVideoCommon =
             "removeCue" => TimedTrackCue ^-> T<unit>
         ]
 
+    let MediaPreload =
+        Pattern.EnumStrings "Preload" [
+            "none"
+            "metadata"
+            "auto"
+        ]
+
 module Elements =
     open Canvas
     open AudioVideoCommon
@@ -372,7 +395,6 @@ module Elements =
 
             "networkState" =? T<int>
 
-            "preload" =@ T<string>
             "buffered" =? TimeRanges
 
             "load" => T<unit> ^-> T<unit>
@@ -402,6 +424,11 @@ module Elements =
             "paused" =? T<bool>
             "duration" =? T<float>
             "initialTime" =? T<float>
+            "crossOrigin" =@ T<string>
+            "defaultMuted" =@ T<bool>
+            "disableRemotePlayback" =@ T<bool>
+            "mediaGroup" =@ T<string>
+            "preload" =@ MediaPreload
 
             "play" => T<unit> ^-> T<unit>
             "pause" => T<unit> ^-> T<unit>
@@ -414,6 +441,7 @@ module Elements =
             // timed tracks
             "tracks" =? Type.ArrayOf TimedTrack
             "addTrack" => (T<string> * TrackType * T<string>) ^-> MutableTimedTrack
+
         ]
 
     let HTMLVideoElement = 
@@ -528,6 +556,7 @@ module AppCache =
               // updates
             "update" => T<unit> ^-> T<unit>
             "swapCache" => T<unit> ^-> T<unit>
+            "abort" => T<unit> ^-> T<unit>
 
             // events
             ///  Function onchecking;
@@ -607,12 +636,20 @@ module General =
         |+> Instance [
             "visible" =@ T<bool>
         ]
+
+    let ScrollRestoration =
+        Pattern.EnumStrings "ScrollRestoration" [
+            "auto"
+            "manual"
+        ]
     
     let History =
         let History = Class "History"
         History
         |+> Instance [
             "length" =? T<int>
+            "state" =? T<obj>
+            "scrollRestoration" =@ ScrollRestoration
             "go" => T<unit> ^-> T<unit>
             "go" => T<int> ^-> T<unit>
             "back" => T<unit> ^-> T<unit>
@@ -630,6 +667,7 @@ module General =
             "assign" => T<string> ^-> T<unit> 
             "replace" => T<string> ^-> T<unit> 
             "reload" => T<unit> ^-> T<unit> 
+            "toString" => T<unit> ^-> T<string>
 
                 // URL decomposition IDL attributes 
             "protocol" =@ T<string>
@@ -639,17 +677,19 @@ module General =
             "pathname" =@ T<string>
             "search" =@ T<string>
             "hash" =@ T<string>
+            "origin" =? T<string>
+            "username" =@ T<string>
+            "password" =@ T<string>
 
-            "resolveURL" => T<string> ^-> T<unit>
         ]
 
     let UndoManager =
         Class "UndoManager"
         |+> Instance [
             "length" =? T<int>
-            "item" => T<int> ^-> T<obj>
             "position" =? T<int>
-            "add" => T<obj> * T<string> ^-> T<unit>
+            "undo" => T<unit> ^-> T<unit>
+            "redo" => T<unit> ^-> T<unit>
             "remove" => T<int> ^-> T<unit>
             "clearUndo" => T<unit> ^-> T<unit> 
             "clearRedo" => T<unit> ^-> T<unit> 
@@ -658,9 +698,14 @@ module General =
     let WindowProxyType = Class "Window"
     let MessagePortType = Class "MessagePort"
 
+
+
     let MessageEvent =
         Class "MessageEvent"
         // |=> Implements [T<Event>]
+        |+> Static [
+            Constructor (T<string> * !?T<obj>)
+        ]
         |+> Instance [
             "data" =? T<obj>
             "origin" =? T<string>
@@ -668,6 +713,7 @@ module General =
             "source" =? WindowProxyType
             "ports" =? Type.ArrayOf(MessagePortType)
             "initMessageEvent" => T<string> * T<bool> * T<bool> * T<obj> * T<string> * T<string> * WindowProxyType * Type.ArrayOf(MessagePortType) ^-> T<unit>
+                |> Obsolete
         ]
 
     let MessagePort =
@@ -707,6 +753,7 @@ module General =
             "statusbar" =? BarProp
             "toolbar" =? BarProp
 
+
             "frames" =? WindowProxyType
             "length" =? T<int>
             "top" =? WindowProxyType
@@ -720,6 +767,7 @@ module General =
             "open" => (T<unit>) ^->  WindowProxyType
 
             "navigator" =? Navigator
+            "crypto" =? T<obj>
             "applicationCache" =? AppCache.ApplicationCache
             "localStorage" =? WebStorage.Storage
             "sessionStorage" =? WebStorage.Storage
@@ -735,11 +783,13 @@ module General =
             "postMessage" => T<string> * T<string> ^-> T<unit> 
 
             "onabort" =@ f
+            "onauxclick" =@ f
             "onafterprint" =@ f
             "onbeforeprint" =@ f
             "onbeforeunload" =@ f
             "onblur" =@ f
             "oncanplay" =@ f
+            "oncancel" =@ f
             "oncanplaythrough" =@ f
             "onchange" =@ f
             "onclick" =@ f
@@ -750,6 +800,7 @@ module General =
             "ondblclick" =@ f
             "ondrag" =@ f
             "ondragend" =@ f
+            "ondragexit" =@ f
             "ondragenter" =@ f
             "ondragleave" =@ f
             "ondragover" =@ f
@@ -760,8 +811,8 @@ module General =
             "onended" =@ f
             "onerror" =@ f
             "onfocus" =@ f
-            "onformchange" =@ f
-            "onforminput" =@ f
+            "onformchange" =@ f |> Obsolete
+            "onforminput" =@ f |> Obsolete
             "onhashchange" =@ f
             "oninput" =@ f
             "oninvalid" =@ f
@@ -772,12 +823,15 @@ module General =
             "onloadeddata" =@ f
             "onloadedmetadata" =@ f
             "onloadstart" =@ f
+            "onloadend" =@ f
             "onmessage" =@ f
             "onmousedown" =@ f
             "onmousemove" =@ f
             "onmouseout" =@ f
             "onmouseover" =@ f
             "onmouseup" =@ f
+            "onmouseenter" =@ f
+            "onmouseleave" =@ f
             "onmousewheel" =@ f
             "onoffline" =@ f
             "ononline" =@ f
@@ -791,6 +845,7 @@ module General =
             "onratechange" =@ f
             "onreadystatechange" =@ f
             "onredo" =@ f
+            "onrejectionhandled" =@ f
             "onreset" =@ f
             "onresize" =@ f
             "onscroll" =@ f
@@ -803,7 +858,9 @@ module General =
             "onsubmit" =@ f
             "onsuspend" =@ f
             "ontimeupdate" =@ f
+            "ontoggle" =@ f
             "onundo" =@ f
+            "onunhandledrejection" =@ f
             "onunload" =@ f
             "onvolumechange" =@ f
             "onwaiting" =@ f
@@ -927,7 +984,9 @@ module File =
         |=> Inherits Blob
         |+> Instance [
                 "name" =? T<string>
-                "lastModifiedDate" =? Ecma.Definition.EcmaDate
+                "lastModifiedDate" =? Ecma.Definition.EcmaDate |> Obsolete
+                "lastModifed" =? T<int>
+                "size" =? T<int>
             ]
 
     let ProgressEvent =
@@ -975,6 +1034,9 @@ module File =
                 "onabort" =@ ProgressEvent ^-> T<unit>
                 "onerror" =@ ProgressEvent ^-> T<unit>
                 "onloadend" =@ ProgressEvent ^-> T<unit>
+                "readAsArrayBuffer " => Blob ^-> T<unit>
+                "readAsText" => Blob * !?T<string>?encoding ^-> T<unit>
+                "readAsDataURL" => Blob ^-> T<unit>
         ]
 
     let TextFileReader =
@@ -1613,6 +1675,7 @@ module Definition =
         [
             Namespace "WebSharper.JavaScript" [
                 AudioVideoCommon.MediaError
+                AudioVideoCommon.MediaPreload
                 AudioVideoCommon.MutableTimedTrack
                 AudioVideoCommon.TimeRanges
                 AudioVideoCommon.TimedTrack
@@ -1631,6 +1694,7 @@ module Definition =
                 Canvas.Repetition
                 Canvas.TextAlign
                 Canvas.TextBaseline
+                Canvas.TextDirection
                 Canvas.TextMetrics
                 Elements.CanvasElement
                 Elements.HTMLAudioElement
@@ -1651,6 +1715,7 @@ module Definition =
                 General.MessageEvent
                 General.MessagePort
                 General.Navigator
+                General.ScrollRestoration
                 General.UndoManager
                 General.Window
                 TypedArrays.DataView.Class
