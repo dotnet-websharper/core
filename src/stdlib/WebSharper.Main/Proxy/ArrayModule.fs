@@ -117,7 +117,7 @@ let Find f (arr: _ []) =
     | Some x -> x
     | None   -> failwith "KeyNotFoundException"
 
-[<Name "findINdex">]
+[<Name "findIndex">]
 let FindIndex f (arr: _ []) =
     match Array.tryFindIndex f arr with
     | Some x -> x

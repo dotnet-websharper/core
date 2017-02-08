@@ -728,16 +728,12 @@ let MapIndexed2 f (s1: seq<_>) (s2: seq<_>) =
 [<Name "mapFold">]
 let MapFold<'T,'S,'R> f zero s =
     ArrayMapFold<'T,'S,'R> f zero (Seq.toArray s)
-    |> (fun (x, y) ->
-        (Array.toSeq x, y)
-    )
+    |> As<seq<'R> * 'S>
 
 [<Name "mapFoldBack">]
 let MapFoldBack<'T,'S,'R> f s zero =
     ArrayMapFoldBack<'T,'S,'R> f (Seq.toArray s) zero
-    |> (fun (x, y) ->
-        (Array.toSeq x, y)
-    )
+    |> As<seq<'R> * 'S>
 
 [<Name "permute">]
 let Permute f (s: seq<_>) =
