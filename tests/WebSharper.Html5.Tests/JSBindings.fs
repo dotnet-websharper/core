@@ -25,8 +25,19 @@ open WebSharper.JavaScript
 open WebSharper.JQuery
 open WebSharper.Testing
 
+
+type Browser =
+    | IE of string
+    | Firefox of string
+    | Edge of string
+    | Chrome of string
+    | Safari of string
+    | Opera of string
+    | Other of string
+
+
 [<JavaScript>]
-let isIE () =
+let BrowserVersion() =
     let ua = JS.Window.Navigator?userAgent
     let ua = ua.ToString()
     let regexstr = "(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)"
@@ -43,10 +54,30 @@ let isIE () =
         let iregexp = new RegExp(version, "g")
         let res = iregexp.Exec(ua)
         let ver = if Array.length res >= 2 then res.[1] else ""
-        Some ("IE", ver)
+        (Browser.IE ver)
+    else if (m1 = "Chrome") then
+        let iregexp = new RegExp("\\b(OPR|Edge)\/(\d+)", "")
+        let im = iregexp.Exec(ua)
+        match im with
+        | null -> 
+            (Browser.Chrome m2)
+        | im ->
+            let res = im.[1..]
+            let br = res.[1]
+            match br with
+            | "OPR" -> (Browser.Opera res.[2])
+            | "Edge" -> (Browser.Edge res.[2])
+            | _ -> (Browser.Other ua)
+    else if (m1 = "Firefox") then
+        (Browser.Firefox m2)
     else
-        None
-
+        (Browser.Other ua)
+[<JavaScript>]
+let isNotIE () =
+    let bv = BrowserVersion()
+    match bv with
+    | (Browser.IE ver) -> false
+    | _ -> true
 
 [<JavaScript>]
 let Tests =
@@ -79,7 +110,7 @@ let Tests =
         }
 
 
-        do if Option.isNone (isIE()) then
+        do if (isNotIE()) then
             Test "Text" {
                 let exampleText = Dom.Text("example-text")
                 equalMsg (exampleText.WholeText) "example-text" "Check for initial value"
@@ -127,10 +158,8 @@ let Tests =
             notEqualMsg doc.URL JS.Undefined "Checking for URL"
             notEqualMsg doc.VisibilityState JS.Undefined "Checking for visibility"
         }
-
-        Console.Log(isIE())
-        Console.Log(JS.Window.Navigator?userAgent)
-        do if Option.isNone (isIE()) then
+        Console.Log(BrowserVersion())
+        do if isNotIE() then
             Test "EcmaObject" {
                 let e = new JavaScript.Object()
                 let o1assign = New ( [ ("a",5 :> obj) ] )
@@ -144,7 +173,7 @@ let Tests =
                 isTrueMsg (JavaScript.Object.Is(o1, o1)) "Checking equality with is()"
             }
 
-        do if (Option.isNone (isIE())) then
+        do if isNotIE() then
                 Test "EcmaMath" {
                     equalMsg (Math.Cbrt 27.) 3. "Math.cbrt"
                     equalMsg (Math.Clz32 1.) 31. "Math.clz32"
@@ -168,7 +197,7 @@ let Tests =
                     equalMsg (Math.Trunc(3.14)) 3. "Math.trunc"
                 }
 
-        do if (Option.isNone (isIE())) then
+        do if isNotIE() then
             Test "EcmaNumber" {
                 equalMsg (Number.ParseFloat("3.14")) 3.14 "Number.parseFloat"
                 equalMsg (Number.ParseInt("3.14")) 3 "Number.parseInt failed"
