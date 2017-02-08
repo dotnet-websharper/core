@@ -363,13 +363,702 @@ module AudioVideoCommon =
             "auto"
         ]
 
+module EventHandlers =
+    
+    let private eh = Dom.Interfaces.Event ^-> T<unit>
+
+    let ElementContentEditable =
+        Class "ElementContentEditable"
+        |+> Instance [
+            "contentEditable" =@ T<string>
+            "isContentEditable" =? T<bool>
+        ]
+
+    let GlobalEventHandlers =
+        Class "GlobalEventHandlers"
+        |+> Instance [
+            "onabort" =@ eh
+            "onauxclick" =@ eh
+            "onblur" =@ eh
+            "oncancel" =@ eh
+            "oncanplay" =@ eh
+            "oncanplaythrough" =@ eh
+            "onchange" =@ eh
+            "onclick" =@ eh
+            "onclose" =@ eh
+            "oncontextmenu" =@ eh
+            "oncuechange" =@ eh
+            "ondblclick" =@ eh
+            "ondrag" =@ eh
+            "ondragend" =@ eh
+            "ondragenter" =@ eh
+            "ondragexit" =@ eh
+            "ondragleave" =@ eh
+            "ondragover" =@ eh
+            "ondragstart" =@ eh
+            "ondrop" =@ eh
+            "ondurationchange" =@ eh
+            "onemptied" =@ eh
+            "onended" =@ eh
+            "onerror" =@ eh
+            "onfocus" =@ eh
+            "oninput" =@ eh
+            "oninvalid" =@ eh
+            "onkeydown" =@ eh
+            "onkeypress" =@ eh
+            "onkeyup" =@ eh
+            "onload" =@ eh
+            "onloadeddata" =@ eh
+            "onloadedmetadata" =@ eh
+            "onloadend" =@ eh
+            "onloadstart" =@ eh
+            "onmousedown" =@ eh
+            "onmouseenter" =@ eh
+            "onmouseleave" =@ eh
+            "onmousemove" =@ eh
+            "onmouseout" =@ eh
+            "onmouseover" =@ eh
+            "onmouseup" =@ eh
+            "onwheel" =@ eh
+            "onpause" =@ eh
+            "onplay" =@ eh
+            "onplaying" =@ eh
+            "onprogress" =@ eh
+            "onratechange" =@ eh
+            "onreset" =@ eh
+            "onresize" =@ eh
+            "onscroll" =@ eh
+            "onseeked" =@ eh
+            "onseeking" =@ eh
+            "onselect" =@ eh
+            "onshow" =@ eh
+            "onstalled" =@ eh
+            "onsubmit" =@ eh
+            "onsuspend" =@ eh
+            "ontimeupdate" =@ eh
+            "ontoggle" =@ eh
+            "onvolumechange" =@ eh
+            "onwaiting" =@ eh
+        ]
+
+    let DocumentAndElementEventHandlers =
+        Class "DocumentAndElementEventHandlers"
+        |+> Instance [
+            "oncopy" =@ eh
+            "oncut" =@ eh
+            "onpaste" =@ eh
+        ]
+
+module TypedArrays =
+
+
+    let ArrayBuffer =
+        Class "ArrayBuffer"
+        |+> Instance [
+                "byteLength" =? T<int>
+                /// Warning: although part of the spec, may not work in IE10 as of 6/6/2013.
+                "slice" => T<int> * T<int> ^-> TSelf
+            ]
+        |+> Static [ Constructor T<int> ]
+
+    module DataView =
+
+        let private Getter<'T> name =
+            name => T<int>?byteOffset * !? T<bool>?littleEndian ^-> T<'T>
+
+        let private Setter<'T> name =
+            name => T<int>?byteOffset * T<'T>?value * !? T<bool>?littleEndian ^-> T<unit>
+
+        let Class =
+            Class "DataView"
+            |+> Static [
+                    Constructor ArrayBuffer
+                    Constructor (ArrayBuffer * T<int>?byteOffset)
+                    Constructor (ArrayBuffer * T<int>?byteOffset * T<int>?byteLength)
+                ]
+            |+> Instance [
+                    "getInt8" => T<int>?byteOffset ^-> T<sbyte>
+                    "getUint8" => T<int>?byteOffset ^-> T<byte>
+                    Getter<int16> "getInt16"
+                    Getter<uint16> "getUint16"
+                    Getter<int32> "getInt32"
+                    Getter<uint32> "getUint32"
+                    Getter<float32> "getFloat32"
+                    Getter<double> "getFloat64"
+                    "setInt8" => T<int>?byteOffset * T<sbyte>?value ^-> T<unit>
+                    "setUint8" => T<int>?byteOffset * T<byte>?value ^-> T<unit>
+                    Setter<int16> "setInt16"
+                    Setter<uint16> "setUint16"
+                    Setter<int32> "setInt32"
+                    Setter<uint32> "setUint32"
+                    Setter<float32> "setFloat32"
+                    Setter<double> "setFloat64"
+                ]
+
+    let ArrayBufferView =
+        Class "ArrayBufferView"
+        |+> Instance
+            [
+                "buffer" =? ArrayBuffer
+                "byteOffset" =? T<int>
+                "byteLength" =? T<int>
+            ]
+
+    let private MakeTypedArray typedArray (elementType: Type.Type) =
+        Class typedArray
+        |=> Inherits ArrayBufferView
+        |+> Static [
+                Constructor T<unit>
+                Constructor T<int>
+                Constructor TSelf
+                Constructor (Type.ArrayOf elementType)
+                Constructor (ArrayBuffer?buffer * !? T<int>?byteOffset * !? T<int>?length)
+                "BYTES_PER_ELEMENT" =? T<int>
+            ]
+        |+> Instance [
+                "length" =? T<int>
+                "get" =>
+                    T<int>?offset ^-> elementType
+                    |> WithInline "$this[$offset]"
+                "set" =>
+                    T<int>?offset * elementType?value ^-> T<unit>
+                    |> WithInline "void($this[$offset]=$value)"
+                "set" => TSelf?array * !? T<int>?offset ^-> T<unit>
+                "set" => (Type.ArrayOf elementType)?array * !? T<int>?offset ^-> T<unit>
+                "subarray" => T<int64>?``begin`` * T<int>?``end`` ^-> TSelf
+            ]
+
+    let Int8Array = MakeTypedArray "Int8Array" T<sbyte>
+    let Uint8Array = MakeTypedArray "Uint8Array" T<byte>
+    let Uint8ClampedArray = MakeTypedArray "Uint8ClampedArray" T<byte>
+    let Int16Array = MakeTypedArray "Int16Array" T<int16>
+    let Uint16Array = MakeTypedArray "Uint16Array" T<uint16>
+    let Int32Array = MakeTypedArray "Int32Array" T<int32>
+    let Uint32Array = MakeTypedArray "Uint32Array" T<uint32>
+    let Float32Array = MakeTypedArray "Float32Array" T<float32>
+    let Float64Array = MakeTypedArray "Float64Array" T<double>
+
+module File =
+
+    let BlobPropertyBag =
+        Pattern.Config "BlobPropertyBag" {
+            Required = []
+            Optional =
+                [
+                    "type", T<string>
+                ]
+        }
+
+    let Blob =
+        Class "Blob"
+        |+> Static [
+                Constructor T<unit>
+                Constructor ((Type.ArrayOf TypedArrays.ArrayBuffer + Type.ArrayOf TypedArrays.ArrayBufferView + TSelf + T<string>) * !?BlobPropertyBag)
+            ]
+        |+> Instance [
+                "size" =? T<int>
+                "type" =? T<string>
+                "slice" => T<int>?start * T<int>?``end`` * T<string>?contentType ^-> TSelf
+                "close" => T<unit> ^-> T<unit>
+            ]
+
+    let File =
+        Class "File"
+        |=> Inherits Blob
+        |+> Instance [
+                "name" =? T<string>
+                "lastModifiedDate" =? Ecma.Definition.EcmaDate |> Obsolete
+                "lastModifed" =? T<int>
+                "size" =? T<int>
+            ]
+
+    let ProgressEvent =
+        Class "ProgressEvent"
+        |=> Inherits Dom.Interfaces.Event
+        |+> Instance [
+                "lengthComputable" =? T<bool>
+                "loaded" =? T<int>
+                "total" =? T<int>
+            ]
+
+    let FileList =
+        Class "FileList"
+        |+> Instance [
+                "item" => T<int> ^-> File
+                "length" =? T<int>
+            ]
+        |+> Static [
+                "ofElement" => Dom.Interfaces.Element?input ^-> TSelf
+                |> WithInline "$input.files"
+                "ofEvent" => ProgressEvent?event ^-> TSelf
+                |> WithInline "$event.target.files"
+            ]
+
+    let FileReaderReadyState =
+        Pattern.EnumInlines "FileReaderReadyState" [
+            "Empty", "0"
+            "Loading", "1"
+            "Done", "2"
+        ]
+
+    let FileReader =
+        let EventListener = (ProgressEvent + T<unit>) ^-> T<unit>
+        Generic - fun t ->
+        Class "FileReader"
+        |=> Inherits Dom.Interfaces.EventTarget
+        |+> Instance [
+                "abort" => T<unit> ^-> T<unit>
+                "readyState" =? FileReaderReadyState
+                "result" =? t
+                "error" =? T<exn>
+                "onloadstart" =@ ProgressEvent ^-> T<unit>
+                "onprogress" =@ ProgressEvent ^-> T<unit>
+                "onload" =@ ProgressEvent ^-> T<unit>
+                "onabort" =@ ProgressEvent ^-> T<unit>
+                "onerror" =@ ProgressEvent ^-> T<unit>
+                "onloadend" =@ ProgressEvent ^-> T<unit>
+                "readAsArrayBuffer " => Blob ^-> T<unit>
+                "readAsText" => Blob * !?T<string>?encoding ^-> T<unit>
+                "readAsDataURL" => Blob ^-> T<unit>
+        ]
+
+    let TextFileReader =
+        Class "TextFileReader"
+        |=> Inherits (FileReader.[T<string>])
+        |+> Static [
+                Constructor T<unit>
+                |> WithInline "new FileReader()"
+            ]
+        |+> Instance [
+                "readAsText" => Blob * !?T<string>?encoding ^-> T<unit>
+                "readAsDataURL" => Blob ^-> T<unit>
+            ]
+
+    let BinaryFileReader =
+        Class "BinaryFileReader"
+        |=> Inherits (FileReader.[TypedArrays.ArrayBuffer])
+        |+> Static [
+                Constructor T<unit>
+                |> WithInline "new FileReader()"
+            ]
+        |+> Instance [
+                "readAsArrayBuffer" => Blob ^-> T<unit>
+            ]
+
+
 module Elements =
     open Canvas
     open AudioVideoCommon
 
+    let HTMLElement =
+        Class "HTMLElement"
+        |=> Inherits Dom.Interfaces.Element
+        |+> Instance [
+            "title" =@ T<string>
+            "lang" =@ T<string>
+            "translate" =@ T<bool>
+            "dir" =@ T<string>
+
+            "hidden" =@ T<bool>
+            "tabIndex" =@ T<int>
+
+            "click" => T<unit> ^-> T<unit>
+            "focus" => T<unit> ^-> T<unit>
+            "blur" => T<unit> ^-> T<unit>
+
+            "accessKey" =@ T<string>
+            "accessKeyLabel" =? T<string>
+            "draggable" =@ T<bool>
+            "spellCheck" =@ T<bool>
+            "forceSpellCheck" => T<unit> ^-> T<unit>
+
+            "innerText" =@ T<string>
+        ]
+        |=> Implements [
+            EventHandlers.GlobalEventHandlers
+            EventHandlers.DocumentAndElementEventHandlers
+            EventHandlers.ElementContentEditable
+        ]
+
+    let HTMLMenuElement =
+        Class "HTMLMenuElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "type" =@ T<string>
+            "label" =@ T<string>
+        ]
+
+    let HTMLMenuItemElement =
+        Class "HTMLMenuItemElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "type" =@ T<string>
+            "label" =@ T<string>
+            "icon" =@ T<string>
+            "disabled" =@ T<bool>
+            "checked" =@ T<bool>
+            "radiogroup" =@ T<string>
+            "default" =@ T<bool>
+
+        ]
+
+    let RadioNodeList =
+        Class "RadioNodeList"
+        |=> Inherits Dom.Interfaces.NodeList
+        |+> Instance [
+            "value" =@ T<string>
+        ]
+
+    let HTMLFormControlsCollection =
+        Class "HTMLFormControlsCollection"
+        |=> Inherits Dom.Interfaces.HTMLCollection
+        |+> Instance [
+            "namedItem" => T<string> ^-> T<obj> //?? it returns either a RadioNodeList or an Element
+        ]
+
+    let HTMLFormElement =
+        Class "HTMLFormElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "acceptCharset" =@ T<string>
+            "action" =@ T<string>
+            "autocomplete" =@ T<string>
+            "enctype" =@ T<string>
+            "encoding" =@ T<string>
+            "method" =@ T<string>
+            "name" =@ T<string>
+            "noValidate" =@ T<bool>
+            "target" =@ T<string>
+
+            "elements" =? HTMLFormControlsCollection
+
+            "length" =? T<int>
+            "submit" => T<unit> ^-> T<unit>
+            "reset" => T<unit> ^-> T<unit>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+        ]
+
+    let HTMLLabelElement =
+        Class "HTMLLabelElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "form" =? HTMLFormElement
+            "control" =? HTMLElement
+            "htmlFor" =@ T<string>
+        ]
+
+    let SelectionMode =
+        Pattern.EnumStrings "SelectionMode" [
+            "select"
+            "start"
+            "end"
+            "preserve"
+        ]
+
+    let HTMLInputElement =
+        Class "HTMLInputElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "accept" =@ T<string>
+            "alt" =@ T<string>
+            "autocomplete" =@ T<string>
+            "autofocus" =@ T<bool>
+            "defaultChecked" =@ T<bool>
+            "checked" =@ T<bool>
+            "dirName" =@ T<string>
+            "form" =? HTMLFormElement
+            "file" =? File.FileList
+            "formAction" =@ T<string>
+            "formEnctype" =@ T<string>
+            "formMethod" =@ T<string>
+            "formNoValidate" => T<bool>
+            "formTarget" =@ T<string>
+            "height" =@ T<int>
+            "indeterminate" =@ T<bool>
+            "inputMode" =@ T<string>
+            "list" =? HTMLElement
+            "max" =@ T<string>
+            "maxLength" =@ T<int>
+            "min" =@ T<string>
+            "minLength" =@ T<int>
+            "multiple" =@ T<bool>
+            "name" =@ T<string>
+            "pattern" =@ T<string>
+            "placeholder" =@ T<string>
+            "readOnly" =@ T<bool>
+            "required" =@ T<bool>
+            "size" =@ T<int>
+            "src" =@ T<string>
+            "step" =@ T<string>
+            "type" =@ T<string>
+            "value" =@ T<string>
+            "valueAsDate" =@ T<obj>
+            "valueAsNumber" =@ T<double>
+            "width" =@ T<int>
+            
+            "stepUp" => !?T<int> ^-> T<unit> |> WithComment "The paramter deafults to 1"
+            "stepDown" => !?T<int> ^-> T<unit> |> WithComment "The paramter deafults to 1"
+
+            "willValidate" =? T<bool>
+            "validity" =? T<obj>
+            "validationMessage" =? T<string>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+            "setCustomValidity" => T<string> ^-> T<unit>
+
+            "labels" =? Dom.Interfaces.NodeList
+
+            "select" => T<unit> ^-> T<unit>
+            
+            "selectionStart" =@ T<int>
+            "selectionEnd" =@ T<int>
+            "selectionDirection" =@ T<string>
+            "setRangeText" => T<string> ^-> T<unit>
+            "setRangeText" => (T<string> * T<int> * T<int> * !?SelectionMode) ^-> T<unit>
+            "setSelectionRange" => (T<int> * T<int> * T<string>) ^-> T<unit>
+        ]
+
+    let HTMLButtonElement =
+        Class "HTMLButtonElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "autofocus" =@ T<bool>
+            "disabled" =@ T<bool>
+            "form" =? HTMLFormElement
+            "formAction" =@ T<string>
+            "formEnctype" =@ T<string>
+            "formMethod" =@ T<string>
+            "formNoValidate" => T<bool>
+            "formTarget" =@ T<string>
+            "name" =@ T<string>
+            "type" =@ T<string>
+            "value" =@ T<string>
+            "menu" =@ HTMLMenuElement
+
+            "willValidate" =? T<bool>
+            "validity" =? T<obj>
+            "validationMessage" =? T<string>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+            "setCustomValidity" => T<string> ^-> T<unit>
+
+            "labels" =? Dom.Interfaces.NodeList
+        ]
+
+    let HTMLOptGroupElement =
+        Class "HTMLOptGroupElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "disabled" =@ T<bool>
+            "label" =@ T<string>
+        ]
+
+    let HTMLOptionElement =
+        Class "HTMLOptionElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "disabled" =@ T<bool>
+            "label" =@ T<string>
+            "form" =? HTMLFormElement
+            "defaultSelected" =@ T<bool>
+            "selected" =@ T<bool>
+            "value" =@ T<string>
+            "text" =@ T<string>
+            "index" =? T<int>
+        ]
+
+    let HTMLOptionsCollection =
+        Class "HTMLOptionsCollection"
+        |=> Inherits Dom.Interfaces.HTMLCollection
+        |+> Instance [
+            "length" =@ T<int>
+            "add" => (HTMLOptionElement + HTMLOptGroupElement) * !?(HTMLElement + T<int>) ^-> T<unit>
+            "remove" => T<int> ^-> T<unit>
+            "selectedIndex" =@ T<int>
+        ]
+
+    let HTMLSelectElement = 
+        Class "HTMLSelectElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "autocomplete" =@ T<string>
+            "autofocus" =@ T<bool>
+            "disabled" =@ T<bool>
+            "form" =? HTMLFormElement
+            "multiple" =@ T<bool>
+            "name" =@ T<string>
+            "required" =@ T<bool>
+            "size" =@ T<int>
+            
+            "type" =? T<string>
+            
+            // HTMLOptionsCollection
+            "length" =? T<int>
+            "item" => T<int> ^-> Dom.Interfaces.Element
+            "namedItem" => T<string> ^-> HTMLOptionElement
+            "add" => HTMLOptGroupElement * HTMLElement ^-> T<unit>
+            "add" => HTMLOptionElement * HTMLElement ^-> T<unit>
+            "add" => HTMLOptGroupElement * T<int> ^-> T<unit>
+            "add" => HTMLOptionElement * T<int> ^-> T<unit>
+            "add" => HTMLOptGroupElement ^-> T<unit>
+            "add" => HTMLOptionElement ^-> T<unit>
+            "remove" => T<unit> ^-> T<unit>
+            "remove" => T<int> ^-> T<unit>
+
+            "willValidate" =? T<bool>
+            "validity" =? T<obj>
+            "validationMessage" =? T<string>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+            "setCustomValidity" => T<string> ^-> T<unit>
+
+            "labels" =? Dom.Interfaces.NodeList
+        ]
+
+    let HTMLDataListElement =
+        Class "HTMLDataListElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "options" =? Dom.Interfaces.HTMLCollection
+        ]
+
+    let HTMLTextAreaElement =
+        Class "HTMLTextAreaElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "autocomplete" =@ T<string>
+            "autofocus" =@ T<bool>
+            "cols" =@ T<int>
+            "checked" =@ T<bool>
+            "dirName" =@ T<string>
+            "disabled" =@ T<bool>
+            "form" =? HTMLFormElement
+            "inputMode" =@ T<string>
+            "maxLength" =@ T<int>
+            "minLength" =@ T<int>
+            "name" =@ T<string>
+            "placeholder" =@ T<string>
+            "readOnly" =@ T<bool>
+            "required" =@ T<bool>
+            "rows" =@ T<int>
+            "wrap" =@ T<string>
+            "type" =@ T<string>
+            "value" =@ T<string>
+            "textLength" =@ T<int>
+            "defaultValue" =@ T<string>
+
+            "willValidate" =? T<bool>
+            "validity" =? T<obj>
+            "validationMessage" =? T<string>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+            "setCustomValidity" => T<string> ^-> T<unit>
+
+            "labels" =? Dom.Interfaces.NodeList
+
+            "select" => T<unit> ^-> T<unit>
+            
+            "selectionStart" =@ T<int>
+            "selectionEnd" =@ T<int>
+            "selectionDirection" =@ T<string>
+            "setRangeText" => T<string> ^-> T<unit>
+            "setRangeText" => (T<string> * T<int> * T<int> * !?SelectionMode) ^-> T<unit>
+            "setSelectionRange" => (T<int> * T<int> * T<string>) ^-> T<unit>
+        ]
+
+    let HTMLOutputElement =
+        Class "HTMLOutputElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "htmlFor" =? Dom.Interfaces.DOMTokenList
+            "form" =? HTMLFormElement
+            "name" =@ T<string>
+            "type" =? T<string>
+            "defaultValue" =@ T<string>
+            "value" =@ T<string>
+
+            "willValidate" =? T<bool>
+            "validity" =? T<obj>
+            "validationMessage" =? T<string>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+            "setCustomValidity" => T<string> ^-> T<unit>
+
+            "labels" =? Dom.Interfaces.NodeList
+        ]
+
+    let HTMLProgressElement =
+        Class "HTMLProgressElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "value" =@ T<double>
+            "max" =@ T<double>
+            "position" =? T<double>
+
+            "labels" =? Dom.Interfaces.NodeList
+        ]
+
+    let HTMLMeterElement =
+        Class "HTMLMeterElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "value" =@ T<double>
+            "max" =@ T<double>
+            "min" =@ T<double>
+            "low" =@ T<double>
+            "high" =@ T<double>
+            "optimum" =@ T<double>
+
+            "labels" =? Dom.Interfaces.NodeList
+        ]
+
+    let HTMLDetailsElement =
+        Class "HTMLDetailsElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "open" =@ T<bool>
+        ]
+
+    let HTMLLegendElement =
+        Class "HTMLLegendElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "form" =? HTMLFormElement
+        ]
+
+    let HTMLFieldSetElement =
+        Class "HTMLFieldSetElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "disabled" =@ T<bool>
+            "form" =? HTMLFormElement
+            "name" =@ T<string>
+            "type" =? T<string>
+            "elements" =? Dom.Interfaces.HTMLCollection
+
+            "willValidate" =? T<bool>
+            "validity" =? T<obj>
+            "validationMessage" =? T<string>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+            "setCustomValidity" => T<string> ^-> T<unit>
+        ]
+
+    let HTMLDialogElement =
+        Class "HTMLDialogElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "open" =@ T<bool>
+            "returnValue" =@ T<string>
+            "show" => T<unit> ^-> T<unit>
+            "showModal" => T<unit> ^-> T<unit>
+            "close" => (!?T<string>) ^-> T<unit>
+        ]
+
     let CanvasElement =
         Class "CanvasElement"
-        // |=> Inherits Type.Node
+        |=> Inherits HTMLElement
         |+> Instance [
             "width" =@ T<int>
             "height" =@ T<int>
@@ -379,7 +1068,7 @@ module Elements =
 
     let HTMLMediaElement =
         Class "HTMLMediaElement"
-        // |=> Inherits Type.Node
+        |=> Inherits HTMLElement
         |+> Instance [
             // error state
             "error" =?  MediaError
@@ -462,6 +1151,10 @@ module Elements =
             Constructor T<unit> |> WithInline "new Audio()"
             Constructor T<string> |> WithInline "new Audio($0)"
         ]
+
+    let HTMLSlotElement =
+        Class "HTMLSlotElement"
+        |=> Inherits HTMLElement
 
 module Geolocation =
     
@@ -865,202 +1558,6 @@ module General =
             "onvolumechange" =@ f
             "onwaiting" =@ f
         ]
-
-module TypedArrays =
-
-
-    let ArrayBuffer =
-        Class "ArrayBuffer"
-        |+> Instance [
-                "byteLength" =? T<int>
-                /// Warning: although part of the spec, may not work in IE10 as of 6/6/2013.
-                "slice" => T<int> * T<int> ^-> TSelf
-            ]
-        |+> Static [ Constructor T<int> ]
-
-    module DataView =
-
-        let private Getter<'T> name =
-            name => T<int>?byteOffset * !? T<bool>?littleEndian ^-> T<'T>
-
-        let private Setter<'T> name =
-            name => T<int>?byteOffset * T<'T>?value * !? T<bool>?littleEndian ^-> T<unit>
-
-        let Class =
-            Class "DataView"
-            |+> Static [
-                    Constructor ArrayBuffer
-                    Constructor (ArrayBuffer * T<int>?byteOffset)
-                    Constructor (ArrayBuffer * T<int>?byteOffset * T<int>?byteLength)
-                ]
-            |+> Instance [
-                    "getInt8" => T<int>?byteOffset ^-> T<sbyte>
-                    "getUint8" => T<int>?byteOffset ^-> T<byte>
-                    Getter<int16> "getInt16"
-                    Getter<uint16> "getUint16"
-                    Getter<int32> "getInt32"
-                    Getter<uint32> "getUint32"
-                    Getter<float32> "getFloat32"
-                    Getter<double> "getFloat64"
-                    "setInt8" => T<int>?byteOffset * T<sbyte>?value ^-> T<unit>
-                    "setUint8" => T<int>?byteOffset * T<byte>?value ^-> T<unit>
-                    Setter<int16> "setInt16"
-                    Setter<uint16> "setUint16"
-                    Setter<int32> "setInt32"
-                    Setter<uint32> "setUint32"
-                    Setter<float32> "setFloat32"
-                    Setter<double> "setFloat64"
-                ]
-
-    let ArrayBufferView =
-        Class "ArrayBufferView"
-        |+> Instance
-            [
-                "buffer" =? ArrayBuffer
-                "byteOffset" =? T<int>
-                "byteLength" =? T<int>
-            ]
-
-    let private MakeTypedArray typedArray (elementType: Type.Type) =
-        Class typedArray
-        |=> Inherits ArrayBufferView
-        |+> Static [
-                Constructor T<unit>
-                Constructor T<int>
-                Constructor TSelf
-                Constructor (Type.ArrayOf elementType)
-                Constructor (ArrayBuffer?buffer * !? T<int>?byteOffset * !? T<int>?length)
-                "BYTES_PER_ELEMENT" =? T<int>
-            ]
-        |+> Instance [
-                "length" =? T<int>
-                "get" =>
-                    T<int>?offset ^-> elementType
-                    |> WithInline "$this[$offset]"
-                "set" =>
-                    T<int>?offset * elementType?value ^-> T<unit>
-                    |> WithInline "void($this[$offset]=$value)"
-                "set" => TSelf?array * !? T<int>?offset ^-> T<unit>
-                "set" => (Type.ArrayOf elementType)?array * !? T<int>?offset ^-> T<unit>
-                "subarray" => T<int64>?``begin`` * T<int>?``end`` ^-> TSelf
-            ]
-
-    let Int8Array = MakeTypedArray "Int8Array" T<sbyte>
-    let Uint8Array = MakeTypedArray "Uint8Array" T<byte>
-    let Uint8ClampedArray = MakeTypedArray "Uint8ClampedArray" T<byte>
-    let Int16Array = MakeTypedArray "Int16Array" T<int16>
-    let Uint16Array = MakeTypedArray "Uint16Array" T<uint16>
-    let Int32Array = MakeTypedArray "Int32Array" T<int32>
-    let Uint32Array = MakeTypedArray "Uint32Array" T<uint32>
-    let Float32Array = MakeTypedArray "Float32Array" T<float32>
-    let Float64Array = MakeTypedArray "Float64Array" T<double>
-
-module File =
-
-    let BlobPropertyBag =
-        Pattern.Config "BlobPropertyBag" {
-            Required = []
-            Optional =
-                [
-                    "type", T<string>
-                ]
-        }
-
-    let Blob =
-        Class "Blob"
-        |+> Static [
-                Constructor T<unit>
-                Constructor ((Type.ArrayOf TypedArrays.ArrayBuffer + Type.ArrayOf TypedArrays.ArrayBufferView + TSelf + T<string>) * !?BlobPropertyBag)
-            ]
-        |+> Instance [
-                "size" =? T<int>
-                "type" =? T<string>
-                "slice" => T<int>?start * T<int>?``end`` * T<string>?contentType ^-> TSelf
-                "close" => T<unit> ^-> T<unit>
-            ]
-
-    let File =
-        Class "File"
-        |=> Inherits Blob
-        |+> Instance [
-                "name" =? T<string>
-                "lastModifiedDate" =? Ecma.Definition.EcmaDate |> Obsolete
-                "lastModifed" =? T<int>
-                "size" =? T<int>
-            ]
-
-    let ProgressEvent =
-        Class "ProgressEvent"
-        |=> Inherits Dom.Interfaces.Event
-        |+> Instance [
-                "lengthComputable" =? T<bool>
-                "loaded" =? T<int>
-                "total" =? T<int>
-            ]
-
-    let FileList =
-        Class "FileList"
-        |+> Instance [
-                "item" => T<int> ^-> File
-                "length" =? T<int>
-            ]
-        |+> Static [
-                "ofElement" => Dom.Interfaces.Element?input ^-> TSelf
-                |> WithInline "$input.files"
-                "ofEvent" => ProgressEvent?event ^-> TSelf
-                |> WithInline "$event.target.files"
-            ]
-
-    let FileReaderReadyState =
-        Pattern.EnumInlines "FileReaderReadyState" [
-            "Empty", "0"
-            "Loading", "1"
-            "Done", "2"
-        ]
-
-    let FileReader =
-        let EventListener = (ProgressEvent + T<unit>) ^-> T<unit>
-        Generic - fun t ->
-        Class "FileReader"
-        |=> Inherits Dom.Interfaces.EventTarget
-        |+> Instance [
-                "abort" => T<unit> ^-> T<unit>
-                "readyState" =? FileReaderReadyState
-                "result" =? t
-                "error" =? T<exn>
-                "onloadstart" =@ ProgressEvent ^-> T<unit>
-                "onprogress" =@ ProgressEvent ^-> T<unit>
-                "onload" =@ ProgressEvent ^-> T<unit>
-                "onabort" =@ ProgressEvent ^-> T<unit>
-                "onerror" =@ ProgressEvent ^-> T<unit>
-                "onloadend" =@ ProgressEvent ^-> T<unit>
-                "readAsArrayBuffer " => Blob ^-> T<unit>
-                "readAsText" => Blob * !?T<string>?encoding ^-> T<unit>
-                "readAsDataURL" => Blob ^-> T<unit>
-        ]
-
-    let TextFileReader =
-        Class "TextFileReader"
-        |=> Inherits (FileReader.[T<string>])
-        |+> Static [
-                Constructor T<unit>
-                |> WithInline "new FileReader()"
-            ]
-        |+> Instance [
-                "readAsText" => Blob * !?T<string>?encoding ^-> T<unit>
-                "readAsDataURL" => Blob ^-> T<unit>
-            ]
-
-    let BinaryFileReader =
-        Class "BinaryFileReader"
-        |=> Inherits (FileReader.[TypedArrays.ArrayBuffer])
-        |+> Static [
-                Constructor T<unit>
-                |> WithInline "new FileReader()"
-            ]
-        |+> Instance [
-                "readAsArrayBuffer" => Blob ^-> T<unit>
-            ]
 
 module WebGL =
 
@@ -1696,10 +2193,36 @@ module Definition =
                 Canvas.TextBaseline
                 Canvas.TextDirection
                 Canvas.TextMetrics
+                EventHandlers.GlobalEventHandlers
+                EventHandlers.DocumentAndElementEventHandlers
+                EventHandlers.ElementContentEditable
+                Elements.HTMLElement
                 Elements.CanvasElement
                 Elements.HTMLAudioElement
                 Elements.HTMLVideoElement
                 Elements.HTMLMediaElement
+                Elements.HTMLButtonElement
+                Elements.HTMLDataListElement
+                Elements.HTMLDetailsElement
+                Elements.HTMLDialogElement
+                Elements.HTMLFieldSetElement
+                Elements.HTMLFormControlsCollection
+                Elements.HTMLFormElement
+                Elements.HTMLInputElement
+                Elements.HTMLLabelElement
+                Elements.HTMLLegendElement
+                Elements.HTMLMenuElement
+                Elements.HTMLMenuItemElement
+                Elements.HTMLMeterElement
+                Elements.HTMLOptGroupElement
+                Elements.HTMLOptionElement
+                Elements.HTMLOptionsCollection
+                Elements.HTMLOutputElement
+                Elements.HTMLProgressElement
+                Elements.HTMLSelectElement
+                Elements.HTMLSlotElement
+                Elements.HTMLTextAreaElement
+                Elements.SelectionMode
                 File.BinaryFileReader
                 File.Blob
                 File.BlobPropertyBag

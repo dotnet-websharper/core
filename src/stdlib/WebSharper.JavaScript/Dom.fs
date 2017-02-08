@@ -482,6 +482,14 @@ module Interfaces =
                 "shadowRoot" =? ShadowRoot
             ]
 
+    let HTMLCollection =
+        Class "HTMLCollection"
+        |+> Instance [
+            "length" =? T<int>
+            "item" => T<int> ^-> Element
+            "namedItem" => T<string> ^-> Element
+        ]
+
     let Text =
         Class "Text"
         |=> Inherits CharacterData
@@ -1259,6 +1267,7 @@ module Definition =
                 I.MutationRecord
                 I.NodeFilter
                 I.NodeIterator
+                I.HTMLCollection
                 I.TreeWalker
                 I.Range
                 E.DOMExceptionType
