@@ -40,6 +40,11 @@ module private Types =
     let DOMLocator = Class "DOMLocator"
     let Event = Class "Event"
     let AbstractView = Class "AbstractView"
+    let NodeFilter = Class "NodeFilter"
+    let NodeIterator = Class "NodeIterator"
+    let ShadowRoot = Class "ShadowRoot"
+    let TreeWalker = Class "TreeWalker"
+    let DocumentFragment = Class "DocumentFragment"
 
 [<AutoOpen>]
 module private Enumerations =
@@ -222,6 +227,27 @@ module Interfaces =
     let Node =
         Class "Node"
         |=> Inherits EventTarget
+        |+> Static [
+                "ELEMENT_NODE" =? T<int>
+                "ATTRIBUTE_NODE" =? T<int>
+                "TEXT_NODE" =? T<int>
+                "CDATA_SECTION_NODE" =? T<int>
+                "ENTITY_REFERENCE_NODE" =? T<int>
+                "ENTITY_NODE" =? T<int>
+                "PROCESSING_INSTRUCTION_NODE" =? T<int>
+                "COMMENT_NODE" =? T<int>
+                "DOCUMENT_NODE" =? T<int>
+                "DOCUMENT_TYPE_NODE" =? T<int>
+                "DOCUMENT_FRAGMENT_NODE" =? T<int>
+                "NOTATION_NODE" =? T<int>
+
+                "DOCUMENT_POSITION_DISCONNECTED" =? T<int>
+                "DOCUMENT_POSITION_PRECEDING" =? T<int>
+                "DOCUMENT_POSITION_FOLLOWING" =? T<int>
+                "DOCUMENT_POSITION_CONTAINS" =? T<int>
+                "DOCUMENT_POSITION_CONTAINED_BY" =? T<int>
+                "DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC" =? T<int>
+            ]
         |+> Instance [
                 "attributes" =@ NamedNodeMap
                 "baseURI" =? T<string>
@@ -280,6 +306,67 @@ module Interfaces =
                     T<obj> ^-> T<unit>
             ]
 
+    let DOMTokenList =
+        Class "DOMTokenList"
+        |+> Instance [
+            "length" =? T<int>
+            "item" => T<int> ^-> T<string>
+            "contains" => T<string> ^-> T<bool>
+            "add" => T<string> ^-> T<unit>
+            "remove" => T<string> ^-> T<unit>
+            "replace" => (T<string> * T<string>) ^-> T<unit>
+            "toggle" => (T<string> * !?T<bool>) ^-> T<bool>
+            "supports" => T<string> ^-> T<bool>
+            "value" =? T<string>
+        ]
+
+    let Range =
+        Class "Range"
+        |+> Static [
+            Constructor T<unit>
+            "START_TO_START" =? T<int>
+            "START_TO_END" =? T<int>
+            "END_TO_END" =? T<int>
+            "END_TO_START" =? T<int>
+        ]
+        |+> Instance [
+            "startContainer" =? Node
+            "startOffset" =? T<int>
+            "endContainer" =? Node
+            "endOffset" =? T<int>
+            "collapsed" =? T<bool>
+            "commonAncestorContainer" =? Node
+
+            "setStart" => (Node * T<int>) ^-> T<unit>
+            "setEnd" => (Node * T<int>) ^-> T<unit>
+            "setStartBefore" => Node ^-> T<unit>
+            "setStartAfter" => Node ^-> T<unit>
+            "setEndBefore" => Node ^-> T<unit>
+            "setEndAfter" => Node ^-> T<unit>
+            // unit version defaults to false
+            "collapse" => T<bool>?toStart ^-> T<unit>
+            "collapse" => T<unit> ^-> T<unit>
+                |> WithComment "The toStart parameter defaults to false"
+            "selectNode" => Node ^-> T<unit>
+            "selectNodeContents" => Node ^-> T<unit>
+
+            "compareBoundaryPoints" => (T<int> * Node) ^-> T<int>
+
+            "deleteContents" => T<unit> ^-> T<unit>
+            "extractContents" => T<unit> ^-> DocumentFragment
+            "cloneContents" => T<unit> ^-> DocumentFragment
+            "insertNode" => Node ^-> T<unit>
+            "surroundContents" => Node ^-> T<unit>
+
+            "cloneRange" => T<unit> ^-> TSelf
+            "detach" => T<unit> ^-> T<unit>
+
+            "isPointInRange" => (Node * T<int>) ^-> T<bool>
+            "comparePoint" => (Node * T<int>) ^-> T<int>
+
+            "intersectsNode" => Node ^-> T<bool>
+        ]
+
     let CharacterData =
         Class "CharacterData"
         |=> Inherits Node
@@ -319,6 +406,18 @@ module Interfaces =
                 "setNamedItemNS" => Attr ^-> Attr
                 "removeNamedItemNS" => GetNS ^-> Attr
             ]
+
+    let ShadowRootMode =
+        Pattern.EnumStrings "ShadowRootMode" [
+            "open"
+            "closed"
+        ]
+
+    let ShadowRootInit =
+        Pattern.Config "ShadowRootInit" {
+            Required = [ "mode", ShadowRootMode.Type ]
+            Optional = []
+        }
 
     let Element =
         Element
@@ -379,6 +478,8 @@ module Interfaces =
                 "closest" => T<string>?selectors ^-> TSelf
                 "matches" => T<string>?selectors ^-> T<bool>
                 
+                "attachShadow" => ShadowRootInit ^-> ShadowRoot
+                "shadowRoot" =? ShadowRoot
             ]
 
     let Text =
@@ -508,9 +609,75 @@ module Interfaces =
             ]
 
     let DocumentFragment =
-        Class "DocumentFragment"
+        DocumentFragment
         |=> Inherits Node
 
+    let ShadowRoot =
+        ShadowRoot
+        |=> Inherits DocumentFragment
+        |+> Instance [
+            "mode" =? ShadowRootMode
+            "host" =? Element
+        ]
+
+    let NodeIterator =
+        NodeIterator
+        |+> Instance [
+            "root" =? Node
+            "referenceNode" =? Node
+            "pointerBeforeReferenceNode" =? T<bool>
+            "whatToShow" =? T<int>
+            "filter" =? NodeFilter
+
+            "nextNode" => T<unit> ^-> Node
+            "previousNode" => T<unit> ^-> Node
+
+            "detach" => T<unit> ^-> T<unit>
+        ]
+
+    let TreeWalker =
+        let UTN = T<unit> ^-> Node
+        TreeWalker
+        |+> Instance [
+            "root" =? Node
+            "whatToShow" =? T<int>
+            "filter" =? NodeFilter
+            "currentNode" =@ Node
+
+            "parentNode" => UTN
+            "firstChild" => UTN
+            "lastChild" => UTN
+            "previousSibling" => UTN
+            "nextSibling" => UTN
+            "previousNode" => UTN
+            "nextNode" => UTN
+        ]
+
+    let NodeFilter =
+        NodeFilter
+        |+> Static [
+            // Constants for acceptNode
+            "FILTER_ACCEPT" =? T<int>
+            "FILTER_REJECT" =? T<int>
+            "FILTER_SKIP" =? T<int>
+            // Constants for whatToShow
+            "SHOW_ALL" =? T<int>
+            "SHOW_ELEMENT" =? T<int>
+            "SHOW_ATTRIBUTE" =? T<int>
+            "SHOW_TEXT" =? T<int>
+            "SHOW_CDATA_SECTION" =? T<int>
+            "SHOW_ENTITY_REFERENCE" =? T<int> |> Obsolete
+            "SHOW_ENTITY" =? T<int> |> Obsolete
+            "SHOW_PROCESSING_INSTRUCTION" =? T<int>
+            "SHOW_COMMENT" =? T<int>
+            "SHOW_DOCUMENT" =? T<int>
+            "SHOW_DOCUMENT_TYPE" =? T<int>
+            "SHOW_DOCUMENT_FRAGMENT" =? T<int>
+            "SHOW_NOTATION" =? T<int>
+        ]
+        |+> Instance [
+            "acceptNode" => Node ^-> T<int>
+        ]
 
     let EventInit =
         Pattern.Config "EventInit" {
@@ -812,6 +979,43 @@ module Interfaces =
                     |> Obsolete
             ]
 
+    let MutationRecord =
+        Class "MutationRecord"
+        |+> Instance [
+            "tpye" =? T<string>
+            "target" =? Node
+            "addedNodes" =? NodeList
+            "removedNodes" =? NodeList
+            "previousSibling" =? Node
+            "nextSibling" =? Node
+            "attributeName" =? T<string>
+            "attributeNamespace" =? T<string>
+            "oldValue" =? T<string>
+        ]
+
+    let MutationObserverInit =
+        Pattern.Config "MutationObserverInit" {
+            Required = []
+            Optional = 
+                [
+                    "attributes", T<bool>
+                    "characterData", T<bool>
+                    "attributeOldValue", T<bool>
+                    "characterDataOldValue", T<bool>
+                    "attributeFilter", T<string []>
+                    "subTree", T<bool>
+                    "childList", T<bool>
+                ]
+        }
+
+    let MutationObserver =
+        Class "MutationObserver"
+        |+> Instance [
+            "disconnect" => T<unit> ^-> T<unit>
+            "observe" => (Node * !?MutationObserverInit) ^-> T<unit>
+            "takeRecords" => T<unit> ^-> Type.ArrayOf MutationRecord
+        ]
+
     let MutationEvent =
         Class "MutationEvent"
         |=> Inherits Event
@@ -888,6 +1092,12 @@ module Interfaces =
                 |> WithInline "$0.createEvent(\"MutationNameEvent\")"
             ]
 
+    let ElementCreateOptions =
+        Pattern.Config "ElementCreateOptions" {
+            Required = []
+            Optional = [ "is", T<string> ]
+        }
+
     let Document =
         Document
         |=> Inherits Node
@@ -939,11 +1149,11 @@ module Interfaces =
                 "createDocumentFragment" => T<unit> ^-> DocumentFragment
                 "createElement" =>
                     T<string> *
-                    !?T<obj>?elementCreationOptions ^-> Element
+                    !?ElementCreateOptions?elementCreationOptions ^-> Element
                 "createElementNS" =>
                     T<string>?namespaceURI *
                     T<string>?qualifiedName *
-                    !?T<obj>?elementCreationOptions ^-> Element
+                    !?ElementCreateOptions?elementCreationOptions ^-> Element
                 "createEntityReference" => T<string> ^-> EntityReference |> Obsolete
                 "createProcessingInstruction" =>
                     T<string>?target *
@@ -974,6 +1184,12 @@ module Interfaces =
                 "hasFocus" => T<unit -> bool>
                 "queryCommandEnabled" => T<string -> bool>
                 "queryCommandSupported" => T<string -> bool>
+
+                "createNodeIterator" => (Node * !?T<int> * !?NodeFilter) ^-> NodeIterator
+                "createTreeWalker" => (Node * !?T<int> * !?NodeFilter) ^-> TreeWalker
+
+                "createRange" => T<unit> ^-> Range
+                "createEvent" => T<string> ^-> Event
             ]
         |+> Static [
                 "Current" =? Document
@@ -1033,6 +1249,18 @@ module Definition =
                 I.CompositionEvent
                 I.MutationEvent
                 I.MutationNameEvent
+                I.ShadowRoot
+                I.ShadowRootInit
+                I.ShadowRootMode
+                I.DOMTokenList
+                I.ElementCreateOptions
+                I.MutationObserver
+                I.MutationObserverInit
+                I.MutationRecord
+                I.NodeFilter
+                I.NodeIterator
+                I.TreeWalker
+                I.Range
                 E.DOMExceptionType
                 E.DerivationMethod
                 E.DocumentPosition
