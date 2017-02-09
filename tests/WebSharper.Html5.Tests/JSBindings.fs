@@ -157,7 +157,27 @@ let Tests =
             notEqualMsg doc.Title JS.Undefined "Checking for title"
             notEqualMsg doc.URL JS.Undefined "Checking for URL"
             notEqualMsg doc.VisibilityState JS.Undefined "Checking for visibility"
+            
         }
+
+        Test "NodeIterator" {
+            let doc = JS.Document
+            let iterator = doc.CreateNodeIterator(doc)
+            equalMsg (iterator.NextNode()) iterator.Root "Checking nextNode"
+            equalMsg (iterator.PreviousNode()) iterator.Root "Checking previousNode"
+        }
+
+        Test "TreeWalker" {
+            let doc = JS.Document
+            let iterator = doc.CreateTreeWalker(doc)
+            notEqualMsg (iterator.NextNode()) iterator.Root "Checking nextNode"
+            equalMsg (iterator.PreviousNode()) iterator.Root "Checking previousNode"
+            notEqualMsg (iterator.CurrentNode) JS.Undefined "Checking currentNode"
+            notEqualMsg (iterator.NextSibling()) JS.Undefined "Checking nextSibling"
+            notEqualMsg (iterator.PreviousSibling()) JS.Undefined "Checking previousSibling"
+        }
+
+
         Console.Log(BrowserVersion())
         do if isNotIE() then
             Test "EcmaObject" {
