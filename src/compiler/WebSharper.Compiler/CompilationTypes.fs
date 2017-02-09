@@ -29,7 +29,7 @@ open WebSharper.Core.Metadata
 open WebSharper.Core.DependencyGraph
 
 type CompilingMember =
-    | NotCompiled of CompiledMember * notVirtual: bool
+    | NotCompiled of CompiledMember * notVirtual: bool * funcArgs : option<list<FuncArgOptimization>>
     | NotGenerated of TypeDefinition * option<obj> * CompiledMember * notVirtual: bool
 
 module NotResolved =
@@ -53,7 +53,9 @@ module NotResolved =
             Generator : option<TypeDefinition * option<obj>>
             Compiled : bool
             Pure : bool
-            Body : Expression
+            mutable FuncArgs : option<list<FuncArgOptimization>>
+            Args : list<Id>
+            mutable Body : Expression
             Requires : list<TypeDefinition>
         }
 
@@ -405,7 +407,7 @@ type CompilationError =
         | FieldNotFound (typ, field) -> sprintf "Field not found in JavaScript compilation: %s.%s" typ.Value.FullName field
 
 type LookupMemberResult =
-    | Compiled of CompiledMember * bool * Expression
+    | Compiled of CompiledMember * Optimizations * Expression
     | Compiling of CompilingMember * Expression
     | CustomTypeMember of CustomTypeInfo
     | LookupMemberError of CompilationError 

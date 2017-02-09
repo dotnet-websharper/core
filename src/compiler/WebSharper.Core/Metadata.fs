@@ -121,14 +121,26 @@ type CompiledField =
     | StaticField of Address
     | IndexedField of int
 
+type Optimizations =
+    {
+        IsPure : bool
+        FuncArgs : option<list<FuncArgOptimization>>
+    }
+
+    static member None =
+        {
+            IsPure = false
+            FuncArgs = None
+        }
+
 type ClassInfo =
     {
         Address : option<Address>
         BaseClass : option<TypeDefinition>
-        Constructors : IDictionary<Constructor, CompiledMember * bool * Expression>
+        Constructors : IDictionary<Constructor, CompiledMember * Optimizations * Expression>
         Fields : IDictionary<string, CompiledField>
         StaticConstructor : option<Address * Expression>
-        Methods : IDictionary<Method, CompiledMember * bool * Expression>
+        Methods : IDictionary<Method, CompiledMember * Optimizations * Expression>
         Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
         HasWSPrototype : bool // is the class defined in WS so it has Runtime.Class created prototype
         Macros : list<TypeDefinition * option<ParameterObject>>
@@ -352,6 +364,8 @@ type ICompilation =
     abstract AssemblyName : string with get
     abstract GetMetadataEntries : MetadataEntry -> list<MetadataEntry>
     abstract AddMetadataEntry : MetadataEntry * MetadataEntry -> unit
+    abstract AddError : option<SourcePos> * string -> unit 
+    abstract AddWarning : option<SourcePos> * string -> unit 
 
 // planned functionality:    
 //    abstract AddNewJSClass : string -> TypeDefinition
@@ -367,7 +381,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "4.0-beta5"
+    let CurrentVersion = "4.0-beta5 func-optimized"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

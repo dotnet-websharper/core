@@ -28,6 +28,7 @@ open WebSharper.Compiler
 
 type VarKind =
     | LocalVar 
+    | FuncArg
     | ByRefArg
     | ThisArg
          
@@ -78,6 +79,20 @@ let isByRef (t: FSharpType) =
     let t = getOrigType t
     if t.IsTupleType || t.IsFunctionType then false else
     t.HasTypeDefinition && t.TypeDefinition.IsByRef
+
+let getFuncArg t =
+    let rec get acc (t: FSharpType) =
+        if t.IsFunctionType then
+            let a = t.GenericArguments.[0] 
+            let r = t.GenericArguments.[1] 
+            let i = if a.IsTupleType then a.GenericArguments.Count else 1
+            get (i :: acc) r 
+        else
+            match acc with
+            | [] | [1] -> NotOptimizedFuncArg
+            | [n] -> TupledFuncArg n
+            | _ -> CurriedFuncArg (List.length acc)
+    get [] t    
 
 exception ParseError of message: string with
     override this.Message = this.message 
@@ -152,47 +167,55 @@ type FixCtorTransformer(?thisExpr) =
 let fixCtor expr =
     FixCtorTransformer().TransformExpression(expr)
 
-let fsharpListDef =
-    TypeDefinition {
-        Assembly = "FSharp.Core"
-        FullName = "Microsoft.FSharp.Collections.FSharpList`1"  
-    }
+module Definitions =
+    let List =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Collections.FSharpList`1"  
+        }
 
-let emptyListDef =
-    Method {
-        MethodName = "get_Empty"
-        Parameters = []
-        ReturnType = GenericType fsharpListDef [ TypeParameter 0 ]
-        Generics = 0      
-    }
+    let ListEmpty =
+        Method {
+            MethodName = "get_Empty"
+            Parameters = []
+            ReturnType = GenericType List [ TypeParameter 0 ]
+            Generics = 0      
+        }
 
-let listModuleDef =
-    TypeDefinition {
-        Assembly = "FSharp.Core"
-        FullName = "Microsoft.FSharp.Collections.ListModule"
-    }
+    let ListModule =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Collections.ListModule"
+        }
 
-let listOfArrayDef =
-    Method {
-        MethodName = "OfArray"
-        Parameters = [ ArrayType (TypeParameter 0, 1) ]
-        ReturnType = GenericType fsharpListDef [ TypeParameter 0 ]
-        Generics = 1      
-    }
+    let ListOfArray =
+        Method {
+            MethodName = "OfArray"
+            Parameters = [ ArrayType (TypeParameter 0, 1) ]
+            ReturnType = GenericType List [ TypeParameter 0 ]
+            Generics = 1      
+        }
 
-let sysArrayDef =
-    TypeDefinition {
-        Assembly = "mscorlib"
-        FullName = "System.Array"
-    }
+    let Array =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.Array"
+        }
 
-let arrayLengthDef =
-    Method {
-        MethodName = "get_Length"
-        Parameters = []
-        ReturnType = NonGenericType Definitions.Int
-        Generics = 0        
-    }
+    let ArrayLength =
+        Method {
+            MethodName = "get_Length"
+            Parameters = []
+            ReturnType = NonGenericType Definitions.Int
+            Generics = 0        
+        }
+
+    let Operators =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.Operators"
+        }
+    
 
 let newId() = Id.New(mut = false)
 let namedId (i: FSharpMemberOrFunctionOrValue) =
@@ -239,9 +262,9 @@ let removeListOfArray (argType: FSharpType) (expr: Expression) =
     if isSeq argType then
         match IgnoreExprSourcePos expr with
         | Call (None, td, meth, [ NewArray _ as arr ]) 
-            when td.Entity = listModuleDef && meth.Entity = listOfArrayDef  ->
+            when td.Entity = Definitions.ListModule && meth.Entity = Definitions.ListOfArray  ->
                 arr
-        | NewUnionCase(td, "Empty", []) when td.Entity = fsharpListDef ->
+        | NewUnionCase(td, "Empty", []) when td.Entity = Definitions.List ->
             NewArray []
         | _ -> expr
     else expr
@@ -494,6 +517,12 @@ let rec (|CompGenClosure|_|) (expr: FSharpExpr) =
             Some value
     | _ -> None
 
+let curriedApplication func args =
+    match List.length args with
+    | 0 -> func
+    | 1 -> Application (func, args, false, Some 1)
+    | _ -> CurriedApplication(func, args)
+
 let rec transformExpression (env: Environment) (expr: FSharpExpr) =
     let inline tr x = transformExpression env x
     let sr = env.SymbolReader
@@ -506,6 +535,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 let v, k = env.LookupVar var
                 match k with
                 | LocalVar -> Var v  
+                | FuncArg -> Var v
                 | ByRefArg -> GetRef (Var v)
                 | ThisArg -> This
         | P.Lambda _ ->
@@ -532,34 +562,22 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         let v = namedId arg
                         v, env.WithVar(v, arg)
                     ) 
-                let f = lam vars (body |> transformExpression env) (isUnit body.Type)
-                match vars.Length with
-                | 2 -> JSRuntime.Curried2 f
-                | 3 -> JSRuntime.Curried3 f
-                | n -> JSRuntime.Curried f n
+                let trBody = body |> transformExpression env
+                trBody |> List.foldBack (fun v e -> lam [v] e (obj.ReferenceEquals(trBody, isUnit) && isUnit body.Type)) vars
         | P.Application(func, types, args) ->
             match IgnoreExprSourcePos (tr func) with
             | CallNeedingMoreArgs(thisObj, td, m, ca) ->
                 Call(thisObj, td, m, ca @ (args |> List.map tr))
             | trFunc ->
-                let appl f x = Application (f, [x], false, Some 1)
                 match args with
-                | [a] ->
+                | [a] when isUnit a.Type ->
                     let trA = tr a |> removeListOfArray a.Type
-                    if isUnit a.Type then
-                        match IgnoreExprSourcePos trA with
-                        | Undefined | Value Null -> Application (trFunc, [], false, Some 0)
-                        | _ -> Sequential [ trA; Application (trFunc, [], false, Some 0) ]
-                    else appl trFunc trA
+                    match IgnoreExprSourcePos trA with
+                    | Undefined | Value Null -> Application (trFunc, [], false, Some 0)
+                    | _ -> Sequential [ trA; Application (trFunc, [], false, Some 0) ]
                 | _ ->
                     let trArgs = args |> List.map (fun a -> tr a |> removeListOfArray a.Type)
-                    match trArgs with
-                    | [ a; b ] ->
-                        appl (appl trFunc a) b
-                    | [ a; b; c ] ->
-                        appl (appl (appl trFunc a) b) c
-                    | _ ->
-                        JSRuntime.Apply trFunc trArgs
+                    curriedApplication trFunc trArgs
         // eliminating unneeded compiler-generated closures
         | CompGenClosure value ->
             tr value
@@ -695,6 +713,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 let v, k = env.LookupVar var
                 match k with
                 | LocalVar -> Void(VarSet(v, tr value)) 
+                | FuncArg -> failwith "function argument cannot be set"
                 | ByRefArg -> SetRef (Var v) (tr value)
                 | ThisArg -> failwith "'this' parameter cannot be set"
         | P.TupleGet (_, i, tuple) ->
@@ -720,13 +739,13 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 match sr.ReadType env.TParams typ with
                 | ConcreteType ct -> ct
                 | _ -> parsefailf "Expected a union type"
-            if t.Entity = fsharpListDef then
+            if t.Entity = Definitions.List then
                 let rec getItems acc e =
                     match e with 
                     | P.NewUnionCase (_, _, [h; t]) ->
                         getItems (h :: acc) t 
                     | P.NewUnionCase (_, _, []) ->
-                        Some (List.rev acc)
+                        if acc.Length > 1 then Some (List.rev acc) else None
                     | _ -> None
                 match exprs with
                 | [] ->
@@ -734,7 +753,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | [h; r] -> 
                     match getItems [ h ] r with
                     | Some fromArr -> 
-                        Call(None, NonGeneric listModuleDef, NonGeneric listOfArrayDef, [ NewArray (fromArr |> List.map tr) ])    
+                        Call(None, NonGeneric Definitions.ListModule, NonGeneric Definitions.ListOfArray, [ NewArray (fromArr |> List.map tr) ])    
                     | None ->
                         NewUnionCase(t, case.CompiledName, exprs |> List.map tr) 
                 | _ -> parsefailf "Invalid number of union fields for FSharpList"
@@ -990,7 +1009,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.ILAsm ("[AI_ldnull; AI_cgt_un]", [], [ arr ]) ->
             tr arr  
         | P.ILAsm ("[I_ldlen; AI_conv DT_I4]", [], [ arr ]) ->
-            Call(Some (tr arr), NonGeneric sysArrayDef, NonGeneric arrayLengthDef, [])
+            Call(Some (tr arr), NonGeneric Definitions.Array, NonGeneric Definitions.ArrayLength, [])
         | P.ILAsm (s, _, _) ->
             parsefailf "Unrecognized ILAsm: %s" s
         | P.ILFieldGet _ -> parsefailf "F# pattern not handled: ILFieldGet"
@@ -1018,5 +1037,5 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | ParseError m -> m
             | _ -> "Error while reading F# code: " + e.Message + " " + e.StackTrace
         env.Compilation.AddError(Some (getSourcePos expr), WebSharper.Compiler.SourceError msg)
-        WebSharper.Compiler.Translator.errorPlaceholder        
+        errorPlaceholder        
     |> withSourcePos expr

@@ -165,9 +165,11 @@ let Compile (config : WsConfig) =
     let started = ended 
     
     let jsResOpt = 
-        WebSharper.Compiler.FrontEnd.CreateResources (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+        WebSharper.Compiler.FrontEnd.CreateResources (Some comp) (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
             (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap thisName
             
+    compiler.PrintWarnings(comp, config.ProjectFile)
+
     let ended = System.DateTime.Now
     logf "Packaging and serializing metadata: %A" (ended - started)
     let started = ended 

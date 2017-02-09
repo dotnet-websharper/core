@@ -24,97 +24,9 @@ open System.Collections.Generic
 
 open WebSharper.Core
 open WebSharper.Core.AST
+open WebSharper.Compiler
 
 open IgnoreSourcePos
-
-type ForAllSubExpr(checker) =
-    inherit Visitor()
-    let mutable ok = true
-
-    override this.VisitExpression(e) =
-        if not (checker e) then
-            ok <- false
-        elif ok then base.VisitExpression e
-
-    member this.Check(e) = 
-        ok <- true
-        this.VisitExpression(e)
-        ok
-
-type BottomUpTransformer(tr) =
-    inherit Transformer()
-
-    override this.TransformExpression(e) =
-        base.TransformExpression(e) |> tr
-
-let BottomUp tr expr =
-    BottomUpTransformer(tr).TransformExpression(expr)  
-
-let containsVar v expr =
-    CountVarOccurence(v).Get(expr) > 0
-
-let sliceFromArguments slice =
-    Application (Global [ "Array"; "prototype"; "slice"; "call" ], 
-        Arguments :: [ for a in slice -> !~ (Int a) ], true, None)
-
-let (|Lambda|_|) e = 
-    match e with
-    | Function(args, Return body) -> Some (args, body, true)
-    | Function(args, ExprStatement body) -> Some (args, body, false)
-    | _ -> None
-
-let (|TupledLambda|_|) expr =
-    match expr with
-    | Lambda ([tupledArg], b, isReturn) ->
-        // when the tuple itself is bound to a name, there will be an extra let expression
-        let tupledArg, b =
-            match b with
-            | Let (newTA, Var t, b) when t = tupledArg -> 
-                newTA, SubstituteVar(tupledArg, Var newTA).TransformExpression b
-            | _ -> tupledArg, b
-        let rec loop acc = function
-            | Let (v, ItemGet(Var t, Value (Int i)), body) when t = tupledArg ->
-                loop ((int i, v) :: acc) body
-            | body -> 
-                if List.isEmpty acc then None else
-                let m = Map.ofList acc
-                Some (
-                    [ for i in 0 .. (acc |> Seq.map fst |> Seq.max) -> 
-                        match m |> Map.tryFind i with
-                        | None -> Id.New(mut = false)
-                        | Some v -> v 
-                    ], body)
-        match loop [] b with
-        | None -> None
-        | Some (vars, body) -> 
-            if containsVar tupledArg body then
-                let (|TupleGet|_|) e =
-                    match e with 
-                    | ItemGet(Var t, Value (Int i)) when t = tupledArg ->
-                        Some (int i)
-                    | _ -> None 
-                let maxTupleGet = ref (vars.Length - 1)
-                let checkTupleGet e =
-                    match e with 
-                    | TupleGet i -> 
-                        if i > !maxTupleGet then maxTupleGet := i
-                        true
-                    | Var t when t = tupledArg -> false
-                    | _ -> true
-                let alwaysTupleGet e =
-                    ForAllSubExpr(checkTupleGet).Check(e)
-                if alwaysTupleGet body then
-                    let vars = 
-                        if List.length vars > !maxTupleGet then vars
-                        else vars @ [ for k in List.length vars .. !maxTupleGet -> Id.New() ]
-                    Some (vars, body |> BottomUp (function TupleGet i -> Var vars.[i] | e -> e), isReturn)
-                else 
-                    // if we would use the arguments object for anything else than getting
-                    // a tuple item, convert it to an array
-                    Some (vars, Let (tupledArg, sliceFromArguments [], body), isReturn)
-            else
-                Some (vars, body, isReturn)
-    | _ -> None
 
 let (|Runtime|_|) e = 
     match e with 
@@ -168,6 +80,11 @@ let cleanRuntime expr =
                 Application(f, args, isPure, Some l)
         | "CreateFuncWithArgs", [ TupledLambda (vars, body, isReturn) as f ] ->
             func vars body isReturn |> WithSourcePosOfExpr f
+        | "CreateFuncWithArgs", _ ->
+#if DEBUG
+            printfn "non-optimized CreateFuncWithArgs: %A" (Debug.PrintExpression expr)
+#endif
+            expr
         | "CreateFuncWithOnlyThis", [ Lambda ([obj], body, isReturn) as f ] ->
             thisFunc obj [] body isReturn |> WithSourcePosOfExpr f
         | "CreateFuncWithThis", [ Lambda ([obj], Lambda (args, body, isReturn), true) as f ] ->
@@ -247,9 +164,9 @@ let cleanRuntime expr =
                 | _ -> None
             let rec isWithInterop e =
                 match e with
-                | WithInterop -> true
-                | Var v when v = var -> false
-                | _ -> true
+                | WithInterop -> Some true
+                | Var v when v = var -> Some false
+                | _ -> None
             if ForAllSubExpr(isWithInterop).Check(body) then
                 Let(var, getJsFunc() |> WithSourcePosOfExpr value, 
                     body |> BottomUp (function WithInterop -> Var var | e -> e))

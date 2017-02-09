@@ -284,6 +284,9 @@ let varEvalOrder (vars : Id list) expr =
         | StatementSourcePos (_, a) -> evalSt a
         | Block a -> List.iter evalSt a
         | If (a, b, c) -> Conditional (a, IgnoredStatementExpr b, IgnoredStatementExpr c) |> eval
+        | Throw (a) -> 
+            eval a
+            stop()
         | _ -> fail()
                
     eval expr
@@ -917,3 +920,205 @@ type HasNoThisVisitor() =
     member this.Check(e) =
         this.VisitExpression e
         ok
+
+/// A placeholder expression when encountering a translation error
+/// so that collection of all errors can occur.
+let errorPlaceholder = Value (String "$$ERROR$$")
+
+/// A transformer that tracks current source position
+type TransformerWithSourcePos(comp: Metadata.ICompilation) =
+    inherit Transformer()
+
+    let mutable currentSourcePos = None
+
+    member this.CurrentSourcePos = currentSourcePos
+
+    member this.Error msg =
+        comp.AddError(currentSourcePos, msg)
+        errorPlaceholder
+
+    member this.Warning msg =
+        comp.AddWarning(currentSourcePos, msg)
+
+    override this.TransformExprSourcePos (pos, expr) =
+        let p = currentSourcePos 
+        currentSourcePos <- Some pos
+        let res = this.TransformExpression expr
+        currentSourcePos <- p
+        ExprSourcePos(pos, res)
+
+    override this.TransformStatementSourcePos (pos, statement) =
+        let p = currentSourcePos 
+        currentSourcePos <- Some pos
+        let res = this.TransformStatement statement
+        currentSourcePos <- p
+        StatementSourcePos(pos, res)
+
+open IgnoreSourcePos
+
+let containsVar v expr =
+    CountVarOccurence(v).Get(expr) > 0
+
+/// Checks if a predicate is true for all sub-expressions.
+/// `checker` can return `None` for continued search
+/// `Some true` to ignore sub-expressions of current node and
+/// `Some false` to fail the check.
+type ForAllSubExpr(checker) =
+    inherit Visitor()
+    let mutable ok = true
+
+    override this.VisitExpression(e) =
+        if ok then
+            match checker e with
+            | None -> base.VisitExpression e
+            | Some true -> ()
+            | Some false -> ok <- false
+
+    member this.Check(e) = 
+        ok <- true
+        this.VisitExpression(e)
+        ok
+
+type BottomUpTransformer(tr) =
+    inherit Transformer()
+
+    override this.TransformExpression(e) =
+        base.TransformExpression(e) |> tr
+
+let BottomUp tr expr =
+    BottomUpTransformer(tr).TransformExpression(expr)  
+
+let callArraySlice =
+    (Global ["Array"]).[Value (String "prototype")].[Value (String "slice")].[Value (String "call")]   
+
+let sliceFromArguments slice =
+    Application (callArraySlice, Arguments :: [ for a in slice -> !~ (Int a) ], true, None)
+
+let (|Lambda|_|) e = 
+    match e with
+    | Function(args, Return body) -> Some (args, body, true)
+    | Function(args, ExprStatement body) -> Some (args, body, false)
+    | _ -> None
+
+let (|AlwaysTupleGet|_|) tupledArg length expr =
+    let (|TupleGet|_|) e =
+        match e with 
+        | ItemGet(Var t, Value (Int i)) when t = tupledArg ->
+            Some (int i)
+        | _ -> None 
+    let maxTupleGet = ref (length - 1)
+    let checkTupleGet e =
+        match e with 
+        | TupleGet i -> 
+            if i > !maxTupleGet then maxTupleGet := i
+            Some true
+        | Var t when t = tupledArg -> Some false
+        | _ -> None
+    if ForAllSubExpr(checkTupleGet).Check(expr) then
+        Some (!maxTupleGet, (|TupleGet|_|))
+    else
+        None
+
+let (|TupledLambda|_|) expr =
+    match expr with
+    | Lambda ([tupledArg], b, isReturn) ->
+        // when the tuple itself is bound to a name, there will be an extra let expression
+        let tupledArg, b =
+            match b with
+            | Let (newTA, Var t, b) when t = tupledArg -> 
+                newTA, SubstituteVar(tupledArg, Var newTA).TransformExpression b
+            | _ -> tupledArg, b
+        let rec loop acc = function
+            | Let (v, ItemGet(Var t, Value (Int i)), body) when t = tupledArg ->
+                loop ((int i, v) :: acc) body
+            | body -> 
+                if List.isEmpty acc then [], body else
+                let m = Map.ofList acc
+                [ for i in 0 .. (acc |> Seq.map fst |> Seq.max) -> 
+                    match m |> Map.tryFind i with
+                    | None -> Id.New(mut = false)
+                    | Some v -> v 
+                ], body
+        let vars, body = loop [] b
+        if containsVar tupledArg body then
+            match body with
+            | AlwaysTupleGet tupledArg vars.Length (maxTupleGet, (|TupleGet|_|)) ->
+                let vars = 
+                    if List.length vars > maxTupleGet then vars
+                    else vars @ [ for k in List.length vars .. maxTupleGet -> Id.New(mut = false) ]
+                Some (vars, body |> BottomUp (function TupleGet i -> Var vars.[i] | e -> e), isReturn)
+            | _ ->                                                        
+                // if we would use the arguments object for anything else than getting
+                // a tuple item, convert it to an array
+                if List.isEmpty vars then None else
+                Some (vars, Let (tupledArg, sliceFromArguments [], body), isReturn)
+        else
+            if List.isEmpty vars then None else
+            Some (vars, body, isReturn)
+    | _ -> None
+
+let (|CurriedLambda|_|) expr =
+    let rec curr args expr =
+        match expr with
+        | Lambda ([a], b, true) ->
+            curr (a :: args) b
+        | Lambda ([a], b, false) ->
+            if not (List.isEmpty args) then
+                Some (List.rev (a :: args), b, false) 
+            else None
+        | _ -> 
+            if List.length args > 1 then
+                Some (List.rev args, expr, true)
+            else None
+    curr [] expr
+
+let (|CurriedFunction|_|) expr =
+    let rec curr args expr =
+        match expr with
+        | Lambda ([], b, true) ->
+            let a = Id.New(mut = false)
+            curr (a :: args) b
+        | Lambda ([a], b, true) ->
+            curr (a :: args) b
+        | Lambda ([], b, false) ->
+            if not (List.isEmpty args) then
+                let a = Id.New(mut = false)
+                Some (List.rev (a :: args), ExprStatement b) 
+            else None
+        | Lambda ([a], b, false) ->
+            if not (List.isEmpty args) then
+                Some (List.rev (a :: args), ExprStatement b) 
+            else None
+        | Function ([], b) ->
+            if not (List.isEmpty args) then
+                let a = Id.New(mut = false)
+                Some (List.rev (a :: args), b) 
+            else None
+        | Function ([a], b) ->
+            if not (List.isEmpty args) then
+                Some (List.rev (a :: args), b) 
+            else None
+        | _ -> 
+            if List.length args > 1 then
+                Some (List.rev args, Return expr)
+            else None
+    curr [] expr
+
+let (|CurriedApplicationSeparate|_|) expr =
+    let rec appl args expr =
+        match expr with
+        | Application(func, [], p, l) ->
+            appl (Value Null :: args) func 
+        | Application(func, [a], p, l) ->
+            appl (a :: args) func 
+        | CurriedApplication(func, a) ->
+            appl (a @ args) func
+        | _ ->
+            if args.Length > 1 then
+                Some (expr, args)
+            else None
+    appl [] expr
+
+#if DEBUG
+let mutable logTransformations = false
+#endif

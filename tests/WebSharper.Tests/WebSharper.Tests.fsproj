@@ -37,6 +37,7 @@
     <Compile Include="ObjExpr.fs" />
     <Compile Include="Operators.fs" />
     <Compile Include="Option.fs" />
+    <Compile Include="Optimizations.fs" />
     <Compile Include="Proxy.fs" />
     <Compile Include="Queue.fs" />
     <Compile Include="Random.fs" />
@@ -52,6 +53,7 @@
     <Compile Include="Tupled.fs" />
     <Compile Include="WIG.fs" />
     <Compile Include="Cookies.fs" />
+    <Compile Include="Compiler.fs" />
     <Compile Include="Main.fs" />
     <None Include="ASTTests.fsx" />
   </ItemGroup>

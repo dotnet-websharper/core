@@ -108,6 +108,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     match expr with
     | Undefined -> undef
     | This -> J.This
+    | Arguments -> J.Var "arguments"
     | Var id -> J.Var (trI id)
     | Value v ->
         match v with
