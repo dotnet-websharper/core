@@ -386,8 +386,8 @@ module Definition =
             "select" => T<unit> ^-> TSelf
             "submit" => !?T<obj> * EH ^-> TSelf
             "submit" => T<unit> ^-> TSelf
-            "trigger" => T<string> * !?(Type.ArrayOf T<obj>) ^-> JQ
-            "triggerHandler" => T<string> * !?(Type.ArrayOf T<obj>) ^-> JQ
+            "trigger" => T<string> * !?(Type.ArrayOf T<obj>) ^-> TSelf
+            "triggerHandler" => T<string> * !?(Type.ArrayOf T<obj>) ^-> TSelf
 
             // Internals
             "jquery" =? T<string>
