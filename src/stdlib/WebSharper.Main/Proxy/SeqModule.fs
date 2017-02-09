@@ -680,9 +680,22 @@ let Windowed (windowSize: int) (s: seq<'T>) : seq<'T []> =
 let Zip (s1: seq<'T>) (s2: seq<'U>) =
     Seq.map2 (fun x y -> x, y) s1 s2
 
+[<Name "map3">]
+let Map3 f (s1: seq<_>) (s2: seq<_>) (s3: seq<_>) =
+    Enumerable.Of <| fun () ->
+        let e1 = Enumerator.Get s1
+        let e2 = Enumerator.Get s2
+        let e3 = Enumerator.Get s3
+        Enumerator.NewDisposing () (fun _ -> e1.Dispose(); e2.Dispose(); e3.Dispose()) <| fun e ->
+            if e1.MoveNext() && e2.MoveNext() && e3.MoveNext() then
+                e.Current <- f e1.Current e2.Current e3.Current
+                true
+            else
+                false
+
 [<Name "zip3">]
 let Zip3 (s1: seq<'T>) (s2: seq<'U>) (s3: seq<'V>) : seq<'T * 'U * 'V> =
-    Seq.map2 (fun x (y, z) -> (x, y, z)) s1 (Seq.zip s2 s3)
+    Map3 (fun x y z -> x, y, z) s1 s2 s3
 
 [<Name "fold2">]
 let Fold2<'T1,'T2,'S> (f: 'S -> 'T1 -> 'T2 -> 'S)
@@ -707,19 +720,6 @@ let IterateIndexed2 f (s1: seq<_>) (s2: seq<_>) =
     while e1.MoveNext() && e2.MoveNext() do
         f i e1.Current e2.Current
         i <- i + 1
-
-[<Name "map3">]
-let Map3 f (s1: seq<_>) (s2: seq<_>) (s3: seq<_>) =
-    Enumerable.Of <| fun () ->
-        let e1 = Enumerator.Get s1
-        let e2 = Enumerator.Get s2
-        let e3 = Enumerator.Get s3
-        Enumerator.NewDisposing () (fun _ -> e1.Dispose(); e2.Dispose(); e3.Dispose()) <| fun e ->
-            if e1.MoveNext() && e2.MoveNext() && e3.MoveNext() then
-                e.Current <- f e1.Current e2.Current e3.Current
-                true
-            else
-                false
 
 [<Name "mapi2">]
 let MapIndexed2 f (s1: seq<_>) (s2: seq<_>) =

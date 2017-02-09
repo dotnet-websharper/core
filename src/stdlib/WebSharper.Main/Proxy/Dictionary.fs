@@ -37,8 +37,12 @@ module internal DictionaryUtil =
     let alreadyAdded () =
         failwith "An item with the same key has already been added."
 
-    let equals (c: IEqualityComparer<'T>) x y =
-        c.Equals(x, y)
+    let equals (c: IEqualityComparer<'T>) =
+        FuncWithArgs(fun (x, y) -> c.Equals(x, y))
+
+    [<Inline>]
+    let genEquals<'T when 'T : equality> () = 
+        FuncWithArgs(fun (x :'T, y) -> x = y)
 
     let getHashCode (c: IEqualityComparer<'T>) x =
         c.GetHashCode x
@@ -106,7 +110,7 @@ type private DictionaryEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
 type internal Dictionary<'K,'V when 'K : equality>
 
     private (init   : seq<KVP<'K,'V>>,
-             equals : 'K -> 'K -> bool,
+             equals : FuncWithArgs<'K * 'K, bool>,
              hash   : 'K -> int) =
 
         let mutable count = 0
@@ -117,7 +121,7 @@ type internal Dictionary<'K,'V when 'K : equality>
             let d = data.[h]
             if As<bool> d then
                 d.Self |> Array.pick (fun (KeyValue(dk, v)) -> 
-                    if equals dk k then Some v else None
+                    if equals.Call(dk, k) then Some v else None
                 ) 
             else
                 notPresent()
@@ -126,7 +130,7 @@ type internal Dictionary<'K,'V when 'K : equality>
             let h = hash k
             let d = data.[h]
             if As<bool> d then
-                match d.Self |> Array.tryFindIndex (fun (KeyValue(dk, _)) -> equals dk k) with
+                match d.Self |> Array.tryFindIndex (fun (KeyValue(dk, _)) -> equals.Call(dk, k)) with
                 | Some i ->
                     d.[i] <- KVP(k, v) 
                 | None ->
@@ -140,7 +144,7 @@ type internal Dictionary<'K,'V when 'K : equality>
             let h = hash k
             let d = data.[h]
             if As<bool> d then
-                if d.Self |> Array.exists (fun (KeyValue(dk, _)) -> equals dk k) then
+                if d.Self |> Array.exists (fun (KeyValue(dk, _)) -> equals.Call(dk, k)) then
                     alreadyAdded()                    
                 count <- count + 1
                 d.Push(KVP(k, v)) |> ignore
@@ -152,7 +156,7 @@ type internal Dictionary<'K,'V when 'K : equality>
             let h = hash k 
             let d = data.[h]
             if As<bool> d then
-                let r = d.Self |> Array.filter (fun (KeyValue(dk, _)) -> not (equals dk k))
+                let r = d.Self |> Array.filter (fun (KeyValue(dk, _)) -> not (equals.Call(dk, k)))
                 if r.Length < d.Length then                  
                     count <- count - 1
                     data.[h] <- r.JS
@@ -165,7 +169,7 @@ type internal Dictionary<'K,'V when 'K : equality>
         do for x in init do
             set x.Key x.Value
 
-        new () = new Dictionary<'K,'V>([||], (=), hash)
+        new () = new Dictionary<'K,'V>([||], genEquals<'K>(), hash)
 
         new (capacity: int) = new Dictionary<'K,'V>()
 
@@ -176,7 +180,7 @@ type internal Dictionary<'K,'V when 'K : equality>
             new Dictionary<'K,'V>(comparer)
 
         new (dictionary: IDictionary<'K,'V>) =
-            new Dictionary<'K,'V>(dictionary, (=), hash)
+            new Dictionary<'K,'V>(dictionary, genEquals<'K>(), hash)
 
         new (dictionary: IDictionary<'K,'V>, comparer: IEqualityComparer<'K>) =
             new Dictionary<'K,'V>(
@@ -197,7 +201,7 @@ type internal Dictionary<'K,'V when 'K : equality>
             let d = data.[h]
             if As<bool> d then
                 d.Self |> Array.exists (fun (KeyValue(dk, _)) -> 
-                    equals dk k
+                    equals.Call(dk, k)
                 ) 
             else
                 false
@@ -227,7 +231,7 @@ type internal Dictionary<'K,'V when 'K : equality>
             if As<bool> d then
                 let v =
                     d.Self |> Array.tryPick (fun (KeyValue(dk, v)) -> 
-                        if equals dk k then Some v else None
+                        if equals.Call(dk, k) then Some v else None
                     ) 
                 match v with 
                 | Some v -> 

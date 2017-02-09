@@ -89,13 +89,31 @@ let Create (size: int) value =
 [<Inline "[]">]
 let Empty () = X<'T []>
 
-[<Inline>]
-let Exists<'T> (f: 'T -> bool) (arr: 'T []) = Seq.exists f arr
+[<Name "exists">]
+let Exists<'T> (f: 'T -> bool) (x: 'T []) =
+    let mutable e = false
+    let mutable i = 0
+    let l = x.Length
+    while not e && i < l do
+        if f x.JS.[i] then
+            e <- true
+        else
+            i <- i + 1
+    e
 
 [<Name "exists2">]
-let Exists2 f (arr1: _ []) (arr2: _ []) =
-    checkLength arr1 arr2
-    Seq.exists2 f arr1 arr2
+let Exists2 f (x1: _ []) (x2: _ []) =
+    checkLength x1 x2
+    let mutable e = false
+    let mutable i = 0
+    let l = x1.Length
+    while not e && i < l do
+        if f x1.JS.[i] x2.JS.[i] then
+            e <- true
+        else
+            i <- i + 1
+
+    e
 
 [<Name "fill">]
 let Fill<'T> (arr: 'T []) (start: int) (length: int) (value: 'T) =
@@ -155,13 +173,30 @@ let FoldBack2 f (arr1: _ []) (arr2: _ []) zero =
         accum <- f arr1.JS.[len - i] arr2.JS.[len - i] accum
     accum
 
-[<Inline>]
-let ForAll f (arr: _ []) = Seq.forall f arr
+[<Name "forall">]
+let ForAll f (x: _ []) =
+    let mutable a = true
+    let mutable i = 0
+    let l = x.Length
+    while a && i < l do
+        if f x.JS.[i] then
+            i <- i + 1
+        else
+            a <- false
+    a
 
 [<Name "forall2">]
-let ForAll2 f (arr1: _ []) (arr2: _ []) =
-    checkLength arr1 arr2
-    Seq.forall2 f arr1 arr2
+let ForAll2 f (x1: _ []) (x2: _ []) =
+    checkLength x1 x2
+    let mutable a = true
+    let mutable i = 0
+    let l = x1.Length
+    while a && i < l do
+        if f x1.JS.[i] x2.JS.[i] then
+            i <- i + 1
+        else
+            a <- false
+    a
 
 [<Inline>]
 let Get (arr: _ []) index =
@@ -248,7 +283,7 @@ let MapFoldBack f arr zero = ArrayMapFoldBack f arr zero
 let Max x = Array.reduce max x
 
 [<Name "maxBy">]
-let MaxBy (f, arr) =
+let MaxBy f arr =
     Array.reduce (fun x y -> if f x > f y then x else y) arr
 
 [<Name "min">]
@@ -326,7 +361,6 @@ let ReduceBack f (arr: _ []) =
     acc
 
 [<Inline "$x.slice().reverse()">]
-[<Name "rev">]
 let Reverse (x: 'T []) = X<'T []>
 
 [<Name "scan">]
@@ -614,7 +648,7 @@ let TakeWhile<'T> (predicate : 'T -> bool) (ar: 'T []) =
         i <- i + 1
     ar.JS.Slice(0, i)
 
-[<Name "truncate">]
+[<Inline>]
 let Truncate<'T> n (ar: 'T []) =
     ar.JS.Slice(0, n)
 
