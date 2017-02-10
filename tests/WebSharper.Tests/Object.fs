@@ -286,6 +286,8 @@ let Tests =
             o.Value <- 1
             equal (o?X()) 1
             equal o.RNValue 1
+            o.RNValue <- 2
+            equal o.RNValue 2
         }
 
         Test "Extensions" {
