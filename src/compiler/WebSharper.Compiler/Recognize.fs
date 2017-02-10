@@ -151,6 +151,9 @@ let setValue (env: Environment) expr value =
     | Var d -> checkNotMutating env (Var d) (fun _ -> VarSet(d, value))
     | _ -> failwith "invalid form for setter"
 
+let glob = Global []
+let wsruntime = Global ["IntelliFactory"; "Runtime"]
+
 let rec transformExpression (env: Environment) (expr: S.Expression) =
     let inline trE e = transformExpression env e
     let checkNotMutating a f =
@@ -180,7 +183,16 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | SB.``,``      -> Sequential [trE a; trE c]
         | SB.``-``      -> Binary(trE a, BinaryOperator.``-``, trE c)
         | SB.``-=``     -> mbin a MutatingBinaryOperator.``-=`` c
-        | SB.``.``      -> if env.IsPure then ItemGet(trE a, trE c) else ItemGetNonPure(trE a, trE c)
+        | SB.``.``      -> 
+            let trA = trE a
+            let trC = trE c
+            if trA = wsruntime then
+                match trC with
+                | Value (String f) ->
+                    Global ["IntelliFactory"; "Runtime"; f]
+                | _ -> failwith "expected a function of IntelliFactory.Runtime"     
+            elif env.IsPure then ItemGet(trA, trC) 
+            else ItemGetNonPure(trA, trC)
         | SB.``/``      -> Binary(trE a, BinaryOperator.``/``, trE c)
         | SB.``/=``     -> mbin a MutatingBinaryOperator.``/=`` c
         | SB.``<``      -> Binary(trE a, BinaryOperator.``<``, trE c)
@@ -260,13 +272,13 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | _ -> failwith "unrecognized unary operator"
     | S.Var a ->
         match a with
-        | "$global" -> Global []
-        | "$wsruntime" -> Global ["IntelliFactory"; "Runtime"]
+        | "$global" -> glob
+        | "$wsruntime" -> wsruntime
         | "undefined" -> Undefined
         | _ ->
         match env.TryFindVar a with
         | Some e -> e
-        | None -> if env.IsPure then ItemGet(Global [], Value (String a)) else ItemGetNonPure(Global [], Value (String a))
+        | None -> if env.IsPure then ItemGet(glob, Value (String a)) else ItemGetNonPure(glob, Value (String a))
     | e ->     
         failwithf "Failed to recognize: %A" e
 //    | S.Postfix (a, b) ->

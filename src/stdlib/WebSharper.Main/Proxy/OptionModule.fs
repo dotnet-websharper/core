@@ -27,7 +27,7 @@ module private WebSharper.OptionModuleProxy
 
 open WebSharper.JavaScript
 
-[<Name "bind">]
+[<Inline>]
 let Bind f x =
     match x with
     | Some x -> f x
@@ -36,7 +36,7 @@ let Bind f x =
 [<Inline "$x ? 1 : 0">]
 let Count (x: option<_>) = X<int>
 
-[<Name "exists">]
+[<Inline>]
 let Exists p x =
     match x with
     | Some x -> p x
@@ -54,7 +54,7 @@ let FoldBack f x s =
     | Some x -> f x s
     | None   -> s
 
-[<Name "forall">]
+[<Inline>]
 let ForAll p x =
     match x with
     | Some x -> p x
@@ -69,13 +69,13 @@ let IsNone (x: option<'T>) = false
 [<Inline "$x!=null">]
 let IsSome (x: option<'T>) =  false
 
-[<Name "iter">]
+[<Inline>]
 let Iterate p x =
     match x with
     | Some x -> p x
     | None   -> ()
 
-[<Name "map">]
+[<Inline>]
 let Map f x =
     match x with
     | Some x    -> Some (f x)

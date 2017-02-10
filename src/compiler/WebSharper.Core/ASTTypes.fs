@@ -49,6 +49,13 @@ type Id =
             Mutable = defaultArg mut true
         }
 
+    static member Global() =
+        {
+            IdName = Some "window"
+            Id = -1L
+            Mutable = false
+        }
+
     member this.Clone() =
         {
             IdName = this.IdName
@@ -72,6 +79,12 @@ type Id =
     override this.ToString() =
         (match this.Name with Some n -> n | _ -> "") + "$" + string this.Id + (if this.Mutable then "M" else "")
 
+/// Specifies a curried or tupled F# function argument that is translated to a flat function
+type FuncArgOptimization =
+    | NotOptimizedFuncArg
+    | CurriedFuncArg of int    
+    | TupledFuncArg of int    
+
 /// A range in original source code
 type SourcePos =
     {
@@ -79,6 +92,9 @@ type SourcePos =
         Start : int * int
         End : int * int
     }
+
+    override this.ToString() =
+        sprintf "%s %A-%A" this.FileName this.Start this.End
 
 type MutatingBinaryOperator =
     | Assign                   = 0

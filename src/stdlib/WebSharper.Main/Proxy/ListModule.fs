@@ -86,14 +86,29 @@ let Concat (s: seq<list<_>>) = List.ofSeq (Seq.concat s)
 [<Inline>]
 let Empty<'T> : list<'T> = []
 
-[<Inline>]
-let Exists<'T> (p: 'T -> bool) (l: list<'T>) = Seq.exists p l
+[<Name "exists">]
+let Exists<'T> (p: 'T -> bool) (x: list<'T>) =
+    let mutable e = false
+    let mutable l = x
+    while not e && notEmpty l do
+        e <- p (unsafeHead l)
+        l <- unsafeTail l
+    e
 
 [<Name "exists2">]
 let Exists2<'T1,'T2> (p : 'T1 -> 'T2 -> bool)
-                        (l1: list<'T1>)
-                        (l2: list<'T2>) =
-    Seq.exists2 p (Seq.ofList l1) (Seq.ofList l2)
+                        (x1: list<'T1>)
+                        (x2: list<'T2>) =
+    let mutable e = false
+    let mutable l1 = x1
+    let mutable l2 = x2
+    while not e && notEmpty l1 && notEmpty l2 do
+        e <- p (unsafeHead l1) (unsafeHead l2)
+        l1 <- unsafeTail l1
+        l2 <- unsafeTail l2
+    if not e && (notEmpty l1 || notEmpty l2) then
+        badLengths()
+    e
 
 [<Name "filter">]
 let Filter<'T> (p: 'T -> bool) (l: list<'T>) =
@@ -124,12 +139,27 @@ let FoldBack f (l: list<_>) s =
 let FoldBack2 f (l1: list<_>) (l2: list<_>) s =
     Array.foldBack2 f (Array.ofList l1) (Array.ofList l2) s
 
-[<Inline>]
-let ForAll p (l: list<_>) = Seq.forall p l
+[<Name "forAll">]
+let ForAll p (x: list<_>) =
+    let mutable a = true
+    let mutable l = x
+    while a && notEmpty l do
+        a <- p (unsafeHead l)
+        l <- unsafeTail l
+    a
 
 [<Name "forall2">]
-let ForAll2 p (l1: list<_>) (l2: list<_>) =
-    Array.forall2 p (Array.ofList l1) (Array.ofList l2)
+let ForAll2 p (x1: list<_>) (x2: list<_>) =
+    let mutable a = true
+    let mutable l1 = x1
+    let mutable l2 = x2
+    while a && notEmpty l1 && notEmpty l2 do
+        a <- p (unsafeHead l1) (unsafeHead l2)
+        l1 <- unsafeTail l1
+        l2 <- unsafeTail l2
+    if a && (notEmpty l1 || notEmpty l2) then
+        badLengths()
+    a
 
 [<Name "head">]
 let Head (l: list<'T>) =
@@ -187,7 +217,7 @@ let IterateIndexed2 f (l1: list<_>) (l2: list<_>) =
     if notEmpty r2 then
         badLengths()
 
-[<Inline>]
+[<Name "length">]
 let Length (l: list<_>) =
     let mutable r = l
     let mutable i = 0
@@ -222,7 +252,7 @@ let Map2 (f: 'T1 -> 'T2 -> 'T3) (x1: list<'T1>) (x2: list<'T2>) =
         badLengths()
     res
 
-[<Inline>]
+[<Name "map3">]
 let Map3 (f: 'T1 -> 'T2 -> 'T3 -> 'T4) (x1: list<'T1>) (x2: list<'T2>) (x3: list<'T3>) =
     let res = [] : list<'T4> 
     let mutable r = res
@@ -432,12 +462,11 @@ let Unzip3 (l: list<_>) =
 
 [<Name "zip">]
 let Zip (l1: list<_>) (l2: list<_>) =
-    List.ofArray (Array.zip (Array.ofList l1) (Array.ofList l2))
+    List.map2 (fun x y -> x, y) l1 l2
 
 [<Name "zip3">]
 let Zip3 (l1: list<_>) (l2: list<_>) (l3: list<_>) =
-    List.ofArray (Array.zip3 (Array.ofList l1)
-        (Array.ofList l2) (Array.ofList l3))
+    Map3 (fun x y z -> (x, y, z)) l1 l2 l3
 
 [<Name "chunkBySize">]
 let ChunkBySize size list =
@@ -473,7 +502,7 @@ let SplitInto count (list: list<'T>) =
 
 [<Name "except">]
 let Except (itemsToExclude: seq<'T>) (l: list<'T>) =
-    SeqExcept itemsToExclude (List.toSeq l)
+    SeqExcept itemsToExclude l
     |> Seq.toList
 
 [<Name "tryFindBack">]
@@ -515,8 +544,13 @@ let Last (list : list<'T>) : 'T =
     unsafeHead r
 
 [<Name "contains">]
-let Contains (el: 'T) (l: list<'T>) =
-    SeqContains el (List.toSeq l)
+let Contains (el: 'T) (x: list<'T>) =
+    let mutable c = false
+    let mutable l = x
+    while not c && notEmpty l do
+        c <- el = unsafeHead l
+        l <- unsafeTail l
+    c
 
 [<Name "mapFold">]
 let MapFold<'T, 'S, 'R> (f: 'S -> 'T -> 'R * 'S) zero list =
@@ -541,7 +575,7 @@ let Pairwise (l: list<'T>) : list<'T * 'T> =
 let Indexed (list : list<'T>) : list<int * 'T> =
     List.mapi (fun a b -> (a, b)) list
 
-[<Name "singleton">]
+[<Inline>]
 let Singleton<'T> (x: 'T) =
     [x]
 
@@ -572,11 +606,11 @@ let TryHead<'T> (list: list<'T>) =
     | [] ->
         None
 
-[<Name "tryItem">]
-let rec TryItem<'T> n (list: list<'T>) =
+[<Inline>]
+let TryItem<'T> n (list: list<'T>) =
     SeqTryItem n list 
 
-[<Name "tryLast">]
+[<Inline>]
 let TryLast<'T> (list: list<'T>) =
     SeqTryLast list
 

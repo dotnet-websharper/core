@@ -79,8 +79,8 @@ let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
 let ModifyTSAssembly (current: M.Info) (a: Assembly) =
     ModifyWIGAssembly current a.Raw
 
-let CreateResources (refMeta: M.Info) (current: M.Info) sourceMap assemblyName =
-    let current, sources =
+let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap assemblyName =
+    let currentPosFixed, sources =
         if sourceMap then
             let current, fileNames = transformAllSourcePositionsInMetadata assemblyName current
             let sources = fileNames |> Array.map (fun (fn, key) -> key, File.ReadAllText fn)
@@ -90,10 +90,16 @@ let CreateResources (refMeta: M.Info) (current: M.Info) sourceMap assemblyName =
     
     let meta =
         use s = new MemoryStream(8 * 1024)
-        M.IO.Encode s current
+        M.IO.Encode s currentPosFixed
         s.ToArray()
     let pkg = 
-        WebSharper.Compiler.Packager.packageAssembly refMeta current false
+        Packager.packageAssembly refMeta current false
+    
+    let pkg =
+        if sourceMap then
+            TransformSourcePositions(assemblyName).TransformExpression pkg
+        else
+            removeSourcePos.TransformExpression pkg
 
     let res = ResizeArray()
 
@@ -120,7 +126,7 @@ let CreateResources (refMeta: M.Info) (current: M.Info) sourceMap assemblyName =
     else None
 
 let ModifyCecilAssembly (refMeta: M.Info) (current: M.Info) sourceMap (a: Mono.Cecil.AssemblyDefinition) =
-    match CreateResources refMeta current sourceMap a.Name.Name with
+    match CreateResources None refMeta current sourceMap a.Name.Name with
     | Some (js, res) -> 
         let pub = Mono.Cecil.ManifestResourceAttributes.Public
         for name, contents in res do

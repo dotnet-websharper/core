@@ -60,6 +60,18 @@ type WebSharperFSharpCompiler(logger) =
                     (if err.Severity = Microsoft.FSharp.Compiler.FSharpErrorSeverity.Warning then "warning" else "error") err.ErrorNumber
                         
             eprintfn "%s%s%s" pos info (NormalizeErrorString err.Message)
+                               
+    member this.PrintWarnings(comp: WebSharper.Compiler.Compilation, path: string) =
+        let projDir = Path.GetDirectoryName path
+        let winfo = "WebSharper warning: "
+        for posOpt, err in comp.Warnings do
+            let pos =
+                match posOpt with
+                | Some p ->
+                    let file = (fullpath projDir p.FileName).Replace("/","\\")
+                    sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
+                | None -> ""
+            eprintfn "%s%s%s" pos winfo (NormalizeErrorString (err.ToString()))
 
     member this.Compile (prevMeta, argv, path: string, warnOnly) = 
 
@@ -130,15 +142,6 @@ type WebSharperFSharpCompiler(logger) =
         comp.VerifyRPCs()
 
         if this.PrintEnabled then
-            let winfo = "WebSharper warning: "
-            for posOpt, err in comp.Warnings do
-                let pos =
-                    match posOpt with
-                    | Some p ->
-                        let file = (fullpath projDir p.FileName).Replace("/","\\")
-                        sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
-                    | None -> ""
-                eprintfn "%s%s%s" pos winfo (NormalizeErrorString (err.ToString()))
 
             let einfo = if warnOnly then "WebSharper warning: ERROR " else "WebSharper error: "
             for posOpt, err in comp.Errors do

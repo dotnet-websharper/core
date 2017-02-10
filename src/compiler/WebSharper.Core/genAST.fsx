@@ -95,6 +95,7 @@ let Method = Object "Concrete<Method>"
 let Str = Object "string"
 let Type = Object "Type"
 let Int = Object "int"
+let Bool = Object "bool"
 
 let ExprDefs = 
     [
@@ -108,7 +109,7 @@ let ExprDefs =
             , "Gets the value of a variable"
         "Value", [ Literal, "value" ]
             , "Contains a literal value"
-        "Application", [ Expr, "func" ; List Expr, "arguments"; Object "bool", "pure"; Option Int, "knownLength" ]
+        "Application", [ Expr, "func" ; List Expr, "arguments"; Bool, "pure"; Option Int, "knownLength" ]
             , "Function application with extra information. \
                The `pure` field should be true only when the function called has no side effects, so the side effects of \
                the expression is the same as evaluating `func` then the expressions in the `arguments` list. \
@@ -150,6 +151,10 @@ let ExprDefs =
             , ".NET - Method call"
         "CallNeedingMoreArgs", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method"; List Expr, "arguments" ]
             , "Temporary - Partial application, workaround for FCS issue #414"
+        "CurriedApplication", [ Expr, "func"; List Expr, "arguments" ]
+            , "Temporary - F# function application"
+        "OptimizedFSharpArg", [ Expr, "funcVar"; Object "FuncArgOptimization", "opt"]
+            , "Temporary - optimized curried or tupled F# function argument"
         "Ctor", [ TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ] 
             , ".NET - Constructor call"
         "BaseCtor", [ Expr, "thisObject"; TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ]

@@ -49,7 +49,7 @@ type private HashSetEnumeratorProxy<'T> [<JavaScript(false)>] () =
 type internal HashSetProxy<'T when 'T : equality>
 
     private (init   : seq<'T>,
-             equals : 'T -> 'T -> bool,
+             equals : FuncWithArgs<'T * 'T, bool>,
              hash   : 'T -> int) =
 
         let mutable data  = Array<Array<'T>>()
@@ -60,7 +60,7 @@ type internal HashSetProxy<'T when 'T : equality>
             let mutable i = 0
             let l = arr.Length
             while c && i < l do
-                if equals arr.[i] item then
+                if equals.Call(arr.[i], item) then
                     c <- false
                 else
                     i <- i + 1
@@ -71,7 +71,7 @@ type internal HashSetProxy<'T when 'T : equality>
             let mutable i = 0
             let l = arr.Length
             while c && i < l do
-                if equals arr.[i] item then
+                if equals.Call(arr.[i], item) then
                     arr.Splice(i, 1) |> ignore
                     c <- false
                 else
@@ -93,9 +93,9 @@ type internal HashSetProxy<'T when 'T : equality>
 
         do for x in init do add x |> ignore
 
-        new () = HashSetProxy<'T>(Seq.empty, (=), hash)
+        new () = HashSetProxy<'T>(Seq.empty, genEquals<'T>(), hash)
 
-        new (init: seq<'T>) = new HashSetProxy<'T>(init, (=), hash)
+        new (init: seq<'T>) = new HashSetProxy<'T>(init, genEquals<'T>(), hash)
 
         new (comparer: IEqualityComparer<'T>) =
             new HashSetProxy<'T>(Seq.empty, equals comparer, getHashCode comparer)

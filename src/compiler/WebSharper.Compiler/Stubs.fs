@@ -78,7 +78,7 @@ let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstan
         let propAddressAndName() =
             match getAddressAndName true with
             | None ->
-                Translator.errorPlaceholder, Translator.errorPlaceholder
+                errorPlaceholder, errorPlaceholder
             | Some (a, n) ->
                 Global a, Value (String n)
         if isGet then
@@ -91,7 +91,7 @@ let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstan
             let a =
                 match getAddressAndName false with
                 | None -> 
-                    Translator.errorPlaceholder
+                    errorPlaceholder
                 | Some (a, n) -> 
                     Global (a @ [n]) 
             let l = mdef.Value.Parameters.Length
@@ -117,5 +117,5 @@ let GetConstructorInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) (cd
     | _ ->
         let l = cdef.Value.CtorParameters.Length
         let args = List.init l Hole
-        let f = if a.IsEmpty then Translator.errorPlaceholder else Global a
+        let f = if a.IsEmpty then errorPlaceholder else Global a
         New(f, args), error

@@ -23,11 +23,9 @@ module WebSharper.Compiler.Translator
 open WebSharper.Core
 open WebSharper.Core.AST
 
-val errorPlaceholder : Expression
-
 [<Class>]
 type DotNetToJavaScript =
-    inherit Transformer
+    inherit TransformerWithSourcePos
 
     static member CompileFull : comp: Compilation -> unit
 

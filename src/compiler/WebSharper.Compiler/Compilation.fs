@@ -50,11 +50,6 @@ type Compilation(meta: Info, ?hasGraph) =
     let mutable resolver = None : option<Resolve.Resolver>
     let generatedMethodAddresses = Dictionary()
 
-    let findProxied typ = 
-        match proxies.TryFind typ with
-        | Some p -> p 
-        | _ -> typ
-
     let errors = ResizeArray()
     let warnings = ResizeArray() 
 
@@ -135,11 +130,11 @@ type Compilation(meta: Info, ?hasGraph) =
             this.GetCustomType typ
         
         member this.GetInterfaceInfo typ =
-            interfaces.TryFind (findProxied typ)
+            interfaces.TryFind (this.FindProxied typ)
 
         member this.GetClassInfo typ = 
             let fstOf3 (x, _, _) = x
-            match classes.TryFind (findProxied typ) with
+            match classes.TryFind (this.FindProxied typ) with
             | None -> None
             | Some cls ->
                 Some { new IClassInfo with
@@ -178,7 +173,7 @@ type Compilation(meta: Info, ?hasGraph) =
         member this.AddGeneratedCode(meth: Method, body: Expression) =
             let td = this.GetGeneratedClass()
             let addr = generatedMethodAddresses.[meth]
-            compilingMethods.Add((td, meth),(NotCompiled (Static addr, true), body))
+            compilingMethods.Add((td, meth),(NotCompiled (Static addr, true, None), body))
 
         member this.AssemblyName = this.AssemblyName
 
@@ -193,6 +188,12 @@ type Compilation(meta: Info, ?hasGraph) =
                 macroEntries.[key] <- value :: l
             | _ -> 
                 macroEntries.[key] <- [value]
+
+        member this.AddError(pos, msg) =
+            this.AddError(pos, SourceError msg)
+
+        member this.AddWarning(pos, msg) =
+            this.AddWarning(pos, SourceWarning msg)
 
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
@@ -353,7 +354,7 @@ type Compilation(meta: Info, ?hasGraph) =
         customTypes.ContainsKey typ || notAnnotatedCustomTypes.ContainsKey typ
 
     member this.GetCustomType(typ) = 
-        let typ = findProxied typ
+        let typ = this.FindProxied typ
         match customTypes.TryFind typ with
         | Some res -> res
         | _ ->
@@ -365,35 +366,35 @@ type Compilation(meta: Info, ?hasGraph) =
         res
 
     member this.TryLookupClassInfo typ =   
-        classes.TryFind(findProxied typ)
+        classes.TryFind(this.FindProxied typ)
     
     member this.TryLookupInterfaceInfo typ =   
-        interfaces.TryFind(findProxied typ)
+        interfaces.TryFind(this.FindProxied typ)
     
     member this.IsImplementing (typ, intf) : bool option =
-        classes.TryFind(findProxied typ)
+        classes.TryFind(this.FindProxied typ)
         |> Option.map (fun cls ->
             cls.Implementations |> Seq.exists (fun (KeyValue ((i, _), _)) -> i = intf)
             || cls.BaseClass |> Option.exists (fun b -> this.IsImplementing(b, intf) |> Option.exists id) 
         )
 
     member this.HasType(typ) =
-        let typ = findProxied typ
+        let typ = this.FindProxied typ
         classes.ContainsKey typ || interfaces.ContainsKey typ
 
     member this.IsInterface(typ) =
-        let typ = findProxied typ
+        let typ = this.FindProxied typ
         interfaces.ContainsKey typ
 
     member this.ConstructorExistsInMetadata (typ, ctor) =
-        let typ = findProxied typ
+        let typ = this.FindProxied typ
         match classes.TryFind typ with
         | Some cls ->
             cls.Constructors.ContainsKey ctor || compilingConstructors.ContainsKey (typ, ctor)
         | _ -> false
 
     member this.MethodExistsInMetadata (typ, meth) =
-        let typ = findProxied typ
+        let typ = this.FindProxied typ
         match interfaces.TryFind typ with
         | Some intf -> 
             intf.Methods.ContainsKey meth
@@ -404,7 +405,7 @@ type Compilation(meta: Info, ?hasGraph) =
         | _ -> false
 
     member this.LookupMethodInfo(typ, meth) = 
-        let typ = findProxied typ
+        let typ = this.FindProxied typ
         match interfaces.TryFind typ with
         | Some intf -> 
             match intf.Methods.TryFind meth with
@@ -412,13 +413,13 @@ type Compilation(meta: Info, ?hasGraph) =
                 if typ.Value.Assembly = "mscorlib" then
                     match typ.Value.FullName with
                     | "System.Collections.IEnumerable" ->
-                        Compiled (Inline, false, Application(Global ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], false, Some 1))
+                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], false, Some 1))
                     | "System.Collections.Generic.IEnumerable`1" ->
-                        Compiled (Inline, false, Application(Global ["WebSharper"; "Enumerator"; "Get"], [Hole 0], false, Some 1))
+                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get"], [Hole 0], false, Some 1))
                     | _ -> 
-                        Compiled (Instance m, false, Undefined)
+                        Compiled (Instance m, Optimizations.None, Undefined)
                 else
-                    Compiled (Instance m, false, Undefined)              
+                    Compiled (Instance m, Optimizations.None, Undefined)              
             | _ ->
                 let mName = meth.Value.MethodName
                 let candidates = 
@@ -449,7 +450,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     if not (List.isEmpty cls.Macros) then
                         let info =
                             List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros None |> Option.get
-                        Compiled (info, false, Undefined)
+                        Compiled (info, Optimizations.None, Undefined)
                     else
                         match this.GetCustomType typ with
                         | NotCustomType -> 
@@ -483,7 +484,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | i -> CustomTypeMember i
 
     member this.LookupFieldInfo(typ, field) =
-        let typ = findProxied typ
+        let typ = this.FindProxied typ
         match classes.TryFind typ with
         | Some cls ->
             match cls.Fields.TryFind field with
@@ -538,7 +539,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | i -> CustomTypeField i
 
     member this.LookupConstructorInfo(typ, ctor) =
-        let typ = findProxied typ
+        let typ = this.FindProxied typ
         match classes.TryFind typ with
         | Some cls ->
             match cls.Constructors.TryFind ctor with
@@ -550,7 +551,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     if not (List.isEmpty cls.Macros) then
                         let info =
                             List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros None |> Option.get
-                        Compiled (info, false, Undefined)
+                        Compiled (info, Optimizations.None, Undefined)
                     else
                         match this.GetCustomType typ with
                         | NotCustomType -> 
@@ -569,7 +570,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | i -> CustomTypeMember i
     
     member this.TryLookupStaticConstructorAddress(typ) =
-        let typ = findProxied typ
+        let typ = this.FindProxied typ
         let cls = classes.[typ]
         cls.StaticConstructor |> Option.map fst
 
@@ -577,7 +578,7 @@ type Compilation(meta: Info, ?hasGraph) =
         this.TryLookupStaticConstructorAddress(typ).Value
 
     member this.TryGetRecordConstructor(typ) =
-        let typ = findProxied typ
+        let typ = this.FindProxied typ
         match classes.TryFind typ with
         | Some cls ->
             match Seq.tryHead cls.Constructors.Keys with
@@ -595,7 +596,7 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.CompilingMethods = compilingMethods  
 
     member this.AddCompiledMethod(typ, meth, info, isPure, comp) =
-        let typ = findProxied typ 
+        let typ = this.FindProxied typ 
         compilingMethods.Remove(typ, meth) |> ignore
         let cls = classes.[typ]
         match cls.Methods.TryFind meth with
@@ -606,24 +607,24 @@ type Compilation(meta: Info, ?hasGraph) =
             failwithf "Method already added: %s %s" typ.Value.FullName (string meth.Value)
 
     member this.FailedCompiledMethod(typ, meth) =
-        let typ = findProxied typ 
+        let typ = this.FindProxied typ 
         compilingMethods.Remove(typ, meth) |> ignore
 
     member this.AddCompiledConstructor(typ, ctor, info, isPure, comp) = 
-        let typ = findProxied typ 
+        let typ = this.FindProxied typ 
         compilingConstructors.Remove(typ, ctor) |> ignore
         let cls = classes.[typ]
         cls.Constructors.Add(ctor, (info, isPure, comp))
 
     member this.FailedCompiledConstructor(typ, ctor) =
-        let typ = findProxied typ 
+        let typ = this.FindProxied typ 
         compilingConstructors.Remove(typ, ctor) |> ignore
 
     member this.GetCompilingStaticConstructors() =
         compilingStaticConstructors |> Seq.map (fun (KeyValue(t, (a, c))) -> t, a, c) |> Array.ofSeq
 
     member this.AddCompiledStaticConstructor(typ, addr, cctor) =
-        let typ = findProxied typ 
+        let typ = this.FindProxied typ 
         compilingStaticConstructors.Remove typ |> ignore
         let cls = classes.[typ]
         classes.[typ] <- { cls with StaticConstructor = Some (addr, cctor) }
@@ -632,7 +633,7 @@ type Compilation(meta: Info, ?hasGraph) =
         compilingImplementations |> Seq.map (fun (KeyValue((t, i, m), (n, e))) -> t, i, m, n, e) |> Array.ofSeq
 
     member this.AddCompiledImplementation(typ, intf, meth, info, comp) =
-        let typ = findProxied typ 
+        let typ = this.FindProxied typ 
         compilingImplementations.Remove(typ, intf, meth) |> ignore
         let cls = classes.[typ]
         cls.Implementations.Add((intf, meth), (info, comp))
@@ -718,7 +719,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let cctor = cls.Members |> Seq.tryPick (function M.StaticConstructor e -> Some e | _ -> None)
             let baseCls =
                 cls.BaseClass |> Option.bind (fun b ->
-                    let b = findProxied b
+                    let b = this.FindProxied b
                     if classes.ContainsKey b || notResolvedClasses.ContainsKey b then Some b else None
                 )
             let hasWSPrototype =                
@@ -759,7 +760,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 graph.AddEdge(clsNodeIndex, asmNodeIndex)
                 for req in cls.Requires do
                     graph.AddEdge(clsNodeIndex, ResourceNode req)
-                cls.BaseClass |> Option.iter (fun b -> graph.AddEdge(clsNodeIndex, TypeNode (findProxied b)))
+                cls.BaseClass |> Option.iter (fun b -> graph.AddEdge(clsNodeIndex, TypeNode (this.FindProxied b)))
                 for m in cls.Members do
                     match m with
                     | M.Constructor (ctor, { Kind = k; Requires = reqs }) -> 
@@ -773,7 +774,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     | M.Method (meth, { Kind = k; Requires = reqs }) -> 
                         match k with
                         | N.Override btyp ->
-                            let btyp = findProxied btyp  
+                            let btyp = this.FindProxied btyp  
                             let mNode = graph.AddOrLookupNode(MethodNode(typ, meth))
                             graph.AddEdge(mNode, AbstractMethodNode(btyp, meth))
                             graph.AddOverride(typ, btyp, meth)
@@ -781,7 +782,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             for req in reqs do
                                 graph.AddEdge(mNode, ResourceNode req)
                         | N.Implementation intf ->
-                            let intf = findProxied intf 
+                            let intf = this.FindProxied intf 
                             let mNode = graph.AddOrLookupNode(ImplementationNode(typ, intf, meth))
                             graph.AddImplementation(typ, intf, meth)
                             graph.AddEdge(mNode, clsNodeIndex)
@@ -875,7 +876,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let toCompilingMember (nr : NotResolvedMethod) (comp: CompiledMember) =
             match nr.Generator with
             | Some (g, p) -> NotGenerated(g, p, comp, notVirtual nr.Kind)
-            | _ -> NotCompiled (comp, notVirtual nr.Kind)
+            | _ -> NotCompiled (comp, notVirtual nr.Kind, nr.FuncArgs)
             
         let setClassAddress typ clAddr =
             let res = classes.[typ]
@@ -956,7 +957,8 @@ type Compilation(meta: Info, ?hasGraph) =
                             try
                                 let isPure =
                                     nr.Pure || (Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
-                                cc.Constructors.Add (cDef, (comp, isPure, addCctorCall typ cc nr.Body))
+                                let opts = { IsPure = isPure; FuncArgs = nr.FuncArgs }
+                                cc.Constructors.Add (cDef, (comp, opts, addCctorCall typ cc nr.Body))
                             with _ ->
                                 printerrf "Duplicate definition for constructor of %s" typ.Value.FullName
                         else 
@@ -967,7 +969,8 @@ type Compilation(meta: Info, ?hasGraph) =
                             try
                                 let isPure =
                                     nr.Pure || (notVirtual nr.Kind && Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
-                                cc.Methods.Add (mDef, (comp, isPure, addCctorCall typ cc nr.Body))
+                                let opts = { IsPure = isPure; FuncArgs = nr.FuncArgs }
+                                cc.Methods.Add (mDef, (comp, opts, addCctorCall typ cc nr.Body))
                             with _ ->
                                 printerrf "Duplicate definition for method %s.%s" typ.Value.FullName mDef.Value.MethodName
                         else 
@@ -1031,7 +1034,8 @@ type Compilation(meta: Info, ?hasGraph) =
                 if nr.Compiled then
                     let isPure =
                         nr.Pure || (Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                    res.Constructors.Add(cDef, (comp, isPure, addCctorCall typ res nr.Body))
+                    let opts = { IsPure = isPure; FuncArgs = nr.FuncArgs }
+                    res.Constructors.Add(cDef, (comp, opts, addCctorCall typ res nr.Body))
                 else
                     compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.Field (fName, _) ->
@@ -1041,7 +1045,8 @@ type Compilation(meta: Info, ?hasGraph) =
                 if nr.Compiled then 
                     let isPure =
                         nr.Pure || (notVirtual nr.Kind && Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                    res.Methods.Add(mDef, (comp, isPure, addCctorCall typ res nr.Body))
+                    let opts = { IsPure = isPure; FuncArgs = nr.FuncArgs }
+                    res.Methods.Add(mDef, (comp, opts, addCctorCall typ res nr.Body))
                 else
                     compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.StaticConstructor expr ->                
@@ -1072,7 +1077,9 @@ type Compilation(meta: Info, ?hasGraph) =
                         compilingImplementations.Add((typ, intf, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
                 | _ ->
                     if nr.Compiled then 
-                        res.Methods.Add(mDef, (comp, nr.Pure || isPureFunction nr.Body, addCctorCall typ res nr.Body))
+                        let isPure = nr.Pure || isPureFunction nr.Body
+                        let opts = { IsPure = isPure; FuncArgs = nr.FuncArgs }
+                        res.Methods.Add(mDef, (comp, opts, addCctorCall typ res nr.Body))
                     else
                         compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | _ -> failwith "Invalid instance member kind"   
@@ -1185,7 +1192,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                     | Some (smi, _, _) -> Some smi
                                     | _ ->
                                     match compilingMethods.TryFind (td, mDef) with
-                                    | Some ((NotCompiled (smi, _) | NotGenerated (_, _, smi, _)), _) -> Some smi
+                                    | Some ((NotCompiled (smi, _, _) | NotGenerated (_, _, smi, _)), _) -> Some smi
                                     | None ->
                                         printerrf "Abstract method not found in compilation: %s in %s" (string mDef.Value) td.Value.FullName
                                         None

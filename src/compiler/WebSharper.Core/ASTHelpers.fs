@@ -47,6 +47,11 @@ let IgnoreExprSourcePos expr =
     | ExprSourcePos (_, e) -> e
     | _ -> expr
 
+let (|IgnoreExprSourcePos|) expr =
+    match expr with
+    | ExprSourcePos (_, e) -> e
+    | _ -> expr
+
 /// Copies wrapping ExprSourcePos case if present to another AST.Expression
 let WithSourcePosOfExpr sourceExpr expr =
     match sourceExpr with      
