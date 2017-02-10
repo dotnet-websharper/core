@@ -329,13 +329,11 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
     member this.ReadTypeSt markStaticTP (tparams: Map<string, int>) (t: FSharpType) =
         if t.IsGenericParameter then
-        
             match tparams.TryFind t.GenericParameter.Name with
             | Some i -> 
                 if markStaticTP && t.GenericParameter.IsSolveAtCompileTime then StaticTypeParameter i else TypeParameter i
             | _ ->
-                parsefailf "Failed to resolve generic parameter: %s, found: %s" 
-                    t.GenericParameter.Name (tparams |> Map.toSeq |> Seq.map fst |> String.concat ", ")
+                LocalTypeParameter
         else
         let t = getOrigType t
         let getFunc() =
@@ -997,7 +995,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     )
                 Lambda (args, transformExpression env body)
             | _ -> failwith "Failed to translate delegate creation"
-        | P.TypeLambda (gen, expr) -> tr expr
+        | P.TypeLambda (gen, expr) ->
+            tr expr
         | P.Quote expr -> tr expr
         | P.BaseValue _ -> Base
         | P.ILAsm("[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, null)],TypeVar 0us)]", _, [ arr; i ]) ->

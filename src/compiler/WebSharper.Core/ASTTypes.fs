@@ -247,6 +247,8 @@ and Type =
     | VoidType 
     /// used for F# statically resolved type parameters
     | StaticTypeParameter of int
+    /// used for F# inner generics
+    | LocalTypeParameter
 
     override this.ToString() =
         match this with
@@ -262,6 +264,14 @@ and Type =
         | ByRefType t -> "byref<" + string t + ">"
         | VoidType -> "unit"
         | StaticTypeParameter i -> "^T" + string i
+        | LocalTypeParameter -> "'?"
+
+    member this.IsParameter =
+        match this with
+        | TypeParameter _
+        | StaticTypeParameter _
+        | LocalTypeParameter -> true
+        | _ -> false
 
     member this.AssemblyQualifiedName =
         let combine (n, a) = n + ", " + a
@@ -295,19 +305,21 @@ and Type =
                 "Microsoft.FSharp.Core.FSharpFunc`2[[" + a.AssemblyQualifiedName + "],[" + r.AssemblyQualifiedName + "]]", "FSharp.Core"
             | ByRefType t -> getNameAndAsm t
             | VoidType -> "Microsoft.FSharp.Core.Unit", "FSharp.Core"
+            | LocalTypeParameter -> "$?", ""
         getNameAndAsm this |> combine
 
     member this.TypeDefinition =
         match this with
         | ConcreteType t -> t.Entity 
         | StaticTypeParameter _
+        | LocalTypeParameter 
         | TypeParameter _ -> invalidOp "Generic parameter has no TypeDefinition"
         | ArrayType _ -> invalidOp "Array type has no TypeDefinition"
         | TupleType _ -> invalidOp "Tuple type has no TypeDefinition"
         | FSharpFuncType _ -> invalidOp "FSharpFunc type has no TypeDefinition"
         | ByRefType t -> t.TypeDefinition
         | VoidType -> invalidOp "Void type has no TypeDefinition"
-      
+
     member this.SubstituteGenerics (gs : Type[]) =
         match this with 
         | ConcreteType t -> ConcreteType { t with Generics = t.Generics |> List.map (fun p -> p.SubstituteGenerics gs) }
@@ -318,6 +330,7 @@ and Type =
         | ByRefType t -> ByRefType (t.SubstituteGenerics gs)
         | VoidType -> VoidType
         | StaticTypeParameter i -> StaticTypeParameter i
+        | LocalTypeParameter -> LocalTypeParameter
 
     member this.SubstituteGenericsToSame(o : Type) =
         match this with 
@@ -329,6 +342,7 @@ and Type =
         | ByRefType t -> ByRefType (t.SubstituteGenericsToSame(o))
         | VoidType -> VoidType
         | StaticTypeParameter i -> StaticTypeParameter i
+        | LocalTypeParameter -> LocalTypeParameter
 
 type MethodInfo =
     {

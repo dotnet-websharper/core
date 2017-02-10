@@ -104,8 +104,11 @@ let isAugmentedFSharpType (e: FSharpEntity) =
     (e.IsFSharpRecord || e.IsFSharpUnion || e.IsFSharpExceptionDeclaration)
     && not (
         e.Attributes |> Seq.exists (fun a ->
-            a.AttributeType.FullName = "Microsoft.FSharp.Core.DefaultAugmentationAttribute"
-            && not (snd a.ConstructorArguments.[0] :?> bool)
+            let res =
+                a.AttributeType.FullName = "Microsoft.FSharp.Core.DefaultAugmentationAttribute"
+                && not (snd a.ConstructorArguments.[0] :?> bool)
+            if res then printfn "found DefaultAugmentation(false) on %s" e.FullName
+            res 
         )
     )
 

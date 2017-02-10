@@ -976,8 +976,8 @@ type EqualityComparer() =
         } 
 
     static member GetDefault(comp: M.ICompilation, t: Type) =
+        if t.IsParameter then MacroNeedsResolvedTypeArg t else
         match t with
-        | TypeParameter _ | StaticTypeParameter _ -> MacroNeedsResolvedTypeArg
         | ConcreteType ct ->
             match isImplementing comp ct.Entity ieqTy with
             | Some isEquatable ->
@@ -1022,8 +1022,8 @@ type Comparer() =
         } 
 
     static member GetDefault(comp: M.ICompilation, t: Type) =
+        if t.IsParameter then MacroNeedsResolvedTypeArg t else
         match t with
-        | TypeParameter _ | StaticTypeParameter _ -> MacroNeedsResolvedTypeArg
         | ConcreteType ct ->
             match isImplementing comp ct.Entity icmpTy with
             | Some isEquatable ->
@@ -1055,7 +1055,9 @@ type DefaultOf() =
     inherit Macro()
 
     override __.TranslateCall(c) =
-        match c.Method.Generics.[0] with
+        let t = c.Method.Generics.[0]
+        if t.IsParameter then MacroNeedsResolvedTypeArg t else
+        match t with
         | ConcreteType td when
             (td.Entity.Value.Assembly.StartsWith "mscorlib" &&
                 match td.Entity.Value.FullName with
@@ -1074,7 +1076,6 @@ type DefaultOf() =
                 | "System.TimeSpan" -> true
                 | _ -> false)
             -> MacroOk (Value (Int 0))
-        | TypeParameter _ | StaticTypeParameter _ -> MacroNeedsResolvedTypeArg
         | ConcreteType td -> 
             match c.Compilation.GetCustomTypeInfo td.Entity with
             | M.StructInfo ->
@@ -1210,5 +1211,5 @@ type StringFormat() =
 
                 defaultArg warningRes (MacroOk result)
             
-            | _ -> if c.IsInline then MacroNeedsResolvedTypeArg else MacroFallback
+            | _ -> MacroFallback
         | _ -> MacroError "proxy is for System.String.Format"
