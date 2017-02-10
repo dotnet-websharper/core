@@ -1215,8 +1215,8 @@ module WebStorage =
         Class "Storage"
         |+> Instance [
                 "length" =? T<int>
-                "key" => T<int -> string>
-                "getItem" => T<string->string>
+                "key" => T<int> ^-> T<string>
+                "getItem" => T<string> ^-> T<string>
                 "setItem" => T<string>?key * T<string>?value ^-> T<unit>
                 "removeItem" => T<string -> unit>
                 "clear" => T<unit->unit>

@@ -72,11 +72,11 @@ let BrowserVersion() =
     else
         (Browser.Other ua)
 [<JavaScript>]
-let isNotIE () =
+let isIE () =
     let bv = BrowserVersion()
     match bv with
-    | (Browser.IE ver) -> false
-    | _ -> true
+    | (Browser.IE ver) -> true
+    | _ -> false
 
 [<JavaScript>]
 let Tests =
@@ -101,15 +101,15 @@ let Tests =
             equalMsg elem.LocalName "div" "Local name checking"
             isTrueMsg (elem.NamespaceURI <> "") "Checking namespace emptiness"
             notEqualMsg (elem.GetElementsByClassName("child-example-class").Length) 0 "Childs by name count"
-            //        IE doesn't support the methods below
-            equalMsg (try elem.Closest("div") with e -> As e) elem "Checking closest div"
-            equalMsg (try elem.Closest("input") with e -> As e) null "Checking closest input"
-            equalMsg (try elem.Matches("div") with e -> As e) true "Matching for div"
-            equalMsg (try elem.Matches("input") with e -> As e) false "Matching for input"
+            if not (isIE()) then
+                equalMsg (elem.Closest("div")) elem "Checking closest div"
+                equalMsg (elem.Closest("input")) null "Checking closest input"
+                equalMsg (elem.Matches("div")) true "Matching for div"
+                equalMsg (elem.Matches("input")) false "Matching for input"
         }
 
 
-        do if (isNotIE()) then
+        do if not (isIE()) then
             Test "Text" {
                 let exampleText = Dom.Text("example-text")
                 equalMsg (exampleText.WholeText) "example-text" "Check for initial value"
@@ -141,7 +141,6 @@ let Tests =
             equalMsg doc.Dir "ltr" "Checking ltr (current ltr)"
             notEqualMsg doc.Doctype JS.Undefined "Checking doctype"
             notEqualMsg doc.DocumentElement JS.Undefined "Checking documentElement"
-//            equalMsg doc.DocumentURI (JS.Window.Location.Href) "Checking documentURI"
             notEqualMsg doc.Domain JS.Undefined "Checking domain"
             notEqualMsg doc.Embeds JS.Undefined "Checking for embeds"
             notEqualMsg doc.Forms JS.Undefined "Checking for forms"
@@ -177,7 +176,7 @@ let Tests =
 
 
         Console.Log(BrowserVersion())
-        do if isNotIE() then
+        do if not (isIE()) then
             Test "EcmaObject" {
                 let e = new JavaScript.Object()
                 let o1assign = New ( [ ("a",5 :> obj) ] )
@@ -191,7 +190,7 @@ let Tests =
                 isTrueMsg (JavaScript.Object.Is(o1, o1)) "Checking equality with is()"
             }
 
-        do if isNotIE() then
+        do if not (isIE()) then
                 Test "EcmaMath" {
                     equalMsg (Math.Cbrt 27.) 3. "Math.cbrt"
                     equalMsg (Math.Clz32 1.) 31. "Math.clz32"
@@ -215,12 +214,12 @@ let Tests =
                     equalMsg (Math.Trunc(3.14)) 3. "Math.trunc"
                 }
 
-        do if isNotIE() then
+        do if not (isIE()) then
             Test "EcmaNumber" {
                 equalMsg (Number.ParseFloat("3.14")) 3.14 "Number.parseFloat"
                 equalMsg (Number.ParseInt("3.14")) 3 "Number.parseInt failed"
                 equalMsg (Number.ParseInt("3")) 3 "Number.parseInt"
-                isTrueMsg (Number.IsNaN(Number.ParseFloat("not-a-number"))) "Number.isNan"
+                isTrueMsg (Number.IsNaN(Number.ParseFloat("not-a-number"))) "Number.isNaN"
                 isTrueMsg (Number.IsFinite(5)) "Number.isFinite"
                 isFalseMsg (Number.IsFinite(JS.Infinity)) "Number.isFinite infinity"
             }

@@ -452,10 +452,10 @@ module Interfaces =
                 "getBoundingClientRect" => T<unit> ^-> DOMRect
                 // CSSOM
 
-                "hasAttributes" => T<unit -> bool>
-                "getAttributeNames" => T<unit -> string[]>
+                "hasAttributes" => T<unit> ^-> T<bool>
+                "getAttributeNames" => T<unit> ^-> T<string[]>
                     |> WithComment "Warning: This method is not available in every browser, but it's part of the specification."
-                "getAttribute" => T<string->string>
+                "getAttribute" => T<string> ^-> T<string>
                 "setAttribute" => T<string> * T<string> ^-> T<unit>
                 "removeAttribute" => T<string->unit>
                 "getAttributeNode" => T<string> ^-> Attr
@@ -1167,7 +1167,7 @@ module Interfaces =
                     T<string>?target *
                     T<string>?data ^-> ProcessingInstruction
                 "createTextNode" => T<string> ^-> Text
-                "enableStyleSheetForSet" => T<string -> unit>
+                "enableStyleSheetForSet" => T<string> ^-> T<unit>
                 "getElementsByClassName" => T<string> ^-> NodeList
                 "getElementById" => T<string>?id ^-> Element
                 "getElementsByTagName" => T<string> ^-> NodeList
@@ -1175,23 +1175,23 @@ module Interfaces =
                     T<string>?namespaceURI *
                     T<string>?localName ^-> NodeList
                 "importNode" => Node?importedNode * T<bool>?deep ^-> Node
-                "normalizeDocument" => T<unit->unit>
+                "normalizeDocument" => T<unit> ^-> T<unit>
                 "renameNode" =>
                     Node *
                     T<string>?namespaceURI *
                     T<string>?qualifiedName ^-> Node
 
-                "close" => T<unit -> unit>
-                "open" => T<unit -> unit>
-                "write" => T<string -> unit>
-                "writeln" => T<string -> unit>
+                "close" => T<unit> ^-> T<unit>
+                "open" => T<unit> ^-> T<unit>
+                "write" => T<string> ^-> T<unit>
+                "writeln" => T<string> ^-> T<unit>
 
-                "execCommand" => T<string * bool * string -> bool>
+                "execCommand" => T<string> * T<bool> * T<string> ^-> T<bool>
                 "getElementsByName" => T<string> ^-> NodeList
-                "getSelection" => T<unit -> obj>
-                "hasFocus" => T<unit -> bool>
-                "queryCommandEnabled" => T<string -> bool>
-                "queryCommandSupported" => T<string -> bool>
+                "getSelection" => T<unit> ^-> T<obj>
+                "hasFocus" => T<unit> ^-> T<bool>
+                "queryCommandEnabled" => T<string> ^-> T<bool>
+                "queryCommandSupported" => T<string> ^-> T<bool>
 
                 "createNodeIterator" => (Node * !?T<int> * !?NodeFilter) ^-> NodeIterator
                 "createTreeWalker" => (Node * !?T<int> * !?NodeFilter) ^-> TreeWalker
