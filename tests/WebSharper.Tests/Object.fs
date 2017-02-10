@@ -171,6 +171,13 @@ module RunThisOnClient =
 do TestValue <- TestValue + 4
 
 [<JavaScript>]
+type Farm() as this =
+//    let cow = this.Cow() // this fails in .NET
+    member this.Cow() = "moo"
+    member x.Self() = this
+//    member this.CowToo() = cow
+
+[<JavaScript>]
 let Tests =
     TestCategory "Object" {
 
@@ -380,6 +387,13 @@ let Tests =
             fn (UN2 "hi")
             equal !o "hi"
         }
+
+        Test "Object with `as` alias" {
+            let o = Farm()
+            equal (o.Cow()) "moo"
+            equal (o.Self().Cow()) "moo"
+            jsEqual o?this JS.Undefined 
+        } 
         
         #if FSHARP41
         Test "Struct union" {
