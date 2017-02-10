@@ -30,6 +30,9 @@ module Definition =
     let Event =
         Class "jQuery.Event"
         |+> Instance [
+            "AsDomEvent" =? T<Dom.Event>
+            |> WithGetterInline "$0"
+            |> WithComment "Casts this JQuery.Event to a Dom.Event"
             "currentTarget" =? T<Dom.Element>
             "data" =? T<obj>
             "delegateTarget" =? T<Dom.Element>
@@ -86,87 +89,28 @@ module Definition =
             "then" => funcorfuncs * funcorfuncs * !?funcorfuncs ^-> Promise
         ]
 
-    let XMLHttpRequestResponseType =
-        Pattern.EnumStrings "XMLHttpRequestResponseType" [
-            "arraybuffer"
-            "blob"
-            "document"
-            "json"
-            "text"
-        ]
-        |+> Static [
-            "deafult" => T<string> 
-            |> WithInline ""
-            |> WithComment "The default value is text"
-        ]
-
-    let XMLHttpRequestEventTarget =
-        let EH = T<Dom.Event> ^-> T<unit>
-        Class "XMLHttpRequestEventTarget"
-        |=> Inherits T<Dom.EventTarget>
-        |+> Instance [
-            "onloadstart" =@ EH
-            "onprogress" =@ EH
-            "onabort" =@ EH
-            "onerror" =@ EH
-            "onload" =@ EH
-            "ontimeout" =@ EH
-            "onloadend" =@ EH
-        ]
-       
-    let XMLHttpRequestUpload =
-        Class "XMLHttpRequestUpload"
-        |=> Inherits XMLHttpRequestEventTarget
-
-    let XMLHttpRequest =
-        let EH = T<Dom.Event> ^-> T<unit>
-        Class "XMLHttpRequest"
-        |=> Inherits XMLHttpRequestEventTarget
-        |+> Static [
-            "UNSENT" =? T<int>
-            "OPENED" =? T<int>
-            "HEADERS_RECEIVED" =? T<int>
-            "LOADING" =? T<int>
-            "DONE" =? T<int>
-        ]
-        |+> Instance [
-            "onreadystatechange" =@ EH
-            "readyState" =? T<int>
-
-            // request
-            "open" => T<string>?``method`` * T<string>?url ^-> T<unit>
-            "open" => T<string>?``method`` * T<string>?url * T<bool>?async * !?T<string>?username * !?T<string>?password ^-> T<unit>
-            "setRequestHeader" => T<string>?name * T<string>?value ^-> T<unit>
-            "timeout" =@ T<int>
-            "withCredentials" =@ T<bool>
-            "upload" =? XMLHttpRequestUpload
-            "send" => !?T<Dom.Document>?body ^-> T<unit>
-            "abort" => T<unit> ^-> T<unit>
-
-            // response
-            "responseURL" =? T<string>
-            "status" =? T<int>
-            "statusText" =? T<string>
-            "getResponseHeader" => T<string> ^-> T<string>
-            "getAllResponseHeaders" => T<unit> ^-> T<string>
-            "overrideMimeType" => T<string>?mime ^-> T<unit>
-            "responseType" =@ XMLHttpRequestResponseType
-            "response" =? T<obj>
-            "responseText" =? T<string>
-            "responseXML" =? T<Dom.Document>
-        ]
-
     let JqXHR =
         Class "jQuery.jqXHR"
         |=> Inherits Deferred
+        |+> Instance [
+            "readyState" =? T<int>
+            "status" =? T<int>
+            "statusText" =? T<string>
+            "setRequestHeader" => T<string>?name * T<string>?value ^-> T<unit>
+            "getResponseHeader" => T<string> ^-> T<string>
+            "getAllResponseHeaders" => T<unit> ^-> T<string>
+            "responseText" =? T<string>
+            "responseXML" =? T<Dom.Document>
+            "abort" => T<unit> ^-> T<unit>
+        ]
 
     let DataType =
         "xml html script json jsonp text".Split(' ')
         |> Pattern.EnumStrings "DataType"
 
-    let MethodType =
+    let RequestType =
         "GET POST PUT DELETE".Split(' ')
-        |> Pattern.EnumStrings "MethodType"
+        |> Pattern.EnumStrings "RequestType"
 
     let AjaxSettings =
         Pattern.Config "AjaxSettings" {
@@ -192,7 +136,7 @@ module Definition =
                     "isLocal", T<bool>
                     "jsonp", (T<string> + T<bool>)
                     "jsonpCallback", (T<string> + (T<unit> ^-> T<unit>))
-                    "method", MethodType.Type
+                    "method", RequestType.Type
                     "mimeType", T<string>
                     "password", T<string>
                     "processData", T<bool>
@@ -201,7 +145,7 @@ module Definition =
                     "success", T<obj> * T<string> * JqXHR ^-> T<unit>
                     "timeout", T<double>
                     "traditional", T<bool>
-                    "type", MethodType.Type
+                    "type", RequestType.Type
                     "url", T<string>
                     "username", T<string>
                     "xhr", T<unit> ^-> T<unit>
@@ -237,6 +181,16 @@ module Definition =
             "locked" => T<unit> ^-> T<bool>
             "remove" => (cbf + Type.ArrayOf cbf) ^-> TSelf
         ]
+
+    let Position =
+        Pattern.Config "Position" {
+            Required = []
+            Optional = 
+                [
+                    "top", T<float>
+                    "left", T<float>
+                ]
+        }
 
     let AnimateSettings =
         Pattern.Config "AnimateSettings" {
@@ -349,10 +303,10 @@ module Definition =
             "outerWidth" => !?T<bool> ^-> T<int>
             "outerWidth" => T<int> ^-> TSelf
             "outerWidth" => (T<int> * T<int> ^-> T<int>) ^-> TSelf
-            "offset" => T<unit> ^-> T<obj>
-            "offset" => T<Object<int>> ^-> TSelf
-            "offset" => (T<int> * T<Object<int>> ^-> T<Object<int>>) ^-> TSelf
-            "position" => T<Object<int>>
+            "offset" => T<unit> ^-> Position
+            "offset" => Position ^-> TSelf
+            "offset" => (T<int> * Position ^-> Position) ^-> TSelf
+            "position" => T<unit> ^-> Position
             "scrollLeft" => T<unit> ^-> T<int>
             "scrollLeft" => T<int> ^-> TSelf
             "scrollTop" => T<unit> ^-> T<int>
@@ -450,7 +404,7 @@ module Definition =
             "on" => T<Object<_>>.[EH] * !?T<string> * !?T<obj> ^-> TSelf
             "one" => T<string> * !?T<string> * !?T<obj> * EH ^-> TSelf
             "one" => T<Object<_>>.[EH] * !?T<string> * !?T<obj> ^-> TSelf
-            "ready" => EH ^-> TSelf
+            "ready" => (T<unit> ^-> T<unit>) ^-> TSelf
             "resize" => !?T<obj> * EH ^-> TSelf
             "resize" => T<unit> ^-> TSelf
             "scroll" => !?T<obj> * EH ^-> TSelf
@@ -655,8 +609,8 @@ module Definition =
             "when" => Deferred ^-> Promise
 
             // Ajax related static methods
-            "add" => T<string> * !? AjaxSettings ^-> JqXHR
-            "add" => !?AjaxSettings ^-> JqXHR
+            "ajax" => T<string> * !? AjaxSettings ^-> JqXHR
+            "ajax" => !?AjaxSettings ^-> JqXHR
             "ajaxPrefilter" => !?DataType * (AjaxSettings * T<obj> * JqXHR ^-> T<unit>) ^-> T<obj> // returns undefined
             "ajaxSetup" => AjaxSettings ^-> T<unit>
             "ajaxTransport" => DataType * (AjaxSettings * T<obj> * JqXHR ^-> T<unit>) ^-> T<obj> // returns undefined
@@ -746,7 +700,7 @@ module Definition =
                 JqXHR
                 Callbacks
                 AjaxSettings
-                MethodType
+                RequestType
                 DataType
                 Promise
                 Error
@@ -756,10 +710,7 @@ module Definition =
                 Event
                 FX
                 Speed
-                XMLHttpRequest
-                XMLHttpRequestResponseType
-                XMLHttpRequestEventTarget
-                XMLHttpRequestUpload
+                Position
             ]
             Namespace "WebSharper.JQuery.Resources" [
                 Resource "JQuery" "http://code.jquery.com/jquery-3.1.1.min.js" |> AssemblyWide

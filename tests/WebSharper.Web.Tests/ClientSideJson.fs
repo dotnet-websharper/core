@@ -338,7 +338,7 @@ module ClientSideJson =
                 JQuery.AjaxSettings(
                     Url = ("/sitelet-tests/Json/" + url),
                     Type = JQuery.RequestType.POST,
-                    ContentType = "application/json",
+                    ContentType = Choice<bool, string>.Choice2Of2("application/json"),
                     DataType = JQuery.DataType.Json,
                     Data = serializedArg,
                     Success = (fun data _ _ -> ok (decode data)),
