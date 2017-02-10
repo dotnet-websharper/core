@@ -233,7 +233,7 @@ module Definition =
         ]
 
     let JQueryClass =
-        let EH = Event ^-> T<unit>
+        let EH = T<Dom.Element> -* Event ^-> T<unit>
         let Func = T<int> ^-> (T<string> + T<Dom.Element> + T<Dom.Text> + TSelf)
         let FuncWithHTML = T<int> * T<string> ^-> (T<string> + T<Dom.Element> + T<Dom.Text> + TSelf)
         let Content = T<string> + T<Dom.Element> + Type.ArrayOf T<Dom.Node> + TSelf

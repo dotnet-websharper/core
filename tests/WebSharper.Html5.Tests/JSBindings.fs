@@ -156,7 +156,6 @@ let Tests =
             notEqualMsg doc.Title JS.Undefined "Checking for title"
             notEqualMsg doc.URL JS.Undefined "Checking for URL"
             notEqualMsg doc.VisibilityState JS.Undefined "Checking for visibility"
-            
         }
 
         Test "NodeIterator" {
