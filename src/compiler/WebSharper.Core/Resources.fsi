@@ -68,9 +68,10 @@ and Context =
         /// Constructs URLs to point to embedded resources.
         GetWebResourceRendering : Type -> string -> Rendering
 
-        /// Cache for resolved rendering of resources
+        /// Cache for resolved rendering of resources.
         RenderingCache : System.Collections.Concurrent.ConcurrentDictionary<IResource, (RenderLocation -> HtmlTextWriter) -> unit>
 
+        /// Cache for resolved dependency lookups.
         ResourceDependencyCache : System.Collections.Concurrent.ConcurrentDictionary<Metadata.Node Set, IResource list>
     }
 
@@ -81,8 +82,10 @@ and IResource =
     abstract member Render : Context -> ((RenderLocation -> HtmlTextWriter) -> unit)
 
 /// A helper base class for resource-defining types.
-[<AbstractClass>]
 type BaseResource =
+
+    [<Obsolete "Do not call default constructor of BaseResource, it will do nothing.">]
+    new : unit -> BaseResource
 
     /// References an embedded resource from he current assembly.
     /// The string represents either a reference to an embedded

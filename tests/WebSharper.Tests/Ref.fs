@@ -42,4 +42,8 @@ let Tests =
             r.contents <- 4
             equal r.contents 4
         }
+
+        Test "Does not have prototype" {
+            jsEqual ((ref 1).JS.Constructor) (JS.Global?Array)
+        }
     }

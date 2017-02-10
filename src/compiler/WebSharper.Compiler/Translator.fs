@@ -104,7 +104,7 @@ let defaultRemotingProvider =
     TypeDefinition {
         Assembly = "WebSharper.Main"
         FullName =  "WebSharper.Remoting+AjaxRemotingProvider"
-    }
+    }, []
     
 let emptyConstructor = Hashed { CtorParameters = [] }
 
@@ -624,6 +624,16 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 //        printfn "curried %A: %s" currying (Debug.PrintExpression res)
 //        res 
 
+    member this.HandleMacroNeedsResolvedTypeArg(t, macroName) =
+        match t with
+        | TypeParameter i 
+        | StaticTypeParameter i ->
+            this.Error(sprintf "Macro '%s' requires a resolved type argument for type parameter index %d. Mark the member with the Inline attribute." macroName i)
+        | LocalTypeParameter ->
+            this.Error(sprintf "Macro '%s' would use a local type parameter. Make the inner function non-generic or move it to module level and mark it with the Inline attribute" macroName)
+        | _ -> 
+            this.Error(sprintf "Macro '%s' erroneusly reported MacroNeedsResolvedTypeArg on not a type parameter." macroName)
+
     member this.CompileCall (info, opts: M.Optimizations, expr, thisObj, typ, meth, args, ?baseCall) =
         match thisObj with
         | Some (IgnoreSourcePos.Base as tv) ->
@@ -709,13 +719,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     match fallback with
                     | None -> this.Error(sprintf "No macro fallback found for '%s'" macro.Value.FullName)
                     | Some f -> this.CompileCall (f, opts, expr, thisObj, typ, meth, args)      
-                | MacroNeedsResolvedTypeArg -> 
+                | MacroNeedsResolvedTypeArg t -> 
                     if currentIsInline then
                         hasDelayedTransform <- true
                         let typ = Generic (comp.FindProxied typ.Entity) typ.Generics
                         Call(trThisObj, typ, meth, args |> List.map this.TransformExpression)
                     else 
-                        this.Error(sprintf "Macro '%s' requires a resolved type argument." macro.Value.FullName)
+                        this.HandleMacroNeedsResolvedTypeArg(t, macro.Value.FullName)
             getExpr macroResult
         | M.Remote (kind, handle, rh) ->
             let name, mnode =
@@ -725,11 +735,19 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | M.RemoteSend -> "Send", sendRpcMethodNode
                 | M.RemoteSync -> "Sync", syncRpcMethodNode
             let remotingProvider =
-                let td =
+                let rpTyp, rpArgs =
                     match rh with
-                    | Some (rp, _) -> rp
+                    | Some (rp, p) -> 
+                        rp, 
+                        let toParamValue o = o |> M.ParameterObject.ToObj |> ReadLiteral |> Value
+                        match p with
+                        | None -> []
+                        | Some (M.ParameterObject.Array ps) ->
+                            ps |> Seq.map toParamValue |> List.ofSeq   
+                        | Some p ->
+                            [ toParamValue p ]
                     | _ -> defaultRemotingProvider   
-                this.TransformCtor(NonGeneric td, emptyConstructor, []) 
+                this.TransformCtor(NonGeneric rpTyp, emptyConstructor, rpArgs) 
             if comp.HasGraph then
                 this.AddDependency(mnode)
                 let rec addTypeDeps (t: Type) =
@@ -924,13 +942,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     match fallback with
                     | None -> this.Error(sprintf "No macro fallback found for '%s'" macro.Value.FullName)
                     | Some f -> this.CompileCtor (f, opts, expr, typ, ctor, args)      
-                | MacroNeedsResolvedTypeArg -> 
+                | MacroNeedsResolvedTypeArg t -> 
                     if currentIsInline then
                         hasDelayedTransform <- true
                         let typ = Generic (comp.FindProxied typ.Entity) typ.Generics
                         Ctor(typ, ctor, trArgs())
                     else 
-                        this.Error(sprintf "Macro '%s' requires a resolved type argument." macro.Value.FullName)
+                        this.HandleMacroNeedsResolvedTypeArg(t, macro.Value.FullName)
             getExpr macroResult
         | _ -> this.Error("Invalid metadata for constructor.")
 

@@ -272,7 +272,7 @@ module Macro =
             let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = "Id")
             Call(None, NonGeneric providerType, NonGeneric m, [])
 
-        type EncodeResult = Choice<Expression, string, unit>
+        type EncodeResult = Choice<Expression, string, Type>
 
         let (>>=) (x: EncodeResult) (f: Expression -> EncodeResult) =
             match x with
@@ -280,10 +280,15 @@ module Macro =
             | _ -> x
         let ok x = Choice1Of3 x : EncodeResult
         let fail x = Choice2Of3 x : EncodeResult
-        let generic = Choice3Of3 () : EncodeResult
+        let generic t = Choice3Of3 t : EncodeResult
+
+        let mapOk f x =
+            match x with
+            | Choice1Of3 x -> Choice1Of3 (f x) 
+            | _ -> x
 
         /// Returns None if MacroNeedsResolvedTypeArg.
-        let getEncoding name isEnc param (t: Type) : option<Expression> =
+        let getEncoding name isEnc param (t: Type) : EncodeResult =
             let warn msg = param.Warnings.Add msg
             let addTypeDep td = param.Dependencies.Add (M.TypeNode td)
             let comp = param.Compilation
@@ -358,7 +363,7 @@ module Macro =
                     fail (name + ": Cannot de/serialize a byref value.")
                 | StaticTypeParameter _ 
                 | TypeParameter _ ->
-                    generic
+                    generic t
             // Encode a type that might be recursively defined
             and encRecType t targs args =
                 match comp.GetCustomTypeInfo t.TypeDefinition with
@@ -529,27 +534,23 @@ module Macro =
                     <| []
                 | _ -> 
                     fail (name + ": Type not supported: " + t.TypeDefinition.Value.FullName)
-            match encode t with
-            | Choice1Of3 x ->
-                Some x
-            | Choice2Of3 msg -> failwithf "%A: %s" t msg
-            | Choice3Of3 () -> None
+            encode t
 
         let encodeLambda name param t =
             getEncoding name true param t
-            |> Option.map (fun x -> Application(x, [], true, Some 0))
+            |> mapOk (fun x -> Application(x, [], true, Some 0))
 
         let encode name param t arg =
             encodeLambda name param t
-            |> Option.map (fun x -> Application(x, [arg], true, Some 1))
+            |> mapOk (fun x -> Application(x, [arg], true, Some 1))
 
         let decodeLambda name param t =
             getEncoding name false param t
-            |> Option.map (fun x -> Application(x, [], true, Some 0))
+            |> mapOk (fun x -> Application(x, [], true, Some 0))
 
         let decode name param t arg =
             decodeLambda name param t
-            |> Option.map (fun x -> Application(x, [arg], true, Some 1))
+            |> mapOk (fun x -> Application(x, [arg], true, Some 1))
 
     let Encode param t arg =
         // ENCODE()(arg)
@@ -562,11 +563,11 @@ module Macro =
     let Serialize param t arg =
         // JSON.stringify(ENCODE()(arg))
         encode "Serialize" param t arg
-        |> Option.map (fun x -> mJson param.Compilation "Stringify" [x])
+        |> mapOk (fun x -> mJson param.Compilation "Stringify" [x])
 
     let SerializeLambda param t =
         encodeLambda "SerializeLambda" param t
-        |> Option.map (fun x ->
+        |> mapOk (fun x ->
             let enc = Id.New(mut = false)
             let arg = Id.New(mut = false)
             // let enc = ENCODE() in fun arg -> JSON.stringify(enc(arg))
@@ -588,7 +589,7 @@ module Macro =
 
     let DeserializeLambda param t =
         decodeLambda "DeserializeLambda" param t
-        |> Option.map (fun x ->
+        |> mapOk (fun x ->
             let dec = Id.New(mut = false)
             let arg = Id.New(mut = false)
             // let dec = DECODE() in fun arg -> dec(JSON.parse(arg))
@@ -620,9 +621,9 @@ module Macro =
                 }
             let res =
                 match f param c.Method.Generics.Head (last c.Arguments) with
-                | Some x ->
-                    WebSharper.Core.MacroOk x
-                | None -> WebSharper.Core.MacroNeedsResolvedTypeArg
+                | Choice1Of3 x -> WebSharper.Core.MacroOk x
+                | Choice2Of3 e -> WebSharper.Core.MacroError e
+                | Choice3Of3 t -> WebSharper.Core.MacroNeedsResolvedTypeArg t
             let resWithWarnings =
                 if param.Warnings.Count > 0 then
                     param.Warnings |> Seq.fold (fun res msg -> 

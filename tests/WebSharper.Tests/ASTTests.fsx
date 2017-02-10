@@ -312,23 +312,14 @@ let metadata =
             Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
     }
 
-module Project1 = 
-    open System.IO
+open System.IO
+let translate source = 
 
     let fileName1 = Path.ChangeExtension(Path.GetTempFileName(), ".fs")
     let base2 = Path.GetTempFileName()
     let dllName = Path.ChangeExtension(base2, ".dll")
     let projFileName = Path.ChangeExtension(base2, ".fsproj")
-    let fileSource1 = """
-module M
-
-open WebSharper
-
-[<JavaScript>]
-let g f x =
-    f x |> ignore
-
-    """
+    let fileSource1 = source
     File.WriteAllText(fileName1, fileSource1)
 
     let args = mkProjectCommandLineArgs (dllName, [fileName1])
@@ -349,7 +340,7 @@ let g f x =
     let expressions =
         Seq.concat [
             comp.CompilingMethods.Values |> Seq.map snd
-            comp.CompilingConstructors.Values |> Seq.map snd
+            comp.GetCompilingConstructors() |> Seq.map (fun (_,_,_,a) -> a)
             comp.GetCompilingImplementations() |> Seq.map (fun (_,_,_,_,a) -> a)
             comp.GetCompilingStaticConstructors() |> Seq.map (fun (_,_,a) -> a)
         ]
@@ -367,21 +358,50 @@ let g f x =
                 c.StaticConstructor |> Option.map snd |> Option.toList |> Seq.ofList
             ]
         )
-        |> List.ofSeq
-
+        |> List.ofSeq 
+        
     let errors =
         [
             for pos, e in comp.Errors -> pos, string e, true
             for pos, e in comp.Warnings -> pos, string e, false
         ]
+    errors |> List.iter (printfn "%A")
 
     let pkg = WebSharper.Compiler.Packager.packageAssembly metadata currentMeta false
-    let js, map = pkg |> WebSharper.Compiler.Packager.exprToString "TestProject" WebSharper.Core.JavaScript.Readable false                                       
+    
+    let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
 
-Project1.fsDeclarations |> List.iter (printfn "%s") 
+//    fsDeclarations |> List.iter (printfn "%s") 
+//    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
+//    compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
+    js |> printfn "%s" 
 
-Project1.expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
+translate """
+module M
 
-Project1.compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
+open WebSharper
 
-Project1.js |> printfn "%s" 
+//[<Inline "void $x">]
+[<Inline>]
+let ignore x = ()
+
+[<JavaScript>]
+let f () = 
+    printfn "hi"
+    1 + 1
+
+[<JavaScript>]
+let g() = ignore (f ())
+
+do g()
+    """
+
+let translateQ q =
+    let comp = 
+        WebSharper.Compiler.Compilation(metadata, false, UseLocalMacros = false)
+    WebSharper.Compiler.QuotationReader.readExpression comp q
+
+let f x y = x + y
+
+translateQ <@ 1 |> ignore @> 
+|> WebSharper.Core.AST.Debug.PrintExpression

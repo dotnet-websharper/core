@@ -41,7 +41,7 @@ module NotResolved =
         | Constructor
         | Override of TypeDefinition
         | Implementation of TypeDefinition
-        | Remote of RemotingKind * MethodHandle * option<TypeDefinition * bool>
+        | Remote of RemotingKind * MethodHandle * option<TypeDefinition * option<obj>>
         | Inline
         | NoFallback
 
@@ -56,7 +56,7 @@ module NotResolved =
             mutable FuncArgs : option<list<FuncArgOptimization>>
             Args : list<Id>
             mutable Body : Expression
-            Requires : list<TypeDefinition>
+            Requires : list<TypeDefinition * option<obj>>
         }
 
     type NotResolvedField =
@@ -84,7 +84,7 @@ module NotResolved =
         {
             StrongName : option<string>
             BaseClass : option<TypeDefinition>
-            Requires : list<TypeDefinition> 
+            Requires : list<TypeDefinition * option<obj>> 
             Members : list<NotResolvedMember>
             Kind : NotResolvedClassKind
             IsProxy : bool

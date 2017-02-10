@@ -104,8 +104,11 @@ let isAugmentedFSharpType (e: FSharpEntity) =
     (e.IsFSharpRecord || e.IsFSharpUnion || e.IsFSharpExceptionDeclaration)
     && not (
         e.Attributes |> Seq.exists (fun a ->
-            a.AttributeType.FullName = "Microsoft.FSharp.Core.DefaultAugmentationAttribute"
-            && not (snd a.ConstructorArguments.[0] :?> bool)
+            let res =
+                a.AttributeType.FullName = "Microsoft.FSharp.Core.DefaultAugmentationAttribute"
+                && not (snd a.ConstructorArguments.[0] :?> bool)
+            if res then printfn "found DefaultAugmentation(false) on %s" e.FullName
+            res 
         )
     )
 
@@ -123,9 +126,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     if isResourceType sr cls then
         if comp.HasGraph then
-            let thisRes = comp.Graph.AddOrLookupNode(ResourceNode thisDef)
-            for req in annot.Requires do
-                comp.Graph.AddEdge(thisRes, ResourceNode req)
+            let thisRes = comp.Graph.AddOrLookupNode(ResourceNode (thisDef, None))
+            for req, po in annot.Requires do
+                comp.Graph.AddEdge(thisRes, ResourceNode (req, po |> Option.map ParameterObject.OfObj))
         None
     else    
     
@@ -281,8 +284,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | ConcreteType { Entity = e } when e = Definitions.Async -> RemoteAsync
                     | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> RemoteTask
                     | _ -> RemoteSync
-                let isCsrfProtected t = true // TODO
-                let rp = rp |> Option.map (fun t -> t, isCsrfProtected t)
                 let handle = 
                     comp.GetRemoteHandle(
                         def.Value.FullName + "." + mdef.Value.MethodName,

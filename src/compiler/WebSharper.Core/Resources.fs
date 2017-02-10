@@ -198,6 +198,7 @@ type Rendering with
         render getWriter
 
 type Kind =
+    | Ignore
     | Basic of string
     | Complex of string * list<string>
 
@@ -206,8 +207,10 @@ let tryFindWebResource (t: Type) (spec: string) =
     t.Assembly.GetManifestResourceNames()
     |> Seq.tryFind ok
 
-[<AbstractClass>]
 type BaseResource(kind: Kind) =
+    
+    new () =
+        new BaseResource(Ignore)
 
     new (spec: string) =
         new BaseResource(Basic spec)
@@ -219,6 +222,8 @@ type BaseResource(kind: Kind) =
         member this.Render ctx =
             let dHttp = ctx.DefaultToHttp
             match kind with
+            | Ignore ->
+                ignore
             | Basic spec ->
                 let self = this.GetType()
                 let id = self.FullName

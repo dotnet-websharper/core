@@ -58,10 +58,11 @@ type MacroResult =
     | MacroError of string
     /// Add code dependencies to the member containing the call for the macroed member.
     | MacroDependencies of list<Metadata.Node> * MacroResult
-    /// Revert to next in chain tranlation stratedy for the call.
+    /// Revert to next in chain tranlation strategy for the call.
     | MacroFallback
-    /// 
-    | MacroNeedsResolvedTypeArg
+    /// Report that the macro needs concrete type information.
+    /// Delays compilation of inlined calls until type resolution. 
+    | MacroNeedsResolvedTypeArg of Type
 
     static member Map f m =
         match m with

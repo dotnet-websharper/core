@@ -137,8 +137,9 @@ type RemoteAttribute() =
 type RequireAttribute private () =
 
     new (resourceType: System.Type) = RequireAttribute()
-
+    new (resourceType: System.Type, [<System.ParamArray>] parameters: obj[]) = RequireAttribute()
     new (assemblyQualifiedName: string) = RequireAttribute()
+    new (assemblyQualifiedName: string, [<System.ParamArray>] parameters: obj[]) = RequireAttribute()
 
 /// Marks members that should be compiled by-name.
 [<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property|||T.Struct)>]
@@ -154,8 +155,9 @@ type RemotingProviderAttribute private () =
     inherit A()
 
     new (remotingProviderType: System.Type) = RemotingProviderAttribute()
-
+    new (remotingProviderType: System.Type, [<System.ParamArray>] parameters: obj) = RemotingProviderAttribute()
     new (assemblyQualifiedName: string) = RemotingProviderAttribute()
+    new (assemblyQualifiedName: string, [<System.ParamArray>] parameters: obj) = RemotingProviderAttribute()
 
 /// Adds automatic inlines to a property so that a missing JavaScript field
 /// is converted to None, otherwise Some fieldValue.

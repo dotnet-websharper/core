@@ -90,6 +90,18 @@ type private T1 [<JavaScript>] () =
 let private isNaN (x: double) = System.Double.IsNaN x
 
 [<JavaScript>]
+let InnerGenerics pred l =
+    let rec loop l cont =
+        match l with
+        | [] -> ([],[])
+        | x::[] when pred x -> 
+            (cont l, [])
+        | x::xs when not (pred x) -> (cont [], l)
+        | x::xs when pred x -> loop xs (fun rest -> cont (x::rest))
+        | _ -> failwith "Unrecognized pattern"
+    loop l id
+
+[<JavaScript>]
 let Tests =
     TestCategory "Basis" {
 

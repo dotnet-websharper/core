@@ -28,11 +28,13 @@ module R = WebSharper.Core.AST.Reflection
 //module P = WebSharper.Core.JavaScript.Packager
 
 /// A server-side control that adds a runtime dependency on a given resource.
-type Require (t: System.Type) =
+type Require (t: System.Type, [<System.ParamArray>] parameters: obj[]) =
     inherit System.Web.UI.Control()
 
     let t = AST.Reflection.ReadTypeDefinition t
-    let req = [M.ResourceNode t]
+    let req = 
+        [M.ResourceNode (t, 
+            if parameters.Length = 0 then None else Some(M.ParameterObject.OfObj parameters))]
 
     interface INode with
         member this.Write(_, _) = ()
