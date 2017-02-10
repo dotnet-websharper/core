@@ -86,6 +86,76 @@ module Definition =
             "then" => funcorfuncs * funcorfuncs * !?funcorfuncs ^-> Promise
         ]
 
+    let XMLHttpRequestResponseType =
+        Pattern.EnumStrings "XMLHttpRequestResponseType" [
+            "arraybuffer"
+            "blob"
+            "document"
+            "json"
+            "text"
+        ]
+        |+> Static [
+            "deafult" => T<string> 
+            |> WithInline ""
+            |> WithComment "The default value is text"
+        ]
+
+    let XMLHttpRequestEventTarget =
+        let EH = T<Dom.Event> ^-> T<unit>
+        Class "XMLHttpRequestEventTarget"
+        |=> Inherits T<Dom.EventTarget>
+        |+> Instance [
+            "onloadstart" =@ EH
+            "onprogress" =@ EH
+            "onabort" =@ EH
+            "onerror" =@ EH
+            "onload" =@ EH
+            "ontimeout" =@ EH
+            "onloadend" =@ EH
+        ]
+       
+    let XMLHttpRequestUpload =
+        Class "XMLHttpRequestUpload"
+        |=> Inherits XMLHttpRequestEventTarget
+
+    let XMLHttpRequest =
+        let EH = T<Dom.Event> ^-> T<unit>
+        Class "XMLHttpRequest"
+        |=> Inherits XMLHttpRequestEventTarget
+        |+> Static [
+            "UNSENT" =? T<int>
+            "OPENED" =? T<int>
+            "HEADERS_RECEIVED" =? T<int>
+            "LOADING" =? T<int>
+            "DONE" =? T<int>
+        ]
+        |+> Instance [
+            "onreadystatechange" =@ EH
+            "readyState" =? T<int>
+
+            // request
+            "open" => T<string>?``method`` * T<string>?url ^-> T<unit>
+            "open" => T<string>?``method`` * T<string>?url * T<bool>?async * !?T<string>?username * !?T<string>?password ^-> T<unit>
+            "setRequestHeader" => T<string>?name * T<string>?value ^-> T<unit>
+            "timeout" =@ T<int>
+            "withCredentials" =@ T<bool>
+            "upload" =? XMLHttpRequestUpload
+            "send" => !?T<Dom.Document>?body ^-> T<unit>
+            "abort" => T<unit> ^-> T<unit>
+
+            // response
+            "responseURL" =? T<string>
+            "status" =? T<int>
+            "statusText" =? T<string>
+            "getResponseHeader" => T<string> ^-> T<string>
+            "getAllResponseHeaders" => T<unit> ^-> T<string>
+            "overrideMimeType" => T<string>?mime ^-> T<unit>
+            "responseType" =@ XMLHttpRequestResponseType
+            "response" =? T<obj>
+            "responseText" =? T<string>
+            "responseXML" =? T<Dom.Document>
+        ]
+
     let JqXHR =
         Class "jQuery.jqXHR"
         |=> Inherits Deferred
@@ -210,7 +280,10 @@ module Definition =
 
     let JQueryClass =
         let EH = Event ^-> T<unit>
-        let Content = T<string> + T<Dom.Element> + T<Dom.Text> + Type.ArrayOf T<Dom.Node> + TSelf
+        let Func = T<int> ^-> (T<string> + T<Dom.Element> + T<Dom.Text> + TSelf)
+        let FuncWithHTML = T<int> * T<string> ^-> (T<string> + T<Dom.Element> + T<Dom.Text> + TSelf)
+        let Content = T<string> + T<Dom.Element> + Type.ArrayOf T<Dom.Node> + TSelf
+        let ContentWithText = T<string> + T<Dom.Element> + T<Dom.Text> + Type.ArrayOf T<Dom.Node> + TSelf
         JQ
         |+> Instance [
             "ignore" =? T<unit>
@@ -395,10 +468,15 @@ module Definition =
             "pushStack" => (Type.ArrayOf T<Dom.Element>) * T<string> * (Type.ArrayOf T<obj>) ^-> TSelf
 
             // Manipulation
-            "after" => Content *+ Content ^-> TSelf //???
-            "append" => Content *+ Content ^-> TSelf
+            "after" => ContentWithText *+ ContentWithText ^-> TSelf 
+            "after" => Func ^-> TSelf
+            "after" => FuncWithHTML ^-> TSelf
+            "append" => ContentWithText *+ ContentWithText ^-> TSelf
+            "append" => Func ^-> TSelf
             "appendTo" => (T<string> + T<string> + T<Dom.Element> + Type.ArrayOf T<Dom.Element> + TSelf) ^-> TSelf
             "before" => Content *+ Content ^-> TSelf
+            "before" => Func ^-> TSelf
+            "before" => FuncWithHTML ^-> TSelf
             "clone" => T<unit> ^-> TSelf
             "clone" => T<bool>?withDataAndEvents ^-> TSelf
             "clone" => T<bool>?withDataAndEvents * T<bool>?deepWithDataAndEvents ^-> TSelf
@@ -407,6 +485,7 @@ module Definition =
             "insertAfter" => Content ^-> TSelf
             "insertBefore" => Content ^-> TSelf
             "prepend" => Content *+ Content ^-> TSelf
+            "prepend" => FuncWithHTML ^-> TSelf
             "prependTo" => (T<string> + T<string> + T<Dom.Element> + Type.ArrayOf T<Dom.Element> + TSelf) ^-> TSelf
             "remove" => T<string> ^-> TSelf
             "replaceAll" => (T<string> + TSelf + T<Dom.Element> + (Type.ArrayOf T<Dom.Element>)) ^-> TSelf
@@ -440,6 +519,8 @@ module Definition =
             "length" =? T<int>
 
             // Traversing
+            "add" => T<string> + T<Dom.Element> + TSelf ^-> TSelf
+            "add" => T<string> * T<Dom.Element> ^-> TSelf
             "addBack" => !?T<string> ^-> TSelf
             "children" => !?T<string> ^-> TSelf
             "closest" => T<string> * !?T<Dom.Element> ^-> TSelf
@@ -675,6 +756,10 @@ module Definition =
                 Event
                 FX
                 Speed
+                XMLHttpRequest
+                XMLHttpRequestResponseType
+                XMLHttpRequestEventTarget
+                XMLHttpRequestUpload
             ]
             Namespace "WebSharper.JQuery.Resources" [
                 Resource "JQuery" "http://code.jquery.com/jquery-3.1.1.min.js" |> AssemblyWide

@@ -35,7 +35,6 @@ type Browser =
     | Opera of string
     | Other of string
 
-
 [<JavaScript>]
 let BrowserVersion() =
     let ua = JS.Window.Navigator?userAgent
