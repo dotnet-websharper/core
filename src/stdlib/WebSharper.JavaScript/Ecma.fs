@@ -44,9 +44,11 @@ module Definition =
         |+> Static [
                 ObjectConstructor T<unit>
                 "prototype" =? TSelf
+                "assign" => T<obj>?target *+ T<obj> ^-> T<obj>
                 "create" => T<obj>?proto * !?T<obj>?properties ^-> T<obj>                
                 "getPrototypeOf" => T<obj> ^-> T<obj>
                 "getOwnPropertyDescriptor" => T<obj->obj>
+                "getOwnPropertyNames" => T<obj->obj>
                 "defineProperty" => T<obj*string*obj->obj>
                 "defineProperties" => T<obj*obj->obj>
                 "seal" => T<obj->obj> 
@@ -56,6 +58,8 @@ module Definition =
                 "isFrozen" => T<obj->bool>
                 "isExtensible" => T<obj->bool>
                 "keys" => T<obj->string[]>
+                "is" => T<obj> * T<obj> ^-> T<bool>
+                "setPrototypeOf" => T<obj> * T<obj> ^-> T<obj>
             ]
        
     let EcmaObjectG =
@@ -80,9 +84,22 @@ module Definition =
                 "test" => T<string> ^-> T<bool>
                 "source" =? T<string>
                 "global" =? T<bool>
+                "flags" =? T<string>
+                "sticky" =? T<bool>
+                "unicode" =? T<bool>
                 "ignoreCase" =? T<bool>
                 "multiLine" =? T<bool>
                 "lastIndex" =@ T<int>
+                "match" => T<string>?str ^-> T<string []>
+                    |> WithInline "$this[Symbol.match]($str)"
+                "replace" => T<string>?str * T<string>?newSubStr ^-> T<string>
+                    |> WithInline "$this[Symbol.replace]($str, $newSubStr)"
+                "replace" => T<string>?str * T<Function>?replaceFn ^-> T<string>
+                    |> WithInline "$this[Symbol.replace]($str, $replaceFn)"
+                "search" => T<string>?str ^-> T<int>
+                    |> WithInline "$this[Symbol.search]($str)"
+                "split" => T<string>?str ^-> T<string []>
+                    |> WithInline "$this[Symbol.split]($str)"
             ]
         |+> Static [
                 Constructor(T<string> * !?T<string>?flags)
@@ -97,22 +114,30 @@ module Definition =
             [
                 "charAt" => T<int->string>
                 "charCodeAt" => T<int->int>
+                "codePointAt" => T<int->int>
                 "concat" => !+ T<string> ^-> T<string>
+                "endsWith" => T<string> * !?T<int>?length ^-> T<bool>
+                "includes" => T<string>?str * !?T<int>?beginPos ^-> T<bool>
                 "indexOf" => T<string> * !?T<int>?pos ^-> T<int>
                 "lastIndexOf" => T<string> * !?T<int>?pos ^-> T<int>
                 "localeCompare" => T<obj> ^-> T<int>
                 "match" => (EcmaRegExp + T<string>) ^-> T<string []>
+                "normalize" => T<string->string>
+                "repeat" => T<int> ^-> T<string>
                 "replace" => (EcmaRegExp + T<string>) * (T<string> + (!+ T<obj> ^-> T<string>)) ^-> T<string>
                 "search" => !?EcmaRegExp ^-> T<int>
                 "slice" => T<int>?startPos * !?T<int>?endPos ^-> T<string>
                 "split" =>
                     (T<string> + EcmaRegExp) * !?T<int>?limit ^-> T<string[]>
+                "startsWith" => T<string> * !?T<int>?beginPos ^-> T<bool>
+                "substr" => T<int>?startPos * !?T<int>?length ^-> T<string>
                 "substring" => T<int>?startPos * !?T<int>?endPos ^-> T<string>
                 "toLowerCase" => T<unit->string>
                 "toLocaleLowerCase" => T<unit->string>
                 "toUpperCase" => T<unit->string>
                 "toLocaleUpperCase" => T<unit->string>
                 "trim" => T<unit->string>
+                "valueOf" => T<unit->string>
                 "length" =? T<int>
                 "self" =? T<string> |> WithGetterInline "$this"
             ]
@@ -153,6 +178,15 @@ module Definition =
                 "NaN" =? T<double>
                 "NEGATIVE_INFINITY" =? T<double>
                 "POSITIVE_INFINITY" =? T<double>
+                "EPSILON" =? T<double>
+                "MAX_SAFE_INTEGER" =? T<double>
+                "MIN_SAFE_INTEGER" =? T<double>
+                "isNaN" => T<obj> ^-> T<bool>
+                "isFinite" => T<obj> ^-> T<bool>
+                "isInteger" => T<obj> ^-> T<bool>
+                "isSafeInteger" => T<obj> ^-> T<bool>
+                "parseFloat" => T<string> ^-> T<double>
+                "parseInt" => T<string> * !?T<int>?radix ^-> T<int>
                 "prototype" =? TSelf
             ]
 
@@ -223,21 +257,37 @@ module Definition =
                 "abs" => F
                 "acos" => F
                 "asin" => F
+                "asinh" => F
                 "atan" => F
+                "atanh" => F
                 "atan2" => D * D ^-> D
+                "cbrt" => F
                 "ceil" => D ^-> T<int>
+                "clz32" => F
                 "cos" => F
+                "cosh" => F
                 "exp" => F
+                "expm1" => F
                 "floor" => D ^-> T<int>
+                "fround" => F
+                "hypot" => !+ D ^-> D
+                "imul" => D * D ^-> D
                 "log" => F
+                "log1p" => F
+                "log10" => F
+                "log2" => F
                 "max" => !+ T<obj> ^-> D
                 "min" => !+ T<obj> ^-> D
                 "pow" => D * D ^-> D
                 "random" => T<unit> ^-> D
                 "round" => D ^-> T<int>
+                "sign" => F
                 "sin" => F
+                "sinh" => F
                 "sqrt" => F
                 "tan" => F
+                "tanh" => F
+                "trunc" => F
             ]
 
     /// The Date object is used to work with dates and times.
@@ -333,7 +383,7 @@ module Definition =
                 "self" =? T<exn> |> WithGetterInline "$this"
             ]
         |+> Static [
-                Constructor (T<string>)
+                Constructor (!?T<string>?message)
                 "prototype" =? TSelf
             ]
 

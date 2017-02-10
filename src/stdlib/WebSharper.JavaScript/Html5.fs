@@ -104,6 +104,13 @@ module Canvas =
             "round"
             "square"
         ]
+
+    let TextDirection =
+        Pattern.EnumStrings "TextDirection" [
+            "ltr"
+            "rtl"
+            "inherit"
+        ]
     
     let LineJoin = 
         Pattern.EnumStrings "LineJoin" [
@@ -181,6 +188,10 @@ module Canvas =
             "lineCap" =@ LineCap  
             // "round", "bevel", "miter" (default "miter")
             "lineJoin" =@ LineJoin
+            "getLineDash" => T<unit> ^-> T<float []>
+            "setLineDash" => T<float []> ^-> T<unit>
+            // (default 0.0)
+            "lineDashOffset" =@ T<float>
             // (default 10)            
             "miterLimit" =@ T<float>
             // (default 0)
@@ -210,7 +221,10 @@ module Canvas =
             "fill" => T<unit> ^-> T<unit>
             "stroke" => T<unit> ^-> T<unit>
             "clip" => T<unit> ^-> T<unit>
+            "drawFocusIfNeeded" => Dom.Interfaces.Element ^-> T<unit>
+            "scrollPathIntoView" => T<unit> ^-> T<unit>
             "isPointInPath" => (T<float> * T<float>) ^-> T<bool>
+            "isPointInStroke" => (T<float> * T<float>) ^-> T<bool>
 
             // focus management
             "drawFocusRing" => (Dom.Interfaces.Element?el * T<float>?x * T<float>?y * !? T<bool>) ^-> T<bool>
@@ -220,6 +234,8 @@ module Canvas =
             "font" =@ T<string>
             "textAlign" =@ TextAlign
             "textBaseline" =@ TextBaseline
+            // (default inherit)
+            "direction" =@ TextDirection
 
             "fillText" => T<string> * T<float> * T<float> ^-> T<unit>
             "fillText" => T<string> * T<float> * T<float> * T<float> ^-> T<unit>
@@ -340,473 +356,97 @@ module AudioVideoCommon =
             "removeCue" => TimedTrackCue ^-> T<unit>
         ]
 
-module Elements =
-    open Canvas
-    open AudioVideoCommon
-
-    let CanvasElement =
-        Class "CanvasElement"
-        // |=> Inherits Type.Node
-        |+> Instance [
-            "width" =@ T<int>
-            "height" =@ T<int>
-            "toDataURL" => !? T<string>?a * !? T<float>?b ^-> T<string>
-            "getContext" => T<string> ^-> Canvas.CanvasRenderingContext2D
+    let MediaPreload =
+        Pattern.EnumStrings "Preload" [
+            "none"
+            "metadata"
+            "auto"
         ]
 
-    let HTMLMediaElement =
-        Class "HTMLMediaElement"
-        // |=> Inherits Type.Node
-        |+> Instance [
-            // error state
-            "error" =?  MediaError
-
-            // network state
-            "src" =@ T<string>
-            "currentSrc" =? T<string>
-
-            "NETWORK_EMPTY" =? T<int>
-            "NETWORK_IDLE" =? T<int>
-            "NETWORK_LOADING" =? T<int>
-            "NETWORK_NO_SOURCE" =? T<int>
-
-            "networkState" =? T<int>
-
-            "preload" =@ T<string>
-            "buffered" =? TimeRanges
-
-            "load" => T<unit> ^-> T<unit>
-            "canPlayType" => T<string> ^-> T<unit>
-
-            // ready state
-            "HAVE_NOTHING" =? T<int>
-            "HAVE_METADATA" =? T<int>
-            "HAVE_CURRENT_DATA" =? T<int>
-            "HAVE_FUTURE_DATA" =? T<int>
-            "HAVE_ENOUGH_DATA" =? T<int>
-
-            "readyState" =? T<int>
-            "seeking" =? T<bool>
-
-            // playback state
-            "autoplay" =@ T<bool>
-            "loop" =@ T<bool>
-            "currentTime" =@ T<float>
-            "defaultPlaybackRate" =@ T<float>
-            "playbackRate" =@ T<float>
-
-            "startOffsetTime" =? Ecma.Definition.EcmaDate
-            "played" =? TimeRanges
-            "seekable" =? TimeRanges
-            "ended" =? T<bool>
-            "paused" =? T<bool>
-            "duration" =? T<float>
-            "initialTime" =? T<float>
-
-            "play" => T<unit> ^-> T<unit>
-            "pause" => T<unit> ^-> T<unit>
-
-            // controls
-            "controls" =@ T<bool>
-            "volume" =@ T<float>
-            "muted" =@ T<bool>
-            
-            // timed tracks
-            "tracks" =? Type.ArrayOf TimedTrack
-            "addTrack" => (T<string> * TrackType * T<string>) ^-> MutableTimedTrack
-        ]
-
-    let HTMLVideoElement = 
-        Class "HTMLVideoElement"
-        |=> Inherits HTMLMediaElement
-        |+> Instance [
-            "width" =@ T<string>
-            "height" =@ T<string>
-            "videoWidth" =? T<int>
-            "videoHeight" =? T<int>
-            "poster" =@ T<string>
-        ]
-
-    let HTMLAudioElement =
-        Class "HTMLAudioElement"
-        |=> Inherits HTMLMediaElement
-        |+> Instance [
-            Constructor T<unit> |> WithInline "new Audio()"
-            Constructor T<string> |> WithInline "new Audio($0)"
-        ]
-
-module Geolocation =
+module EventHandlers =
     
-    let PositionOptions = 
-        Pattern.Config "PositionOptions" {
-            Required = []
-            Optional = 
-                ["enableHighAccuracy", T<bool>
-                 "timeout", T<int>
-                 "maximumAge", T<int>
-                ]
-        }
+    let private eh = Dom.Interfaces.Event ^-> T<unit>
 
-    let Coordinates =
-        Class "Coordinates"
+    let ElementContentEditable =
+        Class "ElementContentEditable"
         |+> Instance [
-            "latitude" =? T<float>
-            "longitude" =? T<float>
-            "altitude" =? T<float>
-            "accuracy" =? T<float>
-            "altitudeAccuracy" =? T<float>
-            "heading" =? T<float>
-            "speed" =? T<float>        
+            "contentEditable" =@ T<string>
+            "isContentEditable" =? T<bool>
         ]
 
-    let Position = 
-        Class "Position"
+    let GlobalEventHandlers =
+        Class "GlobalEventHandlers"
         |+> Instance [
-            "coords" =? Coordinates
-            "timestamp" =? Ecma.Definition.EcmaDate
+            "onabort" =@ eh
+            "onauxclick" =@ eh
+            "onblur" =@ eh
+            "oncancel" =@ eh
+            "oncanplay" =@ eh
+            "oncanplaythrough" =@ eh
+            "onchange" =@ eh
+            "onclick" =@ eh
+            "onclose" =@ eh
+            "oncontextmenu" =@ eh
+            "oncuechange" =@ eh
+            "ondblclick" =@ eh
+            "ondrag" =@ eh
+            "ondragend" =@ eh
+            "ondragenter" =@ eh
+            "ondragexit" =@ eh
+            "ondragleave" =@ eh
+            "ondragover" =@ eh
+            "ondragstart" =@ eh
+            "ondrop" =@ eh
+            "ondurationchange" =@ eh
+            "onemptied" =@ eh
+            "onended" =@ eh
+            "onerror" =@ eh
+            "onfocus" =@ eh
+            "oninput" =@ eh
+            "oninvalid" =@ eh
+            "onkeydown" =@ eh
+            "onkeypress" =@ eh
+            "onkeyup" =@ eh
+            "onload" =@ eh
+            "onloadeddata" =@ eh
+            "onloadedmetadata" =@ eh
+            "onloadend" =@ eh
+            "onloadstart" =@ eh
+            "onmousedown" =@ eh
+            "onmouseenter" =@ eh
+            "onmouseleave" =@ eh
+            "onmousemove" =@ eh
+            "onmouseout" =@ eh
+            "onmouseover" =@ eh
+            "onmouseup" =@ eh
+            "onwheel" =@ eh
+            "onpause" =@ eh
+            "onplay" =@ eh
+            "onplaying" =@ eh
+            "onprogress" =@ eh
+            "onratechange" =@ eh
+            "onreset" =@ eh
+            "onresize" =@ eh
+            "onscroll" =@ eh
+            "onseeked" =@ eh
+            "onseeking" =@ eh
+            "onselect" =@ eh
+            "onshow" =@ eh
+            "onstalled" =@ eh
+            "onsubmit" =@ eh
+            "onsuspend" =@ eh
+            "ontimeupdate" =@ eh
+            "ontoggle" =@ eh
+            "onvolumechange" =@ eh
+            "onwaiting" =@ eh
         ]
 
-    let PositionError = 
-        Class "PositionError"
+    let DocumentAndElementEventHandlers =
+        Class "DocumentAndElementEventHandlers"
         |+> Instance [
-            "UNKNOWN_ERROR" =? T<int>
-            "PERMISSION_DENIED" =? T<int>
-            "POSITION_UNAVAILABLE" =? T<int>
-            "TIMEOUT" =? T<int>
-            "code" =? T<int>
-            "message" =? T<string>
-        ]
-         
-    let Geolocation =
-        let positionCallback = Position ^-> T<unit>
-        let errorCallback = PositionError ^-> T<unit>
-        
-        Class "Geolocation"
-        |+> Instance [
-            "getCurrentPosition" => (positionCallback?p * !? errorCallback?e * !? PositionOptions?o) ^-> T<unit>
-            "watchPosition" => (positionCallback?p * !? errorCallback?e * !? PositionOptions?o) ^-> T<int>
-            "clearWatch" => T<int> ^-> T<unit>
-        ]
-
-module WebStorage =
-
-    let Storage =
-        Class "Storage"
-        |+> Instance [
-                "length" =? T<int>
-                "key" => T<int -> string>
-                "getItem" => T<string->string>
-                "setItem" => T<string>?key * T<string>?value ^-> T<unit>
-                "removeItem" => T<string -> unit>
-                "clear" => T<unit->unit>
-            ]
-
-    let StorageEvent =
-        Class "StorageEvent"
-        |+> Instance [
-                "key" =? T<string>
-                "newValue" =? T<string>
-                "oldValue" =? T<string>
-                "storageArea" =? Storage
-                "url" =? T<string>
-            ]
-
-module AppCache =
-    let ApplicationCache =
-        Class "ApplicationCache"
-        // |=> Implements [T<EventTarget>]
-        |+> Instance [
-            // update status
-            "UNCACHED" =? T<int>
-            "IDLE" =? T<int>
-            "CHECKING" =? T<int>
-            "DOWNLOADING" =? T<int>
-            "UPDATEREADY" =? T<int>
-            "OBSOLETE" =? T<int>
-            "status" =? T<int>
-
-              // updates
-            "update" => T<unit> ^-> T<unit>
-            "swapCache" => T<unit> ^-> T<unit>
-
-            // events
-            ///  Function onchecking;
-            ///  Function onerror;
-            ///  Function onnoupdate;
-            ///  Function ondownloading;
-            ///  Function onprogress;
-            ///  Function onupdateready;
-            ///  Function oncached;
-            ///  Function onobsolete;
-        ]
-
-module WebWorkers =
-
-    let WorkerNavigator = Class "WorkerNavigator"
-    let MessagePortArray = Class "MessagePortArray"
-
-    let WorkerUtils =
-        Class "WorkerUtils"
-        |+> Static [
-            "importScripts" => (!+ T<string>) ^-> T<unit>
-            "navigator" =? WorkerNavigator
-        ]
-
-    let WorkerLocation =
-        Class "WorkerLocation"
-
-    let WorkerGlobalScope = 
-        let WorkerGlobalScope = Class "WorkerGlobalScope"
-        WorkerGlobalScope
-        // |=> Implements [T<EventTarget>; WorkerUtils]
-        |+> Instance [
-            "self" =? WorkerGlobalScope
-            "location" =? WorkerLocation
-            "close" => T<unit> ^-> T<unit>
-            // attribute Function onerror;
-        ]
-    
-    let SharedWorkerScope =   
-        Class "SharedWorkerGlobalScope"
-            |=> Inherits WorkerGlobalScope
-            |+> Instance [
-                "name" =? T<string>
-                "applicationCache" =? AppCache.ApplicationCache
-                //           attribute Function onconnect;
-            ]
-
-    let DedicatedWorkerGlobalScope =
-        Class "DedicatedWorkerGlobalScope"
-        |=> Inherits WorkerGlobalScope
-        |+> Instance [
-            "postMessage" => (T<obj> * !? MessagePortArray) ^-> T<unit>
-            /// attribute Function onmessage;
-            
-        ]
-        
-    let AbstractWorker =
-        Class "AbstractWorker"
-        // |=> Implements [T<EventTarget>]
-        |+> Instance [
-            // attribute Function onerror;
-            ]
-
-    let Worker =           
-        Class "Worker"
-        |=> Inherits AbstractWorker
-        |+> Instance [
-            "terminate" => T<unit> ^-> T<unit>
-            "postMessage" => (T<obj> * !? MessagePortArray) ^-> T<unit>
-            // attribute Function onmessage;
-        ]
-
-module General = 
-    let BarProp =
-        let BarProp = Class "BarProp"
-        BarProp
-        |+> Instance [
-            "visible" =@ T<bool>
-        ]
-    
-    let History =
-        let History = Class "History"
-        History
-        |+> Instance [
-            "length" =? T<int>
-            "go" => T<unit> ^-> T<unit>
-            "go" => T<int> ^-> T<unit>
-            "back" => T<unit> ^-> T<unit>
-            "forward" => T<unit> ^-> T<unit>
-            "pushState" => T<obj> * T<string> ^-> T<unit>
-            "pushState" => T<obj> * T<string> * T<string> ^-> T<unit>
-            "replaceState" => T<obj> * T<string> ^-> T<unit>
-            "replaceState" => T<obj> * T<string> * T<string> ^-> T<unit>
-        ]
-
-    let Location =
-        Class "Location" 
-        |+> Instance [
-            "href" =@ T<string>
-            "assign" => T<string> ^-> T<unit> 
-            "replace" => T<string> ^-> T<unit> 
-            "reload" => T<unit> ^-> T<unit> 
-
-                // URL decomposition IDL attributes 
-            "protocol" =@ T<string>
-            "host" =@ T<string>
-            "hostname" =@ T<string>
-            "port" =@ T<string>
-            "pathname" =@ T<string>
-            "search" =@ T<string>
-            "hash" =@ T<string>
-
-            "resolveURL" => T<string> ^-> T<unit>
-        ]
-
-    let UndoManager =
-        Class "UndoManager"
-        |+> Instance [
-            "length" =? T<int>
-            "item" => T<int> ^-> T<obj>
-            "position" =? T<int>
-            "add" => T<obj> * T<string> ^-> T<unit>
-            "remove" => T<int> ^-> T<unit>
-            "clearUndo" => T<unit> ^-> T<unit> 
-            "clearRedo" => T<unit> ^-> T<unit> 
-        ]
-
-    let WindowProxyType = Class "Window"
-    let MessagePortType = Class "MessagePort"
-
-    let MessageEvent =
-        Class "MessageEvent"
-        // |=> Implements [T<Event>]
-        |+> Instance [
-            "data" =? T<obj>
-            "origin" =? T<string>
-            "lastEventId" =? T<string>
-            "source" =? WindowProxyType
-            "ports" =? Type.ArrayOf(MessagePortType)
-            "initMessageEvent" => T<string> * T<bool> * T<bool> * T<obj> * T<string> * T<string> * WindowProxyType * Type.ArrayOf(MessagePortType) ^-> T<unit>
-        ]
-
-    let MessagePort =
-        MessagePortType
-        |+> Instance [
-            "postMessage" => T<obj> * Type.ArrayOf(MessagePortType) ^-> T<unit>
-            "start" => T<unit> ^-> T<unit>
-            "close" => T<unit> ^-> T<unit>
-            "onmessage" =@ MessageEvent ^-> T<unit>
-        ]
-
-    let Navigator =
-        Class "Navigator" 
-        |+> Instance ["geolocation" =? Geolocation.Geolocation]
-
-    let Window = 
-        let f = Dom.Interfaces.Event ^-> T<unit>
-        WindowProxyType
-        |=> Inherits Dom.Interfaces.EventTarget
-        |+> Static [
-            "self" =? WindowProxyType
-            |> WithGetterInline "window"
-            |> ObsoleteWithMessage "Use JS.Window instead."
-        ]
-        |+> Dom.Interfaces.QuerySelectorMixin
-        |+> Instance [
-            "history" =? History
-            "document" =? Dom.Interfaces.Document
-            "name" =@ T<string>
-            "location" =? Location
-            "undoManager" =? UndoManager
-
-            "locationbar" =? BarProp
-            "menubar" =? BarProp
-            "personalbar" =? BarProp
-            "scrollbars" =? BarProp
-            "statusbar" =? BarProp
-            "toolbar" =? BarProp
-
-            "frames" =? WindowProxyType
-            "length" =? T<int>
-            "top" =? WindowProxyType
-            "opener" =? WindowProxyType
-            "parent" =? WindowProxyType
-            "frameElement" =? Dom.Interfaces.Element
-            "open" => (T<string> * T<string> * T<string> * T<string>) ^->  WindowProxyType
-            "open" => (T<string> * T<string> * T<string>) ^->  WindowProxyType
-            "open" => (T<string> * T<string>) ^->  WindowProxyType
-            "open" => (T<string>) ^->  WindowProxyType
-            "open" => (T<unit>) ^->  WindowProxyType
-
-            "navigator" =? Navigator
-            "applicationCache" =? AppCache.ApplicationCache
-            "localStorage" =? WebStorage.Storage
-            "sessionStorage" =? WebStorage.Storage
-            "alert" => T<string> ^-> T<unit>
-            "confirm" => T<string> ^-> T<bool>
-            "prompt" => T<string> ^-> T<string>
-            "prompt" => T<string> * T<string> ^-> T<string>
-            "print" => T<unit> ^-> T<unit>
-            "showModalDialog" => T<string> * T<obj> ^-> T<bool>
-            "showModalDialog" => T<string> ^-> T<bool>
-
-            "postMessage" => T<string> * T<string> * Type.ArrayOf(MessagePort) ^-> T<unit> 
-            "postMessage" => T<string> * T<string> ^-> T<unit> 
-
-            "onabort" =@ f
-            "onafterprint" =@ f
-            "onbeforeprint" =@ f
-            "onbeforeunload" =@ f
-            "onblur" =@ f
-            "oncanplay" =@ f
-            "oncanplaythrough" =@ f
-            "onchange" =@ f
-            "onclick" =@ f
-            "oncontextmenu" =@ f
-
-            "oncuechange" =@ f
-
-            "ondblclick" =@ f
-            "ondrag" =@ f
-            "ondragend" =@ f
-            "ondragenter" =@ f
-            "ondragleave" =@ f
-            "ondragover" =@ f
-            "ondragstart" =@ f
-            "ondrop" =@ f
-            "ondurationchange" =@ f
-            "onemptied" =@ f
-            "onended" =@ f
-            "onerror" =@ f
-            "onfocus" =@ f
-            "onformchange" =@ f
-            "onforminput" =@ f
-            "onhashchange" =@ f
-            "oninput" =@ f
-            "oninvalid" =@ f
-            "onkeydown" =@ f
-            "onkeypress" =@ f
-            "onkeyup" =@ f
-            "onload" =@ f
-            "onloadeddata" =@ f
-            "onloadedmetadata" =@ f
-            "onloadstart" =@ f
-            "onmessage" =@ f
-            "onmousedown" =@ f
-            "onmousemove" =@ f
-            "onmouseout" =@ f
-            "onmouseover" =@ f
-            "onmouseup" =@ f
-            "onmousewheel" =@ f
-            "onoffline" =@ f
-            "ononline" =@ f
-            "onpause" =@ f
-            "onplay" =@ f
-            "onplaying" =@ f
-            "onpagehide" =@ f
-            "onpageshow" =@ f
-            "onpopstate" =@ f
-            "onprogress" =@ f
-            "onratechange" =@ f
-            "onreadystatechange" =@ f
-            "onredo" =@ f
-            "onreset" =@ f
-            "onresize" =@ f
-            "onscroll" =@ f
-            "onseeked" =@ f
-            "onseeking" =@ f
-            "onselect" =@ f
-            "onshow" =@ f
-            "onstalled" =@ f
-            "onstorage" =@ WebStorage.StorageEvent ^-> T<unit>
-            "onsubmit" =@ f
-            "onsuspend" =@ f
-            "ontimeupdate" =@ f
-            "onundo" =@ f
-            "onunload" =@ f
-            "onvolumechange" =@ f
-            "onwaiting" =@ f
+            "oncopy" =@ eh
+            "oncut" =@ eh
+            "onpaste" =@ eh
         ]
 
 module TypedArrays =
@@ -927,7 +567,9 @@ module File =
         |=> Inherits Blob
         |+> Instance [
                 "name" =? T<string>
-                "lastModifiedDate" =? Ecma.Definition.EcmaDate
+                "lastModifiedDate" =? Ecma.Definition.EcmaDate |> Obsolete
+                "lastModifed" =? T<int>
+                "size" =? T<int>
             ]
 
     let ProgressEvent =
@@ -975,6 +617,9 @@ module File =
                 "onabort" =@ ProgressEvent ^-> T<unit>
                 "onerror" =@ ProgressEvent ^-> T<unit>
                 "onloadend" =@ ProgressEvent ^-> T<unit>
+                "readAsArrayBuffer " => Blob ^-> T<unit>
+                "readAsText" => Blob * !?T<string>?encoding ^-> T<unit>
+                "readAsDataURL" => Blob ^-> T<unit>
         ]
 
     let TextFileReader =
@@ -999,6 +644,920 @@ module File =
         |+> Instance [
                 "readAsArrayBuffer" => Blob ^-> T<unit>
             ]
+
+
+module Elements =
+    open Canvas
+    open AudioVideoCommon
+
+    let HTMLElement =
+        Class "HTMLElement"
+        |=> Inherits Dom.Interfaces.Element
+        |+> Instance [
+            "title" =@ T<string>
+            "lang" =@ T<string>
+            "translate" =@ T<bool>
+            "dir" =@ T<string>
+
+            "hidden" =@ T<bool>
+            "tabIndex" =@ T<int>
+
+            "click" => T<unit> ^-> T<unit>
+            "focus" => T<unit> ^-> T<unit>
+            "blur" => T<unit> ^-> T<unit>
+
+            "accessKey" =@ T<string>
+            "accessKeyLabel" =? T<string>
+            "draggable" =@ T<bool>
+            "spellCheck" =@ T<bool>
+            "forceSpellCheck" => T<unit> ^-> T<unit>
+
+            "innerText" =@ T<string>
+        ]
+        |=> Implements [
+            EventHandlers.GlobalEventHandlers
+            EventHandlers.DocumentAndElementEventHandlers
+            EventHandlers.ElementContentEditable
+        ]
+
+    let HTMLMenuElement =
+        Class "HTMLMenuElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "type" =@ T<string>
+            "label" =@ T<string>
+        ]
+
+    let HTMLMenuItemElement =
+        Class "HTMLMenuItemElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "type" =@ T<string>
+            "label" =@ T<string>
+            "icon" =@ T<string>
+            "disabled" =@ T<bool>
+            "checked" =@ T<bool>
+            "radiogroup" =@ T<string>
+            "default" =@ T<bool>
+
+        ]
+
+    let RadioNodeList =
+        Class "RadioNodeList"
+        |=> Inherits Dom.Interfaces.NodeList
+        |+> Instance [
+            "value" =@ T<string>
+        ]
+
+    let HTMLFormControlsCollection =
+        Class "HTMLFormControlsCollection"
+        |=> Inherits Dom.Interfaces.HTMLCollection
+        |+> Instance [
+            "namedItem" => T<string> ^-> T<obj> //?? it returns either a RadioNodeList or an Element
+        ]
+
+    let HTMLFormElement =
+        Class "HTMLFormElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "acceptCharset" =@ T<string>
+            "action" =@ T<string>
+            "autocomplete" =@ T<string>
+            "enctype" =@ T<string>
+            "encoding" =@ T<string>
+            "method" =@ T<string>
+            "name" =@ T<string>
+            "noValidate" =@ T<bool>
+            "target" =@ T<string>
+
+            "elements" =? HTMLFormControlsCollection
+
+            "length" =? T<int>
+            "submit" => T<unit> ^-> T<unit>
+            "reset" => T<unit> ^-> T<unit>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+        ]
+
+    let HTMLLabelElement =
+        Class "HTMLLabelElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "form" =? HTMLFormElement
+            "control" =? HTMLElement
+            "htmlFor" =@ T<string>
+        ]
+
+    let SelectionMode =
+        Pattern.EnumStrings "SelectionMode" [
+            "select"
+            "start"
+            "end"
+            "preserve"
+        ]
+
+    let HTMLInputElement =
+        Class "HTMLInputElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "accept" =@ T<string>
+            "alt" =@ T<string>
+            "autocomplete" =@ T<string>
+            "autofocus" =@ T<bool>
+            "defaultChecked" =@ T<bool>
+            "checked" =@ T<bool>
+            "dirName" =@ T<string>
+            "form" =? HTMLFormElement
+            "file" =? File.FileList
+            "formAction" =@ T<string>
+            "formEnctype" =@ T<string>
+            "formMethod" =@ T<string>
+            "formNoValidate" => T<bool>
+            "formTarget" =@ T<string>
+            "height" =@ T<int>
+            "indeterminate" =@ T<bool>
+            "inputMode" =@ T<string>
+            "list" =? HTMLElement
+            "max" =@ T<string>
+            "maxLength" =@ T<int>
+            "min" =@ T<string>
+            "minLength" =@ T<int>
+            "multiple" =@ T<bool>
+            "name" =@ T<string>
+            "pattern" =@ T<string>
+            "placeholder" =@ T<string>
+            "readOnly" =@ T<bool>
+            "required" =@ T<bool>
+            "size" =@ T<int>
+            "src" =@ T<string>
+            "step" =@ T<string>
+            "type" =@ T<string>
+            "value" =@ T<string>
+            "valueAsDate" =@ T<obj>
+            "valueAsNumber" =@ T<double>
+            "width" =@ T<int>
+            
+            "stepUp" => !?T<int> ^-> T<unit> |> WithComment "The paramter deafults to 1"
+            "stepDown" => !?T<int> ^-> T<unit> |> WithComment "The paramter deafults to 1"
+
+            "willValidate" =? T<bool>
+            "validity" =? T<obj>
+            "validationMessage" =? T<string>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+            "setCustomValidity" => T<string> ^-> T<unit>
+
+            "labels" =? Dom.Interfaces.NodeList
+
+            "select" => T<unit> ^-> T<unit>
+            
+            "selectionStart" =@ T<int>
+            "selectionEnd" =@ T<int>
+            "selectionDirection" =@ T<string>
+            "setRangeText" => T<string> ^-> T<unit>
+            "setRangeText" => (T<string> * T<int> * T<int> * !?SelectionMode) ^-> T<unit>
+            "setSelectionRange" => (T<int> * T<int> * T<string>) ^-> T<unit>
+        ]
+
+    let HTMLButtonElement =
+        Class "HTMLButtonElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "autofocus" =@ T<bool>
+            "disabled" =@ T<bool>
+            "form" =? HTMLFormElement
+            "formAction" =@ T<string>
+            "formEnctype" =@ T<string>
+            "formMethod" =@ T<string>
+            "formNoValidate" => T<bool>
+            "formTarget" =@ T<string>
+            "name" =@ T<string>
+            "type" =@ T<string>
+            "value" =@ T<string>
+            "menu" =@ HTMLMenuElement
+
+            "willValidate" =? T<bool>
+            "validity" =? T<obj>
+            "validationMessage" =? T<string>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+            "setCustomValidity" => T<string> ^-> T<unit>
+
+            "labels" =? Dom.Interfaces.NodeList
+        ]
+
+    let HTMLOptGroupElement =
+        Class "HTMLOptGroupElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "disabled" =@ T<bool>
+            "label" =@ T<string>
+        ]
+
+    let HTMLOptionElement =
+        Class "HTMLOptionElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "disabled" =@ T<bool>
+            "label" =@ T<string>
+            "form" =? HTMLFormElement
+            "defaultSelected" =@ T<bool>
+            "selected" =@ T<bool>
+            "value" =@ T<string>
+            "text" =@ T<string>
+            "index" =? T<int>
+        ]
+
+    let HTMLOptionsCollection =
+        Class "HTMLOptionsCollection"
+        |=> Inherits Dom.Interfaces.HTMLCollection
+        |+> Instance [
+            "length" =@ T<int>
+            "add" => (HTMLOptionElement + HTMLOptGroupElement) * !?(HTMLElement + T<int>) ^-> T<unit>
+            "remove" => T<int> ^-> T<unit>
+            "selectedIndex" =@ T<int>
+        ]
+
+    let HTMLSelectElement = 
+        Class "HTMLSelectElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "autocomplete" =@ T<string>
+            "autofocus" =@ T<bool>
+            "disabled" =@ T<bool>
+            "form" =? HTMLFormElement
+            "multiple" =@ T<bool>
+            "name" =@ T<string>
+            "required" =@ T<bool>
+            "size" =@ T<int>
+            
+            "type" =? T<string>
+            
+            // HTMLOptionsCollection
+            "length" =? T<int>
+            "item" => T<int> ^-> Dom.Interfaces.Element
+            "namedItem" => T<string> ^-> HTMLOptionElement
+            "add" => HTMLOptGroupElement * HTMLElement ^-> T<unit>
+            "add" => HTMLOptionElement * HTMLElement ^-> T<unit>
+            "add" => HTMLOptGroupElement * T<int> ^-> T<unit>
+            "add" => HTMLOptionElement * T<int> ^-> T<unit>
+            "add" => HTMLOptGroupElement ^-> T<unit>
+            "add" => HTMLOptionElement ^-> T<unit>
+            "remove" => T<unit> ^-> T<unit>
+            "remove" => T<int> ^-> T<unit>
+
+            "willValidate" =? T<bool>
+            "validity" =? T<obj>
+            "validationMessage" =? T<string>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+            "setCustomValidity" => T<string> ^-> T<unit>
+
+            "labels" =? Dom.Interfaces.NodeList
+        ]
+
+    let HTMLDataListElement =
+        Class "HTMLDataListElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "options" =? Dom.Interfaces.HTMLCollection
+        ]
+
+    let HTMLTextAreaElement =
+        Class "HTMLTextAreaElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "autocomplete" =@ T<string>
+            "autofocus" =@ T<bool>
+            "cols" =@ T<int>
+            "checked" =@ T<bool>
+            "dirName" =@ T<string>
+            "disabled" =@ T<bool>
+            "form" =? HTMLFormElement
+            "inputMode" =@ T<string>
+            "maxLength" =@ T<int>
+            "minLength" =@ T<int>
+            "name" =@ T<string>
+            "placeholder" =@ T<string>
+            "readOnly" =@ T<bool>
+            "required" =@ T<bool>
+            "rows" =@ T<int>
+            "wrap" =@ T<string>
+            "type" =@ T<string>
+            "value" =@ T<string>
+            "textLength" =@ T<int>
+            "defaultValue" =@ T<string>
+
+            "willValidate" =? T<bool>
+            "validity" =? T<obj>
+            "validationMessage" =? T<string>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+            "setCustomValidity" => T<string> ^-> T<unit>
+
+            "labels" =? Dom.Interfaces.NodeList
+
+            "select" => T<unit> ^-> T<unit>
+            
+            "selectionStart" =@ T<int>
+            "selectionEnd" =@ T<int>
+            "selectionDirection" =@ T<string>
+            "setRangeText" => T<string> ^-> T<unit>
+            "setRangeText" => (T<string> * T<int> * T<int> * !?SelectionMode) ^-> T<unit>
+            "setSelectionRange" => (T<int> * T<int> * T<string>) ^-> T<unit>
+        ]
+
+    let HTMLOutputElement =
+        Class "HTMLOutputElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "htmlFor" =? Dom.Interfaces.DOMTokenList
+            "form" =? HTMLFormElement
+            "name" =@ T<string>
+            "type" =? T<string>
+            "defaultValue" =@ T<string>
+            "value" =@ T<string>
+
+            "willValidate" =? T<bool>
+            "validity" =? T<obj>
+            "validationMessage" =? T<string>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+            "setCustomValidity" => T<string> ^-> T<unit>
+
+            "labels" =? Dom.Interfaces.NodeList
+        ]
+
+    let HTMLProgressElement =
+        Class "HTMLProgressElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "value" =@ T<double>
+            "max" =@ T<double>
+            "position" =? T<double>
+
+            "labels" =? Dom.Interfaces.NodeList
+        ]
+
+    let HTMLMeterElement =
+        Class "HTMLMeterElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "value" =@ T<double>
+            "max" =@ T<double>
+            "min" =@ T<double>
+            "low" =@ T<double>
+            "high" =@ T<double>
+            "optimum" =@ T<double>
+
+            "labels" =? Dom.Interfaces.NodeList
+        ]
+
+    let HTMLDetailsElement =
+        Class "HTMLDetailsElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "open" =@ T<bool>
+        ]
+
+    let HTMLLegendElement =
+        Class "HTMLLegendElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "form" =? HTMLFormElement
+        ]
+
+    let HTMLFieldSetElement =
+        Class "HTMLFieldSetElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "disabled" =@ T<bool>
+            "form" =? HTMLFormElement
+            "name" =@ T<string>
+            "type" =? T<string>
+            "elements" =? Dom.Interfaces.HTMLCollection
+
+            "willValidate" =? T<bool>
+            "validity" =? T<obj>
+            "validationMessage" =? T<string>
+            "checkValidity" => T<unit> ^-> T<bool>
+            "reportValidity" => T<unit> ^-> T<bool>
+            "setCustomValidity" => T<string> ^-> T<unit>
+        ]
+
+    let HTMLDialogElement =
+        Class "HTMLDialogElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "open" =@ T<bool>
+            "returnValue" =@ T<string>
+            "show" => T<unit> ^-> T<unit>
+            "showModal" => T<unit> ^-> T<unit>
+            "close" => (!?T<string>) ^-> T<unit>
+        ]
+
+    let CanvasElement =
+        Class "CanvasElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "width" =@ T<int>
+            "height" =@ T<int>
+            "toDataURL" => !? T<string>?a * !? T<float>?b ^-> T<string>
+            "getContext" => T<string> ^-> Canvas.CanvasRenderingContext2D
+        ]
+
+    let HTMLMediaElement =
+        Class "HTMLMediaElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            // error state
+            "error" =?  MediaError
+
+            // network state
+            "src" =@ T<string>
+            "currentSrc" =? T<string>
+
+            "NETWORK_EMPTY" =? T<int>
+            "NETWORK_IDLE" =? T<int>
+            "NETWORK_LOADING" =? T<int>
+            "NETWORK_NO_SOURCE" =? T<int>
+
+            "networkState" =? T<int>
+
+            "buffered" =? TimeRanges
+
+            "load" => T<unit> ^-> T<unit>
+            "canPlayType" => T<string> ^-> T<unit>
+
+            // ready state
+            "HAVE_NOTHING" =? T<int>
+            "HAVE_METADATA" =? T<int>
+            "HAVE_CURRENT_DATA" =? T<int>
+            "HAVE_FUTURE_DATA" =? T<int>
+            "HAVE_ENOUGH_DATA" =? T<int>
+
+            "readyState" =? T<int>
+            "seeking" =? T<bool>
+
+            // playback state
+            "autoplay" =@ T<bool>
+            "loop" =@ T<bool>
+            "currentTime" =@ T<float>
+            "defaultPlaybackRate" =@ T<float>
+            "playbackRate" =@ T<float>
+
+            "startOffsetTime" =? Ecma.Definition.EcmaDate
+            "played" =? TimeRanges
+            "seekable" =? TimeRanges
+            "ended" =? T<bool>
+            "paused" =? T<bool>
+            "duration" =? T<float>
+            "initialTime" =? T<float>
+            "crossOrigin" =@ T<string>
+            "defaultMuted" =@ T<bool>
+            "disableRemotePlayback" =@ T<bool>
+            "mediaGroup" =@ T<string>
+            "preload" =@ MediaPreload
+
+            "play" => T<unit> ^-> T<unit>
+            "pause" => T<unit> ^-> T<unit>
+
+            // controls
+            "controls" =@ T<bool>
+            "volume" =@ T<float>
+            "muted" =@ T<bool>
+            
+            // timed tracks
+            "tracks" =? Type.ArrayOf TimedTrack
+            "addTrack" => (T<string> * TrackType * T<string>) ^-> MutableTimedTrack
+
+        ]
+
+    let HTMLVideoElement = 
+        Class "HTMLVideoElement"
+        |=> Inherits HTMLMediaElement
+        |+> Instance [
+            "width" =@ T<string>
+            "height" =@ T<string>
+            "videoWidth" =? T<int>
+            "videoHeight" =? T<int>
+            "poster" =@ T<string>
+        ]
+
+    let HTMLAudioElement =
+        Class "HTMLAudioElement"
+        |=> Inherits HTMLMediaElement
+        |+> Instance [
+            Constructor T<unit> |> WithInline "new Audio()"
+            Constructor T<string> |> WithInline "new Audio($0)"
+        ]
+
+    let HTMLSlotElement =
+        Class "HTMLSlotElement"
+        |=> Inherits HTMLElement
+
+module Geolocation =
+    
+    let PositionOptions = 
+        Pattern.Config "PositionOptions" {
+            Required = []
+            Optional = 
+                ["enableHighAccuracy", T<bool>
+                 "timeout", T<int>
+                 "maximumAge", T<int>
+                ]
+        }
+
+    let Coordinates =
+        Class "Coordinates"
+        |+> Instance [
+            "latitude" =? T<float>
+            "longitude" =? T<float>
+            "altitude" =? T<float>
+            "accuracy" =? T<float>
+            "altitudeAccuracy" =? T<float>
+            "heading" =? T<float>
+            "speed" =? T<float>        
+        ]
+
+    let Position = 
+        Class "Position"
+        |+> Instance [
+            "coords" =? Coordinates
+            "timestamp" =? Ecma.Definition.EcmaDate
+        ]
+
+    let PositionError = 
+        Class "PositionError"
+        |+> Instance [
+            "UNKNOWN_ERROR" =? T<int>
+            "PERMISSION_DENIED" =? T<int>
+            "POSITION_UNAVAILABLE" =? T<int>
+            "TIMEOUT" =? T<int>
+            "code" =? T<int>
+            "message" =? T<string>
+        ]
+         
+    let Geolocation =
+        let positionCallback = Position ^-> T<unit>
+        let errorCallback = PositionError ^-> T<unit>
+        
+        Class "Geolocation"
+        |+> Instance [
+            "getCurrentPosition" => (positionCallback?p * !? errorCallback?e * !? PositionOptions?o) ^-> T<unit>
+            "watchPosition" => (positionCallback?p * !? errorCallback?e * !? PositionOptions?o) ^-> T<int>
+            "clearWatch" => T<int> ^-> T<unit>
+        ]
+
+module WebStorage =
+
+    let Storage =
+        Class "Storage"
+        |+> Instance [
+                "length" =? T<int>
+                "key" => T<int> ^-> T<string>
+                "getItem" => T<string> ^-> T<string>
+                "setItem" => T<string>?key * T<string>?value ^-> T<unit>
+                "removeItem" => T<string -> unit>
+                "clear" => T<unit->unit>
+            ]
+
+    let StorageEvent =
+        Class "StorageEvent"
+        |+> Instance [
+                "key" =? T<string>
+                "newValue" =? T<string>
+                "oldValue" =? T<string>
+                "storageArea" =? Storage
+                "url" =? T<string>
+            ]
+
+module AppCache =
+    let ApplicationCache =
+        Class "ApplicationCache"
+        // |=> Implements [T<EventTarget>]
+        |+> Instance [
+            // update status
+            "UNCACHED" =? T<int>
+            "IDLE" =? T<int>
+            "CHECKING" =? T<int>
+            "DOWNLOADING" =? T<int>
+            "UPDATEREADY" =? T<int>
+            "OBSOLETE" =? T<int>
+            "status" =? T<int>
+
+              // updates
+            "update" => T<unit> ^-> T<unit>
+            "swapCache" => T<unit> ^-> T<unit>
+            "abort" => T<unit> ^-> T<unit>
+
+            // events
+            ///  Function onchecking;
+            ///  Function onerror;
+            ///  Function onnoupdate;
+            ///  Function ondownloading;
+            ///  Function onprogress;
+            ///  Function onupdateready;
+            ///  Function oncached;
+            ///  Function onobsolete;
+        ]
+
+module WebWorkers =
+
+    let WorkerNavigator = Class "WorkerNavigator"
+    let MessagePortArray = Class "MessagePortArray"
+
+    let WorkerUtils =
+        Class "WorkerUtils"
+        |+> Static [
+            "importScripts" => (!+ T<string>) ^-> T<unit>
+            "navigator" =? WorkerNavigator
+        ]
+
+    let WorkerLocation =
+        Class "WorkerLocation"
+
+    let WorkerGlobalScope = 
+        let WorkerGlobalScope = Class "WorkerGlobalScope"
+        WorkerGlobalScope
+        // |=> Implements [T<EventTarget>; WorkerUtils]
+        |+> Instance [
+            "self" =? WorkerGlobalScope
+            "location" =? WorkerLocation
+            "close" => T<unit> ^-> T<unit>
+            // attribute Function onerror;
+        ]
+    
+    let SharedWorkerScope =   
+        Class "SharedWorkerGlobalScope"
+            |=> Inherits WorkerGlobalScope
+            |+> Instance [
+                "name" =? T<string>
+                "applicationCache" =? AppCache.ApplicationCache
+                //           attribute Function onconnect;
+            ]
+
+    let DedicatedWorkerGlobalScope =
+        Class "DedicatedWorkerGlobalScope"
+        |=> Inherits WorkerGlobalScope
+        |+> Instance [
+            "postMessage" => (T<obj> * !? MessagePortArray) ^-> T<unit>
+            /// attribute Function onmessage;
+            
+        ]
+        
+    let AbstractWorker =
+        Class "AbstractWorker"
+        // |=> Implements [T<EventTarget>]
+        |+> Instance [
+            // attribute Function onerror;
+            ]
+
+    let Worker =           
+        Class "Worker"
+        |=> Inherits AbstractWorker
+        |+> Instance [
+            "terminate" => T<unit> ^-> T<unit>
+            "postMessage" => (T<obj> * !? MessagePortArray) ^-> T<unit>
+            // attribute Function onmessage;
+        ]
+
+module General = 
+    let BarProp =
+        let BarProp = Class "BarProp"
+        BarProp
+        |+> Instance [
+            "visible" =@ T<bool>
+        ]
+
+    let ScrollRestoration =
+        Pattern.EnumStrings "ScrollRestoration" [
+            "auto"
+            "manual"
+        ]
+    
+    let History =
+        let History = Class "History"
+        History
+        |+> Instance [
+            "length" =? T<int>
+            "state" =? T<obj>
+            "scrollRestoration" =@ ScrollRestoration
+            "go" => T<unit> ^-> T<unit>
+            "go" => T<int> ^-> T<unit>
+            "back" => T<unit> ^-> T<unit>
+            "forward" => T<unit> ^-> T<unit>
+            "pushState" => T<obj> * T<string> ^-> T<unit>
+            "pushState" => T<obj> * T<string> * T<string> ^-> T<unit>
+            "replaceState" => T<obj> * T<string> ^-> T<unit>
+            "replaceState" => T<obj> * T<string> * T<string> ^-> T<unit>
+        ]
+
+    let Location =
+        Class "Location" 
+        |+> Instance [
+            "href" =@ T<string>
+            "assign" => T<string> ^-> T<unit> 
+            "replace" => T<string> ^-> T<unit> 
+            "reload" => T<unit> ^-> T<unit> 
+            "toString" => T<unit> ^-> T<string>
+
+                // URL decomposition IDL attributes 
+            "protocol" =@ T<string>
+            "host" =@ T<string>
+            "hostname" =@ T<string>
+            "port" =@ T<string>
+            "pathname" =@ T<string>
+            "search" =@ T<string>
+            "hash" =@ T<string>
+            "origin" =? T<string>
+            "username" =@ T<string>
+            "password" =@ T<string>
+
+        ]
+
+    let UndoManager =
+        Class "UndoManager"
+        |+> Instance [
+            "length" =? T<int>
+            "position" =? T<int>
+            "undo" => T<unit> ^-> T<unit>
+            "redo" => T<unit> ^-> T<unit>
+            "remove" => T<int> ^-> T<unit>
+            "clearUndo" => T<unit> ^-> T<unit> 
+            "clearRedo" => T<unit> ^-> T<unit> 
+        ]
+
+    let WindowProxyType = Class "Window"
+    let MessagePortType = Class "MessagePort"
+
+
+
+    let MessageEvent =
+        Class "MessageEvent"
+        // |=> Implements [T<Event>]
+        |+> Static [
+            Constructor (T<string> * !?T<obj>)
+        ]
+        |+> Instance [
+            "data" =? T<obj>
+            "origin" =? T<string>
+            "lastEventId" =? T<string>
+            "source" =? WindowProxyType
+            "ports" =? Type.ArrayOf(MessagePortType)
+            "initMessageEvent" => T<string> * T<bool> * T<bool> * T<obj> * T<string> * T<string> * WindowProxyType * Type.ArrayOf(MessagePortType) ^-> T<unit>
+                |> Obsolete
+        ]
+
+    let MessagePort =
+        MessagePortType
+        |+> Instance [
+            "postMessage" => T<obj> * Type.ArrayOf(MessagePortType) ^-> T<unit>
+            "start" => T<unit> ^-> T<unit>
+            "close" => T<unit> ^-> T<unit>
+            "onmessage" =@ MessageEvent ^-> T<unit>
+        ]
+
+    let Navigator =
+        Class "Navigator" 
+        |+> Instance ["geolocation" =? Geolocation.Geolocation]
+
+    let Window = 
+        let f = Dom.Interfaces.Event ^-> T<unit>
+        WindowProxyType
+        |=> Inherits Dom.Interfaces.EventTarget
+        |+> Static [
+            "self" =? WindowProxyType
+            |> WithGetterInline "window"
+            |> ObsoleteWithMessage "Use JS.Window instead."
+        ]
+        |+> Dom.Interfaces.QuerySelectorMixin
+        |+> Instance [
+            "history" =? History
+            "document" =? Dom.Interfaces.Document
+            "name" =@ T<string>
+            "location" =? Location
+            "undoManager" =? UndoManager
+
+            "locationbar" =? BarProp
+            "menubar" =? BarProp
+            "personalbar" =? BarProp
+            "scrollbars" =? BarProp
+            "statusbar" =? BarProp
+            "toolbar" =? BarProp
+
+
+            "frames" =? WindowProxyType
+            "length" =? T<int>
+            "top" =? WindowProxyType
+            "opener" =? WindowProxyType
+            "parent" =? WindowProxyType
+            "frameElement" =? Dom.Interfaces.Element
+            "open" => (T<string> * T<string> * T<string> * T<string>) ^->  WindowProxyType
+            "open" => (T<string> * T<string> * T<string>) ^->  WindowProxyType
+            "open" => (T<string> * T<string>) ^->  WindowProxyType
+            "open" => (T<string>) ^->  WindowProxyType
+            "open" => (T<unit>) ^->  WindowProxyType
+
+            "navigator" =? Navigator
+            "crypto" =? T<obj>
+            "applicationCache" =? AppCache.ApplicationCache
+            "localStorage" =? WebStorage.Storage
+            "sessionStorage" =? WebStorage.Storage
+            "alert" => T<string> ^-> T<unit>
+            "confirm" => T<string> ^-> T<bool>
+            "prompt" => T<string> ^-> T<string>
+            "prompt" => T<string> * T<string> ^-> T<string>
+            "print" => T<unit> ^-> T<unit>
+            "showModalDialog" => T<string> * T<obj> ^-> T<bool>
+            "showModalDialog" => T<string> ^-> T<bool>
+
+            "postMessage" => T<string> * T<string> * Type.ArrayOf(MessagePort) ^-> T<unit> 
+            "postMessage" => T<string> * T<string> ^-> T<unit> 
+
+            "onabort" =@ f
+            "onauxclick" =@ f
+            "onafterprint" =@ f
+            "onbeforeprint" =@ f
+            "onbeforeunload" =@ f
+            "onblur" =@ f
+            "oncanplay" =@ f
+            "oncancel" =@ f
+            "oncanplaythrough" =@ f
+            "onchange" =@ f
+            "onclick" =@ f
+            "oncontextmenu" =@ f
+
+            "oncuechange" =@ f
+
+            "ondblclick" =@ f
+            "ondrag" =@ f
+            "ondragend" =@ f
+            "ondragexit" =@ f
+            "ondragenter" =@ f
+            "ondragleave" =@ f
+            "ondragover" =@ f
+            "ondragstart" =@ f
+            "ondrop" =@ f
+            "ondurationchange" =@ f
+            "onemptied" =@ f
+            "onended" =@ f
+            "onerror" =@ f
+            "onfocus" =@ f
+            "onformchange" =@ f |> Obsolete
+            "onforminput" =@ f |> Obsolete
+            "onhashchange" =@ f
+            "oninput" =@ f
+            "oninvalid" =@ f
+            "onkeydown" =@ f
+            "onkeypress" =@ f
+            "onkeyup" =@ f
+            "onload" =@ f
+            "onloadeddata" =@ f
+            "onloadedmetadata" =@ f
+            "onloadstart" =@ f
+            "onloadend" =@ f
+            "onmessage" =@ f
+            "onmousedown" =@ f
+            "onmousemove" =@ f
+            "onmouseout" =@ f
+            "onmouseover" =@ f
+            "onmouseup" =@ f
+            "onmouseenter" =@ f
+            "onmouseleave" =@ f
+            "onmousewheel" =@ f
+            "onoffline" =@ f
+            "ononline" =@ f
+            "onpause" =@ f
+            "onplay" =@ f
+            "onplaying" =@ f
+            "onpagehide" =@ f
+            "onpageshow" =@ f
+            "onpopstate" =@ f
+            "onprogress" =@ f
+            "onratechange" =@ f
+            "onreadystatechange" =@ f
+            "onredo" =@ f
+            "onrejectionhandled" =@ f
+            "onreset" =@ f
+            "onresize" =@ f
+            "onscroll" =@ f
+            "onseeked" =@ f
+            "onseeking" =@ f
+            "onselect" =@ f
+            "onshow" =@ f
+            "onstalled" =@ f
+            "onstorage" =@ WebStorage.StorageEvent ^-> T<unit>
+            "onsubmit" =@ f
+            "onsuspend" =@ f
+            "ontimeupdate" =@ f
+            "ontoggle" =@ f
+            "onundo" =@ f
+            "onunhandledrejection" =@ f
+            "onunload" =@ f
+            "onvolumechange" =@ f
+            "onwaiting" =@ f
+        ]
 
 module WebGL =
 
@@ -1613,6 +2172,7 @@ module Definition =
         [
             Namespace "WebSharper.JavaScript" [
                 AudioVideoCommon.MediaError
+                AudioVideoCommon.MediaPreload
                 AudioVideoCommon.MutableTimedTrack
                 AudioVideoCommon.TimeRanges
                 AudioVideoCommon.TimedTrack
@@ -1631,11 +2191,38 @@ module Definition =
                 Canvas.Repetition
                 Canvas.TextAlign
                 Canvas.TextBaseline
+                Canvas.TextDirection
                 Canvas.TextMetrics
+                EventHandlers.GlobalEventHandlers
+                EventHandlers.DocumentAndElementEventHandlers
+                EventHandlers.ElementContentEditable
+                Elements.HTMLElement
                 Elements.CanvasElement
                 Elements.HTMLAudioElement
                 Elements.HTMLVideoElement
                 Elements.HTMLMediaElement
+                Elements.HTMLButtonElement
+                Elements.HTMLDataListElement
+                Elements.HTMLDetailsElement
+                Elements.HTMLDialogElement
+                Elements.HTMLFieldSetElement
+                Elements.HTMLFormControlsCollection
+                Elements.HTMLFormElement
+                Elements.HTMLInputElement
+                Elements.HTMLLabelElement
+                Elements.HTMLLegendElement
+                Elements.HTMLMenuElement
+                Elements.HTMLMenuItemElement
+                Elements.HTMLMeterElement
+                Elements.HTMLOptGroupElement
+                Elements.HTMLOptionElement
+                Elements.HTMLOptionsCollection
+                Elements.HTMLOutputElement
+                Elements.HTMLProgressElement
+                Elements.HTMLSelectElement
+                Elements.HTMLSlotElement
+                Elements.HTMLTextAreaElement
+                Elements.SelectionMode
                 File.BinaryFileReader
                 File.Blob
                 File.BlobPropertyBag
@@ -1651,6 +2238,7 @@ module Definition =
                 General.MessageEvent
                 General.MessagePort
                 General.Navigator
+                General.ScrollRestoration
                 General.UndoManager
                 General.Window
                 TypedArrays.DataView.Class

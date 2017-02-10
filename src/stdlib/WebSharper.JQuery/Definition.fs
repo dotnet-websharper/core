@@ -28,113 +28,169 @@ module Definition =
     let JQ = Class "jQuery"
 
     let Event =
-        Class "Event"
+        Class "jQuery.Event"
         |+> Instance [
             "AsDomEvent" =? T<Dom.Event>
             |> WithGetterInline "$0"
-            |> WithComment "Casts this JQuery.Event to a Dom.Event."
-            "altKey" =? T<bool>
-            "bubbles" =? T<bool>
-            "button" =? T<int>
-            "cancelable" =? T<bool>
-            "charCode" =? T<int>
-            "clientX" =? T<int>
-            "clientY" =? T<int>
-            "ctrlKey" =? T<bool>
+            |> WithComment "Casts this JQuery.Event to a Dom.Event"
             "currentTarget" =? T<Dom.Element>
             "data" =? T<obj>
-            "detail" =? T<obj>
-            "eventPhase" =? T<int>
-            "metaKey" =? T<bool>
-            "offsetX" =? T<int>
-            "offsetY" =? T<int>
-            "originalTarget" =? T<Dom.Element>
-            "pageX" =? T<int>
-            "pageY" =? T<int>
-            "relatedTarget" =? T<Dom.Element>
-            "screenX" =? T<int>
-            "screenY" =? T<int>
-            "shiftKey" =? T<bool>
-            "target" =? T<Dom.Element>
-            "view" =? T<obj>
-            "which" =? T<int>
-            "originalEvent" =? T<Dom.Event>
             "delegateTarget" =? T<Dom.Element>
-            "namespace" =? T<string>
-            "result" =? T<obj>
-            "timeStamp" =? T<int>
-            "type" =? T<string>
-
             "isDefaultPrevented" => T<unit> ^-> T<bool>
             "isImmediatePropagationStopped" => T<unit> ^-> T<bool>
             "isPropagationStopped" => T<unit> ^-> T<bool>
+            "metaKey" =? T<bool>
+            "namespace" =? T<string>
+            "pageX" =? T<int>
+            "pageY" =? T<int>
             "preventDefault" => T<unit> ^-> T<unit>
             "stopImmediatePropagation" => T<unit> ^-> T<unit>
             "stopPropagation" => T<unit> ^-> T<unit>
+            "result" =? T<obj>
+            "relatedTarget" =? T<Dom.Element>
+            "target" =? T<Dom.Element>
+            "which" =? T<int>
+            "timeStamp" =? T<int>
+            "type" =? T<string>
         ]
 
-    let RequestType =
-        "GET POST PUT DELETE".Split ' '
-        |> Pattern.EnumStrings "RequestType"
+    let Error =
+        Class "Error"
+    
+    let Promise =
+        Class "Promise"
+
+    let DeferredState = 
+        "pending resolved rejected".Split(' ')
+        |> Pattern.EnumStrings "DeferredState"
+
+    let Deferred =
+        let func = T<unit> ^-> T<unit>
+        let funcorfuncs = func + Type.ArrayOf func
+        Class "jQuery.Deferred"
+        |+> Instance [
+            "always" => func ^-> TSelf
+            "always" => func *+ func ^-> TSelf
+            "catch" => func ^-> Promise
+            "done" => func ^-> TSelf
+            "done" => func *+ func ^-> TSelf
+            "fail" => func ^-> TSelf
+            "fail" => func *+ func ^-> TSelf
+            "notifiy" => T<obj> ^-> TSelf
+            "notifiyWith" => T<obj> * !?T<obj []> ^-> TSelf
+            "progressCallbacks" => func ^-> TSelf
+            "progressCallbacks" => func *+ func ^-> TSelf
+            "promise" => !?T<obj> ^-> Promise
+            "reject" => !?T<obj> ^-> TSelf
+            "rejectWith" => T<obj> * !?T<obj []> ^-> TSelf
+            "resolve" => !?T<obj> ^-> TSelf
+            "resolveWith" => T<obj> * !?T<obj []> ^-> TSelf
+            "state" => T<unit> ^-> DeferredState
+            "then" => funcorfuncs * funcorfuncs * !?funcorfuncs ^-> Promise
+        ]
+
+    let JqXHR =
+        Class "jQuery.jqXHR"
+        |=> Inherits Deferred
+        |+> Instance [
+            "readyState" =? T<int>
+            "status" =? T<int>
+            "statusText" =? T<string>
+            "setRequestHeader" => T<string>?name * T<string>?value ^-> T<unit>
+            "getResponseHeader" => T<string> ^-> T<string>
+            "getAllResponseHeaders" => T<unit> ^-> T<string>
+            "responseText" =? T<string>
+            "responseXML" =? T<Dom.Document>
+            "abort" => T<unit> ^-> T<unit>
+        ]
 
     let DataType =
-        "xml html script json jsonp text".Split ' '
+        "xml html script json jsonp text".Split(' ')
         |> Pattern.EnumStrings "DataType"
 
-    let JqXHR = Class "jQuery.jqXHR"
-    let XmlHttpRequest = Class "XmlHttpRequest" // TODO: XmlHttpRequest definition
+    let RequestType =
+        "GET POST PUT DELETE".Split(' ')
+        |> Pattern.EnumStrings "RequestType"
 
     let AjaxSettings =
         Pattern.Config "AjaxSettings" {
             Required = []
             Optional =
                 [
-                    "accepts" , T<obj>
-                    "async" , T<bool>
-                    "beforeSend" ,  JqXHR * !? TSelf ^-> T<bool>
-                    "cache" , T<bool>
-                    "complete" , JqXHR * T<string> ^-> T<unit>
-                    "contents", T<Object<string>>
-                    "contentType" ,  T<string>
-                    "context" , T<obj>
-                    "converters" , T<Object<string -> obj>>
-                    "crossDomain" , T<bool>
-                    "data" , T<obj>
-                    "dataFilter" , T<string> * DataType ^-> T<obj>
-                    "dataType" , DataType.Type
-                    "error" , JqXHR * T<string> * T<string> ^-> T<unit>
-                    "global" , T<bool>
-                    "headers" , T<Object<string>>
-                    "ifModified" , T<bool>
-                    "isLocal" , T<bool>
-                    "jsonp" , T<string>
-                    "jsonpCallback" , T<string>
-                    "mimeType" , T<string>
-                    "password" , T<string>
-                    "processData" , T<bool>
-                    "scriptCharset" , T<string>
-                    "statusCode", T<Object<unit -> unit>>
-                    "success" , T<obj> * T<string> * JqXHR ^-> T<unit>
-                    "timeout" , T<int>
-                    "traditional" , T<bool>
-                    "type" , RequestType.Type
-                    "url" , T<string>
-                    "username" , T<string>
-                    "xhr" , T<unit> ^-> XmlHttpRequest
+                    "accepts", T<obj>
+                    "async", T<bool>
+                    "beforeSend", JqXHR * TSelf ^-> T<unit>
+                    "cache", T<bool>
+                    "complete", JqXHR * T<string> ^-> T<unit>
+                    "contentType", (T<string> + T<bool>)
+                    "context", T<obj>
+                    "converters", T<obj>
+                    "crossDomain", T<bool>
+                    "data", (T<obj> + T<string> + T<obj []>)
+                    "dataFilter", T<string> * DataType ^-> T<obj>
+                    "dataType", DataType.Type
+                    "error", JqXHR * T<string> * T<string> ^-> T<unit>
+                    "global", T<bool>
+                    "headers", T<obj>
+                    "ifModified", T<bool>
+                    "isLocal", T<bool>
+                    "jsonp", (T<string> + T<bool>)
+                    "jsonpCallback", (T<string> + (T<unit> ^-> T<unit>))
+                    "method", RequestType.Type
+                    "mimeType", T<string>
+                    "password", T<string>
+                    "processData", T<bool>
+                    "scriptCharset", T<string>
+                    "statusCode", T<obj>
+                    "success", T<obj> * T<string> * JqXHR ^-> T<unit>
+                    "timeout", T<double>
+                    "traditional", T<bool>
+                    "type", RequestType.Type
+                    "url", T<string>
+                    "username", T<string>
+                    "xhr", T<unit> ^-> T<unit>
+                    "xhrFields", T<obj>
                 ]
         }
+
+
+    let AjaxHandler =
+        T<Dom.Element> -* Event * JqXHR * AjaxSettings ^-> T<unit>
+
+    let AjaxSuccessHandler =
+        T<Dom.Element> -* Event * JqXHR * AjaxSettings * T<obj> ^-> T<unit>
+    
+    let AjaxErrorHandler =
+        T<Dom.Element> -* Event * JqXHR * AjaxSettings * T<string> ^-> T<unit>
+
+    let Context = T<Dom.Element> + JQ
+
+    let Callbacks =
+        let cbf = T<unit> ^-> T<unit>
+        Class "Callbacks"
+        |+> Instance [
+            "add" => (cbf + Type.ArrayOf cbf) ^-> TSelf
+            "disable" => T<unit> ^-> T<unit>
+            "disabled" => T<unit> ^-> T<bool>
+            "empty" => T<unit> ^-> TSelf
+            "fire" => T<obj> ^-> TSelf
+            "fired" => T<unit> ^-> T<bool>
+            "fireWith" => !?T<obj> * !?(T<obj> + T<obj []>) ^-> TSelf
+            "has" => !?(cbf) ^-> T<bool>
+            "lock" => T<unit> ^-> TSelf
+            "locked" => T<unit> ^-> T<bool>
+            "remove" => (cbf + Type.ArrayOf cbf) ^-> TSelf
+        ]
 
     let Position =
         Pattern.Config "Position" {
             Required = []
-            Optional =
+            Optional = 
                 [
-                    "top" , T<float>
-                    "left" , T<float>
+                    "top", T<float>
+                    "left", T<float>
                 ]
         }
-
-    let Promise = Class "Promise"
 
     let AnimateSettings =
         Pattern.Config "AnimateSettings" {
@@ -155,969 +211,509 @@ module Definition =
                 ]
         }
 
-    /// Abbreviations
-    let Content = T<Dom.Element> + T<string> + JQ
-    let IntString = T<int> + T<string>
-    let FloatString = T<float> + T<string>
-    let UnitCallback = (T<unit> ^-> T<unit>)
-    let AjaxHandler =
-        T<Dom.Element> -*
-        Event?event *
-        XmlHttpRequest?request *
-        AjaxSettings?config ^->
-        T<unit>
-
-    let AjaxErrorHandler =
-        T<Dom.Element> -*
-        Event?event *
-        XmlHttpRequest?request *
-        AjaxSettings?config *
-        T<string>?error ^->
-        T<unit>
-
-    let EventHandler =
-        (
-            T<Dom.Element>  -*
-            Event?event
-        ) ^-> T<unit>
-
-    let AddCmt = "Add elements to the set of matched elements."
-    let AddClassCmt = "Adds the specified class(es) to each of the set of matched elements."
-    let AfterCmt = "Insert content, specified by the parameter, after each element in the set of matched elements."
-    let AjaxCompleteCmt = "Register a handler to be called when Ajax requests complete. This is an Ajax Event."
-    let AnimateCmt = "Perform a custom animation of a set of CSS properties."
-    let AppendCmt = "Insert content, specified by the parameter, to the end of each element in the set of matched elements."
-    let BeforeCmt = " Insert content, specified by the parameter, before each element in the set of matched elements."
-    let CssCmt = "Get the value of a style property for the first element in the set of matched elements."
-    let DataCmt = "Store arbitrary data associated with the matched elements."
-    let IndexCmt = "Search for a given element from among the matched elements."
-    let FilterCmt = "Reduce the set of matched elements to those that match the selector or pass the function's test."
-    let GetCmt = "Retrieve the DOM elements matched by the jQuery object."
-    let HeightCmt = "Get the current computed height for the first element in the set of matched elements."
+    let Speed =
+        Pattern.Config "Speed" {
+            Required = []
+            Optional = 
+                [
+                    "duration", T<int> + T<string>
+                    "easing", T<string>
+                    "complete", T<unit> ^-> T<unit>
+                ]
+        }
 
     let FX =
         Class "jQuery.fx"
         |+> Static [
             "off" =@ T<bool>
-            |> WithComment "Globally disable all animations."
+            |> WithComment "Globally disable all animations"
 
-            "interval" =@ T<int>
-            |> WithComment "The rate (in milliseconds) at which animations fire."
-        ]
-    
-    let PromiseClass =
-        Promise
-        |+> Instance [
-            "always" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
-            "done" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
-            "fail" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
-            "progress" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> Promise
-            "state" => T<unit -> string>
-            "then" => T<unit -> unit> * !? T<unit -> unit> * !? T<unit -> unit> ^-> Promise
+            "extend" => T<obj> ^-> T<obj>
+            |> WithComment "Merge the contents of an object onto the jQuery prototype to provide new jQuery instance methods."
         ]
 
-    let Deferred =
-        Class "jQuery.Deferred"
-        |+> Static [
-            Constructor (!? TSelf ^-> T<unit>)
-        ]
-        |+> Instance [
-            "always" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
-            |> WithComment "Add handlers to be called when the Deferred object is either resolved or rejected."
-
-            "done" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
-            |> WithComment "Add handlers to be called when the Deferred object is resolved."
-
-            "fail" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
-            |> WithComment "Add handlers to be called when the Deferred object is rejected."
-
-            "notify" => !+ T<obj> ^-> TSelf
-            |> WithComment "Call the progressCallbacks on a Deferred object with the given args."
-
-            "notifyWith" => T<obj> *+ T<obj> ^-> TSelf
-            |> WithComment "Call the progressCallbacks on a Deferred object with the given context and args."
-
-            "progress" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
-            |> WithComment "Add handlers to be called when the Deferred object generates progress notifications."
-
-            "promise" => !? T<obj> ^-> Promise
-            |> WithComment "Return a Deferred's Promise object."
-
-            "reject" => !+ T<obj> ^-> TSelf
-            |> WithComment "Reject a Deferred object and call any failCallbacks with the given args."
-
-            "rejectWith" => T<obj> *+ T<obj> ^-> TSelf
-            |> WithComment "Reject a Deferred object and call any failCallbacks with the given context and args."
-
-            "resolve" => !+ T<obj> ^-> TSelf
-            |> WithComment "Resolve a Deferred object and call any doneCallbacks with the given args."
-
-            "resolveWith" => T<obj> *+ T<obj> ^-> TSelf
-            |> WithComment "Resolve a Deferred object and call any doneCallbacks with the given context and args."
-
-            "state" => T<unit -> string>
-            |> WithComment "Determine the current state of a Deferred object."
-
-            "then" => T<unit -> unit> * !? T<unit -> unit> * !? T<unit -> unit> ^-> Promise
-            |> WithComment "Add handlers to be called when the Deferred object is resolved, rejected, or still in progress."
-        ]
-
-    let JqXHRClass =
-        JqXHR
-        |=> Inherits Promise
-        |+> Instance [
-            "readyState" =? T<int>
-            "status" =? T<int>
-            "statusText" =? T<string>
-            "responseXML" =? T<Dom.Document> 
-            "responseText" =? T<string>
-
-            "setRequestHeader" => T<string> * T<string> ^-> T<unit>
-            "getAllResponseHeaders" => T<unit> ^-> T<string>
-            "getResponseHeader" => T<string> ^-> T<string>
-            "statusCode" => T<unit> ^-> T<obj>
-            "abort" => T<unit> ^-> T<unit>
-        ]
-
-    /// JQuery class
     let JQueryClass =
+        let EH = T<Dom.Element> -* Event ^-> T<unit>
+        let Func = T<int> ^-> (T<string> + T<Dom.Element> + T<Dom.Text> + TSelf)
+        let FuncWithHTML = T<int> * T<string> ^-> (T<string> + T<Dom.Element> + T<Dom.Text> + TSelf)
+        let Content = T<string> + T<Dom.Element> + Type.ArrayOf T<Dom.Node> + TSelf
+        let ContentWithText = T<string> + T<Dom.Element> + T<Dom.Text> + Type.ArrayOf T<Dom.Node> + TSelf
         JQ
-        |+> Instance
-            [
-                "ignore" =? T<unit>
-                |> WithGetterInline "$this"
-
-                // Add (Tested)
-                "add" => T<string> ^-> JQ
-                |> WithComment AddCmt
-                "add" => T<Dom.Element> ^-> JQ
-                |> WithComment AddCmt
-                "add" => JQ ^-> JQ
-                |> WithComment AddCmt
-                "add" => Type.ArrayOf T<Dom.Element> ^-> JQ
-                |> WithComment AddCmt
-
-                "addBack" => !?T<string> ^-> JQ
-
-                // Add class (Tested)
-                "addClass" => T<string>?className ^-> JQ
-                |> WithComment AddClassCmt
-                "addClass" => (T<int> *  T<string> ^-> T<string>)?nameGen ^-> JQ
-                |> WithComment AddClassCmt
-
-                // After (Tested)
-                "after" => (Content + (T<int> ^-> T<string>)) ^-> JQ
-                |> WithComment AfterCmt
-
-                "ajaxComplete" => AjaxHandler ^-> JQ
-                |> WithComment AjaxCompleteCmt
-
-                "ajaxError" => AjaxErrorHandler ^-> JQ
-
-                "ajaxSend" => AjaxHandler ^-> JQ
-
-                "ajaxStart" => AjaxHandler ^-> JQ
-
-                "ajaxStop" => AjaxHandler ^-> JQ
-
-                "ajaxSuccess" => AjaxHandler ^-> JQ
-
-                "andSelf" => T<unit> ^-> JQ
-                |> ObsoleteWithMessage "Deprecated in jQuery 1.8"
-
-                // Animate (Tested)
-                "animate" => T<Object<string>>?properties * !?AnimateSettings?options ^-> JQ
-                |> WithComment AnimateCmt
-                "animate" => T<Object<string>>?properties * IntString?duration ^-> JQ
-                |> WithComment AnimateCmt
-                "animate" => T<Object<string>>?properties * IntString?duration * T<string>?easing ^-> JQ
-                |> WithComment AnimateCmt
-                "animate" => T<Object<string>>?properties * IntString?duration * UnitCallback?callback ^-> JQ
-                |> WithComment AnimateCmt
-                "animate" => T<Object<string>>?properties * IntString?duration * T<string>?easing * UnitCallback?callback ^-> JQ
-                |> WithComment AnimateCmt
-
-                // Append (Tested)
-                "append" => Content?content ^-> JQ
-                |> WithComment AppendCmt
-                "append" => (T<int> * T<string> ^-> T<string>)?contentGen ^-> JQ
-                |> WithComment AppendCmt
-
-
-                // AppendTo (Tested)
-                "appendTo" => Content ^-> JQ
-                |> WithComment "Insert every element in the set of matched elements to the end of the target."
-
-                // Attr (Tested)
-                "attr" => T<string>?attributeName ^-> T<string>
-                |> WithComment "Get the value of an attribute for the first element in the set of matched elements."
-                
-                "attr" => T<string>?attributeName * T<string>?value ^-> JQ
-                |> WithComment "Set the value of an attribute for the first element in the set of matched elements."
-
-                // Before
-                "before" => Content?content ^-> JQ
-                |> WithComment BeforeCmt
-                "before" => (T<unit> ^-> T<string>)?contentGen ^-> JQ
-                |> WithComment BeforeCmt
-
-                // Bind (Tested)
-                "bind" => T<string>?event * !?T<Object<string>>?eventData * EventHandler?handler ^-> JQ
-                |> WithComment "Attach a handler to an event for the elements."
-
-                "bindFalse" => T<string>?event * T<Object<string>>?eventData ^-> JQ
-                |> WithComment "Attach a handler to an event for the elements."
-                |> WithInline "$this.bind($event, $eventData, false)"
-
-
-                // Blur (Tested)
-                "blur" => !?EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"blur\" JavaScript event, or trigger that event on an element."
-
-                "blur" => T<Object<string>>?eventData * EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"blur\" JavaScript event, or trigger that event on an element."
-
-
-                // Change
-                "change" => !?EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"change\" JavaScript event, or trigger that event on an element."
-
-                "change" => T<Object<string>>?eventData * EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"change\" JavaScript event, or trigger that event on an element."
-
-
-                // Children (Tested)
-                "children" => !?T<string>?selector ^-> JQ
-                |> WithComment "Get the children of each element in the set of matched elements, optionally filtered by a selector."
-
-                // ClearQueue
-                "clearQueue" => !?T<string>?selector ^-> JQ
-                |> WithComment "Remove from the queue all items that have not yet been run."
-
-                // Click
-                "click" => !?EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"click\" JavaScript event, or trigger that event on an element."
-
-                "click" => T<Object<string>>?eventData * EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"click\" JavaScript event, or trigger that event on an element."
-
-                // Clone
-                "clone" => !?T<bool>?withDataAndEvents ^-> JQ
-                |> WithComment "Create a copy of the set of matched elements."
-
-                // Closest
-                "closest" => T<string>?selector * !?T<Dom.Element>?context ^-> JQ
-                |> WithComment "Get the first ancestor element that matches the selector, beginning at the current element and progressing up through the DOM tree."
-
-                // Contents
-                "contents" => T<unit> ^-> JQ
-                |> WithComment "Get the children of each element in the set of matched elements, including text nodes."
-
-                // Context (Tested)
-                "context" =? T<Dom.Element>
-                |> WithComment "The DOM node context originally passed to jQuery(); if none was passed then context will likely be the document."
-                |> ObsoleteWithMessage "Deprecated in jQuery 1.10"
-
-                // Css (Tested)
-                "css" => T<unit> ^-> T<string>
-                |> WithComment CssCmt
-                "css" => T<string> ^-> T<string>
-                |> WithComment CssCmt                
-                "css" => T<string>?propertyName * T<string>?propertyValue ^-> JQ
-                |> WithComment CssCmt
-                "css" => T<string>?propertyName * (T<int> * T<string> ^-> T<string>)?valGen ^-> JQ
-                |> WithComment CssCmt
-                "css" => T<Object<string>>?map ^-> JQ
-                |> WithComment CssCmt
-
-                // Data
-                "data" => T<string>?key * T<obj>?value ^-> JQ
-                |> WithComment DataCmt
-                "data" => T<Object<string>>?updates ^-> JQ
-                |> WithComment DataCmt
-                "data" => T<string>?key ^-> T<obj>
-                |> WithComment DataCmt
-
-                // Dblclick
-                "dblclick" => !?EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"dblclick\" JavaScript event, or trigger that event on an element"
-
-                "dblclick" => T<Object<string>>?data * EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"dblclick\" JavaScript event, or trigger that event on an element"
-
-                // Delay
-                "delay" => T<int>?duration * !?T<string>?queueName ^-> JQ
-                |> WithComment "Set a timer to delay execution of subsequent items in the queue"
-
-                // Delegate
-                "delegate" => T<string>?selector * Event?eventType * !?T<Object<string>>?eventData * EventHandler?handler ^-> JQ
-                |> WithComment "Attach a handler to one or more events for all elements that match the selector, now or in the future, based on a specific set of root elements."
-
-                // Dequeue
-                "dequeue" => !?T<string>?queueName ^-> JQ
-                |> WithComment "Execute the next function on the queue for the matched elements."
-
-                // Detach
-                "detach" => !?T<string>?selector ^-> JQ
-                |> WithComment "Remove the set of matched elements from the DOM."
-
-                // Each
-                "each" => (T<Dom.Element> -* !?T<int> ^-> T<unit>)?handler ^-> JQ
-                |> WithComment "Iterate over a jQuery object, executing a function for each matched element."
-
-                // Empty
-                "empty" => T<unit> ^-> JQ
-                |> WithComment "Remove all child nodes of the set of matched elements from the DOM."
-
-                // End
-                "end" => T<unit> ^-> JQ
-                |> WithComment "End the most recent filtering operation in the current chain and return the set of matched elements to its previous state."
-
-                // Eq
-                "eq" => T<int> ^-> JQ
-                |> WithComment "Reduce the set of matched elements to the one at the specified index."
-
-                // Error
-                "error" => EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"error\" JavaScript event."
-
-                // Error
-                "error" => T<Object<string>>?data * EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"error\" JavaScript event."
-
-                // Fade in
-                "fadeIn"  => !?FloatString?duration * !?UnitCallback?callback ^-> JQ
-                |> WithComment "Display the matched elements by fading them to opaque."
-
-                "fadeIn"  => FloatString?duration * T<string>?easing * !?UnitCallback?callback ^-> JQ
-                |> WithComment "Display the matched elements by fading them to opaque."
-
-                // FadeOut
-                "fadeOut"  => !?FloatString?duration * !?UnitCallback?callback ^-> JQ
-                |> WithComment "Display the matched elements by fading them to transparent."
-
-                "fadeOut"  => FloatString?duration * T<string>?easing * !?UnitCallback?callback ^-> JQ
-                |> WithComment "Display the matched elements by fading them to transparent."
-
-                // FadeTo
-                "fadeTo" => FloatString?duration * T<float>?value * T<string>?easing * !?UnitCallback?callback ^-> JQ
-                |> WithComment "Adjust the opacity of the matched elements."
-                "fadeTo" => FloatString?duration * T<float>?value * !?UnitCallback?callback ^-> JQ
-                |> WithComment "Adjust the opacity of the matched elements."
-
-                // FadeToggle
-                "fadeToggle" => !? FloatString?duration * !?UnitCallback?callback ^-> JQ
-                |> WithComment "Display or hide the matched elements by animating their opacity."
-                "fadeToggle" => FloatString?duration * T<string>?easing* !?UnitCallback?callback ^-> JQ
-                |> WithComment "Display or hide the matched elements by animating their opacity."
-
-                // Filter
-                "filter" => T<string>?selector ^-> JQ
-                |> WithComment FilterCmt
-                "filter" => (T<Dom.Element> -* !?T<int> ^-> T<bool>)?predicate ^-> JQ
-                |> WithComment FilterCmt
-
-                // Find
-                "find" => T<string> ^-> JQ
-                |> WithComment "Get the descendants of each element in the current set of matched elements, filtered by a selector."
-
-                // Finish
-                "finish" => T<string>?queue ^-> JQ
-                |> WithComment "Stop the currently-running animation, remove all queued animations, and complete all animations for the matched elements."
-
-                // First
-                "first" => T<unit> ^-> JQ
-                |> WithComment "Reduce the set of matched elements to the first in the set."
-
-                // Focus
-                "focus" => !?EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"focus\" JavaScript event, or trigger that event on an element."
-                "focus" => T<Object<string>>?data * EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"focus\" JavaScript event, or trigger that event on an element."
-
-
-                // Focusin
-                "focusin" => EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"focusin\" JavaScript event."
-                "focusin" => T<Object<string>>?data * EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"focusin\" JavaScript event."
-
-                // Focusout
-                "focusout" => EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"focusout\" JavaScript event."
-                "focusout" => T<Object<string>>?data * EventHandler?handler ^-> JQ
-                |> WithComment "Bind an event handler to the \"focusout\" JavaScript event."
-
-                // Get
-                "get" => T<int>?index ^-> T<Dom.Node>
-                |> WithComment GetCmt
-                "get" => T<unit> ^-> Type.ArrayOf T<Dom.Node>
-                |> WithComment GetCmt
-
-                // Has
-                "has" => (T<string>?selector * T<Dom.Element>?element) ^-> JQ
-                |> WithComment "Reduce the set of matched elements to those that have a descendant that matches the selector or DOM element."
-
-                // HasClass
-                "hasClass" => T<string>?className ^-> T<bool>
-                |> WithComment "Determine whether any of the matched elements are assigned the given class."
-
-                // Height
-                "height" => T<unit> ^-> T<int>
-                |> WithComment HeightCmt
-                "height" => T<int> ^-> JQ
-                |> WithComment HeightCmt
-
-
-                // Hide (Tested)
-                "hide" => !?IntString?duration * !?(T<Dom.Element> -* T<unit> ^-> T<unit>)?handler  ^-> JQ
-                |> WithComment "Hide the matched elements."
-                "hide" => IntString?duration * T<string>?easing * !?(T<Dom.Element> -* T<unit> ^-> T<unit>)?handler  ^-> JQ
-                |> WithComment "Hide the matched elements."
-
-                // Hover
-                "hover" => EventHandler?handlerIn * !? EventHandler?handlerOut ^-> JQ
-                |> WithComment "Bind two handlers to the matched elements, to be executed when the mouse pointer enters and leaves the elements."
-
-                // Html
-                "html" => T<unit> ^-> T<string>
-                "html" => T<string> ^-> JQ
-
-                // Index
-                "index" => T<unit> ^-> T<int>
-                |> WithComment IndexCmt
-
-                "index" => T<string>?selector ^-> T<int>
-                |> WithComment IndexCmt
-
-                "index" => T<Dom.Element>?element ^-> T<int>
-                |> WithComment IndexCmt
-
-                "innerHeight" => T<unit> ^-> T<int>
-
-                "innerWidth" => T<unit> ^-> T<int>
-
-                "insertAfter" => Content ^-> JQ
-
-                "insertBefore" => Content ^-> JQ
-
-                "is" => T<string> ^-> T<bool>
-
-                "keydown" => !?EventHandler ^-> JQ
-                "keydown" => T<Object<string>>?data * EventHandler ^-> JQ
-
-                "keypress" => !?EventHandler ^-> JQ
-                "keypress" => T<Object<string>>?data * EventHandler ^-> JQ
-
-                "keyup" => !?EventHandler ^-> JQ
-                "keyup" => T<Object<string>>?data * EventHandler ^-> JQ
-
-                "last" => T<unit> ^-> JQ
-
-                "length" =@ T<int>
-
-                "load" => T<string>  * !?(T<string> + T<obj>) * !?(T<string> * T<string> * XmlHttpRequest ^-> T<unit>) ^-> JQ
-
-                "load" => EventHandler ^-> JQ
-                "load" => T<Object<string>>?data * EventHandler ^-> JQ
-
-                Generic -   ( fun t ->
-                                Method "map" ((T<int> * T<Dom.Element> ^-> t) ^-> JQ)
-                            )
-                
-                "mousedown" => T<Object<string>>?data * EventHandler ^-> JQ
-                "mousedown" => !?EventHandler ^-> JQ
-
-                "mouseenter" => !?EventHandler ^-> JQ
-                "mouseenter" => T<Object<string>>?data * EventHandler ^-> JQ
-                
-                "mouseleave" => !?EventHandler ^-> JQ
-                "mouseleave" => T<Object<string>>?data * EventHandler ^-> JQ
-                
-                "mousemove" => !?EventHandler ^-> JQ
-                "mousemove" => T<Object<string>>?data * EventHandler ^-> JQ
-                
-                "mouseout" => !?EventHandler ^-> JQ
-                "mouseout" => T<Object<string>>?data * EventHandler ^-> JQ
-                
-                "mouseover" => !?EventHandler ^-> JQ
-                "mouseover" => T<Object<string>>?data * EventHandler ^-> JQ
-
-                "mouseup" => !?EventHandler ^-> JQ
-                "mouseup" => T<Object<string>>?data * EventHandler ^-> JQ
-
-                "next" => !?T<string> ^-> JQ
-
-                "nextAll" => !?T<string> ^-> JQ
-
-                "nextUntil" => !?T<string> ^-> JQ
-
-                "not" => T<string> ^-> JQ
-                "not" => T<Dom.Element> ^-> JQ
-                "not" => Type.ArrayOf T<Dom.Element> ^-> JQ
-
-                "not" => (T<Dom.Element> -* T<int> ^-> T<unit>) ^-> JQ
-
-                "off" =>
-                    !?T<string>?events
-                    * !?T<string>?selector
-                    * !?EventHandler?handler ^-> JQ
-
-                "off" =>
-                    T<Object<_>>.[EventHandler]?events
-                    * !?T<string>?selector
-                    ^-> JQ
-
-                "offset" => T<unit> ^-> Position
-                "offset" => Position ^-> JQ
-
-                "offsetParent" => T<unit> ^-> JQ
-
-                "on" =>
-                    T<string>?events
-                    * !?T<string>?selector
-                    * !?T<obj>?data
-                    * EventHandler?handler
-                    ^-> JQ
-
-                "on" =>
-                    T<Object<_>>.[EventHandler]?events
-                    * !?T<string>?selector
-                    * !?T<obj>?data
-                    ^-> JQ
-
-                "one" =>
-                    T<string>?events
-                    * !?T<string>?selector
-                    * !?T<obj>?data
-                    * EventHandler
-                    ^-> JQ
-
-                "one" =>
-                    T<Object<_>>.[EventHandler]?events
-                    * !?T<string>?selector
-                    * !?T<obj>?data
-                    ^-> JQ
-
-                "outerHeight" => !?T<bool> ^-> T<int>
-
-                "outerWidth" => !?T<bool> ^-> T<int>
-
-                "parent" => !?T<string> ^-> JQ
-
-                "parents" => !?T<string> ^-> JQ
-
-                "parentsUntil" => !?T<string> ^-> JQ
-
-                "position" => T<unit> ^-> Position
-
-                "prepend" => Content ^-> JQ
-                "prepend" => (T<int> * T<string> ^-> T<string>) ^-> JQ
-
-                "prependTo" => Content ^-> JQ
-
-                "prev" => !?T<string> ^-> JQ
-
-                "prevAll" => !?T<string> ^-> JQ
-
-                "prevUntil" => !?T<string> ^-> JQ
-
-                "promise" => !?T<string>?``type`` * !?T<obj>?target ^-> Promise
-
-
-                Generic -   ( fun t ->
-                                Method "prop" (T<string>?propName ^-> t)
-                                |> WithComment "Get the value of a property for the first element in the set of matched elements."
-                            )
-                Generic -   ( fun t ->
-                                Method "prop" (T<string>?attributeName * t?value ^-> JQ)
-                                |> WithComment "Set the value of a property for the first element in the set of matched elements."
-                            )
-                "prop" => T<Object<obj>> ^-> JQ
-                |> WithComment "Set one or more properties for the set of matched elements."
-
-                "pushStack" => Type.ArrayOf T<Dom.Element> ^-> JQ
-                "pushStack" => Type.ArrayOf T<Dom.Element> * T<string> * Type.ArrayOf T<obj> ^-> JQ
-
-                "queue" => !?T<string> ^-> JQ
-                "queue" => !?T<string> * Type.ArrayOf T<obj> ^-> JQ
-                "queue" => !?T<string> * (T<obj> ^-> T<unit>) ^-> JQ
-
-                "ready" => UnitCallback ^-> JQ
-
-                "remove" => !?T<string> ^-> JQ
-
-                "removeAttr" => T<string> ^-> JQ
-
-                "removeClass" => T<string> ^-> JQ
-
-                "removeData" => !?T<string> ^-> JQ
-                "removeData" => T<string[]> ^-> JQ
-
-                "removeProp" => T<string>?propName * T<string>?value ^-> JQ
-                |> WithComment "Remove a property for the set of matched elements."
-                "removeProp" => T<string>?propName ^-> JQ
-                |> WithComment "Remove a property for the set of matched elements."
-
-                "replaceAll" => !?T<string> ^-> JQ
-
-                "replaceWith" => Content ^-> JQ
-                "replaceWith" => (T<Dom.Element> -* T<unit> ^-> T<string>) ^-> JQ
-                "replaceWith" => (T<Dom.Element> -* T<unit> ^-> JQ) ^-> JQ
-                "replaceWith" => (T<Dom.Element> -* T<unit> ^-> T<Dom.Element>) ^-> JQ
-
-                "resize" => !?EventHandler ^-> JQ
-                "resize" => T<Object<string>>?data * !?EventHandler ^-> JQ
-
-                "scroll" => !?EventHandler ^-> JQ
-                "scroll" => T<Object<string>>?data * !?EventHandler ^-> JQ
-
-                "scrollLeft" => T<int> ^-> JQ
-                "scrollLeft" => T<unit->int>
-
-                "scrollTop" => T<int> ^-> JQ
-                "scrollTop" => T<unit->int>
-
-                "select" => !?EventHandler ^-> JQ
-                "select" => T<Object<string>>?data * !?EventHandler ^-> JQ
-
-                "serialize" => T<unit> ^-> T<string>
-
-                "serializeArray" => T<unit> ^-> Type.ArrayOf T<obj>
-
-                "show" => !?IntString * !?(T<Dom.Element> -* T<unit> ^-> T<unit>)  ^-> JQ
-                "show" => IntString * T<string>?easing * !?(T<Dom.Element> -* T<unit> ^-> T<unit>)  ^-> JQ
-
-                "siblings" => !?T<string> ^-> JQ
-
-                "size" => T<unit> ^-> T<int>
-
-                "slice" => T<int> * !?T<int> ^-> JQ
-
-                "slideDown" => !?IntString * !?UnitCallback ^-> JQ
-                "slideDown" => IntString * T<string>?easing * !?UnitCallback ^-> JQ
-
-                "slideToggle" => !?IntString * !?UnitCallback ^-> JQ
-                "slideToggle" => IntString * T<string>?easing * !?UnitCallback ^-> JQ
-
-                "slideUp" => !?IntString * !?UnitCallback ^-> JQ
-                "slideUp" => IntString * T<string>?easing * !?UnitCallback ^-> JQ
-
-                "stop" => !?T<bool> * !?T<bool> ^-> JQ
-                "stop" => T<string> * !?T<bool> * !?T<bool> ^-> JQ
-
-                "submit" => !?EventHandler ^-> JQ
-                "submit" => T<Object<string>>?data * !?EventHandler ^-> JQ
-
-                "text" => T<unit> ^-> T<string>
-                "text" => T<string> ^-> JQ
-
-                "toArray" => T<unit> ^-> Type.ArrayOf T<Dom.Element>
-
-                /// TODO: review
-                "toggle" => !?T<int> * !?EventHandler ^-> JQ
-                "toggle" => T<int> * T<string>?easing * !?EventHandler ^-> JQ
-                "toggle" => T<bool>?showOrHide ^-> JQ
-                "toggle" => T<Object<obj>>?options ^-> JQ
-
-                "toggleClass" => T<string> * !?T<bool> ^-> JQ
-                "toggleClass" => (T<int> * T<string> ^-> T<unit>)  * !?T<bool> ^-> JQ
-
-                "trigger" => T<string> * !?(Type.ArrayOf T<obj>) ^-> JQ
-                "triggerHandler" => T<string> * !?(Type.ArrayOf T<obj>) ^-> JQ
-
-                "unbind" => T<unit> ^-> JQ
-                "unbind" => Event ^-> JQ
-                "unbind" => T<string> * !?EventHandler ^-> JQ
-                "unbindFalse" => T<string>?event * T<Object<string>>?eventData ^-> JQ
-                |> WithComment "Attach a handler to an event for the elements."
-                |> WithInline "$this.bind($event, $eventData, false)"
-
-                "undelegate" => T<unit> ^-> JQ
-                "undelegate" => T<string> * T<string> * !?EventHandler ^-> JQ
-
-                "unload" => EventHandler ^-> JQ
-                "unload" => T<Object<string>>?data * EventHandler ^-> JQ
-
-                "unwrap" => T<unit> ^-> JQ
-
-                "val" => T<unit> ^-> T<obj>
-                "val" => T<string> ^-> JQ
-
-                "width" => T<unit> ^-> T<int>
-                "width" => T<int> ^-> JQ
-
-                "wrap" => Content ^-> JQ
-                "wrap" => (T<unit> ^-> T<string>) ^-> JQ
-
-                "wrapAll" => Content ^-> JQ
-
-                "wrapInner" => Content ^-> JQ
-                "wrapInner" => (T<unit> ^-> T<string>) ^-> JQ
-
-            ]
-        |+> Static [
-                Constructor T<string>?selector
-                |> WithInline "jQuery($0)"
-                |> WithComment "Accepts a string containing a CSS selector which is then used to match a set of elements."
-
-                Constructor (T<string>?selector * Content?context)
-                |> WithInline "jQuery($0,$1)"
-                |> WithComment "Accepts a string containing a CSS selector and a DOM Element, Document, or jQuery to use as context."
-
-                Constructor (Type.ArrayOf T<Dom.Node>)?elementArray
-                |> WithInline "jQuery($0)"
-                |> WithComment "An array containing a set of DOM elements to wrap in a jQuery object."
-
-                Constructor T<Dom.Node>?node
-                |> WithInline "jQuery($0)"
-                |> WithComment "DOM node to wrap in a jQuery object."
-
-                Constructor (T<string>?html * T<Dom.Document>?ownerDocument)
-                |> WithInline "jQuery($0,$1)"
-                |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
-
-                Constructor (T<string>?html * T<Object<string>>?properties)
-                |> WithInline "jQuery($0,$1)"
-                |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
-
-                Constructor (T<unit> ^-> T<unit>)?callback
-                |> WithInline "jQuery($0)"
-                |> WithComment "Binds a function to be executed when the DOM has finished loading."
-
-                "of" => T<string>?selector ^-> JQ
-                |> WithInline "jQuery($0)"
-                |> WithComment "Accepts a string containing a CSS selector which is then used to match a set of elements."
-
-                "of" => T<string>?selector * Content?context ^-> JQ
-                |> WithInline "jQuery($0,$1)"
-                |> WithComment "Accepts a string containing a CSS selector and a DOM Element, Document, or jQuery to use as context."
-
-                "of" => (Type.ArrayOf T<Dom.Node>)?elementArray ^-> JQ
-                |> WithInline "jQuery($0)"
-                |> WithComment "An array containing a set of DOM elements to wrap in a jQuery object."
-
-                "of" => T<Dom.Node>?node ^-> JQ
-                |> WithInline "jQuery($0)"
-                |> WithComment "DOM node to wrap in a jQuery object."
-
-                "of" => T<string>?html * T<Dom.Document>?ownerDocument ^-> JQ
-                |> WithInline "jQuery($0,$1)"
-                |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
-
-                "of" => T<string>?html * T<Object<string>>?properties ^-> JQ
-                |> WithInline "jQuery($0,$1)"
-                |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
-
-                "of" => (T<unit> ^-> T<unit>)?callback ^-> JQ
-                |> WithInline "jQuery($0)"
-                |> WithComment "Binds a function to be executed when the DOM has finished loading."
-
-                "ajax" => AjaxSettings ^-> JqXHR
-                "ajax" => T<string> * AjaxSettings ^-> JqXHR
-
-
-                "ajaxSetup" => AjaxSettings ^-> T<unit>
-
-                "contains" =>
-                    T<Dom.Element>?container * T<Dom.Node>?contained ^-> T<bool>
-
-                "data" =>
-                    (T<Dom.Element> * T<string> * T<obj> ^-> T<unit>)
-                    + (T<Dom.Element> * T<string> ^-> T<obj>)
-                    + (T<Dom.Element> ^-> T<obj>)
-
-                "dequeue" => T<Dom.Element> * !?T<string>?queueName ^-> T<unit>
-
-                Generic -   ( fun t ->
-                                Method "each" (Type.ArrayOf t * (T<int> * t ^-> T<unit>) ^-> T<unit>)
-                            )
-                "each" => T<obj> * (T<obj> * T<obj> ^-> T<unit>) ^-> T<unit>
-
-                "error" => T<string->unit>
-
-                "extend" => !?T<bool>?deep * T<obj> *+ T<obj> ^-> T<obj>
-                
-                "fx" =? FX 
-                
-                "get" =>
-                    T<string>?url *
-                    !?(T<string> + T<obj>)?data *
-                    !?(T<obj> * T<string> * XmlHttpRequest ^-> T<unit>)?fn *
-                    !?DataType?dataType ^->
-                    JqXHR
-
-                "getJSON" =>
-                    T<string>?url *
-                    !?(T<obj> * T<string> ^-> T<unit>)?callback ^->
-                    JqXHR
-
-                "getJSON" =>
-                    T<string>?url *
-                    (T<string> + T<obj>)?data *
-                    !?(T<obj> * T<string> ^-> T<unit>)?callback ^->
-                    JqXHR
-
-                "getScript" =>
-                    T<string>?url *
-                    !?(T<obj> * T<string> ^-> T<unit>)?callback ^->
-                    JqXHR
-
-                "globalEval" => T<string->obj>
-
-                Generic - ( fun t ->
-                                Method "grep" (
-                                    (Type.ArrayOf t)?array * (t * T<int> ^-> T<bool>)?``function`` * !?T<bool>?invert ^-> Type.ArrayOf t
-                                )
-                          )
-
-
-                "hasData" => T<Dom.Element -> bool>
-                Generic -   (fun t ->
-                                Method "inArray" (
-                                    t * (Type.ArrayOf t)  ^-> T<int>
-                                )
-                            )
-
-                "isWindow" => T<obj> ^-> T<bool>
-                |> WithComment "This is used in a number of places in jQuery to determine if we're operating against a browser window (such as the current window or an iframe)."
-
-                "isArray" => T<obj->bool>
-
-                "isNumeric" => T<obj->bool>
-
-                "isEmptyObject" => T<obj> ^-> T<bool>
-
-                "isFunction" => T<obj> ^-> T<bool>
-
-                "isPlainObject" => T<obj->bool>
-
-                "isXMLDoc" => T<Dom.Node> ^-> T<bool>
-
-                "makeArray" => T<obj> ^-> Type.ArrayOf T<obj>
-
-                Generic --  ( fun t u ->
-                                Method "map" (Type.ArrayOf t * (t * T<int> ^-> u ) ^-> Type.ArrayOf u)
-                            )
-
-                Generic -   (fun t ->
-                                Method "merge" ((Type.ArrayOf t) * (Type.ArrayOf t) ^-> (Type.ArrayOf t))
-                            )
-
-                "noConflict" => !?T<bool>?removeAll ^-> T<unit>
-
-                "noop" => T<unit->unit>
-
-                "param" => T<obj> * !?T<bool>?traditional ^-> T<string>
-
-                "parseHTML" => T<string> ^-> Type.ArrayOf T<Dom.Element>
-
-                "parseJSON" => T<string->obj>
-                
-                "parseXML" => T<string -> Dom.Document>
-
-                "post" =>
-                    T<string>?url *
-                    !?(T<string> + T<obj>)?data *
-                    !?(T<obj> * T<string> * XmlHttpRequest ^-> T<unit>)?success *
-                    !?DataType?dataType ^->
-                    JqXHR
-
-                "when" => !+ Deferred ^-> Deferred
-
-                //TODO!!!!!
-                "proxy" => (T<obj> * T<string> ^-> T<obj>)
-
-                "queue" =>
-                    T<Dom.Element> * !?T<string>?queueName *
-                    !?(T<unit->unit> + T<(unit->unit)[]>)?callback ^-> T<int>
-
-                "removeData" =>
-                    T<Dom.Element> * !?T<string>?name ^-> T<unit>
-
-                "trim" => T<string->string>
-                
-                "type" => T<unit> ^-> T<string>
-                |> WithComment "Determine the internal JavaScript [[Class]] of an object"
-                
-                "unique" =>
-                    Type.ArrayOf T<Dom.Element> ^-> Type.ArrayOf T<Dom.Element>
-
-                "when" => !+ T<obj> ^-> Promise
-                |> WithComment "Provides a way to execute callback functions based on one or more objects, usually Deferred objects that represent asynchronous events."
-            ]
-    
-    let Callbacks =        
-        Class "jQuery.Callbacks"
-        |+> Static [
-            Constructor T<unit>
-            |> WithInline "jQuery.Callbacks()"
-            |> WithComment "A multi-purpose callbacks list object that provides a powerful way to manage callback lists."
-
-            Constructor T<string>
-            |> WithInline "jQuery.Callbacks($0)"
-            |> WithComment "A multi-purpose callbacks list object that provides a powerful way to manage callback lists."
-        ]
         |+> Instance [
-            "add" => (!+ T<obj> ^-> T<unit>) ^-> TSelf
-            |> WithComment "Add a callback or a collection of TSelf to a callback list."
+            "ignore" =? T<unit>
+            |> WithGetterInline "$this"
 
-            "add" => Type.ArrayOf (!+ T<obj> ^-> T<unit>) ^-> TSelf
-            |> WithComment "Add a callback or a collection of TSelf to a callback list."
+            // Ajax related instance methods
+            "ajaxComplete" => AjaxHandler ^-> TSelf
+            "ajaxError" => AjaxErrorHandler ^-> TSelf
+            "ajaxSend" => AjaxHandler ^-> TSelf
+            "ajaxStart" => T<unit->unit> ^-> TSelf
+            "ajaxStop" => T<unit->unit> ^-> TSelf
+            "ajaxSuccess" => AjaxSuccessHandler ^-> TSelf
+            "load" => (T<string> * !?(T<obj> + T<string>) * !?(T<string> * T<string> * JqXHR ^-> T<unit>)) ^-> TSelf
+            "serialize" => T<unit> ^-> T<string>
+            "serializeArray" => T<unit> ^-> T<obj []>
 
-            "disable" => T<unit> ^-> TSelf
-            |> WithComment "Disable a callback list from doing anything more."
+            // Attribute related instance methods
+            "addClass" => T<string> ^-> TSelf
+            "addClass" => (T<int> * T<string> ^-> T<string>) ^-> TSelf
+            "attr" => T<string> ^-> T<string>
+            "attr" => T<string> * T<string> ^-> TSelf
+            "attr" => T<obj> ^-> TSelf
+            "attr" => T<string> * ((T<int> * T<string> ^-> (T<string> + T<float>))) ^-> TSelf
+            "hasClass" => T<string> ^-> T<bool>
+            "html" => T<unit> ^-> T<string>
+            "html" => T<string> ^-> TSelf
+            "html" => (T<int> * T<string> ^-> T<string>) ^-> TSelf
+            "prop" => T<string> ^-> T<obj>
+            "prop" => T<string> * T<obj> ^-> TSelf
+            "prop" => T<obj> ^-> TSelf
+            "prop" => T<string> * (T<int> * T<obj> ^-> T<obj>) ^-> TSelf
+            "removeAttr" => T<string> ^-> TSelf
+            "removeClass" => T<string> ^-> TSelf
+            "removeClass" => (T<int> * T<obj> ^-> T<string>) ^-> TSelf
+            "removeProp" => T<string> ^-> TSelf
+            "toggleClass" => T<string> ^-> TSelf
+            "toggleClass" => T<string> * T<bool> ^-> TSelf
+            "toggleClass" => (T<int> * T<string> * T<bool> ^-> T<string>) * !?T<bool> ^-> TSelf
+            "val" => T<unit> ^-> (T<string> + T<float> + T<obj []>)
+            "val" => (T<string> + T<float> + T<obj []>) ^-> TSelf
+            "val" => (T<int> * T<string> ^-> T<string>) ^-> TSelf
 
-            "disabled" => T<unit -> bool>
-            |> WithComment "Determine if the TSelf list has been disabled."
+            // CSS related instance methods
+            "css" => (T<string> + T<string []>) ^-> T<string>
+            "css" => T<string> * T<string> ^-> TSelf
+            "css" => T<string> * (T<int> * T<string> ^-> T<string>) ^-> TSelf
+            "css" => T<Object<string>> ^-> TSelf
+            "height" => T<unit> ^-> T<int>
+            "height" => T<int> ^-> TSelf
+            "height" => (T<int> * T<int> ^-> T<int>) ^-> TSelf
+            "innerHeight" => T<unit> ^-> T<int>
+            "innerHeight" => T<int> ^-> TSelf
+            "innerHeight" => (T<int> * T<int> ^-> T<int>) ^-> TSelf
+            "outerHeight" => !?T<bool> ^-> T<int>
+            "outerHeight" => T<int> ^-> TSelf
+            "outerHeight" => (T<int> * T<int> ^-> T<int>) ^-> TSelf
+            "width" => T<unit> ^-> T<int>
+            "width" => T<int> ^-> TSelf
+            "width" => (T<int> * T<int> ^-> T<int>) ^-> TSelf
+            "innerWidth" => T<unit> ^-> T<int>
+            "innerWidth" => T<int> ^-> TSelf
+            "innerWidth" => (T<int> * T<int> ^-> T<int>) ^-> TSelf
+            "outerWidth" => !?T<bool> ^-> T<int>
+            "outerWidth" => T<int> ^-> TSelf
+            "outerWidth" => (T<int> * T<int> ^-> T<int>) ^-> TSelf
+            "offset" => T<unit> ^-> Position
+            "offset" => Position ^-> TSelf
+            "offset" => (T<int> * Position ^-> Position) ^-> TSelf
+            "position" => T<unit> ^-> Position
+            "scrollLeft" => T<unit> ^-> T<int>
+            "scrollLeft" => T<int> ^-> TSelf
+            "scrollTop" => T<unit> ^-> T<int>
+            "scrollTop" => T<int> ^-> TSelf
 
+            // Data related instance methods
+            "clearQueue" => !?T<string> ^-> TSelf
+            "dequeue" => !?T<string> ^-> TSelf
+            "data" => T<string> * T<obj> ^-> TSelf
+            "data" => T<obj> ^-> TSelf
+            "data" => T<string> ^-> T<obj>
+            "data" => T<obj>
+            "queue" => !?T<string> ^-> T<obj []>
+            "queue" => !?T<string> * (T<obj []> + T<(unit -> unit) -> unit>) ^-> TSelf
+            "removeData" => (T<string> + T<string []>) ^-> TSelf
+
+            // Deferred
+            "promise" => !?T<string> * !?T<obj> ^-> Promise
+
+            // Effects
+            "animate" => T<Object<string>>?properties * AnimateSettings?options ^-> TSelf
+            "animate" => T<Object<string>>?properties * T<int>?duration ^-> TSelf
+            "animate" => T<Object<string>>?properties * T<int>?duration * T<string>?easing ^-> TSelf
+            "animate" => T<Object<string>>?properties * T<int>?duration * T<string>?easing * T<unit->unit>?complete ^-> TSelf
+            "delay" => T<int>?duration * !?T<string>?queuename ^-> TSelf
+            "fadeIn" => AnimateSettings ^-> TSelf
+            "fadeIn" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "fadeOut" => AnimateSettings ^-> TSelf
+            "fadeOut" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "fadeTo" => (T<int> + T<string>) * T<int> * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "fadeToggle" => AnimateSettings ^-> TSelf
+            "fadeToggle" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "finish" => !?T<string> ^-> TSelf
+            "hide" => T<unit> ^-> T<unit>
+            "hide" => AnimateSettings ^-> TSelf
+            "hide" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "show" => T<unit> ^-> T<unit>
+            "show" => AnimateSettings ^-> TSelf
+            "show" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "slideDown" => AnimateSettings ^-> TSelf
+            "slideDown" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "slideToggle" => AnimateSettings ^-> TSelf
+            "slideToggle" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "slideUp" => AnimateSettings ^-> TSelf
+            "slideUp" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "stop" => !?T<string> * !?T<bool> * !?T<bool> ^-> TSelf
+            "toggle" => T<bool> ^-> TSelf
+            "toggle" => AnimateSettings ^-> TSelf
+            "toggle" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+
+            // Events
+            "blur" => !?T<obj> * EH ^-> TSelf
+            "blur" => T<unit> ^-> TSelf
+            "change" => !?T<obj> * EH ^-> TSelf
+            "change" => T<unit> ^-> TSelf
+            "click" => !?T<obj> * EH ^-> TSelf
+            "click" => T<unit> ^-> TSelf
+            "contextmenu" => !?T<obj> * EH ^-> TSelf
+            "contextmenu" => T<unit> ^-> TSelf
+            "dblclick" => !?T<obj> * EH ^-> TSelf
+            "dblclick" => T<unit> ^-> TSelf
+            "focus" => !?T<obj> * EH ^-> TSelf
+            "focus" => T<unit> ^-> TSelf
+            "focusin" => !?T<obj> * EH ^-> TSelf
+            "focusin" => T<unit> ^-> TSelf
+            "focusout" => !?T<obj> * EH ^-> TSelf
+            "focusout" => T<unit> ^-> TSelf
+            "hover" => EH ^-> TSelf
+            "hover" => EH?handlerIn * EH?handlerOut ^-> TSelf
+            "keydown" => !?T<obj> * EH ^-> TSelf
+            "keydown" => T<unit> ^-> TSelf
+            "keypress" => !?T<obj> * EH ^-> TSelf
+            "keypress" => T<unit> ^-> TSelf
+            "keyup" => !?T<obj> * EH ^-> TSelf
+            "keyup" => T<unit> ^-> TSelf
+            "mousedown" => !?T<obj> * EH ^-> TSelf
+            "mousedown" => T<unit> ^-> TSelf
+            "mouseenter" => !?T<obj> * EH ^-> TSelf
+            "mouseenter" => T<unit> ^-> TSelf
+            "mouseleave" => !?T<obj> * EH ^-> TSelf
+            "mouseleave" => T<unit> ^-> TSelf
+            "mousemove" => !?T<obj> * EH ^-> TSelf
+            "mousemove" => T<unit> ^-> TSelf
+            "mouseout" => !?T<obj> * EH ^-> TSelf
+            "mouseout" => T<unit> ^-> TSelf
+            "mouseover" => !?T<obj> * EH ^-> TSelf
+            "mouseover" => T<unit> ^-> TSelf
+            "mouseup" => !?T<obj> * EH ^-> TSelf
+            "mouseup" => T<unit> ^-> TSelf
+            "off" => T<unit> ^-> TSelf
+            "off" => T<string> * !?T<string> * !?EH ^-> TSelf
+            "off" => T<obj> * !?T<string> ^-> TSelf
+            "off" => Event ^-> TSelf
+            "on" => T<string> * !?T<string> * !?T<obj> * EH ^-> TSelf
+            "on" => T<Object<_>>.[EH] * !?T<string> * !?T<obj> ^-> TSelf
+            "one" => T<string> * !?T<string> * !?T<obj> * EH ^-> TSelf
+            "one" => T<Object<_>>.[EH] * !?T<string> * !?T<obj> ^-> TSelf
+            "ready" => (T<unit> ^-> T<unit>) ^-> TSelf
+            "resize" => !?T<obj> * EH ^-> TSelf
+            "resize" => T<unit> ^-> TSelf
+            "scroll" => !?T<obj> * EH ^-> TSelf
+            "scroll" => T<unit> ^-> TSelf
+            "select" => !?T<obj> * EH ^-> TSelf
+            "select" => T<unit> ^-> TSelf
+            "submit" => !?T<obj> * EH ^-> TSelf
+            "submit" => T<unit> ^-> TSelf
+            "trigger" => T<string> * !?(Type.ArrayOf T<obj>) ^-> TSelf
+            "triggerHandler" => T<string> * !?(Type.ArrayOf T<obj>) ^-> TSelf
+
+            // Internals
+            "jquery" =? T<string>
+            "pushStack" => (Type.ArrayOf T<Dom.Element>) ^-> TSelf
+            "pushStack" => (Type.ArrayOf T<Dom.Element>) * T<string> * (Type.ArrayOf T<obj>) ^-> TSelf
+
+            // Manipulation
+            "after" => ContentWithText *+ ContentWithText ^-> TSelf 
+            "after" => Func ^-> TSelf
+            "after" => FuncWithHTML ^-> TSelf
+            "append" => ContentWithText *+ ContentWithText ^-> TSelf
+            "append" => Func ^-> TSelf
+            "appendTo" => (T<string> + T<string> + T<Dom.Element> + Type.ArrayOf T<Dom.Element> + TSelf) ^-> TSelf
+            "before" => Content *+ Content ^-> TSelf
+            "before" => Func ^-> TSelf
+            "before" => FuncWithHTML ^-> TSelf
+            "clone" => T<unit> ^-> TSelf
+            "clone" => T<bool>?withDataAndEvents ^-> TSelf
+            "clone" => T<bool>?withDataAndEvents * T<bool>?deepWithDataAndEvents ^-> TSelf
+            "detach" => T<string> ^-> TSelf
             "empty" => T<unit> ^-> TSelf
-            |> WithComment "Remove all of the TSelf from a list."
+            "insertAfter" => Content ^-> TSelf
+            "insertBefore" => Content ^-> TSelf
+            "prepend" => Content *+ Content ^-> TSelf
+            "prepend" => FuncWithHTML ^-> TSelf
+            "prependTo" => (T<string> + T<string> + T<Dom.Element> + Type.ArrayOf T<Dom.Element> + TSelf) ^-> TSelf
+            "remove" => T<string> ^-> TSelf
+            "replaceAll" => (T<string> + TSelf + T<Dom.Element> + (Type.ArrayOf T<Dom.Element>)) ^-> TSelf
+            "replaceWith" => (T<string> + TSelf + T<Dom.Element> + (Type.ArrayOf T<Dom.Element>)) ^-> TSelf
+            "replaceWith" => (T<unit> ^-> T<unit>) ^-> TSelf
+            "text" => T<unit> ^-> T<string>
+            "text" => T<string> ^-> TSelf
+            "text" => ((T<int> + T<string>) ^-> T<string>) ^-> TSelf
+            "unwrap" => T<unit> ^-> TSelf
+            "unwrap" => T<string> ^-> TSelf
+            "wrap" => (T<string> + T<Dom.Element> + TSelf) ^-> TSelf
+            "wrap" => (T<int> ^-> TSelf) ^-> TSelf
+            "wrap" => (T<int> ^-> T<string>) ^-> TSelf
+            "wrapAll" => (T<string> + T<Dom.Element> + TSelf) ^-> TSelf
+            "wrapAll" => (T<unit> ^-> TSelf) ^-> TSelf
+            "wrapAll" => (T<unit> ^-> T<string>) ^-> TSelf
+            "wrapInner" => (T<string> + T<Dom.Element> + TSelf) ^-> TSelf
+            "wrapInner" => (T<int> ^-> T<string>) ^-> TSelf
 
-            "fire" => !+ T<obj> ^-> TSelf
-            |> WithComment "Call all of the TSelf with the given arguments."
+            // Miscellaneous
+            "each" => (T<int> * T<Dom.Element> ^-> T<unit>) ^-> TSelf
+            "get" => T<unit> ^-> Type.ArrayOf T<Dom.Element>
+            "get" => T<int> ^-> T<Dom.Element>
+            "index" => (T<unit> + T<string> + T<Dom.Element> + TSelf) ^-> T<int>
+            "toArray" => T<unit> ^-> Type.ArrayOf T<Dom.Element>
 
-            "fired" => T<unit -> bool>
-            |> WithComment "Determine if the TSelf have already been called at least once."
+            // Offset
+            "offsetParent" => T<unit> ^-> TSelf
 
-            "fireWith" => !? T<obj> * !? (T<obj> + T<obj array>) ^-> TSelf
-            |> WithComment "Call all TSelf in a list with the given context and arguments."
+            // Properties
+            "length" =? T<int>
 
-            "has" => !? (!+ T<obj> ^-> T<unit>) ^-> T<bool>
-            |> WithComment "Determine whether or not the list has any TSelf attached. If a callback is provided as an argument, determine whether it is in a list."
-
-            "lock" => T<unit> ^-> TSelf
-            |> WithComment "Lock a callback list in its current state."
-
-            "locked" => T<unit -> bool>
-            |> WithComment "Determine if the TSelf list has been locked."
-
-            "remove" => (!+ T<obj> ^-> T<unit>) ^-> TSelf
-            |> WithComment "Remove a callback or a collection of TSelf from a callback list."
-
-            "remove" => Type.ArrayOf (!+ T<obj> ^-> T<unit>) ^-> TSelf
-            |> WithComment "Remove a callback or a collection of TSelf from a callback list."
+            // Traversing
+            "add" => T<string> + T<Dom.Element> + TSelf ^-> TSelf
+            "add" => T<string> * T<Dom.Element> ^-> TSelf
+            "addBack" => !?T<string> ^-> TSelf
+            "children" => !?T<string> ^-> TSelf
+            "closest" => T<string> * !?T<Dom.Element> ^-> TSelf
+            "closest" => T<Dom.Element> ^-> TSelf
+            "closest" => TSelf ^-> TSelf
+            "contents" => T<unit> ^-> TSelf
+            "end" => T<unit> ^-> TSelf
+            "eq" => T<int> ^-> TSelf
+            "filter" => T<string> ^-> TSelf
+            "filter" => (T<int> * T<Dom.Element> ^-> T<bool>) ^-> TSelf
+            "filter" => T<Dom.Element> ^-> TSelf
+            "filter" => TSelf ^-> TSelf
+            "find" => T<string> ^-> TSelf
+            "find" => T<Dom.Element> ^-> TSelf
+            "find" => TSelf ^-> TSelf
+            "first" => T<unit> ^-> TSelf
+            "has" => (T<string> + T<Dom.Element>) ^-> TSelf
+            "is" => T<string> ^-> T<bool>
+            "is" => (T<int> * T<Dom.Element> ^-> T<bool>) ^-> T<bool>
+            "is" => T<Dom.Element> ^-> T<bool>
+            "is" => TSelf ^-> T<bool>
+            "last" => T<unit> ^-> TSelf
+            "map" => ((T<int> * T<Dom.Element>) ^-> T<obj>) ^-> TSelf
+            "next" => !?T<string> ^-> TSelf
+            "nextAll" => !?T<string> ^-> TSelf
+            "nextUntil" => T<unit> ^-> TSelf
+            "nextUntil" => T<string> * !?T<string> ^-> TSelf
+            "nextUntil" => (T<Dom.Element> + TSelf) * !?T<string> ^-> TSelf
+            "not" => T<string> ^-> TSelf
+            "not" => (T<int> * T<Dom.Element> ^-> T<bool>) ^-> TSelf
+            "not" => T<Dom.Element> ^-> TSelf
+            "not" => (Type.ArrayOf T<Dom.Element>) ^-> TSelf
+            "not" => TSelf ^-> TSelf
+            "parent" => !?T<string> ^-> TSelf
+            "parents" => !?T<string> ^-> TSelf
+            "parentsUntil" => T<unit> ^-> TSelf
+            "parentsUntil" => T<string> * !?T<string> ^-> TSelf
+            "parentsUntil" => (T<Dom.Element> + TSelf) * !?T<string> ^-> TSelf
+            "prev" => !?T<string> ^-> TSelf
+            "prevAll" => !?T<string> ^-> TSelf
+            "prevUntil" => T<unit> ^-> TSelf
+            "prevUntil" => T<string> * !?T<string> ^-> TSelf
+            "prevUntil" => (T<Dom.Element> + TSelf) * !?T<string> ^-> TSelf
+            "siblings" => !?T<string> ^-> TSelf
+            "slice" => T<int> * !?T<int> ^-> TSelf
         ]
+        |+> Static [
+            // Core
+            Constructor (T<string>?selector)
+            |> WithInline "jQuery($0)"
+            |> WithComment "Accepts a string containing a CSS selector which is then used to match a set of elements."
+
+            Constructor (T<string>?selector * Context?context)
+            |> WithInline "jQuery($0, $1)"
+            |> WithComment "Accepts a string containing a CSS selector and a DOM Element, Document, or jQuery to use as context."
+
+            Constructor (T<Dom.Element>?element)
+            |> WithInline "jQuery($0)"
+            |> WithComment "Accepts a DOM element to wrap in a jQuery object."
+
+            Constructor (T<Dom.Element []>?elementArray)
+            |> WithInline "jQuery($0)"
+            |> WithComment "Accepts an array containing a set of DOM elements to wrap in a jQuery object."
+
+            Constructor (T<obj>?``object``)
+            |> WithInline "jQuery($0)"
+            |> WithComment "Accepts a plain object to wrap in a jQuery object."
+
+            Constructor (TSelf?selection)
+            |> WithInline "jQuery($0)"
+            |> WithComment "Accepts an existing jQuery object to clone."
+
+            Constructor (T<unit>)
+            |> WithInline "jQuery()"
+            |> WithComment "This signature does not accept any arguments."
+
+            Constructor (T<string>?html * T<Dom.Document>?ownerDocument)
+            |> WithInline "jQuery($0, $1)"
+            |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
+
+            Constructor (T<string>?html * T<obj>?attributes)
+            |> WithInline "jQuery($0, $1)"
+            |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
+
+            Constructor ((T<unit> ^-> T<unit>)?callback)
+            |> WithInline "jQuery($0, $1)"
+            |> WithComment "Binds a function to be executed when the DOM has finished loading."
+
+            "of" => (T<string>?selector) ^-> TSelf
+            |> WithInline "jQuery($0)"
+            |> WithComment "Accepts a string containing a CSS selector which is then used to match a set of elements."
+
+            "of" => (T<string>?selector * Context?context) ^-> TSelf
+            |> WithInline "jQuery($0, $1)"
+            |> WithComment "Accepts a string containing a CSS selector and a DOM Element, Document, or jQuery to use as context."
+
+            "of" => (T<Dom.Element>?element) ^-> TSelf
+            |> WithInline "jQuery($0)"
+            |> WithComment "Accepts a DOM element to wrap in a jQuery object."
+
+            "of" => (T<Dom.Element []>?elementArray) ^-> TSelf
+            |> WithInline "jQuery($0)"
+            |> WithComment "Accepts an array containing a set of DOM elements to wrap in a jQuery object."
+
+            "of" => (T<obj>?``object``) ^-> TSelf
+            |> WithInline "jQuery($0)"
+            |> WithComment "Accepts a plain object to wrap in a jQuery object."
+
+            "of" => (TSelf?selection) ^-> TSelf
+            |> WithInline "jQuery($0)"
+            |> WithComment "Accepts an existing jQuery object to clone."
+
+            "of" => (T<unit>) ^-> TSelf
+            |> WithInline "jQuery()"
+            |> WithComment "This signature does not accept any arguments."
+
+            "of" => (T<string>?html * T<Dom.Document>?ownerDocument) ^-> TSelf
+            |> WithInline "jQuery($0, $1)"
+            |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
+
+            "of" => (T<string>?html * T<obj>?attributes) ^-> TSelf
+            |> WithInline "jQuery($0, $1)"
+            |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
+
+            "of" => ((T<unit> ^-> T<unit>)?callback) ^-> TSelf
+            |> WithInline "jQuery($0, $1)"
+            |> WithComment "Binds a function to be executed when the DOM has finished loading."
+
+            "holdReady" => T<bool> ^-> T<obj>
+            "noConflict" => !?T<bool> ^-> T<obj>
+            "readyException" => Error ^-> T<string>
+            "when" => Deferred ^-> Promise
+
+            // Ajax related static methods
+            "ajax" => T<string> * !? AjaxSettings ^-> JqXHR
+            "ajax" => !?AjaxSettings ^-> JqXHR
+            "ajaxPrefilter" => !?DataType * (AjaxSettings * T<obj> * JqXHR ^-> T<unit>) ^-> T<obj> // returns undefined
+            "ajaxSetup" => AjaxSettings ^-> T<unit>
+            "ajaxTransport" => DataType * (AjaxSettings * T<obj> * JqXHR ^-> T<unit>) ^-> T<obj> // returns undefined
+            "get" => (T<string> * !?(T<obj> + T<string>) * !? (T<obj> * T<string> * JqXHR ^-> T<unit>) * !? DataType) ^-> JqXHR
+            "get" => !?AjaxSettings ^-> JqXHR
+            "getJSON" => (T<string> * !?(T<obj> + T<string>) * !? (T<obj> * T<string> * JqXHR ^-> T<unit>)) ^-> JqXHR
+            "getScript" => (T<string> * !? (T<obj> * T<string> * JqXHR ^-> T<unit>)) ^-> JqXHR
+            "param" => (T<obj> * T<obj []> * TSelf) * !?T<bool> ^-> T<string>
+            "post" => (T<string> * !?(T<obj> + T<string>) * !?(T<obj> * T<string> * JqXHR ^-> T<unit>) * !? DataType) ^-> JqXHR
+            "post" => !?AjaxSettings ^-> JqXHR
+
+            // Callback related static method
+            "Callbacks" => T<string> ^-> Callbacks
+
+            // CSS related static methods/properties
+            "cssHooks" =@ T<obj>
+            "cssNumber" =@ T<Object<int>>
+            "escapeSelector" => T<string> ^-> T<string>
+
+            // Data related static methods
+            "data" => T<Dom.Element> * T<string> * T<obj> ^-> TSelf
+            "data" => T<Dom.Element>* T<obj> ^-> TSelf
+            "data" => T<Dom.Element> * T<string> ^-> T<obj>
+            "data" => T<Dom.Element> * T<obj>
+            "dequeue" => T<Dom.Element> * !?T<string> ^-> TSelf
+            "hasData" => T<Dom.Element> ^-> T<bool>
+            "queue" => T<Dom.Element> * !?T<string> ^-> T<obj []>
+            "queue" => T<Dom.Element> * T<string> * (T<obj []> + T<(unit -> unit) -> unit>) ^-> TSelf
+            "removeData" => T<Dom.Element> * (T<string> + T<string []>) ^-> TSelf
+
+            // Deferred
+            "Deferred" => (T<unit> ^-> T<unit>) ^-> Deferred
+
+            // Effects
+            "speed" => (T<int> + T<string>) * Speed ^-> T<obj>
+            "speed" => (T<int> + T<string>) * T<string> * (T<unit> ^-> T<unit>) ^-> T<obj>
+            "speed" => Speed ^-> T<obj>
+
+            "fx" =? FX
+
+            // Events
+            "proxy" => (T<unit> ^-> T<unit>) * T<obj> * !?(Type.ArrayOf T<obj>) ^-> (Event ^-> T<unit>)
+            "proxy" => T<obj> * T<string> * !?(Type.ArrayOf T<obj>) ^-> (Event ^-> T<unit>)
+        
+            // Internals
+            "error" => T<string> ^-> T<unit>
+
+            // Manipulation
+            "htmlPrefilter" => T<string> ^-> T<string>
+            
+            // Utilities
+            "contains" => T<Dom.Element> * T<Dom.Element> ^-> T<bool>
+            "each" => (Type.ArrayOf T<obj>) * (T<int> * T<obj> ^-> T<unit>) ^-> T<obj>
+            "each" => (T<obj>) * (T<string> * T<obj> ^-> T<unit>) ^-> T<obj>
+            "extend" => T<obj> *+ T<obj> ^-> T<obj>
+            "extend" => T<bool> * T<obj> * T<obj> *+ T<obj> ^-> T<obj>
+            "globalEval" => T<string> ^-> T<unit>
+            |> WithComment "Execute some JavaScript code globally"
+            "grep" => (T<obj> + Type.ArrayOf T<obj>) * (T<obj> * T<int> ^-> T<bool>) * T<bool> ^-> Type.ArrayOf T<obj>
+            "inArray" => T<obj> * Type.ArrayOf T<obj> * !?T<int> ^-> T<int>
+            "isEmptyObject" => T<obj> ^-> T<bool>
+            "isFunction" => T<obj> ^-> T<bool>
+            "isNumeric" => T<obj> ^-> T<bool>
+            "isPlainObject" => T<obj> ^-> T<bool>
+            "isWindow" => T<obj> ^-> T<bool>
+            "isXMLDoc" => T<Dom.Element> ^-> T<bool>
+            "makeArray" => T<obj> ^-> Type.ArrayOf T<obj>
+            "map" => (Type.ArrayOf T<obj>) * (T<obj> * T<int> ^-> T<unit>) ^-> Type.ArrayOf T<obj>
+            "map" => (T<obj>) * (T<string> * T<obj> ^-> T<unit>) ^-> Type.ArrayOf T<obj>
+            "merge" => (T<obj> + Type.ArrayOf T<obj>) * (T<obj> + Type.ArrayOf T<obj>) ^-> Type.ArrayOf T<obj>
+            "noop" => T<unit> ^-> T<obj>
+            "now" => T<unit> ^-> T<int>
+            "parseHTML" => T<string> ^-> Type.ArrayOf T<Dom.Node>
+            "parseJSON" => T<string> ^-> T<obj> |> Obsolete |> WithComment "Use the native JSON.parse instead"
+            "parseXML" => T<string> ^-> T<Dom.Document>
+            "trim" => T<string> ^-> T<string>
+            "type" => T<obj> ^-> T<string>
+            "unique" => Type.ArrayOf T<Dom.Element> ^-> Type.ArrayOf T<Dom.Element> |> Obsolete |> WithComment "Use UniqueSort instead"
+            "uniqueSort" => Type.ArrayOf T<Dom.Element> ^-> Type.ArrayOf T<Dom.Element>
+        ]
+        
         
     let Assembly =
         Assembly [
             Namespace "WebSharper.JQuery" [
-                 Callbacks
-                 RequestType
-                 DataType
-                 PromiseClass
-                 Deferred
-                 JqXHRClass
-                 Position
-                 AnimateSettings
-                 AjaxSettings
-                 Event
-                 JQueryClass
-                 FX
-                 XmlHttpRequest
+                JQueryClass
+                JqXHR
+                Callbacks
+                AjaxSettings
+                RequestType
+                DataType
+                Promise
+                Error
+                Deferred
+                DeferredState
+                AnimateSettings
+                Event
+                FX
+                Speed
+                Position
             ]
             Namespace "WebSharper.JQuery.Resources" [
-                Resource "JQuery" "http://code.jquery.com/jquery-1.11.2.min.js" |> AssemblyWide
+                Resource "JQuery" "http://code.jquery.com/jquery-3.1.1.min.js" |> AssemblyWide
             ]
         ]
 
