@@ -130,13 +130,9 @@ let Tests =
 
         Test "Document" {
             let doc = JS.Document
-            doc.Dir <- "rtl"
             notEqualMsg doc.Cookie JS.Undefined "Checking body"
             notEqualMsg doc.Body JS.Undefined "Checking body"
             notEqualMsg doc.Head JS.Undefined "Checking head"
-            notEqualMsg doc.Dir "ltr" "Checking ltr (current rtl)"
-            equalMsg doc.Dir "rtl" "Checking rtl (current rtl)"
-            doc.Dir <- "ltr"
             notEqualMsg doc.Dir "rtl" "Checking rtl (current ltr)"
             equalMsg doc.Dir "ltr" "Checking ltr (current ltr)"
             notEqualMsg doc.Doctype JS.Undefined "Checking doctype"
