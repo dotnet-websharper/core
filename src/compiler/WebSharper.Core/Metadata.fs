@@ -113,7 +113,7 @@ type CompiledMember =
     | Inline
     | NotCompiledInline
     | Macro of TypeDefinition * option<ParameterObject> * option<CompiledMember> 
-    | Remote of RemotingKind * MethodHandle * option<TypeDefinition * bool>
+    | Remote of RemotingKind * MethodHandle * option<TypeDefinition * option<ParameterObject>>
 
 type CompiledField =
     | InstanceField of string
@@ -219,7 +219,7 @@ type Node =
     | ImplementationNode of TypeDefinition * TypeDefinition * Method
     | AbstractMethodNode of TypeDefinition * Method
     | TypeNode of TypeDefinition
-    | ResourceNode of TypeDefinition
+    | ResourceNode of TypeDefinition * option<ParameterObject>
     | AssemblyNode of string * bool
     | EntryPointNode 
 

@@ -24,6 +24,7 @@ open WebSharper
 open WebSharper.Testing
 
 [<JavaScript>]
+[<Require(typeof<Resources.BaseResource>, "testUrlResource.css")>]
 let RunTests() =
     Runner.RunTests [|
         Remoting.Tests

@@ -61,7 +61,7 @@ type Compilation(meta: Info, ?hasGraph) =
     member val UseLocalMacros = true with get, set
     member val SiteletDefinition: option<TypeDefinition> = None with get, set
     member val AssemblyName = "EntryPoint" with get, set
-    member val AssemblyRequires = [] : list<TypeDefinition> with get, set
+    member val AssemblyRequires = [] : list<TypeDefinition * option<obj>> with get, set
     
     member val CustomTypesReflector = fun _ -> NotCustomType with get, set 
     member val LookupTypeAttributes = fun _ -> None with get, set
@@ -708,11 +708,14 @@ type Compilation(meta: Info, ?hasGraph) =
         let someEmptyAddress = Some (Address [])
         let unresolvedCctor = Some (Address [], Undefined)
 
+        let resNode (t, p) =
+            ResourceNode (t, p |> Option.map ParameterObject.OfObj)
+
         let asmNodeIndex = 
             if hasGraph then graph.AddOrLookupNode(AssemblyNode (this.AssemblyName, true)) else 0
         if hasGraph then
             for req in this.AssemblyRequires do
-                graph.AddEdge(asmNodeIndex, ResourceNode req)
+                graph.AddEdge(asmNodeIndex, resNode req)
 
         // initialize all class entries
         for KeyValue(typ, cls) in notResolvedClasses do
@@ -759,7 +762,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 let clsNodeIndex = graph.AddOrLookupNode(TypeNode typ)
                 graph.AddEdge(clsNodeIndex, asmNodeIndex)
                 for req in cls.Requires do
-                    graph.AddEdge(clsNodeIndex, ResourceNode req)
+                    graph.AddEdge(clsNodeIndex, resNode req)
                 cls.BaseClass |> Option.iter (fun b -> graph.AddEdge(clsNodeIndex, TypeNode (this.FindProxied b)))
                 for m in cls.Members do
                     match m with
@@ -770,7 +773,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             let cNode = graph.AddOrLookupNode(ConstructorNode(typ, ctor))
                             graph.AddEdge(cNode, clsNodeIndex)
                             for req in reqs do
-                                graph.AddEdge(cNode, ResourceNode req)
+                                graph.AddEdge(cNode, resNode req)
                     | M.Method (meth, { Kind = k; Requires = reqs }) -> 
                         match k with
                         | N.Override btyp ->
@@ -780,26 +783,26 @@ type Compilation(meta: Info, ?hasGraph) =
                             graph.AddOverride(typ, btyp, meth)
                             graph.AddEdge(mNode, clsNodeIndex)
                             for req in reqs do
-                                graph.AddEdge(mNode, ResourceNode req)
+                                graph.AddEdge(mNode, resNode req)
                         | N.Implementation intf ->
                             let intf = this.FindProxied intf 
                             let mNode = graph.AddOrLookupNode(ImplementationNode(typ, intf, meth))
                             graph.AddImplementation(typ, intf, meth)
                             graph.AddEdge(mNode, clsNodeIndex)
                             for req in reqs do
-                                graph.AddEdge(mNode, ResourceNode req)
+                                graph.AddEdge(mNode, resNode req)
                         | N.Abstract ->
                             let mNode = graph.AddOrLookupNode(MethodNode(typ, meth))
                             graph.AddEdge(mNode, AbstractMethodNode(typ, meth))
                             graph.AddEdge(mNode, clsNodeIndex)
                             for req in reqs do
-                                graph.AddEdge(mNode, ResourceNode req)
+                                graph.AddEdge(mNode, resNode req)
                         | N.NoFallback -> ()
                         | _ -> 
                             let mNode = graph.AddOrLookupNode(MethodNode(typ, meth))
                             graph.AddEdge(mNode, clsNodeIndex)
                             for req in reqs do
-                                graph.AddEdge(mNode, ResourceNode req)
+                                graph.AddEdge(mNode, resNode req)
                     | M.Field (_, f) ->
                         let rec addTypeDeps (t: Type) =
                             match t with
@@ -852,7 +855,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let compiledNoAddressMember (nr : NotResolvedMethod) =
             match nr.Kind with
             | N.Inline -> Inline
-            | N.Remote (k, h, r) -> Remote (k, h, r)
+            | N.Remote (k, h, r) -> Remote (k, h, r |> Option.map (fun (t, p) -> t, p |> Option.map ParameterObject.OfObj))
             | N.NoFallback -> Inline // will be erased
             | _ -> failwith "Invalid not compiled member kind"
             |> withMacros nr

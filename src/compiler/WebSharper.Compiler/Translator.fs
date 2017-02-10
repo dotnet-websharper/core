@@ -104,7 +104,7 @@ let defaultRemotingProvider =
     TypeDefinition {
         Assembly = "WebSharper.Main"
         FullName =  "WebSharper.Remoting+AjaxRemotingProvider"
-    }
+    }, []
     
 let emptyConstructor = Hashed { CtorParameters = [] }
 
@@ -735,11 +735,19 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | M.RemoteSend -> "Send", sendRpcMethodNode
                 | M.RemoteSync -> "Sync", syncRpcMethodNode
             let remotingProvider =
-                let td =
+                let rpTyp, rpArgs =
                     match rh with
-                    | Some (rp, _) -> rp
+                    | Some (rp, p) -> 
+                        rp, 
+                        let toParamValue o = o |> M.ParameterObject.ToObj |> ReadLiteral |> Value
+                        match p with
+                        | None -> []
+                        | Some (M.ParameterObject.Array ps) ->
+                            ps |> Seq.map toParamValue |> List.ofSeq   
+                        | Some p ->
+                            [ toParamValue p ]
                     | _ -> defaultRemotingProvider   
-                this.TransformCtor(NonGeneric td, emptyConstructor, []) 
+                this.TransformCtor(NonGeneric rpTyp, emptyConstructor, rpArgs) 
             if comp.HasGraph then
                 this.AddDependency(mnode)
                 let rec addTypeDeps (t: Type) =

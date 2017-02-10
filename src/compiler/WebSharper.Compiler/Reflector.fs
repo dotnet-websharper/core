@@ -100,7 +100,10 @@ let getRequires attrs =
         a.AttributeType.FullName = "WebSharper.RequireAttribute" 
     )
     |> Seq.map (fun a ->
-        a.ConstructorArguments.[0].Value :?> Mono.Cecil.TypeReference |> getTypeDefinition
+        let cargs = a.ConstructorArguments 
+        cargs.[0].Value :?> Mono.Cecil.TypeReference |> getTypeDefinition
+        ,
+        if cargs.Count = 1 then None else (cargs.[1].Value |> ParameterObject.OfObj |> Some)
     )
     |> List.ofSeq
 
@@ -163,7 +166,7 @@ let TransformAssembly (prototypes: IDictionary<string, string>) (assembly : Mono
         let def = getTypeDefinition typ
 
         if isResourceType typ then
-            let thisRes = graph.AddOrLookupNode(ResourceNode def)
+            let thisRes = graph.AddOrLookupNode(ResourceNode (def, None))
             for req in getRequires typ.CustomAttributes do
                 graph.AddEdge(thisRes, ResourceNode req)
             None

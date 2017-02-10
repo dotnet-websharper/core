@@ -266,11 +266,23 @@ type Graph =
                 match n with
                 | AssemblyNode (name, true) ->
                     AssemblyResource name :> R.IResource
-                | ResourceNode t ->
+                | ResourceNode (t, p) ->
                     try
-                        Reflection.LoadTypeDefinition t
-                        |> System.Activator.CreateInstance
-                        |> unbox
+                        match p with
+                        | None ->
+                            Reflection.LoadTypeDefinition t
+                            |> System.Activator.CreateInstance
+                            |> unbox
+                        | Some p ->
+                            System.Activator.CreateInstance(
+                                Reflection.LoadTypeDefinition t, 
+                                args =
+                                    match p with
+                                    | ParameterObject.Array _ ->
+                                        ParameterObject.ToObj p :?> obj[]
+                                    | _ ->
+                                        [| ParameterObject.ToObj p |]
+                            ) |> unbox
                     with e ->
                         {
                             new R.IResource with
@@ -344,6 +356,11 @@ type Graph =
             this.Nodes.Add n
             this.Edges.Add(HashSet())
             this.Lookup.Add(n, i)
+            match n with
+            | ResourceNode (r, Some _) ->
+                let b = this.AddOrLookupNode (ResourceNode(r, None))
+                this.Edges.[i].Add(b) |> ignore
+            | _ -> ()   
             i  
 
     member this.GetNodeDeps n =

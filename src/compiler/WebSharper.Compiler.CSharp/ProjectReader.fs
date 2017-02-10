@@ -141,9 +141,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     if isResourceType sr cls then
         if comp.HasGraph then
-            let thisRes = comp.Graph.AddOrLookupNode(ResourceNode thisDef)
-            for req in annot.Requires do
-                comp.Graph.AddEdge(thisRes, ResourceNode req)
+            let thisRes = comp.Graph.AddOrLookupNode(ResourceNode (thisDef, None))
+            for req, p in annot.Requires do
+                comp.Graph.AddEdge(thisRes, ResourceNode (req, p |> Option.map ParameterObject.OfObj))
         None
     else    
 
@@ -308,8 +308,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | ConcreteType { Entity = e } when e = Definitions.Async -> RemoteAsync
                     | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> RemoteTask
                     | _ -> RemoteSync // TODO: warning
-                let isCsrfProtected t = true // TODO
-                let rp = rp |> Option.map (fun t -> t, isCsrfProtected t)
                 let handle = 
                     comp.GetRemoteHandle(
                         def.Value.FullName + "." + mdef.Value.MethodName,

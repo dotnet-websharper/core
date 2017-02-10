@@ -37,13 +37,13 @@ type private Attribute =
     | Pure
     | Constant of Literal
     | Generated of TypeDefinition * option<obj>
-    | Require of TypeDefinition
+    | Require of TypeDefinition * option<obj>
     | Name of string
     | Stub
     | OptionalField
     | JavaScript of bool
     | Remote
-    | RemotingProvider of TypeDefinition
+    | RemotingProvider of TypeDefinition * option<obj>
     | NamedUnionCases of option<string>
     | DateTimeFormat of option<string> * string
     | Website of TypeDefinition
@@ -59,10 +59,10 @@ type TypeAnnotation =
         IsStub : bool
         OptionalFields : bool
         Name : option<string>
-        Requires : list<TypeDefinition>
+        Requires : list<TypeDefinition * option<obj>>
         NamedUnionCases : option<option<string>>
         Macros : list<TypeDefinition * option<obj>>
-        RemotingProvider : option<TypeDefinition>
+        RemotingProvider : option<TypeDefinition * option<obj>>
     }
 
     static member Empty =
@@ -86,7 +86,7 @@ type MemberKind =
     | Constant of Literal
     | NoFallback
     | Generated of TypeDefinition * option<obj>
-    | Remote of option<TypeDefinition>
+    | Remote of option<TypeDefinition * option<obj>>
     | Stub
     | OptionalField
     | AttributeConflict of string
@@ -97,7 +97,7 @@ type MemberAnnotation =
         Kind : option<MemberKind>
         Macros : list<TypeDefinition * option<obj>> 
         Name : option<string>
-        Requires : list<TypeDefinition>
+        Requires : list<TypeDefinition * option<obj>>
         IsEntryPoint : bool
         DateTimeFormat : list<option<string> * string>
         Pure : bool
@@ -129,8 +129,8 @@ type MemberAnnotation =
 type AssemblyAnnotation =
     {
         SiteletDefinition : option<TypeDefinition>
-        Requires : list<TypeDefinition>
-        RemotingProvider : option<TypeDefinition>
+        Requires : list<TypeDefinition * option<obj>>
+        RemotingProvider : option<TypeDefinition * option<obj>>
         IsJavaScript : bool
     }
 
@@ -188,7 +188,7 @@ type AttributeReader<'A>() =
         | "RemoteAttribute" ->
             A.Remote
         | "RequireAttribute" ->
-            A.Require (this.ReadTypeArg attr |> fst)
+            A.Require (this.ReadTypeArg attr)
         | "StubAttribute" ->
             A.Stub
         | "NameAttribute" ->
@@ -202,7 +202,7 @@ type AttributeReader<'A>() =
         | "OptionalFieldAttribute" ->
             A.OptionalField
         | "RemotingProviderAttribute" ->
-            A.RemotingProvider (this.ReadTypeArg attr |> fst)
+            A.RemotingProvider (this.ReadTypeArg attr)
         | "NamedUnionCasesAttribute" ->
             A.NamedUnionCases (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.map unbox)
         | "DateTimeFormatAttribute" ->
@@ -230,7 +230,7 @@ type AttributeReader<'A>() =
             | "WebSharper.Core" ->
                 match this.Read a with
                 | A.Name n -> name <- Some n
-                | A.Require t -> reqs.Add t
+                | A.Require (t, p) -> reqs.Add (t, p)
                 | A.Macro (m, p) -> macros.Add (m, p)
                 | A.JavaScript j -> js <- Some j
                 | A.Stub -> stub <- true
@@ -273,7 +273,7 @@ type AttributeReader<'A>() =
             NamedUnionCases = attrArr |> Array.tryPick (function A.NamedUnionCases uc -> Some uc | _ -> None)
             Macros = macros |> List.ofArray
             RemotingProvider = 
-                attrArr |> Array.tryPick (function A.RemotingProvider p -> Some p | _ -> None) 
+                attrArr |> Array.tryPick (function A.RemotingProvider (r, p) -> Some (r, p) | _ -> None) 
                 |> function Some x -> Some x | None -> parent.RemotingProvider
         }
 
@@ -282,7 +282,7 @@ type AttributeReader<'A>() =
         let isEp = attrArr |> Array.contains A.SPAEntryPoint
         let isPure = attrArr |> Array.contains A.Pure
         let rp = 
-            attrArr |> Array.tryPick (function A.RemotingProvider p -> Some p | _ -> None) 
+            attrArr |> Array.tryPick (function A.RemotingProvider (r, p) -> Some (r, p) | _ -> None) 
             |> function Some x -> Some x | None -> parent.RemotingProvider
         let attrArr = 
             attrArr |> Array.filter (function 
@@ -325,9 +325,9 @@ type AttributeReader<'A>() =
             | "WebSharper.Core"
             | "WebSharper.Sitelets" ->
                 match this.Read a with
-                | A.Require t -> reqs.Add t
+                | A.Require (t, p) -> reqs.Add (t, p)
                 | A.Website t -> sitelet <- Some t
-                | A.RemotingProvider t -> remotingProvider <- Some t
+                | A.RemotingProvider (t, p) -> remotingProvider <- Some (t, p)
                 | A.JavaScript true -> isJavaScript <- true
                 | _ -> ()
             | _ -> ()
