@@ -384,6 +384,7 @@ module Interfaces =
 
     let Attr =
         Class "Attr"
+        |=> Inherits Node
         |+> Instance [
                 "name" =? T<string>
                 "specified" =? T<bool>

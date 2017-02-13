@@ -243,6 +243,11 @@ module Definition =
             "ignore" =? T<unit>
             |> WithGetterInline "$this"
 
+            // Deprecated
+            "bind" => T<string> * !?T<obj> * EH ^-> TSelf |> Obsolete
+            "bind" => T<string> * !?T<obj> * !?T<bool> ^-> TSelf |> Obsolete
+            "bind" => T<obj> ^-> TSelf |> Obsolete
+
             // Ajax related instance methods
             "ajaxComplete" => AjaxHandler ^-> TSelf
             "ajaxError" => AjaxErrorHandler ^-> TSelf
@@ -422,26 +427,26 @@ module Definition =
             "pushStack" => (Type.ArrayOf T<Dom.Element>) * T<string> * (Type.ArrayOf T<obj>) ^-> TSelf
 
             // Manipulation
-            "after" => ContentWithText *+ ContentWithText ^-> TSelf 
+            "after" => ContentWithText *+ T<obj> ^-> TSelf 
             "after" => Func ^-> TSelf
             "after" => FuncWithHTML ^-> TSelf
-            "append" => ContentWithText *+ ContentWithText ^-> TSelf
+            "append" => ContentWithText *+ T<obj> ^-> TSelf
             "append" => Func ^-> TSelf
             "appendTo" => (T<string> + T<string> + T<Dom.Element> + Type.ArrayOf T<Dom.Element> + TSelf) ^-> TSelf
-            "before" => Content *+ Content ^-> TSelf
+            "before" => Content *+ T<obj> ^-> TSelf
             "before" => Func ^-> TSelf
             "before" => FuncWithHTML ^-> TSelf
             "clone" => T<unit> ^-> TSelf
             "clone" => T<bool>?withDataAndEvents ^-> TSelf
             "clone" => T<bool>?withDataAndEvents * T<bool>?deepWithDataAndEvents ^-> TSelf
-            "detach" => T<string> ^-> TSelf
+            "detach" => !?T<string> ^-> TSelf
             "empty" => T<unit> ^-> TSelf
             "insertAfter" => Content ^-> TSelf
             "insertBefore" => Content ^-> TSelf
-            "prepend" => Content *+ Content ^-> TSelf
+            "prepend" => Content *+ T<obj> ^-> TSelf
             "prepend" => FuncWithHTML ^-> TSelf
             "prependTo" => (T<string> + T<string> + T<Dom.Element> + Type.ArrayOf T<Dom.Element> + TSelf) ^-> TSelf
-            "remove" => T<string> ^-> TSelf
+            "remove" => !?T<string> ^-> TSelf
             "replaceAll" => (T<string> + TSelf + T<Dom.Element> + (Type.ArrayOf T<Dom.Element>)) ^-> TSelf
             "replaceWith" => (T<string> + TSelf + T<Dom.Element> + (Type.ArrayOf T<Dom.Element>)) ^-> TSelf
             "replaceWith" => (T<unit> ^-> T<unit>) ^-> TSelf
@@ -531,11 +536,11 @@ module Definition =
             |> WithInline "jQuery($0, $1)"
             |> WithComment "Accepts a string containing a CSS selector and a DOM Element, Document, or jQuery to use as context."
 
-            Constructor (T<Dom.Element>?element)
+            Constructor (T<Dom.Node>?element)
             |> WithInline "jQuery($0)"
             |> WithComment "Accepts a DOM element to wrap in a jQuery object."
 
-            Constructor (T<Dom.Element []>?elementArray)
+            Constructor (T<Dom.Node []>?elementArray)
             |> WithInline "jQuery($0)"
             |> WithComment "Accepts an array containing a set of DOM elements to wrap in a jQuery object."
 
@@ -571,11 +576,11 @@ module Definition =
             |> WithInline "jQuery($0, $1)"
             |> WithComment "Accepts a string containing a CSS selector and a DOM Element, Document, or jQuery to use as context."
 
-            "of" => (T<Dom.Element>?element) ^-> TSelf
+            "of" => (T<Dom.Node>?element) ^-> TSelf
             |> WithInline "jQuery($0)"
             |> WithComment "Accepts a DOM element to wrap in a jQuery object."
 
-            "of" => (T<Dom.Element []>?elementArray) ^-> TSelf
+            "of" => (T<Dom.Node []>?elementArray) ^-> TSelf
             |> WithInline "jQuery($0)"
             |> WithComment "Accepts an array containing a set of DOM elements to wrap in a jQuery object."
 
