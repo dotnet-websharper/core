@@ -36,6 +36,22 @@ let rec private factorial n =
     | n -> n * factorial (n - 1)
 
 [<JavaScript>]
+let private tailRecFactorialCurried n =
+    let rec factorial acc n =
+        match n with
+        | 0 -> acc
+        | n -> factorial (n * acc) (n - 1)
+    factorial 1 n
+
+[<JavaScript>]
+let private tailRecFactorialTupled n =
+    let rec factorial (acc, n) =
+        match n with
+        | 0 -> acc
+        | n -> factorial (n * acc, n - 1)
+    factorial (1, n)
+
+[<JavaScript>]
 let rec private forall f = function
     | []      -> true
     | x :: xs -> if f x then forall f xs else false
@@ -135,6 +151,11 @@ let Tests =
         Test "Factorial" {
             equalMsg (6 * 5 * 4 * 3 * 2) (fac 6)       "fac 6"
             equalMsg (6 * 5 * 4 * 3 * 2) (factorial 6) "factorial 6"
+        }
+
+        Test "Tail calls" {
+            equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialCurried 6) "curried tail call"
+            equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialTupled 6) "tupled tail call"
         }
 
         let propPeano x = x = Peano.toNat (Peano.ofNat x)

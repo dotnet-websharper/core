@@ -43,6 +43,7 @@
   <ItemGroup>
     <Compile Include="CodeReader.fs" />
     <Compile Include="ArgCurrying.fs" />
+    <Compile Include="TailCalls.fs" />
     <Compile Include="ProjectReader.fs" />
     <Compile Include="Main.fs" />
     <None Include="genTransformer.fsx" />
