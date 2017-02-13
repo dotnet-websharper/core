@@ -111,7 +111,7 @@ let isResourceType (e: Mono.Cecil.TypeDefinition) =
     let b = e.BaseType
     not (isNull b) && b.FullName = "WebSharper.Core.Resources/BaseResource"
 
-let TransformAssembly (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.AssemblyDefinition) =
+let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.AssemblyDefinition) intfAsClass =
     let rec withNested (tD: Mono.Cecil.TypeDefinition) =
         if tD.HasNestedTypes then
             Seq.append (Seq.singleton tD) (Seq.collect withNested tD.NestedTypes)
@@ -128,7 +128,7 @@ let TransformAssembly (prototypes: IDictionary<string, string>) (assembly : Mono
         graph.AddEdge(asmNodeIndex, ResourceNode req)
 
     let transformInterface (typ: Mono.Cecil.TypeDefinition) =
-        if not typ.IsInterface then None else
+        if intfAsClass || not typ.IsInterface then None else
         let def = getTypeDefinition typ 
 
         let reqs = typ.CustomAttributes |> getRequires
@@ -161,7 +161,7 @@ let TransformAssembly (prototypes: IDictionary<string, string>) (assembly : Mono
         )    
     
     let transformClass (typ: Mono.Cecil.TypeDefinition) =
-        if not typ.IsClass then None else
+        if not ((intfAsClass && typ.IsInterface) || typ.IsClass) then None else
 
         let def = getTypeDefinition typ
 
@@ -200,7 +200,7 @@ let TransformAssembly (prototypes: IDictionary<string, string>) (assembly : Mono
                 )
                 |> Seq.map (fun a ->
                     let ar = a.ConstructorArguments
-                    getTypeDefinition (ar.[0].Value :?> Mono.Cecil.TypeDefinition)
+                    getTypeDefinition (ar.[0].Value :?> _)
                     ,
                     if ar.Count > 1 then
                         // Todo : System.Type parameter objects
@@ -307,5 +307,8 @@ let TransformAssembly (prototypes: IDictionary<string, string>) (assembly : Mono
         MacroEntries = Map.empty
     }
 
+let TransformAssembly prototypes assembly =
+    trAsm prototypes assembly false    
+
 let TransformWSAssembly prototypes (assembly : WebSharper.Compiler.Assembly) =
-    TransformAssembly prototypes assembly.Raw     
+    trAsm prototypes assembly.Raw true    
