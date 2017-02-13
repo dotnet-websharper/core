@@ -475,8 +475,6 @@ and Statement canBeEmpty statement =
         ++ Id name
         ++ Parens (CommaSeparated Id formals)
         -- BlockLayout (List.map (Statement true) body)
-    | _ ->
-        failwith "Syntax.Statement not recognized"
 
 and Block statement =
     match statement with

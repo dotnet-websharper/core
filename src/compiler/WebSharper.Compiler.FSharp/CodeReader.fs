@@ -509,8 +509,7 @@ type Environment =
     
 let rec (|CompGenClosure|_|) (expr: FSharpExpr) =
     match expr with 
-    | P.Let((clo1, value), P.Lambda (x1, (P.Application(P.Value clo2, _, [P.Value x2]) 
-        | CompGenClosure(P.Application(P.Value clo2, _, [P.Value x2]))))) 
+    | P.Let((clo1, value), P.Lambda (x1, (P.Application(P.Value clo2, _, [P.Value x2]) | CompGenClosure(P.Application(P.Value clo2, _, [P.Value x2]))))) 
         when clo1.IsCompilerGenerated && clo1 = clo2 && x1 = x2 ->
             Some value
     | _ -> None
