@@ -368,15 +368,13 @@ module EventHandlers =
     let private eh = Dom.Interfaces.Event ^-> T<unit>
 
     let ElementContentEditable =
-        Class "ElementContentEditable"
-        |+> Instance [
+        Instance [
             "contentEditable" =@ T<string>
             "isContentEditable" =? T<bool>
         ]
 
     let GlobalEventHandlers =
-        Class "GlobalEventHandlers"
-        |+> Instance [
+        Instance [
             "onabort" =@ eh
             "onauxclick" =@ eh
             "onblur" =@ eh
@@ -442,8 +440,7 @@ module EventHandlers =
         ]
 
     let DocumentAndElementEventHandlers =
-        Class "DocumentAndElementEventHandlers"
-        |+> Instance [
+        Instance [
             "oncopy" =@ eh
             "oncut" =@ eh
             "onpaste" =@ eh
@@ -674,11 +671,9 @@ module Elements =
 
             "innerText" =@ T<string>
         ]
-        |=> Implements [
-            EventHandlers.GlobalEventHandlers
-            EventHandlers.DocumentAndElementEventHandlers
-            EventHandlers.ElementContentEditable
-        ]
+        |+> EventHandlers.GlobalEventHandlers
+        |+> EventHandlers.DocumentAndElementEventHandlers
+        |+> EventHandlers.ElementContentEditable
 
     let HTMLMenuElement =
         Class "HTMLMenuElement"
@@ -2193,9 +2188,6 @@ module Definition =
                 Canvas.TextBaseline
                 Canvas.TextDirection
                 Canvas.TextMetrics
-                EventHandlers.GlobalEventHandlers
-                EventHandlers.DocumentAndElementEventHandlers
-                EventHandlers.ElementContentEditable
                 Elements.HTMLElement
                 Elements.CanvasElement
                 Elements.HTMLAudioElement
