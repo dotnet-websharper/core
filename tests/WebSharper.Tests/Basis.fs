@@ -52,6 +52,36 @@ let private tailRecFactorialTupled n =
     factorial (1, n)
 
 [<JavaScript>]
+let private tailRecSingle n =
+    let rec f n =
+        if n > 0 then f (n - 1) else 0
+    f n
+
+[<JavaScript>]
+let private tailRecMultiple n =
+    let rec f n =
+        if n > 0 then g (n - 1) else 0
+    and g n =
+        if n > 0 then f (n - 1) else 1
+    f n
+
+[<JavaScript>]
+let private tailRecWithValue n =
+    let rec f n =
+        if n > 0 then f (n - i) else i
+    and i = 1
+    f n
+
+[<JavaScript>]
+let private tailRecMultipleWithValue n =
+    let rec f n =
+        if n > 0 then g (n - i) else 0
+    and g n =
+        if n > 0 then f (n - i) else 1
+    and i = 1
+    f n
+
+[<JavaScript>]
 let rec private forall f = function
     | []      -> true
     | x :: xs -> if f x then forall f xs else false
@@ -156,6 +186,10 @@ let Tests =
         Test "Tail calls" {
             equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialCurried 6) "curried tail call"
             equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialTupled 6) "tupled tail call"
+            equalMsg 0 (tailRecSingle 5) "single let rec"
+            equalMsg 1 (tailRecMultiple 5) "mutually recursive let rec"
+            equalMsg 1 (tailRecWithValue 5) "mutually recursive let rec with a function and a value"
+            equalMsg 1 (tailRecMultipleWithValue 5) "mutually recursive let rec with two functions and a value"
         }
 
         let propPeano x = x = Peano.toNat (Peano.ofNat x)

@@ -175,15 +175,18 @@ type TailCallAnalyzer(env) =
 type TailCallTransformer(tailcalls: HashSet<RecCall>) =
     inherit Transformer()
 
-    let transforming = Dictionary<Id, Id * list<Id>>()
+    let transforming = Dictionary<Id, Id * list<Id> * option<Id * int>>()
 
     override this.TransformApplication(f, args, p, l) =
         match f with
         | I.Var f when transforming.ContainsKey f ->
-            let label, fArgs = transforming.[f]
+            let label, fArgs, index = transforming.[f]
             Sequential [
                 for x, v in Seq.zip fArgs args do
                     yield VarSet(x, v)
+                match index with
+                | Some (iv, i) -> yield VarSet(iv, Value (Int i))  
+                | None -> ()
                 yield StatementExpr(Continue (Some label), None)
             ]
         | _ ->
@@ -192,35 +195,92 @@ type TailCallTransformer(tailcalls: HashSet<RecCall>) =
     override this.TransformCurriedApplication(f, args) =
         match f with
         | I.Var f when transforming.ContainsKey f ->
-            let label, fArgs = transforming.[f]
+            let label, fArgs, index = transforming.[f]
             Sequential [
                 for x, v in Seq.zip fArgs args do
                     yield VarSet(x, v)
+                match index with
+                | Some (iv, i) -> yield VarSet(iv, Value (Int i))  
+                | None -> ()
                 yield StatementExpr(Continue (Some label), None)
             ]
         | _ ->
             base.TransformCurriedApplication(f, args)
 
     override this.TransformLetRec(bindings, body) =
-        match bindings with 
-        | [ var, func ] when tailcalls.Contains(LocalFunction var) ->
-            match func with
-            | CurriedLambda(args, fbody, isReturn)
-            | Lambda(args, fbody, isReturn) ->
-                let label = Id.New "rec"
-                transforming.Add(var, (label, args))
-                let trFBody = this.TransformExpression(fbody)
-                let trFBody =
+        let matchedBindings = ResizeArray() 
+        let mutable funcCount = 0
+        let label = Id.New "rec"
+        for var, value in bindings do
+            if tailcalls.Contains(LocalFunction var) then
+                match value with
+                | CurriedLambda(args, fbody, isReturn)
+                | Lambda(args, fbody, isReturn) ->
+                    matchedBindings.Add(var, Choice1Of2 (args, fbody))
+                    funcCount <- funcCount + 1
+                | _ -> matchedBindings.Add(var, Choice2Of2 value)
+            else matchedBindings.Add(var, Choice2Of2 value)
+        match funcCount with
+        | 0 -> base.TransformLetRec(bindings, body) 
+        | 1 ->
+            let trBindings = ResizeArray() 
+            for var, value in matchedBindings do  
+                match value with     
+                | Choice1Of2 (args, fbody) ->
+                    transforming.Add(var, (label, args, None))
+                    let trFBody = this.TransformExpression(fbody)    
+                    let trFBody =
+                        Labeled(label, 
+                            While (Value (Bool true), 
+                                Return trFBody))             
+                    trBindings.Add(var, Function(args, trFBody))
+                    transforming.Remove var |> ignore
+                | Choice2Of2 value ->
+                    trBindings.Add(var, value)
+            LetRec(List.ofSeq trBindings, base.TransformExpression body) 
+        | _ ->
+            let indexVar = Id.New "recI"
+            let recFunc = Id.New "recF"
+            let mutable i = 0
+            let allArgs = ResizeArray [ indexVar ]
+            for var, value in matchedBindings do  
+                match value with     
+                | Choice1Of2 (args, _) ->
+                    allArgs.AddRange args
+                    transforming.Add(var, (label, args, Some(indexVar, i)))
+                    i <- i + 1
+                | _ -> ()
+            let trBodies = ResizeArray() 
+            let trBindings = ResizeArray()
+            i <- 0
+            for var, value in matchedBindings do  
+                match value with     
+                | Choice1Of2 (args, fbody) ->
+                    let trFBody = this.TransformExpression(fbody)    
+                    trBodies.Add(Some (Value (Int i)), Return trFBody)
+                    let argsSet = HashSet args
+                    let recArgs =
+                        allArgs |> Seq.map (fun a -> 
+                            if argsSet.Contains a then Var a else Value (Int 0)
+                        ) |> List.ofSeq       
+                    trBindings.Add(var, 
+                        Function(args, 
+                            Return (Application (Var recFunc, recArgs, false, Some recArgs.Length))))                    
+                    i <- i + 1
+                | Choice2Of2 value ->
+                    trBindings.Add(var, value)
+            for var, value in matchedBindings do  
+                match value with     
+                | Choice1Of2 _ ->
+                    transforming.Remove var |> ignore
+                | _ -> ()
+            let mainFunc =
+                recFunc, Function(List.ofSeq allArgs, 
                     Labeled(label, 
                         While (Value (Bool true), 
-                            if isReturn then Return trFBody else ExprStatement trFBody))
-                transforming.Remove var |> ignore
-                let res = Let(var, Function(args, trFBody), base.TransformExpression body) 
-                res
-            | _ ->     
-                base.TransformLetRec(bindings, body)                         
-        | _ ->
-            base.TransformLetRec(bindings, body)    
+                            Switch (Var indexVar, List.ofSeq trBodies)))             
+                )    
+            LetRec(mainFunc :: List.ofSeq trBindings, base.TransformExpression body) 
 
 let optimize (expr) =
     let env = Environment.New() 
