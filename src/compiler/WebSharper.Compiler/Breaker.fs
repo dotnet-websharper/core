@@ -196,35 +196,6 @@ let (|PropSetters|_|) p =
         ) (Some []) |> Option.map (fun setters -> setters, objVar)
     | _ -> None
 
-type OptimizeLocalTupledFunc(var, tupling) =
-    inherit Transformer()
-
-    override this.TransformVar(v) =
-        if v = var then
-            let t = Id.New(mut = false)
-            Lambda([t], Application(Var v, List.init tupling (fun i -> (Var t).[Value (Int i)]), false, Some tupling))
-        else Var v  
-
-    override this.TransformApplication(func, args, isPure, length) =
-        match func with
-        | I.Var v when v = var ->                    
-            match args with
-            | [ I.NewArray ts ] when ts.Length = tupling ->
-                Application (func, ts |> List.map this.TransformExpression, isPure, Some tupling)
-            | [ t ] ->
-                Application((Var v).[Value (String "apply")], [ Value Null; this.TransformExpression t ], isPure, Some 2)               
-            | _ -> failwith "unexpected tupled FSharpFunc applied with multiple arguments"
-        | _ -> base.TransformApplication(func, args, isPure, length)
-
-type OptimizeLocalCurriedFunc(var, currying) =
-    inherit Transformer()
-
-    override this.TransformVar(v) =
-        if v = var then
-            let ids = List.init currying (fun _ -> Id.New(mut = false))
-            CurriedLambda(ids, Application(Var v, ids |> List.map Var, false, Some currying))    
-        else Var v  
-
 let bind key value body = Let (key, value, body)
 
 let globalId = Address [ "id" ]
