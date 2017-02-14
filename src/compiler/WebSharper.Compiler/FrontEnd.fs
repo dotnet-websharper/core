@@ -122,18 +122,22 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
         map |> Option.iter (fun m ->
             res.Add(EMBEDDED_MAP, getBytes m))
 
-        Some (js, res.ToArray())
-    else None
+        Some js, res.ToArray()
+
+    elif not currentPosFixed.IsEmpty then
+        res.Add(EMBEDDED_MINJS, [||])
+        res.Add(EMBEDDED_JS, [||])
+        None, res.ToArray()
+
+    else None, [||]
 
 let ModifyCecilAssembly (refMeta: M.Info) (current: M.Info) sourceMap (a: Mono.Cecil.AssemblyDefinition) =
-    match CreateResources None refMeta current sourceMap a.Name.Name with
-    | Some (js, res) -> 
-        let pub = Mono.Cecil.ManifestResourceAttributes.Public
-        for name, contents in res do
-            Mono.Cecil.EmbeddedResource(name, pub, contents)
-            |> a.MainModule.Resources.Add
-        Some js
-    | None -> None
+    let jsOpt, res = CreateResources None refMeta current sourceMap a.Name.Name
+    let pub = Mono.Cecil.ManifestResourceAttributes.Public
+    for name, contents in res do
+        Mono.Cecil.EmbeddedResource(name, pub, contents)
+        |> a.MainModule.Resources.Add
+    jsOpt
 
 let ModifyAssembly (refMeta: M.Info) (current: M.Info) sourceMap (assembly : Assembly) =
     ModifyCecilAssembly refMeta current sourceMap assembly.Raw

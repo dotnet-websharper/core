@@ -333,6 +333,14 @@ type Info =
             EntryPoint = this.EntryPoint |> Option.map (fun _ -> Empty)
         }
 
+    member this.IsEmpty =
+        this.Classes.Count = 0 &&
+        this.CustomTypes.Count = 0 &&
+        this.Interfaces.Count = 0 &&
+        this.MacroEntries.Count = 0 &&
+        this.SiteletDefinition.IsNone &&
+        this.EntryPoint.IsNone
+
 module internal Utilities = 
  
     let ignoreMacro m =

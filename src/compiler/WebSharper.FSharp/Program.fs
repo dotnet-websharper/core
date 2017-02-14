@@ -164,7 +164,7 @@ let Compile (config : WsConfig) =
     logf "Loading output assembly: %A" (ended - started)
     let started = ended 
     
-    let jsResOpt = 
+    let jsOpt, res = 
         WebSharper.Compiler.FrontEnd.CreateResources (Some comp) (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
             (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap thisName
             
@@ -175,15 +175,15 @@ let Compile (config : WsConfig) =
     let started = ended 
 
     if config.PrintJS then
-        match jsResOpt with 
-        | Some (js, _) ->
+        match jsOpt with 
+        | Some js ->
             printfn "%s" js
             logf "%s" js
         | _ -> ()
 
-    match jsResOpt with
-    | Some (_, res) ->
-        
+    match res with
+    | [||] -> ()
+    | res ->
         let resFolder =
             let path = Path.Combine(Path.GetDirectoryName(config.AssemblyFile), "WebSharper")
             Directory.CreateDirectory(path) |> ignore
@@ -215,8 +215,6 @@ let Compile (config : WsConfig) =
         if exitCode <> 0 then 
             WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(ignore).PrintErrors(errors, config.ProjectFile)
             failwith "Writing resources failed"
-
-    | _ -> ()
 
     let ended = System.DateTime.Now
     logf "Writing resources: %A" (ended - started)
