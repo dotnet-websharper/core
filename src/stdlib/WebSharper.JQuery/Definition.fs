@@ -203,7 +203,7 @@ module Definition =
                     "specialEasing" , T<Object<string>>
                     "step" , T<int> * T<obj> ^-> T<unit>
                     "progress" , Promise * T<int> * T<int> ^-> T<unit>
-                    "complete" , T<unit -> unit>
+                    "complete" , T<unit> ^-> T<unit>
                     "start" , Promise ^-> T<unit>
                     "done" , Promise * T<bool> ^-> T<unit>
                     "fail" , Promise * T<bool> ^-> T<unit>
@@ -252,8 +252,8 @@ module Definition =
             "ajaxComplete" => AjaxHandler ^-> TSelf
             "ajaxError" => AjaxErrorHandler ^-> TSelf
             "ajaxSend" => AjaxHandler ^-> TSelf
-            "ajaxStart" => T<unit->unit> ^-> TSelf
-            "ajaxStop" => T<unit->unit> ^-> TSelf
+            "ajaxStart" => (T<unit> ^-> T<unit>) ^-> TSelf
+            "ajaxStop" => (T<unit> ^-> T<unit>) ^-> TSelf
             "ajaxSuccess" => AjaxSuccessHandler ^-> TSelf
             "load" => (T<string> * !?(T<obj> + T<string>) * !?(T<string> * T<string> * JqXHR ^-> T<unit>)) ^-> TSelf
             "serialize" => T<unit> ^-> T<string>
@@ -325,7 +325,7 @@ module Definition =
             "data" => T<string> ^-> T<obj>
             "data" => T<obj>
             "queue" => !?T<string> ^-> T<obj []>
-            "queue" => !?T<string> * (T<obj []> + T<(unit -> unit) -> unit>) ^-> TSelf
+            "queue" => !?T<string> * (T<obj []> + ((T<unit> ^-> T<unit>) ^-> T<unit>)) ^-> TSelf
             "removeData" => (T<string> + T<string []>) ^-> TSelf
 
             // Deferred
@@ -335,32 +335,32 @@ module Definition =
             "animate" => T<Object<string>>?properties * AnimateSettings?options ^-> TSelf
             "animate" => T<Object<string>>?properties * T<int>?duration ^-> TSelf
             "animate" => T<Object<string>>?properties * T<int>?duration * T<string>?easing ^-> TSelf
-            "animate" => T<Object<string>>?properties * T<int>?duration * T<string>?easing * T<unit->unit>?complete ^-> TSelf
+            "animate" => T<Object<string>>?properties * T<int>?duration * T<string>?easing * (T<unit> ^-> T<unit>)?complete ^-> TSelf
             "delay" => T<int>?duration * !?T<string>?queuename ^-> TSelf
             "fadeIn" => AnimateSettings ^-> TSelf
-            "fadeIn" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "fadeIn" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "fadeOut" => AnimateSettings ^-> TSelf
-            "fadeOut" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
-            "fadeTo" => (T<int> + T<string>) * T<int> * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "fadeOut" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "fadeTo" => (T<int> + T<string>) * T<int> * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "fadeToggle" => AnimateSettings ^-> TSelf
-            "fadeToggle" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "fadeToggle" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "finish" => !?T<string> ^-> TSelf
             "hide" => T<unit> ^-> T<unit>
             "hide" => AnimateSettings ^-> TSelf
-            "hide" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "hide" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "show" => T<unit> ^-> T<unit>
             "show" => AnimateSettings ^-> TSelf
-            "show" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "show" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "slideDown" => AnimateSettings ^-> TSelf
-            "slideDown" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "slideDown" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "slideToggle" => AnimateSettings ^-> TSelf
-            "slideToggle" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "slideToggle" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "slideUp" => AnimateSettings ^-> TSelf
-            "slideUp" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "slideUp" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "stop" => !?T<string> * !?T<bool> * !?T<bool> ^-> TSelf
             "toggle" => T<bool> ^-> TSelf
             "toggle" => AnimateSettings ^-> TSelf
-            "toggle" => !?(T<int> + T<string>) * !?T<string> * !?T<unit->unit> ^-> TSelf
+            "toggle" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
 
             // Events
             "blur" => !?T<obj> * EH ^-> TSelf
@@ -643,7 +643,7 @@ module Definition =
             "dequeue" => T<Dom.Element> * !?T<string> ^-> TSelf
             "hasData" => T<Dom.Element> ^-> T<bool>
             "queue" => T<Dom.Element> * !?T<string> ^-> T<obj []>
-            "queue" => T<Dom.Element> * T<string> * (T<obj []> + T<(unit -> unit) -> unit>) ^-> TSelf
+            "queue" => T<Dom.Element> * T<string> * (T<obj []> + ((T<unit> ^-> T<unit>) ^-> T<unit>)) ^-> TSelf
             "removeData" => T<Dom.Element> * (T<string> + T<string []>) ^-> TSelf
 
             // Deferred
