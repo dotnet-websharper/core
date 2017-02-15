@@ -766,6 +766,7 @@ and private breakSt statement : Statement seq =
     | Empty
     | Break _ 
     | Continue _ 
+    | DoNotReturn
     | Yield _ 
     | Goto _ -> Seq.singleton statement
     | GotoCase a -> 
@@ -780,7 +781,35 @@ and private breakSt statement : Statement seq =
     | ExprStatement a ->
         brE a |> toStatementExpr
     | Return a ->
-        brE a |> toStatementsSpec Return
+        let brA = brE a
+        // if we would apply a function in return positions, expand it
+        match brA.Body with
+        | ResultExpr (I.Application (I.Function (args, body), xs, _, _))
+            when List.length args = List.length xs ->
+                let inlined, notInlined =
+                    List.zip args xs |> List.partition (function (_, I.Var _) -> true | _ -> false)   
+                [
+                    for var, value in notInlined do
+                        match value with
+                        | I.Function (args, body) ->    
+                            yield FuncDeclaration(var, args, body)
+                        | _ ->
+                            yield VarDeclaration(var, value)
+                    yield! toDecls brA.Variables
+                    yield! brA.Statements 
+                    if List.isEmpty inlined then
+                        yield body
+                    else
+                        let d =
+                            inlined |> Seq.map (function 
+                                | v, I.Var i -> v, i
+                                | _ -> failwith "impossible"
+                            ) |> dict
+                        yield ReplaceIds(d).TransformStatement(body)
+                ]
+                |> Seq.ofList
+        | _ ->
+            brA |> toStatementsSpec Return
     | Block a ->
         if a |> List.forall (function I.ExprStatement _ -> true | _ -> false) then
             a |> List.map (function I.ExprStatement e -> e | _ -> failwith "impossible")

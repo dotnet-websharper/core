@@ -268,6 +268,9 @@ let StatementDefs =
         "GotoCase", [ Option Expr, "caseExpression" ]
             , "Temporary - C# 'goto case' statement"
 //        "Statements", [ List Statement, "statements" ]
+
+        "DoNotReturn", [],
+            ".NET - F# tail call position"
     ]
 
 let binaryOps =

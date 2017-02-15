@@ -34,6 +34,15 @@ type ReplaceId(fromId, toId) =
     override this.TransformId i =
         if i = fromId then toId else i
 
+/// Change every occurence of multiple Ids
+type ReplaceIds(repl : System.Collections.Generic.IDictionary<Id, Id>) =
+    inherit Transformer()
+    
+    override this.TransformId i =
+        match repl.TryGetValue i with
+        | true, j -> j
+        | _ -> i
+
 /// Determine if expression has no side effect
 let rec isPureExpr expr =
     match expr with
@@ -1063,8 +1072,16 @@ let (|TupledLambda|_|) expr =
 let (|CurriedLambda|_|) expr =
     let rec curr args expr =
         match expr with
+        | Lambda ([], b, true) ->
+            let a = Id.New(mut = false)
+            curr (a :: args) b
         | Lambda ([a], b, true) ->
             curr (a :: args) b
+        | Lambda ([], b, false) ->
+            if not (List.isEmpty args) then
+                let a = Id.New(mut = false)
+                Some (List.rev (a :: args), b, false) 
+            else None
         | Lambda ([a], b, false) ->
             if not (List.isEmpty args) then
                 Some (List.rev (a :: args), b, false) 

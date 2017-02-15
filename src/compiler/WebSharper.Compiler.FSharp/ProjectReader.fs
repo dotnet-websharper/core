@@ -423,8 +423,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 | _ -> b
                             let b = FixThisScope().Fix(b)      
                             let b = TailCalls.optimize b
-                            // TODO : startupcode only for module values
-                            if List.isEmpty args then 
+                            if List.isEmpty args && meth.IsModuleValueOrMember then 
                                 if isInline then
                                     b
                                 else

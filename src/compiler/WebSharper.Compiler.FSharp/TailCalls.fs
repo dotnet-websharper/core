@@ -99,7 +99,6 @@ type TailCallAnalyzer(env) =
         args |> List.iter this.VisitExpression
 
     override this.VisitCurriedApplication(f, args) =
-        env.TailPos <- NotTailPos
         match f with
         | I.Var f when hasInScope (LocalFunction f) args.Length ->
             ()
@@ -175,8 +174,8 @@ type TailCallTransformer(tailcalls: HashSet<RecCall>) =
     inherit Transformer()
 
     // key: function id
-    // value: label, transformed args, original args, indexing in mutual recursion 
-    let transforming = Dictionary<Id, Id * list<Id> * list<Id> * option<Id * int>>()
+    // value: transformed args, original args, indexing in mutual recursion 
+    let transforming = Dictionary<Id, list<Id> * list<Id> * option<Id * int>>()
     let transformIds = Dictionary<Id, Id>()
     let argCopies = Dictionary<Id, Id>()
     let copying = HashSet<Id>()
@@ -184,7 +183,7 @@ type TailCallTransformer(tailcalls: HashSet<RecCall>) =
     override this.TransformApplication(f, args, p, l) =
         match f with
         | I.Var f when transforming.ContainsKey f ->
-            let label, fArgs, origArgs, index = transforming.[f]
+            let fArgs, origArgs, index = transforming.[f]
             Sequential [
                 // if recurring with multiple arguments,
                 // current values sometimes need copying
@@ -210,14 +209,14 @@ type TailCallTransformer(tailcalls: HashSet<RecCall>) =
                     for x, v in Seq.zip fArgs args do
                         yield VarSet(x, this.TransformExpression v)
                     copying.ExceptWith(nowCopying)
-                    yield StatementExpr(Continue (Some label), None)
+                    yield StatementExpr (DoNotReturn, None)
                 else
                     for x, v in Seq.zip fArgs args do
                         yield VarSet(x, this.TransformExpression v)
                     match index with
                     | Some (iv, i) -> yield VarSet(iv, Value (Int i))  
                     | None -> ()
-                    yield StatementExpr(Continue (Some label), None)
+                    yield StatementExpr (DoNotReturn, None)
             ]
         | _ ->
             base.TransformApplication(f, args, p, l)
@@ -246,7 +245,8 @@ type TailCallTransformer(tailcalls: HashSet<RecCall>) =
             let var, value = bindings.[bi]
             match value with
             | CurriedFunction(fArgs, fBody) ->
-                bindings.[bi] <- var, Function(fArgs, fBody) 
+                let f = Function(fArgs, fBody)
+                bindings.[bi] <- var, f
                 let tr = OptimizeLocalCurriedFunc(var, List.length fArgs)
                 for bj = 0 to bindings.Length - 1 do
                     let v, c = bindings.[bj]                              
@@ -264,7 +264,6 @@ type TailCallTransformer(tailcalls: HashSet<RecCall>) =
         let matchedBindings = ResizeArray() 
         let mutable funcCount = 0
         let mutable numArgs = 0
-        let label = Id.New "rec"
         for var, value in bindings do
             if tailcalls.Contains(LocalFunction var) then
                 match value with
@@ -282,18 +281,22 @@ type TailCallTransformer(tailcalls: HashSet<RecCall>) =
             for var, value in matchedBindings do  
                 match value with     
                 | Choice1Of2 (args, fbody) ->
-                    transforming.Add(var, (label, args, args, None))
+                    transforming.Add(var, (args, args, None))
                     fArgs <- args
                     let trFBody = this.TransformExpression(fbody)    
-                    let trFBody =
-                        Labeled(label, 
-                            While (Value (Bool true), 
-                                Return trFBody))             
+                    let trFBody = 
+                        While (Value (Bool true), 
+                            Return trFBody)             
                     trBindings.Add(var, Function(args, trFBody))
                     transforming.Remove var |> ignore
                 | Choice2Of2 value ->
                     trBindings.Add(var, value)
-            let res = LetRec(List.ofSeq trBindings, base.TransformExpression body) 
+            let res = 
+                match List.ofSeq trBindings with
+                | [ var, value ] ->
+                    Let(var, value, base.TransformExpression body) 
+                | trBindings ->
+                    LetRec(trBindings, base.TransformExpression body) 
             let copiedArgs =
                 fArgs |> Seq.choose (fun a ->
                     match argCopies.TryGetValue a with
@@ -315,7 +318,7 @@ type TailCallTransformer(tailcalls: HashSet<RecCall>) =
                 | Choice1Of2 (args, _) ->
                     let aargs = List.init args.Length (fun j -> newArgs.[j])
                     args |> List.iteri (fun j a -> transformIds.Add(a, newArgs.[j]))
-                    transforming.Add(var, (label, aargs, args, Some(indexVar, i)))
+                    transforming.Add(var, (aargs, args, Some(indexVar, i)))
                     i <- i + 1
                 | _ -> ()
             let trBodies = ResizeArray() 
@@ -340,9 +343,8 @@ type TailCallTransformer(tailcalls: HashSet<RecCall>) =
                 | _ -> ()
             let mainFunc =
                 recFunc, Function(indexVar :: List.ofSeq newArgs, 
-                    Labeled(label, 
-                        While (Value (Bool true), 
-                            Switch (Var indexVar, List.ofSeq trBodies)))             
+                    While (Value (Bool true), 
+                        Switch (Var indexVar, List.ofSeq trBodies))            
                 )    
             let res = LetRec(mainFunc :: List.ofSeq trBindings, base.TransformExpression body) 
             let copiedArgs =
