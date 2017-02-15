@@ -66,15 +66,21 @@ let HomePage (ctx: Context<_>) =
         ]
     )
 
-let TestsPage =
+let TestsPage (ctx: Context<FullAction>) =
     let t12 = (1, 2)
+    let jsonBaseUri =
+        Tests.Json.String ""
+        |> ActionEncoding.Success
+        |> SampleSite.Json
+        |> SiteletsTests
+        |> ctx.Link
     Content.Page(
         Title = "WebSharper client-side tests",
         Body = [
             ClientSide <@ WebSharper.Tests.Main.RunTests() @>
             ClientSide <@ WebSharper.Collections.Tests.Main.RunTests() @>
             ClientSide <@ WebSharper.Html5.Tests.Main.RunTests() @>
-            ClientSide <@ WebSharper.Web.Tests.Main.RunTests() @>
+            ClientSide <@ WebSharper.Web.Tests.Main.RunTests jsonBaseUri @>
             ClientSide <@ WebSharper.CSharp.Tests.Tests.RunTests() @>
             ClientSide <@ Client.ClientSideTupleTest t12 @>
         ]
@@ -82,7 +88,7 @@ let TestsPage =
 
 let MainSite ctx = function
     | Actions.Home -> HomePage ctx
-    | Actions.Tests -> TestsPage
+    | Actions.Tests -> TestsPage ctx
 
 let Main =
     Sitelet.Sum [

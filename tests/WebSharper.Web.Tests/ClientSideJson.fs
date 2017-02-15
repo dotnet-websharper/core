@@ -336,7 +336,7 @@ module ClientSideJson =
         Async.FromContinuations <| fun (ok, ko, _) ->
             JQuery.Ajax(
                 JQuery.AjaxSettings(
-                    Url = ("/sitelet-tests/Json/" + url),
+                    Url = url,
                     Type = JQuery.RequestType.POST,
                     ContentType = Choice<bool, string>.Choice2Of2("application/json"),
                     DataType = JQuery.DataType.Json,
@@ -347,7 +347,9 @@ module ClientSideJson =
             )
             |> ignore
 
-    let SiteletRoundTripTests =
+    let SiteletRoundTripTests jsonBaseUri =
+        let echo url serializedArg decode =
+            echo (jsonBaseUri + url) serializedArg decode
         TestCategory "Client to Sitelet JSON round-trip" {
 
             Property "int" (fun (x: int) -> Do {
