@@ -124,12 +124,10 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
 
         Some js, res.ToArray()
 
-    elif not currentPosFixed.IsEmpty then
+    else
         res.Add(EMBEDDED_MINJS, [||])
         res.Add(EMBEDDED_JS, [||])
         None, res.ToArray()
-
-    else None, [||]
 
 let ModifyCecilAssembly (refMeta: M.Info) (current: M.Info) sourceMap (a: Mono.Cecil.AssemblyDefinition) =
     let jsOpt, res = CreateResources None refMeta current sourceMap a.Name.Name
