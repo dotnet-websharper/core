@@ -29,27 +29,32 @@ open WebSharper.Compiler
 open WebSharper.Compiler.NotResolved
 module I = IgnoreSourcePos
 
-type RecCall =
-    | MethodCall of TypeDefinition * Method
-    | LocalFunction of Id
-
 type TailPos =
     | TailPos
     | UnsureTailPos 
     | NotTailPos
+    | MemberRoot
 
 type Environment =
     {
-        TailCalls : HashSet<RecCall>
-        ScopeCalls : list<Dictionary<RecCall, int * bool>>
+        TailCalls : HashSet<Id>
+        ScopeCalls : list<Dictionary<Id, int * bool>>
         mutable TailPos : TailPos 
+        SelfTailCall : ref<option<bool>>
+        CurrentMethod : option<TypeDefinition * Method>
+        mutable ThisAlias : option<Id>
+        Inlines : HashSet<Method>
     }
 
-    static member New() =
+    static member New(m, inl) =
         {
             TailCalls = HashSet()
             ScopeCalls = []
-            TailPos = TailPos
+            TailPos = MemberRoot
+            SelfTailCall = ref None
+            CurrentMethod = m
+            ThisAlias = None
+            Inlines = inl
         }
 
     member this.WithScope(sc) =
@@ -76,7 +81,7 @@ type TailCallAnalyzer(env) =
                     hs.[x] <- (n, true)
                 true
             | _ -> false
-    
+
     override this.VisitExpression(expr) =
         match env.TailPos with
         | TailPos -> env.TailPos <- UnsureTailPos
@@ -92,7 +97,7 @@ type TailCallAnalyzer(env) =
     
     override this.VisitApplication(f, args, _, _) =
         match f with
-        | I.Var f when hasInScope (LocalFunction f) 1 ->
+        | I.Var f when hasInScope f 1 ->
             ()
         | _ ->
             this.VisitExpression f    
@@ -100,7 +105,7 @@ type TailCallAnalyzer(env) =
 
     override this.VisitCurriedApplication(f, args) =
         match f with
-        | I.Var f when hasInScope (LocalFunction f) args.Length ->
+        | I.Var f when hasInScope f args.Length ->
             ()
         | _ ->
             this.VisitExpression f    
@@ -115,11 +120,63 @@ type TailCallAnalyzer(env) =
         this.VisitExpression b
       
     override this.VisitFunction(args, body) =
-        let scope = Dictionary()
-        let inner = TailCallAnalyzer(env.WithScope scope)
-        inner.VisitStatement body      
+        match env.TailPos with
+        | MemberRoot when Option.isSome env.CurrentMethod ->
+//            if (snd env.CurrentMethod.Value).Value.MethodName = "classTailRecSingle" then
+//                failwithf "classTailRecSingle %A: %A" env.CurrentMethod.Value (Debug.PrintExpression (Function(args, body)))
+            let scope = Dictionary()
+            env.SelfTailCall := Some false
+            let inner = TailCallAnalyzer(env.WithScope scope)
+            inner.VisitStatement body  
+        | _ ->
+            let scope = Dictionary()
+            let inner = TailCallAnalyzer(env.WithScope scope)
+            inner.VisitStatement body      
+    
+    override this.VisitCall(obj, td, meth, args) =
+        let sameType, sameMethod = 
+            if Option.isNone !env.SelfTailCall then 
+                false, false 
+            else
+                match env.CurrentMethod with
+                | Some (ct, cm) -> (ct = td.Entity), (cm = meth.Entity)
+                | None -> false, false
+        let isOtherMethodCall = 
+            sameType && not sameMethod &&
+            not (env.Inlines.Contains meth.Entity)
+        if isOtherMethodCall then
+            env.SelfTailCall := None
+        let isSelfCallFromClosure =
+            sameType && sameMethod &&
+                match env.ScopeCalls with
+                | [ _ ] -> false
+                | _ -> true
+        if isSelfCallFromClosure then
+            env.SelfTailCall := None
+        let isTailSelfCall =
+            not isSelfCallFromClosure &&
+            sameType && sameMethod &&
+            env.TailPos <> NotTailPos &&   
+            (
+                match obj with
+                | None 
+                | Some I.This -> true
+                | Some (I.Var t) ->
+                    match env.ThisAlias with
+                    | Some thisVar -> t = thisVar
+                    | _ -> false
+                | _ -> false
+            )
+        if isTailSelfCall then   
+            env.SelfTailCall := Some true 
+            args |> List.iter this.VisitExpression
+        else
+            base.VisitCall(obj, td, meth, args)
         
     override this.VisitLet(var, value, body) =
+        match value with
+        | I.This -> env.ThisAlias <- Some var
+        | _ -> ()
         let p = nextTailPos()
         this.VisitExpression value
         env.TailPos <- p        
@@ -131,10 +188,10 @@ type TailCallAnalyzer(env) =
         for var, value in bindings do
             match value with
             | CurriedLambda (args, body, _) ->
-                scope.Add(LocalFunction var, (args.Length, false))
+                scope.Add(var, (args.Length, false))
                 valueBodies.Add (body, true) 
             | Lambda (_, body, _) ->
-                scope.Add(LocalFunction var, (1, false))
+                scope.Add(var, (1, false))
                 valueBodies.Add (body, true) 
             | _ ->
                 valueBodies.Add (value, false)    
@@ -156,9 +213,9 @@ type TailCallAnalyzer(env) =
         match env.ScopeCalls with
         | current :: outer ->
             if env.TailPos = NotTailPos then
-                current.Remove(LocalFunction x) |> ignore
+                current.Remove(x) |> ignore
             for sc in outer do
-                sc.Remove(LocalFunction x) |> ignore
+                sc.Remove(x) |> ignore
         | _ -> ()
        
     override this.VisitSequential xs =
@@ -170,54 +227,58 @@ type TailCallAnalyzer(env) =
             env.TailPos <- p        
             this.VisitExpression h
 
-type TailCallTransformer(tailcalls: HashSet<RecCall>) =
+type TailCallTransformer(env) =
     inherit Transformer()
 
     // key: function id
-    // value: transformed args, original args, indexing in mutual recursion 
+    // value: transformed args for mutual recursion, original args, indexing in mutual recursion 
     let transforming = Dictionary<Id, list<Id> * list<Id> * option<Id * int>>()
     let transformIds = Dictionary<Id, Id>()
     let argCopies = Dictionary<Id, Id>()
     let copying = HashSet<Id>()
+    let mutable selfCallArgs = None
+
+    member this.Recurse(fArgs, origArgs, args: list<_>, index) =
+        Sequential [
+            // if recurring with multiple arguments,
+            // current values sometimes need copying
+            if args.Length > 1 then
+                let nowCopying = HashSet()
+                fArgs |> Seq.iteri (fun i a ->
+                    let checker = VarsNotUsed(Seq.take (i + 1) origArgs)
+                    let needsCopy =
+                        args |> Seq.skip (i + 1) |> Seq.exists (fun b ->
+                            not (checker.Get(b))
+                        )                       
+                    if needsCopy then 
+                        nowCopying.Add a |> ignore
+                        if not (argCopies.ContainsKey a) then
+                            argCopies.Add(a, Id.New(?name = a.Name)) 
+                )
+                copying.UnionWith(nowCopying)
+                for a in nowCopying do
+                    yield VarSet(argCopies.[a], Var a)    
+                match index with
+                | Some (iv, i) -> yield VarSet(iv, Value (Int i))  
+                | None -> ()
+                for x, v in Seq.zip fArgs args do
+                    yield VarSet(x, this.TransformExpression v)
+                copying.ExceptWith(nowCopying)
+                yield StatementExpr (DoNotReturn, None)
+            else
+                for x, v in Seq.zip fArgs args do
+                    yield VarSet(x, this.TransformExpression v)
+                match index with
+                | Some (iv, i) -> yield VarSet(iv, Value (Int i))  
+                | None -> ()
+                yield StatementExpr (DoNotReturn, None)
+        ]
 
     override this.TransformApplication(f, args, p, l) =
         match f with
         | I.Var f when transforming.ContainsKey f ->
             let fArgs, origArgs, index = transforming.[f]
-            Sequential [
-                // if recurring with multiple arguments,
-                // current values sometimes need copying
-                if args.Length > 1 then
-                    let nowCopying = HashSet()
-                    fArgs |> Seq.iteri (fun i a ->
-                        let checker = VarsNotUsed(Seq.take (i + 1) origArgs)
-                        let needsCopy =
-                            args |> Seq.skip (i + 1) |> Seq.exists (fun b ->
-                                not (checker.Get(b))
-                            )                       
-                        if needsCopy then 
-                            nowCopying.Add a |> ignore
-                            if not (argCopies.ContainsKey a) then
-                                argCopies.Add(a, Id.New(?name = a.Name)) 
-                    )
-                    copying.UnionWith(nowCopying)
-                    for a in nowCopying do
-                        yield VarSet(argCopies.[a], Var a)    
-                    match index with
-                    | Some (iv, i) -> yield VarSet(iv, Value (Int i))  
-                    | None -> ()
-                    for x, v in Seq.zip fArgs args do
-                        yield VarSet(x, this.TransformExpression v)
-                    copying.ExceptWith(nowCopying)
-                    yield StatementExpr (DoNotReturn, None)
-                else
-                    for x, v in Seq.zip fArgs args do
-                        yield VarSet(x, this.TransformExpression v)
-                    match index with
-                    | Some (iv, i) -> yield VarSet(iv, Value (Int i))  
-                    | None -> ()
-                    yield StatementExpr (DoNotReturn, None)
-            ]
+            this.Recurse(fArgs, origArgs, args, index)
         | _ ->
             base.TransformApplication(f, args, p, l)
 
@@ -265,7 +326,7 @@ type TailCallTransformer(tailcalls: HashSet<RecCall>) =
         let mutable funcCount = 0
         let mutable numArgs = 0
         for var, value in bindings do
-            if tailcalls.Contains(LocalFunction var) then
+            if env.TailCalls.Contains(var) then
                 match value with
                 | Lambda(args, fbody, isReturn) ->
                     matchedBindings.Add(var, Choice1Of2 (args, fbody))
@@ -273,41 +334,41 @@ type TailCallTransformer(tailcalls: HashSet<RecCall>) =
                     funcCount <- funcCount + 1
                 | _ -> matchedBindings.Add(var, Choice2Of2 value)
             else matchedBindings.Add(var, Choice2Of2 value)
-        match funcCount with
-        | 0 -> base.TransformLetRec(List.ofArray bindings, body) 
-        | 1 ->
-            let trBindings = ResizeArray() 
-            let mutable fArgs = []
-            for var, value in matchedBindings do  
-                match value with     
-                | Choice1Of2 (args, fbody) ->
-                    transforming.Add(var, (args, args, None))
-                    fArgs <- args
-                    let trFBody = this.TransformExpression(fbody)    
-                    let trFBody = 
-                        While (Value (Bool true), 
-                            Return trFBody)             
-                    trBindings.Add(var, Function(args, trFBody))
-                    transforming.Remove var |> ignore
-                | Choice2Of2 value ->
-                    trBindings.Add(var, value)
-            let res = 
-                match List.ofSeq trBindings with
-                | [ var, value ] ->
-                    Let(var, value, base.TransformExpression body) 
-                | trBindings ->
-                    LetRec(trBindings, base.TransformExpression body) 
+        let withCopiedArgs args b =
             let copiedArgs =
-                fArgs |> Seq.choose (fun a ->
+                args |> Seq.choose (fun a ->
                     match argCopies.TryGetValue a with
                     | true, c -> Some c 
                     | _ -> None
                 ) |> List.ofSeq    
-            if List.isEmpty copiedArgs then res else
-                Sequential [
-                    for a in copiedArgs -> NewVar(a, Undefined)
-                    yield res  
+            if List.isEmpty copiedArgs then
+                b
+            else
+                Block [
+                    for a in copiedArgs -> VarDeclaration(a, Undefined)
+                    yield b  
                 ]
+        match funcCount with
+        | 0 -> base.TransformLetRec(List.ofArray bindings, body) 
+        | 1 ->
+            let trBindings = ResizeArray() 
+            for var, value in matchedBindings do  
+                match value with     
+                | Choice1Of2 (args, fbody) ->
+                    transforming.Add(var, (args, args, None))
+                    let trFBody = 
+                        While (Value (Bool true), 
+                            Return (this.TransformExpression(fbody)))             
+                        |> withCopiedArgs args
+                    trBindings.Add(var, Function(args, trFBody))
+                    transforming.Remove var |> ignore
+                | Choice2Of2 value ->
+                    trBindings.Add(var, value)
+            match List.ofSeq trBindings with
+            | [ var, value ] ->
+                Let(var, value, base.TransformExpression body) 
+            | trBindings ->
+                LetRec(trBindings, base.TransformExpression body) 
         | _ ->
             let indexVar = Id.New "recI"
             let recFunc = Id.New("recF", mut = false)
@@ -342,24 +403,38 @@ type TailCallTransformer(tailcalls: HashSet<RecCall>) =
                     transforming.Remove var |> ignore
                 | _ -> ()
             let mainFunc =
-                recFunc, Function(indexVar :: List.ofSeq newArgs, 
+                recFunc, Function(indexVar :: List.ofSeq newArgs,
                     While (Value (Bool true), 
-                        Switch (Var indexVar, List.ofSeq trBodies))            
+                        Switch (Var indexVar, List.ofSeq trBodies))   
+                    |> withCopiedArgs newArgs         
                 )    
-            let res = LetRec(mainFunc :: List.ofSeq trBindings, base.TransformExpression body) 
-            let copiedArgs =
-                newArgs |> Seq.choose (fun a ->
-                    match argCopies.TryGetValue a with
-                    | true, c -> Some c 
-                    | _ -> None
-                ) |> List.ofSeq    
-            if List.isEmpty copiedArgs then res else
-                Sequential [
-                    for a in copiedArgs -> NewVar(a, Undefined)
-                    yield res  
-                ]
+            LetRec(mainFunc :: List.ofSeq trBindings, base.TransformExpression body) 
 
-let optimize (expr) =
-    let env = Environment.New() 
+    override this.TransformFunction(args, body) =
+        let isTailRecMethodFunc =
+            match !env.SelfTailCall with
+            | Some isUsed -> 
+                env.SelfTailCall := None
+                isUsed
+            | None -> false
+        if isTailRecMethodFunc then
+            selfCallArgs <- Some args
+            Function(args,
+                While (Value (Bool true), 
+                    this.TransformStatement(body))         
+            )             
+        else
+            base.TransformFunction(args, body)
+
+    override this.TransformCall(obj, td, meth, args) =
+        match env.CurrentMethod, selfCallArgs with
+        | Some (ct, cm), Some fArgs
+            when td.Entity = ct && meth.Entity = cm ->
+                this.Recurse(fArgs, fArgs, args, None)
+        | _ ->
+            base.TransformCall(obj, td, meth, args)       
+
+let optimize methOpt inlines expr =
+    let env = Environment.New(methOpt, inlines) 
     TailCallAnalyzer(env).VisitExpression(expr)  
-    TailCallTransformer(env.TailCalls).TransformExpression(expr)
+    TailCallTransformer(env).TransformExpression(expr)

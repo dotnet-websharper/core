@@ -65,11 +65,33 @@ let private tailRecSingle n =
     f n
 
 [<JavaScript>]
+let private tailRecSingleNoReturn n =
+    let rec f n =
+        if n > 0 then f (n - 1)
+    f n
+
+[<JavaScript>]
+let private tailRecSingleUsedInside n =
+    let mutable setf = fun x -> 0
+    let rec f n =
+        setf <- fun x -> f x
+        if n > 0 then f (n - 1) else 0
+    f n
+
+[<JavaScript>]
 let private tailRecMultiple n =
     let rec f n =
         if n > 0 then g (n - 1) else 0
     and g n =
         if n > 0 then f (n - 1) else 1
+    f n
+
+[<JavaScript>]
+let private tailRecMultipleNoReturn n =
+    let rec f n =
+        if n > 0 then g (n - 1)
+    and g n =
+        if n > 0 then f (n - 1)
     f n
 
 [<JavaScript>]
@@ -94,6 +116,13 @@ type TailRec() =
     let rec classTailRecSingle n =
         if n > 0 then classTailRecSingle (n - 1) else 0
 
+    let rec classTailRecSingleUsedInside n =
+        let mutable setf = fun x -> 0
+        let rec f n =
+            setf <- fun x -> f x
+            if n > 0 then f (n - 1) else 0
+        f n
+
     let rec classTailRecMultiple1 n =
         if n > 0 then classTailRecMultiple2 (n - 1) else 0
     and classTailRecMultiple2 n =
@@ -101,6 +130,9 @@ type TailRec() =
 
     member this.TailRecSingle n = classTailRecSingle n
     member this.TailRecMultiple n = classTailRecMultiple1 n
+
+    member this.TailRecSingle2 n =
+        if n > 0 then this.TailRecSingle2 (n - 1) else 0
 
 [<JavaScript>]
 let private tailRecWithValue n =
@@ -235,6 +267,9 @@ let Tests =
             let o = TailRec()
             equalMsg 0 (o.TailRecSingle 5) "single let rec in class constructor"
             equalMsg 1 (o.TailRecMultiple 5) "mutually recursive let rec in class constructor"
+            // test if there is no infinite loop
+            tailRecSingleNoReturn 5
+            tailRecMultipleNoReturn 5
         }
 
         let propPeano x = x = Peano.toNat (Peano.ofNat x)
