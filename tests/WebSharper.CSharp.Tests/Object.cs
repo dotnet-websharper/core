@@ -188,6 +188,49 @@ namespace WebSharper.CSharp.Tests
             o.SetValueTo4();
             Equal(o.Value, 4);
         }
+
+        class Renamings
+        {
+            [Name("x")]
+            public int y = 1;
+
+            [Name("X")]
+            public int RNValue { get { return y; } set { y = value; } }
+
+            [Name("GetX")]
+            public int RNMethod() => y;
+
+            [Name("xx")]
+            public int yy { get; set; } = 2;
+        }
+
+        [Test]
+        public void Renaming()
+        {
+            var r = new Renamings();
+            Equal(r.y, 1);
+            r.y = 2;
+            Equal(r.y, 2);
+            Equal(r.RNValue, 2);
+            r.RNValue = 3;
+            Equal(r.RNValue, 3);
+            Equal(r.RNMethod(), 3);
+
+            Equal(r.yy, 2);
+            r.yy = 3;
+            Equal(r.yy, 3);
+
+            dynamic o = r;
+            Equal(o.x, 3);
+            Equal(o.X(), 3);
+            Equal(o.GetX(), 3);
+            o.set_X(4);
+            Equal(o.x, 4);
+
+            Equal(o.xx(), 3);
+            o.set_xx(4);
+            Equal(o.xx(), 4);
+        }
     }
 
     [JavaScript]

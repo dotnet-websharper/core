@@ -91,10 +91,16 @@ type RN () =
     [< Name "x" >]
     let mutable y = 0
 
+    let mutable x = 1
+
     [<Name "X">]
     member this.RNValue 
         with get() = y
         and  set v = y <- v
+
+    member this.X 
+        with get() = x
+        and  set v = x <- v
 
     [<Inline>]
     member this.Value 
@@ -295,6 +301,10 @@ let Tests =
             equal o.RNValue 1
             o.RNValue <- 2
             equal o.RNValue 2
+
+            equal o.X 1
+            o.X <- 4
+            equal o.X 4
         }
 
         Test "Extensions" {

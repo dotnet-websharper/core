@@ -233,13 +233,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let annotations = Dictionary ()
         
     let rec getAnnot x : A.MemberAnnotation =
-        match annotations.TryFind (x: FSharpMemberOrFunctionOrValue) with
+        let mem = sr.ReadMember x
+        match annotations.TryFind mem with
         | Some a -> a
         | _ -> 
             let a = 
                 sr.AttributeReader.GetMemberAnnot(annot, x.Attributes)
                 |> fixMemberAnnot getAnnot cls x
-            annotations.Add(x, a)
+            annotations.Add(mem, a)
             a
 
     let stubs = HashSet()
