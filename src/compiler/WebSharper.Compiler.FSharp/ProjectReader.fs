@@ -300,6 +300,23 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         lazy 
         cls.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
 
+    let inlinesOfClass =
+        members |> Seq.choose (fun m ->
+            match m with 
+            | SourceMember (mem, _, _) ->
+                let memdef = sr.ReadMember mem
+                match memdef with
+                | Member.Method (_, meth) -> 
+                    let mAnnot = getAnnot mem    
+                    match mAnnot.Kind with
+                    | Some A.MemberKind.JavaScript -> None
+                    | Some _ -> Some meth
+                    | _ -> None
+                | _ -> None
+            | _ -> None   
+        )
+        |> HashSet
+
     for m in members do
         match m with
         | SourceMember (meth, args, expr) ->        
@@ -422,8 +439,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         errorPlaceholder
                                 | _ -> b
                             let b = FixThisScope().Fix(b)      
-                            // TODO : startupcode only for module values
-                            if List.isEmpty args then 
+                            if List.isEmpty args && meth.IsModuleValueOrMember then 
                                 if isInline then
                                     b
                                 else
@@ -477,7 +493,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         Function(vars, ExprStatement b)
                                     else
                                         Lambda(vars, b)
-                        curriedArgs, res
+                        let currentMethod =
+                            match memdef with
+                            | Member.Method (_, m) -> 
+                                Some (def, m) 
+                            | _ -> None
+                        curriedArgs, TailCalls.optimize currentMethod inlinesOfClass res
                     with e ->
                         error (sprintf "Error reading definition: %s at %s" e.Message e.StackTrace)
                         None, errorPlaceholder

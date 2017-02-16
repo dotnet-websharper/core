@@ -36,6 +36,130 @@ let rec private factorial n =
     | n -> n * factorial (n - 1)
 
 [<JavaScript>]
+let private tailRecFactorialCurried n =
+    let rec factorial acc n =
+        match n with
+        | 0 -> acc
+        | n -> factorial (n * acc) (n - 1)
+    factorial 1 n
+
+[<JavaScript>]
+let private tailRecFactorialCurried2 n =
+    let rec factorial acc = function
+        | 0 -> acc
+        | n -> factorial (n * acc) (n - 1)
+    factorial 1 n
+
+[<JavaScript>]
+let private tailRecFactorialTupled n =
+    let rec factorial (acc, n) =
+        match n with
+        | 0 -> acc
+        | n -> factorial (n * acc, n - 1)
+    factorial (1, n)
+
+[<JavaScript>]
+let private tailRecSingle n =
+    let rec f n =
+        if n > 0 then f (n - 1) else 0
+    f n
+
+[<JavaScript>]
+let tailRecScoping n =
+    let rec f acc n =
+        if n > 0 then f ((fun () -> n) :: acc) (n - 1) else acc
+    f [] n
+
+[<JavaScript>]
+let private tailRecSingleNoReturn n =
+    let rec f n =
+        if n > 0 then f (n - 1)
+    f n
+
+[<JavaScript>]
+let private tailRecSingleUsedInside n =
+    let mutable setf = fun x -> 0
+    let rec f n =
+        setf <- fun x -> f x
+        if n > 0 then f (n - 1) else 0
+    f n
+
+[<JavaScript>]
+let private tailRecMultiple n =
+    let rec f n =
+        if n > 0 then g (n - 1) else 0
+    and g n =
+        if n > 0 then f (n - 1) else 1
+    f n
+
+[<JavaScript>]
+let private tailRecMultipleNoReturn n =
+    let rec f n =
+        if n > 0 then g (n - 1)
+    and g n =
+        if n > 0 then f (n - 1)
+    f n
+
+[<JavaScript>]
+let private tailRecWithMatch l =
+    let rec f acc l =
+        match l with
+        | [] -> acc
+        | h :: t -> f (h :: acc) t
+    f [] l
+
+[<JavaScript>]
+let rec moduleTailRecSingle n =
+    if n > 0 then moduleTailRecSingle (n - 1) else 0
+
+let rec [<JavaScript>] moduleTailRecMultiple1 n =
+    if n > 0 then moduleTailRecMultiple2 (n - 1) else 0
+and [<JavaScript>] moduleTailRecMultiple2 n =
+    if n > 0 then moduleTailRecMultiple1 (n - 1) else 1
+
+[<JavaScript>]
+type TailRec() =
+    let rec classTailRecSingle n =
+        if n > 0 then classTailRecSingle (n - 1) else 0
+
+    let rec classTailRecCurried n m =
+        if n > 0 then classTailRecCurried (n - 1) (m - 1) else 0
+
+    let rec classTailRecSingleUsedInside n =
+        let mutable setf = fun x -> 0
+        let rec f n =
+            setf <- fun x -> f x
+            if n > 0 then f (n - 1) else 0
+        f n
+
+    let rec classTailRecMultiple1 n =
+        if n > 0 then classTailRecMultiple2 (n - 1) else 0
+    and classTailRecMultiple2 n =
+        if n > 0 then classTailRecMultiple1 (n - 1) else 1
+
+    member this.TailRecSingle n = classTailRecSingle n
+    member this.TailRecMultiple n = classTailRecMultiple1 n
+
+    member this.TailRecSingle2 n =
+        if n > 0 then this.TailRecSingle2 (n - 1) else 0
+
+[<JavaScript>]
+let private tailRecWithValue n =
+    let rec f n =
+        if n > 0 then f (n - i) else i
+    and i = 1
+    f n
+
+[<JavaScript>]
+let private tailRecMultipleWithValue n =
+    let rec f n =
+        if n > 0 then g (n - i) else 0
+    and g n =
+        if n > 0 then f (n - i) else 1
+    and i = 1
+    f n
+
+[<JavaScript>]
 let rec private forall f = function
     | []      -> true
     | x :: xs -> if f x then forall f xs else false
@@ -135,6 +259,27 @@ let Tests =
         Test "Factorial" {
             equalMsg (6 * 5 * 4 * 3 * 2) (fac 6)       "fac 6"
             equalMsg (6 * 5 * 4 * 3 * 2) (factorial 6) "factorial 6"
+        }
+
+        Test "Tail calls" {
+            equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialCurried 6) "curried tail call"
+            equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialCurried2 6) "curried tail call with function"
+            equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialTupled 6) "tupled tail call"
+            equalMsg 0 (tailRecSingle 5) "single let rec"
+            equalMsg [1; 2; 3; 4; 5] (tailRecScoping 5 |> List.map (fun f -> f())) "scoping while tail call optimizing"
+            equalMsg [ 1; 2; 3 ] (tailRecWithMatch [ 3; 2; 1 ]) "single let rec with non-inlined match expression"
+            equalMsg 1 (tailRecMultiple 5) "mutually recursive let rec"
+            equalMsg 1 (tailRecWithValue 5) "mutually recursive let rec with a function and a value"
+            equalMsg 1 (tailRecMultipleWithValue 5) "mutually recursive let rec with two functions and a value"
+            equalMsg 0 (moduleTailRecSingle 5) "single let rec in module"
+            equalMsg 1 (moduleTailRecMultiple1 5) "mutually recursive let rec in module 1"
+            equalMsg 0 (moduleTailRecMultiple2 5) "mutually recursive let rec in module 2"
+            let o = TailRec()
+            equalMsg 0 (o.TailRecSingle 5) "single let rec in class constructor"
+            equalMsg 1 (o.TailRecMultiple 5) "mutually recursive let rec in class constructor"
+            // test if there is no infinite loop
+            tailRecSingleNoReturn 5
+            tailRecMultipleNoReturn 5
         }
 
         let propPeano x = x = Peano.toNat (Peano.ofNat x)

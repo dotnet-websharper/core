@@ -36,7 +36,7 @@ type Member =
 /// Examines applications of function typed arguments.
 /// If always used with a certain number of fixed arguments, 
 /// curried functions can be optimized to flat function in translation.
-type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list, mems) =
+type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list) =
     inherit Visitor()
 
     let cargs =
@@ -242,7 +242,7 @@ type ResolveFuncArgs(comp: Compilation) =
             match members.TryGetValue mem with
             | true, (nr, args, _) -> 
                 let nr, args, _ = members.[mem] 
-                let cv = FuncArgVisitor(nr.FuncArgs.Value, args, printMem mem)
+                let cv = FuncArgVisitor(nr.FuncArgs.Value, args)
                 cv.VisitExpression(nr.Body)
                 for i, (c, calls) in cv.Results |> Seq.indexed do
                     match c with

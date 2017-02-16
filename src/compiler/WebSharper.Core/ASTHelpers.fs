@@ -113,12 +113,22 @@ let IsDefaultValue td meth =
 
 /// Combines a list of AST.Statements into a single AST.Statement
 let CombineStatements statements =
+    let mutable go = true
     let woEmpty =
         statements |> List.filter (fun s -> 
             match IgnoreStatementSourcePos s with
             | Empty 
             | ExprStatement Undefined -> false
-            | _ -> true
+            | DoNotReturn -> 
+                go <- false
+                false
+            | Break _
+            | Continue _
+            | Throw _
+            | Return _ ->
+                go <- false
+                true
+            | _ -> go
         )    
     match woEmpty with
     | [] -> Empty

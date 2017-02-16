@@ -585,10 +585,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     let x = Id.New(mut = false)
                     Lambda ([x], c (Var x :: args) (a - 1))
             c [] arity
-//            match arity with
-//            | 2 -> JSRuntime.Curried2 f
-//            | 3 -> JSRuntime.Curried3 f
-//            | n -> JSRuntime.Curried f n
         | TupledFuncArg arity ->
             let x = Id.New(mut = false)
             let args =

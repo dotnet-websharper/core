@@ -520,6 +520,15 @@ let curriedApplication func args =
     | 1 -> Application (func, args, false, Some 1)
     | _ -> CurriedApplication(func, args)
 
+let (|CompGenLambda|_|) n (expr: FSharpExpr) =
+    let rec get acc n expr =
+        if n = 0 then Some (List.rev acc, expr) else
+        match expr with    
+        | P.Lambda(id, body) when id.IsCompilerGenerated ->
+            get (id :: acc) (n - 1) body
+        | _ -> None 
+    get [] n expr
+
 let rec transformExpression (env: Environment) (expr: FSharpExpr) =
     let inline tr x = transformExpression env x
     let sr = env.SymbolReader
@@ -562,6 +571,16 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 let trBody = body |> transformExpression env
                 trBody |> List.foldBack (fun v e -> lam [v] e (obj.ReferenceEquals(trBody, isUnit) && isUnit body.Type)) vars
         | P.Application(func, types, args) ->
+            match func with
+            | CompGenLambda args.Length (ids, body) ->
+                let vars, env =
+                    (env, ids) ||> List.mapFold (fun env arg ->
+                        let v = namedId arg
+                        v, env.WithVar(v, arg)
+                    ) 
+                let inline tr x = transformExpression env x
+                List.foldBack2 (fun i v b -> Let(i, tr v, b)) vars args (tr body)
+            | _ ->
             match IgnoreExprSourcePos (tr func) with
             | CallNeedingMoreArgs(thisObj, td, m, ca) ->
                 Call(thisObj, td, m, ca @ (args |> List.map tr))

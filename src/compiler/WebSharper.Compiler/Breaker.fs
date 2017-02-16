@@ -196,35 +196,6 @@ let (|PropSetters|_|) p =
         ) (Some []) |> Option.map (fun setters -> setters, objVar)
     | _ -> None
 
-type OptimizeLocalTupledFunc(var, tupling) =
-    inherit Transformer()
-
-    override this.TransformVar(v) =
-        if v = var then
-            let t = Id.New(mut = false)
-            Lambda([t], Application(Var v, List.init tupling (fun i -> (Var t).[Value (Int i)]), false, Some tupling))
-        else Var v  
-
-    override this.TransformApplication(func, args, isPure, length) =
-        match func with
-        | I.Var v when v = var ->                    
-            match args with
-            | [ I.NewArray ts ] when ts.Length = tupling ->
-                Application (func, ts |> List.map this.TransformExpression, isPure, Some tupling)
-            | [ t ] ->
-                Application((Var v).[Value (String "apply")], [ Value Null; this.TransformExpression t ], isPure, Some 2)               
-            | _ -> failwith "unexpected tupled FSharpFunc applied with multiple arguments"
-        | _ -> base.TransformApplication(func, args, isPure, length)
-
-type OptimizeLocalCurriedFunc(var, currying) =
-    inherit Transformer()
-
-    override this.TransformVar(v) =
-        if v = var then
-            let ids = List.init currying (fun _ -> Id.New(mut = false))
-            CurriedLambda(ids, Application(Var v, ids |> List.map Var, false, Some currying))    
-        else Var v  
-
 let bind key value body = Let (key, value, body)
 
 let globalId = Address [ "id" ]
@@ -301,7 +272,7 @@ let optimize expr =
         else 
             List.foldBack2 bind vars args (Sequential [body; Value Null])
         |> removeLets
-    | Application(TupledLambda(vars, body, isReturn), [ I.NewArray args ], isPure, _)
+    | Application(TupledLambda(vars, body, isReturn), [ I.NewArray args ], isPure, Some _)
         when vars.Length = args.Length && not (needsScoping vars body) ->
         if isReturn then
             List.foldBack2 bind vars args body
@@ -311,11 +282,11 @@ let optimize expr =
     | Application(I.ItemGet(I.Function (vars, I.Return body), I.Value (String "apply")), [ I.Value Null; argArr ], isPure, _) ->
         List.foldBack2 bind vars (List.init vars.Length (fun i -> argArr.[Value (Int i)])) body                   
         |> removeLets
-    | Application (I.Function (args, I.Return body), xs, _, _) 
+    | Application (I.Function (args, I.Return body), xs, _, Some _) 
         when List.length args = List.length xs && not (needsScoping args body) ->
         List.foldBack2 bind args xs body
         |> removeLets
-    | Application (I.Function (args, I.ExprStatement body), xs, _, _) 
+    | Application (I.Function (args, I.ExprStatement body), xs, _, Some _) 
         when List.length args = List.length xs && not (needsScoping args body) ->
         List.foldBack2 bind args xs body
         |> removeLets
@@ -795,6 +766,7 @@ and private breakSt statement : Statement seq =
     | Empty
     | Break _ 
     | Continue _ 
+    | DoNotReturn
     | Yield _ 
     | Goto _ -> Seq.singleton statement
     | GotoCase a -> 
@@ -809,7 +781,35 @@ and private breakSt statement : Statement seq =
     | ExprStatement a ->
         brE a |> toStatementExpr
     | Return a ->
-        brE a |> toStatementsSpec Return
+        let brA = brE a
+        // if we would apply a function in return positions, expand it
+        match brA.Body with
+        | ResultExpr (I.Application (I.Function (args, body), xs, _, _))
+            when List.length args = List.length xs ->
+                let inlined, notInlined =
+                    List.zip args xs |> List.partition (function (_, I.Var _) -> true | _ -> false)   
+                [
+                    for var, value in notInlined do
+                        match value with
+                        | I.Function (args, body) ->    
+                            yield FuncDeclaration(var, args, body)
+                        | _ ->
+                            yield VarDeclaration(var, value)
+                    yield! toDecls brA.Variables
+                    yield! brA.Statements 
+                    if List.isEmpty inlined then
+                        yield body
+                    else
+                        let d =
+                            inlined |> Seq.map (function 
+                                | v, I.Var i -> v, i
+                                | _ -> failwith "impossible"
+                            ) |> dict
+                        yield ReplaceIds(d).TransformStatement(body)
+                ]
+                |> Seq.ofList
+        | _ ->
+            brA |> toStatementsSpec Return
     | Block a ->
         if a |> List.forall (function I.ExprStatement _ -> true | _ -> false) then
             a |> List.map (function I.ExprStatement e -> e | _ -> failwith "impossible")

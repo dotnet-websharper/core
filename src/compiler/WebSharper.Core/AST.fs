@@ -242,6 +242,8 @@ and Statement =
     | CSharpSwitch of Expression:Expression * Cases:list<list<option<Expression>> * Statement>
     /// Temporary - C# 'goto case' statement
     | GotoCase of CaseExpression:option<Expression>
+    /// .NET - F# tail call position
+    | DoNotReturn
 /// Base class for code transformers.
 /// Provides virtual methods for transforming each AST case separately.
 type Transformer() =
@@ -486,6 +488,9 @@ type Transformer() =
     /// Temporary - C# 'goto case' statement
     abstract TransformGotoCase : CaseExpression:option<Expression> -> Statement
     override this.TransformGotoCase a = GotoCase (Option.map this.TransformExpression a)
+    /// .NET - F# tail call position
+    abstract TransformDoNotReturn : unit -> Statement
+    override this.TransformDoNotReturn () = DoNotReturn 
     abstract TransformExpression : Expression -> Expression
     override this.TransformExpression x =
         match x with
@@ -571,6 +576,7 @@ type Transformer() =
         | Yield a -> this.TransformYield a
         | CSharpSwitch (a, b) -> this.TransformCSharpSwitch (a, b)
         | GotoCase a -> this.TransformGotoCase a
+        | DoNotReturn  -> this.TransformDoNotReturn ()
     /// Identifier for variable or label
     abstract TransformId : Id -> Id
     override this.TransformId x = x
@@ -814,6 +820,9 @@ type Visitor() =
     /// Temporary - C# 'goto case' statement
     abstract VisitGotoCase : CaseExpression:option<Expression> -> unit
     override this.VisitGotoCase a = (Option.iter this.VisitExpression a)
+    /// .NET - F# tail call position
+    abstract VisitDoNotReturn : unit -> unit
+    override this.VisitDoNotReturn () = ()
     abstract VisitExpression : Expression -> unit
     override this.VisitExpression x =
         match x with
@@ -899,6 +908,7 @@ type Visitor() =
         | Yield a -> this.VisitYield a
         | CSharpSwitch (a, b) -> this.VisitCSharpSwitch (a, b)
         | GotoCase a -> this.VisitGotoCase a
+        | DoNotReturn  -> this.VisitDoNotReturn ()
     /// Identifier for variable or label
     abstract VisitId : Id -> unit
     override this.VisitId x = ()
@@ -990,6 +1000,7 @@ module IgnoreSourcePos =
     let (|Yield|_|) x = match ignoreStatementSourcePos x with Yield a -> Some a | _ -> None
     let (|CSharpSwitch|_|) x = match ignoreStatementSourcePos x with CSharpSwitch (a, b) -> Some (a, b) | _ -> None
     let (|GotoCase|_|) x = match ignoreStatementSourcePos x with GotoCase a -> Some a | _ -> None
+    let (|DoNotReturn|_|) x = match ignoreStatementSourcePos x with DoNotReturn  -> Some () | _ -> None
 module Debug =
     let private PrintObject x = sprintf "%A" x
     let rec PrintExpression x =
@@ -1075,6 +1086,7 @@ module Debug =
         | Yield a -> "Yield" + "(" + defaultArg (Option.map PrintExpression a) "_" + ")"
         | CSharpSwitch (a, b) -> "CSharpSwitch" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> "[" + String.concat "; " (List.map (fun aa -> defaultArg (Option.map PrintExpression aa) "_") a) + "], " + PrintStatement b) b) + "]" + ")"
         | GotoCase a -> "GotoCase" + "(" + defaultArg (Option.map PrintExpression a) "_" + ")"
+        | DoNotReturn  -> "DoNotReturn" + ""
 // }}
 
     let PrintExpressionWithPos x =

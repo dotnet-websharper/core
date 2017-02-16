@@ -34,6 +34,15 @@ type ReplaceId(fromId, toId) =
     override this.TransformId i =
         if i = fromId then toId else i
 
+/// Change every occurence of multiple Ids
+type ReplaceIds(repl : System.Collections.Generic.IDictionary<Id, Id>) =
+    inherit Transformer()
+    
+    override this.TransformId i =
+        match repl.TryGetValue i with
+        | true, j -> j
+        | _ -> i
+
 /// Determine if expression has no side effect
 let rec isPureExpr expr =
     match expr with
@@ -311,16 +320,19 @@ type CountVarOccurence(v) =
         this.VisitStatement(s) 
         occ
 
-type VarsNotUsed(vs) =
+type VarsNotUsed(vs : seq<Id>) =
     inherit Visitor()
 
+    let vs = System.Collections.Generic.HashSet vs
     let mutable ok = true
 
     override this.VisitId(a) =
-        if vs |> List.contains a then 
+        if vs.Contains a then 
             ok <- false
 
     member this.Get(e) =
+        if vs.Count = 0 then true else
+        ok <- true
         this.VisitExpression(e) 
         ok
 
@@ -1060,8 +1072,16 @@ let (|TupledLambda|_|) expr =
 let (|CurriedLambda|_|) expr =
     let rec curr args expr =
         match expr with
+        | Lambda ([], b, true) ->
+            let a = Id.New(mut = false)
+            curr (a :: args) b
         | Lambda ([a], b, true) ->
             curr (a :: args) b
+        | Lambda ([], b, false) ->
+            if not (List.isEmpty args) then
+                let a = Id.New(mut = false)
+                Some (List.rev (a :: args), b, false) 
+            else None
         | Lambda ([a], b, false) ->
             if not (List.isEmpty args) then
                 Some (List.rev (a :: args), b, false) 
@@ -1118,6 +1138,41 @@ let (|CurriedApplicationSeparate|_|) expr =
                 Some (expr, args)
             else None
     appl [] expr
+
+type OptimizeLocalTupledFunc(var, tupling) =
+    inherit Transformer()
+
+    override this.TransformVar(v) =
+        if v = var then
+            let t = Id.New(mut = false)
+            Lambda([t], Application(Var v, List.init tupling (fun i -> (Var t).[Value (Int i)]), false, Some tupling))
+        else Var v  
+
+    override this.TransformApplication(func, args, isPure, length) =
+        match func with
+        | I.Var v when v = var ->                    
+            match args with
+            | [ I.NewArray ts ] when ts.Length = tupling ->
+                Application (func, ts |> List.map this.TransformExpression, isPure, Some tupling)
+            | [ t ] ->
+                Application((Var v).[Value (String "apply")], [ Value Null; this.TransformExpression t ], isPure, Some 2)               
+            | _ -> failwith "unexpected tupled FSharpFunc applied with multiple arguments"
+        | _ -> base.TransformApplication(func, args, isPure, length)
+
+type OptimizeLocalCurriedFunc(var, currying) =
+    inherit Transformer()
+
+    override this.TransformVar(v) =
+        if v = var then
+            let ids = List.init currying (fun _ -> Id.New(mut = false))
+            CurriedLambda(ids, Application(Var v, ids |> List.map Var, false, Some currying))    
+        else Var v  
+
+    override this.TransformCurriedApplication(func, args) =
+        match func with
+        | Var v when v = var ->
+            Application(func, args |> List.map this.TransformExpression, false, Some args.Length)    
+        | _ -> base.TransformCurriedApplication(func, args)
 
 #if DEBUG
 let mutable logTransformations = false
