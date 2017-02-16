@@ -122,8 +122,6 @@ type TailCallAnalyzer(env) =
     override this.VisitFunction(args, body) =
         match env.TailPos with
         | MemberRoot when Option.isSome env.CurrentMethod ->
-//            if (snd env.CurrentMethod.Value).Value.MethodName = "classTailRecSingle" then
-//                failwithf "classTailRecSingle %A: %A" env.CurrentMethod.Value (Debug.PrintExpression (Function(args, body)))
             let scope = Dictionary()
             env.SelfTailCall := Some false
             let inner = TailCallAnalyzer(env.WithScope scope)

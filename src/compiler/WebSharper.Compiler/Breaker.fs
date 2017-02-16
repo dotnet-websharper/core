@@ -328,6 +328,13 @@ type Optimizer() =
 
 let optimizer = Optimizer() :> Transformer
 
+let funcDeclarationsDoNotUse a br =
+    br.Variables |> List.forall(function
+        | (_, Some f) ->
+            CountVarOccurence(a).GetForStatement(f) = 0
+        | _ -> true
+    )    
+
 let rec breakExpr expr : Broken<BreakResult> =
     let inline br x = breakExpr x
 
@@ -619,7 +626,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                     let brC = br c 
                     if hasNoStatements brC then
                         let brC = toBrExpr brC
-                        if varEvalOrder [a] brC.Body then 
+                        if funcDeclarationsDoNotUse a brC && varEvalOrder [a] brC.Body then 
                             {
                                 Body = ResultExpr(SubstituteVar(a, brB.Body).TransformExpression(brC.Body))
                                 Statements = []
