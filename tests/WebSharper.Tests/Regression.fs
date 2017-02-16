@@ -260,6 +260,21 @@ module Bug625 =
     let g() = ignore (f ())        
 
 [<JavaScript>]
+let TreeReduce (defaultValue: 'A) (reduction: 'A -> 'A -> 'A) (array: 'A[]) : 'A =
+    let l = array.Length // this should not be inlined, as it is also captured
+    let rec loop off len =
+        match len with
+        | n when n <= 0 -> defaultValue
+        | 1 when off >= 0 && off < l ->
+            array.[off]
+        | n ->
+            let l2 = len / 2
+            let a = loop off l2
+            let b = loop (off + l2) (len - l2)
+            reduction a b
+    loop 0 l
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
