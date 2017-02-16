@@ -495,9 +495,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         Lambda(vars, b)
                         let currentMethod =
                             match memdef with
-                            | Member.Method (_, m) 
-                            | Member.Implementation (_, m) 
-                            | Member.Override (_, m) -> Some (def, m) 
+                            | Member.Method (_, m) -> 
+                                Some (def, m) 
                             | _ -> None
                         curriedArgs, TailCalls.optimize currentMethod inlinesOfClass res
                     with e ->

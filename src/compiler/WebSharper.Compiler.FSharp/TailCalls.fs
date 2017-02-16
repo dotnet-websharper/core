@@ -227,6 +227,57 @@ type TailCallAnalyzer(env) =
             env.TailPos <- p        
             this.VisitExpression h
 
+type AddCapturing(vars : seq<Id>) =
+    inherit Transformer()
+
+    let defined = HashSet(vars)
+    let captured = HashSet()
+    let mutable scope = 0
+
+    override this.TransformNewVar(var, value) =
+        if scope = 0 then
+            defined.Add var |> ignore
+        base.TransformNewVar(var, value)
+
+    override this.TransformVarDeclaration(var, value) =
+        if scope = 0 then
+            defined.Add var |> ignore
+        base.TransformVarDeclaration(var, value)
+
+    override this.TransformLet(var, value, body) =
+        if scope = 0 then
+            defined.Add var |> ignore
+        base.TransformLet(var, value, body)
+
+    override this.TransformLetRec(defs, body) = 
+        if scope = 0 then
+            for var, _ in defs do
+                defined.Add var |> ignore
+        base.TransformLetRec(defs, body)
+    
+    override this.TransformId i =
+        if scope > 0 && defined.Contains i then 
+            captured.Add i |> ignore
+        i
+
+    override this.TransformFunction(args, body) =
+        scope <- scope + 1
+        let res = 
+            if scope = 1 then
+                captured.Clear()
+                let f = base.TransformFunction(args, body)
+                if captured.Count > 0 then
+                    let cVars = captured |> List.ofSeq
+                    let cArgs = cVars |> List.map (fun v -> Id.New(?name = v.Name, mut = false))
+                    Application(
+                        Function(cArgs, Return (ReplaceIds(Seq.zip cVars cArgs |> dict).TransformExpression f)), 
+                        cVars |> List.map Var, false, None) 
+                else f
+            else
+                base.TransformFunction(args, body)
+        scope <- scope - 1
+        res
+
 type TailCallTransformer(env) =
     inherit Transformer()
 
@@ -237,6 +288,22 @@ type TailCallTransformer(env) =
     let argCopies = Dictionary<Id, Id>()
     let copying = HashSet<Id>()
     let mutable selfCallArgs = None
+
+    let withCopiedArgs args b =
+        let copiedArgs =
+            args |> Seq.choose (fun a ->
+                match argCopies.TryGetValue a with
+                | true, c -> Some c 
+                | _ -> None
+            ) |> List.ofSeq    
+        if List.isEmpty copiedArgs then
+            b
+        else
+            Block [
+                for a in copiedArgs -> VarDeclaration(a, Undefined)
+                yield b  
+            ]
+        |> AddCapturing(args).TransformStatement
 
     member this.Recurse(fArgs, origArgs, args: list<_>, index) =
         Sequential [
@@ -334,20 +401,6 @@ type TailCallTransformer(env) =
                     funcCount <- funcCount + 1
                 | _ -> matchedBindings.Add(var, Choice2Of2 value)
             else matchedBindings.Add(var, Choice2Of2 value)
-        let withCopiedArgs args b =
-            let copiedArgs =
-                args |> Seq.choose (fun a ->
-                    match argCopies.TryGetValue a with
-                    | true, c -> Some c 
-                    | _ -> None
-                ) |> List.ofSeq    
-            if List.isEmpty copiedArgs then
-                b
-            else
-                Block [
-                    for a in copiedArgs -> VarDeclaration(a, Undefined)
-                    yield b  
-                ]
         match funcCount with
         | 0 -> base.TransformLetRec(List.ofArray bindings, body) 
         | 1 ->
@@ -406,7 +459,7 @@ type TailCallTransformer(env) =
                 recFunc, Function(indexVar :: List.ofSeq newArgs,
                     While (Value (Bool true), 
                         Switch (Var indexVar, List.ofSeq trBodies))   
-                    |> withCopiedArgs newArgs         
+                    |> withCopiedArgs newArgs   
                 )    
             LetRec(mainFunc :: List.ofSeq trBindings, base.TransformExpression body) 
 
@@ -421,7 +474,8 @@ type TailCallTransformer(env) =
             selfCallArgs <- Some args
             Function(args,
                 While (Value (Bool true), 
-                    this.TransformStatement(body))         
+                    this.TransformStatement(body))       
+                |> withCopiedArgs args
             )             
         else
             base.TransformFunction(args, body)

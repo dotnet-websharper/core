@@ -65,6 +65,12 @@ let private tailRecSingle n =
     f n
 
 [<JavaScript>]
+let tailRecScoping n =
+    let rec f acc n =
+        if n > 0 then f ((fun () -> n) :: acc) (n - 1) else acc
+    f [] n
+
+[<JavaScript>]
 let private tailRecSingleNoReturn n =
     let rec f n =
         if n > 0 then f (n - 1)
@@ -115,6 +121,9 @@ and [<JavaScript>] moduleTailRecMultiple2 n =
 type TailRec() =
     let rec classTailRecSingle n =
         if n > 0 then classTailRecSingle (n - 1) else 0
+
+    let rec classTailRecCurried n m =
+        if n > 0 then classTailRecCurried (n - 1) (m - 1) else 0
 
     let rec classTailRecSingleUsedInside n =
         let mutable setf = fun x -> 0
@@ -257,6 +266,7 @@ let Tests =
             equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialCurried2 6) "curried tail call with function"
             equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialTupled 6) "tupled tail call"
             equalMsg 0 (tailRecSingle 5) "single let rec"
+            equalMsg [1; 2; 3; 4; 5] (tailRecScoping 5 |> List.map (fun f -> f())) "scoping while tail call optimizing"
             equalMsg [ 1; 2; 3 ] (tailRecWithMatch [ 3; 2; 1 ]) "single let rec with non-inlined match expression"
             equalMsg 1 (tailRecMultiple 5) "mutually recursive let rec"
             equalMsg 1 (tailRecWithValue 5) "mutually recursive let rec with a function and a value"

@@ -272,7 +272,7 @@ let optimize expr =
         else 
             List.foldBack2 bind vars args (Sequential [body; Value Null])
         |> removeLets
-    | Application(TupledLambda(vars, body, isReturn), [ I.NewArray args ], isPure, _)
+    | Application(TupledLambda(vars, body, isReturn), [ I.NewArray args ], isPure, Some _)
         when vars.Length = args.Length && not (needsScoping vars body) ->
         if isReturn then
             List.foldBack2 bind vars args body
@@ -282,11 +282,11 @@ let optimize expr =
     | Application(I.ItemGet(I.Function (vars, I.Return body), I.Value (String "apply")), [ I.Value Null; argArr ], isPure, _) ->
         List.foldBack2 bind vars (List.init vars.Length (fun i -> argArr.[Value (Int i)])) body                   
         |> removeLets
-    | Application (I.Function (args, I.Return body), xs, _, _) 
+    | Application (I.Function (args, I.Return body), xs, _, Some _) 
         when List.length args = List.length xs && not (needsScoping args body) ->
         List.foldBack2 bind args xs body
         |> removeLets
-    | Application (I.Function (args, I.ExprStatement body), xs, _, _) 
+    | Application (I.Function (args, I.ExprStatement body), xs, _, Some _) 
         when List.length args = List.length xs && not (needsScoping args body) ->
         List.foldBack2 bind args xs body
         |> removeLets
