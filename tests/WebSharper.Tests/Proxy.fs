@@ -26,7 +26,7 @@ open WebSharper.Testing
 module R = WebSharper.Testing.Random
 
 [<Proxy(typeof<System.Text.StringBuilder>)>]
-type StringBuilderProxy [<JavaScript>] () =
+type internal StringBuilderProxy [<JavaScript>] () =
     let mutable c = ""
 
     [<JavaScript>]

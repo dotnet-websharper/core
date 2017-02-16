@@ -361,6 +361,7 @@ module Macro =
                     fail (name + ": Cannot de/serialize a function value.")
                 | ByRefType _ ->
                     fail (name + ": Cannot de/serialize a byref value.")
+                | LocalTypeParameter
                 | StaticTypeParameter _ 
                 | TypeParameter _ ->
                     generic t

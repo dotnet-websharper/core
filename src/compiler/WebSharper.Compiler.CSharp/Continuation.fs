@@ -396,6 +396,8 @@ type ContinuationTransformer(labels) =
                         , final
                     )
                 | _ -> failwith "impossible"
+            | Catch _ -> failwith "unexpected: Catch case at root in continuation transformation" 
+            | Finally _ -> failwith "unexpected: Finally case at root in continuation transformation" 
                     
         Labeled (topLabel,
             While (Value (Bool true), 
