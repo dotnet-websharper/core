@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}"
 EndProject
@@ -41,6 +41,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NuGet", "NuGet", "{B38B1480
 	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.JavaScript", "src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj", "{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68}"
+	ProjectSection(ProjectDependencies) = postProject
+		{615AEA64-16EC-49BC-AFB4-36211F6354CC} = {615AEA64-16EC-49BC-AFB4-36211F6354CC}
+	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.JQuery", "src\stdlib\WebSharper.JQuery\WebSharper.JQuery.fsproj", "{730AE40A-001C-4137-972D-898DC7C2BF0A}"
 EndProject
