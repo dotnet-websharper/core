@@ -146,6 +146,19 @@ type ClassInfo =
         Macros : list<TypeDefinition * option<ParameterObject>>
     }
 
+    static member None =
+        {
+            Address = None
+            BaseClass = None
+            Constructors = dict []
+            Fields = dict []
+            StaticConstructor = None
+            Methods = dict []
+            Implementations = dict []
+            HasWSPrototype = false
+            Macros = []
+        }
+        
 type IClassInfo =
     abstract member Address : option<Address>
     abstract member BaseClass : option<TypeDefinition>
