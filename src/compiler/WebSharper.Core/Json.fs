@@ -287,8 +287,7 @@ let rec Write (writer: System.IO.TextWriter) (value: Value) =
         else
             raise WriteException
     let wS (x: string) =
-        if x = null then
-            raise WriteException
+        if x = null then s "null" else
         c '"'
         for i in 0 .. x.Length - 1 do
             match x.[i] with
@@ -586,6 +585,7 @@ let serializers =
         | x -> raise (DecoderException(x, typeof<char>))
     add encChar decChar d
     let decString = function
+        | Null -> null
         | String x -> x
         | x -> raise (DecoderException(x, typeof<string>))
     add EncodedString decString d
@@ -1004,6 +1004,10 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
         for k, v in c do consts.Add(k, v)
         consts
     let getTag = i.GetUnionTag t
+    let nullConstant =
+        match consts.TryGetValue (String null) with
+        | true, x -> x
+        | false, _ -> null
     fun (x: Value) ->
         match x with
         | Object fields ->
@@ -1016,7 +1020,7 @@ let unionDecoder dD (i: FormatSettings) (ta: TAttrs) =
             fs
             |> Array.map (fun (f, e) -> e (get f))
             |> mk
-        | Null -> null
+        | Null -> nullConstant
         | v ->
             match consts.TryGetValue v with
             | true, x -> x
