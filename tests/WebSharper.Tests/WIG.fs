@@ -29,6 +29,11 @@ open WebSharper.InterfaceGenerator.Tests
 let f (x, y) = Console.Log((x:obj), (y:obj))
 
 [<JavaScript>]
+type InheritWIG() =
+    interface IWIGTest with
+        member this.Add(x, y) = x + y    
+
+[<JavaScript>]
 let Tests =
     TestCategory "Interface generator" {
 
@@ -192,5 +197,16 @@ let Tests =
             let x = WIGtest.Instance 
             equal (x.Add(1, 2)) 3
             equal ((x :> IWIGTest).Add(1, 2)) 3 
+        }
+
+        Test "Mixin interface" {
+            let x = WIGtest.Instance 
+            equal (x.CallMixin()) "ok"
+            equal ((x :> IMixinTest).CallMixin()) "ok"
+        }
+
+        Test "Inheriting from WIG interface" {
+            let x = InheritWIG()
+            equal ((x :> IWIGTest).Add(1, 2)) 3
         }
     }

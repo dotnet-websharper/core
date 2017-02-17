@@ -833,14 +833,17 @@ type MemberConverter
             match p.Comment with
             | None -> ()
             | Some c -> comments.[pD] <- c
+        let isInterface = dT.IsInterface
+        let isMixin = isInterface && not (p.GetterInline.IsSome || p.HasSetter || p.IndexerType.IsSome)
         if p.HasGetter then
             let mD = MethodDefinition("get_" + name, methodAttributes dT p, ty)
-            if dT.IsInterface then
+            if isMixin then
                 p.Name 
                 |> nameAttribute
                 |> mD.CustomAttributes.Add
             else
-                mB.AddBody mD
+                if not isInterface then
+                    mB.AddBody mD
                 iG.GetPropertyGetterInline(td, t, p)
                 |> inlineAttribute
                 |> mD.CustomAttributes.Add
@@ -852,12 +855,13 @@ type MemberConverter
             pD.GetMethod <- mD
         if p.HasSetter then
             let mD = MethodDefinition("set_" + name, methodAttributes dT p, tB.Void)
-            if dT.IsInterface then
-                if p.HasGetter then "set_" + p.Name else p.Name 
+            if isMixin then
+                p.Name
                 |> nameAttribute
                 |> mD.CustomAttributes.Add
             else
-                mB.AddBody mD
+                if not isInterface then
+                    mB.AddBody mD
                 iG.GetPropertySetterInline(td, t, p)
                 |> inlineAttribute
                 |> mD.CustomAttributes.Add
@@ -935,12 +939,15 @@ type MemberConverter
             | Type.NonUnit -> tC.TypeReference (f.ReturnType, td, isCSharp)
         for p in makeParameters (f, td, isCSharp) do
             mD.Parameters.Add p
-        if dT.IsInterface then
+        let isInterface = dT.IsInterface
+        let isMixin = isInterface && not (x.Inline.IsSome || x.Macro.IsSome) 
+        if isMixin then
             x.Name
             |> nameAttribute
             |> mD.CustomAttributes.Add
         else
-            mB.AddBody mD
+            if not isInterface then
+                mB.AddBody mD
             match x.Macro with
             | Some macro ->
                 tC.TypeReference (macro, td)

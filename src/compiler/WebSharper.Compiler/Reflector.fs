@@ -107,11 +107,35 @@ let getRequires attrs =
     )
     |> List.ofSeq
 
+let getMacros attrs =
+    attrs
+    |> Seq.filter (fun (a: Mono.Cecil.CustomAttribute) -> 
+        a.AttributeType.FullName = "WebSharper.MacroAttribute" 
+    )
+    |> Seq.map (fun a ->
+        let ar = a.ConstructorArguments
+        getTypeDefinition (ar.[0].Value :?> _)
+        ,
+        if ar.Count > 1 then
+            // Todo : System.Type parameter objects
+            Some (ParameterObject.OfObj ar.[1].Value)
+        else None 
+    ) |> List.ofSeq
+
+let getInline attrs =
+    attrs
+    |> Seq.tryFind (fun (a: Mono.Cecil.CustomAttribute) -> 
+        a.AttributeType.FullName = "WebSharper.InlineAttribute" 
+    )
+    |> Option.map (fun a ->
+        a.ConstructorArguments.[0].Value :?> string
+    )
+
 let isResourceType (e: Mono.Cecil.TypeDefinition) =
     let b = e.BaseType
     not (isNull b) && b.FullName = "WebSharper.Core.Resources/BaseResource"
 
-let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.AssemblyDefinition) intfAsClass =
+let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.AssemblyDefinition) isTSasm =
     let rec withNested (tD: Mono.Cecil.TypeDefinition) =
         if tD.HasNestedTypes then
             Seq.append (Seq.singleton tD) (Seq.collect withNested tD.NestedTypes)
@@ -127,41 +151,11 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
     for req in getRequires assembly.CustomAttributes do
         graph.AddEdge(asmNodeIndex, ResourceNode req)
 
-    let transformInterface (typ: Mono.Cecil.TypeDefinition) =
-        if intfAsClass || not typ.IsInterface then None else
-        let def = getTypeDefinition typ 
+    let interfaces = Dictionary()
+    let classes = Dictionary()
 
-        let reqs = typ.CustomAttributes |> getRequires
-        if not reqs.IsEmpty then
-            let i = graph.AddOrLookupNode(TypeNode def)
-            for r in reqs do
-                graph.AddEdge(i, ResourceNode r) 
-
-        Some (def,
-            {
-                Extends = typ.Interfaces |> Seq.map getTypeDefinition |> List.ofSeq
-                Methods = 
-                    dict [
-                        for meth in typ.Methods do
-                            let tgen = if typ.HasGenericParameters then typ.GenericParameters.Count else 0
-                            let mdef =
-                                Hashed {
-                                    MethodName = meth.Name
-                                    Parameters = meth.Parameters |> Seq.map (fun p -> getType tgen p.ParameterType) |> List.ofSeq
-                                    ReturnType = getType tgen meth.ReturnType
-                                    Generics   = meth.GenericParameters |> Seq.length
-                                }
-                            let name =
-                                match getName meth.CustomAttributes with
-                                | Some n -> n
-                                | _ -> meth.Name // TODO: correct interfaces for WS.TypeScript
-                            yield mdef, name
-                    ]
-            }
-        )    
-    
-    let transformClass (typ: Mono.Cecil.TypeDefinition) =
-        if not ((intfAsClass && typ.IsInterface) || typ.IsClass) then None else
+    let transformClass intfAsClass (typ: Mono.Cecil.TypeDefinition) =
+        if not (intfAsClass || typ.IsClass) then () else
 
         let def = getTypeDefinition typ
 
@@ -169,7 +163,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             let thisRes = graph.AddOrLookupNode(ResourceNode (def, None))
             for req in getRequires typ.CustomAttributes do
                 graph.AddEdge(thisRes, ResourceNode req)
-            None
+            ()
         else
 
         let clsNodeIndex = graph.AddOrLookupNode(TypeNode def)
@@ -193,28 +187,9 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         let mutable hasInstanceMethod = false
          
         for meth in typ.Methods do
-            let macros =
-                meth.CustomAttributes |> 
-                Seq.filter (fun a -> 
-                    a.AttributeType.FullName = "WebSharper.MacroAttribute" 
-                )
-                |> Seq.map (fun a ->
-                    let ar = a.ConstructorArguments
-                    getTypeDefinition (ar.[0].Value :?> _)
-                    ,
-                    if ar.Count > 1 then
-                        // Todo : System.Type parameter objects
-                        Some (ParameterObject.OfObj ar.[1].Value)
-                    else None 
-                ) |> List.ofSeq
-            let inlAttr = 
-                meth.CustomAttributes |> 
-                Seq.tryFind (fun a -> 
-                    a.AttributeType.FullName = "WebSharper.InlineAttribute" 
-                )
-                |> Option.map (fun a ->
-                    a.ConstructorArguments.[0].Value :?> string
-                )
+            let macros = getMacros meth.CustomAttributes
+            let inlAttr = getInline meth.CustomAttributes 
+            let name = getName meth.CustomAttributes 
 
             let opts =
                 {
@@ -226,7 +201,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                     FuncArgs = None
                 }
                                     
-            if Option.isSome inlAttr || not (List.isEmpty macros) then
+            if inlAttr.IsSome || name.IsSome || not (List.isEmpty macros) then
                 let vars = meth.Parameters |> Seq.map (fun p -> Id.New p.Name) |> List.ofSeq
                 let thisArg =
                     if not (meth.IsStatic || meth.IsConstructor) then // || meth.HasThis then
@@ -235,11 +210,16 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         None
                 let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline thisArg vars opts.IsPure) 
 
+                let kindWithoutMacros =
+                    if inlAttr.IsSome then Some Inline else 
+                        match name with
+                        | Some n -> Some (Instance n) // named instance members only for mixin interfaces
+                        | _ -> None
                 let kind =
-                    if List.isEmpty macros then Inline else
-                        if Option.isSome inlAttr then Some Inline else None 
+                    if List.isEmpty macros then kindWithoutMacros else
+                        kindWithoutMacros
                         |> List.foldBack (fun (m, p) x -> Some (Macro(m, p, x))) macros 
-                        |> Option.get
+                    |> Option.get
 
                 let body = match parsed with | Some b -> b | _ -> Undefined
 
@@ -278,9 +258,9 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                     with _ ->
                         failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (string mdef.Value)
         
-        if constructors.Count = 0 && methods.Count = 0 then None else
+        if constructors.Count = 0 && methods.Count = 0 then () else
                            
-        Some (def, 
+        classes.Add(def, 
             {
                 Address = prototypes.TryFind(def.Value.FullName) |> Option.map (fun s -> s.Split('.') |> List.ofArray |> List.rev |> Address)
                 BaseClass = baseDef
@@ -294,8 +274,49 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             }
         )
 
-    let interfaces = allTypes |> Seq.choose (fun t -> transformInterface t) |> dict 
-    let classes = allTypes |> Seq.choose (fun t -> transformClass t) |> dict
+    let transformInterface (typ: Mono.Cecil.TypeDefinition) =
+        if not typ.IsInterface then () else
+        let intfAsClass = 
+            isTSasm ||
+            typ.Methods 
+            |> Seq.exists (fun meth -> 
+                Option.isSome (getInline meth.CustomAttributes)
+                || not (List.isEmpty (getMacros meth.CustomAttributes))
+            )
+        if intfAsClass then transformClass true typ else   
+        let def = getTypeDefinition typ 
+
+        let reqs = typ.CustomAttributes |> getRequires
+        if not reqs.IsEmpty then
+            let i = graph.AddOrLookupNode(TypeNode def)
+            for r in reqs do
+                graph.AddEdge(i, ResourceNode r) 
+
+        interfaces.Add(def,
+            {
+                Extends = typ.Interfaces |> Seq.map getTypeDefinition |> List.ofSeq
+                Methods = 
+                    dict [
+                        for meth in typ.Methods do
+                            let tgen = if typ.HasGenericParameters then typ.GenericParameters.Count else 0
+                            let mdef =
+                                Hashed {
+                                    MethodName = meth.Name
+                                    Parameters = meth.Parameters |> Seq.map (fun p -> getType tgen p.ParameterType) |> List.ofSeq
+                                    ReturnType = getType tgen meth.ReturnType
+                                    Generics   = meth.GenericParameters |> Seq.length
+                                }
+                            let name =
+                                match getName meth.CustomAttributes with
+                                | Some n -> n
+                                | _ -> meth.Name
+                            yield mdef, name
+                    ]
+            }
+        )    
+    
+    allTypes |> Seq.iter transformInterface
+    allTypes |> Seq.iter (transformClass false)
 
     {
         SiteletDefinition = None

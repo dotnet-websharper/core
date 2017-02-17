@@ -98,6 +98,11 @@
                 return this.x + a + b;
             },
         stringOrInt: 0,
-        jsStringOrNum: 0
+        jsStringOrNum: 0,
+        callMixin:
+            function (a) {
+                if (a = 'called through mixin')
+                    return 'ok';
+            }
     }
 }

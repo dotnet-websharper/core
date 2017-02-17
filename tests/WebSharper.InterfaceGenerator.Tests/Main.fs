@@ -22,11 +22,17 @@ module Definition =
             "add" => Int * Int ^-> Int
         ]
 
+    let IMixinTest =
+        Interface "IMixinTest"
+        |++> [
+            "callMixin" => O ^-> String |> WithInline "$this.callMixin('called through mixin')"
+            "x" =@ Int
+        ]
+
     let WIGtestInstance =
         Class "WIGtestInstance"
-        |=> Implements [ IWIGTest ]
+        |=> Implements [ IWIGTest; IMixinTest ]
         |+> Instance [
-            "x" =@ Int
             "adderFunc" =@ Int * Int ^-> Int
             "adderFuncWithThis" =@ TSelf -* Int * Int ^-> Int
             "stringOrInt" =@ String + Int
@@ -139,6 +145,7 @@ module Definition =
             Namespace "WebSharper.InterfaceGenerator.Tests" [
                  JustX
                  IWIGTest
+                 IMixinTest
                  WIGtestInstance
                  WIGtest
                  WIGtest2
