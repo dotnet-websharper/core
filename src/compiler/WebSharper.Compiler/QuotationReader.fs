@@ -153,24 +153,17 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                 | _ -> expr :: acc
             getSeq [] expr |> List.rev |> List.map tr |> Sequential
         | Patterns.Value (value, _) ->
-            match value with
-            | x when obj.ReferenceEquals(x, null) -> Null      
-            | :? bool   as x -> Bool   x
-            | :? byte   as x -> Byte   x
-            | :? char   as x -> Char   x
-            | :? double as x -> Double x
-            | :? int    as x -> Int    x
-            | :? int16  as x -> Int16  x
-            | :? int64  as x -> Int64  x
-            | :? sbyte  as x -> SByte  x
-            | :? single as x -> Single x
-            | :? string as x -> String x
-            | :? uint16 as x -> UInt16 x
-            | :? uint32 as x -> UInt32 x
-            | :? uint64 as x -> UInt64 x
-            | :? Expr -> parsefailf "F# quotation found as value, missing splicing."
-            | _ -> parsefailf "F# constant value not recognized: %A" value
-            |> Value
+            try
+                let value = 
+                    let t = value.GetType()
+                    if t.IsEnum then
+                        System.Convert.ChangeType(value, System.Enum.GetUnderlyingType(value.GetType()))
+                    else value
+                Value (ReadLiteral value)
+            with e ->
+                match value with
+                | :? Expr -> parsefailf "F# quotation found as value, missing splicing."
+                | _ -> reraise()
         | Patterns.IfThenElse (cond, then_, else_) ->
             Conditional(tr cond, tr then_, tr else_)    
         | Patterns.NewObject (ctor, args) -> 
