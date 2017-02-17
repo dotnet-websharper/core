@@ -153,6 +153,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                 | _ -> expr :: acc
             getSeq [] expr |> List.rev |> List.map tr |> Sequential
         | Patterns.Value (value, _) ->
+            if obj.ReferenceEquals(value, null) then Value Null else
             try
                 let value = 
                     let t = value.GetType()
