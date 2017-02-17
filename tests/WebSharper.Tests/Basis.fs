@@ -24,6 +24,8 @@ open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
 
+#nowarn "40" // recursive values
+
 [<JavaScript>]
 let rec private fac : int -> int = function
     | 0 -> 1
