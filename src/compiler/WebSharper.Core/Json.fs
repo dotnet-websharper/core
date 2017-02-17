@@ -1109,10 +1109,17 @@ let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
     else
     let fs = getObjectFields t
     let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
-    let es = fs |> Array.map (fun f ->
-        let ta = TAttrs.Get(i, f.FieldType, f)
-        (i.GetEncodedFieldName f.DeclaringType f.Name,
-         encodeOptionalField dE ta))
+    let es = 
+        if t.IsValueType then
+            fs |> Array.map (fun f ->
+                let ta = TAttrs.Get(i, f.FieldType, f)
+                (i.GetEncodedFieldName f.DeclaringType (f.Name.TrimEnd('@')),
+                 encodeOptionalField dE ta))
+        else
+            fs |> Array.map (fun f ->
+                let ta = TAttrs.Get(i, f.FieldType, f)
+                (i.GetEncodedFieldName f.DeclaringType f.Name,
+                 encodeOptionalField dE ta))
     fun (x: obj) ->
         match x with
         | null ->
@@ -1156,6 +1163,27 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
         |> callGeneric <@ makeDictionary @> dD ta
     elif not t.IsSerializable then
         raise (NoEncodingException t)
+    elif t.IsValueType then
+        let fs = t.GetFields fieldFlags
+        match t.GetConstructor (fs |> Array.map (fun f -> f.FieldType)) with
+        | null -> raise (NoEncodingException t)
+        | _ ->
+        let ds = fs |> Array.map (fun f ->
+            let ta = TAttrs.Get(i, f.FieldType, f)
+            (i.GetEncodedFieldName f.DeclaringType (f.Name.TrimEnd('@')),
+             decodeOptionalField dD ta))
+        fun (x: Value) ->
+            match x with
+            | Object fields ->
+                let get = table fields
+                let data =
+                    ds
+                    |> Seq.map (fun (n, dec) ->
+                       dec (get n))
+                    |> Seq.toArray
+                System.Activator.CreateInstance(t, args = data)
+            | x ->
+                raise (DecoderException(x, ta.Type))
     else
     match t.GetConstructor [||] with
     | null -> raise (NoEncodingException t)
@@ -1406,7 +1434,7 @@ let getEncoding scalar array tuple union record enu map set nble obj wrap (fo: F
                     | Some "System.Nullable`1" -> nble dD fo ta
                     | _ -> 
                         obj dD fo ta
-            with e -> fun _ -> raise e
+            with e -> fun _ -> raise (System.Exception("Error during RPC JSON conversion", e))
         if ta.Type = null then raise (NoEncodingException ta.Type) else
             match serializers.TryGetValue ta.Type with
             | true, x when Option.isSome (scalar x) ->
@@ -1507,23 +1535,30 @@ module TypedProviderInternals =
     let format info =
         {
             AddTag = addTag info
-            GetEncodedFieldName = fun t f ->
+            GetEncodedFieldName = fun t ->
                 let typ = AST.Reflection.ReadTypeDefinition t
                 match info.Classes.TryGetValue typ with
                 | true, cls -> 
-                    match cls.Fields.[f] with
-                    | M.InstanceField n
-                    | M.OptionalField n -> n
-                    | M.IndexedField i -> string i
-                    | _ -> failwithf "A static field not serializable: %s.%s" t.FullName f                                          
+                    let fields = cls.Fields
+                    fun f ->
+                    match fields.TryGetValue f with
+                    | true, (M.InstanceField n | M.OptionalField n) -> n
+                    | true, M.IndexedField i -> string i
+                    | true, _ ->
+                        failwithf "A static field not serializable: %s.%s" 
+                            t.FullName f                                          
+                    | _ ->
+                        failwithf "Failed to look up translated field name for %s in type %s with fields: %s" 
+                            f typ.Value.FullName (cls.Fields.Keys |> String.concat ", ")
                 | _ ->
                     match info.CustomTypes.TryGetValue typ with
                     | true, M.FSharpRecordInfo fs -> 
-                        fs |> List.pick (fun rf -> 
-                            if rf.Name = f then 
-                                Some rf.JSName
-                            else None)
-                    | _ -> f
+                        fun f ->
+                            fs |> List.pick (fun rf -> 
+                                if rf.Name = f then 
+                                    Some rf.JSName
+                                else None)
+                    | _ -> id
             GetUnionTag = defaultGetUnionTag
             EncodeUnionTag = defaultEncodeUnionTag
             GetEncodedUnionFieldName = fun _ i -> "$" + string i
