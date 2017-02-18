@@ -776,12 +776,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             else
                 NewUnionCase(t, case.CompiledName, exprs |> List.map tr)
         | P.UnionCaseGet (expr, typ, case, field) ->
-            let td = sr.ReadTypeDefinition typ.TypeDefinition
-            if erasedUnions.Contains td then
-                tr expr
-            else
-                let i = case.UnionCaseFields |> Seq.findIndex (fun f -> f = field)
-                ItemGet(tr expr, Value (String ("$" + string i)))   
+            let t =
+                match sr.ReadType env.TParams typ with
+                | ConcreteType ct -> ct
+                | _ -> parsefailf "Expected a union type"
+            UnionCaseGet(tr expr, t, case.CompiledName, field.Name)
         | P.UnionCaseTest (expr, typ, case) ->
             let t =
                 match sr.ReadType env.TParams typ with

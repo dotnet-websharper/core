@@ -27,11 +27,8 @@ open WebSharper.JavaScript
 [<DefaultAugmentation(false)>]
 [<RequireQualifiedAccess>]
 type private OptionProxy<'T> =
-    | None
-    | Some of 'T
-
-    [<CompilationRepresentation (CompilationRepresentationFlags.Instance)>]
-    member this.Value with [<Inline "$this.$0"; Pure>] get () = X<'T>
+    | None 
+    | Some of Value: 'T
 
     [<Inline "$x != null">]
     static member get_IsSome(x: option<'T>) = false

@@ -27,7 +27,7 @@ open WebSharper.JavaScript
 [<DefaultAugmentation(false)>]
 type private ListProxy<'T> =
     | Empty
-    | Cons of 'T * List<'T>
+    | Cons of Head: 'T * Tail: List<'T>
 
     [<Name "Construct">]
     static member Cons(head: 'T, tail: list<'T>) = head :: tail

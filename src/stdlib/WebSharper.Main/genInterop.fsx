@@ -35,17 +35,51 @@ let concatE s l =
 
 let maxArgCount = 6
 
-let code = 
+let replaceGenerated path code =
+    let allCode = 
+        [|
+            let mutable incl = true
+            for l in System.IO.File.ReadAllLines(path) do
+                if incl then yield l
+                if l.Contains "// {{"
+                then 
+                    incl <- false 
+                    yield! code
+                elif l.Contains "// }}"
+                then
+                    incl <- true
+                    yield l
+        |]
+
+    System.IO.File.WriteAllLines(path, allCode)
+
+let toAnonTypArgs ts = if List.isEmpty ts then "" else "<" + String.concat "," (ts |> Seq.map (fun _ -> "_")) + ">"
+
+let jsPervasives =
     let code = ResizeArray()
     let inline cprintfn x = Printf.kprintf code.Add x 
 
-//    for i = 0 to maxArgCount do
-//        cprintfn "type FuncWithRest<'TRest, %s'TResult> =" (tArgs i |> concatE ", ")
-//        cprintfn "    inherit Function"
-//        cprintfn "    new (func: %s'TRest[] -> 'TResult) = { }" (tArgs i |> concatE " * ")
-//        cprintfn "    member this.Call (%s[<PA>] rest: 'TRest[]) = X<'TResult>" (args i |> concatE ", ")
+    for i = 2 to 7 do
+        cprintfn "    /// Converts an F# Choice value to a JavaScript erased union"
+        cprintfn "    [<Inline>]"
+        cprintfn "    let ofChoice%d x =" i
+        cprintfn "        match x with"
+        for j = 1 to i do
+            cprintfn "        | Choice%dOf%d v -> Union%dOf%d v" j i j i
+        cprintfn "    /// Converts a JavaScript erased union to an F# option value"
+        cprintfn "    [<Inline>]"
+        cprintfn "    let toChoice%d x =" i
+        cprintfn "        match x with"
+        for j = 1 to i do
+            cprintfn "        | Union%dOf%d v -> Choice%dOf%d v" j i j i
+    
+    code.ToArray()
 
-    let toAnonTypArgs ts = if List.isEmpty ts then "" else "<" + String.concat "," (ts |> Seq.map (fun _ -> "_")) + ">"
+replaceGenerated (__SOURCE_DIRECTORY__ + @"\JavaScript.Pervasives.fs") jsPervasives
+
+let interop = 
+    let code = ResizeArray()
+    let inline cprintfn x = Printf.kprintf code.Add x 
 
     for pars in [ false; true ] do   
         for this in [ false; true ] do    
@@ -55,7 +89,6 @@ let code =
                     let thisPars = (if this then "This" else "") + (if pars then "Params" else "")
                     let name = thisPars + del
                     let inTr = thisPars + "Func"
-//                    let outTr = inTr + "Out"
                     for i = 0 to maxArgCount do
                         let t = (if this then ["'TThis"] else[]) @ tArgs i @ (if pars then ["'TParams"] else []) @ (if ret then ["'TResult"] else [])
                         let toTypArgs ts = if List.isEmpty ts then "" else "<" + String.concat ", " ts + ">"
@@ -82,19 +115,4 @@ let code =
     
     code.ToArray()
 
-let allCode = 
-    [|
-        let mutable incl = true
-        for l in System.IO.File.ReadAllLines(__SOURCE_DIRECTORY__ + @"\Interop.fs") do
-            if incl then yield l
-            if l.Contains "// {{"
-            then 
-                incl <- false 
-                yield! code
-            elif l.Contains "// }}"
-            then
-                incl <- true
-                yield l
-    |]
-
-System.IO.File.WriteAllLines(__SOURCE_DIRECTORY__ + @"\Interop.fs", allCode)
+replaceGenerated (__SOURCE_DIRECTORY__ + @"\Interop.fs") interop

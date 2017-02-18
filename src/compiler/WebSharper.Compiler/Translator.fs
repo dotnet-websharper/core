@@ -141,6 +141,12 @@ type GenericInlineResolver (generics) =
             args |> List.map this.TransformExpression
         )
 
+    override this.TransformTypeCheck(expr, typ) =
+        TypeCheck (
+            expr |> this.TransformExpression,
+            typ |> subs
+        )
+
 let private objTy = NonGenericType Definitions.Obj
 
 let rpcMethodNode name ret =
@@ -246,125 +252,108 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.Warning("Could not run generator in code service.")
                 Undefined       
 
-    member this.GetCustomTypeConstructorInline (i : M.CustomTypeInfo, ctor: Constructor) =
+    member this.CustomTypeConstructor (typ : Concrete<TypeDefinition>, i : M.CustomTypeInfo, ctor: Constructor, args) =
         match i with
         | M.FSharpRecordInfo fields ->
-            let obj = 
-                fields
-                |> Seq.mapi (fun i f -> 
-                    f.JSName,
-                        if f.Optional then
-                            let id = Id.New(mut = false)
-                            Let(id, Hole i,
-                                Conditional(Var id, ItemGet(Var id, Value (String "$0")), Undefined))
-                        else Hole i)
-                |> List.ofSeq |> Object
-            let optFields = 
-                fields |> List.choose (fun f -> 
-                    if f.Optional then Some (Value (String f.JSName)) else None)
-            if List.isEmpty optFields then obj
-            else JSRuntime.DeleteEmptyFields obj optFields
+            this.TransformNewRecord(typ, args)
         | _ -> this.Error("Unhandled F# compiler generated constructor")
     
-    member this.GetCustomTypeMethodInline (typ : Concrete<TypeDefinition>, i : M.CustomTypeInfo, meth: Concrete<Method>) =
+    member this.CustomTypeMethod (objExpr : option<Expression>, typ : Concrete<TypeDefinition>, i : M.CustomTypeInfo, meth: Concrete<Method>, args) =
         let me = meth.Entity.Value
+        let unionCase isSingleCase (c: M.FSharpUnionCaseInfo) =
+            let mN = me.MethodName
+            if mN.StartsWith "get_" then
+                let fN = mN.[4 ..]
+                let getUnionBaseType td =
+                    if isSingleCase then td else
+                    let n = td.FullName
+                    { td with FullName = n.Substring(0, n.LastIndexOf('+')) }
+                let uTyp = 
+                    { typ with
+                        Entity = TypeDefinition (getUnionBaseType typ.Entity.Value)
+                    }
+                this.TransformUnionCaseGet(objExpr.Value, uTyp, c.Name, fN)
+                |> Some
+            else 
+                None
+
         match i with
-        | M.DelegateInfo di ->
+        | M.DelegateInfo _ ->
             match me.MethodName with
             | "Invoke" ->
                 // TODO: optional arguments
-                let args = di.DelegateArgs |> List.mapi (fun i _ -> Hole (i + 1)) //|> NewArray
-                
-                Application(Hole 0, args, false, Some args.Length)
-                //Application(JSRuntime.InvokeDelegate, [Hole 0; args])
-            | "op_Addition" -> JSRuntime.CombineDelegates (NewArray [Hole 0; Hole 1])
-            | "op_Equality" -> JSRuntime.DelegateEqual (Hole 0) (Hole 1)
+                Application(this.TransformExpression objExpr.Value, args |> List.map this.TransformExpression, false, Some args.Length)
+            | "op_Addition" -> JSRuntime.CombineDelegates (NewArray (args |> List.map this.TransformExpression))
+            | "op_Equality" -> 
+                match args |> List.map this.TransformExpression with
+                | [ d1; d2 ] ->
+                    JSRuntime.DelegateEqual d1 d2
+                | _ -> this.Error("Delegate equality check expects two arguments")
             | "ToString" -> Value (String typ.Entity.Value.FullName)
             | mn -> this.Error("Unrecognized delegate method: " + mn)
-        | M.FSharpRecordInfo fields ->
+        | M.FSharpRecordInfo _ ->
             match me.MethodName.[.. 2] with
             | "get" ->
                 let fn = me.MethodName.[4 ..]
-                let resOpt =
-                    fields |> List.tryPick (fun f ->
-                        if f.Name = fn then
-                            if f.Optional then 
-                                JSRuntime.GetOptional(ItemGet(Hole 0, Value (String f.JSName)))
-                            else
-                                ItemGet(Hole 0, Value (String f.JSName))
-                            |> Some
-                        else None
-                    )
-                match resOpt with
-                | Some res -> res
-                | _ -> this.Error(sprintf "Could not find property of F# record type: %s.%s" typ.Entity.Value.FullName fn)
+                this.TransformFieldGet(objExpr, typ, fn)
             | "set" -> 
                 let fn = me.MethodName.[4 ..]
-                let resOpt =
-                    fields |> List.tryPick (fun f ->
-                        if f.Name = fn then
-                            if f.Optional then
-                                JSRuntime.SetOptional (Hole 0) (Value (String f.JSName)) (Hole 1)
-                            else
-                                ItemSet(Hole 0, Value (String f.JSName), Hole 1)                                
-                            |> Some
-                        else None
-                    )
-                match resOpt with
-                | Some res -> res
-                | _ -> this.Error(sprintf "Could not find property of F# record type: %s.%s" typ.Entity.Value.FullName fn)
+                this.TransformFieldSet(objExpr, typ, fn, args.Head)
             | _ -> 
                 match me.MethodName with
                 | "ToString" -> Value (String typ.Entity.Value.FullName)
                 | _ -> this.Error("Unrecognized member of F# record type")         
         | M.FSharpUnionInfo u ->
+            // union types with a single non-null case do not have
+            // nested subclass subclass for the case
+            let checkSingleCaseUnion =
+                let numCases = u.Cases.Length
+                if numCases = 1 then
+                    Some u.Cases.Head
+                elif (u.HasNull && numCases = 2) then
+                    if u.Cases.Head.Kind = M.ConstantFSharpUnionCase Null then
+                        Some u.Cases.Tail.Head
+                    else
+                        Some u.Cases.Head     
+                else None 
+                |> Option.bind (unionCase true)
+            match checkSingleCaseUnion with
+            | Some res -> res
+            | _ ->
             let mN = me.MethodName
+            let styp() =
+                // substituted generic arguments are needed for erased choice
+                let mgen = Array.ofList meth.Generics
+                { typ with
+                    Generics = typ.Generics |> List.map (fun t -> t.SubstituteGenerics(mgen))
+                }
             if mN.StartsWith "get_Is" then
                 let cN = mN.[6 ..]
-                let i, c = u.Cases |> Seq.indexed |> Seq.find (fun (i, c) -> c.Name = cN)
-                match c.Kind with 
-                | M.ConstantFSharpUnionCase v -> Hole 0 ^== Value v
-                | _ ->                 
-                    if u.HasNull then 
-                        let v = Id.New(mut = false)
-                        Let (v, Hole 0, (Var v ^!= Value Null) ^&& (Var v).[Value (String "$")] ^== Value (Int i)) 
-                    else
-                        if u.Cases.Length = 2 then Hole 0 ^!= Value Null
-                        else (Hole 0).[Value (String "$")] ^== Value (Int i)
+                let u =
+                    match objExpr with
+                    | Some u -> u
+                    | _ -> args.Head
+                this.TransformUnionCaseTest(u, styp(), cN)
             elif mN = "get_Tag" then
-                if u.Cases |> List.forall (function { Kind = M.NormalFSharpUnionCase _ } -> true | _ -> false) then
-                    (Hole 0).[Value (String "$")]
-                else
-                    let v = Id.New(mut = false)
-                    let afterNullCheck = 
-                        if u.Cases |> List.forall (function { Kind = M.NormalFSharpUnionCase _ | M.ConstantFSharpUnionCase Null } -> true | _ -> false) then
-                            (Var v).[Value (String "$")]
-                        else    
-                            u.Cases |> List.indexed 
-                            |> List.choose (function (i, { Kind = M.ConstantFSharpUnionCase v }) -> (if v <> Null then Some (i, v) else None) | _ -> None)  
-                            |> List.fold (fun rest (i, c) -> Conditional (Var v ^== Value c, Value (Int i), rest)) ((Var v).[Value (String "$")])  
-                    if u.HasNull then 
-                        let ui = u.Cases |> List.findIndex (function { Kind = M.ConstantFSharpUnionCase Null } -> true | _ -> false)
-                        Let (v, Hole 0, Conditional((Var v ^!= Value Null), Value (Int ui), afterNullCheck))
-                    else
-                        Let (v, Hole 0, afterNullCheck)
+                let u =
+                    match objExpr with
+                    | Some u -> u
+                    | _ -> args.Head
+                this.TransformUnionCaseTag(u, styp())
             elif mN.StartsWith "New" then 
                 let cN = mN.[3 ..]
-                let i, c = u.Cases |> Seq.indexed |> Seq.find (fun (_, c) -> c.Name = cN)
-
-                match c.Kind with
-                | M.ConstantFSharpUnionCase v -> Value v
-                | M.NormalFSharpUnionCase fields -> 
-                    let args = fields |> List.mapi (fun i _ -> Hole i)
-                    let objExpr =
-                        Object (
-                            ("$", Value (Int i)) ::
-                            (args |> List.mapi (fun j e -> "$" + string j, this.TransformExpression e)) 
-                        )
-                    this.TransformCopyCtor(typ.Entity, objExpr)
+                this.TransformNewUnionCase(typ, cN, args)
             elif mN.StartsWith "get_" then
+                if erasedUnions.Contains typ.Entity then
+                    if mN = "get_Undefined" then Undefined else
+                    this.TransformExpression objExpr.Value
+                else
                 let cN = mN.[4 ..]
-                let i, c = u.Cases |> Seq.indexed |> Seq.find (fun (_, c) -> c.Name = cN)
+                let i, c = 
+                    try
+                        u.Cases |> Seq.indexed |> Seq.find (fun (_, c) -> c.Name = cN)
+                    with _ ->
+                        failwithf "Failed to find union case %s in %s, found: %s" cN typ.Entity.Value.FullName (u.Cases |> Seq.map (fun c -> c.Name) |> String.concat ", ")
 
                 match c.Kind with
                 | M.ConstantFSharpUnionCase v -> Value v
@@ -375,21 +364,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 match mN with
                 | "ToString" -> Value (String typ.Entity.Value.FullName)
                 | _ -> this.Error("Unrecognized F# compiler generated method for union: " + mN)                 
-        | M.FSharpUnionCaseInfo c ->
-            let mN = me.MethodName
-            if mN.StartsWith "get_" then
-                let fN = mN.[4 ..]
-                match c.Kind with
-                | M.ConstantFSharpUnionCase _ ->
-                    this.Error("Getting item of Constant union case: " + me.MethodName) 
-                | M.NormalFSharpUnionCase fields -> 
-                    match fields |> List.tryFindIndex (fun f -> f.Name = fN) with
-                    | Some i ->
-                        ItemGet(Hole 0, Value (String ("$" + string i)))
-                    | _ ->
-                        this.Error("Could not find item of union case: " + fN)        
-            else 
-                this.Error("Unrecognized F# compiler generated method for union case: " + me.MethodName)    
+        | M.FSharpUnionCaseInfo c -> 
+            match unionCase false c with
+            | Some res -> res
+            | _ -> this.Error("Unrecognized F# compiler generated method for union case: " + me.MethodName)    
         | _ -> this.Error("Unrecognized F# compiler generated method: " + me.MethodName)
      
     member this.CompileMethod(info, expr, typ, meth) =
@@ -808,10 +786,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     this.CompileCall(info, M.Optimizations.None, expr, thisObj, typ, meth, args)
         | CustomTypeMember ct ->  
             try
-                let inl = this.GetCustomTypeMethodInline(typ, ct, meth)
-                Substitution(args |> List.map this.TransformExpression, ?thisObj = (thisObj |> Option.map this.TransformExpression)).TransformExpression(inl)
-            with _ ->
-                this.Error("Failed to translate compiler generated method: " + meth.Entity.Value.MethodName)
+                this.CustomTypeMethod(thisObj, typ, ct, meth, args)
+            with e ->
+                this.Error(sprintf "Failed to translate compiler generated method: %s.%s - %s" typ.Entity.Value.FullName meth.Entity.Value.MethodName e.Message)
         | LookupMemberError err ->
             comp.AddError (this.CurrentSourcePos, err)
             match thisObj with 
@@ -956,17 +933,31 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             New (GlobalAccess a, [ this.TransformExpression objExpr ])
         | _ -> this.TransformExpression objExpr
 
-    override this.TransformNewRecord(typ, fields) =
+    override this.TransformNewRecord(typ, args) =
         match comp.TryGetRecordConstructor typ.Entity with
         | Some rctor ->
             if comp.HasGraph then
                 this.AddDependency(M.ConstructorNode (comp.FindProxied typ.Entity, rctor))
-            this.TransformCtor(typ, rctor, fields)
+            this.TransformCtor(typ, rctor, args)
         | _ ->
-            try 
-                let inl = this.GetCustomTypeConstructorInline(comp.GetCustomType typ.Entity, emptyConstructor)
-                Substitution(fields |> List.map this.TransformExpression).TransformExpression(inl)
-            with _ -> this.Error("Failed to translate F# record creation.")
+        match comp.GetCustomType typ.Entity with
+        | M.FSharpRecordInfo fields ->
+            let obj = 
+                (args, fields)
+                ||> Seq.map2 (fun a f -> 
+                    f.JSName,
+                        if f.Optional then
+                            let id = Id.New(mut = false)
+                            Let(id, this.TransformExpression a,
+                                Conditional(Var id, ItemGet(Var id, Value (String "$0")), Undefined))
+                        else this.TransformExpression a)
+                |> List.ofSeq |> Object
+            let optFields = 
+                fields |> List.choose (fun f -> 
+                    if f.Optional then Some (Value (String f.JSName)) else None)
+            if List.isEmpty optFields then obj
+            else JSRuntime.DeleteEmptyFields obj optFields
+        | _ -> this.Error("Unhandled F# compiler generated constructor")
 
     override this.TransformNewUnionCase(typ, case, args) = 
         let t = typ.Entity
@@ -978,7 +969,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         else
         match comp.GetCustomType typ.Entity with
         | M.FSharpUnionInfo u ->
-            let i, c = u.Cases |> Seq.indexed |> Seq.find (fun (i, c) -> c.Name = case)
+            let i, c = 
+                try
+                    u.Cases |> Seq.indexed |> Seq.find (fun (_, c) -> c.Name = case)
+                with _ ->
+                    failwithf "Failed to find union case constructor %s in %s, found: %s" case typ.Entity.Value.FullName (u.Cases |> Seq.map (fun c -> c.Name) |> String.concat ", ")
             match c.Kind with
             | M.ConstantFSharpUnionCase v ->
                 Value v
@@ -1019,9 +1014,41 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 else
                     ItemGet(this.TransformExpression expr, Value (String "$")) ^== Value (Int i)    
         | _ -> this.Error("Failed to translate union case test.")
+    
+    override this.TransformUnionCaseGet(expr, typ, case, field) =
+        if erasedUnions.Contains typ.Entity then
+            this.TransformExpression expr
+        else
+        match comp.GetCustomType typ.Entity with
+        | M.FSharpUnionInfo u ->
+            let i, c = u.Cases |> Seq.indexed |> Seq.find (fun (_, c) -> c.Name = case)
+            match c.Kind with
+            | M.ConstantFSharpUnionCase _ ->
+                this.Error(sprintf "Getting item of Constant union case: %s.%s" typ.Entity.Value.FullName case) 
+            | M.NormalFSharpUnionCase fields -> 
+                match fields |> List.tryFindIndex (fun f -> f.Name = field) with
+                | Some i ->
+                    ItemGet(this.TransformExpression expr, Value (String ("$" + string i)))
+                | _ ->
+                    this.Error(sprintf "Could not find field of union case: %s.%s.%s" typ.Entity.Value.FullName case field)        
+        
+        | _ -> this.Error("Failed to translate union case field getter.")
 
     override this.TransformUnionCaseTag(expr, typ) = 
-        // Todo: tag for erased union
+        if erasedUnions.Contains typ.Entity then
+            if typ.Entity.Value.FullName = "WebSharper.JavaScript.Optional`1" then
+                Conditional(this.TransformExpression expr ^=== Undefined, Value (Int 0), Value (Int 1))
+            else
+                let id = Id.New(mut = false)
+                let rec checkTypes i gen =
+                    match gen with
+                    | [ t; _ ] ->
+                        Conditional(this.TransformTypeCheck(Var id, t), Value (Int i), Value (Int (i + 1))) 
+                    | t :: r ->
+                        Conditional(this.TransformTypeCheck(Var id, t), Value (Int i), checkTypes (i + 1) r) 
+                    | _ -> this.Error "Erased union type must have 2 or more type arguments"
+                Let(id, this.TransformExpression expr, checkTypes 0 typ.Generics)
+        else
         match comp.GetCustomType typ.Entity with
         | M.FSharpUnionInfo u ->
             let constantCases = 
@@ -1064,8 +1091,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     this.CompileCtor(info, M.Optimizations.None, expr, typ, ctor, args)
         | CustomTypeMember ct ->  
             try
-                let inl = this.GetCustomTypeConstructorInline(ct, ctor)
-                Substitution(args |> List.map this.TransformExpression).TransformExpression(inl)
+                this.CustomTypeConstructor(typ, ct, ctor, args)
             with _ ->
                 this.Error("Failed to translate compiler generated constructor")
         | LookupMemberError err ->
@@ -1132,7 +1158,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | M.NormalFSharpUnionCase fields ->
                     let fName = "$" + string (fields |> List.findIndex (fun f -> f.Name = field))
                     ItemGet(this.TransformExpression expr.Value, Value (String fName))
-                | _ -> failwith "Constant union case should not have fields" 
+                | _ -> this.Error "Constant union case should not have fields" 
             | M.FSharpRecordInfo fields ->
                 match fields |> List.tryPick (fun f -> if f.Name = field then Some (f.JSName, f.Optional) else None) with
                 | Some (name, isOpt) ->
@@ -1141,7 +1167,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     else
                         this.TransformExpression expr.Value |> getItem name 
                 | _ -> this.Error(sprintf "Could not find field of F# record type: %s.%s" typ.Entity.Value.FullName field)
-            | M.FSharpUnionInfo _ -> failwith "Union base type should not have fields"   
+            | M.FSharpUnionInfo _ -> this.Error "Union base type should not have fields"   
             | _ -> failwith "CustomTypeField error"          
         | PropertyField (getter, _) ->
             match getter with
@@ -1183,8 +1209,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     else
                         ItemSet(this.TransformExpression expr.Value, Value (String name), this.TransformExpression value)
                 | _ -> this.Error(sprintf "Could not find field of F# record type: %s.%s" typ.Entity.Value.FullName field)
-            | M.FSharpUnionCaseInfo _ -> failwith "Union case field should not be set" 
-            | M.FSharpUnionInfo _ -> failwith "Union base type should not have fields"   
+            | M.FSharpUnionCaseInfo _ -> this.Error "Union case field should not be set" 
+            | M.FSharpUnionInfo _ -> this.Error "Union base type should not have fields"   
             | _ -> failwith "CustomTypeField error"          
         | PropertyField (_, setter) ->
             match setter with
@@ -1251,6 +1277,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 instanceof "Array"
             | "WebSharper.JavaScript.Function" ->
                 typeof "function"
+            | "Microsoft.FSharp.Core.FSharpChoice`2"
+            | "Microsoft.FSharp.Core.FSharpChoice`3"
+            | "Microsoft.FSharp.Core.FSharpChoice`4"
+            | "Microsoft.FSharp.Core.FSharpChoice`5"
+            | "Microsoft.FSharp.Core.FSharpChoice`6"
+            | "Microsoft.FSharp.Core.FSharpChoice`7" ->
+                this.TransformExpression expr
             | tname ->
                 if not (List.isEmpty gs) then
                     this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
@@ -1261,7 +1294,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         Binary(this.TransformExpression expr, BinaryOperator.instanceof, GlobalAccess a)
                     | _ ->
                         this.Error("Type test cannot be translated because client-side class does not have a prototype: " + t.Value.FullName)
-                | None -> 
+                | _ -> 
                     match comp.GetCustomType t with
                     | M.FSharpUnionCaseInfo c ->
                         let tN = t.Value.FullName

@@ -136,7 +136,7 @@ module Definition =
             "" =@ !? T<string> |> Indexed T<string>
             "asLowerCase" =@ !? T<string> |> Indexed Lowercase
                 |> WithInteropGetterInline (fun tr -> sprintf "$this[%s]" (tr "index"))
-                |> WithInteropSetterInline (fun tr -> sprintf "$wsruntime.SetOptional($this, %s, %s)" (tr "index") (tr "value"))
+                |> WithInteropSetterInline (fun tr -> sprintf "$wsruntime.SetOrDelete($this, %s, %s)" (tr "index") (tr "value"))
         ] 
 
     let Assembly =

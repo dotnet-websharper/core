@@ -143,7 +143,7 @@ type FuncWithArgsRestProxy<'TArgs, 'TRest, 'TResult> =
     member this.Call (args: 'TArgs, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<Optional<_>>)>]
-type Optional<'T> =
+type OptionalProxy<'T> =
     | Undefined
     | Defined of 'T
 

@@ -116,8 +116,14 @@ let Tests =
         Test "Choice property" {
             let x = WIGtest.Instance 
             equal (x.StringOrInt) (Union1Of2 0)
+            equal (Union.toChoice2 x.StringOrInt) (Choice1Of2 0)
+            equal (x.StringOrInt.Value1) 0
+//            raises (x.StringOrInt.Value2)
             x.StringOrInt <- Union2Of2 "hi"
             equal (x.StringOrInt) (Union2Of2 "hi")
+            equal (Union.toChoice2 x.StringOrInt) (Choice2Of2 "hi")
+            equal (x.StringOrInt.Value2) "hi"
+//            raises (x.StringOrInt.Value1)
             x.StringOrInt <- Union1Of2 1
             equal (x.StringOrInt) (Union1Of2 1)
         }
@@ -125,8 +131,12 @@ let Tests =
         Test "Option property" {
             let x = WIGtest.Instance 
             equal (x.OptionalInt) Undefined
+            equal (Optional.toOption x.OptionalInt) None
+//            raises (x.OptionalInt.Value)
             x.OptionalInt <- Defined 1
             equal (x.OptionalInt) (Defined 1)
+            equal (Optional.toOption x.OptionalInt) (Some 1)
+            equal (x.OptionalInt.Value) 1
             x.OptionalInt <- Undefined
             equal (x.OptionalInt) Undefined       
         }

@@ -66,6 +66,7 @@ namespace WebSharper.CSharp.Tests
         {
             IsTrue(I.Module.ErasedUnion1.IsUnion1Of2);
             IsTrue(I.Module.ErasedUnion2.IsUnion2Of2);
+
             var x = I.Module.ErasedUnion1;
             var res = 0;
             switch (x.Tag)
@@ -73,9 +74,65 @@ namespace WebSharper.CSharp.Tests
                 case Union<int, string>.Tags.Union1Of2:
                     res = ((Union<int, string>.Union1Of2)x).Item;
                     break;
-                    
             }
+            Equal(res, 42);
 
+            x = Union<int, string>.NewUnion1Of2(43);
+            switch (x.Tag)
+            {
+                case Union<int, string>.Tags.Union1Of2:
+                    res = ((Union<int, string>.Union1Of2)x).Item;
+                    break;
+            }
+            Equal(res, 43);
+
+            var res2 = "";
+            x = I.Module.ErasedUnion2;
+            switch (x.Tag)
+            {
+                case Union<int, string>.Tags.Union2Of2:
+                    res2 = ((Union<int, string>.Union2Of2)x).Item;
+                    break;
+            }
+            Equal(res2, "hi");
+
+            x = Union<int, string>.NewUnion2Of2("hi!");
+            switch (x.Tag)
+            {
+                case Union<int, string>.Tags.Union2Of2:
+                    res2 = ((Union<int, string>.Union2Of2)x).Item;
+                    break;
+            }
+            Equal(res2, "hi!");
+
+        }
+
+        [Test]
+        public void ErasedOption()
+        {
+            IsTrue(I.Module.UndefVal.IsUndefined);
+            IsTrue(I.Module.DefVal.IsDefined);
+
+            var x = Optional<int>.Undefined;
+            var res = 0;
+            switch (x.Tag)
+            {
+                case Optional<int>.Tags.Undefined:
+                    res = -1;
+                    break;
+            }
+            Equal(res, -1);
+            JsEqual(x.Value, JS.Undefined);
+
+            x = Optional<int>.NewDefined(4);
+            switch (x.Tag)
+            {
+                case Optional<int>.Tags.Defined:
+                    res = ((Optional<int>.Defined)x).Item;
+                    break;
+            }
+            Equal(res, 4);
+            JsEqual(x.Value, 4);
         }
 
         [Test]

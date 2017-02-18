@@ -99,7 +99,7 @@ module Module =
 
     let ErasedUnion1 = JavaScript.Union<int, string>.Union1Of2 42
     let ErasedUnion2 = JavaScript.Union<int, string>.Union2Of2 "hi"
-    let UndefVal = JavaScript.Undefined
+    let UndefVal = JavaScript.Undefined : JavaScript.Optional<int>
     let DefVal = JavaScript.Defined 42
 
 [<JavaScript>]

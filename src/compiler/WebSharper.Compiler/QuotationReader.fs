@@ -213,25 +213,18 @@ let rec transformExpression (env: Environment) (expr: Expr) =
         | Patterns.Coerce (expr, typ) ->
             tr expr // TODO: type check when possible
         | Patterns.NewUnionCase (case, exprs) ->
-            let annot = A.attrReader.GetMemberAnnot(A.TypeAnnotation.Empty, case.GetCustomAttributesData()) 
-            match annot.Kind with
-            | Some (A.MemberKind.Constant c) -> Value c
-            | _ ->
-            let i = case.Tag
-            CopyCtor(
-                Reflection.ReadTypeDefinition case.DeclaringType,
-                Object (
-                    ("$", Value (Int i)) ::
-                    (exprs |> List.mapi (fun j e -> "$" + string j, tr e)) 
-                )
-            )
+            let t =
+                match Reflection.ReadType case.DeclaringType with
+                | ConcreteType ct -> ct
+                | _ -> parsefailf "Expected a union type"
+
+            NewUnionCase(t, case.Name, exprs |> List.map tr)
         | Patterns.UnionCaseTest (expr, case) ->
-            let annot = A.attrReader.GetMemberAnnot(A.TypeAnnotation.Empty, case.GetCustomAttributesData()) 
-            match annot.Kind with
-            | Some (A.MemberKind.Constant c) -> Binary (tr expr, BinaryOperator.``==``, Value c)
-            | _ ->
-            let i = case.Tag
-            Binary(ItemGet(tr expr, Value (String "$")), BinaryOperator.``==``, Value (Int i))
+            let t =
+                match Reflection.ReadType case.DeclaringType with
+                | ConcreteType ct -> ct
+                | _ -> parsefailf "Expected a union type"
+            UnionCaseTest(tr expr, t, case.Name)
         | Patterns.NewRecord (typ, items) ->
             let t =
                 match Reflection.ReadType typ with

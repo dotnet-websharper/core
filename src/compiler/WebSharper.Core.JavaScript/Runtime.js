@@ -84,10 +84,10 @@ IntelliFactory = {
 
         SetOrDelete:
             function (obj, field, value) {
-                if (value !== void (0)) {
-                    obj[field] = value;
-                } else {
+                if (value === void (0)) {
                     delete obj[field];
+                } else {
+                    obj[field] = value;
                 }
             },
 
