@@ -97,6 +97,9 @@ module Module =
 
     let mutable ValueB = 2
 
+    let ErasedUnion1 = JavaScript.Union<int, string>.Union1Of2 42
+    let ErasedUnion2 = JavaScript.Union<int, string>.Union2Of2 "hi"
+
 [<JavaScript>]
 type GenericClass<'T>() =
     member this.GenericMethod<'U>(x: 'U) = x

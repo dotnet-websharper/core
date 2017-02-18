@@ -359,7 +359,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         createTuple (Array.ofSeq ts)
 
     member b.Choice(ts: seq<TypeReference>) =
-        commonType fscore "Microsoft.FSharp.Core" "FSharpChoice" ts
+        commonType wsCore "WebSharper.JavaScript" "Union" ts
 
     member b.Option t =
         genericInstance optionType [t]    

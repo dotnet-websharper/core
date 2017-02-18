@@ -40,7 +40,7 @@ let code =
     let inline cprintfn x = Printf.kprintf code.Add x 
 
     for i = 0 to maxArgCount do
-        cprintfn "type FuncWithRest<'TRest, %s'TResult> =" (tArgs i |> concatE ", ")
+        cprintfn "type FuncWithRest<%s'TRest, 'TResult> =" (tArgs i |> concatE ", ")
         cprintfn "    inherit Function"
         cprintfn "    new (func: %s'TRest[] -> 'TResult) = { }" (tArgs i |> concatE " * ")
         cprintfn "    member this.Call (%s[<PA>] rest: 'TRest[]) = X<'TResult>" (args i |> concatE ", ")
@@ -62,6 +62,11 @@ let code =
                             cprintfn "    member this.Bind(thisArg: 'TThis) = X<%s%s%s>" (if pars then "Params" else "System.") del (toTypArgs (List.tail t))
                         cprintfn "    member this.Call(%s) = X<%s>" (a |> String.concat ", ") (if ret then "'TResult" else "unit")
 
+    for i = 2 to 7 do
+        cprintfn "type Union<%s> =" (tArgs i |> String.concat ", ")
+        for j = 1 to i do
+            cprintfn "    | Union%dOf%d of 'T%d" j i j
+    
     code.ToArray()
 
 let allCode = 

@@ -183,3 +183,14 @@ let (|UnaryOpName|_|) = function
     | "op_UnaryNegation" -> Some UnaryOperator.``-``
     | "op_OnesComplement" -> Some UnaryOperator.``~``
     | _ -> None
+
+let erasedUnions = 
+    System.Collections.Generic.HashSet (
+        seq {
+            for i in 2 .. 7 ->
+                TypeDefinition {
+                    Assembly = "WebSharper.Core"
+                    FullName = "WebSharper.JavaScript.Union`" + string i
+                }                                           
+        }
+    )

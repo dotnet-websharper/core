@@ -970,6 +970,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     override this.TransformNewUnionCase(typ, case, args) = 
         let t = typ.Entity
+        if erasedUnions.Contains t then
+            match args with
+            | [ a ] -> this.TransformExpression a
+            | _ -> this.Error("Erased union constructor expects a single argument")
+        else
         match comp.GetCustomType typ.Entity with
         | M.FSharpUnionInfo u ->
             let i, c = u.Cases |> Seq.indexed |> Seq.find (fun (i, c) -> c.Name = case)
@@ -986,6 +991,14 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ -> this.Error("Failed to translate union case creation.")
 
     override this.TransformUnionCaseTest(expr, typ, case) = 
+        if erasedUnions.Contains typ.Entity then
+            let i = int case.[5] - 49 // int '1' is 49
+            try
+                this.TransformTypeCheck(expr, typ.Generics.[i])
+            with e ->
+                this.Error(sprintf "Translating erased union test failed, case: %s, generics: %A"
+                    case (typ.Generics |> List.map (fun t -> t.AssemblyQualifiedName)))
+        else
         match comp.GetCustomType typ.Entity with
         | M.FSharpUnionInfo u ->
             let i, c = u.Cases |> Seq.indexed |> Seq.find (fun (i, c) -> c.Name = case)
@@ -1003,6 +1016,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ -> this.Error("Failed to translate union case test.")
 
     override this.TransformUnionCaseTag(expr, typ) = 
+        // Todo: tag for erased union
         match comp.GetCustomType typ.Entity with
         | M.FSharpUnionInfo u ->
             let constantCases = 
@@ -1234,7 +1248,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 typeof "function"
             | tname ->
                 if not (List.isEmpty gs) then
-                    this.Warning ("Generic type check is ignoring erased type parameter.")
+                    this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
                 match comp.TryLookupClassInfo t with
                 | Some c ->
                     match c.Address with
@@ -1252,7 +1266,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         let i = Id.New (mut = false)
                         Let (i, trE, this.TransformTypeCheck(Var i, ConcreteType uTyp) ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
                     | M.DelegateInfo _ ->
-                        this.Error("Type tests do not support delegate type, check against WebSharper.JavaScript.Function.")   
+                        this.Warning("Type test JavaScript translation is ignoring the signature of the delegate.")   
+                        typeof "function"
                     | _ -> 
                         this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
         | TypeParameter _ | StaticTypeParameter _ -> 

@@ -575,12 +575,6 @@ module Type =
                 | _ ->
                     fun x -> "function(args) { return (" + x + ").apply(null, args.slice(0, " + string i + ").concat(args[ " + string i + "])); }" 
         }
-
-    let private unionTransform optional typeStrings =
-        {
-            In = fun x -> x + ".$0"
-            Out = fun x -> sprintf "$wsruntime.UnionByType([%s], %s%s)" (String.concat ", " typeStrings) x (if optional then ", true" else "")
-        } 
         
     let (|UnionOf|_|) t =
         let rec getTypes t =
@@ -693,7 +687,7 @@ module Type =
             if List.length tts = List.length ts then
                 let ts, tts =
                     (ts, tts) ||> List.zip |> List.sortBy snd |> List.unzip
-                InteropType (ChoiceType ts, unionTransform opt tts)
+                ChoiceType ts
             else t
         | _ -> t
 

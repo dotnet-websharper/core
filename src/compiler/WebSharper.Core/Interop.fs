@@ -295,4 +295,37 @@ type ThisParamsFunc<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult> =
     new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult>) = { }
     member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult>>
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6, [<PA>] rest: 'TParams[]) = X<'TResult>
+type Union<'T1, 'T2> =
+    | Union1Of2 of 'T1
+    | Union2Of2 of 'T2
+type Union<'T1, 'T2, 'T3> =
+    | Union1Of3 of 'T1
+    | Union2Of3 of 'T2
+    | Union3Of3 of 'T3
+type Union<'T1, 'T2, 'T3, 'T4> =
+    | Union1Of4 of 'T1
+    | Union2Of4 of 'T2
+    | Union3Of4 of 'T3
+    | Union4Of4 of 'T4
+type Union<'T1, 'T2, 'T3, 'T4, 'T5> =
+    | Union1Of5 of 'T1
+    | Union2Of5 of 'T2
+    | Union3Of5 of 'T3
+    | Union4Of5 of 'T4
+    | Union5Of5 of 'T5
+type Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6> =
+    | Union1Of6 of 'T1
+    | Union2Of6 of 'T2
+    | Union3Of6 of 'T3
+    | Union4Of6 of 'T4
+    | Union5Of6 of 'T5
+    | Union6Of6 of 'T6
+type Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7> =
+    | Union1Of7 of 'T1
+    | Union2Of7 of 'T2
+    | Union3Of7 of 'T3
+    | Union4Of7 of 'T4
+    | Union5Of7 of 'T5
+    | Union6Of7 of 'T6
+    | Union7Of7 of 'T7
 // }}

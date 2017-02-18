@@ -585,7 +585,6 @@ let serializers =
         | x -> raise (DecoderException(x, typeof<char>))
     add encChar decChar d
     let decString = function
-        | Null -> null
         | String x -> x
         | x -> raise (DecoderException(x, typeof<string>))
     add EncodedString decString d

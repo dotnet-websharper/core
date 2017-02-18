@@ -68,7 +68,7 @@ let Tests =
         Test "Functions with ParamArray" {
             let doNotRun() = 
                 (WIGtest.TestCurriedSig(0).Invoke("") : obj) |> ignore
-                (WIGtest.TestIntOrStringReturned() : Choice<int, string>) |> ignore
+                (WIGtest.TestIntOrStringReturned() : Union<int, string>) |> ignore
                 (WIGtest.TestWithNoInterop : FuncWithArgs<int * int, int> -> obj) |> ignore
 
             equal (WIGtest.Sum(1)) 1
@@ -115,11 +115,11 @@ let Tests =
 
         Test "Choice property" {
             let x = WIGtest.Instance 
-            equal (x.StringOrInt) (Choice1Of2 0)
-            x.StringOrInt <- Choice2Of2 "hi"
-            equal (x.StringOrInt) (Choice2Of2 "hi")
-            x.StringOrInt <- Choice1Of2 1
-            equal (x.StringOrInt) (Choice1Of2 1)
+            equal (x.StringOrInt) (Union1Of2 0)
+            x.StringOrInt <- Union2Of2 "hi"
+            equal (x.StringOrInt) (Union2Of2 "hi")
+            x.StringOrInt <- Union1Of2 1
+            equal (x.StringOrInt) (Union1Of2 1)
         }
 
         Test "Option property" {
@@ -134,12 +134,12 @@ let Tests =
         Test "Optional choice property" {
             let x = WIGtest.Instance 
             equal (x.OptionalStringOrFunction) None
-            x.OptionalStringOrFunction <- Some (Choice2Of2 "hi")
-            equal (x.OptionalStringOrFunction) (Some (Choice2Of2 "hi"))
-            x.OptionalStringOrFunction <- Some (Choice1Of2 (System.Func<_,_,_>(fun a b -> a + b)))
+            x.OptionalStringOrFunction <- Some (Union2Of2 "hi")
+            equal (x.OptionalStringOrFunction) (Some (Union2Of2 "hi"))
+            x.OptionalStringOrFunction <- Some (Union1Of2 (System.Func<_,_,_>(fun a b -> a + b)))
             equal (
                 match x.OptionalStringOrFunction with
-                | Some (Choice1Of2 f) -> f.Invoke(1, 2)
+                | Some (Union1Of2 f) -> f.Invoke(1, 2)
                 | _ -> 0
             ) 3
             x.OptionalStringOrFunction <- None
