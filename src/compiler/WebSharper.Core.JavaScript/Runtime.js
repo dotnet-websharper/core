@@ -82,6 +82,15 @@ IntelliFactory = {
                 }
             },
 
+        SetOrDelete:
+            function (obj, field, value) {
+                if (value !== void (0)) {
+                    obj[field] = value;
+                } else {
+                    delete obj[field];
+                }
+            },
+
         Bind: function (f, obj) {
             return function () { return f.apply(this, arguments) };
         },

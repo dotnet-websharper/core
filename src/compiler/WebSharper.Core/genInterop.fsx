@@ -66,6 +66,8 @@ let code =
         cprintfn "type Union<%s> =" (tArgs i |> String.concat ", ")
         for j = 1 to i do
             cprintfn "    | Union%dOf%d of 'T%d" j i j
+        for j = 1 to i do
+            cprintfn "    member this.Value%d = X<'T%d>" j j
     
     code.ToArray()
 

@@ -154,6 +154,41 @@ let setValue (env: Environment) expr value =
 let glob = Global []
 let wsruntime = Global ["IntelliFactory"; "Runtime"]
 
+let wsRuntimeFunctions =
+    System.Collections.Generic.HashSet [
+        "Ctor"
+        "Cctor"
+        "Class"
+        "NewObject"
+        "DeleteEmptyFields"
+        "GetOptional"
+        "SetOptional"
+        "SetOrDelete"
+        "Bind"
+        "CreateFuncWithArgs"
+        "CreateFuncWithOnlyThis"
+        "CreateFuncWithThis"
+        "CreateFuncWithThisArgs"
+        "CreateFuncWithRest"
+        "CreateFuncWithArgsRest"
+        "BindDelegate"
+        "CreateDelegate"
+        "CombineDelegates"
+        "DelegateEqual"
+        "ThisFunc"
+        "ThisFuncOut"
+        "ParamsFunc"
+        "ParamsFuncOut"
+        "ThisParamsFunc"
+        "ThisParamsFuncOut"
+        "Curried"
+        "Curried2"
+        "Curried3"
+        "Apply"
+        "PipeApply"
+        "UnionByType"
+    ]
+
 let rec transformExpression (env: Environment) (expr: S.Expression) =
     let inline trE e = transformExpression env e
     let checkNotMutating a f =
@@ -189,7 +224,10 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
             if trA = wsruntime then
                 match trC with
                 | Value (String f) ->
-                    Global ["IntelliFactory"; "Runtime"; f]
+                    if wsRuntimeFunctions.Contains f then
+                        Global ["IntelliFactory"; "Runtime"; f]
+                    else
+                        failwithf "Unrecognized IntelliFactory.Runtime function: %s" f
                 | _ -> failwith "expected a function of IntelliFactory.Runtime"     
             elif env.IsPure then ItemGet(trA, trC) 
             else ItemGetNonPure(trA, trC)

@@ -35,7 +35,7 @@ let Tests =
             Cookies.Set(key, value)
             let got = Cookies.Get(key)
             Cookies.Expire(key)
-            equal got (Some value)
+            equal got (Defined value)
         }
 
         Test "Set and expire" {
@@ -44,7 +44,7 @@ let Tests =
             Cookies.Set(key, value)
             Cookies.Expire(key)
             let got = Cookies.Get(key)
-            equal got None
+            equal got Undefined
         }
 
         Test "Set in the past" {
@@ -53,7 +53,7 @@ let Tests =
             Cookies.Set(key, value, Cookies.Options(Expires = Date(2000, 10, 10)))
             let got = Cookies.Get(key)
             Cookies.Expire(key)
-            equal got None
+            equal got Undefined
         }
 
         Test "Key and value encoding" {
@@ -62,7 +62,7 @@ let Tests =
                 Cookies.Set(key, value)
                 let got = Cookies.Get(key)
                 Cookies.Expire(key)
-                equal got (Some value)
+                equal got (Defined value)
             })
         }
 

@@ -53,13 +53,9 @@ type InlineGenerator() =
 
     member g.GetMethodBaseInline(td: Code.TypeDeclaration, t: T, m: Code.MethodBase) =
         let withOutTransform retT mInl =
-            let withInterop t =
-                match t with  
-                | Type.InteropType (_, tr) -> tr.Out mInl
-                | _ -> mInl
-            match retT with
-            | Type.OptionType rt -> "$wsruntime.GetOptional(" + withInterop rt + ")"
-            | rt -> withInterop rt
+            match retT with  
+            | Type.InteropType (_, tr) -> tr.Out mInl
+            | _ -> mInl
         let t, interop =
             match t with
             | Type.NoInteropType t -> t, false
@@ -131,13 +127,9 @@ type InlineGenerator() =
 
     member g.GetPropertyGetterInline(td: Code.TypeDeclaration, t: T, p: Code.Property) =
         let withOutTransform inl = 
-            let withInterop t =
-                match t with  
-                | Type.InteropType (_, tr) -> tr.Out inl
-                | _ -> inl
-            match t with
-            | Type.OptionType t -> "$wsruntime.GetOptional(" + withInterop t + ")"
-            | _ -> withInterop t
+            match t with  
+            | Type.InteropType (_, tr) -> tr.Out inl
+            | _ -> inl
         let index() =
             match p.IndexerType with
             | Some (Type.InteropType (_, tr)) -> tr.In "$index"
@@ -211,13 +203,13 @@ type InlineGenerator() =
             if opt then
                 if name = "" then 
                     if p.IndexerType.IsSome 
-                    then sprintf "$wsruntime.SetOptional(%s, %s, %s)" pfx (index()) value
+                    then sprintf "$wsruntime.SetOrDelete(%s, %s, %s)" pfx (index()) value
                     else failwith "Optional property with empty name not allowed."
                 else
                     if p.IndexerType.IsSome then
-                        sprintf "$wsruntime.SetOptional(%s, %s, %s)" (prop()) (index()) value 
+                        sprintf "$wsruntime.SetOrDelete(%s, %s, %s)" (prop()) (index()) value 
                     else 
-                        sprintf "$wsruntime.SetOptional(%s, '%s', %s)" pfx name value    
+                        sprintf "$wsruntime.SetOrDelete(%s, '%s', %s)" pfx name value    
             else
                 let ind = if p.IndexerType.IsSome then "[" + index() + "]" else ""
                 if name = "" then sprintf "void (%s%s = %s)" pfx ind value
@@ -261,7 +253,6 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         |> main.Import
 
     let funcType = fromFsCore "FSharpFunc`2"
-    let optionType = fromFsCore "FSharpOption`1"
 
     let fromSystem (name: string) =
         mscorlib.MainModule.GetType("System", name)
@@ -337,6 +328,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     let funcWithThis = fromInterop "FuncWithThis`2" 
     let funcWithOnlyThis = fromInterop "FuncWithOnlyThis`2" 
     let funcWithArgsRest = fromInterop "FuncWithArgsRest`3" 
+    let optionType = fromInterop "Optional`1"
 
     member b.Action ts =
         commonType mscorlib "System" "Action" ts

@@ -45,6 +45,8 @@ let code =
 //        cprintfn "    new (func: %s'TRest[] -> 'TResult) = { }" (tArgs i |> concatE " * ")
 //        cprintfn "    member this.Call (%s[<PA>] rest: 'TRest[]) = X<'TResult>" (args i |> concatE ", ")
 
+    let toAnonTypArgs ts = if List.isEmpty ts then "" else "<" + String.concat "," (ts |> Seq.map (fun _ -> "_")) + ">"
+
     for pars in [ false; true ] do   
         for this in [ false; true ] do    
             if this || pars then
@@ -57,7 +59,6 @@ let code =
                     for i = 0 to maxArgCount do
                         let t = (if this then ["'TThis"] else[]) @ tArgs i @ (if pars then ["'TParams"] else []) @ (if ret then ["'TResult"] else [])
                         let toTypArgs ts = if List.isEmpty ts then "" else "<" + String.concat ", " ts + ">"
-                        let toAnonTypArgs ts = if List.isEmpty ts then "" else "<" + String.concat "," (ts |> Seq.map (fun _ -> "_")) + ">"
                         let a = (if this then ["thisArg: 'TThis"] else[]) @ args i @ (if pars then ["[<PA>] rest: 'TParams[]"] else [])
                         cprintfn "[<Proxy (typeof<%s%s>)>]" name (toAnonTypArgs t)
                         cprintfn "type %sProxy%s =" name (toTypArgs t)
@@ -69,6 +70,16 @@ let code =
                         cprintfn "    [<Macro(typeof<Macro.JS%sCall>)>]" thisPars
                         cprintfn "    member this.Call(%s) = X<%s>" (a |> String.concat ", ") (if ret then "'TResult" else "unit")
 
+    for i = 2 to 7 do
+        let t = tArgs i
+        cprintfn "[<Proxy (typeof<Union%s>)>]" (toAnonTypArgs t)
+        cprintfn "type UnionProxy<%s> =" (t |> String.concat ", ")
+        for j = 1 to i do
+            cprintfn "    | Union%dOf%d of 'T%d" j i j
+        for j = 1 to i do
+            cprintfn "    [<Inline>]"
+            cprintfn "    member this.Value%d = As<'T%d> this" j j
+    
     code.ToArray()
 
 let allCode = 

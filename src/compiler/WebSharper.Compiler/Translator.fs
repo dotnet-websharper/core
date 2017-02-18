@@ -972,6 +972,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         let t = typ.Entity
         if erasedUnions.Contains t then
             match args with
+            | [] -> Undefined
             | [ a ] -> this.TransformExpression a
             | _ -> this.Error("Erased union constructor expects a single argument")
         else
@@ -992,6 +993,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     override this.TransformUnionCaseTest(expr, typ, case) = 
         if erasedUnions.Contains typ.Entity then
+            match case with 
+            | "Undefined" -> this.TransformExpression expr ^=== Undefined
+            | "Defined" -> this.TransformExpression expr ^!== Undefined
+            | _ ->
             let i = int case.[5] - 49 // int '1' is 49
             try
                 this.TransformTypeCheck(expr, typ.Generics.[i])

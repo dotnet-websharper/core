@@ -62,6 +62,23 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Test]
+        public void ErasedUnion()
+        {
+            IsTrue(I.Module.ErasedUnion1.IsUnion1Of2);
+            IsTrue(I.Module.ErasedUnion2.IsUnion2Of2);
+            var x = I.Module.ErasedUnion1;
+            var res = 0;
+            switch (x.Tag)
+            {
+                case Union<int, string>.Tags.Union1Of2:
+                    res = ((Union<int, string>.Union1Of2)x).Item;
+                    break;
+                    
+            }
+
+        }
+
+        [Test]
         public void Record()
         {
             var x = new I.Record(1, null);

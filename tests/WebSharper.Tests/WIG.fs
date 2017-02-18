@@ -124,26 +124,26 @@ let Tests =
 
         Test "Option property" {
             let x = WIGtest.Instance 
-            equal (x.OptionalInt) None
-            x.OptionalInt <- Some 1
-            equal (x.OptionalInt) (Some 1)
-            x.OptionalInt <- None
-            equal (x.OptionalInt) None       
+            equal (x.OptionalInt) Undefined
+            x.OptionalInt <- Defined 1
+            equal (x.OptionalInt) (Defined 1)
+            x.OptionalInt <- Undefined
+            equal (x.OptionalInt) Undefined       
         }
 
         Test "Optional choice property" {
             let x = WIGtest.Instance 
-            equal (x.OptionalStringOrFunction) None
-            x.OptionalStringOrFunction <- Some (Union2Of2 "hi")
-            equal (x.OptionalStringOrFunction) (Some (Union2Of2 "hi"))
-            x.OptionalStringOrFunction <- Some (Union1Of2 (System.Func<_,_,_>(fun a b -> a + b)))
+            equal (x.OptionalStringOrFunction) Undefined
+            x.OptionalStringOrFunction <- Defined (Union2Of2 "hi")
+            equal (x.OptionalStringOrFunction) (Defined (Union2Of2 "hi"))
+            x.OptionalStringOrFunction <- Defined (Union1Of2 (System.Func<_,_,_>(fun a b -> a + b)))
             equal (
                 match x.OptionalStringOrFunction with
-                | Some (Union1Of2 f) -> f.Invoke(1, 2)
+                | Defined (Union1Of2 f) -> f.Invoke(1, 2)
                 | _ -> 0
             ) 3
-            x.OptionalStringOrFunction <- None
-            equal (x.OptionalStringOrFunction) None
+            x.OptionalStringOrFunction <- Undefined
+            equal (x.OptionalStringOrFunction) Undefined
         }
 
         Test "Pattern.Config" {
@@ -171,16 +171,16 @@ let Tests =
             equal (a.[1]) "hi"
 
             let b = ObjWithOptionalFields()
-            b.["x"] <- Some "hi"
+            b.["x"] <- Defined "hi"
             equal (b) (New [| "x" => "hi" |])
-            equal (b.["x"]) (Some "hi")
-            b.["x"] <- None
+            equal (b.["x"]) (Defined "hi")
+            b.["x"] <- Undefined
             equal (b) (New [| |])
 
-            b.AsLowerCase("X") <- Some "hi"
+            b.AsLowerCase("X") <- Defined "hi"
             equal (b) (New [| "x" => "hi" |] )
-            equal (b.AsLowerCase("X")) (Some "hi")
-            b.AsLowerCase("X") <- None
+            equal (b.AsLowerCase("X")) (Defined "hi")
+            b.AsLowerCase("X") <- Undefined
             equal (b) (New [| |])
         }
 

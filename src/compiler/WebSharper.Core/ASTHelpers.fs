@@ -187,10 +187,14 @@ let (|UnaryOpName|_|) = function
 let erasedUnions = 
     System.Collections.Generic.HashSet (
         seq {
+            yield TypeDefinition {
+                Assembly = "WebSharper.Core"
+                FullName = "WebSharper.JavaScript.Optional`1"
+            }
             for i in 2 .. 7 ->
                 TypeDefinition {
                     Assembly = "WebSharper.Core"
                     FullName = "WebSharper.JavaScript.Union`" + string i
-                }                                           
+                }    
         }
     )
