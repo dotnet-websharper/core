@@ -152,7 +152,7 @@ module Union =
         match x with
         | Choice1Of2 v -> Union1Of2 v
         | Choice2Of2 v -> Union2Of2 v
-    /// Converts a JavaScript erased union to an F# option value
+    /// Converts a JavaScript erased union to an F# Choice value
     [<Inline>]
     let toChoice2 x =
         match x with
@@ -165,7 +165,7 @@ module Union =
         | Choice1Of3 v -> Union1Of3 v
         | Choice2Of3 v -> Union2Of3 v
         | Choice3Of3 v -> Union3Of3 v
-    /// Converts a JavaScript erased union to an F# option value
+    /// Converts a JavaScript erased union to an F# Choice value
     [<Inline>]
     let toChoice3 x =
         match x with
@@ -180,7 +180,7 @@ module Union =
         | Choice2Of4 v -> Union2Of4 v
         | Choice3Of4 v -> Union3Of4 v
         | Choice4Of4 v -> Union4Of4 v
-    /// Converts a JavaScript erased union to an F# option value
+    /// Converts a JavaScript erased union to an F# Choice value
     [<Inline>]
     let toChoice4 x =
         match x with
@@ -197,7 +197,7 @@ module Union =
         | Choice3Of5 v -> Union3Of5 v
         | Choice4Of5 v -> Union4Of5 v
         | Choice5Of5 v -> Union5Of5 v
-    /// Converts a JavaScript erased union to an F# option value
+    /// Converts a JavaScript erased union to an F# Choice value
     [<Inline>]
     let toChoice5 x =
         match x with
@@ -216,7 +216,7 @@ module Union =
         | Choice4Of6 v -> Union4Of6 v
         | Choice5Of6 v -> Union5Of6 v
         | Choice6Of6 v -> Union6Of6 v
-    /// Converts a JavaScript erased union to an F# option value
+    /// Converts a JavaScript erased union to an F# Choice value
     [<Inline>]
     let toChoice6 x =
         match x with
@@ -237,7 +237,7 @@ module Union =
         | Choice5Of7 v -> Union5Of7 v
         | Choice6Of7 v -> Union6Of7 v
         | Choice7Of7 v -> Union7Of7 v
-    /// Converts a JavaScript erased union to an F# option value
+    /// Converts a JavaScript erased union to an F# Choice value
     [<Inline>]
     let toChoice7 x =
         match x with

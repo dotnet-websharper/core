@@ -66,7 +66,7 @@ let jsPervasives =
         cprintfn "        match x with"
         for j = 1 to i do
             cprintfn "        | Choice%dOf%d v -> Union%dOf%d v" j i j i
-        cprintfn "    /// Converts a JavaScript erased union to an F# option value"
+        cprintfn "    /// Converts a JavaScript erased union to an F# Choice value"
         cprintfn "    [<Inline>]"
         cprintfn "    let toChoice%d x =" i
         cprintfn "        match x with"
