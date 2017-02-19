@@ -22,6 +22,7 @@ namespace WebSharper.Compiler.FSharp
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open WebSharper.Compiler.ErrorPrinting
+open WebSharper.Compiler.FrontEnd
 
 open System.IO
 
@@ -30,8 +31,11 @@ module M = WebSharper.Core.Metadata
 type internal FSIFD = FSharpImplementationFileDeclaration
 
 /// Creates WebSharper compilation for an F# project
-type WebSharperFSharpCompiler(logger) =
-    let checker = FSharpChecker.Create(keepAssemblyContents = true)
+type WebSharperFSharpCompiler(logger, ?checker) =
+    let checker =
+        match checker with
+        | Some c -> c
+        | _ -> FSharpChecker.Create(keepAssemblyContents = true)
 
     let fullpath cwd nm = 
         let p = if Path.IsPathRooted(nm) then nm else Path.Combine(cwd,nm)
@@ -75,8 +79,6 @@ type WebSharperFSharpCompiler(logger) =
 
     member this.Compile (prevMeta, argv, path: string, warnOnly) = 
 
-        let started = System.DateTime.Now
-
         let projectOptions =
             try
                 checker.GetProjectOptionsFromCommandLineArgs(path, argv)
@@ -88,9 +90,7 @@ type WebSharperFSharpCompiler(logger) =
             |> checker.ParseAndCheckProject 
             |> Async.RunSynchronously
 
-        let ended = System.DateTime.Now
-        logger <| sprintf "Checking project: %A" (ended - started)
-        let started = ended 
+        TimedStage "Checking project"
 
         let projDir = Path.GetDirectoryName path
 
@@ -133,10 +133,6 @@ type WebSharperFSharpCompiler(logger) =
                 (Path.GetFileNameWithoutExtension path)
                 checkProjectResults
 
-        let ended = System.DateTime.Now
-        logger <| sprintf "Parsing with FCS: %A" (ended - started)
-        let started = ended 
-
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
         
         comp.VerifyRPCs()
@@ -153,8 +149,7 @@ type WebSharperFSharpCompiler(logger) =
                     | None -> ""
                 eprintfn "%s%s%s" pos einfo (NormalizeErrorString (err.ToString()))
             
-        let ended = System.DateTime.Now
-        logger <| sprintf "Transforming: %A" (ended - started)
+        TimedStage "WebSharper translation"
 
         comp
 

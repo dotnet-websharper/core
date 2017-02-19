@@ -27,19 +27,10 @@ open WebSharper
 open WebSharper.Compiler
 
 open WebSharper.Compile.CommandTools
-
-module FE = WebSharper.Compiler.FrontEnd
-
-let logf x = 
-    Printf.kprintf ignore x
+open WebSharper.Compiler.FrontEnd
 
 let Compile config =
-    let started = System.DateTime.Now
-    
-    let logf x =
-        if config.VSStyleErrors then logf x else Printf.kprintf System.Console.WriteLine x
-
-    let startedWS = started 
+    StartTimer()
 
     if config.AssemblyFile = null then
         failwith "You must provide assembly output path."
@@ -54,21 +45,13 @@ let Compile config =
     let aR =
         AssemblyResolver.Create()
             .SearchPaths(paths)
-
-    if config.ProjectType = Some WIG then  
-        aR.Wrap <| fun () ->
-        RunInterfaceGenerator aR (config.KeyFile |> Option.map readStrongNameKeyPair) config
-
-        let ended = System.DateTime.Now
-        logf "WIG running time: %A" (ended - started)
-    else    
     
-    let loader = WebSharper.Compiler.FrontEnd.Loader.Create aR (logf "%s")
+    let loader = Loader.Create aR (printfn "%s")
     let refs = [ for r in config.References -> loader.LoadFile(r) ]
     let refErrors = ResizeArray()
     let refMeta =
         let metas = refs |> List.choose (fun r -> 
-            try FE.ReadFromAssembly FE.FullMetadata r
+            try ReadFromAssembly FullMetadata r
             with e ->
                 refErrors.Add e.Message
                 None
@@ -84,16 +67,14 @@ let Compile config =
                 refErrors.Add <| "Error merging WebSharper metadata: " + e.Message
                 None
 
-    let ended = System.DateTime.Now
-    logf "Loading referenced metadata: %A" (ended - started)
-    let started = ended 
+    TimedStage "Loading referenced metadata"
 
     if refErrors.Count > 0 then
         for err in refErrors do 
-            logf "WebSharper error %s" err
+            eprintfn "WebSharper error %s" err
     else
 
-    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(logf "%s", UseVerifier = false)
+    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(printfn "%s", UseVerifier = false)
 
     let referencedAsmNames =
         paths
@@ -126,43 +107,34 @@ let Compile config =
     let comp =
         compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile, config.WarnOnly)
 
-    let ended = System.DateTime.Now
-    logf "WebSharper translation: %A" (ended - started)
-    let started = ended
-
     let mutable hasErrors = false
 
     if not (List.isEmpty comp.Errors) then        
         for pos, e in comp.Errors do
             match pos with
             | Some pos ->
-
-                logf "%s (%d,%d)-(%d,%d) WebSharper error %s" 
+                eprintfn "%s (%d,%d)-(%d,%d) WebSharper error %s" 
                     pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End) (e.ToString())
             | _ ->
-                logf "WebSharper error %s" (e.ToString())
+                eprintfn "WebSharper error %s" (e.ToString())
         if not config.WarnOnly then hasErrors <- true
         
     if hasErrors then () else
 
     let assem = loader.LoadFile config.AssemblyFile
     let js =
-        WebSharper.Compiler.FrontEnd.ModifyAssembly (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+        ModifyAssembly (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
             (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap assem
             
     if config.PrintJS then
         match js with 
         | Some js ->
             printfn "%s" js
-            logf "%s" js
         | _ -> ()
 
     assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
 
-    let ended = System.DateTime.Now
-    logf "Serializing and writing metadata: %A" (ended - started)
-
-    logf "WebSharper compilation full: %A" (ended - startedWS)
+    TimedStage "Writing resources into assembly"
 
     match config.ProjectType with
     | Some Bundle ->
@@ -176,9 +148,6 @@ let Compile config =
     | _ -> ()
 
 let compileMain argv =
-
-    logf "%s" Environment.CommandLine            
-    logf "Started at: %A" System.DateTime.Now
 
     match List.ofArray argv with
     | Cmd BundleCommand.Instance r -> r 
@@ -266,12 +235,8 @@ let compileMain argv =
             VSStyleErrors = true
         }
 
-    let logf x =
-        if (!wsArgs).VSStyleErrors then logf x else Printf.kprintf System.Console.WriteLine x
-
     try
         Compile !wsArgs
-        logf "Stopped at: %A" System.DateTime.Now
         0
     with e ->
         let intermediaryOutput = (!wsArgs).AssemblyFile

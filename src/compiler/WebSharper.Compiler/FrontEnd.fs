@@ -30,6 +30,19 @@ type EmbeddedFile = WebSharper.Compiler.EmbeddedFile
 type Loader = WebSharper.Compiler.Loader
 type Symbols = WebSharper.Compiler.Symbols
 
+let StartTimer, TimedStage =
+    let mutable time = None
+
+    let start() = time <- Some System.DateTime.Now 
+    let timed name =
+        match time with
+        | Some t ->
+            let now = System.DateTime.Now
+            printfn "%s: %O" name (now - t)
+            time <- Some now
+        | _ -> ()
+    start, timed
+
 type ReadOptions =
     | FullMetadata
     | DiscardExpressions
@@ -88,12 +101,19 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
         else
             removeSourcePositionFromMetadata current, [||]
     
+    TimedStage "Source position transformations"
+
     let meta =
         use s = new MemoryStream(8 * 1024)
         M.IO.Encode s currentPosFixed
         s.ToArray()
+
+    TimedStage "Writing metadata"
+
     let pkg = 
         Packager.packageAssembly refMeta current false
+
+    TimedStage "Packaging assembly"
     
     let pkg =
         if sourceMap then
@@ -112,15 +132,17 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
                 WebSharper.Core.JavaScript.Writer.CodeWriter(sources)
             else WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
-        let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
-        let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
-        res.Add(EMBEDDED_MINJS, getBytes minJs)
-        minMap |> Option.iter (fun m ->
-            res.Add(EMBEDDED_MINMAP, getBytes m))
+        let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
         res.Add(EMBEDDED_JS, getBytes js)
         map |> Option.iter (fun m ->
             res.Add(EMBEDDED_MAP, getBytes m))
+        TimedStage (if sourceMap then "Writing .js and .map.js" else "Writing .js")
+        let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
+        res.Add(EMBEDDED_MINJS, getBytes minJs)
+        minMap |> Option.iter (fun m ->
+            res.Add(EMBEDDED_MINMAP, getBytes m))
+        TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
 
         Some js, res.ToArray()
 

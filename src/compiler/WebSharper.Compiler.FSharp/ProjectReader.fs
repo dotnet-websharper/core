@@ -104,11 +104,8 @@ let isAugmentedFSharpType (e: FSharpEntity) =
     (e.IsFSharpRecord || e.IsFSharpUnion || e.IsFSharpExceptionDeclaration)
     && not (
         e.Attributes |> Seq.exists (fun a ->
-            let res =
-                a.AttributeType.FullName = "Microsoft.FSharp.Core.DefaultAugmentationAttribute"
-                && not (snd a.ConstructorArguments.[0] :?> bool)
-            if res then printfn "found DefaultAugmentation(false) on %s" e.FullName
-            res 
+            a.AttributeType.FullName = "Microsoft.FSharp.Core.DefaultAugmentationAttribute"
+            && not (snd a.ConstructorArguments.[0] :?> bool)
         )
     )
 
@@ -891,6 +888,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         }
     )
 
+open WebSharper.Compiler.FrontEnd
+
 let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpCheckProjectResults) =   
     comp.AssemblyName <- assemblyName
     let sr = CodeReader.SymbolReader(comp)    
@@ -1032,7 +1031,14 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
         if sc.IsValueCreated then
             getStartupCodeClass sc.Value |> comp.AddClass
     
+    TimedStage "Parsing with FCS"
+
     argCurrying.ResolveAll()
+
+    TimedStage "Analyzing function arguments"
+
     comp.Resolve()
+
+    TimedStage "Resolving names"
 
     comp

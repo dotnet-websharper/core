@@ -87,6 +87,7 @@ let RestorePackages () =
         Directory.Move("packages/System.Collections.Immutable", "packages/System.Collections.Immutable.Roslyn")
         Directory.Move("packages/System.Reflection.Metadata", "packages/System.Reflection.Metadata.Roslyn")
         nuget "install FSharp.Compiler.Service -version 10.0.3 -o packages -excludeVersion -nocache"
+        nuget "install System.Collections.Immutable -version 1.2.0.0 -o packages -excludeVersion -nocache"
 
 [<EntryPoint>]
 let Start args =

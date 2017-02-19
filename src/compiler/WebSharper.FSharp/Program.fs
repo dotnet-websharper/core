@@ -27,38 +27,29 @@ open WebSharper
 open WebSharper.Compiler
 
 open WebSharper.Compile.CommandTools
+open WebSharper.Compiler.FrontEnd
+open System.Diagnostics
 
-module FE = WebSharper.Compiler.FrontEnd
-
-let logf x = 
-    Printf.kprintf ignore x
-
-open Microsoft.FSharp.Compiler.SimpleSourceCodeServices
-
-let Compile (config : WsConfig) =
-    let started = System.DateTime.Now
-    let errors, exitCode = SimpleSourceCodeServices().Compile(config.CompilerArgs)
-
-    if exitCode <> 0 then 
-        WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(ignore).PrintErrors(errors, config.ProjectFile)
-
-        exitCode
-    else
-    
-    let logf x =
-        if config.VSStyleErrors then logf x else Printf.kprintf System.Console.WriteLine x
-
-    let ended = System.DateTime.Now
-    logf "F# compilation: %A" (ended - started)
-    let startedWS = ended 
-    let started = ended 
+open Microsoft.FSharp.Compiler.SourceCodeServices
+let Compile (config : WsConfig) =    
+    StartTimer()
     
     if config.AssemblyFile = null then
         failwith "You must provide assembly output path."
 
+    let checker = FSharpChecker.Create(keepAssemblyContents = true)
+    let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(printfn "%s", checker)
+
+    let errors, exitCode = checker.Compile(config.CompilerArgs)
+    
+    if exitCode <> 0 then 
+        compiler.PrintErrors(errors, config.ProjectFile)
+        failwith "F# compilation error"
     if not (File.Exists config.AssemblyFile) then
         failwith "Output assembly not found"
 
+    TimedStage "F# compilation"
+            
     let paths =
         [
             for r in config.References -> Path.GetFullPath r
@@ -72,17 +63,16 @@ let Compile (config : WsConfig) =
         aR.Wrap <| fun () ->
         RunInterfaceGenerator aR (config.KeyFile |> Option.map readStrongNameKeyPair) config
 
-        let ended = System.DateTime.Now
-        logf "WIG running time: %A" (ended - started)
+        TimedStage "WIG running time"
         0
-
+    
     else    
-    let loader = WebSharper.Compiler.FrontEnd.Loader.Create aR (logf "%s")
+    let loader = Loader.Create aR (printfn "%s")
     let refs = [ for r in config.References -> loader.LoadFile(r) ]
     let refErrors = ResizeArray()
     let refMeta =
         let metas = refs |> List.choose (fun r -> 
-            try FE.ReadFromAssembly FE.FullMetadata r
+            try ReadFromAssembly FullMetadata r
             with e ->
                 refErrors.Add e.Message
                 None
@@ -98,17 +88,13 @@ let Compile (config : WsConfig) =
                 refErrors.Add <| "Error merging WebSharper metadata: " + e.Message
                 None
 
-    let ended = System.DateTime.Now
-    logf "Loading referenced metadata: %A" (ended - started)
-    let started = ended 
+    TimedStage "Loading referenced metadata"
     
     if refErrors.Count > 0 then
         for err in refErrors do 
-            logf "WebSharper error %s" err
+            eprintfn "WebSharper error %s" err
         1
     else
-
-    let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(logf "%s")
 
     let referencedAsmNames =
         paths
@@ -141,44 +127,30 @@ let Compile (config : WsConfig) =
     let comp =
         compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile, config.WarnOnly)
 
-    let ended = System.DateTime.Now
-    logf "WebSharper translation: %A" (ended - started)
-
     let mutable hasErrors = false
 
     if not (List.isEmpty comp.Errors) then        
         for pos, e in comp.Errors do
             match pos with
             | Some pos ->
-                logf "%s (%d,%d)-(%d,%d) WebSharper error %s" 
+                eprintfn "%s (%d,%d)-(%d,%d) WebSharper error %s" 
                     pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End) (e.ToString())
             | _ ->
-                logf "WebSharper error %s" (e.ToString())
+                eprintfn "WebSharper error %s" (e.ToString())
         if not config.WarnOnly then hasErrors <- true
         
     if hasErrors then 1 else
-
-    let started = System.DateTime.Now
-    
-    let ended = System.DateTime.Now
-    logf "Loading output assembly: %A" (ended - started)
-    let started = ended 
     
     let jsOpt, res = 
-        WebSharper.Compiler.FrontEnd.CreateResources (Some comp) (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+        CreateResources (Some comp) (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
             (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap thisName
             
     compiler.PrintWarnings(comp, config.ProjectFile)
-
-    let ended = System.DateTime.Now
-    logf "Packaging and serializing metadata: %A" (ended - started)
-    let started = ended 
 
     if config.PrintJS then
         match jsOpt with 
         | Some js ->
             printfn "%s" js
-            logf "%s" js
         | _ -> ()
 
     match res with
@@ -197,48 +169,43 @@ let Compile (config : WsConfig) =
                     yield p
             |]
 
-        let configWithRes =
-            { config with
-                CompilerArgs =
-                    [| 
-                        yield! config.CompilerArgs
-                        for p in resPaths do
-                            yield "--resource:" + p
-                        match config.KeyFile with
-                        | Some k -> yield "--keyfile:" + k
-                        | _ -> ()
-                    |]
-            }
+        let argsWithRes =
+            [| 
+                yield! config.CompilerArgs
+                for p in resPaths do
+                    yield "--resource:" + p
+                match config.KeyFile with
+                | Some k -> yield "--keyfile:" + k
+                | _ -> ()
+            |]
 
-        let errors, exitCode = SimpleSourceCodeServices().Compile(configWithRes.CompilerArgs)
+        TimedStage "Writing resource files"
+
+        let _, exitCode = checker.Compile(argsWithRes) 
 
         if exitCode <> 0 then 
-            WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(ignore).PrintErrors(errors, config.ProjectFile)
-            failwith "Writing resources failed"
+            failwith "Error while writing output assembly with WebSharper resources"
 
-    let ended = System.DateTime.Now
-    logf "Writing resources: %A" (ended - started)
-
-    logf "WebSharper compilation full: %A" (ended - startedWS)
+        TimedStage "F# compilation with embedded resources"
 
     match config.ProjectType with
     | Some Bundle ->
         ExecuteCommands.Bundle config |> ignore
+        TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config |> ignore
-    | Some Website ->
-        ExecuteCommands.Unpack config |> ignore
+        TimedStage "Writing offline sitelets"
+    | Some Website
     | _ when Option.isSome config.OutputDir ->
         ExecuteCommands.Unpack config |> ignore
+        TimedStage "Unpacking"
     | _ -> ()
+
 
     System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
     0
 
 let compileMain argv =
-
-    logf "%s" Environment.CommandLine            
-    logf "Started at: %A" System.DateTime.Now
 
     match List.ofArray argv |> List.tail with
     | Cmd BundleCommand.Instance r -> r
@@ -271,51 +238,53 @@ let compileMain argv =
             match (!wsArgs).ProjectType with
             | None -> wsArgs := { !wsArgs with ProjectType = Some t }
             | _ -> failwith "Conflicting WebSharper project types set."
-        match a with
-        | "--jsmap" -> wsArgs := { !wsArgs with SourceMap = true } 
-        | "--dts" -> wsArgs := { !wsArgs with TypeScript = true } 
-        | "--wig" -> setProjectType WIG
-        | "--bundle" -> setProjectType Bundle
-        | "--html" -> setProjectType Html
-        | "--site" -> setProjectType Website
-        | "--wswarnonly" ->
-            wsArgs := { !wsArgs with WarnOnly = true } 
-        | StartsWith "--ws:" wsProjectType ->
-            match wsProjectType.ToLower() with
-            | "ignore" -> ()
-            | "bundle" -> setProjectType Bundle
-            | "extension" | "interfacegenerator" -> setProjectType WIG
-            | "html" -> setProjectType Html
-            | "library" -> ()
-            | "site" | "web" | "website" | "export" -> setProjectType Website
-            | _ -> invalidArg "type" ("Invalid project type: " + wsProjectType)
-        | "--printjs" -> wsArgs := { !wsArgs with PrintJS = true }
-        | "--vserrors" ->
-            wsArgs := { !wsArgs with VSStyleErrors = true }
-            fscArgs.Add a
-        | StartsWith "--wsoutput:" o ->
-            wsArgs := { !wsArgs with OutputDir = Some o }
-        | StartsWith "--project:" p ->
-            wsArgs := { !wsArgs with ProjectFile = Path.Combine(Directory.GetCurrentDirectory(), p) }
-        | StartsWith "--doc:" d ->
-            wsArgs := { !wsArgs with Documentation = Some d }
-            fscArgs.Add a
-        | StartsWith "-o:" o | StartsWith "--out:" o ->
-            wsArgs := { !wsArgs with AssemblyFile = o }
-            fscArgs.Add a
-        | StartsWith "-r:" r | StartsWith "--reference:" r ->
-            refs.Add r
-            fscArgs.Add a
-        | "--debug" | "--debug+" | "--debug:full" | "-g" | "-g+" | "-g:full" ->
-            wsArgs := { !wsArgs with IsDebug = true }
-            fscArgs.Add a
-        | StartsWith "--resource:" r ->
-            resources.Add r
-            fscArgs.Add a
-        | StartsWith "--keyfile:" k ->
-            wsArgs := { !wsArgs with KeyFile = Some k }
-        | _ -> 
-            fscArgs.Add a  
+        try
+            match a with
+            | "--jsmap" -> wsArgs := { !wsArgs with SourceMap = true } 
+            | "--dts" -> wsArgs := { !wsArgs with TypeScript = true } 
+            | "--wig" -> setProjectType WIG
+            | "--bundle" -> setProjectType Bundle
+            | "--html" -> setProjectType Html
+            | "--site" -> setProjectType Website
+            | "--wswarnonly" -> wsArgs := { !wsArgs with WarnOnly = true } 
+            | StartsWith "--ws:" wsProjectType ->
+                match wsProjectType.ToLower() with
+                | "ignore" -> ()
+                | "bundle" -> setProjectType Bundle
+                | "extension" | "interfacegenerator" -> setProjectType WIG
+                | "html" -> setProjectType Html
+                | "library" -> ()
+                | "site" | "web" | "website" | "export" -> setProjectType Website
+                | _ -> invalidArg "type" ("Invalid project type: " + wsProjectType)
+            | "--printjs" -> wsArgs := { !wsArgs with PrintJS = true }
+            | "--vserrors" ->
+                wsArgs := { !wsArgs with VSStyleErrors = true }
+                fscArgs.Add a
+            | StartsWith "--wsoutput:" o ->
+                wsArgs := { !wsArgs with OutputDir = Some o }
+            | StartsWith "--project:" p ->
+                wsArgs := { !wsArgs with ProjectFile = Path.Combine(Directory.GetCurrentDirectory(), p) }
+            | StartsWith "--doc:" d ->
+                wsArgs := { !wsArgs with Documentation = Some d }
+                fscArgs.Add a
+            | StartsWith "-o:" o | StartsWith "--out:" o ->
+                wsArgs := { !wsArgs with AssemblyFile = o }
+                fscArgs.Add a
+            | StartsWith "-r:" r | StartsWith "--reference:" r ->
+                refs.Add r
+                fscArgs.Add a
+            | "--debug" | "--debug+" | "--debug:full" | "-g" | "-g+" | "-g:full" ->
+                wsArgs := { !wsArgs with IsDebug = true }
+                fscArgs.Add a
+            | StartsWith "--resource:" r ->
+                resources.Add r
+                fscArgs.Add a
+            | StartsWith "--keyfile:" k ->
+                wsArgs := { !wsArgs with KeyFile = Some k }
+            | _ -> 
+                fscArgs.Add a  
+        with e ->
+            failwithf "Parsing argument failed: '%s' - %s" a e.Message
     fscArgs.Add "--define:FSHARP41"
     wsArgs := 
         { !wsArgs with 
@@ -324,18 +293,8 @@ let compileMain argv =
             CompilerArgs = fscArgs.ToArray() 
         }
 
-    let logf x =
-        if (!wsArgs).VSStyleErrors then logf x else Printf.kprintf System.Console.WriteLine x
-    
-#if DEBUG 
-    let exitCode = Compile !wsArgs
-    logf "Stopped at: %A" System.DateTime.Now
-    exitCode       
-#else
     try 
-        let exitCode = Compile !wsArgs
-        logf "Stopped at: %A" System.DateTime.Now
-        exitCode       
+        Compile !wsArgs
     with _ ->
         let intermediaryOutput = (!wsArgs).AssemblyFile
         if File.Exists intermediaryOutput then 
@@ -343,9 +302,6 @@ let compileMain argv =
             if File.Exists failedOutput then File.Delete failedOutput
             File.Move (intermediaryOutput, failedOutput)
         reraise()
-#endif
-
-open Microsoft.FSharp.Compiler.ErrorLogger
 
 let formatArgv (argv: string[]) =
     match argv with
@@ -356,7 +312,6 @@ let formatArgv (argv: string[]) =
 [<EntryPoint>]
 let main(argv) =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
-    use unwindBuildPhase = PushThreadBuildPhaseUntilUnwind (BuildPhase.Parameter)
     
 #if DEBUG
     compileMain (formatArgv argv)

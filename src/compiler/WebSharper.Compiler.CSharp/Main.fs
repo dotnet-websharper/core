@@ -25,6 +25,7 @@ open System.IO
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp  
 open WebSharper.Compiler.ErrorPrinting
+open WebSharper.Compiler.FrontEnd
 
 module M = WebSharper.Core.Metadata
         
@@ -45,8 +46,6 @@ type WebSharperCSharpCompiler(logger) =
     member val UseVerifier = true with get, set
 
     member this.Compile (prevMeta, argv: seq<string>, path: string, warnOnly) =
-
-        let started = System.DateTime.Now
 
         let parsedArgs =
             CSharpCommandLineParser.Default.Parse(
@@ -87,9 +86,7 @@ type WebSharperCSharpCompiler(logger) =
             failwithf "C# compilation resulted in errors: %s" (err.GetMessage())
         | _ -> ()
 
-        let ended = System.DateTime.Now
-        logger <| sprintf "Creating compilation: %A" (ended - started)
-        let started = ended 
+        TimedStage "Creating Roslyn compilation" 
     
         let refMeta =   
             match prevMeta with
@@ -101,9 +98,7 @@ type WebSharperCSharpCompiler(logger) =
                 (WebSharper.Compiler.Compilation(refMeta))
                 compilation
 
-        let ended = System.DateTime.Now
-        logger <| sprintf "Parsing with Roslyn: %A" (ended - started)
-        let started = ended 
+        TimedStage "Parsing with Roslyn"
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
             
@@ -133,8 +128,7 @@ type WebSharperCSharpCompiler(logger) =
                     | None -> ""
                 eprintfn "%s%s%s" pos einfo (NormalizeErrorString (err.ToString()))
 
-        let ended = System.DateTime.Now
-        logger <| sprintf "Transforming: %A" (ended - started)
+        TimedStage "WebSharper translation"
 
         comp
 
