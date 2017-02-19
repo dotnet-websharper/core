@@ -571,8 +571,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 let trBody = body |> transformExpression env
                 trBody |> List.foldBack (fun v e -> lam [v] e (obj.ReferenceEquals(trBody, isUnit) && isUnit body.Type)) vars
         | P.Application(func, types, args) ->
-            match func with
-            | CompGenLambda args.Length (ids, body) ->
+            let compGenCurriedAppl (env: Environment) ids body =
                 let vars, env =
                     (env, ids) ||> List.mapFold (fun env arg ->
                         let v = namedId arg
@@ -580,6 +579,13 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     ) 
                 let inline tr x = transformExpression env x
                 List.foldBack2 (fun i v b -> Let(i, tr v, b)) vars args (tr body)
+            match func with
+            | P.Let((o, objectArg), CompGenLambda args.Length (ids, body)) ->
+                let ov = namedId o
+                let trObjectArg = tr objectArg
+                Let(ov, tr objectArg, compGenCurriedAppl (env.WithVar(ov, o)) ids body)    
+            | CompGenLambda args.Length (ids, body) ->
+                compGenCurriedAppl env ids body   
             | _ ->
             match IgnoreExprSourcePos (tr func) with
             | CallNeedingMoreArgs(thisObj, td, m, ca) ->

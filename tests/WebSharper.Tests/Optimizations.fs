@@ -57,6 +57,15 @@ type TypeWithTupled(f) =
     static member TupledArg f = 
         f (1, 2)
 
+type ICurried =
+    [<Name "C">]
+    abstract Add: int -> int -> int
+
+[<JavaScript>]
+type Curried() =
+    interface ICurried with
+        member this.Add a b = a + b
+
 [<JavaScript>]
 type TypeWithCurried(f) =
     let g = JavaScript.FuncWithArgs(fun (a, b) -> f a b)
@@ -69,6 +78,7 @@ type TypeWithCurried(f) =
 
     static member CurriedArg f = 
         f 1 2
+
 
 [<JavaScript>]
 let Tests =
@@ -96,6 +106,7 @@ let Tests =
         Test "Curried function" {
             equal (GlobalCurried 1 2) 5
             equal (LocalCurried 1 2) 5
+            equal ((Curried() :> ICurried).Add 1 2) 3
         }
 
         Test "Curried function argument" {
