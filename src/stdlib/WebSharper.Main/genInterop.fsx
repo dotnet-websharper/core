@@ -60,12 +60,10 @@ let jsPervasives =
     let inline cprintfn x = Printf.kprintf code.Add x 
 
     for i = 2 to 7 do
+        let t = tArgs i |> String.concat ", "
         cprintfn "    /// Converts an F# Choice value to a JavaScript erased union"
-        cprintfn "    [<Inline>]"
-        cprintfn "    let ofChoice%d x =" i
-        cprintfn "        match x with"
-        for j = 1 to i do
-            cprintfn "        | Choice%dOf%d v -> Union%dOf%d v" j i j i
+        cprintfn "    [<Inline \"$x.$1\">]"
+        cprintfn "    let ofChoice%d (x: Choice<%s>) = X<Union<%s>>" i t t
         cprintfn "    /// Converts a JavaScript erased union to an F# Choice value"
         cprintfn "    [<Inline>]"
         cprintfn "    let toChoice%d x =" i

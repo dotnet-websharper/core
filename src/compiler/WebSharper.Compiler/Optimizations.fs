@@ -115,6 +115,14 @@ let cleanRuntime expr =
             | Object ["$", Value (Int 1); "$0", value] ->
                 ItemSet (obj, field, value) |> WithSourcePosOfExpr expr
             | _ -> expr     
+        | "SetOrDelete", [obj; field; value] ->
+            if isTrivialValue value then
+                match value with
+                | Undefined ->
+                    MutatingUnary(MutatingUnaryOperator.delete, ItemGet(obj, field)) |> WithSourcePosOfExpr expr
+                | _ ->
+                    ItemSet (obj, field, value) |> WithSourcePosOfExpr expr
+            else expr     
         | "NewObject", [NewArray keyValuePairs] ->
             let withConstantKey =
                 keyValuePairs |> List.choose (function 
