@@ -23,7 +23,6 @@
     <StartWorkingDirectory>C:\repo\websharper.csharp\tests\WebSharper.CSharp.Tests</StartWorkingDirectory>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
     <Reference Include="Microsoft.Build.Framework" />
     <Reference Include="Microsoft.Build.Utilities.v4.0" />

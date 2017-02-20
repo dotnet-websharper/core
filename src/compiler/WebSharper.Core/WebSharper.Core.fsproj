@@ -8,7 +8,6 @@
     <Name>WebSharper.Core</Name>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
     <Compile Include="FastInvoke.fsi" />
     <Compile Include="FastInvoke.fs" />
