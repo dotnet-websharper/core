@@ -53,7 +53,7 @@ let ReadFromAssembly options (a: Assembly) =
     a.Raw.MainModule.Resources
     |> Seq.tryPick (function
         | :? Mono.Cecil.EmbeddedResource as r when r.Name = EMBEDDED_METADATA ->
-            try
+//            try
                 use s = r.GetResourceStream()
                 let m = M.IO.Decode s
                 match options with
@@ -62,9 +62,9 @@ let ReadFromAssembly options (a: Assembly) =
                 | DiscardInlineExpressions -> m.DiscardInlineExpressions()
                 | DiscardNotInlineExpressions -> m.DiscardNotInlineExpressions()
                 |> Some
-            with
-            | e ->
-                failwithf "Failed to deserialize metadata for %s. Error: %s" a.FullName e.Message
+//            with
+//            | e ->
+//                failwithf "Failed to deserialize metadata for %s. Error: %s at %s" a.FullName e.Message e.StackTrace
         | _ -> None
     )
 

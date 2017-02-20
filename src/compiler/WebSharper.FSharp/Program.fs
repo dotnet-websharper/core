@@ -72,10 +72,11 @@ let Compile (config : WsConfig) =
     let refErrors = ResizeArray()
     let refMeta =
         let metas = refs |> List.choose (fun r -> 
-            try ReadFromAssembly FullMetadata r
-            with e ->
-                refErrors.Add e.Message
-                None
+//            try 
+                ReadFromAssembly FullMetadata r
+//            with e ->
+//                refErrors.Add e.Message
+//                None
         )
         if refErrors.Count > 0 || List.isEmpty metas then None 
         else

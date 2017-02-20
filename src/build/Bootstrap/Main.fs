@@ -80,7 +80,7 @@ let RestorePackages () =
         nuget "install FSharp.Core -version 3.0.2 -o packages"
         nuget "install FSharp.Core -version 4.0.0.1 -o packages"
         nuget "install sharpcompress -version 0.15.1 -o packages -excludeVersion"
-        nuget "install Mono.Cecil -version 0.9.6.4 -o packages -excludeVersion"
+        nuget "install Mono.Cecil -pre -version 0.10.0-beta2 -o packages -excludeVersion"
         nuget "install AjaxMin -version 5.14.5506.26202 -o packages -excludeVersion"
         nuget "install FsNuGet -o packages -excludeVersion -nocache"
         nuget "install Microsoft.CodeAnalysis.CSharp -version 1.3.2 -o packages -excludeVersion"
