@@ -68,7 +68,7 @@ let Compile (config : WsConfig) =
     
     else    
     let loader = Loader.Create aR (printfn "%s")
-    let refs = [ for r in config.References -> loader.LoadFile(r) ]
+    let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     let refErrors = ResizeArray()
     let refMeta =
         let metas = refs |> List.choose (fun r -> 
@@ -141,52 +141,22 @@ let Compile (config : WsConfig) =
         
     if hasErrors then 1 else
     
-    let jsOpt, res = 
-        CreateResources (Some comp) (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
-            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap thisName
+    let assem = loader.LoadFile config.AssemblyFile
+    let js =
+        ModifyAssembly (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap assem
             
-    compiler.PrintWarnings(comp, config.ProjectFile)
-
     if config.PrintJS then
-        match jsOpt with 
+        match js with 
         | Some js ->
             printfn "%s" js
         | _ -> ()
 
-    match res with
-    | [||] -> ()
-    | res ->
-        let resFolder =
-            let path = Path.Combine(Path.GetDirectoryName(config.AssemblyFile), "WebSharper")
-            Directory.CreateDirectory(path) |> ignore
-            path
+    assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
 
-        let resPaths =
-            [|
-                for name, content in res do
-                    let p = Path.Combine(resFolder, name)
-                    File.WriteAllBytes(p, content)
-                    yield p
-            |]
+    TimedStage "Writing resources into assembly"
 
-        let argsWithRes =
-            [| 
-                yield! config.CompilerArgs
-                for p in resPaths do
-                    yield "--resource:" + p
-                match config.KeyFile with
-                | Some k -> yield "--keyfile:" + k
-                | _ -> ()
-            |]
-
-        TimedStage "Writing resource files"
-
-        let _, exitCode = checker.Compile(argsWithRes) 
-
-        if exitCode <> 0 then 
-            failwith "Error while writing output assembly with WebSharper resources"
-
-        TimedStage "F# compilation with embedded resources"
+    compiler.PrintWarnings(comp, config.ProjectFile)
 
     match config.ProjectType with
     | Some Bundle ->

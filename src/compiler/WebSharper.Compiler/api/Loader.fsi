@@ -31,4 +31,4 @@ type Loader =
     member LoadRaw : byte [] -> option<Symbols> -> Assembly
 
     /// Loads an assembly from a given path.
-    member LoadFile : path: string -> Assembly
+    member LoadFile : path: string * ?loadSymbols: bool -> Assembly
