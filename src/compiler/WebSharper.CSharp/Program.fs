@@ -47,7 +47,7 @@ let Compile config =
             .SearchPaths(paths)
     
     let loader = Loader.Create aR (printfn "%s")
-    let refs = [ for r in config.References -> loader.LoadFile(r) ]
+    let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     let refErrors = ResizeArray()
     let refMeta =
         let metas = refs |> List.choose (fun r -> 

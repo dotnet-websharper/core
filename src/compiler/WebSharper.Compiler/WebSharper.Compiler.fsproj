@@ -8,7 +8,7 @@
     <FSharpTool>True</FSharpTool>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/Mono.Cecil.targets" />
+  <Import Project="../../../msbuild/Mono.Cecil.Roslyn.targets" />
   <ItemGroup>
     <Compile Include="Abbreviations.fs" />
     <Compile Include="AssemblyResolution.fsi" />

@@ -79,18 +79,23 @@ type Loader(aR: AssemblyResolver, log: string -> unit) =
     member this.LoadRaw(bytes)(symbols) =
         load None bytes symbols aR
 
-    member this.LoadFile(path: string) =
+    member this.LoadFile(path: string, ?loadSymbols) =
+        let loadSymbols = defaultArg loadSymbols true
         let bytes = File.ReadAllBytes path
         let p ext = Path.ChangeExtension(path, ext)
         let ex x = File.Exists(p x)
         let rd x = File.ReadAllBytes(p x)
         let symbolsPath =
-            if ex ".pdb" then Some (p ".pdb")
-            elif ex ".mdb" then Some (p ".mdb")
+            if loadSymbols then
+                if ex ".pdb" then Some (p ".pdb")
+                elif ex ".mdb" then Some (p ".mdb")
+                else None
             else None
         let symbols =
-            if ex ".pdb" then Some (Pdb (rd ".pdb"))
-            elif ex ".mdb" then Some (Mdb (rd ".mdb"))
+            if loadSymbols then
+                if ex ".pdb" then Some (Pdb (rd ".pdb"))
+                elif ex ".mdb" then Some (Mdb (rd ".mdb"))
+                else None
             else None
         let aR = aR.SearchPaths [path]
         let fP = Some (Path.GetFullPath path)

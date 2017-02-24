@@ -24,13 +24,16 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Reference Include="Mono.Cecil">
-      <HintPath>$(MSBuildThisFileDirectory)/../packages/Mono.Cecil/lib/net40/Mono.Cecil.dll</HintPath>
+	  <HintPath>$(MSBuildThisFileDirectory)/../packages/Mono.Cecil/lib/net40/Mono.Cecil.dll</HintPath>
+	  <Private>True</Private>
     </Reference>
     <Reference Include="Mono.Cecil.Mdb">
       <HintPath>$(MSBuildThisFileDirectory)/../packages/Mono.Cecil/lib/net40/Mono.Cecil.Mdb.dll</HintPath>
+	  <Private>True</Private>
     </Reference>
     <Reference Include="Mono.Cecil.Pdb">
       <HintPath>$(MSBuildThisFileDirectory)/../packages/Mono.Cecil/lib/net40/Mono.Cecil.Pdb.dll</HintPath>
+	  <Private>True</Private>
     </Reference>
   </ItemGroup>
 </Project>

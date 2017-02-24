@@ -9,7 +9,7 @@
     <CSharpTool>True</CSharpTool>
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/Mono.Cecil.targets" />
+  <Import Project="../../../msbuild/Mono.Cecil.Roslyn.targets" />
   <ItemGroup>
     <Compile Include="Program.fs" />
     <Content Include="App.config">
