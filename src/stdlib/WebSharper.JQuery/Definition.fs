@@ -52,6 +52,24 @@ module Definition =
             "which" =? T<int>
             "timeStamp" =? T<int>
             "type" =? T<string>
+            "altKey" =? T<bool>
+            "bubbles" =? T<bool>
+            "button" =? T<int>
+            "cancelable" =? T<bool>
+            "char" =? T<char>
+            "charCode" =? T<int>
+            "clientX" =? T<int>
+            "clientY" =? T<int>
+            "ctrlKey" =? T<bool>
+            "detail" =? T<obj>
+            "eventPhase" =? T<int>
+            "offsetX" =? T<int>
+            "offsetY" =? T<int>
+            "originalTarget" =? T<Dom.Element>
+            "screenX" =? T<int>
+            "screenY" =? T<int>
+            "shiftKey" =? T<bool>
+            "view" =? T<obj>
         ]
 
     let Error =
@@ -59,6 +77,14 @@ module Definition =
     
     let Promise =
         Class "Promise"
+        |+> Instance [
+            "always" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
+            "done" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
+            "fail" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
+            "progress" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
+            "state" => T<unit -> string>
+            "then" => T<unit -> unit> * !? T<unit -> unit> * !? T<unit -> unit> ^-> TSelf
+        ]
 
     let DeferredState = 
         "pending resolved rejected".Split(' ')
@@ -242,10 +268,36 @@ module Definition =
             "ignore" =? T<unit>
             |> WithGetterInline "$this"
 
+            // Removed
+            // Error
+            "error" => EH?handler ^-> JQ
+            |> WithComment "Bind an event handler to the \"error\" JavaScript event."
+            |> WithInline "on(\"error\", $handler)"
+
+            // Error
+            "error" => T<Object<string>>?data * EH?handler ^-> JQ
+            |> WithComment "Bind an event handler to the \"error\" JavaScript event."
+            |> WithInline "on(\"error\", $handler)"
+
             // Deprecated
-            "bind" => T<string> * !?T<obj> * EH ^-> TSelf |> Obsolete
-            "bind" => T<string> * !?T<obj> * !?T<bool> ^-> TSelf |> Obsolete
+            "bind" => T<string> * !?T<Object<string>> * EH ^-> TSelf |> Obsolete
+            "bind" => T<string> * !?T<Object<string>> * !?T<bool> ^-> TSelf |> Obsolete
             "bind" => T<obj> ^-> TSelf |> Obsolete
+            "bindFalse" => T<string>?event * T<Object<string>>?eventData ^-> JQ
+            |> WithInline "$this.bind($event, $eventData, false)"
+            |> Obsolete
+            "delegate" => T<string>?selector * Event?eventType * !?T<Object<string>>?eventData * EH?handler ^-> JQ
+            |> WithComment "Attach a handler to one or more events for all elements that match the selector, now or in the future, based on a specific set of root elements."
+            |> Obsolete
+            "unbind" => T<unit> ^-> JQ |> Obsolete
+            "unbind" => Event ^-> JQ |> Obsolete
+            "unbind" => T<string> * !?EH ^-> JQ |> Obsolete
+            "unbindFalse" => T<string>?event * T<Object<string>>?eventData ^-> JQ 
+            |> WithComment "Attach a handler to an event for the elements."
+            |> WithInline "$this.bind($event, $eventData, false)"
+            |> Obsolete
+            "undelegate" => T<unit> ^-> JQ |> Obsolete
+            "undelegate" => T<string> * T<string> * !?EH ^-> JQ |> Obsolete
 
             // Ajax related instance methods
             "ajaxComplete" => AjaxHandler ^-> TSelf
@@ -270,7 +322,7 @@ module Definition =
             "html" => T<string> ^-> TSelf
             "html" => (T<int> * T<string> ^-> T<string>) ^-> TSelf
             Generic - fun t -> "prop" => T<string> ^-> t
-            "prop" => T<string> * T<obj> ^-> TSelf
+            Generic - fun t -> "prop" => T<string> * t ^-> TSelf
             "prop" => T<obj> ^-> TSelf
             "prop" => T<string> * (T<int> * T<obj> ^-> T<obj>) ^-> TSelf
             "removeAttr" => T<string> ^-> TSelf
@@ -280,11 +332,12 @@ module Definition =
             "toggleClass" => T<string> ^-> TSelf
             "toggleClass" => T<string> * T<bool> ^-> TSelf
             "toggleClass" => (T<int> * T<string> * T<bool> ^-> T<string>) * !?T<bool> ^-> TSelf
-            "val" => T<unit> ^-> (T<string> + T<float> + T<obj []>)
+            "val" => T<unit> ^-> T<obj>
             "val" => (T<string> + T<float> + T<obj []>) ^-> TSelf
             "val" => (T<int> * T<string> ^-> T<string>) ^-> TSelf
 
             // CSS related instance methods
+            "css" => T<unit> ^-> T<string>
             "css" => (T<string> + T<string []>) ^-> T<string>
             "css" => T<string> * T<string> ^-> TSelf
             "css" => T<string> * (T<int> * T<string> ^-> T<string>) ^-> TSelf
@@ -322,7 +375,7 @@ module Definition =
             "data" => T<string> * T<obj> ^-> TSelf
             "data" => T<obj> ^-> TSelf
             "data" => T<string> ^-> T<obj>
-            "data" => T<obj>
+            "data" => T<unit> ^-> T<obj>
             "queue" => !?T<string> ^-> T<obj []>
             "queue" => !?T<string> * (T<obj []> + ((T<unit> ^-> T<unit>) ^-> T<unit>)) ^-> TSelf
             "removeData" => (T<string> + T<string []>) ^-> TSelf
@@ -332,32 +385,44 @@ module Definition =
 
             // Effects
             "animate" => T<Object<string>>?properties * AnimateSettings?options ^-> TSelf
-            "animate" => T<Object<string>>?properties * T<int>?duration ^-> TSelf
-            "animate" => T<Object<string>>?properties * T<int>?duration * T<string>?easing ^-> TSelf
-            "animate" => T<Object<string>>?properties * T<int>?duration * T<string>?easing * (T<unit> ^-> T<unit>)?complete ^-> TSelf
+            "animate" => T<Object<string>>?properties * (T<int> + T<string>)?duration ^-> TSelf
+            "animate" => T<Object<string>>?properties * (T<int> + T<string>)?duration * T<string>?easing ^-> TSelf
+            "animate" => T<Object<string>>?properties * (T<int> + T<string>)?duration * (T<unit> ^-> T<unit>)?complete ^-> TSelf
+            "animate" => T<Object<string>>?properties * (T<int> + T<string>)?duration * T<string>?easing * (T<unit> ^-> T<unit>)?complete ^-> TSelf
             "delay" => T<int>?duration * !?T<string>?queuename ^-> TSelf
             "fadeIn" => AnimateSettings ^-> TSelf
-            "fadeIn" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "fadeIn" => !?(T<int> + T<string>) * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "fadeIn" => (T<int> + T<string>) * T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "fadeOut" => AnimateSettings ^-> TSelf
-            "fadeOut" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
-            "fadeTo" => (T<int> + T<string>) * T<int> * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "fadeOut" => !?(T<int> + T<string>) * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "fadeOut" => (T<int> + T<string>) * T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "fadeTo" => (T<int> + T<string>) * T<int> * T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "fadeTo" => (T<int> + T<string>) * T<int> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "fadeToggle" => AnimateSettings ^-> TSelf
-            "fadeToggle" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "fadeToggle" => !?(T<int> + T<string>) * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "fadeToggle" => (T<int> + T<string>) * T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "finish" => !?T<string> ^-> TSelf
+            "hide" => (T<int> + T<string>) * (T<unit> ^-> T<unit>) ^-> TSelf
             "hide" => AnimateSettings ^-> TSelf
             "hide" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "show" => AnimateSettings ^-> TSelf
+            "show" => (T<int> + T<string>) * (T<unit> ^-> T<unit>) ^-> TSelf
             "show" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "slideDown" => AnimateSettings ^-> TSelf
-            "slideDown" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "slideDown" => !?(T<int> + T<string>) * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "slideDown" => (T<int> + T<string>) * T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "slideToggle" => AnimateSettings ^-> TSelf
-            "slideToggle" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "slideToggle" => !?(T<int> + T<string>) * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "slideToggle" => (T<int> + T<string>) * T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
             "slideUp" => AnimateSettings ^-> TSelf
-            "slideUp" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
-            "stop" => !?T<string> * !?T<bool> * !?T<bool> ^-> TSelf
+            "slideUp" => !?(T<int> + T<string>) * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "slideUp" => (T<int> + T<string>) * T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "stop" => !?T<bool> * !?T<bool> ^-> TSelf
+            "stop" => T<string> * !?T<bool> * !?T<bool> ^-> TSelf
             "toggle" => T<bool> ^-> TSelf
             "toggle" => AnimateSettings ^-> TSelf
-            "toggle" => !?(T<int> + T<string>) * !?T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "toggle" => !?(T<int> + T<string>) * !?(T<unit> ^-> T<unit>) ^-> TSelf
+            "toggle" => (T<int> + T<string>) * T<string> * !?(T<unit> ^-> T<unit>) ^-> TSelf
 
             // Events
             "blur" => !?T<obj> * EH ^-> TSelf
@@ -384,6 +449,10 @@ module Definition =
             "keypress" => T<unit> ^-> TSelf
             "keyup" => !?T<obj> * EH ^-> TSelf
             "keyup" => T<unit> ^-> TSelf
+            "load" => EH?eventHandler ^-> TSelf
+            |> WithInline "on(\"load\", $eventHandler)"
+            "unload" => EH?eventHandler ^-> TSelf
+            |> WithInline "on(\"unload\", $eventHandler)"
             "mousedown" => !?T<obj> * EH ^-> TSelf
             "mousedown" => T<unit> ^-> TSelf
             "mouseenter" => !?T<obj> * EH ^-> TSelf
@@ -400,7 +469,7 @@ module Definition =
             "mouseup" => T<unit> ^-> TSelf
             "off" => T<unit> ^-> TSelf
             "off" => T<string> * !?T<string> * !?EH ^-> TSelf
-            "off" => T<obj> * !?T<string> ^-> TSelf
+            "off" => T<Object<_>>.[EH] * !?T<string> ^-> TSelf
             "off" => Event ^-> TSelf
             "on" => T<string> * !?T<string> * !?T<obj> * EH ^-> TSelf
             "on" => T<Object<_>>.[EH] * !?T<string> * !?T<obj> ^-> TSelf
@@ -413,6 +482,8 @@ module Definition =
             "scroll" => T<unit> ^-> TSelf
             "select" => !?T<obj> * EH ^-> TSelf
             "select" => T<unit> ^-> TSelf
+            "size" => T<unit> ^-> T<int>
+            |> WithInline "length"
             "submit" => !?T<obj> * EH ^-> TSelf
             "submit" => T<unit> ^-> TSelf
             "trigger" => T<string> * !?(Type.ArrayOf T<obj>) ^-> TSelf
@@ -428,7 +499,7 @@ module Definition =
             "after" => Func ^-> TSelf
             "after" => FuncWithHTML ^-> TSelf
             "append" => Content *+ T<obj> ^-> TSelf
-            "append" => Func ^-> TSelf
+            "append" => FuncWithHTML ^-> TSelf
             "appendTo" => Content ^-> TSelf
             "before" => Content *+ T<obj> ^-> TSelf
             "before" => Func ^-> TSelf
@@ -475,7 +546,7 @@ module Definition =
             "length" =? T<int>
 
             // Traversing
-            "add" => T<string> + T<Dom.Node> + TSelf ^-> TSelf
+            "add" => T<string> + T<Dom.Node> + Type.ArrayOf T<Dom.Node> + TSelf ^-> TSelf
             "add" => T<string> * T<Dom.Node> ^-> TSelf
             "addBack" => !?T<string> ^-> TSelf
             "children" => !?T<string> ^-> TSelf
@@ -499,7 +570,7 @@ module Definition =
             "is" => T<Dom.Node> ^-> T<bool>
             "is" => TSelf ^-> T<bool>
             "last" => T<unit> ^-> TSelf
-            "map" => (T<int> * T<Dom.Element> ^-> T<obj>) ^-> TSelf
+            Generic - (fun t  -> Method "map" ((T<int> * T<Dom.Element> ^-> t) ^-> TSelf))
             "next" => !?T<string> ^-> TSelf
             "nextAll" => !?T<string> ^-> TSelf
             "nextUntil" => T<unit> ^-> TSelf
