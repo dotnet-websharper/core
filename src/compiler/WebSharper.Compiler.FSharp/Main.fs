@@ -77,7 +77,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
                 | None -> ""
             eprintfn "%s%s%s" pos winfo (NormalizeErrorString (err.ToString()))
 
-    member this.Compile (prevMeta, argv, path: string, warnOnly) = 
+    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv, path: string, warnOnly) = 
 
         let projectOptions =
             try
@@ -91,6 +91,15 @@ type WebSharperFSharpCompiler(logger, ?checker) =
             |> Async.RunSynchronously
 
         TimedStage "Checking project"
+
+        prevMeta.Wait()
+
+        let refMeta = 
+            match prevMeta.Result with
+            | Some r -> r
+            | _ -> failwith "Error reading referenced metadata"
+
+        TimedStage "Waiting on merged metadata"
 
         let projDir = Path.GetDirectoryName path
 
@@ -121,11 +130,6 @@ type WebSharperFSharpCompiler(logger, ?checker) =
                     comp.AddError(None, WebSharper.Compiler.SourceError (pos + err.Message))
             comp
         else
-
-        let refMeta =   
-            match prevMeta with
-            | None -> M.Info.Empty
-            | Some dep -> dep  
         
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly

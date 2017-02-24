@@ -69,33 +69,28 @@ let Compile (config : WsConfig) =
     else    
     let loader = Loader.Create aR (printfn "%s")
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
-    let refErrors = ResizeArray()
     let refMeta =
-        let metas = refs |> List.choose (fun r -> 
-            try ReadFromAssembly FullMetadata r
-            with e ->
-                refErrors.Add e.Message
-                None
+        System.Threading.Tasks.Task.Run(fun () ->
+            let mutable refErrors = false
+            let metas = refs |> List.choose (fun r -> 
+                try ReadFromAssembly FullMetadata r
+                with e ->
+                    eprintfn "WebSharper error %s" e.Message
+                    None
+            )
+            if refErrors then None
+            elif List.isEmpty metas then Some WebSharper.Core.Metadata.Info.Empty 
+            else
+                try
+                    Some { 
+                        WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
+                            Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
+                    }
+                with e ->
+                    eprintfn "WebSharper error Error merging WebSharper metadata: %s" e.Message
+                    None
         )
-        if refErrors.Count > 0 || List.isEmpty metas then None 
-        else
-            try
-                Some { 
-                    WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
-                        Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
-                }
-            with e ->
-                refErrors.Add <| "Error merging WebSharper metadata: " + e.Message
-                None
-
-    TimedStage "Loading referenced metadata"
     
-    if refErrors.Count > 0 then
-        for err in refErrors do 
-            eprintfn "WebSharper error %s" err
-        1
-    else
-
     let referencedAsmNames =
         paths
         |> Seq.map (fun i -> 
@@ -143,7 +138,7 @@ let Compile (config : WsConfig) =
     
     let assem = loader.LoadFile config.AssemblyFile
     let js =
-        ModifyAssembly (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+        ModifyAssembly (match refMeta.Result with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
             (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap assem
             
     if config.PrintJS then
