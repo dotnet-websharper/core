@@ -134,6 +134,9 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
             c.BaseClass
             |> Option.iter (fun bT ->
                 deps.Connect self (M.TypeNode bT.DeclaringType))
+            t.ReflectorType.Fields
+            |> List.iter (fun f -> 
+                deps.Connect self (M.TypeNode (Adapter.AdaptTypeDefinition f.Definition.FieldType)))
             List.iter (visitConstructor self) c.Constructors
             List.iter (visitMethod self) t.Methods
             List.iter (visitProperty self) t.Properties
@@ -141,6 +144,9 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
             info.AddRecord t.Reference [for (o, j, _) in c.FieldRenames -> (o, j)]
         | V.Resource -> ()
         | V.Exception ->
+            t.ReflectorType.Fields
+            |> List.iter (fun f -> 
+                deps.Connect self (M.TypeNode (Adapter.AdaptTypeDefinition f.Definition.FieldType)))
             List.iter (visitMethod self) t.Methods
             List.iter (visitProperty self) t.Properties
         | V.Interface ->
@@ -158,9 +164,16 @@ let Analyze (metas: list<M.AssemblyInfo>) (assembly: V.Assembly) =
             List.iter (visitType assem self) nested
         | V.Record fields ->
             info.AddRecord t.Reference [for f in fields -> (f.OriginalName, f.JavaScriptName)]
+            fields
+            |> List.iter (fun f -> 
+                deps.Connect self (M.TypeNode (Adapter.AdaptTypeDefinition f.PropertyType)))
             List.iter (visitMethod self) t.Methods
             List.iter (visitProperty self) t.Properties
         | V.Union cases ->
+            cases
+            |> List.collect (fun c -> c.Definition.Parameters)
+            |> List.iter (fun p ->
+                deps.Connect self (M.TypeNode (Adapter.AdaptTypeDefinition p.ParameterType)))
             List.iter (visitMethod self) t.Methods
             List.iter (visitProperty self) t.Properties
     let self = M.AssemblyNode (assembly.Name, assembly.Mode)
