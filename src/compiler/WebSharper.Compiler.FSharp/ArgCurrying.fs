@@ -145,6 +145,7 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
     inherit Transformer()
 
     let cargs = dict al
+    let mutable noHoleLets = true
          
     override this.TransformVar(v) =
         match cargs.TryGetValue v with
@@ -153,13 +154,16 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
         | _ -> Var v
     
     override this.TransformHole(i) =
-        // only real arguments of instance methods was analyzed
-        let j = if isInstance then i - 1 else i
-        if j = -1 then Hole 0 else
-        match al.[j] with
-        | _, (CurriedFuncArg _ | TupledFuncArg _ as opt) ->
-            OptimizedFSharpArg(Hole i, opt)
-        | _ -> Hole i
+        // only want this for holes that was optimized so that there is no let
+        if noHoleLets then
+            // only real arguments of instance methods was analyzed
+            let j = if isInstance then i - 1 else i
+            if j = -1 then Hole 0 else
+            match al.[j] with
+            | _, (CurriedFuncArg _ | TupledFuncArg _ as opt) ->
+                OptimizedFSharpArg(Hole i, opt)
+            | _ -> Hole i
+        else Hole i
 
     override this.TransformCurriedApplication(func, args: Expression list) =
         match func with
@@ -192,6 +196,12 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
                     failwith "tupled function applied with multiple arguments"    
             | _ -> normal()    
         | _ -> normal()
+
+    member this.TransformBody e =
+        match e with
+        | Let (_, Hole _, _) -> noHoleLets <- false 
+        | _ -> ()
+        this.TransformExpression e
     
 type ResolveFuncArgs(comp: Compilation) =
     let members = Dictionary<Member, NotResolvedMethod * Id list * bool>()
@@ -291,8 +301,4 @@ type ResolveFuncArgs(comp: Compilation) =
             let cs = rArgs.[mem]
             nr.FuncArgs <- Some cs
             let tr = FuncArgTransformer(List.zip args cs, isInstance)
-            try
-                nr.Body <- tr.TransformExpression(nr.Body)
-            with e ->
-                failwithf "Error while optimizing function arguments of %A: args.Length=%d Error: %s at %s"
-                    mem args.Length e.Message e.StackTrace
+            nr.Body <- tr.TransformBody(nr.Body)

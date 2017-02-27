@@ -560,12 +560,17 @@ let Tests =
             let g a b c d e = a + b + c + d + e
             equal ("a" |> g "a" "a" "a" "a") "aaaaa"
             equal ("b" |> g "b" "b" "b" "b") "bbbbb"
+            equal ("a" |> Bug590.Curried5 "a" "a" "a" "a") "aaaaa"
+            equal ("b" |> Bug590.Curried5 "b" "b" "b" "b") "bbbbb"
             let h = Bug590.Curried5
             equal (h "a" "a" "a" "a" "a") "aaaaa"
             equal (h "b" "b" "b" "b" "b") "bbbbb"
             let i = Bug590.Curried5 "x"
             equal ("a" |> i "a" "a" "a") "xaaaa"
             equal ("b" |> i "b" "b" "b") "xbbbb"
+            let j = Bug590.Curried5 "x" "y"
+            equal ("a" |> j "a" "a") "xyaaa"
+            equal ("b" |> j "b" "b") "xybbb"
         }
 
         Test "Bug #625: Inlined ignore" {

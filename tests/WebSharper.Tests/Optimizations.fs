@@ -79,6 +79,11 @@ type TypeWithCurried(f) =
     static member CurriedArg f = 
         f 1 2
 
+[<JavaScript>]
+let CurriedArg2 v a x = v x a
+
+[<Inline>]
+let InlinedCurriedArg v a x = v x a
 
 [<JavaScript>]
 let Tests =
@@ -121,6 +126,18 @@ let Tests =
         Test "Curried method" {
             equal (TypeWithCurried(fun a b -> 0).Other 1 2 (fun a b -> a + 2 * b)) 5
             equal (TypeWithCurried(fun a b -> 0).OtherU(1, 2, (fun a b -> a + 2 * b))) 5
+        }
+
+        Test "Passing around argument" {
+            let f = CurriedArg2 GlobalCurried 1
+            equal (f 0) 2
+            equal (f 5) 7            
+        }
+
+        Test "Inline curried function argument" {
+            let f = InlinedCurriedArg GlobalCurried 1
+            equal (f 0) 2
+            equal (f 5) 7
         }
     }
 

@@ -257,11 +257,6 @@ let rec removeLets expr =
     | _ -> expr
 
 let optimize expr =
-
-    let sameVars vars args =
-        args |> List.forall (function I.Var _ -> true | _ -> false)
-        && vars = (args |> List.map (function I.Var v -> v | _ -> failwith "impossible")) 
-
     match expr with
     | Function (vars, I.Return (I.Application (f, args, _, Some i)))
         when List.length args = i && sameVars vars args && VarsNotUsed(vars).Get(f) ->

@@ -301,6 +301,10 @@ let varEvalOrder (vars : Id list) expr =
     eval expr
     ok && List.isEmpty vars   
 
+let sameVars vars args =
+    args |> List.forall (function I.Var _ -> true | _ -> false)
+    && vars = (args |> List.map (function I.Var v -> v | _ -> failwith "impossible")) 
+
 /// Counts the number of occurrences of a single Id within an
 /// expression or statement. Useful for Let optimization.
 type CountVarOccurence(v) =

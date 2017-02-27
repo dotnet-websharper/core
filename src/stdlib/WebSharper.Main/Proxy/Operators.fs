@@ -74,21 +74,23 @@ let ( / ) (x: 'T1) (y: 'T2) = X<'T3>
 [<Inline "void ($a[0] = $b)">]
 let ( := ) (a: ref<'T>) (b: 'T) = X<unit>
 
-[<Inline "function (x) { return $f($g(x)); }">]
-let ( << ) (f: 'T1 -> 'T2) (g: 'T3 -> 'T1) = X<'T3 -> 'T2>
+[<Inline>]
+let ( << ) (f: 'T1 -> 'T2) (g: 'T3 -> 'T1) : 'T3 -> 'T2 = 
+    ()
+    fun x -> f (g x)
 
 [<Inline "$a << $b">]
 let inline ( <<< ) (a: 'T) (b: int) = X<'T>
 
-[<Inline "$f($x)">]
-let ( <| ) (f: 'T -> 'TR) (x: 'T) = X<'TR>
+[<Inline>]
+let ( <| ) (f: 'T -> 'TR) (x: 'T) : 'TR = f x
 
-[<Inline "$f($x)($y)">]
-let ( <|| ) (f: 'T1 -> 'T2 -> 'TR) (x: 'T1, y: 'T2) = X<'TR>
+[<Inline>]
+let ( <|| ) (f: 'T1 -> 'T2 -> 'TR) (x: 'T1, y: 'T2) : 'TR = f x y
 
-[<Inline "$f($x)($y)($z)">]
+[<Inline>]
 let ( <||| ) (f: 'T1 -> 'T2 -> 'T3 -> 'TR)
-             (x: 'T1, y: 'T2, z: 'T3) = X<'TR>
+             (x: 'T1, y: 'T2, z: 'T3) : 'TR = f x y z
 
 [<Macro(typeof<M.EQ>)>]
 let ( = ) (a: 'T) (b: 'T) = X<bool>
@@ -108,8 +110,10 @@ let ( <= ) (a: 'T) (b: 'T) = X<bool>
 [<Macro(typeof<M.GE>)>]
 let ( >= ) (a: 'T) (b: 'T) = X<bool>
 
-[<Inline "function (x) {return $g($f(x))}">]
-let ( >> ) (f: 'T1 -> 'T2) (g: 'T2 -> 'T3) = X<'T1->'T3>
+[<Inline>]
+let ( >> ) (f: 'T1 -> 'T2) (g: 'T2 -> 'T3): 'T1->'T3 = 
+    ()
+    fun x -> g (f x)
 
 [<Inline "$a >> $b">]
 let inline ( >>> ) (a: 'T) (b: int) : 'T = a >>> b
@@ -123,20 +127,18 @@ let ( ^ ) (a: string) (b: string) : string = a + b
 [<Inline "$a ^ $b">]
 let ( ^^^ ) (a: 'T) (b: 'T) = X<'T>
 
-[<Inline "$f($x)">]
-[<Name "pipe">]
-let ( |> ) (x: 'T1) (f: 'T1 -> 'T2) = X<'T2>
+[<Inline>]
+let ( |> ) (x: 'T1) (f: 'T1 -> 'T2) : 'T2 = f x
 
-[<Inline "$f($x)($y)">]
-[<Name "pipe2">]
-let ( ||> ) (x: 'T1, y: 'T2) (f: 'T1 -> 'T2 -> 'TR) = X<'TR>
+[<Inline>]
+let ( ||> ) (x: 'T1, y: 'T2) (f: 'T1 -> 'T2 -> 'TR) : 'TR = f x y
 
 [<Inline "$a | $b">]
 let ( ||| ) (a: 'T) (b: 'T) = X<'T>
 
-[<Inline "$f($x)($y)($z)">]
+[<Inline>]
 let ( |||> ) (x: 'T1, y: 'T2, z: 'T3)
-             (f: 'T1 -> 'T2 -> 'T3 -> 'TR) = X<'TR>
+             (f: 'T1 -> 'T2 -> 'T3 -> 'TR) : 'TR = f x y z
 
 [<Inline "+ $x">]
 let ( ~+ ) (x: 'T) = X<'T>

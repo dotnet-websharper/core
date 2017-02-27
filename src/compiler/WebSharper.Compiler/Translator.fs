@@ -26,7 +26,7 @@ open WebSharper.Core.AST
 open WebSharper.Compiler
 
 module M = WebSharper.Core.Metadata
-
+module I = WebSharper.Core.AST.IgnoreSourcePos
 
 /// Debug-only checker for invalid forms after transformation to have localized error.
 /// Otherwise error is thrown when writing to JavaScript after packaging.
@@ -92,10 +92,23 @@ type CollectCurried() =
     override this.TransformFunction(args, body) =
         match Function(args, body) with
         | CurriedFunction(a, b) ->
-            match a.Length with
-            | 2 -> JSRuntime.Curried2 (base.TransformFunction(a, b)) 
-            | 3 -> JSRuntime.Curried3 (base.TransformFunction(a, b)) 
-            | n -> JSRuntime.Curried (base.TransformFunction(a, b)) n
+            let trFunc, moreArgs, n =
+                match b with
+                | I.Return (I.Application (f, ar, _, _)) ->
+                    let moreArgsLength = ar.Length - a.Length
+                    if moreArgsLength >= 0 then
+                        let moreArgs, lastArgs = ar |> List.splitAt moreArgsLength
+                        if sameVars a lastArgs then
+                            this.TransformExpression f, moreArgs, ar.Length
+                        else base.TransformFunction(a, b), [], a.Length
+                    else base.TransformFunction(a, b), [], a.Length
+                | _ -> base.TransformFunction(a, b), [], a.Length
+            let curr =
+                match n with
+                | 2 -> JSRuntime.Curried2 trFunc 
+                | 3 -> JSRuntime.Curried3 trFunc 
+                | _ -> JSRuntime.Curried trFunc n
+            List.fold (fun f x -> Application(f, [this.TransformExpression x], false, Some 1)) curr moreArgs
         | _ -> base.TransformFunction(args, body)   
    
 let collectCurried = CollectCurried() 
@@ -571,33 +584,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ ->
             this.TransformExpression(f)
 
-    member this.TransformArgument(expr) =
-        match IgnoreExprSourcePos expr with
-        | OptimizedFSharpArg(_, (CurriedFuncArg _ | TupledFuncArg _)) -> expr
-        | _ -> this.TransformExpression expr
-
-//    override this.TransformCurriedFuncVar(v, currying) =
-//        let args = ResizeArray()
-//        let rec c currying =
-//            match currying with
-//            | h :: t ->
-//                match h with
-//                | 0 ->
-//                    Lambda ([], c t)
-//                | 1 ->
-//                    let v = Id.New(mut = false)
-//                    args.Add (Var v)
-//                    Lambda ([v], c t)
-//                | _ ->
-//                    let v = Id.New(mut = false)
-//                    for i = 0 to h - 1 do
-//                        args.Add ((Var v).[Value (Int i)])
-//                    Lambda ([v], c t)
-//            | [] -> Application (Var v, List.ofSeq args, false, Some args.Count)
-//        let res = c currying
-//        printfn "curried %A: %s" currying (Debug.PrintExpression res)
-//        res 
-
     member this.HandleMacroNeedsResolvedTypeArg(t, macroName) =
         match t with
         | TypeParameter i 
@@ -621,10 +607,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match opts.FuncArgs with
             | Some ca ->
                 (ca, ta) ||> Seq.map2 (fun ao expr ->
-                    this.OptimizeArg(ao, expr) |> this.TransformArgument
+                    this.OptimizeArg(ao, expr) |> this.TransformExpression
                 )
                 |> List.ofSeq   
-            | _ -> ta |> List.map this.TransformArgument
+            | _ -> ta |> List.map this.TransformExpression
                         
         match info with
         | M.Instance name ->
@@ -641,11 +627,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | M.Static address ->
             Application(GlobalAccess address, trArgs(), opts.IsPure, Some meth.Entity.Value.Parameters.Length)
         | M.Inline ->
-            let res = Substitution(trArgs(), ?thisObj = trThisObj).TransformExpression(expr)
-//            if opts.FuncArgs.IsSome then
-//                printfn "func arg inline: %s" (Debug.PrintExpression expr)
-//                printfn "func arg inline result: %s" (Debug.PrintExpression res)
-            res
+            Substitution(trArgs(), ?thisObj = trThisObj).TransformExpression(expr)
         | M.NotCompiledInline ->
             let ge =
                 if not (List.isEmpty typ.Generics && List.isEmpty meth.Generics) then
@@ -865,10 +847,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match opts.FuncArgs with
             | Some ca ->
                 (ca, args) ||> Seq.map2 (fun ao expr ->
-                    this.OptimizeArg(ao, expr) |> this.TransformArgument
+                    this.OptimizeArg(ao, expr) |> this.TransformExpression
                 )
                 |> List.ofSeq   
-            | _ -> args |> List.map this.TransformArgument
+            | _ -> args |> List.map this.TransformExpression
         match info with
         | M.Constructor address ->
             New(GlobalAccess address, trArgs())

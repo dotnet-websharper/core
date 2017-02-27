@@ -66,6 +66,12 @@ let private tailRecSingle n =
         if n > 0 then f (n - 1) else 0
     f n
 
+[<Inline>]
+let private tailRecSingleInline n =
+    let rec f n =
+        if n > 0 then f (n - 1) else 0
+    f n
+
 [<JavaScript>]
 let tailRecScoping n =
     let rec f acc n =
@@ -255,30 +261,35 @@ let Tests =
             fun () -> a
 
         Test "Let" {
-            equalMsg [] (closedLet()) "[] = closedLet"
+            equalMsg (closedLet()) [] "[] = closedLet"
         }
 
         Test "Factorial" {
-            equalMsg (6 * 5 * 4 * 3 * 2) (fac 6)       "fac 6"
-            equalMsg (6 * 5 * 4 * 3 * 2) (factorial 6) "factorial 6"
+            equalMsg (fac 6) (6 * 5 * 4 * 3 * 2) "fac 6"
+            equalMsg (factorial 6) (6 * 5 * 4 * 3 * 2) "factorial 6"
         }
 
         Test "Tail calls" {
-            equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialCurried 6) "curried tail call"
-            equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialCurried2 6) "curried tail call with function"
-            equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialTupled 6) "tupled tail call"
-            equalMsg 0 (tailRecSingle 5) "single let rec"
-            equalMsg [1; 2; 3; 4; 5] (tailRecScoping 5 |> List.map (fun f -> f())) "scoping while tail call optimizing"
-            equalMsg [ 1; 2; 3 ] (tailRecWithMatch [ 3; 2; 1 ]) "single let rec with non-inlined match expression"
-            equalMsg 1 (tailRecMultiple 5) "mutually recursive let rec"
-            equalMsg 1 (tailRecWithValue 5) "mutually recursive let rec with a function and a value"
-            equalMsg 1 (tailRecMultipleWithValue 5) "mutually recursive let rec with two functions and a value"
-            equalMsg 0 (moduleTailRecSingle 5) "single let rec in module"
-            equalMsg 1 (moduleTailRecMultiple1 5) "mutually recursive let rec in module 1"
-            equalMsg 0 (moduleTailRecMultiple2 5) "mutually recursive let rec in module 2"
+            equalMsg (tailRecFactorialCurried 6) (6 * 5 * 4 * 3 * 2) "curried tail call"
+            equalMsg (tailRecFactorialCurried2 6) (6 * 5 * 4 * 3 * 2) "curried tail call with function"
+            equalMsg (tailRecFactorialTupled 6) (6 * 5 * 4 * 3 * 2) "tupled tail call"
+            equalMsg (tailRecSingle 5) 0 "single let rec"
+            let inl =
+                let mutable n = 5
+                let r = tailRecSingleInline n
+                r, n 
+            equalMsg inl (0, 5) "single let rec inlined"
+            equalMsg (tailRecScoping 5 |> List.map (fun f -> f())) [1; 2; 3; 4; 5] "scoping while tail call optimizing"
+            equalMsg (tailRecWithMatch [ 3; 2; 1 ]) [ 1; 2; 3 ] "single let rec with non-inlined match expression"
+            equalMsg (tailRecMultiple 5) 1 "mutually recursive let rec"
+            equalMsg (tailRecWithValue 5) 1 "mutually recursive let rec with a function and a value"
+            equalMsg (tailRecMultipleWithValue 5) 1 "mutually recursive let rec with two functions and a value"
+            equalMsg (moduleTailRecSingle 5) 0 "single let rec in module"
+            equalMsg (moduleTailRecMultiple1 5) 1 "mutually recursive let rec in module 1"
+            equalMsg (moduleTailRecMultiple2 5) 0 "mutually recursive let rec in module 2"
             let o = TailRec()
-            equalMsg 0 (o.TailRecSingle 5) "single let rec in class constructor"
-            equalMsg 1 (o.TailRecMultiple 5) "mutually recursive let rec in class constructor"
+            equalMsg (o.TailRecSingle 5) 0 "single let rec in class constructor"
+            equalMsg (o.TailRecMultiple 5) 1 "mutually recursive let rec in class constructor"
             // test if there is no infinite loop
             tailRecSingleNoReturn 5
             tailRecMultipleNoReturn 5
