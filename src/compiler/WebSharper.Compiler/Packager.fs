@@ -33,7 +33,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
     let declarations = ResizeArray()
     let statements = ResizeArray()
 
-    let glob = Var (Id.Global())
+    let glob = Id.New("Global", false)
+    declarations.Add <| VarDeclaration (glob, Var (Id.Global()))
+    let glob = Var glob
 
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
     
@@ -216,7 +218,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
 
     let allStatements = List.ofSeq (Seq.append declarations trStatements) 
 
-    if List.isEmpty allStatements then Undefined else
+    // allStatements will always have the Global variable declaration
+    if List.isEmpty allStatements.Tail then Undefined else
         Application(Function([], Block allStatements), [], false, Some 0)
 
 let readMapFileSources mapFile =
