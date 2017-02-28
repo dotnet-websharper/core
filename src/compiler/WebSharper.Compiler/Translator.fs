@@ -98,7 +98,7 @@ type CollectCurried() =
                     let moreArgsLength = ar.Length - a.Length
                     if moreArgsLength >= 0 then
                         let moreArgs, lastArgs = ar |> List.splitAt moreArgsLength
-                        if sameVars a lastArgs then
+                        if sameVars a lastArgs && VarsNotUsed(args).Get(Sequential moreArgs) then
                             this.TransformExpression f, moreArgs, ar.Length
                         else base.TransformFunction(a, b), [], a.Length
                     else base.TransformFunction(a, b), [], a.Length

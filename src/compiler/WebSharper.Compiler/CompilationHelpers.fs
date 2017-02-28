@@ -334,6 +334,10 @@ type VarsNotUsed(vs : seq<Id>) =
         if vs.Contains a then 
             ok <- false
 
+    override this.VisitExpression(e) =
+        if ok then
+            base.VisitExpression(e) 
+
     member this.Get(e) =
         if vs.Count = 0 then true else
         ok <- true
