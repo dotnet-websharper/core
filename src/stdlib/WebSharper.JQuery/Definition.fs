@@ -272,12 +272,13 @@ module Definition =
             // Error
             "error" => EH?handler ^-> JQ
             |> WithComment "Bind an event handler to the \"error\" JavaScript event."
-            |> WithInline "$this.on(\"error\", $handler)"
+            |> WithInteropInline (fun tr -> "$this.on(\"error\", " + tr "handler" + ")")
+            |> ObsoleteWithMessage "Use .On(\"error\", eventHandler) instead"
 
             // Error
             "error" => T<Object<string>>?data * EH?handler ^-> JQ
-            |> WithComment "Bind an event handler to the \"error\" JavaScript event."
-            |> WithInline "$this.on(\"error\", $handler)"
+            |> WithInteropInline (fun tr -> "$this.on(\"error\", null, $data, " + tr "handler" + ")")
+            |> ObsoleteWithMessage "Use .On(\"error\", null, data, eventHandler) instead"
 
             // Deprecated
             "bind" => T<string> * !?T<Object<string>> * EH ^-> TSelf |> ObsoleteWithMessage "Use .On() instead"
@@ -293,8 +294,7 @@ module Definition =
             "unbind" => Event ^-> JQ |> ObsoleteWithMessage "Use .Off() instead"
             "unbind" => T<string> * !?EH ^-> JQ |> ObsoleteWithMessage "Use .Off() instead"
             "unbindFalse" => T<string>?event * T<Object<string>>?eventData ^-> JQ
-            |> WithComment "Attach a handler to an event for the elements."
-            |> WithInline "$this.bind($event, $eventData, false)"
+            |> WithInline "$this.unbind($event, $eventData, false)"
             |> ObsoleteWithMessage "Use .Off() instead"
             "undelegate" => T<unit> ^-> JQ |> ObsoleteWithMessage "Use .Off() instead"
             "undelegate" => T<string> * T<string> * !?EH ^-> JQ |> ObsoleteWithMessage "Use .Off() instead"
@@ -450,9 +450,11 @@ module Definition =
             "keyup" => !?T<obj> * EH ^-> TSelf
             "keyup" => T<unit> ^-> TSelf
             "load" => EH?eventHandler ^-> TSelf
-            |> WithInline "$this.on(\"load\", $eventHandler)" |> ObsoleteWithMessage "Use .On(\"load\", eventHandler) instead" 
+            |> WithInteropInline (fun tr -> "$this.on(\"load\", " + tr "eventHandler" + ")")
+            |> ObsoleteWithMessage "Use .On(\"load\", eventHandler) instead" 
             "unload" => EH?eventHandler ^-> TSelf
-            |> WithInline "$this.on(\"unload\", $eventHandler)" |> ObsoleteWithMessage "Use .On(\"load\", eventHandler) instead" 
+            |> WithInteropInline (fun tr -> "$this.on(\"unload\", " + tr "eventHandler" + ")")
+            |> ObsoleteWithMessage "Use .On(\"load\", eventHandler) instead" 
             "mousedown" => !?T<obj> * EH ^-> TSelf
             "mousedown" => T<unit> ^-> TSelf
             "mouseenter" => !?T<obj> * EH ^-> TSelf
