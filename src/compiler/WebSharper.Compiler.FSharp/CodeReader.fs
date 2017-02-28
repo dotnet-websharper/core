@@ -219,12 +219,17 @@ module Definitions =
 
 let newId() = Id.New(mut = false)
 let namedId (i: FSharpMemberOrFunctionOrValue) =
-    match i.DisplayName with
-    | "tupledArg" -> Id.New("a", i.IsMutable)
-    | "( builder@ )" -> Id.New("a", i.IsMutable)
-    | n -> 
-        if n.StartsWith "_arg" then 
-            newId() 
+    if i.IsCompilerGenerated then
+        let n = i.DisplayName.TrimStart('(', ' ', '_', '@')
+        if n.Length > 0 then
+            Id.New(n.Substring(0, 1), i.IsMutable)
+        else
+            Id.New(mut = i.IsMutable)
+    elif i.IsActivePattern then
+        Id.New(i.DisplayName.Split('|').[1], i.IsMutable)
+    else
+        let n = i.DisplayName
+        if n = "( builder@ )" then Id.New("b", i.IsMutable)
         else Id.New(n, i.IsMutable) 
 
 type MatchValueVisitor(okToInline: int[]) =

@@ -1140,14 +1140,20 @@ type Compilation(meta: Info, ?hasGraph) =
 //                    failwith "instance member name collision"
                 nameInstanceMember typ n m      
 
+        let simplifyFieldName (f: string) =
+            f.Split('@').[0]
+
         for KeyValue(typ, ms) in remainingStaticMembers do
             let clAddr = getClassAddress typ
             for m in ms do
                 let n = 
                     match m with
                     | M.Constructor _ -> "New"
-                    | M.Field (fName, _) -> fName
-                    | M.Method (meth, _) -> meth.Value.MethodName
+                    | M.Field (fName, _) -> simplifyFieldName fName
+                    | M.Method (meth, _) ->
+                        let n = meth.Value.MethodName
+                        if n.StartsWith "|" then n.Split('|').[1] 
+                        else n
                     | M.StaticConstructor _ -> "$cctor"
                 let addr = r.StaticAddress (n :: clAddr)
                 nameStaticMember typ addr m
@@ -1184,7 +1190,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 for m in ms do
                     let name = 
                         match m with
-                        | M.Field (fName, _) -> Resolve.getRenamed fName pr |> Some
+                        | M.Field (fName, _) -> Resolve.getRenamed (simplifyFieldName fName) pr |> Some
                         | M.Method (mDef, { Kind = N.Instance | N.Abstract }) -> 
                             Resolve.getRenamed mDef.Value.MethodName pr |> Some
                         | M.Method (mDef, { Kind = N.Override td }) ->

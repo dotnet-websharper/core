@@ -285,6 +285,6 @@ let main(argv) =
     with e -> 
         sprintf "Global error '%s' at %s" e.Message e.StackTrace
         |> WebSharper.Compiler.ErrorPrinting.NormalizeErrorString
-        |> eprintf "WebSharper error: %s" 
+        |> eprintf "WebSharper error %s" 
         1
 #endif

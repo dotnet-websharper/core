@@ -234,6 +234,12 @@ let InnerGenerics pred l =
     loop l id
 
 [<JavaScript>]
+let (|Odd|Even|) x = if x % 2 = 0 then Even else Odd
+
+[<JavaScript>]
+let (|Negative|_|) x = if x < 0 then Some -x else None
+
+[<JavaScript>]
 let Tests =
     TestCategory "Basis" {
 
@@ -517,5 +523,31 @@ let Tests =
                 let f x = x + 1
                 f 1, f 2
             equal res (2, 3)
+        }
+
+        Test "Active patterns" {
+            let isOdd x = 
+                match x with 
+                | Odd -> true
+                | Even -> false
+            isTrue (isOdd 1)
+            isFalse (isOdd 2)
+
+            let (|LocalOdd|LocalEven|) x = if x % 2 = 0 then LocalEven else LocalOdd
+
+            let isOddLocal x = 
+                match x with 
+                | LocalOdd -> true
+                | LocalEven -> false
+            isTrue (isOddLocal 1)
+            isFalse (isOddLocal 2)
+
+            let testNegativePattern x =
+                match x with
+                | Negative y -> x = -y
+                | _ -> x >= 0
+            isTrue (testNegativePattern -5)
+            isTrue (testNegativePattern 0)
+            isTrue (testNegativePattern 5)                
         }
     }
