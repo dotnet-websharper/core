@@ -272,32 +272,32 @@ module Definition =
             // Error
             "error" => EH?handler ^-> JQ
             |> WithComment "Bind an event handler to the \"error\" JavaScript event."
-            |> WithInline "on(\"error\", $handler)"
+            |> WithInline "$this.on(\"error\", $handler)"
 
             // Error
             "error" => T<Object<string>>?data * EH?handler ^-> JQ
             |> WithComment "Bind an event handler to the \"error\" JavaScript event."
-            |> WithInline "on(\"error\", $handler)"
+            |> WithInline "$this.on(\"error\", $handler)"
 
             // Deprecated
-            "bind" => T<string> * !?T<Object<string>> * EH ^-> TSelf |> Obsolete
-            "bind" => T<string> * !?T<Object<string>> * !?T<bool> ^-> TSelf |> Obsolete
-            "bind" => T<obj> ^-> TSelf |> Obsolete
+            "bind" => T<string> * !?T<Object<string>> * EH ^-> TSelf |> ObsoleteWithMessage "Use .On() instead"
+            "bind" => T<string> * !?T<Object<string>> * !?T<bool> ^-> TSelf |> ObsoleteWithMessage "Use .On() instead"
+            "bind" => T<obj> ^-> TSelf |> ObsoleteWithMessage "Use .On() instead"
             "bindFalse" => T<string>?event * T<Object<string>>?eventData ^-> JQ
             |> WithInline "$this.bind($event, $eventData, false)"
-            |> Obsolete
+            |> ObsoleteWithMessage "Use .On() and event.PreventDefault() instead"
             "delegate" => T<string>?selector * Event?eventType * !?T<Object<string>>?eventData * EH?handler ^-> JQ
             |> WithComment "Attach a handler to one or more events for all elements that match the selector, now or in the future, based on a specific set of root elements."
-            |> Obsolete
-            "unbind" => T<unit> ^-> JQ |> Obsolete
-            "unbind" => Event ^-> JQ |> Obsolete
-            "unbind" => T<string> * !?EH ^-> JQ |> Obsolete
-            "unbindFalse" => T<string>?event * T<Object<string>>?eventData ^-> JQ 
+            |> ObsoleteWithMessage "Use .On() instead"
+            "unbind" => T<unit> ^-> JQ |> ObsoleteWithMessage "Use .Off() instead"
+            "unbind" => Event ^-> JQ |> ObsoleteWithMessage "Use .Off() instead"
+            "unbind" => T<string> * !?EH ^-> JQ |> ObsoleteWithMessage "Use .Off() instead"
+            "unbindFalse" => T<string>?event * T<Object<string>>?eventData ^-> JQ
             |> WithComment "Attach a handler to an event for the elements."
             |> WithInline "$this.bind($event, $eventData, false)"
-            |> Obsolete
-            "undelegate" => T<unit> ^-> JQ |> Obsolete
-            "undelegate" => T<string> * T<string> * !?EH ^-> JQ |> Obsolete
+            |> ObsoleteWithMessage "Use .Off() instead"
+            "undelegate" => T<unit> ^-> JQ |> ObsoleteWithMessage "Use .Off() instead"
+            "undelegate" => T<string> * T<string> * !?EH ^-> JQ |> ObsoleteWithMessage "Use .Off() instead"
 
             // Ajax related instance methods
             "ajaxComplete" => AjaxHandler ^-> TSelf
@@ -450,9 +450,9 @@ module Definition =
             "keyup" => !?T<obj> * EH ^-> TSelf
             "keyup" => T<unit> ^-> TSelf
             "load" => EH?eventHandler ^-> TSelf
-            |> WithInline "on(\"load\", $eventHandler)"
+            |> WithInline "$this.on(\"load\", $eventHandler)" |> ObsoleteWithMessage "Use .On(\"load\", eventHandler) instead" 
             "unload" => EH?eventHandler ^-> TSelf
-            |> WithInline "on(\"unload\", $eventHandler)"
+            |> WithInline "$this.on(\"unload\", $eventHandler)" |> ObsoleteWithMessage "Use .On(\"load\", eventHandler) instead" 
             "mousedown" => !?T<obj> * EH ^-> TSelf
             "mousedown" => T<unit> ^-> TSelf
             "mouseenter" => !?T<obj> * EH ^-> TSelf
@@ -483,7 +483,7 @@ module Definition =
             "select" => !?T<obj> * EH ^-> TSelf
             "select" => T<unit> ^-> TSelf
             "size" => T<unit> ^-> T<int>
-            |> WithInline "length"
+            |> WithInline "$this.length"
             "submit" => !?T<obj> * EH ^-> TSelf
             "submit" => T<unit> ^-> TSelf
             "trigger" => T<string> * !?(Type.ArrayOf T<obj>) ^-> TSelf
@@ -758,11 +758,11 @@ module Definition =
             "noop" => T<unit> ^-> T<obj>
             "now" => T<unit> ^-> T<int>
             "parseHTML" => T<string> ^-> Type.ArrayOf T<Dom.Node>
-            "parseJSON" => T<string> ^-> T<obj> |> Obsolete |> WithComment "Use the native JSON.parse instead"
+            "parseJSON" => T<string> ^-> T<obj> |> ObsoleteWithMessage "Use the native JSON.parse instead"
             "parseXML" => T<string> ^-> T<Dom.Document>
             "trim" => T<string> ^-> T<string>
             "type" => T<obj> ^-> T<string>
-            "unique" => Type.ArrayOf T<Dom.Element> ^-> Type.ArrayOf T<Dom.Element> |> Obsolete |> WithComment "Use UniqueSort instead"
+            "unique" => Type.ArrayOf T<Dom.Element> ^-> Type.ArrayOf T<Dom.Element> |> ObsoleteWithMessage "Use UniqueSort instead"
             "uniqueSort" => Type.ArrayOf T<Dom.Element> ^-> Type.ArrayOf T<Dom.Element>
         ]
         
