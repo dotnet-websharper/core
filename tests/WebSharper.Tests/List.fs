@@ -31,6 +31,7 @@ let Tests =
 
         Test "List.Cons" {
             equal (List.Cons (1, [])) [1]
+            equal (let t = List.Cons (2, []) in List.Cons (1, t)) [1; 2]
             equal (1 :: 2 :: 3 :: []) [1; 2; 3]
         }
 

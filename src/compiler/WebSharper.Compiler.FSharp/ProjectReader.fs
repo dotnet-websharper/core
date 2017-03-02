@@ -782,7 +782,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         normalFields
                 Lambda (vars, CopyCtor(def, obj))
 
-            addConstructor None A.MemberAnnotation.BasicJavaScript cdef N.Static false None body
+            addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Static false None body
 
             // properties
 
@@ -800,7 +800,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
                 let getBody = FieldGet(Some (Hole 0), recTyp, f.Name)
                 
-                addMethod None A.MemberAnnotation.BasicInlineJavaScript getDef N.Inline false None getBody
+                addMethod None A.MemberAnnotation.BasicPureInlineJavaScript getDef N.Inline false None getBody
 
                 if f.IsMutable then
                     let setDef =
@@ -853,7 +853,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 )
                 |> List.ofSeq
             let body = Lambda([], Sequential (fields |> List.map (fun (n, v) -> ItemSet(This, Value (String n), v))))
-            addConstructor None A.MemberAnnotation.BasicJavaScript cdef N.Constructor false None body
+            addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Constructor false None body
             comp.AddCustomType(def, StructInfo)
 
     for f in cls.FSharpFields do

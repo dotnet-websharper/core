@@ -103,7 +103,9 @@ type MemberAnnotation =
         Pure : bool
     }
 
-    static member BasicJavaScript =
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module MemberAnnotation = 
+    let BasicJavaScript =
         {
             Kind = Some JavaScript
             Macros = []
@@ -114,15 +116,19 @@ type MemberAnnotation =
             Pure = false
         }
 
-    static member BasicInlineJavaScript =
-        {
+    let BasicPureJavaScript =
+        { BasicJavaScript with
+            Pure = true
+        }
+
+    let BasicInlineJavaScript =
+        { BasicJavaScript with
             Kind = Some InlineJavaScript
-            Macros = []
-            Name = None
-            Requires = []
-            IsEntryPoint = false
-            DateTimeFormat = []
-            Pure = false
+        }
+
+    let BasicPureInlineJavaScript =
+        { BasicPureJavaScript with
+            Kind = Some InlineJavaScript
         }
 
 /// Contains information from all WebSharper-specific attributes for an assembly
