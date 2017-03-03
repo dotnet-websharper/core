@@ -370,6 +370,18 @@ let Tests =
             equal (res.ToArray()) arr
         }
 
+        Test "Curried apply optimizations" {
+            let f = (fun a b -> a + b) 1
+            let g = (fun a b c -> a + b + c) 1 2
+            let h = (fun a b c d -> a + b + c + d) 1 2 3
+            let addL = [ fun x y -> x + y ]
+            let o = (fun y -> addL.Head y)
+            equal (f 10) 11
+            equal (g 10) 13        
+            equal (h 10) 16    
+            equal (o 3 5) 8    
+        }
+
         Test "Bug #231" {
             let arr =
                 [|

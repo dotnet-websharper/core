@@ -880,8 +880,8 @@ type Capturing(?var) =
         let res = this.TransformExpression expr  
         if capture then
             match captVal with
-            | None -> Application (Function ([], Return res), [], false, Some 0)
-            | Some c -> Application (Function ([c], Return res), [Var var.Value], false, Some 1)        
+            | None -> Application (Function ([], Return res), [], false, None)
+            | Some c -> Application (Function ([c], Return res), [Var var.Value], false, None)        
         else expr
 
 type NeedsScoping() =
@@ -900,20 +900,6 @@ type NeedsScoping() =
         if scope = 0 then
             defined.Add var |> ignore
         this.VisitExpression value
-
-    override this.VisitLet(var, value, body) =
-        if scope = 0 then
-            defined.Add var |> ignore
-        this.VisitExpression value
-        this.VisitExpression body
-
-    override this.VisitLetRec(defs, body) = 
-        if scope = 0 then
-            for var, _ in defs do
-                defined.Add var |> ignore
-        for _, value in defs do
-            this.VisitExpression value
-        this.VisitExpression body         
     
     override this.VisitId i =
         if scope > 0 && defined.Contains i then 
@@ -924,9 +910,14 @@ type NeedsScoping() =
         this.VisitStatement body
         scope <- scope - 1
 
-    member this.Check(args, expr) =
+    override this.VisitExpression expr =
+        if not needed then
+            base.VisitExpression expr
+
+    member this.Check(args: seq<Id>, expr) =
         for a in args do
-            defined.Add a |> ignore
+            if a.IsMutable then
+                defined.Add a |> ignore
         this.VisitExpression expr  
         needed
 
@@ -1138,9 +1129,9 @@ let (|CurriedFunction|_|) expr =
 let (|CurriedApplicationSeparate|_|) expr =
     let rec appl args expr =
         match expr with
-        | Application(func, [], p, l) ->
+        | Application(func, [], p, Some _) ->
             appl (Value Null :: args) func 
-        | Application(func, [a], p, l) ->
+        | Application(func, [a], p, Some _) ->
             appl (a :: args) func 
         | CurriedApplication(func, a) ->
             appl (a @ args) func

@@ -125,7 +125,19 @@ type CollectCurried() =
             Global [ "trd" ]
         | _ -> base.TransformFunction(args, body)   
    
-let collectCurried = CollectCurried() 
+let collectCurriedTr = CollectCurried() 
+
+let collectCurried isCtor body =
+    // do not optimize away top function if it is a constructor
+    // function identity is important for Runtime.Ctor
+    if isCtor then
+        match body with
+        | Function(args, cbody) ->
+            Function (args, collectCurriedTr.TransformStatement cbody)
+        | _ ->
+            collectCurriedTr.TransformExpression body
+    else   
+        collectCurriedTr.TransformExpression body
 
 let defaultRemotingProvider =
     TypeDefinition {
@@ -228,11 +240,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             |> runtimeCleaner.TransformExpression
             |> inlineOptimizer.TransformExpression
         else
+            let isCtor =
+                match currentNode with
+                | M.ConstructorNode _ -> true
+                | _ -> false 
             e 
             |> removeLetsTr.TransformExpression
             |> runtimeCleaner.TransformExpression
             |> breaker.TransformExpression
-            |> collectCurried.TransformExpression
+            |> collectCurried isCtor
 
     member this.CheckResult (res) =
 #if DEBUG

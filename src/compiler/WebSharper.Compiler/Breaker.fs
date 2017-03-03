@@ -261,11 +261,24 @@ let optimize expr =
     | Function (vars, I.Return (I.Application (f, args, _, Some i)))
         when List.length args = i && sameVars vars args && VarsNotUsed(vars).Get(f) ->
         f
-    | CurriedApplicationSeparate (CurriedLambda(vars, body, isReturn), args) when vars.Length = args.Length ->
-        if isReturn then
-            List.foldBack2 bind vars args body
+    | CurriedApplicationSeparate (CurriedLambda(vars, body, isReturn), args) when not (needsScoping vars body) ->
+        let moreArgsCount = args.Length - vars.Length
+        if moreArgsCount = 0 then
+            if isReturn then
+                List.foldBack2 bind vars args body
+            else 
+                List.foldBack2 bind vars args (Sequential [body; Value Null])
+        elif moreArgsCount > 0 then
+            let args, moreArgs = args |> List.splitAt vars.Length
+            let f =
+                if isReturn then
+                    List.foldBack2 bind vars args body
+                else 
+                    List.foldBack2 bind vars args (Sequential [body; Value Null])
+            curriedApplication f moreArgs
         else 
-            List.foldBack2 bind vars args (Sequential [body; Value Null])
+            let vars, moreVars = vars |> List.splitAt args.Length
+            List.foldBack2 bind vars args (CurriedLambda(moreVars, body)) 
         |> removeLets
     | Application(TupledLambda(vars, body, isReturn), [ I.NewArray args ], isPure, Some _)
         when vars.Length = args.Length && not (needsScoping vars body) ->
