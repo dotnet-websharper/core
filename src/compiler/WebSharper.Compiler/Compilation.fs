@@ -1146,16 +1146,20 @@ type Compilation(meta: Info, ?hasGraph) =
         for KeyValue(typ, ms) in remainingStaticMembers do
             let clAddr = getClassAddress typ
             for m in ms do
-                let n = 
+                let uaddr = 
                     match m with
-                    | M.Constructor _ -> "New"
-                    | M.Field (fName, _) -> simplifyFieldName fName
+                    | M.Constructor _ -> "New" :: clAddr
+                    | M.Field (fName, _) -> simplifyFieldName fName :: clAddr
                     | M.Method (meth, _) ->
                         let n = meth.Value.MethodName
-                        if n.StartsWith "|" then n.Split('|').[1] 
-                        else n
-                    | M.StaticConstructor _ -> "$cctor"
-                let addr = r.StaticAddress (n :: clAddr)
+                        // Simplify names of active patterns
+                        if n.StartsWith "|" then n.Split('|').[1] :: clAddr
+                        // Simplify names of static F# extension members 
+                        elif n.EndsWith ".Static" then
+                            (n.Split('.') |> List.ofArray |> List.rev |> List.tail) @ clAddr
+                        else n :: clAddr
+                    | M.StaticConstructor _ -> "$cctor" :: clAddr
+                let addr = r.StaticAddress uaddr
                 nameStaticMember typ addr m
 
         let resolved = HashSet()

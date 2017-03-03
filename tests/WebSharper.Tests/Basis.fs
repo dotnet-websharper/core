@@ -239,6 +239,13 @@ let (|Odd|Even|) x = if x % 2 = 0 then Even else Odd
 [<JavaScript>]
 let (|Negative|_|) x = if x < 0 then Some -x else None
 
+type System.Int32 with
+    [<JavaScript>]
+    static member TryParseOpt(s: string) =
+        match System.Int32.TryParse(s) with
+        | true, i -> Some i
+        | _ -> None
+
 [<JavaScript>]
 let Tests =
     TestCategory "Basis" {
@@ -549,5 +556,10 @@ let Tests =
             isTrue (testNegativePattern -5)
             isTrue (testNegativePattern 0)
             isTrue (testNegativePattern 5)                
+        }
+
+        Test "Static type augmentation" {
+            equal (System.Int32.TryParseOpt "no") None
+            equal (System.Int32.TryParseOpt "123") (Some 123)
         }
     }

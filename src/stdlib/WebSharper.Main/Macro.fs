@@ -232,7 +232,7 @@ type NumericMacro() =
     let exprParse parsed tru fls =
         let id = Id.New(mut = false)
         Let (id, parsed,
-            Conditional(Var id ^=== Value (Double nan),
+            Conditional(Application(Global ["isNaN"], [Var id], true, Some 1),
                 tru id,
                 fls id
             )
