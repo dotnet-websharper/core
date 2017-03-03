@@ -142,7 +142,7 @@ type FuncWithArgsRestProxy<'TArgs, 'TRest, 'TResult> =
     [<Inline "$this.apply(null, $args.concat($rest))">]
     member this.Call (args: 'TArgs, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
-[<Proxy(typeof<Optional<_>>)>]
+[<Proxy(typeof<Optional<_>>); DefaultAugmentation false>]
 type OptionalProxy<'T> =
     | Undefined
     | Defined of 'T
@@ -459,7 +459,7 @@ type ThisParamsFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResul
     member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult>>
     [<Macro(typeof<Macro.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6, [<PA>] rest: 'TParams[]) = X<'TResult>
-[<Proxy (typeof<Union<_,_>>)>]
+[<Proxy (typeof<Union<_,_>>); DefaultAugmentation false>]
 type UnionProxy<'T1, 'T2> =
     | Union1Of2 of 'T1
     | Union2Of2 of 'T2
@@ -467,7 +467,7 @@ type UnionProxy<'T1, 'T2> =
     member this.Value1 = As<'T1> this
     [<Inline>]
     member this.Value2 = As<'T2> this
-[<Proxy (typeof<Union<_,_,_>>)>]
+[<Proxy (typeof<Union<_,_,_>>); DefaultAugmentation false>]
 type UnionProxy<'T1, 'T2, 'T3> =
     | Union1Of3 of 'T1
     | Union2Of3 of 'T2
@@ -478,7 +478,7 @@ type UnionProxy<'T1, 'T2, 'T3> =
     member this.Value2 = As<'T2> this
     [<Inline>]
     member this.Value3 = As<'T3> this
-[<Proxy (typeof<Union<_,_,_,_>>)>]
+[<Proxy (typeof<Union<_,_,_,_>>); DefaultAugmentation false>]
 type UnionProxy<'T1, 'T2, 'T3, 'T4> =
     | Union1Of4 of 'T1
     | Union2Of4 of 'T2
@@ -492,7 +492,7 @@ type UnionProxy<'T1, 'T2, 'T3, 'T4> =
     member this.Value3 = As<'T3> this
     [<Inline>]
     member this.Value4 = As<'T4> this
-[<Proxy (typeof<Union<_,_,_,_,_>>)>]
+[<Proxy (typeof<Union<_,_,_,_,_>>); DefaultAugmentation false>]
 type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5> =
     | Union1Of5 of 'T1
     | Union2Of5 of 'T2
@@ -509,7 +509,7 @@ type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5> =
     member this.Value4 = As<'T4> this
     [<Inline>]
     member this.Value5 = As<'T5> this
-[<Proxy (typeof<Union<_,_,_,_,_,_>>)>]
+[<Proxy (typeof<Union<_,_,_,_,_,_>>); DefaultAugmentation false>]
 type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6> =
     | Union1Of6 of 'T1
     | Union2Of6 of 'T2
@@ -529,7 +529,7 @@ type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6> =
     member this.Value5 = As<'T5> this
     [<Inline>]
     member this.Value6 = As<'T6> this
-[<Proxy (typeof<Union<_,_,_,_,_,_,_>>)>]
+[<Proxy (typeof<Union<_,_,_,_,_,_,_>>); DefaultAugmentation false>]
 type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7> =
     | Union1Of7 of 'T1
     | Union2Of7 of 'T2

@@ -59,7 +59,7 @@ let internal Register (ct: CT) (callback: unit -> unit) =
             member this.Dispose() = ct.Registrations.[i] <- ignore
         }
 
-[<JavaScript>]
+//[<JavaScript>]
 type AsyncBody<'T> =
     {
         k  : Result<'T> -> unit
@@ -143,7 +143,7 @@ let Delay (mk: unit -> C<'T>) : C<'T> =
         try mk () c with e -> c.k (No e)
 
 [<JavaScript; Pure>]
-let TryFinally (run: C<'T>, f: unit -> unit) =
+let TryFinally (run: C<'T>, f: unit -> unit) : C<'T> =
     checkCancel <| fun c ->
         run {
             k = fun r -> 
@@ -154,7 +154,7 @@ let TryFinally (run: C<'T>, f: unit -> unit) =
         }
 
 [<JavaScript; Pure>]
-let TryWith (r: C<'T>, f: exn -> C<'T>) =
+let TryWith (r: C<'T>, f: exn -> C<'T>) : C<'T> =
     checkCancel <| fun c ->
         r {
             k = function

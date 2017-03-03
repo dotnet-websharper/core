@@ -174,14 +174,6 @@ module Definitions =
             FullName = "Microsoft.FSharp.Collections.FSharpList`1"  
         }
 
-    let ListEmpty =
-        Method {
-            MethodName = "get_Empty"
-            Parameters = []
-            ReturnType = GenericType List [ TypeParameter 0 ]
-            Generics = 0      
-        }
-
     let ListModule =
         TypeDefinition {
             Assembly = "FSharp.Core"
@@ -577,7 +569,9 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         v, env.WithVar(v, arg)
                     ) 
                 let inline tr x = transformExpression env x
-                List.foldBack2 (fun i v b -> Let(i, tr v, b)) vars args (tr body)
+                let trArg x = tr x |> removeListOfArray x.Type
+                List.foldBack2 (fun i v b -> Let(i, trArg v, b)) vars args (tr body)
+            let trArg x = tr x |> removeListOfArray x.Type
             match func with
             | P.Let((o, objectArg), CompGenLambda args.Length (ids, body)) ->
                 let ov = namedId o
@@ -588,16 +582,16 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | _ ->
             match IgnoreExprSourcePos (tr func) with
             | CallNeedingMoreArgs(thisObj, td, m, ca) ->
-                Call(thisObj, td, m, ca @ (args |> List.map tr))
+                Call(thisObj, td, m, ca @ (args |> List.map trArg))
             | trFunc ->
                 match args with
                 | [a] when isUnit a.Type ->
-                    let trA = tr a |> removeListOfArray a.Type
+                    let trA = trArg a
                     match IgnoreExprSourcePos trA with
                     | Undefined | Value Null -> Application (trFunc, [], false, Some 0)
                     | _ -> Sequential [ trA; Application (trFunc, [], false, Some 0) ]
                 | _ ->
-                    let trArgs = args |> List.map (fun a -> tr a |> removeListOfArray a.Type)
+                    let trArgs = args |> List.map trArg
                     curriedApplication trFunc trArgs
         // eliminating unneeded compiler-generated closures
         | CompGenClosure value ->
@@ -766,7 +760,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     | P.NewUnionCase (_, _, [h; t]) ->
                         getItems (h :: acc) t 
                     | P.NewUnionCase (_, _, []) ->
-                        if acc.Length > 1 then Some (List.rev acc) else None
+                        Some (List.rev acc)
                     | _ -> None
                 match exprs with
                 | [] ->

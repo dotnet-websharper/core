@@ -29,10 +29,10 @@ type private ListProxy<'T> =
     | Empty
     | Cons of Head: 'T * Tail: List<'T>
 
-    [<Name "Construct"; Pure>]
+    [<Inline; Pure>]
     static member Cons(head: 'T, tail: list<'T>) = head :: tail
 
-    [<Name "Nil"; Pure>]
+    [<Inline; Pure>]
     static member Empty : list<'T> = []
 
     member this.Head with [<Inline>] get () = List.head (As this) : 'T

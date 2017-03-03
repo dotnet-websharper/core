@@ -486,6 +486,7 @@ module JSRuntime =
     let Curried f n = runtimeFuncI "Curried" true 3 [f; Value (Int n)]
     let Curried2 f = runtimeFuncI "Curried2" true 1 [f]
     let Curried3 f = runtimeFuncI "Curried3" true 1 [f]
+    let CurriedA f n arr = runtimeFuncI "Curried" true 3 [f; Value (Int n); arr]
     let Apply f args = runtimeFunc "Apply" false [f; NewArray args]
     let Apply2 f a b = runtimeFunc "Apply2" false [f; a; b]
     let Apply3 f a b c = runtimeFunc "Apply3" false [f; a; b; c]

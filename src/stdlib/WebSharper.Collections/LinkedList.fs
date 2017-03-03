@@ -31,7 +31,7 @@ type LLN<'T> = LinkedListNode<'T>
 type LLE<'T> = LinkedList<'T>.Enumerator
 
 [<Proxy(typeof<LLN<_>>)>]
-[<Name "N">]
+[<Name "WebSharper.Collections.LinkedListNode">]
 type NodeProxy<'T> =
     member this.Previous with [<Inline "$this.p">] get () = X<LLN<'T>>
     member this.Next     with [<Inline "$this.n">] get () = X<LLN<'T>>
@@ -47,7 +47,7 @@ let setPrev (node: LLN<'T>) (p: LLN<'T>) = ()
 let setNext (node: LLN<'T>) (n: LLN<'T>) = ()
 
 [<Proxy(typeof<LLE<_>>)>]
-[<Name "E">]
+[<Name "WebSharper.Collections.LinkedListEnumerator">]
 type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
     let mutable c = l
 

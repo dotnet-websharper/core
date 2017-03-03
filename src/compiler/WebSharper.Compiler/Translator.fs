@@ -103,12 +103,26 @@ type CollectCurried() =
                         else base.TransformFunction(a, b), [], a.Length
                     else base.TransformFunction(a, b), [], a.Length
                 | _ -> base.TransformFunction(a, b), [], a.Length
-            let curr =
-                match n with
-                | 2 -> JSRuntime.Curried2 trFunc 
-                | 3 -> JSRuntime.Curried3 trFunc 
-                | _ -> JSRuntime.Curried trFunc n
-            List.fold (fun f x -> Application(f, [this.TransformExpression x], false, Some 1)) curr moreArgs
+            if n < 4 || moreArgs.Length = 0 then
+                let curr =
+                    match n with
+                    | 2 -> JSRuntime.Curried2 trFunc 
+                    | 3 -> JSRuntime.Curried3 trFunc 
+                    | _ -> JSRuntime.Curried trFunc n
+                List.fold (fun f x -> Application(f, [this.TransformExpression x], false, Some 1)) curr moreArgs
+            else
+                JSRuntime.CurriedA trFunc (n - moreArgs.Length) (NewArray moreArgs)
+                
+        | Function (_, I.Empty) ->
+            Global [ "ignore" ]
+        | Function (x :: _, I.Return (I.Var y)) when x = y ->
+            Global [ "id" ]
+        | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 0)))) when x = y ->
+            Global [ "fst" ]
+        | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 1)))) when x = y ->
+            Global [ "snd" ]
+        | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 2)))) when x = y ->
+            Global [ "trd" ]
         | _ -> base.TransformFunction(args, body)   
    
 let collectCurried = CollectCurried() 

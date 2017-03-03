@@ -386,10 +386,6 @@ let rec breakExpr expr : Broken<BreakResult> =
     | Hole _
     | Arguments
         -> broken expr 
-    | Function (_, I.Empty) ->
-        broken (Global [ "ignore" ])
-    | Function ([x], I.Return (I.Var y)) when x = y ->
-        broken (Global [ "id" ])
     | Function (args, body) ->
         let args =
             args |> List.rev |> List.skipWhile (fun a -> CountVarOccurence(a).GetForStatement(body) = 0) |> List.rev
