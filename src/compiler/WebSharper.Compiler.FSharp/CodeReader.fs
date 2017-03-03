@@ -519,12 +519,6 @@ let rec (|CompGenClosure|_|) (expr: FSharpExpr) =
             Some value
     | _ -> None
 
-let curriedApplication func args =
-    match List.length args with
-    | 0 -> func
-    | 1 -> Application (func, args, false, Some 1)
-    | _ -> CurriedApplication(func, args)
-
 let (|CompGenLambda|_|) n (expr: FSharpExpr) =
     let rec get acc n expr =
         if n = 0 then Some (List.rev acc, expr) else

@@ -86,6 +86,27 @@ let CurriedArg2 v a x = v x a
 let InlinedCurriedArg v a x = v x a
 
 [<JavaScript>]
+module Bug663 =
+    let Map2 f x y = f x y
+    let Apply f x = f x
+    let Zip3 a b c =
+        Apply (Map2 (fun x y z -> (x, y, z)) a b) c
+
+[<JavaScript>]
+type Bug663S =
+    static member Map2 f x y = f x y
+    static member Apply f x = f x
+    static member Zip3 a b c =
+        Bug663S.Apply(Bug663S.Map2 (fun x y z -> (x, y, z)) a b) c
+
+[<JavaScript>]
+type Bug663I() =
+    member this.Map2 f x y = f x y
+    member this.Apply f x = f x
+    member this.Zip3 a b c =
+        this.Apply(this.Map2 (fun x y z -> (x, y, z)) a b) c
+
+[<JavaScript>]
 let Tests =
 
     let LocalTupled (a, b) =
@@ -138,6 +159,12 @@ let Tests =
             let f = InlinedCurriedArg GlobalCurried 1
             equal (f 0) 2
             equal (f 5) 7
+        }
+
+        Test "Optimizate curried argument only for correct length" {
+            equal (Bug663.Zip3 1 2 3) (1, 2, 3)
+            equal (Bug663S.Zip3 1 2 3) (1, 2, 3)
+            equal (Bug663I().Zip3 1 2 3) (1, 2, 3)
         }
     }
 

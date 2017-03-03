@@ -389,6 +389,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         if meth.Value.MethodName.StartsWith "DebugCompiler" then
             printfn "Logging transformations: %s" meth.Value.MethodName
             logTransformations <- true
+            printfn "Translator start: %s" (Debug.PrintExpression expr)
 #endif      
         if inProgress |> List.contains currentNode then
             let msg = sprintf "Inline loop found at method %s.%s" typ.Value.FullName meth.Value.MethodName

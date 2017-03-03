@@ -172,11 +172,11 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
             | true, CurriedFuncArg a ->
                 let ucArgs, restArgs = args |> List.map this.TransformExpression |> List.splitAt a
                 let inner = Application(Var f, ucArgs, false, Some a)
-                CodeReader.curriedApplication inner restArgs
+                curriedApplication inner restArgs
             | true, TupledFuncArg a ->
                 match args with
                 | t :: rArgs ->
-                    CodeReader.curriedApplication (this.TransformApplication(func, [t], false, Some 1))
+                    curriedApplication (this.TransformApplication(func, [t], false, Some 1))
                         (List.map this.TransformExpression rArgs)
                 | _ -> failwith "tupled func must have arguments"
             | _ -> base.TransformCurriedApplication(func, args)

@@ -1169,6 +1169,12 @@ type OptimizeLocalTupledFunc(var, tupling) =
             | _ -> failwith "unexpected tupled FSharpFunc applied with multiple arguments"
         | _ -> base.TransformApplication(func, args, isPure, length)
 
+let curriedApplication func args =
+    match List.length args with
+    | 0 -> func
+    | 1 -> Application (func, args, false, Some 1)
+    | _ -> CurriedApplication(func, args)
+
 type OptimizeLocalCurriedFunc(var, currying) =
     inherit Transformer()
 
@@ -1181,7 +1187,12 @@ type OptimizeLocalCurriedFunc(var, currying) =
     override this.TransformCurriedApplication(func, args) =
         match func with
         | Var v when v = var ->
-            Application(func, args |> List.map this.TransformExpression, false, Some args.Length)    
+            if args.Length >= currying then
+                let cargs, moreArgs = args |> List.splitAt currying
+                let f = Application(func, cargs |> List.map this.TransformExpression, false, Some currying)  
+                curriedApplication f (moreArgs |> List.map this.TransformExpression)
+            else
+                base.TransformCurriedApplication(func, args)             
         | _ -> base.TransformCurriedApplication(func, args)
 
 #if DEBUG
