@@ -139,12 +139,16 @@ let Compile config =
     match config.ProjectType with
     | Some Bundle ->
         ExecuteCommands.Bundle config |> ignore
+        TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config |> ignore
+        TimedStage "Writing offline sitelets"
     | Some Website ->
         ExecuteCommands.Unpack config |> ignore
+        TimedStage "Unpacking"
     | _ when Option.isSome config.OutputDir ->
         ExecuteCommands.Unpack config |> ignore
+        TimedStage "Unpacking"
     | _ -> ()
 
 let compileMain argv =

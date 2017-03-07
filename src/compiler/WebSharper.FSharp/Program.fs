@@ -160,14 +160,14 @@ let Compile (config : WsConfig) =
     | Some Html ->
         ExecuteCommands.Html config |> ignore
         TimedStage "Writing offline sitelets"
-    | Some Website
+    | Some Website ->
+        ExecuteCommands.Unpack config |> ignore
+        TimedStage "Unpacking"
     | _ when Option.isSome config.OutputDir ->
         ExecuteCommands.Unpack config |> ignore
         TimedStage "Unpacking"
     | _ -> ()
 
-
-    System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
     0
 
 let compileMain argv =
