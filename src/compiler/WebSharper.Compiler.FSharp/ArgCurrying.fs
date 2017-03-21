@@ -46,7 +46,7 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list) =
             | TupledFuncArg _ -> Some a
             | _ -> None
         ) |> Seq.choose id |> HashSet
-    let iargs = margs |> Seq.mapi (fun i a -> a, i) |> dict
+    let iargs = margs |> Seq.mapi (fun i a -> a, i) |> dict |> Dictionary
 
     let appl =
         opts |> Seq.map (fun c ->
@@ -97,8 +97,12 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list) =
         this.VisitStatement body
 
     override this.VisitLet(var, value, body) =
-        match value with
+        match IgnoreExprSourcePos value with
         | Hole _ when iargs.ContainsKey var -> this.VisitExpression(body)
+        | ArgIndex i -> 
+            cargs.Add var |> ignore
+            iargs.Add(var, i)  
+            this.VisitExpression(body)
         | _ -> base.VisitLet(var, value, body)
 
     override this.VisitCall(thisOpt, typ, meth, args) =
