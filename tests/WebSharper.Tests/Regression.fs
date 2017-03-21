@@ -260,6 +260,17 @@ module Bug625 =
     let g() = ignore (f ())        
 
 [<JavaScript>]
+type CurriedInst<'T>(x : 'T) =    
+    member this.X = x
+
+type [<JavaScript>] CurriedInst =
+    static member Test<'T> (x: CurriedInst<'T>) f g h = h (f x.X : int) (g x.X : int)
+
+type CurriedInst<'T> with  
+    // this is optimized wrong, the this parameter is not enclosed properly
+    member this.Test a b c = CurriedInst.Test this a b c :int
+
+[<JavaScript>]
 let TreeReduce (defaultValue: 'A) (reduction: 'A -> 'A -> 'A) (array: 'A[]) : 'A =
     let l = array.Length // this should not be inlined, as it is also captured
     let rec loop off len =
@@ -588,6 +599,12 @@ let Tests =
         Test "Bug #625: Inlined ignore" {
             Bug625.g()
             equal Bug625.w "Correct"
+        }
+
+        Test "Bug #671" {
+            let x = CurriedInst(10)
+            let r = x.Test <| (fun a -> a + 1) <| (fun b -> b - 1) <| (fun a b -> a * b)
+            equal r 99
         }
 
 //        Test "Recursive module value" {

@@ -94,7 +94,7 @@ type CollectCurried() =
         | CurriedFunction(a, b) ->
             let trFunc, moreArgs, n =
                 match b with
-                | I.Return (I.Application (f, ar, _, _)) ->
+                | I.Return (I.Application (f, ar, _, Some _)) ->
                     let moreArgsLength = ar.Length - a.Length
                     if moreArgsLength >= 0 then
                         let moreArgs, lastArgs = ar |> List.splitAt moreArgsLength
@@ -103,7 +103,9 @@ type CollectCurried() =
                         else base.TransformFunction(a, b), [], a.Length
                     else base.TransformFunction(a, b), [], a.Length
                 | _ -> base.TransformFunction(a, b), [], a.Length
-            if n < 4 || moreArgs.Length = 0 then
+            if n = 2 then
+                base.TransformFunction(args, body)    
+            elif n < 4 || moreArgs.Length = 0 then
                 let curr =
                     match n with
                     | 2 -> JSRuntime.Curried2 trFunc 
