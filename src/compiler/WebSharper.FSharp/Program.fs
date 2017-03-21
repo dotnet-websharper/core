@@ -29,24 +29,34 @@ open WebSharper.Compiler
 open WebSharper.Compile.CommandTools
 open WebSharper.Compiler.FrontEnd
 open System.Diagnostics
+open ErrorPrinting
+
+exception ArgumentError of string
+let argError msg = raise (ArgumentError msg)
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 let Compile (config : WsConfig) =    
     StartTimer()
     
     if config.AssemblyFile = null then
-        failwith "You must provide assembly output path."
+        argError "You must provide assembly output path."
+    
+    if config.ProjectType <> Some WIG && config.ProjectFile = null then
+        argError "You must provide project file path."
 
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
     let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(printfn "%s", checker)
 
     let errors, exitCode = checker.Compile(config.CompilerArgs)
     
+    PrintFSharpErrors errors
+    
     if exitCode <> 0 then 
-        compiler.PrintErrors(errors, config.ProjectFile)
-        failwith "F# compilation error"
+        exitCode
+    else
+
     if not (File.Exists config.AssemblyFile) then
-        failwith "Output assembly not found"
+        argError "Output assembly not found"
 
     TimedStage "F# compilation"
             
@@ -71,14 +81,15 @@ let Compile (config : WsConfig) =
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     let refMeta =
         System.Threading.Tasks.Task.Run(fun () ->
-            let mutable refErrors = false
+            let mutable refError = false
             let metas = refs |> List.choose (fun r -> 
                 try ReadFromAssembly FullMetadata r
                 with e ->
-                    eprintfn "WebSharper error %s" e.Message
+                    refError <- true
+                    PrintGlobalError e.Message
                     None
             )
-            if refErrors then None
+            if refError then None
             elif List.isEmpty metas then Some WebSharper.Core.Metadata.Info.Empty 
             else
                 try
@@ -87,7 +98,8 @@ let Compile (config : WsConfig) =
                             Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
                     }
                 with e ->
-                    eprintfn "WebSharper error Error merging WebSharper metadata: %s" e.Message
+                    refError <- true
+                    PrintGlobalError ("Error merging WebSharper metadata: " + e.Message)
                     None
         )
     
@@ -115,27 +127,21 @@ let Compile (config : WsConfig) =
         )
 
     System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
-
-    if config.ProjectFile = null then
-        failwith "You must provide project file path."
     
     let comp =
         compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile, config.WarnOnly)
 
-    let mutable hasErrors = false
+    match comp with
+    | None ->
+        1
+    | Some comp ->
 
-    if not (List.isEmpty comp.Errors) then        
-        for pos, e in comp.Errors do
-            match pos with
-            | Some pos ->
-                eprintfn "%s (%d,%d)-(%d,%d) WebSharper error %s" 
-                    pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End) (e.ToString())
-            | _ ->
-                eprintfn "WebSharper error %s" (e.ToString())
-        if not config.WarnOnly then hasErrors <- true
-        
-    if hasErrors then 1 else
+    PrintWebSharperErrors comp
     
+    if not (List.isEmpty comp.Errors || config.WarnOnly) then        
+        1
+    else
+            
     let assem = loader.LoadFile config.AssemblyFile
     let js =
         ModifyAssembly (match refMeta.Result with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
@@ -150,8 +156,6 @@ let Compile (config : WsConfig) =
     assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
 
     TimedStage "Writing resources into assembly"
-
-    compiler.PrintWarnings(comp, config.ProjectFile)
 
     match config.ProjectType with
     | Some Bundle ->
@@ -202,7 +206,7 @@ let compileMain argv =
         let setProjectType t =
             match (!wsArgs).ProjectType with
             | None -> wsArgs := { !wsArgs with ProjectType = Some t }
-            | _ -> failwith "Conflicting WebSharper project types set."
+            | _ -> argError "Conflicting WebSharper project types set."
         try
             match a with
             | "--jsmap" -> wsArgs := { !wsArgs with SourceMap = true } 
@@ -258,14 +262,19 @@ let compileMain argv =
             CompilerArgs = fscArgs.ToArray() 
         }
 
-    try 
-        Compile !wsArgs
-    with _ ->
+    let clearOutput() =
         let intermediaryOutput = (!wsArgs).AssemblyFile
         if File.Exists intermediaryOutput then 
             let failedOutput = intermediaryOutput + ".failed"
             if File.Exists failedOutput then File.Delete failedOutput
             File.Move (intermediaryOutput, failedOutput)
+
+    try 
+        let exitCode = Compile !wsArgs
+        if exitCode <> 0 then clearOutput()
+        exitCode            
+    with _ ->
+        clearOutput()
         reraise()
 
 let formatArgv (argv: string[]) =
@@ -282,9 +291,11 @@ let main(argv) =
     compileMain (formatArgv argv)
 #else
     try compileMain (formatArgv argv)
-    with e -> 
-        sprintf "Global error '%s' at %s" e.Message e.StackTrace
-        |> WebSharper.Compiler.ErrorPrinting.NormalizeErrorString
-        |> eprintf "WebSharper error %s" 
+    with 
+    | ArgumentError msg -> 
+        PrintGlobalError msg
+        1    
+    | e -> 
+        PrintGlobalError (sprintf "Global error '%s' at %s" e.Message e.StackTrace)
         1
 #endif

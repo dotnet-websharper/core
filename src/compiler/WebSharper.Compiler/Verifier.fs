@@ -26,7 +26,7 @@ open WebSharper.Core.AST
 open System.Collections.Generic
 module J = WebSharper.Core.Json
 
-let (|AsyncOrTask|_|) (t: Type) =
+let private (|AsyncOrTask|_|) (t: Type) =
     match t with
     | ConcreteType { Generics = []; Entity = td } when td = Definitions.Task ->
         Some None
@@ -34,6 +34,11 @@ let (|AsyncOrTask|_|) (t: Type) =
         Some (Some x)
     | _ ->
         None
+
+type private VerifyEncoderResult =
+    | CantLoad
+    | CantGet
+    | Ok
 
 type Status =
     | Correct
@@ -43,70 +48,86 @@ type Status =
 [<Sealed>]
 type State(jP: J.Provider) =
 
-    let memoize (f: Type -> bool) : Type -> bool =
+    let memoize (f: Type -> VerifyEncoderResult) : Type -> VerifyEncoderResult =
         let cache = Dictionary()
         fun x ->
             match cache.TryGetValue(x) with
             | true, x -> x
             | _ ->
-                cache.[x] <- true
+                cache.[x] <- Ok
                 let v = f x
                 cache.[x] <- v
                 v
 
     let canEncodeToJson =
         memoize <| fun t ->
-            let t = Reflection.LoadType t
-            try
-                let enc = jP.GetEncoder(t)
-                true
+            try 
+                let t = Reflection.LoadType t
+                try
+                    let enc = jP.GetEncoder(t)
+                    Ok
+                with _ ->
+                    CantGet
             with _ ->
-                false
+                CantLoad
 
     let canDecodeFromJson =
         memoize <| fun t ->
-            let t = Reflection.LoadType t
-            try
-                let enc = jP.GetDecoder(t)
-                true
+            try 
+                let t = Reflection.LoadType t
+                try
+                    let enc = jP.GetDecoder(t)
+                    Ok
+                with _ ->
+                    CantGet
             with _ ->
-                false
+                CantLoad
    
     let getRemoteContractError (td: TypeDefinition) (m: Method) : Status =
         let m = m.Value
-        if (Reflection.LoadTypeDefinition td).IsGenericTypeDefinition then
+        let isGenericTD = 
+            try (Reflection.LoadTypeDefinition td).IsGenericTypeDefinition
+            with _ -> false
+        if isGenericTD then
             CriticallyIncorrect "Static remote methods must be defined on non-generic types"
         elif m.Generics > 0 then
             CriticallyIncorrect "Remote methods must not be generic"
         else
-            let p =
+            let ps =
                 m.Parameters
-                |> Seq.tryFind (fun p ->
-                    not (canDecodeFromJson p))
+                |> List.map (fun p -> p, canDecodeFromJson p)
+            // We check parameter types for decoders first, then result for encoder,
+            // then report first type load error if one is encountered.
+            let p = ps |> Seq.tryFind (snd >> (=) CantGet) 
             match p with
-            | Some p ->
-                let msg = "Cannot decode a type from JSON: "
-                CriticallyIncorrect (msg + p.AssemblyQualifiedName)
+            | Some (p, _) -> CriticallyIncorrect (sprintf "Cannot decode argument type '%s' from JSON." p.AssemblyQualifiedName)
             | None ->
+                let checkForLoadErrors() =
+                    let p = ps |> Seq.tryFind (snd >> (=) CantLoad) 
+                    match p with
+                    | Some (p, _) -> Incorrect (sprintf "Failed to load argument type '%s' to verify decoding from JSON." p.AssemblyQualifiedName)
+                    | None -> Correct
                 match m.ReturnType with
-                | VoidType -> Correct
+                | VoidType -> checkForLoadErrors()
                 | AsyncOrTask t ->
                     match t with
                     | Some t ->
-                        if canEncodeToJson t
-                            then Correct
-                            else CriticallyIncorrect (sprintf "Cannot encode return type '%s' to JSON" (string t))
-                    | _ -> Correct
+                        match canEncodeToJson t with
+                        | Ok -> checkForLoadErrors()
+                        | CantLoad -> Incorrect (sprintf "Failed to load return type '%s' to verify encoding to JSON." t.AssemblyQualifiedName)
+                        | CantGet -> CriticallyIncorrect (sprintf "Cannot encode return type '%s' to JSON." t.AssemblyQualifiedName)
+                    | _ -> checkForLoadErrors()
                 | t ->
-                    if canEncodeToJson t
-                        then Incorrect "Synchronous RPC is deprecated, consider returning an Async or Task"
-                        else CriticallyIncorrect (sprintf "Cannot encode return type '%s' to JSON. Also, synchronous RPC is deprecated, consider returning an Async or Task" (string t))
+                    match canEncodeToJson t with
+                    | Ok -> Incorrect "Synchronous RPC is deprecated, consider returning an Async or Task."
+                    | CantLoad -> Incorrect (sprintf "Failed to load return type '%s' to verify encoding to JSON. Also, synchronous RPC is deprecated, consider returning an Async or Task" t.AssemblyQualifiedName)
+                    | CantGet -> CriticallyIncorrect (sprintf "Cannot encode return type '%s' to JSON. Also, synchronous RPC is deprecated, consider returning an Async or Task" t.AssemblyQualifiedName)
 
     let getWebControlError (t: TypeDefinition) : Status =
-        if not (canEncodeToJson (ConcreteType (NonGeneric t))) then
-            CriticallyIncorrect ("Cannot encode the Web.Control type to JSON: " + t.Value.AssemblyQualifiedName)
-        else
-            Correct
+        match canEncodeToJson (ConcreteType (NonGeneric t)) with
+        | Ok -> Correct
+        | CantGet -> CriticallyIncorrect ("Cannot encode the Web.Control type to JSON: " + t.Value.AssemblyQualifiedName)
+        | CantLoad -> Incorrect (sprintf "Failed to load return type '%s' to verify encoding to JSON." (string t))
 
     member this.VerifyRemoteMethod(t: TypeDefinition, m: Method) =
         getRemoteContractError t m

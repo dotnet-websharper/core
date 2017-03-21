@@ -575,7 +575,6 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             match func with
             | P.Let((o, objectArg), CompGenLambda args.Length (ids, body)) ->
                 let ov = namedId o
-                let trObjectArg = tr objectArg
                 Let(ov, tr objectArg, compGenCurriedAppl (env.WithVar(ov, o)) ids body)    
             | CompGenLambda args.Length (ids, body) ->
                 compGenCurriedAppl env ids body   
