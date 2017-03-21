@@ -47,7 +47,6 @@
     <Compile Include="Proxy/DateTime.fs" />
     <Compile Include="Proxy/Delegate.fs" />
     <Compile Include="Proxy/Dictionary.fs" />
-    <Compile Include="Proxy/Double.fs" />
     <Compile Include="Proxy/Enum.fs" />
     <Compile Include="Proxy/Exception.fs" />
     <Compile Include="Proxy/ExtraTopLevelOperators.fs" />

@@ -58,7 +58,19 @@ type internal NS = class end
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Double>)>]
-type internal ND = class end
+type private DoubleProxy =
+
+    [<Inline "Math.abs($0) === Infinity">]
+    static member IsInfinity(f: double) = X<bool>
+
+    [<Inline "isNaN($0)">]
+    static member IsNaN(f: double) = X<bool>
+
+    [<Inline "$0 === -Infinity">]
+    static member IsNegativeInfinity (f: double) = X<bool>
+
+    [<Inline "$0 === Infinity">]
+    static member IsPositiveInfinity (f: double) = X<bool>
 
 [<Proxy(typeof<System.Boolean>)>]
 type internal B = 
