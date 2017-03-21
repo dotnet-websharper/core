@@ -308,14 +308,7 @@ type NumericMacro() =
         | "Parse" ->
             match c.Arguments with
             | [x] ->
-
-                if integralTypes.Contains name then
-                    exprParse
-                    <| parseInt x
-                    <| fun _ -> ex
-                    <| fun id -> Var id
-                    |> MacroOk
-                else if name = "System.Single" || name = "System.Double" then
+                if name = "System.Single" || name = "System.Double" then
                     exprParse
                     <| parseFloat x
                     <| fun _ -> ex
@@ -326,17 +319,7 @@ type NumericMacro() =
         | "TryParse" ->
             match c.Arguments with
             | [x; y] ->
-                if integralTypes.Contains name then
-                    exprParse
-                    <| parseInt x
-                    <| fun _ -> Value (Bool false)
-                    <| fun id ->
-                        Expression.Sequential [
-                            SetRef y (Var id)
-                            Value (Bool true)
-                        ]
-                    |> MacroOk
-                else if name = "System.Single" || name = "System.Double" then
+                if name = "System.Single" || name = "System.Double" then
                     exprParse
                     <| parseFloat x
                     <| fun _ -> Value (Bool false)

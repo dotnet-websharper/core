@@ -26,7 +26,7 @@
     <Compile Include="Event.fs" />
     <Compile Include="Exception.fs" />
     <Compile Include="Inheritance.fs" />
-    <Compile Include="Int32.fs" />
+    <Compile Include="Integers.fs" />
     <Compile Include="KeyValuePair.fs" />
     <Compile Include="Lazy.fs" />
     <Compile Include="List.fs" />
