@@ -24,16 +24,6 @@ open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
 
-[<Inline "WebSharper.Concurrency.scheduler().tick()">]
-let tick() = ()
-
-[<Inline "WebSharper.Concurrency.scheduler().idle">]
-let isIdle() = true
-
-[<JavaScript>]
-let forceAsync() =
-    while not (isIdle()) do tick()
-
 type Message =
     | Increment of int
     | GetCurrent of AsyncReplyChannel<int> 
@@ -118,7 +108,7 @@ let Tests =
                     cts.Cancel()
                     do! a
                 }, cts.Token)
-            forceAsync()
+            do! Async.Sleep 500
             equal !cancelled true
             equal !ops "A"
         }
@@ -181,7 +171,7 @@ let Tests =
             let errorCatched = ref false
             mb.Error.Add (fun _ -> errorCatched := true)
             mb.Post(Die)
-            forceAsync()
+            do! Async.Sleep 500
             equal !errorCatched true
         }
 
@@ -189,14 +179,28 @@ let Tests =
             let e = Event<int>()
             let res = ref 0
             async {
-                let! c = Async.StartChild <| async {
-                    let! r = Async.AwaitEvent e.Publish
-                    res := r
-                }
-                e.Trigger(3)
-            }
-            |> Async.Start
-            forceAsync()
+                let! r = Async.AwaitEvent e.Publish
+                res := r
+            } |> Async.StartImmediate
+            e.Trigger(3)
+            do! Async.Sleep 500
             equal !res 3
+        }
+
+        Test "StartImmediate" {
+            let x, y =
+                let res = ref 0 
+                async {
+                    incr res 
+                }
+                |> Async.Start
+                let x = !res
+                async {
+                    incr res 
+                }
+                |> Async.StartImmediate
+                x, !res
+            equal x 0
+            equal y 1
         }
     }
