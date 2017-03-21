@@ -84,9 +84,10 @@ type WebSharperCSharpAnalyzer () =
         )
         initCtx.RegisterSemanticModelAction(fun ctx ->
             if compiling then () else
+                this.Analyze(ctx.SemanticModel.Compilation :?> CSharpCompilation, ctx)
+        )
 
-            let compilation = ctx.SemanticModel.Compilation :?> CSharpCompilation
-
+    member this.Analyze(compilation: CSharpCompilation, ctx: SemanticModelAnalysisContext) =
             let refPaths =
                 compilation.ExternalReferences |> Seq.choose (fun r -> 
                     match r with
@@ -108,16 +109,11 @@ type WebSharperCSharpAnalyzer () =
                         )
                         |> Map.ofSeq
 
-                    System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
-
                     assemblyResolveHandler <- ResolveEventHandler(fun _ e ->
                             let assemblyName = AssemblyName(e.Name).Name
-                            if assemblyName = "FSharp.Core" then
-                                typeof<option<_>>.Assembly
-                            else
-                                match Map.tryFind assemblyName referencedAsmNames with
-                                | None -> null
-                                | Some p -> Assembly.LoadFrom(p)
+                            match Map.tryFind assemblyName referencedAsmNames with
+                            | None -> null
+                            | Some p -> Assembly.LoadFrom(p)
                         )
 
                     System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
@@ -165,5 +161,3 @@ type WebSharperCSharpAnalyzer () =
 
             with e ->
                 ctx.ReportDiagnostic(Diagnostic.Create(wsWarning, Location.None, sprintf "WebSharper analyzer failed: %s at %s" e.Message e.StackTrace))            
-        )
-
