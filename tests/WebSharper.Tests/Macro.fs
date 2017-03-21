@@ -28,8 +28,8 @@ module S = WebSharper.Core.JavaScript.Syntax
 type HelloQuotationGenerator() =
     inherit Generator()
     override this.Generate _ =
-        <@@ fun w -> "Hello " + w + "!" @@>
-        |> GeneratedQuotation
+        GeneratorWarning ("Testing GeneratorWarning: you should see this.", 
+            GeneratedQuotation <@@ fun w -> "Hello " + w + "!" @@>)
 
 [<Sealed>]
 type HelloASTGenerator() =
@@ -58,7 +58,9 @@ type NameOfMacro() =
     inherit Macro()
     override this.TranslateCall(c) =
         match c.Method.Generics with
-        | [t] -> !~(String t.TypeDefinition.Value.FullName) |> MacroOk
+        | [t] ->
+            MacroWarning ("Testing MacroWarning: you should see this.", 
+                MacroOk (!~(String t.TypeDefinition.Value.FullName)))
         | _ -> MacroError "NameOfMacro error"
 
 [<Sealed>]
