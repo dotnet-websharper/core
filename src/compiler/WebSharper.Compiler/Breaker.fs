@@ -146,11 +146,6 @@ let toStatementsL f (b: Broken<BreakResult>)=
         yield! f b.Body
     }
 
-let ignoreVoid e =
-    match e with 
-    | I.Unary(UnaryOperator.``void``, e)
-    | e -> e
-
 let toStatementExpr b =
     match b.Body with
     | ResultVar v ->
@@ -164,7 +159,7 @@ let toStatementExpr b =
             yield! toDecls b.Variables
             yield! b.Statements 
             if not (isPureExpr e) then
-                yield ExprStatement (ignoreVoid e)
+                yield ExprStatement (removePureParts e)
         }
 
 let hasNoStatements b = List.isEmpty b.Statements
@@ -280,14 +275,14 @@ let optimize expr =
             let vars, moreVars = vars |> List.splitAt args.Length
             List.foldBack2 bind vars args (CurriedLambda(moreVars, body)) 
         |> removeLets
-    | Application(TupledLambda(vars, body, isReturn), [ I.NewArray args ], isPure, Some _)
+    | Application(TupledLambda(vars, body, isReturn), [ I.NewArray args ], _, Some _)
         when vars.Length = args.Length && not (needsScoping vars body) ->
         if isReturn then
             List.foldBack2 bind vars args body
         else 
             List.foldBack2 bind vars args (Sequential [body; Value Null])
         |> removeLets
-    | Application(I.ItemGet(I.Function (vars, I.Return body), I.Value (String "apply")), [ I.Value Null; argArr ], isPure, _) ->
+    | Application(I.ItemGet(I.Function (vars, I.Return body), I.Value (String "apply")), [ I.Value Null; argArr ], _, _) ->
         List.foldBack2 bind vars (List.init vars.Length (fun i -> argArr.[Value (Int i)])) body                   
         |> removeLets
     | Application (I.Function (args, I.Return body), xs, _, Some _) 
@@ -388,6 +383,7 @@ let rec breakExpr expr : Broken<BreakResult> =
     let comb3 f a b c : Broken<BreakResult> =
         brL [a; b; c] |> mapBroken (function [a; b; c] -> f(a, b, c) | _ -> failwith "impossible")
     
+//    match optimize expr with
     match expr with
     | Undefined
     | This
@@ -428,7 +424,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                 match List.rev s with
                 | [] -> Undefined
                 | [ s ] -> s
-                | h :: t -> h :: (t |> List.filter (isPureExpr >> not)) |> List.rev |> Sequential
+                | h :: t -> h :: (t |> List.map removePureParts) |> List.rev |> CombineExpressions
             )
         else 
             let b, extraExprs, removeVars =
@@ -437,7 +433,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                 | [ s ] -> s, [], []
                 | h :: t -> 
                     h, 
-                    t |> List.choose (function ResultExpr e when not (isPureExpr e) -> Some (ignoreVoid e) | _ -> None) |> List.rev,
+                    t |> List.choose (function ResultExpr e when not (isPureExpr e) -> Some (removePureParts e) | _ -> None) |> List.rev,
                     t |> List.choose (function ResultVar v -> Some v | _ -> None)
             {
                 Body = b
@@ -790,7 +786,7 @@ and private breakSt statement : Statement seq =
     | ExprStatement (I.Conditional(a, b, c)) ->
         If(a, ExprStatement b, ExprStatement c)|> brS
     | ExprStatement a ->
-        brE a |> toStatementExpr
+        brE (removePureParts a) |> toStatementExpr
     | Return a ->
         let brA = brE a
         // if we would apply a function in return positions, expand it

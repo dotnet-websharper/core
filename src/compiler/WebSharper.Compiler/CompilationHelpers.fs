@@ -43,6 +43,40 @@ type ReplaceIds(repl : System.Collections.Generic.IDictionary<Id, Id>) =
         | true, j -> j
         | _ -> i
 
+let rec removePureParts expr =
+    match expr with
+    | Undefined
+    | This
+    | Base
+    | Var _
+    | Value _
+    | Function _ 
+    | GlobalAccess _
+    | Self
+        -> Undefined
+    | Sequential a
+    | NewArray a 
+        -> CombineExpressions (a |> List.map removePureParts) 
+    | Conditional (a, b, c) 
+        -> Conditional (a, removePureParts b, removePureParts c) 
+    | ItemGet(a, b)
+    | Binary (a, _, b)
+        -> CombineExpressions [removePureParts a; removePureParts b]
+    | Let (v, a, b)
+        -> Let (v, a, removePureParts b)
+    | Unary (_, a) 
+    | TypeCheck(a, _)
+        -> removePureParts a     
+    | ExprSourcePos (p, a)
+        -> ExprSourcePos (p, removePureParts a)     
+    | Object a 
+        -> a |> List.map (snd >> removePureParts) |> CombineExpressions
+    | LetRec (a, b) 
+        -> LetRec (a, removePureParts b)
+    | Application(a, b, true, _) ->
+        CombineExpressions ((a :: b) |> List.map removePureParts)
+    | _ -> expr
+
 /// Determine if expression has no side effect
 let rec isPureExpr expr =
     match expr with
@@ -1157,11 +1191,15 @@ type OptimizeLocalTupledFunc(var, tupling) =
             | [ I.NewArray ts ] when ts.Length = tupling ->
                 Application (func, ts |> List.map this.TransformExpression, isPure, Some tupling)
             | [ t ] ->
-                Application((Var v).[Value (String "apply")], [ Value Null; this.TransformExpression t ], isPure, Some 2)               
+                Application((Var v).[Value (String "apply")], [ Value Null; this.TransformExpression t ], isPure, None)               
             | _ -> failwith "unexpected tupled FSharpFunc applied with multiple arguments"
         | _ -> base.TransformApplication(func, args, isPure, length)
 
 let curriedApplication func args =
+    let func, args =
+        match func with
+        | CurriedApplicationSeparate (f, fa) -> f, fa @ args
+        | _ -> func, args
     match List.length args with
     | 0 -> func
     | 1 -> Application (func, args, false, Some 1)
