@@ -82,4 +82,15 @@ let Tests =
                 "OOPS"
         }
 
+        Test "Exception properties" {
+            equal (
+                try (raise (exn("OOPS", E0)); "no error", 1) 
+                with e -> 
+                    e.Message,
+                    match e.InnerException with
+                    | E0 -> 2
+                    | _ -> 0
+            ) ("OOPS", 2)            
+        }
+
     }

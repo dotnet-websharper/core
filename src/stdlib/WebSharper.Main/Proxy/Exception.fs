@@ -35,6 +35,7 @@ type private ExceptionProxy =
     new () = ExceptionProxy "Exception of type 'System.Exception' was thrown."
 
     member this.Message with [<Inline "$this.message">] get () = X<string>
+    member this.InnerException with [<Inline "$this.inner">] get () = X<System.Exception>
 
 [<Proxy(typeof<MatchFailureException>)>]
 [<Name "MatchFailureException">]
@@ -51,7 +52,7 @@ type private IndexOutOfRangeExceptionProxy(message: string) =
 [<Proxy(typeof<System.OperationCanceledException>)>]
 [<Name "OperationCanceledException">]
 type private OperationCanceledExceptionProxy(message: string, inner: exn, ct: CT) =
-    inherit exn(message)
+    inherit exn(message, inner)
 
     new (ct) = OperationCanceledExceptionProxy ("The operation was canceled.", null, ct)
     
