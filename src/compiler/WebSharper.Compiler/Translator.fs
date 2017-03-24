@@ -1115,15 +1115,22 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                   
     override this.TransformBaseCtor(expr, typ, ctor, args) =
         let norm = this.TransformCtor(typ, ctor, args)
-        match norm with
-        | New (func, a) ->
-            Application(func |> getItem "call", expr :: a, false, None)
-        // This is allowing simple inlines
-        | Let (i1, a1, New(func, [Var v1])) when i1 = v1 ->
-            Application(func |> getItem "call", expr :: [a1], false, None)
-        | _ ->
-            comp.AddError (this.CurrentSourcePos, SourceError "base class constructor is not regular")
-            Application(errorPlaceholder, args |> List.map this.TransformExpression, false, None)
+        let def () =
+            match norm with
+            | New (func, a) ->
+                Application(func |> getItem "call", expr :: a, false, None)
+            // This is allowing some simple inlines
+            | Let (i1, a1, New(func, [Var v1])) when i1 = v1 ->
+                Application(func |> getItem "call", expr :: [a1], false, None)
+            | _ ->
+                comp.AddError (this.CurrentSourcePos, SourceError "Chained constructor is an Inline in a not supported form")
+                Application(errorPlaceholder, args |> List.map this.TransformExpression, false, None)
+        if currentIsInline then
+            match IgnoreExprSourcePos expr with
+            | This -> norm
+            | Var _ -> def()
+            | _ -> this.Error("Unrecognized this value in constructor inline")
+        else def()
 
     override this.TransformCctor(typ) =
         if comp.HasGraph then

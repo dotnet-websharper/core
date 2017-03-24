@@ -899,7 +899,8 @@ type Compilation(meta: Info, ?hasGraph) =
                 match expr with
                 | Function (args, body) ->
                     Function(args, CombineStatements [ ExprStatement (Cctor typ); body ])
-                | _ -> failwithf "Member body must be a function: %+A" expr
+                // inlines
+                | _ -> Sequential [ Cctor typ; expr ]
             else expr
 
         for KeyValue(typ, cls) in notResolvedClasses do
