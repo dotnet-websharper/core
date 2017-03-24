@@ -32,6 +32,10 @@ let Tests =
         Test "new" {
             let s = Stack<int>()
             equal s.Count 0
+            let s2 = Stack([ 1 .. 5])
+            equal s2.Count 5
+            equal (s2.Pop()) 5
+            equal s2.Count 4
         }
 
         Test "Push" {
