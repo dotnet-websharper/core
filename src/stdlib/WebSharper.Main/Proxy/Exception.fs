@@ -122,3 +122,10 @@ type private FormatException(message: string) =
     inherit exn(message)
 
     new () = FormatException "One of the identified items was in an invalid format."
+
+[<Proxy(typeof<System.OverflowException>)>]
+[<Name "OverflowException">]
+type private OverflowException(message: string) =
+    inherit exn(message)
+
+    new () = OverflowException "Arithmetic operation resulted in an overflow."
