@@ -35,7 +35,7 @@ exception ArgumentError of string
 let argError msg = raise (ArgumentError msg)
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
-let Compile (config : WsConfig) =    
+let Compile (config : WsConfig) (warnSettings: WarnSettings) =    
     StartTimer()
     
     if config.AssemblyFile = null then
@@ -49,7 +49,7 @@ let Compile (config : WsConfig) =
 
     let errors, exitCode = checker.Compile(config.CompilerArgs)
     
-    PrintFSharpErrors errors
+    PrintFSharpErrors warnSettings errors
     
     if exitCode <> 0 then 
         exitCode
@@ -183,6 +183,7 @@ let compileMain argv =
     | _ ->
 
     let wsArgs = ref WsConfig.Empty
+    let warn = ref WarnSettings.Default
     let refs = ResizeArray()
     let resources = ResizeArray()
     let fscArgs = ResizeArray()
@@ -202,6 +203,8 @@ let compileMain argv =
                         yield a
         |]
 
+    let parseIntSet (s: string) = s.Split(',') |> Seq.map int |> Set
+    
     for a in cArgv do
         let setProjectType t =
             match (!wsArgs).ProjectType with
@@ -250,6 +253,20 @@ let compileMain argv =
                 fscArgs.Add a
             | StartsWith "--keyfile:" k ->
                 wsArgs := { !wsArgs with KeyFile = Some k }
+            | StartsWith "--nowarn:" w ->
+                warn := { !warn with NoWarn = (!warn).NoWarn + parseIntSet w }
+            | StartsWith "--warn:" l ->
+                warn := { !warn with WarnLevel = int l }
+            | StartsWith "--warnon:" w ->
+                warn := { !warn with NoWarn = (!warn).NoWarn - parseIntSet w }
+            | "--warnaserror+" ->
+                warn := { !warn with AllWarnAsError = true }
+            | "--warnaserror-" ->
+                warn := { !warn with AllWarnAsError = false }
+            | StartsWith "--warnaserror:" w | StartsWith "--warnaserror+:" w ->
+                warn := { !warn with WarnAsError = (!warn).WarnAsError + parseIntSet w }
+            | StartsWith "--warnaserror-:" w ->
+                warn := { !warn with DontWarnAsError = (!warn).DontWarnAsError + parseIntSet w }
             | _ -> 
                 fscArgs.Add a  
         with e ->
@@ -270,7 +287,7 @@ let compileMain argv =
             File.Move (intermediaryOutput, failedOutput)
 
     try 
-        let exitCode = Compile !wsArgs
+        let exitCode = Compile !wsArgs !warn
         if exitCode <> 0 then clearOutput()
         exitCode            
     with _ ->

@@ -28,9 +28,55 @@ open WebSharper.Compiler.ErrorPrinting
 let PrintGlobalError err =
     eprintfn "WebSharper error: %s" (NormalizeErrorString err)
 
-let PrintFSharpErrors (errs: FSharpErrorInfo[]) =
+type WarnSettings =
+    {
+        NoWarn : int Set
+        WarnLevel : int
+        WarnAsError : int Set
+        AllWarnAsError : bool
+        DontWarnAsError : int Set
+    }    
+
+    static member Default =
+        {
+            // see https://github.com/fsharp/FSharp.Compiler.Service/blob/b95f6fa386405ffba0cae9e3d6d60302dcaf2a2c/src/fsharp/CompileOps.fs#L407
+            NoWarn = Set [ 1182; 3180 ] 
+            WarnLevel = 3 
+            WarnAsError = Set []
+            AllWarnAsError = false
+            DontWarnAsError = Set []
+        }    
+
+// see https://github.com/fsharp/FSharp.Compiler.Service/blob/b95f6fa386405ffba0cae9e3d6d60302dcaf2a2c/src/fsharp/CompileOps.fs#L384
+let private Level5Warnings =
+    System.Collections.Generic.HashSet [
+        21   // RecursiveUseCheckedAtRuntime
+        22   // LetRecEvaluatedOutOfOrder
+        52   // DefensiveCopyWarning
+        45   // FullAbstraction
+        1178 // 1178,tcNoComparisonNeeded1,"The struct, record or union type '%s' is not structurally comparable because the type parameter %s does not satisfy the 'comparison' constraint. Consider adding the 'NoComparison' attribute to the type '%s' to clarify that the type is not comparable"
+             // 1178,tcNoComparisonNeeded2,"The struct, record or union type '%s' is not structurally comparable because the type '%s' does not satisfy the 'comparison' constraint. Consider adding the 'NoComparison' attribute to the type '%s' to clarify that the type is not comparable"
+             // 1178,tcNoEqualityNeeded1,"The struct, record or union type '%s' does not support structural equality because the type parameter %s does not satisfy the 'equality' constraint. Consider adding the 'NoEquality' attribute to the type '%s' to clarify that the type does not support structural equality"
+             // 1178,tcNoEqualityNeeded2,"The struct, record or union type '%s' does not support structural equality because the type '%s' does not satisfy the 'equality' constraint. Consider adding the 'NoEquality' attribute to the type '%s' to clarify that the type does not support structural equality"
+    ]
+
+let PrintFSharpErrors (settings: WarnSettings) (errs: FSharpErrorInfo[]) =
     for err in errs do
-        if err.Severity = Microsoft.FSharp.Compiler.FSharpErrorSeverity.Error then
+        let isError, isPrinted =
+            if err.Severity = FSharpErrorSeverity.Error then
+                true, true
+            else
+                let n = err.ErrorNumber
+                if settings.WarnAsError.Contains n then
+                    true, true
+                elif settings.NoWarn.Contains n || (settings.WarnLevel < 5 && Level5Warnings.Contains n) then
+                    false, false
+                elif settings.AllWarnAsError && not (settings.DontWarnAsError.Contains n) then
+                    true, true
+                else
+                    false, true
+                    
+        if isPrinted then 
             let pos =
                 let fn = err.FileName
                 if fn <> "unknown" && fn <> "startup" && fn <> "commandLineArgs" then
@@ -38,7 +84,7 @@ let PrintFSharpErrors (errs: FSharpErrorInfo[]) =
                     sprintf "%s(%d,%d,%d,%d): " file err.StartLineAlternate (err.StartColumn + 1) err.EndLineAlternate (err.EndColumn + 1)
                 else ""
             let info =
-                sprintf "%s error FS%04d: " err.Subcategory err.ErrorNumber
+                sprintf "%s %s FS%04d: " err.Subcategory (if isError then "error" else "warning") err.ErrorNumber
             eprintfn "%s%s%s" pos info (NormalizeErrorString err.Message)
 
 let PrintWebSharperErrors (comp: Compilation) =
