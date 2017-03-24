@@ -103,14 +103,20 @@ let Tests =
             let cts = new System.Threading.CancellationTokenSource()
             cts.Token.Register(fun () -> cancelled := true) |> ignore
             Async.Start (
-                async {
-                    do! a
-                    cts.Cancel()
-                    do! a
-                }, cts.Token)
+                Async.TryCancelled(
+                    async {                    
+                        try
+                            do! a
+                            cts.Cancel()
+                            do! a
+                        finally 
+                            ops := !ops + "B"    
+                    },
+                    fun _ -> ops := !ops + "C"
+                ), cts.Token)
             do! Async.Sleep 500
             equal !cancelled true
-            equal !ops "A"
+            equal !ops "ABC"
         }
 
         Test "MailboxProcessor" {
@@ -202,5 +208,16 @@ let Tests =
                 x, !res
             equal x 0
             equal y 1
+        }
+
+        Test "StartWithContinuations" {
+            let x =
+                let res = ref 0 
+                async {
+                    incr res 
+                }
+                |> fun a -> Async.StartWithContinuations (a, (fun _ -> incr res), ignore, ignore)
+                !res
+            equal x 2
         }
     }

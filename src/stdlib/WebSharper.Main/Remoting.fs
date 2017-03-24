@@ -157,7 +157,7 @@ type AjaxRemotingProvider() =
                     token.Register(fun () ->
                         if !waiting then
                             waiting := false
-                            cc (new System.OperationCanceledException())
+                            cc (new System.OperationCanceledException(token))
                     )
                 let ok (x: Data) = 
                     if !waiting then

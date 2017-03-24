@@ -202,16 +202,14 @@ let FromContinuations (subscribe: ('T -> unit) * (exn -> unit) * (OCE -> unit) -
 [<JavaScript>]
 let StartWithContinuations (c: C<'T>, s: 'T -> unit, f: exn -> unit, cc: OCE -> unit, ctOpt) =
     let ct = defaultArg ctOpt (As !defCTS)
-    fork (fun () -> 
-        if not ct.IsCancellationRequested then
-            c {
-                k = function
-                    | Ok x -> s x
-                    | No e -> f e
-                    | Cc e -> cc e
-                ct = ct
-            }
-    )
+    if not ct.IsCancellationRequested then
+        c {
+            k = function
+                | Ok x -> s x
+                | No e -> f e
+                | Cc e -> cc e
+            ct = ct
+        }
 
 [<JavaScript>]
 let UncaughtAsyncError (e: exn) =
