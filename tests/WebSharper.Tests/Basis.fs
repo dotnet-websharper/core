@@ -221,6 +221,9 @@ type private T1 [<JavaScript>] () =
 [<Inline "isNaN($x)">]
 let private isNaN (x: double) = System.Double.IsNaN x
 
+[<Inline "var a = 21; a = 2*a; return a">]
+let inlineReturn () = X<int>
+
 [<JavaScript>]
 let InnerGenerics pred l =
     let rec loop l cont =
@@ -561,5 +564,9 @@ let Tests =
         Test "Static type augmentation" {
             equal (System.Int32.TryParseOpt "no") None
             equal (System.Int32.TryParseOpt "123") (Some 123)
+        }
+
+        Test "Inlined return statement" {
+            equal (inlineReturn()) 42
         }
     }

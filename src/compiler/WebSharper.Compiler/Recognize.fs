@@ -395,6 +395,26 @@ and transformStatement (env: Environment) (statement: S.Statement) =
         FuncDeclaration(f, vars, transformStatement innerEnv body)
     | S.StatementComment _ -> failwith "impossible, comments are not parsed"
 
+type InlinedStatementsTransformer() =
+    inherit StatementTransformer()
+    
+    let mutable returnVar = None
+
+    override this.TransformReturn(expr) =
+        let rv =
+            match returnVar with
+            | None -> 
+                let rv = Id.New("r")
+                returnVar <- Some rv
+                rv
+            | Some rv -> rv
+        
+        VarSetStatement(rv, expr)
+
+    member this.Run(st) =
+        let res = this.TransformStatement(st)
+        StatementExpr(res, returnVar)
+                
 let createInline thisArg args isPure inlineString =        
     let s = 
         inlineString 
@@ -410,7 +430,7 @@ let createInline thisArg args isPure inlineString =
             p
             |> S.Block
             |> transformStatement (Environment.New(thisArg, false, isPure, args))
-            |> IgnoredStatementExpr
+            |> InlinedStatementsTransformer().Run
     makeExprInline (Option.toList thisArg @ args) b
 
 let parseDirect thisArg args jsString =
