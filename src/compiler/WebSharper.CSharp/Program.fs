@@ -81,7 +81,7 @@ let Compile config =
 
     match refMeta with
     | None ->
-        argError ""    
+        argError "" // exits without printing more errors    
     | Some refMeta ->
 
     let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(printfn "%s", UseVerifier = false)
@@ -115,12 +115,12 @@ let Compile config =
         argError "You must provide project file path."
     
     let comp =
-        compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile, config.WarnOnly)
+        compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile)
 
-    PrintWebSharperErrors comp
+    PrintWebSharperErrors config.WarnOnly comp
     
     if not (List.isEmpty comp.Errors || config.WarnOnly) then        
-        argError ""    
+        argError "" // exits without printing more errors
     else
 
     let assem = loader.LoadFile config.AssemblyFile

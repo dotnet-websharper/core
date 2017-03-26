@@ -35,7 +35,7 @@ type WebSharperCSharpCompiler(logger) =
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
 
-    member this.Compile (refMeta, argv: seq<string>, path: string, warnOnly) =
+    member this.Compile (refMeta, argv: seq<string>, path: string) =
 
         let parsedArgs =
             CSharpCommandLineParser.Default.Parse(

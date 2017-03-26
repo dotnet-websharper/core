@@ -25,19 +25,19 @@ open WebSharper.Compiler
 open WebSharper.Compiler.ErrorPrinting
 
 let PrintGlobalError err =
-    eprintfn "WebSharper error %s" (NormalizeErrorString err)
+    eprintfn "WebSharper error: %s" (NormalizeErrorString err)
 
-let PrintWebSharperErrors (comp: Compilation) =
+let PrintWebSharperErrors warnOnly (comp: Compilation) =
     let printWebSharperError (pos: AST.SourcePos option) isError msg =
-        let severity = if isError then "error" else "warning"
+        let severity = if isError && not warnOnly then "error" else "warning"
         match pos with
         | Some pos ->
-            eprintfn "%s (%d,%d)-(%d,%d) WebSharper %s %s" 
+            eprintfn "%s(%d,%d,%d,%d): WebSharper %s: %s" 
                 pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End) 
                 severity (NormalizeErrorString msg)
         | _ ->
             eprintfn "WebSharper %s: %s" severity (NormalizeErrorString msg)    
     for pos, err in comp.Errors do
         printWebSharperError pos true (string err)
-    for pos, err in comp.Errors do
+    for pos, err in comp.Warnings do
         printWebSharperError pos false (string err)

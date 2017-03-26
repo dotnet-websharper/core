@@ -129,14 +129,14 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
     
     let comp =
-        compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile, config.WarnOnly)
+        compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile)
 
     match comp with
     | None ->
         1
     | Some comp ->
 
-    PrintWebSharperErrors comp
+    PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
     
     if not (List.isEmpty comp.Errors || config.WarnOnly) then        
         1

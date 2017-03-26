@@ -87,13 +87,20 @@ let PrintFSharpErrors (settings: WarnSettings) (errs: FSharpErrorInfo[]) =
                 sprintf "%s %s FS%04d: " err.Subcategory (if isError then "error" else "warning") err.ErrorNumber
             eprintfn "%s%s%s" pos info (NormalizeErrorString err.Message)
 
-let PrintWebSharperErrors (comp: Compilation) =
+// We need to print full rooted path for VS to correctly link the error to the file
+open System.IO
+let fullpath cwd nm = 
+    let p = if Path.IsPathRooted(nm) then nm else Path.Combine(cwd,nm)
+    try Path.GetFullPath(p) with _ -> p
+
+let PrintWebSharperErrors warnOnly projFile (comp: Compilation) =
+    let projDir = Path.GetDirectoryName projFile
     let printWebSharperError (pos: AST.SourcePos option) isError msg =
-        let severity = if isError then "error" else "warning"
+        let severity = if isError && not warnOnly then "error" else "warning"
         match pos with
         | Some pos ->
-            eprintfn "%s(%d,%d,%d,%d) WebSharper %s: %s" 
-                pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End)
+            eprintfn "%s(%d,%d,%d,%d): WebSharper %s: %s" 
+                (fullpath projDir pos.FileName) (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End)
                 severity (NormalizeErrorString msg)
         | _ ->
             eprintfn "WebSharper %s: %s" severity (NormalizeErrorString msg)

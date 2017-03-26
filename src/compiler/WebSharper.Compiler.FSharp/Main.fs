@@ -39,7 +39,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
 
-    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv, path: string, warnOnly) = 
+    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv, path: string) = 
 
         let projectOptionsOpt =
             try
@@ -65,8 +65,6 @@ type WebSharperFSharpCompiler(logger, ?checker) =
         | Some refMeta ->
 
         TimedStage "Waiting on merged metadata"
-
-        let projDir = Path.GetDirectoryName path
 
         if checkProjectResults.HasCriticalErrors then
             None
