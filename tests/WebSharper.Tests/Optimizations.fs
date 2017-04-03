@@ -252,6 +252,12 @@ let tailRecMultipleWithValue n =
     f n
 
 [<JavaScript>]
+let rec rev_map_acc f l acc = 
+    match l with
+    | [] -> acc
+    | h :: t -> rev_map_acc f t (f h :: acc)
+
+[<JavaScript>]
 let Tests =
 
     let LocalTupled (a, b) =
@@ -336,6 +342,17 @@ let Tests =
             equalMsg (o.TailRecMultiple 5) 1 "mutually recursive let rec in class constructor"
             equalMsg (o.TailRecSingle2 5) 0 "single recursive class member"
             equalMsg (o.TailRecMultiple1 5) 1 "mutually recursive class members"
+
+            let dbl x = x * 2 
+            equalMsg (rev_map_acc dbl [ 1; 3; 4 ] []) [ 8; 6; 2 ] "module let rec with list accumulator"
+
+            let res =
+                let rec loc_rev_map_acc f l acc = 
+                    match l with
+                    | [] -> acc
+                    | h :: t -> loc_rev_map_acc f t (f h :: acc)
+                loc_rev_map_acc dbl [ 1; 3; 4 ] []
+            equalMsg res [ 8; 6; 2 ] "let rec with list accumulator"
 
             // test if there is no infinite loop
             tailRecSingleNoReturn 5

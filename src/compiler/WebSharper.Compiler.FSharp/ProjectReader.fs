@@ -443,7 +443,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 else
                                     let scDef, (scContent, scFields) = sc.Value   
                                     let name = Resolve.getRenamed meth.CompiledName scFields
-                                    scContent.Add (ExprStatement (ItemSet(Self, Value (String name), b)))
+                                    scContent.Add (ExprStatement (ItemSet(Self, Value (String name), TailCalls.optimize None inlinesOfClass b)))
                                     Lambda([], FieldGet(None, NonGeneric scDef, name))
                             else
                                 let thisVar, vars =

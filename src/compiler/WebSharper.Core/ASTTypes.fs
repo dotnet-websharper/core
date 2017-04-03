@@ -63,6 +63,13 @@ type Id =
             Mutable = this.Mutable
         }
 
+    member this.ToMutable() =
+        {
+            IdName = this.IdName
+            Id = this.Id
+            Mutable = true
+        }
+
     override this.GetHashCode() = int this.Id
     
     override this.Equals other =
