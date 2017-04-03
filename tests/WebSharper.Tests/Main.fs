@@ -40,7 +40,7 @@ let RunTests() =
         Event.Tests
         Exception.Tests
         Inheritance.Tests
-        Int32.Tests
+        Integers.Tests
         KeyValuePair.Tests
         Lazy.Tests
         List.Tests

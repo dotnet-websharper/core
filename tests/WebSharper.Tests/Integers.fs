@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module WebSharper.Tests.Int32
+module WebSharper.Tests.Integers
 
 open System
 open WebSharper

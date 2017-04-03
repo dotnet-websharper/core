@@ -468,14 +468,15 @@ type TailCallTransformer(env) =
                 env.SelfTailCall := None
                 isUsed
             | None -> false
-        if isTailRecMethodFunc then
+        match isTailRecMethodFunc, body with
+        | true, (I.Return b | I.ExprStatement b) ->
             selfCallArgs <- Some args
             Function(args,
                 While (Value (Bool true), 
-                    this.TransformStatement(body))       
+                    Return (this.TransformExpression(b)))       
                 |> withCopiedArgs args
             )             
-        else
+        | _ ->
             base.TransformFunction(args, body)
 
     override this.TransformCall(obj, td, meth, args) =
@@ -487,6 +488,9 @@ type TailCallTransformer(env) =
             base.TransformCall(obj, td, meth, args)       
 
 let optimize methOpt inlines expr =
+    printfn "Before tailcall opts: %s" (Debug.PrintExpression expr)
     let env = Environment.New(methOpt, inlines) 
     TailCallAnalyzer(env).VisitExpression(expr)  
-    TailCallTransformer(env).TransformExpression(expr)
+    let res = TailCallTransformer(env).TransformExpression(expr)
+    printfn "After tailcall opts: %s" (Debug.PrintExpression res)
+    res

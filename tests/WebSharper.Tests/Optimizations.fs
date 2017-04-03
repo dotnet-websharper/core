@@ -107,6 +107,151 @@ type Bug663I() =
         this.Apply(this.Map2 (fun x y z -> (x, y, z)) a b) c
 
 [<JavaScript>]
+let tailRecFactorialCurried n =
+    let rec factorial acc n =
+        match n with
+        | 0 -> acc
+        | n -> factorial (n * acc) (n - 1)
+    factorial 1 n
+
+[<JavaScript>]
+let tailRecFactorialCurried2 n =
+    let rec factorial acc = function
+        | 0 -> acc
+        | n -> factorial (n * acc) (n - 1)
+    factorial 1 n
+
+[<JavaScript>]
+let tailRecFactorialTupled n =
+    let rec factorial (acc, n) =
+        match n with
+        | 0 -> acc
+        | n -> factorial (n * acc, n - 1)
+    factorial (1, n)
+
+[<JavaScript>]
+let tailRecSingle n =
+    let rec f n =
+        if n > 0 then f (n - 1) else 0
+    f n
+
+[<Inline>]
+let tailRecSingleInline n =
+    let rec f n =
+        if n > 0 then f (n - 1) else 0
+    f n
+
+[<JavaScript>]
+let tailRecScoping n =
+    let rec f acc n =
+        if n > 0 then f ((fun () -> n) :: acc) (n - 1) else acc
+    f [] n
+
+[<JavaScript>]
+let tailRecSingleNoReturn n =
+    let rec f n =
+        if n > 0 then f (n - 1)
+    f n
+
+[<JavaScript>]
+let rec moduleTailRecSingleNoReturn l =
+    match l with
+    | h :: r -> moduleTailRecSingleNoReturn r
+    | _ -> ()
+
+[<JavaScript>]
+let tailRecSingleUsedInside n =
+    let mutable setf = fun x -> 0
+    let rec f n =
+        setf <- fun x -> f x
+        if n > 0 then f (n - 1) else 3
+    f n + setf n
+
+[<JavaScript>]
+let tailRecMultiple n =
+    let rec f n =
+        if n > 0 then g (n - 1) else 0
+    and g n =
+        if n > 0 then f (n - 1) else 1
+    f n
+
+[<JavaScript>]
+let tailRecMultipleNoReturn n =
+    let rec f n =
+        if n > 0 then g (n - 1)
+    and g n =
+        if n > 0 then f (n - 1)
+    f n
+
+[<JavaScript>]
+let rec moduleTailRecMultipleNoReturn n =
+    if n > 0 then moduleTailRecMultipleNoReturn2 (n - 1)
+and [<JavaScript>] moduleTailRecMultipleNoReturn2 n =
+    if n > 0 then moduleTailRecMultipleNoReturn (n - 1)
+
+[<JavaScript>]
+let tailRecWithMatch l =
+    let rec f acc l =
+        match l with
+        | [] -> acc
+        | h :: t -> f (h :: acc) t
+    f [] l
+
+[<JavaScript>]
+let rec moduleTailRecSingle n =
+    if n > 0 then moduleTailRecSingle (n - 1) else 0
+
+let rec [<JavaScript>] moduleTailRecMultiple1 n =
+    if n > 0 then moduleTailRecMultiple2 (n - 1) else 0
+and [<JavaScript>] moduleTailRecMultiple2 n =
+    if n > 0 then moduleTailRecMultiple1 (n - 1) else 1
+
+[<JavaScript>]
+type TailRec() =
+    let rec classTailRecSingle n =
+        if n > 0 then classTailRecSingle (n - 1) else 0
+
+    let rec classTailRecCurried n m =
+        if n > 0 then classTailRecCurried (n - 1) (m - 1) else 0
+
+    let rec classTailRecMultiple1 n =
+        if n > 0 then classTailRecMultiple2 (n - 1) else 0
+    and classTailRecMultiple2 n =
+        if n > 0 then classTailRecMultiple1 (n - 1) else 1
+
+    member this.TailRecSingle n = classTailRecSingle n
+    member this.TailRecMultiple n = classTailRecMultiple1 n
+
+    member this.TailRecSingle2 n =
+        if n > 0 then this.TailRecSingle2 (n - 1) else 0
+
+    member this.TailRecMultiple1 n =
+        if n > 0 then this.TailRecMultiple2 (n - 1) else 0
+    member this.TailRecMultiple2 n =
+        if n > 0 then this.TailRecMultiple1 (n - 1) else 1
+
+    member this.TailRecSingleNoReturn l =
+        match l with
+        | h :: r -> moduleTailRecSingleNoReturn r
+        | _ -> ()
+
+[<JavaScript>]
+let tailRecWithValue n =
+    let rec f n =
+        if n > 0 then f (n - i) else i
+    and i = 1
+    f n
+
+[<JavaScript>]
+let tailRecMultipleWithValue n =
+    let rec f n =
+        if n > 0 then g (n - i) else 0
+    and g n =
+        if n > 0 then f (n - i) else 1
+    and i = 1
+    f n
+
+[<JavaScript>]
 let Tests =
 
     let LocalTupled (a, b) =
@@ -165,6 +310,39 @@ let Tests =
             equal (Bug663.Zip3 1 2 3) (1, 2, 3)
             equal (Bug663S.Zip3 1 2 3) (1, 2, 3)
             equal (Bug663I().Zip3 1 2 3) (1, 2, 3)
+        }
+
+        Test "Tail calls" {
+            equalMsg (tailRecFactorialCurried 6) (6 * 5 * 4 * 3 * 2) "curried tail call"
+            equalMsg (tailRecFactorialCurried2 6) (6 * 5 * 4 * 3 * 2) "curried tail call with function"
+            equalMsg (tailRecFactorialTupled 6) (6 * 5 * 4 * 3 * 2) "tupled tail call"
+            equalMsg (tailRecSingle 5) 0 "single let rec"
+            let inl =
+                let mutable n = 5
+                let r = tailRecSingleInline n
+                r, n 
+            equalMsg inl (0, 5) "single let rec inlined"
+            equalMsg (tailRecScoping 5 |> List.map (fun f -> f())) [1; 2; 3; 4; 5] "scoping while tail call optimizing"
+            equalMsg (tailRecWithMatch [ 3; 2; 1 ]) [ 1; 2; 3 ] "single let rec with non-inlined match expression"
+            equalMsg (tailRecMultiple 5) 1 "mutually recursive let rec"
+            equalMsg (tailRecWithValue 5) 1 "mutually recursive let rec with a function and a value"
+            equalMsg (tailRecMultipleWithValue 5) 1 "mutually recursive let rec with two functions and a value"
+            equalMsg (moduleTailRecSingle 5) 0 "single let rec in module"
+            equalMsg (moduleTailRecMultiple1 5) 1 "mutually recursive let rec in module 1"
+            equalMsg (moduleTailRecMultiple2 5) 0 "mutually recursive let rec in module 2"
+            equalMsg (tailRecSingleUsedInside 5) 6 "recursive function used as a value inside"
+            let o = TailRec()
+            equalMsg (o.TailRecSingle 5) 0 "single let rec in class constructor"
+            equalMsg (o.TailRecMultiple 5) 1 "mutually recursive let rec in class constructor"
+            equalMsg (o.TailRecSingle2 5) 0 "single recursive class member"
+            equalMsg (o.TailRecMultiple1 5) 1 "mutually recursive class members"
+
+            // test if there is no infinite loop
+            tailRecSingleNoReturn 5
+            moduleTailRecSingleNoReturn [ 1 .. 5 ]
+            tailRecMultipleNoReturn 5
+            moduleTailRecMultipleNoReturn 5
+            o.TailRecSingleNoReturn [ 1 .. 5 ]
         }
     }
 
