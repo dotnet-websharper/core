@@ -607,6 +607,13 @@ let Tests =
             equal r 99
         }
 
+        Test "Bug #680 do not eta-reduce" {
+            let openThePit howmany =
+                failwithf "Attacked by %i flying monkeys" howmany
+            let e saveMeDelayedExecution = saveMeDelayedExecution |> (openThePit 1000000)
+            equal (sprintf "%A" e) "<fun>"       
+        }
+
 //        Test "Recursive module value" {
 //            equal (moduleFuncValue 0) 5
 //        }

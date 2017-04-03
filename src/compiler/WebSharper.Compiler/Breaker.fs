@@ -253,8 +253,9 @@ let rec removeLets expr =
 
 let optimize expr =
     match expr with
+    // eta-reduction
     | Function (vars, I.Return (I.Application (f, args, _, Some i)))
-        when List.length args = i && sameVars vars args && VarsNotUsed(vars).Get(f) ->
+        when List.length args = i && sameVars vars args && isPureExpr f && VarsNotUsed(vars).Get(f) ->
         f
     | CurriedApplicationSeparate (CurriedLambda(vars, body, isReturn), args) when not (needsScoping vars body) ->
         let moreArgsCount = args.Length - vars.Length
