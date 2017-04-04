@@ -24,6 +24,7 @@ open WebSharper.Core
 open WebSharper.Core.AST
 
 module S = WebSharper.Core.JavaScript.Syntax
+module P = WebSharper.Core.JavaScript.Parser
 type SB = WebSharper.Core.JavaScript.Syntax.BinaryOperator
 
 type Environment =
@@ -416,12 +417,9 @@ type InlinedStatementsTransformer() =
         StatementExpr(res, returnVar)
                 
 let createInline thisArg args isPure inlineString =        
-    let s = 
-        inlineString 
-        |> WebSharper.Core.JavaScript.Parser.Source.FromString
     let parsed = 
-        try s |> WebSharper.Core.JavaScript.Parser.ParseExpression |> Choice1Of2
-        with _ -> s |> WebSharper.Core.JavaScript.Parser.ParseProgram |> Choice2Of2 
+        try inlineString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
+        with _ -> inlineString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2 
     let b =
         match parsed with
         | Choice1Of2 e ->
@@ -434,12 +432,9 @@ let createInline thisArg args isPure inlineString =
     makeExprInline (Option.toList thisArg @ args) b
 
 let parseDirect thisArg args jsString =
-    let s = 
-        jsString 
-        |> WebSharper.Core.JavaScript.Parser.Source.FromString
     let parsed = 
-        try s |> WebSharper.Core.JavaScript.Parser.ParseExpression |> Choice1Of2
-        with _ -> s |> WebSharper.Core.JavaScript.Parser.ParseProgram |> Choice2Of2 
+        try jsString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
+        with _ -> jsString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2 
     let body =
         match parsed with
         | Choice1Of2 e ->
@@ -454,7 +449,7 @@ let parseGeneratedJavaScript e =
     e |> transformExpression Environment.Empty
 
 let parseGeneratedString s =
-    s |> WebSharper.Core.JavaScript.Parser.Source.FromString
-    |> WebSharper.Core.JavaScript.Parser.ParseExpression
+    s |> P.Source.FromString
+    |> P.ParseExpression
     |> parseGeneratedJavaScript
 

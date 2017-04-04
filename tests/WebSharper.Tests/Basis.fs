@@ -94,6 +94,12 @@ let private isNaN (x: double) = System.Double.IsNaN x
 [<Inline "var a = 21; a = 2*a; return a">]
 let inlineReturn () = X<int>
 
+[<Inline "inlineStatementTest = true;">]
+let inlineStatement () = X<unit>
+
+[<Inline "inlineStatementTest1 = true; inlineStatementTest2 = true;">]
+let inlineStatements () = X<unit>
+
 [<JavaScript>]
 let InnerGenerics pred l =
     let rec loop l cont =
@@ -412,5 +418,13 @@ let Tests =
 
         Test "Inlined return statement" {
             equal (inlineReturn()) 42
+        }
+
+        Test "Inlined statement" {
+            inlineStatement()
+            isTrue JS.Window?inlineStatementTest
+            inlineStatements()
+            isTrue JS.Window?inlineStatementTest1
+            isTrue JS.Window?inlineStatementTest2
         }
     }

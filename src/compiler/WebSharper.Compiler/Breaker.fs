@@ -305,7 +305,7 @@ let optimize expr =
     | Application (ItemGet(Let (x, Var y, Var x2), i), b, p, l) when x = x2 ->
         Application(ItemGet(Var y, i), b, p, l)
     | StatementExpr (I.ExprStatement a, None) ->
-        a   
+        Void a   
     | _ ->
         expr
 
