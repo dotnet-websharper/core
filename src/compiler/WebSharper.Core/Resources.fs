@@ -124,7 +124,18 @@ let AllReferencedAssemblies =
     let asms =
         System.AppDomain.CurrentDomain.GetAssemblies()
         |> Array.filter (fun asm -> not asm.IsDynamic)
-    asms |> Array.iter (fun asm -> d.Add(asm.GetName().Name, asm))
+    asms |> Array.iter (fun asm -> 
+        let name = asm.GetName().Name
+        match d.TryGetValue(name) with
+        | true, prevAsm ->
+            let n = "WebSharper.meta"
+            if Array.exists ((=) n) (asm.GetManifestResourceNames()) && 
+                prevAsm.GetName().Version <> asm.GetName().Version
+            then
+                failwithf "WebSharper assembly referenced with multiple times with different versions: %s" name
+        | _ ->
+            d.Add(name, asm)
+    )
     asms |> Array.iter loop
     d
     |> Seq.map (fun (KeyValue(_, v)) -> v)
