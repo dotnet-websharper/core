@@ -87,6 +87,9 @@ type WebSharperTask =
     /// Outputs all JS compilation errors as warnings if set to True.
     member WebSharperErrorsAsWarnings : string with get, set
 
+    /// Outputs only reachable code by compile-time analysis for bundles.
+    member WebSharperDeadCodeElimination : string with get, set
+    
     /// Specifies if source map is generated and source files are included
     /// in the assembly as resources.
     member WebSharperSourceMap : string with get, set

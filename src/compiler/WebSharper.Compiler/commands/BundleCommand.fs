@@ -31,6 +31,7 @@ module BundleCommand =
             FileName : string
             OutputDirectory : string
             SourceMap : bool
+            DeadCodeElimination : bool
         }
 
         static member Create() =
@@ -40,6 +41,7 @@ module BundleCommand =
                 FileName = "Bundle"
                 OutputDirectory = "."
                 SourceMap = false
+                DeadCodeElimination = true
             }
 
     let GetErrors config =
@@ -85,7 +87,7 @@ module BundleCommand =
 
         let loader = Loader.Create resolver ignore
 
-        let bundle = Bundle((config.AssemblyPaths |> List.map loader.LoadFile), resolver, config.SourceMap, ?appConfig = config.AppConfigFile)
+        let bundle = Bundle((config.AssemblyPaths |> List.map loader.LoadFile), resolver, config.SourceMap, config.DeadCodeElimination, ?appConfig = config.AppConfigFile)
         System.IO.Directory.CreateDirectory config.OutputDirectory |> ignore
         let write (c: Content) (ext: string) =
             c.WriteFile(Path.Combine(config.OutputDirectory, config.FileName + ext))

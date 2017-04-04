@@ -219,6 +219,7 @@ let compileMain argv =
             | "--html" -> setProjectType Html
             | "--site" -> setProjectType Website
             | "--wswarnonly" -> wsArgs := { !wsArgs with WarnOnly = true } 
+            | "--dce-" -> wsArgs := { !wsArgs with DeadCodeElimination = false } 
             | StartsWith "--ws:" wsProjectType ->
                 match wsProjectType.ToLower() with
                 | "ignore" -> ()

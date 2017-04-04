@@ -29,6 +29,7 @@
 	<OtherFlags Condition=" '$(WebSharperSourceMap)' == 'True' ">$(OtherFlags) --jsmap</OtherFlags>
 	<OtherFlags Condition=" '$(WebSharperTypeScriptDeclaration)' == 'True' ">$(OtherFlags) --dts</OtherFlags>
 	<OtherFlags Condition=" '$(WebSharperErrorsAsWarnings)' == 'True' ">$(OtherFlags) --wswarnonly</OtherFlags>
+	<OtherFlags Condition=" '$(WebSharperDeadCodeElimination)' == 'False' ">$(OtherFlags) --dce-</OtherFlags>
 	<FscToolPath>$(MSBuildThisFileDirectory)/../tools/</FscToolPath>
 	<FscToolExe>WsFsc.exe</FscToolExe>
   </PropertyGroup>

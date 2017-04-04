@@ -49,6 +49,7 @@ type WsConfig =
         VSStyleErrors : bool
         PrintJS : bool
         WarnOnly : bool
+        DeadCodeElimination : bool
     }
 
     member this.ProjectDir =
@@ -73,6 +74,7 @@ type WsConfig =
              VSStyleErrors = false
              PrintJS  = false
              WarnOnly = false
+             DeadCodeElimination = true
         }
 
 let readStrongNameKeyPair p = StrongNameKeyPair(File.ReadAllBytes(p))

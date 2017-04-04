@@ -40,6 +40,8 @@ module BundleCommand =
             OutputDirectory : string
 
             SourceMap : bool
+
+            DeadCodeElimination : bool
         }
 
         static member Create : unit -> Config

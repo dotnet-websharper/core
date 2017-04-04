@@ -79,7 +79,7 @@ let RestorePackages () =
         nuget "install IntelliFactory.Build -pre -o packages -excludeVersion -nocache"
         nuget "install FSharp.Core -version 3.0.2 -o packages"
         nuget "install FSharp.Core -version 4.0.0.1 -o packages"
-        nuget "install sharpcompress -version 0.15.1 -o packages -excludeVersion"
+        nuget "install sharpcompress -version 0.15.1 -o packages -excludeVersion -nocache"
         nuget "install Mono.Cecil -version 0.9.6.4 -o packages -excludeVersion"
         Directory.Move("packages/Mono.Cecil", "packages/Mono.Cecil.Roslyn")
         nuget "install Mono.Cecil -version 0.9.5.4 -o packages -excludeVersion"
