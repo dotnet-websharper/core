@@ -382,6 +382,7 @@ type ICompilation =
     abstract ParseJSInline : string * list<Expression> -> Expression
     abstract NewGenerated : string list -> TypeDefinition * Method * Address
     abstract AddGeneratedCode : Method * Expression -> unit
+    abstract AddGeneratedInline : Method * Expression -> unit
     abstract AssemblyName : string with get
     abstract GetMetadataEntries : MetadataEntry -> list<MetadataEntry>
     abstract AddMetadataEntry : MetadataEntry * MetadataEntry -> unit

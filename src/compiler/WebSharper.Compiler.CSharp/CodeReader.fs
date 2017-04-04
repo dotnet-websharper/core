@@ -474,6 +474,7 @@ type RoslynTransformer(env: Environment) =
     member this.TransformIdentifierName (x: IdentifierNameData) : Expression =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol
         let getTarget() =
+            if symbol.IsStatic then None else
             match env.Initializing with
             | Some i -> Var i
             | _ -> This

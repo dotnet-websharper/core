@@ -191,7 +191,11 @@ module Provider =
                 cases.[tag] |> snd |> Array.iter (fun (from, ``to``, dec, kind) ->
                     match from with
                     | null -> // inline record
-                        o?("$0") <- dec () x
+                        let r = dec () x
+                        // eliminate tag field if record deserializer is identity
+                        if As<bool> ``to`` then 
+                            JS.Delete r discr
+                        o?("$0") <- r
                     | from -> // normal args
                         match kind with
                         | OptionalFieldKind.NotOption ->
@@ -294,6 +298,10 @@ module Macro =
             let comp = param.Compilation
             let call = invoke comp isEnc
             let ident = invokeId comp 
+            let isIdent r =
+                match r with 
+                | Choice1Of3 e when obj.ReferenceEquals(e, ident) -> true
+                | _ -> false
             let rec encode t =
                 match t with
                 | ArrayType (t, 1) ->
@@ -337,7 +345,9 @@ module Macro =
                 | C (td, args) ->                    
                     let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
                     let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
-                    match comp.GetMetadataEntries key with
+                    match comp.GetMetadataEntries key with                    
+                    | M.StringEntry "id" :: _ ->
+                        ok ident
                     | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
                         Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                     | _ ->
@@ -346,12 +356,18 @@ module Macro =
                         comp.AddGeneratedCode(gv, Undefined)
                         comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                         ((fun es ->
-                            encRecType t args es >>= fun e ->
-                            let v = Lambda([], Call (None, NonGeneric gtd, NonGeneric gv, []))
-                            let vn = Value (String va.Value.Head)
-                            let b = Lambda ([], Conditional(v, v, ItemSet(Global [top], vn, Application(e, [], false, Some 0))))
-                            comp.AddGeneratedCode(gm, b)
-                            Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
+                            let enc = encRecType t args es
+                            if isIdent enc then
+                                comp.AddMetadataEntry(key, M.StringEntry "id")
+                                comp.AddGeneratedInline(gm, ident)
+                                enc
+                            else
+                                enc >>= fun e ->
+                                let v = Lambda([], Call (None, NonGeneric gtd, NonGeneric gv, []))
+                                let vn = Value (String va.Value.Head)
+                                let b = Lambda ([], Conditional(v, v, ItemSet(Global [top], vn, Application(e, [], false, Some 0))))
+                                comp.AddGeneratedCode(gm, b)
+                                Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                          ), args)
                         ||> List.fold (fun k t es ->
                             encode t >>= fun e -> k ((t, e) :: es))
@@ -388,16 +404,15 @@ module Macro =
                             f.JSName, optionKind, encode (t.SubstituteGenerics (Array.ofList targs))
                         )  
                     let pr =
-                        match comp.GetClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
-                        | Some a -> 
+                        match comp.GetClassInfo t.TypeDefinition with
+                        | Some cls -> 
                             addTypeDep t.TypeDefinition 
-                            GlobalAccess a
+                            if cls.HasWSPrototype then
+                                GlobalAccess cls.Address.Value
+                            else Undefined
                         | _ -> Undefined
                     if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->
-                        fo <> OptionalFieldKind.NormalOption &&
-                            match fe with 
-                            | Choice1Of3 e when obj.ReferenceEquals(e, ident) -> true
-                            | _ -> false
+                        fo <> OptionalFieldKind.NormalOption && isIdent fe
                     )
                     then ok ident
                     else
@@ -485,10 +500,13 @@ module Macro =
                             | JI.StandardField -> cString "$"
                             | JI.NamedField n -> cString n
                         let tn =
-                            match comp.GetClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
-                            | Some a -> 
+                            match comp.GetClassInfo t.TypeDefinition with
+                            | Some cls -> 
                                 addTypeDep t.TypeDefinition
-                                GlobalAccess a
+                                if cls.HasWSPrototype then
+                                    GlobalAccess cls.Address.Value
+                                else
+                                    Undefined
                             | _ -> Undefined
                         ok (call "Union" [tn; discr; cases])
                         ), cases)
@@ -500,8 +518,11 @@ module Macro =
                                     match discr with
                                     | JI.StandardField -> cInt i
                                     | _ -> cString (match case.JsonName with Some n -> n | _ -> case.Name)
-                                encode ft >>= fun e ->
-                                k (NewArray [tag; NewArray [NewArray [!~Null; !~Null; e]]] :: es)
+                                let encF = encode ft 
+                                let elimTag =
+                                    if isIdent encF then !~(Bool true) else !~Null
+                                encF >>= fun e ->
+                                k (NewArray [tag; NewArray [NewArray [!~Null; elimTag; e]]] :: es)
                             | _ ->
                             match case.Kind with
                             | M.NormalFSharpUnionCase fields ->

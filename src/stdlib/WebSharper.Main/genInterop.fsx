@@ -103,7 +103,7 @@ let interop =
 
     for i = 2 to 7 do
         let t = tArgs i
-        cprintfn "[<Proxy (typeof<Union%s>); DefaultAugmentation false>]" (toAnonTypArgs t)
+        cprintfn "[<Proxy (typeof<Union%s>)>]" (toAnonTypArgs t)
         cprintfn "type UnionProxy<%s> =" (t |> String.concat ", ")
         for j = 1 to i do
             cprintfn "    | Union%dOf%d of 'T%d" j i j

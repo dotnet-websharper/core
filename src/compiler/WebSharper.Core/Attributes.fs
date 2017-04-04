@@ -198,3 +198,14 @@ type DateTimeFormatAttribute =
 [<Sealed; U(T.Method)>]
 type SPAEntryPointAttribute() = 
     inherit A()
+
+/// Marks a type to be translated to have a prototype if it would not have one otherwise.
+/// This is needed if you want to do type checks in client code against it.
+[<Sealed; U(T.Class|||T.Struct)>]
+type PrototypeAttribute() =
+    inherit A()
+    
+    /// Prototype(true) is equivalent to Prototype().
+    /// Prototype(false) forces to have no prototype, tranlating instance methods to static,
+    /// usable only for sealed classes and F# unions and records.
+    new (force: bool) = PrototypeAttribute()

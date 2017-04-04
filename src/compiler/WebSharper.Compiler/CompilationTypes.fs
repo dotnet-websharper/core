@@ -47,7 +47,7 @@ module NotResolved =
 
     type NotResolvedMethod =
         {
-            Kind : NotResolvedMemberKind
+            mutable Kind : NotResolvedMemberKind
             StrongName : option<string>
             Macros: list<TypeDefinition * option<obj>>
             Generator : option<TypeDefinition * option<obj>>
@@ -78,7 +78,7 @@ module NotResolved =
     type NotResolvedClassKind =
         | Static
         | Class
-        | FSharpType
+        | WithPrototype
 
     type NotResolvedClass =
         {
@@ -89,6 +89,7 @@ module NotResolved =
             Kind : NotResolvedClassKind
             IsProxy : bool
             Macros : list<TypeDefinition * option<obj>> 
+            ForceNoPrototype : bool
         }
 
     type NotResolvedInterface =
@@ -100,6 +101,26 @@ module NotResolved =
 
     type N = NotResolvedMemberKind
     type M = NotResolvedMember
+
+    let hasWSPrototype ckind cmembers =
+        match ckind with
+        | NotResolvedClassKind.Static -> false
+        | NotResolvedClassKind.WithPrototype -> true
+        | _ ->
+            cmembers
+            |> Seq.exists (
+                function
+                | M.Constructor (_, nr)
+                | M.Method (_, nr) ->
+                    match nr.Kind with
+                    | N.Instance 
+                    | N.Abstract
+                    | N.Constructor 
+                    | N.Override _
+                    | N.Implementation _ -> true
+                    | _ -> false
+                | _ -> false
+            )
 
 type internal MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDictionary<'TKey, 'TValue>, current: IDictionary<'TKey, 'TValue>) =   
     

@@ -48,6 +48,7 @@ type private Attribute =
     | DateTimeFormat of option<string> * string
     | Website of TypeDefinition
     | SPAEntryPoint
+    | Prototype of bool
     
 type private A = Attribute
 
@@ -56,6 +57,7 @@ type TypeAnnotation =
     {
         ProxyOf : option<TypeDefinition>
         IsJavaScript : bool
+        Prototype : option<bool>
         IsStub : bool
         OptionalFields : bool
         Name : option<string>
@@ -69,6 +71,7 @@ type TypeAnnotation =
         {
             ProxyOf = None
             IsJavaScript = false
+            Prototype = None
             IsStub = false
             OptionalFields = false
             Name = None
@@ -220,6 +223,8 @@ type AttributeReader<'A>() =
             A.Website (this.ReadTypeArg attr |> fst)
         | "SPAEntryPointAttribute" ->
             A.SPAEntryPoint
+        | "PrototypeAttribute" ->
+            A.Prototype (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.forall unbox)
         | n -> 
             failwithf "Unknown attribute type: %s" n
 
@@ -231,6 +236,7 @@ type AttributeReader<'A>() =
         let mutable js = None
         let mutable stub = false
         let mutable proxy = None
+        let mutable prot = None
         for a in attrs do
             match this.GetAssemblyName a with
             | "WebSharper.Core" ->
@@ -241,6 +247,7 @@ type AttributeReader<'A>() =
                 | A.JavaScript j -> js <- Some j
                 | A.Stub -> stub <- true
                 | A.Proxy t -> proxy <- Some t
+                | A.Prototype p -> prot <- Some p
                 | ar -> attrArr.Add ar
             | _ -> ()
         if Option.isNone js && not stub && Option.isSome proxy then 
@@ -265,13 +272,14 @@ type AttributeReader<'A>() =
 
         if parent.OptionalFields then
             if not (attrArr.Contains(A.OptionalField)) then attrArr.Add A.OptionalField
-        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, isJavaScript, isStub, List.ofSeq reqs
+        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, isJavaScript, prot, isStub, List.ofSeq reqs
 
     member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, proxyOf, isJavaScript, isStub, reqs = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, proxyOf, isJavaScript, prot, isStub, reqs = this.GetAttrs (parent, attrs)
         {
             ProxyOf = proxyOf
             IsJavaScript = isJavaScript
+            Prototype = prot
             IsStub = isStub
             OptionalFields = attrArr |> Array.exists (function A.OptionalField -> true | _ -> false)
             Name = name
@@ -284,7 +292,7 @@ type AttributeReader<'A>() =
         }
 
     member this.GetMemberAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, _, isJavaScript, isStub, reqs = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, _, isJavaScript, _, isStub, reqs = this.GetAttrs (parent, attrs)
         let isEp = attrArr |> Array.contains A.SPAEntryPoint
         let isPure = attrArr |> Array.contains A.Pure
         let rp = 

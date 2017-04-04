@@ -101,11 +101,13 @@ let private isResourceType (sr: CodeReader.SymbolReader) (e: FSharpEntity) =
     )
 
 let isAugmentedFSharpType (e: FSharpEntity) =
-    (e.IsFSharpRecord || e.IsFSharpUnion || e.IsFSharpExceptionDeclaration)
-    && not (
-        e.Attributes |> Seq.exists (fun a ->
-            a.AttributeType.FullName = "Microsoft.FSharp.Core.DefaultAugmentationAttribute"
-            && not (snd a.ConstructorArguments.[0] :?> bool)
+    e.IsFSharpRecord || e.IsFSharpExceptionDeclaration || (
+        e.IsFSharpUnion 
+        && not (
+            e.Attributes |> Seq.exists (fun a ->
+                a.AttributeType.FullName = "Microsoft.FSharp.Core.DefaultAugmentationAttribute"
+                && not (snd a.ConstructorArguments.[0] :?> bool)
+            )
         )
     )
 
@@ -655,30 +657,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let ckind = 
         if cls.IsFSharpModule then NotResolvedClassKind.Static
-        elif annot.IsJavaScript && isAugmentedFSharpType cls then NotResolvedClassKind.FSharpType
+        elif (annot.IsJavaScript && cls.IsFSharpExceptionDeclaration) || (annot.Prototype = Some true)
+        then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 
     let hasWSPrototype =                
-        match ckind with
-        | NotResolvedClassKind.Static -> false
-        | NotResolvedClassKind.FSharpType -> true
-        | _ ->
-            clsMembers
-            |> Seq.exists (
-                function
-                | M.Constructor (_, nr)
-                | M.Method (_, nr) ->
-                    match nr.Kind with
-                    | N.Instance 
-                    | N.Abstract
-                    | N.Constructor 
-                    | N.Override _
-                    | N.Implementation _ -> true
-                    | _ -> false
-                | _ -> false
-            )
+        hasWSPrototype ckind clsMembers
 
-    if annot.IsJavaScript || hasWSPrototype then
+    if annot.IsJavaScript || hasWSPrototype || isAugmentedFSharpType cls then
         if cls.IsFSharpUnion then
             let usesNull =
                 cls.UnionCases.Count < 4 // see TaggingThresholdFixedConstant in visualfsharp/src/ilx/EraseUnions.fs
@@ -744,7 +730,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     HasNull = constants.Contains(Null)
                 }
 
-            comp.AddCustomType(def, i)
+            comp.AddCustomType(def, i, not annot.IsJavaScript)
 
         if cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration then
             let cdef =
@@ -816,7 +802,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     addMethod None A.MemberAnnotation.BasicInlineJavaScript setDef N.Inline false None setBody
 
         if cls.IsFSharpRecord then
-
             let i = 
                 cls.FSharpFields |> Seq.map (fun f ->
                     let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
@@ -836,7 +821,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             if comp.HasCustomTypeInfo def then
                 printfn "Already has custom type info: %s" def.Value.FullName
             else
-                comp.AddCustomType(def, i)
+                comp.AddCustomType(def, i, not annot.IsJavaScript)
 
         if cls.IsValueType && not (cls.IsFSharpRecord || cls.IsFSharpUnion || cls.IsEnum) then
             // add default constructor for structs
@@ -854,7 +839,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 |> List.ofSeq
             let body = Lambda([], Sequential (fields |> List.map (fun (n, v) -> ItemSet(This, Value (String n), v))))
             addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Constructor false None body
-            comp.AddCustomType(def, StructInfo)
+            comp.AddCustomType(def, StructInfo, not annot.IsJavaScript)
 
     for f in cls.FSharpFields do
         let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
@@ -865,7 +850,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 IsOptional = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
                 FieldType = sr.ReadType clsTparams.Value f.FieldType
             }
-        clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
+        clsMembers.Add (NotResolvedMember.Field (f.Name, nr))
 
     let strongName =
         annot.Name |> Option.map (fun n ->
@@ -885,6 +870,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             Kind = ckind
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
+            ForceNoPrototype = (annot.Prototype = Some false)
         }
     )
 
@@ -1026,6 +1012,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                 Kind = NotResolvedClassKind.Static
                 IsProxy = false
                 Macros = []
+                ForceNoPrototype = false
             }
             
         if sc.IsValueCreated then

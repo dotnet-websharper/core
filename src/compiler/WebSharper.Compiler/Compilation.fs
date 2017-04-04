@@ -175,6 +175,10 @@ type Compilation(meta: Info, ?hasGraph) =
             let addr = generatedMethodAddresses.[meth]
             compilingMethods.Add((td, meth),(NotCompiled (Static addr, true, None), body))
 
+        member this.AddGeneratedInline(meth: Method, body: Expression) =
+            let td = this.GetGeneratedClass()
+            compilingMethods.Add((td, meth),(NotCompiled (Inline, true, None), body))
+
         member this.AssemblyName = this.AssemblyName
 
         member this.GetMetadataEntries key =
@@ -719,31 +723,29 @@ type Compilation(meta: Info, ?hasGraph) =
 
         // initialize all class entries
         for KeyValue(typ, cls) in notResolvedClasses do
+            if cls.ForceNoPrototype then
+                for mem in cls.Members do
+                    match mem with
+                    | NotResolvedMember.Method (_, mi) when mi.Kind = NotResolvedMemberKind.Instance ->
+                        mi.Kind <- NotResolvedMemberKind.Static         
+                        mi.Body <- 
+                            match mi.Body with
+                            | Function(args, b) ->
+                                let thisVar = Id.New("$this", mut = false)
+                                Function (thisVar :: args,
+                                    ReplaceThisWithVar(thisVar).TransformStatement(b) 
+                                )
+                            | _ ->
+                                failwith "Unexpected: instance member not a function"
+                    | _ -> ()
+            
             let cctor = cls.Members |> Seq.tryPick (function M.StaticConstructor e -> Some e | _ -> None)
             let baseCls =
                 cls.BaseClass |> Option.bind (fun b ->
                     let b = this.FindProxied b
                     if classes.ContainsKey b || notResolvedClasses.ContainsKey b then Some b else None
                 )
-            let hasWSPrototype =                
-                match cls.Kind with
-                | NotResolvedClassKind.Static -> false
-                | NotResolvedClassKind.FSharpType -> true
-                | _ ->
-                    cls.Members
-                    |> Seq.exists (
-                        function
-                        | M.Constructor (_, nr)
-                        | M.Method (_, nr) ->
-                            match nr.Kind with
-                            | N.Instance 
-                            | N.Abstract
-                            | N.Constructor 
-                            | N.Override _
-                            | N.Implementation _ -> true
-                            | _ -> false
-                        | _ -> false
-                    )
+            let hasWSPrototype = hasWSPrototype cls.Kind cls.Members                
             classes.Add (typ,
                 {
                     Address = if hasWSPrototype then someEmptyAddress else None

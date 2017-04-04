@@ -658,7 +658,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     this.TransformExpression thisObj.Value |> getItem name,
                     trArgs(), opts.IsPure, None) 
         | M.Static address ->
-            Application(GlobalAccess address, trArgs(), opts.IsPure, Some meth.Entity.Value.Parameters.Length)
+            // for methods compiled as static because of Prototype(false)
+            let trThisArg =
+                thisObj |> Option.map this.TransformExpression |> Option.toList
+            Application(GlobalAccess address, trThisArg @ trArgs(), opts.IsPure, Some meth.Entity.Value.Parameters.Length)
         | M.Inline ->
             Substitution(trArgs(), ?thisObj = trThisObj).TransformExpression(expr)
         | M.NotCompiledInline ->

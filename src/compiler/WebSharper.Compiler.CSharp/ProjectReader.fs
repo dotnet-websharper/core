@@ -690,6 +690,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 origName.[.. origName.LastIndexOf '.'] + n
         )   
 
+    let ckind = 
+        if cls.IsStatic then NotResolvedClassKind.Static
+        elif annot.Prototype = Some true
+        then NotResolvedClassKind.WithPrototype
+        else NotResolvedClassKind.Class
+
     Some (
         def,
         {
@@ -697,9 +703,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             BaseClass = cls.BaseType |> sr.ReadNamedTypeDefinition |> ignoreSystemObject
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
-            Kind = if cls.IsStatic then NotResolvedClassKind.Static else NotResolvedClassKind.Class
+            Kind = ckind
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
+            ForceNoPrototype = (annot.Prototype = Some false)
         }
     )
 
