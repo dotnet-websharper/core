@@ -39,7 +39,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
 
-    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv, path: string) = 
+    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv, path, assemblyName) = 
 
         let projectOptionsOpt =
             try
@@ -73,7 +73,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
                 (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs))
-                (Path.GetFileNameWithoutExtension path)
+                assemblyName
                 checkProjectResults
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
