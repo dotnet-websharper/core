@@ -1050,18 +1050,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                             | _ -> false
                         )
                     if prevCasesTranslating then 
-                        let x = Id.New (mut = false)
-                        let v = Var x
-                        Let (x, this.TransformExpression expr,
-                            [
-                                yield (v |> getItem "constructor") ^=== (Global ["Object"])
-                                for pc in prevCases -> Unary(UnaryOperator.Not, tryGetTypeCheck pc v |> Option.get)
-                            ]  
-                            |> List.reduce (^&&)  
-                        ) 
+                        (this.TransformExpression expr |> getItem "constructor") ^=== (Global ["Object"])
                     else
                         this.Error (sprintf "Translating erased union test failed, case: %s, more than one plain object type found" case)
-
                 | _ -> 
                     this.TransformTypeCheck(expr, t)
             with e ->
