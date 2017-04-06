@@ -129,7 +129,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
     
     let comp =
-        compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile, Path.GetFileName config.AssemblyFile)
+        compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile, thisName)
 
     match comp with
     | None ->
