@@ -203,6 +203,28 @@ let private asyncRpcMethodNode = rpcMethodNode "Async" (GenericType Definitions.
 let private taskRpcMethodNode = rpcMethodNode "Task" (GenericType Definitions.Task1 [objTy])
 let private sendRpcMethodNode = rpcMethodNode "Send" VoidType
 
+type TypeCheckKind =
+    | TypeOf of string
+    | InstanceOf of Address
+    | IsNull
+    | PlainObject
+    | OtherTypeCheck
+
+let tryGetTypeCheck kind expr =
+    match kind with
+    | TypeOf t ->
+        Binary (
+            Unary(UnaryOperator.typeof, expr),
+            BinaryOperator.``==``,
+            Value (String t)
+        ) |> Some
+    | InstanceOf a ->
+        Binary(expr, BinaryOperator.instanceof, GlobalAccess a) |> Some
+    | IsNull ->
+        Binary(expr, BinaryOperator.``===``, Value Null) |> Some
+    | _ ->
+        None
+
 type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     inherit TransformerWithSourcePos(comp)
 
@@ -649,10 +671,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | M.Instance name ->
             match baseCall with
             | Some true ->
-                let ba = comp.TryLookupClassInfo(typ.Entity).Value.Address.Value
-                Application(
-                    GlobalAccess ba |> getItem "prototype" |> getItem name |> getItem "call",
-                    This :: (trArgs()), opts.IsPure, None)
+                match comp.TryLookupClassInfo(typ.Entity).Value.Address with
+                | Some ba ->
+                    Application(
+                        GlobalAccess ba |> getItem "prototype" |> getItem name |> getItem "call",
+                        This :: (trArgs()), opts.IsPure, None)
+                | _ ->
+                    this.Error("Cannot translate base call, prototype not found.")
             | _ ->
                 Application(
                     this.TransformExpression thisObj.Value |> getItem name,
@@ -1012,7 +1037,33 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ ->
             let i = int case.[5] - 49 // int '1' is 49
             try
-                this.TransformTypeCheck(expr, typ.Generics.[i])
+                let t = typ.Generics.[i]
+                match this.GetTypeCheckKind t with
+                | PlainObject ->
+                    let prevCases =
+                        List.init i (fun j ->
+                            this.GetTypeCheckKind (typ.Generics.[j]) 
+                        )
+                    let prevCasesTranslating =
+                        prevCases |> List.forall (function 
+                            | TypeOf _ | InstanceOf _ | IsNull -> true 
+                            | _ -> false
+                        )
+                    if prevCasesTranslating then 
+                        let x = Id.New (mut = false)
+                        let v = Var x
+                        Let (x, this.TransformExpression expr,
+                            [
+                                yield (v |> getItem "constructor") ^=== (Global ["Object"])
+                                for pc in prevCases -> Unary(UnaryOperator.Not, tryGetTypeCheck pc v |> Option.get)
+                            ]  
+                            |> List.reduce (^&&)  
+                        ) 
+                    else
+                        this.Error (sprintf "Translating erased union test failed, case: %s, more than one plain object type found" case)
+
+                | _ -> 
+                    this.TransformTypeCheck(expr, t)
             with e ->
                 this.Error(sprintf "Translating erased union test failed, case: %s, generics: %A"
                     case (typ.Generics |> List.map (fun t -> t.AssemblyQualifiedName)))
@@ -1246,32 +1297,19 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.AddError (this.CurrentSourcePos, err)
             ItemSet(errorPlaceholder, errorPlaceholder, this.TransformExpression value)
 
-    override this.TransformTypeCheck(expr, typ) =
-        match typ with
-        | ConcreteType td ->
-            if comp.HasGraph then
-                this.AddTypeDependency td.Entity
-        | _ -> ()
-        let typeof x = 
-            Binary (
-                Unary(UnaryOperator.typeof, this.TransformExpression expr),
-                BinaryOperator.``==``,
-                Value (String x)
-            )
-        let instanceof x =
-            Binary(this.TransformExpression expr, BinaryOperator.instanceof, Global [ x ])    
+    member this.GetTypeCheckKind typ =
         match typ with
         | ConcreteType { Entity = t; Generics = gs } ->
             match t.Value.FullName with
             | "System.Void" ->                                                                
-                typeof "undefined"
+                TypeOf "undefined"
             | "Microsoft.FSharp.Core.Unit" ->
-                Binary(this.TransformExpression expr, BinaryOperator.``===``, Value Null)    
+                IsNull  
             | "WebSharper.JavaScript.Object" ->
-                typeof "object"
+                TypeOf "object"
             | "WebSharper.JavaScript.Boolean"
             | "System.Boolean" ->
-                typeof "boolean"
+                TypeOf "boolean"
             | "WebSharper.JavaScript.Number"
             | "System.Byte"
             | "System.SByte"
@@ -1285,30 +1323,65 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | "System.UInt32"
             | "System.UInt64" 
             | "System.Decimal" ->
-                typeof "number"
+                TypeOf "number"
             | "System.String" ->
-                typeof "string"
+                TypeOf "string"
+            | "WebSharper.JavaScript.Error"
+            | "System.Exception" ->
+                InstanceOf (Address ["Error"])
+            | "WebSharper.JavaScript.Array"
+            | "System.Array" ->
+                InstanceOf (Address ["Array"])
+            | "WebSharper.JavaScript.Function" ->
+                TypeOf "function"
+            | _ ->
+                match comp.TryLookupClassInfo t with
+                | Some c ->
+                    match c.Address with
+                    | Some a ->
+                        InstanceOf a
+                    | _ ->
+                        PlainObject
+                | _ -> 
+                    match comp.GetCustomType t with
+                    | M.DelegateInfo _ ->
+                        TypeOf "function"
+                    | M.FSharpRecordInfo _
+                    | M.FSharpUnionInfo _
+                    | M.FSharpUnionCaseInfo _
+                    | M.StructInfo _ ->
+                        PlainObject
+                    | _ ->
+                        OtherTypeCheck
+        | _ ->
+            OtherTypeCheck 
+
+    override this.TransformTypeCheck(expr, typ) =
+        match typ with
+        | ConcreteType td ->
+            if comp.HasGraph then
+                this.AddTypeDependency td.Entity
+        | _ -> ()
+        let trExpr = this.TransformExpression expr
+        match tryGetTypeCheck (this.GetTypeCheckKind typ) trExpr with
+        | Some res -> res
+        | _ ->
+        match typ with
+        | ConcreteType { Entity = t; Generics = gs } ->
+            match t.Value.FullName with
             | "System.IDisposable" ->
                 Binary(
                     Value (String "Dispose"),
                     BinaryOperator.``in``,
-                    this.TransformExpression expr
+                    trExpr
                 )
-            | "WebSharper.JavaScript.Error"
-            | "System.Exception" ->
-                instanceof "Error"
-            | "WebSharper.JavaScript.Array"
-            | "System.Array" ->
-                instanceof "Array"
-            | "WebSharper.JavaScript.Function" ->
-                typeof "function"
             | "Microsoft.FSharp.Core.FSharpChoice`2"
             | "Microsoft.FSharp.Core.FSharpChoice`3"
             | "Microsoft.FSharp.Core.FSharpChoice`4"
             | "Microsoft.FSharp.Core.FSharpChoice`5"
             | "Microsoft.FSharp.Core.FSharpChoice`6"
             | "Microsoft.FSharp.Core.FSharpChoice`7" ->
-                this.TransformExpression expr
+                trExpr
             | tname ->
                 if not (List.isEmpty gs) then
                     this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
@@ -1316,7 +1389,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | Some c ->
                     match c.Address with
                     | Some a ->
-                        Binary(this.TransformExpression expr, BinaryOperator.instanceof, GlobalAccess a)
+                        Binary(trExpr, BinaryOperator.instanceof, GlobalAccess a)
                     | _ ->
                         this.Error("Type test cannot be translated because client-side class does not have a prototype: " + t.Value.FullName)
                 | _ -> 
@@ -1325,18 +1398,14 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         let tN = t.Value.FullName
                         let nestedIn = tN.[.. tN.LastIndexOf '+' - 1]
                         let uTyp = { Entity = TypeDefinition { t.Value with FullName = nestedIn } ; Generics = [] } 
-                        let trE = this.TransformExpression expr
                         let i = Id.New (mut = false)
-                        Let (i, trE, this.TransformTypeCheck(Var i, ConcreteType uTyp) ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
-                    | M.DelegateInfo _ ->
-                        this.Warning("Type test JavaScript translation is ignoring the signature of the delegate.")   
-                        typeof "function"
+                        Let (i, trExpr, this.TransformTypeCheck(Var i, ConcreteType uTyp) ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
                     | _ -> 
                         this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
         | TypeParameter _ | StaticTypeParameter _ -> 
             if currentIsInline then
                 hasDelayedTransform <- true
-                TypeCheck(this.TransformExpression expr, typ)
+                TypeCheck(trExpr, typ)
             else 
                 this.Error("Using a type test on a type parameter requires the Inline attribute.")
         | ArrayType _ -> this.Error("Type tests do not support generic array type, check against System.Array.")

@@ -661,8 +661,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 
+    let baseCls =
+        cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
+
     let hasWSPrototype =                
-        hasWSPrototype ckind clsMembers
+        Option.isSome baseCls || hasWSPrototype ckind clsMembers
 
     if annot.IsJavaScript || hasWSPrototype || isAugmentedFSharpType cls then
         if cls.IsFSharpUnion then
@@ -864,7 +867,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         def,
         {
             StrongName = strongName
-            BaseClass = cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
+            BaseClass = baseCls
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
             Kind = ckind

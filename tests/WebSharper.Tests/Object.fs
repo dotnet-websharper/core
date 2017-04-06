@@ -273,6 +273,12 @@ let Tests =
 
             jsEqual (r.JS.Constructor) (JS.Global?Object)
             jsEqual (r3.JS.Constructor) (JS.Global?Object)
+
+            let ru = Union1Of2 r3 : Union<_, string>
+            equal (match ru with Union1Of2 r -> r.K5 | _ -> 0) 2
+
+            let ru2 = Union2Of2 r3 : Union<string, _>
+            equal (match ru2 with Union2Of2 r -> r.K5 | _ -> 0) 2
         }
 
         Test "Optimized field access" {

@@ -745,7 +745,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     let b = this.FindProxied b
                     if classes.ContainsKey b || notResolvedClasses.ContainsKey b then Some b else None
                 )
-            let hasWSPrototype = hasWSPrototype cls.Kind cls.Members                
+            let hasWSPrototype = Option.isSome baseCls || hasWSPrototype cls.Kind cls.Members                
             classes.Add (typ,
                 {
                     Address = if hasWSPrototype then someEmptyAddress else None
@@ -883,9 +883,14 @@ type Compilation(meta: Info, ?hasGraph) =
             | Some (g, p) -> NotGenerated(g, p, comp, notVirtual nr.Kind)
             | _ -> NotCompiled (comp, notVirtual nr.Kind, nr.FuncArgs)
             
+        let extraClassAddresses = Dictionary()
+
         let setClassAddress typ clAddr =
             let res = classes.[typ]
-            classes.[typ] <- { res with Address = Some clAddr }
+            if Option.isSome res.Address then
+                classes.[typ] <- { res with Address = Some clAddr }
+            else
+                extraClassAddresses.[typ] <- clAddr.Value
 
         // split to resolve steps
         let stronglyNamedClasses = ResizeArray()
@@ -1090,15 +1095,25 @@ type Compilation(meta: Info, ?hasGraph) =
                         compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | _ -> failwith "Invalid instance member kind"   
 
+        let getClassAddress typ =
+            match classes.[typ].Address with
+            | Some a -> a.Value
+            | _ -> 
+            match extraClassAddresses.TryFind typ with
+            | Some a -> a
+            | _ ->
+                let a = r.ClassAddress(typ.Value.FullName.Split('.') |> List.ofArray |> List.rev, false).Value    
+                extraClassAddresses.Add(typ, a)
+                a
+                                     
         for typ, m, sn in fullyNamedStaticMembers do
-            let res = classes.[typ]
             let addr =
                 match sn.Split('.') with
                 | [||] ->
                     printerrf "Invalid Name attribute argument on type '%s'" typ.Value.FullName
                     ["$$ERROR$$"]
                 | [| n |] -> 
-                    n :: res.Address.Value.Value
+                    n :: getClassAddress typ
                 | a -> List.ofArray (Array.rev a)
             if not (r.ExactStaticAddress addr) then
                 this.AddError(None, NameConflict ("Static member name conflict", sn)) 
@@ -1113,19 +1128,6 @@ type Compilation(meta: Info, ?hasGraph) =
             r.ClassAddress(addr, classes.[typ].HasWSPrototype)
             |> setClassAddress typ
         
-        let extraClassAddresses = Dictionary()
-
-        let getClassAddress typ =
-            match classes.[typ].Address with
-            | Some a -> a.Value
-            | _ -> 
-            match extraClassAddresses.TryFind typ with
-            | Some a -> a
-            | _ ->
-                let a = r.ClassAddress(typ.Value.FullName.Split('.') |> List.ofArray |> List.rev, false).Value    
-                extraClassAddresses.Add(typ, a)
-                a
-                                     
         for KeyValue(typ, ms) in remainingNamedStaticMembers do
             let clAddr = getClassAddress typ
             for m, n in ms do
