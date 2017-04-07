@@ -128,6 +128,7 @@ module ExecuteCommands =
                     FileName = fileName
                     OutputDirectory = outputDir
                     SourceMap = settings.SourceMap
+                    DeadCodeElimination = settings.DeadCodeElimination
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.BundleCommand.Instance.Execute(env, cfg)
