@@ -34,6 +34,7 @@
     <Compile Include="Arithmetic.cs" />
     <Compile Include="Collections.cs" />
     <Compile Include="Delegate.cs" />
+    <Compile Include="InlineControl.cs" />
     <Compile Include="Macro.cs" />
     <Compile Include="Object.cs" />
     <Compile Include="Remoting.cs" />
@@ -101,6 +102,7 @@
     </Reference>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System" />
+    <Reference Include="WebSharper.Sitelets.Tests, Version=4.0.0.0, Culture=neutral, PublicKeyToken=dcd983dec8f76a71, processorArchitecture=MSIL" />
   </ItemGroup>
   <ItemGroup>
     <None Include="WebSharper.CSharp.Tests.ruleset" />
