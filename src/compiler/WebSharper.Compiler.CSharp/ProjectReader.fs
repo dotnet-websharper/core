@@ -692,7 +692,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     let ckind = 
         if cls.IsStatic then NotResolvedClassKind.Static
-        elif annot.Prototype = Some true
+        elif (annot.IsJavaScript && cls.IsAbstract) || (annot.Prototype = Some true)
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 

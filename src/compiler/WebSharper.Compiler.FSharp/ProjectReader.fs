@@ -111,6 +111,11 @@ let isAugmentedFSharpType (e: FSharpEntity) =
         )
     )
 
+let isAbstractClass (e: FSharpEntity) =
+    e.Attributes |> Seq.exists (fun a ->
+        a.AttributeType.FullName = "Microsoft.FSharp.Core.AbstractClassAttribute"
+    )
+
 let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) (sr: CodeReader.SymbolReader) (annot: A.TypeAnnotation) a =
     if annot.IsJavaScript then
         let _, (statements, _) = sc.Value
@@ -657,7 +662,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let ckind = 
         if cls.IsFSharpModule then NotResolvedClassKind.Static
-        elif (annot.IsJavaScript && cls.IsFSharpExceptionDeclaration) || (annot.Prototype = Some true)
+        elif (annot.IsJavaScript && (isAbstractClass cls || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 
