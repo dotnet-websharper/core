@@ -1382,7 +1382,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     | Some a ->
                         Binary(trExpr, BinaryOperator.instanceof, GlobalAccess a)
                     | _ ->
-                        this.Error("Type test cannot be translated because client-side class does not have a prototype: " + t.Value.FullName)
+                        this.Error("Type test cannot be translated because client-side class does not have a prototype, add the Prototype attribute to it: " + t.Value.FullName)
                 | _ -> 
                     match comp.GetCustomType t with
                     | M.FSharpUnionCaseInfo c ->
