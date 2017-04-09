@@ -78,7 +78,7 @@ let RestorePackages () =
         nuget "install IntelliFactory.Core -pre -o packages -excludeVersion -nocache"
         nuget "install IntelliFactory.Build -pre -o packages -excludeVersion -nocache"
         nuget "install FSharp.Core -version 3.0.2 -o packages"
-        nuget "install FSharp.Core -version 4.0.0.1 -o packages"
+        nuget "install FSharp.Core -version 4.1.2 -o packages"
         nuget "install sharpcompress -version 0.15.1 -o packages -excludeVersion -nocache"
         nuget "install Mono.Cecil -version 0.9.6.4 -o packages -excludeVersion"
         Directory.Move("packages/Mono.Cecil", "packages/Mono.Cecil.Roslyn")
@@ -88,7 +88,7 @@ let RestorePackages () =
         nuget "install Microsoft.CodeAnalysis.CSharp -version 1.3.2 -o packages -excludeVersion"
         Directory.Move("packages/System.Collections.Immutable", "packages/System.Collections.Immutable.Roslyn")
         Directory.Move("packages/System.Reflection.Metadata", "packages/System.Reflection.Metadata.Roslyn")
-        nuget "install FSharp.Compiler.Service -version 11.0.4 -o packages -excludeVersion -nocache"
+        nuget "install FSharp.Compiler.Service -version 12.0.2 -o packages -excludeVersion -nocache"
         nuget "install System.Collections.Immutable -version 1.2.0.0 -o packages -excludeVersion -nocache"
 
 [<EntryPoint>]

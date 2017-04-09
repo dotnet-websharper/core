@@ -1018,7 +1018,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             tr expr
         | P.Quote expr -> tr expr
         | P.BaseValue _ -> Base
-        | P.ILAsm("[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, null)],TypeVar 0us)]", _, [ arr; i ]) ->
+        | P.ILAsm("[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, None)],TypeVar 0us)]", _, [ arr; i ]) ->
             let arrId = newId()
             let iId = newId()
             Let (arrId, tr arr, Let(iId, tr i, MakeRef (ItemGet(Var arrId, Var iId)) (fun value -> ItemSet(Var arrId, Var iId, value))))

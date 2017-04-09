@@ -47,7 +47,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
     let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(printfn "%s", checker)
 
-    let errors, exitCode = checker.Compile(config.CompilerArgs)
+    let errors, exitCode = checker.Compile(config.CompilerArgs) |> Async.RunSynchronously
     
     PrintFSharpErrors warnSettings errors
     
