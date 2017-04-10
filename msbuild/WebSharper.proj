@@ -6,7 +6,7 @@
 	<SP2 Include="../src/stdlib/*/*.fsproj"
          Exclude="../src/stdlib/*/WebSharper.JavaScript.fsproj; ../src/stdlib/*/WebSharper.JQuery.fsproj; ../src/stdlib/*/WebSharper.Main.Proxies.fsproj" />
     <SP2 Include="../src/sitelets/*/*.fsproj" />
-    <SP2 Include="../tests/*/*.fsproj" Exclude="../tests/*/WarpTest.fsproj;../tests/*/WebSharper.Core.JavaScript.Tests.fsproj" />
+    <SP2 Include="../tests/*/*.fsproj" Exclude="../tests/*/WarpTest.fsproj;" />
     <SP2 Include="../tests/*/*.csproj" />
 	<BP Include="../src/build/WebSharper.Build/*.fsproj" />
   </ItemGroup>
