@@ -32,7 +32,7 @@ let Tests =
             let r = Ok 3
             let r2 = Error "e"
             equal (match r with Ok x -> x | _ -> 0) 3
-            equal (match r with Error x -> x | _ -> "") "e"
+            equal (match r2 with Error x -> x | _ -> "") "e"
         }
 
         Test "Map" {
@@ -46,7 +46,7 @@ let Tests =
             let r = Ok 3
             let r2 = Error "e"
             equal (r |> Result.mapError (fun x -> x + "r")) (Ok 3)
-            equal (r2 |> Result.mapError (fun x -> x + "r")) (Error "r")
+            equal (r2 |> Result.mapError (fun x -> x + "r")) (Error "er")
         }
 
         Test "Bind" {
