@@ -44,6 +44,17 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     if config.ProjectType <> Some WIG && config.ProjectFile = null then
         argError "You must provide project file path."
 
+    let thisName = Path.GetFileNameWithoutExtension config.AssemblyFile
+
+    let mainProxiesFile() =
+        "../../../build/" + (if config.IsDebug then "Debug" else "Release") + "/Proxies.args"    
+
+    if thisName = "WebSharper.Main.Proxies" then 
+        File.WriteAllLines(mainProxiesFile(), config.CompilerArgs)
+        printfn "Written Proxies.args"
+        0 
+    else
+
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
     let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(printfn "%s", checker)
 
@@ -111,8 +122,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         )
         |> Map.ofSeq
 
-    let thisName = Path.GetFileNameWithoutExtension config.AssemblyFile
-
     let assemblyResolveHandler = ResolveEventHandler(fun _ e ->
             let assemblyName = AssemblyName(e.Name).Name
             match Map.tryFind assemblyName referencedAsmNames with
@@ -127,9 +136,16 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         )
 
     System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
+
+    let compilerArgs =
+        if thisName = "WebSharper.Main" then
+            printfn "Reading Proxies.args"
+            File.ReadAllLines(mainProxiesFile())
+        else
+            config.CompilerArgs    
     
     let comp =
-        compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile, thisName)
+        compiler.Compile(refMeta, compilerArgs, config.ProjectFile, thisName)
 
     match comp with
     | None ->

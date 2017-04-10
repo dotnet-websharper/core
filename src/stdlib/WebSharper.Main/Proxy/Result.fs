@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -20,20 +20,15 @@
 
 namespace WebSharper
 
-open WebSharper.JavaScript
+open WebSharper
 
-[<Proxy(typeof<System.Lazy<_>>)>]
-[<Name "WebSharper.Lazy">]
-type private LazyProxy<'T> =
+#if FSHARP41
 
-    [<Inline; JavaScript>]
-    static member CtorProxy(valueFactory: System.Func<'T>) =
-        Lazy.Create valueFactory.Invoke
+[<Struct>]
+[<Proxy(typeof<Result<_,_>>)>]
+[<RequireQualifiedAccess>]
+type private ResultProxy<'T,'TError> =
+    | Ok of ResultValue:'T 
+    | Error of ErrorValue:'TError
 
-    member this.IsValueCreated
-        with [<Inline "$this.c">] get () = X<bool>
-
-    member this.Value
-        with [<Inline "$this.f()">] get () = X<'T>
-
-
+#endif

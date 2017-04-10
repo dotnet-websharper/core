@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -18,22 +18,12 @@
 //
 // $end{copyright}
 
-namespace WebSharper
+[<AutoOpen>]
+module internal WebSharper.ProxyHelpers
 
-open WebSharper.JavaScript
-
-[<Proxy(typeof<System.Lazy<_>>)>]
-[<Name "WebSharper.Lazy">]
-type private LazyProxy<'T> =
-
-    [<Inline; JavaScript>]
-    static member CtorProxy(valueFactory: System.Func<'T>) =
-        Lazy.Create valueFactory.Invoke
-
-    member this.IsValueCreated
-        with [<Inline "$this.c">] get () = X<bool>
-
-    member this.Value
-        with [<Inline "$this.f()">] get () = X<'T>
-
-
+type LazyRecord<'T> =
+    {
+        [<Name "c">] mutable created : bool
+        [<Name "v">] mutable evalOrVal : obj
+        [<Name "f">] mutable force : unit -> 'T
+    }

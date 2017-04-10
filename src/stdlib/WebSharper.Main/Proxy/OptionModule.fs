@@ -33,14 +33,44 @@ let Bind f x =
     | Some x -> f x
     | None   -> None
 
+[<Inline>]
+let Contains v o =
+    match o with
+    | Some x -> x = v
+    | None -> false
+
 [<Inline "$x ? 1 : 0">]
 let Count (x: option<_>) = X<int>
+
+[<Inline>]
+let DefaultValue v o =
+    match o with
+    | Some x -> x 
+    | None -> v
+
+[<Inline>]
+let DefaultWith f o =
+    match o with
+    | Some x -> x 
+    | None -> f()
 
 [<Inline>]
 let Exists p x =
     match x with
     | Some x -> p x
     | None   -> false
+
+[<Name "filter">]
+let Filter f o =
+    match o with
+    | Some x when f x -> o
+    | _ -> None
+
+[<Inline>]
+let Flatten o =
+    match o with
+    | Some x -> x
+    | None -> None
 
 [<Name "fold">]
 let Fold<'T,'S> (f: 'S -> 'T -> 'S) (s: 'S) (x: option<'T>) : 'S =
@@ -78,8 +108,40 @@ let Iterate p x =
 [<Inline>]
 let Map f x =
     match x with
-    | Some x    -> Some (f x)
-    | None      -> None
+    | Some x -> Some (f x)
+    | None -> None
+
+[<Inline>]
+let Map2 f x y =
+    match x, y with
+    | Some x, Some y -> Some (f x y)
+    | _ -> None
+
+[<Inline>]
+let Map3 f x y z =
+    match x, y, z with
+    | Some x, Some y, Some z -> Some (f x y z)
+    | _ -> None
+
+[<Name "ofNullable">]
+let OfNullable (o: System.Nullable<'T>) =
+    if o ==. null then None else Some o.Value                   
+
+[<Name "ofObj">]
+let OfObj o = 
+    if o ==. null then None else Some o
+
+[<Inline>]
+let OrElse v o =
+    match o with
+    | Some x -> o 
+    | None -> v
+
+[<Inline>]
+let OrElseWith f o =
+    match o with
+    | Some x -> o 
+    | None -> f()
 
 [<Name "toArray">]
 let ToArray x =
@@ -93,28 +155,14 @@ let ToList x =
     | Some x -> [x]
     | None   -> []
 
-[<Name "ofObj">]
-let OfObj o = 
-    if o ==. null then None else Some o
-
-[<Name "toObj">]
-let ToObj o = 
-    match o with
-    | Some v -> v
-    | None -> null
-
-[<Name "ofNullable">]
-let OfNullable (o: System.Nullable<'T>) =
-    if o ==. null then None else Some o.Value                   
-
 [<Name "toNullable">]
 let ToNullable o =
     match o with
     | Some v -> System.Nullable(v)
     | _ -> System.Nullable()
 
-[<Name "filter">]
-let Filter f o =
+[<Name "toObj">]
+let ToObj o = 
     match o with
-    | None -> None
-    | Some v -> if f v then Some v else None
+    | Some v -> v
+    | None -> null

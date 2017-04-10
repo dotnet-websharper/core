@@ -44,6 +44,7 @@
     <Compile Include="Ref.fs" />
     <Compile Include="Reflected.fs" />
     <Compile Include="Regression.fs" />
+    <Compile Include="Result.fs" />
     <Compile Include="Seq.fs" />
     <Compile Include="Stack.fs" />
     <Compile Include="String.fs" />
