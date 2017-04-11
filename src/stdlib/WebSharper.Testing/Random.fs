@@ -347,11 +347,11 @@ module internal Internal =
             | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "Microsoft.FSharp.Collections.FSharpList`1" ->
                 mkGenerator wrap t >>= fun wrap x ->
                 wrap, Choice1Of2 (cCallR "ListOf" [x])
-            | T.TupleType [t1; t2] ->
+            | T.TupleType ([t1; t2], _) ->
                 mkGenerator wrap t1 >>= fun wrap x1 ->
                 mkGenerator wrap t2 >>= fun wrap x2 ->
                 wrap, Choice1Of2 (cCallR "Tuple2Of" [x1; x2])
-            | T.TupleType [t1; t2; t3] ->
+            | T.TupleType ([t1; t2; t3], _) ->
                 mkGenerator wrap t1 >>= fun wrap x1 ->
                 mkGenerator wrap t2 >>= fun wrap x2 ->
                 mkGenerator wrap t3 >>= fun wrap x3 ->

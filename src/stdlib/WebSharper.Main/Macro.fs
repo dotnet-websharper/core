@@ -483,7 +483,7 @@ type FuncWithArgsRest() =
         match c.Arguments with
         | [func] ->
             match c.DefiningType.Generics.[0] with
-            | TupleType ts ->
+            | TupleType (ts, _) ->
                 JSRuntime.CreateFuncWithArgsRest (Value (Int (List.length ts))) func |> MacroOk
             | _ ->
                 MacroError "Wrong type argument on FuncWithArgsRest: 'TArgs must be a tuple"
@@ -737,7 +737,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
     let prettyPrint (t: Type) o = 
         let rec pp (t: Type) (o: Expression) = 
             match t with
-            | TupleType ts ->
+            | TupleType (ts, _) ->
                 seq {
                     yield cString "("
                     for i = 0 to ts.Length - 1 do 

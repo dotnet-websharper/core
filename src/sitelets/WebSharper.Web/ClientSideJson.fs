@@ -335,7 +335,7 @@ module Macro =
                                 [C (T "System.String", []); t]) ->
                     encode t >>= fun e ->
                     ok (call "StringDictionary" [e])
-                | TupleType ts ->
+                | TupleType (ts, _) ->
                     ((fun es -> ok (call "Tuple" [NewArray es])), ts)
                     ||> List.fold (fun k t ->
                         fun es -> encode t >>= fun e -> k (e :: es))

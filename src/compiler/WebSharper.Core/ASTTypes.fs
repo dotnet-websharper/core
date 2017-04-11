@@ -245,7 +245,7 @@ and Type =
     /// An array with the specified number of dimensions
     | ArrayType of Type * int
     /// A Sytem.Tuple type, type parameters are in a straight list
-    | TupleType of list<Type>
+    | TupleType of list<Type> * bool
     /// Identifies the FSharp.Core.FSharpFunc type
     | FSharpFuncType of Type * Type
     /// The type of a ref or out parameter
@@ -266,7 +266,7 @@ and Type =
                 | gs -> "<" + (gs |> Seq.map string |> String.concat ", ") + ">"
         | TypeParameter i -> "'T" + string i
         | ArrayType (t, a) -> string t + "[" + String.replicate (a - 1) "," + "]"
-        | TupleType ts -> "(" + (ts |> Seq.map string |> String.concat " * ") + ")"
+        | TupleType (ts, v) -> (if v then "struct " else "") + "(" + (ts |> Seq.map string |> String.concat " * ") + ")"
         | FSharpFuncType (a, r) -> "(" + string a + " -> " + string r + ")"
         | ByRefType t -> "byref<" + string t + ">"
         | VoidType -> "unit"
@@ -299,12 +299,13 @@ and Type =
             | ArrayType (t, i) ->
                 let tn, ta = getNameAndAsm t
                 tn + "[" + String.replicate (i - 1) "," + "]", ta
-            | TupleType ts ->
+            | TupleType (ts, v) ->
+                let name = if v then "System.ValueTuple`" else "System.Tuple`"
                 let rec getName l (ts: List<Type>) =
                     if l <= 7 then
-                        "System.Tuple`" + (string l) + "[[" + String.concat "],[" (ts |> Seq.map (fun g -> g.AssemblyQualifiedName)) + "]]"
+                        name  + (string l) + "[[" + String.concat "],[" (ts |> Seq.map (fun g -> g.AssemblyQualifiedName)) + "]]"
                     else
-                        "System.Tuple`8[[" + 
+                        name + "8[[" + 
                             String.concat "],[" (ts |> Seq.take 7 |> Seq.map (fun g -> g.AssemblyQualifiedName)) + 
                             getName (l - 7) (ts |> Seq.skip 7 |> List.ofSeq) + "]]"
                 getName (List.length ts) ts, "mscorlib"
@@ -332,7 +333,7 @@ and Type =
         | ConcreteType t -> ConcreteType { t with Generics = t.Generics |> List.map (fun p -> p.SubstituteGenerics gs) }
         | TypeParameter i -> gs.[i]
         | ArrayType (t, i) -> ArrayType (t.SubstituteGenerics gs, i)
-        | TupleType ts -> TupleType (ts |> List.map (fun p -> p.SubstituteGenerics gs)) 
+        | TupleType (ts, v) -> TupleType (ts |> List.map (fun p -> p.SubstituteGenerics gs), v) 
         | FSharpFuncType (a, r) -> FSharpFuncType (a.SubstituteGenerics gs, r.SubstituteGenerics gs)
         | ByRefType t -> ByRefType (t.SubstituteGenerics gs)
         | VoidType -> VoidType
@@ -344,7 +345,7 @@ and Type =
         | ConcreteType t -> ConcreteType { t with Generics = t.Generics |> List.map (fun p -> p.SubstituteGenericsToSame(o)) }
         | TypeParameter _ -> o
         | ArrayType (t, i) -> ArrayType (t.SubstituteGenericsToSame(o), i)
-        | TupleType ts -> TupleType (ts |> List.map (fun p -> p.SubstituteGenericsToSame(o))) 
+        | TupleType (ts, v) -> TupleType (ts |> List.map (fun p -> p.SubstituteGenericsToSame(o)), v) 
         | FSharpFuncType (a, r) -> FSharpFuncType (a.SubstituteGenericsToSame(o), r.SubstituteGenericsToSame(o))
         | ByRefType t -> ByRefType (t.SubstituteGenericsToSame(o))
         | VoidType -> VoidType
@@ -413,10 +414,11 @@ module Reflection =
                 FullName = "Microsoft.FSharp.Core.FSharpFunc`2"
             }
         elif FST.IsTuple t then
+            let name = if t.IsValueType then "System.ValueTuple`" else "System.Tuple`"
             let g = t.GetGenericArguments().Length
             Hashed {
                 Assembly = "mscorlib"
-                FullName = "System.Tuple`" + string (max g 8)
+                FullName = name + string (max g 8)
             }
         else
             getTypeDefinitionUnchecked false t
@@ -433,7 +435,7 @@ module Reflection =
             let a, r = FST.GetFunctionElements t
             FSharpFuncType(ReadType a, ReadType r)        
         elif FST.IsTuple t then
-            TupleType(FST.GetTupleElements t |> Seq.map ReadType |> List.ofSeq) 
+            TupleType(FST.GetTupleElements t |> Seq.map ReadType |> List.ofSeq, t.IsValueType) 
         elif t.IsGenericParameter then  
             if t.DeclaringMethod <> null then
                 let dT = t.DeclaringType

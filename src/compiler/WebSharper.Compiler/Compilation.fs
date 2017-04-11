@@ -812,7 +812,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                 graph.AddEdge(clsNodeIndex, TypeNode(c.Entity))
                                 c.Generics |> List.iter addTypeDeps
                             | ArrayType(t, _) -> addTypeDeps t
-                            | TupleType ts -> ts |> List.iter addTypeDeps
+                            | TupleType (ts, _) -> ts |> List.iter addTypeDeps
                             | _ -> ()
                         addTypeDeps f.FieldType
                     | _ -> ()
@@ -826,7 +826,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         graph.AddEdge(clsNodeIndex.Value, TypeNode(c.Entity))
                         c.Generics |> List.iter addTypeDeps
                     | ArrayType(t, _) -> addTypeDeps t
-                    | TupleType ts -> ts |> List.iter addTypeDeps
+                    | TupleType (ts, _) -> ts |> List.iter addTypeDeps
                     | _ -> ()
                 let unionCase (uci: FSharpUnionCaseInfo) =
                     match uci.Kind with

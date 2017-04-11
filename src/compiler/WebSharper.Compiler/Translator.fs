@@ -773,7 +773,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         this.AddDependency(M.TypeNode c.Entity)
                         c.Generics |> List.iter addTypeDeps
                     | ArrayType(t, _) -> addTypeDeps t
-                    | TupleType ts -> ts |> List.iter addTypeDeps
+                    | TupleType (ts, _) -> ts |> List.iter addTypeDeps
                     | _ -> ()
                 addTypeDeps meth.Entity.Value.ReturnType
             Application (remotingProvider |> getItem name, [ Value (String (handle.Pack())); NewArray (trArgs()) ], opts.IsPure, Some 2)

@@ -337,8 +337,13 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             match t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq with
             | [a; r] -> FSharpFuncType(a, r)
             | _ -> failwith "impossible: FSharpFunc must have 2 type parameters"
-        if t.IsTupleType then
-            t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq |> TupleType
+        let getTupleType isStruct =
+            let tts = t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq
+            TupleType(tts, isStruct)
+        if t.IsStructTupleType then
+            getTupleType true
+        elif t.IsTupleType then
+            getTupleType false
         elif t.IsFunctionType then
             getFunc()
         else
@@ -351,7 +356,9 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             let fn = 
                 if td.IsProvidedAndErased then td.LogicalName else td.FullName
             if fn.StartsWith "System.Tuple" then
-                t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq |> TupleType
+                getTupleType false
+            elif fn.StartsWith "System.ValueTuple" then
+                getTupleType true
             elif fn = "Microsoft.FSharp.Core.FSharpFunc`2" then
                 getFunc()
             elif fn = "Microsoft.FSharp.Core.Unit" || fn = "System.Void" then

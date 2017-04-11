@@ -108,4 +108,71 @@ type internal TupleProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7, 'TRest>
     [<Inline "$0[5]" >] member this.Item6 = X<'T6>
     [<Inline "$0[6]" >] member this.Item7 = X<'T7>
     [<Inline "$0.slice(7)" >] member this.Rest = X<'TRest>
-    
+
+[<Proxy(typeof<System.ValueTuple<_>>)>]
+type internal ValueTupleProxy<'T1> 
+    [<Inline "[$0]" >] (a: 'T1) =
+    [<Inline "$0[0]" >] member this.Item1 = X<'T1>
+
+[<Proxy(typeof<System.ValueTuple<_,_>>)>]
+type internal ValueTupleProxy<'T1, 'T2> 
+    [<Inline "[$0, $1]" >] (a: 'T1, b: 'T2) =
+    [<Inline "$0[0]" >] member this.Item1 = X<'T1>
+    [<Inline "$0[1]" >] member this.Item2 = X<'T2>
+
+[<Proxy(typeof<System.ValueTuple<_,_,_>>)>]
+type internal ValueTupleProxy<'T1, 'T2, 'T3> 
+    [<Inline "[$0, $1, $2]" >] (a: 'T1, b: 'T2, c: 'T3) =
+    [<Inline "$0[0]" >] member this.Item1 = X<'T1>
+    [<Inline "$0[1]" >] member this.Item2 = X<'T2>
+    [<Inline "$0[2]" >] member this.Item3 = X<'T3>
+
+[<Proxy(typeof<System.ValueTuple<_,_,_,_>>)>]
+type internal ValueTupleProxy<'T1, 'T2, 'T3, 'T4> 
+    [<Inline "[$0, $1, $2, $3]" >] (a: 'T1, b: 'T2, c: 'T3, d: 'T4) =
+    [<Inline "$0[0]" >] member this.Item1 = X<'T1>
+    [<Inline "$0[1]" >] member this.Item2 = X<'T2>
+    [<Inline "$0[2]" >] member this.Item3 = X<'T3>
+    [<Inline "$0[3]" >] member this.Item4 = X<'T4>
+
+[<Proxy(typeof<System.ValueTuple<_,_,_,_,_>>)>]
+type internal ValueTupleProxy<'T1, 'T2, 'T3, 'T4, 'T5> 
+    [<Inline "[$0, $1, $2, $3, $4]" >] (a: 'T1, b: 'T2, c: 'T3, d: 'T4, e: 'T5) =
+    [<Inline "$0[0]" >] member this.Item1 = X<'T1>
+    [<Inline "$0[1]" >] member this.Item2 = X<'T2>
+    [<Inline "$0[2]" >] member this.Item3 = X<'T3>
+    [<Inline "$0[3]" >] member this.Item4 = X<'T4>
+    [<Inline "$0[4]" >] member this.Item5 = X<'T5>
+
+[<Proxy(typeof<System.ValueTuple<_,_,_,_,_,_>>)>]
+type internal ValueTupleProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6> 
+    [<Inline "[$0, $1, $2, $3, $4, $5]" >] (a: 'T1, b: 'T2, c: 'T3, d: 'T4, e: 'T5, f: 'T6) =
+    [<Inline "$0[0]" >] member this.Item1 = X<'T1>
+    [<Inline "$0[1]" >] member this.Item2 = X<'T2>
+    [<Inline "$0[2]" >] member this.Item3 = X<'T3>
+    [<Inline "$0[3]" >] member this.Item4 = X<'T4>
+    [<Inline "$0[4]" >] member this.Item5 = X<'T5>
+    [<Inline "$0[5]" >] member this.Item6 = X<'T6>
+
+[<Proxy(typeof<System.ValueTuple<_,_,_,_,_,_,_>>)>]
+type internal ValueTupleProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7> 
+    [<Inline "[$0, $1, $2, $3, $4, $5, $6]" >] (a: 'T1, b: 'T2, c: 'T3, d: 'T4, e: 'T5, f: 'T6, g: 'T7) =
+    [<Inline "$0[0]" >] member this.Item1 = X<'T1>
+    [<Inline "$0[1]" >] member this.Item2 = X<'T2>
+    [<Inline "$0[2]" >] member this.Item3 = X<'T3>
+    [<Inline "$0[3]" >] member this.Item4 = X<'T4>
+    [<Inline "$0[4]" >] member this.Item5 = X<'T5>
+    [<Inline "$0[5]" >] member this.Item6 = X<'T6>
+    [<Inline "$0[6]" >] member this.Item7 = X<'T7>
+
+//[<Proxy(typeof<System.ValueTuple<_,_,_,_,_,_,_,_>>)>]
+//type internal ValueTupleProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7, 'TRest> 
+//    [<Inline "[$0, $1, $2, $3, $4, $5, $6].concat($7)" >] (a: 'T1, b: 'T2, c: 'T3, d: 'T4, e: 'T5, f: 'T6, g: 'T7, h: 'TRest) =
+//    [<Inline "$0[0]" >] member this.Item1 = X<'T1>
+//    [<Inline "$0[1]" >] member this.Item2 = X<'T2>
+//    [<Inline "$0[2]" >] member this.Item3 = X<'T3>
+//    [<Inline "$0[3]" >] member this.Item4 = X<'T4>
+//    [<Inline "$0[4]" >] member this.Item5 = X<'T5>
+//    [<Inline "$0[5]" >] member this.Item6 = X<'T6>
+//    [<Inline "$0[6]" >] member this.Item7 = X<'T7>
+//    [<Inline "$0.slice(7)" >] member this.Rest = X<'TRest>

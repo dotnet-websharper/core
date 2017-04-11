@@ -51,6 +51,16 @@ let rec getType tgen (tR: Mono.Cecil.TypeReference) =
         else TypeParameter tR.Position
     else
         let name = tR.FullName.Split('<').[0] 
+        let getTupleType isStruct =
+            let tR = tR :?> Mono.Cecil.GenericInstanceType
+            let rec collect (ts: seq<Mono.Cecil.TypeReference>) =
+                let ts = Array.ofSeq ts  
+                if ts.Length = 8 then
+                    let rest = ts.[7] :?> Mono.Cecil.GenericInstanceType
+                    Array.append ts.[.. 6] (collect rest.GenericArguments) 
+                else ts
+            let tts = collect tR.GenericArguments |> Seq.map (getType tgen) |> List.ofSeq
+            TupleType (tts, isStruct)
         if name = "System.Void" || name = "Microsoft.FSharp.Core.Unit" then
             VoidType
         elif name = "Microsoft.FSharp.Core.FSharpFunc`2" then
@@ -59,14 +69,9 @@ let rec getType tgen (tR: Mono.Cecil.TypeReference) =
             | [a; r] -> FSharpFuncType(a, r)    
             | _ -> failwith "FSharpFunc type must have two type arguments"
         elif name.StartsWith "System.Tuple" then
-            let tR = tR :?> Mono.Cecil.GenericInstanceType
-            let rec collect (ts: seq<Mono.Cecil.TypeReference>) =
-                let ts = Array.ofSeq ts  
-                if ts.Length = 8 then
-                    let rest = ts.[7] :?> Mono.Cecil.GenericInstanceType
-                    Array.append ts.[.. 6] (collect rest.GenericArguments) 
-                else ts
-            collect tR.GenericArguments |> Seq.map (getType tgen) |> List.ofSeq |> TupleType
+            getTupleType false
+        elif name.StartsWith "System.ValueTuple" then
+            getTupleType true
         else
             GenericType
                 (
