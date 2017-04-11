@@ -128,35 +128,12 @@
       <Name>Website</Name>
     </ProjectReference>
   </ItemGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+  </PropertyGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
-  <Choose>
-    <When Condition="'$(VSToolsPath)' != ''">
-      <PropertyGroup>
-        <VSWebAppsPath>$(VSToolsPath)\WebApplications</VSWebAppsPath>
-      </PropertyGroup>
-    </When>
-    <When Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v14.0\WebApplications')">
-      <PropertyGroup>
-        <VSWebAppsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v14.0\WebApplications</VSWebAppsPath>
-      </PropertyGroup>
-    </When>
-    <When Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v12.0\WebApplications')">
-      <PropertyGroup>
-        <VSWebAppsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v12.0\WebApplications</VSWebAppsPath>
-      </PropertyGroup>
-    </When>
-    <When Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v11.0\WebApplications')">
-      <PropertyGroup>
-        <VSWebAppsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v11.0\WebApplications</VSWebAppsPath>
-      </PropertyGroup>
-    </When>
-    <When Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications')">
-      <PropertyGroup>
-        <VSWebAppsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications</VSWebAppsPath>
-      </PropertyGroup>
-    </When>
-  </Choose>
-  <Import Project="$(VSWebAppsPath)\Microsoft.WebApplication.targets" />
+  <Import Project="$(VSToolsPath)\WebApplications\Microsoft.WebApplication.targets" Condition="'$(VSToolsPath)' != ''" />
   <Import Project="../../msbuild/WebSharper.CSharp.Internal.targets" />
   <ProjectExtensions>
     <VisualStudio>
