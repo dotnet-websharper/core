@@ -5,7 +5,7 @@
     <Name>WsFsc</Name>
     <OutputType>Exe</OutputType>
     <FSharp40>True</FSharp40>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <Signed>False</Signed>
     <FSharpTool>True</FSharpTool>
     <TargetFrameworkProfile />

@@ -10,6 +10,7 @@
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <TargetFrameworkProfile />
     <Tests>True</Tests>
+	<AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <Import Project="../../msbuild/FSharp.targets" />
   <ItemGroup>

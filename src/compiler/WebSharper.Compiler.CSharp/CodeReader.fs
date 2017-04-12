@@ -158,26 +158,23 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                 comp.AddCustomType(def, info)
 
     member this.ReadNamedTypeDefinition (x: INamedTypeSymbol) =
-        let arity (symbol: INamedTypeSymbol) =
-            match symbol.Arity with 0 -> "" | a -> "`" + string a    
-
         let rec getNamespaceOrTypeAddress acc (symbol: INamespaceOrTypeSymbol) =
             match symbol.ContainingNamespace with
             | null -> acc |> String.concat "."
-            | ns -> getNamespaceOrTypeAddress (symbol.Name :: acc) ns   
-    
+            | ns -> getNamespaceOrTypeAddress (symbol.MetadataName :: acc) ns   
+
         let rec getTypeAddress acc (symbol: INamedTypeSymbol) =
             match symbol.ContainingType with
             | null -> 
-                let ns = getNamespaceOrTypeAddress [] symbol + arity symbol
+                let ns = getNamespaceOrTypeAddress [] symbol
                 if List.isEmpty acc then ns else
                     ns :: acc |> String.concat "+" 
-            | t -> getTypeAddress (symbol.Name + arity symbol :: acc) t           
+            | t -> getTypeAddress (symbol.MetadataName :: acc) t           
 
         let res =
             Hashed {
                 Assembly = x.ContainingAssembly.Identity.Name
-                FullName = getTypeAddress [] x //) + arity x
+                FullName = getTypeAddress [] x
             }
 
         this.RegisterCustomType res x
@@ -189,9 +186,9 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             // TODO: handle dynamic by cheking symbol.ContainingSymbol before calling sr.ReadNamedType
             NonGeneric Definitions.Dynamic     
         else
-        let ta = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
-        let td = this.ReadNamedTypeDefinition x
-        Generic td ta
+            let ta = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
+            let td = this.ReadNamedTypeDefinition x
+            Generic td ta
     
     member this.RecognizeNamedType (x: INamedTypeSymbol) =
         let ta = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
@@ -647,9 +644,10 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformArgument (x: ArgumentData) : option<int> * Expression =
         let namedParamOrdinal = 
-            x.NameColon |> Option.map (fun nc ->
-                let symbol = env.SemanticModel.GetSymbolInfo(nc.Name.Node).Symbol :?> IParameterSymbol
-                symbol.Ordinal
+            x.NameColon |> Option.bind (fun nc ->
+                match env.SemanticModel.GetSymbolInfo(nc.Name.Node).Symbol with
+                | :? IParameterSymbol as symbol -> Some symbol.Ordinal
+                | _ -> None
             )
         let expression = x.Expression |> this.TransformExpression
         let refOrOut =
@@ -752,21 +750,48 @@ type RoslynTransformer(env: Environment) =
 //        let constraintClauses = x.ConstraintClauses |> Seq.map this.TransformTypeParameterConstraintClause |> List.ofSeq
         let body = x.Body |> Option.map this.TransformBlock
         let expressionBody = x.ExpressionBody |> Option.map this.TransformArrowExpressionClause
-        TODO x
+        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
+        let id = 
+            match symbol with
+            | :? ILocalSymbol as s ->
+                let id = Id.New(s.Name, not s.IsConst)
+                env.Vars.Add(s, id)
+                id
+            | _ -> failwithf "this.TransformLocalFunctionStatement: invalid symbol type %A" symbol
+        
+        // TODO : optional?
+        FuncDeclaration(
+            id, 
+            parameterList |> List.map (fun p -> p.ParameterId), 
+            match expressionBody with
+            | Some b -> Return b
+            | _ -> body.Value
+        )
+        |> withStatementSourcePos x.Node
 
     member this.TransformLocalDeclarationStatement (x: LocalDeclarationStatementData) : Statement =
         x.Declaration |> this.TransformVariableDeclaration |> List.map VarDeclaration |> Block 
         |> withStatementSourcePos x.Node
 
     member this.TransformSingleVariableDesignation (x: SingleVariableDesignationData) : _ =
-        TODO x
+        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
+        let id = 
+            match symbol with
+            | :? ILocalSymbol as s ->
+                let id = Id.New(s.Name, not s.IsConst)
+                env.Vars.Add(s, id)
+                id
+            | _ -> failwithf "this.TransformSingleVariableDesignation: invalid symbol type %A" symbol
+        NewVar(id, Undefined)
+        |> withExprSourcePos x.Node
 
     member this.TransformDiscardDesignation (x: DiscardDesignationData) : _ =
-        TODO x
+        Undefined
 
     member this.TransformParenthesizedVariableDesignation (x: ParenthesizedVariableDesignationData) : _ =
         let variables = x.Variables |> Seq.map this.TransformVariableDesignation |> List.ofSeq
-        TODO x
+        NewArray variables
+        |> withExprSourcePos x.Node
 
     member this.TransformVariableDesignation (x: VariableDesignationData) : _ =
         match x with
@@ -775,9 +800,26 @@ type RoslynTransformer(env: Environment) =
         | VariableDesignationData.ParenthesizedVariableDesignation x -> this.TransformParenthesizedVariableDesignation x
 
     member this.TransformDeclarationExpression (x: DeclarationExpressionData) : _ =
-        let type_ = x.Type |> this.TransformType
         let designation = x.Designation |> this.TransformVariableDesignation
-        TODO x
+        let value = Id.New ("$m", mut = false)
+        let rec trDesignation v e =
+            match e with
+            | ExprSourcePos (pos, NewVar(nv, _)) ->
+                ExprSourcePos (pos, NewVar(nv, v)) 
+            | ExprSourcePos (pos, NewArray ds) ->
+                let tvalue = Id.New ("$m", mut = false)                
+                ExprSourcePos (pos, 
+                    Let (tvalue, v,
+                        Sequential(
+                            ds |> List.mapi (fun i di -> 
+                                trDesignation v.[Value (Int i)] di      
+                            )
+                        )
+                    )
+                )     
+            | Undefined -> Undefined
+            | _ -> failwithf "Unexpected form in variable designation: %s" (Debug.PrintExpression e)
+        VarDesignation(value, trDesignation (Var value) designation)
 
     member this.TransformExpressionStatement (x: ExpressionStatementData) : Statement =
         x.Expression |> this.TransformExpression |> ExprStatement
@@ -924,7 +966,9 @@ type RoslynTransformer(env: Environment) =
                 withResultValue right <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
                 withResultValue right <| fun rv -> Call (thisOpt, typ, setterOf getter, args @ [rv])
-            | _ -> TODO x
+            | VarDesignation(v, setters) ->
+                Let (v, right, setters)                                                              
+            | e -> failwithf "AssignmentExpression left side not handled: %s" (Debug.PrintExpression e)
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
             let opTyp, operator = getTypeAndMethod symbol
@@ -988,7 +1032,7 @@ type RoslynTransformer(env: Environment) =
             | Call (thisOpt, typ, getter, args) ->
                 withResultValue (Call(None, opTyp, operator, [left; right])) <| fun rv ->
                     Call (thisOpt, typ, setterOf getter, args @ [rv])
-            | _ -> TODO x
+            | e -> failwithf "AssignmentExpression left side not handled: %s" (Debug.PrintExpression e)
             
         |> withExprSourcePos x.Node
 
@@ -1435,21 +1479,13 @@ type RoslynTransformer(env: Environment) =
     member this.TransformFinallyClause (x: FinallyClauseData) : _ =
         x.Block |> this.TransformBlock
 
-    member this.TransformForEachStatement (x: ForEachStatementData) : _ =
-        let expression = x.Expression |> this.TransformExpression
-        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
-        let typ = sr.ReadType symbol.Type
-        let v = Id.New symbol.Name
-        env.Vars.Add(symbol, v)
-        let statement = x.Statement |> this.TransformStatement
-
+    member this.TransformForEach (varSet, expression, statement) = 
         // TODO: foreach on System.Collections.IEnumerable 
-
         let getEnumerator e =
             let ret = Generic (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Collections.Generic.IEnumerator`1" }) [TypeParameter 0]
             Call(
                 Some e, 
-                Generic (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Collections.Generic.IEnumerable`1" }) [typ],
+                NonGeneric (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Collections.Generic.IEnumerable`1" }),
                 NonGeneric (Method { MethodName = "GetEnumerator"; Parameters = []; ReturnType = ConcreteType ret; Generics = 0 }),
                 []            
             )
@@ -1457,7 +1493,7 @@ type RoslynTransformer(env: Environment) =
         let getCurrent e =
             Call(
                 Some e, 
-                Generic (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Collections.Generic.IEnumerator`1" }) [typ],
+                NonGeneric (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Collections.Generic.IEnumerator`1" }),
                 NonGeneric (Method { MethodName = "get_Current"; Parameters = []; ReturnType = TypeParameter 0; Generics = 0 }),
                 []            
             )
@@ -1483,24 +1519,39 @@ type RoslynTransformer(env: Environment) =
 
         Block [
             VarDeclaration (en, getEnumerator expression)
-            VarDeclaration (v, Undefined)
             TryFinally(
                 While(
                     moveNext (Var en), 
                     Block [
-                        ExprStatement <| VarSet (v, getCurrent (Var en))
+                        ExprStatement <| varSet (getCurrent (Var en))
                         statement
                     ]
                 ), 
                 ExprStatement <| disp (Var en)
             )
-        ]
+        ]        
+
+    member this.TransformForEachStatement (x: ForEachStatementData) : _ =
+        let expression = x.Expression |> this.TransformExpression
+        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
+        let v = Id.New symbol.Name
+        env.Vars.Add(symbol, v)
+        let statement = x.Statement |> this.TransformStatement
+
+        this.TransformForEach ((fun c -> NewVar(v, c)), expression, statement)
+        |> withStatementSourcePos x.Node
 
     member this.TransformForEachVariableStatement (x: ForEachVariableStatementData) : _ =
         let variable = x.Variable |> this.TransformExpression
         let expression = x.Expression |> this.TransformExpression
         let statement = x.Statement |> this.TransformStatement
-        TODO x
+        let varSet c =
+            match variable with 
+            | VarDesignation(v, setters) ->
+                Let (v, c, setters)   
+            | _ -> failwithf "expected a variable designation: %s" (Debug.PrintExpression variable)
+        this.TransformForEach (varSet, expression, statement)
+        |> withStatementSourcePos x.Node
 
     member this.TransformCommonForEachStatement (x: CommonForEachStatementData) : _ =
         match x with

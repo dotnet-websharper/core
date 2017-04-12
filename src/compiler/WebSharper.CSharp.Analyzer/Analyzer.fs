@@ -12,8 +12,10 @@ open Microsoft.CodeAnalysis.CSharp.Syntax
 open Microsoft.CodeAnalysis.Diagnostics
 open System.IO
 open WebSharper.Compiler
+open System.Dynamic
 
 module FE = WebSharper.Compiler.FrontEnd
+
 
 [<DiagnosticAnalyzer(LanguageNames.CSharp)>]
 type WebSharperCSharpAnalyzer () =
@@ -25,18 +27,14 @@ type WebSharperCSharpAnalyzer () =
     static let wsError = 
         new DiagnosticDescriptor ("WebSharperError", "WebSharper errors", "{0}", "WebSharper", DiagnosticSeverity.Error, true, null, null)
 
-    let mutable assemblyResolveHandler =
-        ResolveEventHandler(fun _ e ->
+    static do  
+        System.AppDomain.CurrentDomain.add_AssemblyResolve(fun _ e ->
             if AssemblyName(e.Name).Name = "FSharp.Core" then
                 typeof<option<_>>.Assembly
             else null
         )
 
     let mutable compiling = false;
-
-    do  System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
-
-    let mutable assemblyResolveHandler = null
     let mutable lastRefPaths = [ "" ]
     let mutable cachedRefErrorsAndMeta = None
 
@@ -109,14 +107,15 @@ type WebSharperCSharpAnalyzer () =
                         )
                         |> Map.ofSeq
 
-                    assemblyResolveHandler <- ResolveEventHandler(fun _ e ->
-                            let assemblyName = AssemblyName(e.Name).Name
-                            match Map.tryFind assemblyName referencedAsmNames with
-                            | None -> null
-                            | Some p -> Assembly.LoadFrom(p)
-                        )
-
-                    System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
+                    System.AppDomain.CurrentDomain.add_AssemblyResolve(fun _ e ->
+                        let assemblyName = AssemblyName(e.Name).Name
+                        if assemblyName = "FSharp.Core" then
+                            typeof<option<_>>.Assembly
+                        else
+                        match Map.tryFind assemblyName referencedAsmNames with
+                        | None -> null
+                        | Some p -> Assembly.LoadFrom(p)
+                    )
 
                     let metas = refPaths |> List.map this.GetRefMeta
                     let refErrors = metas |> List.choose snd

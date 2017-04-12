@@ -4,8 +4,9 @@
     <ProjectGuid>24b3fbdf-e7c2-4a54-8877-cbc05dbf2abc</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.Sitelets.Offline</Name>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FSharp40>True</FSharp40>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />

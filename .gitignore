@@ -14,5 +14,5 @@ IntelliFactory.WebSharper.JQuery/*.js
 /tests/Web/downloads/
 /msbuild/AssemblyInfo.extra.fs
 /.hg
-/.vs/config
+/.vs
 /msbuild.log

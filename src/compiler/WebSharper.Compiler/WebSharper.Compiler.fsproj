@@ -4,7 +4,7 @@
     <ProjectGuid>{bfb21b61-fda9-4814-a728-7d43038e0b57}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.Compiler</Name>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FSharp40>True</FSharp40>
     <FSharpTool>True</FSharpTool>
     <TargetFrameworkProfile />
