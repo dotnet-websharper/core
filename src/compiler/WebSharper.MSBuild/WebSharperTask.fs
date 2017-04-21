@@ -394,7 +394,7 @@ type WebSharperTask() =
     member this.InvalidTargetFSharpCoreVersion =
         "Invalid TargetFSharpCoreVersion: \"" +
         this.TargetFSharpCoreVersion +
-        "\"; should be \"4.3.0.0\", \"4.3.1.0\" or \"4.4.0.0\""
+        "\"; should be \"4.3.0.0\", \"4.3.1.0\", \"4.4.0.0\" or \"4.4.1.0\""
 
     override this.Execute() =
         let taskRefdFsCore = typeof<option<_>>.Assembly.GetName().Version
@@ -417,6 +417,7 @@ type WebSharperTask() =
                     | 3, 0 -> "WebSharper.exe.config"
                     | 3, 1 -> "WebSharper31.exe.config"
                     | 4, 0 -> "WebSharper40.exe.config"
+                    | 4, 1 -> "WebSharper41.exe.config"
                     | _ -> failwith this.InvalidTargetFSharpCoreVersion
                 let asm = Assembly.GetExecutingAssembly()
                 let loc = asm.Location

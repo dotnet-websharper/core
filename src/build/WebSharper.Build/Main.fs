@@ -134,9 +134,10 @@ module Main =
                             yield file "tools" (out "WebSharper.exe") None
                             yield file "tools" (out "WebSharper.exe") (Some "WebSharper31.exe")
                             yield file "tools" (out "WebSharper.exe") (Some "WebSharper40.exe")
+                            yield file "tools" (out "WebSharper.exe.config") None
                             yield file "tools" (out "WebSharper31.exe.config") None
                             yield file "tools" (out "WebSharper40.exe.config") None
-                            yield file "tools" (out "WebSharper.exe.config") None
+                            yield file "tools" (out "WebSharper41.exe.config") None
                             for kind, src in exports do
                                 yield file kind src None
                             let fscore = Path.Combine(root, "packages", "FSharp.Core.3", "lib", "net40")
