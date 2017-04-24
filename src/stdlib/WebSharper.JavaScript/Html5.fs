@@ -346,7 +346,7 @@ module Elements =
 
     let CanvasElement =
         Class "CanvasElement"
-        // |=> Inherits Type.Node
+        |=> Inherits Dom.Interfaces.Element
         |+> Instance [
             "width" =@ T<int>
             "height" =@ T<int>
@@ -356,7 +356,7 @@ module Elements =
 
     let HTMLMediaElement =
         Class "HTMLMediaElement"
-        // |=> Inherits Type.Node
+        |=> Inherits Dom.Interfaces.Element
         |+> Instance [
             // error state
             "error" =?  MediaError
