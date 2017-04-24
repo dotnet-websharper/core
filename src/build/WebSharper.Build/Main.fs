@@ -82,7 +82,6 @@ module Main =
             // foreign:
             lib "tools" "FsNuGet"
             lib "tools" "NuGet.Core"
-            lib "tools" "FSharp.Core"
             lib "tools" "Mono.Cecil"
             lib "tools" "Mono.Cecil.Mdb"
             lib "tools" "Mono.Cecil.Pdb"
@@ -141,6 +140,7 @@ module Main =
                             for kind, src in exports do
                                 yield file kind src None
                             let fscore = Path.Combine(root, "packages", "FSharp.Core.3", "lib", "net40")
+                            yield file "tools" (Path.Combine(fscore, "FSharp.Core.dll")) None
                             yield file "tools" (Path.Combine(fscore, "FSharp.Core.optdata")) None
                             yield file "tools" (Path.Combine(fscore, "FSharp.Core.sigdata")) None
                             for (src, tgt) in searchDir (Path.Combine(root, "docs")) do
