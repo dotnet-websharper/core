@@ -1296,7 +1296,8 @@ let mapDecoder dD (i: FormatSettings) (ta: TAttrs) =
                     | _ -> ()
             }
         match x with
-        | Null -> System.Activator.CreateInstance(t)
+        | Null
+        | Object [ "tree", Null ] -> System.Activator.CreateInstance(t)
         | Object [ "tree", Object tr ] ->
             let els = walk tr |> Array.ofSeq
             let tEls = System.Array.CreateInstance(tt, els.Length)
@@ -1379,7 +1380,8 @@ let setDecoder dD (i: FormatSettings) (ta: TAttrs) =
                 | _ -> ()
         }
     function
-        | Null -> mk Seq.empty
+        | Null
+        | Object [ "tree", Null ] -> mk Seq.empty
         | Object [ "tree", Object tr ] -> mk (walk tr)
         | x -> raise (DecoderException(x, ta.Type))
 
