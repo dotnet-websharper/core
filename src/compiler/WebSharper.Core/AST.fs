@@ -161,8 +161,6 @@ and Expression =
     | RefOrOutParameter of Expression:Expression
     /// Temporary - C# complex element in initializer expression
     | ComplexElement of Items:list<Expression>
-    /// Temporary - C# variable designation
-    | VarDesignation of Variable:Id * Designation:Expression
     /// JavaSript object
     | Object of Properties:list<string * Expression>
     /// A global value by path, list is reversed
@@ -404,9 +402,6 @@ type Transformer() =
     /// Temporary - C# complex element in initializer expression
     abstract TransformComplexElement : Items:list<Expression> -> Expression
     override this.TransformComplexElement a = ComplexElement (List.map this.TransformExpression a)
-    /// Temporary - C# variable designation
-    abstract TransformVarDesignation : Variable:Id * Designation:Expression -> Expression
-    override this.TransformVarDesignation (a, b) = VarDesignation (this.TransformId a, this.TransformExpression b)
     /// JavaSript object
     abstract TransformObject : Properties:list<string * Expression> -> Expression
     override this.TransformObject a = Object (List.map (fun (a, b) -> a, this.TransformExpression b) a)
@@ -550,7 +545,6 @@ type Transformer() =
         | NamedParameter (a, b) -> this.TransformNamedParameter (a, b)
         | RefOrOutParameter a -> this.TransformRefOrOutParameter a
         | ComplexElement a -> this.TransformComplexElement a
-        | VarDesignation (a, b) -> this.TransformVarDesignation (a, b)
         | Object a -> this.TransformObject a
         | GlobalAccess a -> this.TransformGlobalAccess a
         | New (a, b) -> this.TransformNew (a, b)
@@ -742,9 +736,6 @@ type Visitor() =
     /// Temporary - C# complex element in initializer expression
     abstract VisitComplexElement : Items:list<Expression> -> unit
     override this.VisitComplexElement a = (List.iter this.VisitExpression a)
-    /// Temporary - C# variable designation
-    abstract VisitVarDesignation : Variable:Id * Designation:Expression -> unit
-    override this.VisitVarDesignation (a, b) = this.VisitId a; this.VisitExpression b
     /// JavaSript object
     abstract VisitObject : Properties:list<string * Expression> -> unit
     override this.VisitObject a = (List.iter (fun (a, b) -> this.VisitExpression b) a)
@@ -886,7 +877,6 @@ type Visitor() =
         | NamedParameter (a, b) -> this.VisitNamedParameter (a, b)
         | RefOrOutParameter a -> this.VisitRefOrOutParameter a
         | ComplexElement a -> this.VisitComplexElement a
-        | VarDesignation (a, b) -> this.VisitVarDesignation (a, b)
         | Object a -> this.VisitObject a
         | GlobalAccess a -> this.VisitGlobalAccess a
         | New (a, b) -> this.VisitNew (a, b)
@@ -978,7 +968,6 @@ module IgnoreSourcePos =
     let (|NamedParameter|_|) x = match ignoreExprSourcePos x with NamedParameter (a, b) -> Some (a, b) | _ -> None
     let (|RefOrOutParameter|_|) x = match ignoreExprSourcePos x with RefOrOutParameter a -> Some a | _ -> None
     let (|ComplexElement|_|) x = match ignoreExprSourcePos x with ComplexElement a -> Some a | _ -> None
-    let (|VarDesignation|_|) x = match ignoreExprSourcePos x with VarDesignation (a, b) -> Some (a, b) | _ -> None
     let (|Object|_|) x = match ignoreExprSourcePos x with Object a -> Some a | _ -> None
     let (|GlobalAccess|_|) x = match ignoreExprSourcePos x with GlobalAccess a -> Some a | _ -> None
     let (|New|_|) x = match ignoreExprSourcePos x with New (a, b) -> Some (a, b) | _ -> None
@@ -1067,7 +1056,6 @@ module Debug =
         | NamedParameter (a, b) -> "NamedParameter" + "(" + PrintObject a + ", " + PrintExpression b + ")"
         | RefOrOutParameter a -> "RefOrOutParameter" + "(" + PrintExpression a + ")"
         | ComplexElement a -> "ComplexElement" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
-        | VarDesignation (a, b) -> "VarDesignation" + "(" + string a + ", " + PrintExpression b + ")"
         | Object a -> "Object" + "(" + "[" + String.concat "; " (List.map (fun (a, b) -> PrintObject a + ", " + PrintExpression b) a) + "]" + ")"
         | GlobalAccess a -> "GlobalAccess" + "(" + PrintObject a + ")"
         | New (a, b) -> "New" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ")"

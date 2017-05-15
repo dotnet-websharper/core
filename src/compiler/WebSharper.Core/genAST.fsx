@@ -205,8 +205,6 @@ let ExprDefs =
             , "Temporary - C# ref or out parameter"
         "ComplexElement", [ List Expr, "items" ]
             , "Temporary - C# complex element in initializer expression"
-        "VarDesignation", [ Id, "variable"; Expr, "designation" ]
-            , "Temporary - C# variable designation"
         "Object", [ List (Object "string" * Expr), "properties" ]
             , "JavaSript object"
         "GlobalAccess", [ Object "Address", "address" ]

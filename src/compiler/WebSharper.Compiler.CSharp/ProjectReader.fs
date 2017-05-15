@@ -210,9 +210,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     syntax :?> PropertyDeclarationSyntax
                     |> RoslynHelpers.PropertyDeclarationData.FromNode
                 let cdef = NonGeneric def
+                let hasBody (a : RoslynHelpers.AccessorDeclarationData) =
+                    a.Body.IsSome || a.ExpressionBody.IsSome
                 match data.AccessorList with
                 | None -> ()
-                | Some acc when (Seq.head acc.Accessors).Body.IsSome -> ()
+                | Some acc when hasBody(Seq.head acc.Accessors) -> ()
                 | _ ->
                 let b = 
                     match data.Initializer with

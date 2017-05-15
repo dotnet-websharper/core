@@ -22,6 +22,8 @@ namespace WebSharper.CSharp.Tests
             var (x, y) = t;
             Equal(x, 0);
             Equal(y, "hello");
+            var (x2, _) = t;
+            Equal(x2, 0);
         }
 
         [Test]
@@ -45,6 +47,44 @@ namespace WebSharper.CSharp.Tests
             foreach (var (x, (y, z)) in e)
                 r.Add(x + y);
             Equal(r.ToArray(), new[] { 0, 3, 0, 3 });
+        }
+
+        [Test]
+        public void Mutability()
+        {
+            void NotIncrFst((int, string) tup)
+            {
+                tup.Item1++;
+            }
+            void Incr(ref int i)
+            {
+                i++;
+            }
+            void IncrFst(ref (int, string) tup)
+            {
+                tup.Item1++;
+            }
+            void IncrFst2(ref (int a, string b) tup)
+            {
+                tup.a++;
+            }
+
+            var t = (0, "hello");
+            t.Item1 = 1;
+            t.Item1++;
+            Equal(t, (2, "hello"));
+            t.Item1 = 2;
+            NotIncrFst(t); // does not increment because of struct copying
+            Equal(t.Item1, 2);
+            t.Item1 = 2;
+            Incr(ref t.Item1);
+            Equal(t.Item1, 3);
+            t.Item1 = 3;
+            IncrFst(ref t);
+            Equal(t.Item1, 4);
+            t.Item1 = 4;
+            IncrFst2(ref t);
+            Equal(t.Item1, 5);
         }
     }
 }

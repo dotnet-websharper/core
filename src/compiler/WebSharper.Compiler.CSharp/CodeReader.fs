@@ -324,6 +324,7 @@ type Environment =
         Vars : IDictionary<ILocalSymbol, Id>
         Parameters : IDictionary<IParameterSymbol, Id * bool>
         Labels : IDictionary<ILabelSymbol, Id>
+        LocalFunctions : IDictionary<IMethodSymbol, Id>
         Caught : option<Id>
         Conditional : option<Id>
         Initializing : option<Id>
@@ -337,6 +338,7 @@ type Environment =
             Vars = Dictionary()
             Parameters = Dictionary()
             Labels = Dictionary()
+            LocalFunctions = Dictionary()
             Caught = None
             Conditional = None
             Initializing = None
@@ -351,6 +353,14 @@ type Environment =
         | _ ->
             let id = Id.New(symbol.Name)           
             this.Labels.Add(symbol, id)
+            id
+
+    member this.GetLocalFunctionId(symbol) =
+        match this.LocalFunctions.TryGetValue(symbol) with
+        | true, id -> id
+        | _ ->
+            let id = Id.New(symbol.Name, mut = false)           
+            this.LocalFunctions.Add(symbol, id)
             id
 
     member this.WithCaught(c) =
@@ -611,7 +621,10 @@ type RoslynTransformer(env: Environment) =
 
         let tempVars, args = readReorderedParams argumentListWithThis
 
-        if isExtensionMethod || symbol.IsStatic then
+        if symbol.MethodKind = MethodKind.LocalFunction then
+            let f = env.GetLocalFunctionId(symbol)
+            Application(Var f, args, false, Some args.Length)
+        elif isExtensionMethod || symbol.IsStatic then
             Call(None, typ, meth, args)
         else        
             Call(Some (List.head args), typ, meth, List.tail args)
@@ -674,7 +687,10 @@ type RoslynTransformer(env: Environment) =
                 | Call (thisOpt, typ, getter, args) ->
                     MakeRef e (fun value -> (Call (thisOpt, typ, setterOf getter, args @ [value])))
                 | _ -> failwithf "ref argument has unexpected form: %+A" e     
-            | None -> expression
+            | None ->
+                // TODO: struct value passing
+                //if env.SemanticModel.GetTypeInfo(x.Node).Type.IsValueType then ...
+                expression
         namedParamOrdinal, refOrOut
 
     member this.TransformArgumentList (x: ArgumentListData) =
@@ -745,19 +761,16 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformLocalFunctionStatement (x: LocalFunctionStatementData) : _ =
 //        let returnType = x.ReturnType |> this.TransformType
-//        let typeParameterList = x.TypeParameterList |> Option.map this.TransformTypeParameterList
-        let parameterList = x.ParameterList |> this.TransformParameterList
+        //let typeParameterList = x.TypeParameterList |> Option.map this.TransformTypeParameterList
+        //let parameterList = x.ParameterList |> this.TransformParameterList
 //        let constraintClauses = x.ConstraintClauses |> Seq.map this.TransformTypeParameterConstraintClause |> List.ofSeq
+        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node) :?> IMethodSymbol
+        let parameterList = sr.ReadParameters symbol
+        for p in parameterList do
+            env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
         let body = x.Body |> Option.map this.TransformBlock
         let expressionBody = x.ExpressionBody |> Option.map this.TransformArrowExpressionClause
-        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
-        let id = 
-            match symbol with
-            | :? ILocalSymbol as s ->
-                let id = Id.New(s.Name, not s.IsConst)
-                env.Vars.Add(s, id)
-                id
-            | _ -> failwithf "this.TransformLocalFunctionStatement: invalid symbol type %A" symbol
+        let id = env.GetLocalFunctionId(symbol)
         
         // TODO : optional?
         FuncDeclaration(
@@ -799,27 +812,28 @@ type RoslynTransformer(env: Environment) =
         | VariableDesignationData.DiscardDesignation               x -> this.TransformDiscardDesignation x
         | VariableDesignationData.ParenthesizedVariableDesignation x -> this.TransformParenthesizedVariableDesignation x
 
-    member this.TransformDeclarationExpression (x: DeclarationExpressionData) : _ =
-        let designation = x.Designation |> this.TransformVariableDesignation
-        let value = Id.New ("$m", mut = false)
+    member this.PatternSet (e, value) =
+        let v = Id.New ("$m", mut = false)
         let rec trDesignation v e =
-            match e with
-            | ExprSourcePos (pos, NewVar(nv, _)) ->
-                ExprSourcePos (pos, NewVar(nv, v)) 
-            | ExprSourcePos (pos, NewArray ds) ->
+            match IgnoreExprSourcePos e with
+            | NewVar(nv, _) ->
+                NewVar(nv, v) 
+            | NewArray ds ->
                 let tvalue = Id.New ("$m", mut = false)                
-                ExprSourcePos (pos, 
-                    Let (tvalue, v,
-                        Sequential(
-                            ds |> List.mapi (fun i di -> 
-                                trDesignation v.[Value (Int i)] di      
-                            )
+                Let (tvalue, v,
+                    Sequential(
+                        ds |> List.mapi (fun i di -> 
+                            trDesignation v.[Value (Int i)] di      
                         )
                     )
-                )     
+                )
             | Undefined -> Undefined
             | _ -> failwithf "Unexpected form in variable designation: %s" (Debug.PrintExpression e)
-        VarDesignation(value, trDesignation (Var value) designation)
+            |> WithSourcePosOfExpr e
+        Let(v, value, trDesignation (Var v) e)
+
+    member this.TransformDeclarationExpression (x: DeclarationExpressionData) : _ =
+        x.Designation |> this.TransformVariableDesignation
 
     member this.TransformExpressionStatement (x: ExpressionStatementData) : Statement =
         x.Expression |> this.TransformExpression |> ExprStatement
@@ -966,9 +980,8 @@ type RoslynTransformer(env: Environment) =
                 withResultValue right <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
                 withResultValue right <| fun rv -> Call (thisOpt, typ, setterOf getter, args @ [rv])
-            | VarDesignation(v, setters) ->
-                Let (v, right, setters)                                                              
-            | e -> failwithf "AssignmentExpression left side not handled: %s" (Debug.PrintExpression e)
+            | e -> 
+                this.PatternSet(e, right)
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
             let opTyp, operator = getTypeAndMethod symbol
@@ -1097,21 +1110,39 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformMethodDeclaration (x: MethodDeclarationData) : CSharpMethod =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
+        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> this.TransformParameterList
         this.TransformMethodDeclarationBase(symbol, parameterList, x.Body, x.ExpressionBody)
 
     member this.TransformOperatorDeclaration (x: OperatorDeclarationData) : CSharpMethod =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
+        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> this.TransformParameterList
         this.TransformMethodDeclarationBase(symbol, parameterList, x.Body, x.ExpressionBody)
 
     member this.TransformConversionOperatorDeclaration (x: ConversionOperatorDeclarationData) : CSharpMethod =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
+        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> this.TransformParameterList
         this.TransformMethodDeclarationBase(symbol, parameterList, x.Body, x.ExpressionBody)
 
     member this.TransformParameterList (x: ParameterListData) : list<CSharpParameter> =
         x.Parameters |> Seq.map this.TransformParameter |> List.ofSeq
+
+    member this.TransformParameter (symbol: IParameterSymbol) : CSharpParameter =
+        let typ = sr.ReadType symbol.Type
+        let defValue = 
+            if symbol.HasExplicitDefaultValue then None
+            else
+                Some (Value (ReadLiteral symbol.ExplicitDefaultValue))
+        let id = Id.New symbol.Name
+        {
+            ParameterId = id
+            Symbol = symbol
+            DefaultValue = defValue
+            Type = typ
+            RefOrOut = symbol.RefKind <> RefKind.None
+        }
 
     member this.TransformParameter (x: ParameterData) : CSharpParameter =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
@@ -1204,11 +1235,17 @@ type RoslynTransformer(env: Environment) =
         identifierName, expression
 
     member this.TransformConstructorDeclaration (x: ConstructorDeclarationData) : _ =
+        //let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> this.TransformParameterList
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
         let initializer = x.Initializer |> Option.map (this.TransformConstructorInitializer)
-        let body = x.Body |> Option.map (this.TransformBlock)
+        let body = 
+            match x.ExpressionBody |> Option.map this.TransformArrowExpressionClause with
+            | Some e -> Some (ExprStatement e)
+            | _ ->
+                x.Body |> Option.map (this.TransformBlock)
         {
             Parameters = parameterList
             Body = defaultArg body Empty
@@ -1233,7 +1270,16 @@ type RoslynTransformer(env: Environment) =
         let parameterList = sr.ReadParameters symbol
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
-        let body = x.Body |> Option.map (this.TransformBlock)
+        let body = 
+            match x.ExpressionBody |> Option.map this.TransformArrowExpressionClause with
+            | Some e -> 
+                match x.Kind with 
+                | AccessorDeclarationKind.GetAccessorDeclaration ->
+                    Some (Return e)
+                | _ ->
+                    Some (ExprStatement e)
+            | _ ->
+                x.Body |> Option.map (this.TransformBlock)
         match x.Kind with
         | AccessorDeclarationKind.GetAccessorDeclaration      
         | AccessorDeclarationKind.SetAccessorDeclaration -> 
@@ -1545,11 +1591,7 @@ type RoslynTransformer(env: Environment) =
         let variable = x.Variable |> this.TransformExpression
         let expression = x.Expression |> this.TransformExpression
         let statement = x.Statement |> this.TransformStatement
-        let varSet c =
-            match variable with 
-            | VarDesignation(v, setters) ->
-                Let (v, c, setters)   
-            | _ -> failwithf "expected a variable designation: %s" (Debug.PrintExpression variable)
+        let varSet c = this.PatternSet(variable, c)
         this.TransformForEach (varSet, expression, statement)
         |> withStatementSourcePos x.Node
 
@@ -1569,6 +1611,8 @@ type RoslynTransformer(env: Environment) =
         | LambdaExpressionData.ParenthesizedLambdaExpression x -> this.TransformParenthesizedLambdaExpression x
 
     member this.TransformAnonymousMethodExpression (x: AnonymousMethodExpressionData) : _ =
+        //let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> Option.map this.TransformParameterList
         let body = x.Body |> this.TransformCSharpNode
         TODO x
@@ -1591,6 +1635,8 @@ type RoslynTransformer(env: Environment) =
             Function([id], body)
     
     member this.TransformParenthesizedLambdaExpression (x: ParenthesizedLambdaExpressionData) : _ =
+        let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> this.TransformParameterList
         let ids =
             parameterList |> List.map (fun p -> 
@@ -1599,7 +1645,6 @@ type RoslynTransformer(env: Environment) =
                 id
             )    
         let body = x.Body |> this.TransformCSharpNode
-        let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         if symbol.IsAsync then
             let b = 
                 body |> Continuation.addLastReturnIfNeeded Undefined

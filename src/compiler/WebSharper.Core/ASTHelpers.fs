@@ -128,6 +128,7 @@ let CombineStatements statements =
             | Return _ ->
                 go <- false
                 true
+            | FuncDeclaration _ -> true
             | _ -> go
         )    
     match woEmpty with

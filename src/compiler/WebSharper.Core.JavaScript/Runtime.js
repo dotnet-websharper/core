@@ -50,6 +50,12 @@ IntelliFactory = {
             return typeFunction;
         },
 
+        Clone: function (obj) {
+            var res = {};
+            for (var p in obj) { res[p] = obj[p] }
+            return res;
+        },
+
         NewObject:
             function (kv) {
                 var o = {};

@@ -199,7 +199,7 @@ module Main =
                                 yield fileAt (Path.Combine(root, "msbuild", "Zafir.FSharp.targets")) ("build/" + Config.FSharpPackageId + ".targets")
                                 yield fileTools (out "FSharp/WsFsc.exe")
                                 yield fileTools (out "FSharp/WsFsc.exe.config")
-                                let fscore = Path.Combine(root, "packages", "FSharp.Core.4.1.2", "lib", "net40")
+                                let fscore = Path.Combine(root, "packages", "FSharp.Core.4.1.17", "lib", "net40")
                                 yield fileTools (Path.Combine(fscore, "FSharp.Core.optdata"))
                                 yield fileTools (Path.Combine(fscore, "FSharp.Core.sigdata"))
                                 for src in fsExports do

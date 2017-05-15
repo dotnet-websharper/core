@@ -1178,9 +1178,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         else def()
 
     override this.TransformCctor(typ) =
-        if comp.HasGraph then
-            this.AddTypeDependency typ
-        Application(GlobalAccess (comp.LookupStaticConstructorAddress typ), [], false, Some 0)
+        match comp.TryLookupStaticConstructorAddress typ with
+        | Some cctor ->
+            if comp.HasGraph then
+                this.AddTypeDependency typ
+            Application(GlobalAccess cctor, [], false, Some 0)
+        | None -> Undefined
 
     override this.TransformOverrideName(typ, meth) =
         match comp.LookupMethodInfo(typ, meth) with
@@ -1283,7 +1286,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match setter with
             | Some m -> 
                 this.TransformCall (expr, typ, NonGeneric m, [value])   
-            | _ -> this.Error(sprintf "Could not setter of F# field: %s.%s" typ.Entity.Value.FullName field)
+            | _ -> this.Error(sprintf "Could not find setter of property: %s.%s" typ.Entity.Value.FullName field)
         | LookupFieldError err ->
             comp.AddError (this.CurrentSourcePos, err)
             ItemSet(errorPlaceholder, errorPlaceholder, this.TransformExpression value)

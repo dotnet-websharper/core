@@ -427,6 +427,14 @@ module Reflection =
     let private voidTy = typeof<System.Void>
 
     let rec ReadType (t: System.Type) =        
+        let gen () =
+            ConcreteType {
+                Generics = 
+                    if t.IsGenericType then 
+                        t.GetGenericArguments() |> Seq.map ReadType |> List.ofSeq 
+                    else [] 
+                Entity = getTypeDefinitionUnchecked false t
+            }
         if t.IsArray then
             ArrayType (ReadType(t.GetElementType()), t.GetArrayRank())
         elif t.IsByRef then
@@ -435,7 +443,9 @@ module Reflection =
             let a, r = FST.GetFunctionElements t
             FSharpFuncType(ReadType a, ReadType r)        
         elif FST.IsTuple t then
-            TupleType(FST.GetTupleElements t |> Seq.map ReadType |> List.ofSeq, t.IsValueType) 
+            // if a tuple type is generic on the rest parameter, we don't have a definite length tuple and GetTupleElements fails
+            try TupleType(FST.GetTupleElements t |> Seq.map ReadType |> List.ofSeq, t.IsValueType) 
+            with _ -> gen()
         elif t.IsGenericParameter then  
             if t.DeclaringMethod <> null then
                 let dT = t.DeclaringType
@@ -448,13 +458,7 @@ module Reflection =
         elif t = voidTy || t = unitTy then
             VoidType
         else
-            ConcreteType {
-                Generics = 
-                    if t.IsGenericType then 
-                        t.GetGenericArguments() |> Seq.map ReadType |> List.ofSeq 
-                    else [] 
-                Entity = getTypeDefinitionUnchecked false t
-            }
+            gen()
 
     let private readMethodInfo (m : System.Reflection.MethodInfo) =
         let i = m.Module.ResolveMethod m.MetadataToken :?> System.Reflection.MethodInfo

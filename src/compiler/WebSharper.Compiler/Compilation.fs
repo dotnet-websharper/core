@@ -576,10 +576,10 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.TryLookupStaticConstructorAddress(typ) =
         let typ = this.FindProxied typ
         let cls = classes.[typ]
-        cls.StaticConstructor |> Option.map fst
-
-    member this.LookupStaticConstructorAddress(typ) =
-        this.TryLookupStaticConstructorAddress(typ).Value
+        match cls.StaticConstructor with
+        | Some(_, GlobalAccess a) when a.Value = [ "ignore" ] -> None
+        | Some (cctor, _) -> Some cctor
+        | None -> None
 
     member this.TryGetRecordConstructor(typ) =
         let typ = this.FindProxied typ
