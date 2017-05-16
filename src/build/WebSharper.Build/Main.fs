@@ -66,7 +66,7 @@ module Main =
         Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
         |> Seq.map (fun p -> (p, p.Substring(dir.Length).Replace("\\", "/")))
 
-    let private coreExports, fsExports, csExports, testingExports, compilerExports =
+    let private coreExports, fsExports, csExports, testingExports, testsExports, compilerExports =
         let lib name =
             Seq.concat [
                 Directory.EnumerateFiles(buildDir, name + ".dll")
@@ -130,6 +130,17 @@ module Main =
         ] |> List.ofSeq
         ,
         lib "WebSharper.Testing"
+        ,
+        Seq.concat [
+            lib "WebSharper.Collections.Tests"
+            lib "WebSharper.Html5.Tests"
+            lib "WebSharper.InterfaceGenerator.Tests"
+            lib "WebSharper.Sitelets.Tests"
+            lib "WebSharper.Web.Tests"
+            lib "WebSharper.Tests"
+            lib "Website"
+        ]
+        |> Seq.toList
         ,
         Seq.concat [
             toolsFSharp "WebSharper.Compiler"
@@ -276,7 +287,30 @@ module Main =
                                     yield fileLib45 src
                             }
                 }
-        [ nuPkg; fsharpNuPkg; csharpNuPkg; testingNuPkg; compilerNuPkg ]
+        let testsNupkg =
+            let bt =
+                bt.PackageId(Config.TestsPackageId, Config.PackageVersion)
+                |> PackageVersion.Full.Custom v
+            bt.NuGet.CreatePackage()
+                .Configure(fun x ->
+                    {
+                        x with
+                            Description = Config.TestsDescription
+                            ProjectUrl = Some Config.Website
+                            LicenseUrl = Some Config.LicenseUrl
+                            Authors = [ Config.Company ]
+                    })
+                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
+                .AddDependency(Config.TestingPackageId, testingNuPkg.GetComputedVersion())
+                .AddNuGetExportingProject {
+                    new INuGetExportingProject with
+                        member p.NuGetFiles =
+                            seq {
+                                for kind, src in testsExports do
+                                    yield file kind src None
+                            }
+                }
+        [ nuPkg; fsharpNuPkg; csharpNuPkg; testingNuPkg; testsNupkg; compilerNuPkg ]
 
     let Package () =
         let nuPkgs = nuPkgs ()

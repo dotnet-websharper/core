@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// Declares server-side content utilities.
-module Website.Content
+module WebSharper.Tests.Website.Content
 
 open WebSharper
 open WebSharper.Sitelets

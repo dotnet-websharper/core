@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// Client-side (JavaScript) code.
-module Website.Client
+module WebSharper.Tests.Website.Client
 
 open WebSharper
 open WebSharper.JavaScript

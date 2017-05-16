@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// Declares parts of the website that can be linked to.
-module Website.Actions
+module WebSharper.Tests.Website.Actions
 
 type Action =
     | [<CompiledName "">] Home

@@ -135,6 +135,11 @@
         <VSWebAppsPath>$(VSToolsPath)\WebApplications</VSWebAppsPath>
       </PropertyGroup>
     </When>
+    <When Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v15.0\WebApplications')">
+      <PropertyGroup>
+        <VSWebAppsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v15.0\WebApplications</VSWebAppsPath>
+      </PropertyGroup>
+    </When>
     <When Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v14.0\WebApplications')">
       <PropertyGroup>
         <VSWebAppsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v14.0\WebApplications</VSWebAppsPath>
