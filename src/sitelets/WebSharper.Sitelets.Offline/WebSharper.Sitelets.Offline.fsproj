@@ -8,7 +8,7 @@
     <FSharp40>True</FSharp40>
     <TargetFrameworkProfile />
   </PropertyGroup>
-  <Import Project="../../../msbuild/Mono.Cecil.targets" />
+  <Import Project="../../../msbuild/Mono.Cecil.Roslyn.targets" />
   <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>
     <Compile Include="PathUtility.fsi" />
