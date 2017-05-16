@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-namespace Website
+namespace WebSharper.Tests.Website
 
 open WebSharper
 open WebSharper.Sitelets

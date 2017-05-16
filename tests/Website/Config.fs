@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module Website.Config
+module WebSharper.Tests.Website.Config
 
 open WebSharper
 
