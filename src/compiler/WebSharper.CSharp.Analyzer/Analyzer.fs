@@ -12,10 +12,8 @@ open Microsoft.CodeAnalysis.CSharp.Syntax
 open Microsoft.CodeAnalysis.Diagnostics
 open System.IO
 open WebSharper.Compiler
-open System.Dynamic
 
 module FE = WebSharper.Compiler.FrontEnd
-
 
 [<DiagnosticAnalyzer(LanguageNames.CSharp)>]
 type WebSharperCSharpAnalyzer () =
