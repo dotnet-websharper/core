@@ -132,6 +132,8 @@ module Main =
         lib "WebSharper.Testing"
         ,
         Seq.concat [
+            lib "WebSharper.CSharp.Sitelets.Tests"
+            lib "WebSharper.CSharp.Tests"
             lib "WebSharper.Collections.Tests"
             lib "WebSharper.Html5.Tests"
             lib "WebSharper.InterfaceGenerator.Tests"
@@ -193,6 +195,7 @@ module Main =
         let fsharpNuPkg =
             let bt =
                 bt.PackageId(Config.FSharpPackageId, version)
+                |> PackageVersion.Full.Custom v
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -221,6 +224,7 @@ module Main =
         let csharpNuPkg =
             let bt =
                 bt.PackageId(Config.CSharpPackageId, version)
+                |> PackageVersion.Full.Custom v
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -248,6 +252,7 @@ module Main =
         let testingNuPkg =
             let bt =
                 bt.PackageId(Config.TestingPackageId, version)
+                |> PackageVersion.Full.Custom v
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -269,6 +274,7 @@ module Main =
         let compilerNuPkg =
             let bt =
                 bt.PackageId(Config.CompilerPackageId, version)
+                |> PackageVersion.Full.Custom v
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -289,7 +295,7 @@ module Main =
                 }
         let testsNupkg =
             let bt =
-                bt.PackageId(Config.TestsPackageId, Config.PackageVersion)
+                bt.PackageId(Config.TestsPackageId, version)
                 |> PackageVersion.Full.Custom v
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
@@ -306,8 +312,8 @@ module Main =
                     new INuGetExportingProject with
                         member p.NuGetFiles =
                             seq {
-                                for kind, src in testsExports do
-                                    yield file kind src None
+                                for src in testsExports do
+                                    yield fileLib45 src
                             }
                 }
         [ nuPkg; fsharpNuPkg; csharpNuPkg; testingNuPkg; testsNupkg; compilerNuPkg ]
