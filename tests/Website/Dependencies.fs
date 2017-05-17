@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// Declares resource (JS/CSS) dependencies.
-module Website.Dependencies
+namespace WebSharper.Tests.Website.Dependencies
 
 open WebSharper
 

@@ -381,7 +381,8 @@ let trimPath (path: string) =
 
 let WriteSite (aR: AssemblyResolver) (conf: Config) =
     let st = State(conf)
-    let table = Dictionary()
+    let actionTable = Dictionary()
+    let urlTable = Dictionary()
     let projectFolder = conf.Options.ProjectDirectory
     let rootFolder = conf.Options.OutputDirectory
     let contents () =
@@ -392,7 +393,8 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                 | Some location ->
                     let content = conf.Sitelet.Controller.Handle(action)
                     let! rC = resolveContent projectFolder rootFolder st location content
-                    do table.[action] <- rC.Path
+                    do actionTable.[action] <- rC.Path
+                    do urlTable.[location] <- rC.Path
                     do res.Add(rC)
                 | None -> ()
             return res.ToArray()
@@ -408,14 +410,16 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                     ResolveUrl = id,
                     Json = st.Json,
                     Link = (fun action ->
-                        // First try to find from url table.
-                        if table.ContainsKey(action) then
-                            rC.RelativePath + P.ShowPath table.[action]
-                        else
+                        // First try to find from action table.
+                        match actionTable.TryGetValue(action) with
+                        | true, p -> rC.RelativePath + P.ShowPath p
+                        | false, _ ->
                             // Otherwise, link to the action using the router
                             match conf.Sitelet.Router.Link action with
                             | Some loc ->
-                                rC.RelativePath + trimPath (string loc)
+                                match urlTable.TryGetValue(loc) with
+                                | true, p -> rC.RelativePath + P.ShowPath p
+                                | false, _ -> rC.RelativePath + trimPath (string loc)
                             | None ->
                                 let msg = "Failed to link to action from " + P.ShowPath rC.Path
                                 stdout.WriteLine("Warning: " + msg)
