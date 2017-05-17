@@ -57,7 +57,16 @@
     <DocumentationFile>$(Root)\build\Release\$(Name).xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup Condition=" '$(Tests)' == 'True' ">
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\FSharp.Core.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\Mono.Cecil.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\Mono.Cecil.Mdb.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\Mono.Cecil.Pdb.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.Compiler.CSharp.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.Compiler.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.Core.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.Core.JavaScript.dll" />
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.CSharp.Analyzer.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.InterfaceGenerator.dll" />
   </ItemGroup>
   <Import Project="WebSharper.CSharp.targets" />
 </Project>
