@@ -69,6 +69,27 @@ type CSharpConstructor =
         Initializer : option<CSharpConstructorInitializer>
     }
 
+type CSharpSwitchLabel =
+    | DefaultLabel 
+    | ConstantLabel of Expression
+    | PatternLabel of (Id -> Expression)
+
+type RemoveBreaksTransformer() =
+    inherit StatementTransformer()
+
+    override this.TransformStatement s =
+        match s with
+        | Break None -> Empty
+        | For _
+        | ForIn _
+        | While _
+        | DoWhile _
+        | Switch _ ->
+            s
+        | _ -> base.TransformStatement s
+
+let removeBreaksTr = RemoveBreaksTransformer()
+
 let textSpans =
     System.Runtime.CompilerServices.ConditionalWeakTable()
 
@@ -252,6 +273,10 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             ReturnType = x.ReturnType |> this.ReadType
             Generics = x.Arity
         }
+
+    member this.ReadGenericMethod (x: IMethodSymbol) =
+        let ma = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
+        Generic (this.ReadMethod x) ma
 
     member this.ReadConstructor (x: IMethodSymbol) =
         let x  = x.OriginalDefinition
@@ -861,32 +886,72 @@ type RoslynTransformer(env: Environment) =
     member this.TransformSwitchStatement (x: SwitchStatementData) : Statement =
         let expression = x.Expression |> this.TransformExpression
         let sections = x.Sections |> Seq.map (this.TransformSwitchSection) |> List.ofSeq
-        CSharpSwitch (expression, sections)
-        |> withStatementSourcePos x.Node
+        let hasPattern = 
+            sections |> List.exists (fst >> List.exists (function PatternLabel _ -> true | _ -> false))
+        if hasPattern then
+            let sv = Id.New("$sv", mut = false)
+            let defaultSection, nonDefaultSections =
+                sections |> List.partition (fst >> List.exists (function DefaultLabel -> true | _ -> false)) 
+            
+            let defaultBody =
+                match defaultSection with
+                | [] -> Empty
+                | (_, s) :: _ -> removeBreaksTr.TransformStatement s
 
-    member this.TransformSwitchSection (x: SwitchSectionData) : list<option<Expression>> * Statement =
+            Let (sv, expression, 
+                let nestedIfs =
+                    (nonDefaultSections, defaultBody) 
+                    ||> List.foldBack (fun (labels, body) rest ->
+                        let condition =
+                            labels |> List.map (function
+                                | DefaultLabel -> failwith "impossible"
+                                | ConstantLabel c -> Var sv ^== c
+                                | PatternLabel p -> p sv
+                            )
+                            |> List.reduce (^||)
+                        If (condition, removeBreaksTr.TransformStatement body, rest)
+                    )
+                StatementExpr(nestedIfs, None)
+            )
+            |> ExprStatement
+        else
+            let sections = 
+                sections |> List.map (fun (labels, body) ->
+                    labels |> List.map (function
+                        | DefaultLabel -> None
+                        | ConstantLabel c -> Some c
+                        | PatternLabel _ -> failwith "impossible"
+                    ), body
+                )
+
+            CSharpSwitch (expression, sections)
+            |> withStatementSourcePos x.Node
+
+    member this.TransformSwitchSection (x: SwitchSectionData) : list<CSharpSwitchLabel> * Statement =
         let labels = x.Labels |> Seq.map (this.TransformSwitchLabel) |> List.ofSeq
         let statements = x.Statements |> Seq.map (this.TransformStatement) |> List.ofSeq |> CombineStatements
         labels, statements
 
-    member this.TransformSwitchLabel (x: SwitchLabelData) : _ =
+    member this.TransformSwitchLabel (x: SwitchLabelData) : CSharpSwitchLabel =
         match x with
-        | SwitchLabelData.CasePatternSwitchLabel x -> this.TransformCasePatternSwitchLabel x 
-        | SwitchLabelData.CaseSwitchLabel        x -> this.TransformCaseSwitchLabel x |> Some
-        | SwitchLabelData.DefaultSwitchLabel     x -> None
+        | SwitchLabelData.CasePatternSwitchLabel x -> this.TransformCasePatternSwitchLabel x
+        | SwitchLabelData.CaseSwitchLabel        x -> this.TransformCaseSwitchLabel x
+        | SwitchLabelData.DefaultSwitchLabel     x -> DefaultLabel
 
     member this.TransformWhenClause (x: WhenClauseData) : _ =
-        let condition = x.Condition |> this.TransformExpression
-        TODO x
+        x.Condition |> this.TransformExpression
 
-    member this.TransformCasePatternSwitchLabel (x: CasePatternSwitchLabelData) : _ =
+    member this.TransformCasePatternSwitchLabel (x: CasePatternSwitchLabelData) : CSharpSwitchLabel =
         let pattern = x.Pattern |> this.TransformPattern
         let whenClause = x.WhenClause |> Option.map this.TransformWhenClause
-        TODO x
+        match whenClause with
+        | None -> PatternLabel pattern
+        | Some w -> PatternLabel (fun i -> pattern i ^&& w)
 
-    member this.TransformCaseSwitchLabel (x: CaseSwitchLabelData) : Expression =
+    member this.TransformCaseSwitchLabel (x: CaseSwitchLabelData) : CSharpSwitchLabel =
         x.Value |> this.TransformExpression
         |> withExprSourcePos x.Node
+        |> ConstantLabel
 
     member this.TransformGotoStatement (x: GotoStatementData) : Statement =
         match x.Kind with
@@ -1525,74 +1590,45 @@ type RoslynTransformer(env: Environment) =
     member this.TransformFinallyClause (x: FinallyClauseData) : _ =
         x.Block |> this.TransformBlock
 
-    member this.TransformForEach (varSet, expression, statement) = 
-        // TODO: foreach on System.Collections.IEnumerable 
-        let getEnumerator e =
-            let ret = Generic (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Collections.Generic.IEnumerator`1" }) [TypeParameter 0]
-            Call(
-                Some e, 
-                NonGeneric (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Collections.Generic.IEnumerable`1" }),
-                NonGeneric (Method { MethodName = "GetEnumerator"; Parameters = []; ReturnType = ConcreteType ret; Generics = 0 }),
-                []            
-            )
+    member this.TransformForEach (varSet, expression, statement, info: ForEachStatementInfo) = 
+        let call e m =
+            let typ, meth = getTypeAndMethod m
+            Call(Some e, typ, meth, [])
 
-        let getCurrent e =
-            Call(
-                Some e, 
-                NonGeneric (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Collections.Generic.IEnumerator`1" }),
-                NonGeneric (Method { MethodName = "get_Current"; Parameters = []; ReturnType = TypeParameter 0; Generics = 0 }),
-                []            
-            )
-
-        let moveNext e =
-            let btyp = NonGeneric (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Boolean" }) 
-            Call(
-                Some e, 
-                NonGeneric (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Collections.IEnumerator" }),
-                NonGeneric (Method { MethodName = "MoveNext"; Parameters = []; ReturnType = ConcreteType btyp; Generics = 0 }),
-                []            
-            )
-
-        let disp e =
-            Call(
-                Some e, 
-                NonGeneric (TypeDefinition { Assembly = "mscorlib"; FullName = "System.IDisposable" }),
-                NonGeneric (Method { MethodName = "Dispose"; Parameters = []; ReturnType = VoidType; Generics = 0 }),
-                []            
-            )
-        
         let en = Id.New ()
 
         Block [
-            VarDeclaration (en, getEnumerator expression)
+            VarDeclaration (en, call expression info.GetEnumeratorMethod)
             TryFinally(
                 While(
-                    moveNext (Var en), 
+                    call (Var en) info.MoveNextMethod, 
                     Block [
-                        ExprStatement <| varSet (getCurrent (Var en))
+                        ExprStatement <| varSet (call (Var en) info.CurrentProperty.GetMethod)
                         statement
                     ]
                 ), 
-                ExprStatement <| disp (Var en)
+                ExprStatement <| call (Var en) info.DisposeMethod
             )
         ]        
 
     member this.TransformForEachStatement (x: ForEachStatementData) : _ =
+        let info = env.SemanticModel.GetForEachStatementInfo(x.Node)
         let expression = x.Expression |> this.TransformExpression
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
         let v = Id.New symbol.Name
         env.Vars.Add(symbol, v)
         let statement = x.Statement |> this.TransformStatement
 
-        this.TransformForEach ((fun c -> NewVar(v, c)), expression, statement)
+        this.TransformForEach ((fun c -> NewVar(v, c)), expression, statement, info)
         |> withStatementSourcePos x.Node
 
     member this.TransformForEachVariableStatement (x: ForEachVariableStatementData) : _ =
+        let info = env.SemanticModel.GetForEachStatementInfo(x.Node)
         let variable = x.Variable |> this.TransformExpression
         let expression = x.Expression |> this.TransformExpression
         let statement = x.Statement |> this.TransformStatement
         let varSet c = this.PatternSet(variable, c)
-        this.TransformForEach (varSet, expression, statement)
+        this.TransformForEach (varSet, expression, statement, info)
         |> withStatementSourcePos x.Node
 
     member this.TransformCommonForEachStatement (x: CommonForEachStatementData) : _ =
@@ -1991,16 +2027,25 @@ type RoslynTransformer(env: Environment) =
         x.Contents |> Seq.map this.TransformInterpolatedStringContent 
         |> Seq.reduce (^+)
 
-    member this.TransformDeclarationPattern (x: DeclarationPatternData) : _ =
-        let type_ = x.Type |> this.TransformType
+    member this.TransformDeclarationPattern (x: DeclarationPatternData) : (Id -> Expression) =
+        let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
         let designation = x.Designation |> this.TransformVariableDesignation
-        TODO x
+        fun v -> 
+            let c = Id.New("$c", mut = false)
+            Let (c, 
+                TypeCheck(Var v, typ), 
+                Conditional(
+                    Var c, 
+                    Sequential [ this.PatternSet(designation, Var v); Value (Bool true) ],
+                    Value (Bool false)
+                )
+            )
 
-    member this.TransformConstantPattern (x: ConstantPatternData) : _ =
+    member this.TransformConstantPattern (x: ConstantPatternData) : (Id -> Expression) =
         let expression = x.Expression |> this.TransformExpression
-        TODO x
+        fun v -> Var v ^== expression
 
-    member this.TransformPattern (x: PatternData) : _ =
+    member this.TransformPattern (x: PatternData) : (Id -> Expression) =
         match x with
         | PatternData.DeclarationPattern x -> this.TransformDeclarationPattern x
         | PatternData.ConstantPattern    x -> this.TransformConstantPattern x
@@ -2008,7 +2053,8 @@ type RoslynTransformer(env: Environment) =
     member this.TransformIsPatternExpression (x: IsPatternExpressionData) : _ =
         let expression = x.Expression |> this.TransformExpression
         let pattern = x.Pattern |> this.TransformPattern
-        TODO x
+        let i = Id.New("$i", mut = false)
+        Let (i, expression, pattern i)
 
     member this.TransformInterpolatedStringContent (x: InterpolatedStringContentData) : _ =
         match x with

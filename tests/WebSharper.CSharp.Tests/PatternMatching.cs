@@ -43,7 +43,6 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public void Switch()
         {
-
             object o = "hello";
             int res = 0;
             switch (o)
@@ -51,11 +50,23 @@ namespace WebSharper.CSharp.Tests
                 case null:
                     res = 1;
                     break;
-                case string s:
-                    if (s == "hello")
-                        res = 2;
+                case string s when s[0] == 'h':
+                    res = 2;
+                    break;
+                default:
+                    res = 4;
                     break;
             }
+            Equal(res, 2);
+        }
+
+        [Test]
+        public void Is()
+        {
+            object o = "hello";
+            int res = 0;
+            if (o is string s && s[0] == 'h')
+                res = 2;
             Equal(res, 2);
         }
     }

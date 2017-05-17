@@ -42,9 +42,9 @@ namespace WebSharper.CSharp.Tests
         {
             var e = new[] { (0, (0, 0)), (1, (1, 1)) };
             var r = new List<int>();
-            foreach ((int x, (int y, int z)) in e)
+            foreach ((int x, (int y, int z)) in e.ToArray())
                 r.Add(x + y);
-            foreach (var (x, (y, z)) in e)
+            foreach (var (x, (y, z)) in e.ToArray())
                 r.Add(x + y);
             Equal(r.ToArray(), new[] { 0, 3, 0, 3 });
         }
