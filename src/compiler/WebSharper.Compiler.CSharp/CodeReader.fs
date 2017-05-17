@@ -212,7 +212,11 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             Generic td ta
     
     member this.RecognizeNamedType (x: INamedTypeSymbol) =
-        let ta = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
+        let rec getTypeArguments (x: INamedTypeSymbol) =
+            match x.ContainingType with
+            | null -> x.TypeArguments |> Seq.map this.ReadType
+            | ct -> Seq.append (getTypeArguments ct) (x.TypeArguments |> Seq.map this.ReadType) 
+        let ta = getTypeArguments x |> List.ofSeq
         let td = this.ReadNamedTypeDefinition x
         let tName = td.Value.FullName
         let getTupleType isValue =
