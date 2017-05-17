@@ -151,7 +151,6 @@ let rec isStronglyPureExpr expr =
         -> List.forall isStronglyPureExpr a 
     | Conditional (a, b, c) 
         -> isStronglyPureExpr a && isStronglyPureExpr b && isStronglyPureExpr c
-    | ItemGet(a, b)
     | Binary (a, _, b)
     | Let (_, a, b)
     | Coalesce(a, _, b) 

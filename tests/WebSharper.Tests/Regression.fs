@@ -285,6 +285,9 @@ let TreeReduce (defaultValue: 'A) (reduction: 'A -> 'A -> 'A) (array: 'A[]) : 'A
             reduction a b
     loop 0 l
 
+module Bug695 =
+    type testtype = { mutable r: int }
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -612,6 +615,15 @@ let Tests =
                 failwithf "Attacked by %i flying monkeys" howmany
             let e saveMeDelayedExecution = saveMeDelayedExecution |> (openThePit 1000000)
             equal (sprintf "%A" e) "<fun>"       
+        }
+
+        Test "Bug #695 ItemGet should not be strongly pure" {
+            let test_ws_bug (t: Bug695.testtype) =
+                let old = t.r
+                t.r <- 1
+                old     
+            let res = test_ws_bug { Bug695.r = 2 }   
+            equal res 2
         }
 
 //        Test "Recursive module value" {
