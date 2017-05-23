@@ -81,11 +81,14 @@ and IResource =
     /// Renders the resource to a given TextWriter.
     abstract member Render : Context -> ((RenderLocation -> HtmlTextWriter) -> unit)
 
+/// An interface for resources to execute custom unpack.
+type IDownloadableResource =
+
+    /// Gets the WebSharper output root directory.
+    abstract Unpack : string -> unit    
+
 /// A helper base class for resource-defining types.
 type BaseResource =
-
-    [<Obsolete "Do not call default constructor of BaseResource, it will do nothing.">]
-    new : unit -> BaseResource
 
     /// References an embedded resource from he current assembly.
     /// The string represents either a reference to an embedded
@@ -103,6 +106,7 @@ type BaseResource =
     new : string * string * [<ParamArray>] xs: string [] -> BaseResource
 
     interface IResource
+    interface IDownloadableResource
 
 /// Represents the runtime library resource required by all WebSharper code.
 [<Sealed>]

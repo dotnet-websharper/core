@@ -289,7 +289,7 @@ type Graph =
                                 member this.Render ctx =
                                     fun writer ->
                                         let writer = writer R.Scripts
-                                        writer.Write("<-- ")
+                                        writer.Write("<!-- ")
                                         writer.Write("Failed to load: {0}; because of: {1}", t, e.Message)
                                         writer.WriteLine(" -->")
                         }

@@ -23,9 +23,9 @@ namespace WebSharper.Compiler
 open FileSystem
 module PC = WebSharper.PathConventions
 module C = Commands
+module Re = WebSharper.Core.Resources 
 
 module UnpackCommand =
-
     type Config =
         {
             Assemblies : list<string>
@@ -78,6 +78,8 @@ module UnpackCommand =
             | [] -> C.Parsed cfg
             | errors -> C.ParseFailed errors
         | _ -> C.NotRecognized
+
+    let private localResTyp = typeof<Re.IDownloadableResource>
 
     let Exec env cmd =
         let baseDir =
@@ -133,6 +135,30 @@ module UnpackCommand =
                 writeText script r.FileName r.Content
             for r in a.GetContents() do
                 writeBinary content r.FileName (r.GetContentData())
+
+            let rec printError (e: exn) =
+                if isNull e.InnerException then
+                    e.Message
+                else e.Message + " - " + printError e.InnerException 
+            
+            try
+                let asm = 
+                    try
+                        System.Reflection.Assembly.LoadFile (Path.GetFullPath p)
+                    with e ->
+                        eprintfn "Failed to load assembly for unpacking local resources: %s - %s" p (printError e)     
+                        null
+                if not (isNull asm) then
+                    for t in asm.GetTypes() do
+                        if t.GetInterfaces() |> Array.contains localResTyp then
+                            try
+                                let res = Activator.CreateInstance(t) :?> Re.IDownloadableResource
+                                res.Unpack(cmd.RootDirectory)
+                            with e ->
+                                eprintfn "Failed to unpack local resource: %s - %s" t.FullName (printError e)     
+            with e ->
+                eprintfn "Failed to unpack local resources: %s" (printError e)     
+
         C.Ok
 
     let Description =
