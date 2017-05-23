@@ -1,11 +1,16 @@
 /// Helpers for FAKE scripts for the standard WebSharper extensions.
 /// Check the sources for usage.
 (**
-Uses the following environment variables:
+Uses the following environment variables (some of which are overridden by WSTargets options):
   * BUILD_NUMBER: the build number to use (last component of the version).
     Automatically set by Jenkins.
-  * CHECK_CHANGES: whether to check that we're only committing paket.lock. (default: true)
-  * NUGET_API_KEY: the API key of the NuGet server.
+  * PushOnlyAllowedChanges: whether to check that we're only committing paket.lock.
+    Default: true
+  * PushRemote: the name of the git remote to push to
+    Default: origin
+  * NuGetPublishUrl: the URL of the NuGet server
+    Default: https://nuget.intellifactory.com/nuget
+  * NugetApiKey: the API key of the NuGet server.
 
 Versioning policy (as implemented in ComputeVersion):
   * Major, minor and pre are taken from baseVersion.
@@ -248,7 +253,7 @@ type WSTargets with
             StrongName = false
             BaseBranch = Git.Information.getBranchName "."
             PushByMergingOnto = Some "ci"
-            PushOnlyAllowedChanges = environVarOrDefault "CHECK_CHANGES" "true" |> bool.Parse
+            PushOnlyAllowedChanges = environVarOrDefault "PushOnlyAllowedChanges" "true" |> bool.Parse
             PushRemote = environVarOrDefault "PushRemote" "origin"
         }
 
