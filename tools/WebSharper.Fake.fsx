@@ -51,7 +51,7 @@ let GetSemVerOf pkgName =
 let ComputeVersion (baseVersion: option<Paket.SemVerInfo>) =
     let lastVersion, tag =
         try
-            let ok, out, err = Git.CommandHelper.runGitCommand "." "tag"
+            let ok, out, err = Git.CommandHelper.runGitCommand "." "tag --merged"
             let re = Regex("""^(?:[a-zA-Z]+[-.]?)?([0-9]+(?:\.[0-9]+){0,3})(?:-.*)?$""")
             match out.ToArray()
                 |> Array.choose (fun tag ->
