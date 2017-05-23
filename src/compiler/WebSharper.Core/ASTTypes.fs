@@ -215,6 +215,29 @@ module UnaryOperator =
     let [<Literal>] ``~``    = UnaryOperator.Complement
     let [<Literal>] typeof   = UnaryOperator.TypeOf    
 
+module StableHash =
+ 
+    let string (s: string)= 
+        let mutable hash1 = (5381 <<< 16) + 5381
+        let mutable hash2 = hash1
+
+        for i in 0 .. 2 .. s.Length do
+            hash1 <- ((hash1 <<< 5) + hash1) ^^^ int s.[i]
+            hash2 <- ((hash2 <<< 5) + hash2) ^^^ int s.[i+1];
+
+        hash1 + (hash2*1566083941)
+
+    let tuple (a, b) =
+        a * 33 + b
+
+    let list l =
+        let mutable h = 1
+        let mutable l = l
+        while not (List.isEmpty l) do 
+            h <- -1640531527 + l.Head + (h <<< 6) + (h >>> 2)
+            l <- l.Tail
+        h
+
 /// Identifies a type definition by AssemblyName and FullName
 [<System.Diagnostics.DebuggerDisplay("{Assembly}.{FullName}")>]
 type TypeDefinitionInfo =
@@ -351,6 +374,28 @@ and Type =
         | VoidType -> VoidType
         | StaticTypeParameter i -> StaticTypeParameter i
         | LocalTypeParameter -> LocalTypeParameter
+
+    member this.GetStableHash()  =
+        let inline (++) a b = StableHash.tuple (a, b)
+        let inline (!^) a = StableHash.string a
+        let inline (!!) a = StableHash.list a
+
+        let hashTd (td: TypeDefinition) =
+            StableHash.string td.Value.Assembly ++ StableHash.string td.Value.FullName 
+
+        let hashTypeList ts =
+            ts |> List.map (fun (t: Type) -> t.GetStableHash()) |> StableHash.list 
+
+        match this with 
+        | ConcreteType t -> 0 ++ hashTd t.Entity ++ hashTypeList t.Generics 
+        | TypeParameter i -> 1 ++ i
+        | ArrayType (t, i) -> 2 ++ t.GetStableHash() ++ i
+        | TupleType (ts, v) -> 3 ++ hashTypeList ts + (if v then 1 else 0)
+        | FSharpFuncType (a, r) -> 4 ++ a.GetStableHash() ++ r.GetStableHash()
+        | ByRefType t -> 5 ++ t.GetStableHash()
+        | VoidType -> 6
+        | StaticTypeParameter i -> 7 ++ i
+        | LocalTypeParameter -> 8
 
 type MethodInfo =
     {
