@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.26430.6
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}"
 EndProject
@@ -32,12 +32,17 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Main", "src\stdl
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{EED59312-2E8D-4332-8BA5-671F85D8E25E}"
 	ProjectSection(SolutionItems) = preProject
-		tools\minify.fsx = tools\minify.fsx
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NuGet", "NuGet", "{B38B1480-30AC-4F48-8AA3-C406889EC6CF}"
-	ProjectSection(SolutionItems) = preProject
-		tools\NuGet\NuGet.exe = tools\NuGet\NuGet.exe
+		tools\LICENSE.txt = tools\LICENSE.txt
+		tools\UpdateLicense.fsx = tools\UpdateLicense.fsx
+		tools\UpdateVersion.fsx = tools\UpdateVersion.fsx
+		tools\WebSharper.Compiler.paket.template = tools\WebSharper.Compiler.paket.template
+		tools\WebSharper.CSharp.paket.template = tools\WebSharper.CSharp.paket.template
+		tools\WebSharper.Fake.fsx = tools\WebSharper.Fake.fsx
+		tools\WebSharper.FSharp.paket.template = tools\WebSharper.FSharp.paket.template
+		tools\WebSharper.paket.template = tools\WebSharper.paket.template
+		tools\WebSharper.png = tools\WebSharper.png
+		tools\WebSharper.snk = tools\WebSharper.snk
+		tools\WebSharper.Testing.paket.template = tools\WebSharper.Testing.paket.template
 	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.JavaScript", "src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj", "{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68}"
@@ -77,20 +82,20 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Website", "tests\Website\We
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web", "tests\Web\Web.csproj", "{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{1ACAFCBC-6FE9-4CD6-91DF-AAE1902C9B1F}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Build", "src\build\WebSharper.Build\WebSharper.Build.fsproj", "{15DD08E0-9E5E-49B1-9738-D73ACA630FF5}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-497B-A0A2-135BA8A16B0A}"
 	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		.hgignore = .hgignore
 		build.cmd = build.cmd
+		build.fsx = build.fsx
 		ivy.xml = ivy.xml
 		LICENSE.md = LICENSE.md
+		paket.dependencies = paket.dependencies
+		paket.lock = paket.lock
 		README.md = README.md
+		runtests.cmd = runtests.cmd
 		runtests.fsx = runtests.fsx
 	EndProjectSection
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Bootstrap", "src\build\Bootstrap\Bootstrap.fsproj", "{5FB61954-9230-4408-A349-7F1EFC6E0A66}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.InterfaceGenerator.Tests", "tests\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj", "{4C826618-E150-40F7-B13A-9182F0C3EACA}"
 EndProject
@@ -274,18 +279,6 @@ Global
 		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.DebugTests|Any CPU.Build.0 = Release|Any CPU
 		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{15DD08E0-9E5E-49B1-9738-D73ACA630FF5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{15DD08E0-9E5E-49B1-9738-D73ACA630FF5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{15DD08E0-9E5E-49B1-9738-D73ACA630FF5}.DebugTests|Any CPU.ActiveCfg = Release|Any CPU
-		{15DD08E0-9E5E-49B1-9738-D73ACA630FF5}.DebugTests|Any CPU.Build.0 = Release|Any CPU
-		{15DD08E0-9E5E-49B1-9738-D73ACA630FF5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{15DD08E0-9E5E-49B1-9738-D73ACA630FF5}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5FB61954-9230-4408-A349-7F1EFC6E0A66}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5FB61954-9230-4408-A349-7F1EFC6E0A66}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5FB61954-9230-4408-A349-7F1EFC6E0A66}.DebugTests|Any CPU.ActiveCfg = Release|Any CPU
-		{5FB61954-9230-4408-A349-7F1EFC6E0A66}.DebugTests|Any CPU.Build.0 = Release|Any CPU
-		{5FB61954-9230-4408-A349-7F1EFC6E0A66}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5FB61954-9230-4408-A349-7F1EFC6E0A66}.Release|Any CPU.Build.0 = Release|Any CPU
 		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4C826618-E150-40F7-B13A-9182F0C3EACA}.DebugTests|Any CPU.ActiveCfg = DebugTests|Any CPU
@@ -364,7 +357,6 @@ Global
 		{52741881-8D64-4639-8B5C-19C060958C35} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{A05B0B61-A2EF-4C88-B9A3-00E888777798} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
-		{B38B1480-30AC-4F48-8AA3-C406889EC6CF} = {EED59312-2E8D-4332-8BA5-671F85D8E25E}
 		{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
 		{730AE40A-001C-4137-972D-898DC7C2BF0A} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
 		{4EF94364-B50F-4906-AB91-77BCA8413D60} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
@@ -381,9 +373,6 @@ Global
 		{BBA692B3-AB48-4F2E-8A33-260B0DD09A9B} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{2BF02FFF-1AB4-4725-A49E-73E81A91D50B} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E} = {7C8FF043-B608-42BD-930B-2249675BA666}
-		{1ACAFCBC-6FE9-4CD6-91DF-AAE1902C9B1F} = {E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}
-		{15DD08E0-9E5E-49B1-9738-D73ACA630FF5} = {1ACAFCBC-6FE9-4CD6-91DF-AAE1902C9B1F}
-		{5FB61954-9230-4408-A349-7F1EFC6E0A66} = {1ACAFCBC-6FE9-4CD6-91DF-AAE1902C9B1F}
 		{4C826618-E150-40F7-B13A-9182F0C3EACA} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{F4582361-BAD1-4D58-AFB8-529185357EE4} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{B492879F-0657-4830-8E77-4F243C3B1B44} = {7C8FF043-B608-42BD-930B-2249675BA666}
