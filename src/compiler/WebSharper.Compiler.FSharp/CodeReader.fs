@@ -533,14 +533,17 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
     try
         match expr with
         | P.Value(var) ->                
-            if isUnit var.FullType then
+            let t = var.FullType
+            if isUnit t then
                 Undefined
             else
                 let v, k = env.LookupVar var
                 match k with
                 | LocalVar -> Var v  
                 | FuncArg -> Var v
-                | ByRefArg -> GetRef (Var v)
+                | ByRefArg -> 
+                    let t = expr.Type
+                    if t.HasTypeDefinition && t.TypeDefinition.IsByRef then Var v else GetRef (Var v)
                 | ThisArg -> This
         | P.Lambda _ ->
             let rec loop acc = function

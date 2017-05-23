@@ -20,6 +20,8 @@
 
 module WebSharper.Tests.Basis
 
+open System.Runtime.InteropServices
+
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
@@ -124,6 +126,21 @@ type System.Int32 with
         match System.Int32.TryParse(s) with
         | true, i -> Some i
         | _ -> None
+
+[<JavaScript>]
+type TestOptionals() =
+    member this.Optionals([<Optional; DefaultParameterValue 1>] x : int, [<Optional; DefaultParameterValue 2>] y: int, [<Optional>] z: int) =
+        x + y + z
+
+    member this.TestOptionals() =
+        this.Optionals(4)
+
+[<JavaScript>]
+type SameName() =
+    member this.X() = 3
+    
+//module SameName =
+//    let X() = 3
 
 [<JavaScript>]
 let Tests =
@@ -426,5 +443,12 @@ let Tests =
             inlineStatements()
             isTrue JS.Window?inlineStatementTest1
             isTrue JS.Window?inlineStatementTest2
+        }
+
+        Test "F# 4.1 syntax" {
+            let a = 1_024
+            equalMsg a 1024 "underscores in numeric literals"                
+            equalMsg (TestOptionals().TestOptionals()) 6 "Optional and DefaultParameterValue respected in F# within the same project"
+            equalMsg (SameName().X()) 3 "module rec and implicit Module suffix"
         }
     }

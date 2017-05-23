@@ -539,11 +539,11 @@ type RoslynTransformer(env: Environment) =
             elif conv.IsMethodGroup then
                 let typ, meth = getTypeAndMethod m
                 NewDelegate(Some This, typ, meth)
-            else failwithf "transformIdentifierName: unhandled IMethodSymbol conversion: %A" conv 
+            else failwithf "TransformIdentifierName: unhandled IMethodSymbol conversion: %A" conv 
         | null -> 
-            err x.Node "transformIdentifierName: Symbol is null"
+            err x.Node "TransformIdentifierName: Symbol is null. This is possibly a Roslyn bug, putting it in parentheses can help."
         | _ -> 
-            err x.Node (sprintf "transformIdentifierName: Local variable not found, symbol type: %s" 
+            err x.Node (sprintf "TransformIdentifierName: Local variable not found, symbol type: %s" 
                 (symbol.GetType().FullName))
                                                                                                                                                                                                                                                                                                                                                                                  
     member this.TransformExpression (x: ExpressionData) : Expression =
@@ -789,10 +789,6 @@ type RoslynTransformer(env: Environment) =
         x.Variables |> Seq.map (this.TransformVariableDeclarator) |> List.ofSeq
 
     member this.TransformLocalFunctionStatement (x: LocalFunctionStatementData) : _ =
-//        let returnType = x.ReturnType |> this.TransformType
-        //let typeParameterList = x.TypeParameterList |> Option.map this.TransformTypeParameterList
-        //let parameterList = x.ParameterList |> this.TransformParameterList
-//        let constraintClauses = x.ConstraintClauses |> Seq.map this.TransformTypeParameterConstraintClause |> List.ofSeq
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node) :?> IMethodSymbol
         let parameterList = sr.ReadParameters symbol
         for p in parameterList do
@@ -800,14 +796,28 @@ type RoslynTransformer(env: Environment) =
         let body = x.Body |> Option.map this.TransformBlock
         let expressionBody = x.ExpressionBody |> Option.map this.TransformArrowExpressionClause
         let id = env.GetLocalFunctionId(symbol)
-        
+ 
+        let b =
+            match expressionBody with
+            | Some b -> Return b
+            | _ -> body.Value
+        let b =
+            if symbol.IsAsync then
+                let b = 
+                    b |> Continuation.addLastReturnIfNeeded Undefined
+                    |> Continuation.AwaitTransformer().TransformStatement 
+                    |> BreakStatement
+                    |> Continuation.FreeNestedGotos().TransformStatement
+                let labels = Continuation.CollectLabels.Collect b
+                Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b)
+            else
+                b
+ 
         // TODO : optional?
         FuncDeclaration(
             id, 
             parameterList |> List.map (fun p -> p.ParameterId), 
-            match expressionBody with
-            | Some b -> Return b
-            | _ -> body.Value
+            b
         )
         |> withStatementSourcePos x.Node
 
@@ -841,18 +851,44 @@ type RoslynTransformer(env: Environment) =
         | VariableDesignationData.DiscardDesignation               x -> this.TransformDiscardDesignation x
         | VariableDesignationData.ParenthesizedVariableDesignation x -> this.TransformParenthesizedVariableDesignation x
 
-    member this.PatternSet (e, value) =
+    member this.PatternSet (e, value, rTyp: ITypeSymbol) =
         let v = Id.New ("$m", mut = false)
         let rec trDesignation v e =
             match IgnoreExprSourcePos e with
             | NewVar(nv, _) ->
                 NewVar(nv, v) 
             | NewArray ds ->
+                let dvalue =
+                    if rTyp.IsTupleType then
+                        v 
+                    else
+                        // workaround until https://github.com/dotnet/roslyn/pull/16541 is available
+                        let len = ds.Length
+                        let decM =
+                            rTyp.GetMembers("Deconstruct") |> Seq.tryPick (function
+                                | :? IMethodSymbol as m ->
+                                    let md = sr.ReadMethod m
+                                    if md.Value.Parameters.Length = len then
+                                        Some md
+                                    else None
+                                | _ -> None
+                            )
+                        match decM with
+                        | Some decM ->
+                            let vars = List.init len (fun _ -> Id.New(mut = false))
+                            let t = sr.ReadNamedType (rTyp :?> INamedTypeSymbol)
+                            Sequential [
+                                for v in vars do yield NewVar(v, Undefined)
+                                yield Call(Some v, t, NonGeneric decM, vars |> List.map (fun i -> MakeRef (Var i) (fun e -> VarSet(i, e))))
+                                yield NewArray (vars |> List.map Var)
+                            ]
+                        | _ -> failwith "Failed to find deconstructor, extension methods are not supported yet"
+
                 let tvalue = Id.New ("$m", mut = false)                
-                Let (tvalue, v,
+                Let (tvalue, dvalue,
                     Sequential(
                         ds |> List.mapi (fun i di -> 
-                            trDesignation v.[Value (Int i)] di      
+                            trDesignation (Var tvalue).[Value (Int i)] di      
                         )
                     )
                 )
@@ -868,7 +904,7 @@ type RoslynTransformer(env: Environment) =
         x.Expression |> this.TransformExpression |> ExprStatement
 
     member this.TransformVariableDeclarator (x: VariableDeclaratorData) : Id * Expression =    
-        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node) //:?> ILocalSymbol
+        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
         let id, ftyp = 
             match symbol with
             | :? ILocalSymbol as s ->
@@ -1050,7 +1086,8 @@ type RoslynTransformer(env: Environment) =
             | Call (thisOpt, typ, getter, args) ->
                 withResultValue right <| fun rv -> Call (thisOpt, typ, setterOf getter, args @ [rv])
             | e -> 
-                this.PatternSet(e, right)
+                let rTyp = env.SemanticModel.GetTypeInfo(x.Right.Node).Type
+                this.PatternSet(e, right, rTyp)
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
             let opTyp, operator = getTypeAndMethod symbol
@@ -1600,7 +1637,6 @@ type RoslynTransformer(env: Environment) =
             Call(Some e, typ, meth, [])
 
         let en = Id.New ()
-
         Block [
             VarDeclaration (en, call expression info.GetEnumeratorMethod)
             TryFinally(
@@ -1631,7 +1667,7 @@ type RoslynTransformer(env: Environment) =
         let variable = x.Variable |> this.TransformExpression
         let expression = x.Expression |> this.TransformExpression
         let statement = x.Statement |> this.TransformStatement
-        let varSet c = this.PatternSet(variable, c)
+        let varSet c = this.PatternSet(variable, c, info.ElementType)
         this.TransformForEach (varSet, expression, statement, info)
         |> withStatementSourcePos x.Node
 
@@ -2040,7 +2076,7 @@ type RoslynTransformer(env: Environment) =
                 TypeCheck(Var v, typ), 
                 Conditional(
                     Var c, 
-                    Sequential [ this.PatternSet(designation, Var v); Value (Bool true) ],
+                    Sequential [ this.PatternSet(designation, Var v, null); Value (Bool true) ],
                     Value (Bool false)
                 )
             )
