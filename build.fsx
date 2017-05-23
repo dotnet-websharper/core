@@ -6,14 +6,23 @@ open Fake
 open WebSharper.Fake
 
 let version = "4.0"
-let pre = Some "beta4"
+let pre = Some "beta6"
 
-let targets =
-    WSTargets.Make(
-        Level = Public,
-        BaseVersion = Paket.SemVer.Parse (version + match pre with None -> "" | Some x -> "-" + x),
-        ProjectFiles = ["msbuild/WebSharper.proj"]
-    )
+let baseVersion =
+    version + match pre with None -> "" | Some x -> "-" + x
+    |> Paket.SemVer.Parse
+
+let targets = MakeTargets {
+    WSTargets.Default (ComputeVersion (Some baseVersion)) with
+        ProjectFiles =
+            !! "src/compiler/*/*.fsproj"
+            ++ "src/stdlib/*/*.fsproj"
+            ++ "src/sitelets/*/*.fsproj"
+            ++ "tests/*/*.fsproj"
+            ++ "tests/*/*.csproj"
+            -- "tests/WarpTest/*.fsproj"
+            -- "tests/WebSharper.Core.JavaScript.Tests/*.fsproj"
+}
 
 let NeedsBuilding input output =
     let i = FileInfo(input)
@@ -52,5 +61,15 @@ targets.BuildDebug ==> "Build"
 
 Target "CI-Release" ignore
 targets.Publish ==> "CI-Release"
+
+Target "Run" <| fun () ->
+    shellExec {
+        defaultParams with
+            Program = @"C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\devenv.exe"
+            CommandLine = "/r WebSharper.sln"
+    }
+    |> ignore
+
+"Build" ==> "Run"
 
 RunTargetOrDefault "Build"

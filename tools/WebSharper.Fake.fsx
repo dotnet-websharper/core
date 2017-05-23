@@ -29,6 +29,7 @@ module WebSharper.Fake
 #nowarn "49"
 
 open System
+open System.Text.RegularExpressions
 open Fake
 open Fake.AssemblyInfoFile
 
@@ -45,14 +46,16 @@ let GetSemVerOf pkgName =
 let ComputeVersion (baseVersion: option<Paket.SemVerInfo>) =
     let lastVersion, tag =
         try
-            let ok, out, err = Git.CommandHelper.runGitCommand "." "tag -l v*.*.*"
+            let ok, out, err = Git.CommandHelper.runGitCommand "." "tag"
+            let re = Regex("""^(?:[a-zA-Z]+[-.]?)?([0-9]+(?:\.[0-9]+){0,3})(?:-.*)?$""")
             match out.ToArray()
                 |> Array.choose (fun tag ->
                     try
-                        let v =
-                            if tag.StartsWith "v" then tag.[1..] else tag
-                            |> Paket.SemVer.Parse
-                        Some (v, Some tag)
+                        let m = re.Match(tag)
+                        if m.Success then
+                            let v = m.Groups.[1].Value |> Paket.SemVer.Parse
+                            Some (v, Some tag)
+                        else None
                     with _ -> None) with
             | [||] ->
                 traceImportant "Warning: no latest tag found"
@@ -91,19 +94,16 @@ let ComputeVersion (baseVersion: option<Paket.SemVerInfo>) =
     ) "%i.%i.%i.%s%s" baseVersion.Major baseVersion.Minor patch build
         (match baseVersion.PreRelease with Some r -> "-" + r.Origin | None -> "")
 
-type Level =
-    | Public
-    | Private
-    | Premium
-    | Custom of repo: string
-
 type Args =
     {
         Version : Paket.SemVerInfo
         ProjectFiles : seq<string>
-        Level : Level
         Attributes : seq<Attribute>
         StrongName : bool
+        BaseBranch : string
+        PushByMergingOnto : option<string>
+        PushOnlyAllowedChanges : bool
+        PushRemote : string
     }
 
 type WSTargets =
@@ -164,6 +164,14 @@ let MakeTargets (args: Args) =
                 Version = args.Version.AsString
             }
 
+    Target "WS-Checkout" <| fun () ->
+        match args.PushByMergingOnto with
+        | None -> ()
+        | Some branch ->
+            try Git.Branches.checkoutBranch "." branch
+            with _ -> Git.Branches.checkoutNewBranch "." args.BaseBranch branch
+            Git.Merge.merge "." "" args.BaseBranch
+
     Target "WS-Commit" <| fun () ->
         let changes =
             Git.FileStatus.getChangedFilesInWorkingCopy "." "HEAD"
@@ -171,8 +179,7 @@ let MakeTargets (args: Args) =
             |> Set
         let allowedChanges = Set ["paket.lock"]
         let badChanges = changes - allowedChanges
-        let checkChanges = environVarOrDefault "CHECK_CHANGES" "true" |> bool.Parse
-        if checkChanges && not (Set.isEmpty badChanges) then
+        if args.PushOnlyAllowedChanges && not (Set.isEmpty badChanges) then
             let msg =
                 "[GIT] Not committing because these files have changed:\n    * "
                 + String.concat "\n    * " badChanges
@@ -182,23 +189,25 @@ let MakeTargets (args: Args) =
             if Set.isEmpty changes then
                 trace "[GIT] OK -- no changes"
             else
-                tracefn "[GIT] OK -- committing %s" (String.concat ", " changes)
-                Git.Staging.StageAll "."
-                Git.Commit.Commit "." ("[CI] " + tag)
+                match args.PushByMergingOnto with
+                | None ->
+                    tracefn "[GIT] OK -- committing %s" (String.concat ", " changes)
+                    Git.Staging.StageAll "."
+                    Git.Commit.Commit "." ("[CI] " + tag)
+                | Some branch ->
+                    tracefn "[GIT] OK -- merging onto %s: %s" branch (String.concat ", " changes)
+                    Git.Staging.StageAll "."
+                    Git.Commit.Commit "." ("[CI] " + tag)
+                    
             Git.CommandHelper.directRunGitCommand "." ("tag " + tag) |> ignore
-            Git.Branches.push "."
-            Git.Branches.pushTag "." "origin" tag
+            Git.Branches.pushBranch "." args.PushRemote (Git.Information.getBranchName ".")
+            Git.Branches.pushTag "." args.PushRemote tag
 
     Target "WS-Publish" <| fun () ->
         Paket.Push <| fun p ->
             { p with
-                PublishUrl =
-                    match args.Level with
-                    | Public -> "https://staging.websharper.com"
-                    | Private -> "https://nuget.websharper.com"
-                    | Premium -> "https://premium.websharper.com"
-                    | Custom r -> r
-                ApiKey = environVar "NUGET_API_KEY"
+                PublishUrl = environVarOrDefault "NugetPublishUrl" "https://nuget.websharper.com/nuget"
+                ApiKey = environVar "NugetApiKey"
             }
 
     "WS-Clean"
@@ -213,6 +222,13 @@ let MakeTargets (args: Args) =
         ==> "WS-Commit"
         ==> "WS-Publish"
 
+    "WS-Clean"
+        ?=> "WS-Checkout"
+        ==> "WS-Update"
+
+    "WS-Checkout"
+        ==> "WS-Commit"
+
     {
         BuildDebug = "WS-BuildDebug"
         Publish = "WS-Publish"
@@ -221,20 +237,20 @@ let MakeTargets (args: Args) =
 
 type WSTargets with
 
-    static member Make(Level, ?Version, ?BaseVersion, ?ProjectFiles, ?Attributes, ?StrongName) =
-        MakeTargets {
-            Level = Level
-            Version =
-                match Version with
-                | None -> ComputeVersion BaseVersion
-                | Some v -> v
+    static member Default (version) =
+        {
+            Version = version
             ProjectFiles =
-                match ProjectFiles with
-                | Some p -> p
-                | None ->
-                    !! "/**/*.csproj"
-                    ++ "/**/*.fsproj"
-                    :> seq<string>
-            Attributes = defaultArg Attributes Seq.empty
-            StrongName = defaultArg StrongName false
+                !! "/**/*.csproj"
+                ++ "/**/*.fsproj"
+                :> seq<string>
+            Attributes = Seq.empty
+            StrongName = false
+            BaseBranch = Git.Information.getBranchName "."
+            PushByMergingOnto = Some "ci"
+            PushOnlyAllowedChanges = environVarOrDefault "CHECK_CHANGES" "true" |> bool.Parse
+            PushRemote = environVarOrDefault "PushRemote" "origin"
         }
+
+    static member Default () =
+        WSTargets.Default (ComputeVersion None)
