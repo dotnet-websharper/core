@@ -709,6 +709,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
             ForceNoPrototype = (annot.Prototype = Some false)
+            ForceAddress = false
         }
     )
 

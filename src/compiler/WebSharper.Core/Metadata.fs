@@ -192,6 +192,7 @@ type UnionCaseFieldInfo =
 type FSharpUnionCaseKind =
     | NormalFSharpUnionCase of list<UnionCaseFieldInfo> 
     | ConstantFSharpUnionCase of Literal 
+    | SingletonFSharpUnionCase 
 
 type FSharpUnionCaseInfo =
     {

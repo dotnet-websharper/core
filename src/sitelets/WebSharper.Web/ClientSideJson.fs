@@ -550,6 +550,11 @@ module Macro =
                                         k (NewArray [cString ("$" + string j); cString f.Name; e; optionKind] :: es))
                                 |> snd
                                 <| []
+                            | M.SingletonFSharpUnionCase ->
+                                match comp.GetClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
+                                | Some addr ->
+                                    k (ItemGet(GlobalAccess addr, cInt i) :: es)  
+                                | None -> failwith "Failed to find address for singleton union case" 
                             | M.ConstantFSharpUnionCase _ -> k (!~Null :: es)
                     )
                     |> snd

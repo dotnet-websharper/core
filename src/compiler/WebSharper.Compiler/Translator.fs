@@ -424,9 +424,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
                 match c.Kind with
                 | M.ConstantFSharpUnionCase v -> Value v
-                | M.NormalFSharpUnionCase [] -> 
+                | M.SingletonFSharpUnionCase -> 
                     this.TransformCopyCtor(typ.Entity, Object [ "$", Value (Int i) ])
-                | _ -> failwith "A union case with a property getter should not have fields"
+                | M.NormalFSharpUnionCase _ -> 
+                    failwith "A union case with a property getter should not have fields"
             else
                 match mN with
                 | "ToString" -> Value (String typ.Entity.Value.FullName)
@@ -1003,30 +1004,34 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ -> this.Error("Unhandled F# compiler generated constructor")
 
     override this.TransformNewUnionCase(typ, case, args) = 
-        let t = typ.Entity
-        if erasedUnions.Contains t then
+        let td = typ.Entity
+        if erasedUnions.Contains td then
             match args with
             | [] -> Undefined
             | [ a ] -> this.TransformExpression a
             | _ -> this.Error("Erased union constructor expects a single argument")
         else
-        match comp.GetCustomType typ.Entity with
+        match comp.GetCustomType td with
         | M.FSharpUnionInfo u ->
             let i, c = 
                 try
                     u.Cases |> Seq.indexed |> Seq.find (fun (_, c) -> c.Name = case)
                 with _ ->
-                    failwithf "Failed to find union case constructor %s in %s, found: %s" case typ.Entity.Value.FullName (u.Cases |> Seq.map (fun c -> c.Name) |> String.concat ", ")
+                    failwithf "Failed to find union case constructor %s in %s, found: %s" case td.Value.FullName (u.Cases |> Seq.map (fun c -> c.Name) |> String.concat ", ")
             match c.Kind with
             | M.ConstantFSharpUnionCase v ->
                 Value v
-            | _ ->
+            | M.SingletonFSharpUnionCase -> 
+                match comp.TryLookupClassInfo td |> Option.bind (fun cls -> cls.Address) with
+                | Some a -> ItemGet(GlobalAccess a, Value (String case))
+                | None -> this.Error("Failed to find address for singleton union case.")
+            | M.NormalFSharpUnionCase _ ->
                 let objExpr =
                     Object (
                         ("$", Value (Int i)) ::
                         (args |> List.mapi (fun j e -> "$" + string j, e)) 
                     )
-                this.TransformCopyCtor(typ.Entity, objExpr)
+                this.TransformCopyCtor(td, objExpr)
         | _ -> this.Error("Failed to translate union case creation.")
 
     override this.TransformUnionCaseTest(expr, typ, case) = 
@@ -1085,6 +1090,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match c.Kind with
             | M.ConstantFSharpUnionCase _ ->
                 this.Error(sprintf "Getting item of Constant union case: %s.%s" typ.Entity.Value.FullName case) 
+            | M.SingletonFSharpUnionCase ->
+                this.Error(sprintf "Getting item of argumentless union case: %s.%s" typ.Entity.Value.FullName case) 
             | M.NormalFSharpUnionCase fields -> 
                 match fields |> List.tryFindIndex (fun f -> f.Name = field) with
                 | Some i ->

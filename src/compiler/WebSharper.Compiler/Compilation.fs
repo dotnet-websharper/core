@@ -375,6 +375,19 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.TryLookupInterfaceInfo typ =   
         interfaces.TryFind(this.FindProxied typ)
     
+    member this.GetMethods typ =
+        compilingMethods |> Seq.choose (fun (KeyValue ((td, m), _)) ->
+            if td = typ then Some m else None
+        ) |> Seq.append (
+            match this.TryLookupClassInfo typ with
+            | Some cls -> cls.Methods.Keys :> _ seq
+            | _ ->
+            match this.TryLookupInterfaceInfo typ with
+            | Some intf -> intf.Methods.Keys :> _ seq
+            | _ ->
+                Seq.empty
+        )
+
     member this.IsImplementing (typ, intf) : bool option =
         classes.TryFind(this.FindProxied typ)
         |> Option.map (fun cls ->
@@ -748,7 +761,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let hasWSPrototype = Option.isSome baseCls || hasWSPrototype cls.Kind cls.Members                
             classes.Add (typ,
                 {
-                    Address = if hasWSPrototype then someEmptyAddress else None
+                    Address = if hasWSPrototype || cls.ForceAddress then someEmptyAddress else None
                     BaseClass = baseCls
                     Constructors = Dictionary() 
                     Fields = Dictionary() 

@@ -812,6 +812,8 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                                                 | M.ConstantFSharpUnionCase cVal -> 
                                                     if cVal = Null then Choice3Of3 () 
                                                     else Choice1Of3 (cVal, cString c.Name)
+                                                | M.SingletonFSharpUnionCase ->
+                                                    Choice2Of3(tag, cString c.Name)    
                                                 | M.NormalFSharpUnionCase fs -> 
                                                     Choice2Of3(
                                                         tag,

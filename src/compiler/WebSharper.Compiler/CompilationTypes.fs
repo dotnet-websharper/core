@@ -90,6 +90,7 @@ module NotResolved =
             IsProxy : bool
             Macros : list<TypeDefinition * option<obj>> 
             ForceNoPrototype : bool
+            ForceAddress : bool
         }
 
     type NotResolvedInterface =
