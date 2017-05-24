@@ -213,7 +213,6 @@ type Rendering with
         render getWriter
 
 type Kind =
-    | Ignore
     | Basic of string
     | Complex of string * list<string>
 
@@ -229,13 +228,14 @@ let tryGetUriFileName (u: string) =
         parts.[parts.Length - 1] |> Some
     with _ -> None
 
+let EmptyResource =
+   { new IResource with member this.Render _ = ignore }
+
 type BaseResource(kind: Kind) as this =
         
     let self = this.GetType()
     let name = self.FullName
 
-    new () =
-        new BaseResource(Ignore)
     new (spec: string) =
         new BaseResource(Basic spec)
 
@@ -252,8 +252,6 @@ type BaseResource(kind: Kind) as this =
             let localFolder isCss f =
                 (if isCss then "Content/WebSharper/" else "Scripts/WebSharper/") + this.GetLocalName() + "/" + f
             match kind with
-            | Ignore ->
-                ignore
             | Basic spec ->
                 let mt = if spec.EndsWith ".css" then Css else Js
                 let r =
@@ -314,7 +312,6 @@ type BaseResource(kind: Kind) as this =
                 | _ ->
                     ()
             match kind with
-            | Ignore -> ()
             | Basic spec ->
                 download spec
             | Complex (b, xs) ->

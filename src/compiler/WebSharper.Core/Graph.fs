@@ -270,9 +270,14 @@ type Graph =
                     try
                         match p with
                         | None ->
-                            Reflection.LoadTypeDefinition t
-                            |> System.Activator.CreateInstance
-                            |> unbox
+                            let td = Reflection.LoadTypeDefinition t
+                            match td.GetConstructor([||]) with
+                            | null ->
+                                R.EmptyResource
+                            | _ ->
+                                td
+                                |> System.Activator.CreateInstance
+                                |> unbox
                         | Some p ->
                             System.Activator.CreateInstance(
                                 Reflection.LoadTypeDefinition t, 

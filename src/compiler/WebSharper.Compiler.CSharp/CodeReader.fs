@@ -700,6 +700,8 @@ type RoslynTransformer(env: Environment) =
                 match e with
                 | Var v ->
                     MakeRef e (fun value -> VarSet(v, value))
+                | NewVar (v, Undefined) -> // out var
+                    Sequential [ e; MakeRef e (fun value -> VarSet(v, value)) ]
                 | ItemGet(o, i) ->
                     let ov = Id.New ()
                     let iv = Id.New ()

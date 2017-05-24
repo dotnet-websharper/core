@@ -139,8 +139,9 @@ type TestOptionals() =
 type SameName() =
     member this.X() = 3
     
-//module SameName =
-//    let X() = 3
+[<JavaScript>]
+module SameName =
+    let X() = 4
 
 [<JavaScript>]
 let Tests =
@@ -449,6 +450,6 @@ let Tests =
             let a = 1_024
             equalMsg a 1024 "underscores in numeric literals"                
             equalMsg (TestOptionals().TestOptionals()) 6 "Optional and DefaultParameterValue respected in F# within the same project"
-            equalMsg (SameName().X()) 3 "module rec and implicit Module suffix"
+            equalMsg (SameName().X(), SameName.X()) (3, 4) "implicit Module suffix"
         }
     }

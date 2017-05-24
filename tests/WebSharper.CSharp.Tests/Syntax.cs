@@ -228,11 +228,13 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public void RefTest()
         {
-            int x = 0, y;
+            int x = 0;
             Increment(ref x);
             Equal(x, 1);
-            OutOne(out y);
+            OutOne(out var y);
             Equal(y, 1);
+            OutOne(out int z);
+            Equal(z, 1);
             var a = new[] { 2 };
             Increment(ref a[0]);
             Equal(a[0], 3);

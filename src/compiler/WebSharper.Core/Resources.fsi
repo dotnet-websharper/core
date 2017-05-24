@@ -81,6 +81,9 @@ and IResource =
     /// Renders the resource to a given TextWriter.
     abstract member Render : Context -> ((RenderLocation -> HtmlTextWriter) -> unit)
 
+/// A resource value appending nothing.
+val EmptyResource : IResource
+
 /// An interface for resources to execute custom unpack.
 type IDownloadableResource =
 
