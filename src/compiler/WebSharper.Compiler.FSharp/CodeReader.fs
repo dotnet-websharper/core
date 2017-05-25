@@ -923,13 +923,15 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | _ -> parsefailf "Expected a record type"
             FieldSet(thisOpt |> Option.map tr, t, field.Name, tr value)
         | P.AddressOf expr ->
-            let isStructUnionGet =
+            let isStructUnionOrTupleGet =
                 let t = expr.Type
-                t.HasTypeDefinition && (
-                    let td = t.TypeDefinition
-                    td.IsFSharpUnion && td.IsValueType
-                )    
-            if isStructUnionGet then
+                t.IsStructTupleType || (
+                    t.HasTypeDefinition && (
+                        let td = t.TypeDefinition
+                        td.IsFSharpUnion && td.IsValueType
+                    )    
+                )
+            if isStructUnionOrTupleGet then
                 tr expr     
             else
             let e = IgnoreExprSourcePos (tr expr)

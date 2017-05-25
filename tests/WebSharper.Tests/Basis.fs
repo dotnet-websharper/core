@@ -269,16 +269,23 @@ let Tests =
             isTrueMsg ((1, 8) < (2, 1)) "(1, 8) < (2, 1)"
         }
 
-//        Test "Struct tuples" {
-//            let struct (a, b, c) = struct (1, 2, 3)
-//            equal (a + b + c) 6
-//            let t = struct ("Hello ", "Szia ", "Hej")
-//            let struct (t1, t2, t3) = t
-//            equal (t1 + t2 + t3) "Hello Szia Hej"
-//            isTrueMsg (struct (1, 2) < struct (1, 3)) "(1, 2) < (1, 3)"
-//            isTrueMsg (struct (1, 2) > struct (1, 1)) "(1, 2) > (1, 1)"
-//            isTrueMsg (struct (1, 8) < struct (2, 1)) "(1, 8) < (2, 1)"
-//        }
+        Test "Struct tuples" {
+            let f () =
+                let t = struct (0, 0, 0)
+                let mutable struct (a, b, c) = t
+                a <- 1
+                b <- 2
+                c <- 3
+                t
+            let struct (a, b, c) = struct (1, 2, 3)
+            equal (a + b + c) 6
+            let t = struct ("Hello ", "Szia ", "Hej")
+            let struct (t1, t2, t3) = t
+            equal (t1 + t2 + t3) "Hello Szia Hej"
+            isTrueMsg (struct (1, 2) < struct (1, 3)) "(1, 2) < (1, 3)"
+            isTrueMsg (struct (1, 2) > struct (1, 1)) "(1, 2) > (1, 1)"
+            isTrueMsg (struct (1, 8) < struct (2, 1)) "(1, 8) < (2, 1)"
+        }
 
         Test "Currying" {
             let add (x, y) = x + y
