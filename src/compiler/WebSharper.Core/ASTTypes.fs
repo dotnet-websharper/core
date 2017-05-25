@@ -262,21 +262,21 @@ type Concrete<'T> =
 /// Identifies a type by shape
 and Type =
     /// A specific type not covered by other cases
-    | ConcreteType of Concrete<TypeDefinition>
+    | ConcreteType of concreteType: Concrete<TypeDefinition>
     /// A class and method type parameters specified by index in the combined list
-    | TypeParameter of int
+    | TypeParameter of ordinal: int
     /// An array with the specified number of dimensions
-    | ArrayType of Type * int
+    | ArrayType of elemType: Type * arity: int
     /// A Sytem.Tuple type, type parameters are in a straight list
-    | TupleType of list<Type> * bool
+    | TupleType of elemTypes: list<Type> * isStruct: bool
     /// Identifies the FSharp.Core.FSharpFunc type
-    | FSharpFuncType of Type * Type
+    | FSharpFuncType of argumentType: Type * returnType: Type
     /// The type of a ref or out parameter
-    | ByRefType of Type
+    | ByRefType of undelyingType: Type
     /// Unified case for FSharp.Core.Unit and System.Void
     | VoidType 
     /// used for F# statically resolved type parameters
-    | StaticTypeParameter of int
+    | StaticTypeParameter of ordinal: int
     /// used for F# inner generics
     | LocalTypeParameter
 
