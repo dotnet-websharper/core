@@ -40,12 +40,21 @@ let unsafeHead (l: list<'T>) = X<'T>
 [<Inline "$l.$1">]
 let unsafeTail (l: list<'T>) = X<list<'T>> 
 
+[<Inline>]
 let setValue (l: list<'T>) (v: 'T) =
-    JS.Set l "$" 1
     JS.Set l "$0" v
 
+[<Inline>]
 let setTail (l: list<'T>) (t: list<'T>) =
     JS.Set l "$1" t
+
+[<Inline "new WebSharper.List.T({$: 1})"; Pure>]
+let freshEmptyList() = X<list<'T>>
+
+[<Inline>]
+let freshTail (l: list<'T>) =
+    let t = freshEmptyList()
+    setTail l t
     t
 
 [<Inline "$l.$ == 1">]
@@ -53,8 +62,9 @@ let notEmpty (l: list<_>) = X<bool>
 
 [<Name "append">]
 let Append (x: list<'T>) (y: list<'T>) = 
-    if List.isEmpty x then y else
-    let res = [] : 'T list
+    if List.isEmpty x then y
+    elif List.isEmpty y then x else
+    let res = freshEmptyList()
     let mutable r = res
     let mutable l = x
     let mutable go = true
@@ -64,7 +74,7 @@ let Append (x: list<'T>) (y: list<'T>) =
         if List.isEmpty l then
             go <- false
         else
-            r <- setTail r [] 
+            r <- freshTail r
     setTail r y |> ignore
     res
 
@@ -228,75 +238,117 @@ let Length (l: list<_>) =
 
 [<Name "map">]
 let Map (f: 'T1 -> 'T2) (x: list<'T1>) = 
-    let res = [] : list<'T2>
+    if List.isEmpty x then As x else
+    let res = freshEmptyList()
     let mutable r = res
     let mutable l = x
-    while notEmpty l do
+    let mutable go = true
+    while go do
         setValue r (f (unsafeHead l))
-        r <- setTail r []
         l <- unsafeTail l
+        if List.isEmpty l then
+            go <- false
+        else
+            r <- freshTail r
+    setTail r []
     res
 
 [<Name "map2">]
 let Map2 (f: 'T1 -> 'T2 -> 'T3) (x1: list<'T1>) (x2: list<'T2>) =
-    let res = [] : list<'T3>
+    let mutable go = notEmpty x1 && notEmpty x2
+    if not go then 
+        if notEmpty x1 || notEmpty x2 then
+            badLengths()
+        else As x1
+    else
+    let res = freshEmptyList()
     let mutable r = res
     let mutable l1 = x1
     let mutable l2 = x2
-    while notEmpty l1 && notEmpty l2 do
+    while go do
         setValue r (f (unsafeHead l1) (unsafeHead l2))
-        r <- setTail r []
         l1 <- unsafeTail l1
         l2 <- unsafeTail l2
+        if notEmpty l1 && notEmpty l2 then
+            r <- freshTail r
+        else 
+            go <- false
     if notEmpty l1 || notEmpty l2 then
         badLengths()
+    setTail r []
     res
 
 [<Name "map3">]
 let Map3 (f: 'T1 -> 'T2 -> 'T3 -> 'T4) (x1: list<'T1>) (x2: list<'T2>) (x3: list<'T3>) =
-    let res = [] : list<'T4> 
+    let mutable go = notEmpty x1 && notEmpty x2 && notEmpty x3
+    if not go then 
+        if notEmpty x1 || notEmpty x2 || notEmpty x3 then
+            badLengths()
+        else As x1
+    else
+    let res = freshEmptyList()
     let mutable r = res
     let mutable l1 = x1
     let mutable l2 = x2
     let mutable l3 = x3
-    while notEmpty l1 && notEmpty l2 && notEmpty l3 do
+    while go do
         setValue r (f (unsafeHead l1) (unsafeHead l2) (unsafeHead l3))
-        r <- setTail r []
         l1 <- unsafeTail l1
         l2 <- unsafeTail l2
         l3 <- unsafeTail l3
+        if notEmpty l1 && notEmpty l2 && notEmpty l3 then
+            r <- freshTail r
+        else 
+            go <- false
     if notEmpty l1 || notEmpty l2 || notEmpty l3 then
         badLengths()
+    setTail r []
     res
 
 [<Name "mapi">]
 let MapIndexed (f: int -> 'T1 -> 'T2) (x: list<'T1>) =
-    let res = [] : list<'T2>
+    if List.isEmpty x then As x else
+    let res = freshEmptyList()
     let mutable r = res
     let mutable l = x
     let mutable i = 0
-    while notEmpty l do
+    let mutable go = true
+    while go do
         setValue r (f i (unsafeHead l))
-        r <- setTail r []
         l <- unsafeTail l
-        i <- i + 1
+        if List.isEmpty l then 
+            go <- false
+        else
+            r <- freshTail r
+            i <- i + 1
+    setTail r []
     res
 
 [<Name "mapi2">]
 let MapIndexed2 (f: int -> 'T1 -> 'T2 -> 'T3) (x1: list<'T1>) (x2: list<'T2>) =
-    let res = [] : list<'T3>
+    let mutable go = notEmpty x1 && notEmpty x2
+    if not go then 
+        if notEmpty x1 || notEmpty x2 then
+            badLengths()
+        else As x1
+    else
+    let res = freshEmptyList()
     let mutable r = res
     let mutable l1 = x1
     let mutable l2 = x2
     let mutable i = 0
-    while notEmpty l1 && notEmpty l2 do
+    while go do
         setValue r (f i (unsafeHead l1) (unsafeHead l2))
-        r <- setTail r []
         l1 <- unsafeTail l1
         l2 <- unsafeTail l2
-        i <- i + 1
+        if notEmpty l1 && notEmpty l2 then
+            r <- freshTail r
+            i <- i + 1
+        else 
+            go <- false
     if notEmpty l1 || notEmpty l2 then
         badLengths()
+    setTail r []
     res
 
 [<Name "max">]
@@ -333,13 +385,18 @@ let OfSeq (s: seq<'T>) =
     elif s :? System.Array then
         List.ofArray (As<'T[]> s)
     else
-        let res = [] : list<'T>
-        let mutable last = res
         use e = Enumerator.Get s
-        while e.MoveNext() do
-            setValue last e.Current
-            last <- setTail last []
-        JS.Set last "$" 0
+        let mutable go = e.MoveNext()
+        if not go then [] else
+        let res = freshEmptyList()
+        let mutable r = res
+        while go do
+            setValue r e.Current
+            if e.MoveNext() then
+                r <- freshTail r
+            else    
+                go <- false
+        setTail r []
         res
 
 [<Name "partition">]

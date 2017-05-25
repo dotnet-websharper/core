@@ -551,10 +551,11 @@ module Macro =
                                 |> snd
                                 <| []
                             | M.SingletonFSharpUnionCase ->
-                                match comp.GetClassInfo t.TypeDefinition |> Option.bind (fun cls -> cls.Address) with
-                                | Some addr ->
-                                    k (ItemGet(GlobalAccess addr, cInt i) :: es)  
-                                | None -> failwith "Failed to find address for singleton union case" 
+                                let tag =
+                                    match u.NamedUnionCases with
+                                    | None -> cInt i
+                                    | _ -> cString (match case.JsonName with Some n -> n | _ -> case.Name)
+                                k (NewArray [tag; NewArray []] :: es)
                             | M.ConstantFSharpUnionCase _ -> k (!~Null :: es)
                     )
                     |> snd
