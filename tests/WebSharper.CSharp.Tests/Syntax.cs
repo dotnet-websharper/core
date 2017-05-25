@@ -453,6 +453,13 @@ namespace WebSharper.CSharp.Tests
             a = new[] { 2 };
             Equal(a[0], 2);
         }
+
+        [Test]
+        public void Default()
+        {
+            Equal(default(int), 0);
+            Equal(default(string), null);
+        }
     }
 
     // this already has JavaScript attribute

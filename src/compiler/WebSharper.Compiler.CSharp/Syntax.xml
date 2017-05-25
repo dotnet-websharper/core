@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (c)  Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information. -->
 
 <Tree Root="SyntaxNode">
@@ -726,6 +726,7 @@
     <Kind Name="TrueLiteralExpression"/>
     <Kind Name="FalseLiteralExpression"/>
     <Kind Name="NullLiteralExpression"/>
+    <Kind Name="DefaultLiteralExpression"/>
     <Field Name="Token" Type="SyntaxToken">
       <Kind Name="ArgListKeyword"/>
       <Kind Name="NumericLiteralToken"/>
@@ -734,6 +735,7 @@
       <Kind Name="TrueKeyword"/>
       <Kind Name="FalseKeyword"/>
       <Kind Name="NullKeyword"/>
+      <Kind Name="DefaultKeyword"/>
       <PropertyComment>
         <summary>SyntaxToken representing the keyword corresponding to the kind of the literal expression.</summary>
       </PropertyComment>

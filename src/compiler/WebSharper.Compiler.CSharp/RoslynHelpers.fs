@@ -617,6 +617,7 @@ type [<RequireQualifiedAccess>] LiteralExpressionKind =
     | TrueLiteralExpression     
     | FalseLiteralExpression    
     | NullLiteralExpression     
+    | DefaultLiteralExpression  
 with
     static member FromKind(k: SyntaxKind) =
         match k with
@@ -627,6 +628,7 @@ with
         | SyntaxKind.TrueLiteralExpression -> TrueLiteralExpression
         | SyntaxKind.FalseLiteralExpression -> FalseLiteralExpression
         | SyntaxKind.NullLiteralExpression -> NullLiteralExpression
+        | SyntaxKind.DefaultLiteralExpression -> DefaultLiteralExpression
         | _ -> failwithf "Unexpected LiteralExpressionKind kind: %O" k
 
 type [<RequireQualifiedAccess>] LiteralExpressionToken =
@@ -637,6 +639,7 @@ type [<RequireQualifiedAccess>] LiteralExpressionToken =
     | TrueKeyword          
     | FalseKeyword         
     | NullKeyword          
+    | DefaultKeyword       
 with
     static member FromToken(t: SyntaxToken) =
         match t.Kind() with
@@ -647,6 +650,7 @@ with
         | SyntaxKind.TrueKeyword -> TrueKeyword
         | SyntaxKind.FalseKeyword -> FalseKeyword
         | SyntaxKind.NullKeyword -> NullKeyword
+        | SyntaxKind.DefaultKeyword -> DefaultKeyword
         | k -> failwithf "Unexpected LiteralExpressionToken kind: %O" k
 
 type [<RequireQualifiedAccess>] CheckedExpressionKind =
