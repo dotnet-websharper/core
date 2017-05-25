@@ -1043,19 +1043,15 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.ILFieldGet _ -> parsefailf "F# pattern not handled: ILFieldGet"
         | P.ILFieldSet _ -> parsefailf "F# pattern not handled: ILFieldSet"
         | P.TraitCall(sourceTypes, traitName, memberFlags, typeArgs, typeInstantiation, argExprs) ->
-            if sourceTypes.Length <> 1 then parsefailf "TODO: TraitCall with multiple source types" 
-            match argExprs with
-            | t :: a -> 
-                let meth =
-                    Method {
-                        MethodName = traitName
-                        Parameters = typeInstantiation |> List.map (sr.ReadTypeSt true env.TParams)
-                        ReturnType = sr.ReadTypeSt true env.TParams expr.Type
-                        Generics   = 0
-                    } 
-                TraitCall(tr t, sr.ReadType env.TParams sourceTypes.[0], NonGeneric meth, a |> List.map tr)  
-            | _ ->
-                failwith "Impossible: TraitCall must have a this argument"
+            let meth =
+                Method {
+                    MethodName = traitName
+                    Parameters = typeInstantiation |> List.map (sr.ReadTypeSt true env.TParams)
+                    ReturnType = sr.ReadTypeSt true env.TParams expr.Type
+                    Generics   = 0
+                } 
+            let s = sourceTypes |> Seq.map (sr.ReadType env.TParams) |> List.ofSeq
+            TraitCall(s, NonGeneric meth, argExprs |> List.map tr)  
         | P.UnionCaseSet _ ->
             parsefailf "UnionCaseSet pattern is only allowed in FSharp.Core"
         | _ -> parsefailf "F# expression not recognized"

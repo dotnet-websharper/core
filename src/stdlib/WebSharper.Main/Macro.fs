@@ -66,6 +66,24 @@ let isIn (s: string Set) (t: Type) =
     | _ ->
         false
 
+let traitCallOp (c: MacroCall) =
+    match c.Method.Generics with
+    | [t; u; v] ->
+        TraitCall(
+            [ t; u ], 
+            NonGeneric (
+                Method {
+                    MethodName = c.Method.Entity.Value.MethodName
+                    Parameters = [ t; u ]
+                    ReturnType = v
+                    Generics = 0
+                }
+            ),
+            c.Arguments
+        )
+    | _ ->
+        failwith "F# Operator value expecting 3 type arguments"
+
 [<Sealed>]
 type Div() =
     inherit Macro()
@@ -78,8 +96,11 @@ type Div() =
                 then (x ^/ y) ^>> !~(Int 0)
                 elif isIn bigIntegralTypes t
                 then Application(Global ["Math"; "trunc"], [x ^/ y], true, Some 1)
-                else x ^/ y
-            | _ -> x ^/ y
+                elif isIn scalarTypes t
+                then x ^/ y
+                else traitCallOp c
+            | _ ->
+                failwith "F# Operator value expecting 3 type arguments"
             |> MacroOk
         | _ -> MacroError "divisionMacro error"
 
@@ -91,16 +112,16 @@ type Arith(name, op) =
         | [x; y] ->
             match c.Method.Generics with
             | t :: _ when not (isIn scalarTypes t) ->
-                Application (ItemGet(x, Value (String name)), [y], true, Some 1)
+                traitCallOp c
             | _ -> Binary(x, op, y)
             |> MacroOk
         | _ -> MacroError "divisionMacro error"
 
 [<Sealed>]
-type Add() = inherit Arith("add", BinaryOperator.``+``) 
+type Add() = inherit Arith("op_Addition", BinaryOperator.``+``) 
 
 [<Sealed>]
-type Sub() = inherit Arith("sub", BinaryOperator.``-``) 
+type Sub() = inherit Arith("op_Subtraction", BinaryOperator.``-``) 
 
 type Comparison =
     | ``<``  = 0
@@ -185,11 +206,6 @@ let toComparison = function
     | BinaryOperator.``==`` -> Comparison.``=``
     | BinaryOperator.``!=`` -> Comparison.``<>``
     | _ -> failwith "Operation wasn't a comparison"
-
-let binOpName = function
-    | BinaryOperator.``+`` -> "add"
-    | BinaryOperator.``-`` -> "sub"
-    | _ -> failwith "No binary operation name for this construct"
 
 // TODO unify these with the oeprations macros
 

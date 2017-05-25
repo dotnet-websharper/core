@@ -174,10 +174,9 @@ type GenericInlineResolver (generics) =
             args |> List.map this.TransformExpression
         )
 
-    override this.TransformTraitCall(thisObj, typ, meth, args) =
+    override this.TransformTraitCall(typs, meth, args) =
         TraitCall (
-            thisObj |> this.TransformExpression, 
-            typ |> subs,
+            typs |> List.map subs,
             Generic meth.Entity (meth.Generics |> List.map subs), 
             args |> List.map this.TransformExpression
         )
@@ -841,36 +840,45 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ ->
                 Application(errorPlaceholder, args |> List.map this.TransformExpression, false, None)
 
-    override this.TransformTraitCall(thisObj, typ, meth, args) =
-        match typ with
-        | ConcreteType ct ->
-            let tr (methods: seq<Method>) =
-                let mi = meth.Entity.Value
-                let mName = mi.MethodName
-                let ms =                    
-                    methods |> Seq.choose (fun m ->
-                        // TODO: check compatility with signature better
-                        if m.Value.MethodName = mName then Some m else None
-                    ) 
-                    |> List.ofSeq
-                match ms with
-                | [ m ] ->
-                    this.TransformCall(Some thisObj, ct, Generic m meth.Generics, args)
-                | [] -> this.Error(sprintf "Could not find method for trait call: %s" mName)
-                | _ -> this.Error(sprintf "Ambiguity at translating trait call: %s" mName)
-            match comp.TryLookupClassInfo ct.Entity with
-            | None -> 
-                match comp.TryLookupInterfaceInfo ct.Entity with
-                | Some intf -> tr intf.Methods.Keys
-                | None -> this.Error (TypeNotFound ct.Entity)
-            | Some cls -> tr cls.Methods.Keys
-        | _ ->
-            if currentIsInline then
-                hasDelayedTransform <- true
-                TraitCall(this.TransformExpression thisObj, typ, meth, args |> List.map this.TransformExpression)
-            else 
-                this.Error("Using a trait call requires the Inline attribute.")
-    
+    override this.TransformTraitCall(typs, meth, args) =
+        let mutable err = None
+        let hasErr e =
+            err <- match err with | Some p -> Some (p + "; " + e) | _ -> Some e
+            None
+        let mName = meth.Entity.Value.MethodName
+        let res =
+            typs |> List.tryPick (fun typ ->
+                match typ with
+                | ConcreteType ct ->
+                    let ms =                    
+                        comp.GetMethods ct.Entity |> Seq.choose (fun m ->
+                            // TODO: check compatility with signature better
+                            if m.Value.MethodName = mName then Some m else None
+                        ) 
+                        |> List.ofSeq
+                    match ms with
+                    | [ m ] ->
+                        match args with
+                        | t :: h ->
+                            this.TransformCall(Some t, ct, Generic m meth.Generics, h) |> Some
+                        | _ ->
+                            failwith "Impossible: trait call without arguments"
+                    | [] -> hasErr (sprintf "Could not find method for trait call: %s" mName) // (methods |> Seq.map (fun m -> m.Value.MethodName) |> String.concat ", "))
+                    | _ -> hasErr (sprintf "Ambiguity at translating trait call: %s" mName)
+                | _ ->
+                    if currentIsInline then
+                        hasDelayedTransform <- true
+                        TraitCall(typs, meth, args |> List.map this.TransformExpression) |> Some
+                    else 
+                        hasErr("Using a trait call requires the Inline attribute")
+            )
+        match res with
+        | Some ok -> ok
+        | _ -> 
+            match err with
+            | None -> this.Error "Trait call has no source types"
+            | Some e -> this.Error (e + "; types: " + (typs |> List.map string |> String.concat ", "))
+
     override this.TransformNewDelegate(thisObj, typ, meth) =
         // TODO: CustomTypeMember
         if comp.HasGraph then
