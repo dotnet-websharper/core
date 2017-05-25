@@ -177,6 +177,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 Requires = mAnnot.Requires
                 FuncArgs = None
                 Args = []
+                Warn = mAnnot.Warn
             }
 
     let addMethod mAnnot def kind compiled expr =

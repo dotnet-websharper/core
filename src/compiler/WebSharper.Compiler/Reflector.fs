@@ -199,11 +199,18 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             let opts =
                 {
                     IsPure =
-                        meth.CustomAttributes |> 
-                        Seq.exists (fun a -> 
+                        meth.CustomAttributes
+                        |>  Seq.exists (fun a -> 
                             a.AttributeType.FullName = "WebSharper.PureAttribute" 
                         )
                     FuncArgs = None
+                    Warn = 
+                        meth.CustomAttributes
+                        |> Seq.tryPick (fun a -> 
+                            if a.AttributeType.FullName = "WebSharper.WarnAttribute" then
+                                Some (unbox (a.ConstructorArguments.[0].Value))
+                            else None
+                        )
                 }
                                     
             if inlAttr.IsSome || name.IsSome || not (List.isEmpty macros) then

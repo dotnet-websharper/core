@@ -174,6 +174,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     match curriedArgs with 
                     | None -> [] 
                     | Some (_, _, ids, _) -> ids
+                Warn = mAnnot.Warn
             }
         match curriedArgs with
         | Some (mem, ca, args, inst) ->

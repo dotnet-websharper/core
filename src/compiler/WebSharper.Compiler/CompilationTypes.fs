@@ -29,8 +29,8 @@ open WebSharper.Core.Metadata
 open WebSharper.Core.DependencyGraph
 
 type CompilingMember =
-    | NotCompiled of CompiledMember * notVirtual: bool * funcArgs : option<list<FuncArgOptimization>>
-    | NotGenerated of TypeDefinition * option<obj> * CompiledMember * notVirtual: bool
+    | NotCompiled of CompiledMember * notVirtual: bool * opts: Optimizations
+    | NotGenerated of TypeDefinition * option<obj> * CompiledMember * notVirtual: bool * opts: Optimizations
 
 module NotResolved =
     [<RequireQualifiedAccess>]
@@ -57,6 +57,7 @@ module NotResolved =
             Args : list<Id>
             mutable Body : Expression
             Requires : list<TypeDefinition * option<obj>>
+            Warn : option<string>
         }
 
     type NotResolvedField =

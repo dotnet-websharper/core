@@ -254,7 +254,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ -> false
         match info with        
         | NotCompiled (m, _, _) 
-        | NotGenerated (_, _, m, _) -> ii m
+        | NotGenerated (_, _, m, _, _) -> ii m
 
     let breakExpr e = 
         if currentIsInline then
@@ -457,25 +457,23 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             )
         currentIsInline <- isInline info
         match info with
-        | NotCompiled (i, notVirtual, funcArgs) ->
-            currentFuncArgs <- funcArgs
+        | NotCompiled (i, notVirtual, opts) ->
+            currentFuncArgs <- opts.FuncArgs
             let res = this.TransformExpression expr |> removeSourcePosFromInlines |> breakExpr
             let res = this.CheckResult(res)
             let opts =
-                {
-                    IsPure = notVirtual && isPureFunction res
-                    FuncArgs = funcArgs
-                } : M.Optimizations
+                { opts with
+                    IsPure = notVirtual && (opts.IsPure || isPureFunction res)
+                } 
             comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
-        | NotGenerated (g, p, i, notVirtual) ->
+        | NotGenerated (g, p, i, notVirtual, opts) ->
             let m = GeneratedMethod(typ, meth)
             let res = this.Generate (g, p, m)
             let res = this.CheckResult(res)
             let opts =
-                {
-                    IsPure = notVirtual && isPureFunction res
-                    FuncArgs = None
-                } : M.Optimizations
+                { opts with
+                    IsPure = notVirtual && (opts.IsPure || isPureFunction res)
+                }
             comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
 #if DEBUG
         logTransformations <- false
@@ -489,7 +487,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let res = this.TransformExpression expr |> breakExpr
             let res = this.CheckResult(res)
             comp.AddCompiledImplementation(typ, intf, meth, i, res)
-        | NotGenerated (g, p, i, _) ->
+        | NotGenerated (g, p, i, _, _) ->
             let m = GeneratedImplementation(typ, intf, meth)
             let res = this.Generate (g, p, m)
             let res = this.CheckResult(res)
@@ -504,25 +502,23 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         else
         currentIsInline <- isInline info
         match info with
-        | NotCompiled (i, _, funcArgs) -> 
-            currentFuncArgs <- funcArgs
+        | NotCompiled (i, _, opts) -> 
+            currentFuncArgs <- opts.FuncArgs
             let res = this.TransformExpression expr |> removeSourcePosFromInlines |> breakExpr
             let res = this.CheckResult(res)
             let opts =
-                {
-                    IsPure = isPureFunction res
-                    FuncArgs = funcArgs
-                } : M.Optimizations
+                { opts with
+                    IsPure = opts.IsPure || isPureFunction res
+                }
             comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
-        | NotGenerated (g, p, i, _) ->
+        | NotGenerated (g, p, i, _, opts) ->
             let m = GeneratedConstructor(typ, ctor)
             let res = this.Generate (g, p, m)
             let res = this.CheckResult(res)
             let opts =
-                {
-                    IsPure = isPureFunction res
-                    FuncArgs = None
-                } : M.Optimizations
+                { opts with
+                    IsPure = opts.IsPure || isPureFunction res
+                }
             comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
 
     member this.CompileStaticConstructor(addr, expr, typ) =
@@ -650,6 +646,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             this.Error(sprintf "Macro '%s' erroneusly reported MacroNeedsResolvedTypeArg on not a type parameter." macroName)
 
     member this.CompileCall (info, opts: M.Optimizations, expr, thisObj, typ, meth, args, ?baseCall) =
+        let opts =
+            match opts.Warn with
+            | Some w -> 
+                this.Warning(w)
+                { opts with Warn = None } // do not generate warning again on recursive calls
+            | _ -> opts
         match thisObj with
         | Some (IgnoreSourcePos.Base as tv) ->
             this.CompileCall (info, opts, expr, Some (This |> WithSourcePosOfExpr tv), typ, meth, args, true)
@@ -818,14 +820,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.TransformCall (thisObj, typ, meth, args)
             else
                 match info with
-                | NotCompiled (info, _, funcArgs) ->
-                    let opts =
-                        {
-                            IsPure = false
-                            FuncArgs = funcArgs
-                        } : M.Optimizations
+                | NotCompiled (info, _, opts) ->
                     this.CompileCall(info, opts, expr, thisObj, typ, meth, args)
-                | NotGenerated (_, _, info, _) ->
+                | NotGenerated (_, _, info, _, _) ->
                     this.CompileCall(info, M.Optimizations.None, expr, thisObj, typ, meth, args)
         | CustomTypeMember ct ->  
             try
@@ -892,7 +889,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             call        
         match comp.LookupMethodInfo(typ.Entity, meth.Entity) with
         | Compiled (info, _, _)
-        | Compiling ((NotCompiled (info, _, _) | NotGenerated (_, _, info, _)), _) ->
+        | Compiling ((NotCompiled (info, _, _) | NotGenerated (_, _, info, _, _)), _) ->
             match info with 
             | M.Static address -> 
                 GlobalAccess address
@@ -1155,14 +1152,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.TransformCtor(typ, ctor, args)
             else 
                 match info with
-                | NotCompiled (info, _, funcArgs) -> 
-                    let opts =
-                        {
-                            IsPure = false
-                            FuncArgs = funcArgs
-                        } : M.Optimizations
+                | NotCompiled (info, _, opts) -> 
                     this.CompileCtor(info, opts, expr, typ, ctor, args)
-                | NotGenerated (_, _, info, _) ->
+                | NotGenerated (_, _, info, _, _) ->
                     this.CompileCtor(info, M.Optimizations.None, expr, typ, ctor, args)
         | CustomTypeMember ct ->  
             try
@@ -1203,7 +1195,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     override this.TransformOverrideName(typ, meth) =
         match comp.LookupMethodInfo(typ, meth) with
         | Compiled (M.Instance name, _, _) 
-        | Compiling ((NotCompiled ((M.Instance name), _, _) | NotGenerated (_,_,M.Instance name, _)), _) ->
+        | Compiling ((NotCompiled ((M.Instance name), _, _) | NotGenerated (_,_,M.Instance name, _, _)), _) ->
             Value (String name)
         | LookupMemberError err ->
             this.Error err

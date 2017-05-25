@@ -173,11 +173,11 @@ type Compilation(meta: Info, ?hasGraph) =
         member this.AddGeneratedCode(meth: Method, body: Expression) =
             let td = this.GetGeneratedClass()
             let addr = generatedMethodAddresses.[meth]
-            compilingMethods.Add((td, meth),(NotCompiled (Static addr, true, None), body))
+            compilingMethods.Add((td, meth),(NotCompiled (Static addr, true, Optimizations.None), body))
 
         member this.AddGeneratedInline(meth: Method, body: Expression) =
             let td = this.GetGeneratedClass()
-            compilingMethods.Add((td, meth),(NotCompiled (Inline, true, None), body))
+            compilingMethods.Add((td, meth),(NotCompiled (Inline, true, Optimizations.None), body))
 
         member this.AssemblyName = this.AssemblyName
 
@@ -612,14 +612,14 @@ type Compilation(meta: Info, ?hasGraph) =
     
     member this.CompilingMethods = compilingMethods  
 
-    member this.AddCompiledMethod(typ, meth, info, isPure, comp) =
+    member this.AddCompiledMethod(typ, meth, info, opts, comp) =
         let typ = this.FindProxied typ 
         compilingMethods.Remove(typ, meth) |> ignore
         let cls = classes.[typ]
         match cls.Methods.TryFind meth with
         | Some (_, _, Undefined)
         | None ->    
-            cls.Methods.[meth] <- (info, isPure, comp)
+            cls.Methods.[meth] <- (info, opts, comp)
         | _ ->
             failwithf "Method already added: %s %s" typ.Value.FullName (string meth.Value)
 
@@ -627,11 +627,11 @@ type Compilation(meta: Info, ?hasGraph) =
         let typ = this.FindProxied typ 
         compilingMethods.Remove(typ, meth) |> ignore
 
-    member this.AddCompiledConstructor(typ, ctor, info, isPure, comp) = 
+    member this.AddCompiledConstructor(typ, ctor, info, opts, comp) = 
         let typ = this.FindProxied typ 
         compilingConstructors.Remove(typ, ctor) |> ignore
         let cls = classes.[typ]
-        cls.Constructors.Add(ctor, (info, isPure, comp))
+        cls.Constructors.Add(ctor, (info, opts, comp))
 
     member this.FailedCompiledConstructor(typ, ctor) =
         let typ = this.FindProxied typ 
@@ -891,10 +891,17 @@ type Compilation(meta: Info, ?hasGraph) =
             | N.Implementation _ -> false
             | _ -> true
 
+        let opts isPure (nr: NotResolvedMethod) =
+            {
+                IsPure = isPure
+                FuncArgs = nr.FuncArgs
+                Warn = nr.Warn 
+            }
+
         let toCompilingMember (nr : NotResolvedMethod) (comp: CompiledMember) =
             match nr.Generator with
-            | Some (g, p) -> NotGenerated(g, p, comp, notVirtual nr.Kind)
-            | _ -> NotCompiled (comp, notVirtual nr.Kind, nr.FuncArgs)
+            | Some (g, p) -> NotGenerated(g, p, comp, notVirtual nr.Kind, opts nr.Pure nr)
+            | _ -> NotCompiled (comp, notVirtual nr.Kind, opts nr.Pure nr)
             
         let extraClassAddresses = Dictionary()
 
@@ -981,8 +988,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             try
                                 let isPure =
                                     nr.Pure || (Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
-                                let opts = { IsPure = isPure; FuncArgs = nr.FuncArgs }
-                                cc.Constructors.Add (cDef, (comp, opts, addCctorCall typ cc nr.Body))
+                                cc.Constructors.Add (cDef, (comp, opts isPure nr, addCctorCall typ cc nr.Body))
                             with _ ->
                                 printerrf "Duplicate definition for constructor of %s" typ.Value.FullName
                         else 
@@ -993,8 +999,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             try
                                 let isPure =
                                     nr.Pure || (notVirtual nr.Kind && Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
-                                let opts = { IsPure = isPure; FuncArgs = nr.FuncArgs }
-                                cc.Methods.Add (mDef, (comp, opts, addCctorCall typ cc nr.Body))
+                                cc.Methods.Add (mDef, (comp, opts isPure nr, addCctorCall typ cc nr.Body))
                             with _ ->
                                 printerrf "Duplicate definition for method %s.%s" typ.Value.FullName mDef.Value.MethodName
                         else 
@@ -1058,8 +1063,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 if nr.Compiled then
                     let isPure =
                         nr.Pure || (Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                    let opts = { IsPure = isPure; FuncArgs = nr.FuncArgs }
-                    res.Constructors.Add(cDef, (comp, opts, addCctorCall typ res nr.Body))
+                    res.Constructors.Add(cDef, (comp, opts isPure nr, addCctorCall typ res nr.Body))
                 else
                     compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.Field (fName, _) ->
@@ -1069,8 +1073,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 if nr.Compiled then 
                     let isPure =
                         nr.Pure || (notVirtual nr.Kind && Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                    let opts = { IsPure = isPure; FuncArgs = nr.FuncArgs }
-                    res.Methods.Add(mDef, (comp, opts, addCctorCall typ res nr.Body))
+                    res.Methods.Add(mDef, (comp, opts isPure nr, addCctorCall typ res nr.Body))
                 else
                     compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.StaticConstructor expr ->                
@@ -1102,8 +1105,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 | _ ->
                     if nr.Compiled then 
                         let isPure = nr.Pure || isPureFunction nr.Body
-                        let opts = { IsPure = isPure; FuncArgs = nr.FuncArgs }
-                        res.Methods.Add(mDef, (comp, opts, addCctorCall typ res nr.Body))
+                        res.Methods.Add(mDef, (comp, opts isPure nr, addCctorCall typ res nr.Body))
                     else
                         compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | _ -> failwith "Invalid instance member kind"   
@@ -1223,7 +1225,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                     | Some (smi, _, _) -> Some smi
                                     | _ ->
                                     match compilingMethods.TryFind (td, mDef) with
-                                    | Some ((NotCompiled (smi, _, _) | NotGenerated (_, _, smi, _)), _) -> Some smi
+                                    | Some ((NotCompiled (smi, _, _) | NotGenerated (_, _, smi, _, _)), _) -> Some smi
                                     | None ->
                                         printerrf "Abstract method not found in compilation: %s in %s" (string mDef.Value) td.Value.FullName
                                         None
