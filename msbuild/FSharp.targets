@@ -37,16 +37,17 @@
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(FSharpTool)' == 'True' ">$(Root)\build\$(Configuration)\FSharp</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(Tests)' == 'True' ">$(Root)\build\$(Configuration)\Tests</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\$(Configuration)\</OutputPath>
+    <PrivateFSharpCore Condition=" '$(PrivateFSharpCore)' == '' ">False</PrivateFSharpCore>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=4.3.0.0" Condition=" '$(FSharp40)' != 'True' ">
+	<Reference Include="FSharp.Core, Version=4.3.0.0" Condition=" '$(FSharp40)' != 'True' ">
       <HintPath>$(MSBuildThisFileDirectory)\..\packages\FSharp.Core.3.0.2\lib\net40\FSharp.Core.dll</HintPath>
-	  <Private>False</Private>
+	  <Private>$(PrivateFSharpCore)</Private>
     </Reference>
     <Reference Include="FSharp.Core, Version=4.4.1.0" Condition=" '$(FSharp40)' == 'True' ">
       <HintPath>$(MSBuildThisFileDirectory)\..\packages\FSharp.Core.4.1.17\lib\net45\FSharp.Core.dll</HintPath>
-      <Private>True</Private>
+      <Private>$(PrivateFSharpCore)</Private>
     </Reference>
     <Reference Include="System.ValueTuple" Condition=" '$(FSharp40)' == 'True' ">
 	  <HintPath>$(MSBuildThisFileDirectory)\..\packages\System.ValueTuple.4.3.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
