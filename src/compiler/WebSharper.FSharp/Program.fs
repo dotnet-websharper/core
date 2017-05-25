@@ -245,6 +245,7 @@ let compileMain argv =
                 | "library" -> ()
                 | "site" | "web" | "website" | "export" -> setProjectType Website
                 | _ -> invalidArg "type" ("Invalid project type: " + wsProjectType)
+            | "--dlres" -> wsArgs := { !wsArgs with DownloadResources = true }
             | "--printjs" -> wsArgs := { !wsArgs with PrintJS = true }
             | "--vserrors" ->
                 wsArgs := { !wsArgs with VSStyleErrors = true }

@@ -32,6 +32,7 @@ module UnpackCommand =
             RootDirectory : string
             UnpackSourceMap : bool
             UnpackTypeScript : bool
+            DownloadResources : bool
         }
 
         static member Create() =
@@ -40,6 +41,7 @@ module UnpackCommand =
                 RootDirectory = "."
                 UnpackSourceMap = false
                 UnpackTypeScript = false
+                DownloadResources = false
             }
 
     let GetErrors config =
@@ -141,23 +143,24 @@ module UnpackCommand =
                     e.Message
                 else e.Message + " - " + printError e.InnerException 
             
-            try
-                let asm = 
-                    try
-                        System.Reflection.Assembly.LoadFile (Path.GetFullPath p)
-                    with e ->
-                        eprintfn "Failed to load assembly for unpacking local resources: %s - %s" p (printError e)     
-                        null
-                if not (isNull asm) then
-                    for t in asm.GetTypes() do
-                        if t.GetInterfaces() |> Array.contains localResTyp then
-                            try
-                                let res = Activator.CreateInstance(t) :?> Re.IDownloadableResource
-                                res.Unpack(cmd.RootDirectory)
-                            with e ->
-                                eprintfn "Failed to unpack local resource: %s - %s" t.FullName (printError e)     
-            with e ->
-                eprintfn "Failed to unpack local resources: %s" (printError e)     
+            if cmd.DownloadResources then
+                try
+                    let asm = 
+                        try
+                            System.Reflection.Assembly.Load (Path.GetFileNameWithoutExtension p)
+                        with e ->
+                            eprintfn "Failed to load assembly for unpacking local resources: %s - %s" p (printError e)     
+                            null
+                    if not (isNull asm) then
+                        for t in asm.GetTypes() do
+                            if t.GetInterfaces() |> Array.contains localResTyp then
+                                try
+                                    let res = Activator.CreateInstance(t) :?> Re.IDownloadableResource
+                                    res.Unpack(cmd.RootDirectory)
+                                with e ->
+                                    eprintfn "Failed to unpack local resource: %s - %s" t.FullName (printError e)     
+                with e ->
+                    eprintfn "Failed to unpack local resources: %s" (printError e)     
 
         C.Ok
 

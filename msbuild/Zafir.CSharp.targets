@@ -27,11 +27,11 @@
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
   <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
     <WebSharperTask 
-	  DefineConstants="$(DefineConstants)"
-	  NoStandardLib="$(NoCompilerStandardLib)"
-	  Sources="@(Compile)"
-	  OutputAssembly="@(IntermediateAssembly)"
-	  References="@(ReferencePath)"
+      DefineConstants="$(DefineConstants)"
+      NoStandardLib="$(NoCompilerStandardLib)"
+      Sources="@(Compile)"
+      OutputAssembly="@(IntermediateAssembly)"
+      References="@(ReferencePath)"
       Configuration="$(Configuration)"
       DocumentationFile="$(DocumentationFile)"
       EmbeddedResources="@(EmbeddedResource)"
@@ -40,20 +40,21 @@
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(AssemblyName)"
       OutputPath="$(OutputPath)"
-	  WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
       WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" 
-	  WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
-	  WebSharperDeadCodeElimination="$(WebSharperDeadCodeElimination)"
-	  ZafirToolPath="$(MSBuildThisFileDirectory)/../tools/ZafirCs.exe"
-	  TargetType="$(OutputType)"
-	  NoConfig="true"
+      WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
+      WebSharperDeadCodeElimination="$(WebSharperDeadCodeElimination)"
+      WebSharperDownloadResources="$(WebSharperDownloadResources)"
+      ZafirToolPath="$(MSBuildThisFileDirectory)/../tools/ZafirCs.exe"
+      TargetType="$(OutputType)"
+      NoConfig="true"
       DebugType="$(DebugType)"
-	  SubsystemVersion="$(SubsystemVersion)"
-	/>
+      SubsystemVersion="$(SubsystemVersion)"
+  />
   </Target>
   <ItemGroup>
     <T4ParameterValues Include="WebSharperCSharpToolsFolder">

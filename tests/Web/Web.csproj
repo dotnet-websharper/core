@@ -20,6 +20,7 @@
     <IISExpressUseClassicPipelineMode />
     <OutputPath>bin\</OutputPath>
     <WebSharperTypeScriptDeclaration>True</WebSharperTypeScriptDeclaration>
+    <WebSharperDownloadResources>True</WebSharperDownloadResources>
     <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
     <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <FSharp40>True</FSharp40>

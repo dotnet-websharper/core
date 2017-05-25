@@ -22,15 +22,16 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' " >
-	<OtherFlags>$(OtherFlags) --ws:"$(WebSharperProject)" --project:"$(MSBuildProjectFullPath.TrimEnd('\'))"</OtherFlags>
-	<OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebProjectOutputDir.TrimEnd('\'))"</OtherFlags>
-	<OtherFlags Condition=" '$(WebSharperBundleOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperBundleOutputDir.TrimEnd('\'))"</OtherFlags>
-	<OtherFlags Condition=" '$(WebSharperHtmlDirectory)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperHtmlDirectory.TrimEnd('\'))"</OtherFlags>
-	<OtherFlags Condition=" '$(WebSharperSourceMap)' == 'True' ">$(OtherFlags) --jsmap</OtherFlags>
-	<OtherFlags Condition=" '$(WebSharperTypeScriptDeclaration)' == 'True' ">$(OtherFlags) --dts</OtherFlags>
-	<OtherFlags Condition=" '$(WebSharperErrorsAsWarnings)' == 'True' ">$(OtherFlags) --wswarnonly</OtherFlags>
-	<OtherFlags Condition=" '$(WebSharperDeadCodeElimination)' == 'False' ">$(OtherFlags) --dce-</OtherFlags>
-	<FscToolPath>$(MSBuildThisFileDirectory)/../tools/</FscToolPath>
-	<FscToolExe>WsFsc.exe</FscToolExe>
+    <OtherFlags>$(OtherFlags) --ws:"$(WebSharperProject)" --project:"$(MSBuildProjectFullPath.TrimEnd('\'))"</OtherFlags>
+    <OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebProjectOutputDir.TrimEnd('\'))"</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperBundleOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperBundleOutputDir.TrimEnd('\'))"</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperHtmlDirectory)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperHtmlDirectory.TrimEnd('\'))"</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperSourceMap)' == 'True' ">$(OtherFlags) --jsmap</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperTypeScriptDeclaration)' == 'True' ">$(OtherFlags) --dts</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperErrorsAsWarnings)' == 'True' ">$(OtherFlags) --wswarnonly</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperDeadCodeElimination)' == 'False' ">$(OtherFlags) --dce-</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'False' ">$(OtherFlags) --dlres</OtherFlags>
+    <FscToolPath>$(MSBuildThisFileDirectory)/../tools/</FscToolPath>
+    <FscToolExe>WsFsc.exe</FscToolExe>
   </PropertyGroup>
 </Project>

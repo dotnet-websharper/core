@@ -29,6 +29,7 @@ module UnpackCommand =
             RootDirectory : string
             UnpackSourceMap : bool
             UnpackTypeScript : bool
+            DownloadResources : bool
         }
 
         static member Create : unit -> Config

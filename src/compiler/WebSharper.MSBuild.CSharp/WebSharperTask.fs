@@ -51,6 +51,7 @@ type WebSharperTask() =
     member val WebSharperTypeScriptDeclaration = "" with get, set
     member val WebSharperErrorsAsWarnings = "" with get, set
     member val WebSharperDeadCodeElimination = "" with get, set
+    member val WebSharperDownloadResources = "" with get, set
     member val DocumentationFile = "" with get, set
     member val ZafirToolPath = "ZafirCs.exe" with get, set
     member val DefineConstants = "" with get, set
@@ -101,6 +102,9 @@ type WebSharperTask() =
         | true, false ->
             builder.AppendSwitch "--dce-"
         | _ -> ()
+
+        if bool.TryParse this.WebSharperDownloadResources ||> (&&) then
+            builder.AppendSwitch "--dlres"
 
         if bool.TryParse this.WebSharperSourceMap ||> (&&) then
             builder.AppendSwitch "--jsmap"
