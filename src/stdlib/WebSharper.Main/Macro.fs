@@ -30,6 +30,9 @@ open WebSharper
 open WebSharper.Core
 open WebSharper.Core.AST
 
+module M = WebSharper.Core.Metadata
+module I = IgnoreSourcePos
+
 let smallIntegralTypes =
     Set [
         "System.Byte"
@@ -100,7 +103,7 @@ type Div() =
                 then x ^/ y
                 else traitCallOp c
             | _ ->
-                failwith "F# Operator value expecting 3 type arguments"
+                failwith "F# operator expecting 3 type arguments"
             |> MacroOk
         | _ -> MacroError "divisionMacro error"
 
@@ -160,6 +163,9 @@ let makeComparison cmp x y =
     | Comparison.``=``  -> eq x y
     | _                 -> Unary (UnaryOperator.``!``, eq x y)
 
+let cInt i = Value (Int i)
+let cString s = Value (Literal.String s)
+
 [<AbstractClass>]
 type CMP(cmp) =
     inherit Macro()
@@ -168,10 +174,28 @@ type CMP(cmp) =
         | [x; y] ->
             match c.Method.Generics with
             | t :: _ ->
-                if isIn scalarTypes t then
+                let comp x y =
                     Binary (x, toBinaryOperator cmp, y)
+                if isIn scalarTypes t then
+                    comp x y
                 else
-                    makeComparison cmp x y
+                    // optimization for checking against argumentless union cases 
+                    let tryGetSingletonUnionCaseTag (x: Expression) =
+                        match x with
+                        | I.NewUnionCase(ct, case, []) ->
+                            match c.Compilation.GetCustomTypeInfo ct.Entity with
+                            | M.FSharpUnionInfo ui when not ui.HasNull ->
+                                ui.Cases |> Seq.mapi (fun i c ->
+                                    if c.Name = case && c.Kind = M.SingletonFSharpUnionCase then Some i else None
+                                ) |> Seq.tryPick id         
+                            | _ -> None
+                        | _ -> None
+                    
+                    match tryGetSingletonUnionCaseTag x, tryGetSingletonUnionCaseTag y with
+                    | Some i, Some j -> comp (cInt i) (cInt j)
+                    | Some i, _ -> comp (cInt i) (y.[cString "$"])
+                    | _, Some j -> comp (x.[cString "$"]) (cInt j)
+                    | _ -> makeComparison cmp x y
                 |> MacroOk
             | _ ->
                 MacroError "comparisonMacro error"
@@ -427,8 +451,6 @@ let listOfArrayDef =
         ReturnType = GenericType fsharpListDef [ TypeParameter 0 ]
         Generics = 1      
     }
-
-module I = IgnoreSourcePos
 
 let getFieldsList q =
     let ``is (=>)`` (td: TypeDefinition) (m: Method) =
@@ -690,8 +712,6 @@ let flags =
     System.Reflection.BindingFlags.Public
     ||| System.Reflection.BindingFlags.NonPublic
 
-module M = WebSharper.Core.Metadata
-
 let printfHelpersModule =
     TypeDefinition {
         FullName = "WebSharper.PrintfHelpers"
@@ -714,9 +734,6 @@ let cCall e f args = Application (ItemGet(e, !~ (Literal.String f)), args, true,
 let cCallG a args = Application (Global a, args, true, None)
 
 //type FST = Reflection.FSharpType
-
-let cInt i = Value (Int i)
-let cString s = Value (Literal.String s)
 
 let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
     let parts = FormatString.parseAll fs

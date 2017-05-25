@@ -45,6 +45,12 @@ let inline ( ++ ) (a: ^x) (b: ^y) : ^a = ((^x or ^y): (static member Add: ^x * ^
 [<JavaScript; Inline>]
 let inline ( ++! ) (a: ^x) (b: ^y) : ^a = ((^x or ^y): (static member AddB: ^x * ^y -> ^a) (a, b))
 
+[<JavaScript>]
+type Singletons =
+    | Case0
+    | Case1
+    | Case2
+
 (* TODO: the coverage of the Operators module is far from complete. *)
 [<JavaScript>]
 let Tests =
@@ -161,5 +167,13 @@ let Tests =
             f()
             f()
             equal !x 2 
+        }
+
+        Test "singleton union case comparisons" {
+            let u = Case1
+            isTrue (u = Case1) 
+            isTrue (u < Case2) 
+            isTrue (Case0 < u) 
+            isTrue (Case0 < Case2)
         }
     }
