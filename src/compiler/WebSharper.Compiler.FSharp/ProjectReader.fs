@@ -673,6 +673,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         Option.isSome baseCls || hasWSPrototype ckind clsMembers
 
     let mutable hasSingletonCase = false
+    let mutable hasConstantCase = false
 
     if annot.IsJavaScript || hasWSPrototype || isAugmentedFSharpType cls then
         if cls.IsFSharpUnion then
@@ -689,6 +690,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 cls.UnionCases
                 |> Seq.mapi (fun i case ->
                     let constantCase v =
+                        hasConstantCase <- true
                         if constants.Add(v) then
                             ConstantFSharpUnionCase v
                         else
@@ -747,24 +749,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 )
                 |> List.ofSeq
             
-            //if hasStaticConstructor then   
-            //    let body = 
-            //        Function([], 
-            //            cases |> Seq.mapi (fun i c ->
-            //                if c.Kind = SingletonFSharpUnionCase then
-            //                    ExprStatement <|
-            //                        ItemSet(
-            //                            Self, 
-            //                            Value (String c.Name), 
-            //                            CopyCtor(def, Object [ "$", Value (Int i) ])
-            //                        )  
-            //                else
-            //                    Empty
-            //            )
-            //            |> List.ofSeq |> CombineStatements
-            //        )
-            //    clsMembers.Add (NotResolvedMember.StaticConstructor body)
-
             let i =
                 FSharpUnionInfo {
                     Cases = cases
@@ -912,7 +896,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             Kind = ckind
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
-            ForceNoPrototype = (annot.Prototype = Some false)
+            ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase
             ForceAddress = hasSingletonCase
         }
     )
