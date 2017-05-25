@@ -96,6 +96,19 @@ let Tests =
             equal (Option.map ((+) 1) None) None
         }
 
+        Test "Option.map2" {
+            equal (Option.map2 (+) (Some 3) (Some 1)) (Some 4)
+            equal (Option.map2 (+) None (Some 1)) None
+            equal (Option.map2 (+) (Some 1) None) None
+        }
+
+        Test "Option.map3" {
+            equal (Option.map3 (fun a b c -> a + b + c) (Some 3) (Some 1) (Some 2)) (Some 6)
+            equal (Option.map3 (fun a b c -> a + b + c) None (Some 1) (Some 2)) None
+            equal (Option.map3 (fun a b c -> a + b + c) (Some 3) None (Some 2)) None
+            equal (Option.map3 (fun a b c -> a + b + c) (Some 3) (Some 1) None) None
+        }
+
         Test "Option.toArray" {
             equal (Option.toArray (Some 3)) [| 3 |]
             equal (Option.toArray None)     [||]
@@ -127,8 +140,6 @@ let Tests =
             })
         }
 
-        #if FSHARP40
-
         Test "Option.ofObj" {
             equal (Option.ofObj null) None
             let o = obj()
@@ -158,10 +169,31 @@ let Tests =
             equal (Option.filter (fun _ -> false) (Some 3)) None
         }
 
-        #endif
-
         Test "Does not have prototype" {
             jsEqual ((Some 1).JS.Constructor) (JS.Global?Object)
         }
 
+        Test "Option.defaultValue" {
+            equal (Option.defaultValue 1 None) 1
+            equal (Option.defaultValue 1 (Some 2)) 2
+            equal (Option.defaultWith (fun () -> 1) None) 1
+            let called = ref false
+            equal (Option.defaultWith (fun () -> called := true; 1) (Some 2)) 2
+            isFalse !called
+        }
+
+        Test "Option.flatten" {
+            equal (Option.flatten None) None
+            equal (Option.flatten (Some None)) None
+            equal (Option.flatten (Some (Some 3))) (Some 3)
+        }
+
+        Test "Option.orElse" {
+            equal (Option.orElse (Some 1) None) (Some 1)
+            equal (Option.orElse (Some 1) (Some 2)) (Some 2)
+            equal (Option.orElseWith (fun () -> Some 1) None) (Some 1)
+            let called = ref false
+            equal (Option.orElseWith (fun () -> called := true; Some 1) (Some 2)) (Some 2)
+            isFalse !called
+        }
     }

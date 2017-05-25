@@ -63,6 +63,9 @@ type Class() =
     member this.Optionals([<Optional; DefaultParameterValue 1>] x : int, [<Optional; DefaultParameterValue 2>] y: int, [<Optional>] z: int) =
         x + y + z
 
+    member this.TestLocalOptionals() =
+        this.Optionals(4)
+
     [<Inline>]
     member this.OptionalsInl([<Optional; DefaultParameterValue 1>] x : int, [<Optional; DefaultParameterValue 2>] y: int, [<Optional>] z: int) =
         x + y + z

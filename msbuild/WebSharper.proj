@@ -1,11 +1,13 @@
-﻿<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+﻿<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup>
-    <CP Include="../src/compiler/*/*.fsproj" 
-        Exclude="../src/compiler/*/WebSharper.fsproj" />
-    <SP Include="../src/stdlib/*/*.fsproj" />
-    <SP Include="../src/sitelets/*/*.fsproj" />
-    <SP Include="../tests/*/*.fsproj" Exclude="../tests/*/WarpTest.fsproj;../tests/*/WebSharper.Core.JavaScript.Tests.fsproj" />
-    <SP Include="../tests/*/*.csproj" />
+    <CP Include="../src/compiler/*/*.fsproj" />
+    <SP0 Include="../src/stdlib/*/WebSharper.JavaScript.fsproj; ../src/stdlib/*/WebSharper.JQuery.fsproj" />
+    <SP1 Include="../src/stdlib/*/WebSharper.Main.Proxies.fsproj" />
+	<SP2 Include="../src/stdlib/*/*.fsproj"
+         Exclude="../src/stdlib/*/WebSharper.JavaScript.fsproj; ../src/stdlib/*/WebSharper.JQuery.fsproj; ../src/stdlib/*/WebSharper.Main.Proxies.fsproj" />
+    <SP2 Include="../src/sitelets/*/*.fsproj" />
+    <SP2 Include="../tests/*/*.fsproj" Exclude="../tests/*/WarpTest.fsproj;" />
+    <SP2 Include="../tests/*/*.csproj" />
 	<BP Include="../src/build/WebSharper.Build/*.fsproj" />
   </ItemGroup>
   <Target Name="Dispatch" Condition="'$(Arguments)' != ''">
@@ -14,7 +16,9 @@
   <Target Name="FullBuild" Condition="'$(Arguments)' == ''">
     <MSBuild Projects="@(BP)" Properties="Arguments=prepare"/>
     <MSBuild Projects="@(CP)" />
-    <MSBuild Projects="@(SP)" />
+    <MSBuild Projects="@(SP0)" />
+    <MSBuild Projects="@(SP1)" />
+    <MSBuild Projects="@(SP2)" />
     <MSBuild Projects="@(BP)" Properties="Arguments=package"/>
   </Target>
   <Target Name="Build" DependsOnTargets="Dispatch;FullBuild" />

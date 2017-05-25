@@ -125,13 +125,18 @@ type Optimizations =
     {
         IsPure : bool
         FuncArgs : option<list<FuncArgOptimization>>
+        Warn : option<string>
     }
 
     static member None =
         {
             IsPure = false
             FuncArgs = None
+            Warn = None
         }
+    
+    member this.IsNone =
+        not this.IsPure && Option.isNone this.FuncArgs && Option.isNone this.Warn
 
 type ClassInfo =
     {
@@ -192,6 +197,7 @@ type UnionCaseFieldInfo =
 type FSharpUnionCaseKind =
     | NormalFSharpUnionCase of list<UnionCaseFieldInfo> 
     | ConstantFSharpUnionCase of Literal 
+    | SingletonFSharpUnionCase 
 
 type FSharpUnionCaseInfo =
     {

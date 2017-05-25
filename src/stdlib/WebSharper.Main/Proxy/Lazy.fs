@@ -22,13 +22,6 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 
-type private LazyRecord<'T> =
-    {
-        [<Name "c">] mutable created : bool
-        [<Name "v">] mutable evalOrVal : obj
-        [<Name "f">] mutable force : unit -> 'T
-    }
-
 [<Proxy(typeof<System.Lazy<_>>)>]
 [<Name "WebSharper.Lazy">]
 type private LazyProxy<'T> =

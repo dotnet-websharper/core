@@ -69,6 +69,27 @@ type CSharpConstructor =
         Initializer : option<CSharpConstructorInitializer>
     }
 
+type CSharpSwitchLabel =
+    | DefaultLabel 
+    | ConstantLabel of Expression
+    | PatternLabel of (Id -> Expression)
+
+type RemoveBreaksTransformer() =
+    inherit StatementTransformer()
+
+    override this.TransformStatement s =
+        match s with
+        | Break None -> Empty
+        | For _
+        | ForIn _
+        | While _
+        | DoWhile _
+        | Switch _ ->
+            s
+        | _ -> base.TransformStatement s
+
+let removeBreaksTr = RemoveBreaksTransformer()
+
 let textSpans =
     System.Runtime.CompilerServices.ConditionalWeakTable()
 
@@ -158,26 +179,23 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                 comp.AddCustomType(def, info)
 
     member this.ReadNamedTypeDefinition (x: INamedTypeSymbol) =
-        let arity (symbol: INamedTypeSymbol) =
-            match symbol.Arity with 0 -> "" | a -> "`" + string a    
-
         let rec getNamespaceOrTypeAddress acc (symbol: INamespaceOrTypeSymbol) =
             match symbol.ContainingNamespace with
             | null -> acc |> String.concat "."
-            | ns -> getNamespaceOrTypeAddress (symbol.Name :: acc) ns   
-    
+            | ns -> getNamespaceOrTypeAddress (symbol.MetadataName :: acc) ns   
+
         let rec getTypeAddress acc (symbol: INamedTypeSymbol) =
             match symbol.ContainingType with
             | null -> 
-                let ns = getNamespaceOrTypeAddress [] symbol + arity symbol
+                let ns = getNamespaceOrTypeAddress [] symbol
                 if List.isEmpty acc then ns else
                     ns :: acc |> String.concat "+" 
-            | t -> getTypeAddress (symbol.Name + arity symbol :: acc) t           
+            | t -> getTypeAddress (symbol.MetadataName :: acc) t           
 
         let res =
             Hashed {
                 Assembly = x.ContainingAssembly.Identity.Name
-                FullName = getTypeAddress [] x //) + arity x
+                FullName = getTypeAddress [] x
             }
 
         this.RegisterCustomType res x
@@ -189,20 +207,28 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             // TODO: handle dynamic by cheking symbol.ContainingSymbol before calling sr.ReadNamedType
             NonGeneric Definitions.Dynamic     
         else
-        let ta = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
-        let td = this.ReadNamedTypeDefinition x
-        Generic td ta
+            let ta = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
+            let td = this.ReadNamedTypeDefinition x
+            Generic td ta
     
     member this.RecognizeNamedType (x: INamedTypeSymbol) =
-        let ta = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
+        let rec getTypeArguments (x: INamedTypeSymbol) =
+            match x.ContainingType with
+            | null -> x.TypeArguments |> Seq.map this.ReadType
+            | ct -> Seq.append (getTypeArguments ct) (x.TypeArguments |> Seq.map this.ReadType) 
+        let ta = getTypeArguments x |> List.ofSeq
         let td = this.ReadNamedTypeDefinition x
         let tName = td.Value.FullName
-        if tName.StartsWith "System.Tuple" then
+        let getTupleType isValue =
             if tName.EndsWith "8" then
                 match ta.[7] with
-                | TupleType rest -> TupleType (ta.[.. 6] @ rest)
+                | TupleType (rest, _) -> TupleType (ta.[.. 6] @ rest, isValue)
                 | _ -> failwith "invalid big tuple type" 
-            else TupleType ta
+            else TupleType (ta, isValue)
+        if tName.StartsWith "System.Tuple" then
+            getTupleType false
+        elif tName.StartsWith "System.ValueTuple" then
+            getTupleType true
         elif tName = "Microsoft.FSharp.Core.FSharpFunc`2" then
             match ta with
             | [a; r] -> FSharpFuncType(a, r)
@@ -251,6 +277,10 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             ReturnType = x.ReturnType |> this.ReadType
             Generics = x.Arity
         }
+
+    member this.ReadGenericMethod (x: IMethodSymbol) =
+        let ma = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
+        Generic (this.ReadMethod x) ma
 
     member this.ReadConstructor (x: IMethodSymbol) =
         let x  = x.OriginalDefinition
@@ -323,6 +353,7 @@ type Environment =
         Vars : IDictionary<ILocalSymbol, Id>
         Parameters : IDictionary<IParameterSymbol, Id * bool>
         Labels : IDictionary<ILabelSymbol, Id>
+        LocalFunctions : IDictionary<IMethodSymbol, Id>
         Caught : option<Id>
         Conditional : option<Id>
         Initializing : option<Id>
@@ -336,6 +367,7 @@ type Environment =
             Vars = Dictionary()
             Parameters = Dictionary()
             Labels = Dictionary()
+            LocalFunctions = Dictionary()
             Caught = None
             Conditional = None
             Initializing = None
@@ -350,6 +382,14 @@ type Environment =
         | _ ->
             let id = Id.New(symbol.Name)           
             this.Labels.Add(symbol, id)
+            id
+
+    member this.GetLocalFunctionId(symbol) =
+        match this.LocalFunctions.TryGetValue(symbol) with
+        | true, id -> id
+        | _ ->
+            let id = Id.New(symbol.Name, mut = false)           
+            this.LocalFunctions.Add(symbol, id)
             id
 
     member this.WithCaught(c) =
@@ -499,13 +539,13 @@ type RoslynTransformer(env: Environment) =
             elif conv.IsMethodGroup then
                 let typ, meth = getTypeAndMethod m
                 NewDelegate(Some This, typ, meth)
-            else failwithf "transformIdentifierName: unhandled IMethodSymbol conversion: %A" conv 
+            else failwithf "TransformIdentifierName: unhandled IMethodSymbol conversion: %A" conv 
         | null -> 
-            err x.Node "transformIdentifierName: Symbol is null"
+            err x.Node "TransformIdentifierName: Symbol is null. This is possibly a Roslyn bug, putting it in parentheses can help."
         | _ -> 
-            err x.Node (sprintf "transformIdentifierName: Local variable not found, symbol type: %s" 
+            err x.Node (sprintf "TransformIdentifierName: Local variable not found, symbol type: %s" 
                 (symbol.GetType().FullName))
-
+                                                                                                                                                                                                                                                                                                                                                                                 
     member this.TransformExpression (x: ExpressionData) : Expression =
         try
             let expr =
@@ -514,6 +554,7 @@ type RoslynTransformer(env: Environment) =
                 | ExpressionData.InstanceExpression                x -> this.TransformInstanceExpression x
                 | ExpressionData.AnonymousFunctionExpression       x -> this.TransformAnonymousFunctionExpression x
                 | ExpressionData.ParenthesizedExpression           x -> this.TransformParenthesizedExpression x
+                | ExpressionData.TupleExpression                   x -> this.TransformTupleExpression x
                 | ExpressionData.PrefixUnaryExpression             x -> this.TransformPrefixUnaryExpression x
                 | ExpressionData.AwaitExpression                   x -> this.TransformAwaitExpression x
                 | ExpressionData.PostfixUnaryExpression            x -> this.TransformPostfixUnaryExpression x
@@ -535,7 +576,9 @@ type RoslynTransformer(env: Environment) =
                 | ExpressionData.SizeOfExpression                  _ -> NotSupported "sizeof"
                 | ExpressionData.InvocationExpression              x -> this.TransformInvocationExpression x
                 | ExpressionData.ElementAccessExpression           x -> this.TransformElementAccessExpression x
+                | ExpressionData.DeclarationExpression             x -> this.TransformDeclarationExpression x
                 | ExpressionData.CastExpression                    x -> this.TransformCastExpression x
+                | ExpressionData.RefExpression                     x -> this.TransformRefExpression x
                 | ExpressionData.InitializerExpression             x -> this.TransformInitializerExpression x
                 | ExpressionData.ObjectCreationExpression          x -> this.TransformObjectCreationExpression x
                 | ExpressionData.AnonymousObjectCreationExpression x -> this.TransformAnonymousObjectCreationExpression x
@@ -543,9 +586,10 @@ type RoslynTransformer(env: Environment) =
                 | ExpressionData.ImplicitArrayCreationExpression   x -> this.TransformImplicitArrayCreationExpression x
                 | ExpressionData.StackAllocArrayCreationExpression _ -> NotSupported "stackalloc"
                 | ExpressionData.QueryExpression                   x -> this.TransformQueryExpression x
-                | ExpressionData.OmittedArraySizeExpression        x -> failwith "not a general expression: OmittedArraySizeExpression"
+                | ExpressionData.OmittedArraySizeExpression        _ -> failwith "not a general expression: OmittedArraySizeExpression"
                 | ExpressionData.InterpolatedStringExpression      x -> this.TransformInterpolatedStringExpression x      
-
+                | ExpressionData.IsPatternExpression               x -> this.TransformIsPatternExpression x
+                | ExpressionData.ThrowExpression                   x -> this.TransformThrowExpression x      
             let conversion = env.SemanticModel.GetConversion(x.Node)
             if conversion.IsUserDefined then
                 let symbol = conversion.MethodSymbol
@@ -558,14 +602,16 @@ type RoslynTransformer(env: Environment) =
             env.Compilation.AddError(Some (getSourcePos x.Node), WebSharper.Compiler.SourceError("Error while reading C# code: " + e.Message + " at " + e.StackTrace))
             errorPlaceholder       
 
-    member this.TransformType (x: TypeData) : Expression =
+    member this.TransformType (x: TypeData) : _ =
         match x with
         | TypeData.Name                x -> this.TransformName x
         | TypeData.PredefinedType      x -> TODO x //this.TransformPredefinedType x
         | TypeData.ArrayType           x -> TODO x //this.TransformArrayType x
         | TypeData.PointerType         x -> TODO x //this.TransformPointerType x
         | TypeData.NullableType        x -> TODO x //this.TransformNullableType x
+        | TypeData.TupleType           x -> TODO x //this.TransformTupleType x
         | TypeData.OmittedTypeArgument x -> TODO x //this.TransformOmittedTypeArgument x
+        | TypeData.RefType             x -> TODO x //this.TransformRefType x
 
     member this.TransformName (x: NameData) : Expression =
         match x with
@@ -604,7 +650,10 @@ type RoslynTransformer(env: Environment) =
 
         let tempVars, args = readReorderedParams argumentListWithThis
 
-        if isExtensionMethod || symbol.IsStatic then
+        if symbol.MethodKind = MethodKind.LocalFunction then
+            let f = env.GetLocalFunctionId(symbol)
+            Application(Var f, args, false, Some args.Length)
+        elif isExtensionMethod || symbol.IsStatic then
             Call(None, typ, meth, args)
         else        
             Call(Some (List.head args), typ, meth, List.tail args)
@@ -637,9 +686,10 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformArgument (x: ArgumentData) : option<int> * Expression =
         let namedParamOrdinal = 
-            x.NameColon |> Option.map (fun nc ->
-                let symbol = env.SemanticModel.GetSymbolInfo(nc.Name.Node).Symbol :?> IParameterSymbol
-                symbol.Ordinal
+            x.NameColon |> Option.bind (fun nc ->
+                match env.SemanticModel.GetSymbolInfo(nc.Name.Node).Symbol with
+                | :? IParameterSymbol as symbol -> Some symbol.Ordinal
+                | _ -> None
             )
         let expression = x.Expression |> this.TransformExpression
         let refOrOut =
@@ -650,6 +700,8 @@ type RoslynTransformer(env: Environment) =
                 match e with
                 | Var v ->
                     MakeRef e (fun value -> VarSet(v, value))
+                | NewVar (v, Undefined) -> // out var
+                    Sequential [ e; MakeRef e (fun value -> VarSet(v, value)) ]
                 | ItemGet(o, i) ->
                     let ov = Id.New ()
                     let iv = Id.New ()
@@ -666,7 +718,10 @@ type RoslynTransformer(env: Environment) =
                 | Call (thisOpt, typ, getter, args) ->
                     MakeRef e (fun value -> (Call (thisOpt, typ, setterOf getter, args @ [value])))
                 | _ -> failwithf "ref argument has unexpected form: %+A" e     
-            | None -> expression
+            | None ->
+                // TODO: struct value passing
+                //if env.SemanticModel.GetTypeInfo(x.Node).Type.IsValueType then ...
+                expression
         namedParamOrdinal, refOrOut
 
     member this.TransformArgumentList (x: ArgumentListData) =
@@ -681,7 +736,9 @@ type RoslynTransformer(env: Environment) =
     member this.TransformStatement (x: StatementData) : Statement =
         try
             match x with
+            | StatementData.CommonForEachStatement    x -> this.TransformCommonForEachStatement x
             | StatementData.Block                     x -> this.TransformBlock x
+            | StatementData.LocalFunctionStatement    x -> this.TransformLocalFunctionStatement x
             | StatementData.LocalDeclarationStatement x -> this.TransformLocalDeclarationStatement x
             | StatementData.ExpressionStatement       x -> this.TransformExpressionStatement x
             | StatementData.EmptyStatement            x -> this.TransformEmptyStatement x
@@ -695,7 +752,6 @@ type RoslynTransformer(env: Environment) =
             | StatementData.WhileStatement            x -> this.TransformWhileStatement x
             | StatementData.DoStatement               x -> this.TransformDoStatement x
             | StatementData.ForStatement              x -> this.TransformForStatement x
-            | StatementData.ForEachStatement          x -> this.TransformForEachStatement x
             | StatementData.UsingStatement            x -> this.TransformUsingStatement x
             | StatementData.FixedStatement            _ -> NotSupported "fixed"
             | StatementData.CheckedStatement          _ -> NotSupported "checked"
@@ -703,7 +759,7 @@ type RoslynTransformer(env: Environment) =
             | StatementData.LockStatement             _ -> NotSupported "lock"
             | StatementData.IfStatement               x -> this.TransformIfStatement x
             | StatementData.SwitchStatement           x -> this.TransformSwitchStatement x
-            | StatementData.TryStatement              x -> this.TransformTryStatement x
+            | StatementData.TryStatement              x -> this.TransformTryStatement x             
         with e ->
             env.Compilation.AddError(Some (getSourcePos x.Node), WebSharper.Compiler.SourceError("Error while reading C# code: " + e.Message + " at " + e.StackTrace))
             ExprStatement errorPlaceholder        
@@ -734,15 +790,123 @@ type RoslynTransformer(env: Environment) =
     member this.TransformVariableDeclaration (x: VariableDeclarationData) : list<Id * Expression> =
         x.Variables |> Seq.map (this.TransformVariableDeclarator) |> List.ofSeq
 
+    member this.TransformLocalFunctionStatement (x: LocalFunctionStatementData) : _ =
+        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node) :?> IMethodSymbol
+        let parameterList = sr.ReadParameters symbol
+        for p in parameterList do
+            env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
+        let body = x.Body |> Option.map this.TransformBlock
+        let expressionBody = x.ExpressionBody |> Option.map this.TransformArrowExpressionClause
+        let id = env.GetLocalFunctionId(symbol)
+ 
+        let b =
+            match expressionBody with
+            | Some b -> Return b
+            | _ -> body.Value
+        let b =
+            if symbol.IsAsync then
+                let b = 
+                    b |> Continuation.addLastReturnIfNeeded Undefined
+                    |> Continuation.AwaitTransformer().TransformStatement 
+                    |> BreakStatement
+                    |> Continuation.FreeNestedGotos().TransformStatement
+                let labels = Continuation.CollectLabels.Collect b
+                Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b)
+            else
+                b
+ 
+        // TODO : optional?
+        FuncDeclaration(
+            id, 
+            parameterList |> List.map (fun p -> p.ParameterId), 
+            b
+        )
+        |> withStatementSourcePos x.Node
+
     member this.TransformLocalDeclarationStatement (x: LocalDeclarationStatementData) : Statement =
         x.Declaration |> this.TransformVariableDeclaration |> List.map VarDeclaration |> Block 
         |> withStatementSourcePos x.Node
+
+    member this.TransformSingleVariableDesignation (x: SingleVariableDesignationData) : _ =
+        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
+        let id = 
+            match symbol with
+            | :? ILocalSymbol as s ->
+                let id = Id.New(s.Name, not s.IsConst)
+                env.Vars.Add(s, id)
+                id
+            | _ -> failwithf "this.TransformSingleVariableDesignation: invalid symbol type %A" symbol
+        NewVar(id, Undefined)
+        |> withExprSourcePos x.Node
+
+    member this.TransformDiscardDesignation (x: DiscardDesignationData) : _ =
+        Undefined
+
+    member this.TransformParenthesizedVariableDesignation (x: ParenthesizedVariableDesignationData) : _ =
+        let variables = x.Variables |> Seq.map this.TransformVariableDesignation |> List.ofSeq
+        NewArray variables
+        |> withExprSourcePos x.Node
+
+    member this.TransformVariableDesignation (x: VariableDesignationData) : _ =
+        match x with
+        | VariableDesignationData.SingleVariableDesignation        x -> this.TransformSingleVariableDesignation x
+        | VariableDesignationData.DiscardDesignation               x -> this.TransformDiscardDesignation x
+        | VariableDesignationData.ParenthesizedVariableDesignation x -> this.TransformParenthesizedVariableDesignation x
+
+    member this.PatternSet (e, value, rTyp: ITypeSymbol) =
+        let v = Id.New ("$m", mut = false)
+        let rec trDesignation v e =
+            match IgnoreExprSourcePos e with
+            | NewVar(nv, _) ->
+                NewVar(nv, v) 
+            | NewArray ds ->
+                let dvalue =
+                    if rTyp.IsTupleType then
+                        v 
+                    else
+                        // workaround until https://github.com/dotnet/roslyn/pull/16541 is available
+                        let len = ds.Length
+                        let decM =
+                            rTyp.GetMembers("Deconstruct") |> Seq.tryPick (function
+                                | :? IMethodSymbol as m ->
+                                    let md = sr.ReadMethod m
+                                    if md.Value.Parameters.Length = len then
+                                        Some md
+                                    else None
+                                | _ -> None
+                            )
+                        match decM with
+                        | Some decM ->
+                            let vars = List.init len (fun _ -> Id.New(mut = false))
+                            let t = sr.ReadNamedType (rTyp :?> INamedTypeSymbol)
+                            Sequential [
+                                for v in vars do yield NewVar(v, Undefined)
+                                yield Call(Some v, t, NonGeneric decM, vars |> List.map (fun i -> MakeRef (Var i) (fun e -> VarSet(i, e))))
+                                yield NewArray (vars |> List.map Var)
+                            ]
+                        | _ -> failwith "Failed to find deconstructor, extension methods are not supported yet"
+
+                let tvalue = Id.New ("$m", mut = false)                
+                Let (tvalue, dvalue,
+                    Sequential(
+                        ds |> List.mapi (fun i di -> 
+                            trDesignation (Var tvalue).[Value (Int i)] di      
+                        )
+                    )
+                )
+            | Undefined -> Undefined
+            | _ -> failwithf "Unexpected form in variable designation: %s" (Debug.PrintExpression e)
+            |> WithSourcePosOfExpr e
+        Let(v, value, trDesignation (Var v) e)
+
+    member this.TransformDeclarationExpression (x: DeclarationExpressionData) : _ =
+        x.Designation |> this.TransformVariableDesignation
 
     member this.TransformExpressionStatement (x: ExpressionStatementData) : Statement =
         x.Expression |> this.TransformExpression |> ExprStatement
 
     member this.TransformVariableDeclarator (x: VariableDeclaratorData) : Id * Expression =    
-        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node) //:?> ILocalSymbol
+        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
         let id, ftyp = 
             match symbol with
             | :? ILocalSymbol as s ->
@@ -764,22 +928,72 @@ type RoslynTransformer(env: Environment) =
     member this.TransformSwitchStatement (x: SwitchStatementData) : Statement =
         let expression = x.Expression |> this.TransformExpression
         let sections = x.Sections |> Seq.map (this.TransformSwitchSection) |> List.ofSeq
-        CSharpSwitch (expression, sections)
-        |> withStatementSourcePos x.Node
+        let hasPattern = 
+            sections |> List.exists (fst >> List.exists (function PatternLabel _ -> true | _ -> false))
+        if hasPattern then
+            let sv = Id.New("$sv", mut = false)
+            let defaultSection, nonDefaultSections =
+                sections |> List.partition (fst >> List.exists (function DefaultLabel -> true | _ -> false)) 
+            
+            let defaultBody =
+                match defaultSection with
+                | [] -> Empty
+                | (_, s) :: _ -> removeBreaksTr.TransformStatement s
 
-    member this.TransformSwitchSection (x: SwitchSectionData) : list<option<Expression>> * Statement =
+            Let (sv, expression, 
+                let nestedIfs =
+                    (nonDefaultSections, defaultBody) 
+                    ||> List.foldBack (fun (labels, body) rest ->
+                        let condition =
+                            labels |> List.map (function
+                                | DefaultLabel -> failwith "impossible"
+                                | ConstantLabel c -> Var sv ^== c
+                                | PatternLabel p -> p sv
+                            )
+                            |> List.reduce (^||)
+                        If (condition, removeBreaksTr.TransformStatement body, rest)
+                    )
+                StatementExpr(nestedIfs, None)
+            )
+            |> ExprStatement
+        else
+            let sections = 
+                sections |> List.map (fun (labels, body) ->
+                    labels |> List.map (function
+                        | DefaultLabel -> None
+                        | ConstantLabel c -> Some c
+                        | PatternLabel _ -> failwith "impossible"
+                    ), body
+                )
+
+            CSharpSwitch (expression, sections)
+            |> withStatementSourcePos x.Node
+
+    member this.TransformSwitchSection (x: SwitchSectionData) : list<CSharpSwitchLabel> * Statement =
         let labels = x.Labels |> Seq.map (this.TransformSwitchLabel) |> List.ofSeq
         let statements = x.Statements |> Seq.map (this.TransformStatement) |> List.ofSeq |> CombineStatements
         labels, statements
 
-    member this.TransformSwitchLabel (x: SwitchLabelData) : option<Expression> =
+    member this.TransformSwitchLabel (x: SwitchLabelData) : CSharpSwitchLabel =
         match x with
-        | SwitchLabelData.CaseSwitchLabel    x -> this.TransformCaseSwitchLabel x |> Some
-        | SwitchLabelData.DefaultSwitchLabel x -> None //this.TransformDefaultSwitchLabel env x
+        | SwitchLabelData.CasePatternSwitchLabel x -> this.TransformCasePatternSwitchLabel x
+        | SwitchLabelData.CaseSwitchLabel        x -> this.TransformCaseSwitchLabel x
+        | SwitchLabelData.DefaultSwitchLabel     x -> DefaultLabel
 
-    member this.TransformCaseSwitchLabel (x: CaseSwitchLabelData) : Expression =
+    member this.TransformWhenClause (x: WhenClauseData) : _ =
+        x.Condition |> this.TransformExpression
+
+    member this.TransformCasePatternSwitchLabel (x: CasePatternSwitchLabelData) : CSharpSwitchLabel =
+        let pattern = x.Pattern |> this.TransformPattern
+        let whenClause = x.WhenClause |> Option.map this.TransformWhenClause
+        match whenClause with
+        | None -> PatternLabel pattern
+        | Some w -> PatternLabel (fun i -> pattern i ^&& w)
+
+    member this.TransformCaseSwitchLabel (x: CaseSwitchLabelData) : CSharpSwitchLabel =
         x.Value |> this.TransformExpression
         |> withExprSourcePos x.Node
+        |> ConstantLabel
 
     member this.TransformGotoStatement (x: GotoStatementData) : Statement =
         match x.Kind with
@@ -873,7 +1087,9 @@ type RoslynTransformer(env: Environment) =
                 withResultValue right <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
                 withResultValue right <| fun rv -> Call (thisOpt, typ, setterOf getter, args @ [rv])
-            | _ -> TODO x
+            | e -> 
+                let rTyp = env.SemanticModel.GetTypeInfo(x.Right.Node).Type
+                this.PatternSet(e, right, rTyp)
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
             let opTyp, operator = getTypeAndMethod symbol
@@ -937,12 +1153,16 @@ type RoslynTransformer(env: Environment) =
             | Call (thisOpt, typ, getter, args) ->
                 withResultValue (Call(None, opTyp, operator, [left; right])) <| fun rv ->
                     Call (thisOpt, typ, setterOf getter, args @ [rv])
-            | _ -> TODO x
+            | e -> failwithf "AssignmentExpression left side not handled: %s" (Debug.PrintExpression e)
             
         |> withExprSourcePos x.Node
 
     member this.TransformParenthesizedExpression (x: ParenthesizedExpressionData) : Expression =
         x.Expression |> this.TransformExpression
+
+    member this.TransformTupleExpression (x: TupleExpressionData) : _ =
+        let arguments = x.Arguments |> Seq.map this.TransformArgument |> List.ofSeq
+        NewArray (arguments |> List.map snd)
 
     member this.TransformBinaryExpression (x: BinaryExpressionData) : Expression =
         let left = x.Left |> this.TransformExpression
@@ -998,21 +1218,39 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformMethodDeclaration (x: MethodDeclarationData) : CSharpMethod =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
+        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> this.TransformParameterList
         this.TransformMethodDeclarationBase(symbol, parameterList, x.Body, x.ExpressionBody)
 
     member this.TransformOperatorDeclaration (x: OperatorDeclarationData) : CSharpMethod =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
+        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> this.TransformParameterList
         this.TransformMethodDeclarationBase(symbol, parameterList, x.Body, x.ExpressionBody)
 
     member this.TransformConversionOperatorDeclaration (x: ConversionOperatorDeclarationData) : CSharpMethod =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
+        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> this.TransformParameterList
         this.TransformMethodDeclarationBase(symbol, parameterList, x.Body, x.ExpressionBody)
 
     member this.TransformParameterList (x: ParameterListData) : list<CSharpParameter> =
         x.Parameters |> Seq.map this.TransformParameter |> List.ofSeq
+
+    member this.TransformParameter (symbol: IParameterSymbol) : CSharpParameter =
+        let typ = sr.ReadType symbol.Type
+        let defValue = 
+            if symbol.HasExplicitDefaultValue then None
+            else
+                Some (Value (ReadLiteral symbol.ExplicitDefaultValue))
+        let id = Id.New symbol.Name
+        {
+            ParameterId = id
+            Symbol = symbol
+            DefaultValue = defValue
+            Type = typ
+            RefOrOut = symbol.RefKind <> RefKind.None
+        }
 
     member this.TransformParameter (x: ParameterData) : CSharpParameter =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
@@ -1105,11 +1343,17 @@ type RoslynTransformer(env: Environment) =
         identifierName, expression
 
     member this.TransformConstructorDeclaration (x: ConstructorDeclarationData) : _ =
+        //let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> this.TransformParameterList
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
         let initializer = x.Initializer |> Option.map (this.TransformConstructorInitializer)
-        let body = x.Body |> Option.map (this.TransformBlock)
+        let body = 
+            match x.ExpressionBody |> Option.map this.TransformArrowExpressionClause with
+            | Some e -> Some (ExprStatement e)
+            | _ ->
+                x.Body |> Option.map (this.TransformBlock)
         {
             Parameters = parameterList
             Body = defaultArg body Empty
@@ -1134,7 +1378,16 @@ type RoslynTransformer(env: Environment) =
         let parameterList = sr.ReadParameters symbol
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
-        let body = x.Body |> Option.map (this.TransformBlock)
+        let body = 
+            match x.ExpressionBody |> Option.map this.TransformArrowExpressionClause with
+            | Some e -> 
+                match x.Kind with 
+                | AccessorDeclarationKind.GetAccessorDeclaration ->
+                    Some (Return e)
+                | _ ->
+                    Some (ExprStatement e)
+            | _ ->
+                x.Body |> Option.map (this.TransformBlock)
         match x.Kind with
         | AccessorDeclarationKind.GetAccessorDeclaration      
         | AccessorDeclarationKind.SetAccessorDeclaration -> 
@@ -1380,76 +1633,67 @@ type RoslynTransformer(env: Environment) =
     member this.TransformFinallyClause (x: FinallyClauseData) : _ =
         x.Block |> this.TransformBlock
 
+    member this.TransformForEach (varSet, expression, statement, info: ForEachStatementInfo) = 
+        let call e m =
+            let typ, meth = getTypeAndMethod m
+            Call(Some e, typ, meth, [])
+
+        let en = Id.New ()
+        Block [
+            VarDeclaration (en, call expression info.GetEnumeratorMethod)
+            TryFinally(
+                While(
+                    call (Var en) info.MoveNextMethod, 
+                    Block [
+                        ExprStatement <| varSet (call (Var en) info.CurrentProperty.GetMethod)
+                        statement
+                    ]
+                ), 
+                ExprStatement <| call (Var en) info.DisposeMethod
+            )
+        ]        
+
     member this.TransformForEachStatement (x: ForEachStatementData) : _ =
+        let info = env.SemanticModel.GetForEachStatementInfo(x.Node)
         let expression = x.Expression |> this.TransformExpression
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
-        let typ = sr.ReadType symbol.Type
         let v = Id.New symbol.Name
         env.Vars.Add(symbol, v)
         let statement = x.Statement |> this.TransformStatement
 
-        // TODO: foreach on System.Collections.IEnumerable 
+        this.TransformForEach ((fun c -> NewVar(v, c)), expression, statement, info)
+        |> withStatementSourcePos x.Node
 
-        let getEnumerator e =
-            let ret = Generic (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Collections.Generic.IEnumerator`1" }) [TypeParameter 0]
-            Call(
-                Some e, 
-                Generic (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Collections.Generic.IEnumerable`1" }) [typ],
-                NonGeneric (Method { MethodName = "GetEnumerator"; Parameters = []; ReturnType = ConcreteType ret; Generics = 0 }),
-                []            
-            )
+    member this.TransformForEachVariableStatement (x: ForEachVariableStatementData) : _ =
+        let info = env.SemanticModel.GetForEachStatementInfo(x.Node)
+        let variable = x.Variable |> this.TransformExpression
+        let expression = x.Expression |> this.TransformExpression
+        let statement = x.Statement |> this.TransformStatement
+        let varSet c = this.PatternSet(variable, c, info.ElementType)
+        this.TransformForEach (varSet, expression, statement, info)
+        |> withStatementSourcePos x.Node
 
-        let getCurrent e =
-            Call(
-                Some e, 
-                Generic (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Collections.Generic.IEnumerator`1" }) [typ],
-                NonGeneric (Method { MethodName = "get_Current"; Parameters = []; ReturnType = TypeParameter 0; Generics = 0 }),
-                []            
-            )
-
-        let moveNext e =
-            let btyp = NonGeneric (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Boolean" }) 
-            Call(
-                Some e, 
-                NonGeneric (TypeDefinition { Assembly = "mscorlib"; FullName = "System.Collections.IEnumerator" }),
-                NonGeneric (Method { MethodName = "MoveNext"; Parameters = []; ReturnType = ConcreteType btyp; Generics = 0 }),
-                []            
-            )
-
-        let disp e =
-            Call(
-                Some e, 
-                NonGeneric (TypeDefinition { Assembly = "mscorlib"; FullName = "System.IDisposable" }),
-                NonGeneric (Method { MethodName = "Dispose"; Parameters = []; ReturnType = VoidType; Generics = 0 }),
-                []            
-            )
-        
-        let en = Id.New ()
-
-        Block [
-            VarDeclaration (en, getEnumerator expression)
-            VarDeclaration (v, Undefined)
-            TryFinally(
-                While(
-                    moveNext (Var en), 
-                    Block [
-                        ExprStatement <| VarSet (v, getCurrent (Var en))
-                        statement
-                    ]
-                ), 
-                ExprStatement <| disp (Var en)
-            )
-        ]
+    member this.TransformCommonForEachStatement (x: CommonForEachStatementData) : _ =
+        match x with
+        | CommonForEachStatementData.ForEachStatement         x -> this.TransformForEachStatement x
+        | CommonForEachStatementData.ForEachVariableStatement x -> this.TransformForEachVariableStatement x
 
     member this.TransformAnonymousFunctionExpression (x: AnonymousFunctionExpressionData) : _ =
         match x with
         | AnonymousFunctionExpressionData.LambdaExpression          x -> this.TransformLambdaExpression x
-        | AnonymousFunctionExpressionData.AnonymousMethodExpression x -> TODO x //this.TransformAnonymousMethodExpression x
+        | AnonymousFunctionExpressionData.AnonymousMethodExpression x -> this.TransformAnonymousMethodExpression x
 
     member this.TransformLambdaExpression (x: LambdaExpressionData) : _ =
         match x with
         | LambdaExpressionData.SimpleLambdaExpression        x -> this.TransformSimpleLambdaExpression x
         | LambdaExpressionData.ParenthesizedLambdaExpression x -> this.TransformParenthesizedLambdaExpression x
+
+    member this.TransformAnonymousMethodExpression (x: AnonymousMethodExpressionData) : _ =
+        //let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        //let parameterList = sr.ReadParameters symbol
+        let parameterList = x.ParameterList |> Option.map this.TransformParameterList
+        let body = x.Body |> this.TransformCSharpNode
+        TODO x
 
     member this.TransformSimpleLambdaExpression (x: SimpleLambdaExpressionData) : _ =
         let parameter = x.Parameter |> this.TransformParameter
@@ -1469,6 +1713,8 @@ type RoslynTransformer(env: Environment) =
             Function([id], body)
     
     member this.TransformParenthesizedLambdaExpression (x: ParenthesizedLambdaExpressionData) : _ =
+        let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> this.TransformParameterList
         let ids =
             parameterList |> List.map (fun p -> 
@@ -1477,7 +1723,6 @@ type RoslynTransformer(env: Environment) =
                 id
             )    
         let body = x.Body |> this.TransformCSharpNode
-        let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         if symbol.IsAsync then
             let b = 
                 body |> Continuation.addLastReturnIfNeeded Undefined
@@ -1492,64 +1737,8 @@ type RoslynTransformer(env: Environment) =
     member this.TransformCSharpNode (x: CSharpNodeData) : _ =
         match x with
         | CSharpNodeData.Expression                      x -> this.TransformExpression x |> Return
-        | CSharpNodeData.BaseArgumentList                x -> TODO x //this.TransformBaseArgumentList env x
-        | CSharpNodeData.QueryClause                     x -> TODO x //this.TransformQueryClause env x
-        | CSharpNodeData.SelectOrGroupClause             x -> TODO x //this.TransformSelectOrGroupClause env x
-        | CSharpNodeData.InterpolatedStringContent       x -> TODO x //this.TransformInterpolatedStringContent env x
         | CSharpNodeData.Statement                       x -> this.TransformStatement x
-        | CSharpNodeData.SwitchLabel                     x -> TODO x //this.TransformSwitchLabel env x
-        | CSharpNodeData.MemberDeclaration               x -> TODO x //this.TransformMemberDeclaration env x
-        | CSharpNodeData.BaseType                        x -> TODO x //this.TransformBaseType x
-        | CSharpNodeData.TypeParameterConstraint         x -> TODO x //this.TransformTypeParameterConstraint env x
-        | CSharpNodeData.BaseParameterList               x -> TODO x //this.TransformBaseParameterList env x
-        | CSharpNodeData.Cref                            x -> TODO x //this.TransformCref env x
-        | CSharpNodeData.BaseCrefParameterList           x -> TODO x //this.TransformBaseCrefParameterList env x
-        | CSharpNodeData.XmlNode                         x -> TODO x //this.TransformXmlNode env x
-        | CSharpNodeData.XmlAttribute                    x -> TODO x //this.TransformXmlAttribute env x
-        | CSharpNodeData.TypeArgumentList                x -> TODO x //this.TransformTypeArgumentList env x
-        | CSharpNodeData.ArrayRankSpecifier              x -> TODO x //this.TransformArrayRankSpecifier env x
-        | CSharpNodeData.Argument                        x -> TODO x //this.TransformArgument  x
-        | CSharpNodeData.NameColon                       x -> TODO x //this.TransformNameColon env x
-        | CSharpNodeData.AnonymousObjectMemberDeclarator x -> TODO x //this.TransformAnonymousObjectMemberDeclarator env x
-        | CSharpNodeData.QueryBody                       x -> TODO x //this.TransformQueryBody env x
-        | CSharpNodeData.JoinIntoClause                  x -> TODO x //this.TransformJoinIntoClause env x
-        | CSharpNodeData.Ordering                        x -> TODO x //this.TransformOrdering env x
-        | CSharpNodeData.QueryContinuation               x -> TODO x //this.TransformQueryContinuation env x
-        | CSharpNodeData.InterpolationAlignmentClause    x -> TODO x //this.TransformInterpolationAlignmentClause env x
-        | CSharpNodeData.InterpolationFormatClause       x -> TODO x //this.TransformInterpolationFormatClause env x
-        | CSharpNodeData.VariableDeclaration             x -> TODO x //this.TransformVariableDeclaration env x
-        | CSharpNodeData.VariableDeclarator              x -> TODO x //this.TransformVariableDeclarator env x
-        | CSharpNodeData.EqualsValueClause               x -> TODO x //this.TransformEqualsValueClause env x
-        | CSharpNodeData.ElseClause                      x -> TODO x //this.TransformElseClause env x
-        | CSharpNodeData.SwitchSection                   x -> TODO x //this.TransformSwitchSection env x
-        | CSharpNodeData.CatchClause                     x -> TODO x //this.TransformCatchClause env x
-        | CSharpNodeData.CatchDeclaration                x -> TODO x //this.TransformCatchDeclaration env x
-        | CSharpNodeData.CatchFilterClause               x -> TODO x //this.TransformCatchFilterClause env x
-        | CSharpNodeData.FinallyClause                   x -> TODO x //this.TransformFinallyClause env x
-        | CSharpNodeData.CompilationUnit                 x -> TODO x //this.TransformCompilationUnit env x
-    //    | CSharpNodeData.ExternAliasDirective            x -> TODO x //this.TransformExternAliasDirective env x
-    //    | CSharpNodeData.UsingDirective                  x -> TODO x //this.TransformUsingDirective env x
-    //    | CSharpNodeData.AttributeList                   x -> TODO x //this.TransformAttributeList env x
-        | CSharpNodeData.AttributeTargetSpecifier        x -> TODO x //this.TransformAttributeTargetSpecifier env x
-        | CSharpNodeData.Attribute                       x -> TODO x //this.TransformAttribute env x
-        | CSharpNodeData.AttributeArgumentList           x -> TODO x //this.TransformAttributeArgumentList env x
-        | CSharpNodeData.AttributeArgument               x -> TODO x //this.TransformAttributeArgument x
-        | CSharpNodeData.NameEquals                      x -> TODO x //this.TransformNameEquals env x
-        | CSharpNodeData.TypeParameterList               x -> TODO x //this.TransformTypeParameterList env x
-        | CSharpNodeData.TypeParameter                   x -> TODO x //this.TransformTypeParameter env x
-        | CSharpNodeData.BaseList                        x -> TODO x //this.TransformBaseList env x
-    //    | CSharpNodeData.TypeParameterConstraintClause   x -> TODO x //this.TransformTypeParameterConstraintClause env x
-        | CSharpNodeData.ExplicitInterfaceSpecifier      x -> TODO x //this.TransformExplicitInterfaceSpecifier env x
-        | CSharpNodeData.ConstructorInitializer          x -> TODO x //this.TransformConstructorInitializer env x
-        | CSharpNodeData.ArrowExpressionClause           x -> TODO x //this.TransformArrowExpressionClause env x
-        | CSharpNodeData.AccessorList                    x -> TODO x //this.TransformAccessorList env x
-        | CSharpNodeData.AccessorDeclaration             x -> TODO x //this.TransformAccessorDeclaration env x
-        | CSharpNodeData.Parameter                       x -> TODO x //this.TransformParameter env x
-        | CSharpNodeData.CrefParameter                   x -> TODO x //this.TransformCrefParameter env x
-        | CSharpNodeData.XmlElementStartTag              x -> TODO x //this.TransformXmlElementStartTag env x
-        | CSharpNodeData.XmlElementEndTag                x -> TODO x //this.TransformXmlElementEndTag env x
-        | CSharpNodeData.XmlName                         x -> TODO x //this.TransformXmlName x
-        | CSharpNodeData.XmlPrefix                       x -> TODO x //this.TransformXmlPrefix env x
+        | _ -> failwith "Unexpected lambda expression body node"
 
     member this.TransformInstanceExpression (x: InstanceExpressionData) : _ =
         match x with
@@ -1585,12 +1774,16 @@ type RoslynTransformer(env: Environment) =
                 NewDelegate(expression, typ, meth)
             else failwithf "this.TransformIdentifierName: unhandled IMethodSymbol conversion: %A" conv 
         | :? IFieldSymbol as symbol ->
-            if Option.isSome expr && symbol.IsConst then
+            let field =
+                match symbol.CorrespondingTupleField with
+                | null -> symbol
+                | f -> f
+            if Option.isSome expr && field.IsConst then
                 getConstantValueOfExpression node 
             else
                 let expression = getExpression()
-                let typ = sr.ReadNamedType symbol.ContainingType
-                let f = symbol.Name
+                let typ = sr.ReadNamedType field.ContainingType
+                let f = field.Name
                 FieldGet(expression, typ, f)
         | :? IEventSymbol as symbol ->
             let expression = getExpression()
@@ -1646,6 +1839,11 @@ type RoslynTransformer(env: Environment) =
         | None -> Throw (Var env.Caught.Value)
         |> withStatementSourcePos x.Node
 
+    member this.TransformThrowExpression (x: ThrowExpressionData) : _ =
+        let expression = x.Expression |> this.TransformExpression
+        StatementExpr(Throw expression, None) 
+        |> withExprSourcePos x.Node
+
     member this.TransformYieldStatement (x: YieldStatementData) : _ =
         let expression = x.Expression |> Option.map (this.TransformExpression)
         Yield expression
@@ -1677,6 +1875,10 @@ type RoslynTransformer(env: Environment) =
             expression
         else
             call symbol None [ expression ]
+
+     member this.TransformRefExpression (x: RefExpressionData) : _ =
+        let expression = x.Expression |> this.TransformExpression
+        TODO x
 
     member this.TransformQueryExpression (x: QueryExpressionData) : _ =
         let expression = x.FromClause.Expression |> this.TransformExpression
@@ -1866,6 +2068,35 @@ type RoslynTransformer(env: Environment) =
     member this.TransformInterpolatedStringExpression (x: InterpolatedStringExpressionData) : _ =
         x.Contents |> Seq.map this.TransformInterpolatedStringContent 
         |> Seq.reduce (^+)
+
+    member this.TransformDeclarationPattern (x: DeclarationPatternData) : (Id -> Expression) =
+        let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
+        let designation = x.Designation |> this.TransformVariableDesignation
+        fun v -> 
+            let c = Id.New("$c", mut = false)
+            Let (c, 
+                TypeCheck(Var v, typ), 
+                Conditional(
+                    Var c, 
+                    Sequential [ this.PatternSet(designation, Var v, null); Value (Bool true) ],
+                    Value (Bool false)
+                )
+            )
+
+    member this.TransformConstantPattern (x: ConstantPatternData) : (Id -> Expression) =
+        let expression = x.Expression |> this.TransformExpression
+        fun v -> Var v ^== expression
+
+    member this.TransformPattern (x: PatternData) : (Id -> Expression) =
+        match x with
+        | PatternData.DeclarationPattern x -> this.TransformDeclarationPattern x
+        | PatternData.ConstantPattern    x -> this.TransformConstantPattern x
+
+    member this.TransformIsPatternExpression (x: IsPatternExpressionData) : _ =
+        let expression = x.Expression |> this.TransformExpression
+        let pattern = x.Pattern |> this.TransformPattern
+        let i = Id.New("$i", mut = false)
+        Let (i, expression, pattern i)
 
     member this.TransformInterpolatedStringContent (x: InterpolatedStringContentData) : _ =
         match x with

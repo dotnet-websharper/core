@@ -570,10 +570,10 @@ let rec breakExpr expr : Broken<BreakResult> =
                 Call (Some l.Head, b, c, l.Tail)
             else Call (None, b, c, l)
         )
-    | TraitCall(a, b, c, d) ->
-        brL (a :: d)
+    | TraitCall(a, b, c) ->
+        brL c
         |> mapBroken (fun l ->
-            TraitCall (l.Head, b, c, l.Tail)
+            TraitCall (a, b, l)
         )
     | Ctor(a, b, c) ->
         brL c

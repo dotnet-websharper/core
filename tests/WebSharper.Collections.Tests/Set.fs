@@ -116,6 +116,9 @@ let Tests =
             let set2 = Set.ofList EightFTeenS
             equal (Set.difference set1 set1) Set.empty
             equal (Set.difference set1 set2) set1
+
+            equal (set1 - set1) Set.empty
+            equal (set1 - set2) set1
         }
 
         Test "Set.exists" {
@@ -266,6 +269,9 @@ let Tests =
                 let s = Set.ofList x
                 equal (Set.union s s) s
             })
+
+            equal (set1 + set1) set1
+            equal (set1 + set2) set3
         }
 
         Test "Set.unionMany" {

@@ -35,6 +35,7 @@ type private Attribute =
     | Inline of option<string>
     | Direct of string
     | Pure
+    | Warn of string
     | Constant of Literal
     | Generated of TypeDefinition * option<obj>
     | Require of TypeDefinition * option<obj>
@@ -104,6 +105,7 @@ type MemberAnnotation =
         IsEntryPoint : bool
         DateTimeFormat : list<option<string> * string>
         Pure : bool
+        Warn : option<string>
     }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -117,6 +119,7 @@ module MemberAnnotation =
             IsEntryPoint = false
             DateTimeFormat = []
             Pure = false
+            Warn = None
         }
 
     let BasicPureJavaScript =
@@ -188,6 +191,8 @@ type AttributeReader<'A>() =
             A.Direct (Seq.head (this.GetCtorArgs(attr)) |> unbox)
         | "PureAttribute" ->
             A.Pure
+        | "WarnAttribute" ->
+            A.Warn (Seq.head (this.GetCtorArgs(attr)) |> unbox)
         | "ConstantAttribute" ->
             A.Constant (Seq.head (this.GetCtorArgs(attr)) |> ReadLiteral)
         | "MacroAttribute" ->
@@ -295,12 +300,13 @@ type AttributeReader<'A>() =
         let attrArr, macros, name, _, isJavaScript, _, isStub, reqs = this.GetAttrs (parent, attrs)
         let isEp = attrArr |> Array.contains A.SPAEntryPoint
         let isPure = attrArr |> Array.contains A.Pure
+        let warning = attrArr |> Array.tryPick (function A.Warn w -> Some w | _ -> None)
         let rp = 
             attrArr |> Array.tryPick (function A.RemotingProvider (r, p) -> Some (r, p) | _ -> None) 
             |> function Some x -> Some x | None -> parent.RemotingProvider
         let attrArr = 
             attrArr |> Array.filter (function 
-                | A.SPAEntryPoint | A.Pure | A.DateTimeFormat _ | A.RemotingProvider _ -> false 
+                | A.SPAEntryPoint | A.Pure | A.Warn _ | A.DateTimeFormat _ | A.RemotingProvider _ -> false 
                 | _ -> true)
         let kind =
             match attrArr with
@@ -327,6 +333,7 @@ type AttributeReader<'A>() =
             IsEntryPoint = isEp
             DateTimeFormat = attrArr |> Seq.choose (function A.DateTimeFormat (a,b) -> Some (a,b) | _ -> None) |> List.ofSeq
             Pure = isPure
+            Warn = warning
         }
    
     member this.GetAssemblyAnnot (attrs: seq<'A>) =

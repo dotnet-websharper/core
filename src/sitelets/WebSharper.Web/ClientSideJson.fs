@@ -335,7 +335,7 @@ module Macro =
                                 [C (T "System.String", []); t]) ->
                     encode t >>= fun e ->
                     ok (call "StringDictionary" [e])
-                | TupleType ts ->
+                | TupleType (ts, _) ->
                     ((fun es -> ok (call "Tuple" [NewArray es])), ts)
                     ||> List.fold (fun k t ->
                         fun es -> encode t >>= fun e -> k (e :: es))
@@ -550,6 +550,12 @@ module Macro =
                                         k (NewArray [cString ("$" + string j); cString f.Name; e; optionKind] :: es))
                                 |> snd
                                 <| []
+                            | M.SingletonFSharpUnionCase ->
+                                let tag =
+                                    match u.NamedUnionCases with
+                                    | None -> cInt i
+                                    | _ -> cString (match case.JsonName with Some n -> n | _ -> case.Name)
+                                k (NewArray [tag; NewArray []] :: es)
                             | M.ConstantFSharpUnionCase _ -> k (!~Null :: es)
                     )
                     |> snd

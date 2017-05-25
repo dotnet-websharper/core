@@ -12,6 +12,12 @@ namespace WebSharper.CSharp.Tests
     class Arithmetic : TestCategory
     {
         [Test]
+        public void LiteralWithUnderscore()
+        {
+            Equal(1_024, 1024);
+        }
+
+        [Test]
         public void Int32()
         {
             int x = 22;

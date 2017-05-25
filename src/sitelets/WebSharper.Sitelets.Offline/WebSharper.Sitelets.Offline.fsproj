@@ -6,6 +6,7 @@
     <Name>WebSharper.Sitelets.Offline</Name>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FSharp40>True</FSharp40>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <Import Project="../../../msbuild/Mono.Cecil.Roslyn.targets" />
   <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />

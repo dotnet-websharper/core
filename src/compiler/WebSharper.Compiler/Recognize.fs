@@ -230,7 +230,12 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
                     else
                         failwithf "Unrecognized IntelliFactory.Runtime function: %s" f
                 | _ -> failwith "expected a function of IntelliFactory.Runtime"     
-            elif env.IsPure then ItemGet(trA, trC) 
+            elif env.IsPure then 
+                let optA =
+                    match trA with
+                    | ItemGet(GlobalAccess a, Value (String b)) -> GlobalAccess (Address (b :: a.Value))
+                    | _ -> trA
+                ItemGet(optA, trC) 
             else ItemGetNonPure(trA, trC)
         | SB.``/``      -> Binary(trE a, BinaryOperator.``/``, trE c)
         | SB.``/=``     -> mbin a MutatingBinaryOperator.``/=`` c
@@ -284,7 +289,15 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
                 StatementExpr(FuncDeclaration(f, vars, transformStatement innerEnv body), Some f)
         innerEnv.Vars.Head.Values |> Seq.choose (function Var i -> Some i | _ -> None)
         |> Seq.fold makePossiblyImmutable fres
-    | S.New (a, b) -> New(trE a, List.map trE b)
+    | S.New (a, b) -> 
+        let trA = trE a
+        let optA =
+            if env.IsPure then
+                match trA with
+                | ItemGet(GlobalAccess a, Value (String b)) -> GlobalAccess (Address (b :: a.Value))
+                | _ -> trA
+            else trA
+        New(optA, List.map trE b)
     | S.NewArray a -> NewArray (a |> List.map (function Some i -> trE i | _ -> Undefined))
     | S.NewObject a -> Object(a |> List.map (fun (b, c) -> b, trE c))
     | S.NewRegex a -> 

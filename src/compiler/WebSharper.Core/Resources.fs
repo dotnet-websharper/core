@@ -25,6 +25,7 @@ open System.IO
 open System.Reflection
 open System.Web
 open System.Web.UI
+
 module CT = ContentTypes
 
 type Rendering =
@@ -59,6 +60,9 @@ type Context =
 
 and IResource =
     abstract member Render : Context -> ((RenderLocation -> HtmlTextWriter) -> unit)
+
+type IDownloadableResource =
+    abstract Unpack : string -> unit    
 
 let cleanLink dHttp (url: string) =
     if dHttp && url.StartsWith("//")
@@ -209,7 +213,6 @@ type Rendering with
         render getWriter
 
 type Kind =
-    | Ignore
     | Basic of string
     | Complex of string * list<string>
 
@@ -218,10 +221,20 @@ let tryFindWebResource (t: Type) (spec: string) =
     t.Assembly.GetManifestResourceNames()
     |> Seq.tryFind ok
 
-type BaseResource(kind: Kind) =
-    
-    new () =
-        new BaseResource(Ignore)
+let tryGetUriFileName (u: string) =
+    try
+        let uri = System.Uri u
+        let parts = u.Split('/')
+        parts.[parts.Length - 1] |> Some
+    with _ -> None
+
+let EmptyResource =
+   { new IResource with member this.Render _ = ignore }
+
+type BaseResource(kind: Kind) as this =
+        
+    let self = this.GetType()
+    let name = self.FullName
 
     new (spec: string) =
         new BaseResource(Basic spec)
@@ -229,37 +242,81 @@ type BaseResource(kind: Kind) =
     new (b: string, x: string, [<System.ParamArray>] xs: string []) =
         new BaseResource(Complex(b, x :: List.ofArray xs))
 
+    member this.GetLocalName() =
+        name.Replace('+', '.').Split('`').[0]
+    
     interface IResource with
         member this.Render ctx =
             let dHttp = ctx.DefaultToHttp
+            let isLocal = ctx.GetSetting "UseDownloadedResources" |> Option.exists (fun s -> s.ToLower() = "true")
+            let localFolder isCss f =
+                (if isCss then "Content/WebSharper/" else "Scripts/WebSharper/") + this.GetLocalName() + "/" + f
             match kind with
-            | Ignore ->
-                ignore
             | Basic spec ->
-                let self = this.GetType()
-                let id = self.FullName
                 let mt = if spec.EndsWith ".css" then Css else Js
                 let r =
-                    match ctx.GetSetting id with
+                    match ctx.GetSetting name with
                     | Some url -> RenderLink url
                     | None ->
                         match tryFindWebResource self spec with
                         | Some e -> Rendering.GetWebResourceRendering(ctx, self, e)
-                        | None -> RenderLink spec
+                        | None ->
+                            if isLocal then
+                                match tryGetUriFileName spec with
+                                | Some f ->
+                                    RenderLink (localFolder (mt = Css)  f)
+                                | _ ->
+                                    RenderLink spec
+                            else
+                                RenderLink spec
                 fun writer -> r.Emit(writer, mt, dHttp)
             | Complex (b, xs) ->
-                let id = this.GetType().FullName
-                let b = defaultArg (ctx.GetSetting id) b
+                let b = defaultArg (ctx.GetSetting name) b
                 let urls =
                     xs |> List.map (fun x ->
-                        let url = b.TrimEnd [| '/' |] + "/" + x.TrimStart [| '/' |]
+                        let url = b.TrimEnd('/') + "/" + x.TrimStart('/')
                         url, url.EndsWith ".css"     
-                    )     
+                    )  
+                let urls = 
+                    if isLocal then 
+                        urls |> List.map (fun (u, isCss) ->
+                            match tryGetUriFileName u with
+                            | Some f ->
+                                localFolder isCss f, isCss
+                            | _ ->
+                                u, isCss
+                        )
+                    else urls
                 fun writer ->
                     for url, isCss in urls do
                         if isCss then
                             link dHttp (writer Styles) url
                         else script dHttp (writer Scripts) url
+
+    interface IDownloadableResource with
+        member this.Unpack path =
+            use wc = new System.Net.WebClient()    
+            let localName = this.GetLocalName()
+            let cssDir = Path.Combine (path, "Content", "WebSharper", localName)
+            let jsDir = Path.Combine (path, "Scripts", "WebSharper", localName)
+            let download (url: string) =
+                match tryGetUriFileName url with
+                | Some f ->
+                    let localDir = if url.EndsWith ".css" then cssDir else jsDir
+                    let localPath = Path.Combine(localDir, f)
+                    if not (Directory.Exists localDir) then
+                        Directory.CreateDirectory localDir |> ignore
+                    let url = if url.StartsWith("//") then "http:" + url else url
+                    printfn "Downloading %A to %s" url localPath
+                    wc.DownloadFile(url, localPath)
+                | _ ->
+                    ()
+            match kind with
+            | Basic spec ->
+                download spec
+            | Complex (b, xs) ->
+                for x in xs do
+                    download (b.TrimEnd('/') + "/" + x.TrimStart('/'))
 
 [<Sealed>]
 type Runtime() =

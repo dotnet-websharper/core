@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" TreatAsLocalProperty="Configuration">
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" TreatAsLocalProperty="Configuration">
   <PropertyGroup>
     <ProjectGuid>{87d32671-869d-4f33-9f24-380a4070b2dc}</ProjectGuid>
     <OutputType>Library</OutputType>
@@ -44,6 +44,7 @@
     <Compile Include="Ref.fs" />
     <Compile Include="Reflected.fs" />
     <Compile Include="Regression.fs" />
+    <Compile Include="Result.fs" />
     <Compile Include="Seq.fs" />
     <Compile Include="Stack.fs" />
     <Compile Include="String.fs" />

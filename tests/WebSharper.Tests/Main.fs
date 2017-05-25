@@ -58,6 +58,7 @@ let RunTests() =
         Ref.Tests
         Reflected.Tests
         Regression.Tests
+        Result.Tests
         Seq.Tests
         Stack.Tests
         String.Tests

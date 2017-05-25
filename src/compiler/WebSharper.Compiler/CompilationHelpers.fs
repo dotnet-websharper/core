@@ -510,6 +510,7 @@ module JSRuntime =
     let Class members basePrototype statics = runtimeFunc "Class" true [members; basePrototype; statics]
     let Ctor ctor typeFunction = runtimeFunc "Ctor" true [ctor; typeFunction]
     let Cctor cctor = runtimeFunc "Cctor" true [cctor]
+    let Clone obj = runtimeFunc "Clone" true [obj]
     let GetOptional value = runtimeFunc "GetOptional" true [value]
     let SetOptional obj field value = runtimeFunc "SetOptional" false [obj; field; value]
     let DeleteEmptyFields obj fields = runtimeFunc "DeleteEmptyFields" false [obj; NewArray fields] 

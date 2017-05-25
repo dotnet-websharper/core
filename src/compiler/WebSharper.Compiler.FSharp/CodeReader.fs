@@ -337,8 +337,13 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             match t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq with
             | [a; r] -> FSharpFuncType(a, r)
             | _ -> failwith "impossible: FSharpFunc must have 2 type parameters"
-        if t.IsTupleType then
-            t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq |> TupleType
+        let getTupleType isStruct =
+            let tts = t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq
+            TupleType(tts, isStruct)
+        if t.IsStructTupleType then
+            getTupleType true
+        elif t.IsTupleType then
+            getTupleType false
         elif t.IsFunctionType then
             getFunc()
         else
@@ -351,7 +356,9 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             let fn = 
                 if td.IsProvidedAndErased then td.LogicalName else td.FullName
             if fn.StartsWith "System.Tuple" then
-                t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq |> TupleType
+                getTupleType false
+            elif fn.StartsWith "System.ValueTuple" then
+                getTupleType true
             elif fn = "Microsoft.FSharp.Core.FSharpFunc`2" then
                 getFunc()
             elif fn = "Microsoft.FSharp.Core.Unit" || fn = "System.Void" then
@@ -526,14 +533,17 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
     try
         match expr with
         | P.Value(var) ->                
-            if isUnit var.FullType then
+            let t = var.FullType
+            if isUnit t then
                 Undefined
             else
                 let v, k = env.LookupVar var
                 match k with
                 | LocalVar -> Var v  
                 | FuncArg -> Var v
-                | ByRefArg -> GetRef (Var v)
+                | ByRefArg -> 
+                    let t = expr.Type
+                    if t.HasTypeDefinition && t.TypeDefinition.IsByRef then Var v else GetRef (Var v)
                 | ThisArg -> This
         | P.Lambda _ ->
             let rec loop acc = function
@@ -913,13 +923,15 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | _ -> parsefailf "Expected a record type"
             FieldSet(thisOpt |> Option.map tr, t, field.Name, tr value)
         | P.AddressOf expr ->
-            let isStructUnionGet =
+            let isStructUnionOrTupleGet =
                 let t = expr.Type
-                t.HasTypeDefinition && (
-                    let td = t.TypeDefinition
-                    td.IsFSharpUnion && td.IsValueType
-                )    
-            if isStructUnionGet then
+                t.IsStructTupleType || (
+                    t.HasTypeDefinition && (
+                        let td = t.TypeDefinition
+                        td.IsFSharpUnion && td.IsValueType
+                    )    
+                )
+            if isStructUnionOrTupleGet then
                 tr expr     
             else
             let e = IgnoreExprSourcePos (tr expr)
@@ -1018,7 +1030,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             tr expr
         | P.Quote expr -> tr expr
         | P.BaseValue _ -> Base
-        | P.ILAsm("[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, null)],TypeVar 0us)]", _, [ arr; i ]) ->
+        | P.ILAsm("[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, None)],TypeVar 0us)]", _, [ arr; i ]) ->
             let arrId = newId()
             let iId = newId()
             Let (arrId, tr arr, Let(iId, tr i, MakeRef (ItemGet(Var arrId, Var iId)) (fun value -> ItemSet(Var arrId, Var iId, value))))
@@ -1033,19 +1045,15 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.ILFieldGet _ -> parsefailf "F# pattern not handled: ILFieldGet"
         | P.ILFieldSet _ -> parsefailf "F# pattern not handled: ILFieldSet"
         | P.TraitCall(sourceTypes, traitName, memberFlags, typeArgs, typeInstantiation, argExprs) ->
-            if sourceTypes.Length <> 1 then parsefailf "TODO: TraitCall with multiple source types" 
-            match argExprs with
-            | t :: a -> 
-                let meth =
-                    Method {
-                        MethodName = traitName
-                        Parameters = typeInstantiation |> List.map (sr.ReadTypeSt true env.TParams)
-                        ReturnType = sr.ReadTypeSt true env.TParams expr.Type
-                        Generics   = 0
-                    } 
-                TraitCall(tr t, sr.ReadType env.TParams sourceTypes.[0], NonGeneric meth, a |> List.map tr)  
-            | _ ->
-                failwith "Impossible: TraitCall must have a this argument"
+            let meth =
+                Method {
+                    MethodName = traitName
+                    Parameters = typeInstantiation |> List.map (sr.ReadTypeSt true env.TParams)
+                    ReturnType = sr.ReadTypeSt true env.TParams expr.Type
+                    Generics   = 0
+                } 
+            let s = sourceTypes |> Seq.map (sr.ReadType env.TParams) |> List.ofSeq
+            TraitCall(s, NonGeneric meth, argExprs |> List.map tr)  
         | P.UnionCaseSet _ ->
             parsefailf "UnionCaseSet pattern is only allowed in FSharp.Core"
         | _ -> parsefailf "F# expression not recognized"

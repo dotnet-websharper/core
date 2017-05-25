@@ -30,6 +30,9 @@ open WebSharper
 open WebSharper.Core
 open WebSharper.Core.AST
 
+module M = WebSharper.Core.Metadata
+module I = IgnoreSourcePos
+
 let smallIntegralTypes =
     Set [
         "System.Byte"
@@ -66,6 +69,24 @@ let isIn (s: string Set) (t: Type) =
     | _ ->
         false
 
+let traitCallOp (c: MacroCall) =
+    match c.Method.Generics with
+    | [t; u; v] ->
+        TraitCall(
+            [ t; u ], 
+            NonGeneric (
+                Method {
+                    MethodName = c.Method.Entity.Value.MethodName
+                    Parameters = [ t; u ]
+                    ReturnType = v
+                    Generics = 0
+                }
+            ),
+            c.Arguments
+        )
+    | _ ->
+        failwith "F# Operator value expecting 3 type arguments"
+
 [<Sealed>]
 type Div() =
     inherit Macro()
@@ -78,8 +99,11 @@ type Div() =
                 then (x ^/ y) ^>> !~(Int 0)
                 elif isIn bigIntegralTypes t
                 then Application(Global ["Math"; "trunc"], [x ^/ y], true, Some 1)
-                else x ^/ y
-            | _ -> x ^/ y
+                elif isIn scalarTypes t
+                then x ^/ y
+                else traitCallOp c
+            | _ ->
+                failwith "F# operator expecting 3 type arguments"
             |> MacroOk
         | _ -> MacroError "divisionMacro error"
 
@@ -91,16 +115,16 @@ type Arith(name, op) =
         | [x; y] ->
             match c.Method.Generics with
             | t :: _ when not (isIn scalarTypes t) ->
-                Application (ItemGet(x, Value (String name)), [y], true, Some 1)
+                traitCallOp c
             | _ -> Binary(x, op, y)
             |> MacroOk
         | _ -> MacroError "divisionMacro error"
 
 [<Sealed>]
-type Add() = inherit Arith("add", BinaryOperator.``+``) 
+type Add() = inherit Arith("op_Addition", BinaryOperator.``+``) 
 
 [<Sealed>]
-type Sub() = inherit Arith("sub", BinaryOperator.``-``) 
+type Sub() = inherit Arith("op_Subtraction", BinaryOperator.``-``) 
 
 type Comparison =
     | ``<``  = 0
@@ -139,6 +163,9 @@ let makeComparison cmp x y =
     | Comparison.``=``  -> eq x y
     | _                 -> Unary (UnaryOperator.``!``, eq x y)
 
+let cInt i = Value (Int i)
+let cString s = Value (Literal.String s)
+
 [<AbstractClass>]
 type CMP(cmp) =
     inherit Macro()
@@ -147,10 +174,28 @@ type CMP(cmp) =
         | [x; y] ->
             match c.Method.Generics with
             | t :: _ ->
-                if isIn scalarTypes t then
+                let comp x y =
                     Binary (x, toBinaryOperator cmp, y)
+                if isIn scalarTypes t then
+                    comp x y
                 else
-                    makeComparison cmp x y
+                    // optimization for checking against argumentless union cases 
+                    let tryGetSingletonUnionCaseTag (x: Expression) =
+                        match x with
+                        | I.NewUnionCase(ct, case, []) ->
+                            match c.Compilation.GetCustomTypeInfo ct.Entity with
+                            | M.FSharpUnionInfo ui when not ui.HasNull ->
+                                ui.Cases |> Seq.mapi (fun i c ->
+                                    if c.Name = case && c.Kind = M.SingletonFSharpUnionCase then Some i else None
+                                ) |> Seq.tryPick id         
+                            | _ -> None
+                        | _ -> None
+                    
+                    match tryGetSingletonUnionCaseTag x, tryGetSingletonUnionCaseTag y with
+                    | Some i, Some j -> comp (cInt i) (cInt j)
+                    | Some i, _ -> comp (cInt i) (y.[cString "$"])
+                    | _, Some j -> comp (x.[cString "$"]) (cInt j)
+                    | _ -> makeComparison cmp x y
                 |> MacroOk
             | _ ->
                 MacroError "comparisonMacro error"
@@ -185,11 +230,6 @@ let toComparison = function
     | BinaryOperator.``==`` -> Comparison.``=``
     | BinaryOperator.``!=`` -> Comparison.``<>``
     | _ -> failwith "Operation wasn't a comparison"
-
-let binOpName = function
-    | BinaryOperator.``+`` -> "add"
-    | BinaryOperator.``-`` -> "sub"
-    | _ -> failwith "No binary operation name for this construct"
 
 // TODO unify these with the oeprations macros
 
@@ -412,8 +452,6 @@ let listOfArrayDef =
         Generics = 1      
     }
 
-module I = IgnoreSourcePos
-
 let getFieldsList q =
     let ``is (=>)`` (td: TypeDefinition) (m: Method) =
         td.Value.FullName = "WebSharper.JavaScript.Pervasives"
@@ -483,7 +521,7 @@ type FuncWithArgsRest() =
         match c.Arguments with
         | [func] ->
             match c.DefiningType.Generics.[0] with
-            | TupleType ts ->
+            | TupleType (ts, _) ->
                 JSRuntime.CreateFuncWithArgsRest (Value (Int (List.length ts))) func |> MacroOk
             | _ ->
                 MacroError "Wrong type argument on FuncWithArgsRest: 'TArgs must be a tuple"
@@ -674,8 +712,6 @@ let flags =
     System.Reflection.BindingFlags.Public
     ||| System.Reflection.BindingFlags.NonPublic
 
-module M = WebSharper.Core.Metadata
-
 let printfHelpersModule =
     TypeDefinition {
         FullName = "WebSharper.PrintfHelpers"
@@ -698,9 +734,6 @@ let cCall e f args = Application (ItemGet(e, !~ (Literal.String f)), args, true,
 let cCallG a args = Application (Global a, args, true, None)
 
 //type FST = Reflection.FSharpType
-
-let cInt i = Value (Int i)
-let cString s = Value (Literal.String s)
 
 let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
     let parts = FormatString.parseAll fs
@@ -737,7 +770,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
     let prettyPrint (t: Type) o = 
         let rec pp (t: Type) (o: Expression) = 
             match t with
-            | TupleType ts ->
+            | TupleType (ts, _) ->
                 seq {
                     yield cString "("
                     for i = 0 to ts.Length - 1 do 
@@ -812,6 +845,8 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                                                 | M.ConstantFSharpUnionCase cVal -> 
                                                     if cVal = Null then Choice3Of3 () 
                                                     else Choice1Of3 (cVal, cString c.Name)
+                                                | M.SingletonFSharpUnionCase ->
+                                                    Choice2Of3(tag, cString c.Name)    
                                                 | M.NormalFSharpUnionCase fs -> 
                                                     Choice2Of3(
                                                         tag,

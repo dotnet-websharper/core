@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" TreatAsLocalProperty="Configuration">
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" TreatAsLocalProperty="Configuration">
   <PropertyGroup>
     <ProjectGuid>{4c826618-e150-40f7-b13a-9182f0c3eaca}</ProjectGuid>
     <Name>WebSharper.InterfaceGenerator.Tests</Name>

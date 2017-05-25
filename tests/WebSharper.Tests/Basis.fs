@@ -20,6 +20,8 @@
 
 module WebSharper.Tests.Basis
 
+open System.Runtime.InteropServices
+
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
@@ -124,6 +126,22 @@ type System.Int32 with
         match System.Int32.TryParse(s) with
         | true, i -> Some i
         | _ -> None
+
+[<JavaScript>]
+type TestOptionals() =
+    member this.Optionals([<Optional; DefaultParameterValue 1>] x : int, [<Optional; DefaultParameterValue 2>] y: int, [<Optional>] z: int) =
+        x + y + z
+
+    member this.TestOptionals() =
+        this.Optionals(4)
+
+[<JavaScript>]
+type SameName() =
+    member this.X() = 3
+    
+[<JavaScript>]
+module SameName =
+    let X() = 4
 
 [<JavaScript>]
 let Tests =
@@ -251,16 +269,23 @@ let Tests =
             isTrueMsg ((1, 8) < (2, 1)) "(1, 8) < (2, 1)"
         }
 
-//        Test "Struct tuples" {
-//            let struct (a, b, c) = struct (1, 2, 3)
-//            equal (a + b + c) 6
-//            let t = struct ("Hello ", "Szia ", "Hej")
-//            let struct (t1, t2, t3) = t
-//            equal (t1 + t2 + t3) "Hello Szia Hej"
-//            isTrueMsg (struct (1, 2) < struct (1, 3)) "(1, 2) < (1, 3)"
-//            isTrueMsg (struct (1, 2) > struct (1, 1)) "(1, 2) > (1, 1)"
-//            isTrueMsg (struct (1, 8) < struct (2, 1)) "(1, 8) < (2, 1)"
-//        }
+        Test "Struct tuples" {
+            let f () =
+                let t = struct (0, 0, 0)
+                let mutable struct (a, b, c) = t
+                a <- 1
+                b <- 2
+                c <- 3
+                t
+            let struct (a, b, c) = struct (1, 2, 3)
+            equal (a + b + c) 6
+            let t = struct ("Hello ", "Szia ", "Hej")
+            let struct (t1, t2, t3) = t
+            equal (t1 + t2 + t3) "Hello Szia Hej"
+            isTrueMsg (struct (1, 2) < struct (1, 3)) "(1, 2) < (1, 3)"
+            isTrueMsg (struct (1, 2) > struct (1, 1)) "(1, 2) > (1, 1)"
+            isTrueMsg (struct (1, 8) < struct (2, 1)) "(1, 8) < (2, 1)"
+        }
 
         Test "Currying" {
             let add (x, y) = x + y
@@ -426,5 +451,12 @@ let Tests =
             inlineStatements()
             isTrue JS.Window?inlineStatementTest1
             isTrue JS.Window?inlineStatementTest2
+        }
+
+        Test "F# 4.1 syntax" {
+            let a = 1_024
+            equalMsg a 1024 "underscores in numeric literals"                
+            equalMsg (TestOptionals().TestOptionals()) 6 "Optional and DefaultParameterValue respected in F# within the same project"
+            equalMsg (SameName().X(), SameName.X()) (3, 4) "implicit Module suffix"
         }
     }

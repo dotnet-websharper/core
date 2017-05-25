@@ -174,6 +174,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     match curriedArgs with 
                     | None -> [] 
                     | Some (_, _, ids, _) -> ids
+                Warn = mAnnot.Warn
             }
         match curriedArgs with
         | Some (mem, ca, args, inst) ->
@@ -672,6 +673,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let hasWSPrototype =                
         Option.isSome baseCls || hasWSPrototype ckind clsMembers
 
+    let mutable hasSingletonCase = false
+    let mutable hasConstantCase = false
+
     if annot.IsJavaScript || hasWSPrototype || isAugmentedFSharpType cls then
         if cls.IsFSharpUnion then
             let usesNull =
@@ -685,8 +689,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
             let cases =
                 cls.UnionCases
-                |> Seq.map (fun case ->
+                |> Seq.mapi (fun i case ->
                     let constantCase v =
+                        hasConstantCase <- true
                         if constants.Add(v) then
                             ConstantFSharpUnionCase v
                         else
@@ -695,7 +700,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             ConstantFSharpUnionCase (String "$$ERROR$$")
                     let cAnnot = sr.AttributeReader.GetMemberAnnot(annot, case.Attributes)
                     let kind =
-                        if nullCase && case.UnionCaseFields.Count = 0 then
+                        let argumentless = case.UnionCaseFields.Count = 0
+                        if nullCase && argumentless then
                             nullCase <- false
                             constantCase Null
                         else
@@ -703,20 +709,33 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | Some (A.MemberKind.Constant v) -> 
                             constantCase v
                         | _ ->
-                            NormalFSharpUnionCase (
-    //                            cAnnot.Name,
-                                case.UnionCaseFields
-                                |> Seq.map (fun f ->
-                                    {
-                                        Name = f.Name
-                                        UnionFieldType = sr.ReadType clsTparams.Value f.FieldType
-                                        DateTimeFormat = 
-                                            cAnnot.DateTimeFormat 
-                                            |> List.tryPick (fun (target, format) -> if target = Some f.Name then Some format else None)
+                            if argumentless then
+                                let caseProp =
+                                    Method {
+                                        MethodName = case.CompiledName
+                                        Parameters = []
+                                        ReturnType = NonGenericType def
+                                        Generics = 0
                                     }
+                                let expr = CopyCtor(def, Object [ "$", Value (Int i) ])
+                                let a = { A.MemberAnnotation.BasicPureJavaScript with Name = Some case.Name }
+                                clsMembers.Add (NotResolvedMember.Method (caseProp, (getUnresolved a N.Static false None expr)))
+                                hasSingletonCase <- true
+                                SingletonFSharpUnionCase
+                            else
+                                NormalFSharpUnionCase (
+                                    case.UnionCaseFields
+                                    |> Seq.map (fun f ->
+                                        {
+                                            Name = f.Name
+                                            UnionFieldType = sr.ReadType clsTparams.Value f.FieldType
+                                            DateTimeFormat = 
+                                                cAnnot.DateTimeFormat 
+                                                |> List.tryPick (fun (target, format) -> if target = Some f.Name then Some format else None)
+                                        }
+                                    )
+                                    |> List.ofSeq
                                 )
-                                |> List.ofSeq
-                            )
                     let staticIs =
                         not usesNull || not (
                             case.Attributes
@@ -878,7 +897,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             Kind = ckind
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
-            ForceNoPrototype = (annot.Prototype = Some false)
+            ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase
+            ForceAddress = hasSingletonCase
         }
     )
 
@@ -1021,6 +1041,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                 IsProxy = false
                 Macros = []
                 ForceNoPrototype = false
+                ForceAddress = false
             }
             
         if sc.IsValueCreated then

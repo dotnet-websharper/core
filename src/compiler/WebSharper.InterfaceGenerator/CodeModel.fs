@@ -266,6 +266,7 @@ module CodeModel =
         val mutable Inline : option<Inline>
         val mutable IsPure : bool
         val mutable Macro : option<T>
+        val mutable Warning : option<string>
 
         internal new (name, t) =
             {
@@ -273,6 +274,7 @@ module CodeModel =
                 Inline = None
                 IsPure = false
                 Macro = None
+                Warning = None
             }
 
     and Constructor =
