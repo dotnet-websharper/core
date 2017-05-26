@@ -1028,7 +1028,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 Value v
             | M.SingletonFSharpUnionCase -> 
                 match comp.TryLookupClassInfo td |> Option.bind (fun cls -> cls.Address) with
-                | Some a -> ItemGet(GlobalAccess a, Value (String case))
+                | Some a -> 
+                    let caseField = Definitions.SingletonUnionCase case
+                    if comp.HasGraph then
+                        this.AddMethodDependency(td, caseField)
+                    ItemGet(GlobalAccess a, Value (String case))
                 | None -> this.Error("Failed to find address for singleton union case.")
             | M.NormalFSharpUnionCase _ ->
                 let objExpr =

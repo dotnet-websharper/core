@@ -585,6 +585,15 @@ module Definitions =
             Assembly = "mscorlib"
             FullName = "System.Boolean"
         }
+
+    // Private static field for single-case unions.
+    let SingletonUnionCase name =
+        Method {
+            MethodName = "_unique_" + name
+            Parameters = []
+            ReturnType = VoidType 
+            Generics = 0
+        }
     
 let ignoreSystemObject td =
     if td = Definitions.Obj then None else Some td

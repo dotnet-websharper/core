@@ -710,16 +710,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             constantCase v
                         | _ ->
                             if argumentless then
-                                let caseProp =
-                                    Method {
-                                        MethodName = case.CompiledName
-                                        Parameters = []
-                                        ReturnType = NonGenericType def
-                                        Generics = 0
-                                    }
+                                let caseField = Definitions.SingletonUnionCase case.CompiledName
                                 let expr = CopyCtor(def, Object [ "$", Value (Int i) ])
                                 let a = { A.MemberAnnotation.BasicPureJavaScript with Name = Some case.Name }
-                                clsMembers.Add (NotResolvedMember.Method (caseProp, (getUnresolved a N.Static false None expr)))
+                                clsMembers.Add (NotResolvedMember.Method (caseField, (getUnresolved a N.Static false None expr)))
                                 hasSingletonCase <- true
                                 SingletonFSharpUnionCase
                             else
