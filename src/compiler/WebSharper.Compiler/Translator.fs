@@ -1336,15 +1336,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | "WebSharper.JavaScript.Function" ->
                 TypeOf "function"
             | _ ->
-                match comp.TryLookupClassInfo t with
-                | Some c ->
-                    match c.Address with
-                    | Some a ->
-                        InstanceOf a
-                    | _ ->
-                        PlainObject
-                | _ -> 
-                    match comp.GetCustomType t with
+                match comp.TryLookupClassAddressOrCustomType t with
+                | Choice1Of2 (Some a) ->
+                    InstanceOf a
+                | Choice1Of2 None ->
+                    PlainObject
+                | Choice2Of2 ct -> 
+                    match ct with
                     | M.DelegateInfo _ ->
                         TypeOf "function"
                     | M.FSharpRecordInfo _
@@ -1386,15 +1384,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | tname ->
                 if not (List.isEmpty gs) then
                     this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
-                match comp.TryLookupClassInfo t with
-                | Some c ->
-                    match c.Address with
-                    | Some a ->
-                        Binary(trExpr, BinaryOperator.instanceof, GlobalAccess a)
-                    | _ ->
-                        this.Error("Type test cannot be translated because client-side class does not have a prototype, add the Prototype attribute to it: " + t.Value.FullName)
-                | _ -> 
-                    match comp.GetCustomType t with
+                match comp.TryLookupClassAddressOrCustomType t with
+                | Choice1Of2 (Some a) ->
+                    Binary(trExpr, BinaryOperator.instanceof, GlobalAccess a)
+                | Choice1Of2 None ->
+                    this.Error("Type test cannot be translated because client-side class does not have a prototype, add the Prototype attribute to it: " + t.Value.FullName)
+                | Choice2Of2 ct -> 
+                    match ct with
                     | M.FSharpUnionCaseInfo c ->
                         let tN = t.Value.FullName
                         let nestedIn = tN.[.. tN.LastIndexOf '+' - 1]

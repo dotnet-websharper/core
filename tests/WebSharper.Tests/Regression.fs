@@ -259,6 +259,8 @@ module Bug625 =
     
     let g() = ignore (f ())        
 
+open Bug625
+
 [<JavaScript>]
 type CurriedInst<'T>(x : 'T) =    
     member this.X = x
@@ -287,6 +289,10 @@ let TreeReduce (defaultValue: 'A) (reduction: 'A -> 'A -> 'A) (array: 'A[]) : 'A
 
 module Bug695 =
     type testtype = { mutable r: int }
+
+type TypeCheckTestWithSingletonCase =
+    | NotSingleton of string
+    | Singleton
 
 [<JavaScript>]
 let Tests =
@@ -624,6 +630,15 @@ let Tests =
                 old     
             let res = test_ws_bug { Bug695.r = 2 }   
             equal res 2
+        }
+
+        Test "Type check for union with singleton case" {
+            let u1 : Union<string, TypeCheckTestWithSingletonCase> = Union1Of2 "hi"  
+            isTrue (match u1 with Union1Of2 "hi" -> true | _ -> false)
+            let u2 : Union<string, TypeCheckTestWithSingletonCase> = Union2Of2 (NotSingleton "hi")
+            isTrue (match u2 with Union2Of2 (NotSingleton "hi") -> true | _ -> false)
+            let u3 : Union<string, TypeCheckTestWithSingletonCase> = Union2Of2 Singleton
+            isTrue (match u3 with Union2Of2 Singleton -> true | _ -> false)
         }
 
 //        Test "Recursive module value" {

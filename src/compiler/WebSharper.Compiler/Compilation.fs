@@ -371,6 +371,13 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.TryLookupClassInfo typ =   
         classes.TryFind(this.FindProxied typ)
+
+    member this.TryLookupClassAddressOrCustomType typ =   
+        // unions may have an address for singleton fields but no prototype, treat this case first
+        match this.TryLookupClassInfo typ, this.GetCustomType typ with
+        | Some c, ((FSharpUnionInfo _ | FSharpUnionCaseInfo _) as ct) when not c.HasWSPrototype -> Choice2Of2 ct
+        | Some c, _ -> Choice1Of2 c.Address
+        | _, ct -> Choice2Of2 ct
     
     member this.TryLookupInterfaceInfo typ =   
         interfaces.TryFind(this.FindProxied typ)
