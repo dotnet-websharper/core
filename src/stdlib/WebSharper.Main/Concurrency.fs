@@ -334,6 +334,7 @@ let Parallel (cs: seq<C<'T>>) : C<'T[]> =
 
 [<JavaScript; Pure>]
 let StartChild (r : C<'T>, t: Milliseconds option) : C<C<'T>> =
+    ()
     fun c ->
         let inTime = ref true
         let cached = ref None

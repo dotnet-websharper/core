@@ -220,4 +220,11 @@ let Tests =
                 !res
             equal x 2
         }
+
+        Test "StartChild" { 
+            let! a = Async.StartChild (async.Return 1)
+            let! b = Async.StartChild (async.Return 2)
+            equalAsync a 1
+            equalAsync b 2
+        }
     }
