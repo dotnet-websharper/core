@@ -52,7 +52,7 @@ module LoaderUtility =
 type Loader(aR: AssemblyResolver, log: string -> unit) =
 
     let load flp (bytes: byte[]) (symbols: option<Symbols>) (aR: AssemblyResolver) =
-        use str = new MemoryStream(bytes)
+        let str = new MemoryStream(bytes)
         let par = Mono.Cecil.ReaderParameters()
         par.AssemblyResolver <- Resolver aR
         par.ReadingMode <- Mono.Cecil.ReadingMode.Deferred

@@ -10,7 +10,7 @@
     <TargetFrameworkProfile />
   </PropertyGroup>
   <Import Project="../../../msbuild/FSharp.targets" />
-  <Import Project="../../../msbuild/Mono.Cecil.Roslyn.targets" />
+  <Import Project="../../../msbuild/Mono.Cecil.targets" />
   <ItemGroup>
     <Compile Include="Abbreviations.fs" />
     <Compile Include="AssemblyResolution.fsi" />
@@ -47,8 +47,6 @@
     <Compile Include="api/Content.fs" />
     <Compile Include="api/Loader.fsi" />
     <Compile Include="api/Loader.fs" />
-    <Compile Include="api/Context.fsi" />
-    <Compile Include="api/Context.fs" />
     <Compile Include="Reflector.fsi" />
     <Compile Include="Reflector.fs" />
     <Compile Include="FrontEnd.fs" />
