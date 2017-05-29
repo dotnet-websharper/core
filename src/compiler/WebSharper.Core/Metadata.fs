@@ -125,13 +125,18 @@ type Optimizations =
     {
         IsPure : bool
         FuncArgs : option<list<FuncArgOptimization>>
+        Warn : option<string>
     }
 
     static member None =
         {
             IsPure = false
             FuncArgs = None
+            Warn = None
         }
+    
+    member this.IsNone =
+        not this.IsPure && Option.isNone this.FuncArgs && Option.isNone this.Warn
 
 type ClassInfo =
     {
@@ -192,6 +197,7 @@ type UnionCaseFieldInfo =
 type FSharpUnionCaseKind =
     | NormalFSharpUnionCase of list<UnionCaseFieldInfo> 
     | ConstantFSharpUnionCase of Literal 
+    | SingletonFSharpUnionCase 
 
 type FSharpUnionCaseInfo =
     {
@@ -382,6 +388,7 @@ type ICompilation =
     abstract ParseJSInline : string * list<Expression> -> Expression
     abstract NewGenerated : string list -> TypeDefinition * Method * Address
     abstract AddGeneratedCode : Method * Expression -> unit
+    abstract AddGeneratedInline : Method * Expression -> unit
     abstract AssemblyName : string with get
     abstract GetMetadataEntries : MetadataEntry -> list<MetadataEntry>
     abstract AddMetadataEntry : MetadataEntry * MetadataEntry -> unit
@@ -402,7 +409,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "4.0-beta6"
+    let CurrentVersion = "4.0-beta7"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

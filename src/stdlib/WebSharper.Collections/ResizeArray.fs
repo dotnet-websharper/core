@@ -29,6 +29,7 @@ let push (arr: 'T []) (x: 'T) = ()
 [<Direct "Array.prototype.splice.apply($arr, [$index, $howMany].concat($items))">]
 let splice (arr: 'T []) (index: int) (howMany: int) (items: 'T[]) : 'T [] = items
 
+[<Name "WebSharper.Collections.ListEnumerator">]
 [<Proxy(typeof<System.Collections.Generic.List.Enumerator<_>>)>]
 type ResizeArrayEnumeratorProxy<'T> [<JavaScript>] (arr: 'T[]) =
     let mutable i = -1

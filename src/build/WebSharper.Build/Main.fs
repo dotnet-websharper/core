@@ -66,7 +66,7 @@ module Main =
         Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
         |> Seq.map (fun p -> (p, p.Substring(dir.Length).Replace("\\", "/")))
 
-    let private coreExports, fsExports, csExports, testingExports, compilerExports =
+    let private coreExports, fsExports, csExports, testingExports, testsExports, compilerExports =
         let lib name =
             Seq.concat [
                 Directory.EnumerateFiles(buildDir, name + ".dll")
@@ -132,6 +132,19 @@ module Main =
         lib "WebSharper.Testing"
         ,
         Seq.concat [
+            lib "WebSharper.CSharp.Sitelets.Tests"
+            lib "WebSharper.CSharp.Tests"
+            lib "WebSharper.Collections.Tests"
+            lib "WebSharper.Html5.Tests"
+            lib "WebSharper.InterfaceGenerator.Tests"
+            lib "WebSharper.Sitelets.Tests"
+            lib "WebSharper.Web.Tests"
+            lib "WebSharper.Tests"
+            lib "Website"
+        ]
+        |> Seq.toList
+        ,
+        Seq.concat [
             toolsFSharp "WebSharper.Compiler"
             toolsFSharp "WebSharper.Compiler.FSharp"
             toolsCSharp "WebSharper.Compiler.CSharp"
@@ -182,6 +195,7 @@ module Main =
         let fsharpNuPkg =
             let bt =
                 bt.PackageId(Config.FSharpPackageId, version)
+                |> PackageVersion.Full.Custom v
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -199,7 +213,7 @@ module Main =
                                 yield fileAt (Path.Combine(root, "msbuild", "Zafir.FSharp.targets")) ("build/" + Config.FSharpPackageId + ".targets")
                                 yield fileTools (out "FSharp/WsFsc.exe")
                                 yield fileTools (out "FSharp/WsFsc.exe.config")
-                                let fscore = Path.Combine(root, "packages", "FSharp.Core.4.0.0.1", "lib", "net40")
+                                let fscore = Path.Combine(root, "packages", "FSharp.Core.4.1.17", "lib", "net40")
                                 yield fileTools (Path.Combine(fscore, "FSharp.Core.optdata"))
                                 yield fileTools (Path.Combine(fscore, "FSharp.Core.sigdata"))
                                 for src in fsExports do
@@ -210,6 +224,7 @@ module Main =
         let csharpNuPkg =
             let bt =
                 bt.PackageId(Config.CSharpPackageId, version)
+                |> PackageVersion.Full.Custom v
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -237,6 +252,7 @@ module Main =
         let testingNuPkg =
             let bt =
                 bt.PackageId(Config.TestingPackageId, version)
+                |> PackageVersion.Full.Custom v
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -258,6 +274,7 @@ module Main =
         let compilerNuPkg =
             let bt =
                 bt.PackageId(Config.CompilerPackageId, version)
+                |> PackageVersion.Full.Custom v
             bt.NuGet.CreatePackage()
                 .Configure(fun x ->
                     {
@@ -276,7 +293,30 @@ module Main =
                                     yield fileLib45 src
                             }
                 }
-        [ nuPkg; fsharpNuPkg; csharpNuPkg; testingNuPkg; compilerNuPkg ]
+        let testsNupkg =
+            let bt =
+                bt.PackageId(Config.TestsPackageId, version)
+                |> PackageVersion.Full.Custom v
+            bt.NuGet.CreatePackage()
+                .Configure(fun x ->
+                    {
+                        x with
+                            Description = Config.TestsDescription
+                            ProjectUrl = Some Config.Website
+                            LicenseUrl = Some Config.LicenseUrl
+                            Authors = [ Config.Company ]
+                    })
+                .AddDependency(Config.PackageId, nuPkg.GetComputedVersion())
+                .AddDependency(Config.TestingPackageId, testingNuPkg.GetComputedVersion())
+                .AddNuGetExportingProject {
+                    new INuGetExportingProject with
+                        member p.NuGetFiles =
+                            seq {
+                                for src in testsExports do
+                                    yield fileLib45 src
+                            }
+                }
+        [ nuPkg; fsharpNuPkg; csharpNuPkg; testingNuPkg; testsNupkg; compilerNuPkg ]
 
     let Package () =
         let nuPkgs = nuPkgs ()

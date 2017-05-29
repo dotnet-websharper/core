@@ -128,12 +128,27 @@ let CombineStatements statements =
             | Return _ ->
                 go <- false
                 true
+            | FuncDeclaration _ -> true
             | _ -> go
         )    
     match woEmpty with
     | [] -> Empty
     | [s] -> s
     | _ -> Block woEmpty
+
+/// Combines a list of AST.Expressions into a single AST.Expression
+let CombineExpressions exprs =
+    let rec collect es =
+        es |> Seq.collect (fun e ->  
+            match IgnoreExprSourcePos e with 
+            | Undefined -> Seq.empty 
+            | Sequential i -> collect i
+            | i -> Seq.singleton i
+        )
+    match collect exprs |> List.ofSeq with
+    | [] -> Undefined
+    | [ a ] -> a
+    | res -> Sequential res
 
 /// Creates a GlobalAccess case from an access list in normal order
 let Global a = GlobalAccess (Address (List.rev a))

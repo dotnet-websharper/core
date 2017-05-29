@@ -20,6 +20,8 @@
 
 module WebSharper.Tests.Basis
 
+open System.Runtime.InteropServices
+
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
@@ -36,130 +38,6 @@ let rec private factorial n =
     match n with
     | 0 -> 1
     | n -> n * factorial (n - 1)
-
-[<JavaScript>]
-let private tailRecFactorialCurried n =
-    let rec factorial acc n =
-        match n with
-        | 0 -> acc
-        | n -> factorial (n * acc) (n - 1)
-    factorial 1 n
-
-[<JavaScript>]
-let private tailRecFactorialCurried2 n =
-    let rec factorial acc = function
-        | 0 -> acc
-        | n -> factorial (n * acc) (n - 1)
-    factorial 1 n
-
-[<JavaScript>]
-let private tailRecFactorialTupled n =
-    let rec factorial (acc, n) =
-        match n with
-        | 0 -> acc
-        | n -> factorial (n * acc, n - 1)
-    factorial (1, n)
-
-[<JavaScript>]
-let private tailRecSingle n =
-    let rec f n =
-        if n > 0 then f (n - 1) else 0
-    f n
-
-[<JavaScript>]
-let tailRecScoping n =
-    let rec f acc n =
-        if n > 0 then f ((fun () -> n) :: acc) (n - 1) else acc
-    f [] n
-
-[<JavaScript>]
-let private tailRecSingleNoReturn n =
-    let rec f n =
-        if n > 0 then f (n - 1)
-    f n
-
-[<JavaScript>]
-let private tailRecSingleUsedInside n =
-    let mutable setf = fun x -> 0
-    let rec f n =
-        setf <- fun x -> f x
-        if n > 0 then f (n - 1) else 0
-    f n
-
-[<JavaScript>]
-let private tailRecMultiple n =
-    let rec f n =
-        if n > 0 then g (n - 1) else 0
-    and g n =
-        if n > 0 then f (n - 1) else 1
-    f n
-
-[<JavaScript>]
-let private tailRecMultipleNoReturn n =
-    let rec f n =
-        if n > 0 then g (n - 1)
-    and g n =
-        if n > 0 then f (n - 1)
-    f n
-
-[<JavaScript>]
-let private tailRecWithMatch l =
-    let rec f acc l =
-        match l with
-        | [] -> acc
-        | h :: t -> f (h :: acc) t
-    f [] l
-
-[<JavaScript>]
-let rec moduleTailRecSingle n =
-    if n > 0 then moduleTailRecSingle (n - 1) else 0
-
-let rec [<JavaScript>] moduleTailRecMultiple1 n =
-    if n > 0 then moduleTailRecMultiple2 (n - 1) else 0
-and [<JavaScript>] moduleTailRecMultiple2 n =
-    if n > 0 then moduleTailRecMultiple1 (n - 1) else 1
-
-[<JavaScript>]
-type TailRec() =
-    let rec classTailRecSingle n =
-        if n > 0 then classTailRecSingle (n - 1) else 0
-
-    let rec classTailRecCurried n m =
-        if n > 0 then classTailRecCurried (n - 1) (m - 1) else 0
-
-    let rec classTailRecSingleUsedInside n =
-        let mutable setf = fun x -> 0
-        let rec f n =
-            setf <- fun x -> f x
-            if n > 0 then f (n - 1) else 0
-        f n
-
-    let rec classTailRecMultiple1 n =
-        if n > 0 then classTailRecMultiple2 (n - 1) else 0
-    and classTailRecMultiple2 n =
-        if n > 0 then classTailRecMultiple1 (n - 1) else 1
-
-    member this.TailRecSingle n = classTailRecSingle n
-    member this.TailRecMultiple n = classTailRecMultiple1 n
-
-    member this.TailRecSingle2 n =
-        if n > 0 then this.TailRecSingle2 (n - 1) else 0
-
-[<JavaScript>]
-let private tailRecWithValue n =
-    let rec f n =
-        if n > 0 then f (n - i) else i
-    and i = 1
-    f n
-
-[<JavaScript>]
-let private tailRecMultipleWithValue n =
-    let rec f n =
-        if n > 0 then g (n - i) else 0
-    and g n =
-        if n > 0 then f (n - i) else 1
-    and i = 1
-    f n
 
 [<JavaScript>]
 let rec private forall f = function
@@ -215,6 +93,15 @@ type private T1 [<JavaScript>] () =
 [<Inline "isNaN($x)">]
 let private isNaN (x: double) = System.Double.IsNaN x
 
+[<Inline "var a = 21; a = 2*a; return a">]
+let inlineReturn () = X<int>
+
+[<Inline "inlineStatementTest = true;">]
+let inlineStatement () = X<unit>
+
+[<Inline "inlineStatementTest1 = true; inlineStatementTest2 = true;">]
+let inlineStatements () = X<unit>
+
 [<JavaScript>]
 let InnerGenerics pred l =
     let rec loop l cont =
@@ -226,6 +113,35 @@ let InnerGenerics pred l =
         | x::xs when pred x -> loop xs (fun rest -> cont (x::rest))
         | _ -> failwith "Unrecognized pattern"
     loop l id
+
+[<JavaScript>]
+let (|Odd|Even|) x = if x % 2 = 0 then Even else Odd
+
+[<JavaScript>]
+let (|Negative|_|) x = if x < 0 then Some -x else None
+
+type System.Int32 with
+    [<JavaScript>]
+    static member TryParseOpt(s: string) =
+        match System.Int32.TryParse(s) with
+        | true, i -> Some i
+        | _ -> None
+
+[<JavaScript>]
+type TestOptionals() =
+    member this.Optionals([<Optional; DefaultParameterValue 1>] x : int, [<Optional; DefaultParameterValue 2>] y: int, [<Optional>] z: int) =
+        x + y + z
+
+    member this.TestOptionals() =
+        this.Optionals(4)
+
+[<JavaScript>]
+type SameName() =
+    member this.X() = 3
+    
+[<JavaScript>]
+module SameName =
+    let X() = 4
 
 [<JavaScript>]
 let Tests =
@@ -255,33 +171,12 @@ let Tests =
             fun () -> a
 
         Test "Let" {
-            equalMsg [] (closedLet()) "[] = closedLet"
+            equalMsg (closedLet()) [] "[] = closedLet"
         }
 
         Test "Factorial" {
-            equalMsg (6 * 5 * 4 * 3 * 2) (fac 6)       "fac 6"
-            equalMsg (6 * 5 * 4 * 3 * 2) (factorial 6) "factorial 6"
-        }
-
-        Test "Tail calls" {
-            equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialCurried 6) "curried tail call"
-            equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialCurried2 6) "curried tail call with function"
-            equalMsg (6 * 5 * 4 * 3 * 2) (tailRecFactorialTupled 6) "tupled tail call"
-            equalMsg 0 (tailRecSingle 5) "single let rec"
-            equalMsg [1; 2; 3; 4; 5] (tailRecScoping 5 |> List.map (fun f -> f())) "scoping while tail call optimizing"
-            equalMsg [ 1; 2; 3 ] (tailRecWithMatch [ 3; 2; 1 ]) "single let rec with non-inlined match expression"
-            equalMsg 1 (tailRecMultiple 5) "mutually recursive let rec"
-            equalMsg 1 (tailRecWithValue 5) "mutually recursive let rec with a function and a value"
-            equalMsg 1 (tailRecMultipleWithValue 5) "mutually recursive let rec with two functions and a value"
-            equalMsg 0 (moduleTailRecSingle 5) "single let rec in module"
-            equalMsg 1 (moduleTailRecMultiple1 5) "mutually recursive let rec in module 1"
-            equalMsg 0 (moduleTailRecMultiple2 5) "mutually recursive let rec in module 2"
-            let o = TailRec()
-            equalMsg 0 (o.TailRecSingle 5) "single let rec in class constructor"
-            equalMsg 1 (o.TailRecMultiple 5) "mutually recursive let rec in class constructor"
-            // test if there is no infinite loop
-            tailRecSingleNoReturn 5
-            tailRecMultipleNoReturn 5
+            equalMsg (fac 6) (6 * 5 * 4 * 3 * 2) "fac 6"
+            equalMsg (factorial 6) (6 * 5 * 4 * 3 * 2) "factorial 6"
         }
 
         let propPeano x = x = Peano.toNat (Peano.ofNat x)
@@ -374,16 +269,23 @@ let Tests =
             isTrueMsg ((1, 8) < (2, 1)) "(1, 8) < (2, 1)"
         }
 
-//        Test "Struct tuples" {
-//            let struct (a, b, c) = struct (1, 2, 3)
-//            equal (a + b + c) 6
-//            let t = struct ("Hello ", "Szia ", "Hej")
-//            let struct (t1, t2, t3) = t
-//            equal (t1 + t2 + t3) "Hello Szia Hej"
-//            isTrueMsg (struct (1, 2) < struct (1, 3)) "(1, 2) < (1, 3)"
-//            isTrueMsg (struct (1, 2) > struct (1, 1)) "(1, 2) > (1, 1)"
-//            isTrueMsg (struct (1, 8) < struct (2, 1)) "(1, 8) < (2, 1)"
-//        }
+        Test "Struct tuples" {
+            let f () =
+                let t = struct (0, 0, 0)
+                let mutable struct (a, b, c) = t
+                a <- 1
+                b <- 2
+                c <- 3
+                t
+            let struct (a, b, c) = struct (1, 2, 3)
+            equal (a + b + c) 6
+            let t = struct ("Hello ", "Szia ", "Hej")
+            let struct (t1, t2, t3) = t
+            equal (t1 + t2 + t3) "Hello Szia Hej"
+            isTrueMsg (struct (1, 2) < struct (1, 3)) "(1, 2) < (1, 3)"
+            isTrueMsg (struct (1, 2) > struct (1, 1)) "(1, 2) > (1, 1)"
+            isTrueMsg (struct (1, 8) < struct (2, 1)) "(1, 8) < (2, 1)"
+        }
 
         Test "Currying" {
             let add (x, y) = x + y
@@ -506,5 +408,55 @@ let Tests =
                 let f x = x + 1
                 f 1, f 2
             equal res (2, 3)
+        }
+
+        Test "Active patterns" {
+            let isOdd x = 
+                match x with 
+                | Odd -> true
+                | Even -> false
+            isTrue (isOdd 1)
+            isFalse (isOdd 2)
+
+            let (|LocalOdd|LocalEven|) x = if x % 2 = 0 then LocalEven else LocalOdd
+
+            let isOddLocal x = 
+                match x with 
+                | LocalOdd -> true
+                | LocalEven -> false
+            isTrue (isOddLocal 1)
+            isFalse (isOddLocal 2)
+
+            let testNegativePattern x =
+                match x with
+                | Negative y -> x = -y
+                | _ -> x >= 0
+            isTrue (testNegativePattern -5)
+            isTrue (testNegativePattern 0)
+            isTrue (testNegativePattern 5)                
+        }
+
+        Test "Static type augmentation" {
+            equal (System.Int32.TryParseOpt "no") None
+            equal (System.Int32.TryParseOpt "123") (Some 123)
+        }
+
+        Test "Inlined return statement" {
+            equal (inlineReturn()) 42
+        }
+
+        Test "Inlined statement" {
+            inlineStatement()
+            isTrue JS.Window?inlineStatementTest
+            inlineStatements()
+            isTrue JS.Window?inlineStatementTest1
+            isTrue JS.Window?inlineStatementTest2
+        }
+
+        Test "F# 4.1 syntax" {
+            let a = 1_024
+            equalMsg a 1024 "underscores in numeric literals"                
+            equalMsg (TestOptionals().TestOptionals()) 6 "Optional and DefaultParameterValue respected in F# within the same project"
+            equalMsg (SameName().X(), SameName.X()) (3, 4) "implicit Module suffix"
         }
     }

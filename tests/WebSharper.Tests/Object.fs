@@ -183,6 +183,13 @@ type Farm() as this =
     member x.Self() = this
 //    member this.CowToo() = cow
 
+[<JavaScript; Prototype false>]
+type ClassWithNoPrototype(x) =
+    let y = x + 1
+
+    member this.Y() = y
+    member this.X(a) = this.Y() - 1 + a
+
 [<JavaScript>]
 let Tests =
     TestCategory "Object" {
@@ -263,6 +270,15 @@ let Tests =
             equal r4.KO5 None
             equal r4.K5 2
             equal r4 (New [ "K5" => 2 ])
+
+            jsEqual (r.JS.Constructor) (JS.Global?Object)
+            jsEqual (r3.JS.Constructor) (JS.Global?Object)
+
+            let ru = Union1Of2 r3 : Union<_, string>
+            equal (match ru with Union1Of2 r -> r.K5 | _ -> 0) 2
+
+            let ru2 = Union2Of2 r3 : Union<string, _>
+            equal (match ru2 with Union2Of2 r -> r.K5 | _ -> 0) 2
         }
 
         Test "Optimized field access" {
@@ -406,6 +422,12 @@ let Tests =
             equal (o.Self().Cow()) "moo"
             jsEqual o?this JS.Undefined 
         } 
+
+        Test "Class with Prototype(false)" {
+            let o = ClassWithNoPrototype(40)
+            equal (o.X(2)) 42
+            jsEqual (o.JS.Constructor) (JS.Global?Object)
+        }
         
         #if FSHARP41
         Test "Struct union" {

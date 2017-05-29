@@ -177,6 +177,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 Requires = mAnnot.Requires
                 FuncArgs = None
                 Args = []
+                Warn = mAnnot.Warn
             }
 
     let addMethod mAnnot def kind compiled expr =
@@ -210,9 +211,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     syntax :?> PropertyDeclarationSyntax
                     |> RoslynHelpers.PropertyDeclarationData.FromNode
                 let cdef = NonGeneric def
+                let hasBody (a : RoslynHelpers.AccessorDeclarationData) =
+                    a.Body.IsSome || a.ExpressionBody.IsSome
                 match data.AccessorList with
                 | None -> ()
-                | Some acc when (Seq.head acc.Accessors).Body.IsSome -> ()
+                | Some acc when hasBody(Seq.head acc.Accessors) -> ()
                 | _ ->
                 let b = 
                     match data.Initializer with
@@ -690,6 +693,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 origName.[.. origName.LastIndexOf '.'] + n
         )   
 
+    let ckind = 
+        if cls.IsStatic then NotResolvedClassKind.Static
+        elif (annot.IsJavaScript && cls.IsAbstract) || (annot.Prototype = Some true)
+        then NotResolvedClassKind.WithPrototype
+        else NotResolvedClassKind.Class
+
     Some (
         def,
         {
@@ -697,9 +706,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             BaseClass = cls.BaseType |> sr.ReadNamedTypeDefinition |> ignoreSystemObject
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
-            Kind = if cls.IsStatic then NotResolvedClassKind.Static else NotResolvedClassKind.Class
+            Kind = ckind
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
+            ForceNoPrototype = (annot.Prototype = Some false)
+            ForceAddress = false
         }
     )
 

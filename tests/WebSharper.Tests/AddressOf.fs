@@ -39,6 +39,9 @@ type AddressOfTests() =
         AddressOfTests.AddOne(&x)
         AddressOfTests.AddOne(&x)
 
+    static member ByRefReturn (x, a: byref<int>, b: byref<int>) =
+        if x then &a else &b
+
 [<JavaScript>]
 type MutableRecord = 
     {
@@ -112,4 +115,17 @@ let Tests =
 
             equal (AddressOfTests.OutOne()) 1
         }      
+
+        Test "Byref returns" {
+            let res =
+                let mutable a = 0
+                let mutable b = 0
+                let ar = AddressOfTests.ByRefReturn(true, &a, &b) 
+                let br = AddressOfTests.ByRefReturn(false, &a, &b) 
+                ar <- 1
+                br <- 2
+                a, b
+
+            equal res (1, 2)
+        }
     }

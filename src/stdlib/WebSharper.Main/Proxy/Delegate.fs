@@ -23,6 +23,7 @@ namespace WebSharper
 open System
 open WebSharper.JavaScript
 
+[<Name "WebSharper.Delegate">]
 [<Proxy(typeof<Delegate>)>]
 type internal DelegateProxy =
 //    member this.GetLastInvoke() =

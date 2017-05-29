@@ -24,6 +24,7 @@ open WebSharper.Core
 open WebSharper.Core.AST
 
 module S = WebSharper.Core.JavaScript.Syntax
+module P = WebSharper.Core.JavaScript.Parser
 type SB = WebSharper.Core.JavaScript.Syntax.BinaryOperator
 
 type Environment =
@@ -229,7 +230,12 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
                     else
                         failwithf "Unrecognized IntelliFactory.Runtime function: %s" f
                 | _ -> failwith "expected a function of IntelliFactory.Runtime"     
-            elif env.IsPure then ItemGet(trA, trC) 
+            elif env.IsPure then 
+                let optA =
+                    match trA with
+                    | ItemGet(GlobalAccess a, Value (String b)) -> GlobalAccess (Address (b :: a.Value))
+                    | _ -> trA
+                ItemGet(optA, trC) 
             else ItemGetNonPure(trA, trC)
         | SB.``/``      -> Binary(trE a, BinaryOperator.``/``, trE c)
         | SB.``/=``     -> mbin a MutatingBinaryOperator.``/=`` c
@@ -283,7 +289,15 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
                 StatementExpr(FuncDeclaration(f, vars, transformStatement innerEnv body), Some f)
         innerEnv.Vars.Head.Values |> Seq.choose (function Var i -> Some i | _ -> None)
         |> Seq.fold makePossiblyImmutable fres
-    | S.New (a, b) -> New(trE a, List.map trE b)
+    | S.New (a, b) -> 
+        let trA = trE a
+        let optA =
+            if env.IsPure then
+                match trA with
+                | ItemGet(GlobalAccess a, Value (String b)) -> GlobalAccess (Address (b :: a.Value))
+                | _ -> trA
+            else trA
+        New(optA, List.map trE b)
     | S.NewArray a -> NewArray (a |> List.map (function Some i -> trE i | _ -> Undefined))
     | S.NewObject a -> Object(a |> List.map (fun (b, c) -> b, trE c))
     | S.NewRegex a -> 
@@ -395,13 +409,30 @@ and transformStatement (env: Environment) (statement: S.Statement) =
         FuncDeclaration(f, vars, transformStatement innerEnv body)
     | S.StatementComment _ -> failwith "impossible, comments are not parsed"
 
+type InlinedStatementsTransformer() =
+    inherit StatementTransformer()
+    
+    let mutable returnVar = None
+
+    override this.TransformReturn(expr) =
+        let rv =
+            match returnVar with
+            | None -> 
+                let rv = Id.New("r")
+                returnVar <- Some rv
+                rv
+            | Some rv -> rv
+        
+        VarSetStatement(rv, expr)
+
+    member this.Run(st) =
+        let res = this.TransformStatement(st)
+        StatementExpr(res, returnVar)
+                
 let createInline thisArg args isPure inlineString =        
-    let s = 
-        inlineString 
-        |> WebSharper.Core.JavaScript.Parser.Source.FromString
     let parsed = 
-        try s |> WebSharper.Core.JavaScript.Parser.ParseExpression |> Choice1Of2
-        with _ -> s |> WebSharper.Core.JavaScript.Parser.ParseProgram |> Choice2Of2 
+        try inlineString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
+        with _ -> inlineString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2 
     let b =
         match parsed with
         | Choice1Of2 e ->
@@ -410,16 +441,13 @@ let createInline thisArg args isPure inlineString =
             p
             |> S.Block
             |> transformStatement (Environment.New(thisArg, false, isPure, args))
-            |> IgnoredStatementExpr
+            |> InlinedStatementsTransformer().Run
     makeExprInline (Option.toList thisArg @ args) b
 
 let parseDirect thisArg args jsString =
-    let s = 
-        jsString 
-        |> WebSharper.Core.JavaScript.Parser.Source.FromString
     let parsed = 
-        try s |> WebSharper.Core.JavaScript.Parser.ParseExpression |> Choice1Of2
-        with _ -> s |> WebSharper.Core.JavaScript.Parser.ParseProgram |> Choice2Of2 
+        try jsString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
+        with _ -> jsString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2 
     let body =
         match parsed with
         | Choice1Of2 e ->
@@ -434,7 +462,7 @@ let parseGeneratedJavaScript e =
     e |> transformExpression Environment.Empty
 
 let parseGeneratedString s =
-    s |> WebSharper.Core.JavaScript.Parser.Source.FromString
-    |> WebSharper.Core.JavaScript.Parser.ParseExpression
+    s |> P.Source.FromString
+    |> P.ParseExpression
     |> parseGeneratedJavaScript
 

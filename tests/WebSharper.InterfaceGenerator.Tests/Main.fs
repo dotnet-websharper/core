@@ -49,7 +49,7 @@ module Definition =
                 |> WithInteropInline (fun tr -> "WIGtest.ArgsFuncIn(" + tr "add" + ")") 
             "ArgsFuncInStrings" => (String * String ^-> O)?f ^-> O
             "ArgsFuncOut" => O ^-> (Int * Int ^-> Int)
-            Generic - fun a -> "GetGetThis" => O ^-> (a -* O ^-> a)            
+            Generic - fun a -> "GetGetThis" => O ^-> (a -* O ^-> a) |> WithWarning "Testing WIG WithWarning, you should see this"           
             "FuncInWithThis" => (JustX -* O ^-> String) ^-> String
             "ArgFuncInWithThis" => (JustX -* Int ^-> String) ^-> String
             "ArgsFuncInWithThis" => (JustX -* Int * Int ^-> String) ^-> String

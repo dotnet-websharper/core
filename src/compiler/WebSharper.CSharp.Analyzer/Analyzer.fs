@@ -25,18 +25,14 @@ type WebSharperCSharpAnalyzer () =
     static let wsError = 
         new DiagnosticDescriptor ("WebSharperError", "WebSharper errors", "{0}", "WebSharper", DiagnosticSeverity.Error, true, null, null)
 
-    let mutable assemblyResolveHandler =
-        ResolveEventHandler(fun _ e ->
+    static do  
+        System.AppDomain.CurrentDomain.add_AssemblyResolve(fun _ e ->
             if AssemblyName(e.Name).Name = "FSharp.Core" then
                 typeof<option<_>>.Assembly
             else null
         )
 
     let mutable compiling = false;
-
-    do  System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
-
-    let mutable assemblyResolveHandler = null
     let mutable lastRefPaths = [ "" ]
     let mutable cachedRefErrorsAndMeta = None
 
@@ -84,9 +80,10 @@ type WebSharperCSharpAnalyzer () =
         )
         initCtx.RegisterSemanticModelAction(fun ctx ->
             if compiling then () else
+                this.Analyze(ctx.SemanticModel.Compilation :?> CSharpCompilation, ctx)
+        )
 
-            let compilation = ctx.SemanticModel.Compilation :?> CSharpCompilation
-
+    member this.Analyze(compilation: CSharpCompilation, ctx: SemanticModelAnalysisContext) =
             let refPaths =
                 compilation.ExternalReferences |> Seq.choose (fun r -> 
                     match r with
@@ -108,19 +105,15 @@ type WebSharperCSharpAnalyzer () =
                         )
                         |> Map.ofSeq
 
-                    System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
-
-                    assemblyResolveHandler <- ResolveEventHandler(fun _ e ->
-                            let assemblyName = AssemblyName(e.Name).Name
-                            if assemblyName = "FSharp.Core" then
-                                typeof<option<_>>.Assembly
-                            else
-                                match Map.tryFind assemblyName referencedAsmNames with
-                                | None -> null
-                                | Some p -> Assembly.LoadFrom(p)
-                        )
-
-                    System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
+                    System.AppDomain.CurrentDomain.add_AssemblyResolve(fun _ e ->
+                        let assemblyName = AssemblyName(e.Name).Name
+                        if assemblyName = "FSharp.Core" then
+                            typeof<option<_>>.Assembly
+                        else
+                        match Map.tryFind assemblyName referencedAsmNames with
+                        | None -> null
+                        | Some p -> Assembly.LoadFrom(p)
+                    )
 
                     let metas = refPaths |> List.map this.GetRefMeta
                     let refErrors = metas |> List.choose snd
@@ -165,5 +158,3 @@ type WebSharperCSharpAnalyzer () =
 
             with e ->
                 ctx.ReportDiagnostic(Diagnostic.Create(wsWarning, Location.None, sprintf "WebSharper analyzer failed: %s at %s" e.Message e.StackTrace))            
-        )
-

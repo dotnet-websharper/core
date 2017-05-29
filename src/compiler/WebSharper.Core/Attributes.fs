@@ -68,6 +68,11 @@ type DirectAttribute(template: string) =
 type PureAttribute() =
     inherit A()
 
+/// Adds a compiler warning whenever annotated member is used from client-side code.
+[<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
+type WarnAttribute(warning: string) =
+    inherit A()
+
 /// Marks methods, properties and constructors for compilation to JavaScript.
 [<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct)>]
 type JavaScriptAttribute() =
@@ -198,3 +203,14 @@ type DateTimeFormatAttribute =
 [<Sealed; U(T.Method)>]
 type SPAEntryPointAttribute() = 
     inherit A()
+
+/// Marks a type to be translated to have a prototype if it would not have one otherwise.
+/// This is needed if you want to do type checks in client code against it.
+[<Sealed; U(T.Class|||T.Struct)>]
+type PrototypeAttribute() =
+    inherit A()
+    
+    /// Prototype(true) is equivalent to Prototype().
+    /// Prototype(false) forces to have no prototype, tranlating instance methods to static,
+    /// usable only for sealed classes and F# unions and records.
+    new (force: bool) = PrototypeAttribute()

@@ -43,6 +43,40 @@ type ReplaceIds(repl : System.Collections.Generic.IDictionary<Id, Id>) =
         | true, j -> j
         | _ -> i
 
+let rec removePureParts expr =
+    match expr with
+    | Undefined
+    | This
+    | Base
+    | Var _
+    | Value _
+    | Function _ 
+    | GlobalAccess _
+    | Self
+        -> Undefined
+    | Sequential a
+    | NewArray a 
+        -> CombineExpressions (a |> List.map removePureParts) 
+    | Conditional (a, b, c) 
+        -> Conditional (a, removePureParts b, removePureParts c) 
+    | ItemGet(a, b)
+    | Binary (a, _, b)
+        -> CombineExpressions [removePureParts a; removePureParts b]
+    | Let (v, a, b)
+        -> Let (v, a, removePureParts b)
+    | Unary (_, a) 
+    | TypeCheck(a, _)
+        -> removePureParts a     
+    | ExprSourcePos (p, a)
+        -> ExprSourcePos (p, removePureParts a)     
+    | Object a 
+        -> a |> List.map (snd >> removePureParts) |> CombineExpressions
+    | LetRec (a, b) 
+        -> LetRec (a, removePureParts b)
+    | Application(a, b, true, _) ->
+        CombineExpressions ((a :: b) |> List.map removePureParts)
+    | _ -> expr
+
 /// Determine if expression has no side effect
 let rec isPureExpr expr =
     match expr with
@@ -117,7 +151,6 @@ let rec isStronglyPureExpr expr =
         -> List.forall isStronglyPureExpr a 
     | Conditional (a, b, c) 
         -> isStronglyPureExpr a && isStronglyPureExpr b && isStronglyPureExpr c
-    | ItemGet(a, b)
     | Binary (a, _, b)
     | Let (_, a, b)
     | Coalesce(a, _, b) 
@@ -301,6 +334,10 @@ let varEvalOrder (vars : Id list) expr =
     eval expr
     ok && List.isEmpty vars   
 
+let sameVars vars args =
+    args |> List.forall (function I.Var _ -> true | _ -> false)
+    && vars = (args |> List.map (function I.Var v -> v | _ -> failwith "impossible")) 
+
 /// Counts the number of occurrences of a single Id within an
 /// expression or statement. Useful for Let optimization.
 type CountVarOccurence(v) =
@@ -329,6 +366,10 @@ type VarsNotUsed(vs : seq<Id>) =
     override this.VisitId(a) =
         if vs.Contains a then 
             ok <- false
+
+    override this.VisitExpression(e) =
+        if ok then
+            base.VisitExpression(e) 
 
     member this.Get(e) =
         if vs.Count = 0 then true else
@@ -469,6 +510,7 @@ module JSRuntime =
     let Class members basePrototype statics = runtimeFunc "Class" true [members; basePrototype; statics]
     let Ctor ctor typeFunction = runtimeFunc "Ctor" true [ctor; typeFunction]
     let Cctor cctor = runtimeFunc "Cctor" true [cctor]
+    let Clone obj = runtimeFunc "Clone" true [obj]
     let GetOptional value = runtimeFunc "GetOptional" true [value]
     let SetOptional obj field value = runtimeFunc "SetOptional" false [obj; field; value]
     let DeleteEmptyFields obj fields = runtimeFunc "DeleteEmptyFields" false [obj; NewArray fields] 
@@ -478,6 +520,7 @@ module JSRuntime =
     let Curried f n = runtimeFuncI "Curried" true 3 [f; Value (Int n)]
     let Curried2 f = runtimeFuncI "Curried2" true 1 [f]
     let Curried3 f = runtimeFuncI "Curried3" true 1 [f]
+    let CurriedA f n arr = runtimeFuncI "Curried" true 3 [f; Value (Int n); arr]
     let Apply f args = runtimeFunc "Apply" false [f; NewArray args]
     let Apply2 f a b = runtimeFunc "Apply2" false [f; a; b]
     let Apply3 f a b c = runtimeFunc "Apply3" false [f; a; b; c]
@@ -541,6 +584,15 @@ module Definitions =
         TypeDefinition {
             Assembly = "mscorlib"
             FullName = "System.Boolean"
+        }
+
+    // Private static field for single-case unions.
+    let SingletonUnionCase name =
+        Method {
+            MethodName = "_unique_" + name
+            Parameters = []
+            ReturnType = VoidType 
+            Generics = 0
         }
     
 let ignoreSystemObject td =
@@ -871,8 +923,8 @@ type Capturing(?var) =
         let res = this.TransformExpression expr  
         if capture then
             match captVal with
-            | None -> Application (Function ([], Return res), [], false, Some 0)
-            | Some c -> Application (Function ([c], Return res), [Var var.Value], false, Some 1)        
+            | None -> Application (Function ([], Return res), [], false, None)
+            | Some c -> Application (Function ([c], Return res), [Var var.Value], false, None)        
         else expr
 
 type NeedsScoping() =
@@ -891,20 +943,6 @@ type NeedsScoping() =
         if scope = 0 then
             defined.Add var |> ignore
         this.VisitExpression value
-
-    override this.VisitLet(var, value, body) =
-        if scope = 0 then
-            defined.Add var |> ignore
-        this.VisitExpression value
-        this.VisitExpression body
-
-    override this.VisitLetRec(defs, body) = 
-        if scope = 0 then
-            for var, _ in defs do
-                defined.Add var |> ignore
-        for _, value in defs do
-            this.VisitExpression value
-        this.VisitExpression body         
     
     override this.VisitId i =
         if scope > 0 && defined.Contains i then 
@@ -915,9 +953,14 @@ type NeedsScoping() =
         this.VisitStatement body
         scope <- scope - 1
 
-    member this.Check(args, expr) =
+    override this.VisitExpression expr =
+        if not needed then
+            base.VisitExpression expr
+
+    member this.Check(args: seq<Id>, expr) =
         for a in args do
-            defined.Add a |> ignore
+            if a.IsMutable then
+                defined.Add a |> ignore
         this.VisitExpression expr  
         needed
 
@@ -1129,9 +1172,9 @@ let (|CurriedFunction|_|) expr =
 let (|CurriedApplicationSeparate|_|) expr =
     let rec appl args expr =
         match expr with
-        | Application(func, [], p, l) ->
+        | Application(func, [], p, Some _) ->
             appl (Value Null :: args) func 
-        | Application(func, [a], p, l) ->
+        | Application(func, [a], p, Some _) ->
             appl (a :: args) func 
         | CurriedApplication(func, a) ->
             appl (a @ args) func
@@ -1157,9 +1200,19 @@ type OptimizeLocalTupledFunc(var, tupling) =
             | [ I.NewArray ts ] when ts.Length = tupling ->
                 Application (func, ts |> List.map this.TransformExpression, isPure, Some tupling)
             | [ t ] ->
-                Application((Var v).[Value (String "apply")], [ Value Null; this.TransformExpression t ], isPure, Some 2)               
+                Application((Var v).[Value (String "apply")], [ Value Null; this.TransformExpression t ], isPure, None)               
             | _ -> failwith "unexpected tupled FSharpFunc applied with multiple arguments"
         | _ -> base.TransformApplication(func, args, isPure, length)
+
+let curriedApplication func args =
+    let func, args =
+        match func with
+        | CurriedApplicationSeparate (f, fa) -> f, fa @ args
+        | _ -> func, args
+    match List.length args with
+    | 0 -> func
+    | 1 -> Application (func, args, false, Some 1)
+    | _ -> CurriedApplication(func, args)
 
 type OptimizeLocalCurriedFunc(var, currying) =
     inherit Transformer()
@@ -1173,7 +1226,12 @@ type OptimizeLocalCurriedFunc(var, currying) =
     override this.TransformCurriedApplication(func, args) =
         match func with
         | Var v when v = var ->
-            Application(func, args |> List.map this.TransformExpression, false, Some args.Length)    
+            if args.Length >= currying then
+                let cargs, moreArgs = args |> List.splitAt currying
+                let f = Application(func, cargs |> List.map this.TransformExpression, false, Some currying)  
+                curriedApplication f (moreArgs |> List.map this.TransformExpression)
+            else
+                base.TransformCurriedApplication(func, args)             
         | _ -> base.TransformCurriedApplication(func, args)
 
 #if DEBUG

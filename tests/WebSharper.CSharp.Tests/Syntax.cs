@@ -228,11 +228,13 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public void RefTest()
         {
-            int x = 0, y;
+            int x = 0;
             Increment(ref x);
             Equal(x, 1);
-            OutOne(out y);
+            OutOne(out var y);
             Equal(y, 1);
+            OutOne(out int z);
+            Equal(z, 1);
             var a = new[] { 2 };
             Increment(ref a[0]);
             Equal(a[0], 3);
@@ -305,6 +307,7 @@ namespace WebSharper.CSharp.Tests
         public int field = 4;
         public int fieldDefVal;
         public int Prop { get; set; } = 5;
+        public int PropDupl { get => Prop; set => Prop = value; }
         public int PropDefVal { get; set; }
         public int RenamedProp { [Name("RnProp")] get; [Name("setRnProp")] set; } = 6;
         [Name("RnProp2")]
@@ -316,6 +319,11 @@ namespace WebSharper.CSharp.Tests
             Equal(field, 4);
             Equal(fieldDefVal, 0);
             Equal(Prop, 5);
+            Equal(PropDupl, 5);
+            Prop += 10;
+            Equal(PropDupl, 15);
+            PropDupl += 15;
+            Equal(PropDupl, 30);
             Equal(PropDefVal, 0);
             Equal(RenamedProp, 6);
             RenamedProp = 7;
@@ -444,6 +452,13 @@ namespace WebSharper.CSharp.Tests
             Equal(a.x, 1);
             a = new[] { 2 };
             Equal(a[0], 2);
+        }
+
+        [Test]
+        public void Default()
+        {
+            Equal(default(int), 0);
+            Equal(default(string), null);
         }
     }
 

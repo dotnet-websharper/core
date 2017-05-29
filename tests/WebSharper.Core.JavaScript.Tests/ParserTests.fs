@@ -33,7 +33,7 @@ let private pp s =
 
 let private ps s =
     match pp s with
-    | [S.Action s] -> s
+    | [ s ] -> s
     | _ -> invalidArg "s" "Not a statement."
 
 let Run () =
@@ -152,7 +152,7 @@ let Run () =
     Test "block" {
         let t x y =
             match pp x with
-            | [S.Action (S.Block x)] -> Seq.toList x =? y
+            | [ S.Block x ] -> Seq.toList x =? y
             | _ -> ()
         t "{}" []
         t "{1;}" [S.Ignore (!~ (S.Number "1"))]

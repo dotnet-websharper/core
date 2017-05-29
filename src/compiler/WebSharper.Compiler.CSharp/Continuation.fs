@@ -277,6 +277,8 @@ type ContinuationTransformer(labels) =
     let labelLookup = dict (labels |> Seq.mapi (fun i l -> l, i + 1)) 
     let stateVar = Id.New "$state"
     let topLabel = Id.New "$top"
+    let localFunctions = ResizeArray()
+
 //    let mutable currentFinallyIndex = None
 //    let mutable hasFinally = false
 //    let pendingStateVar = Id.New "$stateAfterFinally"
@@ -298,6 +300,8 @@ type ContinuationTransformer(labels) =
 
     member this.StateVar = stateVar
     
+    member this.LocalFunctions = localFunctions :> _ seq
+
     override this.TransformGoto(a) =
         gotoIndex labelLookup.[a]
 
@@ -306,6 +310,10 @@ type ContinuationTransformer(labels) =
             ExprStatement <| VarSet(stateVar, Value (Int labelLookup.[a]))
             this.Yield b
         ]
+
+    override this.TransformFuncDeclaration(f, args, body) =
+        localFunctions.Add(FuncDeclaration(f, args, body))  
+        Empty
             
     member this.TransformMethodBodyInner(s: Statement) =
         let states = ResizeArray()
@@ -441,6 +449,7 @@ type GeneratorTransformer(labels) =
                     Block [
                         yield VarDeclaration(en, CopyCtor(enumeratorTy, Object ["d", Function ([], Empty)])) // TODO: disposing iterators
                         yield VarDeclaration(this.StateVar, Value (Int 0))
+                        yield! this.LocalFunctions
                         for v in extract.Vars do
                             yield VarDeclaration(v, Undefined)
                         yield ExprStatement <| ItemSet(Var en, Value (String "n"), Function ([], inner))
@@ -500,6 +509,7 @@ type AsyncTransformer(labels, returns) =
             yield VarDeclaration(this.StateVar, Value (Int 0))
             for v in extract.Vars do
                 yield VarDeclaration(v, Undefined)
+            yield! this.LocalFunctions
             yield ExprStatement <| VarSet(run, Function ([], inner))
             yield ExprStatement <| Application (Var run, [], false, Some 0)
             if returns <> ReturnsVoid then 

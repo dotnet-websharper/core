@@ -48,7 +48,7 @@ module BundleUtility =
         M.Node.AssemblyNode (a.FullName, true)
 
 [<Sealed>]
-type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, ?appConfig: string) =
+type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, ?appConfig: string) =
 
     let metas =
         set
@@ -130,7 +130,9 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, ?appConfig: st
         let htmlHeadersContext = htmlHeadersContext getSetting
         
         let nodes = graph.GetDependencies [ M.EntryPointNode ]        
-        let current = trimMetadata meta nodes 
+        let current = 
+            if dce then trimMetadata meta nodes 
+            else meta
 
         for d in graph.GetResourcesOf nodes do
             match mode with

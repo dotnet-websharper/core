@@ -303,30 +303,37 @@ type TailCallTransformer(env) =
             ]
         |> AddCapturing(args).TransformStatement
 
-    member this.Recurse(fArgs, origArgs, args: list<_>, index) =
+    member this.Recurse(fArgs, origArgs: list<_>, args: list<_>, index) =
         Sequential [
             // if recurring with multiple arguments,
             // current values sometimes need copying
             if args.Length > 1 then
                 let nowCopying = HashSet()
-                fArgs |> Seq.iteri (fun i a ->
-                    let checker = VarsNotUsed(Seq.take (i + 1) origArgs)
-                    let needsCopy =
-                        args |> Seq.skip (i + 1) |> Seq.exists (fun b ->
-                            not (checker.Get(b))
-                        )                       
-                    if needsCopy then 
-                        nowCopying.Add a |> ignore
-                        if not (argCopies.ContainsKey a) then
-                            argCopies.Add(a, Id.New(?name = a.Name)) 
-                )
+                let recArgs =
+                    fArgs |> Seq.mapi (fun i a ->
+                        let ar = args.[i]
+                        match ar with
+                        | I.Var v when a = v -> None
+                        | _ ->
+                            let oa = origArgs.[i]
+                            let needsCopy =
+                                args |> Seq.skip (i + 1) |> Seq.exists (fun b ->
+                                    containsVar oa b
+                                )                       
+                            if needsCopy then 
+                                nowCopying.Add a |> ignore
+                                if not (argCopies.ContainsKey a) then
+                                    argCopies.Add(a, Id.New(?name = a.Name, mut = false)) 
+                            Some (a, ar)
+                    )
+                    |> Seq.choose id |> List.ofSeq
                 copying.UnionWith(nowCopying)
                 for a in nowCopying do
                     yield VarSet(argCopies.[a], Var a)    
                 match index with
                 | Some (iv, i) -> yield VarSet(iv, Value (Int i))  
                 | None -> ()
-                for x, v in Seq.zip fArgs args do
+                for x, v in recArgs do
                     yield VarSet(x, this.TransformExpression v)
                 copying.ExceptWith(nowCopying)
                 yield StatementExpr (DoNotReturn, None)
@@ -395,6 +402,8 @@ type TailCallTransformer(env) =
                 match value with
                 | Lambda(args, fbody, isReturn) ->
                     matchedBindings.Add(var, Choice1Of2 (args, fbody))
+                    for a in args do
+                        transformIds.Add(a, a.ToMutable())
                     numArgs <- max numArgs args.Length 
                     funcCount <- funcCount + 1
                 | _ -> matchedBindings.Add(var, Choice2Of2 value)
@@ -429,7 +438,7 @@ type TailCallTransformer(env) =
                 match value with     
                 | Choice1Of2 (args, _) ->
                     let aargs = List.init args.Length (fun j -> newArgs.[j])
-                    args |> List.iteri (fun j a -> transformIds.Add(a, newArgs.[j]))
+                    args |> List.iteri (fun j a -> transformIds.[a] <- newArgs.[j])
                     transforming.Add(var, (aargs, args, Some(indexVar, i)))
                     i <- i + 1
                 | _ -> ()
@@ -468,14 +477,17 @@ type TailCallTransformer(env) =
                 env.SelfTailCall := None
                 isUsed
             | None -> false
-        if isTailRecMethodFunc then
+        match isTailRecMethodFunc, body with
+        | true, (I.Return b | I.ExprStatement b) ->
             selfCallArgs <- Some args
+            for a in args do
+                transformIds.Add(a, a.ToMutable())
             Function(args,
                 While (Value (Bool true), 
-                    this.TransformStatement(body))       
+                    Return (this.TransformExpression(b)))       
                 |> withCopiedArgs args
             )             
-        else
+        | _ ->
             base.TransformFunction(args, body)
 
     override this.TransformCall(obj, td, meth, args) =

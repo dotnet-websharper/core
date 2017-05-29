@@ -31,6 +31,10 @@ let Tests =
         Test "Construction" {
             let s = Queue()
             equal s.Count 0
+            let s2 = Queue([ 1 .. 5])
+            equal s2.Count 5
+            equal (s2.Dequeue()) 1
+            equal s2.Count 4
         }
 
         Test "Enqueue" {

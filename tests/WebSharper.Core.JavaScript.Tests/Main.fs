@@ -22,8 +22,8 @@ module WebSharper.Core.JavaScript.Test.Main
 
 [<EntryPoint>]
 let main args =
-//    ParserTests.Run()
-//    WriterTests.Run()
+    ParserTests.Run()
+    WriterTests.Run()
     CompilerTests.Run()
     let res =Testing.Report()
     System.Console.ReadKey() |> ignore

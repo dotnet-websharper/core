@@ -259,6 +259,19 @@ module Bug625 =
     
     let g() = ignore (f ())        
 
+open Bug625
+
+[<JavaScript>]
+type CurriedInst<'T>(x : 'T) =    
+    member this.X = x
+
+type [<JavaScript>] CurriedInst =
+    static member Test<'T> (x: CurriedInst<'T>) f g h = h (f x.X : int) (g x.X : int)
+
+type CurriedInst<'T> with  
+    // this is optimized wrong, the this parameter is not enclosed properly
+    member this.Test a b c = CurriedInst.Test this a b c :int
+
 [<JavaScript>]
 let TreeReduce (defaultValue: 'A) (reduction: 'A -> 'A -> 'A) (array: 'A[]) : 'A =
     let l = array.Length // this should not be inlined, as it is also captured
@@ -273,6 +286,13 @@ let TreeReduce (defaultValue: 'A) (reduction: 'A -> 'A -> 'A) (array: 'A[]) : 'A
             let b = loop (off + l2) (len - l2)
             reduction a b
     loop 0 l
+
+module Bug695 =
+    type testtype = { mutable r: int }
+
+type TypeCheckTestWithSingletonCase =
+    | NotSingleton of string
+    | Singleton
 
 [<JavaScript>]
 let Tests =
@@ -368,6 +388,18 @@ let Tests =
                 for f in funcs do
                     f()
             equal (res.ToArray()) arr
+        }
+
+        Test "Curried apply optimizations" {
+            let f = (fun a b -> a + b) 1
+            let g = (fun a b c -> a + b + c) 1 2
+            let h = (fun a b c d -> a + b + c + d) 1 2 3
+            let addL = [ fun x y -> x + y ]
+            let o = (fun y -> addL.Head y)
+            equal (f 10) 11
+            equal (g 10) 13        
+            equal (h 10) 16    
+            equal (o 3 5) 8    
         }
 
         Test "Bug #231" {
@@ -560,17 +592,53 @@ let Tests =
             let g a b c d e = a + b + c + d + e
             equal ("a" |> g "a" "a" "a" "a") "aaaaa"
             equal ("b" |> g "b" "b" "b" "b") "bbbbb"
+            equal ("a" |> Bug590.Curried5 "a" "a" "a" "a") "aaaaa"
+            equal ("b" |> Bug590.Curried5 "b" "b" "b" "b") "bbbbb"
             let h = Bug590.Curried5
             equal (h "a" "a" "a" "a" "a") "aaaaa"
             equal (h "b" "b" "b" "b" "b") "bbbbb"
             let i = Bug590.Curried5 "x"
             equal ("a" |> i "a" "a" "a") "xaaaa"
             equal ("b" |> i "b" "b" "b") "xbbbb"
+            let j = Bug590.Curried5 "x" "y"
+            equal ("a" |> j "a" "a") "xyaaa"
+            equal ("b" |> j "b" "b") "xybbb"
         }
 
         Test "Bug #625: Inlined ignore" {
             Bug625.g()
             equal Bug625.w "Correct"
+        }
+
+        Test "Bug #671" {
+            let x = CurriedInst(10)
+            let r = x.Test <| (fun a -> a + 1) <| (fun b -> b - 1) <| (fun a b -> a * b)
+            equal r 99
+        }
+
+        Test "Bug #680 do not eta-reduce" {
+            let openThePit howmany =
+                failwithf "Attacked by %i flying monkeys" howmany
+            let e saveMeDelayedExecution = saveMeDelayedExecution |> (openThePit 1000000)
+            equal (sprintf "%A" e) "<fun>"       
+        }
+
+        Test "Bug #695 ItemGet should not be strongly pure" {
+            let test_ws_bug (t: Bug695.testtype) =
+                let old = t.r
+                t.r <- 1
+                old     
+            let res = test_ws_bug { Bug695.r = 2 }   
+            equal res 2
+        }
+
+        Test "Type check for union with singleton case" {
+            let u1 : Union<string, TypeCheckTestWithSingletonCase> = Union1Of2 "hi"  
+            isTrue (match u1 with Union1Of2 "hi" -> true | _ -> false)
+            let u2 : Union<string, TypeCheckTestWithSingletonCase> = Union2Of2 (NotSingleton "hi")
+            isTrue (match u2 with Union2Of2 (NotSingleton "hi") -> true | _ -> false)
+            let u3 : Union<string, TypeCheckTestWithSingletonCase> = Union2Of2 Singleton
+            isTrue (match u3 with Union2Of2 Singleton -> true | _ -> false)
         }
 
 //        Test "Recursive module value" {

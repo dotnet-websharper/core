@@ -696,8 +696,7 @@ namespace WebSharper.CSharp.Tests
 
         private IEnumerable<int> emptySeq()
         {
-            // Necessary so the compiler realizes this is a yield function
-            if (false) { yield return 1; }
+            yield break;
         }
 
         private int[] arr = new int[] { 1, 2, 3, 4, 5, 6 };

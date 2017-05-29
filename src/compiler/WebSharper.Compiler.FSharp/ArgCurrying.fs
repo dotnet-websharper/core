@@ -46,7 +46,7 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list) =
             | TupledFuncArg _ -> Some a
             | _ -> None
         ) |> Seq.choose id |> HashSet
-    let iargs = margs |> Seq.mapi (fun i a -> a, i) |> dict
+    let iargs = margs |> Seq.mapi (fun i a -> a, i) |> dict |> Dictionary
 
     let appl =
         opts |> Seq.map (fun c ->
@@ -97,8 +97,12 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list) =
         this.VisitStatement body
 
     override this.VisitLet(var, value, body) =
-        match value with
+        match IgnoreExprSourcePos value with
         | Hole _ when iargs.ContainsKey var -> this.VisitExpression(body)
+        | ArgIndex i -> 
+            cargs.Add var |> ignore
+            iargs.Add(var, i)  
+            this.VisitExpression(body)
         | _ -> base.VisitLet(var, value, body)
 
     override this.VisitCall(thisOpt, typ, meth, args) =
@@ -145,6 +149,7 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
     inherit Transformer()
 
     let cargs = dict al
+    let mutable noHoleLets = true
          
     override this.TransformVar(v) =
         match cargs.TryGetValue v with
@@ -153,13 +158,16 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
         | _ -> Var v
     
     override this.TransformHole(i) =
-        // only real arguments of instance methods was analyzed
-        let j = if isInstance then i - 1 else i
-        if j = -1 then Hole 0 else
-        match al.[j] with
-        | _, (CurriedFuncArg _ | TupledFuncArg _ as opt) ->
-            OptimizedFSharpArg(Hole i, opt)
-        | _ -> Hole i
+        // only want this for holes that was optimized so that there is no let
+        if noHoleLets then
+            // only real arguments of instance methods was analyzed
+            let j = if isInstance then i - 1 else i
+            if j = -1 then Hole 0 else
+            match al.[j] with
+            | _, (CurriedFuncArg _ | TupledFuncArg _ as opt) ->
+                OptimizedFSharpArg(Hole i, opt)
+            | _ -> Hole i
+        else Hole i
 
     override this.TransformCurriedApplication(func, args: Expression list) =
         match func with
@@ -168,11 +176,11 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
             | true, CurriedFuncArg a ->
                 let ucArgs, restArgs = args |> List.map this.TransformExpression |> List.splitAt a
                 let inner = Application(Var f, ucArgs, false, Some a)
-                CodeReader.curriedApplication inner restArgs
+                curriedApplication inner restArgs
             | true, TupledFuncArg a ->
                 match args with
                 | t :: rArgs ->
-                    CodeReader.curriedApplication (this.TransformApplication(func, [t], false, Some 1))
+                    curriedApplication (this.TransformApplication(func, [t], false, Some 1))
                         (List.map this.TransformExpression rArgs)
                 | _ -> failwith "tupled func must have arguments"
             | _ -> base.TransformCurriedApplication(func, args)
@@ -192,6 +200,12 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
                     failwith "tupled function applied with multiple arguments"    
             | _ -> normal()    
         | _ -> normal()
+
+    member this.TransformBody e =
+        match e with
+        | Let (_, Hole _, _) -> noHoleLets <- false 
+        | _ -> ()
+        this.TransformExpression e
     
 type ResolveFuncArgs(comp: Compilation) =
     let members = Dictionary<Member, NotResolvedMethod * Id list * bool>()
@@ -291,8 +305,4 @@ type ResolveFuncArgs(comp: Compilation) =
             let cs = rArgs.[mem]
             nr.FuncArgs <- Some cs
             let tr = FuncArgTransformer(List.zip args cs, isInstance)
-            try
-                nr.Body <- tr.TransformExpression(nr.Body)
-            with e ->
-                failwithf "Error while optimizing function arguments of %A: args.Length=%d Error: %s at %s"
-                    mem args.Length e.Message e.StackTrace
+            nr.Body <- tr.TransformBody(nr.Body)

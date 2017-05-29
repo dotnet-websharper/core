@@ -104,11 +104,11 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
     TimedStage "Source position transformations"
 
     let meta =
-        use s = new MemoryStream(8 * 1024)
-        M.IO.Encode s currentPosFixed
-        s.ToArray()
-
-    TimedStage "Writing metadata"
+        System.Threading.Tasks.Task.Run(fun () ->
+            use s = new MemoryStream(8 * 1024)
+            M.IO.Encode s currentPosFixed
+            s.ToArray()
+        )
 
     let pkg = 
         Packager.packageAssembly refMeta current false
@@ -122,9 +122,14 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
             removeSourcePos.TransformExpression pkg
 
     let res = ResizeArray()
-
-    res.Add(EMBEDDED_METADATA, meta)
     
+    let addMeta() =
+        meta.Wait()
+
+        TimedStage "Waiting on metadata serialization"
+
+        res.Add(EMBEDDED_METADATA, meta.Result)
+
     if pkg <> AST.Undefined then
         
         let getCodeWriter() = 
@@ -144,12 +149,15 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
             res.Add(EMBEDDED_MINMAP, getBytes m))
         TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
 
+        addMeta()
         Some js, res.ToArray()
-
     else
         res.Add(EMBEDDED_MINJS, [||])
         res.Add(EMBEDDED_JS, [||])
+
+        addMeta()
         None, res.ToArray()
+
 
 let ModifyCecilAssembly (refMeta: M.Info) (current: M.Info) sourceMap (a: Mono.Cecil.AssemblyDefinition) =
     let jsOpt, res = CreateResources None refMeta current sourceMap a.Name.Name

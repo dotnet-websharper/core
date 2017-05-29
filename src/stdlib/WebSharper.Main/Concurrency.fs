@@ -59,7 +59,6 @@ let internal Register (ct: CT) (callback: unit -> unit) =
             member this.Dispose() = ct.Registrations.[i] <- ignore
         }
 
-[<JavaScript>]
 type AsyncBody<'T> =
     {
         k  : Result<'T> -> unit
@@ -115,11 +114,12 @@ let private checkCancel r =
     ()
     fun c -> if c.ct.IsCancellationRequested then cancel c else r c
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Return (x: 'T) : C<'T> =
-    checkCancel <| fun c -> c.k (Ok x)
+    ()
+    fun c -> c.k (Ok x)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Bind (r: C<'T>, f: 'T -> C<'R>) =
     checkCancel <| fun c ->
         r { 
@@ -129,22 +129,23 @@ let Bind (r: C<'T>, f: 'T -> C<'R>) =
             ct = c.ct
         }
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Combine (a: C<unit>, b: C<'T>) : C<'T> = 
     Bind (a, fun _ -> b)
 
-[<JavaScript>]
-let Ignore (r: C<'T>): C<unit> =
-    Bind (r, fun _ -> Return ())
+[<Inline>]
+let Ignore (r: C<'T>): C<unit> = As<C<unit>> r
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Delay (mk: unit -> C<'T>) : C<'T> =
-    checkCancel <| fun c ->
+    ()
+    fun c ->
         try mk () c with e -> c.k (No e)
 
-[<JavaScript>]
-let TryFinally (run: C<'T>, f: unit -> unit) =
-    checkCancel <| fun c ->
+[<JavaScript; Pure>]
+let TryFinally (run: C<'T>, f: unit -> unit) : C<'T> =
+    ()
+    fun c ->
         run {
             k = fun r -> 
                 try f ()
@@ -153,9 +154,10 @@ let TryFinally (run: C<'T>, f: unit -> unit) =
             ct = c.ct
         }
 
-[<JavaScript>]
-let TryWith (r: C<'T>, f: exn -> C<'T>) =
-    checkCancel <| fun c ->
+[<JavaScript; Pure>]
+let TryWith (r: C<'T>, f: exn -> C<'T>) : C<'T> =
+    ()
+    fun c ->
         r {
             k = function
                 | Ok x -> c.k (Ok x)
@@ -164,9 +166,10 @@ let TryWith (r: C<'T>, f: exn -> C<'T>) =
             ct = c.ct
         }
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Catch (r : C<'T>) : C<Choice<'T, exn>> =
-    checkCancel <| fun c ->
+    ()
+    fun c ->
         try r {
                 k = function 
                     | Ok x -> c.k (Ok (Choice1Of2 x))
@@ -176,13 +179,15 @@ let Catch (r : C<'T>) : C<Choice<'T, exn>> =
             }
         with e -> c.k (Ok (Choice2Of2 e))
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let GetCT : C<CT> =
-    checkCancel <| fun c -> c.k (Ok c.ct)
+    ()
+    fun c -> c.k (Ok c.ct)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let FromContinuations (subscribe: ('T -> unit) * (exn -> unit) * (OCE -> unit) -> unit) : C<'T> =
-    checkCancel <| fun c ->
+    ()
+    fun c ->
         let continued = ref false
         let once cont : unit =
             if !continued then failwith "A continuation provided by Async.FromContinuations was invoked multiple times" else
@@ -197,7 +202,7 @@ let FromContinuations (subscribe: ('T -> unit) * (exn -> unit) * (OCE -> unit) -
 [<JavaScript>]
 let StartWithContinuations (c: C<'T>, s: 'T -> unit, f: exn -> unit, cc: OCE -> unit, ctOpt) =
     let ct = defaultArg ctOpt (As !defCTS)
-    fork (fun () -> 
+    if not ct.IsCancellationRequested then
         c {
             k = function
                 | Ok x -> s x
@@ -205,19 +210,41 @@ let StartWithContinuations (c: C<'T>, s: 'T -> unit, f: exn -> unit, cc: OCE -> 
                 | Cc e -> cc e
             ct = ct
         }
-    )
+
+[<JavaScript>]
+let UncaughtAsyncError (e: exn) =
+    Console.Log ("WebSharper: Uncaught asynchronous exception", e)
 
 [<JavaScript>]
 let Start (c: C<unit>, ctOpt) =
-    StartWithContinuations (c, ignore, 
-        fun exn -> Console.Log ("WebSharper: Uncaught asynchronous exception", exn)
-    , ignore, ctOpt)
+    let ct = defaultArg ctOpt (As !defCTS)
+    fork (fun () -> 
+        if not ct.IsCancellationRequested then
+            c {
+                k = function
+                    | No e -> UncaughtAsyncError e
+                    | _ -> ()
+                ct = ct
+            }
+    )
+
+[<JavaScript>]
+let StartImmediate (c: C<unit>, ctOpt) =
+    let ct = defaultArg ctOpt (As !defCTS)
+    if not ct.IsCancellationRequested then
+        c {
+            k = function
+                | No e -> UncaughtAsyncError e
+                | _ -> ()
+            ct = ct
+        }
 
 #nowarn "40"
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let AwaitEvent (e: IEvent<'T>, ca: option<unit -> unit>) : C<'T> =
-    checkCancel <| fun c ->
+    ()
+    fun c ->
         let rec sub : System.IDisposable =
             e.Subscribe (fun x -> 
                 sub.Dispose()
@@ -235,7 +262,7 @@ let AwaitEvent (e: IEvent<'T>, ca: option<unit -> unit>) : C<'T> =
             ) 
         ()
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let AwaitTask (t: System.Threading.Tasks.Task) : C<unit> =
     FromContinuations (fun (ok, err, cc) ->
         if t.Status = System.Threading.Tasks.TaskStatus.Created then
@@ -250,7 +277,7 @@ let AwaitTask (t: System.Threading.Tasks.Task) : C<unit> =
         ) |> ignore
     )
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let AwaitTask1 (t: System.Threading.Tasks.Task<'T>) : C<'T> =
     FromContinuations (fun (ok, err, cc) ->
         if t.Status = System.Threading.Tasks.TaskStatus.Created then
@@ -271,9 +298,10 @@ let StartAsTask (c: C<'T>, ctOpt) =
     StartWithContinuations (c, tcs.SetResult, tcs.SetException, (fun _ -> tcs.SetCanceled()), ctOpt)
     tcs.Task
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Sleep (ms: Milliseconds) : C<unit> =
-    checkCancel <|  fun c ->
+    ()
+    fun c ->
         let rec pending =
             JS.SetTimeout (fun () -> 
                 creg.Dispose()
@@ -286,11 +314,11 @@ let Sleep (ms: Milliseconds) : C<unit> =
             )
         ()
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Parallel (cs: seq<C<'T>>) : C<'T[]> =
     let cs = Array.ofSeq cs
     if cs.Length = 0 then Return [||] else
-    checkCancel <| fun c ->
+    fun c ->
         let n = Array.length cs
         let o = ref n
         let a = As<'T[]>(JavaScript.Array(n))
@@ -304,9 +332,10 @@ let Parallel (cs: seq<C<'T>>) : C<'T[]> =
             fork (fun () -> run { k = accept i; ct = c.ct }))
             cs
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let StartChild (r : C<'T>, t: Milliseconds option) : C<C<'T>> =
-    checkCancel <| fun c ->
+    ()
+    fun c ->
         let inTime = ref true
         let cached = ref None
         let queue  = Queue()
@@ -321,34 +350,36 @@ let StartChild (r : C<'T>, t: Milliseconds option) : C<C<'T>> =
                 ) timeout |> Some     
             | _ -> None
         fork (fun _ ->
-            r {
-                k = fun res ->
-                    if !inTime then
-                        cached := Some res
-                        match tReg with
-                        | Some r -> JS.ClearTimeout r
-                        | _ -> ()
-                        while queue.Count > 0 do
-                            queue.Dequeue() res
-                ct = c.ct
-            }
+            if not c.ct.IsCancellationRequested then
+                r {
+                    k = fun res ->
+                        if !inTime then
+                            cached := Some res
+                            match tReg with
+                            | Some r -> JS.ClearTimeout r
+                            | _ -> ()
+                            while queue.Count > 0 do
+                                queue.Dequeue() res
+                    ct = c.ct
+                }
         )
-        let r2 =            
-            checkCancel <| fun c2 ->
-                if !inTime then
-                    match cached.Value with
-                    | Some x    -> c2.k x
-                    | None      -> queue.Enqueue c2.k
-                else c2.k (No (System.TimeoutException()))
+        let r2 c2 =            
+            if !inTime then
+                match cached.Value with
+                | Some x    -> c2.k x
+                | None      -> queue.Enqueue c2.k
+            else c2.k (No (System.TimeoutException()))
         c.k (Ok r2)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let OnCancel (action: unit -> unit) : C<System.IDisposable> =
-    checkCancel <| fun c -> c.k (Ok (Register c.ct action))
+    ()
+    fun c -> c.k (Ok (Register c.ct action))
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let TryCancelled (run: C<'T>, comp: OCE -> unit) : C<'T> =
-    checkCancel <| fun c ->
+    ()
+    fun c ->
         run {
             k = function
                 | Cc e as res ->
@@ -358,18 +389,18 @@ let TryCancelled (run: C<'T>, comp: OCE -> unit) : C<'T> =
             ct = c.ct
         }
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Using (x: 'U, f: 'U -> C<'T>) =
     TryFinally (f x, fun () -> (x :> System.IDisposable).Dispose())
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let rec While (g: unit -> bool, c: C<unit>) : C<unit> = 
     if g() then 
         Bind (c, fun () -> While (g, c)) 
     else
         Return ()
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let rec For (s: seq<'T>, b: 'T -> C<unit>) =
     Using (s.GetEnumerator(), fun ie -> 
         While ((fun () -> ie.MoveNext()), 

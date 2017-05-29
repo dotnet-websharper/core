@@ -50,6 +50,12 @@ IntelliFactory = {
             return typeFunction;
         },
 
+        Clone: function (obj) {
+            var res = {};
+            for (var p in obj) { res[p] = obj[p] }
+            return res;
+        },
+
         NewObject:
             function (kv) {
                 var o = {};
@@ -215,7 +221,7 @@ IntelliFactory = {
 
         Curried: function (f, n, args) {
             args = args || [];
-            var res = function (a) {
+            return function (a) {
                 var allArgs = args.concat([a === void (0) ? null : a]);
                 if (n == 1)
                     return f.apply(null, allArgs);
@@ -223,10 +229,6 @@ IntelliFactory = {
                     return function (a) { return f.apply(null, allArgs.concat([a === void (0) ? null : a])); }
                 return IntelliFactory.Runtime.Curried(f, n - 1, allArgs);
             }
-            res.$A = args;
-            res.$L = n;
-            res.$F = f;
-            return res;
         },
 
         Curried2: function (f) {
@@ -235,25 +237,6 @@ IntelliFactory = {
 
         Curried3: function (f) {
             return function (a) { return function (b) { return function (c) { return f(a, b, c); } } }
-        },
-
-        Apply: function (f, args) {
-            while (args.length > 0) {
-                if (f.$L) {
-                    var m = f.$L - args.length;
-                    if (m == 0)
-                        return f.$F.apply(null, f.$A.concat(args));
-                    if (m > 0)
-                        return IntelliFactory.Runtime.Curried(f.$F, m, f.$A.concat(args));
-                    f = f.$F.apply(null, f.$A.concat(args.splice(0, f.$L)));
-                }
-                else f = f(args.shift());
-            }
-            return f;
-        },
-
-        PipeApply: function (x, f, args) {
-            return IntelliFactory.Runtime.Apply(f, args?args.concat([x]):[x]);
         },
 
         UnionByType: function (types, value, optional) {
@@ -323,6 +306,9 @@ if (!Math.trunc) {
 
 function ignore() { };
 function id(x) { return x };
+function fst(x) { return x[0] };
+function snd(x) { return x[1] };
+function trd(x) { return x[2] };
 
 if (!console) {
     console = {

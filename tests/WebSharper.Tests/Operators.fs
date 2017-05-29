@@ -32,6 +32,25 @@ type IValue<'T> =
 [<JavaScript; Inline>]
 let inline ( !! ) (o: ^x) : ^a = (^x: (member Value: ^a with get) o)
 
+[<JavaScript>] 
+type IntWithAdd(x) =
+    member this.Value = x
+
+    static member Add (x: IntWithAdd, y) = x.Value + y
+    static member AddB (x, y: IntWithAdd) = x + y.Value
+
+[<JavaScript; Inline>]
+let inline ( ++ ) (a: ^x) (b: ^y) : ^a = ((^x or ^y): (static member Add: ^x * ^y -> ^a) (a, b))
+
+[<JavaScript; Inline>]
+let inline ( ++! ) (a: ^x) (b: ^y) : ^a = ((^x or ^y): (static member AddB: ^x * ^y -> ^a) (a, b))
+
+[<JavaScript>]
+type Singletons =
+    | Case0
+    | Case1
+    | Case2
+
 (* TODO: the coverage of the Operators module is far from complete. *)
 [<JavaScript>]
 let Tests =
@@ -134,6 +153,13 @@ let Tests =
             let i = { new IValue<int> with member this.Value = 4 }
             equal !!i 4
         }
+ 
+        Test "trait call with multiple types" {
+            let a = IntWithAdd 40
+            equal (IntWithAdd.Add (a, 2)) 42
+            equal (a ++ 2) 42
+            equal (2 ++! a) 42
+        }
 
         Test "taking unit" {
             let x = ref 0
@@ -141,5 +167,13 @@ let Tests =
             f()
             f()
             equal !x 2 
+        }
+
+        Test "singleton union case comparisons" {
+            let u = Case1
+            isTrue (u = Case1) 
+            isTrue (u < Case2) 
+            isTrue (Case0 < u) 
+            isTrue (Case0 < Case2)
         }
     }

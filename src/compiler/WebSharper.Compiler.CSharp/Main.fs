@@ -32,20 +32,10 @@ module M = WebSharper.Core.Metadata
 /// Creates WebSharper compilation for a C# project
 type WebSharperCSharpCompiler(logger) =
 
-    let fullpath cwd nm = 
-        let p = if Path.IsPathRooted(nm) then nm else Path.Combine(cwd,nm)
-        try Path.GetFullPath(p) with 
-        | :? System.ArgumentException 
-        | :? System.ArgumentNullException 
-        | :? System.NotSupportedException 
-        | :? System.IO.PathTooLongException 
-        | :? System.Security.SecurityException -> p
-
-    member val PrintEnabled = true with get, set
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
 
-    member this.Compile (prevMeta, argv: seq<string>, path: string, warnOnly) =
+    member this.Compile (refMeta, argv: seq<string>, path: string) =
 
         let parsedArgs =
             CSharpCommandLineParser.Default.Parse(
@@ -63,7 +53,6 @@ type WebSharperCSharpCompiler(logger) =
         let references = 
             argv
             |> Seq.choose (fun a ->
-                //if a.StartsWith "/reference:\"" then Some a.[12 .. a.Length - 2] 
                 if a.StartsWith "/reference:" then Some a.[11 ..] else None
             ) 
             |> Seq.map (fun r ->
@@ -87,12 +76,7 @@ type WebSharperCSharpCompiler(logger) =
         | _ -> ()
 
         TimedStage "Creating Roslyn compilation" 
-    
-        let refMeta =   
-            match prevMeta with
-            | None -> M.Info.Empty
-            | Some dep -> dep  
-        
+            
         let comp = 
             WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
                 (WebSharper.Compiler.Compilation(refMeta))
@@ -104,29 +88,6 @@ type WebSharperCSharpCompiler(logger) =
             
         if this.UseVerifier then
             comp.VerifyRPCs()
-
-        let projDir = Path.GetDirectoryName path
-
-        if this.PrintEnabled then
-            let winfo = "WebSharper warning: "
-            for posOpt, err in comp.Warnings do
-                let pos =
-                    match posOpt with
-                    | Some p ->
-                        let file = (fullpath projDir p.FileName).Replace("/","\\")
-                        sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
-                    | None -> ""
-                eprintfn "%s%s%s" pos winfo (NormalizeErrorString (err.ToString()))
-
-            let einfo = if warnOnly then "WebSharper warning: ERROR " else "WebSharper error: "
-            for posOpt, err in comp.Errors do
-                let pos =
-                    match posOpt with
-                    | Some p ->
-                        let file = (fullpath projDir p.FileName).Replace("/","\\")
-                        sprintf "%s(%d,%d,%d,%d): " file (fst p.Start) (snd p.Start) (fst p.End) (snd p.End)   
-                    | None -> ""
-                eprintfn "%s%s%s" pos einfo (NormalizeErrorString (err.ToString()))
 
         TimedStage "WebSharper translation"
 

@@ -72,6 +72,7 @@ type private ValueCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
     member this.MoveNext() = false
     member this.Dispose() = ()
 
+[<Name "WebSharper.Collections.KeyCollection">]
 [<Proxy(typeof<D<_,_>.KeyCollection>)>]
 type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
     member this.Count = d.Count 
@@ -84,6 +85,7 @@ type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
         member this.GetEnumerator() = As<IEnumerator<'K>>(this.GetEnumerator())
         member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
 
+[<Name "WebSharper.Collections.ValueCollection">]
 [<Proxy(typeof<D<_,_>.ValueCollection>)>]
 type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
     member this.Count = d.Count 
@@ -105,7 +107,7 @@ type private DictionaryEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
     member this.Dispose() = ()
 
 /// Implements a proxy for the .NET dictionary.
-[<Name "Dictionary">]
+[<Name "WebSharper.Collections.Dictionary">]
 [<Proxy(typeof<D<_,_>>)>]
 type internal Dictionary<'K,'V when 'K : equality>
 

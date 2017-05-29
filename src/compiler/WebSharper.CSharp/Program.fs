@@ -29,13 +29,20 @@ open WebSharper.Compiler
 open WebSharper.Compile.CommandTools
 open WebSharper.Compiler.FrontEnd
 
+open ErrorPrinting
+
+exception ArgumentError of string
+let argError msg = raise (ArgumentError msg)
+
 let Compile config =
     StartTimer()
 
     if config.AssemblyFile = null then
-        failwith "You must provide assembly output path."
+        argError "You must provide assembly output path."
 
-    if not (File.Exists config.AssemblyFile) then () else
+    if not (File.Exists config.AssemblyFile) then 
+        argError "Output assembly not found"
+    else
 
     let paths =
         [
@@ -48,15 +55,17 @@ let Compile config =
     
     let loader = Loader.Create aR (printfn "%s")
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
-    let refErrors = ResizeArray()
     let refMeta =
+        let mutable refError = false
         let metas = refs |> List.choose (fun r -> 
             try ReadFromAssembly FullMetadata r
             with e ->
-                refErrors.Add e.Message
+                refError <- true
+                PrintGlobalError e.Message
                 None
         )
-        if refErrors.Count > 0 || List.isEmpty metas then None 
+        if refError then None
+        elif List.isEmpty metas then Some WebSharper.Core.Metadata.Info.Empty 
         else 
             try
                 Some { 
@@ -64,15 +73,16 @@ let Compile config =
                         Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
                 }
             with e ->
-                refErrors.Add <| "Error merging WebSharper metadata: " + e.Message
+                refError <- true
+                PrintGlobalError ("Error merging WebSharper metadata: " + e.Message)
                 None
 
     TimedStage "Loading referenced metadata"
 
-    if refErrors.Count > 0 then
-        for err in refErrors do 
-            eprintfn "WebSharper error %s" err
-    else
+    match refMeta with
+    | None ->
+        argError "" // exits without printing more errors    
+    | Some refMeta ->
 
     let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(printfn "%s", UseVerifier = false)
 
@@ -102,28 +112,20 @@ let Compile config =
     System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
 
     if config.ProjectFile = null then
-        failwith "You must provide project file path."
+        argError "You must provide project file path."
     
     let comp =
-        compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile, config.WarnOnly)
+        compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile)
 
-    let mutable hasErrors = false
-
-    if not (List.isEmpty comp.Errors) then        
-        for pos, e in comp.Errors do
-            match pos with
-            | Some pos ->
-                eprintfn "%s (%d,%d)-(%d,%d) WebSharper error %s" 
-                    pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End) (e.ToString())
-            | _ ->
-                eprintfn "WebSharper error %s" (e.ToString())
-        if not config.WarnOnly then hasErrors <- true
-        
-    if hasErrors then () else
+    PrintWebSharperErrors config.WarnOnly comp
+    
+    if not (List.isEmpty comp.Errors || config.WarnOnly) then        
+        argError "" // exits without printing more errors
+    else
 
     let assem = loader.LoadFile config.AssemblyFile
     let js =
-        ModifyAssembly (match refMeta with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+        ModifyAssembly refMeta
             (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap assem
             
     if config.PrintJS then
@@ -139,12 +141,16 @@ let Compile config =
     match config.ProjectType with
     | Some Bundle ->
         ExecuteCommands.Bundle config |> ignore
+        TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config |> ignore
+        TimedStage "Writing offline sitelets"
     | Some Website ->
         ExecuteCommands.Unpack config |> ignore
+        TimedStage "Unpacking"
     | _ when Option.isSome config.OutputDir ->
         ExecuteCommands.Unpack config |> ignore
+        TimedStage "Unpacking"
     | _ -> ()
 
 let compileMain argv =
@@ -179,7 +185,7 @@ let compileMain argv =
         let setProjectType t =
             match (!wsArgs).ProjectType with
             | None -> wsArgs := { !wsArgs with ProjectType = Some t }
-            | _ -> failwith "Conflicting WebSharper project types set."
+            | _ -> argError "Conflicting WebSharper project types set."
         match a with
         | "--jsmap" -> wsArgs := { !wsArgs with SourceMap = true } 
         | "--dts" -> wsArgs := { !wsArgs with TypeScript = true } 
@@ -189,6 +195,7 @@ let compileMain argv =
         | "--site" -> setProjectType Website
         | "--wswarnonly" ->
             wsArgs := { !wsArgs with WarnOnly = true } 
+        | "--dce-" -> wsArgs := { !wsArgs with DeadCodeElimination = false } 
         | StartsWith "--ws:" wsProjectType ->
             match wsProjectType.ToLower() with
             | "ignore" -> ()
@@ -198,6 +205,7 @@ let compileMain argv =
             | "library" -> ()
             | "site" | "web" | "website" | "export" -> setProjectType Website
             | _ -> invalidArg "type" ("Invalid project type: " + wsProjectType)
+        | "--dlres" -> wsArgs := { !wsArgs with DownloadResources = true }
         | "--printjs" -> wsArgs := { !wsArgs with PrintJS = true }
         | "--vserrors" ->
             wsArgs := { !wsArgs with VSStyleErrors = true }
@@ -244,11 +252,15 @@ let compileMain argv =
             let failedOutput = intermediaryOutput + ".failed"
             if File.Exists failedOutput then File.Delete failedOutput
             File.Move (intermediaryOutput, failedOutput)
-
-        sprintf "Global error '%s' at %s" e.Message e.StackTrace
-        |> WebSharper.Compiler.ErrorPrinting.NormalizeErrorString
-        |> eprintf "WebSharper error: %s" 
-        1
+        match e with
+        | ArgumentError "" -> 
+            1    
+        | ArgumentError msg -> 
+            PrintGlobalError msg
+            1    
+        | _ -> 
+            PrintGlobalError (sprintf "Global error '%s' at %s" e.Message e.StackTrace)
+            1
 
 [<EntryPoint>]
 let main argv =

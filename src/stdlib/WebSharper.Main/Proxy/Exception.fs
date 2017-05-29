@@ -35,6 +35,7 @@ type private ExceptionProxy =
     new () = ExceptionProxy "Exception of type 'System.Exception' was thrown."
 
     member this.Message with [<Inline "$this.message">] get () = X<string>
+    member this.InnerException with [<Inline "$this.inner">] get () = X<System.Exception>
 
 [<Proxy(typeof<MatchFailureException>)>]
 [<Name "MatchFailureException">]
@@ -51,7 +52,7 @@ type private IndexOutOfRangeExceptionProxy(message: string) =
 [<Proxy(typeof<System.OperationCanceledException>)>]
 [<Name "OperationCanceledException">]
 type private OperationCanceledExceptionProxy(message: string, inner: exn, ct: CT) =
-    inherit exn(message)
+    inherit exn(message, inner)
 
     new (ct) = OperationCanceledExceptionProxy ("The operation was canceled.", null, ct)
     
@@ -121,3 +122,10 @@ type private FormatException(message: string) =
     inherit exn(message)
 
     new () = FormatException "One of the identified items was in an invalid format."
+
+[<Proxy(typeof<System.OverflowException>)>]
+[<Name "OverflowException">]
+type private OverflowException(message: string) =
+    inherit exn(message)
+
+    new () = OverflowException "Arithmetic operation resulted in an overflow."

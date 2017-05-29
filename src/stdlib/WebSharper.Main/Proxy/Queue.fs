@@ -47,6 +47,9 @@ type private QueueProxy<'T when 'T : equality>
     [<Inline "[]">]
     private new () = QueueProxy [||]
 
+    [<Inline>]
+    private new (s: seq<'T>) = QueueProxy (Array.ofSeq s)
+
     member this.Count with [<Inline "$this.length">] get () = X<int>
 
     [<Inline>]

@@ -29,8 +29,8 @@ open WebSharper.Core.Metadata
 open WebSharper.Core.DependencyGraph
 
 type CompilingMember =
-    | NotCompiled of CompiledMember * notVirtual: bool * funcArgs : option<list<FuncArgOptimization>>
-    | NotGenerated of TypeDefinition * option<obj> * CompiledMember * notVirtual: bool
+    | NotCompiled of CompiledMember * notVirtual: bool * opts: Optimizations
+    | NotGenerated of TypeDefinition * option<obj> * CompiledMember * notVirtual: bool * opts: Optimizations
 
 module NotResolved =
     [<RequireQualifiedAccess>]
@@ -47,7 +47,7 @@ module NotResolved =
 
     type NotResolvedMethod =
         {
-            Kind : NotResolvedMemberKind
+            mutable Kind : NotResolvedMemberKind
             StrongName : option<string>
             Macros: list<TypeDefinition * option<obj>>
             Generator : option<TypeDefinition * option<obj>>
@@ -57,6 +57,7 @@ module NotResolved =
             Args : list<Id>
             mutable Body : Expression
             Requires : list<TypeDefinition * option<obj>>
+            Warn : option<string>
         }
 
     type NotResolvedField =
@@ -78,7 +79,7 @@ module NotResolved =
     type NotResolvedClassKind =
         | Static
         | Class
-        | FSharpType
+        | WithPrototype
 
     type NotResolvedClass =
         {
@@ -89,6 +90,8 @@ module NotResolved =
             Kind : NotResolvedClassKind
             IsProxy : bool
             Macros : list<TypeDefinition * option<obj>> 
+            ForceNoPrototype : bool
+            ForceAddress : bool
         }
 
     type NotResolvedInterface =
@@ -100,6 +103,26 @@ module NotResolved =
 
     type N = NotResolvedMemberKind
     type M = NotResolvedMember
+
+    let hasWSPrototype ckind cmembers =
+        match ckind with
+        | NotResolvedClassKind.Static -> false
+        | NotResolvedClassKind.WithPrototype -> true
+        | _ ->
+            cmembers
+            |> Seq.exists (
+                function
+                | M.Constructor (_, nr)
+                | M.Method (_, nr) ->
+                    match nr.Kind with
+                    | N.Instance 
+                    | N.Abstract
+                    | N.Constructor 
+                    | N.Override _
+                    | N.Implementation _ -> true
+                    | _ -> false
+                | _ -> false
+            )
 
 type internal MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDictionary<'TKey, 'TValue>, current: IDictionary<'TKey, 'TValue>) =   
     

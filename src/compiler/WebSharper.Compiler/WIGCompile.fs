@@ -320,6 +320,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     let macroAttr = findWsAttr "MacroAttribute"
     let requireAttr = findWsAttr "RequireAttribute"
     let pureAttr = findWsAttr "PureAttribute"
+    let warnAttr = findWsAttr "WarnAttribute"
 
     let fromInterop (name: string) =
         wsCore.MainModule.GetType("WebSharper.JavaScript", name)
@@ -415,6 +416,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     member b.Require = requireAttr
     member b.Obsolete = obsolete
     member b.Pure = pureAttr
+    member b.Warn = warnAttr
     member b.String = stringType
     member b.SystemType = systemType
     member b.Void = voidType
@@ -597,6 +599,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     let obsoleteAttributeConstructor = findDefaultConstructor tB.Obsolete 
     let obsoleteAttributeWithMsgConstructor = findTypedConstructor tB.Obsolete [tB.String.Name]
     let pureAttributeConstructor = findDefaultConstructor tB.Pure 
+    let warnAttributeConstructor = findTypedConstructor tB.Warn [tB.String.Name]
 
     member c.AddBody(m: MethodDefinition) =
         let body = MethodBody(m)
@@ -636,6 +639,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     member c.ObsoleteAttributeConstructor = obsoleteAttributeConstructor
     member c.ObsoleteAttributeWithMsgConstructor = obsoleteAttributeWithMsgConstructor
     member c.PureAttributeConstructor = pureAttributeConstructor
+    member c.WarnAttributeConstructor = warnAttributeConstructor
 
 type CompilationKind =
     | LibraryKind
@@ -755,6 +759,16 @@ type MemberConverter
     let setPureAttribute (x: CodeModel.MethodBase) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
         if x.IsPure then attrs.Add pureAttribute
 
+    let warnAttribute warning = 
+        let attr = CustomAttribute(mB.WarnAttributeConstructor)
+        attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, warning))
+        attr 
+
+    let setWarnAttribute (x: CodeModel.MethodBase) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+        match x.Warning with
+        | Some warning -> attrs.Add (warnAttribute warning)
+        | _ -> ()
+
     let makeParameters (f: Type.Function, defT, isCSharp) =
         Seq.ofArray [|
             for (n, t) in f.Parameters do
@@ -805,6 +819,7 @@ type MemberConverter
                     cD.Parameters.Add p
                 setObsoleteAttribute x cD.CustomAttributes
                 setPureAttribute x cD.CustomAttributes
+                setWarnAttribute x cD.CustomAttributes
                 dT.Methods.Add(cD)
                 do
                     match x.Comment with
@@ -951,6 +966,7 @@ type MemberConverter
                 |> inlineAttribute
                 |> mD.CustomAttributes.Add
             setPureAttribute x mD.CustomAttributes
+            setWarnAttribute x mD.CustomAttributes
         setObsoleteAttribute x mD.CustomAttributes
         dT.Methods.Add mD
 

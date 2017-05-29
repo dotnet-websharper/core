@@ -40,7 +40,7 @@ let RunTests() =
         Event.Tests
         Exception.Tests
         Inheritance.Tests
-        Int32.Tests
+        Integers.Tests
         KeyValuePair.Tests
         Lazy.Tests
         List.Tests
@@ -58,6 +58,7 @@ let RunTests() =
         Ref.Tests
         Reflected.Tests
         Regression.Tests
+        Result.Tests
         Seq.Tests
         Stack.Tests
         String.Tests

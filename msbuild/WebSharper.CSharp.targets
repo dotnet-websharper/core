@@ -47,6 +47,7 @@
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" 
 	  WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
+      WebSharperDownloadResources="$(WebSharperDownloadResources)"
 	  ZafirToolPath="$(Root)/build/$(Configuration)/CSharp/ZafirCs.exe"
 	  TargetType="$(OutputType)"
 	  NoConfig="true"

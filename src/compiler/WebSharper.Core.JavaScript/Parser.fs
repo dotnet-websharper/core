@@ -25,8 +25,8 @@ module S = Syntax
 type B = S.BinaryOperator
 type U = S.UnaryOperator
 type P = S.PostfixOperator
-type Sy = L.Symbol
-type Kw = L.Keyword
+type internal Sy = L.Symbol
+type internal Kw = L.Keyword
 
 type Source =
     {

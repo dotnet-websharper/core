@@ -83,6 +83,23 @@ type ClassC =
     new(a) = ClassC() then ThenTest <- 1
 
 [<JavaScript>]
+type InlinedConstructor(a, x) =
+    let b = a + 1    
+    let y = x + "!"
+
+    static let defA = 2
+    static let defX = "hi"
+
+    member this.B = b
+    member this.Y = y
+
+    [<Inline>]
+    new (x: string) = InlinedConstructor(defA, x)        
+
+    [<Inline>]
+    new () = InlinedConstructor(defX)        
+
+[<JavaScript>]
 let Tests =
     TestCategory "Inheritance" {
         Test "Overriding" {
@@ -123,5 +140,11 @@ let Tests =
             equal b.x 1
             equal b.y 1
             equal ThenTest 1 
+        }
+
+        Test "Inlined constructor" {
+            let x = InlinedConstructor()
+            equal x.B 3
+            equal x.Y "hi!"
         }
     }

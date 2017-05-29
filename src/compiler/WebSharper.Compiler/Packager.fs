@@ -33,7 +33,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
     let declarations = ResizeArray()
     let statements = ResizeArray()
 
-    let glob = Var (Id.Global())
+    let glob = Id.New("Global", false)
+    declarations.Add <| VarDeclaration (glob, Var (Id.Global()))
+    let glob = Var glob
 
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
     
@@ -109,7 +111,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             | _ -> failwith "packageCtor error"
         statements.Add <| ExprStatement (VarSet (av, ItemSet (o, x, expr)))    
 
-    let packageCctor a expr =
+    let packageCctor a expr name =
         let o, x = getFieldAddress a
         match expr with
         | Function ([], body) ->
@@ -117,7 +119,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             let expr = JSRuntime.Cctor <| Function([], Block [body; rem])
             statements.Add <| ExprStatement (ItemSet (o, x, expr))    
         | _ ->
-            failwith "Static constructor must be a function"
+            failwithf "Static constructor must be a function for type %s: %A" name (Debug.PrintExpression expr)
 
     let classes = Dictionary(current.Classes)
 
@@ -138,8 +140,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
         | _ -> ()
 
         match c.StaticConstructor with
+        | Some(_, GlobalAccess a) when a.Value = [ "ignore" ] -> ()
         | Some (ccaddr, body) -> 
-            packageCctor ccaddr body
+            packageCctor ccaddr body name
         | _ -> ()
 
         match c.Address with 
@@ -216,7 +219,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
 
     let allStatements = List.ofSeq (Seq.append declarations trStatements) 
 
-    if List.isEmpty allStatements then Undefined else
+    // allStatements will always have the Global variable declaration
+    if List.isEmpty allStatements.Tail then Undefined else
         Application(Function([], Block allStatements), [], false, Some 0)
 
 let readMapFileSources mapFile =

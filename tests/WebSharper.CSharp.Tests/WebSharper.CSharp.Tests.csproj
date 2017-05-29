@@ -34,8 +34,10 @@
     <Compile Include="Arithmetic.cs" />
     <Compile Include="Collections.cs" />
     <Compile Include="Delegate.cs" />
+    <Compile Include="InlineControl.cs" />
     <Compile Include="Macro.cs" />
     <Compile Include="Object.cs" />
+    <Compile Include="PatternMatching.cs" />
     <Compile Include="Remoting.cs" />
     <Compile Include="Interop.cs" />
     <Compile Include="Linq.cs" />
@@ -44,6 +46,7 @@
     <Compile Include="Syntax.cs" />
     <Compile Include="Task.cs" />
     <Compile Include="Tests.cs" />
+    <Compile Include="Tuples.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
@@ -101,6 +104,11 @@
     </Reference>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System" />
+    <Reference Include="System.ValueTuple, Version=4.0.1.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\packages\System.ValueTuple.4.3.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
+    </Reference>
+    <Reference Include="WebSharper.Sitelets.Tests, Version=4.0.0.0, Culture=neutral, PublicKeyToken=dcd983dec8f76a71, processorArchitecture=MSIL" />
   </ItemGroup>
   <ItemGroup>
     <None Include="WebSharper.CSharp.Tests.ruleset" />

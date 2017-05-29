@@ -74,6 +74,12 @@ type private FSharpSet<'T when 'T : comparison>
         member this.GetEnumerator() =
             (T.Ascend tree).GetEnumerator()
 
+        static member (+) (x, y) =
+            Set.union x y        
+
+        static member (-) (x, y) =
+            Set.difference x y        
+
         override this.GetHashCode() =
             -1741749453 + ((Seq.toArray this).GetHashCode())
 

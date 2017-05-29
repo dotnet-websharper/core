@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// Declares server-side content utilities.
-module Website.Content
+module WebSharper.Tests.Website.Content
 
 open WebSharper
 open WebSharper.Sitelets
@@ -77,14 +77,16 @@ let TestsPage (ctx: Context<FullAction>) =
     let jsonBaseUri = jsonBaseUri.[..jsonBaseUri.LastIndexOf '/']
     Content.Page(
         Title = "WebSharper client-side tests",
-        Body = [
-            ClientSide <@ WebSharper.Tests.Main.RunTests() @>
-            ClientSide <@ WebSharper.Collections.Tests.Main.RunTests() @>
-            ClientSide <@ WebSharper.Html5.Tests.Main.RunTests() @>
-            ClientSide <@ WebSharper.Web.Tests.Main.RunTests jsonBaseUri @>
-            ClientSide <@ WebSharper.CSharp.Tests.Tests.RunTests() @>
-            ClientSide <@ Client.ClientSideTupleTest t12 @>
-        ]
+        Body = (
+            [
+                ClientSide <@ WebSharper.Tests.Main.RunTests() @>
+                ClientSide <@ WebSharper.Collections.Tests.Main.RunTests() @>
+                ClientSide <@ WebSharper.Html5.Tests.Main.RunTests() @>
+                ClientSide <@ WebSharper.Web.Tests.Main.RunTests jsonBaseUri @>
+                WebSharper.CSharp.Tests.InlineControlTest.RunTestsControl
+                ClientSide <@ Client.ClientSideTupleTest t12 @>
+            ] : list<Web.Control>
+        )
     )
 
 let MainSite ctx = function

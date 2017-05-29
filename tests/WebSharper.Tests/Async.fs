@@ -24,16 +24,6 @@ open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
 
-[<Inline "WebSharper.Concurrency.scheduler().tick()">]
-let tick() = ()
-
-[<Inline "WebSharper.Concurrency.scheduler().idle">]
-let isIdle() = true
-
-[<JavaScript>]
-let forceAsync() =
-    while not (isIdle()) do tick()
-
 type Message =
     | Increment of int
     | GetCurrent of AsyncReplyChannel<int> 
@@ -113,14 +103,20 @@ let Tests =
             let cts = new System.Threading.CancellationTokenSource()
             cts.Token.Register(fun () -> cancelled := true) |> ignore
             Async.Start (
-                async {
-                    do! a
-                    cts.Cancel()
-                    do! a
-                }, cts.Token)
-            forceAsync()
+                Async.TryCancelled(
+                    async {                    
+                        try
+                            do! a
+                            cts.Cancel()
+                            do! a
+                        finally 
+                            ops := !ops + "B"    
+                    },
+                    fun _ -> ops := !ops + "C"
+                ), cts.Token)
+            do! Async.Sleep 500
             equal !cancelled true
-            equal !ops "A"
+            equal !ops "ABC"
         }
 
         Test "MailboxProcessor" {
@@ -181,7 +177,7 @@ let Tests =
             let errorCatched = ref false
             mb.Error.Add (fun _ -> errorCatched := true)
             mb.Post(Die)
-            forceAsync()
+            do! Async.Sleep 500
             equal !errorCatched true
         }
 
@@ -189,14 +185,46 @@ let Tests =
             let e = Event<int>()
             let res = ref 0
             async {
-                let! c = Async.StartChild <| async {
-                    let! r = Async.AwaitEvent e.Publish
-                    res := r
-                }
-                e.Trigger(3)
-            }
-            |> Async.Start
-            forceAsync()
+                let! r = Async.AwaitEvent e.Publish
+                res := r
+            } |> Async.StartImmediate
+            e.Trigger(3)
+            do! Async.Sleep 500
             equal !res 3
+        }
+
+        Test "StartImmediate" {
+            let x, y =
+                let res = ref 0 
+                async {
+                    incr res 
+                }
+                |> Async.Start
+                let x = !res
+                async {
+                    incr res 
+                }
+                |> Async.StartImmediate
+                x, !res
+            equal x 0
+            equal y 1
+        }
+
+        Test "StartWithContinuations" {
+            let x =
+                let res = ref 0 
+                async {
+                    incr res 
+                }
+                |> fun a -> Async.StartWithContinuations (a, (fun _ -> incr res), ignore, ignore)
+                !res
+            equal x 2
+        }
+
+        Test "StartChild" { 
+            let! a = Async.StartChild (async.Return 1)
+            let! b = Async.StartChild (async.Return 2)
+            equalAsync a 1
+            equalAsync b 2
         }
     }

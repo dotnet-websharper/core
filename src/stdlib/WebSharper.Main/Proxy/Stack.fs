@@ -48,6 +48,9 @@ type private StackProxy<'T when 'T : equality> =
     [<Inline "[]">]
     new () = {}
 
+    [<Inline>]
+    private new (s: seq<'T>) = StackProxy (Array.ofSeq s)
+
     member this.Count with [<Inline "$this.length">] get () = X<int>
 
     [<Inline>]

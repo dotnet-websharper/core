@@ -113,7 +113,7 @@ let ClearInterval (handle: Handle) = raise ClientSideOnly : unit
 let Apply<'T> (x: obj) (func: string) (args: obj []) = raise ClientSideOnly : 'T
 
 /// Deletes a field from a JavaScript object.
-[<Direct "delete $x[$field]">]
+[<Inline "delete $x[$field]">]
 let Delete (x: obj) (field: string) = raise ClientSideOnly : unit
 
 /// Tests if the object contains a property.
@@ -147,7 +147,7 @@ let TypeOf (x: obj) = raise ClientSideOnly : Kind
 
 /// Iterates over the fields of a JavaScript object.
 /// Iteration can be terminated by returning `true`.
-[<Direct "for (var k in $x) { if ($iter(k)) break; }">]
+[<Inline "for (var k in $x) { if ($iter(k)) break; }">]
 let ForEach (x: obj) (iter: string -> bool) = raise ClientSideOnly : unit
 
 /// Tests if an object is an instance of a given class.

@@ -146,11 +146,6 @@ let toStatementsL f (b: Broken<BreakResult>)=
         yield! f b.Body
     }
 
-let ignoreVoid e =
-    match e with 
-    | I.Unary(UnaryOperator.``void``, e)
-    | e -> e
-
 let toStatementExpr b =
     match b.Body with
     | ResultVar v ->
@@ -164,7 +159,7 @@ let toStatementExpr b =
             yield! toDecls b.Variables
             yield! b.Statements 
             if not (isPureExpr e) then
-                yield ExprStatement (ignoreVoid e)
+                yield ExprStatement (removePureParts e)
         }
 
 let hasNoStatements b = List.isEmpty b.Statements
@@ -257,29 +252,38 @@ let rec removeLets expr =
     | _ -> expr
 
 let optimize expr =
-
-    let sameVars vars args =
-        args |> List.forall (function I.Var _ -> true | _ -> false)
-        && vars = (args |> List.map (function I.Var v -> v | _ -> failwith "impossible")) 
-
     match expr with
+    // eta-reduction
     | Function (vars, I.Return (I.Application (f, args, _, Some i)))
-        when List.length args = i && sameVars vars args && VarsNotUsed(vars).Get(f) ->
+        when List.length args = i && sameVars vars args && isPureExpr f && VarsNotUsed(vars).Get(f) ->
         f
-    | CurriedApplicationSeparate (CurriedLambda(vars, body, isReturn), args) when vars.Length = args.Length ->
-        if isReturn then
-            List.foldBack2 bind vars args body
+    | CurriedApplicationSeparate (CurriedLambda(vars, body, isReturn), args) when not (needsScoping vars body) ->
+        let moreArgsCount = args.Length - vars.Length
+        if moreArgsCount = 0 then
+            if isReturn then
+                List.foldBack2 bind vars args body
+            else 
+                List.foldBack2 bind vars args (Sequential [body; Value Null])
+        elif moreArgsCount > 0 then
+            let args, moreArgs = args |> List.splitAt vars.Length
+            let f =
+                if isReturn then
+                    List.foldBack2 bind vars args body
+                else 
+                    List.foldBack2 bind vars args (Sequential [body; Value Null])
+            curriedApplication f moreArgs
         else 
-            List.foldBack2 bind vars args (Sequential [body; Value Null])
+            let vars, moreVars = vars |> List.splitAt args.Length
+            List.foldBack2 bind vars args (CurriedLambda(moreVars, body)) 
         |> removeLets
-    | Application(TupledLambda(vars, body, isReturn), [ I.NewArray args ], isPure, Some _)
+    | Application(TupledLambda(vars, body, isReturn), [ I.NewArray args ], _, Some _)
         when vars.Length = args.Length && not (needsScoping vars body) ->
         if isReturn then
             List.foldBack2 bind vars args body
         else 
             List.foldBack2 bind vars args (Sequential [body; Value Null])
         |> removeLets
-    | Application(I.ItemGet(I.Function (vars, I.Return body), I.Value (String "apply")), [ I.Value Null; argArr ], isPure, _) ->
+    | Application(I.ItemGet(I.Function (vars, I.Return body), I.Value (String "apply")), [ I.Value Null; argArr ], _, _) ->
         List.foldBack2 bind vars (List.init vars.Length (fun i -> argArr.[Value (Int i)])) body                   
         |> removeLets
     | Application (I.Function (args, I.Return body), xs, _, Some _) 
@@ -301,7 +305,7 @@ let optimize expr =
     | Application (ItemGet(Let (x, Var y, Var x2), i), b, p, l) when x = x2 ->
         Application(ItemGet(Var y, i), b, p, l)
     | StatementExpr (I.ExprStatement a, None) ->
-        a   
+        Void a   
     | _ ->
         expr
 
@@ -380,6 +384,7 @@ let rec breakExpr expr : Broken<BreakResult> =
     let comb3 f a b c : Broken<BreakResult> =
         brL [a; b; c] |> mapBroken (function [a; b; c] -> f(a, b, c) | _ -> failwith "impossible")
     
+//    match optimize expr with
     match expr with
     | Undefined
     | This
@@ -391,10 +396,6 @@ let rec breakExpr expr : Broken<BreakResult> =
     | Hole _
     | Arguments
         -> broken expr 
-    | Function (_, I.Empty) ->
-        broken (Global [ "ignore" ])
-    | Function ([x], I.Return (I.Var y)) when x = y ->
-        broken (Global [ "id" ])
     | Function (args, body) ->
         let args =
             args |> List.rev |> List.skipWhile (fun a -> CountVarOccurence(a).GetForStatement(body) = 0) |> List.rev
@@ -424,7 +425,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                 match List.rev s with
                 | [] -> Undefined
                 | [ s ] -> s
-                | h :: t -> h :: (t |> List.filter (isPureExpr >> not)) |> List.rev |> Sequential
+                | h :: t -> h :: (t |> List.map removePureParts) |> List.rev |> CombineExpressions
             )
         else 
             let b, extraExprs, removeVars =
@@ -433,7 +434,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                 | [ s ] -> s, [], []
                 | h :: t -> 
                     h, 
-                    t |> List.choose (function ResultExpr e when not (isPureExpr e) -> Some (ignoreVoid e) | _ -> None) |> List.rev,
+                    t |> List.choose (function ResultExpr e when not (isPureExpr e) -> Some (removePureParts e) | _ -> None) |> List.rev,
                     t |> List.choose (function ResultVar v -> Some v | _ -> None)
             {
                 Body = b
@@ -569,10 +570,10 @@ let rec breakExpr expr : Broken<BreakResult> =
                 Call (Some l.Head, b, c, l.Tail)
             else Call (None, b, c, l)
         )
-    | TraitCall(a, b, c, d) ->
-        brL (a :: d)
+    | TraitCall(a, b, c) ->
+        brL c
         |> mapBroken (fun l ->
-            TraitCall (l.Head, b, c, l.Tail)
+            TraitCall (a, b, l)
         )
     | Ctor(a, b, c) ->
         brL c
@@ -786,7 +787,7 @@ and private breakSt statement : Statement seq =
     | ExprStatement (I.Conditional(a, b, c)) ->
         If(a, ExprStatement b, ExprStatement c)|> brS
     | ExprStatement a ->
-        brE a |> toStatementExpr
+        brE (removePureParts a) |> toStatementExpr
     | Return a ->
         let brA = brE a
         // if we would apply a function in return positions, expand it

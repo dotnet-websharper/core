@@ -61,5 +61,18 @@ namespace WebSharper.CSharp.Tests
             IsTrue(task.IsCanceled);
             IsTrue(Counter < 5);
         }
+
+        [Test("Local async function")]
+        public async void LocalAsync()
+        {
+            async Task<int> GetOneAsyncLocal()
+            {
+                var o = Task.FromResult(1);
+                return await o;
+            }
+
+            var one = await GetOneAsyncLocal();
+            Equal(one, 1);
+        }
     }
 }

@@ -101,12 +101,19 @@ let private isResourceType (sr: CodeReader.SymbolReader) (e: FSharpEntity) =
     )
 
 let isAugmentedFSharpType (e: FSharpEntity) =
-    (e.IsFSharpRecord || e.IsFSharpUnion || e.IsFSharpExceptionDeclaration)
-    && not (
-        e.Attributes |> Seq.exists (fun a ->
-            a.AttributeType.FullName = "Microsoft.FSharp.Core.DefaultAugmentationAttribute"
-            && not (snd a.ConstructorArguments.[0] :?> bool)
+    e.IsFSharpRecord || e.IsFSharpExceptionDeclaration || (
+        e.IsFSharpUnion 
+        && not (
+            e.Attributes |> Seq.exists (fun a ->
+                a.AttributeType.FullName = "Microsoft.FSharp.Core.DefaultAugmentationAttribute"
+                && not (snd a.ConstructorArguments.[0] :?> bool)
+            )
         )
+    )
+
+let isAbstractClass (e: FSharpEntity) =
+    e.Attributes |> Seq.exists (fun a ->
+        a.AttributeType.FullName = "Microsoft.FSharp.Core.AbstractClassAttribute"
     )
 
 let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) (sr: CodeReader.SymbolReader) (annot: A.TypeAnnotation) a =
@@ -167,6 +174,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     match curriedArgs with 
                     | None -> [] 
                     | Some (_, _, ids, _) -> ids
+                Warn = mAnnot.Warn
             }
         match curriedArgs with
         | Some (mem, ca, args, inst) ->
@@ -443,7 +451,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 else
                                     let scDef, (scContent, scFields) = sc.Value   
                                     let name = Resolve.getRenamed meth.CompiledName scFields
-                                    scContent.Add (ExprStatement (ItemSet(Self, Value (String name), b)))
+                                    scContent.Add (ExprStatement (ItemSet(Self, Value (String name), TailCalls.optimize None inlinesOfClass b)))
                                     Lambda([], FieldGet(None, NonGeneric scDef, name))
                             else
                                 let thisVar, vars =
@@ -655,30 +663,20 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let ckind = 
         if cls.IsFSharpModule then NotResolvedClassKind.Static
-        elif annot.IsJavaScript && isAugmentedFSharpType cls then NotResolvedClassKind.FSharpType
+        elif (annot.IsJavaScript && (isAbstractClass cls || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
+        then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 
-    let hasWSPrototype =                
-        match ckind with
-        | NotResolvedClassKind.Static -> false
-        | NotResolvedClassKind.FSharpType -> true
-        | _ ->
-            clsMembers
-            |> Seq.exists (
-                function
-                | M.Constructor (_, nr)
-                | M.Method (_, nr) ->
-                    match nr.Kind with
-                    | N.Instance 
-                    | N.Abstract
-                    | N.Constructor 
-                    | N.Override _
-                    | N.Implementation _ -> true
-                    | _ -> false
-                | _ -> false
-            )
+    let baseCls =
+        cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
 
-    if annot.IsJavaScript || hasWSPrototype then
+    let hasWSPrototype =                
+        Option.isSome baseCls || hasWSPrototype ckind clsMembers
+
+    let mutable hasSingletonCase = false
+    let mutable hasConstantCase = false
+
+    if annot.IsJavaScript || hasWSPrototype || isAugmentedFSharpType cls then
         if cls.IsFSharpUnion then
             let usesNull =
                 cls.UnionCases.Count < 4 // see TaggingThresholdFixedConstant in visualfsharp/src/ilx/EraseUnions.fs
@@ -691,8 +689,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
             let cases =
                 cls.UnionCases
-                |> Seq.map (fun case ->
+                |> Seq.mapi (fun i case ->
                     let constantCase v =
+                        hasConstantCase <- true
                         if constants.Add(v) then
                             ConstantFSharpUnionCase v
                         else
@@ -701,7 +700,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             ConstantFSharpUnionCase (String "$$ERROR$$")
                     let cAnnot = sr.AttributeReader.GetMemberAnnot(annot, case.Attributes)
                     let kind =
-                        if nullCase && case.UnionCaseFields.Count = 0 then
+                        let argumentless = case.UnionCaseFields.Count = 0
+                        if nullCase && argumentless then
                             nullCase <- false
                             constantCase Null
                         else
@@ -709,20 +709,27 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | Some (A.MemberKind.Constant v) -> 
                             constantCase v
                         | _ ->
-                            NormalFSharpUnionCase (
-    //                            cAnnot.Name,
-                                case.UnionCaseFields
-                                |> Seq.map (fun f ->
-                                    {
-                                        Name = f.Name
-                                        UnionFieldType = sr.ReadType clsTparams.Value f.FieldType
-                                        DateTimeFormat = 
-                                            cAnnot.DateTimeFormat 
-                                            |> List.tryPick (fun (target, format) -> if target = Some f.Name then Some format else None)
-                                    }
+                            if argumentless then
+                                let caseField = Definitions.SingletonUnionCase case.CompiledName
+                                let expr = CopyCtor(def, Object [ "$", Value (Int i) ])
+                                let a = { A.MemberAnnotation.BasicPureJavaScript with Name = Some case.Name }
+                                clsMembers.Add (NotResolvedMember.Method (caseField, (getUnresolved a N.Static false None expr)))
+                                hasSingletonCase <- true
+                                SingletonFSharpUnionCase
+                            else
+                                NormalFSharpUnionCase (
+                                    case.UnionCaseFields
+                                    |> Seq.map (fun f ->
+                                        {
+                                            Name = f.Name
+                                            UnionFieldType = sr.ReadType clsTparams.Value f.FieldType
+                                            DateTimeFormat = 
+                                                cAnnot.DateTimeFormat 
+                                                |> List.tryPick (fun (target, format) -> if target = Some f.Name then Some format else None)
+                                        }
+                                    )
+                                    |> List.ofSeq
                                 )
-                                |> List.ofSeq
-                            )
                     let staticIs =
                         not usesNull || not (
                             case.Attributes
@@ -744,7 +751,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     HasNull = constants.Contains(Null)
                 }
 
-            comp.AddCustomType(def, i)
+            comp.AddCustomType(def, i, not annot.IsJavaScript)
 
         if cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration then
             let cdef =
@@ -782,7 +789,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         normalFields
                 Lambda (vars, CopyCtor(def, obj))
 
-            addConstructor None A.MemberAnnotation.BasicJavaScript cdef N.Static false None body
+            addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Static false None body
 
             // properties
 
@@ -800,7 +807,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
                 let getBody = FieldGet(Some (Hole 0), recTyp, f.Name)
                 
-                addMethod None A.MemberAnnotation.BasicInlineJavaScript getDef N.Inline false None getBody
+                addMethod None A.MemberAnnotation.BasicPureInlineJavaScript getDef N.Inline false None getBody
 
                 if f.IsMutable then
                     let setDef =
@@ -816,7 +823,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     addMethod None A.MemberAnnotation.BasicInlineJavaScript setDef N.Inline false None setBody
 
         if cls.IsFSharpRecord then
-
             let i = 
                 cls.FSharpFields |> Seq.map (fun f ->
                     let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
@@ -836,7 +842,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             if comp.HasCustomTypeInfo def then
                 printfn "Already has custom type info: %s" def.Value.FullName
             else
-                comp.AddCustomType(def, i)
+                comp.AddCustomType(def, i, not annot.IsJavaScript)
 
         if cls.IsValueType && not (cls.IsFSharpRecord || cls.IsFSharpUnion || cls.IsEnum) then
             // add default constructor for structs
@@ -853,8 +859,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 )
                 |> List.ofSeq
             let body = Lambda([], Sequential (fields |> List.map (fun (n, v) -> ItemSet(This, Value (String n), v))))
-            addConstructor None A.MemberAnnotation.BasicJavaScript cdef N.Constructor false None body
-            comp.AddCustomType(def, StructInfo)
+            addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Constructor false None body
+            comp.AddCustomType(def, StructInfo, not annot.IsJavaScript)
 
     for f in cls.FSharpFields do
         let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
@@ -865,7 +871,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 IsOptional = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
                 FieldType = sr.ReadType clsTparams.Value f.FieldType
             }
-        clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
+        clsMembers.Add (NotResolvedMember.Field (f.Name, nr))
 
     let strongName =
         annot.Name |> Option.map (fun n ->
@@ -879,12 +885,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         def,
         {
             StrongName = strongName
-            BaseClass = cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
+            BaseClass = baseCls
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
             Kind = ckind
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
+            ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase
+            ForceAddress = hasSingletonCase
         }
     )
 
@@ -1026,6 +1034,8 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                 Kind = NotResolvedClassKind.Static
                 IsProxy = false
                 Macros = []
+                ForceNoPrototype = false
+                ForceAddress = false
             }
             
         if sc.IsValueCreated then

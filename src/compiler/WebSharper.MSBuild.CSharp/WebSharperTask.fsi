@@ -87,12 +87,18 @@ type WebSharperTask =
     /// Outputs all JS compilation errors as warnings if set to True.
     member WebSharperErrorsAsWarnings : string with get, set
 
+    /// Outputs only reachable code by compile-time analysis for bundles.
+    member WebSharperDeadCodeElimination : string with get, set
+    
     /// Specifies if source map is generated and source files are included
     /// in the assembly as resources.
     member WebSharperSourceMap : string with get, set
 
     /// Specifies if .d.ts files are unpacked along with the .js output.
     member WebSharperTypeScriptDeclaration : string with get, set
+
+    /// Specifies if online resource links are downloaded for local use.
+    member WebSharperDownloadResources : string with get, set
 
     member ZafirToolPath : string with get, set
 

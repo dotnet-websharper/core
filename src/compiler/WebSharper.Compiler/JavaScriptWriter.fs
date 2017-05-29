@@ -68,7 +68,7 @@ let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 let transformId (env: Environment) (id: Id) =
     try Map.find id env.ScopeIds
     with _ -> 
-//        "MISSINGVAR" + I.MakeValid (defaultArg id.Name "_")
+        //"MISSINGVAR" + I.MakeValid (defaultArg id.Name "_")
         failwithf "Undefined variable during writing JavaScript: %s" (defaultArg id.Name "(noname)")
 
 let formatter = WebSharper.Core.JavaScript.Identifier.MakeFormatter()

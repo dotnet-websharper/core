@@ -49,6 +49,8 @@ type WsConfig =
         VSStyleErrors : bool
         PrintJS : bool
         WarnOnly : bool
+        DeadCodeElimination : bool
+        DownloadResources : bool
     }
 
     member this.ProjectDir =
@@ -73,6 +75,8 @@ type WsConfig =
              VSStyleErrors = false
              PrintJS  = false
              WarnOnly = false
+             DeadCodeElimination = true
+             DownloadResources = false
         }
 
 let readStrongNameKeyPair p = StrongNameKeyPair(File.ReadAllBytes(p))
@@ -126,6 +130,7 @@ module ExecuteCommands =
                     FileName = fileName
                     OutputDirectory = outputDir
                     SourceMap = settings.SourceMap
+                    DeadCodeElimination = settings.DeadCodeElimination
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.BundleCommand.Instance.Execute(env, cfg)
@@ -157,6 +162,7 @@ module ExecuteCommands =
                     RootDirectory = webRoot
                     UnpackSourceMap = settings.SourceMap
                     UnpackTypeScript = settings.TypeScript
+                    DownloadResources = settings.DownloadResources
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.UnpackCommand.Instance.Execute(env, cfg)

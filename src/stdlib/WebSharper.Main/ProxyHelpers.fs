@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -18,18 +18,12 @@
 //
 // $end{copyright}
 
-module WebSharper.Tests.Int32
+[<AutoOpen>]
+module internal WebSharper.ProxyHelpers
 
-open WebSharper
-open WebSharper.Testing
-module R = WebSharper.Testing.Random
-type private I = System.Int32
-
-[<JavaScript>]
-let Tests =
-    TestCategory "Int32" {
-
-        Test "Int32.Parse" {
-            equal (I.Parse "14") 14
-        }
+type LazyRecord<'T> =
+    {
+        [<Name "c">] mutable created : bool
+        [<Name "v">] mutable evalOrVal : obj
+        [<Name "f">] mutable force : unit -> 'T
     }

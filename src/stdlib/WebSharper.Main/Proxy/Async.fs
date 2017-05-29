@@ -84,7 +84,7 @@ type private AsyncProxy =
 
     [<Inline>]
     static member StartImmediate(c: Async<unit>, ?t: CT) : unit =
-        C.Start (As c, As t)
+        C.StartImmediate (As c, As t)
 
     [<Inline>]
     static member StartAsTask (a: Async<'T>, ?opt :System.Threading.Tasks.TaskCreationOptions, ?t: CT) 
