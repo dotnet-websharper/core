@@ -241,22 +241,23 @@ type InlineGenerator() =
 
 [<Sealed>]
 type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName: string) =
-    let mscorlib = aR.Resolve(typeof<int>.Assembly.FullName)
-    let syscore = aR.Resolve(typeof<System.Linq.Enumerable>.Assembly.FullName)
-    let fscore = aR.Resolve(fsCoreFullName)
-    let wsCore = aR.Resolve(typeof<WebSharper.InlineAttribute>.Assembly.FullName)
-    let sysWeb = aR.Resolve(typeof<System.Web.UI.WebResourceAttribute>.Assembly.FullName)
+    let resolve x = aR.Resolve(AssemblyNameReference.Parse(x))
+    let mscorlib = resolve(typeof<int>.Assembly.FullName)
+    let syscore = resolve(typeof<System.Linq.Enumerable>.Assembly.FullName)
+    let fscore = resolve(fsCoreFullName)
+    let wsCore = resolve(typeof<WebSharper.InlineAttribute>.Assembly.FullName)
+    let sysWeb = resolve(typeof<System.Web.UI.WebResourceAttribute>.Assembly.FullName)
     let main = out.MainModule
 
     let fromFsCore (name: string) = 
         fscore.MainModule.GetType("Microsoft.FSharp.Core", name)
-        |> main.Import
+        |> main.ImportReference
 
     let funcType = fromFsCore "FSharpFunc`2"
 
     let fromSystem (name: string) =
         mscorlib.MainModule.GetType("System", name)
-        |> main.Import
+        |> main.ImportReference
 
     let attributeType = fromSystem "Attribute"
     let converterType = fromSystem "Converter`2"
@@ -267,14 +268,14 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
 
     let webResource =
         sysWeb.MainModule.GetType("System.Web.UI", "WebResourceAttribute")
-        |> main.Import
+        |> main.ImportReference
 
     let baseResourceType =
         let coreResources =
             wsCore.MainModule.GetType("WebSharper.Core", "Resources")
         coreResources.NestedTypes
         |> Seq.find (fun t -> t.Name = "BaseResource")
-        |> main.Import
+        |> main.ImportReference
 
     let genericInstance (def: TypeReference) (args: seq<TypeReference>) =
         if Seq.isEmpty args then
@@ -299,7 +300,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         let tDef =
             let t = assembly.MainModule.GetType(ns, name)
             if isNull t then failwithf "Type not found: %s.%s in assembly %s" ns name assembly.Name.FullName
-            main.Import t
+            main.ImportReference t
         genericInstance tDef ts
 
     let paramArray = fromSystem "ParamArrayAttribute"
@@ -312,7 +313,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     let findWsAttr (name: string) =
         wsCore.MainModule.Types
         |> Seq.find (fun t -> t.Namespace = "WebSharper" && t.Name = name)
-        |> main.Import
+        |> main.ImportReference
 
     let nameAttr = findWsAttr "NameAttribute"
     let inlineAttr = findWsAttr "InlineAttribute"
@@ -323,7 +324,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
 
     let fromInterop (name: string) =
         wsCore.MainModule.GetType("WebSharper.JavaScript", name)
-        |> main.Import
+        |> main.ImportReference
 
     let funcWithArgs = fromInterop "FuncWithArgs`2" 
     let funcWithThis = fromInterop "FuncWithThis`2" 
@@ -358,9 +359,9 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         genericInstance optionType [t]    
 
     member b.Type(assemblyName: string, fullName: string) =
-        let a = if AssemblyName(assemblyName).Name = "FSharp.Core" then fscore else aR.Resolve assemblyName
+        let a = if AssemblyName(assemblyName).Name = "FSharp.Core" then fscore else aR.Resolve (AssemblyNameReference.Parse assemblyName)
         let imp (x: TypeReference) =
-            if a.Name = out.Name then x else main.Import x
+            if a.Name = out.Name then x else main.ImportReference x
         match a with
         | null -> failwithf "Could not resolve assembly: %s" assemblyName
         | a ->
@@ -1004,7 +1005,7 @@ type MemberConverter
             | None -> ()
             | Some c -> comments.[tD] <- c
         for i in x.ImplementedInterfaces do
-            tD.Interfaces.Add(tC.TypeReference (i, x))
+            tD.Interfaces.Add(InterfaceImplementation(tC.TypeReference (i, x)))
         for ctor in x.Constructors do
             addConstructor tD x ctor
         setObsoleteAttribute x tD.CustomAttributes
@@ -1015,7 +1016,7 @@ type MemberConverter
 
     member private c.Interface(x: Code.Interface, tD: TypeDefinition) =
         for i in x.BaseInterfaces do
-            tD.Interfaces.Add(tC.TypeReference (i, x))
+            tD.Interfaces.Add(InterfaceImplementation(tC.TypeReference (i, x)))
         setObsoleteAttribute x tD.CustomAttributes
         c.AddTypeMembers(x, tD)
         do
@@ -1220,10 +1221,10 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
                 typeof<System.Reflection.AssemblyInformationalVersionAttribute>
             |]
         let systemAssembly =
-            def.MainModule.AssemblyResolver.Resolve(typeof<string>.Assembly.FullName)
+            def.MainModule.AssemblyResolver.Resolve(AssemblyNameReference.Parse(typeof<string>.Assembly.FullName))
         let getSystemTypeDef (t: Type) =
             systemAssembly.MainModule.GetType(t.FullName)
-            |> def.MainModule.Import
+            |> def.MainModule.ImportReference
         let stringTypeDef =
             getSystemTypeDef typeof<string>
         let findStringCtor (ty: TypeReference) =
@@ -1233,7 +1234,7 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
                 && m.HasParameters
                 && m.Parameters.Count = 1
                 && m.Parameters.[0].ParameterType.FullName = stringTypeDef.FullName)
-            |> def.MainModule.Import
+            |> def.MainModule.ImportReference
         let setAttr (t: Type) (v: string) =
             let ty = getSystemTypeDef t
             let ctor = findStringCtor ty
@@ -1253,7 +1254,7 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
 
 [<Sealed>]
 type Resolver(aR: WebSharper.Compiler.AssemblyResolver) =
-    let def = DefaultAssemblyResolver()
+    let def = new DefaultAssemblyResolver()
 
     let resolve (ref: string) (par: option<ReaderParameters>) =
         let n = AssemblyName(ref)
@@ -1267,15 +1268,9 @@ type Resolver(aR: WebSharper.Compiler.AssemblyResolver) =
             match par with
             | None -> AssemblyDefinition.ReadAssembly(x)
             | Some par -> AssemblyDefinition.ReadAssembly(x, par)
-        | None -> def.Resolve(ref)
+        | None -> def.Resolve(AssemblyNameReference.Parse ref)
 
     interface IAssemblyResolver with
-
-        member x.Resolve(name) =
-            resolve name None
-
-        member x.Resolve(name: string, par) =
-            resolve name (Some par)
 
         member x.Resolve(ref: AssemblyNameReference, par: ReaderParameters) =
             let ref = ref.FullName
@@ -1284,6 +1279,8 @@ type Resolver(aR: WebSharper.Compiler.AssemblyResolver) =
         member x.Resolve(ref: AssemblyNameReference) =
             let ref = ref.FullName
             resolve ref None
+
+        member x.Dispose() = ()
 
 [<Sealed>]
 type Compiler() =

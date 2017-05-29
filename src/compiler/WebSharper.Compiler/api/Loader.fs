@@ -25,7 +25,7 @@ module LoaderUtility =
 
     [<Sealed>]
     type Resolver(aR: AssemblyResolver) =
-        let def = Mono.Cecil.DefaultAssemblyResolver()
+        let def = new Mono.Cecil.DefaultAssemblyResolver()
 
         let resolve (ref: string) (par: option<Mono.Cecil.ReaderParameters>) =
             let n = AssemblyName(ref)
@@ -34,15 +34,9 @@ module LoaderUtility =
                 match par with
                 | None -> Mono.Cecil.AssemblyDefinition.ReadAssembly(x)
                 | Some par -> Mono.Cecil.AssemblyDefinition.ReadAssembly(x, par)
-            | None -> def.Resolve(ref)
+            | None -> def.Resolve(Mono.Cecil.AssemblyNameReference.Parse ref)
 
         interface Mono.Cecil.IAssemblyResolver with
-
-            member x.Resolve(name) =
-                resolve name None
-
-            member x.Resolve(name: string, par) =
-                resolve name (Some par)
 
             member x.Resolve(ref: Mono.Cecil.AssemblyNameReference, par: Mono.Cecil.ReaderParameters) =
                 let ref = ref.FullName
@@ -52,11 +46,13 @@ module LoaderUtility =
                 let ref = ref.FullName
                 resolve ref None
 
+            member x.Dispose() = ()    
+
 [<Sealed>]
 type Loader(aR: AssemblyResolver, log: string -> unit) =
 
     let load flp (bytes: byte[]) (symbols: option<Symbols>) (aR: AssemblyResolver) =
-        use str = new MemoryStream(bytes)
+        let str = new MemoryStream(bytes)
         let par = Mono.Cecil.ReaderParameters()
         par.AssemblyResolver <- Resolver aR
         par.ReadingMode <- Mono.Cecil.ReadingMode.Deferred

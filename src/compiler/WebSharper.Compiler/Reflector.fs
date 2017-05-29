@@ -306,7 +306,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
 
         interfaces.Add(def,
             {
-                Extends = typ.Interfaces |> Seq.map getTypeDefinition |> List.ofSeq
+                Extends = typ.Interfaces |> Seq.map (fun ii -> getTypeDefinition ii.InterfaceType) |> List.ofSeq
                 Methods = 
                     dict [
                         for meth in typ.Methods do
