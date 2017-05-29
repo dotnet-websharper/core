@@ -74,10 +74,10 @@ type private FSharpSet<'T when 'T : comparison>
         member this.GetEnumerator() =
             (T.Ascend tree).GetEnumerator()
 
-        static member (+) (x, y) =
+        static member (+) (x, y) : Set<'T> =
             Set.union x y        
 
-        static member (-) (x, y) =
+        static member (-) (x, y) : Set<'T> =
             Set.difference x y        
 
         override this.GetHashCode() =
