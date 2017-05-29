@@ -183,6 +183,16 @@ namespace WebSharper.CSharp.Tests
             Equal(c.Optionals(y: 5), 6);
             Equal(c.Optionals(5, 5, 5), 15);
         }
+        
+        [Test]
+        public void FSharpOptionals()
+        {
+            var c = new I.Class();
+            Equal(c.FSharpOptionals(), 3);
+            Equal(c.FSharpOptionals(5), 7);
+            Equal(c.FSharpOptionals(y: 5), 6);
+            Equal(c.FSharpOptionals(5, 5), 10);
+        }
 
         [Test]
         public void InlinedOptionals()
@@ -295,6 +305,13 @@ namespace WebSharper.CSharp.Tests
             Equal(a.GetJS<int>("x", "y"), 2);
             var i = new[] { "x", "y" };
             Equal(a.GetJS<int>(i), 2);
+        }
+
+        [Test]
+        public void ImplicitConversions()
+        {
+            FSharpOption<int> o = 3;
+            Equal(o, FSharpConvert.Some(3));
         }
     }
 }

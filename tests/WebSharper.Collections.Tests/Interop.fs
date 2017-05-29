@@ -57,7 +57,7 @@ type Class() =
 
     member this.ParamsSum([<ParamArray>] ps: int[]) = Array.sum ps
     
-    member this.FSharpOptionals(?x : int, ?y: int) =
+    member this.FSharpOptionals([<Optional>] ?x : int, [<Optional>]  ?y: int) =
         defaultArg x 1 + defaultArg y 2    
     
     member this.Optionals([<Optional; DefaultParameterValue 1>] x : int, [<Optional; DefaultParameterValue 2>] y: int, [<Optional>] z: int) =

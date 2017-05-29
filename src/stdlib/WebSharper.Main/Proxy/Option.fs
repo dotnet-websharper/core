@@ -44,3 +44,7 @@ type private OptionProxy<'T> =
 
     [<Inline "$x ? 1 : 0">]
     static member GetTag(x: option<'T>) = 0
+
+    [<Inline>]
+    static member op_Implicit(v: 'T) = As<'T option> (Some v)  
+
