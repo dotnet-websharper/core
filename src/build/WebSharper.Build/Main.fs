@@ -127,6 +127,9 @@ module Main =
             toolsCSharp "Microsoft.CodeAnalysis.CSharp"
             toolsCSharp "System.Collections.Immutable"
             toolsCSharp "System.Reflection.Metadata"
+            toolsCSharp "System.IO.FileSystem"
+            toolsCSharp "System.Security.Cryptography.Algorithms"
+            toolsCSharp "System.Security.Cryptography.Primitives"
         ] |> List.ofSeq
         ,
         lib "WebSharper.Testing"
