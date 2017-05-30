@@ -155,5 +155,14 @@ namespace WebSharper.CSharp.Tests
             Equal("foo" + 1, "foo1");
             Equal(1 + "foo", "1foo");
         }
+
+        [Test]
+        public void NullableAbsorbing()
+        {
+            int? x = 1;
+            int? y = null;
+            int? z = x + y;
+            IsTrue(z is null);
+        }
     }
 }
