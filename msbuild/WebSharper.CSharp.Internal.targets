@@ -34,6 +34,7 @@
     <AssemblyName>$(Name)</AssemblyName>
     <RootNamespace>$(Name)</RootNamespace>
     <WebSharperSourceMap>True</WebSharperSourceMap>
+    <DefineConstants Condition="'$(VisualStudioVersion)' == '15.0'">CSHARP7</DefineConstants>
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(CSharpTool)' == 'True' ">$(Root)\build\$(Configuration)\CSharp</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(FSharpTool)' == 'True' ">$(Root)\build\$(Configuration)\FSharp</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(Tests)' == 'True' ">$(Root)\build\$(Configuration)\Tests</OutputPath>

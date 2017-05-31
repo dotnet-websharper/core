@@ -62,6 +62,7 @@ namespace WebSharper.CSharp.Tests
             IsTrue(Counter < 5);
         }
 
+#if CSHARP7
         [Test("Local async function")]
         public async void LocalAsync()
         {
@@ -74,5 +75,6 @@ namespace WebSharper.CSharp.Tests
             var one = await GetOneAsyncLocal();
             Equal(one, 1);
         }
+#endif
     }
 }

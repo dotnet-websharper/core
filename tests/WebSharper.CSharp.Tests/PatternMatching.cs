@@ -13,6 +13,7 @@ namespace WebSharper.CSharp.Tests
     [JavaScript, Test("C# Pattern matching")]
     public class PatternMatching : TestCategory
     {
+#if CSHARP7
         class FakeTuple
         {
             int _a;
@@ -69,5 +70,6 @@ namespace WebSharper.CSharp.Tests
                 res = 2;
             Equal(res, 2);
         }
+#endif
     }
 }

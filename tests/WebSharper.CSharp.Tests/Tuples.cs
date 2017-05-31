@@ -13,6 +13,7 @@ namespace WebSharper.CSharp.Tests
     [JavaScript, Test("C# Tuples")]
     public class Tuples : TestCategory
     {
+#if CSHARP7
         [Test]
         public void Construction()
         {
@@ -88,5 +89,6 @@ namespace WebSharper.CSharp.Tests
         //    IncrFst2(ref t);
         //    Equal(t.Item1, 5);
         //}
+#endif
     }
 }

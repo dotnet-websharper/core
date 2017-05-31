@@ -11,11 +11,13 @@ namespace WebSharper.CSharp.Tests
     [JavaScript, Test("C# Arithmetic")]
     class Arithmetic : TestCategory
     {
+#if CSHARP7
         [Test]
         public void LiteralWithUnderscore()
         {
             Equal(1_024, 1024);
         }
+#endif
 
         [Test]
         public void Int32()
@@ -162,7 +164,7 @@ namespace WebSharper.CSharp.Tests
             int? x = 1;
             int? y = null;
             int? z = x + y;
-            IsTrue(z is null);
+            IsTrue(z == null);
         }
     }
 }
