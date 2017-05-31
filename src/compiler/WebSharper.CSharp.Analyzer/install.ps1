@@ -1,6 +1,7 @@
 ﻿param($installPath, $toolsPath, $package, $project)
 
 $project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "FSharp.Core.dll"))
+$project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "System.ValueTuple.dll"))
 $project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "Mono.Cecil.dll"))
 $project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "Mono.Cecil.Mdb.dll"))
 $project.Object.AnalyzerReferences.Add((Join-Path $toolsPath "Mono.Cecil.Pdb.dll"))

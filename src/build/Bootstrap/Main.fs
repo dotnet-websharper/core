@@ -79,14 +79,12 @@ let RestorePackages () =
         nuget "install IntelliFactory.Build -pre -o packages -excludeVersion -nocache"
         nuget "install FSharp.Core -version 3.0.2 -o packages"
         nuget "install FSharp.Core -version 4.1.17 -o packages"
-        nuget "install sharpcompress -version 0.15.2 -o packages -excludeVersion -nocache"
+        nuget "install sharpcompress -version 0.16.1 -o packages -excludeVersion -nocache"
         nuget "install Mono.Cecil -pre -version 0.10.0-beta6 -o packages -excludeVersion"
         nuget "install AjaxMin -version 5.14.5506.26202 -o packages -excludeVersion"
         nuget "install FsNuGet -o packages -excludeVersion -nocache"
-        nuget "install Microsoft.CodeAnalysis.CSharp -version 2.1.0 -o packages -excludeVersion"
-        Directory.Move("packages/System.Collections.Immutable", "packages/System.Collections.Immutable.Roslyn")
-        Directory.Move("packages/System.Reflection.Metadata", "packages/System.Reflection.Metadata.Roslyn")
         nuget "install FSharp.Compiler.Service -version 12.0.8 -o packages -excludeVersion -nocache"
+        nuget "install Microsoft.CodeAnalysis.CSharp -version 2.2.0 -o packages -excludeVersion"
 
 [<EntryPoint>]
 let Start args =

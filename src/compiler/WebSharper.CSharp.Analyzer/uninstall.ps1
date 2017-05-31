@@ -1,6 +1,7 @@
 ﻿param($installPath, $toolsPath, $package, $project)
 
 try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "FSharp.Core.dll")) } catch { }
+try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "System.ValueTuple.dll")) } catch { }
 try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "Mono.Cecil.dll")) } catch { }
 try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "Mono.Cecil.Mdb.dll")) } catch { }
 try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "Mono.Cecil.Pdb.dll")) } catch { }
