@@ -47,7 +47,11 @@ type WebSharperCSharpCompiler(logger) =
         let syntaxTrees =
             parsedArgs.SourceFiles 
             |> Seq.map (fun s -> 
-                CSharpSyntaxTree.ParseText(File.ReadAllText s.Path, path = s.Path)
+                CSharpSyntaxTree.ParseText(
+                    File.ReadAllText s.Path, 
+                    options = parsedArgs.ParseOptions,
+                    path = s.Path
+                )
             )
         
         let references = 
@@ -58,7 +62,7 @@ type WebSharperCSharpCompiler(logger) =
             |> Seq.map (fun r ->
                 MetadataReference.CreateFromFile(r) :> MetadataReference
             )
-
+        
         let compilation = 
             CSharpCompilation.Create(
                 System.IO.Path.GetFileNameWithoutExtension path,
