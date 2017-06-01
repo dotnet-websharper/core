@@ -39,9 +39,6 @@
     <Reference Include="NuGet.Core">
       <HintPath>..\..\..\packages\NuGet.Core\lib\net40-Client\NuGet.Core.dll</HintPath>
     </Reference>
-    <Reference Include="SharpCompress">
-      <HintPath>..\..\..\packages\sharpcompress\lib\net40\SharpCompress.dll</HintPath>
-    </Reference>
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
     <ProjectReference Include="..\Bootstrap\Bootstrap.fsproj">
