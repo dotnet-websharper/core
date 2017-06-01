@@ -309,10 +309,14 @@ namespace WebSharper.CSharp.Tests
         public int field = 4;
         public int fieldDefVal;
         public int Prop { get; set; } = 5;
+#if CSHARP7
+        public int PropDupl { get => Prop; set => Prop = value; }
+#else
         public int PropDupl {
             get { return Prop; }
             set { Prop = value; }
         }
+#endif
         public int PropDefVal { get; set; }
         public int RenamedProp { [Name("RnProp")] get; [Name("setRnProp")] set; } = 6;
         [Name("RnProp2")]
