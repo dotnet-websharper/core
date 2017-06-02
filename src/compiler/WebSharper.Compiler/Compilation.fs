@@ -765,7 +765,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     let b = this.FindProxied b
                     if classes.ContainsKey b || notResolvedClasses.ContainsKey b then Some b else None
                 )
-            let hasWSPrototype = Option.isSome baseCls || hasWSPrototype cls.Kind cls.Members                
+            let hasWSPrototype = hasWSPrototype cls.Kind baseCls cls.Members                
             classes.Add (typ,
                 {
                     Address = if hasWSPrototype || cls.ForceAddress then someEmptyAddress else None

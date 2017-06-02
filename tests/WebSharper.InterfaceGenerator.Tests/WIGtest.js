@@ -106,3 +106,13 @@
             }
     }
 }
+
+var StubTest = {
+    Class: function () {
+        this.X = 3;
+        this.GetX = function () { return 3; };
+        this.GetY = function () { return 3; };
+    }
+};
+
+StubTest.Class.Static = function () { return 4; };

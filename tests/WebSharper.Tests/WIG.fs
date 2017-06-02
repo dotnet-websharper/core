@@ -33,6 +33,17 @@ type InheritWIG() =
     interface IWIGTest with
         member this.Add(x, y) = x + y    
 
+[<Stub>]
+type StubTestBaseClass internal () =
+    member this.GetY() = X<int>
+
+[<Name "StubTest.Class"; Stub>]
+type StubTestClass =
+    inherit StubTestBaseClass
+    new () = {}
+    member this.GetX() = X<int>
+    static member Static() = X<int>
+
 [<JavaScript>]
 let Tests =
     TestCategory "Interface generator" {
@@ -218,5 +229,12 @@ let Tests =
         Test "Inheriting from WIG interface" {
             let x = InheritWIG()
             equal ((x :> IWIGTest).Add(1, 2)) 3
+        }
+
+        Test "Stub class" { 
+            let s = StubTestClass()
+            equal (s.GetX()) 3
+            equal (s.GetY()) 3
+            equal (StubTestClass.Static()) 4
         }
     }

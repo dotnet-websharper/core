@@ -80,6 +80,7 @@ module NotResolved =
         | Static
         | Class
         | WithPrototype
+        | Stub
 
     type NotResolvedClass =
         {
@@ -104,11 +105,13 @@ module NotResolved =
     type N = NotResolvedMemberKind
     type M = NotResolvedMember
 
-    let hasWSPrototype ckind cmembers =
+    let hasWSPrototype ckind (baseCls: TypeDefinition option) cmembers =
         match ckind with
-        | NotResolvedClassKind.Static -> false
+        | NotResolvedClassKind.Stub -> false
+        | NotResolvedClassKind.Static -> Option.isSome baseCls
         | NotResolvedClassKind.WithPrototype -> true
         | _ ->
+            Option.isSome baseCls ||
             cmembers
             |> Seq.exists (
                 function

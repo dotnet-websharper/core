@@ -271,6 +271,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         if staticInits.Count = 0 then None else
         ExprStatement (Sequential (staticInits |> List.ofSeq)) |> Some
 
+    let mutable hasStubMember = false
+
     for meth in members.OfType<IMethodSymbol>() do
         let attrs =
             match meth.MethodKind with
@@ -289,6 +291,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         
         match mAnnot.Kind with
         | Some A.MemberKind.Stub ->
+            hasStubMember <- true
             match sr.ReadMember meth with
             | Member.Method (isInstance, mdef) ->
                 let expr, err = Stubs.GetMethodInline annot mAnnot isInstance mdef
@@ -694,7 +697,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         )   
 
     let ckind = 
-        if cls.IsStatic then NotResolvedClassKind.Static
+        if annot.IsStub || hasStubMember
+        then NotResolvedClassKind.Stub
+        elif cls.IsStatic then NotResolvedClassKind.Static
         elif (annot.IsJavaScript && cls.IsAbstract) || (annot.Prototype = Some true)
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class

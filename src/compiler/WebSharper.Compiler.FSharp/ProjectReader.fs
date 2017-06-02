@@ -249,6 +249,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             a
 
     let stubs = HashSet()
+    let mutable hasStubMember = false
 
     for meth in cls.MembersFunctionsAndValues do
         if meth.IsProperty then () else
@@ -259,6 +260,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
         match mAnnot.Kind with
         | Some A.MemberKind.Stub ->
+            hasStubMember <- true
             let memdef = sr.ReadMember meth
             match memdef with
             | Member.Method (isInstance, mdef) ->
@@ -662,7 +664,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 
     let ckind = 
-        if cls.IsFSharpModule then NotResolvedClassKind.Static
+        if annot.IsStub || hasStubMember
+        then NotResolvedClassKind.Stub
+        elif cls.IsFSharpModule then NotResolvedClassKind.Static
         elif (annot.IsJavaScript && (isAbstractClass cls || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
@@ -671,7 +675,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
 
     let hasWSPrototype =                
-        Option.isSome baseCls || hasWSPrototype ckind clsMembers
+        hasWSPrototype ckind baseCls clsMembers
 
     let mutable hasSingletonCase = false
     let mutable hasConstantCase = false
