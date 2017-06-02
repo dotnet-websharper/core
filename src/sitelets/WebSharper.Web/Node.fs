@@ -27,13 +27,9 @@ module M = WebSharper.Core.Metadata
 type INode =
     inherit IRequiresResources
 
-    abstract member Write : M.Info * HtmlTextWriter -> unit
-
-    abstract member Name : string option
+    abstract member Write : Context * HtmlTextWriter -> unit
 
     abstract member IsAttribute : bool
-
-    abstract member AttributeValue : string option
 
 [<AutoOpen>]
 module HtmlTextWriterExtensions =

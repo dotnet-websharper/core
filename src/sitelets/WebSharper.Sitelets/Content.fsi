@@ -157,20 +157,20 @@ module Content =
 
         member Item : string -> string with get
 
-    type Env =
-        {
-            AppPath : string
-            Json : Core.Json.Provider
-            Meta : Core.Metadata.Info
-            Graph : Core.DependencyGraph.Graph 
-            ResourceContext : Core.Resources.Context
-        }
+[<System.Runtime.CompilerServices.Extension; Sealed>]
+type ContextExtensions =
 
-        static member Create<'T> : ctx: Context<'T> -> Env
+    [<System.Runtime.CompilerServices.Extension>]
+    static member GetSeparateResourcesAndScripts
+        : this: Web.Context
+        * controls: seq<#IRequiresResources>
+        -> Content.RenderedResources
 
-        member GetSeparateResourcesAndScripts : seq<#IRequiresResources> -> RenderedResources
-
-        member GetResourcesAndScripts : seq<#IRequiresResources> -> string
+    [<System.Runtime.CompilerServices.Extension>]
+    static member GetResourcesAndScripts
+        : this: Web.Context
+        * controls: seq<#IRequiresResources>
+        -> string
 
 open System.Runtime.InteropServices
 open System.Runtime.CompilerServices

@@ -67,39 +67,34 @@ module Server =
     type Elt(name, [<System.ParamArray>] contents: INode[]) =
         let attributes, children =
             contents |> Array.partition (fun n -> n.IsAttribute)
+        interface IRequiresResources with
+            member this.Requires = children |> Seq.collect (fun c -> c.Requires)
+            member this.Encode(meta, json) =  children |> Seq.collect (fun c -> c.Encode(meta, json)) |> List.ofSeq
         interface INode with
-            member this.Write(meta, w) =
+            member this.Write(ctx, w) =
                 w.WriteBeginTag(name)
-                attributes |> Array.iter (fun n -> n.Write(meta, w))
+                attributes |> Array.iter (fun n -> n.Write(ctx, w))
                 if Array.isEmpty children && System.Web.UI.HtmlTextWriter.IsSelfClosingTag(name) then
                     w.Write(System.Web.UI.HtmlTextWriter.SelfClosingTagEnd)
                 else
                     w.Write(System.Web.UI.HtmlTextWriter.TagRightChar)
-                    children |> Array.iter (fun n -> n.Write(meta, w))
+                    children |> Array.iter (fun n -> n.Write(ctx, w))
                     w.WriteEndTag(name)
-            member this.Requires = children |> Seq.collect (fun c -> c.Requires)
             member this.IsAttribute = false
-            member this.AttributeValue = None
-            member this.Name = Some name
-            member this.Encode(meta, json) =  children |> Seq.collect (fun c -> c.Encode(meta, json)) |> List.ofSeq
 
     type Attr(name, value) =
         inherit RequiresNoResources()
         interface INode with
-            member this.Write(meta, w) =
+            member this.Write(ctx, w) =
                 w.WriteAttribute(name, value)
             member this.IsAttribute = true
-            member this.AttributeValue = Some value
-            member this.Name = Some name
 
     type Text(txt) =
         inherit RequiresNoResources()
         interface INode with
-            member this.Write(meta, w) =
+            member this.Write(ctx, w) =
                 w.WriteEncodedText(txt)
             member this.IsAttribute = false
-            member this.AttributeValue = None
-            member this.Name = None
 
 /// The website definition.
 module SampleSite =

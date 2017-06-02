@@ -29,7 +29,6 @@ type Context<'Action>
         Json : WebSharper.Core.Json.Provider,
         Metadata : WebSharper.Core.Metadata.Info,
         Dependencies : WebSharper.Core.DependencyGraph.Graph,
-        ResolveUrl : string -> string,
         ResourceContext : WebSharper.Core.Resources.Context,
         Request : Http.Request,
         RootFolder : string,
@@ -37,26 +36,21 @@ type Context<'Action>
         Environment : IDictionary<string, obj>
     ) =
 
-    interface WebSharper.Web.IContext with
-        member this.RequestUri = Request.Uri
-        member this.RootFolder = RootFolder
-        member this.UserSession = UserSession
-        member this.Environment = Environment
-
-    member this.ApplicationPath = ApplicationPath
+    inherit WebSharper.Web.Context()
     member this.Link(e) = Link e
-    member this.Json = Json
-    member this.Metadata = Metadata
-    member this.Dependencies = Dependencies
-    member this.ResolveUrl p = ResolveUrl p
-    member this.ResourceContext = ResourceContext
+    override this.ApplicationPath = ApplicationPath
+    override this.Json = Json
+    override this.Metadata = Metadata
+    override this.Dependencies = Dependencies
+    override this.ResourceContext = ResourceContext
     member this.Request = Request
-    member this.RootFolder = RootFolder
-    member this.UserSession = UserSession
-    member this.Environment = Environment
+    override this.RequestUri = Request.Uri
+    override this.RootFolder = RootFolder
+    override this.UserSession = UserSession
+    override this.Environment = Environment
 
 type Context(ctx: Context<obj>) =
-    inherit Context<obj>(ctx.ApplicationPath, ctx.Link, ctx.Json, ctx.Metadata, ctx.Dependencies, ctx.ResolveUrl,
+    inherit Context<obj>(ctx.ApplicationPath, ctx.Link, ctx.Json, ctx.Metadata, ctx.Dependencies,
         ctx.ResourceContext, ctx.Request, ctx.RootFolder, ctx.UserSession, ctx.Environment)
 
     static member Map (f: 'T2 -> 'T1) (ctx: Context<'T1>) : Context<'T2> =
@@ -66,7 +60,6 @@ type Context(ctx: Context<obj>) =
             Json = ctx.Json,
             Metadata = ctx.Metadata,
             Dependencies = ctx.Dependencies,
-            ResolveUrl = ctx.ResolveUrl,
             ResourceContext = ctx.ResourceContext,
             Request = ctx.Request,
             RootFolder = ctx.RootFolder,

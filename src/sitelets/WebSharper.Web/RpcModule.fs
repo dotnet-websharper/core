@@ -130,6 +130,9 @@ type RpcHandler() =
             Ok headers
 
     let server = R.Server.Create Shared.Metadata Shared.Json
+    let rootFolder = HttpRuntime.AppDomainAppPath
+    let appPath = HttpRuntime.AppDomainAppVirtualPath
+    let resCtx = ResourceContext.ResourceContext appPath
 
     let work (ctx: HttpContextBase) =
         let req = ctx.Request
@@ -157,15 +160,19 @@ type RpcHandler() =
                 let body =
                     use s = new StreamReader(req.InputStream)
                     s.ReadToEnd()
-                let root = ctx.Server.MapPath("~")
                 let uri = ctx.Request.Url
                 let session = new AspNetFormsUserSession(ctx)
                 let ctx =
-                    { new IContext with
-                        member this.RootFolder = root
+                    { new Context() with
+                        member this.RootFolder = rootFolder
                         member this.RequestUri = uri
                         member this.UserSession = session :> _ 
-                        member this.Environment = upcast Map.ofList [(RpcUtil.HttpContextKey, ctx :> obj)] }
+                        member this.Environment = upcast Map.ofList [(RpcUtil.HttpContextKey, ctx :> obj)]
+                        member this.Json = Shared.Json
+                        member this.Metadata = Shared.Metadata
+                        member this.Dependencies = Shared.Dependencies
+                        member this.ApplicationPath = appPath
+                        member this.ResourceContext = resCtx }
                 let! response =
                     server.HandleRequest({ Headers = getHeader; Body = body }, ctx)
                 resp.ContentType <- response.ContentType

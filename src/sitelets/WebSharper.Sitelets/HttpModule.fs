@@ -155,11 +155,6 @@ module private WebUtils =
     let getContext (site: Sitelet<obj>) (ctx: HttpContextBase) resCtx appPath rootFolder (request: Http.Request) =
         new Context<obj>(
             ApplicationPath = appPath,
-            ResolveUrl = (fun url ->
-                if url.StartsWith("~") then
-                    joinWithSlash appPath (url.Substring(1))
-                else
-                    url),
             Json = Shared.Json,
             Link = (fun action ->
                 match site.Router.Link action with
@@ -230,7 +225,7 @@ type HttpModule() =
             let appPath = HttpRuntime.AppDomainAppVirtualPath
             runtime <- Some (
                 SiteLoading.LoadFromAssemblies(app) |> fst,
-                ResourceContext.ResourceContext appPath,
+                WebSharper.Web.ResourceContext.ResourceContext appPath,
                 appPath,
                 HttpRuntime.AppDomainAppPath
             )

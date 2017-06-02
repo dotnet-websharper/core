@@ -23,7 +23,24 @@ namespace WebSharper.Web
 open System.Collections.Generic
 
 /// Provides context about the web request being replied to.
-type IContext =
+[<AbstractClass>]
+type Context() =
+
+    static member JoinWithSlash (a: string, b: string) =
+        let startsWithSlash (s: string) =
+            s.Length > 0
+            && s.[0] = '/'
+        let endsWithSlash (s: string) =
+            s.Length > 0
+            && s.[s.Length - 1] = '/'
+        match endsWithSlash a, startsWithSlash b with
+        | true, true -> a + b.Substring(1)
+        | false, false -> a + "/" + b
+        | _ -> a + b
+
+    /// Virtual application root path on the server.
+    abstract member ApplicationPath : string
+
     /// The full path to the application's root folder.
     abstract member RootFolder : string
 
@@ -36,10 +53,28 @@ type IContext =
     /// Environment-specific information (e.g. the ASP.NET or OWIN context)
     abstract member Environment : IDictionary<string,obj>
 
+    /// The typed JSON provider for interacting with the client.
+    abstract member Json : WebSharper.Core.Json.Provider
+
+    /// WebSharper metadata required for serializing controls.
+    abstract member Metadata : WebSharper.Core.Metadata.Info
+
+    /// WebSharper code dependency graph required for looking up resources.
+    abstract member Dependencies : WebSharper.Core.DependencyGraph.Graph
+
+    /// WebSharper resource rendering context required for resources.
+    abstract member ResourceContext : WebSharper.Core.Resources.Context
+
+    // Generates a URL respecting the application path.
+    member this.ResolveUrl(url: string) =
+        if url.StartsWith "~" then
+            Context.JoinWithSlash(this.ApplicationPath, url.Substring(1))
+        else url
+
 module Remoting =
 
     let internal context =
-        new System.Threading.ThreadLocal<option<IContext>>(fun () -> None)
+        new System.Threading.ThreadLocal<option<Context>>(fun () -> None)
 
     let mutable internal allowedOrigins = Set.empty
 

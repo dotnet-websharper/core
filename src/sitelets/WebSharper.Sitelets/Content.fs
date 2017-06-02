@@ -61,38 +61,20 @@ module Content =
                 | '\'' -> "&#39;"
                 | _ -> failwith "unreachable"))
 
-    type Env =
-        {
-            AppPath : string
-            Json : Core.Json.Provider
-            Meta : Core.Metadata.Info
-            Graph : Core.DependencyGraph.Graph 
-            ResourceContext : Core.Resources.Context
-        }
-
-        static member Create<'T>(ctx: Context<'T>) =
-            {
-                AppPath = ctx.ApplicationPath
-                Json = ctx.Json
-                Meta = ctx.Metadata
-                Graph = ctx.Dependencies
-                ResourceContext = ctx.ResourceContext
-            }
-
-    let writeResources (env: Env) (controls: seq<#IRequiresResources>) (tw: Core.Resources.RenderLocation -> UI.HtmlTextWriter) =
+    let writeResources (ctx: Web.Context) (controls: seq<#IRequiresResources>) (tw: Core.Resources.RenderLocation -> UI.HtmlTextWriter) =
         // Resolve resources for the set of types and this assembly
         let resources =
             let nodeSet =
                 controls
                 |> Seq.collect (fun c -> c.Requires)
                 |> Set
-            env.ResourceContext.ResourceDependencyCache.GetOrAdd(nodeSet, fun nodes ->
-                env.Graph.GetResources nodes
+            ctx.ResourceContext.ResourceDependencyCache.GetOrAdd(nodeSet, fun nodes ->
+                ctx.Dependencies.GetResources nodes
             )
         let hasResources = not (List.isEmpty resources)
         if hasResources then
             // Meta tag encoding the client side controls
-            let mJson = metaJson env.Meta env.Json (Seq.cast controls)
+            let mJson = metaJson ctx.Metadata ctx.Json (Seq.cast controls)
             // Render meta
             (tw Core.Resources.Meta).WriteLine(
                 "<meta id='{0}' name='{0}' content='{1}' />",
@@ -101,7 +83,7 @@ module Content =
             )
             // Render resources
             for r in resources do
-                Core.Resources.Rendering.RenderCached(env.ResourceContext, r, tw)
+                Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
         hasResources
 
     let writeStartScript (tw: UI.HtmlTextWriter) =
@@ -125,7 +107,7 @@ module Content =
                 | "meta" -> this.Meta
                 | _ -> failwith "Invalid rendered resource identifier"
 
-    let getSeparateResourcesAndScripts env controls : RenderedResources =
+    let getSeparateResourcesAndScripts ctx controls : RenderedResources =
         use scriptsW = new StringWriter()
         let scriptsTw = new UI.HtmlTextWriter(scriptsW, " ")
         use stylesW = new StringWriter()
@@ -133,7 +115,7 @@ module Content =
         use metaW = new StringWriter()
         let metaTw = new UI.HtmlTextWriter(metaW, " ")
         let hasResources =
-            writeResources env controls (function
+            writeResources ctx controls (function
                 | Core.Resources.Scripts -> scriptsTw
                 | Core.Resources.Styles -> stylesTw
                 | Core.Resources.Meta -> metaTw)
@@ -145,18 +127,12 @@ module Content =
             Meta = metaW.ToString()
         }
 
-    let getResourcesAndScripts env controls =
+    let getResourcesAndScripts ctx controls =
         use w = new StringWriter()
         use tw = new UI.HtmlTextWriter(w, " ")
-        let hasResources = writeResources env controls (fun _ -> tw)
+        let hasResources = writeResources ctx controls (fun _ -> tw)
         if hasResources then writeStartScript tw
         w.ToString()
-
-    type Env with
-        member this.GetSeparateResourcesAndScripts controls =
-            getSeparateResourcesAndScripts this controls
-        member this.GetResourcesAndScripts controls =
-            getResourcesAndScripts this controls
 
     let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Async<Http.Response> =
         async {
@@ -164,13 +140,13 @@ module Content =
             let writeBody (stream: Stream) =
                 let body = Seq.cache htmlPage.Body
                 let renderHead (tw: UI.HtmlTextWriter) =
-                    let hasResources = writeResources (Env.Create context) body (fun _ -> tw)
+                    let hasResources = writeResources context body (fun _ -> tw)
                     for elem in htmlPage.Head do
-                        elem.Write(context.Metadata, tw)
+                        elem.Write(context, tw)
                     if hasResources then writeStartScript tw
                 let renderBody (tw: UI.HtmlTextWriter) =
                     for elem in body do
-                        elem.Write(context.Metadata, tw)
+                        elem.Write(context, tw)
                 // Create html writer from stream
                 use textWriter = new StreamWriter(stream)
                 textWriter.AutoFlush <- true
@@ -183,9 +159,6 @@ module Content =
                 WriteBody = writeBody
             }
         }
-
-    let toCustomContent genPage context =
-        Async.RunSynchronously(toCustomContentAsync genPage context)
 
     let JsonContent<'T, 'U> (f: Context<'T> -> 'U) =
         let encoder = ActionEncoding.JsonProvider.GetEncoder<'U>()
@@ -356,6 +329,17 @@ module Content =
 
     let MethodNotAllowed<'T> : Async<Content<'T>> =
         httpStatusContent Http.Status.MethodNotAllowed
+
+[<System.Runtime.CompilerServices.Extension; Sealed>]
+type ContextExtensions =
+
+    [<System.Runtime.CompilerServices.Extension>]
+    static member GetSeparateResourcesAndScripts(ctx, controls) =
+        Content.getSeparateResourcesAndScripts ctx controls
+
+    [<System.Runtime.CompilerServices.Extension>]
+    static member GetResourcesAndScripts(ctx, controls) =
+        Content.getResourcesAndScripts ctx controls
 
 type Content<'Action> with
 

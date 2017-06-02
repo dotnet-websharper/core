@@ -39,8 +39,6 @@ type Require (t: System.Type, [<System.ParamArray>] parameters: obj[]) =
     interface INode with
         member this.Write(_, _) = ()
         member this.IsAttribute = false
-        member this.AttributeValue = None
-        member this.Name = None
 
     interface IRequiresResources with
         member this.Encode(_, _) = []
@@ -75,10 +73,8 @@ type Control() =
 
     interface INode with
         member this.IsAttribute = false
-        member this.Write (meta, w) =
+        member this.Write (_, w) =
             w.Write("""<div id="{0}"></div>""", this.ID)
-        member this.AttributeValue = None
-        member this.Name = None
 
     [<JavaScript>]
     abstract member Body : IControlBody

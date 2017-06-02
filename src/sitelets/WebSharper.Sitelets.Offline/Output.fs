@@ -324,7 +324,6 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
                 Json = st.Json,
                 Link = (fun _ -> ""),
                 ApplicationPath = ".",
-                ResolveUrl = id,
                 Metadata = st.Metadata,
                 Dependencies = st.Dependencies,
                 ResourceContext = resContext,
@@ -407,7 +406,6 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
             let context =
                 new Context<_>(
                     ApplicationPath = ".",
-                    ResolveUrl = id,
                     Json = st.Json,
                     Link = (fun action ->
                         // First try to find from action table.
