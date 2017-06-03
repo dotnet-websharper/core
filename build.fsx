@@ -16,7 +16,15 @@ let targets = MakeTargets {
     WSTargets.Default (ComputeVersion (Some baseVersion)) with
         ProjectFiles =
             !! "src/compiler/*/*.fsproj"
-            ++ "src/stdlib/*/*.fsproj"
+            // stdlib spelled out to ensure that Main.Proxies is built before Main
+            ++ "src/stdlib/WebSharper.JavaScript/*.fsproj"
+            ++ "src/stdlib/WebSharper.JQuery/*.fsproj"
+            ++ "src/stdlib/WebSharper.Main.Proxies/*.fsproj"
+            ++ "src/stdlib/WebSharper.Main/*.fsproj"
+            ++ "src/stdlib/WebSharper.JQuery/*.fsproj"
+            ++ "src/stdlib/WebSharper.Control/*.fsproj"
+            ++ "src/stdlib/WebSharper.Collections/*.fsproj"
+            ++ "src/stdlib/WebSharper.Testing/*.fsproj"
             ++ "src/sitelets/*/*.fsproj"
             ++ "tests/*/*.fsproj"
             ++ "tests/*/*.csproj"

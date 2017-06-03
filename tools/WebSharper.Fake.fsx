@@ -228,8 +228,8 @@ let MakeTargets (args: Args) =
         ==> "WS-Publish"
 
     "WS-Clean"
-        ?=> "WS-Checkout"
-        ==> "WS-Update"
+        ==> "WS-Checkout"
+        ?=> "WS-Update"
 
     "WS-Checkout"
         ==> "WS-Commit"
