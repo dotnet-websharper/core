@@ -140,6 +140,7 @@ type RemoteAttribute() =
 [<Sealed; U(T.Assembly|||T.Class|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct,
             AllowMultiple=true)>]
 type RequireAttribute private () =
+    inherit A()
 
     new (resourceType: System.Type) = RequireAttribute()
     new (resourceType: System.Type, [<System.ParamArray>] parameters: obj[]) = RequireAttribute()
