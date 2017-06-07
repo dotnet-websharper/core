@@ -789,7 +789,7 @@ module Definition =
                 Position
             ]
             Namespace "WebSharper.JQuery.Resources" [
-                Resource "JQuery" "http://code.jquery.com/jquery-3.1.1.min.js" |> AssemblyWide
+                Resource "JQuery" "//code.jquery.com/jquery-3.1.1.min.js" |> AssemblyWide
             ]
         ]
 
