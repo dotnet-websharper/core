@@ -635,7 +635,7 @@ module Definition =
             |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
 
             Constructor ((T<unit> ^-> T<unit>)?callback)
-            |> WithInline "jQuery($0, $1)"
+            |> WithInline "jQuery($0)"
             |> WithComment "Binds a function to be executed when the DOM has finished loading."
 
             "of" => (T<string>?selector) ^-> TSelf
@@ -675,7 +675,7 @@ module Definition =
             |> WithComment "Creates DOM elements on the fly from the provided string of raw HTML."
 
             "of" => ((T<unit> ^-> T<unit>)?callback) ^-> TSelf
-            |> WithInline "jQuery($0, $1)"
+            |> WithInline "jQuery($0)"
             |> WithComment "Binds a function to be executed when the DOM has finished loading."
 
             "holdReady" => T<bool> ^-> T<obj>
