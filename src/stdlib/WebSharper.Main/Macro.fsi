@@ -34,6 +34,11 @@ type Add =
     inherit Arith
 
 [<Sealed>]
+type Mul =
+    new : unit -> Mul
+    inherit Arith
+
+[<Sealed>]
 type Sub =
     new : unit -> Sub
     inherit Arith

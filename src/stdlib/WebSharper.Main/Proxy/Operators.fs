@@ -53,7 +53,7 @@ let ( % ) (a: 'T1) (b: 'T2) = X<'T3>
 [<Inline "$a & $b">]
 let ( &&& ) (a: 'T1) (b: 'T1) = X<'T1>
 
-[<Inline "$a * $b">]
+[<Macro(typeof<M.Mul>)>]
 let ( * ) (a: 'T1) (b: 'T2) = X<'T3>
 
 [<Inline "Math.pow($a, $b)">]

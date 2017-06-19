@@ -124,7 +124,10 @@ type Arith(name, op) =
 type Add() = inherit Arith("op_Addition", BinaryOperator.``+``) 
 
 [<Sealed>]
-type Sub() = inherit Arith("op_Subtraction", BinaryOperator.``-``) 
+type Sub() = inherit Arith("op_Subtraction", BinaryOperator.``-``)
+
+[<Sealed>]
+type Mul() = inherit Arith("op_Multiply", BinaryOperator.``*``)
 
 type Comparison =
     | ``<``  = 0
