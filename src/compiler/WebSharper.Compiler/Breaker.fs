@@ -188,7 +188,7 @@ let (|PropSetters|_|) p =
                 Some (fv :: accv)
             | _ -> 
                 None
-        ) (Some []) |> Option.map (fun setters -> setters, objVar)
+        ) (Some []) |> Option.map (fun setters -> List.rev setters, objVar)
     | _ -> None
 
 let bind key value body = Let (key, value, body)

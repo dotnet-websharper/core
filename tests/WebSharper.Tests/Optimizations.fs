@@ -382,3 +382,14 @@ let CurriedArgWithLocal() =
     let LocalCurried a b =
         a + b
     CurriedArg LocalCurried
+
+[<JavaScript>]
+let CollectJSObject() =
+    let x = New [ "a" => 1 ]
+    x?b <- 
+        Console.Log(2)
+        2
+    x?c <- 
+        Console.Log(3)
+        3
+    x
