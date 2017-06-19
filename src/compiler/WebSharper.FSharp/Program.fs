@@ -82,10 +82,13 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
 
     if config.ProjectType = Some WIG then  
         aR.Wrap <| fun () ->
-        RunInterfaceGenerator aR (config.KeyFile |> Option.map readStrongNameKeyPair) config
-
-        TimedStage "WIG running time"
-        0
+        try 
+            RunInterfaceGenerator aR (config.KeyFile |> Option.map readStrongNameKeyPair) config
+            TimedStage "WIG running time"
+            0
+        with e ->
+            PrintGlobalError (sprintf "Error running WIG assembly: %s at %s" e.Message e.StackTrace)
+            1
     
     else    
     let loader = Loader.Create aR (printfn "%s")
@@ -298,11 +301,14 @@ let compileMain argv =
         }
 
     let clearOutput() =
-        let intermediaryOutput = (!wsArgs).AssemblyFile
-        if File.Exists intermediaryOutput then 
-            let failedOutput = intermediaryOutput + ".failed"
-            if File.Exists failedOutput then File.Delete failedOutput
-            File.Move (intermediaryOutput, failedOutput)
+        try
+            let intermediaryOutput = (!wsArgs).AssemblyFile
+            if File.Exists intermediaryOutput then 
+                let failedOutput = intermediaryOutput + ".failed"
+                if File.Exists failedOutput then File.Delete failedOutput
+                File.Move (intermediaryOutput, failedOutput)
+        with _ ->
+            PrintGlobalError "Failed to clean intermediate output!"
 
     try 
         let exitCode = Compile !wsArgs !warn
