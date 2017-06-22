@@ -175,20 +175,24 @@ let rec (|PropSet|_|) expr =
         Some (objVar, (field, value))
     | _ -> None
 
-let (|PropSetters|_|) p =
-    match List.rev p with
-    | (I.Var objVar) :: setters ->
-        List.rev setters |> List.fold (fun acc e ->
-            match acc with
-            | None -> None
-            | Some accv ->
+let (|ObjWithPropSetters|_|) expr =
+    let rec getSetters objVar acc p =
+        match p with
+        | [] -> List.rev acc, Undefined
+        | e :: r -> 
             match IgnoreExprSourcePos e with
-            | e when isPureExpr e -> acc
+            | e when isPureExpr e -> getSetters objVar acc r
             | PropSet (v, fv) when v = objVar -> 
-                Some (fv :: accv)
+                getSetters objVar (fv :: acc) r
             | _ -> 
-                None
-        ) (Some []) |> Option.map (fun setters -> List.rev setters, objVar)
+                List.rev acc, CombineExpressions r
+    match expr with 
+    | Let (objVar, I.Object objFields, I.Sequential p) ->
+        match getSetters objVar [] p with
+        | [], _ -> None
+        | setters, Var v when v = objVar -> Some (Object (objFields @ setters))
+        | setters, Undefined -> Some (CombineExpressions (List.map snd (objFields @ setters)))
+        | setters, res -> Some (Let (objVar, Object (objFields @ setters), res))
     | _ -> None
 
 let bind key value body = Let (key, value, body)
@@ -224,8 +228,8 @@ let rec removeLets expr =
     | Let(var, value, I.Application(I.Var v, args, p, l)) 
         when v = var && CountVarOccurence(var).Get(Sequential args) = 0 ->
             Application(value, args, p, l)
-    | Let (objVar, I.Object objFields, I.Sequential (PropSetters (setters, v))) when v = objVar ->
-        objFields @ setters |> Object
+    | ObjWithPropSetters res ->
+        res
     | Let(a, b, c) ->
         let optimizeTupled  =
             match b with

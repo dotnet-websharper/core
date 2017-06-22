@@ -230,13 +230,13 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
                     else
                         failwithf "Unrecognized IntelliFactory.Runtime function: %s" f
                 | _ -> failwith "expected a function of IntelliFactory.Runtime"     
-            elif env.IsPure then 
-                let optA =
-                    match trA with
-                    | ItemGet(GlobalAccess a, Value (String b)) -> GlobalAccess (Address (b :: a.Value))
-                    | _ -> trA
-                ItemGet(optA, trC) 
-            else ItemGetNonPure(trA, trC)
+            else
+                match trA with
+                | ItemGet(GlobalAccess a, Value (String b)) 
+                    -> ItemGet(GlobalAccess (Address (b :: a.Value)), trC)
+                | _ -> 
+                    if env.IsPure then ItemGet(trA, trC) 
+                    else ItemGetNonPure(trA, trC)
         | SB.``/``      -> Binary(trE a, BinaryOperator.``/``, trE c)
         | SB.``/=``     -> mbin a MutatingBinaryOperator.``/=`` c
         | SB.``<``      -> Binary(trE a, BinaryOperator.``<``, trE c)
@@ -292,11 +292,10 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
     | S.New (a, b) -> 
         let trA = trE a
         let optA =
-            if env.IsPure then
-                match trA with
-                | ItemGet(GlobalAccess a, Value (String b)) -> GlobalAccess (Address (b :: a.Value))
-                | _ -> trA
-            else trA
+            match trA with
+            | ItemGet(GlobalAccess a, Value (String b)) 
+                -> GlobalAccess (Address (b :: a.Value))
+            | _ -> trA
         New(optA, List.map trE b)
     | S.NewArray a -> NewArray (a |> List.map (function Some i -> trE i | _ -> Undefined))
     | S.NewObject a -> Object(a |> List.map (fun (b, c) -> b, trE c))
@@ -330,7 +329,8 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | _ ->
         match env.TryFindVar a with
         | Some e -> e
-        | None -> if env.IsPure then ItemGet(glob, Value (String a)) else ItemGetNonPure(glob, Value (String a))
+        | None ->
+            ItemGet(glob, Value (String a)) 
     | e ->     
         failwithf "Failed to recognize: %A" e
 //    | S.Postfix (a, b) ->

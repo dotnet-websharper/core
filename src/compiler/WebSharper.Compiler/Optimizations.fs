@@ -191,7 +191,11 @@ let cleanRuntime expr =
         | _ ->
             expr
     //used by functions with rest argument
-    | Application (ItemGet(NewArray arr, Value (String "concat")), [ NewArray rest ], _, _) ->
+    | Application (ItemGet(GlobalAccess mf, Value (String "apply")), [ItemGet (GlobalAccess m, Value (String f)); NewArray arr ], isPure, _) when mf.Value.Tail = f :: m.Value ->
+        Application (GlobalAccess mf, arr, isPure, None)
+    | Application (ItemGet(GlobalAccess mf, Value (String "apply")), [ItemGet (GlobalAccess m, Value (String f)); Application (ItemGetNonPure(NewArray arr, Value (String "concat")), [ NewArray rest ], _, _) ], isPure, _) when mf.Value = f :: m.Value ->
+        Application (GlobalAccess mf, arr @ rest, isPure, None)
+    | Application (ItemGetNonPure(NewArray arr, Value (String "concat")), [ NewArray rest ], _, _) ->
         NewArray (arr @ rest)    
     | ItemGet (Object fs, Value (String fieldName)) ->
         let mutable nonPureBefore = []

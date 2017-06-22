@@ -67,6 +67,10 @@ module Server =
             testWithMatch <@ Optimizations.CollectJSObject() @> <| function
             | Function (_, Return (Object [ "a", Value (Int 1); "b", Sequential [_; Value (Int 2)]; "c", Sequential [_; Value (Int 3)]])) -> true
             | _ -> false
+
+            testWithMatch <@ Optimizations.InlineValues() @> <| function
+            | Function (_, ExprStatement (Application(_, [Value (String "a"); Value (String "b")], false, None) )) -> true
+            | _ -> false
         
         |]
 

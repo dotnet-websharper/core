@@ -393,3 +393,7 @@ let CollectJSObject() =
         Console.Log(3)
         3
     x
+
+[<JavaScript>]
+let InlineValues() =
+    ("x", "y") ||> fun a b -> Console.Log(a, b)    
