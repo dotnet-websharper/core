@@ -25,10 +25,31 @@ open WebSharper.JavaScript
 open WebSharper.Testing
 module R = WebSharper.Testing.Random
 
+type CustomNumber(x: int) =
+    let inner = x
+
+    member this.Inner = inner
+    static member op_Multiply(CN1: CustomNumber, CN2: CustomNumber) =
+        CN1.Inner * CN2.Inner
+
+
+[<Proxy(typeof<CustomNumber>)>]
+type CN =
+    
+    [<Inline "$x">]
+    new (x: int) = {}
+
+    [<Inline "$this.x">]
+    member this.Inner = X<int>
+
+    [<Inline "55">]
+    static member op_Multiply(CN1: CustomNumber, CN2: CustomNumber) = X<int>
+
+
 [<JavaScript>]
 type IValue<'T> =
     abstract member Value : 'T with get
-
+    
 [<JavaScript; Inline>]
 let inline ( !! ) (o: ^x) : ^a = (^x: (member Value: ^a with get) o)
 
@@ -175,5 +196,11 @@ let Tests =
             isTrue (u < Case2) 
             isTrue (Case0 < u) 
             isTrue (Case0 < Case2)
+        }
+
+        Test "* op proxy" {
+            let u1 = CustomNumber(5)
+            let u2 = CustomNumber(6)
+            isTrue (u1*u2 = 55)
         }
     }
