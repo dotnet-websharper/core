@@ -104,12 +104,17 @@ let interop =
     for i = 2 to 7 do
         let t = tArgs i
         cprintfn "[<Proxy (typeof<Union%s>)>]" (toAnonTypArgs t)
+        let tname = sprintf "Union<%s>" (tArgs i |> String.concat ", ")
         cprintfn "type UnionProxy<%s> =" (t |> String.concat ", ")
         for j = 1 to i do
             cprintfn "    | Union%dOf%d of 'T%d" j i j
         for j = 1 to i do
             cprintfn "    [<Inline>]"
             cprintfn "    member this.Value%d = As<'T%d> this" j j
+            cprintfn "    [<Inline \"$x\">]"
+            cprintfn "    static member op_Implicit(x: 'T%d) = X<%s>" j tname
+            cprintfn "    [<Inline \"$x\">]"
+            cprintfn "    static member op_Implicit(x: %s) = X<'T%d>" tname j
     
     code.ToArray()
 

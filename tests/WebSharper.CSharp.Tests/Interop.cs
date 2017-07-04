@@ -105,6 +105,10 @@ namespace WebSharper.CSharp.Tests
             }
             Equal(res2, "hi!");
 
+            // implicit conversions
+            x = "hi";
+            string s = x;
+            Equal(s, "hi");
         }
 
         [Test]
@@ -133,6 +137,11 @@ namespace WebSharper.CSharp.Tests
             }
             Equal(res, 4);
             JsEqual(x.Value, 4);
+
+            // implicit conversions
+            x = 5;
+            int i = x;
+            Equal(i, 5);
         }
 
         [Test]
@@ -183,7 +192,7 @@ namespace WebSharper.CSharp.Tests
             Equal(c.Optionals(y: 5), 6);
             Equal(c.Optionals(5, 5, 5), 15);
         }
-        
+
         [Test]
         public void FSharpOptionals()
         {
@@ -221,7 +230,7 @@ namespace WebSharper.CSharp.Tests
 
         int TestInt = 0;
 
-        public void AddToTestInt (object sender, int x)
+        public void AddToTestInt(object sender, int x)
         {
             TestInt += x;
         }
