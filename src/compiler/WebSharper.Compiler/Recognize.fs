@@ -33,7 +33,7 @@ type Environment =
         Inputs : list<Expression>
         Labels : Map<string, Id>
         This : option<Id>
-        IsPure : bool
+        Purity : Purity
     }
 
     static member New(thisArg, isDirect, isPure, args) =
@@ -59,7 +59,7 @@ type Environment =
                 else (if Option.isSome thisArg then [This] else []) @ (args |> List.map Var)
             Labels = Map.empty
             This = None
-            IsPure = isPure
+            Purity = if isPure then Pure else NonPure
         }
 
     static member Empty =
@@ -68,13 +68,13 @@ type Environment =
             Inputs = []
             Labels = Map.empty
             This = None
-            IsPure = false
+            Purity = NonPure
         }
 
     member this.WithNewScope (vars) =
         { this with 
             Vars = (Dictionary(dict vars) :> _) :: this.Vars 
-            IsPure = false
+            Purity = NonPure
         }
 
     member this.NewVar(name) =
@@ -147,8 +147,7 @@ let checkNotMutating (env: Environment) a f =
 
 let setValue (env: Environment) expr value =
     match expr with
-    | ItemGet (d, e)
-    | ItemGetNonPure (d, e) -> ItemSet(d, e, value)
+    | ItemGet (d, e, _) -> ItemSet(d, e, value)
     | Var d -> checkNotMutating env (Var d) (fun _ -> VarSet(d, value))
     | _ -> failwith "invalid form for setter"
 
@@ -165,6 +164,7 @@ let wsRuntimeFunctions =
         "GetOptional"
         "SetOptional"
         "SetOrDelete"
+        "Apply"
         "Bind"
         "CreateFuncWithArgs"
         "CreateFuncWithOnlyThis"
@@ -185,8 +185,6 @@ let wsRuntimeFunctions =
         "Curried"
         "Curried2"
         "Curried3"
-        "Apply"
-        "PipeApply"
         "UnionByType"
     ]
 
@@ -202,7 +200,11 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         checkNotMutating (trE a) (fun ta -> MutatingUnary(op, ta))
     match expr with
     | S.Application (a, b) ->
-        Application (trE a, b |> List.map trE, env.IsPure, None) 
+        let trA =
+            match trE a with
+            | ItemGet (a, b, _) -> ItemGet (a, b, Pure)
+            | trA -> trA
+        Application (trA, b |> List.map trE, env.Purity, None) 
     | S.Binary (a, b, c) ->
         match b with    
         | SB.``!=``     -> Binary(trE a, BinaryOperator.``!=``, trE c)
@@ -232,11 +234,10 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
                 | _ -> failwith "expected a function of IntelliFactory.Runtime"     
             else
                 match trA with
-                | ItemGet(GlobalAccess a, Value (String b)) 
-                    -> ItemGet(GlobalAccess (Address (b :: a.Value)), trC)
+                | ItemGet(GlobalAccess a, Value (String b), _) 
+                    -> ItemGet(GlobalAccess (Address (b :: a.Value)), trC, Pure)
                 | _ -> 
-                    if env.IsPure then ItemGet(trA, trC) 
-                    else ItemGetNonPure(trA, trC)
+                    ItemGet(trA, trC, env.Purity) 
         | SB.``/``      -> Binary(trE a, BinaryOperator.``/``, trE c)
         | SB.``/=``     -> mbin a MutatingBinaryOperator.``/=`` c
         | SB.``<``      -> Binary(trE a, BinaryOperator.``<``, trE c)
@@ -293,7 +294,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         let trA = trE a
         let optA =
             match trA with
-            | ItemGet(GlobalAccess a, Value (String b)) 
+            | ItemGet(GlobalAccess a, Value (String b), _) 
                 -> GlobalAccess (Address (b :: a.Value))
             | _ -> trA
         New(optA, List.map trE b)
@@ -330,7 +331,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         match env.TryFindVar a with
         | Some e -> e
         | None ->
-            ItemGet(glob, Value (String a)) 
+            ItemGet(glob, Value (String a), NonPure) 
     | e ->     
         failwithf "Failed to recognize: %A" e
 //    | S.Postfix (a, b) ->

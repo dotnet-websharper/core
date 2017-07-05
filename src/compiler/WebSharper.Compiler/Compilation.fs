@@ -437,9 +437,9 @@ type Compilation(meta: Info, ?hasGraph) =
                 if typ.Value.Assembly = "mscorlib" then
                     match typ.Value.FullName with
                     | "System.Collections.IEnumerable" ->
-                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], false, Some 1))
+                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], NonPure, Some 1))
                     | "System.Collections.Generic.IEnumerable`1" ->
-                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get"], [Hole 0], false, Some 1))
+                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get"], [Hole 0], NonPure, Some 1))
                     | _ -> 
                         Compiled (Instance m, Optimizations.None, Undefined)
                 else
@@ -1073,8 +1073,8 @@ type Compilation(meta: Info, ?hasGraph) =
                     res.Constructors.Add(cDef, (comp, opts isPure nr, addCctorCall typ res nr.Body))
                 else
                     compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
-            | M.Field (fName, _) ->
-                res.Fields.Add(fName, StaticField addr)
+            | M.Field (fName, nr) ->
+                res.Fields.Add(fName, (StaticField addr, nr.IsReadonly))
             | M.Method (mDef, nr) ->
                 let comp = compiledStaticMember addr nr
                 if nr.Compiled then 
@@ -1100,7 +1100,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         match System.Int32.TryParse name with
                         | true, i -> IndexedField i
                         | _ -> InstanceField name
-                res.Fields.Add(fName, fi)
+                res.Fields.Add(fName, (fi, f.IsReadonly))
             | M.Method (mDef, nr) ->
                 let comp = compiledInstanceMember name nr
                 match nr.Kind with

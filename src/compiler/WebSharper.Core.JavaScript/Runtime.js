@@ -97,6 +97,10 @@ IntelliFactory = {
                 }
             },
 
+        Apply: function (f, obj, args) {
+            return f.apply(obj, args);
+        },
+
         Bind: function (f, obj) {
             return function () { return f.apply(this, arguments) };
         },

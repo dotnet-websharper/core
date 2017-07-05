@@ -520,7 +520,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | Some t -> ReplaceThisWithVar(t).TransformExpression(b)
                         | _ -> b
                     let allVars = Option.toList thisVar @ args
-                    makeExprInline allVars (Application (b, allVars |> List.map Var, false, None))
+                    makeExprInline allVars (Application (b, allVars |> List.map Var, NonPure, None))
                 else
                     Function(args, parsed.Body)
 
@@ -581,7 +581,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.OptionalField ->
                     let mN = mdef.Value.MethodName
                     if mN.StartsWith "get_" then
-                        let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String mN.[4..])))
+                        let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String mN.[4..]), Pure))
                         addMethod mAnnot mdef N.Inline true i
                     elif mN.StartsWith "set_" then  
                         let i = JSRuntime.SetOptional (Hole 0) (Value (String mN.[4..])) (Hole 1)
@@ -668,6 +668,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 StrongName = jsName
                 IsStatic = f.IsStatic
                 IsOptional = mAnnot.Kind = Some A.MemberKind.OptionalField 
+                IsReadonly = f.IsReadOnly
                 FieldType = sr.ReadType f.Type 
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
@@ -679,6 +680,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 StrongName = mAnnot.Name
                 IsStatic = f.IsStatic
                 IsOptional = false
+                IsReadonly = false
                 FieldType = sr.ReadType f.Type 
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    

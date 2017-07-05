@@ -51,7 +51,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
 //                if isBundle then
 //                    declarations.Add <| VarDeclaration (var, ItemGet(glob, f) |> safeObject)                
 //                else
-                declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f) |> safeObject))                
+                declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f, Pure) |> safeObject))                
                 let res = Var var
                 //topLevel.Add(name, res)
                 addresses.Add(address, res)
@@ -63,7 +63,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
 //                if isBundle then
 //                    declarations.Add <| VarDeclaration (var, ItemGet(parent, f) |> safeObject)                
 //                else
-                declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f) |> safeObject))                
+                declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f, Pure) |> safeObject))                
                 let res = Var var
                 addresses.Add(address, res)
                 res
@@ -82,7 +82,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             | [] -> glob
             | h :: t ->
                 let parent = getOrImportAddress false (Address t)
-                let import = ItemGet(parent, Value (String h))
+                let import = ItemGet(parent, Value (String h), Pure)
                 if full then
                     import
                 else
@@ -115,7 +115,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
         let o, x = getFieldAddress a
         match expr with
         | Function ([], body) ->
-            let rem = ExprStatement (ItemSet (o, x, ItemGet(glob, Value (String "ignore"))))    
+            let rem = ExprStatement (ItemSet (o, x, ItemGet(glob, Value (String "ignore"), Pure)))    
             let expr = JSRuntime.Cctor <| Function([], Block [body; rem])
             statements.Add <| ExprStatement (ItemSet (o, x, expr))    
         | _ ->
@@ -221,7 +221,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
 
     // allStatements will always have the Global variable declaration
     if List.isEmpty allStatements.Tail then Undefined else
-        Application(Function([], Block allStatements), [], false, Some 0)
+        Application(Function([], Block allStatements), [], NonPure, Some 0)
 
 let readMapFileSources mapFile =
     match Json.Parse mapFile with

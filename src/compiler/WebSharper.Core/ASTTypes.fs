@@ -92,6 +92,11 @@ type FuncArgOptimization =
     | CurriedFuncArg of int    
     | TupledFuncArg of int    
 
+type Purity =
+    | NonPure
+    | NoSideEffect
+    | Pure
+
 /// A range in original source code
 type SourcePos =
     {

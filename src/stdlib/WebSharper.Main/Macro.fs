@@ -98,7 +98,7 @@ type Div() =
                 if isIn smallIntegralTypes t
                 then (x ^/ y) ^>> !~(Int 0)
                 elif isIn bigIntegralTypes t
-                then Application(Global ["Math"; "trunc"], [x ^/ y], true, Some 1)
+                then Application(Global ["Math"; "trunc"], [x ^/ y], Pure, Some 1)
                 elif isIn scalarTypes t
                 then x ^/ y
                 else traitCallOp c
@@ -254,7 +254,7 @@ let translateOperation (t: Concrete<TypeDefinition>) a m op =
             if smallIntegralTypes.Contains t.Entity.Value.FullName
             then (x ^/ y) ^>> !~(Int 0)
             elif bigIntegralTypes.Contains t.Entity.Value.FullName
-            then Application(Global ["Math"; "trunc"], [x ^/ y], true, Some 1)
+            then Application(Global ["Math"; "trunc"], [x ^/ y], Pure, Some 1)
             else x ^/ y
         | _ ->
             Binary (x, op, y)
@@ -275,7 +275,7 @@ type NumericMacro() =
     let exprParse parsed tru fls =
         let id = Id.New(mut = false)
         Let (id, parsed,
-            Conditional(Application(Global ["isNaN"], [Var id], true, Some 1),
+            Conditional(Application(Global ["isNaN"], [Var id], Pure, Some 1),
                 tru id,
                 fls id
             )
@@ -285,9 +285,9 @@ type NumericMacro() =
         let name = c.DefiningType.Entity.Value.FullName
 
         let parseInt x =
-            Application(Global ["parseInt"], [x], true, Some 1)
+            Application(Global ["parseInt"], [x], Pure, Some 1)
         let parseFloat x =
-            Application(Global ["parseFloat"], [x], true, Some 1)
+            Application(Global ["parseFloat"], [x], Pure, Some 1)
 
         let ex =
             Ctor(
@@ -343,9 +343,9 @@ type NumericMacro() =
             | Some self ->
                 // TODO refactor to separate method
                 if c.DefiningType.Entity.Value.AssemblyQualifiedName = "System.Char, mscorlib" then
-                    Application(Global ["String"; "fromCharCode"], [self], true, Some 1)
+                    Application(Global ["String"; "fromCharCode"], [self], Pure, Some 1)
                 else 
-                    Application(Global ["String"], [self], true, Some 1)
+                    Application(Global ["String"], [self], Pure, Some 1)
                 |> MacroOk 
             | _ -> MacroError "numericMacro error"
         | "Parse" ->
@@ -419,13 +419,13 @@ type String() =
                 | ConcreteType d ->
                     match d.Entity.Value.FullName with
                     | "System.Char" ->
-                        Application(Global ["String"; "fromCharCode"], [x], true, Some 1)    
+                        Application(Global ["String"; "fromCharCode"], [x], Pure, Some 1)    
                     | "System.DateTime" ->
-                        Application(ItemGet(New(Global [ "Date" ], [x]), Value (Literal.String "toLocaleString")), [], true, None)
+                        Application(ItemGet(New(Global [ "Date" ], [x]), Value (Literal.String "toLocaleString"), Pure), [], Pure, None)
                     | _ ->
-                        Application(Global ["String"], [x], true, Some 1)   
+                        Application(Global ["String"], [x], Pure, Some 1)   
                 | _ -> 
-                    Application(Global ["String"], [x], true, Some 1)   
+                    Application(Global ["String"], [x], Pure, Some 1)   
                 |> MacroOk 
             | _ ->
                 MacroError "stringMacro error"
@@ -497,11 +497,11 @@ type New() =
 module JSRuntime =
     let private runtime = ["Runtime"; "IntelliFactory"]
     let private runtimeFunc f p args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some (List.length args))
-    let GetOptional value = runtimeFunc "GetOptional" true [value]
-    let SetOptional obj field value = runtimeFunc "SetOptional" false [obj; field; value]
-    let CreateFuncWithArgs f = runtimeFunc "CreateFuncWithArgs" true [f]
-    let CreateFuncWithArgsRest length f = runtimeFunc "CreateFuncWithArgsRest" true [length; f]
-    let CreateFuncWithThis f = runtimeFunc "CreateFuncWithThis" true [f]
+    let GetOptional value = runtimeFunc "GetOptional" Pure [value]
+    let SetOptional obj field value = runtimeFunc "SetOptional" NonPure [obj; field; value]
+    let CreateFuncWithArgs f = runtimeFunc "CreateFuncWithArgs" Pure [f]
+    let CreateFuncWithArgsRest length f = runtimeFunc "CreateFuncWithArgsRest" Pure [length; f]
+    let CreateFuncWithThis f = runtimeFunc "CreateFuncWithThis" Pure [f]
 
 [<Sealed>]
 type FuncWithArgs() =
@@ -551,7 +551,7 @@ type FuncWithThis() =
         | _ ->
             MacroError "funcWithArgsMacro error"
 
-let ApplItem(on, item, args) = Application(ItemGet(on, Value (AST.String item)), args, false, None)
+let ApplItem(on, item, args) = Application(ItemGet(on, Value (AST.String item), Pure), args, NonPure, None)
 
 [<Sealed>]
 type JSThisCall() =
@@ -593,7 +593,7 @@ type GetJS() =
         | [ obj ] -> MacroOk obj
         | [ obj; I.NewArray items ] ->
             if items |> List.forall (function I.Value _ -> true | _ -> false) then
-                items |> List.fold (fun x i -> ItemGetNonPure(x, i)) obj |> MacroOk
+                items |> List.fold (fun x i -> ItemGet(x, i, NonPure)) obj |> MacroOk
             else MacroFallback
         | [ _; _ ] -> MacroFallback
         | _ -> MacroError (sprintf "GetJS macro error, arguments: %+A" c.Arguments)
@@ -733,8 +733,8 @@ let stringProxy (comp: M.ICompilation) f args =
     let m = comp.GetClassInfo(stringModule).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
     Call(None, NonGeneric stringModule, NonGeneric m, args)
 
-let cCall e f args = Application (ItemGet(e, !~ (Literal.String f)), args, true, None)
-let cCallG a args = Application (Global a, args, true, None)
+let cCall e f args = Application (ItemGet(e, !~ (Literal.String f), Pure), args, Pure, None)
+let cCallG a args = Application (Global a, args, Pure, None)
 
 //type FST = Reflection.FSharpType
 
@@ -813,7 +813,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                                             let ftypRes = f.RecordFieldType.SubstituteGenerics gs
                                             let item =
                                                 if f.Optional then
-                                                    JSRuntime.GetOptional (ItemGet(Var x, cString f.JSName))
+                                                    JSRuntime.GetOptional (ItemGet(Var x, cString f.JSName, Pure))
                                                 else 
                                                     (Var x).[cString f.JSName]
                                             yield cString (f.Name + " = ") ^+ pp ftypRes item
@@ -1200,7 +1200,7 @@ type StringFormat() =
                             let idx = int m.Groups.[2].Value
 
                             let r =
-                                Application(Global ["WebSharper"; "Arrays"; "get"], [Var argsId; cInt idx], true, Some 2)
+                                Application(Global ["WebSharper"; "Arrays"; "get"], [Var argsId; cInt idx], Pure, Some 2)
                                 |> safeToString
 
                             let spec = m.Groups.[4].Value

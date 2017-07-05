@@ -397,3 +397,11 @@ let CollectJSObject() =
 [<JavaScript>]
 let InlineValues() =
     ("x", "y") ||> fun a b -> Console.Log(a, b)    
+
+[<JavaScript>]
+let InlineValues2() =
+    ((Console.Log("x"); "x"), (Console.Log("y"); "y")) ||> fun a b -> Console.Log(a, b)    
+
+[<JavaScript>]
+let InlineValues3() =
+    ((Console.Log("x"); "x"), (Console.Log("y"); "y")) ||> fun a b -> Array(a, b)    

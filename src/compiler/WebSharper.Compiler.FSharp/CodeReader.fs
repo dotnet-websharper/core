@@ -597,8 +597,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | [a] when isUnit a.Type ->
                     let trA = trArg a
                     match IgnoreExprSourcePos trA with
-                    | Undefined | Value Null -> Application (trFunc, [], false, Some 0)
-                    | _ -> Sequential [ trA; Application (trFunc, [], false, Some 0) ]
+                    | Undefined | Value Null -> Application (trFunc, [], NonPure, Some 0)
+                    | _ -> Sequential [ trA; Application (trFunc, [], NonPure, Some 0) ]
                 | _ ->
                     let trArgs = args |> List.map trArg
                     curriedApplication trFunc trArgs
@@ -638,7 +638,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         let ta = tr a
                         if isByRef a.Type then
                             match IgnoreExprSourcePos ta with
-                            | Application(ItemGet (r, Value (String "get")), [], _, _) -> r
+                            | Application(ItemGet (r, Value (String "get"), _), [], _, _) -> r
                             | _ -> ta
                         else ta |> removeListOfArray a.Type
                     )
@@ -741,7 +741,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | ByRefArg -> SetRef (Var v) (tr value)
                 | ThisArg -> failwith "'this' parameter cannot be set"
         | P.TupleGet (_, i, tuple) ->
-            ItemGet(tr tuple, Value (Int i))   
+            ItemGet(tr tuple, Value (Int i), Pure)   
         | P.FastIntegerForLoop (start, end_, body, up) ->
             let j = newId()
             let i, trBody =
@@ -869,7 +869,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             ReplaceId(capt, c).TransformExpression(body)
                         | _ ->
                             body |> List.foldBack (fun (i, id) body -> 
-                                Let(id, ItemGet(Var c, Value (Int i)), body)) (List.indexed captures)
+                                Let(id, ItemGet(Var c, Value (Int i), Pure), body)) (List.indexed captures)
                     )
                 
                 Sequential [
@@ -938,10 +938,10 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             match e with
             | Var v ->
                 MakeRef e (fun value -> VarSet(v, value))
-            | ItemGet(o, i) ->
+            | ItemGet(o, i, p) ->
                 let ov = newId()
                 let iv = newId()
-                Let (ov, o, Let(iv, i, MakeRef (ItemGet(Var ov, Var iv)) (fun value -> ItemSet(Var ov, Var iv, value))))
+                Let (ov, o, Let(iv, i, MakeRef (ItemGet(Var ov, Var iv, p)) (fun value -> ItemSet(Var ov, Var iv, value))))
             | FieldGet(o, t, f) ->
                 match o with
                 | Some o ->
@@ -949,7 +949,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)))     
                 | _ ->
                     MakeRef e (fun value -> FieldSet(None, t, f, value))  
-            | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+            | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
                 r   
             | Call(None, td, m, []) ->
                 let me = m.Entity.Value
@@ -1033,7 +1033,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.ILAsm("[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, None)],TypeVar 0us)]", _, [ arr; i ]) ->
             let arrId = newId()
             let iId = newId()
-            Let (arrId, tr arr, Let(iId, tr i, MakeRef (ItemGet(Var arrId, Var iId)) (fun value -> ItemSet(Var arrId, Var iId, value))))
+            Let (arrId, tr arr, Let(iId, tr i, MakeRef (ItemGet(Var arrId, Var iId, NoSideEffect)) (fun value -> ItemSet(Var arrId, Var iId, value))))
         | P.ILAsm ("[I_ldarg 0us]", [], []) ->
             This
         | P.ILAsm ("[AI_ldnull; AI_cgt_un]", [], [ arr ]) ->

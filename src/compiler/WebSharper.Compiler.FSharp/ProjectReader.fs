@@ -601,7 +601,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         jsMethod true
                     | A.MemberKind.OptionalField ->
                         if meth.IsPropertyGetterMethod then
-                            let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String meth.CompiledName.[4..])))
+                            let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String meth.CompiledName.[4..]), Pure))
                             addM N.Inline true None i
                         elif meth.IsPropertySetterMethod then  
                             let i = JSRuntime.SetOptional (Hole 0) (Value (String meth.CompiledName.[4..])) (Hole 1)
@@ -839,6 +839,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         RecordFieldType = fTyp
                         DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
                         Optional = isOpt
+                        IsMutable = f.IsMutable
                     }
                 )
                 |> List.ofSeq |> FSharpRecordInfo    
@@ -873,6 +874,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 StrongName = fAnnot.Name
                 IsStatic = f.IsStatic
                 IsOptional = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                IsReadonly = not f.IsMutable
                 FieldType = sr.ReadType clsTparams.Value f.FieldType
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))
@@ -1023,6 +1025,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                                 StrongName = None
                                 IsStatic = true
                                 IsOptional = false
+                                IsReadonly = true
                                 FieldType = VoidType // field types are only needed for adding code dependencies for activator
                             } 
                         )

@@ -158,8 +158,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 [ J.Ignore (J.Constant (J.String "use strict")) ]
             else []
         J.Lambda(None, args, useStrict @ innerEnv.Declarations @ body)
-    | ItemGet (x, y) 
-    | ItemGetNonPure (x, y) 
+    | ItemGet (x, y, _) 
         -> (trE x).[trE y]
     | Binary (x, y, z) ->
         match y with

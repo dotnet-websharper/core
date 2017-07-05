@@ -103,13 +103,13 @@ type TransformMoreVarSets(vs, tr) =
              tr (this.TransformExpression b)    
         else base.TransformVarSet(a, b)    
 
-type MarkApplicationsPure(v) =
+type MarkApplicationsPure(v, purity) =
     inherit Transformer()
 
     override this.TransformApplication(func, args, isPure, length) =
         match func with
         | I.Var x when x = v ->
-            Application(func, args |> List.map this.TransformExpression, true, length)    
+            Application(func, args |> List.map this.TransformExpression, purity, length)    
         | _ -> base.TransformApplication(func, args, isPure, length)
 
     override this.TransformLet(id, value, body) =
@@ -179,6 +179,11 @@ let (|ObjWithPropSetters|_|) expr =
     let rec getSetters objVar acc p =
         match p with
         | [] -> List.rev acc, Undefined
+        | [e] ->
+            match IgnoreExprSourcePos e with
+            | PropSet (v, fv) when v = objVar -> 
+                List.rev (fv :: acc), Undefined
+            | _ -> List.rev acc, e 
         | e :: r -> 
             match IgnoreExprSourcePos e with
             | e when isPureExpr e -> getSetters objVar acc r
@@ -222,6 +227,8 @@ let rec removeLets expr =
     | Let(a, I.Var b, c) 
         when (not b.IsMutable) || (notMutatedOrCaptured a c && notMutatedOrCaptured b c) -> // TODO: maybe weaker check is enough
             ReplaceId(a, b).TransformExpression(c)            
+    | Let(a, I.GlobalAccess b, c) when not a.IsMutable ->
+        SubstituteVar(a, GlobalAccess b).TransformExpression(c)
     | Let(var, value, I.Application(func, [I.Var v], p, l))
         when v = var && isStronglyPureExpr func && CountVarOccurence(var).Get(func) = 0 ->
             Application(func, [value], p, l)
@@ -287,7 +294,7 @@ let optimize expr =
         else 
             List.foldBack2 bind vars args (Sequential [body; Value Null])
         |> removeLets
-    | Application(I.ItemGet(I.Function (vars, I.Return body), I.Value (String "apply")), [ I.Value Null; argArr ], _, _) ->
+    | Application(I.ItemGet(I.Function (vars, I.Return body), I.Value (String "apply"), _), [ I.Value Null; argArr ], _, _) ->
         List.foldBack2 bind vars (List.init vars.Length (fun i -> argArr.[Value (Int i)])) body                   
         |> removeLets
     | Application (I.Function (args, I.Return body), xs, _, Some _) 
@@ -306,8 +313,8 @@ let optimize expr =
         let ar = List.rev a
         Sequential (List.rev (Application (ar.Head, b, c, d) :: List.tail ar))
     // generated for disposing iterators
-    | Application (ItemGet(Let (x, Var y, Var x2), i), b, p, l) when x = x2 ->
-        Application(ItemGet(Var y, i), b, p, l)
+    | Application (ItemGet(Let (x, Var y, Var x2), i, gp), b, p, l) when x = x2 ->
+        Application(ItemGet(Var y, i, gp), b, p, l)
     | StatementExpr (I.ExprStatement a, None) ->
         Void a   
     | _ ->
@@ -405,10 +412,10 @@ let rec breakExpr expr : Broken<BreakResult> =
             args |> List.rev |> List.skipWhile (fun a -> CountVarOccurence(a).GetForStatement(body) = 0) |> List.rev
         broken (Function (args, BreakStatement body)) 
     | CurriedApplication (f, xs) ->
-        xs |> List.fold (fun e a -> Application (e, [a], false, Some 1)) f |> br  
-    | Application (ItemGet(a, b), c, d, e) ->
+        xs |> List.fold (fun e a -> Application (e, [a], NonPure, Some 1)) f |> br  
+    | Application (ItemGet(a, b, p), c, d, e) ->
         brL (a :: b :: c)
-        |> mapBroken3L (fun aE bE cE -> Application (ItemGet(aE, bE), cE, d, e))
+        |> mapBroken3L (fun aE bE cE -> Application (ItemGet(aE, bE, p), cE, d, e))
     | Application (a, b, c, d) -> 
         brL (a :: b)
         |> mapBroken2L (fun aE bE -> Application (aE, bE, c, d))
@@ -492,10 +499,8 @@ let rec breakExpr expr : Broken<BreakResult> =
                 Statements = brA.Statements @ [If (brA.Body, setRes brB, setRes brC)]
                 Variables = brA.Variables @ brB.Variables @ brC.Variables
             }
-    | ItemGet (a, b) ->
-        comb2 ItemGet a b
-    | ItemGetNonPure (a, b) ->
-        comb2 ItemGetNonPure a b
+    | ItemGet (a, b, p) ->
+        comb2 (fun (a, b) -> ItemGet(a, b, p)) a b
     | ItemSet (a, b, c) ->
         comb3 ItemSet a b c
     | Binary (a, b, c) ->
@@ -610,9 +615,10 @@ let rec breakExpr expr : Broken<BreakResult> =
             let brB = toBrExpr brB
             if hasNoStatements brB then
                 let c = 
-                    if isPureFunction brB.Body then
-                        MarkApplicationsPure(a).TransformExpression(c)   
-                    else c
+                    match getFunctionPurity brB.Body with
+                    | NonPure -> c
+                    | p ->
+                        MarkApplicationsPure(a, p).TransformExpression(c)   
                 let inlined =
                     if isStronglyPureExpr brB.Body then
                         match CountVarOccurence(a).Get(c) with

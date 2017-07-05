@@ -105,6 +105,10 @@ namespace WebSharper.CSharp.Tests
             }
             Equal(res2, "hi!");
 
+            // implicit conversions
+            x = "hi";
+            string s = x;
+            Equal(s, "hi!");
         }
 
         [Test]

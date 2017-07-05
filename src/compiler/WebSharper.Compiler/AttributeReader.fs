@@ -399,6 +399,7 @@ let reflectCustomType (typ : TypeDefinition) =
                     RecordFieldType = Reflection.ReadType f.PropertyType
                     DateTimeFormat = annot.DateTimeFormat |> List.tryHead |> Option.map snd
                     Optional = isOpt
+                    IsMutable = f.CanWrite
                 } : M.FSharpRecordFieldInfo
             )
             |> List.ofSeq |> M.FSharpRecordInfo

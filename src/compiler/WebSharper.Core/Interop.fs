@@ -306,6 +306,10 @@ type Union<'T1, 'T2> =
     | Union2Of2 of 'T2
     member this.Value1 = X<'T1>
     member this.Value2 = X<'T2>
+    static member op_Implicit(x: 'T1) = Union1Of2 x
+    static member op_Implicit(x: Union<'T1, 'T2>) = As<'T1> x
+    static member op_Implicit(x: 'T2) = Union2Of2 x
+    static member op_Implicit(x: Union<'T1, 'T2>) = As<'T2> x
 type Union<'T1, 'T2, 'T3> =
     | Union1Of3 of 'T1
     | Union2Of3 of 'T2
@@ -313,6 +317,12 @@ type Union<'T1, 'T2, 'T3> =
     member this.Value1 = X<'T1>
     member this.Value2 = X<'T2>
     member this.Value3 = X<'T3>
+    static member op_Implicit(x: 'T1) = Union1Of3 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3>) = As<'T1> x
+    static member op_Implicit(x: 'T2) = Union2Of3 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3>) = As<'T2> x
+    static member op_Implicit(x: 'T3) = Union3Of3 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3>) = As<'T3> x
 type Union<'T1, 'T2, 'T3, 'T4> =
     | Union1Of4 of 'T1
     | Union2Of4 of 'T2
@@ -322,6 +332,14 @@ type Union<'T1, 'T2, 'T3, 'T4> =
     member this.Value2 = X<'T2>
     member this.Value3 = X<'T3>
     member this.Value4 = X<'T4>
+    static member op_Implicit(x: 'T1) = Union1Of4 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4>) = As<'T1> x
+    static member op_Implicit(x: 'T2) = Union2Of4 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4>) = As<'T2> x
+    static member op_Implicit(x: 'T3) = Union3Of4 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4>) = As<'T3> x
+    static member op_Implicit(x: 'T4) = Union4Of4 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4>) = As<'T4> x
 type Union<'T1, 'T2, 'T3, 'T4, 'T5> =
     | Union1Of5 of 'T1
     | Union2Of5 of 'T2
@@ -333,6 +351,16 @@ type Union<'T1, 'T2, 'T3, 'T4, 'T5> =
     member this.Value3 = X<'T3>
     member this.Value4 = X<'T4>
     member this.Value5 = X<'T5>
+    static member op_Implicit(x: 'T1) = Union1Of5 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5>) = As<'T1> x
+    static member op_Implicit(x: 'T2) = Union2Of5 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5>) = As<'T2> x
+    static member op_Implicit(x: 'T3) = Union3Of5 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5>) = As<'T3> x
+    static member op_Implicit(x: 'T4) = Union4Of5 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5>) = As<'T4> x
+    static member op_Implicit(x: 'T5) = Union5Of5 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5>) = As<'T5> x
 type Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6> =
     | Union1Of6 of 'T1
     | Union2Of6 of 'T2
@@ -346,6 +374,18 @@ type Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6> =
     member this.Value4 = X<'T4>
     member this.Value5 = X<'T5>
     member this.Value6 = X<'T6>
+    static member op_Implicit(x: 'T1) = Union1Of6 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = As<'T1> x
+    static member op_Implicit(x: 'T2) = Union2Of6 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = As<'T2> x
+    static member op_Implicit(x: 'T3) = Union3Of6 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = As<'T3> x
+    static member op_Implicit(x: 'T4) = Union4Of6 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = As<'T4> x
+    static member op_Implicit(x: 'T5) = Union5Of6 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = As<'T5> x
+    static member op_Implicit(x: 'T6) = Union6Of6 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = As<'T6> x
 type Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7> =
     | Union1Of7 of 'T1
     | Union2Of7 of 'T2
@@ -361,4 +401,18 @@ type Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7> =
     member this.Value5 = X<'T5>
     member this.Value6 = X<'T6>
     member this.Value7 = X<'T7>
+    static member op_Implicit(x: 'T1) = Union1Of7 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = As<'T1> x
+    static member op_Implicit(x: 'T2) = Union2Of7 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = As<'T2> x
+    static member op_Implicit(x: 'T3) = Union3Of7 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = As<'T3> x
+    static member op_Implicit(x: 'T4) = Union4Of7 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = As<'T4> x
+    static member op_Implicit(x: 'T5) = Union5Of7 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = As<'T5> x
+    static member op_Implicit(x: 'T6) = Union6Of7 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = As<'T6> x
+    static member op_Implicit(x: 'T7) = Union7Of7 x
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = As<'T7> x
 // }}

@@ -493,7 +493,7 @@ type RoslynTransformer(env: Environment) =
         }                
 
     let jsConcat expr args =
-        Application(ItemGet(expr, Value (String "concat")), args, true, None)
+        Application(ItemGet(expr, Value (String "concat"), Pure), args, Pure, None)
 
     let queryCall (symbol: IMethodSymbol) args =
         let qtyp = sr.ReadNamedType symbol.ContainingType
@@ -528,7 +528,7 @@ type RoslynTransformer(env: Environment) =
         | :? IRangeVariableSymbol as v ->
             match env.RangeVars.[v] with
             | v, None -> Var v
-            | v, Some i -> ItemGet(Var v, Value (Int i))
+            | v, Some i -> ItemGet(Var v, Value (Int i), NoSideEffect)
         | :? IFieldSymbol as f -> FieldGet((getTarget()), sr.ReadNamedType f.ContainingType, f.Name) 
         | :? IEventSymbol as e -> FieldGet((getTarget()), sr.ReadNamedType e.ContainingType, e.Name)
         | :? IPropertySymbol as p ->
@@ -628,7 +628,7 @@ type RoslynTransformer(env: Environment) =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         if isNull symbol then
             // for dynamic
-            Application(x.Expression |> this.TransformExpression, x.ArgumentList |> this.TransformArgumentList |> List.map snd, false, None)
+            Application(x.Expression |> this.TransformExpression, x.ArgumentList |> this.TransformArgumentList |> List.map snd, NonPure, None)
         else
         let eSymbol, isExtensionMethod =
             match symbol.ReducedFrom with
@@ -652,7 +652,7 @@ type RoslynTransformer(env: Environment) =
 
         if symbol.MethodKind = MethodKind.LocalFunction then
             let f = env.GetLocalFunctionId(symbol)
-            Application(Var f, args, false, Some args.Length)
+            Application(Var f, args, NonPure, Some args.Length)
         elif isExtensionMethod || symbol.IsStatic then
             Call(None, typ, meth, args)
         else        
@@ -674,7 +674,7 @@ type RoslynTransformer(env: Environment) =
         // TODO: investigate that symbol is null only when it is an array
         if symbol = null then
             // TODO: make setter possible for 2-dim arrays
-            List.fold (fun e a -> ItemGet(e, a)) expression argumentList
+            List.fold (fun e a -> ItemGet(e, a, NoSideEffect)) expression argumentList
         else
             call symbol.GetMethod (Some expression) argumentList
 
@@ -702,10 +702,10 @@ type RoslynTransformer(env: Environment) =
                     MakeRef e (fun value -> VarSet(v, value))
                 | NewVar (v, Undefined) -> // out var
                     Sequential [ e; MakeRef e (fun value -> VarSet(v, value)) ]
-                | ItemGet(o, i) ->
+                | ItemGet(o, i, _) ->
                     let ov = Id.New ()
                     let iv = Id.New ()
-                    Let (ov, o, Let(iv, i, MakeRef (ItemGet(Var ov, Var iv)) (fun value -> ItemSet(Var ov, Var iv, value))))
+                    Let (ov, o, Let(iv, i, MakeRef (ItemGet(Var ov, Var iv, NoSideEffect)) (fun value -> ItemSet(Var ov, Var iv, value))))
                 | FieldGet(o, t, f) ->
                     match o with
                     | Some o ->
@@ -713,7 +713,7 @@ type RoslynTransformer(env: Environment) =
                         Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)))     
                     | _ ->
                         MakeRef e (fun value -> FieldSet(None, t, f, value))  
-                | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+                | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
                     r
                 | Call (thisOpt, typ, getter, args) ->
                     MakeRef e (fun value -> (Call (thisOpt, typ, setterOf getter, args @ [value])))
@@ -1082,8 +1082,8 @@ type RoslynTransformer(env: Environment) =
             match IgnoreExprSourcePos left with
             | Var id -> VarSet(id, right)
             | FieldGet (obj, ty, f) -> FieldSet (obj, ty, f, right)
-            | ItemGet(obj, i) -> ItemSet (obj, i, right)
-            | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+            | ItemGet(obj, i, _) -> ItemSet (obj, i, right)
+            | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
                 withResultValue right <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
                 withResultValue right <| fun rv -> Call (thisOpt, typ, setterOf getter, args @ [rv])
@@ -1143,12 +1143,12 @@ type RoslynTransformer(env: Environment) =
                     let m = Id.New ()
                     let leftWithM = FieldGet (Some (Var m), ty, f)
                     Let (m, obj, FieldSet (Some (Var m), ty, f, Call(None, opTyp, operator, [leftWithM; right]))) 
-            | ItemGet(obj, i) ->
+            | ItemGet(obj, i, _) ->
                 let m = Id.New ()
                 let j = Id.New ()
-                let leftWithM = ItemGet (Var m, Var j)
+                let leftWithM = ItemGet (Var m, Var j, NoSideEffect)
                 Let (m, obj, Let (j, i, ItemSet(Var m, Var j, Call(None, opTyp, operator, [leftWithM; right]))))
-            | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+            | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
                 withResultValue (Call(None, opTyp, operator, [left; right])) <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
                 withResultValue (Call(None, opTyp, operator, [left; right])) <| fun rv ->
@@ -1400,7 +1400,7 @@ type RoslynTransformer(env: Environment) =
                     if pr.IsStatic then 
                         match x.Kind with 
                         | AccessorDeclarationKind.GetAccessorDeclaration ->     
-                            Return <| ItemGet(Self, Value (String ("$" + pr.Name)))
+                            Return <| ItemGet(Self, Value (String ("$" + pr.Name)), NoSideEffect)
                         | AccessorDeclarationKind.SetAccessorDeclaration -> 
                             let v = parameterList.Head.ParameterId
                             ExprStatement <| ItemSet(Self, Value (String ("$" + pr.Name)), Var v)
@@ -1408,7 +1408,7 @@ type RoslynTransformer(env: Environment) =
                     else
                         match x.Kind with 
                         | AccessorDeclarationKind.GetAccessorDeclaration ->     
-                            Return <| ItemGet(This, Value (String ("$" + pr.Name)))
+                            Return <| ItemGet(This, Value (String ("$" + pr.Name)), NoSideEffect)
                         | AccessorDeclarationKind.SetAccessorDeclaration -> 
                             let v = parameterList.Head.ParameterId
                             ExprStatement <| ItemSet(This, Value (String ("$" + pr.Name)), Var v)
@@ -1510,10 +1510,10 @@ type RoslynTransformer(env: Environment) =
         match e with
         | Var v ->
             withResultValue false operand <| fun rv -> VarSet(v, rv)
-        | ItemGet(o, i) ->
+        | ItemGet(o, i, _) ->
             let ov = Id.New ()
             let iv = Id.New ()
-            withResultValue false (ItemGet(Var ov, Var iv)) <| fun rv -> 
+            withResultValue false (ItemGet(Var ov, Var iv, NoSideEffect)) <| fun rv -> 
                 ItemSet(Var ov, Var iv, rv)
         | FieldGet(o, t, f) ->
             match o with
@@ -1523,7 +1523,7 @@ type RoslynTransformer(env: Environment) =
                     Let (ov, o, FieldSet(Some (Var ov), t, f, rv))
             | _ ->
                 withResultValue false operand <| fun rv -> FieldSet(None, t, f, rv)
-        | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+        | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
             withResultValue true operand <| SetRef r
         | Call (thisOpt, typ, getter, args) ->
             withResultValue true operand <| fun rv ->
@@ -1759,7 +1759,7 @@ type RoslynTransformer(env: Environment) =
         match symbol with
         | :? IPropertySymbol as symbol ->
             if symbol.ContainingType.IsAnonymousType then
-                ItemGet(getExpression().Value, Value (String (symbol.Name)))
+                ItemGet(getExpression().Value, Value (String (symbol.Name)), NoSideEffect)
             else
                 call symbol.GetMethod (getExpression()) [] // TODO property indexers
         | :? IMethodSymbol as symbol ->
@@ -1795,7 +1795,7 @@ type RoslynTransformer(env: Environment) =
                 match expr with
                 | Some e -> this.TransformExpression e
                 | _ -> Var env.Conditional.Value
-            ItemGetNonPure(expression, Value (String name.Node.Identifier.Text))
+            ItemGet(expression, Value (String name.Node.Identifier.Text), NonPure)
         | _ ->
             failwith "member access not handled: not property, event, method or field"      
         |> withExprSourcePos node

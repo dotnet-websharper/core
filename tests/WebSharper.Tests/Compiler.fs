@@ -69,7 +69,15 @@ module Server =
             | _ -> false
 
             testWithMatch <@ Optimizations.InlineValues() @> <| function
-            | Function (_, ExprStatement (Application(_, [Value (String "a"); Value (String "b")], false, None) )) -> true
+            | Function (_, ExprStatement (Application(_, [Value (String "a"); Value (String "b")], NonPure, None) )) -> true
+            | _ -> false
+
+            testWithMatch <@ Optimizations.InlineValues2() @> <| function
+            | Function (_, ExprStatement (Application(_, [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]], NonPure, None) )) -> true
+            | _ -> false
+
+            testWithMatch <@ Optimizations.InlineValues3() @> <| function
+            | Function (_, Return (NewArray [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]])) -> true
             | _ -> false
         
         |]

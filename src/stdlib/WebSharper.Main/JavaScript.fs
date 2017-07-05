@@ -109,7 +109,7 @@ let ClearTimeout (handle: Handle) = raise ClientSideOnly : unit
 let ClearInterval (handle: Handle) = raise ClientSideOnly : unit
 
 /// Performs JavaScript function application.
-[<Inline "$x[$func].apply($x,$args)">]
+[<Inline "$wsruntime.Apply($x[$func], $x, $args)">]
 let Apply<'T> (x: obj) (func: string) (args: obj []) = raise ClientSideOnly : 'T
 
 /// Deletes a field from a JavaScript object.
