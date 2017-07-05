@@ -166,6 +166,7 @@ module Main =
                             LicenseUrl = Some Config.LicenseUrl
                             Authors = [ Config.Company ]
                     })
+                .AddDependency("System.ValueTuple", "4.3.0")
         let fileAt src tgt =
             {
                 new INuGetFile with

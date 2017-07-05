@@ -35,6 +35,10 @@
         return f.call({ x: 0 }, [1, 2]);
     },
 
+    TupleArg: function (a) {
+        return a[0] + a[1];
+    },
+
     Sum: function () {
         var res = 0;
         for (var i = 0; i < arguments.length; i++) {

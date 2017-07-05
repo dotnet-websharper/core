@@ -243,6 +243,7 @@ type InlineGenerator() =
 type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName: string) =
     let resolve x = aR.Resolve(AssemblyNameReference.Parse(x))
     let mscorlib = resolve(typeof<int>.Assembly.FullName)
+    let valtup = resolve(typeof<System.ValueTuple>.Assembly.FullName)
     let syscore = resolve(typeof<System.Linq.Enumerable>.Assembly.FullName)
     let fscore = resolve(fsCoreFullName)
     let wsCore = resolve(typeof<WebSharper.InlineAttribute>.Assembly.FullName)
@@ -350,6 +351,14 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
                 commonType mscorlib "System" "Tuple" ta
             else
                 commonType mscorlib "System" "Tuple" (Seq.append (ta.[.. 6]) [ createTuple ta.[7 ..] ])    
+        createTuple (Array.ofSeq ts)
+
+    member b.ValueTuple(ts: seq<TypeReference>) =
+        let rec createTuple (ta: _[]) =
+            if ta.Length < 8 then
+                commonType valtup "System" "ValueTuple" ta
+            else
+                commonType valtup "System" "ValueTuple" (Seq.append (ta.[.. 6]) [ createTuple ta.[7 ..] ])    
         createTuple (Array.ofSeq ts)
 
     member b.Choice(ts: seq<TypeReference>) =
@@ -531,6 +540,8 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
                 c.TypeReference t
             | Type.TupleType xs ->
                 tB.Tuple [ for t in List.rev xs -> tRef t ]
+            | Type.ValueTupleType xs ->
+                tB.ValueTuple [ for t in List.rev xs -> tRef t ]
             | Type.InteropType (t, _)
             | Type.NoInteropType t ->
                 tRef t
@@ -572,7 +583,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
         t.Resolve().Methods
         |> Seq.tryFind (fun m -> m.IsConstructor && isMatch m)
         |> function
-            | Some x -> def.MainModule.Import x
+            | Some x -> def.MainModule.ImportReference x
             | None -> failwithf "Could not find a constructor in %s" t.FullName
 
     let findConstructorByArity t n =
@@ -1293,7 +1304,7 @@ type Compiler() =
             | Some aR -> aR
             | None -> WebSharper.Compiler.AssemblyResolver.Create()
         let aR = aR.SearchPaths(opts.ReferencePaths)
-        (aR, Resolver(aR) :> IAssemblyResolver)
+        (aR, new Resolver(aR) :> IAssemblyResolver)
 
     let getId (d: Code.NamespaceEntity) =
         d.Id

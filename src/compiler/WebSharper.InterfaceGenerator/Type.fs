@@ -54,6 +54,7 @@ module Type =
         | SpecializedType of Type * list<Type>
         | SystemType of R.Type
         | TupleType of list<Type>
+        | ValueTupleType of list<Type>
         | UnionType of Type * Type
         | InteropType of Type * InlineTransforms
         | NoInteropType of Type
@@ -121,6 +122,7 @@ module Type =
                 }
             | SpecializedType (t, ts) -> SpecializedType (sub t, ts |> List.map sub)
             | TupleType ts -> TupleType (ts |> List.map sub)
+            | ValueTupleType ts -> ValueTupleType (ts |> List.map sub)
             | UnionType (t1, t2) -> UnionType (sub t1, sub t2)
             | InteropType (t, tr) -> InteropType (sub t, tr)
             | NoInteropType t -> NoInteropType (sub t)
@@ -341,6 +343,8 @@ module Type =
                 ArrayType (rank, normSys eT)
             | R.Type.Concrete (tD, ts) when tD.FullName.StartsWith "System.Tuple" ->
                 TupleType (List.rev (List.map normSys ts))
+            | R.Type.Concrete (tD, ts) when tD.FullName.StartsWith "System.ValueTuple" ->
+                ValueTupleType (List.rev (List.map normSys ts))
             | R.Type.Concrete (tD, [d; r]) when tD.FullName.StartsWith "Microsoft.FSharp.Core.FSharpFunc" ->
                 let ps =
                     if d.FullName = "Microsoft.FSharp.Core.Unit" then [] else
@@ -446,6 +450,8 @@ module Type =
                 [Normalize t]
             | TupleType xs ->
                 [for n in norms xs -> TupleType xs]
+            | ValueTupleType xs ->
+                [for n in norms xs -> ValueTupleType xs]
             | UnionType (x, y) ->
                 norm x @ norm y
             | InteropType (t, tr) ->
@@ -608,7 +614,8 @@ module Type =
             if s.StartsWith start then Some (s.Substring(start.Length)) else None
         match t with
         | ArrayType _ -> Some "0"
-        | TupleType ts -> Some (string ts.Length)
+        | TupleType ts
+        | ValueTupleType ts -> Some (string ts.Length)
         | FunctionType _
         | FSFunctionType _
         | DelegateType _ -> Some "'function'"
@@ -680,6 +687,8 @@ module Type =
             | Some _, _, _ ->
                 trFunc (FunctionType { f with This = None }) thisTransform
             | _ -> t
+        | TupleType ts when csharp ->
+            ValueTupleType ts  
         | UnionOf ts ->
             if (ts |> Seq.exists (function ArrayType _ -> true | _ -> false))
                 && (ts |> Seq.exists (function TupleType _ -> true | _ -> false)) then t else
@@ -696,7 +705,7 @@ module Type =
         | OptionType t -> OptionType (TransformValue true csharp t)
         | _ -> TransformValue false csharp t
 
-    let HasFSharpFuncOverload f =
+    let HasFSharpOverload f =
         seq {
             for _, p in f.Parameters -> p
             match f.ParamArray with
@@ -706,7 +715,8 @@ module Type =
         |> Seq.exists (
             function
             | FunctionType { Parameters = ([] | [_]); This = None; ParamArray = None } -> false
-            | FunctionType _ -> true
+            | FunctionType _
+            | TupleType _ -> true
             | _ -> false
         )
 
@@ -714,7 +724,7 @@ module Type =
         match t with 
         | FunctionType f ->
             [
-                for c in (if HasFSharpFuncOverload f then [false; true] else [true]) ->
+                for c in (if HasFSharpOverload f then [false; true] else [true]) ->
                     FunctionType 
                         { f with
                             Parameters = f.Parameters |> List.map (fun (n, p) -> n, TransformValue false c p)
@@ -726,6 +736,6 @@ module Type =
 
     let WithFSharpOverloads t =
         match t with 
-        | FunctionType f when HasFSharpFuncOverload f ->
+        | FunctionType f when HasFSharpOverload f ->
             [t, false; t, true]
         | _ -> [t, true]

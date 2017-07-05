@@ -54,6 +54,7 @@ module Definition =
             "ArgFuncInWithThis" => (JustX -* Int ^-> String) ^-> String
             "ArgsFuncInWithThis" => (JustX -* Int * Int ^-> String) ^-> String
             "TupledFuncInWithThis" => (JustX -* (Int * Int).Parameter ^-> String) ^-> String
+            "TupleArg" => (Int * Int) ^-> Int
             "Sum" => !+ Int ^-> Int
             "SumBy" => T<int -> int>?mapping *+ Int ^-> Int
             "SumByThenMap" => T<int -> int>?mapping * T<int -> int>?resultMapping *+ Int ^-> Int
