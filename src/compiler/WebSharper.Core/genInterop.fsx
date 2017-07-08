@@ -63,15 +63,11 @@ let code =
                         cprintfn "    member this.Call(%s) = X<%s>" (a |> String.concat ", ") (if ret then "'TResult" else "unit")
 
     for i = 2 to 7 do
-        let tname = sprintf "Union<%s>" (tArgs i |> String.concat ", ")
-        cprintfn "type %s =" tname
+        cprintfn "type Union<%s> =" (tArgs i |> String.concat ", ")
         for j = 1 to i do
             cprintfn "    | Union%dOf%d of 'T%d" j i j
         for j = 1 to i do
             cprintfn "    member this.Value%d = X<'T%d>" j j
-        for j = 1 to i do
-            cprintfn "    static member op_Implicit(x: 'T%d) = Union%dOf%d x" j j i
-            cprintfn "    static member op_Implicit(x: %s) = As<'T%d> x" tname j
     
     code.ToArray()
 
