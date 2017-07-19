@@ -170,6 +170,7 @@ type IClassInfo =
     abstract member Address : option<Address>
     abstract member BaseClass : option<TypeDefinition>
     abstract member Constructors : IDictionary<Constructor, CompiledMember>
+    /// value: field info, is readonly
     abstract member Fields : IDictionary<string, CompiledField * bool>
     abstract member StaticConstructor : option<Address>
     abstract member Methods : IDictionary<Method, CompiledMember>

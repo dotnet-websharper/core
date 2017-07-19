@@ -24,6 +24,7 @@ module WebSharper.Compiler.CompilationHelpers
 
 open WebSharper.Core
 open WebSharper.Core.AST
+open System.Collections.Generic
 
 module I = IgnoreSourcePos
 
@@ -229,11 +230,40 @@ type private NotMutatedOrCaptured(v) =
 let notMutatedOrCaptured (v: Id) expr =
     NotMutatedOrCaptured(v).Check(expr)   
 
+type VarsNotUsed(vs : HashSet<Id>) =
+    inherit Visitor()
+
+    let mutable ok = true
+
+    new (vs: seq<Id>) = VarsNotUsed(HashSet vs)
+    
+    override this.VisitId(a) =
+        if vs.Contains a then 
+            ok <- false
+
+    override this.VisitExpression(e) =
+        if ok then
+            base.VisitExpression(e) 
+
+    member this.Get(e) =
+        if vs.Count = 0 then true else
+        ok <- true
+        this.VisitExpression(e) 
+        ok
+
+    member this.GetSt(s) =
+        if vs.Count = 0 then true else
+        ok <- true
+        this.VisitStatement(s) 
+        ok
+
 /// Optimization for inlining: if arguments are always accessed in
 /// the same order as they are provided, and there are no side effects
 /// between then, then extra Let forms and variables for them are not needed
 let varEvalOrder (vars : Id list) expr =
-    let watchedVars = System.Collections.Generic.HashSet vars
+    let watchedVars = HashSet vars
+    let varsNotUsed = VarsNotUsed watchedVars
+        
     let mutable vars = vars
     let mutable ok = true 
 
@@ -253,6 +283,8 @@ let varEvalOrder (vars : Id list) expr =
             | Base
             | Value _
             | Self
+            | GlobalAccess _
+            | OverrideName _
                 -> ()
             | Sequential a
             | NewArray a ->
@@ -272,6 +304,9 @@ let varEvalOrder (vars : Id list) expr =
                 ->
                 eval a
                 eval b
+            | LetRec (a, b) ->
+                List.iter (snd >> eval) a
+                eval b
             | ItemGet(a, b, NonPure) ->
                 eval a
                 eval b
@@ -279,6 +314,10 @@ let varEvalOrder (vars : Id list) expr =
             | Unary (_, a) 
             | ExprSourcePos (_, a)
             | TypeCheck(a, _)
+            | NewVar(_, a)
+            | UnionCaseGet (a, _, _, _)
+            | UnionCaseTag (a, _)
+            | UnionCaseTest (a, _, _)
                 -> eval a
             | Object a 
                 -> List.iter (snd >> eval) a 
@@ -316,6 +355,9 @@ let varEvalOrder (vars : Id list) expr =
                 eval a
                 List.iter eval b
                 if c = NonPure then stop()
+            | New(a, b) ->
+                eval a
+                List.iter eval b
             | Call(a, _, _, b) ->
                 Option.iter eval a
                 List.iter eval b
@@ -329,22 +371,71 @@ let varEvalOrder (vars : Id list) expr =
                 Option.iter eval a
                 eval b
                 stop()
-            // TODO: more
+            | Function(_, a)
+            | FuncWithThis(_, _, a) ->
+                if not <| varsNotUsed.GetSt(a) then fail()
             | StatementExpr (a, _) ->
                 evalSt a
-            | _ -> fail()
+            | Arguments
+            | Await _
+            | BaseCtor _
+            | Ctor _
+            | CallNeedingMoreArgs _
+            | Cctor _
+            | Coalesce _
+            | ComplexElement _
+            | CopyCtor _
+            | CurriedApplication _
+            | Hole _
+            | MatchSuccess _
+            | NamedParameter _ 
+            | NewDelegate _
+            | NewRecord _
+            | NewUnionCase _
+            | OptimizedFSharpArg _
+            | RefOrOutParameter _
+            | TraitCall _
+                -> fail()
     
     and evalSt s =
-        match s with
-        | ExprStatement a
-        | VarDeclaration(_, a) -> eval a
-        | StatementSourcePos (_, a) -> evalSt a
-        | Block a -> List.iter evalSt a
-        | If (a, b, c) -> Conditional (a, IgnoredStatementExpr b, IgnoredStatementExpr c) |> eval
-        | Throw (a) -> 
-            eval a
-            stop()
-        | _ -> fail()
+        if ok then
+            match s with
+            | Empty 
+            | VarImports _
+                -> ()
+            | ExprStatement a
+            | VarDeclaration(_, a) -> eval a
+            | Labeled (_, a)
+            | StatementSourcePos (_, a) -> evalSt a
+            | Block a -> List.iter evalSt a
+            | If (a, b, c) -> Conditional (a, IgnoredStatementExpr b, IgnoredStatementExpr c) |> eval
+            | Throw (a)
+            | Return (a) ->
+                eval a
+                stop()
+            | FuncDeclaration(_, _, a) -> 
+                if not <| varsNotUsed.GetSt(a) then fail()
+            | TryFinally (a, b) ->
+                evalSt a
+                evalSt b
+            | TryWith (a, _, b) ->
+                evalSt a
+                stop()
+                evalSt b
+            | Break _ 
+            | CSharpSwitch _
+            | Continuation _
+            | Continue _
+            | DoNotReturn
+            | DoWhile _
+            | For _
+            | ForIn _
+            | Goto _
+            | GotoCase _
+            | Switch _
+            | While _
+            | Yield _
+                -> fail()      
                
     eval expr
     ok && List.isEmpty vars   
@@ -371,26 +462,6 @@ type CountVarOccurence(v) =
     member this.GetForStatement(s) =
         this.VisitStatement(s) 
         occ
-
-type VarsNotUsed(vs : seq<Id>) =
-    inherit Visitor()
-
-    let vs = System.Collections.Generic.HashSet vs
-    let mutable ok = true
-
-    override this.VisitId(a) =
-        if vs.Contains a then 
-            ok <- false
-
-    override this.VisitExpression(e) =
-        if ok then
-            base.VisitExpression(e) 
-
-    member this.Get(e) =
-        if vs.Count = 0 then true else
-        ok <- true
-        this.VisitExpression(e) 
-        ok
 
 /// Substitutes every access to an Id to a given expression
 type SubstituteVar(v, e) =

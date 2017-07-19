@@ -24,6 +24,7 @@ module WebSharper.Compiler.Breaker
 
 open WebSharper.Core.AST
 open WebSharper.Compiler
+open System.Collections.Generic
 
 module I = IgnoreSourcePos
 
@@ -250,16 +251,27 @@ let rec removeLets expr =
         match optimizeTupled with
         | Some o -> o
         | _ ->
-        if isStronglyPureExpr b then 
-            match CountVarOccurence(a).Get(c) with
-            | 0 -> c
-            | 1 ->
+        match CountVarOccurence(a).Get(c) with
+        | 0 ->
+            if isPureExpr b then c else Sequential [ b; c ]
+        | 1 -> 
+            if isStronglyPureExpr b then 
                 if isTrivialValue b || notMutatedOrCaptured a c then
                     SubstituteVar(a, b).TransformExpression(c)
                 else expr
-            | _ -> expr
-        elif isPureExpr b && CountVarOccurence(a).Get(c) = 0 then c
-        else expr
+            else
+                let accVars = HashSet [a]
+                let rec collectVars acc expr =
+                    match expr with
+                    | I.Let (a, b, c) when VarsNotUsed(accVars).Get(b) ->
+                        accVars.Add a |> ignore
+                        collectVars ((a, b) :: acc) c
+                    | _ -> List.rev acc, expr
+                let varsAndVals, innerExpr = collectVars [a, b] c 
+                if varEvalOrder (varsAndVals |> List.map fst) innerExpr then
+                    SubstituteVars(varsAndVals |> dict).TransformExpression(innerExpr)
+                else expr
+        | _ -> expr
     | _ -> expr
 
 let optimize expr =
@@ -286,25 +298,20 @@ let optimize expr =
         else 
             let vars, moreVars = vars |> List.splitAt args.Length
             List.foldBack2 bind vars args (CurriedLambda(moreVars, body)) 
-        |> removeLets
     | Application(TupledLambda(vars, body, isReturn), [ I.NewArray args ], _, Some _)
         when vars.Length = args.Length && not (needsScoping vars body) ->
         if isReturn then
             List.foldBack2 bind vars args body
         else 
             List.foldBack2 bind vars args (Sequential [body; Value Null])
-        |> removeLets
     | Application(I.ItemGet(I.Function (vars, I.Return body), I.Value (String "apply"), _), [ I.Value Null; argArr ], _, _) ->
         List.foldBack2 bind vars (List.init vars.Length (fun i -> argArr.[Value (Int i)])) body                   
-        |> removeLets
     | Application (I.Function (args, I.Return body), xs, _, Some _) 
         when List.length args = List.length xs && not (needsScoping args body) ->
         List.foldBack2 bind args xs body
-        |> removeLets
     | Application (I.Function (args, I.ExprStatement body), xs, _, Some _) 
         when List.length args = List.length xs && not (needsScoping args body) ->
         List.foldBack2 bind args xs body
-        |> removeLets
     | Application (I.Function (_, (I.Empty | I.Block [])), xs, _, _) ->
         Sequential xs
     | Sequential [a] ->
@@ -326,7 +333,7 @@ type Optimizer() =
     override this.TransformExpression (a) =
         let mutable i = 0
         let mutable a = base.TransformExpression a
-        let mutable b = optimize (removeLets a)
+        let mutable b = a |> removeLets |> optimize |> Optimizations.cleanRuntime false
 #if DEBUG        
         if logTransformations then
             printfn "optimizer first: %s -> %s" (Debug.PrintExpression a) (Debug.PrintExpression b)
@@ -334,7 +341,7 @@ type Optimizer() =
         while i < 10 && not (obj.ReferenceEquals(a, b) || a = b) do
             i <- i + 1
             a <- base.TransformExpression b
-            b <- optimize (removeLets b)
+            b <- a |> removeLets |> optimize |> Optimizations.cleanRuntime false
 #if DEBUG        
             if logTransformations then
                 printfn "optimizer: %s -> %s" (Debug.PrintExpression a) (Debug.PrintExpression b)
@@ -786,7 +793,8 @@ and private breakSt statement : Statement seq =
     | Continue _ 
     | DoNotReturn
     | Yield _ 
-    | Goto _ -> Seq.singleton statement
+    | Goto _ 
+    | VarImports _ -> Seq.singleton statement
     | GotoCase a -> 
         match a with
         | Some a ->

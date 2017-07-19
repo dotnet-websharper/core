@@ -41,6 +41,8 @@ type Compilation(meta: Info, ?hasGraph) =
     let hasGraph = defaultArg hasGraph true
     let graph = if hasGraph then Graph.FromData(meta.Dependencies) else Unchecked.defaultof<_>
 
+    let mutableExternals = Recognize.GetMutableExternals meta
+
     let compilingMethods = Dictionary<TypeDefinition * Method, CompilingMember * Expression>()
     let compilingImplementations = Dictionary<TypeDefinition * TypeDefinition * Method, CompilingMember * Expression>()
     let compilingConstructors = Dictionary<TypeDefinition * Constructor, CompilingMember * Expression>()
@@ -66,6 +68,8 @@ type Compilation(meta: Info, ?hasGraph) =
     member val CustomTypesReflector = fun _ -> NotCustomType with get, set 
     member val LookupTypeAttributes = fun _ -> None with get, set
     member val LookupFieldAttributes = fun _ _ -> None with get, set
+
+    member this.MutableExternals = mutableExternals
 
     member this.FindProxied typ =
         match proxies.TryFind typ with
@@ -154,7 +158,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         member this.ParseJSInline(inl: string, args: Expression list): Expression = 
             let vars = args |> List.map (fun _ -> Id.New(mut = false))
-            let parsed = Recognize.createInline None vars false inl
+            let parsed = Recognize.createInline mutableExternals None vars false inl
             Substitution(args).TransformExpression(parsed)
                 
         member this.NewGenerated addr =

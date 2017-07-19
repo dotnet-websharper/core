@@ -31,13 +31,13 @@ type FunctionProxy =
     
     member this.Length with [<Inline "$this.length">] get() = X<int>
     
-    [<Inline "$this.apply($thisArg)">]
+    [<Inline "$wsruntime.Apply($this, $thisArg)">]
     member this.ApplyUnsafe(thisArg: obj) = X<obj>
 
-    [<Inline "$this.apply($thisArg, $argsArray)">]
+    [<Inline "$wsruntime.Apply($this, $thisArg, $argsArray)">]
     member this.ApplyUnsafe(thisArg: obj, argsArray: obj[]) = X<obj>
 
-    [<Inline "$this.apply($thisArg, $args)">]
+    [<Inline "$wsruntime.Apply($this, $thisArg, $args)">]
     member this.CallUnsafe(thisArg: obj, [<PA>] args: obj[]) = X<obj>
   
     [<Inline "Function.prototype.bind.apply($thisArg, $args)">]
@@ -53,7 +53,7 @@ type FuncWithArgsProxy<'TArgs, 'TResult> =
     
     member this.Length with [<Inline "$this.length">] get() = X<int>
        
-    [<Inline "$this.apply(null, $args)">]
+    [<Inline "$wsruntime.Apply($this, null, $args)">]
     member this.Call (args: 'Args) = X<'TResult>
 
 [<Proxy(typeof<FuncWithThis<_,_>>)>]
@@ -82,7 +82,7 @@ type FuncWithRestProxy<'TRest, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithArgs($func)">]
     new (func: 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, $rest)">]
+    [<Inline "$wsruntime.Apply($this, null, $rest)">]
     member this.Call ([<PA>] rest: 'TRest[]) = X<'TResult>
 
 [<Proxy(typeof<FuncWithRest<_,_,_>>)>]
@@ -90,7 +90,7 @@ type FuncWithRestProxy<'TArg, 'TRest, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithRest(1, $func)">]
     new (func: 'TArg * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, [$arg].concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, [$arg].concat($rest))">]
     member this.Call (arg: 'TArg, [<PA>] rest: 'TRest[]) = X<'TResult>
 
 [<Proxy(typeof<FuncWithRest<_,_,_,_>>)>]
@@ -98,7 +98,7 @@ type FuncWithRestProxy<'TArg1, 'TArg2, 'TRest, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithRest(2, $func)">]
     new (func: 'TArg1 * 'TArg2 * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, [$arg1, $arg2].concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, [$arg1, $arg2].concat($rest))">]
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<FuncWithRest<_,_,_,_,_>>)>]
@@ -106,7 +106,7 @@ type FuncWithRestProxy<'TArg1, 'TArg2, 'TArg3, 'TRest, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithRest(3, $func)">]
     new (func: 'TArg1 * 'TArg2 * 'TArg3 * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, [$arg1, $arg2, $arg3].concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, [$arg1, $arg2, $arg3].concat($rest))">]
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<FuncWithRest<_,_,_,_,_,_>>)>]
@@ -114,7 +114,7 @@ type FuncWithRestProxy<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TRest, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithRest(4, $func)">]
     new (func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, [$arg1, $arg2, $arg3, $arg4].concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, [$arg1, $arg2, $arg3, $arg4].concat($rest))">]
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<FuncWithRest<_,_,_,_,_,_,_>>)>]
@@ -122,7 +122,7 @@ type FuncWithRestProxy<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TRest, 'TResult>
     [<Inline "$wsruntime.CreateFuncWithRest(5, $func)">]
     new (func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TArg5 * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, [$arg1, $arg2, $arg3, $arg4, $arg5].concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, [$arg1, $arg2, $arg3, $arg4, $arg5].concat($rest))">]
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<FuncWithRest<_,_,_,_,_,_,_,_>>)>]
@@ -130,7 +130,7 @@ type FuncWithRestProxy<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TArg6, 'TRest, '
     [<Inline "$wsruntime.CreateFuncWithRest(6, $func)">]
     new (func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TArg5 * 'TArg6 * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, [$arg1, $arg2, $arg3, $arg4, $arg5, $arg6].concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, [$arg1, $arg2, $arg3, $arg4, $arg5, $arg6].concat($rest))">]
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, arg6: 'TArg6, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<FuncWithArgsRest<_,_,_>>)>]
@@ -139,7 +139,7 @@ type FuncWithArgsRestProxy<'TArgs, 'TRest, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithArgsRest($func)">]
     new (func: 'TArgs * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, $args.concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, $args.concat($rest))">]
     member this.Call (args: 'TArgs, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<Optional<_>>)>]

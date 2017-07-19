@@ -33,10 +33,67 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
     let declarations = ResizeArray()
     let statements = ResizeArray()
 
-    let glob = Id.New("Global", false)
-    declarations.Add <| VarDeclaration (glob, Var (Id.Global()))
-    let glob = Var glob
+    let topLevel = HashSet()
+    let globalImports = HashSet()
 
+    let addToTopLevel (a: Address) =
+        match a.Value with
+        | [] -> ()
+        | av ->
+            let n = List.last av
+            topLevel.Add n |> ignore
+
+    let addGlobalImport (a: Address) =
+        match a.Value with
+        | [] -> ()
+        | av ->
+            let n = List.last av
+            globalImports.Add n |> ignore
+
+    let addGlobalImportVisitor =
+        { new Visitor() with
+            override this.VisitGlobalAccess a = addGlobalImport a
+        }
+    
+    for KeyValue(typ, cls) in current.Classes do
+        let rec addMember (m: M.CompiledMember) =
+            match m with
+            | M.Instance _ -> ()
+            | M.Static a 
+            | M.Constructor a ->
+                addToTopLevel a
+            | M.Macro (_, _, Some m) -> addMember m
+            | _ -> ()
+        let addExprImports e =
+            addGlobalImportVisitor.VisitExpression e
+        for m, _, e in cls.Constructors.Values do 
+            addMember m
+            addExprImports e
+        for m, e in cls.Implementations.Values do
+            addMember m
+            addExprImports e
+        for m, _, e in cls.Methods.Values do
+            addMember m
+            addExprImports e
+        match cls.StaticConstructor with
+        | Some (a, e) ->
+            addToTopLevel a
+            addExprImports e
+        | _ -> ()
+
+    globalImports.ExceptWith(topLevel)
+
+    let varImports =
+        globalImports |> Seq.map (fun n ->
+            let v = Id.New n
+            addresses.Add(Address [ n ], Var v)
+            v
+        )
+        |> List.ofSeq
+
+    declarations.Add <| VarImports (List.ofSeq varImports)
+
+    let glob = Var (Id.Global())
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
     
     let rec getAddress (address: Address) =
@@ -217,10 +274,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
     
     let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq
 
-    let allStatements = List.ofSeq (Seq.append declarations trStatements) 
-
-    // allStatements will always have the Global variable declaration
-    if List.isEmpty allStatements.Tail then Undefined else
+    if List.isEmpty trStatements then Undefined else
+        let allStatements = List.ofSeq (Seq.append declarations trStatements) 
         Application(Function([], Block allStatements), [], NonPure, Some 0)
 
 let readMapFileSources mapFile =

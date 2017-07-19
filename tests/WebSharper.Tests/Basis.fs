@@ -143,6 +143,11 @@ type SameName() =
 module SameName =
     let X() = 4
 
+[<Inline>]
+let RunTwice f =
+    f()
+    f()
+
 [<JavaScript>]
 let Tests =
     TestCategory "Basis" {

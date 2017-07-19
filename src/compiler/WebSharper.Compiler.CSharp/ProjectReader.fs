@@ -559,7 +559,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Inline js ->
                     checkNotAbstract() 
                     try 
-                        let parsed = WebSharper.Compiler.Recognize.createInline None (getVars()) mAnnot.Pure js
+                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure js
                         addMethod mAnnot mdef N.Inline true parsed
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
@@ -568,7 +568,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     addMethod mAnnot mdef N.Inline true (Value c)                        
                 | A.MemberKind.Direct js ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.parseDirect None (getVars()) js
+                        let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) js
                         addMethod mAnnot mdef (getKind()) true parsed
                     with e ->
                         error ("Error parsing direct JavaScript: " + e.Message)
@@ -617,13 +617,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     addConstructor mAnnot cdef N.NoFallback true Undefined
                 | A.MemberKind.Inline js ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.createInline None (getVars()) mAnnot.Pure js
+                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure js
                         addConstructor mAnnot cdef N.Inline true parsed 
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
                 | A.MemberKind.Direct js ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.parseDirect None (getVars()) js
+                        let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) js
                         addConstructor mAnnot cdef N.Static true parsed 
                     with e ->
                         error ("Error parsing direct JavaScript: " + e.Message)

@@ -23,8 +23,8 @@
     <Compile Include="AttributeReader.fs" />
     <Compile Include="CompilationHelpers.fs" />
     <Compile Include="Breaker.fsi" />
-    <Compile Include="Breaker.fs" />
     <Compile Include="Optimizations.fs" />
+    <Compile Include="Breaker.fs" />
     <Compile Include="Recognize.fs" />
     <Compile Include="Verifier.fs" />
     <Compile Include="CompilationTypes.fs" />

@@ -396,12 +396,12 @@ let CollectJSObject() =
 
 [<JavaScript>]
 let InlineValues() =
-    ("x", "y") ||> fun a b -> Console.Log(a, b)    
+    ("a", "b") ||> fun a b -> Console.Log(a, b)    
 
 [<JavaScript>]
 let InlineValues2() =
-    ((Console.Log("x"); "x"), (Console.Log("y"); "y")) ||> fun a b -> Console.Log(a, b)    
+    ((Console.Log("a"); "a"), (Console.Log("b"); "b")) ||> fun a b -> Console.Log(a, b)    
 
 [<JavaScript>]
 let InlineValues3() =
-    ((Console.Log("x"); "x"), (Console.Log("y"); "y")) ||> fun a b -> Array(a, b)    
+    ((Console.Log("a"); "a"), (Console.Log("b"); "b")) ||> fun a b -> Array(a, b)    

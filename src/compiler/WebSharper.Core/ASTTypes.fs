@@ -18,6 +18,8 @@
 //
 // $end{copyright}
 
+#nowarn "86" // redefining operators
+
 namespace WebSharper.Core.AST
 
 open WebSharper.Core

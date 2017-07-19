@@ -189,7 +189,7 @@ and Expression =
     static member (^^) (a, b) = Binary (a, BinaryOperator.``^``, b)
     static member (^|) (a, b) = Binary (a, BinaryOperator.``|``, b)
     static member (^||) (a, b) = Binary (a, BinaryOperator.``||``, b)
-    member a.Item b = ItemGet (a, b, NoSideEffect)
+    member a.Item b = ItemGet (a, b, NonPure)
     member a.Item b = Application (a, b, NonPure, None)
 and Statement =
     /// Empty statement
@@ -230,6 +230,8 @@ and Statement =
     | Labeled of Label:Id * Statement:Statement
     /// Original source location for a statement
     | StatementSourcePos of Range:SourcePos * Statement:Statement
+    /// Global variable imports
+    | VarImports of Variables:list<Id>
     /// Temporary - C# 'goto' statement
     | Goto of Label:Id
     /// Temporary - go to next state in state-machine for iterators, async methods, or methods containing gotos
@@ -468,6 +470,9 @@ type Transformer() =
     override this.TransformStatementSourcePos (a, b) =
         match this.TransformStatement b with
         | StatementSourcePos (_, bt) | bt -> StatementSourcePos (a, bt)
+    /// Global variable imports
+    abstract TransformVarImports : Variables:list<Id> -> Statement
+    override this.TransformVarImports a = VarImports (List.map this.TransformId a)
     /// Temporary - C# 'goto' statement
     abstract TransformGoto : Label:Id -> Statement
     override this.TransformGoto a = Goto (this.TransformId a)
@@ -565,6 +570,7 @@ type Transformer() =
         | TryFinally (a, b) -> this.TransformTryFinally (a, b)
         | Labeled (a, b) -> this.TransformLabeled (a, b)
         | StatementSourcePos (a, b) -> this.TransformStatementSourcePos (a, b)
+        | VarImports a -> this.TransformVarImports a
         | Goto a -> this.TransformGoto a
         | Continuation (a, b) -> this.TransformContinuation (a, b)
         | Yield a -> this.TransformYield a
@@ -796,6 +802,9 @@ type Visitor() =
     /// Original source location for a statement
     abstract VisitStatementSourcePos : Range:SourcePos * Statement:Statement -> unit
     override this.VisitStatementSourcePos (a, b) = (); this.VisitStatement b
+    /// Global variable imports
+    abstract VisitVarImports : Variables:list<Id> -> unit
+    override this.VisitVarImports a = (List.iter this.VisitId a)
     /// Temporary - C# 'goto' statement
     abstract VisitGoto : Label:Id -> unit
     override this.VisitGoto a = (this.VisitId a)
@@ -893,6 +902,7 @@ type Visitor() =
         | TryFinally (a, b) -> this.VisitTryFinally (a, b)
         | Labeled (a, b) -> this.VisitLabeled (a, b)
         | StatementSourcePos (a, b) -> this.VisitStatementSourcePos (a, b)
+        | VarImports a -> this.VisitVarImports a
         | Goto a -> this.VisitGoto a
         | Continuation (a, b) -> this.VisitContinuation (a, b)
         | Yield a -> this.VisitYield a
@@ -984,6 +994,7 @@ module IgnoreSourcePos =
     let (|TryFinally|_|) x = match ignoreStatementSourcePos x with TryFinally (a, b) -> Some (a, b) | _ -> None
     let (|Labeled|_|) x = match ignoreStatementSourcePos x with Labeled (a, b) -> Some (a, b) | _ -> None
     let (|StatementSourcePos|_|) x = match ignoreStatementSourcePos x with StatementSourcePos (a, b) -> Some (a, b) | _ -> None
+    let (|VarImports|_|) x = match ignoreStatementSourcePos x with VarImports a -> Some a | _ -> None
     let (|Goto|_|) x = match ignoreStatementSourcePos x with Goto a -> Some a | _ -> None
     let (|Continuation|_|) x = match ignoreStatementSourcePos x with Continuation (a, b) -> Some (a, b) | _ -> None
     let (|Yield|_|) x = match ignoreStatementSourcePos x with Yield a -> Some a | _ -> None
@@ -1069,6 +1080,7 @@ module Debug =
         | TryFinally (a, b) -> "TryFinally" + "(" + PrintStatement a + ", " + PrintStatement b + ")"
         | Labeled (a, b) -> "Labeled" + "(" + string a + ", " + PrintStatement b + ")"
         | StatementSourcePos (_, b) -> PrintStatement b
+        | VarImports a -> "VarImports" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ")"
         | Goto a -> "Goto" + "(" + string a + ")"
         | Continuation (a, b) -> "Continuation" + "(" + string a + ", " + PrintExpression b + ")"
         | Yield a -> "Yield" + "(" + defaultArg (Option.map PrintExpression a) "_" + ")"

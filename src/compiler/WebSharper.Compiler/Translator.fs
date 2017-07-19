@@ -60,11 +60,11 @@ type RemoveLets() =
                                 
 let removeLetsTr = RemoveLets()
 
-type RuntimeCleaner(force) =
+type RuntimeCleaner(forced) =
     inherit Transformer()
     
     override this.TransformExpression (a) =
-        base.TransformExpression(Optimizations.cleanRuntime a force)
+        base.TransformExpression(Optimizations.cleanRuntime forced a)
 
 let private runtimeCleaner = RuntimeCleaner(false)
 let private runtimeCleanerForced = RuntimeCleaner(true)

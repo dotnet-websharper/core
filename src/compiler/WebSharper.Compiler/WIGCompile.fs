@@ -572,7 +572,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
         t.Resolve().Methods
         |> Seq.tryFind (fun m -> m.IsConstructor && isMatch m)
         |> function
-            | Some x -> def.MainModule.Import x
+            | Some x -> def.MainModule.ImportReference x
             | None -> failwithf "Could not find a constructor in %s" t.FullName
 
     let findConstructorByArity t n =
@@ -1293,7 +1293,7 @@ type Compiler() =
             | Some aR -> aR
             | None -> WebSharper.Compiler.AssemblyResolver.Create()
         let aR = aR.SearchPaths(opts.ReferencePaths)
-        (aR, Resolver(aR) :> IAssemblyResolver)
+        (aR, new Resolver(aR) :> IAssemblyResolver)
 
     let getId (d: Code.NamespaceEntity) =
         d.Id
