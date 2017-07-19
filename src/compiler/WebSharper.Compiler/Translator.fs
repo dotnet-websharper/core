@@ -658,7 +658,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ ->
         if comp.HasGraph then
             this.AddMethodDependency(typ.Entity, meth.Entity)
-        let trThisObj = thisObj |> Option.map this.TransformExpression
+        let trThisObj() = thisObj |> Option.map this.TransformExpression
         let trArgs() = 
             let ta = args
             match opts.FuncArgs with
@@ -682,22 +682,21 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     this.Error("Cannot translate base call, prototype not found.")
             | _ ->
                 Application(
-                    this.TransformExpression thisObj.Value |> getItem name,
+                    trThisObj() |> Option.get |> getItem name,
                     trArgs(), opts.IsPure, None) 
         | M.Static address ->
             // for methods compiled as static because of Prototype(false)
-            let trThisArg =
-                thisObj |> Option.map this.TransformExpression |> Option.toList
+            let trThisArg = trThisObj() |> Option.toList
             Application(GlobalAccess address, trThisArg @ trArgs(), opts.IsPure, Some meth.Entity.Value.Parameters.Length)
         | M.Inline ->
-            Substitution(trArgs(), ?thisObj = trThisObj).TransformExpression(expr)
+            Substitution(trArgs(), ?thisObj = trThisObj()).TransformExpression(expr)
         | M.NotCompiledInline ->
             let ge =
                 if not (List.isEmpty typ.Generics && List.isEmpty meth.Generics) then
                     try GenericInlineResolver(typ.Generics @ meth.Generics).TransformExpression expr
                     with e -> this.Error (sprintf "Failed to resolve generics: %s" e.Message)
                 else expr
-            Substitution(trArgs(), ?thisObj = trThisObj).TransformExpression(ge)
+            Substitution(trArgs(), ?thisObj = trThisObj()).TransformExpression(ge)
             |> this.TransformExpression
         | M.Macro (macro, parameter, fallback) ->
             let macroResult = 
@@ -742,7 +741,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     if currentIsInline then
                         hasDelayedTransform <- true
                         let typ = Generic (comp.FindProxied typ.Entity) typ.Generics
-                        Call(trThisObj, typ, meth, args |> List.map this.TransformExpression)
+                        Call(trThisObj(), typ, meth, trArgs())
                     else 
                         this.HandleMacroNeedsResolvedTypeArg(t, macro.Value.FullName)
             getExpr macroResult
