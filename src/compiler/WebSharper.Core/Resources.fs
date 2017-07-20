@@ -308,7 +308,12 @@ type BaseResource(kind: Kind) as this =
                         Directory.CreateDirectory localDir |> ignore
                     let url = if url.StartsWith("//") then "http:" + url else url
                     printfn "Downloading %A to %s" url localPath
-                    wc.DownloadFile(url, localPath)
+                    let tempLocalPath = localPath + ".download"
+                    wc.DownloadFile(url, tempLocalPath)
+                    if File.Exists tempLocalPath then
+                        if File.Exists localPath then
+                            File.Delete localPath
+                        File.Move(tempLocalPath, localPath)
                 | _ ->
                     ()
             match kind with

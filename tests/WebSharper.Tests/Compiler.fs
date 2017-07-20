@@ -39,9 +39,24 @@ module Server =
             expr, meth.Value.MethodName
         | _ -> failwith "expected a Call pattern"
 
+    type RuntimeCleaner() =
+        inherit Transformer()
+    
+        override this.TransformExpression (a) =
+            base.TransformExpression(WebSharper.Compiler.Optimizations.cleanRuntime true a)
+
+    let private runtimeCleaner = RuntimeCleaner()
+
     let testWithMatch f p =
         let expr, name = getCompiled f
-        let res = if p expr then None else Some ("Unexpected optimized form: " + Debug.PrintExpression expr)
+        let res =
+            if p expr then "" 
+            else
+                let opt = runtimeCleaner.TransformExpression expr
+                if opt <> expr then
+                    "Not fully optimized: " + Debug.PrintExpression expr + " => " + Debug.PrintExpression opt
+                else
+                    "Unexpected optimized form: " + Debug.PrintExpression expr
         res, name
 
     [<Remote>]
@@ -67,6 +82,18 @@ module Server =
             testWithMatch <@ Optimizations.CollectJSObject() @> <| function
             | Function (_, Return (Object [ "a", Value (Int 1); "b", Sequential [_; Value (Int 2)]; "c", Sequential [_; Value (Int 3)]])) -> true
             | _ -> false
+
+            testWithMatch <@ Optimizations.InlineValues() @> <| function
+            | Function (_, ExprStatement (Application(_, [Value (String "a"); Value (String "b")], NonPure, None) )) -> true
+            | _ -> false
+
+            testWithMatch <@ Optimizations.InlineValues2() @> <| function
+            | Function (_, ExprStatement (Application(_, [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]], NonPure, None) )) -> true
+            | _ -> false
+
+            testWithMatch <@ Optimizations.InlineValues3() @> <| function
+            | Function (_, Return (NewArray [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]])) -> true
+            | _ -> false
         
         |]
 
@@ -76,7 +103,7 @@ let Tests =
         Test "Optimizations" {
             let! res = Server.OptimizationTests()
             forEach res (fun (r, msg) ->
-                Do { equalMsg r None msg }
+                Do { equalMsg r "" msg }
             )
         }
     }

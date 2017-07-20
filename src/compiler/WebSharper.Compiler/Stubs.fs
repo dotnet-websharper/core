@@ -43,7 +43,7 @@ let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstan
         if isGet then
             if List.length mdef.Value.Parameters <> 0 then
                 error <- Some "Stub property cannot take arguments"
-            ItemGet(Hole 0, item)    
+            ItemGet(Hole 0, item, NoSideEffect)    
         elif isSet then
             if List.length mdef.Value.Parameters <> 1 then
                 error <- Some "Stub property cannot take arguments"
@@ -51,7 +51,7 @@ let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstan
         else 
             let l = mdef.Value.Parameters.Length
             let args = List.init l (fun i -> Hole (i + 1))
-            Application(ItemGet(Hole 0, item), args, false, None)
+            Application(ItemGet(Hole 0, item, NoSideEffect), args, NonPure, None)
     else
         let getAddressAndName isProp =
             let n = 
@@ -83,7 +83,7 @@ let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstan
                 Global a, Value (String n)
         if isGet then
             let a, n = propAddressAndName()
-            ItemGet(a, n)
+            ItemGet(a, n, NoSideEffect)
         elif isSet then
             let a, n = propAddressAndName()
             ItemSet(a, n, Hole 0)
@@ -96,7 +96,7 @@ let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstan
                     Global (a @ [n]) 
             let l = mdef.Value.Parameters.Length
             let args = List.init l Hole
-            Application(a, args, false, Some l)
+            Application(a, args, NonPure, Some l)
     , error
 
 let GetConstructorInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) (cdef: Constructor) =

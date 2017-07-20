@@ -70,7 +70,7 @@ and Expression =
     /// Contains a literal value
     | Value of Value:Literal
     /// Function application with extra information. The `pure` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
-    | Application of Func:Expression * Arguments:list<Expression> * Pure:bool * KnownLength:option<int>
+    | Application of Func:Expression * Arguments:list<Expression> * Pure:Purity * KnownLength:option<int>
     /// Function declaration
     | Function of Parameters:list<Id> * Body:Statement
     /// Variable set
@@ -82,9 +82,7 @@ and Expression =
     /// Conditional operation
     | Conditional of Condition:Expression * WhenTrue:Expression * WhenFalse:Expression
     /// Indexer get without side effects
-    | ItemGet of Object:Expression * Item:Expression
-    /// Indexer get with possible side effects
-    | ItemGetNonPure of Object:Expression * Item:Expression
+    | ItemGet of Object:Expression * Item:Expression * Pure:Purity
     /// Indexer set
     | ItemSet of Object:Expression * Item:Expression * Value:Expression
     /// Binary operation
@@ -191,8 +189,8 @@ and Expression =
     static member (^^) (a, b) = Binary (a, BinaryOperator.``^``, b)
     static member (^|) (a, b) = Binary (a, BinaryOperator.``|``, b)
     static member (^||) (a, b) = Binary (a, BinaryOperator.``||``, b)
-    member a.Item b = ItemGet (a, b)
-    member a.Item b = Application (a, b, false, None)
+    member a.Item b = ItemGet (a, b, NonPure)
+    member a.Item b = Application (a, b, NonPure, None)
 and Statement =
     /// Empty statement
     | Empty
@@ -232,6 +230,8 @@ and Statement =
     | Labeled of Label:Id * Statement:Statement
     /// Original source location for a statement
     | StatementSourcePos of Range:SourcePos * Statement:Statement
+    /// Global variable imports
+    | VarImports of Variables:list<Id>
     /// Temporary - C# 'goto' statement
     | Goto of Label:Id
     /// Temporary - go to next state in state-machine for iterators, async methods, or methods containing gotos
@@ -263,7 +263,7 @@ type Transformer() =
     abstract TransformValue : Value:Literal -> Expression
     override this.TransformValue a = Value (a)
     /// Function application with extra information. The `pure` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
-    abstract TransformApplication : Func:Expression * Arguments:list<Expression> * Pure:bool * KnownLength:option<int> -> Expression
+    abstract TransformApplication : Func:Expression * Arguments:list<Expression> * Pure:Purity * KnownLength:option<int> -> Expression
     override this.TransformApplication (a, b, c, d) = Application (this.TransformExpression a, List.map this.TransformExpression b, c, d)
     /// Function declaration
     abstract TransformFunction : Parameters:list<Id> * Body:Statement -> Expression
@@ -281,11 +281,8 @@ type Transformer() =
     abstract TransformConditional : Condition:Expression * WhenTrue:Expression * WhenFalse:Expression -> Expression
     override this.TransformConditional (a, b, c) = Conditional (this.TransformExpression a, this.TransformExpression b, this.TransformExpression c)
     /// Indexer get without side effects
-    abstract TransformItemGet : Object:Expression * Item:Expression -> Expression
-    override this.TransformItemGet (a, b) = ItemGet (this.TransformExpression a, this.TransformExpression b)
-    /// Indexer get with possible side effects
-    abstract TransformItemGetNonPure : Object:Expression * Item:Expression -> Expression
-    override this.TransformItemGetNonPure (a, b) = ItemGetNonPure (this.TransformExpression a, this.TransformExpression b)
+    abstract TransformItemGet : Object:Expression * Item:Expression * Pure:Purity -> Expression
+    override this.TransformItemGet (a, b, c) = ItemGet (this.TransformExpression a, this.TransformExpression b, c)
     /// Indexer set
     abstract TransformItemSet : Object:Expression * Item:Expression * Value:Expression -> Expression
     override this.TransformItemSet (a, b, c) = ItemSet (this.TransformExpression a, this.TransformExpression b, this.TransformExpression c)
@@ -473,6 +470,9 @@ type Transformer() =
     override this.TransformStatementSourcePos (a, b) =
         match this.TransformStatement b with
         | StatementSourcePos (_, bt) | bt -> StatementSourcePos (a, bt)
+    /// Global variable imports
+    abstract TransformVarImports : Variables:list<Id> -> Statement
+    override this.TransformVarImports a = VarImports (List.map this.TransformId a)
     /// Temporary - C# 'goto' statement
     abstract TransformGoto : Label:Id -> Statement
     override this.TransformGoto a = Goto (this.TransformId a)
@@ -505,8 +505,7 @@ type Transformer() =
         | Sequential a -> this.TransformSequential a
         | NewArray a -> this.TransformNewArray a
         | Conditional (a, b, c) -> this.TransformConditional (a, b, c)
-        | ItemGet (a, b) -> this.TransformItemGet (a, b)
-        | ItemGetNonPure (a, b) -> this.TransformItemGetNonPure (a, b)
+        | ItemGet (a, b, c) -> this.TransformItemGet (a, b, c)
         | ItemSet (a, b, c) -> this.TransformItemSet (a, b, c)
         | Binary (a, b, c) -> this.TransformBinary (a, b, c)
         | MutatingBinary (a, b, c) -> this.TransformMutatingBinary (a, b, c)
@@ -571,6 +570,7 @@ type Transformer() =
         | TryFinally (a, b) -> this.TransformTryFinally (a, b)
         | Labeled (a, b) -> this.TransformLabeled (a, b)
         | StatementSourcePos (a, b) -> this.TransformStatementSourcePos (a, b)
+        | VarImports a -> this.TransformVarImports a
         | Goto a -> this.TransformGoto a
         | Continuation (a, b) -> this.TransformContinuation (a, b)
         | Yield a -> this.TransformYield a
@@ -599,7 +599,7 @@ type Visitor() =
     abstract VisitValue : Value:Literal -> unit
     override this.VisitValue a = (())
     /// Function application with extra information. The `pure` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
-    abstract VisitApplication : Func:Expression * Arguments:list<Expression> * Pure:bool * KnownLength:option<int> -> unit
+    abstract VisitApplication : Func:Expression * Arguments:list<Expression> * Pure:Purity * KnownLength:option<int> -> unit
     override this.VisitApplication (a, b, c, d) = this.VisitExpression a; List.iter this.VisitExpression b; (); ()
     /// Function declaration
     abstract VisitFunction : Parameters:list<Id> * Body:Statement -> unit
@@ -617,11 +617,8 @@ type Visitor() =
     abstract VisitConditional : Condition:Expression * WhenTrue:Expression * WhenFalse:Expression -> unit
     override this.VisitConditional (a, b, c) = this.VisitExpression a; this.VisitExpression b; this.VisitExpression c
     /// Indexer get without side effects
-    abstract VisitItemGet : Object:Expression * Item:Expression -> unit
-    override this.VisitItemGet (a, b) = this.VisitExpression a; this.VisitExpression b
-    /// Indexer get with possible side effects
-    abstract VisitItemGetNonPure : Object:Expression * Item:Expression -> unit
-    override this.VisitItemGetNonPure (a, b) = this.VisitExpression a; this.VisitExpression b
+    abstract VisitItemGet : Object:Expression * Item:Expression * Pure:Purity -> unit
+    override this.VisitItemGet (a, b, c) = this.VisitExpression a; this.VisitExpression b; ()
     /// Indexer set
     abstract VisitItemSet : Object:Expression * Item:Expression * Value:Expression -> unit
     override this.VisitItemSet (a, b, c) = this.VisitExpression a; this.VisitExpression b; this.VisitExpression c
@@ -805,6 +802,9 @@ type Visitor() =
     /// Original source location for a statement
     abstract VisitStatementSourcePos : Range:SourcePos * Statement:Statement -> unit
     override this.VisitStatementSourcePos (a, b) = (); this.VisitStatement b
+    /// Global variable imports
+    abstract VisitVarImports : Variables:list<Id> -> unit
+    override this.VisitVarImports a = (List.iter this.VisitId a)
     /// Temporary - C# 'goto' statement
     abstract VisitGoto : Label:Id -> unit
     override this.VisitGoto a = (this.VisitId a)
@@ -837,8 +837,7 @@ type Visitor() =
         | Sequential a -> this.VisitSequential a
         | NewArray a -> this.VisitNewArray a
         | Conditional (a, b, c) -> this.VisitConditional (a, b, c)
-        | ItemGet (a, b) -> this.VisitItemGet (a, b)
-        | ItemGetNonPure (a, b) -> this.VisitItemGetNonPure (a, b)
+        | ItemGet (a, b, c) -> this.VisitItemGet (a, b, c)
         | ItemSet (a, b, c) -> this.VisitItemSet (a, b, c)
         | Binary (a, b, c) -> this.VisitBinary (a, b, c)
         | MutatingBinary (a, b, c) -> this.VisitMutatingBinary (a, b, c)
@@ -903,6 +902,7 @@ type Visitor() =
         | TryFinally (a, b) -> this.VisitTryFinally (a, b)
         | Labeled (a, b) -> this.VisitLabeled (a, b)
         | StatementSourcePos (a, b) -> this.VisitStatementSourcePos (a, b)
+        | VarImports a -> this.VisitVarImports a
         | Goto a -> this.VisitGoto a
         | Continuation (a, b) -> this.VisitContinuation (a, b)
         | Yield a -> this.VisitYield a
@@ -928,8 +928,7 @@ module IgnoreSourcePos =
     let (|Sequential|_|) x = match ignoreExprSourcePos x with Sequential a -> Some a | _ -> None
     let (|NewArray|_|) x = match ignoreExprSourcePos x with NewArray a -> Some a | _ -> None
     let (|Conditional|_|) x = match ignoreExprSourcePos x with Conditional (a, b, c) -> Some (a, b, c) | _ -> None
-    let (|ItemGet|_|) x = match ignoreExprSourcePos x with ItemGet (a, b) -> Some (a, b) | _ -> None
-    let (|ItemGetNonPure|_|) x = match ignoreExprSourcePos x with ItemGetNonPure (a, b) -> Some (a, b) | _ -> None
+    let (|ItemGet|_|) x = match ignoreExprSourcePos x with ItemGet (a, b, c) -> Some (a, b, c) | _ -> None
     let (|ItemSet|_|) x = match ignoreExprSourcePos x with ItemSet (a, b, c) -> Some (a, b, c) | _ -> None
     let (|Binary|_|) x = match ignoreExprSourcePos x with Binary (a, b, c) -> Some (a, b, c) | _ -> None
     let (|MutatingBinary|_|) x = match ignoreExprSourcePos x with MutatingBinary (a, b, c) -> Some (a, b, c) | _ -> None
@@ -995,6 +994,7 @@ module IgnoreSourcePos =
     let (|TryFinally|_|) x = match ignoreStatementSourcePos x with TryFinally (a, b) -> Some (a, b) | _ -> None
     let (|Labeled|_|) x = match ignoreStatementSourcePos x with Labeled (a, b) -> Some (a, b) | _ -> None
     let (|StatementSourcePos|_|) x = match ignoreStatementSourcePos x with StatementSourcePos (a, b) -> Some (a, b) | _ -> None
+    let (|VarImports|_|) x = match ignoreStatementSourcePos x with VarImports a -> Some a | _ -> None
     let (|Goto|_|) x = match ignoreStatementSourcePos x with Goto a -> Some a | _ -> None
     let (|Continuation|_|) x = match ignoreStatementSourcePos x with Continuation (a, b) -> Some (a, b) | _ -> None
     let (|Yield|_|) x = match ignoreStatementSourcePos x with Yield a -> Some a | _ -> None
@@ -1016,8 +1016,7 @@ module Debug =
         | Sequential a -> "Sequential" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
         | NewArray a -> "NewArray" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
         | Conditional (a, b, c) -> "Conditional" + "(" + PrintExpression a + ", " + PrintExpression b + ", " + PrintExpression c + ")"
-        | ItemGet (a, b) -> "ItemGet" + "(" + PrintExpression a + ", " + PrintExpression b + ")"
-        | ItemGetNonPure (a, b) -> "ItemGetNonPure" + "(" + PrintExpression a + ", " + PrintExpression b + ")"
+        | ItemGet (a, b, c) -> "ItemGet" + "(" + PrintExpression a + ", " + PrintExpression b + ", " + PrintObject c + ")"
         | ItemSet (a, b, c) -> "ItemSet" + "(" + PrintExpression a + ", " + PrintExpression b + ", " + PrintExpression c + ")"
         | Binary (a, b, c) -> "Binary" + "(" + PrintExpression a + ", " + PrintObject b + ", " + PrintExpression c + ")"
         | MutatingBinary (a, b, c) -> "MutatingBinary" + "(" + PrintExpression a + ", " + PrintObject b + ", " + PrintExpression c + ")"
@@ -1081,6 +1080,7 @@ module Debug =
         | TryFinally (a, b) -> "TryFinally" + "(" + PrintStatement a + ", " + PrintStatement b + ")"
         | Labeled (a, b) -> "Labeled" + "(" + string a + ", " + PrintStatement b + ")"
         | StatementSourcePos (_, b) -> PrintStatement b
+        | VarImports a -> "VarImports" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ")"
         | Goto a -> "Goto" + "(" + string a + ")"
         | Continuation (a, b) -> "Continuation" + "(" + string a + ", " + PrintExpression b + ")"
         | Yield a -> "Yield" + "(" + defaultArg (Option.map PrintExpression a) "_" + ")"

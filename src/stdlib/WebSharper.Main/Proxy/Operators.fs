@@ -173,6 +173,7 @@ let Ceiling (x: 'T) = X<'T>
 [<Macro(typeof<M.Char>)>]
 let ToChar (x: 'T) = X<char>
 
+[<Inline>]
 let Compare<'T> (a: 'T) (b: 'T) = Unchecked.compare a b
 
 [<Inline "Math.cos($x)">]
@@ -181,10 +182,10 @@ let Cos (x: 'T) = X<'T>
 [<Inline "(Math.exp($x)+Math.exp(-$x))/2">]
 let Cosh<'T> (x: 'T) = X<'T>
 
-[<Direct "void ($x[0]--)">]
-[<Name "WebSharper.Ref.decr">]
+[<Inline "void ($x[0]--)">]
 let Decrement (x: ref<int>) = ()
 
+[<Inline>]
 let DefaultArg x d =
     match x with
     | Some x -> x
@@ -219,8 +220,7 @@ let Identity (x: 'T) = X<'T>
 [<Inline "void $x">]
 let Ignore (x: 'T) = X<unit>
 
-[<Direct "void ($x[0]++)">]
-[<Name "WebSharper.Ref.incr">]
+[<Inline "void ($x[0]++)">]
 let Increment (x: ref<int>) = ()
 
 [<Inline "Infinity">]
@@ -251,9 +251,11 @@ let Log (x: 'T) = X<'T>
 [<Inline "Math.log($x)/Math.log(10)">]
 let Log10 (x: 'T) = X<'T>
 
+[<Inline>]
 let Max<'T when 'T : comparison> (a: 'T) (b: 'T) =
     if a > b then a else b
 
+[<Inline>]
 let Min<'T when 'T : comparison> (a: 'T) (b: 'T) =
     if a < b then a else b
 
@@ -330,6 +332,7 @@ let Unbox (x: obj) = X<'T>
 [<Inline "$x == null">]
 let IsNull (x: 'T) = X<bool>
 
+[<Inline>]
 let Using t f =
     try f t finally (t :> System.IDisposable).Dispose()
 

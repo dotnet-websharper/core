@@ -85,7 +85,7 @@ let StringEnumerator (s: string) =
 
 [<JavaScript>]
 let Get (x: seq<'T>) : IE<'T> =
-    if JS.InstanceOf x JS.Global?Array then
+    if x :? System.Array then
         ArrayEnumerator (As x)
     elif JS.TypeOf x = JS.String then
         StringEnumerator (As x)
@@ -97,7 +97,7 @@ let getEnumerator0 (x: obj) : System.Collections.IEnumerator = X
 
 [<JavaScript>]
 let Get0 (x: System.Collections.IEnumerable) : System.Collections.IEnumerator =
-    if JS.InstanceOf x JS.Global?Array then
+    if x :? System.Array then
         As (ArrayEnumerator (As x))
     elif JS.TypeOf x = JS.String then
         As (StringEnumerator (As x))

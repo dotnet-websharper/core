@@ -64,7 +64,8 @@ module NotResolved =
         {
             StrongName : option<string>
             IsStatic : bool
-            IsOptional : bool   
+            IsOptional : bool 
+            IsReadonly : bool
             FieldType : Type
         }
 
@@ -439,7 +440,7 @@ type LookupMemberResult =
     | LookupMemberError of CompilationError 
 
 type LookupFieldResult =
-    | CompiledField of CompiledField
+    | CompiledField of CompiledField * bool * Type
     | PropertyField of option<Method> * option<Method>
     | CustomTypeField of CustomTypeInfo
     | LookupFieldError of CompilationError 

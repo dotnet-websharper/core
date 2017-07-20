@@ -74,14 +74,14 @@ type AwaitTransformer() =
         let doneLabel = Id.New "$done"
         let setStatus s = ItemSet(Var awaited, Value (String "exc"), !~(Int s))
         let start = Call(Some (Var awaited), NonGeneric Definitions.Task, TaskMethod.Start, [])
-        let exc = ItemGet(Var awaited, Value (String "exc"))
+        let exc = ItemGet(Var awaited, Value (String "exc"), NoSideEffect)
         Sequential [
             NewVar(awaited, this.TransformExpression a)
             Conditional (setStatus 0, start, Undefined)
             IgnoredStatementExpr <| Continuation(doneLabel, Var awaited)
             IgnoredStatementExpr <| Labeled(doneLabel, Empty)
             IgnoredStatementExpr <| If (exc, Throw exc, Empty)
-            ItemGet(Var awaited, Value (String "result"))                 
+            ItemGet(Var awaited, Value (String "result"), NoSideEffect)                 
         ]
 
 type HasGotos() =
@@ -511,7 +511,7 @@ type AsyncTransformer(labels, returns) =
                 yield VarDeclaration(v, Undefined)
             yield! this.LocalFunctions
             yield ExprStatement <| VarSet(run, Function ([], inner))
-            yield ExprStatement <| Application (Var run, [], false, Some 0)
+            yield ExprStatement <| Application (Var run, [], NonPure, Some 0)
             if returns <> ReturnsVoid then 
                 yield Return (Var task)
         ]

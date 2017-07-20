@@ -405,3 +405,36 @@ let f x y = x + y
 
 translateQ <@ 1 |> ignore @> 
 |> WebSharper.Core.AST.Debug.PrintExpression
+
+open WebSharper.JavaScript
+open FSharp.Quotations
+open WebSharper.Core
+
+let getBody expr =
+    let mi =
+        match expr with
+        | Patterns.Call(_, mi, _) -> mi
+        | Patterns.PropertyGet(_, p, _) -> p.GetMethod
+        | Patterns.PropertySet(_, p, _, _) -> p.SetMethod
+        | _ -> failwithf "not recognized: %A" expr
+    let typ = AST.Reflection.ReadTypeDefinition mi.DeclaringType 
+    let cls = metadata.Classes.[typ]
+    match AST.Reflection.ReadMember mi |> Option.get with
+    | AST.Member.Method (_, meth) 
+    | AST.Member.Override (_, meth) ->
+        let _, _, expr = cls.Methods.[meth]
+        expr
+    | AST.Member.Implementation (intf, meth) ->
+        let _, expr = cls.Implementations.[intf, meth]
+        expr
+    | AST.Member.Constructor ctor ->
+        let _, _, expr = cls.Constructors.[ctor]
+        expr
+    | AST.Member.StaticConstructor ->
+        let _, expr = cls.StaticConstructor |> Option.get
+        expr
+
+getBody <@ JS.Document.Cookie <- X<_> @>
+|> WebSharper.Core.AST.Debug.PrintExpression
+
+let me = WebSharper.Compiler.Recognize.GetMutableExternals metadata

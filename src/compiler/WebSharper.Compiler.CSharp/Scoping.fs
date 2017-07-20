@@ -88,16 +88,16 @@ type BlockScoping() =
         let res = Id.New()
         if hasReturn || breaks.Count > 0 || conts.Count > 0 then
             Block [
-                VarDeclaration(res, Application(Function([], Block a), [], false, Some 0))
+                VarDeclaration(res, Application(Function([], Block a), [], NonPure, Some 0))
 
                 If (Var res, 
-                    Switch(ItemGet(Var res, i0),
+                    Switch(ItemGet(Var res, i0, Pure),
                         [
                             if hasReturn then 
-                                yield (Some i0, Return (ItemGet(Var res, i1)))
+                                yield (Some i0, Return (ItemGet(Var res, i1, Pure)))
                             if breaks.Count > 0 then 
                                 yield (Some i1,
-                                    Switch(ItemGet(Var res, i1),
+                                    Switch(ItemGet(Var res, i1, Pure),
                                         [
                                             for b in breaks do
                                                 match b with
@@ -110,7 +110,7 @@ type BlockScoping() =
                                 )
                             if conts.Count > 0 then 
                                 yield (Some i2,
-                                    Switch(ItemGet(Var res, i1),
+                                    Switch(ItemGet(Var res, i1, Pure),
                                         [
                                             for b in conts do
                                                 match b with
@@ -125,7 +125,7 @@ type BlockScoping() =
                     )
                 , Empty)
             ]
-        else ExprStatement <| Application(Function([], Block a), [], false, Some 0)
+        else ExprStatement <| Application(Function([], Block a), [], NonPure, Some 0)
 
 type FixScoping() =
     inherit Transformer()

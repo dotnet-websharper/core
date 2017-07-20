@@ -73,10 +73,18 @@ let transformId (env: Environment) (id: Id) =
 
 let formatter = WebSharper.Core.JavaScript.Identifier.MakeFormatter()
 
+let getCompactName (env: Environment) =
+    let vars = env.ScopeNames
+    let mutable name = formatter env.CompactVars   
+    env.CompactVars <- env.CompactVars + 1   
+    while vars |> Set.contains name do
+        name <- formatter env.CompactVars   
+        env.CompactVars <- env.CompactVars + 1   
+    name
+
 let defineId (env: Environment) addToDecl (id: Id) =
     if env.Preference = P.Compact then
-        let name = formatter env.CompactVars    
-        env.CompactVars <- env.CompactVars + 1   
+        let name = getCompactName env    
         env.ScopeIds <- env.ScopeIds |> Map.add id name
         if addToDecl then env.ScopeVars.Add(name)
         name 
@@ -89,6 +97,15 @@ let defineId (env: Environment) addToDecl (id: Id) =
         env.ScopeIds <- env.ScopeIds |> Map.add id name
         if addToDecl then env.ScopeVars.Add(name)
         name
+
+let defineImportedId (env: Environment) (id: Id) =
+    let iname = id.Name.Value
+    env.ScopeNames <- env.ScopeNames |> Set.add iname
+    if env.Preference = P.Compact then
+        let name = getCompactName env    
+        env.ScopeIds <- env.ScopeIds |> Map.add id name
+    else 
+        env.ScopeIds <- env.ScopeIds |> Map.add id iname
        
 let invalidForm c =
     failwithf "invalid form at writing JavaScript: %s" c
@@ -101,6 +118,10 @@ type CollectVariables(env: Environment) =
 
     override this.VisitVarDeclaration(v, _) =
         defineId env true v |> ignore
+
+    override this.VisitVarImports(vars) =
+        for v in vars do
+            defineImportedId env v
 
 let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     let inline trE x = transformExpr env x
@@ -158,8 +179,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 [ J.Ignore (J.Constant (J.String "use strict")) ]
             else []
         J.Lambda(None, args, useStrict @ innerEnv.Declarations @ body)
-    | ItemGet (x, y) 
-    | ItemGetNonPure (x, y) 
+    | ItemGet (x, y, _) 
         -> (trE x).[trE y]
     | Binary (x, y, z) ->
         match y with
@@ -310,6 +330,10 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
             | J.Return None -> []
             | b -> [ b ]
         J.Function(id, args, innerEnv.Declarations @ body)
+    | VarImports vars -> 
+        if env.Preference = P.Compact then
+            J.Vars (vars |> List.map (fun v -> transformId env v, Some (J.Var v.Name.Value)))
+        else J.Empty
     | While(a, b) -> J.While (trE a, trS b)
     | DoWhile(a, b) -> J.Do (trS a, trE b)
     | For(a, b, c, d) -> J.For(Option.map trE a, Option.map trE b, Option.map trE c, trS d)

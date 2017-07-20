@@ -60,13 +60,14 @@ type RemoveLets() =
                                 
 let removeLetsTr = RemoveLets()
 
-type RuntimeCleaner() =
+type RuntimeCleaner(forced) =
     inherit Transformer()
     
     override this.TransformExpression (a) =
-        base.TransformExpression(Optimizations.cleanRuntime a)
+        base.TransformExpression(Optimizations.cleanRuntime forced a)
 
-let private runtimeCleaner = RuntimeCleaner()
+let private runtimeCleaner = RuntimeCleaner(false)
+let private runtimeCleanerForced = RuntimeCleaner(true)
 
 type Breaker(isInline) =
     inherit Transformer()
@@ -111,7 +112,7 @@ type CollectCurried() =
                     | 2 -> JSRuntime.Curried2 trFunc 
                     | 3 -> JSRuntime.Curried3 trFunc 
                     | _ -> JSRuntime.Curried trFunc n
-                List.fold (fun f x -> Application(f, [this.TransformExpression x], false, Some 1)) curr moreArgs
+                List.fold (fun f x -> Application(f, [this.TransformExpression x], NonPure, Some 1)) curr moreArgs
             else
                 JSRuntime.CurriedA trFunc (n - moreArgs.Length) (NewArray moreArgs)
                 
@@ -119,11 +120,11 @@ type CollectCurried() =
             Global [ "ignore" ]
         | Function (x :: _, I.Return (I.Var y)) when x = y ->
             Global [ "id" ]
-        | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 0)))) when x = y ->
+        | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 0), _))) when x = y ->
             Global [ "fst" ]
-        | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 1)))) when x = y ->
+        | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 1), _))) when x = y ->
             Global [ "snd" ]
-        | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 2)))) when x = y ->
+        | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 2), _))) when x = y ->
             Global [ "trd" ]
         | _ -> base.TransformFunction(args, body)   
    
@@ -149,8 +150,20 @@ let defaultRemotingProvider =
     
 let emptyConstructor = Hashed { CtorParameters = [] }
 
-let inline private getItem n x = ItemGet(x, Value (String n))
-let inline private getIndex n x = ItemGet(x, Value (Int n))
+let private getItem n x = ItemGet(x, Value (String n), Pure)
+let private getIndex n x = ItemGet(x, Value (Int n), Pure)
+
+let private getItemRO n isReadonly x =
+    if isReadonly then
+        getItem n x
+    else
+        ItemGet(x, Value (String n), NoSideEffect)
+
+let private getIndexRO n isReadonly x =
+    if isReadonly then
+        getIndex n x
+    else
+        ItemGet(x, Value (Int n), NoSideEffect)
 
 type GenericInlineResolver (generics) =
     inherit Transformer()
@@ -260,7 +273,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         if currentIsInline then
             e 
             |> removeLetsTr.TransformExpression
-            |> runtimeCleaner.TransformExpression
             |> inlineOptimizer.TransformExpression
         else
             let isCtor =
@@ -271,6 +283,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             |> removeLetsTr.TransformExpression
             |> runtimeCleaner.TransformExpression
             |> breaker.TransformExpression
+            |> runtimeCleanerForced.TransformExpression
             |> collectCurried isCtor
 
     member this.CheckResult (res) =
@@ -348,7 +361,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match me.MethodName with
             | "Invoke" ->
                 // TODO: optional arguments
-                Application(this.TransformExpression objExpr.Value, args |> List.map this.TransformExpression, false, Some args.Length)
+                Application(this.TransformExpression objExpr.Value, args |> List.map this.TransformExpression, NonPure, Some args.Length)
             | "op_Addition" -> JSRuntime.CombineDelegates (NewArray (args |> List.map this.TransformExpression))
             | "op_Equality" -> 
                 match args |> List.map this.TransformExpression with
@@ -468,7 +481,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
         | NotGenerated (g, p, i, notVirtual, opts) ->
             let m = GeneratedMethod(typ, meth)
-            let res = this.Generate (g, p, m)
+            let res = this.Generate (g, p, m) |> breakExpr
             let res = this.CheckResult(res)
             let opts =
                 { opts with
@@ -489,7 +502,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.AddCompiledImplementation(typ, intf, meth, i, res)
         | NotGenerated (g, p, i, _, _) ->
             let m = GeneratedImplementation(typ, intf, meth)
-            let res = this.Generate (g, p, m)
+            let res = this.Generate (g, p, m) |> breakExpr
             let res = this.CheckResult(res)
             comp.AddCompiledImplementation(typ, intf, meth, i, res)
 
@@ -513,7 +526,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
         | NotGenerated (g, p, i, _, opts) ->
             let m = GeneratedConstructor(typ, ctor)
-            let res = this.Generate (g, p, m)
+            let res = this.Generate (g, p, m) |> breakExpr
             let res = this.CheckResult(res)
             let opts =
                 { opts with
@@ -615,14 +628,14 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     f
                 | _ ->
                     let args = List.init tupling (fun _ -> Id.New(mut = false))
-                    Lambda(args, Application(expr, [NewArray(args |> List.map Var)], false, Some 1))
+                    Lambda(args, Application(expr, [NewArray(args |> List.map Var)], NonPure, Some 1))
 
     override this.TransformOptimizedFSharpArg(f, opt) =
         match opt with
         | CurriedFuncArg arity ->
             let rec c args a =
                 if a = 0 then
-                    Application (f, List.rev args, false, Some arity)
+                    Application (f, List.rev args, NonPure, Some arity)
                 else
                     let x = Id.New(mut = false)
                     Lambda ([x], c (Var x :: args) (a - 1))
@@ -631,7 +644,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let x = Id.New(mut = false)
             let args =
                 List.init arity (fun i -> (Var x).[Value (Int i)])
-            Lambda ([x], Application (f, args, false, Some arity))
+            Lambda ([x], Application (f, args, NonPure, Some arity))
         | _ ->
             this.TransformExpression(f)
 
@@ -677,17 +690,17 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | Some ba ->
                     Application(
                         GlobalAccess ba |> getItem "prototype" |> getItem name |> getItem "call",
-                        This :: (trArgs()), opts.IsPure, None)
+                        This :: (trArgs()), opts.Purity, None)
                 | _ ->
                     this.Error("Cannot translate base call, prototype not found.")
             | _ ->
                 Application(
                     trThisObj() |> Option.get |> getItem name,
-                    trArgs(), opts.IsPure, None) 
+                    trArgs(), opts.Purity, None) 
         | M.Static address ->
             // for methods compiled as static because of Prototype(false)
             let trThisArg = trThisObj() |> Option.toList
-            Application(GlobalAccess address, trThisArg @ trArgs(), opts.IsPure, Some meth.Entity.Value.Parameters.Length)
+            Application(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length)
         | M.Inline ->
             Substitution(trArgs(), ?thisObj = trThisObj()).TransformExpression(expr)
         | M.NotCompiledInline ->
@@ -777,7 +790,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     | TupleType (ts, _) -> ts |> List.iter addTypeDeps
                     | _ -> ()
                 addTypeDeps meth.Entity.Value.ReturnType
-            Application (remotingProvider |> getItem name, [ Value (String (handle.Pack())); NewArray (trArgs()) ], opts.IsPure, Some 2)
+            Application (remotingProvider |> getItem name, [ Value (String (handle.Pack())); NewArray (trArgs()) ], opts.Purity, Some 2)
         | M.Constructor _ -> failwith "Not a valid method info: Constructor"
 
     override this.TransformCall (thisObj, typ, meth, args) =
@@ -806,7 +819,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | n ->
                 match thisObj with
                 | Some o ->
-                    Application(ItemGet(this.TransformExpression o, Value (String n)), args |> List.map this.TransformExpression, false, None) 
+                    Application(ItemGet(this.TransformExpression o, Value (String n), NonPure), args |> List.map this.TransformExpression, NonPure, None) 
                 | _ ->
                     this.Error("Static method on dynamic object not tranlated: " + n)
         else
@@ -832,9 +845,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.AddError (this.CurrentSourcePos, err)
             match thisObj with 
             | Some thisObj ->
-                Application(ItemGet(this.TransformExpression thisObj, errorPlaceholder), args |> List.map this.TransformExpression, false, None) 
+                Application(ItemGet(this.TransformExpression thisObj, errorPlaceholder, NonPure), args |> List.map this.TransformExpression, NonPure, None) 
             | _ ->
-                Application(errorPlaceholder, args |> List.map this.TransformExpression, false, None)
+                Application(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
 
     override this.TransformTraitCall(typs, meth, args) =
         let mutable err = None
@@ -921,7 +934,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | M.Constructor address ->
             New(GlobalAccess address, trArgs())
         | M.Static address ->
-            Application(GlobalAccess address, trArgs(), opts.IsPure, Some ctor.Value.CtorParameters.Length)
+            Application(GlobalAccess address, trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.Inline -> 
             Substitution(trArgs()).TransformExpression(expr)
         | M.NotCompiledInline -> 
@@ -997,7 +1010,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         if f.Optional then
                             let id = Id.New(mut = false)
                             Let(id, this.TransformExpression a,
-                                Conditional(Var id, ItemGet(Var id, Value (String "$0")), Undefined))
+                                Conditional(Var id, ItemGet(Var id, Value (String "$0"), Pure), Undefined))
                         else this.TransformExpression a)
                 |> List.ofSeq |> Object
             let optFields = 
@@ -1031,7 +1044,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     let caseField = Definitions.SingletonUnionCase case
                     if comp.HasGraph then
                         this.AddMethodDependency(td, caseField)
-                    ItemGet(GlobalAccess a, Value (String case))
+                    ItemGet(GlobalAccess a, Value (String case), Pure)
                 | None -> this.Error("Failed to find address for singleton union case.")
             | M.NormalFSharpUnionCase _ ->
                 let objExpr =
@@ -1082,10 +1095,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 if u.HasNull then
                     let v = Id.New(mut = false)
                     Let (v, this.TransformExpression expr, 
-                        (Var v ^!= Value Null) ^&& (ItemGet(Var v, Value (String "$")) ^== Value (Int i)) 
+                        (Var v ^!= Value Null) ^&& (ItemGet(Var v, Value (String "$"), Pure) ^== Value (Int i)) 
                     )
                 else
-                    ItemGet(this.TransformExpression expr, Value (String "$")) ^== Value (Int i)    
+                    ItemGet(this.TransformExpression expr, Value (String "$"), Pure) ^== Value (Int i)    
         | _ -> this.Error("Failed to translate union case test.")
     
     override this.TransformUnionCaseGet(expr, typ, case, field) =
@@ -1103,7 +1116,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.NormalFSharpUnionCase fields -> 
                 match fields |> List.tryFindIndex (fun f -> f.Name = field) with
                 | Some i ->
-                    ItemGet(this.TransformExpression expr, Value (String ("$" + string i)))
+                    this.TransformExpression expr |> getItem ("$" + string i)
                 | _ ->
                     this.Error(sprintf "Could not find field of union case: %s.%s.%s" typ.Entity.Value.FullName case field)        
         
@@ -1129,12 +1142,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let constantCases = 
                 u.Cases |> List.indexed |> List.filter (function (_, { Kind = M.ConstantFSharpUnionCase _ }) -> true | _ -> false)
             if List.isEmpty constantCases then                 
-                ItemGet(this.TransformExpression expr, Value (String "$"))
+                this.TransformExpression expr |> getItem "$"
             else 
                 // TODO: no default tag when all cases are constant valued
                 let ev = Id.New (mut = false)
                 let b = 
-                    (constantCases, ItemGet(Var ev, Value (String "$")))
+                    (constantCases, Var ev |> getItem "$")
                     ||> List.foldBack (fun (i, c) e -> 
                         match c.Kind with
                         | M.ConstantFSharpUnionCase v ->
@@ -1166,20 +1179,20 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.Error("Failed to translate compiler generated constructor")
         | LookupMemberError err ->
             comp.AddError (this.CurrentSourcePos, err)
-            Application(errorPlaceholder, args |> List.map this.TransformExpression, false, None)
+            Application(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
                   
     override this.TransformBaseCtor(expr, typ, ctor, args) =
         let norm = this.TransformCtor(typ, ctor, args)
         let def () =
             match norm with
             | New (func, a) ->
-                Application(func |> getItem "call", expr :: a, false, None)
+                Application(func |> getItem "call", expr :: a, NonPure, None)
             // This is allowing some simple inlines
             | Let (i1, a1, New(func, [Var v1])) when i1 = v1 ->
-                Application(func |> getItem "call", expr :: [a1], false, None)
+                Application(func |> getItem "call", expr :: [a1], NonPure, None)
             | _ ->
                 comp.AddError (this.CurrentSourcePos, SourceError "Chained constructor is an Inline in a not supported form")
-                Application(errorPlaceholder, args |> List.map this.TransformExpression, false, None)
+                Application(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
         if currentIsInline then
             match IgnoreExprSourcePos expr with
             | This -> norm
@@ -1192,7 +1205,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Some cctor ->
             if comp.HasGraph then
                 this.AddTypeDependency typ
-            Application(GlobalAccess cctor, [], false, Some 0)
+            Application(GlobalAccess cctor, [], NonPure, Some 0)
         | None -> Undefined
 
     override this.TransformOverrideName(typ, meth) =
@@ -1214,15 +1227,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         if comp.HasGraph then
             this.AddTypeDependency typ.Entity
         match comp.LookupFieldInfo (typ.Entity, field) with
-        | CompiledField f ->
+        | CompiledField (f, ro, _) ->
             match f with
             | M.InstanceField fname ->
-                this.TransformExpression expr.Value |> getItem fname
+                this.TransformExpression expr.Value |> getItemRO fname ro
             | M.StaticField faddr ->
                 match comp.TryLookupStaticConstructorAddress typ.Entity with
                 | Some cctorAddr ->
                     Sequential [
-                        Application(GlobalAccess cctorAddr, [], false, Some 0)
+                        Application(GlobalAccess cctorAddr, [], NonPure, Some 0)
                         GlobalAccess faddr
                     ]
                 | _ ->    
@@ -1230,22 +1243,22 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.OptionalField fname -> 
                 JSRuntime.GetOptional (this.TransformExpression expr.Value |> getItem fname)
             | M.IndexedField i ->
-                this.TransformExpression expr.Value |> getIndex i
+                this.TransformExpression expr.Value |> getIndexRO i ro
         | CustomTypeField ct ->
             match ct with
             | M.FSharpUnionCaseInfo case ->
                 match case.Kind with
                 | M.NormalFSharpUnionCase fields ->
                     let fName = "$" + string (fields |> List.findIndex (fun f -> f.Name = field))
-                    ItemGet(this.TransformExpression expr.Value, Value (String fName))
+                    this.TransformExpression expr.Value |> getItem fName
                 | _ -> this.Error "Constant union case should not have fields" 
             | M.FSharpRecordInfo fields ->
-                match fields |> List.tryPick (fun f -> if f.Name = field then Some (f.JSName, f.Optional) else None) with
-                | Some (name, isOpt) ->
+                match fields |> List.tryPick (fun f -> if f.Name = field then Some (f.JSName, f.Optional, not f.IsMutable) else None) with
+                | Some (name, isOpt, ro) ->
                     if isOpt then
                         JSRuntime.GetOptional (this.TransformExpression expr.Value |> getItem name)
                     else
-                        this.TransformExpression expr.Value |> getItem name 
+                        this.TransformExpression expr.Value |> getItemRO name ro
                 | _ -> this.Error(sprintf "Could not find field of F# record type: %s.%s" typ.Entity.Value.FullName field)
             | M.FSharpUnionInfo _ -> this.Error "Union base type should not have fields"   
             | _ -> failwith "CustomTypeField error"          
@@ -1261,7 +1274,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         if comp.HasGraph then
             this.AddTypeDependency typ.Entity
         match comp.LookupFieldInfo (typ.Entity, field) with
-        | CompiledField f ->
+        | CompiledField (f, _, _) ->
             match f with
             | M.InstanceField fname ->
                 ItemSet(this.TransformExpression expr.Value, Value (String fname), this.TransformExpression value) 
@@ -1270,7 +1283,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 match comp.TryLookupStaticConstructorAddress typ.Entity with
                 | Some cctorAddr ->
                     Sequential [
-                        Application(GlobalAccess cctorAddr, [], false, Some 0)
+                        Application(GlobalAccess cctorAddr, [], NonPure, Some 0)
                         ItemSet(GlobalAccess (Hashed a), Value (String f), this.TransformExpression value)
                     ]
                 | _ ->    

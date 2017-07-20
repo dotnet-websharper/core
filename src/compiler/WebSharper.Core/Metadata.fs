@@ -138,12 +138,14 @@ type Optimizations =
     member this.IsNone =
         not this.IsPure && Option.isNone this.FuncArgs && Option.isNone this.Warn
 
+    member this.Purity = if this.IsPure then Pure else NonPure
+
 type ClassInfo =
     {
         Address : option<Address>
         BaseClass : option<TypeDefinition>
         Constructors : IDictionary<Constructor, CompiledMember * Optimizations * Expression>
-        Fields : IDictionary<string, CompiledField>
+        Fields : IDictionary<string, CompiledField * bool * Type>
         StaticConstructor : option<Address * Expression>
         Methods : IDictionary<Method, CompiledMember * Optimizations * Expression>
         Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
@@ -168,7 +170,8 @@ type IClassInfo =
     abstract member Address : option<Address>
     abstract member BaseClass : option<TypeDefinition>
     abstract member Constructors : IDictionary<Constructor, CompiledMember>
-    abstract member Fields : IDictionary<string, CompiledField>
+    /// value: field info, is readonly
+    abstract member Fields : IDictionary<string, CompiledField * bool * Type>
     abstract member StaticConstructor : option<Address>
     abstract member Methods : IDictionary<Method, CompiledMember>
     abstract member Implementations : IDictionary<TypeDefinition * Method, CompiledMember>
@@ -221,6 +224,7 @@ type FSharpRecordFieldInfo =
         RecordFieldType : Type
         DateTimeFormat : option<string>    
         Optional : bool
+        IsMutable : bool
     }
 
 type CustomTypeInfo =

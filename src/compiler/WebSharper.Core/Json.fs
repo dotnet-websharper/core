@@ -1547,8 +1547,9 @@ module TypedProviderInternals =
                     let fields = cls.Fields
                     fun f ->
                     match fields.TryGetValue f with
-                    | true, (M.InstanceField n | M.OptionalField n) -> n
-                    | true, M.IndexedField i -> string i
+                    | true, (M.InstanceField n, _, _)
+                    | true, (M.OptionalField n, _, _) -> n
+                    | true, (M.IndexedField i, _, _) -> string i
                     | true, _ ->
                         failwithf "A static field not serializable: %s.%s" 
                             t.FullName f                                          

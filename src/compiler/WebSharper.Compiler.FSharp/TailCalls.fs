@@ -269,7 +269,7 @@ type AddCapturing(vars : seq<Id>) =
                     let cArgs = cVars |> List.map (fun v -> Id.New(?name = v.Name, mut = false))
                     Application(
                         Function(cArgs, Return (ReplaceIds(Seq.zip cVars cArgs |> dict).TransformExpression f)), 
-                        cVars |> List.map Var, false, None) 
+                        cVars |> List.map Var, NonPure, None) 
                 else f
             else
                 base.TransformFunction(args, body)
@@ -453,7 +453,7 @@ type TailCallTransformer(env) =
                     let recArgs = Value (Int i) :: List.map Var args
                     trBindings.Add(var, 
                         Function(args, 
-                            Return (Application (Var recFunc, recArgs, false, Some (numArgs + 1)))))                    
+                            Return (Application (Var recFunc, recArgs, NonPure, Some (numArgs + 1)))))                    
                     i <- i + 1
                 | Choice2Of2 value ->
                     trBindings.Add(var, value)

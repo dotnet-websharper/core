@@ -365,7 +365,7 @@ module Macro =
                                 enc >>= fun e ->
                                 let v = Lambda([], Call (None, NonGeneric gtd, NonGeneric gv, []))
                                 let vn = Value (String va.Value.Head)
-                                let b = Lambda ([], Conditional(v, v, ItemSet(Global [top], vn, Application(e, [], false, Some 0))))
+                                let b = Lambda ([], Conditional(v, v, ItemSet(Global [top], vn, Application(e, [], NonPure, Some 0))))
                                 comp.AddGeneratedCode(gm, b)
                                 Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                          ), args)
@@ -566,19 +566,19 @@ module Macro =
 
         let encodeLambda name param t =
             getEncoding name true param t
-            |> mapOk (fun x -> Application(x, [], true, Some 0))
+            |> mapOk (fun x -> Application(x, [], Pure, Some 0))
 
         let encode name param t arg =
             encodeLambda name param t
-            |> mapOk (fun x -> Application(x, [arg], true, Some 1))
+            |> mapOk (fun x -> Application(x, [arg], Pure, Some 1))
 
         let decodeLambda name param t =
             getEncoding name false param t
-            |> mapOk (fun x -> Application(x, [], true, Some 0))
+            |> mapOk (fun x -> Application(x, [], Pure, Some 0))
 
         let decode name param t arg =
             decodeLambda name param t
-            |> mapOk (fun x -> Application(x, [arg], true, Some 1))
+            |> mapOk (fun x -> Application(x, [arg], Pure, Some 1))
 
     let Encode param t arg =
         // ENCODE()(arg)
@@ -601,7 +601,7 @@ module Macro =
             // let enc = ENCODE() in fun arg -> JSON.stringify(enc(arg))
             Let(enc, x,
                 Lambda([arg],
-                    mJson param.Compilation "Stringify" [Application(Var enc, [Var arg], true, Some 1)])))
+                    mJson param.Compilation "Stringify" [Application(Var enc, [Var arg], Pure, Some 1)])))
 
     let Decode param t arg =
         // DECODE()(arg)
@@ -623,7 +623,7 @@ module Macro =
             // let dec = DECODE() in fun arg -> dec(JSON.parse(arg))
             Let(dec, x,
                 Lambda([arg],
-                    Application(Var dec, [mJson param.Compilation "Parse" [Var arg]], true, Some 1))))
+                    Application(Var dec, [mJson param.Compilation "Parse" [Var arg]], Pure, Some 1))))
 
     type SerializeMacro() =
         inherit WebSharper.Core.Macro()

@@ -71,7 +71,7 @@ let lookup<'T> (x: string []) : obj =
 /// Does a shallow generic mapping over an object.
 [<JavaScript>]
 let shallowMap (f: obj -> obj) (x: obj) : obj =
-    if JS.InstanceOf x JS.Global?Array then
+    if x :? System.Array then
         As (Array.map f (As x))
     else
         match JS.TypeOf x with
@@ -92,7 +92,7 @@ let Activate<'T> (json: obj) : 'T =
         if x = null then x else
             match JS.TypeOf x with
             | JS.Object ->
-                if JS.InstanceOf x JS.Global?Array then
+                if x :? System.Array then
                     shallowMap decode x
                 else
                     let o  = shallowMap decode ((?) x "$V")

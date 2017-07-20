@@ -520,7 +520,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | Some t -> ReplaceThisWithVar(t).TransformExpression(b)
                         | _ -> b
                     let allVars = Option.toList thisVar @ args
-                    makeExprInline allVars (Application (b, allVars |> List.map Var, false, None))
+                    makeExprInline allVars (Application (b, allVars |> List.map Var, NonPure, None))
                 else
                     Function(args, parsed.Body)
 
@@ -559,7 +559,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Inline js ->
                     checkNotAbstract() 
                     try 
-                        let parsed = WebSharper.Compiler.Recognize.createInline None (getVars()) mAnnot.Pure js
+                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure js
                         addMethod mAnnot mdef N.Inline true parsed
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
@@ -568,7 +568,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     addMethod mAnnot mdef N.Inline true (Value c)                        
                 | A.MemberKind.Direct js ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.parseDirect None (getVars()) js
+                        let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) js
                         addMethod mAnnot mdef (getKind()) true parsed
                     with e ->
                         error ("Error parsing direct JavaScript: " + e.Message)
@@ -581,7 +581,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.OptionalField ->
                     let mN = mdef.Value.MethodName
                     if mN.StartsWith "get_" then
-                        let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String mN.[4..])))
+                        let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String mN.[4..]), Pure))
                         addMethod mAnnot mdef N.Inline true i
                     elif mN.StartsWith "set_" then  
                         let i = JSRuntime.SetOptional (Hole 0) (Value (String mN.[4..])) (Hole 1)
@@ -617,13 +617,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     addConstructor mAnnot cdef N.NoFallback true Undefined
                 | A.MemberKind.Inline js ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.createInline None (getVars()) mAnnot.Pure js
+                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure js
                         addConstructor mAnnot cdef N.Inline true parsed 
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
                 | A.MemberKind.Direct js ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.parseDirect None (getVars()) js
+                        let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) js
                         addConstructor mAnnot cdef N.Static true parsed 
                     with e ->
                         error ("Error parsing direct JavaScript: " + e.Message)
@@ -668,6 +668,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 StrongName = jsName
                 IsStatic = f.IsStatic
                 IsOptional = mAnnot.Kind = Some A.MemberKind.OptionalField 
+                IsReadonly = f.IsReadOnly
                 FieldType = sr.ReadType f.Type 
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
@@ -679,6 +680,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 StrongName = mAnnot.Name
                 IsStatic = f.IsStatic
                 IsOptional = false
+                IsReadonly = false
                 FieldType = sr.ReadType f.Type 
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
