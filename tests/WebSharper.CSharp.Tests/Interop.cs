@@ -322,5 +322,14 @@ namespace WebSharper.CSharp.Tests
             FSharpOption<int> o = 3;
             Equal(o, FSharpConvert.Some(3));
         }
+
+        [Test]
+        public void JSObjectTest()
+        {
+            var o = new JSObject() { { "background-color", "#666" } };
+            Equal(o["background-color"], "#666");
+            o["background-color"] = "#777";
+            Equal(o["background-color"], "#777");
+        }
     }
 }
