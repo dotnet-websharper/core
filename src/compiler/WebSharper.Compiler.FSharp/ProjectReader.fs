@@ -680,6 +680,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let mutable hasSingletonCase = false
     let mutable hasConstantCase = false
 
+    let notForcedNotJavaScript = not annot.IsForcedNotJavaScript
+
     if annot.IsJavaScript || hasWSPrototype || isAugmentedFSharpType cls then
         if cls.IsFSharpUnion then
             let usesNull =
@@ -713,7 +715,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | Some (A.MemberKind.Constant v) -> 
                             constantCase v
                         | _ ->
-                            if argumentless then
+                            if argumentless && notForcedNotJavaScript then
                                 let caseField = Definitions.SingletonUnionCase case.CompiledName
                                 let expr = CopyCtor(def, Object [ "$", Value (Int i) ])
                                 let a = { A.MemberAnnotation.BasicPureJavaScript with Name = Some case.Name }
@@ -757,7 +759,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
             comp.AddCustomType(def, i, not annot.IsJavaScript)
 
-        if cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration then
+        if (cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration) then
             let cdef =
                 Hashed {
                     CtorParameters =
@@ -793,7 +795,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         normalFields
                 Lambda (vars, CopyCtor(def, obj))
 
-            addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Static false None body
+            let cAnnot =
+                if notForcedNotJavaScript then 
+                    A.MemberAnnotation.BasicPureJavaScript
+                else A.MemberAnnotation.BasicPureInlineJavaScript
+            addConstructor None cAnnot cdef N.Static false None body
 
             // properties
 

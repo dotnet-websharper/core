@@ -62,7 +62,7 @@ let Choose<'T,'U> (f: 'T -> option<'U>) (arr: 'T []) : 'U [] =
         | None   -> ()
     q
 
-[<Inline "Array.prototype.concat.apply([], $x)">]
+[<Inline "Array.prototype.concat.apply([], $x)"; Pure>]
 let concatArray (x: 'T[][]) = X<'T[]>
 
 [<Name "collect">]

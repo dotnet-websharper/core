@@ -58,6 +58,7 @@ type TypeAnnotation =
     {
         ProxyOf : option<TypeDefinition>
         IsJavaScript : bool
+        IsForcedNotJavaScript : bool
         Prototype : option<bool>
         IsStub : bool
         OptionalFields : bool
@@ -72,6 +73,7 @@ type TypeAnnotation =
         {
             ProxyOf = None
             IsJavaScript = false
+            IsForcedNotJavaScript = false
             Prototype = None
             IsStub = false
             OptionalFields = false
@@ -277,13 +279,14 @@ type AttributeReader<'A>() =
 
         if parent.OptionalFields then
             if not (attrArr.Contains(A.OptionalField)) then attrArr.Add A.OptionalField
-        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, isJavaScript, prot, isStub, List.ofSeq reqs
+        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, isJavaScript, js = Some false, prot, isStub, List.ofSeq reqs
 
     member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, proxyOf, isJavaScript, prot, isStub, reqs = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, proxyOf, isJavaScript, isForcedNotJavaScript, prot, isStub, reqs = this.GetAttrs (parent, attrs)
         {
             ProxyOf = proxyOf
             IsJavaScript = isJavaScript
+            IsForcedNotJavaScript = isForcedNotJavaScript
             Prototype = prot
             IsStub = isStub
             OptionalFields = attrArr |> Array.exists (function A.OptionalField -> true | _ -> false)
@@ -297,7 +300,7 @@ type AttributeReader<'A>() =
         }
 
     member this.GetMemberAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, _, isJavaScript, _, isStub, reqs = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, _, isJavaScript, _, _, isStub, reqs = this.GetAttrs (parent, attrs)
         let isEp = attrArr |> Array.contains A.SPAEntryPoint
         let isPure = attrArr |> Array.contains A.Pure
         let warning = attrArr |> Array.tryPick (function A.Warn w -> Some w | _ -> None)

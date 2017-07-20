@@ -79,7 +79,7 @@ let rec prettyPrint (o: obj) =
     if t  ==. JS.String then
         "\"" + As o + "\""
     elif t  ==. JS.Object then
-        if JS.InstanceOf o JS.Global?Array then
+        if o :? System.Array then
             "[|" + (As o |> Array.map prettyPrint |> String.concat "; ") + "|]"
         else printObject o
     else string o

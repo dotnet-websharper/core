@@ -145,7 +145,7 @@ type ClassInfo =
         Address : option<Address>
         BaseClass : option<TypeDefinition>
         Constructors : IDictionary<Constructor, CompiledMember * Optimizations * Expression>
-        Fields : IDictionary<string, CompiledField * bool>
+        Fields : IDictionary<string, CompiledField * bool * Type>
         StaticConstructor : option<Address * Expression>
         Methods : IDictionary<Method, CompiledMember * Optimizations * Expression>
         Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
@@ -171,7 +171,7 @@ type IClassInfo =
     abstract member BaseClass : option<TypeDefinition>
     abstract member Constructors : IDictionary<Constructor, CompiledMember>
     /// value: field info, is readonly
-    abstract member Fields : IDictionary<string, CompiledField * bool>
+    abstract member Fields : IDictionary<string, CompiledField * bool * Type>
     abstract member StaticConstructor : option<Address>
     abstract member Methods : IDictionary<Method, CompiledMember>
     abstract member Implementations : IDictionary<TypeDefinition * Method, CompiledMember>

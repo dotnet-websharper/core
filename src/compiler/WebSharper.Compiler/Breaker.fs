@@ -357,6 +357,26 @@ let funcDeclarationsDoNotUse a br =
         | _ -> true
     )    
 
+let negate expr =
+    match IgnoreExprSourcePos expr with
+    | Unary(UnaryOperator.Not, a) -> a
+    | Binary(a, op, b) ->
+        match op with
+        | BinaryOperator.``===`` -> Binary(a, BinaryOperator.``!==`` , b)
+        | BinaryOperator.``!==`` -> Binary(a, BinaryOperator.``===`` , b) 
+                                                                     
+        | BinaryOperator.``==``  -> Binary(a, BinaryOperator.``!=``  , b)
+        | BinaryOperator.``!=``  -> Binary(a, BinaryOperator.``==``  , b)
+
+        | BinaryOperator.``<=``  -> Binary(a, BinaryOperator.``>``   , b)
+        | BinaryOperator.``>``   -> Binary(a, BinaryOperator.``<=``  , b)
+
+        | BinaryOperator.``>=``  -> Binary(a, BinaryOperator.``<``   , b)
+        | BinaryOperator.``<``   -> Binary(a, BinaryOperator.``>=``  , b)
+
+        | _ -> Unary(UnaryOperator.Not, expr)
+    | _ -> Unary(UnaryOperator.Not, expr)
+
 let rec breakExpr expr : Broken<BreakResult> =
     let inline br x = breakExpr x
 
@@ -402,6 +422,55 @@ let rec breakExpr expr : Broken<BreakResult> =
     let comb3 f a b c : Broken<BreakResult> =
         brL [a; b; c] |> mapBroken (function [a; b; c] -> f(a, b, c) | _ -> failwith "impossible")
     
+    let cond brA brB brC =
+        match brB.Body, brC.Body with
+        | ResultVar bv, ResultVar cv ->
+            let r = Id.New()
+            let setRes x =
+                x.Statements |> List.map (TransformMoreVarSets([bv; cv], fun e -> VarSet(r, e)).TransformStatement) |> Block
+            {
+                Body = ResultVar r
+                Statements = brA.Statements @ [If (brA.Body, setRes brB, setRes brC) ] 
+                Variables = brA.Variables @ brB.Variables @ brC.Variables
+            }
+        | _ ->
+        if hasNoStatements brB && hasNoStatements brC then   
+            let brB = brB |> toBrExpr
+            let brC = brC |> toBrExpr
+            {
+                Body = ResultExpr (Conditional (brA.Body, brB.Body, brC.Body))
+                Statements = brA.Statements
+                Variables = brA.Variables @ brB.Variables @ brC.Variables
+            }
+        else
+            let res = Id.New()
+            let setRes x =
+                match x.Body with
+                | ResultExpr e ->
+                    CombineStatements (x.Statements @ [ VarSetStatement(res, e) ])
+                | ResultVar v ->
+                    CombineStatements (x.Statements |> List.map (TransformVarSets(v, fun e -> VarSet(res, e)).TransformStatement))                      
+            {
+                Body = ResultVar res
+                Statements = brA.Statements @ [If (brA.Body, setRes brB, setRes brC)]
+                Variables = brA.Variables @ brB.Variables @ brC.Variables
+            }
+
+    let boolOp a b c =
+        let brA = br a |> toBrExpr
+        let brC = br c
+        if hasNoStatements brC then
+            let brC = toBrExpr brC 
+            {
+                Body = ResultExpr (Binary (brA.Body, b, brC.Body))
+                Statements = brA.Statements
+                Variables = brA.Variables @ brC.Variables
+            }
+        elif b = BinaryOperator.``&&`` then
+            cond brA brC (broken (Value (Bool false)))
+        else
+            cond brA (broken (Value (Bool true))) brC
+
 //    match optimize expr with
     match expr with
     | Undefined
@@ -470,52 +539,21 @@ let rec breakExpr expr : Broken<BreakResult> =
         brL a |> mapBroken NewArray
     | Conditional (I.Value (Bool a), b, c) ->
         if a then br b else br c    
+    | Conditional (a, b, I.Value (Bool false)) ->
+        boolOp a BinaryOperator.``&&`` b
+    | Conditional (a, I.Value (Bool true), c) ->
+        boolOp a BinaryOperator.``||`` c
     | Conditional (a, b, c) ->
-        let brA = br a |> toBrExpr 
-        let brB = br b
-        let brC = br c
-        match brB.Body, brC.Body with
-        | ResultVar bv, ResultVar cv ->
-            let r = Id.New()
-            let setRes x =
-                x.Statements |> List.map (TransformMoreVarSets([bv; cv], fun e -> VarSet(r, e)).TransformStatement) |> Block
-            {
-                Body = ResultVar r
-                Statements = brA.Statements @ [If (brA.Body, setRes brB, setRes brC) ] 
-                Variables = brA.Variables @ brB.Variables @ brC.Variables
-            }
-        | _ ->
-        if hasNoStatements brB && hasNoStatements brC then   
-            let brB = brB |> toBrExpr
-            let brC = brC |> toBrExpr
-            {
-                Body = ResultExpr (Conditional (brA.Body, brB.Body, brC.Body))
-                Statements = brA.Statements
-                Variables = brA.Variables @ brB.Variables @ brC.Variables
-            }
-        else
-            let res = Id.New()
-            let setRes x =
-                match x.Body with
-                | ResultExpr e ->
-                    CombineStatements (x.Statements @ [ VarSetStatement(res, e) ])
-                | ResultVar v ->
-                    CombineStatements (x.Statements |> List.map (TransformVarSets(v, fun e -> VarSet(res, e)).TransformStatement))                      
-            {
-                Body = ResultVar res
-                Statements = brA.Statements @ [If (brA.Body, setRes brB, setRes brC)]
-                Variables = brA.Variables @ brB.Variables @ brC.Variables
-            }
+        cond (br a |> toBrExpr) (br b) (br c)
     | ItemGet (a, b, p) ->
         comb2 (fun (a, b) -> ItemGet(a, b, p)) a b
     | ItemSet (a, b, c) ->
         comb3 ItemSet a b c
     | Binary (a, b, c) ->
         match b with
-        | BinaryOperator.``&&`` ->
-            Conditional (a, c, Value (Bool false)) |> br
+        | BinaryOperator.``&&``
         | BinaryOperator.``||`` ->
-            Conditional (a, Value (Bool true), c) |> br
+            boolOp a b c
         | _ ->
             comb2 (fun (aE, cE) -> Binary(aE, b, cE)) a c
     | MutatingBinary (a, b, c) -> 
@@ -804,6 +842,7 @@ and private breakSt statement : Statement seq =
         Seq.empty
     | ExprStatement (I.Conditional(a, b, c)) ->
         If(a, ExprStatement b, ExprStatement c)|> brS
+    | If(a, I.Empty, I.Empty)
     | ExprStatement a ->
         brE (removePureParts a) |> toStatementExpr
     | Return a ->
@@ -939,6 +978,8 @@ and private breakSt statement : Statement seq =
         |> brS
     | If(I.Value (Bool a), b, c) ->
         if a then brS b else brS c
+    | If(a, I.Empty, c) ->
+        If(negate a, c, Empty) |> brS
     | If(a, b, c) ->
         let lastVarSet x =
             let exprRestAndLast =

@@ -155,12 +155,12 @@ let ForEach (x: obj) (iter: string -> bool) = raise ClientSideOnly : unit
 let InstanceOf (x: obj) (cl: obj) = raise ClientSideOnly : bool
 
 /// Logs the given object to console if one is defined.
-[<Direct "if (console) console.log($x)">]
+[<Inline "if (console) console.log($x)">]
 [<System.Obsolete "Use Console.Log instead.">]
 let Log (x: obj) = raise ClientSideOnly : unit
 
 /// Logs an array or tuple to console if one is defined.
-[<Direct "if (console) console.log.apply(console, $args)">]
+[<Inline "if (console) console.log.apply(console, $args)">]
 [<System.Obsolete "Use Console.Log instead.">]
 let LogMore args = ()
 

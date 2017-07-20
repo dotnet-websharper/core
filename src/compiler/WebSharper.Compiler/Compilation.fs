@@ -1078,7 +1078,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 else
                     compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.Field (fName, nr) ->
-                res.Fields.Add(fName, (StaticField addr, nr.IsReadonly))
+                res.Fields.Add(fName, (StaticField addr, nr.IsReadonly, nr.FieldType))
             | M.Method (mDef, nr) ->
                 let comp = compiledStaticMember addr nr
                 if nr.Compiled then 
@@ -1104,7 +1104,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         match System.Int32.TryParse name with
                         | true, i -> IndexedField i
                         | _ -> InstanceField name
-                res.Fields.Add(fName, (fi, f.IsReadonly))
+                res.Fields.Add(fName, (fi, f.IsReadonly, f.FieldType))
             | M.Method (mDef, nr) ->
                 let comp = compiledInstanceMember name nr
                 match nr.Kind with

@@ -35,30 +35,60 @@ module IS = IgnoreSourcePos
 
 let GetMutableExternals (meta: M.Info) =
     let res = HashSet()
-    let JSClass =
-        {
-            Assembly = "WebSharper.JavaScript" 
-            FullName = "WebSharper.JavaScript.JS"
-        }
 
-    for KeyValue(typ, cls) in meta.Classes do
-        for fi, readOnly in cls.Fields.Values do
+    let registerInstanceAddresses (cls: M.ClassInfo) baseAddr =
+        for fi, readOnly, _ in cls.Fields.Values do
             if not readOnly then
                 match fi with
                 | M.InstanceField n
                 | M.OptionalField n ->
-                    match cls.Address with
-                    | Some ca -> res.Add (Address (n :: ca.Value)) |> ignore
-                    | None -> ()
-                | M.StaticField a ->
-                    res.Add a |> ignore
+                    res.Add (Address (n :: baseAddr)) |> ignore
                 | _ -> () 
 
         let addMember (m: Method) e =
             if m.Value.MethodName.StartsWith "set_" then
                 match e with
-                | IS.Function(_, IS.ExprStatement(IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), _))) ->
+                | IS.Function(_, IS.ExprStatement(IS.ItemSet(IS.This, IS.Value (String n), _)))
+                | IS.Unary(UnaryOperator.``void``, IS.ItemSet(Hole(0), IS.Value (String n), Hole(1))) ->
+                    res.Add (Address (n :: baseAddr)) |> ignore
+                | _ -> ()
+
+        for KeyValue(m, (_, _, e)) in cls.Methods do
+            addMember m e
+       
+        for KeyValue((_, m), (_, e)) in cls.Implementations do
+            addMember m e
+
+    let tryRegisterInstanceAddresses typ (a: Address) =
+        match typ with
+        | ConcreteType ct ->
+            match meta.Classes.TryGetValue ct.Entity with
+            | true, fcls ->
+                registerInstanceAddresses fcls a.Value
+            | _ -> ()
+        | _ -> ()
+    
+    for KeyValue(_, cls) in meta.Classes do
+        for fi, readOnly, ftyp in cls.Fields.Values do
+            match fi with
+            | M.StaticField a ->
+                if not readOnly then
+                    res.Add a |> ignore
+                tryRegisterInstanceAddresses ftyp a
+            | _ -> () 
+
+        let addMember (m: Method) e =
+            if m.Value.MethodName.StartsWith "set_" then
+                match e with
+                | IS.Function(_, IS.ExprStatement(IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), _)))
+                | IS.Unary(UnaryOperator.``void``, IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), Hole(0))) ->
                     res.Add (Address (n :: a.Value)) |> ignore
+                | _ -> ()
+            elif m.Value.MethodName.StartsWith "get_" then
+                match e with
+                | IS.Function(_, IS.Return(IS.GlobalAccess a))
+                | IS.GlobalAccess a ->
+                    tryRegisterInstanceAddresses m.Value.ReturnType a 
                 | _ -> ()
 
         for KeyValue(m, (_, _, e)) in cls.Methods do

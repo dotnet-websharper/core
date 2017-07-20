@@ -779,7 +779,7 @@ let getAllAddresses (meta: Info) =
             | Macro (_, _, Some m) -> addMember m
             | _ -> ()
         for m, _, _ in cls.Constructors.Values do addMember m
-        for f, _ in cls.Fields.Values do
+        for f, _, _ in cls.Fields.Values do
             match f with
             | InstanceField n 
             | OptionalField n -> pr |> Option.iter (fun p -> p.Add n |> ignore)

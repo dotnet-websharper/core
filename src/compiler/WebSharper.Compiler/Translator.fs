@@ -1228,7 +1228,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         if comp.HasGraph then
             this.AddTypeDependency typ.Entity
         match comp.LookupFieldInfo (typ.Entity, field) with
-        | CompiledField (f, ro) ->
+        | CompiledField (f, ro, _) ->
             match f with
             | M.InstanceField fname ->
                 this.TransformExpression expr.Value |> getItemRO fname ro
@@ -1275,7 +1275,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         if comp.HasGraph then
             this.AddTypeDependency typ.Entity
         match comp.LookupFieldInfo (typ.Entity, field) with
-        | CompiledField (f, _) ->
+        | CompiledField (f, _, _) ->
             match f with
             | M.InstanceField fname ->
                 ItemSet(this.TransformExpression expr.Value, Value (String fname), this.TransformExpression value) 
