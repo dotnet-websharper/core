@@ -294,6 +294,9 @@ type TypeCheckTestWithSingletonCase =
     | NotSingleton of string
     | Singleton
 
+[<Inline "ThisDoesNotExists.DoNotImport.doSomething()">]
+let tryDoSomethingButFail() = X<unit>
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -639,6 +642,11 @@ let Tests =
             isTrue (match u2 with Union2Of2 (NotSingleton "hi") -> true | _ -> false)
             let u3 : Union<string, TypeCheckTestWithSingletonCase> = Union2Of2 Singleton
             isTrue (match u3 with Union2Of2 Singleton -> true | _ -> false)
+        }
+
+        Test "Do not import missing outside namespaces if not needed" {
+            // this should fail here, and not globally
+            raises (tryDoSomethingButFail()) 
         }
 
 //        Test "Recursive module value" {

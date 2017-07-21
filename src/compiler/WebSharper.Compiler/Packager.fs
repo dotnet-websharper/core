@@ -56,30 +56,31 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
         }
     
     for KeyValue(typ, cls) in current.Classes do
-        let rec addMember (m: M.CompiledMember) =
-            match m with
-            | M.Instance _ -> ()
-            | M.Static a 
-            | M.Constructor a ->
+        if typ.Value.Assembly = "WebSharper.JavaScript" then
+            let rec addMember (m: M.CompiledMember) =
+                match m with
+                | M.Instance _ -> ()
+                | M.Static a 
+                | M.Constructor a ->
+                    addToTopLevel a
+                | M.Macro (_, _, Some m) -> addMember m
+                | _ -> ()
+            let addExprImports e =
+                addGlobalImportVisitor.VisitExpression e
+            for m, _, e in cls.Constructors.Values do 
+                addMember m
+                addExprImports e
+            for m, e in cls.Implementations.Values do
+                addMember m
+                addExprImports e
+            for m, _, e in cls.Methods.Values do
+                addMember m
+                addExprImports e
+            match cls.StaticConstructor with
+            | Some (a, e) ->
                 addToTopLevel a
-            | M.Macro (_, _, Some m) -> addMember m
+                addExprImports e
             | _ -> ()
-        let addExprImports e =
-            addGlobalImportVisitor.VisitExpression e
-        for m, _, e in cls.Constructors.Values do 
-            addMember m
-            addExprImports e
-        for m, e in cls.Implementations.Values do
-            addMember m
-            addExprImports e
-        for m, _, e in cls.Methods.Values do
-            addMember m
-            addExprImports e
-        match cls.StaticConstructor with
-        | Some (a, e) ->
-            addToTopLevel a
-            addExprImports e
-        | _ -> ()
 
     globalImports.ExceptWith(topLevel)
 
@@ -105,21 +106,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             | [ name ] ->
                 let var = Id.New (if name.StartsWith "StartupCode$" then "SC$1" else name)
                 let f = Value (String name)
-//                if isBundle then
-//                    declarations.Add <| VarDeclaration (var, ItemGet(glob, f) |> safeObject)                
-//                else
                 declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f, Pure) |> safeObject))                
                 let res = Var var
-                //topLevel.Add(name, res)
                 addresses.Add(address, res)
                 res
             | name :: r ->
                 let parent = getAddress (Hashed r)
                 let f = Value (String name)
                 let var = Id.New name
-//                if isBundle then
-//                    declarations.Add <| VarDeclaration (var, ItemGet(parent, f) |> safeObject)                
-//                else
                 declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f, Pure) |> safeObject))                
                 let res = Var var
                 addresses.Add(address, res)
@@ -143,7 +137,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                 if full then
                     import
                 else
-                    let var = Id.New h
+                    let var = Id.New (if h = "jQuery" && List.isEmpty t then "$" else h)
                     let importWithCheck =
                         if List.isEmpty t then import else parent ^&& import
                     declarations.Add <| VarDeclaration (var, importWithCheck)                
