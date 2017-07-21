@@ -33,68 +33,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
     let declarations = ResizeArray()
     let statements = ResizeArray()
 
-    let topLevel = HashSet()
-    let globalImports = HashSet()
-
-    let addToTopLevel (a: Address) =
-        match a.Value with
-        | [] -> ()
-        | av ->
-            let n = List.last av
-            topLevel.Add n |> ignore
-
-    let addGlobalImport (a: Address) =
-        match a.Value with
-        | [] -> ()
-        | av ->
-            let n = List.last av
-            globalImports.Add n |> ignore
-
-    let addGlobalImportVisitor =
-        { new Visitor() with
-            override this.VisitGlobalAccess a = addGlobalImport a
-        }
-    
-    for KeyValue(typ, cls) in current.Classes do
-        if typ.Value.Assembly = "WebSharper.JavaScript" then
-            let rec addMember (m: M.CompiledMember) =
-                match m with
-                | M.Instance _ -> ()
-                | M.Static a 
-                | M.Constructor a ->
-                    addToTopLevel a
-                | M.Macro (_, _, Some m) -> addMember m
-                | _ -> ()
-            let addExprImports e =
-                addGlobalImportVisitor.VisitExpression e
-            for m, _, e in cls.Constructors.Values do 
-                addMember m
-                addExprImports e
-            for m, e in cls.Implementations.Values do
-                addMember m
-                addExprImports e
-            for m, _, e in cls.Methods.Values do
-                addMember m
-                addExprImports e
-            match cls.StaticConstructor with
-            | Some (a, e) ->
-                addToTopLevel a
-                addExprImports e
-            | _ -> ()
-
-    globalImports.ExceptWith(topLevel)
-
-    let varImports =
-        globalImports |> Seq.map (fun n ->
-            let v = Id.New n
-            addresses.Add(Address [ n ], Var v)
-            v
-        )
-        |> List.ofSeq
-
-    declarations.Add <| VarImports (List.ofSeq varImports)
-
     let glob = Var (Id.Global())
+    addresses.Add(Address [], glob)
+    addresses.Add(Address [ "window" ], glob)
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
     
     let rec getAddress (address: Address) =

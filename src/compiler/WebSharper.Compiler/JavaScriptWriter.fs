@@ -69,7 +69,7 @@ let transformId (env: Environment) (id: Id) =
     try Map.find id env.ScopeIds
     with _ -> 
         //"MISSINGVAR" + I.MakeValid (defaultArg id.Name "_")
-        failwithf "Undefined variable during writing JavaScript: %s" (defaultArg id.Name "(noname)")
+        failwithf "Undefined variable during writing JavaScript: %s" (string id)
 
 let formatter = WebSharper.Core.JavaScript.Identifier.MakeFormatter()
 
@@ -118,10 +118,6 @@ type CollectVariables(env: Environment) =
 
     override this.VisitVarDeclaration(v, _) =
         defineId env true v |> ignore
-
-    override this.VisitVarImports(vars) =
-        for v in vars do
-            defineImportedId env v
 
 let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     let inline trE x = transformExpr env x
@@ -330,10 +326,6 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
             | J.Return None -> []
             | b -> [ b ]
         J.Function(id, args, innerEnv.Declarations @ body)
-    | VarImports vars -> 
-        if env.Preference = P.Compact then
-            J.Vars (vars |> List.map (fun v -> transformId env v, Some (J.Var v.Name.Value)))
-        else J.Empty
     | While(a, b) -> J.While (trE a, trS b)
     | DoWhile(a, b) -> J.Do (trS a, trE b)
     | For(a, b, c, d) -> J.For(Option.map trE a, Option.map trE b, Option.map trE c, trS d)

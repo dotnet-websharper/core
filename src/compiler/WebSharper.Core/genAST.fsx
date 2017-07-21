@@ -254,8 +254,6 @@ let StatementDefs =
             , "Statement with a label"
         "StatementSourcePos", [ Object "SourcePos", "range"; Statement, "statement" ]
             , "Original source location for a statement"
-        "VarImports", [ List Id, "variables" ]
-            , "Global variable imports"
 
         // C#
         "Goto", [ Id, "label" ]

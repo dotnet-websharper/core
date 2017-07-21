@@ -297,6 +297,12 @@ type TypeCheckTestWithSingletonCase =
 [<Inline "ThisDoesNotExists.DoNotImport.doSomething()">]
 let tryDoSomethingButFail() = X<unit>
 
+[<Inline "OutSideCode.NotInitialized.getValue()">]
+let tryGetOutsideValueAndFail() = X<int>
+
+[<Inline "$global.OutSideCode.NotInitialized.getValue()">]
+let tryGetOutsideValue() = X<int>
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -647,6 +653,14 @@ let Tests =
         Test "Do not import missing outside namespaces if not needed" {
             // this should fail here, and not globally
             raises (tryDoSomethingButFail()) 
+        }
+
+        Test "Do not import missing outside namespaces prematurely" {
+            JS.Global?OutSideCode <- New [ 
+                "NotInitialized" => New [ "getValue" => (fun() -> 1) ]
+            ]
+            equal (tryGetOutsideValue())  1     
+            raises (tryGetOutsideValueAndFail())
         }
 
 //        Test "Recursive module value" {

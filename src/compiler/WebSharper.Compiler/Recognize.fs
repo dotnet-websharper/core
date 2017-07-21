@@ -230,7 +230,7 @@ let setValue (env: Environment) expr value =
     | Var d -> checkNotMutating env (Var d) (fun _ -> VarSet(d, value))
     | _ -> failwith "invalid form for setter"
 
-let glob = Global []
+let glob = Var (Id.Global())
 let wsruntime = Global ["IntelliFactory"; "Runtime"]
 
 let jsFunctionMembers =
@@ -408,8 +408,10 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | _ -> failwith "unrecognized unary operator"
     | S.Var a ->
         match a with
-        | "$global" | "window" -> glob
+        | "$global" -> glob
+        | "window" -> Global []
         | "$wsruntime" -> wsruntime
+        | "arguments" -> Arguments
         | "undefined" -> Undefined
         | _ ->
         match env.TryFindVar a with

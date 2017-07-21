@@ -832,7 +832,7 @@ and private breakSt statement : Statement seq =
     | DoNotReturn
     | Yield _ 
     | Goto _ 
-    | VarImports _ -> Seq.singleton statement
+        -> Seq.singleton statement
     | GotoCase a -> 
         match a with
         | Some a ->

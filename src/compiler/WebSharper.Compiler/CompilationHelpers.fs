@@ -401,7 +401,6 @@ let varEvalOrder (vars : Id list) expr =
         if ok then
             match s with
             | Empty 
-            | VarImports _
                 -> ()
             | ExprStatement a
             | VarDeclaration(_, a) -> eval a

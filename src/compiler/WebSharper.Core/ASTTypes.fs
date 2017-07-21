@@ -61,7 +61,7 @@ type Id =
     member this.Clone() =
         {
             IdName = this.IdName
-            Id = Ids.New()
+            Id = if this.Id < 0L then this.Id else Ids.New()
             Mutable = this.Mutable
         }
 
