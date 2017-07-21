@@ -18,6 +18,7 @@
 //
 // $end{copyright}
 
+[<CompiledName "TypedJson">]
 module WebSharper.Json
 
 open System.Collections.Generic
