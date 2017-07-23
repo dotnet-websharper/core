@@ -120,6 +120,10 @@ let Return (x: 'T) : C<'T> =
     fun c -> c.k (Ok x)
 
 [<JavaScript; Pure>]
+let Zero =
+    Return ()
+
+[<JavaScript; Pure>]
 let Bind (r: C<'T>, f: 'T -> C<'R>) =
     checkCancel <| fun c ->
         r { 

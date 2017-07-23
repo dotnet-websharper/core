@@ -63,8 +63,7 @@ type private AsyncBuilderProxy [<Inline "null">]() =
         As (C.Using (x, As f))
 
     [<Inline>]
-    member this.Zero() : Async<unit> =
-        this.Return()
+    member this.Zero() : Async<unit> = C.Zero
 
     [<Inline>]
     member this.While(g: unit -> bool, b:Async<unit>) : Async<unit> = 
