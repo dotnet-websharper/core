@@ -38,6 +38,19 @@ type internal StringBuilderProxy [<JavaScript>] () =
     [<JavaScript>]
     override this.ToString() = c
 
+[<JavaScript false>]
+type IIsClient =
+    abstract member IsClient: unit -> bool
+
+[<Proxy(typeof<IIsClient>)>]
+type internal IIsClientProxy =
+    [<Inline>]
+    member this.IsClient() = true
+
+type IIsClientClass [<JavaScript>] () =
+    interface IIsClient with
+        member this.IsClient() = false
+
 [<JavaScript>]
 let Tests =
 
@@ -51,4 +64,7 @@ let Tests =
             equal (sb.ToString()) "foobar"
         }
 
+        Test "Interface with JavaScript false" {
+            isTrue ((IIsClientClass() :> IIsClient).IsClient())
+        }
     }

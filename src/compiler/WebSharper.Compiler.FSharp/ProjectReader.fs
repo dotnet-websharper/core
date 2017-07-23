@@ -66,9 +66,10 @@ let fixMemberAnnot (getAnnot: _ -> A.MemberAnnotation) (x: FSharpEntity) (m: FSM
     else a
 
 let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: FSharpEntity) =
-    let methodNames = ResizeArray()
     let annot =
        sr.AttributeReader.GetTypeAnnot(parentAnnot, intf.Attributes)
+    if annot.IsForcedNotJavaScript then None else
+    let methodNames = ResizeArray()
     let def =
         match annot.ProxyOf with
         | Some d -> d 

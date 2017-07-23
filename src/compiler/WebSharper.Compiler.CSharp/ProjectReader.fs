@@ -74,7 +74,7 @@ let private fixMemberAnnot (sr: R.SymbolReader) (annot: A.TypeAnnotation) (m: IM
     | _ -> mAnnot
 
 let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (intf: INamedTypeSymbol) =
-    if intf.TypeKind <> TypeKind.Interface then None else
+    if intf.TypeKind <> TypeKind.Interface || annot.IsForcedNotJavaScript then None else
     let methodNames = ResizeArray()
     let def =
         match annot.ProxyOf with
