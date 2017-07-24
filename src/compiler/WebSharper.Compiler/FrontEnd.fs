@@ -91,8 +91,8 @@ let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
 
 let ModifyTSAssembly (current: M.Info) (a: Assembly) =
     ModifyWIGAssembly current a.Raw
-
-let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap assemblyName =
+    
+let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures assemblyName =
     let currentPosFixed, sources =
         if sourceMap then
             let current, fileNames = transformAllSourcePositionsInMetadata assemblyName current
@@ -115,6 +115,12 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
 
     TimedStage "Packaging assembly"
     
+    let pkg =
+        match comp, closures with
+        | Some comp, Some moveToTop ->
+            pkg |> Closures.ExamineClosures(comp, moveToTop).TransformExpression 
+        | _ -> pkg
+
     let pkg =
         if sourceMap then
             TransformSourcePositions(assemblyName).TransformExpression pkg
@@ -159,16 +165,16 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
         None, res.ToArray()
 
 
-let ModifyCecilAssembly (refMeta: M.Info) (current: M.Info) sourceMap (a: Mono.Cecil.AssemblyDefinition) =
-    let jsOpt, res = CreateResources None refMeta current sourceMap a.Name.Name
+let ModifyCecilAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
+    let jsOpt, res = CreateResources comp refMeta current sourceMap closures a.Name.Name
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
         |> a.MainModule.Resources.Add
     jsOpt
 
-let ModifyAssembly (refMeta: M.Info) (current: M.Info) sourceMap (assembly : Assembly) =
-    ModifyCecilAssembly refMeta current sourceMap assembly.Raw
+let ModifyAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (assembly : Assembly) =
+    ModifyCecilAssembly comp refMeta current sourceMap closures assembly.Raw
 
 /// Represents a resource content file.
 type ResourceContent =

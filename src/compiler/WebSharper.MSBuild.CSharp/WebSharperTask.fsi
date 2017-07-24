@@ -100,6 +100,9 @@ type WebSharperTask =
     /// Specifies if online resource links are downloaded for local use.
     member WebSharperDownloadResources : string with get, set
 
+    /// Specifies if closure analysis for avoiding memory leaks is done.
+    member WebSharperAnalyzeClosures : string with get, set
+
     member ZafirToolPath : string with get, set
 
     member TargetType : string with get, set

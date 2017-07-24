@@ -31,6 +31,7 @@
 	<OtherFlags Condition=" '$(WebSharperTypeScriptDeclaration)' == 'True' ">$(OtherFlags) --dts</OtherFlags>
 	<OtherFlags Condition=" '$(WebSharperErrorsAsWarnings)' == 'True' ">$(OtherFlags) --wswarnonly</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'False' ">$(OtherFlags) --dlres</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperAnalyzeClosures)' != '' ">$(OtherFlags) --closures:$(WebSharperAnalyzeClosures)</OtherFlags>
 	<FscToolPath>$(Root)/build/$(Configuration)/FSharp/</FscToolPath>
 	<FscToolExe>WsFsc.exe</FscToolExe>
   </PropertyGroup>

@@ -34,6 +34,7 @@
     <Compile Include="Translator.fsi" />
     <Compile Include="Translator.fs" />
     <Compile Include="Stubs.fs" />
+    <Compile Include="Closures.fs" />
     <Compile Include="JavaScriptWriter.fs" />
     <Compile Include="Packager.fs" />
     <Compile Include="ErrorPrinting.fs" />

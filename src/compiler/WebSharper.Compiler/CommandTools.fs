@@ -51,6 +51,7 @@ type WsConfig =
         WarnOnly : bool
         DeadCodeElimination : bool
         DownloadResources : bool
+        AnalyzeClosures : bool option
     }
 
     member this.ProjectDir =
@@ -76,7 +77,8 @@ type WsConfig =
              PrintJS  = false
              WarnOnly = false
              DeadCodeElimination = true
-             DownloadResources = false
+             DownloadResources = false       
+             AnalyzeClosures = None
         }
 
 let readStrongNameKeyPair p = StrongNameKeyPair(File.ReadAllBytes(p))

@@ -155,16 +155,19 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         1
     | Some comp ->
 
-    PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
     
     if not (List.isEmpty comp.Errors || config.WarnOnly) then        
+        PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
         1
     else
             
     let assem = loader.LoadFile config.AssemblyFile
+    
     let js =
-        ModifyAssembly (match refMeta.Result with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
-            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap assem
+        ModifyAssembly (Some comp) (match refMeta.Result with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
+
+    PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
             
     if config.PrintJS then
         match js with 
@@ -288,6 +291,14 @@ let compileMain argv =
                 warn := { !warn with WarnAsError = (!warn).WarnAsError + parseIntSet w }
             | StartsWith "--warnaserror-:" w ->
                 warn := { !warn with DontWarnAsError = (!warn).DontWarnAsError + parseIntSet w }
+            | StartsWith "--closures:" c ->
+                match c.ToLower() with
+                | "true" ->
+                    wsArgs := { !wsArgs with AnalyzeClosures = Some false }
+                | "movetotop" ->
+                    wsArgs := { !wsArgs with AnalyzeClosures = Some true }
+                | _ ->
+                    printfn "--closures:%s argument unrecognized, value must be true or movetotop" c
             | _ -> 
                 fscArgs.Add a  
         with e ->

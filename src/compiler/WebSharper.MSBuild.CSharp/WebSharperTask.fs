@@ -52,6 +52,7 @@ type WebSharperTask() =
     member val WebSharperErrorsAsWarnings = "" with get, set
     member val WebSharperDeadCodeElimination = "" with get, set
     member val WebSharperDownloadResources = "" with get, set
+    member val WebSharperAnalyzeClosures : string = null with get, set
     member val DocumentationFile = "" with get, set
     member val ZafirToolPath = "ZafirCs.exe" with get, set
     member val DefineConstants = "" with get, set
@@ -105,6 +106,8 @@ type WebSharperTask() =
 
         if bool.TryParse this.WebSharperDownloadResources ||> (&&) then
             builder.AppendSwitch "--dlres"
+
+        builder.AppendSwitchIfNotNull("--closures:", this.WebSharperAnalyzeClosures)
 
         if bool.TryParse this.WebSharperSourceMap ||> (&&) then
             builder.AppendSwitch "--jsmap"
