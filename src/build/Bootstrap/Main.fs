@@ -71,7 +71,7 @@ let Exec env (command: string) (arguments: string) =
 
 /// Restores NuGet packages.
 let RestorePackages () =
-    if Directory.Exists("packages") |> not then
+    if Directory.Exists("packages/FSharp.Compiler.Service") |> not then
         let env = ["EnableNuGetPackageRestore", "true"]
         let nuget = Exec env "tools/NuGet/NuGet.exe"
         nuget "install NuGet.Core -version 2.12.0 -o packages -excludeVersion"
