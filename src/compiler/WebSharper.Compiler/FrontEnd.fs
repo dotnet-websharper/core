@@ -187,8 +187,13 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
         addMeta()
         Some js, res.ToArray()
     else
-        addRes EMBEDDED_MINJS None None
-        addRes EMBEDDED_JS None None
+        // set current AssemblyNode to have no js
+        current.Dependencies.Nodes |> Array.tryFindIndex (function
+            | M.AssemblyNode (n, _) when n = assemblyName -> true
+            | _ -> false
+        ) |> Option.iter (fun asmNodeIndex ->
+            current.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, false)
+        )
 
         addMeta()
         None, res.ToArray()
