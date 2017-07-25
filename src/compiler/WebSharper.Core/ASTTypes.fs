@@ -245,6 +245,16 @@ module StableHash =
             l <- l.Tail
         h
 
+    let data (d: byte[]) =
+        let mutable h = 1
+        for i = 0 to (d.Length / 4) - 1 do
+            let x = System.BitConverter.ToInt32(d, 4 * i)
+            h <- 1448225822 + x + (h <<< 6) + (h >>> 2)
+        for i = (d.Length / 4) * 4 to d.Length - 1 do
+            let x = int d.[i]
+            h <- 1448225822 + x + (h <<< 6) + (h >>> 2)
+        h
+
 /// Identifies a type definition by AssemblyName and FullName
 [<System.Diagnostics.DebuggerDisplay("{Assembly}.{FullName}")>]
 type TypeDefinitionInfo =

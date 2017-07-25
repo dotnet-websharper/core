@@ -62,6 +62,9 @@ module PathConventions =
     [<Sealed>]
     type PathUtility =
 
+        /// Key of embedded resource for looking up hash.
+        member EmbeddedResourceKey : EmbeddedResource -> string
+
         /// Path or URL for the embedded resource.
         member EmbeddedPath : EmbeddedResource -> string
 

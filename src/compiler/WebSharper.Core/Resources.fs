@@ -51,6 +51,7 @@ type Context =
     {
         DebuggingEnabled : bool
         DefaultToHttp : bool
+        //GetResourceHash : string * string -> int
         GetAssemblyRendering : string -> Rendering
         GetSetting : string -> option<string>
         GetWebResourceRendering : Type -> string -> Rendering
@@ -223,7 +224,6 @@ let tryFindWebResource (t: Type) (spec: string) =
 
 let tryGetUriFileName (u: string) =
     try
-        let uri = System.Uri u
         let parts = u.Split('/')
         parts.[parts.Length - 1] |> Some
     with _ -> None

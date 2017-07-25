@@ -50,31 +50,7 @@ type ScriptManager() =
         | None -> System.String.Format("ws{0}", next ())
 
     member private this.ResourceContext : Re.Context =
-        let isDebug = this.Context.IsDebuggingEnabled
-        let pu = P.PathUtility.VirtualPaths("/")
-        {
-            DebuggingEnabled = isDebug
-            DefaultToHttp = false
-            GetSetting = fun (name: string) ->
-                match Conf.AppSettings.[name] with
-                | null -> None
-                | x -> Some x
-            GetAssemblyRendering = fun name ->
-                let aid = P.AssemblyId.Create(name)
-                let url = if isDebug then pu.JavaScriptPath(aid) else pu.MinifiedJavaScriptPath(aid)
-                Re.RenderLink url
-            GetWebResourceRendering = fun ty resource ->
-                let id = P.AssemblyId.Create(ty)
-                let kind =
-                    if resource.EndsWith(".js") || resource.EndsWith(".ts")
-                        then P.ResourceKind.Script
-                        else P.ResourceKind.Content
-                P.EmbeddedResource.Create(kind, id, resource)
-                |> pu.EmbeddedPath
-                |> Re.RenderLink
-            RenderingCache = System.Collections.Concurrent.ConcurrentDictionary()
-            ResourceDependencyCache = System.Collections.Concurrent.ConcurrentDictionary()
-        }
+        ResourceContext.ResourceContext "/"
 
     /// Registers a pagelet with the manager.
     member this.Register (id: option<string>) (c: WebSharper.IRequiresResources) =

@@ -270,6 +270,8 @@ let wsRefs =
         "WebSharper.Control"
         "WebSharper.Web"
         "WebSharper.Sitelets"
+        "WebSharper.Tests"
+        "WebSharper.InterfaceGenerator.Tests"
     ]
 
 let mkProjectCommandLineArgs (dllName, fileNames) = 
@@ -311,6 +313,8 @@ let metadata =
         WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
             Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
     }
+
+metadata.ResourceHashes |> Seq.iter (fun (KeyValue(k, v)) -> printfn "%sk?h=%d" k v)
 
 open System.IO
 let translate source = 

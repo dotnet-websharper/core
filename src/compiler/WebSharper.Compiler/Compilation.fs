@@ -308,6 +308,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 customTypes.Current |> Dict.filter (fun _ v -> v <> NotCustomType)
             EntryPoint = entryPoint
             MacroEntries = macroEntries.Current
+            ResourceHashes = Dictionary()
         }    
 
     member this.AddProxy(tProxy, tTarget) =
@@ -1460,6 +1461,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     customTypes |> Dict.filter (fun _ v -> v <> NotCustomType)
                 EntryPoint = None
                 MacroEntries = macroEntries
+                ResourceHashes = Dictionary()
             }    
         let jP = Json.Provider.CreateTyped(info)
         let st = Verifier.State(jP)

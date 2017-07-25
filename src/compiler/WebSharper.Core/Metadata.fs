@@ -277,6 +277,7 @@ type Info =
         CustomTypes : IDictionary<TypeDefinition, CustomTypeInfo>
         EntryPoint : option<Statement>
         MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
+        ResourceHashes : IDictionary<string, int>
     }
 
     static member Empty =
@@ -288,6 +289,7 @@ type Info =
             CustomTypes = Map.empty
             EntryPoint = None
             MacroEntries = Map.empty
+            ResourceHashes = Map.empty
         }
 
     static member UnionWithoutDependencies (metas: seq<Info>) = 
@@ -304,6 +306,7 @@ type Info =
                 | [| ep |] -> Some ep
                 | _ -> failwith "Multiple entry points found."
             MacroEntries = Dict.unionAppend (metas |> Seq.map (fun m -> m.MacroEntries))
+            ResourceHashes = Dict.union (metas |> Seq.map (fun m -> m.ResourceHashes))
         }
 
     member this.DiscardExpressions() =
