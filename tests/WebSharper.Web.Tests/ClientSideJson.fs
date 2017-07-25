@@ -209,6 +209,39 @@ module ClientSideJson =
                 equal (Json.Deserialize """{}""")           { ox = None; oy = None }
             }
 
+            Test "serialize simple object" {
+                let o (x: int) = SimpleObject("hello", x)
+                equal (Json.Serialize (o 12)) (Json.Stringify (o 12))
+                equal (Json.Serialize [|o 13; o 42|]) (Json.Stringify [|o 13; o 42|])
+            }
+
+            Test "deserialize simple object" {
+                let o (x: int) = SimpleObject("hello", x)
+                equal (Json.Deserialize (Json.Stringify (o 12))) (o 12)
+                equal (Json.Deserialize (Json.Stringify [|o 13; o 42|])) [|o 13; o 42|]
+                raisesMsg (Json.Deserialize<SimpleObject> """{"x":1}""") "Missing mandatory field raises exception"
+            }
+
+            Test "serialize object with options" {
+                equal (Json.Serialize (ObjectWithOptions(Some 1, Some "2")) |> Json.Parse)
+                    (New ["ox" => 1; "oy" => "2"])
+                equal (Json.Serialize (ObjectWithOptions(None, Some "2")) |> Json.Parse)
+                    (New ["oy" => "2"])
+                equal (Json.Serialize (ObjectWithOptions(Some 1, None)) |> Json.Parse)
+                    (New ["ox" => 1])
+                equal (Json.Serialize (ObjectWithOptions(None, None)) |> Json.Parse)
+                    (New [])
+            }
+
+            Test "deserialize object with options" {
+                let x = (Json.Deserialize """{"ox":1,"oy":"2"}""")
+                equal x                                     (ObjectWithOptions(Some 1, Some "2"))
+                equalMsg (x.Test()) (Some 1) "prototype is set"
+                equal (Json.Deserialize """{"oy":"2"}""")   (ObjectWithOptions(None, Some "2"))
+                equal (Json.Deserialize """{"ox":1}""")     (ObjectWithOptions(Some 1, None))
+                equal (Json.Deserialize """{}""")           (ObjectWithOptions(None, None))
+            }
+
             Test "serialize simple union" {
                 equal (Json.Serialize Nullary |> Json.Parse)
                     (New ["case" => "Nullary"])

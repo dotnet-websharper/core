@@ -384,7 +384,8 @@ module Macro =
                     generic t
             // Encode a type that might be recursively defined
             and encRecType t targs args =
-                match comp.GetCustomTypeInfo t.TypeDefinition with
+                let td = t.TypeDefinition
+                match comp.GetCustomTypeInfo td with
                 | M.EnumInfo _ -> ok ident
                 | M.FSharpRecordInfo fields ->
                     let fieldEncoders =
@@ -405,9 +406,9 @@ module Macro =
                             f.JSName, optionKind, encode (t.SubstituteGenerics (Array.ofList targs))
                         )  
                     let pr =
-                        match comp.GetClassInfo t.TypeDefinition with
+                        match comp.GetClassInfo td with
                         | Some cls -> 
-                            addTypeDep t.TypeDefinition 
+                            addTypeDep td 
                             if cls.HasWSPrototype then
                                 GlobalAccess cls.Address.Value
                             else Undefined
@@ -501,9 +502,9 @@ module Macro =
                             | JI.StandardField -> cString "$"
                             | JI.NamedField n -> cString n
                         let tn =
-                            match comp.GetClassInfo t.TypeDefinition with
+                            match comp.GetClassInfo td with
                             | Some cls -> 
-                                addTypeDep t.TypeDefinition
+                                addTypeDep td
                                 if cls.HasWSPrototype then
                                     GlobalAccess cls.Address.Value
                                 else
@@ -562,7 +563,50 @@ module Macro =
                     |> snd
                     <| []
                 | _ -> 
-                    fail (name + ": Type not supported: " + t.TypeDefinition.Value.FullName)
+                    match comp.GetClassInfo td with
+                    | Some cls ->
+                        let fieldEncoders =
+                            cls.Fields.Values
+                            |> Seq.choose (fun (f, _, t) ->
+                                let jsNameAndOption =
+                                    let isOption() =
+                                        match t with
+                                        | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "Microsoft.FSharp.Core.FSharpOption`1" ->
+                                            OptionalFieldKind.NormalOption 
+                                        | t ->    
+                                            OptionalFieldKind.NotOption
+                                    match f with
+                                    | M.InstanceField n -> Some (n, isOption()) 
+                                    | M.IndexedField i -> Some (string i, isOption())
+                                    | M.OptionalField n -> Some (n, OptionalFieldKind.MarkedOption)
+                                    | M.StaticField _ -> None
+                                jsNameAndOption |> Option.map (fun (jsName, optionKind) ->
+                                    jsName, optionKind, encode (t.SubstituteGenerics (Array.ofList targs))
+                                )
+                            ) |> List.ofSeq
+                        let pr =
+                            match comp.GetClassInfo td with
+                            | Some cls -> 
+                                addTypeDep td 
+                                if cls.HasWSPrototype then
+                                    GlobalAccess cls.Address.Value
+                                else Undefined
+                            | _ -> Undefined
+                        if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->
+                            fo <> OptionalFieldKind.NormalOption && isIdent fe
+                        )
+                        then ok ident
+                        else
+                            ((fun es ->
+                                let es, tts = List.unzip es
+                                ok (call "Record" [pr; NewArray es])
+                                ), fieldEncoders)
+                            ||> List.fold (fun k (fn, fo, fe) es ->                     
+                                    fe >>= fun e ->
+                                    k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
+                            <| []
+                    | _ ->
+                        fail (name + ": Type not supported: " + t.TypeDefinition.Value.FullName)
             encode t
 
         let encodeLambda name param t =
