@@ -426,7 +426,10 @@ type MethodInfo =
         sprintf "(%s%s : %s -> %O)"
             m.MethodName 
             (if m.Generics > 0 then "<" + (Seq.init m.Generics (fun _ -> "_") |> String.concat ",") + ">" else "")
-            (m.Parameters |> Seq.map string |> String.concat " * ") 
+            (if m.Parameters.Length > 0 then
+                m.Parameters |> Seq.map string |> String.concat " * "
+            else
+                "unit") 
             m.ReturnType
 
 type Method = Hashed<MethodInfo>
@@ -437,7 +440,10 @@ type ConstructorInfo =
     }
     override c.ToString() =
         sprintf "%s"
-            (c.CtorParameters |> Seq.map string |> String.concat " * ") 
+            (if c.CtorParameters.Length > 0 then
+                c.CtorParameters |> Seq.map string |> String.concat " * "
+            else
+                "unit") 
 
 type Constructor = Hashed<ConstructorInfo>
 
