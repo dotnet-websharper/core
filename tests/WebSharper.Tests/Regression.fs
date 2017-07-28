@@ -663,6 +663,37 @@ let Tests =
             raises (tryGetOutsideValueAndFail())
         }
 
+        Test "#731 Tail recursion should not overwrite outside variable" {
+            let findInMs = ResizeArray()
+            
+            let test_websharper_bug (ns:string list) (ms:string list) : int list =
+              let find (d: string) ns =
+                let rec loop acc msl msr =
+                  match msr with
+                  | [] -> acc
+                  | m::msr' -> 
+                     findInMs.Add m
+                     loop acc (m::msl) msr'
+                loop [] [] ms in
+              let rec loop acc record nsl nsr =
+                let expand_finds fs = [] in
+                let search_record = function
+                  | [d] -> let foo = expand_finds (find d [d]) in []
+                  | _ -> [] in
+                match nsr with
+                | [] -> 
+                    search_record (List.rev record) @ acc
+                | n::nsr ->
+                    let acc = search_record record @ acc in
+                    loop acc record (nsl@record@[n]) nsr
+              in
+              loop [] ["x"] [] ns
+
+            test_websharper_bug ["x"] ["x"] |> ignore
+
+            equal (findInMs.ToArray()) [| "x"; "x" |]
+        }
+
 //        Test "Recursive module value" {
 //            equal (moduleFuncValue 0) 5
 //        }

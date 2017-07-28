@@ -1041,15 +1041,15 @@ type NeedsScoping() =
         if not needed then
             base.VisitExpression expr
 
-    member this.Check(args: seq<Id>, expr) =
-        for a in args do
-            if a.IsMutable then
+    member this.Check(args: seq<Id>, values, expr) =
+        for a, v in Seq.zip args values do
+            if a.IsMutable && not (isTrivialValue v) then
                 defined.Add a |> ignore
         this.VisitExpression expr  
         needed
 
-let needsScoping args body =
-    NeedsScoping().Check(args, body)    
+let needsScoping args values body =
+    NeedsScoping().Check(args, values, body)    
     
 type HasNoThisVisitor() =
     inherit Visitor()

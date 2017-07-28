@@ -280,7 +280,7 @@ let optimize expr =
     | Function (vars, I.Return (I.Application (f, args, _, Some i)))
         when List.length args = i && sameVars vars args && isPureExpr f && VarsNotUsed(vars).Get(f) ->
         f
-    | CurriedApplicationSeparate (CurriedLambda(vars, body, isReturn), args) when not (needsScoping vars body) ->
+    | CurriedApplicationSeparate (CurriedLambda(vars, body, isReturn), args) when not (needsScoping vars args body) ->
         let moreArgsCount = args.Length - vars.Length
         if moreArgsCount = 0 then
             if isReturn then
@@ -299,19 +299,19 @@ let optimize expr =
             let vars, moreVars = vars |> List.splitAt args.Length
             List.foldBack2 bind vars args (CurriedLambda(moreVars, body)) 
     | Application(TupledLambda(vars, body, isReturn), [ I.NewArray args ], _, Some _)
-        when vars.Length = args.Length && not (needsScoping vars body) ->
+        when vars.Length = args.Length && not (needsScoping vars args body) ->
         if isReturn then
             List.foldBack2 bind vars args body
         else 
             List.foldBack2 bind vars args (Sequential [body; Value Null])
     | Application(I.ItemGet(I.Function (vars, I.Return body), I.Value (String "apply"), _), [ I.Value Null; argArr ], _, _) ->
         List.foldBack2 bind vars (List.init vars.Length (fun i -> argArr.[Value (Int i)])) body                   
-    | Application (I.Function (args, I.Return body), xs, _, Some _) 
-        when List.length args = List.length xs && not (needsScoping args body) ->
-        List.foldBack2 bind args xs body
-    | Application (I.Function (args, I.ExprStatement body), xs, _, Some _) 
-        when List.length args = List.length xs && not (needsScoping args body) ->
-        List.foldBack2 bind args xs body
+    | Application (I.Function (args, (I.ExprStatement body | I.Return body)), xs, _, Some _) 
+        when List.length args <= List.length xs && not (needsScoping args xs body) ->
+        let xs, more = xs |> List.splitAt args.Length
+        match more with
+        | [] -> List.foldBack2 bind args xs body
+        | _ -> List.foldBack2 bind args xs (CombineExpressions (more @ [ body ]))
     | Application (I.Function (_, (I.Empty | I.Block [])), xs, _, _) ->
         Sequential xs
     | Sequential [a] ->
@@ -852,7 +852,7 @@ and private breakSt statement : Statement seq =
         | ResultExpr (I.Application (I.Function (args, body), xs, _, _))
             when List.length args = List.length xs ->
                 let inlined, notInlined =
-                    List.zip args xs |> List.partition (function (_, I.Var _) -> true | _ -> false)   
+                    List.zip args xs |> List.partition (function (a, I.Var _) when not a.IsMutable -> true | _ -> false)   
                 [
                     for var, value in notInlined do
                         match value with

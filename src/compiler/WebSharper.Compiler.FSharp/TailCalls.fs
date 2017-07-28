@@ -401,9 +401,13 @@ type TailCallTransformer(env) =
             if env.TailCalls.Contains(var) then
                 match value with
                 | Lambda(args, fbody, isReturn) ->
+                    let args = 
+                        args |> List.map (fun a -> 
+                            let am = a.ToMutable()
+                            transformIds.Add(a, am)
+                            am
+                        )
                     matchedBindings.Add(var, Choice1Of2 (args, fbody))
-                    for a in args do
-                        transformIds.Add(a, a.ToMutable())
                     numArgs <- max numArgs args.Length 
                     funcCount <- funcCount + 1
                 | _ -> matchedBindings.Add(var, Choice2Of2 value)
@@ -480,8 +484,12 @@ type TailCallTransformer(env) =
         match isTailRecMethodFunc, body with
         | true, (I.Return b | I.ExprStatement b) ->
             selfCallArgs <- Some args
-            for a in args do
-                transformIds.Add(a, a.ToMutable())
+            let args = 
+                args |> List.map (fun a -> 
+                    let am = a.ToMutable()
+                    transformIds.Add(a, am)
+                    am
+                )
             Function(args,
                 While (Value (Bool true), 
                     Return (this.TransformExpression(b)))       
