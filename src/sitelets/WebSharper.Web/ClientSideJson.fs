@@ -567,20 +567,23 @@ module Macro =
                     | Some cls ->
                         let fieldEncoders =
                             cls.Fields.Values
-                            |> Seq.choose (fun (f, _, t) ->
-                                let jsNameAndOption =
-                                    let isOption() =
-                                        match t with
+                            |> Seq.choose (fun (f, _, ft) ->
+                                let jsNameTypeAndOption =
+                                    let isOption name isMarked =
+                                        match ft with
                                         | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "Microsoft.FSharp.Core.FSharpOption`1" ->
-                                            OptionalFieldKind.NormalOption 
-                                        | t ->    
-                                            OptionalFieldKind.NotOption
+                                            if isMarked then
+                                                Some (name, p, OptionalFieldKind.MarkedOption) 
+                                            else
+                                                Some (name, p, OptionalFieldKind.NormalOption) 
+                                        | ft ->    
+                                            Some (name, ft, OptionalFieldKind.NotOption)
                                     match f with
-                                    | M.InstanceField n -> Some (n, isOption()) 
-                                    | M.IndexedField i -> Some (string i, isOption())
-                                    | M.OptionalField n -> Some (n, OptionalFieldKind.MarkedOption)
+                                    | M.InstanceField n -> isOption n false
+                                    | M.IndexedField i -> isOption (string i) false
+                                    | M.OptionalField n -> isOption n true
                                     | M.StaticField _ -> None
-                                jsNameAndOption |> Option.map (fun (jsName, optionKind) ->
+                                jsNameTypeAndOption |> Option.map (fun (jsName, t, optionKind) ->
                                     jsName, optionKind, encode (t.SubstituteGenerics (Array.ofList targs))
                                 )
                             ) |> List.ofSeq

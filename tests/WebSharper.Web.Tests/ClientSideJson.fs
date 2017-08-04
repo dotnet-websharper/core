@@ -45,6 +45,12 @@ module ClientSideJson =
 
     type TestType = { foo: string option }
 
+    module Bug735 =
+        type test_class_i = 
+            | Test_class_i of Test_class_i:string
+        type test_class_o (test_field: test_class_i option) =
+            member r.test_field = test_field
+
     let ClientTests =
         TestCategory "Client-side JSON" {
 
@@ -363,6 +369,14 @@ module ClientSideJson =
                 equal (InlineDeserialize "x42") 42
             }
 
+            Test "#735 optional union field on object" {
+                let l = [Bug735.test_class_o(Some (Bug735.Test_class_i "foo"))]
+                let o = Json.Encode<Bug735.test_class_o list> l
+                equal (o?("0")?test_field?Test_class_i) "foo"
+                let l2 = Json.Decode<Bug735.test_class_o list> o
+                equal l l2
+                equal l2.Head.test_field (Some (Bug735.Test_class_i "foo")) 
+            }
         }
 
     let echo (url: string) (serializedArg: string) (decode: obj -> 't) : Async<'t> =
@@ -511,5 +525,4 @@ module ClientSideJson =
                 equalAsync (f d.Self) d.Self
                 equalAsync (f now) now
             }
-
         }
