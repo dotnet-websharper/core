@@ -97,10 +97,12 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         System.Threading.Tasks.Task.Run(fun () ->
             let mutable refError = false
             let metas = refs |> List.choose (fun r -> 
-                try ReadFromAssembly FullMetadata r
-                with e ->
+                match TryReadFromAssembly FullMetadata r with
+                | None -> None
+                | Some (Ok m) -> Some m
+                | Some (Error e) ->
                     refError <- true
-                    PrintGlobalError e.Message
+                    PrintGlobalError e
                     None
             )
             if refError then None

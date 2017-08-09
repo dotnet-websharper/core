@@ -50,24 +50,31 @@ type ReadOptions =
     | DiscardInlineExpressions
     | DiscardNotInlineExpressions
 
-let ReadFromAssembly options (a: Assembly) =
+let TryReadFromAssembly options (a: Assembly) =
     a.Raw.MainModule.Resources
     |> Seq.tryPick (function
-        | :? Mono.Cecil.EmbeddedResource as r when r.Name = EMBEDDED_METADATA ->
-            try
-                use s = r.GetResourceStream()
-                let m = M.IO.Decode s
-                match options with
-                | FullMetadata -> m
-                | DiscardExpressions -> m.DiscardExpressions() 
-                | DiscardInlineExpressions -> m.DiscardInlineExpressions()
-                | DiscardNotInlineExpressions -> m.DiscardNotInlineExpressions()
-                |> Some
-            with
-            | e ->
-                failwithf "Failed to deserialize metadata for %s. Error: %s at %s" a.FullName e.Message e.StackTrace
+        | :? Mono.Cecil.EmbeddedResource as r when r.Name = EMBEDDED_METADATA -> Some r 
         | _ -> None
     )
+    |> Option.map (fun r ->
+        use s = r.GetResourceStream()
+        let m = 
+            try Ok (M.IO.Decode s)
+            with e -> Error (sprintf "Failed to deserialize metadata for %s. Error: %s" a.FullName e.Message)
+        m |> Result.map (fun m ->
+            match options with
+            | FullMetadata -> m
+            | DiscardExpressions -> m.DiscardExpressions() 
+            | DiscardInlineExpressions -> m.DiscardInlineExpressions()
+            | DiscardNotInlineExpressions -> m.DiscardNotInlineExpressions()
+        )
+    )
+
+let ReadFromAssembly options a =
+    match TryReadFromAssembly options a with
+    | None -> None
+    | Some (Ok m) -> Some m
+    | Some (Error e) -> raise (exn e) 
 
 let ReadFromFile options (path: string) =
     let aR = AssemblyResolver.Create().SearchPaths([path])
