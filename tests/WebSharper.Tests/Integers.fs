@@ -109,6 +109,11 @@ let Tests =
             raisesMsg (Int32.Parse "3000000000") "3000000000"
         }
 
+        Test "Int32 literal fields" {
+            equalMsg Int32.MaxValue 2147483647 "MaxValue"
+            equalMsg Int32.MinValue -2147483648 "MinValue"
+        }
+
         Test "Int32.TryParse" {
             equalMsg (Int32.TryParse "14") (true, 14) "14"
             equalMsg (Int32.TryParse "-14") (true, -14) "-14"

@@ -306,28 +306,6 @@ type NumericMacro() =
             match c.Arguments with
             | [x] -> Unary (op, x) |> MacroOk
             | _ -> MacroError "numericMacro error"
-        | "MaxValue" ->
-            match name with
-            | "System.Byte" -> MacroOk (Value (Byte 255uy))
-            | "System.SByte" -> MacroOk (Value (SByte 127y))
-            | "System.Int16" -> MacroOk (Value (Int16 32767s))
-            | "System.Int32" -> MacroOk (Value (Int 2147483647))
-            | "System.UInt16" -> MacroOk (Value (UInt16 65535us))
-            | "System.UInt32" -> MacroOk (Value (UInt32 4294967295u))
-            | "System.Single" -> MacroOk (Value (Single 3.40282347E+38f))
-            | "System.Double" -> MacroOk (Value (Double 1.7976931348623157E+308))
-            | _ -> MacroError "numericMacro error"
-        | "MinValue" ->
-            match name with
-            | "System.Byte" -> MacroOk (Value (Byte 0uy))
-            | "System.SByte" -> MacroOk (Value (SByte -128y))
-            | "System.Int16" -> MacroOk (Value (Int16 -32768s))
-            | "System.Int32" -> MacroOk (Value (Int -2147483648))
-            | "System.UInt16" -> MacroOk (Value (UInt16 0us))
-            | "System.UInt32" -> MacroOk (Value (UInt32 0u))
-            | "System.Single" -> MacroOk (Value (Single -3.402823e38f))
-            | "System.Double" -> MacroOk (Value (Double -1.7976931348623157E+308))
-            | _ -> MacroError "numericMacro error"
         | "op_Increment" ->
             match c.Arguments with
             | [x] ->
