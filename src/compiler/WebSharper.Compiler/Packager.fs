@@ -33,7 +33,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
     let declarations = ResizeArray()
     let statements = ResizeArray()
 
-    let glob = Var (Id.Global())
+    let g = Id.New "Global"
+    let glob = Var g
+    declarations.Add <| VarDeclaration (g, Var (Id.Global()))
     addresses.Add(Address [], glob)
     addresses.Add(Address [ "window" ], glob)
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
