@@ -40,6 +40,16 @@ let push (x: obj) (y: obj) = ()
 [<Inline "$arr1.concat($arr2)">]
 let Append<'T> (arr1: 'T []) (arr2: 'T []) : 'T [] = arr1
 
+[<Name "allPairs">]
+let AllPairs (array1: 'T1 []) (array2: 'T2 []) =
+    let len1 = Array.length array1
+    let len2 = Array.length array2
+    let res = JavaScript.Array (len1 * len2)
+    for i = 0 to len1-1 do
+        for j = 0 to len2-1 do
+            res.[i * len2 + j] <- (array1.JS.[i],array2.JS.[j])
+    res |> As<('T1 * 'T2) []>
+
 [<Name "average">]
 let inline Average (arr: 'T []): 'T = As (float (Array.sum arr) / float (Array.length arr))
 

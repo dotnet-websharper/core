@@ -32,6 +32,11 @@ open WebSharper.CollectionInternals
 let safeDispose (x: System.IDisposable) =
     if x <> null then x.Dispose()
 
+[<Name "allPairs">]
+let AllPairs (source1: seq<_>) (source2: seq<_>) =
+    let cached = Seq.cache source2
+    source1 |> Seq.collect (fun x -> cached |> Seq.map (fun y -> x,y))
+
 [<Name "append">]
 let Append (s1: seq<'T>) (s2: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->
