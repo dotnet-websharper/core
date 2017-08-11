@@ -645,8 +645,10 @@ let rec breakExpr expr : Broken<BreakResult> =
             comb2 (fun (aE, dE) -> FieldSet (Some aE, b, c, dE)) a d
         | None ->
             br d |> toBrExpr |> mapBroken (fun dE -> FieldSet (None, b, c, dE))            
-    | Let(var, I.Function(args, body), c) 
-        when notMutatedOrCaptured var c && CountVarOccurence(var).Get(c) >= 2 ->
+    | Let(var, I.Function(args, body), c) ->
+        if CountVarOccurence(var).Get(c) = 0 then
+            br c
+        else
             let brC = br c
             {
                 Body = brC.Body

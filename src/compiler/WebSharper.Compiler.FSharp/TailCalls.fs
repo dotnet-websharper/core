@@ -453,7 +453,7 @@ type TailCallTransformer(env) =
                 match value with     
                 | Choice1Of2 (args, fbody) ->
                     let trFBody = this.TransformExpression(fbody)    
-                    trBodies.Add(Some (Value (Int i)), Return trFBody)
+                    trBodies.Add(Some (Value (Int i)), Block [ Return trFBody; Break None; ] )
                     let recArgs = Value (Int i) :: List.map Var args
                     trBindings.Add(var, 
                         Function(args, 
