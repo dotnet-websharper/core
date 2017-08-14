@@ -702,6 +702,24 @@ let Tests =
                     x + y
                 f 5    
             equal (a()) 1
+            let b() =
+                let rec f x y z =
+                    if x = 0 then 
+                        if y = 0 then g z else y + z
+                    else f (x - 1) y z
+                and g x = 
+                    f 0 1 x
+                f 5 0 5
+            equal (b()) 6
+            let rec f acc n =
+                if n = 0 then
+                    acc
+                else
+                    f ((fun x -> x + n) :: acc) (n - 1)
+            equal (f [] 2 |> List.map (fun g -> g 1)) [2; 3]
+            let rec h x y =
+                if x = 0 then y else h (x - 1) (y + x)
+            equal (h 4 4) 14
         }
 
 //        Test "Recursive module value" {

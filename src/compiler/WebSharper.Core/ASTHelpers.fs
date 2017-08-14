@@ -126,8 +126,10 @@ let CombineStatements statements =
             | Continue _
             | Throw _
             | Return _ ->
-                go <- false
-                true
+                if go then
+                    go <- false
+                    true
+                else false
             | FuncDeclaration _ -> true
             | _ -> go
         )    

@@ -645,6 +645,8 @@ let rec breakExpr expr : Broken<BreakResult> =
             comb2 (fun (aE, dE) -> FieldSet (Some aE, b, c, dE)) a d
         | None ->
             br d |> toBrExpr |> mapBroken (fun dE -> FieldSet (None, b, c, dE))            
+    | Let(var, (SimpleFunction _ as f), c) ->
+        SubstituteVar(var, f).TransformExpression c |> br
     | Let(var, I.Function(args, body), c) ->
         if CountVarOccurence(var).Get(c) = 0 then
             br c
@@ -876,7 +878,7 @@ and private breakSt statement : Statement seq =
                 ]
                 |> Seq.ofList
         | _ ->
-            brA |> toStatementsSpec Return
+            brA |> toStatementsSpec Return |> List.ofSeq |> CombineStatements |> Seq.singleton
     | Block a ->
         if a |> List.forall (function I.ExprStatement _ -> true | _ -> false) then
             a |> List.map (function I.ExprStatement e -> e | _ -> failwith "impossible")
@@ -1019,4 +1021,4 @@ and private breakSt statement : Statement seq =
 and BreakStatement statement =
     match breakSt statement |> List.ofSeq with
     | [ s ] -> s
-    | st -> Block st
+    | st -> CombineStatements st

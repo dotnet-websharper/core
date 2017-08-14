@@ -1141,6 +1141,20 @@ let (|Lambda|_|) e =
     | Function(args, ExprStatement body) -> Some (args, body, false)
     | _ -> None
 
+let (|SimpleFunction|_|) expr =
+    match IgnoreExprSourcePos expr with
+    | Function (_, I.Empty) ->
+        Some <| Global [ "ignore" ]
+    | Function (x :: _, I.Return (I.Var y)) when x = y ->
+        Some <| Global [ "id" ]
+    | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 0), _))) when x = y ->
+        Some <| Global [ "fst" ]
+    | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 1), _))) when x = y ->
+        Some <| Global [ "snd" ]
+    | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 2), _))) when x = y ->
+        Some <| Global [ "trd" ]
+    | _ -> None
+
 let (|AlwaysTupleGet|_|) tupledArg length expr =
     let (|TupleGet|_|) e =
         match e with 
