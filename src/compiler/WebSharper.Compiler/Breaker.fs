@@ -44,6 +44,21 @@ type Broken<'a> =
         Variables : (Id * Statement option) list
     }
 
+let debugPrintBroken a =
+    sprintf "{ Body = %s; Statements = [%s]; Variables = [%s] }"
+        (
+            match a.Body with
+            | ResultVar a -> sprintf "ResultVar %A" a  
+            | ResultExpr e -> Debug.PrintExpression e
+        )
+        (a.Statements |> List.map Debug.PrintStatement |> String.concat "; ")
+        (
+            a.Variables |> List.map (function
+                | (v, None) -> sprintf "%A" v
+                | (v, Some x) -> sprintf "%A = %s" v (Debug.PrintStatement x)
+            ) |> String.concat "; "
+        )
+
 let broken b =
     {
         Body = ResultExpr b
@@ -423,17 +438,6 @@ let rec breakExpr expr : Broken<BreakResult> =
         brL [a; b; c] |> mapBroken (function [a; b; c] -> f(a, b, c) | _ -> failwith "impossible")
     
     let cond brA brB brC =
-        match brB.Body, brC.Body with
-        | ResultVar bv, ResultVar cv ->
-            let r = Id.New()
-            let setRes x =
-                x.Statements |> List.map (TransformMoreVarSets([bv; cv], fun e -> VarSet(r, e)).TransformStatement) |> Block
-            {
-                Body = ResultVar r
-                Statements = brA.Statements @ [If (brA.Body, setRes brB, setRes brC) ] 
-                Variables = brA.Variables @ brB.Variables @ brC.Variables
-            }
-        | _ ->
         if hasNoStatements brB && hasNoStatements brC then   
             let brB = brB |> toBrExpr
             let brC = brC |> toBrExpr

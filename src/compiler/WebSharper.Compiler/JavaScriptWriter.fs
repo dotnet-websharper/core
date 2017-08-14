@@ -303,7 +303,7 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
             } : J.SourcePos
         J.StatementPos (trS s, jpos)
     | If(a, b, c) -> J.If(trE a, trS b, trS c)
-    | Return (IgnoreSourcePos.Unary(UnaryOperator.``void``, a)) -> J.Ignore(trE a)
+    | Return (IgnoreSourcePos.Unary(UnaryOperator.``void``, a)) -> J.Block [ J.Ignore(trE a); J.Return None ]
     | Return (IgnoreSourcePos.Sequential s) -> J.Block (sequential s Return |> List.map trS)
     | Return IgnoreSourcePos.Undefined -> J.Return None
     | Return a -> J.Return (Some (trE a))

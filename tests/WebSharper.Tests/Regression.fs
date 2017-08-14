@@ -711,6 +711,17 @@ let Tests =
                     f 0 1 x
                 f 5 0 5
             equal (b()) 6
+            let c() =
+                let r = ref 0
+                let rec f x y z =
+                    if x = 0 then 
+                        if y = 0 then g z else r := y + z
+                    else f (x - 1) y z
+                and g x = 
+                    f 0 1 x
+                f 5 0 5
+                !r
+            equal (c()) 6
             let rec f acc n =
                 if n = 0 then
                     acc
