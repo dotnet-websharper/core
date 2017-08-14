@@ -100,10 +100,23 @@ let Tests =
             equal (Seq.averageBy float (seq { 0 .. 100 })) 50.
         }
 
-        Property "Seq.cache" (fun x -> Do {
-            let s = Seq.toArray (Seq.cache (Array.toSeq x))
-            equal (Seq.toArray s) x
-        })
+        Test "Seq.cache" {
+            let r = ref 0
+            let s =
+                seq {
+                    incr r
+                    yield 1
+                    incr r
+                    yield 2
+                }
+            let c = Seq.cache s
+            equal (c |> Seq.take 1 |> Seq.toArray) [| 1 |]
+            equal !r 1
+            equal (c |> Seq.toArray) [| 1; 2 |]
+            equal !r 2
+            equal (c |> Seq.toArray) [| 1; 2 |]
+            equal !r 2
+        }
 
         Test "Seq.cast" {
             equal (Seq.cast [| 1; 2; 3 |] |> Seq.toArray) [| 1; 2; 3 |]
