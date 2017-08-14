@@ -60,6 +60,13 @@ let freshTail (l: list<'T>) =
 [<Inline "$l.$ == 1">]
 let notEmpty (l: list<_>) = X<bool>
 
+[<Name "allPairs">]
+let AllPairs (l1: list<_>) (l2: list<_>) =
+    let arr1 = Array.ofList l1
+    let arr2 = Array.ofList l2
+    let res = Array.allPairs arr1 arr2
+    List.ofArray res
+
 [<Name "append">]
 let Append (x: list<'T>) (y: list<'T>) = 
     if List.isEmpty x then y
