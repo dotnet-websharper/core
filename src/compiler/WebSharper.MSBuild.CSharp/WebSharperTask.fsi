@@ -112,3 +112,5 @@ type WebSharperTask =
     member DebugType : string with get, set
 
     member SubsystemVersion : string with get, set
+
+    member LangVersion : string with get, set

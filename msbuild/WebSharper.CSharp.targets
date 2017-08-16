@@ -54,6 +54,7 @@
 	  NoConfig="true"
 	  DebugType="$(DebugType)"
 	  SubsystemVersion="$(SubsystemVersion)"
+	  LangVersion="$(LangVersion)"
 	/>
   </Target>
 </Project>

@@ -62,6 +62,7 @@ type WebSharperTask() =
     member val NoConfig = "" with get, set 
     member val DebugType = "" with get, set 
     member val SubsystemVersion = "" with get, set 
+    member val LangVersion = "" with get, set 
 
     override this.ToolName = "ZafirCs.exe"
 
@@ -81,6 +82,8 @@ type WebSharperTask() =
         builder.AppendSwitchIfNotNull("/debug:", this.DebugType) 
 
         builder.AppendSwitchIfNotNull("/subsystemversion:", this.SubsystemVersion) 
+
+        builder.AppendSwitchIfNotNull("/langVersion:", this.LangVersion) 
 
         builder.AppendSwitchIfNotNull("/doc:", this.DocumentationFile) 
 
