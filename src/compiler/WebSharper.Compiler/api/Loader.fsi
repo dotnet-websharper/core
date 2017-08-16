@@ -32,3 +32,10 @@ type Loader =
 
     /// Loads an assembly from a given path.
     member LoadFile : path: string * ?loadSymbols: bool -> Assembly
+
+module internal LoaderUtility =
+
+    [<Sealed>]
+    type Resolver =
+        interface Mono.Cecil.IAssemblyResolver
+        new : AssemblyResolver -> Resolver

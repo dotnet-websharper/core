@@ -22,8 +22,17 @@
 module WebSharper.Core.Resources
 
 open System
-open System.Web
-open System.Web.UI
+
+#if NET461
+type HtmlTextWriter = System.Web.UI.HtmlTextWriter
+#else
+type HtmlTextWriter =
+    inherit System.IO.TextWriter
+    new : System.IO.TextWriter -> HtmlTextWriter
+    member RenderBeginTag : string -> unit
+    member RenderEndTag : unit -> unit
+    member AddAttribute : string * string -> unit
+#endif
 
 val AllReferencedAssemblies : Lazy<list<System.Reflection.Assembly>>
 

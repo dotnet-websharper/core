@@ -23,8 +23,38 @@ module WebSharper.Core.Resources
 open System
 open System.IO
 open System.Reflection
-open System.Web
-open System.Web.UI
+
+#if NET461
+type HtmlTextWriter = System.Web.UI.HtmlTextWriter
+#else
+type HtmlTextWriter(w: TextWriter) =
+    inherit System.IO.TextWriter(w.FormatProvider)
+
+    let mutable currentTag = ""
+    let mutable currentAttributes = ResizeArray()
+
+    override this.Write(c: char) = w.Write(c)
+    override this.Write(s: string) = w.Write(s)
+    override this.Encoding = w.Encoding
+
+    member this.RenderBeginTag(name: string) =
+        currentTag <- name
+        this.Write('<')
+        this.Write(name)
+        if currentAttributes.Count > 0 then
+            for (name, value) in currentAttributes do
+                this.Write("{0}=\"{1}\"", name, value) // TODO: escape
+            currentAttributes <- ResizeArray()
+        this.Write('>')
+
+    member this.RenderEndTag() =
+        this.Write("</")
+        this.Write(currentTag)
+        this.Write(">")
+        
+    member this.AddAttribute(name: string, value: string) =
+        currentAttributes.Add((name, value))
+#endif
 
 module CT = ContentTypes
 
@@ -103,11 +133,13 @@ let thisAssemblyToken =
 
 let AllReferencedAssemblies = 
     lazy
+#if NET461
     try
         System.Web.Compilation.BuildManager.GetReferencedAssemblies()
         |> Seq.cast<System.Reflection.Assembly>
         |> Seq.toList
     with _ ->
+#endif
     let trace =
         System.Diagnostics.TraceSource("WebSharper",
             System.Diagnostics.SourceLevels.All)

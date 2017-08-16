@@ -104,9 +104,11 @@ type Assembly =
 
     member this.OutputParameters(keyPair) =
         let par = Mono.Cecil.WriterParameters()
+#if NET461
         match keyPair with
         | Some kp -> par.StrongNameKeyPair <- kp
         | None -> ()
+#endif
         par
 
     member this.RawBytes(kP: option<StrongNameKeyPair>) =

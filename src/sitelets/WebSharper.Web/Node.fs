@@ -39,18 +39,23 @@ module HtmlTextWriterExtensions =
         /// Checks whether an element should be rendered as self-closing,
         /// ie. <x /> instead of <x></x>
         static member IsSelfClosingTag (name: string) =
-            List.exists ((=) (name.ToLower())) [
+            List.exists ((=) (name.ToLowerInvariant())) [
                 "area"
                 "base"
                 "basefont"
                 "br"
                 "col"
+                "embed"
                 "frame"
                 "hr"
                 "img"
                 "input"
                 "isindex"
+                "keygen"
                 "link"
                 "meta"
                 "param"
+                "source"
+                "track"
+                "wbr"
             ]

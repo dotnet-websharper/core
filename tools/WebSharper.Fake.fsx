@@ -43,7 +43,8 @@ let private depsFile = Paket.DependenciesFile.ReadFromFile "./paket.dependencies
 let private mainGroup = depsFile.GetGroup(Paket.Domain.GroupName "Main")
 
 let GetSemVerOf pkgName =
-    match Paket.NuGetV2.GetVersions true None "." (mainGroup.Sources, Paket.Domain.PackageName pkgName)
+    match Paket.NuGet.GetVersions true None "." (mainGroup.Sources, Paket.Domain.PackageName pkgName)
+        |> Async.RunSynchronously
         |> List.map fst with
     | [] -> None
     | l -> Some (List.max l)

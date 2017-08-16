@@ -31,7 +31,8 @@ open WebSharper.Compiler.FrontEnd
 open System.Diagnostics
 open ErrorPrinting
 
-exception ArgumentError of string
+exception ArgumentError of msg: string with
+    override this.Message = this.msg
 let argError msg = raise (ArgumentError msg)
 
 open Microsoft.FSharp.Compiler.SourceCodeServices

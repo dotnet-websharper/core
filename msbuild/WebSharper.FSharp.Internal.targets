@@ -20,35 +20,17 @@
 //
 // $end{copyright}
 -->
-
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == ''">v4.0</TargetFrameworkVersion>
-    <WSMSBuildPath Condition="'$(WSMSBuildPath)' == ''">Release</WSMSBuildPath>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
-    <Root>$(MSBuildThisFileDirectory)\..</Root>
-    <AssemblyName>$(Name)</AssemblyName>
-    <RootNamespace>$(Name)</RootNamespace>
     <WebSharperSourceMap>True</WebSharperSourceMap>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <Tailcalls>false</Tailcalls>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
-    <DocumentationFile>$(Root)\build\Debug\$(Name).xml</DocumentationFile>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <Tailcalls>true</Tailcalls>
-    <DefineConstants>TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
-    <DocumentationFile>$(Root)\build\Release\$(Name).xml</DocumentationFile>
-  </PropertyGroup>
   <Import Project="FSharp.targets" />
-  <Import Project="WebSharper.FSharp.targets" />
+  <Import Project="Zafir.FSharp.targets" />
+  <PropertyGroup>
+    <FscToolPath Condition="'$(TargetFramework)' == 'net461'">$(Root)\build\$(Configuration)\FSharp\net461\publish\</FscToolPath>
+    <FscToolPath Condition="'$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netcoreapp2.0'">$(Root)\build\$(Configuration)\FSharp\netcoreapp2.0\publish\</FscToolPath>
+    <FscToolExe Condition="'$(TargetFramework)' == 'net461'">WebSharper.FSharp.exe</FscToolExe>
+    <FscToolExe Condition="'$(OS)' == 'Unix' and ( '$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netcoreapp2.0' )">wsfsc-netcore.sh</FscToolExe>
+    <FscToolExe Condition="'$(OS)' != 'Unix' and ( '$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netcoreapp2.0' )">wsfsc-netcore.cmd</FscToolExe>
+  </PropertyGroup>
 </Project>

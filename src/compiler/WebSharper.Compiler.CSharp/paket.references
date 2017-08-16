@@ -1,4 +1,2 @@
-﻿Microsoft.CodeAnalysis.CSharp
-
-group fsharp4
-    FSharp.Core
+Microsoft.CodeAnalysis.CSharp
+NETStandard.Library framework: net461

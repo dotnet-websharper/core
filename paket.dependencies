@@ -1,20 +1,17 @@
-framework: net40, net45, net46
+framework: net461, netstandard2.0
 source https://www.nuget.org/api/v2
 
 nuget FAKE
-nuget Mono.Cecil ~> 0.10-beta
-nuget Microsoft.CodeAnalysis.CSharp ~> 2.0.0
-nuget FSharp.Compiler.Service ~> 12.0.5
+nuget Microsoft.NETCore.App >= 2.0 preview framework: netstandard2.0
+nuget Microsoft.NETCore.Platforms >= 2.0 preview
+nuget Microsoft.NETCore.Targets >= 2.0 preview
+nuget Microsoft.Extensions.DependencyModel >= 2.0 preview
+nuget Mono.Cecil >= 0.10 beta
+nuget Microsoft.Build.Utilities.Core >= 15.3 preview
+nuget Microsoft.CodeAnalysis.CSharp >= 2.3 beta
+nuget FSharp.Compiler.Service >= 13.0 beta
 nuget AjaxMin
-
-group fsharp4
-    framework: net40, net45, net46
-    source https://www.nuget.org/api/v2
-
-    nuget FSharp.Core ~> 4.1.17
-
-group fsharp3
-    framework: net40, net45, net46
-    source https://www.nuget.org/api/v2
-
-    nuget FSharp.Core ~> 3.0.2
+nuget NETStandard.Library >= 2.0 preview
+nuget System.CodeDom >= 4.4 preview
+nuget System.Configuration.ConfigurationManager >= 4.4 preview
+nuget System.Reflection.Emit.Lightweight >= 4.3 preview

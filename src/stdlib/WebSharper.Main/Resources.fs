@@ -36,8 +36,14 @@ type Runtime = R.Runtime
 /// Re-exports IResource.
 type IResource = R.IResource
 
-[<assembly: System.Web.UI.WebResource("Json.js", "text/javascript")>]
-[<assembly: System.Web.UI.WebResource("Json.min.js", "text/javascript")>]
-[<assembly: System.Web.UI.WebResource("AnimFrame.js", "text/javascript")>]
-[<assembly: System.Web.UI.WebResource("AnimFrame.min.js", "text/javascript")>]
+#if NET461
+type private WebResourceAttribute = System.Web.UI.WebResourceAttribute
+#else
+type private WebResourceAttribute = WebSharper.WebResourceAttribute
+#endif
+
+[<assembly: WebResource("Json.js", "text/javascript")>]
+[<assembly: WebResource("Json.min.js", "text/javascript")>]
+[<assembly: WebResource("AnimFrame.js", "text/javascript")>]
+[<assembly: WebResource("AnimFrame.min.js", "text/javascript")>]
 do ()

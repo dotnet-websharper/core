@@ -1,4 +1,2 @@
-﻿FSharp.Compiler.Service
-
-group fsharp4
-    FSharp.Core
+FSharp.Compiler.Service
+NETStandard.Library framework: net461

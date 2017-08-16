@@ -51,21 +51,29 @@ let isUnit (t: FSharpType) =
     if t.IsTupleType || t.IsFunctionType then false else
     let td = t.TypeDefinition
     if td.IsArrayType || td.IsByRef then false
+#if NET461 // TODO dotnet
     elif td.IsProvidedAndErased then false
+#endif
     else td.FullName = "Microsoft.FSharp.Core.Unit" || td.FullName = "System.Void"
 
 let isOption (t: FSharpType) =
     let t = getOrigType t
     t.HasTypeDefinition &&
         let td = t.TypeDefinition
-        not td.IsProvidedAndErased && td.TryFullName = Some "Microsoft.FSharp.Core.FSharpOption`1"
+#if NET461 // TODO dotnet
+        not td.IsProvidedAndErased &&
+#endif
+        td.TryFullName = Some "Microsoft.FSharp.Core.FSharpOption`1"
 
 let rec isSeq (t: FSharpType) = 
     let t = getOrigType t
     (
         t.HasTypeDefinition &&
             let td = t.TypeDefinition
-            not td.IsProvidedAndErased && td.TryFullName = Some "System.Collections.Generic.IEnumerable`1"
+#if NET461 // TODO dotnet
+            not td.IsProvidedAndErased &&
+#endif
+            td.TryFullName = Some "System.Collections.Generic.IEnumerable`1"
     ) || (
         t.IsGenericParameter && 
             t.GenericParameter.Constraints
@@ -292,7 +300,11 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         let res =
             {
                 Assembly = this.ReadSimpleName td.Assembly 
-                FullName = if td.IsProvidedAndErased then td.LogicalName else td.QualifiedName.Split([|','|]).[0] 
+                FullName =
+#if NET461 // TODO dotnet
+                    if td.IsProvidedAndErased then td.LogicalName else
+#endif
+                    td.QualifiedName.Split([|','|]).[0] 
             }
         // TODO: more measure types
         match res.Assembly with
@@ -354,7 +366,10 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             ByRefType(this.ReadTypeSt markStaticTP tparams t.GenericArguments.[0])
         else
             let fn = 
-                if td.IsProvidedAndErased then td.LogicalName else td.FullName
+#if NET461 // TODO dotnet
+                if td.IsProvidedAndErased then td.LogicalName else
+#endif
+                td.FullName
             if fn.StartsWith "System.Tuple" then
                 getTupleType false
             elif fn.StartsWith "System.ValueTuple" then

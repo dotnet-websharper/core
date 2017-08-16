@@ -64,6 +64,18 @@ module PathConventions =
                 Name = name
             }
 
+    let private joinWithSlash (a: string) (b: string) =
+        let startsWithSlash (s: string) =
+            s.Length > 0
+            && s.[0] = '/'
+        let endsWithSlash (s: string) =
+            s.Length > 0
+            && s.[s.Length - 1] = '/'
+        match endsWithSlash a, startsWithSlash b with
+        | true, true -> a + b.Substring(1)
+        | false, false -> a + "/" + b
+        | _ -> a + b
+
     [<Sealed>]
     type PathUtility(root: string, combine: string -> string -> string) =
         let ( ++ ) = combine
@@ -113,6 +125,4 @@ module PathConventions =
                 match root with
                 | "" | null -> "/"
                 | _ -> root
-            PathUtility(root, fun a b ->
-                let a = VirtualPathUtility.AppendTrailingSlash(a)
-                VirtualPathUtility.Combine(a, b))
+            PathUtility(root, joinWithSlash)

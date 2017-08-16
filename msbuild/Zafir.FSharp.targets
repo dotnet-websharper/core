@@ -33,5 +33,6 @@
     <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'False' ">$(OtherFlags) --dlres</OtherFlags>
     <FscToolPath>$(MSBuildThisFileDirectory)/../tools/</FscToolPath>
     <FscToolExe>WsFsc.exe</FscToolExe>
+    <!-- <PreserveCompilationContext>True</PreserveCompilationContext> -->
   </PropertyGroup>
 </Project>
