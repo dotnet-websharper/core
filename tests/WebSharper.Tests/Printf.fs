@@ -137,4 +137,8 @@ let Tests =
         Test "Constant attribute" {
             equal (sprintf "%A %A" A B) "A B"
         }
+
+        Test "Empty format string" {
+            equal (sprintf "") ""
+        }
     }

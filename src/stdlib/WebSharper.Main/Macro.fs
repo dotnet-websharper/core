@@ -22,7 +22,6 @@
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module WebSharper.Macro
 
-open System.Linq
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
@@ -716,6 +715,12 @@ let cCallG a args = Application (Global a, args, Pure, None)
 
 //type FST = Reflection.FSharpType
 
+let (^+) (a: Expression) (b: Expression) =
+    match a, b with
+    | I.Value (String av), I.Value (String bv) -> Value (AST.String (av + bv))
+    | I.Value av, I.Value bv -> Value (AST.String (av.Value.ToString() + bv.Value.ToString()))
+    | _ -> a ^+ b
+
 let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
     let parts = FormatString.parseAll fs
     let args = ts |> List.map (fun t -> Id.New(mut = false), Some t)
@@ -876,6 +881,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
         pp t o
 
     let inner = 
+        if Array.isEmpty parts then cString "" else
         parts
         |> Seq.map (function
             | FormatString.StringPart s -> cString s
@@ -1165,13 +1171,18 @@ type StringFormat() =
 
                 let warning = ref None
                 let argsId = Id.New(mut = false)
-                
-                let mkExpr args =
+               
+                let parts =
                     regExp.Matches(format)
-                    |> fun e -> (e :> System.Collections.IEnumerable).Cast<Match>()
-                    |> Seq.fold (fun s m ->
+                    |> Seq.cast<Match>
+                    |> Array.ofSeq
+
+                let body =
+                    if Array.isEmpty parts then cString "" else
+                    parts
+                    |> Seq.map (fun m ->
                         if m.Groups.[5].Value <> "" then
-                            s ^+ Value (Literal.String m.Groups.[5].Value)
+                            Value (Literal.String m.Groups.[5].Value)
                         else
                             let prefix = m.Groups.[1].Value
                             let prefix s = Value (Literal.String prefix) ^+ s
@@ -1199,12 +1210,12 @@ type StringFormat() =
                                         ),
                                         r
                                     )
-                                s ^+ prefix expr
-                            else s ^+ prefix r
-                    ) (cString "")
+                                prefix expr
+                            else prefix r
+                    )
+                    |> Seq.reduce (^+)
 
-                let result =
-                    Let(argsId, args, mkExpr argsId)
+                let result = Let(argsId, args, body)
 
                 let warningRes = !warning |> Option.map (fun w -> MacroWarning(w, MacroOk result))
 
