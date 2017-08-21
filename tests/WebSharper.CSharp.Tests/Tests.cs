@@ -233,6 +233,12 @@ namespace WebSharper.CSharp.Tests
             Equal(l2.Value, 2);
         }
 
+        [Test]
+        public void EmptyGuid()
+        {
+            Equal(Guid.Empty.ToString(), "00000000-0000-0000-0000-000000000000");
+        }
+
         //[Test]
         //public void VariableScopingGoto()
         //{

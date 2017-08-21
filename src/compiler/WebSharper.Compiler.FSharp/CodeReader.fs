@@ -914,14 +914,26 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let t = 
                 match sr.ReadType env.TParams typ with
                 | ConcreteType ct -> ct
-                | _ -> parsefailf "Expected a record type"
+                | _ -> parsefailf "Expected a named type in FSharpFieldGet"
             FieldGet(thisOpt |> Option.map tr, t, field.Name)
         | P.FSharpFieldSet (thisOpt, typ, field, value) ->
             let t = 
                 match sr.ReadType env.TParams typ with
                 | ConcreteType ct -> ct
-                | _ -> parsefailf "Expected a record type"
+                | _ -> parsefailf "Expected a named type in FSharpFieldSet"
             FieldSet(thisOpt |> Option.map tr, t, field.Name, tr value)
+        | P.ILFieldGet (thisOpt, typ, field) -> 
+            let t = 
+                match sr.ReadType env.TParams typ with
+                | ConcreteType ct -> ct
+                | _ -> parsefailf "Expected a named type in ILFieldGet"
+            FieldGet(thisOpt |> Option.map tr, t, field)
+        | P.ILFieldSet (thisOpt, typ, field, value) ->
+            let t = 
+                match sr.ReadType env.TParams typ with
+                | ConcreteType ct -> ct
+                | _ -> parsefailf "Expected a named type in ILFieldSet"
+            FieldSet(thisOpt |> Option.map tr, t, field, tr value)
         | P.AddressOf expr ->
             let isStructUnionOrTupleGet =
                 let t = expr.Type
@@ -1042,8 +1054,6 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             Call(Some (tr arr), NonGeneric Definitions.Array, NonGeneric Definitions.ArrayLength, [])
         | P.ILAsm (s, _, _) ->
             parsefailf "Unrecognized ILAsm: %s" s
-        | P.ILFieldGet _ -> parsefailf "F# pattern not handled: ILFieldGet"
-        | P.ILFieldSet _ -> parsefailf "F# pattern not handled: ILFieldSet"
         | P.TraitCall(sourceTypes, traitName, memberFlags, typeArgs, typeInstantiation, argExprs) ->
             let meth =
                 Method {
