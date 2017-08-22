@@ -706,11 +706,19 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 
+    let baseCls =
+        if cls.IsValueType || cls.IsStatic then
+            None
+        elif annot.Prototype = Some false then
+            cls.BaseType |> sr.ReadNamedTypeDefinition |> ignoreSystemObject
+        else
+            cls.BaseType |> sr.ReadNamedTypeDefinition |> Some
+    
     Some (
         def,
         {
             StrongName = strongName
-            BaseClass = cls.BaseType |> sr.ReadNamedTypeDefinition |> ignoreSystemObject
+            BaseClass = baseCls
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
             Kind = ckind

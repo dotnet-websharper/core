@@ -774,7 +774,7 @@ type Compilation(meta: Info, ?hasGraph) =
             classes.Add (typ,
                 {
                     Address = if hasWSPrototype || cls.ForceAddress then someEmptyAddress else None
-                    BaseClass = baseCls
+                    BaseClass = if hasWSPrototype then baseCls else None
                     Constructors = Dictionary() 
                     Fields = Dictionary() 
                     StaticConstructor = if Option.isSome cctor then unresolvedCctor else None 

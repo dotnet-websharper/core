@@ -107,12 +107,17 @@ module NotResolved =
     type M = NotResolvedMember
 
     let hasWSPrototype ckind (baseCls: TypeDefinition option) cmembers =
+        let nonObjBaseClass() = 
+            match baseCls with
+            | None -> false
+            | Some td when td = Definitions.Obj -> false
+            | _ -> true
         match ckind with
         | NotResolvedClassKind.Stub -> false
-        | NotResolvedClassKind.Static -> Option.isSome baseCls
+        | NotResolvedClassKind.Static -> nonObjBaseClass()
         | NotResolvedClassKind.WithPrototype -> true
         | _ ->
-            Option.isSome baseCls ||
+            nonObjBaseClass() ||
             cmembers
             |> Seq.exists (
                 function

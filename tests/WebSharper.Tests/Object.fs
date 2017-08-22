@@ -191,6 +191,10 @@ type ClassWithNoPrototype(x) =
     member this.X(a) = this.Y() - 1 + a
 
 [<JavaScript>]
+type MyObj () =
+    class end
+
+[<JavaScript>]
 let Tests =
     TestCategory "Object" {
 
@@ -199,6 +203,17 @@ let Tests =
         }
 
         Test "Equals" {
+            isFalse (System.Object.Equals (obj(), obj()))
+            isFalse (obj().Equals(obj()))
+            isFalse (obj() = obj())
+            let r = obj ()
+            isFalse (System.Object.Equals (MyObj(), MyObj()))
+            isFalse (MyObj().Equals(MyObj()))
+            isFalse (MyObj() = MyObj())
+            let r = MyObj()
+            isTrue (System.Object.Equals (r, r))
+            isTrue (r.Equals(r))
+            isTrue (r = r)
             let a = { K = 4 }
             let b = { K = 4 }
             isTrue (System.Object.Equals (a, b))
@@ -207,8 +222,8 @@ let Tests =
         }
 
         Test "ReferenceEquals" {
-            isFalse (System.Object.ReferenceEquals (obj (), obj ()))
-            let r = obj ()
+            isFalse (System.Object.ReferenceEquals (obj(), obj()))
+            let r = obj()
             isTrue (System.Object.ReferenceEquals (r, r))
             let a = { K = 4 }
             let b = { K = 4 }
@@ -420,7 +435,7 @@ let Tests =
             let o = Farm()
             equal (o.Cow()) "moo"
             equal (o.Self().Cow()) "moo"
-            jsEqual o?this JS.Undefined 
+            // jsEqual o?this JS.Undefined // this is not a problem now with reference equality on objects
         } 
 
         Test "Class with Prototype(false)" {

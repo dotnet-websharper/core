@@ -51,6 +51,14 @@ module ClientSideJson =
         type test_class_o (test_field: test_class_i option) =
             member r.test_field = test_field
 
+            override this.Equals(a) =
+                match a with
+                | :? test_class_o as a -> this.test_field = a.test_field
+                | _ -> false
+
+            override this.GetHashCode() =
+                hash this.test_field
+
     let ClientTests =
         TestCategory "Client-side JSON" {
 

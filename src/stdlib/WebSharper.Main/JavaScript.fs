@@ -43,7 +43,7 @@ let Undefined<'T> = raise ClientSideOnly : 'T
 
 /// Returns the reference to the global JavaScript object.
 [<Inline "$global">]
-let Global = obj ()
+let Global = X<obj>
 
 /// Ignores the value of an expression.
 [<Inline "void $x">]

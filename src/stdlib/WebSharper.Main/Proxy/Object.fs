@@ -24,16 +24,20 @@ namespace WebSharper
 open WebSharper.JavaScript
 
 [<Proxy(typeof<System.Object>)>]
-type private ObjectProxy =
-
-    [<Inline "{}">]
-    new () = {}
+[<Name "WebSharper.Obj">]
+type private ObjectProxy() =
 
     [<Inline>]
     override this.GetHashCode() = Unchecked.hash this
 
     [<Inline>]
     override this.Equals(obj: obj) = Unchecked.equals (this :> obj) obj
+
+    [<Name "GetHashCode">]
+    member this.GetHashCodeImpl() = -1
+
+    [<Name "Equals">]
+    member this.EqualsImpl(obj: obj) = this ===. obj
 
     [<Inline>]
     static member Equals(a: obj, b: obj) = Unchecked.equals a b
@@ -42,10 +46,10 @@ type private ObjectProxy =
     static member ReferenceEquals(a: obj, b: obj) = a ===. b
 
     [<Inline>]
-    static member op_Equality(a: obj, b: obj) = a ===. b
+    static member op_Equality(a: obj, b: obj) = Unchecked.equals a b
 
     [<Inline>]
-    static member op_Inequality(a: obj, b: obj) = a !==. b
+    static member op_Inequality(a: obj, b: obj) = not (Unchecked.equals a b)
 
     [<Inline>]
     override this.ToString() = string this

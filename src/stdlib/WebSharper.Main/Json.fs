@@ -76,7 +76,7 @@ let shallowMap (f: obj -> obj) (x: obj) : obj =
     else
         match JS.TypeOf x with
         | JS.Object ->
-            let r = obj ()
+            let r = New []
             JS.ForEach x (fun y -> (?<-) r y (f ((?) x y)); false)
             r
         | _ ->

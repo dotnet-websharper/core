@@ -303,7 +303,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
 
-    let fsharpSpecific = cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration || cls.IsValueType
+    let fsharpSpecific = 
+        cls.IsFSharpModule || cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration || cls.IsValueType
 
     let clsTparams =
         lazy 
@@ -673,7 +674,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         else NotResolvedClassKind.Class
 
     let baseCls =
-        cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
+        if fsharpSpecific || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
+            None
+        elif annot.Prototype = Some false then
+            cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
+        else 
+            cls.BaseType |> Option.map (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition)
 
     let hasWSPrototype =                
         hasWSPrototype ckind baseCls clsMembers

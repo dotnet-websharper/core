@@ -541,6 +541,10 @@ let rec breakExpr expr : Broken<BreakResult> =
         br a |> mapBroken (fun a -> NewArray [getExpr a])
     | NewArray a ->
         brL a |> mapBroken NewArray
+    | Conditional (I.Sequential a, b, c) ->
+        match List.rev a with
+        | [] -> br c
+        | t :: r -> Sequential (List.rev (Conditional (t, b, c) :: r)) |> br
     | Conditional (I.Value (Bool a), b, c) ->
         if a then br b else br c    
     | Conditional (a, b, I.Value (Bool false)) ->
