@@ -32,24 +32,6 @@ open WebSharper.Core.AST
 module M = WebSharper.Core.Metadata
 module I = IgnoreSourcePos
 
-let smallIntegralTypes =
-    Set [
-        "System.Byte"
-        "System.SByte"
-        "System.Int16"
-        "System.Int32"
-        "System.UInt16"
-        "System.UInt32"
-    ]
-
-let bigIntegralTypes =
-    Set [
-        "System.Int64"
-        "System.UInt64" 
-    ]
-
-let integralTypes = smallIntegralTypes + bigIntegralTypes
-
 let scalarTypes =
     integralTypes
     + Set [
@@ -1153,7 +1135,7 @@ type StringFormat() =
         match c.DefiningType.Entity.Value.FullName, c.Method.Entity.Value.MethodName with
         | "System.String", "Format" ->
             match c.Arguments with
-            | (Value (String format)) :: args when args.Length < 4 ->
+            | (I.Value (String format)) :: args when args.Length < 4 ->
                 let args =
                     match c.Method.Entity.Value.Parameters with
                     | [_; x] ->
@@ -1203,10 +1185,11 @@ type StringFormat() =
                                 let expr =
                                     Conditional(
                                         cInt w2 ^> Call (None, NonGeneric stringTy, NonGeneric lengthMeth, [r]),
-                                        Conditional(
-                                            cInt w1 ^> cInt 0,
-                                            Call (None, NonGeneric stringTy, NonGeneric padLeft, [r; cInt w2]),
-                                            Call (None, NonGeneric stringTy, NonGeneric padRight, [r; cInt w2])
+                                        (
+                                            if w1 > 0 then
+                                                Call (None, NonGeneric stringTy, NonGeneric padLeft, [r; cInt w2])
+                                            else
+                                                Call (None, NonGeneric stringTy, NonGeneric padRight, [r; cInt w2])
                                         ),
                                         r
                                     )

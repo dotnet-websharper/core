@@ -360,7 +360,10 @@ namespace WebSharper.CSharp.Tests
             string firstName = "James", lastName = "Bond";
             Equal($"My name is {lastName}. {firstName} {lastName}.", "My name is Bond. James Bond.");
 
-            Equal($"align:{ "x",2 + 3 }", "align:    x");
+            Equal($"align:{"x", 2 + 3}", "align:    x");
+
+            var d = new DateTime(2010, 4, 8, 15, 5, 39);
+            Equal($"format:{d:hh}", "format:03");
         }
 
         public int OptionalTest(int x, int y = 2, int z = 0) => x + y + z;

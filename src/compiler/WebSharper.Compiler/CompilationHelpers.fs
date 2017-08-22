@@ -610,6 +610,8 @@ module JSRuntime =
     let OnLoad f = runtimeFunc "OnLoad" NonPure [f]
 
 module Definitions =
+    open WebSharper.InterfaceGenerator.Type
+
     let Obj =
         TypeDefinition {
             Assembly = "mscorlib"
@@ -676,6 +678,14 @@ module Definitions =
             MethodName = "_unique_" + name
             Parameters = []
             ReturnType = VoidType 
+            Generics = 0
+        }
+
+    let StringFormat1 =
+        Method {
+            MethodName = "Format"
+            Parameters = [ NonGenericType String; NonGenericType Obj ]
+            ReturnType = NonGenericType String
             Generics = 0
         }
     

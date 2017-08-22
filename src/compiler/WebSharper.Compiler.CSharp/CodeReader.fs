@@ -597,6 +597,13 @@ type RoslynTransformer(env: Environment) =
                 let ma = symbol.TypeArguments |> Seq.map (sr.ReadType) |> List.ofSeq
                 let meth = Generic (sr.ReadMethod symbol) ma
                 Call(None, typ, meth, [ expr ])
+            elif conversion.IsNumeric then
+                let typInfo = env.SemanticModel.GetTypeInfo(x.Node)
+                let fromTyp = typInfo.Type :?> INamedTypeSymbol |> sr.ReadNamedTypeDefinition
+                let toTyp = typInfo.ConvertedType :?> INamedTypeSymbol |>  sr.ReadNamedTypeDefinition
+                //let fromTyp = sr.ReadNamedTypeDefinition (conversion.MethodSymbol.Parameters.[0].Type :?> INamedTypeSymbol)
+                //let toTyp = sr.ReadNamedTypeDefinition (conversion.MethodSymbol.ReturnType :?> INamedTypeSymbol)
+                NumericConversion fromTyp toTyp expr
             else expr
         with e ->
             env.Compilation.AddError(Some (getSourcePos x.Node), WebSharper.Compiler.SourceError("Error while reading C# code: " + e.Message + " at " + e.StackTrace))
@@ -1872,7 +1879,13 @@ type RoslynTransformer(env: Environment) =
         let expression = x.Expression |> this.TransformExpression
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         if isNull symbol then 
-            expression
+            let fromTyp = env.SemanticModel.GetTypeInfo(x.Expression.Node).Type |> sr.ReadType
+            let toTyp = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
+            match fromTyp, toTyp with
+            | ConcreteType { Generics = []; Entity = ft }, ConcreteType { Generics = []; Entity = tt } ->
+                NumericConversion ft tt expression
+            | _ ->
+                expression
         else
             call symbol None [ expression ]
 
@@ -2103,6 +2116,19 @@ type RoslynTransformer(env: Environment) =
         | InterpolatedStringContentData.InterpolatedStringText x -> 
             Value (String x.Node.TextToken.ValueText)
         | InterpolatedStringContentData.Interpolation x -> 
-            if Option.isSome x.AlignmentClause then failwith "Syntax currently not supported for client side: interpolated string alignment"
-            if Option.isSome x.FormatClause then failwith "Syntax currently not supported for client side: interpolated string formatting"
-            x.Expression |> this.TransformExpression
+            let align =
+                x.AlignmentClause |> Option.map (fun a ->
+                    match getConstantValueOfExpression a.Value.Node with
+                    | Value v -> "," + v.Value.ToString()
+                    | _ -> failwith "impossible: getConstantValueOfExpression returns a Value"
+                )
+            let format = 
+                x.FormatClause |> Option.map (fun f ->
+                    ":" + f.Node.FormatStringToken.ValueText
+                )
+            let expr = x.Expression |> this.TransformExpression
+            match align, format with
+            | None, None -> expr
+            | _ -> 
+                let f = "{0" + Option.defaultValue "" align +  Option.defaultValue "" format + "}" 
+                Call(None, NonGeneric Definitions.String, NonGeneric Definitions.StringFormat1, [ Value (String f); expr ])

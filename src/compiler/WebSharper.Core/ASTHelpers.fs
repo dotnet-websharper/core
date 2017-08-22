@@ -215,3 +215,33 @@ let erasedUnions =
                 }    
         }
     )
+
+let smallIntegralTypes =
+    Set [
+        "System.Byte"
+        "System.SByte"
+        "System.Int16"
+        "System.Int32"
+        "System.UInt16"
+        "System.UInt32"
+    ]
+
+let bigIntegralTypes =
+    Set [
+        "System.Int64"
+        "System.UInt64" 
+    ]
+
+let integralTypes =  smallIntegralTypes + bigIntegralTypes
+
+let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
+    let fn = fromTyp.Value.FullName
+    let tn = toTyp.Value.FullName
+    if smallIntegralTypes.Contains tn then
+        if integralTypes.Contains fn then expr
+        else expr ^>> !~(Int 0)
+    elif bigIntegralTypes.Contains tn then
+        if integralTypes.Contains fn then expr
+        else Application(Global ["Math"; "trunc"], [expr], Pure, Some 1)
+    else
+        expr
