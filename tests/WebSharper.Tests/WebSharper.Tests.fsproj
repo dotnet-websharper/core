@@ -103,6 +103,11 @@
       <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj">
+      <Name>WebSharper.Collections.Tests</Name>
+      <Project>{bb4817e7-12a1-4622-b8ce-29cb3c406851}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj">
       <Name>WebSharper.InterfaceGenerator.Tests</Name>
       <Project>{4c826618-e150-40f7-b13a-9182f0c3eaca}</Project>

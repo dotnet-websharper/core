@@ -20,6 +20,7 @@
     <Compile Include="HashSet.fs" />
     <Compile Include="Interop.fs" />
     <Compile Include="Main.fs" />
+    <Compile Include="SplitProxy.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj">

@@ -293,12 +293,66 @@ type Info =
         }
 
     static member UnionWithoutDependencies (metas: seq<Info>) = 
+        let (|StaticPartInfo|InstancePartInfo|) (c: ClassInfo) =
+            let isEmpty (dict: IDictionary<_,_>) = dict.Count = 0
+            if
+                [
+                    c.Address = None
+                    c.BaseClass = None
+                    c.Constructors |> isEmpty
+                    c.Fields |> isEmpty
+                    not c.HasWSPrototype
+                    c.Implementations |> isEmpty
+                    c.Macros.Length = 0
+                    c.Methods.Values |> Seq.forall (function | Instance _,_,_ -> false | _ -> true)
+                    c.StaticConstructor = None
+                ]
+                |> List.fold (&&) true
+            then
+                StaticPartInfo c
+            else
+                InstancePartInfo c
+        in
+        let tryMergeClassInfo (a: ClassInfo) (b: ClassInfo) =
+            let combine (left: 'a option) (right: 'a option) =
+                match left with
+                | Some _ -> left
+                | None -> right
+            match a, b with
+            | InstancePartInfo _, InstancePartInfo _ -> None
+            | _, _ ->
+                Some <|
+                {
+                    Address = combine a.Address b.Address
+                    BaseClass = combine a.BaseClass b.BaseClass
+                    Constructors = Dict.union [a.Constructors; b.Constructors]
+                    Fields = Dict.union [a.Fields; b.Fields]
+                    HasWSPrototype = a.HasWSPrototype || b.HasWSPrototype
+                    Implementations = Dict.union [a.Implementations; b.Implementations]
+                    Macros = List.concat [a.Macros; b.Macros]
+                    Methods = Dict.union [a.Methods; b.Methods]
+                    StaticConstructor = combine a.StaticConstructor b.StaticConstructor
+                }
+        in
+        let unionMerge (dicts:seq<IDictionary<TypeDefinition,ClassInfo>>) =
+            let result = Dictionary() :> IDictionary<TypeDefinition,_>
+            for dict in dicts do
+                for currentPair in dict do
+                    result.TryGetValue currentPair.Key
+                    |> function
+                        | false, _ -> result.Add currentPair
+                        | true, prevPart ->
+                            match tryMergeClassInfo prevPart currentPair.Value with
+                            | Some mergedInfo -> result.Item currentPair.Key <- mergedInfo
+                            | None -> failwithf "Error merging class info on key: %A" currentPair.Key
+            result
+
         let metas = Array.ofSeq metas
         {
             SiteletDefinition = metas |> Seq.tryPick (fun m -> m.SiteletDefinition)
             Dependencies = GraphData.Empty
             Interfaces = Dict.union (metas |> Seq.map (fun m -> m.Interfaces))
-            Classes = Dict.union (metas |> Seq.map (fun m -> m.Classes))
+            Classes = unionMerge (metas |> Seq.map (fun m -> m.Classes))
             CustomTypes = Dict.unionDupl (metas |> Seq.map (fun m -> m.CustomTypes))
             EntryPoint = 
                 match metas |> Array.choose (fun m -> m.EntryPoint) with
