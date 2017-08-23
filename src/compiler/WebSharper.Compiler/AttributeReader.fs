@@ -170,10 +170,13 @@ type AttributeReader<'A>() =
             match args.[0] with
             | :? string as s ->
                 let ss = s.Split([|','|])
-                Hashed {
-                    FullName = ss.[0].Trim()
-                    Assembly = ss.[1].Trim()
-                }
+                if ss.Length >= 2 then
+                    Hashed {
+                        FullName = ss.[0].Trim()
+                        Assembly = ss.[1].Trim()
+                    }
+                else
+                    failwithf "Type must be in format \"FullName, AssemblyName\": %s" s
             | t -> 
                 try this.GetTypeDef t
                 with _ -> failwith "Failed to parse type argument of attribute."

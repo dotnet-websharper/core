@@ -27,7 +27,7 @@ module ClassInfoMergeTestType =
 open WebSharper
 open WebSharper.JavaScript.Interop
 
-[<Proxy "WebSharper.Collections.Tests.SplitProxy.ClassInfoMergeTestType">]
+[<Proxy "WebSharper.Collections.Tests.SplitProxy+ClassInfoMergeTestType, WebSharper.Collections.Tests">]
 module private TestTypeProxy =
     [<Name "WebSharper.Collections.Tests.SplitProxy.ClassInfoMergeTestType.Member1">]
     let [<Inline "'member1'">] Member1 () = X<string>

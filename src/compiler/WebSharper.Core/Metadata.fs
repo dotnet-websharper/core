@@ -293,36 +293,24 @@ type Info =
         }
 
     static member UnionWithoutDependencies (metas: seq<Info>) = 
-        let (|StaticPartInfo|InstancePartInfo|) (c: ClassInfo) =
-            let isEmpty (dict: IDictionary<_,_>) = dict.Count = 0
-            if
-                [
-                    c.Address = None
-                    c.BaseClass = None
-                    c.Constructors |> isEmpty
-                    c.Fields |> isEmpty
-                    not c.HasWSPrototype
-                    c.Implementations |> isEmpty
-                    c.Macros.Length = 0
-                    c.Methods.Values |> Seq.forall (function | Instance _,_,_ -> false | _ -> true)
-                    c.StaticConstructor = None
-                ]
-                |> List.fold (&&) true
-            then
-                StaticPartInfo c
-            else
-                InstancePartInfo c
-        in
+        let isStaticPart (c: ClassInfo) =
+            Option.isNone c.Address
+            && Option.isNone c.BaseClass
+            && Dict.isEmpty c.Constructors
+            && Dict.isEmpty c.Fields
+            && not c.HasWSPrototype
+            && Dict.isEmpty c.Implementations
+            && List.isEmpty c.Macros
+            && Option.isNone c.StaticConstructor
+            && c.Methods.Values |> Seq.forall (function | Instance _,_,_ -> false | _ -> true)
+
         let tryMergeClassInfo (a: ClassInfo) (b: ClassInfo) =
             let combine (left: 'a option) (right: 'a option) =
                 match left with
                 | Some _ -> left
                 | None -> right
-            match a, b with
-            | InstancePartInfo _, InstancePartInfo _ -> None
-            | _, _ ->
-                Some <|
-                {
+            if isStaticPart a || isStaticPart b then
+                Some {
                     Address = combine a.Address b.Address
                     BaseClass = combine a.BaseClass b.BaseClass
                     Constructors = Dict.union [a.Constructors; b.Constructors]
@@ -333,18 +321,20 @@ type Info =
                     Methods = Dict.union [a.Methods; b.Methods]
                     StaticConstructor = combine a.StaticConstructor b.StaticConstructor
                 }
-        in
+            else
+                None
+
         let unionMerge (dicts:seq<IDictionary<TypeDefinition,ClassInfo>>) =
             let result = Dictionary() :> IDictionary<TypeDefinition,_>
             for dict in dicts do
-                for currentPair in dict do
-                    result.TryGetValue currentPair.Key
+                for cls in dict do
+                    result.TryGetValue cls.Key
                     |> function
-                        | false, _ -> result.Add currentPair
+                        | false, _ -> result.Add cls
                         | true, prevPart ->
-                            match tryMergeClassInfo prevPart currentPair.Value with
-                            | Some mergedInfo -> result.Item currentPair.Key <- mergedInfo
-                            | None -> failwithf "Error merging class info on key: %A" currentPair.Key
+                            match tryMergeClassInfo prevPart cls.Value with
+                            | Some mergedInfo -> result.[cls.Key] <- mergedInfo
+                            | None -> failwithf "Error merging class info on key: %A" cls.Key
             result
 
         let metas = Array.ofSeq metas
