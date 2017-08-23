@@ -132,7 +132,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | Null     -> J.Literal.Null
         | Bool   v -> if v then J.Literal.True else J.Literal.False
         | Byte   v -> J.Number (string v)
-        | Char   v -> J.Number (string (int v))
+        | Char   v -> J.String (string v)
         | Double v -> J.Number (string v)
         | Int    v -> J.Number (string v)
         | Int16  v -> J.Number (string v)

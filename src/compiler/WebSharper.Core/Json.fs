@@ -576,11 +576,11 @@ let serializers =
         | x -> raise (DecoderException(x, typeof<bool>))
     add encBool decBool d
     let encChar (c: char) =
-        EncodedNumber (string (int c))
+        EncodedString (string c)
     let decChar = function
-        | Number x ->
-            match System.Int32.TryParse x with
-            | true, i when i >= 0 ->char i
+        | String x ->
+            match System.Char.TryParse x with
+            | true, c -> c
             | _ -> raise (DecoderException(Number x, typeof<char>))
         | x -> raise (DecoderException(x, typeof<char>))
     add encChar decChar d

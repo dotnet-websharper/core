@@ -83,3 +83,11 @@ let rec prettyPrint (o: obj) =
             "[|" + (As o |> Array.map prettyPrint |> String.concat "; ") + "|]"
         else printObject o
     else string o
+
+[<JavaScript>]
+[<Name "WebSharper.Operators.charRange">]
+let charRange (min: char) (max: char) : seq<char> =
+    let minv = int min
+    let count = 1 + int max - minv
+    if count <= 0 then Seq.empty
+    else Seq.init count (fun x -> char (x + minv))

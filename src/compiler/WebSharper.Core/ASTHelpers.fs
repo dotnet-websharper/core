@@ -234,14 +234,48 @@ let bigIntegralTypes =
 
 let integralTypes =  smallIntegralTypes + bigIntegralTypes
 
+let scalarTypes =
+    integralTypes
+    + Set [
+        "System.Double"
+        "System.Single"
+        "System.TimeSpan"
+        "System.DateTime"
+    ]
+
+let comparableTypes =
+    scalarTypes
+    + Set [
+        "System.String"
+        "System.Char"
+    ]
+
+let private (|SmallIntegralType|BigIntegralType|ScalarType|CharType|StringType|NonNumericType|) n =
+    if smallIntegralTypes.Contains n then SmallIntegralType
+    elif bigIntegralTypes.Contains n then BigIntegralType
+    elif scalarTypes.Contains n then ScalarType
+    elif n = "System.Char" then CharType
+    elif n = "System.String" then StringType
+    else NonNumericType
+
 let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
-    let fn = fromTyp.Value.FullName
-    let tn = toTyp.Value.FullName
-    if smallIntegralTypes.Contains tn then
-        if integralTypes.Contains fn then expr
-        else expr ^>> !~(Int 0)
-    elif bigIntegralTypes.Contains tn then
-        if integralTypes.Contains fn then expr
-        else Application(Global ["Math"; "trunc"], [expr], Pure, Some 1)
-    else
-        expr
+    match fromTyp.Value.FullName, toTyp.Value.FullName with
+    | SmallIntegralType, (SmallIntegralType | BigIntegralType | ScalarType)
+    | (BigIntegralType | NonNumericType), (SmallIntegralType | BigIntegralType | ScalarType)
+    | ScalarType, ScalarType
+    | CharType, (CharType | StringType)
+    | StringType, StringType
+        -> expr
+    | ScalarType, SmallIntegralType
+        -> expr ^>> !~(Int 0)
+    | ScalarType, BigIntegralType
+        -> Application(Global ["Math"; "trunc"], [expr], Pure, Some 1)
+    | (SmallIntegralType | BigIntegralType | ScalarType), CharType
+        -> Application(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
+    | CharType, (SmallIntegralType | BigIntegralType | ScalarType)
+        -> Application(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None) 
+    | (SmallIntegralType | BigIntegralType | ScalarType | NonNumericType), StringType
+        -> Application(Global ["String"], [expr], Pure, Some 1)
+    | StringType, (SmallIntegralType | BigIntegralType | ScalarType)
+        -> Application(Global ["Number"], [expr], Pure, Some 1)
+    | _ -> expr

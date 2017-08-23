@@ -36,6 +36,7 @@ let Tests =
     TestCategory "Enums" {
         Test "Base" {
             equal (int E.A) 1
+            equal (float E.A) 1.
             equal (int E.B) 2
             equal (int E.AB) 3
             equal (int E.C) 4

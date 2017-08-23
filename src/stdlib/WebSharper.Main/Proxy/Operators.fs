@@ -31,7 +31,9 @@ open WebSharper.JavaScript
 
 module M = WebSharper.Macro
 
+[<JavaScript>]
 [<Name "range">]
+[<Macro(typeof<M.Range>)>]
 let ( .. ) (min: 'T) (max: 'T) : seq<'T> =
     let count = 1 + As max - As min
     if count <= 0 then Seq.empty
@@ -194,7 +196,7 @@ let DefaultArg x d =
 [<Inline "$x">]
 let Enum<'T when 'T : enum<int>> (x: 'T) = X<'T>
 
-[<Inline "Number($x)">]
+[<Macro(typeof<M.Conversion>)>]
 let ToDouble (x: 'T) = X<double>
 
 [<Inline "Math.exp($x)">]
@@ -202,8 +204,8 @@ let inline Exp (x: 'T) = X<'T>
 
 let FailWith (msg: string) : 'T = raise (exn msg)
 
-[<Inline "Number($x)">]
-let ToFloat (x: 'T) = X<'T>
+[<Macro(typeof<M.Conversion>)>]
+let ToFloat (x: 'T) = X<float>
 
 [<Inline "Math.floor($x)">]
 let Floor (x: 'T) = X<'T>
@@ -230,19 +232,19 @@ let InvalidOp (msg: string) : 'T = raise (System.InvalidOperationException(msg))
 
 let InvalidArg (arg: string) (msg: string) : 'T = raise (System.ArgumentException(arg, msg))
 
-[<Inline "($x << 0)">]
+[<Macro(typeof<M.Conversion>)>]
 let ToInt (x: 'T) = X<int>
 
-[<Inline "Number($x)">]
+[<Macro(typeof<M.Conversion>)>]
 let ToSingle (x: 'T) = X<single>
 
-[<Inline "($x << 0)">]
+[<Macro(typeof<M.Conversion>)>]
 let ToInt32 (x: 'T) = X<int32>
 
 [<Inline "$x">]
 let ToEnum<'T> (x: int) = X<'T>
 
-[<Inline "Math.floor($x)">]
+[<Macro(typeof<M.Conversion>)>]
 let ToInt64 (x: 'T) = X<int64>
 
 [<Inline "Math.log($x)">]

@@ -60,6 +60,16 @@ type Char =
     inherit Macro
 
 [<Sealed>]
+type Range =
+    new : unit -> Range
+    inherit Macro
+
+[<Sealed>]
+type Conversion =
+    new : unit -> Conversion
+    inherit Macro
+
+[<Sealed>]
 type String =
     new : unit -> String
     inherit Macro

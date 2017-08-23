@@ -153,12 +153,17 @@ let Tests =
 
         Test "int" {
             equal (int "3") 3
-            equal (int "3.5") 3
+            equal (int 3.5) 3
             equal (int -3.5) -3
+            equal (int 'a') 97
+            equal (int "0b10101") 21
+            equal (int "0x42") 66
         }
 
         Test "float" {
             equal (float "3.5") 3.5
+            equal (float "1e3") 1000.
+            equal (float 'a') 97.
         }
 
         Test "|>!" {

@@ -35,12 +35,17 @@ module I = IgnoreSourcePos
 let scalarTypes =
     integralTypes
     + Set [
-        "System.Char"
         "System.Double"
         "System.Single"
         "System.String" 
         "System.TimeSpan"
         "System.DateTime"
+    ]
+
+let comparableTypes =
+    scalarTypes
+    + Set [
+        "System.Char"
     ]
 
 let isIn (s: string Set) (t: Type) = 
@@ -160,7 +165,7 @@ type CMP(cmp) =
             | t :: _ ->
                 let comp x y =
                     Binary (x, toBinaryOperator cmp, y)
-                if isIn scalarTypes t then
+                if isIn comparableTypes t then
                     comp x y
                 else
                     // optimization for checking against argumentless union cases 
@@ -220,7 +225,7 @@ let toComparison = function
 let translateComparison (t: Concrete<TypeDefinition>) a m cmp =
     match a with
     | [x; y] ->
-        if scalarTypes.Contains t.Entity.Value.FullName then
+        if comparableTypes.Contains t.Entity.Value.FullName then
             Binary (x, toBinaryOperator cmp, y)
         else
             makeComparison cmp x y
@@ -249,6 +254,11 @@ let formatExceptionTy, formatExceptionCtor =
         Reflection.ReadConstructor ci
     | _ -> failwith "Expected constructor call"
 
+let parseInt x =
+    Application(Global ["parseInt"], [x], Pure, Some 1)
+let toNumber x =
+    Application(Global ["Number"], [x], Pure, Some 1)
+
 [<Sealed>]
 type NumericMacro() =
     inherit Macro()
@@ -264,11 +274,6 @@ type NumericMacro() =
 
     override this.TranslateCall(c) =
         let name = c.DefiningType.Entity.Value.FullName
-
-        let parseInt x =
-            Application(Global ["parseInt"], [x], Pure, Some 1)
-        let parseFloat x =
-            Application(Global ["parseFloat"], [x], Pure, Some 1)
 
         let ex =
             Ctor(
@@ -302,7 +307,7 @@ type NumericMacro() =
             | Some self ->
                 // TODO refactor to separate method
                 if c.DefiningType.Entity.Value.AssemblyQualifiedName = "System.Char, mscorlib" then
-                    Application(Global ["String"; "fromCharCode"], [self], Pure, Some 1)
+                    self
                 else 
                     Application(Global ["String"], [self], Pure, Some 1)
                 |> MacroOk 
@@ -312,7 +317,7 @@ type NumericMacro() =
             | [x] ->
                 if name = "System.Single" || name = "System.Double" then
                     exprParse
-                    <| parseFloat x
+                    <| toNumber x
                     <| fun _ -> ex
                     <| fun id -> Var id
                     |> MacroOk
@@ -323,7 +328,7 @@ type NumericMacro() =
             | [x; y] ->
                 if name = "System.Single" || name = "System.Double" then
                     exprParse
-                    <| parseFloat x
+                    <| toNumber x
                     <| fun _ -> Value (Bool false)
                     <| fun id ->
                         Expression.Sequential [
@@ -348,23 +353,73 @@ type Char() =
         | [x] ->
             match c.Method.Generics with
             | t :: _ ->
-                if isIn integralTypes t then MacroOk x else
+                let fromNum() = 
+                    Application(Global ["String"; "fromCharCode"], [x], Pure, Some 1)
+                    |> MacroOk
+                if isIn integralTypes t then fromNum() else
                     match t with
                     | ConcreteType d ->
                         match d.Entity.Value.FullName with
                         | "System.String" ->
                             Call (None, NonGeneric charTy, NonGeneric charParse, [x])
                             |> MacroOk
-                        | "System.Char"
+                        | "System.Char" -> MacroOk x
                         | "System.Double"
-                        | "System.Single" -> MacroOk x
-                        | _               -> MacroError "charMacro error"
+                        | "System.Single" -> fromNum()
+                        | _ -> MacroError "charMacro error"
                     | _ ->
                         MacroError "charMacro error"
             | _ ->
                 MacroError "charMacro error"
         | _ ->
             MacroError "charMacro error"
+
+let printfHelpersModule =
+    TypeDefinition {
+        FullName = "WebSharper.PrintfHelpers"
+        Assembly = "WebSharper.Main"
+    }
+let printfHelpers (comp: M.ICompilation) f args = 
+    let m = comp.GetClassInfo(printfHelpersModule).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
+    Call(None, NonGeneric printfHelpersModule, NonGeneric m, args)
+
+[<Sealed>]
+type Range() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        match c.Method.Generics with
+        | t :: _ ->
+            match t with
+            | ConcreteType d ->
+                match d.Entity.Value.FullName with
+                | "System.Char" -> 
+                    printfHelpers c.Compilation "charRange" c.Arguments |> MacroOk   
+                | _ -> MacroFallback
+            | _ -> MacroFallback
+        | _ -> MacroError "Range macro error"
+
+[<Sealed>]
+type Conversion() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        let m = c.Method
+        let a = c.Arguments.Head
+        match m.Generics.Head, m.Entity.Value.ReturnType with
+        | ConcreteType { Entity = ft }, ConcreteType { Entity = tt } ->
+            NumericConversion ft tt a |> MacroOk
+        | TypeParameter _, ConcreteType { Entity = tt } ->
+            let tn = tt.Value.FullName
+            let warnAboutChar res =
+                MacroWarning ("Unsafe generic conversion for client-side, make sure input cannot be a char", MacroOk res)
+            if integralTypes.Contains tn then
+                parseInt a |> warnAboutChar
+            elif scalarTypes.Contains tn then
+                toNumber a |> warnAboutChar
+            elif tn = "System.Char" then
+                Application(Global ["String"; "fromCharCode"], [a], Pure, Some 1) |> warnAboutChar
+            else
+                MacroError ("Conversion macro error: generic to " + tn)
+        | f, t -> MacroError (sprintf "Conversion macro error: %O to %O" f t)
 
 [<Sealed>]
 type String() =
@@ -378,7 +433,7 @@ type String() =
                 | ConcreteType d ->
                     match d.Entity.Value.FullName with
                     | "System.Char" ->
-                        Application(Global ["String"; "fromCharCode"], [x], Pure, Some 1)    
+                        x
                     | "System.DateTime" ->
                         Application(ItemGet(New(Global [ "Date" ], [x]), Value (Literal.String "toLocaleString"), Pure), [], Pure, None)
                     | _ ->
@@ -674,15 +729,6 @@ let flags =
     System.Reflection.BindingFlags.Public
     ||| System.Reflection.BindingFlags.NonPublic
 
-let printfHelpersModule =
-    TypeDefinition {
-        FullName = "WebSharper.PrintfHelpers"
-        Assembly = "WebSharper.Main"
-    }
-let printfHelpers (comp: M.ICompilation) f args = 
-    let m = comp.GetClassInfo(printfHelpersModule).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
-    Call(None, NonGeneric printfHelpersModule, NonGeneric m, args)
-
 let stringModule = 
     TypeDefinition {
         FullName = "Microsoft.FSharp.Core.StringModule"
@@ -879,7 +925,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                         | o, _ -> printfHelpers comp "prettyPrint" [o]
                     )
                 | 'c' -> 
-                    withPadding f (fun (s, _) -> cCallG ["String"; "fromCharCode"]  [s])   
+                    withPadding f (fun (s, _) -> s)   
                 | 's' -> 
                     withPadding f (fun (s, _) -> printfHelpers comp "toSafe" [s])
                 | 'd' | 'i' ->
