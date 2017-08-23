@@ -143,7 +143,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | UInt16 v -> J.Number (string v)
         | UInt32 v -> J.Number (string v)
         | UInt64 v -> J.Number (string v)
-        | Decimal v -> J.Number (string v)
+        | Decimal _ -> failwith "Cannot write Decimal directly to JavaScript output"
         |> J.Constant
     | Application (e, ps, _, _) -> J.Application (trE e, ps |> List.map trE)
     | VarSet (id, e) -> J.Binary(J.Var (trI id), J.BinaryOperator.``=``, trE e)   

@@ -404,10 +404,28 @@ type Environment =
     member this.WithNotInitializing() =
         { this with Initializing = None }
 
+module Definitions =
+    let Decimal =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.Decimal"    
+        }
+
+    let DecimalCtorIntArray =
+        Constructor {
+            CtorParameters = [ ArrayType(NonGenericType Definitions.Int, 1) ]
+        }
+
 type RoslynTransformer(env: Environment) = 
     let getConstantValueOfExpression x =
-        env.SemanticModel.GetConstantValue(x).Value
-        |> ReadLiteral |> Value
+        let l =
+            env.SemanticModel.GetConstantValue(x).Value
+            |> ReadLiteral 
+        match l with
+        | Decimal x ->
+            Ctor(NonGeneric Definitions.Decimal, Definitions.DecimalCtorIntArray,
+                (System.Decimal.GetBits(x) |> Seq.map (Int >> Value) |> List.ofSeq))
+        | _ -> Value l
 
     let sr = env.SymbolReader
 
@@ -2120,7 +2138,7 @@ type RoslynTransformer(env: Environment) =
                 x.AlignmentClause |> Option.map (fun a ->
                     match getConstantValueOfExpression a.Value.Node with
                     | Value v -> "," + v.Value.ToString()
-                    | _ -> failwith "impossible: getConstantValueOfExpression returns a Value"
+                    | _ -> failwith "Decimal not supported for string alignment"
                 )
             let format = 
                 x.FormatClause |> Option.map (fun f ->

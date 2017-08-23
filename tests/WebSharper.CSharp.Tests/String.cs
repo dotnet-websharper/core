@@ -25,7 +25,7 @@ namespace WebSharper.CSharp.Tests
             Equal(String.Format("{0}", (object)"xyz"), "xyz");
             var xyz = "xyz";
             Equal(String.Format(xyz), "xyz");
-            var pricePerOunce = 17.36m;
+            var pricePerOunce = 17.36;
             Equal(String.Format("The current price is {0} per ounce.", pricePerOunce),
                 "The current price is 17.36 per ounce.");
             Equal(String.Format("{0,6} {1,15}", "foo", 12), "   foo              12");

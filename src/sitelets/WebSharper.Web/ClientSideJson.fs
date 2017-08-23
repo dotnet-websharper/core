@@ -318,7 +318,6 @@ module Macro =
                                 |"System.Int32" | "System.UInt32"
                                 |"System.Int64" | "System.UInt64"
                                 |"System.Single"| "System.Double"
-                                |"System.Decimal"
                                 |"System.String"| "System.Guid"
                                 |"WebSharper.Core.Json+Encoded"), []) ->
                     ok ident

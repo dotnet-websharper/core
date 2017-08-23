@@ -283,7 +283,7 @@ and Type =
     /// A class and method type parameters specified by index in the combined list
     | TypeParameter of ordinal: int
     /// An array with the specified number of dimensions
-    | ArrayType of elemType: Type * arity: int
+    | ArrayType of elemType: Type * rank: int
     /// A Sytem.Tuple type, type parameters are in a straight list
     | TupleType of elemTypes: list<Type> * isStruct: bool
     /// Identifies the FSharp.Core.FSharpFunc type

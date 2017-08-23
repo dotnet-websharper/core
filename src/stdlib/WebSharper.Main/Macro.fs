@@ -1021,11 +1021,11 @@ type EqualityComparer() =
                             "WebSharper.MacroModule+EquatableEqualityComparer`1"
                         else
                             "WebSharper.MacroModule+BaseEqualityComparer`1" }
-                Ctor(
-                    {Entity = Hashed td; Generics = [t]},
-                    Hashed<ConstructorInfo> { CtorParameters = [] },
-                    [])
-                |> MacroOk
+                Ctor (
+                    { Entity = Hashed td; Generics = [t] },
+                    Constructor { CtorParameters = [] },
+                    []
+                ) |> MacroOk
             | _ -> MacroError ""
         | _ -> MacroError "Type form not recognized"
 

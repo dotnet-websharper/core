@@ -36,8 +36,6 @@ type ConsoleProxy =
     [<Inline>]
     static member WriteLine(x: char[], s: int, c: int) = C.Log(System.String(Array.sub x s c))
     [<Inline>]
-    static member WriteLine(x: decimal) = C.Log(x)
-    [<Inline>]
     static member WriteLine(x: float) = C.Log(x)
     [<Inline>]
     static member WriteLine(x: int) = C.Log(x)

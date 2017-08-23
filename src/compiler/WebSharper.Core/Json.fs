@@ -549,11 +549,6 @@ let tryParseDouble x =
         System.Globalization.NumberStyles.Float, 
         System.Globalization.NumberFormatInfo.InvariantInfo)
 
-let tryParseDecimal x = 
-    System.Decimal.TryParse(x, 
-        System.Globalization.NumberStyles.Float, 
-        System.Globalization.NumberFormatInfo.InvariantInfo)
-
 let serializers =
     let d = Dictionary()
     addNumeric System.Byte.TryParse d
@@ -566,7 +561,6 @@ let serializers =
     addNumeric System.UInt64.TryParse d
     addNumeric tryParseSingle d
     addNumeric tryParseDouble d
-    addNumeric tryParseDecimal d
     let encBool = function
         | true -> EncodedTrue
         | false -> EncodedFalse

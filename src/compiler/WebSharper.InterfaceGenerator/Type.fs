@@ -593,7 +593,6 @@ module Type =
             "Int32"
             "UInt16"
             "UInt32"
-            "Decimal"
             "Int64"
             "UInt64" 
             "Char"

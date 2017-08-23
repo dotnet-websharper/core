@@ -1330,8 +1330,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | "System.Int64"
             | "System.UInt16"
             | "System.UInt32"
-            | "System.UInt64" 
-            | "System.Decimal" ->
+            | "System.UInt64" ->
                 TypeOf "number"
             | "System.String" ->
                 TypeOf "string"
