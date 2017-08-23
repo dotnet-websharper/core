@@ -293,12 +293,56 @@ type Info =
         }
 
     static member UnionWithoutDependencies (metas: seq<Info>) = 
+        let isStaticPart (c: ClassInfo) =
+            Option.isNone c.Address
+            && Option.isNone c.BaseClass
+            && Dict.isEmpty c.Constructors
+            && Dict.isEmpty c.Fields
+            && not c.HasWSPrototype
+            && Dict.isEmpty c.Implementations
+            && List.isEmpty c.Macros
+            && Option.isNone c.StaticConstructor
+            && c.Methods.Values |> Seq.forall (function | Instance _,_,_ -> false | _ -> true)
+
+        let tryMergeClassInfo (a: ClassInfo) (b: ClassInfo) =
+            let combine (left: 'a option) (right: 'a option) =
+                match left with
+                | Some _ -> left
+                | None -> right
+            if isStaticPart a || isStaticPart b then
+                Some {
+                    Address = combine a.Address b.Address
+                    BaseClass = combine a.BaseClass b.BaseClass
+                    Constructors = Dict.union [a.Constructors; b.Constructors]
+                    Fields = Dict.union [a.Fields; b.Fields]
+                    HasWSPrototype = a.HasWSPrototype || b.HasWSPrototype
+                    Implementations = Dict.union [a.Implementations; b.Implementations]
+                    Macros = List.concat [a.Macros; b.Macros]
+                    Methods = Dict.union [a.Methods; b.Methods]
+                    StaticConstructor = combine a.StaticConstructor b.StaticConstructor
+                }
+            else
+                None
+
+        let unionMerge (dicts:seq<IDictionary<TypeDefinition,ClassInfo>>) =
+            let result = Dictionary() :> IDictionary<TypeDefinition,_>
+            for dict in dicts do
+                for cls in dict do
+                    result.TryGetValue cls.Key
+                    |> function
+                        | false, _ -> result.Add cls
+                        | true, prevPart ->
+                            match tryMergeClassInfo prevPart cls.Value with
+                            | Some mergedInfo -> result.[cls.Key] <- mergedInfo
+                            | None -> failwithf "Error merging class info on key: %A" cls.Key
+            result
+
         let metas = Array.ofSeq metas
         {
             SiteletDefinition = metas |> Seq.tryPick (fun m -> m.SiteletDefinition)
             Dependencies = GraphData.Empty
             Interfaces = Dict.union (metas |> Seq.map (fun m -> m.Interfaces))
-            Classes = Dict.union (metas |> Seq.map (fun m -> m.Classes))
+            Classes = unionMerge (metas |> Seq.map (fun m -> m.Classes))
             CustomTypes = Dict.unionDupl (metas |> Seq.map (fun m -> m.CustomTypes))
             EntryPoint = 
                 match metas |> Array.choose (fun m -> m.EntryPoint) with
