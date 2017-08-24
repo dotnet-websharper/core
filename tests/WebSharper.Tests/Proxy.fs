@@ -52,11 +52,6 @@ type IIsClientClass [<JavaScript>] () =
     interface IIsClient with
         member this.IsClient() = false
 
-[<Proxy "WebSharper.Collections.Tests.SplitProxy+ClassInfoMergeTestType, WebSharper.Collections.Tests">]
-module private TestTypeProxy =
-    [<Name "WebSharper.Collections.Tests.SplitProxy.ClassInfoMergeTestType.Member2">]
-    let [<Inline "'member2'">] Member2 () = X<string>
-
 [<JavaScript>]
 let Tests =
 
