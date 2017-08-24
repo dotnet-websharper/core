@@ -89,6 +89,11 @@
       <Project>{666977bf-e022-4c8f-b53d-5d294d41010f}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj">
+      <Name>WebSharper.Web.Tests</Name>
+      <Project>{2605322f-851c-4c6a-a204-f4eee9e21252}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <Reference Include="WebSharper.JavaScript">
       <HintPath>..\..\build\$(Configuration)\WebSharper.JavaScript.dll</HintPath>
       <Private>True</Private>
