@@ -303,7 +303,13 @@ type Compilation(meta: Info, ?hasGraph) =
             SiteletDefinition = this.SiteletDefinition 
             Dependencies = if hasGraph then graph.GetData() else GraphData.Empty
             Interfaces = interfaces.Current
-            Classes = classes.Current        
+            Classes = 
+                classes.Current |> Dict.map (fun c ->
+                    match c.Methods with
+                    | :? MergedDictionary<Method, CompiledMember * Optimizations * Expression> as m -> 
+                        { c with Methods = m.Current }
+                    | _ -> c
+                )
             CustomTypes = 
                 customTypes.Current |> Dict.filter (fun _ v -> v <> NotCustomType)
             EntryPoint = entryPoint
@@ -771,6 +777,10 @@ type Compilation(meta: Info, ?hasGraph) =
                     if classes.ContainsKey b || notResolvedClasses.ContainsKey b then Some b else None
                 )
             let hasWSPrototype = hasWSPrototype cls.Kind baseCls cls.Members                
+            let methods =
+                match classes.TryFind typ with
+                | Some c -> MergedDictionary c.Methods :> IDictionary<_,_>
+                | _ -> Dictionary() :> _
             classes.Add (typ,
                 {
                     Address = if hasWSPrototype || cls.ForceAddress then someEmptyAddress else None
@@ -778,7 +788,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     Constructors = Dictionary() 
                     Fields = Dictionary() 
                     StaticConstructor = if Option.isSome cctor then unresolvedCctor else None 
-                    Methods = Dictionary()
+                    Methods = methods
                     Implementations = Dictionary()
                     HasWSPrototype = hasWSPrototype
                     Macros = cls.Macros |> List.map (fun (m, p) -> m, p |> Option.map ParameterObject.OfObj)

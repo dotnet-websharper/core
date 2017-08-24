@@ -148,10 +148,10 @@ type internal MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDicti
  
     member x.Item
         with get (key: 'TKey): 'TValue = 
-            match orig.TryGetValue key with
-            | true, value -> value
-            | _ ->
             match current.TryGetValue key with
+            | true, value -> value
+            | _ -> 
+            match orig.TryGetValue key with
             | true, value -> value
             | _ -> raise (KeyNotFoundException())
         and set (key: 'TKey) (v: 'TValue): unit = 
@@ -163,7 +163,7 @@ type internal MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDicti
         Seq.append orig.Keys current.Keys
 
     member x.TryGetValue(key: 'TKey, value: byref<'TValue>): bool = 
-        orig.TryGetValue(key, &value) || current.TryGetValue(key, &value)
+        current.TryGetValue(key, &value) || orig.TryGetValue(key, &value)
 
     member this.TryFind(key: 'TKey) =
         let mutable value = Unchecked.defaultof<'TValue>
