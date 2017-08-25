@@ -187,7 +187,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             match withoutMacros info with
             | M.Constructor caddr ->
                 if body <> Undefined then
-                    if Option.isSome c.Address then
+                    if c.HasWSPrototype && Option.isSome c.Address then
                         package caddr <| 
                             match c.Address with
                             | Some addr -> JSRuntime.Ctor body (GlobalAccess addr)
