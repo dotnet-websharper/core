@@ -28,22 +28,6 @@ open System.Collections.Generic
 
 module I = IgnoreSourcePos
 
-/// Change every occurence of one Id to another
-type ReplaceId(fromId, toId) =
-    inherit Transformer()
-    
-    override this.TransformId i =
-        if i = fromId then toId else i
-
-/// Change every occurence of multiple Ids
-type ReplaceIds(repl : System.Collections.Generic.IDictionary<Id, Id>) =
-    inherit Transformer()
-    
-    override this.TransformId i =
-        match repl.TryGetValue i with
-        | true, j -> j
-        | _ -> i
-
 let rec removePureParts expr =
     match expr with
     | Undefined

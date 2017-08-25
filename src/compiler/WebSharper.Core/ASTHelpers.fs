@@ -279,3 +279,19 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     | StringType, (SmallIntegralType | BigIntegralType | ScalarType)
         -> Application(Global ["Number"], [expr], Pure, Some 1)
     | _ -> expr
+
+/// Change every occurence of one Id to another
+type ReplaceId(fromId, toId) =
+    inherit Transformer()
+    
+    override this.TransformId i =
+        if i = fromId then toId else i
+
+/// Change every occurence of multiple Ids
+type ReplaceIds(repl : System.Collections.Generic.IDictionary<Id, Id>) =
+    inherit Transformer()
+    
+    override this.TransformId i =
+        match repl.TryGetValue i with
+        | true, j -> j
+        | _ -> i

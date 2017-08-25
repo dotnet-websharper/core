@@ -49,13 +49,13 @@ let ( .. .. ) (min: 'T1) (step: 'T2) (max: 'T1) : seq<'T1> =
 [<Inline "$r[0]">]
 let ( ! ) (r: ref<'T>) = X<'T>
 
-[<Inline "$a % $b">]
+[<Macro(typeof<M.Arith>)>]
 let ( % ) (a: 'T1) (b: 'T2) = X<'T3>
 
 [<Inline "$a & $b">]
 let ( &&& ) (a: 'T1) (b: 'T1) = X<'T1>
 
-[<Macro(typeof<M.Mul>)>]
+[<Macro(typeof<M.Arith>)>]
 let ( * ) (a: 'T1) (b: 'T2) = X<'T3>
 
 [<Inline "Math.pow($a, $b)">]
@@ -64,13 +64,13 @@ let ( ** ) (a: 'T1) (b: 'T2) = X<'T1>
 [<Inline "Math.pow($a, $p)">]
 let PowInteger (a: 'T, p: int) = X<'T>
 
-[<Macro(typeof<M.Add>)>]
+[<Macro(typeof<M.Arith>)>]
 let ( + ) (a: 'T1) (b: 'T2) = X<'T3>
 
-[<Macro(typeof<M.Sub>)>]
+[<Macro(typeof<M.Arith>)>]
 let ( - ) (a: 'T1) (b: 'T2) = X<'T3>
 
-[<Macro(typeof<M.Div>)>]
+[<Macro(typeof<M.Arith>)>]
 let ( / ) (x: 'T1) (y: 'T2) = X<'T3>
 
 [<Inline "void ($a[0] = $b)">]
@@ -94,22 +94,22 @@ let ( <|| ) (f: 'T1 -> 'T2 -> 'TR) (x: 'T1, y: 'T2) : 'TR = f x y
 let ( <||| ) (f: 'T1 -> 'T2 -> 'T3 -> 'TR)
              (x: 'T1, y: 'T2, z: 'T3) : 'TR = f x y z
 
-[<Macro(typeof<M.EQ>)>]
+[<Macro(typeof<M.Comp>)>]
 let ( = ) (a: 'T) (b: 'T) = X<bool>
 
-[<Macro(typeof<M.NE>)>]
+[<Macro(typeof<M.Comp>)>]
 let ( <> ) (a: 'T) (b: 'T) =  X<bool>
 
-[<Macro(typeof<M.LT>)>]
+[<Macro(typeof<M.Comp>)>]
 let ( < ) (a: 'T) (b: 'T) = X<bool>
 
-[<Macro(typeof<M.GT>)>]
+[<Macro(typeof<M.Comp>)>]
 let ( > ) (a: 'T) (b: 'T) = X<bool>
 
-[<Macro(typeof<M.LE>)>]
+[<Macro(typeof<M.Comp>)>]
 let ( <= ) (a: 'T) (b: 'T) = X<bool>
 
-[<Macro(typeof<M.GE>)>]
+[<Macro(typeof<M.Comp>)>]
 let ( >= ) (a: 'T) (b: 'T) = X<bool>
 
 [<Inline>]

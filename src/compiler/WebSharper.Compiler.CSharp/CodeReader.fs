@@ -239,6 +239,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             GenericType td ta
 
     member this.ReadType (x: ITypeSymbol) : Type =
+        if isNull x then VoidType else
         match x.TypeKind with
         | TypeKind.Array ->
             let t = x :?> IArrayTypeSymbol
@@ -1211,7 +1212,16 @@ type RoslynTransformer(env: Environment) =
             Coalesce(left, leftType, right)
         | _ -> 
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-            call symbol None [left; right]
+            let typ, meth = getTypeAndMethod symbol
+            if List.isEmpty meth.Generics then
+                // add fake generics type information to resolve nullable operations
+                let leftType = env.SemanticModel.GetTypeInfo(x.Left.Node).Type |> sr.ReadType
+                let rightType = env.SemanticModel.GetTypeInfo(x.Right.Node).Type |> sr.ReadType
+                let meth =
+                    { meth with Generics = [leftType; rightType] }
+                Call(None, typ, meth, [left; right])
+            else
+                Call(None, typ, meth, [left; right])
         |> withExprSourcePos x.Node
 
     member this.TransformConditionalExpression (x: ConditionalExpressionData) : Expression =

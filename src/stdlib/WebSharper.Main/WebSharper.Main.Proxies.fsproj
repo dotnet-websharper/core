@@ -26,7 +26,7 @@
     <Compile Include="Remoting.fs" />
     <EmbeddedResource Include="AnimFrame.js" />
     <EmbeddedResource Include="AnimFrame.min.js" />
-    <Compile Include="PrintfHelpers.fs" />
+    <Compile Include="Utils.fs" />
     <Compile Include="Concurrency.fs" />
     <Compile Include="Enumerator.fs" />
     <Compile Include="Enumerable.fs" />
@@ -69,6 +69,8 @@
     <Compile Include="Proxy/ListModule.fs" />
     <Compile Include="Proxy/Math.fs" />
     <Compile Include="Proxy/Nullable.fs" />
+    <Compile Include="Proxy/NullableModule.fs" />
+    <Compile Include="Proxy/NullableOperators.fs" />
     <Compile Include="Proxy/Operators.fs" />
     <Compile Include="Proxy/OperatorIntrinsics.fs" />
     <Compile Include="Proxy/Option.fs" />
