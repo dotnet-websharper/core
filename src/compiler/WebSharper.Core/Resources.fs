@@ -104,11 +104,15 @@ let thisAssemblyToken =
 
 let AllReferencedAssemblies = 
     lazy
-    try
-        System.Web.Compilation.BuildManager.GetReferencedAssemblies()
-        |> Seq.cast<System.Reflection.Assembly>
-        |> Seq.toList
-    with _ ->
+    let fromWeb =
+        try
+            System.Web.Compilation.BuildManager.GetReferencedAssemblies()
+            |> Seq.cast<System.Reflection.Assembly>
+            |> Seq.toList
+        with _ -> []
+    match fromWeb with
+    | _::_ -> fromWeb
+    | [] ->
     let trace =
         System.Diagnostics.TraceSource("WebSharper",
             System.Diagnostics.SourceLevels.All)
