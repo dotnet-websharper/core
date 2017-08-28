@@ -303,6 +303,20 @@ let tryGetOutsideValueAndFail() = X<int>
 [<Inline "$global.OutSideCode.NotInitialized.getValue()">]
 let tryGetOutsideValue() = X<int>
 
+type TestConfigObj [<JavaScript>]() =
+
+    [<Name "x">]
+    [<Stub>]
+    member val X = Unchecked.defaultof<bool> with get, set
+
+    [<DefaultValue>]
+    val mutable private value : int
+
+    [<JavaScript>]
+    member this.Value
+        with set x =
+            this.value <- x
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -733,7 +747,16 @@ let Tests =
             equal (h 4 4) 14
         }
 
-//        Test "Recursive module value" {
-//            equal (moduleFuncValue 0) 5
-//        }
+        Test "#747 Property set" {
+            let x = TestConfigObj()
+            x.Value <- 4
+            equal x?value 4
+            isFalse x.X
+            x.X <- true
+            isTrue x.X
+        }
+
+        //Test "Recursive module value" {
+        //    equal (moduleFuncValue 0) 5
+        //}
     }

@@ -375,9 +375,9 @@ let translate source =
     
     let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
 
-//    fsDeclarations |> List.iter (printfn "%s") 
-//    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
-//    compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
+    fsDeclarations |> List.iter (printfn "%s") 
+    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
+    compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
     js |> printfn "%s" 
 
 translate """
@@ -385,19 +385,16 @@ module M
 
 open WebSharper
 
-//[<Inline "void $x">]
-[<Inline>]
-let ignore x = ()
-
-[<JavaScript>]
-let f () = 
-    printfn "hi"
-    1 + 1
-
-[<JavaScript>]
-let g() = ignore (f ())
-
-do g()
+[<Inline "
+    function namedFunc(x) {
+        return x*x;
+    }
+    var funcVar = function(x) {
+        return x*x;
+    };
+    return {a: funcVar($0), b: namedFunc($0)};
+">]
+let testFunc (x:int) = X<obj>
     """
 
 let translateQ q =
