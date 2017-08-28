@@ -148,6 +148,17 @@ let RunTwice f =
     f()
     f()
 
+[<Inline """
+    function namedFunc(x) {
+        return x*x;
+    }
+    var funcVar = function(x) {
+        return x*x;
+    };
+    return {a: funcVar($0), b: namedFunc($0)};
+""">]
+let testFunc (x:int) = X<obj>
+
 [<JavaScript>]
 let Tests =
     TestCategory "Basis" {
@@ -458,6 +469,12 @@ let Tests =
             isTrue JS.Window?inlineStatementTest2
         }
 
+        Test "Inlined local function" {
+            let x = testFunc 3
+            equal x?a 9
+            equal x?b 9
+        }
+        
         Test "F# 4.1 syntax" {
             let a = 1_024
             equalMsg a 1024 "underscores in numeric literals"                

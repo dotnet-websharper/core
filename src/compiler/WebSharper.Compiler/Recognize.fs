@@ -511,6 +511,8 @@ type InlinedStatementsTransformer() =
         
         VarSetStatement(rv, expr)
 
+    override this.TransformFuncDeclaration(a, b, c)  = FuncDeclaration(a, b, c) 
+    
     member this.Run(st) =
         let res = this.TransformStatement(st)
         StatementExpr(res, returnVar)
