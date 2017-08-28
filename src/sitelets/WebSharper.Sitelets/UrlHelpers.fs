@@ -53,10 +53,87 @@ module UrlHelpers =
             !res |> Some
         else
             None
+    
+    let (|UINT|_|) (s: string) =
+        let res = ref 0u
+        if UInt32.TryParse(s, res) then
+            !res |> Some
+        else
+            None
+     
+    let (|INT64|_|) (s: string) =
+        let res = ref 0L
+        if Int64.TryParse(s, res) then
+            !res |> Some
+        else
+            None
 
+    let (|UINT64|_|) (s: string) =
+        let res = ref 0UL
+        if UInt64.TryParse(s, res) then
+            !res |> Some
+        else
+            None
+    
+    let (|INT16|_|) (s: string) =
+        let res = ref (int16 0)
+        if Int16.TryParse(s, res) then
+            !res |> Some
+        else
+            None
+
+    let (|UINT16|_|) (s: string) =
+        let res = ref (uint16 0)
+        if UInt16.TryParse(s, res) then
+            !res |> Some
+        else
+            None
+    
+    let (|INT8|_|) (s: string) =
+        let res = ref (int8 0)
+        if SByte.TryParse(s, res) then
+            !res |> Some
+        else
+            None
+    
+    let (|UINT8|_|) (s: string) =
+        let res = ref (uint8 0)
+        if Byte.TryParse(s, res) then
+            !res |> Some
+        else
+            None
+
+    let (|DBYTE|_|) (s: string) =
+        let res = ref (sbyte 0)
+        if SByte.TryParse(s, res) then
+            !res |> Some
+        else
+            None
+    
+    let (|BYTE|_|) (s: string) =
+        let res = ref (byte 0)
+        if Byte.TryParse(s, res) then
+            !res |> Some
+        else
+            None
+            
     let (|FLOAT|_|) (s: string)=
         let res = ref 0.0
         if Double.TryParse(s, res) then
+            !res |> Some
+        else
+            None
+
+    let (|GUID|_|) (s: string) =
+        let res = ref Guid.Empty
+        if Guid.TryParse(s, res) then
+            !res |> Some
+        else
+            None
+
+    let (|BOOL|_|) (s: string) =
+        let res = ref false
+        if Boolean.TryParse(s, res) then
             !res |> Some
         else
             None

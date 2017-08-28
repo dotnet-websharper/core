@@ -34,8 +34,41 @@ module UrlHelpers =
     /// Parse an integer in a string.
     val (|INT|_|) : string -> int option
 
+    /// Parse an unsigned integer in a string.
+    val (|UINT|_|) : string -> UInt32 option
+
+    /// Parse a 64-bit integer in a string.
+    val (|INT64|_|) : string -> int64 option
+
+    /// Parse a 64-bit unsigned integer in a string.
+    val (|UINT64|_|) : string -> UInt64 option
+
+    /// Parse a 16-bit integer in a string.
+    val (|INT16|_|) : string -> int16 option
+
+    /// Parse a 16-bit unsigned integer in a string.
+    val (|UINT16|_|) : string -> UInt16 option
+    
+    /// Parse a 8-bit integer in a string.
+    val (|INT8|_|) : string -> int8 option
+
+    /// Parse a 8-bit unsigned integer in a string.
+    val (|UINT8|_|) : string -> uint8 option
+    
+    /// Parse a sbyte in a string.
+    val (|SBYTE|_|) : string -> sbyte option
+
+    /// Parse a byte in a string.
+    val (|BYTE|_|) : string -> byte option
+
     /// Parse a floating-point number in a string.
     val (|FLOAT|_|) : string -> float option
+
+    /// Parse a guid in a string
+    val (|GUID|_|) : string -> Guid option
+
+    /// Parse a boolean in a string
+    val (|BOOL|_|): string -> bool option
 
     /// Parse an alphabetic string in a string.
     /// Returns the parsed string and the remainder of the string.
