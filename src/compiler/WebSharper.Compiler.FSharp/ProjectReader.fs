@@ -250,6 +250,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             a
 
     let stubs = HashSet()
+    let mutable hasStubMember = false
+    let mutable hasNonStubMember = false
 
     for meth in cls.MembersFunctionsAndValues do
         if meth.IsProperty then () else
@@ -260,6 +262,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
         match mAnnot.Kind with
         | Some A.MemberKind.Stub ->
+            hasStubMember <- true
             let memdef = sr.ReadMember meth
             match memdef with
             | Member.Method (isInstance, mdef) ->
@@ -357,6 +360,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | Some A.MemberKind.Stub
             | Some (A.MemberKind.Remote _) -> ()
             | Some kind ->
+                hasNonStubMember <- true
                 let memdef = sr.ReadMember meth
 
                 if stubs.Contains memdef then () else
@@ -664,7 +668,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 
     let ckind = 
-        if annot.IsStub
+        if annot.IsStub || (hasStubMember && not hasNonStubMember)
         then NotResolvedClassKind.Stub
         elif cls.IsFSharpModule then NotResolvedClassKind.Static
         elif (annot.IsJavaScript && (isAbstractClass cls || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
