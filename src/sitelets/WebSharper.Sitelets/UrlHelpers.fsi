@@ -49,10 +49,10 @@ module UrlHelpers =
     /// Parse a 16-bit unsigned integer in a string.
     val (|UINT16|_|) : string -> UInt16 option
     
-    /// Parse a 8-bit integer in a string.
+    /// Parse a 8-bit integer in a string (same as SBYTE).
     val (|INT8|_|) : string -> int8 option
 
-    /// Parse a 8-bit unsigned integer in a string.
+    /// Parse a 8-bit unsigned integer in a string (same as BYTE).
     val (|UINT8|_|) : string -> uint8 option
     
     /// Parse a sbyte in a string.

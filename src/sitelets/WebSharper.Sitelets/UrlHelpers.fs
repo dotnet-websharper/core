@@ -103,7 +103,7 @@ module UrlHelpers =
         else
             None
 
-    let (|DBYTE|_|) (s: string) =
+    let (|SBYTE|_|) (s: string) =
         let res = ref (sbyte 0)
         if SByte.TryParse(s, res) then
             !res |> Some
