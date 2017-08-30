@@ -6,7 +6,7 @@ if errorlevel 1 (
   exit /b %errorlevel%
 )
 
-.paket\paket.exe restore
+.paket\paket.exe restore --touch-affected-refs
 if errorlevel 1 (
   exit /b %errorlevel%
 )

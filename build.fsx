@@ -6,7 +6,7 @@ open Fake
 open WebSharper.Fake
 
 let version = "4.0"
-let pre = Some "beta6"
+let pre = Some "beta10"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
@@ -14,22 +14,7 @@ let baseVersion =
 
 let targets = MakeTargets {
     WSTargets.Default (ComputeVersion (Some baseVersion)) with
-        ProjectFiles =
-            !! "src/compiler/*/*.fsproj"
-            // stdlib spelled out to ensure that Main.Proxies is built before Main
-            ++ "src/stdlib/WebSharper.JavaScript/*.fsproj"
-            ++ "src/stdlib/WebSharper.JQuery/*.fsproj"
-            ++ "src/stdlib/WebSharper.Main.Proxies/*.fsproj"
-            ++ "src/stdlib/WebSharper.Main/*.fsproj"
-            ++ "src/stdlib/WebSharper.JQuery/*.fsproj"
-            ++ "src/stdlib/WebSharper.Control/*.fsproj"
-            ++ "src/stdlib/WebSharper.Collections/*.fsproj"
-            ++ "src/stdlib/WebSharper.Testing/*.fsproj"
-            ++ "src/sitelets/*/*.fsproj"
-            ++ "tests/*/*.fsproj"
-            ++ "tests/*/*.csproj"
-            -- "tests/WarpTest/*.fsproj"
-            -- "tests/WebSharper.Core.JavaScript.Tests/*.fsproj"
+        SolutionFile = "WebSharper.sln"
 }
 
 let NeedsBuilding input output =
@@ -64,10 +49,10 @@ Target "Prepare" <| fun () ->
     SetVersion()
 targets.AddPrebuild "Prepare"
 
-Target "Build" ignore
+Target "Build" DoNothing
 targets.BuildDebug ==> "Build"
 
-Target "CI-Release" ignore
+Target "CI-Release" DoNothing
 targets.Publish ==> "CI-Release"
 
 Target "Run" <| fun () ->

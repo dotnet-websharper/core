@@ -43,7 +43,8 @@ let private depsFile = Paket.DependenciesFile.ReadFromFile "./paket.dependencies
 let private mainGroup = depsFile.GetGroup(Paket.Domain.GroupName "Main")
 
 let GetSemVerOf pkgName =
-    match Paket.NuGetV2.GetVersions true None "." (mainGroup.Sources, Paket.Domain.PackageName pkgName)
+    match Paket.NuGet.GetVersions true None "." (mainGroup.Sources, Paket.Domain.PackageName pkgName)
+        |> Async.RunSynchronously
         |> List.map fst with
     | [] -> None
     | l -> Some (List.max l)
@@ -102,7 +103,7 @@ let ComputeVersion (baseVersion: option<Paket.SemVerInfo>) =
 type Args =
     {
         Version : Paket.SemVerInfo
-        ProjectFiles : seq<string>
+        SolutionFile : string
         Attributes : seq<Attribute>
         StrongName : bool
         BaseBranch : string
@@ -153,7 +154,8 @@ let MakeTargets (args: Args) =
             ]
 
     let build f =
-        f "" "Build" args.ProjectFiles
+        !! args.SolutionFile
+        |> f "" "Build"
         |> Log "AppBuild-Output: "
 
     Target "WS-BuildDebug" <| fun () ->
@@ -245,10 +247,7 @@ type WSTargets with
     static member Default (version) =
         {
             Version = version
-            ProjectFiles =
-                !! "/**/*.csproj"
-                ++ "/**/*.fsproj"
-                :> seq<string>
+            SolutionFile = "*.sln"
             Attributes = Seq.empty
             StrongName = false
             BaseBranch = Git.Information.getBranchName "."

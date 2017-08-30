@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26430.6
+VisualStudioVersion = 15.0.26730.12
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}"
 EndProject
@@ -124,8 +124,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{F4582361-B
 		docs\WebSharper.md = docs\WebSharper.md
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WarpTest", "tests\WarpTest\WarpTest.fsproj", "{B492879F-0657-4830-8E77-4F243C3B1B44}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Compiler.FSharp", "src\compiler\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj", "{D54EA1FD-F52F-4F07-921F-7B3D1B412CD0}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Compiler.CSharp", "src\compiler\WebSharper.Compiler.CSharp\WebSharper.Compiler.CSharp.fsproj", "{8F188E8B-547E-4A8E-BD3B-257A13AF9ACD}"
@@ -144,7 +142,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebSharper.CSharp.Sitelets.
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.CSharp.Analyzer", "src\compiler\WebSharper.CSharp.Analyzer\WebSharper.CSharp.Analyzer.fsproj", "{055CF3AD-BDAF-4441-989B-D764B80FBDEE}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Main.Proxies", "src\stdlib\WebSharper.Main\WebSharper.Main.Proxies.fsproj", "{7001E2B2-61F4-4770-BA7C-86F07F657678}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Main.Proxies", "src\stdlib\WebSharper.Main.Proxies\WebSharper.Main.Proxies.fsproj", "{7001E2B2-61F4-4770-BA7C-86F07F657678}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -279,12 +277,6 @@ Global
 		{4C826618-E150-40F7-B13A-9182F0C3EACA}.DebugTests|Any CPU.Build.0 = DebugTests|Any CPU
 		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B492879F-0657-4830-8E77-4F243C3B1B44}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B492879F-0657-4830-8E77-4F243C3B1B44}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B492879F-0657-4830-8E77-4F243C3B1B44}.DebugTests|Any CPU.ActiveCfg = Debug|Any CPU
-		{B492879F-0657-4830-8E77-4F243C3B1B44}.DebugTests|Any CPU.Build.0 = Debug|Any CPU
-		{B492879F-0657-4830-8E77-4F243C3B1B44}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B492879F-0657-4830-8E77-4F243C3B1B44}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D54EA1FD-F52F-4F07-921F-7B3D1B412CD0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D54EA1FD-F52F-4F07-921F-7B3D1B412CD0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D54EA1FD-F52F-4F07-921F-7B3D1B412CD0}.DebugTests|Any CPU.ActiveCfg = Debug|Any CPU
@@ -376,7 +368,6 @@ Global
 		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{4C826618-E150-40F7-B13A-9182F0C3EACA} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{F4582361-BAD1-4D58-AFB8-529185357EE4} = {7C8FF043-B608-42BD-930B-2249675BA666}
-		{B492879F-0657-4830-8E77-4F243C3B1B44} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{D54EA1FD-F52F-4F07-921F-7B3D1B412CD0} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{8F188E8B-547E-4A8E-BD3B-257A13AF9ACD} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{615AEA64-16EC-49BC-AFB4-36211F6354CC} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
@@ -387,5 +378,8 @@ Global
 		{91E8E3CC-B1F5-4D27-8DAF-639CA5C76F63} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{055CF3AD-BDAF-4441-989B-D764B80FBDEE} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{7001E2B2-61F4-4770-BA7C-86F07F657678} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5F8D55BB-6DB9-4B9C-9104-C9F5EFC53B01}
 	EndGlobalSection
 EndGlobal
