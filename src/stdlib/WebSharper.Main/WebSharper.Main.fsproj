@@ -22,12 +22,13 @@
     <Compile Include="Remoting.fs" />
     <EmbeddedResource Include="AnimFrame.js" />
     <EmbeddedResource Include="AnimFrame.min.js" />
-    <Compile Include="PrintfHelpers.fs" />
+    <Compile Include="Utils.fs" />
     <Compile Include="Concurrency.fs" />
     <Compile Include="Enumerator.fs" />
     <Compile Include="Enumerable.fs" />
     <Compile Include="Resources.fs" />
     <Compile Include="Html.fs" />
+    <Compile Include="JSObject.fs" />
     <Compile Include="FSharpConvert.fs" />
     <Compile Include="JavaScript.Extensions.fs" />
     <Compile Include="ProxyHelpers.fs" />

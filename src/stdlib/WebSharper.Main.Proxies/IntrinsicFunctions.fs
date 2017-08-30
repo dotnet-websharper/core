@@ -73,7 +73,7 @@ let SetArray<'T> (arr: 'T[]) (n: int) (x: 'T) =
     checkBounds arr n
     SetArrayInternal arr n x
 
-[<Inline "$s.charCodeAt($ix)">]
+[<Inline "$s[$ix]">]
 [<Name "WebSharper.Strings.get">]
 let GetString (s: string) (ix: int) = X<char>
 

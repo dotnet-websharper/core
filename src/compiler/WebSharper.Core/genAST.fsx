@@ -91,6 +91,7 @@ let TypeDefinition = Object "Concrete<TypeDefinition>"
 let Constructor = Object "Constructor"
 let NonGenericMethod = Object "Method"
 let Method = Object "Concrete<Method>"
+let Purity = Object "Purity" 
 //let Field = Object "Field"
 let Str = Object "string"
 let Type = Object "Type"
@@ -109,7 +110,7 @@ let ExprDefs =
             , "Gets the value of a variable"
         "Value", [ Literal, "value" ]
             , "Contains a literal value"
-        "Application", [ Expr, "func" ; List Expr, "arguments"; Bool, "pure"; Option Int, "knownLength" ]
+        "Application", [ Expr, "func" ; List Expr, "arguments"; Purity, "pure"; Option Int, "knownLength" ]
             , "Function application with extra information. \
                The `pure` field should be true only when the function called has no side effects, so the side effects of \
                the expression is the same as evaluating `func` then the expressions in the `arguments` list. \
@@ -125,10 +126,8 @@ let ExprDefs =
             , "Creating a new array"
         "Conditional", [ Expr, "condition"; Expr, "whenTrue"; Expr, "whenFalse" ]  
             , "Conditional operation"
-        "ItemGet", [ Expr, "object";  Expr, "item" ]
+        "ItemGet", [ Expr, "object";  Expr, "item"; Purity, "pure" ]
             , "Indexer get without side effects"
-        "ItemGetNonPure", [ Expr, "object";  Expr, "item" ]
-            , "Indexer get with possible side effects"
         "ItemSet", [ Expr, "object"; Expr, "item"; Expr, "value" ]
             , "Indexer set"
         "Binary", [ Expr, "left"; Object "BinaryOperator", "operator"; Expr, "right" ]
@@ -320,8 +319,8 @@ let code =
             cprintfn "    with"
             for opSym in binaryOps do
                 cprintfn "    static member (^%s) (a, b) = Binary (a, BinaryOperator.``%s``, b)" opSym opSym
-            cprintfn "    member a.Item b = ItemGet (a, b)"
-            cprintfn "    member a.Item b = Application (a, b, false, None)"
+            cprintfn "    member a.Item b = ItemGet (a, b, NonPure)"
+            cprintfn "    member a.Item b = Application (a, b, NonPure, None)"
 
     let ExprAndStatementDefs =
         seq {

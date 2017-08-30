@@ -54,7 +54,7 @@ type Loader(aR: AssemblyResolver, log: string -> unit) =
     let load flp (bytes: byte[]) (symbols: option<Symbols>) (aR: AssemblyResolver) =
         let str = new MemoryStream(bytes)
         let par = Mono.Cecil.ReaderParameters()
-        par.AssemblyResolver <- Resolver aR
+        par.AssemblyResolver <- new Resolver(aR)
         par.ReadingMode <- Mono.Cecil.ReadingMode.Deferred
         match symbols with
         | Some (Pdb bytes) ->

@@ -120,6 +120,10 @@ let Return (x: 'T) : C<'T> =
     fun c -> c.k (Ok x)
 
 [<JavaScript; Pure>]
+let Zero =
+    Return ()
+
+[<JavaScript; Pure>]
 let Bind (r: C<'T>, f: 'T -> C<'R>) =
     checkCancel <| fun c ->
         r { 
@@ -245,13 +249,15 @@ let StartImmediate (c: C<unit>, ctOpt) =
 let AwaitEvent (e: IEvent<'T>, ca: option<unit -> unit>) : C<'T> =
     ()
     fun c ->
-        let rec sub : System.IDisposable =
+        let mutable sub = JS.Undefined<System.IDisposable>
+        let mutable creg = JS.Undefined<System.IDisposable>
+        sub <-
             e.Subscribe (fun x -> 
                 sub.Dispose()
                 creg.Dispose()
                 fork (fun () -> c.k (Ok x))        
             )
-        and creg : System.IDisposable = 
+        creg <-
             Register c.ct (fun () -> 
                 match ca with
                 | Some ca ->
@@ -260,7 +266,6 @@ let AwaitEvent (e: IEvent<'T>, ca: option<unit -> unit>) : C<'T> =
                     sub.Dispose()
                     fork (fun () -> cancel c)    
             ) 
-        ()
 
 [<JavaScript; Pure>]
 let AwaitTask (t: System.Threading.Tasks.Task) : C<unit> =
@@ -302,17 +307,18 @@ let StartAsTask (c: C<'T>, ctOpt) =
 let Sleep (ms: Milliseconds) : C<unit> =
     ()
     fun c ->
-        let rec pending =
+        let mutable pending = JS.Undefined<JS.Handle>
+        let mutable creg = JS.Undefined<System.IDisposable>
+        pending <-
             JS.SetTimeout (fun () -> 
                 creg.Dispose()
                 fork (fun () -> c.k (Ok ()))
             ) ms
-        and creg : System.IDisposable =
+        creg <-
             Register c.ct (fun () -> 
                 JS.ClearTimeout pending
                 fork (fun () -> cancel c)
             )
-        ()
 
 [<JavaScript; Pure>]
 let Parallel (cs: seq<C<'T>>) : C<'T[]> =

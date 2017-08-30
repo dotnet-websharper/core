@@ -33,3 +33,9 @@ type internal GuidProxy =
         var r = Math.random()*16|0, v = c == 'x' ? r : (r&3|8);
         return v.toString(16); });">]
     static member NewGuid() = X<System.Guid>
+
+    [<Constant "00000000-0000-0000-0000-000000000000">]
+    static member Empty = X<System.Guid>
+
+    [<Inline "$this">]
+    member this.ToString() = X<string>

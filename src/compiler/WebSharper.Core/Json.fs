@@ -549,11 +549,6 @@ let tryParseDouble x =
         System.Globalization.NumberStyles.Float, 
         System.Globalization.NumberFormatInfo.InvariantInfo)
 
-let tryParseDecimal x = 
-    System.Decimal.TryParse(x, 
-        System.Globalization.NumberStyles.Float, 
-        System.Globalization.NumberFormatInfo.InvariantInfo)
-
 let serializers =
     let d = Dictionary()
     addNumeric System.Byte.TryParse d
@@ -566,7 +561,6 @@ let serializers =
     addNumeric System.UInt64.TryParse d
     addNumeric tryParseSingle d
     addNumeric tryParseDouble d
-    addNumeric tryParseDecimal d
     let encBool = function
         | true -> EncodedTrue
         | false -> EncodedFalse
@@ -576,11 +570,11 @@ let serializers =
         | x -> raise (DecoderException(x, typeof<bool>))
     add encBool decBool d
     let encChar (c: char) =
-        EncodedNumber (string (int c))
+        EncodedString (string c)
     let decChar = function
-        | Number x ->
-            match System.Int32.TryParse x with
-            | true, i when i >= 0 ->char i
+        | String x ->
+            match System.Char.TryParse x with
+            | true, c -> c
             | _ -> raise (DecoderException(Number x, typeof<char>))
         | x -> raise (DecoderException(x, typeof<char>))
     add encChar decChar d
@@ -1547,8 +1541,9 @@ module TypedProviderInternals =
                     let fields = cls.Fields
                     fun f ->
                     match fields.TryGetValue f with
-                    | true, (M.InstanceField n | M.OptionalField n) -> n
-                    | true, M.IndexedField i -> string i
+                    | true, (M.InstanceField n, _, _)
+                    | true, (M.OptionalField n, _, _) -> n
+                    | true, (M.IndexedField i, _, _) -> string i
                     | true, _ ->
                         failwithf "A static field not serializable: %s.%s" 
                             t.FullName f                                          

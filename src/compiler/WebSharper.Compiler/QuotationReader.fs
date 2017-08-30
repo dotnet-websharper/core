@@ -120,7 +120,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                     [i]
             Lambda(lArg, (tr body))
         | Patterns.Application(func, arg) ->
-            Application(tr func, [tr arg], false, Some 1) // TODO: pure functions
+            Application(tr func, [tr arg], NonPure, Some 1) // TODO: pure functions
         | Patterns.Let(id, value, body) ->
             let i = Id.New(id.Name, id.IsMutable)
             env.AddVar(i, id, if id.Type.IsByRef then ByRefArg else LocalVar)
@@ -197,7 +197,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             | ByRefArg -> SetRef (Var v) (tr value)
             | ThisArg -> parsefailf "'this' parameter cannot be set"
         | Patterns.TupleGet (tuple, i) ->
-            ItemGet(tr tuple, Value (Int i))   
+            ItemGet(tr tuple, Value (Int i), Pure)   
         | Patterns.ForIntegerRangeLoop (var, start, end_, body) ->
             let i = Id.New var.Name
             env.AddVar(i, var)
@@ -247,7 +247,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             match IgnoreExprSourcePos (tr expr) with
             | Var v as e ->
                 MakeRef e (fun value -> VarSet(v, value))
-            | ItemGet(o, i) as e ->
+            | ItemGet(o, i, _) as e ->
                 MakeRef e (fun value -> ItemSet(o, i, value))
             | FieldGet(o, t, f) as e ->
                 MakeRef e (fun value -> FieldSet(o, t, f, value))                

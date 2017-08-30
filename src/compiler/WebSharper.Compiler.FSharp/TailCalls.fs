@@ -269,12 +269,32 @@ type AddCapturing(vars : seq<Id>) =
                     let cArgs = cVars |> List.map (fun v -> Id.New(?name = v.Name, mut = false))
                     Application(
                         Function(cArgs, Return (ReplaceIds(Seq.zip cVars cArgs |> dict).TransformExpression f)), 
-                        cVars |> List.map Var, false, None) 
+                        cVars |> List.map Var, NonPure, None) 
                 else f
             else
                 base.TransformFunction(args, body)
         scope <- scope - 1
         res
+
+type ContainsMappedVar(mapping, v) =
+    inherit Visitor()
+
+    let mutable go = true
+
+    override this.VisitExpression(e) =
+        if go then
+            base.VisitExpression(e)
+
+    override this.VisitId(x) =
+        if mapping x = v then
+            go <- false    
+
+    member this.Check(e) =
+        this.VisitExpression(e)
+        not go
+
+let containsMappedVar mapping v expr =
+    ContainsMappedVar(mapping, v).Check(expr)
 
 type TailCallTransformer(env) =
     inherit Transformer()
@@ -286,6 +306,7 @@ type TailCallTransformer(env) =
     let argCopies = Dictionary<Id, Id>()
     let copying = HashSet<Id>()
     let mutable selfCallArgs = None
+    let mutable currentIndex = None
 
     let withCopiedArgs args b =
         let copiedArgs =
@@ -311,14 +332,13 @@ type TailCallTransformer(env) =
                 let nowCopying = HashSet()
                 let recArgs =
                     fArgs |> Seq.mapi (fun i a ->
-                        let ar = args.[i]
-                        match ar with
-                        | I.Var v when a = v -> None
-                        | _ ->
-                            let oa = origArgs.[i]
+                        let oa = origArgs.[i]
+                        match args.[i] with
+                        | I.Var v when v = oa -> None
+                        | ar ->
                             let needsCopy =
                                 args |> Seq.skip (i + 1) |> Seq.exists (fun b ->
-                                    containsVar oa b
+                                    containsMappedVar this.TransformId a b
                                 )                       
                             if needsCopy then 
                                 nowCopying.Add a |> ignore
@@ -331,8 +351,9 @@ type TailCallTransformer(env) =
                 for a in nowCopying do
                     yield VarSet(argCopies.[a], Var a)    
                 match index with
-                | Some (iv, i) -> yield VarSet(iv, Value (Int i))  
-                | None -> ()
+                | Some (iv, i) when currentIndex <> Some i -> 
+                    yield VarSet(iv, Value (Int i))  
+                | _ -> ()
                 for x, v in recArgs do
                     yield VarSet(x, this.TransformExpression v)
                 copying.ExceptWith(nowCopying)
@@ -341,8 +362,9 @@ type TailCallTransformer(env) =
                 for x, v in Seq.zip fArgs args do
                     yield VarSet(x, this.TransformExpression v)
                 match index with
-                | Some (iv, i) -> yield VarSet(iv, Value (Int i))  
-                | None -> ()
+                | Some (iv, i) when currentIndex <> Some i ->
+                    yield VarSet(iv, Value (Int i))  
+                | _ -> ()
                 yield StatementExpr (DoNotReturn, None)
         ]
 
@@ -401,9 +423,13 @@ type TailCallTransformer(env) =
             if env.TailCalls.Contains(var) then
                 match value with
                 | Lambda(args, fbody, isReturn) ->
+                    let args = 
+                        args |> List.map (fun a -> 
+                            let am = a.ToMutable()
+                            transformIds.Add(a, am)
+                            am
+                        )
                     matchedBindings.Add(var, Choice1Of2 (args, fbody))
-                    for a in args do
-                        transformIds.Add(a, a.ToMutable())
                     numArgs <- max numArgs args.Length 
                     funcCount <- funcCount + 1
                 | _ -> matchedBindings.Add(var, Choice2Of2 value)
@@ -448,12 +474,15 @@ type TailCallTransformer(env) =
             for var, value in matchedBindings do  
                 match value with     
                 | Choice1Of2 (args, fbody) ->
+                    let ci = currentIndex
+                    currentIndex <- Some i
                     let trFBody = this.TransformExpression(fbody)    
-                    trBodies.Add(Some (Value (Int i)), Return trFBody)
+                    currentIndex <- ci
+                    trBodies.Add(Some (Value (Int i)), Block [ Return trFBody; Break None; ] )
                     let recArgs = Value (Int i) :: List.map Var args
                     trBindings.Add(var, 
                         Function(args, 
-                            Return (Application (Var recFunc, recArgs, false, Some (numArgs + 1)))))                    
+                            Return (Application (Var recFunc, recArgs, NonPure, Some (numArgs + 1)))))                    
                     i <- i + 1
                 | Choice2Of2 value ->
                     trBindings.Add(var, value)
@@ -480,8 +509,12 @@ type TailCallTransformer(env) =
         match isTailRecMethodFunc, body with
         | true, (I.Return b | I.ExprStatement b) ->
             selfCallArgs <- Some args
-            for a in args do
-                transformIds.Add(a, a.ToMutable())
+            let args = 
+                args |> List.map (fun a -> 
+                    let am = a.ToMutable()
+                    transformIds.Add(a, am)
+                    am
+                )
             Function(args,
                 While (Value (Bool true), 
                     Return (this.TransformExpression(b)))       

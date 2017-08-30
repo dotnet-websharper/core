@@ -45,6 +45,20 @@ module ClientSideJson =
 
     type TestType = { foo: string option }
 
+    module Bug735 =
+        type test_class_i = 
+            | Test_class_i of Test_class_i:string
+        type test_class_o (test_field: test_class_i option) =
+            member r.test_field = test_field
+
+            override this.Equals(a) =
+                match a with
+                | :? test_class_o as a -> this.test_field = a.test_field
+                | _ -> false
+
+            override this.GetHashCode() =
+                hash this.test_field
+
     let ClientTests =
         TestCategory "Client-side JSON" {
 
@@ -209,6 +223,39 @@ module ClientSideJson =
                 equal (Json.Deserialize """{}""")           { ox = None; oy = None }
             }
 
+            Test "serialize simple object" {
+                let o (x: int) = SimpleObject("hello", x)
+                equal (Json.Serialize (o 12)) (Json.Stringify (o 12))
+                equal (Json.Serialize [|o 13; o 42|]) (Json.Stringify [|o 13; o 42|])
+            }
+
+            Test "deserialize simple object" {
+                let o (x: int) = SimpleObject("hello", x)
+                equal (Json.Deserialize (Json.Stringify (o 12))) (o 12)
+                equal (Json.Deserialize (Json.Stringify [|o 13; o 42|])) [|o 13; o 42|]
+                raisesMsg (Json.Deserialize<SimpleObject> """{"x":1}""") "Missing mandatory field raises exception"
+            }
+
+            Test "serialize object with options" {
+                equal (Json.Serialize (ObjectWithOptions(Some 1, Some "2")) |> Json.Parse)
+                    (New ["ox" => 1; "oy" => "2"])
+                equal (Json.Serialize (ObjectWithOptions(None, Some "2")) |> Json.Parse)
+                    (New ["oy" => "2"])
+                equal (Json.Serialize (ObjectWithOptions(Some 1, None)) |> Json.Parse)
+                    (New ["ox" => 1])
+                equal (Json.Serialize (ObjectWithOptions(None, None)) |> Json.Parse)
+                    (New [])
+            }
+
+            Test "deserialize object with options" {
+                let x = (Json.Deserialize """{"ox":1,"oy":"2"}""")
+                equal x                                     (ObjectWithOptions(Some 1, Some "2"))
+                equalMsg (x.Test()) (Some 1) "prototype is set"
+                equal (Json.Deserialize """{"oy":"2"}""")   (ObjectWithOptions(None, Some "2"))
+                equal (Json.Deserialize """{"ox":1}""")     (ObjectWithOptions(Some 1, None))
+                equal (Json.Deserialize """{}""")           (ObjectWithOptions(None, None))
+            }
+
             Test "serialize simple union" {
                 equal (Json.Serialize Nullary |> Json.Parse)
                     (New ["case" => "Nullary"])
@@ -330,6 +377,14 @@ module ClientSideJson =
                 equal (InlineDeserialize "x42") 42
             }
 
+            Test "#735 optional union field on object" {
+                let l = [Bug735.test_class_o(Some (Bug735.Test_class_i "foo"))]
+                let o = Json.Encode<Bug735.test_class_o list> l
+                equal (o?("0")?test_field?Test_class_i) "foo"
+                let l2 = Json.Decode<Bug735.test_class_o list> o
+                equal l l2
+                equal l2.Head.test_field (Some (Bug735.Test_class_i "foo")) 
+            }
         }
 
     let echo (url: string) (serializedArg: string) (decode: obj -> 't) : Async<'t> =
@@ -478,5 +533,4 @@ module ClientSideJson =
                 equalAsync (f d.Self) d.Self
                 equalAsync (f now) now
             }
-
         }

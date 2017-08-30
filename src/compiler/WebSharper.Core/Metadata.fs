@@ -138,12 +138,14 @@ type Optimizations =
     member this.IsNone =
         not this.IsPure && Option.isNone this.FuncArgs && Option.isNone this.Warn
 
+    member this.Purity = if this.IsPure then Pure else NonPure
+
 type ClassInfo =
     {
         Address : option<Address>
         BaseClass : option<TypeDefinition>
         Constructors : IDictionary<Constructor, CompiledMember * Optimizations * Expression>
-        Fields : IDictionary<string, CompiledField>
+        Fields : IDictionary<string, CompiledField * bool * Type>
         StaticConstructor : option<Address * Expression>
         Methods : IDictionary<Method, CompiledMember * Optimizations * Expression>
         Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
@@ -168,7 +170,8 @@ type IClassInfo =
     abstract member Address : option<Address>
     abstract member BaseClass : option<TypeDefinition>
     abstract member Constructors : IDictionary<Constructor, CompiledMember>
-    abstract member Fields : IDictionary<string, CompiledField>
+    /// value: field info, is readonly
+    abstract member Fields : IDictionary<string, CompiledField * bool * Type>
     abstract member StaticConstructor : option<Address>
     abstract member Methods : IDictionary<Method, CompiledMember>
     abstract member Implementations : IDictionary<TypeDefinition * Method, CompiledMember>
@@ -221,6 +224,7 @@ type FSharpRecordFieldInfo =
         RecordFieldType : Type
         DateTimeFormat : option<string>    
         Optional : bool
+        IsMutable : bool
     }
 
 type CustomTypeInfo =
@@ -273,6 +277,7 @@ type Info =
         CustomTypes : IDictionary<TypeDefinition, CustomTypeInfo>
         EntryPoint : option<Statement>
         MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
+        ResourceHashes : IDictionary<string, int>
     }
 
     static member Empty =
@@ -284,15 +289,60 @@ type Info =
             CustomTypes = Map.empty
             EntryPoint = None
             MacroEntries = Map.empty
+            ResourceHashes = Map.empty
         }
 
     static member UnionWithoutDependencies (metas: seq<Info>) = 
+        let isStaticPart (c: ClassInfo) =
+            Option.isNone c.Address
+            && Option.isNone c.BaseClass
+            && Dict.isEmpty c.Constructors
+            && Dict.isEmpty c.Fields
+            && not c.HasWSPrototype
+            && Dict.isEmpty c.Implementations
+            && List.isEmpty c.Macros
+            && Option.isNone c.StaticConstructor
+            && c.Methods.Values |> Seq.forall (function | Instance _,_,_ -> false | _ -> true)
+
+        let tryMergeClassInfo (a: ClassInfo) (b: ClassInfo) =
+            let combine (left: 'a option) (right: 'a option) =
+                match left with
+                | Some _ -> left
+                | None -> right
+            if isStaticPart a || isStaticPart b then
+                Some {
+                    Address = combine a.Address b.Address
+                    BaseClass = combine a.BaseClass b.BaseClass
+                    Constructors = Dict.union [a.Constructors; b.Constructors]
+                    Fields = Dict.union [a.Fields; b.Fields]
+                    HasWSPrototype = a.HasWSPrototype || b.HasWSPrototype
+                    Implementations = Dict.union [a.Implementations; b.Implementations]
+                    Macros = List.concat [a.Macros; b.Macros]
+                    Methods = Dict.union [a.Methods; b.Methods]
+                    StaticConstructor = combine a.StaticConstructor b.StaticConstructor
+                }
+            else
+                None
+
+        let unionMerge (dicts:seq<IDictionary<TypeDefinition,ClassInfo>>) =
+            let result = Dictionary() :> IDictionary<TypeDefinition,_>
+            for dict in dicts do
+                for cls in dict do
+                    result.TryGetValue cls.Key
+                    |> function
+                        | false, _ -> result.Add cls
+                        | true, prevPart ->
+                            match tryMergeClassInfo prevPart cls.Value with
+                            | Some mergedInfo -> result.[cls.Key] <- mergedInfo
+                            | None -> failwithf "Error merging class info on key: %A" cls.Key
+            result
+
         let metas = Array.ofSeq metas
         {
             SiteletDefinition = metas |> Seq.tryPick (fun m -> m.SiteletDefinition)
             Dependencies = GraphData.Empty
             Interfaces = Dict.union (metas |> Seq.map (fun m -> m.Interfaces))
-            Classes = Dict.union (metas |> Seq.map (fun m -> m.Classes))
+            Classes = unionMerge (metas |> Seq.map (fun m -> m.Classes))
             CustomTypes = Dict.unionDupl (metas |> Seq.map (fun m -> m.CustomTypes))
             EntryPoint = 
                 match metas |> Array.choose (fun m -> m.EntryPoint) with
@@ -300,6 +350,7 @@ type Info =
                 | [| ep |] -> Some ep
                 | _ -> failwith "Multiple entry points found."
             MacroEntries = Dict.unionAppend (metas |> Seq.map (fun m -> m.MacroEntries))
+            ResourceHashes = Dict.union (metas |> Seq.map (fun m -> m.ResourceHashes))
         }
 
     member this.DiscardExpressions() =
@@ -409,7 +460,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "4.0-beta7"
+    let CurrentVersion = "4.0-beta10"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

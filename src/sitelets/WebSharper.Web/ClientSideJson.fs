@@ -18,6 +18,7 @@
 //
 // $end{copyright}
 
+[<CompiledName "TypedJson">]
 module WebSharper.Json
 
 open System.Collections.Generic
@@ -317,7 +318,6 @@ module Macro =
                                 |"System.Int32" | "System.UInt32"
                                 |"System.Int64" | "System.UInt64"
                                 |"System.Single"| "System.Double"
-                                |"System.Decimal"
                                 |"System.String"| "System.Guid"
                                 |"WebSharper.Core.Json+Encoded"), []) ->
                     ok ident
@@ -365,7 +365,7 @@ module Macro =
                                 enc >>= fun e ->
                                 let v = Lambda([], Call (None, NonGeneric gtd, NonGeneric gv, []))
                                 let vn = Value (String va.Value.Head)
-                                let b = Lambda ([], Conditional(v, v, ItemSet(Global [top], vn, Application(e, [], false, Some 0))))
+                                let b = Lambda ([], Conditional(v, v, ItemSet(Global [top], vn, Application(e, [], NonPure, Some 0))))
                                 comp.AddGeneratedCode(gm, b)
                                 Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                          ), args)
@@ -383,7 +383,8 @@ module Macro =
                     generic t
             // Encode a type that might be recursively defined
             and encRecType t targs args =
-                match comp.GetCustomTypeInfo t.TypeDefinition with
+                let td = t.TypeDefinition
+                match comp.GetCustomTypeInfo td with
                 | M.EnumInfo _ -> ok ident
                 | M.FSharpRecordInfo fields ->
                     let fieldEncoders =
@@ -404,9 +405,9 @@ module Macro =
                             f.JSName, optionKind, encode (t.SubstituteGenerics (Array.ofList targs))
                         )  
                     let pr =
-                        match comp.GetClassInfo t.TypeDefinition with
+                        match comp.GetClassInfo td with
                         | Some cls -> 
-                            addTypeDep t.TypeDefinition 
+                            addTypeDep td 
                             if cls.HasWSPrototype then
                                 GlobalAccess cls.Address.Value
                             else Undefined
@@ -500,9 +501,9 @@ module Macro =
                             | JI.StandardField -> cString "$"
                             | JI.NamedField n -> cString n
                         let tn =
-                            match comp.GetClassInfo t.TypeDefinition with
+                            match comp.GetClassInfo td with
                             | Some cls -> 
-                                addTypeDep t.TypeDefinition
+                                addTypeDep td
                                 if cls.HasWSPrototype then
                                     GlobalAccess cls.Address.Value
                                 else
@@ -561,24 +562,70 @@ module Macro =
                     |> snd
                     <| []
                 | _ -> 
-                    fail (name + ": Type not supported: " + t.TypeDefinition.Value.FullName)
+                    match comp.GetClassInfo td with
+                    | Some cls ->
+                        let fieldEncoders =
+                            cls.Fields.Values
+                            |> Seq.choose (fun (f, _, ft) ->
+                                let jsNameTypeAndOption =
+                                    let isOption name isMarked =
+                                        match ft with
+                                        | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "Microsoft.FSharp.Core.FSharpOption`1" ->
+                                            if isMarked then
+                                                Some (name, p, OptionalFieldKind.MarkedOption) 
+                                            else
+                                                Some (name, p, OptionalFieldKind.NormalOption) 
+                                        | ft ->    
+                                            Some (name, ft, OptionalFieldKind.NotOption)
+                                    match f with
+                                    | M.InstanceField n -> isOption n false
+                                    | M.IndexedField i -> isOption (string i) false
+                                    | M.OptionalField n -> isOption n true
+                                    | M.StaticField _ -> None
+                                jsNameTypeAndOption |> Option.map (fun (jsName, t, optionKind) ->
+                                    jsName, optionKind, encode (t.SubstituteGenerics (Array.ofList targs))
+                                )
+                            ) |> List.ofSeq
+                        let pr =
+                            match comp.GetClassInfo td with
+                            | Some cls -> 
+                                addTypeDep td 
+                                if cls.HasWSPrototype then
+                                    GlobalAccess cls.Address.Value
+                                else Undefined
+                            | _ -> Undefined
+                        if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->
+                            fo <> OptionalFieldKind.NormalOption && isIdent fe
+                        )
+                        then ok ident
+                        else
+                            ((fun es ->
+                                let es, tts = List.unzip es
+                                ok (call "Record" [pr; NewArray es])
+                                ), fieldEncoders)
+                            ||> List.fold (fun k (fn, fo, fe) es ->                     
+                                    fe >>= fun e ->
+                                    k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
+                            <| []
+                    | _ ->
+                        fail (name + ": Type not supported: " + t.TypeDefinition.Value.FullName)
             encode t
 
         let encodeLambda name param t =
             getEncoding name true param t
-            |> mapOk (fun x -> Application(x, [], true, Some 0))
+            |> mapOk (fun x -> Application(x, [], Pure, Some 0))
 
         let encode name param t arg =
             encodeLambda name param t
-            |> mapOk (fun x -> Application(x, [arg], true, Some 1))
+            |> mapOk (fun x -> Application(x, [arg], Pure, Some 1))
 
         let decodeLambda name param t =
             getEncoding name false param t
-            |> mapOk (fun x -> Application(x, [], true, Some 0))
+            |> mapOk (fun x -> Application(x, [], Pure, Some 0))
 
         let decode name param t arg =
             decodeLambda name param t
-            |> mapOk (fun x -> Application(x, [arg], true, Some 1))
+            |> mapOk (fun x -> Application(x, [arg], Pure, Some 1))
 
     let Encode param t arg =
         // ENCODE()(arg)
@@ -601,7 +648,7 @@ module Macro =
             // let enc = ENCODE() in fun arg -> JSON.stringify(enc(arg))
             Let(enc, x,
                 Lambda([arg],
-                    mJson param.Compilation "Stringify" [Application(Var enc, [Var arg], true, Some 1)])))
+                    mJson param.Compilation "Stringify" [Application(Var enc, [Var arg], Pure, Some 1)])))
 
     let Decode param t arg =
         // DECODE()(arg)
@@ -623,7 +670,7 @@ module Macro =
             // let dec = DECODE() in fun arg -> dec(JSON.parse(arg))
             Let(dec, x,
                 Lambda([arg],
-                    Application(Var dec, [mJson param.Compilation "Parse" [Var arg]], true, Some 1))))
+                    Application(Var dec, [mJson param.Compilation "Parse" [Var arg]], Pure, Some 1))))
 
     type SerializeMacro() =
         inherit WebSharper.Core.Macro()

@@ -41,6 +41,8 @@ type Compilation(meta: Info, ?hasGraph) =
     let hasGraph = defaultArg hasGraph true
     let graph = if hasGraph then Graph.FromData(meta.Dependencies) else Unchecked.defaultof<_>
 
+    let mutableExternals = Recognize.GetMutableExternals meta
+
     let compilingMethods = Dictionary<TypeDefinition * Method, CompilingMember * Expression>()
     let compilingImplementations = Dictionary<TypeDefinition * TypeDefinition * Method, CompilingMember * Expression>()
     let compilingConstructors = Dictionary<TypeDefinition * Constructor, CompilingMember * Expression>()
@@ -66,6 +68,8 @@ type Compilation(meta: Info, ?hasGraph) =
     member val CustomTypesReflector = fun _ -> NotCustomType with get, set 
     member val LookupTypeAttributes = fun _ -> None with get, set
     member val LookupFieldAttributes = fun _ _ -> None with get, set
+
+    member this.MutableExternals = mutableExternals
 
     member this.FindProxied typ =
         match proxies.TryFind typ with
@@ -154,7 +158,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         member this.ParseJSInline(inl: string, args: Expression list): Expression = 
             let vars = args |> List.map (fun _ -> Id.New(mut = false))
-            let parsed = Recognize.createInline None vars false inl
+            let parsed = Recognize.createInline mutableExternals None vars false inl
             Substitution(args).TransformExpression(parsed)
                 
         member this.NewGenerated addr =
@@ -299,11 +303,18 @@ type Compilation(meta: Info, ?hasGraph) =
             SiteletDefinition = this.SiteletDefinition 
             Dependencies = if hasGraph then graph.GetData() else GraphData.Empty
             Interfaces = interfaces.Current
-            Classes = classes.Current        
+            Classes = 
+                classes.Current |> Dict.map (fun c ->
+                    match c.Methods with
+                    | :? MergedDictionary<Method, CompiledMember * Optimizations * Expression> as m -> 
+                        { c with Methods = m.Current }
+                    | _ -> c
+                )
             CustomTypes = 
                 customTypes.Current |> Dict.filter (fun _ v -> v <> NotCustomType)
             EntryPoint = entryPoint
             MacroEntries = macroEntries.Current
+            ResourceHashes = Dictionary()
         }    
 
     member this.AddProxy(tProxy, tTarget) =
@@ -437,9 +448,9 @@ type Compilation(meta: Info, ?hasGraph) =
                 if typ.Value.Assembly = "mscorlib" then
                     match typ.Value.FullName with
                     | "System.Collections.IEnumerable" ->
-                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], false, Some 1))
+                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], NonPure, Some 1))
                     | "System.Collections.Generic.IEnumerable`1" ->
-                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get"], [Hole 0], false, Some 1))
+                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get"], [Hole 0], NonPure, Some 1))
                     | _ -> 
                         Compiled (Instance m, Optimizations.None, Undefined)
                 else
@@ -766,14 +777,18 @@ type Compilation(meta: Info, ?hasGraph) =
                     if classes.ContainsKey b || notResolvedClasses.ContainsKey b then Some b else None
                 )
             let hasWSPrototype = hasWSPrototype cls.Kind baseCls cls.Members                
+            let methods =
+                match classes.TryFind typ with
+                | Some c -> MergedDictionary c.Methods :> IDictionary<_,_>
+                | _ -> Dictionary() :> _
             classes.Add (typ,
                 {
                     Address = if hasWSPrototype || cls.ForceAddress then someEmptyAddress else None
-                    BaseClass = baseCls
+                    BaseClass = if hasWSPrototype then baseCls else None
                     Constructors = Dictionary() 
                     Fields = Dictionary() 
                     StaticConstructor = if Option.isSome cctor then unresolvedCctor else None 
-                    Methods = Dictionary()
+                    Methods = methods
                     Implementations = Dictionary()
                     HasWSPrototype = hasWSPrototype
                     Macros = cls.Macros |> List.map (fun (m, p) -> m, p |> Option.map ParameterObject.OfObj)
@@ -1073,8 +1088,8 @@ type Compilation(meta: Info, ?hasGraph) =
                     res.Constructors.Add(cDef, (comp, opts isPure nr, addCctorCall typ res nr.Body))
                 else
                     compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
-            | M.Field (fName, _) ->
-                res.Fields.Add(fName, StaticField addr)
+            | M.Field (fName, nr) ->
+                res.Fields.Add(fName, (StaticField addr, nr.IsReadonly, nr.FieldType))
             | M.Method (mDef, nr) ->
                 let comp = compiledStaticMember addr nr
                 if nr.Compiled then 
@@ -1100,7 +1115,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         match System.Int32.TryParse name with
                         | true, i -> IndexedField i
                         | _ -> InstanceField name
-                res.Fields.Add(fName, fi)
+                res.Fields.Add(fName, (fi, f.IsReadonly, f.FieldType))
             | M.Method (mDef, nr) ->
                 let comp = compiledInstanceMember name nr
                 match nr.Kind with
@@ -1458,6 +1473,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     customTypes |> Dict.filter (fun _ v -> v <> NotCustomType)
                 EntryPoint = None
                 MacroEntries = macroEntries
+                ResourceHashes = Dictionary()
             }    
         let jP = Json.Provider.CreateTyped(info)
         let st = Verifier.State(jP)

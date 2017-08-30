@@ -270,6 +270,8 @@ let wsRefs =
         "WebSharper.Control"
         "WebSharper.Web"
         "WebSharper.Sitelets"
+        "WebSharper.Tests"
+        "WebSharper.InterfaceGenerator.Tests"
     ]
 
 let mkProjectCommandLineArgs (dllName, fileNames) = 
@@ -311,6 +313,8 @@ let metadata =
         WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
             Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
     }
+
+metadata.ResourceHashes |> Seq.iter (fun (KeyValue(k, v)) -> printfn "%sk?h=%d" k v)
 
 open System.IO
 let translate source = 
@@ -371,9 +375,9 @@ let translate source =
     
     let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
 
-//    fsDeclarations |> List.iter (printfn "%s") 
-//    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
-//    compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
+    fsDeclarations |> List.iter (printfn "%s") 
+    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
+    compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
     js |> printfn "%s" 
 
 translate """
@@ -381,19 +385,16 @@ module M
 
 open WebSharper
 
-//[<Inline "void $x">]
-[<Inline>]
-let ignore x = ()
-
-[<JavaScript>]
-let f () = 
-    printfn "hi"
-    1 + 1
-
-[<JavaScript>]
-let g() = ignore (f ())
-
-do g()
+[<Inline "
+    function namedFunc(x) {
+        return x*x;
+    }
+    var funcVar = function(x) {
+        return x*x;
+    };
+    return {a: funcVar($0), b: namedFunc($0)};
+">]
+let testFunc (x:int) = X<obj>
     """
 
 let translateQ q =
@@ -405,3 +406,36 @@ let f x y = x + y
 
 translateQ <@ 1 |> ignore @> 
 |> WebSharper.Core.AST.Debug.PrintExpression
+
+open WebSharper.JavaScript
+open FSharp.Quotations
+open WebSharper.Core
+
+let getBody expr =
+    let mi =
+        match expr with
+        | Patterns.Call(_, mi, _) -> mi
+        | Patterns.PropertyGet(_, p, _) -> p.GetMethod
+        | Patterns.PropertySet(_, p, _, _) -> p.SetMethod
+        | _ -> failwithf "not recognized: %A" expr
+    let typ = AST.Reflection.ReadTypeDefinition mi.DeclaringType 
+    let cls = metadata.Classes.[typ]
+    match AST.Reflection.ReadMember mi |> Option.get with
+    | AST.Member.Method (_, meth) 
+    | AST.Member.Override (_, meth) ->
+        let _, _, expr = cls.Methods.[meth]
+        expr
+    | AST.Member.Implementation (intf, meth) ->
+        let _, expr = cls.Implementations.[intf, meth]
+        expr
+    | AST.Member.Constructor ctor ->
+        let _, _, expr = cls.Constructors.[ctor]
+        expr
+    | AST.Member.StaticConstructor ->
+        let _, expr = cls.StaticConstructor |> Option.get
+        expr
+
+getBody <@ JS.Document.Cookie <- X<_> @>
+|> WebSharper.Core.AST.Debug.PrintExpression
+
+let me = WebSharper.Compiler.Recognize.GetMutableExternals metadata

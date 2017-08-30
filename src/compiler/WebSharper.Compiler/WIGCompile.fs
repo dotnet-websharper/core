@@ -109,10 +109,10 @@ type InlineGenerator() =
                             | name when m.IsStatic -> td.Name + "." + name
                             | name -> name
                         match m.IsStatic, f.Parameters.Length with
-                        | true,  0     -> sprintf "%s.apply(%s,$0)" name td.Name
-                        | false, 0     -> sprintf "$this.%s.apply($this, $1)" name
-                        | true,  arity -> sprintf "%s.apply(%s,[%s].concat($%d))" name td.Name args arity
-                        | false, arity -> sprintf "$this.%s.apply($this,[%s].concat($%d))" name args (arity + 1)
+                        | true,  0     -> sprintf "$wsruntime.Apply(%s, %s, $0)" name td.Name
+                        | false, 0     -> sprintf "$wsruntime.Apply($this.%s, $this, $1)" name
+                        | true,  arity -> sprintf "$wsruntime.Apply(%s, %s,[%s].concat($%d))" name td.Name args arity
+                        | false, arity -> sprintf "$wsruntime.Apply($this.%s, $this,[%s].concat($%d))" name args (arity + 1)
                     | None ->
                         let name =
                             match m.Name with
@@ -572,7 +572,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
         t.Resolve().Methods
         |> Seq.tryFind (fun m -> m.IsConstructor && isMatch m)
         |> function
-            | Some x -> def.MainModule.Import x
+            | Some x -> def.MainModule.ImportReference x
             | None -> failwithf "Could not find a constructor in %s" t.FullName
 
     let findConstructorByArity t n =
@@ -1293,7 +1293,7 @@ type Compiler() =
             | Some aR -> aR
             | None -> WebSharper.Compiler.AssemblyResolver.Create()
         let aR = aR.SearchPaths(opts.ReferencePaths)
-        (aR, Resolver(aR) :> IAssemblyResolver)
+        (aR, new Resolver(aR) :> IAssemblyResolver)
 
     let getId (d: Code.NamespaceEntity) =
         d.Id

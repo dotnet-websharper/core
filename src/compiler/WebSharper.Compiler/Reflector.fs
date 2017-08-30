@@ -146,6 +146,8 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             Seq.append (Seq.singleton tD) (Seq.collect withNested tD.NestedTypes)
         else Seq.singleton tD
 
+    let emptyMutableExternals = HashSet()
+    
     let allTypes = assembly.MainModule.Types |> Seq.collect withNested |> Array.ofSeq
         
     let asmName = assembly.FullName.Split(',').[0]
@@ -220,7 +222,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         Some (Id.New "this")    
                     else 
                         None
-                let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline thisArg vars opts.IsPure) 
+                let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline emptyMutableExternals thisArg vars opts.IsPure) 
 
                 let kindWithoutMacros =
                     if inlAttr.IsSome then Some Inline else 
@@ -338,6 +340,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         CustomTypes = Map.empty
         EntryPoint = None
         MacroEntries = Map.empty
+        ResourceHashes = Dictionary()
     }
 
 let TransformAssembly prototypes assembly =

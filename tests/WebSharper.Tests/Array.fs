@@ -62,6 +62,17 @@ let Tests =
             equalMsg fibonacci [| 2; 3; 5; 8; 13 |] "fibs"
         }
 
+        Test "Array.allPairs" {
+            let (arr1, arr2) = ([| 1; 2; 3 |], [| 'a'; 'b' |])
+            equal (Array.allPairs [||] [||]) [||]
+            equal (Array.allPairs [|1|] [||]) [||]
+            equal (Array.allPairs [||] [|1|]) [||]
+            equal (Array.allPairs [|1|] [|2|]) [|(1,2)|]
+            equal (Array.allPairs arr1 arr2) [|(1,'a');(1,'b');(2,'a');(2,'b');(3,'a');(3,'b')|]
+            equal arr1 [| 1; 2; 3 |]
+            equal arr2 [| 'a'; 'b'|]
+        }
+
         Test "Array.append" {
             let (arr1, arr2) = ([| 1; 2; 3 |], [| 4; 5 |])
             equal (Array.append arr1 arr2) [| 1; 2; 3; 4; 5 |]

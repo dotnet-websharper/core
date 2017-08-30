@@ -164,7 +164,7 @@ let Tests =
                 | _ -> 0
             ) 3
             x.OptionalStringOrFunction <- Undefined
-            equal (x.OptionalStringOrFunction) Undefined
+            jsEqual (x.OptionalStringOrFunction) JS.Undefined
         }
 
         Test "Pattern.Config" {

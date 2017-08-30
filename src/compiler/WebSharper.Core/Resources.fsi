@@ -58,6 +58,9 @@ and Context =
         /// Transform foreign links to starting with `//` to `http://`.
         DefaultToHttp : bool
 
+        ///// Gets local resource hash values.
+        //GetResourceHash : string * string -> int
+
         /// Constructs URLs to JavaScript-compiled assemblies.
         /// Assembly names are short, such as FSharp.Core.
         GetAssemblyRendering : string -> Rendering

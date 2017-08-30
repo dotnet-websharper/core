@@ -18,6 +18,8 @@
 //
 // $end{copyright}
 
+#nowarn "86" // redefining operators
+
 namespace WebSharper.Core.AST
 
 open WebSharper.Core
@@ -59,7 +61,7 @@ type Id =
     member this.Clone() =
         {
             IdName = this.IdName
-            Id = Ids.New()
+            Id = if this.Id < 0L then this.Id else Ids.New()
             Mutable = this.Mutable
         }
 
@@ -91,6 +93,11 @@ type FuncArgOptimization =
     | NotOptimizedFuncArg
     | CurriedFuncArg of int    
     | TupledFuncArg of int    
+
+type Purity =
+    | NonPure
+    | NoSideEffect
+    | Pure
 
 /// A range in original source code
 type SourcePos =
@@ -238,6 +245,16 @@ module StableHash =
             l <- l.Tail
         h
 
+    let data (d: byte[]) =
+        let mutable h = 1
+        for i = 0 to (d.Length / 4) - 1 do
+            let x = System.BitConverter.ToInt32(d, 4 * i)
+            h <- 1448225822 + x + (h <<< 6) + (h >>> 2)
+        for i = (d.Length / 4) * 4 to d.Length - 1 do
+            let x = int d.[i]
+            h <- 1448225822 + x + (h <<< 6) + (h >>> 2)
+        h
+
 /// Identifies a type definition by AssemblyName and FullName
 [<System.Diagnostics.DebuggerDisplay("{Assembly}.{FullName}")>]
 type TypeDefinitionInfo =
@@ -266,7 +283,7 @@ and Type =
     /// A class and method type parameters specified by index in the combined list
     | TypeParameter of ordinal: int
     /// An array with the specified number of dimensions
-    | ArrayType of elemType: Type * arity: int
+    | ArrayType of elemType: Type * rank: int
     /// A Sytem.Tuple type, type parameters are in a straight list
     | TupleType of elemTypes: list<Type> * isStruct: bool
     /// Identifies the FSharp.Core.FSharpFunc type
@@ -409,7 +426,10 @@ type MethodInfo =
         sprintf "(%s%s : %s -> %O)"
             m.MethodName 
             (if m.Generics > 0 then "<" + (Seq.init m.Generics (fun _ -> "_") |> String.concat ",") + ">" else "")
-            (m.Parameters |> Seq.map string |> String.concat " * ") 
+            (if m.Parameters.Length > 0 then
+                m.Parameters |> Seq.map string |> String.concat " * "
+            else
+                "unit") 
             m.ReturnType
 
 type Method = Hashed<MethodInfo>
@@ -420,7 +440,10 @@ type ConstructorInfo =
     }
     override c.ToString() =
         sprintf "%s"
-            (c.CtorParameters |> Seq.map string |> String.concat " * ") 
+            (if c.CtorParameters.Length > 0 then
+                c.CtorParameters |> Seq.map string |> String.concat " * "
+            else
+                "unit") 
 
 type Constructor = Hashed<ConstructorInfo>
 

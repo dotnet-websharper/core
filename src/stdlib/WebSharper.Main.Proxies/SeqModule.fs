@@ -32,6 +32,11 @@ open WebSharper.CollectionInternals
 let safeDispose (x: System.IDisposable) =
     if x <> null then x.Dispose()
 
+[<Name "allPairs">]
+let AllPairs (source1: seq<_>) (source2: seq<_>) =
+    let cached = Seq.cache source2
+    source1 |> Seq.collect (fun x -> cached |> Seq.map (fun y -> x,y))
+
 [<Name "append">]
 let Append (s1: seq<'T>) (s2: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->
@@ -83,13 +88,13 @@ let AverageBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
 
 [<Name "cache">]
 let Cache<'T> (s: seq<'T>) : seq<'T> =
-    let cache = new System.Collections.Generic.Queue<'T>()
+    let cache = JavaScript.Array<'T>()
     let o  = ref (Enumerator.Get s)
     Enumerable.Of <| fun () ->
         let next (e: Enumerator.T<_,_>) =
-            if e.State + 1 < cache.Count then
+            if e.State < cache.Length then
+                e.Current <- cache.[e.State]
                 e.State   <- e.State + 1
-                e.Current <- (?) cache (As e.State)
                 true
             else
                 let en = !o
@@ -97,7 +102,7 @@ let Cache<'T> (s: seq<'T>) : seq<'T> =
                 elif en.MoveNext() then
                     e.State   <- e.State + 1
                     e.Current <- en.Current
-                    cache.Enqueue e.Current
+                    cache.Push(e.Current) |> ignore
                     true
                 else
                     en.Dispose()

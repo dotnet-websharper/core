@@ -22,7 +22,6 @@
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module WebSharper.Macro
 
-open System.Linq
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
@@ -33,33 +32,20 @@ open WebSharper.Core.AST
 module M = WebSharper.Core.Metadata
 module I = IgnoreSourcePos
 
-let smallIntegralTypes =
-    Set [
-        "System.Byte"
-        "System.SByte"
-        "System.Int16"
-        "System.Int32"
-        "System.UInt16"
-        "System.UInt32"
-    ]
-
-let bigIntegralTypes =
-    Set [
-        "System.Int64"
-        "System.UInt64" 
-    ]
-
-let integralTypes = smallIntegralTypes + bigIntegralTypes
-
 let scalarTypes =
     integralTypes
     + Set [
-        "System.Char"
         "System.Double"
         "System.Single"
         "System.String" 
         "System.TimeSpan"
         "System.DateTime"
+    ]
+
+let comparableTypes =
+    scalarTypes
+    + Set [
+        "System.Char"
     ]
 
 let isIn (s: string Set) (t: Type) = 
@@ -69,7 +55,7 @@ let isIn (s: string Set) (t: Type) =
     | _ ->
         false
 
-let traitCallOp (c: MacroCall) =
+let traitCallOp (c: MacroCall) args =
     match c.Method.Generics with
     | [t; u; v] ->
         TraitCall(
@@ -82,49 +68,71 @@ let traitCallOp (c: MacroCall) =
                     Generics = 0
                 }
             ),
-            c.Arguments
+            args
         )
     | _ ->
         failwith "F# Operator value expecting 3 type arguments"
+    
+let utilsModule =
+    TypeDefinition {
+        FullName = "WebSharper.Utils"
+        Assembly = "WebSharper.Main"
+    }
+let utils (comp: M.ICompilation) f args = 
+    let m = comp.GetClassInfo(utilsModule).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
+    Call(None, NonGeneric utilsModule, NonGeneric m, args)
 
-[<Sealed>]
-type Div() =
-    inherit Macro()
-    override this.TranslateCall(c) =
-        match c.Arguments with
-        | [x; y] ->
-            match c.Method.Generics with
-            | t :: _ ->
+let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
+    match args with
+    | [x; y] ->
+        let a, b, lambda =
+            if leftNble || rightNble then
+                let a = Id.New "a"
+                let b = Id.New "b"
+                Var a, Var b, fun res -> CurriedLambda([a; b], res)
+            else
+                x, y, id
+        let res =
+            if op = BinaryOperator.``/`` then
                 if isIn smallIntegralTypes t
-                then (x ^/ y) ^>> !~(Int 0)
+                then (a ^/ b) ^>> !~(Int 0)
                 elif isIn bigIntegralTypes t
-                then Application(Global ["Math"; "trunc"], [x ^/ y], true, Some 1)
+                then Application(Global ["Math"; "trunc"], [a ^/ b], Pure, Some 1)
                 elif isIn scalarTypes t
-                then x ^/ y
-                else traitCallOp c
-            | _ ->
-                failwith "F# operator expecting 3 type arguments"
-            |> MacroOk
-        | _ -> MacroError "divisionMacro error"
+                then a ^/ b
+                else traitCallOp c [a; b]
+            else
+                if isIn scalarTypes t then
+                    Binary(a, op, y)
+                else traitCallOp c [a; b]
+        match leftNble, rightNble with
+        | false, false -> res
+        | true , false -> utils c.Compilation "nullableOpL" [ x; y; lambda res ]
+        | false, true  -> utils c.Compilation "nullableOpR" [ x; y; lambda res ]
+        | true , true  -> utils c.Compilation "nullableOp"  [ x; y; lambda res ]
+        |> MacroOk
+    | _ -> MacroError "arithmetic macro error"
 
-[<AbstractClass>]
-type Arith(name, op) =
+[<Sealed>]
+type Arith() =
     inherit Macro()
     override this.TranslateCall(c) =
-        match c.Arguments with
-        | [x; y] ->
-            match c.Method.Generics with
-            | t :: _ when not (isIn scalarTypes t) ->
-                traitCallOp c
-            | _ -> Binary(x, op, y)
-            |> MacroOk
-        | _ -> MacroError "divisionMacro error"
-
-[<Sealed>]
-type Add() = inherit Arith("op_Addition", BinaryOperator.``+``) 
-
-[<Sealed>]
-type Sub() = inherit Arith("op_Subtraction", BinaryOperator.``-``) 
+        let opName = c.Method.Entity.Value.MethodName
+        let leftNble = opName.StartsWith "op_Qmark"
+        let rightNble = opName.EndsWith "Qmark"
+        let simpleOpName = if leftNble || rightNble then opName.Replace("Qmark", "") else opName
+        let op =
+            match simpleOpName with
+            | BinaryOpName op -> op
+            | "op_Plus" -> BinaryOperator.``+``
+            | "op_Minus" -> BinaryOperator.``-``
+            | "op_Divide" -> BinaryOperator.``/``
+            | "op_Percent" -> BinaryOperator.``%``
+            | n -> failwithf "unrecognized operator for Arith macro: %s" n
+        match c.Method.Generics with
+        | t :: _ ->
+            translateOperation c t c.Arguments leftNble rightNble op
+        | _ -> MacroError "arithmetic macro error"
 
 type Comparison =
     | ``<``  = 0
@@ -166,49 +174,6 @@ let makeComparison cmp x y =
 let cInt i = Value (Int i)
 let cString s = Value (Literal.String s)
 
-[<AbstractClass>]
-type CMP(cmp) =
-    inherit Macro()
-    override this.TranslateCall(c) =
-        match c.Arguments with
-        | [x; y] ->
-            match c.Method.Generics with
-            | t :: _ ->
-                let comp x y =
-                    Binary (x, toBinaryOperator cmp, y)
-                if isIn scalarTypes t then
-                    comp x y
-                else
-                    // optimization for checking against argumentless union cases 
-                    let tryGetSingletonUnionCaseTag (x: Expression) =
-                        match x with
-                        | I.NewUnionCase(ct, case, []) ->
-                            match c.Compilation.GetCustomTypeInfo ct.Entity with
-                            | M.FSharpUnionInfo ui when not ui.HasNull ->
-                                ui.Cases |> Seq.mapi (fun i c ->
-                                    if c.Name = case && c.Kind = M.SingletonFSharpUnionCase then Some i else None
-                                ) |> Seq.tryPick id         
-                            | _ -> None
-                        | _ -> None
-                    
-                    match tryGetSingletonUnionCaseTag x, tryGetSingletonUnionCaseTag y with
-                    | Some i, Some j -> comp (cInt i) (cInt j)
-                    | Some i, _ -> comp (cInt i) (y.[cString "$"])
-                    | _, Some j -> comp (x.[cString "$"]) (cInt j)
-                    | _ -> makeComparison cmp x y
-                |> MacroOk
-            | _ ->
-                MacroError "comparisonMacro error"
-        | _ ->
-            MacroError "comparisonMacro error"
-
-[<Sealed>] type EQ() = inherit CMP(Comparison.``=``)
-[<Sealed>] type NE() = inherit CMP(Comparison.``<>``)
-[<Sealed>] type LT() = inherit CMP(Comparison.``<``)
-[<Sealed>] type GT() = inherit CMP(Comparison.``>``)
-[<Sealed>] type LE() = inherit CMP(Comparison.``<=``)
-[<Sealed>] type GE() = inherit CMP(Comparison.``>=``)
-
 let isComparison = function
     | BinaryOperator.``<`` | BinaryOperator.``>`` | BinaryOperator.``<=`` 
     | BinaryOperator.``>=`` | BinaryOperator.``==`` | BinaryOperator.``!=`` -> true
@@ -231,32 +196,77 @@ let toComparison = function
     | BinaryOperator.``!=`` -> Comparison.``<>``
     | _ -> failwith "Operation wasn't a comparison"
 
-// TODO unify these with the oeprations macros
-
-let translateComparison (t: Concrete<TypeDefinition>) a m cmp =
-    match a with
+let translateComparison (c: M.ICompilation) t args leftNble rightNble cmp =
+    match args with
     | [x; y] ->
-        if scalarTypes.Contains t.Entity.Value.FullName then
+        let a, b, lambda =
+            if leftNble || rightNble then
+                let a = Id.New "a"
+                let b = Id.New "b"
+                Var a, Var b, fun res -> CurriedLambda([a; b], res)
+            else
+                x, y, id
+        let comp x y =
             Binary (x, toBinaryOperator cmp, y)
-        else
-            makeComparison cmp x y
+        let res =
+            if isIn comparableTypes t then
+                comp a b
+            else
+                // optimization for checking against argumentless union cases 
+                let tryGetSingletonUnionCaseTag (x: Expression) =
+                    match x with
+                    | I.NewUnionCase(ct, case, []) ->
+                        match c.GetCustomTypeInfo ct.Entity with
+                        | M.FSharpUnionInfo ui when not ui.HasNull ->
+                            ui.Cases |> Seq.mapi (fun i c ->
+                                if c.Name = case && c.Kind = M.SingletonFSharpUnionCase then Some i else None
+                            ) |> Seq.tryPick id         
+                        | _ -> None
+                    | _ -> None
+                    
+                match tryGetSingletonUnionCaseTag x, tryGetSingletonUnionCaseTag y with
+                | Some i, Some j -> comp (cInt i) (cInt j)
+                | Some i, _ -> comp (cInt i) (y.[cString "$"])
+                | _, Some j -> comp (x.[cString "$"]) (cInt j)
+                | _ -> makeComparison cmp a b
+        match leftNble, rightNble with
+        | false, false -> res
+        | true , false -> utils c "nullableCmpL" [ x; y; lambda res ]
+        | false, true  -> utils c "nullableCmpR" [ x; y; lambda res ]
+        | true , true  -> 
+            match cmp with
+            | Comparison.``<=`` 
+            | Comparison.``>=`` 
+            | Comparison.``=`` 
+                -> utils c "nullableCmpE" [ x; y; lambda res ]
+            | _ -> utils c "nullableCmp"  [ x; y; lambda res ] 
         |> MacroOk
-    | _ -> MacroError "numericMacro error"
+    | _ ->
+        MacroError "comparisonMacro error"
 
-let translateOperation (t: Concrete<TypeDefinition>) a m op =
-    match a with
-    | [x; y] ->
-        match op with
-        | BinaryOperator.``/`` ->
-            if smallIntegralTypes.Contains t.Entity.Value.FullName
-            then (x ^/ y) ^>> !~(Int 0)
-            elif bigIntegralTypes.Contains t.Entity.Value.FullName
-            then Application(Global ["Math"; "trunc"], [x ^/ y], true, Some 1)
-            else x ^/ y
+[<Sealed>]
+type Comp() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        let opName = c.Method.Entity.Value.MethodName
+        let leftNble = opName.StartsWith "op_Qmark"
+        let rightNble = opName.EndsWith "Qmark"
+        let simpleOpName = if leftNble || rightNble then opName.Replace("Qmark", "") else opName
+        let cmp =
+            match simpleOpName with
+            | BinaryOpName op -> toComparison op
+            | "op_Equals" -> Comparison.``=``
+            | "op_LessGreater" -> Comparison.``<>``
+            | "op_Greater" -> Comparison.``>``
+            | "op_Less" -> Comparison.``<``
+            | "op_GreaterEquals" -> Comparison.``>=``
+            | "op_LessEquals" -> Comparison.``<=``
+            | n -> failwithf "unrecognized operator for for Comp macro: %s" n
+        match c.Method.Generics with
+        | t :: _ ->
+            translateComparison c.Compilation t c.Arguments leftNble rightNble cmp
         | _ ->
-            Binary (x, op, y)
-        |> MacroOk
-    | _ -> MacroError "numericMacro error"
+            MacroError "comparisonMacro error"
 
 let formatExceptionTy, formatExceptionCtor =
     match <@ new System.FormatException() @> with
@@ -265,6 +275,11 @@ let formatExceptionTy, formatExceptionCtor =
         Reflection.ReadConstructor ci
     | _ -> failwith "Expected constructor call"
 
+let parseInt x =
+    Application(Global ["parseInt"], [x], Pure, Some 1)
+let toNumber x =
+    Application(Global ["Number"], [x], Pure, Some 1)
+
 [<Sealed>]
 type NumericMacro() =
     inherit Macro()
@@ -272,7 +287,7 @@ type NumericMacro() =
     let exprParse parsed tru fls =
         let id = Id.New(mut = false)
         Let (id, parsed,
-            Conditional(Application(Global ["isNaN"], [Var id], true, Some 1),
+            Conditional(Application(Global ["isNaN"], [Var id], Pure, Some 1),
                 tru id,
                 fls id
             )
@@ -281,11 +296,6 @@ type NumericMacro() =
     override this.TranslateCall(c) =
         let name = c.DefiningType.Entity.Value.FullName
 
-        let parseInt x =
-            Application(Global ["parseInt"], [x], true, Some 1)
-        let parseFloat x =
-            Application(Global ["parseFloat"], [x], true, Some 1)
-
         let ex =
             Ctor(
                 NonGeneric formatExceptionTy,
@@ -293,37 +303,29 @@ type NumericMacro() =
                 [Value (String "Input string was not in a correct format.")]
             )
 
+        let isNble t =
+            match t with
+            | VoidType -> true
+            | ConcreteType { Entity = td } when td.Value.FullName = "System.Nullable`1" -> true
+            | _ -> false
+
         match c.Method.Entity.Value.MethodName with
         | BinaryOpName op when isOperation op ->
-            translateOperation c.DefiningType c.Arguments c.Method op
+            let leftNble, rightNble =
+                match c.Method.Generics with
+                | [lt; rt] -> isNble lt, isNble rt
+                | _ -> false, false
+            translateOperation c (ConcreteType c.DefiningType) c.Arguments leftNble rightNble op
         | BinaryOpName op when isComparison op ->
+            let leftNble, rightNble =
+                match c.Method.Generics with
+                | [lt; rt] -> isNble lt, isNble rt
+                | _ -> false, false
             let cmp = toComparison op
-            translateComparison c.DefiningType c.Arguments c.Method cmp
+            translateComparison c.Compilation (ConcreteType c.DefiningType) c.Arguments leftNble rightNble cmp
         | UnaryOpName op ->
             match c.Arguments with
             | [x] -> Unary (op, x) |> MacroOk
-            | _ -> MacroError "numericMacro error"
-        | "MaxValue" ->
-            match name with
-            | "System.Byte" -> MacroOk (Value (Byte 255uy))
-            | "System.SByte" -> MacroOk (Value (SByte 127y))
-            | "System.Int16" -> MacroOk (Value (Int16 32767s))
-            | "System.Int32" -> MacroOk (Value (Int 2147483647))
-            | "System.UInt16" -> MacroOk (Value (UInt16 65535us))
-            | "System.UInt32" -> MacroOk (Value (UInt32 4294967295u))
-            | "System.Single" -> MacroOk (Value (Single 3.40282347E+38f))
-            | "System.Double" -> MacroOk (Value (Double 1.7976931348623157E+308))
-            | _ -> MacroError "numericMacro error"
-        | "MinValue" ->
-            match name with
-            | "System.Byte" -> MacroOk (Value (Byte 0uy))
-            | "System.SByte" -> MacroOk (Value (SByte -128y))
-            | "System.Int16" -> MacroOk (Value (Int16 -32768s))
-            | "System.Int32" -> MacroOk (Value (Int -2147483648))
-            | "System.UInt16" -> MacroOk (Value (UInt16 0us))
-            | "System.UInt32" -> MacroOk (Value (UInt32 0u))
-            | "System.Single" -> MacroOk (Value (Single -3.402823e38f))
-            | "System.Double" -> MacroOk (Value (Double -1.7976931348623157E+308))
             | _ -> MacroError "numericMacro error"
         | "op_Increment" ->
             match c.Arguments with
@@ -340,9 +342,9 @@ type NumericMacro() =
             | Some self ->
                 // TODO refactor to separate method
                 if c.DefiningType.Entity.Value.AssemblyQualifiedName = "System.Char, mscorlib" then
-                    Application(Global ["String"; "fromCharCode"], [self], true, Some 1)
+                    self
                 else 
-                    Application(Global ["String"], [self], true, Some 1)
+                    Application(Global ["String"], [self], Pure, Some 1)
                 |> MacroOk 
             | _ -> MacroError "numericMacro error"
         | "Parse" ->
@@ -350,7 +352,7 @@ type NumericMacro() =
             | [x] ->
                 if name = "System.Single" || name = "System.Double" then
                     exprParse
-                    <| parseFloat x
+                    <| toNumber x
                     <| fun _ -> ex
                     <| fun id -> Var id
                     |> MacroOk
@@ -361,7 +363,7 @@ type NumericMacro() =
             | [x; y] ->
                 if name = "System.Single" || name = "System.Double" then
                     exprParse
-                    <| parseFloat x
+                    <| toNumber x
                     <| fun _ -> Value (Bool false)
                     <| fun id ->
                         Expression.Sequential [
@@ -386,23 +388,82 @@ type Char() =
         | [x] ->
             match c.Method.Generics with
             | t :: _ ->
-                if isIn integralTypes t then MacroOk x else
+                let fromNum() = 
+                    Application(Global ["String"; "fromCharCode"], [x], Pure, Some 1)
+                    |> MacroOk
+                if isIn integralTypes t then fromNum() else
                     match t with
                     | ConcreteType d ->
                         match d.Entity.Value.FullName with
                         | "System.String" ->
                             Call (None, NonGeneric charTy, NonGeneric charParse, [x])
                             |> MacroOk
-                        | "System.Char"
+                        | "System.Char" -> MacroOk x
                         | "System.Double"
-                        | "System.Single" -> MacroOk x
-                        | _               -> MacroError "charMacro error"
+                        | "System.Single" -> fromNum()
+                        | _ -> MacroError "charMacro error"
                     | _ ->
                         MacroError "charMacro error"
             | _ ->
                 MacroError "charMacro error"
         | _ ->
             MacroError "charMacro error"
+
+[<Sealed>]
+type Range() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        match c.Method.Generics with
+        | t :: _ ->
+            match t with
+            | ConcreteType d ->
+                match d.Entity.Value.FullName with
+                | "System.Char" -> 
+                    utils c.Compilation "charRange" c.Arguments |> MacroOk   
+                | _ -> MacroFallback
+            | _ -> MacroFallback
+        | _ -> MacroError "Range macro error"
+
+[<Sealed>]
+type Conversion() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        let isNble =
+            c.DefiningType.Entity.Value.FullName = "Microsoft.FSharp.Linq.NullableModule"
+        let m = c.Method
+        let x = c.Arguments.Head
+        let a, withNbleSupport = 
+            if isNble then
+                let a = Id.New "a"
+                Var a, fun res -> utils c.Compilation "nullableConv" [ x; Lambda([a], res) ] 
+            else 
+                x, id
+        let (|OptNbleTypeDef|_|) t =
+            match t with
+            | ConcreteType { Entity = tt; Generics = g } ->
+                if tt.Value.FullName = "System.Nullable`1" then
+                    match g.Head with
+                    | ConcreteType { Entity = tt } -> Some tt
+                    | _ -> None
+                else Some tt
+            | _ -> None
+            
+        match m.Generics.Head, m.Entity.Value.ReturnType with
+        | OptNbleTypeDef ft, OptNbleTypeDef tt ->
+            NumericConversion ft tt a |> withNbleSupport |> MacroOk
+        | TypeParameter _, OptNbleTypeDef tt ->
+            let tn = tt.Value.FullName
+            let warnAboutChar res =
+                MacroWarning ("Unsafe generic conversion for client-side, make sure input cannot be a char", MacroOk res)
+            if integralTypes.Contains tn then
+                parseInt a |> withNbleSupport |> warnAboutChar
+            elif scalarTypes.Contains tn then
+                toNumber a |> withNbleSupport |> warnAboutChar
+            elif tn = "System.Char" then
+                Application(Global ["String"; "fromCharCode"], [a], Pure, Some 1) |> warnAboutChar
+            else
+                MacroError ("Conversion macro error: generic to " + tn)
+        | f, t -> MacroError (sprintf "Conversion macro error: %O to %O" f t)
 
 [<Sealed>]
 type String() =
@@ -416,13 +477,13 @@ type String() =
                 | ConcreteType d ->
                     match d.Entity.Value.FullName with
                     | "System.Char" ->
-                        Application(Global ["String"; "fromCharCode"], [x], true, Some 1)    
+                        x
                     | "System.DateTime" ->
-                        Application(ItemGet(New(Global [ "Date" ], [x]), Value (Literal.String "toLocaleString")), [], true, None)
+                        Application(ItemGet(New(Global [ "Date" ], [x]), Value (Literal.String "toLocaleString"), Pure), [], Pure, None)
                     | _ ->
-                        Application(Global ["String"], [x], true, Some 1)   
+                        Application(Global ["String"], [x], Pure, Some 1)   
                 | _ -> 
-                    Application(Global ["String"], [x], true, Some 1)   
+                    Application(Global ["String"], [x], Pure, Some 1)   
                 |> MacroOk 
             | _ ->
                 MacroError "stringMacro error"
@@ -494,11 +555,11 @@ type New() =
 module JSRuntime =
     let private runtime = ["Runtime"; "IntelliFactory"]
     let private runtimeFunc f p args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some (List.length args))
-    let GetOptional value = runtimeFunc "GetOptional" true [value]
-    let SetOptional obj field value = runtimeFunc "SetOptional" false [obj; field; value]
-    let CreateFuncWithArgs f = runtimeFunc "CreateFuncWithArgs" true [f]
-    let CreateFuncWithArgsRest length f = runtimeFunc "CreateFuncWithArgsRest" true [length; f]
-    let CreateFuncWithThis f = runtimeFunc "CreateFuncWithThis" true [f]
+    let GetOptional value = runtimeFunc "GetOptional" Pure [value]
+    let SetOptional obj field value = runtimeFunc "SetOptional" NonPure [obj; field; value]
+    let CreateFuncWithArgs f = runtimeFunc "CreateFuncWithArgs" Pure [f]
+    let CreateFuncWithArgsRest length f = runtimeFunc "CreateFuncWithArgsRest" Pure [length; f]
+    let CreateFuncWithThis f = runtimeFunc "CreateFuncWithThis" Pure [f]
 
 [<Sealed>]
 type FuncWithArgs() =
@@ -548,7 +609,7 @@ type FuncWithThis() =
         | _ ->
             MacroError "funcWithArgsMacro error"
 
-let ApplItem(on, item, args) = Application(ItemGet(on, Value (AST.String item)), args, false, None)
+let ApplItem(on, item, args) = Application(ItemGet(on, Value (AST.String item), Pure), args, NonPure, None)
 
 [<Sealed>]
 type JSThisCall() =
@@ -590,7 +651,7 @@ type GetJS() =
         | [ obj ] -> MacroOk obj
         | [ obj; I.NewArray items ] ->
             if items |> List.forall (function I.Value _ -> true | _ -> false) then
-                items |> List.fold (fun x i -> ItemGetNonPure(x, i)) obj |> MacroOk
+                items |> List.fold (fun x i -> ItemGet(x, i, NonPure)) obj |> MacroOk
             else MacroFallback
         | [ _; _ ] -> MacroFallback
         | _ -> MacroError (sprintf "GetJS macro error, arguments: %+A" c.Arguments)
@@ -712,15 +773,6 @@ let flags =
     System.Reflection.BindingFlags.Public
     ||| System.Reflection.BindingFlags.NonPublic
 
-let printfHelpersModule =
-    TypeDefinition {
-        FullName = "WebSharper.PrintfHelpers"
-        Assembly = "WebSharper.Main"
-    }
-let printfHelpers (comp: M.ICompilation) f args = 
-    let m = comp.GetClassInfo(printfHelpersModule).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
-    Call(None, NonGeneric printfHelpersModule, NonGeneric m, args)
-
 let stringModule = 
     TypeDefinition {
         FullName = "Microsoft.FSharp.Core.StringModule"
@@ -730,10 +782,16 @@ let stringProxy (comp: M.ICompilation) f args =
     let m = comp.GetClassInfo(stringModule).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
     Call(None, NonGeneric stringModule, NonGeneric m, args)
 
-let cCall e f args = Application (ItemGet(e, !~ (Literal.String f)), args, true, None)
-let cCallG a args = Application (Global a, args, true, None)
+let cCall e f args = Application (ItemGet(e, !~ (Literal.String f), Pure), args, Pure, None)
+let cCallG a args = Application (Global a, args, Pure, None)
 
 //type FST = Reflection.FSharpType
+
+let (^+) (a: Expression) (b: Expression) =
+    match a, b with
+    | I.Value (String av), I.Value (String bv) -> Value (AST.String (av + bv))
+    | I.Value av, I.Value bv -> Value (AST.String (av.Value.ToString() + bv.Value.ToString()))
+    | _ -> a ^+ b
 
 let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
     let parts = FormatString.parseAll fs
@@ -755,15 +813,15 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                 stringProxy comp "PadRight" [s; width]
             else
                 if FormatString.isPadWithZeros f.Flags then
-                    printfHelpers comp "padNumLeft" [s; width]
+                    utils comp "padNumLeft" [s; width]
                 else
                     stringProxy comp "PadLeft" [s; width]
         else t (nextVar())
         
     let numberToString (f: FormatString.FormatSpecifier) t =
         withPadding f (fun (n, _) ->
-            if FormatString.isPlusForPositives f.Flags then printfHelpers comp "plusForPos" [n; t n]
-            elif FormatString.isSpaceForPositives f.Flags then printfHelpers comp "spaceForPos" [n; t n]
+            if FormatString.isPlusForPositives f.Flags then utils comp "plusForPos" [n; t n]
+            elif FormatString.isSpaceForPositives f.Flags then utils comp "spaceForPos" [n; t n]
             else t n
         )
 
@@ -782,9 +840,9 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
             | ArrayType (a, r) ->
                 let x = Id.New(mut = false)
                 match r with 
-                | 1 -> printfHelpers comp "printArray" [ Lambda([x], pp a (Var x)) ; o ]
-                | 2 -> printfHelpers comp "printArray2D" [ Lambda([x], pp a (Var x)) ; o ]
-                | _ -> printfHelpers comp "prettyPrint" [o]
+                | 1 -> utils comp "printArray" [ Lambda([x], pp a (Var x)) ; o ]
+                | 2 -> utils comp "printArray2D" [ Lambda([x], pp a (Var x)) ; o ]
+                | _ -> utils comp "prettyPrint" [o]
             | VoidType -> cString "null" 
             | FSharpFuncType _ -> cString "<fun>"
             | ConcreteType ct ->
@@ -810,7 +868,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                                             let ftypRes = f.RecordFieldType.SubstituteGenerics gs
                                             let item =
                                                 if f.Optional then
-                                                    JSRuntime.GetOptional (ItemGet(Var x, cString f.JSName))
+                                                    JSRuntime.GetOptional (ItemGet(Var x, cString f.JSName, Pure))
                                                 else 
                                                     (Var x).[cString f.JSName]
                                             yield cString (f.Name + " = ") ^+ pp ftypRes item
@@ -825,7 +883,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                 | M.FSharpUnionInfo u ->
                     if ct.Entity.Value.FullName = "Microsoft.FSharp.Collections.FSharpList`1" then
                         let x = Id.New(mut = false)
-                        printfHelpers comp "printList" [ Lambda([x], pp ct.Generics.[0] (Var x)) ; o ]    
+                        utils comp "printList" [ Lambda([x], pp ct.Generics.[0] (Var x)) ; o ]    
                     else
                         let td, m =
                             let key = M.CompositeEntry [ M.StringEntry "Printf"; M.TypeEntry t ]
@@ -890,11 +948,12 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                                 gtd, gm
                         Call(None, NonGeneric td, NonGeneric m, [o])
                 | _ ->
-                    printfHelpers comp "prettyPrint" [o]
-            | _ -> printfHelpers comp "prettyPrint" [o]
+                    utils comp "prettyPrint" [o]
+            | _ -> utils comp "prettyPrint" [o]
         pp t o
 
     let inner = 
+        if Array.isEmpty parts then cString "" else
         parts
         |> Seq.map (function
             | FormatString.StringPart s -> cString s
@@ -907,12 +966,12 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                     withPadding f (function 
                         | o, Some t -> 
                             prettyPrint t o
-                        | o, _ -> printfHelpers comp "prettyPrint" [o]
+                        | o, _ -> utils comp "prettyPrint" [o]
                     )
                 | 'c' -> 
-                    withPadding f (fun (s, _) -> cCallG ["String"; "fromCharCode"]  [s])   
+                    withPadding f (fun (s, _) -> s)   
                 | 's' -> 
-                    withPadding f (fun (s, _) -> printfHelpers comp "toSafe" [s])
+                    withPadding f (fun (s, _) -> utils comp "toSafe" [s])
                 | 'd' | 'i' ->
                     numberToString f (fun n -> cCallG ["String"] [n])
                 | 'x' ->                                           
@@ -1006,11 +1065,11 @@ type EqualityComparer() =
                             "WebSharper.MacroModule+EquatableEqualityComparer`1"
                         else
                             "WebSharper.MacroModule+BaseEqualityComparer`1" }
-                Ctor(
-                    {Entity = Hashed td; Generics = [t]},
-                    Hashed<ConstructorInfo> { CtorParameters = [] },
-                    [])
-                |> MacroOk
+                Ctor (
+                    { Entity = Hashed td; Generics = [t] },
+                    Constructor { CtorParameters = [] },
+                    []
+                ) |> MacroOk
             | _ -> MacroError ""
         | _ -> MacroError "Type form not recognized"
 
@@ -1166,7 +1225,7 @@ type StringFormat() =
         match c.DefiningType.Entity.Value.FullName, c.Method.Entity.Value.MethodName with
         | "System.String", "Format" ->
             match c.Arguments with
-            | (Value (String format)) :: args when args.Length < 4 ->
+            | (I.Value (String format)) :: args when args.Length < 4 ->
                 let args =
                     match c.Method.Entity.Value.Parameters with
                     | [_; x] ->
@@ -1184,20 +1243,25 @@ type StringFormat() =
 
                 let warning = ref None
                 let argsId = Id.New(mut = false)
-                
-                let mkExpr args =
+               
+                let parts =
                     regExp.Matches(format)
-                    |> fun e -> (e :> System.Collections.IEnumerable).Cast<Match>()
-                    |> Seq.fold (fun s m ->
+                    |> Seq.cast<Match>
+                    |> Array.ofSeq
+
+                let body =
+                    if Array.isEmpty parts then cString "" else
+                    parts
+                    |> Seq.map (fun m ->
                         if m.Groups.[5].Value <> "" then
-                            s ^+ Value (Literal.String m.Groups.[5].Value)
+                            Value (Literal.String m.Groups.[5].Value)
                         else
                             let prefix = m.Groups.[1].Value
                             let prefix s = Value (Literal.String prefix) ^+ s
                             let idx = int m.Groups.[2].Value
 
                             let r =
-                                Application(Global ["WebSharper"; "Arrays"; "get"], [Var argsId; cInt idx], true, Some 2)
+                                Application(Global ["WebSharper"; "Arrays"; "get"], [Var argsId; cInt idx], Pure, Some 2)
                                 |> safeToString
 
                             let spec = m.Groups.[4].Value
@@ -1211,19 +1275,20 @@ type StringFormat() =
                                 let expr =
                                     Conditional(
                                         cInt w2 ^> Call (None, NonGeneric stringTy, NonGeneric lengthMeth, [r]),
-                                        Conditional(
-                                            cInt w1 ^> cInt 0,
-                                            Call (None, NonGeneric stringTy, NonGeneric padLeft, [r; cInt w2]),
-                                            Call (None, NonGeneric stringTy, NonGeneric padRight, [r; cInt w2])
+                                        (
+                                            if w1 > 0 then
+                                                Call (None, NonGeneric stringTy, NonGeneric padLeft, [r; cInt w2])
+                                            else
+                                                Call (None, NonGeneric stringTy, NonGeneric padRight, [r; cInt w2])
                                         ),
                                         r
                                     )
-                                s ^+ prefix expr
-                            else s ^+ prefix r
-                    ) (cString "")
+                                prefix expr
+                            else prefix r
+                    )
+                    |> Seq.reduce (^+)
 
-                let result =
-                    Let(argsId, args, mkExpr argsId)
+                let result = Let(argsId, args, body)
 
                 let warningRes = !warning |> Option.map (fun w -> MacroWarning(w, MacroOk result))
 

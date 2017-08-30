@@ -51,6 +51,7 @@ type Context =
     {
         DebuggingEnabled : bool
         DefaultToHttp : bool
+        //GetResourceHash : string * string -> int
         GetAssemblyRendering : string -> Rendering
         GetSetting : string -> option<string>
         GetWebResourceRendering : Type -> string -> Rendering
@@ -103,11 +104,15 @@ let thisAssemblyToken =
 
 let AllReferencedAssemblies = 
     lazy
-    try
-        System.Web.Compilation.BuildManager.GetReferencedAssemblies()
-        |> Seq.cast<System.Reflection.Assembly>
-        |> Seq.toList
-    with _ ->
+    let fromWeb =
+        try
+            System.Web.Compilation.BuildManager.GetReferencedAssemblies()
+            |> Seq.cast<System.Reflection.Assembly>
+            |> Seq.toList
+        with _ -> []
+    match fromWeb with
+    | _::_ -> fromWeb
+    | [] ->
     let trace =
         System.Diagnostics.TraceSource("WebSharper",
             System.Diagnostics.SourceLevels.All)
@@ -223,7 +228,6 @@ let tryFindWebResource (t: Type) (spec: string) =
 
 let tryGetUriFileName (u: string) =
     try
-        let uri = System.Uri u
         let parts = u.Split('/')
         parts.[parts.Length - 1] |> Some
     with _ -> None
@@ -308,7 +312,12 @@ type BaseResource(kind: Kind) as this =
                         Directory.CreateDirectory localDir |> ignore
                     let url = if url.StartsWith("//") then "http:" + url else url
                     printfn "Downloading %A to %s" url localPath
-                    wc.DownloadFile(url, localPath)
+                    let tempLocalPath = localPath + ".download"
+                    wc.DownloadFile(url, tempLocalPath)
+                    if File.Exists tempLocalPath then
+                        if File.Exists localPath then
+                            File.Delete localPath
+                        File.Move(tempLocalPath, localPath)
                 | _ ->
                     ()
             match kind with

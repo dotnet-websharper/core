@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// Defines macros used by proxy definitions.
-module private WebSharper.PrintfHelpers
+module private WebSharper.Utils
 
 open WebSharper.JavaScript
 
@@ -79,7 +79,52 @@ let rec prettyPrint (o: obj) =
     if t  ==. JS.String then
         "\"" + As o + "\""
     elif t  ==. JS.Object then
-        if JS.InstanceOf o JS.Global?Array then
+        if o :? System.Array then
             "[|" + (As o |> Array.map prettyPrint |> String.concat "; ") + "|]"
         else printObject o
     else string o
+
+[<JavaScript>]
+[<Name "WebSharper.Operators.charRange">]
+let charRange (min: char) (max: char) : seq<char> =
+    let minv = int min
+    let count = 1 + int max - minv
+    if count <= 0 then Seq.empty
+    else Seq.init count (fun x -> char (x + minv))
+
+[<JavaScript>]
+[<Name "WebSharper.Nullable.op">]
+let nullableOp (a: obj) (b: obj) f = if a ==. null || b ==. null then null else f a b
+
+[<JavaScript>]
+[<Name "WebSharper.Nullable.opL">]
+let nullableOpL (a: obj) (b: obj) f = if a ==. null then null else f a b
+
+[<JavaScript>]
+[<Name "WebSharper.Nullable.opR">]
+let nullableOpR (a: obj) (b: obj) f = if b ==. null then null else f a b
+
+[<JavaScript>]
+[<Name "WebSharper.Nullable.cmp">]
+let nullableCmp (a: obj) (b: obj) f = if a ==. null || b ==. null then false else f a b
+
+[<JavaScript>]
+[<Name "WebSharper.Nullable.cmpE">]
+let nullableCmpE (a: obj) (b: obj) f =
+    if a ==. null then
+        b ==. null
+    elif b ==. null then 
+        false 
+    else f a b
+
+[<JavaScript>]
+[<Name "WebSharper.Nullable.cmpL">]
+let nullableCmpL (a: obj) (b: obj) f = if a ==. null then false else f a b
+
+[<JavaScript>]
+[<Name "WebSharper.Nullable.cmpR">]
+let nullableCmpR (a: obj) (b: obj) f = if b ==. null then false else f a b
+
+[<JavaScript>]
+[<Name "WebSharper.Nullable.conv">]
+let nullableConv (a: obj) f = if a ==. null then null else f a

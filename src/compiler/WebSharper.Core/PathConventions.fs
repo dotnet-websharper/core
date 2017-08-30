@@ -32,7 +32,11 @@ module PathConventions =
         }
 
         static member Create(s: string) =
-            AssemblyId.Create(AssemblyName(s))
+            { ShortName = 
+                match s.IndexOf ',' with
+                | -1 -> s
+                | i -> s.Substring(0, i)
+            }
 
         static member Create(a: Assembly) =
             AssemblyId.Create(a.GetName())
@@ -99,6 +103,9 @@ module PathConventions =
 
         member p.TypeScriptDefinitionsPath(a) =
             scripts ++ p.TypeScriptDefinitionsFileName(a)
+
+        member p.EmbeddedResourceKey(r) =
+            r.Id.ShortName + "/" + r.Name
 
         member p.EmbeddedPath(r) =
             match r.Kind with

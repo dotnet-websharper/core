@@ -36,13 +36,16 @@ IntelliFactory = {
         },
 
         Class: function (members, base, statics) {
-            var proto = base ? new base() : {};
+            var proto = members;
+            if (base) {
+                proto = new base();
+                for (var m in members) { proto[m] = members[m] }
+            }
             var typeFunction = function (copyFrom) {
                 if (copyFrom) {
                     for (var f in copyFrom) { this[f] = copyFrom[f] }
                 }
             }
-            for (var m in members) { proto[m] = members[m] }
             typeFunction.prototype = proto;
             if (statics) {
                 for (var f in statics) { typeFunction[f] = statics[f] }
@@ -96,6 +99,10 @@ IntelliFactory = {
                     obj[field] = value;
                 }
             },
+
+        Apply: function (f, obj, args) {
+            return f.apply(obj, args);
+        },
 
         Bind: function (f, obj) {
             return function () { return f.apply(this, arguments) };
@@ -272,10 +279,6 @@ IntelliFactory = {
                     for (var i = 0; i < c.length; i++) {
                         c[i]();
                     }
-                }
-                if ("init" in this) {
-                    run(this.init);
-                    this.init = [];
                 }
                 if ("load" in this) {
                     run(this.load);

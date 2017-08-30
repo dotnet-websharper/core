@@ -77,9 +77,6 @@ type JavaScriptExtensions =
     [<Extension; Inline "$0">]
     static member ToJS(x: double) = X<Number>
 
-    [<Extension; Inline "$0">]
-    static member ToJS(x: decimal) = X<Number>
-
 [<AutoOpen>]
 module Extensions =
     open WebSharper
@@ -210,13 +207,6 @@ module Extensions =
         member this.JS = X<Number>
 
     type System.Double  with
-        [<Inline "$0">]
-        [<System.Obsolete "Deprecated. Use JS property instead.">]
-        member this.ToEcma() = X<Number>
-        [<Inline "$0">]
-        member this.JS = X<Number>
-
-    type System.Decimal with
         [<Inline "$0">]
         [<System.Obsolete "Deprecated. Use JS property instead.">]
         member this.ToEcma() = X<Number>

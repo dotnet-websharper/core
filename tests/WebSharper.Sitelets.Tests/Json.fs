@@ -34,6 +34,19 @@ module Json =
                 z: int * string
                 t: string[]
             }
+
+        type SimpleObject(x: string, y: int) =
+            member this.X = x
+            member this.Y = y
+
+            override this.Equals(a) =
+                match a with
+                | :? SimpleObject as a -> this.X = a.X && this.Y = a.Y
+                | _ -> false
+
+            override this.GetHashCode() =
+                hash this.X + hash this.Y
+
         type RecordWithOptions<'T>() =
 
             member this.Test() = "Wrong class :("
@@ -45,6 +58,21 @@ module Json =
             }
 
             member this.Test() = this.ox
+
+        type ObjectWithOptions(ox: option<int>, oy: option<string>) =
+            [<OptionalField>]
+            let oy = oy
+            member this.X = ox
+            member this.Y = oy
+            member this.Test() = ox
+
+            override this.Equals(a) =
+                match a with
+                | :? ObjectWithOptions as a -> this.X = a.X && this.Y = a.Y
+                | _ -> false
+
+            override this.GetHashCode() =
+                hash this.X + hash this.Y
 
         [<NamedUnionCases "case">]
         type SimpleUnion =

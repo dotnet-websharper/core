@@ -44,9 +44,6 @@ type private MathProxy =
     [<Inline "Math.abs($value)">]
     static member Abs(value: double) = X<double>
 
-    [<Inline "Math.abs($value)">]
-    static member Abs(value: decimal) = X<decimal>
-
     [<Inline "Math.acos($d)">]
     static member Acos(d: double) = X<double>
 
@@ -62,9 +59,6 @@ type private MathProxy =
     [<Inline "$a * $b">]
     static member BigMul(a: int, b: int) = X<int64>
 
-    [<Inline "Math.ceil($d)">]
-    static member Ceiling(d: decimal) = X<decimal>
-
     [<Inline "Math.ceil($a)">]
     static member Ceiling(a: double) = X<double>
 
@@ -78,9 +72,6 @@ type private MathProxy =
 
     [<Inline "Math.exp($d)">]
     static member Exp(d: double) = X<double>
-
-    [<Inline "Math.floor($d)">]
-    static member Floor(d: decimal) = X<decimal>
 
     [<Inline "Math.floor($d)">]
     static member Floor(d: double) = X<double>
@@ -124,9 +115,6 @@ type private MathProxy =
     [<Inline "Math.max($val1,$val2)">]
     static member Max(val1: double, val2: double) = X<double>
 
-    [<Inline "Math.max($val1,$val2)">]
-    static member Max(val1: decimal, val2: decimal) = X<decimal>
-
     [<Inline "Math.min($val1,$val2)">]
     static member Min(val1: sbyte, val2: sbyte) = X<sbyte>
 
@@ -157,9 +145,6 @@ type private MathProxy =
     [<Inline "Math.min($val1,$val2)">]
     static member Min(val1: double, val2: double) = X<double>
 
-    [<Inline "Math.min($val1,$val2)">]
-    static member Min(val1: decimal, val2: decimal) = X<decimal>
-
     static member PI with [<Inline "Math.PI">] get () = 0.
 
     [<Inline "Math.pow($x,$y)">]
@@ -167,9 +152,6 @@ type private MathProxy =
 
     [<Inline "Math.round($a)">]
     static member Round(a: double) = X<double>
-
-    [<Inline "Math.round($d)">]
-    static member Round(d: decimal) = X<decimal>
 
     [<Inline>]
     static member Sign(value: sbyte) = sign value
@@ -189,9 +171,6 @@ type private MathProxy =
     [<Inline>]
     static member Sign(value: double) = sign value
 
-    [<Inline>]
-    static member Sign(value: decimal) = sign value
-
     [<Inline "Math.sin($a)">]
     static member Sin(a: double) = X<double>
 
@@ -206,9 +185,6 @@ type private MathProxy =
 
     [<Inline>]
     static member Tanh(value: double) = tanh value
-
-    [<Inline>]
-    static member Truncate(d: decimal) = truncate d
 
     [<Inline>]
     static member Truncate(d: double) = truncate d

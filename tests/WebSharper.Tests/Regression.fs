@@ -294,6 +294,29 @@ type TypeCheckTestWithSingletonCase =
     | NotSingleton of string
     | Singleton
 
+[<Inline "ThisDoesNotExists.DoNotImport.doSomething()">]
+let tryDoSomethingButFail() = X<unit>
+
+[<Inline "OutSideCode.NotInitialized.getValue()">]
+let tryGetOutsideValueAndFail() = X<int>
+
+[<Inline "$global.OutSideCode.NotInitialized.getValue()">]
+let tryGetOutsideValue() = X<int>
+
+type TestConfigObj [<JavaScript>]() =
+
+    [<Name "x">]
+    [<Stub>]
+    member val X = Unchecked.defaultof<bool> with get, set
+
+    [<DefaultValue>]
+    val mutable private value : int
+
+    [<JavaScript>]
+    member this.Value
+        with set x =
+            this.value <- x
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -641,7 +664,99 @@ let Tests =
             isTrue (match u3 with Union2Of2 Singleton -> true | _ -> false)
         }
 
-//        Test "Recursive module value" {
-//            equal (moduleFuncValue 0) 5
-//        }
+        Test "Do not import missing outside namespaces if not needed" {
+            // this should fail here, and not globally
+            raises (tryDoSomethingButFail()) 
+        }
+
+        Test "Do not import missing outside namespaces prematurely" {
+            JS.Global?OutSideCode <- New [ 
+                "NotInitialized" => New [ "getValue" => (fun() -> 1) ]
+            ]
+            equal (tryGetOutsideValue())  1     
+            raises (tryGetOutsideValueAndFail())
+        }
+
+        Test "#731 Tail recursion should not overwrite outside variable" {
+            let findInMs = ResizeArray()
+            
+            let test_websharper_bug (ns:string list) (ms:string list) : int list =
+              let find (d: string) ns =
+                let rec loop acc msl msr =
+                  match msr with
+                  | [] -> acc
+                  | m::msr' -> 
+                     findInMs.Add m
+                     loop acc (m::msl) msr'
+                loop [] [] ms in
+              let rec loop acc record nsl nsr =
+                let expand_finds fs = [] in
+                let search_record = function
+                  | [d] -> let foo = expand_finds (find d [d]) in []
+                  | _ -> [] in
+                match nsr with
+                | [] -> 
+                    search_record (List.rev record) @ acc
+                | n::nsr ->
+                    let acc = search_record record @ acc in
+                    loop acc record (nsl@record@[n]) nsr
+              in
+              loop [] ["x"] [] ns
+
+            test_websharper_bug ["x"] ["x"] |> ignore
+
+            equal (findInMs.ToArray()) [| "x"; "x" |]
+        }
+
+        Test "#737 Local mutual tail recursive optimization switch case falling over" {
+            let a() =
+                let rec f x =
+                    if x = 0 then g x 1 else f (x - 1)
+                and g x y =
+                    x + y
+                f 5    
+            equal (a()) 1
+            let b() =
+                let rec f x y z =
+                    if x = 0 then 
+                        if y = 0 then g z else y + z
+                    else f (x - 1) y z
+                and g x = 
+                    f 0 1 x
+                f 5 0 5
+            equal (b()) 6
+            let c() =
+                let r = ref 0
+                let rec f x y z =
+                    if x = 0 then 
+                        if y = 0 then g z else r := y + z
+                    else f (x - 1) y z
+                and g x = 
+                    f 0 1 x
+                f 5 0 5
+                !r
+            equal (c()) 6
+            let rec f acc n =
+                if n = 0 then
+                    acc
+                else
+                    f ((fun x -> x + n) :: acc) (n - 1)
+            equal (f [] 2 |> List.map (fun g -> g 1)) [2; 3]
+            let rec h x y =
+                if x = 0 then y else h (x - 1) (y + x)
+            equal (h 4 4) 14
+        }
+
+        Test "#747 Property set" {
+            let x = TestConfigObj()
+            x.Value <- 4
+            equal x?value 4
+            isFalse x.X
+            x.X <- true
+            isTrue x.X
+        }
+
+        //Test "Recursive module value" {
+        //    equal (moduleFuncValue 0) 5
+        //}
     }

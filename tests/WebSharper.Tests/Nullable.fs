@@ -26,6 +26,9 @@ open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
 
+open FSharp.Linq
+open Linq.NullableOperators
+
 [<JavaScript>]
 let Tests =
     TestCategory "Nullable" {
@@ -43,5 +46,23 @@ let Tests =
         Test "GetValueOrDefault" {
             equal (Nullable<int>().GetValueOrDefault(2)) 2
             equal (Nullable(1).GetValueOrDefault(2)) 1
+        }
+
+        Test "Operators" {
+            equal (Nullable 1 ?+ 1) (Nullable 2)
+            equal (Nullable() ?+ 1) (Nullable ())
+            equal (Nullable 1 ?+? Nullable 1) (Nullable 2)
+            equal (Nullable 1 ?+? Nullable()) (Nullable ())
+            isFalse (Nullable () ?< 0)
+            isFalse (Nullable () ?> 0)
+            isTrue (Nullable () ?=? Nullable ())
+            isTrue (Nullable 1 ?=? Nullable 1)
+            equal (Nullable 2 ?*? Nullable 2) (Nullable 4)
+        }
+
+        Test "int" {
+            equal (Nullable.int (Nullable 3.5)) (Nullable 3)
+            equal (Nullable.int (Nullable -3.5)) (Nullable -3)
+            equal (Nullable.int (Nullable 'a')) (Nullable 97)
         }
     }

@@ -23,6 +23,7 @@ module WebSharper.Compiler.FrontEnd
 open WebSharper.Core
 module M = WebSharper.Core.Metadata
 module B = WebSharper.Core.Binary
+module P = WebSharper.PathConventions
 
 type Assembly = WebSharper.Compiler.Assembly
 type Content = WebSharper.Compiler.Content
@@ -49,24 +50,31 @@ type ReadOptions =
     | DiscardInlineExpressions
     | DiscardNotInlineExpressions
 
-let ReadFromAssembly options (a: Assembly) =
+let TryReadFromAssembly options (a: Assembly) =
     a.Raw.MainModule.Resources
     |> Seq.tryPick (function
-        | :? Mono.Cecil.EmbeddedResource as r when r.Name = EMBEDDED_METADATA ->
-//            try
-                use s = r.GetResourceStream()
-                let m = M.IO.Decode s
-                match options with
-                | FullMetadata -> m
-                | DiscardExpressions -> m.DiscardExpressions() 
-                | DiscardInlineExpressions -> m.DiscardInlineExpressions()
-                | DiscardNotInlineExpressions -> m.DiscardNotInlineExpressions()
-                |> Some
-//            with
-//            | e ->
-//                failwithf "Failed to deserialize metadata for %s. Error: %s at %s" a.FullName e.Message e.StackTrace
+        | :? Mono.Cecil.EmbeddedResource as r when r.Name = EMBEDDED_METADATA -> Some r 
         | _ -> None
     )
+    |> Option.map (fun r ->
+        use s = r.GetResourceStream()
+        let m = 
+            try Ok (M.IO.Decode s)
+            with e -> Error (sprintf "Failed to deserialize metadata for %s. Error: %s" a.FullName e.Message)
+        m |> Result.map (fun m ->
+            match options with
+            | FullMetadata -> m
+            | DiscardExpressions -> m.DiscardExpressions() 
+            | DiscardInlineExpressions -> m.DiscardInlineExpressions()
+            | DiscardNotInlineExpressions -> m.DiscardNotInlineExpressions()
+        )
+    )
+
+let ReadFromAssembly options a =
+    match TryReadFromAssembly options a with
+    | None -> None
+    | Some (Ok m) -> Some m
+    | Some (Error e) -> raise (exn e) 
 
 let ReadFromFile options (path: string) =
     let aR = AssemblyResolver.Create().SearchPaths([path])
@@ -81,18 +89,24 @@ let GetJSLookup (r: Assembly list, readable) =
     |> dict
 
 let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
-    let pub = Mono.Cecil.ManifestResourceAttributes.Public
+    let assemblyName = a.Name.Name
+    for r in Assembly.GetAllResources a do
+        let p = assemblyName + "/" + r.FileName
+        let d = r.GetContentData()
+        current.ResourceHashes.Add(p, AST.StableHash.data d)
     let meta =
         use s = new MemoryStream(8 * 1024)
         M.IO.Encode s current
         s.ToArray()
+    let pub = Mono.Cecil.ManifestResourceAttributes.Public
     Mono.Cecil.EmbeddedResource(EMBEDDED_METADATA, pub, meta)
     |> a.MainModule.Resources.Add
 
 let ModifyTSAssembly (current: M.Info) (a: Assembly) =
     ModifyWIGAssembly current a.Raw
-
-let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap assemblyName =
+    
+let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
+    let assemblyName = a.Name.Name
     let currentPosFixed, sources =
         if sourceMap then
             let current, fileNames = transformAllSourcePositionsInMetadata assemblyName current
@@ -103,17 +117,21 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
     
     TimedStage "Source position transformations"
 
-    let meta =
-        System.Threading.Tasks.Task.Run(fun () ->
-            use s = new MemoryStream(8 * 1024)
-            M.IO.Encode s currentPosFixed
-            s.ToArray()
-        )
-
     let pkg = 
         Packager.packageAssembly refMeta current false
 
     TimedStage "Packaging assembly"
+    
+    let pkg =
+        match comp, closures with
+        | Some comp, Some moveToTop ->
+            let clPkg = pkg |> Closures.ExamineClosures(comp, moveToTop).TransformExpression 
+            TimedStage "Closure analyzation"
+            clPkg
+        | _ -> pkg
+
+    let res = ResizeArray()
+    let resToHash = ResizeArray()
     
     let pkg =
         if sourceMap then
@@ -121,14 +139,36 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
         else
             removeSourcePos.TransformExpression pkg
 
-    let res = ResizeArray()
-    
+    let addRes name path data = 
+        match data with
+        | Some d ->
+            res.Add(name, d)
+            match path with
+            | Some p ->
+                resToHash.Add(p, d)
+            | _ -> ()
+        | None ->
+            res.Add(name, [||])
+
     let addMeta() =
-        meta.Wait()
+        for r in Assembly.GetAllResources a do
+            let p = assemblyName + "/" + r.FileName
+            let d = r.GetContentData()
+            current.ResourceHashes.Add(p, AST.StableHash.data d)
 
-        TimedStage "Waiting on metadata serialization"
+        for (p, d) in resToHash do
+            current.ResourceHashes.Add(p, AST.StableHash.data d)
 
-        res.Add(EMBEDDED_METADATA, meta.Result)
+        TimedStage "Hashing resources"
+
+        let meta =
+            use s = new MemoryStream(8 * 1024)
+            M.IO.Encode s currentPosFixed
+            s.ToArray()
+        
+        res.Add(EMBEDDED_METADATA, meta)
+
+        TimedStage "Serializing metadata"
 
     if pkg <> AST.Undefined then
         
@@ -137,38 +177,44 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
                 WebSharper.Core.JavaScript.Writer.CodeWriter(sources)
             else WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
+        let pu = P.PathUtility.VirtualPaths("/")
+        let ai = P.AssemblyId.Create(assemblyName)
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
         let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
-        res.Add(EMBEDDED_JS, getBytes js)
+        addRes EMBEDDED_JS (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
         map |> Option.iter (fun m ->
-            res.Add(EMBEDDED_MAP, getBytes m))
+            addRes EMBEDDED_MAP None (Some (getBytes m)))
         TimedStage (if sourceMap then "Writing .js and .map.js" else "Writing .js")
         let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
-        res.Add(EMBEDDED_MINJS, getBytes minJs)
+        addRes EMBEDDED_MINJS (Some (pu.MinifiedJavaScriptFileName(ai))) (Some (getBytes minJs))
         minMap |> Option.iter (fun m ->
-            res.Add(EMBEDDED_MINMAP, getBytes m))
+            addRes EMBEDDED_MINMAP None (Some (getBytes m)))
         TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
 
         addMeta()
         Some js, res.ToArray()
     else
-        res.Add(EMBEDDED_MINJS, [||])
-        res.Add(EMBEDDED_JS, [||])
+        // set current AssemblyNode to have no js
+        current.Dependencies.Nodes |> Array.tryFindIndex (function
+            | M.AssemblyNode (n, _) when n = assemblyName -> true
+            | _ -> false
+        ) |> Option.iter (fun asmNodeIndex ->
+            current.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, false)
+        )
 
         addMeta()
         None, res.ToArray()
 
-
-let ModifyCecilAssembly (refMeta: M.Info) (current: M.Info) sourceMap (a: Mono.Cecil.AssemblyDefinition) =
-    let jsOpt, res = CreateResources None refMeta current sourceMap a.Name.Name
+let ModifyCecilAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
+    let jsOpt, res = CreateResources comp refMeta current sourceMap closures a
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
         |> a.MainModule.Resources.Add
     jsOpt
 
-let ModifyAssembly (refMeta: M.Info) (current: M.Info) sourceMap (assembly : Assembly) =
-    ModifyCecilAssembly refMeta current sourceMap assembly.Raw
+let ModifyAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (assembly : Assembly) =
+    ModifyCecilAssembly comp refMeta current sourceMap closures assembly.Raw
 
 /// Represents a resource content file.
 type ResourceContent =

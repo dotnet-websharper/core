@@ -48,11 +48,13 @@
       WebSharperProject="$(WebSharperProject)" 
 	  WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
       WebSharperDownloadResources="$(WebSharperDownloadResources)"
+	  WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
 	  ZafirToolPath="$(Root)/build/$(Configuration)/CSharp/ZafirCs.exe"
 	  TargetType="$(OutputType)"
 	  NoConfig="true"
 	  DebugType="$(DebugType)"
 	  SubsystemVersion="$(SubsystemVersion)"
+	  LangVersion="$(LangVersion)"
 	/>
   </Target>
 </Project>

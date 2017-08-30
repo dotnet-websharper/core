@@ -24,24 +24,9 @@ module WebSharper.Compiler.CompilationHelpers
 
 open WebSharper.Core
 open WebSharper.Core.AST
+open System.Collections.Generic
 
 module I = IgnoreSourcePos
-
-/// Change every occurence of one Id to another
-type ReplaceId(fromId, toId) =
-    inherit Transformer()
-    
-    override this.TransformId i =
-        if i = fromId then toId else i
-
-/// Change every occurence of multiple Ids
-type ReplaceIds(repl : System.Collections.Generic.IDictionary<Id, Id>) =
-    inherit Transformer()
-    
-    override this.TransformId i =
-        match repl.TryGetValue i with
-        | true, j -> j
-        | _ -> i
 
 let rec removePureParts expr =
     match expr with
@@ -59,7 +44,7 @@ let rec removePureParts expr =
         -> CombineExpressions (a |> List.map removePureParts) 
     | Conditional (a, b, c) 
         -> Conditional (a, removePureParts b, removePureParts c) 
-    | ItemGet(a, b)
+    | ItemGet(a, b, (NoSideEffect | Pure))
     | Binary (a, _, b)
         -> CombineExpressions [removePureParts a; removePureParts b]
     | Let (v, a, b)
@@ -73,7 +58,7 @@ let rec removePureParts expr =
         -> a |> List.map (snd >> removePureParts) |> CombineExpressions
     | LetRec (a, b) 
         -> LetRec (a, removePureParts b)
-    | Application(a, b, true, _) ->
+    | Application(a, b, (NoSideEffect | Pure), _) ->
         CombineExpressions ((a :: b) |> List.map removePureParts)
     | _ -> expr
 
@@ -94,7 +79,7 @@ let rec isPureExpr expr =
         -> List.forall isPureExpr a 
     | Conditional (a, b, c) 
         -> isPureExpr a && isPureExpr b && isPureExpr c
-    | ItemGet(a, b)
+    | ItemGet(a, b, (NoSideEffect | Pure))
     | Binary (a, _, b)
     | Let (_, a, b)
     | Coalesce(a, _, b) 
@@ -107,7 +92,7 @@ let rec isPureExpr expr =
         -> List.forall (snd >> isPureExpr) a 
     | LetRec (a, b) 
         -> List.forall (snd >> isPureExpr) a && isPureExpr b
-    | Application(a, b, true, _) ->
+    | Application(a, b, (NoSideEffect | Pure), _) ->
         isPureExpr a && List.forall isPureExpr b    
     | _ -> false
 
@@ -151,6 +136,7 @@ let rec isStronglyPureExpr expr =
         -> List.forall isStronglyPureExpr a 
     | Conditional (a, b, c) 
         -> isStronglyPureExpr a && isStronglyPureExpr b && isStronglyPureExpr c
+    | ItemGet(a, b, Pure)
     | Binary (a, _, b)
     | Let (_, a, b)
     | Coalesce(a, _, b) 
@@ -167,9 +153,21 @@ let rec isStronglyPureExpr expr =
         -> List.forall (snd >> isStronglyPureExpr) a 
     | LetRec (a, b) 
         -> List.forall (snd >> isStronglyPureExpr) a && isStronglyPureExpr b
-    | Application(a, b, true, _) ->
+    | Application(a, b, Pure, _) ->
         isStronglyPureExpr a && List.forall isStronglyPureExpr b    
     | _ -> false
+
+let getFunctionPurity expr =
+    match IgnoreExprSourcePos expr with
+    | Function (_, (I.Return body | I.ExprStatement body)) -> 
+        if isStronglyPureExpr body then
+            Pure
+        elif isPureExpr body then
+            NoSideEffect
+        else 
+            NonPure
+    | Function (_, (I.Empty | I.Block [])) -> Pure
+    | _ -> NonPure
 
 /// Checks if a specific Id is mutated or accessed within a function body
 /// (captured) inside an Expression
@@ -216,11 +214,40 @@ type private NotMutatedOrCaptured(v) =
 let notMutatedOrCaptured (v: Id) expr =
     NotMutatedOrCaptured(v).Check(expr)   
 
+type VarsNotUsed(vs : HashSet<Id>) =
+    inherit Visitor()
+
+    let mutable ok = true
+
+    new (vs: seq<Id>) = VarsNotUsed(HashSet vs)
+    
+    override this.VisitId(a) =
+        if vs.Contains a then 
+            ok <- false
+
+    override this.VisitExpression(e) =
+        if ok then
+            base.VisitExpression(e) 
+
+    member this.Get(e) =
+        if vs.Count = 0 then true else
+        ok <- true
+        this.VisitExpression(e) 
+        ok
+
+    member this.GetSt(s) =
+        if vs.Count = 0 then true else
+        ok <- true
+        this.VisitStatement(s) 
+        ok
+
 /// Optimization for inlining: if arguments are always accessed in
 /// the same order as they are provided, and there are no side effects
 /// between then, then extra Let forms and variables for them are not needed
 let varEvalOrder (vars : Id list) expr =
-    let watchedVars = System.Collections.Generic.HashSet vars
+    let watchedVars = HashSet vars
+    let varsNotUsed = VarsNotUsed watchedVars
+        
     let mutable vars = vars
     let mutable ok = true 
 
@@ -240,6 +267,8 @@ let varEvalOrder (vars : Id list) expr =
             | Base
             | Value _
             | Self
+            | GlobalAccess _
+            | OverrideName _
                 -> ()
             | Sequential a
             | NewArray a ->
@@ -253,16 +282,26 @@ let varEvalOrder (vars : Id list) expr =
                     vars <- aVars
                     eval c
                     if ok && (bVars <> vars) then fail()
-            | ItemGet(a, b) 
-            | ItemGetNonPure(a, b)
+            | ItemGet(a, b, (NoSideEffect | Pure))
             | Binary (a, _, b)
             | Let (_, a, b)
                 ->
                 eval a
                 eval b
+            | LetRec (a, b) ->
+                List.iter (snd >> eval) a
+                eval b
+            | ItemGet(a, b, NonPure) ->
+                eval a
+                eval b
+                stop()
             | Unary (_, a) 
             | ExprSourcePos (_, a)
             | TypeCheck(a, _)
+            | NewVar(_, a)
+            | UnionCaseGet (a, _, _, _)
+            | UnionCaseTag (a, _)
+            | UnionCaseTest (a, _, _)
                 -> eval a
             | Object a 
                 -> List.iter (snd >> eval) a 
@@ -290,8 +329,7 @@ let varEvalOrder (vars : Id list) expr =
             | MutatingBinary(a, _, c) ->
                 match IgnoreExprSourcePos a with
                 | Var v
-                | ItemGet(I.Var v, _)
-                | ItemGetNonPure(I.Var v, _)
+                | ItemGet(I.Var v, _, _)
                     -> if watchedVars.Contains v then fail()
                 | _ -> ()   
                 eval a
@@ -300,7 +338,10 @@ let varEvalOrder (vars : Id list) expr =
             | Application(a, b, c, _) ->
                 eval a
                 List.iter eval b
-                if not c then stop()
+                if c = NonPure then stop()
+            | New(a, b) ->
+                eval a
+                List.iter eval b
             | Call(a, _, _, b) ->
                 Option.iter eval a
                 List.iter eval b
@@ -314,22 +355,70 @@ let varEvalOrder (vars : Id list) expr =
                 Option.iter eval a
                 eval b
                 stop()
-            // TODO: more
+            | Function(_, a)
+            | FuncWithThis(_, _, a) ->
+                if not <| varsNotUsed.GetSt(a) then fail()
             | StatementExpr (a, _) ->
                 evalSt a
-            | _ -> fail()
+            | Arguments
+            | Await _
+            | BaseCtor _
+            | Ctor _
+            | CallNeedingMoreArgs _
+            | Cctor _
+            | Coalesce _
+            | ComplexElement _
+            | CopyCtor _
+            | CurriedApplication _
+            | Hole _
+            | MatchSuccess _
+            | NamedParameter _ 
+            | NewDelegate _
+            | NewRecord _
+            | NewUnionCase _
+            | OptimizedFSharpArg _
+            | RefOrOutParameter _
+            | TraitCall _
+                -> fail()
     
     and evalSt s =
-        match s with
-        | ExprStatement a
-        | VarDeclaration(_, a) -> eval a
-        | StatementSourcePos (_, a) -> evalSt a
-        | Block a -> List.iter evalSt a
-        | If (a, b, c) -> Conditional (a, IgnoredStatementExpr b, IgnoredStatementExpr c) |> eval
-        | Throw (a) -> 
-            eval a
-            stop()
-        | _ -> fail()
+        if ok then
+            match s with
+            | Empty 
+                -> ()
+            | ExprStatement a
+            | VarDeclaration(_, a) -> eval a
+            | Labeled (_, a)
+            | StatementSourcePos (_, a) -> evalSt a
+            | Block a -> List.iter evalSt a
+            | If (a, b, c) -> Conditional (a, IgnoredStatementExpr b, IgnoredStatementExpr c) |> eval
+            | Throw (a)
+            | Return (a) ->
+                eval a
+                stop()
+            | FuncDeclaration(_, _, a) -> 
+                if not <| varsNotUsed.GetSt(a) then fail()
+            | TryFinally (a, b) ->
+                evalSt a
+                evalSt b
+            | TryWith (a, _, b) ->
+                evalSt a
+                stop()
+                evalSt b
+            | Break _ 
+            | CSharpSwitch _
+            | Continuation _
+            | Continue _
+            | DoNotReturn
+            | DoWhile _
+            | For _
+            | ForIn _
+            | Goto _
+            | GotoCase _
+            | Switch _
+            | While _
+            | Yield _
+                -> fail()      
                
     eval expr
     ok && List.isEmpty vars   
@@ -356,26 +445,6 @@ type CountVarOccurence(v) =
     member this.GetForStatement(s) =
         this.VisitStatement(s) 
         occ
-
-type VarsNotUsed(vs : seq<Id>) =
-    inherit Visitor()
-
-    let vs = System.Collections.Generic.HashSet vs
-    let mutable ok = true
-
-    override this.VisitId(a) =
-        if vs.Contains a then 
-            ok <- false
-
-    override this.VisitExpression(e) =
-        if ok then
-            base.VisitExpression(e) 
-
-    member this.Get(e) =
-        if vs.Count = 0 then true else
-        ok <- true
-        this.VisitExpression(e) 
-        ok
 
 /// Substitutes every access to an Id to a given expression
 type SubstituteVar(v, e) =
@@ -507,25 +576,26 @@ module JSRuntime =
     let private runtime = ["Runtime"; "IntelliFactory"]
     let private runtimeFunc f p args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some (List.length args))
     let private runtimeFuncI f p i args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some i)
-    let Class members basePrototype statics = runtimeFunc "Class" true [members; basePrototype; statics]
-    let Ctor ctor typeFunction = runtimeFunc "Ctor" true [ctor; typeFunction]
-    let Cctor cctor = runtimeFunc "Cctor" true [cctor]
-    let Clone obj = runtimeFunc "Clone" true [obj]
-    let GetOptional value = runtimeFunc "GetOptional" true [value]
-    let SetOptional obj field value = runtimeFunc "SetOptional" false [obj; field; value]
-    let DeleteEmptyFields obj fields = runtimeFunc "DeleteEmptyFields" false [obj; NewArray fields] 
-    let CombineDelegates dels = runtimeFunc "CombineDelegates" true [dels]  
-    let BindDelegate func obj = runtimeFunc "BindDelegate" true [func; obj]    
-    let DelegateEqual d1 d2 = runtimeFunc "DelegateEqual" true [d1; d2]
-    let Curried f n = runtimeFuncI "Curried" true 3 [f; Value (Int n)]
-    let Curried2 f = runtimeFuncI "Curried2" true 1 [f]
-    let Curried3 f = runtimeFuncI "Curried3" true 1 [f]
-    let CurriedA f n arr = runtimeFuncI "Curried" true 3 [f; Value (Int n); arr]
-    let Apply f args = runtimeFunc "Apply" false [f; NewArray args]
-    let Apply2 f a b = runtimeFunc "Apply2" false [f; a; b]
-    let Apply3 f a b c = runtimeFunc "Apply3" false [f; a; b; c]
+    let Class members basePrototype statics = runtimeFunc "Class" Pure [members; basePrototype; statics]
+    let Ctor ctor typeFunction = runtimeFunc "Ctor" Pure [ctor; typeFunction]
+    let Cctor cctor = runtimeFunc "Cctor" Pure [cctor]
+    let Clone obj = runtimeFunc "Clone" Pure [obj]
+    let GetOptional value = runtimeFunc "GetOptional" Pure [value]
+    let SetOptional obj field value = runtimeFunc "SetOptional" NonPure [obj; field; value]
+    let DeleteEmptyFields obj fields = runtimeFunc "DeleteEmptyFields" NonPure [obj; NewArray fields] 
+    let CombineDelegates dels = runtimeFunc "CombineDelegates" Pure [dels]  
+    let BindDelegate func obj = runtimeFunc "BindDelegate" Pure [func; obj]    
+    let DelegateEqual d1 d2 = runtimeFunc "DelegateEqual" Pure [d1; d2]
+    let Curried f n = runtimeFuncI "Curried" Pure 3 [f; Value (Int n)]
+    let Curried2 f = runtimeFuncI "Curried2" Pure 1 [f]
+    let Curried3 f = runtimeFuncI "Curried3" Pure 1 [f]
+    let CurriedA f n arr = runtimeFuncI "Curried" Pure 3 [f; Value (Int n); arr]
+    let Apply f obj args = runtimeFunc "Apply" Pure [f; obj; NewArray args]
+    let OnLoad f = runtimeFunc "OnLoad" NonPure [f]
 
 module Definitions =
+    open WebSharper.InterfaceGenerator.Type
+
     let Obj =
         TypeDefinition {
             Assembly = "mscorlib"
@@ -592,6 +662,14 @@ module Definitions =
             MethodName = "_unique_" + name
             Parameters = []
             ReturnType = VoidType 
+            Generics = 0
+        }
+
+    let StringFormat1 =
+        Method {
+            MethodName = "Format"
+            Parameters = [ NonGenericType String; NonGenericType Obj ]
+            ReturnType = NonGenericType String
             Generics = 0
         }
     
@@ -695,7 +773,7 @@ let getAllAddresses (meta: Info) =
             | Macro (_, _, Some m) -> addMember m
             | _ -> ()
         for m, _, _ in cls.Constructors.Values do addMember m
-        for f in cls.Fields.Values do
+        for f, _, _ in cls.Fields.Values do
             match f with
             | InstanceField n 
             | OptionalField n -> pr |> Option.iter (fun p -> p.Add n |> ignore)
@@ -923,8 +1001,8 @@ type Capturing(?var) =
         let res = this.TransformExpression expr  
         if capture then
             match captVal with
-            | None -> Application (Function ([], Return res), [], false, None)
-            | Some c -> Application (Function ([c], Return res), [Var var.Value], false, None)        
+            | None -> Application (Function ([], Return res), [], NonPure, None)
+            | Some c -> Application (Function ([c], Return res), [Var var.Value], NonPure, None)        
         else expr
 
 type NeedsScoping() =
@@ -957,15 +1035,15 @@ type NeedsScoping() =
         if not needed then
             base.VisitExpression expr
 
-    member this.Check(args: seq<Id>, expr) =
-        for a in args do
-            if a.IsMutable then
+    member this.Check(args: seq<Id>, values, expr) =
+        for a, v in Seq.zip args values do
+            if a.IsMutable && not (isTrivialValue v) then
                 defined.Add a |> ignore
         this.VisitExpression expr  
         needed
 
-let needsScoping args body =
-    NeedsScoping().Check(args, body)    
+let needsScoping args values body =
+    NeedsScoping().Check(args, values, body)    
     
 type HasNoThisVisitor() =
     inherit Visitor()
@@ -1049,7 +1127,7 @@ let callArraySlice =
     (Global ["Array"]).[Value (String "prototype")].[Value (String "slice")].[Value (String "call")]   
 
 let sliceFromArguments slice =
-    Application (callArraySlice, Arguments :: [ for a in slice -> !~ (Int a) ], true, None)
+    Application (callArraySlice, Arguments :: [ for a in slice -> !~ (Int a) ], Pure, None)
 
 let (|Lambda|_|) e = 
     match e with
@@ -1057,10 +1135,24 @@ let (|Lambda|_|) e =
     | Function(args, ExprStatement body) -> Some (args, body, false)
     | _ -> None
 
+let (|SimpleFunction|_|) expr =
+    match IgnoreExprSourcePos expr with
+    | Function (_, I.Empty) ->
+        Some <| Global [ "ignore" ]
+    | Function (x :: _, I.Return (I.Var y)) when x = y ->
+        Some <| Global [ "id" ]
+    | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 0), _))) when x = y ->
+        Some <| Global [ "fst" ]
+    | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 1), _))) when x = y ->
+        Some <| Global [ "snd" ]
+    | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 2), _))) when x = y ->
+        Some <| Global [ "trd" ]
+    | _ -> None
+
 let (|AlwaysTupleGet|_|) tupledArg length expr =
     let (|TupleGet|_|) e =
         match e with 
-        | ItemGet(Var t, Value (Int i)) when t = tupledArg ->
+        | ItemGet(Var t, Value (Int i), _) when t = tupledArg ->
             Some (int i)
         | _ -> None 
     let maxTupleGet = ref (length - 1)
@@ -1086,7 +1178,7 @@ let (|TupledLambda|_|) expr =
                 newTA, SubstituteVar(tupledArg, Var newTA).TransformExpression b
             | _ -> tupledArg, b
         let rec loop acc = function
-            | Let (v, ItemGet(Var t, Value (Int i)), body) when t = tupledArg ->
+            | Let (v, ItemGet(Var t, Value (Int i), _), body) when t = tupledArg ->
                 loop ((int i, v) :: acc) body
             | body -> 
                 if List.isEmpty acc then [], body else
@@ -1190,7 +1282,7 @@ type OptimizeLocalTupledFunc(var, tupling) =
     override this.TransformVar(v) =
         if v = var then
             let t = Id.New(mut = false)
-            Lambda([t], Application(Var v, List.init tupling (fun i -> (Var t).[Value (Int i)]), false, Some tupling))
+            Lambda([t], Application(Var v, List.init tupling (fun i -> (Var t).[Value (Int i)]), NonPure, Some tupling))
         else Var v  
 
     override this.TransformApplication(func, args, isPure, length) =
@@ -1211,7 +1303,7 @@ let curriedApplication func args =
         | _ -> func, args
     match List.length args with
     | 0 -> func
-    | 1 -> Application (func, args, false, Some 1)
+    | 1 -> Application (func, args, NonPure, Some 1)
     | _ -> CurriedApplication(func, args)
 
 type OptimizeLocalCurriedFunc(var, currying) =
@@ -1220,7 +1312,7 @@ type OptimizeLocalCurriedFunc(var, currying) =
     override this.TransformVar(v) =
         if v = var then
             let ids = List.init currying (fun _ -> Id.New(mut = false))
-            CurriedLambda(ids, Application(Var v, ids |> List.map Var, false, Some currying))    
+            CurriedLambda(ids, Application(Var v, ids |> List.map Var, NonPure, Some currying))    
         else Var v  
 
     override this.TransformCurriedApplication(func, args) =
@@ -1228,7 +1320,7 @@ type OptimizeLocalCurriedFunc(var, currying) =
         | Var v when v = var ->
             if args.Length >= currying then
                 let cargs, moreArgs = args |> List.splitAt currying
-                let f = Application(func, cargs |> List.map this.TransformExpression, false, Some currying)  
+                let f = Application(func, cargs |> List.map this.TransformExpression, NonPure, Some currying)  
                 curriedApplication f (moreArgs |> List.map this.TransformExpression)
             else
                 base.TransformCurriedApplication(func, args)             

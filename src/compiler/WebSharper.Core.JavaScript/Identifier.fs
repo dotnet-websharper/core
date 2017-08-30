@@ -95,6 +95,23 @@ let ReservedWords =
 
 let IsReserved x = ReservedWords.Contains x
 
+let ObjectMembers =
+    System.Collections.Generic.HashSet [|
+        "constructor"
+        "hasOwnProperty"
+        "isPrototypeOf"
+        "propertyIsEnumerable"
+        "prototype"
+        "toLocaleString"
+        "toSource"
+        "toString"
+        "unwatch"
+        "valueOf"
+        "watch"
+    |]
+
+let IsObjectMember x = ObjectMembers.Contains x
+
 let IsValid x =
     x <> null
     && ValidIdentifierPattern.Match(x).Success
