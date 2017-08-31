@@ -76,8 +76,8 @@ type FSharpConvert =
     [<Inline>]
     static member Ref<'T>(value) = ref<'T> value
     [<Inline>]
-    static member Async(task: System.Threading.Tasks.Task) = As<Async<unit>> (Concurrency.AwaitTask task)
+    static member Async(task: System.Threading.Tasks.Task) : Async<unit> = Async.AwaitTask (As<System.Threading.Tasks.Task<unit>> task) // hack needed for FSharp 3.0
     [<Inline>]
-    static member Async(task: System.Threading.Tasks.Task<'T>) = As<Async<'T>> (Concurrency.AwaitTask1 task)
+    static member Async(task: System.Threading.Tasks.Task<'T>) = Async.AwaitTask task
     [<Inline>]
     static member AsyncValue(value: 'T) = async.Return value
