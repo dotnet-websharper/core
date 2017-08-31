@@ -27,6 +27,7 @@ module private WebSharper.LazyExtensionsProxy
 
 open WebSharper.JavaScript
 
+[<JavaScript; Prototype false>]
 type LazyRecord<'T> =
     {
         [<Name "c">] mutable created : bool

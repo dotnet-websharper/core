@@ -91,7 +91,7 @@ let ComputeVersion (baseVersion: option<Paket.SemVerInfo>) =
             traceImportant (sprintf "Warning: computing patch version: %s" e.Message)
             0u
     let build =
-        match environVar "BUILD_NUMBER" with
+        match jenkinsBuildNumber with
         | null | "" -> string (int64 lastVersion.Build + 1L)
         | b -> b
     Printf.ksprintf (fun v ->

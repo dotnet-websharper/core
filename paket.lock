@@ -53,7 +53,7 @@ NUGET
     Microsoft.NETCore.Platforms (2.0) - restriction: || (&& (== net40) (>= net45)) (&& (== net40) (>= net451)) (&& (== net40) (>= net46)) (&& (== net40) (>= net461)) (&& (== net40) (>= uap10.0)) (&& (== net40) (>= netstandard1.0)) (&& (== net40) (>= netstandard1.1)) (&& (== net40) (>= netstandard1.2)) (&& (== net40) (>= netstandard1.3)) (&& (== net40) (>= netstandard1.4)) (&& (== net40) (>= netstandard1.5)) (&& (== net40) (>= netstandard1.6)) (&& (== net40) (>= wpa81)) (== net45) (== net46)
     Microsoft.Win32.Primitives (4.3) - restriction: || (&& (== net40) (>= net46)) (&& (== net40) (>= uap10.0)) (&& (== net40) (>= netstandard1.3)) (&& (== net40) (>= netstandard1.4)) (&& (== net40) (>= netstandard1.5)) (&& (== net40) (>= netstandard1.6)) (&& (== net45) (>= net46)) (&& (== net45) (>= uap10.0)) (&& (== net45) (>= netstandard1.6)) (== net46)
     Mono.Cecil (0.10.0-beta6)
-    NETStandard.Library (2.0) - restriction: || (&& (== net40) (>= netstandard1.0)) (&& (== net40) (>= netstandard1.1)) (&& (== net40) (>= netstandard1.3)) (== net45) (== net46)
+    NETStandard.Library (2.0) - restriction: || (&& (== net40) (>= netstandard1.0)) (&& (== net40) (>= netstandard1.1)) (== net45) (== net46)
       Microsoft.NETCore.Platforms (>= 1.1) - restriction: || (&& (== net40) (== net45)) (&& (== net40) (== net46)) (&& (== net40) (>= net45)) (&& (== net40) (>= net451)) (&& (== net40) (>= net46)) (&& (== net40) (>= net461)) (&& (== net40) (>= uap10.0)) (&& (== net40) (>= netstandard1.0)) (&& (== net40) (>= netstandard1.1)) (&& (== net40) (>= netstandard1.2)) (&& (== net40) (>= netstandard1.3)) (&& (== net40) (>= netstandard1.4)) (&& (== net40) (>= netstandard1.5)) (&& (== net40) (>= netstandard1.6)) (&& (== net40) (>= monoandroid)) (&& (== net40) (>= wpa81)) (&& (== net40) (>= portable-net45+win8+wpa81)) (&& (== net40) (>= portable-net451+win81+wpa81)) (&& (== net40) (>= portable-net45+win8+wp8+wpa81)) (== net45) (&& (== net45) (== net46)) (== net46)
       Microsoft.Win32.Primitives (>= 4.3) - restriction: || (&& (== net40) (== net45) (>= net46)) (&& (== net40) (== net45) (>= uap10.0)) (&& (== net40) (== net45) (>= netstandard1.3)) (&& (== net40) (== net45) (>= netstandard1.4)) (&& (== net40) (== net45) (>= netstandard1.5)) (&& (== net40) (== net45) (>= netstandard1.6)) (&& (== net40) (== net46)) (&& (== net40) (>= net46)) (&& (== net40) (>= uap10.0)) (&& (== net40) (>= netstandard1.3)) (&& (== net40) (>= netstandard1.4)) (&& (== net40) (>= netstandard1.5)) (&& (== net40) (>= netstandard1.6)) (&& (== net45) (== net46)) (&& (== net45) (>= net46)) (&& (== net45) (>= uap10.0)) (&& (== net45) (>= netstandard1.6)) (== net46)
       System.AppContext (>= 4.3) - restriction: || (&& (== net40) (== net45) (>= net46)) (&& (== net40) (== net45) (>= uap10.0)) (&& (== net40) (== net45) (>= netstandard1.3)) (&& (== net40) (== net45) (>= netstandard1.4)) (&& (== net40) (== net45) (>= netstandard1.5)) (&& (== net40) (== net45) (>= netstandard1.6)) (&& (== net40) (== net46)) (&& (== net40) (>= net46)) (&& (== net40) (>= uap10.0)) (&& (== net40) (>= netstandard1.3)) (&& (== net40) (>= netstandard1.4)) (&& (== net40) (>= netstandard1.5)) (&& (== net40) (>= netstandard1.6)) (&& (== net45) (== net46)) (&& (== net45) (>= net46)) (&& (== net45) (>= uap10.0)) (&& (== net45) (>= netstandard1.6)) (== net46)
@@ -118,8 +118,7 @@ NUGET
     System.Threading.Tasks (4.3) - restriction: || (&& (== net40) (>= netstandard1.3)) (&& (== net45) (>= netstandard1.3)) (== net46)
     System.Threading.Tasks.Parallel (4.3) - restriction: || (&& (== net40) (>= netstandard1.3)) (&& (== net45) (>= netstandard1.3)) (== net46)
     System.Threading.Thread (4.3) - restriction: || (&& (== net40) (>= netstandard1.3)) (&& (== net45) (>= netstandard1.3)) (== net46)
-    System.ValueTuple (4.4) - restriction: || (&& (== net40) (>= netstandard1.3)) (&& (== net45) (>= netstandard1.3)) (== net46)
-      NETStandard.Library (>= 1.6.1) - restriction: || (&& (== net40) (== net45)) (&& (== net40) (== net46)) (&& (== net40) (>= netstandard1.0)) (== net45) (&& (== net45) (== net46)) (== net46)
+    System.ValueTuple (4.3)
     System.Xml.ReaderWriter (4.3) - restriction: || (&& (== net40) (>= netstandard1.3)) (&& (== net45) (>= netstandard1.3)) (== net46)
     System.Xml.XDocument (4.3) - restriction: || (&& (== net40) (>= netstandard1.3)) (&& (== net45) (>= netstandard1.3)) (== net46)
     System.Xml.XmlDocument (4.3) - restriction: || (&& (== net40) (>= netstandard1.3)) (&& (== net45) (>= netstandard1.3)) (== net46)
@@ -137,4 +136,6 @@ GROUP fsharp4
 RESTRICTION: || (== net40) (== net45) (== net46)
 NUGET
   remote: https://www.nuget.org/api/v2
-    FSharp.Core (4.1.18)
+    FSharp.Core (4.1.17)
+      System.ValueTuple (>= 4.3)
+    System.ValueTuple (4.3)

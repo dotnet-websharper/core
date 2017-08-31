@@ -239,7 +239,9 @@ type ResolveFuncArgs(comp: Compilation) =
             rArgs.[mi] <- value
 
     member this.AddMember(mem, nr, args, isInstance) =
-        members.Add(mem, (nr, args, isInstance)) |> ignore    
+        try
+            members.Add(mem, (nr, args, isInstance)) |> ignore    
+        with _ -> failwithf "error during function argument resolver, member already added: %A" mem
 
     member this.GetCompiled(mem, i) =
         match mem with
