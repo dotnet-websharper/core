@@ -318,6 +318,19 @@ type TestConfigObj [<JavaScript>]() =
             this.value <- x
 
 [<JavaScript>]
+module Bug751 =
+    type ExampleTree = 
+      | TLeaf of int
+      | TNode of (ExampleTree * ExampleTree)
+      | TLink of ExampleTree
+
+    let rec collect (t : ExampleTree) : int Set =
+      match t with
+      | TLeaf(i) -> Set.singleton i
+      | TNode(l,r) -> Set.union <| collect l <| collect r
+      | TLink(i) -> collect i
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -754,6 +767,12 @@ let Tests =
             isFalse x.X
             x.X <- true
             isTrue x.X
+        }
+
+        Test "#751 tail call position recognition error" {
+            let a =
+                Bug751.TNode (Bug751.TLeaf 1, Bug751.TLink (Bug751.TLeaf 2))
+            equal (Bug751.collect a |> Array.ofSeq) [| 1; 2 |]
         }
 
         //Test "Recursive module value" {
