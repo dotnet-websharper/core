@@ -10,7 +10,7 @@ tags
 dependencies
     WebSharper == CURRENTVERSION
 files
-    ../msbuild/Zafir.CSharp.targets ==> build
+    ../msbuild/WebSharper.CSharp.targets ==> build
     ../build/Release/CSharp/ZafirCs.exe ==> tools
     ../build/Release/CSharp/ZafirCs.exe.config ==> tools
     ../build/Release/CSharp/WebSharper.Compiler.dll ==> tools

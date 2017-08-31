@@ -72,5 +72,40 @@
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.CSharp.Analyzer.dll" />
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.InterfaceGenerator.dll" />
   </ItemGroup>
-  <Import Project="WebSharper.CSharp.targets" />
+  <PropertyGroup>
+    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(Root)/build/$(Configuration)/CSharp/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+  </PropertyGroup>
+  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
+  <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
+    <WebSharperTask 
+	  DefineConstants="$(DefineConstants)"
+	  NoStandardLib="$(NoCompilerStandardLib)"
+	  Sources="@(Compile)"  
+	  OutputAssembly="@(IntermediateAssembly)"
+	  References="@(ReferencePath)"
+      Configuration="$(Configuration)"
+      DocumentationFile="$(DocumentationFile)"
+      EmbeddedResources="@(EmbeddedResource)"
+      KeyOriginatorFile="$(KeyOriginatorFile)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
+      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
+      Name="$(AssemblyName)"
+      OutputPath="$(OutputPath)"
+	  WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
+      WebSharperSourceMap="$(WebSharperSourceMap)"          
+      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
+      WebSharperProject="$(WebSharperProject)" 
+	  WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
+      WebSharperDownloadResources="$(WebSharperDownloadResources)"
+	  WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
+	  ZafirToolPath="$(Root)/build/$(Configuration)/CSharp/ZafirCs.exe"
+	  TargetType="$(OutputType)"
+	  NoConfig="true"
+	  DebugType="$(DebugType)"
+	  SubsystemVersion="$(SubsystemVersion)"
+	  LangVersion="$(LangVersion)"
+	/>
+  </Target>
 </Project>

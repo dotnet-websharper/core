@@ -55,6 +55,9 @@
     <Compile Include="../WebSharper.Main/Html.fs">
       <Link>Html.fs</Link>
     </Compile>
+    <Compile Include="../WebSharper.Main/JSObject.fs">
+      <Link>JSObject.fs</Link>
+    </Compile>
     <Compile Include="../WebSharper.Main/FSharpConvert.fs">
       <Link>FSharpConvert.fs</Link>
     </Compile>
