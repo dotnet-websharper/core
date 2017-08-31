@@ -5,8 +5,6 @@
     <Name>WebSharper.InterfaceGenerator.Tests</Name>
     <OutputType>Library</OutputType>
     <WebSharperProject>Extension</WebSharperProject>
-    <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
-    <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <Tests>True</Tests>
   </PropertyGroup>
   <Import Project="../../msbuild/WebSharper.FSharp.Internal.targets" />

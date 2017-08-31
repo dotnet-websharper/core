@@ -6,8 +6,6 @@
     <ProjectGuid>{bb4817e7-12a1-4622-b8ce-29cb3c406851}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.Collections.Tests</Name>
-    <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
-    <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <WebSharperProject>Library</WebSharperProject>
     <Tests>True</Tests>
   </PropertyGroup>

@@ -5,8 +5,6 @@
     <ProjectGuid>{91E8E3CC-B1F5-4D27-8DAF-639CA5C76F63}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.CSharp.Sitelets.Tests</Name>
-    <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
-    <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <OutputType>Library</OutputType>
     <WebSharperProject>Library</WebSharperProject>
     <WebSharperErrorsAsWarnings>True</WebSharperErrorsAsWarnings>
@@ -17,9 +15,6 @@
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
     <Tests>True</Tests>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'DebugTests|AnyCPU'">
-    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <Prefer32Bit>false</Prefer32Bit>

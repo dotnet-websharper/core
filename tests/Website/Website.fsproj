@@ -6,8 +6,6 @@
     <Name>Website</Name>
     <AssemblyName>Website</AssemblyName>
     <RootNamespace>WebSharper.Tests.Website</RootNamespace>
-    <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
-    <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <WebSharperProject>Library</WebSharperProject>
     <FSharp40>True</FSharp40>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>

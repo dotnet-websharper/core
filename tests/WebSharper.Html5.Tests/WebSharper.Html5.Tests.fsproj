@@ -4,8 +4,6 @@
     <ProjectGuid>{3958f5e1-dda2-4a22-bf29-794a25bb14f7}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.Html5.Tests</Name>
-    <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
-    <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <WebSharperProject>Library</WebSharperProject>
     <Tests>True</Tests>
   </PropertyGroup>

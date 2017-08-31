@@ -5,8 +5,6 @@
     <ProjectGuid>{C78F4FFD-9C51-466B-8E35-99588A419D60}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.CSharp.Tests</Name>
-    <WSMSBuildPath Condition="'$(Configuration)' == 'DebugTests'">Release</WSMSBuildPath>
-    <Configuration Condition="'$(Configuration)' == 'DebugTests'">Debug</Configuration>
     <OutputType>Library</OutputType>
     <WebSharperProject>Library</WebSharperProject>
     <WebSharperErrorsAsWarnings>True</WebSharperErrorsAsWarnings>
@@ -17,10 +15,6 @@
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
     <Tests>True</Tests>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'DebugTests|AnyCPU'">
-    <Prefer32Bit>false</Prefer32Bit>
-    <CodeAnalysisRuleSet>WebSharper.CSharp.Tests.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <Prefer32Bit>false</Prefer32Bit>
