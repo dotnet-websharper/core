@@ -331,6 +331,11 @@ module Bug751 =
       | TLink(i) -> collect i
 
 [<JavaScript>]
+type UnusedStaticLetTest() =
+    static let Hello = "hello"
+    member val Hi = "hi"
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -773,6 +778,11 @@ let Tests =
             let a =
                 Bug751.TNode (Bug751.TLeaf 1, Bug751.TLink (Bug751.TLeaf 2))
             equal (Bug751.collect a |> Array.ofSeq) [| 1; 2 |]
+        }
+        
+        Test "#753 Unused static let" {
+            let x = UnusedStaticLetTest()
+            equal x.Hi "hi"
         }
 
         //Test "Recursive module value" {

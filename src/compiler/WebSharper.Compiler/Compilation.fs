@@ -604,6 +604,9 @@ type Compilation(meta: Info, ?hasGraph) =
             | NotCustomType -> LookupMemberError (TypeNotFound typ)
             | i -> CustomTypeMember i
     
+    member this.TryGetCompilingStaticConstructor(typ) =
+        compilingStaticConstructors.TryFind typ
+    
     member this.TryLookupStaticConstructorAddress(typ) =
         let typ = this.FindProxied typ
         let cls = classes.[typ]

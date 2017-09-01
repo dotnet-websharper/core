@@ -1193,6 +1193,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         else def()
 
     override this.TransformCctor(typ) =
+        let typ = comp.FindProxied typ
+        match comp.TryGetCompilingStaticConstructor typ with
+        | Some (addr, expr) ->
+            this.AnotherNode().CompileStaticConstructor(addr, expr, typ)
+        | _ -> ()
         match comp.TryLookupStaticConstructorAddress typ with
         | Some cctor ->
             if comp.HasGraph then
