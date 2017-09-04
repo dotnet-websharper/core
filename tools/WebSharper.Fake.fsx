@@ -130,6 +130,7 @@ let MakeTargets (args: Args) =
     let dirtyDirs =
         !! "/**/bin"
         ++ "/**/obj"
+        ++ "build"
 
     Target "WS-Clean" <| fun () ->
         DeleteDirs dirtyDirs
@@ -168,7 +169,7 @@ let MakeTargets (args: Args) =
     Target "WS-Package" <| fun () ->
         Paket.Pack <| fun p ->
             { p with
-                OutputPath = environVarOrDefault "NuGetPackageOutputPath" "build"
+                OutputPath = "build"
                 Version = args.Version.AsString
             }
 
@@ -214,10 +215,12 @@ let MakeTargets (args: Args) =
     Target "WS-Publish" <| fun () ->
         match environVarOrNone "NugetPublishUrl", environVarOrNone "NugetApiKey" with
         | Some nugetPublishUrl, Some nugetApiKey ->
+            tracefn "[NUGET] Publishing to %s" nugetPublishUrl 
             Paket.Push <| fun p ->
                 { p with
                     PublishUrl = nugetPublishUrl
                     ApiKey = nugetApiKey
+                    WorkingDir = "build"
                 }
         | _ -> traceError "[NUGET] Not publishing: NugetPublishUrl and/or NugetApiKey are not set"
 
