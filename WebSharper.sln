@@ -72,9 +72,14 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-497B-A0A2-135BA8A16B0A}"
 	ProjectSection(SolutionItems) = preProject
 		build.cmd = build.cmd
+		build.fsx = build.fsx
+		build.sh = build.sh
 		ivy.xml = ivy.xml
 		LICENSE.md = LICENSE.md
+		paket.dependencies = paket.dependencies
+		paket.lock = paket.lock
 		README.md = README.md
+		rebuild.cmd = rebuild.cmd
 		runtests.fsx = runtests.fsx
 	EndProjectSection
 EndProject
@@ -132,6 +137,19 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.CSharp.Analyzer", "src\compiler\WebSharper.CSharp.Analyzer\WebSharper.CSharp.Analyzer.fsproj", "{055CF3AD-BDAF-4441-989B-D764B80FBDEE}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Main.Proxies", "src\stdlib\WebSharper.Main.Proxies\WebSharper.Main.Proxies.fsproj", "{7001E2B2-61F4-4770-BA7C-86F07F657678}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{77D17EB5-2917-470D-B2FE-FA6560BFBBC1}"
+	ProjectSection(SolutionItems) = preProject
+		tools\LICENSE.txt = tools\LICENSE.txt
+		tools\UpdateLicense.fsx = tools\UpdateLicense.fsx
+		tools\UpdateVersion.fsx = tools\UpdateVersion.fsx
+		tools\WebSharper.Compiler.paket.template = tools\WebSharper.Compiler.paket.template
+		tools\WebSharper.CSharp.paket.template = tools\WebSharper.CSharp.paket.template
+		tools\WebSharper.Fake.fsx = tools\WebSharper.Fake.fsx
+		tools\WebSharper.FSharp.paket.template = tools\WebSharper.FSharp.paket.template
+		tools\WebSharper.paket.template = tools\WebSharper.paket.template
+		tools\WebSharper.Testing.paket.template = tools\WebSharper.Testing.paket.template
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
