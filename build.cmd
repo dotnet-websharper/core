@@ -1,6 +1,8 @@
 @echo off
 cls
 
+set PATH=%ExtraPath%;%PATH%
+
 .paket\paket.bootstrapper.exe
 if errorlevel 1 (
   exit /b %errorlevel%
