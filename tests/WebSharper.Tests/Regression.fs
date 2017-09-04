@@ -336,6 +336,18 @@ type UnusedStaticLetTest() =
     member val Hi = "hi"
 
 [<JavaScript>]
+type StaticLetFunctionTest() =
+    static let DefaultMsg() = "mooo"
+    member __.SayWhat() = DefaultMsg()
+
+[<JavaScript>]
+type MultipleStaticLetTest() =
+    static let HIGH = "moooh"
+    static let LOW = "meh"
+    static let DefaultMsg() = "mooo"+HIGH+LOW
+    member __.SayWhat() = DefaultMsg()
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -783,6 +795,11 @@ let Tests =
         Test "#753 Unused static let" {
             let x = UnusedStaticLetTest()
             equal x.Hi "hi"
+        }
+
+        Test "Static lets" {
+            equal (StaticLetFunctionTest().SayWhat()) "mooo"
+            equal (MultipleStaticLetTest().SayWhat()) "mooomooohmeh"       
         }
 
         //Test "Recursive module value" {

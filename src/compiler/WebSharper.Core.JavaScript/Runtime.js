@@ -25,16 +25,6 @@ IntelliFactory = {
             return ctor;
         },
 
-        Cctor: function (cctor) {
-            var init = true;
-            return function () {
-                if (init) {
-                    init = false;
-                    cctor();
-                }
-            };
-        },
-
         Class: function (members, base, statics) {
             var proto = members;
             if (base) {

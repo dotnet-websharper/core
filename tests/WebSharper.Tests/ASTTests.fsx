@@ -344,9 +344,9 @@ let translate source =
     let expressions =
         Seq.concat [
             comp.CompilingMethods.Values |> Seq.map snd
-            comp.GetCompilingConstructors() |> Seq.map (fun (_,_,_,a) -> a)
-            comp.GetCompilingImplementations() |> Seq.map (fun (_,_,_,_,a) -> a)
-            comp.GetCompilingStaticConstructors() |> Seq.map (fun (_,_,a) -> a)
+            comp.CompilingConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
+            comp.CompilingImplementations |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
+            comp.CompilingStaticConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
         ]
         |> List.ofSeq
 
@@ -376,8 +376,8 @@ let translate source =
     let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
 
     fsDeclarations |> List.iter (printfn "%s") 
-    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
-    compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "%s")
+    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiling: %s")
+    compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
     js |> printfn "%s" 
 
 translate """
@@ -385,16 +385,13 @@ module M
 
 open WebSharper
 
-[<Inline "
-    function namedFunc(x) {
-        return x*x;
-    }
-    var funcVar = function(x) {
-        return x*x;
-    };
-    return {a: funcVar($0), b: namedFunc($0)};
-">]
-let testFunc (x:int) = X<obj>
+[<JavaScript>]
+type MultipleStaticLetTest() =
+    static let HIGH = "moooh"
+    static let LOW = "meh"
+    static let DefaultMsg() = "mooo"+HIGH+LOW
+    member __.SayWhat() = DefaultMsg()
+
     """
 
 let translateQ q =

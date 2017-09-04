@@ -603,10 +603,7 @@ type Compilation(meta: Info, ?hasGraph) =
             match this.GetCustomType typ with
             | NotCustomType -> LookupMemberError (TypeNotFound typ)
             | i -> CustomTypeMember i
-    
-    member this.TryGetCompilingStaticConstructor(typ) =
-        compilingStaticConstructors.TryFind typ
-    
+        
     member this.TryLookupStaticConstructorAddress(typ) =
         let typ = this.FindProxied typ
         let cls = classes.[typ]
@@ -628,9 +625,8 @@ type Compilation(meta: Info, ?hasGraph) =
         | _ ->
             None
 
-    member this.GetCompilingConstructors() = 
-        compilingConstructors |> Seq.map (fun (KeyValue((t, c), (i, e))) -> t, c, i, e) |> Array.ofSeq
-    
+    member this.CompilingConstructors = compilingConstructors
+
     member this.CompilingMethods = compilingMethods  
 
     member this.AddCompiledMethod(typ, meth, info, opts, comp) =
@@ -658,8 +654,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let typ = this.FindProxied typ 
         compilingConstructors.Remove(typ, ctor) |> ignore
 
-    member this.GetCompilingStaticConstructors() =
-        compilingStaticConstructors |> Seq.map (fun (KeyValue(t, (a, c))) -> t, a, c) |> Array.ofSeq
+    member this.CompilingStaticConstructors = compilingStaticConstructors
 
     member this.AddCompiledStaticConstructor(typ, addr, cctor) =
         let typ = this.FindProxied typ 
@@ -667,8 +662,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let cls = classes.[typ]
         classes.[typ] <- { cls with StaticConstructor = Some (addr, cctor) }
 
-    member this.GetCompilingImplementations() =
-        compilingImplementations |> Seq.map (fun (KeyValue((t, i, m), (n, e))) -> t, i, m, n, e) |> Array.ofSeq
+    member this.CompilingImplementations = compilingImplementations
 
     member this.AddCompiledImplementation(typ, intf, meth, info, comp) =
         let typ = this.FindProxied typ 

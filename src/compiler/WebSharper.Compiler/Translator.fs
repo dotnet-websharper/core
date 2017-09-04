@@ -24,6 +24,7 @@ module WebSharper.Compiler.Translator
 open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Compiler
+open System.Collections.Generic
 
 module M = WebSharper.Core.Metadata
 module I = WebSharper.Core.AST.IgnoreSourcePos
@@ -238,6 +239,23 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     let mutable currentIsInline = false
     let mutable hasDelayedTransform = false
     let mutable currentFuncArgs = None
+    let mutable cctorCalls = Set.empty
+    let labelCctors = Dictionary()
+
+    let innerScope f = 
+        let cc = cctorCalls
+        let res = f()
+        cctorCalls <- cc
+        res
+
+    let trackConditionalCctors b c =
+        let ca = cctorCalls
+        let br = b()
+        let cb = cctorCalls
+        cctorCalls <- ca
+        let cr = c()
+        cctorCalls <- Set.intersect cb cctorCalls
+        br, cr
 
     let removeSourcePosFromInlines expr =
         if currentIsInline then removeSourcePos.TransformExpression expr else expr
@@ -528,6 +546,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     member this.CompileStaticConstructor(addr, expr, typ) =
         currentNode <- M.TypeNode typ
+        cctorCalls <- Set.singleton typ
         selfAddress <- 
             let cls = comp.TryLookupClassInfo(typ).Value
             let addr = fst cls.StaticConstructor.Value 
@@ -537,15 +556,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         comp.AddCompiledStaticConstructor(typ, addr, res)
 
     static member CompileFull(comp: Compilation) =
-        for t, c, i, e in comp.GetCompilingConstructors() do
+        while comp.CompilingConstructors.Count > 0 do
+            let (KeyValue((t, c), (i, e))) = Seq.head comp.CompilingConstructors
             let toJS = DotNetToJavaScript(comp)
             toJS.CompileConstructor(i, e, t, c)
 
-        for t, a, e in comp.GetCompilingStaticConstructors() do
+        while comp.CompilingStaticConstructors.Count > 0 do
             let toJS = DotNetToJavaScript(comp)
+            let (KeyValue(t, (a, e))) = Seq.head comp.CompilingStaticConstructors
             toJS.CompileStaticConstructor(a, e, t)
 
-        for t, it, m, i, e in comp.GetCompilingImplementations() do
+        while comp.CompilingImplementations.Count > 0 do
+            let (KeyValue((t, it, m), (i, e))) = Seq.head comp.CompilingImplementations
             let toJS = DotNetToJavaScript(comp)
             toJS.CompileImplementation(i, e, t, it, m)
 
@@ -929,6 +951,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             Application(GlobalAccess address, trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.Inline -> 
             Substitution(trArgs()).TransformExpression(expr)
+            |> this.TransformExpression
         | M.NotCompiledInline -> 
             let ge =
                 if not (List.isEmpty typ.Generics) then
@@ -1194,7 +1217,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     override this.TransformCctor(typ) =
         let typ = comp.FindProxied typ
-        match comp.TryGetCompilingStaticConstructor typ with
+        if cctorCalls |> Set.contains typ then Undefined else
+        cctorCalls <- cctorCalls |> Set.add typ
+        match comp.CompilingStaticConstructors.TryFind typ with
         | Some (addr, expr) ->
             this.AnotherNode().CompileStaticConstructor(addr, expr, typ)
         | _ -> ()
@@ -1202,8 +1227,92 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Some cctor ->
             if comp.HasGraph then
                 this.AddTypeDependency typ
-            Application(GlobalAccess cctor, [], NonPure, Some 0)
+            if currentIsInline then 
+                hasDelayedTransform <- true
+                Cctor(typ) 
+            else
+                Application(GlobalAccess cctor, [], NonPure, Some 0)
         | None -> Undefined
+
+    override this.TransformFunction(a, b) =
+        innerScope <| fun () -> Function(a, this.TransformStatement b)
+
+    override this.TransformFuncWithThis(a, b, c) =
+        innerScope <| fun () -> FuncWithThis(a, b,  this.TransformStatement c)
+
+    override this.TransformFuncDeclaration(a, b, c) =
+        let cc = cctorCalls
+        cctorCalls <- Set.empty
+        let res = FuncDeclaration(a, b, this.TransformStatement c)
+        cctorCalls <- cc
+        res
+
+    override this.TransformConditional(a, b, c) =
+        let trA = this.TransformExpression a
+        let trB, trC = trackConditionalCctors (fun () -> this.TransformExpression b) (fun () -> this.TransformExpression c)
+        Conditional(trA, trB, trC)
+    
+    override this.TransformBinary(a, b, c) =
+        match b with
+        | BinaryOperator.``&&``
+        | BinaryOperator.``||`` ->
+            let trA = this.TransformExpression a
+            let trC = innerScope <| fun () -> this.TransformExpression c
+            Binary(trA, b, trC)
+        | _ ->
+            base.TransformBinary(a, b, c)
+
+    override this.TransformCoalesce(a, b, c) =
+        let trA = this.TransformExpression a
+        let trC = innerScope <| fun () -> this.TransformExpression c
+        Coalesce(trA, b, trC)
+    
+    override this.TransformWhile(a, b) =
+        let trA = this.TransformExpression a
+        innerScope <| fun () -> While(trA, this.TransformStatement b) 
+
+    override this.TransformDoWhile(a, b) =
+        innerScope <| fun () -> DoWhile(this.TransformStatement a, this.TransformExpression b) 
+
+    override this.TransformFor(a, b, c, d) =                
+        let trA = Option.map this.TransformExpression a
+        let trB = Option.map this.TransformExpression b
+        innerScope <| fun () -> For(trA, trB, Option.map this.TransformExpression c, this.TransformStatement d)
+
+    override this.TransformForIn(a, b, c) =                
+        let trB = this.TransformExpression b
+        innerScope <| fun () -> ForIn(a, trB, this.TransformStatement c)
+
+    override this.TransformSwitch(a, b) =                
+        let trA = this.TransformExpression a
+        Switch(trA, b |> List.map (fun (c, d) -> innerScope <| fun () -> Option.map this.TransformExpression c, this.TransformStatement d))
+
+    override this.TransformIf(a, b, c) =
+        let trA = this.TransformExpression a
+        let trB, trC = trackConditionalCctors (fun () -> this.TransformStatement b) (fun () -> this.TransformStatement c)
+        If(trA, trB, trC)
+
+    override this.TransformTryWith(a, b, c) =
+        let trA = innerScope <| fun () -> this.TransformStatement a
+        let trC = innerScope <| fun () -> this.TransformStatement c
+        TryWith(trA, b, trC)
+
+    override this.TransformTryFinally(a, b) =
+        let trA = innerScope <| fun () -> this.TransformStatement a
+        let trB = innerScope <| fun () -> this.TransformStatement b
+        TryFinally(trA, trB)
+
+    override this.TransformGoto(a) =
+        match labelCctors.TryGetValue a with
+        | true, cc -> labelCctors.[a] <- Set.intersect cc cctorCalls
+        | _ -> labelCctors.[a] <- cctorCalls
+        Goto(a)
+
+    override this.TransformLabeled(a, b) =
+        match labelCctors.TryGetValue a with
+        | true, cc -> cctorCalls <- cc
+        | _ -> ()
+        Labeled(a, this.TransformStatement b)
 
     override this.TransformOverrideName(typ, meth) =
         match comp.LookupMethodInfo(typ, meth) with
@@ -1217,7 +1326,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     override this.TransformSelf () = 
         match selfAddress with
-        | Some self -> GlobalAccess self
+        | Some self ->
+            match self.Value with
+            | selfName :: _ -> GlobalAccess self
+            | _ -> this.Error ("Self address empty")
         | _ -> this.Error ("Self address missing")
 
     override this.TransformFieldGet (expr, typ, field) =
@@ -1229,14 +1341,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.InstanceField fname ->
                 this.TransformExpression expr.Value |> getItemRO fname ro
             | M.StaticField faddr ->
-                match comp.TryLookupStaticConstructorAddress typ.Entity with
-                | Some cctorAddr ->
-                    Sequential [
-                        Application(GlobalAccess cctorAddr, [], NonPure, Some 0)
-                        GlobalAccess faddr
-                    ]
-                | _ ->    
-                    GlobalAccess faddr   
+                CombineExpressions [
+                    this.TransformCctor typ.Entity
+                    GlobalAccess faddr
+                ]
             | M.OptionalField fname -> 
                 JSRuntime.GetOptional (this.TransformExpression expr.Value |> getItem fname)
             | M.IndexedField i ->
@@ -1277,14 +1385,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 ItemSet(this.TransformExpression expr.Value, Value (String fname), this.TransformExpression value) 
             | M.StaticField faddr ->
                 let f, a = List.head faddr.Value, List.tail faddr.Value
-                match comp.TryLookupStaticConstructorAddress typ.Entity with
-                | Some cctorAddr ->
-                    Sequential [
-                        Application(GlobalAccess cctorAddr, [], NonPure, Some 0)
-                        ItemSet(GlobalAccess (Hashed a), Value (String f), this.TransformExpression value)
-                    ]
-                | _ ->    
+                CombineExpressions [
+                    this.TransformCctor typ.Entity
                     ItemSet(GlobalAccess (Hashed a), Value (String f), this.TransformExpression value)
+                ]
             | M.OptionalField fname -> 
                 JSRuntime.SetOptional (this.TransformExpression expr.Value) (Value (String fname)) (this.TransformExpression value)
             | M.IndexedField i ->

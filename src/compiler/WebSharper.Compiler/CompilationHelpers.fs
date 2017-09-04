@@ -578,7 +578,6 @@ module JSRuntime =
     let private runtimeFuncI f p i args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some i)
     let Class members basePrototype statics = runtimeFunc "Class" Pure [members; basePrototype; statics]
     let Ctor ctor typeFunction = runtimeFunc "Ctor" Pure [ctor; typeFunction]
-    let Cctor cctor = runtimeFunc "Cctor" Pure [cctor]
     let Clone obj = runtimeFunc "Clone" Pure [obj]
     let GetOptional value = runtimeFunc "GetOptional" Pure [value]
     let SetOptional obj field value = runtimeFunc "SetOptional" NonPure [obj; field; value]
