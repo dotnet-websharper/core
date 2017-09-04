@@ -71,15 +71,18 @@ type TailCallAnalyzer(env) =
         | _ -> TailPos
 
     let hasInScope x n =
-        env.TailPos <> NotTailPos &&
         match env.ScopeCalls with
         | [] -> false
-        | hs :: _ ->
-            match hs.TryGetValue(x) with
+        | current :: _ ->
+            match current.TryGetValue(x) with
             | true, (appl, isUsed) when appl = n -> 
-                if not isUsed then
-                    hs.[x] <- (n, true)
-                true
+                if env.TailPos = NotTailPos then
+                    current.Remove x |> ignore
+                    false
+                else
+                    if not isUsed then
+                        current.[x] <- (n, true)
+                    true
             | _ -> false
 
     override this.VisitExpression(expr) =
@@ -113,6 +116,7 @@ type TailCallAnalyzer(env) =
 
     override this.VisitConditional(c, a, b) =
         let p = nextTailPos()
+        env.TailPos <- NotTailPos
         this.VisitExpression c
         env.TailPos <- p
         this.VisitExpression a
@@ -144,38 +148,35 @@ type TailCallAnalyzer(env) =
             not (env.Inlines.Contains meth.Entity)
         if isOtherMethodCall then
             env.SelfTailCall := None
-        let isSelfCallFromClosure =
-            sameType && sameMethod &&
-                match env.ScopeCalls with
-                | [ _ ] -> false
-                | _ -> true
-        if isSelfCallFromClosure then
-            env.SelfTailCall := None
-        let isTailSelfCall =
-            not isSelfCallFromClosure &&
-            sameType && sameMethod &&
-            env.TailPos <> NotTailPos &&   
-            (
-                match obj with
-                | None 
-                | Some I.This -> true
-                | Some (I.Var t) ->
-                    match env.ThisAlias with
-                    | Some thisVar -> t = thisVar
+        if sameType && sameMethod then
+            let isTailSelfCall =
+                env.TailPos <> NotTailPos &&   
+                (
+                    match env.ScopeCalls with
+                    | [ _ ] -> true
+                    | _ -> false // self call from a closure
+                )
+                && (
+                    match obj with
+                    | None 
+                    | Some I.This -> true
+                    | Some (I.Var t) ->
+                        match env.ThisAlias with
+                        | Some thisVar -> t = thisVar
+                        | _ -> false
                     | _ -> false
-                | _ -> false
-            )
-        if isTailSelfCall then   
-            env.SelfTailCall := Some true 
-            args |> List.iter this.VisitExpression
-        else
-            base.VisitCall(obj, td, meth, args)
+                )
+            env.SelfTailCall := if isTailSelfCall then Some true else None 
+        env.TailPos <- NotTailPos
+        obj |> Option.iter this.VisitExpression 
+        args |> List.iter this.VisitExpression
         
     override this.VisitLet(var, value, body) =
         match value with
         | I.This -> env.ThisAlias <- Some var
         | _ -> ()
         let p = nextTailPos()
+        env.TailPos <- NotTailPos
         this.VisitExpression value
         env.TailPos <- p        
         this.VisitExpression body
@@ -221,6 +222,7 @@ type TailCallAnalyzer(env) =
         | [] -> ()
         | h :: t ->
             let p = nextTailPos()
+            env.TailPos <- NotTailPos
             t |> List.iter this.VisitExpression
             env.TailPos <- p        
             this.VisitExpression h

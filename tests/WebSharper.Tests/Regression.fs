@@ -318,6 +318,36 @@ type TestConfigObj [<JavaScript>]() =
             this.value <- x
 
 [<JavaScript>]
+module Bug751 =
+    type ExampleTree = 
+      | TLeaf of int
+      | TNode of (ExampleTree * ExampleTree)
+      | TLink of ExampleTree
+
+    let rec collect (t : ExampleTree) : int Set =
+      match t with
+      | TLeaf(i) -> Set.singleton i
+      | TNode(l,r) -> Set.union <| collect l <| collect r
+      | TLink(i) -> collect i
+
+[<JavaScript>]
+type UnusedStaticLetTest() =
+    static let Hello = "hello"
+    member val Hi = "hi"
+
+[<JavaScript>]
+type StaticLetFunctionTest() =
+    static let DefaultMsg() = "mooo"
+    member __.SayWhat() = DefaultMsg()
+
+[<JavaScript>]
+type MultipleStaticLetTest() =
+    static let HIGH = "moooh"
+    static let LOW = "meh"
+    static let DefaultMsg() = "mooo"+HIGH+LOW
+    member __.SayWhat() = DefaultMsg()
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -754,6 +784,22 @@ let Tests =
             isFalse x.X
             x.X <- true
             isTrue x.X
+        }
+
+        Test "#751 tail call position recognition error" {
+            let a =
+                Bug751.TNode (Bug751.TLeaf 1, Bug751.TLink (Bug751.TLeaf 2))
+            equal (Bug751.collect a |> Array.ofSeq) [| 1; 2 |]
+        }
+        
+        Test "#753 Unused static let" {
+            let x = UnusedStaticLetTest()
+            equal x.Hi "hi"
+        }
+
+        Test "Static lets" {
+            equal (StaticLetFunctionTest().SayWhat()) "mooo"
+            equal (MultipleStaticLetTest().SayWhat()) "mooomooohmeh"       
         }
 
         //Test "Recursive module value" {

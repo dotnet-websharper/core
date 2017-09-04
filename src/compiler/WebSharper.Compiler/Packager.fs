@@ -110,7 +110,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
         match expr with
         | Function ([], body) ->
             let rem = ExprStatement (ItemSet (o, x, ItemGet(glob, Value (String "ignore"), Pure)))    
-            let expr = JSRuntime.Cctor <| Function([], Block [body; rem])
+            let expr = Function([], Block [rem; body])
             statements.Add <| ExprStatement (ItemSet (o, x, expr))    
         | _ ->
             failwithf "Static constructor must be a function for type %s: %A" name (Debug.PrintExpression expr)
