@@ -116,6 +116,7 @@ type WSTargets =
     {
         BuildDebug : string
         Publish : string
+        CommitPublish : string
         ComputedVersion : Paket.SemVerInfo
     }
 
@@ -205,17 +206,22 @@ let MakeTargets (args: Args) =
                     tracefn "[GIT] OK -- merging onto %s: %s" branch (String.concat ", " changes)
                     Git.Staging.StageAll "."
                     Git.Commit.Commit "." ("[CI] " + tag)
+                Git.Branches.pushBranch "." args.PushRemote (Git.Information.getBranchName ".")
                     
             Git.CommandHelper.directRunGitCommand "." ("tag " + tag) |> ignore
-            Git.Branches.pushBranch "." args.PushRemote (Git.Information.getBranchName ".")
             Git.Branches.pushTag "." args.PushRemote tag
 
     Target "WS-Publish" <| fun () ->
-        Paket.Push <| fun p ->
-            { p with
-                PublishUrl = environVarOrDefault "NugetPublishUrl" "https://nuget.websharper.com/nuget"
-                ApiKey = environVar "NugetApiKey"
-            }
+        match environVarOrNone "NugetPublishUrl", environVarOrNone "NugetApiKey" with
+        | Some nugetPublishUrl, Some nugetApiKey ->
+            Paket.Push <| fun p ->
+                { p with
+                    PublishUrl = nugetPublishUrl
+                    ApiKey = nugetApiKey
+                }
+        | _ -> traceError "[NUGET] Not publishing: NugetPublishUrl and/or NugetApiKey are not set"
+
+    Target "WS-CommitPublish" DoNothing
 
     "WS-Clean"
         ==> "WS-GenAssemblyInfo"
@@ -226,7 +232,14 @@ let MakeTargets (args: Args) =
         ==> "WS-GenAssemblyInfo"
         ==> "WS-BuildRelease"
         ==> "WS-Package"
+        ==> "WS-Publish"
+        
+    "WS-Package"    
         ==> "WS-Commit"
+        ?=> "WS-Publish"
+        ==> "WS-CommitPublish"
+
+    "WS-Package"
         ==> "WS-Publish"
 
     "WS-Clean"
@@ -239,6 +252,7 @@ let MakeTargets (args: Args) =
     {
         BuildDebug = "WS-BuildDebug"
         Publish = "WS-Publish"
+        CommitPublish = "WS-CommitPublish"
         ComputedVersion = args.Version
     }
 
