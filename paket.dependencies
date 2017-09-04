@@ -1,23 +1,33 @@
-framework: net40, net45, net46
-source https://www.nuget.org/api/v2
+version 5.92.3
+
+references: strict
+redirects: on
+
+framework: net45, net46
+source https://api.nuget.org/v3/index.json
 
 nuget FAKE
-nuget System.ValueTuple 4.3
 nuget FSharp.Compiler.Tools
+
 nuget Mono.Cecil ~> 0.10-beta
-nuget Microsoft.CodeAnalysis.CSharp ~> 2.3
-nuget FSharp.Compiler.Service ~> 13.0
+nuget Microsoft.CodeAnalysis.CSharp 2.3.0
+nuget Microsoft.CodeAnalysis.Common 2.3.0
+nuget System.Reflection.Metadata 1.4.2
+nuget System.Collections.Immutable 1.3.1
+nuget FSharp.Compiler.Service 13.0.0
+nuget System.ValueTuple 4.3.0
+
 nuget AjaxMin
 
 group fsharp4
-    framework: net40, net45, net46
+    framework: net45, net46
     source https://www.nuget.org/api/v2
 
     nuget System.ValueTuple 4.3
-	nuget FSharp.Core 4.1.17
+	nuget FSharp.Core 4.1.18
 
 group fsharp3
-    framework: net40, net45, net46
+    framework: net40
     source https://www.nuget.org/api/v2
 
     nuget FSharp.Core 3.0.2
