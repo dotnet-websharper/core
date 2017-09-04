@@ -1,8 +1,8 @@
 type file
 id WebSharper.FSharp
 authors IntelliFactory
-licenseUrl http:/websharper.com/licensing
-projectUrl http:/websharper.com
+licenseUrl http://websharper.com/licensing
+projectUrl http://websharper.com
 description
     F#-to-JavaScript compiler
 tags
