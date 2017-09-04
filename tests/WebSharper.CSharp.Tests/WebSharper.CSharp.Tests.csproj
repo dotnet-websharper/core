@@ -98,6 +98,7 @@
     <Reference Include="WebSharper.Sitelets.Tests, Version=4.0.0.0, Culture=neutral, PublicKeyToken=dcd983dec8f76a71, processorArchitecture=MSIL" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="paket.references" />
     <None Include="WebSharper.CSharp.Tests.ruleset" />
   </ItemGroup>
   <Import Project="../../msbuild/WebSharper.CSharp.Internal.targets" />
@@ -117,7 +118,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6')">
       <ItemGroup>
         <Reference Include="System.ValueTuple">
-          <HintPath>..\..\packages\System.ValueTuple\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
+          <HintPath>..\..\packages\fsharp4\System.ValueTuple\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>

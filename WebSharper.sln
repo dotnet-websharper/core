@@ -9,11 +9,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "msbuild", "msbuild", "{B80D
 	ProjectSection(SolutionItems) = preProject
 		msbuild\AssemblyInfo.fs = msbuild\AssemblyInfo.fs
 		msbuild\FSharp.targets = msbuild\FSharp.targets
-		msbuild\Mono.Cecil.targets = msbuild\Mono.Cecil.targets
-		msbuild\Temp.proj = msbuild\Temp.proj
-		msbuild\WebSharper.Internal.targets = msbuild\WebSharper.Internal.targets
-		msbuild\WebSharper.proj = msbuild\WebSharper.proj
-		msbuild\WebSharper.targets = msbuild\WebSharper.targets
+		msbuild\WebSharper.CSharp.Internal.targets = msbuild\WebSharper.CSharp.Internal.targets
+		msbuild\WebSharper.CSharp.targets = msbuild\WebSharper.CSharp.targets
+		msbuild\WebSharper.FSharp.Internal.targets = msbuild\WebSharper.FSharp.Internal.targets
+		msbuild\WebSharper.FSharp.targets = msbuild\WebSharper.FSharp.targets
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "compiler", "compiler", "{EC03CB1D-151F-4469-A6DD-D5854A340F1D}"
@@ -31,16 +30,6 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Main", "src\stdlib\WebSharper.Main\WebSharper.Main.fsproj", "{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3}"
 	ProjectSection(ProjectDependencies) = postProject
 		{7001E2B2-61F4-4770-BA7C-86F07F657678} = {7001E2B2-61F4-4770-BA7C-86F07F657678}
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{EED59312-2E8D-4332-8BA5-671F85D8E25E}"
-	ProjectSection(SolutionItems) = preProject
-		tools\minify.fsx = tools\minify.fsx
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NuGet", "NuGet", "{B38B1480-30AC-4F48-8AA3-C406889EC6CF}"
-	ProjectSection(SolutionItems) = preProject
-		tools\NuGet\NuGet.exe = tools\NuGet\NuGet.exe
 	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.JavaScript", "src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj", "{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68}"
@@ -286,7 +275,6 @@ Global
 		{52741881-8D64-4639-8B5C-19C060958C35} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{A05B0B61-A2EF-4C88-B9A3-00E888777798} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
-		{B38B1480-30AC-4F48-8AA3-C406889EC6CF} = {EED59312-2E8D-4332-8BA5-671F85D8E25E}
 		{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
 		{730AE40A-001C-4137-972D-898DC7C2BF0A} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
 		{4EF94364-B50F-4906-AB91-77BCA8413D60} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
