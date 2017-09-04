@@ -348,6 +348,15 @@ type MultipleStaticLetTest() =
     member __.SayWhat() = DefaultMsg()
 
 [<JavaScript>]
+module TupledArgOpt =
+    let t () = 1, 1
+    
+    let g (f: int * int -> int) =
+        let x = t()
+        // bug #756, this was throwing a compile-time error
+        f x
+       
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
