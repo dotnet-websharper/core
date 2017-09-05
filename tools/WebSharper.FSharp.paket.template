@@ -19,9 +19,9 @@ files
     ../build/Release/FSharp/WebSharper.Core.dll ==> tools
     ../build/Release/FSharp/WebSharper.Core.JavaScript.dll ==> tools
     ../build/Release/FSharp/WebSharper.InterfaceGenerator.dll ==> tools
-    ../packages/fsharp4/FSharp.Core/lib/net40/FSharp.Core.dll ==> tools
-    ../packages/fsharp4/FSharp.Core/lib/net40/FSharp.Core.sigdata ==> tools
-    ../packages/fsharp4/FSharp.Core/lib/net40/FSharp.Core.optdata ==> tools
+    ../packages/fsharp4/FSharp.Core/lib/net45/FSharp.Core.dll ==> tools
+    ../packages/fsharp4/FSharp.Core/lib/net45/FSharp.Core.sigdata ==> tools
+    ../packages/fsharp4/FSharp.Core/lib/net45/FSharp.Core.optdata ==> tools
     ../build/Release/FSharp/Mono.Cecil.dll ==> tools
     ../build/Release/FSharp/Mono.Cecil.Mdb.dll ==> tools
     ../build/Release/FSharp/Mono.Cecil.Pdb.dll ==> tools
