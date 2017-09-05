@@ -1,7 +1,8 @@
 @echo off
-cls
+setlocal
+set PATH=%GitToolPath%;%PATH%
 
-set PATH=%ExtraPath%;%PATH%
+cls
 
 .paket\paket.bootstrapper.exe
 if errorlevel 1 (
