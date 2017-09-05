@@ -1,0 +1,20 @@
+type file
+id WebSharper.Compiler
+authors IntelliFactory
+licenseUrl http://websharper.com/licensing
+projectUrl http://websharper.com
+description
+    Compiler libraries for C#/F#-to-JavaScript translation
+tags
+    Web JavaScript F# C#
+dependencies
+    WebSharper == CURRENTVERSION
+files
+    ../build/Release/WebSharper.Compiler.dll ==> lib/net45
+    ../build/Release/WebSharper.Compiler.xml ==> lib/net45
+    ../build/Release/FSharp/WebSharper.Compiler.FSharp.dll ==> lib/net45
+    ../build/Release/FSharp/WebSharper.Compiler.FSharp.xml ==> lib/net45
+    ../build/Release/CSharp/WebSharper.Compiler.CSharp.dll ==> lib/net45
+    ../build/Release/CSharp/WebSharper.Compiler.CSharp.xml ==> lib/net45
+    ../build/Release/WebSharper.Sitelets.Offline.dll ==> lib/net45
+    ../build/Release/WebSharper.Sitelets.Offline.xml ==> lib/net45

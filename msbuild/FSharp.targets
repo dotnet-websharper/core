@@ -23,8 +23,6 @@
 
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <TargetFSharpCoreVersion Condition=" '$(FSharp40)' == 'True' ">4.4.1.0</TargetFSharpCoreVersion>
-    <TargetFSharpCoreVersion Condition=" '$(FSharp40)' != 'True' ">4.3.0.0</TargetFSharpCoreVersion>
     <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == ''">v4.0</TargetFrameworkVersion>
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' != '' And $(Signed) != 'False' ">$(INTELLIFACTORY)/keys/IntelliFactory.snk</KeyOriginatorFile>
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' == '' And $(Signed) != 'False' ">$(MSBuildThisFileDirectory)/../tools/WebSharper.snk</KeyOriginatorFile>
@@ -37,22 +35,9 @@
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(FSharpTool)' == 'True' ">$(Root)\build\$(Configuration)\FSharp</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(Tests)' == 'True' ">$(Root)\build\$(Configuration)\Tests</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\$(Configuration)\</OutputPath>
-    <PrivateFSharpCore Condition=" '$(PrivateFSharpCore)' == '' ">False</PrivateFSharpCore>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
-	<Reference Include="FSharp.Core, Version=4.3.0.0" Condition=" '$(FSharp40)' != 'True' ">
-      <HintPath>$(MSBuildThisFileDirectory)\..\packages\FSharp.Core.3.0.2\lib\net40\FSharp.Core.dll</HintPath>
-	  <Private>$(PrivateFSharpCore)</Private>
-    </Reference>
-    <Reference Include="FSharp.Core, Version=4.4.1.0" Condition=" '$(FSharp40)' == 'True' ">
-      <HintPath>$(MSBuildThisFileDirectory)\..\packages\FSharp.Core.4.1.17\lib\net45\FSharp.Core.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System.ValueTuple" Condition=" '$(FSharp40)' == 'True' ">
-	  <HintPath>$(MSBuildThisFileDirectory)\..\packages\System.ValueTuple.4.3.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
@@ -80,32 +65,19 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(FSharp40)' == 'True' ">
     <DefineConstants>$(DefineConstants);FSHARP40</DefineConstants>
-	<TargetFrameworkVersion Condition=" $(TargetFrameworkVersion) == '' ">v4.5</TargetFrameworkVersion>
-	<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  <TargetFrameworkVersion Condition=" $(TargetFrameworkVersion) == '' ">v4.5</TargetFrameworkVersion>
+  <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <Target Name="IncludeVersionFile" BeforeTargets="CoreCompile">
     <ItemGroup>
       <C Include="@(Compile)" />
       <Compile Remove="@(C)" />
-      <Compile Include="$(MSBuildThisFileDirectory)/AssemblyInfo.fs" />
-      <Compile Include="$(MSBuildThisFileDirectory)/AssemblyInfo.extra.fs" Condition="Exists('$(MSBuildThisFileDirectory)/AssemblyInfo.extra.fs')" />
+      <Compile Include="$(MSBuildThisFileDirectory)/AssemblyInfo.fs" Condition="Exists('$(MSBuildThisFileDirectory)/AssemblyInfo.fs')" />
       <Compile Include="@(C)" />
     </ItemGroup>
   </Target>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>
-  <Choose>
-    <When Condition="'$(VisualStudioVersion)' == '11.0'">
-      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')">
-        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargetsPath>
-      </PropertyGroup>
-    </When>
-    <Otherwise>
-      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets')">
-        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
-      </PropertyGroup>
-    </Otherwise>
-  </Choose>
-  <Import Project="$(FSharpTargetsPath)" />
+  <Import Project="$(MSBuildThisFileDirectory)/../packages/FSharp.Compiler.Tools/tools/Microsoft.FSharp.Targets" />
 </Project>

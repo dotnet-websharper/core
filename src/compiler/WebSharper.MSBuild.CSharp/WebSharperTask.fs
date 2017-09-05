@@ -26,9 +26,6 @@ open System.IO
 open System.Reflection
 open Microsoft.Build.Framework
 open Microsoft.Build.Utilities
-open WebSharper
-open WebSharper.Compiler
-module FE = FrontEnd
 
 [<Sealed>]
 type WebSharperTask() =

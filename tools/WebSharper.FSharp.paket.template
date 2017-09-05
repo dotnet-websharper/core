@@ -1,0 +1,31 @@
+type file
+id WebSharper.FSharp
+authors IntelliFactory
+licenseUrl http://websharper.com/licensing
+projectUrl http://websharper.com
+description
+    F#-to-JavaScript compiler
+tags
+    Web JavaScript F#
+dependencies
+    WebSharper == CURRENTVERSION
+files
+    ../msbuild/WebSharper.FSharp.targets ==> build
+    ../build/Release/FSharp/WsFsc.exe ==> tools
+    ../build/Release/FSharp/WsFsc.exe.config ==> tools
+    ../build/Release/FSharp/WebSharper.Compiler.dll ==> tools
+    ../build/Release/FSharp/WebSharper.Compiler.FSharp.dll ==> tools
+    ../build/Release/WebSharper.Sitelets.Offline.dll ==> tools
+    ../build/Release/FSharp/WebSharper.Core.dll ==> tools
+    ../build/Release/FSharp/WebSharper.Core.JavaScript.dll ==> tools
+    ../build/Release/FSharp/WebSharper.InterfaceGenerator.dll ==> tools
+    ../packages/fsharp4/FSharp.Core/lib/net45/FSharp.Core.dll ==> tools
+    ../packages/fsharp4/FSharp.Core/lib/net45/FSharp.Core.sigdata ==> tools
+    ../packages/fsharp4/FSharp.Core/lib/net45/FSharp.Core.optdata ==> tools
+    ../build/Release/FSharp/Mono.Cecil.dll ==> tools
+    ../build/Release/FSharp/Mono.Cecil.Mdb.dll ==> tools
+    ../build/Release/FSharp/Mono.Cecil.Pdb.dll ==> tools
+    ../build/Release/FSharp/FSharp.Compiler.Service.dll ==> tools
+    ../build/Release/FSharp/System.Collections.Immutable.dll ==> tools
+    ../build/Release/FSharp/System.Reflection.Metadata.dll ==> tools
+    ../src/compiler/WebSharper.FSharp/runngen.ps1 ==> tools

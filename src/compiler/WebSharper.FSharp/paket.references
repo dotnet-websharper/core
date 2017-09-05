@@ -1,0 +1,9 @@
+﻿Mono.Cecil
+    exclude Mono.Cecil.Rocks.dll
+FSharp.Compiler.Service
+System.Collections.Immutable
+System.Reflection.Metadata
+System.ValueTuple
+
+group fsharp4
+    FSharp.Core

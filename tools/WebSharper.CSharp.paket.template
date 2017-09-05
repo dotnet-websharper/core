@@ -1,0 +1,33 @@
+type file
+id WebSharper.CSharp
+authors IntelliFactory
+licenseUrl http://websharper.com/licensing
+projectUrl http://websharper.com
+description
+    C#-to-JavaScript compiler
+tags
+    Web JavaScript C#
+dependencies
+    WebSharper == CURRENTVERSION
+files
+    ../msbuild/WebSharper.CSharp.targets ==> build
+    ../build/Release/CSharp/ZafirCs.exe ==> tools
+    ../build/Release/CSharp/ZafirCs.exe.config ==> tools
+    ../build/Release/CSharp/WebSharper.Compiler.dll ==> tools
+    ../build/Release/CSharp/WebSharper.Compiler.CSharp.dll ==> tools
+    ../build/Release/CSharp/WebSharper.MSBuild.CSharp.dll ==> tools
+    ../build/Release/CSharp/WebSharper.CSharp.Analyzer.dll ==> tools
+    ../build/Release/WebSharper.Sitelets.Offline.dll ==> tools
+    ../build/Release/CSharp/WebSharper.Core.dll ==> tools
+    ../build/Release/CSharp/WebSharper.Core.JavaScript.dll ==> tools
+    ../build/Release/CSharp/WebSharper.InterfaceGenerator.dll ==> tools
+    ../build/Release/CSharp/FSharp.Core.dll ==> tools
+    ../build/Release/CSharp/Mono.Cecil.dll ==> tools
+    ../build/Release/CSharp/Mono.Cecil.Mdb.dll ==> tools
+    ../build/Release/CSharp/Mono.Cecil.Pdb.dll ==> tools
+    ../build/Release/CSharp/Microsoft.CodeAnalysis.dll ==> tools
+    ../build/Release/CSharp/Microsoft.CodeAnalysis.CSharp.dll ==> tools
+    ../build/Release/CSharp/System.Collections.Immutable.dll ==> tools
+    ../build/Release/CSharp/System.Reflection.Metadata.dll ==> tools
+    ../src/compiler/WebSharper.CSharp.Analyzer/install.ps1 ==> tools
+    ../src/compiler/WebSharper.CSharp.Analyzer/uninstall.ps1 ==> tools
