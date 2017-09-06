@@ -1,10 +1,12 @@
 ﻿Mono.Cecil
     exclude Mono.Cecil.Rocks.dll
-Microsoft.CodeAnalysis.CSharp
-Microsoft.CodeAnalysis.Common
-System.Collections.Immutable
-System.Reflection.Metadata
 System.ValueTuple
+
+group roslyn
+    Microsoft.CodeAnalysis.CSharp
+    Microsoft.CodeAnalysis.Common
+    System.Collections.Immutable
+    System.Reflection.Metadata
 
 group fsharp4
     FSharp.Core

@@ -10,21 +10,35 @@ nuget FAKE
 nuget FSharp.Compiler.Tools
 
 nuget Mono.Cecil ~> 0.10-beta
-nuget Microsoft.CodeAnalysis.CSharp ~2.3
-nuget FSharp.Compiler.Service 13.0.0
 nuget System.ValueTuple 4.3.0
 
 nuget AjaxMin
 
 group fsharp4
     framework: net45, net46
-    source https://www.nuget.org/api/v2
-
-    nuget System.ValueTuple 4.3
+    source https://api.nuget.org/v3/index.json
+ 
+    nuget System.ValueTuple 4.3.0
 	nuget FSharp.Core 4.1.17
 
 group fsharp3
     framework: net40
-    source https://www.nuget.org/api/v2
+    source https://api.nuget.org/v3/index.json
 
     nuget FSharp.Core 3.0.2
+
+group roslyn
+    framework: net46
+    source https://api.nuget.org/v3/index.json
+    strategy: min
+
+    nuget System.ValueTuple 4.3.0
+    nuget Microsoft.CodeAnalysis.CSharp ~2.3
+
+group fcs
+    framework: net45
+    source https://api.nuget.org/v3/index.json
+    strategy: min
+
+    nuget System.ValueTuple 4.3.0
+    nuget FSharp.Compiler.Service 13.0.0
