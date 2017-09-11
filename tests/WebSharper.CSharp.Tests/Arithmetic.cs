@@ -166,5 +166,23 @@ namespace WebSharper.CSharp.Tests
             int? z = x + y;
             IsTrue(z == null);
         }
+
+        [Test]
+        public void CompareTo()
+        {
+            Equal((3).CompareTo(5), -1);
+            Equal((4).CompareTo(4), 0);
+            Equal((5).CompareTo(3), 1);
+            Equal((3.0).CompareTo(5.0), -1);
+        }
+
+        [Test]
+        public void NumEquals()
+        {
+            IsTrue((3).Equals(3));
+            IsTrue((3).Equals((object)3));
+            IsFalse((3).Equals("3"));
+            IsFalse((3).Equals((object)"3"));
+        }
     }
 }

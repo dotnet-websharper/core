@@ -244,6 +244,18 @@ let translateComparison (c: M.ICompilation) t args leftNble rightNble cmp =
     | _ ->
         MacroError "comparisonMacro error"
 
+let translateCompareTo (c: M.ICompilation) t l r =
+    let x = Id.New "x"
+    let y = Id.New "y"
+    match translateComparison c t [Var x; Var y] false false Comparison.``<`` with
+    | MacroOk lt ->
+        match translateComparison c t [Var x; Var y] false false Comparison.``=`` with
+        | MacroOk eq ->
+            Let(x, l, Let(y, r, Conditional(lt, cInt -1, Conditional(eq, cInt 0, cInt 1))))
+            |> MacroOk
+        | r -> r
+    | r -> r 
+
 [<Sealed>]
 type Comp() =
     inherit Macro()
@@ -292,7 +304,6 @@ type NumericMacro() =
                 fls id
             )
         )
-
     override this.TranslateCall(c) =
         let name = c.DefiningType.Entity.Value.FullName
 
@@ -373,6 +384,10 @@ type NumericMacro() =
                     |> MacroOk
                 else MacroError "numericMacro error"
             | _ -> MacroError "numericMacro error"
+        | "Equals" ->
+            translateComparison c.Compilation (ConcreteType c.DefiningType) (c.This.Value :: c.Arguments) false false Comparison.``=``
+        | "CompareTo" ->
+            translateCompareTo c.Compilation (ConcreteType c.DefiningType) c.This.Value c.Arguments.Head
         | _ -> MacroFallback
 
 let charTy, charParse =
