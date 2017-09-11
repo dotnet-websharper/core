@@ -1484,12 +1484,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         match typ with
         | ConcreteType { Entity = t; Generics = gs } ->
             match t.Value.FullName with
-            | "System.IDisposable" ->
-                Binary(
-                    Value (String "Dispose"),
-                    BinaryOperator.``in``,
-                    trExpr
-                )
             | "Microsoft.FSharp.Core.FSharpChoice`2"
             | "Microsoft.FSharp.Core.FSharpChoice`3"
             | "Microsoft.FSharp.Core.FSharpChoice`4"
@@ -1514,7 +1508,16 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         let i = Id.New (mut = false)
                         Let (i, trExpr, this.TransformTypeCheck(Var i, ConcreteType uTyp) ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
                     | _ -> 
-                        this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
+                        match comp.TryLookupInterfaceInfo t with
+                        | Some ii ->
+                            let shortestName = ii.Methods.Values |> Seq.minBy String.length
+                            Binary(
+                                Value (String shortestName),
+                                BinaryOperator.``in``,
+                                trExpr
+                            )
+                        | _ ->
+                            this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
         | TypeParameter _ | StaticTypeParameter _ -> 
             if currentIsInline then
                 hasDelayedTransform <- true

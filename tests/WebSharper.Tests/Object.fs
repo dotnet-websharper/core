@@ -443,6 +443,17 @@ let Tests =
             equal (o.X(2)) 42
             jsEqual (o.JS.Constructor) (JS.Global?Object)
         }
+
+        Test "Type test against interface" {
+            let a = box { new I with member this.Get() = 1 }
+            let b = box { new I2 with member this.Get() = 2 }
+            isTrue (a :? I)
+            isFalse (a :? I2)
+            isTrue (b :? I2)
+            isFalse (b :? I)
+            equal ((a :?> I).Get()) 1
+            equal ((b :?> I2).Get()) 2
+        }
         
         #if FSHARP41
         Test "Struct union" {
