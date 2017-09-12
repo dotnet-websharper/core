@@ -10,7 +10,7 @@ using static WebSharper.JavaScript.Interop;
 
 namespace WebSharper.CSharp.Tests
 {
-    [JavaScript, Test("C# Basic tests")]
+    [Test("C# Basic tests")]
     public class Tests : TestCategory
     {
         [Generated(typeof(TestGenerator))]

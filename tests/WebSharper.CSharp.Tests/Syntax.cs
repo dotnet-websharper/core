@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using WebSharper.Testing;
 using System.Collections;
 
+[assembly: WebSharper.JavaScript("Tests.cs")] // test for JavaScript("FileName")
+
 namespace WebSharper.CSharp.Tests
 {
     [JavaScript, Test("C# syntax")]

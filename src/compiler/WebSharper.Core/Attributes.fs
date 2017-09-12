@@ -78,7 +78,11 @@ type WarnAttribute(warning: string) =
 type JavaScriptAttribute() =
     inherit A()
 
+    /// Use JavaScript(false) to exclude a type or member from JavaScript compilation scope.
     new (enabled: bool) = JavaScriptAttribute()
+    
+    /// Specify a type full name or file name (without path) to include in JavaScript compilation.
+    new (typeOrFile : string) = JavaScriptAttribute()
 
 /// Annotates methods an constructors with custom compilation rules.
 /// The supplied type should implement Macros.IMacro and a default constructor.
