@@ -153,18 +153,17 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                 | _ -> expr :: acc
             getSeq [] expr |> List.rev |> List.map tr |> Sequential
         | Patterns.Value (value, _) ->
-            if isNull value then Value Null else
-            try
+            match value with
+            | null -> Value Null
+            | :? Expr -> parsefailf "F# quotation found as value, missing splicing."
+            | :? AST.Expression as e -> e 
+            | _ ->
                 let value = 
                     let t = value.GetType()
                     if t.IsEnum then
                         System.Convert.ChangeType(value, System.Enum.GetUnderlyingType(value.GetType()))
                     else value
                 Value (ReadLiteral value)
-            with e ->
-                match value with
-                | :? Expr -> parsefailf "F# quotation found as value, missing splicing."
-                | _ -> reraise()
         | Patterns.IfThenElse (cond, then_, else_) ->
             Conditional(tr cond, tr then_, tr else_)    
         | Patterns.NewObject (ctor, args) -> 
@@ -259,7 +258,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                 SetRef (Var v) (tr value)
             | _ -> parsefailf "AddressSet not on a Value"
         | Patterns.DefaultValue typ ->
-            Value Null
+            DefaultValueOf (Reflection.ReadType typ)
         | Patterns.QuoteTyped expr 
         | Patterns.QuoteRaw expr -> tr expr
         | Patterns.NewDelegate _ -> parsefailf "TODO : NewDelegate quotation form"

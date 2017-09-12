@@ -43,6 +43,7 @@ type private Attribute =
     | Stub
     | OptionalField
     | JavaScript of bool
+    | JavaScriptTypeOrFile of string
     | Remote
     | RemotingProvider of TypeDefinition * option<obj>
     | NamedUnionCases of option<string>
@@ -67,6 +68,7 @@ type TypeAnnotation =
         NamedUnionCases : option<option<string>>
         Macros : list<TypeDefinition * option<obj>>
         RemotingProvider : option<TypeDefinition * option<obj>>
+        JavaScriptTypesAndFiles : list<string>
     }
 
     static member Empty =
@@ -82,6 +84,7 @@ type TypeAnnotation =
             NamedUnionCases = None
             Macros = []
             RemotingProvider = None
+            JavaScriptTypesAndFiles = []
         }
 
 type MemberKind = 
@@ -146,18 +149,19 @@ type AssemblyAnnotation =
         Requires : list<TypeDefinition * option<obj>>
         RemotingProvider : option<TypeDefinition * option<obj>>
         IsJavaScript : bool
+        JavaScriptTypesAndFiles : list<string>
     }
 
     member this.RootTypeAnnot =
         { TypeAnnotation.Empty with
             RemotingProvider = this.RemotingProvider
             IsJavaScript = this.IsJavaScript
+            JavaScriptTypesAndFiles = this.JavaScriptTypesAndFiles
         }
 
 /// Base class for reading WebSharper-specific attributes.
 [<AbstractClass>]
 type AttributeReader<'A>() =
-
 
     abstract GetAssemblyName : 'A -> string
     abstract GetName : 'A -> string
@@ -217,7 +221,11 @@ type AttributeReader<'A>() =
             | :? int as i -> A.Name (string i)
             | x -> failwithf "Unrecognized constructor parameter type for Name attribute: %s" (x.GetType().FullName)
         | "JavaScriptAttribute" ->
-            A.JavaScript (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.forall unbox)
+            match Seq.tryHead (this.GetCtorArgs(attr)) with
+            | None -> A.JavaScript true
+            | Some (:? bool as enabled) -> A.JavaScript enabled
+            | Some (:? string as typeOrFile) -> A.JavaScriptTypeOrFile typeOrFile
+            | Some x -> failwithf "Unrecognized constructor parameter type for JavaScript attribute: %s" (x.GetType().FullName)        
         | "OptionalFieldAttribute" ->
             A.OptionalField
         | "RemotingProviderAttribute" ->
@@ -300,6 +308,9 @@ type AttributeReader<'A>() =
             RemotingProvider = 
                 attrArr |> Array.tryPick (function A.RemotingProvider (r, p) -> Some (r, p) | _ -> None) 
                 |> function Some x -> Some x | None -> parent.RemotingProvider
+            JavaScriptTypesAndFiles =
+                (attrArr |> Seq.choose (function A.JavaScriptTypeOrFile s -> Some s | _ -> None) |> List.ofSeq) 
+                @ parent.JavaScriptTypesAndFiles
         }
 
     member this.GetMemberAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
@@ -347,6 +358,7 @@ type AttributeReader<'A>() =
         let mutable sitelet = None
         let mutable remotingProvider = None
         let mutable isJavaScript = false
+        let jsTypesAndFiles = ResizeArray()
         for a in attrs do
             match this.GetAssemblyName a with
             | "WebSharper.Core"
@@ -356,6 +368,7 @@ type AttributeReader<'A>() =
                 | A.Website t -> sitelet <- Some t
                 | A.RemotingProvider (t, p) -> remotingProvider <- Some (t, p)
                 | A.JavaScript true -> isJavaScript <- true
+                | A.JavaScriptTypeOrFile s -> jsTypesAndFiles.Add s
                 | _ -> ()
             | _ -> ()
              
@@ -364,6 +377,7 @@ type AttributeReader<'A>() =
             Requires = reqs |> List.ofSeq
             RemotingProvider = remotingProvider
             IsJavaScript = isJavaScript
+            JavaScriptTypesAndFiles = jsTypesAndFiles |> List.ofSeq
         }        
            
 type ReflectionAttributeReader() =
@@ -381,6 +395,7 @@ let private mdelTy = typeof<System.MulticastDelegate>
 let reflectCustomType (typ : TypeDefinition) =
     try
         let t = Reflection.LoadTypeDefinition typ
+        let typName() = typ.Value.FullName.Split(',').[0]
         if t.BaseType = mdelTy then
             let inv = t.GetMethod("Invoke") |> Reflection.ReadMethod |> Hashed.Get
             M.DelegateInfo {
@@ -390,6 +405,7 @@ let reflectCustomType (typ : TypeDefinition) =
         elif t.IsEnum then
             M.EnumInfo (Reflection.ReadTypeDefinition (t.GetEnumUnderlyingType()))
         elif FST.IsRecord(t, Reflection.AllMethodsFlags) then
+            
             let tAnnot = attrReader.GetTypeAnnot(TypeAnnotation.Empty, t.GetCustomAttributesData())
         
             FST.GetRecordFields(t, Reflection.AllMethodsFlags)

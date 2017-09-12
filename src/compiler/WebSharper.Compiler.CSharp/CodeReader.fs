@@ -158,9 +158,14 @@ let numericTypes =
 
 type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
+    let getContainingAssemblyName (t: ITypeSymbol) =
+        match t.ContainingAssembly with
+        | null -> comp.AssemblyName
+        | a -> a.Name
+
     let attrReader =
         { new A.AttributeReader<Microsoft.CodeAnalysis.AttributeData>() with
-            override this.GetAssemblyName attr = attr.AttributeClass.ContainingAssembly.Name
+            override this.GetAssemblyName attr = attr.AttributeClass |> getContainingAssemblyName
             override this.GetName attr = attr.AttributeClass.Name
             override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map getTypedConstantValue |> Array.ofSeq          
             override this.GetTypeDef o = self.ReadNamedTypeDefinition (o :?> INamedTypeSymbol)
@@ -194,7 +199,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
         let res =
             Hashed {
-                Assembly = x.ContainingAssembly.Identity.Name
+                Assembly = getContainingAssemblyName x
                 FullName = getTypeAddress [] x
             }
 

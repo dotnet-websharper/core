@@ -51,13 +51,6 @@ type Id =
             Mutable = defaultArg mut true
         }
 
-    static member Global() =
-        {
-            IdName = Some "window"
-            Id = -1L
-            Mutable = false
-        }
-
     member this.Clone() =
         {
             IdName = this.IdName
@@ -457,6 +450,23 @@ type Member =
 
 type Address = Hashed<list<string>>
 
+module private Instances =
+    let GlobalId =
+        {
+            IdName = Some "window"
+            Id = -1L
+            Mutable = false
+        }
+
+    let DefaultCtor =
+        Constructor { CtorParameters = [] }
+
+type Id with
+    static member Global() = Instances.GlobalId
+
+type ConstructorInfo with
+    static member Default() = Instances.DefaultCtor
+
 module Reflection = 
     type private FST = Microsoft.FSharp.Reflection.FSharpType
 
@@ -515,14 +525,15 @@ module Reflection =
             try TupleType(FST.GetTupleElements t |> Seq.map ReadType |> List.ofSeq, t.IsValueType) 
             with _ -> gen()
         elif t.IsGenericParameter then  
-            if t.DeclaringMethod <> null then
+            match t.DeclaringMethod with
+            | null ->
+                TypeParameter t.GenericParameterPosition
+            | _ ->
                 let dT = t.DeclaringType
                 let k =
                     if not dT.IsGenericType then 0 else
                         dT.GetGenericArguments().Length
                 TypeParameter (k + t.GenericParameterPosition)
-            else
-                TypeParameter t.GenericParameterPosition
         elif t = voidTy || t = unitTy then
             VoidType
         else

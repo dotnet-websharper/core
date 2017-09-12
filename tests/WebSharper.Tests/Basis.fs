@@ -127,7 +127,6 @@ type System.Int32 with
         | true, i -> Some i
         | _ -> None
 
-[<JavaScript>]
 type TestOptionals() =
     member this.Optionals([<Optional; DefaultParameterValue 1>] x : int, [<Optional; DefaultParameterValue 2>] y: int, [<Optional>] z: int) =
         x + y + z

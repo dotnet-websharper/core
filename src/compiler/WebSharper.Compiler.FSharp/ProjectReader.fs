@@ -45,6 +45,12 @@ type private SourceMemberOrEntity =
     | SourceInterface of FSharpEntity 
     | InitAction of FSharpExpr
 
+let annotForTypeOrFile name (annot: A.TypeAnnotation) =
+    if annot.JavaScriptTypesAndFiles |> List.contains name then
+        if annot.IsForcedNotJavaScript then annot else
+            { annot with IsJavaScript = true }
+    else annot
+
 // fixes annotation for property setters, we don't want name coflicts
 let fixMemberAnnot (getAnnot: _ -> A.MemberAnnotation) (x: FSharpEntity) (m: FSMFV) (a: A.MemberAnnotation) =
     if m.IsPropertySetterMethod then
@@ -121,13 +127,13 @@ let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) 
     if annot.IsJavaScript then
         let _, (statements, _) = sc.Value
         let env = CodeReader.Environment.New ([], [], comp, sr)  
-        statements.Add (CodeReader.transformExpression env a |> ExprStatement)
+        statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
 
 let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
     let thisDef = sr.ReadTypeDefinition cls
     
     let annot = 
-        sr.AttributeReader.GetTypeAnnot(parentAnnot, cls.Attributes)
+        sr.AttributeReader.GetTypeAnnot(parentAnnot |> annotForTypeOrFile thisDef.Value.FullName, cls.Attributes)
 
     if isResourceType sr cls then
         if comp.HasGraph then
@@ -274,8 +280,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 let expr, err = Stubs.GetConstructorInline annot mAnnot cdef
                 err |> Option.iter error
                 addConstructor (Some (meth, memdef)) mAnnot cdef N.Inline true None expr
-            | Member.Implementation(_, _) -> error "Implementation method can't have Stub attribute"
-            | Member.Override(_, _) -> error "Override method can't have Stub attribute"
+            | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
+            | Member.Override _ -> error "Override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
         | Some A.MemberKind.JavaScript when meth.IsDispatchSlot -> 
             let memdef = sr.ReadMember meth
@@ -866,7 +872,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
         if cls.IsValueType && not (cls.IsFSharpRecord || cls.IsFSharpUnion || cls.IsEnum) then
             // add default constructor for structs
-            let cdef = Hashed { CtorParameters = [] }
+            let cdef = ConstructorInfo.Default()
             let fields =
                 cls.FSharpFields |> Seq.map (fun f -> 
                     if f.IsMutable then
@@ -953,8 +959,12 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
         res 
 
     let readAttribute (a: FSharpAttribute) =
+        let fixTypeValue (o: obj) =
+            match o with
+            | :? FSharpType as t -> box (sr.ReadType Map.empty t)
+            | _ -> o
         sr.ReadTypeDefinition a.AttributeType,
-        a.ConstructorArguments |> Seq.map (snd >> ParameterObject.OfObj) |> Array.ofSeq
+        a.ConstructorArguments |> Seq.map (snd >> fixTypeValue >> ParameterObject.OfObj) |> Array.ofSeq
 
     let lookupTypeAttributes (typ: TypeDefinition) =
         lookupTypeDefinition typ |> Option.map (fun e ->
@@ -964,27 +974,55 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
     let lookupFieldAttributes (typ: TypeDefinition) (field: string) =
         lookupTypeDefinition typ |> Option.bind (fun e -> 
             e.FSharpFields |> Seq.tryFind (fun f -> f.Name = field) |> Option.map (fun f ->
-                let tparams = e.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
-                sr.ReadType tparams f.FieldType,
                 Seq.append f.FieldAttributes f.PropertyAttributes |> Seq.map readAttribute |> List.ofSeq
+            ) 
+        )
+
+    let lookupMethodAttributes (typ: TypeDefinition) (meth: Method) =
+        lookupTypeDefinition typ |> Option.bind (fun e -> 
+            e.MembersFunctionsAndValues
+            |> Seq.tryFind (fun m -> 
+                match sr.ReadMember m with
+                | Member.Method (_, m)
+                | Member.Override (_, m)
+                | Member.Implementation (_, m) when m = meth -> true
+                | _ -> false
+            ) 
+            |> Option.map (fun m ->
+                m.Attributes |> Seq.map readAttribute |> List.ofSeq
+            ) 
+        )
+
+    let lookupConstructorAttributes (typ: TypeDefinition) (ctor: Constructor) =
+        lookupTypeDefinition typ |> Option.bind (fun e -> 
+            e.MembersFunctionsAndValues
+            |> Seq.tryFind (fun m -> 
+                match sr.ReadMember m with
+                | Member.Constructor c when c = ctor -> true
+                | _ -> false
+            ) 
+            |> Option.map (fun m ->
+                m.Attributes |> Seq.map readAttribute |> List.ofSeq
             ) 
         )
 
     comp.LookupTypeAttributes <- lookupTypeAttributes
     comp.LookupFieldAttributes <- lookupFieldAttributes 
+    comp.LookupMethodAttributes <- lookupMethodAttributes
+    comp.LookupConstructorAttributes <- lookupConstructorAttributes
 
     let argCurrying = ArgCurrying.ResolveFuncArgs(comp)
 
     for file in checkResults.AssemblyContents.ImplementationFiles do
-        let fileName =
-            lazy
+        if List.isEmpty file.Declarations then () else
+        let filePath =
             match file.Declarations.Head with
             | FSIFD.Entity (a, _) -> a.DeclarationLocation.FileName
             | FSIFD.MemberOrFunctionOrValue (_, _, c) -> c.Range.FileName
             | FSIFD.InitAction a -> a.Range.FileName
         let sc =
             lazy
-            let name = "StartupCode$" + assemblyName.Replace('.', '_') + "$" + (System.IO.Path.GetFileNameWithoutExtension fileName.Value).Replace('.', '_')
+            let name = "StartupCode$" + assemblyName.Replace('.', '_') + "$" + (System.IO.Path.GetFileNameWithoutExtension filePath).Replace('.', '_')
             let def =
                 TypeDefinition {
                     Assembly = assemblyName
@@ -993,9 +1031,9 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
             def, 
             (ResizeArray(), HashSet() : StartupCode)
 
+        let rootTypeAnnot = rootTypeAnnot |> annotForTypeOrFile (System.IO.Path.GetFileName filePath)
         let topLevelTypes = ResizeArray<SourceMemberOrEntity>()
         let types = Dictionary<FSharpEntity, ResizeArray<SourceMemberOrEntity>>()
-//        let interfaces = ResizeArray<FSharpEntity>()
         let rec getTypesWithMembers (parentMembers: ResizeArray<_>) d =
             match d with
             | FSIFD.Entity (a, b) ->
@@ -1023,7 +1061,6 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
             match t with
             | SourceMember _ -> failwith "impossible: top level member"
             | InitAction _ -> failwith "impossible: top level init action"
-//                transformInitAction sc comp sr rootTypeAnnot a
             | SourceEntity (c, m) ->
                 transformClass sc comp argCurrying sr rootTypeAnnot c m |> Option.iter comp.AddClass
             | SourceInterface i ->
