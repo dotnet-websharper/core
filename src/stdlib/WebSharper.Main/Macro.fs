@@ -208,6 +208,14 @@ let translateComparison (c: M.ICompilation) t args leftNble rightNble cmp =
                 x, y, id
         let comp x y =
             Binary (x, toBinaryOperator cmp, y)
+        let cti = 
+            match t with
+            | Type.ConcreteType ct -> c.GetCustomTypeInfo ct.Entity
+            | _ -> M.NotCustomType
+        let t =
+            match cti with
+            | M.EnumInfo u -> NonGenericType u            
+            | _ -> t
         let res =
             if isIn comparableTypes t then
                 comp a b
@@ -215,8 +223,8 @@ let translateComparison (c: M.ICompilation) t args leftNble rightNble cmp =
                 // optimization for checking against argumentless union cases 
                 let tryGetSingletonUnionCaseTag (x: Expression) =
                     match x with
-                    | I.NewUnionCase(ct, case, []) ->
-                        match c.GetCustomTypeInfo ct.Entity with
+                    | I.NewUnionCase(_, case, []) ->
+                        match cti with
                         | M.FSharpUnionInfo ui when not ui.HasNull ->
                             ui.Cases |> Seq.mapi (fun i c ->
                                 if c.Name = case && c.Kind = M.SingletonFSharpUnionCase then Some i else None
