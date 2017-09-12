@@ -32,6 +32,7 @@
     <Compile Include="Macro.cs" />
     <Compile Include="Object.cs" />
     <Compile Include="PatternMatching.cs" />
+    <Compile Include="Regression.cs" />
     <Compile Include="Remoting.cs" />
     <Compile Include="Interop.cs" />
     <Compile Include="Linq.cs" />

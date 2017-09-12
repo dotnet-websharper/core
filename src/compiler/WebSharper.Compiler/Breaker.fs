@@ -486,6 +486,7 @@ let rec breakExpr expr : Broken<BreakResult> =
     | GlobalAccess _
     | Hole _
     | Arguments
+    | Cctor _
         -> broken expr 
     | Function (args, body) ->
         let args =
