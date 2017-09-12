@@ -14,6 +14,7 @@
     <Compile Include="Dictionary.fs" />
     <Compile Include="Set.fs" />
     <Compile Include="Map.fs" />
+    <Compile Include="Array.fs" />
     <Compile Include="ResizeArray.fs" />
     <Compile Include="LinkedList.fs" />
     <Compile Include="HashSet.fs" />

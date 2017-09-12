@@ -52,6 +52,17 @@ let Implies a b =
 let ( ==> ) a b =
     Implies a b
 
+/// Filter the values of a generator by a predicate.
+[<JavaScript>]
+let SuchThat f r =
+    let rec next() =
+        let x = r.Next()
+        if f x then x else next()
+    {
+        Base = Array.filter f r.Base
+        Next = next
+    }
+
 let private SysRandom = System.Random()
 
 [<Inline "Math.random()">]
@@ -202,6 +213,22 @@ let Tuple3Of (a: Generator<'A>, b: Generator<'B>, c: Generator<'C>) :
                             yield (x, y, z)
             |]
         Next = fun () -> (a.Next(), b.Next(), c.Next())
+    }
+
+/// Promotes a triple of generators to a generator of triples.
+[<JavaScript>]
+let Tuple4Of (a: Generator<'A>, b: Generator<'B>, c: Generator<'C>, d: Generator<'D>) :
+                Generator<'A*'B*'C*'D> =
+    {
+        Base =
+            [|
+                for xa in a.Base do
+                    for xb in b.Base do
+                        for xc in c.Base do
+                            for xd in d.Base do
+                            yield (xa, xb, xc, xd)
+            |]
+        Next = fun () -> (a.Next(), b.Next(), c.Next(), d.Next())
     }
 
 /// Creates a generator with a random uniform distribution over a set
