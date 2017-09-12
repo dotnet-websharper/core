@@ -80,10 +80,17 @@ type private ArgumentExceptionProxy(message: string) =
 
 [<Proxy(typeof<System.ArgumentOutOfRangeException>)>]
 [<Name "ArgumentOutOfRangeException">]
-type private ArgumentOutOfRangeExceptionProxy(message: string) =
-    inherit exn(message)
-    
-    new () = ArgumentOutOfRangeExceptionProxy "Specified argument was out of the range of valid values."
+type private ArgumentOutOfRangeExceptionProxy =
+    inherit exn
+
+    new () =
+        { inherit exn("Specified argument was out of the range of valid values.") }
+
+    new (argumentName: string) =
+        new ArgumentOutOfRangeExceptionProxy(argumentName, "Specified argument was out of the range of valid values.")
+
+    new (argumentName: string, message: string) =
+        { inherit exn(message + "\nParameter name: " + argumentName) }
 
 [<Proxy(typeof<System.InvalidOperationException>)>]
 [<Name "InvalidOperationException">]
