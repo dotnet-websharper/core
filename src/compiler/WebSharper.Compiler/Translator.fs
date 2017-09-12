@@ -141,8 +141,6 @@ let defaultRemotingProvider =
         FullName =  "WebSharper.Remoting+AjaxRemotingProvider"
     }, []
     
-let emptyConstructor = Hashed { CtorParameters = [] }
-
 let private getItem n x = ItemGet(x, Value (String n), Pure)
 let private getIndex n x = ItemGet(x, Value (Int n), Pure)
 
@@ -314,7 +312,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         Parameter = p
                         Compilation = comp
                     }
-                with e -> GeneratorError e.Message
+                with e -> GeneratorError (e.Message + " at " + e.StackTrace)
             let verifyFunction gres =
                 match IgnoreExprSourcePos gres with 
                 | Function _
@@ -580,7 +578,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         let compileMethods() =
             while comp.CompilingMethods.Count > 0 do
                 let toJS = DotNetToJavaScript(comp)
-                let (KeyValue((t, m), (i, e))) =  Seq.head comp.CompilingMethods
+                let (KeyValue((t, m), (i, e))) = Seq.head comp.CompilingMethods
                 toJS.CompileMethod(i, e, t, m)
 
         compileMethods()
@@ -731,13 +729,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | Some m ->
                     try 
                         m.TranslateCall {
-                                This = thisObj
-                                DefiningType = typ
-                                Method = meth
-                                Arguments = args
-                                Parameter = parameter |> Option.map M.ParameterObject.ToObj
-                                IsInline = currentIsInline
-                                Compilation = comp
+                            This = thisObj
+                            DefiningType = typ
+                            Method = meth
+                            Arguments = args
+                            Parameter = parameter |> Option.map M.ParameterObject.ToObj
+                            IsInline = currentIsInline
+                            Compilation = comp
                         }
                     with e -> MacroError e.Message 
                 | _ -> 
@@ -792,7 +790,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         | Some p ->
                             [ toParamValue p ]
                     | _ -> defaultRemotingProvider   
-                this.TransformCtor(NonGeneric rpTyp, emptyConstructor, rpArgs) 
+                this.TransformCtor(NonGeneric rpTyp, ConstructorInfo.Default(), rpArgs) 
             if comp.HasGraph then
                 this.AddDependency(mnode)
                 let rec addTypeDeps (t: Type) =

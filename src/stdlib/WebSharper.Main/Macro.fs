@@ -1082,7 +1082,7 @@ type EqualityComparer() =
                             "WebSharper.MacroModule+BaseEqualityComparer`1" }
                 Ctor (
                     { Entity = Hashed td; Generics = [t] },
-                    Constructor { CtorParameters = [] },
+                    ConstructorInfo.Default(),
                     []
                 ) |> MacroOk
             | _ -> MacroError ""
@@ -1128,7 +1128,7 @@ type Comparer() =
                             "WebSharper.MacroModule+BaseComparer`1" }
                 Ctor(
                     {Entity = Hashed td; Generics = [t]},
-                    Hashed<ConstructorInfo> { CtorParameters = [] },
+                    ConstructorInfo.Default(),
                     [])
                 |> MacroOk
             | _ -> MacroError ""
@@ -1171,8 +1171,7 @@ type DefaultOf() =
         | ConcreteType td -> 
             match c.Compilation.GetCustomTypeInfo td.Entity with
             | M.StructInfo ->
-                let cdef = Hashed { CtorParameters = [] }
-                MacroOk (Ctor(td, cdef, []))
+                MacroOk (Ctor(td, ConstructorInfo.Default(), []))
             | _ ->
                 MacroOk (Value (Null))
         | _ ->

@@ -83,9 +83,10 @@ type ParameterObject =
         | :? double as v -> Double v
         | :? char   as v -> Char   v
         | :? string as v -> String v
-        | :? Type   as v -> Type   v
+        | :? Type   as v -> Type v
+        | :? System.Type as v -> Type (Reflection.ReadType v)
         | :? (obj[]) as a -> a |> Array.map ParameterObject.OfObj |> Array
-        | _ -> failwith "Invalid type for macro/generator parameter object"
+        | _ -> failwithf "Invalid type for macro/generator parameter object: %s" (o.GetType().FullName)
 
     static member ToObj(o: ParameterObject) =
         match o with
@@ -435,7 +436,10 @@ type ICompilation =
     abstract GetInterfaceInfo : TypeDefinition -> option<InterfaceInfo>
     abstract GetClassInfo : TypeDefinition -> option<IClassInfo>
     abstract GetTypeAttributes : TypeDefinition -> option<list<TypeDefinition * ParameterObject[]>>
-    abstract GetFieldAttributes : TypeDefinition * string -> option<Type * list<TypeDefinition * ParameterObject[]>>
+    abstract GetFieldAttributes : TypeDefinition * string -> option<list<TypeDefinition * ParameterObject[]>>
+    abstract GetMethodAttributes : TypeDefinition * Method -> option<list<TypeDefinition * ParameterObject[]>>
+    abstract GetConstructorAttributes : TypeDefinition * Constructor -> option<list<TypeDefinition * ParameterObject[]>>
+    abstract GetJavaScriptClasses : unit -> list<TypeDefinition>
     abstract ParseJSInline : string * list<Expression> -> Expression
     abstract NewGenerated : string list -> TypeDefinition * Method * Address
     abstract AddGeneratedCode : Method * Expression -> unit
@@ -445,10 +449,6 @@ type ICompilation =
     abstract AddMetadataEntry : MetadataEntry * MetadataEntry -> unit
     abstract AddError : option<SourcePos> * string -> unit 
     abstract AddWarning : option<SourcePos> * string -> unit 
-
-// planned functionality:    
-//    abstract AddNewJSClass : string -> TypeDefinition
-//    abstract AddNewJSMethod : string list * Expression -> string list     
               
 module IO =
     module B = Binary

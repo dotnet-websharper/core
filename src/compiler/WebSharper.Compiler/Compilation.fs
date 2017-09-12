@@ -68,6 +68,8 @@ type Compilation(meta: Info, ?hasGraph) =
     member val CustomTypesReflector = fun _ -> NotCustomType with get, set 
     member val LookupTypeAttributes = fun _ -> None with get, set
     member val LookupFieldAttributes = fun _ _ -> None with get, set
+    member val LookupMethodAttributes = fun _ _ -> None with get, set
+    member val LookupConstructorAttributes = fun _ _ -> None with get, set
 
     member this.MutableExternals = mutableExternals
 
@@ -153,8 +155,11 @@ type Compilation(meta: Info, ?hasGraph) =
                     member this.Macros = cls.Macros
                 }
 
+        member this.GetJavaScriptClasses() = classes.Keys |> List.ofSeq
         member this.GetTypeAttributes(typ) = this.LookupTypeAttributes typ
         member this.GetFieldAttributes(typ, field) = this.LookupFieldAttributes typ field
+        member this.GetMethodAttributes(typ, meth) = this.LookupMethodAttributes typ meth
+        member this.GetConstructorAttributes(typ, ctor) = this.LookupConstructorAttributes typ ctor
 
         member this.ParseJSInline(inl: string, args: Expression list): Expression = 
             let vars = args |> List.map (fun _ -> Id.New(mut = false))
@@ -246,7 +251,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.CloseMacros() =
         for m in macros.Values do
-            m |> Option.iter (fun m -> m.Close this)         
+            m |> Option.iter (fun m -> m.Close this)      
 
     member this.GetGeneratorInstance(gen) =
         match generators.TryFind gen with
